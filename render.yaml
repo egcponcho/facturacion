@@ -1,0 +1,32 @@
+# Blueprint de Render: https://render.com/docs/blueprint-spec
+# Crea la base PostgreSQL y el servicio web (API + frontend compilado) desde el Dockerfile.
+databases:
+  - name: facturacion-db
+    plan: free
+    databaseName: facturas
+    user: facturas
+
+services:
+  - type: web
+    name: facturacion
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/salud
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: facturacion-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SEED_DEMO
+        value: "1"
+      - key: POSICION_EN_VARIAS_FACTURAS
+        value: "0"
+      - key: FACTURA_EN_UNA_SOLA_UNIDAD
+        value: "0"
+      - key: PROVEEDOR_PUEDE_FINALIZAR
+        value: "1"
+      - key: REQUERIR_DATOS_ADUANA
+        value: "1"

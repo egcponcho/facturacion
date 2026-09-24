@@ -13,8 +13,17 @@ def _bool(nombre: str, defecto: bool) -> bool:
     return valor.strip().lower() in ("1", "true", "si", "sí", "yes", "y")
 
 
+def _url_bd(url: str) -> str:
+    # Los proveedores en la nube (Render, Railway, Heroku) entregan la URL como
+    # postgres:// o postgresql://; SQLAlchemy necesita el driver explícito.
+    for prefijo in ("postgres://", "postgresql://"):
+        if url.startswith(prefijo):
+            return "postgresql+psycopg://" + url[len(prefijo):]
+    return url
+
+
 class Settings:
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./facturas_pl.db")
+    DATABASE_URL: str = _url_bd(os.getenv("DATABASE_URL", "sqlite:///./facturas_pl.db"))
     SECRET_KEY: str = os.getenv("SECRET_KEY", "cambia-esta-clave-en-produccion")
     TOKEN_HORAS: int = int(os.getenv("TOKEN_HORAS", "12"))
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./archivos")

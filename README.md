@@ -33,6 +33,19 @@ docker compose up --build
 
 Queda todo en http://localhost:8000 (la API sirve también el frontend compilado).
 
+### En la nube (Render, gratis)
+
+El repositorio incluye `render.yaml`, que crea la base PostgreSQL y el servicio web desde el `Dockerfile`.
+
+1. Entra a https://dashboard.render.com/blueprints y pulsa **New Blueprint Instance**.
+2. Conecta tu GitHub y elige este repositorio (rama `main`).
+3. Pulsa **Apply**. En unos minutos queda en `https://facturacion-XXXX.onrender.com`.
+
+`SECRET_KEY` se genera sola y los datos de prueba se cargan al primer arranque (`SEED_DEMO=1`; ponlo en `0` cuando uses datos reales).
+Limitaciones del plan gratuito: el servicio se duerme tras 15 minutos sin uso (el primer acceso tarda ~1 minuto), la base gratuita expira a los 30 días y los adjuntos se guardan en disco temporal, así que se pierden al reiniciar.
+
+La misma imagen funciona en Railway, Fly.io o Google Cloud Run: define `DATABASE_URL` (se aceptan `postgres://` y `postgresql://`) y `SECRET_KEY`; el puerto se toma de `PORT`.
+
 ### Usuarios de prueba (contraseña `demo123`)
 
 | Correo | Rol |
