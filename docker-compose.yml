@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: facturas
+      POSTGRES_USER: facturas
+      POSTGRES_PASSWORD: facturas
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U facturas"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://facturas:facturas@db:5432/facturas
+      SECRET_KEY: cambia-esta-clave
+      SEED_DEMO: "1"
+      # Reglas de negocio (ver README)
+      POSICION_EN_VARIAS_FACTURAS: "0"
+      FACTURA_EN_UNA_SOLA_UNIDAD: "0"
+      PROVEEDOR_PUEDE_FINALIZAR: "1"
+      REQUERIR_DATOS_ADUANA: "1"
+    volumes:
+      - archivos:/data/archivos
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  archivos:

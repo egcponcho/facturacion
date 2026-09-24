@@ -1,0 +1,300 @@
+"""Cuerpos de las peticiones. Las respuestas se arman como dicts en los servicios."""
+from datetime import date, datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+Cant = Field(gt=0)
+
+
+# ---- Auth / admin -----------------------------------------------------------
+class LoginIn(BaseModel):
+    email: str
+    password: str
+
+
+class ProveedorIn(BaseModel):
+    codigo: str = Field(min_length=1, max_length=30)
+    nombre: str = Field(min_length=1, max_length=200)
+    activo: bool = True
+
+
+class ProveedorPatch(BaseModel):
+    nombre: str | None = None
+    activo: bool | None = None
+
+
+class UsuarioIn(BaseModel):
+    email: str
+    nombre: str
+    rol: Literal["admin", "interno", "proveedor"]
+    proveedor_id: int | None = None
+    password: str = Field(min_length=6)
+
+
+class UsuarioPatch(BaseModel):
+    nombre: str | None = None
+    rol: Literal["admin", "interno", "proveedor"] | None = None
+    proveedor_id: int | None = None
+    password: str | None = Field(default=None, min_length=6)
+    activo: bool | None = None
+
+
+# ---- Facturas ---------------------------------------------------------------
+class PosicionCantidad(BaseModel):
+    posicion_id: int
+    cantidad: int = Cant
+
+
+class FacturaCrear(BaseModel):
+    proveedor_id: int | None = None
+    lineas: list[PosicionCantidad] = Field(min_length=1)
+    numero: str | None = None
+    fecha: date | None = None
+
+
+class FacturaAgregar(BaseModel):
+    version: int
+    lineas: list[PosicionCantidad] = Field(min_length=1)
+
+
+class FacturaCabecera(BaseModel):
+    version: int
+    numero: str | None = None
+    fecha: date | None = None
+    incoterm: str | None = None
+    condiciones: str | None = None
+    observaciones: str | None = None
+
+
+class CambioLinea(BaseModel):
+    linea_id: int
+    cantidad: int | None = Field(default=None, gt=0)
+    precio_unitario: float | None = Field(default=None, ge=0)
+    motivo_precio: str | None = None
+    pais_origen: str | None = None
+    partida_arancelaria: str | None = None
+    descripcion_comercial: str | None = None
+
+
+class FacturaEditarLineas(BaseModel):
+    version: int
+    cambios: list[CambioLinea] = Field(min_length=1)
+    # error: si una reducción choca con lo asignado a PL, se pregunta
+    # automatico: libera la cantidad sin caja de los PL (del más nuevo al más viejo)
+    ajuste_pl: Literal["error", "automatico"] = "error"
+
+
+class FacturaEliminarLineas(BaseModel):
+    version: int
+    linea_ids: list[int] = Field(min_length=1)
+    confirmar_cascada: bool = False
+
+
+class ConMotivo(BaseModel):
+    version: int | None = None
+    motivo: str | None = None
+
+
+class Finalizar(BaseModel):
+    version: int
+    incluir_packing_lists: bool = False
+
+
+# ---- Packing lists ----------------------------------------------------------
+class LineaFacturaCantidad(BaseModel):
+    factura_linea_id: int
+    cantidad: int = Cant
+
+
+class PLCrear(BaseModel):
+    lineas: list[LineaFacturaCantidad] | None = None  # None = todos los pendientes
+
+
+class PLAgregar(BaseModel):
+    version: int
+    lineas: list[LineaFacturaCantidad] | None = None
+
+
+class PLDividir(BaseModel):
+    version: int
+    pl_linea_id: int
+    partes: list[int] = Field(min_length=1)
+
+
+class MovCantidad(BaseModel):
+    pl_linea_id: int
+    cantidad: int = Cant
+
+
+class PLMover(BaseModel):
+    version: int
+    movimientos: list[MovCantidad] = Field(min_length=1)
+    destino_pl_id: int | None = None  # None = nuevo PL
+
+
+class PLQuitar(BaseModel):
+    version: int
+    movimientos: list[MovCantidad] = Field(min_length=1)
+
+
+class MovCajas(BaseModel):
+    grupo_id: int
+    num_cajas: int = Cant
+
+
+class PLMoverCajas(BaseModel):
+    version: int
+    grupos: list[MovCajas] = Field(min_length=1)
+    destino_pl_id: int | None = None
+
+
+class PlantillaPrevia(BaseModel):
+    plantilla_id: int
+    pl_linea_ids: list[int] = Field(min_length=1)
+    reemplazar: bool = False
+
+
+class PlantillaAplicar(PlantillaPrevia):
+    version: int
+    sobrante: Literal["caja_parcial", "sin_caja"] = "sin_caja"
+
+
+class ValoresCaja(BaseModel):
+    largo: float | None = Field(default=None, ge=0)
+    ancho: float | None = Field(default=None, ge=0)
+    alto: float | None = Field(default=None, ge=0)
+    peso_neto_caja: float | None = Field(default=None, ge=0)
+    peso_bruto_caja: float | None = Field(default=None, ge=0)
+    observacion: str | None = None
+
+
+class ItemCaja(BaseModel):
+    pl_linea_id: int
+    cantidad_por_caja: int = Cant
+
+
+class CajaManual(ValoresCaja):
+    version: int
+    items: list[ItemCaja] = Field(min_length=1)
+    num_cajas: int = Cant
+    plantilla_id: int | None = None
+
+
+class CajaSobrante(BaseModel):
+    version: int
+    pl_linea_ids: list[int] = Field(min_length=1)
+    plantilla_id: int | None = None
+
+
+class EditarCajas(ValoresCaja):
+    version: int
+    grupo_ids: list[int] = Field(min_length=1)
+    num_cajas: int | None = Field(default=None, gt=0)
+    desde_plantilla_id: int | None = None
+    confirmar_pesos: bool = False
+
+
+class EliminarCajas(BaseModel):
+    version: int
+    grupo_ids: list[int] = Field(min_length=1)
+
+
+class GuardarPlantilla(BaseModel):
+    nombre: str = Field(min_length=1, max_length=100)
+
+
+class RecepcionItem(BaseModel):
+    pl_linea_id: int
+    cantidad_recibida: int = Field(ge=0)
+    cantidad_danada: int = Field(default=0, ge=0)
+    observacion: str | None = None
+
+
+class RecepcionIn(BaseModel):
+    lineas: list[RecepcionItem] = Field(min_length=1)
+
+
+# ---- Plantillas -------------------------------------------------------------
+class PlantillaIn(BaseModel):
+    proveedor_id: int | None = None
+    nombre: str = Field(min_length=1, max_length=100)
+    cantidad_por_caja: int = Cant
+    unidad: Literal["PAR", "UN"] = "PAR"
+    largo: float | None = Field(default=None, ge=0)
+    ancho: float | None = Field(default=None, ge=0)
+    alto: float | None = Field(default=None, ge=0)
+    peso_neto: float | None = Field(default=None, ge=0)
+    peso_bruto: float | None = Field(default=None, ge=0)
+    tara: float | None = Field(default=None, ge=0)
+
+
+class PlantillaPatch(BaseModel):
+    nombre: str | None = None
+    cantidad_por_caja: int | None = Field(default=None, gt=0)
+    unidad: Literal["PAR", "UN"] | None = None
+    largo: float | None = Field(default=None, ge=0)
+    ancho: float | None = Field(default=None, ge=0)
+    alto: float | None = Field(default=None, ge=0)
+    peso_neto: float | None = Field(default=None, ge=0)
+    peso_bruto: float | None = Field(default=None, ge=0)
+    tara: float | None = Field(default=None, ge=0)
+    activa: bool | None = None
+
+
+# ---- Transporte -------------------------------------------------------------
+class EmbarqueIn(BaseModel):
+    tipo_transporte: Literal["MARITIMO", "AEREO", "TERRESTRE"] = "MARITIMO"
+    modalidad: Literal["FCL", "LCL"] | None = None
+    documento_numero: str | None = None
+    transportista: str | None = None
+    puerto_origen: str | None = None
+    puerto_destino: str | None = None
+    etd: date | None = None
+    eta: date | None = None
+    observaciones: str | None = None
+
+
+class EmbarquePatch(BaseModel):
+    tipo_transporte: Literal["MARITIMO", "AEREO", "TERRESTRE"] | None = None
+    modalidad: Literal["FCL", "LCL"] | None = None
+    documento_numero: str | None = None
+    transportista: str | None = None
+    puerto_origen: str | None = None
+    puerto_destino: str | None = None
+    etd: date | None = None
+    eta: date | None = None
+    observaciones: str | None = None
+    motivo: str | None = None
+
+
+class UnidadIn(BaseModel):
+    tipo: str
+    numero: str | None = None
+    sello: str | None = None
+
+
+class UnidadPatch(BaseModel):
+    tipo: str | None = None
+    numero: str | None = None
+    sello: str | None = None
+
+
+class AsignarPL(BaseModel):
+    pl_ids: list[int] = Field(min_length=1)
+    modo: Literal["TENTATIVA", "CONFIRMADA"] = "TENTATIVA"
+    motivo: str | None = None
+
+
+class PLIds(BaseModel):
+    pl_ids: list[int] = Field(min_length=1)
+    motivo: str | None = None
+
+
+class EventoIn(BaseModel):
+    tipo: Literal[
+        "RECOLECCION", "SALIDA", "TRANSITO", "ARRIBO", "LIBERACION", "ENTREGA", "RECEPCION", "OTRO"
+    ]
+    fecha: datetime
+    ubicacion: str | None = None
+    observacion: str | None = None

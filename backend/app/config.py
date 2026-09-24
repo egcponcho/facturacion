@@ -1,0 +1,62 @@
+"""Configuración general y reglas de negocio.
+
+Las reglas que todavía pueden cambiar en el negocio se controlan aquí,
+para no tener que tocar el modelo de datos cuando cambien.
+"""
+import os
+
+
+def _bool(nombre: str, defecto: bool) -> bool:
+    valor = os.getenv(nombre)
+    if valor is None:
+        return defecto
+    return valor.strip().lower() in ("1", "true", "si", "sí", "yes", "y")
+
+
+class Settings:
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./facturas_pl.db")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "cambia-esta-clave-en-produccion")
+    TOKEN_HORAS: int = int(os.getenv("TOKEN_HORAS", "12"))
+    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./archivos")
+    FRONTEND_DIST: str = os.getenv("FRONTEND_DIST", "../frontend/dist")
+    SEED_DEMO: bool = _bool("SEED_DEMO", True)
+    CORS_ORIGINS: list[str] = [
+        o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
+    ]
+
+    # ---- Reglas de negocio -------------------------------------------------
+    # False: una posición de OC solo puede estar en UNA factura activa.
+    #        La factura puede tomar una parte; el saldo solo se agrega a esa
+    #        misma factura (o a otra si se quita de la primera).
+    # True:  el saldo puede ir a otras facturas mientras la primera sigue activa.
+    POSICION_EN_VARIAS_FACTURAS: bool = _bool("POSICION_EN_VARIAS_FACTURAS", False)
+
+    # True: todos los PL de una factura deben ir en la misma unidad de carga.
+    FACTURA_EN_UNA_SOLA_UNIDAD: bool = _bool("FACTURA_EN_UNA_SOLA_UNIDAD", False)
+
+    # El proveedor puede finalizar sus facturas y PL (flujo Borrador -> Finalizado).
+    PROVEEDOR_PUEDE_FINALIZAR: bool = _bool("PROVEEDOR_PUEDE_FINALIZAR", True)
+
+    # Exige país de origen y partida arancelaria por línea para finalizar.
+    REQUERIR_DATOS_ADUANA: bool = _bool("REQUERIR_DATOS_ADUANA", True)
+
+    # Días para avisar de borradores que siguen reservando cantidades.
+    DIAS_ALERTA_BORRADOR: int = int(os.getenv("DIAS_ALERTA_BORRADOR", "7"))
+
+    # Campos de la OC que no se pueden mezclar en una factura (bloquean)
+    # y campos que solo generan advertencia.
+    COMPATIBILIDAD_BLOQUEANTE: tuple[str, ...] = ("sociedad", "moneda", "centro")
+    COMPATIBILIDAD_ADVERTENCIA: tuple[str, ...] = ("incoterm", "pais_destino")
+
+    # Capacidad nominal por tipo de unidad de carga: (CBM, kg)
+    CAPACIDADES: dict[str, tuple[float | None, float | None]] = {
+        "20GP": (33.0, 28000.0),
+        "40GP": (67.0, 26500.0),
+        "40HC": (76.0, 26500.0),
+        "LCL": (None, None),
+        "AEREO": (None, None),
+        "CAMION": (None, None),
+    }
+
+
+settings = Settings()
