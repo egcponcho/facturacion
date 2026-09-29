@@ -22,6 +22,21 @@ services:
         generateValue: true
       - key: SEED_DEMO
         value: "1"
+      # Acceso seguro: cookie solo por https y verificación en dos pasos por SMS.
+      # Con SMS_PROVEEDOR=consola (demo) el código se muestra en pantalla; para
+      # enviar SMS reales usa twilio y completa las tres credenciales.
+      - key: COOKIE_SEGURA
+        value: "1"
+      - key: DOS_PASOS
+        value: "1"
+      - key: SMS_PROVEEDOR
+        value: consola
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM
+        sync: false
       - key: POSICION_EN_VARIAS_FACTURAS
         value: "0"
       - key: FACTURA_EN_UNA_SOLA_UNIDAD

@@ -127,7 +127,51 @@ class Usuario(Base):
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
     password_hash: Mapped[str] = mapped_column(String(300))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Seguridad del acceso: celular registrado para la verificación en dos
+    # pasos, intentos fallidos y bloqueo temporal.
+    telefono: Mapped[str | None] = mapped_column(String(20))  # formato E.164: +50370000000
+    dos_pasos: Mapped[bool] = mapped_column(Boolean, default=True)
+    intentos_fallidos: Mapped[int] = mapped_column(Integer, default=0)
+    bloqueado_hasta: Mapped[datetime | None] = mapped_column(DateTime)
+    ultimo_acceso: Mapped[datetime | None] = mapped_column(DateTime)
+    password_cambiado_en: Mapped[datetime | None] = mapped_column(DateTime)
     proveedor: Mapped[Proveedor | None] = relationship()
+
+
+class SesionUsuario(Base):
+    """Sesión iniciada. La cookie lleva un token aleatorio; aquí solo se guarda
+    su hash. Vence por inactividad y por duración máxima, y se revoca al
+    cerrar sesión o al cambiar la contraseña."""
+
+    __tablename__ = "sesiones"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    creada: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    expira: Mapped[datetime] = mapped_column(DateTime)
+    ultima_actividad: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    ip: Mapped[str | None] = mapped_column(String(64))
+    agente: Mapped[str | None] = mapped_column(String(300))
+    revocada: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    usuario: Mapped[Usuario] = relationship()
+
+
+class DesafioDosPasos(Base):
+    """Código de un solo uso enviado por SMS al celular registrado."""
+
+    __tablename__ = "desafios_dos_pasos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    codigo_hash: Mapped[str] = mapped_column(String(64))
+    expira: Mapped[datetime] = mapped_column(DateTime)
+    intentos: Mapped[int] = mapped_column(Integer, default=0)
+    envios: Mapped[int] = mapped_column(Integer, default=1)
+    ultimo_envio: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    usado: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    usuario: Mapped[Usuario] = relationship()
 
 
 # --------------------------------------------------------------------------

@@ -63,6 +63,29 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def _encabezados_seguridad(request: Request, call_next):
+    """Encabezados que endurecen el navegador: sin incrustar la app en otros
+    sitios, sin adivinar tipos, sin filtrar la URL y solo recursos propios."""
+    resp = await call_next(request)
+    h = resp.headers
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("X-Frame-Options", "DENY")
+    h.setdefault("Referrer-Policy", "same-origin")
+    h.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if not request.url.path.startswith(("/docs", "/redoc")):
+        h.setdefault("Content-Security-Policy",
+                     "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' "
+                     "https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
+                     "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; "
+                     "form-action 'self'")
+    if request.url.path.startswith("/api/"):
+        h.setdefault("Cache-Control", "no-store")
+    if settings.COOKIE_SEGURA:
+        h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return resp
+
+
 @app.exception_handler(ErrorNegocio)
 async def _error_negocio(_: Request, exc: ErrorNegocio):
     return JSONResponse(status_code=exc.status,

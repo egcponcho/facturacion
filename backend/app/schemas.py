@@ -9,8 +9,21 @@ Cant = Field(gt=0)
 
 # ---- Auth / admin -----------------------------------------------------------
 class LoginIn(BaseModel):
-    email: str
-    password: str
+    email: str = Field(max_length=200)
+    password: str = Field(max_length=200)
+
+
+class DesafioIn(BaseModel):
+    desafio: str = Field(max_length=100)
+
+
+class VerificarIn(DesafioIn):
+    codigo: str = Field(max_length=10)
+
+
+class PasswordIn(BaseModel):
+    actual: str = Field(max_length=200)
+    nueva: str = Field(max_length=200)
 
 
 class ProveedorIn(BaseModel):
@@ -29,15 +42,19 @@ class UsuarioIn(BaseModel):
     nombre: str
     rol: Literal["admin", "interno", "proveedor"]
     proveedor_id: int | None = None
-    password: str = Field(min_length=6)
+    password: str = Field(max_length=200)
+    telefono: str | None = None
+    dos_pasos: bool = True
 
 
 class UsuarioPatch(BaseModel):
     nombre: str | None = None
     rol: Literal["admin", "interno", "proveedor"] | None = None
     proveedor_id: int | None = None
-    password: str | None = Field(default=None, min_length=6)
+    password: str | None = Field(default=None, max_length=200)
     activo: bool | None = None
+    telefono: str | None = None
+    dos_pasos: bool | None = None
 
 
 # ---- Facturas ---------------------------------------------------------------

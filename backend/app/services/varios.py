@@ -8,6 +8,7 @@ from ..models import (
     Usuario,
 )
 from ..security import hash_password
+from .acceso import exigir_politica, revocar_sesiones, validar_telefono
 from .common import (
     ErrorNegocio,
     exigir,
@@ -124,8 +125,12 @@ def actualizar_proveedor(db: Session, user: Usuario, proveedor_id: int, datos) -
 
 
 def _usuario_dict(u: Usuario) -> dict:
+    from .acceso import _ahora
+
     return {"id": u.id, "email": u.email, "nombre": u.nombre, "rol": u.rol, "activo": u.activo,
-            "proveedor_id": u.proveedor_id, "proveedor": u.proveedor.nombre if u.proveedor else None}
+            "proveedor_id": u.proveedor_id, "proveedor": u.proveedor.nombre if u.proveedor else None,
+            "telefono": u.telefono, "dos_pasos": u.dos_pasos, "ultimo_acceso": u.ultimo_acceso,
+            "bloqueado": bool(u.bloqueado_hasta and u.bloqueado_hasta > _ahora())}
 
 
 def listar_usuarios(db: Session, user: Usuario) -> list[dict]:
@@ -140,9 +145,11 @@ def crear_usuario(db: Session, user: Usuario, datos) -> dict:
         raise ErrorNegocio("Ya existe un usuario con ese correo.", 409, "duplicado")
     if datos.rol == "proveedor" and not datos.proveedor_id:
         raise ErrorNegocio("Un usuario proveedor debe tener proveedor asignado.", 422, "validacion")
+    exigir_politica(datos.password, email)
     u = Usuario(email=email, nombre=datos.nombre.strip(), rol=datos.rol,
                 proveedor_id=datos.proveedor_id if datos.rol == "proveedor" else None,
-                password_hash=hash_password(datos.password), activo=True)
+                password_hash=hash_password(datos.password), activo=True,
+                telefono=validar_telefono(datos.telefono), dos_pasos=datos.dos_pasos)
     db.add(u)
     db.flush()
     return {"id": u.id}
@@ -154,10 +161,22 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
     if not u:
         raise ErrorNegocio("El usuario no existe.", 404, "no_encontrado")
     campos = datos.model_dump(exclude_unset=True)
+    revocar = False
     if "password" in campos:
         pw = campos.pop("password")
         if pw:
+            exigir_politica(pw, u.email)
             u.password_hash = hash_password(pw)
+            u.bloqueado_hasta, u.intentos_fallidos = None, 0
+            revocar = True
+    if "telefono" in campos:
+        campos["telefono"] = validar_telefono(campos["telefono"])
+        revocar = revocar or campos["telefono"] != u.telefono
+    if campos.get("activo") is False or campos.get("dos_pasos") is False:
+        revocar = True
+    if revocar:
+        # Contraseña, celular o acceso cambiaron: se cierran sus sesiones abiertas
+        revocar_sesiones(db, u.id)
     for k, v in campos.items():
         setattr(u, k, v)
     if u.rol == "proveedor" and not u.proveedor_id:

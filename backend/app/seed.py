@@ -117,6 +117,7 @@ TRANSPORTISTAS = [
     ("AVCG", "Avianca Cargo", "AEREO", "134", "CO", "cargo@avianca.demo", ["8000", "PA01", "GT01"]),
     ("TDS", "Transportes del Sur", "TERRESTRE", None, "SV", "operaciones@tds.demo", ["8000", "GT01", "HN01"]),
 ]
+PASSWORD_DEMO = "Supplier2026"
 MARCAS = [("TNF", "The North Face"), ("VANS", "Vans"), ("MERR", "Merrell"), ("CAT", "Caterpillar"),
           ("HPU", "Hush Puppies"), ("ADOC", "ADOC")]
 GRUPOS = [("CALZ-OUT", "Calzado outdoor", "CALZADO"), ("CALZ-CAS", "Calzado casual", "CALZADO"),
@@ -362,14 +363,17 @@ def seed(db: Session) -> None:
                      contacto="Wei Chen", correos="export.vans@vans.demo", telefono="+86 755 2660 8899")
     db.add_all([tnf, vans])
     db.flush()
-    pw = hash_password("demo123")
-    u_tnf = Usuario(email="tnf@demo.com", nombre="Proveedor TNF", rol="proveedor", proveedor_id=tnf.id,
-                    password_hash=pw)
-    u_vans = Usuario(email="vans@demo.com", nombre="Proveedor Vans", rol="proveedor", proveedor_id=vans.id,
-                     password_hash=pw)
+    # Todos con celular registrado y verificación en dos pasos
+    pw = hash_password(PASSWORD_DEMO)
+    u_tnf = Usuario(email="tnf@demo.com", nombre="TNF supplier", rol="proveedor", proveedor_id=tnf.id,
+                    password_hash=pw, telefono="+84283770001")
+    u_vans = Usuario(email="vans@demo.com", nombre="Vans supplier", rol="proveedor", proveedor_id=vans.id,
+                     password_hash=pw, telefono="+867552660001")
     db.add_all([
-        Usuario(email="admin@demo.com", nombre="Administrador", rol="admin", password_hash=pw),
-        Usuario(email="interno@demo.com", nombre="Equipo de importaciones", rol="interno", password_hash=pw),
+        Usuario(email="admin@demo.com", nombre="Administrator", rol="admin", password_hash=pw,
+                telefono="+50370000001"),
+        Usuario(email="interno@demo.com", nombre="Import team", rol="interno", password_hash=pw,
+                telefono="+50370000002"),
         u_tnf,
         u_vans,
     ])

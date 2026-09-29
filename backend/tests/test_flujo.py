@@ -708,3 +708,92 @@ def test_sugerencia_de_unidades(interno):
     aereo = interno.get("/sugerencia-unidades", params={"cbm": 2, "kg": 500}).json()["modos"]["AEREO"][0]
     assert aereo["peso_cobrable"] == 500
     assert interno.get("/sugerencia-unidades", params={"cbm": 1, "modo": "BARCO"}).status_code == 422
+
+
+def test_acceso_seguro(client):
+    """Dos pasos por SMS, cookie httpOnly, CSRF, bloqueo por intentos,
+    política de contraseñas y cierre de sesiones."""
+    from app.services.limites import reiniciar
+    from conftest import PASSWORD, Api, iniciar_sesion
+
+    reiniciar()
+    # Paso 1: la contraseña correcta solo abre el desafío; no hay sesión todavía
+    r = client.post("/api/auth/login", json={"email": "interno@demo.com", "password": PASSWORD})
+    d = r.json()
+    assert d["dos_pasos"] and d["telefono"].startswith("+503") and "•" in d["telefono"] and "sesion" not in r.cookies
+    assert client.get("/api/auth/me").status_code == 401
+    # Código incorrecto: se cuenta el intento
+    r = client.post("/api/auth/verificar", json={"desafio": d["desafio"], "codigo": "000000"})
+    assert r.status_code == 401 and r.json()["codigo"] == "codigo_incorrecto"
+    # Reenvío inmediato: hay que esperar
+    assert client.post("/api/auth/reenviar", json={"desafio": d["desafio"]}).status_code == 429
+    # Paso 2: cookie httpOnly y SameSite=Strict
+    r = client.post("/api/auth/verificar", json={"desafio": d["desafio"], "codigo": d["codigo_demo"]})
+    assert r.status_code == 200 and r.json()["usuario"]["email"] == "interno@demo.com"
+    cookie = r.headers["set-cookie"].lower()
+    assert "httponly" in cookie and "samesite=strict" in cookie
+    # El código no se reutiliza
+    assert client.post("/api/auth/verificar", json={"desafio": d["desafio"],
+                                                    "codigo": d["codigo_demo"]}).status_code == 401
+    assert client.get("/api/auth/me").status_code == 200
+    # Con cookie, cambiar datos exige el encabezado de la aplicación (CSRF)
+    assert client.post("/api/alertas/999/resolver").status_code == 403
+    assert client.post("/api/alertas/999/resolver", headers={"X-Requested-With": "fetch"}).status_code != 403
+    # Encabezados de seguridad
+    h = client.get("/api/auth/me").headers
+    assert h["x-frame-options"] == "DENY" and "frame-ancestors 'none'" in h["content-security-policy"]
+    # Cerrar sesión revoca la sesión
+    client.post("/api/auth/logout", headers={"X-Requested-With": "fetch"})
+    client.cookies.clear()
+    assert client.get("/api/auth/me").status_code == 401
+
+    # Rutas restringidas: el proveedor no entra a administración ni a mantenimiento
+    tnf = Api(client, "tnf@demo.com")
+    assert tnf.get("/usuarios").status_code == 403 and tnf.get("/catalogos/sociedades").status_code == 403
+    assert client.get("/api/facturas").status_code == 401
+
+    # Política de contraseñas y alta con celular
+    admin = Api(client, "admin@demo.com")
+    r = admin.post("/usuarios", {"email": "nuevo@demo.com", "nombre": "Nuevo", "rol": "interno", "password": "abc12"})
+    assert r.status_code == 422 and r.json()["codigo"] == "password_debil"
+    r = admin.post("/usuarios", {"email": "nuevo@demo.com", "nombre": "Nuevo", "rol": "interno",
+                                 "password": "Seguridad2026", "telefono": "7000"})
+    assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "telefono"
+    r = admin.post("/usuarios", {"email": "nuevo@demo.com", "nombre": "Nuevo", "rol": "interno",
+                                 "password": "Seguridad2026", "telefono": "+503 7000-1234"})
+    assert r.status_code == 200, r.text
+    nuevo_id = r.json()["id"]
+    nuevo = next(u for u in admin.get("/usuarios").json() if u["id"] == nuevo_id)
+    assert nuevo["telefono"] == "+50370001234" and nuevo["dos_pasos"]
+    # Sin celular registrado no se puede entrar con dos pasos
+    admin.patch(f"/usuarios/{nuevo_id}", {"telefono": None})
+    r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "Seguridad2026"})
+    assert r.status_code == 403 and r.json()["codigo"] == "sin_telefono"
+    admin.patch(f"/usuarios/{nuevo_id}", {"telefono": "+50370001234"})
+    # Cambiar la contraseña propia cierra las otras sesiones
+    reiniciar()
+    t1 = iniciar_sesion(client, "nuevo@demo.com", "Seguridad2026")
+    t2 = iniciar_sesion(client, "nuevo@demo.com", "Seguridad2026")
+    h1, h2 = {"Authorization": f"Bearer {t1}"}, {"Authorization": f"Bearer {t2}"}
+    r = client.post("/api/auth/password", json={"actual": "Seguridad2026", "nueva": "corta"}, headers=h1)
+    assert r.status_code == 422
+    r = client.post("/api/auth/password", json={"actual": "Seguridad2026", "nueva": "OtraClave2027"}, headers=h1)
+    assert r.status_code == 200
+    assert client.get("/api/auth/me", headers=h1).status_code == 200
+    assert client.get("/api/auth/me", headers=h2).status_code == 401
+    # Bloqueo tras 5 contraseñas incorrectas, aun con la correcta después
+    for _ in range(5):
+        r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "mala"})
+    assert r.status_code == 423
+    r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "OtraClave2027"})
+    assert r.status_code == 423 and r.json()["codigo"] == "bloqueado"
+    assert next(u for u in admin.get("/usuarios").json() if u["id"] == nuevo_id)["bloqueado"]
+    # El administrador desbloquea al restablecer la contraseña
+    admin.patch(f"/usuarios/{nuevo_id}", {"password": "Restablecida2028"})
+    reiniciar()
+    assert iniciar_sesion(client, "nuevo@demo.com", "Restablecida2028")
+    # Mismo mensaje para correo inexistente y contraseña incorrecta
+    a = client.post("/api/auth/login", json={"email": "nadie@demo.com", "password": "x"}).json()["mensaje"]
+    b = client.post("/api/auth/login", json={"email": "admin@demo.com", "password": "x"}).json()["mensaje"]
+    assert a == b
+    reiniciar()

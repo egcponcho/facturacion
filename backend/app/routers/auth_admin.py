@@ -1,12 +1,14 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request, Response
 from sqlalchemy import select
 
 from ..config import settings
 from ..models import Usuario
-from ..schemas import LoginIn, ProveedorIn, ProveedorPatch, UsuarioIn, UsuarioPatch
-from ..security import crear_token, verificar_password
+from ..deps import COOKIE
+from ..schemas import DesafioIn, LoginIn, PasswordIn, ProveedorIn, ProveedorPatch, UsuarioIn, UsuarioPatch, VerificarIn
+from ..services import acceso
+from ..services.limites import limitar
 from ..services import varios
-from ..services.common import ErrorNegocio, permisos_de
+from ..services.common import permisos_de
 from .base import Clave, Db, User, ejecutar
 
 router = APIRouter()
@@ -21,6 +23,9 @@ def _yo(u: Usuario) -> dict:
         "proveedor_id": u.proveedor_id,
         "proveedor": u.proveedor.nombre if u.proveedor else None,
         "permisos": permisos_de(u),
+        "telefono": acceso.mascara_telefono(u.telefono),
+        "dos_pasos": bool(settings.DOS_PASOS and u.dos_pasos),
+        "sesion_inactividad_min": settings.SESION_INACTIVIDAD_MIN,
         "config": {
             "posicion_en_varias_facturas": settings.POSICION_EN_VARIAS_FACTURAS,
             "factura_en_una_sola_unidad": settings.FACTURA_EN_UNA_SOLA_UNIDAD,
@@ -30,12 +35,56 @@ def _yo(u: Usuario) -> dict:
     }
 
 
+def _cookie(resp: Response, token: str) -> None:
+    resp.set_cookie(COOKIE, token, httponly=True, secure=settings.COOKIE_SEGURA, samesite="strict",
+                    max_age=settings.SESION_HORAS * 3600, path="/")
+
+
+def _cliente(request: Request) -> tuple[str | None, str | None]:
+    return (request.client.host if request.client else None), request.headers.get("user-agent")
+
+
 @router.post("/auth/login")
-def login(datos: LoginIn, db: Db):
-    u = db.scalar(select(Usuario).where(Usuario.email == datos.email.strip().lower()))
-    if not u or not u.activo or not verificar_password(datos.password, u.password_hash):
-        raise ErrorNegocio("Correo o contraseña incorrectos.", 401, "credenciales")
-    return {"token": crear_token(u.id), "usuario": _yo(u)}
+def login(datos: LoginIn, request: Request, response: Response, db: Db):
+    """Paso 1: correo y contraseña. Con verificación en dos pasos devuelve el
+    desafío; sin ella, abre la sesión."""
+    limitar(request, "login")
+    r = acceso.iniciar(db, datos.email, datos.password, *_cliente(request))
+    if not r["dos_pasos"]:
+        _cookie(response, r.pop("token"))
+        db.expire_all()
+        r["usuario"] = _yo(db.scalar(select(Usuario).where(Usuario.email == datos.email.strip().lower())))
+    return r
+
+
+@router.post("/auth/verificar")
+def verificar(datos: VerificarIn, request: Request, response: Response, db: Db):
+    """Paso 2: el código recibido por SMS."""
+    limitar(request, "verificar")
+    token = acceso.verificar(db, datos.desafio, datos.codigo, *_cliente(request))
+    _cookie(response, token)
+    return {"usuario": _yo(acceso.usuario_de_sesion(db, token))}
+
+
+@router.post("/auth/reenviar")
+def reenviar(datos: DesafioIn, request: Request, db: Db):
+    limitar(request, "reenviar")
+    return acceso.reenviar(db, datos.desafio)
+
+
+@router.post("/auth/logout")
+def logout(request: Request, response: Response, db: Db):
+    acceso.cerrar_sesion(db, request.cookies.get(COOKIE))
+    response.delete_cookie(COOKIE, path="/")
+    return {"ok": True}
+
+
+@router.post("/auth/password")
+def cambiar_password(datos: PasswordIn, request: Request, db: Db, user: User):
+    """Cambia la contraseña propia y cierra las demás sesiones abiertas."""
+    acceso.cambiar_password(db, user, datos.actual, datos.nueva, getattr(request.state, "token", None))
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/auth/me")
