@@ -25,7 +25,7 @@ ETAPAS = [
     ("ENTREGADO", "Entregado"),
     ("RECIBIDO", "Recibido"),
 ]
-ORDEN = {"marca", "estilo", "color", "talla", "oc", "cantidad", "etapa", "fecha_xf", "fecha_tienda", "eta",
+ORDEN = {"almacen", "marca", "estilo", "color", "talla", "oc", "cantidad", "etapa", "fecha_xf", "fecha_tienda", "eta",
          "holgura", "embarque", "contenedor", "recolectado_en", "proveedor"}
 
 
@@ -42,7 +42,7 @@ def _riesgo(holgura: int | None) -> str | None:
 def _base(p: PosicionOC, oc: OrdenCompra, hoy: date) -> dict:
     return {
         "marca": p.marca, "estilo": p.estilo, "color": p.color, "talla": p.talla, "sku": p.codigo_sap,
-        "oc_id": oc.id, "oc": oc.numero, "posicion": p.posicion, "proveedor": oc.proveedor.nombre,
+        "oc_id": oc.id, "oc": oc.numero, "posicion": p.posicion, "almacen": p.almacen, "proveedor": oc.proveedor.nombre,
         "unidad": p.unidad, "tipo_empaque": p.tipo_empaque, "pais_destino": oc.pais_destino,
         "fecha_xf": oc.fecha_xf, "fecha_tienda": oc.fecha_tienda,
         "dias_tienda": (oc.fecha_tienda - hoy).days if oc.fecha_tienda else None,
@@ -114,19 +114,20 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
 
 def seguimiento(db: Session, user: Usuario, proveedor_id: int | None = None, q: str | None = None,
                 marca: str | None = None, estilo: str | None = None, color: str | None = None,
-                talla: str | None = None, etapa: str | None = None, riesgo: str | None = None,
+                talla: str | None = None, almacen: str | None = None, etapa: str | None = None, riesgo: str | None = None,
                 embarque_id: int | None = None, orden: str | None = None, page: int = 1, size: int = 25) -> dict:
     todas = filas_seguimiento(db, user, proveedor_id)
     opciones = {
         "marcas": sorted({f["marca"] for f in todas if f["marca"]}),
         "estilos": sorted({f["estilo"] for f in todas if f["estilo"]}),
         "colores": sorted({f["color"] for f in todas if f["color"]}),
+        "almacenes": sorted({f["almacen"] for f in todas if f["almacen"]}),
         "tallas": sorted({f["talla"] for f in todas if f["talla"]}, key=lambda t: (not t.isdigit(), t.zfill(4))),
         "embarques": sorted({(f["embarque_id"], f["embarque"]) for f in todas if f["embarque_id"]}),
     }
     filas = todas
     for campo, valor in (("marca", marca), ("estilo", estilo), ("color", color), ("talla", talla),
-                         ("etapa", etapa), ("riesgo", riesgo), ("embarque_id", embarque_id)):
+                         ("almacen", almacen), ("etapa", etapa), ("riesgo", riesgo), ("embarque_id", embarque_id)):
         if valor not in (None, ""):
             filas = [f for f in filas if f[campo] == valor]
     if q:

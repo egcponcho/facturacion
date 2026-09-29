@@ -70,7 +70,7 @@ Los datos de prueba ya traen historia: facturas de meses anteriores, un contened
 
 ## Datos maestros (Mantenimiento)
 
-Un solo lugar, con alta, edición, baja y filtros, para: **sociedades** (8000, PA01), **centros** o bodegas fiscales (8010, 8020, PA10, PA20), **almacenes** con su tipo virtual, detalle o mayoreo (BF19, BF20, BF01, BF02), **países**, **países de destino** (código de 4 dígitos que viene en la OC, p. ej. 2220 El Salvador), **puertos**, **marcas**, **grupos de artículos** (cada artículo pertenece a uno; el grupo define si es calzado, ropa o accesorio), **proveedores**, **artículos** y **curvas prepack**. No se borra lo que está en uso.
+Un solo lugar, con alta, edición, baja y filtros, para: **sociedades** (8000, PA01), **centros** o bodegas fiscales (8010, 8020, PA10, PA20), **almacenes** de cada sociedad con su tipo virtual, detalle o mayoreo (BF19 y BF20 de 8000; BF01 y BF02 de PA01), **países**, **países de destino** (código de 4 dígitos que viene en la OC, p. ej. 2220 El Salvador), **puertos**, **marcas**, **grupos de artículos** (cada artículo pertenece a uno; el grupo define si es calzado, ropa o accesorio), **proveedores**, **artículos** y **curvas prepack**. No se borra lo que está en uso.
 
 - **Artículos:** SKU, estilo, color, talla, marca, grupo, tipo (sólido o prepack), unidad (pares, unidades o cajas prepack) y casepack. Se cargan por archivo (`plantilla_articulos.csv`) o a mano.
 - **Curvas prepack:** un ID de prepack (p. ej. `VN-EE3-CRV01`) con la cantidad de cada artículo sólido por caja (tallas 7:1, 8:2, 9:3…). El artículo prepack apunta a su curva. Se cargan con `plantilla_prepacks.csv`.
@@ -79,7 +79,8 @@ Un solo lugar, con alta, edición, baja y filtros, para: **sociedades** (8000, P
 
 - Número de 10 dígitos que empieza con **44** (p. ej. 4400003856); posiciones de 10 en 10.
 - Cada posición trae el **SKU**, que debe existir en el maestro de artículos: de ahí salen estilo, color, talla, marca, grupo, tipo de empaque y casepack (si la OC trae casepack, manda el de la OC).
-- Cabecera: sociedad, centro y almacén (deben ser coherentes entre sí), país de destino, puerto de despacho proyectado, país de origen y de procedencia, **fecha XF original y actualizada**, fecha requerida en tienda, precio y total por posición.
+- Cabecera: sociedad y centro (el centro debe ser de la sociedad), país de destino, puerto de despacho proyectado, país de origen y de procedencia, **fecha XF original y actualizada**, fecha requerida en tienda, precio y total por posición.
+- **Almacén por posición:** una misma OC (misma sociedad y centro) puede mandar cada posición a un almacén distinto, por ejemplo BF19 detalle y BF20 mayoreo. El almacén debe ser de la misma sociedad. Se ve en la OC, la factura, el packing list y el seguimiento, y se puede filtrar por él.
 - **Liberación:** comercial `P` (pendiente) o `C`/vacío (liberada). La logística se calcula: **304** sin liberación comercial (no se puede facturar), **300** liberada por sourcing sin novedades, **301** liberada y con cambios posteriores.
 
 ## Reglas de empaque
@@ -179,7 +180,7 @@ En *Importar OCs* (equipo interno) se sube el Excel o CSV de SAP. Hay un formato
 
 Columnas obligatorias: `proveedor, oc, posicion, sku, cantidad, precio, moneda, sociedad, centro, pais_destino`. Opcionales: `almacen, incoterm, fecha_oc, puerto, pais_origen, pais_procedencia, fecha_xf_original, fecha_xf, fecha_tienda, liberacion_comercial, liberacion_logistica, unidad, casepack`. Se aceptan algunos alias (`po`, `material`, `qty`, `uom`…). Ver `plantilla_oc.csv`.
 
-Cada fila se valida contra los maestros: OC con formato 44XXXXXXXX, posición múltiplo de 10, sociedad/centro/almacén coherentes, país de destino y puerto registrados y SKU existente. Carga primero los artículos y las curvas en *Mantenimiento*.
+Cada fila se valida contra los maestros: OC con formato 44XXXXXXXX, posición múltiplo de 10, centro y almacén de la misma sociedad (el almacén puede cambiar entre posiciones de la misma OC), país de destino y puerto registrados y SKU existente. Carga primero los artículos y las curvas en *Mantenimiento*.
 
 **Reinicio de la base de datos:** en modo demo (`SEED_DEMO=1`) la base se borra y se vuelve a sembrar automáticamente cuando cambia la versión del esquema (`ESQUEMA_VERSION` en `config.py`). En producción (`SEED_DEMO=0`) nunca se borra nada.
 

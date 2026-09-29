@@ -72,6 +72,7 @@ def listar_ordenes(
     destino: str | None = None,
     puerto: str | None = None,
     orden: str | None = None,
+    almacen: str | None = None,
 ) -> dict:
     exigir(user, "oc.ver")
     prov = proveedor_filtro(user, proveedor_id)
@@ -131,6 +132,8 @@ def listar_ordenes(
         consulta = consulta.where(OrdenCompra.liberacion_logistica == liberacion)
     if marca:
         consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.marca == marca)))
+    if almacen:
+        consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.almacen == almacen)))
     if solo_disponible:
         consulta = consulta.where(tot.c.cantidad - facturado > 0)
 
@@ -153,7 +156,13 @@ def listar_ordenes(
     ids = [oc.id for oc, *_ in filas]
     por_unidad: dict[int, dict] = {i: {} for i in ids}
     marcas: dict[int, set] = {i: set() for i in ids}
+    almacenes: dict[int, set] = {i: set() for i in ids}
     if ids:
+        for oc_id, alm in db.execute(
+            select(PosicionOC.oc_id, PosicionOC.almacen).where(PosicionOC.oc_id.in_(ids)).distinct()
+        ).all():
+            if alm:
+                almacenes[oc_id].add(alm)
         for oc_id, unidad, marca_oc, cant in db.execute(
             select(PosicionOC.oc_id, PosicionOC.unidad, PosicionOC.marca, func.sum(PosicionOC.cantidad))
             .where(PosicionOC.oc_id.in_(ids)).group_by(PosicionOC.oc_id, PosicionOC.unidad, PosicionOC.marca)
@@ -184,6 +193,8 @@ def listar_ordenes(
                 "proveedor": prov_nombre,
                 "posiciones": n,
                 "marcas": sorted(marcas[oc.id]),
+                # Una OC puede repartir sus posiciones entre varios almacenes
+                "almacenes": sorted(almacenes[oc.id]),
                 "por_unidad": por_unidad[oc.id],
                 "importe": round(importe, 2),
                 "importe_facturado": round(float(importe_f or 0), 2),
@@ -207,11 +218,15 @@ def filtros_ordenes(db: Session, user: Usuario, proveedor_id: int | None = None)
     def distintos(col):
         return sorted({v for (v,) in db.execute(select(col).select_from(sub).distinct()) if v})
 
-    marcas = sorted({m for (m,) in db.execute(
-        select(PosicionOC.marca).where(PosicionOC.oc_id.in_(select(sub.c.id))).distinct()) if m})
+    def de_posiciones(col):
+        return sorted({v for (v,) in db.execute(
+            select(col).where(PosicionOC.oc_id.in_(select(sub.c.id))).distinct()) if v})
+
+    marcas = de_posiciones(PosicionOC.marca)
     return {
         "sociedades": distintos(sub.c.sociedad),
         "centros": distintos(sub.c.centro),
+        "almacenes": de_posiciones(PosicionOC.almacen),
         "destinos": [{"codigo": d.codigo, "nombre": d.nombre} for d in db.scalars(
             select(PaisDestino).where(PaisDestino.codigo.in_(distintos(sub.c.pais_destino))))],
         "puertos": [{"codigo": p.codigo, "nombre": p.nombre} for p in db.scalars(
@@ -228,7 +243,6 @@ def _cabecera_oc(oc: OrdenCompra) -> dict:
         "proveedor_id": oc.proveedor_id,
         "sociedad": oc.sociedad,
         "centro": oc.centro,
-        "almacen": oc.almacen,
         "pais_destino": oc.pais_destino,
         "moneda": oc.moneda,
         "incoterm": oc.incoterm,
@@ -264,6 +278,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
             {
                 "id": p.id,
                 "posicion": p.posicion,
+                "almacen": p.almacen,
                 "codigo_sap": p.codigo_sap,
                 "upc": p.upc,
                 "estilo": p.estilo,
@@ -345,11 +360,11 @@ ALIAS = {
 }
 REQUERIDOS = ["proveedor", "oc", "posicion", "codigo_sap", "cantidad", "precio", "moneda", "sociedad", "centro",
               "pais_destino"]
-CAMPOS_CABECERA = ["sociedad", "centro", "almacen", "pais_destino", "moneda", "incoterm", "fecha", "puerto_despacho",
+CAMPOS_CABECERA = ["sociedad", "centro", "pais_destino", "moneda", "incoterm", "fecha", "puerto_despacho",
                    "pais_origen", "pais_procedencia", "fecha_xf_original", "fecha_xf", "fecha_tienda",
                    "liberacion_comercial"]
 CAMPOS_POSICION = [
-    "articulo_id", "codigo_sap", "upc", "estilo", "color", "talla", "descripcion", "marca", "grupo", "categoria",
+    "almacen", "articulo_id", "codigo_sap", "upc", "estilo", "color", "talla", "descripcion", "marca", "grupo", "categoria",
     "tipo_empaque", "casepack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
     "pais_origen", "partida_arancelaria",
 ]
@@ -539,8 +554,8 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         alm = m.almacenes.get(d["almacen"])
         if not alm:
             errores.append(f"El almacén {d['almacen']} no existe.")
-        elif cen and alm.centro_id != cen.id:
-            errores.append(f"El almacén {d['almacen']} no pertenece al centro {d['centro']}.")
+        elif soc and alm.sociedad_id != soc.id:
+            errores.append(f"El almacén {d['almacen']} no pertenece a la sociedad {d['sociedad']}.")
     if d["pais_destino"] and d["pais_destino"] not in m.destinos:
         errores.append(f"El país de destino {d['pais_destino']} no está registrado en mantenimiento.")
     if d["puerto_despacho"] and d["puerto_despacho"] not in m.puertos:

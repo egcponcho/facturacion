@@ -433,7 +433,7 @@ onMounted(async () => {
           <tbody>
             <tr v-for="l in tablaLineas.filas.value" :key="l.id" :class="{ seleccionada: sel.tiene(l.id) }">
               <td class="chk"><input type="checkbox" :aria-label="`Seleccionar ${l.codigo_sap} talla ${l.talla}`" :checked="sel.tiene(l.id)" @change="sel.alternar(l.id)" /></td>
-              <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}</td>
+              <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.almacen" class="sub">almacén {{ l.almacen }}</span></td>
               <td>
                 <span v-if="l.marca" class="fuerte">{{ l.marca }}</span> {{ l.estilo }} · {{ l.color }}
                 <span v-if="l.tipo_empaque === 'PREPACK'" class="etiqueta acento" :title="`Curva ${l.prepack}`">Prepack</span>

@@ -72,10 +72,10 @@ CATALOGOS = {
     },
     "almacenes": {
         "modelo": Almacen, "titulo": "Almacenes", "singular": "almacén",
-        "ayuda": "Almacenes dentro de cada centro: virtual, detalle o mayoreo.",
+        "ayuda": "Almacenes de cada sociedad: virtual, detalle o mayoreo. Una OC puede repartir sus posiciones entre varios.",
         "campos": [
             c("codigo", "Código", obligatorio=True, max=10, mayus=True),
-            c("centro_id", "Centro", "ref", obligatorio=True, catalogo="centros", filtro=True),
+            c("sociedad_id", "Sociedad", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
             c("nombre", "Nombre", obligatorio=True),
             c("tipo", "Tipo", "opcion", obligatorio=True, filtro=True,
               opciones=[["VIRTUAL", "Virtual"], ["DETALLE", "Detalle"], ["MAYOREO", "Mayoreo"]]),

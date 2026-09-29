@@ -19,12 +19,13 @@ def listar(
     destino: str | None = None,
     puerto: str | None = None,
     orden: str | None = None,
+    almacen: str | None = None,
     solo_disponible: bool = True,
     page: int = Query(1, ge=1),
     size: int = Query(25, ge=1, le=200),
 ):
     return svc.listar_ordenes(db, user, proveedor_id, q, centro, solo_disponible, page, size,
-                              sociedad, marca, liberacion, destino, puerto, orden)
+                              sociedad, marca, liberacion, destino, puerto, orden, almacen)
 
 
 @router.get("/ordenes/filtros")

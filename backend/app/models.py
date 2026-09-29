@@ -88,17 +88,18 @@ class Centro(Base):
 
 
 class Almacen(Base):
-    """Almacén dentro de un centro: virtual, detalle o mayoreo."""
+    """Almacén de la sociedad: virtual, detalle o mayoreo. Cualquier centro de
+    la sociedad puede recibir en él, y cada posición de la OC elige el suyo."""
 
     __tablename__ = "almacenes"
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(10), unique=True)
-    centro_id: Mapped[int] = mapped_column(ForeignKey("centros.id"), index=True)
+    sociedad_id: Mapped[int] = mapped_column(ForeignKey("sociedades.id"), index=True)
     nombre: Mapped[str] = mapped_column(String(120))
     tipo: Mapped[str] = mapped_column(String(10))  # VIRTUAL | DETALLE | MAYOREO
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    centro: Mapped[Centro] = relationship()
+    sociedad: Mapped[Sociedad] = relationship()
 
 
 class Pais(Base):
@@ -217,7 +218,6 @@ class OrdenCompra(Base):
     numero: Mapped[str] = mapped_column(String(30))  # 44xxxxxxxx
     sociedad: Mapped[str] = mapped_column(String(10))
     centro: Mapped[str | None] = mapped_column(String(10))
-    almacen: Mapped[str | None] = mapped_column(String(10))
     pais_destino: Mapped[str | None] = mapped_column(String(4))  # código de 4 dígitos
     moneda: Mapped[str] = mapped_column(String(3))
     incoterm: Mapped[str | None] = mapped_column(String(10))
@@ -247,6 +247,7 @@ class PosicionOC(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     oc_id: Mapped[int] = mapped_column(ForeignKey("ordenes_compra.id"), index=True)
     posicion: Mapped[str] = mapped_column(String(10))  # 10, 20, 30…
+    almacen: Mapped[str | None] = mapped_column(String(10))  # cada posición va a su almacén
     articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
     codigo_sap: Mapped[str] = mapped_column(String(40))  # SKU; texto: conserva ceros iniciales
     upc: Mapped[str | None] = mapped_column(String(40))
@@ -329,6 +330,7 @@ class FacturaLinea(Base):
     motivo_precio: Mapped[str | None] = mapped_column(String(300))
     # Copia de los datos de la OC al momento de facturar (trazabilidad)
     oc_numero: Mapped[str] = mapped_column(String(30))
+    almacen: Mapped[str | None] = mapped_column(String(10))
     posicion: Mapped[str] = mapped_column(String(10))
     codigo_sap: Mapped[str] = mapped_column(String(40))
     upc: Mapped[str | None] = mapped_column(String(40))

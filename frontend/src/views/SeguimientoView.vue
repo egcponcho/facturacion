@@ -15,8 +15,8 @@ import { cantTxt, fmtFecha, fmtNum, porUnidadTxt } from '../utils'
 // frente a la fecha requerida en tienda.
 const route = useRoute()
 const router = useRouter()
-const FILTROS = ['q', 'marca', 'estilo', 'color', 'talla', 'etapa', 'riesgo', 'embarque_id']
-const filtros = reactive({ q: '', marca: '', estilo: '', color: '', talla: '', etapa: '', riesgo: '', embarque_id: '', orden: 'holgura:asc', page: 1, size: 25 })
+const FILTROS = ['q', 'marca', 'estilo', 'color', 'talla', 'almacen', 'etapa', 'riesgo', 'embarque_id']
+const filtros = reactive({ q: '', marca: '', estilo: '', color: '', talla: '', almacen: '', etapa: '', riesgo: '', embarque_id: '', orden: 'holgura:asc', page: 1, size: 25 })
 for (const k of FILTROS) if (route.query[k]) filtros[k] = String(route.query[k])
 const datos = ref({ items: [], total: 0, etapas: [], por_marca: [], opciones: {} })
 const cargando = ref(true)
@@ -37,7 +37,7 @@ const activos = computed(() => FILTROS.filter((k) => k !== 'q' && filtros[k]).ma
   if (k === 'etapa') texto = nombreEtapa.value[filtros[k]] || texto
   if (k === 'riesgo') texto = RIESGOS[filtros[k]]?.[0] || texto
   if (k === 'embarque_id') texto = datos.value.opciones.embarques?.find((e) => String(e.id) === String(filtros[k]))?.codigo || texto
-  const nombres = { marca: 'Marca', estilo: 'Estilo', color: 'Color', talla: 'Talla', etapa: 'Etapa', riesgo: 'Riesgo', embarque_id: 'Embarque' }
+  const nombres = { marca: 'Marca', estilo: 'Estilo', color: 'Color', talla: 'Talla', almacen: 'Almacén', etapa: 'Etapa', riesgo: 'Riesgo', embarque_id: 'Embarque' }
   return { k, texto: `${nombres[k]}: ${texto}` }
 }))
 
@@ -157,6 +157,7 @@ onMounted(cargar)
     <select v-model="filtros.estilo" aria-label="Estilo" @change="aplicar"><option value="">Estilo: todos</option><option v-for="v in datos.opciones.estilos" :key="v">{{ v }}</option></select>
     <select v-model="filtros.color" aria-label="Color" @change="aplicar"><option value="">Color: todos</option><option v-for="v in datos.opciones.colores" :key="v">{{ v }}</option></select>
     <select v-model="filtros.talla" aria-label="Talla" @change="aplicar"><option value="">Talla: todas</option><option v-for="v in datos.opciones.tallas" :key="v">{{ v }}</option></select>
+    <select v-model="filtros.almacen" aria-label="Almacén" @change="aplicar"><option value="">Almacén: todos</option><option v-for="v in datos.opciones.almacenes" :key="v">{{ v }}</option></select>
     <select v-model="filtros.embarque_id" aria-label="Embarque" @change="aplicar"><option value="">Embarque: todos</option><option v-for="e in datos.opciones.embarques" :key="e.id" :value="String(e.id)">{{ e.codigo }}</option></select>
     <select v-model="filtros.riesgo" aria-label="Riesgo" @change="aplicar">
       <option value="">Llegada a tienda: todas</option>
@@ -196,7 +197,7 @@ onMounted(cargar)
           <td>{{ f.talla || '—' }}</td>
           <td>
             <router-link :to="{ path: '/ordenes', query: { q: f.oc, solo_disponible: '0' } }" class="codigo fuerte">{{ f.oc }}</router-link> <span class="ayuda">/{{ f.posicion }}</span>
-            <span class="sub codigo">{{ f.sku }}</span>
+            <span class="sub codigo">{{ f.sku }}<template v-if="f.almacen"> · {{ f.almacen }}</template></span>
           </td>
           <td class="num">{{ cantTxt(f.cantidad, f.unidad) }}<span v-if="f.tipo_empaque === 'PREPACK'" class="etiqueta acento">Prepack</span></td>
           <td><span class="etiqueta" :class="TONO_ETAPA[f.etapa]" style="margin-left: 0">{{ nombreEtapa[f.etapa] || f.etapa }}</span></td>

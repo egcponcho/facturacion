@@ -786,6 +786,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "id": pll.id,
             "factura_linea_id": fl.id,
             "oc_numero": fl.oc_numero,
+            "almacen": fl.almacen,
             "posicion": fl.posicion,
             "codigo_sap": fl.codigo_sap,
             "upc": fl.upc,

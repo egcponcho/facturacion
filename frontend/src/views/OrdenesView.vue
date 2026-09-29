@@ -18,7 +18,7 @@ const route = useRoute()
 const router = useRouter()
 
 // Filtros que se eligen de listas armadas con lo que realmente hay en las OCs
-const EXTRA = { sociedad: 'Sociedad', centro: 'Centro', marca: 'Marca', liberacion: 'Liberación', destino: 'Destino', puerto: 'Puerto' }
+const EXTRA = { sociedad: 'Sociedad', centro: 'Centro', almacen: 'Almacén', marca: 'Marca', liberacion: 'Liberación', destino: 'Destino', puerto: 'Puerto' }
 const filtros = reactive({
   q: route.query.q || '',
   solo_disponible: route.query.solo_disponible !== '0',
@@ -27,7 +27,7 @@ const filtros = reactive({
   size: 15,
   ...Object.fromEntries(Object.keys(EXTRA).map((k) => [k, route.query[k] || ''])),
 })
-const opcionesFiltro = ref({ sociedades: [], centros: [], marcas: [], destinos: [], puertos: [], liberaciones: [] })
+const opcionesFiltro = ref({ sociedades: [], centros: [], almacenes: [], marcas: [], destinos: [], puertos: [], liberaciones: [] })
 const activos = computed(() => Object.keys(EXTRA).filter((k) => filtros[k]).map((k) => {
   let v = filtros[k]
   if (k === 'destino') v = opcionesFiltro.value.destinos.find((d) => d.codigo === v)?.nombre || v
@@ -301,6 +301,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
     </label>
     <select v-model="filtros.sociedad" aria-label="Sociedad" @change="filtrar"><option value="">Sociedad: todas</option><option v-for="v in opcionesFiltro.sociedades" :key="v">{{ v }}</option></select>
     <select v-model="filtros.centro" aria-label="Centro" @change="filtrar"><option value="">Centro: todos</option><option v-for="v in opcionesFiltro.centros" :key="v">{{ v }}</option></select>
+    <select v-model="filtros.almacen" aria-label="Almacén" @change="filtrar"><option value="">Almacén: todos</option><option v-for="v in opcionesFiltro.almacenes" :key="v">{{ v }}</option></select>
     <select v-model="filtros.marca" aria-label="Marca" @change="filtrar"><option value="">Marca: todas</option><option v-for="v in opcionesFiltro.marcas" :key="v">{{ v }}</option></select>
     <select v-model="filtros.destino" aria-label="País destino" @change="filtrar"><option value="">Destino: todos</option><option v-for="d in opcionesFiltro.destinos" :key="d.codigo" :value="d.codigo">{{ d.codigo }} · {{ d.nombre }}</option></select>
     <select v-model="filtros.puerto" aria-label="Puerto de despacho" @change="filtrar"><option value="">Puerto: todos</option><option v-for="d in opcionesFiltro.puertos" :key="d.codigo" :value="d.codigo">{{ d.codigo }} · {{ d.nombre }}</option></select>
@@ -352,7 +353,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
               <span class="sub">{{ fmtFecha(oc.fecha) }} · {{ oc.posiciones }} posiciones<template v-if="oc.marcas.length"> · {{ oc.marcas.join(', ') }}</template></span>
             </td>
             <td v-if="!sesion.proveedorId">{{ oc.proveedor }}</td>
-            <td><span class="codigo">{{ oc.sociedad }} · {{ oc.centro || '—' }}</span><span class="sub">{{ oc.almacen || 'Sin almacén' }}</span></td>
+            <td><span class="codigo">{{ oc.sociedad }} · {{ oc.centro || '—' }}</span><span class="sub" :title="oc.almacenes.length > 1 ? 'Las posiciones van a distintos almacenes' : ''">{{ oc.almacenes.join(' · ') || 'Sin almacén' }}</span></td>
             <td>
               <span class="codigo">{{ oc.pais_destino || '—' }}</span>
               <span class="sub">{{ oc.puerto_despacho || 'Sin puerto' }}<template v-if="oc.pais_origen"> · origen {{ oc.pais_origen }}</template></span>
@@ -389,6 +390,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                           <input type="checkbox" aria-label="Seleccionar las posiciones con saldo" :checked="selPos.todos(seleccionables(oc.id))" @change="selPos.alternarTodos(seleccionables(oc.id))" />
                         </th>
                         <th>Pos.</th>
+                        <th>Almacén</th>
                         <th>Producto</th>
                         <th>Talla</th>
                         <th>Empaque</th>
@@ -406,6 +408,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                           <input type="checkbox" :aria-label="`Seleccionar posición ${p.posicion}`" :disabled="!p.disponible || p.estado === 'NO_DISPONIBLE'" :checked="selPos.tiene(p.id)" @change="selPos.alternar(p.id)" />
                         </td>
                         <td class="codigo">{{ p.posicion }}</td>
+                        <td class="codigo">{{ p.almacen || '—' }}</td>
                         <td>
                           <span v-if="p.marca" class="fuerte">{{ p.marca }}</span> {{ p.estilo }} · {{ p.color }}
                           <span class="sub codigo">{{ p.codigo_sap }}<template v-if="p.grupo"> · {{ p.grupo }}</template></span>

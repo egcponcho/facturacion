@@ -291,8 +291,8 @@ def test_importacion_oc(interno):
     cab = oc["oc"]
     enc = ("proveedor,oc,posicion,sociedad,centro,almacen,pais_destino,moneda,incoterm,sku,cantidad,precio,"
            "puerto,pais_origen,fecha_xf_original,fecha_tienda,liberacion_comercial\n")
-    fila = lambda oc_n, pos, sku, cant, lib="C": (  # noqa: E731
-        f"VANS,{oc_n},{pos},8000,8020,BF20,2220,USD,FOB,{sku},{cant},25.5,VNSGN,VN,{cab['fecha_xf_original']},"
+    fila = lambda oc_n, pos, sku, cant, lib="C", alm="BF20": (  # noqa: E731
+        f"VANS,{oc_n},{pos},8000,8020,{alm},2220,USD,FOB,{sku},{cant},25.5,VNSGN,VN,{cab['fecha_xf_original']},"
         f"{cab['fecha_tienda']},{lib}\n")
     csv = (enc + fila("4400009999", "10", pos10["codigo_sap"], 24, "P")
            + fila("4400003901", "10", pos10["codigo_sap"], 10)
@@ -316,6 +316,20 @@ def test_importacion_oc(interno):
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("x.csv", (
         enc + fila("4400009998", "10", "NOEXISTE", 1)).encode(), "text/csv")})
     assert r.json()["resumen"]["error"] == 1 and "maestro" in r.json()["filas"][0]["mensajes"][0]
+    # Misma sociedad y centro, cada posición en su almacén; un almacén de otra sociedad no entra
+    r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("a.csv", (
+        enc + fila("4400009997", "10", pos10["codigo_sap"], 12, alm="BF19")
+        + fila("4400009997", "20", pos10["codigo_sap"], 12, alm="BF20")
+        + fila("4400009996", "10", pos10["codigo_sap"], 12, alm="BF01")).encode(), "text/csv")})
+    res = r.json()
+    assert res["resumen"]["nuevo"] == 2 and res["resumen"]["error"] == 1, res
+    assert "no pertenece a la sociedad" in res["filas"][-1]["mensajes"][0]
+    interno.post(f"/ordenes/importar/{res['importacion_id']}/aplicar")
+    oc = interno.get("/ordenes", params={"q": "4400009997", "solo_disponible": False}).json()["items"][0]
+    assert oc["almacenes"] == ["BF19", "BF20"]
+    det = interno.get(f"/ordenes/{oc['id']}/posiciones").json()["posiciones"]
+    assert [p["almacen"] for p in det] == ["BF19", "BF20"]
+    assert interno.get("/ordenes", params={"almacen": "BF19", "q": "4400009997", "solo_disponible": False}).json()["total"] == 1
 
 
 def test_exportar(tnf):

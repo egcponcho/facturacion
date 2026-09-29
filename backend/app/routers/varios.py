@@ -17,10 +17,11 @@ def dashboard(db: Db, user: User, proveedor_id: int | None = None):
 @router.get("/seguimiento")
 def seguimiento(db: Db, user: User, proveedor_id: int | None = None, q: str | None = None, marca: str | None = None,
                 estilo: str | None = None, color: str | None = None, talla: str | None = None,
-                etapa: str | None = None, riesgo: str | None = None, embarque_id: int | None = None,
-                orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
-    return seg.seguimiento(db, user, proveedor_id, q, marca, estilo, color, talla, etapa, riesgo, embarque_id,
-                           orden, page, size)
+                almacen: str | None = None, etapa: str | None = None, riesgo: str | None = None,
+                embarque_id: int | None = None, orden: str | None = None, page: int = Query(1, ge=1),
+                size: int = Query(25, ge=1, le=200)):
+    return seg.seguimiento(db, user, proveedor_id, q, marca, estilo, color, talla, almacen=almacen, etapa=etapa,
+                           riesgo=riesgo, embarque_id=embarque_id, orden=orden, page=page, size=size)
 
 
 @router.get("/alertas")

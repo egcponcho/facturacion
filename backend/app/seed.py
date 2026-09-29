@@ -94,10 +94,10 @@ def _catalogos(db: Session) -> dict:
     db.add_all(centros.values())
     db.flush()
     db.add_all([
-        Almacen(codigo="BF19", centro_id=centros["8010"].id, nombre="Almacén detalle San Salvador", tipo="DETALLE"),
-        Almacen(codigo="BF20", centro_id=centros["8020"].id, nombre="Almacén mayoreo San Bartolo", tipo="MAYOREO"),
-        Almacen(codigo="BF01", centro_id=centros["PA10"].id, nombre="Almacén detalle Colón", tipo="DETALLE"),
-        Almacen(codigo="BF02", centro_id=centros["PA20"].id, nombre="Almacén mayoreo Panamá Pacífico", tipo="MAYOREO"),
+        Almacen(codigo="BF19", sociedad_id=s8000.id, nombre="Almacén detalle El Salvador", tipo="DETALLE"),
+        Almacen(codigo="BF20", sociedad_id=s8000.id, nombre="Almacén mayoreo El Salvador", tipo="MAYOREO"),
+        Almacen(codigo="BF01", sociedad_id=spa01.id, nombre="Almacén detalle Panamá", tipo="DETALLE"),
+        Almacen(codigo="BF02", sociedad_id=spa01.id, nombre="Almacén mayoreo Panamá", tipo="MAYOREO"),
     ])
     soc = {"8000": s8000.id, "PA01": spa01.id}
     db.add_all([PaisDestino(codigo=c, pais=p, nombre=n, sociedad_id=soc[s]) for c, p, n, s in DESTINOS])
@@ -143,19 +143,20 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
 
 def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", almacen="BF19", destino="2220",
         puerto="VNSGN", origen="VN", xf=None, xf_nueva=None, tienda=None, comercial="C", logistica="300"):
-    """lineas: [(estilo, color, [(talla, cantidad), ...])]; posiciones de 10 en 10."""
-    oc = OrdenCompra(proveedor_id=prov.id, numero=numero, sociedad=sociedad, centro=centro, almacen=almacen,
+    """lineas: [(estilo, color, [(talla, cantidad), ...], almacén opcional)]; posiciones de 10 en 10.
+    Cada posición puede ir a un almacén distinto dentro de la misma sociedad y centro."""
+    oc = OrdenCompra(proveedor_id=prov.id, numero=numero, sociedad=sociedad, centro=centro,
                      pais_destino=destino, moneda="USD", incoterm="FOB", fecha=fecha, puerto_despacho=puerto,
                      pais_origen=origen, pais_procedencia=origen, fecha_xf_original=xf, fecha_xf=xf_nueva or xf,
                      fecha_tienda=tienda, liberacion_comercial=comercial, liberacion_logistica=logistica,
                      liberada=comercial == "C")
     db.add(oc)
     pos = 10
-    for estilo, color, tallas in lineas:
+    for estilo, color, tallas, *alm in lineas:
         for talla, cantidad in tallas:
             a = arts[(estilo, color, talla)]
             oc.posiciones.append(PosicionOC(
-                posicion=str(pos), articulo_id=a.id, codigo_sap=a.sku, upc=a.upc, estilo=a.estilo, color=a.color,
+                posicion=str(pos), almacen=alm[0] if alm else almacen, articulo_id=a.id, codigo_sap=a.sku, upc=a.upc, estilo=a.estilo, color=a.color,
                 talla=a.talla, descripcion=a.descripcion, marca=a.marca.codigo, grupo=a.grupo.codigo,
                 categoria=a.grupo.categoria, tipo_empaque=a.tipo, casepack=a.casepack,
                 prepack=a.prepack.codigo if a.prepack else None,
@@ -181,7 +182,7 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
     f.packing_lists.append(pl)
     for p in oc.posiciones:
         linea = FacturaLinea(posicion_oc=p, cantidad=p.cantidad, precio_unitario=p.precio, precio_oc=p.precio,
-                             oc_numero=oc.numero, posicion=p.posicion, codigo_sap=p.codigo_sap, upc=p.upc,
+                             oc_numero=oc.numero, almacen=p.almacen, posicion=p.posicion, codigo_sap=p.codigo_sap, upc=p.upc,
                              estilo=p.estilo, color=p.color, talla=p.talla, descripcion=p.descripcion,
                              unidad=p.unidad, marca=p.marca, categoria=p.categoria, tipo_empaque=p.tipo_empaque,
                              casepack=p.casepack, pais_destino=oc.pais_destino, pais_origen=p.pais_origen,
@@ -280,7 +281,7 @@ def seed(db: Session) -> None:
 
     _oc(db, tnf, arts, "4400003845", d(-20), [
         ("NF0A5GLL", "JK3 TNF Black", [("S", 40), ("M", 60), ("L", 60), ("XL", 27), ("XXL", 20)]),
-        ("NF0A7W4G", "KX7 Negro", [("8", 24), ("9", 36), ("10", 50), ("11", 36), ("12", 12)]),
+        ("NF0A7W4G", "KX7 Negro", [("8", 24), ("9", 36), ("10", 50), ("11", 36), ("12", 12)], "BF20"),
     ], xf=d(10), xf_nueva=d(14), tienda=d(75))
     _oc(db, tnf, arts, "4400003846", d(-12), [
         ("NF0A3VY2", "JK3 TNF Black", [("OS", 120)]),
@@ -291,7 +292,8 @@ def seed(db: Session) -> None:
     _oc(db, tnf, arts, "4400003851", d(-2), [("NF0A5IHO", "Gris melange", [("S", 20), ("M", 20)])],
         origen="KH", puerto="KHKOS", xf=d(35), tienda=d(100), comercial="P", logistica="304")
     _oc(db, vans, arts, "4400003901", d(-15), [
-        ("VN000EE3", "BLK Negro", [("7", 36), ("8", 48), ("9", 60), ("10", 48), ("11", 24)]),
+        ("VN000EE3", "BLK Negro", [("7", 36), ("8", 48), ("9", 60)], "BF19"),
+        ("VN000EE3", "BLK Negro", [("10", 48), ("11", 24)]),
     ], centro="8020", almacen="BF20", xf=d(12), tienda=d(60))
     _oc(db, vans, arts, "4400003902", d(-5), [("VN0A4BV4", "Blanco", [("7", 24), ("8", 24), ("9", 24), ("10", 24)])],
         centro="8020", almacen="BF20", puerto="CNSHA", origen="CN", xf=d(25), xf_nueva=d(22), tienda=d(90),
