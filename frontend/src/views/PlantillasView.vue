@@ -2,11 +2,15 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import { api } from '../api'
 import CeldaEditable from '../components/CeldaEditable.vue'
+import Paginacion from '../components/Paginacion.vue'
+import ThOrden from '../components/ThOrden.vue'
+import { useTabla } from '../composables/useTabla'
 import { esInterno, nombreProveedor, sesion } from '../stores/sesion'
 import { avisar, errorApi, guardando } from '../stores/ui'
 
 const lista = ref([])
 const incluirInactivas = ref(false)
+const tabla = useTabla(lista, { orden: 'nombre:asc' })
 const vacia = () => ({ nombre: '', cantidad_por_caja: '', unidad: 'PAR', largo: '', ancho: '', alto: '', peso_neto: '', peso_bruto: '', tara: '' })
 const nueva = reactive(vacia())
 const NUMERICOS = ['largo', 'ancho', 'alto', 'peso_neto', 'peso_bruto', 'tara']
@@ -77,7 +81,7 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
         <label class="campo"><span class="req">Nombre</span><input v-model="nueva.nombre" required /></label>
         <label class="campo"><span class="req">Cantidad por caja</span><input v-model="nueva.cantidad_por_caja" type="number" min="1" required /></label>
         <label class="campo"><span class="req">Unidad</span>
-          <select v-model="nueva.unidad"><option value="PAR">Pares</option><option value="UN">Unidades</option></select>
+          <select v-model="nueva.unidad"><option value="PAR">Pares</option><option value="UN">Unidades</option><option value="CJ">Cajas prepack (curvas)</option></select>
         </label>
         <label class="campo"><span>Largo cm</span><input v-model="nueva.largo" type="number" min="0" step="any" /></label>
         <label class="campo"><span>Ancho cm</span><input v-model="nueva.ancho" type="number" min="0" step="any" /></label>
@@ -93,13 +97,13 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
     <div class="filtros mt">
       <label class="check"><input v-model="incluirInactivas" type="checkbox" /> Mostrar inactivas</label>
     </div>
-    <div class="tabla-marco">
+    <div class="tabla-marco tabla-fija">
       <table class="tabla">
         <thead>
           <tr>
-            <th>Nombre</th>
-            <th class="num">Por caja</th>
-            <th>Unidad</th>
+            <ThOrden campo="nombre" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Nombre</ThOrden>
+            <ThOrden campo="cantidad_por_caja" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">Por caja</ThOrden>
+            <ThOrden campo="unidad" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Unidad</ThOrden>
             <th class="num">Largo</th>
             <th class="num">Ancho</th>
             <th class="num">Alto</th>
@@ -110,12 +114,12 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
           </tr>
         </thead>
         <tbody>
-          <tr v-for="t in lista" :key="t.id" :class="{ apagado: !t.activa }">
+          <tr v-for="t in tabla.filas.value" :key="t.id" :class="{ apagado: !t.activa }">
             <td style="min-width: 200px"><CeldaEditable :valor="t.nombre" :guardar="guardarCampo(t, 'nombre')" etiqueta="Nombre" /></td>
             <td class="num" style="width: 90px"><CeldaEditable tipo="number" :min="1" paso="1" :valor="t.cantidad_por_caja" :guardar="guardarCampo(t, 'cantidad_por_caja')" etiqueta="Cantidad por caja" /></td>
             <td>
               <select class="celda" :value="t.unidad" aria-label="Unidad" @change="guardarCampo(t, 'unidad')($event.target.value).catch(() => {})">
-                <option value="PAR">Pares</option><option value="UN">Unidades</option>
+                <option value="PAR">Pares</option><option value="UN">Unidades</option><option value="CJ">Cajas prepack</option>
               </select>
             </td>
             <td v-for="c in ['largo', 'ancho', 'alto', 'peso_neto', 'peso_bruto', 'tara']" :key="c" class="num" style="width: 88px">
@@ -127,5 +131,7 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
         </tbody>
       </table>
     </div>
+    <Paginacion :page="tabla.estado.pagina" :size="tabla.estado.porPagina" :total="tabla.total.value"
+                @cambiar="(p) => (tabla.estado.pagina = p)" @tamano="(t) => (tabla.estado.porPagina = t)" />
   </template>
 </template>

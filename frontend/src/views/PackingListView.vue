@@ -8,7 +8,10 @@ import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import Paginacion from '../components/Paginacion.vue'
 import Pasos from '../components/Pasos.vue'
+import ThOrden from '../components/ThOrden.vue'
+import { useTabla } from '../composables/useTabla'
 import { avisar, errorApi, guardando, textoDetalle } from '../stores/ui'
 import { cantTxt, fmtNum, pct, plural, porUnidadTxt, useSeleccion } from '../utils'
 
@@ -128,7 +131,14 @@ const lineasFiltradas = computed(() => {
     (!filtro.solo_pendiente || l.sin_caja > 0) &&
     (!q || [l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc].some((v) => (v || '').toLowerCase().includes(q))))
 })
+const tablaL = useTabla(lineasFiltradas, { porPagina: 25, valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
+const tablaG = useTabla(computed(() => pl.value?.grupos || []), { porPagina: 25, valores: { rango: (g) => g.desde, etiqueta: (g) => g.etiqueta?.tipo } })
 const idsFiltrados = computed(() => lineasFiltradas.value.map((l) => l.id))
+
+// Regla de empaque del artículo: prepack (1 curva por caja), casepack exacto o libre
+const REGLAS = { PREPACK: ['Prepack', 'acento'], CASEPACK: ['Casepack', 'info'], LIBRE: ['Libre', ''] }
+const reglaTxt = (l) => (l.regla === 'PREPACK' ? `Prepack ${l.prepack || ''} · ${l.unidades_por_caja || '?'} pares` : l.regla === 'CASEPACK' ? `Casepack ${l.casepack}` : 'Casepack libre')
+const porCajaRegla = (l) => (l.regla === 'PREPACK' ? 1 : l.regla === 'CASEPACK' ? l.casepack : null)
 const selLineas = computed(() => (pl.value?.lineas || []).filter((l) => selL.tiene(l.id)))
 const selConPendiente = computed(() => selLineas.value.filter((l) => l.sin_caja > 0))
 const resumenSelLineas = computed(() => {
@@ -144,11 +154,14 @@ function sugerida(l) {
   const s = plantillas.value.find((t) => t.id === l.plantilla_sugerida_id && t.unidad === l.unidad)
   return (s || plantillas.value.find((t) => t.unidad === l.unidad))?.id || ''
 }
+// Con casepack o prepack la plantilla solo aporta medidas y pesos: sirve cualquiera
+const plantillasFila = (f) => (f.regla === 'LIBRE' ? plantillasDe(f.unidad) : plantillas.value)
 
 // ---- Empaque automático: cada fila con su plantilla ------------------------
 function abrirAuto(soloSeleccion = false) {
   const filas = (soloSeleccion ? selConPendiente.value : pendientes.value).map((l) => ({
     pl_linea_id: l.id, ref: ref_(l), unidad: l.unidad, sin_caja: l.sin_caja, plantilla_id: sugerida(l),
+    regla: l.regla, por_caja: porCajaRegla(l), regla_txt: reglaTxt(l),
   }))
   modal.value = { tipo: 'auto', filas, sobrante: 'caja_parcial' }
 }
@@ -161,10 +174,11 @@ const calculoAuto = computed(() => {
   let validas = 0
   const filas = m.filas.map((f) => {
     const t = plantillas.value.find((x) => x.id === f.plantilla_id)
-    if (!t) return { ...f, cajas: null, sobrante: null }
+    const porCaja = f.por_caja || t?.cantidad_por_caja
+    if (!porCaja || f.plantilla_id === 'omitir') return { ...f, cajas: null, sobrante: null }
     validas++
-    const cajas = Math.floor(f.sin_caja / t.cantidad_por_caja)
-    const resto = f.sin_caja % t.cantidad_por_caja
+    const cajas = Math.floor(f.sin_caja / porCaja)
+    const resto = f.sin_caja % porCaja
     completas += cajas
     if (resto) {
       parciales++
@@ -178,11 +192,12 @@ const plantillasDe = (unidad) => plantillas.value.filter((t) => t.unidad === uni
 const unidadesAuto = computed(() => [...new Set((modal.value?.filas || []).map((f) => f.unidad))])
 function aplicarATodas(unidad, id) {
   if (!id) return
-  for (const f of modal.value.filas) if (f.unidad === unidad) f.plantilla_id = Number(id)
+  for (const f of modal.value.filas) if (f.unidad === unidad || f.regla !== 'LIBRE') f.plantilla_id = Number(id)
 }
 function empacarAuto() {
   const m = modal.value
-  const filas = m.filas.filter((f) => f.plantilla_id).map((f) => ({ pl_linea_id: f.pl_linea_id, plantilla_id: f.plantilla_id }))
+  const filas = m.filas.filter((f) => f.plantilla_id !== 'omitir' && (f.plantilla_id || f.por_caja))
+    .map((f) => ({ pl_linea_id: f.pl_linea_id, plantilla_id: f.plantilla_id || null }))
   accion(() => api.post(url('/empaque/aplicar'), { version: pl.value.version, filas, sobrante: m.sobrante }), (r) => {
     selL.limpiar()
     const partesTxt = [plural(r.resumen.cajas_completas, 'caja completa', 'cajas completas')]
@@ -401,9 +416,9 @@ onMounted(cargar)
       </div>
       <template v-else>
         <div class="opciones-empaque">
-          <button class="opcion recomendada" :disabled="!pendientes.length || !plantillas.length" @click="abrirAuto(selConPendiente.length > 0)">
+          <button class="opcion recomendada" :disabled="!pendientes.length || (!plantillas.length && !pendientes.some((l) => l.regla !== 'LIBRE'))" @click="abrirAuto(selConPendiente.length > 0)">
             <span class="opcion-icono"><Icono nombre="varita" /></span>
-            <b>Empacar con plantillas <span class="etiqueta acento">Recomendado</span></b>
+            <b>Empacar automático <span class="etiqueta acento">Recomendado</span></b>
             <span>{{ selConPendiente.length ? `Las ${selConPendiente.length} filas seleccionadas` : `Todas las filas (${pendientes.length})` }} en un paso. Cada producto usa su plantilla de caja; tú decides qué hacer con el sobrante.</span>
             <span v-if="!plantillas.length" class="etiqueta aviso">Crea una plantilla primero</span>
           </button>
@@ -429,35 +444,38 @@ onMounted(cargar)
             <button class="segmento" :aria-pressed="!filtro.solo_pendiente" @click="filtro.solo_pendiente = false">Todo<span class="cuenta">{{ pl.lineas.length }}</span></button>
           </div>
         </div>
-        <div class="tabla-marco">
+        <div class="tabla-marco tabla-fija">
           <table class="tabla">
             <thead>
               <tr>
                 <th class="chk"><input type="checkbox" aria-label="Seleccionar todas las filas filtradas" :checked="selL.todos(idsFiltrados)" @change="selL.alternarTodos(idsFiltrados)" /></th>
-                <th>Producto</th>
-                <th>Talla</th>
-                <th>OC / pos.</th>
-                <th class="num">Cantidad</th>
-                <th class="num">En cajas</th>
-                <th class="num">Sin caja</th>
+                <ThOrden campo="estilo" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Producto</ThOrden>
+                <ThOrden campo="talla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Talla</ThOrden>
+                <ThOrden campo="oc" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">OC / pos.</ThOrden>
+                <ThOrden campo="regla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Regla</ThOrden>
+                <ThOrden campo="cantidad" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">Cantidad</ThOrden>
+                <ThOrden campo="en_cajas" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">En cajas</ThOrden>
+                <ThOrden campo="sin_caja" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">Sin caja</ThOrden>
                 <th>Plantilla sugerida</th>
-                <th>Empaque</th>
+                <ThOrden campo="estado_empaque" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Empaque</ThOrden>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="l in lineasFiltradas" :key="l.id" :class="{ seleccionada: selL.tiene(l.id) }">
+              <tr v-for="l in tablaL.filas.value" :key="l.id" :class="{ seleccionada: selL.tiene(l.id) }">
                 <td class="chk"><input type="checkbox" :aria-label="`Seleccionar ${ref_(l)}`" :checked="selL.tiene(l.id)" @change="selL.alternar(l.id)" /></td>
-                <td>{{ l.estilo }} · {{ l.color }}
+                <td><span v-if="l.marca" class="fuerte">{{ l.marca }}</span> {{ l.estilo }} · {{ l.color }}
                   <span v-if="partes.cuenta[l.factura_linea_id] > 1" class="etiqueta">parte {{ partes.indice[l.id] }}</span>
                   <span class="sub codigo">{{ l.codigo_sap }}</span>
                 </td>
                 <td><strong>{{ l.talla }}</strong></td>
-                <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}</td>
+                <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.pais_destino" class="sub">destino {{ l.pais_destino }}</span></td>
+                <td><span class="etiqueta" :class="REGLAS[l.regla]?.[1]" style="margin-left: 0">{{ reglaTxt(l) }}</span></td>
                 <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
                 <td class="num">{{ fmtNum(l.en_cajas) }}</td>
                 <td class="num"><strong v-if="l.sin_caja">{{ fmtNum(l.sin_caja) }}</strong><span v-else class="apagado">0</span></td>
                 <td>
                   <span v-if="sugerida(l)">{{ nombrePlantilla(sugerida(l)) }}<span v-if="l.plantilla_sugerida_id === sugerida(l)" class="etiqueta info" title="Es la que usaste la última vez con este producto">usada antes</span></span>
+                  <span v-else-if="l.regla !== 'LIBRE'" class="apagado">No hace falta (usa el casepack)</span>
                   <span v-else class="apagado">Sin plantilla para {{ l.unidad === 'PAR' ? 'pares' : 'unidades' }}</span>
                 </td>
                 <td>
@@ -466,14 +484,16 @@ onMounted(cargar)
                 </td>
               </tr>
               <tr v-if="!lineasFiltradas.length">
-                <td colspan="9" class="vacio">{{ pl.lineas.length ? 'Ninguna fila coincide con el filtro.' : 'El packing list está vacío.' }}</td>
+                <td colspan="10" class="vacio">{{ pl.lineas.length ? 'Ninguna fila coincide con el filtro.' : 'El packing list está vacío.' }}</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <Paginacion :page="tablaL.estado.pagina" :size="tablaL.estado.porPagina" :total="tablaL.total.value"
+                    @cambiar="(p) => (tablaL.estado.pagina = p)" @tamano="(t) => (tablaL.estado.porPagina = t)" />
         <BarraSeleccion :cantidad="selL.ids.size" singular="fila seleccionada" plural="filas seleccionadas" @limpiar="selL.limpiar()">
           <template #resumen>{{ resumenSelLineas }}</template>
-          <button class="btn btn-primario" :disabled="!selConPendiente.length || !plantillas.length" @click="abrirAuto(true)"><Icono nombre="varita" :tam="15" />Empacar con plantillas</button>
+          <button class="btn btn-primario" :disabled="!selConPendiente.length" @click="abrirAuto(true)"><Icono nombre="varita" :tam="15" />Empacar automático</button>
           <button class="btn" :disabled="!selConPendiente.length" @click="abrirCaja"><Icono nombre="caja" :tam="15" />{{ selConPendiente.length > 1 ? 'Caja mixta' : 'Caja manual' }}</button>
           <button class="btn" :disabled="!selConPendiente.length" @click="abrirMover"><Icono nombre="mover" :tam="15" />Mover a otro PL</button>
           <button class="btn btn-peligro" :disabled="!selConPendiente.length" @click="abrirQuitar">Quitar del PL</button>
@@ -488,13 +508,17 @@ onMounted(cargar)
         <span>{{ plural(estimadas.length, 'grupo de cajas tiene', 'grupos de cajas tienen') }} peso estimado (cajas parciales). Pésalas y corrige, o confirma el estimado.</span>
         <button class="btn btn-chico separar" :disabled="ocupado" @click="confirmarPesos(estimadas)">Confirmar todos los estimados</button>
       </p>
-      <div class="tabla-marco">
+      <p v-if="pl.avisos?.length" class="nota aviso bloque" style="margin-bottom: 12px">
+        <Icono nombre="alerta" />
+        <span><b>Revisa con el Commercial Brand Manager:</b> <template v-for="a in pl.avisos" :key="a.grupo_id">{{ a.mensaje }} </template></span>
+      </p>
+      <div class="tabla-marco tabla-fija">
         <table class="tabla">
           <thead>
             <tr>
               <th class="chk"><input type="checkbox" aria-label="Seleccionar todas las cajas" :checked="selG.todos(idsGrupos)" @change="selG.alternarTodos(idsGrupos)" /></th>
-              <th>Cajas</th>
-              <th>Contenido por caja</th>
+              <ThOrden campo="rango" :orden="tablaG.estado.orden" @ordenar="tablaG.ordenar">Cajas</ThOrden>
+              <ThOrden campo="etiqueta" :orden="tablaG.estado.orden" @ordenar="tablaG.ordenar">Contenido por caja</ThOrden>
               <th class="num">N.º</th>
               <th class="num"><span class="req">Largo</span></th>
               <th class="num"><span class="req">Ancho</span></th>
@@ -507,7 +531,7 @@ onMounted(cargar)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="g in pl.grupos" :key="g.id" :class="{ seleccionada: selG.tiene(g.id) }">
+            <tr v-for="g in tablaG.filas.value" :key="g.id" :class="{ seleccionada: selG.tiene(g.id) }">
               <td class="chk"><input type="checkbox" :aria-label="`Seleccionar cajas ${rango(g)}`" :checked="selG.tiene(g.id)" @change="selG.alternar(g.id)" /></td>
               <td class="cajas-rango">{{ rango(g) }}</td>
               <td class="envolver">
@@ -515,6 +539,14 @@ onMounted(cargar)
                   <div v-for="it in g.items" :key="it.pl_linea_id">
                     {{ it.estilo }} <b>{{ it.talla }}</b> × {{ cantTxt(it.cantidad_por_caja, it.unidad) }}
                   </div>
+                </div>
+                <div v-if="g.etiqueta" class="fila-flex" style="gap: 4px; margin-top: 4px">
+                  <span class="etiqueta" :class="g.etiqueta.tipo === 'ESTANDAR' ? 'ok' : 'acento'" style="margin-left: 0"
+                        :title="g.etiqueta.tipo === 'ESTANDAR' ? 'Una sola OC, estilo, color y talla' : 'Varias OCs, estilos, colores o tallas'">
+                    Etiqueta {{ g.etiqueta.tipo === 'ESTANDAR' ? 'estándar' : 'consolidada' }}
+                  </span>
+                  <span class="ayuda codigo">OC {{ g.etiqueta.ocs.join(', ') }}</span>
+                  <span v-if="g.etiqueta.pais_destino" class="ayuda">· destino {{ g.etiqueta.pais_destino }}</span>
                 </div>
               </td>
               <td class="num" style="width: 70px">
@@ -556,6 +588,8 @@ onMounted(cargar)
           </tfoot>
         </table>
       </div>
+      <Paginacion :page="tablaG.estado.pagina" :size="tablaG.estado.porPagina" :total="tablaG.total.value"
+                  @cambiar="(p) => (tablaG.estado.pagina = p)" @tamano="(t) => (tablaG.estado.porPagina = t)" />
       <BarraSeleccion :cantidad="selG.ids.size" singular="grupo seleccionado" plural="grupos seleccionados" @limpiar="selG.limpiar()">
         <template #resumen>{{ plural(cajasSel, 'caja', 'cajas') }}</template>
         <template v-if="editable">
@@ -650,11 +684,11 @@ onMounted(cargar)
   </template>
 
   <!-- Modales -->
-  <Modal v-if="modal?.tipo === 'auto'" titulo="Empacar con plantillas" ancho="820px" @cerrar="modal = null">
-    <p class="ayuda">Cada fila se empaca en cajas completas con la plantilla que elijas. Ya viene sugerida la que usaste antes con cada producto.</p>
+  <Modal v-if="modal?.tipo === 'auto'" titulo="Empacar automático" ancho="1000px" @cerrar="modal = null">
+    <p class="ayuda">Cada fila se empaca en cajas completas. Si el artículo trae <b>casepack</b>, cada caja lleva exactamente esa cantidad (sin mezclar tallas); un <b>prepack</b> va una curva por caja master. Sin casepack, la cantidad por caja la da la plantilla. La plantilla también aporta medidas y pesos.</p>
     <div class="fila-flex">
       <label v-for="u in unidadesAuto" :key="u" class="campo" style="min-width: 240px">
-        <span>Usar para todas las filas en {{ u === 'PAR' ? 'pares' : 'unidades' }}</span>
+        <span>Plantilla para todas las filas en {{ { PAR: 'pares', UN: 'unidades', CJ: 'cajas prepack' }[u] }}</span>
         <select @change="aplicarATodas(u, $event.target.value); $event.target.value = ''">
           <option value="">Elegir plantilla…</option>
           <option v-for="t in plantillasDe(u)" :key="t.id" :value="t.id">{{ t.nombre }} ({{ t.cantidad_por_caja }} por caja)</option>
@@ -663,15 +697,18 @@ onMounted(cargar)
     </div>
     <div class="tabla-marco" style="max-height: 320px; overflow-y: auto; box-shadow: none">
       <table class="tabla">
-        <thead><tr><th>Fila</th><th class="num">Sin caja</th><th>Plantilla</th><th class="num">Cajas</th><th class="num">Sobrante</th></tr></thead>
+        <thead><tr><th>Fila</th><th>Regla</th><th class="num">Sin caja</th><th>Plantilla</th><th class="num">Cajas</th><th class="num">Sobrante</th></tr></thead>
         <tbody>
           <tr v-for="(f, i) in calculoAuto.filas" :key="f.pl_linea_id">
             <td>{{ f.ref }}</td>
+            <td><span class="etiqueta" :class="REGLAS[f.regla]?.[1]" style="margin-left: 0">{{ f.regla_txt }}</span></td>
             <td class="num">{{ cantTxt(f.sin_caja, f.unidad) }}</td>
             <td>
-              <select v-model="modal.filas[i].plantilla_id" class="entrada" style="max-width: 240px" :aria-label="`Plantilla para ${f.ref}`">
-                <option value="">No empacar esta fila</option>
-                <option v-for="t in plantillasDe(f.unidad)" :key="t.id" :value="t.id">{{ t.nombre }} ({{ t.cantidad_por_caja }})</option>
+              <select v-model="modal.filas[i].plantilla_id" class="entrada" style="max-width: 210px" :aria-label="`Plantilla para ${f.ref}`">
+                <option value="omitir">No empacar esta fila</option>
+                <option v-if="f.regla !== 'LIBRE'" value="">Sin plantilla (medidas después)</option>
+                <option v-else value="" disabled>Elige una plantilla…</option>
+                <option v-for="t in plantillasFila(f)" :key="t.id" :value="t.id">{{ t.nombre }}<template v-if="f.regla === 'LIBRE'"> ({{ t.cantidad_por_caja }})</template></option>
               </select>
             </td>
             <template v-if="f.cajas !== null">
@@ -688,7 +725,7 @@ onMounted(cargar)
     </div>
     <div v-if="calculoAuto.sobrante" class="nota aviso bloque">
       {{ plural(calculoAuto.parciales, 'fila deja', 'filas dejan') }} un sobrante que no llena una caja ({{ fmtNum(calculoAuto.sobrante) }} en total). ¿Qué hacemos con él?
-      <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="caja_parcial" /> Una caja parcial por fila, con las medidas de la plantilla y el peso estimado (lo confirmas después)</label>
+      <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="caja_parcial" /> Una caja parcial por fila, con las medidas de la plantilla y el peso estimado (lo confirmas después). En artículos con casepack queda marcada como caja incompleta.</label>
       <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="sin_caja" /> Dejarlo sin caja para armar cajas mixtas a mano</label>
     </div>
     <template #pie>

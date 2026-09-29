@@ -60,11 +60,47 @@ La misma imagen funciona en Railway, Fly.io o Google Cloud Run: define `DATABASE
 Los datos de prueba ya traen historia: facturas de meses anteriores, un contenedor recibido, otro en tránsito y una factura lista para embarcar, para que el tablero de inicio tenga contenido desde el primer día.
 
 1. Entra como **tnf@demo.com** (en la pantalla de inicio de sesión basta un clic en “The North Face”). El **Inicio** muestra lo que falta facturar, empacar y finalizar, dónde está la mercancía y los envíos en camino.
-2. En *Órdenes de compra*, en la OC 4500012345, pulsa **Facturar** (o ábrela y cambia “A facturar” para tomar solo una parte; se pueden juntar varias OCs). Revisa la selección y pulsa **Crear factura**.
+2. En *Órdenes de compra*, en la OC 4400003845, pulsa **Facturar** (o ábrela y cambia “A facturar” para tomar solo una parte; se pueden juntar varias OCs). Revisa la selección y pulsa **Crear factura**.
 3. En la factura, los pasos de arriba dicen qué falta. Pulsa **Empacar pendientes**: crea el packing list con todo y lo abre.
-4. En *Por empacar*, pulsa **Empacar con plantillas**. Cada producto trae sugerida la plantilla que se usó antes con ese estilo; la talla XL (27) deja 2 cajas de 10 y un sobrante de 7, que va a una caja parcial con peso estimado (o se queda sin caja, si lo prefieres).
+4. En *Por empacar*, pulsa **Empacar automático**. Los artículos con casepack se empacan con esa cantidad exacta por caja; los demás usan la plantilla sugerida (la que se usó antes con ese estilo). El sobrante que no llena una caja va a una caja parcial con peso estimado (o se queda sin caja, si lo prefieres).
 5. En *Revisión*, **Confirmar estimados** y **Finalizar packing list**. Vuelve a la factura, escribe número y fecha en la cabecera y pulsa **Finalizar**.
 6. Entra como **interno@demo.com**, abre *Embarques* → EMB-0003, elige el 40HC #1 y pulsa **Asignar carga**: marca la factura y asígnala; lo que ya está finalizado se confirma en el mismo paso. Luego **Registrar salida**. El proveedor ve el tránsito desde su factura y su inicio.
+
+7. En *Seguimiento* se ve cada SKU por etapa (por liberar, por facturar, en PL, en contenedor, en tránsito, recibido), por marca, estilo, color y talla, con la holgura frente a la fecha requerida en tienda. En *Mantenimiento* están todos los datos maestros.
+
+## Datos maestros (Mantenimiento)
+
+Un solo lugar, con alta, edición, baja y filtros, para: **sociedades** (8000, PA01), **centros** o bodegas fiscales (8010, 8020, PA10, PA20), **almacenes** con su tipo virtual, detalle o mayoreo (BF19, BF20, BF01, BF02), **países**, **países de destino** (código de 4 dígitos que viene en la OC, p. ej. 2220 El Salvador), **puertos**, **marcas**, **grupos de artículos** (cada artículo pertenece a uno; el grupo define si es calzado, ropa o accesorio), **proveedores**, **artículos** y **curvas prepack**. No se borra lo que está en uso.
+
+- **Artículos:** SKU, estilo, color, talla, marca, grupo, tipo (sólido o prepack), unidad (pares, unidades o cajas prepack) y casepack. Se cargan por archivo (`plantilla_articulos.csv`) o a mano.
+- **Curvas prepack:** un ID de prepack (p. ej. `VN-EE3-CRV01`) con la cantidad de cada artículo sólido por caja (tallas 7:1, 8:2, 9:3…). El artículo prepack apunta a su curva. Se cargan con `plantilla_prepacks.csv`.
+
+## Órdenes de compra
+
+- Número de 10 dígitos que empieza con **44** (p. ej. 4400003856); posiciones de 10 en 10.
+- Cada posición trae el **SKU**, que debe existir en el maestro de artículos: de ahí salen estilo, color, talla, marca, grupo, tipo de empaque y casepack (si la OC trae casepack, manda el de la OC).
+- Cabecera: sociedad, centro y almacén (deben ser coherentes entre sí), país de destino, puerto de despacho proyectado, país de origen y de procedencia, **fecha XF original y actualizada**, fecha requerida en tienda, precio y total por posición.
+- **Liberación:** comercial `P` (pendiente) o `C`/vacío (liberada). La logística se calcula: **304** sin liberación comercial (no se puede facturar), **300** liberada por sourcing sin novedades, **301** liberada y con cambios posteriores.
+
+## Reglas de empaque
+
+- **Sólido con casepack (calzado):** cada caja lleva exactamente el casepack, mismo estilo, color y talla; no se mezclan tallas. Solo la última caja puede quedar incompleta, y queda como aviso para confirmarla con el Commercial Brand Manager.
+- **Prepack:** una curva por caja master, con la distribución de tallas fija; no se agregan ni quitan tallas.
+- **Casepack especificado / no especificado (ropa y accesorios):** si el artículo trae casepack se respeta; si no, se elige la cantidad (plantilla) y se puede consolidar en cajas mixtas.
+- **Etiqueta:** *estándar* si la caja lleva una sola OC, estilo, color y talla; *consolidada* si lleva varias. Sale en el packing list y en el Excel.
+- **País de destino:** nunca se mezclan destinos en una misma caja.
+
+## Embarques más estrictos
+
+- Mientras el embarque está **planificado** se agregan contenedores, se asigna, confirma, mueve o quita carga. Al registrar la **salida** la carga queda **cerrada**: ya no hay tentativos, ni se agregan, quitan o mueven PL o contenedores, y el BL, transportista, origen y ETD quedan fijos (la ETA y el destino, al registrar el arribo).
+- Los eventos van en orden según el estado (recolección → salida → tránsito → arribo → liberación → entrega → recepción); no se aceptan fechas futuras ni anteriores al último evento.
+- No se asigna carga que supere la capacidad nominal del contenedor.
+- **Recolección:** se marca por PL con su fecha y se compara con la fecha XF; la salida completa la fecha a los que no la tenían.
+- Cada contenedor muestra sus marcas, la primera fecha requerida en tienda y los días de margen o de atraso frente a la ETA.
+
+## Tablas
+
+Todas las tablas tienen altura fija con encabezado fijo, orden por columna (clic en el encabezado: ascendente, descendente, sin orden) y paginación con filas por página. Los filtros de Órdenes y Seguimiento se arman con los valores que realmente existen y se muestran como chips que se quitan con un clic.
 
 ## Cómo quedaron las reglas principales
 
@@ -78,13 +114,13 @@ Los datos de prueba ya traen historia: facturas de meses anteriores, un contened
 
 - **Reducir en la factura** algo que ya está en PL: el sistema avisa qué PL tienen esa cantidad y ofrece liberar automáticamente lo que no está en cajas. Lo empacado nunca se toca solo.
 - **Quitar líneas** con cantidades en PL: muestra el impacto (PL y cajas) y pide confirmar antes de quitar en cascada.
-- **Empacar con plantillas:** un solo paso para todo el PL (o las filas elegidas), cada fila con su propia plantilla. La sugerencia sale del historial: la última plantilla usada en esa fila o, si no hay, con la que el proveedor empacó el mismo estilo. El sobrante que no llena una caja va a una caja parcial o se deja sin caja para armar cajas mixtas.
+- **Empacar automático:** un solo paso para todo el PL (o las filas elegidas), cada fila con su propia plantilla. La sugerencia sale del historial: la última plantilla usada en esa fila o, si no hay, con la que el proveedor empacó el mismo estilo. El sobrante que no llena una caja va a una caja parcial o se deja sin caja para armar cajas mixtas.
 - **Mover a otro PL** toma una cantidad de lo que no está en cajas (ya no hace falta “dividir” antes). Para llevar lo empacado se usa **Mover cajas**, que se lleva el contenido y recalcula la numeración.
 - **Plantillas:** solo llenan datos. Cada caja guarda sus propios valores; editar la plantilla no cambia cajas existentes. No es obligatorio usarlas. Cualquier caja se puede guardar como plantilla nueva.
 - **Cajas parciales:** medidas de la plantilla, peso neto proporcional y bruto = neto + tara. Quedan marcadas como “peso estimado” y el PL no se finaliza hasta confirmarlas.
 - **Cambios masivos** en todo: líneas de factura (precio, cantidad, país de origen, partida, descripción), cajas (medidas, pesos, número de cajas, valores de plantilla, confirmar pesos), mover, quitar y asignar a transporte. Cada acción masiva es todo o nada: si una fila falla, no se aplica ninguna y se explica cuál.
 - **Estados:** Borrador → Finalizado directo; reabrir pasa a “En corrección” y pide motivo. Factura, PL y transporte avanzan por separado; “lista para transporte” se calcula (factura finalizada, todo en PL y todos los PL finalizados).
-- **Transporte:** el embarque existe desde el booking (el BL/AWB se agrega después). Sus contenedores y su carga se manejan dentro del mismo embarque. Al asignar, “confirmar los que estén listos” confirma lo que tiene factura y PL finalizados y deja **tentativo** lo demás (para planificar). No se registra la salida con tentativas pendientes. Después de la salida, mover o quitar carga pide motivo.
+- **Transporte:** el embarque existe desde el booking (el BL/AWB se agrega después). Sus contenedores y su carga se manejan dentro del mismo embarque. Al asignar, “confirmar los que estén listos” confirma lo que tiene factura y PL finalizados y deja **tentativo** lo demás (para planificar). No se registra la salida con tentativas pendientes. Después de la salida la carga queda cerrada (ver “Embarques más estrictos”).
 
 ### Campos obligatorios
 
@@ -108,7 +144,7 @@ La barra superior tiene tres botones: claro, oscuro e igual que el sistema (por 
 | Factura con 6 pestañas (Resumen y Transporte repetían datos) | Datos editables en la cabecera, pasos de avance y 4 pestañas; el transporte se ve en la de packing lists |
 | “Finalizar” y “Finalizar con sus packing lists” | Un botón con la lista de lo que falta y la opción de incluir los PL |
 | Crear PL, agregar pendientes y crear PL con la selección | **Empacar**: crea el PL o suma lo pendiente al PL abierto |
-| Aplicar plantilla (una a la vez), caja con lo que falta y dividir | **Empacar con plantillas**, cada fila con la suya; mover acepta cantidades parciales |
+| Aplicar plantilla (una a la vez), caja con lo que falta y dividir | **Empacar automático**, cada fila con la suya; mover acepta cantidades parciales |
 | Cambiar medidas y usar valores de plantilla por separado | Una sola ventana de medidas y pesos, con opción de copiar de una plantilla |
 | Embarque → página de la unidad de carga | Contenedores como pestañas dentro del embarque, asignación en un panel lateral |
 | Asignar como tentativo / asignar y confirmar | Un botón que confirma lo que está listo y deja tentativo lo demás |
@@ -141,7 +177,11 @@ Otras variables: `DATABASE_URL`, `SECRET_KEY` (cámbiala en producción), `SEED_
 
 En *Importar OCs* (equipo interno) se sube el Excel o CSV de SAP. Hay un formato de ejemplo descargable. Primero se ve qué es nuevo, qué cambia, qué no cambia, los conflictos y los errores; nada se guarda hasta confirmar. Los conflictos (por ejemplo, bajar la cantidad por debajo de lo facturado) no se aplican y quedan como alerta en el *Inicio* del equipo interno.
 
-Columnas obligatorias: `proveedor, oc, posicion, sociedad, moneda, codigo_sap, cantidad, unidad, precio`. Opcionales: `centro, pais_destino, incoterm, fecha_oc, upc, estilo, color, talla, descripcion, fecha_entrega, pais_origen, partida_arancelaria, liberada`. Se aceptan algunos alias (`po`, `material`, `qty`, `uom`, `hs_code`…).
+Columnas obligatorias: `proveedor, oc, posicion, sku, cantidad, precio, moneda, sociedad, centro, pais_destino`. Opcionales: `almacen, incoterm, fecha_oc, puerto, pais_origen, pais_procedencia, fecha_xf_original, fecha_xf, fecha_tienda, liberacion_comercial, liberacion_logistica, unidad, casepack`. Se aceptan algunos alias (`po`, `material`, `qty`, `uom`…). Ver `plantilla_oc.csv`.
+
+Cada fila se valida contra los maestros: OC con formato 44XXXXXXXX, posición múltiplo de 10, sociedad/centro/almacén coherentes, país de destino y puerto registrados y SKU existente. Carga primero los artículos y las curvas en *Mantenimiento*.
+
+**Reinicio de la base de datos:** en modo demo (`SEED_DEMO=1`) la base se borra y se vuelve a sembrar automáticamente cuando cambia la versión del esquema (`ESQUEMA_VERSION` en `config.py`). En producción (`SEED_DEMO=0`) nunca se borra nada.
 
 Los códigos se guardan como texto para conservar ceros iniciales. Si Excel ya los convirtió a número al exportar, se pierden: formatea esas columnas como texto antes.
 
@@ -163,7 +203,8 @@ backend/app/
   routers/           endpoints REST bajo /api
 backend/tests/       flujo completo y concurrencia
 frontend/src/
-  views/             Inicio (tablero), Órdenes, Facturas, Factura, Packing list, Plantillas, Embarques, Embarque, Importar, Admin
+  views/             Inicio (tablero), Órdenes, Facturas, Factura, Packing list, Plantillas, Embarques, Embarque, Seguimiento, Mantenimiento, Importar, Admin
+  composables/       orden y paginación de tablas
   components/        íconos, indicadores, pasos, gráficas SVG, tabla editable, barra de acciones masivas, modales, estados
   stores/            sesión, selección para facturar, avisos
 ```

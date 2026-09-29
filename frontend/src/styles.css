@@ -248,7 +248,7 @@ svg { flex: none; }
 .nav-movil { display: none; }
 .contenido { padding: 24px 24px 110px; max-width: 1560px; width: 100%; margin: 0 auto; }
 
-@media (max-width: 1180px) {
+@media (max-width: 1260px) {
   .nav-principal { display: none; }
   .boton-menu { display: grid !important; }
   .nav-movil.abierta { display: flex; flex-direction: column; gap: 2px; padding: 8px 16px 14px; border-top: 1px solid var(--linea); background: var(--superficie); }
@@ -677,12 +677,14 @@ a.cajas-rango { color: var(--tinta); }
 .login-arte .marca { color: #fff; }
 .login-arte .marca-texto span { color: #93aabb; }
 .login-lado { position: relative; }
-@media (max-width: 1440px) {
+@media (max-width: 1600px) {
   .usuario-datos, .selector-proveedor > span { display: none; }
+  .selector-proveedor select { min-width: 0; max-width: 150px; }
 }
-@media (max-width: 1360px) {
+@media (max-width: 1500px) {
   .nav-principal .nav-link svg { display: none; }
   .nav-principal .nav-link { padding: 0 9px; }
+  .marca-texto span { display: none; }
 }
 
 /* ---- Tablas con altura fija, orden y paginación ------------------------- */
@@ -731,14 +733,15 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .pildora .cuenta { font-size: 0.76rem; opacity: 0.8; }
 .mantenimiento { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 16px; align-items: start; }
 .mantenimiento .panel + .panel { margin-top: 0; }
-@media (max-width: 1000px) { .mantenimiento { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .mantenimiento { grid-template-columns: minmax(0, 1fr); } }
 .form-catalogo { display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 220px); overflow-y: auto; padding-right: 4px; }
 .etapas { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
 .etapa { text-align: left; border: 1px solid var(--linea); background: var(--superficie); border-radius: var(--radio-panel); padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--sombra); }
 .etapa:hover { border-color: var(--borde-hover); }
 .etapa[aria-pressed='true'] { border-color: var(--acento); box-shadow: 0 0 0 3px var(--foco); }
 .etapa b { font-size: 1.05rem; }
-.etapa span { font-size: 0.8rem; color: var(--tinta-3); }
+.etapa > span { font-size: 0.8rem; color: var(--tinta-3); }
+.etapa-titulo { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--tinta-3); }
 .bloqueo { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radio); background: var(--info-fondo); color: var(--info-texto); font-size: 0.9rem; }
 
 /* ---- Seguimiento -------------------------------------------------------- */
@@ -750,3 +753,8 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .apilada span + span { border-left: 1.5px solid var(--superficie); }
 .leyenda-etapas { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; font-size: 0.8rem; color: var(--tinta-2); }
 .leyenda-etapas span { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 720px) {
+  .marca-texto { display: none; }
+  .selector-proveedor select { max-width: 120px; }
+  .tema button { padding: 5px; }
+}

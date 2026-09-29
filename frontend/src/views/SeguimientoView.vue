@@ -117,7 +117,7 @@ onMounted(cargar)
 
   <div class="etapas" role="group" aria-label="Filtrar por etapa">
     <button v-for="e in datos.etapas" :key="e.clave" type="button" class="etapa" :aria-pressed="filtros.etapa === e.clave" @click="alternarEtapa(e.clave)">
-      <span class="fila-flex" style="gap: 6px"><i class="punto" :style="{ background: COLORES[e.clave] }"></i>{{ e.nombre }}</span>
+      <span class="etapa-titulo"><i class="punto" :style="{ background: COLORES[e.clave] }"></i>{{ e.nombre }}</span>
       <b>{{ porUnidadTxt(e.por_unidad, null) }}</b>
     </button>
   </div>

@@ -16,8 +16,8 @@ const router = useRouter()
 const d = ref(null)
 const cargando = ref(true)
 
-const ICONOS_KPI = { por_facturar: 'moneda', en_proceso: 'factura', pl_abiertos: 'caja', listas: 'check', tentativas: 'reloj', en_camino: 'barco' }
-const ICONOS_TAREA = { empacar: 'caja', pl: 'caja', datos: 'editar', correccion: 'alerta', finalizar: 'check', antiguo: 'reloj', embarcar: 'barco' }
+const ICONOS_KPI = { por_facturar: 'moneda', en_proceso: 'factura', pl_abiertos: 'caja', listas: 'check', tentativas: 'reloj', en_camino: 'barco', riesgo: 'alerta' }
+const ICONOS_TAREA = { empacar: 'caja', pl: 'caja', datos: 'editar', correccion: 'alerta', finalizar: 'check', antiguo: 'reloj', embarcar: 'barco', liberacion: 'candado' }
 const MES = new Intl.DateTimeFormat('es', { month: 'short' })
 
 async function cargar() {

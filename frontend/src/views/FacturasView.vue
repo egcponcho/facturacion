@@ -6,6 +6,8 @@ import Avance from '../components/Avance.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Paginacion from '../components/Paginacion.vue'
+import ThOrden from '../components/ThOrden.vue'
+import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, sesion } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
 import { fmtFecha, fmtMoneda } from '../utils'
@@ -16,8 +18,9 @@ const filtros = reactive({
   estado: route.query.estado || '',
   vista: route.query.vista || '',
   q: route.query.q || '',
+  orden: '',
   page: 1,
-  size: 25,
+  size: 15,
 })
 const datos = ref({ items: [], total: 0 })
 const cargando = ref(false)
@@ -49,6 +52,11 @@ function buscar() {
     filtros.page = 1
     cargar()
   }, 300)
+}
+
+function ordenar(campo) {
+  filtros.orden = siguienteOrden(filtros.orden, campo)
+  recargar()
 }
 
 function recargar() {
@@ -89,13 +97,13 @@ watch(() => sesion.proveedorId, recargar)
     <span class="ayuda separar">{{ datos.total }} facturas</span>
   </div>
 
-  <div class="tabla-marco">
+  <div class="tabla-marco tabla-fija">
     <table class="tabla">
       <thead>
         <tr>
-          <th>Factura</th>
-          <th v-if="!sesion.proveedorId">Proveedor</th>
-          <th>Estado</th>
+          <ThOrden campo="nombre" :orden="filtros.orden" @ordenar="ordenar">Factura</ThOrden>
+          <ThOrden v-if="!sesion.proveedorId" campo="proveedor" :orden="filtros.orden" @ordenar="ordenar">Proveedor</ThOrden>
+          <ThOrden campo="estado" :orden="filtros.orden" @ordenar="ordenar">Estado</ThOrden>
           <th class="num">Importe</th>
           <th>En packing lists</th>
           <th>Empaque</th>
@@ -134,5 +142,5 @@ watch(() => sesion.proveedorId, recargar)
       </tbody>
     </table>
   </div>
-  <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" />
+  <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
 </template>

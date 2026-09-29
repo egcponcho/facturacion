@@ -7,7 +7,10 @@ import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import Paginacion from '../components/Paginacion.vue'
 import Pasos from '../components/Pasos.vue'
+import ThOrden from '../components/ThOrden.vue'
+import { useTabla } from '../composables/useTabla'
 import { elegirProveedor, esInterno } from '../stores/sesion'
 import { avisar, errorApi, guardando, textoDetalle } from '../stores/ui'
 import {
@@ -40,6 +43,7 @@ const lineasFiltradas = computed(() => {
   return f.value.lineas.filter((l) =>
     [l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion].some((v) => (v || '').toLowerCase().includes(q)))
 })
+const tablaLineas = useTabla(lineasFiltradas, { porPagina: 25, valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
 const idsFiltrados = computed(() => lineasFiltradas.value.map((l) => l.id))
 const seleccion = computed(() => (f.value?.lineas || []).filter((l) => sel.tiene(l.id)))
 const resumenSeleccion = computed(() => {
@@ -409,28 +413,33 @@ onMounted(async () => {
         <span class="leyenda-req separar">Obligatorio en la factura comercial</span>
         <button v-if="editable" class="btn" @click="agregarDesdeOC"><Icono nombre="mas" />Agregar desde OCs</button>
       </div>
-      <div class="tabla-marco">
+      <div class="tabla-marco tabla-fija">
         <table class="tabla">
           <thead>
             <tr>
               <th class="chk"><input type="checkbox" aria-label="Seleccionar todas las líneas filtradas" :checked="sel.todos(idsFiltrados)" @change="sel.alternarTodos(idsFiltrados)" /></th>
-              <th>OC / pos.</th>
-              <th>Producto</th>
-              <th>Talla</th>
-              <th class="num"><span class="req">Cantidad</span></th>
-              <th class="num"><span class="req">Precio unitario</span></th>
-              <th class="num">Total</th>
-              <th class="num">En packing list</th>
-              <th><span class="req">País origen</span></th>
+              <ThOrden campo="oc" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">OC / pos.</ThOrden>
+              <ThOrden campo="estilo" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">Producto</ThOrden>
+              <ThOrden campo="talla" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">Talla</ThOrden>
+              <ThOrden campo="cantidad" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar"><span class="req">Cantidad</span></ThOrden>
+              <ThOrden campo="precio_unitario" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar"><span class="req">Precio unitario</span></ThOrden>
+              <ThOrden campo="total" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar">Total</ThOrden>
+              <ThOrden campo="sin_asignar" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar">En packing list</ThOrden>
+              <ThOrden campo="pais_origen" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar"><span class="req">País origen</span></ThOrden>
               <th><span class="req">Partida</span></th>
               <th><span class="req">Descripción comercial</span></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="l in lineasFiltradas" :key="l.id" :class="{ seleccionada: sel.tiene(l.id) }">
+            <tr v-for="l in tablaLineas.filas.value" :key="l.id" :class="{ seleccionada: sel.tiene(l.id) }">
               <td class="chk"><input type="checkbox" :aria-label="`Seleccionar ${l.codigo_sap} talla ${l.talla}`" :checked="sel.tiene(l.id)" @change="sel.alternar(l.id)" /></td>
               <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}</td>
-              <td>{{ l.estilo }} · {{ l.color }}<span class="sub codigo">{{ l.codigo_sap }}</span></td>
+              <td>
+                <span v-if="l.marca" class="fuerte">{{ l.marca }}</span> {{ l.estilo }} · {{ l.color }}
+                <span v-if="l.tipo_empaque === 'PREPACK'" class="etiqueta acento" :title="`Curva ${l.prepack}`">Prepack</span>
+                <span v-else-if="l.casepack" class="etiqueta info">Casepack {{ l.casepack }}</span>
+                <span class="sub codigo">{{ l.codigo_sap }}</span>
+              </td>
               <td><strong>{{ l.talla }}</strong></td>
               <td class="num" style="width: 100px">
                 <CeldaEditable v-if="editable" tipo="number" :min="1" paso="1" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="`Cantidad de ${l.codigo_sap}`" />
@@ -478,6 +487,8 @@ onMounted(async () => {
           </tfoot>
         </table>
       </div>
+      <Paginacion :page="tablaLineas.estado.pagina" :size="tablaLineas.estado.porPagina" :total="tablaLineas.total.value"
+                  @cambiar="(p) => (tablaLineas.estado.pagina = p)" @tamano="(t) => (tablaLineas.estado.porPagina = t)" />
       <BarraSeleccion :cantidad="sel.ids.size" singular="línea seleccionada" plural="líneas seleccionadas" @limpiar="sel.limpiar()">
         <template #resumen>{{ resumenSeleccion }}</template>
         <button v-if="editable" class="btn" @click="abrirMasivo"><Icono nombre="editar" :tam="15" />Cambiar un dato</button>

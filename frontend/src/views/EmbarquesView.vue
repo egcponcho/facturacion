@@ -6,6 +6,9 @@ import Avance from '../components/Avance.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import Paginacion from '../components/Paginacion.vue'
+import ThOrden from '../components/ThOrden.vue'
+import { useTabla } from '../composables/useTabla'
 import { avisar, errorApi } from '../stores/ui'
 import { fmtFecha, fmtNum, plural } from '../utils'
 
@@ -22,6 +25,9 @@ const cuenta = computed(() => {
   const r = { '': todos.value.length }
   for (const e of todos.value) r[e.estado] = (r[e.estado] || 0) + 1
   return r
+})
+const tabla = useTabla(lista, {
+  valores: { etd: (e) => e.salida_real || e.etd, eta: (e) => e.arribo_real || e.eta, estado: (e) => ESTADOS.findIndex(([k]) => k === e.estado), ruta: (e) => e.puerto_origen },
 })
 const ICONO = { MARITIMO: 'barco', AEREO: 'avion', TERRESTRE: 'camion' }
 
@@ -92,22 +98,22 @@ onMounted(cargar)
     </label>
   </div>
 
-  <div class="tabla-marco">
+  <div class="tabla-marco tabla-fija">
     <table class="tabla">
       <thead>
         <tr>
-          <th>Embarque</th>
-          <th>Ruta</th>
-          <th>ETD</th>
-          <th>ETA</th>
-          <th>Estado</th>
+          <ThOrden campo="codigo" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Embarque</ThOrden>
+          <ThOrden campo="ruta" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Ruta</ThOrden>
+          <ThOrden campo="etd" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">ETD</ThOrden>
+          <ThOrden campo="eta" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">ETA</ThOrden>
+          <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Estado</ThOrden>
           <th>Contenedores</th>
-          <th class="num">PL</th>
+          <ThOrden campo="packing_lists" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">PL</ThOrden>
           <th>Proveedores</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="e in lista" :key="e.id" class="clicable" @click="router.push(`/transporte/embarques/${e.id}`)">
+        <tr v-for="e in tabla.filas.value" :key="e.id" class="clicable" @click="router.push(`/transporte/embarques/${e.id}`)">
           <td>
             <span class="fila-flex" style="flex-wrap: nowrap"><Icono :nombre="ICONO[e.tipo_transporte]" />
               <router-link :to="`/transporte/embarques/${e.id}`" class="cajas-rango" @click.stop>{{ e.codigo }}</router-link></span>
@@ -130,6 +136,8 @@ onMounted(cargar)
       </tbody>
     </table>
   </div>
+  <Paginacion :page="tabla.estado.pagina" :size="tabla.estado.porPagina" :total="tabla.total.value"
+              @cambiar="(p) => (tabla.estado.pagina = p)" @tamano="(t) => (tabla.estado.porPagina = t)" />
 
   <Modal v-if="modal" titulo="Nuevo embarque" ancho="660px" @cerrar="modal = null">
     <div class="rejilla-campos">
