@@ -67,7 +67,7 @@ class _Hoja:
         self.unir(1, 1, corte)
         self.celda(2, 1, " · ".join(x for x in (exp.get("direccion"), exp.get("pais")) if x), color=TENUE, tam=8)
         self.unir(2, 1, corte)
-        self.celda(3, 1, " · ".join(x for x in (f"ID fiscal: {exp['id_fiscal']}" if exp.get("id_fiscal") else None,
+        self.celda(3, 1, " · ".join(x for x in (f"Tax ID: {exp['id_fiscal']}" if exp.get("id_fiscal") else None,
                                                   exp.get("correos"), exp.get("telefono")) if x), color=TENUE, tam=8)
         self.unir(3, 1, corte)
         self.celda(1, corte + 1, titulo, negrita=True, color=ACENTO, tam=13)
@@ -87,12 +87,12 @@ class _Hoja:
         """Exportador, importador y consignatario en tres bloques."""
         exp = d["exportador"]
         bloques = [
-            ("EXPORTADOR / VENDEDOR", [f"{exp['codigo']} · {exp['nombre']}", f"NIT / RUC: {exp['id_fiscal'] or '—'}",
+            ("EXPORTER / SELLER", [f"{exp['codigo']} · {exp['nombre']}", f"Tax ID: {exp['id_fiscal'] or '—'}",
                                        " · ".join(x for x in (exp.get("direccion"), exp.get("pais")) if x),
                                        " · ".join(x for x in (exp.get("contacto"), exp.get("correos"),
                                                                exp.get("telefono")) if x)]),
-            ("IMPORTADOR / FACTURAR A", _lineas_parte(d["importador"])),
-            ("CONSIGNATARIO / NOTIFY PARTY", _lineas_parte(d["consignatario"])),
+            ("IMPORTER / BILL TO", _lineas_parte(d["importador"])),
+            ("CONSIGNEE / NOTIFY PARTY", _lineas_parte(d["consignatario"])),
         ]
         tercio = self.n // 3
         rangos = [(1, tercio), (tercio + 1, 2 * tercio), (2 * tercio + 1, self.n)]
@@ -171,7 +171,7 @@ class _Hoja:
         self.ws.row_dimensions[self.fila].height = 24
         for col in range(mitad + 2, self.n + 1):
             self.ws.cell(row=self.fila + 1, column=col).border = Border(bottom=Side(style="thin", color="1F2430"))
-        self.celda(self.fila + 2, mitad + 2, "Nombre, cargo y firma del exportador", color=TENUE, tam=8)
+        self.celda(self.fila + 2, mitad + 2, "Name, title and signature of the exporter", color=TENUE, tam=8)
         self.unir(self.fila + 2, mitad + 2, self.n)
         self.fila += 4
 
@@ -188,9 +188,9 @@ class _Hoja:
         ws.page_margins.bottom = 0.6
         if titulo_filas:
             ws.print_title_rows = f"{titulo_filas}:{titulo_filas}"
-        ws.oddFooter.left.text = pie + ("  ·  BORRADOR, NO OFICIAL" if borrador else "")
+        ws.oddFooter.left.text = pie + ("  ·  DRAFT, NOT OFFICIAL" if borrador else "")
         ws.oddFooter.left.size = 7
-        ws.oddFooter.right.text = "Página &P de &N"
+        ws.oddFooter.right.text = "Page &P of &N"
         ws.oddFooter.right.size = 7
 
 
@@ -199,10 +199,10 @@ def _lineas_parte(p: dict | None) -> list[str]:
         return ["—"]
     lineas = [f"{p.get('codigo') or ''} · {p.get('razon_social') or p.get('nombre') or ''}"]
     if p.get("id_fiscal"):
-        lineas.append(f"NIT / RUC: {p['id_fiscal']}")
+        lineas.append(f"Tax ID (NIT / RUC): {p['id_fiscal']}")
     lineas.append(" · ".join(x for x in (p.get("direccion"), p.get("pais")) if x) or "—")
     if p.get("puerto"):
-        lineas.append(f"Puerto de llegada: {p.get('puerto_nombre') or p['puerto']}")
+        lineas.append(f"Port of arrival: {p.get('puerto_nombre') or p['puerto']}")
     c = (p.get("contactos") or [None])[0]
     if c:
         lineas.append(" · ".join(x for x in (c.get("nombre"), c.get("correos"), c.get("telefono")) if x))
@@ -220,56 +220,53 @@ def _guardar(wb) -> bytes:
 def _hoja_titulo(texto: str) -> str:
     for ch in "[]:*?/\\":
         texto = texto.replace(ch, "-")
-    return texto[:31] or "Hoja"
+    return texto[:31] or "Sheet"
 
 
 def exportar_factura(d: dict) -> bytes:
     wb = Workbook()
     ws = wb.active
-    ws.title = _hoja_titulo(f"Factura {d['numero']}")
+    ws.title = _hoja_titulo(f"Invoice {d['numero']}")
     h = _Hoja(ws, [13, 7, 14, 15, 16, 10, 7, 30, 9, 11, 10, 7, 12, 14])
     tr = d["transporte"] or {}
-    h.cabecera(d, "FACTURA COMERCIAL", "Commercial invoice", [
-        ("N.º", d["numero"]), ("Fecha", _fecha(d["fecha"])), ("OC", ", ".join(d["ocs"])),
-        ("Estado", "Oficial" if d["oficial"] else "Borrador")])
+    h.cabecera(d, "COMMERCIAL INVOICE", "Factura comercial", [
+        ("No.", d["numero"]), ("Date", _fecha(d["fecha"])),
+        ("Status", "Official" if d["oficial"] else "Draft")])
     h.partes(d)
-    destino = d.get("destino")
     h.rejilla([
-        ("Incoterm", d["incoterm"]), ("Moneda", d["moneda"]), ("Condiciones de pago", d["condiciones"]),
-        ("Medio de transporte", tr.get("modo")),
-        ("País de origen", d["pais_origen"]), ("País de procedencia", d["pais_procedencia"]),
-        ("País de destino", d["pais_destino"]),
-        ("Centro de destino", f"{destino['codigo']} · {destino['nombre'] or ''}" if destino else None),
-        ("Puerto de embarque", tr.get("puerto_origen") or d["puerto_embarque"]),
-        ("Puerto de destino", tr.get("puerto_destino") or d["consignatario"].get("puerto_nombre")),
-        ("Transportista", tr.get("transportista")), ("BL / AWB / CP", tr.get("documento")),
+        ("Incoterm", d["incoterm"]), ("Currency", d["moneda"]), ("Payment terms", d["condiciones"]),
+        ("Mode of transport", tr.get("modo")),
+        ("Country of origin", d["pais_origen"]), ("Country of shipment", d["pais_procedencia"]),
+        ("Country of destination", d["pais_destino"]), ("Carrier", tr.get("transportista")),
+        ("Port of loading", tr.get("puerto_origen") or d["puerto_embarque"]),
+        ("Port of discharge", tr.get("puerto_destino") or d["consignatario"].get("puerto_nombre")),
+        ("B/L / AWB / waybill", tr.get("documento")), ("Packing lists", ", ".join(d["pls"]) or "—"),
     ])
     t = d["totales"]
     filas = [[l["oc"], l["posicion"], l["sku"], l["upc"], l["marca"], l["estilo"], l["talla"],
               f"{l['descripcion'] or ''} · {l['color'] or ''}" + (f" · prepack {l['prepack']}" if l["prepack"] else ""),
               l["origen"], l["partida"], l["cantidad"], l["unidad"], l["precio"], l["total"]] for l in d["lineas"]]
     fila_cab = h.tabla(
-        [("OC", None), ("Pos.", None), ("Código", None), ("UPC", None), ("Marca", None), ("Estilo", None),
-         ("Talla", None), ("Descripción comercial · color", None), ("Origen", None), ("Partida SAC", None),
-         ("Cantidad", _ENTERO), ("UM", None), ("Precio unit.", "#,##0.0000"), (f"Total {d['moneda']}", _MONEDA)],
-        filas, pie=["Total", None, f"{len(filas)} líneas", None, None, None, None, None, None, None,
+        [("PO", None), ("Line", None), ("Item code", None), ("UPC", None), ("Brand", None), ("Style", None),
+         ("Size", None), ("Commercial description · color", None), ("Origin", None), ("HS code (SAC)", None),
+         ("Quantity", _ENTERO), ("UoM", None), ("Unit price", "#,##0.0000"), (f"Amount {d['moneda']}", _MONEDA)],
+        filas, pie=["Total", None, f"{len(filas)} lines", None, None, None, None, None, None, None,
                     sum(l["cantidad"] for l in d["lineas"]), None, None, t["importe"]],
         texto={0, 1, 2, 3, 9})
     h.rejilla([
-        ("Cantidad total", _por_unidad_txt(t["por_unidad"])),
-        ("Bultos", f"{t['bultos']:,} cajas" + (f" en {t['pallets']} pallets" if t["pallets"] else "")),
-        ("Peso neto", f"{t['peso_neto']:,.2f} kg"), ("Peso bruto", f"{t['peso_bruto']:,.2f} kg"),
-        ("Volumen", f"{t['cbm']:,.3f} m³"), ("Packing lists", ", ".join(d["pls"]) or "—"),
-        ("Valor total " + (d["incoterm"] or ""), f"{d['moneda']} {t['importe']:,.2f}"),
-        ("Contenedores / guías", ", ".join(tr.get("unidades", [])) or "—"),
+        ("Total quantity", _por_unidad_txt(t["por_unidad"])),
+        ("Packages", f"{t['bultos']:,} cartons" + (f" on {t['pallets']} pallets" if t["pallets"] else "")),
+        ("Net weight", f"{t['peso_neto']:,.2f} kg"), ("Gross weight", f"{t['peso_bruto']:,.2f} kg"),
+        ("Volume", f"{t['cbm']:,.3f} m³"), ("Containers / AWB", ", ".join(tr.get("unidades", [])) or "—"),
+        ("Total value " + (d["incoterm"] or ""), f"{d['moneda']} {t['importe']:,.2f}"),
+        ("Purchase orders", f"{len(d['ocs'])} (see lines)"),
     ])
-    h.parrafo(f"SON: {d['total_letras']}", negrita=True)
+    h.parrafo(f"SAY: {d['total_letras']}", negrita=True)
     if d.get("observaciones"):
-        h.parrafo(f"Observaciones: {d['observaciones']}", color=TENUE, tam=8)
-    h.firma("Declaramos bajo juramento que la información de esta factura es verdadera y correcta, que el valor "
-            "corresponde al precio realmente pagado o por pagar por las mercancías y que el origen declarado es el "
-            "correcto.")
-    h.imprimir(fila_cab, False, f"Factura comercial {d['numero']} · {d['exportador']['nombre']}", not d["oficial"])
+        h.parrafo(f"Remarks: {d['observaciones']}", color=TENUE, tam=8)
+    h.firma("We declare under oath that the information in this invoice is true and correct, that the value is the "
+            "price actually paid or payable for the goods and that the declared origin is correct.")
+    h.imprimir(fila_cab, False, f"Commercial invoice {d['numero']} · {d['exportador']['nombre']}", not d["oficial"])
     ws.freeze_panes = None
     return _guardar(wb)
 
@@ -278,20 +275,22 @@ def exportar_pl(d: dict) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = _hoja_titulo(f"{d['numero']} {d['numero_pl']}")
-    h = _Hoja(ws, [8, 6, 12, 6, 14, 15, 14, 10, 6, 8, 8, 6, 8, 8, 8, 9, 9, 10, 10, 8, 7, 11, 16])
+    h = _Hoja(ws, [8, 6, 12, 6, 14, 15, 14, 10, 6, 8, 10, 8, 6, 8, 8, 8, 9, 9, 10, 10, 8, 7, 11, 18])
     tr = d["transporte"] or {}
     tp = d["totales_pl"]
-    h.cabecera(d, "LISTA DE EMPAQUE", "Packing list", [
-        ("N.º", f"{d['numero']} · {d['numero_pl']}"), ("Fecha", _fecha(d["fecha"])), ("Factura", d["numero"]),
-        ("Estado", "Oficial" if d["oficial"] else "Borrador")])
+    h.cabecera(d, "PACKING LIST", "Lista de empaque", [
+        ("No.", f"{d['numero']} · {d['numero_pl']}"), ("Date", _fecha(d["fecha"])), ("Invoice", d["numero"]),
+        ("Status", "Official" if d["oficial"] else "Draft")])
     h.partes(d)
     h.rejilla([
-        ("OC", ", ".join(d["ocs"])), ("Medio de transporte", tr.get("modo")),
-        ("Transportista", tr.get("transportista")), ("BL / AWB / CP", tr.get("documento")),
-        ("Contenedor / guía", ", ".join(tr.get("unidades", [])) or "—"),
-        ("Puerto de embarque", tr.get("puerto_origen") or d["puerto_embarque"]),
-        ("Puerto de destino", tr.get("puerto_destino")), ("País de origen", d["pais_origen"]),
-        ("País de destino", d["pais_destino"]), ("ETD / ETA", f"{_fecha(tr.get('etd'))} / {_fecha(tr.get('eta'))}"),
+        ("Mode of transport", tr.get("modo")),
+        ("Carrier", tr.get("transportista")), ("B/L / AWB / waybill", tr.get("documento")),
+        ("Container / AWB", ", ".join(tr.get("unidades", [])) or "—"),
+        ("Port of loading", tr.get("puerto_origen") or d["puerto_embarque"]),
+        ("Port of discharge", tr.get("puerto_destino")), ("Country of origin", d["pais_origen"]),
+        ("Country of destination", d["pais_destino"]),
+        ("Final destination", d["destinos"][0] if len(d["destinos"]) == 1 else "Per carton (see lines)"),
+        ("ETD / ETA", f"{_fecha(tr.get('etd'))} / {_fecha(tr.get('eta'))}"),
     ], columnas=5)
     filas = []
     for g in d["grupos"]:
@@ -300,51 +299,52 @@ def exportar_pl(d: dict) -> bytes:
             filas.append([
                 g["rango"] if p else None, g["num_cajas"] if p else None, it["oc"], it["posicion"], it["sku"],
                 it["upc"], f"{it['marca'] or ''} {it['estilo']}".strip(), it["color"], it["talla"], it["por_caja"],
-                it["total"], it["unidad"], g["largo"] if p else None, g["ancho"] if p else None,
+                f"{it['inners']} × {it['inner_pack']}" if it["inners"] else None, it["total"], it["unidad"], g["largo"] if p else None, g["ancho"] if p else None,
                 g["alto"] if p else None, g["neto_caja"] if p else None, g["bruto_caja"] if p else None,
                 g["neto_total"] if p else None, g["bruto_total"] if p else None, g["cbm"] if p else None,
                 (g["pallet"] if g["pallet"] else None) if p else None, g["etiqueta"] if p else None,
                 (", ".join(g["ocs"]) + (f" → {g['centro_destino']}" if g["centro_destino"] else "")) if p else None,
             ])
     fila_cab = h.tabla(
-        [("Cajas", None), ("N.º", _ENTERO), ("OC", None), ("Pos.", None), ("Código", None), ("UPC", None),
-         ("Marca · estilo", None), ("Color", None), ("Talla", None), ("Por caja", _ENTERO), ("Total", _ENTERO),
-         ("UM", None), ("Largo cm", "0.0"), ("Ancho cm", "0.0"), ("Alto cm", "0.0"), ("Neto caja kg", "0.00"),
-         ("Bruto caja kg", "0.00"), ("Neto total kg", _MONEDA), ("Bruto total kg", _MONEDA), ("m³", "0.000"),
-         ("Pallet", None), ("Etiqueta", None), ("OCs de la caja", None)],
-        filas, pie=["Total", d["total_cajas"], None, None, None, None, None, None, None, None,
+        [("Cartons", None), ("Qty", _ENTERO), ("PO", None), ("Line", None), ("Item code", None), ("UPC", None),
+         ("Brand · style", None), ("Color", None), ("Size", None), ("Per carton", _ENTERO), ("Inner packs", None),
+         ("Total", _ENTERO), ("UoM", None), ("Length cm", "0.0"), ("Width cm", "0.0"), ("Height cm", "0.0"),
+         ("Net/ctn kg", "0.00"), ("Gross/ctn kg", "0.00"), ("Net total kg", _MONEDA), ("Gross total kg", _MONEDA),
+         ("m³", "0.000"), ("Pallet", None), ("Label", None), ("POs in carton → destination", None)],
+        filas, pie=["Total", d["total_cajas"], None, None, None, None, None, None, None, None, None,
                     sum(it["total"] for g in d["grupos"] for it in g["items"]), None, None, None, None, None, None,
                     tp["peso_neto"], tp["peso_bruto"], tp["cbm"], None, None, None],
         texto={0, 2, 3, 4, 5})
     if d["pallets"]:
         h.parrafo("PALLETS", negrita=True, color=ACENTO, tam=8)
-        h.tabla([("Pallet", None), ("Cajas", _ENTERO), ("Medidas cm", None), ("Tara kg", "0.0"), ("m³", "0.000")],
+        h.tabla([("Pallet", None), ("Cartons", _ENTERO), ("Dimensions cm", None), ("Tare kg", "0.0"), ("m³", "0.000")],
                 [[f"P{p['numero']}", p["cajas"], p["medidas"], p["tara"], p["cbm"]] for p in d["pallets"]])
     if d["sin_caja"]:
-        h.parrafo("PENDIENTE DE EMPACAR", negrita=True, color=ACENTO, tam=8)
-        h.tabla([("OC", None), ("Código", None), ("Estilo", None), ("Talla", None), ("Cantidad", _ENTERO),
+        h.parrafo("NOT YET PACKED", negrita=True, color=ACENTO, tam=8)
+        h.tabla([("PO", None), ("Item code", None), ("Style", None), ("Size", None), ("Quantity", _ENTERO),
                  ("UM", None)],
                 [[x["oc"], x["sku"], x["estilo"], x["talla"], x["cantidad"], x["unidad"]] for x in d["sin_caja"]],
                 texto={0, 1})
     h.rejilla([
-        ("Total de bultos", f"{d['total_cajas']:,} cajas" + (f" en {len(d['pallets'])} pallets" if d["pallets"] else "")),
-        ("Cantidad", tp["por_unidad_txt"]), ("Peso neto", f"{tp['peso_neto']:,.2f} kg"),
-        ("Peso bruto", f"{tp['peso_bruto']:,.2f} kg"), ("Volumen", f"{tp['cbm']:,.3f} m³"),
+        ("Total packages", f"{d['total_cajas']:,} cartons" + (f" on {len(d['pallets'])} pallets" if d["pallets"] else "")),
+        ("Quantity", tp["por_unidad_txt"]), ("Net weight", f"{tp['peso_neto']:,.2f} kg"),
+        ("Gross weight", f"{tp['peso_bruto']:,.2f} kg"), ("Volume", f"{tp['cbm']:,.3f} m³"),
     ], columnas=5)
-    h.parrafo(f"TOTAL DE BULTOS: {d['total_bultos_letras']}", negrita=True)
+    h.parrafo(f"TOTAL PACKAGES: {d['total_bultos_letras']}", negrita=True)
     consig = d["consignatario"]
     h.espacio()
     mitad = h.n // 2
     inicio = h.fila
-    h.parrafo("MARCAS DE EMBARQUE (SHIPPING MARKS)", negrita=True, color=ACENTO, tam=7, hasta=mitad)
+    h.parrafo("SHIPPING MARKS", negrita=True, color=ACENTO, tam=7, hasta=mitad)
     for i, linea in enumerate((consig.get("nombre"), consig.get("direccion"),
-                               f"OC {', '.join(d['ocs'])} · Factura {d['numero']}",
-                               f"Caja N.º __ de {d['total_cajas']} · Hecho en {d['pais_origen']}")):
+                               f"Invoice {d['numero']} · PO per carton label",
+                               f"Carton no. __ of {d['total_cajas']} · Made in {d['pais_origen']}")):
         h.parrafo(linea, negrita=i == 0, hasta=mitad)
     h.marco(inicio, h.fila - 1, 1, mitad)
-    h.firma("Declaramos que el contenido, la numeración, las medidas y los pesos de los bultos corresponden a la "
-            "mercancía despachada.")
-    h.imprimir(fila_cab, True, f"Lista de empaque {d['numero']} {d['numero_pl']} · {d['exportador']['nombre']}",
+    h.firma("We declare that the contents, numbering, dimensions and weights of the packages correspond to the goods "
+            "shipped. Every unit or pair carries its individual label; inner packs carry an inner pack label with "
+            "the product and the quantity inside.")
+    h.imprimir(fila_cab, True, f"Packing list {d['numero']} {d['numero_pl']} · {d['exportador']['nombre']}",
                not d["oficial"])
     return _guardar(wb)
 
@@ -370,7 +370,7 @@ def _hoja_reporte(ws, titulo, subtitulo, filtros, indicadores, columnas, filas):
     h.unir(1, 1, h.n)
     h.celda(2, 1, subtitulo, color=TENUE, tam=8)
     h.unir(2, 1, h.n)
-    h.celda(3, 1, f"Generado el {datetime.now():%d/%m/%Y %H:%M} · {filtros or 'Sin filtros'}", color=TENUE, tam=8)
+    h.celda(3, 1, f"Generated {datetime.now():%d/%m/%Y %H:%M} · {filtros or 'No filters'}", color=TENUE, tam=8)
     h.unir(3, 1, h.n)
     for c in range(1, h.n + 1):
         ws.cell(row=3, column=c).border = Border(bottom=_FUERTE)

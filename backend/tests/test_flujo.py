@@ -609,8 +609,8 @@ def test_documentos_y_reportes(tnf, interno):
 
     from app.services.documentos import monto_en_letras
 
-    assert monto_en_letras(4850, "USD") == "CUATRO MIL OCHOCIENTOS CINCUENTA DÓLARES CON 00/100"
-    assert monto_en_letras(1_021_001.5, "USD") == "UN MILLÓN VEINTIUN MIL UN DÓLARES CON 50/100"
+    assert monto_en_letras(4850, "USD") == "FOUR THOUSAND EIGHT HUNDRED FIFTY US DOLLARS AND 00/100"
+    assert monto_en_letras(1_021_001.5, "USD") == "ONE MILLION TWENTY-ONE THOUSAND ONE US DOLLARS AND 50/100"
     f = tnf.get("/facturas").json()["items"][0]
     pdf = tnf.get(f"/facturas/{f['id']}/exportar", params={"formato": "pdf"})
     assert pdf.status_code == 200 and pdf.content[:4] == b"%PDF"
@@ -618,8 +618,10 @@ def test_documentos_y_reportes(tnf, interno):
     xl = tnf.get(f"/facturas/{f['id']}/exportar", params={"formato": "xlsx"})
     ws = load_workbook(BytesIO(xl.content)).active
     textos = {str(c.value) for fila in ws.iter_rows() for c in fila if c.value}
-    assert "FACTURA COMERCIAL" in textos and "EXPORTADOR / VENDEDOR" in textos and "PARTIDA SAC" not in textos
-    assert any(t.startswith("SON: ") for t in textos) and "Partida SAC" in textos
+    assert "COMMERCIAL INVOICE" in textos and "EXPORTER / SELLER" in textos and "HS code (SAC)" in textos
+    assert any(t.startswith("SAY: ") for t in textos)
+    # Las OCs van en el detalle, no en la cabecera
+    assert "OC" not in textos and "PO" in textos
     assert tnf.get(f"/facturas/{f['id']}/exportar", params={"formato": "doc"}).status_code == 422
     pl = interno.get("/seguimiento/documentos", params={"etapa": "RECIBIDO"}).json()["items"][0]
     for formato in ("pdf", "xlsx"):
@@ -627,7 +629,8 @@ def test_documentos_y_reportes(tnf, interno):
         assert r.status_code == 200 and len(r.content) > 2000
     ws = load_workbook(BytesIO(r.content)).active
     textos = {str(c.value) for fila in ws.iter_rows() for c in fila if c.value}
-    assert "LISTA DE EMPAQUE" in textos and any(t.startswith("TOTAL DE BULTOS: ") for t in textos)
+    assert "PACKING LIST" in textos and any(t.startswith("TOTAL PACKAGES: ") for t in textos)
+    assert "Inner packs" in textos and "FINAL DESTINATION" in textos
     for vista in ("ordenes", "embarques", "documentos"):
         for formato in ("pdf", "xlsx"):
             r = interno.get(f"/seguimiento/{vista}/exportar", params={"formato": formato, "marca": "TNF"})
