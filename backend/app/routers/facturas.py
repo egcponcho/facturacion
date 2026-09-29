@@ -12,6 +12,7 @@ from ..schemas import (
     PLCrear,
 )
 from ..services import exportar
+from ..services.partes import partes
 from ..services import facturas as svc
 from ..services import packing
 from .base import XLSX, Clave, Db, User, ejecutar
@@ -109,7 +110,7 @@ def descargar(archivo_id: int, db: Db, user: User):
 def exportar_xlsx(factura_id: int, db: Db, user: User):
     f = svc.cargar_factura(db, user, factura_id)
     nombre = f"factura_{(f.numero or f'borrador_{f.id}').replace('/', '-')}.xlsx"
-    return Response(exportar.exportar_factura(f), media_type=XLSX,
+    return Response(exportar.exportar_factura(f, partes(db, f.sociedad, f.centro, f.centro_destino)), media_type=XLSX,
                     headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
 
 

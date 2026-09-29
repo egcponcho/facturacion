@@ -1,3 +1,4 @@
-proveedor,oc,posicion,sociedad,centro,almacen,pais_destino,moneda,incoterm,fecha_oc,puerto,pais_origen,pais_procedencia,fecha_xf_original,fecha_xf,fecha_tienda,liberacion_comercial,sku,cantidad,unidad,precio,casepack
-VANS,4400003960,10,8000,8020,BF20,2220,USD,FOB,2026-09-01,VNSGN,VN,VN,2026-10-15,2026-10-20,2026-12-10,C,000000001000000280,48,PAR,25.50,12
-VANS,4400003960,20,8000,8020,BF20,2220,USD,FOB,2026-09-01,VNSGN,VN,VN,2026-10-15,2026-10-20,2026-12-10,C,000000001000000290,36,PAR,25.50,
+proveedor,oc,posicion,sociedad,centro,almacen,centro_destino,moneda,incoterm,fecha_oc,puerto,pais_origen,pais_procedencia,fecha_xf_original,fecha_xf,fecha_tienda,liberacion_comercial,sku,cantidad,unidad,precio,casepack
+VANS,4400003960,10,8000,8020,BF19,2220,USD,FOB,2026-09-01,VNSGN,VN,VN,2026-10-15,2026-10-20,2026-12-10,C,30095120019,48,PAR,25.50,12
+VANS,4400003960,20,8000,8020,BF20,2220,USD,FOB,2026-09-01,VNSGN,VN,VN,2026-10-15,2026-10-20,2026-12-10,C,30095120020,36,PAR,25.50,
+VANS,4400003960,30,8000,8020,BF20,2220,USD,FOB,2026-09-01,VNSGN,VN,VN,2026-10-15,2026-10-20,2026-12-10,C,30095120027,5,CJ,306.00,

@@ -5,15 +5,18 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models import (
+    Centro,
     Embarque,
     EventoEmbarque,
     Factura,
     PackingList,
+    Puerto,
     UnidadCarga,
     Usuario,
 )
 from .cantidades import nombre_factura, totales_pl
 from .common import ErrorNegocio, exigir, registrar, requerir_motivo
+from .partes import partes
 
 ESTADO_POR_EVENTO = {
     "SALIDA": "EN_TRANSITO",
@@ -150,6 +153,7 @@ def _cabecera(e: Embarque) -> dict:
         "transportista": e.transportista,
         "puerto_origen": e.puerto_origen,
         "puerto_destino": e.puerto_destino,
+        "centro": e.centro,
         "etd": e.etd,
         "eta": e.eta,
         "salida_real": e.salida_real,
@@ -159,10 +163,37 @@ def _cabecera(e: Embarque) -> dict:
     }
 
 
+def _ruta(db: Session, campos: dict, actual: Embarque | None = None) -> dict:
+    """Puertos del catálogo y centro de llegada: el puerto de destino debe ser
+    el del centro. Si falta el puerto de destino se toma el del centro."""
+    for k in ("puerto_origen", "puerto_destino", "centro"):
+        if isinstance(campos.get(k), str):
+            campos[k] = campos[k].strip().upper() or None
+    valor = lambda k: campos[k] if k in campos else (getattr(actual, k) if actual else None)  # noqa: E731
+    errores = []
+    for k, texto in (("puerto_origen", "El puerto de origen"), ("puerto_destino", "El puerto de destino")):
+        if k in campos and campos[k] and not db.scalar(select(Puerto.id).where(Puerto.codigo == campos[k])):
+            errores.append({"campo": k, "mensaje": f"{texto} {campos[k]} no está en el catálogo de puertos."})
+    centro = valor("centro")
+    if centro:
+        c = db.scalar(select(Centro).where(Centro.codigo == centro))
+        if not c:
+            errores.append({"campo": "centro", "mensaje": f"El centro {centro} no existe."})
+        elif c.puerto:
+            if not valor("puerto_destino"):
+                campos["puerto_destino"] = c.puerto
+            elif valor("puerto_destino") != c.puerto:
+                errores.append({"campo": "puerto_destino", "mensaje":
+                                f"El centro {centro} recibe por {c.puerto}; el puerto de destino debe coincidir."})
+    if errores:
+        raise ErrorNegocio("Revisa la ruta del embarque.", 422, "validacion", errores)
+    return campos
+
+
 def crear_embarque(db: Session, user: Usuario, datos) -> dict:
     exigir(user, "transporte.gestionar")
     siguiente = (db.scalar(select(func.max(Embarque.id))) or 0) + 1
-    e = Embarque(codigo=f"EMB-{siguiente:04d}", **datos.model_dump())
+    e = Embarque(codigo=f"EMB-{siguiente:04d}", **_ruta(db, datos.model_dump()))
     db.add(e)
     db.flush()
     registrar(db, user, "embarque", e.id, "crear", {"codigo": e.codigo})
@@ -179,7 +210,8 @@ def actualizar_embarque(db: Session, user: Usuario, embarque_id: int, datos) -> 
             raise ErrorNegocio("No se puede cambiar el tipo de transporte de un embarque que ya tiene unidades.",
                                409, "embarque_con_unidades")
     if _salio(e):
-        bloqueados = {"etd", "puerto_origen", "tipo_transporte", "modalidad", "transportista", "documento_numero"}
+        bloqueados = {"etd", "puerto_origen", "tipo_transporte", "modalidad", "transportista", "documento_numero",
+                      "centro"}
         if e.estado != "PLANIFICADO" and e.arribo_real:
             bloqueados |= {"eta", "puerto_destino"}
         tocados = [k for k in campos if k in bloqueados and campos[k] != getattr(e, k)]
@@ -187,6 +219,15 @@ def actualizar_embarque(db: Session, user: Usuario, embarque_id: int, datos) -> 
             raise ErrorNegocio("Esos datos quedaron fijos al registrar la salida"
                                + (" y el arribo" if e.arribo_real else "") + ": " + ", ".join(tocados) + ".",
                                409, "embarque_cerrado")
+    if {"puerto_origen", "puerto_destino", "centro"} & set(campos):
+        if "centro" in campos and campos["centro"] and campos["centro"] != e.centro:
+            otros = {pl.factura.centro for u in e.unidades for pl in u.packing_lists
+                     if pl.estado != "CANCELADO"} - {campos["centro"].strip().upper()}
+            if otros:
+                raise ErrorNegocio(f"El embarque ya lleva carga para el centro {', '.join(sorted(otros))}.",
+                                   409, "centro_distinto")
+            campos.setdefault("puerto_destino", None)
+        campos = _ruta(db, campos, e)
     etd = campos.get("etd", e.etd)
     eta = campos.get("eta", e.eta)
     if etd and eta and eta < etd:
@@ -226,6 +267,7 @@ def detalle_embarque(db: Session, user: Usuario, embarque_id: int) -> dict:
             for h in historial
         ],
         "tipos_unidad": list(settings.CAPACIDADES),
+        "notify": partes(db, None, e.centro)["notify"] if e.centro else None,
         "cerrado": _salio(e),
         "eventos_permitidos": sorted(EVENTOS_PERMITIDOS[e.estado]),
     }
@@ -240,6 +282,8 @@ def _documentos_salida(e: Embarque, pls: list[PackingList]) -> list[str]:
         faltan.append("Naviera o transportista.")
     if not e.puerto_origen or not e.puerto_destino:
         faltan.append("Origen y destino.")
+    if not e.centro:
+        faltan.append("Centro de llegada (notify party).")
     con_carga = {pl.unidad_carga_id for pl in pls}
     for u in e.unidades:
         if u.id not in con_carga:
@@ -401,8 +445,9 @@ def detalle_unidad(db: Session, user: Usuario, unidad_id: int) -> dict:
 
 def disponibles(db: Session, user: Usuario, unidad_id: int, proveedor_id: int | None = None,
                 q: str | None = None, solo_listos: bool = False) -> list[dict]:
-    """PL sin unidad, agrupados por factura, para asignar completos o parciales."""
-    _unidad(db, user, unidad_id)
+    """PL sin unidad, agrupados por factura, para asignar completos o parciales.
+    Si el embarque ya tiene centro, solo lo que va a ese centro."""
+    u = _unidad(db, user, unidad_id)
     consulta = (
         select(PackingList)
         .join(Factura, Factura.id == PackingList.factura_id)
@@ -412,6 +457,8 @@ def disponibles(db: Session, user: Usuario, unidad_id: int, proveedor_id: int | 
     )
     if proveedor_id:
         consulta = consulta.where(Factura.proveedor_id == proveedor_id)
+    if u.embarque.centro:
+        consulta = consulta.where(Factura.centro == u.embarque.centro)
     if q:
         consulta = consulta.where(Factura.numero.ilike(f"%{q.strip()}%"))
     grupos: dict[int, dict] = {}
@@ -424,6 +471,7 @@ def disponibles(db: Session, user: Usuario, unidad_id: int, proveedor_id: int | 
             "factura": fila["factura"],
             "factura_estado": fila["factura_estado"],
             "proveedor": fila["proveedor"],
+            "centro": pl.factura.centro,
             "packing_lists": [],
         })
         g["packing_lists"].append(fila)
@@ -451,6 +499,19 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
     u = _unidad(db, user, unidad_id)
     _exigir_planificado(u.embarque, "agregar carga")
     pls = _cargar_pls(db, datos.pl_ids)
+    e = u.embarque
+    if not e.centro:
+        # Sin centro todavía: lo define la primera carga, y no se mezclan centros
+        centros = {pl.factura.centro for pl in pls} | {
+            x.factura.centro for un in e.unidades for x in un.packing_lists if x.estado != "CANCELADO"}
+        centros.discard(None)
+        if len(centros) > 1:
+            raise ErrorNegocio("Un embarque llega a un solo centro; la selección va a "
+                               + ", ".join(sorted(centros)) + ".", 422, "centro_distinto")
+        if centros:
+            ruta = _ruta(db, {"centro": centros.pop()}, e)
+            e.centro = ruta["centro"]
+            e.puerto_destino = ruta.get("puerto_destino", e.puerto_destino)
     motivo = (datos.motivo or "").strip() or None
     errores = []
     ids = set(datos.pl_ids)
@@ -461,6 +522,10 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
             continue
         if pl.factura.estado == "CANCELADA":
             errores.append({"pl_id": pl.id, "mensaje": f"{ref}: la factura está cancelada."})
+            continue
+        if u.embarque.centro and pl.factura.centro != u.embarque.centro:
+            errores.append({"pl_id": pl.id, "mensaje":
+                f"{ref} va al centro {pl.factura.centro}; el embarque llega al centro {u.embarque.centro}."})
             continue
         anterior = pl.unidad
         if anterior and anterior.id != u.id:

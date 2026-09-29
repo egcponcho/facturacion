@@ -468,7 +468,7 @@ onMounted(cargar)
                   <span class="sub codigo">{{ l.codigo_sap }}</span>
                 </td>
                 <td><strong>{{ l.talla }}</strong></td>
-                <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.pais_destino || l.almacen" class="sub">{{ [l.almacen && `almacén ${l.almacen}`, l.pais_destino && `destino ${l.pais_destino}`].filter(Boolean).join(' · ') }}</span></td>
+                <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.centro_destino || l.almacen" class="sub">{{ [l.almacen && `almacén ${l.almacen}`, l.centro_destino && `destino ${l.centro_destino}`].filter(Boolean).join(' · ') }}</span></td>
                 <td><span class="etiqueta" :class="REGLAS[l.regla]?.[1]" style="margin-left: 0">{{ reglaTxt(l) }}</span></td>
                 <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
                 <td class="num">{{ fmtNum(l.en_cajas) }}</td>
@@ -546,7 +546,7 @@ onMounted(cargar)
                     Etiqueta {{ g.etiqueta.tipo === 'ESTANDAR' ? 'estándar' : 'consolidada' }}
                   </span>
                   <span class="ayuda codigo">OC {{ g.etiqueta.ocs.join(', ') }}</span>
-                  <span v-if="g.etiqueta.pais_destino" class="ayuda">· destino {{ g.etiqueta.pais_destino }}</span>
+                  <span v-if="g.etiqueta.centro_destino" class="ayuda">· destino {{ g.etiqueta.centro_destino }}</span>
                 </div>
               </td>
               <td class="num" style="width: 70px">

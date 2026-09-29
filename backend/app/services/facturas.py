@@ -24,11 +24,13 @@ from .cantidades import (
     asignado_por_linea,
     cubierto,
     facturado_por_posicion,
+    limpiar_pallets,
     facturas_por_posicion,
     nombre_factura,
     pl_lineas_activas,
     totales_pl,
 )
+from .partes import partes
 from .common import (
     EDITABLE_FACTURA,
     EDITABLE_PL,
@@ -50,7 +52,7 @@ ETIQUETAS = {
     "moneda": "monedas",
     "centro": "centros de destino",
     "incoterm": "incoterms",
-    "pais_destino": "países de destino",
+    "centro_destino": "países de destino",
 }
 
 
@@ -202,7 +204,7 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
         casepack=p.casepack,
         prepack=p.prepack,
         unidades_por_caja=p.unidades_por_caja,
-        pais_destino=oc.pais_destino,
+        centro_destino=oc.centro_destino,
         pais_origen=p.pais_origen,
         partida_arancelaria=p.partida_arancelaria,
         descripcion_comercial=p.descripcion,
@@ -225,7 +227,7 @@ def crear_factura(db: Session, user: Usuario, datos: FacturaCrear) -> dict:
         incoterm=oc0.incoterm,
         sociedad=oc0.sociedad,
         centro=oc0.centro,
-        pais_destino=oc0.pais_destino,
+        centro_destino=oc0.centro_destino,
         estado="BORRADOR",
         version=1,
         creado_por=user.id,
@@ -404,6 +406,7 @@ def eliminar_pl_linea(db: Session, pll: PLLinea) -> None:
         else:
             g.peso_estimado = True
             g.observacion = "Revisar: se retiró contenido de esta caja mixta."
+    limpiar_pallets(pll.pl)
     db.flush()
     db.expire(pll, ["items"])
     pll.pl.lineas.remove(pll)
@@ -811,7 +814,8 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
         "incoterm": f.incoterm,
         "sociedad": f.sociedad,
         "centro": f.centro,
-        "pais_destino": f.pais_destino,
+        "centro_destino": f.centro_destino,
+        **partes(db, f.sociedad, f.centro, f.centro_destino),
         "condiciones": f.condiciones,
         "observaciones": f.observaciones,
         "creado_en": f.creado_en,

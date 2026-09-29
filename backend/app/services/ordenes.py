@@ -19,7 +19,6 @@ from ..models import (
     ImportacionOC,
     OrdenCompra,
     Pais,
-    PaisDestino,
     PosicionOC,
     Proveedor,
     Puerto,
@@ -125,7 +124,7 @@ def listar_ordenes(
     if sociedad:
         consulta = consulta.where(OrdenCompra.sociedad == sociedad)
     if destino:
-        consulta = consulta.where(OrdenCompra.pais_destino == destino)
+        consulta = consulta.where(OrdenCompra.centro_destino == destino)
     if puerto:
         consulta = consulta.where(OrdenCompra.puerto_despacho == puerto)
     if liberacion:
@@ -184,8 +183,10 @@ def listar_ordenes(
             d["disponible"] = max(d["cantidad"] - d["facturado"], 0)
 
     hoy = date.today()
+    centros = {c.codigo: c for c in db.scalars(select(Centro))}
     items = []
     for oc, prov_nombre, importe, n, importe_f in filas:
+        destino = centros.get(oc.centro_destino)
         importe = float(importe or 0)
         items.append(
             {
@@ -201,6 +202,9 @@ def listar_ordenes(
                 # Avance por valor: es comparable aunque la OC mezcle pares y unidades
                 "avance": round(float(importe_f or 0) * 100 / importe, 1) if importe else 0,
                 "dias_tienda": (oc.fecha_tienda - hoy).days if oc.fecha_tienda else None,
+                # El centro de destino dice a qué país llega al final
+                "destino_nombre": destino.nombre if destino else None,
+                "pais_destino": destino.pais if destino else None,
             }
         )
     return {"items": items, "total": total, "page": page, "size": size}
@@ -227,8 +231,8 @@ def filtros_ordenes(db: Session, user: Usuario, proveedor_id: int | None = None)
         "sociedades": distintos(sub.c.sociedad),
         "centros": distintos(sub.c.centro),
         "almacenes": de_posiciones(PosicionOC.almacen),
-        "destinos": [{"codigo": d.codigo, "nombre": d.nombre} for d in db.scalars(
-            select(PaisDestino).where(PaisDestino.codigo.in_(distintos(sub.c.pais_destino))))],
+        "destinos": [{"codigo": d.codigo, "nombre": f"{d.nombre} ({d.pais})"} for d in db.scalars(
+            select(Centro).where(Centro.codigo.in_(distintos(sub.c.centro_destino))).order_by(Centro.codigo))],
         "puertos": [{"codigo": p.codigo, "nombre": p.nombre} for p in db.scalars(
             select(Puerto).where(Puerto.codigo.in_(distintos(sub.c.puerto_despacho))))],
         "marcas": marcas,
@@ -243,7 +247,7 @@ def _cabecera_oc(oc: OrdenCompra) -> dict:
         "proveedor_id": oc.proveedor_id,
         "sociedad": oc.sociedad,
         "centro": oc.centro,
-        "pais_destino": oc.pais_destino,
+        "centro_destino": oc.centro_destino,
         "moneda": oc.moneda,
         "incoterm": oc.incoterm,
         "fecha": oc.fecha,
@@ -308,9 +312,10 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
             }
         )
     prov = db.get(Proveedor, oc.proveedor_id)
-    destino = db.scalar(select(PaisDestino).where(PaisDestino.codigo == oc.pais_destino))
+    destino = db.scalar(select(Centro).where(Centro.codigo == oc.centro_destino))
     return {"oc": {**_cabecera_oc(oc), "proveedor": prov.nombre,
-                   "pais_destino_nombre": destino.nombre if destino else None},
+                   "centro_destino_nombre": destino.nombre if destino else None,
+                   "pais_destino": destino.pais if destino else None},
             "posiciones": posiciones}
 
 
@@ -339,7 +344,7 @@ ALIAS = {
     "sociedad": ["sociedad", "company", "compania"],
     "centro": ["centro", "plant", "bodega", "bodega_fiscal"],
     "almacen": ["almacen", "storage_location", "sloc"],
-    "pais_destino": ["pais_destino", "destino", "codigo_destino"],
+    "centro_destino": ["centro_destino", "pais_destino", "destino", "codigo_destino"],
     "moneda": ["moneda", "currency"],
     "incoterm": ["incoterm"],
     "fecha_oc": ["fecha_oc", "fecha"],
@@ -359,8 +364,8 @@ ALIAS = {
     "fecha_entrega": ["fecha_entrega", "entrega"],
 }
 REQUERIDOS = ["proveedor", "oc", "posicion", "codigo_sap", "cantidad", "precio", "moneda", "sociedad", "centro",
-              "pais_destino"]
-CAMPOS_CABECERA = ["sociedad", "centro", "pais_destino", "moneda", "incoterm", "fecha", "puerto_despacho",
+              "centro_destino"]
+CAMPOS_CABECERA = ["sociedad", "centro", "centro_destino", "moneda", "incoterm", "fecha", "puerto_despacho",
                    "pais_origen", "pais_procedencia", "fecha_xf_original", "fecha_xf", "fecha_tienda",
                    "liberacion_comercial"]
 CAMPOS_POSICION = [
@@ -459,7 +464,6 @@ class Maestros:
         self.sociedades = {s.codigo: s for s in db.scalars(select(Sociedad))}
         self.centros = {c.codigo: c for c in db.scalars(select(Centro))}
         self.almacenes = {a.codigo: a for a in db.scalars(select(Almacen))}
-        self.destinos = {d.codigo: d for d in db.scalars(select(PaisDestino))}
         self.puertos = {p.codigo: p for p in db.scalars(select(Puerto))}
         self.paises = {p.codigo for p in db.scalars(select(Pais))}
         self.articulos: dict[str, Articulo] = {}
@@ -486,7 +490,7 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         "sociedad": r.get("sociedad", "").upper(),
         "centro": (r.get("centro") or "").upper() or None,
         "almacen": (r.get("almacen") or "").upper() or None,
-        "pais_destino": r.get("pais_destino") or None,
+        "centro_destino": r.get("centro_destino") or None,
         "moneda": (r.get("moneda") or "").upper(),
         "incoterm": (r.get("incoterm") or "").upper() or None,
         "puerto_despacho": (r.get("puerto_despacho") or "").upper() or None,
@@ -500,8 +504,6 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         errores.append(f"La OC {d['oc']} no tiene el formato 44 + 8 dígitos (por ejemplo 4400003856).")
     if d["posicion"] and (not d["posicion"].isdigit() or int(d["posicion"]) % 10):
         errores.append(f"La posición {d['posicion']} no va de 10 en 10.")
-    if d["pais_destino"] and not re.fullmatch(r"\d{4}", d["pais_destino"]):
-        errores.append(f"El país de destino {d['pais_destino']} debe ser un código de 4 dígitos.")
     try:
         cant = float(r.get("cantidad", "").replace(",", "")) if r.get("cantidad") else None
         if cant is not None and (cant < 0 or not cant.is_integer()):
@@ -556,8 +558,8 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
             errores.append(f"El almacén {d['almacen']} no existe.")
         elif soc and alm.sociedad_id != soc.id:
             errores.append(f"El almacén {d['almacen']} no pertenece a la sociedad {d['sociedad']}.")
-    if d["pais_destino"] and d["pais_destino"] not in m.destinos:
-        errores.append(f"El país de destino {d['pais_destino']} no está registrado en mantenimiento.")
+    if d["centro_destino"] and d["centro_destino"] not in m.centros:
+        errores.append(f"El centro de destino {d['centro_destino']} no está registrado en mantenimiento.")
     if d["puerto_despacho"] and d["puerto_despacho"] not in m.puertos:
         errores.append(f"El puerto {d['puerto_despacho']} no está registrado.")
     for campo in ("pais_origen", "pais_procedencia"):

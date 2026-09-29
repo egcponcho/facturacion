@@ -355,7 +355,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             <td v-if="!sesion.proveedorId">{{ oc.proveedor }}</td>
             <td><span class="codigo">{{ oc.sociedad }} · {{ oc.centro || '—' }}</span><span class="sub" :title="oc.almacenes.length > 1 ? 'Las posiciones van a distintos almacenes' : ''">{{ oc.almacenes.join(' · ') || 'Sin almacén' }}</span></td>
             <td>
-              <span class="codigo">{{ oc.pais_destino || '—' }}</span>
+              <span class="codigo">{{ oc.centro_destino || '—' }}</span>
               <span class="sub">{{ oc.puerto_despacho || 'Sin puerto' }}<template v-if="oc.pais_origen"> · origen {{ oc.pais_origen }}</template></span>
             </td>
             <td>
