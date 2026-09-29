@@ -363,16 +363,16 @@ onMounted(async () => {
         <span>Importe <b>{{ fmtMoneda(f.totales.importe, f.moneda) }}</b></span>
       </div>
       <div class="doc-datos">
-        <label class="dato"><span>Número de factura</span>
+        <label class="dato"><span class="req">Número de factura</span>
           <CeldaEditable v-if="editable" :valor="f.numero" :guardar="guardarCabecera('numero')" etiqueta="Número de factura" vacia-texto="Obligatorio" />
           <b v-else>{{ f.numero || '—' }}</b>
         </label>
-        <label class="dato"><span>Fecha</span>
-          <CeldaEditable v-if="editable" tipo="date" :valor="f.fecha" :guardar="guardarCabecera('fecha')" etiqueta="Fecha" />
+        <label class="dato"><span class="req">Fecha</span>
+          <CeldaEditable v-if="editable" tipo="date" :valor="f.fecha" :guardar="guardarCabecera('fecha')" etiqueta="Fecha" vacia-texto="Obligatorio" />
           <b v-else>{{ fmtFecha(f.fecha) }}</b>
         </label>
-        <label class="dato"><span>Incoterm</span>
-          <CeldaEditable v-if="editable" :valor="f.incoterm" :guardar="guardarCabecera('incoterm')" etiqueta="Incoterm" />
+        <label class="dato"><span class="req">Incoterm</span>
+          <CeldaEditable v-if="editable" :valor="f.incoterm" :guardar="guardarCabecera('incoterm')" etiqueta="Incoterm" vacia-texto="Obligatorio" />
           <b v-else>{{ f.incoterm || '—' }}</b>
         </label>
         <label class="dato"><span>Condiciones de pago</span>
@@ -406,7 +406,7 @@ onMounted(async () => {
           <Icono nombre="buscar" :tam="16" />
           <input v-model="filtro" type="search" placeholder="Filtrar por código, estilo, color, talla u OC" aria-label="Filtrar líneas" />
         </label>
-        <span class="separar"></span>
+        <span class="leyenda-req separar">Obligatorio en la factura comercial</span>
         <button v-if="editable" class="btn" @click="agregarDesdeOC"><Icono nombre="mas" />Agregar desde OCs</button>
       </div>
       <div class="tabla-marco">
@@ -417,13 +417,13 @@ onMounted(async () => {
               <th>OC / pos.</th>
               <th>Producto</th>
               <th>Talla</th>
-              <th class="num">Cantidad</th>
-              <th class="num">Precio unitario</th>
+              <th class="num"><span class="req">Cantidad</span></th>
+              <th class="num"><span class="req">Precio unitario</span></th>
               <th class="num">Total</th>
               <th class="num">En packing list</th>
-              <th>País origen</th>
-              <th>Partida</th>
-              <th>Descripción comercial</th>
+              <th><span class="req">País origen</span></th>
+              <th><span class="req">Partida</span></th>
+              <th><span class="req">Descripción comercial</span></th>
             </tr>
           </thead>
           <tbody>
@@ -456,7 +456,7 @@ onMounted(async () => {
                 <template v-else>{{ l.partida_arancelaria }}</template>
               </td>
               <td class="envolver">
-                <CeldaEditable v-if="editable" :valor="l.descripcion_comercial" :guardar="celda(l, 'descripcion_comercial')" :etiqueta="`Descripción de ${l.codigo_sap}`" />
+                <CeldaEditable v-if="editable" :valor="l.descripcion_comercial" :guardar="celda(l, 'descripcion_comercial')" vacia-texto="Falta" :etiqueta="`Descripción de ${l.codigo_sap}`" />
                 <template v-else>{{ l.descripcion_comercial }}</template>
               </td>
             </tr>
@@ -639,7 +639,7 @@ onMounted(async () => {
 
   <Modal v-if="modal?.tipo === 'motivo_precio'" titulo="Motivo del cambio de precio" @cerrar="modal = null">
     <ul class="lista-mensajes"><li v-for="(m, i) in modal.lineas" :key="i">{{ m }}</li></ul>
-    <label class="campo"><span>Motivo</span><textarea v-model="modal.motivo" placeholder="Por ejemplo: precio acordado por volumen"></textarea></label>
+    <label class="campo"><span class="req">Motivo</span><textarea v-model="modal.motivo" placeholder="Por ejemplo: precio acordado por volumen"></textarea></label>
     <template #pie>
       <button class="btn" @click="modal = null">Cancelar</button>
       <button class="btn btn-primario" :disabled="!modal.motivo.trim()" @click="enviarCambios(modal.cambios.map((c) => ({ ...c, motivo_precio: modal.motivo })))">Guardar precio</button>
@@ -687,7 +687,7 @@ onMounted(async () => {
   <Modal v-if="modal?.tipo === 'estado'" :titulo="modal.accion === 'reabrir' ? 'Reabrir factura para corrección' : 'Cancelar factura'" @cerrar="modal = null">
     <p v-if="modal.accion === 'cancelar'">Sus packing lists también se cancelan y las cantidades vuelven a estar disponibles en las OCs.</p>
     <p v-else>La factura vuelve a ser editable. Sus packing lists mantienen su estado.</p>
-    <label class="campo"><span>Motivo{{ modal.accion === 'cancelar' && f?.estado === 'BORRADOR' ? ' (opcional)' : '' }}</span><textarea v-model="modal.motivo"></textarea></label>
+    <label class="campo"><span :class="{ req: !(modal.accion === 'cancelar' && f?.estado === 'BORRADOR') }">Motivo{{ modal.accion === 'cancelar' && f?.estado === 'BORRADOR' ? ' (opcional)' : '' }}</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>
       <button class="btn" @click="modal = null">Volver</button>
       <button class="btn" :class="modal.accion === 'cancelar' ? 'btn-peligro' : 'btn-primario'" :disabled="ocupado" @click="cambiarEstado">

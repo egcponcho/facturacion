@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icono from '../components/Icono.vue'
+import SelectorTema from '../components/SelectorTema.vue'
 import { iniciarSesion } from '../stores/sesion'
 
 const route = useRoute()
@@ -56,13 +57,14 @@ function demo(correo) {
       </ul>
     </section>
     <div class="login-lado">
+      <div style="position: absolute; top: 18px; right: 18px"><SelectorTema /></div>
       <form class="login-caja" @submit.prevent="entrar">
         <div>
           <div class="login-titulo">Inicia sesión</div>
           <p class="ayuda">Usa tu correo de proveedor o del equipo de importaciones.</p>
         </div>
-        <label class="campo"><span>Correo</span><input v-model="email" type="email" autocomplete="username" required /></label>
-        <label class="campo"><span>Contraseña</span><input v-model="password" type="password" autocomplete="current-password" required /></label>
+        <label class="campo"><span class="req">Correo</span><input v-model="email" type="email" autocomplete="username" required /></label>
+        <label class="campo"><span class="req">Contraseña</span><input v-model="password" type="password" autocomplete="current-password" required /></label>
         <p v-if="error" class="nota error" role="alert"><Icono nombre="alerta" />{{ error }}</p>
         <button class="btn btn-primario btn-grande" type="submit" :disabled="enviando">{{ enviando ? 'Entrando…' : 'Entrar' }}</button>
         <div class="demo">

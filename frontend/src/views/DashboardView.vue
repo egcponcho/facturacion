@@ -101,7 +101,7 @@ watch(() => sesion.proveedorId, cargar)
         <section class="panel">
           <div class="panel-cabeza">
             <div><h2>Próximos pasos</h2><p>Ordenados por lo que destraba más trabajo.</p></div>
-            <span v-if="d.tareas.length" class="etiqueta kraft">{{ d.tareas.length }}</span>
+            <span v-if="d.tareas.length" class="etiqueta acento">{{ d.tareas.length }}</span>
           </div>
           <ul v-if="d.tareas.length" class="tareas">
             <li v-for="(t, i) in d.tareas" :key="i" class="tarea">

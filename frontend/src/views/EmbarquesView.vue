@@ -133,22 +133,22 @@ onMounted(cargar)
 
   <Modal v-if="modal" titulo="Nuevo embarque" ancho="660px" @cerrar="modal = null">
     <div class="rejilla-campos">
-      <label class="campo"><span>Tipo de transporte</span>
+      <label class="campo"><span class="req">Tipo de transporte</span>
         <select v-model="modal.tipo_transporte">
           <option value="MARITIMO">Marítimo</option><option value="AEREO">Aéreo</option><option value="TERRESTRE">Terrestre</option>
         </select>
       </label>
-      <label v-if="modal.tipo_transporte === 'MARITIMO'" class="campo"><span>Modalidad</span>
+      <label v-if="modal.tipo_transporte === 'MARITIMO'" class="campo"><span class="req">Modalidad</span>
         <select v-model="modal.modalidad"><option value="FCL">Contenedor completo (FCL)</option><option value="LCL">Carga consolidada (LCL)</option></select>
       </label>
-      <label class="campo"><span>BL / AWB (si ya existe)</span><input v-model="modal.documento_numero" /></label>
-      <label class="campo"><span>Naviera o transportista</span><input v-model="modal.transportista" /></label>
-      <label class="campo"><span>Origen</span><input v-model="modal.puerto_origen" /></label>
-      <label class="campo"><span>Destino</span><input v-model="modal.puerto_destino" /></label>
+      <label class="campo"><span class="req">BL / AWB</span><input v-model="modal.documento_numero" placeholder="Si ya existe" /></label>
+      <label class="campo"><span class="req">Naviera o transportista</span><input v-model="modal.transportista" /></label>
+      <label class="campo"><span class="req">Origen</span><input v-model="modal.puerto_origen" /></label>
+      <label class="campo"><span class="req">Destino</span><input v-model="modal.puerto_destino" /></label>
       <label class="campo"><span>ETD</span><input v-model="modal.etd" type="date" /></label>
       <label class="campo"><span>ETA</span><input v-model="modal.eta" type="date" /></label>
     </div>
-    <p class="ayuda">Después de crearlo agregas sus contenedores y les asignas carga.</p>
+    <p class="leyenda-req">Obligatorios en el documento de transporte; puedes crear el embarque sin ellos, pero la salida no se registra hasta completarlos.</p>
     <template #pie>
       <button class="btn" @click="modal = null">Cancelar</button>
       <button class="btn btn-primario" @click="crear">Crear embarque</button>
