@@ -25,17 +25,17 @@ const TONO = {
   SIN_COMERCIAL: 'aviso', SIN_LOGISTICA: 'aviso', POR_FACTURAR: 'neutro', PARCIAL: 'info', FACTURADA: 'acento',
   EN_CAMINO: 'info', RECIBIDA: 'ok',
 }
-const RIESGOS = { ATRASO: ['Llega tarde', 'error'], JUSTO: ['Justo', 'aviso'], A_TIEMPO: ['A tiempo', 'ok'] }
+const RIESGOS = { ATRASO: ['Arrives late', 'error'], JUSTO: ['Tight', 'aviso'], A_TIEMPO: ['On time', 'ok'] }
 // Tramos de la barra de avance: del pedido a lo recibido (un solo tono, de claro a oscuro)
 const TRAMOS = [
-  ['por_facturar', 'Por facturar', 'var(--tramo-1)'], ['facturado', 'Facturado', 'var(--tramo-2)'],
-  ['en_contenedor', 'En contenedor', 'var(--tramo-3)'], ['en_camino', 'En camino', 'var(--tramo-4)'],
-  ['recibido', 'Recibido', 'var(--tramo-5)'],
+  ['por_facturar', 'To invoice', 'var(--tramo-1)'], ['facturado', 'Invoiced', 'var(--tramo-2)'],
+  ['en_contenedor', 'In load unit', 'var(--tramo-3)'], ['en_camino', 'On the way', 'var(--tramo-4)'],
+  ['recibido', 'Received', 'var(--tramo-5)'],
 ]
 const ETAPAS = {
-  PEND_LIBERACION: ['Pendiente de liberación', 'aviso'], POR_FACTURAR: ['Por facturar', 'neutro'],
-  FACTURADO: ['Facturado sin PL', 'info'], EN_PL: ['En packing list', 'acento'], CONTENEDOR: ['En contenedor', 'acento'],
-  EN_TRANSITO: ['En tránsito', 'info'], ARRIBADO: ['Arribado', 'info'], ENTREGADO: ['Entregado', 'ok'], RECIBIDO: ['Recibido', 'ok'],
+  PEND_LIBERACION: ['Pending release', 'aviso'], POR_FACTURAR: ['To invoice', 'neutro'],
+  FACTURADO: ['Invoiced, no PL', 'info'], EN_PL: ['In packing list', 'acento'], CONTENEDOR: ['In load unit', 'acento'],
+  EN_TRANSITO: ['In transit', 'info'], ARRIBADO: ['Arrived', 'info'], ENTREGADO: ['Delivered', 'ok'], RECIBIDO: ['Received', 'ok'],
 }
 const detalles = reactive({})
 const explosion = ref(null)
@@ -52,7 +52,7 @@ async function alternar(o) {
   }
 }
 const nombreEstado = computed(() => Object.fromEntries(datos.value.estados.map((e) => [e.clave, e.nombre])))
-const grafica = computed(() => datos.value.estados.map((e) => ({ etiqueta: e.nombre.split(' (')[0].replace('Sin liberación', 'Sin lib.'), valor: e.total, detalle: e.nombre })))
+const grafica = computed(() => datos.value.estados.map((e) => ({ etiqueta: e.nombre.split(' (')[0].replace('No commercial release', 'No comm. rel.').replace('No logistics release', 'No log. rel.'), valor: e.total, detalle: e.nombre })))
 
 async function cargar() {
   cargando.value = true
@@ -80,21 +80,21 @@ onMounted(cargar)
 
 <template>
   <section class="kpis" style="margin-bottom: 16px">
-    <Kpi titulo="Órdenes de compra" :valor="datos.kpis.ocs" icono="ordenes" :detalle="`${fmtNum(datos.kpis.avance || 0, 1)}% facturado`" @abrir="emit('filtrar', {})" />
-    <Kpi titulo="Liberadas" :valor="datos.kpis.liberadas" icono="check" tono="exito" detalle="comercial C y logística 300/301" @abrir="emit('filtrar', {})" />
-    <Kpi titulo="Sin liberar" :valor="datos.kpis.sin_liberar" icono="candado" :tono="datos.kpis.sin_liberar ? 'alerta' : 'exito'"
-         detalle="comercial P o logística 304" @abrir="emit('filtrar', { estado: 'SIN_COMERCIAL' })" />
-    <Kpi titulo="XF vencida sin facturar" :valor="datos.kpis.xf_vencida" icono="reloj" :tono="datos.kpis.xf_vencida ? 'alerta' : 'exito'"
-         detalle="ya pasó la fecha XF" @abrir="emit('filtrar', { xf_vencida: '1' })" />
-    <Kpi titulo="Llegan tarde a tienda" :valor="datos.kpis.atraso" icono="alerta" :tono="datos.kpis.atraso ? 'alerta' : 'exito'"
-         detalle="por ETA o sin embarque" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
+    <Kpi titulo="Purchase orders" :valor="datos.kpis.ocs" icono="ordenes" :detalle="`${fmtNum(datos.kpis.avance || 0, 1)}% invoiced`" @abrir="emit('filtrar', {})" />
+    <Kpi titulo="Released" :valor="datos.kpis.liberadas" icono="check" tono="exito" detalle="commercial C and logistics 300/301" @abrir="emit('filtrar', {})" />
+    <Kpi titulo="Not released" :valor="datos.kpis.sin_liberar" icono="candado" :tono="datos.kpis.sin_liberar ? 'alerta' : 'exito'"
+         detalle="commercial P or logistics 304" @abrir="emit('filtrar', { estado: 'SIN_COMERCIAL' })" />
+    <Kpi titulo="XF overdue, not invoiced" :valor="datos.kpis.xf_vencida" icono="reloj" :tono="datos.kpis.xf_vencida ? 'alerta' : 'exito'"
+         detalle="the XF date has passed" @abrir="emit('filtrar', { xf_vencida: '1' })" />
+    <Kpi titulo="Late for the store" :valor="datos.kpis.atraso" icono="alerta" :tono="datos.kpis.atraso ? 'alerta' : 'exito'"
+         detalle="by ETA or without shipment" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
   </section>
 
   <section class="panel" style="margin-bottom: 16px">
     <div class="panel-cabeza">
-      <div><h2>OCs por estado</h2><p>De la liberación a la recepción. Clic en un estado para filtrar la tabla.</p></div>
+      <div><h2>POs by status</h2><p>From release to receipt. Click a status to filter the table.</p></div>
     </div>
-    <GraficoColumnas :datos="grafica" titulo="Órdenes de compra por estado" />
+    <GraficoColumnas :datos="grafica" titulo="Purchase orders by status" />
     <div class="chips" style="margin: 10px 0 0">
       <button v-for="e in datos.estados" :key="e.clave" type="button" class="pildora" :aria-pressed="filtros.estado === e.clave"
               @click="emit('filtrar', { estado: filtros.estado === e.clave ? '' : e.clave })">
@@ -107,26 +107,26 @@ onMounted(cargar)
     <table class="tabla">
       <thead>
         <tr>
-          <th><span class="oculto-visual">Abrir</span></th>
-          <ThOrden campo="oc" :orden="tabla.orden" @ordenar="ordenar">Orden de compra</ThOrden>
-          <ThOrden campo="centro" :orden="tabla.orden" @ordenar="ordenar">Sociedad · centro</ThOrden>
-          <th>Liberaciones</th>
-          <ThOrden campo="estado" :orden="tabla.orden" @ordenar="ordenar">Estado</ThOrden>
-          <ThOrden campo="avance" :orden="tabla.orden" @ordenar="ordenar">Avance</ThOrden>
-          <ThOrden campo="por_facturar" :orden="tabla.orden" num @ordenar="ordenar">Por facturar</ThOrden>
+          <th><span class="oculto-visual">Open</span></th>
+          <ThOrden campo="oc" :orden="tabla.orden" @ordenar="ordenar">Purchase order</ThOrden>
+          <ThOrden campo="centro" :orden="tabla.orden" @ordenar="ordenar">Company · plant</ThOrden>
+          <th>Releases</th>
+          <ThOrden campo="estado" :orden="tabla.orden" @ordenar="ordenar">Status</ThOrden>
+          <ThOrden campo="avance" :orden="tabla.orden" @ordenar="ordenar">Progress</ThOrden>
+          <ThOrden campo="por_facturar" :orden="tabla.orden" num @ordenar="ordenar">To invoice</ThOrden>
           <ThOrden campo="fecha_xf" :orden="tabla.orden" @ordenar="ordenar">XF</ThOrden>
-          <ThOrden campo="fecha_tienda" :orden="tabla.orden" @ordenar="ordenar">En tienda</ThOrden>
-          <ThOrden campo="holgura" :orden="tabla.orden" @ordenar="ordenar">Vs. tienda</ThOrden>
-          <th>Embarques</th>
+          <ThOrden campo="fecha_tienda" :orden="tabla.orden" @ordenar="ordenar">In store</ThOrden>
+          <ThOrden campo="holgura" :orden="tabla.orden" @ordenar="ordenar">Vs. store</ThOrden>
+          <th>Shipments</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-if="cargando && !datos.items.length"><td colspan="11" class="vacio">Cargando…</td></tr>
-        <tr v-else-if="!datos.items.length"><td colspan="11" class="vacio">No hay órdenes de compra con esos filtros.</td></tr>
+        <tr v-if="cargando && !datos.items.length"><td colspan="11" class="vacio">Loading…</td></tr>
+        <tr v-else-if="!datos.items.length"><td colspan="11" class="vacio">No purchase orders match these filters.</td></tr>
         <template v-for="o in datos.items" :key="o.oc_id">
         <tr class="clicable" @click="alternar(o)">
           <td>
-            <button type="button" class="btn-icono" :aria-expanded="!!detalles[o.oc_id]" :aria-label="`Ver el detalle por SKU de ${o.oc}`">
+            <button type="button" class="btn-icono" :aria-expanded="!!detalles[o.oc_id]" :aria-label="`See the SKU detail of ${o.oc}`">
               <Icono :nombre="detalles[o.oc_id] ? 'abajo' : 'derecha'" :tam="16" />
             </button>
           </td>
@@ -134,7 +134,7 @@ onMounted(cargar)
             <router-link :to="{ path: '/ordenes', query: { q: o.oc, solo_disponible: '0' } }" class="codigo fuerte" @click.stop>{{ o.oc }}</router-link>
             <span class="sub">{{ o.proveedor }}<template v-if="o.marcas.length"> · {{ o.marcas.join(', ') }}</template></span>
           </td>
-          <td class="codigo">{{ o.sociedad }} · {{ o.centro }}<span class="sub">destino {{ o.centro_destino || '—' }}</span></td>
+          <td class="codigo">{{ o.sociedad }} · {{ o.centro }}<span class="sub">destination {{ o.centro_destino || '—' }}</span></td>
           <td>
             <span class="etiqueta" :class="COMERCIAL[o.liberacion_comercial]?.[1]" style="margin-left: 0" :title="COMERCIAL[o.liberacion_comercial]?.[2]">{{ COMERCIAL[o.liberacion_comercial]?.[0] }}</span>
             <span class="etiqueta" :class="LIBERACION[o.liberacion_logistica]?.[1]" :title="LIBERACION[o.liberacion_logistica]?.[2]">{{ LIBERACION[o.liberacion_logistica]?.[0] }}</span>
@@ -145,14 +145,14 @@ onMounted(cargar)
               <span v-for="[k, t, c] in TRAMOS.filter(([k]) => o.cantidades[k])" :key="k"
                     :style="{ width: `${(o.cantidades[k] * 100) / o.total}%`, background: c }" :title="`${t}: ${fmtNum(o.cantidades[k])}`"></span>
             </div>
-            <span class="sub">{{ fmtNum(o.avance, 0) }}% facturado · {{ fmtNum(o.total) }} {{ o.unidades.join('/') }}</span>
+            <span class="sub">{{ fmtNum(o.avance, 0) }}% invoiced · {{ fmtNum(o.total) }} {{ o.unidades.join('/') }}</span>
           </td>
           <td class="num">{{ fmtNum(o.por_facturar) }}</td>
-          <td>{{ fmtFecha(o.fecha_xf) }}<span v-if="o.xf_vencida" class="sub" style="color: var(--error)">vencida</span></td>
+          <td>{{ fmtFecha(o.fecha_xf) }}<span v-if="o.xf_vencida" class="sub" style="color: var(--error)">overdue</span></td>
           <td>{{ fmtFecha(o.fecha_tienda) }}<span class="sub">{{ diasTxt(o.dias_tienda) }}</span></td>
           <td>
             <span v-if="o.riesgo" class="etiqueta" :class="RIESGOS[o.riesgo][1]" style="margin-left: 0">{{ RIESGOS[o.riesgo][0] }}</span>
-            <span v-if="o.holgura !== null" class="sub">{{ o.holgura < 0 ? `${-o.holgura} d tarde` : `${o.holgura} d de margen` }}</span>
+            <span v-if="o.holgura !== null" class="sub">{{ o.holgura < 0 ? `${-o.holgura} d late` : `${o.holgura} d margin` }}</span>
           </td>
           <td class="codigo">{{ o.embarques.join(', ') || '—' }}</td>
         </tr>
@@ -162,18 +162,18 @@ onMounted(cargar)
               <div class="tabla-marco">
                 <table class="tabla">
                   <thead>
-                    <tr><th>Pos.</th><th>SKU</th><th>Marca · estilo · color</th><th>Talla</th><th>Almacén</th><th class="num">Cantidad</th>
-                      <th>Etapa</th><th>Factura / PL</th><th>Embarque · unidad</th><th>Llegada</th><th>Vs. tienda</th></tr>
+                    <tr><th>Line</th><th>SKU</th><th>Brand · style · color</th><th>Size</th><th>Warehouse</th><th class="num">Quantity</th>
+                      <th>Stage</th><th>Invoice / PL</th><th>Shipment · unit</th><th>Arrival</th><th>Vs. store</th></tr>
                   </thead>
                   <tbody>
-                    <tr v-if="!detalles[o.oc_id].length"><td colspan="11" class="vacio">Sin líneas con esos filtros.</td></tr>
+                    <tr v-if="!detalles[o.oc_id].length"><td colspan="11" class="vacio">No lines match these filters.</td></tr>
                     <tr v-for="(l, i) in detalles[o.oc_id]" :key="i">
                       <td class="codigo">{{ l.posicion }}</td>
                       <td class="codigo">{{ l.sku }}</td>
                       <td>{{ l.marca }} {{ l.estilo }}<span class="sub">{{ l.color }}<template v-if="l.grupo"> · {{ l.grupo }}</template></span></td>
                       <td>
                         <b>{{ l.talla || '—' }}</b>
-                        <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" title="Ver la explosión del prepack"
+                        <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" title="See the prepack breakdown"
                                 @click="explosion = { sku: l.sku, cajas: l.cantidad }">Prepack <Icono nombre="lupa" :tam="12" /></button>
                       </td>
                       <td>{{ l.almacen || '—' }}</td>
@@ -192,9 +192,9 @@ onMounted(cargar)
                         </template>
                         <span v-else class="ayuda">—</span>
                       </td>
-                      <td>{{ fmtFecha(l.arribo_real || l.eta) }}<span v-if="l.arribo_real" class="sub">real</span></td>
+                      <td>{{ fmtFecha(l.arribo_real || l.eta) }}<span v-if="l.arribo_real" class="sub">actual</span></td>
                       <td>
-                        <span v-if="l.riesgo" class="etiqueta" :class="RIESGOS[l.riesgo][1]" style="margin-left: 0">{{ l.holgura < 0 ? `${-l.holgura} d tarde` : `${l.holgura} d` }}</span>
+                        <span v-if="l.riesgo" class="etiqueta" :class="RIESGOS[l.riesgo][1]" style="margin-left: 0">{{ l.holgura < 0 ? `${-l.holgura} d late` : `${l.holgura} d` }}</span>
                         <span v-else class="ayuda">—</span>
                       </td>
                     </tr>

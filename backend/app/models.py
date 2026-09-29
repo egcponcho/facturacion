@@ -127,7 +127,51 @@ class Usuario(Base):
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
     password_hash: Mapped[str] = mapped_column(String(300))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Seguridad del acceso: celular registrado para la verificación en dos
+    # pasos, intentos fallidos y bloqueo temporal.
+    telefono: Mapped[str | None] = mapped_column(String(20))  # formato E.164: +50370000000
+    dos_pasos: Mapped[bool] = mapped_column(Boolean, default=True)
+    intentos_fallidos: Mapped[int] = mapped_column(Integer, default=0)
+    bloqueado_hasta: Mapped[datetime | None] = mapped_column(DateTime)
+    ultimo_acceso: Mapped[datetime | None] = mapped_column(DateTime)
+    password_cambiado_en: Mapped[datetime | None] = mapped_column(DateTime)
     proveedor: Mapped[Proveedor | None] = relationship()
+
+
+class SesionUsuario(Base):
+    """Sesión iniciada. La cookie lleva un token aleatorio; aquí solo se guarda
+    su hash. Vence por inactividad y por duración máxima, y se revoca al
+    cerrar sesión o al cambiar la contraseña."""
+
+    __tablename__ = "sesiones"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    creada: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    expira: Mapped[datetime] = mapped_column(DateTime)
+    ultima_actividad: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    ip: Mapped[str | None] = mapped_column(String(64))
+    agente: Mapped[str | None] = mapped_column(String(300))
+    revocada: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    usuario: Mapped[Usuario] = relationship()
+
+
+class DesafioDosPasos(Base):
+    """Código de un solo uso enviado por SMS al celular registrado."""
+
+    __tablename__ = "desafios_dos_pasos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    codigo_hash: Mapped[str] = mapped_column(String(64))
+    expira: Mapped[datetime] = mapped_column(DateTime)
+    intentos: Mapped[int] = mapped_column(Integer, default=0)
+    envios: Mapped[int] = mapped_column(Integer, default=1)
+    ultimo_envio: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    usado: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    usuario: Mapped[Usuario] = relationship()
 
 
 # --------------------------------------------------------------------------
@@ -282,7 +326,6 @@ class Articulo(Base):
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
     unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ (prepack)
     tipo: Mapped[str] = mapped_column(String(10), default="SOLIDO")  # SOLIDO | PREPACK
-    casepack: Mapped[int | None] = mapped_column(Integer)
     prepack_id: Mapped[int | None] = mapped_column(ForeignKey("prepacks.id"))
     partida_arancelaria: Mapped[str | None] = mapped_column(String(20))
     pais_origen: Mapped[str | None] = mapped_column(String(2))
@@ -354,7 +397,11 @@ class PosicionOC(Base):
     grupo: Mapped[str | None] = mapped_column(String(15))
     categoria: Mapped[str | None] = mapped_column(String(10))
     tipo_empaque: Mapped[str] = mapped_column(String(10), default="SOLIDO")  # SOLIDO | PREPACK
+    # Empaque de la compra (dato de la posición, no del artículo): casepack =
+    # unidades exactas por caja master; inner_pack = unidades por paquete
+    # interno (todos iguales). Con ambos, el casepack es múltiplo del inner.
     casepack: Mapped[int | None] = mapped_column(Integer)
+    inner_pack: Mapped[int | None] = mapped_column(Integer)
     prepack: Mapped[str | None] = mapped_column(String(30))
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total de la curva
     cantidad: Mapped[int] = mapped_column(Integer)
@@ -438,6 +485,7 @@ class FacturaLinea(Base):
     categoria: Mapped[str | None] = mapped_column(String(10))
     tipo_empaque: Mapped[str] = mapped_column(String(10), default="SOLIDO")
     casepack: Mapped[int | None] = mapped_column(Integer)
+    inner_pack: Mapped[int | None] = mapped_column(Integer)
     prepack: Mapped[str | None] = mapped_column(String(30))
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)
     centro_destino: Mapped[str | None] = mapped_column(String(10))

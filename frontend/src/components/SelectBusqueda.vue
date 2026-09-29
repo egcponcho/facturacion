@@ -10,7 +10,7 @@ const props = defineProps({
   modelValue: { type: [String, Number, Array], default: '' },
   multiple: Boolean,
   opciones: { type: Array, default: () => [] },
-  placeholder: { type: String, default: 'Elige…' },
+  placeholder: { type: String, default: 'Choose…' },
   vacio: { type: String, default: '' }, // texto de la opción "sin valor" (p. ej. "Todos")
   etiqueta: { type: String, default: '' },
   deshabilitado: Boolean,
@@ -37,7 +37,7 @@ const elegido = computed(() => (props.multiple ? null : items.value.find((o) => 
 const resumen = computed(() => {
   if (!props.multiple) return ''
   const textos = items.value.filter((o) => elegidos.value.includes(String(o.valor))).map((o) => o.texto.split(' · ')[0])
-  return textos.length > 3 ? `${textos.slice(0, 3).join(', ')} y ${textos.length - 3} más` : textos.join(', ')
+  return textos.length > 3 ? `${textos.slice(0, 3).join(', ')} and ${textos.length - 3} more` : textos.join(', ')
 })
 
 const filtrados = computed(() => {
@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
       <div v-if="abierto" ref="lista" class="sb-panel" :style="pos">
         <label class="sb-buscar">
           <Icono nombre="buscar" :tam="15" />
-          <input ref="campo" v-model="texto" type="search" placeholder="Buscar…" :aria-label="`Buscar ${etiqueta}`"
+          <input ref="campo" v-model="texto" type="search" placeholder="Search…" :aria-label="`Search ${etiqueta}`"
                  role="combobox" aria-autocomplete="list" :aria-expanded="true" @keydown="tecla" />
         </label>
         <ul class="sb-lista" role="listbox" :aria-multiselectable="multiple || undefined">
@@ -155,8 +155,8 @@ onBeforeUnmount(() => {
             <span><Icono v-if="multiple" :nombre="esElegido(o) ? 'check' : 'mas'" :tam="13" class="sb-marca" /> {{ o.texto }}</span>
             <small v-if="o.sub">{{ o.sub }}</small>
           </li>
-          <li v-if="!visibles.length" class="sb-nada">Sin resultados para “{{ texto }}”</li>
-          <li v-if="filtrados.length > MAX" class="sb-nada">Mostrando {{ MAX }} de {{ filtrados.length }}; escribe para afinar.</li>
+          <li v-if="!visibles.length" class="sb-nada">No results for “{{ texto }}”</li>
+          <li v-if="filtrados.length > MAX" class="sb-nada">Showing {{ MAX }} of {{ filtrados.length }}; type to narrow it down.</li>
         </ul>
       </div>
     </Teleport>

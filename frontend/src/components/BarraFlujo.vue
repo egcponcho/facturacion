@@ -8,13 +8,13 @@ import { cantTxt, pct } from '../utils'
 const props = defineProps({ flujo: { type: Object, required: true } })
 
 const ETAPAS = [
-  ['por_facturar', 'Por facturar', 'var(--flujo-1)'],
-  ['sin_pl', 'Facturado sin packing list', 'var(--flujo-2)'],
-  ['sin_caja', 'En packing list, sin caja', 'var(--flujo-3)'],
-  ['empacado', 'Empacado', 'var(--flujo-4)'],
-  ['embarcado', 'Embarcado', 'var(--flujo-5)'],
+  ['por_facturar', 'To invoice', 'var(--flujo-1)'],
+  ['sin_pl', 'Invoiced, no packing list', 'var(--flujo-2)'],
+  ['sin_caja', 'In packing list, not packed', 'var(--flujo-3)'],
+  ['empacado', 'Packed', 'var(--flujo-4)'],
+  ['embarcado', 'Shipped', 'var(--flujo-5)'],
 ]
-const NOMBRES = { PAR: 'Pares', UN: 'Unidades' }
+const NOMBRES = { PAR: 'Pairs', UN: 'Units' }
 const activo = ref(null)
 
 const filas = computed(() => Object.entries(props.flujo).map(([unidad, v]) => {
@@ -25,7 +25,7 @@ const filas = computed(() => Object.entries(props.flujo).map(([unidad, v]) => {
 
 <template>
   <div class="flujo">
-    <p v-if="!filas.length" class="ayuda">Todavía no hay mercancía en proceso.</p>
+    <p v-if="!filas.length" class="ayuda">No goods in process yet.</p>
     <div v-for="f in filas" :key="f.unidad" class="flujo-fila">
       <h3><span>{{ NOMBRES[f.unidad] || f.unidad }}</span><span class="apagado">{{ cantTxt(f.total, f.unidad) }}</span></h3>
       <div class="flujo-barra" role="img" :aria-label="f.segmentos.map((s) => `${s.texto}: ${cantTxt(s.valor, f.unidad)}`).join('; ')">

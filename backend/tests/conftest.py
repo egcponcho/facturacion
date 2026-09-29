@@ -32,13 +32,28 @@ def client():
         yield c
 
 
+PASSWORD = "Supplier2026"
+
+
+def iniciar_sesion(client, email, password=PASSWORD) -> str:
+    """Contraseña y código de verificación (en la demo el código viene en la
+    respuesta). Devuelve el token de la sesión (el valor de la cookie)."""
+    r = client.post("/api/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 200, r.text
+    if r.json()["dos_pasos"]:
+        d = r.json()
+        r = client.post("/api/auth/verificar", json={"desafio": d["desafio"], "codigo": d["codigo_demo"]})
+        assert r.status_code == 200, r.text
+    token = r.cookies["sesion"]
+    client.cookies.clear()
+    return token
+
+
 class Api:
     def __init__(self, client, email):
         self.c = client
-        r = client.post("/api/auth/login", json={"email": email, "password": "demo123"})
-        assert r.status_code == 200, r.text
-        self.h = {"Authorization": f"Bearer {r.json()['token']}"}
-        self.yo = r.json()["usuario"]
+        self.h = {"Authorization": f"Bearer {iniciar_sesion(client, email)}"}
+        self.yo = self.c.get("/api/auth/me", headers=self.h).json()
 
     def get(self, url, **kw):
         return self.c.get("/api" + url, headers=self.h, **kw)

@@ -11,7 +11,7 @@ export function useTabla(fuente, { porPagina = 15, orden = '', valores = {} } = 
     if (a === null || a === undefined || a === '') return 1
     if (b === null || b === undefined || b === '') return -1
     if (typeof a === 'number' && typeof b === 'number') return a - b
-    return String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' })
+    return String(a).localeCompare(String(b), 'en', { numeric: true, sensitivity: 'base' })
   }
 
   const ordenadas = computed(() => {

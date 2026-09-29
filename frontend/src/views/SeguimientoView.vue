@@ -20,20 +20,20 @@ import { fmtFecha } from '../utils'
 const route = useRoute()
 const router = useRouter()
 const VISTAS = [
-  ['ordenes', 'Órdenes de compra', 'ordenes'], ['embarques', 'Embarques y unidades de carga', 'contenedor'],
-  ['documentos', 'Facturación y packing lists', 'factura'],
+  ['ordenes', 'Purchase orders', 'ordenes'], ['embarques', 'Shipments and load units', 'contenedor'],
+  ['documentos', 'Invoicing and packing lists', 'factura'],
 ]
 // Enlaces anteriores: "contenedores" y "mercancia" ahora son embarques y OCs
 const ANTERIORES = { contenedores: 'embarques', mercancia: 'ordenes' }
 const inicial = ANTERIORES[route.query.vista] || route.query.vista
 const vista = ref(VISTAS.some(([v]) => v === inicial) ? inicial : 'ordenes')
 const NOMBRES = {
-  estado: 'Estado', modo: 'Modo', etapa: 'Etapa', liberacion_comercial: 'Lib. comercial', liberacion_logistica: 'Lib. logística',
-  proveedor: 'Proveedor', sociedad: 'Sociedad', centro: 'Centro', xf_vencida: 'XF vencida',
-  marca: 'Marca', grupo: 'Grupo', estilo: 'Estilo', color: 'Color', talla: 'Talla', sku: 'SKU', almacen: 'Almacén',
-  contenedor: 'Unidad de carga', documento: 'BL / AWB', riesgo: 'Llegada a tienda', embarque_id: 'Embarque',
-  eta_desde: 'ETA desde', eta_hasta: 'ETA hasta', fecha_xf_desde: 'XF desde', fecha_xf_hasta: 'XF hasta',
-  fecha_tienda_desde: 'En tienda desde', fecha_tienda_hasta: 'En tienda hasta',
+  estado: 'Status', modo: 'Mode', etapa: 'Stage', liberacion_comercial: 'Commercial rel.', liberacion_logistica: 'Logistics rel.',
+  proveedor: 'Supplier', sociedad: 'Company', centro: 'Plant', xf_vencida: 'XF overdue',
+  marca: 'Brand', grupo: 'Group', estilo: 'Style', color: 'Color', talla: 'Size', sku: 'SKU', almacen: 'Warehouse',
+  contenedor: 'Load unit', documento: 'B/L / AWB', riesgo: 'In-store arrival', embarque_id: 'Shipment',
+  eta_desde: 'ETA from', eta_hasta: 'ETA to', fecha_xf_desde: 'XF from', fecha_xf_hasta: 'XF to',
+  fecha_tienda_desde: 'In store from', fecha_tienda_hasta: 'In store to',
 }
 const FILTROS = ['q', ...Object.keys(NOMBRES)]
 const filtros = reactive(Object.fromEntries(FILTROS.map((k) => [k, ''])))
@@ -44,15 +44,15 @@ const opciones = ref({})
 // Filtros activos que se mandan a los tableros
 const params = computed(() => Object.fromEntries(FILTROS.filter((k) => filtros[k]).map((k) => [k, filtros[k]])))
 const paramsExportar = computed(() => ({ ...params.value, proveedor_id: sesion.proveedorId || undefined }))
-const ESTADOS_EMB = [['PLANIFICADO', 'Planificado'], ['EN_TRANSITO', 'En tránsito'], ['ARRIBADO', 'Arribado'], ['ENTREGADO', 'Entregado'], ['RECIBIDO', 'Recibido']]
-const ESTADOS_OC = [['SIN_COMERCIAL', 'Sin liberación comercial (P)'], ['SIN_LOGISTICA', 'Sin liberación logística (304)'],
-  ['POR_FACTURAR', 'Liberada, sin facturar'], ['PARCIAL', 'Facturada en parte'], ['FACTURADA', 'Facturada, en proceso'],
-  ['EN_CAMINO', 'En camino'], ['RECIBIDA', 'Recibida']]
-const ETAPAS = [['PEND_LIBERACION', 'Pendiente de liberación'], ['POR_FACTURAR', 'Por facturar'], ['FACTURADO', 'Facturado sin PL'],
-  ['EN_PL', 'En packing list'], ['CONTENEDOR', 'Asignado a unidad'], ['EN_TRANSITO', 'En tránsito'], ['ARRIBADO', 'Arribado'],
-  ['ENTREGADO', 'Entregado'], ['RECIBIDO', 'Recibido']]
-const MODOS = [['MARITIMO', 'Marítimo'], ['AEREO', 'Aéreo'], ['TERRESTRE', 'Terrestre']]
-const RIESGOS = { ATRASO: 'Llega tarde', JUSTO: 'Justo', A_TIEMPO: 'A tiempo' }
+const ESTADOS_EMB = [['PLANIFICADO', 'Planned'], ['EN_TRANSITO', 'In transit'], ['ARRIBADO', 'Arrived'], ['ENTREGADO', 'Delivered'], ['RECIBIDO', 'Received']]
+const ESTADOS_OC = [['SIN_COMERCIAL', 'No commercial release (P)'], ['SIN_LOGISTICA', 'No logistics release (304)'],
+  ['POR_FACTURAR', 'Released, not invoiced'], ['PARCIAL', 'Partly invoiced'], ['FACTURADA', 'Invoiced, in process'],
+  ['EN_CAMINO', 'On the way'], ['RECIBIDA', 'Received']]
+const ETAPAS = [['PEND_LIBERACION', 'Pending release'], ['POR_FACTURAR', 'To invoice'], ['FACTURADO', 'Invoiced, no PL'],
+  ['EN_PL', 'In packing list'], ['CONTENEDOR', 'Assigned to a unit'], ['EN_TRANSITO', 'In transit'], ['ARRIBADO', 'Arrived'],
+  ['ENTREGADO', 'Delivered'], ['RECIBIDO', 'Received']]
+const MODOS = [['MARITIMO', 'Ocean'], ['AEREO', 'Air'], ['TERRESTRE', 'Road']]
+const RIESGOS = { ATRASO: 'Arrives late', JUSTO: 'Tight', A_TIEMPO: 'On time' }
 
 const activos = computed(() => FILTROS.filter((k) => k !== 'q' && filtros[k]).map((k) => {
   let texto = filtros[k]
@@ -60,7 +60,7 @@ const activos = computed(() => FILTROS.filter((k) => k !== 'q' && filtros[k]).ma
   if (k === 'modo') texto = MODOS.find(([v]) => v === filtros[k])?.[1] || texto
   if (k === 'riesgo') texto = RIESGOS[filtros[k]] || texto
   if (k === 'estado') texto = [...ESTADOS_EMB, ...ESTADOS_OC].find(([v]) => v === filtros[k])?.[1] || texto
-  if (k === 'xf_vencida') texto = 'sí'
+  if (k === 'xf_vencida') texto = 'yes'
   if (k === 'embarque_id') texto = opciones.value.embarques?.find((e) => String(e.id) === String(filtros[k]))?.codigo || texto
   if (k.endsWith('_desde') || k.endsWith('_hasta')) texto = fmtFecha(texto)
   return { k, texto: `${NOMBRES[k]}: ${texto}` }
@@ -97,10 +97,10 @@ function buscar() {
 <template>
   <div class="pagina-cabeza">
     <div>
-      <h1>Seguimiento</h1>
-      <p v-if="vista === 'ordenes'">Cada orden de compra con sus liberaciones y avance. Ábrela para ver cada SKU: en qué etapa está, en qué documento y unidad de carga va y si llega a tiempo a tienda.</p>
-      <p v-else-if="vista === 'embarques'">Cada embarque con su documento de transporte, sus unidades de carga (contenedores, guías o camiones) y lo que lleva cada una por orden de compra.</p>
-      <p v-else>Cada factura y packing list: en qué paso va, qué le falta y si ya tiene unidad de carga.</p>
+      <h1>Tracking</h1>
+      <p v-if="vista === 'ordenes'">Each purchase order with its releases and progress. Open it to see every SKU: its stage, the document and load unit it travels in, and whether it reaches the store on time.</p>
+      <p v-else-if="vista === 'embarques'">Each shipment with its transport document, its load units (containers, air waybills or trucks) and what each one carries per purchase order.</p>
+      <p v-else>Each invoice and packing list: its step, what it is missing and whether it already has a load unit.</p>
     </div>
     <BotonesExportar v-if="vista !== 'documentos'" :ruta="`/seguimiento/${vista}/exportar`" :params="paramsExportar" />
   </div>
@@ -113,64 +113,64 @@ function buscar() {
   <div class="filtros">
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
-      <input v-model="filtros.q" type="search" placeholder="SKU, OC, factura, PL, contenedor o BL" aria-label="Buscar" @input="buscar" />
+      <input v-model="filtros.q" type="search" placeholder="SKU, PO, invoice, PL, container or B/L" aria-label="Search" @input="buscar" />
     </label>
     <template v-if="vista === 'embarques'">
-      <select v-model="filtros.modo" aria-label="Modo de transporte" @change="aplicar">
-        <option value="">Modo: todos</option><option v-for="[v, t] in MODOS" :key="v" :value="v">{{ t }}</option>
+      <select v-model="filtros.modo" aria-label="Mode of transport" @change="aplicar">
+        <option value="">Mode: all</option><option v-for="[v, t] in MODOS" :key="v" :value="v">{{ t }}</option>
       </select>
-      <select v-model="filtros.estado" aria-label="Estado del embarque" @change="aplicar">
-        <option value="">Estado: todos</option><option v-for="[v, t] in ESTADOS_EMB" :key="v" :value="v">{{ t }}</option>
+      <select v-model="filtros.estado" aria-label="Shipment status" @change="aplicar">
+        <option value="">Status: all</option><option v-for="[v, t] in ESTADOS_EMB" :key="v" :value="v">{{ t }}</option>
       </select>
     </template>
     <template v-if="vista === 'ordenes'">
-      <select v-model="filtros.estado" aria-label="Estado de la OC" @change="aplicar">
-        <option value="">Estado OC: todos</option><option v-for="[v, t] in ESTADOS_OC" :key="v" :value="v">{{ t }}</option>
+      <select v-model="filtros.estado" aria-label="PO status" @change="aplicar">
+        <option value="">PO status: all</option><option v-for="[v, t] in ESTADOS_OC" :key="v" :value="v">{{ t }}</option>
       </select>
-      <select v-model="filtros.liberacion_comercial" aria-label="Liberación comercial" @change="aplicar">
-        <option value="">Lib. comercial: todas</option><option value="C">C · Liberada</option><option value="P">P · Pendiente</option>
+      <select v-model="filtros.liberacion_comercial" aria-label="Commercial release" @change="aplicar">
+        <option value="">Commercial rel.: all</option><option value="C">C · Released</option><option value="P">P · Pending</option>
       </select>
-      <select v-model="filtros.liberacion_logistica" aria-label="Liberación logística" @change="aplicar">
-        <option value="">Lib. logística: todas</option><option value="300">300</option><option value="301">301</option><option value="304">304 · No liberada</option>
+      <select v-model="filtros.liberacion_logistica" aria-label="Logistics release" @change="aplicar">
+        <option value="">Logistics rel.: all</option><option value="300">300</option><option value="301">301</option><option value="304">304 · Not released</option>
       </select>
     </template>
-    <select v-model="filtros.etapa" aria-label="Etapa de la mercancía" @change="aplicar">
-      <option value="">Etapa: todas</option><option v-for="[v, t] in ETAPAS" :key="v" :value="v">{{ t }}</option>
+    <select v-model="filtros.etapa" aria-label="Goods stage" @change="aplicar">
+      <option value="">Stage: all</option><option v-for="[v, t] in ETAPAS" :key="v" :value="v">{{ t }}</option>
     </select>
-    <SelectBusqueda v-model="filtros.marca" :opciones="opciones.marcas || []" vacio="Marca: todas" etiqueta="Marca" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.grupo" :opciones="opciones.grupos || []" vacio="Grupo: todos" etiqueta="Grupo de artículos" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.estilo" :opciones="opciones.estilos || []" vacio="Estilo: todos" etiqueta="Estilo" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.color" :opciones="opciones.colores || []" vacio="Color: todos" etiqueta="Color" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.contenedor" :opciones="opciones.contenedores || []" vacio="Unidad de carga: todas" etiqueta="Contenedor, guía o camión" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.documento" :opciones="opciones.documentos || []" vacio="BL / AWB: todos" etiqueta="Documento de transporte" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.marca" :opciones="opciones.marcas || []" vacio="Brand: all" etiqueta="Brand" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.grupo" :opciones="opciones.grupos || []" vacio="Group: all" etiqueta="Item group" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.estilo" :opciones="opciones.estilos || []" vacio="Style: all" etiqueta="Style" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.color" :opciones="opciones.colores || []" vacio="Color: all" etiqueta="Color" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.contenedor" :opciones="opciones.contenedores || []" vacio="Load unit: all" etiqueta="Container, air waybill or truck" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.documento" :opciones="opciones.documentos || []" vacio="B/L / AWB: all" etiqueta="Transport document" @change="aplicar" />
     <button type="button" class="btn btn-fantasma btn-chico" :aria-expanded="masFiltros" @click="masFiltros = !masFiltros">
-      <Icono nombre="filtro" :tam="14" />{{ masFiltros ? 'Menos filtros' : 'Más filtros' }}
+      <Icono nombre="filtro" :tam="14" />{{ masFiltros ? 'Fewer filters' : 'More filters' }}
     </button>
   </div>
   <div v-if="masFiltros" class="filtros filtros-extra">
-    <SelectBusqueda v-model="filtros.talla" :opciones="opciones.tallas || []" vacio="Talla: todas" etiqueta="Talla" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.sku" :opciones="opciones.skus || []" vacio="SKU: todos" etiqueta="Código de producto" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.almacen" :opciones="opciones.almacenes || []" vacio="Almacén: todos" etiqueta="Almacén" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.talla" :opciones="opciones.tallas || []" vacio="Size: all" etiqueta="Size" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.sku" :opciones="opciones.skus || []" vacio="SKU: all" etiqueta="Item code" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.almacen" :opciones="opciones.almacenes || []" vacio="Warehouse: all" etiqueta="Warehouse" @change="aplicar" />
     <SelectBusqueda v-model="filtros.embarque_id" :opciones="(opciones.embarques || []).map((e) => ({ valor: String(e.id), texto: e.codigo }))"
-                    vacio="Embarque: todos" etiqueta="Embarque" @change="aplicar" />
-    <SelectBusqueda v-if="esInterno()" v-model="filtros.proveedor" :opciones="opciones.proveedores || []" vacio="Proveedor: todos" etiqueta="Proveedor" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.sociedad" :opciones="opciones.sociedades || []" vacio="Sociedad: todas" etiqueta="Sociedad" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.centro" :opciones="opciones.centros || []" vacio="Centro: todos" etiqueta="Centro" @change="aplicar" />
-    <select v-model="filtros.riesgo" aria-label="Riesgo" @change="aplicar">
-      <option value="">Llegada a tienda: todas</option>
+                    vacio="Shipment: all" etiqueta="Shipment" @change="aplicar" />
+    <SelectBusqueda v-if="esInterno()" v-model="filtros.proveedor" :opciones="opciones.proveedores || []" vacio="Supplier: all" etiqueta="Supplier" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.sociedad" :opciones="opciones.sociedades || []" vacio="Company: all" etiqueta="Company" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.centro" :opciones="opciones.centros || []" vacio="Plant: all" etiqueta="Plant" @change="aplicar" />
+    <select v-model="filtros.riesgo" aria-label="Risk" @change="aplicar">
+      <option value="">In-store arrival: all</option>
       <option v-for="(r, k) in RIESGOS" :key="k" :value="k">{{ r }}</option>
     </select>
-    <label v-if="vista === 'ordenes'" class="check"><input type="checkbox" :checked="!!filtros.xf_vencida" @change="filtros.xf_vencida = $event.target.checked ? '1' : ''; aplicar()" /> XF vencida sin facturar</label>
-    <label v-for="[k, t] in [['eta', 'ETA'], ['fecha_xf', 'XF'], ['fecha_tienda', 'En tienda']]" :key="k" class="rango-fechas">
+    <label v-if="vista === 'ordenes'" class="check"><input type="checkbox" :checked="!!filtros.xf_vencida" @change="filtros.xf_vencida = $event.target.checked ? '1' : ''; aplicar()" /> XF overdue, not invoiced</label>
+    <label v-for="[k, t] in [['eta', 'ETA'], ['fecha_xf', 'XF'], ['fecha_tienda', 'In store']]" :key="k" class="rango-fechas">
       <span>{{ t }}</span>
-      <input v-model="filtros[`${k}_desde`]" type="date" :aria-label="`${t} desde`" @change="aplicar" />
-      <span>a</span>
-      <input v-model="filtros[`${k}_hasta`]" type="date" :aria-label="`${t} hasta`" @change="aplicar" />
+      <input v-model="filtros[`${k}_desde`]" type="date" :aria-label="`${t} from`" @change="aplicar" />
+      <span>to</span>
+      <input v-model="filtros[`${k}_hasta`]" type="date" :aria-label="`${t} to`" @change="aplicar" />
     </label>
   </div>
   <div v-if="activos.length" class="chips">
-    <span v-for="a in activos" :key="a.k" class="chip">{{ a.texto }}<button type="button" :aria-label="`Quitar ${a.texto}`" @click="quitar(a.k)"><Icono nombre="cerrar" :tam="13" /></button></span>
-    <button type="button" class="btn btn-fantasma btn-chico" @click="limpiar">Limpiar filtros</button>
+    <span v-for="a in activos" :key="a.k" class="chip">{{ a.texto }}<button type="button" :aria-label="`Remove ${a.texto}`" @click="quitar(a.k)"><Icono nombre="cerrar" :tam="13" /></button></span>
+    <button type="button" class="btn btn-fantasma btn-chico" @click="limpiar">Clear filters</button>
   </div>
 
   <TableroOrdenes v-if="vista === 'ordenes'" :filtros="params" @opciones="(o) => (opciones = o)" @filtrar="aplicarDesde" />

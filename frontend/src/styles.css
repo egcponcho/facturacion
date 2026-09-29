@@ -822,3 +822,8 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .modal .form-catalogo > .campo:has(textarea), .modal .form-catalogo > div.campo, .modal .form-catalogo > .check,
 .modal .form-catalogo > .leyenda-req, .modal .form-catalogo > .fila-flex, .modal .form-catalogo > button { grid-column: 1 / -1; }
 @media (max-width: 640px) { .modal .form-catalogo { grid-template-columns: 1fr; } }
+
+/* Encabezado que agrupa columnas por el origen del dato (maestro vs. OC) */
+.tabla thead tr.grupo-columnas th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--acento-texto, var(--acento));
+  border-bottom: 2px solid var(--linea); padding-top: 6px; padding-bottom: 4px; text-align: left; }
+.tabla thead tr.grupo-columnas th + th { border-left: 1px solid var(--linea); }

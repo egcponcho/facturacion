@@ -53,7 +53,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Workspace de proveedor: facturas, packing lists y transporte", lifespan=lifespan)
+app = FastAPI(title="Supplier workspace: invoices, packing lists and transport", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -61,6 +61,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _encabezados_seguridad(request: Request, call_next):
+    """Encabezados que endurecen el navegador: sin incrustar la app en otros
+    sitios, sin adivinar tipos, sin filtrar la URL y solo recursos propios."""
+    resp = await call_next(request)
+    h = resp.headers
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("X-Frame-Options", "DENY")
+    h.setdefault("Referrer-Policy", "same-origin")
+    h.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if not request.url.path.startswith(("/docs", "/redoc")):
+        h.setdefault("Content-Security-Policy",
+                     "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' "
+                     "https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
+                     "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; "
+                     "form-action 'self'")
+    if request.url.path.startswith("/api/"):
+        h.setdefault("Cache-Control", "no-store")
+    if settings.COOKIE_SEGURA:
+        h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return resp
 
 
 @app.exception_handler(ErrorNegocio)
@@ -72,7 +95,7 @@ async def _error_negocio(_: Request, exc: ErrorNegocio):
 @app.exception_handler(IntegrityError)
 async def _error_integridad(_: Request, exc: IntegrityError):
     return JSONResponse(status_code=409, content={
-        "mensaje": "El dato ya existe o choca con otro registro (por ejemplo, un número de factura repetido).",
+        "mensaje": "The value already exists or conflicts with another record (for example, a repeated invoice number).",
         "codigo": "integridad", "detalle": None})
 
 
@@ -80,7 +103,7 @@ async def _error_integridad(_: Request, exc: IntegrityError):
 async def _error_validacion(_: Request, exc: RequestValidationError):
     detalle = [{"campo": ".".join(str(x) for x in e["loc"][1:]), "mensaje": e["msg"]} for e in exc.errors()]
     return JSONResponse(status_code=422, content={
-        "mensaje": "Revisa los datos enviados.", "codigo": "datos_invalidos", "detalle": detalle})
+        "mensaje": "Check the data you sent.", "codigo": "datos_invalidos", "detalle": detalle})
 
 
 for r in (auth_admin, catalogos, ordenes, facturas, packing, transporte, varios):

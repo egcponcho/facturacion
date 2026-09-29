@@ -1,7 +1,7 @@
 import { reactive, watch } from 'vue'
 
-// Selección de posiciones para facturar. Se conserva mientras navegas
-// (sessionStorage) y es de un solo proveedor.
+// Order lines selected for invoicing. Kept while you navigate
+// (sessionStorage) and always from a single supplier.
 const previo = JSON.parse(sessionStorage.getItem('carrito') || 'null')
 export const carrito = reactive(previo || { proveedorId: null, items: [] })
 
@@ -9,7 +9,7 @@ watch(carrito, (v) => sessionStorage.setItem('carrito', JSON.stringify(v)), { de
 
 export function agregarPosiciones(oc, posiciones) {
   if (carrito.items.length && carrito.proveedorId !== oc.proveedor_id) {
-    return { error: 'La selección tiene posiciones de otro proveedor. Factúralas o vacía la selección primero.' }
+    return { error: 'The selection has lines from another supplier. Invoice them or clear the selection first.' }
   }
   carrito.proveedorId = oc.proveedor_id
   let agregadas = 0
@@ -32,6 +32,7 @@ export function agregarPosiciones(oc, posiciones) {
       color: p.color,
       talla: p.talla,
       unidad: p.unidad,
+      inner_pack: p.inner_pack,
       precio: p.precio,
       disponible: p.disponible,
       cantidad: Math.min(cantidad, p.disponible),

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, File, Query, UploadFile
+from pydantic import BaseModel, Field
 
 from ..services import ordenes as svc
 from .base import Clave, Db, User, ejecutar
@@ -37,6 +38,17 @@ def filtros(db: Db, user: User, proveedor_id: int | None = None):
 @router.get("/ordenes/{oc_id}/posiciones")
 def posiciones(oc_id: int, db: Db, user: User):
     return svc.posiciones_oc(db, user, oc_id)
+
+
+class EmpaqueIn(BaseModel):
+    casepack: int | None = Field(None, ge=1)
+    inner_pack: int | None = Field(None, ge=1)
+
+
+@router.put("/ordenes/{oc_id}/posiciones/{posicion_id}/empaque")
+def empaque(oc_id: int, posicion_id: int, datos: EmpaqueIn, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.empaque_posicion(db, user, oc_id, posicion_id, datos.casepack,
+                                                                    datos.inner_pack))
 
 
 @router.post("/ordenes/importar/previa")

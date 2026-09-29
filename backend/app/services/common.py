@@ -8,12 +8,12 @@ EDITABLE_FACTURA = ("BORRADOR", "EN_CORRECCION")
 EDITABLE_PL = ("BORRADOR", "EN_CORRECCION")
 
 ESTADO_TXT = {
-    "BORRADOR": "en borrador",
-    "EN_CORRECCION": "en corrección",
-    "FINALIZADA": "finalizada",
-    "FINALIZADO": "finalizado",
-    "CANCELADA": "cancelada",
-    "CANCELADO": "cancelado",
+    "BORRADOR": "in draft",
+    "EN_CORRECCION": "under correction",
+    "FINALIZADA": "finalized",
+    "FINALIZADO": "finalized",
+    "CANCELADA": "cancelled",
+    "CANCELADO": "cancelled",
 }
 
 
@@ -39,6 +39,7 @@ def _matriz() -> dict[str, set[str]]:
     return {
         "oc.ver": TODOS,
         "oc.importar": INTERNOS,
+        "oc.empaque": INTERNOS,
         "factura.editar": TODOS,
         "factura.finalizar": finalizan,
         "factura.reabrir": INTERNOS,
@@ -63,7 +64,7 @@ def permisos_de(user: Usuario) -> list[str]:
 
 def exigir(user: Usuario, permiso: str) -> None:
     if user.rol not in _matriz().get(permiso, set()):
-        raise ErrorNegocio("No tienes permiso para esta acción.", 403, "sin_permiso")
+        raise ErrorNegocio("You do not have permission for this action.", 403, "sin_permiso")
 
 
 def es_interno(user: Usuario) -> bool:
@@ -82,15 +83,15 @@ def proveedor_filtro(user: Usuario, proveedor_id: int | None = None) -> int | No
 def asegurar_proveedor(user: Usuario, proveedor_id: int) -> None:
     if user.rol == "proveedor" and user.proveedor_id != proveedor_id:
         # 404 para no revelar que el documento existe
-        raise ErrorNegocio("No se encontró el documento.", 404, "no_encontrado")
+        raise ErrorNegocio("Document not found.", 404, "no_encontrado")
 
 
 # ---- Versiones (control optimista) ------------------------------------------
-def verificar_version(doc, version: int | None, nombre: str = "documento") -> None:
+def verificar_version(doc, version: int | None, nombre: str = "document") -> None:
     if version is not None and doc.version != version:
         raise ErrorNegocio(
-            f"Otro usuario modificó este {nombre} mientras lo tenías abierto. "
-            "Recarga para ver la versión actual; tus cambios no se aplicaron.",
+            f"Another user changed this {nombre} while you had it open. "
+            "Reload to see the current version; your changes were not applied.",
             409,
             "conflicto_version",
             {"version_actual": doc.version},
@@ -144,8 +145,8 @@ def idempotente(db: Session, user: Usuario, clave: str | None, fn):
 # ---- Textos -----------------------------------------------------------------
 def unidad_txt(unidad: str, cantidad: int | None = None) -> str:
     if unidad == "PAR":
-        return "par" if cantidad == 1 else "pares"
-    return "unidad" if cantidad == 1 else "unidades"
+        return "pair" if cantidad == 1 else "pairs"
+    return "unit" if cantidad == 1 else "units"
 
 
 def cant_txt(cantidad: int, unidad: str) -> str:
@@ -154,5 +155,5 @@ def cant_txt(cantidad: int, unidad: str) -> str:
 
 def requerir_motivo(motivo: str | None, accion: str) -> str:
     if not motivo or not motivo.strip():
-        raise ErrorNegocio(f"Indica el motivo para {accion}.", 422, "motivo_requerido")
+        raise ErrorNegocio(f"Enter the reason to {accion}.", 422, "motivo_requerido")
     return motivo.strip()

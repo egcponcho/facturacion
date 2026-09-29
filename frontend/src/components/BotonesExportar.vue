@@ -21,11 +21,11 @@ async function bajar(formato) {
 
 <template>
   <div class="acciones-exportar">
-    <button type="button" class="btn btn-fantasma btn-chico" :disabled="!!bajando" title="Reporte en PDF con los filtros aplicados" @click="bajar('pdf')">
-      <Icono nombre="descargar" :tam="14" />{{ bajando === 'pdf' ? 'Generando…' : 'PDF' }}
+    <button type="button" class="btn btn-fantasma btn-chico" :disabled="!!bajando" title="PDF report with the applied filters" @click="bajar('pdf')">
+      <Icono nombre="descargar" :tam="14" />{{ bajando === 'pdf' ? 'Generating…' : 'PDF' }}
     </button>
-    <button type="button" class="btn btn-fantasma btn-chico" :disabled="!!bajando" title="Reporte en Excel con los filtros aplicados y el detalle" @click="bajar('xlsx')">
-      <Icono nombre="descargar" :tam="14" />{{ bajando === 'xlsx' ? 'Generando…' : 'Excel' }}
+    <button type="button" class="btn btn-fantasma btn-chico" :disabled="!!bajando" title="Excel report with the applied filters and the detail" @click="bajar('xlsx')">
+      <Icono nombre="descargar" :tam="14" />{{ bajando === 'xlsx' ? 'Generating…' : 'Excel' }}
     </button>
   </div>
 </template>

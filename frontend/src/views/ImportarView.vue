@@ -14,11 +14,11 @@ const filtro = ref('')
 const ocupado = ref(false)
 
 const ESTADOS = {
-  nuevo: ['Nuevas', 'ok', 'Se crean'],
-  cambio: ['Con cambios', 'info', 'Se actualizan'],
-  sin_cambio: ['Sin cambios', 'neutro', 'No se tocan'],
-  conflicto: ['Conflictos', 'aviso', 'Quedan como alerta'],
-  error: ['Con errores', 'error', 'No se aplican'],
+  nuevo: ['New', 'ok', 'Will be created'],
+  cambio: ['Changed', 'info', 'Will be updated'],
+  sin_cambio: ['Unchanged', 'neutro', 'Left as they are'],
+  conflicto: ['Conflicts', 'aviso', 'Kept as alerts'],
+  error: ['With errors', 'error', 'Not applied'],
 }
 const filasFiltradas = computed(() => (previa.value?.filas || []).filter((f) => !filtro.value || f.estado === filtro.value))
 const tabla = useTabla(filasFiltradas, { porPagina: 15, orden: 'fila:asc' })
@@ -36,7 +36,7 @@ async function revisar() {
     filtro.value = ''
   } catch (e) {
     errorApi(e)
-    if (e.detalle?.encontradas) avisar(`Columnas encontradas: ${e.detalle.encontradas.join(', ')}`, 'error', null, 12000)
+    if (e.detalle?.encontradas) avisar(`Columns found: ${e.detalle.encontradas.join(', ')}`, 'error', null, 12000)
   } finally {
     ocupado.value = false
   }
@@ -46,8 +46,8 @@ async function aplicar() {
   ocupado.value = true
   try {
     const r = await api.post(`/ordenes/importar/${previa.value.importacion_id}/aplicar`)
-    avisar(`Importación aplicada: ${r.aplicadas} posiciones creadas o actualizadas.` +
-      (r.resumen.conflicto ? ` ${r.resumen.conflicto} conflictos quedaron como alertas en el inicio.` : ''))
+    avisar(`Import applied: ${r.aplicadas} order lines created or updated.` +
+      (r.resumen.conflicto ? ` ${r.resumen.conflicto} conflicts were kept as alerts on the home page.` : ''))
     previa.value = null
     archivo.value = null
   } catch (e) {
@@ -63,37 +63,38 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
 <template>
   <div class="pagina-cabeza">
     <div>
-      <router-link to="/ordenes" class="volver"><Icono nombre="atras" :tam="15" />Órdenes de compra</router-link>
-      <h1>Importar órdenes de compra</h1>
-      <p>Sube el Excel o CSV exportado de SAP. Cada fila se valida contra los datos maestros (artículos, sociedades, centros, destinos y puertos); nada se guarda hasta que confirmes.</p>
+      <router-link to="/ordenes" class="volver"><Icono nombre="atras" :tam="15" />Purchase orders</router-link>
+      <h1>Import purchase orders</h1>
+      <p>Upload the Excel or CSV exported from SAP. Each row is checked against the master data (items, companies, plants, destinations and ports); nothing is saved until you confirm.</p>
     </div>
-    <a class="btn" href="/plantilla_oc.csv" download><Icono nombre="descargar" />Formato de ejemplo</a>
+    <a class="btn" href="/plantilla_oc.csv" download><Icono nombre="descargar" />Sample template</a>
   </div>
 
   <div class="dos-columnas" style="grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr)">
     <section class="panel">
-      <div class="panel-cabeza"><div><h2>1. Elige el archivo</h2><p>Una fila por posición de OC.</p></div></div>
-      <CargaArchivo v-model="archivo" texto="Arrastra aquí el archivo de OCs o elígelo" ayuda="Excel (.xlsx) o CSV, exportado de SAP" />
+      <div class="panel-cabeza"><div><h2>1. Choose the file</h2><p>One row per PO line.</p></div></div>
+      <CargaArchivo v-model="archivo" texto="Drag the PO file here or choose it" ayuda="Excel (.xlsx) or CSV, exported from SAP" />
       <div class="fila-flex mt">
-        <button class="btn btn-primario" :disabled="!archivo || ocupado" @click="revisar"><Icono nombre="lupa" :tam="16" />{{ ocupado ? 'Revisando…' : 'Revisar archivo' }}</button>
-        <span class="ayuda">Los códigos (OC, posición, SKU) se leen como texto para no perder ceros iniciales.</span>
+        <button class="btn btn-primario" :disabled="!archivo || ocupado" @click="revisar"><Icono nombre="lupa" :tam="16" />{{ ocupado ? 'Checking…' : 'Check file' }}</button>
+        <span class="ayuda">Codes (PO, line, SKU) are read as text so leading zeros are kept.</span>
       </div>
     </section>
     <section class="panel">
-      <div class="panel-cabeza"><div><h2>Qué se valida</h2></div></div>
+      <div class="panel-cabeza"><div><h2>What is checked</h2></div></div>
       <ul class="lista-mensajes ayuda">
-        <li>OC con formato 44 + 8 dígitos y posiciones de 10 en 10.</li>
-        <li>El SKU debe existir en el maestro de artículos; de ahí salen estilo, color, talla, marca, grupo y casepack (el casepack de la OC manda si viene).</li>
-        <li>Sociedad, centro y almacén deben corresponder entre sí.</li>
-        <li>País de destino (4 dígitos), puerto y países registrados en Mantenimiento.</li>
-        <li>Liberación comercial P deja la OC en 304; C o vacío la libera (300, o 301 si ya estaba liberada y cambió).</li>
+        <li>PO in the format 44 + 8 digits and lines in steps of 10.</li>
+        <li><b>Item data comes from the item master</b>, not from the file: style, color, size, description, brand, group, UoM, HS code and country of origin. The SKU must exist and belong to the PO's supplier.</li>
+        <li><b>PO line data comes from the file</b>: line, warehouse, quantity, price, dates, and the purchase packing: <b>casepack</b> (exact quantity per carton) and <b>inner pack</b> (units per inner pack). The casepack must be a multiple of the inner pack, and the quantity a whole number of inner packs. A prepack is already a defined carton and takes neither.</li>
+        <li>Company, plant and warehouse must match each other, and the supplier must work with the company.</li>
+        <li>Destination plant, port and countries registered in Master data.</li>
+        <li>Commercial release P leaves the PO at 304; C or blank releases it (300, or 301 if it was already released and changed).</li>
       </ul>
     </section>
   </div>
 
   <template v-if="previa">
-    <h2 class="mt">2. Revisa el resultado</h2>
-    <p class="ayuda" style="margin-bottom: 12px">{{ previa.archivo }} · {{ previa.resumen.total }} filas. Haz clic en un grupo para filtrar.</p>
+    <h2 class="mt">2. Review the result</h2>
+    <p class="ayuda" style="margin-bottom: 12px">{{ previa.archivo }} · {{ previa.resumen.total }} rows. Click a group to filter.</p>
     <div class="etapas">
       <button v-for="(info, clave) in ESTADOS" :key="clave" type="button" class="etapa" :aria-pressed="filtro === clave" @click="filtro = filtro === clave ? '' : clave">
         <span class="fila-flex"><span class="estado" :class="`estado-${info[1]}`"><span class="estado-marca"></span>{{ info[0] }}</span></span>
@@ -105,10 +106,10 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
       <table class="tabla">
         <thead>
           <tr>
-            <ThOrden campo="fila" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">Fila</ThOrden>
-            <ThOrden campo="clave" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Posición</ThOrden>
-            <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Resultado</ThOrden>
-            <th>Detalle</th>
+            <ThOrden campo="fila" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">Row</ThOrden>
+            <ThOrden campo="clave" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">PO line</ThOrden>
+            <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Result</ThOrden>
+            <th>Detail</th>
           </tr>
         </thead>
         <tbody>
@@ -121,15 +122,15 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
               <div v-for="(c, campo) in f.cambios" :key="campo" class="ayuda">{{ campo.replaceAll('_', ' ') }}: {{ valorTxt(c.antes) }} → {{ valorTxt(c.despues) }}</div>
             </td>
           </tr>
-          <tr v-if="!tabla.total.value"><td colspan="4" class="vacio">No hay filas en este grupo.</td></tr>
+          <tr v-if="!tabla.total.value"><td colspan="4" class="vacio">No rows in this group.</td></tr>
         </tbody>
       </table>
     </div>
     <Paginacion :page="tabla.estado.pagina" :size="tabla.estado.porPagina" :total="tabla.total.value"
                 @cambiar="(p) => (tabla.estado.pagina = p)" @tamano="(t) => (tabla.estado.porPagina = t)" />
     <div class="fila-flex mt">
-      <span class="ayuda">Los conflictos (por ejemplo, bajar la cantidad por debajo de lo ya facturado) no se aplican: quedan como alertas.</span>
-      <button class="btn btn-primario separar" :disabled="ocupado || !aplicables" @click="aplicar"><Icono nombre="check" />Aplicar {{ aplicables }} cambios</button>
+      <span class="ayuda">Conflicts (for example, lowering the quantity below what is already invoiced) are not applied: they are kept as alerts.</span>
+      <button class="btn btn-primario separar" :disabled="ocupado || !aplicables" @click="aplicar"><Icono nombre="check" />Apply {{ aplicables }} changes</button>
     </div>
   </template>
 </template>

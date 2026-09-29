@@ -1,10 +1,18 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from ..schemas import AsignarPL, EmbarqueIn, EmbarquePatch, EventoIn, PLIds, Recoleccion, UnidadIn, UnidadPatch
 from ..services import transporte as svc
+from ..services.sugerencias import sugerir_unidades
 from .base import Clave, Db, User, ejecutar
 
 router = APIRouter()
+
+
+@router.get("/sugerencia-unidades")
+def sugerencia_unidades(db: Db, user: User, cbm: float = Query(0, ge=0), kg: float = Query(0, ge=0),
+                        modo: str | None = Query(None, pattern="^(MARITIMO|AEREO|TERRESTRE)$")):
+    """Qué unidades de carga convienen para ese volumen y peso."""
+    return sugerir_unidades(db, cbm, kg, modo)
 
 
 @router.get("/embarques")

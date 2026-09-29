@@ -127,10 +127,10 @@ async function guardar() {
     const cuerpo = Object.fromEntries(Object.entries(form.value).map(([k, v]) => [k, v === '' ? null : v]))
     if (editando.value) {
       await api.patch(`/catalogos/${tipo.value}/${editando.value}`, cuerpo)
-      avisar(`${cap(cat.value.singular)} actualizado.`)
+      avisar(`${cap(cat.value.singular)} updated.`)
     } else {
       await api.post(`/catalogos/${tipo.value}`, cuerpo)
-      avisar(`${cap(cat.value.singular)} creado.`)
+      avisar(`${cap(cat.value.singular)} created.`)
       cat.value.total++
     }
     cerrarForm()
@@ -148,7 +148,7 @@ async function eliminar() {
   ocupado.value = true
   try {
     await api.del(`/catalogos/${tipo.value}/${fila.id}`)
-    avisar(`${cap(cat.value.singular)} eliminado.`)
+    avisar(`${cap(cat.value.singular)} deleted.`)
     cat.value.total--
     modal.value = null
     if (editando.value === fila.id) nuevo()
@@ -192,7 +192,7 @@ async function cargarArchivo() {
   try {
     modal.value.resultado = await api.post(`/catalogos/${tipo.value}/importar`, datosForm)
     const r = modal.value.resultado
-    avisar(`${r.creados} creados y ${r.actualizados} actualizados${r.errores.length ? `; ${r.errores.length} filas con errores` : ''}.`,
+    avisar(`${r.creados} created and ${r.actualizados} updated${r.errores.length ? `; ${r.errores.length} rows with errors` : ''}.`,
       r.errores.length ? 'error' : 'ok')
     await cargarMeta()
     cargar()
@@ -228,7 +228,7 @@ async function crearPrepack() {
     const componentes = tallasPP.value.filter((a) => Number(nuevoPP.cantidades[a.id]) > 0)
       .map((a) => ({ articulo_id: a.id, cantidad: Number(nuevoPP.cantidades[a.id]) }))
     const r = await api.post('/catalogos/prepacks', { ...nuevoPP, cantidades: undefined, componentes })
-    avisar(`Prepack ${r.codigo} creado con el código ${r.sku} (${r.total} por caja).`)
+    avisar(`Prepack ${r.codigo} created with item code ${r.sku} (${r.total} per carton).`)
     Object.assign(nuevoPP, { sku: '', codigo: '', descripcion: '', cantidades: {} })
     formAbierto.value = false
     cat.value.total++
@@ -268,14 +268,14 @@ onMounted(async () => {
 <template>
   <div class="pagina-cabeza">
     <div>
-      <h1>Mantenimiento</h1>
-      <p>Datos maestros que usa todo el sistema: validan la carga de OCs, definen las reglas de empaque y alimentan los filtros.</p>
+      <h1>Master data</h1>
+      <p>Master data used across the system: it validates the PO upload, defines the packing rules and feeds the filters. Item data (style, color, size, brand, UoM, HS code, origin) lives here; purchase data (quantity, price, casepack, inner pack) comes with each PO line.</p>
     </div>
     <div class="acciones">
-      <button v-if="cat" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />Nuevo {{ cat.singular }}</button>
+      <button v-if="cat" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />New {{ cat.singular }}</button>
       <template v-if="tipo === 'articulos' || tipo === 'prepacks'">
-        <a class="btn" :href="tipo === 'articulos' ? '/plantilla_articulos.csv' : '/plantilla_prepacks.csv'" download><Icono nombre="descargar" />Formato</a>
-        <button class="btn" @click="abrirCarga"><Icono nombre="importar" />Cargar {{ tipo === 'articulos' ? 'artículos' : 'curvas' }}</button>
+        <a class="btn" :href="tipo === 'articulos' ? '/plantilla_articulos.csv' : '/plantilla_prepacks.csv'" download><Icono nombre="descargar" />Template</a>
+        <button class="btn" @click="abrirCarga"><Icono nombre="importar" />Upload {{ tipo === 'articulos' ? 'items' : 'size runs' }}</button>
       </template>
     </div>
   </div>
@@ -292,14 +292,14 @@ onMounted(async () => {
       <div class="filtros">
         <label class="buscador">
           <Icono nombre="buscar" :tam="16" />
-          <input v-model="filtros.q" type="search" :placeholder="`Buscar en ${cat.titulo.toLowerCase()}`" aria-label="Buscar" @input="buscar" />
+          <input v-model="filtros.q" type="search" :placeholder="`Search ${cat.titulo.toLowerCase()}`" aria-label="Search" @input="buscar" />
         </label>
         <template v-for="c in conFiltro" :key="c.nombre">
           <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
-                          :vacio="`${c.etiqueta}: todos`" :etiqueta="c.etiqueta" @change="filtros.page = 1; cargar()" />
+                          :vacio="`${c.etiqueta}: all`" :etiqueta="c.etiqueta" @change="filtros.page = 1; cargar()" />
           <select v-else v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
             <option :value="undefined">{{ c.etiqueta }}: todos</option>
-            <template v-if="c.tipo === 'bool'"><option value="true">{{ c.etiqueta }}: sí</option><option value="false">{{ c.etiqueta }}: no</option></template>
+            <template v-if="c.tipo === 'bool'"><option value="true">{{ c.etiqueta }}: yes</option><option value="false">{{ c.etiqueta }}: no</option></template>
             <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ t }}</option></template>
           </select>
         </template>
@@ -310,35 +310,35 @@ onMounted(async () => {
             <tr>
               <ThOrden v-for="c in columnas" :key="c.nombre" :campo="c.nombre" :orden="filtros.orden" :num="c.tipo === 'entero'" @ordenar="ordenar">{{ c.etiqueta }}</ThOrden>
               <th v-for="ex in extras" :key="ex.nombre">{{ ex.etiqueta }}</th>
-              <th v-if="tipo === 'prepacks'">Código de producto</th>
-              <th v-if="tipo === 'prepacks'" class="num">Por caja</th>
+              <th v-if="tipo === 'prepacks'">Item code</th>
+              <th v-if="tipo === 'prepacks'" class="num">Per carton</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="fila in datos.items" :key="fila.id" :class="{ seleccionada: editando === fila.id }">
               <td v-for="c in columnas" :key="c.nombre" :class="{ num: c.tipo === 'entero' }">
-                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="`Cambiar ${c.etiqueta.toLowerCase()}`" @click="alternarActivo(fila, c.nombre)">
-                  {{ fila[c.nombre] ? 'Sí' : 'No' }}
+                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="`Change ${c.etiqueta.toLowerCase()}`" @click="alternarActivo(fila, c.nombre)">
+                  {{ fila[c.nombre] ? 'Yes' : 'No' }}
                 </button>
                 <span v-else :class="{ codigo: ['codigo', 'sku'].includes(c.nombre), fuerte: c.nombre === 'codigo' || c.nombre === 'sku' }">{{ valorCelda(c, fila) }}</span>
               </td>
               <td v-for="ex in extras" :key="ex.nombre">
-                <button type="button" class="enlace" :title="`Ver ${ex.etiqueta.toLowerCase()} de ${fila.codigo || fila.nombre}`"
+                <button type="button" class="enlace" :title="`See ${ex.etiqueta.toLowerCase()} of ${fila.codigo || fila.nombre}`"
                         @click="elegir(ex.catalogo, { [ex.filtro]: fila.id })">
-                  {{ ex.nombre === 'centros_txt' ? (fila.centros_txt || 'Asignar centros') : `${fila[ex.nombre] || 0} ${fila[ex.nombre] === 1 ? ex.etiqueta.toLowerCase().replace(/s$/, '') : ex.etiqueta.toLowerCase()}` }}
+                  {{ ex.nombre === 'centros_txt' ? (fila.centros_txt || 'Assign plants') : `${fila[ex.nombre] || 0} ${fila[ex.nombre] === 1 ? ex.etiqueta.toLowerCase().replace(/s$/, '') : ex.etiqueta.toLowerCase()}` }}
                 </button>
               </td>
               <td v-if="tipo === 'prepacks'" class="codigo fuerte">{{ fila.sku || '—' }}</td>
               <td v-if="tipo === 'prepacks'" class="num">{{ fila.total }} <span class="sub">{{ fila.componentes }} tallas</span></td>
               <td class="num" style="white-space: nowrap">
-                <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" title="Ver la explosión (no se modifica)"
-                        @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />Explosión</button>
-                <button class="btn-icono" :aria-label="`Editar ${cat.singular}`" title="Editar" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
-                <button class="btn-icono" style="color: var(--error)" :aria-label="`Eliminar ${cat.singular}`" title="Eliminar" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
+                <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" title="See the breakdown (it never changes)"
+                        @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />Breakdown</button>
+                <button class="btn-icono" :aria-label="`Edit ${cat.singular}`" title="Edit" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
+                <button class="btn-icono" style="color: var(--error)" :aria-label="`Delete ${cat.singular}`" title="Delete" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
               </td>
             </tr>
-            <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : 2)" class="vacio">No hay registros con estos filtros.</td></tr>
+            <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : 2)" class="vacio">No records match these filters.</td></tr>
           </tbody>
         </table>
       </div>
@@ -346,46 +346,46 @@ onMounted(async () => {
     </section>
   </div>
 
-  <Modal v-if="formAbierto && cat" :titulo="editando ? `Editar ${cat.singular}` : `Nuevo ${cat.singular}`" ancho="640px" @cerrar="cerrarForm">
+  <Modal v-if="formAbierto && cat" :titulo="editando ? `Edit ${cat.singular}` : `New ${cat.singular}`" ancho="640px" @cerrar="cerrarForm">
     <p v-if="cat.ayuda" class="ayuda" style="margin-top: 0">{{ cat.ayuda }}</p>
       <form v-if="tipo === 'prepacks' && !editando" class="form-catalogo" @submit.prevent="crearPrepack">
-        <label class="campo"><span class="req">Código de producto</span>
+        <label class="campo"><span class="req">Item code</span>
           <input v-model="nuevoPP.sku" inputmode="numeric" placeholder="30095120027" required />
           <small v-if="erroresPP.sku" class="nota error" style="padding: 4px 8px">{{ erroresPP.sku }}</small>
-          <small v-else class="ayuda">El prepack es un artículo más, con su propio código.</small>
+          <small v-else class="ayuda">A prepack is an item like any other, with its own code.</small>
         </label>
-        <label class="campo"><span class="req">Estilo</span>
-          <SelectBusqueda v-model="nuevoPP.estilo" :opciones="estilosPP" requerido etiqueta="Estilo" />
+        <label class="campo"><span class="req">Style</span>
+          <SelectBusqueda v-model="nuevoPP.estilo" :opciones="estilosPP" requerido etiqueta="Style" />
         </label>
         <label class="campo"><span class="req">Color</span>
           <SelectBusqueda v-model="nuevoPP.color" :opciones="coloresPP" requerido etiqueta="Color" :deshabilitado="!nuevoPP.estilo" />
         </label>
-        <label class="campo"><span class="req">Prepack ID (talla)</span>
+        <label class="campo"><span class="req">Prepack ID (size)</span>
           <input v-model="nuevoPP.codigo" maxlength="10" placeholder="AB12" style="text-transform: uppercase" required />
           <small v-if="erroresPP.codigo" class="nota error" style="padding: 4px 8px">{{ erroresPP.codigo }}</small>
-          <small v-else class="ayuda">Usualmente 2 letras y 2 números. Es la talla del artículo prepack.</small>
+          <small v-else class="ayuda">Usually 2 letters and 2 digits. It is the size of the prepack item.</small>
         </label>
-        <label class="campo"><span>Descripción</span><input v-model="nuevoPP.descripcion" /></label>
+        <label class="campo"><span>Description</span><input v-model="nuevoPP.descripcion" /></label>
         <div v-if="nuevoPP.estilo && nuevoPP.color" class="campo">
-          <span class="req">Explosión por caja master<template v-if="tallasPP.length"> ({{ tallasPP[0].unidad }})</template></span>
+          <span class="req">Breakdown per master carton<template v-if="tallasPP.length"> ({{ tallasPP[0].unidad }})</template></span>
           <div class="tabla-marco" style="box-shadow: none">
             <table class="tabla">
-              <thead><tr><th>Talla</th><th>SKU</th><th class="num">Cant.</th></tr></thead>
+              <thead><tr><th>Size</th><th>SKU</th><th class="num">Qty</th></tr></thead>
               <tbody>
                 <tr v-for="a in tallasPP" :key="a.id">
                   <td><b>{{ a.talla }}</b></td>
                   <td class="codigo">{{ a.sku }}</td>
-                  <td class="num"><input v-model.number="nuevoPP.cantidades[a.id]" class="celda num" type="number" min="0" style="width: 64px; border-color: var(--linea)" :aria-label="`Cantidad talla ${a.talla}`" /></td>
+                  <td class="num"><input v-model.number="nuevoPP.cantidades[a.id]" class="celda num" type="number" min="0" style="width: 64px; border-color: var(--linea)" :aria-label="`Quantity size ${a.talla}`" /></td>
                 </tr>
               </tbody>
-              <tfoot><tr><td colspan="2">Total por caja</td><td class="num">{{ totalPP }}</td></tr></tfoot>
+              <tfoot><tr><td colspan="2">Total per carton</td><td class="num">{{ totalPP }}</td></tr></tfoot>
             </table>
           </div>
           <small v-if="erroresPP.componentes" class="nota error" style="padding: 4px 8px">{{ erroresPP.componentes }}</small>
-          <small v-else class="ayuda">Solo sólidos de {{ nuevoPP.estilo }} {{ nuevoPP.color }}. Deja en 0 las tallas que no lleva. Una vez creado no se modifica.</small>
+          <small v-else class="ayuda">Only solids of {{ nuevoPP.estilo }} {{ nuevoPP.color }}. Leave at 0 the sizes it does not carry. Once created it never changes.</small>
         </div>
-        <p class="leyenda-req">Obligatorio</p>
-        <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />Crear prepack</button>
+        <p class="leyenda-req">Required</p>
+        <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />Create prepack</button>
       </form>
       <form v-else class="form-catalogo" @submit.prevent="guardar">
         <label v-for="c in campos" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
@@ -395,53 +395,53 @@ onMounted(async () => {
           <template v-else>
             <span :class="{ req: c.obligatorio }">{{ c.etiqueta }}</span>
             <select v-if="c.tipo === 'opcion'" v-model="form[c.nombre]" :required="c.obligatorio" :disabled="bloqueado(c)">
-              <option value="">Elige…</option>
+              <option value="">Choose…</option>
               <option v-for="[v, t] in opcionesCampo(c)" :key="v" :value="v">{{ t }}</option>
             </select>
             <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c)"
-                            :vacio="c.obligatorio ? '' : 'Ninguno'" :requerido="c.obligatorio" :etiqueta="c.etiqueta" :deshabilitado="bloqueado(c)" />
+                            :vacio="c.obligatorio ? '' : 'None'" :requerido="c.obligatorio" :etiqueta="c.etiqueta" :deshabilitado="bloqueado(c)" />
             <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c)" multiple
-                            placeholder="Elige uno o varios…" :requerido="c.obligatorio" :etiqueta="c.etiqueta" />
+                            placeholder="Choose one or more…" :requerido="c.obligatorio" :etiqueta="c.etiqueta" />
             <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
-                      placeholder="nombre@empresa.com, otro@empresa.com"></textarea>
+                      placeholder="name@company.com, other@company.com"></textarea>
             <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : 'text'"
-                   :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="bloqueado(c) ? 'No se modifica: es parte del prepack' : ''" />
+                   :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="bloqueado(c) ? 'Cannot change: it is part of the prepack' : ''" />
             <small v-if="erroresForm[c.nombre]" class="nota error" style="padding: 4px 8px">{{ erroresForm[c.nombre] }}</small>
             <small v-else-if="c.ayuda" class="ayuda">{{ c.ayuda }}</small>
           </template>
         </label>
-        <p class="leyenda-req">Obligatorio</p>
+        <p class="leyenda-req">Required</p>
         <div class="fila-flex">
-          <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ editando ? 'Guardar cambios' : `Crear ${cat.singular}` }}</button>
-          <button class="btn btn-fantasma" type="button" @click="cerrarForm">Cancelar</button>
+          <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ editando ? 'Save changes' : `Create ${cat.singular}` }}</button>
+          <button class="btn btn-fantasma" type="button" @click="cerrarForm">Cancel</button>
         </div>
       </form>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'eliminar'" :titulo="`Eliminar ${cat.singular}`" @cerrar="modal = null">
-    <p>¿Eliminar <b>{{ modal.fila.codigo || modal.fila.sku }}</b>? Si ya se usa en otros registros no se podrá eliminar; en ese caso desactívalo.</p>
+  <Modal v-if="modal?.tipo === 'eliminar'" :titulo="`Delete ${cat.singular}`" @cerrar="modal = null">
+    <p>Delete <b>{{ modal.fila.codigo || modal.fila.sku }}</b>? If other records already use it, it cannot be deleted; deactivate it instead.</p>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancelar</button>
-      <button class="btn btn-peligro" :disabled="ocupado" @click="eliminar">Eliminar</button>
+      <button class="btn" @click="modal = null">Cancel</button>
+      <button class="btn btn-peligro" :disabled="ocupado" @click="eliminar">Delete</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'carga'" :titulo="tipo === 'articulos' ? 'Cargar artículos' : 'Cargar curvas (prepacks)'" ancho="680px" @cerrar="modal = null">
-    <p class="ayuda" v-if="tipo === 'articulos'">Una fila por número de artículo (SKU). Si ya existe se actualiza. Marca, grupo y proveedor se indican por código. Aquí solo sólidos; los prepacks se cargan en la pestaña Prepacks con su explosión.</p>
-    <p class="ayuda" v-else>Una fila por talla de la explosión: sku_prepack (código de producto del prepack), prepack_id (p. ej. AB12), descripción, SKU sólido y cantidad. Estilo y color salen de los sólidos, que deben ser del mismo estilo y color. Crea el prepack y su artículo; un prepack que ya existe no se modifica.</p>
+  <Modal v-if="modal?.tipo === 'carga'" :titulo="tipo === 'articulos' ? 'Upload items' : 'Upload size runs (prepacks)'" ancho="680px" @cerrar="modal = null">
+    <p class="ayuda" v-if="tipo === 'articulos'">One row per item number (SKU). If it exists it is updated. Brand, group and supplier are given by code. Only solids here; prepacks are uploaded in the Prepacks tab with their breakdown. The casepack is not item data: it comes with each PO line.</p>
+    <p class="ayuda" v-else>One row per size of the breakdown: sku_prepack (item code of the prepack), prepack_id (e.g. AB12), description, solid SKU and quantity. Style and color come from the solids, which must share style and color. It creates the prepack and its item; an existing prepack is never changed.</p>
     <CargaArchivo v-model="modal.archivo" />
     <template v-if="modal.resultado">
-      <div class="nota ok"><Icono nombre="check" />{{ modal.resultado.creados }} creados y {{ modal.resultado.actualizados }} actualizados.</div>
+      <div class="nota ok"><Icono nombre="check" />{{ modal.resultado.creados }} created and {{ modal.resultado.actualizados }} updated.</div>
       <div v-if="modal.resultado.errores.length" class="tabla-marco" style="max-height: 240px; overflow: auto; box-shadow: none">
         <table class="tabla">
-          <thead><tr><th>Fila</th><th>Error</th></tr></thead>
+          <thead><tr><th>Row</th><th>Error</th></tr></thead>
           <tbody><tr v-for="(er, i) in modal.resultado.errores" :key="i"><td>{{ er.fila }}</td><td class="envolver">{{ er.mensaje }}</td></tr></tbody>
         </table>
       </div>
     </template>
     <template #pie>
-      <button class="btn" @click="modal = null">Cerrar</button>
-      <button class="btn btn-primario" :disabled="ocupado || !modal.archivo" @click="cargarArchivo"><Icono nombre="importar" :tam="16" />Cargar</button>
+      <button class="btn" @click="modal = null">Close</button>
+      <button class="btn btn-primario" :disabled="ocupado || !modal.archivo" @click="cargarArchivo"><Icono nombre="importar" :tam="16" />Upload</button>
     </template>
   </Modal>
 

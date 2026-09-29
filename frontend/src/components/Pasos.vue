@@ -6,7 +6,7 @@ const props = defineProps({ pasos: { type: Array, required: true } })
 </script>
 
 <template>
-  <ol class="pasos" aria-label="Avance">
+  <ol class="pasos" aria-label="Progress">
     <li v-for="(p, i) in props.pasos" :key="p.titulo" class="paso" :class="p.estado" :aria-current="p.estado === 'actual' ? 'step' : undefined">
       <div class="paso-cabeza">
         <span class="paso-marca">
@@ -17,7 +17,7 @@ const props = defineProps({ pasos: { type: Array, required: true } })
         <span class="paso-linea" aria-hidden="true"></span>
       </div>
       <div class="paso-texto">
-        <div class="paso-titulo">{{ p.titulo }}<span class="oculto-visual"> ({{ { hecho: 'completo', actual: 'en curso', alerta: 'requiere atención', pendiente: 'pendiente' }[p.estado] }})</span></div>
+        <div class="paso-titulo">{{ p.titulo }}<span class="oculto-visual"> ({{ { hecho: 'done', actual: 'in progress', alerta: 'needs attention', pendiente: 'pending' }[p.estado] }})</span></div>
         <div v-if="p.detalle" class="paso-detalle">{{ p.detalle }}</div>
         <slot :name="`paso-${i}`" />
       </div>

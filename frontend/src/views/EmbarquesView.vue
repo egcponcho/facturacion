@@ -22,7 +22,7 @@ const todos = ref([])
 const modal = ref(null)
 const listas = ref(null)
 
-const ESTADOS = [['', 'Todos'], ['PLANIFICADO', 'Planificados'], ['EN_TRANSITO', 'En tránsito'], ['ARRIBADO', 'Arribados'], ['ENTREGADO', 'Entregados'], ['RECIBIDO', 'Recibidos']]
+const ESTADOS = [['', 'All'], ['PLANIFICADO', 'Planned'], ['EN_TRANSITO', 'In transit'], ['ARRIBADO', 'Arrived'], ['ENTREGADO', 'Delivered'], ['RECIBIDO', 'Received']]
 const cuenta = computed(() => {
   const r = { '': todos.value.length }
   for (const e of todos.value) r[e.estado] = (r[e.estado] || 0) + 1
@@ -70,7 +70,7 @@ async function crear() {
   const datos = Object.fromEntries(Object.entries(modal.value).map(([k, v]) => [k, v === '' ? null : v]))
   try {
     const r = await api.post('/embarques', datos)
-    avisar(`Embarque ${r.codigo} creado. Agrega sus unidades de carga.`)
+    avisar(`Shipment ${r.codigo} created. Add its load units.`)
     router.push(`/transporte/embarques/${r.id}`)
   } catch (e) {
     errorApi(e)
@@ -89,27 +89,27 @@ onMounted(cargar)
 <template>
   <div class="pagina-cabeza">
     <div>
-      <h1>Embarques</h1>
-      <p>Cada embarque existe desde la planificación (booking); el BL o AWB se agrega cuando se emite. Dentro de cada uno asignas la carga a sus unidades: contenedores, guías aéreas o camiones.</p>
+      <h1>Shipments</h1>
+      <p>Each shipment exists from planning (booking); the B/L or AWB is added when issued. Inside each one you assign the cargo to its load units: containers, air waybills or trucks.</p>
     </div>
-    <button class="btn btn-primario" @click="nuevo"><Icono nombre="mas" />Nuevo embarque</button>
+    <button class="btn btn-primario" @click="nuevo"><Icono nombre="mas" />New shipment</button>
   </div>
 
   <p v-if="listas?.total" class="nota ok" style="align-items: center; margin-bottom: 16px">
     <Icono nombre="check" />
-    <span>{{ plural(listas.total, 'factura está lista', 'facturas están listas') }} para embarcar (finalizada, con todos sus packing lists finalizados).</span>
-    <router-link class="btn btn-chico separar" :to="{ path: '/facturas', query: { vista: 'lista_transporte' } }">Ver cuáles</router-link>
+    <span>{{ plural(listas.total, 'invoice is', 'invoices are') }} ready to ship (finalized, with all their packing lists finalized).</span>
+    <router-link class="btn btn-chico separar" :to="{ path: '/facturas', query: { vista: 'lista_transporte' } }">See which</router-link>
   </p>
 
   <div class="filtros">
-    <div class="segmentos" role="group" aria-label="Estado">
+    <div class="segmentos" role="group" aria-label="Status">
       <button v-for="[v, t] in ESTADOS" :key="v" class="segmento" :aria-pressed="filtros.estado === v" @click="filtros.estado = v; cargar()">
         {{ t }}<span v-if="cuenta[v]" class="cuenta">{{ cuenta[v] }}</span>
       </button>
     </div>
     <label class="buscador separar">
       <Icono nombre="buscar" :tam="16" />
-      <input v-model="filtros.q" type="search" placeholder="Buscar embarque o BL/AWB" aria-label="Buscar" @input="buscar" />
+      <input v-model="filtros.q" type="search" placeholder="Search shipment or B/L / AWB" aria-label="Search" @input="buscar" />
     </label>
   </div>
 
@@ -117,14 +117,14 @@ onMounted(cargar)
     <table class="tabla">
       <thead>
         <tr>
-          <ThOrden campo="codigo" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Embarque</ThOrden>
-          <ThOrden campo="ruta" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Ruta</ThOrden>
+          <ThOrden campo="codigo" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Shipment</ThOrden>
+          <ThOrden campo="ruta" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Route</ThOrden>
           <ThOrden campo="etd" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">ETD</ThOrden>
           <ThOrden campo="eta" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">ETA</ThOrden>
-          <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Estado</ThOrden>
-          <th>Unidades de carga</th>
+          <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Status</ThOrden>
+          <th>Load units</th>
           <ThOrden campo="packing_lists" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">PL</ThOrden>
-          <th>Proveedores</th>
+          <th>Suppliers</th>
         </tr>
       </thead>
       <tbody>
@@ -132,58 +132,58 @@ onMounted(cargar)
           <td>
             <span class="fila-flex" style="flex-wrap: nowrap"><Icono :nombre="ICONO[e.tipo_transporte]" />
               <router-link :to="`/transporte/embarques/${e.id}`" class="cajas-rango" @click.stop>{{ e.codigo }}</router-link></span>
-            <span class="sub">{{ e.documento_numero ? `${MODOS[e.tipo_transporte]?.doc} ${e.documento_numero}` : `${MODOS[e.tipo_transporte]?.doc} pendiente` }}{{ e.transportista ? ` · ${e.transportista}` : '' }}<template v-if="e.modalidad"> · {{ e.modalidad }}</template></span>
+            <span class="sub">{{ e.documento_numero ? `${MODOS[e.tipo_transporte]?.doc} ${e.documento_numero}` : `${MODOS[e.tipo_transporte]?.doc} pending` }}{{ e.transportista ? ` · ${e.transportista}` : '' }}<template v-if="e.modalidad"> · {{ e.modalidad }}</template></span>
           </td>
-          <td>{{ e.puerto_origen || '—' }} <Icono nombre="flecha" :tam="13" /> {{ e.puerto_destino || '—' }}<span class="sub">{{ e.centro ? `centro ${e.centro}` : 'Centro por definir' }}</span></td>
-          <td>{{ fmtFecha(e.salida_real || e.etd) }}<span class="sub">{{ e.salida_real ? 'real' : 'estimada' }}</span></td>
-          <td>{{ fmtFecha(e.arribo_real || e.eta) }}<span class="sub">{{ e.arribo_real ? 'real' : 'estimada' }}</span></td>
+          <td>{{ e.puerto_origen || '—' }} <Icono nombre="flecha" :tam="13" /> {{ e.puerto_destino || '—' }}<span class="sub">{{ e.centro ? `plant ${e.centro}` : 'Plant to be defined' }}</span></td>
+          <td>{{ fmtFecha(e.salida_real || e.etd) }}<span class="sub">{{ e.salida_real ? 'actual' : 'estimated' }}</span></td>
+          <td>{{ fmtFecha(e.arribo_real || e.eta) }}<span class="sub">{{ e.arribo_real ? 'actual' : 'estimated' }}</span></td>
           <td><EstadoBadge :estado="e.estado" /></td>
           <td>
             <div v-if="e.ocupacion.length" class="mini-ocupacion">
               <div v-for="o in e.ocupacion" :key="o.id"><span>{{ o.nombre }}</span><Avance v-if="o.pct_cbm !== null" :porcentaje="o.pct_cbm" /><span v-else>{{ fmtNum(o.cbm, 1) }} m³</span></div>
             </div>
-            <span v-else class="apagado">Sin unidades</span>
+            <span v-else class="apagado">No units</span>
           </td>
-          <td class="num">{{ e.packing_lists }}<span v-if="e.tentativas" class="etiqueta aviso">{{ e.tentativas }} tentativos</span></td>
+          <td class="num">{{ e.packing_lists }}<span v-if="e.tentativas" class="etiqueta aviso">{{ e.tentativas }} tentative</span></td>
           <td class="envolver" style="min-width: 140px">{{ e.proveedores.join(', ') || '—' }}</td>
         </tr>
-        <tr v-if="!lista.length"><td colspan="8" class="vacio">No hay embarques con estos filtros.</td></tr>
+        <tr v-if="!lista.length"><td colspan="8" class="vacio">No shipments match these filters.</td></tr>
       </tbody>
     </table>
   </div>
   <Paginacion :page="tabla.estado.pagina" :size="tabla.estado.porPagina" :total="tabla.total.value"
               @cambiar="(p) => (tabla.estado.pagina = p)" @tamano="(t) => (tabla.estado.porPagina = t)" />
 
-  <Modal v-if="modal" titulo="Nuevo embarque" ancho="660px" @cerrar="modal = null">
+  <Modal v-if="modal" titulo="New shipment" ancho="660px" @cerrar="modal = null">
     <div class="rejilla-campos">
-      <label class="campo"><span class="req">Tipo de transporte</span>
+      <label class="campo"><span class="req">Mode of transport</span>
         <select v-model="modal.tipo_transporte" @change="ajustarRuta">
-          <option value="MARITIMO">Marítimo</option><option value="AEREO">Aéreo</option><option value="TERRESTRE">Terrestre</option>
+          <option value="MARITIMO">Ocean</option><option value="AEREO">Air</option><option value="TERRESTRE">Road</option>
         </select>
-        <small class="ayuda">Define los puertos, transportistas y unidades de carga que se ofrecen. La modalidad (FCL, LCL…) es de cada unidad; un embarque puede combinarlas.</small>
+        <small class="ayuda">It sets the ports, carriers and load units offered. The modality (FCL, LCL…) belongs to each unit; a shipment can combine them.</small>
       </label>
-      <label class="campo"><span class="req">Centro que recibe (notify)</span>
-        <SelectBusqueda v-model="modal.centro" :opciones="centros" vacio="Lo define la primera carga" etiqueta="Centro" @change="ajustarRuta" />
+      <label class="campo"><span class="req">Receiving plant (notify)</span>
+        <SelectBusqueda v-model="modal.centro" :opciones="centros" vacio="Set by the first cargo" etiqueta="Plant" @change="ajustarRuta" />
       </label>
-      <label class="campo"><span class="req">{{ modo.doc }}</span><input v-model="modal.documento_numero" placeholder="Si ya existe" /></label>
+      <label class="campo"><span class="req">{{ modo.doc }}</span><input v-model="modal.documento_numero" placeholder="If already issued" /></label>
       <label class="campo"><span class="req">{{ modo.transportista }}</span>
-        <SelectBusqueda v-model="modal.transportista_id" :opciones="opcionesTransportista" vacio="Sin definir" :etiqueta="modo.transportista" />
-        <small class="ayuda">{{ modal.centro ? 'Del modo elegido y que trabajan con la sociedad del centro.' : 'Del modo elegido.' }}</small>
+        <SelectBusqueda v-model="modal.transportista_id" :opciones="opcionesTransportista" vacio="Not defined" :etiqueta="modo.transportista" />
+        <small class="ayuda">{{ modal.centro ? 'Of the chosen mode and working with the plant\'s company.' : 'Of the chosen mode.' }}</small>
       </label>
-      <label class="campo"><span class="req">{{ modo.puerto }} de origen</span>
-        <SelectBusqueda v-model="modal.puerto_origen" :opciones="puertosDe(modal.tipo_transporte)" vacio="Sin definir" :etiqueta="`${modo.puerto} de origen`" />
+      <label class="campo"><span class="req">{{ modo.puerto }} of loading</span>
+        <SelectBusqueda v-model="modal.puerto_origen" :opciones="puertosDe(modal.tipo_transporte)" vacio="Not defined" :etiqueta="`${modo.puerto} of loading`" />
       </label>
-      <label class="campo"><span class="req">{{ modo.puerto }} de destino</span>
-        <SelectBusqueda v-model="modal.puerto_destino" :opciones="destinos" vacio="Sin definir" :etiqueta="`${modo.puerto} de destino`" />
-        <small v-if="modal.centro && destinos[0]?.sub" class="ayuda">Sugerido: el principal del centro {{ modal.centro }}; puedes cambiarlo por otro de sus puertos.</small>
+      <label class="campo"><span class="req">{{ modo.puerto }} of discharge</span>
+        <SelectBusqueda v-model="modal.puerto_destino" :opciones="destinos" vacio="Not defined" :etiqueta="`${modo.puerto} of discharge`" />
+        <small v-if="modal.centro && destinos[0]?.sub" class="ayuda">Suggested: the main port of plant {{ modal.centro }}; you can change it to another of its ports.</small>
       </label>
       <label class="campo"><span>ETD</span><input v-model="modal.etd" type="date" /></label>
       <label class="campo"><span>ETA</span><input v-model="modal.eta" type="date" /></label>
     </div>
-    <p class="leyenda-req">Obligatorios en el documento de transporte; puedes crear el embarque sin ellos, pero la salida no se registra hasta completarlos.</p>
+    <p class="leyenda-req">Required on the transport document; you can create the shipment without them, but departure cannot be recorded until they are complete.</p>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancelar</button>
-      <button class="btn btn-primario" @click="crear">Crear embarque</button>
+      <button class="btn" @click="modal = null">Cancel</button>
+      <button class="btn btn-primario" @click="crear">Create shipment</button>
     </template>
   </Modal>
 </template>

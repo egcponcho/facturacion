@@ -22,7 +22,7 @@ export function textoDetalle(d) {
 
 export function errorApi(e) {
   const detalle = Array.isArray(e?.detalle) ? e.detalle.map(textoDetalle).filter(Boolean) : null
-  avisar(e?.message || 'Ocurrió un error inesperado.', 'error', detalle?.length ? detalle.slice(0, 8) : null,
+  avisar(e?.message || 'An unexpected error occurred.', 'error', detalle?.length ? detalle.slice(0, 8) : null,
     detalle?.length ? 12000 : 7000)
 }
 

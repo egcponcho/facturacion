@@ -15,15 +15,15 @@ from .cantidades import facturado_por_posicion, nombre_factura
 from .common import proveedor_filtro
 
 ETAPAS = [
-    ("PEND_LIBERACION", "Pendiente de liberación"),
-    ("POR_FACTURAR", "Por facturar"),
-    ("FACTURADO", "Facturado sin packing list"),
-    ("EN_PL", "En packing list"),
-    ("CONTENEDOR", "Asignado a contenedor"),
-    ("EN_TRANSITO", "En tránsito"),
-    ("ARRIBADO", "Arribado"),
-    ("ENTREGADO", "Entregado"),
-    ("RECIBIDO", "Recibido"),
+    ("PEND_LIBERACION", "Pending release"),
+    ("POR_FACTURAR", "To invoice"),
+    ("FACTURADO", "Invoiced, no packing list"),
+    ("EN_PL", "In packing list"),
+    ("CONTENEDOR", "Assigned to container"),
+    ("EN_TRANSITO", "In transit"),
+    ("ARRIBADO", "Arrived"),
+    ("ENTREGADO", "Delivered"),
+    ("RECIBIDO", "Received"),
 ]
 ORDEN = {"almacen", "grupo", "documento", "marca", "estilo", "color", "talla", "oc", "cantidad", "etapa", "fecha_xf", "fecha_tienda", "eta",
          "holgura", "embarque", "contenedor", "recolectado_en", "proveedor"}
@@ -181,7 +181,7 @@ def seguimiento(db: Session, user: Usuario, proveedor_id: int | None = None, fil
     por_marca: dict[str, dict] = {}
     for f in filas:
         por_etapa[f["etapa"]][f["unidad"]] = por_etapa[f["etapa"]].get(f["unidad"], 0) + f["cantidad"]
-        clave_m = (f["marca"] or "Sin marca", f["unidad"])
+        clave_m = (f["marca"] or "No brand", f["unidad"])
         m = por_marca.setdefault(clave_m, {"marca": clave_m[0], "unidad": f["unidad"], "atraso": 0, "total": 0,
                                            "etapas": {}})
         m["total"] += f["cantidad"]
@@ -231,10 +231,10 @@ def _ordenar(items: list[dict], orden: str | None, permitidos: set) -> list[dict
 # Un renglón por embarque (su BL/AWB/carta de porte), que se abre en sus
 # unidades de carga (contenedores, guías aéreas o camiones) y cada unidad en
 # lo que lleva por orden de compra.
-ESTADOS_EMB = [("PLANIFICADO", "Planificado"), ("EN_TRANSITO", "En tránsito"), ("ARRIBADO", "Arribado"),
-               ("ENTREGADO", "Entregado"), ("RECIBIDO", "Recibido")]
+ESTADOS_EMB = [("PLANIFICADO", "Planned"), ("EN_TRANSITO", "In transit"), ("ARRIBADO", "Arrived"),
+               ("ENTREGADO", "Delivered"), ("RECIBIDO", "Received")]
 ORDEN_EMB = {"embarque", "documento", "estado", "etd", "eta", "holgura", "ocs", "unidades", "modo"}
-MODOS = {"MARITIMO": "Marítimo", "AEREO": "Aéreo", "TERRESTRE": "Terrestre"}
+MODOS = {"MARITIMO": "Ocean", "AEREO": "Air", "TERRESTRE": "Road"}
 
 
 def embarques(db: Session, user: Usuario, proveedor_id: int | None = None, filtros: dict | None = None,
@@ -337,13 +337,13 @@ def explosion_unidad(db: Session, user: Usuario, unidad_id: int, proveedor_id: i
 
 # ---- Tablero de órdenes de compra -------------------------------------------
 ESTADOS_OC = [
-    ("SIN_COMERCIAL", "Sin liberación comercial (P)"),
-    ("SIN_LOGISTICA", "Sin liberación logística (304)"),
-    ("POR_FACTURAR", "Liberada, sin facturar"),
-    ("PARCIAL", "Facturada en parte"),
-    ("FACTURADA", "Facturada, en proceso"),
-    ("EN_CAMINO", "En camino"),
-    ("RECIBIDA", "Recibida"),
+    ("SIN_COMERCIAL", "No commercial release (P)"),
+    ("SIN_LOGISTICA", "No logistics release (304)"),
+    ("POR_FACTURAR", "Released, not invoiced"),
+    ("PARCIAL", "Partly invoiced"),
+    ("FACTURADA", "Invoiced, in progress"),
+    ("EN_CAMINO", "On the way"),
+    ("RECIBIDA", "Received"),
 ]
 GRUPO_ETAPA = {"PEND_LIBERACION": "por_facturar", "POR_FACTURAR": "por_facturar", "FACTURADO": "facturado",
                "EN_PL": "facturado", "CONTENEDOR": "en_contenedor", "EN_TRANSITO": "en_camino",
@@ -435,15 +435,15 @@ def ordenes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros
 # Una fila por packing list (o por factura que aún no tiene PL): en qué paso
 # del documento va, qué le falta y si ya tiene contenedor.
 ETAPAS_DOC = [
-    ("FACTURA_ABIERTA", "Factura sin packing list"),
-    ("EMPACANDO", "Empacando"),
-    ("POR_FINALIZAR_PL", "Empacado, por finalizar"),
-    ("POR_FINALIZAR_FACTURA", "PL listo, factura abierta"),
-    ("LISTO_EMBARQUE", "Listo para embarcar"),
-    ("TENTATIVO", "Tentativo en contenedor"),
-    ("EN_CONTENEDOR", "Confirmado en contenedor"),
-    ("EN_CAMINO", "En camino"),
-    ("RECIBIDO", "Recibido"),
+    ("FACTURA_ABIERTA", "Invoice without packing list"),
+    ("EMPACANDO", "Packing"),
+    ("POR_FINALIZAR_PL", "Packed, to finalize"),
+    ("POR_FINALIZAR_FACTURA", "PL ready, invoice open"),
+    ("LISTO_EMBARQUE", "Ready to ship"),
+    ("TENTATIVO", "Tentative in container"),
+    ("EN_CONTENEDOR", "Confirmed in container"),
+    ("EN_CAMINO", "On the way"),
+    ("RECIBIDO", "Received"),
 ]
 ORDEN_DOC = {"factura", "fecha", "proveedor", "estado_factura", "estado_pl", "etapa", "avance", "cajas",
              "peso_bruto", "cbm", "embarque", "dias", "pendientes", "centro", "actualizado"}

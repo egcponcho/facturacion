@@ -6,7 +6,7 @@ import Icono from './Icono.vue'
 // se notifica (centro), con sus correos y contactos de Mantenimiento.
 const props = defineProps({ titulo: String, icono: { type: String, default: 'base' }, parte: Object })
 const correos = (texto) => (texto || '').split(',').map((x) => x.trim()).filter(Boolean)
-const ROLES = { FACTURACION: 'Facturación', NOTIFY: 'Notify', LOGISTICA: 'Logística' }
+const ROLES = { FACTURACION: 'Billing', NOTIFY: 'Notify', LOGISTICA: 'Logistics' }
 const nombre = computed(() => props.parte?.razon_social || props.parte?.nombre)
 </script>
 
@@ -21,9 +21,9 @@ const nombre = computed(() => props.parte?.razon_social || props.parte?.nombre)
     </div>
     <template v-if="parte?.nombre || parte?.razon_social">
       <p class="tp-linea">
-        <template v-if="parte.id_fiscal">NIT/RUC {{ parte.id_fiscal }} · </template>{{ parte.direccion || 'Sin dirección' }}<template v-if="parte.pais"> · {{ parte.pais }}</template>
+        <template v-if="parte.id_fiscal">Tax ID {{ parte.id_fiscal }} · </template>{{ parte.direccion || 'No address' }}<template v-if="parte.pais"> · {{ parte.pais }}</template>
       </p>
-      <p v-if="parte.puerto" class="tp-linea">Puerto de llegada: <b>{{ parte.puerto }}</b><template v-if="parte.puerto_nombre"> · {{ parte.puerto_nombre }}</template></p>
+      <p v-if="parte.puerto" class="tp-linea">Port of arrival: <b>{{ parte.puerto }}</b><template v-if="parte.puerto_nombre"> · {{ parte.puerto_nombre }}</template></p>
       <p v-if="correos(parte.correos).length" class="tp-linea">
         <Icono nombre="archivo" :tam="13" />
         <a v-for="c in correos(parte.correos)" :key="c" :href="`mailto:${c}`" class="tp-correo">{{ c }}</a>
@@ -38,8 +38,8 @@ const nombre = computed(() => props.parte?.razon_social || props.parte?.nombre)
           </span>
         </li>
       </ul>
-      <p v-else class="ayuda">Sin contactos registrados. Agrégalos en Mantenimiento → Contactos.</p>
+      <p v-else class="ayuda">No contacts registered. Add them in Master data → Contacts.</p>
     </template>
-    <p v-else class="ayuda">No está registrado en Mantenimiento.</p>
+    <p v-else class="ayuda">Not registered in Master data.</p>
   </section>
 </template>

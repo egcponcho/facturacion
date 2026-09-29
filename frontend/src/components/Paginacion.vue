@@ -26,17 +26,17 @@ const botones = computed(() => {
 
 <template>
   <div class="paginacion">
-    <span class="ayuda">{{ desde }}–{{ hasta }} de {{ props.total || 0 }} registros</span>
-    <div class="paginas" role="navigation" aria-label="Páginas">
-      <button type="button" class="pag-btn" :disabled="props.page <= 1" aria-label="Página anterior" @click="emit('cambiar', props.page - 1)"><Icono nombre="atras" :tam="14" /></button>
+    <span class="ayuda">{{ desde }}–{{ hasta }} of {{ props.total || 0 }} records</span>
+    <div class="paginas" role="navigation" aria-label="Pages">
+      <button type="button" class="pag-btn" :disabled="props.page <= 1" aria-label="Previous page" @click="emit('cambiar', props.page - 1)"><Icono nombre="atras" :tam="14" /></button>
       <template v-for="(b, i) in botones" :key="i">
         <span v-if="b === '…'" class="ayuda">…</span>
         <button v-else type="button" class="pag-btn" :aria-current="b === props.page ? 'page' : undefined" @click="emit('cambiar', b)">{{ b }}</button>
       </template>
-      <button type="button" class="pag-btn" :disabled="props.page >= paginas" aria-label="Página siguiente" @click="emit('cambiar', props.page + 1)"><Icono nombre="flecha" :tam="14" /></button>
+      <button type="button" class="pag-btn" :disabled="props.page >= paginas" aria-label="Next page" @click="emit('cambiar', props.page + 1)"><Icono nombre="flecha" :tam="14" /></button>
     </div>
     <label class="fila-flex ayuda" style="gap: 6px">
-      Filas por página
+      Rows per page
       <select class="entrada" style="padding: 4px 8px" :value="props.size" @change="emit('tamano', Number($event.target.value)); emit('cambiar', 1)">
         <option v-for="t in props.tamanos" :key="t" :value="t">{{ t }}</option>
       </select>

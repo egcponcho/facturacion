@@ -31,9 +31,9 @@ function qs(params) {
 }
 
 async function pedir(metodo, url, cuerpo, { params, clave } = {}) {
-  const headers = {}
-  const token = localStorage.getItem('token')
-  if (token) headers.Authorization = `Bearer ${token}`
+  // La sesión viaja en una cookie httpOnly (JavaScript no la ve). Este
+  // encabezado identifica a la aplicación: el servidor rechaza cambios sin él.
+  const headers = { 'X-Requested-With': 'fetch' }
   let body
   if (cuerpo instanceof FormData) body = cuerpo
   else if (cuerpo !== undefined) {
@@ -45,12 +45,12 @@ async function pedir(metodo, url, cuerpo, { params, clave } = {}) {
   if (metodo !== 'GET') headers['Idempotency-Key'] = clave || nuevaClave()
   let r
   try {
-    r = await fetch(BASE + url + qs(params), { method: metodo, headers, body })
+    r = await fetch(BASE + url + qs(params), { method: metodo, headers, body, credentials: 'same-origin' })
   } catch {
-    throw new ApiError(0, { mensaje: 'No hay conexión con el servidor. Revisa tu red e intenta de nuevo.' })
+    throw new ApiError(0, { mensaje: 'No connection to the server. Check your network and try again.' })
   }
   const datos = await r.json().catch(() => null)
-  if (r.status === 401 && url !== '/auth/login' && alNoAutorizado) alNoAutorizado()
+  if (r.status === 401 && !url.startsWith('/auth/') && alNoAutorizado) alNoAutorizado()
   if (!r.ok) throw new ApiError(r.status, datos)
   return datos
 }
@@ -63,7 +63,7 @@ export const api = {
   del: (url) => pedir('DELETE', url),
   async descargar(url, nombre, params) {
     const q = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : ''
-    const r = await fetch(BASE + url + (q ? `?${q}` : ''), { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+    const r = await fetch(BASE + url + (q ? `?${q}` : ''), { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
     if (!r.ok) {
       const datos = await r.json().catch(() => null)
       throw new ApiError(r.status, datos)

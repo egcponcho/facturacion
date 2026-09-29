@@ -32,8 +32,8 @@ from ..models import (
 )
 from .common import ErrorNegocio, exigir, registrar
 
-UNIDADES = [["PAR", "Pares"], ["UN", "Unidades"], ["CJ", "Cajas (prepack)"]]
-CATEGORIAS = [["CALZADO", "Calzado"], ["ROPA", "Ropa"], ["ACCESORIO", "Accesorios"]]
+UNIDADES = [["PAR", "Pairs"], ["UN", "Units"], ["CJ", "Cartons (prepack)"]]
+CATEGORIAS = [["CALZADO", "Footwear"], ["ROPA", "Apparel"], ["ACCESORIO", "Accessories"]]
 
 
 def c(nombre, etiqueta, tipo="texto", obligatorio=False, **extra):
@@ -43,222 +43,220 @@ def c(nombre, etiqueta, tipo="texto", obligatorio=False, **extra):
 # tipo: texto | entero | numero | bool | opcion (opciones) | ref (catalogo: guarda el id)
 #       | codigo (catalogo: guarda el código, p. ej. país ISO) | correos
 #       | multi (catalogo: varios registros, p. ej. las marcas de un proveedor)
-MODOS = [["MARITIMO", "Marítimo"], ["AEREO", "Aéreo"], ["TERRESTRE", "Terrestre"]]
+MODOS = [["MARITIMO", "Ocean"], ["AEREO", "Air"], ["TERRESTRE", "Road"]]
 CATALOGOS = {
     "sociedades": {
-        "modelo": Sociedad, "titulo": "Sociedades", "singular": "sociedad",
-        "ayuda": "Compañías a las que se factura (sociedad de la OC). Cada una tiene sus centros asignados.",
+        "modelo": Sociedad, "titulo": "Companies", "singular": "company",
+        "ayuda": "Companies that are invoiced (the PO company). Each one has its assigned plants.",
         "campos": [
-            c("codigo", "Código", obligatorio=True, max=10, mayus=True),
-            c("nombre", "Nombre", obligatorio=True),
-            c("razon_social", "Razón social"),
-            c("id_fiscal", "NIT / RUC"),
-            c("pais", "País", "codigo", catalogo="paises", filtro=True),
-            c("moneda", "Moneda", obligatorio=True, max=3, mayus=True),
-            c("direccion", "Dirección"),
-            c("correos", "Correos de facturación", "correos", ayuda="Uno o varios, separados por coma."),
-            c("activa", "Activa", "bool", filtro=True),
+            c("codigo", "Code", obligatorio=True, max=10, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("razon_social", "Legal name"),
+            c("id_fiscal", "Tax ID"),
+            c("pais", "Country", "codigo", catalogo="paises", filtro=True),
+            c("moneda", "Currency", obligatorio=True, max=3, mayus=True),
+            c("direccion", "Address"),
+            c("correos", "Billing emails", "correos", ayuda="One or more, separated by commas."),
+            c("activa", "Active", "bool", filtro=True),
         ],
-        "extras": [{"nombre": "centros_txt", "etiqueta": "Centros", "catalogo": "centros", "filtro": "sociedad_id"},
-                   {"nombre": "contactos", "etiqueta": "Contactos", "catalogo": "contactos", "filtro": "sociedad_id"}],
+        "extras": [{"nombre": "centros_txt", "etiqueta": "Plants", "catalogo": "centros", "filtro": "sociedad_id"},
+                   {"nombre": "contactos", "etiqueta": "Contacts", "catalogo": "contactos", "filtro": "sociedad_id"}],
         "buscar": ["codigo", "nombre", "razon_social", "id_fiscal"],
     },
     "centros": {
-        "modelo": Centro, "titulo": "Centros", "singular": "centro",
-        "ayuda": "Centros asignados a cada sociedad. Es el notify party del embarque y, como centro de destino "
-                 "de la OC (p. ej. 2220), dice a qué país llega la mercancía. Su puerto es el de llegada.",
+        "modelo": Centro, "titulo": "Plants", "singular": "plant",
+        "ayuda": "Plants assigned to each company. A plant is the shipment notify party and, as the PO destination center "
+                 "(e.g. 2220), it tells which country the goods go to. Its port is the arrival port.",
         "campos": [
-            c("codigo", "Código", obligatorio=True, max=10, mayus=True),
-            c("sociedad_id", "Sociedad", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
-            c("nombre", "Nombre", obligatorio=True),
-            c("pais", "País", "codigo", obligatorio=True, catalogo="paises", filtro=True),
-            c("puerto", "Puerto de llegada", "codigo", catalogo="puertos", filtro=True),
-            c("tipo", "Tipo", "opcion", obligatorio=True,
-              opciones=[["BODEGA_FISCAL", "Bodega fiscal"], ["ZONA_FRANCA", "Zona franca"], ["LOCAL", "Bodega local"],
-                        ["TIENDA", "Tienda / CD"]]),
-            c("puertos", "Otros puertos de llegada", "multi", catalogo="puertos",
-              ayuda="Además del principal. El embarque sugiere el principal y permite cambiar entre estos."),
-            c("direccion", "Dirección"),
-            c("correos", "Correos (notify)", "correos", ayuda="Uno o varios, separados por coma."),
-            c("activo", "Activo", "bool", filtro=True),
+            c("codigo", "Code", obligatorio=True, max=10, mayus=True),
+            c("sociedad_id", "Company", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
+            c("nombre", "Name", obligatorio=True),
+            c("pais", "Country", "codigo", obligatorio=True, catalogo="paises", filtro=True),
+            c("puerto", "Arrival port", "codigo", catalogo="puertos", filtro=True),
+            c("tipo", "Type", "opcion", obligatorio=True,
+              opciones=[["BODEGA_FISCAL", "Bonded warehouse"], ["ZONA_FRANCA", "Free trade zone"], ["LOCAL", "Local warehouse"],
+                        ["TIENDA", "Store / DC"]]),
+            c("puertos", "Other arrival ports", "multi", catalogo="puertos",
+              ayuda="Besides the main one. The shipment suggests the main port and lets you switch between these."),
+            c("direccion", "Address"),
+            c("correos", "Emails (notify)", "correos", ayuda="One or more, separated by commas."),
+            c("activo", "Active", "bool", filtro=True),
         ],
-        "extras": [{"nombre": "contactos", "etiqueta": "Contactos", "catalogo": "contactos", "filtro": "centro_id"}],
+        "extras": [{"nombre": "contactos", "etiqueta": "Contacts", "catalogo": "contactos", "filtro": "centro_id"}],
         "buscar": ["codigo", "nombre"],
     },
     "almacenes": {
-        "modelo": Almacen, "titulo": "Almacenes", "singular": "almacén",
-        "ayuda": "Separación del inventario en el sistema (virtual, detalle, mayoreo); no es un lugar físico. "
-                 "Cada posición de la OC indica el suyo.",
+        "modelo": Almacen, "titulo": "Storage locations", "singular": "storage location",
+        "ayuda": "Inventory split in the system (virtual, retail, wholesale); it is not a physical place. "
+                 "Each PO line states its own.",
         "campos": [
-            c("codigo", "Código", obligatorio=True, max=10, mayus=True),
-            c("sociedad_id", "Sociedad", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
-            c("nombre", "Nombre", obligatorio=True),
-            c("tipo", "Tipo", "opcion", obligatorio=True, filtro=True,
-              opciones=[["VIRTUAL", "Virtual"], ["DETALLE", "Detalle"], ["MAYOREO", "Mayoreo"]]),
-            c("activo", "Activo", "bool", filtro=True),
+            c("codigo", "Code", obligatorio=True, max=10, mayus=True),
+            c("sociedad_id", "Company", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
+            c("nombre", "Name", obligatorio=True),
+            c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
+              opciones=[["VIRTUAL", "Virtual"], ["DETALLE", "Retail"], ["MAYOREO", "Wholesale"]]),
+            c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
     },
     "contactos": {
-        "modelo": Contacto, "titulo": "Contactos", "singular": "contacto",
-        "ayuda": "Personas de contacto de una sociedad (facturación) o de un centro (notify party). "
-                 "Salen en la factura y el packing list.",
+        "modelo": Contacto, "titulo": "Contacts", "singular": "contact",
+        "ayuda": "Contact people of a company (billing) or of a plant (notify party). "
+                 "They appear on the invoice and the packing list.",
         "campos": [
-            c("nombre", "Nombre", obligatorio=True),
-            c("cargo", "Cargo"),
-            c("rol", "Rol", "opcion", obligatorio=True, filtro=True,
-              opciones=[["FACTURACION", "Facturación"], ["NOTIFY", "Notify party"], ["LOGISTICA", "Logística"]]),
-            c("sociedad_id", "Sociedad", "ref", catalogo="sociedades", filtro=True),
-            c("centro_id", "Centro", "ref", catalogo="centros", filtro=True),
-            c("correos", "Correos", "correos", obligatorio=True, ayuda="Uno o varios, separados por coma."),
-            c("telefono", "Teléfono"),
-            c("activo", "Activo", "bool", filtro=True),
+            c("nombre", "Name", obligatorio=True),
+            c("cargo", "Job title"),
+            c("rol", "Role", "opcion", obligatorio=True, filtro=True,
+              opciones=[["FACTURACION", "Billing"], ["NOTIFY", "Notify party"], ["LOGISTICA", "Logistics"]]),
+            c("sociedad_id", "Company", "ref", catalogo="sociedades", filtro=True),
+            c("centro_id", "Plant", "ref", catalogo="centros", filtro=True),
+            c("correos", "Emails", "correos", obligatorio=True, ayuda="One or more, separated by commas."),
+            c("telefono", "Phone"),
+            c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["nombre", "cargo", "correos"],
     },
     "paises": {
-        "modelo": Pais, "titulo": "Países", "singular": "país",
-        "ayuda": "Países de origen y procedencia (ISO de 2 letras).",
+        "modelo": Pais, "titulo": "Countries", "singular": "country",
+        "ayuda": "Countries of origin and shipment (2-letter ISO).",
         "campos": [
-            c("codigo", "Código ISO", obligatorio=True, max=2, mayus=True, patron=r"^[A-Z]{2}$",
-              mensaje_patron="Usa el código ISO de 2 letras."),
-            c("nombre", "Nombre", obligatorio=True),
-            c("activo", "Activo", "bool", filtro=True),
+            c("codigo", "ISO code", obligatorio=True, max=2, mayus=True, patron=r"^[A-Z]{2}$",
+              mensaje_patron="Use the 2-letter ISO code."),
+            c("nombre", "Name", obligatorio=True),
+            c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
     },
     "puertos": {
-        "modelo": Puerto, "titulo": "Puertos", "singular": "puerto",
-        "ayuda": "Puertos y aeropuertos de despacho (UN/LOCODE).",
+        "modelo": Puerto, "titulo": "Ports", "singular": "port",
+        "ayuda": "Sea ports and airports (UN/LOCODE).",
         "campos": [
-            c("codigo", "Código", obligatorio=True, max=10, mayus=True),
-            c("nombre", "Nombre", obligatorio=True),
-            c("pais", "País", "codigo", obligatorio=True, catalogo="paises", filtro=True),
-            c("tipo", "Tipo", "opcion", obligatorio=True, filtro=True,
-              opciones=[["MARITIMO", "Marítimo"], ["AEREO", "Aéreo"], ["TERRESTRE", "Terrestre"]]),
-            c("activo", "Activo", "bool", filtro=True),
+            c("codigo", "Code", obligatorio=True, max=10, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("pais", "Country", "codigo", obligatorio=True, catalogo="paises", filtro=True),
+            c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
+              opciones=[["MARITIMO", "Ocean"], ["AEREO", "Air"], ["TERRESTRE", "Road"]]),
+            c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
     },
     "marcas": {
-        "modelo": Marca, "titulo": "Marcas", "singular": "marca",
+        "modelo": Marca, "titulo": "Brands", "singular": "brand",
         "campos": [
-            c("codigo", "Código", obligatorio=True, max=10, mayus=True),
-            c("nombre", "Nombre", obligatorio=True),
-            c("activa", "Activa", "bool", filtro=True),
+            c("codigo", "Code", obligatorio=True, max=10, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("activa", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
     },
     "grupos": {
-        "modelo": GrupoArticulo, "titulo": "Grupos de artículos", "singular": "grupo",
-        "ayuda": "Cada artículo pertenece a un solo grupo. La categoría define la regla de empaque.",
+        "modelo": GrupoArticulo, "titulo": "Item groups", "singular": "group",
+        "ayuda": "Each item belongs to a single group. The category sets the packing rule.",
         "campos": [
-            c("codigo", "Código", obligatorio=True, max=15, mayus=True),
-            c("nombre", "Nombre", obligatorio=True),
-            c("categoria", "Categoría", "opcion", obligatorio=True, opciones=CATEGORIAS, filtro=True),
-            c("activo", "Activo", "bool", filtro=True),
+            c("codigo", "Code", obligatorio=True, max=15, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("categoria", "Category", "opcion", obligatorio=True, opciones=CATEGORIAS, filtro=True),
+            c("activo", "Active", "bool", filtro=True),
         ],
-        "extras": [{"nombre": "articulos", "etiqueta": "Artículos", "catalogo": "articulos", "filtro": "grupo_id"}],
+        "extras": [{"nombre": "articulos", "etiqueta": "Items", "catalogo": "articulos", "filtro": "grupo_id"}],
         "buscar": ["codigo", "nombre"],
     },
     "proveedores": {
-        "modelo": Proveedor, "titulo": "Proveedores", "singular": "proveedor",
-        "ayuda": "Exportadores. Cada uno maneja sus propias marcas y artículos y trabaja con las sociedades asignadas.",
+        "modelo": Proveedor, "titulo": "Suppliers", "singular": "supplier",
+        "ayuda": "Exporters. Each one handles its own brands and items and works with the assigned companies.",
         "campos": [
-            c("codigo", "Código", obligatorio=True, max=30, mayus=True),
-            c("nombre", "Nombre", obligatorio=True),
-            c("razon_social", "Razón social"),
-            c("id_fiscal", "Identificación fiscal"),
-            c("pais", "País", "codigo", catalogo="paises", filtro=True),
-            c("direccion", "Dirección"),
-            c("contacto", "Contacto"),
-            c("correos", "Correos", "correos", ayuda="Uno o varios, separados por coma."),
-            c("telefono", "Teléfono"),
-            c("marcas", "Marcas que maneja", "multi", catalogo="marcas", filtro=True),
-            c("sociedades", "Sociedades con las que trabaja", "multi", catalogo="sociedades", filtro=True),
-            c("activo", "Activo", "bool", filtro=True),
+            c("codigo", "Code", obligatorio=True, max=30, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("razon_social", "Legal name"),
+            c("id_fiscal", "Tax ID"),
+            c("pais", "Country", "codigo", catalogo="paises", filtro=True),
+            c("direccion", "Address"),
+            c("contacto", "Contact"),
+            c("correos", "Emails", "correos", ayuda="One or more, separated by commas."),
+            c("telefono", "Phone"),
+            c("marcas", "Brands handled", "multi", catalogo="marcas", filtro=True),
+            c("sociedades", "Companies it works with", "multi", catalogo="sociedades", filtro=True),
+            c("activo", "Active", "bool", filtro=True),
         ],
-        "extras": [{"nombre": "articulos", "etiqueta": "Artículos", "catalogo": "articulos", "filtro": "proveedor_id"}],
+        "extras": [{"nombre": "articulos", "etiqueta": "Items", "catalogo": "articulos", "filtro": "proveedor_id"}],
         "buscar": ["codigo", "nombre", "razon_social"],
     },
     "transportistas": {
-        "modelo": Transportista, "titulo": "Transportistas", "singular": "transportista",
-        "ayuda": "Navieras, aerolíneas y transporte terrestre registrados, con las sociedades para las que trabajan.",
+        "modelo": Transportista, "titulo": "Carriers", "singular": "carrier",
+        "ayuda": "Registered shipping lines, airlines and road carriers, with the companies they work for.",
         "campos": [
-            c("codigo", "Código", obligatorio=True, max=20, mayus=True),
-            c("nombre", "Nombre", obligatorio=True),
-            c("tipo", "Tipo", "opcion", obligatorio=True, filtro=True, opciones=MODOS + [["MULTIMODAL", "Multimodal"]]),
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("tipo", "Type", "opcion", obligatorio=True, filtro=True, opciones=MODOS + [["MULTIMODAL", "Multimodal"]]),
             c("codigo_internacional", "SCAC / IATA", max=10, mayus=True,
-              ayuda="SCAC de la naviera o prefijo IATA de la aerolínea."),
-            c("id_fiscal", "Identificación fiscal"),
-            c("pais", "País", "codigo", catalogo="paises"),
-            c("contacto", "Contacto"),
-            c("correos", "Correos", "correos"),
-            c("telefono", "Teléfono"),
-            c("sociedades", "Sociedades con las que trabaja", "multi", catalogo="sociedades", obligatorio=True,
+              ayuda="Shipping line SCAC or airline IATA prefix."),
+            c("id_fiscal", "Tax ID"),
+            c("pais", "Country", "codigo", catalogo="paises"),
+            c("contacto", "Contact"),
+            c("correos", "Emails", "correos"),
+            c("telefono", "Phone"),
+            c("sociedades", "Companies it works with", "multi", catalogo="sociedades", obligatorio=True,
               filtro=True),
-            c("activo", "Activo", "bool", filtro=True),
+            c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre", "codigo_internacional"],
     },
     "tipos_unidad": {
-        "modelo": TipoUnidad, "titulo": "Tipos de unidad", "singular": "tipo de unidad",
-        "ayuda": "Unidades de carga por modo de transporte con su capacidad. El embarque solo ofrece las de su modo; "
-                 "la modalidad (FCL, LCL…) es de cada unidad, así un embarque puede ser mixto.",
+        "modelo": TipoUnidad, "titulo": "Unit types", "singular": "unit type",
+        "ayuda": "Load units by transport mode with their capacity. A shipment only offers those of its mode; "
+                 "the service (FCL, LCL…) belongs to each unit, so a shipment can be mixed.",
         "campos": [
-            c("codigo", "Código", obligatorio=True, max=10, mayus=True),
-            c("nombre", "Nombre", obligatorio=True),
-            c("modo", "Modo de transporte", "opcion", obligatorio=True, filtro=True, opciones=MODOS),
-            c("modalidad", "Modalidad", "opcion", obligatorio=True, filtro=True,
-              opciones=[["FCL", "FCL · contenedor completo"], ["LCL", "LCL · carga consolidada"],
-                        ["AEREO", "Carga aérea"], ["FTL", "FTL · camión completo"], ["LTL", "LTL · carga parcial"]]),
-            c("capacidad_cbm", "Volumen máximo (m³)", "numero", minimo=0),
-            c("capacidad_kg", "Peso máximo (kg)", "numero", minimo=0),
-            c("requiere_sello", "Requiere sello", "bool"),
-            c("activo", "Activo", "bool", filtro=True),
+            c("codigo", "Code", obligatorio=True, max=10, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("modo", "Transport mode", "opcion", obligatorio=True, filtro=True, opciones=MODOS),
+            c("modalidad", "Service", "opcion", obligatorio=True, filtro=True,
+              opciones=[["FCL", "FCL · full container"], ["LCL", "LCL · consolidated cargo"],
+                        ["AEREO", "Air cargo"], ["FTL", "FTL · full truck"], ["LTL", "LTL · partial load"]]),
+            c("capacidad_cbm", "Max volume (m³)", "numero", minimo=0),
+            c("capacidad_kg", "Max weight (kg)", "numero", minimo=0),
+            c("requiere_sello", "Requires seal", "bool"),
+            c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
     },
     "articulos": {
-        "modelo": Articulo, "titulo": "Artículos", "singular": "artículo",
-        "ayuda": "Dato maestro de cada artículo con su unidad de medida. Aquí se crean los sólidos (con o sin "
-                 "casepack); los prepacks se crean en la pestaña Prepacks junto con su explosión.",
+        "modelo": Articulo, "titulo": "Items", "singular": "item",
+        "ayuda": "Master data of each item with its unit of measure. Solids are created here; casepack and inner "
+                 "pack come on each PO line. Prepacks are created in the Prepacks tab with their breakdown.",
         "campos": [
-            c("sku", "Número de artículo (SKU)", obligatorio=True, max=18, patron=r"^\d{6,18}$",
-              mensaje_patron="Solo dígitos, por ejemplo 30095120001."),
-            c("estilo", "Estilo", obligatorio=True, mayus=True),
+            c("sku", "Item number (SKU)", obligatorio=True, max=18, patron=r"^\d{6,18}$",
+              mensaje_patron="Digits only, for example 30095120001."),
+            c("estilo", "Style", obligatorio=True, mayus=True),
             c("color", "Color", obligatorio=True),
-            c("talla", "Talla / prepack ID", obligatorio=True, mayus=True,
-              ayuda="En un prepack es su prepack ID, p. ej. AB12."),
-            c("descripcion", "Descripción"),
-            c("marca_id", "Marca", "ref", obligatorio=True, catalogo="marcas", filtro=True),
-            c("grupo_id", "Grupo", "ref", obligatorio=True, catalogo="grupos", filtro=True),
-            c("proveedor_id", "Proveedor", "ref", obligatorio=True, catalogo="proveedores", filtro=True,
-              ayuda="Cada proveedor maneja sus artículos; la marca debe ser una de las suyas."),
-            c("tipo", "Tipo", "opcion", obligatorio=True, filtro=True,
-              opciones=[["SOLIDO", "Sólido"], ["PREPACK", "Prepack"]]),
-            c("unidad", "Unidad", "opcion", obligatorio=True, opciones=UNIDADES, filtro=True),
-            c("casepack", "Casepack", "entero", minimo=1,
-              ayuda="Cantidad exacta por caja definida por el Commercial Brand Manager. Vacío = libre."),
+            c("talla", "Size / prepack ID", obligatorio=True, mayus=True,
+              ayuda="For a prepack it is its prepack ID, e.g. AB12."),
+            c("descripcion", "Description"),
+            c("marca_id", "Brand", "ref", obligatorio=True, catalogo="marcas", filtro=True),
+            c("grupo_id", "Group", "ref", obligatorio=True, catalogo="grupos", filtro=True),
+            c("proveedor_id", "Supplier", "ref", obligatorio=True, catalogo="proveedores", filtro=True,
+              ayuda="Each supplier handles its items; the brand must be one of theirs."),
+            c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
+              opciones=[["SOLIDO", "Solid"], ["PREPACK", "Prepack"]]),
+            c("unidad", "Unit", "opcion", obligatorio=True, opciones=UNIDADES, filtro=True),
             c("upc", "UPC"),
-            c("partida_arancelaria", "Partida arancelaria"),
-            c("pais_origen", "País de origen", "codigo", catalogo="paises"),
-            c("activo", "Activo", "bool", filtro=True),
+            c("partida_arancelaria", "HS code"),
+            c("pais_origen", "Country of origin", "codigo", catalogo="paises"),
+            c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["sku", "estilo", "color", "upc", "descripcion"],
     },
     "prepacks": {
-        "modelo": Prepack, "titulo": "Prepacks (curvas)", "singular": "prepack",
-        "ayuda": "Un prepack es un artículo con su propio código de producto. Su curva (explosión) reparte "
-                 "tallas y cantidades por caja master con sólidos del mismo estilo y color, y su prepack ID "
-                 "(usualmente 2 letras y 2 números, p. ej. AB12) es su talla. La explosión se ve pero no se modifica.",
+        "modelo": Prepack, "titulo": "Prepacks (assortments)", "singular": "prepack",
+        "ayuda": "A prepack is an item with its own product code. Its assortment (breakdown) spreads "
+                 "sizes and quantities per master carton with solids of the same style and color, and its prepack ID "
+                 "(usually 2 letters and 2 digits, e.g. AB12) is its size. The breakdown can be viewed but not changed.",
         "campos": [
             c("codigo", "Prepack ID", obligatorio=True, max=10, mayus=True, patron=r"^[A-Z0-9]{2,10}$",
-              mensaje_patron="Solo letras y números, p. ej. AB12."),
-            c("estilo", "Estilo", obligatorio=True, mayus=True, filtro=True),
+              mensaje_patron="Letters and numbers only, e.g. AB12."),
+            c("estilo", "Style", obligatorio=True, mayus=True, filtro=True),
             c("color", "Color", obligatorio=True),
-            c("descripcion", "Descripción"),
-            c("activo", "Activo", "bool", filtro=True),
+            c("descripcion", "Description"),
+            c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "estilo", "color", "descripcion"],
     },
@@ -270,7 +268,7 @@ CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
 def _cat(tipo: str) -> dict:
     if tipo not in CATALOGOS:
-        raise ErrorNegocio("El catálogo no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The catalog does not exist.", 404, "no_encontrado")
     return CATALOGOS[tipo]
 
 
@@ -398,7 +396,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         n = campo["nombre"]
         if n not in datos:
             if not parcial and campo["obligatorio"]:
-                errores.append({"campo": n, "mensaje": f"{campo['etiqueta']} es obligatorio."})
+                errores.append({"campo": n, "mensaje": f"{campo['etiqueta']} is required."})
             continue
         v = datos[n]
         if isinstance(v, str):
@@ -408,14 +406,14 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         if v in ("", None) or (campo["tipo"] == "multi" and v == [] and not campo["obligatorio"]):
             if campo["tipo"] == "multi":
                 if campo["obligatorio"]:
-                    errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: elige al menos uno."})
+                    errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: choose at least one."})
                 else:
                     limpio[n] = []
                 continue
             v = None
         if v is None:
             if campo["obligatorio"]:
-                errores.append({"campo": n, "mensaje": f"{campo['etiqueta']} es obligatorio."})
+                errores.append({"campo": n, "mensaje": f"{campo['etiqueta']} is required."})
             limpio[n] = False if campo["tipo"] == "bool" else None
             continue
         t = campo["tipo"]
@@ -436,7 +434,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                 v = str(v).upper()
                 modelo = CATALOGOS[campo["catalogo"]]["modelo"]
                 if not db.scalar(select(modelo.id).where(modelo.codigo == v)):
-                    errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: {v} no está en el catálogo."})
+                    errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: {v} is not in the catalog."})
                     continue
             elif t == "opcion" and v not in [o[0] for o in campo["opciones"]]:
                 raise ValueError
@@ -447,26 +445,26 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                 if len(objs) != len(set(int(x) for x in ids)):
                     raise ValueError
                 if campo["obligatorio"] and not objs:
-                    errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: elige al menos uno."})
+                    errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: choose at least one."})
                     continue
                 v = objs
             elif t == "correos":
                 lista = [x.strip().lower() for x in re.split(r"[,;\s]+", str(v)) if x.strip()]
                 malos = [x for x in lista if not re.match(CORREO, x)]
                 if malos:
-                    errores.append({"campo": n, "mensaje": f"Correo no válido: {', '.join(malos)}."})
+                    errores.append({"campo": n, "mensaje": f"Invalid email: {', '.join(malos)}."})
                     continue
                 v = ", ".join(dict.fromkeys(lista))
             else:
                 v = str(v)
         except (TypeError, ValueError):
-            errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: valor no válido."})
+            errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: invalid value."})
             continue
         if campo.get("max") and isinstance(v, str) and len(v) > campo["max"]:
-            errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: máximo {campo['max']} caracteres."})
+            errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: {campo['max']} characters maximum."})
             continue
         if campo.get("patron") and isinstance(v, str) and not re.match(campo["patron"], v):
-            errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: {campo.get('mensaje_patron', 'formato no válido')}"})
+            errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: {campo.get('mensaje_patron', 'invalid format')}"})
             continue
         limpio[n] = v
 
@@ -476,45 +474,45 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
     if cat["modelo"] is Articulo:
         if final.get("tipo") == "PREPACK" and not (actual and actual.tipo == "PREPACK"):
             errores.append({"campo": "tipo", "mensaje":
-                            "Los prepacks se crean en la pestaña Prepacks, con su código de producto y su explosión."})
+                            "Prepacks are created in the Prepacks tab, with their product code and breakdown."})
         elif actual and actual.tipo == "PREPACK":
             # La explosión es fija: no cambia lo que la enlaza
             fijos = [c for c in ("tipo", "estilo", "color", "talla", "unidad") if c in limpio and limpio[c] != getattr(actual, c)]
             if fijos:
                 errores.append({"campo": fijos[0], "mensaje":
-                                "El prepack y su explosión no se modifican (estilo, color, prepack ID, unidad y tipo). "
-                                "Crea un prepack nuevo."})
+                                "A prepack and its breakdown cannot change (style, color, prepack ID, unit and type). "
+                                "Create a new prepack."})
         elif final.get("tipo") == "SOLIDO":
             if actual and db.scalar(select(PrepackComponente.id).where(PrepackComponente.articulo_id == actual.id)):
                 fijos = [c for c in ("estilo", "color", "talla", "unidad") if c in limpio and limpio[c] != getattr(actual, c)]
                 if fijos:
                     errores.append({"campo": fijos[0], "mensaje":
-                                    "Este sólido forma parte de la explosión de un prepack: no cambia su estilo, "
-                                    "color, talla ni unidad."})
+                                    "This solid is part of a prepack breakdown: its style, "
+                                    "color, size and unit cannot change."})
             limpio["prepack_id"] = None
             if final.get("unidad") == "CJ":
-                errores.append({"campo": "unidad", "mensaje": "Un sólido se maneja en pares o unidades."})
+                errores.append({"campo": "unidad", "mensaje": "A solid is handled in pairs or units."})
     if cat["modelo"] is Articulo and final.get("proveedor_id") and final.get("marca_id"):
         prov = db.get(Proveedor, final["proveedor_id"])
         if prov and prov.marcas and final["marca_id"] not in {m.id for m in prov.marcas}:
             errores.append({"campo": "marca_id", "mensaje":
-                            f"La marca no es de {prov.nombre}; sus marcas son {', '.join(m.codigo for m in prov.marcas)}."})
+                            f"The brand does not belong to {prov.nombre}; its brands are {', '.join(m.codigo for m in prov.marcas)}."})
     if cat["modelo"] is Proveedor and actual and "marcas" in limpio:
         quedan = {m.id for m in limpio["marcas"]}
         usadas = {m for (m,) in db.execute(select(Articulo.marca_id).where(Articulo.proveedor_id == actual.id).distinct())}
         if usadas - quedan:
             nombres_m = [m.codigo for m in db.scalars(select(Marca).where(Marca.id.in_(usadas - quedan)))]
             errores.append({"campo": "marcas", "mensaje":
-                            f"El proveedor tiene artículos de {', '.join(nombres_m)}: no se pueden quitar esas marcas."})
+                            f"The supplier has items of {', '.join(nombres_m)}: those brands cannot be removed."})
     if cat["modelo"] is Contacto and not final.get("sociedad_id") and not final.get("centro_id"):
-        errores.append({"campo": "sociedad_id", "mensaje": "Indica la sociedad o el centro del contacto."})
+        errores.append({"campo": "sociedad_id", "mensaje": "Enter the contact's company or plant."})
     if cat["modelo"] is Prepack and actual:
         fijos = [c for c in ("codigo", "estilo", "color") if c in limpio and limpio[c] != getattr(actual, c)]
         if fijos:
             errores.append({"campo": fijos[0], "mensaje":
-                            "El prepack ID, estilo y color no se modifican; solo la descripción y si está activo."})
+                            "The prepack ID, style and color cannot change; only the description and whether it is active."})
     if errores:
-        raise ErrorNegocio("Revisa los datos.", 422, "validacion", errores)
+        raise ErrorNegocio("Check the data.", 422, "validacion", errores)
     return limpio
 
 
@@ -533,7 +531,7 @@ def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
             db.add(obj)
             db.flush()
     except IntegrityError:
-        raise ErrorNegocio(f"Ya existe un {cat['singular']} con ese código.", 409, "duplicado") from None
+        raise ErrorNegocio(f"A {cat['singular']} with that code already exists.", 409, "duplicado") from None
     registrar(db, user, tipo, obj.id, "crear", {"codigo": _mostrar(obj)})
     return _fila(cat, obj, _refs(db, cat, [obj]))
 
@@ -543,7 +541,7 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
     cat = _cat(tipo)
     obj = db.get(cat["modelo"], obj_id)
     if not obj:
-        raise ErrorNegocio(f"El {cat['singular']} no existe.", 404, "no_encontrado")
+        raise ErrorNegocio(f"The {cat['singular']} does not exist.", 404, "no_encontrado")
     limpio = _limpiar(db, cat, datos, parcial=True, actual=obj)
     cambios = {}
     for k, v in limpio.items():
@@ -558,7 +556,7 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
         with db.begin_nested():
             db.flush()
     except IntegrityError:
-        raise ErrorNegocio(f"Ya existe un {cat['singular']} con ese código.", 409, "duplicado") from None
+        raise ErrorNegocio(f"A {cat['singular']} with that code already exists.", 409, "duplicado") from None
     if cambios:
         registrar(db, user, tipo, obj.id, "editar", cambios)
     return _fila(cat, obj, _refs(db, cat, [obj]))
@@ -569,13 +567,13 @@ def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
     cat = _cat(tipo)
     obj = db.get(cat["modelo"], obj_id)
     if not obj:
-        raise ErrorNegocio(f"El {cat['singular']} no existe.", 404, "no_encontrado")
+        raise ErrorNegocio(f"The {cat['singular']} does not exist.", 404, "no_encontrado")
     try:
         with db.begin_nested():
             db.delete(obj)
             db.flush()
     except IntegrityError:
-        raise ErrorNegocio(f"No se puede eliminar: el {cat['singular']} está en uso. Desactívalo en su lugar.",
+        raise ErrorNegocio(f"It cannot be deleted: the {cat['singular']} is in use. Deactivate it instead.",
                            409, "en_uso") from None
     registrar(db, user, tipo, obj_id, "eliminar", None)
     return {"ok": True}
@@ -587,7 +585,7 @@ def componentes(db: Session, user: Usuario, prepack_id: int, validar: bool = Tru
         exigir(user, "catalogos.ver")
     p = db.get(Prepack, prepack_id)
     if not p:
-        raise ErrorNegocio("El prepack no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The prepack does not exist.", 404, "no_encontrado")
     art = db.scalar(select(Articulo).where(Articulo.prepack_id == p.id))
     return {
         "sku": art.sku if art else None, "unidad": "CJ", "marca": art.marca.codigo if art else None,
@@ -612,24 +610,24 @@ def _validar_curva(db: Session, estilo: str, color: str, items: list[dict]) -> t
         except (TypeError, ValueError):
             cant = 0
         if not a:
-            errores.append({"mensaje": "Uno de los artículos no existe."})
+            errores.append({"mensaje": "One of the items does not exist."})
             continue
         if a.tipo != "SOLIDO":
-            errores.append({"mensaje": f"{a.sku}: la explosión solo lleva artículos sólidos."})
+            errores.append({"mensaje": f"{a.sku}: a breakdown only carries solid items."})
         if cant < 1:
-            errores.append({"mensaje": f"{a.sku}: la cantidad debe ser mayor que cero."})
+            errores.append({"mensaje": f"{a.sku}: the quantity must be greater than zero."})
         arts.append((a, cant))
     if not arts:
-        errores.append({"mensaje": "La explosión necesita al menos un artículo sólido."})
+        errores.append({"mensaje": "The breakdown needs at least one solid item."})
     if len({a.id for a, _ in arts}) != len(arts):
-        errores.append({"mensaje": "Un artículo aparece dos veces en la explosión."})
+        errores.append({"mensaje": "An item appears twice in the breakdown."})
     otros = [a for a, _ in arts if (a.estilo, a.color) != (estilo, color)]
     if otros:
-        errores.append({"mensaje": f"El prepack es de {estilo} {color}: "
+        errores.append({"mensaje": f"The prepack is {estilo} {color}: "
                                    + ", ".join(f"{a.sku} ({a.estilo} {a.color})" for a in otros)
-                                   + " no es del mismo estilo y color."})
+                                   + " is not the same style and color."})
     if len({a.unidad for a, _ in arts}) > 1:
-        errores.append({"mensaje": "No se pueden mezclar pares con unidades en una explosión."})
+        errores.append({"mensaje": "Pairs and units cannot be mixed in a breakdown."})
     return arts, errores
 
 
@@ -645,19 +643,19 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
     color = str(datos.get("color") or "").strip()
     errores = []
     if not re.fullmatch(r"\d{6,18}", sku):
-        errores.append({"campo": "sku", "mensaje": "Código de producto: solo dígitos, por ejemplo 30095120027."})
+        errores.append({"campo": "sku", "mensaje": "Product code: digits only, for example 30095120027."})
     elif db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
-        errores.append({"campo": "sku", "mensaje": f"El código {sku} ya existe en el maestro de artículos."})
+        errores.append({"campo": "sku", "mensaje": f"Code {sku} already exists in the item master."})
     if not re.fullmatch(r"[A-Z0-9]{2,10}", codigo):
-        errores.append({"campo": "codigo", "mensaje": "Prepack ID: letras y números, por ejemplo AB12."})
+        errores.append({"campo": "codigo", "mensaje": "Prepack ID: letters and numbers, for example AB12."})
     if not estilo or not color:
-        errores.append({"campo": "estilo", "mensaje": "Indica el estilo y el color del prepack."})
+        errores.append({"campo": "estilo", "mensaje": "Enter the prepack's style and color."})
     elif db.scalar(select(Prepack.id).where(Prepack.estilo == estilo, Prepack.color == color, Prepack.codigo == codigo)):
-        errores.append({"campo": "codigo", "mensaje": f"Ya existe el prepack {codigo} para {estilo} {color}."})
+        errores.append({"campo": "codigo", "mensaje": f"Prepack {codigo} already exists for {estilo} {color}."})
     arts, err_curva = _validar_curva(db, estilo, color, datos.get("componentes") or [])
     errores += err_curva
     if errores:
-        raise ErrorNegocio("El prepack no es válido.", 422, "validacion", errores)
+        raise ErrorNegocio("The prepack is not valid.", 422, "validacion", errores)
     base = arts[0][0]
     p = Prepack(codigo=codigo, estilo=estilo, color=color, activo=True,
                 descripcion=(datos.get("descripcion") or "").strip()
@@ -683,11 +681,19 @@ def explosion(db: Session, user: Usuario, sku: str) -> dict:
     exigir(user, "oc.ver")
     a = db.scalar(select(Articulo).where(Articulo.sku == sku))
     if not a or a.tipo != "PREPACK" or not a.prepack:
-        raise ErrorNegocio("Ese código no es un artículo prepack.", 404, "no_encontrado")
+        raise ErrorNegocio("That code is not a prepack item.", 404, "no_encontrado")
     return componentes(db, user, a.prepack_id, validar=False)
 
 
 # ---- Carga masiva ----------------------------------------------------------
+# Columnas de las plantillas en inglés -> nombre interno (también se aceptan los internos)
+COLUMNAS_EN = {"style": "estilo", "size": "talla", "description": "descripcion", "brand": "marca", "group": "grupo",
+               "supplier": "proveedor", "type": "tipo", "uom": "unidad", "unit": "unidad",
+               "hs_code": "partida_arancelaria", "country_of_origin": "pais_origen", "prepack_sku": "sku_prepack",
+               "quantity": "cantidad", "qty": "cantidad"}
+CAMPO_EN = {"marca": "Brand", "grupo": "Group", "proveedor": "Supplier"}
+
+
 def _filas_archivo(nombre: str, contenido: bytes) -> list[dict]:
     from .ordenes import _norm, _texto
 
@@ -700,7 +706,7 @@ def _filas_archivo(nombre: str, contenido: bytes) -> list[dict]:
         filas = [[v.strip() for v in f] for f in csv.reader(io.StringIO(texto), delimiter=delim)]
     if not filas:
         return []
-    enc = [_norm(h) for h in filas[0]]
+    enc = [COLUMNAS_EN.get(_norm(h), _norm(h)) for h in filas[0]]
     return [{**{enc[i]: (f[i] if i < len(f) else "") for i in range(len(enc))}, "_fila": n}
             for n, f in enumerate(filas[1:], start=2) if any(f)]
 
@@ -711,7 +717,7 @@ def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes
     exigir(user, "catalogos.editar")
     filas = _filas_archivo(nombre, contenido)
     if not filas:
-        raise ErrorNegocio("El archivo no tiene filas con datos.", 422, "archivo_vacio")
+        raise ErrorNegocio("The file has no rows with data.", 422, "archivo_vacio")
     por_codigo = {
         "marca": {m.codigo: m.id for m in db.scalars(select(Marca))},
         "grupo": {g.codigo: g.id for g in db.scalars(select(GrupoArticulo))},
@@ -722,11 +728,11 @@ def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes
     errores = []
     for f in filas:
         datos = {k: f.get(k, "") for k in ("sku", "estilo", "color", "talla", "descripcion", "upc",
-                                            "partida_arancelaria", "pais_origen", "unidad", "casepack")}
+                                            "partida_arancelaria", "pais_origen", "unidad")}
         datos["tipo"] = (f.get("tipo") or "SOLIDO").upper()
         if datos["tipo"] == "PREPACK":
             errores.append({"fila": f["_fila"], "mensaje":
-                            "Los prepacks se cargan con el formato de prepacks (código de producto y explosión)."})
+                            "Prepacks are loaded with the prepack format (product code and breakdown)."})
             continue
         datos["unidad"] = (datos["unidad"] or "").upper()
         faltan = []
@@ -735,7 +741,7 @@ def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes
             if not codigo:
                 continue
             if codigo not in por_codigo[campo]:
-                faltan.append(f"{campo} {codigo} no existe")
+                faltan.append(f"{CAMPO_EN[campo]} {codigo} does not exist")
             else:
                 datos[destino] = por_codigo[campo][codigo]
         if faltan:
@@ -757,7 +763,7 @@ def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes
             else:
                 creados += 1
         except IntegrityError:
-            errores.append({"fila": f["_fila"], "mensaje": "Datos duplicados o inconsistentes."})
+            errores.append({"fila": f["_fila"], "mensaje": "Duplicated or inconsistent data."})
         except ErrorNegocio as e:
             errores.append({"fila": f["_fila"], "mensaje": "; ".join(d["mensaje"] for d in e.detalle or []) or e.mensaje})
     registrar(db, user, "articulos", 0, "importar", {"creados": creados, "actualizados": actualizados,
@@ -778,11 +784,11 @@ def importar_prepacks(db: Session, user: Usuario, nombre: str, contenido: bytes)
         codigo = (f.get("prepack_id") or f.get("prepack") or "").strip().upper()
         sku = (f.get("sku") or "").strip()
         if not sku_pp or not codigo or not sku:
-            errores.append({"fila": f["_fila"], "mensaje": "Faltan sku_prepack, prepack_id o sku."})
+            errores.append({"fila": f["_fila"], "mensaje": "Missing prepack_sku, prepack_id or sku."})
             continue
         a = db.scalar(select(Articulo).where(Articulo.sku == sku))
         if not a:
-            errores.append({"fila": f["_fila"], "mensaje": f"El SKU {sku} no existe en el maestro de artículos."})
+            errores.append({"fila": f["_fila"], "mensaje": f"SKU {sku} does not exist in the item master."})
             continue
         g = grupos.setdefault(sku_pp, {"codigo": codigo, "estilo": a.estilo, "color": a.color,
                                        "descripcion": f.get("descripcion") or None, "items": []})
@@ -796,8 +802,8 @@ def importar_prepacks(db: Session, user: Usuario, nombre: str, contenido: bytes)
             if actual == nueva:
                 sin_cambio += 1
             else:
-                errores.append({"fila": sku_pp, "mensaje": "El prepack ya existe con otra explosión; "
-                                                           "la explosión no se modifica. Usa un código nuevo."})
+                errores.append({"fila": sku_pp, "mensaje": "The prepack already exists with another breakdown; "
+                                                           "the breakdown cannot change. Use a new code."})
             continue
         try:
             with db.begin_nested():

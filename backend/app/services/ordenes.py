@@ -33,11 +33,11 @@ from .common import ErrorNegocio, asegurar_proveedor, exigir, proveedor_filtro, 
 # - Comercial: P (pendiente) o C (liberada; si viene vacío también es C).
 # - Logística: 304 no liberada, 300 liberada, 301 liberada con cambios posteriores.
 # Sin liberación comercial no hay liberación logística. Solo se factura con C y 300/301.
-COMERCIAL_TXT = {"C": "Liberada por comercial", "P": "Pendiente de comercial"}
+COMERCIAL_TXT = {"C": "Released by commercial", "P": "Pending commercial"}
 LIBERACION_TXT = {
-    "300": "Liberada por logística",
-    "301": "Liberada con cambios posteriores",
-    "304": "No liberada por logística",
+    "300": "Released by logistics",
+    "301": "Released with later changes",
+    "304": "Not released by logistics",
 }
 
 
@@ -279,7 +279,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
     exigir(user, "oc.ver")
     oc = db.get(OrdenCompra, oc_id)
     if not oc:
-        raise ErrorNegocio("La orden de compra no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The purchase order does not exist.", 404, "no_encontrado")
     asegurar_proveedor(user, oc.proveedor_id)
     ids = [p.id for p in oc.posiciones]
     facturado = facturado_por_posicion(db, ids)
@@ -305,6 +305,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "categoria": p.categoria,
                 "tipo_empaque": p.tipo_empaque,
                 "casepack": p.casepack,
+                "inner_pack": p.inner_pack,
                 "prepack": p.prepack,
                 "unidades_por_caja": p.unidades_por_caja,
                 "cantidad": p.cantidad,
@@ -330,51 +331,78 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
             "posiciones": posiciones}
 
 
+def empaque_posicion(db: Session, user: Usuario, oc_id: int, posicion_id: int, casepack: int | None,
+                     inner_pack: int | None) -> dict:
+    """Casepack e inner pack de una posición (condición de la compra). Se
+    cambian mientras no haya nada facturado de esa posición."""
+    exigir(user, "oc.empaque")
+    p = db.get(PosicionOC, posicion_id)
+    if not p or p.oc_id != oc_id:
+        raise ErrorNegocio("The purchase order line does not exist.", 404, "no_encontrado")
+    errores = validar_empaque(p.tipo_empaque, casepack, inner_pack, p.cantidad)
+    if errores:
+        raise ErrorNegocio("Check the packing of the line.", 422, "validacion",
+                           [{"campo": "inner_pack", "mensaje": e} for e in errores])
+    if facturado_por_posicion(db, [p.id]).get(p.id, 0):
+        raise ErrorNegocio("This line is already invoiced: its packing can no longer change.", 409, "facturada")
+    antes = {"casepack": p.casepack, "inner_pack": p.inner_pack}
+    p.casepack, p.inner_pack = casepack, inner_pack
+    registrar(db, user, "oc", p.oc_id, "empaque",
+              {"posicion": p.posicion, **{k: [antes[k], v] for k, v in (("casepack", casepack),
+                                                                           ("inner_pack", inner_pack))
+                                          if antes[k] != v}})
+    return {"id": p.id, "casepack": p.casepack, "inner_pack": p.inner_pack}
+
+
 def estado_posicion(oc, p, facturado: int, facturas: list[dict]):
     """Devuelve (estado, motivo, factura a la que queda restringido el saldo)."""
     disponible = p.cantidad - facturado
     if oc.liberacion_comercial != "C":
-        return "NO_DISPONIBLE", "Sin liberación comercial (P): logística aún no puede liberar.", None
+        return "NO_DISPONIBLE", "No commercial release (P): logistics cannot release yet.", None
     if not oc.liberada:
-        return "NO_DISPONIBLE", "Sin liberación logística (304).", None
+        return "NO_DISPONIBLE", "No logistics release (304).", None
     if p.bloqueada:
-        return "NO_DISPONIBLE", p.motivo_bloqueo or "Posición bloqueada.", None
+        return "NO_DISPONIBLE", p.motivo_bloqueo or "Line blocked.", None
     if disponible <= 0:
         return "FACTURADA", None, None
     if facturado > 0:
         if not settings.POSICION_EN_VARIAS_FACTURAS and facturas:
             f = facturas[0]
-            return "PARCIAL", f"El saldo solo puede agregarse a {f['nombre']}.", f["id"]
+            return "PARCIAL", f"The balance can only be added to {f['nombre']}.", f["id"]
         return "PARCIAL", None, None
     return "DISPONIBLE", None, None
 
 
 # ---- Importación ------------------------------------------------------------
+# El primer alias de cada campo es el nombre de la columna en la plantilla (inglés).
 ALIAS = {
-    "proveedor": ["proveedor", "codigo_proveedor", "proveedor_codigo", "vendor"],
-    "oc": ["oc", "orden", "orden_compra", "numero_oc", "po"],
-    "posicion": ["posicion", "pos", "item", "linea"],
-    "sociedad": ["sociedad", "company", "compania"],
-    "centro": ["centro", "plant", "bodega", "bodega_fiscal"],
-    "almacen": ["almacen", "storage_location", "sloc"],
-    "centro_destino": ["centro_destino", "pais_destino", "destino", "codigo_destino"],
-    "moneda": ["moneda", "currency"],
+    "proveedor": ["supplier", "vendor", "supplier_code", "proveedor", "codigo_proveedor", "proveedor_codigo"],
+    "oc": ["po", "po_number", "purchase_order", "oc", "orden", "orden_compra", "numero_oc"],
+    "posicion": ["po_line", "line", "item", "posicion", "pos", "linea"],
+    "sociedad": ["company", "company_code", "sociedad", "compania"],
+    "centro": ["plant", "bonded_warehouse", "centro", "bodega", "bodega_fiscal"],
+    "almacen": ["storage_location", "sloc", "almacen"],
+    "centro_destino": ["destination", "destination_center", "destination_country", "centro_destino", "pais_destino",
+                       "destino", "codigo_destino"],
+    "moneda": ["currency", "moneda"],
     "incoterm": ["incoterm"],
-    "fecha_oc": ["fecha_oc", "fecha"],
-    "puerto_despacho": ["puerto_despacho", "puerto", "puerto_embarque", "pol", "port"],
-    "pais_origen": ["pais_origen", "origen", "coo"],
-    "pais_procedencia": ["pais_procedencia", "procedencia"],
-    "fecha_xf_original": ["fecha_xf_original", "xf_original", "xf_date_original"],
-    "fecha_xf": ["fecha_xf", "xf", "xf_date", "fecha_xf_actualizada", "xf_actualizada"],
-    "fecha_tienda": ["fecha_tienda", "fecha_requerida_tienda", "in_store_date", "fecha_requerida"],
-    "liberacion_comercial": ["liberacion_comercial", "lib_comercial", "liberada", "estado_liberacion"],
-    "liberacion_logistica": ["liberacion_logistica", "lib_logistica"],
-    "codigo_sap": ["sku", "codigo_sap", "sap", "material", "codigo"],
-    "cantidad": ["cantidad", "qty", "quantity"],
-    "unidad": ["unidad", "um", "uom"],
-    "precio": ["precio", "precio_unitario", "price"],
+    "fecha_oc": ["po_date", "fecha_oc", "fecha"],
+    "puerto_despacho": ["port_of_loading", "pol", "port", "puerto_despacho", "puerto", "puerto_embarque"],
+    "pais_origen": ["country_of_origin", "coo", "origin", "pais_origen", "origen"],
+    "pais_procedencia": ["country_of_shipment", "provenance", "pais_procedencia", "procedencia"],
+    "fecha_xf_original": ["xf_date_original", "original_xf_date", "fecha_xf_original", "xf_original"],
+    "fecha_xf": ["xf_date", "xf", "updated_xf_date", "fecha_xf", "fecha_xf_actualizada", "xf_actualizada"],
+    "fecha_tienda": ["in_store_date", "store_date", "fecha_tienda", "fecha_requerida_tienda", "fecha_requerida"],
+    "liberacion_comercial": ["commercial_release", "liberacion_comercial", "lib_comercial", "liberada",
+                             "estado_liberacion"],
+    "liberacion_logistica": ["logistics_release", "liberacion_logistica", "lib_logistica"],
+    "codigo_sap": ["sku", "sap_code", "material", "item_code", "codigo_sap", "sap", "codigo"],
+    "cantidad": ["quantity", "qty", "cantidad"],
+    "unidad": ["uom", "unit", "um", "unidad"],
+    "precio": ["unit_price", "price", "precio", "precio_unitario"],
     "casepack": ["casepack", "case_pack"],
-    "fecha_entrega": ["fecha_entrega", "entrega"],
+    "inner_pack": ["inner_pack", "inner", "innerpack", "inner_casepack", "pack"],
+    "fecha_entrega": ["delivery_date", "fecha_entrega", "entrega"],
 }
 REQUERIDOS = ["proveedor", "oc", "posicion", "codigo_sap", "cantidad", "precio", "moneda", "sociedad", "centro",
               "centro_destino"]
@@ -383,7 +411,7 @@ CAMPOS_CABECERA = ["sociedad", "centro", "centro_destino", "moneda", "incoterm",
                    "liberacion_comercial"]
 CAMPOS_POSICION = [
     "almacen", "articulo_id", "codigo_sap", "upc", "estilo", "color", "talla", "descripcion", "marca", "grupo", "categoria",
-    "tipo_empaque", "casepack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
+    "tipo_empaque", "casepack", "inner_pack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
     "pais_origen", "partida_arancelaria",
 ]
 UNIDADES = {"PAR": "PAR", "PR": "PAR", "PARES": "PAR", "PRS": "PAR",
@@ -436,7 +464,7 @@ def _leer_archivo(nombre: str, contenido: bytes) -> list[dict]:
     faltan = [c for c in REQUERIDOS if c not in mapa]
     if faltan:
         raise ErrorNegocio(
-            "Al archivo le faltan columnas obligatorias: " + ", ".join(faltan) + ".",
+            "The file is missing required columns: " + ", ".join(ALIAS[c][0] for c in faltan) + ".",
             422,
             "columnas_faltantes",
             {"faltan": faltan, "encontradas": encabezados},
@@ -459,7 +487,7 @@ def _fecha(valor: str) -> date | None:
             return datetime.strptime(valor[:10], formato).date()
         except ValueError:
             continue
-    raise ValueError(f"fecha no válida: {valor}")
+    raise ValueError(f"invalid date: {valor}")
 
 
 def _comercial(valor: str) -> str:
@@ -486,6 +514,9 @@ class Maestros:
         if sku not in self.articulos:
             self.articulos[sku] = self._db.scalar(select(Articulo).where(Articulo.sku == sku))
         return self.articulos[sku]
+
+
+PAIS_TXT = {"pais_origen": "country of origin", "pais_procedencia": "country of shipment"}
 
 
 def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[str]]:
@@ -515,38 +546,40 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
     }
     log = d["liberacion_logistica_archivo"]
     if log and log not in LIBERACION_TXT:
-        errores.append(f"Liberación logística {log} no válida (usa 304, 300 o 301).")
+        errores.append(f"Invalid logistics release {log} (use 304, 300 or 301).")
     elif log in ("300", "301") and d["liberacion_comercial"] != "C":
-        errores.append(f"Logística no puede liberar ({log}) sin liberación comercial: la OC está en P.")
+        errores.append(f"Logistics cannot release ({log}) without commercial release: the PO is in P.")
     if d["oc"] and not re.fullmatch(r"44\d{8}", d["oc"]):
-        errores.append(f"La OC {d['oc']} no tiene el formato 44 + 8 dígitos (por ejemplo 4400003856).")
+        errores.append(f"PO {d['oc']} does not have the 44 + 8 digits format (for example 4400003856).")
     if d["posicion"] and (not d["posicion"].isdigit() or int(d["posicion"]) % 10):
-        errores.append(f"La posición {d['posicion']} no va de 10 en 10.")
+        errores.append(f"Line {d['posicion']} is not a multiple of 10.")
     try:
         cant = float(r.get("cantidad", "").replace(",", "")) if r.get("cantidad") else None
         if cant is not None and (cant < 0 or not cant.is_integer()):
             raise ValueError
         d["cantidad"] = int(cant) if cant is not None else None
     except ValueError:
-        errores.append(f"Cantidad no válida: {r.get('cantidad')}.")
+        errores.append(f"Invalid quantity: {r.get('cantidad')}.")
         d["cantidad"] = None
     try:
         d["precio"] = float(r.get("precio", "").replace(",", "")) if r.get("precio") else None
         if d["precio"] is not None and d["precio"] < 0:
             raise ValueError
     except ValueError:
-        errores.append(f"Precio no válido: {r.get('precio')}.")
+        errores.append(f"Invalid price: {r.get('precio')}.")
         d["precio"] = None
-    try:
-        d["casepack_archivo"] = int(r["casepack"]) if r.get("casepack") else None
-        if d["casepack_archivo"] is not None and d["casepack_archivo"] < 1:
-            raise ValueError
-    except ValueError:
-        errores.append(f"Casepack no válido: {r.get('casepack')}.")
-        d["casepack_archivo"] = None
+    # Empaque de la compra: viene en la posición de la OC, no en el artículo
+    for campo, texto in (("casepack", "Casepack"), ("inner_pack", "Inner pack")):
+        try:
+            d[campo] = int(float(r[campo])) if r.get(campo) else None
+            if d[campo] is not None and d[campo] < 1:
+                raise ValueError
+        except ValueError:
+            errores.append(f"Invalid {texto.lower()}: {r.get(campo)}.")
+            d[campo] = None
     unidad = UNIDADES.get((r.get("unidad") or "").upper())
     if r.get("unidad") and not unidad:
-        errores.append(f"Unidad no reconocida: {r.get('unidad')} (usa PAR, UN o CJ).")
+        errores.append(f"Unknown unit: {r.get('unidad')} (use PAR, UN or CJ).")
     d["unidad"] = unidad
     for campo, destino in (("fecha_oc", "fecha"), ("fecha_entrega", "fecha_entrega"),
                            ("fecha_xf_original", "fecha_xf_original"), ("fecha_xf", "fecha_xf"),
@@ -567,36 +600,36 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         errores.append(f"La sociedad {d['sociedad']} no existe.")
     cen = m.centros.get(d["centro"]) if d["centro"] else None
     if d["centro"] and not cen:
-        errores.append(f"El centro {d['centro']} no existe.")
+        errores.append(f"Plant {d['centro']} does not exist.")
     elif cen and soc and cen.sociedad_id != soc.id:
-        errores.append(f"El centro {d['centro']} no pertenece a la sociedad {d['sociedad']}.")
+        errores.append(f"Plant {d['centro']} does not belong to company {d['sociedad']}.")
     if d["almacen"]:
         alm = m.almacenes.get(d["almacen"])
         if not alm:
-            errores.append(f"El almacén {d['almacen']} no existe.")
+            errores.append(f"Storage location {d['almacen']} does not exist.")
         elif soc and alm.sociedad_id != soc.id:
-            errores.append(f"El almacén {d['almacen']} no pertenece a la sociedad {d['sociedad']}.")
+            errores.append(f"Storage location {d['almacen']} does not belong to company {d['sociedad']}.")
     prov = m.proveedores.get(d["proveedor"])
     if prov and soc and prov.sociedades and soc.id not in {x.id for x in prov.sociedades}:
-        errores.append(f"El proveedor {prov.nombre} no trabaja con la sociedad {d['sociedad']}.")
+        errores.append(f"Supplier {prov.nombre} does not work with company {d['sociedad']}.")
     if d["centro_destino"] and d["centro_destino"] not in m.centros:
-        errores.append(f"El centro de destino {d['centro_destino']} no está registrado en mantenimiento.")
+        errores.append(f"Destination center {d['centro_destino']} is not registered in master data.")
     if d["puerto_despacho"] and d["puerto_despacho"] not in m.puertos:
-        errores.append(f"El puerto {d['puerto_despacho']} no está registrado.")
+        errores.append(f"Port {d['puerto_despacho']} is not registered.")
     for campo in ("pais_origen", "pais_procedencia"):
         if d[campo] and d[campo] not in m.paises:
-            errores.append(f"El país {d[campo]} ({campo.replace('_', ' ')}) no está registrado.")
+            errores.append(f"Country {d[campo]} ({PAIS_TXT[campo]}) is not registered.")
     art = m.articulo(d["codigo_sap"]) if d["codigo_sap"] else None
     if d["codigo_sap"] and not art:
-        errores.append(f"El SKU {d['codigo_sap']} no existe en el maestro de artículos. Cárgalo primero.")
+        errores.append(f"SKU {d['codigo_sap']} does not exist in the item master. Load it first.")
     elif art:
         prov = m.proveedores.get(d["proveedor"])
         if prov and art.proveedor_id and art.proveedor_id != prov.id:
-            errores.append(f"El SKU {art.sku} es de otro proveedor, no de {prov.nombre}.")
+            errores.append(f"SKU {art.sku} belongs to another supplier, not {prov.nombre}.")
         if not art.activo:
-            errores.append(f"El SKU {art.sku} está inactivo en el maestro.")
+            errores.append(f"SKU {art.sku} is inactive in the item master.")
         if d["unidad"] and d["unidad"] != art.unidad:
-            errores.append(f"La unidad {d['unidad']} no coincide con la del maestro ({art.unidad}).")
+            errores.append(f"Unit {d['unidad']} does not match the item master ({art.unidad}).")
         d.update(
             articulo_id=art.id, upc=art.upc, estilo=art.estilo, color=art.color, talla=art.talla,
             descripcion=art.descripcion, marca=art.marca.codigo, grupo=art.grupo.codigo,
@@ -604,11 +637,29 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
             partida_arancelaria=art.partida_arancelaria,
             prepack=art.prepack.codigo if art.prepack else None,
             unidades_por_caja=art.prepack.total if art.prepack else None,
-            # El casepack puede venir en la OC; si no, se toma del maestro
-            casepack=d["casepack_archivo"] or art.casepack,
         )
+        errores += validar_empaque(art.tipo, d["casepack"], d["inner_pack"], d["cantidad"])
         d["pais_origen_pos"] = art.pais_origen or d["pais_origen"]
     return d, errores
+
+
+def validar_empaque(tipo: str, casepack: int | None, inner_pack: int | None, cantidad: int | None) -> list[str]:
+    """Reglas del empaque de una posición:
+    - un prepack ya es una caja definida (su curva): no lleva casepack ni inner pack;
+    - con casepack e inner pack, el casepack es múltiplo del inner pack;
+    - con inner pack, la cantidad de la posición es múltiplo del inner pack
+      (todos los inner packs llevan la misma cantidad)."""
+    errores = []
+    if tipo == "PREPACK":
+        if casepack or inner_pack:
+            errores.append("A prepack is already a defined carton (its size run): it takes no casepack or inner pack.")
+        return errores
+    if casepack and inner_pack and casepack % inner_pack:
+        errores.append(f"The casepack ({casepack}) must be a multiple of the inner pack ({inner_pack}).")
+    if inner_pack and cantidad and cantidad % inner_pack:
+        errores.append(f"The quantity ({cantidad}) must be a multiple of the inner pack ({inner_pack}): "
+                       "all inner packs carry the same quantity.")
+    return errores
 
 
 def _valores_posicion(d: dict) -> dict:
@@ -636,19 +687,19 @@ def _clasificar(db: Session, filas: list[dict]) -> list[dict]:
     facturado = facturado_por_posicion(db, ids_pos)
 
     for registro, d, errores in normalizadas:
-        clave = f"{d['proveedor']} / OC {d['oc']} / pos. {d['posicion']}"
+        clave = f"{d['proveedor']} / PO {d['oc']} / line {d['posicion']}"
         salida = {"fila": registro.get("_fila"), "clave": clave, "datos": registro,
                   "mensajes": list(errores), "cambios": {}}
         if d["proveedor"] and d["proveedor"] not in m.proveedores:
-            salida["mensajes"].append(f"El proveedor {d['proveedor']} no existe.")
+            salida["mensajes"].append(f"Supplier {d['proveedor']} does not exist.")
         k = (d["proveedor"], d["oc"], d["posicion"])
         if k in vistos:
-            salida["mensajes"].append("Posición repetida dentro del archivo.")
+            salida["mensajes"].append("Line repeated within the file.")
         vistos.add(k)
         cab = {c: d.get(c) for c in CAMPOS_CABECERA}
         previa = cabeceras.setdefault((d["proveedor"], d["oc"]), cab)
         if previa != cab:
-            salida["mensajes"].append("Los datos de cabecera no coinciden con otras filas de la misma OC.")
+            salida["mensajes"].append("The header data does not match other rows of the same PO.")
         if salida["mensajes"]:
             salida["estado"] = "error"
             resultado.append(salida)
@@ -679,11 +730,14 @@ def _clasificar(db: Session, filas: list[dict]) -> list[dict]:
             salida["estado"] = "sin_cambio"
         elif fact and d["cantidad"] is not None and d["cantidad"] < fact:
             salida["estado"] = "conflicto"
-            salida["mensajes"].append(f"La nueva cantidad ({d['cantidad']}) es menor que lo ya facturado ({fact}).")
+            salida["mensajes"].append(f"The new quantity ({d['cantidad']}) is less than what is already invoiced ({fact}).")
         elif fact and any(c in cambios for c in ("sociedad", "moneda", "centro", "unidad", "codigo_sap")):
             salida["estado"] = "conflicto"
             salida["mensajes"].append(
-                "Cambian datos clave (sociedad, moneda, centro, SKU o unidad) de una posición ya facturada.")
+                "Key data (company, currency, plant, SKU or unit) changes on an already invoiced line.")
+        elif fact and any(c in cambios for c in ("casepack", "inner_pack")):
+            salida["estado"] = "conflicto"
+            salida["mensajes"].append("The casepack or inner pack changes on a line that is already invoiced.")
         else:
             salida["estado"] = "cambio"
         resultado.append(salida)
@@ -702,7 +756,7 @@ def importar_previa(db: Session, user: Usuario, nombre: str, contenido: bytes) -
     exigir(user, "oc.importar")
     filas = _leer_archivo(nombre, contenido)
     if not filas:
-        raise ErrorNegocio("El archivo no tiene filas con datos.", 422, "archivo_vacio")
+        raise ErrorNegocio("The file has no rows with data.", 422, "archivo_vacio")
     clasificadas = _clasificar(db, filas)
     imp = ImportacionOC(usuario_id=user.id, nombre_archivo=nombre, filas=filas)
     db.add(imp)
@@ -719,7 +773,7 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
     exigir(user, "oc.importar")
     imp = db.get(ImportacionOC, importacion_id)
     if not imp:
-        raise ErrorNegocio("La importación no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The import does not exist.", 404, "no_encontrado")
     if imp.estado == "APLICADA":
         return {"ya_aplicada": True, **(imp.resultado or {})}
     # Se vuelve a clasificar: los datos pudieron cambiar desde la vista previa

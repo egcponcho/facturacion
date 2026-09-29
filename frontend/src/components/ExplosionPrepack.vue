@@ -23,20 +23,20 @@ onMounted(async () => {
 </script>
 
 <template>
-  <Modal :titulo="e ? `Explosión del prepack ${e.codigo}` : 'Explosión del prepack'" ancho="640px" @cerrar="$emit('cerrar')">
+  <Modal :titulo="e ? `Prepack breakdown ${e.codigo}` : 'Prepack breakdown'" ancho="640px" @cerrar="$emit('cerrar')">
     <template v-if="e">
       <div class="explosion-cabeza">
-        <div><span class="ayuda">Código de producto</span><b class="codigo">{{ e.sku }}</b></div>
-        <div><span class="ayuda">Estilo · color</span><b>{{ e.estilo }} · {{ e.color }}</b></div>
-        <div><span class="ayuda">Prepack ID (talla)</span><b>{{ e.codigo }}</b></div>
-        <div><span class="ayuda">Unidad de medida</span><b>CJ · caja prepack</b></div>
+        <div><span class="ayuda">Item code</span><b class="codigo">{{ e.sku }}</b></div>
+        <div><span class="ayuda">Style · color</span><b>{{ e.estilo }} · {{ e.color }}</b></div>
+        <div><span class="ayuda">Prepack ID (size)</span><b>{{ e.codigo }}</b></div>
+        <div><span class="ayuda">Unit of measure</span><b>CJ · prepack carton</b></div>
       </div>
       <div class="tabla-marco" style="box-shadow: none">
         <table class="tabla">
           <thead>
             <tr>
-              <th>SKU sólido</th><th>Talla</th><th>UM</th><th class="num">Por caja</th>
-              <th v-if="cajas" class="num">Total en {{ fmtNum(cajas) }} cajas</th>
+              <th>Solid SKU</th><th>Size</th><th>UoM</th><th class="num">Per carton</th>
+              <th v-if="cajas" class="num">Total in {{ fmtNum(cajas) }} cartons</th>
             </tr>
           </thead>
           <tbody>
@@ -57,9 +57,9 @@ onMounted(async () => {
           </tfoot>
         </table>
       </div>
-      <p class="ayuda"><Icono nombre="candado" :tam="13" /> La explosión es fija: para otra distribución se crea un prepack nuevo con otro código.</p>
+      <p class="ayuda"><Icono nombre="candado" :tam="13" /> The breakdown is fixed: for another size run, create a new prepack with another code.</p>
     </template>
-    <p v-else class="ayuda">Cargando…</p>
-    <template #pie><button class="btn" @click="$emit('cerrar')">Cerrar</button></template>
+    <p v-else class="ayuda">Loading…</p>
+    <template #pie><button class="btn" @click="$emit('cerrar')">Close</button></template>
   </Modal>
 </template>
