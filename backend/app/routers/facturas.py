@@ -29,8 +29,9 @@ def listar(
     vista: str | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(25, ge=1, le=200),
+    orden: str | None = None,
 ):
-    return svc.listar_facturas(db, user, proveedor_id, estado, q, vista, page, size)
+    return svc.listar_facturas(db, user, proveedor_id, estado, q, vista, page, size, orden)
 
 
 @router.post("/facturas")

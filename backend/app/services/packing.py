@@ -78,6 +78,26 @@ def _ref(pll: PLLinea) -> str:
     return f"{fl.codigo_sap}{' talla ' + fl.talla if fl.talla else ''}"
 
 
+def regla_empaque(fl) -> tuple[str, int | None]:
+    """PREPACK: una curva por caja master, sin agregar ni quitar tallas.
+    CASEPACK: cantidad exacta por caja del mismo estilo, color y talla.
+    LIBRE: casepack no especificado; se elige la cantidad y se puede consolidar."""
+    if fl.tipo_empaque == "PREPACK":
+        return "PREPACK", 1
+    if fl.casepack:
+        return "CASEPACK", fl.casepack
+    return "LIBRE", None
+
+
+def etiqueta_caja(g) -> dict:
+    """Estándar: una sola OC, estilo, color y talla. Consolidada: varias."""
+    lineas = [it.pl_linea.factura_linea for it in g.items]
+    ocs = sorted({fl.oc_numero for fl in lineas})
+    destinos = sorted({fl.pais_destino for fl in lineas if fl.pais_destino})
+    return {"tipo": "ESTANDAR" if len(lineas) == 1 else "CONSOLIDADA", "ocs": ocs,
+            "pais_destino": destinos[0] if len(destinos) == 1 else None}
+
+
 def _plantilla(db: Session, pl: PackingList, plantilla_id: int) -> PlantillaCaja:
     t = db.get(PlantillaCaja, plantilla_id)
     if not t or t.proveedor_id != pl.factura.proveedor_id:
@@ -307,7 +327,8 @@ def _valores_plantilla(t: PlantillaCaja, cantidad: int | None = None) -> dict:
 
 
 def _propuesta(db: Session, pl: PackingList, filas, reemplazar: bool) -> list[dict]:
-    """Qué cajas saldrían de cada fila con la plantilla elegida para ella."""
+    """Qué cajas saldrían de cada fila. Con casepack o prepack la cantidad por
+    caja la da el artículo; la plantilla solo aporta medidas y pesos."""
     plantillas: dict[int, PlantillaCaja] = {}
     vistas = set()
     res = []
@@ -316,30 +337,52 @@ def _propuesta(db: Session, pl: PackingList, filas, reemplazar: bool) -> list[di
         if pll.id in vistas:
             raise ErrorNegocio("Una fila aparece dos veces en el empaque.", 422, "validacion")
         vistas.add(pll.id)
-        if fila.plantilla_id not in plantillas:
-            plantillas[fila.plantilla_id] = _plantilla(db, pl, fila.plantilla_id)
-        t = plantillas[fila.plantilla_id]
-        unidad = pll.factura_linea.unidad
+        t = None
+        if fila.plantilla_id:
+            if fila.plantilla_id not in plantillas:
+                plantillas[fila.plantilla_id] = _plantilla(db, pl, fila.plantilla_id)
+            t = plantillas[fila.plantilla_id]
+        fl = pll.factura_linea
+        regla, por_caja = regla_empaque(fl)
+        unidad = fl.unidad
         if reemplazar:
             # Lo que está en cajas de una sola fila se volvería a empacar
             propio = sum(it.cantidad_por_caja * it.grupo.num_cajas for it in pll.items if len(it.grupo.items) == 1)
             libre = sin_caja(pll) + propio
         else:
             libre = sin_caja(pll)
-        f = {"pl_linea_id": pll.id, "ref": _ref(pll), "unidad": unidad, "sin_caja": libre,
-             "plantilla_id": t.id, "plantilla": t.nombre, "cantidad_por_caja": t.cantidad_por_caja}
-        if unidad != t.unidad:
+        f = {"pl_linea_id": pll.id, "ref": _ref(pll), "unidad": unidad, "sin_caja": libre, "regla": regla,
+             "plantilla_id": t.id if t else None, "plantilla": t.nombre if t else None}
+        if regla == "LIBRE":
+            por_caja = t.cantidad_por_caja if t else None
+        f["cantidad_por_caja"] = por_caja
+        if regla == "LIBRE" and not t:
+            f["omitida"] = "Elige una plantilla: el artículo no tiene casepack."
+        elif regla == "LIBRE" and unidad != t.unidad:
             f["omitida"] = "La unidad no coincide con la plantilla."
-        elif not t.activa:
+        elif t and not t.activa:
             f["omitida"] = "La plantilla está inactiva."
         elif libre == 0:
             f["omitida"] = "Ya está empacada."
         else:
-            f["cajas"] = libre // t.cantidad_por_caja
-            f["empacado"] = f["cajas"] * t.cantidad_por_caja
-            f["sobrante"] = libre % t.cantidad_por_caja
+            f["cajas"] = libre // por_caja
+            f["empacado"] = f["cajas"] * por_caja
+            f["sobrante"] = libre % por_caja
         res.append(f)
     return res
+
+
+def _valores_regla(t: PlantillaCaja | None, fl, por_caja: int) -> tuple[dict, bool]:
+    """Medidas y pesos para una caja con `por_caja` unidades. Devuelve también
+    si el peso es estimado (la plantilla no corresponde exactamente)."""
+    if not t:
+        return {}, False
+    if t.unidad == fl.unidad:
+        exacta = por_caja == t.cantidad_por_caja
+        return _valores_plantilla(t, None if exacta else por_caja), not exacta
+    # Unidad distinta (p. ej. plantilla en pares para un prepack): medidas sí,
+    # pesos copiados como referencia y marcados para confirmar
+    return _valores_plantilla(t), True
 
 
 def _resumen_propuesta(filas: list[dict]) -> dict:
@@ -386,20 +429,25 @@ def aplicar_empaque(db: Session, user: Usuario, pl_id: int, datos) -> dict:
         if "omitida" in f:
             continue
         pll = _linea(pl, f["pl_linea_id"])
-        t = db.get(PlantillaCaja, f["plantilla_id"])
+        fl = pll.factura_linea
+        t = db.get(PlantillaCaja, f["plantilla_id"]) if f["plantilla_id"] else None
+        por_caja = f["cantidad_por_caja"]
+        nombre = {"plantilla_id": t.id if t else None, "plantilla_nombre": t.nombre if t else None}
         if f["cajas"]:
-            g = GrupoCajas(num_cajas=f["cajas"], plantilla_id=t.id, plantilla_nombre=t.nombre,
-                           **_valores_plantilla(t))
-            g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=t.cantidad_por_caja))
+            valores, estimado = _valores_regla(t, fl, por_caja)
+            g = GrupoCajas(num_cajas=f["cajas"], peso_estimado=estimado, **nombre, **valores)
+            g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=por_caja))
             pl.grupos.append(g)
         if f["sobrante"] and datos.sobrante == "caja_parcial":
-            g = GrupoCajas(num_cajas=1, plantilla_id=t.id, plantilla_nombre=t.nombre, es_parcial=True,
-                           peso_estimado=True, **_valores_plantilla(t, f["sobrante"]))
+            valores, _ = _valores_regla(t, fl, f["sobrante"])
+            g = GrupoCajas(num_cajas=1, es_parcial=True, peso_estimado=bool(t), **nombre, **valores)
+            if f["regla"] == "CASEPACK":
+                g.observacion = f"Caja incompleta: {f['sobrante']} de {por_caja} del casepack."
             g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=f["sobrante"]))
             pl.grupos.append(g)
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "aplicar_plantilla",
-              {"plantillas": sorted({f["plantilla"] for f in filas if "omitida" not in f}),
+              {"plantillas": sorted({f["plantilla"] or "casepack" for f in filas if "omitida" not in f}),
                "sobrante": datos.sobrante, **resumen}, factura_id=pl.factura_id)
     return {"resumen": resumen, "version": pl.version}
 
@@ -422,6 +470,9 @@ def crear_caja(db: Session, user: Usuario, pl_id: int, datos) -> dict:
                 f"{_ref(pll)}: necesitas {necesario} y solo hay {sin_caja(pll)} sin caja."})
     if errores:
         raise ErrorNegocio("La caja no cabe en lo pendiente.", 422, "validacion", errores)
+    errores = _reglas_caja(pl, datos.items, datos.num_cajas)
+    if errores:
+        raise ErrorNegocio("La caja no cumple las reglas de empaque.", 422, "regla_empaque", errores)
     por_caja = sum(i.cantidad_por_caja for i in datos.items)
     valores = _valores_plantilla(t, por_caja) if t else {}
     explicitos = datos.model_dump(exclude_unset=True)
@@ -445,6 +496,32 @@ def crear_caja(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     registrar(db, user, "packing_list", pl.id, "crear_caja",
               {"cajas": datos.num_cajas, "mixta": len(datos.items) > 1}, factura_id=pl.factura_id)
     return {"version": pl.version}
+
+
+def _reglas_caja(pl: PackingList, items, num_cajas: int) -> list[dict]:
+    lineas = [(_linea(pl, i.pl_linea_id), i.cantidad_por_caja) for i in items]
+    errores = []
+    destinos = {pll.factura_linea.pais_destino for pll, _ in lineas}
+    if len(destinos) > 1:
+        errores.append({"mensaje": "Una caja no puede mezclar productos para distintos países de destino ("
+                        + ", ".join(sorted(d or "sin destino" for d in destinos)) + ")."})
+    for pll, cant in lineas:
+        regla, por_caja = regla_empaque(pll.factura_linea)
+        ref = _ref(pll)
+        if regla == "LIBRE":
+            continue
+        if len(lineas) > 1:
+            errores.append({"mensaje": f"{ref}: {'un prepack' if regla == 'PREPACK' else 'un sólido con casepack'} "
+                            "va solo en su caja; no se mezcla con otros estilos, colores o tallas."})
+            continue
+        if regla == "PREPACK" and cant != 1:
+            errores.append({"mensaje": f"{ref}: cada caja master lleva exactamente una curva {pll.factura_linea.prepack}."})
+        if regla == "CASEPACK" and cant != por_caja:
+            resto = sin_caja(pll)
+            if not (num_cajas == 1 and cant == resto and cant < por_caja):
+                errores.append({"mensaje": f"{ref}: el casepack es {por_caja}; no se puede aumentar ni reducir. "
+                                "Solo el resto final puede ir en una caja incompleta."})
+    return errores
 
 
 def editar_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
@@ -568,6 +645,23 @@ def validar_pl(pl: PackingList) -> list[dict]:
     return errores
 
 
+def avisos_pl(pl: PackingList) -> list[dict]:
+    """Situaciones permitidas que conviene revisar (no impiden finalizar)."""
+    avisos = []
+    rangos = numeracion(pl)
+    for g in pl.grupos:
+        if len(g.items) != 1:
+            continue
+        it = g.items[0]
+        regla, por_caja = regla_empaque(it.pl_linea.factura_linea)
+        if regla == "CASEPACK" and it.cantidad_por_caja != por_caja:
+            d, h = rangos[g.id]
+            avisos.append({"grupo_id": g.id, "mensaje":
+                f"Caja {d if d == h else f'{d}–{h}'}: incompleta ({it.cantidad_por_caja} de {por_caja} del casepack). "
+                "Confírmala con el Commercial Brand Manager."})
+    return avisos
+
+
 def finalizar_pl(db: Session, user: Usuario, pl_id: int, version: int) -> dict:
     exigir(user, "pl.finalizar")
     pl = _editable(db, user, pl_id, version)
@@ -588,6 +682,9 @@ def reabrir_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> di
     pl = cargar_pl(db, user, pl_id)
     if pl.estado != "FINALIZADO":
         raise ErrorNegocio("Solo se pueden reabrir packing lists finalizados.", 409, "no_editable")
+    if pl.unidad and pl.unidad.embarque.estado != "PLANIFICADO":
+        raise ErrorNegocio(f"{pl.numero} ya viaja en {pl.unidad.embarque.codigo}; no se puede reabrir.", 409,
+                           "embarque_cerrado")
     nota = None
     if pl.asignacion == "CONFIRMADA":
         pl.asignacion = "TENTATIVA"
@@ -697,6 +794,13 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "talla": fl.talla,
             "descripcion": fl.descripcion,
             "unidad": fl.unidad,
+            "marca": fl.marca,
+            "tipo_empaque": fl.tipo_empaque,
+            "casepack": fl.casepack,
+            "prepack": fl.prepack,
+            "unidades_por_caja": fl.unidades_por_caja,
+            "pais_destino": fl.pais_destino,
+            "regla": regla_empaque(fl)[0],
             "cantidad": pll.cantidad,
             "en_cajas": en_cajas,
             "en_parcial": en_parcial,
@@ -746,6 +850,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "es_parcial": g.es_parcial,
             "peso_estimado": g.peso_estimado,
             "observacion": g.observacion,
+            "etiqueta": etiqueta_caja(g),
         })
 
     saldo = _saldo_factura(db, f)
@@ -761,6 +866,8 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
         "grupos": grupos,
         "totales": totales_pl(pl),
         "validaciones": validar_pl(pl) if editable else [],
+        "avisos": avisos_pl(pl),
+        "recolectado_en": pl.recolectado_en,
         "saldo_factura": sum(s for s in saldo.values() if s > 0),
         "otros_pl": [
             {"id": x.id, "numero": x.numero, "estado": x.estado}

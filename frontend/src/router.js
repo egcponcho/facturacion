@@ -12,6 +12,8 @@ const routes = [
   { path: '/transporte', component: () => import('./views/EmbarquesView.vue'), meta: { interno: true } },
   { path: '/transporte/embarques/:id', component: () => import('./views/EmbarqueView.vue'), props: true, meta: { interno: true } },
   { path: '/importar', component: () => import('./views/ImportarView.vue'), meta: { interno: true } },
+  { path: '/mantenimiento', component: () => import('./views/MantenimientoView.vue'), meta: { interno: true } },
+  { path: '/seguimiento', component: () => import('./views/SeguimientoView.vue') },
   { path: '/admin', component: () => import('./views/AdminView.vue'), meta: { admin: true } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

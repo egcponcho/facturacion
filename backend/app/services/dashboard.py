@@ -290,11 +290,25 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None) -> di
                  "fecha": proximo, "ruta": "/transporte" if interno else "/facturas",
                  "query": {"estado": "EN_TRANSITO"} if interno else {}, "tono": "normal"})
 
+    from .seguimiento import filas_seguimiento
+
+    seg = filas_seguimiento(db, user, prov)
+    atrasadas = {f["oc"] for f in seg if f["riesgo"] == "ATRASO"}
+    pendientes_lib = {f["oc"] for f in seg if f["etapa"] == "PEND_LIBERACION"}
+    kpis.append({"clave": "riesgo", "titulo": "OCs con riesgo de atraso", "valor": len(atrasadas),
+                 "detalle": "llegan después de la fecha en tienda", "ruta": "/seguimiento",
+                 "query": {"riesgo": "ATRASO"}, "tono": "alerta" if atrasadas else "exito"})
+    tareas = _tareas(db, user, facturas, distribucion)
+    if pendientes_lib:
+        tareas.insert(0, {"prioridad": 1, "tipo": "liberacion",
+                          "titulo": f"{len(pendientes_lib)} OC pendientes de liberación comercial",
+                          "detalle": "Siguen en 304: no se pueden facturar hasta que comercial las libere.",
+                          "ruta": "/ordenes?liberacion=304&solo_disponible=0", "accion": "Ver"})
     return {
         "rol": user.rol,
         "moneda": moneda,
         "kpis": kpis,
-        "tareas": _tareas(db, user, facturas, distribucion),
+        "tareas": tareas[:12],
         "flujo": _flujo(db, facturas, saldo),
         "facturado_mes": _facturado_por_mes(facturas, moneda),
         "envios": envios,

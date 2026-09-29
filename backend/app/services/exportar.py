@@ -41,13 +41,17 @@ def exportar_pl(pl) -> bytes:
     ws["A3"] = f"Estado: {pl.estado}" + (f"    Unidad: {pl.unidad.numero or pl.unidad.etiqueta}" if pl.unidad else "")
     titulos = ["Cajas", "N.º cajas", "OC", "Pos.", "Código SAP", "UPC", "Estilo", "Color", "Talla",
                "Cant./caja", "Cantidad", "Unidad", "Largo cm", "Ancho cm", "Alto cm",
-               "CBM", "Neto/caja kg", "Bruto/caja kg", "Neto total kg", "Bruto total kg"]
+               "CBM", "Neto/caja kg", "Bruto/caja kg", "Neto total kg", "Bruto total kg",
+               "Etiqueta", "OCs en la caja", "País destino"]
     _encabezados(ws, 5, titulos)
     fila = 6
     rangos = numeracion(pl)
+    from .packing import etiqueta_caja
+
     for g in pl.grupos:
         d, h = rangos[g.id]
         cbm = cbm_caja(g)
+        etiqueta = etiqueta_caja(g)
         for i, it in enumerate(g.items):
             fl = it.pl_linea.factura_linea
             primera = i == 0
@@ -61,6 +65,9 @@ def exportar_pl(pl) -> bytes:
                 g.peso_neto_caja if primera else None, g.peso_bruto_caja if primera else None,
                 round(g.peso_neto_caja * g.num_cajas, 3) if (g.peso_neto_caja and primera) else None,
                 round(g.peso_bruto_caja * g.num_cajas, 3) if (g.peso_bruto_caja and primera) else None,
+                ("Estándar" if etiqueta["tipo"] == "ESTANDAR" else "Consolidada") if primera else None,
+                ", ".join(etiqueta["ocs"]) if primera else None,
+                etiqueta["pais_destino"] if primera else None,
             ]
             for col, v in enumerate(valores, start=1):
                 ws.cell(row=fila, column=col, value=v)
@@ -90,7 +97,7 @@ def exportar_pl(pl) -> bytes:
     ws.cell(row=fila, column=16, value=t["cbm"])
     ws.cell(row=fila, column=19, value=t["peso_neto"])
     ws.cell(row=fila, column=20, value=t["peso_bruto"])
-    _anchos(ws, [9, 8, 12, 6, 20, 16, 14, 10, 7, 9, 9, 7, 9, 9, 9, 9, 11, 11, 12, 12])
+    _anchos(ws, [9, 8, 12, 6, 20, 16, 14, 10, 7, 9, 9, 7, 9, 9, 9, 9, 11, 11, 12, 12, 12, 22, 10])
     ws.freeze_panes = "A6"
     buf = io.BytesIO()
     wb.save(buf)

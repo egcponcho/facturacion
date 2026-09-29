@@ -8,9 +8,11 @@ import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import ThOrden from '../components/ThOrden.vue'
+import { useTabla } from '../composables/useTabla'
 import { sesion } from '../stores/sesion'
 import { avisar, errorApi, guardando } from '../stores/ui'
-import { ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '../utils'
+import { ACCIONES, diasTxt, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '../utils'
 
 // El embarque es el espacio de trabajo de logística: sus datos, sus
 // contenedores (cada uno con su carga) y el seguimiento, en una sola vista.
@@ -54,6 +56,15 @@ const CAMPOS = [
   ['etd', 'ETD (salida estimada)', 'date', false],
   ['eta', 'ETA (llegada estimada)', 'date', false],
 ]
+// Al registrar la salida la carga queda cerrada: no se agregan, quitan ni
+// mueven PL o contenedores, y los datos del viaje quedan fijos.
+const cerrado = computed(() => !!e.value?.cerrado)
+const FIJOS_SALIDA = ['documento_numero', 'transportista', 'puerto_origen', 'etd']
+const fijo = (campo) => cerrado.value && (FIJOS_SALIDA.includes(campo) || (e.value.arribo_real && ['eta', 'puerto_destino'].includes(campo)))
+const eventosPermitidos = computed(() => EVENTOS.filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)))
+const ultimoEvento = computed(() => (e.value?.eventos || []).reduce((a, ev) => (!a || ev.fecha > a ? ev.fecha : a), null))
+const tonoHolgura = (d) => (d === null || d === undefined ? '' : d < 0 ? 'error' : d < 7 ? 'aviso' : 'ok')
+const holguraTxt = (d) => (d < 0 ? `${-d} d tarde para tienda` : `${d} d de margen`)
 const exigeSello = computed(() => e.value?.tipo_transporte === 'MARITIMO' && e.value?.modalidad === 'FCL')
 const indiceEstado = computed(() => HITOS.findIndex(([k]) => k === e.value?.estado))
 const icono = computed(() => ({ AEREO: 'avion', TERRESTRE: 'camion' })[e.value?.tipo_transporte] || 'barco')
@@ -156,6 +167,7 @@ function eliminarUnidad() {
 // ---- Carga del contenedor --------------------------------------------------
 const todosDisponibles = computed(() => disponibles.value.flatMap((g) => g.packing_lists))
 const suma = (pls) => pls.reduce((a, p) => ({ cajas: a.cajas + p.cajas, cbm: a.cbm + p.cbm, kg: a.kg + p.peso_bruto }), { cajas: 0, cbm: 0, kg: 0 })
+const tablaA = useTabla(computed(() => u.value?.asignados || []), { porPagina: 50, valores: { contenido: (p) => p.cajas } })
 const selAsignados = computed(() => (u.value?.asignados || []).filter((p) => selA.tiene(p.id)))
 const selDisponibles = computed(() => todosDisponibles.value.filter((p) => selD.tiene(p.id)))
 const totSelA = computed(() => suma(selAsignados.value))
@@ -167,7 +179,7 @@ const proyeccion = computed(() => {
   const kg = u.value.peso_bruto + totSelD.value.kg
   return { cbm, pct: (cbm * 100) / u.value.capacidad_cbm, kg, pctKg: u.value.capacidad_kg ? (kg * 100) / u.value.capacidad_kg : null }
 })
-const requiereMotivo = computed(() => e.value?.estado !== 'PLANIFICADO' || selAsignados.value.some((p) => p.asignacion === 'CONFIRMADA'))
+const requiereMotivo = computed(() => selAsignados.value.some((p) => p.asignacion === 'CONFIRMADA'))
 
 function abrirCajon() {
   cajon.value = true
@@ -175,10 +187,6 @@ function abrirCajon() {
 }
 function asignar() {
   const modo = confirmarListos.value ? 'AUTO' : 'TENTATIVA'
-  if (e.value.estado !== 'PLANIFICADO') {
-    modal.value = { tipo: 'asignar', modo, motivo: '' }
-    return
-  }
   ejecutar(() => api.post(`/unidades/${unidadId.value}/asignar`, { pl_ids: selD.lista(), modo }), textoAsignados)
     .then((r) => r && (cajon.value = false))
 }
@@ -188,10 +196,14 @@ function textoAsignados(r) {
   if (r.tentativos) partes.push(`${r.tentativos} tentativos`)
   return `${plural(r.asignados, 'packing list asignado', 'packing lists asignados')} (${partes.join(', ')}).`
 }
-function asignarConMotivo() {
-  const { modo, motivo } = modal.value
-  ejecutar(() => api.post(`/unidades/${unidadId.value}/asignar`, { pl_ids: selD.lista(), modo, motivo }), textoAsignados)
-    .then((r) => r && (cajon.value = false))
+// Recolección en la bodega del proveedor: se marca antes de zarpar
+const hoy = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+function abrirRecoleccion() {
+  modal.value = { tipo: 'recoleccion', fecha: hoy() }
+}
+function recolectar(fecha) {
+  ejecutar(() => api.post('/recoleccion', { pl_ids: selA.lista(), fecha }),
+    (r) => (fecha ? `${plural(r.actualizados, 'packing list recolectado', 'packing lists recolectados')}.` : 'Recolección quitada.'))
 }
 function confirmar() {
   ejecutar(() => api.post(`/unidades/${unidadId.value}/confirmar`, { pl_ids: selAsignados.value.filter((p) => p.asignacion === 'TENTATIVA').map((p) => p.id) }),
@@ -218,6 +230,7 @@ function buscar() {
 
 // ---- Seguimiento -----------------------------------------------------------
 function abrirEvento(tipo = SIGUIENTE[e.value.estado] || 'OTRO') {
+  if (!(e.value.eventos_permitidos || []).includes(tipo)) tipo = e.value.eventos_permitidos?.[0] || 'OTRO'
   const ahora = new Date()
   const local = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
   modal.value = { tipo: 'evento', evento: tipo, fecha: local, ubicacion: '', observacion: '' }
@@ -256,11 +269,15 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <span class="hito-punto"><Icono v-if="i < indiceEstado" nombre="check" :tam="12" /></span>{{ t }}
         </li>
       </ol>
+      <p v-if="cerrado" class="bloqueo mt"><Icono nombre="candado" />
+        <span><b>Carga cerrada.</b> El embarque salió<template v-if="e.salida_real"> el {{ fmtFecha(e.salida_real) }}</template>: ya no se agregan, quitan ni mueven packing lists o contenedores, y los datos del viaje quedaron fijos. Solo se registran los siguientes eventos del seguimiento.</span>
+      </p>
       <p v-if="e.estado === 'PLANIFICADO' && totales.tentativas" class="nota aviso mt"><Icono nombre="alerta" />Hay {{ plural(totales.tentativas, 'packing list tentativo', 'packing lists tentativos') }}. Confírmalos o quítalos antes de registrar la salida.</p>
       <div class="doc-datos">
         <label v-for="[campo, texto, tipo, obligatorio] in CAMPOS" :key="campo" class="dato">
           <span :class="{ req: obligatorio }">{{ texto }}</span>
-          <CeldaEditable :tipo="tipo" :valor="e[campo]" :guardar="guardar(campo)" :etiqueta="texto" :vacia-texto="obligatorio ? 'Obligatorio' : ''" />
+          <b v-if="fijo(campo)" :title="'Fijo desde la salida'">{{ tipo === 'date' ? fmtFecha(e[campo]) : e[campo] || '—' }} <Icono nombre="candado" :tam="12" /></b>
+          <CeldaEditable v-else :tipo="tipo" :valor="e[campo]" :guardar="guardar(campo)" :etiqueta="texto" :vacia-texto="obligatorio ? 'Obligatorio' : ''" />
         </label>
         <div class="dato"><span>Salida real</span><b>{{ fmtFecha(e.salida_real) }}</b></div>
         <div class="dato"><span>Arribo real</span><b>{{ fmtFecha(e.arribo_real) }}</b></div>
@@ -281,9 +298,11 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <span class="fila-flex"><Icono nombre="contenedor" /><span class="unidad-nombre">{{ x.nombre }}</span><span class="etiqueta">{{ x.tipo }}</span></span>
           <Avance v-if="x.capacidad_cbm" :porcentaje="x.pct_cbm || 0" />
           <span class="ayuda">{{ plural(x.packing_lists, 'PL', 'PL') }} · {{ fmtNum(x.cbm, 1) }} m³<template v-if="x.tentativas"> · <span class="etiqueta aviso">{{ x.tentativas }} tentativos</span></template></span>
+          <span v-if="x.marcas?.length" class="ayuda">{{ x.marcas.join(' · ') }}</span>
+          <span v-if="x.holgura_dias !== null && x.holgura_dias !== undefined" class="etiqueta" :class="tonoHolgura(x.holgura_dias)" style="margin-left: 0">{{ holguraTxt(x.holgura_dias) }}</span>
           <span v-for="a in x.alertas" :key="a" class="etiqueta error">{{ a }}</span>
         </button>
-        <button class="unidad-pestana agregar" @click="abrirNuevaUnidad"><Icono nombre="mas" :tam="20" />Agregar contenedor</button>
+        <button v-if="!cerrado" class="unidad-pestana agregar" @click="abrirNuevaUnidad"><Icono nombre="mas" :tam="20" />Agregar contenedor</button>
       </div>
 
       <template v-if="u">
@@ -291,13 +310,19 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <div>
             <div class="rejilla-campos">
               <label class="dato"><span class="req">Número de contenedor o guía</span>
-                <CeldaEditable :valor="u.numero" :guardar="guardarUnidad('numero')" etiqueta="Número" vacia-texto="Obligatorio" />
+                <b v-if="cerrado">{{ u.numero || '—' }}</b>
+                <CeldaEditable v-else :valor="u.numero" :guardar="guardarUnidad('numero')" etiqueta="Número" vacia-texto="Obligatorio" />
               </label>
               <label class="dato"><span :class="{ req: exigeSello }">Sello</span>
-                <CeldaEditable :valor="u.sello" :guardar="guardarUnidad('sello')" etiqueta="Sello" :vacia-texto="exigeSello ? 'Obligatorio' : ''" />
+                <b v-if="cerrado">{{ u.sello || '—' }}</b>
+                <CeldaEditable v-else :valor="u.sello" :guardar="guardarUnidad('sello')" etiqueta="Sello" :vacia-texto="exigeSello ? 'Obligatorio' : ''" />
               </label>
+              <div class="dato"><span>Primera fecha en tienda</span><b>{{ fmtFecha(u.fecha_tienda) }}</b></div>
+              <div class="dato"><span>Llegada vs. tienda</span>
+                <b v-if="u.holgura_dias !== null && u.holgura_dias !== undefined"><span class="etiqueta" :class="tonoHolgura(u.holgura_dias)" style="margin-left: 0">{{ holguraTxt(u.holgura_dias) }}</span></b>
+                <b v-else class="apagado">Falta ETA o fecha en tienda</b>
+              </div>
             </div>
-            <p v-if="e.estado !== 'PLANIFICADO'" class="nota aviso mt"><Icono nombre="alerta" />El embarque ya salió: cualquier cambio de carga pide un motivo y queda en el historial.</p>
           </div>
           <div>
             <div v-if="u.capacidad_cbm" class="linea-avance">
@@ -315,46 +340,60 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
 
         <div class="fila-flex mt">
           <h3>Carga de {{ u.nombre }}</h3>
-          <span class="ayuda">{{ plural(u.facturas, 'factura', 'facturas') }} · {{ plural(u.cajas, 'caja', 'cajas') }}</span>
+          <span class="ayuda">{{ plural(u.facturas, 'factura', 'facturas') }} · {{ plural(u.cajas, 'caja', 'cajas') }} · {{ u.recolectados }} de {{ u.packing_lists }} recolectados</span>
           <span class="separar"></span>
-          <button v-if="!u.packing_lists" class="btn btn-fantasma btn-peligro" @click="eliminarUnidad"><Icono nombre="basura" :tam="15" />Eliminar contenedor</button>
-          <button class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />Asignar carga</button>
+          <template v-if="!cerrado">
+            <button v-if="!u.packing_lists" class="btn btn-fantasma btn-peligro" @click="eliminarUnidad"><Icono nombre="basura" :tam="15" />Eliminar contenedor</button>
+            <button class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />Asignar carga</button>
+          </template>
         </div>
         <div class="tabla-marco mt-chico" style="box-shadow: none">
           <table class="tabla">
             <thead>
               <tr>
-                <th class="chk"><input type="checkbox" aria-label="Seleccionar todos los asignados" :checked="selA.todos(u.asignados.map((p) => p.id))" @change="selA.alternarTodos(u.asignados.map((p) => p.id))" /></th>
-                <th>Factura</th>
-                <th>Packing list</th>
-                <th>Proveedor</th>
-                <th>Asignación</th>
+                <th v-if="!cerrado" class="chk"><input type="checkbox" aria-label="Seleccionar todos los asignados" :checked="selA.todos(u.asignados.map((p) => p.id))" @change="selA.alternarTodos(u.asignados.map((p) => p.id))" /></th>
+                <ThOrden campo="factura" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">Factura</ThOrden>
+                <ThOrden campo="numero" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">Packing list</ThOrden>
+                <ThOrden campo="proveedor" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">Proveedor · marcas</ThOrden>
+                <ThOrden campo="asignacion" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">Asignación</ThOrden>
+                <ThOrden campo="fecha_xf" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">XF</ThOrden>
+                <ThOrden campo="recolectado_en" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">Recolección</ThOrden>
+                <ThOrden campo="fecha_tienda" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">En tienda</ThOrden>
                 <th>Contenido</th>
-                <th class="num">Cajas</th>
-                <th class="num">Bruto kg</th>
-                <th class="num">m³</th>
+                <ThOrden campo="cajas" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">Cajas</ThOrden>
+                <ThOrden campo="peso_bruto" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">Bruto kg</ThOrden>
+                <ThOrden campo="cbm" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">m³</ThOrden>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="p in u.asignados" :key="p.id" :class="{ seleccionada: selA.tiene(p.id) }">
-                <td class="chk"><input type="checkbox" :aria-label="`Seleccionar ${p.factura} ${p.numero}`" :checked="selA.tiene(p.id)" @change="selA.alternar(p.id)" /></td>
-                <td><router-link :to="`/facturas/${p.factura_id}`" class="fuerte">{{ p.factura }}</router-link></td>
+              <tr v-for="p in tablaA.filas.value" :key="p.id" :class="{ seleccionada: selA.tiene(p.id) }">
+                <td v-if="!cerrado" class="chk"><input type="checkbox" :aria-label="`Seleccionar ${p.factura} ${p.numero}`" :checked="selA.tiene(p.id)" @change="selA.alternar(p.id)" /></td>
+                <td><router-link :to="`/facturas/${p.factura_id}`" class="fuerte">{{ p.factura }}</router-link><span class="sub codigo">{{ p.ocs?.join(', ') }}</span></td>
                 <td><router-link :to="`/packing-lists/${p.id}`" class="cajas-rango">{{ p.numero }}</router-link> <EstadoBadge :estado="p.estado" /></td>
-                <td>{{ p.proveedor }}</td>
+                <td>{{ p.proveedor }}<span v-if="p.marcas?.length" class="sub">{{ p.marcas.join(' · ') }}</span></td>
                 <td>
                   <EstadoBadge :estado="p.asignacion" />
                   <span v-if="p.asignacion === 'TENTATIVA' && !p.puede_confirmar" class="sub">{{ p.motivo_no_confirmable }}</span>
                 </td>
+                <td>{{ fmtFecha(p.fecha_xf) }}</td>
+                <td>
+                  <template v-if="p.recolectado_en">
+                    {{ fmtFecha(p.recolectado_en) }}
+                    <span v-if="p.fecha_xf && p.recolectado_en > p.fecha_xf" class="sub" style="color: var(--error)">después del XF</span>
+                  </template>
+                  <span v-else class="etiqueta aviso" style="margin-left: 0">Pendiente</span>
+                </td>
+                <td>{{ fmtFecha(p.fecha_tienda) }}</td>
                 <td>{{ porUnidadTxt(p.por_unidad, 'cantidad') }}</td>
                 <td class="num">{{ fmtNum(p.cajas) }}</td>
                 <td class="num">{{ fmtNum(p.peso_bruto, 1) }}</td>
                 <td class="num">{{ fmtNum(p.cbm, 2) }}</td>
               </tr>
               <tr v-if="!u.asignados.length">
-                <td colspan="9" class="vacio">
+                <td colspan="12" class="vacio">
                   <Icono nombre="contenedor" :tam="28" />
                   <p>El contenedor está vacío.</p>
-                  <button class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />Asignar carga</button>
+                  <button v-if="!cerrado" class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />Asignar carga</button>
                 </td>
               </tr>
             </tbody>
@@ -363,6 +402,8 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
         <BarraSeleccion :cantidad="selA.ids.size" singular="PL seleccionado" plural="PL seleccionados" @limpiar="selA.limpiar()">
           <template #resumen>{{ fmtNum(totSelA.cajas) }} cajas · {{ fmtNum(totSelA.cbm, 2) }} m³</template>
           <button class="btn btn-primario" :disabled="ocupado || !selAsignados.some((p) => p.asignacion === 'TENTATIVA' && p.puede_confirmar)" @click="confirmar"><Icono nombre="check" :tam="15" />Confirmar</button>
+          <button class="btn" :disabled="ocupado || selAsignados.some((p) => p.estado !== 'FINALIZADO')" title="Solo packing lists finalizados" @click="abrirRecoleccion"><Icono nombre="camion" :tam="15" />Marcar recolectado</button>
+          <button v-if="selAsignados.some((p) => p.recolectado_en)" class="btn" :disabled="ocupado" @click="recolectar(null)">Quitar recolección</button>
           <button class="btn" :disabled="!u.otras_unidades.length" @click="modal = { tipo: 'mover', destino: u.otras_unidades[0]?.id, modo: 'AUTO', motivo: '' }"><Icono nombre="mover" :tam="15" />Mover a otro contenedor</button>
           <button class="btn btn-peligro" @click="modal = { tipo: 'quitar', motivo: '' }">Quitar</button>
         </BarraSeleccion>
@@ -502,13 +543,14 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
   <Modal v-if="modal?.tipo === 'evento'" titulo="Registrar evento" @cerrar="modal = null">
     <div class="rejilla-campos">
       <label class="campo"><span class="req">Evento</span>
-        <select v-model="modal.evento"><option v-for="[v, t] in EVENTOS" :key="v" :value="v">{{ t }}</option></select>
+        <select v-model="modal.evento"><option v-for="[v, t] in eventosPermitidos" :key="v" :value="v">{{ t }}</option></select>
       </label>
-      <label class="campo"><span class="req">Fecha y hora</span><input v-model="modal.fecha" type="datetime-local" required /></label>
+      <label class="campo"><span class="req">Fecha y hora</span><input v-model="modal.fecha" type="datetime-local" required :min="ultimoEvento?.slice(0, 16)" /></label>
       <label class="campo"><span>Ubicación</span><input v-model="modal.ubicacion" /></label>
       <label class="campo"><span>Observación</span><input v-model="modal.observacion" /></label>
     </div>
-    <p v-if="modal.evento === 'SALIDA'" class="ayuda">Para registrar la salida, todos los packing lists deben estar confirmados.</p>
+    <p class="ayuda">Los eventos van en orden: solo aparecen los que siguen al estado actual, y la fecha no puede ser futura ni anterior al último evento.</p>
+    <p v-if="modal.evento === 'SALIDA'" class="nota aviso">Para registrar la salida todos los packing lists deben estar confirmados. Al registrarla, la carga del embarque queda cerrada y los PL sin recolección se marcan recolectados con esta fecha.</p>
     <template #pie>
       <button class="btn" @click="modal = null">Cancelar</button>
       <button class="btn btn-primario" :disabled="ocupado || !modal.fecha" @click="registrarEvento">Registrar</button>
@@ -536,12 +578,13 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'asignar'" titulo="El embarque ya salió" @cerrar="modal = null">
-    <p>Agregar carga a un embarque que ya salió es una corrección logística. Indica el motivo.</p>
-    <label class="campo"><span class="req">Motivo</span><textarea v-model="modal.motivo"></textarea></label>
+  <Modal v-if="modal?.tipo === 'recoleccion'" titulo="Marcar recolección" @cerrar="modal = null">
+    <p>{{ plural(selA.ids.size, 'packing list se recogió', 'packing lists se recogieron') }} en la bodega del proveedor.</p>
+    <label class="campo"><span class="req">Fecha de recolección</span><input v-model="modal.fecha" type="date" :max="hoy()" /></label>
+    <p class="ayuda">Se compara con la fecha XF de cada OC para medir el cumplimiento del proveedor.</p>
     <template #pie>
       <button class="btn" @click="modal = null">Volver</button>
-      <button class="btn btn-primario" :disabled="ocupado || !modal.motivo.trim()" @click="asignarConMotivo">Asignar</button>
+      <button class="btn btn-primario" :disabled="ocupado || !modal.fecha" @click="recolectar(modal.fecha)">Guardar</button>
     </template>
   </Modal>
 </template>

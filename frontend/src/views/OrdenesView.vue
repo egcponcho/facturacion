@@ -7,20 +7,34 @@ import BarraSeleccion from '../components/BarraSeleccion.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Paginacion from '../components/Paginacion.vue'
+import ThOrden from '../components/ThOrden.vue'
+import { siguienteOrden } from '../composables/useTabla'
 import { agregarPosiciones, carrito, quitarOC, quitarPosicion, vaciarCarrito } from '../stores/carrito'
-import { nombreProveedor, sesion } from '../stores/sesion'
+import { esInterno, nombreProveedor, sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
-import { cantTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '../utils'
+import { LIBERACION, cantTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '../utils'
 
 const route = useRoute()
 const router = useRouter()
 
+// Filtros que se eligen de listas armadas con lo que realmente hay en las OCs
+const EXTRA = { sociedad: 'Sociedad', centro: 'Centro', marca: 'Marca', liberacion: 'Liberación', destino: 'Destino', puerto: 'Puerto' }
 const filtros = reactive({
   q: route.query.q || '',
   solo_disponible: route.query.solo_disponible !== '0',
+  orden: '',
   page: 1,
-  size: 20,
+  size: 15,
+  ...Object.fromEntries(Object.keys(EXTRA).map((k) => [k, route.query[k] || ''])),
 })
+const opcionesFiltro = ref({ sociedades: [], centros: [], marcas: [], destinos: [], puertos: [], liberaciones: [] })
+const activos = computed(() => Object.keys(EXTRA).filter((k) => filtros[k]).map((k) => {
+  let v = filtros[k]
+  if (k === 'destino') v = opcionesFiltro.value.destinos.find((d) => d.codigo === v)?.nombre || v
+  if (k === 'puerto') v = opcionesFiltro.value.puertos.find((d) => d.codigo === v)?.nombre || v
+  if (k === 'liberacion') v = LIBERACION[v]?.[0] || v
+  return { k, texto: `${EXTRA[k]}: ${v}` }
+}))
 const datos = ref({ items: [], total: 0 })
 const cargando = ref(false)
 const abiertas = reactive(new Set())
@@ -36,7 +50,7 @@ const enviando = ref(false)
 
 const tieneSaldo = (oc) => oc.liberada && Object.values(oc.por_unidad).some((u) => u.disponible > 0)
 const conSaldo = computed(() => datos.value.items.filter(tieneSaldo).map((o) => o.id))
-const columnas = computed(() => (sesion.proveedorId ? 8 : 9))
+const columnas = computed(() => (sesion.proveedorId ? 11 : 12))
 
 async function cargar() {
   cargando.value = true
@@ -45,6 +59,8 @@ async function cargar() {
       proveedor_id: sesion.proveedorId,
       q: filtros.q,
       solo_disponible: filtros.solo_disponible,
+      orden: filtros.orden || undefined,
+      ...Object.fromEntries(Object.keys(EXTRA).filter((k) => filtros[k]).map((k) => [k, filtros[k]])),
       page: filtros.page,
       size: filtros.size,
     })
@@ -55,6 +71,44 @@ async function cargar() {
     cargando.value = false
   }
 }
+
+async function cargarFiltros() {
+  try {
+    opcionesFiltro.value = await api.get('/ordenes/filtros', { proveedor_id: sesion.proveedorId })
+  } catch (e) {
+    errorApi(e)
+  }
+}
+
+function filtrar() {
+  filtros.page = 1
+  const query = { ...route.query }
+  for (const k of Object.keys(EXTRA)) {
+    if (filtros[k]) query[k] = filtros[k]
+    else delete query[k]
+  }
+  router.replace({ query })
+  cargar()
+}
+
+function quitarFiltro(k) {
+  filtros[k] = ''
+  filtrar()
+}
+
+function limpiarFiltros() {
+  for (const k of Object.keys(EXTRA)) filtros[k] = ''
+  filtrar()
+}
+
+function ordenar(campo) {
+  filtros.orden = siguienteOrden(filtros.orden, campo)
+  filtros.page = 1
+  cargar()
+}
+
+const xfCambio = (oc) => oc.fecha_xf_original && oc.fecha_xf && oc.fecha_xf_original !== oc.fecha_xf
+const tonoTienda = (d) => (d === null || d === undefined ? '' : d < 0 ? 'error' : d < 30 ? 'aviso' : '')
 
 let espera
 function buscar() {
@@ -210,8 +264,12 @@ async function facturar() {
   }
 }
 
-onMounted(cargar)
+onMounted(() => {
+  cargar()
+  cargarFiltros()
+})
 watch(() => sesion.proveedorId, () => {
+  cargarFiltros()
   filtros.page = 1
   abiertas.clear()
   Object.keys(detalles).forEach((k) => delete detalles[k])
@@ -228,23 +286,36 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       <h1>Órdenes de compra</h1>
       <p>Elige qué facturar: OCs completas o solo algunas posiciones y cantidades. Puedes juntar varias OCs del mismo proveedor en una factura.</p>
     </div>
-    <button class="btn btn-primario" type="button" :disabled="!carrito.items.length" @click="panel = true">
-      <Icono nombre="carrito" />Revisar selección ({{ carrito.items.length }})
-    </button>
+    <div class="acciones">
+      <router-link v-if="esInterno()" to="/importar" class="btn"><Icono nombre="importar" />Importar OCs</router-link>
+      <button class="btn btn-primario" type="button" :disabled="!carrito.items.length" @click="panel = true">
+        <Icono nombre="carrito" />Revisar selección ({{ carrito.items.length }})
+      </button>
+    </div>
   </div>
 
   <div class="filtros">
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
-      <input v-model="filtros.q" type="search" placeholder="Buscar OC, estilo, código SAP o UPC" aria-label="Buscar" @input="buscar" />
+      <input v-model="filtros.q" type="search" placeholder="Buscar OC, estilo, color, SKU o UPC" aria-label="Buscar" @input="buscar" />
     </label>
+    <select v-model="filtros.sociedad" aria-label="Sociedad" @change="filtrar"><option value="">Sociedad: todas</option><option v-for="v in opcionesFiltro.sociedades" :key="v">{{ v }}</option></select>
+    <select v-model="filtros.centro" aria-label="Centro" @change="filtrar"><option value="">Centro: todos</option><option v-for="v in opcionesFiltro.centros" :key="v">{{ v }}</option></select>
+    <select v-model="filtros.marca" aria-label="Marca" @change="filtrar"><option value="">Marca: todas</option><option v-for="v in opcionesFiltro.marcas" :key="v">{{ v }}</option></select>
+    <select v-model="filtros.destino" aria-label="País destino" @change="filtrar"><option value="">Destino: todos</option><option v-for="d in opcionesFiltro.destinos" :key="d.codigo" :value="d.codigo">{{ d.codigo }} · {{ d.nombre }}</option></select>
+    <select v-model="filtros.puerto" aria-label="Puerto de despacho" @change="filtrar"><option value="">Puerto: todos</option><option v-for="d in opcionesFiltro.puertos" :key="d.codigo" :value="d.codigo">{{ d.codigo }} · {{ d.nombre }}</option></select>
+    <select v-model="filtros.liberacion" aria-label="Liberación logística" @change="filtrar"><option value="">Liberación: todas</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ l.codigo }} · {{ l.nombre }}</option></select>
     <div class="segmentos" role="group" aria-label="Mostrar">
       <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">Con saldo por facturar</button>
       <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">Todas</button>
     </div>
   </div>
+  <div v-if="activos.length" class="chips">
+    <span v-for="a in activos" :key="a.k" class="chip">{{ a.texto }}<button type="button" :aria-label="`Quitar ${a.texto}`" @click="quitarFiltro(a.k)"><Icono nombre="cerrar" :tam="13" /></button></span>
+    <button type="button" class="btn btn-fantasma btn-chico" @click="limpiarFiltros">Limpiar filtros</button>
+  </div>
 
-  <div class="tabla-marco">
+  <div class="tabla-marco tabla-fija">
     <table class="tabla">
       <thead>
         <tr>
@@ -252,12 +323,15 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             <input type="checkbox" aria-label="Seleccionar todas las OCs con saldo" :checked="selOC.todos(conSaldo)" @change="selOC.alternarTodos(conSaldo)" />
           </th>
           <th><span class="oculto-visual">Ver posiciones</span></th>
-          <th>Orden de compra</th>
-          <th v-if="!sesion.proveedorId">Proveedor</th>
-          <th>Sociedad / centro</th>
+          <ThOrden campo="numero" :orden="filtros.orden" @ordenar="ordenar">Orden de compra</ThOrden>
+          <ThOrden v-if="!sesion.proveedorId" campo="proveedor" :orden="filtros.orden" @ordenar="ordenar">Proveedor</ThOrden>
+          <th>Sociedad · centro · almacén</th>
+          <th>Destino / puerto</th>
+          <ThOrden campo="fecha_xf" :orden="filtros.orden" @ordenar="ordenar">Fecha XF</ThOrden>
+          <ThOrden campo="fecha_tienda" :orden="filtros.orden" @ordenar="ordenar">En tienda</ThOrden>
           <th>Por facturar</th>
-          <th class="num">Valor OC</th>
-          <th>Facturado</th>
+          <ThOrden campo="importe" :orden="filtros.orden" num @ordenar="ordenar">Valor OC</ThOrden>
+          <ThOrden campo="avance" :orden="filtros.orden" @ordenar="ordenar">Facturado</ThOrden>
           <th></th>
         </tr>
       </thead>
@@ -274,11 +348,23 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             </td>
             <td>
               <strong class="codigo">{{ oc.numero }}</strong>
-              <span v-if="!oc.liberada" class="etiqueta error">No liberada</span>
-              <span class="sub">{{ fmtFecha(oc.fecha) }} · {{ oc.posiciones }} posiciones</span>
+              <span v-if="LIBERACION[oc.liberacion_logistica]" class="etiqueta" :class="LIBERACION[oc.liberacion_logistica][1]" :title="LIBERACION[oc.liberacion_logistica][2]">{{ LIBERACION[oc.liberacion_logistica][0] }}</span>
+              <span class="sub">{{ fmtFecha(oc.fecha) }} · {{ oc.posiciones }} posiciones<template v-if="oc.marcas.length"> · {{ oc.marcas.join(', ') }}</template></span>
             </td>
             <td v-if="!sesion.proveedorId">{{ oc.proveedor }}</td>
-            <td>{{ oc.sociedad }} / {{ oc.centro || '—' }}</td>
+            <td><span class="codigo">{{ oc.sociedad }} · {{ oc.centro || '—' }}</span><span class="sub">{{ oc.almacen || 'Sin almacén' }}</span></td>
+            <td>
+              <span class="codigo">{{ oc.pais_destino || '—' }}</span>
+              <span class="sub">{{ oc.puerto_despacho || 'Sin puerto' }}<template v-if="oc.pais_origen"> · origen {{ oc.pais_origen }}</template></span>
+            </td>
+            <td>
+              {{ fmtFecha(oc.fecha_xf) }}
+              <span v-if="xfCambio(oc)" class="sub" :title="`XF original ${fmtFecha(oc.fecha_xf_original)}`"><s>{{ fmtFecha(oc.fecha_xf_original) }}</s> original</span>
+            </td>
+            <td>
+              {{ fmtFecha(oc.fecha_tienda) }}
+              <span v-if="oc.dias_tienda !== null" class="sub" :style="tonoTienda(oc.dias_tienda) ? { color: `var(--${tonoTienda(oc.dias_tienda)})` } : null">{{ diasTxt(oc.dias_tienda) }}</span>
+            </td>
             <td>
               <span class="fuerte">{{ porUnidadTxt(oc.por_unidad, 'disponible') }}</span>
               <span class="sub">de {{ porUnidadTxt(oc.por_unidad, 'cantidad') }}</span>
@@ -305,10 +391,12 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                         <th>Pos.</th>
                         <th>Producto</th>
                         <th>Talla</th>
+                        <th>Empaque</th>
                         <th class="num">Cantidad</th>
                         <th class="num">Disponible</th>
                         <th class="num">A facturar</th>
                         <th class="num">Precio</th>
+                        <th class="num">Total</th>
                         <th>Estado</th>
                       </tr>
                     </thead>
@@ -318,8 +406,16 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                           <input type="checkbox" :aria-label="`Seleccionar posición ${p.posicion}`" :disabled="!p.disponible || p.estado === 'NO_DISPONIBLE'" :checked="selPos.tiene(p.id)" @change="selPos.alternar(p.id)" />
                         </td>
                         <td class="codigo">{{ p.posicion }}</td>
-                        <td>{{ p.estilo }} · {{ p.color }}<span class="sub codigo">{{ p.codigo_sap }}</span></td>
+                        <td>
+                          <span v-if="p.marca" class="fuerte">{{ p.marca }}</span> {{ p.estilo }} · {{ p.color }}
+                          <span class="sub codigo">{{ p.codigo_sap }}<template v-if="p.grupo"> · {{ p.grupo }}</template></span>
+                        </td>
                         <td><strong>{{ p.talla }}</strong></td>
+                        <td>
+                          <span v-if="p.tipo_empaque === 'PREPACK'" class="etiqueta acento" style="margin-left: 0" :title="`Curva ${p.prepack}`">Prepack · {{ p.unidades_por_caja }} pares</span>
+                          <span v-else-if="p.casepack" class="etiqueta info" style="margin-left: 0">Casepack {{ p.casepack }}</span>
+                          <span v-else class="ayuda">Libre</span>
+                        </td>
                         <td class="num">{{ cantTxt(p.cantidad, p.unidad) }}</td>
                         <td class="num"><strong>{{ fmtNum(p.disponible) }}</strong></td>
                         <td class="num">
@@ -336,6 +432,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                           />
                         </td>
                         <td class="num">{{ fmtNum(p.precio, 2) }}</td>
+                        <td class="num">{{ fmtNum(p.total, 2) }}</td>
                         <td>
                           <EstadoBadge :estado="p.estado" />
                           <span v-if="enCarrito(p.id)" class="etiqueta ok">En selección</span>
@@ -366,7 +463,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       </tbody>
     </table>
   </div>
-  <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" />
+  <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
 
   <BarraSeleccion :cantidad="selOC.ids.size" singular="OC seleccionada" plural="OCs seleccionadas" @limpiar="selOC.limpiar()">
     <button class="btn" type="button" @click="agregarOCs(selOC.lista())">Agregar a la selección</button>

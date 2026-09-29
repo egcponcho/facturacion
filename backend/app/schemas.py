@@ -145,7 +145,9 @@ class PLMoverCajas(BaseModel):
 
 class FilaEmpaque(BaseModel):
     pl_linea_id: int
-    plantilla_id: int
+    # Opcional si la fila tiene casepack o es prepack: la cantidad por caja la
+    # da el artículo y la plantilla solo aporta medidas y pesos.
+    plantilla_id: int | None = None
 
 
 class EmpaquePrevia(BaseModel):
@@ -213,7 +215,7 @@ class PlantillaIn(BaseModel):
     proveedor_id: int | None = None
     nombre: str = Field(min_length=1, max_length=100)
     cantidad_por_caja: int = Cant
-    unidad: Literal["PAR", "UN"] = "PAR"
+    unidad: Literal["PAR", "UN", "CJ"] = "PAR"
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)
     alto: float | None = Field(default=None, ge=0)
@@ -225,7 +227,7 @@ class PlantillaIn(BaseModel):
 class PlantillaPatch(BaseModel):
     nombre: str | None = None
     cantidad_por_caja: int | None = Field(default=None, gt=0)
-    unidad: Literal["PAR", "UN"] | None = None
+    unidad: Literal["PAR", "UN", "CJ"] | None = None
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)
     alto: float | None = Field(default=None, ge=0)
@@ -279,6 +281,11 @@ class AsignarPL(BaseModel):
     # tentativos los demás
     modo: Literal["TENTATIVA", "CONFIRMADA", "AUTO"] = "TENTATIVA"
     motivo: str | None = None
+
+
+class Recoleccion(BaseModel):
+    pl_ids: list[int] = Field(min_length=1)
+    fecha: date | None = None  # None = quitar la marca
 
 
 class PLIds(BaseModel):

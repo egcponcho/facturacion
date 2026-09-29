@@ -13,11 +13,23 @@ def listar(
     proveedor_id: int | None = None,
     q: str | None = None,
     centro: str | None = None,
+    sociedad: str | None = None,
+    marca: str | None = None,
+    liberacion: str | None = None,
+    destino: str | None = None,
+    puerto: str | None = None,
+    orden: str | None = None,
     solo_disponible: bool = True,
     page: int = Query(1, ge=1),
     size: int = Query(25, ge=1, le=200),
 ):
-    return svc.listar_ordenes(db, user, proveedor_id, q, centro, solo_disponible, page, size)
+    return svc.listar_ordenes(db, user, proveedor_id, q, centro, solo_disponible, page, size,
+                              sociedad, marca, liberacion, destino, puerto, orden)
+
+
+@router.get("/ordenes/filtros")
+def filtros(db: Db, user: User, proveedor_id: int | None = None):
+    return svc.filtros_ordenes(db, user, proveedor_id)
 
 
 @router.get("/ordenes/{oc_id}/posiciones")

@@ -57,18 +57,181 @@ class Usuario(Base):
 # --------------------------------------------------------------------------
 # Órdenes de compra
 # --------------------------------------------------------------------------
+class Sociedad(Base):
+    """Sociedad legal (compañía de SAP). Sus centros son bodegas fiscales."""
+
+    __tablename__ = "sociedades"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    nombre: Mapped[str] = mapped_column(String(120))
+    razon_social: Mapped[str | None] = mapped_column(String(200))
+    id_fiscal: Mapped[str | None] = mapped_column(String(30))  # NIT / RUC
+    pais: Mapped[str | None] = mapped_column(String(2))
+    moneda: Mapped[str] = mapped_column(String(3), default="USD")
+    direccion: Mapped[str | None] = mapped_column(String(300))
+    activa: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Centro(Base):
+    """Centro de SAP: la bodega fiscal a la que llega la mercancía."""
+
+    __tablename__ = "centros"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    sociedad_id: Mapped[int] = mapped_column(ForeignKey("sociedades.id"), index=True)
+    nombre: Mapped[str] = mapped_column(String(120))
+    tipo: Mapped[str] = mapped_column(String(20), default="BODEGA_FISCAL")
+    direccion: Mapped[str | None] = mapped_column(String(300))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    sociedad: Mapped[Sociedad] = relationship()
+
+
+class Almacen(Base):
+    """Almacén dentro de un centro: virtual, detalle o mayoreo."""
+
+    __tablename__ = "almacenes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    centro_id: Mapped[int] = mapped_column(ForeignKey("centros.id"), index=True)
+    nombre: Mapped[str] = mapped_column(String(120))
+    tipo: Mapped[str] = mapped_column(String(10))  # VIRTUAL | DETALLE | MAYOREO
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    centro: Mapped[Centro] = relationship()
+
+
+class Pais(Base):
+    __tablename__ = "paises"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(2), unique=True)  # ISO 3166-1 alfa-2
+    nombre: Mapped[str] = mapped_column(String(100))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class PaisDestino(Base):
+    """Código de 4 dígitos de país de destino que trae la OC."""
+
+    __tablename__ = "paises_destino"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(4), unique=True)
+    pais: Mapped[str] = mapped_column(String(2))
+    nombre: Mapped[str] = mapped_column(String(100))
+    sociedad_id: Mapped[int | None] = mapped_column(ForeignKey("sociedades.id"))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Puerto(Base):
+    __tablename__ = "puertos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)  # UN/LOCODE
+    nombre: Mapped[str] = mapped_column(String(100))
+    pais: Mapped[str] = mapped_column(String(2))
+    tipo: Mapped[str] = mapped_column(String(12), default="MARITIMO")
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Marca(Base):
+    __tablename__ = "marcas"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    activa: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class GrupoArticulo(Base):
+    """Grupo de artículos. La categoría decide la regla de empaque:
+    calzado (casepack exacto, sin mezclar tallas) o ropa y accesorios."""
+
+    __tablename__ = "grupos_articulos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(15), unique=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    categoria: Mapped[str] = mapped_column(String(10))  # CALZADO | ROPA | ACCESORIO
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Prepack(Base):
+    """Curva (prepack ID): tallas y cantidades fijas por caja master."""
+
+    __tablename__ = "prepacks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(30), unique=True)
+    descripcion: Mapped[str | None] = mapped_column(String(200))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    componentes: Mapped[list["PrepackComponente"]] = relationship(
+        back_populates="prepack", cascade="all, delete-orphan", order_by="PrepackComponente.id"
+    )
+
+    @property
+    def total(self) -> int:
+        return sum(c.cantidad for c in self.componentes)
+
+
+class Articulo(Base):
+    """Dato maestro del artículo (SKU). Un sólido es un estilo-color-talla;
+    un prepack es una caja con una curva de sólidos."""
+
+    __tablename__ = "articulos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sku: Mapped[str] = mapped_column(String(40), unique=True)  # texto: conserva ceros
+    upc: Mapped[str | None] = mapped_column(String(40))
+    estilo: Mapped[str] = mapped_column(String(40))
+    color: Mapped[str | None] = mapped_column(String(60))
+    talla: Mapped[str | None] = mapped_column(String(20))
+    descripcion: Mapped[str | None] = mapped_column(String(300))
+    marca_id: Mapped[int] = mapped_column(ForeignKey("marcas.id"), index=True)
+    grupo_id: Mapped[int] = mapped_column(ForeignKey("grupos_articulos.id"), index=True)
+    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
+    unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ (prepack)
+    tipo: Mapped[str] = mapped_column(String(10), default="SOLIDO")  # SOLIDO | PREPACK
+    casepack: Mapped[int | None] = mapped_column(Integer)
+    prepack_id: Mapped[int | None] = mapped_column(ForeignKey("prepacks.id"))
+    partida_arancelaria: Mapped[str | None] = mapped_column(String(20))
+    pais_origen: Mapped[str | None] = mapped_column(String(2))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    marca: Mapped[Marca] = relationship()
+    grupo: Mapped[GrupoArticulo] = relationship()
+    prepack: Mapped[Prepack | None] = relationship()
+
+
+class PrepackComponente(Base):
+    __tablename__ = "prepack_componentes"
+    __table_args__ = (UniqueConstraint("prepack_id", "articulo_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    prepack_id: Mapped[int] = mapped_column(ForeignKey("prepacks.id"), index=True)
+    articulo_id: Mapped[int] = mapped_column(ForeignKey("articulos.id"))
+    cantidad: Mapped[int] = mapped_column(Integer)
+
+    prepack: Mapped[Prepack] = relationship(back_populates="componentes")
+    articulo: Mapped[Articulo] = relationship()
+
+
 class OrdenCompra(Base):
     __tablename__ = "ordenes_compra"
     __table_args__ = (UniqueConstraint("proveedor_id", "numero"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
-    numero: Mapped[str] = mapped_column(String(30))
+    numero: Mapped[str] = mapped_column(String(30))  # 44xxxxxxxx
     sociedad: Mapped[str] = mapped_column(String(10))
     centro: Mapped[str | None] = mapped_column(String(10))
-    pais_destino: Mapped[str | None] = mapped_column(String(3))
+    almacen: Mapped[str | None] = mapped_column(String(10))
+    pais_destino: Mapped[str | None] = mapped_column(String(4))  # código de 4 dígitos
     moneda: Mapped[str] = mapped_column(String(3))
     incoterm: Mapped[str | None] = mapped_column(String(10))
     fecha: Mapped[date | None] = mapped_column(Date)
+    puerto_despacho: Mapped[str | None] = mapped_column(String(10))
+    pais_origen: Mapped[str | None] = mapped_column(String(2))
+    pais_procedencia: Mapped[str | None] = mapped_column(String(2))
+    fecha_xf_original: Mapped[date | None] = mapped_column(Date)
+    fecha_xf: Mapped[date | None] = mapped_column(Date)  # XF actualizada
+    fecha_tienda: Mapped[date | None] = mapped_column(Date)  # requerida en tienda
+    # Comercial: P pendiente, C completa. Logística: 304 sin liberación
+    # comercial; 300 liberada por sourcing; 301 liberada con cambios posteriores.
+    liberacion_comercial: Mapped[str] = mapped_column(String(1), default="C")
+    liberacion_logistica: Mapped[str] = mapped_column(String(3), default="300")
     liberada: Mapped[bool] = mapped_column(Boolean, default=True)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
@@ -83,15 +246,23 @@ class PosicionOC(Base):
     __table_args__ = (UniqueConstraint("oc_id", "posicion"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     oc_id: Mapped[int] = mapped_column(ForeignKey("ordenes_compra.id"), index=True)
-    posicion: Mapped[str] = mapped_column(String(10))
-    codigo_sap: Mapped[str] = mapped_column(String(40))  # texto: conserva ceros iniciales
+    posicion: Mapped[str] = mapped_column(String(10))  # 10, 20, 30…
+    articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
+    codigo_sap: Mapped[str] = mapped_column(String(40))  # SKU; texto: conserva ceros iniciales
     upc: Mapped[str | None] = mapped_column(String(40))
     estilo: Mapped[str | None] = mapped_column(String(40))
-    color: Mapped[str | None] = mapped_column(String(40))
+    color: Mapped[str | None] = mapped_column(String(60))
     talla: Mapped[str | None] = mapped_column(String(20))
     descripcion: Mapped[str | None] = mapped_column(String(300))
+    marca: Mapped[str | None] = mapped_column(String(10))
+    grupo: Mapped[str | None] = mapped_column(String(15))
+    categoria: Mapped[str | None] = mapped_column(String(10))
+    tipo_empaque: Mapped[str] = mapped_column(String(10), default="SOLIDO")  # SOLIDO | PREPACK
+    casepack: Mapped[int | None] = mapped_column(Integer)
+    prepack: Mapped[str | None] = mapped_column(String(30))
+    unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total de la curva
     cantidad: Mapped[int] = mapped_column(Integer)
-    unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN
+    unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ
     precio: Mapped[float] = mapped_column(Float)
     fecha_entrega: Mapped[date | None] = mapped_column(Date)
     pais_origen: Mapped[str | None] = mapped_column(String(3))
@@ -100,6 +271,7 @@ class PosicionOC(Base):
     motivo_bloqueo: Mapped[str | None] = mapped_column(String(200))
 
     oc: Mapped[OrdenCompra] = relationship(back_populates="posiciones")
+    articulo: Mapped[Articulo | None] = relationship()
 
 
 # --------------------------------------------------------------------------
@@ -126,7 +298,7 @@ class Factura(Base):
     incoterm: Mapped[str | None] = mapped_column(String(10))
     sociedad: Mapped[str] = mapped_column(String(10))
     centro: Mapped[str | None] = mapped_column(String(10))
-    pais_destino: Mapped[str | None] = mapped_column(String(3))
+    pais_destino: Mapped[str | None] = mapped_column(String(4))
     condiciones: Mapped[str | None] = mapped_column(String(200))
     observaciones: Mapped[str | None] = mapped_column(Text)
     estado: Mapped[str] = mapped_column(String(20), default="BORRADOR", index=True)
@@ -165,6 +337,13 @@ class FacturaLinea(Base):
     talla: Mapped[str | None] = mapped_column(String(20))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     unidad: Mapped[str] = mapped_column(String(5))
+    marca: Mapped[str | None] = mapped_column(String(10))
+    categoria: Mapped[str | None] = mapped_column(String(10))
+    tipo_empaque: Mapped[str] = mapped_column(String(10), default="SOLIDO")
+    casepack: Mapped[int | None] = mapped_column(Integer)
+    prepack: Mapped[str | None] = mapped_column(String(30))
+    unidades_por_caja: Mapped[int | None] = mapped_column(Integer)
+    pais_destino: Mapped[str | None] = mapped_column(String(4))
     # Datos de aduana (editables en la factura)
     pais_origen: Mapped[str | None] = mapped_column(String(3))
     partida_arancelaria: Mapped[str | None] = mapped_column(String(20))
@@ -199,6 +378,7 @@ class PackingList(Base):
     unidad_carga_id: Mapped[int | None] = mapped_column(ForeignKey("unidades_carga.id"), index=True)
     asignacion: Mapped[str | None] = mapped_column(String(12))  # TENTATIVA | CONFIRMADA
     observaciones: Mapped[str | None] = mapped_column(Text)
+    recolectado_en: Mapped[date | None] = mapped_column(Date)  # retiro en bodega del proveedor
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
@@ -384,6 +564,14 @@ class Alerta(Base):
     referencia: Mapped[dict | None] = mapped_column(JSON)
     resuelta: Mapped[bool] = mapped_column(Boolean, default=False)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
+class Meta(Base):
+    """Valores del sistema, como la versión del esquema."""
+
+    __tablename__ = "meta"
+    clave: Mapped[str] = mapped_column(String(40), primary_key=True)
+    valor: Mapped[str] = mapped_column(String(200))
 
 
 class Idempotencia(Base):

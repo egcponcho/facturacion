@@ -17,7 +17,7 @@ from app.services.facturas import crear_factura
 @pytest.mark.skipif(ES_SQLITE, reason="La prueba de bloqueo de filas requiere PostgreSQL")
 def test_mismo_saldo_en_paralelo(client):
     with SessionLocal() as db:
-        oc = db.scalar(select(OrdenCompra).where(OrdenCompra.numero == "4500020002"))
+        oc = db.scalar(select(OrdenCompra).where(OrdenCompra.numero == "4400003902"))
         pos = next(p for p in oc.posiciones if p.talla == "10")
         pid, cantidad = pos.id, pos.cantidad
         uid = db.scalar(select(Usuario.id).where(Usuario.email == "vans@demo.com"))
