@@ -70,16 +70,19 @@ Los datos de prueba ya traen historia: facturas de meses anteriores, un contened
 
 ## Datos maestros (Mantenimiento)
 
-Un solo lugar, con alta, edición, baja y filtros, para: **sociedades** (8000, PA01), **centros** o bodegas fiscales (8010, 8020, PA10, PA20), **almacenes** de cada sociedad con su tipo virtual, detalle o mayoreo (BF19 y BF20 de 8000; BF01 y BF02 de PA01), **países**, **países de destino** (código de 4 dígitos que viene en la OC, p. ej. 2220 El Salvador), **puertos**, **marcas**, **grupos de artículos** (cada artículo pertenece a uno; el grupo define si es calzado, ropa o accesorio), **proveedores**, **artículos** y **curvas prepack**. No se borra lo que está en uso.
+Un solo lugar, con alta, edición, baja y filtros (listas desplegables con búsqueda), para: **sociedades**, sus **centros**, **contactos**, **almacenes**, **países**, **puertos**, **marcas**, **grupos de artículos**, **proveedores**, **artículos** y **prepacks**. No se borra lo que está en uso.
 
-- **Artículos:** SKU, estilo, color, talla, marca, grupo, tipo (sólido o prepack), unidad (pares, unidades o cajas prepack) y casepack. Se cargan por archivo (`plantilla_articulos.csv`) o a mano.
-- **Curvas prepack:** un ID de prepack (p. ej. `VN-EE3-CRV01`) con la cantidad de cada artículo sólido por caja (tallas 7:1, 8:2, 9:3…). El artículo prepack apunta a su curva. Se cargan con `plantilla_prepacks.csv`.
+- **Sociedades y centros:** cada sociedad (8000 El Salvador, PA01 Panamá, GT01, HN01, NI01, CR01) tiene sus centros asignados. La sociedad de la OC es a quien se **factura**; su centro es el **notify party** (bodega que recibe) y tiene país y **puerto de llegada**. El **centro de destino** de la OC (p. ej. 2220) es otro centro del catálogo y dice a qué país llega al final; ya no hay un catálogo aparte de países de destino. En la tabla de sociedades se ven sus centros y contactos, y en la de grupos sus artículos: un clic lleva al catálogo filtrado.
+- **Contactos:** personas de una sociedad (facturación) o de un centro (notify, logística) con uno o varios correos y teléfono. Salen en la factura, el packing list, el embarque y el Excel.
+- **Almacenes:** separación del inventario en el sistema (virtual, detalle, mayoreo); no son lugares físicos.
+- **Artículos:** número de artículo numérico (p. ej. `30095120001`), estilo, color, talla, marca, grupo, tipo y unidad. Hay **sólidos con casepack** (calzado), **sólidos sin casepack** (ropa) y **prepacks**. Se cargan por archivo (`plantilla_articulos.csv`) o a mano.
+- **Prepacks:** en un artículo prepack la **talla es su prepack ID** (usualmente 2 letras y 2 números, p. ej. `AB12`). El prepack es de un estilo-color y su curva solo admite artículos sólidos **del mismo estilo y color** (p. ej. AB12 de VN000EE3 BLK Negro: 7:1, 8:2, 9:3, 10:3, 11:2, 12:1 = 12 pares). El artículo prepack se enlaza solo por estilo, color y talla. Se cargan con `plantilla_prepacks.csv`.
 
 ## Órdenes de compra
 
 - Número de 10 dígitos que empieza con **44** (p. ej. 4400003856); posiciones de 10 en 10.
 - Cada posición trae el **SKU**, que debe existir en el maestro de artículos: de ahí salen estilo, color, talla, marca, grupo, tipo de empaque y casepack (si la OC trae casepack, manda el de la OC).
-- Cabecera: sociedad y centro (el centro debe ser de la sociedad), país de destino, puerto de despacho proyectado, país de origen y de procedencia, **fecha XF original y actualizada**, fecha requerida en tienda, precio y total por posición.
+- Cabecera: sociedad (facturar a) y centro (notify; debe ser de la sociedad), centro de destino (el país final), puerto de despacho proyectado, país de origen y de procedencia, **fecha XF original y actualizada**, fecha requerida en tienda, precio y total por posición.
 - **Almacén por posición:** una misma OC (misma sociedad y centro) puede mandar cada posición a un almacén distinto, por ejemplo BF19 detalle y BF20 mayoreo. El almacén debe ser de la misma sociedad. Se ve en la OC, la factura, el packing list y el seguimiento, y se puede filtrar por él.
 - **Liberación:** comercial `P` (pendiente) o `C`/vacío (liberada). La logística se calcula: **304** sin liberación comercial (no se puede facturar), **300** liberada por sourcing sin novedades, **301** liberada y con cambios posteriores.
 
@@ -89,19 +92,26 @@ Un solo lugar, con alta, edición, baja y filtros, para: **sociedades** (8000, P
 - **Prepack:** una curva por caja master, con la distribución de tallas fija; no se agregan ni quitan tallas.
 - **Casepack especificado / no especificado (ropa y accesorios):** si el artículo trae casepack se respeta; si no, se elige la cantidad (plantilla) y se puede consolidar en cajas mixtas.
 - **Etiqueta:** *estándar* si la caja lleva una sola OC, estilo, color y talla; *consolidada* si lleva varias. Sale en el packing list y en el Excel.
-- **País de destino:** nunca se mezclan destinos en una misma caja.
+- **Centro de destino:** nunca se mezclan destinos en una misma caja.
+- **Pallets:** si la mercancía viaja en tarimas, las cajas se paletizan en el packing list (medidas y tara del pallet). El volumen usa las medidas del pallet y el peso bruto suma la tara; sale en el Excel.
 
 ## Embarques más estrictos
 
 - Mientras el embarque está **planificado** se agregan contenedores, se asigna, confirma, mueve o quita carga. Al registrar la **salida** la carga queda **cerrada**: ya no hay tentativos, ni se agregan, quitan o mueven PL o contenedores, y el BL, transportista, origen y ETD quedan fijos (la ETA y el destino, al registrar el arribo).
 - Los eventos van en orden según el estado (recolección → salida → tránsito → arribo → liberación → entrega → recepción); no se aceptan fechas futuras ni anteriores al último evento.
 - No se asigna carga que supere la capacidad nominal del contenedor.
+- **Centro que recibe:** cada embarque llega a un solo centro (el de la OC). El puerto de destino debe ser el puerto de llegada de ese centro (se completa solo) y los puertos se eligen del catálogo. Si el embarque aún no tiene centro, lo define la primera carga; no se mezclan centros.
 - **Recolección:** se marca por PL con su fecha y se compara con la fecha XF; la salida completa la fecha a los que no la tenían.
 - Cada contenedor muestra sus marcas, la primera fecha requerida en tienda y los días de margen o de atraso frente a la ETA.
 
 ## Tablas
 
-Todas las tablas tienen altura fija con encabezado fijo, orden por columna (clic en el encabezado: ascendente, descendente, sin orden) y paginación con filas por página. Los filtros de Órdenes y Seguimiento se arman con los valores que realmente existen y se muestran como chips que se quitan con un clic.
+El menú va en su propia fila, a todo lo ancho, para que nunca se encime con los controles. Las tablas usan todo el ancho de la pantalla. Todas tienen altura fija con encabezado fijo, orden por columna (clic en el encabezado: ascendente, descendente, sin orden) y paginación con filas por página. Los filtros de Órdenes, Seguimiento y Mantenimiento se arman con los valores que realmente existen, usan listas con búsqueda (sin importar acentos, por código o nombre) y se muestran como chips que se quitan con un clic.
+
+## Seguimiento
+
+- **Mercancía y contenedores:** cada SKU por etapa (por liberar → recibido), por marca, grupo de artículos, estilo, color, talla, código de producto, almacén, contenedor, documento de transporte (BL/AWB), embarque, riesgo de llegar tarde y rangos de ETA, XF y fecha en tienda.
+- **Facturación y packing lists:** una fila por packing list (o factura sin PL) con el paso en que va (factura abierta, empacando, por finalizar, listo para embarcar, tentativo, en contenedor, en camino, recibido), avance de empaque, cajas, pallets, peso, volumen, datos pendientes y días desde que se creó.
 
 ## Cómo quedaron las reglas principales
 
@@ -178,7 +188,7 @@ Otras variables: `DATABASE_URL`, `SECRET_KEY` (cámbiala en producción), `SEED_
 
 En *Importar OCs* (equipo interno) se sube el Excel o CSV de SAP. Hay un formato de ejemplo descargable. Primero se ve qué es nuevo, qué cambia, qué no cambia, los conflictos y los errores; nada se guarda hasta confirmar. Los conflictos (por ejemplo, bajar la cantidad por debajo de lo facturado) no se aplican y quedan como alerta en el *Inicio* del equipo interno.
 
-Columnas obligatorias: `proveedor, oc, posicion, sku, cantidad, precio, moneda, sociedad, centro, pais_destino`. Opcionales: `almacen, incoterm, fecha_oc, puerto, pais_origen, pais_procedencia, fecha_xf_original, fecha_xf, fecha_tienda, liberacion_comercial, liberacion_logistica, unidad, casepack`. Se aceptan algunos alias (`po`, `material`, `qty`, `uom`…). Ver `plantilla_oc.csv`.
+Columnas obligatorias: `proveedor, oc, posicion, sku, cantidad, precio, moneda, sociedad, centro, centro_destino` (también se acepta `pais_destino`). Opcionales: `almacen, incoterm, fecha_oc, puerto, pais_origen, pais_procedencia, fecha_xf_original, fecha_xf, fecha_tienda, liberacion_comercial, liberacion_logistica, unidad, casepack`. Se aceptan algunos alias (`po`, `material`, `qty`, `uom`…). Ver `plantilla_oc.csv`.
 
 Cada fila se valida contra los maestros: OC con formato 44XXXXXXXX, posición múltiplo de 10, centro y almacén de la misma sociedad (el almacén puede cambiar entre posiciones de la misma OC), país de destino y puerto registrados y SKU existente. Carga primero los artículos y las curvas en *Mantenimiento*.
 

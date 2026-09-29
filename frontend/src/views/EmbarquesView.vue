@@ -7,6 +7,7 @@ import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import Paginacion from '../components/Paginacion.vue'
+import SelectBusqueda from '../components/SelectBusqueda.vue'
 import ThOrden from '../components/ThOrden.vue'
 import { useTabla } from '../composables/useTabla'
 import { avisar, errorApi } from '../stores/ui'
@@ -43,12 +44,31 @@ async function cargar() {
   }
 }
 
+// Catálogos para la ruta: el puerto de destino es el del centro que recibe
+const puertos = ref([])
+const centros = ref([])
+async function cargarRutas() {
+  if (puertos.value.length) return
+  try {
+    const [p, c] = await Promise.all([api.get('/catalogos/puertos', { size: 200 }), api.get('/catalogos/centros', { size: 200 })])
+    puertos.value = p.items.map((x) => ({ valor: x.codigo, texto: `${x.codigo} · ${x.nombre}`, sub: x.pais }))
+    centros.value = c.items.map((x) => ({ valor: x.codigo, texto: `${x.codigo} · ${x.nombre}`, sub: `${x.sociedad_id_txt || ''} · puerto ${x.puerto || '—'}`, puerto: x.puerto }))
+  } catch (e) {
+    errorApi(e)
+  }
+}
 function nuevo() {
+  cargarRutas()
   modal.value = {
-    tipo_transporte: 'MARITIMO', modalidad: 'FCL', documento_numero: '', transportista: '',
+    tipo_transporte: 'MARITIMO', modalidad: 'FCL', documento_numero: '', transportista: '', centro: '',
     puerto_origen: '', puerto_destino: '', etd: '', eta: '', observaciones: '',
   }
 }
+function elegirCentro(codigo) {
+  const c = centros.value.find((x) => x.valor === codigo)
+  if (c?.puerto) modal.value.puerto_destino = c.puerto
+}
+const puertoCentro = computed(() => centros.value.find((x) => x.valor === modal.value?.centro)?.puerto)
 
 async function crear() {
   const datos = Object.fromEntries(Object.entries(modal.value).map(([k, v]) => [k, v === '' ? null : v]))
@@ -119,7 +139,7 @@ onMounted(cargar)
               <router-link :to="`/transporte/embarques/${e.id}`" class="cajas-rango" @click.stop>{{ e.codigo }}</router-link></span>
             <span class="sub">{{ e.documento_numero ? `BL/AWB ${e.documento_numero}` : 'BL/AWB pendiente' }}{{ e.transportista ? ` · ${e.transportista}` : '' }}</span>
           </td>
-          <td>{{ e.puerto_origen || '—' }} <Icono nombre="flecha" :tam="13" /> {{ e.puerto_destino || '—' }}</td>
+          <td>{{ e.puerto_origen || '—' }} <Icono nombre="flecha" :tam="13" /> {{ e.puerto_destino || '—' }}<span class="sub">{{ e.centro ? `centro ${e.centro}` : 'Centro por definir' }}</span></td>
           <td>{{ fmtFecha(e.salida_real || e.etd) }}<span class="sub">{{ e.salida_real ? 'real' : 'estimada' }}</span></td>
           <td>{{ fmtFecha(e.arribo_real || e.eta) }}<span class="sub">{{ e.arribo_real ? 'real' : 'estimada' }}</span></td>
           <td><EstadoBadge :estado="e.estado" /></td>
@@ -151,8 +171,16 @@ onMounted(cargar)
       </label>
       <label class="campo"><span class="req">BL / AWB</span><input v-model="modal.documento_numero" placeholder="Si ya existe" /></label>
       <label class="campo"><span class="req">Naviera o transportista</span><input v-model="modal.transportista" /></label>
-      <label class="campo"><span class="req">Origen</span><input v-model="modal.puerto_origen" /></label>
-      <label class="campo"><span class="req">Destino</span><input v-model="modal.puerto_destino" /></label>
+      <label class="campo"><span class="req">Centro que recibe (notify)</span>
+        <SelectBusqueda v-model="modal.centro" :opciones="centros" vacio="Lo define la primera carga" etiqueta="Centro" @change="elegirCentro" />
+      </label>
+      <label class="campo"><span class="req">Puerto de origen</span>
+        <SelectBusqueda v-model="modal.puerto_origen" :opciones="puertos" vacio="Sin definir" etiqueta="Puerto de origen" />
+      </label>
+      <label class="campo"><span class="req">Puerto de destino</span>
+        <SelectBusqueda v-model="modal.puerto_destino" :opciones="puertos" vacio="Sin definir" etiqueta="Puerto de destino" :deshabilitado="!!puertoCentro" />
+        <small v-if="puertoCentro" class="ayuda">Es el puerto de llegada del centro {{ modal.centro }}.</small>
+      </label>
       <label class="campo"><span>ETD</span><input v-model="modal.etd" type="date" /></label>
       <label class="campo"><span>ETA</span><input v-model="modal.eta" type="date" /></label>
     </div>

@@ -7,6 +7,7 @@ import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import TarjetaParte from '../components/TarjetaParte.vue'
 import Paginacion from '../components/Paginacion.vue'
 import Pasos from '../components/Pasos.vue'
 import ThOrden from '../components/ThOrden.vue'
@@ -38,6 +39,7 @@ const confirmados = computed(() => plsActivos.value.filter((p) => p.transporte?.
 const plEditables = computed(() => plsActivos.value.some((p) => ['BORRADOR', 'EN_CORRECCION'].includes(p.estado)))
 
 const lineasFiltradas = computed(() => {
+  if (!f.value) return []
   const q = filtro.value.trim().toLowerCase()
   if (!q) return f.value.lineas
   return f.value.lineas.filter((l) =>
@@ -390,6 +392,18 @@ onMounted(async () => {
       </div>
       <Pasos :pasos="pasos" />
     </section>
+
+    <div v-if="f" class="partes" style="margin-bottom: 16px">
+      <TarjetaParte titulo="Facturar a" icono="factura" :parte="f.facturar_a" />
+      <TarjetaParte titulo="Notify party (centro que recibe)" icono="ubicacion" :parte="f.notify" />
+      <section v-if="f.destino" class="panel tarjeta-parte">
+        <div class="tp-cabeza">
+          <span class="tp-icono"><Icono nombre="ruta" :tam="16" /></span>
+          <div><span class="eyebrow">Destino final</span><b>{{ f.destino.codigo }} · {{ f.destino.nombre || 'Centro no registrado' }}</b></div>
+        </div>
+        <p class="tp-linea">País de llegada: <b>{{ f.destino.pais || '—' }}</b></p>
+      </section>
+    </div>
 
     <div class="pestanas" role="tablist">
       <button v-for="[clave, texto, icono] in TABS" :key="clave" class="pestana" role="tab" :aria-selected="tab === clave" @click="tab = clave">
