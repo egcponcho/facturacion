@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
+import ExplosionPrepack from '../components/ExplosionPrepack.vue'
 import Paginacion from '../components/Paginacion.vue'
 import SeguimientoDocumentos from '../components/SeguimientoDocumentos.vue'
 import SelectBusqueda from '../components/SelectBusqueda.vue'
@@ -34,6 +35,7 @@ const masFiltros = ref(['talla', 'sku', 'almacen', 'embarque_id', 'riesgo', 'eta
   'fecha_xf_hasta', 'fecha_tienda_desde', 'fecha_tienda_hasta'].some((k) => filtros[k]))
 const datos = ref({ items: [], total: 0, etapas: [], por_marca: [], opciones: {} })
 const cargando = ref(true)
+const explosion = ref(null)
 
 const COLORES = {
   PEND_LIBERACION: 'var(--aviso)', POR_FACTURAR: 'var(--tinta-3)', FACTURADO: 'var(--info)', EN_PL: '#8b5cf6',
@@ -237,7 +239,8 @@ onMounted(cargar)
             <router-link :to="{ path: '/ordenes', query: { q: f.oc, solo_disponible: '0' } }" class="codigo fuerte">{{ f.oc }}</router-link> <span class="ayuda">/{{ f.posicion }}</span>
             <span class="sub codigo">{{ f.sku }}<template v-if="f.almacen"> · {{ f.almacen }}</template></span>
           </td>
-          <td class="num">{{ cantTxt(f.cantidad, f.unidad) }}<span v-if="f.tipo_empaque === 'PREPACK'" class="etiqueta acento">Prepack</span></td>
+          <td class="num">{{ cantTxt(f.cantidad, f.unidad) }}<button v-if="f.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" title="Ver la explosión del prepack"
+                  @click="explosion = { sku: f.sku, cajas: f.cantidad }">Prepack <Icono nombre="lupa" :tam="12" /></button></td>
           <td><span class="etiqueta" :class="TONO_ETAPA[f.etapa]" style="margin-left: 0">{{ nombreEtapa[f.etapa] || f.etapa }}</span></td>
           <td>
             <router-link v-if="f.factura_id" :to="`/facturas/${f.factura_id}`">{{ f.factura }}</router-link>
@@ -275,4 +278,5 @@ onMounted(cargar)
               @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
   <p class="ayuda" style="margin-top: 8px">Total filtrado: {{ fmtNum(datos.total) }} líneas. La holgura compara la llegada (real o ETA) con la fecha requerida en tienda; sin embarque, cuenta los días que faltan desde hoy.</p>
   </template>
+  <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
 </template>

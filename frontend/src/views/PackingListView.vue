@@ -9,6 +9,7 @@ import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import TarjetaParte from '../components/TarjetaParte.vue'
+import ExplosionPrepack from '../components/ExplosionPrepack.vue'
 import Paginacion from '../components/Paginacion.vue'
 import Pasos from '../components/Pasos.vue'
 import ThOrden from '../components/ThOrden.vue'
@@ -28,6 +29,7 @@ const filtro = reactive({ texto: '', solo_pendiente: true })
 const modal = ref(null)
 const ocupado = ref(false)
 const recepcion = reactive({})
+const explosion = ref(null)
 
 const url = (s = '') => `/packing-lists/${props.id}${s}`
 const editable = computed(() => !!pl.value?.puede.editar)
@@ -497,6 +499,7 @@ onMounted(cargar)
                 <ThOrden campo="talla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Talla</ThOrden>
                 <ThOrden campo="oc" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">OC / pos.</ThOrden>
                 <ThOrden campo="regla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Regla</ThOrden>
+                <th>UM</th>
                 <ThOrden campo="cantidad" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">Cantidad</ThOrden>
                 <ThOrden campo="en_cajas" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">En cajas</ThOrden>
                 <ThOrden campo="sin_caja" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">Sin caja</ThOrden>
@@ -513,7 +516,12 @@ onMounted(cargar)
                 </td>
                 <td><strong>{{ l.talla }}</strong></td>
                 <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.centro_destino || l.almacen" class="sub">{{ [l.almacen && `almacén ${l.almacen}`, l.centro_destino && `destino ${l.centro_destino}`].filter(Boolean).join(' · ') }}</span></td>
-                <td><span class="etiqueta" :class="REGLAS[l.regla]?.[1]" style="margin-left: 0">{{ reglaTxt(l) }}</span></td>
+                <td>
+                  <button v-if="l.regla === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" style="margin-left: 0"
+                          title="Ver la explosión del prepack" @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ reglaTxt(l) }} <Icono nombre="lupa" :tam="12" /></button>
+                  <span v-else class="etiqueta" :class="REGLAS[l.regla]?.[1]" style="margin-left: 0">{{ reglaTxt(l) }}</span>
+                </td>
+                <td><span class="etiqueta" style="margin-left: 0">{{ l.unidad }}</span></td>
                 <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
                 <td class="num">{{ fmtNum(l.en_cajas) }}</td>
                 <td class="num"><strong v-if="l.sin_caja">{{ fmtNum(l.sin_caja) }}</strong><span v-else class="apagado">0</span></td>
@@ -528,7 +536,7 @@ onMounted(cargar)
                 </td>
               </tr>
               <tr v-if="!lineasFiltradas.length">
-                <td colspan="10" class="vacio">{{ pl.lineas.length ? 'Ninguna fila coincide con el filtro.' : 'El packing list está vacío.' }}</td>
+                <td colspan="11" class="vacio">{{ pl.lineas.length ? 'Ninguna fila coincide con el filtro.' : 'El packing list está vacío.' }}</td>
               </tr>
             </tbody>
           </table>
@@ -971,4 +979,5 @@ onMounted(cargar)
       </button>
     </template>
   </Modal>
+  <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
 </template>

@@ -6,6 +6,7 @@ import Avance from '../components/Avance.vue'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
+import ExplosionPrepack from '../components/ExplosionPrepack.vue'
 import Paginacion from '../components/Paginacion.vue'
 import SelectBusqueda from '../components/SelectBusqueda.vue'
 import ThOrden from '../components/ThOrden.vue'
@@ -13,13 +14,13 @@ import { siguienteOrden } from '../composables/useTabla'
 import { agregarPosiciones, carrito, quitarOC, quitarPosicion, vaciarCarrito } from '../stores/carrito'
 import { esInterno, nombreProveedor, sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
-import { LIBERACION, cantTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '../utils'
+import { COMERCIAL, LIBERACION, cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '../utils'
 
 const route = useRoute()
 const router = useRouter()
 
 // Filtros que se eligen de listas armadas con lo que realmente hay en las OCs
-const EXTRA = { sociedad: 'Sociedad', centro: 'Centro', almacen: 'Almacén', marca: 'Marca', liberacion: 'Liberación', destino: 'Centro destino', puerto: 'Puerto' }
+const EXTRA = { sociedad: 'Sociedad', centro: 'Centro', almacen: 'Almacén', marca: 'Marca', comercial: 'Lib. comercial', liberacion: 'Lib. logística', destino: 'Centro destino', puerto: 'Puerto' }
 const filtros = reactive({
   q: route.query.q || '',
   solo_disponible: route.query.solo_disponible !== '0',
@@ -34,6 +35,7 @@ const activos = computed(() => Object.keys(EXTRA).filter((k) => filtros[k]).map(
   if (k === 'destino') v = opcionesFiltro.value.destinos.find((d) => d.codigo === v)?.nombre || v
   if (k === 'puerto') v = opcionesFiltro.value.puertos.find((d) => d.codigo === v)?.nombre || v
   if (k === 'liberacion') v = LIBERACION[v]?.[0] || v
+  if (k === 'comercial') v = COMERCIAL[v]?.[2] || v
   return { k, texto: `${EXTRA[k]}: ${v}` }
 }))
 const datos = ref({ items: [], total: 0 })
@@ -42,6 +44,7 @@ const abiertas = reactive(new Set())
 const detalles = reactive({})
 const selOC = useSeleccion()
 const selPos = useSeleccion()
+const explosion = ref(null) // { sku, cajas } del prepack que se está viendo
 
 const panel = ref(!!route.query.seleccion || !!route.query.factura)
 const destino = ref(route.query.factura ? Number(route.query.factura) : '')
@@ -308,7 +311,10 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                     vacio="Centro destino: todos" etiqueta="Centro de destino" @change="filtrar" />
     <SelectBusqueda v-model="filtros.puerto" :opciones="opcionesFiltro.puertos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
                     vacio="Puerto: todos" etiqueta="Puerto de despacho" @change="filtrar" />
-    <select v-model="filtros.liberacion" aria-label="Liberación logística" @change="filtrar"><option value="">Liberación: todas</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ l.codigo }} · {{ l.nombre }}</option></select>
+    <select v-model="filtros.comercial" aria-label="Liberación comercial" @change="filtrar">
+      <option value="">Lib. comercial: todas</option><option value="C">C · Liberada</option><option value="P">P · Pendiente</option>
+    </select>
+    <select v-model="filtros.liberacion" aria-label="Liberación logística" @change="filtrar"><option value="">Lib. logística: todas</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ l.codigo }} · {{ l.nombre }}</option></select>
     <div class="segmentos" role="group" aria-label="Mostrar">
       <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">Con saldo por facturar</button>
       <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">Todas</button>
@@ -352,6 +358,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             </td>
             <td>
               <strong class="codigo">{{ oc.numero }}</strong>
+              <span class="etiqueta" :class="COMERCIAL[oc.liberacion_comercial]?.[1]" :title="COMERCIAL[oc.liberacion_comercial]?.[2]">{{ COMERCIAL[oc.liberacion_comercial]?.[0] }}</span>
               <span v-if="LIBERACION[oc.liberacion_logistica]" class="etiqueta" :class="LIBERACION[oc.liberacion_logistica][1]" :title="LIBERACION[oc.liberacion_logistica][2]">{{ LIBERACION[oc.liberacion_logistica][0] }}</span>
               <span class="sub">{{ fmtFecha(oc.fecha) }} · {{ oc.posiciones }} posiciones<template v-if="oc.marcas.length"> · {{ oc.marcas.join(', ') }}</template></span>
             </td>
@@ -397,6 +404,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                         <th>Producto</th>
                         <th>Talla</th>
                         <th>Empaque</th>
+                        <th>UM</th>
                         <th class="num">Cantidad</th>
                         <th class="num">Disponible</th>
                         <th class="num">A facturar</th>
@@ -418,10 +426,14 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                         </td>
                         <td><strong>{{ p.talla }}</strong></td>
                         <td>
-                          <span v-if="p.tipo_empaque === 'PREPACK'" class="etiqueta acento" style="margin-left: 0" :title="`Curva ${p.prepack}`">Prepack · {{ p.unidades_por_caja }} pares</span>
+                          <button v-if="p.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" style="margin-left: 0"
+                                  title="Ver la explosión del prepack" @click="explosion = { sku: p.codigo_sap, cajas: p.cantidad }">
+                            Prepack {{ p.prepack }} · {{ p.unidades_por_caja }} pares <Icono nombre="lupa" :tam="12" />
+                          </button>
                           <span v-else-if="p.casepack" class="etiqueta info" style="margin-left: 0">Casepack {{ p.casepack }}</span>
                           <span v-else class="ayuda">Libre</span>
                         </td>
+                        <td><span class="etiqueta" style="margin-left: 0" :title="unidadTxt(p.unidad, 2)">{{ p.unidad }}</span></td>
                         <td class="num">{{ cantTxt(p.cantidad, p.unidad) }}</td>
                         <td class="num"><strong>{{ fmtNum(p.disponible) }}</strong></td>
                         <td class="num">
@@ -546,4 +558,5 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       </div>
     </div>
   </aside>
+  <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
 </template>

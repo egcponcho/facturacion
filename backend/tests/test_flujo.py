@@ -316,6 +316,18 @@ def test_importacion_oc(interno):
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("x.csv", (
         enc + fila("4400009998", "10", "NOEXISTE", 1)).encode(), "text/csv")})
     assert r.json()["resumen"]["error"] == 1 and "maestro" in r.json()["filas"][0]["mensajes"][0]
+    # Dos liberaciones: sin comercial (P) no puede haber logística 300/301; nueva sin código logístico = 304
+    enc_log = enc.strip() + ",liberacion_logistica\n"
+    fila_log = lambda oc_n, lib, log: fila(oc_n, "10", pos10["codigo_sap"], 12, lib).strip() + f",{log}\n"  # noqa: E731
+    r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("l.csv", (
+        enc_log + fila_log("4400009990", "P", "300") + fila_log("4400009991", "", "") + fila_log("4400009992", "C", "300")
+    ).encode(), "text/csv")})
+    res = r.json()
+    assert res["resumen"]["error"] == 1 and "sin liberación comercial" in res["filas"][0]["mensajes"][0]
+    interno.post(f"/ordenes/importar/{res['importacion_id']}/aplicar")
+    ocs = {o["numero"]: o for o in interno.get("/ordenes", params={"q": "44000099", "solo_disponible": False}).json()["items"]}
+    assert ocs["4400009991"]["liberacion_comercial"] == "C" and ocs["4400009991"]["liberacion_logistica"] == "304"
+    assert not ocs["4400009991"]["liberada"] and ocs["4400009992"]["liberada"]
     # Misma sociedad y centro, cada posición en su almacén; un almacén de otra sociedad no entra
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("a.csv", (
         enc + fila("4400009997", "10", pos10["codigo_sap"], 12, alm="BF19")
@@ -465,23 +477,29 @@ def test_catalogos(interno, tnf):
     base = {"estilo": "E1", "color": "Rojo", "marca_id": tnf_marca["id"], "grupo_id": grupos[0]["id"]}
     r = interno.post("/catalogos/articulos", {**base, "sku": "X1", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
     assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "sku"
-    # Un prepack necesita su curva: el prepack ID (talla) del mismo estilo y color
+    # Un prepack no se crea como artículo suelto: se crea con su código y su explosión
     r = interno.post("/catalogos/articulos", {**base, "sku": "30099990001", "talla": "AB12", "tipo": "PREPACK",
                                               "unidad": "CJ"})
-    assert r.status_code == 422 and any(d["campo"] == "talla" for d in r.json()["detalle"])
+    assert r.status_code == 422 and any(d["campo"] == "tipo" for d in r.json()["detalle"])
     sol = interno.post("/catalogos/articulos", {**base, "sku": "30099990002", "talla": "9", "tipo": "SOLIDO",
                                                 "unidad": "PAR", "casepack": 6}).json()
     otro = interno.get("/catalogos/articulos", params={"q": "VN000EE3"}).json()["items"][0]
-    pp = interno.post("/catalogos/prepacks", {"codigo": "ab12", "estilo": "E1", "color": "Rojo"}).json()
-    assert pp["codigo"] == "AB12"
-    r = interno.put(f"/catalogos/prepacks/{pp['id']}/componentes",
-                    [{"articulo_id": sol["id"], "cantidad": 6}, {"articulo_id": otro["id"], "cantidad": 1}])
-    assert r.status_code == 422 and "mismo estilo y color" in r.json()["detalle"][0]["mensaje"]
-    assert interno.put(f"/catalogos/prepacks/{pp['id']}/componentes",
-                       [{"articulo_id": sol["id"], "cantidad": 6}]).status_code == 200
-    r = interno.post("/catalogos/articulos", {**base, "sku": "30099990001", "talla": "AB12", "tipo": "PREPACK",
-                                              "unidad": "CJ"})
+    datos_pp = {"sku": "30099990001", "codigo": "ab12", "estilo": "E1", "color": "Rojo"}
+    r = interno.post("/catalogos/prepacks", {**datos_pp, "componentes": [
+        {"articulo_id": sol["id"], "cantidad": 6}, {"articulo_id": otro["id"], "cantidad": 1}]})
+    assert r.status_code == 422 and any("mismo estilo y color" in d["mensaje"] for d in r.json()["detalle"])
+    r = interno.post("/catalogos/prepacks", {**datos_pp, "componentes": [{"articulo_id": sol["id"], "cantidad": 6}]})
     assert r.status_code == 200, r.text
+    pp = r.json()
+    assert pp["codigo"] == "AB12" and pp["sku"] == "30099990001" and pp["total"] == 6
+    art = interno.get("/catalogos/articulos", params={"q": "30099990001"}).json()["items"][0]
+    assert art["tipo"] == "PREPACK" and art["talla"] == "AB12" and art["unidad"] == "CJ"
+    # La explosión se ve (también el proveedor) pero no se modifica
+    assert tnf.get("/catalogos/explosion/30099990001").json()["componentes"][0]["cantidad"] == 6
+    assert interno.patch(f"/catalogos/prepacks/{pp['id']}", {"codigo": "ZZ99"}).status_code == 422
+    assert interno.patch(f"/catalogos/articulos/{art['id']}", {"talla": "ZZ99"}).status_code == 422
+    assert interno.patch(f"/catalogos/articulos/{sol['id']}", {"color": "Azul"}).status_code == 422
+    assert interno.patch(f"/catalogos/prepacks/{pp['id']}", {"descripcion": "Curva roja"}).status_code == 200
     # Contactos: correos válidos y ligados a una sociedad o centro
     r = interno.post("/catalogos/contactos", {"nombre": "X", "rol": "NOTIFY", "correos": "a@b.com, malo"})
     assert r.status_code == 422

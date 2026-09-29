@@ -31,9 +31,9 @@ def componentes(prepack_id: int, db: Db, user: User):
     return svc.componentes(db, user, prepack_id)
 
 
-@router.put("/prepacks/{prepack_id}/componentes")
-def guardar_componentes(prepack_id: int, db: Db, user: User, items: list[dict] = Body(...), clave: Clave = None):
-    return ejecutar(db, user, clave, lambda: svc.guardar_componentes(db, user, prepack_id, items))
+@router.get("/explosion/{sku}")
+def explosion(sku: str, db: Db, user: User):
+    return svc.explosion(db, user, sku)
 
 
 @router.get("/{tipo}/opciones")

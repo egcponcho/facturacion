@@ -195,7 +195,7 @@ def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", a
                      centro_destino=destino, moneda="USD", incoterm="FOB", fecha=fecha, puerto_despacho=puerto,
                      pais_origen=origen, pais_procedencia=origen, fecha_xf_original=xf, fecha_xf=xf_nueva or xf,
                      fecha_tienda=tienda, liberacion_comercial=comercial, liberacion_logistica=logistica,
-                     liberada=comercial == "C")
+                     liberada=comercial == "C" and logistica in ("300", "301"))
     db.add(oc)
     pos = 10
     for estilo, color, tallas, *alm in lineas:

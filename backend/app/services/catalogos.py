@@ -166,8 +166,8 @@ CATALOGOS = {
     },
     "articulos": {
         "modelo": Articulo, "titulo": "Artículos", "singular": "artículo",
-        "ayuda": "Dato maestro de cada artículo. Sólidos con o sin casepack, y prepacks: en un prepack la talla "
-                 "es su prepack ID (p. ej. AB12). Al cargar OCs se valida contra este maestro.",
+        "ayuda": "Dato maestro de cada artículo con su unidad de medida. Aquí se crean los sólidos (con o sin "
+                 "casepack); los prepacks se crean en la pestaña Prepacks junto con su explosión.",
         "campos": [
             c("sku", "Número de artículo (SKU)", obligatorio=True, max=18, patron=r"^\d{6,18}$",
               mensaje_patron="Solo dígitos, por ejemplo 30095120001."),
@@ -193,9 +193,9 @@ CATALOGOS = {
     },
     "prepacks": {
         "modelo": Prepack, "titulo": "Prepacks (curvas)", "singular": "prepack",
-        "ayuda": "La curva de un estilo-color: tallas y cantidades por caja master. Su prepack ID (usualmente "
-                 "2 letras y 2 números, p. ej. AB12) es la talla del artículo prepack. Se arma con sólidos del "
-                 "mismo estilo y color.",
+        "ayuda": "Un prepack es un artículo con su propio código de producto. Su curva (explosión) reparte "
+                 "tallas y cantidades por caja master con sólidos del mismo estilo y color, y su prepack ID "
+                 "(usualmente 2 letras y 2 números, p. ej. AB12) es su talla. La explosión se ve pero no se modifica.",
         "campos": [
             c("codigo", "Prepack ID", obligatorio=True, max=10, mayus=True, patron=r"^[A-Z0-9]{2,10}$",
               mensaje_patron="Solo letras y números, p. ej. AB12."),
@@ -250,6 +250,7 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
     if isinstance(obj, Prepack):
         fila["total"] = obj.total
         fila["componentes"] = len(obj.componentes)
+        fila["sku"] = refs.get(("_sku_prepack", obj.id))
     # Relaciones hijas: centros de la sociedad, artículos del grupo, contactos
     if isinstance(obj, Sociedad):
         fila["centros_txt"] = ", ".join(c.codigo for c in obj.centros) or None
@@ -262,6 +263,9 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
 def _refs(db: Session, cat: dict, objs: list) -> dict:
     refs = {}
     ids_obj = [o.id for o in objs]
+    if cat["modelo"] is Prepack and ids_obj:
+        for pid, sku in db.execute(select(Articulo.prepack_id, Articulo.sku).where(Articulo.prepack_id.in_(ids_obj))):
+            refs[("_sku_prepack", pid)] = sku
     for ex in cat.get("extras", []):
         if ex["nombre"] == "centros_txt" or not ids_obj:
             continue
@@ -391,27 +395,33 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
     # Reglas propias de los artículos: el prepack se enlaza por estilo, color
     # y prepack ID (la talla); debe existir su curva
     if cat["modelo"] is Articulo:
-        if final.get("tipo") == "PREPACK":
-            if final.get("unidad") != "CJ":
-                errores.append({"campo": "unidad", "mensaje": "Un prepack se maneja en cajas (CJ)."})
-            pp = db.scalar(select(Prepack).where(Prepack.estilo == final.get("estilo"),
-                                                 Prepack.color == final.get("color"),
-                                                 Prepack.codigo == final.get("talla")))
-            if not pp:
-                errores.append({"campo": "talla", "mensaje":
-                                f"No existe el prepack {final.get('talla')} para {final.get('estilo')} "
-                                f"{final.get('color')}. Créalo primero en Prepacks con su curva."})
-            else:
-                limpio["prepack_id"] = pp.id
+        if final.get("tipo") == "PREPACK" and not (actual and actual.tipo == "PREPACK"):
+            errores.append({"campo": "tipo", "mensaje":
+                            "Los prepacks se crean en la pestaña Prepacks, con su código de producto y su explosión."})
+        elif actual and actual.tipo == "PREPACK":
+            # La explosión es fija: no cambia lo que la enlaza
+            fijos = [c for c in ("tipo", "estilo", "color", "talla", "unidad") if c in limpio and limpio[c] != getattr(actual, c)]
+            if fijos:
+                errores.append({"campo": fijos[0], "mensaje":
+                                "El prepack y su explosión no se modifican (estilo, color, prepack ID, unidad y tipo). "
+                                "Crea un prepack nuevo."})
         elif final.get("tipo") == "SOLIDO":
+            if actual and db.scalar(select(PrepackComponente.id).where(PrepackComponente.articulo_id == actual.id)):
+                fijos = [c for c in ("estilo", "color", "talla", "unidad") if c in limpio and limpio[c] != getattr(actual, c)]
+                if fijos:
+                    errores.append({"campo": fijos[0], "mensaje":
+                                    "Este sólido forma parte de la explosión de un prepack: no cambia su estilo, "
+                                    "color, talla ni unidad."})
             limpio["prepack_id"] = None
             if final.get("unidad") == "CJ":
                 errores.append({"campo": "unidad", "mensaje": "Un sólido se maneja en pares o unidades."})
     if cat["modelo"] is Contacto and not final.get("sociedad_id") and not final.get("centro_id"):
         errores.append({"campo": "sociedad_id", "mensaje": "Indica la sociedad o el centro del contacto."})
-    if cat["modelo"] is Prepack and actual and (final.get("estilo"), final.get("color")) != (actual.estilo, actual.color):
-        if any((x.articulo.estilo, x.articulo.color) != (final.get("estilo"), final.get("color")) for x in actual.componentes):
-            errores.append({"campo": "estilo", "mensaje": "La curva ya tiene artículos de otro estilo o color."})
+    if cat["modelo"] is Prepack and actual:
+        fijos = [c for c in ("codigo", "estilo", "color") if c in limpio and limpio[c] != getattr(actual, c)]
+        if fijos:
+            errores.append({"campo": fijos[0], "mensaje":
+                            "El prepack ID, estilo y color no se modifican; solo la descripción y si está activo."})
     if errores:
         raise ErrorNegocio("Revisa los datos.", 422, "validacion", errores)
     return limpio
@@ -419,6 +429,8 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
 
 def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
     exigir(user, "catalogos.editar")
+    if tipo == "prepacks":
+        return crear_prepack(db, user, datos)
     cat = _cat(tipo)
     limpio = _limpiar(db, cat, datos, parcial=False)
     for campo in cat["campos"]:
@@ -475,60 +487,109 @@ def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
 
 
 # ---- Prepacks: componentes -------------------------------------------------
-def componentes(db: Session, user: Usuario, prepack_id: int) -> dict:
-    exigir(user, "catalogos.ver")
+def componentes(db: Session, user: Usuario, prepack_id: int, validar: bool = True) -> dict:
+    if validar:
+        exigir(user, "catalogos.ver")
     p = db.get(Prepack, prepack_id)
     if not p:
         raise ErrorNegocio("El prepack no existe.", 404, "no_encontrado")
+    art = db.scalar(select(Articulo).where(Articulo.prepack_id == p.id))
     return {
+        "sku": art.sku if art else None, "unidad": "CJ", "marca": art.marca.codigo if art else None,
         "id": p.id, "codigo": p.codigo, "estilo": p.estilo, "color": p.color, "descripcion": p.descripcion,
         "total": p.total,
+        "unidad_componentes": p.componentes[0].articulo.unidad if p.componentes else None,
         "componentes": [{"articulo_id": x.articulo_id, "sku": x.articulo.sku, "estilo": x.articulo.estilo,
                          "color": x.articulo.color, "talla": x.articulo.talla, "unidad": x.articulo.unidad,
                          "cantidad": x.cantidad} for x in p.componentes],
     }
 
 
-def guardar_componentes(db: Session, user: Usuario, prepack_id: int, items: list[dict]) -> dict:
-    """Reemplaza la curva completa. Solo artículos sólidos, del mismo estilo y
-    color, con la misma unidad y sin repetir talla."""
-    exigir(user, "catalogos.editar")
-    p = db.get(Prepack, prepack_id)
-    if not p:
-        raise ErrorNegocio("El prepack no existe.", 404, "no_encontrado")
+def _validar_curva(db: Session, estilo: str, color: str, items: list[dict]) -> tuple[list, list]:
+    """Solo sólidos del mismo estilo y color del prepack, con cantidad, sin
+    repetir artículo y sin mezclar pares con unidades."""
     errores = []
     arts = []
     for it in items:
         a = db.get(Articulo, int(it.get("articulo_id") or 0))
-        cant = int(it.get("cantidad") or 0)
+        try:
+            cant = int(it.get("cantidad") or 0)
+        except (TypeError, ValueError):
+            cant = 0
         if not a:
             errores.append({"mensaje": "Uno de los artículos no existe."})
             continue
         if a.tipo != "SOLIDO":
-            errores.append({"mensaje": f"{a.sku}: una curva solo se arma con artículos sólidos."})
+            errores.append({"mensaje": f"{a.sku}: la explosión solo lleva artículos sólidos."})
         if cant < 1:
             errores.append({"mensaje": f"{a.sku}: la cantidad debe ser mayor que cero."})
         arts.append((a, cant))
     if not arts:
-        errores.append({"mensaje": "La curva necesita al menos un artículo."})
+        errores.append({"mensaje": "La explosión necesita al menos un artículo sólido."})
     if len({a.id for a, _ in arts}) != len(arts):
-        errores.append({"mensaje": "Un artículo aparece dos veces en la curva."})
-    otros = [a for a, _ in arts if (a.estilo, a.color) != (p.estilo, p.color)]
+        errores.append({"mensaje": "Un artículo aparece dos veces en la explosión."})
+    otros = [a for a, _ in arts if (a.estilo, a.color) != (estilo, color)]
     if otros:
-        errores.append({"mensaje": f"El prepack {p.codigo} es de {p.estilo} {p.color}: "
+        errores.append({"mensaje": f"El prepack es de {estilo} {color}: "
                                    + ", ".join(f"{a.sku} ({a.estilo} {a.color})" for a in otros)
                                    + " no es del mismo estilo y color."})
     if len({a.unidad for a, _ in arts}) > 1:
-        errores.append({"mensaje": "No se pueden mezclar pares con unidades en una curva."})
+        errores.append({"mensaje": "No se pueden mezclar pares con unidades en una explosión."})
+    return arts, errores
+
+
+def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
+    """Crea el prepack completo en un paso: su curva (explosión) y el artículo
+    prepack con su propio código de producto. La explosión ya no cambia."""
+    import re
+
+    exigir(user, "catalogos.editar")
+    sku = str(datos.get("sku") or "").strip()
+    codigo = str(datos.get("codigo") or "").strip().upper()
+    estilo = str(datos.get("estilo") or "").strip().upper()
+    color = str(datos.get("color") or "").strip()
+    errores = []
+    if not re.fullmatch(r"\d{6,18}", sku):
+        errores.append({"campo": "sku", "mensaje": "Código de producto: solo dígitos, por ejemplo 30095120027."})
+    elif db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
+        errores.append({"campo": "sku", "mensaje": f"El código {sku} ya existe en el maestro de artículos."})
+    if not re.fullmatch(r"[A-Z0-9]{2,10}", codigo):
+        errores.append({"campo": "codigo", "mensaje": "Prepack ID: letras y números, por ejemplo AB12."})
+    if not estilo or not color:
+        errores.append({"campo": "estilo", "mensaje": "Indica el estilo y el color del prepack."})
+    elif db.scalar(select(Prepack.id).where(Prepack.estilo == estilo, Prepack.color == color, Prepack.codigo == codigo)):
+        errores.append({"campo": "codigo", "mensaje": f"Ya existe el prepack {codigo} para {estilo} {color}."})
+    arts, err_curva = _validar_curva(db, estilo, color, datos.get("componentes") or [])
+    errores += err_curva
     if errores:
-        raise ErrorNegocio("La curva no es válida.", 422, "validacion", errores)
-    p.componentes.clear()
-    db.flush()
+        raise ErrorNegocio("El prepack no es válido.", 422, "validacion", errores)
+    base = arts[0][0]
+    p = Prepack(codigo=codigo, estilo=estilo, color=color, activo=True,
+                descripcion=(datos.get("descripcion") or "").strip()
+                or f"{estilo} {color} prepack {codigo} ({sum(c for _, c in arts)} {base.unidad.lower()})")
     for a, cant in arts:
         p.componentes.append(PrepackComponente(articulo_id=a.id, cantidad=cant))
+    db.add(p)
     db.flush()
-    registrar(db, user, "prepacks", p.id, "editar", {"curva": {a.talla: cant for a, cant in arts}})
-    return componentes(db, user, prepack_id)
+    art = Articulo(sku=sku, upc=(datos.get("upc") or "").strip() or None, estilo=estilo, color=color, talla=codigo,
+                   descripcion=p.descripcion, marca_id=base.marca_id, grupo_id=base.grupo_id,
+                   proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK", prepack_id=p.id,
+                   partida_arancelaria=base.partida_arancelaria, pais_origen=base.pais_origen, activo=True)
+    db.add(art)
+    db.flush()
+    registrar(db, user, "prepacks", p.id, "crear",
+              {"sku": sku, "prepack": codigo, "explosion": {a.talla: c for a, c in arts}})
+    return componentes(db, user, p.id)
+
+
+def explosion(db: Session, user: Usuario, sku: str) -> dict:
+    """Explosión de un artículo prepack, de solo lectura (para OC, factura,
+    packing list y seguimiento)."""
+    exigir(user, "oc.ver")
+    a = db.scalar(select(Articulo).where(Articulo.sku == sku))
+    if not a or a.tipo != "PREPACK" or not a.prepack:
+        raise ErrorNegocio("Ese código no es un artículo prepack.", 404, "no_encontrado")
+    return componentes(db, user, a.prepack_id, validar=False)
 
 
 # ---- Carga masiva ----------------------------------------------------------
@@ -568,6 +629,10 @@ def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes
         datos = {k: f.get(k, "") for k in ("sku", "estilo", "color", "talla", "descripcion", "upc",
                                             "partida_arancelaria", "pais_origen", "unidad", "casepack")}
         datos["tipo"] = (f.get("tipo") or "SOLIDO").upper()
+        if datos["tipo"] == "PREPACK":
+            errores.append({"fila": f["_fila"], "mensaje":
+                            "Los prepacks se cargan con el formato de prepacks (código de producto y explosión)."})
+            continue
         datos["unidad"] = (datos["unidad"] or "").upper()
         faltan = []
         for campo, destino in (("marca", "marca_id"), ("grupo", "grupo_id"), ("proveedor", "proveedor_id")):
@@ -606,37 +671,43 @@ def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes
 
 
 def importar_prepacks(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
-    """Columnas: prepack_id, descripcion, sku, cantidad. Una fila por talla.
-    El estilo y color del prepack salen de sus artículos (deben coincidir)."""
+    """Columnas: sku_prepack (código de producto del prepack), prepack_id,
+    descripcion, sku (sólido) y cantidad. Una fila por talla de la explosión.
+    Estilo y color salen de los sólidos. Un prepack que ya existe no cambia."""
     exigir(user, "catalogos.editar")
     filas = _filas_archivo(nombre, contenido)
-    curvas: dict[str, dict] = {}
+    grupos: dict[str, dict] = {}
     errores = []
     for f in filas:
+        sku_pp = (f.get("sku_prepack") or f.get("codigo_prepack") or "").strip()
         codigo = (f.get("prepack_id") or f.get("prepack") or "").strip().upper()
         sku = (f.get("sku") or "").strip()
-        if not codigo or not sku:
-            errores.append({"fila": f["_fila"], "mensaje": "Faltan prepack_id o sku."})
+        if not sku_pp or not codigo or not sku:
+            errores.append({"fila": f["_fila"], "mensaje": "Faltan sku_prepack, prepack_id o sku."})
             continue
         a = db.scalar(select(Articulo).where(Articulo.sku == sku))
         if not a:
             errores.append({"fila": f["_fila"], "mensaje": f"El SKU {sku} no existe en el maestro de artículos."})
             continue
-        cv = curvas.setdefault((a.estilo, a.color, codigo), {"descripcion": f.get("descripcion") or None, "items": []})
-        cv["items"].append({"articulo_id": a.id, "cantidad": f.get("cantidad") or 0})
-    creados = actualizados = 0
-    for (estilo, color, codigo), cv in curvas.items():
-        p = db.scalar(select(Prepack).where(Prepack.estilo == estilo, Prepack.color == color, Prepack.codigo == codigo))
+        g = grupos.setdefault(sku_pp, {"codigo": codigo, "estilo": a.estilo, "color": a.color,
+                                       "descripcion": f.get("descripcion") or None, "items": []})
+        g["items"].append({"articulo_id": a.id, "cantidad": f.get("cantidad") or 0})
+    creados = sin_cambio = 0
+    for sku_pp, g in grupos.items():
+        existente = db.scalar(select(Articulo).where(Articulo.sku == sku_pp))
+        if existente:
+            actual = {x.articulo_id: x.cantidad for x in existente.prepack.componentes} if existente.prepack else {}
+            nueva = {it["articulo_id"]: int(it["cantidad"] or 0) for it in g["items"]}
+            if actual == nueva:
+                sin_cambio += 1
+            else:
+                errores.append({"fila": sku_pp, "mensaje": "El prepack ya existe con otra explosión; "
+                                                           "la explosión no se modifica. Usa un código nuevo."})
+            continue
         try:
             with db.begin_nested():
-                if not p:
-                    p = Prepack(codigo=codigo, estilo=estilo, color=color, descripcion=cv["descripcion"], activo=True)
-                    db.add(p)
-                    db.flush()
-                    creados += 1
-                else:
-                    actualizados += 1
-                guardar_componentes(db, user, p.id, cv["items"])
+                crear_prepack(db, user, {"sku": sku_pp, **g, "componentes": g["items"]})
+            creados += 1
         except ErrorNegocio as e:
-            errores.append({"fila": f"{estilo} {color} {codigo}", "mensaje": "; ".join(d["mensaje"] for d in e.detalle or []) or e.mensaje})
-    return {"creados": creados, "actualizados": actualizados, "errores": errores[:200]}
+            errores.append({"fila": sku_pp, "mensaje": "; ".join(d["mensaje"] for d in e.detalle or []) or e.mensaje})
+    return {"creados": creados, "actualizados": 0, "sin_cambio": sin_cambio, "errores": errores[:200]}

@@ -8,6 +8,7 @@ import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import TarjetaParte from '../components/TarjetaParte.vue'
+import ExplosionPrepack from '../components/ExplosionPrepack.vue'
 import Paginacion from '../components/Paginacion.vue'
 import Pasos from '../components/Pasos.vue'
 import ThOrden from '../components/ThOrden.vue'
@@ -25,6 +26,7 @@ const router = useRouter()
 const f = ref(null)
 const tab = ref(['lineas', 'pl', 'archivos', 'historial'].includes(route.query.tab) ? route.query.tab : 'lineas')
 const sel = useSeleccion()
+const explosion = ref(null)
 const filtro = ref('')
 const archivos = ref([])
 const historial = ref([])
@@ -436,6 +438,7 @@ onMounted(async () => {
               <ThOrden campo="estilo" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">Producto</ThOrden>
               <ThOrden campo="talla" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">Talla</ThOrden>
               <ThOrden campo="cantidad" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar"><span class="req">Cantidad</span></ThOrden>
+              <th>UM</th>
               <ThOrden campo="precio_unitario" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar"><span class="req">Precio unitario</span></ThOrden>
               <ThOrden campo="total" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar">Total</ThOrden>
               <ThOrden campo="sin_asignar" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar">En packing list</ThOrden>
@@ -450,7 +453,8 @@ onMounted(async () => {
               <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.almacen" class="sub">almacén {{ l.almacen }}</span></td>
               <td>
                 <span v-if="l.marca" class="fuerte">{{ l.marca }}</span> {{ l.estilo }} · {{ l.color }}
-                <span v-if="l.tipo_empaque === 'PREPACK'" class="etiqueta acento" :title="`Curva ${l.prepack}`">Prepack</span>
+                <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" title="Ver la explosión del prepack"
+                        @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">Prepack {{ l.prepack }} <Icono nombre="lupa" :tam="12" /></button>
                 <span v-else-if="l.casepack" class="etiqueta info">Casepack {{ l.casepack }}</span>
                 <span class="sub codigo">{{ l.codigo_sap }}</span>
               </td>
@@ -459,6 +463,7 @@ onMounted(async () => {
                 <CeldaEditable v-if="editable" tipo="number" :min="1" paso="1" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="`Cantidad de ${l.codigo_sap}`" />
                 <template v-else>{{ fmtNum(l.cantidad) }}</template>
               </td>
+              <td><span class="etiqueta" style="margin-left: 0">{{ l.unidad }}</span></td>
               <td class="num" style="width: 130px">
                 <CeldaEditable v-if="editable" tipo="number" :min="0" paso="0.0001" :valor="l.precio_unitario" :guardar="celda(l, 'precio_unitario')" :etiqueta="`Precio de ${l.codigo_sap}`" />
                 <template v-else>{{ fmtNum(l.precio_unitario, 2) }}</template>
@@ -484,7 +489,7 @@ onMounted(async () => {
               </td>
             </tr>
             <tr v-if="!lineasFiltradas.length">
-              <td colspan="11" class="vacio">
+              <td colspan="12" class="vacio">
                 {{ f.lineas.length ? 'Ninguna línea coincide con el filtro.' : 'La factura no tiene líneas.' }}
                 <div v-if="editable && !f.lineas.length"><button class="btn" @click="agregarDesdeOC">Agregar posiciones desde OCs</button></div>
               </td>
@@ -494,7 +499,7 @@ onMounted(async () => {
             <tr>
               <td></td>
               <td colspan="3">{{ lineasFiltradas.length }} de {{ f.lineas.length }} líneas</td>
-              <td class="num" colspan="2">{{ porUnidadTxt(f.totales.por_unidad, 'facturado') }}</td>
+              <td class="num" colspan="3">{{ porUnidadTxt(f.totales.por_unidad, 'facturado') }}</td>
               <td class="num">{{ fmtMoneda(f.totales.importe, f.moneda) }}</td>
               <td colspan="4"></td>
             </tr>
@@ -720,4 +725,5 @@ onMounted(async () => {
       </button>
     </template>
   </Modal>
+  <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
 </template>

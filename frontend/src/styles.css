@@ -801,3 +801,7 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .tp-correo { font-size: 0.84rem; margin-right: 6px; }
 .tp-contactos { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--linea-suave); padding-top: 8px; font-size: 0.87rem; }
 .filtros select { font-size: 0.9rem; padding: 7px 10px; min-height: 36px; }
+.explosion-cabeza { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.explosion-cabeza div { display: flex; flex-direction: column; gap: 2px; }
+.btn-explosion { border: 0; cursor: pointer; font: inherit; }
+.btn-explosion:hover { filter: brightness(0.95); text-decoration: underline; }

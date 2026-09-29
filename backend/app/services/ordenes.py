@@ -29,27 +29,33 @@ from ..models import (
 from .cantidades import facturado_por_posicion, facturas_por_posicion
 from .common import ErrorNegocio, asegurar_proveedor, exigir, proveedor_filtro, registrar
 
+# Dos liberaciones de dos equipos distintos:
+# - Comercial: P (pendiente) o C (liberada; si viene vacío también es C).
+# - Logística: 304 no liberada, 300 liberada, 301 liberada con cambios posteriores.
+# Sin liberación comercial no hay liberación logística. Solo se factura con C y 300/301.
+COMERCIAL_TXT = {"C": "Liberada por comercial", "P": "Pendiente de comercial"}
 LIBERACION_TXT = {
-    "300": "Liberada por sourcing",
+    "300": "Liberada por logística",
     "301": "Liberada con cambios posteriores",
-    "304": "Pendiente de liberación comercial",
+    "304": "No liberada por logística",
 }
 
 
-def liberacion_logistica(comercial: str, anterior_comercial: str | None, hubo_cambios: bool,
-                         explicita: str | None, actual: str | None) -> str:
-    """304 mientras la liberación comercial esté pendiente (P). Con C: 300 si
-    sourcing liberó sin novedades; 301 si ya estaba liberada y la OC cambió
-    después. Si el archivo trae el código logístico, manda el archivo."""
+def liberacion_logistica(comercial: str, explicita: str | None, actual: str | None, hubo_cambios: bool) -> str:
+    """Código logístico final. Sin comercial (P) siempre es 304. Si el archivo
+    trae el código, manda el archivo; si no, se conserva el que tenía (304 si
+    es nueva) y una OC ya liberada (300) que cambia pasa a 301."""
     if comercial != "C":
         return "304"
-    if explicita in ("300", "301"):
+    if explicita in LIBERACION_TXT:
         return explicita
-    if anterior_comercial == "C" and hubo_cambios:
+    if actual == "300" and hubo_cambios:
         return "301"
-    if anterior_comercial == "C" and actual in ("300", "301"):
-        return actual
-    return "300"
+    return actual or "304"
+
+
+def esta_liberada(comercial: str, logistica: str) -> bool:
+    return comercial == "C" and logistica in ("300", "301")
 
 
 # ---- Vista general de OCs ---------------------------------------------------
@@ -72,6 +78,7 @@ def listar_ordenes(
     puerto: str | None = None,
     orden: str | None = None,
     almacen: str | None = None,
+    comercial: str | None = None,
 ) -> dict:
     exigir(user, "oc.ver")
     prov = proveedor_filtro(user, proveedor_id)
@@ -129,6 +136,8 @@ def listar_ordenes(
         consulta = consulta.where(OrdenCompra.puerto_despacho == puerto)
     if liberacion:
         consulta = consulta.where(OrdenCompra.liberacion_logistica == liberacion)
+    if comercial:
+        consulta = consulta.where(OrdenCompra.liberacion_comercial == comercial)
     if marca:
         consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.marca == marca)))
     if almacen:
@@ -237,6 +246,7 @@ def filtros_ordenes(db: Session, user: Usuario, proveedor_id: int | None = None)
             select(Puerto).where(Puerto.codigo.in_(distintos(sub.c.puerto_despacho))))],
         "marcas": marcas,
         "liberaciones": [{"codigo": k, "nombre": v} for k, v in LIBERACION_TXT.items()],
+        "comerciales": [{"codigo": k, "nombre": v} for k, v in COMERCIAL_TXT.items()],
     }
 
 
@@ -260,6 +270,7 @@ def _cabecera_oc(oc: OrdenCompra) -> dict:
         "liberacion_comercial": oc.liberacion_comercial,
         "liberacion_logistica": oc.liberacion_logistica,
         "liberacion_txt": LIBERACION_TXT.get(oc.liberacion_logistica),
+        "comercial_txt": COMERCIAL_TXT.get(oc.liberacion_comercial),
         "liberada": oc.liberada,
     }
 
@@ -322,8 +333,10 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
 def estado_posicion(oc, p, facturado: int, facturas: list[dict]):
     """Devuelve (estado, motivo, factura a la que queda restringido el saldo)."""
     disponible = p.cantidad - facturado
+    if oc.liberacion_comercial != "C":
+        return "NO_DISPONIBLE", "Sin liberación comercial (P): logística aún no puede liberar.", None
     if not oc.liberada:
-        return "NO_DISPONIBLE", "Pendiente de liberación comercial (304).", None
+        return "NO_DISPONIBLE", "Sin liberación logística (304).", None
     if p.bloqueada:
         return "NO_DISPONIBLE", p.motivo_bloqueo or "Posición bloqueada.", None
     if disponible <= 0:
@@ -497,9 +510,14 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         "pais_origen": (r.get("pais_origen") or "").upper() or None,
         "pais_procedencia": (r.get("pais_procedencia") or r.get("pais_origen") or "").upper() or None,
         "liberacion_comercial": _comercial(r.get("liberacion_comercial", "")),
-        "liberacion_logistica_archivo": r.get("liberacion_logistica") or None,
+        "liberacion_logistica_archivo": (r.get("liberacion_logistica") or "").strip() or None,
         "codigo_sap": r.get("codigo_sap", ""),
     }
+    log = d["liberacion_logistica_archivo"]
+    if log and log not in LIBERACION_TXT:
+        errores.append(f"Liberación logística {log} no válida (usa 304, 300 o 301).")
+    elif log in ("300", "301") and d["liberacion_comercial"] != "C":
+        errores.append(f"Logística no puede liberar ({log}) sin liberación comercial: la OC está en P.")
     if d["oc"] and not re.fullmatch(r"44\d{8}", d["oc"]):
         errores.append(f"La OC {d['oc']} no tiene el formato 44 + 8 dígitos (por ejemplo 4400003856).")
     if d["posicion"] and (not d["posicion"].isdigit() or int(d["posicion"]) % 10):
@@ -720,8 +738,8 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
             oc = OrdenCompra(proveedor_id=prov.id, numero=d["oc"])
             db.add(oc)
         info = ocs_tocadas.setdefault(id(oc), {
-            "oc": oc, "anterior": None if nueva else oc.liberacion_comercial, "cambios": False,
-            "explicita": d["liberacion_logistica_archivo"], "actual": None if nueva else oc.liberacion_logistica})
+            "oc": oc, "cambios": False, "explicita": d["liberacion_logistica_archivo"],
+            "actual": None if nueva else oc.liberacion_logistica})
         info["cambios"] = info["cambios"] or (c["estado"] == "cambio")
         for campo in CAMPOS_CABECERA:
             setattr(oc, campo, d.get(campo))
@@ -736,9 +754,9 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
         aplicadas += 1
     for info in ocs_tocadas.values():
         oc = info["oc"]
-        oc.liberacion_logistica = liberacion_logistica(oc.liberacion_comercial, info["anterior"], info["cambios"],
-                                                       info["explicita"], info["actual"])
-        oc.liberada = oc.liberacion_comercial == "C"
+        oc.liberacion_logistica = liberacion_logistica(oc.liberacion_comercial, info["explicita"], info["actual"],
+                                                       info["cambios"])
+        oc.liberada = esta_liberada(oc.liberacion_comercial, oc.liberacion_logistica)
     resultado = {"resumen": _resumen(clasificadas), "aplicadas": aplicadas}
     imp.estado = "APLICADA"
     imp.resultado = resultado
