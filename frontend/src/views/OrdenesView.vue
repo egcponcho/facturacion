@@ -5,6 +5,7 @@ import { api } from '../api'
 import Avance from '../components/Avance.vue'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import Icono from '../components/Icono.vue'
 import Paginacion from '../components/Paginacion.vue'
 import { agregarPosiciones, carrito, quitarOC, quitarPosicion, vaciarCarrito } from '../stores/carrito'
 import { nombreProveedor, sesion } from '../stores/sesion'
@@ -35,7 +36,7 @@ const enviando = ref(false)
 
 const tieneSaldo = (oc) => oc.liberada && Object.values(oc.por_unidad).some((u) => u.disponible > 0)
 const conSaldo = computed(() => datos.value.items.filter(tieneSaldo).map((o) => o.id))
-const columnas = computed(() => (sesion.proveedorId ? 11 : 12))
+const columnas = computed(() => (sesion.proveedorId ? 8 : 9))
 
 async function cargar() {
   cargando.value = true
@@ -94,16 +95,16 @@ const seleccionables = (ocId) =>
   (detalles[ocId]?.posiciones || []).filter((p) => p.disponible > 0 && p.estado !== 'NO_DISPONIBLE').map((p) => p.id)
 const seleccionadas = (ocId) => seleccionables(ocId).filter((id) => selPos.tiene(id)).length
 
-function informar(r, texto) {
+function informar(r, texto, abrir = false) {
   if (r.error) {
     avisar(r.error, 'error')
     return
   }
   avisar(`${texto}: ${r.agregadas} posiciones en la selección` + (r.omitidas ? `; ${r.omitidas} sin saldo se omitieron.` : '.'))
-  panel.value = true
+  if (abrir) panel.value = true
 }
 
-async function agregarOCs(ids) {
+async function agregarOCs(ids, abrir = false) {
   const total = { agregadas: 0, omitidas: 0 }
   for (const id of ids) {
     try {
@@ -117,7 +118,7 @@ async function agregarOCs(ids) {
     }
   }
   selOC.limpiar()
-  informar(total, ids.length > 1 ? `${ids.length} OCs completas` : 'OC completa')
+  informar(total, ids.length > 1 ? `${ids.length} OCs completas` : 'OC completa', abrir)
 }
 
 function agregarSeleccionadas(ocId) {
@@ -223,18 +224,24 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
 <template>
   <div class="pagina-cabeza">
     <div>
+      <div class="eyebrow">Paso 1 de 3 · Facturar</div>
       <h1>Órdenes de compra</h1>
-      <p>Agrega OCs completas o solo algunas posiciones y cantidades. Puedes juntar varias OCs del mismo proveedor en una factura.</p>
+      <p>Elige qué facturar: OCs completas o solo algunas posiciones y cantidades. Puedes juntar varias OCs del mismo proveedor en una factura.</p>
     </div>
-    <button class="btn btn-primario" type="button" @click="panel = true">Selección para facturar ({{ carrito.items.length }})</button>
+    <button class="btn btn-primario" type="button" :disabled="!carrito.items.length" @click="panel = true">
+      <Icono nombre="carrito" />Revisar selección ({{ carrito.items.length }})
+    </button>
   </div>
 
   <div class="filtros">
-    <input v-model="filtros.q" type="search" placeholder="Buscar OC, estilo, código SAP o UPC" aria-label="Buscar" @input="buscar" />
-    <label class="check">
-      <input v-model="filtros.solo_disponible" type="checkbox" @change="filtros.page = 1; cargar()" />
-      Solo con saldo por facturar
+    <label class="buscador">
+      <Icono nombre="buscar" :tam="16" />
+      <input v-model="filtros.q" type="search" placeholder="Buscar OC, estilo, código SAP o UPC" aria-label="Buscar" @input="buscar" />
     </label>
+    <div class="segmentos" role="group" aria-label="Mostrar">
+      <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">Con saldo por facturar</button>
+      <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">Todas</button>
+    </div>
   </div>
 
   <div class="tabla-marco">
@@ -245,15 +252,12 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             <input type="checkbox" aria-label="Seleccionar todas las OCs con saldo" :checked="selOC.todos(conSaldo)" @change="selOC.alternarTodos(conSaldo)" />
           </th>
           <th><span class="oculto-visual">Ver posiciones</span></th>
-          <th>OC</th>
+          <th>Orden de compra</th>
           <th v-if="!sesion.proveedorId">Proveedor</th>
-          <th>Fecha</th>
           <th>Sociedad / centro</th>
-          <th class="num">Posiciones</th>
-          <th>Cantidad OC</th>
           <th>Por facturar</th>
-          <th class="num">Importe</th>
-          <th>Facturado (valor)</th>
+          <th class="num">Valor OC</th>
+          <th>Facturado</th>
           <th></th>
         </tr>
       </thead>
@@ -265,23 +269,27 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             </td>
             <td>
               <button class="btn-icono" type="button" :aria-expanded="abiertas.has(oc.id)" :aria-label="`Ver posiciones de la OC ${oc.numero}`" @click="alternar(oc)">
-                {{ abiertas.has(oc.id) ? '▾' : '▸' }}
+                <Icono :nombre="abiertas.has(oc.id) ? 'abajo' : 'derecha'" :tam="16" />
               </button>
             </td>
             <td>
               <strong class="codigo">{{ oc.numero }}</strong>
               <span v-if="!oc.liberada" class="etiqueta error">No liberada</span>
+              <span class="sub">{{ fmtFecha(oc.fecha) }} · {{ oc.posiciones }} posiciones</span>
             </td>
             <td v-if="!sesion.proveedorId">{{ oc.proveedor }}</td>
-            <td>{{ fmtFecha(oc.fecha) }}</td>
             <td>{{ oc.sociedad }} / {{ oc.centro || '—' }}</td>
-            <td class="num">{{ oc.posiciones }}</td>
-            <td>{{ porUnidadTxt(oc.por_unidad, 'cantidad') }}</td>
-            <td>{{ porUnidadTxt(oc.por_unidad, 'disponible') }}</td>
-            <td class="num">{{ fmtMoneda(oc.importe, oc.moneda) }}</td>
-            <td><Avance :porcentaje="oc.avance" /></td>
             <td>
-              <button class="btn btn-chico" type="button" :disabled="!tieneSaldo(oc)" @click="agregarOCs([oc.id])">Agregar completa</button>
+              <span class="fuerte">{{ porUnidadTxt(oc.por_unidad, 'disponible') }}</span>
+              <span class="sub">de {{ porUnidadTxt(oc.por_unidad, 'cantidad') }}</span>
+            </td>
+            <td class="num">{{ fmtMoneda(oc.importe, oc.moneda) }}</td>
+            <td style="min-width: 130px"><Avance :porcentaje="oc.avance" /></td>
+            <td class="num">
+              <div class="fila-flex" style="justify-content: flex-end; flex-wrap: nowrap">
+                <button class="btn btn-chico" type="button" :disabled="!tieneSaldo(oc)" title="Agregar todo el saldo a la selección" @click="agregarOCs([oc.id])"><Icono nombre="mas" :tam="14" />Agregar</button>
+                <button class="btn btn-chico btn-primario" type="button" :disabled="!tieneSaldo(oc)" title="Agregar todo el saldo y revisar la factura" @click="agregarOCs([oc.id], true)">Facturar</button>
+              </div>
             </td>
           </tr>
           <tr v-if="abiertas.has(oc.id) && detalles[oc.id]" class="fila-hija">
@@ -295,12 +303,9 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                           <input type="checkbox" aria-label="Seleccionar las posiciones con saldo" :checked="selPos.todos(seleccionables(oc.id))" @change="selPos.alternarTodos(seleccionables(oc.id))" />
                         </th>
                         <th>Pos.</th>
-                        <th>Código SAP</th>
-                        <th>Estilo</th>
-                        <th>Color</th>
+                        <th>Producto</th>
                         <th>Talla</th>
                         <th class="num">Cantidad</th>
-                        <th class="num">Facturado</th>
                         <th class="num">Disponible</th>
                         <th class="num">A facturar</th>
                         <th class="num">Precio</th>
@@ -313,12 +318,9 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                           <input type="checkbox" :aria-label="`Seleccionar posición ${p.posicion}`" :disabled="!p.disponible || p.estado === 'NO_DISPONIBLE'" :checked="selPos.tiene(p.id)" @change="selPos.alternar(p.id)" />
                         </td>
                         <td class="codigo">{{ p.posicion }}</td>
-                        <td class="codigo">{{ p.codigo_sap }}</td>
-                        <td>{{ p.estilo }}</td>
-                        <td>{{ p.color }}</td>
+                        <td>{{ p.estilo }} · {{ p.color }}<span class="sub codigo">{{ p.codigo_sap }}</span></td>
                         <td><strong>{{ p.talla }}</strong></td>
                         <td class="num">{{ cantTxt(p.cantidad, p.unidad) }}</td>
-                        <td class="num">{{ fmtNum(p.facturado) }}</td>
                         <td class="num"><strong>{{ fmtNum(p.disponible) }}</strong></td>
                         <td class="num">
                           <input
@@ -327,7 +329,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                             type="number"
                             min="1"
                             :max="p.disponible"
-                            style="width: 84px"
+                            style="width: 84px; border-color: var(--linea)"
                             :aria-label="`A facturar de la posición ${p.posicion}`"
                             :disabled="!p.disponible || p.estado === 'NO_DISPONIBLE'"
                             @focus="selPos.ids.add(p.id)"
@@ -350,7 +352,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                 </div>
                 <div class="fila-flex mt">
                   <button class="btn btn-primario btn-chico" type="button" :disabled="!seleccionadas(oc.id)" @click="agregarSeleccionadas(oc.id)">
-                    Agregar {{ seleccionadas(oc.id) || '' }} seleccionadas
+                    <Icono nombre="mas" :tam="14" />Agregar {{ seleccionadas(oc.id) || '' }} seleccionadas
                   </button>
                   <span class="ayuda">Cambia “A facturar” para tomar solo una parte; el resto queda disponible en la OC.</span>
                 </div>
@@ -359,7 +361,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
           </tr>
         </template>
         <tr v-if="!datos.items.length && !cargando">
-          <td :colspan="columnas" class="vacio">No hay OCs con estos filtros.</td>
+          <td :colspan="columnas" class="vacio">{{ filtros.solo_disponible ? 'No hay OCs con saldo por facturar.' : 'No hay OCs con estos filtros.' }}</td>
         </tr>
       </tbody>
     </table>
@@ -367,20 +369,35 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
   <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" />
 
   <BarraSeleccion :cantidad="selOC.ids.size" singular="OC seleccionada" plural="OCs seleccionadas" @limpiar="selOC.limpiar()">
-    <button class="btn btn-primario" type="button" @click="agregarOCs(selOC.lista())">Agregar completas a la selección</button>
+    <button class="btn" type="button" @click="agregarOCs(selOC.lista())">Agregar a la selección</button>
+    <button class="btn btn-primario" type="button" @click="agregarOCs(selOC.lista(), true)">Facturar juntas</button>
   </BarraSeleccion>
 
+  <div v-if="carrito.items.length && !panel && !selOC.ids.size" class="barra-seleccion" role="region" aria-label="Selección para facturar">
+    <Icono nombre="carrito" />
+    <strong>{{ carrito.items.length }} posiciones listas para facturar</strong>
+    <span class="resumen">{{ porUnidadTxt(totales.porUnidad, null) }} · {{ fmtMoneda(totales.importe, carrito.items[0].moneda) }}</span>
+    <div class="acciones">
+      <button class="btn btn-primario" type="button" @click="panel = true">Revisar y crear factura<Icono nombre="flecha" :tam="16" /></button>
+    </div>
+  </div>
+
+  <div v-if="panel" class="cajon-fondo" @click="panel = false"></div>
   <aside v-if="panel" class="cajon" aria-label="Selección para facturar">
     <div class="cajon-cabeza">
-      <h2>Selección para facturar</h2>
-      <button class="btn-icono" type="button" aria-label="Cerrar" @click="panel = false">×</button>
+      <div>
+        <div class="eyebrow">Paso 2 de 3</div>
+        <h2>Revisa y crea la factura</h2>
+        <p v-if="carrito.items.length">Proveedor {{ nombreProveedor(carrito.proveedorId) }}</p>
+      </div>
+      <button class="btn-icono" type="button" aria-label="Cerrar" @click="panel = false"><Icono nombre="cerrar" :tam="20" /></button>
     </div>
     <div class="cajon-cuerpo">
-      <p v-if="!carrito.items.length" class="vacio">
-        Aún no hay posiciones. Usa “Agregar completa” en una OC o ábrela y elige posiciones.
-      </p>
+      <div v-if="!carrito.items.length" class="vacio">
+        <Icono nombre="carrito" :tam="28" />
+        <p>Aún no hay posiciones. Usa “Agregar” en una OC o ábrela y elige posiciones.</p>
+      </div>
       <template v-else>
-        <p class="ayuda" style="margin-bottom: 10px">Proveedor: <b>{{ nombreProveedor(carrito.proveedorId) }}</b></p>
         <div v-for="g in grupos" :key="g.oc_id" class="grupo-oc">
           <div class="grupo-oc-cabeza">
             <span>OC {{ g.oc_numero }} <span class="etiqueta">{{ g.centro }}</span></span>
@@ -394,33 +411,33 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
               </div>
             </div>
             <input v-model.number="i.cantidad" type="number" min="1" :max="i.disponible" :aria-label="`Cantidad a facturar de ${i.posicion}`" />
-            <button class="btn-icono" type="button" :aria-label="`Quitar posición ${i.posicion}`" @click="quitarPosicion(i.posicion_id)">×</button>
+            <button class="btn-icono" type="button" :aria-label="`Quitar posición ${i.posicion}`" @click="quitarPosicion(i.posicion_id)"><Icono nombre="cerrar" :tam="16" /></button>
           </div>
         </div>
       </template>
     </div>
     <div v-if="carrito.items.length" class="cajon-pie">
-      <div class="fila-flex">
+      <div class="total-carrito">
         <span>{{ porUnidadTxt(totales.porUnidad, null) }}</span>
-        <strong class="separar">{{ fmtMoneda(totales.importe, carrito.items[0].moneda) }}</strong>
+        <strong>{{ fmtMoneda(totales.importe, carrito.items[0].moneda) }}</strong>
       </div>
-      <p v-for="a in mezclas" :key="a" class="nota aviso">{{ a }}</p>
-      <p v-if="invalida" class="nota error">Hay cantidades fuera de rango (entre 1 y lo disponible).</p>
+      <p v-for="a in mezclas" :key="a" class="nota aviso"><Icono nombre="alerta" />{{ a }}</p>
+      <p v-if="invalida" class="nota error"><Icono nombre="alerta" />Hay cantidades fuera de rango (entre 1 y lo disponible).</p>
       <label class="campo">
-        <span>Destino</span>
+        <span>¿Dónde la facturas?</span>
         <select v-model="destino">
-          <option value="">Nueva factura</option>
-          <option v-for="b in borradores" :key="b.id" :value="b.id">Agregar a {{ b.nombre }}</option>
+          <option value="">En una factura nueva</option>
+          <option v-for="b in borradores" :key="b.id" :value="b.id">Agregar a {{ b.nombre }} ({{ b.estado === 'BORRADOR' ? 'borrador' : 'en corrección' }})</option>
         </select>
       </label>
       <div v-if="!destino" class="rejilla-campos">
-        <label class="campo"><span>Número de factura (opcional)</span><input v-model="nueva.numero" /></label>
-        <label class="campo"><span>Fecha (opcional)</span><input v-model="nueva.fecha" type="date" /></label>
+        <label class="campo"><span>Número de factura</span><input v-model="nueva.numero" placeholder="Puedes ponerlo después" /></label>
+        <label class="campo"><span>Fecha</span><input v-model="nueva.fecha" type="date" /></label>
       </div>
       <div class="fila-flex">
         <button class="btn-texto" type="button" @click="vaciarCarrito()">Vaciar selección</button>
         <button class="btn btn-primario separar" type="button" :disabled="enviando || invalida" @click="facturar">
-          {{ destino ? 'Agregar a la factura' : 'Crear factura' }}
+          {{ destino ? 'Agregar a la factura' : 'Crear factura' }}<Icono nombre="flecha" :tam="16" />
         </button>
       </div>
     </div>

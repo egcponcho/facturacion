@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import Icono from '../components/Icono.vue'
 import { iniciarSesion } from '../stores/sesion'
 
 const route = useRoute()
@@ -9,6 +10,13 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 const enviando = ref(false)
+
+const DEMO = [
+  ['tnf@demo.com', 'Proveedor', 'The North Face'],
+  ['vans@demo.com', 'Proveedor', 'Vans'],
+  ['interno@demo.com', 'Importaciones', 'Equipo interno'],
+  ['admin@demo.com', 'Administrador', 'Acceso total'],
+]
 
 async function entrar() {
   error.value = ''
@@ -26,27 +34,46 @@ async function entrar() {
 function demo(correo) {
   email.value = correo
   password.value = 'demo123'
+  entrar()
 }
 </script>
 
 <template>
   <div class="login">
-    <form class="login-caja" @submit.prevent="entrar">
+    <section class="login-arte">
+      <div class="marca" style="padding: 0">
+        <span class="marca-logo"><Icono nombre="caja" :tam="20" /></span>
+        <span class="marca-texto">Workspace<span>Facturas, empaque y embarques</span></span>
+      </div>
       <div>
-        <div class="login-titulo">Workspace de proveedor</div>
-        <p class="ayuda">Facturas, packing lists y transporte en un solo lugar.</p>
+        <h1>De la orden de compra al contenedor, sin hojas sueltas.</h1>
+        <p>Factura desde tus OCs, empaca con plantillas y sigue cada embarque hasta la bodega.</p>
       </div>
-      <label class="campo"><span>Correo</span><input v-model="email" type="email" autocomplete="username" required /></label>
-      <label class="campo"><span>Contraseña</span><input v-model="password" type="password" autocomplete="current-password" required /></label>
-      <p v-if="error" class="nota error" role="alert">{{ error }}</p>
-      <button class="btn btn-primario" type="submit" :disabled="enviando">{{ enviando ? 'Entrando…' : 'Entrar' }}</button>
-      <div class="demo">
-        Cuentas de prueba (contraseña demo123):
-        <button type="button" @click="demo('tnf@demo.com')">tnf@demo.com, proveedor The North Face</button>
-        <button type="button" @click="demo('vans@demo.com')">vans@demo.com, proveedor Vans</button>
-        <button type="button" @click="demo('interno@demo.com')">interno@demo.com, equipo de importaciones</button>
-        <button type="button" @click="demo('admin@demo.com')">admin@demo.com, administrador</button>
-      </div>
-    </form>
+      <ul class="login-pasos">
+        <li><span><Icono nombre="factura" /></span>Factura OCs completas o por partes</li>
+        <li><span><Icono nombre="caja" /></span>Empaca todo en un paso con tus plantillas de caja</li>
+        <li><span><Icono nombre="barco" /></span>Asigna a contenedores y sigue el tránsito</li>
+      </ul>
+    </section>
+    <div class="login-lado">
+      <form class="login-caja" @submit.prevent="entrar">
+        <div>
+          <div class="login-titulo">Inicia sesión</div>
+          <p class="ayuda">Usa tu correo de proveedor o del equipo de importaciones.</p>
+        </div>
+        <label class="campo"><span>Correo</span><input v-model="email" type="email" autocomplete="username" required /></label>
+        <label class="campo"><span>Contraseña</span><input v-model="password" type="password" autocomplete="current-password" required /></label>
+        <p v-if="error" class="nota error" role="alert"><Icono nombre="alerta" />{{ error }}</p>
+        <button class="btn btn-primario btn-grande" type="submit" :disabled="enviando">{{ enviando ? 'Entrando…' : 'Entrar' }}</button>
+        <div class="demo">
+          <span>Cuentas de prueba (contraseña demo123). Un clic para entrar:</span>
+          <div class="demo-cuentas">
+            <button v-for="[correo, rol, nombre] in DEMO" :key="correo" type="button" @click="demo(correo)">
+              <b>{{ nombre }}</b>{{ rol }}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
   </div>
 </template>

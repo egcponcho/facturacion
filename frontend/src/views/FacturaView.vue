@@ -2,15 +2,16 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
-import Avance from '../components/Avance.vue'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
 import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import Pasos from '../components/Pasos.vue'
 import { elegirProveedor, esInterno } from '../stores/sesion'
 import { avisar, errorApi, guardando, textoDetalle } from '../stores/ui'
 import {
-  ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtMoneda, fmtNum, plural, porUnidadTxt, unidadTxt, useSeleccion,
+  ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtMoneda, fmtNum, pct, plural, porUnidadTxt, useSeleccion,
 } from '../utils'
 
 const props = defineProps({ id: String })
@@ -18,7 +19,7 @@ const route = useRoute()
 const router = useRouter()
 
 const f = ref(null)
-const tab = ref(route.query.tab || 'resumen')
+const tab = ref(['lineas', 'pl', 'archivos', 'historial'].includes(route.query.tab) ? route.query.tab : 'lineas')
 const sel = useSeleccion()
 const filtro = ref('')
 const archivos = ref([])
@@ -57,13 +58,49 @@ const pendientePorUnidad = computed(() => {
 })
 
 const TABS = [
-  ['resumen', 'Resumen'],
-  ['lineas', 'Posiciones'],
-  ['pl', 'Packing lists'],
-  ['transporte', 'Transporte'],
-  ['archivos', 'Archivos'],
-  ['historial', 'Historial'],
+  ['lineas', 'Líneas', 'lista'],
+  ['pl', 'Packing lists', 'caja'],
+  ['archivos', 'Archivos', 'archivo'],
+  ['historial', 'Historial', 'historial'],
 ]
+
+// ---- Avance del documento ---------------------------------------------------
+const pendLineas = computed(() => (f.value?.pendientes || []).filter((p) => p.linea_id))
+const pendCabecera = computed(() => (f.value?.pendientes || []).filter((p) => !p.linea_id))
+const sumaUnidades = (campo) => Object.values(f.value?.totales.por_unidad || {}).reduce((a, u) => a + u[campo], 0)
+const pasos = computed(() => {
+  const x = f.value
+  if (!x) return []
+  const fin = x.estado === 'FINALIZADA'
+  const facturado = sumaUnidades('facturado')
+  const enPl = sumaUnidades('en_pl')
+  const empacado = sumaUnidades('empacado')
+  const plFin = plsActivos.value.filter((p) => p.estado === 'FINALIZADO').length
+  const empaqueListo = facturado > 0 && empacado === facturado && plFin === plsActivos.value.length
+  const lineasOk = x.lineas.length > 0 && !pendLineas.value.length
+  const datosOk = fin || !pendCabecera.value.some((p) => p.campo)
+  const est = (ok, alerta, actual) => (ok ? 'hecho' : alerta ? 'alerta' : actual ? 'actual' : 'pendiente')
+  return [
+    { titulo: 'Líneas', estado: est(lineasOk || fin, pendLineas.value.length, true),
+      detalle: pendLineas.value.length ? `${pendLineas.value.length} datos por completar` : `${x.lineas.length} líneas · ${fmtMoneda(x.totales.importe, x.moneda)}` },
+    { titulo: 'Datos de la factura', estado: est(datosOk, false, lineasOk),
+      detalle: datosOk ? `${x.numero || 'Sin número'} · ${fmtFecha(x.fecha)}` : 'Falta número o fecha' },
+    { titulo: 'Empaque', estado: est(empaqueListo, false, lineasOk && facturado > 0),
+      detalle: !facturado ? 'Sin líneas' : enPl < facturado ? `${pct(enPl, facturado)}% en packing lists` : `${pct(empacado, facturado)}% en cajas · ${plFin}/${plsActivos.value.length} PL finalizados` },
+    { titulo: 'Finalizar', estado: est(fin, x.estado === 'EN_CORRECCION', lineasOk && datosOk),
+      detalle: fin ? `El ${fmtFecha(x.finalizado_en)}` : x.estado === 'EN_CORRECCION' ? 'Reabierta para corregir' : x.estado === 'CANCELADA' ? 'Cancelada' : 'Pendiente' },
+    { titulo: 'Embarque', estado: est(plsActivos.value.length > 0 && confirmados.value === plsActivos.value.length, false, fin),
+      detalle: plsActivos.value.length ? `${confirmados.value} de ${plsActivos.value.length} PL confirmados` : 'Sin packing lists' },
+  ]
+})
+const sinAsignar = computed(() => (f.value?.lineas || []).reduce((a, l) => a + Math.max(l.sin_asignar, 0), 0))
+const accionPrincipal = computed(() => {
+  const x = f.value
+  if (!x || x.estado === 'CANCELADA') return null
+  if (x.estado !== 'FINALIZADA' && x.lineas.length && sinAsignar.value > 0) return 'empacar'
+  if (x.puede.finalizar) return 'finalizar'
+  return null
+})
 
 const CAMPOS_MASIVOS = [
   ['precio_unitario', 'Precio unitario', 'number'],
@@ -173,11 +210,16 @@ async function eliminar(confirmar) {
 }
 
 // ---- Estados ---------------------------------------------------------------
+function abrirFinalizar() {
+  modal.value = { tipo: 'finalizar', incluir: plEditables.value }
+}
+
 async function finalizar(incluir) {
   ocupado.value = true
   try {
     await api.post(`/facturas/${props.id}/finalizar`, { version: f.value.version, incluir_packing_lists: incluir })
     avisar(incluir ? 'Factura y packing lists finalizados.' : 'Factura finalizada.')
+    modal.value = null
     await cargar()
   } catch (e) {
     if (e.codigo === 'pendientes') modal.value = { tipo: 'pendientes', titulo: 'Datos pendientes para finalizar', detalle: e.detalle }
@@ -216,6 +258,34 @@ async function crearPL(soloSeleccion) {
     if (e.codigo === 'sin_saldo') {
       avisar(e.message, 'error', (e.detalle || []).map((d) => `${d.numero}: ${fmtNum(d.cantidad)}`))
     } else trasError(e)
+  } finally {
+    ocupado.value = false
+  }
+}
+
+// Un solo botón para empacar: crea el packing list con todo lo pendiente o
+// suma lo pendiente al único PL abierto, y lo abre.
+async function empacar() {
+  const abiertos = plsActivos.value.filter((p) => ['BORRADOR', 'EN_CORRECCION'].includes(p.estado))
+  if (!sinAsignar.value) {
+    const destino = abiertos[0]
+    if (destino) router.push(`/packing-lists/${destino.id}`)
+    else tab.value = 'pl'
+    return
+  }
+  ocupado.value = true
+  try {
+    if (abiertos.length === 1) {
+      const r = await api.post(`/packing-lists/${abiertos[0].id}/agregar`, { version: abiertos[0].version })
+      avisar(`Se agregaron ${fmtNum(r.agregado)} a ${abiertos[0].numero}.`)
+      router.push(`/packing-lists/${abiertos[0].id}`)
+    } else {
+      const r = await api.post(`/facturas/${props.id}/packing-lists`, { lineas: null })
+      avisar(`Se creó ${r.numero} con todo lo pendiente.`)
+      router.push(`/packing-lists/${r.id}`)
+    }
+  } catch (e) {
+    trasError(e)
   } finally {
     ocupado.value = false
   }
@@ -268,103 +338,76 @@ onMounted(async () => {
 
 <template>
   <template v-if="f">
-    <router-link to="/facturas" class="volver">Facturas</router-link>
+    <router-link to="/facturas" class="volver"><Icono nombre="atras" :tam="15" />Facturas</router-link>
     <section class="doc-cabeza">
       <div class="doc-fila">
         <span class="doc-numero">{{ f.nombre }}</span>
         <EstadoBadge :estado="f.estado" />
-        <span v-if="f.lista_transporte" class="etiqueta ok">Lista para transporte</span>
+        <span v-if="f.lista_transporte && confirmados < plsActivos.length" class="etiqueta ok"><Icono nombre="check" :tam="12" />Lista para embarcar</span>
         <div class="doc-acciones">
-          <button v-if="f.puede.finalizar" class="btn btn-primario" :disabled="ocupado" @click="finalizar(false)">Finalizar factura</button>
-          <button v-if="f.puede.finalizar && plEditables" class="btn" :disabled="ocupado" @click="finalizar(true)">Finalizar con sus packing lists</button>
+          <button class="btn btn-fantasma" title="Descargar Excel" @click="descargar(`/facturas/${f.id}/exportar`, 'factura.xlsx')"><Icono nombre="descargar" />Excel</button>
           <button v-if="f.puede.reabrir" class="btn" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">Reabrir para corregir</button>
-          <button class="btn" @click="descargar(`/facturas/${f.id}/exportar`, 'factura.xlsx')">Descargar Excel</button>
-          <button v-if="f.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">Cancelar factura</button>
+          <button v-if="f.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">Cancelar</button>
+          <button v-if="f.puede.finalizar" :class="['btn', accionPrincipal === 'finalizar' ? 'btn-primario' : '']" :disabled="ocupado" @click="abrirFinalizar">
+            <Icono nombre="check" />Finalizar
+          </button>
+          <button v-if="accionPrincipal === 'empacar'" class="btn btn-primario" :disabled="ocupado" @click="empacar">
+            <Icono nombre="caja" />Empacar {{ fmtNum(sinAsignar) }} pendientes
+          </button>
         </div>
       </div>
       <div class="doc-meta">
         <span>Proveedor <b>{{ f.proveedor }}</b></span>
-        <span>Sociedad <b>{{ f.sociedad }}</b></span>
-        <span>Centro <b>{{ f.centro || '—' }}</b></span>
-        <span>Moneda <b>{{ f.moneda }}</b></span>
-        <span>Fecha <b>{{ fmtFecha(f.fecha) }}</b></span>
+        <span>Sociedad / centro <b>{{ f.sociedad }} / {{ f.centro || '—' }}</b></span>
+        <span>Cantidad <b>{{ porUnidadTxt(f.totales.por_unidad, 'facturado') }}</b></span>
         <span>Importe <b>{{ fmtMoneda(f.totales.importe, f.moneda) }}</b></span>
       </div>
-      <div class="progresos">
-        <div class="progreso">
-          <h3>Documentación</h3>
-          <p v-if="f.estado === 'FINALIZADA'">Finalizada el {{ fmtFechaHora(f.finalizado_en) }}.</p>
-          <p v-else-if="f.estado === 'CANCELADA'">Cancelada.</p>
-          <p v-else-if="f.pendientes.length">
-            <button class="btn-texto" style="padding: 0" @click="modal = { tipo: 'pendientes', titulo: 'Datos pendientes para finalizar', detalle: f.pendientes }">
-              {{ f.pendientes.length }} datos pendientes para finalizar
-            </button>
-          </p>
-          <p v-else>Completa; ya puedes finalizarla.</p>
-        </div>
-        <div class="progreso">
-          <h3>Distribución y empaque</h3>
-          <template v-for="(u, unidad) in f.totales.por_unidad" :key="unidad">
-            <div class="linea-avance"><span>{{ unidadTxt(unidad) }} en PL</span><Avance :valor="u.en_pl" :total="u.facturado" /></div>
-            <div class="linea-avance"><span>{{ unidadTxt(unidad) }} en cajas</span><Avance :valor="u.empacado" :total="u.facturado" /></div>
-          </template>
-          <p v-if="!f.lineas.length" class="ayuda">Sin líneas todavía.</p>
-        </div>
-        <div class="progreso">
-          <h3>Transporte</h3>
-          <p v-if="!plsActivos.length" class="ayuda">Aún no hay packing lists.</p>
-          <p v-else>{{ conUnidad }} de {{ plsActivos.length }} PL con unidad de carga; {{ confirmados }} confirmados.</p>
-        </div>
+      <div class="doc-datos">
+        <label class="dato"><span>Número de factura</span>
+          <CeldaEditable v-if="editable" :valor="f.numero" :guardar="guardarCabecera('numero')" etiqueta="Número de factura" vacia-texto="Obligatorio" />
+          <b v-else>{{ f.numero || '—' }}</b>
+        </label>
+        <label class="dato"><span>Fecha</span>
+          <CeldaEditable v-if="editable" tipo="date" :valor="f.fecha" :guardar="guardarCabecera('fecha')" etiqueta="Fecha" />
+          <b v-else>{{ fmtFecha(f.fecha) }}</b>
+        </label>
+        <label class="dato"><span>Incoterm</span>
+          <CeldaEditable v-if="editable" :valor="f.incoterm" :guardar="guardarCabecera('incoterm')" etiqueta="Incoterm" />
+          <b v-else>{{ f.incoterm || '—' }}</b>
+        </label>
+        <label class="dato"><span>Condiciones de pago</span>
+          <CeldaEditable v-if="editable" :valor="f.condiciones" :guardar="guardarCabecera('condiciones')" etiqueta="Condiciones" />
+          <b v-else>{{ f.condiciones || '—' }}</b>
+        </label>
+        <label class="dato" style="grid-column: span 2"><span>Observaciones</span>
+          <CeldaEditable v-if="editable" :valor="f.observaciones" :guardar="guardarCabecera('observaciones')" etiqueta="Observaciones" />
+          <b v-else>{{ f.observaciones || '—' }}</b>
+        </label>
       </div>
+      <Pasos :pasos="pasos" />
     </section>
 
     <div class="pestanas" role="tablist">
-      <button v-for="[clave, texto] in TABS" :key="clave" class="pestana" role="tab" :aria-selected="tab === clave" @click="tab = clave">
-        {{ texto }}
-        <span v-if="clave === 'lineas'" class="cuenta">{{ f.lineas.length }}</span>
+      <button v-for="[clave, texto, icono] in TABS" :key="clave" class="pestana" role="tab" :aria-selected="tab === clave" @click="tab = clave">
+        <Icono :nombre="icono" :tam="16" />{{ texto }}
+        <span v-if="clave === 'lineas'" class="cuenta" :class="{ alerta: pendLineas.length }">{{ f.lineas.length }}</span>
         <span v-if="clave === 'pl'" class="cuenta">{{ plsActivos.length }}</span>
       </button>
     </div>
 
-    <!-- Resumen -->
-    <section v-if="tab === 'resumen'" class="panel">
-      <div class="panel-cabeza"><h2>Datos de la factura</h2><span class="ayuda">Los datos de sociedad, centro y moneda vienen de la OC.</span></div>
-      <div class="rejilla-campos">
-        <label class="campo"><span>Número de factura del proveedor</span>
-          <CeldaEditable v-if="editable" class="entrada" :valor="f.numero" :guardar="guardarCabecera('numero')" etiqueta="Número de factura" vacia-texto="Obligatorio para finalizar" />
-          <b v-else>{{ f.numero || '—' }}</b>
-        </label>
-        <label class="campo"><span>Fecha</span>
-          <CeldaEditable v-if="editable" class="entrada" tipo="date" :valor="f.fecha" :guardar="guardarCabecera('fecha')" etiqueta="Fecha" />
-          <b v-else>{{ fmtFecha(f.fecha) }}</b>
-        </label>
-        <label class="campo"><span>Incoterm</span>
-          <CeldaEditable v-if="editable" class="entrada" :valor="f.incoterm" :guardar="guardarCabecera('incoterm')" etiqueta="Incoterm" />
-          <b v-else>{{ f.incoterm || '—' }}</b>
-        </label>
-        <label class="campo"><span>Condiciones de pago</span>
-          <CeldaEditable v-if="editable" class="entrada" :valor="f.condiciones" :guardar="guardarCabecera('condiciones')" etiqueta="Condiciones" />
-          <b v-else>{{ f.condiciones || '—' }}</b>
-        </label>
-      </div>
-      <label class="campo mt"><span>Observaciones</span>
-        <CeldaEditable v-if="editable" class="entrada" :valor="f.observaciones" :guardar="guardarCabecera('observaciones')" etiqueta="Observaciones" />
-        <span v-else>{{ f.observaciones || '—' }}</span>
-      </label>
-      <div class="doc-meta">
-        <span>Cantidad <b>{{ porUnidadTxt(f.totales.por_unidad, 'facturado') }}</b></span>
-        <span>Líneas <b>{{ f.lineas.length }}</b></span>
-        <span>Creada <b>{{ fmtFechaHora(f.creado_en) }}</b></span>
-        <span>Última modificación <b>{{ fmtFechaHora(f.actualizado_en) }}</b></span>
-      </div>
-    </section>
-
-    <!-- Posiciones -->
+    <!-- Líneas -->
     <section v-if="tab === 'lineas'">
+      <p v-if="pendLineas.length && editable" class="nota aviso bloque" style="margin-bottom: 12px">
+        Faltan {{ pendLineas.length }} datos en las líneas para poder finalizar (celdas marcadas “Falta”).
+        <button class="btn-texto" @click="modal = { tipo: 'pendientes', titulo: 'Datos pendientes para finalizar', detalle: f.pendientes }">Ver cuáles</button>
+      </p>
       <div class="filtros">
-        <input v-model="filtro" type="search" placeholder="Filtrar por código, estilo, color, talla u OC" aria-label="Filtrar líneas" />
+        <label class="buscador">
+          <Icono nombre="buscar" :tam="16" />
+          <input v-model="filtro" type="search" placeholder="Filtrar por código, estilo, color, talla u OC" aria-label="Filtrar líneas" />
+        </label>
         <span class="separar"></span>
-        <button v-if="editable" class="btn" @click="agregarDesdeOC">Agregar posiciones desde OCs</button>
+        <button v-if="editable" class="btn" @click="agregarDesdeOC"><Icono nombre="mas" />Agregar desde OCs</button>
       </div>
       <div class="tabla-marco">
         <table class="tabla">
@@ -372,17 +415,12 @@ onMounted(async () => {
             <tr>
               <th class="chk"><input type="checkbox" aria-label="Seleccionar todas las líneas filtradas" :checked="sel.todos(idsFiltrados)" @change="sel.alternarTodos(idsFiltrados)" /></th>
               <th>OC / pos.</th>
-              <th>Código SAP</th>
-              <th>Estilo</th>
-              <th>Color</th>
+              <th>Producto</th>
               <th>Talla</th>
               <th class="num">Cantidad</th>
-              <th>Unidad</th>
               <th class="num">Precio unitario</th>
               <th class="num">Total</th>
-              <th class="num">En PL</th>
-              <th class="num">Sin asignar</th>
-              <th class="num">En cajas</th>
+              <th class="num">En packing list</th>
               <th>País origen</th>
               <th>Partida</th>
               <th>Descripción comercial</th>
@@ -392,25 +430,24 @@ onMounted(async () => {
             <tr v-for="l in lineasFiltradas" :key="l.id" :class="{ seleccionada: sel.tiene(l.id) }">
               <td class="chk"><input type="checkbox" :aria-label="`Seleccionar ${l.codigo_sap} talla ${l.talla}`" :checked="sel.tiene(l.id)" @change="sel.alternar(l.id)" /></td>
               <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}</td>
-              <td class="codigo">{{ l.codigo_sap }}</td>
-              <td>{{ l.estilo }}</td>
-              <td>{{ l.color }}</td>
+              <td>{{ l.estilo }} · {{ l.color }}<span class="sub codigo">{{ l.codigo_sap }}</span></td>
               <td><strong>{{ l.talla }}</strong></td>
               <td class="num" style="width: 100px">
                 <CeldaEditable v-if="editable" tipo="number" :min="1" paso="1" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="`Cantidad de ${l.codigo_sap}`" />
                 <template v-else>{{ fmtNum(l.cantidad) }}</template>
               </td>
-              <td>{{ unidadTxt(l.unidad) }}</td>
               <td class="num" style="width: 130px">
                 <CeldaEditable v-if="editable" tipo="number" :min="0" paso="0.0001" :valor="l.precio_unitario" :guardar="celda(l, 'precio_unitario')" :etiqueta="`Precio de ${l.codigo_sap}`" />
                 <template v-else>{{ fmtNum(l.precio_unitario, 2) }}</template>
                 <span v-if="Math.abs(l.precio_unitario - l.precio_oc) > 1e-9" class="etiqueta aviso" :title="`Precio OC ${l.precio_oc}. Motivo: ${l.motivo_precio || 'sin indicar'}`">Distinto a OC</span>
               </td>
               <td class="num">{{ fmtNum(l.total, 2) }}</td>
-              <td class="num">{{ fmtNum(l.en_pl) }}</td>
-              <td class="num"><span :class="{ 'etiqueta aviso': l.sin_asignar > 0 }">{{ fmtNum(l.sin_asignar) }}</span></td>
-              <td class="num">{{ fmtNum(l.empacado) }}</td>
-              <td style="width: 80px">
+              <td class="num">
+                {{ fmtNum(l.en_pl) }}
+                <span v-if="l.sin_asignar > 0" class="etiqueta aviso">{{ fmtNum(l.sin_asignar) }} sin PL</span>
+                <span class="sub">{{ fmtNum(l.empacado) }} en cajas</span>
+              </td>
+              <td style="width: 84px">
                 <CeldaEditable v-if="editable" :valor="l.pais_origen" :guardar="celda(l, 'pais_origen')" vacia-texto="Falta" :etiqueta="`País de origen de ${l.codigo_sap}`" />
                 <template v-else>{{ l.pais_origen }}</template>
               </td>
@@ -424,7 +461,7 @@ onMounted(async () => {
               </td>
             </tr>
             <tr v-if="!lineasFiltradas.length">
-              <td colspan="16" class="vacio">
+              <td colspan="11" class="vacio">
                 {{ f.lineas.length ? 'Ninguna línea coincide con el filtro.' : 'La factura no tiene líneas.' }}
                 <div v-if="editable && !f.lineas.length"><button class="btn" @click="agregarDesdeOC">Agregar posiciones desde OCs</button></div>
               </td>
@@ -433,31 +470,30 @@ onMounted(async () => {
           <tfoot v-if="f.lineas.length">
             <tr>
               <td></td>
-              <td colspan="5">{{ lineasFiltradas.length }} de {{ f.lineas.length }} líneas</td>
-              <td colspan="3" class="num">{{ porUnidadTxt(f.totales.por_unidad, 'facturado') }}</td>
+              <td colspan="3">{{ lineasFiltradas.length }} de {{ f.lineas.length }} líneas</td>
+              <td class="num" colspan="2">{{ porUnidadTxt(f.totales.por_unidad, 'facturado') }}</td>
               <td class="num">{{ fmtMoneda(f.totales.importe, f.moneda) }}</td>
-              <td colspan="6"></td>
+              <td colspan="4"></td>
             </tr>
           </tfoot>
         </table>
       </div>
       <BarraSeleccion :cantidad="sel.ids.size" singular="línea seleccionada" plural="líneas seleccionadas" @limpiar="sel.limpiar()">
         <template #resumen>{{ resumenSeleccion }}</template>
-        <button v-if="editable" class="btn" @click="abrirMasivo">Cambiar un dato en todas</button>
-        <button class="btn" :disabled="ocupado || f.estado === 'CANCELADA' || !seleccion.some((l) => l.sin_asignar > 0)" @click="crearPL(true)">Crear PL con la selección</button>
-        <button v-if="editable" class="btn" @click="modal = { tipo: 'eliminar', mensaje: `¿Quitar ${sel.ids.size} líneas de la factura? Sus cantidades vuelven a estar disponibles en las OCs.` }">
-          Quitar de la factura
+        <button v-if="editable" class="btn" @click="abrirMasivo"><Icono nombre="editar" :tam="15" />Cambiar un dato</button>
+        <button class="btn" :disabled="ocupado || f.estado === 'CANCELADA' || !seleccion.some((l) => l.sin_asignar > 0)" title="Crea un packing list aparte solo con estas líneas" @click="crearPL(true)"><Icono nombre="caja" :tam="15" />PL aparte con estas</button>
+        <button v-if="editable" class="btn btn-peligro" @click="modal = { tipo: 'eliminar', mensaje: `¿Quitar ${sel.ids.size} líneas de la factura? Sus cantidades vuelven a estar disponibles en las OCs.` }">
+          <Icono nombre="basura" :tam="15" />Quitar
         </button>
       </BarraSeleccion>
     </section>
 
-    <!-- Packing lists -->
+    <!-- Packing lists y transporte -->
     <section v-if="tab === 'pl'">
-      <div class="fila-flex" style="margin-bottom: 12px">
-        <button class="btn btn-primario" :disabled="ocupado || !f.puede.crear_pl" @click="crearPL(false)">Crear packing list con lo pendiente</button>
-        <span class="ayuda">
-          {{ f.puede.crear_pl ? `Pendiente de asignar: ${porUnidadTxt(pendientePorUnidad, null)}.` : 'Toda la mercancía ya está en packing lists.' }}
-        </span>
+      <div class="fila-flex" style="margin-bottom: 14px">
+        <button v-if="f.puede.crear_pl" class="btn btn-primario" :disabled="ocupado" @click="empacar"><Icono nombre="caja" />Empacar {{ porUnidadTxt(pendientePorUnidad, null) }} pendientes</button>
+        <span v-else-if="f.lineas.length" class="nota ok" style="padding: 6px 12px"><Icono nombre="check" />Toda la mercancía ya está en packing lists.</span>
+        <span class="ayuda">Casi siempre basta un packing list por factura. Para dividir el envío usa “Mover” dentro del PL.</span>
       </div>
       <div class="tabla-marco">
         <table class="tabla">
@@ -465,84 +501,51 @@ onMounted(async () => {
             <tr>
               <th>Packing list</th>
               <th>Estado</th>
-              <th>Cantidad</th>
-              <th class="num">Cajas</th>
-              <th>Sin caja</th>
-              <th class="num">Peso bruto kg</th>
-              <th class="num">CBM</th>
-              <th>Unidad de carga</th>
+              <th>Contenido</th>
+              <th>Empaque</th>
+              <th class="num">Peso bruto</th>
+              <th class="num">Volumen</th>
+              <th>Contenedor</th>
+              <th>Embarque</th>
+              <th>ETA</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in f.packing_lists" :key="p.id" class="clicable" @click="router.push(`/packing-lists/${p.id}`)">
+            <tr v-for="p in f.packing_lists" :key="p.id" class="clicable" :class="{ apagado: p.estado === 'CANCELADO' }" @click="router.push(`/packing-lists/${p.id}`)">
               <td><router-link :to="`/packing-lists/${p.id}`" class="cajas-rango" @click.stop>{{ p.numero }}</router-link></td>
               <td><EstadoBadge :estado="p.estado" /></td>
-              <td>{{ porUnidadTxt(p.totales.por_unidad, 'cantidad') }}</td>
-              <td class="num">{{ fmtNum(p.totales.cajas) }}</td>
-              <td>
-                <span v-if="Object.values(p.totales.por_unidad).some((u) => u.sin_caja)" class="etiqueta error">{{ porUnidadTxt(p.totales.por_unidad, 'sin_caja') }}</span>
+              <td>{{ porUnidadTxt(p.totales.por_unidad, 'cantidad') }}<span class="sub">{{ plural(p.totales.cajas, 'caja', 'cajas') }}</span></td>
+              <td style="min-width: 140px">
+                <span v-if="Object.values(p.totales.por_unidad).some((u) => u.sin_caja)" class="etiqueta error">{{ porUnidadTxt(p.totales.por_unidad, 'sin_caja') }} sin caja</span>
+                <span v-else-if="p.totales.cajas" class="etiqueta ok"><Icono nombre="check" :tam="12" />Todo en cajas</span>
                 <span v-else class="apagado">—</span>
               </td>
-              <td class="num">{{ fmtNum(p.totales.peso_bruto, 2) }}</td>
-              <td class="num">{{ fmtNum(p.totales.cbm, 3) }}</td>
+              <td class="num">{{ fmtNum(p.totales.peso_bruto, 1) }} kg</td>
+              <td class="num">{{ fmtNum(p.totales.cbm, 2) }} m³</td>
               <td>
                 <template v-if="p.transporte">{{ p.transporte.unidad }} <EstadoBadge :estado="p.transporte.asignacion" /></template>
                 <span v-else class="apagado">Sin asignar</span>
               </td>
+              <td>
+                <template v-if="p.transporte">
+                  <router-link v-if="esInterno()" :to="`/transporte/embarques/${p.transporte.embarque_id}`" @click.stop>{{ p.transporte.embarque }}</router-link>
+                  <template v-else>{{ p.transporte.embarque }}</template>
+                  <EstadoBadge :estado="p.transporte.estado" />
+                  <span class="sub">{{ p.transporte.documento ? `BL/AWB ${p.transporte.documento}` : 'BL/AWB pendiente' }}<template v-if="p.transporte.ultimo_evento"> · {{ p.transporte.ultimo_evento.tipo.toLowerCase() }} {{ fmtFechaHoraLocal(p.transporte.ultimo_evento.fecha) }}</template></span>
+                </template>
+                <span v-else class="apagado">—</span>
+              </td>
+              <td>
+                <template v-if="p.transporte">{{ fmtFecha(p.transporte.arribo_real || p.transporte.eta) }}<span class="sub">{{ p.transporte.arribo_real ? 'arribó' : 'estimada' }}</span></template>
+                <span v-else class="apagado">—</span>
+              </td>
             </tr>
             <tr v-if="!f.packing_lists.length">
-              <td colspan="8" class="vacio">Todavía no hay packing lists. Crea el primero con lo pendiente de la factura.</td>
+              <td colspan="9" class="vacio">
+                <Icono nombre="caja" :tam="28" />
+                <p>Todavía no hay packing lists. Con “Empacar” se crea uno con toda la mercancía de la factura.</p>
+              </td>
             </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Transporte -->
-    <section v-if="tab === 'transporte'">
-      <div class="tabla-marco">
-        <table class="tabla">
-          <thead>
-            <tr>
-              <th>Packing list</th>
-              <th>Unidad de carga</th>
-              <th>Asignación</th>
-              <th>Embarque</th>
-              <th>BL / AWB</th>
-              <th>Estado</th>
-              <th>ETD</th>
-              <th>ETA</th>
-              <th>Salida real</th>
-              <th>Arribo real</th>
-              <th>Último evento</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in plsActivos" :key="p.id">
-              <td class="cajas-rango">{{ p.numero }}</td>
-              <template v-if="p.transporte">
-                <td>{{ p.transporte.unidad }} <span class="etiqueta">{{ p.transporte.tipo }}</span></td>
-                <td><EstadoBadge :estado="p.transporte.asignacion" /></td>
-                <td>
-                  <router-link v-if="esInterno()" :to="`/transporte/embarques/${p.transporte.embarque_id}`">{{ p.transporte.embarque }}</router-link>
-                  <template v-else>{{ p.transporte.embarque }}</template>
-                </td>
-                <td>{{ p.transporte.documento || 'Pendiente' }}</td>
-                <td><EstadoBadge :estado="p.transporte.estado" /></td>
-                <td>{{ fmtFecha(p.transporte.etd) }}</td>
-                <td>{{ fmtFecha(p.transporte.eta) }}</td>
-                <td>{{ fmtFecha(p.transporte.salida_real) }}</td>
-                <td>{{ fmtFecha(p.transporte.arribo_real) }}</td>
-                <td>
-                  <template v-if="p.transporte.ultimo_evento">
-                    {{ p.transporte.ultimo_evento.tipo.toLowerCase() }}, {{ fmtFechaHoraLocal(p.transporte.ultimo_evento.fecha) }}
-                  </template>
-                  <span v-else class="apagado">—</span>
-                </td>
-              </template>
-              <td v-else colspan="10" class="apagado">Sin unidad de carga asignada.</td>
-            </tr>
-            <tr v-if="!plsActivos.length"><td colspan="11" class="vacio">No hay packing lists para transportar.</td></tr>
           </tbody>
         </table>
       </div>
@@ -550,16 +553,16 @@ onMounted(async () => {
 
     <!-- Archivos -->
     <section v-if="tab === 'archivos'" class="panel">
-      <div class="panel-cabeza"><h2>Archivos</h2><span class="ayuda">Adjunta la factura oficial del proveedor (PDF) y otros soportes.</span></div>
+      <div class="panel-cabeza"><div><h2>Archivos</h2><p>Adjunta la factura oficial del proveedor (PDF) y otros soportes.</p></div></div>
       <div v-if="f.estado !== 'CANCELADA'" class="fila-flex">
         <input type="file" aria-label="Archivo" @change="subida.archivo = $event.target.files[0]" />
         <select v-model="subida.tipo" class="entrada" aria-label="Tipo de archivo">
           <option value="FACTURA_OFICIAL">Factura oficial</option>
           <option value="OTRO">Otro soporte</option>
         </select>
-        <button class="btn btn-primario" :disabled="!subida.archivo" @click="subir">Adjuntar</button>
+        <button class="btn btn-primario" :disabled="!subida.archivo" @click="subir"><Icono nombre="importar" />Adjuntar</button>
       </div>
-      <div class="tabla-marco mt">
+      <div class="tabla-marco mt" style="box-shadow: none">
         <table class="tabla">
           <thead><tr><th>Archivo</th><th>Tipo</th><th class="num">Tamaño</th><th>Subido</th><th></th></tr></thead>
           <tbody>
@@ -568,7 +571,7 @@ onMounted(async () => {
               <td>{{ a.tipo === 'FACTURA_OFICIAL' ? 'Factura oficial' : 'Otro soporte' }}</td>
               <td class="num">{{ fmtNum(a.tamano / 1024, 0) }} KB</td>
               <td>{{ fmtFechaHora(a.subido_en) }}</td>
-              <td><button class="btn btn-chico" @click="descargar(`/archivos/${a.id}`, a.nombre)">Descargar</button></td>
+              <td class="num"><button class="btn btn-chico" @click="descargar(`/archivos/${a.id}`, a.nombre)"><Icono nombre="descargar" :tam="14" />Descargar</button></td>
             </tr>
             <tr v-if="!archivos.length"><td colspan="5" class="vacio">Sin archivos adjuntos.</td></tr>
           </tbody>
@@ -592,6 +595,29 @@ onMounted(async () => {
       </ul>
     </section>
   </template>
+
+  <Modal v-if="modal?.tipo === 'finalizar'" titulo="Finalizar factura" ancho="600px" @cerrar="modal = null">
+    <ul class="checklist">
+      <li :class="pendCabecera.length ? 'falta' : 'ok'">
+        <span class="marca"><Icono :nombre="pendCabecera.length ? 'alerta' : 'check'" :tam="14" /></span>
+        <span>Número, fecha y líneas<span class="sub ayuda">{{ pendCabecera.length ? pendCabecera.map((p) => p.mensaje).join(' ') : 'Completos' }}</span></span>
+      </li>
+      <li :class="pendLineas.length ? 'falta' : 'ok'">
+        <span class="marca"><Icono :nombre="pendLineas.length ? 'alerta' : 'check'" :tam="14" /></span>
+        <span>Datos de aduana y precios<span class="sub ayuda">{{ pendLineas.length ? `${pendLineas.length} por completar` : 'Completos' }}</span></span>
+      </li>
+      <li :class="sinAsignar ? 'falta' : 'ok'">
+        <span class="marca"><Icono :nombre="sinAsignar ? 'alerta' : 'check'" :tam="14" /></span>
+        <span>Todo en packing lists<span class="sub ayuda">{{ sinAsignar ? `${fmtNum(sinAsignar)} sin packing list (puedes finalizar la factura y empacar después)` : 'Sí' }}</span></span>
+      </li>
+    </ul>
+    <label v-if="plEditables" class="check"><input v-model="modal.incluir" type="checkbox" /> Finalizar también sus packing lists abiertos</label>
+    <p class="ayuda">Si falta algo, verás exactamente qué y no se finaliza nada.</p>
+    <template #pie>
+      <button class="btn" @click="modal = null">Volver</button>
+      <button class="btn btn-primario" :disabled="ocupado || f.pendientes.length > 0" @click="finalizar(modal.incluir)"><Icono nombre="check" />Finalizar</button>
+    </template>
+  </Modal>
 
   <!-- Modales -->
   <Modal v-if="modal?.tipo === 'ajuste'" titulo="Esa cantidad ya está en packing lists" ancho="640px" @cerrar="modal = null">

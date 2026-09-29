@@ -116,12 +116,6 @@ class PLAgregar(BaseModel):
     lineas: list[LineaFacturaCantidad] | None = None
 
 
-class PLDividir(BaseModel):
-    version: int
-    pl_linea_id: int
-    partes: list[int] = Field(min_length=1)
-
-
 class MovCantidad(BaseModel):
     pl_linea_id: int
     cantidad: int = Cant
@@ -149,15 +143,20 @@ class PLMoverCajas(BaseModel):
     destino_pl_id: int | None = None
 
 
-class PlantillaPrevia(BaseModel):
+class FilaEmpaque(BaseModel):
+    pl_linea_id: int
     plantilla_id: int
-    pl_linea_ids: list[int] = Field(min_length=1)
+
+
+class EmpaquePrevia(BaseModel):
+    """Empaque automático: cada fila con su propia plantilla."""
+    filas: list[FilaEmpaque] = Field(min_length=1)
     reemplazar: bool = False
 
 
-class PlantillaAplicar(PlantillaPrevia):
+class EmpaqueAplicar(EmpaquePrevia):
     version: int
-    sobrante: Literal["caja_parcial", "sin_caja"] = "sin_caja"
+    sobrante: Literal["caja_parcial", "sin_caja"] = "caja_parcial"
 
 
 class ValoresCaja(BaseModel):
@@ -178,12 +177,6 @@ class CajaManual(ValoresCaja):
     version: int
     items: list[ItemCaja] = Field(min_length=1)
     num_cajas: int = Cant
-    plantilla_id: int | None = None
-
-
-class CajaSobrante(BaseModel):
-    version: int
-    pl_linea_ids: list[int] = Field(min_length=1)
     plantilla_id: int | None = None
 
 
@@ -282,7 +275,9 @@ class UnidadPatch(BaseModel):
 
 class AsignarPL(BaseModel):
     pl_ids: list[int] = Field(min_length=1)
-    modo: Literal["TENTATIVA", "CONFIRMADA"] = "TENTATIVA"
+    # AUTO: confirma los que ya están listos (factura y PL finalizados) y deja
+    # tentativos los demás
+    modo: Literal["TENTATIVA", "CONFIRMADA", "AUTO"] = "TENTATIVA"
     motivo: str | None = None
 
 

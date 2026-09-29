@@ -80,7 +80,14 @@ def test_precio_requiere_motivo(tnf):
     assert r.status_code == 200, r.text
 
 
-def test_packing_list_pendientes_dividir_mover(tnf):
+def _empacar(api, pl_id, version, filas, sobrante="caja_parcial"):
+    """filas: [(pl_linea_id, plantilla_id)]"""
+    return api.post(f"/packing-lists/{pl_id}/empaque/aplicar", {
+        "version": version, "sobrante": sobrante,
+        "filas": [{"pl_linea_id": l, "plantilla_id": t} for l, t in filas]})
+
+
+def test_packing_list_pendientes_mover(tnf):
     fid = estado["fid"]
     r = tnf.post(f"/facturas/{fid}/packing-lists", {})
     assert r.status_code == 200, r.text
@@ -91,20 +98,16 @@ def test_packing_list_pendientes_dividir_mover(tnf):
     assert r.status_code == 409 and r.json()["codigo"] == "sin_saldo"
 
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
+    assert pl["plantillas"] and all(t["proveedor_id"] if "proveedor_id" in t else True for t in pl["plantillas"])
     zap = next(l for l in pl["lineas"] if l["unidad"] == "PAR")
-    r = tnf.post(f"/packing-lists/{pl_id}/dividir", {"version": pl["version"], "pl_linea_id": zap["id"], "partes": [14]})
-    assert r.status_code == 200, r.text
-    pl = tnf.get(f"/packing-lists/{pl_id}").json()
-    partes = [l for l in pl["lineas"] if l["unidad"] == "PAR"]
-    assert sorted(p["cantidad"] for p in partes) == [14, 36]
-
-    # Mover la parte de 14 a un PL nuevo
-    parte14 = next(p for p in partes if p["cantidad"] == 14)
+    # Mover solo 14 de los 50 pares a un PL nuevo (sin dividir antes)
     r = tnf.post(f"/packing-lists/{pl_id}/mover", {"version": pl["version"],
-                 "movimientos": [{"pl_linea_id": parte14["id"], "cantidad": 14}], "destino_pl_id": None})
+                 "movimientos": [{"pl_linea_id": zap["id"], "cantidad": 14}], "destino_pl_id": None})
     assert r.status_code == 200, r.text
     estado["pl2"] = r.json()["destino_id"]
     assert r.json()["destino_numero"] == "PL-002"
+    pl = tnf.get(f"/packing-lists/{pl_id}").json()
+    assert next(l for l in pl["lineas"] if l["unidad"] == "PAR")["cantidad"] == 36
 
 
 def test_plantilla_con_sobrante(tnf):
@@ -114,11 +117,15 @@ def test_plantilla_con_sobrante(tnf):
     chaqueta = next(t for t in plantillas if t["nombre"] == "Caja chaqueta 10 un")
     xl = next(l for l in pl["lineas"] if l["talla"] == "XL")
     assert xl["cantidad"] == 27
-    previa = tnf.post(f"/packing-lists/{pl_id}/plantilla/previa",
-                      {"plantilla_id": chaqueta["id"], "pl_linea_ids": [xl["id"]]}).json()
+    previa = tnf.post(f"/packing-lists/{pl_id}/empaque/previa",
+                      {"filas": [{"pl_linea_id": xl["id"], "plantilla_id": chaqueta["id"]}]}).json()
     assert previa["resumen"]["cajas_completas"] == 2 and previa["resumen"]["sobrante_total"] == 7
-    r = tnf.post(f"/packing-lists/{pl_id}/plantilla/aplicar", {
-        "version": pl["version"], "plantilla_id": chaqueta["id"], "pl_linea_ids": [xl["id"]], "sobrante": "caja_parcial"})
+    # Una plantilla de pares no aplica a una fila en unidades: se omite, no falla
+    calzado = next(t for t in plantillas if t["nombre"] == "Caja calzado 12 pares")
+    previa = tnf.post(f"/packing-lists/{pl_id}/empaque/previa",
+                      {"filas": [{"pl_linea_id": xl["id"], "plantilla_id": calzado["id"]}]}).json()
+    assert previa["resumen"]["filas"] == 0 and previa["filas"][0]["omitida"]
+    r = _empacar(tnf, pl_id, pl["version"], [(xl["id"], chaqueta["id"])])
     assert r.status_code == 200, r.text
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
     grupos = [g for g in pl["grupos"] if g["items"][0]["pl_linea_id"] == xl["id"]]
@@ -150,14 +157,10 @@ def test_empacar_todo_y_finalizar(tnf):
     pl_id = estado["pl"]
     plantillas = {t["nombre"]: t for t in tnf.get("/plantillas").json()}
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
-    un = [l["id"] for l in pl["lineas"] if l["unidad"] == "UN" and l["sin_caja"]]
-    par = [l["id"] for l in pl["lineas"] if l["unidad"] == "PAR" and l["sin_caja"]]
-    r = tnf.post(f"/packing-lists/{pl_id}/plantilla/aplicar", {"version": pl["version"],
-                 "plantilla_id": plantillas["Caja chaqueta 10 un"]["id"], "pl_linea_ids": un, "sobrante": "caja_parcial"})
-    assert r.status_code == 200, r.text
-    v = r.json()["version"]
-    r = tnf.post(f"/packing-lists/{pl_id}/plantilla/aplicar", {"version": v,
-                 "plantilla_id": plantillas["Caja calzado 12 pares"]["id"], "pl_linea_ids": par, "sobrante": "sin_caja"})
+    # Todo en un solo paso: cada fila con la plantilla de su unidad
+    por_unidad = {"UN": plantillas["Caja chaqueta 10 un"]["id"], "PAR": plantillas["Caja calzado 12 pares"]["id"]}
+    filas = [(l["id"], por_unidad[l["unidad"]]) for l in pl["lineas"] if l["sin_caja"]]
+    r = _empacar(tnf, pl_id, pl["version"], filas)
     assert r.status_code == 200, r.text
     v = r.json()["version"]
     # 36 pares / 12 = 3 cajas exactas, sin sobrante; pesos parciales pendientes de confirmar
@@ -170,14 +173,15 @@ def test_empacar_todo_y_finalizar(tnf):
     r = tnf.post(f"/packing-lists/{pl_id}/finalizar", {"version": r.json()["version"]})
     assert r.status_code == 200, r.text
 
-    # PL-002: 14 pares -> 1 caja de 12 + caja sobrante de 2 con valores de la plantilla
+    # PL-002: 14 pares -> 1 caja de 12 + caja parcial de 2. La plantilla se
+    # sugiere sola porque el mismo estilo ya se empacó con ella en PL-001.
     pl2 = tnf.get(f"/packing-lists/{estado['pl2']}").json()
-    ids = [l["id"] for l in pl2["lineas"]]
-    r = tnf.post(f"/packing-lists/{pl2['id']}/plantilla/aplicar", {"version": pl2["version"],
-                 "plantilla_id": plantillas["Caja calzado 12 pares"]["id"], "pl_linea_ids": ids, "sobrante": "sin_caja"})
-    r = tnf.post(f"/packing-lists/{pl2['id']}/cajas/sobrante", {"version": r.json()["version"], "pl_linea_ids": ids})
-    assert r.status_code == 200 and r.json()["cajas"] == 1
+    fila = pl2["lineas"][0]
+    assert fila["plantilla_sugerida_id"] == plantillas["Caja calzado 12 pares"]["id"]
+    r = _empacar(tnf, pl2["id"], pl2["version"], [(fila["id"], fila["plantilla_sugerida_id"])])
+    assert r.status_code == 200 and r.json()["resumen"]["cajas_completas"] == 1, r.text
     pl2 = tnf.get(f"/packing-lists/{pl2['id']}").json()
+    assert [g["num_cajas"] for g in pl2["grupos"]] == [1, 1] and pl2["grupos"][1]["es_parcial"]
     r = tnf.patch(f"/packing-lists/{pl2['id']}/cajas", {"version": pl2["version"],
                   "grupo_ids": [g["id"] for g in pl2["grupos"]], "confirmar_pesos": True})
     r = tnf.post(f"/packing-lists/{pl2['id']}/finalizar", {"version": r.json()["version"]})
@@ -206,6 +210,7 @@ def test_transporte_y_salida(interno, tnf):
     pl_ids = [p["id"] for p in grupo["packing_lists"]]
     r = interno.post(f"/unidades/{unidad['id']}/asignar", {"pl_ids": pl_ids, "modo": "TENTATIVA"})
     assert r.status_code == 200, r.text
+    assert r.json()["tentativos"] == len(pl_ids)
     r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": "2026-10-01T08:00:00"})
     assert r.status_code == 409 and r.json()["codigo"] == "tentativas_pendientes"
     r = interno.post(f"/unidades/{unidad['id']}/confirmar", {"pl_ids": pl_ids})
@@ -230,8 +235,7 @@ def test_eliminar_linea_con_cascada(vans):
     pl_id = vans.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
     pl = vans.get(f"/packing-lists/{pl_id}").json()
     t = next(t for t in vans.get("/plantillas").json() if t["nombre"] == "Master 12 pares")
-    vans.post(f"/packing-lists/{pl_id}/plantilla/aplicar", {"version": pl["version"], "plantilla_id": t["id"],
-              "pl_linea_ids": [l["id"] for l in pl["lineas"]], "sobrante": "sin_caja"})
+    _empacar(vans, pl_id, pl["version"], [(l["id"], t["id"]) for l in pl["lineas"]], "sin_caja")
     f = vans.get(f"/facturas/{fid}").json()
     linea7 = next(l for l in f["lineas"] if l["talla"] == "7")
     r = vans.post(f"/facturas/{fid}/lineas/eliminar", {"version": f["version"], "linea_ids": [linea7["id"]]})
@@ -286,9 +290,43 @@ def test_exportar(tnf):
     assert r.status_code == 200
 
 
-def test_inicio_y_historial(interno, tnf):
-    tarjetas = {t["clave"]: t for t in interno.get("/inicio").json()["tarjetas"]}
-    assert "listas" in tarjetas and "ocs" in tarjetas
+def test_asignacion_automatica(interno, vans):
+    """AUTO confirma lo que está listo y deja tentativo lo demás, en un paso."""
+    e = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "modalidad": "FCL"}).json()
+    nueva = interno.post(f"/embarques/{e['id']}/unidades", {"tipo": "20GP"}).json()["id"]
+    disp = interno.get(f"/unidades/{nueva}/disponibles").json()
+    pls = [p for g in disp for p in g["packing_lists"]]
+    listos = [p for p in pls if p["puede_confirmar"]]
+    assert listos and len(listos) < len(pls)
+    r = interno.post(f"/unidades/{nueva}/asignar", {"pl_ids": [p["id"] for p in pls], "modo": "AUTO"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"asignados": len(pls), "confirmados": len(listos), "tentativos": len(pls) - len(listos)}
+    asignados = {p["id"]: p["asignacion"] for p in interno.get(f"/unidades/{nueva}").json()["asignados"]}
+    assert all(asignados[p["id"]] == "CONFIRMADA" for p in listos)
+    # Confirmar explícitamente sigue exigiendo documentos finalizados
+    pendiente = next(p for p in pls if not p["puede_confirmar"])
+    r = interno.post(f"/unidades/{nueva}/confirmar", {"pl_ids": [pendiente["id"]]})
+    assert r.status_code == 422
+    r = interno.post(f"/unidades/{nueva}/desasignar", {"pl_ids": [p["id"] for p in pls], "motivo": "Prueba"})
+    assert r.status_code == 200, r.text
+
+
+def test_dashboard(interno, tnf):
+    d = interno.get("/dashboard").json()
+    claves = {k["clave"] for k in d["kpis"]}
+    assert {"por_facturar", "listas", "tentativas", "en_camino"} <= claves
+    assert d["proveedores"] and {p["nombre"] for p in d["proveedores"]} >= {"The North Face", "Vans"}
+    assert len(d["facturado_mes"]) == 6 and d["contenedores"] is not None
+    # El proveedor solo ve lo suyo y no recibe datos internos
+    p = tnf.get("/dashboard").json()
+    assert "listas" not in {k["clave"] for k in p["kpis"]}
+    assert p["proveedores"] == [] and p["contenedores"] == [] and p["alertas"] == []
+    assert any(e["estado"] == "EN_TRANSITO" for e in p["envios"])
+    flujo = p["flujo"]
+    assert set(flujo) <= {"PAR", "UN"} and flujo["UN"]["embarcado"] > 0
+
+
+def test_historial(tnf):
     h = tnf.get(f"/facturas/{estado['fid']}/historial").json()
     acciones = {x["accion"] for x in h}
     assert {"crear", "finalizar", "aplicar_plantilla", "asignar_unidad"} <= acciones

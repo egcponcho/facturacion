@@ -3,8 +3,8 @@
 Sistema para que cada proveedor (y el equipo interno) arme sus facturas desde las OCs, las distribuya en packing lists y cajas, y el equipo de importaciones las asigne a unidades de carga y dé seguimiento al embarque.
 
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, PostgreSQL (SQLite para desarrollo rápido).
-- **Frontend:** Vue 3 + Vite, sin librerías de componentes.
-- **Probado:** 16 pruebas del flujo completo en PostgreSQL (15 en SQLite) y un recorrido en navegador real de punta a punta.
+- **Frontend:** Vue 3 + Vite, sin librerías de componentes ni de gráficas (íconos y gráficas en SVG propio).
+- **Probado:** 18 pruebas del flujo completo en PostgreSQL (17 en SQLite) y un recorrido en navegador real de punta a punta, en escritorio y en móvil.
 
 ## Arrancar
 
@@ -57,12 +57,14 @@ La misma imagen funciona en Railway, Fly.io o Google Cloud Run: define `DATABASE
 
 ## Recorrido de 5 minutos
 
-1. Entra como **tnf@demo.com** y ve a *Órdenes de compra*. En la OC 4500012345 usa **Agregar completa**, o ábrela y cambia “A facturar” para tomar solo una parte. Se pueden juntar varias OCs.
-2. En el panel *Selección para facturar* pulsa **Crear factura**. Cambia un precio: te pide motivo.
-3. En *Packing lists* pulsa **Crear packing list con lo pendiente**.
-4. Selecciona todas las filas y **Aplicar plantilla** con “Caja chaqueta 10 un”. La talla XL tiene 27: la vista previa muestra 2 cajas de 10 y un sobrante de 7, y te pregunta si creas una caja parcial (con sus propios valores y peso estimado) o lo dejas sin caja.
-5. En *Cajas* confirma los pesos estimados y **Finaliza** el PL. Vuelve a la factura, completa número y fecha en *Resumen* y finalízala.
-6. Entra como **interno@demo.com**, ve a *Transporte*, abre EMB-0001, el 40HC #1, y asigna la factura completa (o PL sueltos). Registra la salida en *Seguimiento*. El proveedor ve ese estado desde su factura.
+Los datos de prueba ya traen historia: facturas de meses anteriores, un contenedor recibido, otro en tránsito y una factura lista para embarcar, para que el tablero de inicio tenga contenido desde el primer día.
+
+1. Entra como **tnf@demo.com** (en la pantalla de inicio de sesión basta un clic en “The North Face”). El **Inicio** muestra lo que falta facturar, empacar y finalizar, dónde está la mercancía y los envíos en camino.
+2. En *Órdenes de compra*, en la OC 4500012345, pulsa **Facturar** (o ábrela y cambia “A facturar” para tomar solo una parte; se pueden juntar varias OCs). Revisa la selección y pulsa **Crear factura**.
+3. En la factura, los pasos de arriba dicen qué falta. Pulsa **Empacar pendientes**: crea el packing list con todo y lo abre.
+4. En *Por empacar*, pulsa **Empacar con plantillas**. Cada producto trae sugerida la plantilla que se usó antes con ese estilo; la talla XL (27) deja 2 cajas de 10 y un sobrante de 7, que va a una caja parcial con peso estimado (o se queda sin caja, si lo prefieres).
+5. En *Revisión*, **Confirmar estimados** y **Finalizar packing list**. Vuelve a la factura, escribe número y fecha en la cabecera y pulsa **Finalizar**.
+6. Entra como **interno@demo.com**, abre *Embarques* → EMB-0003, elige el 40HC #1 y pulsa **Asignar carga**: marca la factura y asígnala; lo que ya está finalizado se confirma en el mismo paso. Luego **Registrar salida**. El proveedor ve el tránsito desde su factura y su inicio.
 
 ## Cómo quedaron las reglas principales
 
@@ -76,12 +78,26 @@ La misma imagen funciona en Railway, Fly.io o Google Cloud Run: define `DATABASE
 
 - **Reducir en la factura** algo que ya está en PL: el sistema avisa qué PL tienen esa cantidad y ofrece liberar automáticamente lo que no está en cajas. Lo empacado nunca se toca solo.
 - **Quitar líneas** con cantidades en PL: muestra el impacto (PL y cajas) y pide confirmar antes de quitar en cascada.
-- **Dividir** una fila solo toma lo que no está en cajas. Para mover lo empacado se usa **Mover cajas**, que se lleva el contenido y recalcula la numeración.
+- **Empacar con plantillas:** un solo paso para todo el PL (o las filas elegidas), cada fila con su propia plantilla. La sugerencia sale del historial: la última plantilla usada en esa fila o, si no hay, con la que el proveedor empacó el mismo estilo. El sobrante que no llena una caja va a una caja parcial o se deja sin caja para armar cajas mixtas.
+- **Mover a otro PL** toma una cantidad de lo que no está en cajas (ya no hace falta “dividir” antes). Para llevar lo empacado se usa **Mover cajas**, que se lleva el contenido y recalcula la numeración.
 - **Plantillas:** solo llenan datos. Cada caja guarda sus propios valores; editar la plantilla no cambia cajas existentes. No es obligatorio usarlas. Cualquier caja se puede guardar como plantilla nueva.
 - **Cajas parciales:** medidas de la plantilla, peso neto proporcional y bruto = neto + tara. Quedan marcadas como “peso estimado” y el PL no se finaliza hasta confirmarlas.
 - **Cambios masivos** en todo: líneas de factura (precio, cantidad, país de origen, partida, descripción), cajas (medidas, pesos, número de cajas, valores de plantilla, confirmar pesos), mover, quitar y asignar a transporte. Cada acción masiva es todo o nada: si una fila falla, no se aplica ninguna y se explica cuál.
 - **Estados:** Borrador → Finalizado directo; reabrir pasa a “En corrección” y pide motivo. Factura, PL y transporte avanzan por separado; “lista para transporte” se calcula (factura finalizada, todo en PL y todos los PL finalizados).
-- **Transporte:** el embarque existe desde el booking (el BL/AWB se agrega después). Las asignaciones pueden ser **tentativas** (para planificar) o **confirmadas** (solo con factura y PL finalizados). No se registra la salida con tentativas pendientes. Después de la salida, mover o quitar carga pide motivo.
+- **Transporte:** el embarque existe desde el booking (el BL/AWB se agrega después). Sus contenedores y su carga se manejan dentro del mismo embarque. Al asignar, “confirmar los que estén listos” confirma lo que tiene factura y PL finalizados y deja **tentativo** lo demás (para planificar). No se registra la salida con tentativas pendientes. Después de la salida, mover o quitar carga pide motivo.
+
+### Qué se simplificó
+
+| Antes | Ahora |
+|---|---|
+| Inicio con tarjetas de conteo | Tablero por rol: indicadores, próximos pasos, flujo de mercancía, facturado por mes, envíos, contenedores y resumen por proveedor |
+| Factura con 6 pestañas (Resumen y Transporte repetían datos) | Datos editables en la cabecera, pasos de avance y 4 pestañas; el transporte se ve en la de packing lists |
+| “Finalizar” y “Finalizar con sus packing lists” | Un botón con la lista de lo que falta y la opción de incluir los PL |
+| Crear PL, agregar pendientes y crear PL con la selección | **Empacar**: crea el PL o suma lo pendiente al PL abierto |
+| Aplicar plantilla (una a la vez), caja con lo que falta y dividir | **Empacar con plantillas**, cada fila con la suya; mover acepta cantidades parciales |
+| Cambiar medidas y usar valores de plantilla por separado | Una sola ventana de medidas y pesos, con opción de copiar de una plantilla |
+| Embarque → página de la unidad de carga | Contenedores como pestañas dentro del embarque, asignación en un panel lateral |
+| Asignar como tentativo / asignar y confirmar | Un botón que confirma lo que está listo y deja tentativo lo demás |
 - **Separación por proveedor:** el proveedor solo ve lo suyo; si pide un documento ajeno recibe 404, no 403.
 
 ### Concurrencia
@@ -109,7 +125,7 @@ Otras variables: `DATABASE_URL`, `SECRET_KEY` (cámbiala en producción), `SEED_
 
 ## Importar OCs
 
-En *Importar OCs* (equipo interno) se sube el Excel o CSV de SAP. Hay un formato de ejemplo descargable. Primero se ve qué es nuevo, qué cambia, qué no cambia, los conflictos y los errores; nada se guarda hasta confirmar. Los conflictos (por ejemplo, bajar la cantidad por debajo de lo facturado) no se aplican y quedan como alerta en *Pendientes*.
+En *Importar OCs* (equipo interno) se sube el Excel o CSV de SAP. Hay un formato de ejemplo descargable. Primero se ve qué es nuevo, qué cambia, qué no cambia, los conflictos y los errores; nada se guarda hasta confirmar. Los conflictos (por ejemplo, bajar la cantidad por debajo de lo facturado) no se aplican y quedan como alerta en el *Inicio* del equipo interno.
 
 Columnas obligatorias: `proveedor, oc, posicion, sociedad, moneda, codigo_sap, cantidad, unidad, precio`. Opcionales: `centro, pais_destino, incoterm, fecha_oc, upc, estilo, color, talla, descripcion, fecha_entrega, pais_origen, partida_arancelaria, liberada`. Se aceptan algunos alias (`po`, `material`, `qty`, `uom`, `hs_code`…).
 
@@ -129,12 +145,12 @@ TEST_DATABASE_URL=postgresql+psycopg://usuario:clave@localhost/pruebas pytest   
 backend/app/
   config.py          reglas configurables
   models.py          modelo de datos
-  services/          toda la lógica de negocio (cantidades, facturas, packing, transporte, importación)
+  services/          toda la lógica de negocio (cantidades, facturas, packing, transporte, importación, tablero)
   routers/           endpoints REST bajo /api
 backend/tests/       flujo completo y concurrencia
 frontend/src/
-  views/             Órdenes, Facturas, Factura, Packing list, Plantillas, Transporte, Unidad, Importar, Admin
-  components/        tabla editable, barra de acciones masivas, modales, estados
+  views/             Inicio (tablero), Órdenes, Facturas, Factura, Packing list, Plantillas, Embarques, Embarque, Importar, Admin
+  components/        íconos, indicadores, pasos, gráficas SVG, tabla editable, barra de acciones masivas, modales, estados
   stores/            sesión, selección para facturar, avisos
 ```
 

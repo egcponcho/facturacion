@@ -1,15 +1,16 @@
 from fastapi import APIRouter
 
 from ..schemas import PlantillaIn, PlantillaPatch
+from ..services import dashboard as tablero
 from ..services import varios as svc
 from .base import Clave, Db, User, ejecutar
 
 router = APIRouter()
 
 
-@router.get("/inicio")
-def inicio(db: Db, user: User, proveedor_id: int | None = None):
-    return svc.inicio(db, user, proveedor_id)
+@router.get("/dashboard")
+def dashboard(db: Db, user: User, proveedor_id: int | None = None):
+    return tablero.dashboard(db, user, proveedor_id)
 
 
 @router.get("/alertas")
