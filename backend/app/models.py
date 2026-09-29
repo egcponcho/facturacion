@@ -10,6 +10,8 @@ from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     JSON,
+    Column,
+    Table,
     Boolean,
     Date,
     DateTime,
@@ -32,13 +34,87 @@ def ahora() -> datetime:
 
 
 # --------------------------------------------------------------------------
+# Relaciones muchos a muchos de los maestros
+# --------------------------------------------------------------------------
+proveedor_marcas = Table(
+    "proveedor_marcas", Base.metadata,
+    Column("proveedor_id", ForeignKey("proveedores.id", ondelete="CASCADE"), primary_key=True),
+    Column("marca_id", ForeignKey("marcas.id", ondelete="CASCADE"), primary_key=True),
+)
+proveedor_sociedades = Table(
+    "proveedor_sociedades", Base.metadata,
+    Column("proveedor_id", ForeignKey("proveedores.id", ondelete="CASCADE"), primary_key=True),
+    Column("sociedad_id", ForeignKey("sociedades.id", ondelete="CASCADE"), primary_key=True),
+)
+transportista_sociedades = Table(
+    "transportista_sociedades", Base.metadata,
+    Column("transportista_id", ForeignKey("transportistas.id", ondelete="CASCADE"), primary_key=True),
+    Column("sociedad_id", ForeignKey("sociedades.id", ondelete="CASCADE"), primary_key=True),
+)
+centro_puertos = Table(
+    "centro_puertos", Base.metadata,
+    Column("centro_id", ForeignKey("centros.id", ondelete="CASCADE"), primary_key=True),
+    Column("puerto_id", ForeignKey("puertos.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+# --------------------------------------------------------------------------
 # Usuarios y proveedores
 # --------------------------------------------------------------------------
 class Proveedor(Base):
+    """Proveedor (exportador). Maneja sus propias marcas y artículos y solo
+    trabaja con las sociedades que tiene asignadas."""
+
     __tablename__ = "proveedores"
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(30), unique=True)
     nombre: Mapped[str] = mapped_column(String(200))
+    razon_social: Mapped[str | None] = mapped_column(String(200))
+    id_fiscal: Mapped[str | None] = mapped_column(String(40))
+    pais: Mapped[str | None] = mapped_column(String(2))
+    direccion: Mapped[str | None] = mapped_column(String(300))
+    contacto: Mapped[str | None] = mapped_column(String(120))
+    correos: Mapped[str | None] = mapped_column(String(500))
+    telefono: Mapped[str | None] = mapped_column(String(40))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    marcas: Mapped[list["Marca"]] = relationship(secondary=proveedor_marcas, order_by="Marca.codigo")
+    sociedades: Mapped[list["Sociedad"]] = relationship(secondary=proveedor_sociedades, order_by="Sociedad.codigo")
+
+
+class Transportista(Base):
+    """Naviera, aerolínea o empresa de transporte terrestre registrada, con
+    las sociedades para las que puede trabajar."""
+
+    __tablename__ = "transportistas"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    nombre: Mapped[str] = mapped_column(String(150))
+    tipo: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE | MULTIMODAL
+    codigo_internacional: Mapped[str | None] = mapped_column(String(10))  # SCAC o prefijo IATA
+    id_fiscal: Mapped[str | None] = mapped_column(String(40))
+    pais: Mapped[str | None] = mapped_column(String(2))
+    contacto: Mapped[str | None] = mapped_column(String(120))
+    correos: Mapped[str | None] = mapped_column(String(500))
+    telefono: Mapped[str | None] = mapped_column(String(40))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    sociedades: Mapped[list["Sociedad"]] = relationship(secondary=transportista_sociedades, order_by="Sociedad.codigo")
+
+
+class TipoUnidad(Base):
+    """Tipo de unidad de carga por modo de transporte (contenedores, LCL,
+    guía aérea, camión…) con su capacidad nominal."""
+
+    __tablename__ = "tipos_unidad"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    modo: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE
+    modalidad: Mapped[str] = mapped_column(String(10))  # FCL | LCL | AEREO | FTL | LTL
+    capacidad_cbm: Mapped[float | None] = mapped_column(Float)
+    capacidad_kg: Mapped[float | None] = mapped_column(Float)
+    requiere_sello: Mapped[bool] = mapped_column(Boolean, default=False)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -93,6 +169,9 @@ class Centro(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     sociedad: Mapped[Sociedad] = relationship(back_populates="centros")
+    # Puertos por donde puede llegar (el principal es "puerto"); los del
+    # embarque se sugieren de aquí y se pueden cambiar entre ellos
+    puertos: Mapped[list["Puerto"]] = relationship(secondary=centro_puertos, order_by="Puerto.codigo")
 
 
 class Contacto(Base):
@@ -523,9 +602,9 @@ class Embarque(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(20), unique=True)
     tipo_transporte: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE
-    modalidad: Mapped[str | None] = mapped_column(String(10))  # FCL | LCL
     documento_numero: Mapped[str | None] = mapped_column(String(50))  # BL / AWB / CP
-    transportista: Mapped[str | None] = mapped_column(String(100))
+    transportista_id: Mapped[int | None] = mapped_column(ForeignKey("transportistas.id"))
+    transportista: Mapped[str | None] = mapped_column(String(150))  # nombre al momento de asignarlo
     puerto_origen: Mapped[str | None] = mapped_column(String(10))  # códigos del catálogo de puertos
     puerto_destino: Mapped[str | None] = mapped_column(String(10))
     centro: Mapped[str | None] = mapped_column(String(10))  # centro al que llega; su puerto debe coincidir

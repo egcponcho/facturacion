@@ -240,9 +240,8 @@ class PlantillaPatch(BaseModel):
 # ---- Transporte -------------------------------------------------------------
 class EmbarqueIn(BaseModel):
     tipo_transporte: Literal["MARITIMO", "AEREO", "TERRESTRE"] = "MARITIMO"
-    modalidad: Literal["FCL", "LCL"] | None = None
     documento_numero: str | None = None
-    transportista: str | None = None
+    transportista_id: int | None = None
     puerto_origen: str | None = None
     puerto_destino: str | None = None
     centro: str | None = None
@@ -253,9 +252,8 @@ class EmbarqueIn(BaseModel):
 
 class EmbarquePatch(BaseModel):
     tipo_transporte: Literal["MARITIMO", "AEREO", "TERRESTRE"] | None = None
-    modalidad: Literal["FCL", "LCL"] | None = None
     documento_numero: str | None = None
-    transportista: str | None = None
+    transportista_id: int | None = None
     puerto_origen: str | None = None
     puerto_destino: str | None = None
     centro: str | None = None

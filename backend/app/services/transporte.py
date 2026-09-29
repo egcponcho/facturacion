@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from ..config import settings
 from ..models import (
@@ -11,6 +11,8 @@ from ..models import (
     Factura,
     PackingList,
     Puerto,
+    TipoUnidad,
+    Transportista,
     UnidadCarga,
     Usuario,
 )
@@ -63,9 +65,23 @@ EVENTOS_PERMITIDOS = {
 }
 
 
+MODO_TXT = {"MARITIMO": "marítimo", "AEREO": "aéreo", "TERRESTRE": "terrestre"}
+
+
+def _tipo(db: Session, codigo: str) -> TipoUnidad | None:
+    return db.scalar(select(TipoUnidad).where(TipoUnidad.codigo == codigo))
+
+
 def _capacidad(u: UnidadCarga) -> tuple[float | None, float | None]:
-    cbm, kg = settings.CAPACIDADES.get(u.tipo, (None, None))
-    return u.capacidad_cbm or cbm, u.capacidad_kg or kg
+    t = _tipo(object_session(u), u.tipo)
+    return u.capacidad_cbm or (t.capacidad_cbm if t else None), u.capacidad_kg or (t.capacidad_kg if t else None)
+
+
+def modalidad_embarque(e: Embarque) -> str | None:
+    """La modalidad es de cada unidad (FCL, LCL…); un embarque puede ser mixto."""
+    db = object_session(e)
+    mods = {t.modalidad for u in e.unidades if (t := _tipo(db, u.tipo))}
+    return None if not mods else mods.pop() if len(mods) == 1 else "MIXTO"
 
 
 def resumen_unidad(u: UnidadCarga) -> dict:
@@ -78,6 +94,7 @@ def resumen_unidad(u: UnidadCarga) -> dict:
         bruto += t["peso_bruto"]
         cbm += t["cbm"]
     cap_cbm, cap_kg = _capacidad(u)
+    t = _tipo(object_session(u), u.tipo)
     pct_cbm = round(cbm * 100 / cap_cbm, 1) if cap_cbm else None
     pct_kg = round(bruto * 100 / cap_kg, 1) if cap_kg else None
     alertas = []
@@ -99,6 +116,9 @@ def resumen_unidad(u: UnidadCarga) -> dict:
                           if pl_linea.factura_linea.marca}),
         "recolectados": sum(1 for pl in pls if pl.recolectado_en),
         "tipo": u.tipo,
+        "tipo_nombre": t.nombre if t else u.tipo,
+        "modalidad": t.modalidad if t else None,
+        "requiere_sello": bool(t and t.requiere_sello),
         "etiqueta": u.etiqueta,
         "numero": u.numero,
         "sello": u.sello,
@@ -148,8 +168,9 @@ def _cabecera(e: Embarque) -> dict:
         "id": e.id,
         "codigo": e.codigo,
         "tipo_transporte": e.tipo_transporte,
-        "modalidad": e.modalidad,
+        "modalidad": modalidad_embarque(e),
         "documento_numero": e.documento_numero,
+        "transportista_id": e.transportista_id,
         "transportista": e.transportista,
         "puerto_origen": e.puerto_origen,
         "puerto_destino": e.puerto_destino,
@@ -164,30 +185,63 @@ def _cabecera(e: Embarque) -> dict:
 
 
 def _ruta(db: Session, campos: dict, actual: Embarque | None = None) -> dict:
-    """Puertos del catálogo y centro de llegada: el puerto de destino debe ser
-    el del centro. Si falta el puerto de destino se toma el del centro."""
+    """Ruta coherente con el modo de transporte:
+    - los puertos son del catálogo y del tipo del embarque (puerto marítimo,
+      aeropuerto, aduana terrestre);
+    - el destino es uno de los puertos de llegada del centro que recibe: se
+      sugiere el principal y se puede cambiar por otro de sus puertos;
+    - el transportista es del modo y trabaja con la sociedad del centro."""
     for k in ("puerto_origen", "puerto_destino", "centro"):
         if isinstance(campos.get(k), str):
             campos[k] = campos[k].strip().upper() or None
     valor = lambda k: campos[k] if k in campos else (getattr(actual, k) if actual else None)  # noqa: E731
+    modo = valor("tipo_transporte") or "MARITIMO"
     errores = []
     for k, texto in (("puerto_origen", "El puerto de origen"), ("puerto_destino", "El puerto de destino")):
-        if k in campos and campos[k] and not db.scalar(select(Puerto.id).where(Puerto.codigo == campos[k])):
-            errores.append({"campo": k, "mensaje": f"{texto} {campos[k]} no está en el catálogo de puertos."})
+        if k in campos and campos[k]:
+            pto = db.scalar(select(Puerto).where(Puerto.codigo == campos[k]))
+            if not pto:
+                errores.append({"campo": k, "mensaje": f"{texto} {campos[k]} no está en el catálogo de puertos."})
+            elif pto.tipo != modo:
+                errores.append({"campo": k, "mensaje": f"{texto} {pto.codigo} es {MODO_TXT.get(pto.tipo, pto.tipo)}; "
+                                                       f"el embarque es {MODO_TXT[modo]}."})
     centro = valor("centro")
-    if centro:
-        c = db.scalar(select(Centro).where(Centro.codigo == centro))
-        if not c:
-            errores.append({"campo": "centro", "mensaje": f"El centro {centro} no existe."})
-        elif c.puerto:
+    c = db.scalar(select(Centro).where(Centro.codigo == centro)) if centro else None
+    if centro and not c:
+        errores.append({"campo": "centro", "mensaje": f"El centro {centro} no existe."})
+    elif c:
+        permitidos = puertos_centro(db, c, modo)
+        if permitidos:
             if not valor("puerto_destino"):
-                campos["puerto_destino"] = c.puerto
-            elif valor("puerto_destino") != c.puerto:
+                campos["puerto_destino"] = permitidos[0]
+            elif valor("puerto_destino") not in permitidos:
                 errores.append({"campo": "puerto_destino", "mensaje":
-                                f"El centro {centro} recibe por {c.puerto}; el puerto de destino debe coincidir."})
+                                f"El centro {centro} recibe por {', '.join(permitidos)}; elige uno de esos puertos."})
+    if "transportista_id" in campos or ("centro" in campos and valor("transportista_id")):
+        tid = valor("transportista_id")
+        t = db.get(Transportista, tid) if tid else None
+        if tid and (not t or not t.activo):
+            errores.append({"campo": "transportista_id", "mensaje": "El transportista no existe o está inactivo."})
+        elif t:
+            if t.tipo not in (modo, "MULTIMODAL"):
+                errores.append({"campo": "transportista_id", "mensaje":
+                                f"{t.nombre} es {MODO_TXT.get(t.tipo, t.tipo)}; el embarque es {MODO_TXT[modo]}."})
+            if c and c.sociedad_id not in {x.id for x in t.sociedades}:
+                errores.append({"campo": "transportista_id", "mensaje":
+                                f"{t.nombre} no trabaja con la sociedad {c.sociedad.codigo}."})
+            campos["transportista"] = t.nombre
+        else:
+            campos["transportista"] = None
     if errores:
         raise ErrorNegocio("Revisa la ruta del embarque.", 422, "validacion", errores)
     return campos
+
+
+def puertos_centro(db: Session, c: Centro, modo: str) -> list[str]:
+    """Puertos de llegada del centro para ese modo: primero el principal."""
+    todos = ([c.puerto] if c.puerto else []) + [p.codigo for p in c.puertos if p.codigo != c.puerto]
+    tipos = {p.codigo: p.tipo for p in db.scalars(select(Puerto).where(Puerto.codigo.in_(todos)))}
+    return [x for x in todos if tipos.get(x) == modo]
 
 
 def crear_embarque(db: Session, user: Usuario, datos) -> dict:
@@ -204,14 +258,12 @@ def actualizar_embarque(db: Session, user: Usuario, embarque_id: int, datos) -> 
     e = _embarque(db, user, embarque_id)
     campos = datos.model_dump(exclude_unset=True)
     motivo = campos.pop("motivo", None)
-    if {"tipo_transporte", "modalidad"} & set(campos) and e.unidades:
-        cambia = any(campos.get(k, getattr(e, k)) != getattr(e, k) for k in ("tipo_transporte", "modalidad"))
-        if cambia:
+    if "tipo_transporte" in campos and e.unidades:
+        if campos["tipo_transporte"] != e.tipo_transporte:
             raise ErrorNegocio("No se puede cambiar el tipo de transporte de un embarque que ya tiene unidades.",
                                409, "embarque_con_unidades")
     if _salio(e):
-        bloqueados = {"etd", "puerto_origen", "tipo_transporte", "modalidad", "transportista", "documento_numero",
-                      "centro"}
+        bloqueados = {"etd", "puerto_origen", "tipo_transporte", "transportista_id", "documento_numero", "centro"}
         if e.estado != "PLANIFICADO" and e.arribo_real:
             bloqueados |= {"eta", "puerto_destino"}
         tocados = [k for k in campos if k in bloqueados and campos[k] != getattr(e, k)]
@@ -219,7 +271,7 @@ def actualizar_embarque(db: Session, user: Usuario, embarque_id: int, datos) -> 
             raise ErrorNegocio("Esos datos quedaron fijos al registrar la salida"
                                + (" y el arribo" if e.arribo_real else "") + ": " + ", ".join(tocados) + ".",
                                409, "embarque_cerrado")
-    if {"puerto_origen", "puerto_destino", "centro"} & set(campos):
+    if {"puerto_origen", "puerto_destino", "centro", "transportista_id", "tipo_transporte"} & set(campos):
         if "centro" in campos and campos["centro"] and campos["centro"] != e.centro:
             otros = {pl.factura.centro for u in e.unidades for pl in u.packing_lists
                      if pl.estado != "CANCELADO"} - {campos["centro"].strip().upper()}
@@ -266,7 +318,14 @@ def detalle_embarque(db: Session, user: Usuario, embarque_id: int) -> dict:
              "usuario": h.usuario.nombre if h.usuario else None}
             for h in historial
         ],
-        "tipos_unidad": list(settings.CAPACIDADES),
+        # Solo las unidades del modo del embarque (marítimo: contenedores y LCL…)
+        "tipos_unidad": [
+            {"codigo": t.codigo, "nombre": t.nombre, "modalidad": t.modalidad, "capacidad_cbm": t.capacidad_cbm,
+             "capacidad_kg": t.capacidad_kg, "requiere_sello": t.requiere_sello}
+            for t in db.scalars(select(TipoUnidad).where(TipoUnidad.modo == e.tipo_transporte,
+                                                         TipoUnidad.activo.is_(True)).order_by(TipoUnidad.codigo))],
+        "puertos_sugeridos": puertos_centro(db, c, e.tipo_transporte) if (c := db.scalar(
+            select(Centro).where(Centro.codigo == e.centro))) else [],
         "notify": partes(db, None, e.centro)["notify"] if e.centro else None,
         "cerrado": _salio(e),
         "eventos_permitidos": sorted(EVENTOS_PERMITIDOS[e.estado]),
@@ -290,7 +349,8 @@ def _documentos_salida(e: Embarque, pls: list[PackingList]) -> list[str]:
             continue
         if not u.numero:
             faltan.append(f"{u.etiqueta}: número de contenedor o guía.")
-        if e.tipo_transporte == "MARITIMO" and e.modalidad == "FCL" and not u.sello:
+        t = _tipo(object_session(e), u.tipo)
+        if t and t.requiere_sello and not u.sello:
             faltan.append(f"{u.numero or u.etiqueta}: número de sello.")
     return faltan
 
@@ -341,13 +401,21 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
 
 
 # ---- Unidades de carga ------------------------------------------------------
+def _validar_tipo(db: Session, e: Embarque, codigo: str) -> TipoUnidad:
+    t = _tipo(db, codigo)
+    if not t or not t.activo:
+        raise ErrorNegocio(f"El tipo de unidad {codigo} no existe o está inactivo.", 422, "validacion")
+    if t.modo != e.tipo_transporte:
+        raise ErrorNegocio(f"{t.nombre} es de transporte {MODO_TXT[t.modo]}; el embarque es "
+                           f"{MODO_TXT[e.tipo_transporte]}.", 422, "validacion")
+    return t
+
+
+
 def agregar_unidad(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
     e = _embarque(db, user, embarque_id)
     _exigir_planificado(e, "agregar contenedores")
-    if e.tipo_transporte != "MARITIMO" and datos.tipo in ("20GP", "40GP", "40HC"):
-        raise ErrorNegocio("Un contenedor marítimo solo va en un embarque marítimo.", 422, "validacion")
-    if datos.tipo not in settings.CAPACIDADES:
-        raise ErrorNegocio("Tipo de unidad no válido.", 422, "validacion")
+    _validar_tipo(db, e, datos.tipo)
     n = sum(1 for u in e.unidades if u.tipo == datos.tipo) + 1
     u = UnidadCarga(tipo=datos.tipo, etiqueta=f"{datos.tipo} #{n}",
                     numero=(datos.numero or "").strip() or None, sello=(datos.sello or "").strip() or None)
@@ -364,8 +432,8 @@ def actualizar_unidad(db: Session, user: Usuario, unidad_id: int, datos) -> dict
         _exigir_planificado(u.embarque, "cambiar el contenedor, su número o su sello")
     if campos.get("tipo") and campos["tipo"] != u.tipo and any(pl.estado != "CANCELADO" for pl in u.packing_lists):
         raise ErrorNegocio("No se puede cambiar el tipo de un contenedor con carga.", 409, "con_carga")
-    if "tipo" in campos and campos["tipo"] not in settings.CAPACIDADES:
-        raise ErrorNegocio("Tipo de unidad no válido.", 422, "validacion")
+    if campos.get("tipo"):
+        _validar_tipo(db, u.embarque, campos["tipo"])
     cambios = {}
     for k, v in campos.items():
         v = (v or "").strip() or None if isinstance(v, str) or v is None else v

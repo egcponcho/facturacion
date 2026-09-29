@@ -26,6 +26,8 @@ from ..models import (
     Proveedor,
     Puerto,
     Sociedad,
+    TipoUnidad,
+    Transportista,
     Usuario,
 )
 from .common import ErrorNegocio, exigir, registrar
@@ -39,7 +41,9 @@ def c(nombre, etiqueta, tipo="texto", obligatorio=False, **extra):
 
 
 # tipo: texto | entero | numero | bool | opcion (opciones) | ref (catalogo: guarda el id)
-#       | codigo (catalogo: guarda el código, p. ej. país ISO)
+#       | codigo (catalogo: guarda el código, p. ej. país ISO) | correos
+#       | multi (catalogo: varios registros, p. ej. las marcas de un proveedor)
+MODOS = [["MARITIMO", "Marítimo"], ["AEREO", "Aéreo"], ["TERRESTRE", "Terrestre"]]
 CATALOGOS = {
     "sociedades": {
         "modelo": Sociedad, "titulo": "Sociedades", "singular": "sociedad",
@@ -72,6 +76,8 @@ CATALOGOS = {
             c("tipo", "Tipo", "opcion", obligatorio=True,
               opciones=[["BODEGA_FISCAL", "Bodega fiscal"], ["ZONA_FRANCA", "Zona franca"], ["LOCAL", "Bodega local"],
                         ["TIENDA", "Tienda / CD"]]),
+            c("puertos", "Otros puertos de llegada", "multi", catalogo="puertos",
+              ayuda="Además del principal. El embarque sugiere el principal y permite cambiar entre estos."),
             c("direccion", "Dirección"),
             c("correos", "Correos (notify)", "correos", ayuda="Uno o varios, separados por coma."),
             c("activo", "Activo", "bool", filtro=True),
@@ -157,9 +163,58 @@ CATALOGOS = {
     },
     "proveedores": {
         "modelo": Proveedor, "titulo": "Proveedores", "singular": "proveedor",
+        "ayuda": "Exportadores. Cada uno maneja sus propias marcas y artículos y trabaja con las sociedades asignadas.",
         "campos": [
             c("codigo", "Código", obligatorio=True, max=30, mayus=True),
             c("nombre", "Nombre", obligatorio=True),
+            c("razon_social", "Razón social"),
+            c("id_fiscal", "Identificación fiscal"),
+            c("pais", "País", "codigo", catalogo="paises", filtro=True),
+            c("direccion", "Dirección"),
+            c("contacto", "Contacto"),
+            c("correos", "Correos", "correos", ayuda="Uno o varios, separados por coma."),
+            c("telefono", "Teléfono"),
+            c("marcas", "Marcas que maneja", "multi", catalogo="marcas", filtro=True),
+            c("sociedades", "Sociedades con las que trabaja", "multi", catalogo="sociedades", filtro=True),
+            c("activo", "Activo", "bool", filtro=True),
+        ],
+        "extras": [{"nombre": "articulos", "etiqueta": "Artículos", "catalogo": "articulos", "filtro": "proveedor_id"}],
+        "buscar": ["codigo", "nombre", "razon_social"],
+    },
+    "transportistas": {
+        "modelo": Transportista, "titulo": "Transportistas", "singular": "transportista",
+        "ayuda": "Navieras, aerolíneas y transporte terrestre registrados, con las sociedades para las que trabajan.",
+        "campos": [
+            c("codigo", "Código", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Nombre", obligatorio=True),
+            c("tipo", "Tipo", "opcion", obligatorio=True, filtro=True, opciones=MODOS + [["MULTIMODAL", "Multimodal"]]),
+            c("codigo_internacional", "SCAC / IATA", max=10, mayus=True,
+              ayuda="SCAC de la naviera o prefijo IATA de la aerolínea."),
+            c("id_fiscal", "Identificación fiscal"),
+            c("pais", "País", "codigo", catalogo="paises"),
+            c("contacto", "Contacto"),
+            c("correos", "Correos", "correos"),
+            c("telefono", "Teléfono"),
+            c("sociedades", "Sociedades con las que trabaja", "multi", catalogo="sociedades", obligatorio=True,
+              filtro=True),
+            c("activo", "Activo", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre", "codigo_internacional"],
+    },
+    "tipos_unidad": {
+        "modelo": TipoUnidad, "titulo": "Tipos de unidad", "singular": "tipo de unidad",
+        "ayuda": "Unidades de carga por modo de transporte con su capacidad. El embarque solo ofrece las de su modo; "
+                 "la modalidad (FCL, LCL…) es de cada unidad, así un embarque puede ser mixto.",
+        "campos": [
+            c("codigo", "Código", obligatorio=True, max=10, mayus=True),
+            c("nombre", "Nombre", obligatorio=True),
+            c("modo", "Modo de transporte", "opcion", obligatorio=True, filtro=True, opciones=MODOS),
+            c("modalidad", "Modalidad", "opcion", obligatorio=True, filtro=True,
+              opciones=[["FCL", "FCL · contenedor completo"], ["LCL", "LCL · carga consolidada"],
+                        ["AEREO", "Carga aérea"], ["FTL", "FTL · camión completo"], ["LTL", "LTL · carga parcial"]]),
+            c("capacidad_cbm", "Volumen máximo (m³)", "numero", minimo=0),
+            c("capacidad_kg", "Peso máximo (kg)", "numero", minimo=0),
+            c("requiere_sello", "Requiere sello", "bool"),
             c("activo", "Activo", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
@@ -178,7 +233,8 @@ CATALOGOS = {
             c("descripcion", "Descripción"),
             c("marca_id", "Marca", "ref", obligatorio=True, catalogo="marcas", filtro=True),
             c("grupo_id", "Grupo", "ref", obligatorio=True, catalogo="grupos", filtro=True),
-            c("proveedor_id", "Proveedor", "ref", catalogo="proveedores", filtro=True),
+            c("proveedor_id", "Proveedor", "ref", obligatorio=True, catalogo="proveedores", filtro=True,
+              ayuda="Cada proveedor maneja sus artículos; la marca debe ser una de las suyas."),
             c("tipo", "Tipo", "opcion", obligatorio=True, filtro=True,
               opciones=[["SOLIDO", "Sólido"], ["PREPACK", "Prepack"]]),
             c("unidad", "Unidad", "opcion", obligatorio=True, opciones=UNIDADES, filtro=True),
@@ -208,7 +264,7 @@ CATALOGOS = {
     },
 }
 ORDEN_CATALOGOS = ["articulos", "prepacks", "marcas", "grupos", "proveedores", "sociedades", "centros",
-                   "contactos", "almacenes", "paises", "puertos"]
+                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
 
@@ -244,6 +300,10 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
     fila = {"id": obj.id}
     for campo in cat["campos"]:
         v = getattr(obj, campo["nombre"])
+        if campo["tipo"] == "multi":
+            fila[campo["nombre"]] = [x.id for x in v]
+            fila[campo["nombre"] + "_txt"] = ", ".join(x.codigo for x in v) or None
+            continue
         fila[campo["nombre"]] = v
         if campo["tipo"] == "ref" and v:
             fila[campo["nombre"] + "_txt"] = refs.get((campo["catalogo"], v))
@@ -299,13 +359,16 @@ def listar(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dict, 
         if k not in nombres or v in (None, ""):
             continue
         campo = nombres[k]
+        if campo["tipo"] == "multi":
+            consulta = consulta.where(getattr(modelo, k).any(id=int(v)))
+            continue
         if campo["tipo"] == "bool":
             v = str(v).lower() in ("1", "true", "si", "sí")
         elif campo["tipo"] in ("ref", "entero"):
             v = int(v)
         consulta = consulta.where(getattr(modelo, k) == v)
     col, _, direccion = (orden or "").partition(":")
-    if col in nombres:
+    if col in nombres and nombres[col]["tipo"] != "multi":
         expr = getattr(modelo, col)
         consulta = consulta.order_by(expr.desc() if direccion == "desc" else expr.asc(), modelo.id)
     else:
@@ -342,7 +405,13 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             v = v.strip()
             if campo.get("mayus"):
                 v = v.upper()
-        if v in ("", None):
+        if v in ("", None) or (campo["tipo"] == "multi" and v == [] and not campo["obligatorio"]):
+            if campo["tipo"] == "multi":
+                if campo["obligatorio"]:
+                    errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: elige al menos uno."})
+                else:
+                    limpio[n] = []
+                continue
             v = None
         if v is None:
             if campo["obligatorio"]:
@@ -371,6 +440,16 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                     continue
             elif t == "opcion" and v not in [o[0] for o in campo["opciones"]]:
                 raise ValueError
+            elif t == "multi":
+                ids = v if isinstance(v, list) else [x for x in str(v).split(",") if x.strip()]
+                modelo = CATALOGOS[campo["catalogo"]]["modelo"]
+                objs = list(db.scalars(select(modelo).where(modelo.id.in_([int(x) for x in ids])))) if ids else []
+                if len(objs) != len(set(int(x) for x in ids)):
+                    raise ValueError
+                if campo["obligatorio"] and not objs:
+                    errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: elige al menos uno."})
+                    continue
+                v = objs
             elif t == "correos":
                 lista = [x.strip().lower() for x in re.split(r"[,;\s]+", str(v)) if x.strip()]
                 malos = [x for x in lista if not re.match(CORREO, x)]
@@ -415,6 +494,18 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             limpio["prepack_id"] = None
             if final.get("unidad") == "CJ":
                 errores.append({"campo": "unidad", "mensaje": "Un sólido se maneja en pares o unidades."})
+    if cat["modelo"] is Articulo and final.get("proveedor_id") and final.get("marca_id"):
+        prov = db.get(Proveedor, final["proveedor_id"])
+        if prov and prov.marcas and final["marca_id"] not in {m.id for m in prov.marcas}:
+            errores.append({"campo": "marca_id", "mensaje":
+                            f"La marca no es de {prov.nombre}; sus marcas son {', '.join(m.codigo for m in prov.marcas)}."})
+    if cat["modelo"] is Proveedor and actual and "marcas" in limpio:
+        quedan = {m.id for m in limpio["marcas"]}
+        usadas = {m for (m,) in db.execute(select(Articulo.marca_id).where(Articulo.proveedor_id == actual.id).distinct())}
+        if quedan and usadas - quedan:
+            nombres_m = [m.codigo for m in db.scalars(select(Marca).where(Marca.id.in_(usadas - quedan)))]
+            errores.append({"campo": "marcas", "mensaje":
+                            f"El proveedor tiene artículos de {', '.join(nombres_m)}: no se pueden quitar esas marcas."})
     if cat["modelo"] is Contacto and not final.get("sociedad_id") and not final.get("centro_id"):
         errores.append({"campo": "sociedad_id", "mensaje": "Indica la sociedad o el centro del contacto."})
     if cat["modelo"] is Prepack and actual:
@@ -457,7 +548,11 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
     cambios = {}
     for k, v in limpio.items():
         if getattr(obj, k) != v:
-            cambios[k] = [getattr(obj, k), v]
+            antes = getattr(obj, k)
+            if isinstance(v, list):  # relaciones: se guardan los códigos en el historial
+                cambios[k] = [[x.codigo for x in antes], [x.codigo for x in v]]
+            else:
+                cambios[k] = [antes, v]
             setattr(obj, k, v)
     try:
         with db.begin_nested():

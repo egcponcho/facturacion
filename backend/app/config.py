@@ -31,7 +31,7 @@ class Settings:
     SEED_DEMO: bool = _bool("SEED_DEMO", True)
     # Versión del esquema de datos. En modo demo (SEED_DEMO=1), si la base
     # tiene otra versión se borra y se vuelve a crear con los datos de prueba.
-    ESQUEMA_VERSION: str = "6"
+    ESQUEMA_VERSION: str = "7"
     CORS_ORIGINS: list[str] = [
         o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
     ]
@@ -60,15 +60,6 @@ class Settings:
     COMPATIBILIDAD_BLOQUEANTE: tuple[str, ...] = ("sociedad", "moneda", "centro")
     COMPATIBILIDAD_ADVERTENCIA: tuple[str, ...] = ("incoterm", "centro_destino")
 
-    # Capacidad nominal por tipo de unidad de carga: (CBM, kg)
-    CAPACIDADES: dict[str, tuple[float | None, float | None]] = {
-        "20GP": (33.0, 28000.0),
-        "40GP": (67.0, 26500.0),
-        "40HC": (76.0, 26500.0),
-        "LCL": (None, None),
-        "AEREO": (None, None),
-        "CAMION": (None, None),
-    }
 
 
 settings = Settings()

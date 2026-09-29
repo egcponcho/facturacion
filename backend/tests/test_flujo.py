@@ -316,6 +316,10 @@ def test_importacion_oc(interno):
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("x.csv", (
         enc + fila("4400009998", "10", "NOEXISTE", 1)).encode(), "text/csv")})
     assert r.json()["resumen"]["error"] == 1 and "maestro" in r.json()["filas"][0]["mensajes"][0]
+    # El SKU debe ser del proveedor de la OC
+    r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("p.csv", (
+        enc + fila("4400009995", "10", "30095120001", 5)).encode(), "text/csv")})
+    assert r.json()["resumen"]["error"] == 1 and "otro proveedor" in " ".join(r.json()["filas"][0]["mensajes"])
     # Dos liberaciones: sin comercial (P) no puede haber logística 300/301; nueva sin código logístico = 304
     enc_log = enc.strip() + ",liberacion_logistica\n"
     fila_log = lambda oc_n, lib, log: fila(oc_n, "10", pos10["codigo_sap"], 12, lib).strip() + f",{log}\n"  # noqa: E731
@@ -356,7 +360,29 @@ def test_asignacion_automatica(interno, vans):
     # El puerto de destino debe ser el del centro de llegada
     r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "modalidad": "FCL", "centro": "8010",
                                     "puerto_destino": "PAONX"})
-    assert r.status_code == 422 and "debe coincidir" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "elige uno de esos puertos" in r.json()["detalle"][0]["mensaje"]
+    # Puertos sugeridos del centro: se puede cambiar a otro de sus puertos del mismo modo
+    r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "centro": "8010", "puerto_destino": "SVLUN"})
+    assert r.status_code == 200, r.text
+    r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "puerto_origen": "HKG"})
+    assert r.status_code == 422 and "aéreo" in r.json()["detalle"][0]["mensaje"]
+    # Transportista del modo y de la sociedad del centro
+    trans = {t["codigo"]: t["id"] for t in interno.get("/catalogos/transportistas").json()["items"]}
+    r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "centro": "8010", "transportista_id": trans["AVCG"]})
+    assert r.status_code == 422 and "aéreo" in r.json()["detalle"][0]["mensaje"]
+    r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "centro": "8010", "transportista_id": trans["CMDU"]})
+    assert r.status_code == 422 and "no trabaja con la sociedad 8000" in r.json()["detalle"][0]["mensaje"]
+    aereo = interno.post("/embarques", {"tipo_transporte": "AEREO", "centro": "8010", "transportista_id": trans["AVCG"]}).json()
+    det = interno.get(f"/embarques/{aereo['id']}").json()
+    assert det["puerto_destino"] == "SAL" and det["transportista"] == "Avianca Cargo"
+    assert {t["codigo"] for t in det["tipos_unidad"]} == {"AWB"}
+    # Solo unidades del modo; la modalidad es de cada unidad (un marítimo puede ser mixto)
+    assert interno.post(f"/embarques/{aereo['id']}/unidades", {"tipo": "40HC"}).status_code == 422
+    mar = interno.post("/embarques", {"tipo_transporte": "MARITIMO"}).json()
+    interno.post(f"/embarques/{mar['id']}/unidades", {"tipo": "40HC"})
+    assert interno.get(f"/embarques/{mar['id']}").json()["modalidad"] == "FCL"
+    interno.post(f"/embarques/{mar['id']}/unidades", {"tipo": "LCL"})
+    assert interno.get(f"/embarques/{mar['id']}").json()["modalidad"] == "MIXTO"
     e = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "modalidad": "FCL", "centro": "8010"}).json()
     assert interno.get(f"/embarques/{e['id']}").json()["puerto_destino"] == "SVAQJ"
     u8010 = interno.post(f"/embarques/{e['id']}/unidades", {"tipo": "20GP"}).json()["id"]
@@ -474,7 +500,18 @@ def test_catalogos(interno, tnf):
     assert r.status_code == 409 and r.json()["codigo"] == "en_uso"
     # El número de artículo es numérico (p. ej. 30095120001)
     grupos = interno.get("/catalogos/grupos").json()["items"]
-    base = {"estilo": "E1", "color": "Rojo", "marca_id": tnf_marca["id"], "grupo_id": grupos[0]["id"]}
+    provs = {p["codigo"]: p for p in interno.get("/catalogos/proveedores").json()["items"]}
+    base = {"estilo": "E1", "color": "Rojo", "marca_id": tnf_marca["id"], "grupo_id": grupos[0]["id"],
+            "proveedor_id": provs["TNF"]["id"]}
+    # El proveedor maneja sus marcas: un artículo de TNF no puede ser de otra marca
+    vans_marca = next(m for m in interno.get("/catalogos/marcas").json()["items"] if m["codigo"] == "VANS")
+    r = interno.post("/catalogos/articulos", {**base, "marca_id": vans_marca["id"], "sku": "30099990009", "talla": "9",
+                                              "tipo": "SOLIDO", "unidad": "PAR"})
+    assert r.status_code == 422 and any(d["campo"] == "marca_id" for d in r.json()["detalle"])
+    # Y no puede dejar de manejar una marca de la que tiene artículos
+    r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": [vans_marca["id"]]})
+    assert r.status_code == 422 and "tiene artículos" in r.json()["detalle"][0]["mensaje"]
+    assert provs["TNF"]["marcas_txt"] == "TNF" and "8000" in provs["TNF"]["sociedades_txt"]
     r = interno.post("/catalogos/articulos", {**base, "sku": "X1", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
     assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "sku"
     # Un prepack no se crea como artículo suelto: se crea con su código y su explosión

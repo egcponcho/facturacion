@@ -30,6 +30,8 @@ from .models import (
     Proveedor,
     Puerto,
     Sociedad,
+    TipoUnidad,
+    Transportista,
     UnidadCarga,
     Usuario,
 )
@@ -84,7 +86,36 @@ PUERTOS = [
     ("CNSHA", "Shanghái", "CN"), ("IDJKT", "Yakarta", "ID"), ("KHKOS", "Sihanoukville", "KH"),
     ("SVAQJ", "Acajutla", "SV"), ("PAONX", "Colón (Manzanillo)", "PA"), ("PABLB", "Balboa", "PA"),
     ("GTSTC", "Santo Tomás de Castilla", "GT"), ("HNPCR", "Puerto Cortés", "HN"), ("NICIO", "Corinto", "NI"),
-    ("CRLIO", "Limón (Moín)", "CR"),
+    ("CRLIO", "Limón (Moín)", "CR"), ("SVLUN", "La Unión", "SV"),
+]
+# Aeropuertos y aduanas terrestres: el embarque solo ofrece los de su modo
+PUERTOS_OTROS = [
+    ("SAL", "San Salvador (aeropuerto)", "SV", "AEREO"), ("PTY", "Tocumen (aeropuerto)", "PA", "AEREO"),
+    ("HKG", "Hong Kong (aeropuerto)", "HK", "AEREO"), ("SGN", "Ho Chi Minh (aeropuerto)", "VN", "AEREO"),
+    ("SVHAC", "La Hachadura (frontera)", "SV", "TERRESTRE"), ("GTPDA", "Pedro de Alvarado (frontera)", "GT", "TERRESTRE"),
+]
+# Otros puertos por los que puede llegar cada centro (además del principal)
+PUERTOS_CENTRO = {
+    "8010": ["SVLUN", "SAL", "SVHAC"], "8020": ["SVLUN", "SAL", "SVHAC"], "2220": ["SAL"],
+    "PA10": ["PABLB", "PTY"], "PA20": ["PAONX", "PTY"], "5910": ["PTY"],
+}
+# Tipos de unidad por modo, con capacidad nominal (m³, kg)
+TIPOS_UNIDAD = [
+    ("20GP", "Contenedor 20' estándar", "MARITIMO", "FCL", 33, 28000, True),
+    ("40GP", "Contenedor 40' estándar", "MARITIMO", "FCL", 67, 26500, True),
+    ("40HC", "Contenedor 40' high cube", "MARITIMO", "FCL", 76, 26500, True),
+    ("LCL", "Carga consolidada (LCL)", "MARITIMO", "LCL", None, None, False),
+    ("AWB", "Guía aérea", "AEREO", "AEREO", None, 5000, False),
+    ("FTL53", "Camión completo 53'", "TERRESTRE", "FTL", 110, 22000, True),
+    ("LTL", "Carga parcial terrestre", "TERRESTRE", "LTL", None, None, False),
+]
+# código, nombre, tipo, SCAC/IATA, país, correos, sociedades
+TRANSPORTISTAS = [
+    ("MAEU", "Maersk", "MARITIMO", "MAEU", "DK", "centroamerica@maersk.demo", ["8000", "PA01", "GT01", "HN01"]),
+    ("COSU", "COSCO Shipping", "MARITIMO", "COSU", "CN", "ca@cosco.demo", ["8000", "PA01"]),
+    ("CMDU", "CMA CGM", "MARITIMO", "CMDU", "FR", "ca@cmacgm.demo", ["PA01", "CR01", "NI01"]),
+    ("AVCG", "Avianca Cargo", "AEREO", "134", "CO", "cargo@avianca.demo", ["8000", "PA01", "GT01"]),
+    ("TDS", "Transportes del Sur", "TERRESTRE", None, "SV", "operaciones@tds.demo", ["8000", "GT01", "HN01"]),
 ]
 MARCAS = [("TNF", "The North Face"), ("VANS", "Vans"), ("MERR", "Merrell"), ("CAT", "Caterpillar"),
           ("HPU", "Hush Puppies"), ("ADOC", "ADOC")]
@@ -141,12 +172,20 @@ def _catalogos(db: Session) -> dict:
         db.add(Contacto(nombre=nombre, cargo=cargo, rol=rol, correos=correos, telefono=tel,
                         sociedad_id=socs[codigo].id if tipo == "sociedad" else None,
                         centro_id=centros[codigo].id if tipo == "centro" else None))
-    db.add_all([Puerto(codigo=c, nombre=n, pais=p) for c, n, p in PUERTOS])
+    puertos = {c: Puerto(codigo=c, nombre=n, pais=p, tipo="MARITIMO") for c, n, p in PUERTOS}
+    puertos.update({c: Puerto(codigo=c, nombre=n, pais=p, tipo=t) for c, n, p, t in PUERTOS_OTROS})
+    db.add_all(puertos.values())
+    for c, lista in PUERTOS_CENTRO.items():
+        centros[c].puertos = [puertos[x] for x in lista]
+    db.add_all([TipoUnidad(codigo=c, nombre=n, modo=m, modalidad=md, capacidad_cbm=cbm, capacidad_kg=kg,
+                           requiere_sello=sello) for c, n, m, md, cbm, kg, sello in TIPOS_UNIDAD])
+    db.add_all([Transportista(codigo=c, nombre=n, tipo=t, codigo_internacional=ci, pais=pais, correos=correos,
+                              sociedades=[socs[x] for x in lista]) for c, n, t, ci, pais, correos, lista in TRANSPORTISTAS])
     marcas = {c: Marca(codigo=c, nombre=n) for c, n in MARCAS}
     grupos = {c: GrupoArticulo(codigo=c, nombre=n, categoria=cat) for c, n, cat in GRUPOS}
     db.add_all([*marcas.values(), *grupos.values()])
     db.flush()
-    return {"marcas": marcas, "grupos": grupos}
+    return {"marcas": marcas, "grupos": grupos, "sociedades": socs}
 
 
 def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
@@ -261,7 +300,7 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
     """Meses anteriores ya facturados y embarcados, para que el tablero tenga
     historia: un contenedor recibido, otro en tránsito y una factura lista
     para embarcar."""
-    recibido = Embarque(codigo="EMB-0001", tipo_transporte="MARITIMO", modalidad="FCL", transportista="Maersk",
+    recibido = Embarque(codigo="EMB-0001", tipo_transporte="MARITIMO", transportista="Maersk",
                         documento_numero="MAEU 221877310", puerto_origen="VNCMT", puerto_destino="SVAQJ", centro="8010",
                         etd=hoy - timedelta(days=88), eta=hoy - timedelta(days=58),
                         salida_real=hoy - timedelta(days=87), arribo_real=hoy - timedelta(days=57), estado="RECIBIDO")
@@ -271,7 +310,7 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
                               ("ARRIBO", 57, "Acajutla (SV)"), ("ENTREGA", 55, "Bodega fiscal 8010"),
                               ("RECEPCION", 54, "Bodega fiscal 8010")):
         recibido.eventos.append(EventoEmbarque(tipo=tipo, fecha=_momento(hoy - timedelta(days=dias), 9), ubicacion=lugar))
-    transito = Embarque(codigo="EMB-0002", tipo_transporte="MARITIMO", modalidad="FCL", transportista="COSCO",
+    transito = Embarque(codigo="EMB-0002", tipo_transporte="MARITIMO", transportista="COSCO Shipping",
                         documento_numero="COSU 640018225", puerto_origen="CNYTN", puerto_destino="SVAQJ", centro="8010",
                         etd=hoy - timedelta(days=19), eta=hoy + timedelta(days=9),
                         salida_real=hoy - timedelta(days=18), estado="EN_TRANSITO")
@@ -310,8 +349,12 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
 def seed(db: Session) -> None:
     if db.scalar(select(func.count(Usuario.id))):
         return
-    tnf = Proveedor(codigo="TNF", nombre="The North Face")
-    vans = Proveedor(codigo="VANS", nombre="Vans")
+    tnf = Proveedor(codigo="TNF", nombre="The North Face", razon_social="VF Outdoor Asia Sourcing Ltd.",
+                    id_fiscal="HK-51902231", pais="VN", direccion="Lot C-5, Tan Thuan EPZ, Ho Chi Minh, Vietnam",
+                    contacto="Linh Nguyen", correos="export.tnf@vf.demo", telefono="+84 28 3770 1234")
+    vans = Proveedor(codigo="VANS", nombre="Vans", razon_social="Vans Footwear Sourcing Co.",
+                     id_fiscal="CN-91440300", pais="CN", direccion="Nanshan District, Shenzhen, China",
+                     contacto="Wei Chen", correos="export.vans@vans.demo", telefono="+86 755 2660 8899")
     db.add_all([tnf, vans])
     db.flush()
     pw = hash_password("demo123")
@@ -327,6 +370,12 @@ def seed(db: Session) -> None:
     ])
     db.flush()
     cat = _catalogos(db)
+    # Cada proveedor maneja sus marcas y trabaja con sus sociedades
+    tnf.marcas = [cat["marcas"]["TNF"]]
+    vans.marcas = [cat["marcas"]["VANS"]]
+    tnf.sociedades = [cat["sociedades"]["8000"], cat["sociedades"]["PA01"]]
+    vans.sociedades = [cat["sociedades"]["8000"], cat["sociedades"]["PA01"]]
+    db.flush()
     arts = _articulos(db, cat, {"TNF": tnf, "VANS": vans})
     hoy = date.today()
     d = lambda n: hoy + timedelta(days=n)  # noqa: E731
@@ -376,11 +425,17 @@ def seed(db: Session) -> None:
     _historial_demo(db, hoy, tnf, vans, (u_tnf, u_vans), {
         "NF0A5GLL": chaqueta, "NF0A3VY2": mochila, "NF0A7W4G": calzado, "NF0A5IHO": fleece, "VN000EE3": master12},
         arts)
-    e = Embarque(codigo="EMB-0003", tipo_transporte="MARITIMO", modalidad="FCL", transportista="Maersk",
+    e = Embarque(codigo="EMB-0003", tipo_transporte="MARITIMO", transportista="Maersk",
                  puerto_origen="VNSGN", puerto_destino="SVAQJ",
                  etd=hoy + timedelta(days=12), eta=hoy + timedelta(days=42))
     e.unidades.append(UnidadCarga(tipo="40HC", etiqueta="40HC #1"))
+    # Embarque mixto: un contenedor completo (FCL) y carga consolidada (LCL)
+    e.unidades.append(UnidadCarga(tipo="LCL", etiqueta="LCL #1"))
     db.add(e)
+    db.flush()
+    trans = {t.nombre: t.id for t in db.scalars(select(Transportista))}
+    for emb in db.scalars(select(Embarque)):
+        emb.transportista_id = trans.get(emb.transportista)
     db.commit()
 
 
