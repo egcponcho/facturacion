@@ -44,14 +44,17 @@ const EVENTOS = [
 const nombreEvento = (t) => EVENTOS.find((x) => x[0] === t)?.[1] || t
 const HITOS = [['PLANIFICADO', 'Planificado'], ['EN_TRANSITO', 'En tránsito'], ['ARRIBADO', 'Arribado'], ['ENTREGADO', 'Entregado'], ['RECIBIDO', 'Recibido']]
 const SIGUIENTE = { PLANIFICADO: 'SALIDA', EN_TRANSITO: 'ARRIBO', ARRIBADO: 'ENTREGA', ENTREGADO: 'RECEPCION' }
+// El cuarto valor marca lo que exige el documento de transporte (BL, AWB o
+// carta de porte): sin eso no se registra la salida.
 const CAMPOS = [
-  ['documento_numero', 'BL / AWB', 'text'],
-  ['transportista', 'Naviera o transportista', 'text'],
-  ['puerto_origen', 'Origen', 'text'],
-  ['puerto_destino', 'Destino', 'text'],
-  ['etd', 'ETD (salida estimada)', 'date'],
-  ['eta', 'ETA (llegada estimada)', 'date'],
+  ['documento_numero', 'BL / AWB', 'text', true],
+  ['transportista', 'Naviera o transportista', 'text', true],
+  ['puerto_origen', 'Origen', 'text', true],
+  ['puerto_destino', 'Destino', 'text', true],
+  ['etd', 'ETD (salida estimada)', 'date', false],
+  ['eta', 'ETA (llegada estimada)', 'date', false],
 ]
+const exigeSello = computed(() => e.value?.tipo_transporte === 'MARITIMO' && e.value?.modalidad === 'FCL')
 const indiceEstado = computed(() => HITOS.findIndex(([k]) => k === e.value?.estado))
 const icono = computed(() => ({ AEREO: 'avion', TERRESTRE: 'camion' })[e.value?.tipo_transporte] || 'barco')
 const totales = computed(() => (e.value?.unidades || []).reduce((a, x) => ({
@@ -255,9 +258,9 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
       </ol>
       <p v-if="e.estado === 'PLANIFICADO' && totales.tentativas" class="nota aviso mt"><Icono nombre="alerta" />Hay {{ plural(totales.tentativas, 'packing list tentativo', 'packing lists tentativos') }}. Confírmalos o quítalos antes de registrar la salida.</p>
       <div class="doc-datos">
-        <label v-for="[campo, texto, tipo] in CAMPOS" :key="campo" class="dato">
-          <span>{{ texto }}</span>
-          <CeldaEditable :tipo="tipo" :valor="e[campo]" :guardar="guardar(campo)" :etiqueta="texto" :vacia-texto="campo === 'documento_numero' ? 'Pendiente' : ''" />
+        <label v-for="[campo, texto, tipo, obligatorio] in CAMPOS" :key="campo" class="dato">
+          <span :class="{ req: obligatorio }">{{ texto }}</span>
+          <CeldaEditable :tipo="tipo" :valor="e[campo]" :guardar="guardar(campo)" :etiqueta="texto" :vacia-texto="obligatorio ? 'Obligatorio' : ''" />
         </label>
         <div class="dato"><span>Salida real</span><b>{{ fmtFecha(e.salida_real) }}</b></div>
         <div class="dato"><span>Arribo real</span><b>{{ fmtFecha(e.arribo_real) }}</b></div>
@@ -287,11 +290,11 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
         <div class="dos-columnas mt" style="align-items: start">
           <div>
             <div class="rejilla-campos">
-              <label class="dato"><span>Número de contenedor o guía</span>
-                <CeldaEditable :valor="u.numero" :guardar="guardarUnidad('numero')" etiqueta="Número" vacia-texto="Pendiente" />
+              <label class="dato"><span class="req">Número de contenedor o guía</span>
+                <CeldaEditable :valor="u.numero" :guardar="guardarUnidad('numero')" etiqueta="Número" vacia-texto="Obligatorio" />
               </label>
-              <label class="dato"><span>Sello</span>
-                <CeldaEditable :valor="u.sello" :guardar="guardarUnidad('sello')" etiqueta="Sello" vacia-texto="Pendiente" />
+              <label class="dato"><span :class="{ req: exigeSello }">Sello</span>
+                <CeldaEditable :valor="u.sello" :guardar="guardarUnidad('sello')" etiqueta="Sello" :vacia-texto="exigeSello ? 'Obligatorio' : ''" />
               </label>
             </div>
             <p v-if="e.estado !== 'PLANIFICADO'" class="nota aviso mt"><Icono nombre="alerta" />El embarque ya salió: cualquier cambio de carga pide un motivo y queda en el historial.</p>
@@ -483,13 +486,13 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
 
   <Modal v-if="modal?.tipo === 'unidad'" titulo="Agregar contenedor" @cerrar="modal = null">
     <div class="rejilla-campos">
-      <label class="campo"><span>Tipo</span>
+      <label class="campo"><span class="req">Tipo</span>
         <select v-model="modal.unidad"><option v-for="t in e.tipos_unidad" :key="t" :value="t">{{ t }}</option></select>
       </label>
       <label class="campo"><span>Número (opcional)</span><input v-model="modal.numero" placeholder="MSKU 123456-7" /></label>
       <label class="campo"><span>Sello (opcional)</span><input v-model="modal.sello" /></label>
     </div>
-    <p class="ayuda">El número y el sello se pueden capturar después, cuando la naviera los asigne.</p>
+    <p class="ayuda">El número y el sello se pueden capturar después, cuando la naviera los asigne; son obligatorios para registrar la salida.</p>
     <template #pie>
       <button class="btn" @click="modal = null">Cancelar</button>
       <button class="btn btn-primario" :disabled="ocupado" @click="agregarUnidad">Agregar</button>
@@ -498,10 +501,10 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
 
   <Modal v-if="modal?.tipo === 'evento'" titulo="Registrar evento" @cerrar="modal = null">
     <div class="rejilla-campos">
-      <label class="campo"><span>Evento</span>
+      <label class="campo"><span class="req">Evento</span>
         <select v-model="modal.evento"><option v-for="[v, t] in EVENTOS" :key="v" :value="v">{{ t }}</option></select>
       </label>
-      <label class="campo"><span>Fecha y hora</span><input v-model="modal.fecha" type="datetime-local" required /></label>
+      <label class="campo"><span class="req">Fecha y hora</span><input v-model="modal.fecha" type="datetime-local" required /></label>
       <label class="campo"><span>Ubicación</span><input v-model="modal.ubicacion" /></label>
       <label class="campo"><span>Observación</span><input v-model="modal.observacion" /></label>
     </div>
@@ -514,7 +517,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
 
   <Modal v-if="modal?.tipo === 'quitar'" titulo="Quitar del contenedor" @cerrar="modal = null">
     <p>Los {{ selA.ids.size }} packing lists quedan sin contenedor y vuelven a estar disponibles.</p>
-    <label class="campo"><span>Motivo{{ requiereMotivo ? '' : ' (opcional)' }}</span><textarea v-model="modal.motivo"></textarea></label>
+    <label class="campo"><span :class="{ req: requiereMotivo }">Motivo{{ requiereMotivo ? '' : ' (opcional)' }}</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>
       <button class="btn" @click="modal = null">Volver</button>
       <button class="btn btn-peligro" :disabled="ocupado || (requiereMotivo && !modal.motivo.trim())" @click="quitar">Quitar</button>
@@ -526,7 +529,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
       <select v-model="modal.destino"><option v-for="o in u.otras_unidades" :key="o.id" :value="o.id">{{ o.nombre }}</option></select>
     </label>
     <label class="check"><input v-model="modal.modo" type="checkbox" true-value="AUTO" false-value="TENTATIVA" /> Confirmar en el destino los que estén listos</label>
-    <label class="campo"><span>Motivo{{ requiereMotivo ? '' : ' (opcional)' }}</span><textarea v-model="modal.motivo"></textarea></label>
+    <label class="campo"><span :class="{ req: requiereMotivo }">Motivo{{ requiereMotivo ? '' : ' (opcional)' }}</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>
       <button class="btn" @click="modal = null">Volver</button>
       <button class="btn btn-primario" :disabled="ocupado || !modal.destino || (requiereMotivo && !modal.motivo.trim())" @click="mover">Mover</button>
@@ -535,7 +538,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
 
   <Modal v-if="modal?.tipo === 'asignar'" titulo="El embarque ya salió" @cerrar="modal = null">
     <p>Agregar carga a un embarque que ya salió es una corrección logística. Indica el motivo.</p>
-    <label class="campo"><span>Motivo</span><textarea v-model="modal.motivo"></textarea></label>
+    <label class="campo"><span class="req">Motivo</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>
       <button class="btn" @click="modal = null">Volver</button>
       <button class="btn btn-primario" :disabled="ocupado || !modal.motivo.trim()" @click="asignarConMotivo">Asignar</button>

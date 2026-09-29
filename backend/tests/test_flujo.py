@@ -215,6 +215,12 @@ def test_transporte_y_salida(interno, tnf):
     assert r.status_code == 409 and r.json()["codigo"] == "tentativas_pendientes"
     r = interno.post(f"/unidades/{unidad['id']}/confirmar", {"pl_ids": pl_ids})
     assert r.status_code == 200, r.text
+    # Sin BL, contenedor ni sello no hay salida: son datos obligatorios del transporte
+    r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": "2026-10-01T08:00:00"})
+    assert r.status_code == 422 and r.json()["codigo"] == "datos_transporte"
+    assert len(r.json()["detalle"]) == 3
+    assert interno.patch(f"/embarques/{e['id']}", {"documento_numero": "MAEU 123"}).status_code == 200
+    assert interno.patch(f"/unidades/{unidad['id']}", {"numero": "MSKU 1234567", "sello": "S-1"}).status_code == 200
     r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": "2026-10-01T08:00:00"})
     assert r.status_code == 200 and r.json()["estado"] == "EN_TRANSITO"
     # El proveedor ve el seguimiento desde su factura

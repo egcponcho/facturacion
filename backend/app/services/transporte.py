@@ -182,6 +182,26 @@ def detalle_embarque(db: Session, user: Usuario, embarque_id: int) -> dict:
     }
 
 
+def _documentos_salida(e: Embarque, pls: list[PackingList]) -> list[str]:
+    """Datos que exige el documento de transporte (BL/AWB/carta de porte)."""
+    faltan = []
+    if not e.documento_numero:
+        faltan.append("Número de BL, AWB o carta de porte.")
+    if not e.transportista:
+        faltan.append("Naviera o transportista.")
+    if not e.puerto_origen or not e.puerto_destino:
+        faltan.append("Origen y destino.")
+    con_carga = {pl.unidad_carga_id for pl in pls}
+    for u in e.unidades:
+        if u.id not in con_carga:
+            continue
+        if not u.numero:
+            faltan.append(f"{u.etiqueta}: número de contenedor o guía.")
+        if e.tipo_transporte == "MARITIMO" and e.modalidad == "FCL" and not u.sello:
+            faltan.append(f"{u.numero or u.etiqueta}: número de sello.")
+    return faltan
+
+
 def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
     e = _embarque(db, user, embarque_id)
     if datos.tipo == "SALIDA":
@@ -193,6 +213,10 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
                 "registrar la salida.", 409, "tentativas_pendientes")
         if not pls:
             raise ErrorNegocio("El embarque no tiene packing lists asignados.", 409, "sin_carga")
+        faltan = _documentos_salida(e, pls)
+        if faltan:
+            raise ErrorNegocio("Faltan datos obligatorios del transporte para registrar la salida.", 422,
+                               "datos_transporte", [{"mensaje": m} for m in faltan])
         e.salida_real = datos.fecha.date()
     if datos.tipo == "ARRIBO":
         e.arribo_real = datos.fecha.date()

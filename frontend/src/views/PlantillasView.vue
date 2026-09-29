@@ -74,9 +74,9 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
     <section class="panel">
       <div class="panel-cabeza"><h2>Nueva plantilla{{ esInterno() ? ` para ${nombreProveedor(sesion.proveedorId)}` : '' }}</h2></div>
       <form class="rejilla-campos" @submit.prevent="crear">
-        <label class="campo"><span>Nombre</span><input v-model="nueva.nombre" required /></label>
-        <label class="campo"><span>Cantidad por caja</span><input v-model="nueva.cantidad_por_caja" type="number" min="1" required /></label>
-        <label class="campo"><span>Unidad</span>
+        <label class="campo"><span class="req">Nombre</span><input v-model="nueva.nombre" required /></label>
+        <label class="campo"><span class="req">Cantidad por caja</span><input v-model="nueva.cantidad_por_caja" type="number" min="1" required /></label>
+        <label class="campo"><span class="req">Unidad</span>
           <select v-model="nueva.unidad"><option value="PAR">Pares</option><option value="UN">Unidades</option></select>
         </label>
         <label class="campo"><span>Largo cm</span><input v-model="nueva.largo" type="number" min="0" step="any" /></label>

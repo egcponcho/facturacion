@@ -70,8 +70,8 @@ onMounted(cargar)
   <section class="panel">
     <div class="panel-cabeza"><h2>Proveedores</h2></div>
     <form class="fila-flex" @submit.prevent="crearProveedor">
-      <input v-model="nuevoProv.codigo" class="entrada" placeholder="Código (como en SAP)" aria-label="Código" required />
-      <input v-model="nuevoProv.nombre" class="entrada" placeholder="Nombre" aria-label="Nombre" required />
+      <input v-model="nuevoProv.codigo" class="entrada" placeholder="Código (como en SAP) *" aria-label="Código" required />
+      <input v-model="nuevoProv.nombre" class="entrada" placeholder="Nombre *" aria-label="Nombre" required />
       <button class="btn btn-primario" type="submit">Agregar proveedor</button>
     </form>
     <div class="tabla-marco mt">
@@ -92,18 +92,18 @@ onMounted(cargar)
   <section class="panel">
     <div class="panel-cabeza"><h2>Usuarios</h2></div>
     <form class="rejilla-campos" @submit.prevent="crearUsuario">
-      <label class="campo"><span>Nombre</span><input v-model="nuevoUsr.nombre" required /></label>
-      <label class="campo"><span>Correo</span><input v-model="nuevoUsr.email" type="email" required /></label>
-      <label class="campo"><span>Rol</span>
+      <label class="campo"><span class="req">Nombre</span><input v-model="nuevoUsr.nombre" required /></label>
+      <label class="campo"><span class="req">Correo</span><input v-model="nuevoUsr.email" type="email" required /></label>
+      <label class="campo"><span class="req">Rol</span>
         <select v-model="nuevoUsr.rol"><option v-for="(t, r) in ROLES" :key="r" :value="r">{{ t }}</option></select>
       </label>
-      <label v-if="nuevoUsr.rol === 'proveedor'" class="campo"><span>Proveedor</span>
+      <label v-if="nuevoUsr.rol === 'proveedor'" class="campo"><span class="req">Proveedor</span>
         <select v-model="nuevoUsr.proveedor_id" required>
           <option value="" disabled>Elige</option>
           <option v-for="p in proveedores" :key="p.id" :value="p.id">{{ p.nombre }}</option>
         </select>
       </label>
-      <label class="campo"><span>Contraseña inicial</span><input v-model="nuevoUsr.password" type="password" minlength="6" required /></label>
+      <label class="campo"><span class="req">Contraseña inicial</span><input v-model="nuevoUsr.password" type="password" minlength="6" required /></label>
       <div class="campo" style="justify-content: flex-end"><button class="btn btn-primario" type="submit">Crear usuario</button></div>
     </form>
     <div class="tabla-marco mt">

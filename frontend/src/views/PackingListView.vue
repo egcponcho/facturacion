@@ -403,7 +403,7 @@ onMounted(cargar)
         <div class="opciones-empaque">
           <button class="opcion recomendada" :disabled="!pendientes.length || !plantillas.length" @click="abrirAuto(selConPendiente.length > 0)">
             <span class="opcion-icono"><Icono nombre="varita" /></span>
-            <b>Empacar con plantillas <span class="etiqueta kraft">Recomendado</span></b>
+            <b>Empacar con plantillas <span class="etiqueta acento">Recomendado</span></b>
             <span>{{ selConPendiente.length ? `Las ${selConPendiente.length} filas seleccionadas` : `Todas las filas (${pendientes.length})` }} en un paso. Cada producto usa su plantilla de caja; tú decides qué hacer con el sobrante.</span>
             <span v-if="!plantillas.length" class="etiqueta aviso">Crea una plantilla primero</span>
           </button>
@@ -496,11 +496,11 @@ onMounted(cargar)
               <th>Cajas</th>
               <th>Contenido por caja</th>
               <th class="num">N.º</th>
-              <th class="num">Largo</th>
-              <th class="num">Ancho</th>
-              <th class="num">Alto cm</th>
-              <th class="num">Neto/caja</th>
-              <th class="num">Bruto/caja kg</th>
+              <th class="num"><span class="req">Largo</span></th>
+              <th class="num"><span class="req">Ancho</span></th>
+              <th class="num"><span class="req">Alto cm</span></th>
+              <th class="num"><span class="req">Neto/caja</span></th>
+              <th class="num"><span class="req">Bruto/caja kg</span></th>
               <th class="num">m³</th>
               <th class="num">Bruto total</th>
               <th>Notas</th>
@@ -700,7 +700,7 @@ onMounted(cargar)
 
   <Modal v-if="modal?.tipo === 'caja'" :titulo="modal.items.length > 1 ? 'Caja mixta' : 'Caja manual'" ancho="700px" @cerrar="modal = null">
     <div class="rejilla-campos">
-      <label class="campo"><span>Número de cajas iguales</span><input v-model.number="modal.num_cajas" type="number" min="1" /></label>
+      <label class="campo"><span class="req">Número de cajas iguales</span><input v-model.number="modal.num_cajas" type="number" min="1" /></label>
       <label class="campo"><span>Medidas y pesos de una plantilla (opcional)</span>
         <select v-model="modal.plantilla_id">
           <option value="">Sin plantilla</option>
@@ -710,7 +710,7 @@ onMounted(cargar)
     </div>
     <div class="tabla-marco" style="box-shadow: none">
       <table class="tabla">
-        <thead><tr><th>Fila</th><th class="num">Sin caja</th><th class="num">Por caja</th><th class="num">Total</th></tr></thead>
+        <thead><tr><th>Fila</th><th class="num">Sin caja</th><th class="num"><span class="req">Por caja</span></th><th class="num">Total</th></tr></thead>
         <tbody>
           <tr v-for="i in modal.items" :key="i.pl_linea_id">
             <td>{{ i.ref }}</td>
@@ -815,7 +815,7 @@ onMounted(cargar)
   </Modal>
 
   <Modal v-if="modal?.tipo === 'guardar_plantilla'" titulo="Guardar como plantilla" @cerrar="modal = null">
-    <label class="campo"><span>Nombre de la plantilla</span><input v-model="modal.nombre" placeholder="Por ejemplo: Caja 12 pares talla grande" /></label>
+    <label class="campo"><span class="req">Nombre de la plantilla</span><input v-model="modal.nombre" placeholder="Por ejemplo: Caja 12 pares talla grande" /></label>
     <p class="ayuda">Guarda la cantidad por caja, medidas y pesos para usarla en el empaque automático.</p>
     <template #pie>
       <button class="btn" @click="modal = null">Cancelar</button>
@@ -839,7 +839,7 @@ onMounted(cargar)
   <Modal v-if="modal?.tipo === 'estado'" :titulo="modal.accion === 'reabrir' ? 'Reabrir packing list' : 'Cancelar packing list'" @cerrar="modal = null">
     <p v-if="modal.accion === 'reabrir'">Vuelve a ser editable. Si estaba confirmado en un contenedor, la asignación pasa a tentativa.</p>
     <p v-else>Sus cantidades vuelven a la factura como pendientes de asignar.</p>
-    <label class="campo"><span>Motivo{{ modal.accion === 'cancelar' && pl?.estado === 'BORRADOR' ? ' (opcional)' : '' }}</span><textarea v-model="modal.motivo"></textarea></label>
+    <label class="campo"><span :class="{ req: !(modal.accion === 'cancelar' && pl?.estado === 'BORRADOR') }">Motivo{{ modal.accion === 'cancelar' && pl?.estado === 'BORRADOR' ? ' (opcional)' : '' }}</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>
       <button class="btn" @click="modal = null">Volver</button>
       <button class="btn" :class="modal.accion === 'cancelar' ? 'btn-peligro' : 'btn-primario'" :disabled="ocupado" @click="cambiarEstado">

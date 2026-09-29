@@ -86,6 +86,20 @@ Los datos de prueba ya traen historia: facturas de meses anteriores, un contened
 - **Estados:** Borrador → Finalizado directo; reabrir pasa a “En corrección” y pide motivo. Factura, PL y transporte avanzan por separado; “lista para transporte” se calcula (factura finalizada, todo en PL y todos los PL finalizados).
 - **Transporte:** el embarque existe desde el booking (el BL/AWB se agrega después). Sus contenedores y su carga se manejan dentro del mismo embarque. Al asignar, “confirmar los que estén listos” confirma lo que tiene factura y PL finalizados y deja **tentativo** lo demás (para planificar). No se registra la salida con tentativas pendientes. Después de la salida, mover o quitar carga pide motivo.
 
+### Campos obligatorios
+
+Los campos marcados con <span style="color:#b42318">*</span> son obligatorios. El sistema no deja finalizar ni registrar la salida sin ellos (se valida en el servidor, no solo en pantalla):
+
+- **Factura comercial:** número, fecha, incoterm y, por línea, cantidad, precio unitario, país de origen, partida arancelaria y descripción comercial de la mercancía.
+- **Packing list:** para cada grupo de cajas, medidas (largo, ancho, alto) y peso neto y bruto.
+- **Transporte (para registrar la salida):** número de BL, AWB o carta de porte, transportista, origen y destino, número de cada contenedor o guía con carga y, en marítimo FCL, número de sello.
+
+Se basan en los requisitos usuales de la factura comercial y del documento de transporte en la región (RECAUCA y DUCA). Confírmalos con tu agente aduanal antes de usar el sistema con datos reales.
+
+### Tema claro y oscuro
+
+La barra superior tiene tres botones: claro, oscuro e igual que el sistema (por defecto). La elección se recuerda en el navegador.
+
 ### Qué se simplificó
 
 | Antes | Ahora |

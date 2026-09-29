@@ -3,16 +3,16 @@ import { computed, ref } from 'vue'
 import { cantTxt, pct } from '../utils'
 
 // Dónde está la mercancía: una barra apilada por unidad de medida (nunca se
-// suman pares con unidades). Rampa ordinal de un solo tono: más oscuro =
-// más avanzado en el proceso.
+// suman pares con unidades). Rampa ordinal de un solo tono: más contraste
+// con el fondo = más avanzado en el proceso (se invierte en tema oscuro).
 const props = defineProps({ flujo: { type: Object, required: true } })
 
 const ETAPAS = [
-  ['por_facturar', 'Por facturar', '#86b6ef'],
-  ['sin_pl', 'Facturado sin packing list', '#5598e7'],
-  ['sin_caja', 'En packing list, sin caja', '#2a78d6'],
-  ['empacado', 'Empacado', '#1c5cab'],
-  ['embarcado', 'Embarcado', '#104281'],
+  ['por_facturar', 'Por facturar', 'var(--flujo-1)'],
+  ['sin_pl', 'Facturado sin packing list', 'var(--flujo-2)'],
+  ['sin_caja', 'En packing list, sin caja', 'var(--flujo-3)'],
+  ['empacado', 'Empacado', 'var(--flujo-4)'],
+  ['embarcado', 'Embarcado', 'var(--flujo-5)'],
 ]
 const NOMBRES = { PAR: 'Pares', UN: 'Unidades' }
 const activo = ref(null)

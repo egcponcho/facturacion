@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icono from './components/Icono.vue'
+import SelectorTema from './components/SelectorTema.vue'
 import Toasts from './components/Toasts.vue'
 import { carrito } from './stores/carrito'
 import { cerrarSesion, elegirProveedor, esInterno, puede, sesion } from './stores/sesion'
@@ -13,26 +14,18 @@ const menuAbierto = ref(false)
 
 const ROLES = { admin: 'Administrador', interno: 'Importaciones', proveedor: 'Proveedor' }
 
-// Navegación agrupada por etapa del trabajo
-const grupos = computed(() => {
-  const res = [
-    { titulo: 'General', items: [{ to: '/', texto: 'Inicio', icono: 'tablero' }] },
-    {
-      titulo: 'Facturación',
-      items: [
-        { to: '/ordenes', texto: 'Órdenes de compra', icono: 'ordenes', cuenta: carrito.items.length || null },
-        { to: '/facturas', texto: 'Facturas y empaque', icono: 'factura' },
-        { to: '/plantillas', texto: 'Plantillas de caja', icono: 'capas' },
-      ],
-    },
+const navegacion = computed(() => {
+  const items = [
+    { to: '/', texto: 'Inicio', icono: 'tablero' },
+    { to: '/ordenes', texto: 'Órdenes', icono: 'ordenes', cuenta: carrito.items.length || null },
+    { to: '/facturas', texto: 'Facturas', icono: 'factura' },
+    { to: '/plantillas', texto: 'Plantillas', icono: 'capas' },
   ]
   if (esInterno()) {
-    res.push({ titulo: 'Logística', items: [{ to: '/transporte', texto: 'Embarques', icono: 'barco' }] })
-    const admin = [{ to: '/importar', texto: 'Importar OCs', icono: 'importar' }]
-    if (puede('admin')) admin.push({ to: '/admin', texto: 'Usuarios y proveedores', icono: 'usuarios' })
-    res.push({ titulo: 'Administración', items: admin })
+    items.push({ to: '/transporte', texto: 'Embarques', icono: 'barco' }, { to: '/importar', texto: 'Importar OCs', icono: 'importar' })
+    if (puede('admin')) items.push({ to: '/admin', texto: 'Usuarios', icono: 'usuarios' })
   }
-  return res
+  return items
 })
 
 const activo = (to) => (to === '/' ? route.path === '/' : route.path.startsWith(to) ||
@@ -42,8 +35,8 @@ const iniciales = computed(() => (sesion.usuario?.nombre || '?').split(' ').filt
 
 const textoGuardado = computed(() => ({
   guardando: 'Guardando…',
-  guardado: 'Cambios guardados',
-  error: 'El último cambio no se guardó',
+  guardado: 'Guardado',
+  error: 'No se guardó',
 })[ui.guardado] || '')
 
 watch(() => route.fullPath, () => (menuAbierto.value = false))
@@ -56,58 +49,55 @@ function salir() {
 
 <template>
   <div v-if="route.name !== 'login' && sesion.usuario" class="marco">
-    <div class="velo" :class="{ visible: menuAbierto }" @click="menuAbierto = false"></div>
-    <aside class="lateral" :class="{ abierto: menuAbierto }">
-      <router-link to="/" class="marca">
-        <span class="marca-logo"><Icono nombre="caja" :tam="20" /></span>
-        <span class="marca-texto">Workspace<span>Facturas, empaque y embarques</span></span>
-      </router-link>
-      <nav aria-label="Principal">
-        <div v-for="g in grupos" :key="g.titulo" class="nav-grupo">
-          <div class="nav-titulo">{{ g.titulo }}</div>
-          <router-link v-for="i in g.items" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }"
+    <header class="cabecera">
+      <div class="cabecera-fila">
+        <button type="button" class="btn-icono boton-menu" :aria-expanded="menuAbierto" aria-label="Menú" @click="menuAbierto = !menuAbierto">
+          <Icono :nombre="menuAbierto ? 'cerrar' : 'menu'" :tam="22" />
+        </button>
+        <router-link to="/" class="marca">
+          <span class="marca-logo"><Icono nombre="caja" :tam="19" /></span>
+          <span class="marca-texto">Workspace<span>Proveedores</span></span>
+        </router-link>
+        <nav class="nav-principal" aria-label="Principal">
+          <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }"
                        :aria-current="activo(i.to) ? 'page' : undefined">
-            <Icono :nombre="i.icono" />
-            {{ i.texto }}
+            <Icono :nombre="i.icono" :tam="16" />{{ i.texto }}
             <span v-if="i.cuenta" class="nav-cuenta" :aria-label="`${i.cuenta} en la selección`">{{ i.cuenta }}</span>
           </router-link>
+        </nav>
+        <div class="cabecera-derecha">
+          <span class="indicador-guardado" :class="ui.guardado" aria-live="polite"><Icono v-if="ui.guardado === 'guardado'" nombre="check" :tam="14" />{{ textoGuardado }}</span>
+          <router-link v-if="carrito.items.length" to="/ordenes?seleccion=1" class="chip-seleccion" title="Posiciones listas para facturar">
+            <Icono nombre="carrito" :tam="15" /><b>{{ carrito.items.length }}</b>
+          </router-link>
+          <label v-if="esInterno()" class="selector-proveedor fila-flex" style="gap: 6px; flex-wrap: nowrap">
+            <span class="ayuda">Proveedor</span>
+            <select class="entrada" :value="sesion.proveedorId || ''" @change="elegirProveedor(Number($event.target.value) || null)">
+              <option value="">Todos</option>
+              <option v-for="p in sesion.proveedores" :key="p.id" :value="p.id">{{ p.nombre }}</option>
+            </select>
+          </label>
+          <SelectorTema />
+          <div class="usuario">
+            <span class="avatar" aria-hidden="true">{{ iniciales }}</span>
+            <div class="usuario-datos">
+              <b>{{ sesion.usuario.nombre }}</b>
+              <span>{{ sesion.usuario.proveedor || ROLES[sesion.usuario.rol] }}</span>
+            </div>
+            <button type="button" class="btn-icono" aria-label="Cerrar sesión" title="Cerrar sesión" @click="salir"><Icono nombre="salir" /></button>
+          </div>
         </div>
-      </nav>
-      <div class="lateral-pie">
-        <span class="avatar" aria-hidden="true">{{ iniciales }}</span>
-        <div class="usuario-datos">
-          <b>{{ sesion.usuario.nombre }}</b>
-          <span>{{ sesion.usuario.proveedor || ROLES[sesion.usuario.rol] }}</span>
-        </div>
-        <button type="button" class="boton-lateral" aria-label="Cerrar sesión" title="Cerrar sesión" @click="salir">
-          <Icono nombre="salir" />
-        </button>
       </div>
-    </aside>
-    <div class="principal">
-      <header class="barra-superior">
-        <button type="button" class="btn-icono boton-menu" aria-label="Abrir menú" @click="menuAbierto = true">
-          <Icono nombre="menu" :tam="22" />
-        </button>
-        <label v-if="esInterno()" class="selector-proveedor">
-          <span>Proveedor</span>
-          <select class="entrada" :value="sesion.proveedorId || ''" @change="elegirProveedor(Number($event.target.value) || null)">
-            <option value="">Todos los proveedores</option>
-            <option v-for="p in sesion.proveedores" :key="p.id" :value="p.id">{{ p.nombre }}</option>
-          </select>
-        </label>
-        <span v-else class="proveedor-fijo"><Icono nombre="caja" /> {{ sesion.usuario.proveedor }}</span>
-        <router-link v-if="carrito.items.length" to="/ordenes?seleccion=1" class="chip-seleccion">
-          <Icono nombre="carrito" :tam="16" /> Por facturar <b>{{ carrito.items.length }}</b>
+      <nav class="nav-movil" :class="{ abierta: menuAbierto }" aria-label="Principal (móvil)">
+        <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }">
+          <Icono :nombre="i.icono" :tam="17" />{{ i.texto }}
+          <span v-if="i.cuenta" class="nav-cuenta">{{ i.cuenta }}</span>
         </router-link>
-        <span class="indicador-guardado" :class="ui.guardado" aria-live="polite">
-          <Icono v-if="ui.guardado === 'guardado'" nombre="check" :tam="15" />{{ textoGuardado }}
-        </span>
-      </header>
-      <main class="contenido">
-        <router-view :key="route.path" />
-      </main>
-    </div>
+      </nav>
+    </header>
+    <main class="contenido">
+      <router-view :key="route.path" />
+    </main>
   </div>
   <router-view v-else-if="route.name === 'login'" />
   <Toasts />

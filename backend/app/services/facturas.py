@@ -484,6 +484,8 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
         errores.append({"campo": "numero", "mensaje": "Falta el número de factura."})
     if not f.fecha:
         errores.append({"campo": "fecha", "mensaje": "Falta la fecha de la factura."})
+    if not f.incoterm:
+        errores.append({"campo": "incoterm", "mensaje": "Falta el incoterm (condición de entrega)."})
     if not f.lineas:
         errores.append({"mensaje": "La factura no tiene líneas."})
     facturado = facturado_por_posicion(db, [l.posicion_oc_id for l in f.lineas])
@@ -493,6 +495,8 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: el precio debe ser mayor que cero."})
         if abs(l.precio_unitario - l.precio_oc) > 1e-9 and not l.motivo_precio:
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: falta el motivo del cambio de precio."})
+        if not (l.descripcion_comercial or "").strip():
+            errores.append({"linea_id": l.id, "mensaje": f"{ref}: falta la descripción comercial de la mercancía."})
         if settings.REQUERIR_DATOS_ADUANA:
             if not l.pais_origen:
                 errores.append({"linea_id": l.id, "mensaje": f"{ref}: falta el país de origen."})

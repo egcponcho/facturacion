@@ -431,9 +431,10 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
         </select>
       </label>
       <div v-if="!destino" class="rejilla-campos">
-        <label class="campo"><span>Número de factura</span><input v-model="nueva.numero" placeholder="Puedes ponerlo después" /></label>
-        <label class="campo"><span>Fecha</span><input v-model="nueva.fecha" type="date" /></label>
+        <label class="campo"><span class="req">Número de factura</span><input v-model="nueva.numero" placeholder="Puedes ponerlo después" /></label>
+        <label class="campo"><span class="req">Fecha</span><input v-model="nueva.fecha" type="date" /></label>
       </div>
+      <p v-if="!destino" class="leyenda-req">Obligatorios para finalizar la factura; puedes completarlos después.</p>
       <div class="fila-flex">
         <button class="btn-texto" type="button" @click="vaciarCarrito()">Vaciar selección</button>
         <button class="btn btn-primario separar" type="button" :disabled="enviando || invalida" @click="facturar">
