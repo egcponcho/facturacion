@@ -29,6 +29,9 @@ class Settings:
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./archivos")
     FRONTEND_DIST: str = os.getenv("FRONTEND_DIST", "../frontend/dist")
     SEED_DEMO: bool = _bool("SEED_DEMO", True)
+    # Versión del esquema de datos. En modo demo (SEED_DEMO=1), si la base
+    # tiene otra versión se borra y se vuelve a crear con los datos de prueba.
+    ESQUEMA_VERSION: str = "3"
     CORS_ORIGINS: list[str] = [
         o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
     ]

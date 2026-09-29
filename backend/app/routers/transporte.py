@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from ..schemas import AsignarPL, EmbarqueIn, EmbarquePatch, EventoIn, PLIds, UnidadIn, UnidadPatch
+from ..schemas import AsignarPL, EmbarqueIn, EmbarquePatch, EventoIn, PLIds, Recoleccion, UnidadIn, UnidadPatch
 from ..services import transporte as svc
 from .base import Clave, Db, User, ejecutar
 
@@ -71,3 +71,8 @@ def confirmar(unidad_id: int, datos: PLIds, db: Db, user: User, clave: Clave = N
 @router.post("/unidades/{unidad_id}/desasignar")
 def desasignar(unidad_id: int, datos: PLIds, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.desasignar(db, user, unidad_id, datos))
+
+
+@router.post("/recoleccion")
+def recoleccion(datos: Recoleccion, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.recoleccion(db, user, datos))

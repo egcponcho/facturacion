@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -41,6 +43,23 @@ def _salio(e: Embarque) -> bool:
     return e.estado != "PLANIFICADO"
 
 
+def _exigir_planificado(e: Embarque, accion: str) -> None:
+    """Después de la salida la carga está cerrada: lo que viaja ya viaja."""
+    if _salio(e):
+        raise ErrorNegocio(f"El embarque {e.codigo} ya salió; no se puede {accion}. La carga quedó cerrada al zarpar.",
+                           409, "embarque_cerrado")
+
+
+# Qué evento se puede registrar en cada estado, en orden
+EVENTOS_PERMITIDOS = {
+    "PLANIFICADO": {"RECOLECCION", "SALIDA", "OTRO"},
+    "EN_TRANSITO": {"TRANSITO", "ARRIBO", "OTRO"},
+    "ARRIBADO": {"LIBERACION", "ENTREGA", "OTRO"},
+    "ENTREGADO": {"RECEPCION", "OTRO"},
+    "RECIBIDO": {"OTRO"},
+}
+
+
 def _capacidad(u: UnidadCarga) -> tuple[float | None, float | None]:
     cbm, kg = settings.CAPACIDADES.get(u.tipo, (None, None))
     return u.capacidad_cbm or cbm, u.capacidad_kg or kg
@@ -63,9 +82,19 @@ def resumen_unidad(u: UnidadCarga) -> dict:
         alertas.append(f"El volumen supera la capacidad nominal ({pct_cbm}%).")
     if pct_kg and pct_kg > 100:
         alertas.append(f"El peso supera la capacidad nominal ({pct_kg}%).")
+    tiendas = [pl_linea.factura_linea.posicion_oc.oc.fecha_tienda for pl in pls for pl_linea in pl.lineas
+               if pl_linea.factura_linea.posicion_oc.oc.fecha_tienda]
+    llegada = u.embarque.arribo_real or u.embarque.eta
+    tienda = min(tiendas) if tiendas else None
     return {
         "id": u.id,
         "embarque_id": u.embarque_id,
+        "fecha_tienda": tienda,
+        # Días entre la llegada (real o estimada) y la primera fecha requerida en tienda
+        "holgura_dias": (tienda - llegada).days if tienda and llegada else None,
+        "marcas": sorted({pl_linea.factura_linea.marca for pl in pls for pl_linea in pl.lineas
+                          if pl_linea.factura_linea.marca}),
+        "recolectados": sum(1 for pl in pls if pl.recolectado_en),
         "tipo": u.tipo,
         "etiqueta": u.etiqueta,
         "numero": u.numero,
@@ -144,6 +173,24 @@ def actualizar_embarque(db: Session, user: Usuario, embarque_id: int, datos) -> 
     e = _embarque(db, user, embarque_id)
     campos = datos.model_dump(exclude_unset=True)
     motivo = campos.pop("motivo", None)
+    if {"tipo_transporte", "modalidad"} & set(campos) and e.unidades:
+        cambia = any(campos.get(k, getattr(e, k)) != getattr(e, k) for k in ("tipo_transporte", "modalidad"))
+        if cambia:
+            raise ErrorNegocio("No se puede cambiar el tipo de transporte de un embarque que ya tiene unidades.",
+                               409, "embarque_con_unidades")
+    if _salio(e):
+        bloqueados = {"etd", "puerto_origen", "tipo_transporte", "modalidad", "transportista", "documento_numero"}
+        if e.estado != "PLANIFICADO" and e.arribo_real:
+            bloqueados |= {"eta", "puerto_destino"}
+        tocados = [k for k in campos if k in bloqueados and campos[k] != getattr(e, k)]
+        if tocados:
+            raise ErrorNegocio("Esos datos quedaron fijos al registrar la salida"
+                               + (" y el arribo" if e.arribo_real else "") + ": " + ", ".join(tocados) + ".",
+                               409, "embarque_cerrado")
+    etd = campos.get("etd", e.etd)
+    eta = campos.get("eta", e.eta)
+    if etd and eta and eta < etd:
+        raise ErrorNegocio("La ETA no puede ser anterior a la ETD.", 422, "validacion")
     cambios = {}
     for k, v in campos.items():
         if isinstance(v, str):
@@ -179,6 +226,8 @@ def detalle_embarque(db: Session, user: Usuario, embarque_id: int) -> dict:
             for h in historial
         ],
         "tipos_unidad": list(settings.CAPACIDADES),
+        "cerrado": _salio(e),
+        "eventos_permitidos": sorted(EVENTOS_PERMITIDOS[e.estado]),
     }
 
 
@@ -204,6 +253,19 @@ def _documentos_salida(e: Embarque, pls: list[PackingList]) -> list[str]:
 
 def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
     e = _embarque(db, user, embarque_id)
+    nombres = {"RECOLECCION": "recolección", "SALIDA": "salida", "TRANSITO": "tránsito", "ARRIBO": "arribo",
+               "LIBERACION": "liberación", "ENTREGA": "entrega", "RECEPCION": "recepción", "OTRO": "evento"}
+    if datos.tipo not in EVENTOS_PERMITIDOS[e.estado]:
+        raise ErrorNegocio(f"No se puede registrar {nombres[datos.tipo]} con el embarque en estado "
+                           f"{e.estado.replace('_', ' ').lower()}. Sigue el orden: recolección, salida, arribo, "
+                           "entrega y recepción.", 409, "orden_eventos")
+    ultimo = max((ev.fecha for ev in e.eventos), default=None)
+    if ultimo and datos.fecha < ultimo and datos.tipo != "OTRO":
+        raise ErrorNegocio(f"La fecha no puede ser anterior al último evento ({ultimo:%d/%m/%Y %H:%M}).",
+                           422, "fecha_evento")
+    if datos.fecha.date() > date.today() + timedelta(days=1):
+        raise ErrorNegocio("No se registran eventos con fecha futura; usa ETD y ETA para lo planificado.",
+                           422, "fecha_evento")
     if datos.tipo == "SALIDA":
         pls = [pl for u in e.unidades for pl in u.packing_lists if pl.estado != "CANCELADO"]
         tentativas = [pl.numero for pl in pls if pl.asignacion == "TENTATIVA"]
@@ -218,6 +280,10 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
             raise ErrorNegocio("Faltan datos obligatorios del transporte para registrar la salida.", 422,
                                "datos_transporte", [{"mensaje": m} for m in faltan])
         e.salida_real = datos.fecha.date()
+        # Lo que zarpó ya fue recolectado: se completa la fecha si faltaba
+        for pl in pls:
+            if not pl.recolectado_en:
+                pl.recolectado_en = datos.fecha.date()
     if datos.tipo == "ARRIBO":
         e.arribo_real = datos.fecha.date()
     if datos.tipo in ESTADO_POR_EVENTO:
@@ -233,6 +299,9 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
 # ---- Unidades de carga ------------------------------------------------------
 def agregar_unidad(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
     e = _embarque(db, user, embarque_id)
+    _exigir_planificado(e, "agregar contenedores")
+    if e.tipo_transporte != "MARITIMO" and datos.tipo in ("20GP", "40GP", "40HC"):
+        raise ErrorNegocio("Un contenedor marítimo solo va en un embarque marítimo.", 422, "validacion")
     if datos.tipo not in settings.CAPACIDADES:
         raise ErrorNegocio("Tipo de unidad no válido.", 422, "validacion")
     n = sum(1 for u in e.unidades if u.tipo == datos.tipo) + 1
@@ -247,6 +316,10 @@ def agregar_unidad(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
 def actualizar_unidad(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
     u = _unidad(db, user, unidad_id)
     campos = datos.model_dump(exclude_unset=True)
+    if any(campos.get(k) != getattr(u, k) for k in campos):
+        _exigir_planificado(u.embarque, "cambiar el contenedor, su número o su sello")
+    if campos.get("tipo") and campos["tipo"] != u.tipo and any(pl.estado != "CANCELADO" for pl in u.packing_lists):
+        raise ErrorNegocio("No se puede cambiar el tipo de un contenedor con carga.", 409, "con_carga")
     if "tipo" in campos and campos["tipo"] not in settings.CAPACIDADES:
         raise ErrorNegocio("Tipo de unidad no válido.", 422, "validacion")
     cambios = {}
@@ -264,6 +337,7 @@ def actualizar_unidad(db: Session, user: Usuario, unidad_id: int, datos) -> dict
 
 def eliminar_unidad(db: Session, user: Usuario, unidad_id: int) -> dict:
     u = _unidad(db, user, unidad_id)
+    _exigir_planificado(u.embarque, "eliminar contenedores")
     if any(pl.estado != "CANCELADO" for pl in u.packing_lists):
         raise ErrorNegocio("La unidad tiene packing lists asignados; quítalos primero.", 409, "con_carga")
     for pl in list(u.packing_lists):
@@ -302,6 +376,13 @@ def _fila_pl(pl: PackingList) -> dict:
         "por_unidad": t["por_unidad"],
         "puede_confirmar": puede_confirmar,
         "motivo_no_confirmable": motivo,
+        "recolectado_en": pl.recolectado_en,
+        "marcas": sorted({x.factura_linea.marca for x in pl.lineas if x.factura_linea.marca}),
+        "ocs": sorted({x.factura_linea.oc_numero for x in pl.lineas}),
+        "fecha_xf": min((x.factura_linea.posicion_oc.oc.fecha_xf for x in pl.lineas
+                         if x.factura_linea.posicion_oc.oc.fecha_xf), default=None),
+        "fecha_tienda": min((x.factura_linea.posicion_oc.oc.fecha_tienda for x in pl.lineas
+                             if x.factura_linea.posicion_oc.oc.fecha_tienda), default=None),
     }
 
 
@@ -368,6 +449,7 @@ def _listo(pl: PackingList) -> bool:
 
 def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
     u = _unidad(db, user, unidad_id)
+    _exigir_planificado(u.embarque, "agregar carga")
     pls = _cargar_pls(db, datos.pl_ids)
     motivo = (datos.motivo or "").strip() or None
     errores = []
@@ -377,14 +459,18 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
         if pl.estado == "CANCELADO":
             errores.append({"pl_id": pl.id, "mensaje": f"{ref}: está cancelado."})
             continue
+        if pl.factura.estado == "CANCELADA":
+            errores.append({"pl_id": pl.id, "mensaje": f"{ref}: la factura está cancelada."})
+            continue
         anterior = pl.unidad
         if anterior and anterior.id != u.id:
-            requiere = pl.asignacion == "CONFIRMADA" or _salio(anterior.embarque)
-            if requiere and not motivo:
+            if _salio(anterior.embarque):
                 errores.append({"pl_id": pl.id, "mensaje":
-                    f"{ref} ya está en {anterior.numero or anterior.etiqueta}. Indica el motivo para moverlo."})
-        if _salio(u.embarque) and not motivo:
-            errores.append({"pl_id": pl.id, "mensaje": f"{ref}: el embarque ya salió; indica el motivo."})
+                    f"{ref} ya viaja en {anterior.numero or anterior.etiqueta} ({anterior.embarque.codigo})."})
+                continue
+            if pl.asignacion == "CONFIRMADA" and not motivo:
+                errores.append({"pl_id": pl.id, "mensaje":
+                    f"{ref} está confirmado en {anterior.numero or anterior.etiqueta}. Indica el motivo para moverlo."})
         if datos.modo == "CONFIRMADA" and not _listo(pl):
             errores.append({"pl_id": pl.id, "mensaje":
                 f"{ref}: para confirmar, la factura y el PL deben estar finalizados. Puedes asignarlo como tentativo."})
@@ -397,6 +483,20 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
                     f"{ref}: otros PL de la misma factura están en otra unidad (regla: una factura, una unidad)."})
     if errores:
         raise ErrorNegocio("No se pudo asignar.", 422, "validacion", errores)
+    # Capacidad nominal: no se asigna más volumen ni peso del que cabe
+    nuevos = [pl for pl in pls if pl.unidad_carga_id != u.id]
+    actual = resumen_unidad(u)
+    extra = [totales_pl(pl) for pl in nuevos]
+    cbm = actual["cbm"] + sum(t["cbm"] for t in extra)
+    kg = actual["peso_bruto"] + sum(t["peso_bruto"] for t in extra)
+    excesos = []
+    if actual["capacidad_cbm"] and cbm > actual["capacidad_cbm"]:
+        excesos.append(f"volumen {cbm:.2f} de {actual['capacidad_cbm']:.0f} m³")
+    if actual["capacidad_kg"] and kg > actual["capacidad_kg"]:
+        excesos.append(f"peso {kg:,.0f} de {actual['capacidad_kg']:,.0f} kg")
+    if excesos:
+        raise ErrorNegocio(f"No cabe en {u.numero or u.etiqueta}: " + " y ".join(excesos)
+                           + ". Usa otro contenedor para el resto.", 422, "capacidad")
     confirmados = 0
     for pl in pls:
         anterior = pl.unidad
@@ -413,6 +513,7 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
 
 def confirmar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
     u = _unidad(db, user, unidad_id)
+    _exigir_planificado(u.embarque, "confirmar carga")
     pls = _cargar_pls(db, datos.pl_ids)
     errores = []
     for pl in pls:
@@ -433,16 +534,42 @@ def confirmar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
 
 def desasignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
     u = _unidad(db, user, unidad_id)
+    _exigir_planificado(u.embarque, "quitar carga")
     pls = _cargar_pls(db, datos.pl_ids)
     motivo = None
-    if _salio(u.embarque) or any(pl.asignacion == "CONFIRMADA" for pl in pls):
-        motivo = requerir_motivo(datos.motivo, "quitar packing lists confirmados o de un embarque que ya salió")
+    if any(pl.asignacion == "CONFIRMADA" for pl in pls):
+        motivo = requerir_motivo(datos.motivo, "quitar packing lists confirmados")
     for pl in pls:
         if pl.unidad_carga_id != u.id:
             raise ErrorNegocio(f"{pl.numero} no está en esta unidad.", 422, "validacion")
     for pl in pls:
         pl.unidad_carga_id = None
         pl.asignacion = None
+        pl.recolectado_en = None
         registrar(db, user, "packing_list", pl.id, "quitar_unidad",
                   {"unidad": u.numero or u.etiqueta}, motivo, factura_id=pl.factura_id)
     return {"quitados": len(pls)}
+
+
+def recoleccion(db: Session, user: Usuario, datos) -> dict:
+    """Marca los PL como recolectados en la bodega del proveedor (o quita la
+    marca). Solo PL finalizados, en un embarque que todavía no sale."""
+    exigir(user, "transporte.gestionar")
+    pls = _cargar_pls(db, datos.pl_ids)
+    errores = []
+    for pl in pls:
+        ref = f"{nombre_factura(pl.factura)} / {pl.numero}"
+        if pl.estado != "FINALIZADO":
+            errores.append({"mensaje": f"{ref}: solo se recolectan packing lists finalizados."})
+        elif not pl.unidad:
+            errores.append({"mensaje": f"{ref}: asígnalo primero a un contenedor."})
+        elif _salio(pl.unidad.embarque):
+            errores.append({"mensaje": f"{ref}: el embarque ya salió."})
+    if datos.fecha and datos.fecha > date.today():
+        errores.append({"mensaje": "La fecha de recolección no puede ser futura."})
+    if errores:
+        raise ErrorNegocio("No se pudo registrar la recolección.", 422, "validacion", errores)
+    for pl in pls:
+        pl.recolectado_en = datos.fecha
+        registrar(db, user, "packing_list", pl.id, "recoleccion", {"fecha": datos.fecha}, factura_id=pl.factura_id)
+    return {"actualizados": len(pls)}

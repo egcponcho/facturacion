@@ -195,6 +195,13 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
         talla=p.talla,
         descripcion=p.descripcion,
         unidad=p.unidad,
+        marca=p.marca,
+        categoria=p.categoria,
+        tipo_empaque=p.tipo_empaque,
+        casepack=p.casepack,
+        prepack=p.prepack,
+        unidades_por_caja=p.unidades_por_caja,
+        pais_destino=oc.pais_destino,
         pais_origen=p.pais_origen,
         partida_arancelaria=p.partida_arancelaria,
         descripcion_comercial=p.descripcion,
@@ -634,6 +641,7 @@ def listar_facturas(
     vista: str | None = None,
     page: int = 1,
     size: int = 25,
+    orden: str | None = None,
 ) -> dict:
     prov = proveedor_filtro(user, proveedor_id)
     consulta = select(Factura).join(Proveedor, Proveedor.id == Factura.proveedor_id)
@@ -659,7 +667,13 @@ def listar_facturas(
         consulta = consulta.where(Factura.estado == "BORRADOR", Factura.creado_en < limite)
     elif vista == "lista_transporte":
         consulta = consulta.where(Factura.estado == "FINALIZADA")
-    consulta = consulta.order_by(Factura.actualizado_en.desc())
+    col, _, direccion = (orden or "").partition(":")
+    expr = {"nombre": Factura.numero, "fecha": Factura.fecha, "estado": Factura.estado,
+            "proveedor": Proveedor.nombre, "actualizado": Factura.actualizado_en}.get(col)
+    if expr is not None:
+        consulta = consulta.order_by(expr.desc().nullslast() if direccion == "desc" else expr.asc().nullslast(), Factura.id)
+    else:
+        consulta = consulta.order_by(Factura.actualizado_en.desc())
 
     if vista == "lista_transporte":
         todas = list(db.scalars(consulta).all())
@@ -759,6 +773,11 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "talla": l.talla,
             "descripcion": l.descripcion,
             "unidad": l.unidad,
+            "marca": l.marca,
+            "tipo_empaque": l.tipo_empaque,
+            "casepack": l.casepack,
+            "prepack": l.prepack,
+            "unidades_por_caja": l.unidades_por_caja,
             "cantidad": l.cantidad,
             "cantidad_oc": l.posicion_oc.cantidad,
             "precio_unitario": l.precio_unitario,

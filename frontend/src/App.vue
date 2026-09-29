@@ -19,17 +19,19 @@ const navegacion = computed(() => {
     { to: '/', texto: 'Inicio', icono: 'tablero' },
     { to: '/ordenes', texto: 'Órdenes', icono: 'ordenes', cuenta: carrito.items.length || null },
     { to: '/facturas', texto: 'Facturas', icono: 'factura' },
-    { to: '/plantillas', texto: 'Plantillas', icono: 'capas' },
+    { to: '/seguimiento', texto: 'Seguimiento', icono: 'ruta' },
   ]
+  if (esInterno()) items.push({ to: '/transporte', texto: 'Embarques', icono: 'barco' })
+  items.push({ to: '/plantillas', texto: 'Plantillas', icono: 'capas' })
   if (esInterno()) {
-    items.push({ to: '/transporte', texto: 'Embarques', icono: 'barco' }, { to: '/importar', texto: 'Importar OCs', icono: 'importar' })
+    items.push({ to: '/mantenimiento', texto: 'Mantenimiento', icono: 'base' })
     if (puede('admin')) items.push({ to: '/admin', texto: 'Usuarios', icono: 'usuarios' })
   }
   return items
 })
 
 const activo = (to) => (to === '/' ? route.path === '/' : route.path.startsWith(to) ||
-  (to === '/facturas' && route.path.startsWith('/packing-lists')))
+  (to === '/facturas' && route.path.startsWith('/packing-lists')) || (to === '/ordenes' && route.path.startsWith('/importar')))
 
 const iniciales = computed(() => (sesion.usuario?.nombre || '?').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase())
 

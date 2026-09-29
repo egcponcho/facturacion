@@ -37,7 +37,20 @@ export function fmtFechaHoraLocal(valor) {
 
 export function unidadTxt(unidad, n) {
   if (unidad === 'PAR') return n === 1 ? 'par' : 'pares'
+  if (unidad === 'CJ') return n === 1 ? 'caja prepack' : 'cajas prepack'
   return n === 1 ? 'unidad' : 'unidades'
+}
+
+export const LIBERACION = {
+  300: ['300 · Liberada', 'ok', 'Liberada por sourcing sin novedades'],
+  301: ['301 · Liberada con cambios', 'info', 'Liberada por sourcing; la OC cambió después'],
+  304: ['304 · Pendiente comercial', 'aviso', 'Sin liberación comercial: no se puede facturar'],
+}
+
+export function diasTxt(n) {
+  if (n === null || n === undefined) return '—'
+  if (n === 0) return 'hoy'
+  return n > 0 ? `en ${n} d` : `hace ${-n} d`
 }
 
 export function cantTxt(n, unidad) {

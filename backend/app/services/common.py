@@ -51,6 +51,8 @@ def _matriz() -> dict[str, set[str]]:
         "transporte.gestionar": INTERNOS,
         "recepcion.registrar": INTERNOS,
         "alertas.ver": INTERNOS,
+        "catalogos.ver": INTERNOS,
+        "catalogos.editar": INTERNOS,
         "admin": {"admin"},
     }
 

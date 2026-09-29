@@ -59,6 +59,7 @@ export const api = {
   get: (url, params) => pedir('GET', url, undefined, { params }),
   post: (url, cuerpo, opciones) => pedir('POST', url, cuerpo ?? {}, opciones),
   patch: (url, cuerpo, opciones) => pedir('PATCH', url, cuerpo ?? {}, opciones),
+  put: (url, cuerpo, opciones) => pedir('PUT', url, cuerpo ?? {}, opciones),
   del: (url) => pedir('DELETE', url),
   async descargar(url, nombre) {
     const r = await fetch(BASE + url, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
