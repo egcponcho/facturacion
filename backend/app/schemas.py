@@ -245,6 +245,7 @@ class EmbarqueIn(BaseModel):
     transportista: str | None = None
     puerto_origen: str | None = None
     puerto_destino: str | None = None
+    centro: str | None = None
     etd: date | None = None
     eta: date | None = None
     observaciones: str | None = None
@@ -257,10 +258,35 @@ class EmbarquePatch(BaseModel):
     transportista: str | None = None
     puerto_origen: str | None = None
     puerto_destino: str | None = None
+    centro: str | None = None
     etd: date | None = None
     eta: date | None = None
     observaciones: str | None = None
     motivo: str | None = None
+
+
+class Paletizar(BaseModel):
+    version: int
+    grupo_ids: list[int] = Field(min_length=1)
+    pallet_id: int | None = None  # None = pallet nuevo con estas medidas
+    largo: float | None = None
+    ancho: float | None = None
+    alto: float | None = None
+    peso_tara: float | None = None
+
+
+class Despaletizar(BaseModel):
+    version: int
+    grupo_ids: list[int] = []
+    pallet_id: int | None = None
+
+
+class PalletPatch(BaseModel):
+    version: int
+    largo: float | None = None
+    ancho: float | None = None
+    alto: float | None = None
+    peso_tara: float | None = None
 
 
 class UnidadIn(BaseModel):

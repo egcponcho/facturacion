@@ -8,6 +8,8 @@ import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import TarjetaParte from '../components/TarjetaParte.vue'
+import ExplosionPrepack from '../components/ExplosionPrepack.vue'
 import Paginacion from '../components/Paginacion.vue'
 import Pasos from '../components/Pasos.vue'
 import ThOrden from '../components/ThOrden.vue'
@@ -27,6 +29,7 @@ const filtro = reactive({ texto: '', solo_pendiente: true })
 const modal = ref(null)
 const ocupado = ref(false)
 const recepcion = reactive({})
+const explosion = ref(null)
 
 const url = (s = '') => `/packing-lists/${props.id}${s}`
 const editable = computed(() => !!pl.value?.puede.editar)
@@ -319,6 +322,36 @@ function moverCajas() {
     grupos: m.grupos.map((g) => ({ grupo_id: g.grupo_id, num_cajas: Number(g.num_cajas) })),
   }), (r) => `Cajas movidas a ${r.destino_numero} con su contenido.`)
 }
+// ---- Pallets -----------------------------------------------------------------
+function abrirPaletizar() {
+  modal.value = { tipo: 'pallet', destino: '', largo: 120, ancho: 100, alto: 150, peso_tara: 25 }
+}
+function paletizar() {
+  const m = modal.value
+  const nuevo = !m.destino
+  const cajas = cajasSel.value
+  accion(() => api.post(url('/pallets'), {
+    version: pl.value.version, grupo_ids: selG.lista(), pallet_id: m.destino || null,
+    ...(nuevo ? { largo: Number(m.largo), ancho: Number(m.ancho), alto: Number(m.alto), peso_tara: Number(m.peso_tara) || 0 } : {}),
+  }), (r) => `${plural(cajas, 'caja', 'cajas')} en el pallet ${r.numero}.`)
+  selG.limpiar()
+}
+function despaletizar(grupoIds, palletId = null) {
+  accion(() => api.post(url('/pallets/quitar'), { version: pl.value.version, grupo_ids: grupoIds, pallet_id: palletId }),
+    palletId ? 'Pallet deshecho; sus cajas quedan sueltas.' : 'Cajas fuera del pallet.')
+  selG.limpiar()
+}
+const celdaPallet = (p, campo) => async (valor) => {
+  try {
+    await guardando(api.patch(url(`/pallets/${p.id}`), { version: pl.value.version, [campo]: valor }))
+    await cargar()
+  } catch (e) {
+    errorApi(e)
+    if (e.codigo === 'conflicto_version') cargar()
+    throw e
+  }
+}
+
 function desempacar() {
   accion(() => api.post(url('/cajas/eliminar'), { version: pl.value.version, grupo_ids: selG.lista() }),
     'Cajas desempacadas; su contenido volvió a “Por empacar”.')
@@ -375,6 +408,7 @@ onMounted(cargar)
         <div class="cifra"><span>Peso neto</span><b>{{ fmtNum(pl.totales.peso_neto, 1) }} kg</b></div>
         <div class="cifra"><span>Peso bruto</span><b>{{ fmtNum(pl.totales.peso_bruto, 1) }} kg</b></div>
         <div class="cifra"><span>Volumen</span><b>{{ fmtNum(pl.totales.cbm, 2) }} m³</b></div>
+        <div v-if="pl.totales.pallets" class="cifra"><span>Pallets</span><b>{{ pl.totales.pallets }}</b></div>
         <div class="cifra"><span>Contenedor</span>
           <b v-if="pl.transporte" style="font-size: 0.95rem">{{ pl.transporte.unidad }} · {{ pl.transporte.embarque }} <EstadoBadge :estado="pl.transporte.asignacion" /></b>
           <b v-else class="apagado" style="font-size: 0.95rem">Sin asignar</b>
@@ -382,6 +416,18 @@ onMounted(cargar)
       </div>
       <Pasos :pasos="pasos" />
     </section>
+
+    <div v-if="pl.partes" class="partes" style="margin-bottom: 16px">
+      <TarjetaParte titulo="Facturar a" icono="factura" :parte="pl.partes.facturar_a" />
+      <TarjetaParte titulo="Notify party (centro que recibe)" icono="ubicacion" :parte="pl.partes.notify" />
+      <section v-if="pl.partes.destino" class="panel tarjeta-parte">
+        <div class="tp-cabeza">
+          <span class="tp-icono"><Icono nombre="ruta" :tam="16" /></span>
+          <div><span class="eyebrow">Destino final</span><b>{{ pl.partes.destino.codigo }} · {{ pl.partes.destino.nombre || 'Centro no registrado' }}</b></div>
+        </div>
+        <p class="tp-linea">País de llegada: <b>{{ pl.partes.destino.pais || '—' }}</b></p>
+      </section>
+    </div>
 
     <p v-if="editable && pl.saldo_factura > 0" class="nota aviso" style="align-items: center">
       <Icono nombre="info" />
@@ -453,6 +499,7 @@ onMounted(cargar)
                 <ThOrden campo="talla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Talla</ThOrden>
                 <ThOrden campo="oc" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">OC / pos.</ThOrden>
                 <ThOrden campo="regla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Regla</ThOrden>
+                <th>UM</th>
                 <ThOrden campo="cantidad" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">Cantidad</ThOrden>
                 <ThOrden campo="en_cajas" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">En cajas</ThOrden>
                 <ThOrden campo="sin_caja" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">Sin caja</ThOrden>
@@ -468,8 +515,13 @@ onMounted(cargar)
                   <span class="sub codigo">{{ l.codigo_sap }}</span>
                 </td>
                 <td><strong>{{ l.talla }}</strong></td>
-                <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.pais_destino" class="sub">destino {{ l.pais_destino }}</span></td>
-                <td><span class="etiqueta" :class="REGLAS[l.regla]?.[1]" style="margin-left: 0">{{ reglaTxt(l) }}</span></td>
+                <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.centro_destino || l.almacen" class="sub">{{ [l.almacen && `almacén ${l.almacen}`, l.centro_destino && `destino ${l.centro_destino}`].filter(Boolean).join(' · ') }}</span></td>
+                <td>
+                  <button v-if="l.regla === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" style="margin-left: 0"
+                          title="Ver la explosión del prepack" @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ reglaTxt(l) }} <Icono nombre="lupa" :tam="12" /></button>
+                  <span v-else class="etiqueta" :class="REGLAS[l.regla]?.[1]" style="margin-left: 0">{{ reglaTxt(l) }}</span>
+                </td>
+                <td><span class="etiqueta" style="margin-left: 0">{{ l.unidad }}</span></td>
                 <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
                 <td class="num">{{ fmtNum(l.en_cajas) }}</td>
                 <td class="num"><strong v-if="l.sin_caja">{{ fmtNum(l.sin_caja) }}</strong><span v-else class="apagado">0</span></td>
@@ -484,7 +536,7 @@ onMounted(cargar)
                 </td>
               </tr>
               <tr v-if="!lineasFiltradas.length">
-                <td colspan="10" class="vacio">{{ pl.lineas.length ? 'Ninguna fila coincide con el filtro.' : 'El packing list está vacío.' }}</td>
+                <td colspan="11" class="vacio">{{ pl.lineas.length ? 'Ninguna fila coincide con el filtro.' : 'El packing list está vacío.' }}</td>
               </tr>
             </tbody>
           </table>
@@ -508,6 +560,27 @@ onMounted(cargar)
         <span>{{ plural(estimadas.length, 'grupo de cajas tiene', 'grupos de cajas tienen') }} peso estimado (cajas parciales). Pésalas y corrige, o confirma el estimado.</span>
         <button class="btn btn-chico separar" :disabled="ocupado" @click="confirmarPesos(estimadas)">Confirmar todos los estimados</button>
       </p>
+      <section v-if="pl.pallets?.length" class="panel" style="margin-bottom: 14px">
+        <div class="panel-cabeza"><div><h2>Pallets</h2><p>El volumen del embarque usa las medidas del pallet; el peso bruto suma su tara.</p></div></div>
+        <div class="tabla-marco" style="box-shadow: none">
+          <table class="tabla">
+            <thead><tr><th>Pallet</th><th>Cajas</th><th class="num"><span class="req">Largo</span></th><th class="num"><span class="req">Ancho</span></th><th class="num"><span class="req">Alto cm</span></th><th class="num">Tara kg</th><th class="num">Bruto kg</th><th class="num">m³</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="p in pl.pallets" :key="p.id">
+                <td class="fuerte">Pallet {{ p.numero }}</td>
+                <td>{{ p.cajas }} <span class="sub">cajas {{ p.rangos.join(', ') }}</span></td>
+                <td v-for="campo in ['largo', 'ancho', 'alto', 'peso_tara']" :key="campo" class="num" style="width: 90px">
+                  <CeldaEditable v-if="editable" tipo="number" :min="0" :valor="p[campo]" :guardar="celdaPallet(p, campo)" :etiqueta="`${campo} del pallet ${p.numero}`" />
+                  <template v-else>{{ fmtNum(p[campo], campo === 'peso_tara' ? 1 : 0) }}</template>
+                </td>
+                <td class="num">{{ fmtNum(p.peso_bruto, 1) }}</td>
+                <td class="num">{{ fmtNum(p.cbm, 3) }}</td>
+                <td class="num"><button v-if="editable" class="btn btn-chico btn-fantasma" :disabled="ocupado" @click="despaletizar([], p.id)">Deshacer</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
       <p v-if="pl.avisos?.length" class="nota aviso bloque" style="margin-bottom: 12px">
         <Icono nombre="alerta" />
         <span><b>Revisa con el Commercial Brand Manager:</b> <template v-for="a in pl.avisos" :key="a.grupo_id">{{ a.mensaje }} </template></span>
@@ -533,7 +606,7 @@ onMounted(cargar)
           <tbody>
             <tr v-for="g in tablaG.filas.value" :key="g.id" :class="{ seleccionada: selG.tiene(g.id) }">
               <td class="chk"><input type="checkbox" :aria-label="`Seleccionar cajas ${rango(g)}`" :checked="selG.tiene(g.id)" @change="selG.alternar(g.id)" /></td>
-              <td class="cajas-rango">{{ rango(g) }}</td>
+              <td class="cajas-rango">{{ rango(g) }}<span v-if="g.pallet" class="etiqueta acento" title="En pallet">P{{ g.pallet }}</span></td>
               <td class="envolver">
                 <div class="caja-items">
                   <div v-for="it in g.items" :key="it.pl_linea_id">
@@ -546,7 +619,7 @@ onMounted(cargar)
                     Etiqueta {{ g.etiqueta.tipo === 'ESTANDAR' ? 'estándar' : 'consolidada' }}
                   </span>
                   <span class="ayuda codigo">OC {{ g.etiqueta.ocs.join(', ') }}</span>
-                  <span v-if="g.etiqueta.pais_destino" class="ayuda">· destino {{ g.etiqueta.pais_destino }}</span>
+                  <span v-if="g.etiqueta.centro_destino" class="ayuda">· destino {{ g.etiqueta.centro_destino }}</span>
                 </div>
               </td>
               <td class="num" style="width: 70px">
@@ -597,6 +670,8 @@ onMounted(cargar)
           <button v-if="selGrupos.some((g) => g.peso_estimado)" class="btn" :disabled="ocupado" @click="confirmarPesos(selGrupos.filter((g) => g.peso_estimado))">Confirmar pesos</button>
           <button class="btn" @click="abrirMoverCajas"><Icono nombre="mover" :tam="15" />Mover a otro PL</button>
           <button class="btn" :disabled="selGrupos.length !== 1 || selGrupos[0].mixta" title="Solo cajas de un solo producto" @click="modal = { tipo: 'guardar_plantilla', grupo_id: selGrupos[0].id, nombre: '' }"><Icono nombre="capas" :tam="15" />Guardar como plantilla</button>
+          <button class="btn" @click="abrirPaletizar"><Icono nombre="capas" :tam="15" />Paletizar</button>
+          <button v-if="selGrupos.some((g) => g.pallet)" class="btn" :disabled="ocupado" @click="despaletizar(selGrupos.filter((g) => g.pallet).map((g) => g.id))">Sacar del pallet</button>
           <button class="btn btn-peligro" @click="modal = { tipo: 'desempacar' }">Desempacar</button>
         </template>
       </BarraSeleccion>
@@ -645,7 +720,7 @@ onMounted(cargar)
             <tr v-for="l in pl.lineas" :key="l.id">
               <td>{{ l.estilo }} · {{ l.color }}<span class="sub codigo">{{ l.codigo_sap }}</span></td>
               <td><strong>{{ l.talla }}</strong></td>
-              <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}</td>
+              <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.almacen" class="sub">almacén {{ l.almacen }}</span></td>
               <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
               <td class="num">{{ fmtNum(l.en_cajas) }}</td>
               <td><EstadoBadge :estado="l.estado_empaque" /></td>
@@ -860,6 +935,26 @@ onMounted(cargar)
     </template>
   </Modal>
 
+  <Modal v-if="modal?.tipo === 'pallet'" titulo="Paletizar cajas" ancho="560px" @cerrar="modal = null">
+    <p>{{ plural(cajasSel, 'caja', 'cajas') }} seleccionadas. Si la mercancía viaja en tarimas, agrúpalas en pallets con sus medidas.</p>
+    <label class="campo"><span>Pallet</span>
+      <select v-model="modal.destino">
+        <option value="">Pallet nuevo</option>
+        <option v-for="p in pl.pallets" :key="p.id" :value="p.id">Agregar al pallet {{ p.numero }} ({{ p.cajas }} cajas)</option>
+      </select>
+    </label>
+    <div v-if="!modal.destino" class="rejilla-campos">
+      <label class="campo"><span class="req">Largo cm</span><input v-model.number="modal.largo" type="number" min="1" /></label>
+      <label class="campo"><span class="req">Ancho cm</span><input v-model.number="modal.ancho" type="number" min="1" /></label>
+      <label class="campo"><span class="req">Alto cm (armado)</span><input v-model.number="modal.alto" type="number" min="1" /></label>
+      <label class="campo"><span>Tara kg (tarima)</span><input v-model.number="modal.peso_tara" type="number" min="0" /></label>
+    </div>
+    <template #pie>
+      <button class="btn" @click="modal = null">Cancelar</button>
+      <button class="btn btn-primario" :disabled="ocupado || (!modal.destino && !(modal.largo > 0 && modal.ancho > 0 && modal.alto > 0))" @click="paletizar">Paletizar</button>
+    </template>
+  </Modal>
+
   <Modal v-if="modal?.tipo === 'desempacar'" titulo="Desempacar cajas" @cerrar="modal = null">
     <p>Se eliminan {{ plural(cajasSel, 'caja', 'cajas') }} y su contenido vuelve a “Por empacar”.</p>
     <template #pie>
@@ -884,4 +979,5 @@ onMounted(cargar)
       </button>
     </template>
   </Modal>
+  <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
 </template>

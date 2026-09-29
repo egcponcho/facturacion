@@ -8,6 +8,8 @@ import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import SelectBusqueda from '../components/SelectBusqueda.vue'
+import TarjetaParte from '../components/TarjetaParte.vue'
 import ThOrden from '../components/ThOrden.vue'
 import { useTabla } from '../composables/useTabla'
 import { sesion } from '../stores/sesion'
@@ -51,15 +53,13 @@ const SIGUIENTE = { PLANIFICADO: 'SALIDA', EN_TRANSITO: 'ARRIBO', ARRIBADO: 'ENT
 const CAMPOS = [
   ['documento_numero', 'BL / AWB', 'text', true],
   ['transportista', 'Naviera o transportista', 'text', true],
-  ['puerto_origen', 'Origen', 'text', true],
-  ['puerto_destino', 'Destino', 'text', true],
   ['etd', 'ETD (salida estimada)', 'date', false],
   ['eta', 'ETA (llegada estimada)', 'date', false],
 ]
 // Al registrar la salida la carga queda cerrada: no se agregan, quitan ni
 // mueven PL o contenedores, y los datos del viaje quedan fijos.
 const cerrado = computed(() => !!e.value?.cerrado)
-const FIJOS_SALIDA = ['documento_numero', 'transportista', 'puerto_origen', 'etd']
+const FIJOS_SALIDA = ['documento_numero', 'transportista', 'puerto_origen', 'etd', 'centro']
 const fijo = (campo) => cerrado.value && (FIJOS_SALIDA.includes(campo) || (e.value.arribo_real && ['eta', 'puerto_destino'].includes(campo)))
 const eventosPermitidos = computed(() => EVENTOS.filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)))
 const ultimoEvento = computed(() => (e.value?.eventos || []).reduce((a, ev) => (!a || ev.fecha > a ? ev.fecha : a), null))
@@ -71,6 +71,33 @@ const icono = computed(() => ({ AEREO: 'avion', TERRESTRE: 'camion' })[e.value?.
 const totales = computed(() => (e.value?.unidades || []).reduce((a, x) => ({
   pls: a.pls + x.packing_lists, cajas: a.cajas + x.cajas, cbm: a.cbm + x.cbm, kg: a.kg + x.peso_bruto, tentativas: a.tentativas + x.tentativas,
 }), { pls: 0, cajas: 0, cbm: 0, kg: 0, tentativas: 0 }))
+
+// Ruta: centro que recibe y puertos del catálogo
+const puertos = ref([])
+const centros = ref([])
+async function cargarRutas() {
+  try {
+    const [p, c] = await Promise.all([api.get('/catalogos/puertos', { size: 200 }), api.get('/catalogos/centros', { size: 200 })])
+    puertos.value = p.items.map((x) => ({ valor: x.codigo, texto: `${x.codigo} · ${x.nombre}`, sub: x.pais }))
+    centros.value = c.items.map((x) => ({ valor: x.codigo, texto: `${x.codigo} · ${x.nombre}`, sub: `puerto ${x.puerto || '—'}`, puerto: x.puerto }))
+  } catch (err) {
+    errorApi(err)
+  }
+}
+const puertoCentro = computed(() => centros.value.find((x) => x.valor === e.value?.centro)?.puerto)
+const nombrePuerto = (c) => puertos.value.find((x) => x.valor === c)?.texto || c || '—'
+async function cambiarRuta(campo, valor) {
+  const datos = { [campo]: valor || null }
+  // Al cambiar el centro, el puerto de destino pasa a ser el suyo
+  if (campo === 'centro') datos.puerto_destino = centros.value.find((x) => x.valor === valor)?.puerto || e.value.puerto_destino
+  try {
+    await guardando(api.patch(`/embarques/${props.id}`, datos))
+    await cargar()
+  } catch (err) {
+    errorApi(err)
+    await cargar()
+  }
+}
 
 async function cargar() {
   try {
@@ -243,7 +270,10 @@ function registrarEvento() {
 }
 const detalleHistorial = (h) => (h.detalle ? Object.entries(h.detalle).map(([k, v]) => `${k.replaceAll('_', ' ')}: ${Array.isArray(v) ? `${v[0] ?? '—'} a ${v[1] ?? '—'}` : v}`).join(', ') : '')
 
-onMounted(cargar)
+onMounted(() => {
+  cargar()
+  cargarRutas()
+})
 watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
 </script>
 
@@ -279,6 +309,21 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <b v-if="fijo(campo)" :title="'Fijo desde la salida'">{{ tipo === 'date' ? fmtFecha(e[campo]) : e[campo] || '—' }} <Icono nombre="candado" :tam="12" /></b>
           <CeldaEditable v-else :tipo="tipo" :valor="e[campo]" :guardar="guardar(campo)" :etiqueta="texto" :vacia-texto="obligatorio ? 'Obligatorio' : ''" />
         </label>
+        <div class="dato"><span class="req">Centro que recibe</span>
+          <b v-if="cerrado">{{ e.centro || '—' }} <Icono nombre="candado" :tam="12" /></b>
+          <SelectBusqueda v-else :model-value="e.centro || ''" :opciones="centros" vacio="Lo define la primera carga" etiqueta="Centro"
+                          @change="(v) => cambiarRuta('centro', v)" />
+        </div>
+        <div class="dato"><span class="req">Puerto de origen</span>
+          <b v-if="fijo('puerto_origen')">{{ nombrePuerto(e.puerto_origen) }} <Icono nombre="candado" :tam="12" /></b>
+          <SelectBusqueda v-else :model-value="e.puerto_origen || ''" :opciones="puertos" vacio="Sin definir" etiqueta="Puerto de origen"
+                          @change="(v) => cambiarRuta('puerto_origen', v)" />
+        </div>
+        <div class="dato"><span class="req">Puerto de destino</span>
+          <b v-if="fijo('puerto_destino') || puertoCentro" :title="puertoCentro ? `Puerto de llegada del centro ${e.centro}` : 'Fijo'">{{ nombrePuerto(e.puerto_destino) }}</b>
+          <SelectBusqueda v-else :model-value="e.puerto_destino || ''" :opciones="puertos" vacio="Sin definir" etiqueta="Puerto de destino"
+                          @change="(v) => cambiarRuta('puerto_destino', v)" />
+        </div>
         <div class="dato"><span>Salida real</span><b>{{ fmtFecha(e.salida_real) }}</b></div>
         <div class="dato"><span>Arribo real</span><b>{{ fmtFecha(e.arribo_real) }}</b></div>
       </div>
@@ -414,6 +459,10 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
         <button class="btn btn-primario" @click="abrirNuevaUnidad"><Icono nombre="mas" />Agregar contenedor</button>
       </div>
     </section>
+
+    <div v-if="e.notify" class="partes mt">
+      <TarjetaParte titulo="Notify party" icono="ubicacion" :parte="e.notify" />
+    </div>
 
     <div class="dos-columnas mt">
       <section class="panel">

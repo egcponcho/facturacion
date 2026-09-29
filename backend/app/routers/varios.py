@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Query
 
 from ..schemas import PlantillaIn, PlantillaPatch
@@ -17,10 +19,27 @@ def dashboard(db: Db, user: User, proveedor_id: int | None = None):
 @router.get("/seguimiento")
 def seguimiento(db: Db, user: User, proveedor_id: int | None = None, q: str | None = None, marca: str | None = None,
                 estilo: str | None = None, color: str | None = None, talla: str | None = None,
-                etapa: str | None = None, riesgo: str | None = None, embarque_id: int | None = None,
+                almacen: str | None = None, grupo: str | None = None, sku: str | None = None,
+                contenedor: str | None = None, documento: str | None = None, etapa: str | None = None,
+                riesgo: str | None = None, embarque_id: int | None = None,
+                eta_desde: date | None = None, eta_hasta: date | None = None,
+                fecha_xf_desde: date | None = None, fecha_xf_hasta: date | None = None,
+                fecha_tienda_desde: date | None = None, fecha_tienda_hasta: date | None = None,
                 orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
-    return seg.seguimiento(db, user, proveedor_id, q, marca, estilo, color, talla, etapa, riesgo, embarque_id,
-                           orden, page, size)
+    filtros = {k: v for k, v in locals().items()
+               if k not in ("db", "user", "proveedor_id", "orden", "page", "size")}
+    return seg.seguimiento(db, user, proveedor_id, filtros, orden, page, size)
+
+
+@router.get("/seguimiento/documentos")
+def seguimiento_documentos(db: Db, user: User, proveedor_id: int | None = None, q: str | None = None,
+                           etapa: str | None = None, estado_factura: str | None = None, estado_pl: str | None = None,
+                           sociedad: str | None = None, centro: str | None = None, embarque_id: int | None = None,
+                           proveedor: str | None = None, con_pendientes: bool = False, orden: str | None = None,
+                           page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    filtros = {k: v for k, v in locals().items()
+               if k not in ("db", "user", "proveedor_id", "orden", "page", "size")}
+    return seg.seguimiento_documentos(db, user, proveedor_id, filtros, orden, page, size)
 
 
 @router.get("/alertas")

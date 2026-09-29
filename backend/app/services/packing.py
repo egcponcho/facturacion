@@ -7,6 +7,7 @@ from ..models import (
     GrupoCajas,
     GrupoCajasItem,
     PackingList,
+    Pallet,
     PlantillaCaja,
     PLLinea,
     RecepcionLinea,
@@ -17,11 +18,13 @@ from .cantidades import (
     asignado_por_linea,
     cbm_caja,
     cubierto,
+    limpiar_pallets,
     nombre_factura,
     numeracion,
     sin_caja,
     totales_pl,
 )
+from .partes import partes
 from .common import (
     EDITABLE_PL,
     ESTADO_TXT,
@@ -93,9 +96,9 @@ def etiqueta_caja(g) -> dict:
     """Estándar: una sola OC, estilo, color y talla. Consolidada: varias."""
     lineas = [it.pl_linea.factura_linea for it in g.items]
     ocs = sorted({fl.oc_numero for fl in lineas})
-    destinos = sorted({fl.pais_destino for fl in lineas if fl.pais_destino})
+    destinos = sorted({fl.centro_destino for fl in lineas if fl.centro_destino})
     return {"tipo": "ESTANDAR" if len(lineas) == 1 else "CONSOLIDADA", "ocs": ocs,
-            "pais_destino": destinos[0] if len(destinos) == 1 else None}
+            "centro_destino": destinos[0] if len(destinos) == 1 else None}
 
 
 def _plantilla(db: Session, pl: PackingList, plantilla_id: int) -> PlantillaCaja:
@@ -282,7 +285,9 @@ def mover_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
             if src.cantidad == 0:
                 origen.lineas.remove(src)
         mover_g.pl = destino
+        mover_g.pallet = None
         total_cajas += mover_g.num_cajas
+    limpiar_pallets(origen)
     tocar(origen)
     tocar(destino)
     registrar(db, user, "packing_list", origen.id, "mover_cajas",
@@ -303,6 +308,84 @@ def _clonar_grupo(g: GrupoCajas, num_cajas: int) -> GrupoCajas:
     for it in g.items:
         nuevo.items.append(GrupoCajasItem(pl_linea=it.pl_linea, cantidad_por_caja=it.cantidad_por_caja))
     return nuevo
+
+
+# ---- Pallets -----------------------------------------------------------------
+def resumen_pallets(pl: PackingList) -> list[dict]:
+    rangos = numeracion(pl)
+    res = []
+    for p in sorted(pl.pallets, key=lambda x: x.numero):
+        grupos = [g for g in pl.grupos if g.pallet is p]
+        cajas = sum(g.num_cajas for g in grupos)
+        bruto = sum((g.peso_bruto_caja or 0) * g.num_cajas for g in grupos) + (p.peso_tara or 0)
+        res.append({
+            "id": p.id, "numero": p.numero, "largo": p.largo, "ancho": p.ancho, "alto": p.alto,
+            "peso_tara": p.peso_tara, "cajas": cajas, "peso_bruto": round(bruto, 3),
+            "cbm": round(p.largo * p.ancho * p.alto / 1_000_000, 4),
+            "rangos": [f"{rangos[g.id][0]}" if rangos[g.id][0] == rangos[g.id][1]
+                       else f"{rangos[g.id][0]}–{rangos[g.id][1]}" for g in grupos if g.id in rangos],
+        })
+    return res
+
+
+def paletizar(db: Session, user: Usuario, pl_id: int, datos) -> dict:
+    """Pone grupos de cajas en un pallet nuevo (con sus medidas) o en uno
+    existente. Un grupo va completo a un solo pallet."""
+    pl = _editable(db, user, pl_id, datos.version)
+    grupos = {g.id: g for g in pl.grupos}
+    faltan = [i for i in datos.grupo_ids if i not in grupos]
+    if faltan or not datos.grupo_ids:
+        raise ErrorNegocio("Elige cajas de este packing list.", 422, "validacion")
+    if datos.pallet_id:
+        pallet = next((p for p in pl.pallets if p.id == datos.pallet_id), None)
+        if not pallet:
+            raise ErrorNegocio("El pallet no existe en este packing list.", 404, "no_encontrado")
+    else:
+        errores = [{"campo": c, "mensaje": f"{t} del pallet es obligatorio y mayor que cero."}
+                   for c, t in (("largo", "El largo"), ("ancho", "El ancho"), ("alto", "El alto"))
+                   if not getattr(datos, c) or getattr(datos, c) <= 0]
+        if errores:
+            raise ErrorNegocio("Faltan las medidas del pallet.", 422, "validacion", errores)
+        pallet = Pallet(numero=len(pl.pallets) + 1, largo=datos.largo, ancho=datos.ancho, alto=datos.alto,
+                        peso_tara=datos.peso_tara or 0)
+        pl.pallets.append(pallet)
+    for i in datos.grupo_ids:
+        grupos[i].pallet = pallet
+    db.flush()
+    limpiar_pallets(pl)
+    tocar(pl)
+    registrar(db, user, "packing_list", pl.id, "paletizar",
+              {"pallet": pallet.numero, "cajas": sum(grupos[i].num_cajas for i in datos.grupo_ids)},
+              factura_id=pl.factura_id)
+    return {"pallet_id": pallet.id, "numero": pallet.numero, "version": pl.version}
+
+
+def despaletizar(db: Session, user: Usuario, pl_id: int, datos) -> dict:
+    """Saca cajas de su pallet (o vacía un pallet completo)."""
+    pl = _editable(db, user, pl_id, datos.version)
+    for g in pl.grupos:
+        if g.id in datos.grupo_ids or (datos.pallet_id and g.pallet_id == datos.pallet_id):
+            g.pallet = None
+    db.flush()
+    limpiar_pallets(pl)
+    tocar(pl)
+    registrar(db, user, "packing_list", pl.id, "despaletizar", None, factura_id=pl.factura_id)
+    return {"version": pl.version}
+
+
+def editar_pallet(db: Session, user: Usuario, pl_id: int, pallet_id: int, datos) -> dict:
+    pl = _editable(db, user, pl_id, datos.version)
+    pallet = next((p for p in pl.pallets if p.id == pallet_id), None)
+    if not pallet:
+        raise ErrorNegocio("El pallet no existe en este packing list.", 404, "no_encontrado")
+    for c in ("largo", "ancho", "alto", "peso_tara"):
+        v = getattr(datos, c)
+        if v is not None:
+            if v < 0 or (c != "peso_tara" and v == 0):
+                raise ErrorNegocio("Las medidas del pallet deben ser mayores que cero.", 422, "validacion")
+            setattr(pallet, c, v)
+    tocar(pl)
+    return {"version": pl.version}
 
 
 # ---- Plantillas y cajas -----------------------------------------------------
@@ -501,7 +584,7 @@ def crear_caja(db: Session, user: Usuario, pl_id: int, datos) -> dict:
 def _reglas_caja(pl: PackingList, items, num_cajas: int) -> list[dict]:
     lineas = [(_linea(pl, i.pl_linea_id), i.cantidad_por_caja) for i in items]
     errores = []
-    destinos = {pll.factura_linea.pais_destino for pll, _ in lineas}
+    destinos = {pll.factura_linea.centro_destino for pll, _ in lineas}
     if len(destinos) > 1:
         errores.append({"mensaje": "Una caja no puede mezclar productos para distintos países de destino ("
                         + ", ".join(sorted(d or "sin destino" for d in destinos)) + ")."})
@@ -581,6 +664,7 @@ def eliminar_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
         total += g.num_cajas
         afectadas.update(it.pl_linea for it in g.items)
         pl.grupos.remove(g)
+    limpiar_pallets(pl)
     db.flush()
     for pll in afectadas:
         db.expire(pll, ["items"])
@@ -786,6 +870,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "id": pll.id,
             "factura_linea_id": fl.id,
             "oc_numero": fl.oc_numero,
+            "almacen": fl.almacen,
             "posicion": fl.posicion,
             "codigo_sap": fl.codigo_sap,
             "upc": fl.upc,
@@ -799,7 +884,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "casepack": fl.casepack,
             "prepack": fl.prepack,
             "unidades_por_caja": fl.unidades_por_caja,
-            "pais_destino": fl.pais_destino,
+            "centro_destino": fl.centro_destino,
             "regla": regla_empaque(fl)[0],
             "cantidad": pll.cantidad,
             "en_cajas": en_cajas,
@@ -851,6 +936,8 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "peso_estimado": g.peso_estimado,
             "observacion": g.observacion,
             "etiqueta": etiqueta_caja(g),
+            "pallet_id": g.pallet_id,
+            "pallet": g.pallet.numero if g.pallet else None,
         })
 
     saldo = _saldo_factura(db, f)
@@ -864,6 +951,8 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
                     "proveedor_id": f.proveedor_id, "proveedor": f.proveedor.nombre},
         "lineas": lineas,
         "grupos": grupos,
+        "pallets": resumen_pallets(pl),
+        "partes": partes(db, f.sociedad, f.centro, f.centro_destino),
         "totales": totales_pl(pl),
         "validaciones": validar_pl(pl) if editable else [],
         "avisos": avisos_pl(pl),

@@ -6,19 +6,21 @@ import Avance from '../components/Avance.vue'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
+import ExplosionPrepack from '../components/ExplosionPrepack.vue'
 import Paginacion from '../components/Paginacion.vue'
+import SelectBusqueda from '../components/SelectBusqueda.vue'
 import ThOrden from '../components/ThOrden.vue'
 import { siguienteOrden } from '../composables/useTabla'
 import { agregarPosiciones, carrito, quitarOC, quitarPosicion, vaciarCarrito } from '../stores/carrito'
 import { esInterno, nombreProveedor, sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
-import { LIBERACION, cantTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '../utils'
+import { COMERCIAL, LIBERACION, cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '../utils'
 
 const route = useRoute()
 const router = useRouter()
 
 // Filtros que se eligen de listas armadas con lo que realmente hay en las OCs
-const EXTRA = { sociedad: 'Sociedad', centro: 'Centro', marca: 'Marca', liberacion: 'Liberación', destino: 'Destino', puerto: 'Puerto' }
+const EXTRA = { sociedad: 'Sociedad', centro: 'Centro', almacen: 'Almacén', marca: 'Marca', comercial: 'Lib. comercial', liberacion: 'Lib. logística', destino: 'Centro destino', puerto: 'Puerto' }
 const filtros = reactive({
   q: route.query.q || '',
   solo_disponible: route.query.solo_disponible !== '0',
@@ -27,12 +29,13 @@ const filtros = reactive({
   size: 15,
   ...Object.fromEntries(Object.keys(EXTRA).map((k) => [k, route.query[k] || ''])),
 })
-const opcionesFiltro = ref({ sociedades: [], centros: [], marcas: [], destinos: [], puertos: [], liberaciones: [] })
+const opcionesFiltro = ref({ sociedades: [], centros: [], almacenes: [], marcas: [], destinos: [], puertos: [], liberaciones: [] })
 const activos = computed(() => Object.keys(EXTRA).filter((k) => filtros[k]).map((k) => {
   let v = filtros[k]
   if (k === 'destino') v = opcionesFiltro.value.destinos.find((d) => d.codigo === v)?.nombre || v
   if (k === 'puerto') v = opcionesFiltro.value.puertos.find((d) => d.codigo === v)?.nombre || v
   if (k === 'liberacion') v = LIBERACION[v]?.[0] || v
+  if (k === 'comercial') v = COMERCIAL[v]?.[2] || v
   return { k, texto: `${EXTRA[k]}: ${v}` }
 }))
 const datos = ref({ items: [], total: 0 })
@@ -41,6 +44,7 @@ const abiertas = reactive(new Set())
 const detalles = reactive({})
 const selOC = useSeleccion()
 const selPos = useSeleccion()
+const explosion = ref(null) // { sku, cajas } del prepack que se está viendo
 
 const panel = ref(!!route.query.seleccion || !!route.query.factura)
 const destino = ref(route.query.factura ? Number(route.query.factura) : '')
@@ -299,12 +303,18 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" placeholder="Buscar OC, estilo, color, SKU o UPC" aria-label="Buscar" @input="buscar" />
     </label>
-    <select v-model="filtros.sociedad" aria-label="Sociedad" @change="filtrar"><option value="">Sociedad: todas</option><option v-for="v in opcionesFiltro.sociedades" :key="v">{{ v }}</option></select>
-    <select v-model="filtros.centro" aria-label="Centro" @change="filtrar"><option value="">Centro: todos</option><option v-for="v in opcionesFiltro.centros" :key="v">{{ v }}</option></select>
-    <select v-model="filtros.marca" aria-label="Marca" @change="filtrar"><option value="">Marca: todas</option><option v-for="v in opcionesFiltro.marcas" :key="v">{{ v }}</option></select>
-    <select v-model="filtros.destino" aria-label="País destino" @change="filtrar"><option value="">Destino: todos</option><option v-for="d in opcionesFiltro.destinos" :key="d.codigo" :value="d.codigo">{{ d.codigo }} · {{ d.nombre }}</option></select>
-    <select v-model="filtros.puerto" aria-label="Puerto de despacho" @change="filtrar"><option value="">Puerto: todos</option><option v-for="d in opcionesFiltro.puertos" :key="d.codigo" :value="d.codigo">{{ d.codigo }} · {{ d.nombre }}</option></select>
-    <select v-model="filtros.liberacion" aria-label="Liberación logística" @change="filtrar"><option value="">Liberación: todas</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ l.codigo }} · {{ l.nombre }}</option></select>
+    <SelectBusqueda v-model="filtros.sociedad" :opciones="opcionesFiltro.sociedades" vacio="Sociedad: todas" etiqueta="Sociedad" @change="filtrar" />
+    <SelectBusqueda v-model="filtros.centro" :opciones="opcionesFiltro.centros" vacio="Centro: todos" etiqueta="Centro" @change="filtrar" />
+    <SelectBusqueda v-model="filtros.almacen" :opciones="opcionesFiltro.almacenes" vacio="Almacén: todos" etiqueta="Almacén" @change="filtrar" />
+    <SelectBusqueda v-model="filtros.marca" :opciones="opcionesFiltro.marcas" vacio="Marca: todas" etiqueta="Marca" @change="filtrar" />
+    <SelectBusqueda v-model="filtros.destino" :opciones="opcionesFiltro.destinos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
+                    vacio="Centro destino: todos" etiqueta="Centro de destino" @change="filtrar" />
+    <SelectBusqueda v-model="filtros.puerto" :opciones="opcionesFiltro.puertos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
+                    vacio="Puerto: todos" etiqueta="Puerto de despacho" @change="filtrar" />
+    <select v-model="filtros.comercial" aria-label="Liberación comercial" @change="filtrar">
+      <option value="">Lib. comercial: todas</option><option value="C">C · Liberada</option><option value="P">P · Pendiente</option>
+    </select>
+    <select v-model="filtros.liberacion" aria-label="Liberación logística" @change="filtrar"><option value="">Lib. logística: todas</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ l.codigo }} · {{ l.nombre }}</option></select>
     <div class="segmentos" role="group" aria-label="Mostrar">
       <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">Con saldo por facturar</button>
       <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">Todas</button>
@@ -326,7 +336,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
           <ThOrden campo="numero" :orden="filtros.orden" @ordenar="ordenar">Orden de compra</ThOrden>
           <ThOrden v-if="!sesion.proveedorId" campo="proveedor" :orden="filtros.orden" @ordenar="ordenar">Proveedor</ThOrden>
           <th>Sociedad · centro · almacén</th>
-          <th>Destino / puerto</th>
+          <th>Centro destino / puerto</th>
           <ThOrden campo="fecha_xf" :orden="filtros.orden" @ordenar="ordenar">Fecha XF</ThOrden>
           <ThOrden campo="fecha_tienda" :orden="filtros.orden" @ordenar="ordenar">En tienda</ThOrden>
           <th>Por facturar</th>
@@ -348,13 +358,14 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             </td>
             <td>
               <strong class="codigo">{{ oc.numero }}</strong>
+              <span class="etiqueta" :class="COMERCIAL[oc.liberacion_comercial]?.[1]" :title="COMERCIAL[oc.liberacion_comercial]?.[2]">{{ COMERCIAL[oc.liberacion_comercial]?.[0] }}</span>
               <span v-if="LIBERACION[oc.liberacion_logistica]" class="etiqueta" :class="LIBERACION[oc.liberacion_logistica][1]" :title="LIBERACION[oc.liberacion_logistica][2]">{{ LIBERACION[oc.liberacion_logistica][0] }}</span>
               <span class="sub">{{ fmtFecha(oc.fecha) }} · {{ oc.posiciones }} posiciones<template v-if="oc.marcas.length"> · {{ oc.marcas.join(', ') }}</template></span>
             </td>
             <td v-if="!sesion.proveedorId">{{ oc.proveedor }}</td>
-            <td><span class="codigo">{{ oc.sociedad }} · {{ oc.centro || '—' }}</span><span class="sub">{{ oc.almacen || 'Sin almacén' }}</span></td>
+            <td><span class="codigo">{{ oc.sociedad }} · {{ oc.centro || '—' }}</span><span class="sub" :title="oc.almacenes.length > 1 ? 'Las posiciones van a distintos almacenes' : ''">{{ oc.almacenes.join(' · ') || 'Sin almacén' }}</span></td>
             <td>
-              <span class="codigo">{{ oc.pais_destino || '—' }}</span>
+              <span class="codigo" :title="oc.destino_nombre || ''">{{ oc.centro_destino || '—' }}<template v-if="oc.pais_destino"> · {{ oc.pais_destino }}</template></span>
               <span class="sub">{{ oc.puerto_despacho || 'Sin puerto' }}<template v-if="oc.pais_origen"> · origen {{ oc.pais_origen }}</template></span>
             </td>
             <td>
@@ -389,9 +400,11 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                           <input type="checkbox" aria-label="Seleccionar las posiciones con saldo" :checked="selPos.todos(seleccionables(oc.id))" @change="selPos.alternarTodos(seleccionables(oc.id))" />
                         </th>
                         <th>Pos.</th>
+                        <th>Almacén</th>
                         <th>Producto</th>
                         <th>Talla</th>
                         <th>Empaque</th>
+                        <th>UM</th>
                         <th class="num">Cantidad</th>
                         <th class="num">Disponible</th>
                         <th class="num">A facturar</th>
@@ -406,16 +419,21 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                           <input type="checkbox" :aria-label="`Seleccionar posición ${p.posicion}`" :disabled="!p.disponible || p.estado === 'NO_DISPONIBLE'" :checked="selPos.tiene(p.id)" @change="selPos.alternar(p.id)" />
                         </td>
                         <td class="codigo">{{ p.posicion }}</td>
+                        <td class="codigo">{{ p.almacen || '—' }}</td>
                         <td>
                           <span v-if="p.marca" class="fuerte">{{ p.marca }}</span> {{ p.estilo }} · {{ p.color }}
                           <span class="sub codigo">{{ p.codigo_sap }}<template v-if="p.grupo"> · {{ p.grupo }}</template></span>
                         </td>
                         <td><strong>{{ p.talla }}</strong></td>
                         <td>
-                          <span v-if="p.tipo_empaque === 'PREPACK'" class="etiqueta acento" style="margin-left: 0" :title="`Curva ${p.prepack}`">Prepack · {{ p.unidades_por_caja }} pares</span>
+                          <button v-if="p.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" style="margin-left: 0"
+                                  title="Ver la explosión del prepack" @click="explosion = { sku: p.codigo_sap, cajas: p.cantidad }">
+                            Prepack {{ p.prepack }} · {{ p.unidades_por_caja }} pares <Icono nombre="lupa" :tam="12" />
+                          </button>
                           <span v-else-if="p.casepack" class="etiqueta info" style="margin-left: 0">Casepack {{ p.casepack }}</span>
                           <span v-else class="ayuda">Libre</span>
                         </td>
+                        <td><span class="etiqueta" style="margin-left: 0" :title="unidadTxt(p.unidad, 2)">{{ p.unidad }}</span></td>
                         <td class="num">{{ cantTxt(p.cantidad, p.unidad) }}</td>
                         <td class="num"><strong>{{ fmtNum(p.disponible) }}</strong></td>
                         <td class="num">
@@ -540,4 +558,5 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       </div>
     </div>
   </aside>
+  <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
 </template>

@@ -121,6 +121,16 @@ def cbm_caja(g: GrupoCajas) -> float | None:
     return None
 
 
+def limpiar_pallets(pl: PackingList) -> None:
+    """Quita los pallets que quedaron vacíos y renumera los demás."""
+    usados = {id(g.pallet) for g in pl.grupos if g.pallet is not None}
+    for p in list(pl.pallets):
+        if id(p) not in usados:
+            pl.pallets.remove(p)
+    for i, p in enumerate(sorted(pl.pallets, key=lambda x: x.numero), start=1):
+        p.numero = i
+
+
 def totales_pl(pl: PackingList) -> dict:
     cajas = 0
     neto = bruto = cbm = 0.0
@@ -128,7 +138,12 @@ def totales_pl(pl: PackingList) -> dict:
         cajas += g.num_cajas
         neto += (g.peso_neto_caja or 0) * g.num_cajas
         bruto += (g.peso_bruto_caja or 0) * g.num_cajas
-        cbm += (cbm_caja(g) or 0) * g.num_cajas
+        # Lo paletizado ocupa el volumen del pallet, no el de sus cajas
+        if not g.pallet_id:
+            cbm += (cbm_caja(g) or 0) * g.num_cajas
+    for p in pl.pallets:
+        bruto += p.peso_tara or 0
+        cbm += p.largo * p.ancho * p.alto / 1_000_000
     por_unidad: dict[str, dict] = {}
     for pll in pl.lineas:
         u = pll.factura_linea.unidad
@@ -142,5 +157,6 @@ def totales_pl(pl: PackingList) -> dict:
         "peso_neto": round(neto, 3),
         "peso_bruto": round(bruto, 3),
         "cbm": round(cbm, 4),
+        "pallets": len(pl.pallets),
         "por_unidad": por_unidad,
     }

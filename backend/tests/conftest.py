@@ -41,6 +41,9 @@ class Api:
     def patch(self, url, json=None):
         return self.c.patch("/api" + url, json=json, headers=self.h)
 
+    def put(self, url, json=None):
+        return self.c.put("/api" + url, json=json, headers=self.h)
+
     def delete_(self, url):
         return self.c.delete("/api" + url, headers=self.h)
 

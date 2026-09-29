@@ -4,7 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
+import ExplosionPrepack from '../components/ExplosionPrepack.vue'
 import Paginacion from '../components/Paginacion.vue'
+import SeguimientoDocumentos from '../components/SeguimientoDocumentos.vue'
+import SelectBusqueda from '../components/SelectBusqueda.vue'
 import ThOrden from '../components/ThOrden.vue'
 import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, sesion } from '../stores/sesion'
@@ -15,11 +18,24 @@ import { cantTxt, fmtFecha, fmtNum, porUnidadTxt } from '../utils'
 // frente a la fecha requerida en tienda.
 const route = useRoute()
 const router = useRouter()
-const FILTROS = ['q', 'marca', 'estilo', 'color', 'talla', 'etapa', 'riesgo', 'embarque_id']
-const filtros = reactive({ q: '', marca: '', estilo: '', color: '', talla: '', etapa: '', riesgo: '', embarque_id: '', orden: 'holgura:asc', page: 1, size: 25 })
+// Dos seguimientos: la mercancía (por SKU, contenedor, estilo…) y los
+// documentos (facturas y packing lists)
+const vista = ref(route.query.vista === 'documentos' ? 'documentos' : 'mercancia')
+watch(vista, (v) => router.replace({ query: v === 'documentos' ? { vista: v } : {} }))
+const NOMBRES = {
+  marca: 'Marca', grupo: 'Grupo', estilo: 'Estilo', color: 'Color', talla: 'Talla', sku: 'SKU', almacen: 'Almacén',
+  contenedor: 'Contenedor', documento: 'BL / AWB', etapa: 'Etapa', riesgo: 'Riesgo', embarque_id: 'Embarque',
+  eta_desde: 'ETA desde', eta_hasta: 'ETA hasta', fecha_xf_desde: 'XF desde', fecha_xf_hasta: 'XF hasta',
+  fecha_tienda_desde: 'En tienda desde', fecha_tienda_hasta: 'En tienda hasta',
+}
+const FILTROS = ['q', ...Object.keys(NOMBRES)]
+const filtros = reactive({ ...Object.fromEntries(FILTROS.map((k) => [k, ''])), orden: 'holgura:asc', page: 1, size: 25 })
 for (const k of FILTROS) if (route.query[k]) filtros[k] = String(route.query[k])
+const masFiltros = ref(['talla', 'sku', 'almacen', 'embarque_id', 'riesgo', 'eta_desde', 'eta_hasta', 'fecha_xf_desde',
+  'fecha_xf_hasta', 'fecha_tienda_desde', 'fecha_tienda_hasta'].some((k) => filtros[k]))
 const datos = ref({ items: [], total: 0, etapas: [], por_marca: [], opciones: {} })
 const cargando = ref(true)
+const explosion = ref(null)
 
 const COLORES = {
   PEND_LIBERACION: 'var(--aviso)', POR_FACTURAR: 'var(--tinta-3)', FACTURADO: 'var(--info)', EN_PL: '#8b5cf6',
@@ -37,8 +53,8 @@ const activos = computed(() => FILTROS.filter((k) => k !== 'q' && filtros[k]).ma
   if (k === 'etapa') texto = nombreEtapa.value[filtros[k]] || texto
   if (k === 'riesgo') texto = RIESGOS[filtros[k]]?.[0] || texto
   if (k === 'embarque_id') texto = datos.value.opciones.embarques?.find((e) => String(e.id) === String(filtros[k]))?.codigo || texto
-  const nombres = { marca: 'Marca', estilo: 'Estilo', color: 'Color', talla: 'Talla', etapa: 'Etapa', riesgo: 'Riesgo', embarque_id: 'Embarque' }
-  return { k, texto: `${nombres[k]}: ${texto}` }
+  if (k.endsWith('_desde') || k.endsWith('_hasta')) texto = fmtFecha(texto)
+  return { k, texto: `${NOMBRES[k]}: ${texto}` }
 }))
 
 async function cargar() {
@@ -111,9 +127,17 @@ onMounted(cargar)
   <div class="pagina-cabeza">
     <div>
       <h1>Seguimiento</h1>
-      <p>Cada SKU desde la orden de compra hasta la bodega: en qué etapa está, en qué contenedor viaja y si llega a tiempo a tienda.</p>
+      <p v-if="vista === 'mercancia'">Cada SKU desde la orden de compra hasta la bodega: en qué etapa está, en qué contenedor viaja y si llega a tiempo a tienda.</p>
+      <p v-else>Cada factura y packing list: en qué paso va, qué le falta y si ya tiene contenedor.</p>
     </div>
   </div>
+  <div class="pestanas-pildora" role="tablist">
+    <button class="pildora" role="tab" :aria-selected="vista === 'mercancia'" @click="vista = 'mercancia'"><Icono nombre="ruta" :tam="15" />Mercancía y contenedores</button>
+    <button class="pildora" role="tab" :aria-selected="vista === 'documentos'" @click="vista = 'documentos'"><Icono nombre="factura" :tam="15" />Facturación y packing lists</button>
+  </div>
+
+  <SeguimientoDocumentos v-if="vista === 'documentos'" />
+  <template v-else>
 
   <div class="etapas" role="group" aria-label="Filtrar por etapa">
     <button v-for="e in datos.etapas" :key="e.clave" type="button" class="etapa" :aria-pressed="filtros.etapa === e.clave" @click="alternarEtapa(e.clave)">
@@ -153,15 +177,32 @@ onMounted(cargar)
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" placeholder="SKU, OC, factura, PL, contenedor o embarque" aria-label="Buscar" @input="buscar" />
     </label>
-    <select v-model="filtros.marca" aria-label="Marca" @change="aplicar"><option value="">Marca: todas</option><option v-for="v in datos.opciones.marcas" :key="v">{{ v }}</option></select>
-    <select v-model="filtros.estilo" aria-label="Estilo" @change="aplicar"><option value="">Estilo: todos</option><option v-for="v in datos.opciones.estilos" :key="v">{{ v }}</option></select>
-    <select v-model="filtros.color" aria-label="Color" @change="aplicar"><option value="">Color: todos</option><option v-for="v in datos.opciones.colores" :key="v">{{ v }}</option></select>
-    <select v-model="filtros.talla" aria-label="Talla" @change="aplicar"><option value="">Talla: todas</option><option v-for="v in datos.opciones.tallas" :key="v">{{ v }}</option></select>
-    <select v-model="filtros.embarque_id" aria-label="Embarque" @change="aplicar"><option value="">Embarque: todos</option><option v-for="e in datos.opciones.embarques" :key="e.id" :value="String(e.id)">{{ e.codigo }}</option></select>
+    <SelectBusqueda v-model="filtros.marca" :opciones="datos.opciones.marcas || []" vacio="Marca: todas" etiqueta="Marca" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.grupo" :opciones="datos.opciones.grupos || []" vacio="Grupo: todos" etiqueta="Grupo de artículos" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.estilo" :opciones="datos.opciones.estilos || []" vacio="Estilo: todos" etiqueta="Estilo" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.color" :opciones="datos.opciones.colores || []" vacio="Color: todos" etiqueta="Color" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.contenedor" :opciones="datos.opciones.contenedores || []" vacio="Contenedor: todos" etiqueta="Contenedor" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.documento" :opciones="datos.opciones.documentos || []" vacio="BL / AWB: todos" etiqueta="Documento de transporte" @change="aplicar" />
+    <button type="button" class="btn btn-fantasma btn-chico" :aria-expanded="masFiltros" @click="masFiltros = !masFiltros">
+      <Icono nombre="filtro" :tam="14" />{{ masFiltros ? 'Menos filtros' : 'Más filtros' }}
+    </button>
+  </div>
+  <div v-if="masFiltros" class="filtros filtros-extra">
+    <SelectBusqueda v-model="filtros.talla" :opciones="datos.opciones.tallas || []" vacio="Talla: todas" etiqueta="Talla" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.sku" :opciones="datos.opciones.skus || []" vacio="SKU: todos" etiqueta="Código de producto" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.almacen" :opciones="datos.opciones.almacenes || []" vacio="Almacén: todos" etiqueta="Almacén" @change="aplicar" />
+    <SelectBusqueda v-model="filtros.embarque_id" :opciones="(datos.opciones.embarques || []).map((e) => ({ valor: String(e.id), texto: e.codigo }))"
+                    vacio="Embarque: todos" etiqueta="Embarque" @change="aplicar" />
     <select v-model="filtros.riesgo" aria-label="Riesgo" @change="aplicar">
       <option value="">Llegada a tienda: todas</option>
       <option v-for="(r, k) in RIESGOS" :key="k" :value="k">{{ r[0] }}</option>
     </select>
+    <label v-for="[k, t] in [['eta', 'ETA'], ['fecha_xf', 'XF'], ['fecha_tienda', 'En tienda']]" :key="k" class="rango-fechas">
+      <span>{{ t }}</span>
+      <input v-model="filtros[`${k}_desde`]" type="date" :aria-label="`${t} desde`" @change="aplicar" />
+      <span>a</span>
+      <input v-model="filtros[`${k}_hasta`]" type="date" :aria-label="`${t} hasta`" @change="aplicar" />
+    </label>
   </div>
   <div v-if="activos.length" class="chips">
     <span v-for="a in activos" :key="a.k" class="chip">{{ a.texto }}<button type="button" :aria-label="`Quitar ${a.texto}`" @click="quitar(a.k)"><Icono nombre="cerrar" :tam="13" /></button></span>
@@ -191,14 +232,15 @@ onMounted(cargar)
         <tr v-if="cargando && !datos.items.length"><td colspan="13" class="vacio">Cargando…</td></tr>
         <tr v-else-if="!datos.items.length"><td colspan="13" class="vacio">No hay mercancía con esos filtros.</td></tr>
         <tr v-for="(f, i) in datos.items" :key="i">
-          <td class="fuerte">{{ f.marca || '—' }}</td>
+          <td class="fuerte">{{ f.marca || '—' }}<span v-if="f.grupo" class="sub">{{ f.grupo }}</span></td>
           <td>{{ f.estilo }}<span class="sub">{{ f.color }}</span></td>
           <td>{{ f.talla || '—' }}</td>
           <td>
             <router-link :to="{ path: '/ordenes', query: { q: f.oc, solo_disponible: '0' } }" class="codigo fuerte">{{ f.oc }}</router-link> <span class="ayuda">/{{ f.posicion }}</span>
-            <span class="sub codigo">{{ f.sku }}</span>
+            <span class="sub codigo">{{ f.sku }}<template v-if="f.almacen"> · {{ f.almacen }}</template></span>
           </td>
-          <td class="num">{{ cantTxt(f.cantidad, f.unidad) }}<span v-if="f.tipo_empaque === 'PREPACK'" class="etiqueta acento">Prepack</span></td>
+          <td class="num">{{ cantTxt(f.cantidad, f.unidad) }}<button v-if="f.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" title="Ver la explosión del prepack"
+                  @click="explosion = { sku: f.sku, cajas: f.cantidad }">Prepack <Icono nombre="lupa" :tam="12" /></button></td>
           <td><span class="etiqueta" :class="TONO_ETAPA[f.etapa]" style="margin-left: 0">{{ nombreEtapa[f.etapa] || f.etapa }}</span></td>
           <td>
             <router-link v-if="f.factura_id" :to="`/facturas/${f.factura_id}`">{{ f.factura }}</router-link>
@@ -207,7 +249,7 @@ onMounted(cargar)
           </td>
           <td>
             <template v-if="f.embarque_id">
-              <span class="codigo">{{ f.contenedor }}</span>
+              <span class="codigo">{{ f.contenedor }}</span><span v-if="f.documento" class="sub codigo">BL {{ f.documento }}</span>
               <span class="sub"><router-link v-if="esInterno()" :to="`/transporte/embarques/${f.embarque_id}`">{{ f.embarque }}</router-link><template v-else>{{ f.embarque }}</template> · <EstadoBadge :estado="f.estado_embarque" /></span>
             </template>
             <span v-else class="ayuda">—</span>
@@ -235,4 +277,6 @@ onMounted(cargar)
   <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total"
               @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
   <p class="ayuda" style="margin-top: 8px">Total filtrado: {{ fmtNum(datos.total) }} líneas. La holgura compara la llegada (real o ETA) con la fecha requerida en tienda; sin embarque, cuenta los días que faltan desde hoy.</p>
+  </template>
+  <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
 </template>

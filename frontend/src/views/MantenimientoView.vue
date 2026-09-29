@@ -5,7 +5,9 @@ import { api } from '../api'
 import CargaArchivo from '../components/CargaArchivo.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import ExplosionPrepack from '../components/ExplosionPrepack.vue'
 import Paginacion from '../components/Paginacion.vue'
+import SelectBusqueda from '../components/SelectBusqueda.vue'
 import ThOrden from '../components/ThOrden.vue'
 import { siguienteOrden } from '../composables/useTabla'
 import { avisar, errorApi } from '../stores/ui'
@@ -29,7 +31,11 @@ const ocupado = ref(false)
 
 const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
 const campos = computed(() => cat.value?.campos || [])
-const columnas = computed(() => campos.value.filter((c) => !['descripcion', 'direccion', 'razon_social', 'upc'].includes(c.nombre)))
+const columnas = computed(() => campos.value.filter((c) => !['descripcion', 'direccion', 'razon_social', 'upc'].includes(c.nombre) &&
+  !(c.nombre === 'correos' && tipo.value !== 'contactos')))
+const extras = computed(() => cat.value?.extras || [])
+// Opciones para la lista con búsqueda: por id (ref) o por código
+const opcionesDe = (c) => (opciones[c.catalogo] || []).map((o) => ({ valor: c.tipo === 'ref' ? o.id : o.codigo, texto: o.texto }))
 const conFiltro = computed(() => campos.value.filter((c) => c.filtro))
 
 function vacio() {
@@ -64,10 +70,11 @@ async function cargar() {
   }
 }
 
-async function elegir(t) {
+async function elegir(t, extra = {}) {
+  if (t === 'prepacks' && !solidos.value.length) cargarSolidos()
   tipo.value = t
   router.replace({ query: { catalogo: t } })
-  Object.assign(filtros, { q: '', orden: '', page: 1, extra: {} })
+  Object.assign(filtros, { q: '', orden: '', page: 1, extra: { ...extra } })
   editando.value = null
   erroresForm.value = {}
   form.value = vacio()
@@ -92,6 +99,7 @@ function ordenar(campo) {
 // ---- Formulario -------------------------------------------------------------
 function editar(fila) {
   editando.value = fila.id
+  filaEditada.value = fila
   erroresForm.value = {}
   const f = vacio()
   for (const c of campos.value) f[c.nombre] = fila[c.nombre] ?? (c.tipo === 'bool' ? false : '')
@@ -184,48 +192,54 @@ async function cargarArchivo() {
   }
 }
 
-// ---- Curva de un prepack ----------------------------------------------------
-async function abrirCurva(fila) {
+// ---- Prepacks: se crean en un paso (código de producto + explosión) -------
+// La explosión solo se ve; nunca se modifica.
+const explosion = ref(null)
+const solidos = ref([])
+const nuevoPP = reactive({ sku: '', codigo: '', estilo: '', color: '', descripcion: '', cantidades: {} })
+const erroresPP = ref({})
+async function cargarSolidos() {
   try {
-    const c = await api.get(`/catalogos/prepacks/${fila.id}/componentes`)
-    modal.value = { tipo: 'curva', prepack: c, items: c.componentes.map((x) => ({ ...x })), buscar: '', resultados: [] }
+    solidos.value = (await api.get('/catalogos/articulos', { tipo: 'SOLIDO', activo: 'true', size: 200, orden: 'sku:asc' })).items
   } catch (e) {
     errorApi(e)
   }
 }
-let esperaCurva
-function buscarSolidos() {
-  clearTimeout(esperaCurva)
-  esperaCurva = setTimeout(async () => {
-    const m = modal.value
-    if (!m.buscar.trim()) {
-      m.resultados = []
-      return
-    }
-    const r = await api.get('/catalogos/articulos', { q: m.buscar, tipo: 'SOLIDO', size: 30 })
-    m.resultados = r.items
-  }, 250)
-}
-function agregarComponente(a) {
-  const m = modal.value
-  if (m.items.some((x) => x.articulo_id === a.id)) return
-  m.items.push({ articulo_id: a.id, sku: a.sku, estilo: a.estilo, color: a.color, talla: a.talla, unidad: a.unidad, cantidad: 1 })
-}
-const totalCurva = computed(() => (modal.value?.items || []).reduce((s, x) => s + (Number(x.cantidad) || 0), 0))
-async function guardarCurva() {
+const estilosPP = computed(() => [...new Set(solidos.value.map((a) => a.estilo))].sort())
+const coloresPP = computed(() => [...new Set(solidos.value.filter((a) => a.estilo === nuevoPP.estilo).map((a) => a.color))].sort())
+const tallasPP = computed(() => solidos.value.filter((a) => a.estilo === nuevoPP.estilo && a.color === nuevoPP.color))
+const totalPP = computed(() => tallasPP.value.reduce((t, a) => t + (Number(nuevoPP.cantidades[a.id]) || 0), 0))
+watch(() => [nuevoPP.estilo, nuevoPP.color], () => (nuevoPP.cantidades = {}))
+async function crearPrepack() {
   ocupado.value = true
+  erroresPP.value = {}
   try {
-    await api.put(`/catalogos/prepacks/${modal.value.prepack.id}/componentes`,
-      modal.value.items.map((x) => ({ articulo_id: x.articulo_id, cantidad: Number(x.cantidad) })))
-    avisar('Curva guardada.')
-    modal.value = null
+    const componentes = tallasPP.value.filter((a) => Number(nuevoPP.cantidades[a.id]) > 0)
+      .map((a) => ({ articulo_id: a.id, cantidad: Number(nuevoPP.cantidades[a.id]) }))
+    const r = await api.post('/catalogos/prepacks', { ...nuevoPP, cantidades: undefined, componentes })
+    avisar(`Prepack ${r.codigo} creado con el código ${r.sku} (${r.total} por caja).`)
+    Object.assign(nuevoPP, { sku: '', codigo: '', descripcion: '', cantidades: {} })
+    cat.value.total++
     cargar()
   } catch (e) {
+    if (Array.isArray(e.detalle)) erroresPP.value = Object.fromEntries(e.detalle.map((d) => [d.campo || 'componentes', d.mensaje]))
     errorApi(e)
   } finally {
     ocupado.value = false
   }
 }
+
+// Lo que no se modifica: prepack ID, estilo y color del prepack, y lo que enlaza al artículo prepack
+const filaEditada = ref(null)
+function bloqueado(c) {
+  if (!editando.value) return false
+  if (tipo.value === 'prepacks') return ['codigo', 'estilo', 'color'].includes(c.nombre)
+  if (tipo.value === 'articulos' && filaEditada.value?.tipo === 'PREPACK') return ['tipo', 'estilo', 'color', 'talla', 'unidad'].includes(c.nombre)
+  return false
+}
+// Un artículo nuevo aquí siempre es sólido; los prepacks se crean en su pestaña
+const opcionesCampo = (c) => (c.nombre === 'tipo' && tipo.value === 'articulos' && !editando.value
+  ? c.opciones.filter(([v]) => v === 'SOLIDO') : c.opciones)
 
 watch(() => filtros.size, () => {
   filtros.page = 1
@@ -264,27 +278,62 @@ onMounted(async () => {
       <div class="panel-cabeza">
         <div><h2>{{ editando ? `Editar ${cat.singular}` : `Nuevo ${cat.singular}` }}</h2><p v-if="cat.ayuda">{{ cat.ayuda }}</p></div>
       </div>
-      <form class="form-catalogo" @submit.prevent="guardar">
+      <form v-if="tipo === 'prepacks' && !editando" class="form-catalogo" @submit.prevent="crearPrepack">
+        <label class="campo"><span class="req">Código de producto</span>
+          <input v-model="nuevoPP.sku" inputmode="numeric" placeholder="30095120027" required />
+          <small v-if="erroresPP.sku" class="nota error" style="padding: 4px 8px">{{ erroresPP.sku }}</small>
+          <small v-else class="ayuda">El prepack es un artículo más, con su propio código.</small>
+        </label>
+        <label class="campo"><span class="req">Estilo</span>
+          <SelectBusqueda v-model="nuevoPP.estilo" :opciones="estilosPP" requerido etiqueta="Estilo" />
+        </label>
+        <label class="campo"><span class="req">Color</span>
+          <SelectBusqueda v-model="nuevoPP.color" :opciones="coloresPP" requerido etiqueta="Color" :deshabilitado="!nuevoPP.estilo" />
+        </label>
+        <label class="campo"><span class="req">Prepack ID (talla)</span>
+          <input v-model="nuevoPP.codigo" maxlength="10" placeholder="AB12" style="text-transform: uppercase" required />
+          <small v-if="erroresPP.codigo" class="nota error" style="padding: 4px 8px">{{ erroresPP.codigo }}</small>
+          <small v-else class="ayuda">Usualmente 2 letras y 2 números. Es la talla del artículo prepack.</small>
+        </label>
+        <label class="campo"><span>Descripción</span><input v-model="nuevoPP.descripcion" /></label>
+        <div v-if="nuevoPP.estilo && nuevoPP.color" class="campo">
+          <span class="req">Explosión por caja master<template v-if="tallasPP.length"> ({{ tallasPP[0].unidad }})</template></span>
+          <div class="tabla-marco" style="box-shadow: none">
+            <table class="tabla">
+              <thead><tr><th>Talla</th><th>SKU</th><th class="num">Cant.</th></tr></thead>
+              <tbody>
+                <tr v-for="a in tallasPP" :key="a.id">
+                  <td><b>{{ a.talla }}</b></td>
+                  <td class="codigo">{{ a.sku }}</td>
+                  <td class="num"><input v-model.number="nuevoPP.cantidades[a.id]" class="celda num" type="number" min="0" style="width: 64px; border-color: var(--linea)" :aria-label="`Cantidad talla ${a.talla}`" /></td>
+                </tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">Total por caja</td><td class="num">{{ totalPP }}</td></tr></tfoot>
+            </table>
+          </div>
+          <small v-if="erroresPP.componentes" class="nota error" style="padding: 4px 8px">{{ erroresPP.componentes }}</small>
+          <small v-else class="ayuda">Solo sólidos de {{ nuevoPP.estilo }} {{ nuevoPP.color }}. Deja en 0 las tallas que no lleva. Una vez creado no se modifica.</small>
+        </div>
+        <p class="leyenda-req">Obligatorio</p>
+        <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />Crear prepack</button>
+      </form>
+      <form v-else class="form-catalogo" @submit.prevent="guardar">
         <label v-for="c in campos" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
           <template v-if="c.tipo === 'bool'">
             <input v-model="form[c.nombre]" type="checkbox" /> {{ c.etiqueta }}
           </template>
           <template v-else>
             <span :class="{ req: c.obligatorio }">{{ c.etiqueta }}</span>
-            <select v-if="c.tipo === 'opcion'" v-model="form[c.nombre]" :required="c.obligatorio">
+            <select v-if="c.tipo === 'opcion'" v-model="form[c.nombre]" :required="c.obligatorio" :disabled="bloqueado(c)">
               <option value="">Elige…</option>
-              <option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ t }}</option>
+              <option v-for="[v, t] in opcionesCampo(c)" :key="v" :value="v">{{ t }}</option>
             </select>
-            <select v-else-if="c.tipo === 'ref'" v-model="form[c.nombre]" :required="c.obligatorio">
-              <option value="">{{ c.obligatorio ? 'Elige…' : 'Ninguno' }}</option>
-              <option v-for="o in opciones[c.catalogo] || []" :key="o.id" :value="o.id">{{ o.texto }}</option>
-            </select>
-            <select v-else-if="c.tipo === 'codigo'" v-model="form[c.nombre]" :required="c.obligatorio">
-              <option value="">{{ c.obligatorio ? 'Elige…' : 'Ninguno' }}</option>
-              <option v-for="o in opciones[c.catalogo] || []" :key="o.id" :value="o.codigo">{{ o.texto }}</option>
-            </select>
+            <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c)"
+                            :vacio="c.obligatorio ? '' : 'Ninguno'" :requerido="c.obligatorio" :etiqueta="c.etiqueta" :deshabilitado="bloqueado(c)" />
+            <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
+                      placeholder="nombre@empresa.com, otro@empresa.com"></textarea>
             <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : 'text'"
-                   :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" />
+                   :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="bloqueado(c) ? 'No se modifica: es parte del prepack' : ''" />
             <small v-if="erroresForm[c.nombre]" class="nota error" style="padding: 4px 8px">{{ erroresForm[c.nombre] }}</small>
             <small v-else-if="c.ayuda" class="ayuda">{{ c.ayuda }}</small>
           </template>
@@ -303,20 +352,24 @@ onMounted(async () => {
           <Icono nombre="buscar" :tam="16" />
           <input v-model="filtros.q" type="search" :placeholder="`Buscar en ${cat.titulo.toLowerCase()}`" aria-label="Buscar" @input="buscar" />
         </label>
-        <select v-for="c in conFiltro" :key="c.nombre" v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
-          <option :value="undefined">{{ c.etiqueta }}: todos</option>
-          <template v-if="c.tipo === 'bool'"><option value="true">{{ c.etiqueta }}: sí</option><option value="false">{{ c.etiqueta }}: no</option></template>
-          <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ t }}</option></template>
-          <template v-else-if="c.tipo === 'ref'"><option v-for="o in opciones[c.catalogo] || []" :key="o.id" :value="o.id">{{ o.texto }}</option></template>
-          <template v-else-if="c.tipo === 'codigo'"><option v-for="o in opciones[c.catalogo] || []" :key="o.id" :value="o.codigo">{{ o.texto }}</option></template>
-        </select>
+        <template v-for="c in conFiltro" :key="c.nombre">
+          <SelectBusqueda v-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
+                          :vacio="`${c.etiqueta}: todos`" :etiqueta="c.etiqueta" @change="filtros.page = 1; cargar()" />
+          <select v-else v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
+            <option :value="undefined">{{ c.etiqueta }}: todos</option>
+            <template v-if="c.tipo === 'bool'"><option value="true">{{ c.etiqueta }}: sí</option><option value="false">{{ c.etiqueta }}: no</option></template>
+            <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ t }}</option></template>
+          </select>
+        </template>
       </div>
       <div class="tabla-marco tabla-fija">
         <table class="tabla">
           <thead>
             <tr>
               <ThOrden v-for="c in columnas" :key="c.nombre" :campo="c.nombre" :orden="filtros.orden" :num="c.tipo === 'entero'" @ordenar="ordenar">{{ c.etiqueta }}</ThOrden>
-              <th v-if="tipo === 'prepacks'" class="num">Pares por caja</th>
+              <th v-for="ex in extras" :key="ex.nombre">{{ ex.etiqueta }}</th>
+              <th v-if="tipo === 'prepacks'">Código de producto</th>
+              <th v-if="tipo === 'prepacks'" class="num">Por caja</th>
               <th></th>
             </tr>
           </thead>
@@ -328,14 +381,22 @@ onMounted(async () => {
                 </button>
                 <span v-else :class="{ codigo: ['codigo', 'sku'].includes(c.nombre), fuerte: c.nombre === 'codigo' || c.nombre === 'sku' }">{{ valorCelda(c, fila) }}</span>
               </td>
+              <td v-for="ex in extras" :key="ex.nombre">
+                <button type="button" class="enlace" :title="`Ver ${ex.etiqueta.toLowerCase()} de ${fila.codigo || fila.nombre}`"
+                        @click="elegir(ex.catalogo, { [ex.filtro]: fila.id })">
+                  {{ ex.nombre === 'centros_txt' ? (fila.centros_txt || 'Asignar centros') : `${fila[ex.nombre] || 0} ${ex.etiqueta.toLowerCase()}` }}
+                </button>
+              </td>
+              <td v-if="tipo === 'prepacks'" class="codigo fuerte">{{ fila.sku || '—' }}</td>
               <td v-if="tipo === 'prepacks'" class="num">{{ fila.total }} <span class="sub">{{ fila.componentes }} tallas</span></td>
               <td class="num" style="white-space: nowrap">
-                <button v-if="tipo === 'prepacks'" class="btn btn-chico" @click="abrirCurva(fila)">Curva</button>
+                <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" title="Ver la explosión (no se modifica)"
+                        @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />Explosión</button>
                 <button class="btn-icono" :aria-label="`Editar ${cat.singular}`" title="Editar" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
                 <button class="btn-icono" style="color: var(--error)" :aria-label="`Eliminar ${cat.singular}`" title="Eliminar" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
               </td>
             </tr>
-            <tr v-if="!datos.items.length"><td :colspan="columnas.length + 2" class="vacio">No hay registros con estos filtros.</td></tr>
+            <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : 2)" class="vacio">No hay registros con estos filtros.</td></tr>
           </tbody>
         </table>
       </div>
@@ -352,8 +413,8 @@ onMounted(async () => {
   </Modal>
 
   <Modal v-if="modal?.tipo === 'carga'" :titulo="tipo === 'articulos' ? 'Cargar artículos' : 'Cargar curvas (prepacks)'" ancho="680px" @cerrar="modal = null">
-    <p class="ayuda" v-if="tipo === 'articulos'">Una fila por SKU. Si el SKU ya existe se actualiza. Marca, grupo, proveedor y prepack se indican por código.</p>
-    <p class="ayuda" v-else>Una fila por talla de la curva: prepack_id, descripción, SKU sólido y cantidad. Reemplaza la curva completa.</p>
+    <p class="ayuda" v-if="tipo === 'articulos'">Una fila por número de artículo (SKU). Si ya existe se actualiza. Marca, grupo y proveedor se indican por código. Aquí solo sólidos; los prepacks se cargan en la pestaña Prepacks con su explosión.</p>
+    <p class="ayuda" v-else>Una fila por talla de la explosión: sku_prepack (código de producto del prepack), prepack_id (p. ej. AB12), descripción, SKU sólido y cantidad. Estilo y color salen de los sólidos, que deben ser del mismo estilo y color. Crea el prepack y su artículo; un prepack que ya existe no se modifica.</p>
     <CargaArchivo v-model="modal.archivo" />
     <template v-if="modal.resultado">
       <div class="nota ok"><Icono nombre="check" />{{ modal.resultado.creados }} creados y {{ modal.resultado.actualizados }} actualizados.</div>
@@ -370,36 +431,5 @@ onMounted(async () => {
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'curva'" :titulo="`Curva ${modal.prepack.codigo}`" ancho="760px" @cerrar="modal = null">
-    <p class="ayuda">Tallas y pares por caja master. Solo artículos sólidos del mismo estilo y color. Cada caja de este prepack debe traer exactamente esta distribución.</p>
-    <div class="tabla-marco" style="box-shadow: none">
-      <table class="tabla">
-        <thead><tr><th>SKU</th><th>Estilo · color</th><th>Talla</th><th class="num">Cantidad</th><th></th></tr></thead>
-        <tbody>
-          <tr v-for="(x, i) in modal.items" :key="x.articulo_id">
-            <td class="codigo">{{ x.sku }}</td>
-            <td>{{ x.estilo }} · {{ x.color }}</td>
-            <td><b>{{ x.talla }}</b></td>
-            <td class="num"><input v-model.number="x.cantidad" class="celda num" type="number" min="1" style="width: 80px; border-color: var(--linea)" :aria-label="`Cantidad talla ${x.talla}`" /></td>
-            <td class="num"><button class="btn-icono" :aria-label="`Quitar talla ${x.talla}`" @click="modal.items.splice(i, 1)"><Icono nombre="cerrar" :tam="15" /></button></td>
-          </tr>
-          <tr v-if="!modal.items.length"><td colspan="5" class="vacio">La curva está vacía. Busca abajo los artículos sólidos que la forman.</td></tr>
-        </tbody>
-        <tfoot v-if="modal.items.length"><tr><td colspan="3">Total por caja master</td><td class="num">{{ fmtNum(totalCurva) }}</td><td></td></tr></tfoot>
-      </table>
-    </div>
-    <label class="buscador">
-      <Icono nombre="buscar" :tam="16" />
-      <input v-model="modal.buscar" type="search" placeholder="Buscar SKU o estilo para agregar" aria-label="Buscar artículo" @input="buscarSolidos" />
-    </label>
-    <div v-if="modal.resultados.length" class="chips">
-      <button v-for="a in modal.resultados" :key="a.id" type="button" class="pildora" :disabled="modal.items.some((x) => x.articulo_id === a.id)" @click="agregarComponente(a)">
-        <Icono nombre="mas" :tam="13" />{{ a.estilo }} · {{ a.color }} · <b>{{ a.talla }}</b>
-      </button>
-    </div>
-    <template #pie>
-      <button class="btn" @click="modal = null">Cancelar</button>
-      <button class="btn btn-primario" :disabled="ocupado || !modal.items.length" @click="guardarCurva">Guardar curva</button>
-    </template>
-  </Modal>
+  <ExplosionPrepack v-if="explosion" :sku="explosion.sku" @cerrar="explosion = null" />
 </template>

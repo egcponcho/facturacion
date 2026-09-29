@@ -4,12 +4,15 @@ from fastapi.responses import Response
 from ..schemas import (
     CajaManual,
     ConMotivo,
+    Despaletizar,
     EditarCajas,
     EliminarCajas,
     EmpaqueAplicar,
     EmpaquePrevia,
     Finalizar,
     GuardarPlantilla,
+    Paletizar,
+    PalletPatch,
     PLAgregar,
     PLMover,
     PLMoverCajas,
@@ -17,6 +20,7 @@ from ..schemas import (
     RecepcionIn,
 )
 from ..services import exportar
+from ..services.partes import partes
 from ..services import packing as svc
 from .base import XLSX, Clave, Db, User, ejecutar
 
@@ -73,6 +77,21 @@ def eliminar_cajas(pl_id: int, datos: EliminarCajas, db: Db, user: User, clave: 
     return ejecutar(db, user, clave, lambda: svc.eliminar_cajas(db, user, pl_id, datos))
 
 
+@router.post("/{pl_id}/pallets")
+def paletizar(pl_id: int, datos: Paletizar, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.paletizar(db, user, pl_id, datos))
+
+
+@router.post("/{pl_id}/pallets/quitar")
+def despaletizar(pl_id: int, datos: Despaletizar, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.despaletizar(db, user, pl_id, datos))
+
+
+@router.patch("/{pl_id}/pallets/{pallet_id}")
+def editar_pallet(pl_id: int, pallet_id: int, datos: PalletPatch, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.editar_pallet(db, user, pl_id, pallet_id, datos))
+
+
 @router.post("/{pl_id}/cajas/{grupo_id}/plantilla")
 def guardar_plantilla(pl_id: int, grupo_id: int, datos: GuardarPlantilla, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.guardar_como_plantilla(db, user, pl_id, grupo_id, datos.nombre))
@@ -102,5 +121,5 @@ def recepcion(pl_id: int, datos: RecepcionIn, db: Db, user: User, clave: Clave =
 def exportar_xlsx(pl_id: int, db: Db, user: User):
     pl = svc.cargar_pl(db, user, pl_id)
     nombre = f"{(pl.factura.numero or f'borrador_{pl.factura_id}').replace('/', '-')}_{pl.numero}.xlsx"
-    return Response(exportar.exportar_pl(pl), media_type=XLSX,
+    return Response(exportar.exportar_pl(pl, partes(db, pl.factura.sociedad, pl.factura.centro, pl.factura.centro_destino)), media_type=XLSX,
                     headers={"Content-Disposition": f'attachment; filename="{nombre}"'})

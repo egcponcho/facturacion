@@ -60,13 +60,6 @@ function salir() {
           <span class="marca-logo"><Icono nombre="caja" :tam="19" /></span>
           <span class="marca-texto">Workspace<span>Proveedores</span></span>
         </router-link>
-        <nav class="nav-principal" aria-label="Principal">
-          <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }"
-                       :aria-current="activo(i.to) ? 'page' : undefined">
-            <Icono :nombre="i.icono" :tam="16" />{{ i.texto }}
-            <span v-if="i.cuenta" class="nav-cuenta" :aria-label="`${i.cuenta} en la selección`">{{ i.cuenta }}</span>
-          </router-link>
-        </nav>
         <div class="cabecera-derecha">
           <span class="indicador-guardado" :class="ui.guardado" aria-live="polite"><Icono v-if="ui.guardado === 'guardado'" nombre="check" :tam="14" />{{ textoGuardado }}</span>
           <router-link v-if="carrito.items.length" to="/ordenes?seleccion=1" class="chip-seleccion" title="Posiciones listas para facturar">
@@ -89,6 +82,15 @@ function salir() {
             <button type="button" class="btn-icono" aria-label="Cerrar sesión" title="Cerrar sesión" @click="salir"><Icono nombre="salir" /></button>
           </div>
         </div>
+      </div>
+      <div class="cabecera-nav">
+        <nav class="nav-principal" aria-label="Principal">
+          <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }"
+                       :aria-current="activo(i.to) ? 'page' : undefined">
+            <Icono :nombre="i.icono" :tam="16" />{{ i.texto }}
+            <span v-if="i.cuenta" class="nav-cuenta" :aria-label="`${i.cuenta} en la selección`">{{ i.cuenta }}</span>
+          </router-link>
+        </nav>
       </div>
       <nav class="nav-movil" :class="{ abierta: menuAbierto }" aria-label="Principal (móvil)">
         <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }">

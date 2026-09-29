@@ -301,8 +301,8 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None) -> di
     tareas = _tareas(db, user, facturas, distribucion)
     if pendientes_lib:
         tareas.insert(0, {"prioridad": 1, "tipo": "liberacion",
-                          "titulo": f"{len(pendientes_lib)} OC pendientes de liberación comercial",
-                          "detalle": "Siguen en 304: no se pueden facturar hasta que comercial las libere.",
+                          "titulo": f"{len(pendientes_lib)} OC sin liberar",
+                          "detalle": "Sin liberación comercial (P) o logística en 304: no se pueden facturar.",
                           "ruta": "/ordenes?liberacion=304&solo_disponible=0", "accion": "Ver"})
     return {
         "rol": user.rol,

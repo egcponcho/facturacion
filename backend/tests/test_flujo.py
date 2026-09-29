@@ -289,10 +289,10 @@ def test_importacion_oc(interno):
     oc = _oc(interno, "4400003901")
     pos10 = oc["posiciones"][0]
     cab = oc["oc"]
-    enc = ("proveedor,oc,posicion,sociedad,centro,almacen,pais_destino,moneda,incoterm,sku,cantidad,precio,"
+    enc = ("proveedor,oc,posicion,sociedad,centro,almacen,centro_destino,moneda,incoterm,sku,cantidad,precio,"
            "puerto,pais_origen,fecha_xf_original,fecha_tienda,liberacion_comercial\n")
-    fila = lambda oc_n, pos, sku, cant, lib="C": (  # noqa: E731
-        f"VANS,{oc_n},{pos},8000,8020,BF20,2220,USD,FOB,{sku},{cant},25.5,VNSGN,VN,{cab['fecha_xf_original']},"
+    fila = lambda oc_n, pos, sku, cant, lib="C", alm="BF20": (  # noqa: E731
+        f"VANS,{oc_n},{pos},8000,8020,{alm},2220,USD,FOB,{sku},{cant},25.5,VNSGN,VN,{cab['fecha_xf_original']},"
         f"{cab['fecha_tienda']},{lib}\n")
     csv = (enc + fila("4400009999", "10", pos10["codigo_sap"], 24, "P")
            + fila("4400003901", "10", pos10["codigo_sap"], 10)
@@ -316,6 +316,32 @@ def test_importacion_oc(interno):
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("x.csv", (
         enc + fila("4400009998", "10", "NOEXISTE", 1)).encode(), "text/csv")})
     assert r.json()["resumen"]["error"] == 1 and "maestro" in r.json()["filas"][0]["mensajes"][0]
+    # Dos liberaciones: sin comercial (P) no puede haber logística 300/301; nueva sin código logístico = 304
+    enc_log = enc.strip() + ",liberacion_logistica\n"
+    fila_log = lambda oc_n, lib, log: fila(oc_n, "10", pos10["codigo_sap"], 12, lib).strip() + f",{log}\n"  # noqa: E731
+    r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("l.csv", (
+        enc_log + fila_log("4400009990", "P", "300") + fila_log("4400009991", "", "") + fila_log("4400009992", "C", "300")
+    ).encode(), "text/csv")})
+    res = r.json()
+    assert res["resumen"]["error"] == 1 and "sin liberación comercial" in res["filas"][0]["mensajes"][0]
+    interno.post(f"/ordenes/importar/{res['importacion_id']}/aplicar")
+    ocs = {o["numero"]: o for o in interno.get("/ordenes", params={"q": "44000099", "solo_disponible": False}).json()["items"]}
+    assert ocs["4400009991"]["liberacion_comercial"] == "C" and ocs["4400009991"]["liberacion_logistica"] == "304"
+    assert not ocs["4400009991"]["liberada"] and ocs["4400009992"]["liberada"]
+    # Misma sociedad y centro, cada posición en su almacén; un almacén de otra sociedad no entra
+    r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("a.csv", (
+        enc + fila("4400009997", "10", pos10["codigo_sap"], 12, alm="BF19")
+        + fila("4400009997", "20", pos10["codigo_sap"], 12, alm="BF20")
+        + fila("4400009996", "10", pos10["codigo_sap"], 12, alm="BF01")).encode(), "text/csv")})
+    res = r.json()
+    assert res["resumen"]["nuevo"] == 2 and res["resumen"]["error"] == 1, res
+    assert "no pertenece a la sociedad" in res["filas"][-1]["mensajes"][0]
+    interno.post(f"/ordenes/importar/{res['importacion_id']}/aplicar")
+    oc = interno.get("/ordenes", params={"q": "4400009997", "solo_disponible": False}).json()["items"][0]
+    assert oc["almacenes"] == ["BF19", "BF20"]
+    det = interno.get(f"/ordenes/{oc['id']}/posiciones").json()["posiciones"]
+    assert [p["almacen"] for p in det] == ["BF19", "BF20"]
+    assert interno.get("/ordenes", params={"almacen": "BF19", "q": "4400009997", "solo_disponible": False}).json()["total"] == 1
 
 
 def test_exportar(tnf):
@@ -327,12 +353,28 @@ def test_exportar(tnf):
 
 def test_asignacion_automatica(interno, vans):
     """AUTO confirma lo que está listo y deja tentativo lo demás, en un paso."""
+    # El puerto de destino debe ser el del centro de llegada
+    r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "modalidad": "FCL", "centro": "8010",
+                                    "puerto_destino": "PAONX"})
+    assert r.status_code == 422 and "debe coincidir" in r.json()["detalle"][0]["mensaje"]
+    e = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "modalidad": "FCL", "centro": "8010"}).json()
+    assert interno.get(f"/embarques/{e['id']}").json()["puerto_destino"] == "SVAQJ"
+    u8010 = interno.post(f"/embarques/{e['id']}/unidades", {"tipo": "20GP"}).json()["id"]
+    assert all(g["centro"] == "8010" for g in interno.get(f"/unidades/{u8010}/disponibles").json())
+    # Sin centro, lo define la primera carga y no se mezclan centros
     e = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "modalidad": "FCL"}).json()
     nueva = interno.post(f"/embarques/{e['id']}/unidades", {"tipo": "20GP"}).json()["id"]
     disp = interno.get(f"/unidades/{nueva}/disponibles").json()
-    pls = [p for g in disp for p in g["packing_lists"]]
+    centros = {g["centro"] for g in disp}
+    if len(centros) > 1:
+        r = interno.post(f"/unidades/{nueva}/asignar", {"pl_ids": [p["id"] for g in disp for p in g["packing_lists"]]})
+        assert r.status_code == 422 and r.json()["codigo"] == "centro_distinto"
+    # Un centro con carga pendiente de finalizar (irá tentativa)
+    centro = next(c for c in centros if any(not p["puede_confirmar"] for g in disp if g["centro"] == c
+                                             for p in g["packing_lists"]))
+    pls = [p for g in disp if g["centro"] == centro for p in g["packing_lists"]]
     listos = [p for p in pls if p["puede_confirmar"]]
-    assert listos and len(listos) < len(pls)
+    assert len(listos) < len(pls)
     r = interno.post(f"/unidades/{nueva}/asignar", {"pl_ids": [p["id"] for p in pls], "modo": "AUTO"})
     assert r.status_code == 200, r.text
     assert r.json() == {"asignados": len(pls), "confirmados": len(listos), "tentativos": len(pls) - len(listos)}
@@ -395,6 +437,25 @@ def test_reglas_de_empaque(vans):
     cajas = {g["items"][0]["pl_linea_id"]: (g["num_cajas"], g["items"][0]["cantidad_por_caja"]) for g in pl["grupos"]}
     assert cajas[lp["id"]] == (10, 1) and cajas[ls["id"]] == (2, 12)
     assert all(g["etiqueta"]["tipo"] == "ESTANDAR" for g in pl["grupos"])
+    # La OC ya dice a quién se factura (sociedad) y a quién se notifica (centro)
+    assert pl["partes"]["facturar_a"]["codigo"] == "8000" and pl["partes"]["facturar_a"]["correos"]
+    assert pl["partes"]["notify"]["codigo"] == "8020" and pl["partes"]["notify"]["contactos"]
+    # Paletizar: un pallet nuevo necesita medidas; luego se agregan cajas a él
+    ids = [g["id"] for g in pl["grupos"]]
+    r = vans.post(f"/packing-lists/{pl_id}/pallets", {"version": pl["version"], "grupo_ids": ids[:1]})
+    assert r.status_code == 422
+    r = vans.post(f"/packing-lists/{pl_id}/pallets", {"version": pl["version"], "grupo_ids": ids[:1],
+                                                      "largo": 120, "ancho": 100, "alto": 150, "peso_tara": 20})
+    assert r.status_code == 200, r.text
+    pallet = r.json()["pallet_id"]
+    r = vans.post(f"/packing-lists/{pl_id}/pallets", {"version": r.json()["version"], "grupo_ids": ids[1:],
+                                                      "pallet_id": pallet})
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    assert len(pl["pallets"]) == 1 and pl["pallets"][0]["cajas"] == 12 and pl["totales"]["pallets"] == 1
+    assert pl["totales"]["cbm"] == 1.8  # el volumen es el del pallet
+    # Sacar todas las cajas elimina el pallet vacío
+    r = vans.post(f"/packing-lists/{pl_id}/pallets/quitar", {"version": pl["version"], "pallet_id": pallet})
+    assert r.status_code == 200 and vans.get(f"/packing-lists/{pl_id}").json()["pallets"] == []
 
 
 def test_catalogos(interno, tnf):
@@ -411,19 +472,43 @@ def test_catalogos(interno, tnf):
     tnf_marca = next(m for m in interno.get("/catalogos/marcas", params={"q": "TNF"}).json()["items"])
     r = interno.delete_(f"/catalogos/marcas/{tnf_marca['id']}")
     assert r.status_code == 409 and r.json()["codigo"] == "en_uso"
-    # País de destino: exactamente 4 dígitos
-    r = interno.post("/catalogos/paises_destino", {"codigo": "12A", "pais": "SV", "nombre": "x"})
-    assert r.status_code == 422
-    # Un prepack sin curva no es válido
+    # El número de artículo es numérico (p. ej. 30095120001)
     grupos = interno.get("/catalogos/grupos").json()["items"]
-    r = interno.post("/catalogos/articulos", {"sku": "X1", "estilo": "E", "color": "C", "talla": "T",
-                                              "marca_id": tnf_marca["id"], "grupo_id": grupos[0]["id"],
-                                              "tipo": "PREPACK", "unidad": "CJ"})
-    assert r.status_code == 422 and any(d["campo"] == "prepack_id" for d in r.json()["detalle"])
-    # Filtros de un catálogo por referencia
+    base = {"estilo": "E1", "color": "Rojo", "marca_id": tnf_marca["id"], "grupo_id": grupos[0]["id"]}
+    r = interno.post("/catalogos/articulos", {**base, "sku": "X1", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
+    assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "sku"
+    # Un prepack no se crea como artículo suelto: se crea con su código y su explosión
+    r = interno.post("/catalogos/articulos", {**base, "sku": "30099990001", "talla": "AB12", "tipo": "PREPACK",
+                                              "unidad": "CJ"})
+    assert r.status_code == 422 and any(d["campo"] == "tipo" for d in r.json()["detalle"])
+    sol = interno.post("/catalogos/articulos", {**base, "sku": "30099990002", "talla": "9", "tipo": "SOLIDO",
+                                                "unidad": "PAR", "casepack": 6}).json()
+    otro = interno.get("/catalogos/articulos", params={"q": "VN000EE3"}).json()["items"][0]
+    datos_pp = {"sku": "30099990001", "codigo": "ab12", "estilo": "E1", "color": "Rojo"}
+    r = interno.post("/catalogos/prepacks", {**datos_pp, "componentes": [
+        {"articulo_id": sol["id"], "cantidad": 6}, {"articulo_id": otro["id"], "cantidad": 1}]})
+    assert r.status_code == 422 and any("mismo estilo y color" in d["mensaje"] for d in r.json()["detalle"])
+    r = interno.post("/catalogos/prepacks", {**datos_pp, "componentes": [{"articulo_id": sol["id"], "cantidad": 6}]})
+    assert r.status_code == 200, r.text
+    pp = r.json()
+    assert pp["codigo"] == "AB12" and pp["sku"] == "30099990001" and pp["total"] == 6
+    art = interno.get("/catalogos/articulos", params={"q": "30099990001"}).json()["items"][0]
+    assert art["tipo"] == "PREPACK" and art["talla"] == "AB12" and art["unidad"] == "CJ"
+    # La explosión se ve (también el proveedor) pero no se modifica
+    assert tnf.get("/catalogos/explosion/30099990001").json()["componentes"][0]["cantidad"] == 6
+    assert interno.patch(f"/catalogos/prepacks/{pp['id']}", {"codigo": "ZZ99"}).status_code == 422
+    assert interno.patch(f"/catalogos/articulos/{art['id']}", {"talla": "ZZ99"}).status_code == 422
+    assert interno.patch(f"/catalogos/articulos/{sol['id']}", {"color": "Azul"}).status_code == 422
+    assert interno.patch(f"/catalogos/prepacks/{pp['id']}", {"descripcion": "Curva roja"}).status_code == 200
+    # Contactos: correos válidos y ligados a una sociedad o centro
+    r = interno.post("/catalogos/contactos", {"nombre": "X", "rol": "NOTIFY", "correos": "a@b.com, malo"})
+    assert r.status_code == 422
+    # Filtros de un catálogo por referencia; la sociedad muestra sus centros
     centros = interno.get("/catalogos/centros", params={"orden": "codigo:desc"}).json()["items"]
-    assert [c["codigo"] for c in centros] == ["PA20", "PA10", "8020", "8010"]
-    assert centros[0]["sociedad_id_txt"].startswith("PA01")
+    assert [c["codigo"] for c in centros][:4] == ["PA20", "PA10", "8020", "8010"]
+    assert centros[0]["sociedad_id_txt"].startswith("PA01") and centros[0]["puerto"] == "PABLB"
+    soc = interno.get("/catalogos/sociedades", params={"q": "8000"}).json()["items"][0]
+    assert soc["centros_txt"] == "2220, 8010, 8020" and soc["contactos"] == 1
 
 
 def test_seguimiento(tnf, interno):
@@ -436,3 +521,18 @@ def test_seguimiento(tnf, interno):
     assert {f["oc"] for f in pendientes["items"]} >= {"4400003851"}
     ordenadas = interno.get("/seguimiento", params={"orden": "cantidad:desc", "size": 5}).json()["items"]
     assert [f["cantidad"] for f in ordenadas] == sorted([f["cantidad"] for f in ordenadas], reverse=True)
+    # Por documento de transporte, grupo de artículos y rango de ETA
+    bl = interno.get("/seguimiento", params={"documento": "COSU 640018225"}).json()
+    assert bl["total"] and all(f["contenedor"] == "TGHU 772104-3" for f in bl["items"])
+    assert "CALZ-CAS" in bl["opciones"]["grupos"]
+    grupo = interno.get("/seguimiento", params={"grupo": "CHAQ"}).json()
+    assert grupo["total"] and all(f["grupo"] == "CHAQ" for f in grupo["items"])
+    hoy = date.today()
+    eta = interno.get("/seguimiento", params={"eta_desde": hoy.isoformat()}).json()
+    assert eta["total"] and all(f["eta"] >= hoy.isoformat() for f in eta["items"])
+    # Seguimiento de facturación y empaque: una fila por PL
+    docs = interno.get("/seguimiento/documentos").json()
+    assert docs["total"] and {e["clave"] for e in docs["etapas"]} >= {"EMPACANDO", "EN_CAMINO", "RECIBIDO"}
+    camino = interno.get("/seguimiento/documentos", params={"etapa": "EN_CAMINO"}).json()["items"]
+    assert camino and all(f["estado_embarque"] in ("EN_TRANSITO", "ARRIBADO", "ENTREGADO") for f in camino)
+    assert all(f["proveedor"] == "The North Face" for f in tnf.get("/seguimiento/documentos").json()["items"])

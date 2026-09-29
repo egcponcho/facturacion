@@ -19,7 +19,6 @@ from ..models import (
     ImportacionOC,
     OrdenCompra,
     Pais,
-    PaisDestino,
     PosicionOC,
     Proveedor,
     Puerto,
@@ -30,27 +29,33 @@ from ..models import (
 from .cantidades import facturado_por_posicion, facturas_por_posicion
 from .common import ErrorNegocio, asegurar_proveedor, exigir, proveedor_filtro, registrar
 
+# Dos liberaciones de dos equipos distintos:
+# - Comercial: P (pendiente) o C (liberada; si viene vacío también es C).
+# - Logística: 304 no liberada, 300 liberada, 301 liberada con cambios posteriores.
+# Sin liberación comercial no hay liberación logística. Solo se factura con C y 300/301.
+COMERCIAL_TXT = {"C": "Liberada por comercial", "P": "Pendiente de comercial"}
 LIBERACION_TXT = {
-    "300": "Liberada por sourcing",
+    "300": "Liberada por logística",
     "301": "Liberada con cambios posteriores",
-    "304": "Pendiente de liberación comercial",
+    "304": "No liberada por logística",
 }
 
 
-def liberacion_logistica(comercial: str, anterior_comercial: str | None, hubo_cambios: bool,
-                         explicita: str | None, actual: str | None) -> str:
-    """304 mientras la liberación comercial esté pendiente (P). Con C: 300 si
-    sourcing liberó sin novedades; 301 si ya estaba liberada y la OC cambió
-    después. Si el archivo trae el código logístico, manda el archivo."""
+def liberacion_logistica(comercial: str, explicita: str | None, actual: str | None, hubo_cambios: bool) -> str:
+    """Código logístico final. Sin comercial (P) siempre es 304. Si el archivo
+    trae el código, manda el archivo; si no, se conserva el que tenía (304 si
+    es nueva) y una OC ya liberada (300) que cambia pasa a 301."""
     if comercial != "C":
         return "304"
-    if explicita in ("300", "301"):
+    if explicita in LIBERACION_TXT:
         return explicita
-    if anterior_comercial == "C" and hubo_cambios:
+    if actual == "300" and hubo_cambios:
         return "301"
-    if anterior_comercial == "C" and actual in ("300", "301"):
-        return actual
-    return "300"
+    return actual or "304"
+
+
+def esta_liberada(comercial: str, logistica: str) -> bool:
+    return comercial == "C" and logistica in ("300", "301")
 
 
 # ---- Vista general de OCs ---------------------------------------------------
@@ -72,6 +77,8 @@ def listar_ordenes(
     destino: str | None = None,
     puerto: str | None = None,
     orden: str | None = None,
+    almacen: str | None = None,
+    comercial: str | None = None,
 ) -> dict:
     exigir(user, "oc.ver")
     prov = proveedor_filtro(user, proveedor_id)
@@ -124,13 +131,17 @@ def listar_ordenes(
     if sociedad:
         consulta = consulta.where(OrdenCompra.sociedad == sociedad)
     if destino:
-        consulta = consulta.where(OrdenCompra.pais_destino == destino)
+        consulta = consulta.where(OrdenCompra.centro_destino == destino)
     if puerto:
         consulta = consulta.where(OrdenCompra.puerto_despacho == puerto)
     if liberacion:
         consulta = consulta.where(OrdenCompra.liberacion_logistica == liberacion)
+    if comercial:
+        consulta = consulta.where(OrdenCompra.liberacion_comercial == comercial)
     if marca:
         consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.marca == marca)))
+    if almacen:
+        consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.almacen == almacen)))
     if solo_disponible:
         consulta = consulta.where(tot.c.cantidad - facturado > 0)
 
@@ -153,7 +164,13 @@ def listar_ordenes(
     ids = [oc.id for oc, *_ in filas]
     por_unidad: dict[int, dict] = {i: {} for i in ids}
     marcas: dict[int, set] = {i: set() for i in ids}
+    almacenes: dict[int, set] = {i: set() for i in ids}
     if ids:
+        for oc_id, alm in db.execute(
+            select(PosicionOC.oc_id, PosicionOC.almacen).where(PosicionOC.oc_id.in_(ids)).distinct()
+        ).all():
+            if alm:
+                almacenes[oc_id].add(alm)
         for oc_id, unidad, marca_oc, cant in db.execute(
             select(PosicionOC.oc_id, PosicionOC.unidad, PosicionOC.marca, func.sum(PosicionOC.cantidad))
             .where(PosicionOC.oc_id.in_(ids)).group_by(PosicionOC.oc_id, PosicionOC.unidad, PosicionOC.marca)
@@ -175,8 +192,10 @@ def listar_ordenes(
             d["disponible"] = max(d["cantidad"] - d["facturado"], 0)
 
     hoy = date.today()
+    centros = {c.codigo: c for c in db.scalars(select(Centro))}
     items = []
     for oc, prov_nombre, importe, n, importe_f in filas:
+        destino = centros.get(oc.centro_destino)
         importe = float(importe or 0)
         items.append(
             {
@@ -184,12 +203,17 @@ def listar_ordenes(
                 "proveedor": prov_nombre,
                 "posiciones": n,
                 "marcas": sorted(marcas[oc.id]),
+                # Una OC puede repartir sus posiciones entre varios almacenes
+                "almacenes": sorted(almacenes[oc.id]),
                 "por_unidad": por_unidad[oc.id],
                 "importe": round(importe, 2),
                 "importe_facturado": round(float(importe_f or 0), 2),
                 # Avance por valor: es comparable aunque la OC mezcle pares y unidades
                 "avance": round(float(importe_f or 0) * 100 / importe, 1) if importe else 0,
                 "dias_tienda": (oc.fecha_tienda - hoy).days if oc.fecha_tienda else None,
+                # El centro de destino dice a qué país llega al final
+                "destino_nombre": destino.nombre if destino else None,
+                "pais_destino": destino.pais if destino else None,
             }
         )
     return {"items": items, "total": total, "page": page, "size": size}
@@ -207,17 +231,22 @@ def filtros_ordenes(db: Session, user: Usuario, proveedor_id: int | None = None)
     def distintos(col):
         return sorted({v for (v,) in db.execute(select(col).select_from(sub).distinct()) if v})
 
-    marcas = sorted({m for (m,) in db.execute(
-        select(PosicionOC.marca).where(PosicionOC.oc_id.in_(select(sub.c.id))).distinct()) if m})
+    def de_posiciones(col):
+        return sorted({v for (v,) in db.execute(
+            select(col).where(PosicionOC.oc_id.in_(select(sub.c.id))).distinct()) if v})
+
+    marcas = de_posiciones(PosicionOC.marca)
     return {
         "sociedades": distintos(sub.c.sociedad),
         "centros": distintos(sub.c.centro),
-        "destinos": [{"codigo": d.codigo, "nombre": d.nombre} for d in db.scalars(
-            select(PaisDestino).where(PaisDestino.codigo.in_(distintos(sub.c.pais_destino))))],
+        "almacenes": de_posiciones(PosicionOC.almacen),
+        "destinos": [{"codigo": d.codigo, "nombre": f"{d.nombre} ({d.pais})"} for d in db.scalars(
+            select(Centro).where(Centro.codigo.in_(distintos(sub.c.centro_destino))).order_by(Centro.codigo))],
         "puertos": [{"codigo": p.codigo, "nombre": p.nombre} for p in db.scalars(
             select(Puerto).where(Puerto.codigo.in_(distintos(sub.c.puerto_despacho))))],
         "marcas": marcas,
         "liberaciones": [{"codigo": k, "nombre": v} for k, v in LIBERACION_TXT.items()],
+        "comerciales": [{"codigo": k, "nombre": v} for k, v in COMERCIAL_TXT.items()],
     }
 
 
@@ -228,8 +257,7 @@ def _cabecera_oc(oc: OrdenCompra) -> dict:
         "proveedor_id": oc.proveedor_id,
         "sociedad": oc.sociedad,
         "centro": oc.centro,
-        "almacen": oc.almacen,
-        "pais_destino": oc.pais_destino,
+        "centro_destino": oc.centro_destino,
         "moneda": oc.moneda,
         "incoterm": oc.incoterm,
         "fecha": oc.fecha,
@@ -242,6 +270,7 @@ def _cabecera_oc(oc: OrdenCompra) -> dict:
         "liberacion_comercial": oc.liberacion_comercial,
         "liberacion_logistica": oc.liberacion_logistica,
         "liberacion_txt": LIBERACION_TXT.get(oc.liberacion_logistica),
+        "comercial_txt": COMERCIAL_TXT.get(oc.liberacion_comercial),
         "liberada": oc.liberada,
     }
 
@@ -264,6 +293,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
             {
                 "id": p.id,
                 "posicion": p.posicion,
+                "almacen": p.almacen,
                 "codigo_sap": p.codigo_sap,
                 "upc": p.upc,
                 "estilo": p.estilo,
@@ -293,17 +323,20 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
             }
         )
     prov = db.get(Proveedor, oc.proveedor_id)
-    destino = db.scalar(select(PaisDestino).where(PaisDestino.codigo == oc.pais_destino))
+    destino = db.scalar(select(Centro).where(Centro.codigo == oc.centro_destino))
     return {"oc": {**_cabecera_oc(oc), "proveedor": prov.nombre,
-                   "pais_destino_nombre": destino.nombre if destino else None},
+                   "centro_destino_nombre": destino.nombre if destino else None,
+                   "pais_destino": destino.pais if destino else None},
             "posiciones": posiciones}
 
 
 def estado_posicion(oc, p, facturado: int, facturas: list[dict]):
     """Devuelve (estado, motivo, factura a la que queda restringido el saldo)."""
     disponible = p.cantidad - facturado
+    if oc.liberacion_comercial != "C":
+        return "NO_DISPONIBLE", "Sin liberación comercial (P): logística aún no puede liberar.", None
     if not oc.liberada:
-        return "NO_DISPONIBLE", "Pendiente de liberación comercial (304).", None
+        return "NO_DISPONIBLE", "Sin liberación logística (304).", None
     if p.bloqueada:
         return "NO_DISPONIBLE", p.motivo_bloqueo or "Posición bloqueada.", None
     if disponible <= 0:
@@ -324,7 +357,7 @@ ALIAS = {
     "sociedad": ["sociedad", "company", "compania"],
     "centro": ["centro", "plant", "bodega", "bodega_fiscal"],
     "almacen": ["almacen", "storage_location", "sloc"],
-    "pais_destino": ["pais_destino", "destino", "codigo_destino"],
+    "centro_destino": ["centro_destino", "pais_destino", "destino", "codigo_destino"],
     "moneda": ["moneda", "currency"],
     "incoterm": ["incoterm"],
     "fecha_oc": ["fecha_oc", "fecha"],
@@ -344,12 +377,12 @@ ALIAS = {
     "fecha_entrega": ["fecha_entrega", "entrega"],
 }
 REQUERIDOS = ["proveedor", "oc", "posicion", "codigo_sap", "cantidad", "precio", "moneda", "sociedad", "centro",
-              "pais_destino"]
-CAMPOS_CABECERA = ["sociedad", "centro", "almacen", "pais_destino", "moneda", "incoterm", "fecha", "puerto_despacho",
+              "centro_destino"]
+CAMPOS_CABECERA = ["sociedad", "centro", "centro_destino", "moneda", "incoterm", "fecha", "puerto_despacho",
                    "pais_origen", "pais_procedencia", "fecha_xf_original", "fecha_xf", "fecha_tienda",
                    "liberacion_comercial"]
 CAMPOS_POSICION = [
-    "articulo_id", "codigo_sap", "upc", "estilo", "color", "talla", "descripcion", "marca", "grupo", "categoria",
+    "almacen", "articulo_id", "codigo_sap", "upc", "estilo", "color", "talla", "descripcion", "marca", "grupo", "categoria",
     "tipo_empaque", "casepack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
     "pais_origen", "partida_arancelaria",
 ]
@@ -444,7 +477,6 @@ class Maestros:
         self.sociedades = {s.codigo: s for s in db.scalars(select(Sociedad))}
         self.centros = {c.codigo: c for c in db.scalars(select(Centro))}
         self.almacenes = {a.codigo: a for a in db.scalars(select(Almacen))}
-        self.destinos = {d.codigo: d for d in db.scalars(select(PaisDestino))}
         self.puertos = {p.codigo: p for p in db.scalars(select(Puerto))}
         self.paises = {p.codigo for p in db.scalars(select(Pais))}
         self.articulos: dict[str, Articulo] = {}
@@ -471,22 +503,25 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         "sociedad": r.get("sociedad", "").upper(),
         "centro": (r.get("centro") or "").upper() or None,
         "almacen": (r.get("almacen") or "").upper() or None,
-        "pais_destino": r.get("pais_destino") or None,
+        "centro_destino": r.get("centro_destino") or None,
         "moneda": (r.get("moneda") or "").upper(),
         "incoterm": (r.get("incoterm") or "").upper() or None,
         "puerto_despacho": (r.get("puerto_despacho") or "").upper() or None,
         "pais_origen": (r.get("pais_origen") or "").upper() or None,
         "pais_procedencia": (r.get("pais_procedencia") or r.get("pais_origen") or "").upper() or None,
         "liberacion_comercial": _comercial(r.get("liberacion_comercial", "")),
-        "liberacion_logistica_archivo": r.get("liberacion_logistica") or None,
+        "liberacion_logistica_archivo": (r.get("liberacion_logistica") or "").strip() or None,
         "codigo_sap": r.get("codigo_sap", ""),
     }
+    log = d["liberacion_logistica_archivo"]
+    if log and log not in LIBERACION_TXT:
+        errores.append(f"Liberación logística {log} no válida (usa 304, 300 o 301).")
+    elif log in ("300", "301") and d["liberacion_comercial"] != "C":
+        errores.append(f"Logística no puede liberar ({log}) sin liberación comercial: la OC está en P.")
     if d["oc"] and not re.fullmatch(r"44\d{8}", d["oc"]):
         errores.append(f"La OC {d['oc']} no tiene el formato 44 + 8 dígitos (por ejemplo 4400003856).")
     if d["posicion"] and (not d["posicion"].isdigit() or int(d["posicion"]) % 10):
         errores.append(f"La posición {d['posicion']} no va de 10 en 10.")
-    if d["pais_destino"] and not re.fullmatch(r"\d{4}", d["pais_destino"]):
-        errores.append(f"El país de destino {d['pais_destino']} debe ser un código de 4 dígitos.")
     try:
         cant = float(r.get("cantidad", "").replace(",", "")) if r.get("cantidad") else None
         if cant is not None and (cant < 0 or not cant.is_integer()):
@@ -539,10 +574,10 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         alm = m.almacenes.get(d["almacen"])
         if not alm:
             errores.append(f"El almacén {d['almacen']} no existe.")
-        elif cen and alm.centro_id != cen.id:
-            errores.append(f"El almacén {d['almacen']} no pertenece al centro {d['centro']}.")
-    if d["pais_destino"] and d["pais_destino"] not in m.destinos:
-        errores.append(f"El país de destino {d['pais_destino']} no está registrado en mantenimiento.")
+        elif soc and alm.sociedad_id != soc.id:
+            errores.append(f"El almacén {d['almacen']} no pertenece a la sociedad {d['sociedad']}.")
+    if d["centro_destino"] and d["centro_destino"] not in m.centros:
+        errores.append(f"El centro de destino {d['centro_destino']} no está registrado en mantenimiento.")
     if d["puerto_despacho"] and d["puerto_despacho"] not in m.puertos:
         errores.append(f"El puerto {d['puerto_despacho']} no está registrado.")
     for campo in ("pais_origen", "pais_procedencia"):
@@ -703,8 +738,8 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
             oc = OrdenCompra(proveedor_id=prov.id, numero=d["oc"])
             db.add(oc)
         info = ocs_tocadas.setdefault(id(oc), {
-            "oc": oc, "anterior": None if nueva else oc.liberacion_comercial, "cambios": False,
-            "explicita": d["liberacion_logistica_archivo"], "actual": None if nueva else oc.liberacion_logistica})
+            "oc": oc, "cambios": False, "explicita": d["liberacion_logistica_archivo"],
+            "actual": None if nueva else oc.liberacion_logistica})
         info["cambios"] = info["cambios"] or (c["estado"] == "cambio")
         for campo in CAMPOS_CABECERA:
             setattr(oc, campo, d.get(campo))
@@ -719,9 +754,9 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
         aplicadas += 1
     for info in ocs_tocadas.values():
         oc = info["oc"]
-        oc.liberacion_logistica = liberacion_logistica(oc.liberacion_comercial, info["anterior"], info["cambios"],
-                                                       info["explicita"], info["actual"])
-        oc.liberada = oc.liberacion_comercial == "C"
+        oc.liberacion_logistica = liberacion_logistica(oc.liberacion_comercial, info["explicita"], info["actual"],
+                                                       info["cambios"])
+        oc.liberada = esta_liberada(oc.liberacion_comercial, oc.liberacion_logistica)
     resultado = {"resumen": _resumen(clasificadas), "aplicadas": aplicadas}
     imp.estado = "APLICADA"
     imp.resultado = resultado
