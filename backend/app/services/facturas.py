@@ -24,6 +24,7 @@ from .cantidades import (
     asignado_por_linea,
     cubierto,
     facturado_por_posicion,
+    fuera_de_inner,
     limpiar_pallets,
     facturas_por_posicion,
     nombre_factura,
@@ -168,6 +169,9 @@ def _preparar_posiciones(
                     }
                 )
                 continue
+        if (msg := fuera_de_inner(p, cantidad)):
+            errores.append({"posicion_id": p.id, "mensaje": f"{ref}: {msg}"})
+            continue
         disponible = p.cantidad - facturado.get(p.id, 0)
         if cantidad > disponible:
             errores.append(
@@ -202,6 +206,7 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
         categoria=p.categoria,
         tipo_empaque=p.tipo_empaque,
         casepack=p.casepack,
+        inner_pack=p.inner_pack,
         prepack=p.prepack,
         unidades_por_caja=p.unidades_por_caja,
         centro_destino=oc.centro_destino,
@@ -326,6 +331,9 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
 
         if c.cantidad is not None and c.cantidad != l.cantidad:
             nueva = c.cantidad
+            if (msg := fuera_de_inner(l, nueva)):
+                errores.append({"linea_id": l.id, "mensaje": f"{ref}: {msg}"})
+                continue
             if nueva > l.cantidad:
                 p = l.posicion_oc
                 disponible = p.cantidad - facturado.get(p.id, 0)
@@ -781,6 +789,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "marca": l.marca,
             "tipo_empaque": l.tipo_empaque,
             "casepack": l.casepack,
+            "inner_pack": l.inner_pack,
             "prepack": l.prepack,
             "unidades_por_caja": l.unidades_por_caja,
             "cantidad": l.cantidad,

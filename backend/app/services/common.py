@@ -39,6 +39,7 @@ def _matriz() -> dict[str, set[str]]:
     return {
         "oc.ver": TODOS,
         "oc.importar": INTERNOS,
+        "oc.empaque": INTERNOS,
         "factura.editar": TODOS,
         "factura.finalizar": finalizan,
         "factura.reabrir": INTERNOS,

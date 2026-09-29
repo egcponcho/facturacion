@@ -14,10 +14,13 @@ from ..models import (
     Usuario,
     ahora,
 )
+from .sugerencias import sugerir_unidades
 from .cantidades import (
     asignado_por_linea,
     cbm_caja,
     cubierto,
+    fuera_de_inner,
+    inner_de,
     limpiar_pallets,
     nombre_factura,
     numeracion,
@@ -84,7 +87,10 @@ def _ref(pll: PLLinea) -> str:
 def regla_empaque(fl) -> tuple[str, int | None]:
     """PREPACK: una curva por caja master, sin agregar ni quitar tallas.
     CASEPACK: cantidad exacta por caja del mismo estilo, color y talla.
-    LIBRE: casepack no especificado; se elige la cantidad y se puede consolidar."""
+    LIBRE: casepack no especificado; se elige la cantidad y se puede consolidar.
+    Con inner pack (sólidos), toda cantidad por caja es de inner packs enteros:
+    con casepack, la caja lleva casepack / inner packs; sin casepack, la caja
+    lleva los inner packs que se definan."""
     if fl.tipo_empaque == "PREPACK":
         return "PREPACK", 1
     if fl.casepack:
@@ -161,6 +167,8 @@ def _tomar_saldo(db: Session, factura, lineas) -> dict[int, int]:
             errores.append({"mensaje": "Una de las líneas no pertenece a la factura."})
         elif c > saldo[lid]:
             errores.append({"factura_linea_id": lid, "mensaje": f"Solo quedan {saldo[lid]} sin asignar en esa línea."})
+        elif (msg := fuera_de_inner(next(l for l in factura.lineas if l.id == lid), c)):
+            errores.append({"factura_linea_id": lid, "mensaje": msg})
     if errores:
         raise ErrorNegocio("No se pudo asignar la cantidad.", 422, "validacion", errores)
     return tomar
@@ -205,6 +213,8 @@ def _validar_movimientos(pl: PackingList, movimientos) -> list[tuple[PLLinea, in
             errores.append({"pl_linea_id": pll.id, "mensaje":
                 f"{_ref(pll)}: solo hay {cant_txt(libre, pll.factura_linea.unidad)} sin caja. "
                 "Lo empacado se mueve con “Mover cajas”."})
+        if (msg := fuera_de_inner(pll.factura_linea, m.cantidad)):
+            errores.append({"pl_linea_id": pll.id, "mensaje": f"{_ref(pll)}: {msg}"})
         pares.append((pll, m.cantidad))
     if errores:
         raise ErrorNegocio("No se pudo mover la cantidad.", 422, "validacion", errores)
@@ -443,6 +453,9 @@ def _propuesta(db: Session, pl: PackingList, filas, reemplazar: bool) -> list[di
             f["omitida"] = "Elige una plantilla: el artículo no tiene casepack."
         elif regla == "LIBRE" and unidad != t.unidad:
             f["omitida"] = "La unidad no coincide con la plantilla."
+        elif regla == "LIBRE" and inner_de(fl) and por_caja % inner_de(fl):
+            f["omitida"] = (f"The template holds {por_caja} per carton, which is not a whole number of inner packs "
+                            f"of {inner_de(fl)}. Choose a template that is a multiple of {inner_de(fl)}.")
         elif t and not t.activa:
             f["omitida"] = "La plantilla está inactiva."
         elif libre == 0:
@@ -591,6 +604,11 @@ def _reglas_caja(pl: PackingList, items, num_cajas: int) -> list[dict]:
     for pll, cant in lineas:
         regla, por_caja = regla_empaque(pll.factura_linea)
         ref = _ref(pll)
+        n = inner_de(pll.factura_linea)
+        if n and cant % n:
+            errores.append({"mensaje": f"{ref}: each carton carries whole inner packs of {n}; {cant} per carton "
+                            f"is not a multiple of {n}."})
+            continue
         if regla == "LIBRE":
             continue
         if len(lineas) > 1:
@@ -697,6 +715,27 @@ def guardar_como_plantilla(db: Session, user: Usuario, pl_id: int, grupo_id: int
     return {"id": t.id, "nombre": t.nombre}
 
 
+def destinos_pl(db: Session, pl: PackingList) -> list[dict]:
+    """Lo que lleva el PL por país (centro) de destino: las cajas no mezclan
+    destinos, así que el proveedor empaca y rotula por destino."""
+    from ..models import Centro
+
+    por: dict[str | None, dict] = {}
+    for pll in pl.lineas:
+        fl = pll.factura_linea
+        d = por.setdefault(fl.centro_destino, {"centro_destino": fl.centro_destino, "por_unidad": {}, "cajas": 0})
+        d["por_unidad"][fl.unidad] = d["por_unidad"].get(fl.unidad, 0) + pll.cantidad
+    for g in pl.grupos:
+        destinos = {it.pl_linea.factura_linea.centro_destino for it in g.items}
+        if len(destinos) == 1:
+            por[destinos.pop()]["cajas"] += g.num_cajas
+    for d in por.values():
+        c = db.scalar(select(Centro).where(Centro.codigo == d["centro_destino"])) if d["centro_destino"] else None
+        d["nombre"] = c.nombre if c else None
+        d["pais"] = c.pais if c else None
+    return sorted(por.values(), key=lambda x: x["centro_destino"] or "")
+
+
 # ---- Estados ----------------------------------------------------------------
 def validar_pl(pl: PackingList) -> list[dict]:
     errores = []
@@ -723,6 +762,11 @@ def validar_pl(pl: PackingList) -> list[dict]:
             errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: falta el peso neto o bruto."})
         elif g.peso_bruto_caja < g.peso_neto_caja:
             errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: el peso bruto es menor que el neto."})
+        for it in g.items:
+            n = inner_de(it.pl_linea.factura_linea)
+            if n and it.cantidad_por_caja % n:
+                errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: {_ref(it.pl_linea)} carries "
+                                f"{it.cantidad_por_caja} per carton, not whole inner packs of {n}."})
         if g.peso_estimado:
             errores.append({"grupo_id": g.id, "codigo": "peso_estimado",
                             "mensaje": f"{etiqueta}: el peso es estimado; confírmalo o corrígelo."})
@@ -882,6 +926,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "marca": fl.marca,
             "tipo_empaque": fl.tipo_empaque,
             "casepack": fl.casepack,
+            "inner_pack": inner_de(fl),
             "prepack": fl.prepack,
             "unidades_por_caja": fl.unidades_por_caja,
             "centro_destino": fl.centro_destino,
@@ -913,6 +958,9 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "unidad": it.pl_linea.factura_linea.unidad,
             "cantidad_por_caja": it.cantidad_por_caja,
             "cantidad_total": it.cantidad_por_caja * g.num_cajas,
+            "inner_pack": inner_de(it.pl_linea.factura_linea),
+            "inner_packs_por_caja": (it.cantidad_por_caja // inner_de(it.pl_linea.factura_linea)
+                                     if inner_de(it.pl_linea.factura_linea) else None),
         } for it in g.items]
         grupos.append({
             "id": g.id,
@@ -954,6 +1002,8 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
         "pallets": resumen_pallets(pl),
         "partes": partes(db, f.sociedad, f.centro, f.centro_destino),
         "totales": totales_pl(pl),
+        "destinos": destinos_pl(db, pl),
+        "sugerencia_unidades": sugerir_unidades(db, totales_pl(pl)["cbm"], totales_pl(pl)["peso_bruto"]),
         "validaciones": validar_pl(pl) if editable else [],
         "avisos": avisos_pl(pl),
         "recolectado_en": pl.recolectado_en,

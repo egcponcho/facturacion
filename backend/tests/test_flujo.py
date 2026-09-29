@@ -637,3 +637,71 @@ def test_documentos_y_reportes(tnf, interno):
     marcas = {fila[3] for fila in wb["Detalle por SKU"].iter_rows(min_row=6, values_only=True) if fila[0]}
     assert marcas == {"VANS"}
     assert interno.get("/seguimiento/otra/exportar").status_code == 404
+
+
+def test_inner_pack_y_casepack_de_la_oc(tnf, vans, interno):
+    """Casepack e inner pack son de la posición de la OC. Todo se mueve en inner
+    packs enteros; el casepack es múltiplo del inner pack."""
+    det = _oc(tnf, "4400003846")
+    oc_id = next(o for o in interno.get("/ordenes", params={"solo_disponible": False}).json()["items"]
+                 if o["numero"] == "4400003846")["id"]
+    mochila, fleece_s, fleece_l = _pos(det, "OS"), _pos(det, "S"), _pos(det, "L")
+    assert (mochila["casepack"], mochila["inner_pack"]) == (20, 5) and fleece_s["inner_pack"] == 5
+    assert "casepack" not in interno.get("/catalogos/articulos", params={"size": 1}).json()["items"][0]
+    # Editar el empaque de una posición: casepack múltiplo del inner pack
+    url = f"/ordenes/{oc_id}/posiciones/{fleece_l['id']}/empaque"
+    assert interno.put(url, {"casepack": 12, "inner_pack": 5}).status_code == 422
+    assert tnf.put(url, {"casepack": 15, "inner_pack": 5}).status_code == 403
+    assert interno.put(url, {"casepack": 15, "inner_pack": 5}).json()["casepack"] == 15
+    assert interno.put(url, {"casepack": None, "inner_pack": 5}).status_code == 200
+    prepack = _oc(vans, "4400003903")["posiciones"][0]
+    oc_pp = next(o for o in interno.get("/ordenes", params={"solo_disponible": False}).json()["items"]
+                 if o["numero"] == "4400003903")["id"]
+    assert interno.put(f"/ordenes/{oc_pp}/posiciones/{prepack['id']}/empaque", {"casepack": 2}).status_code == 422
+    # Facturar: solo inner packs enteros
+    r = tnf.post("/facturas", {"lineas": [{"posicion_id": fleece_s["id"], "cantidad": 12}]})
+    assert r.status_code == 422 and "inner pack" in r.json()["detalle"][0]["mensaje"]
+    fid = tnf.post("/facturas", {"lineas": [{"posicion_id": fleece_s["id"], "cantidad": 30},
+                                           {"posicion_id": mochila["id"], "cantidad": 60}]}).json()["id"]
+    assert interno.put(f"/ordenes/{oc_id}/posiciones/{mochila['id']}/empaque",
+                       {"casepack": 10, "inner_pack": 5}).status_code == 409
+    pl_id = tnf.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
+    pl = tnf.get(f"/packing-lists/{pl_id}").json()
+    lf = next(l for l in pl["lineas"] if l["talla"] == "S")
+    lm = next(l for l in pl["lineas"] if l["talla"] == "OS")
+    assert (lf["regla"], lf["inner_pack"]) == ("LIBRE", 5) and lm["regla"] == "CASEPACK"
+    # Sin casepack: la caja lleva inner packs enteros
+    r = tnf.post(f"/packing-lists/{pl_id}/cajas", {"version": pl["version"], "num_cajas": 1, "items": [
+        {"pl_linea_id": lf["id"], "cantidad_por_caja": 12}]})
+    assert r.status_code == 422 and "inner pack" in r.json()["detalle"][0]["mensaje"]
+    # Una plantilla que no es múltiplo del inner pack se omite en el empaque automático
+    t12 = tnf.post("/plantillas", {"nombre": "Caja fleece 12 un", "cantidad_por_caja": 12, "unidad": "UN",
+                                   "largo": 50, "ancho": 40, "alto": 30, "peso_neto": 6, "peso_bruto": 7}).json()
+    previa = tnf.post(f"/packing-lists/{pl_id}/empaque/previa",
+                      {"filas": [{"pl_linea_id": lf["id"], "plantilla_id": t12["id"]}]}).json()
+    assert previa["resumen"]["filas"] == 0 and "inner pack" in previa["filas"][0]["omitida"]
+    r = tnf.post(f"/packing-lists/{pl_id}/cajas", {"version": pl["version"], "num_cajas": 2, "items": [
+        {"pl_linea_id": lf["id"], "cantidad_por_caja": 15}]})
+    assert r.status_code == 200, r.text
+    r = _empacar(tnf, pl_id, r.json()["version"], [(lm["id"], None)])
+    assert r.status_code == 200, r.text
+    pl = tnf.get(f"/packing-lists/{pl_id}").json()
+    inners = {g["items"][0]["pl_linea_id"]: (g["num_cajas"], g["items"][0]["inner_packs_por_caja"]) for g in pl["grupos"]}
+    assert inners == {lf["id"]: (2, 3), lm["id"]: (3, 4)}
+    # Por destino y sugerencia de unidades de carga
+    assert [d["centro_destino"] for d in pl["destinos"]] == ["2220"] and pl["destinos"][0]["cajas"] == 5
+    # Sin medidas ni pesos todavía no hay volumen que acomodar
+    assert pl["sugerencia_unidades"] == {"cbm": 0, "kg": 0, "modos": {}}
+
+
+def test_sugerencia_de_unidades(interno):
+    s = interno.get("/sugerencia-unidades", params={"cbm": 10, "kg": 2000}).json()["modos"]
+    assert s["MARITIMO"][0]["recomendada"] and s["MARITIMO"][0]["texto"] == "1 × LCL"
+    assert s["TERRESTRE"][0]["texto"] == "1 × LTL"
+    s = interno.get("/sugerencia-unidades", params={"cbm": 60, "kg": 9000, "modo": "MARITIMO"}).json()["modos"]
+    assert s["MARITIMO"][0]["texto"] == "1 × 40HC" and list(s) == ["MARITIMO"]
+    s = interno.get("/sugerencia-unidades", params={"cbm": 150, "kg": 30000}).json()["modos"]
+    assert s["MARITIMO"][0]["texto"] == "2 × 40HC + 1 × 20GP"
+    aereo = interno.get("/sugerencia-unidades", params={"cbm": 2, "kg": 500}).json()["modos"]["AEREO"][0]
+    assert aereo["peso_cobrable"] == 500
+    assert interno.get("/sugerencia-unidades", params={"cbm": 1, "modo": "BARCO"}).status_code == 422

@@ -282,7 +282,6 @@ class Articulo(Base):
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
     unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ (prepack)
     tipo: Mapped[str] = mapped_column(String(10), default="SOLIDO")  # SOLIDO | PREPACK
-    casepack: Mapped[int | None] = mapped_column(Integer)
     prepack_id: Mapped[int | None] = mapped_column(ForeignKey("prepacks.id"))
     partida_arancelaria: Mapped[str | None] = mapped_column(String(20))
     pais_origen: Mapped[str | None] = mapped_column(String(2))
@@ -354,7 +353,11 @@ class PosicionOC(Base):
     grupo: Mapped[str | None] = mapped_column(String(15))
     categoria: Mapped[str | None] = mapped_column(String(10))
     tipo_empaque: Mapped[str] = mapped_column(String(10), default="SOLIDO")  # SOLIDO | PREPACK
+    # Empaque de la compra (dato de la posición, no del artículo): casepack =
+    # unidades exactas por caja master; inner_pack = unidades por paquete
+    # interno (todos iguales). Con ambos, el casepack es múltiplo del inner.
     casepack: Mapped[int | None] = mapped_column(Integer)
+    inner_pack: Mapped[int | None] = mapped_column(Integer)
     prepack: Mapped[str | None] = mapped_column(String(30))
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total de la curva
     cantidad: Mapped[int] = mapped_column(Integer)
@@ -438,6 +441,7 @@ class FacturaLinea(Base):
     categoria: Mapped[str | None] = mapped_column(String(10))
     tipo_empaque: Mapped[str] = mapped_column(String(10), default="SOLIDO")
     casepack: Mapped[int | None] = mapped_column(Integer)
+    inner_pack: Mapped[int | None] = mapped_column(Integer)
     prepack: Mapped[str | None] = mapped_column(String(30))
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)
     centro_destino: Mapped[str | None] = mapped_column(String(10))

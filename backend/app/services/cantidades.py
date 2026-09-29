@@ -160,3 +160,17 @@ def totales_pl(pl: PackingList) -> dict:
         "pallets": len(pl.pallets),
         "por_unidad": por_unidad,
     }
+
+
+def inner_de(linea) -> int | None:
+    """Unidades por inner pack de una posición o línea de factura (solo sólidos)."""
+    return linea.inner_pack if linea.tipo_empaque != "PREPACK" and linea.inner_pack else None
+
+
+def fuera_de_inner(linea, cantidad: int) -> str | None:
+    """Mensaje si la cantidad no completa inner packs enteros."""
+    n = inner_de(linea)
+    if n and cantidad % n:
+        return (f"{cantidad} is not a multiple of the inner pack ({n}): quantities move in whole inner packs "
+                f"of {n}.")
+    return None

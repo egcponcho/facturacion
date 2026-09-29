@@ -121,21 +121,24 @@ MARCAS = [("TNF", "The North Face"), ("VANS", "Vans"), ("MERR", "Merrell"), ("CA
           ("HPU", "Hush Puppies"), ("ADOC", "ADOC")]
 GRUPOS = [("CALZ-OUT", "Calzado outdoor", "CALZADO"), ("CALZ-CAS", "Calzado casual", "CALZADO"),
           ("CHAQ", "Chaquetas", "ROPA"), ("FLEE", "Fleece y sudaderas", "ROPA"), ("MOCH", "Mochilas", "ACCESORIO")]
-# estilo, color, marca, grupo, proveedor, unidad, precio, origen, partida, descripción, casepack, tallas
+# estilo, color, marca, grupo, proveedor, unidad, precio, origen, partida, descripción, empaque de la OC, tallas
+# El empaque (casepack, inner pack) es de la posición de la OC, no del artículo:
+# aquí solo es el que usan las OCs de ejemplo.
 ESTILOS = [
     ("NF0A5GLL", "JK3 TNF Black", "TNF", "CHAQ", "TNF", "UN", 48.50, "VN", "6201.40", "Chaqueta impermeable hombre",
      None, ["S", "M", "L", "XL", "XXL"]),
     ("NF0A5GLL", "Azul summit", "TNF", "CHAQ", "TNF", "UN", 48.50, "VN", "6201.40", "Chaqueta impermeable hombre",
      None, ["M", "L"]),
     ("NF0A7W4G", "KX7 Negro", "TNF", "CALZ-OUT", "TNF", "PAR", 62.00, "CN", "6404.11", "Calzado trail running",
-     12, ["8", "9", "10", "11", "12"]),
-    ("NF0A3VY2", "JK3 TNF Black", "TNF", "MOCH", "TNF", "UN", 31.20, "ID", "4202.92", "Mochila 28 L", 20, ["OS"]),
+     (12, None), ["8", "9", "10", "11", "12"]),
+    ("NF0A3VY2", "JK3 TNF Black", "TNF", "MOCH", "TNF", "UN", 31.20, "ID", "4202.92", "Mochila 28 L", (20, 5),
+     ["OS"]),
     ("NF0A5IHO", "Gris melange", "TNF", "FLEE", "TNF", "UN", 22.75, "KH", "6110.30", "Fleece medio cierre",
-     None, ["S", "M", "L"]),
+     (None, 5), ["S", "M", "L"]),
     ("VN000EE3", "BLK Negro", "VANS", "CALZ-CAS", "VANS", "PAR", 25.50, "VN", "6404.19", "Calzado lona clásico",
-     12, ["7", "8", "9", "10", "11", "12"]),
+     (12, None), ["7", "8", "9", "10", "11", "12"]),
     ("VN0A4BV4", "Blanco", "VANS", "CALZ-CAS", "VANS", "PAR", 21.00, "CN", "6404.19", "Calzado lona básico",
-     12, ["7", "8", "9", "10"]),
+     (12, None), ["7", "8", "9", "10"]),
 ]
 # Prepacks: estilo, color, prepack ID (es la "talla" del artículo prepack), curva
 PREPACKS = [
@@ -194,15 +197,16 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
     talla es su prepack ID."""
     arts = {}
     siguiente = 30095120001
-    for estilo, color, marca, grupo, prov, unidad, precio, origen, partida, desc, casepack, tallas in ESTILOS:
+    for estilo, color, marca, grupo, prov, unidad, precio, origen, partida, desc, empaque, tallas in ESTILOS:
         for talla in tallas:
             sku = str(siguiente)
             siguiente += 1
             a = Articulo(sku=sku, upc=f"0196{siguiente % 10**8:08d}", estilo=estilo, color=color, talla=talla,
                          descripcion=desc, marca_id=cat["marcas"][marca].id, grupo_id=cat["grupos"][grupo].id,
-                         proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO", casepack=casepack,
+                         proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO",
                          partida_arancelaria=partida, pais_origen=origen)
             a.precio_demo = precio
+            a.empaque_demo = empaque or (None, None)
             arts[(estilo, color, talla)] = a
     db.add_all(arts.values())
     db.flush()
@@ -220,6 +224,7 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
                      prepack_id=pp.id, partida_arancelaria=base.partida_arancelaria, pais_origen=base.pais_origen)
         siguiente += 1
         a.precio_demo = base.precio_demo * sum(curva.values())
+        a.empaque_demo = (None, None)
         db.add(a)
         db.flush()
         arts[(estilo, color, codigo)] = a
@@ -243,7 +248,7 @@ def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", a
             oc.posiciones.append(PosicionOC(
                 posicion=str(pos), almacen=alm[0] if alm else almacen, articulo_id=a.id, codigo_sap=a.sku, upc=a.upc, estilo=a.estilo, color=a.color,
                 talla=a.talla, descripcion=a.descripcion, marca=a.marca.codigo, grupo=a.grupo.codigo,
-                categoria=a.grupo.categoria, tipo_empaque=a.tipo, casepack=a.casepack,
+                categoria=a.grupo.categoria, tipo_empaque=a.tipo, casepack=a.empaque_demo[0], inner_pack=a.empaque_demo[1],
                 prepack=a.prepack.codigo if a.prepack else None,
                 unidades_por_caja=a.prepack.total if a.prepack else None, cantidad=cantidad, unidad=a.unidad,
                 precio=a.precio_demo, fecha_entrega=xf, pais_origen=a.pais_origen,
@@ -270,7 +275,7 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
                              oc_numero=oc.numero, almacen=p.almacen, posicion=p.posicion, codigo_sap=p.codigo_sap, upc=p.upc,
                              estilo=p.estilo, color=p.color, talla=p.talla, descripcion=p.descripcion,
                              unidad=p.unidad, marca=p.marca, categoria=p.categoria, tipo_empaque=p.tipo_empaque,
-                             casepack=p.casepack, centro_destino=oc.centro_destino, pais_origen=p.pais_origen,
+                             casepack=p.casepack, inner_pack=p.inner_pack, centro_destino=oc.centro_destino, pais_origen=p.pais_origen,
                              partida_arancelaria=p.partida_arancelaria, descripcion_comercial=p.descripcion)
         f.lineas.append(linea)
         pll = PLLinea(factura_linea=linea, cantidad=p.cantidad)

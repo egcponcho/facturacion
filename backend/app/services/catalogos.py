@@ -238,8 +238,6 @@ CATALOGOS = {
             c("tipo", "Tipo", "opcion", obligatorio=True, filtro=True,
               opciones=[["SOLIDO", "Sólido"], ["PREPACK", "Prepack"]]),
             c("unidad", "Unidad", "opcion", obligatorio=True, opciones=UNIDADES, filtro=True),
-            c("casepack", "Casepack", "entero", minimo=1,
-              ayuda="Cantidad exacta por caja definida por el Commercial Brand Manager. Vacío = libre."),
             c("upc", "UPC"),
             c("partida_arancelaria", "Partida arancelaria"),
             c("pais_origen", "País de origen", "codigo", catalogo="paises"),
@@ -722,7 +720,7 @@ def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes
     errores = []
     for f in filas:
         datos = {k: f.get(k, "") for k in ("sku", "estilo", "color", "talla", "descripcion", "upc",
-                                            "partida_arancelaria", "pais_origen", "unidad", "casepack")}
+                                            "partida_arancelaria", "pais_origen", "unidad")}
         datos["tipo"] = (f.get("tipo") or "SOLIDO").upper()
         if datos["tipo"] == "PREPACK":
             errores.append({"fila": f["_fila"], "mensaje":

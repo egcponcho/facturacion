@@ -305,6 +305,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "categoria": p.categoria,
                 "tipo_empaque": p.tipo_empaque,
                 "casepack": p.casepack,
+                "inner_pack": p.inner_pack,
                 "prepack": p.prepack,
                 "unidades_por_caja": p.unidades_por_caja,
                 "cantidad": p.cantidad,
@@ -328,6 +329,29 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                    "centro_destino_nombre": destino.nombre if destino else None,
                    "pais_destino": destino.pais if destino else None},
             "posiciones": posiciones}
+
+
+def empaque_posicion(db: Session, user: Usuario, oc_id: int, posicion_id: int, casepack: int | None,
+                     inner_pack: int | None) -> dict:
+    """Casepack e inner pack de una posición (condición de la compra). Se
+    cambian mientras no haya nada facturado de esa posición."""
+    exigir(user, "oc.empaque")
+    p = db.get(PosicionOC, posicion_id)
+    if not p or p.oc_id != oc_id:
+        raise ErrorNegocio("The purchase order line does not exist.", 404, "no_encontrado")
+    errores = validar_empaque(p.tipo_empaque, casepack, inner_pack, p.cantidad)
+    if errores:
+        raise ErrorNegocio("Check the packing of the line.", 422, "validacion",
+                           [{"campo": "inner_pack", "mensaje": e} for e in errores])
+    if facturado_por_posicion(db, [p.id]).get(p.id, 0):
+        raise ErrorNegocio("This line is already invoiced: its packing can no longer change.", 409, "facturada")
+    antes = {"casepack": p.casepack, "inner_pack": p.inner_pack}
+    p.casepack, p.inner_pack = casepack, inner_pack
+    registrar(db, user, "oc", p.oc_id, "empaque",
+              {"posicion": p.posicion, **{k: [antes[k], v] for k, v in (("casepack", casepack),
+                                                                           ("inner_pack", inner_pack))
+                                          if antes[k] != v}})
+    return {"id": p.id, "casepack": p.casepack, "inner_pack": p.inner_pack}
 
 
 def estado_posicion(oc, p, facturado: int, facturas: list[dict]):
@@ -374,6 +398,7 @@ ALIAS = {
     "unidad": ["unidad", "um", "uom"],
     "precio": ["precio", "precio_unitario", "price"],
     "casepack": ["casepack", "case_pack"],
+    "inner_pack": ["inner_pack", "inner", "innerpack", "inner_casepack", "pack"],
     "fecha_entrega": ["fecha_entrega", "entrega"],
 }
 REQUERIDOS = ["proveedor", "oc", "posicion", "codigo_sap", "cantidad", "precio", "moneda", "sociedad", "centro",
@@ -383,7 +408,7 @@ CAMPOS_CABECERA = ["sociedad", "centro", "centro_destino", "moneda", "incoterm",
                    "liberacion_comercial"]
 CAMPOS_POSICION = [
     "almacen", "articulo_id", "codigo_sap", "upc", "estilo", "color", "talla", "descripcion", "marca", "grupo", "categoria",
-    "tipo_empaque", "casepack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
+    "tipo_empaque", "casepack", "inner_pack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
     "pais_origen", "partida_arancelaria",
 ]
 UNIDADES = {"PAR": "PAR", "PR": "PAR", "PARES": "PAR", "PRS": "PAR",
@@ -537,13 +562,15 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
     except ValueError:
         errores.append(f"Precio no válido: {r.get('precio')}.")
         d["precio"] = None
-    try:
-        d["casepack_archivo"] = int(r["casepack"]) if r.get("casepack") else None
-        if d["casepack_archivo"] is not None and d["casepack_archivo"] < 1:
-            raise ValueError
-    except ValueError:
-        errores.append(f"Casepack no válido: {r.get('casepack')}.")
-        d["casepack_archivo"] = None
+    # Empaque de la compra: viene en la posición de la OC, no en el artículo
+    for campo, texto in (("casepack", "Casepack"), ("inner_pack", "Inner pack")):
+        try:
+            d[campo] = int(float(r[campo])) if r.get(campo) else None
+            if d[campo] is not None and d[campo] < 1:
+                raise ValueError
+        except ValueError:
+            errores.append(f"Invalid {texto.lower()}: {r.get(campo)}.")
+            d[campo] = None
     unidad = UNIDADES.get((r.get("unidad") or "").upper())
     if r.get("unidad") and not unidad:
         errores.append(f"Unidad no reconocida: {r.get('unidad')} (usa PAR, UN o CJ).")
@@ -604,11 +631,29 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
             partida_arancelaria=art.partida_arancelaria,
             prepack=art.prepack.codigo if art.prepack else None,
             unidades_por_caja=art.prepack.total if art.prepack else None,
-            # El casepack puede venir en la OC; si no, se toma del maestro
-            casepack=d["casepack_archivo"] or art.casepack,
         )
+        errores += validar_empaque(art.tipo, d["casepack"], d["inner_pack"], d["cantidad"])
         d["pais_origen_pos"] = art.pais_origen or d["pais_origen"]
     return d, errores
+
+
+def validar_empaque(tipo: str, casepack: int | None, inner_pack: int | None, cantidad: int | None) -> list[str]:
+    """Reglas del empaque de una posición:
+    - un prepack ya es una caja definida (su curva): no lleva casepack ni inner pack;
+    - con casepack e inner pack, el casepack es múltiplo del inner pack;
+    - con inner pack, la cantidad de la posición es múltiplo del inner pack
+      (todos los inner packs llevan la misma cantidad)."""
+    errores = []
+    if tipo == "PREPACK":
+        if casepack or inner_pack:
+            errores.append("A prepack is already a defined carton (its size run): it takes no casepack or inner pack.")
+        return errores
+    if casepack and inner_pack and casepack % inner_pack:
+        errores.append(f"The casepack ({casepack}) must be a multiple of the inner pack ({inner_pack}).")
+    if inner_pack and cantidad and cantidad % inner_pack:
+        errores.append(f"The quantity ({cantidad}) must be a multiple of the inner pack ({inner_pack}): "
+                       "all inner packs carry the same quantity.")
+    return errores
 
 
 def _valores_posicion(d: dict) -> dict:
@@ -684,6 +729,9 @@ def _clasificar(db: Session, filas: list[dict]) -> list[dict]:
             salida["estado"] = "conflicto"
             salida["mensajes"].append(
                 "Cambian datos clave (sociedad, moneda, centro, SKU o unidad) de una posición ya facturada.")
+        elif fact and any(c in cambios for c in ("casepack", "inner_pack")):
+            salida["estado"] = "conflicto"
+            salida["mensajes"].append("The casepack or inner pack changes on a line that is already invoiced.")
         else:
             salida["estado"] = "cambio"
         resultado.append(salida)
