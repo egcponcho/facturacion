@@ -1,256 +1,238 @@
-# Workspace de proveedor: OC → factura → packing list → cajas → transporte
+# Supplier workspace: PO → invoice → packing list → cartons → transport
 
-Sistema para que cada proveedor (y el equipo interno) arme sus facturas desde las OCs, las distribuya en packing lists y cajas, y el equipo de importaciones las asigne a unidades de carga y dé seguimiento al embarque.
+A system where each supplier (and the internal team) builds its invoices from purchase orders, distributes them into packing lists and cartons, and the imports team assigns them to load units and tracks the shipment to the warehouse.
 
-- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, PostgreSQL (SQLite para desarrollo rápido).
-- **Frontend:** Vue 3 + Vite, sin librerías de componentes ni de gráficas (íconos y gráficas en SVG propio).
-- **Probado:** 18 pruebas del flujo completo en PostgreSQL (17 en SQLite) y un recorrido en navegador real de punta a punta, en escritorio y en móvil.
+- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, PostgreSQL (SQLite for quick development).
+- **Frontend:** Vue 3 + Vite, no component or chart libraries (own SVG icons and charts).
+- **Language:** the whole interface, messages, documents (PDF/Excel) and upload templates are in English. Code identifiers and comments are in Spanish.
+- **Tested:** 26 end-to-end tests on PostgreSQL (25 on SQLite, the row-locking test needs PostgreSQL).
 
-## Arrancar
+## Getting started
 
-### Opción rápida (SQLite, sin instalar base de datos)
+### Quick option (SQLite, no database to install)
 
 ```bash
-# Terminal 1: API en http://localhost:8000 (documentación en /docs)
+# Terminal 1: API at http://localhost:8000 (docs at /docs)
 cd backend
-python -m venv .venv && source .venv/bin/activate   # en Windows: .venv\Scripts\activate
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 uvicorn app.main:app --reload
 
-# Terminal 2: interfaz en http://localhost:5173
+# Terminal 2: UI at http://localhost:5173
 cd frontend
 npm install
 npm run dev
 ```
 
-La primera vez se crean datos de prueba (TNF y Vans, OCs con tallas, plantillas y un embarque con un 40HC).
+On first start demo data is created (TNF and Vans, POs with sizes, templates and a shipment with a 40HC).
 
-### Con Docker y PostgreSQL
+### Docker and PostgreSQL
 
 ```bash
 docker compose up --build
 ```
 
-Queda todo en http://localhost:8000 (la API sirve también el frontend compilado).
+Everything runs at http://localhost:8000 (the API also serves the built frontend).
 
-### En la nube (Render, gratis)
+### In the cloud (Render, free)
 
-El repositorio incluye `render.yaml`, que crea la base PostgreSQL y el servicio web desde el `Dockerfile`.
+The repository includes `render.yaml`, which creates the PostgreSQL database and the web service from the `Dockerfile`.
 
-1. Entra a https://dashboard.render.com/blueprints y pulsa **New Blueprint Instance**.
-2. Conecta tu GitHub y elige este repositorio (rama `main`).
-3. Pulsa **Apply**. En unos minutos queda en `https://facturacion-XXXX.onrender.com`.
+1. Go to https://dashboard.render.com/blueprints and click **New Blueprint Instance**.
+2. Connect GitHub and choose this repository (branch `main`).
+3. Click **Apply**. In a few minutes it is live at `https://facturacion-XXXX.onrender.com`.
 
-`SECRET_KEY` se genera sola y los datos de prueba se cargan al primer arranque (`SEED_DEMO=1`; ponlo en `0` cuando uses datos reales).
-Limitaciones del plan gratuito: el servicio se duerme tras 15 minutos sin uso (el primer acceso tarda ~1 minuto), la base gratuita expira a los 30 días y los adjuntos se guardan en disco temporal, así que se pierden al reiniciar.
+`SECRET_KEY` is generated automatically and demo data loads on first start (`SEED_DEMO=1`; set it to `0` for real data). `COOKIE_SEGURA=1` is already set because Render serves over HTTPS.
+Free plan limits: the service sleeps after 15 minutes idle (first request takes ~1 minute), the free database expires after 30 days and attachments live on temporary disk.
 
-La misma imagen funciona en Railway, Fly.io o Google Cloud Run: define `DATABASE_URL` (se aceptan `postgres://` y `postgresql://`) y `SECRET_KEY`; el puerto se toma de `PORT`.
+The same image runs on Railway, Fly.io or Google Cloud Run: set `DATABASE_URL` (`postgres://` and `postgresql://` are accepted) and `SECRET_KEY`; the port comes from `PORT`.
 
-### Usuarios de prueba (contraseña `demo123`)
+### Demo users (password `Supplier2026`)
 
-| Correo | Rol |
-|---|---|
-| tnf@demo.com | Proveedor The North Face |
-| vans@demo.com | Proveedor Vans |
-| interno@demo.com | Equipo de importaciones |
-| admin@demo.com | Administrador |
-
-## Recorrido de 5 minutos
-
-Los datos de prueba ya traen historia: facturas de meses anteriores, un contenedor recibido, otro en tránsito y una factura lista para embarcar, para que el tablero de inicio tenga contenido desde el primer día.
-
-1. Entra como **tnf@demo.com** (en la pantalla de inicio de sesión basta un clic en “The North Face”). El **Inicio** muestra lo que falta facturar, empacar y finalizar, dónde está la mercancía y los envíos en camino.
-2. En *Órdenes de compra*, en la OC 4400003845, pulsa **Facturar** (o ábrela y cambia “A facturar” para tomar solo una parte; se pueden juntar varias OCs). Revisa la selección y pulsa **Crear factura**.
-3. En la factura, los pasos de arriba dicen qué falta. Pulsa **Empacar pendientes**: crea el packing list con todo y lo abre.
-4. En *Por empacar*, pulsa **Empacar automático**. Los artículos con casepack se empacan con esa cantidad exacta por caja; los demás usan la plantilla sugerida (la que se usó antes con ese estilo). El sobrante que no llena una caja va a una caja parcial con peso estimado (o se queda sin caja, si lo prefieres).
-5. En *Revisión*, **Confirmar estimados** y **Finalizar packing list**. Vuelve a la factura, escribe número y fecha en la cabecera y pulsa **Finalizar**.
-6. Entra como **interno@demo.com**, abre *Embarques* → EMB-0003, elige el 40HC #1 y pulsa **Asignar carga**: marca la factura y asígnala; lo que ya está finalizado se confirma en el mismo paso. Luego **Registrar salida**. El proveedor ve el tránsito desde su factura y su inicio.
-
-7. En *Seguimiento* se ve cada OC (y, al abrirla, cada SKU por etapa: por liberar, por facturar, en PL, en unidad de carga, en tránsito, recibido) y cada embarque con sus unidades, con la holgura frente a la fecha requerida en tienda. Todo se descarga en PDF o Excel. En *Mantenimiento* están todos los datos maestros.
-
-## Datos maestros (Mantenimiento)
-
-Un solo lugar, con alta, edición, baja y filtros (listas desplegables con búsqueda), para: **sociedades**, sus **centros**, **contactos**, **almacenes**, **países**, **puertos**, **marcas**, **grupos de artículos**, **proveedores**, **artículos**, **prepacks**, **transportistas** y **tipos de unidad**. No se borra lo que está en uso.
-
-- **Proveedores:** código, nombre, razón social, identificación fiscal, país, dirección y contacto (salen como exportador en la factura y el packing list). Cada proveedor tiene **sus marcas** y **las sociedades con las que trabaja**, y sus propios **artículos**. Todo es consistente: un artículo solo puede ser de una marca de su proveedor; un proveedor no deja de manejar una marca de la que tiene artículos; al importar una OC, cada SKU debe ser del proveedor de la OC y el proveedor debe trabajar con la sociedad de la OC.
-- **Transportistas:** código (p. ej. SCAC o IATA), nombre, tipo (marítimo, aéreo, terrestre o multimodal), identificación fiscal, contacto y **sociedades con las que trabajan**. El embarque solo ofrece los del modo que trabajan con la sociedad del centro.
-- **Tipos de unidad:** el mantenimiento de los modos de transporte. Cada tipo dice su modo (marítimo, aéreo, terrestre), su **modalidad** (FCL, LCL, aérea, FTL, LTL), su capacidad en m³ y kg y si exige sello (p. ej. 20GP, 40GP, 40HC y LCL en marítimo; guía aérea; camión completo o consolidado). Se agregan los que se necesiten.
-- **Puertos:** cada uno es de un tipo (puerto marítimo, aeropuerto o aduana terrestre). Un **centro** tiene su puerto principal y **otros puertos de llegada**.
-
-- **Sociedades y centros:** cada sociedad (8000 El Salvador, PA01 Panamá, GT01, HN01, NI01, CR01) tiene sus centros asignados. La sociedad de la OC es a quien se **factura**; su centro es el **notify party** (bodega que recibe) y tiene país y **puerto de llegada**. El **centro de destino** de la OC (p. ej. 2220) es otro centro del catálogo y dice a qué país llega al final; ya no hay un catálogo aparte de países de destino. En la tabla de sociedades se ven sus centros y contactos, y en la de grupos sus artículos: un clic lleva al catálogo filtrado.
-- **Contactos:** personas de una sociedad (facturación) o de un centro (notify, logística) con uno o varios correos y teléfono. Salen en la factura, el packing list, el embarque y el Excel.
-- **Almacenes:** separación del inventario en el sistema (virtual, detalle, mayoreo); no son lugares físicos.
-- **Artículos:** número de artículo numérico (p. ej. `30095120001`), estilo, color, talla, marca, grupo y **unidad de medida** (PAR, UN o CJ), visible en el maestro, la OC, la factura, el packing list y la explosión. Aquí se crean los **sólidos**, con casepack (calzado) o sin casepack (ropa). Se cargan por archivo (`plantilla_articulos.csv`) o a mano.
-- **Prepacks:** un prepack es un **artículo** con su propio código de producto, igual que un sólido. Se crea en un solo paso en la pestaña Prepacks: código de producto, estilo, color, **prepack ID** (su talla; usualmente 2 letras y 2 números, p. ej. `AB12`) y su curva o **explosión**, armada solo con sólidos del mismo estilo y color (p. ej. AB12 de VN000EE3 BLK Negro: 7:1, 8:2, 9:3, 10:3, 11:2, 12:1 = 12 pares por caja). Su unidad es CJ (caja prepack). La explosión **se puede ver** desde el maestro, la OC, la factura, el packing list y el seguimiento (con el total por talla según las cajas), pero **nunca se modifica**; para otra distribución se crea un prepack nuevo. Tampoco cambian el estilo, color, talla o unidad de un sólido que forma parte de una explosión. Carga masiva con `plantilla_prepacks.csv` (sku_prepack, prepack_id, descripción, sku sólido, cantidad).
-
-## Órdenes de compra
-
-- Número de 10 dígitos que empieza con **44** (p. ej. 4400003856); posiciones de 10 en 10.
-- Cada posición trae el **SKU**, que debe existir en el maestro de artículos: de ahí salen estilo, color, talla, marca, grupo, tipo de empaque y casepack (si la OC trae casepack, manda el de la OC).
-- Cabecera: sociedad (facturar a) y centro (notify; debe ser de la sociedad), centro de destino (el país final), puerto de despacho proyectado, país de origen y de procedencia, **fecha XF original y actualizada**, fecha requerida en tienda, precio y total por posición.
-- **Almacén por posición:** una misma OC (misma sociedad y centro) puede mandar cada posición a un almacén distinto, por ejemplo BF19 detalle y BF20 mayoreo. El almacén debe ser de la misma sociedad. Se ve en la OC, la factura, el packing list y el seguimiento, y se puede filtrar por él.
-- **Liberaciones (dos equipos):** la **comercial** es `P` (pendiente) o `C` (liberada; si viene vacía se llena como C). La **logística** es **304** no liberada, **300** liberada o **301** liberada con cambios posteriores, y viene en `liberacion_logistica`. Sin liberación comercial no hay logística: con P siempre es 304, y un archivo que traiga P con 300/301 se rechaza. Una OC nueva sin código logístico queda en 304; una ya liberada (300) que cambia pasa a 301. Solo se factura con **C y 300/301**. En la lista de OCs se ven las dos liberaciones y se filtra por cada una.
-
-## Reglas de empaque
-
-- **Sólido con casepack (calzado):** cada caja lleva exactamente el casepack, mismo estilo, color y talla; no se mezclan tallas. Solo la última caja puede quedar incompleta, y queda como aviso para confirmarla con el Commercial Brand Manager.
-- **Prepack:** una curva por caja master, con la distribución de tallas fija; no se agregan ni quitan tallas.
-- **Casepack especificado / no especificado (ropa y accesorios):** si el artículo trae casepack se respeta; si no, se elige la cantidad (plantilla) y se puede consolidar en cajas mixtas.
-- **Etiqueta:** *estándar* si la caja lleva una sola OC, estilo, color y talla; *consolidada* si lleva varias. Sale en el packing list y en el Excel.
-- **Centro de destino:** nunca se mezclan destinos en una misma caja.
-- **Pallets:** si la mercancía viaja en tarimas, las cajas se paletizan en el packing list (medidas y tara del pallet). El volumen usa las medidas del pallet y el peso bruto suma la tara; sale en el Excel.
-
-## Embarques más estrictos
-
-- **Todo según el modo:** un embarque marítimo solo ofrece puertos marítimos, navieras y contenedores; uno aéreo, aeropuertos, aerolíneas y guías; uno terrestre, aduanas, transportistas terrestres y camiones. La **modalidad es de cada unidad** (sale del tipo de unidad), así que un embarque marítimo puede ser **FCL, LCL o MIXTO** (p. ej. un 40HC y un LCL con el mismo BL). El modo no cambia cuando ya tiene unidades.
-- Mientras el embarque está **planificado** se agregan unidades de carga, se asigna, confirma, mueve o quita carga. Al registrar la **salida** la carga queda **cerrada**: ya no hay tentativos, ni se agregan, quitan o mueven PL o contenedores, y el BL, transportista, origen y ETD quedan fijos (la ETA y el destino, al registrar el arribo).
-- Los eventos van en orden según el estado (recolección → salida → tránsito → arribo → liberación → entrega → recepción); no se aceptan fechas futuras ni anteriores al último evento.
-- No se asigna carga que supere la capacidad nominal de la unidad (según su tipo).
-- **Centro que recibe:** cada embarque llega a un solo centro (el de la OC). El destino **se sugiere** con el puerto principal del centro y se puede cambiar por cualquiera de sus otros puertos de llegada del mismo modo; los puertos se eligen del catálogo. Si el embarque aún no tiene centro, lo define la primera carga; no se mezclan centros.
-- **Recolección:** se marca por PL con su fecha y se compara con la fecha XF; la salida completa la fecha a los que no la tenían.
-- Cada contenedor muestra sus marcas, la primera fecha requerida en tienda y los días de margen o de atraso frente a la ETA.
-
-## Tablas
-
-El menú va en su propia fila, a todo lo ancho, para que nunca se encime con los controles. Las tablas usan todo el ancho de la pantalla. Todas tienen altura fija con encabezado fijo, orden por columna (clic en el encabezado: ascendente, descendente, sin orden) y paginación con filas por página. Los filtros de Órdenes, Seguimiento y Mantenimiento se arman con los valores que realmente existen, usan listas con búsqueda (sin importar acentos, por código o nombre) y se muestran como chips que se quitan con un clic.
-
-## Seguimiento
-
-Tres tableros sin información repetida; los dos de mercancía comparten los mismos filtros (marca, grupo, estilo, color, talla, SKU, almacén, etapa, unidad de carga, BL/AWB, embarque, proveedor, sociedad, centro, riesgo de llegar tarde y rangos de ETA, XF y fecha en tienda). Los indicadores son clicables y aplican su filtro. Cada tablero se descarga en **PDF o Excel** con los filtros de la pantalla.
-
-- **Órdenes de compra:** liberadas o no (comercial P/C y logística 304/300/301), estado de cada OC, barra de avance del pedido a lo recibido, XF vencida sin facturar y holgura frente a la fecha en tienda. Cada OC **se abre en su detalle por SKU**: etapa, factura y PL, embarque y unidad, llegada y margen frente a tienda (reemplaza el antiguo tablero “Mercancía por SKU”). El Excel trae una hoja con ese detalle.
-- **Embarques y unidades de carga:** un renglón por embarque y su documento de transporte (BL, AWB o carta de porte) con modo, modalidad (FCL, LCL o mixto), transportista, ruta, salida y llegada. Se abre en sus **unidades** (contenedores, guías o camiones, con tipo, modalidad y sello) y cada unidad en **todo lo que lleva por orden de compra**, con la explosión de cada prepack. Filtro por modo.
-- **Facturación y packing lists:** indicadores (facturas e importe, abiertas, empacando, listas para embarcar, con datos pendientes), documentos por paso, carga empacada (cajas, pallets, peso y volumen) y una fila por packing list.
-
-## Factura comercial y packing list (PDF y Excel)
-
-Desde cada factura y cada packing list se descarga el documento en **PDF** (listo para imprimir y firmar) o **Excel**, con la misma estructura y lo que piden las aduanas de Centroamérica (CAUCA/RECAUCA y la DUCA):
-
-- **Partes:** exportador/vendedor (razón social, identificación fiscal, dirección, contacto), importador/facturar a (sociedad con su NIT/RUC) y consignatario/notify party (centro, puerto de llegada y contacto).
-- **Condiciones:** número y fecha, OCs, incoterm, moneda, condiciones de pago, países de origen, procedencia y destino, centro de destino, medio de transporte, puertos de embarque y destino, transportista y BL/AWB/carta de porte, contenedores o guías con su sello.
-- **Detalle:** por línea, OC y posición, código y UPC, descripción comercial (marca, estilo, color, talla, prepack), **partida arancelaria SAC**, país de origen, cantidad, unidad, precio unitario y total. En el packing list, por grupo de cajas: rango y número de cajas, contenido por caja, medidas, pesos neto y bruto por caja y totales, m³, pallet y tipo de etiqueta; además los pallets y lo pendiente de empacar.
-- **Totales:** cantidad por unidad de medida, bultos, pesos neto y bruto, volumen, valor total, **total en letras** (“SON: … DÓLARES CON 00/100”) y **total de bultos en letras**; marcas de embarque (shipping marks) y la **declaración firmada** del exportador.
-- Mientras la factura o el PL no están finalizados, el PDF lleva la marca de agua **BORRADOR · NO OFICIAL**. Cada página lleva “Página X de Y”.
-
-Altas, ediciones, cambios de contraseña y bajas se hacen en ventanas emergentes (Mantenimiento, Plantillas y Usuarios).
-
-## Cómo quedaron las reglas principales
-
-**Todo se maneja por cantidades, con la misma fórmula en cada nivel:** disponible = cantidad del nivel de arriba − lo asignado en documentos activos.
-
-| Nivel | Se asigna | Lo libera |
+| Email | Role | Registered mobile |
 |---|---|---|
-| Posición OC → factura | cantidad parcial o total | quitar la línea, reducir la cantidad o cancelar la factura |
-| Línea de factura → packing list | cantidad parcial o total, en uno o varios PL | quitar del PL, reducir en la factura o cancelar el PL |
-| Fila del PL → cajas | cajas completas, parciales o mixtas | desempacar |
+| tnf@demo.com | Supplier The North Face | +84 28 3770 001 |
+| vans@demo.com | Supplier Vans | +86 755 2660 001 |
+| interno@demo.com | Imports team | +503 7000 0002 |
+| admin@demo.com | Administrator | +503 7000 0001 |
 
-- **Reducir en la factura** algo que ya está en PL: el sistema avisa qué PL tienen esa cantidad y ofrece liberar automáticamente lo que no está en cajas. Lo empacado nunca se toca solo.
-- **Quitar líneas** con cantidades en PL: muestra el impacto (PL y cajas) y pide confirmar antes de quitar en cascada.
-- **Empacar automático:** un solo paso para todo el PL (o las filas elegidas), cada fila con su propia plantilla. La sugerencia sale del historial: la última plantilla usada en esa fila o, si no hay, con la que el proveedor empacó el mismo estilo. El sobrante que no llena una caja va a una caja parcial o se deja sin caja para armar cajas mixtas.
-- **Mover a otro PL** toma una cantidad de lo que no está en cajas (ya no hace falta “dividir” antes). Para llevar lo empacado se usa **Mover cajas**, que se lleva el contenido y recalcula la numeración.
-- **Plantillas:** solo llenan datos. Cada caja guarda sus propios valores; editar la plantilla no cambia cajas existentes. No es obligatorio usarlas. Cualquier caja se puede guardar como plantilla nueva.
-- **Cajas parciales:** medidas de la plantilla, peso neto proporcional y bruto = neto + tara. Quedan marcadas como “peso estimado” y el PL no se finaliza hasta confirmarlas.
-- **Cambios masivos** en todo: líneas de factura (precio, cantidad, país de origen, partida, descripción), cajas (medidas, pesos, número de cajas, valores de plantilla, confirmar pesos), mover, quitar y asignar a transporte. Cada acción masiva es todo o nada: si una fila falla, no se aplica ninguna y se explica cuál.
-- **Estados:** Borrador → Finalizado directo; reabrir pasa a “En corrección” y pide motivo. Factura, PL y transporte avanzan por separado; “lista para transporte” se calcula (factura finalizada, todo en PL y todos los PL finalizados).
-- **Transporte:** el embarque existe desde el booking (el BL/AWB se agrega después). Sus contenedores y su carga se manejan dentro del mismo embarque. Al asignar, “confirmar los que estén listos” confirma lo que tiene factura y PL finalizados y deja **tentativo** lo demás (para planificar). No se registra la salida con tentativas pendientes. Después de la salida la carga queda cerrada (ver “Embarques más estrictos”).
+The demo does not send real SMS: the sign-in screen shows the verification code (see *Secure access*).
 
-### Campos obligatorios
+## Secure access
 
-Los campos marcados con <span style="color:#b42318">*</span> son obligatorios. El sistema no deja finalizar ni registrar la salida sin ellos (se valida en el servidor, no solo en pantalla):
+- **Two-step sign-in:** email and password, then a **6-digit code sent by SMS to the user's registered mobile**. The code expires in 5 minutes, allows 5 attempts, can be resent after 30 seconds (up to 5 sends) and is stored only as a keyed hash.
+- **Server-side sessions** in an `httpOnly`, `SameSite=Strict` cookie (`Secure` behind HTTPS). They expire after 12 hours or 30 minutes of inactivity, and are revoked on sign-out, password change, mobile change, deactivation or when two-step verification is turned off. The browser never sees a token.
+- **Lockout:** 5 wrong passwords lock the account for 15 minutes; the same message is returned for an unknown email or a wrong password. Requests are rate limited per network.
+- **Passwords:** at least 10 characters with letters and numbers, not containing the user name; users change their own from the top bar. An administrator resetting a password also unlocks the account.
+- **Restricted routes:** every API route requires a session and checks the role's permissions (suppliers only see their own documents and get 404 for anyone else's). The UI hides and blocks the pages a role cannot use. Changes with the cookie require the `X-Requested-With` header (CSRF protection).
+- **Security headers:** CSP, `X-Frame-Options: DENY`, `nosniff`, strict referrer policy and HSTS behind HTTPS.
+- **Users** (*Users and suppliers*, administrator): each user has a registered mobile in international format (`+50370001234`) and two-step verification on or off.
 
-- **Factura comercial:** número, fecha, incoterm y, por línea, cantidad, precio unitario, país de origen, partida arancelaria y descripción comercial de la mercancía.
-- **Packing list:** para cada grupo de cajas, medidas (largo, ancho, alto) y peso neto y bruto.
-- **Transporte (para registrar la salida):** número de BL, AWB o carta de porte, transportista, origen y destino, número de cada unidad de carga (contenedor, guía o camión) y el sello en las unidades cuyo tipo lo exige (p. ej. contenedores FCL).
+To send real SMS set `SMS_PROVEEDOR=twilio` with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM`. With the default `consola` provider the message goes to the server log, and only in demo mode (`SEED_DEMO=1`) is the code also shown on screen.
 
-Se basan en los requisitos usuales de la factura comercial y del documento de transporte en la región (RECAUCA y DUCA). Confírmalos con tu agente aduanal antes de usar el sistema con datos reales.
+## 5-minute tour
 
-### Tema claro y oscuro
+The demo data already has history: invoices from past months, a received container, another in transit and an invoice ready to ship.
 
-La barra superior tiene tres botones: claro, oscuro e igual que el sistema (por defecto). La elección se recuerda en el navegador.
+1. Sign in as **tnf@demo.com** (one click on “The North Face”, then enter the code shown). **Home** shows what is left to invoice, pack and finalize, where the goods are and the shipments on the way.
+2. In *Purchase orders*, on PO 4400003845 click **Invoice** (or open it and change “To invoice” to take only part; several POs can be combined). Review and click **Create invoice**.
+3. In the invoice, the steps at the top say what is missing. Click **Pack pending**: it creates the packing list with everything and opens it.
+4. In *To pack*, click **Auto-pack**. Lines with a casepack are packed with that exact quantity per carton, lines with an inner pack in whole inner packs, and the rest with the suggested template. The remainder that does not fill a carton goes to a partial carton with estimated weight (or stays unpacked).
+5. In *Review*, check the contents **by destination** and the **suggested load units**, **Confirm estimates** and **Finalize packing list**. Back in the invoice, enter number and date and click **Finalize**.
+6. Sign in as **interno@demo.com**, open *Shipments* → EMB-0003, choose 40HC #1 and click **Assign cargo**: the panel suggests the load units for the selected volume and weight. Assign it; what is already finalized is confirmed in the same step. Then **Record departure**.
+7. *Tracking* shows each PO (and, when opened, each SKU by stage), and each shipment with its units, with the margin against the in-store date. Everything downloads as PDF or Excel. *Master data* holds all catalogs.
 
-### Qué se simplificó
+## Item data vs. PO line data
 
-| Antes | Ahora |
+| Item (master data, *Master data → Items*) | PO line (purchase data, comes in the PO file) |
 |---|---|
-| Inicio con tarjetas de conteo | Tablero por rol: indicadores, próximos pasos, flujo de mercancía, facturado por mes, envíos, contenedores y resumen por proveedor |
-| Factura con 6 pestañas (Resumen y Transporte repetían datos) | Datos editables en la cabecera, pasos de avance y 4 pestañas; el transporte se ve en la de packing lists |
-| “Finalizar” y “Finalizar con sus packing lists” | Un botón con la lista de lo que falta y la opción de incluir los PL |
-| Crear PL, agregar pendientes y crear PL con la selección | **Empacar**: crea el PL o suma lo pendiente al PL abierto |
-| Aplicar plantilla (una a la vez), caja con lo que falta y dividir | **Empacar automático**, cada fila con la suya; mover acepta cantidades parciales |
-| Cambiar medidas y usar valores de plantilla por separado | Una sola ventana de medidas y pesos, con opción de copiar de una plantilla |
-| Embarque → página de la unidad de carga | Contenedores como pestañas dentro del embarque, asignación en un panel lateral |
-| Asignar como tentativo / asignar y confirmar | Un botón que confirma lo que está listo y deja tentativo lo demás |
-- **Separación por proveedor:** el proveedor solo ve lo suyo; si pide un documento ajeno recibe 404, no 403.
+| SKU, style, color, size / prepack ID, description | PO number and line, company, plant, storage location |
+| Brand, group (category → packing rule), supplier | Destination center (country), port of loading, countries of origin and shipment |
+| Type (solid or prepack), unit of measure (PAR, UN, CJ) | Quantity, unit price, currency, incoterm |
+| UPC, HS code, country of origin | XF dates, in-store date, commercial and logistics release |
+| Prepack breakdown (sizes per master carton) | **Casepack** and **inner pack** (the purchase packing) |
 
-### Concurrencia
+The item has no casepack: it is set on each PO line, because the same item can be bought in different packs. In *Purchase orders* the line table groups the columns as “Item · master data” and “PO line · purchase data”, and the internal team can edit a line's casepack and inner pack while it is not invoiced.
 
-- **Bloqueo de filas** (`SELECT … FOR UPDATE`) al tomar saldo de una posición o de una factura: dos personas no pueden facturar o asignar el mismo saldo. Hay una prueba que lo verifica en PostgreSQL.
-- **Versión por documento:** si alguien más cambió la factura o el PL mientras lo tenías abierto, tu cambio no se aplica y se te pide recargar.
-- **Idempotencia:** cada operación lleva una clave; si la red la repite, el servidor devuelve el mismo resultado sin duplicar.
-- **Historial** de cada cambio con usuario, antes/después y motivo.
+## Packing rules
 
-## Reglas configurables
+Every packing option the supplier needs is available and enforced on the server:
 
-Se cambian con variables de entorno, sin tocar el modelo de datos (ver `backend/app/config.py`):
+- **Solid with casepack:** each carton carries exactly the casepack, same style, color and size; sizes are never mixed. Only the last carton may be partial, and it is flagged to confirm with the Commercial Brand Manager.
+- **Prepack:** one assortment per master carton, fixed size distribution; the prepack is already a defined carton, so it takes neither casepack nor inner pack.
+- **Solid without casepack (apparel, accessories):** the quantity per carton comes from a template or is entered freely, and cartons can be mixed.
+- **Inner packs:** when the PO line has an inner pack, all its inner packs hold the same quantity of units or pairs, and every quantity (PO line, invoice line, packing list move, carton contents, templates used by auto-pack) must be a whole number of inner packs. With a casepack, the casepack must be a multiple of the inner pack (e.g. casepack 20 = 4 inner packs of 5); without a casepack, cartons are packed in multiples of the inner pack. Each inner pack carries a label identifying the product and the total quantity inside, and each unit or pair inside keeps its individual label; the packing list shows the inner packs per carton.
+- **By destination country:** a carton never mixes goods for different destination centers. The packing list shows what goes to each destination (quantities and cartons) so the supplier packs and labels each one separately; the document shows the final destination, or “per carton” when there are several.
+- **Label:** *standard* if the carton holds a single PO, style, color and size; *consolidated* otherwise.
+- **Pallets:** cartons can be palletized (pallet dimensions and tare); volume uses the pallet dimensions and gross weight adds the tare.
 
-| Variable | Por defecto | Qué hace |
+### Load unit suggestions
+
+From the packing list volume (m³) and gross weight the system suggests load units using the *Unit types* catalog:
+
+- **Ocean:** full containers at about 85 % usable volume (cartons never fill 100 %), LCL when the volume does not justify a container, or full containers plus a smaller one or LCL for the remainder.
+- **Air:** one air waybill by chargeable weight (the greater of actual weight and 167 kg per m³).
+- **Road:** full trucks (FTL) or partial load (LTL).
+
+The recommended option (fewest full units, then least spare capacity) is shown in the packing list and when assigning cargo to a shipment.
+
+## Master data
+
+One place with create, edit, delete and searchable filters for: **companies**, their **plants**, **contacts**, **storage locations**, **countries**, **ports**, **brands**, **item groups**, **suppliers**, **items**, **prepacks**, **carriers** and **unit types**. Records in use cannot be deleted.
+
+- **Suppliers:** code, name, legal name, tax ID, country, address and contact (they appear as exporter on the invoice and packing list). Each supplier has **its brands**, **the companies it works with** and its own **items**; an item's brand must be one of its supplier's.
+- **Carriers:** code (SCAC or IATA), name, type (ocean, air, road or multimodal) and the companies they work with.
+- **Unit types:** mode, **service** (FCL, LCL, air, FTL, LTL), capacity in m³ and kg and whether a seal is required.
+- **Ports:** sea port, airport or land border. A **plant** has a main arrival port and other arrival ports.
+- **Companies and plants:** the PO company is **billed**; its plant is the **notify party** with its country and arrival port. The PO **destination center** (e.g. 2220) says which country the goods finally reach.
+- **Items:** numeric SKU (e.g. `30095120001`), style, color, size, brand, group and **unit of measure**. Solids are created here, manually or with `plantilla_articulos.csv`.
+- **Prepacks:** an item with its own product code, a **prepack ID** (its size, e.g. `AB12`) and a fixed **breakdown** built only from solids of the same style and color. The breakdown can be viewed everywhere but never changed. Bulk load with `plantilla_prepacks.csv`.
+
+## Purchase orders
+
+- 10-digit number starting with **44**; lines in steps of 10.
+- Each line's **SKU** must exist in the item master, belong to the PO supplier, and the supplier must work with the PO company.
+- **Storage location per line:** the same PO can send each line to a different storage location of the same company.
+- **Releases (two teams):** **commercial** is `P` (pending) or `C` (released; empty means C). **Logistics** is **304** not released, **300** released or **301** released with later changes. Only **C and 300/301** can be invoiced.
+
+### Importing POs
+
+In *Import POs* (internal team) upload the SAP Excel or CSV. A preview shows what is new, changed, unchanged, conflicts and errors; nothing is saved until confirmed. Conflicts (e.g. a quantity below what is invoiced, or a casepack/inner pack change on an invoiced line) are not applied and appear as alerts.
+
+Required columns: `supplier, po, po_line, sku, quantity, unit_price, currency, company, plant, destination`. Optional: `storage_location, incoterm, po_date, port_of_loading, country_of_origin, country_of_shipment, xf_date_original, xf_date, in_store_date, commercial_release, logistics_release, uom, casepack, inner_pack`. The previous Spanish column names and common aliases (`vendor`, `material`, `qty`…) are still accepted. See `plantilla_oc.csv`.
+
+Codes are kept as text to preserve leading zeros; format those columns as text in Excel before exporting.
+
+## Shipments
+
+- **Everything follows the mode:** an ocean shipment only offers sea ports, shipping lines and containers; air, airports, airlines and air waybills; road, borders, road carriers and trucks. The **service belongs to each unit**, so an ocean shipment can be FCL, LCL or mixed.
+- While **planned**, units and cargo can be added, confirmed, moved or removed. At **departure** the load is closed.
+- Events follow the status order (pickup → departure → transit → arrival → release → delivery → receipt); no future dates or dates before the last event.
+- Cargo cannot exceed a unit's nominal capacity. Each shipment arrives at a single plant.
+
+## Tracking
+
+Three boards with shared filters (brand, group, style, color, size, SKU, storage location, stage, load unit, BL/AWB, shipment, supplier, company, plant, late-arrival risk and ETA, XF and in-store date ranges), each downloadable as **PDF or Excel**:
+
+- **Purchase orders:** releases, status, progress, XF overdue and margin against the in-store date; each PO opens into its **detail by SKU**.
+- **Shipments and load units:** one row per shipment and transport document, opening into units and what each unit carries per PO.
+- **Invoicing and packing lists:** which step each document is at and what is missing.
+
+## Commercial invoice and packing list (PDF and Excel)
+
+Each invoice and packing list downloads as **PDF** (ready to print and sign) or **Excel**, following Central American customs requirements (CAUCA/RECAUCA and DUCA):
+
+- **Parties:** exporter/seller, importer/bill to (company with tax ID) and consignee/notify party.
+- **Terms:** number and date, incoterm, currency, payment terms, countries of origin and shipment, transport, ports, carrier and BL/AWB, containers and seals. Headers do not list purchase orders or destination centers (they would grow too long); **each line shows its PO and line**.
+- **Detail:** PO and line, code and UPC, commercial description, **HS code (SAC)**, origin, quantity, unit, price and total. In the packing list, per carton group: range and number of cartons, contents per carton, **inner packs**, dimensions, net and gross weights, m³, pallet and label type.
+- **Totals:** quantity per unit, packages, weights, volume, value, **amount in words** (“SAY: FOUR THOUSAND … US DOLLARS AND 00/100”), shipping marks and the signed exporter declaration.
+- Until finalized, the PDF carries a **DRAFT · NOT OFFICIAL** watermark; every page shows “Page X of Y”.
+
+## Main rules
+
+**Everything is managed by quantities, with the same formula at each level:** available = quantity of the level above − what is assigned in active documents.
+
+| Level | Assigned | Released by |
 |---|---|---|
-| `POSICION_EN_VARIAS_FACTURAS` | `0` | Con `0`, una posición vive en **una sola factura activa**: si facturas 60 de 100, los 40 restantes solo se agregan a esa misma factura (o a otra, si primero la quitas de la primera). Con `1`, el saldo puede ir a otra factura mientras la primera sigue activa. |
-| `FACTURA_EN_UNA_SOLA_UNIDAD` | `0` | Con `1`, todos los PL de una factura deben ir en la misma unidad de carga. |
-| `PROVEEDOR_PUEDE_FINALIZAR` | `1` | Si el proveedor puede finalizar sus facturas y PL. Reabrir siempre es del equipo interno. |
-| `REQUERIR_DATOS_ADUANA` | `1` | Exige país de origen y partida arancelaria por línea para finalizar. |
-| `DIAS_ALERTA_BORRADOR` | `7` | A partir de cuántos días un borrador aparece como alerta (sigue reservando saldo). |
+| PO line → invoice | partial or full quantity | removing the line, reducing the quantity or cancelling the invoice |
+| Invoice line → packing list | partial or full, in one or several PLs | removing from the PL, reducing on the invoice or cancelling the PL |
+| PL row → cartons | full, partial or mixed cartons | unpacking |
 
-También en `config.py`: qué datos de la OC bloquean mezclar en una factura (sociedad, moneda, centro PA10/PA20), cuáles solo advierten (incoterm, país destino) y la capacidad nominal por tipo de contenedor.
+- **Reducing on the invoice** something already in a PL: the system shows which PLs hold it and releases what is not in cartons. Packed goods are never touched automatically.
+- **Auto-pack:** one step for the whole PL, each row with its own template, following the casepack and inner pack rules.
+- **Templates** only fill in data; each carton keeps its own values.
+- **Partial cartons:** template dimensions, proportional net weight and gross = net + tare, flagged as estimated until confirmed.
+- **Bulk changes** are all or nothing: if one row fails, none is applied and the failing row is explained.
+- **Statuses:** Draft → Finalized; reopening moves to “Under correction” and asks for a reason.
+- **Concurrency:** row locking when taking balance, a version per document (a stale edit is rejected), idempotency keys, and a history of every change with user, before/after and reason.
 
-Otras variables: `DATABASE_URL`, `SECRET_KEY` (cámbiala en producción), `SEED_DEMO`, `UPLOAD_DIR`, `CORS_ORIGINS`.
+## Configurable rules
 
-## Importar OCs
+Environment variables (see `backend/app/config.py`):
 
-En *Importar OCs* (equipo interno) se sube el Excel o CSV de SAP. Hay un formato de ejemplo descargable. Primero se ve qué es nuevo, qué cambia, qué no cambia, los conflictos y los errores; nada se guarda hasta confirmar. Los conflictos (por ejemplo, bajar la cantidad por debajo de lo facturado) no se aplican y quedan como alerta en el *Inicio* del equipo interno.
+| Variable | Default | What it does |
+|---|---|---|
+| `POSICION_EN_VARIAS_FACTURAS` | `0` | With `0`, a PO line lives in **one active invoice**; with `1` the balance can go to another invoice. |
+| `FACTURA_EN_UNA_SOLA_UNIDAD` | `0` | With `1`, all PLs of an invoice must go on the same load unit. |
+| `PROVEEDOR_PUEDE_FINALIZAR` | `1` | Whether suppliers can finalize their invoices and PLs. Reopening is always internal. |
+| `REQUERIR_DATOS_ADUANA` | `1` | Requires country of origin and HS code per line to finalize. |
+| `DIAS_ALERTA_BORRADOR` | `7` | Days after which a draft shows as an alert. |
+| `DOS_PASOS` | `1` | Two-step verification by SMS for users that have it on. |
+| `SESION_HORAS` / `SESION_INACTIVIDAD_MIN` | `12` / `30` | Session lifetime and inactivity timeout. |
+| `INTENTOS_MAX` / `BLOQUEO_MIN` | `5` / `15` | Failed attempts before lockout and lockout minutes. |
+| `CODIGO_VALIDEZ_MIN` / `CODIGO_REENVIO_SEG` | `5` / `30` | Code validity and wait before resending. |
+| `SMS_PROVEEDOR` | `consola` | `consola` (server log) or `twilio` (with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`). |
+| `COOKIE_SEGURA` | `0` | Set to `1` behind HTTPS (Secure cookie and HSTS). |
 
-Columnas obligatorias: `proveedor, oc, posicion, sku, cantidad, precio, moneda, sociedad, centro, centro_destino` (también se acepta `pais_destino`). Opcionales: `almacen, incoterm, fecha_oc, puerto, pais_origen, pais_procedencia, fecha_xf_original, fecha_xf, fecha_tienda, liberacion_comercial, liberacion_logistica, unidad, casepack`. Se aceptan algunos alias (`po`, `material`, `qty`, `uom`…). Ver `plantilla_oc.csv`.
+Other variables: `DATABASE_URL`, `SECRET_KEY` (change it in production), `SEED_DEMO`, `UPLOAD_DIR`, `CORS_ORIGINS`.
 
-Cada fila se valida contra los maestros: OC con formato 44XXXXXXXX, posición múltiplo de 10, centro y almacén de la misma sociedad (el almacén puede cambiar entre posiciones de la misma OC), país de destino y puerto registrados y SKU existente. Carga primero los artículos y las curvas en *Mantenimiento*.
+**Database reset:** in demo mode (`SEED_DEMO=1`) the database is wiped and re-seeded when the schema version changes (`ESQUEMA_VERSION` in `config.py`). In production (`SEED_DEMO=0`) nothing is ever deleted.
 
-**Reinicio de la base de datos:** en modo demo (`SEED_DEMO=1`) la base se borra y se vuelve a sembrar automáticamente cuando cambia la versión del esquema (`ESQUEMA_VERSION` en `config.py`). En producción (`SEED_DEMO=0`) nunca se borra nada.
-
-Los códigos se guardan como texto para conservar ceros iniciales. Si Excel ya los convirtió a número al exportar, se pierden: formatea esas columnas como texto antes.
-
-## Pruebas
+## Tests
 
 ```bash
 cd backend
 pytest                                   # SQLite
-TEST_DATABASE_URL=postgresql+psycopg://usuario:clave@localhost/pruebas pytest   # PostgreSQL (incluye la de concurrencia)
+TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost/tests pytest   # PostgreSQL (includes concurrency)
 ```
 
-## Estructura
+## Structure
 
 ```
 backend/app/
-  config.py          reglas configurables
-  models.py          modelo de datos
-  services/          toda la lógica de negocio (cantidades, facturas, packing, transporte, importación, tablero)
-  routers/           endpoints REST bajo /api
-backend/tests/       flujo completo y concurrencia
+  config.py          configurable rules and security settings
+  models.py          data model
+  services/          business logic (quantities, invoices, packing, transport, import, access, SMS, suggestions)
+  routers/           REST endpoints under /api
+backend/tests/       full flow, packing rules, secure access and concurrency
 frontend/src/
-  views/             Inicio (tablero), Órdenes, Facturas, Factura, Packing list, Plantillas, Embarques, Embarque, Seguimiento, Mantenimiento, Importar, Admin
-  composables/       orden y paginación de tablas
-  components/        íconos, indicadores, pasos, gráficas SVG, tabla editable, barra de acciones masivas, modales, estados
-  stores/            sesión, selección para facturar, avisos
+  views/             Home, Orders, Invoices, Invoice, Packing list, Templates, Shipments, Shipment, Tracking, Master data, Import, Users, Login
+  components/        icons, steps, SVG charts, bulk action bar, modals, statuses, destinations and load units
+  stores/            session, invoicing selection, notices
 ```
 
-## Para producción, antes de salir
+## Before going to production
 
-- Usar **Alembic** para migraciones en lugar de `create_all` y poner `SEED_DEMO=0`.
-- Cambiar `SECRET_KEY`; idealmente integrar el login con el directorio de la empresa (Entra ID / SSO) para internos.
-- Servir archivos adjuntos desde almacenamiento de objetos en lugar de disco local.
-
-## Siguientes pasos sugeridos
-
-1. **Importar el packing list desde Excel** del proveedor (cajas, rangos, pesos), con la misma vista previa que la importación de OCs.
-2. **Curvas de talla:** plantillas surtidas (por ejemplo, 1-2-3-3-2-1 por caja) para empacar un estilo-color completo de una vez.
-3. **PDF** de factura y packing list con el formato oficial.
-4. **Integración con SAP:** OCs por interfaz en lugar de archivo y envío de la factura/PL finalizados.
-5. Notificaciones por correo (factura finalizada, PL reabierto, cambios de ETA).
+- Use **Alembic** migrations instead of `create_all` and set `SEED_DEMO=0`.
+- Change `SECRET_KEY`, set `COOKIE_SEGURA=1` and configure a real SMS provider.
+- Serve attachments from object storage instead of local disk.

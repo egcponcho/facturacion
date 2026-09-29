@@ -229,7 +229,7 @@ def exportar_factura(d: dict) -> bytes:
     ws.title = _hoja_titulo(f"Invoice {d['numero']}")
     h = _Hoja(ws, [13, 7, 14, 15, 16, 10, 7, 30, 9, 11, 10, 7, 12, 14])
     tr = d["transporte"] or {}
-    h.cabecera(d, "COMMERCIAL INVOICE", "Factura comercial", [
+    h.cabecera(d, "COMMERCIAL INVOICE", "Customs invoice · original", [
         ("No.", d["numero"]), ("Date", _fecha(d["fecha"])),
         ("Status", "Official" if d["oficial"] else "Draft")])
     h.partes(d)
@@ -278,7 +278,7 @@ def exportar_pl(d: dict) -> bytes:
     h = _Hoja(ws, [8, 6, 12, 6, 14, 15, 14, 10, 6, 8, 10, 8, 6, 8, 8, 8, 9, 9, 10, 10, 8, 7, 11, 18])
     tr = d["transporte"] or {}
     tp = d["totales_pl"]
-    h.cabecera(d, "PACKING LIST", "Lista de empaque", [
+    h.cabecera(d, "PACKING LIST", "Detailed carton list", [
         ("No.", f"{d['numero']} · {d['numero_pl']}"), ("Date", _fecha(d["fecha"])), ("Invoice", d["numero"]),
         ("Status", "Official" if d["oficial"] else "Draft")])
     h.partes(d)

@@ -30,7 +30,7 @@ def resolver_alerta(db: Session, user: Usuario, alerta_id: int) -> dict:
     exigir(user, "alertas.ver")
     a = db.get(Alerta, alerta_id)
     if not a:
-        raise ErrorNegocio("La alerta no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The alert does not exist.", 404, "no_encontrado")
     a.resuelta = True
     return {"ok": True}
 
@@ -54,18 +54,18 @@ def listar_plantillas(db: Session, user: Usuario, proveedor_id: int | None, incl
 
 def _validar_pesos(neto, bruto):
     if neto is not None and bruto is not None and bruto < neto:
-        raise ErrorNegocio("El peso bruto no puede ser menor que el neto.", 422, "validacion")
+        raise ErrorNegocio("Gross weight cannot be less than net weight.", 422, "validacion")
 
 
 def crear_plantilla(db: Session, user: Usuario, datos) -> dict:
     exigir(user, "plantilla.editar")
     prov = proveedor_filtro(user, datos.proveedor_id)
     if not prov:
-        raise ErrorNegocio("Elige el proveedor de la plantilla.", 422, "validacion")
+        raise ErrorNegocio("Choose the template's supplier.", 422, "validacion")
     _validar_pesos(datos.peso_neto, datos.peso_bruto)
     nombre = datos.nombre.strip()
     if db.scalar(select(PlantillaCaja.id).where(PlantillaCaja.proveedor_id == prov, PlantillaCaja.nombre == nombre)):
-        raise ErrorNegocio(f"Ya existe una plantilla llamada “{nombre}”.", 409, "duplicado")
+        raise ErrorNegocio(f"A template named “{nombre}” already exists.", 409, "duplicado")
     t = PlantillaCaja(**{**datos.model_dump(exclude={"proveedor_id"}), "nombre": nombre, "proveedor_id": prov})
     db.add(t)
     db.flush()
@@ -77,17 +77,17 @@ def actualizar_plantilla(db: Session, user: Usuario, plantilla_id: int, datos) -
     exigir(user, "plantilla.editar")
     t = db.get(PlantillaCaja, plantilla_id)
     if not t or (user.rol == "proveedor" and t.proveedor_id != user.proveedor_id):
-        raise ErrorNegocio("La plantilla no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The template does not exist.", 404, "no_encontrado")
     campos = datos.model_dump(exclude_unset=True)
     if "nombre" in campos:
         campos["nombre"] = (campos["nombre"] or "").strip()
         if not campos["nombre"]:
-            raise ErrorNegocio("El nombre es obligatorio.", 422, "validacion")
+            raise ErrorNegocio("The name is required.", 422, "validacion")
         otra = db.scalar(select(PlantillaCaja.id).where(
             PlantillaCaja.proveedor_id == t.proveedor_id, PlantillaCaja.nombre == campos["nombre"],
             PlantillaCaja.id != t.id))
         if otra:
-            raise ErrorNegocio(f"Ya existe una plantilla llamada “{campos['nombre']}”.", 409, "duplicado")
+            raise ErrorNegocio(f"A template named “{campos['nombre']}” already exists.", 409, "duplicado")
     for k, v in campos.items():
         setattr(t, k, v)
     _validar_pesos(t.peso_neto, t.peso_bruto)
@@ -107,7 +107,7 @@ def crear_proveedor(db: Session, user: Usuario, datos) -> dict:
     exigir(user, "admin")
     codigo = datos.codigo.strip().upper()
     if db.scalar(select(Proveedor.id).where(Proveedor.codigo == codigo)):
-        raise ErrorNegocio(f"Ya existe el proveedor {codigo}.", 409, "duplicado")
+        raise ErrorNegocio(f"Supplier {codigo} already exists.", 409, "duplicado")
     p = Proveedor(codigo=codigo, nombre=datos.nombre.strip(), activo=datos.activo)
     db.add(p)
     db.flush()
@@ -118,7 +118,7 @@ def actualizar_proveedor(db: Session, user: Usuario, proveedor_id: int, datos) -
     exigir(user, "admin")
     p = db.get(Proveedor, proveedor_id)
     if not p:
-        raise ErrorNegocio("El proveedor no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The supplier does not exist.", 404, "no_encontrado")
     for k, v in datos.model_dump(exclude_unset=True).items():
         setattr(p, k, v)
     return {"ok": True}
@@ -142,9 +142,9 @@ def crear_usuario(db: Session, user: Usuario, datos) -> dict:
     exigir(user, "admin")
     email = datos.email.strip().lower()
     if db.scalar(select(Usuario.id).where(Usuario.email == email)):
-        raise ErrorNegocio("Ya existe un usuario con ese correo.", 409, "duplicado")
+        raise ErrorNegocio("A user with that email already exists.", 409, "duplicado")
     if datos.rol == "proveedor" and not datos.proveedor_id:
-        raise ErrorNegocio("Un usuario proveedor debe tener proveedor asignado.", 422, "validacion")
+        raise ErrorNegocio("A supplier user must have a supplier assigned.", 422, "validacion")
     exigir_politica(datos.password, email)
     u = Usuario(email=email, nombre=datos.nombre.strip(), rol=datos.rol,
                 proveedor_id=datos.proveedor_id if datos.rol == "proveedor" else None,
@@ -159,7 +159,7 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
     exigir(user, "admin")
     u = db.get(Usuario, usuario_id)
     if not u:
-        raise ErrorNegocio("El usuario no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The user does not exist.", 404, "no_encontrado")
     campos = datos.model_dump(exclude_unset=True)
     revocar = False
     if "password" in campos:
@@ -180,7 +180,7 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
     for k, v in campos.items():
         setattr(u, k, v)
     if u.rol == "proveedor" and not u.proveedor_id:
-        raise ErrorNegocio("Un usuario proveedor debe tener proveedor asignado.", 422, "validacion")
+        raise ErrorNegocio("A supplier user must have a supplier assigned.", 422, "validacion")
     if u.rol != "proveedor":
         u.proveedor_id = None
     return {"ok": True}

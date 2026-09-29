@@ -39,60 +39,60 @@ from .security import hash_password
 from .services.common import registrar
 
 PAISES = [
-    ("VN", "Vietnam"), ("CN", "China"), ("ID", "Indonesia"), ("KH", "Camboya"), ("BD", "Bangladés"),
-    ("IN", "India"), ("SV", "El Salvador"), ("PA", "Panamá"), ("GT", "Guatemala"), ("HN", "Honduras"),
-    ("CR", "Costa Rica"), ("NI", "Nicaragua"), ("US", "Estados Unidos"), ("MX", "México"), ("BR", "Brasil"),
+    ("VN", "Vietnam"), ("CN", "China"), ("ID", "Indonesia"), ("KH", "Cambodia"), ("BD", "Bangladesh"),
+    ("IN", "India"), ("SV", "El Salvador"), ("PA", "Panama"), ("GT", "Guatemala"), ("HN", "Honduras"),
+    ("CR", "Costa Rica"), ("NI", "Nicaragua"), ("US", "United States"), ("MX", "Mexico"), ("BR", "Brazil"),
 ]
 # Sociedades de cada país: código, nombre, razón social, NIT/RUC, país, dirección, correos de facturación
 SOCIEDADES = [
-    ("8000", "Operaciones El Salvador", "Distribuidora de Marcas, S.A. de C.V.", "0614-010190-101-2", "SV",
+    ("8000", "El Salvador Operations", "Distribuidora de Marcas, S.A. de C.V.", "0614-010190-101-2", "SV",
      "Blvd. del Ejército km 7, Soyapango, San Salvador", "facturacion.sv@marcas.demo"),
-    ("PA01", "Operaciones Panamá", "Distribuidora de Marcas Panamá, S.A.", "155612345-2-2019", "PA",
+    ("PA01", "Panama Operations", "Distribuidora de Marcas Panamá, S.A.", "155612345-2-2019", "PA",
      "Zona Libre de Colón, Calle 16, Colón", "facturacion.pa@marcas.demo, cxp.pa@marcas.demo"),
-    ("GT01", "Operaciones Guatemala", "Distribuidora de Marcas Guatemala, S.A.", "7865412-3", "GT",
+    ("GT01", "Guatemala Operations", "Distribuidora de Marcas Guatemala, S.A.", "7865412-3", "GT",
      "Zona 12, Ciudad de Guatemala", "facturacion.gt@marcas.demo"),
-    ("HN01", "Operaciones Honduras", "Distribuidora de Marcas Honduras, S.A.", "08019012345678", "HN",
+    ("HN01", "Honduras Operations", "Distribuidora de Marcas Honduras, S.A.", "08019012345678", "HN",
      "Col. Satélite, San Pedro Sula", "facturacion.hn@marcas.demo"),
-    ("NI01", "Operaciones Nicaragua", "Distribuidora de Marcas Nicaragua, S.A.", "J0310000012345", "NI",
+    ("NI01", "Nicaragua Operations", "Distribuidora de Marcas Nicaragua, S.A.", "J0310000012345", "NI",
      "Carretera Norte km 6, Managua", "facturacion.ni@marcas.demo"),
-    ("CR01", "Operaciones Costa Rica", "Distribuidora de Marcas Costa Rica, S.A.", "3-101-123456", "CR",
+    ("CR01", "Costa Rica Operations", "Distribuidora de Marcas Costa Rica, S.A.", "3-101-123456", "CR",
      "La Uruca, San José", "facturacion.cr@marcas.demo"),
 ]
 # Centros asignados a cada sociedad: código, sociedad, nombre, tipo, país, puerto de llegada, correos (notify)
 CENTROS = [
-    ("8010", "8000", "Bodega fiscal San Salvador", "BODEGA_FISCAL", "SV", "SVAQJ", "recepcion.8010@marcas.demo"),
-    ("8020", "8000", "Bodega fiscal San Bartolo", "ZONA_FRANCA", "SV", "SVAQJ", "recepcion.8020@marcas.demo"),
-    ("2220", "8000", "Centro de distribución El Salvador", "TIENDA", "SV", "SVAQJ", "cd.sv@marcas.demo"),
-    ("PA10", "PA01", "Bodega fiscal Zona Libre de Colón", "ZONA_FRANCA", "PA", "PAONX", "recepcion.pa10@marcas.demo"),
-    ("PA20", "PA01", "Bodega fiscal Panamá Pacífico", "BODEGA_FISCAL", "PA", "PABLB", "recepcion.pa20@marcas.demo"),
-    ("5910", "PA01", "Centro de distribución Panamá", "TIENDA", "PA", "PAONX", "cd.pa@marcas.demo"),
-    ("3200", "GT01", "Centro de distribución Guatemala", "TIENDA", "GT", "GTSTC", "cd.gt@marcas.demo"),
-    ("3400", "HN01", "Centro de distribución Honduras", "TIENDA", "HN", "HNPCR", "cd.hn@marcas.demo"),
-    ("5580", "NI01", "Centro de distribución Nicaragua", "TIENDA", "NI", "NICIO", "cd.ni@marcas.demo"),
-    ("1880", "CR01", "Centro de distribución Costa Rica", "TIENDA", "CR", "CRLIO", "cd.cr@marcas.demo"),
+    ("8010", "8000", "San Salvador bonded warehouse", "BODEGA_FISCAL", "SV", "SVAQJ", "recepcion.8010@marcas.demo"),
+    ("8020", "8000", "San Bartolo bonded warehouse", "ZONA_FRANCA", "SV", "SVAQJ", "recepcion.8020@marcas.demo"),
+    ("2220", "8000", "El Salvador distribution center", "TIENDA", "SV", "SVAQJ", "cd.sv@marcas.demo"),
+    ("PA10", "PA01", "Colon Free Zone bonded warehouse", "ZONA_FRANCA", "PA", "PAONX", "recepcion.pa10@marcas.demo"),
+    ("PA20", "PA01", "Panama Pacifico bonded warehouse", "BODEGA_FISCAL", "PA", "PABLB", "recepcion.pa20@marcas.demo"),
+    ("5910", "PA01", "Panama distribution center", "TIENDA", "PA", "PAONX", "cd.pa@marcas.demo"),
+    ("3200", "GT01", "Guatemala distribution center", "TIENDA", "GT", "GTSTC", "cd.gt@marcas.demo"),
+    ("3400", "HN01", "Honduras distribution center", "TIENDA", "HN", "HNPCR", "cd.hn@marcas.demo"),
+    ("5580", "NI01", "Nicaragua distribution center", "TIENDA", "NI", "NICIO", "cd.ni@marcas.demo"),
+    ("1880", "CR01", "Costa Rica distribution center", "TIENDA", "CR", "CRLIO", "cd.cr@marcas.demo"),
 ]
 # nombre, cargo, rol, sociedad o centro, correos, teléfono
 CONTACTOS = [
-    ("Ana Martínez", "Cuentas por pagar", "FACTURACION", ("sociedad", "8000"), "ana.martinez@marcas.demo", "+503 2222-1000"),
-    ("Luis Pérez", "Contador", "FACTURACION", ("sociedad", "PA01"), "luis.perez@marcas.demo", "+507 430-1000"),
-    ("Carlos Rivas", "Jefe de bodega", "NOTIFY", ("centro", "8010"),
+    ("Ana Martínez", "Accounts payable", "FACTURACION", ("sociedad", "8000"), "ana.martinez@marcas.demo", "+503 2222-1000"),
+    ("Luis Pérez", "Accountant", "FACTURACION", ("sociedad", "PA01"), "luis.perez@marcas.demo", "+507 430-1000"),
+    ("Carlos Rivas", "Warehouse manager", "NOTIFY", ("centro", "8010"),
      "carlos.rivas@marcas.demo, bodega8010@marcas.demo", "+503 2222-2010"),
-    ("María López", "Importaciones", "NOTIFY", ("centro", "8020"), "maria.lopez@marcas.demo", "+503 2222-2020"),
-    ("Jorge Castillo", "Agente aduanal", "LOGISTICA", ("centro", "8020"), "jcastillo@aduanas.demo", "+503 7777-1111"),
-    ("Rosa Méndez", "Jefa de bodega", "NOTIFY", ("centro", "PA10"), "rosa.mendez@marcas.demo", "+507 430-2010"),
+    ("María López", "Imports", "NOTIFY", ("centro", "8020"), "maria.lopez@marcas.demo", "+503 2222-2020"),
+    ("Jorge Castillo", "Customs broker", "LOGISTICA", ("centro", "8020"), "jcastillo@aduanas.demo", "+503 7777-1111"),
+    ("Rosa Méndez", "Warehouse manager", "NOTIFY", ("centro", "PA10"), "rosa.mendez@marcas.demo", "+507 430-2010"),
 ]
 PUERTOS = [
     ("VNSGN", "Ho Chi Minh (Cat Lai)", "VN"), ("VNCMT", "Cai Mep", "VN"), ("CNYTN", "Yantian", "CN"),
-    ("CNSHA", "Shanghái", "CN"), ("IDJKT", "Yakarta", "ID"), ("KHKOS", "Sihanoukville", "KH"),
+    ("CNSHA", "Shanghai", "CN"), ("IDJKT", "Jakarta", "ID"), ("KHKOS", "Sihanoukville", "KH"),
     ("SVAQJ", "Acajutla", "SV"), ("PAONX", "Colón (Manzanillo)", "PA"), ("PABLB", "Balboa", "PA"),
     ("GTSTC", "Santo Tomás de Castilla", "GT"), ("HNPCR", "Puerto Cortés", "HN"), ("NICIO", "Corinto", "NI"),
     ("CRLIO", "Limón (Moín)", "CR"), ("SVLUN", "La Unión", "SV"),
 ]
 # Aeropuertos y aduanas terrestres: el embarque solo ofrece los de su modo
 PUERTOS_OTROS = [
-    ("SAL", "San Salvador (aeropuerto)", "SV", "AEREO"), ("PTY", "Tocumen (aeropuerto)", "PA", "AEREO"),
-    ("HKG", "Hong Kong (aeropuerto)", "HK", "AEREO"), ("SGN", "Ho Chi Minh (aeropuerto)", "VN", "AEREO"),
-    ("SVHAC", "La Hachadura (frontera)", "SV", "TERRESTRE"), ("GTPDA", "Pedro de Alvarado (frontera)", "GT", "TERRESTRE"),
+    ("SAL", "San Salvador (airport)", "SV", "AEREO"), ("PTY", "Tocumen (airport)", "PA", "AEREO"),
+    ("HKG", "Hong Kong (airport)", "HK", "AEREO"), ("SGN", "Ho Chi Minh (airport)", "VN", "AEREO"),
+    ("SVHAC", "La Hachadura (border)", "SV", "TERRESTRE"), ("GTPDA", "Pedro de Alvarado (border)", "GT", "TERRESTRE"),
 ]
 # Otros puertos por los que puede llegar cada centro (además del principal)
 PUERTOS_CENTRO = {
@@ -101,13 +101,13 @@ PUERTOS_CENTRO = {
 }
 # Tipos de unidad por modo, con capacidad nominal (m³, kg)
 TIPOS_UNIDAD = [
-    ("20GP", "Contenedor 20' estándar", "MARITIMO", "FCL", 33, 28000, True),
-    ("40GP", "Contenedor 40' estándar", "MARITIMO", "FCL", 67, 26500, True),
-    ("40HC", "Contenedor 40' high cube", "MARITIMO", "FCL", 76, 26500, True),
-    ("LCL", "Carga consolidada (LCL)", "MARITIMO", "LCL", None, None, False),
-    ("AWB", "Guía aérea", "AEREO", "AEREO", None, 5000, False),
-    ("FTL53", "Camión completo 53'", "TERRESTRE", "FTL", 110, 22000, True),
-    ("LTL", "Carga parcial terrestre", "TERRESTRE", "LTL", None, None, False),
+    ("20GP", "20' standard container", "MARITIMO", "FCL", 33, 28000, True),
+    ("40GP", "40' standard container", "MARITIMO", "FCL", 67, 26500, True),
+    ("40HC", "40' high cube container", "MARITIMO", "FCL", 76, 26500, True),
+    ("LCL", "Consolidated cargo (LCL)", "MARITIMO", "LCL", None, None, False),
+    ("AWB", "Air waybill", "AEREO", "AEREO", None, 5000, False),
+    ("FTL53", "53' full truck", "TERRESTRE", "FTL", 110, 22000, True),
+    ("LTL", "Road partial load", "TERRESTRE", "LTL", None, None, False),
 ]
 # código, nombre, tipo, SCAC/IATA, país, correos, sociedades
 TRANSPORTISTAS = [
@@ -120,31 +120,31 @@ TRANSPORTISTAS = [
 PASSWORD_DEMO = "Supplier2026"
 MARCAS = [("TNF", "The North Face"), ("VANS", "Vans"), ("MERR", "Merrell"), ("CAT", "Caterpillar"),
           ("HPU", "Hush Puppies"), ("ADOC", "ADOC")]
-GRUPOS = [("CALZ-OUT", "Calzado outdoor", "CALZADO"), ("CALZ-CAS", "Calzado casual", "CALZADO"),
-          ("CHAQ", "Chaquetas", "ROPA"), ("FLEE", "Fleece y sudaderas", "ROPA"), ("MOCH", "Mochilas", "ACCESORIO")]
+GRUPOS = [("CALZ-OUT", "Outdoor footwear", "CALZADO"), ("CALZ-CAS", "Casual footwear", "CALZADO"),
+          ("CHAQ", "Jackets", "ROPA"), ("FLEE", "Fleece and sweatshirts", "ROPA"), ("MOCH", "Backpacks", "ACCESORIO")]
 # estilo, color, marca, grupo, proveedor, unidad, precio, origen, partida, descripción, empaque de la OC, tallas
 # El empaque (casepack, inner pack) es de la posición de la OC, no del artículo:
 # aquí solo es el que usan las OCs de ejemplo.
 ESTILOS = [
-    ("NF0A5GLL", "JK3 TNF Black", "TNF", "CHAQ", "TNF", "UN", 48.50, "VN", "6201.40", "Chaqueta impermeable hombre",
+    ("NF0A5GLL", "JK3 TNF Black", "TNF", "CHAQ", "TNF", "UN", 48.50, "VN", "6201.40", "Men's waterproof jacket",
      None, ["S", "M", "L", "XL", "XXL"]),
-    ("NF0A5GLL", "Azul summit", "TNF", "CHAQ", "TNF", "UN", 48.50, "VN", "6201.40", "Chaqueta impermeable hombre",
+    ("NF0A5GLL", "Summit blue", "TNF", "CHAQ", "TNF", "UN", 48.50, "VN", "6201.40", "Men's waterproof jacket",
      None, ["M", "L"]),
-    ("NF0A7W4G", "KX7 Negro", "TNF", "CALZ-OUT", "TNF", "PAR", 62.00, "CN", "6404.11", "Calzado trail running",
+    ("NF0A7W4G", "KX7 Black", "TNF", "CALZ-OUT", "TNF", "PAR", 62.00, "CN", "6404.11", "Trail running footwear",
      (12, None), ["8", "9", "10", "11", "12"]),
-    ("NF0A3VY2", "JK3 TNF Black", "TNF", "MOCH", "TNF", "UN", 31.20, "ID", "4202.92", "Mochila 28 L", (20, 5),
+    ("NF0A3VY2", "JK3 TNF Black", "TNF", "MOCH", "TNF", "UN", 31.20, "ID", "4202.92", "Backpack 28 L", (20, 5),
      ["OS"]),
-    ("NF0A5IHO", "Gris melange", "TNF", "FLEE", "TNF", "UN", 22.75, "KH", "6110.30", "Fleece medio cierre",
+    ("NF0A5IHO", "Heather grey", "TNF", "FLEE", "TNF", "UN", 22.75, "KH", "6110.30", "Half-zip fleece",
      (None, 5), ["S", "M", "L"]),
-    ("VN000EE3", "BLK Negro", "VANS", "CALZ-CAS", "VANS", "PAR", 25.50, "VN", "6404.19", "Calzado lona clásico",
+    ("VN000EE3", "BLK Black", "VANS", "CALZ-CAS", "VANS", "PAR", 25.50, "VN", "6404.19", "Classic canvas footwear",
      (12, None), ["7", "8", "9", "10", "11", "12"]),
-    ("VN0A4BV4", "Blanco", "VANS", "CALZ-CAS", "VANS", "PAR", 21.00, "CN", "6404.19", "Calzado lona básico",
+    ("VN0A4BV4", "White", "VANS", "CALZ-CAS", "VANS", "PAR", 21.00, "CN", "6404.19", "Basic canvas footwear",
      (12, None), ["7", "8", "9", "10"]),
 ]
 # Prepacks: estilo, color, prepack ID (es la "talla" del artículo prepack), curva
 PREPACKS = [
-    ("VN000EE3", "BLK Negro", "AB12", {"7": 1, "8": 2, "9": 3, "10": 3, "11": 2, "12": 1}),  # 12 pares
-    ("VN0A4BV4", "Blanco", "CD08", {"7": 2, "8": 2, "9": 2, "10": 2}),  # 8 pares
+    ("VN000EE3", "BLK Black", "AB12", {"7": 1, "8": 2, "9": 3, "10": 3, "11": 2, "12": 1}),  # 12 pares
+    ("VN0A4BV4", "White", "CD08", {"7": 2, "8": 2, "9": 2, "10": 2}),  # 8 pares
 ]
 
 
@@ -166,11 +166,11 @@ def _catalogos(db: Session) -> dict:
     db.flush()
     # Almacenes: separación del inventario en el sistema, no lugares físicos
     db.add_all([
-        Almacen(codigo="BF19", sociedad_id=socs["8000"].id, nombre="Detalle", tipo="DETALLE"),
-        Almacen(codigo="BF20", sociedad_id=socs["8000"].id, nombre="Mayoreo", tipo="MAYOREO"),
-        Almacen(codigo="BF18", sociedad_id=socs["8000"].id, nombre="Virtual en tránsito", tipo="VIRTUAL"),
-        Almacen(codigo="BF01", sociedad_id=socs["PA01"].id, nombre="Detalle", tipo="DETALLE"),
-        Almacen(codigo="BF02", sociedad_id=socs["PA01"].id, nombre="Mayoreo", tipo="MAYOREO"),
+        Almacen(codigo="BF19", sociedad_id=socs["8000"].id, nombre="Retail", tipo="DETALLE"),
+        Almacen(codigo="BF20", sociedad_id=socs["8000"].id, nombre="Wholesale", tipo="MAYOREO"),
+        Almacen(codigo="BF18", sociedad_id=socs["8000"].id, nombre="Virtual in transit", tipo="VIRTUAL"),
+        Almacen(codigo="BF01", sociedad_id=socs["PA01"].id, nombre="Retail", tipo="DETALLE"),
+        Almacen(codigo="BF02", sociedad_id=socs["PA01"].id, nombre="Wholesale", tipo="MAYOREO"),
     ])
     for nombre, cargo, rol, (tipo, codigo), correos, tel in CONTACTOS:
         db.add(Contacto(nombre=nombre, cargo=cargo, rol=rol, correos=correos, telefono=tel,
@@ -214,7 +214,7 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
     for estilo, color, codigo, curva in PREPACKS:
         base = arts[(estilo, color, next(iter(curva)))]
         pp = Prepack(codigo=codigo, estilo=estilo, color=color,
-                     descripcion=f"Curva {estilo} {color} tallas {'-'.join(curva)} ({sum(curva.values())} pares)")
+                     descripcion=f"Assortment {estilo} {color} sizes {'-'.join(curva)} ({sum(curva.values())} pairs)")
         for talla, cant in curva.items():
             pp.componentes.append(PrepackComponente(articulo_id=arts[(estilo, color, talla)].id, cantidad=cant))
         db.add(pp)
@@ -312,9 +312,9 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
                         salida_real=hoy - timedelta(days=87), arribo_real=hoy - timedelta(days=57), estado="RECIBIDO")
     c1 = UnidadCarga(tipo="40HC", etiqueta="40HC #1", numero="MSKU 481220-7", sello="ML-99812")
     recibido.unidades.append(c1)
-    for tipo, dias, lugar in (("RECOLECCION", 90, "Bodega del proveedor"), ("SALIDA", 87, "Cai Mep (VN)"),
-                              ("ARRIBO", 57, "Acajutla (SV)"), ("ENTREGA", 55, "Bodega fiscal 8010"),
-                              ("RECEPCION", 54, "Bodega fiscal 8010")):
+    for tipo, dias, lugar in (("RECOLECCION", 90, "Supplier warehouse"), ("SALIDA", 87, "Cai Mep (VN)"),
+                              ("ARRIBO", 57, "Acajutla (SV)"), ("ENTREGA", 55, "Bonded warehouse 8010"),
+                              ("RECEPCION", 54, "Bonded warehouse 8010")):
         recibido.eventos.append(EventoEmbarque(tipo=tipo, fecha=_momento(hoy - timedelta(days=dias), 9), ubicacion=lugar))
     transito = Embarque(codigo="EMB-0002", tipo_transporte="MARITIMO", transportista="COSCO Shipping",
                         documento_numero="COSU 640018225", puerto_origen="CNYTN", puerto_destino="SVAQJ", centro="8010",
@@ -323,11 +323,11 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
     c2 = UnidadCarga(tipo="40GP", etiqueta="40GP #1", numero="TGHU 772104-3", sello="CS-10442")
     transito.unidades.append(c2)
     transito.eventos.append(EventoEmbarque(tipo="RECOLECCION", fecha=_momento(hoy - timedelta(days=21), 8),
-                                           ubicacion="Bodega del proveedor"))
+                                           ubicacion="Supplier warehouse"))
     transito.eventos.append(EventoEmbarque(tipo="SALIDA", fecha=_momento(hoy - timedelta(days=18), 7),
                                            ubicacion="Yantian (CN)"))
     transito.eventos.append(EventoEmbarque(tipo="TRANSITO", fecha=_momento(hoy - timedelta(days=6), 12),
-                                           ubicacion="Canal de Panamá, lado Pacífico", observacion="Sin novedad"))
+                                           ubicacion="Panama Canal, Pacific side", observacion="No issues"))
     db.add_all([recibido, transito])
 
     u_tnf, u_vans = usuarios
@@ -335,10 +335,10 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
     historicas = [
         (tnf, "4400003701", 140, [("NF0A5GLL", "JK3 TNF Black", [("M", 50), ("L", 50)])], "TNF-2026-0418", 128, c1, 90),
         (tnf, "4400003702", 115, [("NF0A3VY2", "JK3 TNF Black", [("OS", 80)])], "TNF-2026-0502", 100, c1, 90),
-        (vans, "4400003751", 110, [("VN000EE3", "BLK Negro", [("8", 60)])], "VN-88120", 95, c1, 90),
-        (tnf, "4400003703", 85, [("NF0A7W4G", "KX7 Negro", [("9", 36), ("10", 48)])], "TNF-2026-0611", 70, c2, 21),
-        (vans, "4400003752", 50, [("VN000EE3", "BLK Negro", [("9", 72)])], "VN-88177", 35, c2, 21),
-        (tnf, "4400003704", 20, [("NF0A5IHO", "Gris melange", [("S", 30), ("M", 30)])], "TNF-2026-0915", 6, None, None),
+        (vans, "4400003751", 110, [("VN000EE3", "BLK Black", [("8", 60)])], "VN-88120", 95, c1, 90),
+        (tnf, "4400003703", 85, [("NF0A7W4G", "KX7 Black", [("9", 36), ("10", 48)])], "TNF-2026-0611", 70, c2, 21),
+        (vans, "4400003752", 50, [("VN000EE3", "BLK Black", [("9", 72)])], "VN-88177", 35, c2, 21),
+        (tnf, "4400003704", 20, [("NF0A5IHO", "Heather grey", [("S", 30), ("M", 30)])], "TNF-2026-0915", 6, None, None),
     ]
     for prov, numero, dias_oc, lineas, factura, dias_factura, unidad, recoleccion in historicas:
         oc = _oc(db, prov, arts, numero, d(dias_oc), lineas, xf=d(dias_factura - 2), tienda=d(dias_factura - 60),
@@ -391,43 +391,43 @@ def seed(db: Session) -> None:
 
     _oc(db, tnf, arts, "4400003845", d(-20), [
         ("NF0A5GLL", "JK3 TNF Black", [("S", 40), ("M", 60), ("L", 60), ("XL", 27), ("XXL", 20)]),
-        ("NF0A7W4G", "KX7 Negro", [("8", 24), ("9", 36), ("10", 50), ("11", 36), ("12", 12)], "BF20"),
+        ("NF0A7W4G", "KX7 Black", [("8", 24), ("9", 36), ("10", 50), ("11", 36), ("12", 12)], "BF20"),
     ], xf=d(10), xf_nueva=d(14), tienda=d(75))
     _oc(db, tnf, arts, "4400003846", d(-12), [
         ("NF0A3VY2", "JK3 TNF Black", [("OS", 120)]),
-        ("NF0A5IHO", "Gris melange", [("S", 30), ("M", 30), ("L", 30)]),
+        ("NF0A5IHO", "Heather grey", [("S", 30), ("M", 30), ("L", 30)]),
     ], puerto="CNYTN", origen="ID", xf=d(18), tienda=d(80))
-    _oc(db, tnf, arts, "4400003850", d(-8), [("NF0A5GLL", "Azul summit", [("M", 30), ("L", 30)])],
+    _oc(db, tnf, arts, "4400003850", d(-8), [("NF0A5GLL", "Summit blue", [("M", 30), ("L", 30)])],
         sociedad="PA01", centro="PA10", almacen="BF01", destino="5910", puerto="VNCMT", xf=d(20), tienda=d(70))
-    _oc(db, tnf, arts, "4400003851", d(-2), [("NF0A5IHO", "Gris melange", [("S", 20), ("M", 20)])],
+    _oc(db, tnf, arts, "4400003851", d(-2), [("NF0A5IHO", "Heather grey", [("S", 20), ("M", 20)])],
         origen="KH", puerto="KHKOS", xf=d(35), tienda=d(100), comercial="P", logistica="304")
     _oc(db, vans, arts, "4400003901", d(-15), [
-        ("VN000EE3", "BLK Negro", [("7", 36), ("8", 48), ("9", 60)], "BF19"),
-        ("VN000EE3", "BLK Negro", [("10", 48), ("11", 24)]),
+        ("VN000EE3", "BLK Black", [("7", 36), ("8", 48), ("9", 60)], "BF19"),
+        ("VN000EE3", "BLK Black", [("10", 48), ("11", 24)]),
     ], centro="8020", almacen="BF20", xf=d(12), tienda=d(60))
-    _oc(db, vans, arts, "4400003902", d(-5), [("VN0A4BV4", "Blanco", [("7", 24), ("8", 24), ("9", 24), ("10", 24)])],
+    _oc(db, vans, arts, "4400003902", d(-5), [("VN0A4BV4", "White", [("7", 24), ("8", 24), ("9", 24), ("10", 24)])],
         centro="8020", almacen="BF20", puerto="CNSHA", origen="CN", xf=d(25), xf_nueva=d(22), tienda=d(90),
         logistica="301")
-    _oc(db, vans, arts, "4400003903", d(-4), [("VN000EE3", "BLK Negro", [("AB12", 10)]),
-                                              ("VN0A4BV4", "Blanco", [("CD08", 6)])],
+    _oc(db, vans, arts, "4400003903", d(-4), [("VN000EE3", "BLK Black", [("AB12", 10)]),
+                                              ("VN0A4BV4", "White", [("CD08", 6)])],
         centro="8020", almacen="BF20", destino="3200", xf=d(15), tienda=d(65))
-    _oc(db, vans, arts, "4400003904", d(-1), [("VN0A4BV4", "Blanco", [("8", 24)])],
+    _oc(db, vans, arts, "4400003904", d(-1), [("VN0A4BV4", "White", [("8", 24)])],
         centro="8020", almacen="BF20", puerto="CNSHA", origen="CN", xf=d(40), tienda=d(110), comercial="P",
         logistica="304")
 
-    chaqueta = PlantillaCaja(proveedor_id=tnf.id, nombre="Caja chaqueta 10 un", cantidad_por_caja=10, unidad="UN",
+    chaqueta = PlantillaCaja(proveedor_id=tnf.id, nombre="Jacket carton 10 units", cantidad_por_caja=10, unidad="UN",
                              largo=60, ancho=40, alto=40, peso_neto=9.0, peso_bruto=10.2, tara=1.2)
-    calzado = PlantillaCaja(proveedor_id=tnf.id, nombre="Caja calzado 12 pares", cantidad_por_caja=12, unidad="PAR",
+    calzado = PlantillaCaja(proveedor_id=tnf.id, nombre="Footwear carton 12 pairs", cantidad_por_caja=12, unidad="PAR",
                             largo=55, ancho=35, alto=33, peso_neto=10.8, peso_bruto=12.3, tara=1.5)
-    mochila = PlantillaCaja(proveedor_id=tnf.id, nombre="Caja mochila 20 un", cantidad_por_caja=20, unidad="UN",
+    mochila = PlantillaCaja(proveedor_id=tnf.id, nombre="Backpack carton 20 units", cantidad_por_caja=20, unidad="UN",
                             largo=70, ancho=50, alto=45, peso_neto=16.0, peso_bruto=17.5, tara=1.5)
-    fleece = PlantillaCaja(proveedor_id=tnf.id, nombre="Caja fleece 15 un", cantidad_por_caja=15, unidad="UN",
+    fleece = PlantillaCaja(proveedor_id=tnf.id, nombre="Fleece carton 15 units", cantidad_por_caja=15, unidad="UN",
                            largo=60, ancho=40, alto=35, peso_neto=7.5, peso_bruto=8.6, tara=1.1)
-    master12 = PlantillaCaja(proveedor_id=vans.id, nombre="Master 12 pares", cantidad_por_caja=12, unidad="PAR",
+    master12 = PlantillaCaja(proveedor_id=vans.id, nombre="Master 12 pairs", cantidad_por_caja=12, unidad="PAR",
                              largo=60, ancho=38, alto=35, peso_neto=9.6, peso_bruto=11.0, tara=1.4)
-    master10 = PlantillaCaja(proveedor_id=vans.id, nombre="Master 10 pares", cantidad_por_caja=10, unidad="PAR",
+    master10 = PlantillaCaja(proveedor_id=vans.id, nombre="Master 10 pairs", cantidad_por_caja=10, unidad="PAR",
                              largo=55, ancho=38, alto=32, peso_neto=8.0, peso_bruto=9.2, tara=1.2)
-    prepack = PlantillaCaja(proveedor_id=vans.id, nombre="Master prepack (1 curva)", cantidad_por_caja=1, unidad="CJ",
+    prepack = PlantillaCaja(proveedor_id=vans.id, nombre="Master prepack (1 assortment)", cantidad_por_caja=1, unidad="CJ",
                             largo=60, ancho=38, alto=35, peso_neto=9.6, peso_bruto=11.0, tara=1.4)
     db.add_all([chaqueta, calzado, mochila, fleece, master12, master10, prepack])
     db.flush()
@@ -454,4 +454,4 @@ if __name__ == "__main__":
     Base.metadata.create_all(engine)
     with SessionLocal() as s:
         seed(s)
-    print("Datos de demostración cargados.")
+    print("Demo data loaded.")

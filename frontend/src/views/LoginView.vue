@@ -156,7 +156,7 @@ onBeforeUnmount(() => clearInterval(reloj))
           <input ref="campoCodigo" v-model="codigo" class="codigo-verificacion" inputmode="numeric" autocomplete="one-time-code"
                  pattern="\d{6}" maxlength="6" placeholder="••••••" required aria-describedby="ayuda-codigo" @input="alEscribir" />
         </label>
-        <p v-if="desafio.codigo_demo" id="ayuda-codigo" class="nota info"><Icono nombre="info" />Demo without real SMS: your code is <b class="codigo">{{ desafio.codigo_demo }}</b></p>
+        <p v-if="desafio.codigo_demo" id="ayuda-codigo" class="nota info"><Icono nombre="info" /><span>Demo without real SMS: your code is <b class="codigo">{{ desafio.codigo_demo }}</b></span></p>
         <p v-if="error" class="nota error" role="alert"><Icono nombre="alerta" />{{ error }}</p>
         <button class="btn btn-primario btn-grande" type="submit" :disabled="enviando || codigo.length !== 6">{{ enviando ? 'Verifying…' : 'Verify and sign in' }}</button>
         <div class="fila-flex" style="justify-content: space-between">

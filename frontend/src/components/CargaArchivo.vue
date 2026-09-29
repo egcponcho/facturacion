@@ -7,8 +7,8 @@ import Icono from './Icono.vue'
 const props = defineProps({
   modelValue: { type: Object, default: null },
   acepta: { type: String, default: '.xlsx,.xlsm,.csv' },
-  texto: { type: String, default: 'Arrastra el archivo aquí o elígelo' },
-  ayuda: { type: String, default: 'Excel (.xlsx) o CSV' },
+  texto: { type: String, default: 'Drag the file here or choose it' },
+  ayuda: { type: String, default: 'Excel (.xlsx) or CSV' },
 })
 const emit = defineEmits(['update:modelValue'])
 const encima = ref(false)
@@ -35,15 +35,15 @@ function quitar() {
       <b>{{ props.modelValue.name }}</b>
       <span class="ayuda">{{ fmtNum(props.modelValue.size / 1024, 0) }} KB</span>
     </div>
-    <button type="button" class="btn btn-chico btn-fantasma" @click="entrada.click()">Cambiar</button>
-    <button type="button" class="btn-icono" aria-label="Quitar archivo" @click="quitar"><Icono nombre="cerrar" :tam="16" /></button>
+    <button type="button" class="btn btn-chico btn-fantasma" @click="entrada.click()">Change</button>
+    <button type="button" class="btn-icono" aria-label="Remove file" @click="quitar"><Icono nombre="cerrar" :tam="16" /></button>
     <input ref="entrada" type="file" :accept="props.acepta" class="oculto-visual" @change="elegir($event.target.files[0])" />
   </div>
   <label v-else class="zona-carga" :class="{ encima }" @dragover.prevent="encima = true" @dragleave="encima = false" @drop.prevent="soltar">
     <span class="zona-icono"><Icono nombre="importar" :tam="22" /></span>
     <b>{{ props.texto }}</b>
     <span class="ayuda">{{ props.ayuda }}</span>
-    <span class="btn btn-chico">Elegir archivo</span>
+    <span class="btn btn-chico">Choose file</span>
     <input ref="entrada" type="file" :accept="props.acepta" class="oculto-visual" @change="elegir($event.target.files[0])" />
   </label>
 </template>

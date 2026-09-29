@@ -427,7 +427,7 @@ def pdf_factura(d: dict) -> bytes:
     ancho = letter[0] - 28 * mm
     tr = d["transporte"] or {}
     h = [
-        _cabecera(e, d, ancho, "COMMERCIAL INVOICE", "Factura comercial", [
+        _cabecera(e, d, ancho, "COMMERCIAL INVOICE", "Customs invoice · original", [
             ("No.", d["numero"]), ("Date", _fecha(d["fecha"])),
             ("Status", "Official" if d["oficial"] else "Draft")]),
         Spacer(1, 6), _bloque_partes(e, d, ancho), Spacer(1, 5),
@@ -482,7 +482,7 @@ def pdf_pl(d: dict) -> bytes:
     tr = d["transporte"] or {}
     tp = d["totales_pl"]
     h = [
-        _cabecera(e, d, ancho, "PACKING LIST", "Lista de empaque", [
+        _cabecera(e, d, ancho, "PACKING LIST", "Detailed carton list", [
             ("No.", f"{d['numero']} · {d['numero_pl']}"), ("Date", _fecha(d["fecha"])),
             ("Invoice", d["numero"]), ("Status", "Official" if d["oficial"] else "Draft")]),
         Spacer(1, 6), _bloque_partes(e, d, ancho), Spacer(1, 5),

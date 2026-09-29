@@ -53,7 +53,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Workspace de proveedor: facturas, packing lists y transporte", lifespan=lifespan)
+app = FastAPI(title="Supplier workspace: invoices, packing lists and transport", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -95,7 +95,7 @@ async def _error_negocio(_: Request, exc: ErrorNegocio):
 @app.exception_handler(IntegrityError)
 async def _error_integridad(_: Request, exc: IntegrityError):
     return JSONResponse(status_code=409, content={
-        "mensaje": "El dato ya existe o choca con otro registro (por ejemplo, un número de factura repetido).",
+        "mensaje": "The value already exists or conflicts with another record (for example, a repeated invoice number).",
         "codigo": "integridad", "detalle": None})
 
 
@@ -103,7 +103,7 @@ async def _error_integridad(_: Request, exc: IntegrityError):
 async def _error_validacion(_: Request, exc: RequestValidationError):
     detalle = [{"campo": ".".join(str(x) for x in e["loc"][1:]), "mensaje": e["msg"]} for e in exc.errors()]
     return JSONResponse(status_code=422, content={
-        "mensaje": "Revisa los datos enviados.", "codigo": "datos_invalidos", "detalle": detalle})
+        "mensaje": "Check the data you sent.", "codigo": "datos_invalidos", "detalle": detalle})
 
 
 for r in (auth_admin, catalogos, ordenes, facturas, packing, transporte, varios):

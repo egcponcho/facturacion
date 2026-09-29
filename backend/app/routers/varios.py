@@ -77,7 +77,7 @@ def seguimiento_exportar(vista: str, request: Request, db: Db, user: User, prove
                          orden: str | None = None, formato: Formato = "xlsx"):
     """Reporte del tablero con los filtros de la pantalla, en PDF o Excel."""
     if vista not in reportes.REPORTES:
-        raise HTTPException(404, "Reporte no encontrado")
+        raise HTTPException(404, "Report not found")
     if vista == "documentos":
         filtros = {k: v for k, v in request.query_params.items() if k in FILTROS_DOC and v != ""}
         if "embarque_id" in filtros:

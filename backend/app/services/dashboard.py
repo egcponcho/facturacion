@@ -162,25 +162,25 @@ def _tareas(db: Session, user: Usuario, facturas: list[Factura], distribucion: d
             pendientes = validar_factura(db, f)
             sin_pl = r["facturado"] - r["asignado"]
             if f.estado == "EN_CORRECCION":
-                tareas.append({"prioridad": 0, "tipo": "correccion", "titulo": f"Corrige {nombre}",
-                               "detalle": "Fue reabierta por el equipo interno.",
-                               "ruta": f"/facturas/{f.id}", "accion": "Abrir"})
+                tareas.append({"prioridad": 0, "tipo": "correccion", "titulo": f"Correct {nombre}",
+                               "detalle": "It was reopened by the internal team.",
+                               "ruta": f"/facturas/{f.id}", "accion": "Open"})
             elif pendientes:
-                tareas.append({"prioridad": 2, "tipo": "datos", "titulo": f"Completa {nombre}",
-                               "detalle": f"Faltan {len(pendientes)} datos para finalizarla.",
-                               "ruta": f"/facturas/{f.id}", "accion": "Completar"})
+                tareas.append({"prioridad": 2, "tipo": "datos", "titulo": f"Complete {nombre}",
+                               "detalle": f"{len(pendientes)} items missing to finalize it.",
+                               "ruta": f"/facturas/{f.id}", "accion": "Complete"})
             if sin_pl > 0 and f.lineas:
-                tareas.append({"prioridad": 1, "tipo": "empacar", "titulo": f"Empaca {nombre}",
-                               "detalle": f"{sin_pl:,} sin packing list.",
-                               "ruta": f"/facturas/{f.id}?tab=pl", "accion": "Empacar"})
+                tareas.append({"prioridad": 1, "tipo": "empacar", "titulo": f"Pack {nombre}",
+                               "detalle": f"{sin_pl:,} without packing list.",
+                               "ruta": f"/facturas/{f.id}?tab=pl", "accion": "Pack"})
             if not pendientes and f.estado == "BORRADOR" and not sin_pl:
-                tareas.append({"prioridad": 3, "tipo": "finalizar", "titulo": f"Finaliza {nombre}",
-                               "detalle": "Todo está completo.", "ruta": f"/facturas/{f.id}",
-                               "accion": "Finalizar"})
+                tareas.append({"prioridad": 3, "tipo": "finalizar", "titulo": f"Finalize {nombre}",
+                               "detalle": "Everything is complete.", "ruta": f"/facturas/{f.id}",
+                               "accion": "Finalize"})
             if f.estado == "BORRADOR" and f.creado_en < limite:
-                tareas.append({"prioridad": 4, "tipo": "antiguo", "titulo": f"{nombre} lleva días en borrador",
-                               "detalle": "Sigue reservando cantidades de las OCs.",
-                               "ruta": f"/facturas/{f.id}", "accion": "Revisar"})
+                tareas.append({"prioridad": 4, "tipo": "antiguo", "titulo": f"{nombre} has been in draft for days",
+                               "detalle": "It keeps reserving PO quantities.",
+                               "ruta": f"/facturas/{f.id}", "accion": "Review"})
         for pl in f.packing_lists:
             if pl.estado not in EDITABLE_PL or f.estado == "CANCELADA":
                 continue
@@ -189,22 +189,22 @@ def _tareas(db: Session, user: Usuario, facturas: list[Factura], distribucion: d
             if sin_caja:
                 detalle = sin_caja[0]["mensaje"]
             elif errores:
-                detalle = f"{len(errores)} datos de cajas por completar."
+                detalle = f"{len(errores)} carton details to complete."
             else:
-                detalle = "Listo para finalizar."
+                detalle = "Ready to finalize."
             tareas.append({"prioridad": 1 if sin_caja else 2, "tipo": "pl",
-                           "titulo": f"{pl.numero} de {nombre}", "detalle": detalle,
+                           "titulo": f"{pl.numero} of {nombre}", "detalle": detalle,
                            "ruta": f"/packing-lists/{pl.id}",
-                           "accion": "Empacar" if sin_caja else ("Completar" if errores else "Finalizar")})
+                           "accion": "Pack" if sin_caja else ("Complete" if errores else "Finalize")})
     if es_interno(user):
         for f in facturas:
             r = distribucion[f.id]
             if f.estado == "FINALIZADA" and r["pls"] and r["pls_confirmados"] < r["pls"]:
                 sin_unidad = sum(1 for pl in f.packing_lists if pl.estado == "FINALIZADO" and not pl.unidad_carga_id)
                 if sin_unidad:
-                    tareas.append({"prioridad": 1, "tipo": "embarcar", "titulo": f"Embarca {nombre_factura(f)}",
-                                   "detalle": f"{sin_unidad} PL finalizados sin contenedor ({f.proveedor.nombre}).",
-                                   "ruta": "/transporte", "accion": "Asignar"})
+                    tareas.append({"prioridad": 1, "tipo": "embarcar", "titulo": f"Ship {nombre_factura(f)}",
+                                   "detalle": f"{sin_unidad} finalized PLs without container ({f.proveedor.nombre}).",
+                                   "ruta": "/transporte", "accion": "Assign"})
     tareas.sort(key=lambda t: t["prioridad"])
     return tareas[:12]
 
@@ -263,13 +263,13 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None) -> di
               and distribucion[f.id]["pls_confirmados"] < distribucion[f.id]["pls"]]
 
     kpis = [
-        {"clave": "por_facturar", "titulo": "Por facturar", "valor": por_facturar, "formato": "moneda",
-         "moneda": moneda, "detalle": f"en {saldo['ocs']} OCs", "ruta": "/ordenes", "tono": "normal"},
-        {"clave": "en_proceso", "titulo": "Facturas en proceso", "valor": len(en_proceso),
-         "detalle": f"{sum(1 for f in en_proceso if f.estado == 'EN_CORRECCION')} en corrección",
+        {"clave": "por_facturar", "titulo": "To invoice", "valor": por_facturar, "formato": "moneda",
+         "moneda": moneda, "detalle": f"on {saldo['ocs']} POs", "ruta": "/ordenes", "tono": "normal"},
+        {"clave": "en_proceso", "titulo": "Invoices in progress", "valor": len(en_proceso),
+         "detalle": f"{sum(1 for f in en_proceso if f.estado == 'EN_CORRECCION')} under correction",
          "ruta": "/facturas", "query": {"vista": "editables"}, "tono": "normal"},
-        {"clave": "pl_abiertos", "titulo": "Packing lists abiertos", "valor": len(pls_abiertos),
-         "detalle": "por empacar o finalizar", "ruta": "/facturas", "query": {"vista": "pl_incompletos"},
+        {"clave": "pl_abiertos", "titulo": "Open packing lists", "valor": len(pls_abiertos),
+         "detalle": "to pack or finalize", "ruta": "/facturas", "query": {"vista": "pl_incompletos"},
          "tono": "alerta" if pls_abiertos else "normal"},
     ]
     if interno:
@@ -278,15 +278,15 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None) -> di
         tentativas = [pl for f in facturas for pl in f.packing_lists
                       if pl.asignacion == "TENTATIVA" and pl.estado != "CANCELADO"]
         kpis += [
-            {"clave": "listas", "titulo": "Listas para embarcar", "valor": len(listas),
-             "detalle": f"{len(sin_unidad)} PL sin contenedor", "ruta": "/facturas",
+            {"clave": "listas", "titulo": "Ready to ship", "valor": len(listas),
+             "detalle": f"{len(sin_unidad)} PLs without container", "ruta": "/facturas",
              "query": {"vista": "lista_transporte"}, "tono": "exito" if listas else "normal"},
-            {"clave": "tentativas", "titulo": "Tentativas por confirmar", "valor": len(tentativas),
-             "detalle": "asignaciones a contenedor", "ruta": "/transporte", "query": {"estado": "PLANIFICADO"},
+            {"clave": "tentativas", "titulo": "Tentative to confirm", "valor": len(tentativas),
+             "detalle": "container assignments", "ruta": "/transporte", "query": {"estado": "PLANIFICADO"},
              "tono": "alerta" if tentativas else "normal"},
         ]
-    kpis.append({"clave": "en_camino", "titulo": "Embarques en camino", "valor": len(en_camino),
-                 "formato": "numero", "detalle": f"próximo arribo {proximo:%d/%m}" if proximo else "sin arribos próximos",
+    kpis.append({"clave": "en_camino", "titulo": "Shipments on the way", "valor": len(en_camino),
+                 "formato": "numero", "detalle": f"next arrival {proximo:%b %d}" if proximo else "no upcoming arrivals",
                  "fecha": proximo, "ruta": "/transporte" if interno else "/facturas",
                  "query": {"estado": "EN_TRANSITO"} if interno else {}, "tono": "normal"})
 
@@ -295,15 +295,15 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None) -> di
     seg = filas_seguimiento(db, user, prov)
     atrasadas = {f["oc"] for f in seg if f["riesgo"] == "ATRASO"}
     pendientes_lib = {f["oc"] for f in seg if f["etapa"] == "PEND_LIBERACION"}
-    kpis.append({"clave": "riesgo", "titulo": "OCs con riesgo de atraso", "valor": len(atrasadas),
-                 "detalle": "llegan después de la fecha en tienda", "ruta": "/seguimiento",
+    kpis.append({"clave": "riesgo", "titulo": "POs at risk of delay", "valor": len(atrasadas),
+                 "detalle": "arrive after the in-store date", "ruta": "/seguimiento",
                  "query": {"riesgo": "ATRASO"}, "tono": "alerta" if atrasadas else "exito"})
     tareas = _tareas(db, user, facturas, distribucion)
     if pendientes_lib:
         tareas.insert(0, {"prioridad": 1, "tipo": "liberacion",
-                          "titulo": f"{len(pendientes_lib)} OC sin liberar",
-                          "detalle": "Sin liberación comercial (P) o logística en 304: no se pueden facturar.",
-                          "ruta": "/ordenes?liberacion=304&solo_disponible=0", "accion": "Ver"})
+                          "titulo": f"{len(pendientes_lib)} POs not released",
+                          "detalle": "No commercial release (P) or logistics at 304: they cannot be invoiced.",
+                          "ruta": "/ordenes?liberacion=304&solo_disponible=0", "accion": "View"})
     return {
         "rol": user.rol,
         "moneda": moneda,

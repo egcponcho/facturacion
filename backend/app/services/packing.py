@@ -50,7 +50,7 @@ CAMPOS_VALOR = ("largo", "ancho", "alto", "peso_neto_caja", "peso_bruto_caja")
 def cargar_pl(db: Session, user: Usuario, pl_id: int) -> PackingList:
     pl = db.get(PackingList, pl_id)
     if not pl:
-        raise ErrorNegocio("El packing list no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The packing list does not exist.", 404, "no_encontrado")
     asegurar_proveedor(user, pl.factura.proveedor_id)
     return pl
 
@@ -63,8 +63,8 @@ def _editable(db: Session, user: Usuario, pl_id: int, version: int | None) -> Pa
     db.refresh(pl)
     if pl.estado not in EDITABLE_PL:
         raise ErrorNegocio(
-            f"{pl.numero} está {ESTADO_TXT[pl.estado]} y no se puede editar."
-            + (" Reábrelo para hacer cambios." if pl.estado == "FINALIZADO" else ""),
+            f"{pl.numero} is {ESTADO_TXT[pl.estado]} and cannot be edited."
+            + (" Reopen it to make changes." if pl.estado == "FINALIZADO" else ""),
             409,
             "no_editable",
         )
@@ -76,12 +76,12 @@ def _linea(pl: PackingList, pl_linea_id: int) -> PLLinea:
     for pll in pl.lineas:
         if pll.id == pl_linea_id:
             return pll
-    raise ErrorNegocio("Una de las filas ya no está en el packing list. Recarga.", 404, "no_encontrado")
+    raise ErrorNegocio("One of the rows is no longer in the packing list. Reload.", 404, "no_encontrado")
 
 
 def _ref(pll: PLLinea) -> str:
     fl = pll.factura_linea
-    return f"{fl.codigo_sap}{' talla ' + fl.talla if fl.talla else ''}"
+    return f"{fl.codigo_sap}{' size ' + fl.talla if fl.talla else ''}"
 
 
 def regla_empaque(fl) -> tuple[str, int | None]:
@@ -110,7 +110,7 @@ def etiqueta_caja(g) -> dict:
 def _plantilla(db: Session, pl: PackingList, plantilla_id: int) -> PlantillaCaja:
     t = db.get(PlantillaCaja, plantilla_id)
     if not t or t.proveedor_id != pl.factura.proveedor_id:
-        raise ErrorNegocio("La plantilla no existe para este proveedor.", 404, "no_encontrado")
+        raise ErrorNegocio("The template does not exist for this supplier.", 404, "no_encontrado")
     return t
 
 
@@ -153,8 +153,8 @@ def _tomar_saldo(db: Session, factura, lineas) -> dict[int, int]:
                 for pl in factura.packing_lists if pl.estado != "CANCELADO"
             ]
             raise ErrorNegocio(
-                "Toda la mercancía de la factura ya está en packing lists. "
-                "Abre esos PL o mueve cantidades entre ellos.",
+                "All the goods on the invoice are already in packing lists. "
+                "Open those PLs or move quantities between them.",
                 409, "sin_saldo", detalle,
             )
         return tomar
@@ -164,13 +164,13 @@ def _tomar_saldo(db: Session, factura, lineas) -> dict[int, int]:
     errores = []
     for lid, c in tomar.items():
         if lid not in saldo:
-            errores.append({"mensaje": "Una de las líneas no pertenece a la factura."})
+            errores.append({"mensaje": "One of the lines does not belong to the invoice."})
         elif c > saldo[lid]:
-            errores.append({"factura_linea_id": lid, "mensaje": f"Solo quedan {saldo[lid]} sin asignar en esa línea."})
+            errores.append({"factura_linea_id": lid, "mensaje": f"Only {saldo[lid]} remain unassigned on that line."})
         elif (msg := fuera_de_inner(next(l for l in factura.lineas if l.id == lid), c)):
             errores.append({"factura_linea_id": lid, "mensaje": msg})
     if errores:
-        raise ErrorNegocio("No se pudo asignar la cantidad.", 422, "validacion", errores)
+        raise ErrorNegocio("The quantity could not be assigned.", 422, "validacion", errores)
     return tomar
 
 
@@ -179,7 +179,7 @@ def crear_pl(db: Session, user: Usuario, factura_id: int, lineas=None) -> dict:
     exigir(user, "pl.editar")
     f = cargar_factura(db, user, factura_id, bloquear=True)
     if f.estado == "CANCELADA":
-        raise ErrorNegocio("La factura está cancelada.", 409, "no_editable")
+        raise ErrorNegocio("The invoice is cancelled.", 409, "no_editable")
     tomar = _tomar_saldo(db, f, lineas)
     pl = _nuevo_pl(db, f)
     for lid, c in tomar.items():
@@ -211,13 +211,13 @@ def _validar_movimientos(pl: PackingList, movimientos) -> list[tuple[PLLinea, in
         libre = sin_caja(pll)
         if usados[pll.id] > libre:
             errores.append({"pl_linea_id": pll.id, "mensaje":
-                f"{_ref(pll)}: solo hay {cant_txt(libre, pll.factura_linea.unidad)} sin caja. "
-                "Lo empacado se mueve con “Mover cajas”."})
+                f"{_ref(pll)}: only {cant_txt(libre, pll.factura_linea.unidad)} are not in cartons. "
+                "Packed goods move with “Move cartons”."})
         if (msg := fuera_de_inner(pll.factura_linea, m.cantidad)):
             errores.append({"pl_linea_id": pll.id, "mensaje": f"{_ref(pll)}: {msg}"})
         pares.append((pll, m.cantidad))
     if errores:
-        raise ErrorNegocio("No se pudo mover la cantidad.", 422, "validacion", errores)
+        raise ErrorNegocio("The quantity could not be moved.", 422, "validacion", errores)
     return pares
 
 
@@ -225,12 +225,12 @@ def _destino(db: Session, origen: PackingList, destino_pl_id: int | None) -> Pac
     if destino_pl_id is None:
         return _nuevo_pl(db, origen.factura)
     if destino_pl_id == origen.id:
-        raise ErrorNegocio("El destino debe ser otro packing list.", 422, "validacion")
+        raise ErrorNegocio("The destination must be another packing list.", 422, "validacion")
     destino = db.get(PackingList, destino_pl_id)
     if not destino or destino.factura_id != origen.factura_id:
-        raise ErrorNegocio("Solo puedes mover a otro PL de la misma factura.", 422, "validacion")
+        raise ErrorNegocio("You can only move to another PL of the same invoice.", 422, "validacion")
     if destino.estado not in EDITABLE_PL:
-        raise ErrorNegocio(f"{destino.numero} está {ESTADO_TXT[destino.estado]}; reábrelo primero.", 409, "no_editable")
+        raise ErrorNegocio(f"{destino.numero} is {ESTADO_TXT[destino.estado]}; reopen it first.", 409, "no_editable")
     return destino
 
 
@@ -272,9 +272,9 @@ def mover_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     for mg in datos.grupos:
         g = grupos.get(mg.grupo_id)
         if not g:
-            raise ErrorNegocio("Una de las cajas ya no está en el packing list. Recarga.", 404, "no_encontrado")
+            raise ErrorNegocio("One of the cartons is no longer in the packing list. Reload.", 404, "no_encontrado")
         if mg.num_cajas > g.num_cajas:
-            raise ErrorNegocio(f"Ese grupo solo tiene {g.num_cajas} cajas.", 422, "validacion")
+            raise ErrorNegocio(f"That group only has {g.num_cajas} cartons.", 422, "validacion")
     destino = _destino(db, origen, datos.destino_pl_id)
     total_cajas = 0
     for mg in datos.grupos:
@@ -345,17 +345,17 @@ def paletizar(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     grupos = {g.id: g for g in pl.grupos}
     faltan = [i for i in datos.grupo_ids if i not in grupos]
     if faltan or not datos.grupo_ids:
-        raise ErrorNegocio("Elige cajas de este packing list.", 422, "validacion")
+        raise ErrorNegocio("Choose cartons from this packing list.", 422, "validacion")
     if datos.pallet_id:
         pallet = next((p for p in pl.pallets if p.id == datos.pallet_id), None)
         if not pallet:
-            raise ErrorNegocio("El pallet no existe en este packing list.", 404, "no_encontrado")
+            raise ErrorNegocio("The pallet does not exist in this packing list.", 404, "no_encontrado")
     else:
-        errores = [{"campo": c, "mensaje": f"{t} del pallet es obligatorio y mayor que cero."}
-                   for c, t in (("largo", "El largo"), ("ancho", "El ancho"), ("alto", "El alto"))
+        errores = [{"campo": c, "mensaje": f"Pallet {t} is required and must be greater than zero."}
+                   for c, t in (("largo", "length"), ("ancho", "width"), ("alto", "height"))
                    if not getattr(datos, c) or getattr(datos, c) <= 0]
         if errores:
-            raise ErrorNegocio("Faltan las medidas del pallet.", 422, "validacion", errores)
+            raise ErrorNegocio("The pallet dimensions are missing.", 422, "validacion", errores)
         pallet = Pallet(numero=len(pl.pallets) + 1, largo=datos.largo, ancho=datos.ancho, alto=datos.alto,
                         peso_tara=datos.peso_tara or 0)
         pl.pallets.append(pallet)
@@ -387,12 +387,12 @@ def editar_pallet(db: Session, user: Usuario, pl_id: int, pallet_id: int, datos)
     pl = _editable(db, user, pl_id, datos.version)
     pallet = next((p for p in pl.pallets if p.id == pallet_id), None)
     if not pallet:
-        raise ErrorNegocio("El pallet no existe en este packing list.", 404, "no_encontrado")
+        raise ErrorNegocio("The pallet does not exist in this packing list.", 404, "no_encontrado")
     for c in ("largo", "ancho", "alto", "peso_tara"):
         v = getattr(datos, c)
         if v is not None:
             if v < 0 or (c != "peso_tara" and v == 0):
-                raise ErrorNegocio("Las medidas del pallet deben ser mayores que cero.", 422, "validacion")
+                raise ErrorNegocio("Pallet dimensions must be greater than zero.", 422, "validacion")
             setattr(pallet, c, v)
     tocar(pl)
     return {"version": pl.version}
@@ -428,7 +428,7 @@ def _propuesta(db: Session, pl: PackingList, filas, reemplazar: bool) -> list[di
     for fila in filas:
         pll = _linea(pl, fila.pl_linea_id)
         if pll.id in vistas:
-            raise ErrorNegocio("Una fila aparece dos veces en el empaque.", 422, "validacion")
+            raise ErrorNegocio("A row appears twice in the packing.", 422, "validacion")
         vistas.add(pll.id)
         t = None
         if fila.plantilla_id:
@@ -450,16 +450,16 @@ def _propuesta(db: Session, pl: PackingList, filas, reemplazar: bool) -> list[di
             por_caja = t.cantidad_por_caja if t else None
         f["cantidad_por_caja"] = por_caja
         if regla == "LIBRE" and not t:
-            f["omitida"] = "Elige una plantilla: el artículo no tiene casepack."
+            f["omitida"] = "Choose a template: the PO line has no casepack."
         elif regla == "LIBRE" and unidad != t.unidad:
-            f["omitida"] = "La unidad no coincide con la plantilla."
+            f["omitida"] = "The unit does not match the template."
         elif regla == "LIBRE" and inner_de(fl) and por_caja % inner_de(fl):
             f["omitida"] = (f"The template holds {por_caja} per carton, which is not a whole number of inner packs "
                             f"of {inner_de(fl)}. Choose a template that is a multiple of {inner_de(fl)}.")
         elif t and not t.activa:
-            f["omitida"] = "La plantilla está inactiva."
+            f["omitida"] = "The template is inactive."
         elif libre == 0:
-            f["omitida"] = "Ya está empacada."
+            f["omitida"] = "It is already packed."
         else:
             f["cajas"] = libre // por_caja
             f["empacado"] = f["cajas"] * por_caja
@@ -519,7 +519,7 @@ def aplicar_empaque(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     filas = _propuesta(db, pl, datos.filas, False)
     resumen = _resumen_propuesta(filas)
     if not resumen["filas"]:
-        raise ErrorNegocio("No hay nada que empacar con esas plantillas.", 422, "sin_pendiente",
+        raise ErrorNegocio("There is nothing to pack with those templates.", 422, "sin_pendiente",
                            [{"mensaje": f"{f['ref']}: {f['omitida']}"} for f in filas])
     for f in filas:
         if "omitida" in f:
@@ -538,7 +538,7 @@ def aplicar_empaque(db: Session, user: Usuario, pl_id: int, datos) -> dict:
             valores, _ = _valores_regla(t, fl, f["sobrante"])
             g = GrupoCajas(num_cajas=1, es_parcial=True, peso_estimado=bool(t), **nombre, **valores)
             if f["regla"] == "CASEPACK":
-                g.observacion = f"Caja incompleta: {f['sobrante']} de {por_caja} del casepack."
+                g.observacion = f"Partial carton: {f['sobrante']} of {por_caja} of the casepack."
             g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=f["sobrante"]))
             pl.grupos.append(g)
     tocar(pl)
@@ -557,18 +557,18 @@ def crear_caja(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     for item in datos.items:
         pll = _linea(pl, item.pl_linea_id)
         if pll.id in vistos:
-            raise ErrorNegocio("Una fila aparece dos veces en la caja.", 422, "validacion")
+            raise ErrorNegocio("A row appears twice in the carton.", 422, "validacion")
         vistos.add(pll.id)
         unidades.add(pll.factura_linea.unidad)
         necesario = item.cantidad_por_caja * datos.num_cajas
         if necesario > sin_caja(pll):
             errores.append({"pl_linea_id": pll.id, "mensaje":
-                f"{_ref(pll)}: necesitas {necesario} y solo hay {sin_caja(pll)} sin caja."})
+                f"{_ref(pll)}: you need {necesario} and only {sin_caja(pll)} are not in cartons."})
     if errores:
-        raise ErrorNegocio("La caja no cabe en lo pendiente.", 422, "validacion", errores)
+        raise ErrorNegocio("The carton does not fit in what is pending.", 422, "validacion", errores)
     errores = _reglas_caja(pl, datos.items, datos.num_cajas)
     if errores:
-        raise ErrorNegocio("La caja no cumple las reglas de empaque.", 422, "regla_empaque", errores)
+        raise ErrorNegocio("The carton does not follow the packing rules.", 422, "regla_empaque", errores)
     por_caja = sum(i.cantidad_por_caja for i in datos.items)
     valores = _valores_plantilla(t, por_caja) if t else {}
     explicitos = datos.model_dump(exclude_unset=True)
@@ -599,8 +599,8 @@ def _reglas_caja(pl: PackingList, items, num_cajas: int) -> list[dict]:
     errores = []
     destinos = {pll.factura_linea.centro_destino for pll, _ in lineas}
     if len(destinos) > 1:
-        errores.append({"mensaje": "Una caja no puede mezclar productos para distintos países de destino ("
-                        + ", ".join(sorted(d or "sin destino" for d in destinos)) + ")."})
+        errores.append({"mensaje": "A carton cannot mix goods for different destination countries ("
+                        + ", ".join(sorted(d or "no destination" for d in destinos)) + ")."})
     for pll, cant in lineas:
         regla, por_caja = regla_empaque(pll.factura_linea)
         ref = _ref(pll)
@@ -612,16 +612,16 @@ def _reglas_caja(pl: PackingList, items, num_cajas: int) -> list[dict]:
         if regla == "LIBRE":
             continue
         if len(lineas) > 1:
-            errores.append({"mensaje": f"{ref}: {'un prepack' if regla == 'PREPACK' else 'un sólido con casepack'} "
-                            "va solo en su caja; no se mezcla con otros estilos, colores o tallas."})
+            errores.append({"mensaje": f"{ref}: {'a prepack' if regla == 'PREPACK' else 'a solid with casepack'} "
+                            "goes alone in its carton; it is not mixed with other styles, colors or sizes."})
             continue
         if regla == "PREPACK" and cant != 1:
-            errores.append({"mensaje": f"{ref}: cada caja master lleva exactamente una curva {pll.factura_linea.prepack}."})
+            errores.append({"mensaje": f"{ref}: each master carton carries exactly one {pll.factura_linea.prepack} assortment."})
         if regla == "CASEPACK" and cant != por_caja:
             resto = sin_caja(pll)
             if not (num_cajas == 1 and cant == resto and cant < por_caja):
-                errores.append({"mensaje": f"{ref}: el casepack es {por_caja}; no se puede aumentar ni reducir. "
-                                "Solo el resto final puede ir en una caja incompleta."})
+                errores.append({"mensaje": f"{ref}: the casepack is {por_caja}; it cannot be increased or reduced. "
+                                "Only the final remainder may go in a partial carton."})
     return errores
 
 
@@ -631,7 +631,7 @@ def editar_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     seleccion = []
     for gid in datos.grupo_ids:
         if gid not in grupos:
-            raise ErrorNegocio("Una de las cajas ya no está en el packing list. Recarga.", 404, "no_encontrado")
+            raise ErrorNegocio("One of the cartons is no longer in the packing list. Reload.", 404, "no_encontrado")
         seleccion.append(grupos[gid])
     campos = datos.model_dump(exclude_unset=True)
     t = _plantilla(db, pl, datos.desde_plantilla_id) if datos.desde_plantilla_id else None
@@ -655,14 +655,14 @@ def editar_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
                 otros = cubierto(it.pl_linea) - it.cantidad_por_caja * g.num_cajas
                 if otros + it.cantidad_por_caja * datos.num_cajas > it.pl_linea.cantidad:
                     errores.append({"grupo_id": g.id, "mensaje":
-                        f"{_ref(it.pl_linea)}: no alcanza la cantidad para {datos.num_cajas} cajas."})
+                        f"{_ref(it.pl_linea)}: not enough quantity for {datos.num_cajas} cartons."})
             g.num_cajas = datos.num_cajas
         if datos.confirmar_pesos:
             if g.peso_neto_caja is None or g.peso_bruto_caja is None:
-                errores.append({"grupo_id": g.id, "mensaje": "Hay cajas sin peso; captúralo antes de confirmar."})
+                errores.append({"grupo_id": g.id, "mensaje": "Some cartons have no weight; enter it before confirming."})
             g.peso_estimado = False
     if errores:
-        raise ErrorNegocio("Algunas cajas no se pudieron actualizar.", 422, "validacion", errores)
+        raise ErrorNegocio("Some cartons could not be updated.", 422, "validacion", errores)
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "editar_cajas",
               {"grupos": len(seleccion), "campos": [k for k in campos if k not in ("version", "grupo_ids")]},
@@ -678,7 +678,7 @@ def eliminar_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     for gid in datos.grupo_ids:
         g = grupos.get(gid)
         if not g:
-            raise ErrorNegocio("Una de las cajas ya no está en el packing list. Recarga.", 404, "no_encontrado")
+            raise ErrorNegocio("One of the cartons is no longer in the packing list. Reload.", 404, "no_encontrado")
         total += g.num_cajas
         afectadas.update(it.pl_linea for it in g.items)
         pl.grupos.remove(g)
@@ -696,14 +696,14 @@ def guardar_como_plantilla(db: Session, user: Usuario, pl_id: int, grupo_id: int
     pl = cargar_pl(db, user, pl_id)
     g = next((x for x in pl.grupos if x.id == grupo_id), None)
     if not g:
-        raise ErrorNegocio("La caja no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The carton does not exist.", 404, "no_encontrado")
     if len(g.items) != 1:
-        raise ErrorNegocio("Solo se puede guardar como plantilla una caja de un solo producto.", 422, "validacion")
+        raise ErrorNegocio("Only a single-product carton can be saved as a template.", 422, "validacion")
     nombre = nombre.strip()
     existe = db.scalar(select(PlantillaCaja.id).where(
         PlantillaCaja.proveedor_id == pl.factura.proveedor_id, PlantillaCaja.nombre == nombre))
     if existe:
-        raise ErrorNegocio(f"Ya existe una plantilla llamada “{nombre}”.", 409, "duplicado")
+        raise ErrorNegocio(f"A template named “{nombre}” already exists.", 409, "duplicado")
     it = g.items[0]
     t = PlantillaCaja(
         proveedor_id=pl.factura.proveedor_id, nombre=nombre, cantidad_por_caja=it.cantidad_por_caja,
@@ -737,10 +737,13 @@ def destinos_pl(db: Session, pl: PackingList) -> list[dict]:
 
 
 # ---- Estados ----------------------------------------------------------------
+MEDIDA_TXT = {"largo": "length", "ancho": "width", "alto": "height"}
+
+
 def validar_pl(pl: PackingList) -> list[dict]:
     errores = []
     if not pl.lineas:
-        errores.append({"mensaje": "El packing list no tiene contenido."})
+        errores.append({"mensaje": "The packing list has no contents."})
     pendientes: dict[str, list] = {}
     for pll in pl.lineas:
         libre = sin_caja(pll)
@@ -750,18 +753,18 @@ def validar_pl(pl: PackingList) -> list[dict]:
             d[1] += 1
     for unidad, (cantidad, filas) in pendientes.items():
         errores.append({"codigo": "sin_caja", "mensaje":
-            f"Hay {cant_txt(cantidad, unidad)} sin caja en {filas} fila{'s' if filas > 1 else ''}."})
+            f"{cant_txt(cantidad, unidad)} not in cartons in {filas} row{'s' if filas > 1 else ''}."})
     rangos = numeracion(pl)
     for g in pl.grupos:
         d, h = rangos[g.id]
-        etiqueta = f"Caja {d}" if d == h else f"Cajas {d}–{h}"
+        etiqueta = f"Carton {d}" if d == h else f"Cartons {d}–{h}"
         faltan = [n for n, v in (("largo", g.largo), ("ancho", g.ancho), ("alto", g.alto)) if not v]
         if faltan:
-            errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: faltan medidas ({', '.join(faltan)})."})
+            errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: dimensions missing ({', '.join(MEDIDA_TXT[x] for x in faltan)})."})
         if not g.peso_neto_caja or not g.peso_bruto_caja:
-            errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: falta el peso neto o bruto."})
+            errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: net or gross weight missing."})
         elif g.peso_bruto_caja < g.peso_neto_caja:
-            errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: el peso bruto es menor que el neto."})
+            errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: gross weight is less than net weight."})
         for it in g.items:
             n = inner_de(it.pl_linea.factura_linea)
             if n and it.cantidad_por_caja % n:
@@ -769,7 +772,7 @@ def validar_pl(pl: PackingList) -> list[dict]:
                                 f"{it.cantidad_por_caja} per carton, not whole inner packs of {n}."})
         if g.peso_estimado:
             errores.append({"grupo_id": g.id, "codigo": "peso_estimado",
-                            "mensaje": f"{etiqueta}: el peso es estimado; confírmalo o corrígelo."})
+                            "mensaje": f"{etiqueta}: the weight is estimated; confirm or correct it."})
     return errores
 
 
@@ -785,8 +788,8 @@ def avisos_pl(pl: PackingList) -> list[dict]:
         if regla == "CASEPACK" and it.cantidad_por_caja != por_caja:
             d, h = rangos[g.id]
             avisos.append({"grupo_id": g.id, "mensaje":
-                f"Caja {d if d == h else f'{d}–{h}'}: incompleta ({it.cantidad_por_caja} de {por_caja} del casepack). "
-                "Confírmala con el Commercial Brand Manager."})
+                f"Carton {d if d == h else f'{d}–{h}'}: partial ({it.cantidad_por_caja} of {por_caja} of the casepack). "
+                "Confirm it with the Commercial Brand Manager."})
     return avisos
 
 
@@ -794,10 +797,10 @@ def finalizar_pl(db: Session, user: Usuario, pl_id: int, version: int) -> dict:
     exigir(user, "pl.finalizar")
     pl = _editable(db, user, pl_id, version)
     if pl.factura.estado == "CANCELADA":
-        raise ErrorNegocio("La factura está cancelada.", 409, "no_editable")
+        raise ErrorNegocio("The invoice is cancelled.", 409, "no_editable")
     errores = validar_pl(pl)
     if errores:
-        raise ErrorNegocio("Hay datos pendientes antes de finalizar.", 422, "pendientes", errores)
+        raise ErrorNegocio("Some data is missing before finalizing.", 422, "pendientes", errores)
     pl.estado = "FINALIZADO"
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "finalizar", None, factura_id=pl.factura_id)
@@ -806,17 +809,17 @@ def finalizar_pl(db: Session, user: Usuario, pl_id: int, version: int) -> dict:
 
 def reabrir_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> dict:
     exigir(user, "pl.reabrir")
-    motivo = requerir_motivo(motivo, "reabrir el packing list")
+    motivo = requerir_motivo(motivo, "reopen the packing list")
     pl = cargar_pl(db, user, pl_id)
     if pl.estado != "FINALIZADO":
-        raise ErrorNegocio("Solo se pueden reabrir packing lists finalizados.", 409, "no_editable")
+        raise ErrorNegocio("Only finalized packing lists can be reopened.", 409, "no_editable")
     if pl.unidad and pl.unidad.embarque.estado != "PLANIFICADO":
-        raise ErrorNegocio(f"{pl.numero} ya viaja en {pl.unidad.embarque.codigo}; no se puede reabrir.", 409,
+        raise ErrorNegocio(f"{pl.numero} is already traveling on {pl.unidad.embarque.codigo}; it cannot be reopened.", 409,
                            "embarque_cerrado")
     nota = None
     if pl.asignacion == "CONFIRMADA":
         pl.asignacion = "TENTATIVA"
-        nota = "La asignación a la unidad de carga pasó a tentativa."
+        nota = "The load unit assignment became tentative."
     pl.estado = "EN_CORRECCION"
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "reabrir", {"nota": nota} if nota else None, motivo,
@@ -828,13 +831,13 @@ def cancelar_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> d
     exigir(user, "pl.cancelar")
     pl = cargar_pl(db, user, pl_id)
     if pl.estado == "CANCELADO":
-        raise ErrorNegocio("El packing list ya está cancelado.", 409, "no_editable")
+        raise ErrorNegocio("The packing list is already cancelled.", 409, "no_editable")
     if user.rol == "proveedor" and pl.estado != "BORRADOR":
-        raise ErrorNegocio("Solo puedes cancelar packing lists en borrador.", 403, "sin_permiso")
+        raise ErrorNegocio("You can only cancel draft packing lists.", 403, "sin_permiso")
     if pl.asignacion == "CONFIRMADA":
-        raise ErrorNegocio("Primero quita el PL de su unidad de carga.", 409, "pl_en_transporte")
+        raise ErrorNegocio("First remove the PL from its load unit.", 409, "pl_en_transporte")
     if pl.estado != "BORRADOR":
-        motivo = requerir_motivo(motivo, "cancelar el packing list")
+        motivo = requerir_motivo(motivo, "cancel the packing list")
     pl.estado = "CANCELADO"
     pl.unidad_carga_id = None
     pl.asignacion = None
@@ -848,7 +851,7 @@ def registrar_recepcion(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     exigir(user, "recepcion.registrar")
     pl = cargar_pl(db, user, pl_id)
     if pl.estado != "FINALIZADO":
-        raise ErrorNegocio("Solo se registra la recepción de packing lists finalizados.", 409, "no_editable")
+        raise ErrorNegocio("Receipt is only recorded for finalized packing lists.", 409, "no_editable")
     diferencias = []
     for item in datos.lineas:
         pll = _linea(pl, item.pl_linea_id)

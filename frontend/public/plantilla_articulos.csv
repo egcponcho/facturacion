@@ -1,4 +1,4 @@
-sku,estilo,color,talla,descripcion,marca,grupo,proveedor,tipo,unidad,casepack,upc,partida_arancelaria,pais_origen
-30095120101,NF0A7W4G,KX7 Negro,11,Calzado hiking,TNF,CALZ-OUT,TNF,SOLIDO,PAR,12,0196000200010,6404.11,VN
-30095120102,NF0A7W4G,KX7 Negro,12,Calzado hiking,TNF,CALZ-OUT,TNF,SOLIDO,PAR,12,0196000200011,6404.11,VN
-30095120103,NF0A88,Verde,M,Chaqueta ligera,TNF,CHAQ,TNF,SOLIDO,UN,,0196000200012,6201.40,VN
+sku,style,color,size,description,brand,group,supplier,type,uom,upc,hs_code,country_of_origin
+30095120101,NF0A7W4G,KX7 Black,11,Hiking footwear,TNF,CALZ-OUT,TNF,SOLIDO,PAR,0196000200010,6404.11,VN
+30095120102,NF0A7W4G,KX7 Black,12,Hiking footwear,TNF,CALZ-OUT,TNF,SOLIDO,PAR,0196000200011,6404.11,VN
+30095120103,NF0A88,Verde,M,Chaqueta ligera,TNF,CHAQ,TNF,SOLIDO,UN,0196000200012,6201.40,VN

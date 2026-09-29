@@ -49,11 +49,11 @@ from .common import (
 )
 
 ETIQUETAS = {
-    "sociedad": "sociedades",
-    "moneda": "monedas",
-    "centro": "centros de destino",
+    "sociedad": "companies",
+    "moneda": "currencies",
+    "centro": "destination centers",
     "incoterm": "incoterms",
-    "centro_destino": "países de destino",
+    "centro_destino": "destination countries",
 }
 
 
@@ -64,7 +64,7 @@ def cargar_factura(db: Session, user: Usuario, factura_id: int, bloquear: bool =
         consulta = consulta.with_for_update()
     f = db.scalar(consulta)
     if not f:
-        raise ErrorNegocio("La factura no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The invoice does not exist.", 404, "no_encontrado")
     asegurar_proveedor(user, f.proveedor_id)
     return f
 
@@ -72,15 +72,15 @@ def cargar_factura(db: Session, user: Usuario, factura_id: int, bloquear: bool =
 def exigir_editable(f: Factura) -> None:
     if f.estado not in EDITABLE_FACTURA:
         raise ErrorNegocio(
-            f"La factura está {ESTADO_TXT[f.estado]} y no se puede editar."
-            + (" Reábrela para hacer cambios." if f.estado == "FINALIZADA" else ""),
+            f"The invoice is {ESTADO_TXT[f.estado]} and cannot be edited."
+            + (" Reopen it to make changes." if f.estado == "FINALIZADA" else ""),
             409,
             "no_editable",
         )
 
 
 def _ref_linea(l: FacturaLinea) -> str:
-    return f"OC {l.oc_numero} pos. {l.posicion} ({l.codigo_sap}{' talla ' + l.talla if l.talla else ''})"
+    return f"PO {l.oc_numero} line {l.posicion} ({l.codigo_sap}{' size ' + l.talla if l.talla else ''})"
 
 
 def _validar_numero(db: Session, proveedor_id: int, numero: str | None, excluir_id: int | None) -> None:
@@ -95,7 +95,7 @@ def _validar_numero(db: Session, proveedor_id: int, numero: str | None, excluir_
         consulta = consulta.where(Factura.id != excluir_id)
     if db.scalar(consulta):
         raise ErrorNegocio(
-            f"Ya existe una factura {numero} de este proveedor.", 409, "numero_duplicado"
+            f"Invoice {numero} already exists for this supplier.", 409, "numero_duplicado"
         )
 
 
@@ -118,17 +118,17 @@ def _preparar_posiciones(
         ).all()
     )
     if len(posiciones) != len(pedidas):
-        raise ErrorNegocio("Algunas posiciones ya no existen. Recarga la lista.", 404, "no_encontrado")
+        raise ErrorNegocio("Some PO lines no longer exist. Reload the list.", 404, "no_encontrado")
     ocs = {p.oc_id: p.oc for p in posiciones}
 
     proveedores = {oc.proveedor_id for oc in ocs.values()}
     if factura:
         proveedores.add(factura.proveedor_id)
     if len(proveedores) > 1:
-        raise ErrorNegocio("Una factura solo puede tener posiciones de un mismo proveedor.", 422, "proveedor_mixto")
+        raise ErrorNegocio("An invoice can only have PO lines from one supplier.", 422, "proveedor_mixto")
     prov = next(iter(proveedores))
     if proveedor_id and prov != proveedor_id:
-        raise ErrorNegocio("Las posiciones no pertenecen al proveedor seleccionado.", 422, "proveedor_mixto")
+        raise ErrorNegocio("The PO lines do not belong to the selected supplier.", 422, "proveedor_mixto")
     asegurar_proveedor(user, prov)
 
     errores: list[dict] = []
@@ -139,9 +139,9 @@ def _preparar_posiciones(
             valores.add(getattr(factura, campo))
         valores.discard(None)
         if len(valores) > 1:
-            texto = f"Estás mezclando {ETIQUETAS[campo]} distintos: {', '.join(sorted(map(str, valores)))}."
+            texto = f"You are mixing different {ETIQUETAS[campo]}: {', '.join(sorted(map(str, valores)))}."
             if campo in settings.COMPATIBILIDAD_BLOQUEANTE:
-                errores.append({"mensaje": texto + " Sepáralos en facturas diferentes."})
+                errores.append({"mensaje": texto + " Split them into separate invoices."})
             else:
                 advertencias.append(texto)
 
@@ -150,13 +150,13 @@ def _preparar_posiciones(
     activas = facturas_por_posicion(db, ids)
     for p in posiciones:
         oc = ocs[p.oc_id]
-        ref = f"OC {oc.numero} pos. {p.posicion}"
+        ref = f"PO {oc.numero} line {p.posicion}"
         cantidad = pedidas[p.id]
         if not oc.liberada:
-            errores.append({"posicion_id": p.id, "mensaje": f"{ref}: la OC no está liberada."})
+            errores.append({"posicion_id": p.id, "mensaje": f"{ref}: the PO is not released."})
             continue
         if p.bloqueada:
-            errores.append({"posicion_id": p.id, "mensaje": f"{ref}: {p.motivo_bloqueo or 'posición bloqueada'}."})
+            errores.append({"posicion_id": p.id, "mensaje": f"{ref}: {p.motivo_bloqueo or 'line blocked'}."})
             continue
         if not settings.POSICION_EN_VARIAS_FACTURAS:
             otras = [a for a in activas.get(p.id, []) if not factura or a["id"] != factura.id]
@@ -164,8 +164,8 @@ def _preparar_posiciones(
                 errores.append(
                     {
                         "posicion_id": p.id,
-                        "mensaje": f"{ref} ya está en {otras[0]['nombre']}. "
-                        "Agrega el saldo en esa factura o quítala de ahí primero.",
+                        "mensaje": f"{ref} is already in {otras[0]['nombre']}. "
+                        "Add the balance to that invoice or remove it from there first.",
                     }
                 )
                 continue
@@ -177,12 +177,12 @@ def _preparar_posiciones(
             errores.append(
                 {
                     "posicion_id": p.id,
-                    "mensaje": f"{ref}: solo quedan {cant_txt(max(disponible, 0), p.unidad)} disponibles "
-                    f"y pediste {cantidad}.",
+                    "mensaje": f"{ref}: only {cant_txt(max(disponible, 0), p.unidad)} available "
+                    f"and you asked for {cantidad}.",
                 }
             )
     if errores:
-        raise ErrorNegocio("No se pudieron agregar algunas posiciones.", 422, "validacion", errores)
+        raise ErrorNegocio("Some PO lines could not be added.", 422, "validacion", errores)
     return posiciones, ocs, pedidas, advertencias
 
 
@@ -253,7 +253,7 @@ def agregar_lineas(db: Session, user: Usuario, factura_id: int, version: int, li
     exigir(user, "factura.editar")
     f = cargar_factura(db, user, factura_id, bloquear=True)
     exigir_editable(f)
-    verificar_version(f, version, "factura")
+    verificar_version(f, version, "invoice")
     posiciones, ocs, pedidas, advertencias = _preparar_posiciones(db, user, lineas, factura=f)
     existentes = {l.posicion_oc_id: l for l in f.lineas}
     agregadas = aumentadas = 0
@@ -273,7 +273,7 @@ def agregar_lineas(db: Session, user: Usuario, factura_id: int, version: int, li
 # ---- Edición de líneas (una celda o en bloque) -------------------------------
 def _liberar_de_pl(db: Session, linea: FacturaLinea, cantidad: int) -> list[dict]:
     """Quita `cantidad` de los PL editables (del más nuevo al más viejo),
-    tomando solo lo que no está en cajas."""
+    tomando solo lo que no is in cajas."""
     pendiente = cantidad
     afectados = []
     for pll in pl_lineas_activas(db, [linea.id]):
@@ -293,9 +293,9 @@ def _liberar_de_pl(db: Session, linea: FacturaLinea, cantidad: int) -> list[dict
             pll.pl.lineas.remove(pll)
     if pendiente > 0:
         raise ErrorNegocio(
-            f"{_ref_linea(linea)}: solo se pudieron liberar {cantidad - pendiente} automáticamente. "
-            f"Faltan {pendiente}, que están en cajas o en PL finalizados. "
-            "Desempaca esas cajas o reabre el PL primero.",
+            f"{_ref_linea(linea)}: only {cantidad - pendiente} could be released automatically. "
+            f"{pendiente} remain in cartons or finalized PLs. "
+            "Unpack those cartons or reopen the PL first.",
             409,
             "ajuste_insuficiente",
         )
@@ -306,11 +306,11 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
     exigir(user, "factura.editar")
     f = cargar_factura(db, user, factura_id, bloquear=True)
     exigir_editable(f)
-    verificar_version(f, datos.version, "factura")
+    verificar_version(f, datos.version, "invoice")
     lineas = {l.id: l for l in f.lineas}
     for c in datos.cambios:
         if c.linea_id not in lineas:
-            raise ErrorNegocio("Una de las líneas ya no está en la factura. Recarga.", 404, "no_encontrado")
+            raise ErrorNegocio("One of the lines is no longer on the invoice. Reload.", 404, "no_encontrado")
 
     con_cantidad = [lineas[c.linea_id] for c in datos.cambios if c.cantidad is not None]
     if con_cantidad:
@@ -339,7 +339,7 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
                 disponible = p.cantidad - facturado.get(p.id, 0)
                 if nueva - l.cantidad > disponible:
                     errores.append({"linea_id": l.id, "mensaje":
-                        f"{ref}: la OC solo tiene {cant_txt(max(disponible, 0), l.unidad)} más disponibles."})
+                        f"{ref}: the PO only has {cant_txt(max(disponible, 0), l.unidad)} more available."})
                     continue
             en_pl = asignado.get(l.id, 0)
             if nueva < en_pl:
@@ -368,7 +368,7 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
             motivo = (campos.get("motivo_precio") or l.motivo_precio or "").strip()
             if abs(nuevo - l.precio_oc) > 1e-9 and not motivo:
                 errores.append({"linea_id": l.id, "codigo": "motivo_precio", "mensaje":
-                    f"{ref}: indica el motivo del cambio de precio (precio OC {l.precio_oc})."})
+                    f"{ref}: enter the reason for the price change (PO price {l.precio_oc})."})
                 continue
             if abs(nuevo - l.precio_unitario) > 1e-9:
                 cambios_linea["precio_unitario"] = [l.precio_unitario, nuevo]
@@ -389,10 +389,10 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
             historial.append({"linea_id": l.id, "ref": ref, **cambios_linea})
 
     if errores:
-        raise ErrorNegocio("Algunos cambios no se pudieron aplicar.", 422, "validacion", errores)
+        raise ErrorNegocio("Some changes could not be applied.", 422, "validacion", errores)
     if requieren_ajuste:
         raise ErrorNegocio(
-            "La nueva cantidad es menor que lo que ya está en packing lists.",
+            "The new quantity is less than what is already in packing lists.",
             409,
             "requiere_ajuste_pl",
             requieren_ajuste,
@@ -413,7 +413,7 @@ def eliminar_pl_linea(db: Session, pll: PLLinea) -> None:
             g.pl.grupos.remove(g)
         else:
             g.peso_estimado = True
-            g.observacion = "Revisar: se retiró contenido de esta caja mixta."
+            g.observacion = "Check: contents were removed from this mixed carton."
     limpiar_pallets(pll.pl)
     db.flush()
     db.expire(pll, ["items"])
@@ -424,10 +424,10 @@ def eliminar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
     exigir(user, "factura.editar")
     f = cargar_factura(db, user, factura_id, bloquear=True)
     exigir_editable(f)
-    verificar_version(f, datos.version, "factura")
+    verificar_version(f, datos.version, "invoice")
     lineas = [l for l in f.lineas if l.id in set(datos.linea_ids)]
     if len(lineas) != len(set(datos.linea_ids)):
-        raise ErrorNegocio("Algunas líneas ya no están en la factura. Recarga.", 404, "no_encontrado")
+        raise ErrorNegocio("Some lines are no longer on the invoice. Reload.", 404, "no_encontrado")
 
     impacto = []
     bloqueos = []
@@ -438,7 +438,7 @@ def eliminar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
         activas = [x for x in plls if x.pl.estado != "CANCELADO"]
         for x in activas:
             if x.pl.estado not in EDITABLE_PL:
-                bloqueos.append(f"{_ref_linea(l)} está en {x.pl.numero}, que está {ESTADO_TXT[x.pl.estado]}.")
+                bloqueos.append(f"{_ref_linea(l)} is in {x.pl.numero}, which is {ESTADO_TXT[x.pl.estado]}.")
         if activas:
             impacto.append({
                 "linea_id": l.id,
@@ -448,12 +448,12 @@ def eliminar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
                 ],
             })
     if bloqueos:
-        raise ErrorNegocio("Reabre los packing lists antes de quitar estas líneas.", 409, "pl_no_editable",
+        raise ErrorNegocio("Reopen the packing lists before removing these lines.", 409, "pl_no_editable",
                            [{"mensaje": b} for b in bloqueos])
     if impacto and not datos.confirmar_cascada:
         raise ErrorNegocio(
-            "Algunas líneas tienen cantidades en packing lists. Si continúas, también se quitarán de ahí "
-            "(con sus cajas) y volverán a estar disponibles en la OC.",
+            "Some lines have quantities in packing lists. If you continue, they will also be removed from there "
+            "(with their cartons) and become available on the PO again.",
             409,
             "requiere_confirmacion",
             impacto,
@@ -478,7 +478,7 @@ def actualizar_cabecera(db: Session, user: Usuario, factura_id: int, datos: Fact
     exigir(user, "factura.editar")
     f = cargar_factura(db, user, factura_id, bloquear=True)
     exigir_editable(f)
-    verificar_version(f, datos.version, "factura")
+    verificar_version(f, datos.version, "invoice")
     campos = datos.model_dump(exclude_unset=True, exclude={"version"})
     if "numero" in campos:
         campos["numero"] = (campos["numero"] or "").strip() or None
@@ -500,33 +500,33 @@ def actualizar_cabecera(db: Session, user: Usuario, factura_id: int, datos: Fact
 def validar_factura(db: Session, f: Factura) -> list[dict]:
     errores = []
     if not f.numero:
-        errores.append({"campo": "numero", "mensaje": "Falta el número de factura."})
+        errores.append({"campo": "numero", "mensaje": "The invoice number is missing."})
     if not f.fecha:
-        errores.append({"campo": "fecha", "mensaje": "Falta la fecha de la factura."})
+        errores.append({"campo": "fecha", "mensaje": "The invoice date is missing."})
     if not f.incoterm:
-        errores.append({"campo": "incoterm", "mensaje": "Falta el incoterm (condición de entrega)."})
+        errores.append({"campo": "incoterm", "mensaje": "The incoterm (delivery terms) is missing."})
     if not f.lineas:
-        errores.append({"mensaje": "La factura no tiene líneas."})
+        errores.append({"mensaje": "The invoice has no lines."})
     facturado = facturado_por_posicion(db, [l.posicion_oc_id for l in f.lineas])
     for l in f.lineas:
         ref = _ref_linea(l)
         if l.precio_unitario <= 0:
-            errores.append({"linea_id": l.id, "mensaje": f"{ref}: el precio debe ser mayor que cero."})
+            errores.append({"linea_id": l.id, "mensaje": f"{ref}: the price must be greater than zero."})
         if abs(l.precio_unitario - l.precio_oc) > 1e-9 and not l.motivo_precio:
-            errores.append({"linea_id": l.id, "mensaje": f"{ref}: falta el motivo del cambio de precio."})
+            errores.append({"linea_id": l.id, "mensaje": f"{ref}: the reason for the price change is missing."})
         if not (l.descripcion_comercial or "").strip():
-            errores.append({"linea_id": l.id, "mensaje": f"{ref}: falta la descripción comercial de la mercancía."})
+            errores.append({"linea_id": l.id, "mensaje": f"{ref}: the commercial description of the goods is missing."})
         if settings.REQUERIR_DATOS_ADUANA:
             if not l.pais_origen:
-                errores.append({"linea_id": l.id, "mensaje": f"{ref}: falta el país de origen."})
+                errores.append({"linea_id": l.id, "mensaje": f"{ref}: the country of origin is missing."})
             if not l.partida_arancelaria:
-                errores.append({"linea_id": l.id, "mensaje": f"{ref}: falta la partida arancelaria."})
+                errores.append({"linea_id": l.id, "mensaje": f"{ref}: the HS code is missing."})
         p = l.posicion_oc
         if facturado.get(p.id, 0) > p.cantidad:
             errores.append({"linea_id": l.id, "mensaje":
-                f"{ref}: lo facturado ({facturado[p.id]}) supera la cantidad actual de la OC ({p.cantidad})."})
+                f"{ref}: the invoiced quantity ({facturado[p.id]}) exceeds the current PO quantity ({p.cantidad})."})
         if p.bloqueada:
-            errores.append({"linea_id": l.id, "mensaje": f"{ref}: la posición está bloqueada en la OC."})
+            errores.append({"linea_id": l.id, "mensaje": f"{ref}: the line is blocked on the PO."})
     return errores
 
 
@@ -536,8 +536,8 @@ def finalizar(db: Session, user: Usuario, factura_id: int, version: int, incluir
     exigir(user, "factura.finalizar")
     f = cargar_factura(db, user, factura_id, bloquear=True)
     if f.estado not in EDITABLE_FACTURA:
-        raise ErrorNegocio(f"La factura ya está {ESTADO_TXT[f.estado]}.", 409, "no_editable")
-    verificar_version(f, version, "factura")
+        raise ErrorNegocio(f"The invoice is already {ESTADO_TXT[f.estado]}.", 409, "no_editable")
+    verificar_version(f, version, "invoice")
     errores = validar_factura(db, f)
     pls = []
     if incluir_pls:
@@ -547,12 +547,12 @@ def finalizar(db: Session, user: Usuario, factura_id: int, version: int, incluir
             falta = l.cantidad - asignado.get(l.id, 0)
             if falta > 0:
                 errores.append({"linea_id": l.id, "mensaje":
-                    f"{_ref_linea(l)}: quedan {cant_txt(falta, l.unidad)} sin asignar a un packing list."})
+                    f"{_ref_linea(l)}: {cant_txt(falta, l.unidad)} not assigned to a packing list."})
         pls = [pl for pl in f.packing_lists if pl.estado in EDITABLE_PL]
         for pl in pls:
             errores += [{**e, "mensaje": f"{pl.numero}: {e['mensaje']}"} for e in validar_pl(pl)]
     if errores:
-        raise ErrorNegocio("Hay datos pendientes antes de finalizar.", 422, "pendientes", errores)
+        raise ErrorNegocio("Some data is missing before finalizing.", 422, "pendientes", errores)
     f.estado = "FINALIZADA"
     f.finalizado_en = ahora()
     tocar(f)
@@ -566,10 +566,10 @@ def finalizar(db: Session, user: Usuario, factura_id: int, version: int, incluir
 
 def reabrir(db: Session, user: Usuario, factura_id: int, motivo: str | None) -> dict:
     exigir(user, "factura.reabrir")
-    motivo = requerir_motivo(motivo, "reabrir la factura")
+    motivo = requerir_motivo(motivo, "reopen the invoice")
     f = cargar_factura(db, user, factura_id, bloquear=True)
     if f.estado != "FINALIZADA":
-        raise ErrorNegocio("Solo se pueden reabrir facturas finalizadas.", 409, "no_editable")
+        raise ErrorNegocio("Only finalized invoices can be reopened.", 409, "no_editable")
     f.estado = "EN_CORRECCION"
     tocar(f)
     registrar(db, user, "factura", f.id, "reabrir", None, motivo, factura_id=f.id)
@@ -580,16 +580,16 @@ def cancelar(db: Session, user: Usuario, factura_id: int, motivo: str | None) ->
     exigir(user, "factura.cancelar")
     f = cargar_factura(db, user, factura_id, bloquear=True)
     if f.estado == "CANCELADA":
-        raise ErrorNegocio("La factura ya está cancelada.", 409, "no_editable")
+        raise ErrorNegocio("The invoice is already cancelled.", 409, "no_editable")
     if user.rol == "proveedor" and f.estado != "BORRADOR":
-        raise ErrorNegocio("Solo puedes cancelar facturas en borrador. Pide al equipo interno que la cancele.",
+        raise ErrorNegocio("You can only cancel draft invoices. Ask the internal team to cancel it.",
                            403, "sin_permiso")
     if f.estado != "BORRADOR":
-        motivo = requerir_motivo(motivo, "cancelar la factura")
+        motivo = requerir_motivo(motivo, "cancel the invoice")
     confirmados = [pl.numero for pl in f.packing_lists if pl.asignacion == "CONFIRMADA" and pl.estado != "CANCELADO"]
     if confirmados:
         raise ErrorNegocio(
-            "Primero quita de su unidad de carga los PL confirmados: " + ", ".join(confirmados) + ".",
+            "First remove the confirmed PLs from their load unit: " + ", ".join(confirmados) + ".",
             409, "pl_en_transporte",
         )
     for pl in f.packing_lists:
@@ -880,9 +880,9 @@ def subir_archivo(db: Session, user: Usuario, factura_id: int, nombre: str, cont
     exigir(user, "factura.editar")
     f = cargar_factura(db, user, factura_id)
     if f.estado == "CANCELADA":
-        raise ErrorNegocio("No se pueden adjuntar archivos a una factura cancelada.", 409, "no_editable")
+        raise ErrorNegocio("Files cannot be attached to a cancelled invoice.", 409, "no_editable")
     if len(contenido) > 20 * 1024 * 1024:
-        raise ErrorNegocio("El archivo supera 20 MB.", 413, "archivo_grande")
+        raise ErrorNegocio("The file exceeds 20 MB.", 413, "archivo_grande")
     carpeta = os.path.join(settings.UPLOAD_DIR, str(f.id))
     os.makedirs(carpeta, exist_ok=True)
     seguro = "".join(c for c in os.path.basename(nombre) if c.isalnum() or c in "._- ") or "archivo"
@@ -907,6 +907,6 @@ def listar_archivos(db: Session, user: Usuario, factura_id: int) -> list[dict]:
 def obtener_archivo(db: Session, user: Usuario, archivo_id: int) -> Archivo:
     a = db.get(Archivo, archivo_id)
     if not a:
-        raise ErrorNegocio("El archivo no existe.", 404, "no_encontrado")
+        raise ErrorNegocio("The file does not exist.", 404, "no_encontrado")
     cargar_factura(db, user, a.factura_id)
     return a

@@ -1,4 +1,5 @@
 """Recorre el flujo completo OC -> factura -> PL -> cajas -> unidad de carga -> salida."""
+import os
 from datetime import date
 
 HOY = date.today().isoformat()
@@ -50,7 +51,7 @@ def test_factura_parcial_y_reglas(tnf):
 
     # Regla: el saldo de S no puede ir a otra factura mientras esta siga activa
     r = tnf.post("/facturas", {"lineas": [{"posicion_id": s["id"], "cantidad": 5}]})
-    assert r.status_code == 422 and "ya está en" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "is already in" in r.json()["detalle"][0]["mensaje"]
 
     # Pero sí se agrega a la misma factura (suma a la línea existente)
     r = tnf.post(f"/facturas/{fid}/lineas", {"version": f["version"], "lineas": [
@@ -62,7 +63,7 @@ def test_factura_parcial_y_reglas(tnf):
     pa20 = _oc(tnf, "4400003850")["posiciones"][0]
     f = tnf.get(f"/facturas/{fid}").json()
     r = tnf.post(f"/facturas/{fid}/lineas", {"version": f["version"], "lineas": [{"posicion_id": pa20["id"], "cantidad": 1}]})
-    assert r.status_code == 422 and any("centros" in d["mensaje"] for d in r.json()["detalle"])
+    assert r.status_code == 422 and any("centers" in d["mensaje"] for d in r.json()["detalle"])
 
 
 def test_version_conflicto(tnf):
@@ -117,14 +118,14 @@ def test_plantilla_con_sobrante(tnf):
     pl_id = estado["pl"]
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
     plantillas = tnf.get("/plantillas").json()
-    chaqueta = next(t for t in plantillas if t["nombre"] == "Caja chaqueta 10 un")
+    chaqueta = next(t for t in plantillas if t["nombre"] == "Jacket carton 10 units")
     xl = next(l for l in pl["lineas"] if l["talla"] == "XL")
     assert xl["cantidad"] == 27
     previa = tnf.post(f"/packing-lists/{pl_id}/empaque/previa",
                       {"filas": [{"pl_linea_id": xl["id"], "plantilla_id": chaqueta["id"]}]}).json()
     assert previa["resumen"]["cajas_completas"] == 2 and previa["resumen"]["sobrante_total"] == 7
     # Una plantilla de pares no aplica a una fila en unidades: se omite, no falla
-    calzado = next(t for t in plantillas if t["nombre"] == "Caja calzado 12 pares")
+    calzado = next(t for t in plantillas if t["nombre"] == "Footwear carton 12 pairs")
     previa = tnf.post(f"/packing-lists/{pl_id}/empaque/previa",
                       {"filas": [{"pl_linea_id": xl["id"], "plantilla_id": calzado["id"]}]}).json()
     assert previa["resumen"]["filas"] == 0 and previa["filas"][0]["omitida"]
@@ -161,7 +162,7 @@ def test_empacar_todo_y_finalizar(tnf):
     plantillas = {t["nombre"]: t for t in tnf.get("/plantillas").json()}
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
     # Todo en un solo paso: cada fila con la plantilla de su unidad
-    por_unidad = {"UN": plantillas["Caja chaqueta 10 un"]["id"], "PAR": plantillas["Caja calzado 12 pares"]["id"]}
+    por_unidad = {"UN": plantillas["Jacket carton 10 units"]["id"], "PAR": plantillas["Footwear carton 12 pairs"]["id"]}
     filas = [(l["id"], por_unidad[l["unidad"]]) for l in pl["lineas"] if l["sin_caja"]]
     r = _empacar(tnf, pl_id, pl["version"], filas)
     assert r.status_code == 200, r.text
@@ -180,7 +181,7 @@ def test_empacar_todo_y_finalizar(tnf):
     # sugiere sola porque el mismo estilo ya se empacó con ella en PL-001.
     pl2 = tnf.get(f"/packing-lists/{estado['pl2']}").json()
     fila = pl2["lineas"][0]
-    assert fila["plantilla_sugerida_id"] == plantillas["Caja calzado 12 pares"]["id"]
+    assert fila["plantilla_sugerida_id"] == plantillas["Footwear carton 12 pairs"]["id"]
     r = _empacar(tnf, pl2["id"], pl2["version"], [(fila["id"], fila["plantilla_sugerida_id"])])
     assert r.status_code == 200 and r.json()["resumen"]["cajas_completas"] == 1, r.text
     pl2 = tnf.get(f"/packing-lists/{pl2['id']}").json()
@@ -195,7 +196,7 @@ def test_finalizar_factura(tnf):
     fid = estado["fid"]
     f = tnf.get(f"/facturas/{fid}").json()
     r = tnf.post(f"/facturas/{fid}/finalizar", {"version": f["version"]})
-    assert r.status_code == 422 and any("número" in e["mensaje"] for e in r.json()["detalle"])
+    assert r.status_code == 422 and any("number" in e["mensaje"] for e in r.json()["detalle"])
     r = tnf.patch(f"/facturas/{fid}", {"version": f["version"], "numero": "INV-2026-001", "fecha": "2026-09-20"})
     assert r.status_code == 200
     r = tnf.post(f"/facturas/{fid}/finalizar", {"version": r.json()["version"]})
@@ -254,7 +255,7 @@ def test_eliminar_linea_con_cascada(vans):
                                             {"posicion_id": p8["id"], "cantidad": 48}]}).json()["id"]
     pl_id = vans.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
     pl = vans.get(f"/packing-lists/{pl_id}").json()
-    t = next(t for t in vans.get("/plantillas").json() if t["nombre"] == "Master 12 pares")
+    t = next(t for t in vans.get("/plantillas").json() if t["nombre"] == "Master 12 pairs")
     _empacar(vans, pl_id, pl["version"], [(l["id"], t["id"]) for l in pl["lineas"]], "sin_caja")
     f = vans.get(f"/facturas/{fid}").json()
     linea7 = next(l for l in f["lineas"] if l["talla"] == "7")
@@ -315,11 +316,11 @@ def test_importacion_oc(interno):
     # Un SKU que no está en el maestro no entra
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("x.csv", (
         enc + fila("4400009998", "10", "NOEXISTE", 1)).encode(), "text/csv")})
-    assert r.json()["resumen"]["error"] == 1 and "maestro" in r.json()["filas"][0]["mensajes"][0]
+    assert r.json()["resumen"]["error"] == 1 and "item master" in r.json()["filas"][0]["mensajes"][0]
     # El SKU debe ser del proveedor de la OC
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("p.csv", (
         enc + fila("4400009995", "10", "30095120001", 5)).encode(), "text/csv")})
-    assert r.json()["resumen"]["error"] == 1 and "otro proveedor" in " ".join(r.json()["filas"][0]["mensajes"])
+    assert r.json()["resumen"]["error"] == 1 and "another supplier" in " ".join(r.json()["filas"][0]["mensajes"])
     # Dos liberaciones: sin comercial (P) no puede haber logística 300/301; nueva sin código logístico = 304
     enc_log = enc.strip() + ",liberacion_logistica\n"
     fila_log = lambda oc_n, lib, log: fila(oc_n, "10", pos10["codigo_sap"], 12, lib).strip() + f",{log}\n"  # noqa: E731
@@ -327,7 +328,7 @@ def test_importacion_oc(interno):
         enc_log + fila_log("4400009990", "P", "300") + fila_log("4400009991", "", "") + fila_log("4400009992", "C", "300")
     ).encode(), "text/csv")})
     res = r.json()
-    assert res["resumen"]["error"] == 1 and "sin liberación comercial" in res["filas"][0]["mensajes"][0]
+    assert res["resumen"]["error"] == 1 and "without commercial release" in res["filas"][0]["mensajes"][0]
     interno.post(f"/ordenes/importar/{res['importacion_id']}/aplicar")
     ocs = {o["numero"]: o for o in interno.get("/ordenes", params={"q": "44000099", "solo_disponible": False}).json()["items"]}
     assert ocs["4400009991"]["liberacion_comercial"] == "C" and ocs["4400009991"]["liberacion_logistica"] == "304"
@@ -339,7 +340,7 @@ def test_importacion_oc(interno):
         + fila("4400009996", "10", pos10["codigo_sap"], 12, alm="BF01")).encode(), "text/csv")})
     res = r.json()
     assert res["resumen"]["nuevo"] == 2 and res["resumen"]["error"] == 1, res
-    assert "no pertenece a la sociedad" in res["filas"][-1]["mensajes"][0]
+    assert "does not belong to company" in res["filas"][-1]["mensajes"][0]
     interno.post(f"/ordenes/importar/{res['importacion_id']}/aplicar")
     oc = interno.get("/ordenes", params={"q": "4400009997", "solo_disponible": False}).json()["items"][0]
     assert oc["almacenes"] == ["BF19", "BF20"]
@@ -360,18 +361,18 @@ def test_asignacion_automatica(interno, vans):
     # El puerto de destino debe ser el del centro de llegada
     r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "modalidad": "FCL", "centro": "8010",
                                     "puerto_destino": "PAONX"})
-    assert r.status_code == 422 and "elige uno de esos puertos" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "choose one of those ports" in r.json()["detalle"][0]["mensaje"]
     # Puertos sugeridos del centro: se puede cambiar a otro de sus puertos del mismo modo
     r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "centro": "8010", "puerto_destino": "SVLUN"})
     assert r.status_code == 200, r.text
     r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "puerto_origen": "HKG"})
-    assert r.status_code == 422 and "aéreo" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "air" in r.json()["detalle"][0]["mensaje"]
     # Transportista del modo y de la sociedad del centro
     trans = {t["codigo"]: t["id"] for t in interno.get("/catalogos/transportistas").json()["items"]}
     r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "centro": "8010", "transportista_id": trans["AVCG"]})
-    assert r.status_code == 422 and "aéreo" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "air" in r.json()["detalle"][0]["mensaje"]
     r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "centro": "8010", "transportista_id": trans["CMDU"]})
-    assert r.status_code == 422 and "no trabaja con la sociedad 8000" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "does not work with company 8000" in r.json()["detalle"][0]["mensaje"]
     aereo = interno.post("/embarques", {"tipo_transporte": "AEREO", "centro": "8010", "transportista_id": trans["AVCG"]}).json()
     det = interno.get(f"/embarques/{aereo['id']}").json()
     assert det["puerto_destino"] == "SAL" and det["transportista"] == "Avianca Cargo"
@@ -451,7 +452,7 @@ def test_reglas_de_empaque(vans):
     r = vans.post(f"/packing-lists/{pl_id}/cajas", {"version": pl["version"], "num_cajas": 1, "items": [
         {"pl_linea_id": lp["id"], "cantidad_por_caja": 1}, {"pl_linea_id": ls["id"], "cantidad_por_caja": 12}]})
     assert r.status_code == 422 and r.json()["codigo"] == "regla_empaque"
-    assert any("destino" in d["mensaje"] for d in r.json()["detalle"])
+    assert any("destination" in d["mensaje"] for d in r.json()["detalle"])
     # El casepack no se reduce: 10 por caja cuando el casepack es 12
     r = vans.post(f"/packing-lists/{pl_id}/cajas", {"version": pl["version"], "num_cajas": 2, "items": [
         {"pl_linea_id": ls["id"], "cantidad_por_caja": 10}]})
@@ -510,9 +511,9 @@ def test_catalogos(interno, tnf):
     assert r.status_code == 422 and any(d["campo"] == "marca_id" for d in r.json()["detalle"])
     # Y no puede dejar de manejar una marca de la que tiene artículos
     r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": [vans_marca["id"]]})
-    assert r.status_code == 422 and "tiene artículos" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "has items" in r.json()["detalle"][0]["mensaje"]
     r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": []})
-    assert r.status_code == 422 and "tiene artículos" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "has items" in r.json()["detalle"][0]["mensaje"]
     assert provs["TNF"]["marcas_txt"] == "TNF" and "8000" in provs["TNF"]["sociedades_txt"]
     r = interno.post("/catalogos/articulos", {**base, "sku": "X1", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
     assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "sku"
@@ -526,7 +527,7 @@ def test_catalogos(interno, tnf):
     datos_pp = {"sku": "30099990001", "codigo": "ab12", "estilo": "E1", "color": "Rojo"}
     r = interno.post("/catalogos/prepacks", {**datos_pp, "componentes": [
         {"articulo_id": sol["id"], "cantidad": 6}, {"articulo_id": otro["id"], "cantidad": 1}]})
-    assert r.status_code == 422 and any("mismo estilo y color" in d["mensaje"] for d in r.json()["detalle"])
+    assert r.status_code == 422 and any("same style and color" in d["mensaje"] for d in r.json()["detalle"])
     r = interno.post("/catalogos/prepacks", {**datos_pp, "componentes": [{"articulo_id": sol["id"], "cantidad": 6}]})
     assert r.status_code == 200, r.text
     pp = r.json()
@@ -636,8 +637,8 @@ def test_documentos_y_reportes(tnf, interno):
             r = interno.get(f"/seguimiento/{vista}/exportar", params={"formato": formato, "marca": "TNF"})
             assert r.status_code == 200, (vista, formato, r.text[:200])
     wb = load_workbook(BytesIO(interno.get("/seguimiento/ordenes/exportar", params={"marca": "VANS"}).content))
-    assert wb.sheetnames[1] == "Detalle por SKU"
-    marcas = {fila[3] for fila in wb["Detalle por SKU"].iter_rows(min_row=6, values_only=True) if fila[0]}
+    assert wb.sheetnames[1] == "Detail by SKU"
+    marcas = {fila[3] for fila in wb["Detail by SKU"].iter_rows(min_row=6, values_only=True) if fila[0]}
     assert marcas == {"VANS"}
     assert interno.get("/seguimiento/otra/exportar").status_code == 404
 
@@ -708,6 +709,23 @@ def test_sugerencia_de_unidades(interno):
     aereo = interno.get("/sugerencia-unidades", params={"cbm": 2, "kg": 500}).json()["modos"]["AEREO"][0]
     assert aereo["peso_cobrable"] == 500
     assert interno.get("/sugerencia-unidades", params={"cbm": 1, "modo": "BARCO"}).status_code == 422
+
+
+def test_plantillas_de_carga_en_ingles(interno):
+    """Las plantillas CSV descargables (columnas en inglés) se aceptan tal cual."""
+    base = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public")
+
+    def subir(ruta, archivo):
+        with open(os.path.join(base, archivo), "rb") as f:
+            return interno.c.post("/api" + ruta, headers=interno.h, files={"archivo": (archivo, f.read(), "text/csv")})
+
+    r = subir("/ordenes/importar/previa", "plantilla_oc.csv")
+    assert r.status_code == 200, r.text
+    assert r.json()["filas"] and not any("column" in m for f in r.json()["filas"] for m in f["mensajes"])
+    r = subir("/catalogos/articulos/importar", "plantilla_articulos.csv")
+    assert r.status_code == 200 and not r.json()["errores"] and r.json()["creados"] == 3, r.text
+    r = subir("/catalogos/prepacks/importar", "plantilla_prepacks.csv")
+    assert r.status_code == 200 and not r.json()["errores"] and r.json()["creados"] == 1, r.text
 
 
 def test_acceso_seguro(client):

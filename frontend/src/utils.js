@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 
-const numero = (d) => new Intl.NumberFormat('es-SV', { minimumFractionDigits: d, maximumFractionDigits: d })
+const numero = (d) => new Intl.NumberFormat('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })
 
 export function fmtNum(n, decimales = 0) {
   if (n === null || n === undefined || n === '') return '—'
@@ -21,7 +21,7 @@ export function fmtFecha(valor) {
 export function fmtFechaHora(valor) {
   if (!valor) return '—'
   const f = new Date(String(valor).endsWith('Z') ? valor : `${valor}Z`)
-  return f.toLocaleString('es-SV', { dateStyle: 'short', timeStyle: 'short' })
+  return f.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })
 }
 
 export function plural(n, singular, plural) {
@@ -36,40 +36,40 @@ export function fmtFechaHoraLocal(valor) {
 }
 
 export function unidadTxt(unidad, n) {
-  if (unidad === 'PAR') return n === 1 ? 'par' : 'pares'
-  if (unidad === 'CJ') return n === 1 ? 'caja prepack' : 'cajas prepack'
-  return n === 1 ? 'unidad' : 'unidades'
+  if (unidad === 'PAR') return n === 1 ? 'pair' : 'pairs'
+  if (unidad === 'CJ') return n === 1 ? 'prepack carton' : 'prepack cartons'
+  return n === 1 ? 'unit' : 'units'
 }
 
 // Dos liberaciones de dos equipos: comercial (P/C) y logística (304/300/301).
 // Sin liberación comercial no hay logística; se factura solo con C y 300/301.
 export const COMERCIAL = {
-  C: ['Comercial C', 'ok', 'Liberada por comercial'],
-  P: ['Comercial P', 'aviso', 'Pendiente de liberación comercial: logística no puede liberar'],
+  C: ['Commercial C', 'ok', 'Released by commercial'],
+  P: ['Commercial P', 'aviso', 'Pending commercial release: logistics cannot release'],
 }
 export const LIBERACION = {
-  300: ['300 · Liberada', 'ok', 'Liberada por logística'],
-  301: ['301 · Liberada con cambios', 'info', 'Liberada por logística; la OC cambió después'],
-  304: ['304 · No liberada', 'aviso', 'Sin liberación logística: no se puede facturar'],
+  300: ['300 · Released', 'ok', 'Released by logistics'],
+  301: ['301 · Released with changes', 'info', 'Released by logistics; the PO changed afterwards'],
+  304: ['304 · Not released', 'aviso', 'No logistics release: it cannot be invoiced'],
 }
 
 export function diasTxt(n) {
   if (n === null || n === undefined) return '—'
-  if (n === 0) return 'hoy'
-  return n > 0 ? `en ${n} d` : `hace ${-n} d`
+  if (n === 0) return 'today'
+  return n > 0 ? `in ${n} d` : `${-n} d ago`
 }
 
 export function cantTxt(n, unidad) {
   return `${fmtNum(n)} ${unidadTxt(unidad, Number(n))}`
 }
 
-// {PAR: {cantidad: 10}, UN: {cantidad: 5}} -> "10 pares y 5 unidades"
+// {PAR: {cantidad: 10}, UN: {cantidad: 5}} -> "10 pairs and 5 units"
 export function porUnidadTxt(obj, campo = 'cantidad') {
   const partes = Object.entries(obj || {})
     .filter(([, v]) => (campo ? v[campo] : v) > 0)
     .map(([u, v]) => cantTxt(campo ? v[campo] : v, u))
   if (!partes.length) return '—'
-  return partes.length > 1 ? `${partes.slice(0, -1).join(', ')} y ${partes.at(-1)}` : partes[0]
+  return partes.length > 1 ? `${partes.slice(0, -1).join(', ')} and ${partes.at(-1)}` : partes[0]
 }
 
 export function pct(parte, total) {
@@ -99,32 +99,34 @@ export function useSeleccion() {
 }
 
 export const ACCIONES = {
-  crear: 'Creó el documento',
-  agregar_lineas: 'Agregó posiciones',
-  editar_lineas: 'Editó líneas',
-  quitar_lineas: 'Quitó líneas',
-  editar_cabecera: 'Editó la cabecera',
-  finalizar: 'Finalizó',
-  reabrir: 'Reabrió',
-  cancelar: 'Canceló',
-  adjuntar_archivo: 'Adjuntó un archivo',
-  agregar: 'Agregó pendientes',
-  dividir: 'Dividió una fila',
-  mover: 'Movió cantidades',
-  quitar: 'Quitó cantidades',
-  mover_cajas: 'Movió cajas',
-  aplicar_plantilla: 'Aplicó plantilla',
-  caja_sobrante: 'Empacó sobrantes',
-  crear_caja: 'Creó cajas',
-  editar_cajas: 'Editó cajas',
-  desempacar: 'Desempacó cajas',
-  recepcion: 'Registró recepción',
-  asignar_unidad: 'Asignó a unidad de carga',
-  confirmar_unidad: 'Confirmó en unidad de carga',
-  quitar_unidad: 'Quitó de la unidad de carga',
-  editar: 'Editó',
-  evento: 'Registró evento',
-  agregar_unidad: 'Agregó unidad',
-  editar_unidad: 'Editó unidad',
-  eliminar_unidad: 'Eliminó unidad',
+  crear: 'Created the document',
+  agregar_lineas: 'Added order lines',
+  editar_lineas: 'Edited lines',
+  quitar_lineas: 'Removed lines',
+  editar_cabecera: 'Edited the header',
+  finalizar: 'Finalized',
+  reabrir: 'Reopened',
+  cancelar: 'Cancelled',
+  adjuntar_archivo: 'Attached a file',
+  agregar: 'Added pending quantities',
+  dividir: 'Split a row',
+  mover: 'Moved quantities',
+  quitar: 'Removed quantities',
+  mover_cajas: 'Moved cartons',
+  aplicar_plantilla: 'Applied a template',
+  caja_sobrante: 'Packed leftovers',
+  crear_caja: 'Created cartons',
+  editar_cajas: 'Edited cartons',
+  desempacar: 'Unpacked cartons',
+  recepcion: 'Recorded receipt',
+  asignar_unidad: 'Assigned to a load unit',
+  confirmar_unidad: 'Confirmed in a load unit',
+  quitar_unidad: 'Removed from the load unit',
+  editar: 'Edited',
+  evento: 'Recorded an event',
+  agregar_unidad: 'Added a unit',
+  editar_unidad: 'Edited a unit',
+  eliminar_unidad: 'Deleted a unit',
+  pallet: 'Palletized',
+  empaque: 'Changed the packing',
 }

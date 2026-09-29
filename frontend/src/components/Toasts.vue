@@ -13,7 +13,7 @@ import Icono from './Icono.vue'
           <li v-for="(d, i) in t.detalle" :key="i">{{ d }}</li>
         </ul>
       </div>
-      <button type="button" aria-label="Cerrar aviso" @click="cerrarAviso(t.id)"><Icono nombre="cerrar" :tam="16" /></button>
+      <button type="button" aria-label="Close notice" @click="cerrarAviso(t.id)"><Icono nombre="cerrar" :tam="16" /></button>
     </div>
   </div>
 </template>

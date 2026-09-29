@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import Anillo from '../components/Anillo.vue'
+import DestinosYUnidades from '../components/DestinosYUnidades.vue'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
 import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
@@ -34,7 +35,7 @@ const explosion = ref(null)
 const url = (s = '') => `/packing-lists/${props.id}${s}`
 const editable = computed(() => !!pl.value?.puede.editar)
 const plantillas = computed(() => pl.value?.plantillas || [])
-const ref_ = (l) => `${l.estilo || l.codigo_sap}${l.color ? ` ${l.color}` : ''}${l.talla ? ` · talla ${l.talla}` : ''}`
+const ref_ = (l) => `${l.estilo || l.codigo_sap}${l.color ? ` ${l.color}` : ''}${l.talla ? ` · size ${l.talla}` : ''}`
 
 async function cargar() {
   try {
@@ -96,10 +97,10 @@ const revision = computed(() => {
   const pesos = grupo((e) => e.grupo_id && !e.codigo && !/medidas/.test(e.mensaje))
   const otros = grupo((e) => !e.grupo_id && e.codigo !== 'sin_caja')
   return [
-    { clave: 'contenido', titulo: 'Todo el contenido está en cajas', faltan: [...otros, ...sinCaja], accion: 'empacar' },
-    { clave: 'medidas', titulo: 'Cada caja tiene medidas', faltan: medidas, accion: 'cajas' },
-    { clave: 'pesos', titulo: 'Cada caja tiene peso neto y bruto', faltan: pesos, accion: 'cajas' },
-    { clave: 'estimados', titulo: 'Los pesos estimados están confirmados', faltan: estimado, accion: 'confirmar' },
+    { clave: 'contenido', titulo: 'All contents are in cartons (whole inner packs)', faltan: [...otros, ...sinCaja], accion: 'empacar' },
+    { clave: 'medidas', titulo: 'Every carton has dimensions', faltan: medidas, accion: 'cajas' },
+    { clave: 'pesos', titulo: 'Every carton has net and gross weight', faltan: pesos, accion: 'cajas' },
+    { clave: 'estimados', titulo: 'Estimated weights are confirmed', faltan: estimado, accion: 'confirmar' },
   ]
 })
 const listoParaFinalizar = computed(() => editable.value && !(pl.value?.validaciones || []).length)
@@ -110,11 +111,11 @@ const pasos = computed(() => {
   const empacado = !pendientes.value.length && pl.value.lineas.length > 0
   const datosOk = revision.value.slice(1).every((r) => !r.faltan.length)
   return [
-    { titulo: 'Contenido', estado: pl.value.lineas.length ? 'hecho' : 'actual', detalle: `${plural(pl.value.lineas.length, 'fila', 'filas')} · ${porUnidadTxt(pl.value.totales.por_unidad, 'cantidad')}` },
-    { titulo: 'Empacar', estado: empacado || fin ? 'hecho' : 'actual', detalle: empacado ? plural(pl.value.totales.cajas, 'caja', 'cajas') : `${porUnidadTxt(pl.value.totales.por_unidad, 'sin_caja')} sin caja` },
-    { titulo: 'Medidas y pesos', estado: (empacado && datosOk) || fin ? 'hecho' : estimadas.value.length ? 'alerta' : empacado ? 'actual' : 'pendiente',
-      detalle: estimadas.value.length ? `${plural(estimadas.value.length, 'grupo', 'grupos')} con peso estimado` : !pl.value.grupos.length ? 'Después de empacar' : datosOk ? 'Completos' : 'Por completar' },
-    { titulo: 'Finalizar', estado: fin ? 'hecho' : listoParaFinalizar.value ? 'actual' : 'pendiente', detalle: fin ? 'Listo para embarcar' : pl.value.estado === 'EN_CORRECCION' ? 'En corrección' : 'Pendiente' },
+    { titulo: 'Contents', estado: pl.value.lineas.length ? 'hecho' : 'actual', detalle: `${plural(pl.value.lineas.length, 'row', 'rows')} · ${porUnidadTxt(pl.value.totales.por_unidad, 'cantidad')}` },
+    { titulo: 'Pack', estado: empacado || fin ? 'hecho' : 'actual', detalle: empacado ? plural(pl.value.totales.cajas, 'carton', 'cartons') : `${porUnidadTxt(pl.value.totales.por_unidad, 'sin_caja')} not packed` },
+    { titulo: 'Dimensions and weights', estado: (empacado && datosOk) || fin ? 'hecho' : estimadas.value.length ? 'alerta' : empacado ? 'actual' : 'pendiente',
+      detalle: estimadas.value.length ? `${plural(estimadas.value.length, 'group', 'groups')} with estimated weight` : !pl.value.grupos.length ? 'After packing' : datosOk ? 'Complete' : 'To complete' },
+    { titulo: 'Finalize', estado: fin ? 'hecho' : listoParaFinalizar.value ? 'actual' : 'pendiente', detalle: fin ? 'Ready to ship' : pl.value.estado === 'EN_CORRECCION' ? 'In correction' : 'Pending' },
   ]
 })
 
@@ -138,16 +139,19 @@ const tablaL = useTabla(lineasFiltradas, { porPagina: 25, valores: { oc: (l) => 
 const tablaG = useTabla(computed(() => pl.value?.grupos || []), { porPagina: 25, valores: { rango: (g) => g.desde, etiqueta: (g) => g.etiqueta?.tipo } })
 const idsFiltrados = computed(() => lineasFiltradas.value.map((l) => l.id))
 
-// Regla de empaque del artículo: prepack (1 curva por caja), casepack exacto o libre
-const REGLAS = { PREPACK: ['Prepack', 'acento'], CASEPACK: ['Casepack', 'info'], LIBRE: ['Libre', ''] }
-const reglaTxt = (l) => (l.regla === 'PREPACK' ? `Prepack ${l.prepack || ''} · ${l.unidades_por_caja || '?'} pares` : l.regla === 'CASEPACK' ? `Casepack ${l.casepack}` : 'Casepack libre')
+// Packing rule of the PO line: prepack (1 size run per carton), exact casepack
+// or free; with an inner pack, cartons carry whole inner packs
+const REGLAS = { PREPACK: ['Prepack', 'acento'], CASEPACK: ['Casepack', 'info'], LIBRE: ['Free', ''] }
+const reglaTxt = (l) => (l.regla === 'PREPACK' ? `Prepack ${l.prepack || ''} · ${l.unidades_por_caja || '?'} per carton`
+  : `${l.regla === 'CASEPACK' ? `Casepack ${l.casepack}` : 'Free casepack'}${l.inner_pack ? ` · inner ${l.inner_pack}` : ''}`)
+const innerTxt = (cant, inner) => (inner ? ` · ${fmtNum(cant / inner)} inner pack${cant / inner === 1 ? '' : 's'} of ${inner}` : '')
 const porCajaRegla = (l) => (l.regla === 'PREPACK' ? 1 : l.regla === 'CASEPACK' ? l.casepack : null)
 const selLineas = computed(() => (pl.value?.lineas || []).filter((l) => selL.tiene(l.id)))
 const selConPendiente = computed(() => selLineas.value.filter((l) => l.sin_caja > 0))
 const resumenSelLineas = computed(() => {
   const r = {}
   for (const l of selLineas.value) r[l.unidad] = (r[l.unidad] || 0) + l.sin_caja
-  return `${porUnidadTxt(r, null)} sin caja`
+  return `${porUnidadTxt(r, null)} not packed`
 })
 const nombrePlantilla = (id) => plantillas.value.find((t) => t.id === id)?.nombre
 
@@ -164,7 +168,7 @@ const plantillasFila = (f) => (f.regla === 'LIBRE' ? plantillasDe(f.unidad) : pl
 function abrirAuto(soloSeleccion = false) {
   const filas = (soloSeleccion ? selConPendiente.value : pendientes.value).map((l) => ({
     pl_linea_id: l.id, ref: ref_(l), unidad: l.unidad, sin_caja: l.sin_caja, plantilla_id: sugerida(l),
-    regla: l.regla, por_caja: porCajaRegla(l), regla_txt: reglaTxt(l),
+    regla: l.regla, por_caja: porCajaRegla(l), regla_txt: reglaTxt(l), inner: l.inner_pack,
   }))
   modal.value = { tipo: 'auto', filas, sobrante: 'caja_parcial' }
 }
@@ -179,6 +183,8 @@ const calculoAuto = computed(() => {
     const t = plantillas.value.find((x) => x.id === f.plantilla_id)
     const porCaja = f.por_caja || t?.cantidad_por_caja
     if (!porCaja || f.plantilla_id === 'omitir') return { ...f, cajas: null, sobrante: null }
+    // The template must hold whole inner packs (the server skips it otherwise)
+    if (f.inner && porCaja % f.inner) return { ...f, cajas: null, sobrante: null, nota: `Template is not a multiple of the inner pack (${f.inner})` }
     validas++
     const cajas = Math.floor(f.sin_caja / porCaja)
     const resto = f.sin_caja % porCaja
@@ -203,10 +209,10 @@ function empacarAuto() {
     .map((f) => ({ pl_linea_id: f.pl_linea_id, plantilla_id: f.plantilla_id || null }))
   accion(() => api.post(url('/empaque/aplicar'), { version: pl.value.version, filas, sobrante: m.sobrante }), (r) => {
     selL.limpiar()
-    const partesTxt = [plural(r.resumen.cajas_completas, 'caja completa', 'cajas completas')]
-    if (r.resumen.sobrante_total && m.sobrante === 'caja_parcial') partesTxt.push(plural(r.resumen.filas_con_sobrante, 'caja parcial (confirma su peso)', 'cajas parciales (confirma sus pesos)'))
-    if (r.resumen.sobrante_total && m.sobrante === 'sin_caja') partesTxt.push(`${fmtNum(r.resumen.sobrante_total)} quedan sin caja`)
-    return `Listo: ${partesTxt.join(' y ')}.`
+    const partesTxt = [plural(r.resumen.cajas_completas, 'full carton', 'full cartons')]
+    if (r.resumen.sobrante_total && m.sobrante === 'caja_parcial') partesTxt.push(plural(r.resumen.filas_con_sobrante, 'partial carton (confirm its weight)', 'partial cartons (confirm their weights)'))
+    if (r.resumen.sobrante_total && m.sobrante === 'sin_caja') partesTxt.push(`${fmtNum(r.resumen.sobrante_total)} left unpacked`)
+    return `Done: ${partesTxt.join(' and ')}.`
   }).then((r) => {
     if (r && !pendientes.value.length) tab.value = 'revision'
   })
@@ -220,8 +226,8 @@ function abrirCaja() {
     plantilla_id: '',
     valores: { largo: '', ancho: '', alto: '', peso_neto_caja: '', peso_bruto_caja: '', observacion: '' },
     items: selConPendiente.value.map((l) => ({
-      pl_linea_id: l.id, ref: ref_(l), unidad: l.unidad, sin_caja: l.sin_caja,
-      cantidad_por_caja: selConPendiente.value.length === 1 ? l.sin_caja : '',
+      pl_linea_id: l.id, ref: ref_(l), unidad: l.unidad, sin_caja: l.sin_caja, inner: l.inner_pack,
+      cantidad_por_caja: selConPendiente.value.length === 1 ? (l.regla === 'CASEPACK' ? Math.min(l.casepack, l.sin_caja) : l.sin_caja) : (l.regla === 'CASEPACK' ? l.casepack : ''),
     })),
   }
 }
@@ -229,7 +235,7 @@ const plantillaModal = computed(() => plantillas.value.find((t) => t.id === moda
 const cajaInvalida = computed(() => {
   const m = modal.value
   if (m?.tipo !== 'caja') return true
-  return !(m.num_cajas >= 1) || m.items.some((i) => !(i.cantidad_por_caja >= 1) || i.cantidad_por_caja * m.num_cajas > i.sin_caja)
+  return !(m.num_cajas >= 1) || m.items.some((i) => !(i.cantidad_por_caja >= 1) || i.cantidad_por_caja * m.num_cajas > i.sin_caja || (i.inner && i.cantidad_por_caja % i.inner))
 })
 function crearCaja() {
   const m = modal.value
@@ -241,14 +247,14 @@ function crearCaja() {
     plantilla_id: m.plantilla_id || null,
     items: m.items.map((i) => ({ pl_linea_id: i.pl_linea_id, cantidad_por_caja: Number(i.cantidad_por_caja) })),
     ...valores,
-  }), m.items.length > 1 ? 'Caja mixta creada.' : `Se ${m.num_cajas === 1 ? 'creó 1 caja' : `crearon ${m.num_cajas} cajas`}.`)
+  }), m.items.length > 1 ? 'Mixed carton created.' : `${plural(m.num_cajas, 'carton', 'cartons')} created.`)
   selL.limpiar()
 }
 
 // ---- Mover o quitar lo que no está en cajas -------------------------------
 function filasMovibles() {
   const base = selConPendiente.value.length ? selConPendiente.value : pendientes.value
-  return base.map((l) => ({ pl_linea_id: l.id, ref: ref_(l), unidad: l.unidad, sin_caja: l.sin_caja, cantidad: l.sin_caja }))
+  return base.map((l) => ({ pl_linea_id: l.id, ref: ref_(l), unidad: l.unidad, sin_caja: l.sin_caja, cantidad: l.sin_caja, inner: l.inner_pack }))
 }
 function abrirMover() {
   modal.value = { tipo: 'mover', destino: pl.value.otros_pl[0]?.id || '', filas: filasMovibles() }
@@ -256,18 +262,18 @@ function abrirMover() {
 function abrirQuitar() {
   modal.value = { tipo: 'quitar', filas: filasMovibles() }
 }
-const movInvalido = computed(() => (modal.value?.filas || []).some((f) => f.cantidad !== 0 && (!(f.cantidad >= 1) || f.cantidad > f.sin_caja)) ||
+const movInvalido = computed(() => (modal.value?.filas || []).some((f) => f.cantidad !== 0 && (!(f.cantidad >= 1) || f.cantidad > f.sin_caja || (f.inner && f.cantidad % f.inner))) ||
   !(modal.value?.filas || []).some((f) => f.cantidad > 0))
 const movimientos = () => modal.value.filas.filter((f) => f.cantidad > 0).map((f) => ({ pl_linea_id: f.pl_linea_id, cantidad: Number(f.cantidad) }))
 function mover() {
   const m = modal.value
   accion(() => api.post(url('/mover'), { version: pl.value.version, destino_pl_id: m.destino || null, movimientos: movimientos() }),
-    (r) => `Cantidades movidas a ${r.destino_numero}.`)
+    (r) => `Quantities moved to ${r.destino_numero}.`)
   selL.limpiar()
 }
 function quitar() {
   accion(() => api.post(url('/quitar'), { version: pl.value.version, movimientos: movimientos() }),
-    'Cantidades devueltas a la factura; quedan pendientes de asignar a un packing list.')
+    'Quantities returned to the invoice; they are pending assignment to a packing list.')
   selL.limpiar()
 }
 
@@ -299,14 +305,14 @@ function editarCajas() {
   const m = modal.value
   const valores = Object.fromEntries(Object.entries(m.valores).filter(([, v]) => v !== '')
     .map(([k, v]) => [k, k === 'observacion' ? v : Number(v)]))
-  if (!Object.keys(valores).length && !m.plantilla_id) return avisar('Elige una plantilla o escribe al menos un valor.', 'error')
+  if (!Object.keys(valores).length && !m.plantilla_id) return avisar('Choose a template or enter at least one value.', 'error')
   accion(() => api.patch(url('/cajas'), {
     version: pl.value.version, grupo_ids: m.grupo_ids, ...valores, ...(m.plantilla_id ? { desde_plantilla_id: m.plantilla_id } : {}),
-  }), `Se actualizaron ${plural(m.cajas, 'caja', 'cajas')}.`)
+  }), `${plural(m.cajas, 'carton', 'cartons')} updated.`)
 }
 function confirmarPesos(grupos) {
   accion(() => api.patch(url('/cajas'), { version: pl.value.version, grupo_ids: grupos.map((g) => g.id), confirmar_pesos: true }),
-    `Pesos confirmados en ${plural(grupos.length, 'grupo', 'grupos')} de cajas.`)
+    `Weights confirmed on ${plural(grupos.length, 'carton group', 'carton groups')}.`)
 }
 function abrirMoverCajas() {
   modal.value = {
@@ -320,7 +326,7 @@ function moverCajas() {
   accion(() => api.post(url('/mover-cajas'), {
     version: pl.value.version, destino_pl_id: m.destino || null,
     grupos: m.grupos.map((g) => ({ grupo_id: g.grupo_id, num_cajas: Number(g.num_cajas) })),
-  }), (r) => `Cajas movidas a ${r.destino_numero} con su contenido.`)
+  }), (r) => `Cartons moved to ${r.destino_numero} with their contents.`)
 }
 // ---- Pallets -----------------------------------------------------------------
 function abrirPaletizar() {
@@ -333,12 +339,12 @@ function paletizar() {
   accion(() => api.post(url('/pallets'), {
     version: pl.value.version, grupo_ids: selG.lista(), pallet_id: m.destino || null,
     ...(nuevo ? { largo: Number(m.largo), ancho: Number(m.ancho), alto: Number(m.alto), peso_tara: Number(m.peso_tara) || 0 } : {}),
-  }), (r) => `${plural(cajas, 'caja', 'cajas')} en el pallet ${r.numero}.`)
+  }), (r) => `${plural(cajas, 'carton', 'cartons')} on pallet ${r.numero}.`)
   selG.limpiar()
 }
 function despaletizar(grupoIds, palletId = null) {
   accion(() => api.post(url('/pallets/quitar'), { version: pl.value.version, grupo_ids: grupoIds, pallet_id: palletId }),
-    palletId ? 'Pallet deshecho; sus cajas quedan sueltas.' : 'Cajas fuera del pallet.')
+    palletId ? 'Pallet undone; its cartons are loose.' : 'Cartons taken off the pallet.')
   selG.limpiar()
 }
 const celdaPallet = (p, campo) => async (valor) => {
@@ -354,26 +360,26 @@ const celdaPallet = (p, campo) => async (valor) => {
 
 function desempacar() {
   accion(() => api.post(url('/cajas/eliminar'), { version: pl.value.version, grupo_ids: selG.lista() }),
-    'Cajas desempacadas; su contenido volvió a “Por empacar”.')
+    'Cartons unpacked; their contents went back to “To pack”.')
 }
 function guardarPlantilla() {
   accion(() => api.post(url(`/cajas/${modal.value.grupo_id}/plantilla`), { nombre: modal.value.nombre }),
-    (r) => `Plantilla “${r.nombre}” guardada; ya la puedes usar al empacar.`)
+    (r) => `Template “${r.nombre}” saved; you can now use it when packing.`)
 }
 
 // ---- Estados, recepción y exportación -------------------------------------
-const finalizar = () => accion(() => api.post(url('/finalizar'), { version: pl.value.version }), 'Packing list finalizado.')
+const finalizar = () => accion(() => api.post(url('/finalizar'), { version: pl.value.version }), 'Packing list finalized.')
 const agregarPendientes = () => accion(() => api.post(url('/agregar'), { version: pl.value.version }),
-  (r) => `Se agregaron ${fmtNum(r.agregado)} desde la factura.`)
+  (r) => `${fmtNum(r.agregado)} added from the invoice.`)
 function cambiarEstado() {
   const { accion: a, motivo } = modal.value
   accion(() => api.post(url(`/${a}`), { motivo }), (r) => (a === 'reabrir'
-    ? `Packing list reabierto.${r.nota ? ` ${r.nota}` : ''}` : 'Packing list cancelado; sus cantidades volvieron a la factura.'))
+    ? `Packing list reopened.${r.nota ? ` ${r.nota}` : ''}` : 'Packing list cancelled; its quantities went back to the invoice.'))
 }
 function guardarRecepcion() {
   accion(() => api.post(url('/recepcion'), {
     lineas: pl.value.lineas.map((l) => ({ pl_linea_id: l.id, ...recepcion[l.id], cantidad_recibida: Number(recepcion[l.id].cantidad_recibida), cantidad_danada: Number(recepcion[l.id].cantidad_danada) })),
-  }), (r) => (r.diferencias.length ? `Recepción guardada con ${plural(r.diferencias.length, 'diferencia', 'diferencias')}.` : 'Recepción guardada sin diferencias.'))
+  }), (r) => (r.diferencias.length ? `Receipt saved with ${plural(r.diferencias.length, 'difference', 'differences')}.` : 'Receipt saved with no differences.'))
 }
 const descargar = (formato) => api.descargar(url('/exportar'), `packing_list.${formato}`, { formato }).catch(errorApi)
 
@@ -387,139 +393,139 @@ onMounted(cargar)
 
 <template>
   <template v-if="pl">
-    <router-link :to="`/facturas/${pl.factura.id}?tab=pl`" class="volver"><Icono nombre="atras" :tam="15" />Factura {{ pl.factura.nombre }}</router-link>
+    <router-link :to="`/facturas/${pl.factura.id}?tab=pl`" class="volver"><Icono nombre="atras" :tam="15" />Invoice {{ pl.factura.nombre }}</router-link>
     <section class="doc-cabeza">
       <div class="doc-fila">
         <span class="doc-numero">{{ pl.numero }}</span>
         <EstadoBadge :estado="pl.estado" />
         <span class="doc-sub">{{ pl.factura.nombre }} · {{ pl.factura.proveedor }}</span>
         <div class="doc-acciones">
-          <button class="btn btn-fantasma" title="Lista de empaque en PDF, lista para imprimir y firmar" @click="descargar('pdf')"><Icono nombre="descargar" />PDF</button>
-          <button class="btn btn-fantasma" title="Lista de empaque en Excel" @click="descargar('xlsx')"><Icono nombre="descargar" />Excel</button>
-          <button v-if="pl.puede.reabrir" class="btn" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">Reabrir para corregir</button>
-          <button v-if="pl.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">Cancelar</button>
+          <button class="btn btn-fantasma" title="Packing list as PDF, ready to print and sign" @click="descargar('pdf')"><Icono nombre="descargar" />PDF</button>
+          <button class="btn btn-fantasma" title="Packing list as Excel" @click="descargar('xlsx')"><Icono nombre="descargar" />Excel</button>
+          <button v-if="pl.puede.reabrir" class="btn" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">Reopen to correct</button>
+          <button v-if="pl.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">Cancel PL</button>
           <button v-if="pl.puede.finalizar" class="btn" :class="{ 'btn-primario': listoParaFinalizar }" :disabled="ocupado" @click="listoParaFinalizar ? finalizar() : (tab = 'revision')">
-            <Icono nombre="check" />{{ listoParaFinalizar ? 'Finalizar packing list' : `Finalizar (${pl.validaciones.length} pendientes)` }}
+            <Icono nombre="check" />{{ listoParaFinalizar ? 'Finalize packing list' : `Finalize (${pl.validaciones.length} pending)` }}
           </button>
         </div>
       </div>
       <div class="empaque-resumen">
-        <Anillo :porcentaje="avanceEmpaque" titulo="Empacado" :detalle="pendientes.length ? `Faltan ${porUnidadTxt(pl.totales.por_unidad, 'sin_caja')}` : `${porUnidadTxt(pl.totales.por_unidad, 'cantidad')} en cajas`" />
-        <div class="cifra"><span>Cajas</span><b>{{ fmtNum(pl.totales.cajas) }}</b></div>
-        <div class="cifra"><span>Peso neto</span><b>{{ fmtNum(pl.totales.peso_neto, 1) }} kg</b></div>
-        <div class="cifra"><span>Peso bruto</span><b>{{ fmtNum(pl.totales.peso_bruto, 1) }} kg</b></div>
-        <div class="cifra"><span>Volumen</span><b>{{ fmtNum(pl.totales.cbm, 2) }} m³</b></div>
+        <Anillo :porcentaje="avanceEmpaque" titulo="Packed" :detalle="pendientes.length ? `${porUnidadTxt(pl.totales.por_unidad, 'sin_caja')} missing` : `${porUnidadTxt(pl.totales.por_unidad, 'cantidad')} in cartons`" />
+        <div class="cifra"><span>Cartons</span><b>{{ fmtNum(pl.totales.cajas) }}</b></div>
+        <div class="cifra"><span>Net weight</span><b>{{ fmtNum(pl.totales.peso_neto, 1) }} kg</b></div>
+        <div class="cifra"><span>Gross weight</span><b>{{ fmtNum(pl.totales.peso_bruto, 1) }} kg</b></div>
+        <div class="cifra"><span>Volume</span><b>{{ fmtNum(pl.totales.cbm, 2) }} m³</b></div>
         <div v-if="pl.totales.pallets" class="cifra"><span>Pallets</span><b>{{ pl.totales.pallets }}</b></div>
-        <div class="cifra"><span>Contenedor</span>
+        <div class="cifra"><span>Load unit</span>
           <b v-if="pl.transporte" style="font-size: 0.95rem">{{ pl.transporte.unidad }} · {{ pl.transporte.embarque }} <EstadoBadge :estado="pl.transporte.asignacion" /></b>
-          <b v-else class="apagado" style="font-size: 0.95rem">Sin asignar</b>
+          <b v-else class="apagado" style="font-size: 0.95rem">Not assigned</b>
         </div>
       </div>
       <Pasos :pasos="pasos" />
     </section>
 
     <div v-if="pl.partes" class="partes" style="margin-bottom: 16px">
-      <TarjetaParte titulo="Facturar a" icono="factura" :parte="pl.partes.facturar_a" />
-      <TarjetaParte titulo="Notify party (centro que recibe)" icono="ubicacion" :parte="pl.partes.notify" />
+      <TarjetaParte titulo="Bill to" icono="factura" :parte="pl.partes.facturar_a" />
+      <TarjetaParte titulo="Notify party (receiving plant)" icono="ubicacion" :parte="pl.partes.notify" />
       <section v-if="pl.partes.destino" class="panel tarjeta-parte">
         <div class="tp-cabeza">
           <span class="tp-icono"><Icono nombre="ruta" :tam="16" /></span>
-          <div><span class="eyebrow">Destino final</span><b>{{ pl.partes.destino.codigo }} · {{ pl.partes.destino.nombre || 'Centro no registrado' }}</b></div>
+          <div><span class="eyebrow">Final destination</span><b>{{ pl.partes.destino.codigo }} · {{ pl.partes.destino.nombre || 'Plant not registered' }}</b></div>
         </div>
-        <p class="tp-linea">País de llegada: <b>{{ pl.partes.destino.pais || '—' }}</b></p>
+        <p class="tp-linea">Country of arrival: <b>{{ pl.partes.destino.pais || '—' }}</b></p>
       </section>
     </div>
 
     <p v-if="editable && pl.saldo_factura > 0" class="nota aviso" style="align-items: center">
       <Icono nombre="info" />
-      <span>La factura tiene {{ fmtNum(pl.saldo_factura) }} que no están en ningún packing list.</span>
-      <button class="btn btn-chico separar" :disabled="ocupado" @click="agregarPendientes"><Icono nombre="mas" :tam="14" />Agregar a {{ pl.numero }}</button>
+      <span>The invoice has {{ fmtNum(pl.saldo_factura) }} not in any packing list.</span>
+      <button class="btn btn-chico separar" :disabled="ocupado" @click="agregarPendientes"><Icono nombre="mas" :tam="14" />Add to {{ pl.numero }}</button>
     </p>
 
     <div class="pestanas" role="tablist">
       <button v-if="editable" class="pestana" role="tab" :aria-selected="tab === 'empacar'" @click="tab = 'empacar'">
-        <Icono nombre="caja" :tam="16" />Por empacar<span class="cuenta" :class="{ alerta: pendientes.length }">{{ pendientes.length }}</span>
+        <Icono nombre="caja" :tam="16" />To pack<span class="cuenta" :class="{ alerta: pendientes.length }">{{ pendientes.length }}</span>
       </button>
       <button class="pestana" role="tab" :aria-selected="tab === 'cajas'" @click="tab = 'cajas'">
-        <Icono nombre="lista" :tam="16" />Cajas<span class="cuenta">{{ pl.totales.cajas }}</span>
+        <Icono nombre="lista" :tam="16" />Cartons<span class="cuenta">{{ pl.totales.cajas }}</span>
       </button>
       <button v-if="editable" class="pestana" role="tab" :aria-selected="tab === 'revision'" @click="tab = 'revision'">
-        <Icono nombre="check" :tam="16" />Revisión<span class="cuenta" :class="{ alerta: pl.validaciones.length }">{{ pl.validaciones.length || '✓' }}</span>
+        <Icono nombre="check" :tam="16" />Review<span class="cuenta" :class="{ alerta: pl.validaciones.length }">{{ pl.validaciones.length || '✓' }}</span>
       </button>
       <button v-if="!editable" class="pestana" role="tab" :aria-selected="tab === 'contenido'" @click="tab = 'contenido'">
-        <Icono nombre="lista" :tam="16" />Contenido<span class="cuenta">{{ pl.lineas.length }}</span>
+        <Icono nombre="lista" :tam="16" />Contents<span class="cuenta">{{ pl.lineas.length }}</span>
       </button>
-      <button v-if="pl.puede.recepcion" class="pestana" role="tab" :aria-selected="tab === 'recepcion'" @click="tab = 'recepcion'"><Icono nombre="importar" :tam="16" />Recepción</button>
+      <button v-if="pl.puede.recepcion" class="pestana" role="tab" :aria-selected="tab === 'recepcion'" @click="tab = 'recepcion'"><Icono nombre="importar" :tam="16" />Receipt</button>
     </div>
 
-    <!-- Por empacar -->
+    <!-- To pack -->
     <section v-if="tab === 'empacar' && editable">
       <div v-if="!pendientes.length && pl.lineas.length" class="panel vacio">
         <div class="todo-listo" style="justify-content: center">
           <span class="icono-ok"><Icono nombre="check" :tam="22" /></span>
-          <div style="text-align: left"><b>Todo está en cajas</b><p class="ayuda">Revisa medidas y pesos y finaliza el packing list.</p></div>
-          <button class="btn btn-primario" @click="tab = 'revision'">Ir a revisión<Icono nombre="flecha" :tam="16" /></button>
+          <div style="text-align: left"><b>Everything is in cartons</b><p class="ayuda">Check dimensions and weights and finalize the packing list.</p></div>
+          <button class="btn btn-primario" @click="tab = 'revision'">Go to review<Icono nombre="flecha" :tam="16" /></button>
         </div>
       </div>
       <template v-else>
         <div class="opciones-empaque">
           <button class="opcion recomendada" :disabled="!pendientes.length || (!plantillas.length && !pendientes.some((l) => l.regla !== 'LIBRE'))" @click="abrirAuto(selConPendiente.length > 0)">
             <span class="opcion-icono"><Icono nombre="varita" /></span>
-            <b>Empacar automático <span class="etiqueta acento">Recomendado</span></b>
-            <span>{{ selConPendiente.length ? `Las ${selConPendiente.length} filas seleccionadas` : `Todas las filas (${pendientes.length})` }} en un paso. Cada producto usa su plantilla de caja; tú decides qué hacer con el sobrante.</span>
-            <span v-if="!plantillas.length" class="etiqueta aviso">Crea una plantilla primero</span>
+            <b>Auto-pack <span class="etiqueta acento">Recommended</span></b>
+            <span>{{ selConPendiente.length ? `The ${selConPendiente.length} selected rows` : `All rows (${pendientes.length})` }} in one step, following each line's casepack, inner pack or prepack. The template adds dimensions and weights; you decide what to do with leftovers.</span>
+            <span v-if="!plantillas.length" class="etiqueta aviso">Create a template first</span>
           </button>
           <button class="opcion" :disabled="!selConPendiente.length" @click="abrirCaja">
             <span class="opcion-icono"><Icono nombre="caja" /></span>
-            <b>Caja manual o mixta</b>
-            <span>{{ selConPendiente.length ? `Con las ${selConPendiente.length} filas seleccionadas.` : 'Selecciona filas abajo.' }} Defines cuántas van por caja; con varias filas es una caja surtida.</span>
+            <b>Manual or mixed carton</b>
+            <span>{{ selConPendiente.length ? `With the ${selConPendiente.length} selected rows.` : 'Select rows below.' }} You set how many go per carton; with several rows it is an assorted carton (same destination only).</span>
           </button>
           <button class="opcion" :disabled="!pendientes.length" @click="abrirMover">
             <span class="opcion-icono"><Icono nombre="mover" /></span>
-            <b>Dividir en otro packing list</b>
-            <span>Pasa cantidades sin caja a otro PL de la factura (o a uno nuevo), por ejemplo para otro contenedor.</span>
+            <b>Split into another packing list</b>
+            <span>Move unpacked quantities to another PL of the invoice (or a new one), for example per destination country or for another container.</span>
           </button>
         </div>
 
         <div class="filtros mt">
           <label class="buscador">
             <Icono nombre="buscar" :tam="16" />
-            <input v-model="filtro.texto" type="search" placeholder="Filtrar por código, estilo, color, talla u OC" aria-label="Filtrar contenido" />
+            <input v-model="filtro.texto" type="search" placeholder="Filter by code, style, color, size or PO" aria-label="Filter contents" />
           </label>
-          <div class="segmentos" role="group" aria-label="Mostrar">
-            <button class="segmento" :aria-pressed="filtro.solo_pendiente" @click="filtro.solo_pendiente = true">Sin empacar<span class="cuenta">{{ pendientes.length }}</span></button>
-            <button class="segmento" :aria-pressed="!filtro.solo_pendiente" @click="filtro.solo_pendiente = false">Todo<span class="cuenta">{{ pl.lineas.length }}</span></button>
+          <div class="segmentos" role="group" aria-label="Show">
+            <button class="segmento" :aria-pressed="filtro.solo_pendiente" @click="filtro.solo_pendiente = true">Not packed<span class="cuenta">{{ pendientes.length }}</span></button>
+            <button class="segmento" :aria-pressed="!filtro.solo_pendiente" @click="filtro.solo_pendiente = false">All<span class="cuenta">{{ pl.lineas.length }}</span></button>
           </div>
         </div>
         <div class="tabla-marco tabla-fija">
           <table class="tabla">
             <thead>
               <tr>
-                <th class="chk"><input type="checkbox" aria-label="Seleccionar todas las filas filtradas" :checked="selL.todos(idsFiltrados)" @change="selL.alternarTodos(idsFiltrados)" /></th>
-                <ThOrden campo="estilo" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Producto</ThOrden>
-                <ThOrden campo="talla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Talla</ThOrden>
-                <ThOrden campo="oc" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">OC / pos.</ThOrden>
-                <ThOrden campo="regla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Regla</ThOrden>
-                <th>UM</th>
-                <ThOrden campo="cantidad" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">Cantidad</ThOrden>
-                <ThOrden campo="en_cajas" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">En cajas</ThOrden>
-                <ThOrden campo="sin_caja" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">Sin caja</ThOrden>
-                <th>Plantilla sugerida</th>
-                <ThOrden campo="estado_empaque" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Empaque</ThOrden>
+                <th class="chk"><input type="checkbox" aria-label="Select all filtered rows" :checked="selL.todos(idsFiltrados)" @change="selL.alternarTodos(idsFiltrados)" /></th>
+                <ThOrden campo="estilo" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Item</ThOrden>
+                <ThOrden campo="talla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Size</ThOrden>
+                <ThOrden campo="oc" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">PO / line</ThOrden>
+                <ThOrden campo="regla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Rule</ThOrden>
+                <th>UoM</th>
+                <ThOrden campo="cantidad" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">Quantity</ThOrden>
+                <ThOrden campo="en_cajas" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">In cartons</ThOrden>
+                <ThOrden campo="sin_caja" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">Not packed</ThOrden>
+                <th>Suggested template</th>
+                <ThOrden campo="estado_empaque" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">Packing</ThOrden>
               </tr>
             </thead>
             <tbody>
               <tr v-for="l in tablaL.filas.value" :key="l.id" :class="{ seleccionada: selL.tiene(l.id) }">
-                <td class="chk"><input type="checkbox" :aria-label="`Seleccionar ${ref_(l)}`" :checked="selL.tiene(l.id)" @change="selL.alternar(l.id)" /></td>
+                <td class="chk"><input type="checkbox" :aria-label="`Select ${ref_(l)}`" :checked="selL.tiene(l.id)" @change="selL.alternar(l.id)" /></td>
                 <td><span v-if="l.marca" class="fuerte">{{ l.marca }}</span> {{ l.estilo }} · {{ l.color }}
-                  <span v-if="partes.cuenta[l.factura_linea_id] > 1" class="etiqueta">parte {{ partes.indice[l.id] }}</span>
+                  <span v-if="partes.cuenta[l.factura_linea_id] > 1" class="etiqueta">part {{ partes.indice[l.id] }}</span>
                   <span class="sub codigo">{{ l.codigo_sap }}</span>
                 </td>
                 <td><strong>{{ l.talla }}</strong></td>
-                <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.centro_destino || l.almacen" class="sub">{{ [l.almacen && `almacén ${l.almacen}`, l.centro_destino && `destino ${l.centro_destino}`].filter(Boolean).join(' · ') }}</span></td>
+                <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.centro_destino || l.almacen" class="sub">{{ [l.almacen && `warehouse ${l.almacen}`, l.centro_destino && `destination ${l.centro_destino}`].filter(Boolean).join(' · ') }}</span></td>
                 <td>
                   <button v-if="l.regla === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" style="margin-left: 0"
-                          title="Ver la explosión del prepack" @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ reglaTxt(l) }} <Icono nombre="lupa" :tam="12" /></button>
+                          title="See the prepack breakdown" @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ reglaTxt(l) }} <Icono nombre="lupa" :tam="12" /></button>
                   <span v-else class="etiqueta" :class="REGLAS[l.regla]?.[1]" style="margin-left: 0">{{ reglaTxt(l) }}</span>
                 </td>
                 <td><span class="etiqueta" style="margin-left: 0">{{ l.unidad }}</span></td>
@@ -527,56 +533,56 @@ onMounted(cargar)
                 <td class="num">{{ fmtNum(l.en_cajas) }}</td>
                 <td class="num"><strong v-if="l.sin_caja">{{ fmtNum(l.sin_caja) }}</strong><span v-else class="apagado">0</span></td>
                 <td>
-                  <span v-if="sugerida(l)">{{ nombrePlantilla(sugerida(l)) }}<span v-if="l.plantilla_sugerida_id === sugerida(l)" class="etiqueta info" title="Es la que usaste la última vez con este producto">usada antes</span></span>
-                  <span v-else-if="l.regla !== 'LIBRE'" class="apagado">No hace falta (usa el casepack)</span>
-                  <span v-else class="apagado">Sin plantilla para {{ l.unidad === 'PAR' ? 'pares' : 'unidades' }}</span>
+                  <span v-if="sugerida(l)">{{ nombrePlantilla(sugerida(l)) }}<span v-if="l.plantilla_sugerida_id === sugerida(l)" class="etiqueta info" title="The one you used last time with this item">used before</span></span>
+                  <span v-else-if="l.regla !== 'LIBRE'" class="apagado">Not needed (uses the casepack)</span>
+                  <span v-else class="apagado">No template for {{ l.unidad === 'PAR' ? 'pairs' : 'units' }}</span>
                 </td>
                 <td>
                   <EstadoBadge :estado="l.estado_empaque" />
-                  <span v-if="l.en_parcial" class="etiqueta aviso">caja parcial</span>
+                  <span v-if="l.en_parcial" class="etiqueta aviso">partial carton</span>
                 </td>
               </tr>
               <tr v-if="!lineasFiltradas.length">
-                <td colspan="11" class="vacio">{{ pl.lineas.length ? 'Ninguna fila coincide con el filtro.' : 'El packing list está vacío.' }}</td>
+                <td colspan="11" class="vacio">{{ pl.lineas.length ? 'No row matches the filter.' : 'The packing list is empty.' }}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <Paginacion :page="tablaL.estado.pagina" :size="tablaL.estado.porPagina" :total="tablaL.total.value"
                     @cambiar="(p) => (tablaL.estado.pagina = p)" @tamano="(t) => (tablaL.estado.porPagina = t)" />
-        <BarraSeleccion :cantidad="selL.ids.size" singular="fila seleccionada" plural="filas seleccionadas" @limpiar="selL.limpiar()">
+        <BarraSeleccion :cantidad="selL.ids.size" singular="row selected" plural="rows selected" @limpiar="selL.limpiar()">
           <template #resumen>{{ resumenSelLineas }}</template>
-          <button class="btn btn-primario" :disabled="!selConPendiente.length" @click="abrirAuto(true)"><Icono nombre="varita" :tam="15" />Empacar automático</button>
-          <button class="btn" :disabled="!selConPendiente.length" @click="abrirCaja"><Icono nombre="caja" :tam="15" />{{ selConPendiente.length > 1 ? 'Caja mixta' : 'Caja manual' }}</button>
-          <button class="btn" :disabled="!selConPendiente.length" @click="abrirMover"><Icono nombre="mover" :tam="15" />Mover a otro PL</button>
-          <button class="btn btn-peligro" :disabled="!selConPendiente.length" @click="abrirQuitar">Quitar del PL</button>
+          <button class="btn btn-primario" :disabled="!selConPendiente.length" @click="abrirAuto(true)"><Icono nombre="varita" :tam="15" />Auto-pack</button>
+          <button class="btn" :disabled="!selConPendiente.length" @click="abrirCaja"><Icono nombre="caja" :tam="15" />{{ selConPendiente.length > 1 ? 'Mixed carton' : 'Manual carton' }}</button>
+          <button class="btn" :disabled="!selConPendiente.length" @click="abrirMover"><Icono nombre="mover" :tam="15" />Move to another PL</button>
+          <button class="btn btn-peligro" :disabled="!selConPendiente.length" @click="abrirQuitar">Remove from PL</button>
         </BarraSeleccion>
       </template>
     </section>
 
-    <!-- Cajas -->
+    <!-- Cartons -->
     <section v-if="tab === 'cajas'">
       <p v-if="editable && estimadas.length" class="nota aviso" style="align-items: center; margin-bottom: 12px">
         <Icono nombre="escala" />
-        <span>{{ plural(estimadas.length, 'grupo de cajas tiene', 'grupos de cajas tienen') }} peso estimado (cajas parciales). Pésalas y corrige, o confirma el estimado.</span>
-        <button class="btn btn-chico separar" :disabled="ocupado" @click="confirmarPesos(estimadas)">Confirmar todos los estimados</button>
+        <span>{{ plural(estimadas.length, 'carton group has', 'carton groups have') }} an estimated weight (partial cartons). Weigh and correct them, or confirm the estimate.</span>
+        <button class="btn btn-chico separar" :disabled="ocupado" @click="confirmarPesos(estimadas)">Confirm all estimates</button>
       </p>
       <section v-if="pl.pallets?.length" class="panel" style="margin-bottom: 14px">
-        <div class="panel-cabeza"><div><h2>Pallets</h2><p>El volumen del embarque usa las medidas del pallet; el peso bruto suma su tara.</p></div></div>
+        <div class="panel-cabeza"><div><h2>Pallets</h2><p>The shipment volume uses the pallet dimensions; the gross weight adds its tare.</p></div></div>
         <div class="tabla-marco" style="box-shadow: none">
           <table class="tabla">
-            <thead><tr><th>Pallet</th><th>Cajas</th><th class="num"><span class="req">Largo</span></th><th class="num"><span class="req">Ancho</span></th><th class="num"><span class="req">Alto cm</span></th><th class="num">Tara kg</th><th class="num">Bruto kg</th><th class="num">m³</th><th></th></tr></thead>
+            <thead><tr><th>Pallet</th><th>Cartons</th><th class="num"><span class="req">Length</span></th><th class="num"><span class="req">Width</span></th><th class="num"><span class="req">Height cm</span></th><th class="num">Tare kg</th><th class="num">Gross kg</th><th class="num">m³</th><th></th></tr></thead>
             <tbody>
               <tr v-for="p in pl.pallets" :key="p.id">
                 <td class="fuerte">Pallet {{ p.numero }}</td>
-                <td>{{ p.cajas }} <span class="sub">cajas {{ p.rangos.join(', ') }}</span></td>
+                <td>{{ p.cajas }} <span class="sub">cartons {{ p.rangos.join(', ') }}</span></td>
                 <td v-for="campo in ['largo', 'ancho', 'alto', 'peso_tara']" :key="campo" class="num" style="width: 90px">
-                  <CeldaEditable v-if="editable" tipo="number" :min="0" :valor="p[campo]" :guardar="celdaPallet(p, campo)" :etiqueta="`${campo} del pallet ${p.numero}`" />
+                  <CeldaEditable v-if="editable" tipo="number" :min="0" :valor="p[campo]" :guardar="celdaPallet(p, campo)" :etiqueta="`${campo} of pallet ${p.numero}`" />
                   <template v-else>{{ fmtNum(p[campo], campo === 'peso_tara' ? 1 : 0) }}</template>
                 </td>
                 <td class="num">{{ fmtNum(p.peso_bruto, 1) }}</td>
                 <td class="num">{{ fmtNum(p.cbm, 3) }}</td>
-                <td class="num"><button v-if="editable" class="btn btn-chico btn-fantasma" :disabled="ocupado" @click="despaletizar([], p.id)">Deshacer</button></td>
+                <td class="num"><button v-if="editable" class="btn btn-chico btn-fantasma" :disabled="ocupado" @click="despaletizar([], p.id)">Undo</button></td>
               </tr>
             </tbody>
           </table>
@@ -584,59 +590,59 @@ onMounted(cargar)
       </section>
       <p v-if="pl.avisos?.length" class="nota aviso bloque" style="margin-bottom: 12px">
         <Icono nombre="alerta" />
-        <span><b>Revisa con el Commercial Brand Manager:</b> <template v-for="a in pl.avisos" :key="a.grupo_id">{{ a.mensaje }} </template></span>
+        <span><b>Check with the Commercial Brand Manager:</b> <template v-for="a in pl.avisos" :key="a.grupo_id">{{ a.mensaje }} </template></span>
       </p>
       <div class="tabla-marco tabla-fija">
         <table class="tabla">
           <thead>
             <tr>
-              <th class="chk"><input type="checkbox" aria-label="Seleccionar todas las cajas" :checked="selG.todos(idsGrupos)" @change="selG.alternarTodos(idsGrupos)" /></th>
-              <ThOrden campo="rango" :orden="tablaG.estado.orden" @ordenar="tablaG.ordenar">Cajas</ThOrden>
-              <ThOrden campo="etiqueta" :orden="tablaG.estado.orden" @ordenar="tablaG.ordenar">Contenido por caja</ThOrden>
-              <th class="num">N.º</th>
-              <th class="num"><span class="req">Largo</span></th>
-              <th class="num"><span class="req">Ancho</span></th>
-              <th class="num"><span class="req">Alto cm</span></th>
-              <th class="num"><span class="req">Neto/caja</span></th>
-              <th class="num"><span class="req">Bruto/caja kg</span></th>
+              <th class="chk"><input type="checkbox" aria-label="Select all cartons" :checked="selG.todos(idsGrupos)" @change="selG.alternarTodos(idsGrupos)" /></th>
+              <ThOrden campo="rango" :orden="tablaG.estado.orden" @ordenar="tablaG.ordenar">Cartons</ThOrden>
+              <ThOrden campo="etiqueta" :orden="tablaG.estado.orden" @ordenar="tablaG.ordenar">Contents per carton</ThOrden>
+              <th class="num">Qty</th>
+              <th class="num"><span class="req">Length</span></th>
+              <th class="num"><span class="req">Width</span></th>
+              <th class="num"><span class="req">Height cm</span></th>
+              <th class="num"><span class="req">Net/ctn</span></th>
+              <th class="num"><span class="req">Gross/ctn kg</span></th>
               <th class="num">m³</th>
-              <th class="num">Bruto total</th>
-              <th>Notas</th>
+              <th class="num">Gross total</th>
+              <th>Notes</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="g in tablaG.filas.value" :key="g.id" :class="{ seleccionada: selG.tiene(g.id) }">
-              <td class="chk"><input type="checkbox" :aria-label="`Seleccionar cajas ${rango(g)}`" :checked="selG.tiene(g.id)" @change="selG.alternar(g.id)" /></td>
-              <td class="cajas-rango">{{ rango(g) }}<span v-if="g.pallet" class="etiqueta acento" title="En pallet">P{{ g.pallet }}</span></td>
+              <td class="chk"><input type="checkbox" :aria-label="`Select cartons ${rango(g)}`" :checked="selG.tiene(g.id)" @change="selG.alternar(g.id)" /></td>
+              <td class="cajas-rango">{{ rango(g) }}<span v-if="g.pallet" class="etiqueta acento" title="On pallet">P{{ g.pallet }}</span></td>
               <td class="envolver">
                 <div class="caja-items">
                   <div v-for="it in g.items" :key="it.pl_linea_id">
-                    {{ it.estilo }} <b>{{ it.talla }}</b> × {{ cantTxt(it.cantidad_por_caja, it.unidad) }}
+                    {{ it.estilo }} <b>{{ it.talla }}</b> × {{ cantTxt(it.cantidad_por_caja, it.unidad) }}<span v-if="it.inner_packs_por_caja" class="ayuda"> ({{ it.inner_packs_por_caja }} inner packs of {{ it.inner_pack }})</span>
                   </div>
                 </div>
                 <div v-if="g.etiqueta" class="fila-flex" style="gap: 4px; margin-top: 4px">
                   <span class="etiqueta" :class="g.etiqueta.tipo === 'ESTANDAR' ? 'ok' : 'acento'" style="margin-left: 0"
-                        :title="g.etiqueta.tipo === 'ESTANDAR' ? 'Una sola OC, estilo, color y talla' : 'Varias OCs, estilos, colores o tallas'">
-                    Etiqueta {{ g.etiqueta.tipo === 'ESTANDAR' ? 'estándar' : 'consolidada' }}
+                        :title="g.etiqueta.tipo === 'ESTANDAR' ? 'A single PO, style, color and size' : 'Several POs, styles, colors or sizes'">
+                    {{ g.etiqueta.tipo === 'ESTANDAR' ? 'Standard' : 'Consolidated' }} label
                   </span>
-                  <span class="ayuda codigo">OC {{ g.etiqueta.ocs.join(', ') }}</span>
-                  <span v-if="g.etiqueta.centro_destino" class="ayuda">· destino {{ g.etiqueta.centro_destino }}</span>
+                  <span class="ayuda codigo">PO {{ g.etiqueta.ocs.join(', ') }}</span>
+                  <span v-if="g.etiqueta.centro_destino" class="ayuda">· destination {{ g.etiqueta.centro_destino }}</span>
                 </div>
               </td>
               <td class="num" style="width: 70px">
-                <CeldaEditable v-if="editable" tipo="number" :min="1" paso="1" :valor="g.num_cajas" :guardar="celdaGrupo(g, 'num_cajas')" etiqueta="Número de cajas" />
+                <CeldaEditable v-if="editable" tipo="number" :min="1" paso="1" :valor="g.num_cajas" :guardar="celdaGrupo(g, 'num_cajas')" etiqueta="Number of cartons" />
                 <template v-else>{{ g.num_cajas }}</template>
               </td>
               <td v-for="campo in ['largo', 'ancho', 'alto', 'peso_neto_caja', 'peso_bruto_caja']" :key="campo" class="num" style="width: 82px">
-                <CeldaEditable v-if="editable" tipo="number" :min="0" :valor="g[campo]" :guardar="celdaGrupo(g, campo)" vacia-texto="Falta" :etiqueta="campo.replaceAll('_', ' ')" />
+                <CeldaEditable v-if="editable" tipo="number" :min="0" :valor="g[campo]" :guardar="celdaGrupo(g, campo)" vacia-texto="Missing" :etiqueta="campo.replaceAll('_', ' ')" />
                 <template v-else>{{ fmtNum(g[campo], campo.startsWith('peso') ? 2 : 0) }}</template>
               </td>
               <td class="num">{{ fmtNum(g.cbm_total, 3) }}</td>
               <td class="num">{{ fmtNum(g.peso_bruto_total, 1) }}</td>
               <td>
-                <span v-if="g.mixta" class="etiqueta">Mixta</span>
-                <span v-if="g.es_parcial" class="etiqueta aviso">Parcial</span>
-                <span v-if="g.peso_estimado" class="etiqueta error">Peso estimado</span>
+                <span v-if="g.mixta" class="etiqueta">Mixed</span>
+                <span v-if="g.es_parcial" class="etiqueta aviso">Partial</span>
+                <span v-if="g.peso_estimado" class="etiqueta error">Estimated weight</span>
                 <span v-if="g.plantilla_nombre" class="sub">{{ g.plantilla_nombre }}</span>
                 <span v-if="g.observacion" class="sub">{{ g.observacion }}</span>
               </td>
@@ -644,8 +650,8 @@ onMounted(cargar)
             <tr v-if="!pl.grupos.length">
               <td colspan="12" class="vacio">
                 <Icono nombre="caja" :tam="28" />
-                <p>Todavía no hay cajas.</p>
-                <button v-if="editable" class="btn btn-primario" @click="tab = 'empacar'">Empezar a empacar</button>
+                <p>No cartons yet.</p>
+                <button v-if="editable" class="btn btn-primario" @click="tab = 'empacar'">Start packing</button>
               </td>
             </tr>
           </tbody>
@@ -664,64 +670,68 @@ onMounted(cargar)
       </div>
       <Paginacion :page="tablaG.estado.pagina" :size="tablaG.estado.porPagina" :total="tablaG.total.value"
                   @cambiar="(p) => (tablaG.estado.pagina = p)" @tamano="(t) => (tablaG.estado.porPagina = t)" />
-      <BarraSeleccion :cantidad="selG.ids.size" singular="grupo seleccionado" plural="grupos seleccionados" @limpiar="selG.limpiar()">
-        <template #resumen>{{ plural(cajasSel, 'caja', 'cajas') }}</template>
+      <BarraSeleccion :cantidad="selG.ids.size" singular="group selected" plural="groups selected" @limpiar="selG.limpiar()">
+        <template #resumen>{{ plural(cajasSel, 'carton', 'cartons') }}</template>
         <template v-if="editable">
-          <button class="btn btn-primario" @click="abrirEditarCajas()"><Icono nombre="editar" :tam="15" />Medidas y pesos</button>
-          <button v-if="selGrupos.some((g) => g.peso_estimado)" class="btn" :disabled="ocupado" @click="confirmarPesos(selGrupos.filter((g) => g.peso_estimado))">Confirmar pesos</button>
-          <button class="btn" @click="abrirMoverCajas"><Icono nombre="mover" :tam="15" />Mover a otro PL</button>
-          <button class="btn" :disabled="selGrupos.length !== 1 || selGrupos[0].mixta" title="Solo cajas de un solo producto" @click="modal = { tipo: 'guardar_plantilla', grupo_id: selGrupos[0].id, nombre: '' }"><Icono nombre="capas" :tam="15" />Guardar como plantilla</button>
-          <button class="btn" @click="abrirPaletizar"><Icono nombre="capas" :tam="15" />Paletizar</button>
-          <button v-if="selGrupos.some((g) => g.pallet)" class="btn" :disabled="ocupado" @click="despaletizar(selGrupos.filter((g) => g.pallet).map((g) => g.id))">Sacar del pallet</button>
-          <button class="btn btn-peligro" @click="modal = { tipo: 'desempacar' }">Desempacar</button>
+          <button class="btn btn-primario" @click="abrirEditarCajas()"><Icono nombre="editar" :tam="15" />Dimensions and weights</button>
+          <button v-if="selGrupos.some((g) => g.peso_estimado)" class="btn" :disabled="ocupado" @click="confirmarPesos(selGrupos.filter((g) => g.peso_estimado))">Confirm weights</button>
+          <button class="btn" @click="abrirMoverCajas"><Icono nombre="mover" :tam="15" />Move to another PL</button>
+          <button class="btn" :disabled="selGrupos.length !== 1 || selGrupos[0].mixta" title="Single-item cartons only" @click="modal = { tipo: 'guardar_plantilla', grupo_id: selGrupos[0].id, nombre: '' }"><Icono nombre="capas" :tam="15" />Save as template</button>
+          <button class="btn" @click="abrirPaletizar"><Icono nombre="capas" :tam="15" />Palletize</button>
+          <button v-if="selGrupos.some((g) => g.pallet)" class="btn" :disabled="ocupado" @click="despaletizar(selGrupos.filter((g) => g.pallet).map((g) => g.id))">Take off pallet</button>
+          <button class="btn btn-peligro" @click="modal = { tipo: 'desempacar' }">Unpack</button>
         </template>
       </BarraSeleccion>
     </section>
 
-    <!-- Revisión -->
+    <!-- Review -->
     <section v-if="tab === 'revision' && editable" class="dos-columnas">
       <div class="panel">
-        <div class="panel-cabeza"><div><h2>Antes de finalizar</h2><p>Todo debe estar en verde. Cada punto te lleva a resolverlo.</p></div></div>
+        <div class="panel-cabeza"><div><h2>Before finalizing</h2><p>Everything must be green. Each point takes you to fix it.</p></div></div>
         <ul class="checklist">
           <li v-for="r in revision" :key="r.clave" :class="r.faltan.length ? 'falta' : 'ok'">
             <span class="marca"><Icono :nombre="r.faltan.length ? 'alerta' : 'check'" :tam="14" /></span>
             <span>
               {{ r.titulo }}
-              <span v-if="r.faltan.length" class="sub ayuda">{{ r.faltan.slice(0, 3).map((e) => e.mensaje).join(' ') }}<template v-if="r.faltan.length > 3"> Y {{ r.faltan.length - 3 }} más.</template></span>
+              <span v-if="r.faltan.length" class="sub ayuda">{{ r.faltan.slice(0, 3).map((e) => e.mensaje).join(' ') }}<template v-if="r.faltan.length > 3"> And {{ r.faltan.length - 3 }} more.</template></span>
             </span>
             <button v-if="r.faltan.length" class="btn btn-chico" :disabled="ocupado" @click="irA(r.accion)">
-              {{ { empacar: 'Empacar', cajas: 'Ir a cajas', confirmar: 'Confirmar estimados' }[r.accion] }}
+              {{ { empacar: 'Pack', cajas: 'Go to cartons', confirmar: 'Confirm estimates' }[r.accion] }}
             </button>
           </li>
         </ul>
         <div class="fila-flex mt">
-          <button v-if="pl.puede.finalizar" class="btn btn-primario btn-grande" :disabled="ocupado || !listoParaFinalizar" @click="finalizar"><Icono nombre="check" />Finalizar packing list</button>
-          <span v-if="!listoParaFinalizar" class="ayuda">{{ plural(pl.validaciones.length, 'pendiente', 'pendientes') }}</span>
+          <button v-if="pl.puede.finalizar" class="btn btn-primario btn-grande" :disabled="ocupado || !listoParaFinalizar" @click="finalizar"><Icono nombre="check" />Finalize packing list</button>
+          <span v-if="!listoParaFinalizar" class="ayuda">{{ plural(pl.validaciones.length, 'pending item', 'pending items') }}</span>
         </div>
       </div>
       <div class="panel">
-        <div class="panel-cabeza"><div><h2>Resumen del packing list</h2><p>Así saldrá en el Excel.</p></div></div>
+        <div class="panel-cabeza"><div><h2>Packing list summary</h2><p>This is how it will appear on the PDF and Excel.</p></div></div>
         <div class="doc-datos" style="margin-top: 0; padding-top: 0; border-top: 0">
-          <div class="dato"><span>Contenido</span><b>{{ porUnidadTxt(pl.totales.por_unidad, 'cantidad') }}</b></div>
-          <div class="dato"><span>Cajas</span><b>{{ fmtNum(pl.totales.cajas) }}</b></div>
-          <div class="dato"><span>Peso neto</span><b>{{ fmtNum(pl.totales.peso_neto, 2) }} kg</b></div>
-          <div class="dato"><span>Peso bruto</span><b>{{ fmtNum(pl.totales.peso_bruto, 2) }} kg</b></div>
-          <div class="dato"><span>Volumen</span><b>{{ fmtNum(pl.totales.cbm, 3) }} m³</b></div>
-          <div class="dato"><span>Filas</span><b>{{ pl.lineas.length }}</b></div>
+          <div class="dato"><span>Contents</span><b>{{ porUnidadTxt(pl.totales.por_unidad, 'cantidad') }}</b></div>
+          <div class="dato"><span>Cartons</span><b>{{ fmtNum(pl.totales.cajas) }}</b></div>
+          <div class="dato"><span>Net weight</span><b>{{ fmtNum(pl.totales.peso_neto, 2) }} kg</b></div>
+          <div class="dato"><span>Gross weight</span><b>{{ fmtNum(pl.totales.peso_bruto, 2) }} kg</b></div>
+          <div class="dato"><span>Volume</span><b>{{ fmtNum(pl.totales.cbm, 3) }} m³</b></div>
+          <div class="dato"><span>Rows</span><b>{{ pl.lineas.length }}</b></div>
         </div>
+        <DestinosYUnidades :pl="pl" />
       </div>
     </section>
+    <section v-else-if="tab === 'cajas' && pl.grupos.length" class="panel mt">
+      <DestinosYUnidades :pl="pl" />
+    </section>
 
-    <!-- Contenido (solo lectura) -->
+    <!-- Contents (read only) -->
     <section v-if="tab === 'contenido'">
       <div class="tabla-marco">
         <table class="tabla">
-          <thead><tr><th>Producto</th><th>Talla</th><th>OC / pos.</th><th class="num">Cantidad</th><th class="num">En cajas</th><th>Empaque</th></tr></thead>
+          <thead><tr><th>Item</th><th>Size</th><th>PO / line</th><th class="num">Quantity</th><th class="num">In cartons</th><th>Packing</th></tr></thead>
           <tbody>
             <tr v-for="l in pl.lineas" :key="l.id">
               <td>{{ l.estilo }} · {{ l.color }}<span class="sub codigo">{{ l.codigo_sap }}</span></td>
               <td><strong>{{ l.talla }}</strong></td>
-              <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.almacen" class="sub">almacén {{ l.almacen }}</span></td>
+              <td class="codigo">{{ l.oc_numero }} / {{ l.posicion }}<span v-if="l.almacen" class="sub">warehouse {{ l.almacen }}</span></td>
               <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
               <td class="num">{{ fmtNum(l.en_cajas) }}</td>
               <td><EstadoBadge :estado="l.estado_empaque" /></td>
@@ -731,27 +741,27 @@ onMounted(cargar)
       </div>
     </section>
 
-    <!-- Recepción -->
+    <!-- Receipt -->
     <section v-if="tab === 'recepcion'" class="panel">
       <div class="panel-cabeza">
-        <div><h2>Recepción en bodega</h2><p>Registra lo recibido y lo dañado por fila; las diferencias quedan en el historial.</p></div>
-        <button class="btn btn-primario" :disabled="ocupado" @click="guardarRecepcion">Guardar recepción</button>
+        <div><h2>Warehouse receipt</h2><p>Record what was received and damaged per row; differences are kept in the history.</p></div>
+        <button class="btn btn-primario" :disabled="ocupado" @click="guardarRecepcion">Save receipt</button>
       </div>
       <div class="tabla-marco" style="box-shadow: none">
         <table class="tabla">
           <thead>
-            <tr><th>Fila</th><th class="num">Según PL</th><th class="num">Recibida</th><th class="num">Dañada</th><th class="num">Diferencia</th><th>Observación</th></tr>
+            <tr><th>Row</th><th class="num">Per PL</th><th class="num">Received</th><th class="num">Damaged</th><th class="num">Difference</th><th>Remark</th></tr>
           </thead>
           <tbody>
             <tr v-for="l in pl.lineas" :key="l.id">
               <td>{{ l.estilo }} <b>{{ l.talla }}</b><span class="sub codigo">{{ l.codigo_sap }}</span></td>
               <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
-              <td class="num"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num" type="number" min="0" style="width: 90px; border-color: var(--linea)" :aria-label="`Recibida ${ref_(l)}`" /></td>
-              <td class="num"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num" type="number" min="0" style="width: 80px; border-color: var(--linea)" :aria-label="`Dañada ${ref_(l)}`" /></td>
+              <td class="num"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num" type="number" min="0" style="width: 90px; border-color: var(--linea)" :aria-label="`Received ${ref_(l)}`" /></td>
+              <td class="num"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num" type="number" min="0" style="width: 80px; border-color: var(--linea)" :aria-label="`Damaged ${ref_(l)}`" /></td>
               <td class="num">
                 <span :class="{ 'etiqueta error': recepcion[l.id].cantidad_recibida !== l.cantidad }">{{ fmtNum(recepcion[l.id].cantidad_recibida - l.cantidad) }}</span>
               </td>
-              <td><input v-model="recepcion[l.id].observacion" class="celda" style="border-color: var(--linea)" :aria-label="`Observación ${ref_(l)}`" /></td>
+              <td><input v-model="recepcion[l.id].observacion" class="celda" style="border-color: var(--linea)" :aria-label="`Remark ${ref_(l)}`" /></td>
             </tr>
           </tbody>
         </table>
@@ -759,31 +769,31 @@ onMounted(cargar)
     </section>
   </template>
 
-  <!-- Modales -->
-  <Modal v-if="modal?.tipo === 'auto'" titulo="Empacar automático" ancho="1000px" @cerrar="modal = null">
-    <p class="ayuda">Cada fila se empaca en cajas completas. Si el artículo trae <b>casepack</b>, cada caja lleva exactamente esa cantidad (sin mezclar tallas); un <b>prepack</b> va una curva por caja master. Sin casepack, la cantidad por caja la da la plantilla. La plantilla también aporta medidas y pesos.</p>
+  <!-- Dialogs -->
+  <Modal v-if="modal?.tipo === 'auto'" titulo="Auto-pack" ancho="1000px" @cerrar="modal = null">
+    <p class="ayuda">Each row is packed into full cartons. If the PO line has a <b>casepack</b>, every carton carries exactly that quantity (no mixed sizes); a <b>prepack</b> goes one size run per master carton. Without a casepack, the template sets the quantity per carton. With an <b>inner pack</b>, cartons always carry whole inner packs. The template also adds dimensions and weights.</p>
     <div class="fila-flex">
       <label v-for="u in unidadesAuto" :key="u" class="campo" style="min-width: 240px">
-        <span>Plantilla para todas las filas en {{ { PAR: 'pares', UN: 'unidades', CJ: 'cajas prepack' }[u] }}</span>
+        <span>Template for all rows in {{ { PAR: 'pairs', UN: 'units', CJ: 'prepack cartons' }[u] }}</span>
         <select @change="aplicarATodas(u, $event.target.value); $event.target.value = ''">
-          <option value="">Elegir plantilla…</option>
-          <option v-for="t in plantillasDe(u)" :key="t.id" :value="t.id">{{ t.nombre }} ({{ t.cantidad_por_caja }} por caja)</option>
+          <option value="">Choose template…</option>
+          <option v-for="t in plantillasDe(u)" :key="t.id" :value="t.id">{{ t.nombre }} ({{ t.cantidad_por_caja }} per carton)</option>
         </select>
       </label>
     </div>
     <div class="tabla-marco" style="max-height: 320px; overflow-y: auto; box-shadow: none">
       <table class="tabla">
-        <thead><tr><th>Fila</th><th>Regla</th><th class="num">Sin caja</th><th>Plantilla</th><th class="num">Cajas</th><th class="num">Sobrante</th></tr></thead>
+        <thead><tr><th>Row</th><th>Rule</th><th class="num">Not packed</th><th>Template</th><th class="num">Cartons</th><th class="num">Leftover</th></tr></thead>
         <tbody>
           <tr v-for="(f, i) in calculoAuto.filas" :key="f.pl_linea_id">
             <td>{{ f.ref }}</td>
             <td><span class="etiqueta" :class="REGLAS[f.regla]?.[1]" style="margin-left: 0">{{ f.regla_txt }}</span></td>
             <td class="num">{{ cantTxt(f.sin_caja, f.unidad) }}</td>
             <td>
-              <select v-model="modal.filas[i].plantilla_id" class="entrada" style="max-width: 210px" :aria-label="`Plantilla para ${f.ref}`">
-                <option value="omitir">No empacar esta fila</option>
-                <option v-if="f.regla !== 'LIBRE'" value="">Sin plantilla (medidas después)</option>
-                <option v-else value="" disabled>Elige una plantilla…</option>
+              <select v-model="modal.filas[i].plantilla_id" class="entrada" style="max-width: 210px" :aria-label="`Template for ${f.ref}`">
+                <option value="omitir">Do not pack this row</option>
+                <option v-if="f.regla !== 'LIBRE'" value="">No template (dimensions later)</option>
+                <option v-else value="" disabled>Choose a template…</option>
                 <option v-for="t in plantillasFila(f)" :key="t.id" :value="t.id">{{ t.nombre }}<template v-if="f.regla === 'LIBRE'"> ({{ t.cantidad_por_caja }})</template></option>
               </select>
             </td>
@@ -791,192 +801,192 @@ onMounted(cargar)
               <td class="num">{{ f.cajas }}</td>
               <td class="num"><span :class="{ 'etiqueta aviso': f.sobrante }">{{ f.sobrante }}</span></td>
             </template>
-            <td v-else colspan="2" class="apagado">Se omite</td>
+            <td v-else colspan="2" class="apagado">{{ f.nota || 'Skipped' }}</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div class="nota bloque">
-      Se crearán <b>{{ plural(calculoAuto.completas, 'caja completa', 'cajas completas') }}</b> en {{ plural(calculoAuto.validas, 'fila', 'filas') }}.
+      <b>{{ plural(calculoAuto.completas, 'full carton', 'full cartons') }}</b> will be created on {{ plural(calculoAuto.validas, 'row', 'rows') }}.
     </div>
     <div v-if="calculoAuto.sobrante" class="nota aviso bloque">
-      {{ plural(calculoAuto.parciales, 'fila deja', 'filas dejan') }} un sobrante que no llena una caja ({{ fmtNum(calculoAuto.sobrante) }} en total). ¿Qué hacemos con él?
-      <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="caja_parcial" /> Una caja parcial por fila, con las medidas de la plantilla y el peso estimado (lo confirmas después). En artículos con casepack queda marcada como caja incompleta.</label>
-      <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="sin_caja" /> Dejarlo sin caja para armar cajas mixtas a mano</label>
+      {{ plural(calculoAuto.parciales, 'row leaves', 'rows leave') }} a leftover that does not fill a carton ({{ fmtNum(calculoAuto.sobrante) }} in total). What should we do with it?
+      <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="caja_parcial" /> One partial carton per row, with the template dimensions and an estimated weight (you confirm it later). With a casepack it is flagged as an incomplete carton.</label>
+      <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="sin_caja" /> Leave it unpacked to build mixed cartons by hand</label>
     </div>
     <template #pie>
-      <router-link class="btn btn-fantasma" to="/plantillas" style="margin-right: auto">Administrar plantillas</router-link>
-      <button class="btn" @click="modal = null">Cancelar</button>
-      <button class="btn btn-primario" :disabled="ocupado || !calculoAuto.validas" @click="empacarAuto"><Icono nombre="varita" :tam="15" />Empacar</button>
+      <router-link class="btn btn-fantasma" to="/plantillas" style="margin-right: auto">Manage templates</router-link>
+      <button class="btn" @click="modal = null">Cancel</button>
+      <button class="btn btn-primario" :disabled="ocupado || !calculoAuto.validas" @click="empacarAuto"><Icono nombre="varita" :tam="15" />Pack</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'caja'" :titulo="modal.items.length > 1 ? 'Caja mixta' : 'Caja manual'" ancho="700px" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'caja'" :titulo="modal.items.length > 1 ? 'Mixed carton' : 'Manual carton'" ancho="700px" @cerrar="modal = null">
     <div class="rejilla-campos">
-      <label class="campo"><span class="req">Número de cajas iguales</span><input v-model.number="modal.num_cajas" type="number" min="1" /></label>
-      <label class="campo"><span>Medidas y pesos de una plantilla (opcional)</span>
+      <label class="campo"><span class="req">Number of identical cartons</span><input v-model.number="modal.num_cajas" type="number" min="1" /></label>
+      <label class="campo"><span>Dimensions and weights from a template (optional)</span>
         <select v-model="modal.plantilla_id">
-          <option value="">Sin plantilla</option>
+          <option value="">No template</option>
           <option v-for="t in plantillas" :key="t.id" :value="t.id">{{ t.nombre }}</option>
         </select>
       </label>
     </div>
     <div class="tabla-marco" style="box-shadow: none">
       <table class="tabla">
-        <thead><tr><th>Fila</th><th class="num">Sin caja</th><th class="num"><span class="req">Por caja</span></th><th class="num">Total</th></tr></thead>
+        <thead><tr><th>Row</th><th class="num">Not packed</th><th class="num"><span class="req">Per carton</span></th><th class="num">Total</th></tr></thead>
         <tbody>
           <tr v-for="i in modal.items" :key="i.pl_linea_id">
-            <td>{{ i.ref }}</td>
+            <td>{{ i.ref }}<span v-if="i.inner" class="sub">inner packs of {{ i.inner }}{{ i.cantidad_por_caja ? innerTxt(i.cantidad_por_caja, i.inner) : '' }}</span></td>
             <td class="num">{{ cantTxt(i.sin_caja, i.unidad) }}</td>
-            <td class="num"><input v-model.number="i.cantidad_por_caja" class="celda num" type="number" min="1" style="width: 90px; border-color: var(--linea)" :aria-label="`Por caja ${i.ref}`" /></td>
+            <td class="num"><input v-model.number="i.cantidad_por_caja" class="celda num" type="number" :min="i.inner || 1" :step="i.inner || 1" style="width: 90px; border-color: var(--linea)" :aria-label="`Per carton ${i.ref}`" /></td>
             <td class="num"><span :class="{ 'etiqueta error': i.cantidad_por_caja * modal.num_cajas > i.sin_caja }">{{ fmtNum((i.cantidad_por_caja || 0) * modal.num_cajas) }}</span></td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p class="ayuda">Deja en blanco lo que quieras tomar de la plantilla{{ plantillaModal ? ` (${plantillaModal.largo}×${plantillaModal.ancho}×${plantillaModal.alto} cm, ${plantillaModal.peso_bruto} kg bruto)` : '' }}.</p>
+    <p class="ayuda">Leave blank what you want to take from the template{{ plantillaModal ? ` (${plantillaModal.largo}×${plantillaModal.ancho}×${plantillaModal.alto} cm, ${plantillaModal.peso_bruto} kg gross)` : '' }}. With an inner pack the quantity per carton must be a multiple of it; a casepack is exact.</p>
     <div class="rejilla-campos">
       <label class="campo"><span>Largo cm</span><input v-model="modal.valores.largo" type="number" min="0" step="any" /></label>
       <label class="campo"><span>Ancho cm</span><input v-model="modal.valores.ancho" type="number" min="0" step="any" /></label>
       <label class="campo"><span>Alto cm</span><input v-model="modal.valores.alto" type="number" min="0" step="any" /></label>
       <label class="campo"><span>Peso neto por caja kg</span><input v-model="modal.valores.peso_neto_caja" type="number" min="0" step="any" /></label>
       <label class="campo"><span>Peso bruto por caja kg</span><input v-model="modal.valores.peso_bruto_caja" type="number" min="0" step="any" /></label>
-      <label class="campo"><span>Observación</span><input v-model="modal.valores.observacion" /></label>
+      <label class="campo"><span>Remark</span><input v-model="modal.valores.observacion" /></label>
     </div>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancelar</button>
-      <button class="btn btn-primario" :disabled="ocupado || cajaInvalida" @click="crearCaja">Crear</button>
+      <button class="btn" @click="modal = null">Cancel</button>
+      <button class="btn btn-primario" :disabled="ocupado || cajaInvalida" @click="crearCaja">Create</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'mover' || modal?.tipo === 'quitar'" :titulo="modal.tipo === 'mover' ? 'Dividir en otro packing list' : 'Quitar del packing list'" ancho="660px" @cerrar="modal = null">
-    <label v-if="modal.tipo === 'mover'" class="campo"><span>Destino</span>
+  <Modal v-if="modal?.tipo === 'mover' || modal?.tipo === 'quitar'" :titulo="modal.tipo === 'mover' ? 'Split into another packing list' : 'Remove from the packing list'" ancho="660px" @cerrar="modal = null">
+    <label v-if="modal.tipo === 'mover'" class="campo"><span>Destination PL</span>
       <select v-model="modal.destino">
         <option v-for="o in pl.otros_pl" :key="o.id" :value="o.id">{{ o.numero }}</option>
-        <option value="">Un packing list nuevo</option>
+        <option value="">A new packing list</option>
       </select>
     </label>
-    <p v-else class="ayuda">La cantidad vuelve a la factura como pendiente de asignar a un packing list.</p>
+    <p v-else class="ayuda">The quantity goes back to the invoice as pending assignment to a packing list.</p>
     <div class="tabla-marco" style="max-height: 300px; overflow-y: auto; box-shadow: none">
       <table class="tabla">
-        <thead><tr><th>Fila</th><th class="num">Sin caja</th><th class="num">{{ modal.tipo === 'mover' ? 'Mover' : 'Quitar' }}</th></tr></thead>
+        <thead><tr><th>Row</th><th class="num">Not packed</th><th class="num">{{ modal.tipo === 'mover' ? 'Move' : 'Remove' }}</th></tr></thead>
         <tbody>
           <tr v-for="fm in modal.filas" :key="fm.pl_linea_id">
             <td>{{ fm.ref }}</td>
             <td class="num">{{ cantTxt(fm.sin_caja, fm.unidad) }}</td>
-            <td class="num"><input v-model.number="fm.cantidad" class="celda num" type="number" min="0" :max="fm.sin_caja" style="width: 90px; border-color: var(--linea)" :aria-label="`Cantidad ${fm.ref}`" /></td>
+            <td class="num"><input v-model.number="fm.cantidad" class="celda num" type="number" min="0" :step="fm.inner || 1" :max="fm.sin_caja" style="width: 90px; border-color: var(--linea)" :aria-label="`Quantity ${fm.ref}`" /></td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p class="ayuda">Pon 0 en las filas que no quieras tocar. Solo se mueve lo que está sin caja; para llevar cajas completas usa “Mover a otro PL” en la pestaña Cajas.</p>
+    <p class="ayuda">Put 0 on the rows you do not want to touch. Only unpacked quantities move (in whole inner packs); to take whole cartons use “Move to another PL” on the Cartons tab.</p>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancelar</button>
+      <button class="btn" @click="modal = null">Cancel</button>
       <button class="btn btn-primario" :disabled="ocupado || movInvalido" @click="modal.tipo === 'mover' ? mover() : quitar()">
-        {{ modal.tipo === 'mover' ? 'Mover' : 'Quitar del PL' }}
+        {{ modal.tipo === 'mover' ? 'Move' : 'Remove from PL' }}
       </button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'editar_cajas'" :titulo="`Medidas y pesos de ${plural(modal.cajas, 'caja', 'cajas')}`" ancho="640px" @cerrar="modal = null">
-    <label class="campo"><span>Copiar de una plantilla (opcional)</span>
+  <Modal v-if="modal?.tipo === 'editar_cajas'" :titulo="`Dimensions and weights of ${plural(modal.cajas, 'carton', 'cartons')}`" ancho="640px" @cerrar="modal = null">
+    <label class="campo"><span>Copy from a template (optional)</span>
       <select v-model="modal.plantilla_id">
-        <option value="">No copiar</option>
+        <option value="">Do not copy</option>
         <option v-for="t in plantillas" :key="t.id" :value="t.id">{{ t.nombre }} · {{ t.largo }}×{{ t.ancho }}×{{ t.alto }} cm, {{ t.peso_bruto }} kg</option>
       </select>
     </label>
-    <p class="ayuda">Deja en blanco lo que no quieras cambiar. Lo que escribas aquí manda sobre la plantilla. Capturar un peso quita la marca de estimado.</p>
+    <p class="ayuda">Leave blank what you do not want to change. What you type here overrides the template. Entering a weight removes the estimated flag.</p>
     <div class="rejilla-campos">
       <label class="campo"><span>Largo cm</span><input v-model="modal.valores.largo" type="number" min="0" step="any" /></label>
       <label class="campo"><span>Ancho cm</span><input v-model="modal.valores.ancho" type="number" min="0" step="any" /></label>
       <label class="campo"><span>Alto cm</span><input v-model="modal.valores.alto" type="number" min="0" step="any" /></label>
       <label class="campo"><span>Peso neto por caja kg</span><input v-model="modal.valores.peso_neto_caja" type="number" min="0" step="any" /></label>
       <label class="campo"><span>Peso bruto por caja kg</span><input v-model="modal.valores.peso_bruto_caja" type="number" min="0" step="any" /></label>
-      <label class="campo"><span>Cajas por grupo</span><input v-model="modal.valores.num_cajas" type="number" min="1" /></label>
-      <label class="campo" style="grid-column: 1 / -1"><span>Observación</span><input v-model="modal.valores.observacion" /></label>
+      <label class="campo"><span>Cartons per group</span><input v-model="modal.valores.num_cajas" type="number" min="1" /></label>
+      <label class="campo" style="grid-column: 1 / -1"><span>Remark</span><input v-model="modal.valores.observacion" /></label>
     </div>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancelar</button>
-      <button class="btn btn-primario" :disabled="ocupado" @click="editarCajas">Aplicar</button>
+      <button class="btn" @click="modal = null">Cancel</button>
+      <button class="btn btn-primario" :disabled="ocupado" @click="editarCajas">Apply</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'mover_cajas'" titulo="Mover cajas a otro packing list" ancho="600px" @cerrar="modal = null">
-    <label class="campo"><span>Destino</span>
+  <Modal v-if="modal?.tipo === 'mover_cajas'" titulo="Move cartons to another packing list" ancho="600px" @cerrar="modal = null">
+    <label class="campo"><span>Destination PL</span>
       <select v-model="modal.destino">
         <option v-for="o in pl.otros_pl" :key="o.id" :value="o.id">{{ o.numero }}</option>
-        <option value="">Un packing list nuevo</option>
+        <option value="">A new packing list</option>
       </select>
     </label>
     <div class="tabla-marco" style="box-shadow: none">
       <table class="tabla">
-        <thead><tr><th>Cajas</th><th class="num">Hay</th><th class="num">Mover</th></tr></thead>
+        <thead><tr><th>Cartons</th><th class="num">Available</th><th class="num">Move</th></tr></thead>
         <tbody>
           <tr v-for="gm in modal.grupos" :key="gm.grupo_id">
             <td class="cajas-rango">{{ gm.rango }}</td>
             <td class="num">{{ gm.max }}</td>
-            <td class="num"><input v-model.number="gm.num_cajas" class="celda num" type="number" min="1" :max="gm.max" style="width: 80px; border-color: var(--linea)" :aria-label="`Cajas a mover de ${gm.rango}`" /></td>
+            <td class="num"><input v-model.number="gm.num_cajas" class="celda num" type="number" min="1" :max="gm.max" style="width: 80px; border-color: var(--linea)" :aria-label="`Cartons to move from ${gm.rango}`" /></td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p class="ayuda">El contenido viaja con sus cajas. La numeración se recalcula en ambos packing lists.</p>
+    <p class="ayuda">The contents travel with their cartons. Numbering is recalculated in both packing lists.</p>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancelar</button>
-      <button class="btn btn-primario" :disabled="ocupado || modal.grupos.some((g) => !(g.num_cajas >= 1) || g.num_cajas > g.max)" @click="moverCajas">Mover cajas</button>
+      <button class="btn" @click="modal = null">Cancel</button>
+      <button class="btn btn-primario" :disabled="ocupado || modal.grupos.some((g) => !(g.num_cajas >= 1) || g.num_cajas > g.max)" @click="moverCajas">Move cartons</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'guardar_plantilla'" titulo="Guardar como plantilla" @cerrar="modal = null">
-    <label class="campo"><span class="req">Nombre de la plantilla</span><input v-model="modal.nombre" placeholder="Por ejemplo: Caja 12 pares talla grande" /></label>
-    <p class="ayuda">Guarda la cantidad por caja, medidas y pesos para usarla en el empaque automático.</p>
+  <Modal v-if="modal?.tipo === 'guardar_plantilla'" titulo="Save as template" @cerrar="modal = null">
+    <label class="campo"><span class="req">Template name</span><input v-model="modal.nombre" placeholder="For example: 12-pair carton large sizes" /></label>
+    <p class="ayuda">Saves the quantity per carton, dimensions and weights to use in auto-pack.</p>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancelar</button>
-      <button class="btn btn-primario" :disabled="ocupado || !modal.nombre.trim()" @click="guardarPlantilla">Guardar plantilla</button>
+      <button class="btn" @click="modal = null">Cancel</button>
+      <button class="btn btn-primario" :disabled="ocupado || !modal.nombre.trim()" @click="guardarPlantilla">Save template</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'pallet'" titulo="Paletizar cajas" ancho="560px" @cerrar="modal = null">
-    <p>{{ plural(cajasSel, 'caja', 'cajas') }} seleccionadas. Si la mercancía viaja en tarimas, agrúpalas en pallets con sus medidas.</p>
+  <Modal v-if="modal?.tipo === 'pallet'" titulo="Palletize cartons" ancho="560px" @cerrar="modal = null">
+    <p>{{ plural(cajasSel, 'carton', 'cartons') }} selected. If the goods travel on pallets, group them into pallets with their dimensions.</p>
     <label class="campo"><span>Pallet</span>
       <select v-model="modal.destino">
-        <option value="">Pallet nuevo</option>
-        <option v-for="p in pl.pallets" :key="p.id" :value="p.id">Agregar al pallet {{ p.numero }} ({{ p.cajas }} cajas)</option>
+        <option value="">New pallet</option>
+        <option v-for="p in pl.pallets" :key="p.id" :value="p.id">Add to pallet {{ p.numero }} ({{ p.cajas }} cartons)</option>
       </select>
     </label>
     <div v-if="!modal.destino" class="rejilla-campos">
-      <label class="campo"><span class="req">Largo cm</span><input v-model.number="modal.largo" type="number" min="1" /></label>
-      <label class="campo"><span class="req">Ancho cm</span><input v-model.number="modal.ancho" type="number" min="1" /></label>
-      <label class="campo"><span class="req">Alto cm (armado)</span><input v-model.number="modal.alto" type="number" min="1" /></label>
-      <label class="campo"><span>Tara kg (tarima)</span><input v-model.number="modal.peso_tara" type="number" min="0" /></label>
+      <label class="campo"><span class="req">Length cm</span><input v-model.number="modal.largo" type="number" min="1" /></label>
+      <label class="campo"><span class="req">Width cm</span><input v-model.number="modal.ancho" type="number" min="1" /></label>
+      <label class="campo"><span class="req">Height cm (loaded)</span><input v-model.number="modal.alto" type="number" min="1" /></label>
+      <label class="campo"><span>Tare kg (pallet)</span><input v-model.number="modal.peso_tara" type="number" min="0" /></label>
     </div>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancelar</button>
-      <button class="btn btn-primario" :disabled="ocupado || (!modal.destino && !(modal.largo > 0 && modal.ancho > 0 && modal.alto > 0))" @click="paletizar">Paletizar</button>
+      <button class="btn" @click="modal = null">Cancel</button>
+      <button class="btn btn-primario" :disabled="ocupado || (!modal.destino && !(modal.largo > 0 && modal.ancho > 0 && modal.alto > 0))" @click="paletizar">Palletize</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'desempacar'" titulo="Desempacar cajas" @cerrar="modal = null">
-    <p>Se eliminan {{ plural(cajasSel, 'caja', 'cajas') }} y su contenido vuelve a “Por empacar”.</p>
+  <Modal v-if="modal?.tipo === 'desempacar'" titulo="Unpack cartons" @cerrar="modal = null">
+    <p>{{ plural(cajasSel, 'carton is', 'cartons are') }} removed and the contents go back to “To pack”.</p>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancelar</button>
-      <button class="btn btn-peligro" :disabled="ocupado" @click="desempacar">Desempacar</button>
+      <button class="btn" @click="modal = null">Cancel</button>
+      <button class="btn btn-peligro" :disabled="ocupado" @click="desempacar">Unpack</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'pendientes'" titulo="Pendientes para finalizar" ancho="620px" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'pendientes'" titulo="Pending to finalize" ancho="620px" @cerrar="modal = null">
     <ul class="lista-mensajes"><li v-for="(d, i) in modal.detalle" :key="i">{{ textoDetalle(d) }}</li></ul>
-    <template #pie><button class="btn btn-primario" @click="modal = null; tab = 'revision'">Ver en revisión</button></template>
+    <template #pie><button class="btn btn-primario" @click="modal = null; tab = 'revision'">See in review</button></template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'estado'" :titulo="modal.accion === 'reabrir' ? 'Reabrir packing list' : 'Cancelar packing list'" @cerrar="modal = null">
-    <p v-if="modal.accion === 'reabrir'">Vuelve a ser editable. Si estaba confirmado en un contenedor, la asignación pasa a tentativa.</p>
-    <p v-else>Sus cantidades vuelven a la factura como pendientes de asignar.</p>
-    <label class="campo"><span :class="{ req: !(modal.accion === 'cancelar' && pl?.estado === 'BORRADOR') }">Motivo{{ modal.accion === 'cancelar' && pl?.estado === 'BORRADOR' ? ' (opcional)' : '' }}</span><textarea v-model="modal.motivo"></textarea></label>
+  <Modal v-if="modal?.tipo === 'estado'" :titulo="modal.accion === 'reabrir' ? 'Reopen packing list' : 'Cancel packing list'" @cerrar="modal = null">
+    <p v-if="modal.accion === 'reabrir'">It becomes editable again. If it was confirmed in a load unit, the assignment becomes tentative.</p>
+    <p v-else>Its quantities go back to the invoice as pending assignment.</p>
+    <label class="campo"><span :class="{ req: !(modal.accion === 'cancelar' && pl?.estado === 'BORRADOR') }">Reason{{ modal.accion === 'cancelar' && pl?.estado === 'BORRADOR' ? ' (optional)' : '' }}</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>
-      <button class="btn" @click="modal = null">Volver</button>
+      <button class="btn" @click="modal = null">Back</button>
       <button class="btn" :class="modal.accion === 'cancelar' ? 'btn-peligro' : 'btn-primario'" :disabled="ocupado" @click="cambiarEstado">
-        {{ modal.accion === 'reabrir' ? 'Reabrir' : 'Cancelar packing list' }}
+        {{ modal.accion === 'reabrir' ? 'Reopen' : 'Cancel packing list' }}
       </button>
     </template>
   </Modal>

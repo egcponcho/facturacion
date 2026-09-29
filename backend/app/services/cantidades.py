@@ -16,7 +16,7 @@ from ..models import (
 
 
 def nombre_factura(f: Factura) -> str:
-    return f.numero or f"Borrador #{f.id}"
+    return f.numero or f"Draft #{f.id}"
 
 
 # ---- OC -> factura ----------------------------------------------------------
