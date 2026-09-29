@@ -530,9 +530,27 @@ def test_seguimiento(tnf, interno):
     hoy = date.today()
     eta = interno.get("/seguimiento", params={"eta_desde": hoy.isoformat()}).json()
     assert eta["total"] and all(f["eta"] >= hoy.isoformat() for f in eta["items"])
+    # Tablero de contenedores: un renglón por contenedor y su explosión por OC
+    cont = interno.get("/seguimiento/contenedores").json()
+    assert cont["kpis"]["contenedores"] == cont["total"] and cont["total"] >= 2
+    tghu = next(c for c in cont["items"] if c["contenedor"] == "TGHU 772104-3")
+    assert tghu["documento"] == "COSU 640018225" and tghu["estado"] == "EN_TRANSITO" and tghu["ocs"] >= 2
+    assert interno.get("/seguimiento/contenedores", params={"marca": "VANS", "documento": "COSU 640018225"}).json()["total"] == 1
+    exp = interno.get(f"/seguimiento/contenedores/{tghu['embarque_id']}/explosion",
+                      params={"contenedor": "TGHU 772104-3"}).json()
+    assert {o["oc"] for o in exp["ocs"]} >= {"4400003703", "4400003752"}
+    assert all(l["sku"] and l["cantidad"] for o in exp["ocs"] for l in o["lineas"])
+    # Tablero de OCs: liberadas o no, avance y estados
+    ocs = interno.get("/seguimiento/ordenes", params={"size": 200}).json()
+    por_oc = {o["oc"]: o for o in ocs["items"]}
+    assert por_oc["4400003851"]["estado"] == "SIN_COMERCIAL" and por_oc["4400003701"]["estado"] == "RECIBIDA"
+    assert ocs["kpis"]["sin_liberar"] >= 2
+    solo = interno.get("/seguimiento/ordenes", params={"estado": "SIN_COMERCIAL"}).json()["items"]
+    assert solo and all(o["liberacion_comercial"] == "P" for o in solo)
     # Seguimiento de facturación y empaque: una fila por PL
     docs = interno.get("/seguimiento/documentos").json()
     assert docs["total"] and {e["clave"] for e in docs["etapas"]} >= {"EMPACANDO", "EN_CAMINO", "RECIBIDO"}
+    assert docs["kpis"]["facturas"] >= 1 and docs["kpis"]["cajas"] > 0
     camino = interno.get("/seguimiento/documentos", params={"etapa": "EN_CAMINO"}).json()["items"]
     assert camino and all(f["estado_embarque"] in ("EN_TRANSITO", "ARRIBADO", "ENTREGADO") for f in camino)
     assert all(f["proveedor"] == "The North Face" for f in tnf.get("/seguimiento/documentos").json()["items"])

@@ -28,6 +28,7 @@ const editando = ref(null)
 const erroresForm = ref({})
 const modal = ref(null)
 const ocupado = ref(false)
+const formAbierto = ref(false) // alta y edición en ventana emergente
 
 const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
 const campos = computed(() => cat.value?.campos || [])
@@ -97,7 +98,16 @@ function ordenar(campo) {
 }
 
 // ---- Formulario -------------------------------------------------------------
+function abrirNuevo() {
+  nuevo()
+  formAbierto.value = true
+}
+function cerrarForm() {
+  formAbierto.value = false
+  nuevo()
+}
 function editar(fila) {
+  formAbierto.value = true
   editando.value = fila.id
   filaEditada.value = fila
   erroresForm.value = {}
@@ -123,7 +133,7 @@ async function guardar() {
       avisar(`${cap(cat.value.singular)} creado.`)
       cat.value.total++
     }
-    nuevo()
+    cerrarForm()
     delete opciones[tipo.value]
     cargar()
   } catch (e) {
@@ -219,6 +229,7 @@ async function crearPrepack() {
     const r = await api.post('/catalogos/prepacks', { ...nuevoPP, cantidades: undefined, componentes })
     avisar(`Prepack ${r.codigo} creado con el código ${r.sku} (${r.total} por caja).`)
     Object.assign(nuevoPP, { sku: '', codigo: '', descripcion: '', cantidades: {} })
+    formAbierto.value = false
     cat.value.total++
     cargar()
   } catch (e) {
@@ -260,9 +271,10 @@ onMounted(async () => {
       <p>Datos maestros que usa todo el sistema: validan la carga de OCs, definen las reglas de empaque y alimentan los filtros.</p>
     </div>
     <div class="acciones">
+      <button v-if="cat" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />Nuevo {{ cat.singular }}</button>
       <template v-if="tipo === 'articulos' || tipo === 'prepacks'">
         <a class="btn" :href="tipo === 'articulos' ? '/plantilla_articulos.csv' : '/plantilla_prepacks.csv'" download><Icono nombre="descargar" />Formato</a>
-        <button class="btn btn-primario" @click="abrirCarga"><Icono nombre="importar" />Cargar {{ tipo === 'articulos' ? 'artículos' : 'curvas' }}</button>
+        <button class="btn" @click="abrirCarga"><Icono nombre="importar" />Cargar {{ tipo === 'articulos' ? 'artículos' : 'curvas' }}</button>
       </template>
     </div>
   </div>
@@ -273,11 +285,68 @@ onMounted(async () => {
     </button>
   </div>
 
-  <div v-if="cat" class="mantenimiento">
-    <section class="panel">
-      <div class="panel-cabeza">
-        <div><h2>{{ editando ? `Editar ${cat.singular}` : `Nuevo ${cat.singular}` }}</h2><p v-if="cat.ayuda">{{ cat.ayuda }}</p></div>
+  <div v-if="cat">
+
+    <section>
+      <div class="filtros">
+        <label class="buscador">
+          <Icono nombre="buscar" :tam="16" />
+          <input v-model="filtros.q" type="search" :placeholder="`Buscar en ${cat.titulo.toLowerCase()}`" aria-label="Buscar" @input="buscar" />
+        </label>
+        <template v-for="c in conFiltro" :key="c.nombre">
+          <SelectBusqueda v-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
+                          :vacio="`${c.etiqueta}: todos`" :etiqueta="c.etiqueta" @change="filtros.page = 1; cargar()" />
+          <select v-else v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
+            <option :value="undefined">{{ c.etiqueta }}: todos</option>
+            <template v-if="c.tipo === 'bool'"><option value="true">{{ c.etiqueta }}: sí</option><option value="false">{{ c.etiqueta }}: no</option></template>
+            <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ t }}</option></template>
+          </select>
+        </template>
       </div>
+      <div class="tabla-marco tabla-fija">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <ThOrden v-for="c in columnas" :key="c.nombre" :campo="c.nombre" :orden="filtros.orden" :num="c.tipo === 'entero'" @ordenar="ordenar">{{ c.etiqueta }}</ThOrden>
+              <th v-for="ex in extras" :key="ex.nombre">{{ ex.etiqueta }}</th>
+              <th v-if="tipo === 'prepacks'">Código de producto</th>
+              <th v-if="tipo === 'prepacks'" class="num">Por caja</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="fila in datos.items" :key="fila.id" :class="{ seleccionada: editando === fila.id }">
+              <td v-for="c in columnas" :key="c.nombre" :class="{ num: c.tipo === 'entero' }">
+                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="`Cambiar ${c.etiqueta.toLowerCase()}`" @click="alternarActivo(fila, c.nombre)">
+                  {{ fila[c.nombre] ? 'Sí' : 'No' }}
+                </button>
+                <span v-else :class="{ codigo: ['codigo', 'sku'].includes(c.nombre), fuerte: c.nombre === 'codigo' || c.nombre === 'sku' }">{{ valorCelda(c, fila) }}</span>
+              </td>
+              <td v-for="ex in extras" :key="ex.nombre">
+                <button type="button" class="enlace" :title="`Ver ${ex.etiqueta.toLowerCase()} de ${fila.codigo || fila.nombre}`"
+                        @click="elegir(ex.catalogo, { [ex.filtro]: fila.id })">
+                  {{ ex.nombre === 'centros_txt' ? (fila.centros_txt || 'Asignar centros') : `${fila[ex.nombre] || 0} ${fila[ex.nombre] === 1 ? ex.etiqueta.toLowerCase().replace(/s$/, '') : ex.etiqueta.toLowerCase()}` }}
+                </button>
+              </td>
+              <td v-if="tipo === 'prepacks'" class="codigo fuerte">{{ fila.sku || '—' }}</td>
+              <td v-if="tipo === 'prepacks'" class="num">{{ fila.total }} <span class="sub">{{ fila.componentes }} tallas</span></td>
+              <td class="num" style="white-space: nowrap">
+                <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" title="Ver la explosión (no se modifica)"
+                        @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />Explosión</button>
+                <button class="btn-icono" :aria-label="`Editar ${cat.singular}`" title="Editar" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
+                <button class="btn-icono" style="color: var(--error)" :aria-label="`Eliminar ${cat.singular}`" title="Eliminar" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
+              </td>
+            </tr>
+            <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : 2)" class="vacio">No hay registros con estos filtros.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
+    </section>
+  </div>
+
+  <Modal v-if="formAbierto && cat" :titulo="editando ? `Editar ${cat.singular}` : `Nuevo ${cat.singular}`" ancho="640px" @cerrar="cerrarForm">
+    <p v-if="cat.ayuda" class="ayuda" style="margin-top: 0">{{ cat.ayuda }}</p>
       <form v-if="tipo === 'prepacks' && !editando" class="form-catalogo" @submit.prevent="crearPrepack">
         <label class="campo"><span class="req">Código de producto</span>
           <input v-model="nuevoPP.sku" inputmode="numeric" placeholder="30095120027" required />
@@ -341,68 +410,10 @@ onMounted(async () => {
         <p class="leyenda-req">Obligatorio</p>
         <div class="fila-flex">
           <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ editando ? 'Guardar cambios' : `Crear ${cat.singular}` }}</button>
-          <button v-if="editando" class="btn btn-fantasma" type="button" @click="nuevo">Cancelar edición</button>
+          <button class="btn btn-fantasma" type="button" @click="cerrarForm">Cancelar</button>
         </div>
       </form>
-    </section>
-
-    <section>
-      <div class="filtros">
-        <label class="buscador">
-          <Icono nombre="buscar" :tam="16" />
-          <input v-model="filtros.q" type="search" :placeholder="`Buscar en ${cat.titulo.toLowerCase()}`" aria-label="Buscar" @input="buscar" />
-        </label>
-        <template v-for="c in conFiltro" :key="c.nombre">
-          <SelectBusqueda v-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
-                          :vacio="`${c.etiqueta}: todos`" :etiqueta="c.etiqueta" @change="filtros.page = 1; cargar()" />
-          <select v-else v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
-            <option :value="undefined">{{ c.etiqueta }}: todos</option>
-            <template v-if="c.tipo === 'bool'"><option value="true">{{ c.etiqueta }}: sí</option><option value="false">{{ c.etiqueta }}: no</option></template>
-            <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ t }}</option></template>
-          </select>
-        </template>
-      </div>
-      <div class="tabla-marco tabla-fija">
-        <table class="tabla">
-          <thead>
-            <tr>
-              <ThOrden v-for="c in columnas" :key="c.nombre" :campo="c.nombre" :orden="filtros.orden" :num="c.tipo === 'entero'" @ordenar="ordenar">{{ c.etiqueta }}</ThOrden>
-              <th v-for="ex in extras" :key="ex.nombre">{{ ex.etiqueta }}</th>
-              <th v-if="tipo === 'prepacks'">Código de producto</th>
-              <th v-if="tipo === 'prepacks'" class="num">Por caja</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="fila in datos.items" :key="fila.id" :class="{ seleccionada: editando === fila.id }">
-              <td v-for="c in columnas" :key="c.nombre" :class="{ num: c.tipo === 'entero' }">
-                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="`Cambiar ${c.etiqueta.toLowerCase()}`" @click="alternarActivo(fila, c.nombre)">
-                  {{ fila[c.nombre] ? 'Sí' : 'No' }}
-                </button>
-                <span v-else :class="{ codigo: ['codigo', 'sku'].includes(c.nombre), fuerte: c.nombre === 'codigo' || c.nombre === 'sku' }">{{ valorCelda(c, fila) }}</span>
-              </td>
-              <td v-for="ex in extras" :key="ex.nombre">
-                <button type="button" class="enlace" :title="`Ver ${ex.etiqueta.toLowerCase()} de ${fila.codigo || fila.nombre}`"
-                        @click="elegir(ex.catalogo, { [ex.filtro]: fila.id })">
-                  {{ ex.nombre === 'centros_txt' ? (fila.centros_txt || 'Asignar centros') : `${fila[ex.nombre] || 0} ${ex.etiqueta.toLowerCase()}` }}
-                </button>
-              </td>
-              <td v-if="tipo === 'prepacks'" class="codigo fuerte">{{ fila.sku || '—' }}</td>
-              <td v-if="tipo === 'prepacks'" class="num">{{ fila.total }} <span class="sub">{{ fila.componentes }} tallas</span></td>
-              <td class="num" style="white-space: nowrap">
-                <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" title="Ver la explosión (no se modifica)"
-                        @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />Explosión</button>
-                <button class="btn-icono" :aria-label="`Editar ${cat.singular}`" title="Editar" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
-                <button class="btn-icono" style="color: var(--error)" :aria-label="`Eliminar ${cat.singular}`" title="Eliminar" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
-              </td>
-            </tr>
-            <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : 2)" class="vacio">No hay registros con estos filtros.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
-    </section>
-  </div>
+  </Modal>
 
   <Modal v-if="modal?.tipo === 'eliminar'" :titulo="`Eliminar ${cat.singular}`" @cerrar="modal = null">
     <p>¿Eliminar <b>{{ modal.fila.codigo || modal.fila.sku }}</b>? Si ya se usa en otros registros no se podrá eliminar; en ese caso desactívalo.</p>

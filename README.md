@@ -110,8 +110,14 @@ El menú va en su propia fila, a todo lo ancho, para que nunca se encime con los
 
 ## Seguimiento
 
-- **Mercancía y contenedores:** cada SKU por etapa (por liberar → recibido), por marca, grupo de artículos, estilo, color, talla, código de producto, almacén, contenedor, documento de transporte (BL/AWB), embarque, riesgo de llegar tarde y rangos de ETA, XF y fecha en tienda.
-- **Facturación y packing lists:** una fila por packing list (o factura sin PL) con el paso en que va (factura abierta, empacando, por finalizar, listo para embarcar, tentativo, en contenedor, en camino, recibido), avance de empaque, cajas, pallets, peso, volumen, datos pendientes y días desde que se creó.
+Cuatro tableros; los tres de mercancía comparten los mismos filtros (marca, grupo, estilo, color, talla, SKU, almacén, contenedor, BL/AWB, embarque, proveedor, sociedad, centro, riesgo de llegar tarde y rangos de ETA, XF y fecha en tienda). Los indicadores son clicables y aplican su filtro.
+
+- **Contenedores y BL:** indicadores (contenedores, en tránsito, llegan en 7 días, llegan tarde a tienda), llegadas por semana y contenedores por estado. Cada contenedor se abre para ver la **explosión de todo lo que lleva por orden de compra**: posición, SKU, marca y grupo, estilo, color, talla, almacén, UM, cantidad, factura y PL, y la explosión de cada prepack.
+- **Órdenes de compra:** liberadas o no (comercial P/C y logística 304/300/301), estado de cada OC (sin liberación comercial, sin liberación logística, sin facturar, facturada en parte, en proceso, en camino, recibida), barra de avance del pedido a lo recibido, XF vencida sin facturar y holgura frente a la fecha en tienda.
+- **Mercancía por SKU:** cada SKU por etapa y el avance por marca.
+- **Facturación y packing lists:** indicadores (facturas e importe, abiertas, empacando, listas para embarcar, con datos pendientes), documentos por paso, carga empacada (cajas, pallets, peso y volumen) y una fila por packing list.
+
+Altas, ediciones, cambios de contraseña y bajas se hacen en ventanas emergentes (Mantenimiento, Plantillas y Usuarios).
 
 ## Cómo quedaron las reglas principales
 

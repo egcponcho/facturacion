@@ -20,6 +20,8 @@
   --borde-hover: #cbd5e1;
   --fila-hover: #f8fafc;
   --acento: #6d4fe0;
+  /* Rampa secuencial (un tono) para etapas ordenadas: de claro a oscuro */
+  --tramo-1: #e4dcfb; --tramo-2: #c4b3f5; --tramo-3: #9a7ff0; --tramo-4: #6d4fe0; --tramo-5: #452a9e;
   --acento-hover: #5a3ccc;
   --acento-claro: #f1edfe;
   --acento-medio: #d9d0fb;
@@ -84,6 +86,7 @@
     --borde-hover: #3d4b63;
     --fila-hover: #1b2739;
     --acento: #a78bfa;
+    --tramo-1: #3a2c6e; --tramo-2: #56419f; --tramo-3: #7a62d0; --tramo-4: #a28ef2; --tramo-5: #d3c8ff;
     --acento-hover: #b9a2fb;
     --acento-claro: rgba(167, 139, 250, 0.14);
     --acento-medio: rgba(167, 139, 250, 0.5);
@@ -139,6 +142,7 @@
   --borde-hover: #3d4b63;
   --fila-hover: #1b2739;
   --acento: #a78bfa;
+  --tramo-1: #3a2c6e; --tramo-2: #56419f; --tramo-3: #7a62d0; --tramo-4: #a28ef2; --tramo-5: #d3c8ff;
   --acento-hover: #b9a2fb;
   --acento-claro: rgba(167, 139, 250, 0.14);
   --acento-medio: rgba(167, 139, 250, 0.5);
@@ -805,3 +809,11 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .explosion-cabeza div { display: flex; flex-direction: column; gap: 2px; }
 .btn-explosion { border: 0; cursor: pointer; font: inherit; }
 .btn-explosion:hover { filter: brightness(0.95); text-decoration: underline; }
+.explosion-oc + .explosion-oc { margin-top: 14px; }
+.explosion-oc-cabeza { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.pildora[aria-pressed='true'] { background: var(--acento-claro); border-color: var(--acento-medio); color: var(--acento-texto); }
+/* Formularios de alta y edición en ventana emergente: dos columnas */
+.modal .form-catalogo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; max-height: none; overflow: visible; }
+.modal .form-catalogo > .campo:has(textarea), .modal .form-catalogo > div.campo, .modal .form-catalogo > .check,
+.modal .form-catalogo > .leyenda-req, .modal .form-catalogo > .fila-flex, .modal .form-catalogo > button { grid-column: 1 / -1; }
+@media (max-width: 640px) { .modal .form-catalogo { grid-template-columns: 1fr; } }
