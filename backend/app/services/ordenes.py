@@ -576,6 +576,9 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
             errores.append(f"El almacén {d['almacen']} no existe.")
         elif soc and alm.sociedad_id != soc.id:
             errores.append(f"El almacén {d['almacen']} no pertenece a la sociedad {d['sociedad']}.")
+    prov = m.proveedores.get(d["proveedor"])
+    if prov and soc and prov.sociedades and soc.id not in {x.id for x in prov.sociedades}:
+        errores.append(f"El proveedor {prov.nombre} no trabaja con la sociedad {d['sociedad']}.")
     if d["centro_destino"] and d["centro_destino"] not in m.centros:
         errores.append(f"El centro de destino {d['centro_destino']} no está registrado en mantenimiento.")
     if d["puerto_despacho"] and d["puerto_despacho"] not in m.puertos:
@@ -587,6 +590,9 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
     if d["codigo_sap"] and not art:
         errores.append(f"El SKU {d['codigo_sap']} no existe en el maestro de artículos. Cárgalo primero.")
     elif art:
+        prov = m.proveedores.get(d["proveedor"])
+        if prov and art.proveedor_id and art.proveedor_id != prov.id:
+            errores.append(f"El SKU {art.sku} es de otro proveedor, no de {prov.nombre}.")
         if not art.activo:
             errores.append(f"El SKU {art.sku} está inactivo en el maestro.")
         if d["unidad"] and d["unidad"] != art.unidad:

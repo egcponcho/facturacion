@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Query, Response
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -13,6 +13,15 @@ User = Annotated[Usuario, Depends(usuario_actual)]
 Clave = Annotated[str | None, Header(alias="Idempotency-Key")]
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+PDF = "application/pdf"
+Formato = Annotated[str, Query(pattern="^(pdf|xlsx)$")]
+
+
+def descarga(contenido: bytes, nombre: str, formato: str) -> Response:
+    """Archivo para descargar; `nombre` sin extensión."""
+    nombre = nombre.replace("/", "-").replace('"', "")
+    return Response(contenido, media_type=PDF if formato == "pdf" else XLSX,
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}.{formato}"'})
 
 
 def ejecutar(db: Session, user: Usuario, clave: str | None, fn):

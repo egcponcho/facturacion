@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-from fastapi.responses import Response
 
 from ..schemas import (
     CajaManual,
@@ -19,10 +18,9 @@ from ..schemas import (
     PLQuitar,
     RecepcionIn,
 )
-from ..services import exportar
-from ..services.partes import partes
+from ..services import documentos, exportar
 from ..services import packing as svc
-from .base import XLSX, Clave, Db, User, ejecutar
+from .base import Clave, Db, Formato, User, descarga, ejecutar
 
 router = APIRouter(prefix="/packing-lists")
 
@@ -118,8 +116,9 @@ def recepcion(pl_id: int, datos: RecepcionIn, db: Db, user: User, clave: Clave =
 
 
 @router.get("/{pl_id}/exportar")
-def exportar_xlsx(pl_id: int, db: Db, user: User):
+def exportar_pl(pl_id: int, db: Db, user: User, formato: Formato = "xlsx"):
+    """Lista de empaque en PDF o Excel."""
     pl = svc.cargar_pl(db, user, pl_id)
-    nombre = f"{(pl.factura.numero or f'borrador_{pl.factura_id}').replace('/', '-')}_{pl.numero}.xlsx"
-    return Response(exportar.exportar_pl(pl, partes(db, pl.factura.sociedad, pl.factura.centro, pl.factura.centro_destino)), media_type=XLSX,
-                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+    d = documentos.datos_pl(db, pl)
+    contenido = documentos.pdf_pl(d) if formato == "pdf" else exportar.exportar_pl(d)
+    return descarga(contenido, f"{pl.factura.numero or f'borrador_{pl.factura_id}'}_{pl.numero}", formato)

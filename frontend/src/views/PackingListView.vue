@@ -375,7 +375,7 @@ function guardarRecepcion() {
     lineas: pl.value.lineas.map((l) => ({ pl_linea_id: l.id, ...recepcion[l.id], cantidad_recibida: Number(recepcion[l.id].cantidad_recibida), cantidad_danada: Number(recepcion[l.id].cantidad_danada) })),
   }), (r) => (r.diferencias.length ? `Recepción guardada con ${plural(r.diferencias.length, 'diferencia', 'diferencias')}.` : 'Recepción guardada sin diferencias.'))
 }
-const descargar = () => api.descargar(url('/exportar'), 'packing_list.xlsx').catch(errorApi)
+const descargar = (formato) => api.descargar(url('/exportar'), `packing_list.${formato}`, { formato }).catch(errorApi)
 
 function irA(accionRevision) {
   if (accionRevision === 'confirmar') confirmarPesos(estimadas.value)
@@ -394,7 +394,8 @@ onMounted(cargar)
         <EstadoBadge :estado="pl.estado" />
         <span class="doc-sub">{{ pl.factura.nombre }} · {{ pl.factura.proveedor }}</span>
         <div class="doc-acciones">
-          <button class="btn btn-fantasma" title="Descargar Excel" @click="descargar"><Icono nombre="descargar" />Excel</button>
+          <button class="btn btn-fantasma" title="Lista de empaque en PDF, lista para imprimir y firmar" @click="descargar('pdf')"><Icono nombre="descargar" />PDF</button>
+          <button class="btn btn-fantasma" title="Lista de empaque en Excel" @click="descargar('xlsx')"><Icono nombre="descargar" />Excel</button>
           <button v-if="pl.puede.reabrir" class="btn" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">Reabrir para corregir</button>
           <button v-if="pl.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">Cancelar</button>
           <button v-if="pl.puede.finalizar" class="btn" :class="{ 'btn-primario': listoParaFinalizar }" :disabled="ocupado" @click="listoParaFinalizar ? finalizar() : (tab = 'revision')">

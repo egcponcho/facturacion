@@ -66,11 +66,16 @@ Los datos de prueba ya traen historia: facturas de meses anteriores, un contened
 5. En *Revisión*, **Confirmar estimados** y **Finalizar packing list**. Vuelve a la factura, escribe número y fecha en la cabecera y pulsa **Finalizar**.
 6. Entra como **interno@demo.com**, abre *Embarques* → EMB-0003, elige el 40HC #1 y pulsa **Asignar carga**: marca la factura y asígnala; lo que ya está finalizado se confirma en el mismo paso. Luego **Registrar salida**. El proveedor ve el tránsito desde su factura y su inicio.
 
-7. En *Seguimiento* se ve cada SKU por etapa (por liberar, por facturar, en PL, en contenedor, en tránsito, recibido), por marca, estilo, color y talla, con la holgura frente a la fecha requerida en tienda. En *Mantenimiento* están todos los datos maestros.
+7. En *Seguimiento* se ve cada OC (y, al abrirla, cada SKU por etapa: por liberar, por facturar, en PL, en unidad de carga, en tránsito, recibido) y cada embarque con sus unidades, con la holgura frente a la fecha requerida en tienda. Todo se descarga en PDF o Excel. En *Mantenimiento* están todos los datos maestros.
 
 ## Datos maestros (Mantenimiento)
 
-Un solo lugar, con alta, edición, baja y filtros (listas desplegables con búsqueda), para: **sociedades**, sus **centros**, **contactos**, **almacenes**, **países**, **puertos**, **marcas**, **grupos de artículos**, **proveedores**, **artículos** y **prepacks**. No se borra lo que está en uso.
+Un solo lugar, con alta, edición, baja y filtros (listas desplegables con búsqueda), para: **sociedades**, sus **centros**, **contactos**, **almacenes**, **países**, **puertos**, **marcas**, **grupos de artículos**, **proveedores**, **artículos**, **prepacks**, **transportistas** y **tipos de unidad**. No se borra lo que está en uso.
+
+- **Proveedores:** código, nombre, razón social, identificación fiscal, país, dirección y contacto (salen como exportador en la factura y el packing list). Cada proveedor tiene **sus marcas** y **las sociedades con las que trabaja**, y sus propios **artículos**. Todo es consistente: un artículo solo puede ser de una marca de su proveedor; un proveedor no deja de manejar una marca de la que tiene artículos; al importar una OC, cada SKU debe ser del proveedor de la OC y el proveedor debe trabajar con la sociedad de la OC.
+- **Transportistas:** código (p. ej. SCAC o IATA), nombre, tipo (marítimo, aéreo, terrestre o multimodal), identificación fiscal, contacto y **sociedades con las que trabajan**. El embarque solo ofrece los del modo que trabajan con la sociedad del centro.
+- **Tipos de unidad:** el mantenimiento de los modos de transporte. Cada tipo dice su modo (marítimo, aéreo, terrestre), su **modalidad** (FCL, LCL, aérea, FTL, LTL), su capacidad en m³ y kg y si exige sello (p. ej. 20GP, 40GP, 40HC y LCL en marítimo; guía aérea; camión completo o consolidado). Se agregan los que se necesiten.
+- **Puertos:** cada uno es de un tipo (puerto marítimo, aeropuerto o aduana terrestre). Un **centro** tiene su puerto principal y **otros puertos de llegada**.
 
 - **Sociedades y centros:** cada sociedad (8000 El Salvador, PA01 Panamá, GT01, HN01, NI01, CR01) tiene sus centros asignados. La sociedad de la OC es a quien se **factura**; su centro es el **notify party** (bodega que recibe) y tiene país y **puerto de llegada**. El **centro de destino** de la OC (p. ej. 2220) es otro centro del catálogo y dice a qué país llega al final; ya no hay un catálogo aparte de países de destino. En la tabla de sociedades se ven sus centros y contactos, y en la de grupos sus artículos: un clic lleva al catálogo filtrado.
 - **Contactos:** personas de una sociedad (facturación) o de un centro (notify, logística) con uno o varios correos y teléfono. Salen en la factura, el packing list, el embarque y el Excel.
@@ -97,10 +102,11 @@ Un solo lugar, con alta, edición, baja y filtros (listas desplegables con búsq
 
 ## Embarques más estrictos
 
-- Mientras el embarque está **planificado** se agregan contenedores, se asigna, confirma, mueve o quita carga. Al registrar la **salida** la carga queda **cerrada**: ya no hay tentativos, ni se agregan, quitan o mueven PL o contenedores, y el BL, transportista, origen y ETD quedan fijos (la ETA y el destino, al registrar el arribo).
+- **Todo según el modo:** un embarque marítimo solo ofrece puertos marítimos, navieras y contenedores; uno aéreo, aeropuertos, aerolíneas y guías; uno terrestre, aduanas, transportistas terrestres y camiones. La **modalidad es de cada unidad** (sale del tipo de unidad), así que un embarque marítimo puede ser **FCL, LCL o MIXTO** (p. ej. un 40HC y un LCL con el mismo BL). El modo no cambia cuando ya tiene unidades.
+- Mientras el embarque está **planificado** se agregan unidades de carga, se asigna, confirma, mueve o quita carga. Al registrar la **salida** la carga queda **cerrada**: ya no hay tentativos, ni se agregan, quitan o mueven PL o contenedores, y el BL, transportista, origen y ETD quedan fijos (la ETA y el destino, al registrar el arribo).
 - Los eventos van en orden según el estado (recolección → salida → tránsito → arribo → liberación → entrega → recepción); no se aceptan fechas futuras ni anteriores al último evento.
-- No se asigna carga que supere la capacidad nominal del contenedor.
-- **Centro que recibe:** cada embarque llega a un solo centro (el de la OC). El puerto de destino debe ser el puerto de llegada de ese centro (se completa solo) y los puertos se eligen del catálogo. Si el embarque aún no tiene centro, lo define la primera carga; no se mezclan centros.
+- No se asigna carga que supere la capacidad nominal de la unidad (según su tipo).
+- **Centro que recibe:** cada embarque llega a un solo centro (el de la OC). El destino **se sugiere** con el puerto principal del centro y se puede cambiar por cualquiera de sus otros puertos de llegada del mismo modo; los puertos se eligen del catálogo. Si el embarque aún no tiene centro, lo define la primera carga; no se mezclan centros.
 - **Recolección:** se marca por PL con su fecha y se compara con la fecha XF; la salida completa la fecha a los que no la tenían.
 - Cada contenedor muestra sus marcas, la primera fecha requerida en tienda y los días de margen o de atraso frente a la ETA.
 
@@ -110,12 +116,21 @@ El menú va en su propia fila, a todo lo ancho, para que nunca se encime con los
 
 ## Seguimiento
 
-Cuatro tableros; los tres de mercancía comparten los mismos filtros (marca, grupo, estilo, color, talla, SKU, almacén, contenedor, BL/AWB, embarque, proveedor, sociedad, centro, riesgo de llegar tarde y rangos de ETA, XF y fecha en tienda). Los indicadores son clicables y aplican su filtro.
+Tres tableros sin información repetida; los dos de mercancía comparten los mismos filtros (marca, grupo, estilo, color, talla, SKU, almacén, etapa, unidad de carga, BL/AWB, embarque, proveedor, sociedad, centro, riesgo de llegar tarde y rangos de ETA, XF y fecha en tienda). Los indicadores son clicables y aplican su filtro. Cada tablero se descarga en **PDF o Excel** con los filtros de la pantalla.
 
-- **Contenedores y BL:** indicadores (contenedores, en tránsito, llegan en 7 días, llegan tarde a tienda), llegadas por semana y contenedores por estado. Cada contenedor se abre para ver la **explosión de todo lo que lleva por orden de compra**: posición, SKU, marca y grupo, estilo, color, talla, almacén, UM, cantidad, factura y PL, y la explosión de cada prepack.
-- **Órdenes de compra:** liberadas o no (comercial P/C y logística 304/300/301), estado de cada OC (sin liberación comercial, sin liberación logística, sin facturar, facturada en parte, en proceso, en camino, recibida), barra de avance del pedido a lo recibido, XF vencida sin facturar y holgura frente a la fecha en tienda.
-- **Mercancía por SKU:** cada SKU por etapa y el avance por marca.
+- **Órdenes de compra:** liberadas o no (comercial P/C y logística 304/300/301), estado de cada OC, barra de avance del pedido a lo recibido, XF vencida sin facturar y holgura frente a la fecha en tienda. Cada OC **se abre en su detalle por SKU**: etapa, factura y PL, embarque y unidad, llegada y margen frente a tienda (reemplaza el antiguo tablero “Mercancía por SKU”). El Excel trae una hoja con ese detalle.
+- **Embarques y unidades de carga:** un renglón por embarque y su documento de transporte (BL, AWB o carta de porte) con modo, modalidad (FCL, LCL o mixto), transportista, ruta, salida y llegada. Se abre en sus **unidades** (contenedores, guías o camiones, con tipo, modalidad y sello) y cada unidad en **todo lo que lleva por orden de compra**, con la explosión de cada prepack. Filtro por modo.
 - **Facturación y packing lists:** indicadores (facturas e importe, abiertas, empacando, listas para embarcar, con datos pendientes), documentos por paso, carga empacada (cajas, pallets, peso y volumen) y una fila por packing list.
+
+## Factura comercial y packing list (PDF y Excel)
+
+Desde cada factura y cada packing list se descarga el documento en **PDF** (listo para imprimir y firmar) o **Excel**, con la misma estructura y lo que piden las aduanas de Centroamérica (CAUCA/RECAUCA y la DUCA):
+
+- **Partes:** exportador/vendedor (razón social, identificación fiscal, dirección, contacto), importador/facturar a (sociedad con su NIT/RUC) y consignatario/notify party (centro, puerto de llegada y contacto).
+- **Condiciones:** número y fecha, OCs, incoterm, moneda, condiciones de pago, países de origen, procedencia y destino, centro de destino, medio de transporte, puertos de embarque y destino, transportista y BL/AWB/carta de porte, contenedores o guías con su sello.
+- **Detalle:** por línea, OC y posición, código y UPC, descripción comercial (marca, estilo, color, talla, prepack), **partida arancelaria SAC**, país de origen, cantidad, unidad, precio unitario y total. En el packing list, por grupo de cajas: rango y número de cajas, contenido por caja, medidas, pesos neto y bruto por caja y totales, m³, pallet y tipo de etiqueta; además los pallets y lo pendiente de empacar.
+- **Totales:** cantidad por unidad de medida, bultos, pesos neto y bruto, volumen, valor total, **total en letras** (“SON: … DÓLARES CON 00/100”) y **total de bultos en letras**; marcas de embarque (shipping marks) y la **declaración firmada** del exportador.
+- Mientras la factura o el PL no están finalizados, el PDF lleva la marca de agua **BORRADOR · NO OFICIAL**. Cada página lleva “Página X de Y”.
 
 Altas, ediciones, cambios de contraseña y bajas se hacen en ventanas emergentes (Mantenimiento, Plantillas y Usuarios).
 
@@ -145,7 +160,7 @@ Los campos marcados con <span style="color:#b42318">*</span> son obligatorios. E
 
 - **Factura comercial:** número, fecha, incoterm y, por línea, cantidad, precio unitario, país de origen, partida arancelaria y descripción comercial de la mercancía.
 - **Packing list:** para cada grupo de cajas, medidas (largo, ancho, alto) y peso neto y bruto.
-- **Transporte (para registrar la salida):** número de BL, AWB o carta de porte, transportista, origen y destino, número de cada contenedor o guía con carga y, en marítimo FCL, número de sello.
+- **Transporte (para registrar la salida):** número de BL, AWB o carta de porte, transportista, origen y destino, número de cada unidad de carga (contenedor, guía o camión) y el sello en las unidades cuyo tipo lo exige (p. ej. contenedores FCL).
 
 Se basan en los requisitos usuales de la factura comercial y del documento de transporte en la región (RECAUCA y DUCA). Confírmalos con tu agente aduanal antes de usar el sistema con datos reales.
 

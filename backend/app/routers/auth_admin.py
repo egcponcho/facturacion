@@ -26,7 +26,6 @@ def _yo(u: Usuario) -> dict:
             "factura_en_una_sola_unidad": settings.FACTURA_EN_UNA_SOLA_UNIDAD,
             "requerir_datos_aduana": settings.REQUERIR_DATOS_ADUANA,
             "dias_alerta_borrador": settings.DIAS_ALERTA_BORRADOR,
-            "tipos_unidad": list(settings.CAPACIDADES),
         },
     }
 

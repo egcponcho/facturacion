@@ -5,8 +5,10 @@ import Icono from './Icono.vue'
 // Lista desplegable con búsqueda. Busca sin importar acentos ni mayúsculas,
 // por código, nombre o detalle, y con varias palabras (todas deben estar).
 // opciones: ['SVAQJ', ...] o [{ valor, texto, sub }]
+// Con `multiple`, el valor es una lista y la lista queda abierta al elegir.
 const props = defineProps({
-  modelValue: { type: [String, Number], default: '' },
+  modelValue: { type: [String, Number, Array], default: '' },
+  multiple: Boolean,
   opciones: { type: Array, default: () => [] },
   placeholder: { type: String, default: 'Elige…' },
   vacio: { type: String, default: '' }, // texto de la opción "sin valor" (p. ej. "Todos")
@@ -29,7 +31,14 @@ const normal = (v) => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').t
 const items = computed(() => props.opciones.map((o) => (typeof o === 'object' && o !== null
   ? { valor: o.valor ?? o.id ?? o.codigo, texto: o.texto ?? o.nombre ?? String(o.valor ?? o.codigo), sub: o.sub }
   : { valor: o, texto: String(o) })))
-const elegido = computed(() => items.value.find((o) => String(o.valor) === String(props.modelValue)))
+const elegidos = computed(() => (props.multiple ? (props.modelValue || []).map(String) : []))
+const esElegido = (o) => (props.multiple ? elegidos.value.includes(String(o.valor)) : String(o.valor) === String(props.modelValue))
+const elegido = computed(() => (props.multiple ? null : items.value.find((o) => String(o.valor) === String(props.modelValue))))
+const resumen = computed(() => {
+  if (!props.multiple) return ''
+  const textos = items.value.filter((o) => elegidos.value.includes(String(o.valor))).map((o) => o.texto.split(' · ')[0])
+  return textos.length > 3 ? `${textos.slice(0, 3).join(', ')} y ${textos.length - 3} más` : textos.join(', ')
+})
 
 const filtrados = computed(() => {
   const palabras = normal(texto.value).split(/\s+/).filter(Boolean)
@@ -47,7 +56,7 @@ const filtrados = computed(() => {
       .sort((a, b) => a.peso - b.peso)
       .map((x) => x.o)
   }
-  const conVacio = props.vacio && !palabras.length ? [{ valor: '', texto: props.vacio, vacio: true }, ...res] : res
+  const conVacio = props.vacio && !props.multiple && !palabras.length ? [{ valor: '', texto: props.vacio, vacio: true }, ...res] : res
   return conVacio
 })
 const visibles = computed(() => filtrados.value.slice(0, MAX))
@@ -68,7 +77,7 @@ async function abrir() {
   if (props.deshabilitado || abierto.value) return
   abierto.value = true
   texto.value = ''
-  activo.value = Math.max(0, visibles.value.findIndex((o) => String(o.valor) === String(props.modelValue)))
+  activo.value = props.multiple ? 0 : Math.max(0, visibles.value.findIndex((o) => String(o.valor) === String(props.modelValue)))
   colocar()
   await nextTick()
   campo.value?.focus()
@@ -78,6 +87,16 @@ function cerrar() {
   abierto.value = false
 }
 function elegir(o) {
+  if (props.multiple) {
+    const actual = (props.modelValue || []).map(String)
+    const v = String(o.valor)
+    const nuevo = actual.includes(v) ? actual.filter((x) => x !== v) : [...actual, v]
+    // Conserva el tipo original de los valores (números o códigos)
+    const valores = items.value.filter((x) => nuevo.includes(String(x.valor))).map((x) => x.valor)
+    emit('update:modelValue', valores)
+    emit('change', valores)
+    return
+  }
   emit('update:modelValue', o.valor)
   emit('change', o.valor)
   cerrar()
@@ -89,7 +108,8 @@ function tecla(e) {
   if (e.key === 'ArrowDown') { activo.value = Math.min(activo.value + 1, visibles.value.length - 1); desplazar(); e.preventDefault() }
   else if (e.key === 'ArrowUp') { activo.value = Math.max(activo.value - 1, 0); desplazar(); e.preventDefault() }
   else if (e.key === 'Enter') { if (visibles.value[activo.value]) elegir(visibles.value[activo.value]); e.preventDefault() }
-  else if (e.key === 'Escape' || e.key === 'Tab') cerrar()
+  else if (e.key === 'Escape') { cerrar(); e.stopPropagation() } // cierra solo la lista, no la ventana que la contiene
+  else if (e.key === 'Tab') cerrar()
 }
 watch(texto, () => (activo.value = 0))
 
@@ -113,12 +133,14 @@ onBeforeUnmount(() => {
   <div ref="raiz" class="sb" :class="{ abierto, deshabilitado }">
     <button type="button" class="sb-boton" :disabled="deshabilitado" :aria-label="etiqueta || placeholder"
             aria-haspopup="listbox" :aria-expanded="abierto" @click="abrir" @keydown.down.prevent="abrir">
-      <span v-if="elegido && (elegido.valor !== '' || !vacio)" class="sb-valor">{{ elegido.texto }}</span>
+      <span v-if="multiple && resumen" class="sb-valor" :title="resumen">{{ resumen }}</span>
+      <span v-else-if="multiple" class="sb-placeholder">{{ placeholder }}</span>
+      <span v-else-if="elegido && (elegido.valor !== '' || !vacio)" class="sb-valor">{{ elegido.texto }}</span>
       <span v-else-if="vacio && !modelValue" class="sb-valor">{{ vacio }}</span>
       <span v-else class="sb-placeholder">{{ placeholder }}</span>
       <Icono nombre="abajo" :tam="14" />
     </button>
-    <input v-if="requerido" class="sb-requerido" :value="modelValue" required tabindex="-1" aria-hidden="true" />
+    <input v-if="requerido" class="sb-requerido" :value="multiple ? elegidos.join(',') : modelValue" required tabindex="-1" aria-hidden="true" />
     <Teleport to="body">
       <div v-if="abierto" ref="lista" class="sb-panel" :style="pos">
         <label class="sb-buscar">
@@ -126,11 +148,11 @@ onBeforeUnmount(() => {
           <input ref="campo" v-model="texto" type="search" placeholder="Buscar…" :aria-label="`Buscar ${etiqueta}`"
                  role="combobox" aria-autocomplete="list" :aria-expanded="true" @keydown="tecla" />
         </label>
-        <ul class="sb-lista" role="listbox">
+        <ul class="sb-lista" role="listbox" :aria-multiselectable="multiple || undefined">
           <li v-for="(o, i) in visibles" :key="`${o.valor}-${i}`" role="option" :aria-selected="i === activo"
-              :class="{ elegido: String(o.valor) === String(modelValue), vacio: o.vacio }"
+              :class="{ elegido: esElegido(o), vacio: o.vacio }" :aria-checked="multiple ? esElegido(o) : undefined"
               @mousedown.prevent="elegir(o)" @mousemove="activo = i">
-            <span>{{ o.texto }}</span>
+            <span><Icono v-if="multiple" :nombre="esElegido(o) ? 'check' : 'mas'" :tam="13" class="sb-marca" /> {{ o.texto }}</span>
             <small v-if="o.sub">{{ o.sub }}</small>
           </li>
           <li v-if="!visibles.length" class="sb-nada">Sin resultados para “{{ texto }}”</li>

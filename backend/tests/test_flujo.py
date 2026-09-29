@@ -316,6 +316,10 @@ def test_importacion_oc(interno):
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("x.csv", (
         enc + fila("4400009998", "10", "NOEXISTE", 1)).encode(), "text/csv")})
     assert r.json()["resumen"]["error"] == 1 and "maestro" in r.json()["filas"][0]["mensajes"][0]
+    # El SKU debe ser del proveedor de la OC
+    r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("p.csv", (
+        enc + fila("4400009995", "10", "30095120001", 5)).encode(), "text/csv")})
+    assert r.json()["resumen"]["error"] == 1 and "otro proveedor" in " ".join(r.json()["filas"][0]["mensajes"])
     # Dos liberaciones: sin comercial (P) no puede haber logística 300/301; nueva sin código logístico = 304
     enc_log = enc.strip() + ",liberacion_logistica\n"
     fila_log = lambda oc_n, lib, log: fila(oc_n, "10", pos10["codigo_sap"], 12, lib).strip() + f",{log}\n"  # noqa: E731
@@ -356,7 +360,29 @@ def test_asignacion_automatica(interno, vans):
     # El puerto de destino debe ser el del centro de llegada
     r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "modalidad": "FCL", "centro": "8010",
                                     "puerto_destino": "PAONX"})
-    assert r.status_code == 422 and "debe coincidir" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "elige uno de esos puertos" in r.json()["detalle"][0]["mensaje"]
+    # Puertos sugeridos del centro: se puede cambiar a otro de sus puertos del mismo modo
+    r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "centro": "8010", "puerto_destino": "SVLUN"})
+    assert r.status_code == 200, r.text
+    r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "puerto_origen": "HKG"})
+    assert r.status_code == 422 and "aéreo" in r.json()["detalle"][0]["mensaje"]
+    # Transportista del modo y de la sociedad del centro
+    trans = {t["codigo"]: t["id"] for t in interno.get("/catalogos/transportistas").json()["items"]}
+    r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "centro": "8010", "transportista_id": trans["AVCG"]})
+    assert r.status_code == 422 and "aéreo" in r.json()["detalle"][0]["mensaje"]
+    r = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "centro": "8010", "transportista_id": trans["CMDU"]})
+    assert r.status_code == 422 and "no trabaja con la sociedad 8000" in r.json()["detalle"][0]["mensaje"]
+    aereo = interno.post("/embarques", {"tipo_transporte": "AEREO", "centro": "8010", "transportista_id": trans["AVCG"]}).json()
+    det = interno.get(f"/embarques/{aereo['id']}").json()
+    assert det["puerto_destino"] == "SAL" and det["transportista"] == "Avianca Cargo"
+    assert {t["codigo"] for t in det["tipos_unidad"]} == {"AWB"}
+    # Solo unidades del modo; la modalidad es de cada unidad (un marítimo puede ser mixto)
+    assert interno.post(f"/embarques/{aereo['id']}/unidades", {"tipo": "40HC"}).status_code == 422
+    mar = interno.post("/embarques", {"tipo_transporte": "MARITIMO"}).json()
+    interno.post(f"/embarques/{mar['id']}/unidades", {"tipo": "40HC"})
+    assert interno.get(f"/embarques/{mar['id']}").json()["modalidad"] == "FCL"
+    interno.post(f"/embarques/{mar['id']}/unidades", {"tipo": "LCL"})
+    assert interno.get(f"/embarques/{mar['id']}").json()["modalidad"] == "MIXTO"
     e = interno.post("/embarques", {"tipo_transporte": "MARITIMO", "modalidad": "FCL", "centro": "8010"}).json()
     assert interno.get(f"/embarques/{e['id']}").json()["puerto_destino"] == "SVAQJ"
     u8010 = interno.post(f"/embarques/{e['id']}/unidades", {"tipo": "20GP"}).json()["id"]
@@ -474,7 +500,20 @@ def test_catalogos(interno, tnf):
     assert r.status_code == 409 and r.json()["codigo"] == "en_uso"
     # El número de artículo es numérico (p. ej. 30095120001)
     grupos = interno.get("/catalogos/grupos").json()["items"]
-    base = {"estilo": "E1", "color": "Rojo", "marca_id": tnf_marca["id"], "grupo_id": grupos[0]["id"]}
+    provs = {p["codigo"]: p for p in interno.get("/catalogos/proveedores").json()["items"]}
+    base = {"estilo": "E1", "color": "Rojo", "marca_id": tnf_marca["id"], "grupo_id": grupos[0]["id"],
+            "proveedor_id": provs["TNF"]["id"]}
+    # El proveedor maneja sus marcas: un artículo de TNF no puede ser de otra marca
+    vans_marca = next(m for m in interno.get("/catalogos/marcas").json()["items"] if m["codigo"] == "VANS")
+    r = interno.post("/catalogos/articulos", {**base, "marca_id": vans_marca["id"], "sku": "30099990009", "talla": "9",
+                                              "tipo": "SOLIDO", "unidad": "PAR"})
+    assert r.status_code == 422 and any(d["campo"] == "marca_id" for d in r.json()["detalle"])
+    # Y no puede dejar de manejar una marca de la que tiene artículos
+    r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": [vans_marca["id"]]})
+    assert r.status_code == 422 and "tiene artículos" in r.json()["detalle"][0]["mensaje"]
+    r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": []})
+    assert r.status_code == 422 and "tiene artículos" in r.json()["detalle"][0]["mensaje"]
+    assert provs["TNF"]["marcas_txt"] == "TNF" and "8000" in provs["TNF"]["sociedades_txt"]
     r = interno.post("/catalogos/articulos", {**base, "sku": "X1", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
     assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "sku"
     # Un prepack no se crea como artículo suelto: se crea con su código y su explosión
@@ -530,16 +569,22 @@ def test_seguimiento(tnf, interno):
     hoy = date.today()
     eta = interno.get("/seguimiento", params={"eta_desde": hoy.isoformat()}).json()
     assert eta["total"] and all(f["eta"] >= hoy.isoformat() for f in eta["items"])
-    # Tablero de contenedores: un renglón por contenedor y su explosión por OC
-    cont = interno.get("/seguimiento/contenedores").json()
-    assert cont["kpis"]["contenedores"] == cont["total"] and cont["total"] >= 2
-    tghu = next(c for c in cont["items"] if c["contenedor"] == "TGHU 772104-3")
-    assert tghu["documento"] == "COSU 640018225" and tghu["estado"] == "EN_TRANSITO" and tghu["ocs"] >= 2
-    assert interno.get("/seguimiento/contenedores", params={"marca": "VANS", "documento": "COSU 640018225"}).json()["total"] == 1
-    exp = interno.get(f"/seguimiento/contenedores/{tghu['embarque_id']}/explosion",
-                      params={"contenedor": "TGHU 772104-3"}).json()
+    # Tablero de embarques: un renglón por embarque, sus unidades y la explosión por OC
+    emb = interno.get("/seguimiento/embarques").json()
+    assert emb["kpis"]["embarques"] == emb["total"] and emb["total"] >= 2
+    cosu = next(e for e in emb["items"] if e["documento"] == "COSU 640018225")
+    assert cosu["estado"] == "EN_TRANSITO" and cosu["modo"] == "MARITIMO" and cosu["ocs"] >= 2
+    tghu = next(u for u in cosu["detalle_unidades"] if u["contenedor"] == "TGHU 772104-3")
+    assert tghu["modalidad"] in ("FCL", "LCL") and tghu["tipo_nombre"]
+    assert interno.get("/seguimiento/embarques", params={"marca": "VANS", "documento": "COSU 640018225"}).json()["total"] == 1
+    assert all(e["modo"] == "AEREO" for e in interno.get("/seguimiento/embarques", params={"modo": "AEREO"}).json()["items"])
+    exp = interno.get(f"/seguimiento/unidades/{tghu['unidad_id']}/explosion").json()
     assert {o["oc"] for o in exp["ocs"]} >= {"4400003703", "4400003752"}
     assert all(l["sku"] and l["cantidad"] for o in exp["ocs"] for l in o["lineas"])
+    # Detalle por SKU de una OC (se abre desde el tablero de OCs)
+    oc_id = exp["ocs"][0]["oc_id"]
+    det = interno.get("/seguimiento", params={"oc_id": oc_id, "size": 200}).json()
+    assert det["total"] and all(f["oc_id"] == oc_id for f in det["items"])
     # Tablero de OCs: liberadas o no, avance y estados
     ocs = interno.get("/seguimiento/ordenes", params={"size": 200}).json()
     por_oc = {o["oc"]: o for o in ocs["items"]}
@@ -554,3 +599,41 @@ def test_seguimiento(tnf, interno):
     camino = interno.get("/seguimiento/documentos", params={"etapa": "EN_CAMINO"}).json()["items"]
     assert camino and all(f["estado_embarque"] in ("EN_TRANSITO", "ARRIBADO", "ENTREGADO") for f in camino)
     assert all(f["proveedor"] == "The North Face" for f in tnf.get("/seguimiento/documentos").json()["items"])
+
+
+def test_documentos_y_reportes(tnf, interno):
+    """Factura y packing list en PDF y Excel; reportes de seguimiento con filtros."""
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from app.services.documentos import monto_en_letras
+
+    assert monto_en_letras(4850, "USD") == "CUATRO MIL OCHOCIENTOS CINCUENTA DÓLARES CON 00/100"
+    assert monto_en_letras(1_021_001.5, "USD") == "UN MILLÓN VEINTIUN MIL UN DÓLARES CON 50/100"
+    f = tnf.get("/facturas").json()["items"][0]
+    pdf = tnf.get(f"/facturas/{f['id']}/exportar", params={"formato": "pdf"})
+    assert pdf.status_code == 200 and pdf.content[:4] == b"%PDF"
+    assert pdf.headers["content-type"] == "application/pdf" and ".pdf" in pdf.headers["content-disposition"]
+    xl = tnf.get(f"/facturas/{f['id']}/exportar", params={"formato": "xlsx"})
+    ws = load_workbook(BytesIO(xl.content)).active
+    textos = {str(c.value) for fila in ws.iter_rows() for c in fila if c.value}
+    assert "FACTURA COMERCIAL" in textos and "EXPORTADOR / VENDEDOR" in textos and "PARTIDA SAC" not in textos
+    assert any(t.startswith("SON: ") for t in textos) and "Partida SAC" in textos
+    assert tnf.get(f"/facturas/{f['id']}/exportar", params={"formato": "doc"}).status_code == 422
+    pl = interno.get("/seguimiento/documentos", params={"etapa": "RECIBIDO"}).json()["items"][0]
+    for formato in ("pdf", "xlsx"):
+        r = interno.get(f"/packing-lists/{pl['pl_id']}/exportar", params={"formato": formato})
+        assert r.status_code == 200 and len(r.content) > 2000
+    ws = load_workbook(BytesIO(r.content)).active
+    textos = {str(c.value) for fila in ws.iter_rows() for c in fila if c.value}
+    assert "LISTA DE EMPAQUE" in textos and any(t.startswith("TOTAL DE BULTOS: ") for t in textos)
+    for vista in ("ordenes", "embarques", "documentos"):
+        for formato in ("pdf", "xlsx"):
+            r = interno.get(f"/seguimiento/{vista}/exportar", params={"formato": formato, "marca": "TNF"})
+            assert r.status_code == 200, (vista, formato, r.text[:200])
+    wb = load_workbook(BytesIO(interno.get("/seguimiento/ordenes/exportar", params={"marca": "VANS"}).content))
+    assert wb.sheetnames[1] == "Detalle por SKU"
+    marcas = {fila[3] for fila in wb["Detalle por SKU"].iter_rows(min_row=6, values_only=True) if fila[0]}
+    assert marcas == {"VANS"}
+    assert interno.get("/seguimiento/otra/exportar").status_code == 404

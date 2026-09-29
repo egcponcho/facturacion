@@ -11,6 +11,7 @@ import Modal from '../components/Modal.vue'
 import SelectBusqueda from '../components/SelectBusqueda.vue'
 import TarjetaParte from '../components/TarjetaParte.vue'
 import ThOrden from '../components/ThOrden.vue'
+import { MODOS, useRutas } from '../composables/useRutas'
 import { useTabla } from '../composables/useTabla'
 import { sesion } from '../stores/sesion'
 import { avisar, errorApi, guardando } from '../stores/ui'
@@ -51,45 +52,46 @@ const SIGUIENTE = { PLANIFICADO: 'SALIDA', EN_TRANSITO: 'ARRIBO', ARRIBADO: 'ENT
 // El cuarto valor marca lo que exige el documento de transporte (BL, AWB o
 // carta de porte): sin eso no se registra la salida.
 const CAMPOS = [
-  ['documento_numero', 'BL / AWB', 'text', true],
-  ['transportista', 'Naviera o transportista', 'text', true],
+  ['documento_numero', 'Documento de transporte', 'text', true],
   ['etd', 'ETD (salida estimada)', 'date', false],
   ['eta', 'ETA (llegada estimada)', 'date', false],
 ]
 // Al registrar la salida la carga queda cerrada: no se agregan, quitan ni
 // mueven PL o contenedores, y los datos del viaje quedan fijos.
 const cerrado = computed(() => !!e.value?.cerrado)
-const FIJOS_SALIDA = ['documento_numero', 'transportista', 'puerto_origen', 'etd', 'centro']
+const FIJOS_SALIDA = ['documento_numero', 'transportista_id', 'puerto_origen', 'etd', 'centro']
 const fijo = (campo) => cerrado.value && (FIJOS_SALIDA.includes(campo) || (e.value.arribo_real && ['eta', 'puerto_destino'].includes(campo)))
 const eventosPermitidos = computed(() => EVENTOS.filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)))
 const ultimoEvento = computed(() => (e.value?.eventos || []).reduce((a, ev) => (!a || ev.fecha > a ? ev.fecha : a), null))
 const tonoHolgura = (d) => (d === null || d === undefined ? '' : d < 0 ? 'error' : d < 7 ? 'aviso' : 'ok')
 const holguraTxt = (d) => (d < 0 ? `${-d} d tarde para tienda` : `${d} d de margen`)
-const exigeSello = computed(() => e.value?.tipo_transporte === 'MARITIMO' && e.value?.modalidad === 'FCL')
+const exigeSello = computed(() => !!u.value?.requiere_sello)
+const modo = computed(() => MODOS[e.value?.tipo_transporte] || MODOS.MARITIMO)
+const UNIDADES_TXT = { MARITIMO: ['Contenedor', 'Contenedores'], AEREO: ['Guía aérea', 'Guías aéreas'], TERRESTRE: ['Camión', 'Camiones'] }
+const unidadTxt = computed(() => UNIDADES_TXT[e.value?.tipo_transporte] || UNIDADES_TXT.MARITIMO)
 const indiceEstado = computed(() => HITOS.findIndex(([k]) => k === e.value?.estado))
 const icono = computed(() => ({ AEREO: 'avion', TERRESTRE: 'camion' })[e.value?.tipo_transporte] || 'barco')
 const totales = computed(() => (e.value?.unidades || []).reduce((a, x) => ({
   pls: a.pls + x.packing_lists, cajas: a.cajas + x.cajas, cbm: a.cbm + x.cbm, kg: a.kg + x.peso_bruto, tentativas: a.tentativas + x.tentativas,
 }), { pls: 0, cajas: 0, cbm: 0, kg: 0, tentativas: 0 }))
 
-// Ruta: centro que recibe y puertos del catálogo
-const puertos = ref([])
-const centros = ref([])
-async function cargarRutas() {
-  try {
-    const [p, c] = await Promise.all([api.get('/catalogos/puertos', { size: 200 }), api.get('/catalogos/centros', { size: 200 })])
-    puertos.value = p.items.map((x) => ({ valor: x.codigo, texto: `${x.codigo} · ${x.nombre}`, sub: x.pais }))
-    centros.value = c.items.map((x) => ({ valor: x.codigo, texto: `${x.codigo} · ${x.nombre}`, sub: `puerto ${x.puerto || '—'}`, puerto: x.puerto }))
-  } catch (err) {
-    errorApi(err)
-  }
-}
-const puertoCentro = computed(() => centros.value.find((x) => x.valor === e.value?.centro)?.puerto)
+// Ruta coherente con el modo: puertos del tipo del embarque, destino entre los
+// puertos del centro (el principal sugerido) y transportistas del modo que
+// trabajan con la sociedad del centro.
+const { cargarRutas, centros, puertos, puertosDe, destinosDe, transportistasDe } = useRutas()
+const origenes = computed(() => (e.value ? puertosDe(e.value.tipo_transporte) : []))
+const destinos = computed(() => (e.value ? destinosDe(e.value.tipo_transporte, e.value.centro) : []))
+const opcionesTransportista = computed(() => (e.value ? transportistasDe(e.value.tipo_transporte, e.value.centro) : []))
 const nombrePuerto = (c) => puertos.value.find((x) => x.valor === c)?.texto || c || '—'
 async function cambiarRuta(campo, valor) {
   const datos = { [campo]: valor || null }
-  // Al cambiar el centro, el puerto de destino pasa a ser el suyo
-  if (campo === 'centro') datos.puerto_destino = centros.value.find((x) => x.valor === valor)?.puerto || e.value.puerto_destino
+  if (campo === 'centro') {
+    // El destino pasa al principal del nuevo centro si el actual no es uno de sus puertos
+    const nuevos = destinosDe(e.value.tipo_transporte, valor)
+    if (valor && !nuevos.some((p) => p.valor === e.value.puerto_destino)) datos.puerto_destino = nuevos[0]?.valor || null
+    // El transportista debe trabajar con la sociedad del nuevo centro
+    if (e.value.transportista_id && !transportistasDe(e.value.tipo_transporte, valor).some((t) => t.valor === e.value.transportista_id)) datos.transportista_id = null
+  }
   try {
     await guardando(api.patch(`/embarques/${props.id}`, datos))
     await cargar()
@@ -177,14 +179,17 @@ async function ejecutar(fn, exito) {
   }
 }
 
-// ---- Contenedores ----------------------------------------------------------
+// ---- Unidades de carga (del catálogo de tipos del modo) --------------------
+const tipoTxt = (t) => `${t.codigo} · ${t.nombre} (${t.modalidad}${t.capacidad_cbm ? `, ${fmtNum(t.capacidad_cbm, 0)} m³` : ''}${t.capacidad_kg ? `, ${fmtNum(t.capacidad_kg, 0)} kg` : ''})`
+const tipoElegido = computed(() => e.value?.tipos_unidad.find((t) => t.codigo === modal.value?.unidad))
 function abrirNuevaUnidad() {
-  modal.value = { tipo: 'unidad', unidad: e.value.tipos_unidad.includes('40HC') ? '40HC' : e.value.tipos_unidad[0], numero: '', sello: '' }
+  const tipos = e.value.tipos_unidad
+  modal.value = { tipo: 'unidad', unidad: (tipos.find((t) => t.codigo === '40HC') || tipos[0])?.codigo || '', numero: '', sello: '' }
 }
 async function agregarUnidad() {
   const m = modal.value
   const r = await ejecutar(() => api.post(`/embarques/${props.id}/unidades`, { tipo: m.unidad, numero: m.numero || null, sello: m.sello || null }),
-    (x) => `Contenedor ${x.etiqueta} agregado.`)
+    (x) => `${unidadTxt.value[0]} ${x.etiqueta} agregado.`)
   if (r) unidadId.value = r.id
 }
 function eliminarUnidad() {
@@ -285,7 +290,8 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
         <Icono :nombre="icono" :tam="26" />
         <span class="doc-numero">{{ e.codigo }}</span>
         <EstadoBadge :estado="e.estado" />
-        <span class="doc-sub">{{ { MARITIMO: 'Marítimo', AEREO: 'Aéreo', TERRESTRE: 'Terrestre' }[e.tipo_transporte] }}{{ e.modalidad ? ` ${e.modalidad}` : '' }}</span>
+        <span class="doc-sub">{{ modo.nombre }}</span>
+        <span v-if="e.modalidad" class="etiqueta acento" :title="e.modalidad === 'MIXTO' ? 'Combina unidades de distinta modalidad (p. ej. FCL y LCL)' : ''">{{ e.modalidad }}</span>
         <div class="doc-acciones">
           <button class="btn" @click="abrirEvento('OTRO')"><Icono nombre="ubicacion" />Registrar evento</button>
           <button v-if="SIGUIENTE[e.estado]" class="btn btn-primario" :disabled="e.estado === 'PLANIFICADO' && (totales.tentativas > 0 || !totales.pls)"
@@ -305,30 +311,36 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
       <p v-if="e.estado === 'PLANIFICADO' && totales.tentativas" class="nota aviso mt"><Icono nombre="alerta" />Hay {{ plural(totales.tentativas, 'packing list tentativo', 'packing lists tentativos') }}. Confírmalos o quítalos antes de registrar la salida.</p>
       <div class="doc-datos">
         <label v-for="[campo, texto, tipo, obligatorio] in CAMPOS" :key="campo" class="dato">
-          <span :class="{ req: obligatorio }">{{ texto }}</span>
+          <span :class="{ req: obligatorio }">{{ campo === 'documento_numero' ? modo.doc : texto }}</span>
           <b v-if="fijo(campo)" :title="'Fijo desde la salida'">{{ tipo === 'date' ? fmtFecha(e[campo]) : e[campo] || '—' }} <Icono nombre="candado" :tam="12" /></b>
           <CeldaEditable v-else :tipo="tipo" :valor="e[campo]" :guardar="guardar(campo)" :etiqueta="texto" :vacia-texto="obligatorio ? 'Obligatorio' : ''" />
         </label>
+        <div class="dato"><span class="req">{{ modo.transportista }}</span>
+          <b v-if="fijo('transportista_id')">{{ e.transportista || '—' }} <Icono nombre="candado" :tam="12" /></b>
+          <SelectBusqueda v-else :model-value="e.transportista_id || ''" :opciones="opcionesTransportista" vacio="Sin definir" :etiqueta="modo.transportista"
+                          @change="(v) => cambiarRuta('transportista_id', v)" />
+        </div>
         <div class="dato"><span class="req">Centro que recibe</span>
           <b v-if="cerrado">{{ e.centro || '—' }} <Icono nombre="candado" :tam="12" /></b>
           <SelectBusqueda v-else :model-value="e.centro || ''" :opciones="centros" vacio="Lo define la primera carga" etiqueta="Centro"
                           @change="(v) => cambiarRuta('centro', v)" />
         </div>
-        <div class="dato"><span class="req">Puerto de origen</span>
+        <div class="dato"><span class="req">{{ modo.puerto }} de origen</span>
           <b v-if="fijo('puerto_origen')">{{ nombrePuerto(e.puerto_origen) }} <Icono nombre="candado" :tam="12" /></b>
-          <SelectBusqueda v-else :model-value="e.puerto_origen || ''" :opciones="puertos" vacio="Sin definir" etiqueta="Puerto de origen"
+          <SelectBusqueda v-else :model-value="e.puerto_origen || ''" :opciones="origenes" vacio="Sin definir" :etiqueta="`${modo.puerto} de origen`"
                           @change="(v) => cambiarRuta('puerto_origen', v)" />
         </div>
-        <div class="dato"><span class="req">Puerto de destino</span>
-          <b v-if="fijo('puerto_destino') || puertoCentro" :title="puertoCentro ? `Puerto de llegada del centro ${e.centro}` : 'Fijo'">{{ nombrePuerto(e.puerto_destino) }}</b>
-          <SelectBusqueda v-else :model-value="e.puerto_destino || ''" :opciones="puertos" vacio="Sin definir" etiqueta="Puerto de destino"
+        <div class="dato"><span class="req">{{ modo.puerto }} de destino</span>
+          <b v-if="fijo('puerto_destino')">{{ nombrePuerto(e.puerto_destino) }} <Icono nombre="candado" :tam="12" /></b>
+          <SelectBusqueda v-else :model-value="e.puerto_destino || ''" :opciones="destinos" vacio="Sin definir" :etiqueta="`${modo.puerto} de destino`"
                           @change="(v) => cambiarRuta('puerto_destino', v)" />
+          <small v-if="!fijo('puerto_destino') && e.puertos_sugeridos?.length > 1" class="ayuda">El centro recibe por {{ e.puertos_sugeridos.join(', ') }}.</small>
         </div>
         <div class="dato"><span>Salida real</span><b>{{ fmtFecha(e.salida_real) }}</b></div>
         <div class="dato"><span>Arribo real</span><b>{{ fmtFecha(e.arribo_real) }}</b></div>
       </div>
       <div class="empaque-resumen">
-        <div class="cifra"><span>Contenedores</span><b>{{ e.unidades.length }}</b></div>
+        <div class="cifra"><span>{{ unidadTxt[1] }}</span><b>{{ e.unidades.length }}</b></div>
         <div class="cifra"><span>Packing lists</span><b>{{ totales.pls }}</b></div>
         <div class="cifra"><span>Cajas</span><b>{{ fmtNum(totales.cajas) }}</b></div>
         <div class="cifra"><span>Volumen</span><b>{{ fmtNum(totales.cbm, 2) }} m³</b></div>
@@ -337,24 +349,24 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
     </section>
 
     <section class="panel">
-      <div class="panel-cabeza"><div><h2>Contenedores</h2><p>Elige uno para ver y asignar su carga.</p></div></div>
+      <div class="panel-cabeza"><div><h2>{{ unidadTxt[1] }}</h2><p>Elige una unidad para ver y asignar su carga. Solo se ofrecen los tipos de unidad del modo {{ modo.nombre.toLowerCase() }}.</p></div></div>
       <div class="unidades-pestanas" role="tablist">
         <button v-for="x in e.unidades" :key="x.id" class="unidad-pestana" role="tab" :aria-selected="x.id === unidadId" @click="unidadId = x.id">
-          <span class="fila-flex"><Icono nombre="contenedor" /><span class="unidad-nombre">{{ x.nombre }}</span><span class="etiqueta">{{ x.tipo }}</span></span>
+          <span class="fila-flex"><Icono :nombre="e.tipo_transporte === 'MARITIMO' ? 'contenedor' : modo.icono" /><span class="unidad-nombre">{{ x.nombre }}</span><span class="etiqueta" :title="x.tipo_nombre">{{ x.tipo }}</span><span v-if="x.modalidad" class="etiqueta acento">{{ x.modalidad }}</span></span>
           <Avance v-if="x.capacidad_cbm" :porcentaje="x.pct_cbm || 0" />
           <span class="ayuda">{{ plural(x.packing_lists, 'PL', 'PL') }} · {{ fmtNum(x.cbm, 1) }} m³<template v-if="x.tentativas"> · <span class="etiqueta aviso">{{ x.tentativas }} tentativos</span></template></span>
           <span v-if="x.marcas?.length" class="ayuda">{{ x.marcas.join(' · ') }}</span>
           <span v-if="x.holgura_dias !== null && x.holgura_dias !== undefined" class="etiqueta" :class="tonoHolgura(x.holgura_dias)" style="margin-left: 0">{{ holguraTxt(x.holgura_dias) }}</span>
           <span v-for="a in x.alertas" :key="a" class="etiqueta error">{{ a }}</span>
         </button>
-        <button v-if="!cerrado" class="unidad-pestana agregar" @click="abrirNuevaUnidad"><Icono nombre="mas" :tam="20" />Agregar contenedor</button>
+        <button v-if="!cerrado" class="unidad-pestana agregar" @click="abrirNuevaUnidad"><Icono nombre="mas" :tam="20" />Agregar {{ unidadTxt[0].toLowerCase() }}</button>
       </div>
 
       <template v-if="u">
         <div class="dos-columnas mt" style="align-items: start">
           <div>
             <div class="rejilla-campos">
-              <label class="dato"><span class="req">Número de contenedor o guía</span>
+              <label class="dato"><span class="req">Número de {{ unidadTxt[0].toLowerCase() }}</span>
                 <b v-if="cerrado">{{ u.numero || '—' }}</b>
                 <CeldaEditable v-else :valor="u.numero" :guardar="guardarUnidad('numero')" etiqueta="Número" vacia-texto="Obligatorio" />
               </label>
@@ -388,7 +400,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <span class="ayuda">{{ plural(u.facturas, 'factura', 'facturas') }} · {{ plural(u.cajas, 'caja', 'cajas') }} · {{ u.recolectados }} de {{ u.packing_lists }} recolectados</span>
           <span class="separar"></span>
           <template v-if="!cerrado">
-            <button v-if="!u.packing_lists" class="btn btn-fantasma btn-peligro" @click="eliminarUnidad"><Icono nombre="basura" :tam="15" />Eliminar contenedor</button>
+            <button v-if="!u.packing_lists" class="btn btn-fantasma btn-peligro" @click="eliminarUnidad"><Icono nombre="basura" :tam="15" />Eliminar {{ unidadTxt[0].toLowerCase() }}</button>
             <button class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />Asignar carga</button>
           </template>
         </div>
@@ -574,15 +586,15 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
     </div>
   </aside>
 
-  <Modal v-if="modal?.tipo === 'unidad'" titulo="Agregar contenedor" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'unidad'" :titulo="`Agregar ${unidadTxt[0].toLowerCase()}`" @cerrar="modal = null">
     <div class="rejilla-campos">
       <label class="campo"><span class="req">Tipo</span>
-        <select v-model="modal.unidad"><option v-for="t in e.tipos_unidad" :key="t" :value="t">{{ t }}</option></select>
+        <select v-model="modal.unidad"><option v-for="t in e.tipos_unidad" :key="t.codigo" :value="t.codigo">{{ tipoTxt(t) }}</option></select>
       </label>
-      <label class="campo"><span>Número (opcional)</span><input v-model="modal.numero" placeholder="MSKU 123456-7" /></label>
-      <label class="campo"><span>Sello (opcional)</span><input v-model="modal.sello" /></label>
+      <label class="campo"><span>Número (opcional)</span><input v-model="modal.numero" :placeholder="{ MARITIMO: 'MSKU 123456-7', AEREO: '045-12345675', TERRESTRE: 'Placa C-123456' }[e.tipo_transporte]" /></label>
+      <label v-if="tipoElegido?.requiere_sello" class="campo"><span>Sello (opcional)</span><input v-model="modal.sello" /></label>
     </div>
-    <p class="ayuda">El número y el sello se pueden capturar después, cuando la naviera los asigne; son obligatorios para registrar la salida.</p>
+    <p class="ayuda">El número<template v-if="tipoElegido?.requiere_sello"> y el sello</template> se pueden capturar después, cuando el transportista los asigne; <template v-if="tipoElegido?.requiere_sello">son obligatorios</template><template v-else>el número es obligatorio</template> para registrar la salida.</p>
     <template #pie>
       <button class="btn" @click="modal = null">Cancelar</button>
       <button class="btn btn-primario" :disabled="ocupado" @click="agregarUnidad">Agregar</button>

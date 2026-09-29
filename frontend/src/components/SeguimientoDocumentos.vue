@@ -6,6 +6,7 @@ import { esInterno, sesion } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
 import { fmtFecha, fmtMoneda, fmtNum } from '../utils'
 import Avance from './Avance.vue'
+import BotonesExportar from './BotonesExportar.vue'
 import EstadoBadge from './EstadoBadge.vue'
 import GraficoColumnas from './GraficoColumnas.vue'
 import Kpi from './Kpi.vue'
@@ -38,6 +39,11 @@ function filtrar(obj) {
   aplicar()
 }
 const nombreEtapa = computed(() => Object.fromEntries(datos.value.etapas.map((e) => [e.clave, e.nombre])))
+const paramsExportar = computed(() => {
+  const p = { proveedor_id: sesion.proveedorId || undefined }
+  for (const [k, v] of Object.entries(filtros)) if (v !== '' && v !== false && !['page', 'size'].includes(k)) p[k] = v === true ? '1' : v
+  return p
+})
 
 async function cargar() {
   cargando.value = true
@@ -88,6 +94,7 @@ onMounted(cargar)
     <SelectBusqueda v-model="filtros.embarque_id" :opciones="(datos.opciones.embarques || []).map((e) => ({ valor: String(e.id), texto: e.codigo }))"
                     vacio="Embarque: todos" etiqueta="Embarque" @change="aplicar" />
     <label class="check"><input v-model="filtros.con_pendientes" type="checkbox" @change="aplicar" /> Solo con datos pendientes</label>
+    <BotonesExportar class="separar" ruta="/seguimiento/documentos/exportar" :params="paramsExportar" />
   </div>
 
   <section class="kpis" style="margin-bottom: 16px">
