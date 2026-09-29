@@ -567,16 +567,22 @@ def test_seguimiento(tnf, interno):
     hoy = date.today()
     eta = interno.get("/seguimiento", params={"eta_desde": hoy.isoformat()}).json()
     assert eta["total"] and all(f["eta"] >= hoy.isoformat() for f in eta["items"])
-    # Tablero de contenedores: un renglón por contenedor y su explosión por OC
-    cont = interno.get("/seguimiento/contenedores").json()
-    assert cont["kpis"]["contenedores"] == cont["total"] and cont["total"] >= 2
-    tghu = next(c for c in cont["items"] if c["contenedor"] == "TGHU 772104-3")
-    assert tghu["documento"] == "COSU 640018225" and tghu["estado"] == "EN_TRANSITO" and tghu["ocs"] >= 2
-    assert interno.get("/seguimiento/contenedores", params={"marca": "VANS", "documento": "COSU 640018225"}).json()["total"] == 1
-    exp = interno.get(f"/seguimiento/contenedores/{tghu['embarque_id']}/explosion",
-                      params={"contenedor": "TGHU 772104-3"}).json()
+    # Tablero de embarques: un renglón por embarque, sus unidades y la explosión por OC
+    emb = interno.get("/seguimiento/embarques").json()
+    assert emb["kpis"]["embarques"] == emb["total"] and emb["total"] >= 2
+    cosu = next(e for e in emb["items"] if e["documento"] == "COSU 640018225")
+    assert cosu["estado"] == "EN_TRANSITO" and cosu["modo"] == "MARITIMO" and cosu["ocs"] >= 2
+    tghu = next(u for u in cosu["detalle_unidades"] if u["contenedor"] == "TGHU 772104-3")
+    assert tghu["modalidad"] in ("FCL", "LCL") and tghu["tipo_nombre"]
+    assert interno.get("/seguimiento/embarques", params={"marca": "VANS", "documento": "COSU 640018225"}).json()["total"] == 1
+    assert all(e["modo"] == "AEREO" for e in interno.get("/seguimiento/embarques", params={"modo": "AEREO"}).json()["items"])
+    exp = interno.get(f"/seguimiento/unidades/{tghu['unidad_id']}/explosion").json()
     assert {o["oc"] for o in exp["ocs"]} >= {"4400003703", "4400003752"}
     assert all(l["sku"] and l["cantidad"] for o in exp["ocs"] for l in o["lineas"])
+    # Detalle por SKU de una OC (se abre desde el tablero de OCs)
+    oc_id = exp["ocs"][0]["oc_id"]
+    det = interno.get("/seguimiento", params={"oc_id": oc_id, "size": 200}).json()
+    assert det["total"] and all(f["oc_id"] == oc_id for f in det["items"])
     # Tablero de OCs: liberadas o no, avance y estados
     ocs = interno.get("/seguimiento/ordenes", params={"size": 200}).json()
     por_oc = {o["oc"]: o for o in ocs["items"]}
@@ -591,3 +597,41 @@ def test_seguimiento(tnf, interno):
     camino = interno.get("/seguimiento/documentos", params={"etapa": "EN_CAMINO"}).json()["items"]
     assert camino and all(f["estado_embarque"] in ("EN_TRANSITO", "ARRIBADO", "ENTREGADO") for f in camino)
     assert all(f["proveedor"] == "The North Face" for f in tnf.get("/seguimiento/documentos").json()["items"])
+
+
+def test_documentos_y_reportes(tnf, interno):
+    """Factura y packing list en PDF y Excel; reportes de seguimiento con filtros."""
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from app.services.documentos import monto_en_letras
+
+    assert monto_en_letras(4850, "USD") == "CUATRO MIL OCHOCIENTOS CINCUENTA DÓLARES CON 00/100"
+    assert monto_en_letras(1_021_001.5, "USD") == "UN MILLÓN VEINTIUN MIL UN DÓLARES CON 50/100"
+    f = tnf.get("/facturas").json()["items"][0]
+    pdf = tnf.get(f"/facturas/{f['id']}/exportar", params={"formato": "pdf"})
+    assert pdf.status_code == 200 and pdf.content[:4] == b"%PDF"
+    assert pdf.headers["content-type"] == "application/pdf" and ".pdf" in pdf.headers["content-disposition"]
+    xl = tnf.get(f"/facturas/{f['id']}/exportar", params={"formato": "xlsx"})
+    ws = load_workbook(BytesIO(xl.content)).active
+    textos = {str(c.value) for fila in ws.iter_rows() for c in fila if c.value}
+    assert "FACTURA COMERCIAL" in textos and "EXPORTADOR / VENDEDOR" in textos and "PARTIDA SAC" not in textos
+    assert any(t.startswith("SON: ") for t in textos) and "Partida SAC" in textos
+    assert tnf.get(f"/facturas/{f['id']}/exportar", params={"formato": "doc"}).status_code == 422
+    pl = interno.get("/seguimiento/documentos", params={"etapa": "RECIBIDO"}).json()["items"][0]
+    for formato in ("pdf", "xlsx"):
+        r = interno.get(f"/packing-lists/{pl['pl_id']}/exportar", params={"formato": formato})
+        assert r.status_code == 200 and len(r.content) > 2000
+    ws = load_workbook(BytesIO(r.content)).active
+    textos = {str(c.value) for fila in ws.iter_rows() for c in fila if c.value}
+    assert "LISTA DE EMPAQUE" in textos and any(t.startswith("TOTAL DE BULTOS: ") for t in textos)
+    for vista in ("ordenes", "embarques", "documentos"):
+        for formato in ("pdf", "xlsx"):
+            r = interno.get(f"/seguimiento/{vista}/exportar", params={"formato": formato, "marca": "TNF"})
+            assert r.status_code == 200, (vista, formato, r.text[:200])
+    wb = load_workbook(BytesIO(interno.get("/seguimiento/ordenes/exportar", params={"marca": "VANS"}).content))
+    assert wb.sheetnames[1] == "Detalle por SKU"
+    marcas = {fila[3] for fila in wb["Detalle por SKU"].iter_rows(min_row=6, values_only=True) if fila[0]}
+    assert marcas == {"VANS"}
+    assert interno.get("/seguimiento/otra/exportar").status_code == 404

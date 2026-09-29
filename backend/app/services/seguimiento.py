@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
+from ..models import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
 from .cantidades import facturado_por_posicion, nombre_factura
 from .common import proveedor_filtro
 
@@ -49,7 +49,7 @@ def _base(p: PosicionOC, oc: OrdenCompra, hoy: date) -> dict:
         "unidad": p.unidad, "tipo_empaque": p.tipo_empaque, "centro_destino": oc.centro_destino,
         "fecha_xf": oc.fecha_xf, "fecha_tienda": oc.fecha_tienda,
         "dias_tienda": (oc.fecha_tienda - hoy).days if oc.fecha_tienda else None,
-        "factura_id": None, "factura": None, "pl_id": None, "pl": None, "contenedor": None,
+        "factura_id": None, "factura": None, "pl_id": None, "pl": None, "contenedor": None, "unidad_id": None, "modo": None,
         "embarque_id": None, "embarque": None, "estado_embarque": None, "asignacion": None,
         "etd": None, "eta": None, "salida_real": None, "arribo_real": None, "recolectado_en": None,
         "atraso_recoleccion": None, "holgura": None, "riesgo": None,
@@ -92,7 +92,8 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             u = pl.unidad
             if u:
                 e = u.embarque
-                fila.update(contenedor=u.numero or u.etiqueta, embarque_id=e.id, embarque=e.codigo,
+                fila.update(contenedor=u.numero or u.etiqueta, unidad_id=u.id, modo=e.tipo_transporte,
+                            embarque_id=e.id, embarque=e.codigo,
                             documento=e.documento_numero, transportista=e.transportista,
                             puerto_origen=e.puerto_origen, puerto_destino=e.puerto_destino,
                             estado_embarque=e.estado, asignacion=pl.asignacion, etd=e.etd, eta=e.eta,
@@ -118,7 +119,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
 
 
 # Filtros exactos de la vista (valor igual) y rangos de fechas (desde/hasta)
-FILTROS_EXACTOS = ("marca", "estilo", "color", "talla", "almacen", "grupo", "sku", "contenedor", "documento",
+FILTROS_EXACTOS = ("oc_id", "marca", "estilo", "color", "talla", "almacen", "grupo", "sku", "contenedor", "documento",
                    "etapa", "riesgo", "embarque_id", "proveedor", "sociedad", "centro", "liberacion_comercial",
                    "liberacion_logistica")
 RANGOS = ("eta", "fecha_xf", "fecha_tienda")
@@ -226,42 +227,62 @@ def _ordenar(items: list[dict], orden: str | None, permitidos: set) -> list[dict
                   reverse=direccion == "desc")
 
 
-# ---- Tablero de contenedores y documentos de transporte -----------------------
+# ---- Tablero de embarques ------------------------------------------------------
+# Un renglón por embarque (su BL/AWB/carta de porte), que se abre en sus
+# unidades de carga (contenedores, guías aéreas o camiones) y cada unidad en
+# lo que lleva por orden de compra.
 ESTADOS_EMB = [("PLANIFICADO", "Planificado"), ("EN_TRANSITO", "En tránsito"), ("ARRIBADO", "Arribado"),
                ("ENTREGADO", "Entregado"), ("RECIBIDO", "Recibido")]
-ORDEN_CONT = {"contenedor", "embarque", "documento", "estado", "etd", "eta", "holgura", "ocs", "lineas"}
+ORDEN_EMB = {"embarque", "documento", "estado", "etd", "eta", "holgura", "ocs", "unidades", "modo"}
+MODOS = {"MARITIMO": "Marítimo", "AEREO": "Aéreo", "TERRESTRE": "Terrestre"}
 
 
-def contenedores(db: Session, user: Usuario, proveedor_id: int | None = None, filtros: dict | None = None,
-                 orden: str | None = None, page: int = 1, size: int = 25) -> dict:
-    """Un renglón por contenedor (y su BL), con lo que lleva según los filtros."""
+def embarques(db: Session, user: Usuario, proveedor_id: int | None = None, filtros: dict | None = None,
+              orden: str | None = None, page: int = 1, size: int = 25) -> dict:
+    from .transporte import _tipo, modalidad_embarque
+
     filtros = {k: v for k, v in (filtros or {}).items() if v not in (None, "")}
     todas = filas_seguimiento(db, user, proveedor_id)
     filas = [f for f in _filtrar(todas, filtros) if f["embarque_id"]]
     if filtros.get("estado"):
         filas = [f for f in filas if f["estado_embarque"] == filtros["estado"]]
-    grupos: dict[tuple, list] = {}
+    if filtros.get("modo"):
+        filas = [f for f in filas if f["modo"] == filtros["modo"]]
+    por_emb: dict[int, list] = {}
     for f in filas:
-        grupos.setdefault((f["embarque_id"], f["contenedor"]), []).append(f)
+        por_emb.setdefault(f["embarque_id"], []).append(f)
     hoy = date.today()
     items = []
-    for (emb_id, cont), fs in grupos.items():
-        a = fs[0]
+    for emb_id, fs in por_emb.items():
+        e = db.get(Embarque, emb_id)
+        llegada = e.arribo_real or e.eta
         holguras = [f["holgura"] for f in fs if f["holgura"] is not None]
+        unidades = []
+        for u in sorted(e.unidades, key=lambda x: x.id):
+            nombre = u.numero or u.etiqueta
+            uf = [f for f in fs if f["unidad_id"] == u.id]
+            if not uf:
+                continue
+            t = _tipo(db, u.tipo)
+            uh = [f["holgura"] for f in uf if f["holgura"] is not None]
+            unidades.append({
+                "unidad_id": u.id, "contenedor": nombre, "tipo": u.tipo, "tipo_nombre": t.nombre if t else u.tipo,
+                "modalidad": t.modalidad if t else None, "sello": u.sello, "ocs": len({f["oc"] for f in uf}),
+                "marcas": sorted({f["marca"] for f in uf if f["marca"]}), "por_unidad": _por_unidad(uf),
+                "holgura": min(uh) if uh else None, "riesgo": _peor_riesgo(uf),
+                "facturas": sorted({f["factura"] for f in uf if f["factura"]}),
+            })
         items.append({
-            "embarque_id": emb_id, "embarque": a["embarque"], "contenedor": cont, "documento": a["documento"],
-            "estado": a["estado_embarque"], "transportista": a["transportista"], "puerto_origen": a["puerto_origen"],
-            "puerto_destino": a["puerto_destino"], "etd": a["salida_real"] or a["etd"],
-            "eta": a["arribo_real"] or a["eta"], "arribado": bool(a["arribo_real"]),
-            "dias_eta": ((a["arribo_real"] or a["eta"]) - hoy).days if (a["arribo_real"] or a["eta"]) else None,
+            "embarque_id": e.id, "embarque": e.codigo, "documento": e.documento_numero, "estado": e.estado,
+            "modo": e.tipo_transporte, "modalidad": modalidad_embarque(e), "transportista": e.transportista,
+            "puerto_origen": e.puerto_origen, "puerto_destino": e.puerto_destino, "centro": e.centro,
+            "etd": e.salida_real or e.etd, "eta": llegada, "arribado": bool(e.arribo_real),
+            "dias_eta": (llegada - hoy).days if llegada else None,
             "holgura": min(holguras) if holguras else None, "riesgo": _peor_riesgo(fs),
-            "marcas": sorted({f["marca"] for f in fs if f["marca"]}),
-            "ocs": len({f["oc"] for f in fs}), "lineas": len(fs),
-            "facturas": sorted({f["factura"] for f in fs if f["factura"]}),
-            "proveedores": sorted({f["proveedor"] for f in fs}),
-            "por_unidad": _por_unidad(fs),
+            "marcas": sorted({f["marca"] for f in fs if f["marca"]}), "ocs": len({f["oc"] for f in fs}),
+            "proveedores": sorted({f["proveedor"] for f in fs}), "unidades": len(unidades),
+            "detalle_unidades": unidades, "por_unidad": _por_unidad(fs),
         })
-    # Indicadores y gráficas del tablero
     por_estado = {k: 0 for k, _ in ESTADOS_EMB}
     for it in items:
         por_estado[it["estado"]] = por_estado.get(it["estado"], 0) + 1
@@ -269,18 +290,19 @@ def contenedores(db: Session, user: Usuario, proveedor_id: int | None = None, fi
     for n in range(8):
         ini = hoy + timedelta(days=7 * n)
         fin = ini + timedelta(days=6)
-        semanas.append({"desde": ini, "hasta": fin, "contenedores": sum(
+        semanas.append({"desde": ini, "hasta": fin, "embarques": sum(
             1 for it in items if it["eta"] and not it["arribado"] and ini <= it["eta"] <= fin)})
     kpis = {
-        "contenedores": len(items),
+        "embarques": len(items),
+        "unidades": sum(it["unidades"] for it in items),
         "en_camino": sum(1 for it in items if it["estado"] == "EN_TRANSITO"),
         "llegan_7_dias": sum(1 for it in items if not it["arribado"] and it["dias_eta"] is not None
                              and 0 <= it["dias_eta"] <= 7),
         "atrasados": sum(1 for it in items if it["riesgo"] == "ATRASO"),
-        "documentos": len({it["documento"] for it in items if it["documento"]}),
+        "por_modo": {m: sum(1 for it in items if it["modo"] == m) for m in MODOS},
         "por_unidad": _por_unidad(filas),
     }
-    items = _ordenar(sorted(items, key=lambda x: (x["eta"] is None, x["eta"] or hoy)), orden, ORDEN_CONT)
+    items = _ordenar(sorted(items, key=lambda x: (x["eta"] is None, x["eta"] or hoy)), orden, ORDEN_EMB)
     return {
         "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size,
         "kpis": kpis, "por_estado": [{"clave": k, "nombre": n, "total": por_estado[k]} for k, n in ESTADOS_EMB],
@@ -288,11 +310,11 @@ def contenedores(db: Session, user: Usuario, proveedor_id: int | None = None, fi
     }
 
 
-def explosion_contenedor(db: Session, user: Usuario, embarque_id: int, contenedor: str,
-                         proveedor_id: int | None = None) -> dict:
-    """Todo lo que viaja en un contenedor, agrupado por orden de compra."""
-    filas = [f for f in filas_seguimiento(db, user, proveedor_id)
-             if f["embarque_id"] == embarque_id and f["contenedor"] == contenedor]
+def explosion_unidad(db: Session, user: Usuario, unidad_id: int, proveedor_id: int | None = None,
+                     filtros: dict | None = None) -> dict:
+    """Todo lo que viaja en una unidad de carga, agrupado por orden de compra."""
+    filtros = {k: v for k, v in (filtros or {}).items() if v not in (None, "")}
+    filas = [f for f in _filtrar(filas_seguimiento(db, user, proveedor_id), filtros) if f["unidad_id"] == unidad_id]
     ocs: dict[int, dict] = {}
     for f in filas:
         o = ocs.setdefault(f["oc_id"], {
@@ -310,8 +332,7 @@ def explosion_contenedor(db: Session, user: Usuario, embarque_id: int, contenedo
         o["holgura"] = min(holguras) if holguras else None
         o["riesgo"] = _peor_riesgo(o["lineas"])
         res.append(o)
-    return {"embarque_id": embarque_id, "contenedor": contenedor, "ocs": sorted(res, key=lambda x: x["oc"]),
-            "por_unidad": _por_unidad(filas)}
+    return {"unidad_id": unidad_id, "ocs": sorted(res, key=lambda x: x["oc"]), "por_unidad": _por_unidad(filas)}
 
 
 # ---- Tablero de órdenes de compra -------------------------------------------
