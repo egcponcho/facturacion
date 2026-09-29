@@ -9,6 +9,17 @@ os.environ["SEED_DEMO"] = "1"
 os.environ["FRONTEND_DIST"] = f"{_tmp}/no-existe"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# PostgreSQL de pruebas: siempre desde cero (si no, los datos de la corrida
+# anterior se quedan y el sembrado no se repite mientras no cambie el esquema)
+if os.environ.get("TEST_DATABASE_URL"):
+    from sqlalchemy import create_engine, text
+
+    _motor = create_engine(os.environ["TEST_DATABASE_URL"])
+    with _motor.begin() as _c:
+        _c.execute(text("DROP SCHEMA public CASCADE"))
+        _c.execute(text("CREATE SCHEMA public"))
+    _motor.dispose()
+
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 

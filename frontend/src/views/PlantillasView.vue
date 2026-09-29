@@ -2,6 +2,8 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import { api } from '../api'
 import CeldaEditable from '../components/CeldaEditable.vue'
+import Icono from '../components/Icono.vue'
+import Modal from '../components/Modal.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
 import { useTabla } from '../composables/useTabla'
@@ -13,6 +15,7 @@ const incluirInactivas = ref(false)
 const tabla = useTabla(lista, { orden: 'nombre:asc' })
 const vacia = () => ({ nombre: '', cantidad_por_caja: '', unidad: 'PAR', largo: '', ancho: '', alto: '', peso_neto: '', peso_bruto: '', tara: '' })
 const nueva = reactive(vacia())
+const formAbierto = ref(false) // alta en ventana emergente
 const NUMERICOS = ['largo', 'ancho', 'alto', 'peso_neto', 'peso_bruto', 'tara']
 
 async function cargar() {
@@ -54,6 +57,7 @@ async function crear() {
     await api.post('/plantillas', datos)
     avisar(`Plantilla “${nueva.nombre}” creada.`)
     Object.assign(nueva, vacia())
+    formAbierto.value = false
     cargar()
   } catch (e) {
     errorApi(e)
@@ -75,27 +79,10 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
   <p v-if="esInterno() && !sesion.proveedorId" class="nota">Elige un proveedor arriba para ver y editar sus plantillas.</p>
 
   <template v-else>
-    <section class="panel">
-      <div class="panel-cabeza"><h2>Nueva plantilla{{ esInterno() ? ` para ${nombreProveedor(sesion.proveedorId)}` : '' }}</h2></div>
-      <form class="rejilla-campos" @submit.prevent="crear">
-        <label class="campo"><span class="req">Nombre</span><input v-model="nueva.nombre" required /></label>
-        <label class="campo"><span class="req">Cantidad por caja</span><input v-model="nueva.cantidad_por_caja" type="number" min="1" required /></label>
-        <label class="campo"><span class="req">Unidad</span>
-          <select v-model="nueva.unidad"><option value="PAR">Pares</option><option value="UN">Unidades</option><option value="CJ">Cajas prepack (curvas)</option></select>
-        </label>
-        <label class="campo"><span>Largo cm</span><input v-model="nueva.largo" type="number" min="0" step="any" /></label>
-        <label class="campo"><span>Ancho cm</span><input v-model="nueva.ancho" type="number" min="0" step="any" /></label>
-        <label class="campo"><span>Alto cm</span><input v-model="nueva.alto" type="number" min="0" step="any" /></label>
-        <label class="campo"><span>Peso neto kg</span><input v-model="nueva.peso_neto" type="number" min="0" step="any" /></label>
-        <label class="campo"><span>Peso bruto kg</span><input v-model="nueva.peso_bruto" type="number" min="0" step="any" /></label>
-        <label class="campo"><span>Tara (caja vacía) kg</span><input v-model="nueva.tara" type="number" min="0" step="any" /></label>
-        <div class="campo" style="justify-content: flex-end"><button class="btn btn-primario" type="submit">Crear plantilla</button></div>
-      </form>
-      <p class="ayuda mt">La tara ayuda a estimar mejor el peso bruto de las cajas parciales.</p>
-    </section>
 
-    <div class="filtros mt">
+    <div class="filtros">
       <label class="check"><input v-model="incluirInactivas" type="checkbox" /> Mostrar inactivas</label>
+      <button class="btn btn-primario separar" @click="formAbierto = true"><Icono nombre="mas" />Nueva plantilla</button>
     </div>
     <div class="tabla-marco tabla-fija">
       <table class="tabla">
@@ -134,4 +121,24 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
     <Paginacion :page="tabla.estado.pagina" :size="tabla.estado.porPagina" :total="tabla.total.value"
                 @cambiar="(p) => (tabla.estado.pagina = p)" @tamano="(t) => (tabla.estado.porPagina = t)" />
   </template>
+  <Modal v-if="formAbierto" :titulo="`Nueva plantilla${esInterno() ? ` para ${nombreProveedor(sesion.proveedorId)}` : ''}`" ancho="680px" @cerrar="formAbierto = false">
+      <form id="form-plantilla" class="rejilla-campos" @submit.prevent="crear">
+        <label class="campo"><span class="req">Nombre</span><input v-model="nueva.nombre" required /></label>
+        <label class="campo"><span class="req">Cantidad por caja</span><input v-model="nueva.cantidad_por_caja" type="number" min="1" required /></label>
+        <label class="campo"><span class="req">Unidad</span>
+          <select v-model="nueva.unidad"><option value="PAR">Pares</option><option value="UN">Unidades</option><option value="CJ">Cajas prepack (curvas)</option></select>
+        </label>
+        <label class="campo"><span>Largo cm</span><input v-model="nueva.largo" type="number" min="0" step="any" /></label>
+        <label class="campo"><span>Ancho cm</span><input v-model="nueva.ancho" type="number" min="0" step="any" /></label>
+        <label class="campo"><span>Alto cm</span><input v-model="nueva.alto" type="number" min="0" step="any" /></label>
+        <label class="campo"><span>Peso neto kg</span><input v-model="nueva.peso_neto" type="number" min="0" step="any" /></label>
+        <label class="campo"><span>Peso bruto kg</span><input v-model="nueva.peso_bruto" type="number" min="0" step="any" /></label>
+        <label class="campo"><span>Tara (caja vacía) kg</span><input v-model="nueva.tara" type="number" min="0" step="any" /></label>
+      </form>
+      <p class="ayuda mt">La tara ayuda a estimar mejor el peso bruto de las cajas parciales.</p>
+    <template #pie>
+      <button class="btn" @click="formAbierto = false">Cancelar</button>
+      <button class="btn btn-primario" type="submit" form="form-plantilla">Crear plantilla</button>
+    </template>
+  </Modal>
 </template>

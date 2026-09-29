@@ -29,7 +29,9 @@ const escala = computed(() => {
   if (!max) return { max: 1, marcas: [0] }
   const bruto = max / 4
   const pot = 10 ** Math.floor(Math.log10(bruto))
-  const paso = [1, 2, 2.5, 5, 10].map((m) => m * pot).find((p) => p >= bruto)
+  let paso = [1, 2, 2.5, 5, 10].map((m) => m * pot).find((p) => p >= bruto)
+  // Conteos: marcas en números enteros (nunca 0.25 contenedores)
+  if (props.datos.every((d) => Number.isInteger(d.valor))) paso = Math.max(1, Math.ceil(paso))
   const tope = Math.ceil(max / paso) * paso
   const marcas = []
   for (let v = 0; v <= tope + 1e-9; v += paso) marcas.push(v)
