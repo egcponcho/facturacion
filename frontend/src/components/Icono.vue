@@ -1,0 +1,54 @@
+<script setup>
+// Íconos de trazo (24×24). Cada entrada es la lista de elementos SVG.
+const props = defineProps({ nombre: { type: String, required: true }, tam: { type: [Number, String], default: 18 } })
+
+const ICONOS = {
+  inicio: ['M3 11.5 12 4l9 7.5', 'M5.5 9.5V20h13V9.5', 'M10 20v-5.5h4V20'],
+  tablero: ['M4 4h7v7H4z', 'M13 4h7v4h-7z', 'M13 10h7v10h-7z', 'M4 13h7v7H4z'],
+  ordenes: ['M8 4h8v3H8z', 'M16 5.5h2.5V21h-13V5.5H8', 'M9 11h6', 'M9 15h6'],
+  factura: ['M6 3h9l4 4v14H6z', 'M14.5 3v4.5H19', 'M9 12h7', 'M9 16h5'],
+  caja: ['M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z', 'M3.5 7.5 12 12l8.5-4.5', 'M12 12v9', 'M7.8 5.2l8.4 4.6'],
+  capas: ['M12 3 3 8l9 5 9-5z', 'm3 13 9 5 9-5', 'm3 16.5 9 5 9-5'],
+  barco: ['M4 15.5 5.5 20h13l1.5-4.5L12 13z', 'M7 14V8h10v6', 'M12 8V4', 'M2.5 21.5c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1'],
+  contenedor: ['M3 6h18v12H3z', 'M7 9v6', 'M11 9v6', 'M15 9v6', 'M19 9v6'],
+  camion: ['M2.5 6h11v10h-11z', 'M13.5 10h4l3 3.5V16h-7', 'M6.5 18.5a1.8 1.8 0 1 0 0-.01', 'M16.5 18.5a1.8 1.8 0 1 0 0-.01'],
+  avion: ['M3 13.5 21 6l-3.5 13-5-4.5-3 3.5v-5.5l8-6.5-10 5z'],
+  importar: ['M12 15V3', 'm7 8 5-5 5 5', 'M4 15v5h16v-5'],
+  descargar: ['M12 3v12', 'm7 10 5 5 5-5', 'M4 17v3h16v-3'],
+  usuarios: ['M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z', 'M2.5 20c.5-3.5 3-5.5 6.5-5.5s6 2 6.5 5.5', 'M16 4.3a3.5 3.5 0 0 1 0 6.4', 'M18 14.8c2 .8 3.2 2.5 3.5 5.2'],
+  salir: ['M9 4H5v16h4', 'M16 8l4 4-4 4', 'M20 12H9'],
+  menu: ['M4 6h16', 'M4 12h16', 'M4 18h16'],
+  cerrar: ['M6 6l12 12', 'M18 6 6 18'],
+  check: ['m5 12.5 4.5 4.5L19 7.5'],
+  alerta: ['M12 3.5 2.5 20h19z', 'M12 10v4.5', 'M12 17.2v.3'],
+  info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 11v5.5', 'M12 7.8v.3'],
+  flecha: ['M5 12h14', 'm13 6 6 6-6 6'],
+  atras: ['M19 12H5', 'm11 6-6 6 6 6'],
+  derecha: ['m9 6 6 6-6 6'],
+  abajo: ['m6 9 6 6 6-6'],
+  buscar: ['M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z', 'm20 20-4-4'],
+  mas: ['M12 5v14', 'M5 12h14'],
+  reloj: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 7v5l3 2'],
+  editar: ['M4 20h4L19 9l-4-4L4 16z', 'M13.5 6.5l4 4'],
+  basura: ['M4 7h16', 'M9 7V4h6v3', 'M6 7l1 13h10l1-13'],
+  mover: ['M4 12h16', 'm16 8 4 4-4 4', 'm8 8-4 4 4 4'],
+  varita: ['m4 20 11-11', 'm13 7 2 2', 'M17 3v3', 'M15.5 4.5h3', 'M20 9v2', 'M19 10h2', 'M9 3v2', 'M8 4h2'],
+  lista: ['M9 6h11', 'M9 12h11', 'M9 18h11', 'M4.5 6h.5', 'M4.5 12h.5', 'M4.5 18h.5'],
+  carrito: ['M3 4h2.5l2 11h10l2-8H6.5', 'M9 19.5a1 1 0 1 0 0-.01', 'M17 19.5a1 1 0 1 0 0-.01'],
+  archivo: ['M6 3h8l4 4v14H6z', 'M13.5 3v4.5H18'],
+  historial: ['M3.5 12a8.5 8.5 0 1 0 2.5-6', 'M3 4v4h4', 'M12 8v4.5l3 1.5'],
+  candado: ['M6 11h12v9H6z', 'M8.5 11V8a3.5 3.5 0 0 1 7 0v3'],
+  ubicacion: ['M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z', 'M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'],
+  grafica: ['M4 20V4', 'M4 20h16', 'M8 16v-4', 'M12 16V8', 'M16 16v-6'],
+  moneda: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M14.5 9c-.5-1-1.4-1.5-2.5-1.5-1.5 0-2.5.8-2.5 2 0 2.8 5.3 1.6 5.3 4.4 0 1.3-1.2 2.1-2.8 2.1-1.2 0-2.3-.6-2.8-1.6', 'M12 6v1.5', 'M12 16.5V18'],
+  engrane: ['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M12 2.5v3', 'M12 18.5v3', 'M2.5 12h3', 'M18.5 12h3', 'm5.3 5.3 2.1 2.1', 'm16.6 16.6 2.1 2.1', 'm5.3 18.7 2.1-2.1', 'm16.6 7.4 2.1-2.1'],
+  escala: ['M12 4v16', 'M7 20h10', 'M5 8h14', 'M5 8l-2.5 6a2.5 2.5 0 0 0 5 0z', 'M19 8l-2.5 6a2.5 2.5 0 0 0 5 0z'],
+}
+</script>
+
+<template>
+  <svg :width="props.tam" :height="props.tam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+    <path v-for="(d, i) in ICONOS[props.nombre] || []" :key="i" :d="d" />
+  </svg>
+</template>

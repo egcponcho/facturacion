@@ -105,6 +105,8 @@ def listar_embarques(db: Session, user: Usuario, estado: str | None = None, q: s
             "tentativas": sum(u["tentativas"] for u in unidades),
             "cbm": round(sum(u["cbm"] for u in unidades), 3),
             "proveedores": sorted({p for u in unidades for p in u["proveedores"]}),
+            "ocupacion": [{"id": u["id"], "nombre": u["nombre"], "tipo": u["tipo"], "pct_cbm": u["pct_cbm"],
+                           "cbm": u["cbm"]} for u in unidades],
         })
     return res
 
@@ -252,7 +254,7 @@ def eliminar_unidad(db: Session, user: Usuario, unidad_id: int) -> dict:
 def _fila_pl(pl: PackingList) -> dict:
     t = totales_pl(pl)
     f = pl.factura
-    puede_confirmar = pl.estado == "FINALIZADO" and f.estado == "FINALIZADA"
+    puede_confirmar = _listo(pl)
     motivo = None
     if not puede_confirmar:
         pend = []
@@ -336,6 +338,10 @@ def _cargar_pls(db: Session, ids: list[int]) -> list[PackingList]:
     return pls
 
 
+def _listo(pl: PackingList) -> bool:
+    return pl.estado == "FINALIZADO" and pl.factura.estado == "FINALIZADA"
+
+
 def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
     u = _unidad(db, user, unidad_id)
     pls = _cargar_pls(db, datos.pl_ids)
@@ -355,10 +361,9 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
                     f"{ref} ya está en {anterior.numero or anterior.etiqueta}. Indica el motivo para moverlo."})
         if _salio(u.embarque) and not motivo:
             errores.append({"pl_id": pl.id, "mensaje": f"{ref}: el embarque ya salió; indica el motivo."})
-        if datos.modo == "CONFIRMADA":
-            if pl.estado != "FINALIZADO" or pl.factura.estado != "FINALIZADA":
-                errores.append({"pl_id": pl.id, "mensaje":
-                    f"{ref}: para confirmar, la factura y el PL deben estar finalizados. Puedes asignarlo como tentativo."})
+        if datos.modo == "CONFIRMADA" and not _listo(pl):
+            errores.append({"pl_id": pl.id, "mensaje":
+                f"{ref}: para confirmar, la factura y el PL deben estar finalizados. Puedes asignarlo como tentativo."})
         if settings.FACTURA_EN_UNA_SOLA_UNIDAD:
             otras = {x.unidad_carga_id for x in pl.factura.packing_lists
                      if x.id not in ids and x.unidad_carga_id and x.estado != "CANCELADO"}
@@ -368,15 +373,18 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
                     f"{ref}: otros PL de la misma factura están en otra unidad (regla: una factura, una unidad)."})
     if errores:
         raise ErrorNegocio("No se pudo asignar.", 422, "validacion", errores)
+    confirmados = 0
     for pl in pls:
         anterior = pl.unidad
+        modo = datos.modo if datos.modo != "AUTO" else ("CONFIRMADA" if _listo(pl) else "TENTATIVA")
+        confirmados += modo == "CONFIRMADA"
         pl.unidad = u
-        pl.asignacion = datos.modo
+        pl.asignacion = modo
         registrar(db, user, "packing_list", pl.id, "asignar_unidad", {
-            "unidad": u.numero or u.etiqueta, "embarque": u.embarque.codigo, "modo": datos.modo,
+            "unidad": u.numero or u.etiqueta, "embarque": u.embarque.codigo, "modo": modo,
             "anterior": (anterior.numero or anterior.etiqueta) if anterior and anterior.id != u.id else None,
         }, motivo, factura_id=pl.factura_id)
-    return {"asignados": len(pls)}
+    return {"asignados": len(pls), "confirmados": confirmados, "tentativos": len(pls) - confirmados}
 
 
 def confirmar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
@@ -387,7 +395,7 @@ def confirmar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
         ref = f"{nombre_factura(pl.factura)} / {pl.numero}"
         if pl.unidad_carga_id != u.id:
             errores.append({"pl_id": pl.id, "mensaje": f"{ref} no está en esta unidad."})
-        elif pl.estado != "FINALIZADO" or pl.factura.estado != "FINALIZADA":
+        elif not _listo(pl):
             errores.append({"pl_id": pl.id, "mensaje": f"{ref}: la factura y el PL deben estar finalizados."})
     if errores:
         raise ErrorNegocio("No se confirmó ninguno; corrige estos pendientes.", 422, "validacion", errores)

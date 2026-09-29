@@ -3,7 +3,7 @@ import { cargarSesion, esInterno, puede, sesion } from './stores/sesion'
 
 const routes = [
   { path: '/login', name: 'login', component: () => import('./views/LoginView.vue'), meta: { publica: true } },
-  { path: '/', component: () => import('./views/InicioView.vue') },
+  { path: '/', component: () => import('./views/DashboardView.vue') },
   { path: '/ordenes', component: () => import('./views/OrdenesView.vue') },
   { path: '/facturas', component: () => import('./views/FacturasView.vue') },
   { path: '/facturas/:id', component: () => import('./views/FacturaView.vue'), props: true },
@@ -11,7 +11,6 @@ const routes = [
   { path: '/plantillas', component: () => import('./views/PlantillasView.vue') },
   { path: '/transporte', component: () => import('./views/EmbarquesView.vue'), meta: { interno: true } },
   { path: '/transporte/embarques/:id', component: () => import('./views/EmbarqueView.vue'), props: true, meta: { interno: true } },
-  { path: '/transporte/unidades/:id', component: () => import('./views/UnidadView.vue'), props: true, meta: { interno: true } },
   { path: '/importar', component: () => import('./views/ImportarView.vue'), meta: { interno: true } },
   { path: '/admin', component: () => import('./views/AdminView.vue'), meta: { admin: true } },
   { path: '/:pathMatch(.*)*', redirect: '/' },

@@ -2,6 +2,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import (
+    Factura,
+    FacturaLinea,
     GrupoCajas,
     GrupoCajasItem,
     PackingList,
@@ -33,7 +35,7 @@ from .common import (
     tocar,
     verificar_version,
 )
-from .facturas import cargar_factura, eliminar_pl_linea
+from .facturas import cargar_factura
 
 CAMPOS_VALOR = ("largo", "ancho", "alto", "peso_neto_caja", "peso_bruto_caja")
 
@@ -167,31 +169,7 @@ def agregar_pendientes(db: Session, user: Usuario, pl_id: int, version: int, lin
     return {"agregado": sum(tomar.values()), "version": pl.version}
 
 
-# ---- Dividir, mover, quitar -------------------------------------------------
-def dividir(db: Session, user: Usuario, pl_id: int, datos) -> dict:
-    pl = _editable(db, user, pl_id, datos.version)
-    pll = _linea(pl, datos.pl_linea_id)
-    if any(p <= 0 for p in datos.partes):
-        raise ErrorNegocio("Cada parte debe ser mayor que cero.", 422, "validacion")
-    total = sum(datos.partes)
-    libre = sin_caja(pll)
-    if total > libre:
-        raise ErrorNegocio(
-            f"Solo puedes dividir lo que no está en cajas ({cant_txt(libre, pll.factura_linea.unidad)}). "
-            "Si necesitas partir lo empacado, desempácalo primero.",
-            422, "excede_sin_caja",
-        )
-    if total >= pll.cantidad:
-        raise ErrorNegocio("La fila original debe conservar al menos una unidad.", 422, "validacion")
-    pll.cantidad -= total
-    for parte in datos.partes:
-        pl.lineas.append(PLLinea(factura_linea_id=pll.factura_linea_id, cantidad=parte))
-    tocar(pl)
-    registrar(db, user, "packing_list", pl.id, "dividir",
-              {"fila": _ref(pll), "queda": pll.cantidad, "partes": datos.partes}, factura_id=pl.factura_id)
-    return {"version": pl.version}
-
-
+# ---- Mover y quitar ---------------------------------------------------------
 def _validar_movimientos(pl: PackingList, movimientos) -> list[tuple[PLLinea, int]]:
     pares = []
     errores = []
@@ -328,10 +306,19 @@ def _valores_plantilla(t: PlantillaCaja, cantidad: int | None = None) -> dict:
     return valores
 
 
-def _propuesta(pl: PackingList, t: PlantillaCaja, ids: list[int], reemplazar: bool) -> list[dict]:
-    filas = []
-    for pl_linea_id in ids:
-        pll = _linea(pl, pl_linea_id)
+def _propuesta(db: Session, pl: PackingList, filas, reemplazar: bool) -> list[dict]:
+    """Qué cajas saldrían de cada fila con la plantilla elegida para ella."""
+    plantillas: dict[int, PlantillaCaja] = {}
+    vistas = set()
+    res = []
+    for fila in filas:
+        pll = _linea(pl, fila.pl_linea_id)
+        if pll.id in vistas:
+            raise ErrorNegocio("Una fila aparece dos veces en el empaque.", 422, "validacion")
+        vistas.add(pll.id)
+        if fila.plantilla_id not in plantillas:
+            plantillas[fila.plantilla_id] = _plantilla(db, pl, fila.plantilla_id)
+        t = plantillas[fila.plantilla_id]
         unidad = pll.factura_linea.unidad
         if reemplazar:
             # Lo que está en cajas de una sola fila se volvería a empacar
@@ -339,17 +326,20 @@ def _propuesta(pl: PackingList, t: PlantillaCaja, ids: list[int], reemplazar: bo
             libre = sin_caja(pll) + propio
         else:
             libre = sin_caja(pll)
-        fila = {"pl_linea_id": pll.id, "ref": _ref(pll), "unidad": unidad, "sin_caja": libre}
+        f = {"pl_linea_id": pll.id, "ref": _ref(pll), "unidad": unidad, "sin_caja": libre,
+             "plantilla_id": t.id, "plantilla": t.nombre, "cantidad_por_caja": t.cantidad_por_caja}
         if unidad != t.unidad:
-            fila["omitida"] = "La unidad no coincide con la plantilla."
+            f["omitida"] = "La unidad no coincide con la plantilla."
+        elif not t.activa:
+            f["omitida"] = "La plantilla está inactiva."
         elif libre == 0:
-            fila["omitida"] = "Ya está empacada."
+            f["omitida"] = "Ya está empacada."
         else:
-            fila["cajas"] = libre // t.cantidad_por_caja
-            fila["empacado"] = fila["cajas"] * t.cantidad_por_caja
-            fila["sobrante"] = libre % t.cantidad_por_caja
-        filas.append(fila)
-    return filas
+            f["cajas"] = libre // t.cantidad_por_caja
+            f["empacado"] = f["cajas"] * t.cantidad_por_caja
+            f["sobrante"] = libre % t.cantidad_por_caja
+        res.append(f)
+    return res
 
 
 def _resumen_propuesta(filas: list[dict]) -> dict:
@@ -364,16 +354,10 @@ def _resumen_propuesta(filas: list[dict]) -> dict:
     }
 
 
-def plantilla_previa(db: Session, user: Usuario, pl_id: int, datos) -> dict:
+def empaque_previa(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     pl = cargar_pl(db, user, pl_id)
-    t = _plantilla(db, pl, datos.plantilla_id)
-    filas = _propuesta(pl, t, datos.pl_linea_ids, datos.reemplazar)
-    return {
-        "plantilla": {"id": t.id, "nombre": t.nombre, "cantidad_por_caja": t.cantidad_por_caja, "unidad": t.unidad},
-        "filas": filas,
-        "resumen": _resumen_propuesta(filas),
-        "version": pl.version,
-    }
+    filas = _propuesta(db, pl, datos.filas, datos.reemplazar)
+    return {"filas": filas, "resumen": _resumen_propuesta(filas), "version": pl.version}
 
 
 def _desempacar_propio(pl: PackingList, pll: PLLinea) -> None:
@@ -383,22 +367,26 @@ def _desempacar_propio(pl: PackingList, pll: PLLinea) -> None:
             pl.grupos.remove(g)
 
 
-def aplicar_plantilla(db: Session, user: Usuario, pl_id: int, datos) -> dict:
+def aplicar_empaque(db: Session, user: Usuario, pl_id: int, datos) -> dict:
+    """Crea las cajas completas de cada fila con su plantilla. El sobrante que no
+    completa una caja queda en una caja parcial (peso estimado) o sin caja."""
     pl = _editable(db, user, pl_id, datos.version)
-    t = _plantilla(db, pl, datos.plantilla_id)
-    if not t.activa:
-        raise ErrorNegocio("La plantilla está inactiva.", 409, "plantilla_inactiva")
     if datos.reemplazar:
-        for pl_linea_id in datos.pl_linea_ids:
-            _desempacar_propio(pl, _linea(pl, pl_linea_id))
+        for fila in datos.filas:
+            _desempacar_propio(pl, _linea(pl, fila.pl_linea_id))
         db.flush()
         for pll in pl.lineas:
             db.expire(pll, ["items"])
-    filas = _propuesta(pl, t, datos.pl_linea_ids, False)
+    filas = _propuesta(db, pl, datos.filas, False)
+    resumen = _resumen_propuesta(filas)
+    if not resumen["filas"]:
+        raise ErrorNegocio("No hay nada que empacar con esas plantillas.", 422, "sin_pendiente",
+                           [{"mensaje": f"{f['ref']}: {f['omitida']}"} for f in filas])
     for f in filas:
         if "omitida" in f:
             continue
         pll = _linea(pl, f["pl_linea_id"])
+        t = db.get(PlantillaCaja, f["plantilla_id"])
         if f["cajas"]:
             g = GrupoCajas(num_cajas=f["cajas"], plantilla_id=t.id, plantilla_nombre=t.nombre,
                            **_valores_plantilla(t))
@@ -410,42 +398,10 @@ def aplicar_plantilla(db: Session, user: Usuario, pl_id: int, datos) -> dict:
             g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=f["sobrante"]))
             pl.grupos.append(g)
     tocar(pl)
-    resumen = _resumen_propuesta(filas)
     registrar(db, user, "packing_list", pl.id, "aplicar_plantilla",
-              {"plantilla": t.nombre, "sobrante": datos.sobrante, **resumen}, factura_id=pl.factura_id)
+              {"plantillas": sorted({f["plantilla"] for f in filas if "omitida" not in f}),
+               "sobrante": datos.sobrante, **resumen}, factura_id=pl.factura_id)
     return {"resumen": resumen, "version": pl.version}
-
-
-def empacar_sobrante(db: Session, user: Usuario, pl_id: int, datos) -> dict:
-    """Una caja parcial por fila con todo lo que tenga sin caja. Toma los
-    valores de la plantilla indicada o de la última usada en esa fila."""
-    pl = _editable(db, user, pl_id, datos.version)
-    t_forzada = _plantilla(db, pl, datos.plantilla_id) if datos.plantilla_id else None
-    creadas = 0
-    for pl_linea_id in datos.pl_linea_ids:
-        pll = _linea(pl, pl_linea_id)
-        libre = sin_caja(pll)
-        if libre <= 0:
-            continue
-        t = t_forzada
-        if not t:
-            previas = [it.grupo for it in pll.items if it.grupo.plantilla_id]
-            t = db.get(PlantillaCaja, previas[-1].plantilla_id) if previas else None
-        if t and t.unidad == pll.factura_linea.unidad:
-            valores = _valores_plantilla(t, libre)
-            parcial = libre < t.cantidad_por_caja
-        else:
-            valores, parcial, t = {}, True, None
-        g = GrupoCajas(num_cajas=1, es_parcial=parcial, peso_estimado=bool(t),
-                       plantilla_id=t.id if t else None, plantilla_nombre=t.nombre if t else None, **valores)
-        g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=libre))
-        pl.grupos.append(g)
-        creadas += 1
-    if not creadas:
-        raise ErrorNegocio("Las filas seleccionadas no tienen cantidad sin caja.", 422, "sin_pendiente")
-    tocar(pl)
-    registrar(db, user, "packing_list", pl.id, "caja_sobrante", {"cajas": creadas}, factura_id=pl.factura_id)
-    return {"cajas": creadas, "version": pl.version}
 
 
 def crear_caja(db: Session, user: Usuario, pl_id: int, datos) -> dict:
@@ -687,17 +643,41 @@ def registrar_recepcion(db: Session, user: Usuario, pl_id: int, datos) -> dict:
 
 
 # ---- Consulta ---------------------------------------------------------------
+def _sugerencias(db: Session, pl: PackingList) -> dict[int, int]:
+    """Plantilla sugerida por fila: la última usada en esa fila o, si no hay,
+    la última con la que el proveedor empacó el mismo estilo (cajas completas)."""
+    res: dict[int, int] = {}
+    for g in pl.grupos:
+        if g.plantilla_id:
+            for it in g.items:
+                res[it.pl_linea_id] = g.plantilla_id
+    estilos = {pll.factura_linea.estilo for pll in pl.lineas if pll.id not in res and pll.factura_linea.estilo}
+    if not estilos:
+        return res
+    por_estilo = dict(db.execute(
+        select(FacturaLinea.estilo, GrupoCajas.plantilla_id)
+        .join(PLLinea, PLLinea.factura_linea_id == FacturaLinea.id)
+        .join(GrupoCajasItem, GrupoCajasItem.pl_linea_id == PLLinea.id)
+        .join(GrupoCajas, GrupoCajas.id == GrupoCajasItem.grupo_id)
+        .join(PlantillaCaja, PlantillaCaja.id == GrupoCajas.plantilla_id)
+        .join(Factura, Factura.id == FacturaLinea.factura_id)
+        .where(Factura.proveedor_id == pl.factura.proveedor_id, FacturaLinea.estilo.in_(estilos),
+               PlantillaCaja.activa.is_(True), GrupoCajas.es_parcial.is_(False))
+        .order_by(GrupoCajas.id)
+    ).all())
+    for pll in pl.lineas:
+        if pll.id not in res and pll.factura_linea.estilo in por_estilo:
+            res[pll.id] = por_estilo[pll.factura_linea.estilo]
+    return res
+
+
 def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
     from .facturas import _info_transporte
 
     pl = cargar_pl(db, user, pl_id)
     f = pl.factura
     rangos = numeracion(pl)
-    ultima_plantilla: dict[int, int] = {}
-    for g in pl.grupos:
-        if g.plantilla_id:
-            for it in g.items:
-                ultima_plantilla[it.pl_linea_id] = g.plantilla_id
+    ultima_plantilla = _sugerencias(db, pl)
 
     lineas = []
     for pll in sorted(pl.lineas, key=lambda x: (x.factura_linea_id, x.id)):
@@ -787,6 +767,14 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             for x in f.packing_lists if x.id != pl.id and x.estado in EDITABLE_PL
         ],
         "transporte": _info_transporte(pl),
+        "plantillas": [
+            {"id": t.id, "nombre": t.nombre, "cantidad_por_caja": t.cantidad_por_caja, "unidad": t.unidad,
+             "largo": t.largo, "ancho": t.ancho, "alto": t.alto, "peso_neto": t.peso_neto,
+             "peso_bruto": t.peso_bruto}
+            for t in db.scalars(select(PlantillaCaja).where(
+                PlantillaCaja.proveedor_id == f.proveedor_id, PlantillaCaja.activa.is_(True))
+                .order_by(PlantillaCaja.nombre)).all()
+        ] if editable else [],
         "puede": {
             "editar": editable,
             "finalizar": editable and (es_interno(user) or "pl.finalizar" in _permisos(user)),

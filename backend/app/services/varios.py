@@ -1,87 +1,21 @@
-from datetime import timedelta
-
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..config import settings
 from ..models import (
     Alerta,
-    Embarque,
-    Factura,
-    PackingList,
     PlantillaCaja,
     Proveedor,
     Usuario,
-    ahora,
 )
 from ..security import hash_password
 from .common import (
-    EDITABLE_PL,
     ErrorNegocio,
-    es_interno,
     exigir,
     proveedor_filtro,
 )
-from .facturas import listar_facturas
-from .ordenes import listar_ordenes
 
 
-# ---- Inicio -----------------------------------------------------------------
-def inicio(db: Session, user: Usuario, proveedor_id: int | None = None) -> dict:
-    prov = proveedor_filtro(user, proveedor_id)
-    tarjetas = []
-
-    def tarjeta(clave, titulo, valor, ruta, query=None, tono="normal", ayuda=None):
-        tarjetas.append({"clave": clave, "titulo": titulo, "valor": valor, "ruta": ruta,
-                         "query": query or {}, "tono": tono if valor else "neutro", "ayuda": ayuda})
-
-    def contar_facturas(*condiciones):
-        consulta = select(func.count(Factura.id)).where(*condiciones)
-        if prov:
-            consulta = consulta.where(Factura.proveedor_id == prov)
-        return db.scalar(consulta) or 0
-
-    ocs = listar_ordenes(db, user, proveedor_id=prov, solo_disponible=True, size=1)["total"]
-    tarjeta("ocs", "OCs con saldo por facturar", ocs, "/ordenes", {"solo_disponible": "1"})
-    tarjeta("borradores", "Facturas en borrador", contar_facturas(Factura.estado == "BORRADOR"),
-            "/facturas", {"estado": "BORRADOR"})
-    tarjeta("correccion", "Facturas en corrección", contar_facturas(Factura.estado == "EN_CORRECCION"),
-            "/facturas", {"estado": "EN_CORRECCION"}, "alerta")
-
-    pl_incompletos = select(func.count(PackingList.id)).join(Factura).where(
-        PackingList.estado.in_(EDITABLE_PL), Factura.estado != "CANCELADA")
-    if prov:
-        pl_incompletos = pl_incompletos.where(Factura.proveedor_id == prov)
-    tarjeta("pl", "Packing lists sin finalizar", db.scalar(pl_incompletos) or 0,
-            "/facturas", {"vista": "pl_incompletos"})
-
-    limite = ahora() - timedelta(days=settings.DIAS_ALERTA_BORRADOR)
-    tarjeta("antiguos", f"Borradores con más de {settings.DIAS_ALERTA_BORRADOR} días",
-            contar_facturas(Factura.estado == "BORRADOR", Factura.creado_en < limite),
-            "/facturas", {"vista": "borradores_antiguos"}, "alerta",
-            "Siguen reservando cantidades de las OCs.")
-
-    if es_interno(user):
-        listas = listar_facturas(db, user, proveedor_id=prov, vista="lista_transporte", size=1)["total"]
-        tarjeta("listas", "Facturas listas para asignar a transporte", listas,
-                "/facturas", {"vista": "lista_transporte"}, "exito")
-        sin_unidad = select(func.count(PackingList.id)).join(Factura).where(
-            PackingList.estado == "FINALIZADO", PackingList.unidad_carga_id.is_(None))
-        if prov:
-            sin_unidad = sin_unidad.where(Factura.proveedor_id == prov)
-        tarjeta("sin_unidad", "PL finalizados sin unidad de carga", db.scalar(sin_unidad) or 0,
-                "/facturas", {"vista": "pl_sin_unidad"})
-        tentativas = select(func.count(PackingList.id)).join(Factura).where(
-            PackingList.asignacion == "TENTATIVA", PackingList.estado != "CANCELADO")
-        if prov:
-            tentativas = tentativas.where(Factura.proveedor_id == prov)
-        tarjeta("tentativas", "Asignaciones tentativas por confirmar", db.scalar(tentativas) or 0,
-                "/transporte", {"estado": "PLANIFICADO"}, "alerta")
-        transito = db.scalar(select(func.count(Embarque.id)).where(Embarque.estado == "EN_TRANSITO")) or 0
-        tarjeta("transito", "Embarques en tránsito", transito, "/transporte", {"estado": "EN_TRANSITO"})
-    return {"tarjetas": tarjetas, "alertas": listar_alertas(db, user, prov) if es_interno(user) else []}
-
-
+# ---- Alertas ----------------------------------------------------------------
 def listar_alertas(db: Session, user: Usuario, proveedor_id: int | None = None) -> list[dict]:
     exigir(user, "alertas.ver")
     consulta = select(Alerta).where(Alerta.resuelta.is_(False)).order_by(Alerta.creada_en.desc()).limit(50)

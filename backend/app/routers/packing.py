@@ -3,16 +3,14 @@ from fastapi.responses import Response
 
 from ..schemas import (
     CajaManual,
-    CajaSobrante,
     ConMotivo,
     EditarCajas,
     EliminarCajas,
+    EmpaqueAplicar,
+    EmpaquePrevia,
     Finalizar,
     GuardarPlantilla,
     PLAgregar,
-    PLDividir,
-    PlantillaAplicar,
-    PlantillaPrevia,
     PLMover,
     PLMoverCajas,
     PLQuitar,
@@ -35,11 +33,6 @@ def agregar(pl_id: int, datos: PLAgregar, db: Db, user: User, clave: Clave = Non
     return ejecutar(db, user, clave, lambda: svc.agregar_pendientes(db, user, pl_id, datos.version, datos.lineas))
 
 
-@router.post("/{pl_id}/dividir")
-def dividir(pl_id: int, datos: PLDividir, db: Db, user: User, clave: Clave = None):
-    return ejecutar(db, user, clave, lambda: svc.dividir(db, user, pl_id, datos))
-
-
 @router.post("/{pl_id}/mover")
 def mover(pl_id: int, datos: PLMover, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.mover(db, user, pl_id, datos))
@@ -55,24 +48,19 @@ def mover_cajas(pl_id: int, datos: PLMoverCajas, db: Db, user: User, clave: Clav
     return ejecutar(db, user, clave, lambda: svc.mover_cajas(db, user, pl_id, datos))
 
 
-@router.post("/{pl_id}/plantilla/previa")
-def plantilla_previa(pl_id: int, datos: PlantillaPrevia, db: Db, user: User):
-    return svc.plantilla_previa(db, user, pl_id, datos)
+@router.post("/{pl_id}/empaque/previa")
+def empaque_previa(pl_id: int, datos: EmpaquePrevia, db: Db, user: User):
+    return svc.empaque_previa(db, user, pl_id, datos)
 
 
-@router.post("/{pl_id}/plantilla/aplicar")
-def plantilla_aplicar(pl_id: int, datos: PlantillaAplicar, db: Db, user: User, clave: Clave = None):
-    return ejecutar(db, user, clave, lambda: svc.aplicar_plantilla(db, user, pl_id, datos))
+@router.post("/{pl_id}/empaque/aplicar")
+def empaque_aplicar(pl_id: int, datos: EmpaqueAplicar, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.aplicar_empaque(db, user, pl_id, datos))
 
 
 @router.post("/{pl_id}/cajas")
 def crear_caja(pl_id: int, datos: CajaManual, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.crear_caja(db, user, pl_id, datos))
-
-
-@router.post("/{pl_id}/cajas/sobrante")
-def caja_sobrante(pl_id: int, datos: CajaSobrante, db: Db, user: User, clave: Clave = None):
-    return ejecutar(db, user, clave, lambda: svc.empacar_sobrante(db, user, pl_id, datos))
 
 
 @router.patch("/{pl_id}/cajas")
