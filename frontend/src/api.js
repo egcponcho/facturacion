@@ -61,8 +61,9 @@ export const api = {
   patch: (url, cuerpo, opciones) => pedir('PATCH', url, cuerpo ?? {}, opciones),
   put: (url, cuerpo, opciones) => pedir('PUT', url, cuerpo ?? {}, opciones),
   del: (url) => pedir('DELETE', url),
-  async descargar(url, nombre) {
-    const r = await fetch(BASE + url, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+  async descargar(url, nombre, params) {
+    const q = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : ''
+    const r = await fetch(BASE + url + (q ? `?${q}` : ''), { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
     if (!r.ok) {
       const datos = await r.json().catch(() => null)
       throw new ApiError(r.status, datos)

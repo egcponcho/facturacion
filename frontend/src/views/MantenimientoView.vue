@@ -36,12 +36,12 @@ const columnas = computed(() => campos.value.filter((c) => !['descripcion', 'dir
   !(c.nombre === 'correos' && tipo.value !== 'contactos')))
 const extras = computed(() => cat.value?.extras || [])
 // Opciones para la lista con búsqueda: por id (ref) o por código
-const opcionesDe = (c) => (opciones[c.catalogo] || []).map((o) => ({ valor: c.tipo === 'ref' ? o.id : o.codigo, texto: o.texto }))
+const opcionesDe = (c) => (opciones[c.catalogo] || []).map((o) => ({ valor: ['ref', 'multi'].includes(c.tipo) ? o.id : o.codigo, texto: o.texto }))
 const conFiltro = computed(() => campos.value.filter((c) => c.filtro))
 
 function vacio() {
   const f = {}
-  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? true : ''
+  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? true : c.tipo === 'multi' ? [] : ''
   return f
 }
 
@@ -112,7 +112,7 @@ function editar(fila) {
   filaEditada.value = fila
   erroresForm.value = {}
   const f = vacio()
-  for (const c of campos.value) f[c.nombre] = fila[c.nombre] ?? (c.tipo === 'bool' ? false : '')
+  for (const c of campos.value) f[c.nombre] = c.tipo === 'multi' ? [...(fila[c.nombre] || [])] : fila[c.nombre] ?? (c.tipo === 'bool' ? false : '')
   form.value = f
 }
 function nuevo() {
@@ -174,6 +174,7 @@ function valorCelda(c, fila) {
   const v = fila[c.nombre]
   if (v === null || v === undefined || v === '') return '—'
   if (c.tipo === 'ref') return fila[`${c.nombre}_txt`] || v
+  if (c.tipo === 'multi') return fila[`${c.nombre}_txt`] || '—'
   if (c.tipo === 'opcion') return c.opciones.find((o) => o[0] === v)?.[1] || v
   if (c.tipo === 'codigo') return opciones[c.catalogo]?.find((o) => o.codigo === v)?.texto || v
   return v
@@ -294,7 +295,7 @@ onMounted(async () => {
           <input v-model="filtros.q" type="search" :placeholder="`Buscar en ${cat.titulo.toLowerCase()}`" aria-label="Buscar" @input="buscar" />
         </label>
         <template v-for="c in conFiltro" :key="c.nombre">
-          <SelectBusqueda v-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
+          <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
                           :vacio="`${c.etiqueta}: todos`" :etiqueta="c.etiqueta" @change="filtros.page = 1; cargar()" />
           <select v-else v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
             <option :value="undefined">{{ c.etiqueta }}: todos</option>
@@ -399,6 +400,8 @@ onMounted(async () => {
             </select>
             <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c)"
                             :vacio="c.obligatorio ? '' : 'Ninguno'" :requerido="c.obligatorio" :etiqueta="c.etiqueta" :deshabilitado="bloqueado(c)" />
+            <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c)" multiple
+                            placeholder="Elige uno o varios…" :requerido="c.obligatorio" :etiqueta="c.etiqueta" />
             <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
                       placeholder="nombre@empresa.com, otro@empresa.com"></textarea>
             <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : 'text'"

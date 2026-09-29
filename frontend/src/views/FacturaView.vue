@@ -353,7 +353,8 @@ onMounted(async () => {
         <EstadoBadge :estado="f.estado" />
         <span v-if="f.lista_transporte && confirmados < plsActivos.length" class="etiqueta ok"><Icono nombre="check" :tam="12" />Lista para embarcar</span>
         <div class="doc-acciones">
-          <button class="btn btn-fantasma" title="Descargar Excel" @click="descargar(`/facturas/${f.id}/exportar`, 'factura.xlsx')"><Icono nombre="descargar" />Excel</button>
+          <button class="btn btn-fantasma" title="Factura comercial en PDF, lista para imprimir y firmar" @click="descargar(`/facturas/${f.id}/exportar?formato=pdf`, 'factura.pdf')"><Icono nombre="descargar" />PDF</button>
+          <button class="btn btn-fantasma" title="Factura comercial en Excel" @click="descargar(`/facturas/${f.id}/exportar?formato=xlsx`, 'factura.xlsx')"><Icono nombre="descargar" />Excel</button>
           <button v-if="f.puede.reabrir" class="btn" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">Reabrir para corregir</button>
           <button v-if="f.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">Cancelar</button>
           <button v-if="f.puede.finalizar" :class="['btn', accionPrincipal === 'finalizar' ? 'btn-primario' : '']" :disabled="ocupado" @click="abrirFinalizar">

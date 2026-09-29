@@ -511,6 +511,8 @@ def test_catalogos(interno, tnf):
     # Y no puede dejar de manejar una marca de la que tiene artículos
     r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": [vans_marca["id"]]})
     assert r.status_code == 422 and "tiene artículos" in r.json()["detalle"][0]["mensaje"]
+    r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": []})
+    assert r.status_code == 422 and "tiene artículos" in r.json()["detalle"][0]["mensaje"]
     assert provs["TNF"]["marcas_txt"] == "TNF" and "8000" in provs["TNF"]["sociedades_txt"]
     r = interno.post("/catalogos/articulos", {**base, "sku": "X1", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
     assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "sku"

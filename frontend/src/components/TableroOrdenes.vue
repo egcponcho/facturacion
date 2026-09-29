@@ -2,16 +2,20 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
-import { sesion } from '../stores/sesion'
+import { esInterno, sesion } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
-import { COMERCIAL, LIBERACION, diasTxt, fmtFecha, fmtNum } from '../utils'
+import { COMERCIAL, LIBERACION, cantTxt, diasTxt, fmtFecha, fmtNum } from '../utils'
+import ExplosionPrepack from './ExplosionPrepack.vue'
 import GraficoColumnas from './GraficoColumnas.vue'
+import Icono from './Icono.vue'
 import Kpi from './Kpi.vue'
 import Paginacion from './Paginacion.vue'
 import ThOrden from './ThOrden.vue'
 
 // Tablero de órdenes de compra: liberaciones (comercial y logística), cuánto
-// falta por facturar, qué va en contenedor, en camino y recibido.
+// falta por facturar, qué va en contenedor, en camino y recibido. Cada OC se
+// abre en el detalle por SKU: en qué etapa está, en qué documento y unidad de
+// carga va y si llega a tiempo a tienda.
 const props = defineProps({ filtros: { type: Object, required: true } })
 const emit = defineEmits(['opciones', 'filtrar'])
 const datos = ref({ items: [], total: 0, kpis: {}, estados: [] })
@@ -28,6 +32,25 @@ const TRAMOS = [
   ['en_contenedor', 'En contenedor', 'var(--tramo-3)'], ['en_camino', 'En camino', 'var(--tramo-4)'],
   ['recibido', 'Recibido', 'var(--tramo-5)'],
 ]
+const ETAPAS = {
+  PEND_LIBERACION: ['Pendiente de liberación', 'aviso'], POR_FACTURAR: ['Por facturar', 'neutro'],
+  FACTURADO: ['Facturado sin PL', 'info'], EN_PL: ['En packing list', 'acento'], CONTENEDOR: ['En contenedor', 'acento'],
+  EN_TRANSITO: ['En tránsito', 'info'], ARRIBADO: ['Arribado', 'info'], ENTREGADO: ['Entregado', 'ok'], RECIBIDO: ['Recibido', 'ok'],
+}
+const detalles = reactive({})
+const explosion = ref(null)
+async function alternar(o) {
+  if (detalles[o.oc_id]) {
+    delete detalles[o.oc_id]
+    return
+  }
+  try {
+    const r = await api.get('/seguimiento', { ...props.filtros, oc_id: o.oc_id, orden: 'etapa:asc', size: 200, proveedor_id: sesion.proveedorId || undefined })
+    detalles[o.oc_id] = r.items
+  } catch (e) {
+    errorApi(e)
+  }
+}
 const nombreEstado = computed(() => Object.fromEntries(datos.value.estados.map((e) => [e.clave, e.nombre])))
 const grafica = computed(() => datos.value.estados.map((e) => ({ etiqueta: e.nombre.split(' (')[0].replace('Sin liberación', 'Sin lib.'), valor: e.total, detalle: e.nombre })))
 
@@ -47,7 +70,11 @@ function ordenar(campo) {
   tabla.page = 1
   cargar()
 }
-watch(() => [props.filtros, sesion.proveedorId], () => { tabla.page = 1; cargar() }, { deep: true })
+watch(() => [props.filtros, sesion.proveedorId], () => {
+  tabla.page = 1
+  for (const k of Object.keys(detalles)) delete detalles[k]
+  cargar()
+}, { deep: true })
 onMounted(cargar)
 </script>
 
@@ -80,6 +107,7 @@ onMounted(cargar)
     <table class="tabla">
       <thead>
         <tr>
+          <th><span class="oculto-visual">Abrir</span></th>
           <ThOrden campo="oc" :orden="tabla.orden" @ordenar="ordenar">Orden de compra</ThOrden>
           <ThOrden campo="centro" :orden="tabla.orden" @ordenar="ordenar">Sociedad · centro</ThOrden>
           <th>Liberaciones</th>
@@ -93,11 +121,17 @@ onMounted(cargar)
         </tr>
       </thead>
       <tbody>
-        <tr v-if="cargando && !datos.items.length"><td colspan="10" class="vacio">Cargando…</td></tr>
-        <tr v-else-if="!datos.items.length"><td colspan="10" class="vacio">No hay órdenes de compra con esos filtros.</td></tr>
-        <tr v-for="o in datos.items" :key="o.oc_id">
+        <tr v-if="cargando && !datos.items.length"><td colspan="11" class="vacio">Cargando…</td></tr>
+        <tr v-else-if="!datos.items.length"><td colspan="11" class="vacio">No hay órdenes de compra con esos filtros.</td></tr>
+        <template v-for="o in datos.items" :key="o.oc_id">
+        <tr class="clicable" @click="alternar(o)">
           <td>
-            <router-link :to="{ path: '/ordenes', query: { q: o.oc, solo_disponible: '0' } }" class="codigo fuerte">{{ o.oc }}</router-link>
+            <button type="button" class="btn-icono" :aria-expanded="!!detalles[o.oc_id]" :aria-label="`Ver el detalle por SKU de ${o.oc}`">
+              <Icono :nombre="detalles[o.oc_id] ? 'abajo' : 'derecha'" :tam="16" />
+            </button>
+          </td>
+          <td>
+            <router-link :to="{ path: '/ordenes', query: { q: o.oc, solo_disponible: '0' } }" class="codigo fuerte" @click.stop>{{ o.oc }}</router-link>
             <span class="sub">{{ o.proveedor }}<template v-if="o.marcas.length"> · {{ o.marcas.join(', ') }}</template></span>
           </td>
           <td class="codigo">{{ o.sociedad }} · {{ o.centro }}<span class="sub">destino {{ o.centro_destino || '—' }}</span></td>
@@ -122,6 +156,55 @@ onMounted(cargar)
           </td>
           <td class="codigo">{{ o.embarques.join(', ') || '—' }}</td>
         </tr>
+        <tr v-if="detalles[o.oc_id]" class="fila-hija">
+          <td colspan="11">
+            <div class="subtabla">
+              <div class="tabla-marco">
+                <table class="tabla">
+                  <thead>
+                    <tr><th>Pos.</th><th>SKU</th><th>Marca · estilo · color</th><th>Talla</th><th>Almacén</th><th class="num">Cantidad</th>
+                      <th>Etapa</th><th>Factura / PL</th><th>Embarque · unidad</th><th>Llegada</th><th>Vs. tienda</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="!detalles[o.oc_id].length"><td colspan="11" class="vacio">Sin líneas con esos filtros.</td></tr>
+                    <tr v-for="(l, i) in detalles[o.oc_id]" :key="i">
+                      <td class="codigo">{{ l.posicion }}</td>
+                      <td class="codigo">{{ l.sku }}</td>
+                      <td>{{ l.marca }} {{ l.estilo }}<span class="sub">{{ l.color }}<template v-if="l.grupo"> · {{ l.grupo }}</template></span></td>
+                      <td>
+                        <b>{{ l.talla || '—' }}</b>
+                        <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" title="Ver la explosión del prepack"
+                                @click="explosion = { sku: l.sku, cajas: l.cantidad }">Prepack <Icono nombre="lupa" :tam="12" /></button>
+                      </td>
+                      <td>{{ l.almacen || '—' }}</td>
+                      <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
+                      <td><span class="etiqueta" :class="ETAPAS[l.etapa]?.[1]" style="margin-left: 0">{{ ETAPAS[l.etapa]?.[0] || l.etapa }}</span></td>
+                      <td>
+                        <router-link v-if="l.factura_id" :to="`/facturas/${l.factura_id}`">{{ l.factura }}</router-link>
+                        <span v-else class="ayuda">—</span>
+                        <router-link v-if="l.pl_id" :to="`/packing-lists/${l.pl_id}`" class="sub">PL {{ l.pl }}</router-link>
+                      </td>
+                      <td>
+                        <template v-if="l.embarque_id">
+                          <router-link v-if="esInterno()" :to="`/transporte/embarques/${l.embarque_id}`" class="codigo">{{ l.embarque }}</router-link>
+                          <span v-else class="codigo">{{ l.embarque }}</span>
+                          <span class="sub codigo">{{ l.contenedor }}<template v-if="l.documento"> · {{ l.documento }}</template></span>
+                        </template>
+                        <span v-else class="ayuda">—</span>
+                      </td>
+                      <td>{{ fmtFecha(l.arribo_real || l.eta) }}<span v-if="l.arribo_real" class="sub">real</span></td>
+                      <td>
+                        <span v-if="l.riesgo" class="etiqueta" :class="RIESGOS[l.riesgo][1]" style="margin-left: 0">{{ l.holgura < 0 ? `${-l.holgura} d tarde` : `${l.holgura} d` }}</span>
+                        <span v-else class="ayuda">—</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </td>
+        </tr>
+        </template>
       </tbody>
     </table>
   </div>
@@ -129,4 +212,5 @@ onMounted(cargar)
   <div class="leyenda-etapas">
     <span v-for="[k, t, c] in TRAMOS" :key="k"><i class="punto" :style="{ background: c }"></i>{{ t }}</span>
   </div>
+  <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
 </template>

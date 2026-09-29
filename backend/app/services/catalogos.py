@@ -502,7 +502,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
     if cat["modelo"] is Proveedor and actual and "marcas" in limpio:
         quedan = {m.id for m in limpio["marcas"]}
         usadas = {m for (m,) in db.execute(select(Articulo.marca_id).where(Articulo.proveedor_id == actual.id).distinct())}
-        if quedan and usadas - quedan:
+        if usadas - quedan:
             nombres_m = [m.codigo for m in db.scalars(select(Marca).where(Marca.id.in_(usadas - quedan)))]
             errores.append({"campo": "marcas", "mensaje":
                             f"El proveedor tiene artículos de {', '.join(nombres_m)}: no se pueden quitar esas marcas."})
