@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..models import (
+    AcuerdoComercial,
     Almacen,
     Articulo,
     Centro,
@@ -32,7 +33,13 @@ from ..models import (
     Usuario,
 )
 from .common import ErrorNegocio, exigir, registrar
-from .productos import asegurar_producto, fmt_codigo, generico_de, producto_de, producto_por_generico
+from .productos import (
+    asegurar_producto,
+    fmt_codigo,
+    generico_de,
+    producto_de,
+    producto_por_generico,
+)
 
 UNIDADES = [["PAR", "Pairs"], ["UN", "Units"], ["CJ", "Cartons (prepack)"]]
 CATEGORIAS = [["CALZADO", "Footwear"], ["ROPA", "Apparel"], ["ACCESORIO", "Accessories"]]
@@ -130,6 +137,24 @@ CATALOGOS = {
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
+    },
+    "acuerdos": {
+        "modelo": AcuerdoComercial, "titulo": "Trade agreements", "singular": "agreement",
+        "ayuda": "Trade agreements in force: goods originating in the origin countries enter the destination countries "
+                 "with a preferential duty when the proof of origin is presented. The technical sheet shows them "
+                 "for the product's country of origin.",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("origenes", "Origin countries (ISO)", obligatorio=True, mayus=True, patron=r"^[A-Z]{2}(\s*,\s*[A-Z]{2})*$",
+              mensaje_patron="ISO codes separated by commas, e.g. US, DO.", ayuda="ISO codes separated by commas."),
+            c("destinos", "Destination countries (ISO)", obligatorio=True, mayus=True, patron=r"^[A-Z]{2}(\s*,\s*[A-Z]{2})*$",
+              mensaje_patron="ISO codes separated by commas, e.g. GT, SV.", ayuda="Destination countries where it applies."),
+            c("prueba", "Proof of origin"),
+            c("nota", "Note"),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre", "origenes", "destinos"],
     },
     "regiones": {
         "modelo": RegionLeadTime, "titulo": "Lead time targets", "singular": "region",
@@ -286,7 +311,7 @@ CATALOGOS = {
     },
 }
 ORDEN_CATALOGOS = ["articulos", "prepacks", "marcas", "grupos", "proveedores", "sociedades", "centros",
-                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones"]
+                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "acuerdos"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
 

@@ -277,6 +277,22 @@ class RegionLeadTime(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class AcuerdoComercial(Base):
+    """Tratado o acuerdo comercial vigente: mercancías originarias de sus países
+    de origen entran con preferencia arancelaria a sus países destino si se
+    presenta la prueba de origen que pide."""
+
+    __tablename__ = "acuerdos_comerciales"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    nombre: Mapped[str] = mapped_column(String(200))
+    origenes: Mapped[str] = mapped_column(String(400))  # ISO separados por coma (US,DO)
+    destinos: Mapped[str] = mapped_column(String(100))  # ISO de los países destino (GT,SV,HN…)
+    prueba: Mapped[str | None] = mapped_column(String(200))  # certificado o declaración de origen
+    nota: Mapped[str | None] = mapped_column(String(300))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class Puerto(Base):
     __tablename__ = "puertos"
     id: Mapped[int] = mapped_column(primary_key=True)

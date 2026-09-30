@@ -656,7 +656,7 @@ def pdf_ficha_producto(d: dict) -> bytes:
                                                                         if d.get("revisado_en") else ""))]
     h += [Paragraph("CLASSIFICATION", e["etiqueta"]), Spacer(1, 2), _rejilla(e, veredicto, ancho), Spacer(1, 4)]
     if d.get("descripcion_aduana"):
-        h += [Paragraph(f"<b>Customs description (DUCA):</b> {_esc(d['descripcion_aduana'])}", e["base"]),
+        h += [Paragraph(f"<b>Customs description:</b> {_esc(d['descripcion_aduana'])}", e["base"]),
               Spacer(1, 4)]
     razones = (d.get("analisis") or {}).get("razones") or []
     for r in razones[:8]:

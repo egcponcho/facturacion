@@ -16,6 +16,7 @@ const props = defineProps({
   deshabilitado: Boolean,
   requerido: Boolean,
   busqueda: { type: Boolean, default: null },
+  botonId: { type: String, default: undefined }, // para que el <label for> del formulario apunte al botón
   prefijo: { type: Boolean, default: true }, // en filtros: "Marca: valor" // null: solo con más de 7 opciones
 })
 const emit = defineEmits(['update:modelValue', 'change'])
@@ -135,7 +136,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="raiz" class="sb" :class="{ abierto, deshabilitado }">
-    <button type="button" class="sb-boton" :disabled="deshabilitado" :aria-label="etiqueta || placeholder"
+    <button :id="botonId" type="button" class="sb-boton" :disabled="deshabilitado" :aria-label="etiqueta || placeholder"
             aria-haspopup="listbox" :aria-expanded="abierto" @click="abrir" @keydown.down.prevent="abrir">
       <span v-if="multiple && resumen" class="sb-valor" :title="`${etiqueta}: ${resumen}`"><span v-if="prefijo && vacio && etiqueta" class="sb-etq">{{ etiqueta }}:</span> {{ resumen }}</span>
       <span v-else-if="multiple" :class="vacio ? 'sb-valor' : 'sb-placeholder'">{{ vacio || placeholder }}</span>
