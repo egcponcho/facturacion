@@ -468,6 +468,70 @@ def importar_sac(db: Session, user: Usuario, nombre: str, contenido: bytes) -> d
     return {"creados": creados, "actualizados": actualizados, "errores": errores[:200]}
 
 
+AMBITO_ALIAS = {"reglas": "reglas", "general rules": "reglas", "general rule": "reglas", "rgi": "reglas", "regla": "reglas",
+                "seccion": "seccion", "section": "seccion", "section note": "seccion", "capitulo": "capitulo",
+                "chapter": "capitulo", "chapter note": "capitulo", "subpartida": "subpartida", "subheading": "subpartida",
+                "subheading note": "subpartida"}
+
+
+def plantilla_notas() -> bytes:
+    return plantilla("SAC legal notes", [
+        {"nombre": "Kind", "req": True, "opciones": list(AMBITOS.values()), "ancho": 16},
+        {"nombre": "Section or chapter", "req": True, "ayuda": "RGI for the general rules, XI for a section, 64 for a chapter.", "ancho": 14},
+        {"nombre": "Number", "ayuda": "Number of the note, e.g. 4, 2 A), Subp. 1.", "ancho": 12},
+        {"nombre": "Text", "req": True, "ayuda": "Official text of the note, as published in the SAC.", "ancho": 90},
+        {"nombre": "Applies to chapters", "ayuda": "Chapters separated by commas (empty = all).", "ancho": 20},
+        {"nombre": "Active", "opciones": ["Yes", "No"], "ancho": 8},
+    ], [["Chapter note", "64", "4", "Salvo lo dispuesto en la Nota 3 de este Capítulo: a) la materia de la parte superior …", "64", "Yes"]],
+        ["One row per note. A note with the same kind, section or chapter and number is replaced with the new text.",
+         "Use it to load the official text of the SAC in force."])
+
+
+def importar_notas(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
+    exigir(user, "producto.clasificar")
+    filas = leer(nombre, contenido, {"kind": "ambito", "tipo": "ambito", "section_or_chapter": "codigo", "chapter": "codigo",
+                                     "codigo": "codigo", "number": "numero", "numero": "numero", "text": "texto",
+                                     "texto": "texto", "applies_to_chapters": "capitulos", "capitulos": "capitulos",
+                                     "active": "activo", "activo": "activo"})
+    actuales = {(x.ambito, x.codigo, x.numero): x for x in db.scalars(select(NotaSAC))}
+    creados = actualizados = 0
+    errores = []
+    for f in filas:
+        amb = AMBITO_ALIAS.get(norm(f.get("ambito") or "").replace("_", " "))
+        cod, num, txt = (f.get("codigo") or "").strip().upper(), (f.get("numero") or "").strip(), (f.get("texto") or "").strip()
+        if not amb or not cod or not txt:
+            errores.append({"fila": f["_fila"], "mensaje": "Kind, section or chapter and text are required."})
+            continue
+        x = actuales.get((amb, cod, num))
+        if x:
+            actualizados += 1
+        else:
+            x = actuales[(amb, cod, num)] = NotaSAC(ambito=amb, codigo=cod[:10], numero=num[:20])
+            db.add(x)
+            creados += 1
+        x.texto = txt
+        caps = [c.strip().zfill(2) for c in str(f.get("capitulos") or "").split(",") if c.strip().isdigit()]
+        x.capitulos = caps or ([cod.zfill(2)] if cod.isdigit() else x.capitulos or [])
+        x.activo = si_no(f.get("activo")) is not False
+        x.fuente = "archivo"
+        x.actualizado_en = ahora()
+    registrar(db, user, "aranceles", 0, "importar_notas", {"creados": creados, "actualizados": actualizados})
+    return {"creados": creados, "actualizados": actualizados, "errores": errores[:200]}
+
+
+def exportar_notas(db: Session, user: Usuario, filtros: dict, formato: str) -> bytes:
+    r = listar_notas(db, user, filtros)
+    columnas = [("Kind", 1, False), ("Section or chapter", 0.8, False), ("Number", 0.7, False), ("Text", 6, False),
+                ("Applies to chapters", 1, False)]
+    filas = [[x["ambito_txt"], x["codigo"], x["numero"], x["texto"], ", ".join(x["capitulos"]) or "All"] for x in r["items"]]
+    texto = _filtros_txt(filtros, {"q": "Search", "capitulo": "Chapter"})
+    titulo, sub = "SAC legal notes", "General rules, section, chapter and subheading notes"
+    if formato == "pdf":
+        return documentos.pdf_reporte(titulo, sub, texto, [("Notes", f"{r['total']:,}")], columnas,
+                                      [[str(v) for v in f] for f in filas])
+    return exportar.exportar_reporte(titulo, sub, texto, [("Notes", f"{r['total']:,}")], columnas, filas)
+
+
 # ---- Exportar con los filtros de la pantalla ------------------------------------------------
 def _filtros_txt(filtros: dict, nombres: dict) -> str:
     partes = [f"{nombres.get(k, k)}: {v}" for k, v in filtros.items() if v not in (None, "")]

@@ -391,7 +391,7 @@ watch(() => fs.size, recargarS)
   </section>
 
   <!-- Países -->
-  <section v-else class="paises-grid">
+  <section v-else-if="vista === 'paises'" class="paises-grid">
     <article v-for="p in paises" :key="p.iso" class="panel pais-panel" :class="{ inactivo: !p.activo }">
       <div class="panel-cabeza">
         <div><h2>{{ p.iso }} · {{ p.nombre }}</h2><p>{{ p.digitos }}-digit national codes{{ p.mcca ? ' · Central American Common Market' : '' }}</p></div>
@@ -444,12 +444,17 @@ watch(() => fs.size, recargarS)
   </Modal>
 
   <section v-if="vista === 'notas'">
-    <p class="ayuda" style="margin-top: 0">General rules, section, chapter and subheading notes of the SAC. The classification panel shows the ones that apply to the suggested code, and the specialist opinion reads them.</p>
+    <p class="ayuda" style="margin-top: 0">General rules of interpretation and the section, chapter and subheading notes of the SAC (HS 2022) for the chapters used by the classification: exclusions, definitions and priority rules. The classification panel shows the ones that apply to the suggested code, starting with the ones that concern the product, and the specialist opinion reads them. Load the official text in force with <b>Upload official text</b>.</p>
     <div class="filtros">
       <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fn.q" type="search" placeholder="Text, chapter or number" aria-label="Search notes" @input="buscarN" /></label>
       <FiltroMulti v-model="fn.capitulo" etiqueta="Chapter" :opciones="CAPITULOS" @change="cargarNotas" />
-      <div v-if="edita" class="separar">
-        <button class="btn btn-primario" @click="modal = { tipo: 'nota', id: null, ambito: 'capitulo', codigo: '', numero: '', texto: '', capitulos_txt: '', activo: true }"><Icono nombre="mas" />Add note</button>
+      <span class="ayuda">{{ notas.items.length }} notes</span>
+      <div class="separar fila-flex">
+        <BotonesExportar ruta="/aranceles/notas/exportar" :params="{ q: fn.q, capitulo: fn.capitulo.join(',') }" />
+        <template v-if="edita">
+          <button class="btn" @click="modal = { tipo: 'carga-notas' }"><Icono nombre="importar" />Upload official text</button>
+          <button class="btn btn-primario" @click="modal = { tipo: 'nota', id: null, ambito: 'capitulo', codigo: '', numero: '', texto: '', capitulos_txt: '', activo: true }"><Icono nombre="mas" />Add note</button>
+        </template>
       </div>
     </div>
     <div class="tabla-marco">
@@ -524,6 +529,9 @@ watch(() => fs.size, recargarS)
     </div>
     <label v-if="modal.pais" class="check" style="margin-bottom: 10px"><input v-model="modal.reemplazar" type="checkbox" /><span>Replace every code of {{ modal.pais }} with this file (for a new tariff version)</span></label>
   </CargaMasiva>
+  <CargaMasiva v-if="modal?.tipo === 'carga-notas'" titulo="Upload SAC legal notes" ruta="/aranceles/notas/importar" plantilla="/aranceles/notas/plantilla"
+               @cerrar="modal = null" @cargado="cargarNotas(); cargarContexto(true)"
+               ayuda="A note with the same kind, section or chapter and number is replaced by the text of the file. Use it to load the official text of the SAC in force." />
   <CargaMasiva v-if="modal?.tipo === 'carga-sac'" titulo="Upload SAC headings and subheadings" ruta="/aranceles/sac/importar" plantilla="/aranceles/sac/plantilla"
                @cerrar="modal = null" @cargado="alCargar" ayuda="Codes already loaded are updated with the new text." />
 </template>

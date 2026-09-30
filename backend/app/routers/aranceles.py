@@ -90,6 +90,23 @@ def notas(request: Request, db: Db, user: User):
     return svc.listar_notas(db, user, dict(request.query_params))
 
 
+@router.get("/aranceles/notas/plantilla")
+def notas_plantilla(user: User, vista: bool = False):
+    return plantilla_o_vista(svc.plantilla_notas(), "template_sac_notes", vista)
+
+
+@router.get("/aranceles/notas/exportar")
+def notas_exportar(request: Request, db: Db, user: User, formato: Formato = "xlsx"):
+    return descarga(svc.exportar_notas(db, user, dict(request.query_params), formato), f"sac_notes_{date.today():%Y%m%d}", formato)
+
+
+@router.post("/aranceles/notas/importar")
+async def notas_importar(db: Db, user: User, archivo: UploadFile = File(...)):
+    r = svc.importar_notas(db, user, archivo.filename or "", await archivo.read())
+    db.commit()
+    return r
+
+
 @router.post("/aranceles/notas")
 def crear_nota(datos: s.NotaSACIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.guardar_nota(db, user, datos))

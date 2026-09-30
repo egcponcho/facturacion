@@ -43,10 +43,25 @@ const codigo6 = computed(() => M.digits(codigo.value).slice(0, 6))
 // Notas legales del SAC que aplican a la subpartida: primero las del capítulo
 // y de subpartida, luego las de sección y al final las reglas generales
 const ORDEN_NOTA = { subpartida: 0, capitulo: 1, seccion: 2, reglas: 3 }
-// Las que cita el razonamiento del motor van primero
+// Relevancia: las que cita el razonamiento del motor y las que tocan datos de
+// esta ficha (bebé, unisex, recubierta, cuero, deporte, conjunto…) van primero
+const etiquetasFicha = computed(() => {
+  const x = r.value?.s || f
+  const t = new Set([x.tipo, M.grupoTipo(x.tipo)])
+  if (M.edadDe(x) === 'bebe') t.add('bebe')
+  if (x.genero === 'U') t.add('unisex')
+  if (['prenda'].includes(M.grupoTipo(x.tipo))) { t.add('genero'); t.add('composicion'); t.add(x.tejido || 'punto') }
+  if (M.grupoTipo(x.tipo) === 'calzado') { t.add('corte'); t.add('suela') }
+  if (x.recubierta) t.add('recubierta')
+  if (['entrenamiento', 'deporte'].includes(x.disenio) || x.estiloCalz === 'tacos') t.add('deporte')
+  for (const parte of Object.keys(x.comp || {})) { const c = M.claseTexto(x.comp[parte]); if (c) t.add(c.clase) }
+  return t
+})
 const citada = (n) => {
   const t = (r.value?.o.razones || []).join(' ').toLowerCase()
-  return n.ambito === 'capitulo' && t.includes(`note ${String(n.numero).toLowerCase()}`) ? 1 : 0
+  const cita = n.ambito !== 'reglas' && t.includes(`note ${String(n.numero).toLowerCase().split(' ')[0]}`) && t.includes(`chapter ${n.codigo}`) ? 3 : 0
+  const propio = n.codigo === codigo6.value.slice(0, 2) ? 0.5 : 0 // las del capítulo de la partida antes que las de otros
+  return cita + propio + (n.claves || []).filter((k) => etiquetasFicha.value.has(k)).length
 }
 const notasSac = computed(() => {
   const cap = codigo6.value.slice(0, 2)
