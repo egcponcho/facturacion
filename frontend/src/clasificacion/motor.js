@@ -221,11 +221,12 @@ const TIPOS = [
   ['Personal accessories',[['lentes_sol','Sunglasses'],['reloj','Watch'],['bisuteria','Costume jewelry: bracelets, necklaces, pins'],['llavero','Keychain or lanyard'],['sombrilla','Umbrella'],['botella','Bottle, thermos or tumbler'],['parche','Patch, sticker or decal'],['mascota','Pet accessory'],['correa_reloj','Watch strap or band']]],
   ['Camping, sport and outdoors',[['tienda','Tent'],['saco','Sleeping bag'],['colchoneta','Sleeping pad, pillow or cushion'],['manta','Blanket'],['toalla','Towel'],['hamaca','Hammock'],['mueble_camping','Camp chair or table'],['linterna','Flashlight or headlamp'],['bastones','Trekking poles'],['equipo_deporte','Sports or fitness equipment'],['magnesio','Climbing chalk'],['patineta','Skateboard and skate parts']]],
   ['Trims and parts',[['avios','Button, zipper, buckle or eyelet']]],
-  ['Packaging and store',[['bolsa_compra','Shopping bag'],['caja','Box or packaging'],['gancho','Hanger'],['etiqueta','Label or hang tag'],['exhibidor','Display, store fixture or mannequin']]]
+  ['Packaging and store',[['bolsa_compra','Shopping bag'],['caja','Box or packaging'],['gancho','Hanger'],['etiqueta','Label or hang tag'],['exhibidor','Display, store fixture or mannequin']]],
+  ['Any other product',[['otro_sac','Any other product: choose its subheading in the SAC']]]
 ];
 const TIPO_LBL = {}; TIPOS.forEach(g=>g[1].forEach(([k,l])=>{ TIPO_LBL[k] = l; }));
 const TIPO_CORTO = {camiseta:'T-shirt',camisa:'Shirt or polo',sudadera:'Sweatshirt',chaqueta:'Jacket or vest',pantalon:'Pants or shorts',falda:'Skirt',vestido:'Dress',enterizo:'Coverall',conjunto:'Tracksuit',ropa_interior:'Underwear or pajamas',brasier:'Bra',traje_bano:'Swimsuit',calcetines:'Socks',guantes:'Gloves',bufanda:'Scarf or bandana',gorra:'Cap or headwear',cinturon:'Belt',calzado:'Footwear',plantilla:'Insole',cordones:'Shoelaces',polainas:'Gaiters',cuidado_calzado:'Shoe care',mochila:'Backpack',bolso_viaje:'Sports or travel bag',bolso_mano:'Handbag',maleta:'Suitcase or briefcase',billetera:'Wallet or case',lentes_sol:'Sunglasses',reloj:'Watch',bisuteria:'Costume jewelry',llavero:'Keychain or lanyard',sombrilla:'Umbrella',botella:'Bottle or thermos',parche:'Patch or sticker',mascota:'Pet accessory',tienda:'Tent',saco:'Sleeping bag',colchoneta:'Sleeping pad or pillow',manta:'Blanket',toalla:'Towel',mueble_camping:'Camp chair or table',linterna:'Flashlight',bastones:'Trekking poles',equipo_deporte:'Sports equipment',magnesio:'Climbing chalk',patineta:'Skateboard',bolsa_compra:'Shopping bag',caja:'Box or packaging',gancho:'Hanger',etiqueta:'Label',exhibidor:'Display or mannequin'};
-Object.assign(TIPO_CORTO, {accesorio_pelo:'Hair accessory', peleteria:'Fur article', correa_reloj:'Watch strap', avios:'Trims', hamaca:'Hammock'});
+Object.assign(TIPO_CORTO, {otro_sac:'Other product', accesorio_pelo:'Hair accessory', peleteria:'Fur article', correa_reloj:'Watch strap', avios:'Trims', hamaca:'Hammock'});
 /* Nombres cortos en español para la descripción aduanera */
 const TIPO_CORTO_ES = {camiseta:'Camiseta',camisa:'Camisa o polo',sudadera:'Sudadera',chaqueta:'Chaqueta o chaleco',pantalon:'Pantalón o short',falda:'Falda',vestido:'Vestido',enterizo:'Enterizo',conjunto:'Conjunto deportivo',ropa_interior:'Ropa interior o pijama',brasier:'Brasier',traje_bano:'Traje de baño',calcetines:'Calcetines',guantes:'Guantes',bufanda:'Bufanda o bandana',gorra:'Gorra o tocado',cinturon:'Cinturón',calzado:'Calzado',plantilla:'Plantilla',cordones:'Cordones',polainas:'Polainas',cuidado_calzado:'Cuidado de calzado',mochila:'Mochila',bolso_viaje:'Bolso deportivo o de viaje',bolso_mano:'Bolso de mano',maleta:'Maleta o maletín',billetera:'Billetera o estuche',lentes_sol:'Lentes de sol',reloj:'Reloj',bisuteria:'Bisutería',llavero:'Llavero o lanyard',sombrilla:'Sombrilla',botella:'Botella o termo',parche:'Parche o sticker',mascota:'Accesorio para mascota',tienda:'Tienda de campaña',saco:'Saco de dormir',colchoneta:'Colchoneta o almohada',manta:'Manta',toalla:'Toalla',mueble_camping:'Silla o mesa de camping',linterna:'Linterna',bastones:'Bastones',equipo_deporte:'Equipo deportivo',magnesio:'Magnesio',patineta:'Patineta',bolsa_compra:'Bolsa de compra',caja:'Caja o empaque',gancho:'Gancho o percha',etiqueta:'Etiqueta',exhibidor:'Exhibidor o maniquí'};
 Object.assign(TIPO_CORTO_ES, {accesorio_pelo:'Accesorio de cabello', peleteria:'Peletería', correa_reloj:'Correa de reloj', avios:'Avíos', hamaca:'Hamaca'});
@@ -234,6 +235,7 @@ const TIPO_ALIAS = {
   peleteria:'faux fur piel sintetica peleteria pelo sintetico fur shearling piel natural',
   correa_reloj:'watch band watch strap correa de reloj pulsera de reloj extensible', avios:'boton botones button zipper cremallera cierre hebilla buckle ojete ojal eyelet remache rivet snap broche jalador',
   hamaca:'hammock hamaca chinchorro',
+  otro_sac:'otro producto cualquier other any product sac partida subpartida arancel',
   camiseta:'t-shirt tee playera tank top crop top manga larga base layer primera capa camiseta tecnica running shirt',
   camisa:'polo blusa camisa franela flannel button down guayabera camisa de trabajo',
   sudadera:'hoodie suéter sweater sweatshirt crewneck fleece polar cardigan quarter zip medio cierre pullover',
@@ -1074,6 +1076,13 @@ const MAT_TXT = {plastico:'CAUCHO O PLÁSTICO', cuero:'CUERO', textil:'MATERIA T
 /* Descripción aduanal: solo qué es y la categoría de su material (textil,
    cuero o sintético), sin porcentajes ni detalles; luego para quién y la marca.
    Ej.: TENIS DE TEXTIL, UNISEX, MARCA VANS */
+/* Otro producto: el nombre escrito en español o, si no, el texto de su subpartida */
+function nombreOtro(f){
+  const q = String(f.queEs || '').trim();
+  if (q) return q.toUpperCase();
+  const d = String(descDe(f.sacElegido) || '').split(/[;:]/)[0].replace(/^[-—\s]+/, '').trim();
+  return (d || 'MERCANCÍA').toUpperCase();
+}
 const CAT_MAT = {textil:'TEXTIL', cuero:'CUERO', plastico:'MATERIAL SINTÉTICO', sintetica:'MATERIAL SINTÉTICO', artificial:'MATERIAL SINTÉTICO'};
 function descripcionProfesional(f){
   const t = f.tipo; if (!t) return '';
@@ -1097,7 +1106,7 @@ function descripcionProfesional(f){
     nombre = U(TIPO_CORTO_ES[t] || t);
     cat = CAT_MAT[f.exterior] || '';
   } else {
-    nombre = U(TIPO_CORTO_ES[t] || t);
+    nombre = t === 'otro_sac' ? nombreOtro(f) : U(TIPO_CORTO_ES[t] || t);
     const parte = partesDe(t, f).includes('exterior') ? 'exterior' : 'material';
     const cm = claseMat(f, parte);
     cat = cm ? (CAT_MAT[cm.pred] || MAT_TXT[cm.pred] || U(cm.pred)) : '';
@@ -1130,6 +1139,17 @@ function clasificarReglas(f){
   const alt = (c, cuando) => { if (c) R.alternativas.push({codigo:c, cuando}); };
   const t = f.tipo;
   if (!t){ R.conf = 0; R.faltantes.push('Choose the product type'); return fin(R); }
+  if (t === 'otro_sac'){
+    // Cualquier producto: la subpartida la elige quien llena la ficha en el SAC
+    // oficial; el motor pone sus notas y los códigos nacionales que aplican
+    const c = digits(f.sacElegido).slice(0, 6);
+    if (c.length < 6){ R.conf = 0; R.faltantes.push('Choose the SAC subheading'); return fin(R); }
+    R.codigo = c; R.conf = 2; R.fundamento = 'General Interpretative Rules 1 and 6: the text of the heading and subheading, and the section and chapter notes.';
+    const propio = String(descDe(c) || '').split('—').slice(-1)[0].trim();
+    R.razones.push('Subheading chosen in the SAC: ' + fmtCode(c) + (propio ? ' — ' + propio : ''));
+    R.avisos.push('Check it against the section, chapter and explanatory notes of heading ' + c.slice(0, 4) + ' before sending it.');
+    return fin(R);
+  }
   const grp = grupoTipo(t);
 
   function conFibra(opts){
@@ -2348,6 +2368,7 @@ function tipoComercial(f){
   if (t === 'pantalon') return f.largo === 'corto' ? 'SHORT' : 'PANTALÓN';
   if (t === 'camiseta') return f.polo ? 'POLO' : 'CAMISETA';
   if (t === 'sudadera') return f.sueter ? 'SUÉTER' : 'SUDADERA';
+  if (t === 'otro_sac') return nombreOtro(f).split(/[ ,]/).slice(0, 3).join(' ');
   return String(TIPO_CORTO_ES[t] || TIPO_CORTO[t] || t).split(' o ')[0].toUpperCase();
 }
 function descripcionComercial(f){

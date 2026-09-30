@@ -242,7 +242,7 @@ async function guardarPais() {
   const m = modal.value
   ocupado.value = true
   try {
-    const cuerpo = { iso: m.iso, nombre: m.nombre, digitos: Number(m.digitos), mcca: !!m.mcca, impuesto: m.impuesto, nota: m.nota, activo: m.activo }
+    const cuerpo = { iso: m.iso, nombre: m.nombre, digitos: Number(m.digitos), mcca: !!m.mcca, impuesto: m.impuesto, nota: m.nota, base_legal: m.base_legal || null, activo: m.activo }
     if (m.id) await api.put(`/aranceles/paises/${m.id}`, cuerpo)
     else await api.post('/aranceles/paises', cuerpo)
     modal.value = null
@@ -310,7 +310,7 @@ watch(() => fs.size, recargarS)
       <span class="iso">{{ p.iso }}</span>
       <span class="pt-datos"><b>{{ p.nombre }}</b><small>{{ p.digitos }} digits{{ p.mcca ? ' · CACM' : '' }} · {{ fmtNum(p.codigos) }} codes</small></span>
     </button>
-    <button v-if="edita" type="button" class="pais-tarjeta nuevo" @click="modal = { tipo: 'pais', id: null, iso: '', nombre: '', digitos: 10, mcca: false, impuesto: '', nota: '', activo: true }">
+    <button v-if="edita" type="button" class="pais-tarjeta nuevo" @click="modal = { tipo: 'pais', id: null, iso: '', nombre: '', digitos: 10, mcca: false, impuesto: '', nota: '', base_legal: '', activo: true }">
       <Icono nombre="mas" :tam="16" /> Add country
     </button>
   </div>
@@ -425,6 +425,7 @@ watch(() => fs.size, recargarS)
         <span>Codes loaded <b>{{ fmtNum(p.codigos) }}</b></span>
         <span v-if="p.impuesto">Tax <b>{{ p.impuesto }}</b></span>
       </div>
+      <p v-if="p.base_legal" class="ayuda mt-chico"><b>Legal basis:</b> {{ p.base_legal }}</p>
       <p v-if="p.nota" class="ayuda mt-chico">{{ p.nota }}</p>
       <div class="fila-flex mt-chico" style="gap: 6px">
         <button class="btn btn-chico" @click="fc.pais = [p.iso]; cambiarVista('codigos')"><Icono nombre="lista" :tam="14" />See codes</button>
@@ -541,6 +542,7 @@ watch(() => fs.size, recargarS)
       <label class="campo"><span class="req">Name</span><input v-model="modal.nombre" class="entrada" maxlength="80" /></label>
       <label class="campo"><span class="req">Digits of its national code</span><input v-model="modal.digitos" type="number" min="6" max="14" class="entrada" /></label>
       <label class="campo"><span>Tax</span><input v-model="modal.impuesto" class="entrada" placeholder="VAT 13%" /></label>
+      <label class="campo" style="grid-column: 1 / -1"><span>Legal basis</span><input v-model="modal.base_legal" class="entrada" maxlength="300" placeholder="Tariff and rule that puts it in force" /></label>
       <label class="campo" style="grid-column: 1 / -1"><span>Note</span><input v-model="modal.nota" class="entrada" maxlength="300" /></label>
     </div>
     <label class="check mt-chico"><input v-model="modal.mcca" type="checkbox" /><span>Central American Common Market (shares the SAC codes up to 8–10 digits)</span></label>

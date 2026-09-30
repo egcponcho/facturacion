@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { api } from '../api'
@@ -46,7 +46,7 @@ const codigo = computed(() => (aprobado.value ? p.value.codigo : codOficial.valu
 const codigo6 = computed(() => M.digits(codigo.value).slice(0, 6))
 // Notas legales del SAC que aplican a la subpartida: primero las del capítulo
 // y de subpartida, luego las de sección y al final las reglas generales
-const ORDEN_NOTA = { subpartida: 0, capitulo: 1, complementaria: 1, seccion: 2, reglas: 3 }
+const ORDEN_NOTA = { explicativa: 0, subpartida: 0, capitulo: 1, complementaria: 1, seccion: 2, reglas: 3 }
 // Relevancia: las que cita el razonamiento del motor y las que tocan datos de
 // esta ficha (bebé, unisex, recubierta, cuero, deporte, conjunto…) van primero
 const etiquetasFicha = computed(() => {
@@ -70,16 +70,41 @@ const citada = (n) => {
 const notasSac = computed(() => {
   const cap = codigo6.value.slice(0, 2)
   if (!cap) return []
-  return (ctx.value?.notas_sac || []).filter((n) => !n.capitulos.length || n.capitulos.includes(cap))
+  return (ctx.value?.notas_sac || []).filter((n) => (!n.capitulos.length || n.capitulos.includes(cap))
+    && (n.ambito !== 'explicativa' || codigo6.value.startsWith(n.codigo)))
     .sort((a, b) => citada(b) - citada(a) || (ORDEN_NOTA[a.ambito] ?? 9) - (ORDEN_NOTA[b.ambito] ?? 9))
 })
 const verNotas = ref(false)
+
+// ---- Todo el SAC: los códigos nacionales de otros capítulos se piden al elegir
+const pedidos = new Set()
+async function incisosDe(sub6) {
+  if (sub6.length < 6 || pedidos.has(sub6) || !ctx.value) return
+  pedidos.add(sub6)
+  if (ctx.value.incisos.some((x) => x.codigo.startsWith(sub6) && ['oficial', 'base'].includes(x.fuente))) return
+  try {
+    const r = await api.get(`/clasificacion/incisos/${sub6}`)
+    if (r.descripcion) M.setSac([{ codigo: sub6, descripcion: r.descripcion }])
+    const ya = new Set(ctx.value.incisos.map((x) => x.id))
+    ctx.value.incisos.push(...r.incisos.filter((x) => !ya.has(x.id)))
+  } catch {
+    pedidos.delete(sub6)
+  }
+}
+watch(codigo6, (c) => incisosDe(c))
+// Base legal de cada país destino (agrupada: varios comparten el mismo arancel)
+const basesLegales = computed(() => {
+  const g = new Map()
+  for (const d of ctx.value?.destinos || []) if (d.base_legal) g.set(d.base_legal, [...(g.get(d.base_legal) || []), d.iso])
+  return [...g].map(([texto, isos]) => ({ texto, isos }))
+})
 
 // ---- Carga ---------------------------------------------------------------
 function tomar(det) {
   p.value = det
   for (const k of Object.keys(f)) delete f[k]
   Object.assign(f, fichaDe(det))
+  if (f.sacElegido && f.sacDesc) M.setSac([{ codigo: f.sacElegido, descripcion: f.sacDesc }])
   codOficial.value = ''
   cargas.value++
   base.value = instantanea()
@@ -464,7 +489,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 
         <!-- Ficha técnica -->
         <FichaTecnica v-if="pestana === 'ficha'" :key="`${p.id}-${p.version_ficha}-${cargas}`" :f="f" :r="r" :ctx="ctx" :producto="p" :paises="opciones.paises"
-                      :editable="puedeEditar" @subir-foto="subirFoto" @borrar-foto="borrarFoto" @contexto="recargarContexto" @acuerdos="pestana = 'acuerdos'" />
+                      :editable="puedeEditar" @subir-foto="subirFoto" @borrar-foto="borrarFoto" @contexto="recargarContexto" @acuerdos="pestana = 'acuerdos'" @sac="incisosDe" />
 
         <!-- Acuerdos comerciales por destino según el origen -->
         <AcuerdosOrigen v-else-if="pestana === 'acuerdos'" :origen="f.origen || ''" :ctx="ctx" :paises="opciones.paises" />
@@ -621,10 +646,10 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </section>
 
         <section v-if="notasSac.length" class="panel">
-          <div class="panel-cabeza"><div><h2>SAC notes that apply</h2><p>Chapter {{ codigo6.slice(0, 2) }}, its section and the general rules</p></div></div>
+          <div class="panel-cabeza"><div><h2>SAC notes that apply</h2><p>Chapter {{ codigo6.slice(0, 2) }}, its section, the general rules and the explanatory notes of heading {{ M.fmtCode(codigo6.slice(0, 4)) }}</p></div></div>
           <ul class="notas-sac">
             <li v-for="n in (verNotas ? notasSac : notasSac.slice(0, 2))" :key="n.id">
-              <b>{{ n.codigo === 'RGI' ? `General rule ${n.numero}` : n.ambito === 'seccion' ? `Section ${n.codigo}, note ${n.numero}` : n.ambito === 'complementaria' ? `Chapter ${n.codigo}, Central American note ${n.numero.replace('NCC ', '')}` : `Chapter ${n.codigo}, note ${n.numero}` }}</b>
+              <b>{{ n.ambito === 'explicativa' ? `Explanatory note, heading ${M.fmtCode(n.codigo)}` : n.codigo === 'RGI' ? `General rule ${n.numero}` : n.ambito === 'seccion' ? `Section ${n.codigo}, note ${n.numero}` : n.ambito === 'complementaria' ? `Chapter ${n.codigo}, Central American note ${n.numero.replace('NCC ', '')}` : `Chapter ${n.codigo}, note ${n.numero}` }}</b>
               <span>{{ n.texto }}</span>
             </li>
           </ul>
@@ -645,7 +670,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
                            :aria-label="`National code for ${x.nombre}`" :title="`Type the ${x.digitos}-digit code; it applies when you leave the field`"
                            @blur="escribirPais(x, $event.target)" @keydown.enter.prevent="$event.target.blur()" />
                     <datalist v-if="x.opciones?.length" :id="`ops-${x.iso}`">
-                      <option v-for="o in x.opciones" :key="o.codigo" :value="M.fmtPais(o.codigo, x.digitos)">{{ M.condTexto(o.cond) }}</option>
+                      <option v-for="o in x.opciones" :key="o.codigo" :value="M.fmtPais(o.codigo, x.digitos)">{{ M.condTexto(o.cond) || o.desc }}</option>
                     </datalist>
                     <span v-if="errPais[x.iso]" class="sub" style="color: var(--error)">{{ errPais[x.iso] }}</span>
                     <span v-else-if="x.manual" class="sub">Set by hand · <button type="button" class="btn-texto" @click="quitarManual(x.iso)">use automatic</button> · <button type="button" class="btn-texto" @click="abrirEnsenar(x)">remember for similar</button></span>
@@ -654,7 +679,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
                   <template v-else>
                     <Seleccion v-if="x.estado === 'elegir' && x.opciones?.length && puedeEditar" class="entrada" :aria-label="`Code for ${x.nombre}`" @change="codigoPais(x.iso, $event)">
                       <option value="">Choose…</option>
-                      <option v-for="o in x.opciones" :key="o.codigo" :value="o.codigo">{{ M.fmtPais(o.codigo, x.digitos) }} · {{ M.condTexto(o.cond) }}</option>
+                      <option v-for="o in x.opciones" :key="o.codigo" :value="o.codigo">{{ M.fmtPais(o.codigo, x.digitos) }} · {{ M.condTexto(o.cond) || o.desc }}</option>
                     </Seleccion>
                     <template v-else>
                       <span class="codigo-sac" :class="{ tentativo: !['ok', 'auto'].includes(x.estado) }">{{ x.codigo ? M.fmtPais(x.codigo, x.digitos) : '—' }}</span>
@@ -667,6 +692,10 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
               </tr>
             </tbody>
           </table>
+          <div v-if="basesLegales.length" class="bases-legales">
+            <span class="eyebrow">Legal basis</span>
+            <p v-for="b in basesLegales" :key="b.texto"><b>{{ b.isos.join(', ') }}</b> · {{ b.texto }}</p>
+          </div>
         </section>
 
         <section v-if="!aprobado && r?.o.parecidos?.length" class="panel">
@@ -749,6 +778,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 </template>
 
 <style scoped>
+.bases-legales { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--linea); }
+.bases-legales p { margin: 4px 0 0; font-size: 0.78rem; color: var(--tinta-3); line-height: 1.35; }
+.bases-legales b { color: var(--tinta-2); }
 .version-vista { border-top: 1px solid var(--linea); padding-top: 12px; }
 .version-vista h3 { font-size: 1rem; margin: 0; }
 .version-vista h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); margin-bottom: 6px; }

@@ -1,4 +1,5 @@
 <script setup>
+import FechaTienda from './FechaTienda.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from './Seleccion.vue'
 import { api } from '../api'
@@ -178,11 +179,12 @@ onMounted(cargar)
           <ThOrden campo="arribo" :orden="tabla.orden" @ordenar="ordenar">Port arrival</ThOrden>
           <ThOrden campo="limite_puerto" :orden="tabla.orden" @ordenar="ordenar">Port deadline</ThOrden>
           <ThOrden campo="fecha_tienda" :orden="tabla.orden" @ordenar="ordenar">In store</ThOrden>
+          <ThOrden campo="tienda_estimada" :orden="tabla.orden" @ordenar="ordenar" title="Estimated: arrival plus port, warehouse entry and re-export days">Est. in store</ThOrden>
           <ThOrden campo="holgura" :orden="tabla.orden" @ordenar="ordenar">Early / late</ThOrden>
         </tr>
       </thead>
       <tbody>
-        <tr v-if="!datos.items.length"><td colspan="9" class="vacio">{{ cargando ? 'Loading…' : 'No purchase orders match these filters.' }}</td></tr>
+        <tr v-if="!datos.items.length"><td colspan="10" class="vacio">{{ cargando ? 'Loading…' : 'No purchase orders match these filters.' }}</td></tr>
         <template v-for="o in datos.items" :key="o.oc_id">
           <tr class="clicable" @click="alternar(o.oc_id)">
             <td><button type="button" class="btn-icono" :aria-expanded="abiertas.has(o.oc_id)" :aria-label="`See the milestones of ${o.oc}`"><Icono :nombre="abiertas.has(o.oc_id) ? 'abajo' : 'derecha'" :tam="16" /></button></td>
@@ -200,13 +202,14 @@ onMounted(cargar)
             <td>{{ fmtFecha(o.arribo) }}<span class="sub">{{ o.arribo_real ? 'actual' : 'estimated' }}</span></td>
             <td>{{ fmtFecha(o.limite_puerto) }}</td>
             <td>{{ fmtFecha(o.fecha_tienda) }}</td>
+            <td><FechaTienda :fecha="o.tienda_estimada" :dias="o.dias_vs_tienda" /></td>
             <td>
               <span v-if="o.riesgo" class="etiqueta" :class="RIESGO[o.riesgo][1]" style="margin-left: 0">{{ RIESGO[o.riesgo][0] }}</span>
               <span class="sub">{{ o.holgura === null ? '—' : o.holgura >= 0 ? `${o.holgura} d to spare` : `${-o.holgura} d late` }}</span>
             </td>
           </tr>
           <tr v-if="abiertas.has(o.oc_id)" class="fila-hija">
-            <td colspan="9">
+            <td colspan="10">
               <div class="subtabla">
                 <ol class="lt-hitos" :aria-label="`Milestones of ${o.oc}`">
                   <li v-for="h in o.hitos" :key="h.clave" :class="`hito-${ESTADO[h.estado][1]}`">

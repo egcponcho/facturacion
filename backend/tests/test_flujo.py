@@ -825,3 +825,24 @@ def test_acceso_seguro(client):
     b = client.post("/api/auth/login", json={"email": "admin@demo.com", "password": "x"}).json()["mensaje"]
     assert a == b
     reiniciar()
+
+
+def test_fecha_estimada_en_tienda(interno):
+    """Con los lead times de su origen cada OC tiene su fecha estimada en tienda."""
+    from datetime import date, timedelta
+    ocs = interno.get("/ordenes", params={"size": 50}).json()["items"]
+    con = [o for o in ocs if o.get("tienda_estimada")]
+    assert con and all(o["tienda_estimada"] >= (o.get("arribo_estimado") or "") for o in con)
+    o = next(o for o in con if o["fecha_tienda"])
+    dif = (date.fromisoformat(o["tienda_estimada"]) - date.fromisoformat(o["fecha_tienda"])).days
+    assert o["dias_vs_tienda"] == dif
+    det = interno.get(f"/ordenes/{o['id']}/posiciones").json()["oc"]
+    assert det["tienda_estimada"] == o["tienda_estimada"]
+    # Sin embarque: XF (u hoy) + tránsito + puerto, ingreso y reexportación de su región
+    lt = interno.get("/seguimiento/leadtimes", params={"size": 100}).json()
+    x = next(i for i in lt["items"] if i["oc_id"] == o["id"])
+    assert x["tienda_estimada"] == o["tienda_estimada"]
+    fila = next(f for f in interno.get("/seguimiento", params={"size": 200}).json()["items"] if f["tienda_estimada"])
+    assert fila["tienda_estimada"] > (date.today() - timedelta(days=400)).isoformat()
+    por_oc = interno.get("/seguimiento/ordenes", params={"size": 100}).json()["items"]
+    assert any(p["tienda_estimada"] for p in por_oc)

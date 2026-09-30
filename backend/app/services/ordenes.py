@@ -210,6 +210,8 @@ def listar_ordenes(
 
     hoy = date.today()
     centros = {c.codigo: c for c in db.scalars(select(Centro))}
+    from .leadtimes import tiendas_estimadas
+    est_tienda = tiendas_estimadas(db, [oc for oc, *_ in filas])
     items = []
     for oc, prov_nombre, importe, n, importe_f in filas:
         destino = centros.get(oc.centro_destino)
@@ -228,6 +230,8 @@ def listar_ordenes(
                 # Avance por valor: es comparable aunque la OC mezcle pares y unidades
                 "avance": round(float(importe_f or 0) * 100 / importe, 1) if importe else 0,
                 "dias_tienda": (oc.fecha_tienda - hoy).days if oc.fecha_tienda else None,
+                # Con los lead times de su origen: cuándo estaría en tienda
+                **est_tienda.get(oc.id, {}),
                 # El centro de destino dice a qué país llega al final
                 "destino_nombre": destino.nombre if destino else None,
                 "pais_destino": destino.pais if destino else None,
@@ -348,7 +352,8 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
         )
     prov = db.get(Proveedor, oc.proveedor_id)
     destino = db.scalar(select(Centro).where(Centro.codigo == oc.centro_destino))
-    return {"oc": {**_cabecera_oc(oc), "proveedor": prov.nombre,
+    from .leadtimes import tiendas_estimadas
+    return {"oc": {**_cabecera_oc(oc), "proveedor": prov.nombre, **tiendas_estimadas(db, [oc]).get(oc.id, {}),
                    "centro_destino_nombre": destino.nombre if destino else None,
                    "pais_destino": destino.pais if destino else None},
             "posiciones": posiciones}

@@ -202,7 +202,10 @@ def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
                       "estimada": estimada, "dif": dif, "estado": estado})
     holgura = (lim_arribo - arribo).days if lim_arribo and arribo else None
     lib = real["lib_logistica"]
+    tienda_est = est_fecha["tienda"]
     return {
+        "tienda_estimada": tienda_est,
+        "dias_vs_tienda": (tienda_est - tienda).days if tienda_est and tienda else None,
         "hitos": hitos, "limite_puerto": lim_arribo, "arribo": arribo, "arribo_real": bool(real["arribo"]),
         "holgura": holgura, "riesgo": _riesgo(holgura),
         "lib_dias_antes_xf": (xf - lib).days if xf and lib else None,
@@ -221,6 +224,19 @@ def _prom(valores: list) -> float | None:
 
 def _lista(v) -> list[str]:
     return [x for x in str(v or "").split(",") if x]
+
+
+def tiendas_estimadas(db: Session, ocs: list[OrdenCompra]) -> dict[int, dict]:
+    """Fecha estimada en tienda de cada OC con los lead times de su origen."""
+    hoy = date.today()
+    ests = Estandares(db)
+    hitos = _hitos_por_oc(db, [o.id for o in ocs])
+    out = {}
+    for o in ocs:
+        a = analizar_oc(o, hitos.get(o.id), ests.de(o.pais_origen), hoy)
+        out[o.id] = {"tienda_estimada": a["tienda_estimada"], "dias_vs_tienda": a["dias_vs_tienda"],
+                     "arribo_estimado": a["arribo"], "riesgo": a["riesgo"]}
+    return out
 
 
 def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros: dict | None = None,
@@ -301,7 +317,8 @@ def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     elif filtros.get("lib") == "tarde":
         items = [i for i in items if i["lib_a_tiempo"] is False]
     col, _, d = (orden or "fecha_xf:asc").partition(":")
-    if col in {"oc", "proveedor", "origen", "fecha_xf", "fecha_tienda", "holgura", "limite_puerto", "arribo"}:
+    if col in {"oc", "proveedor", "origen", "fecha_xf", "fecha_tienda", "holgura", "limite_puerto", "arribo",
+               "tienda_estimada", "dias_vs_tienda"}:
         items.sort(key=lambda i: (i[col] is None, i[col] if i[col] is not None else 0), reverse=d == "desc")
         if d == "desc":  # los vacíos siempre al final
             items.sort(key=lambda i: i[col] is None)

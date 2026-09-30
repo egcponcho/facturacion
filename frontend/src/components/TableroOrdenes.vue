@@ -1,4 +1,5 @@
 <script setup>
+import FechaTienda from './FechaTienda.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
@@ -116,13 +117,14 @@ onMounted(cargar)
           <ThOrden campo="por_facturar" :orden="tabla.orden" num @ordenar="ordenar">To invoice</ThOrden>
           <ThOrden campo="fecha_xf" :orden="tabla.orden" @ordenar="ordenar">XF</ThOrden>
           <ThOrden campo="fecha_tienda" :orden="tabla.orden" @ordenar="ordenar">In store</ThOrden>
+          <ThOrden campo="tienda_estimada" :orden="tabla.orden" @ordenar="ordenar" title="Estimated with the lead times of its origin">Est. in store</ThOrden>
           <ThOrden campo="holgura" :orden="tabla.orden" title="Port arrival against the port deadline: the in-store date minus the days to the warehouse, the warehouse entry and the re-export of its origin" @ordenar="ordenar">Vs. port deadline</ThOrden>
           <th>Shipments</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-if="cargando && !datos.items.length"><td colspan="11" class="vacio">Loading…</td></tr>
-        <tr v-else-if="!datos.items.length"><td colspan="11" class="vacio">No purchase orders match these filters.</td></tr>
+        <tr v-if="cargando && !datos.items.length"><td colspan="12" class="vacio">Loading…</td></tr>
+        <tr v-else-if="!datos.items.length"><td colspan="12" class="vacio">No purchase orders match these filters.</td></tr>
         <template v-for="o in datos.items" :key="o.oc_id">
         <tr class="clicable" @click="alternar(o)">
           <td>
@@ -152,6 +154,7 @@ onMounted(cargar)
           <td class="num">{{ fmtNum(o.por_facturar) }}</td>
           <td>{{ fmtFecha(o.fecha_xf) }}<span v-if="o.xf_vencida" class="sub" style="color: var(--error)">overdue</span></td>
           <td>{{ fmtFecha(o.fecha_tienda) }}<span class="sub">{{ diasTxt(o.dias_tienda) }}</span></td>
+          <td><FechaTienda :fecha="o.tienda_estimada" :dias="o.dias_vs_tienda" /></td>
           <td>
             <span v-if="o.riesgo" class="etiqueta" :class="RIESGOS[o.riesgo][1]" style="margin-left: 0">{{ RIESGOS[o.riesgo][0] }}</span>
             <span v-if="o.holgura !== null" class="sub">{{ o.holgura < 0 ? `${-o.holgura} d late` : `${o.holgura} d margin` }}</span>
@@ -159,7 +162,7 @@ onMounted(cargar)
           <td class="codigo">{{ o.embarques.join(', ') || '—' }}</td>
         </tr>
         <tr v-if="detalles[o.oc_id]" class="fila-hija">
-          <td colspan="11">
+          <td colspan="12">
             <div class="subtabla">
               <div class="tabla-marco">
                 <table class="tabla">
@@ -168,7 +171,7 @@ onMounted(cargar)
                       <th>Stage</th><th>Invoice / PL</th><th>Shipment · unit</th><th>Arrival</th><th title="Port arrival against the port deadline (in-store date minus warehouse, entry and re-export days)">Vs. port deadline</th></tr>
                   </thead>
                   <tbody>
-                    <tr v-if="!detalles[o.oc_id].length"><td colspan="11" class="vacio">No lines match these filters.</td></tr>
+                    <tr v-if="!detalles[o.oc_id].length"><td colspan="12" class="vacio">No lines match these filters.</td></tr>
                     <tr v-for="(l, i) in detalles[o.oc_id]" :key="i">
                       <td class="codigo">{{ l.posicion }}</td>
                       <td class="codigo">{{ l.sku }}</td>

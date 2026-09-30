@@ -613,7 +613,8 @@ TIPOS_FICHA = {"calzado": "Footwear", "chaqueta": "Jacket or vest", "sudadera": 
                "camisa": "Shirt or polo", "pantalon": "Pants or shorts", "mochila": "Backpack", "gorra": "Cap or headwear",
                "bolso_viaje": "Sports or travel bag", "calcetines": "Socks", "guantes": "Gloves"}
 CAMPOS_FICHA.update({"edad": "Who it is for", "edadNac": "Who it is for", "relleno_tipo": "Fill", "hechuraSud": "Construction",
-                     "hechura": "Construction", "tieneForro": "Lining", "recubierta": "Coated fabric", "exterior": "Outer surface"})
+                     "hechura": "Construction", "tieneForro": "Lining", "recubierta": "Coated fabric", "exterior": "Outer surface",
+                     "sacElegido": "SAC subheading", "queEs": "Name in Spanish"})
 
 
 def _valor_ficha(v, k: str = "") -> str:
@@ -664,7 +665,7 @@ def secciones_ficha(d: dict) -> dict:
         datos += [(str(a[0]), str(a[1])) for a in an["atributos"] if len(a) == 2]
     else:
         datos += [(CAMPOS_FICHA.get(k, k), _valor_ficha(v, k)) for k, v in f.items()
-                  if k not in ("comp", "descManual", "comManual", "uso", "tallas", "desc", "descCom", "edad")
+                  if k not in ("comp", "descManual", "comManual", "uso", "tallas", "desc", "descCom", "edad", "sacDesc")
                   and v not in (None, "", [], {})]
     comp = f.get("comp") or {}
     composicion = [[PARTES.get(k, k.capitalize()), v] for k, v in comp.items() if v] if isinstance(comp, dict) else []

@@ -16,7 +16,7 @@ import uuid
 from datetime import date, timedelta
 from pathlib import Path
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, insert, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..config import settings
@@ -57,13 +57,18 @@ from .common import (
 
 # Países destino y dígitos de su código nacional (Centroamérica y Panamá)
 # Países destino de fábrica; en la base se pueden agregar otros y cambiar sus dígitos
+ACI = ("Arancel Centroamericano de Importación (Anexo A del Convenio sobre el Régimen Arancelario y Aduanero "
+       "Centroamericano), SAC VII Enmienda del Sistema Armonizado — SIECA")
 DESTINOS = [
-    {"iso": "GT", "nombre": "Guatemala", "digitos": 10, "mcca": True, "impuesto": "VAT 12%"},
-    {"iso": "SV", "nombre": "El Salvador", "digitos": 10, "mcca": True, "impuesto": "VAT 13%"},
-    {"iso": "HN", "nombre": "Honduras", "digitos": 10, "mcca": True, "impuesto": "Sales tax 15%"},
-    {"iso": "NI", "nombre": "Nicaragua", "digitos": 12, "mcca": True, "impuesto": "VAT 15%"},
-    {"iso": "CR", "nombre": "Costa Rica", "digitos": 12, "mcca": True, "impuesto": "VAT 13%"},
-    {"iso": "PA", "nombre": "Panama", "digitos": 12, "mcca": False, "impuesto": "ITBMS 7%"},
+    {"iso": "GT", "nombre": "Guatemala", "digitos": 10, "mcca": True, "impuesto": "VAT 12%", "base_legal": ACI},
+    {"iso": "SV", "nombre": "El Salvador", "digitos": 10, "mcca": True, "impuesto": "VAT 13%", "base_legal": ACI},
+    {"iso": "HN", "nombre": "Honduras", "digitos": 10, "mcca": True, "impuesto": "Sales tax 15%", "base_legal": ACI},
+    {"iso": "NI", "nombre": "Nicaragua", "digitos": 12, "mcca": True, "impuesto": "VAT 15%",
+     "base_legal": ACI + "; aperturas nacionales a 12 dígitos del arancel de Nicaragua"},
+    {"iso": "CR", "nombre": "Costa Rica", "digitos": 12, "mcca": True, "impuesto": "VAT 13%",
+     "base_legal": ACI + "; aperturas nacionales a 12 dígitos del arancel de Costa Rica"},
+    {"iso": "PA", "nombre": "Panama", "digitos": 12, "mcca": False, "impuesto": "ITBMS 7%",
+     "base_legal": "Arancel Nacional de Importación de la República de Panamá (nomenclatura del Sistema Armonizado)"},
 ]
 
 
@@ -73,8 +78,8 @@ def destinos(db: Session) -> list[dict]:
                        .order_by(PaisArancel.orden, PaisArancel.iso)).all()
     if not filas:
         return DESTINOS
-    return [{"iso": x.iso, "nombre": x.nombre, "digitos": x.digitos, "mcca": x.mcca, "impuesto": x.impuesto}
-            for x in filas]
+    return [{"iso": x.iso, "nombre": x.nombre, "digitos": x.digitos, "mcca": x.mcca, "impuesto": x.impuesto,
+             "base_legal": x.base_legal} for x in filas]
 
 
 def digitos_pais(db: Session) -> dict:
@@ -500,6 +505,58 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
     return r
 
 
+def _inciso_ctx(x: IncisoNacional) -> dict:
+    return {"id": x.id, "pais": x.pais, "codigo": x.codigo, "cond": x.cond or {}, "prio": x.prio,
+            "dai": x.dai or "", "descripcion": x.descripcion, "nota": x.nota, "fuente": x.fuente}
+
+
+def incisos_de(db: Session, user: Usuario, sub6: str) -> dict:
+    """Códigos nacionales de una subpartida de cualquier capítulo, con su
+    descripción oficial y las notas explicativas de su partida."""
+    exigir(user, "producto.ver")
+    sub = digitos(sub6)[:6]
+    if len(sub) < 6:
+        raise ErrorNegocio("Write the 6-digit subheading.", 422, "validacion")
+    sac = db.scalar(select(PartidaSAC).where(PartidaSAC.codigo == sub))
+    partida = db.scalar(select(PartidaSAC).where(PartidaSAC.codigo == sub[:4]))
+    return {"sub6": sub, "descripcion": sac.descripcion if sac else None,
+            "partida": partida.descripcion if partida else None,
+            "incisos": [_inciso_ctx(x) for x in db.scalars(select(IncisoNacional).where(
+                IncisoNacional.sub6 == sub, IncisoNacional.activo.is_(True)))]}
+
+
+def buscar_sac(db: Session, user: Usuario, q: str, limite: int = 40) -> list[dict]:
+    """Subpartidas (6 dígitos) de todo el SAC para la ficha de cualquier
+    producto: busca por código o por palabras en su texto o en el de su partida."""
+    exigir(user, "producto.ver")
+    q = (q or "").strip()
+    if len(q) < 2:
+        return []
+    es_codigo = bool(re.fullmatch(r"[\d.\s]+", q))
+    d = digitos(q)[:6]
+    palabras = [w for w in re.split(r"\W+", _sin_acentos(q.lower())) if len(w) >= 3]
+    todas = db.scalars(select(PartidaSAC).where(PartidaSAC.activo.is_(True))).all()
+    partidas = {x.codigo: x.descripcion for x in todas if len(x.codigo) == 4}
+    out = []
+    for x in (x for x in todas if len(x.codigo) == 6):
+        if es_codigo:
+            ok, peso = x.codigo.startswith(d), 0
+        else:
+            texto = _sin_acentos(f"{x.descripcion} {partidas.get(x.codigo[:4], '')}".lower())
+            propio = _sin_acentos(x.descripcion.split("—")[-1].lower())
+            ok = bool(palabras) and all(w in texto for w in palabras)
+            peso = sum(w in propio for w in palabras)  # primero las que lo dicen en su propio texto
+        if ok:
+            out.append((-peso, x.codigo, {"codigo": x.codigo, "descripcion": x.descripcion,
+                                           "partida": partidas.get(x.codigo[:4])}))
+    return [x for *_, x in sorted(out, key=lambda t: t[:2])[:limite]]
+
+
+def _sin_acentos(t: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", t) if unicodedata.category(c) != "Mn")
+
+
 def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dict:
     """Lo que el motor necesita en el navegador: destinos, historial de
     clasificaciones, códigos nacionales y lo aprendido."""
@@ -516,9 +573,12 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
                      "descArchivo": p.nombre, "marca": p.marca.nombre if p.marca else None, "comp": f.get("comp") or {},
                      "estiloCalz": f.get("estiloCalz"), "estado": p.estado,
                      "tsMod": int(p.actualizado_en.timestamp() * 1000) if p.actualizado_en else 0})
-    incisos = [{"id": x.id, "pais": x.pais, "codigo": x.codigo, "cond": x.cond or {}, "prio": x.prio,
-                "dai": x.dai or "", "descripcion": x.descripcion, "nota": x.nota, "fuente": x.fuente}
-               for x in db.scalars(select(IncisoNacional).where(IncisoNacional.activo.is_(True)))]
+    # Los incisos de los capítulos que clasifica el motor (y los propios) van de
+    # una vez; los del resto del arancel se piden por subpartida (incisos_de)
+    caps = set(meta_motor()["capitulos"])
+    incisos = [_inciso_ctx(x) for x in db.scalars(select(IncisoNacional).where(
+        IncisoNacional.activo.is_(True),
+        or_(func.substr(IncisoNacional.sub6, 1, 2).in_(caps), IncisoNacional.fuente.not_in(("oficial", "base")))))]
     marcas = [{"nombre": m.nombre, "codigo": m.codigo, "activa": m.activa} for m in db.scalars(select(Marca))]
     provs = []
     for pr in db.scalars(select(Proveedor)):
@@ -910,7 +970,7 @@ def cargar_incisos_base(db: Session) -> int:
     los 10 dígitos del SAC y la base de artículos ADOC 2026 para el resto."""
     for i, d in enumerate(DESTINOS):
         db.add(PaisArancel(iso=d["iso"], nombre=d["nombre"], digitos=d["digitos"], mcca=d["mcca"],
-                           impuesto=d["impuesto"], orden=i))
+                           impuesto=d["impuesto"], base_legal=d.get("base_legal"), orden=i))
     carpeta = Path(__file__).resolve().parent.parent / "data"
     leer = lambda nombre: json.loads((carpeta / nombre).read_text(encoding="utf-8"))  # noqa: E731
     oficiales = {x["codigo"] for x in leer("sac_oficial.json")}
@@ -922,30 +982,34 @@ def cargar_incisos_base(db: Session) -> int:
     for x in leer("sac_notas.json"):
         db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"],
                        capitulos=x.get("capitulos") or [], claves=x.get("claves") or [], fuente="oficial"))
-    # Incisos del ACI (10 dígitos) en los capítulos que clasifica el motor, para
-    # los países del SAC a 10 dígitos; las condiciones de la base ADOC se conservan
-    capitulos = set(meta_motor()["capitulos"])
-    aci = {x["codigo"]: x for x in leer("aci_incisos.json") if x["codigo"][:2] in capitulos}
+    # Notas explicativas: resúmenes propios por partida (el texto oficial de la
+    # OMA tiene derechos de autor; se puede cargar el propio desde Excel)
+    for x in leer("sac_explicativas.json"):
+        db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"],
+                       capitulos=x.get("capitulos") or [], claves=x.get("claves") or [], fuente="resumen"))
+    # Incisos del ACI (10 dígitos) de todo el arancel para los países del SAC a
+    # 10 dígitos; las condiciones de la base ADOC se conservan
+    aci = {x["codigo"]: x for x in leer("aci_incisos.json")}
     base = leer("incisos_base.json")
     diez = [d["iso"] for d in DESTINOS if d["digitos"] == 10 and d["mcca"]]
     cond_base = {(x["pais"], x["codigo"]): x for x in base}
-    n = 0
+    filas = []
     for pais in diez:
         for cod, x in aci.items():
             b = cond_base.get((pais, cod))
-            db.add(IncisoNacional(pais=pais, codigo=cod, sub6=cod[:6], cond=(b or {}).get("cond") or x["cond"],
-                                  prio=(b or {}).get("prio") or 0, dai=x["dai_txt"] or "", descripcion=x["descripcion"][:300],
-                                  fuente="oficial", nota="ACI SIECA VII Enmienda, versión 6 (agosto 2025)"))
-            n += 1
+            filas.append({"pais": pais, "codigo": cod, "sub6": cod[:6], "cond": (b or {}).get("cond") or x["cond"],
+                          "prio": (b or {}).get("prio") or 0, "dai": x["dai_txt"] or "", "descripcion": x["descripcion"][:300],
+                          "fuente": "oficial", "nota": "ACI SIECA VII Enmienda, versión 6 (agosto 2025)", "activo": True})
     for x in base:
         if x["pais"] in diez and x["codigo"] in aci:
             continue
-        db.add(IncisoNacional(pais=x["pais"], codigo=x["codigo"], sub6=x["codigo"][:6], cond=x.get("cond") or {},
-                              prio=x.get("prio") or 0, fuente="base",
-                              nota=f"Base ADOC 2026 ({x.get('articulos', 0)} items)"))
-        n += 1
+        filas.append({"pais": x["pais"], "codigo": x["codigo"], "sub6": x["codigo"][:6], "cond": x.get("cond") or {},
+                      "prio": x.get("prio") or 0, "dai": None, "descripcion": None, "fuente": "base",
+                      "nota": f"Base ADOC 2026 ({x.get('articulos', 0)} items)", "activo": True})
+    db.flush()
+    db.execute(insert(IncisoNacional), filas)  # inserción masiva: son unos 25 mil
     cargar_acuerdos(db)
-    return n
+    return len(filas)
 
 
 # ---- Proveedores y catálogos para la pantalla -------------------------------------

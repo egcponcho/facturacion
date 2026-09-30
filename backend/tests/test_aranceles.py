@@ -76,7 +76,7 @@ def test_cargar_y_exportar(interno):
     # La misma fila actualiza (no duplica)
     assert _subir(interno, "/aranceles/codigos/importar", contenido).json()["actualizados"] == 1
     for formato in ("xlsx", "pdf"):
-        r = interno.get("/aranceles/codigos/exportar", params={"pais": "SV", "formato": formato})
+        r = interno.get("/aranceles/codigos/exportar", params={"pais": "SV", "capitulo": "64", "formato": formato})
         assert r.status_code == 200 and len(r.content) > 1000
     r = _subir(interno, "/aranceles/sac/importar", _xlsx([["Code", "Description"], ["9999.99", "Prueba"]]))
     assert r.json()["creados"] == 1
@@ -156,3 +156,22 @@ def test_acuerdos_por_origen(interno, vans):
     assert interno.post("/catalogos/acuerdos", {"codigo": "BAD", "nombre": "x", "origenes": "VNM", "destinos": "GT"}).status_code == 422
     ac = interno.get("/clasificacion/contexto").json()["acuerdos"]
     assert any(a["codigo"] == "VN-XX" and a["destinos"] == ["GT", "SV"] for a in ac)
+
+
+def test_todo_el_sac(interno, vans):
+    """Cualquier producto: se busca su subpartida en todo el SAC y trae los
+    códigos nacionales del ACI de cualquier capítulo, con su base legal."""
+    r = vans.get("/clasificacion/sac", params={"q": "maquinas portatiles"}).json()
+    assert r and r[0]["codigo"] == "847130" and r[0]["partida"], r[:3]
+    assert [x["codigo"] for x in vans.get("/clasificacion/sac", params={"q": "8471.30"}).json()] == ["847130"]
+    inc = vans.get(f"/clasificacion/incisos/{r[0]['codigo']}").json()
+    assert inc["descripcion"] and {x["pais"] for x in inc["incisos"]} >= {"GT", "SV", "HN"}
+    assert all(x["dai"] != "" for x in inc["incisos"] if x["pais"] == "SV")
+    # El contexto de la ficha no carga todo el arancel: los demás capítulos van bajo demanda
+    ctx = interno.get("/clasificacion/contexto").json()
+    assert not any(x["codigo"].startswith("84") for x in ctx["incisos"])
+    assert all(d["base_legal"] for d in ctx["destinos"])
+    # Notas explicativas por partida (resumen propio, no el texto oficial)
+    notas = interno.get("/aranceles/notas", params={"capitulo": "64"}).json()
+    ne = [n for n in notas["items"] if n["ambito"] == "explicativa"]
+    assert any(n["codigo"] == "6404" for n in ne) and "explicativa" in notas["ambitos"]

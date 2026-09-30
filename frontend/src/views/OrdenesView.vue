@@ -1,4 +1,5 @@
 <script setup>
+import FechaTienda from '../components/FechaTienda.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -56,7 +57,7 @@ const enviando = ref(false)
 
 const tieneSaldo = (oc) => oc.liberada && Object.values(oc.por_unidad).some((u) => u.disponible > 0)
 const conSaldo = computed(() => datos.value.items.filter(tieneSaldo).map((o) => o.id))
-const columnas = computed(() => (sesion.proveedorId ? 11 : 12))
+const columnas = computed(() => (sesion.proveedorId ? 12 : 13))
 
 async function cargar() {
   cargando.value = true
@@ -365,6 +366,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
           <th>Destination plant / port</th>
           <ThOrden campo="fecha_xf" :orden="filtros.orden" @ordenar="ordenar">XF date</ThOrden>
           <ThOrden campo="fecha_tienda" :orden="filtros.orden" @ordenar="ordenar">In store</ThOrden>
+          <th title="Estimated with the lead times of its origin">Est. in store</th>
           <th>To invoice</th>
           <ThOrden campo="importe" :orden="filtros.orden" num @ordenar="ordenar">PO value</ThOrden>
           <ThOrden campo="avance" :orden="filtros.orden" @ordenar="ordenar">Invoiced</ThOrden>
@@ -404,6 +406,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
               {{ fmtFecha(oc.fecha_tienda) }}
               <span v-if="oc.dias_tienda !== null" class="sub" :style="tonoTienda(oc.dias_tienda) ? { color: `var(--${tonoTienda(oc.dias_tienda)})` } : null">{{ diasTxt(oc.dias_tienda) }}</span>
             </td>
+            <td><FechaTienda :fecha="oc.tienda_estimada" :dias="oc.dias_vs_tienda" /></td>
             <td class="ajustar" style="min-width: 100px">
               <span class="fuerte">{{ porUnidadTxt(oc.por_unidad, 'disponible') }}</span>
               <span class="sub">of {{ porUnidadTxt(oc.por_unidad, 'cantidad') }}</span>

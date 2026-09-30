@@ -495,6 +495,7 @@ class PaisArancel(Base):
     mcca: Mapped[bool] = mapped_column(Boolean, default=False)
     impuesto: Mapped[str | None] = mapped_column(String(60))  # p. ej. "VAT 13%"
     nota: Mapped[str | None] = mapped_column(String(300))
+    base_legal: Mapped[str | None] = mapped_column(String(300))  # arancel y norma que lo pone en vigor
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 

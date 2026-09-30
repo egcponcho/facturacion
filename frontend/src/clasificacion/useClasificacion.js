@@ -22,7 +22,7 @@ export async function cargarContexto(forzar = false) {
       const g = M.norm(r.generico).trim()
       if (g) porGenerico.set(g, [...(porGenerico.get(g) || []), r])
     }
-    const destinos = c.destinos.map((d) => ({ iso: d.iso, nombre: d.nombre, digitos: d.digitos, mcca: d.mcca }))
+    const destinos = c.destinos.map((d) => ({ iso: d.iso, nombre: d.nombre, digitos: d.digitos, mcca: d.mcca, base_legal: d.base_legal }))
     estado.ctx = {
       ...c,
       destinos,

@@ -478,6 +478,7 @@ class PaisArancelIn(BaseModel):
     mcca: bool = False
     impuesto: str | None = Field(None, max_length=60)
     nota: str | None = Field(None, max_length=300)
+    base_legal: str | None = Field(None, max_length=300)
     activo: bool = True
 
 
