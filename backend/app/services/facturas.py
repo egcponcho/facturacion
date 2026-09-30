@@ -400,7 +400,8 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
         elif "motivo_precio" in campos:
             l.motivo_precio = (campos["motivo_precio"] or "").strip() or None
 
-        for campo in ("pais_origen", "partida_arancelaria", "descripcion_comercial"):
+        # La partida no se captura en la factura: viene de la ficha técnica aprobada
+        for campo in ("pais_origen", "descripcion_comercial"):
             if campo in campos:
                 valor = (campos[campo] or "").strip() or None
                 if campo == "pais_origen" and valor:
@@ -783,6 +784,9 @@ def _info_transporte(pl: PackingList) -> dict | None:
 
 def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
     f = cargar_factura(db, user, factura_id)
+    if f.estado in ("BORRADOR", "EN_CORRECCION"):
+        # Productos aprobados después de facturar: la partida ya se ve (se guarda al finalizar)
+        completar_aduana(db, f)
     pls_activos = [pl for pl in f.packing_lists if pl.estado != "CANCELADO"]
     en_pl: dict[int, int] = {}
     empacado: dict[int, int] = {}
@@ -830,6 +834,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "total": total,
             "pais_origen": l.pais_origen,
             "partida_arancelaria": l.partida_arancelaria,
+            "producto_id": l.posicion_oc.articulo.producto_id if l.posicion_oc.articulo else None,
             "descripcion_comercial": l.descripcion_comercial,
             "en_pl": a,
             "sin_asignar": l.cantidad - a,

@@ -32,7 +32,7 @@ from ..models import (
     Usuario,
 )
 from .common import ErrorNegocio, exigir, registrar
-from .productos import asegurar_producto
+from .productos import asegurar_producto, fmt_codigo
 
 UNIDADES = [["PAR", "Pairs"], ["UN", "Units"], ["CJ", "Cartons (prepack)"]]
 CATEGORIAS = [["CALZADO", "Footwear"], ["ROPA", "Apparel"], ["ACCESORIO", "Accessories"]]
@@ -305,6 +305,12 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
         fila[campo["nombre"]] = v
         if campo["tipo"] == "ref" and v:
             fila[campo["nombre"] + "_txt"] = refs.get((campo["catalogo"], v))
+    if isinstance(obj, Articulo):
+        # La ficha técnica y la partida viven en el producto (estilo-color)
+        prod = obj.producto
+        fila["producto_id"] = obj.producto_id
+        fila["partida_txt"] = fmt_codigo(prod.codigo) if prod and prod.codigo else None
+        fila["clasificacion"] = prod.estado if prod else None
     if isinstance(obj, Prepack):
         fila["total"] = obj.total
         fila["componentes"] = len(obj.componentes)

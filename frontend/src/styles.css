@@ -209,7 +209,7 @@ svg { flex: none; }
 .cabecera-fila { display: flex; align-items: center; gap: 16px; padding: 0 24px; height: 56px; }
 /* La navegación va en su propia fila, a todo lo ancho: nunca se encima con
    los controles de la derecha, tenga los elementos que tenga el rol */
-.cabecera-nav { border-top: 1px solid var(--linea-suave); padding: 0 16px; }
+.cabecera-nav { border-top: 1px solid var(--linea-suave); padding: 0 16px; position: relative; }
 .marca { display: flex; align-items: center; gap: 10px; color: var(--tinta); text-decoration: none; flex: none; }
 .marca-logo {
   width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
@@ -227,6 +227,15 @@ svg { flex: none; }
 .nav-link:hover { color: var(--tinta); }
 .nav-link.activo { color: var(--acento-texto); border-bottom-color: var(--acento); font-weight: 650; }
 .nav-link.activo svg { opacity: 1; }
+.nav-ajustes { margin-left: auto; display: flex; flex: none; }
+button.nav-link { background: none; border-top: 0; border-left: 0; border-right: 0; cursor: pointer; font-family: inherit; }
+.menu-ajustes { position: absolute; right: 16px; top: 46px; z-index: 40; min-width: 290px; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); box-shadow: var(--sombra-flotante); padding: 6px; display: flex; flex-direction: column; }
+.menu-velo { position: fixed; inset: 0; z-index: 35; }
+.menu-item { display: flex; gap: 10px; align-items: center; padding: 9px 10px; border-radius: var(--radio); color: var(--tinta); text-decoration: none; }
+.menu-item:hover, .menu-item.router-link-active { background: var(--acento-claro); }
+.menu-item b { display: block; font-weight: 620; font-size: 0.9rem; }
+.menu-item small { display: block; color: var(--tinta-3); font-size: 0.78rem; }
+.menu-icono { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--superficie-2); color: var(--acento-texto); flex: none; }
 .nav-cuenta { font-size: 0.72rem; font-weight: 700; background: var(--acento); color: var(--sobre-acento); border-radius: 10px; padding: 0 6px; }
 .cabecera-derecha { margin-left: auto; display: flex; align-items: center; gap: 10px; flex: none; }
 .avatar {
@@ -827,3 +836,7 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .tabla thead tr.grupo-columnas th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--acento-texto, var(--acento));
   border-bottom: 2px solid var(--linea); padding-top: 6px; padding-bottom: 4px; text-align: left; }
 .tabla thead tr.grupo-columnas th + th { border-left: 1px solid var(--linea); }
+
+/* Códigos arancelarios: anchos y tabulares, como en la DUCA */
+.codigo-sac { font-stretch: 112%; font-weight: 680; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; }
+.codigo-sac.tentativo { color: var(--tinta-3); font-style: italic; font-weight: 560; }

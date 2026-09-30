@@ -585,12 +585,47 @@ CAMPOS_FICHA = {
 }
 
 
-def _valor_ficha(v) -> str:
+PARTES = {"exterior": "Outer fabric or surface", "forro": "Lining", "relleno": "Fill", "corte": "Upper",
+          "suela": "Sole", "plantilla": "Insole", "material": "Main material"}
+
+
+VALORES_FICHA = {
+    "genero": {"M": "Men", "F": "Women", "U": "Unisex"},
+    "edadNac": {"adulto": "Adult", "nino": "Child or youth", "bebe": "Baby"},
+    "edad": {"general": "Child, youth or adult", "bebe": "Baby"},
+    "estiloCalz": {"tenis": "Sneaker", "senderismo": "Hiking", "bota": "Boot", "botin": "Ankle boot", "zapato": "Closed shoe",
+                   "sandalia": "Sandal", "slide": "Slide", "chancla_tetones": "Flip-flop", "pantufla": "Slipper"},
+    "disenio": {"entrenamiento": "Athletic", "casual": "Casual or lifestyle", "skate": "Skate"},
+    "altura": {"bajo": "Does not cover the ankle", "tobillo": "Covers the ankle", "rodilla": "Covers the knee"},
+    "puntera": {"ninguna": "No toe cap", "metalica": "Metal", "no_metalica": "Non-metal"},
+    "tejido": {"punto": "Knitted", "plano": "Woven"},
+    "relleno_tipo": {"ninguno": "No fill", "plumon": "Down or feather", "sintetico": "Synthetic"},
+    "hechura": {"chaqueta": "Jacket, anorak or parka", "chaleco_relleno": "Padded vest", "chaleco": "Vest"},
+    "hechuraSud": {"pullover": "Pullover", "cierre": "Full zip", "chaqueta_fleece": "Fleece jacket"},
+    "manga": {"sin": "Sleeveless", "corta": "Short", "larga": "Long"},
+}
+TIPOS_FICHA = {"calzado": "Footwear", "chaqueta": "Jacket or vest", "sudadera": "Sweatshirt", "camiseta": "T-shirt",
+               "camisa": "Shirt or polo", "pantalon": "Pants or shorts", "mochila": "Backpack", "gorra": "Cap or headwear",
+               "bolso_viaje": "Sports or travel bag", "calcetines": "Socks", "guantes": "Gloves"}
+CAMPOS_FICHA.update({"edad": "Who it is for", "edadNac": "Who it is for", "relleno_tipo": "Fill", "hechuraSud": "Construction",
+                     "hechura": "Construction", "tieneForro": "Lining", "recubierta": "Coated fabric", "exterior": "Outer surface"})
+
+
+def _valor_ficha(v, k: str = "") -> str:
+    if k in VALORES_FICHA and v in VALORES_FICHA[k]:
+        return VALORES_FICHA[k][v]
     if isinstance(v, bool):
         return "Yes" if v else "No"
     if isinstance(v, list):
         return ", ".join(str(x) for x in v)
     return str(v)
+
+
+def _fmt_partida(c) -> str:
+    d = "".join(ch for ch in str(c or "") if ch.isdigit())
+    if len(d) <= 4:
+        return d or "—"
+    return ".".join([d[:4]] + [d[i:i + 2] for i in range(4, len(d), 2)])
 
 
 def pdf_ficha_producto(d: dict) -> bytes:
@@ -632,23 +667,33 @@ def pdf_ficha_producto(d: dict) -> bytes:
 
     partidas = d.get("partidas") or {}
     if partidas:
-        filas = [[pais, x.get("codigo") or "—", x.get("dai") or "—", x.get("estado"), x.get("fuente") or "—"]
-                 for pais, x in sorted(partidas.items())]
+        orden = ["GT", "SV", "HN", "NI", "CR", "PA"]
+        estados = {"ok": "National", "auto": "National", "sac": "SAC", "elegir": "Pending"}
+        filas = [[pais, _fmt_partida(x.get("codigo")), f"{x['dai']}%" if x.get("dai") not in (None, "") else "—",
+                  estados.get(x.get("estado"), x.get("estado")), "By hand" if x.get("manual") else (x.get("fuente") or "—").capitalize()]
+                 for pais, x in sorted(partidas.items(), key=lambda kv: orden.index(kv[0]) if kv[0] in orden else 99)]
         h += [Paragraph("NATIONAL TARIFF CODES BY DESTINATION", e["etiqueta"]), Spacer(1, 2),
               _tabla(e, [("Country", 0.8, False), ("Code", 1.6, False), ("Duty (DAI)", 0.8, True),
                          ("Status", 0.8, False), ("Source", 0.8, False)], filas, ancho), Spacer(1, 8)]
 
     f = d.get("ficha") or {}
-    datos = [("Product type", d.get("tipo") or "—"), ("Country of origin", d.get("pais_origen") or "—"),
+    an = d.get("analisis") or {}
+    datos = [("Product type", an.get("tipo_txt") or TIPOS_FICHA.get(d.get("tipo"), d.get("tipo")) or "—"), ("Country of origin", d.get("pais_origen") or "—"),
              ("Generic code", d.get("codigo_generico") or "—"), ("Group", d.get("grupo") or "—")]
-    datos += [(CAMPOS_FICHA.get(k, k), _valor_ficha(v)) for k, v in f.items()
-              if k not in ("comp", "descManual") and v not in (None, "", [], {})]
+    for k in ("uso", "tallas"):
+        if f.get(k):
+            datos.append((CAMPOS_FICHA[k], str(f[k])))
+    if an.get("atributos"):
+        datos += [(str(a[0]), str(a[1])) for a in an["atributos"] if len(a) == 2]
+    else:
+        datos += [(CAMPOS_FICHA.get(k, k), _valor_ficha(v, k)) for k, v in f.items()
+                  if k not in ("comp", "descManual", "uso", "tallas", "desc", "edad") and v not in (None, "", [], {})]
     h += [Paragraph("PRODUCT DATA", e["etiqueta"]), Spacer(1, 2), _rejilla(e, datos, ancho), Spacer(1, 8)]
     comp = f.get("comp") or {}
     if isinstance(comp, dict) and comp:
         h += [Paragraph("COMPOSITION", e["etiqueta"]), Spacer(1, 2),
               _tabla(e, [("Part", 1, False), ("Materials", 3, False)],
-                     [[k.capitalize(), v] for k, v in comp.items() if v], ancho), Spacer(1, 8)]
+                     [[PARTES.get(k, k.capitalize()), v] for k, v in comp.items() if v], ancho), Spacer(1, 8)]
 
     arts = [a for a in d.get("articulos") or [] if a["tipo"] == "SOLIDO"]
     if arts:

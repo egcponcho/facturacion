@@ -363,6 +363,9 @@ class ResultadoMotor(BaseModel):
     completa: bool = False
     faltan: list[str] = Field(default_factory=list, max_length=30)
     partidas: dict | None = None
+    # Etiquetas legibles de la ficha (para el PDF): [["Gender", "Men"], ...]
+    atributos: list[list[str]] = Field(default_factory=list, max_length=60)
+    tipo_txt: str | None = Field(None, max_length=100)
 
 
 class FichaIn(BaseModel):

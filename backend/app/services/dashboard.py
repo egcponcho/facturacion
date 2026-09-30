@@ -7,7 +7,7 @@
 from collections import defaultdict
 from datetime import date, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -16,6 +16,7 @@ from ..models import (
     Factura,
     OrdenCompra,
     PosicionOC,
+    Producto,
     Proveedor,
     UnidadCarga,
     Usuario,
@@ -151,7 +152,7 @@ def _envios(db: Session, prov: int | None) -> list[dict]:
     return res[:8]
 
 
-def _tareas(db: Session, user: Usuario, facturas: list[Factura], distribucion: dict) -> list[dict]:
+def _tareas(db: Session, user: Usuario, facturas: list[Factura], distribucion: dict, prov: int | None = None) -> list[dict]:
     """Próximos pasos concretos, ordenados por lo que destraba más trabajo."""
     tareas = []
     limite = ahora() - timedelta(days=settings.DIAS_ALERTA_BORRADOR)
@@ -205,8 +206,33 @@ def _tareas(db: Session, user: Usuario, facturas: list[Factura], distribucion: d
                     tareas.append({"prioridad": 1, "tipo": "embarcar", "titulo": f"Ship {nombre_factura(f)}",
                                    "detalle": f"{sin_unidad} finalized PLs without container ({f.proveedor.nombre}).",
                                    "ruta": "/transporte", "accion": "Assign"})
+    tareas += _tareas_productos(db, user, prov)
     tareas.sort(key=lambda t: t["prioridad"])
     return tareas[:12]
+
+
+def _tareas_productos(db: Session, user: Usuario, prov: int | None) -> list[dict]:
+    """Fichas técnicas: el equipo interno aprueba; el proveedor completa y corrige."""
+    q = select(Producto.estado, func.count()).group_by(Producto.estado)
+    if prov:
+        q = q.where(Producto.proveedor_id == prov)
+    n = dict(db.execute(q).all())
+    out = []
+    if es_interno(user):
+        if n.get("sugerida"):
+            out.append({"prioridad": 2, "tipo": "clasificar", "titulo": f"Approve {n['sugerida']} HS code" + ("s" if n["sugerida"] > 1 else ""),
+                        "detalle": "Complete technical sheets with a suggested code.",
+                        "ruta": "/productos?estado=sugerida", "accion": "Review"})
+    else:
+        if n.get("observado"):
+            out.append({"prioridad": 0, "tipo": "correccion", "titulo": f"Correct {n['observado']} technical sheet" + ("s" if n["observado"] > 1 else ""),
+                        "detalle": "Customs returned them with notes.", "ruta": "/productos?estado=observado",
+                        "accion": "Correct"})
+        if n.get("borrador"):
+            out.append({"prioridad": 3, "tipo": "clasificar", "titulo": f"Complete {n['borrador']} technical sheet" + ("s" if n["borrador"] > 1 else ""),
+                        "detalle": "Products without the data customs needs to classify them.",
+                        "ruta": "/productos?estado=borrador", "accion": "Complete"})
+    return out
 
 
 def _contenedores(db: Session) -> list[dict]:
@@ -298,7 +324,7 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None) -> di
     kpis.append({"clave": "riesgo", "titulo": "POs at risk of delay", "valor": len(atrasadas),
                  "detalle": "arrive after the in-store date", "ruta": "/seguimiento",
                  "query": {"riesgo": "ATRASO"}, "tono": "alerta" if atrasadas else "exito"})
-    tareas = _tareas(db, user, facturas, distribucion)
+    tareas = _tareas(db, user, facturas, distribucion, prov)
     if pendientes_lib:
         tareas.insert(0, {"prioridad": 1, "tipo": "liberacion",
                           "titulo": f"{len(pendientes_lib)} POs not released",

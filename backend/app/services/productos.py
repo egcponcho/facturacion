@@ -27,6 +27,7 @@ from ..models import (
     Historial,
     IncisoNacional,
     Marca,
+    Pais,
     PalabraClave,
     PartidaPais,
     Prepack,
@@ -38,7 +39,16 @@ from ..models import (
     Usuario,
     ahora,
 )
-from .common import ErrorNegocio, asegurar_proveedor, es_interno, exigir, proveedor_filtro, registrar, tocar, verificar_version
+from .common import (
+    ErrorNegocio,
+    asegurar_proveedor,
+    es_interno,
+    exigir,
+    proveedor_filtro,
+    registrar,
+    tocar,
+    verificar_version,
+)
 
 # Países destino y dígitos de su código nacional (Centroamérica y Panamá)
 DESTINOS = [
@@ -396,7 +406,7 @@ def _aplicar_resultado(p: Producto, r: dict | None) -> None:
     p.fuente = (r.get("fuente") or None) and str(r["fuente"])[:12]
     p.perfil = (r.get("perfil") or None) and str(r["perfil"])[:200]
     p.analisis = {k: r.get(k) for k in ("razones", "fundamento", "alternativas", "avisos", "faltantes", "alertas",
-                                        "razones_regla", "codigo_regla") if r.get(k) is not None}
+                                        "razones_regla", "codigo_regla", "atributos", "tipo_txt") if r.get(k) is not None}
     if r.get("descripcion_aduana") is not None and not (p.ficha or {}).get("descManual"):
         p.descripcion_aduana = str(r["descripcion_aduana"])[:400] or None
     p.ficha_completa = bool(r.get("completa"))
@@ -699,6 +709,7 @@ def opciones(db: Session, user: Usuario) -> dict:
         "marcas": [{"id": m.id, "codigo": m.codigo, "nombre": m.nombre} for m in db.scalars(select(Marca).order_by(Marca.codigo))],
         "grupos": [{"id": g.id, "codigo": g.codigo, "nombre": g.nombre} for g in db.scalars(select(GrupoArticulo).order_by(GrupoArticulo.codigo))],
         "estados": ESTADOS,
+        "paises": [{"codigo": x.codigo, "nombre": x.nombre} for x in db.scalars(select(Pais).order_by(Pais.nombre))],
     }
 
 
