@@ -31,7 +31,7 @@ from ..models import (
     Usuario,
 )
 from .common import ErrorNegocio, exigir, registrar
-from .productos import asegurar_producto, fmt_codigo, producto_de
+from .productos import asegurar_producto, fmt_codigo, generico_de, producto_de, producto_por_generico
 
 UNIDADES = [["PAR", "Pairs"], ["UN", "Units"], ["CJ", "Cartons (prepack)"]]
 CATEGORIAS = [["CALZADO", "Footwear"], ["ROPA", "Apparel"], ["ACCESORIO", "Accessories"]]
@@ -505,6 +505,23 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             limpio["prepack_id"] = None
             if final.get("unidad") == "CJ":
                 errores.append({"campo": "unidad", "mensaje": "A solid is handled in pairs or units."})
+    # Los primeros 8 dígitos son el genérico (estilo-color): todas sus tallas,
+    # sólidos y prepacks, comparten estilo, color, marca, grupo y proveedor
+    if cat["modelo"] is Articulo and generico_de(final.get("sku")):
+        gen = generico_de(final["sku"])
+        ref = db.scalar(select(Articulo).where(Articulo.sku.startswith(gen), Articulo.tipo == "SOLIDO",
+                                               *([Articulo.id != actual.id] if actual else [])).limit(1))
+        prod = producto_por_generico(db, gen)
+        base = ({"estilo": ref.estilo, "color": ref.color, "marca_id": ref.marca_id, "proveedor_id": ref.proveedor_id}
+                if ref else {"estilo": prod.estilo, "color": prod.color, "marca_id": prod.marca_id,
+                             "proveedor_id": prod.proveedor_id} if prod else None)
+        if base:
+            distintos = [k for k, v in base.items() if v is not None and final.get(k) not in (None, "") and final.get(k) != v]
+            if distintos:
+                nombres = {"estilo": "style", "color": "color", "marca_id": "brand", "proveedor_id": "supplier"}
+                errores.append({"campo": distintos[0], "mensaje":
+                                f"Generic {gen} is {base['estilo']} {base['color'] or ''}: every size must have the same "
+                                f"{', '.join(nombres[k] for k in distintos)}. Use another generic (first 8 digits)."})
     if cat["modelo"] is Articulo and final.get("proveedor_id") and final.get("marca_id"):
         prov = db.get(Proveedor, final["proveedor_id"])
         if prov and prov.marcas and final["marca_id"] not in {m.id for m in prov.marcas}:
@@ -659,8 +676,9 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
     estilo = str(datos.get("estilo") or "").strip().upper()
     color = str(datos.get("color") or "").strip()
     errores = []
-    if not re.fullmatch(r"\d{6,18}", sku):
-        errores.append({"campo": "sku", "mensaje": "Product code: digits only, for example 30095120027."})
+    if not generico_de(sku):
+        errores.append({"campo": "sku", "mensaje": "Item code: 11 digits starting with 3; the first 8 are the generic "
+                                                   "of its solids and the last 3 the prepack size, e.g. 30095125007."})
     elif db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
         errores.append({"campo": "sku", "mensaje": f"Code {sku} already exists in the item master."})
     if not re.fullmatch(r"[A-Z0-9]{2,10}", codigo):
@@ -671,6 +689,10 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
         errores.append({"campo": "codigo", "mensaje": f"Prepack {codigo} already exists for {estilo} {color}."})
     arts, err_curva = _validar_curva(db, estilo, color, datos.get("componentes") or [])
     errores += err_curva
+    gens = {generico_de(a.sku) for a, _ in arts}
+    if arts and not err_curva and generico_de(sku) and gens != {generico_de(sku)}:
+        errores.append({"campo": "sku", "mensaje": f"The prepack must have the generic of its solids ({', '.join(sorted(g or '—' for g in gens))}): "
+                                                   f"same first 8 digits, only the last 3 change."})
     if errores:
         raise ErrorNegocio("The prepack is not valid.", 422, "validacion", errores)
     base = arts[0][0]

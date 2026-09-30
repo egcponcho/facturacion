@@ -322,7 +322,10 @@ class Producto(Base):
     color: Mapped[str | None] = mapped_column(String(60))
     marca_id: Mapped[int | None] = mapped_column(ForeignKey("marcas.id"), index=True)
     grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"))
-    codigo_generico: Mapped[str | None] = mapped_column(String(20))
+    # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
+    # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
+    codigo_generico: Mapped[str | None] = mapped_column(String(20), unique=True, index=True)
+    unidad: Mapped[str | None] = mapped_column(String(5))  # unidad de sus tallas sólidas: PAR | UN
     nombre: Mapped[str | None] = mapped_column(String(200))  # nombre comercial del estilo
     # Ficha técnica: tipo de producto del clasificador, atributos, composición
     # por parte, uso, tallas, usuario y datos que piden los aranceles nacionales

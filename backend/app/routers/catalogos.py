@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Body, File, Query, Request, UploadFile
 
-from ..services import cargas
+from .. import schemas as s
+from ..services import cargas, genericos
 from ..services import catalogos as svc
 from .base import Clave, Db, Formato, User, descarga, ejecutar
 
@@ -11,6 +12,25 @@ RESERVADOS = {"q", "orden", "page", "size"}
 @router.get("")
 def meta(db: Db, user: User):
     return svc.meta(db, user)
+
+
+@router.post("/genericos")
+def crear_generico(datos: s.GenericoIn, db: Db, user: User, clave: Clave = None):
+    """Genérico (8 dígitos) con sus datos maestros y sus tallas."""
+    return ejecutar(db, user, clave, lambda: genericos.crear(db, user, datos))
+
+
+@router.get("/genericos/{gen}")
+def generico(gen: str, db: Db, user: User):
+    return genericos.detalle(db, user, gen)
+
+
+@router.post("/genericos/{gen}/tallas")
+def agregar_tallas(gen: str, datos: s.TallasIn, db: Db, user: User, clave: Clave = None):
+    def hacer():
+        genericos.agregar_tallas(db, user, gen, datos.tallas)
+        return genericos.detalle(db, user, gen)
+    return ejecutar(db, user, clave, hacer)
 
 
 @router.post("/{tipo}/importar")

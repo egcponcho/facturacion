@@ -4,6 +4,7 @@ import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { api } from '../api'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import FichaTecnica from '../components/ficha/FichaTecnica.vue'
+import GenericoModal from '../components/GenericoModal.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import { M, calcular, cargarContexto, fichaDe, fichaParaGuardar, resultadoServidor } from '../clasificacion/useClasificacion'
@@ -28,6 +29,7 @@ const codOficial = ref('')
 const otroCodigo = ref('')
 const modal = ref(null)
 const verRazones = ref(false)
+const agregarTallas = ref(false)
 const cargas = ref(0) // vuelve a montar el formulario tras guardar
 
 const aprobado = computed(() => ['aprobado', 'corregido'].includes(p.value?.estado))
@@ -115,7 +117,6 @@ function cuerpoFicha() {
     tipo: f.tipo || null,
     ficha: fichaParaGuardar(s),
     nombre: f.descArchivo || '',
-    codigo_generico: f.generico || '',
     pais_origen: f.origen || '',
     descripcion_aduana: s.descManual ? s.desc || '' : null,
     descripcion_comercial: s.comManual ? s.descCom || '' : null,
@@ -318,7 +319,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </span>
         <div>
           <span class="doc-numero">{{ p.estilo }} · {{ p.color }}</span>
-          <div class="doc-sub">{{ f.descArchivo || 'No name' }} · {{ p.marca_nombre || p.marca }} · {{ p.proveedor }}</div>
+          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento" style="margin-left: 0" title="Generic: first 8 digits of the item code">Generic {{ p.codigo_generico }}</span> {{ f.descArchivo || 'No name' }} · {{ p.marca_nombre || p.marca }} · {{ p.proveedor }}</div>
         </div>
         <EstadoBadge :estado="p.estado" />
         <span v-if="p.version_ficha > 1" class="etiqueta">Version {{ p.version_ficha }}</span>
@@ -359,13 +360,17 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 
         <!-- Tallas y prepacks -->
         <div v-else-if="pestana === 'tallas'">
-          <p class="ayuda mt-chico">Every size of this style and color shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.</p>
+          <div class="fila-flex mt-chico" style="justify-content: space-between">
+            <p class="ayuda">Every size of generic <b>{{ p.codigo_generico || '—' }}</b> (first 8 digits of the item code) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.</p>
+            <button v-if="p.codigo_generico && puede('catalogos.editar')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />Add sizes</button>
+          </div>
           <div class="tabla-marco mt-chico">
             <table class="tabla">
-              <thead><tr><th>Item code</th><th>Supplier SKU</th><th>UPC</th><th>Size</th><th>Unit</th><th>Description</th><th>Status</th></tr></thead>
+              <thead><tr><th>Item code</th><th>Size code</th><th>Supplier SKU</th><th>UPC</th><th>Size</th><th>Unit</th><th>Description</th><th>Status</th></tr></thead>
               <tbody>
                 <tr v-for="a in p.articulos" :key="a.id">
                   <td class="fuerte">{{ a.sku }}<span v-if="a.tipo === 'PREPACK'" class="etiqueta acento">Prepack</span></td>
+                  <td class="apagado">{{ a.sku.length === 11 ? a.sku.slice(8) : '—' }}</td>
                   <td>{{ a.sku_proveedor || '—' }}</td>
                   <td>{{ a.upc || '—' }}</td>
                   <td>{{ a.talla || '—' }}</td>
@@ -533,6 +538,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
     </div>
 
     <!-- Ventanas -->
+    <GenericoModal v-if="agregarTallas" :generico="p.codigo_generico" @cerrar="agregarTallas = false" @listo="agregarTallas = false; cargar()" />
     <Modal v-if="modal?.tipo === 'devolver'" titulo="Return to the supplier" @cerrar="modal = null">
       <label class="campo"><span class="req">What should be corrected</span><textarea v-model="modal.texto" class="entrada" rows="4" maxlength="2000"></textarea></label>
       <template #pie>

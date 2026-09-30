@@ -9,6 +9,7 @@ import CargaMasiva from '../components/CargaMasiva.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import ExplosionPrepack from '../components/ExplosionPrepack.vue'
+import GenericoModal from '../components/GenericoModal.vue'
 import Paginacion from '../components/Paginacion.vue'
 import SelectBusqueda from '../components/SelectBusqueda.vue'
 import ThOrden from '../components/ThOrden.vue'
@@ -32,6 +33,7 @@ const erroresForm = ref({})
 const modal = ref(null)
 const ocupado = ref(false)
 const formAbierto = ref(false) // alta y edición en ventana emergente
+const genericoNuevo = ref(false)
 const ESTADO_FICHA = { borrador: 'Sheet in draft', sugerida: 'To review', observado: 'Returned' }
 
 const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
@@ -224,7 +226,18 @@ const estilosPP = computed(() => [...new Set(solidos.value.map((a) => a.estilo))
 const coloresPP = computed(() => [...new Set(solidos.value.filter((a) => a.estilo === nuevoPP.estilo).map((a) => a.color))].sort())
 const tallasPP = computed(() => solidos.value.filter((a) => a.estilo === nuevoPP.estilo && a.color === nuevoPP.color))
 const totalPP = computed(() => tallasPP.value.reduce((t, a) => t + (Number(nuevoPP.cantidades[a.id]) || 0), 0))
-watch(() => [nuevoPP.estilo, nuevoPP.color], () => (nuevoPP.cantidades = {}))
+watch(() => [nuevoPP.estilo, nuevoPP.color], async () => {
+  nuevoPP.cantidades = {}
+  // El prepack lleva el genérico de sus sólidos (8 primeros dígitos) y su propia talla (3 últimos)
+  const gen = tallasPP.value[0]?.sku?.slice(0, 8)
+  if (!gen || !/^3\d{7}$/.test(gen)) return
+  try {
+    const d = await api.get(`/catalogos/genericos/${gen}`)
+    if (!nuevoPP.sku || nuevoPP.sku.slice(0, 8) !== gen) nuevoPP.sku = `${gen}${d.siguiente}`
+  } catch {
+    /* sin genérico registrado: se escribe a mano */
+  }
+})
 async function crearPrepack() {
   ocupado.value = true
   erroresPP.value = {}
@@ -279,7 +292,8 @@ onMounted(async () => {
       <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="{ q: filtros.q, orden: filtros.orden, ...filtros.extra }" />
       <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />Template</a>
       <button v-if="cat" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tipo === 'articulos' ? 'Upload items and sheets' : tipo === 'prepacks' ? 'Upload size runs' : 'Upload Excel' }}</button>
-      <button v-if="cat" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />New {{ cat.singular }}</button>
+      <button v-if="tipo === 'articulos'" class="btn btn-primario" title="Generic (first 8 digits) with its sizes" @click="genericoNuevo = true"><Icono nombre="mas" />New generic</button>
+      <button v-else-if="cat" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />New {{ cat.singular }}</button>
     </div>
   </div>
 
@@ -362,9 +376,9 @@ onMounted(async () => {
     <p v-if="cat.ayuda" class="ayuda" style="margin-top: 0">{{ cat.ayuda }}</p>
       <form v-if="tipo === 'prepacks' && !editando" class="form-catalogo" @submit.prevent="crearPrepack">
         <label class="campo"><span class="req">Item code</span>
-          <input v-model="nuevoPP.sku" inputmode="numeric" placeholder="30095120027" required />
+          <input v-model="nuevoPP.sku" inputmode="numeric" maxlength="11" placeholder="Generic of its solids + 3 digits" required />
           <small v-if="erroresPP.sku" class="nota error" style="padding: 4px 8px">{{ erroresPP.sku }}</small>
-          <small v-else class="ayuda">A prepack is an item like any other, with its own code.</small>
+          <small v-else class="ayuda">Same generic (first 8 digits) as its solids; only the last 3 digits change. It is proposed when you choose style and color.</small>
         </label>
         <label class="campo"><span class="req">Style</span>
           <SelectBusqueda v-model="nuevoPP.estilo" :opciones="estilosPP" requerido etiqueta="Style" />
@@ -459,5 +473,6 @@ onMounted(async () => {
     </template>
   </Modal>
 
+  <GenericoModal v-if="genericoNuevo" @cerrar="genericoNuevo = false" @listo="genericoNuevo = false; cargarMeta(); cargar()" />
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" @cerrar="explosion = null" />
 </template>

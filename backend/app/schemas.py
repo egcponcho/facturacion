@@ -483,3 +483,26 @@ class IncisoEditIn(BaseModel):
 
 class IdsIn(BaseModel):
     ids: list[int] = Field(min_length=1, max_length=5000)
+
+
+class TallaIn(BaseModel):
+    talla: str = Field(max_length=20)
+    sufijo: str | None = Field(None, max_length=3)  # los 3 últimos dígitos; vacío = el siguiente libre
+    upc: str | None = Field(None, max_length=40)
+    sku_proveedor: str | None = Field(None, max_length=60)
+
+
+class GenericoIn(BaseModel):
+    generico: str = Field(max_length=8)
+    estilo: str = Field(max_length=40)
+    color: str = Field(max_length=60)
+    marca_id: int
+    grupo_id: int
+    proveedor_id: int
+    unidad: str = Field(max_length=5)
+    nombre: str | None = Field(None, max_length=200)
+    tallas: list[TallaIn] = Field(default_factory=list, max_length=200)
+
+
+class TallasIn(BaseModel):
+    tallas: list[TallaIn] = Field(min_length=1, max_length=200)

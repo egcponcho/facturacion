@@ -38,15 +38,7 @@ def texto(v) -> str:
     return str(v).strip()
 
 
-def plantilla(titulo: str, columnas: list[dict], ejemplos: list[list] | None = None,
-              instrucciones: list[str] | None = None) -> bytes:
-    """columnas: [{"nombre", "ayuda", "req", "opciones": [..] | None, "ancho"}]"""
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Data"
-    valores = wb.create_sheet("Values")
-    guia = wb.create_sheet("Instructions")
-    col_val = 1
+def _hoja_datos(ws, valores, col_val: int, columnas: list[dict], ejemplos: list[list] | None) -> int:
     for i, c in enumerate(columnas, start=1):
         celda = ws.cell(row=1, column=i, value=c["nombre"] + (" *" if c.get("req") else ""))
         celda.font = Font(bold=True, color="FFFFFF")
@@ -69,6 +61,32 @@ def plantilla(titulo: str, columnas: list[dict], ejemplos: list[list] | None = N
     for r, fila in enumerate(ejemplos or [], start=2):
         for i, v in enumerate(fila, start=1):
             ws.cell(row=r, column=i, value=v)
+    return col_val
+
+
+def plantilla(titulo: str, columnas: list[dict], ejemplos: list[list] | None = None,
+              instrucciones: list[str] | None = None) -> bytes:
+    """columnas: [{"nombre", "ayuda", "req", "opciones": [..] | None, "ancho"}]"""
+    return plantilla_hojas(titulo, [("Data", columnas, ejemplos)], instrucciones)
+
+
+def plantilla_hojas(titulo: str, hojas: list[tuple[str, list[dict], list[list] | None]],
+                    instrucciones: list[str] | None = None) -> bytes:
+    """Varias hojas de datos (p. ej. Generics y Sizes) con una sola hoja de
+    valores permitidos y de instrucciones."""
+    wb = Workbook()
+    primera = True
+    hojas_ws = []
+    for nombre, _, _ in hojas:
+        ws = wb.active if primera else wb.create_sheet(nombre)
+        ws.title = nombre
+        primera = False
+        hojas_ws.append(ws)
+    valores = wb.create_sheet("Values")
+    guia = wb.create_sheet("Instructions")
+    col_val = 1
+    for ws, (_, columnas, ejemplos) in zip(hojas_ws, hojas):
+        col_val = _hoja_datos(ws, valores, col_val, columnas, ejemplos)
     guia.column_dimensions["A"].width = 30
     guia.column_dimensions["B"].width = 100
     guia.cell(row=1, column=1, value=titulo).font = Font(bold=True, size=14)
@@ -77,33 +95,43 @@ def plantilla(titulo: str, columnas: list[dict], ejemplos: list[list] | None = N
         guia.cell(row=fila, column=1, value=t).alignment = Alignment(wrap_text=True)
         guia.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=2)
         fila += 1
-    fila += 1
-    for n, t in (("Column", "What goes in it"),):
-        guia.cell(row=fila, column=1, value=n).font = Font(bold=True)
-        guia.cell(row=fila, column=2, value=t).font = Font(bold=True)
-    fila += 1
-    for c in columnas:
-        a = guia.cell(row=fila, column=1, value=c["nombre"] + (" *" if c.get("req") else ""))
-        if c.get("req"):
-            a.fill = PatternFill("solid", fgColor=REQ)
-        ayuda = c.get("ayuda") or ""
-        if c.get("opciones"):
-            ayuda += (" " if ayuda else "") + "Choose from the list (sheet Values)."
-        guia.cell(row=fila, column=2, value=ayuda).alignment = Alignment(wrap_text=True)
+    for nombre, columnas, _ in hojas:
         fila += 1
+        guia.cell(row=fila, column=1, value=f"Sheet {nombre}" if len(hojas) > 1 else "Column").font = Font(bold=True)
+        guia.cell(row=fila, column=2, value="What goes in it").font = Font(bold=True)
+        fila += 1
+        for c in columnas:
+            a = guia.cell(row=fila, column=1, value=c["nombre"] + (" *" if c.get("req") else ""))
+            if c.get("req"):
+                a.fill = PatternFill("solid", fgColor=REQ)
+            ayuda = c.get("ayuda") or ""
+            if c.get("opciones"):
+                ayuda += (" " if ayuda else "") + "Choose from the list (sheet Values)."
+            guia.cell(row=fila, column=2, value=ayuda).alignment = Alignment(wrap_text=True)
+            fila += 1
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
 
 
-def leer(nombre: str, contenido: bytes, alias: dict[str, str]) -> list[dict]:
+def hojas(nombre: str, contenido: bytes) -> list[str]:
+    if not (nombre or "").lower().endswith((".xlsx", ".xlsm")):
+        return []
+    try:
+        return load_workbook(io.BytesIO(contenido), read_only=True).sheetnames
+    except Exception:
+        return []
+
+
+def leer(nombre: str, contenido: bytes, alias: dict[str, str], hoja: str | None = None,
+         vacio_ok: bool = False) -> list[dict]:
     """Filas del archivo como {campo: texto, "_fila": n}. `alias` lleva el
     encabezado normalizado al nombre del campo."""
     nombre = (nombre or "").lower()
     try:
         if nombre.endswith((".xlsx", ".xlsm")):
             wb = load_workbook(io.BytesIO(contenido), read_only=True, data_only=True)
-            ws = wb["Data"] if "Data" in wb.sheetnames else wb.active
+            ws = wb[hoja] if hoja and hoja in wb.sheetnames else wb["Data"] if "Data" in wb.sheetnames else wb.active
             filas = [[texto(v) for v in f] for f in ws.iter_rows(values_only=True)]
         elif nombre.endswith((".csv", ".txt")):
             t = contenido.decode("utf-8-sig", errors="replace")
@@ -116,6 +144,8 @@ def leer(nombre: str, contenido: bytes, alias: dict[str, str]) -> list[dict]:
     except Exception:
         raise ErrorNegocio("The file could not be read. Use the template.", 422, "formato")
     filas = [f for f in filas if any(v for v in f)]
+    if len(filas) < 2 and vacio_ok:
+        return []
     if len(filas) < 2:
         raise ErrorNegocio("The file has no rows with data.", 422, "archivo_vacio")
     enc = [alias.get(norm(h), norm(h)) for h in filas[0]]

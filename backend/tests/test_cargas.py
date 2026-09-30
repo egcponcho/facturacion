@@ -22,8 +22,11 @@ def _subir(api, url, contenido):
 
 def test_articulos_con_ficha(interno):
     pl = interno.get("/catalogos/articulos/plantilla")
-    enc = [c.value for c in load_workbook(io.BytesIO(pl.content))["Data"][1]]
-    assert enc[0] == "Item code *" and "Supplier SKU" in enc and "Category" in enc and "Upper" in enc
+    wb = load_workbook(io.BytesIO(pl.content))
+    enc = [c.value for c in wb["Generics"][1]]
+    assert enc[0] == "Generic code *" and "Category" in enc and "Upper" in enc
+    assert "Supplier SKU" in [c.value for c in wb["Sizes"][1]]
+    # También se acepta una hoja con una fila por artículo (formato anterior)
     enc = ["Item code", "Supplier SKU", "Style", "Color", "Size", "Brand", "Item group", "Supplier", "Unit",
            "Commercial name", "Category", "Gender", "Who it is for", "Country of origin", "Upper", "Sole", "Footwear style"]
     filas = [enc,
@@ -93,3 +96,69 @@ def test_tablero_por_periodo(interno, tnf):
     # Seguimiento con varios valores en un filtro
     r = interno.get("/seguimiento/ordenes", params={"proveedor": "The North Face,Vans"}).json()
     assert r["total"] >= interno.get("/seguimiento/ordenes", params={"proveedor": "Vans"}).json()["total"]
+
+
+def test_genericos(interno):
+    """El código de artículo: 8 dígitos de genérico (estilo-color) + 3 de talla.
+    La clasificación es del genérico; sus tallas y prepacks la comparten."""
+    m = {x["codigo"]: x["id"] for x in interno.get("/catalogos/marcas", params={"size": 100}).json()["items"]}
+    g = {x["codigo"]: x["id"] for x in interno.get("/catalogos/grupos").json()["items"]}
+    pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
+    base = {"estilo": "vn0a3wm3", "color": "Navy", "marca_id": m["VANS"], "grupo_id": g["CALZ-CAS"], "proveedor_id": pv["VANS"],
+            "unidad": "PAR"}
+    assert interno.post("/catalogos/genericos", {**base, "generico": "2009997"}).status_code == 422
+    r = interno.post("/catalogos/genericos", {**base, "generico": "30099970", "nombre": "Era",
+                                              "tallas": [{"talla": "8", "upc": "0196999000001", "sku_proveedor": "VN0A3WM3NVY-8"},
+                                                         {"talla": "9"}, {"talla": "10", "sufijo": "010"}]})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert [t["sku"] for t in d["tallas"]] == ["30099970001", "30099970002", "30099970010"] and d["siguiente"] == "011"
+    assert d["estilo"] == "VN0A3WM3"
+    # Agregar tallas: heredan los datos del genérico; una talla repetida no entra
+    r = interno.post("/catalogos/genericos/30099970/tallas", {"tallas": [{"talla": "11"}]})
+    assert r.status_code == 200 and r.json()["tallas"][-1]["sku"] == "30099970011"
+    assert interno.post("/catalogos/genericos/30099970/tallas", {"tallas": [{"talla": "8"}]}).status_code == 422
+    # Un artículo suelto con ese genérico debe ser del mismo estilo-color
+    r = interno.post("/catalogos/articulos", {**base, "sku": "30099970020", "talla": "12", "color": "Red", "tipo": "SOLIDO"})
+    assert r.status_code == 422 and "Generic 30099970" in r.json()["detalle"][0]["mensaje"]
+    # Todas las tallas son un solo producto (la clasificación es del genérico)
+    prod = interno.get("/productos", params={"q": "30099970"}).json()["items"]
+    assert len(prod) == 1 and prod[0]["codigo_generico"] == "30099970" and prod[0]["skus"] == 4
+    # Un prepack debe llevar el genérico de sus sólidos
+    sol = interno.get("/catalogos/articulos", params={"q": "30099970001"}).json()["items"][0]
+    r = interno.post("/catalogos/prepacks", {"sku": "30099971001", "codigo": "EE04", "estilo": "VN0A3WM3", "color": "Navy",
+                                             "componentes": [{"articulo_id": sol["id"], "cantidad": 4}]})
+    assert r.status_code == 422 and "generic of its solids" in r.text
+    r = interno.post("/catalogos/prepacks", {"sku": "30099970900", "codigo": "EE04", "estilo": "VN0A3WM3", "color": "Navy",
+                                             "componentes": [{"articulo_id": sol["id"], "cantidad": 4}]})
+    assert r.status_code == 200, r.text
+    assert interno.get("/productos", params={"q": "30099970"}).json()["items"][0]["prepacks"] == 1
+
+
+def test_carga_por_generico(interno):
+    pl = load_workbook(io.BytesIO(interno.get("/catalogos/articulos/plantilla").content))
+    assert pl.sheetnames[:2] == ["Generics", "Sizes"] and pl["Generics"]["A1"].value == "Generic code *"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Generics"
+    ws.append(["Generic code", "Style", "Color", "Brand", "Item group", "Supplier", "Unit", "Commercial name",
+               "Country of origin", "Upper", "Sole"])
+    ws.append(["30099960", "VN0A4U39", "True White", "VANS", "CALZ-CAS", "VANS", "PAR", "Old Skool Pro", "China",
+               "100% suede", "100% rubber"])
+    ws.append(["3009996", "X", "Y", "VANS", "CALZ-CAS", "VANS", "PAR", "", "", "", ""])
+    t = wb.create_sheet("Sizes")
+    t.append(["Generic code", "Size", "Size code", "UPC", "Supplier SKU"])
+    t.append(["30099960", "7", "", "0196888000007", "VN0A4U39W-7"])
+    t.append(["30099960", "8", "", "0196888000008", "VN0A4U39W-8"])
+    t.append(["30099961", "9", "", "", ""])
+    b = io.BytesIO()
+    wb.save(b)
+    r = _subir(interno, "/catalogos/articulos/importar", b.getvalue()).json()
+    assert r["genericos_creados"] == 1 and r["creados"] == 2 and len(r["errores"]) == 2, r
+    det = interno.get(f"/productos/{r['productos'][0]}").json()
+    assert det["codigo_generico"] == "30099960" and det["ficha"]["comp"]["corte"] == "100% suede"
+    assert sorted(a["sku"] for a in det["articulos"]) == ["30099960001", "30099960002"]
+    # La misma carga otra vez actualiza (no duplica)
+    b.seek(0)
+    r = _subir(interno, "/catalogos/articulos/importar", b.getvalue()).json()
+    assert r["genericos_actualizados"] == 1 and r["actualizados"] == 2 and r["creados"] == 0

@@ -111,39 +111,82 @@ def producto_de(a: Articulo | None) -> Producto | None:
     return a.producto
 
 
+RE_ARTICULO = re.compile(r"^3\d{10}$")
+
+
+def generico_de(sku: str | None) -> str | None:
+    """Los primeros 8 dígitos del código de artículo (estilo-color); los 3
+    últimos son la talla del sólido o del prepack."""
+    s = str(sku or "").strip()
+    return s[:8] if RE_ARTICULO.match(s) else None
+
+
+def producto_por_generico(db: Session, gen: str | None) -> Producto | None:
+    return db.scalar(select(Producto).where(Producto.codigo_generico == gen)) if gen else None
+
+
 def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
-    """Liga el artículo con el producto de su estilo-color (lo crea si no existe).
-    Un prepack no abre producto propio: queda ligado al de sus sólidos."""
-    if a.tipo == "PREPACK":
+    """Liga el artículo con el producto de su genérico (primeros 8 dígitos);
+    lo crea si no existe. Sólidos y prepacks del mismo genérico comparten la
+    ficha técnica y la clasificación: el prepack no se clasifica aparte."""
+    gen = generico_de(a.sku)
+    p = producto_por_generico(db, gen)
+    if not p and a.tipo == "PREPACK":
         p = producto_de(a) if a.prepack else None
-        if p:
-            a.producto = p
-            return p
-        if a.producto_id or not a.proveedor_id or not a.estilo:
-            return a.producto
+    if not p and a.proveedor_id and a.estilo:
+        # Datos anteriores sin genérico: por proveedor, estilo y color
         p = db.scalar(select(Producto).where(Producto.proveedor_id == a.proveedor_id, Producto.estilo == a.estilo,
-                                             Producto.color.is_(None) if a.color is None else Producto.color == a.color))
-        if p:
-            a.producto = p
-        return p
-    if not a.proveedor_id or not a.estilo:
-        return None
-    p = a.producto if a.producto and a.producto.estilo == a.estilo and a.producto.color == a.color \
-        and a.producto.proveedor_id == a.proveedor_id else None
+                                             Producto.color.is_(None) if a.color is None else Producto.color == a.color,
+                                             or_(Producto.codigo_generico.is_(None), Producto.codigo_generico == gen)))
     if not p:
-        p = db.scalar(select(Producto).where(Producto.proveedor_id == a.proveedor_id, Producto.estilo == a.estilo,
-                                             Producto.color.is_(None) if a.color is None else Producto.color == a.color))
-    if not p:
+        if not a.proveedor_id or not a.estilo:
+            return None
         p = Producto(proveedor_id=a.proveedor_id, estilo=a.estilo, color=a.color, marca_id=a.marca_id,
-                     grupo_id=a.grupo_id, nombre=a.descripcion, ficha={}, faltan=[], alertas_ok=[])
+                     grupo_id=a.grupo_id, unidad=a.unidad if a.tipo == "SOLIDO" else None, ficha={}, faltan=[],
+                     alertas_ok=[])
         db.add(p)
-        db.flush()
-    if not p.marca_id:
-        p.marca_id = a.marca_id
-    if not p.grupo_id:
-        p.grupo_id = a.grupo_id
+    if gen and not p.codigo_generico:
+        p.codigo_generico = gen
+    p.marca_id = p.marca_id or a.marca_id
+    p.grupo_id = p.grupo_id or a.grupo_id
+    if a.tipo == "SOLIDO" and not p.unidad:
+        p.unidad = a.unidad
+    db.flush()
     a.producto = p
+    if not p.descripcion_comercial and not (p.ficha or {}).get("comManual"):
+        p.descripcion_comercial = descripcion_comercial_simple(p)
     return p
+
+
+def tipo_comercial(tipo: str | None, ficha: dict | None) -> str:
+    """El tipo de producto en español para la factura (misma regla que el motor)."""
+    from .meta import tipos
+
+    f = ficha or {}
+    if not tipo:
+        return ""
+    if tipo == "calzado":
+        return "CALZADO"
+    if tipo == "chaqueta":
+        h = f.get("hechura")
+        return "CHALECO" if h in ("chaleco", "chaleco_relleno", "reflectivo") else "SACO" if h == "blazer" else "CHAQUETA"
+    if tipo == "pantalon":
+        return "SHORT" if f.get("largo") == "corto" else "PANTALÓN"
+    if tipo == "camiseta":
+        return "POLO" if f.get("polo") else "CAMISETA"
+    if tipo == "sudadera":
+        return "SUÉTER" if f.get("sueter") else "SUDADERA"
+    t = tipos().get(tipo) or {}
+    return str(t.get("es") or t.get("corto") or tipo).split(" o ")[0].upper()
+
+
+def descripcion_comercial_simple(p: Producto) -> str | None:
+    """Descripción comercial de factura y packing list: tipo y marca (p. ej. CALZADO VANS)."""
+    tipo = tipo_comercial(p.tipo, p.ficha)
+    if not tipo:
+        return None
+    marca = (p.marca.nombre if p.marca else "") or ""
+    return f"{tipo} {marca}".strip().upper()[:300]
 
 
 def pais_de_centro(db: Session, centro: str | None) -> str | None:
@@ -443,7 +486,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
 
 
 # ---- Guardar la ficha técnica ------------------------------------------------
-CAMPOS_TEXTO = {"nombre": 200, "codigo_generico": 20, "notas": 1000}
+CAMPOS_TEXTO = {"nombre": 200, "notas": 1000}  # el genérico sale del código de artículo
 
 
 def _aplicar_resultado(p: Producto, r: dict | None) -> None:
@@ -461,8 +504,8 @@ def _aplicar_resultado(p: Producto, r: dict | None) -> None:
                                         "razones_regla", "codigo_regla", "atributos", "tipo_txt") if r.get(k) is not None}
     if r.get("descripcion_aduana") is not None and not (p.ficha or {}).get("descManual"):
         p.descripcion_aduana = str(r["descripcion_aduana"])[:400] or None
-    if r.get("descripcion_comercial") is not None and not (p.ficha or {}).get("comManual"):
-        p.descripcion_comercial = str(r["descripcion_comercial"])[:300] or None
+    if not (p.ficha or {}).get("comManual"):
+        p.descripcion_comercial = (str(r.get("descripcion_comercial") or "")[:300] or None) or descripcion_comercial_simple(p)
     p.ficha_completa = bool(r.get("completa"))
     p.faltan = [str(x)[:120] for x in (r.get("faltan") or [])][:20]
     if p.estado not in APROBADOS:
@@ -796,10 +839,10 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
     k = r["kpis"]
     indicadores = [("Products", f"{k['total']:,}"), ("To classify", f"{k['pendientes']:,}"),
                    ("Returned", f"{k['observado']:,}"), ("Approved", f"{k['aprobados']:,}")]
-    columnas = [("Style", 1.1, False), ("Color", 1.3, False), ("Name", 1.8, False), ("Supplier", 1.2, False),
+    columnas = [("Generic", 1, False), ("Style", 1.1, False), ("Color", 1.3, False), ("Name", 1.8, False), ("Supplier", 1.2, False),
                 ("Brand", 0.7, False), ("Type", 0.9, False), ("Status", 0.9, False), ("HS code", 0.9, False),
                 ("Suggested", 0.9, False), ("Countries", 0.7, True), ("Origin", 0.6, False), ("SKUs", 0.5, True)]
-    filas = [[p["estilo"], p["color"], p["nombre"] or "—", p["proveedor"] or "—", p["marca"] or "—", p["tipo"] or "—",
+    filas = [[p["codigo_generico"] or "—", p["estilo"], p["color"], p["nombre"] or "—", p["proveedor"] or "—", p["marca"] or "—", p["tipo"] or "—",
               p["estado_txt"], p["codigo"] or "—", p["sugerido"] or "—", f"{p['paises_ok']}/{p['paises_total']}",
               p["pais_origen"] or "—", p["skus"]] for p in r["items"]]
     nombres = {"q": "Search", "estado": "Status", "tipo": "Type", "proveedor_id": "Supplier", "marca_id": "Brand"}

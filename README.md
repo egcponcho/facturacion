@@ -100,7 +100,7 @@ The HS code, the country of origin, the product type and the description are not
 
 ## Products: technical sheet and tariff classification
 
-A **product** is a style and color of one supplier. Its sizes (SKUs, each with its UPC) and prepacks share one technical sheet and one classification, so products are created automatically from the item master and nothing is typed twice.
+The **item code** has 11 digits starting with 3: the first 8 are the **generic** (style-color) and the last 3 the size, for solids and prepacks alike (e.g. 30095125001 is size 7 of generic 30095125; 30095125007 is its prepack AB12). A **product** is a generic: its sizes and prepacks share one technical sheet and one classification. A generic is created once with its master data (*Master data → Items → New generic*) and then only sizes are added, each with its own size code, UPC and supplier SKU. A prepack keeps the generic of its solids and only changes the last 3 digits.
 
 - **Technical sheet**: product type, gender, who it is for, use, size range, country of origin, composition by part (outer fabric, lining, upper, sole…), the features that change the code (only those are asked), photos and the customs description in Spanish for the DUCA (built from the sheet, or written by hand).
 - **Classification engine**: runs in the browser while the sheet is edited. It applies the Harmonized System 2022 rules (GRI, section and chapter notes) for clothing, footwear, bags and accessories, learns from what was already approved and returns the 6-digit SAC subheading, its confidence, the reasoning, alternatives and inconsistencies to check.
@@ -108,7 +108,7 @@ A **product** is a style and color of one supplier. Its sizes (SKUs, each with i
 - **Flow**: the supplier completes the sheet → *To review* → the internal team **approves** (or chooses another code) or **returns** it with notes. Approved sheets are locked; a change opens a **new version**, and the previous one stays in the history with its code and dates.
 - **Where it is used**: each PO line shows the code for its destination country; invoice lines take the code, origin and customs description from the approved sheet (they are not typed on the invoice). An invoice cannot be finalized while a product is not classified; the message links to its sheet.
 - **Specialist opinion (optional)**: with `ANTHROPIC_API_KEY`, the internal team can ask Claude for a second opinion with the sheet and up to two photos. It never approves anything.
-- **Two descriptions**, both built from the sheet and editable: the technical one in Spanish for the invoice and the DUCA, and the commercial one used for every size (item code) of the product.
+- **Two descriptions**, both built from the sheet and editable: the technical one in Spanish for the DUCA, and a simple commercial one — product type and brand, e.g. *CALZADO VANS* or *CHAQUETA THE NORTH FACE* — used on the invoice and the packing list.
 - **Prepacks are not classified**: they are built from solids and take the product and HS code of their solids.
 - The sheet downloads as **PDF**, and the product list as Excel or PDF.
 
@@ -123,7 +123,7 @@ A **product** is a style and color of one supplier. Its sizes (SKUs, each with i
 
 ## Bulk uploads and exports
 
-- **Items with their technical sheet** (*Master data → Items* or *Products*): an Excel template with the item columns (item code, supplier SKU, UPC, style, color, size, brand, group, supplier, unit) and the sheet columns (name, category, gender, age, use, sizes, origin, composition by part and the features that change the code). After the upload, the engine completes each product and suggests its HS code automatically.
+- **Items by generic, with their technical sheet** (*Master data → Items* or *Products*): an Excel template with two sheets. *Generics*: one row per generic with its master data (style, color, brand, group, supplier, unit) and the sheet columns (name, category, gender, age, use, sizes, origin, composition by part and the features that change the code). *Sizes*: one row per size with its size code (or the next free one), UPC and supplier SKU. After the upload, the engine completes each generic and suggests its HS code automatically. A single sheet with one row per item code is also accepted.
 - **Every master-data catalog** (brands, groups, suppliers, companies, plants, contacts, warehouses, carriers, unit types, countries, ports) has its own Excel template, upload (creates or updates by code) and Excel/PDF export with the filters of the screen.
 - **Reports** follow the filters selected on screen; the dimension filters accept one or several values.
 

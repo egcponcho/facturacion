@@ -215,8 +215,8 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int, pais: str | None
         centro_destino=oc.centro_destino,
         pais_origen=p.pais_origen or (prod.pais_origen if prod else None),
         partida_arancelaria=partida_para(prod, pais),
-        descripcion_comercial=(prod.descripcion_aduana if prod and prod.aprobado and prod.descripcion_aduana
-                               else p.descripcion),
+        # Descripción comercial simple de la ficha (tipo y marca, p. ej. CALZADO VANS)
+        descripcion_comercial=(prod.descripcion_comercial if prod and prod.descripcion_comercial else p.descripcion),
     )
 
 

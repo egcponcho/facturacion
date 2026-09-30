@@ -162,7 +162,7 @@ watch(() => sesion.proveedorId, recargar)
   <div class="filtros">
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
-      <input v-model="filtros.q" type="search" placeholder="Style, color, name, SKU, UPC or HS code" aria-label="Search" @input="buscar" />
+      <input v-model="filtros.q" type="search" placeholder="Generic, style, color, name, item code, UPC or HS code" aria-label="Search" @input="buscar" />
     </label>
     <FiltroMulti v-model="filtros.marcas" etiqueta="Brand" :opciones="opciones.marcas.map((m) => ({ valor: String(m.id), texto: m.nombre }))" @change="recargar" />
     <FiltroMulti v-model="filtros.tipos" etiqueta="Category" :opciones="Object.entries(M.TIPO_CORTO).map(([valor, texto]) => ({ valor, texto }))" @change="recargar" />
@@ -192,7 +192,7 @@ watch(() => sesion.proveedorId, recargar)
                 <Icono v-else nombre="caja" :tam="18" />
               </span>
               <span>
-                <router-link :to="`/productos/${p.id}`" class="fuerte" @click.stop>{{ p.estilo }} · {{ p.color }}</router-link>
+                <router-link :to="`/productos/${p.id}`" class="fuerte" @click.stop><span v-if="p.codigo_generico" class="codigo-sac">{{ p.codigo_generico }}</span> {{ p.estilo }} · {{ p.color }}</router-link>
                 <span class="sub">{{ p.nombre || '—' }} · {{ p.marca_nombre || p.marca }}<template v-if="p.tipo"> · {{ M.TIPO_CORTO[p.tipo] || p.tipo }}</template> · {{ p.skus }} SKU</span>
               </span>
             </div>

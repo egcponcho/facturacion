@@ -13,13 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..models import Articulo, GrupoArticulo, Marca, Pais, Proveedor, Usuario
+from ..models import Articulo, GrupoArticulo, Marca, Pais, Producto, Proveedor, Usuario
 from . import catalogos as cat_svc
 from . import documentos, exportar
 from .common import ErrorNegocio, exigir, registrar
 from .meta import attrs, tipo_de, tipos, valor_opcion
-from .plantillas import leer, norm, plantilla, si_no
-from .productos import APROBADOS, asegurar_producto
+from .plantillas import hojas, leer, norm, plantilla, plantilla_hojas, si_no
+from .productos import APROBADOS, asegurar_producto, descripcion_comercial_simple, producto_por_generico
 
 # ---- Artículos con ficha técnica -------------------------------------------------------
 PARTES = [("exterior", "Outer fabric"), ("forro", "Lining"), ("relleno", "Fill"), ("corte", "Upper"), ("suela", "Sole"),
@@ -54,21 +54,9 @@ for _k, _l in ATRIBUTOS:
     ALIAS_ART[norm(_k)] = "a_" + _k
 
 
-def plantilla_articulos(db: Session) -> bytes:
-    marcas = [m.codigo for m in db.scalars(select(Marca).order_by(Marca.codigo))]
-    grupos = [g.codigo for g in db.scalars(select(GrupoArticulo).order_by(GrupoArticulo.codigo))]
-    provs = [p.codigo for p in db.scalars(select(Proveedor).order_by(Proveedor.codigo))]
+def _cols_ficha() -> list[dict]:
     categorias = [t["l"] for t in tipos().values()]
     cols = [
-        {"nombre": "Item code", "req": True, "ayuda": "11 digits starting with 3 (e.g. 30095120001). Existing codes are updated.", "ancho": 14},
-        {"nombre": "Supplier SKU", "ayuda": "The supplier's own code (e.g. VN0A4BV4W00-7).", "ancho": 18},
-        {"nombre": "UPC", "ancho": 15},
-        {"nombre": "Style", "req": True, "ancho": 12}, {"nombre": "Color", "req": True, "ancho": 14},
-        {"nombre": "Size", "req": True, "ancho": 8},
-        {"nombre": "Brand", "req": True, "opciones": marcas, "ayuda": "Brand code.", "ancho": 10},
-        {"nombre": "Item group", "req": True, "opciones": grupos, "ayuda": "Group code (packing rule).", "ancho": 12},
-        {"nombre": "Supplier", "req": True, "opciones": provs, "ayuda": "Supplier code.", "ancho": 10},
-        {"nombre": "Unit", "req": True, "opciones": ["PAR", "UN"], "ayuda": "PAR (pairs) or UN (units).", "ancho": 8},
         {"nombre": "Commercial name", "ayuda": "Technical sheet: product name, e.g. Old Skool canvas sneaker. The engine reads it.", "ancho": 30},
         {"nombre": "Category", "opciones": categorias, "ayuda": "Technical sheet: what the product is. If empty, the engine detects it from the name.", "ancho": 30},
         {"nombre": "Gender", "opciones": list(GENERO.values()), "ancho": 10},
@@ -76,7 +64,6 @@ def plantilla_articulos(db: Session) -> bytes:
         {"nombre": "What it is for", "ayuda": "Short phrase, e.g. casual everyday sneaker.", "ancho": 26},
         {"nombre": "Size range", "ayuda": "e.g. 7 to 12, S to XL. If empty, taken from the sizes.", "ancho": 12},
         {"nombre": "Country of origin", "ayuda": "ISO code or name (e.g. VN or Vietnam).", "ancho": 14},
-        {"nombre": "Generic code", "ancho": 12},
     ]
     for k, l in PARTES:
         cols.append({"nombre": l, "ayuda": f"Composition of the {l.lower()} with percentages, e.g. 60% cotton, 40% polyester.", "ancho": 22})
@@ -87,31 +74,184 @@ def plantilla_articulos(db: Session) -> bytes:
         elif a:
             cols.append({"nombre": l, "opciones": [o["l"] for o in a["ops"]], "ayuda": a["label"], "ancho": 22})
     cols.append({"nombre": "Proposed HS code", "ayuda": "Optional: HS code the supplier proposes. Customs reviews it.", "ancho": 14})
-    ej = ["30095129001", "VN0A5KRFBLK-8", "0196012345678", "VN0A5KRF", "Black", "8", marcas[0] if marcas else "",
-          grupos[0] if grupos else "", provs[0] if provs else "", "PAR", "Sk8-Hi canvas sneaker", "Footwear: sneakers, boots, shoes, sandals",
-          "Unisex", "Adult", "Casual skate sneaker", "6 to 12", "VN", "", "", "", "", "100% canvas", "100% rubber", "100% textile",
-          "100% EVA", "", "", "", "", "", "", "", "Sneaker", "Covers the ankle", "Skate", "No toe cap", "No", ""]
-    return plantilla("Items with technical sheet", cols, [ej[:len(cols)]], [
-        "One row per item (size). Rows of the same style and color share one product and its technical sheet.",
-        "Only the item columns are required. Fill the technical sheet columns you have: the classification engine "
-        "completes the rest from the name, the use and the composition, and suggests the HS code right after the upload.",
-        "Prepacks are not loaded here: they are built from solids in Master data → Prepacks and take their classification.",
+    return cols
+
+
+def plantilla_articulos(db: Session) -> bytes:
+    """Dos hojas: Generics (una fila por genérico, con su ficha técnica) y
+    Sizes (una fila por talla, con lo propio de cada una)."""
+    marcas = [m.codigo for m in db.scalars(select(Marca).order_by(Marca.codigo))]
+    grupos = [g.codigo for g in db.scalars(select(GrupoArticulo).order_by(GrupoArticulo.codigo))]
+    provs = [p.codigo for p in db.scalars(select(Proveedor).order_by(Proveedor.codigo))]
+    gen_cols = [
+        {"nombre": "Generic code", "req": True, "ayuda": "First 8 digits of the item code (style-color), starting with 3, e.g. 30095129.", "ancho": 13},
+        {"nombre": "Style", "req": True, "ancho": 12}, {"nombre": "Color", "req": True, "ancho": 14},
+        {"nombre": "Brand", "req": True, "opciones": marcas, "ayuda": "Brand code.", "ancho": 10},
+        {"nombre": "Item group", "req": True, "opciones": grupos, "ayuda": "Group code (packing rule).", "ancho": 12},
+        {"nombre": "Supplier", "req": True, "opciones": provs, "ayuda": "Supplier code.", "ancho": 10},
+        {"nombre": "Unit", "req": True, "opciones": ["PAR", "UN"], "ayuda": "PAR (pairs) or UN (units) of its sizes.", "ancho": 8},
+    ] + _cols_ficha()
+    tallas_cols = [
+        {"nombre": "Generic code", "req": True, "ayuda": "The generic of the sheet Generics (or one already loaded).", "ancho": 13},
+        {"nombre": "Size", "req": True, "ayuda": "e.g. 8, 8.5, M, OS.", "ancho": 8},
+        {"nombre": "Size code", "ayuda": "Last 3 digits of the item code. Empty = the next free one (001, 002…).", "ancho": 10},
+        {"nombre": "UPC", "ancho": 15},
+        {"nombre": "Supplier SKU", "ayuda": "The supplier's own code (e.g. VN0A5KRFBLK-8).", "ancho": 18},
+        {"nombre": "Active", "opciones": ["Yes", "No"], "ancho": 8},
+    ]
+    ej_gen = ["30095129", "VN0A5KRF", "Black", marcas[-1] if marcas else "", grupos[0] if grupos else "",
+              provs[-1] if provs else "", "PAR", "Sk8-Hi canvas sneaker", "Footwear: sneakers, boots, shoes, sandals", "Unisex",
+              "Adult", "Casual skate sneaker", "6 to 12", "VN", "", "", "", "100% canvas", "100% rubber", "100% textile", "100% EVA"]
+    ej_tallas = [["30095129", t, f"{i:03d}", f"01960129{i:04d}", f"VN0A5KRFBLK-{t}", "Yes"] for i, t in enumerate(["8", "9", "10"], 1)]
+    return plantilla_hojas("Items by generic, with technical sheet",
+                           [("Generics", gen_cols, [ej_gen]), ("Sizes", tallas_cols, ej_tallas)], [
+        "The item code has 11 digits: the first 8 are the generic (style-color) and the last 3 the size. "
+        "Classification and technical sheet are per generic, so they are loaded once in the sheet Generics.",
+        "Sheet Sizes: one row per size of each generic with its own data (size code, UPC, supplier SKU). "
+        "The style, color, brand, group, supplier and unit come from the generic.",
+        "Fill the technical sheet columns you have: the classification engine completes the rest and suggests the HS code right after the upload.",
+        "Prepacks are not loaded here: they are created with the generic of their solids in Master data → Prepacks and take their classification.",
         "Approved technical sheets are not changed by an upload; open a new version to change them.",
     ])
 
 
 def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
     exigir(user, "catalogos.editar")
+    if "Generics" in hojas(nombre, contenido) or "Sizes" in hojas(nombre, contenido):
+        return importar_por_generico(db, user, nombre, contenido)
+    return _importar_por_articulo(db, user, nombre, contenido)
+
+
+def _paises(db: Session) -> dict:
+    out = {}
+    for p in db.scalars(select(Pais)):
+        out[norm(p.codigo)] = p.codigo
+        out[norm(p.nombre)] = p.codigo
+    return out
+
+
+def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
+    """Hoja Generics: datos maestros y ficha de cada genérico. Hoja Sizes:
+    las tallas de cada genérico con su código, UPC y SKU del proveedor."""
+    from .genericos import RE_GEN, siguiente_sufijo, _sufijos
+
+    alias = {**ALIAS_ART, "generic_code": "generico", "generic": "generico", "generico": "generico",
+             "size_code": "sufijo", "sufijo": "sufijo"}
+    gens = leer(nombre, contenido, alias, hoja="Generics", vacio_ok=True)
+    tallas = leer(nombre, contenido, alias, hoja="Sizes", vacio_ok=True)
+    cods = {
+        "marca": {m.codigo: m.id for m in db.scalars(select(Marca))},
+        "grupo": {g.codigo: g.id for g in db.scalars(select(GrupoArticulo))},
+        "proveedor": {p.codigo: p.id for p in db.scalars(select(Proveedor))},
+    }
+    paises = _paises(db)
+    errores, productos = [], {}
+    creados = actualizados = 0
+    for f in gens:
+        gen = (f.get("generico") or "").strip()
+        if not RE_GEN.match(gen):
+            errores.append({"fila": f"Generics {f['_fila']}", "mensaje": "The generic code has 8 digits and starts with 3."})
+            continue
+        faltan, ids = [], {}
+        for campo, lbl in (("marca", "Brand"), ("grupo", "Item group"), ("proveedor", "Supplier")):
+            cod = (f.get(campo) or "").strip().upper()
+            if cod not in cods[campo]:
+                faltan.append(f"{lbl} {cod or '(empty)'} does not exist")
+            ids[campo] = cods[campo].get(cod)
+        unidad = (f.get("unidad") or "").strip().upper()
+        if unidad not in ("PAR", "UN"):
+            faltan.append("Unit must be PAR or UN")
+        estilo, color = (f.get("estilo") or "").strip().upper(), (f.get("color") or "").strip()
+        if not estilo or not color:
+            faltan.append("Style and color are required")
+        if faltan:
+            errores.append({"fila": f"Generics {f['_fila']}", "mensaje": "; ".join(faltan) + "."})
+            continue
+        p = producto_por_generico(db, gen)
+        if p and _sufijos(db, gen) and (p.estilo != estilo or (p.color or "") != color or p.proveedor_id != ids["proveedor"]):
+            errores.append({"fila": f"Generics {f['_fila']}", "mensaje": f"Generic {gen} already exists as {p.estilo} {p.color}."})
+            continue
+        try:
+            with db.begin_nested():
+                if not p:
+                    p = Producto(codigo_generico=gen, ficha={}, faltan=[], alertas_ok=[])
+                    db.add(p)
+                    creados += 1
+                else:
+                    actualizados += 1
+                p.estilo, p.color, p.proveedor_id = estilo, color, ids["proveedor"]
+                p.marca_id, p.grupo_id, p.unidad = ids["marca"], ids["grupo"], unidad
+                db.flush()
+                aviso = _ficha_desde_fila(p, {k: v for k, v in f.items() if k != "codigo_generico"}, paises)
+                if not (p.ficha or {}).get("comManual"):
+                    p.descripcion_comercial = descripcion_comercial_simple(p)
+                if aviso:
+                    errores.append({"fila": f"Generics {f['_fila']}", "mensaje": aviso})
+                productos[p.id] = p.estado
+        except IntegrityError:
+            errores.append({"fila": f"Generics {f['_fila']}", "mensaje": f"{estilo} {color} already exists with another generic."})
+    cat = cat_svc.CATALOGOS["articulos"]
+    tallas_creadas = tallas_act = 0
+    for f in tallas:
+        gen = (f.get("generico") or "").strip()
+        sku = (f.get("sku") or "").strip()
+        if not gen and sku:
+            gen = sku[:8]
+        p = producto_por_generico(db, gen)
+        talla = (f.get("talla") or "").strip().upper()
+        if not p or not talla:
+            errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": f"Generic {gen or '(empty)'} does not exist or the size is empty."})
+            continue
+        suf = (f.get("sufijo") or "").strip() or (sku[8:] if len(sku) == 11 else "")
+        existente = db.scalar(select(Articulo).where(Articulo.sku == gen + suf)) if suf else db.scalar(
+            select(Articulo).where(Articulo.sku.startswith(gen), Articulo.tipo == "SOLIDO", Articulo.talla == talla))
+        if suf and not re.fullmatch(r"\d{3}", suf):
+            errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": "The size code has 3 digits (e.g. 001)."})
+            continue
+        datos = {"sku": existente.sku if existente else gen + (suf or siguiente_sufijo(db, gen)),
+                 "estilo": p.estilo, "color": p.color, "talla": talla, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
+                 "proveedor_id": p.proveedor_id, "tipo": "SOLIDO", "unidad": p.unidad or "UN"}
+        for k in ("upc", "sku_proveedor"):
+            if f.get(k):
+                datos[k] = f[k].strip()
+        if f.get("activo"):
+            datos["activo"] = si_no(f["activo"]) is not False
+        try:
+            with db.begin_nested():
+                if existente:
+                    if existente.tipo == "PREPACK":
+                        raise ErrorNegocio(f"{existente.sku} is a prepack.", 422, "validacion")
+                    for k, v in cat_svc._limpiar(db, cat, datos, parcial=True, actual=existente).items():
+                        setattr(existente, k, v)
+                    tallas_act += 1
+                else:
+                    a = Articulo(**cat_svc._limpiar(db, cat, datos, parcial=False), activo=datos.get("activo", True))
+                    db.add(a)
+                    db.flush()
+                    asegurar_producto(db, a)
+                    tallas_creadas += 1
+                productos[p.id] = p.estado
+        except IntegrityError:
+            errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": "Duplicated item code or UPC."})
+        except ErrorNegocio as e:
+            errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": "; ".join(d["mensaje"] for d in e.detalle or []) or e.mensaje})
+    db.flush()
+    registrar(db, user, "articulos", 0, "importar_genericos",
+              {"genericos": creados + actualizados, "tallas": tallas_creadas + tallas_act, "errores": len(errores)})
+    return {"creados": tallas_creadas, "actualizados": tallas_act, "genericos_creados": creados,
+            "genericos_actualizados": actualizados, "errores": errores[:300],
+            "productos": [pid for pid, e in productos.items() if e not in APROBADOS], "productos_total": len(productos)}
+
+
+def _importar_por_articulo(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
+    """Formato de una sola hoja: una fila por artículo (talla) con su ficha."""
     filas = leer(nombre, contenido, ALIAS_ART)
     cods = {
         "marca": {m.codigo: m.id for m in db.scalars(select(Marca))},
         "grupo": {g.codigo: g.id for g in db.scalars(select(GrupoArticulo))},
         "proveedor": {p.codigo: p.id for p in db.scalars(select(Proveedor))},
     }
-    paises = {}
-    for p in db.scalars(select(Pais)):
-        paises[norm(p.codigo)] = p.codigo
-        paises[norm(p.nombre)] = p.codigo
+    paises = _paises(db)
     cat = cat_svc.CATALOGOS["articulos"]
     creados = actualizados = 0
     errores, productos = [], {}
@@ -183,8 +323,6 @@ def _ficha_desde_fila(p, f: dict, paises: dict) -> str | None:
     avisos = []
     if f.get("nombre"):
         p.nombre = f["nombre"][:200]
-    if f.get("codigo_generico"):
-        p.codigo_generico = f["codigo_generico"][:20]
     if f.get("categoria"):
         k = tipo_de(f["categoria"])
         if k:
