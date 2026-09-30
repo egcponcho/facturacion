@@ -2171,7 +2171,7 @@ function partidasDe(f, codBase, ctx){
 }
 /* Estado de un código de país: [clase, texto] */
 const EST_PAIS = {ok:['ok','National'], auto:['ok','National'], sac:['sa','SAC'], sa:['sa','Not in its tariff'], sinarancel:['sa','No tariff loaded'], nuevo:['pend','Not learned yet'], elegir:['elegir','Needs data'], sin_codigo:['sa','No code']};
-const FUENTE_PAIS = {arancel:'from the tariff', manual:'by hand', aprendido:'learned', base:'base'};
+const FUENTE_PAIS = {arancel:'from the tariff', manual:'by hand', aprendido:'learned', base:'base', oficial:'official tariff (SIECA)'};
 /* Completo cuando todos los países destino tienen su código a todos los dígitos */
 function paisesCompletos(partidas, ds){
   return (ds || DESTINOS_BASE).every(d=>{ const x = (partidas || {})[d.iso]; return x && ['ok','auto'].includes(x.estado) && digits(x.codigo).length >= digitosPais(d.iso, ds); });

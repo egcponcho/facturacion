@@ -471,7 +471,7 @@ class PartidaSACIn(BaseModel):
 
 
 class NotaSACIn(BaseModel):
-    ambito: str = Field(max_length=12)
+    ambito: str = Field(max_length=16)
     codigo: str = Field(max_length=10)
     numero: str | None = Field(None, max_length=20)
     texto: str = Field(max_length=4000)

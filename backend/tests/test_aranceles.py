@@ -89,7 +89,7 @@ def test_notas_sac(interno):
     r = interno.get("/aranceles/notas", params={"capitulo": "64"}).json()
     nums = {(n["codigo"], n["numero"]) for n in r["items"]}
     # Las del capítulo 64 (materia de la parte superior y de la suela) y las reglas generales
-    assert ("64", "4") in nums and ("RGI", "3 a)") in nums and ("61", "9") not in nums
+    assert ("64", "4") in nums and ("RGI", "3") in nums and ("61", "9") not in nums
     assert any(n["codigo"] == "64" for n in interno.get("/clasificacion/contexto").json()["notas_sac"])
     n = interno.post("/aranceles/notas", {"ambito": "capitulo", "codigo": "64", "numero": "X", "texto": "Nota de prueba",
                                           "capitulos": ["64"]})
@@ -118,3 +118,24 @@ def test_notas_sac_excel(interno):
     assert n4[0]["texto"].startswith("Texto oficial") and n4[0]["fuente"] == "archivo"
     x = interno.get("/aranceles/notas/exportar", params={"formato": "xlsx", "capitulo": "64"})
     assert x.status_code == 200 and x.content[:2] == b"PK"
+
+
+def test_condiciones_por_pais_y_subpartida(interno):
+    r = interno.get("/aranceles/condiciones", params={"pais": "GT", "codigo": "6404.19"}).json()
+    assert "estiloCalz" in r["aplican"] and "manga" not in r["aplican"] and "cifMax" in r["aplican"]
+    assert r["subpartida"]["codigo"] == "6404.19" and all(h["codigo"].startswith("640419") for h in r["hermanos"])
+    prendas = interno.get("/aranceles/condiciones", params={"pais": "SV", "codigo": "620342"}).json()
+    assert "largo" in prendas["aplican"] and "estiloCalz" not in prendas["aplican"]
+    assert len(interno.get("/aranceles/condiciones", params={"pais": "GT", "codigo": "64"}).json()["aplican"]) > 10
+
+
+def test_base_oficial_sieca(interno):
+    """El SAC oficial (ACI SIECA VII Enmienda): subpartidas, notas y aperturas con DAI."""
+    sac = interno.get("/aranceles/sac", params={"q": "6404", "size": 50}).json()["items"]
+    assert any(x["codigo"] == "640419" and x["fuente"] in ("oficial", "manual") for x in sac)
+    gt = interno.get("/aranceles/codigos", params={"pais": "GT", "q": "640419", "size": 20}).json()["items"]
+    cods = {x["codigo"]: x for x in gt}
+    assert "6404191000" in cods and cods["6404191000"]["dai"] in ("0", "0.0") and "Cubrecalzado" in cods["6404191000"]["descripcion"]
+    notas = interno.get("/aranceles/notas", params={"capitulo": "61"}).json()["items"]
+    assert any(n["ambito"] == "capitulo" and n["numero"] == "9" and "izquierda sobre derecha" in n["texto"] for n in notas)
+    assert len(interno.get("/aranceles/notas").json()["items"]) > 400

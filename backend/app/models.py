@@ -474,7 +474,7 @@ class NotaSAC(Base):
 
     __tablename__ = "notas_sac"
     id: Mapped[int] = mapped_column(primary_key=True)
-    ambito: Mapped[str] = mapped_column(String(12))  # reglas | seccion | capitulo | subpartida
+    ambito: Mapped[str] = mapped_column(String(16))  # reglas | seccion | capitulo | subpartida | complementaria
     codigo: Mapped[str] = mapped_column(String(10))  # RGI, XI, 64…
     numero: Mapped[str] = mapped_column(String(20))
     texto: Mapped[str] = mapped_column(Text)
