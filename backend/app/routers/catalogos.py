@@ -3,7 +3,7 @@ from fastapi import APIRouter, Body, File, Query, Request, UploadFile
 from .. import schemas as s
 from ..services import cargas, genericos
 from ..services import catalogos as svc
-from .base import Clave, Db, Formato, User, descarga, ejecutar
+from .base import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
 
 router = APIRouter(prefix="/catalogos")
 RESERVADOS = {"q", "orden", "page", "size"}
@@ -18,6 +18,20 @@ def meta(db: Db, user: User):
 def crear_generico(datos: s.GenericoIn, db: Db, user: User, clave: Clave = None):
     """Genérico (8 dígitos) con sus datos maestros y sus tallas."""
     return ejecutar(db, user, clave, lambda: genericos.crear(db, user, datos))
+
+
+@router.get("/genericos")
+def genericos_lista(request: Request, db: Db, user: User, orden: str | None = None, page: int = Query(1, ge=1),
+                    size: int = Query(25, ge=1, le=200)):
+    filtros = {k: v for k, v in request.query_params.items() if k not in RESERVADOS and v != ""}
+    if request.query_params.get("q"):
+        filtros["q"] = request.query_params["q"]
+    return genericos.listar(db, user, filtros, orden, page, size)
+
+
+@router.put("/genericos/{gen}")
+def editar_generico(gen: str, datos: s.GenericoEditIn, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: genericos.editar(db, user, gen, datos))
 
 
 @router.get("/genericos/{gen}")
@@ -42,8 +56,8 @@ async def importar(tipo: str, db: Db, user: User, archivo: UploadFile = File(...
 
 
 @router.get("/{tipo}/plantilla")
-def plantilla(tipo: str, db: Db, user: User):
-    return descarga(cargas.plantilla_catalogo(db, user, tipo), f"template_{tipo}", "xlsx")
+def plantilla(tipo: str, db: Db, user: User, vista: bool = False):
+    return plantilla_o_vista(cargas.plantilla_catalogo(db, user, tipo), f"template_{tipo}", vista)
 
 
 @router.get("/{tipo}/exportar")

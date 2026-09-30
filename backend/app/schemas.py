@@ -506,3 +506,12 @@ class GenericoIn(BaseModel):
 
 class TallasIn(BaseModel):
     tallas: list[TallaIn] = Field(min_length=1, max_length=200)
+
+
+class GenericoEditIn(BaseModel):
+    estilo: str = Field(max_length=40)
+    color: str = Field(max_length=60)
+    marca_id: int
+    grupo_id: int
+    proveedor_id: int
+    unidad: str = Field(max_length=5)

@@ -129,3 +129,91 @@ def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list) -> list[i
         raise ErrorNegocio("Some sizes could not be added.", 422, "validacion", errores)
     registrar(db, user, "genericos", p.id, "tallas", {"generico": gen, "tallas": [t.talla for t in tallas]})
     return ids
+
+
+ORDEN = {"generico": Producto.codigo_generico, "estilo": Producto.estilo, "color": Producto.color}
+
+
+def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: int, size: int) -> dict:
+    """Vista compacta de artículos: un renglón por genérico con sus datos y
+    sus tallas; se despliega para ver cada artículo."""
+    from sqlalchemy import func, or_
+
+    from .common import proveedor_filtro
+    from .productos import ESTADOS, fmt_codigo, rango_tallas
+
+    exigir(user, "catalogos.ver")
+    q = select(Producto).where(Producto.codigo_generico.is_not(None))
+    prov = proveedor_filtro(user, filtros.get("proveedor_id"))
+    if prov:
+        q = q.where(Producto.proveedor_id == int(prov))
+    for campo in ("marca_id", "grupo_id"):
+        if filtros.get(campo):
+            q = q.where(getattr(Producto, campo).in_([int(x) for x in str(filtros[campo]).split(",") if x.strip().isdigit()]))
+    if filtros.get("unidad"):
+        q = q.where(Producto.unidad == filtros["unidad"])
+    if filtros.get("q"):
+        t = f"%{filtros['q'].strip()}%"
+        skus = select(Articulo.producto_id).where(or_(Articulo.sku.ilike(t), Articulo.upc.ilike(t), Articulo.sku_proveedor.ilike(t)))
+        q = q.where(or_(Producto.codigo_generico.ilike(t), Producto.estilo.ilike(t), Producto.color.ilike(t), Producto.id.in_(skus)))
+    total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
+    col, _, d = (orden or "generico:asc").partition(":")
+    c = ORDEN.get(col, Producto.codigo_generico)
+    filas = db.scalars(q.order_by(c.desc() if d == "desc" else c.asc(), Producto.id).offset((page - 1) * size).limit(size)).all()
+    arts: dict[int, list] = {}
+    if filas:
+        for a in db.scalars(select(Articulo).where(Articulo.producto_id.in_([p.id for p in filas])).order_by(Articulo.sku)):
+            arts.setdefault(a.producto_id, []).append(a)
+    items = []
+    for p in filas:
+        ls = arts.get(p.id, [])
+        solidos = [a for a in ls if a.tipo == "SOLIDO"]
+        items.append({
+            "generico": p.codigo_generico, "producto_id": p.id, "estilo": p.estilo, "color": p.color,
+            "marca_id": p.marca_id, "marca": p.marca.codigo if p.marca else None, "marca_nombre": p.marca.nombre if p.marca else None,
+            "grupo_id": p.grupo_id, "grupo": p.grupo.codigo if p.grupo else None,
+            "proveedor_id": p.proveedor_id, "proveedor": p.proveedor.nombre if p.proveedor else None,
+            "unidad": p.unidad, "tallas": [a.talla for a in solidos], "rango_tallas": rango_tallas([a.talla for a in solidos]),
+            "n_tallas": len(solidos), "n_prepacks": len(ls) - len(solidos), "activos": sum(1 for a in ls if a.activo),
+            "descripcion_comercial": p.descripcion_comercial, "estado": p.estado, "estado_txt": ESTADOS.get(p.estado, p.estado),
+            "codigo": fmt_codigo(p.codigo) if p.codigo else None,
+        })
+    return {"items": items, "total": total, "page": page, "size": size}
+
+
+def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
+    """Cambia los datos maestros del genérico y los pasa a todas sus tallas."""
+    exigir(user, "catalogos.editar")
+    p = producto_por_generico(db, gen)
+    if not p:
+        raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
+    arts = db.scalars(select(Articulo).where(Articulo.sku.startswith(gen))).all()
+    estilo, color = (datos.estilo or p.estilo).strip().upper(), (datos.color or p.color or "").strip()
+    errores = []
+    if (estilo != p.estilo or color != (p.color or "")) and any(a.tipo == "PREPACK" for a in arts):
+        errores.append({"campo": "estilo", "mensaje": "The generic has prepacks: its style and color cannot change."})
+    if datos.unidad not in ("PAR", "UN"):
+        errores.append({"campo": "unidad", "mensaje": "The unit is PAR or UN."})
+    marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
+    if not marca or not grupo or not prov:
+        errores.append({"campo": "marca_id", "mensaje": "Choose the brand, the item group and the supplier."})
+    elif prov.marcas and marca.id not in {m.id for m in prov.marcas}:
+        errores.append({"campo": "marca_id", "mensaje": f"{marca.codigo} is not a brand of {prov.nombre}."})
+    if errores:
+        raise ErrorNegocio("Check the generic.", 422, "validacion", errores)
+    antes = {"estilo": p.estilo, "color": p.color, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
+             "proveedor_id": p.proveedor_id, "unidad": p.unidad}
+    p.estilo, p.color, p.marca_id, p.grupo_id, p.proveedor_id, p.unidad = estilo, color, marca.id, grupo.id, prov.id, datos.unidad
+    for a in arts:
+        a.marca_id, a.grupo_id, a.proveedor_id = marca.id, grupo.id, prov.id
+        if a.tipo == "SOLIDO":
+            a.estilo, a.color, a.unidad = estilo, color, datos.unidad
+    try:
+        db.flush()
+    except IntegrityError:
+        raise ErrorNegocio(f"{estilo} {color} already exists for this supplier with another generic.", 409, "duplicado") from None
+    if not (p.ficha or {}).get("comManual"):
+        db.refresh(p)
+        p.descripcion_comercial = descripcion_comercial_simple(p)
+    registrar(db, user, "genericos", p.id, "editar", {"generico": gen, "antes": antes})
+    return detalle(db, user, gen)

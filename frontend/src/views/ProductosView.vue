@@ -193,7 +193,7 @@ watch(() => sesion.proveedorId, recargar)
               </span>
               <span>
                 <router-link :to="`/productos/${p.id}`" class="fuerte" @click.stop><span v-if="p.codigo_generico" class="codigo-sac">{{ p.codigo_generico }}</span> {{ p.estilo }} · {{ p.color }}</router-link>
-                <span class="sub">{{ p.nombre || '—' }} · {{ p.marca_nombre || p.marca }}<template v-if="p.tipo"> · {{ M.TIPO_CORTO[p.tipo] || p.tipo }}</template> · {{ p.skus }} SKU</span>
+                <span class="sub">{{ p.descripcion_comercial || '—' }} · {{ p.rango_tallas || 'no sizes' }}<template v-if="p.tipo"> · {{ M.TIPO_CORTO[p.tipo] || p.tipo }}</template></span>
               </span>
             </div>
           </td>

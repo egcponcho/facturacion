@@ -319,7 +319,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </span>
         <div>
           <span class="doc-numero">{{ p.estilo }} · {{ p.color }}</span>
-          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento" style="margin-left: 0" title="Generic: first 8 digits of the item code">Generic {{ p.codigo_generico }}</span> {{ f.descArchivo || 'No name' }} · {{ p.marca_nombre || p.marca }} · {{ p.proveedor }}</div>
+          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento" style="margin-left: 0" title="Generic: first 8 digits of the item code">Generic {{ p.codigo_generico }}</span> {{ p.descripcion_comercial || '—' }} · {{ p.marca_nombre || p.marca }} · {{ p.proveedor }}</div>
         </div>
         <EstadoBadge :estado="p.estado" />
         <span v-if="p.version_ficha > 1" class="etiqueta">Version {{ p.version_ficha }}</span>
@@ -330,7 +330,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </div>
       </div>
       <div class="doc-meta">
-        <span>Sizes <b>{{ p.tallas.join(', ') || '—' }}</b></span>
+        <span>Sizes <b>{{ p.rango_tallas || '—' }}</b></span>
         <span>SKUs <b>{{ p.skus }}</b></span>
         <span>Origin <b>{{ f.origen || '—' }}</b></span>
         <span v-if="p.revisado_por">Reviewed by <b>{{ p.revisado_por }}</b> · {{ fmtFecha(p.revisado_en) }}</span>

@@ -5,6 +5,7 @@ import { api } from '../api'
 import BotonesExportar from '../components/BotonesExportar.vue'
 import CargaArchivo from '../components/CargaArchivo.vue'
 import CargaArticulos from '../components/CargaArticulos.vue'
+import ArticulosGenericos from '../components/ArticulosGenericos.vue'
 import CargaMasiva from '../components/CargaMasiva.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
@@ -34,6 +35,16 @@ const modal = ref(null)
 const ocupado = ref(false)
 const formAbierto = ref(false) // alta y edición en ventana emergente
 const genericoNuevo = ref(false)
+// Artículos: compacto por genérico (por defecto) o listado de todos los artículos
+const leerVista = () => { try { return localStorage.getItem('mant.vistaArticulos') } catch { return null } }
+const vista = ref(route.query.vista || leerVista() || 'compacta')
+const recarga = ref(0)
+const compacta = computed(() => tipo.value === 'articulos' && vista.value === 'compacta')
+function cambiarVista(v) {
+  vista.value = v
+  try { localStorage.setItem('mant.vistaArticulos', v) } catch { /* sin almacenamiento */ }
+  cargar()
+}
 const ESTADO_FICHA = { borrador: 'Sheet in draft', sugerida: 'To review', observado: 'Returned' }
 
 const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
@@ -43,7 +54,7 @@ const columnas = computed(() => campos.value.filter((c) => !['descripcion', 'dir
 const extras = computed(() => cat.value?.extras || [])
 // Opciones para la lista con búsqueda: por id (ref) o por código
 const opcionesDe = (c) => (opciones[c.catalogo] || []).map((o) => ({ valor: ['ref', 'multi'].includes(c.tipo) ? o.id : o.codigo, texto: o.texto }))
-const conFiltro = computed(() => campos.value.filter((c) => c.filtro))
+const conFiltro = computed(() => campos.value.filter((c) => c.filtro && !(compacta.value && ['tipo', 'activo'].includes(c.nombre))))
 
 function vacio() {
   const f = {}
@@ -68,6 +79,10 @@ async function cargarOpciones() {
 
 async function cargar() {
   if (!cat.value) return
+  if (compacta.value) {
+    recarga.value++
+    return
+  }
   try {
     datos.value = await api.get(`/catalogos/${tipo.value}`, {
       q: filtros.q, orden: filtros.orden, page: filtros.page, size: filtros.size, ...filtros.extra,
@@ -309,8 +324,12 @@ onMounted(async () => {
       <div class="filtros">
         <label class="buscador">
           <Icono nombre="buscar" :tam="16" />
-          <input v-model="filtros.q" type="search" :placeholder="`Search ${cat.titulo.toLowerCase()}`" aria-label="Search" @input="buscar" />
+          <input v-model="filtros.q" type="search" :placeholder="compacta ? 'Search generic, style, color, item code, UPC or supplier SKU' : `Search ${cat.titulo.toLowerCase()}`" aria-label="Search" @input="buscar" />
         </label>
+        <div v-if="tipo === 'articulos'" class="segmentos" role="group" aria-label="Items view">
+          <button type="button" class="segmento" :aria-pressed="vista === 'compacta'" title="One row per generic; expand it to see its sizes" @click="cambiarVista('compacta')">Compact</button>
+          <button type="button" class="segmento" :aria-pressed="vista === 'lista'" title="One row per item code" @click="cambiarVista('lista')">List</button>
+        </div>
         <template v-for="c in conFiltro" :key="c.nombre">
           <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
                           :vacio="`${c.etiqueta}: all`" :etiqueta="c.etiqueta" @change="filtros.page = 1; cargar()" />
@@ -321,6 +340,9 @@ onMounted(async () => {
           </select>
         </template>
       </div>
+      <ArticulosGenericos v-if="compacta" :q="filtros.q" :extra="filtros.extra" :recarga="recarga"
+                          @editar-articulo="editar" @eliminar-articulo="(fila) => (modal = { tipo: 'eliminar', fila })" @desglose="(a) => (explosion = { sku: a.sku })" @cambio="cargarMeta" />
+      <template v-else>
       <div class="tabla-marco tabla-fija">
         <table class="tabla">
           <thead>
@@ -369,6 +391,7 @@ onMounted(async () => {
         </table>
       </div>
       <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
+      </template>
     </section>
   </div>
 

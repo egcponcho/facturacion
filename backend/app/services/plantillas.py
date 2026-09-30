@@ -160,3 +160,33 @@ def si_no(v) -> bool | None:
     if t in ("0", "no", "n", "false", "falso"):
         return False
     return None
+
+
+def vista(contenido: bytes) -> dict:
+    """Vista previa de una plantilla ya armada: sus hojas de datos con las
+    columnas (obligatorias y ayuda) y las filas de ejemplo, y las instrucciones."""
+    wb = load_workbook(io.BytesIO(contenido), read_only=False)
+    ayudas, instrucciones = {}, []
+    if "Instructions" in wb.sheetnames:
+        en_columnas = False
+        for i, (a, b) in enumerate(wb["Instructions"].iter_rows(min_col=1, max_col=2, values_only=True)):
+            if i == 0 or a is None:
+                continue
+            if b == "What goes in it":
+                en_columnas = True
+            elif en_columnas:
+                ayudas[str(a).removesuffix(" *")] = b or ""
+            else:
+                instrucciones.append(str(a))
+    hojas_out = []
+    for ws in wb.worksheets:
+        if ws.title in ("Values", "Instructions"):
+            continue
+        filas = [list(r) for r in ws.iter_rows(values_only=True)]
+        if not filas:
+            continue
+        cab = [str(x) for x in filas[0] if x is not None]
+        cols = [{"nombre": c.removesuffix(" *"), "req": c.endswith(" *"), "ayuda": ayudas.get(c.removesuffix(" *"), "")} for c in cab]
+        ejemplos = [["" if v is None else str(v) for v in r[:len(cab)]] for r in filas[1:6] if any(v is not None for v in r)]
+        hojas_out.append({"nombre": ws.title, "columnas": cols, "filas": ejemplos})
+    return {"hojas": hojas_out, "instrucciones": instrucciones}
