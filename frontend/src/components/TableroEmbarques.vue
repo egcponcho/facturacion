@@ -87,7 +87,7 @@ onMounted(cargar)
     <Kpi titulo="Load units" :valor="datos.kpis.unidades" icono="contenedor" detalle="containers, air waybills and trucks" @abrir="emit('filtrar', {})" />
     <Kpi titulo="In transit" :valor="datos.kpis.en_camino" icono="barco" detalle="already departed" @abrir="emit('filtrar', { estado: 'EN_TRANSITO' })" />
     <Kpi titulo="Arriving in 7 days" :valor="datos.kpis.llegan_7_dias" icono="reloj" detalle="by ETA" @abrir="emit('filtrar', {})" />
-    <Kpi titulo="Late for the store" :valor="datos.kpis.atrasados" icono="alerta" :tono="datos.kpis.atrasados ? 'alerta' : 'exito'"
+    <Kpi titulo="Late for the port deadline" :valor="datos.kpis.atrasados" icono="alerta" :tono="datos.kpis.atrasados ? 'alerta' : 'exito'"
          detalle="ETA after the in-store date" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
   </section>
 

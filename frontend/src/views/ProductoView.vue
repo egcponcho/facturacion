@@ -104,6 +104,28 @@ const paisesOk = computed(() => paises.value.filter((x) => ['ok', 'auto'].includ
 function codigoPais(iso, c) {
   f.partidas = { ...(f.partidas || {}), [iso]: { codigo: M.digits(c), manual: true } }
 }
+// Código nacional escrito directo en la tabla de destinos: se aplica al salir
+// del campo o con Enter si tiene los dígitos del país y empieza con la subpartida
+const errPais = reactive({})
+function escribirPais(x, el) {
+  const c = M.digits(el.value)
+  errPais[x.iso] = ''
+  if (!c) {
+    if (x.manual) quitarManual(x.iso)
+    else el.value = x.codigo ? M.fmtPais(x.codigo, x.digitos) : ''
+    return
+  }
+  if (c === M.digits(x.codigo || '')) {
+    el.value = M.fmtPais(c, x.digitos)
+    return
+  }
+  if (!c.startsWith(codigo6.value)) errPais[x.iso] = `Must start with ${M.fmtCode(codigo6.value)}`
+  else if (c.length !== x.digitos) errPais[x.iso] = `${x.digitos} digits (${c.length} typed)`
+  else {
+    codigoPais(x.iso, c)
+    el.value = M.fmtPais(c, x.digitos)
+  }
+}
 function quitarManual(iso) {
   const { [iso]: _, ...resto } = f.partidas || {}
   f.partidas = resto
@@ -319,7 +341,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </span>
         <div>
           <span class="doc-numero">{{ p.estilo }} · {{ p.color }}</span>
-          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento" style="margin-left: 0" title="Generic: first 8 digits of the item code">Generic {{ p.codigo_generico }}</span> {{ p.descripcion_comercial || '—' }} · {{ p.marca_nombre || p.marca }} · {{ p.proveedor }}</div>
+          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento" style="margin-left: 0" title="Generic: first 8 digits of the item code">Generic {{ p.codigo_generico }}</span> {{ p.descripcion_comercial || '—' }} · {{ p.marca_nombre || p.marca }}<template v-if="p.proveedor && p.proveedor !== (p.marca_nombre || p.marca)"> · {{ p.proveedor }}</template></div>
         </div>
         <EstadoBadge :estado="p.estado" />
         <span v-if="p.version_ficha > 1" class="etiqueta">Version {{ p.version_ficha }}</span>
@@ -474,21 +496,32 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
               <tr v-for="x in paises" :key="x.iso">
                 <td class="fuerte">{{ x.iso }}</td>
                 <td>
-                  <select v-if="x.estado === 'elegir' && x.opciones?.length && puedeEditar" class="entrada" :aria-label="`Code for ${x.nombre}`" @change="codigoPais(x.iso, $event.target.value)">
-                    <option value="">Choose…</option>
-                    <option v-for="o in x.opciones" :key="o.codigo" :value="o.codigo">{{ M.fmtPais(o.codigo, x.digitos) }} · {{ M.condTexto(o.cond) }}</option>
-                  </select>
-                  <template v-else>
-                    <span class="codigo-sac" :class="{ tentativo: !['ok', 'auto'].includes(x.estado) }">{{ x.codigo ? M.fmtPais(x.codigo, x.digitos) : '—' }}</span>
-                    <span v-if="x.manual" class="etiqueta acento" title="Set by hand">manual</span>
+                  <template v-if="!aprobado && puedeAprobar">
+                    <input class="entrada entrada-pais" :class="{ invalida: errPais[x.iso], tentativo: !['ok', 'auto'].includes(x.estado) && !x.manual }"
+                           :value="x.codigo ? M.fmtPais(x.codigo, x.digitos) : ''" :placeholder="`${M.fmtCode(codigo6) || 'Code'}… (${x.digitos} digits)`"
+                           :list="x.opciones?.length ? `ops-${x.iso}` : undefined" inputmode="numeric" :maxlength="x.digitos + 6"
+                           :aria-label="`National code for ${x.nombre}`" :title="`Type the ${x.digitos}-digit code; it applies when you leave the field`"
+                           @blur="escribirPais(x, $event.target)" @keydown.enter.prevent="$event.target.blur()" />
+                    <datalist v-if="x.opciones?.length" :id="`ops-${x.iso}`">
+                      <option v-for="o in x.opciones" :key="o.codigo" :value="M.fmtPais(o.codigo, x.digitos)">{{ M.condTexto(o.cond) }}</option>
+                    </datalist>
+                    <span v-if="errPais[x.iso]" class="sub" style="color: var(--error)">{{ errPais[x.iso] }}</span>
+                    <span v-else-if="x.manual" class="sub">Set by hand · <button type="button" class="btn-texto" @click="quitarManual(x.iso)">use automatic</button> · <button type="button" class="btn-texto" @click="abrirEnsenar(x)">remember for similar</button></span>
+                    <span v-else-if="!['ok', 'auto'].includes(x.estado)" class="sub">{{ x.estado === 'elegir' ? 'Choose one of the listed codes or type it' : M.EST_PAIS[x.estado]?.[1] }}</span>
                   </template>
-                  <span v-if="!['ok', 'auto'].includes(x.estado) && x.estado !== 'elegir'" class="sub">{{ M.EST_PAIS[x.estado]?.[1] }}</span>
+                  <template v-else>
+                    <select v-if="x.estado === 'elegir' && x.opciones?.length && puedeEditar" class="entrada" :aria-label="`Code for ${x.nombre}`" @change="codigoPais(x.iso, $event.target.value)">
+                      <option value="">Choose…</option>
+                      <option v-for="o in x.opciones" :key="o.codigo" :value="o.codigo">{{ M.fmtPais(o.codigo, x.digitos) }} · {{ M.condTexto(o.cond) }}</option>
+                    </select>
+                    <template v-else>
+                      <span class="codigo-sac" :class="{ tentativo: !['ok', 'auto'].includes(x.estado) }">{{ x.codigo ? M.fmtPais(x.codigo, x.digitos) : '—' }}</span>
+                      <span v-if="x.manual" class="etiqueta acento" title="Set by hand">manual</span>
+                    </template>
+                    <span v-if="!['ok', 'auto'].includes(x.estado) && x.estado !== 'elegir'" class="sub">{{ M.EST_PAIS[x.estado]?.[1] }}</span>
+                  </template>
                 </td>
                 <td class="num apagado">{{ x.dai !== '' && x.dai != null ? `${x.dai}%` : '' }}</td>
-                <td v-if="!aprobado && puedeAprobar" class="num">
-                  <button type="button" class="btn-icono" :aria-label="`Edit the code for ${x.nombre}`" title="Set the national code"
-                          @click="modal = { tipo: 'pais', pais: x, codigo: x.codigo || codigo6 }"><Icono nombre="editar" :tam="14" /></button>
-                </td>
               </tr>
             </tbody>
           </table>
@@ -498,7 +531,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
           <div class="panel-cabeza"><div><h2>Similar products</h2><p>Already classified</p></div></div>
           <ul class="parecidos">
             <li v-for="x in r.o.parecidos.slice(0, 3)" :key="x.r.id">
-              <router-link :to="`/productos/${x.r.id}`">{{ x.r.estilo }} {{ x.r.color }}</router-link>
+              <router-link :to="`/productos/${x.r.id}`"><span v-if="x.r.generico" class="codigo">{{ x.r.generico }}</span> {{ x.r.estilo }} {{ x.r.color }}</router-link>
               <span class="codigo-sac">{{ M.fmtCode(x.r.codigo) }}</span>
               <span class="sub">{{ x.r.desc }}</span>
             </li>
@@ -557,19 +590,6 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         <button class="btn btn-primario" :disabled="ocupado || !modal.texto.trim()" @click="nuevaVersion">Open new version</button>
       </template>
     </Modal>
-    <Modal v-if="modal?.tipo === 'pais'" :titulo="`National code for ${modal.pais.nombre}`" ancho="480px" @cerrar="modal = null">
-      <label class="campo"><span>Code ({{ modal.pais.digitos }} digits, starts with {{ M.fmtCode(codigo6) }})</span>
-        <input v-model="modal.codigo" class="entrada" :maxlength="modal.pais.digitos + 6" /></label>
-      <p v-if="M.digits(modal.codigo).length && !M.digits(modal.codigo).startsWith(codigo6)" class="nota error mt-chico"><Icono nombre="alerta" />It must start with the subheading {{ M.fmtCode(codigo6) }}.</p>
-      <template #pie>
-        <button v-if="modal.pais.manual" class="btn btn-texto" @click="quitarManual(modal.pais.iso); modal = null">Use the automatic code</button>
-        <button class="btn" @click="modal = null">Cancel</button>
-        <button class="btn" :disabled="M.digits(modal.codigo).length !== modal.pais.digitos || !M.digits(modal.codigo).startsWith(codigo6)"
-                @click="codigoPais(modal.pais.iso, modal.codigo); abrirEnsenar({ ...modal.pais, codigo: modal.codigo })">Use and remember…</button>
-        <button class="btn btn-primario" :disabled="M.digits(modal.codigo).length !== modal.pais.digitos || !M.digits(modal.codigo).startsWith(codigo6)"
-                @click="codigoPais(modal.pais.iso, modal.codigo); modal = null">Use for this product</button>
-      </template>
-    </Modal>
     <Modal v-if="modal?.tipo === 'ensenar'" :titulo="`Remember ${M.fmtPais(modal.pais.codigo, modal.pais.digitos)} for ${modal.pais.nombre}`" ancho="480px" @cerrar="modal = null">
       <p class="ayuda">Products with this subheading that match the checked data will get this code automatically.</p>
       <div class="lista-cond">
@@ -588,7 +608,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 <style scoped>
 .producto-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; margin-top: 4px; }
 .producto-principal .pestanas { margin-top: 4px; }
-.clasif { position: sticky; top: 124px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 140px); overflow-y: auto; padding-bottom: 8px; }
+.clasif { display: flex; flex-direction: column; gap: 14px; }
 .clasif .panel + .panel { margin-top: 0; }
 @media (max-width: 1080px) {
   .producto-layout { grid-template-columns: minmax(0, 1fr); }
@@ -643,6 +663,10 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 .otro-codigo .entrada { flex: 1; min-width: 0; }
 .paises td { padding-top: 7px; padding-bottom: 7px; }
 .paises select { max-width: 100%; font-size: 0.84rem; }
+.entrada-pais { width: 100%; min-width: 0; font-family: var(--mono, ui-monospace, monospace); font-weight: 600; padding: 6px 8px; }
+.entrada-pais.tentativo { border-style: dashed; }
+.entrada-pais.invalida { border-color: var(--error); box-shadow: 0 0 0 3px var(--error-fondo); }
+.paises .sub .btn-texto { font-size: inherit; padding: 0; }
 .parecidos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 0.88rem; }
 .parecidos .codigo-sac { margin-left: 6px; }
 .opinion p + p { margin-top: 6px; }

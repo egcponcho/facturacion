@@ -336,7 +336,7 @@ onMounted(async () => {
           <select v-else v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
             <option :value="undefined">{{ c.etiqueta }}: all</option>
             <template v-if="c.tipo === 'bool'"><option value="true">{{ c.etiqueta }}: yes</option><option value="false">{{ c.etiqueta }}: no</option></template>
-            <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ t }}</option></template>
+            <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ c.etiqueta }}: {{ t }}</option></template>
           </select>
         </template>
       </div>

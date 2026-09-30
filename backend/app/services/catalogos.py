@@ -699,7 +699,7 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
     errores = []
     if not generico_de(sku):
         errores.append({"campo": "sku", "mensaje": "Item code: 11 digits starting with 3; the first 8 are the generic "
-                                                   "of its solids and the last 3 the prepack size, e.g. 30095125007."})
+                                                   "of its solids and the last 3 the prepack size, e.g. 30095125001."})
     elif db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
         errores.append({"campo": "sku", "mensaje": f"Code {sku} already exists in the item master."})
     if not re.fullmatch(r"[A-Z0-9]{2,10}", codigo):

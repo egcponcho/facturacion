@@ -24,9 +24,24 @@ def _sufijos(db: Session, gen: str) -> set[str]:
     return {s[8:] for (s,) in db.execute(select(Articulo.sku).where(Articulo.sku.startswith(gen)))}
 
 
-def siguiente_sufijo(db: Session, gen: str, usados: set[str] | None = None) -> str:
+def sufijo_convencional(talla: str | None) -> str | None:
+    """Código de talla usual: la talla numérica por 10 (7 → 070, 7.5 → 075,
+    10.5 → 105, 13 → 130). Tallas de letra o prepacks no tienen uno fijo."""
+    t = (talla or "").strip().replace(",", ".")
+    if not re.fullmatch(r"\d{1,2}(\.\d)?", t):
+        return None
+    n = round(float(t) * 10)
+    return f"{n:03d}" if 0 < n < 1000 and abs(float(t) * 10 - n) < 1e-9 else None
+
+
+def siguiente_sufijo(db: Session, gen: str, usados: set[str] | None = None, talla: str | None = None) -> str:
+    """Código de talla para una talla nueva: el usual (talla × 10) si está libre;
+    si no, el primer código libre desde 001."""
     usados = usados if usados is not None else _sufijos(db, gen)
-    n = max([int(x) for x in usados if x.isdigit()] or [0]) + 1
+    conv = sufijo_convencional(talla)
+    if conv and conv not in usados:
+        return conv
+    n = 1
     while f"{n:03d}" in usados:
         n += 1
     if n > 999:
@@ -46,7 +61,7 @@ def detalle(db: Session, user: Usuario, gen: str) -> dict:
         "descripcion_comercial": p.descripcion_comercial,
         "tallas": [{"id": a.id, "sku": a.sku, "sufijo": a.sku[8:], "talla": a.talla, "upc": a.upc,
                     "sku_proveedor": a.sku_proveedor, "tipo": a.tipo, "activo": a.activo} for a in arts],
-        "siguiente": siguiente_sufijo(db, gen),
+        "siguiente": siguiente_sufijo(db, gen), "usados": sorted(a.sku[8:] for a in arts),
     }
 
 
@@ -109,7 +124,7 @@ def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list) -> list[i
         if suf and (not re.fullmatch(r"\d{3}", suf) or suf in usados):
             errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: size code {suf} is taken or not 3 digits."})
             continue
-        suf = suf or siguiente_sufijo(db, gen, usados)
+        suf = suf or siguiente_sufijo(db, gen, usados, talla)
         usados.add(suf)
         ya.add(talla)
         datos = {"sku": gen + suf, "sku_proveedor": (t.sku_proveedor or "").strip() or None, "upc": (t.upc or "").strip() or None,

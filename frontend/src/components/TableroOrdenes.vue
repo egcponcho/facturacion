@@ -86,7 +86,7 @@ onMounted(cargar)
          detalle="commercial P or logistics 304" @abrir="emit('filtrar', { estado: 'SIN_COMERCIAL' })" />
     <Kpi titulo="XF overdue, not invoiced" :valor="datos.kpis.xf_vencida" icono="reloj" :tono="datos.kpis.xf_vencida ? 'alerta' : 'exito'"
          detalle="the XF date has passed" @abrir="emit('filtrar', { xf_vencida: '1' })" />
-    <Kpi titulo="Late for the store" :valor="datos.kpis.atraso" icono="alerta" :tono="datos.kpis.atraso ? 'alerta' : 'exito'"
+    <Kpi titulo="Late for the port deadline" :valor="datos.kpis.atraso" icono="alerta" :tono="datos.kpis.atraso ? 'alerta' : 'exito'"
          detalle="port arrival after the port deadline" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
   </section>
 
@@ -136,11 +136,13 @@ onMounted(cargar)
           </td>
           <td class="codigo">{{ o.sociedad }} · {{ o.centro }}<span class="sub">destination {{ o.centro_destino || '—' }}</span></td>
           <td>
-            <span class="etiqueta" :class="COMERCIAL[o.liberacion_comercial]?.[1]" style="margin-left: 0" :title="COMERCIAL[o.liberacion_comercial]?.[2]">{{ COMERCIAL[o.liberacion_comercial]?.[0] }}</span>
-            <span class="etiqueta" :class="LIBERACION[o.liberacion_logistica]?.[1]" :title="LIBERACION[o.liberacion_logistica]?.[2]">{{ LIBERACION[o.liberacion_logistica]?.[0] }}</span>
+            <span class="insignias columna" style="margin-top: 0">
+              <span class="etiqueta" :class="COMERCIAL[o.liberacion_comercial]?.[1]" :title="COMERCIAL[o.liberacion_comercial]?.[2]">{{ COMERCIAL[o.liberacion_comercial]?.[0] }}</span>
+              <span class="etiqueta" :class="LIBERACION[o.liberacion_logistica]?.[1]" :title="LIBERACION[o.liberacion_logistica]?.[2]">{{ LIBERACION[o.liberacion_logistica]?.[0] }}</span>
+            </span>
           </td>
-          <td><span class="etiqueta" :class="TONO[o.estado]" style="margin-left: 0">{{ nombreEstado[o.estado] }}</span></td>
-          <td style="min-width: 170px">
+          <td class="ajustar"><span class="etiqueta" :class="TONO[o.estado]" style="margin-left: 0; white-space: normal">{{ nombreEstado[o.estado] }}</span></td>
+          <td style="min-width: 150px">
             <div class="apilada" role="img" :aria-label="TRAMOS.map(([k, t]) => `${t}: ${o.cantidades[k]}`).join(', ')">
               <span v-for="[k, t, c] in TRAMOS.filter(([k]) => o.cantidades[k])" :key="k"
                     :style="{ width: `${(o.cantidades[k] * 100) / o.total}%`, background: c }" :title="`${t}: ${fmtNum(o.cantidades[k])}`"></span>
