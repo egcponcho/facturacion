@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import Seleccion from './Seleccion.vue'
 import { api } from '../api'
 import { avisar, errorApi } from '../stores/ui'
 import Icono from './Icono.vue'
@@ -123,7 +124,7 @@ async function guardar() {
       <div class="campo"><span class="req">Supplier</span><SelectBusqueda v-model="g.proveedor_id" :opciones="opc(op.proveedores)" etiqueta="Supplier" /></div>
       <div class="campo"><span class="req">Brand</span><SelectBusqueda v-model="g.marca_id" :opciones="opc(op.marcas)" etiqueta="Brand" /></div>
       <div class="campo"><span class="req">Item group</span><SelectBusqueda v-model="g.grupo_id" :opciones="opc(op.grupos)" etiqueta="Item group" /></div>
-      <label class="campo"><span class="req">Unit of its sizes</span><select v-model="g.unidad" class="entrada"><option value="PAR">Pairs (PAR)</option><option value="UN">Units (UN)</option></select></label>
+      <label class="campo"><span class="req">Unit of its sizes</span><Seleccion v-model="g.unidad" class="entrada"><option value="PAR">Pairs (PAR)</option><option value="UN">Units (UN)</option></Seleccion></label>
     </div>
     <p v-if="props.editar" class="ayuda mt-chico">Changes apply to every size of the generic. Sizes, UPC and supplier SKU are edited per item in the list view.</p>
 

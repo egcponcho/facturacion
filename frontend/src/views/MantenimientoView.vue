@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import BotonesExportar from '../components/BotonesExportar.vue'
@@ -333,11 +334,11 @@ onMounted(async () => {
         <template v-for="c in conFiltro" :key="c.nombre">
           <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
                           :vacio="`${c.etiqueta}: all`" :etiqueta="c.etiqueta" @change="filtros.page = 1; cargar()" />
-          <select v-else v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
+          <Seleccion v-else v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
             <option :value="undefined">{{ c.etiqueta }}: all</option>
             <template v-if="c.tipo === 'bool'"><option value="true">{{ c.etiqueta }}: yes</option><option value="false">{{ c.etiqueta }}: no</option></template>
             <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ c.etiqueta }}: {{ t }}</option></template>
-          </select>
+          </Seleccion>
         </template>
       </div>
       <ArticulosGenericos v-if="compacta" :q="filtros.q" :extra="filtros.extra" :recarga="recarga"
@@ -443,10 +444,10 @@ onMounted(async () => {
           </template>
           <template v-else>
             <span :class="{ req: c.obligatorio }">{{ c.etiqueta }}</span>
-            <select v-if="c.tipo === 'opcion'" v-model="form[c.nombre]" :required="c.obligatorio" :disabled="bloqueado(c)">
+            <Seleccion v-if="c.tipo === 'opcion'" v-model="form[c.nombre]" :required="c.obligatorio" :disabled="bloqueado(c)">
               <option value="">Choose…</option>
               <option v-for="[v, t] in opcionesCampo(c)" :key="v" :value="v">{{ t }}</option>
-            </select>
+            </Seleccion>
             <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c)"
                             :vacio="c.obligatorio ? '' : 'None'" :requerido="c.obligatorio" :etiqueta="c.etiqueta" :deshabilitado="bloqueado(c)" />
             <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c)" multiple

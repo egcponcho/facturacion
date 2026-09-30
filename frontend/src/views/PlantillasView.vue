@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, reactive, ref, watch } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { api } from '../api'
 import CeldaEditable from '../components/CeldaEditable.vue'
 import Icono from '../components/Icono.vue'
@@ -105,9 +106,9 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
             <td style="min-width: 200px"><CeldaEditable :valor="t.nombre" :guardar="guardarCampo(t, 'nombre')" etiqueta="Name" /></td>
             <td class="num" style="width: 90px"><CeldaEditable tipo="number" :min="1" paso="1" :valor="t.cantidad_por_caja" :guardar="guardarCampo(t, 'cantidad_por_caja')" etiqueta="Quantity per carton" /></td>
             <td>
-              <select class="celda" :value="t.unidad" aria-label="Unit" @change="guardarCampo(t, 'unidad')($event.target.value).catch(() => {})">
+              <Seleccion class="celda" :value="t.unidad" aria-label="Unit" @change="guardarCampo(t, 'unidad')($event).catch(() => {})">
                 <option value="PAR">Pairs</option><option value="UN">Units</option><option value="CJ">Prepack cartons</option>
-              </select>
+              </Seleccion>
             </td>
             <td v-for="c in ['largo', 'ancho', 'alto', 'peso_neto', 'peso_bruto', 'tara']" :key="c" class="num" style="width: 88px">
               <CeldaEditable tipo="number" :min="0" :valor="t[c]" :guardar="guardarCampo(t, c)" :etiqueta="c" />
@@ -126,7 +127,7 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
         <label class="campo"><span class="req">Name</span><input v-model="nueva.nombre" required /></label>
         <label class="campo"><span class="req">Quantity per carton</span><input v-model="nueva.cantidad_por_caja" type="number" min="1" required /></label>
         <label class="campo"><span class="req">Unit</span>
-          <select v-model="nueva.unidad"><option value="PAR">Pairs</option><option value="UN">Units</option><option value="CJ">Prepack cartons (size runs)</option></select>
+          <Seleccion v-model="nueva.unidad"><option value="PAR">Pairs</option><option value="UN">Units</option><option value="CJ">Prepack cartons (size runs)</option></Seleccion>
         </label>
         <label class="campo"><span>Length cm</span><input v-model="nueva.largo" type="number" min="0" step="any" /></label>
         <label class="campo"><span>Width cm</span><input v-model="nueva.ancho" type="number" min="0" step="any" /></label>

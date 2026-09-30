@@ -467,6 +467,24 @@ class PaisArancel(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class NotaSAC(Base):
+    """Nota legal del SAC (Reglas Generales, notas de sección, de capítulo o de
+    subpartida) que se tiene en cuenta al clasificar. `capitulos` dice a qué
+    capítulos aplica (vacío: a todos) y `claves` qué datos de la ficha toca."""
+
+    __tablename__ = "notas_sac"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ambito: Mapped[str] = mapped_column(String(12))  # reglas | seccion | capitulo | subpartida
+    codigo: Mapped[str] = mapped_column(String(10))  # RGI, XI, 64…
+    numero: Mapped[str] = mapped_column(String(20))
+    texto: Mapped[str] = mapped_column(Text)
+    capitulos: Mapped[list] = mapped_column(JSON, default=list)
+    claves: Mapped[list] = mapped_column(JSON, default=list)
+    fuente: Mapped[str] = mapped_column(String(12), default="base")
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
 class PartidaSAC(Base):
     """Subpartida del Sistema Arancelario Centroamericano (6 dígitos) o partida
     (4 dígitos) con su texto oficial."""

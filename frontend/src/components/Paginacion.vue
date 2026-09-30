@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import Seleccion from './Seleccion.vue'
 import Icono from './Icono.vue'
 
 // Pie de tabla: rango mostrado, páginas y filas por página
@@ -37,9 +38,9 @@ const botones = computed(() => {
     </div>
     <label class="fila-flex ayuda" style="gap: 6px">
       Rows per page
-      <select class="entrada" style="padding: 4px 8px" :value="props.size" @change="emit('tamano', Number($event.target.value)); emit('cambiar', 1)">
+      <Seleccion class="entrada" style="padding: 4px 8px" :value="props.size" @change="emit('tamano', Number($event)); emit('cambiar', 1)">
         <option v-for="t in props.tamanos" :key="t" :value="t">{{ t }}</option>
-      </select>
+      </Seleccion>
     </label>
   </div>
 </template>

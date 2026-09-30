@@ -341,10 +341,42 @@ const MAT_STOP = new Set(('shell body cuerpo exterior forro lining relleno fill 
 const MAT_AMBIGUAS = {microfibra:'Microfiber can be textile or synthetic (PU): say which', microfiber:'Microfiber can be textile or synthetic (PU): say which', microfibre:'Microfiber can be textile or synthetic (PU): say which', neopreno:'Neoprene: counts as textile if the fabric faces out; if the rubber is exposed, as rubber or plastics', neoprene:'Neoprene: counts as textile if the fabric faces out; if the rubber is exposed, as rubber or plastics'};
 const MAT_EQUIV = [['cuero','Natural leather (hide, suede, nubuck)'],['sintetico','Synthetic: rubber or plastics (PU, PVC, TPU)'],['caucho','Rubber or EVA'],['textil','Textile (fabric, canvas, mesh)'],['algodon','Cotton'],['poliester','Polyester'],['nylon','Nylon or polyamide'],['elastano','Elastane or spandex'],['acrilico','Acrylic'],['viscosa','Viscose or rayon'],['lana','Wool'],['seda','Silk'],['lino','Linen or other vegetable fiber'],['metal','Metal'],['madera','Wood, cork or other material']];
 let SINONIMOS = {}, _prepMemo = new Map(), _vocab = null, _known = null;
+/* Términos comerciales frecuentes y a qué material equivalen para el SAC: el
+   cuero sintético, el PU o la "gamuza sintética" son plástico; el ante, el
+   nobuk o la vaqueta son cuero; las telas por su nombre comercial son textil.
+   Primero van las frases largas para que "synthetic suede" no se lea "suede". */
+const SINONIMOS_BASE = {
+  'synthetic suede':'pu', 'faux suede':'pu', 'micro suede':'pu', 'microsuede':'pu', 'gamuza sintetica':'pu', 'ante sintetico':'pu',
+  'synthetic leather':'pu', 'faux leather':'pu', 'vegan leather':'pu', 'pu leather':'pu', 'cuero sintetico':'pu', 'piel sintetica':'pu',
+  'bonded leather':'pu', 'leatherette':'pu', 'pleather':'pu', 'polyurethane leather':'pu', 'simil cuero':'pu', 'similcuero':'pu', 'cuerina':'pu', 'ecocuero':'pu',
+  'coated fabric':'pvc', 'pu coated':'pu', 'tpu film':'tpu', 'rubber sole':'rubber', 'gum rubber':'rubber', 'crepe rubber':'rubber',
+  'full grain leather':'leather', 'full grain':'leather', 'top grain leather':'leather', 'top grain':'leather', 'split leather':'leather', 'grain leather':'leather',
+  'cowhide':'leather', 'cow leather':'leather', 'calfskin':'leather', 'goatskin':'leather', 'sheepskin':'leather', 'pigskin':'leather', 'lambskin':'leather',
+  'vaqueta':'cuero', 'becerro':'cuero', 'carnaza':'cuero', 'nobuk':'nubuck', 'nubuk':'nubuck', 'oiled leather':'leather', 'waxed leather':'leather',
+  'phylon':'eva', 'ip eva':'eva', 'md':'eva', 'tpe':'tpr', 'kraton':'tpr',
+  'twill':'textile', 'oxford':'textile', 'taslan':'textile', 'tricot':'textile', 'sherpa':'polyester', 'corduroy':'textile', 'pana':'textil',
+  'terry':'textile', 'french terry':'textile', 'velour':'textile', 'velvet':'textile', 'terciopelo':'textil', 'chenille':'textile', 'suedette':'textile',
+  'flyknit':'knit', 'primeknit':'knit', 'engineered mesh':'mesh', 'air mesh':'mesh', 'spacer mesh':'mesh', 'lycra':'elastane', 'dralon':'acrylic',
+  'tencel':'lyocell', 'lyocell':'viscose', 'cupro':'viscose', 'bamboo viscose':'viscose', 'recycled polyester':'polyester', 'rpet':'polyester',
+};
+SINONIMOS = { ...SINONIMOS_BASE };
 function setSinonimos(lista){
-  SINONIMOS = {};
+  SINONIMOS = { ...SINONIMOS_BASE };
   (lista || []).forEach(x=>{ const k = norm(x.palabra).trim(); if (k && x.equivale) SINONIMOS[k] = x.equivale; });
   _prepMemo = new Map();
+}
+/* Categoría de un material escrito (una fila de la composición) para mostrarla
+   junto al campo: cuero, textil, caucho o plástico (sintético)… */
+const CLASE_LBL = {cuero:'Leather', textil:'Textile', plastico:'Rubber or plastics', metal:'Metal', madera:'Wood or cork', papel:'Paper', vidrio:'Glass', paja:'Straw'};
+function claseTexto(txt){
+  const t = prepMat(txt || '').s;
+  if (!t.trim()) return null;
+  const pesos = pesosDe(t, CLASES_MAT);
+  let clase = null, best = -1;
+  for (const [k, n] of Object.entries(pesos)) if (k !== 'otra' && n > best){ best = n; clase = k; }
+  if (!clase) return null;
+  const sint = clase === 'plastico' && !/\b(caucho|rubber|goma|hule|latex|eva|tpr)\b/.test(t);
+  return {clase, lbl: sint ? 'Synthetic (plastics)' : CLASE_LBL[clase]};
 }
 function vocabMat(){
   if (_vocab) return _vocab;
@@ -1309,7 +1341,7 @@ function clasificarReglas(f){
       return fin(R);
     }
     const origenUp = dv.upperComp ? ' (upper composition: ' + resumenMat(dv.corte) + ')' : ' (set by hand, no upper composition)';
-    R.razones.push('Upper of ' + MAT_LBL[up] + origenUp + ' and sole of ' + MAT_LBL[so] + (dv.soleComp ? '' : (f.sole ? ' (set by hand)' : ' (assumed)')));
+    R.razones.push('Upper of ' + MAT_LBL[up] + origenUp + ' and sole of ' + MAT_LBL[so] + (dv.soleComp ? '' : (f.sole ? ' (set by hand)' : ' (assumed)')) + ' — chapter 64, note 4: upper by its largest outer surface, sole by the surface touching the ground');
     if (!dv.upperComp) media('Enter the upper composition by surface; without it the upper material cannot be verified');
     const metal = f.puntera === 'metalica';
     const conAltura = c => { if (!altura) media('Say whether it covers the ankle: it changes the subheading'); return c; };
@@ -1322,7 +1354,7 @@ function clasificarReglas(f){
       R.razones.push('Ski or snowboard footwear → ' + fmtCode(R.codigo));
     } else if (est === 'tacos' && so === 'caucho' && up !== 'otro'){
       R.codigo = up === 'cuero' ? '640319' : up === 'plastico' ? '640219' : '640411';
-      R.razones.push('Sports footwear in the strict sense (cleats, spikes, cycling, wrestling, boxing) → ' + fmtCode(R.codigo));
+      R.razones.push('Sports footwear in the strict sense (cleats, spikes, cycling, wrestling, boxing; chapter 64, subheading note 1) → ' + fmtCode(R.codigo));
     } else if (est === 'chancla_tetones' && up === 'plastico' && so === 'caucho'){
       R.codigo = '640220'; R.razones.push('Straps attached to the sole by plugs (toe post) → 6402.20');
     } else if (up === 'textil'){
@@ -2338,7 +2370,7 @@ function descripcionComercial(f){
 export {
   norm, digits, fmtCode, fmtPais, descDe, setSac, descripcionComercial, tipoComercial, TIPO_CORTO_ES, CAPITULOS, DESC, DESTINOS_BASE, MCCA5, notaOrigenDestino,
   TIPOS, TIPO_LBL, TIPO_CORTO, buscarTipos, grupoTipo, partesDe, partesPrincipales, PARTE_LBL, PARTE_PH,
-  FIB_LBL, MAT_LBL, MAT_EQUIV, MAT_AMBIGUAS, setSinonimos, prepMat, parseComp, parseMat, claseMat, resumenMat, segmentosComp,
+  FIB_LBL, MAT_LBL, MAT_EQUIV, MAT_AMBIGUAS, setSinonimos, claseTexto, CLASE_LBL, prepMat, parseComp, parseMat, claseMat, resumenMat, segmentosComp,
   ATTRS, ATTR_BY, ATTR_IDS, opcionLbl, opcionesValidas, prepararEstado, normalizar, aplicarImplica, atributosLegibles, estadoAttr, motivoDefinido,
   detectar, detectarFicha, detectarCon, parseTallas, edadDe, descripcionProfesional, clasificarReglas, sugerir, perfilDe, perfilLegible,
   validar, verificarCodigo, alertaKey, alertasVivas, evaluar, ESTADOS, ESTADO_COLOR, EDAD_LBL, FUENTES,

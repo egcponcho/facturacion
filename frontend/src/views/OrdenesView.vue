@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import Avance from '../components/Avance.vue'
@@ -336,10 +337,10 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                     vacio="Destination plant: all" etiqueta="Destination plant" @change="filtrar" />
     <SelectBusqueda v-model="filtros.puerto" :opciones="opcionesFiltro.puertos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
                     vacio="Port: all" etiqueta="Port of loading" @change="filtrar" />
-    <select v-model="filtros.comercial" aria-label="Commercial release" @change="filtrar">
+    <Seleccion v-model="filtros.comercial" aria-label="Commercial release" @change="filtrar">
       <option value="">Commercial rel.: all</option><option value="C">C · Released</option><option value="P">P · Pending</option>
-    </select>
-    <select v-model="filtros.liberacion" aria-label="Logistics release" @change="filtrar"><option value="">Logistics rel.: all</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ l.codigo }} · {{ l.nombre }}</option></select>
+    </Seleccion>
+    <Seleccion v-model="filtros.liberacion" aria-label="Logistics release" @change="filtrar"><option value="">Logistics rel.: all</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ l.codigo }} · {{ l.nombre }}</option></Seleccion>
     <div class="segmentos" role="group" aria-label="Show">
       <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">With balance to invoice</button>
       <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">All</button>
@@ -594,10 +595,10 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       <p v-if="invalida" class="nota error"><Icono nombre="alerta" />Some quantities are out of range (between 1 and the available quantity, in whole inner packs).</p>
       <label class="campo">
         <span>Where do you invoice it?</span>
-        <select v-model="destino">
+        <Seleccion v-model="destino">
           <option value="">On a new invoice</option>
           <option v-for="b in borradores" :key="b.id" :value="b.id">Add to {{ b.nombre }} ({{ b.estado === 'BORRADOR' ? 'draft' : 'in correction' }})</option>
-        </select>
+        </Seleccion>
       </label>
       <div v-if="!destino" class="rejilla-campos">
         <label class="campo"><span class="req">Invoice number</span><input v-model="nueva.numero" placeholder="You can add it later" /></label>

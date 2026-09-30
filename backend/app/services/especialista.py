@@ -51,7 +51,7 @@ def disponible() -> bool:
     return bool(settings.ANTHROPIC_API_KEY)
 
 
-def _prompt(d) -> str:
+def _prompt(d, notas: list | None = None) -> str:
     partes = [
         "Product to classify (data captured by the supplier; it may contain errors):", d.ficha_texto,
         f"\nRule engine suggestion: {d.sugerido or 'no code'} (confidence {d.confianza or 'n/a'}).",
@@ -62,6 +62,9 @@ def _prompt(d) -> str:
                   if d.alertas else "The system found no inconsistencies, but review it anyway.")
     if d.parecidos:
         partes.append("Similar products already approved:\n" + "\n".join(f"- {p}" for p in d.parecidos))
+    if notas:
+        partes.append("Legal notes of the SAC that apply (rules, section and chapter notes):\n" + "\n".join(
+            f"- {n.codigo} note {n.numero}: {n.texto}" for n in notas))
     partes.append(
         "First check whether the data contradict each other (name, use, composition, attributes and photos); if they "
         "do, say so and classify with the most reliable data. Do not invent data: if something is missing, ask for it "
@@ -89,7 +92,7 @@ def analizar(db: Session, user: Usuario, producto_id: int, d) -> dict:
             if f.tipo_mime in ("image/jpeg", "image/png", "image/webp") and len(datos) <= 5 * 1024 * 1024:
                 contenido.append({"type": "image", "source": {"type": "base64", "media_type": f.tipo_mime,
                                                               "data": base64.standard_b64encode(datos).decode()}})
-    texto = _prompt(d)
+    texto = _prompt(d, productos.notas_de(db, d.sugerido))
     if contenido:
         texto += f"\n\n{len(contenido)} photo(s) of the product are attached: use them to confirm fabric, style, height and visible materials."
     contenido.append({"type": "text", "text": texto})

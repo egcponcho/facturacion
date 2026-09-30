@@ -1,0 +1,1324 @@
+[
+ {
+  "ambito": "reglas",
+  "codigo": "RGI",
+  "numero": "1",
+  "texto": "Los títulos de las Secciones, de los Capítulos o de los Subcapítulos solo tienen un valor indicativo, ya que la clasificación está determinada legalmente por los textos de las partidas y de las Notas de Sección o de Capítulo y, si no son contrarias a los textos de dichas partidas y Notas, de acuerdo con las Reglas siguientes.",
+  "capitulos": [],
+  "claves": []
+ },
+ {
+  "ambito": "reglas",
+  "codigo": "RGI",
+  "numero": "2 a)",
+  "texto": "Cualquier referencia a un artículo en una partida determinada alcanza al artículo incluso incompleto o sin terminar, siempre que este presente las características esenciales del artículo completo o terminado. Alcanza también al artículo completo o terminado, o considerado como tal en virtud de las disposiciones precedentes, cuando se presente desmontado o sin montar todavía.",
+  "capitulos": [],
+  "claves": []
+ },
+ {
+  "ambito": "reglas",
+  "codigo": "RGI",
+  "numero": "2 b)",
+  "texto": "Cualquier referencia a una materia en una partida determinada alcanza a dicha materia incluso mezclada o asociada con otras materias. Asimismo, cualquier referencia a las manufacturas de una materia determinada alcanza también a las constituidas total o parcialmente por dicha materia. La clasificación de estos productos mezclados o de los artículos compuestos se efectuará de acuerdo con los principios enunciados en la Regla 3.",
+  "capitulos": [],
+  "claves": []
+ },
+ {
+  "ambito": "reglas",
+  "codigo": "RGI",
+  "numero": "3 a)",
+  "texto": "Cuando una mercancía pudiera clasificarse, en principio, en dos o más partidas por aplicación de la Regla 2 b) o en cualquier otro caso, la partida con descripción más específica tendrá prioridad sobre las partidas de alcance más genérico. Sin embargo, cuando dos o más partidas se refieran, cada una, solamente a una parte de las materias que constituyen un producto mezclado o un artículo compuesto o solamente a una parte de los artículos en el caso de mercancías presentadas en juegos o surtidos acondicionados para la venta al por menor, tales partidas deben considerarse igualmente específicas para dicho producto o artículo, incluso si una de ellas lo describe de manera más precisa o completa.",
+  "capitulos": [],
+  "claves": []
+ },
+ {
+  "ambito": "reglas",
+  "codigo": "RGI",
+  "numero": "3 b)",
+  "texto": "Los productos mezclados, las manufacturas compuestas de materias diferentes o constituidas por la unión de artículos diferentes y las mercancías presentadas en juegos o surtidos acondicionados para la venta al por menor, cuya clasificación no pueda efectuarse aplicando la Regla 3 a), se clasificarán según la materia o con el artículo que les confiera su carácter esencial, si fuera posible determinarlo.",
+  "capitulos": [],
+  "claves": []
+ },
+ {
+  "ambito": "reglas",
+  "codigo": "RGI",
+  "numero": "3 c)",
+  "texto": "Cuando las Reglas 3 a) y 3 b) no permitan efectuar la clasificación, la mercancía se clasificará en la última partida por orden de numeración entre las susceptibles de tenerse razonablemente en cuenta.",
+  "capitulos": [],
+  "claves": []
+ },
+ {
+  "ambito": "reglas",
+  "codigo": "RGI",
+  "numero": "4",
+  "texto": "Las mercancías que no puedan clasificarse aplicando las Reglas anteriores se clasificarán en la partida que comprenda aquellas con las que tengan mayor analogía.",
+  "capitulos": [],
+  "claves": []
+ },
+ {
+  "ambito": "reglas",
+  "codigo": "RGI",
+  "numero": "5 a)",
+  "texto": "Los estuches para cámaras fotográficas, instrumentos musicales, armas, instrumentos de dibujo, collares y continentes similares, especialmente apropiados para contener un artículo determinado o un juego o surtido, susceptibles de uso prolongado y presentados con los artículos a los que están destinados, se clasificarán con dichos artículos cuando sean de los tipos normalmente vendidos con ellos. Sin embargo, esta Regla no se aplica en la clasificación de los continentes que confieran al conjunto su carácter esencial.",
+  "capitulos": [],
+  "claves": []
+ },
+ {
+  "ambito": "reglas",
+  "codigo": "RGI",
+  "numero": "5 b)",
+  "texto": "Salvo lo dispuesto en la Regla 5 a), los envases que contengan mercancías se clasificarán con ellas cuando sean del tipo de los normalmente utilizados para esa clase de mercancías. Sin embargo, esta disposición no es obligatoria cuando los envases sean claramente susceptibles de utilización repetida.",
+  "capitulos": [],
+  "claves": []
+ },
+ {
+  "ambito": "reglas",
+  "codigo": "RGI",
+  "numero": "6",
+  "texto": "La clasificación de mercancías en las subpartidas de una misma partida está determinada legalmente por los textos de estas subpartidas y de las Notas de subpartida así como, mutatis mutandis, por las Reglas anteriores, bien entendido que solo pueden compararse subpartidas del mismo nivel. A efectos de esta Regla, también se aplican las Notas de Sección y de Capítulo, salvo disposición en contrario.",
+  "capitulos": [],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "1",
+  "texto": "Esta Sección no comprende: a) los pelos y cerdas para cepillería (partida 05.02) y la crin y sus desperdicios (partida 05.11); b) el cabello y sus manufacturas (partidas 05.01, 67.03 o 67.04), excepto los capachos y tejidos gruesos de los tipos utilizados en las prensas de aceite o usos técnicos análogos (partida 59.11); c) los línteres de algodón y demás productos vegetales del Capítulo 14; d) el amianto de la partida 25.24 y los artículos de amianto y demás productos de las partidas 68.12 o 68.13; e) los artículos de las partidas 30.05 o 30.06; el hilo utilizado para limpieza de los espacios interdentales (hilo dental), en envases individuales para la venta al por menor, de la partida 33.06; f) los textiles sensibilizados de las partidas 37.01 a 37.04; g) los monofilamentos cuya mayor dimensión del corte transversal sea superior a 1 mm y las tiras y formas similares (por ejemplo: paja artificial) de anchura aparente superior a 5 mm, de plástico (Capítulo 39), así como las trenzas, tejidos y demás manufacturas de cestería o espartería de estos artículos (Capítulo 46); h) los tejidos, de punto, fieltro y tela sin tejer, impregnados, recubiertos, revestidos o estratificados con plástico y los artículos de estos productos, del Capítulo 39; ij) los tejidos, de punto, fieltro y tela sin tejer, impregnados, recubiertos, revestidos o estratificados con caucho y los artículos de estos productos, del Capítulo 40; k) las pieles sin depilar (Capítulos 41 o 43) y los artículos de peletería natural o artificial de las partidas 43.03 o 43.04; l) los artículos de materia textil de las partidas 42.01 o 42.02; m) los productos y artículos del Capítulo 48 (por ejemplo: guata de celulosa); n) el calzado y sus partes, las polainas y artículos similares del Capítulo 64; o) las redecillas para el cabello y demás tocados y sus partes, del Capítulo 65; p) los productos del Capítulo 67; q) los productos textiles recubiertos de polvo abrasivo (partida 68.05) y las fibras de carbono y sus manufacturas de la partida 68.15; r) las fibras de vidrio y sus manufacturas, excepto los bordados químicos o sin fondo visible con hilo de fibra de vidrio (Capítulo 70); s) los artículos del Capítulo 94 (por ejemplo: muebles, artículos de cama, aparatos de alumbrado); t) los artículos del Capítulo 95 (por ejemplo: juguetes, juegos, artefactos deportivos y redes); u) los artículos del Capítulo 96 (por ejemplo: cepillos, juegos o surtidos de viaje para costura, cierres de cremallera, cintas para máquinas de escribir, compresas y tampones higiénicos, pañales y artículos similares); v) los artículos del Capítulo 97.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "2 A)",
+  "texto": "Los productos de los Capítulos 50 a 55 o de las partidas 58.09 o 59.02 que contengan dos o más materias textiles se clasificarán como si estuvieran totalmente constituidos por la materia textil que predomine en peso sobre cada una de las demás. Cuando ninguna materia textil predomine en peso, el producto se clasificará como si estuviera totalmente constituido por la materia textil que pertenezca a la partida situada en último lugar por orden de numeración entre las susceptibles de tomarse razonablemente en cuenta.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": [
+   "composicion"
+  ]
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "2 B)",
+  "texto": "Para la aplicación de la Nota 2 A): a) los hilados de crin con alma (partida 51.10) y los hilados metálicos (partida 56.05) se consideran como una sola materia textil cuyo peso será la suma de los pesos de sus componentes; para la clasificación de los tejidos, los hilos metálicos se consideran materia textil; b) la elección de la partida apropiada se efectuará determinando en primer lugar el Capítulo y después, dentro de este, la partida aplicable, haciendo abstracción de cualquier materia textil que no pertenezca a dicho Capítulo; c) cuando los Capítulos 54 y 55 deban tomarse en consideración conjuntamente con otro Capítulo, dichos Capítulos 54 y 55 se considerarán como uno solo; d) cuando un Capítulo o una partida se refieran a materias textiles diferentes, dichas materias se considerarán como una sola materia textil.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": [
+   "composicion"
+  ]
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "2 C)",
+  "texto": "Las disposiciones de los apartados A) y B) se aplicarán también a los hilados descritos en las Notas 3, 4, 5 o 6.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "7",
+  "texto": "En esta Sección, se entiende por confeccionados: a) los artículos cortados en forma distinta de la cuadrada o rectangular; b) los artículos terminados, listos para el uso o que puedan utilizarse después de separarlos por simple corte de los hilos sin entrelazar, sin costura ni otra mano de obra complementaria, tales como algunos paños de cocina, toallas, manteles, pañuelos de bolsillo y mantas; c) los artículos cortados con las dimensiones requeridas y que, por lo menos, un borde haya sido termosellado con un acabado visible o con los bordes rebatidos o con dobladillo; d) los artículos cuyos bordes se hayan dobladillado o ribeteado, o con flecos anudados obtenidos con sus propios hilos o con hilos incorporados; e) los artículos cortados en forma distinta de la cuadrada o rectangular sin otra mano de obra; f) los artículos teñidos o estampados que se presenten en pieza, cuando lleven hilos sacados; g) los artículos obtenidos por ensamblado por costura, pegado u otra forma (excepto las piezas del mismo textil unidas por los extremos para formar una pieza de mayor longitud y las piezas constituidas por dos o más textiles superpuestos en toda su superficie y unidos de esta forma, incluso con interposición de materia de relleno); h) los artículos de punto obtenidos con forma, tanto si se presentan como unidades separadas como si se presentan en forma de varias unidades en pieza.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "8",
+  "texto": "Para la aplicación de los Capítulos 50 a 60: a) los Capítulos 50 a 55 y 60 y, salvo disposición en contrario, los Capítulos 56 a 59 no comprenden los artículos confeccionados en el sentido de la Nota 7 anterior; b) los Capítulos 50 a 55 y 60 no comprenden los artículos de los Capítulos 56 a 59.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "9",
+  "texto": "Los tejidos de los Capítulos 50 a 55 comprenden los tejidos formados por capas de hilados textiles paralelizados que se superponen en ángulo agudo o recto, fijadas entre sí en los puntos de cruce de los hilos mediante un adhesivo o por termosoldado.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "10",
+  "texto": "Los productos elásticos constituidos por materia textil combinada con hilos de caucho se clasificarán en esta Sección.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "11",
+  "texto": "En esta Sección, el término impregnado incluye también sumergido.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "12",
+  "texto": "En esta Sección, el término poliamidas incluye también las aramidas.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "13",
+  "texto": "En esta Sección y, en su caso, en la Nomenclatura, se entiende por hilados de elastómeros los hilados de filamentos, incluidos los monofilamentos, de materia textil sintética, excepto los hilados texturados, que no se rompan al estirarlos hasta tres veces su longitud inicial y que, después de estirarlos hasta dos veces su longitud inicial, recuperen en menos de cinco minutos una longitud inferior o igual a vez y media su longitud inicial.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "14",
+  "texto": "Salvo disposición en contrario, las prendas de vestir de materia textil de partidas diferentes se clasificarán en sus partidas respectivas, incluso si se presentan en juegos o surtidos acondicionados para la venta al por menor. A efectos de esta Nota, se entiende por prendas de vestir de materia textil las prendas de las partidas 61.01 a 61.14 y 62.01 a 62.11.",
+  "capitulos": [
+   "61",
+   "62"
+  ],
+  "claves": [
+   "juego",
+   "conjunto"
+  ]
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XI",
+  "numero": "15",
+  "texto": "Sin perjuicio de lo dispuesto en la Nota 1 de la Sección XI, los productos textiles, prendas de vestir y demás artículos textiles que incorporen componentes químicos, mecánicos o electrónicos para funciones adicionales, integrados como componentes o como parte intrínseca de la fibra o del tejido, se clasificarán en sus partidas respectivas de la Sección XI siempre que conserven el carácter esencial de las mercancías de esta Sección.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "subpartida",
+  "codigo": "XI",
+  "numero": "Subp. 1 (extracto)",
+  "texto": "En esta Sección y, en su caso, en la Nomenclatura, se entiende por: a) hilados crudos: los hilados con el color natural de sus fibras constitutivas, que no se hayan blanqueado, teñido (incluso en la masa) ni estampado; b) hilados blanqueados: los que se han sometido a un proceso de blanqueo o fabricado con fibras blanqueadas; c) hilados coloreados (teñidos o estampados): los teñidos (incluso en la masa), excepto en blanco o en colores no permanentes, o estampados, o fabricados con fibras teñidas o estampadas. En los tejidos: tejidos crudos, tejidos blanqueados y tejidos teñidos, entendiendo por estos últimos los teñidos de un solo color uniforme, excepto el blanco, o con un acabado coloreado; ij) tejidos con hilados de distintos colores; k) tejidos estampados; l) tejido de ligamento tafetán: estructura en la que cada hilo de trama pasa alternativamente por encima y por debajo de los hilos sucesivos de urdimbre y viceversa.",
+  "capitulos": [
+   "50",
+   "51",
+   "52",
+   "53",
+   "54",
+   "55",
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "subpartida",
+  "codigo": "XI",
+  "numero": "Subp. 2 A)",
+  "texto": "Los productos de los Capítulos 56 a 63 que contengan dos o más materias textiles se considerarán constituidos totalmente por la materia textil que les correspondería según la Nota 2 de esta Sección para la clasificación de un producto de los Capítulos 50 a 55 o de la partida 58.09 que contenga las mismas materias.",
+  "capitulos": [
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": [
+   "composicion"
+  ]
+ },
+ {
+  "ambito": "subpartida",
+  "codigo": "XI",
+  "numero": "Subp. 2 B)",
+  "texto": "Para la aplicación de esta regla: a) en su caso, solo se tendrá en cuenta la parte que determine la clasificación en virtud de la Regla General Interpretativa 3; b) en los productos textiles formados por un tejido de fondo y una superficie con pelo o con bucles no se tendrá en cuenta el tejido de fondo; c) en los bordados de la partida 58.10 y sus manufacturas, solo se tendrá en cuenta el tejido de fondo. Sin embargo, en los bordados químicos, aéreos o sin fondo visible y sus manufacturas, la clasificación se efectuará teniendo en cuenta solamente los hilos para bordar.",
+  "capitulos": [
+   "56",
+   "57",
+   "58",
+   "59",
+   "60",
+   "61",
+   "62",
+   "63"
+  ],
+  "claves": [
+   "composicion"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "56",
+  "numero": "1 (extracto)",
+  "texto": "Este Capítulo no comprende, entre otros: la guata, fieltro o tela sin tejer, impregnados, recubiertos o revestidos de sustancias o preparaciones (por ejemplo: perfumes o cosméticos del Capítulo 33, jabones o detergentes de la partida 34.01, cremas, encáusticos, abrillantadores de la partida 34.05); los productos textiles de la partida 58.11; y el fieltro o tela sin tejer, impregnados, recubiertos, revestidos o estratificados con plástico o caucho (Capítulos 39 o 40), salvo lo dispuesto en las Notas 3 y 4 de este Capítulo.",
+  "capitulos": [
+   "56"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "56",
+  "numero": "3",
+  "texto": "Las partidas 56.02 y 56.03 comprenden, respectivamente, el fieltro y la tela sin tejer, impregnados, recubiertos, revestidos o estratificados con plástico o caucho, cualquiera que sea la naturaleza de estas materias (compacta o celular). La partida 56.03 comprende también la tela sin tejer aglomerada con plástico o caucho. Sin embargo, estas partidas no comprenden: a) el fieltro impregnado, recubierto, revestido o estratificado con plástico o caucho, con un contenido de materia textil inferior o igual al 50 % en peso, así como el fieltro totalmente embebido en plástico o caucho (Capítulos 39 o 40); b) la tela sin tejer totalmente embebida en plástico o caucho, o totalmente recubierta o revestida por las dos caras con estas materias, siempre que el recubrimiento o revestimiento sea perceptible a simple vista, haciendo abstracción para la aplicación de esta disposición de los cambios de color producidos por estas operaciones (Capítulos 39 o 40); c) las hojas, placas o tiras de plástico o caucho celulares combinadas con fieltro o tela sin tejer, en las que la materia textil sea un simple soporte (Capítulos 39 o 40).",
+  "capitulos": [
+   "56",
+   "61",
+   "62",
+   "64"
+  ],
+  "claves": [
+   "recubierta"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "58",
+  "numero": "1",
+  "texto": "Este Capítulo no comprende los tejidos contemplados en la Nota 1 del Capítulo 59, impregnados, recubiertos, revestidos o estratificados, ni los demás artículos del Capítulo 59.",
+  "capitulos": [
+   "58"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "58",
+  "numero": "5",
+  "texto": "En la partida 58.06, se entiende por cintas: a) los tejidos de urdimbre y trama (incluido el terciopelo) en tiras de anchura inferior o igual a 30 cm, con orillos verdaderos o con orillos obtenidos por el cortado de tejidos más anchos; b) los tejidos tubulares aplastados de anchura inferior o igual a 30 cm; c) los tejidos al bies con los bordes plegados, de anchura inferior o igual a 30 cm una vez desplegados. Las cintas con flecos obtenidos en el tejido se clasifican en la partida 58.08.",
+  "capitulos": [
+   "58"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "58",
+  "numero": "6",
+  "texto": "En la partida 58.10, se entiende por bordados, entre otros, los realizados con hilos metálicos o de fibra de vidrio sobre un tejido visible, así como los obtenidos por aplicación por costura de lentejuelas, perlas o motivos ornamentales de materia textil o de otras materias. Esta partida no comprende las tapicerías de aguja hechas a mano (partida 58.05).",
+  "capitulos": [
+   "58"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "59",
+  "numero": "1",
+  "texto": "Salvo disposición en contrario, cuando se utilice en este Capítulo el término tela(s), se refiere a los tejidos de los Capítulos 50 a 55 y de las partidas 58.03 y 58.06, a las trenzas, artículos de pasamanería y artículos ornamentales análogos, en pieza, de la partida 58.08 y a los tejidos de punto de las partidas 60.02 a 60.06.",
+  "capitulos": [
+   "59",
+   "61",
+   "62",
+   "64"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "59",
+  "numero": "2",
+  "texto": "La partida 59.03 comprende: a) las telas impregnadas, recubiertas, revestidas o estratificadas con plástico, cualquiera que sea el peso por metro cuadrado y la naturaleza del plástico (compacta o celular), excepto: 1) las telas en las que la impregnación, recubrimiento o revestimiento no se perciban a simple vista (Capítulos 50 a 55, 58 o 60, generalmente), haciendo abstracción para la aplicación de esta disposición de los cambios de color producidos por estas operaciones; 2) los productos que no puedan enrollarse a mano sin agrietarse, en un mandril de 7 mm de diámetro, a una temperatura comprendida entre 15 °C y 30 °C (Capítulo 39, generalmente); 3) los productos en los que la tela esté totalmente embebida en plástico o totalmente recubierta o revestida por las dos caras con esta materia, siempre que el recubrimiento o revestimiento sea perceptible a simple vista, haciendo abstracción de los cambios de color (Capítulo 39); 4) las telas parcialmente recubiertas o revestidas de plástico que presenten dibujos que provengan de estos tratamientos (Capítulos 50 a 55, 58 o 60, generalmente); 5) las hojas, placas o tiras de plástico celular, combinadas con tela, en las que la tela sea un simple soporte (Capítulo 39); 6) los productos textiles de la partida 58.11; b) las telas fabricadas con hilados, tiras o formas similares, impregnados, recubiertos, revestidos o enfundados con plástico, de la partida 56.04.",
+  "capitulos": [
+   "59",
+   "61",
+   "62",
+   "64"
+  ],
+  "claves": [
+   "recubierta",
+   "plastico"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "59",
+  "numero": "4",
+  "texto": "En la partida 59.06, se entiende por telas cauchutadas: a) las telas impregnadas, recubiertas, revestidas o estratificadas con caucho: con un peso inferior o igual a 1.500 g/m2; o con un peso superior a 1.500 g/m2 y un contenido de materia textil superior al 50 % en peso; b) las telas fabricadas con hilados, tiras o formas similares, impregnados, recubiertos, revestidos o enfundados con caucho, de la partida 56.04; c) las napas de hilados textiles paralelizados aglomerados entre sí con caucho, cualquiera que sea su peso por metro cuadrado. Esta partida no comprende las placas, hojas o tiras de caucho celular combinadas con tela, en las que la tela sea un simple soporte (Capítulo 40), ni los productos textiles de la partida 58.11.",
+  "capitulos": [
+   "59",
+   "61",
+   "62",
+   "64"
+  ],
+  "claves": [
+   "recubierta",
+   "caucho"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "60",
+  "numero": "1",
+  "texto": "Este Capítulo no comprende: a) los encajes de ganchillo (croché) de la partida 58.04; b) las etiquetas, escudos y artículos similares, de punto, de la partida 58.07; c) los tejidos de punto impregnados, recubiertos, revestidos o estratificados, del Capítulo 59. Sin embargo, los terciopelos, felpas y tejidos con bucles, de punto, incluso impregnados, recubiertos, revestidos o estratificados, se clasifican en la partida 60.01.",
+  "capitulos": [
+   "60",
+   "61"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "60",
+  "numero": "2",
+  "texto": "Este Capítulo comprende también los tejidos fabricados con hilos de metal que se utilicen en prendas de vestir, mobiliario o usos similares.",
+  "capitulos": [
+   "60"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "60",
+  "numero": "3",
+  "texto": "En la Nomenclatura, la expresión productos de punto incluye los productos obtenidos por cosido por cadeneta en los que las mallas estén constituidas por hilados textiles.",
+  "capitulos": [
+   "60",
+   "61"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "61",
+  "numero": "1",
+  "texto": "Este Capítulo solo comprende artículos de punto confeccionados.",
+  "capitulos": [
+   "61"
+  ],
+  "claves": [
+   "punto"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "61",
+  "numero": "2",
+  "texto": "Este Capítulo no comprende: a) los artículos de la partida 62.12; b) los artículos de prendería de la partida 63.09; c) los artículos de ortopedia, tales como bragueros para hernias o fajas medicoquirúrgicas (partida 90.21).",
+  "capitulos": [
+   "61"
+  ],
+  "claves": [
+   "brasier"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "61",
+  "numero": "3",
+  "texto": "En las partidas 61.03 y 61.04: a) se entiende por traje (ambo) el surtido formado por dos o tres prendas de vestir confeccionadas con la misma tela y compuesto por: una sola chaqueta (saco) cuyo exterior, excepto las mangas, esté formado por cuatro o más piezas, diseñada para cubrir la parte superior del cuerpo, eventualmente con un chaleco sastre cuya parte delantera esté confeccionada con la misma tela que la superficie exterior de los demás componentes del surtido y cuya parte trasera esté confeccionada con la misma tela que el forro de la chaqueta (saco); y una sola prenda diseñada para cubrir la parte inferior del cuerpo, que consista en un pantalón largo, un pantalón corto (calzón), un short (excepto de baño), una falda o una falda pantalón, sin tirantes (tiradores) ni peto. Todos los componentes del traje (ambo) deberán estar confeccionados con una tela de la misma estructura, color y composición; además, deberán ser del mismo estilo y de tallas correspondientes o compatibles. Sin embargo, estos componentes pueden tener un vivo (tira de tela cosida en las costuras) de una tela diferente. Si se presentan simultáneamente varios componentes para la parte inferior del cuerpo, por ejemplo, un pantalón largo y un pantalón corto, o una falda o falda pantalón y un pantalón, se dará prioridad al pantalón largo o, en el caso de los trajes sastre para mujeres o niñas, a la falda o falda pantalón. La expresión traje (ambo) comprende también los trajes de etiqueta o de noche siguientes, aunque no cumplan todas las condiciones: chaqué, frac, smoking; b) se entiende por conjunto el surtido de prendas de vestir (excepto los trajes (ambos) y artículos de las partidas 61.07, 61.08 o 61.09) compuesto por varias piezas confeccionadas con una misma tela, acondicionado para la venta al por menor y que comprenda: una sola prenda diseñada para cubrir la parte superior del cuerpo, excepto los chalecos que pueden formar una segunda prenda exterior en el caso de los twin-sets; y una o dos prendas diferentes diseñadas para cubrir la parte inferior del cuerpo, que consistan en un pantalón largo, un pantalón con peto, un pantalón corto (calzón), un short (excepto de baño), una falda o una falda pantalón. Todos los componentes del conjunto deben tener la misma estructura, estilo, color y composición; además, deberán ser de tallas correspondientes o compatibles. El término conjunto no comprende los conjuntos de abrigo para entrenamiento o deporte ni los monos (overoles) y conjuntos de esquí, de la partida 61.12.",
+  "capitulos": [
+   "61"
+  ],
+  "claves": [
+   "conjunto",
+   "traje"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "61",
+  "numero": "4",
+  "texto": "Las partidas 61.05 y 61.06 no comprenden las prendas con bolsillos por debajo de la cintura, con cintura con elástico en la parte inferior o con otros medios que permitan ajustar el bajo de la prenda, ni las prendas con una media inferior a 10 puntadas por centímetro lineal en cada dirección, contadas en una superficie de 10 cm × 10 cm como mínimo. La partida 61.05 no comprende las prendas sin mangas.",
+  "capitulos": [
+   "61"
+  ],
+  "claves": [
+   "camisa",
+   "polo"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "61",
+  "numero": "5",
+  "texto": "La partida 61.09 no comprende las prendas con cordón ajustable, cintura con elástico u otros medios que permitan ajustar el bajo de la prenda.",
+  "capitulos": [
+   "61"
+  ],
+  "claves": [
+   "camiseta"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "61",
+  "numero": "6",
+  "texto": "En la partida 61.11: a) la expresión prendas y complementos (accesorios), de vestir, para bebés se refiere a los artículos para niños pequeños cuya estatura no sobrepase 86 cm; b) los artículos susceptibles de clasificarse a la vez en la partida 61.11 y en otras partidas de este Capítulo se clasificarán en la partida 61.11.",
+  "capitulos": [
+   "61"
+  ],
+  "claves": [
+   "bebe"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "61",
+  "numero": "7",
+  "texto": "En la partida 61.12, se entiende por monos (overoles) y conjuntos de esquí, las prendas de vestir o surtidos de prendas de vestir que, por su aspecto general y su textura, son identificables como destinados principalmente para ser utilizados en la práctica del esquí (alpino o de fondo). Consisten en: a) un mono (overol) de esquí, es decir, una prenda de una sola pieza diseñada para cubrir las partes superior e inferior del cuerpo; además de las mangas y el cuello, puede tener bolsillos y trabillas; b) un conjunto de esquí, es decir, un surtido de prendas de vestir compuesto por dos o tres piezas, acondicionado para la venta al por menor, que comprenda: una sola prenda del tipo anorak, cazadora o artículo similar, cerrada con cierre de cremallera, eventualmente acompañada de un chaleco; y un solo pantalón aunque suba por encima de la cintura, un solo calzón o un solo peto con tirantes (tiradores). El conjunto de esquí también puede estar compuesto por un mono (overol) del tipo mencionado en el párrafo a) y una especie de chaqueta acolchada sin mangas colocada sobre el mono.",
+  "capitulos": [
+   "61"
+  ],
+  "claves": [
+   "esqui"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "61",
+  "numero": "8",
+  "texto": "Las prendas de vestir susceptibles de clasificarse en la partida 61.13 y en otras partidas de este Capítulo, excepto la partida 61.11, se clasificarán en la partida 61.13.",
+  "capitulos": [
+   "61"
+  ],
+  "claves": [
+   "recubierta"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "61",
+  "numero": "9",
+  "texto": "Las prendas de este Capítulo que se cierran por delante de izquierda sobre derecha se considerarán como prendas para hombres o niños, y las que se cierran por delante de derecha sobre izquierda, como prendas para mujeres o niñas. Estas disposiciones no se aplicarán cuando el corte de la prenda indique claramente que ha sido diseñada para uno u otro sexo. Las prendas que no sean identificables como prendas para hombres o niños o como prendas para mujeres o niñas se clasificarán en las partidas correspondientes a estas últimas.",
+  "capitulos": [
+   "61"
+  ],
+  "claves": [
+   "genero",
+   "unisex"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "61",
+  "numero": "10",
+  "texto": "Los artículos de este Capítulo pueden confeccionarse con hilos de metal.",
+  "capitulos": [
+   "61"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "62",
+  "numero": "1",
+  "texto": "Este Capítulo solo comprende los artículos confeccionados con cualquier textil, excepto la guata; no comprende los artículos de punto distintos de los de la partida 62.12.",
+  "capitulos": [
+   "62"
+  ],
+  "claves": [
+   "plano"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "62",
+  "numero": "2",
+  "texto": "Este Capítulo no comprende: a) los artículos de prendería de la partida 63.09; b) los artículos de ortopedia, tales como bragueros para hernias o fajas medicoquirúrgicas (partida 90.21).",
+  "capitulos": [
+   "62"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "62",
+  "numero": "3",
+  "texto": "En las partidas 62.03 y 62.04, las expresiones traje (ambo) y conjunto tienen el mismo alcance que en la Nota 3 del Capítulo 61 (surtidos de dos o tres prendas de la misma tela, estructura, color y composición, de tallas correspondientes; el conjunto excluye los conjuntos de abrigo para entrenamiento o deporte y los monos y conjuntos de esquí de la partida 62.11).",
+  "capitulos": [
+   "62"
+  ],
+  "claves": [
+   "conjunto",
+   "traje"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "62",
+  "numero": "4",
+  "texto": "En la partida 62.09: a) la expresión prendas y complementos (accesorios), de vestir, para bebés se refiere a los artículos para niños pequeños cuya estatura no sobrepase 86 cm; b) los artículos susceptibles de clasificarse a la vez en la partida 62.09 y en otras partidas de este Capítulo se clasificarán en la partida 62.09.",
+  "capitulos": [
+   "62"
+  ],
+  "claves": [
+   "bebe"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "62",
+  "numero": "5",
+  "texto": "Las prendas de vestir susceptibles de clasificarse en la partida 62.10 y en otras partidas de este Capítulo, excepto la partida 62.09, se clasificarán en la partida 62.10.",
+  "capitulos": [
+   "62"
+  ],
+  "claves": [
+   "recubierta"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "62",
+  "numero": "6",
+  "texto": "En la partida 62.11, se entiende por monos (overoles) y conjuntos de esquí, las prendas de vestir o surtidos de prendas de vestir identificables como destinados principalmente para la práctica del esquí, en los mismos términos que la Nota 7 del Capítulo 61.",
+  "capitulos": [
+   "62"
+  ],
+  "claves": [
+   "esqui"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "62",
+  "numero": "7",
+  "texto": "Los pañuelos de cuello, los chales, las bufandas, las mantillas, los velos y artículos similares, cuadrados o sensiblemente cuadrados, en los que ningún lado sea superior a 60 cm, se clasificarán como pañuelos de bolsillo (partida 62.13). Los pañuelos de bolsillo en los que algún lado sea superior a 60 cm se clasificarán en la partida 62.14.",
+  "capitulos": [
+   "62"
+  ],
+  "claves": [
+   "bufanda"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "62",
+  "numero": "8",
+  "texto": "Las prendas de este Capítulo que se cierran por delante de izquierda sobre derecha se considerarán como prendas para hombres o niños, y las que se cierran por delante de derecha sobre izquierda, como prendas para mujeres o niñas. Estas disposiciones no se aplicarán cuando el corte de la prenda indique claramente que ha sido diseñada para uno u otro sexo. Las prendas que no sean identificables como prendas para hombres o niños o como prendas para mujeres o niñas se clasificarán en las partidas correspondientes a estas últimas.",
+  "capitulos": [
+   "62"
+  ],
+  "claves": [
+   "genero",
+   "unisex"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "62",
+  "numero": "9",
+  "texto": "Los artículos de este Capítulo pueden confeccionarse con hilos de metal.",
+  "capitulos": [
+   "62"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "63",
+  "numero": "1",
+  "texto": "El Subcapítulo I solo se aplica a los artículos confeccionados de cualquier textil.",
+  "capitulos": [
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "63",
+  "numero": "2",
+  "texto": "El Subcapítulo I no comprende: a) los productos de los Capítulos 56 a 62; b) los artículos de prendería de la partida 63.09.",
+  "capitulos": [
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "63",
+  "numero": "3",
+  "texto": "La partida 63.09 solo comprende las mercancías enumeradas limitativamente a continuación: a) artículos de materia textil: prendas y complementos (accesorios), de vestir, y sus partes; mantas; ropa de cama, mesa, tocador o cocina; artículos de tapicería, excepto las alfombras de las partidas 57.01 a 57.05 y la tapicería de la partida 58.05; b) calzado, sombreros y demás tocados, de cualquier materia distinta del amianto. Para ser clasificados en esta partida, los artículos anteriores deberán cumplir las condiciones siguientes: presentar señales apreciables de uso, y presentarse a granel o en balas, sacos (bolsas) o acondicionamientos similares.",
+  "capitulos": [
+   "63",
+   "64",
+   "65"
+  ],
+  "claves": [
+   "usado"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "64",
+  "numero": "1",
+  "texto": "Este Capítulo no comprende: a) los artículos desechables para cubrir los pies o el calzado, de materiales livianos o poco resistentes (por ejemplo: papel, hojas de plástico) y sin suela aplicada (régimen de la materia constitutiva); b) el calzado de materia textil sin suela exterior encolada, cosida o fijada o aplicada de otro modo a la parte superior (Sección XI); c) el calzado usado de la partida 63.09; d) los artículos de amianto (partida 68.12); e) el calzado y aparatos de ortopedia y sus partes (partida 90.21); f) el calzado con carácter de juguete o el calzado con patines fijos (patines para hielo o de ruedas); las espinilleras y demás artículos de protección utilizados en la práctica del deporte (Capítulo 95).",
+  "capitulos": [
+   "64"
+  ],
+  "claves": [
+   "sin_suela",
+   "juguete",
+   "ortopedico"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "64",
+  "numero": "2",
+  "texto": "En la partida 64.06, no se consideran partes las clavijas, protecteras, ojetes, ganchos, hebillas, galones, borlas, cordones y demás artículos de adorno o de pasamanería, que siguen su propio régimen, ni los botones y demás artículos de la partida 96.06.",
+  "capitulos": [
+   "64"
+  ],
+  "claves": [
+   "partes"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "64",
+  "numero": "3",
+  "texto": "En este Capítulo: a) los términos caucho y plástico comprenden los tejidos y demás soportes textiles con una capa exterior de caucho o plástico perceptible a simple vista; a efectos de esta disposición, se hace abstracción de los cambios de color; b) la expresión cuero natural se refiere a los productos de las partidas 41.07 y 41.12 a 41.14.",
+  "capitulos": [
+   "64"
+  ],
+  "claves": [
+   "plastico",
+   "cuero",
+   "recubierta"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "64",
+  "numero": "4",
+  "texto": "Salvo lo dispuesto en la Nota 3 de este Capítulo: a) la materia de la parte superior será la que tenga la mayor superficie exterior, sin tener en cuenta los accesorios o refuerzos, tales como ribetes, protectores de tobillo, adornos, hebillas, lengüetas, ojetes o artículos similares; b) la materia constitutiva de la suela será la que tenga la mayor superficie en contacto con el suelo, sin tener en cuenta los accesorios o refuerzos, tales como clavos, tacos, protectores o artículos similares.",
+  "capitulos": [
+   "64"
+  ],
+  "claves": [
+   "corte",
+   "suela"
+  ]
+ },
+ {
+  "ambito": "subpartida",
+  "codigo": "64",
+  "numero": "Subp. 1",
+  "texto": "En las subpartidas 6402.12, 6402.19, 6403.12, 6403.19 y 6404.11, se entiende por calzado de deporte exclusivamente: a) el calzado diseñado para la práctica de una actividad deportiva y que esté o pueda estar provisto de clavos, tacos (tapones), sujetadores, tiras o dispositivos similares; b) el calzado para patinar, esquí, tabla para nieve (snowboard), lucha, boxeo o ciclismo.",
+  "capitulos": [
+   "64"
+  ],
+  "claves": [
+   "deporte"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "65",
+  "numero": "1",
+  "texto": "Este Capítulo no comprende: a) los sombreros y demás tocados usados, de la partida 63.09; b) los sombreros y demás tocados, de amianto (partida 68.12); c) los sombreros y demás tocados con carácter de juguete, tales como los de muñecas, ni los artículos de carnaval (Capítulo 95).",
+  "capitulos": [
+   "65"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "65",
+  "numero": "2",
+  "texto": "La partida 65.02 no comprende los cascos o formas confeccionados por costura, excepto los obtenidos por unión de tiras simplemente cosidas en espiral.",
+  "capitulos": [
+   "65"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "66",
+  "numero": "1",
+  "texto": "Este Capítulo no comprende: a) los bastones medida y similares (partida 90.17); b) los bastones escopeta, bastones estoque, bastones plomados y similares (Capítulo 93); c) los artículos del Capítulo 95 (por ejemplo: paraguas y sombrillas, para juguetes).",
+  "capitulos": [
+   "66"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "66",
+  "numero": "2",
+  "texto": "La partida 66.03 no comprende las partes, guarniciones y accesorios de materia textil, ni las fundas, borlas, dragonas y artículos similares, de cualquier materia, para los artículos de las partidas 66.01 o 66.02. Estos artículos se clasificarán separadamente, incluso cuando se presenten con los artículos a los que se destinen, pero sin montar en ellos.",
+  "capitulos": [
+   "66"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "42",
+  "numero": "1",
+  "texto": "En este Capítulo, la expresión cuero natural comprende también los cueros y pieles agamuzados (incluido el agamuzado combinado al aceite), los cueros y pieles charolados y sus imitaciones de cueros o pieles chapados y los cueros y pieles metalizados.",
+  "capitulos": [
+   "42"
+  ],
+  "claves": [
+   "cuero"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "42",
+  "numero": "2",
+  "texto": "Este Capítulo no comprende: a) los catguts estériles y materiales estériles similares para suturas quirúrgicas (partida 30.06); b) las prendas y complementos (accesorios) de vestir (excepto los guantes, mitones y manoplas), de cuero o piel, forrados interiormente con peletería natural o peletería facticia o artificial, así como las prendas y complementos de vestir de cuero o piel que tengan partes exteriores de peletería natural o peletería facticia o artificial, cuando dichas partes excedan de simples guarniciones (partidas 43.03 o 43.04, según los casos); c) los artículos confeccionados con redes de la partida 56.08; d) los artículos del Capítulo 64; e) los sombreros, demás tocados y sus partes, del Capítulo 65; f) los látigos, fustas y demás artículos de la partida 66.02; g) los gemelos, pulseras y demás artículos de bisutería (partida 71.17); h) los accesorios y guarniciones para artículos de talabartería o guarnicionería (por ejemplo: frenos, estribos, hebillas) presentados aisladamente (Sección XV, generalmente); ij) las cuerdas, pieles para tambor o instrumentos similares y demás partes de instrumentos musicales (partida 92.09); k) los artículos del Capítulo 94 (por ejemplo: muebles, aparatos de alumbrado); l) los artículos del Capítulo 95 (por ejemplo: juguetes, juegos, artefactos deportivos); m) los botones, botones de presión, formas para botones y demás partes de botones o de botones de presión y esbozos de botones, de la partida 96.06.",
+  "capitulos": [
+   "42"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "42",
+  "numero": "3 A)",
+  "texto": "Además de lo dispuesto en la Nota 2, la partida 42.02 no comprende: a) las bolsas de hojas de plástico, con asas o sin ellas, impresas o no, que no estén concebidas para un uso prolongado (partida 39.23); b) los artículos de materia trenzable (partida 46.02).",
+  "capitulos": [
+   "42",
+   "39"
+  ],
+  "claves": [
+   "bolsa"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "42",
+  "numero": "3 B)",
+  "texto": "Las manufacturas de las partidas 42.02 y 42.03 con partes de metal precioso, de chapado de metal precioso (plaqué), de perlas finas (naturales) o cultivadas, de piedras preciosas o semipreciosas, naturales, sintéticas o reconstituidas, se clasificarán en dichas partidas aunque estas partes excedan de simples accesorios o guarniciones de mínima importancia, siempre que dichas partes no confieran a las manufacturas su carácter esencial. Por el contrario, si dichas partes confieren a las manufacturas su carácter esencial, estas se clasificarán en el Capítulo 71.",
+  "capitulos": [
+   "42",
+   "71"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "42",
+  "numero": "4",
+  "texto": "En la partida 42.03, la expresión prendas y complementos (accesorios), de vestir se refiere, entre otros, a los guantes, mitones y manoplas (incluidos los de deporte y los de protección), a los delantales y demás equipos especiales de protección individual para cualquier oficio, a los tirantes (tiradores, suspensores), cinturones, cananas, bandoleras y a las pulseras, excepto las pulseras de reloj (partida 91.13).",
+  "capitulos": [
+   "42"
+  ],
+  "claves": [
+   "cinturon",
+   "guantes"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "43",
+  "numero": "1",
+  "texto": "En la Nomenclatura, salvo las pieles en bruto de la partida 43.01, el término peletería se refiere a las pieles curtidas o adobadas, sin depilar, de cualquier animal.",
+  "capitulos": [
+   "43"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "43",
+  "numero": "4",
+  "texto": "Se clasifican en las partidas 43.03 o 43.04, según los casos, las prendas y complementos (accesorios) de vestir de cualquier clase (excepto los excluidos de este Capítulo por la Nota 2) forrados interiormente con peletería natural o peletería facticia o artificial, así como las prendas y complementos (accesorios) de vestir que lleven partes exteriores de peletería natural o peletería facticia o artificial, cuando dichas partes excedan de simples guarniciones.",
+  "capitulos": [
+   "43",
+   "42",
+   "61",
+   "62"
+  ],
+  "claves": [
+   "peleteria"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "43",
+  "numero": "5",
+  "texto": "En la Nomenclatura, se consideran peletería facticia o artificial las imitaciones de peletería obtenidas con lana, pelo u otras fibras aplicadas por pegado o cosido sobre cuero, tejido u otras materias, excepto las imitaciones obtenidas por tejido o por punto (partidas 58.01 o 60.01, generalmente).",
+  "capitulos": [
+   "43",
+   "58",
+   "60"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "VII",
+  "numero": "1",
+  "texto": "Los productos presentados en surtidos que consistan en varios componentes distintos comprendidos, en su totalidad o en parte, en esta Sección e identificables como destinados, después de mezclados, a constituir un producto de las Secciones VI o VII, se clasificarán en la partida correspondiente a este último producto siempre que los componentes sean: a) netamente identificables, por su acondicionamiento, como destinados a utilizarse juntos sin previo reacondicionamiento; b) presentados simultáneamente; c) identificables, por su naturaleza o por sus cantidades respectivas, como complementarios unos de otros.",
+  "capitulos": [
+   "39",
+   "40"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "VII",
+  "numero": "2",
+  "texto": "Salvo los artículos de las partidas 39.18 o 39.19, se clasificarán en el Capítulo 49 el plástico, el caucho y las manufacturas de estas materias, con impresiones o ilustraciones que no tengan un carácter accesorio en relación con su utilización original.",
+  "capitulos": [
+   "39",
+   "40",
+   "49"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "39",
+  "numero": "1",
+  "texto": "En la Nomenclatura, se entiende por plástico las materias de las partidas 39.01 a 39.14 que, sometidas a una influencia exterior (generalmente el calor y la presión, con intervención, en su caso, de un disolvente o de un plastificante), son o han sido susceptibles de adquirir una forma por moldeo, colada, extrusión, laminado o cualquier otro procedimiento, en el momento de la polimerización o en una etapa posterior, forma que conservan cuando esta influencia ha dejado de ejercerse. En la Nomenclatura, el término plástico incluye también la fibra vulcanizada. Sin embargo, este término no se aplica a las materias textiles de la Sección XI.",
+  "capitulos": [
+   "39",
+   "64"
+  ],
+  "claves": [
+   "plastico"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "39",
+  "numero": "2 (extracto)",
+  "texto": "Este Capítulo no comprende, entre otros: los productos de la Sección XI (materias textiles y sus manufacturas); los artículos de la Sección XII (por ejemplo: calzado, sombreros y demás tocados, paraguas, sombrillas, bastones, látigos, fustas y sus partes); la bisutería de la partida 71.17; los artículos del Capítulo 91 (por ejemplo: cajas de relojes); los artículos del Capítulo 95 (por ejemplo: juguetes, juegos, artefactos deportivos); los artículos del Capítulo 96 (por ejemplo: cepillos, botones, cierres de cremallera, peines, boquillas de pipa, vaporizadores de tocador).",
+  "capitulos": [
+   "39"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "39",
+  "numero": "10",
+  "texto": "En las partidas 39.20 y 39.21, la expresión placas, láminas, hojas y tiras se aplica exclusivamente a las placas, láminas, hojas y tiras (excepto las del Capítulo 54) y a los bloques de forma geométrica regular, incluso impresos o trabajados de otro modo en la superficie, sin cortar o simplemente cortados en forma cuadrada o rectangular, pero sin trabajar de otro modo (incluso si esta operación les da el carácter de artículos listos para el uso).",
+  "capitulos": [
+   "39"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "39",
+  "numero": "12",
+  "texto": "La partida 39.25 se aplica exclusivamente a los artículos siguientes, siempre que no estén comprendidos en las partidas precedentes del Subcapítulo II: depósitos, cisternas, cubas y recipientes análogos de capacidad superior a 300 litros; elementos estructurales de construcción; canalones y sus accesorios; puertas, ventanas y sus marcos; barandillas y pasamanos; contraventanas, persianas y artículos similares; estanterías de grandes dimensiones; motivos decorativos arquitectónicos; y accesorios y guarniciones para fijar permanentemente en puertas, ventanas, escaleras y paredes.",
+  "capitulos": [
+   "39"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "40",
+  "numero": "1",
+  "texto": "Salvo disposición en contrario, la denominación caucho comprende, en la Nomenclatura, los productos siguientes, incluso vulcanizados o endurecidos: caucho natural, balata, gutapercha, guayule, chicle y gomas naturales análogas, caucho sintético, caucho facticio derivado de los aceites, y todas estas sustancias regeneradas.",
+  "capitulos": [
+   "40",
+   "64"
+  ],
+  "claves": [
+   "caucho"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "40",
+  "numero": "2 (extracto)",
+  "texto": "Este Capítulo no comprende: a) los productos de la Sección XI (materias textiles y sus manufacturas); b) el calzado y sus partes, del Capítulo 64; c) los sombreros, demás tocados y sus partes, incluidos los gorros de baño, del Capítulo 65; los artículos de los Capítulos 90, 92, 94 o 96; y los artículos del Capítulo 95, excepto los guantes, mitones y manoplas de deporte y los artículos de las partidas 40.11 a 40.13.",
+  "capitulos": [
+   "40"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "40",
+  "numero": "9",
+  "texto": "En las partidas 40.01, 40.02, 40.03, 40.05 y 40.08, la expresión placas, hojas y tiras solo se aplica a las placas, hojas y tiras y a los bloques de forma geométrica regular, sin cortar o simplemente cortados en forma cuadrada o rectangular, incluso si esta operación les da el carácter de artículos listos para su uso, siempre que no hayan sido impresos o trabajados de otro modo en la superficie.",
+  "capitulos": [
+   "40"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "71",
+  "numero": "1",
+  "texto": "Sin perjuicio de la aplicación de la Nota 1 A) de la Sección VI y salvo las excepciones previstas a continuación, se clasificarán en este Capítulo todos los artículos compuestos total o parcialmente de perlas finas (naturales) o cultivadas, de piedras preciosas o semipreciosas (naturales, sintéticas o reconstituidas), de metal precioso o de chapado de metal precioso (plaqué).",
+  "capitulos": [
+   "71"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "71",
+  "numero": "9",
+  "texto": "En la partida 71.13, se entiende por artículos de joyería: a) los pequeños objetos utilizados como adorno personal (por ejemplo: sortijas, pulseras, collares, broches, pendientes (aretes), cadenas de reloj y otras cadenas, dijes, colgantes, alfileres de corbata, gemelos, medallas o insignias religiosas u otras); b) los artículos de uso personal que se llevan sobre la persona, así como los artículos de bolsillo o de bolso de mano (cartera) (por ejemplo: cigarreras, petacas, polveras, monederos de malla, rosarios).",
+  "capitulos": [
+   "71"
+  ],
+  "claves": [
+   "bisuteria"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "71",
+  "numero": "11",
+  "texto": "En la partida 71.17, se entiende por bisutería los artículos de la misma naturaleza que los definidos en la Nota 9 a) (excepto los botones y demás artículos de la partida 96.06, las peinetas, pasadores y artículos similares, y las horquillas, de la partida 96.15), sin perlas finas (naturales) o cultivadas, piedras preciosas o semipreciosas (naturales, sintéticas o reconstituidas) ni, salvo que se trate de guarniciones o accesorios de mínima importancia, metal precioso o chapado de metal precioso (plaqué).",
+  "capitulos": [
+   "71"
+  ],
+  "claves": [
+   "bisuteria"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "83",
+  "numero": "1",
+  "texto": "En este Capítulo, las partes de metal común se clasificarán con los artículos a los que correspondan. Sin embargo, no se consideran partes de artículos de este Capítulo los artículos de fundición, hierro o acero de las partidas 73.12, 73.15, 73.17, 73.18 o 73.20 ni los mismos artículos de otros metales comunes (Capítulos 74 a 76 y 78 a 81).",
+  "capitulos": [
+   "83"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "91",
+  "numero": "1 (extracto)",
+  "texto": "Este Capítulo no comprende, entre otros: los vidrios para relojes y las pesas para relojes (régimen de la materia constitutiva); las cadenas de reloj (partidas 71.13 o 71.17, según los casos); las partes y accesorios de uso general definidos en la Nota 2 de la Sección XV, de metal común (Sección XV) o los artículos similares de plástico (Capítulo 39) o de metal precioso o chapado de metal precioso (plaqué) (generalmente partida 71.15).",
+  "capitulos": [
+   "91"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "91",
+  "numero": "2",
+  "texto": "Solo se clasifican en la partida 91.01 los relojes con caja totalmente de metal precioso o de chapado de metal precioso (plaqué), o de estas mismas materias combinadas con perlas finas (naturales) o cultivadas, o con piedras preciosas o semipreciosas (naturales, sintéticas o reconstituidas) de las partidas 71.01 a 71.04. Los relojes con caja de metal común con incrustaciones de metal precioso se clasificarán en la partida 91.02.",
+  "capitulos": [
+   "91"
+  ],
+  "claves": [
+   "reloj"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "94",
+  "numero": "1 (extracto)",
+  "texto": "Este Capítulo no comprende, entre otros: los colchones, almohadas y cojines neumáticos o de agua, de los Capítulos 39, 40 o 63; los artículos de la Sección XI (por ejemplo: ropa de cama); los artículos del Capítulo 95 (por ejemplo: juguetes, juegos, artefactos deportivos).",
+  "capitulos": [
+   "94",
+   "63"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "94",
+  "numero": "2",
+  "texto": "Los artículos (excepto las partes) comprendidos en las partidas 94.01 a 94.03 deben estar concebidos para colocarlos sobre el suelo. Sin embargo, aunque estén concebidos para colgar, fijar en la pared o colocarse unos sobre otros, se clasificarán en dichas partidas los armarios, bibliotecas, estanterías y muebles por elementos, así como los asientos y camas.",
+  "capitulos": [
+   "94"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "95",
+  "numero": "1",
+  "texto": "Este Capítulo no comprende: a) las velas (partida 34.06); b) los artículos de pirotecnia de la partida 36.04; c) los hilados, monofilamentos, cordones, cuerdas y artículos similares para la pesca, cortados en longitudes determinadas pero sin montar en sedales (tanzas) con anzuelo, de los Capítulos 39, 42 o de la Sección XI; d) las bolsas para artículos de deporte y demás continentes de las partidas 42.02, 43.03 o 43.04; e) los disfraces de materia textil de los Capítulos 61 o 62; las prendas de deporte y prendas especiales de materia textil de los Capítulos 61 o 62, incluso si incorporan accesoriamente elementos de protección, tales como placas de protección o acolchados en los codos, rodillas o ingles; f) las banderas o banderines, de materia textil, así como las velas para embarcaciones, deslizadores o vehículos terrestres, del Capítulo 63; g) el calzado (excepto el que tenga fijos patines para hielo o de ruedas) del Capítulo 64 y los tocados especiales para la práctica de deportes del Capítulo 65; h) los bastones, látigos, fustas y demás artículos de las partidas 66.02, así como sus partes (partida 66.03); ij) los ojos de vidrio sin montar para muñecas o demás juguetes de la partida 70.18; k) las partes y accesorios de uso general, en el sentido de la Nota 2 de la Sección XV, de metal común (Sección XV) y los artículos similares de plástico (Capítulo 39); l) las campanas, campanillas, gongos y artículos similares de la partida 83.06; m) las bombas para líquidos (partida 84.13), los aparatos para filtrar o depurar líquidos o gases (partida 84.21), los motores eléctricos (partida 85.01), los transformadores eléctricos (partida 85.04), los discos, cintas, dispositivos de almacenamiento no volátil de datos a base de semiconductores y demás soportes para grabar (partida 85.23), los aparatos de radiotelemando (partida 85.26) y los dispositivos de rayos infrarrojos para mando a distancia sin cable (partida 85.43); n) los vehículos de deporte de la Sección XVII, excepto los toboganes, bobsleighs y similares; o) las bicicletas para niños (partida 87.12); p) los drones (partida 88.06); q) las embarcaciones de deporte, tales como canoas y esquifes (Capítulo 89), y sus medios de propulsión (Capítulo 44 si son de madera); r) las gafas (anteojos) protectoras para la práctica de deportes y para juegos al aire libre (partida 90.04); s) los reclamos y silbatos (partida 92.08); t) las armas y demás artículos del Capítulo 93; u) las guirnaldas eléctricas de cualquier clase (partida 94.05); v) los soportes para cámaras y trípodes (partida 96.20); w) las cuerdas para raquetas, tiendas (carpas) de campaña, artículos de acampar y guantes, mitones y manoplas de cualquier materia (régimen de la materia constitutiva); x) los artículos de mesa, de cocina, de tocador, alfombras y demás revestimientos para el suelo de materia textil, prendas de vestir, ropa de cama, mesa, tocador o cocina y artículos similares con función utilitaria (se clasifican según la materia constitutiva).",
+  "capitulos": [
+   "95",
+   "42",
+   "61",
+   "62",
+   "64",
+   "65"
+  ],
+  "claves": [
+   "juguete",
+   "deporte"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "95",
+  "numero": "2",
+  "texto": "Este Capítulo comprende también los artículos en los que las perlas finas (naturales) o cultivadas, las piedras preciosas o semipreciosas (naturales, sintéticas o reconstituidas), el metal precioso o el chapado de metal precioso (plaqué), solo constituyan guarniciones o accesorios de mínima importancia.",
+  "capitulos": [
+   "95"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "95",
+  "numero": "3",
+  "texto": "Salvo lo dispuesto en la Nota 1 anterior, las partes y accesorios reconocibles como destinados, exclusiva o principalmente, a los artículos de este Capítulo se clasificarán con estos.",
+  "capitulos": [
+   "95"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "95",
+  "numero": "4",
+  "texto": "Salvo lo dispuesto en la Nota 1, la partida 95.03 se aplica, entre otros, a los artículos de esta partida combinados con uno o varios artículos que no se puedan considerar juegos o surtidos en el sentido de la Regla General Interpretativa 3 b) y que, presentados aisladamente, se clasificarían en otras partidas, siempre que estos artículos se presenten juntos acondicionados para la venta al por menor y que esta combinación tenga la característica esencial de juguete.",
+  "capitulos": [
+   "95"
+  ],
+  "claves": [
+   "juguete"
+  ]
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "95",
+  "numero": "5",
+  "texto": "La partida 95.03 no comprende los artículos que por su concepción, forma o materia constitutiva sean reconocibles como destinados exclusivamente para animales, por ejemplo, los juguetes para animales de compañía (régimen propio).",
+  "capitulos": [
+   "95"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "96",
+  "numero": "1 (extracto)",
+  "texto": "Este Capítulo no comprende, entre otros: los lápices de maquillaje o tocador (Capítulo 33); los artículos del Capítulo 66 (por ejemplo: partes de paraguas o bastones); la bisutería (partida 71.17); las partes y accesorios de uso general, en el sentido de la Nota 2 de la Sección XV, de metal común (Sección XV) o los artículos similares de plástico (Capítulo 39); los artículos del Capítulo 91 (por ejemplo: relojes y cajas de relojes); los artículos del Capítulo 95 (juguetes, juegos, artefactos deportivos).",
+  "capitulos": [
+   "96"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "capitulo",
+  "codigo": "96",
+  "numero": "4",
+  "texto": "Los artículos de este Capítulo, excepto los de las partidas 96.01 a 96.06 o 96.15, que estén constituidos total o parcialmente por metal precioso, chapado de metal precioso (plaqué), piedras preciosas o semipreciosas o perlas finas (naturales) o cultivadas, permanecerán clasificados en este Capítulo. Sin embargo, se incluyen también en este Capítulo los artículos de las partidas 96.01 a 96.06 y 96.15 con simples guarniciones o accesorios de mínima importancia de estas materias.",
+  "capitulos": [
+   "96"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XII",
+  "numero": "(sin notas)",
+  "texto": "La Sección XII (calzado, sombreros y demás tocados, paraguas, sombrillas, bastones, látigos, fustas y sus partes; plumas preparadas y artículos de plumas; flores artificiales; manufacturas de cabello) no tiene notas de sección: se aplican las notas de los Capítulos 64 a 67.",
+  "capitulos": [
+   "64",
+   "65",
+   "66",
+   "67"
+  ],
+  "claves": []
+ },
+ {
+  "ambito": "seccion",
+  "codigo": "XV",
+  "numero": "2",
+  "texto": "En la Nomenclatura, se consideran partes y accesorios de uso general: a) los artículos de las partidas 73.07, 73.12, 73.15, 73.17 o 73.18 y los artículos similares de otros metales comunes, excepto los artículos especialmente concebidos para su uso exclusivo en implantes de uso médico, quirúrgico, odontológico o veterinario; b) los muelles (resortes) y las hojas para muelles (resortes), de metal común, excepto los muelles (resortes) de relojería (partida 91.14); c) los artículos de las partidas 83.01, 83.02, 83.08 u 83.10, así como los marcos y espejos de metal común de la partida 83.06.",
+  "capitulos": [
+   "73",
+   "76",
+   "83",
+   "95",
+   "96"
+  ],
+  "claves": []
+ }
+]

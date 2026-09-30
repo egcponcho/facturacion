@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import Seleccion from './Seleccion.vue'
 import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, sesion } from '../stores/sesion'
@@ -161,9 +162,9 @@ onMounted(cargar)
       <button v-for="[v, t] in [['', 'All'], ['ATRASO', 'Late'], ['JUSTO', 'Tight'], ['A_TIEMPO', 'On time']]" :key="v" type="button" class="segmento"
               :aria-pressed="f.riesgo === v" @click="f.riesgo = v; recargar()">{{ t }}</button>
     </div>
-    <select v-model="f.lib" aria-label="Logistics release" @change="recargar">
+    <Seleccion v-model="f.lib" aria-label="Logistics release" @change="recargar">
       <option value="">Logistics release: all</option><option value="tarde">Released late</option><option value="vencida">Overdue, not released</option>
-    </select>
+    </Seleccion>
   </div>
   <div class="tabla-marco tabla-fija">
     <table class="tabla">

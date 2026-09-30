@@ -83,3 +83,38 @@ def test_cargar_y_exportar(interno):
     assert interno.get("/aranceles/sac/exportar", params={"q": "Prueba", "formato": "pdf"}).status_code == 200
     # Borrar códigos seleccionados
     assert interno.post("/aranceles/codigos/borrar", {"ids": [x["id"]]}).json()["borrados"] == 1
+
+
+def test_notas_sac(interno):
+    r = interno.get("/aranceles/notas", params={"capitulo": "64"}).json()
+    nums = {(n["codigo"], n["numero"]) for n in r["items"]}
+    # Las del capítulo 64 (materia de la parte superior y de la suela) y las reglas generales
+    assert ("64", "4") in nums and ("RGI", "3 a)") in nums and ("61", "9") not in nums
+    assert any(n["codigo"] == "64" for n in interno.get("/clasificacion/contexto").json()["notas_sac"])
+    n = interno.post("/aranceles/notas", {"ambito": "capitulo", "codigo": "64", "numero": "X", "texto": "Nota de prueba",
+                                          "capitulos": ["64"]})
+    assert n.status_code == 200, n.text
+    nid = n.json()["id"]
+    assert interno.put(f"/aranceles/notas/{nid}", {"ambito": "capitulo", "codigo": "64", "numero": "X",
+                                                   "texto": "Nota editada", "capitulos": ["64"], "activo": False}).json()["activo"] is False
+    assert interno.post("/aranceles/notas", {"ambito": "otro", "codigo": "64", "texto": "x"}).status_code == 422
+    assert interno.delete_(f"/aranceles/notas/{nid}").status_code == 200
+
+
+def test_notas_sac_excel(interno):
+    assert len(interno.get("/aranceles/notas").json()["items"]) >= 100
+    v = interno.get("/aranceles/notas/plantilla", params={"vista": 1}).json()
+    assert v["hojas"][0]["columnas"][0]["nombre"] == "Kind"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Kind", "Section or chapter", "Number", "Text", "Applies to chapters"])
+    ws.append(["Chapter note", "64", "4", "Texto oficial actualizado de la nota 4", "64"])
+    ws.append(["Chapter note", "", "9", "Sin capítulo", ""])
+    b = io.BytesIO()
+    wb.save(b)
+    r = _subir(interno, "/aranceles/notas/importar", b.getvalue()).json()
+    assert r["actualizados"] == 1 and r["creados"] == 0 and len(r["errores"]) == 1, r
+    n4 = [n for n in interno.get("/aranceles/notas", params={"capitulo": "64"}).json()["items"] if n["codigo"] == "64" and n["numero"] == "4"]
+    assert n4[0]["texto"].startswith("Texto oficial") and n4[0]["fuente"] == "archivo"
+    x = interno.get("/aranceles/notas/exportar", params={"formato": "xlsx", "capitulo": "64"})
+    assert x.status_code == 200 and x.content[:2] == b"PK"

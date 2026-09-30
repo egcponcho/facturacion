@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
@@ -136,6 +137,50 @@ async function cargarSac() {
 }
 const recargarS = () => { fs.page = 1; cargarSac() }
 const buscarS = () => { clearTimeout(espera); espera = setTimeout(recargarS, 300) }
+// ---- Notas legales del SAC ----------------------------------------------------
+const notas = ref({ items: [], ambitos: {} })
+const fn = reactive({ q: '', capitulo: [] })
+async function cargarNotas() {
+  try {
+    notas.value = await api.get('/aranceles/notas', { q: fn.q, capitulo: fn.capitulo.join(',') })
+  } catch (e) {
+    errorApi(e)
+  }
+}
+let esperaN
+function buscarN() {
+  clearTimeout(esperaN)
+  esperaN = setTimeout(cargarNotas, 300)
+}
+async function guardarNota() {
+  const m = modal.value
+  ocupado.value = true
+  try {
+    const cuerpo = { ambito: m.ambito, codigo: m.codigo, numero: m.numero, texto: m.texto, activo: m.activo,
+                     capitulos: String(m.capitulos_txt || '').split(/[\s,;]+/).filter(Boolean) }
+    if (m.id) await api.put(`/aranceles/notas/${m.id}`, cuerpo)
+    else await api.post('/aranceles/notas', cuerpo)
+    modal.value = null
+    avisar('Note saved. Classification takes it into account from now on.')
+    cargarNotas()
+    cargarContexto(true)
+  } catch (e) {
+    errorApi(e)
+  } finally {
+    ocupado.value = false
+  }
+}
+async function borrarNota(n) {
+  if (!confirm(`Delete note ${n.codigo} ${n.numero}?`)) return
+  try {
+    await api.del(`/aranceles/notas/${n.id}`)
+    cargarNotas()
+    cargarContexto(true)
+  } catch (e) {
+    errorApi(e)
+  }
+}
+
 async function guardarSac() {
   const m = modal.value
   ocupado.value = true
@@ -204,6 +249,7 @@ function cambiarVista(v) {
   router.replace({ query: { vista: v } })
   if (v === 'codigos') recargarC()
   if (v === 'sac') cargarSac()
+  if (v === 'notas') cargarNotas()
 }
 function alCargar() {
   cargarBase()
@@ -215,6 +261,7 @@ function alCargar() {
 onMounted(async () => {
   await cargarBase()
   if (vista.value === 'sac') cargarSac()
+  else if (vista.value === 'notas') cargarNotas()
   else cargarCodigos()
 })
 watch(() => fc.size, recargarC)
@@ -247,6 +294,7 @@ watch(() => fs.size, recargarS)
   <div class="pestanas" role="tablist">
     <button class="pestana" role="tab" :aria-selected="vista === 'codigos'" @click="cambiarVista('codigos')">National codes <span class="cuenta">{{ fmtNum(codigos.total) }}</span></button>
     <button class="pestana" role="tab" :aria-selected="vista === 'sac'" @click="cambiarVista('sac')">SAC headings and subheadings</button>
+    <button class="pestana" role="tab" :aria-selected="vista === 'notas'" @click="cambiarVista('notas')">SAC legal notes</button>
     <button class="pestana" role="tab" :aria-selected="vista === 'paises'" @click="cambiarVista('paises')">Countries <span class="cuenta">{{ paises.length }}</span></button>
   </div>
 
@@ -257,7 +305,7 @@ watch(() => fs.size, recargarS)
       <FiltroMulti v-model="fc.pais" etiqueta="Country" :opciones="opcionesPais" @change="recargarC" />
       <FiltroMulti v-model="fc.capitulo" etiqueta="Chapter" :opciones="CAPITULOS" @change="recargarC" />
       <FiltroMulti v-model="fc.fuente" etiqueta="Source" :opciones="opcionesFuente" @change="recargarC" />
-      <select v-model="fc.activo" aria-label="Active" @change="recargarC"><option value="">Active and inactive</option><option value="true">Active</option><option value="false">Inactive</option></select>
+      <Seleccion v-model="fc.activo" aria-label="Active" @change="recargarC"><option value="">Active and inactive</option><option value="true">Active</option><option value="false">Inactive</option></Seleccion>
       <div class="separar fila-flex">
         <BotonesExportar ruta="/aranceles/codigos/exportar" :params="paramsC" />
         <template v-if="edita">
@@ -312,7 +360,7 @@ watch(() => fs.size, recargarS)
     <div class="filtros">
       <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fs.q" type="search" placeholder="Code or text" aria-label="Search" @input="buscarS" /></label>
       <FiltroMulti v-model="fs.capitulo" etiqueta="Chapter" :opciones="CAPITULOS" @change="recargarS" />
-      <select v-model="fs.nivel" aria-label="Level" @change="recargarS"><option value="">Headings and subheadings</option><option value="4">Headings (4 digits)</option><option value="6">Subheadings (6 digits)</option></select>
+      <Seleccion v-model="fs.nivel" aria-label="Level" @change="recargarS"><option value="">Headings and subheadings</option><option value="4">Headings (4 digits)</option><option value="6">Subheadings (6 digits)</option></Seleccion>
       <div class="separar fila-flex">
         <BotonesExportar ruta="/aranceles/sac/exportar" :params="paramsS" />
         <template v-if="edita">
@@ -343,7 +391,7 @@ watch(() => fs.size, recargarS)
   </section>
 
   <!-- Países -->
-  <section v-else class="paises-grid">
+  <section v-else-if="vista === 'paises'" class="paises-grid">
     <article v-for="p in paises" :key="p.iso" class="panel pais-panel" :class="{ inactivo: !p.activo }">
       <div class="panel-cabeza">
         <div><h2>{{ p.iso }} · {{ p.nombre }}</h2><p>{{ p.digitos }}-digit national codes{{ p.mcca ? ' · Central American Common Market' : '' }}</p></div>
@@ -369,7 +417,7 @@ watch(() => fs.size, recargarS)
   <Modal v-if="modal?.tipo === 'codigo'" :titulo="modal.id ? `National code ${modal.codigo}` : 'New national code'" ancho="760px" @cerrar="modal = null">
     <div class="rejilla-campos">
       <label class="campo"><span class="req">Country</span>
-        <select v-model="modal.pais" class="entrada"><option v-for="p in paises" :key="p.iso" :value="p.iso">{{ p.iso }} · {{ p.nombre }}</option></select></label>
+        <Seleccion v-model="modal.pais" class="entrada"><option v-for="p in paises" :key="p.iso" :value="p.iso">{{ p.iso }} · {{ p.nombre }}</option></Seleccion></label>
       <label class="campo"><span class="req">Code ({{ digitosDe(modal.pais) }} digits)</span><input v-model="modal.codigo" class="entrada" :placeholder="'0'.repeat(digitosDe(modal.pais))" /></label>
       <label class="campo"><span>Duty (DAI %)</span><input v-model="modal.dai" class="entrada" /></label>
       <label class="campo"><span>Priority</span><input v-model="modal.prio" type="number" min="0" max="99" class="entrada" /></label>
@@ -381,9 +429,9 @@ watch(() => fs.size, recargarS)
       <div v-for="[k, d] in condActivas" :key="k" class="campo">
         <span>{{ d.label }}</span>
         <FiltroMulti v-if="d.tipo === 'opciones'" :model-value="valorCond(k)" etiqueta="Values" vacio="any" :opciones="Object.entries(d.ops).map(([valor, texto]) => ({ valor, texto }))" @update:model-value="(v) => ponerCond(k, v)" />
-        <select v-else-if="d.tipo === 'sino'" class="entrada" :value="modal.cond[k] === undefined ? '' : String(modal.cond[k])" @change="ponerCond(k, $event.target.value === '' ? '' : $event.target.value === 'true')">
+        <Seleccion v-else-if="d.tipo === 'sino'" class="entrada" :value="modal.cond[k] === undefined ? '' : String(modal.cond[k])" @change="ponerCond(k, $event === '' ? '' : $event === 'true')">
           <option value="">Any</option><option value="true">Yes</option><option value="false">No</option>
-        </select>
+        </Seleccion>
         <input v-else class="entrada" type="number" min="0" step="0.01" :value="modal.cond[k] ?? ''" @input="ponerCond(k, $event.target.value === '' ? '' : Number($event.target.value))" />
       </div>
     </div>
@@ -392,6 +440,55 @@ watch(() => fs.size, recargarS)
     <template #pie>
       <button class="btn" @click="modal = null">Cancel</button>
       <button class="btn btn-primario" :disabled="ocupado" @click="guardarCodigo">Save</button>
+    </template>
+  </Modal>
+
+  <section v-if="vista === 'notas'">
+    <p class="ayuda" style="margin-top: 0">General rules of interpretation and the section, chapter and subheading notes of the SAC (HS 2022) for the chapters used by the classification: exclusions, definitions and priority rules. The classification panel shows the ones that apply to the suggested code, starting with the ones that concern the product, and the specialist opinion reads them. Load the official text in force with <b>Upload official text</b>.</p>
+    <div class="filtros">
+      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fn.q" type="search" placeholder="Text, chapter or number" aria-label="Search notes" @input="buscarN" /></label>
+      <FiltroMulti v-model="fn.capitulo" etiqueta="Chapter" :opciones="CAPITULOS" @change="cargarNotas" />
+      <span class="ayuda">{{ notas.items.length }} notes</span>
+      <div class="separar fila-flex">
+        <BotonesExportar ruta="/aranceles/notas/exportar" :params="{ q: fn.q, capitulo: fn.capitulo.join(',') }" />
+        <template v-if="edita">
+          <button class="btn" @click="modal = { tipo: 'carga-notas' }"><Icono nombre="importar" />Upload official text</button>
+          <button class="btn btn-primario" @click="modal = { tipo: 'nota', id: null, ambito: 'capitulo', codigo: '', numero: '', texto: '', capitulos_txt: '', activo: true }"><Icono nombre="mas" />Add note</button>
+        </template>
+      </div>
+    </div>
+    <div class="tabla-marco">
+      <table class="tabla">
+        <thead><tr><th>Note</th><th>Text</th><th>Applies to chapters</th><th v-if="edita"></th></tr></thead>
+        <tbody>
+          <tr v-for="n in notas.items" :key="n.id" :class="{ apagado: !n.activo }">
+            <td><span class="fuerte">{{ n.codigo }} · {{ n.numero }}</span><span class="sub">{{ n.ambito_txt }}<template v-if="n.fuente !== 'base'"> · edited</template></span></td>
+            <td class="envolver" style="min-width: 420px; line-height: 1.45">{{ n.texto }}</td>
+            <td>{{ n.capitulos.length ? n.capitulos.join(', ') : 'All' }}</td>
+            <td v-if="edita" class="num" style="white-space: nowrap">
+              <button class="btn-icono" :aria-label="`Edit note ${n.codigo} ${n.numero}`" @click="modal = { tipo: 'nota', ...n, capitulos_txt: n.capitulos.join(', ') }"><Icono nombre="editar" :tam="16" /></button>
+              <button class="btn-icono" style="color: var(--error)" :aria-label="`Delete note ${n.codigo} ${n.numero}`" @click="borrarNota(n)"><Icono nombre="basura" :tam="16" /></button>
+            </td>
+          </tr>
+          <tr v-if="!notas.items.length"><td colspan="4" class="vacio">No notes match these filters.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <Modal v-if="modal?.tipo === 'nota'" :titulo="modal.id ? `Note ${modal.codigo} ${modal.numero}` : 'New SAC note'" ancho="640px" @cerrar="modal = null">
+    <div class="rejilla-campos">
+      <label class="campo"><span class="req">Kind</span>
+        <Seleccion v-model="modal.ambito" aria-label="Kind of note"><option v-for="(t, k) in notas.ambitos" :key="k" :value="k">{{ t }}</option></Seleccion></label>
+      <label class="campo"><span class="req">Section or chapter</span><input v-model="modal.codigo" class="entrada" maxlength="10" placeholder="64, XI or RGI" /></label>
+      <label class="campo"><span>Note number</span><input v-model="modal.numero" class="entrada" maxlength="20" placeholder="4" /></label>
+      <label class="campo"><span>Applies to chapters</span><input v-model="modal.capitulos_txt" class="entrada" placeholder="64 (empty = all)" /></label>
+      <label class="campo" style="grid-column: 1 / -1"><span class="req">Text</span><textarea v-model="modal.texto" class="entrada" rows="6" maxlength="4000"></textarea></label>
+      <label class="check" style="grid-column: 1 / -1"><input v-model="modal.activo" type="checkbox" /><span>Active: used by the classification</span></label>
+    </div>
+    <template #pie>
+      <button class="btn" @click="modal = null">Cancel</button>
+      <button class="btn btn-primario" :disabled="ocupado" @click="guardarNota">Save</button>
     </template>
   </Modal>
 
@@ -428,10 +525,13 @@ watch(() => fs.size, recargarS)
                ayuda="One row per national code with its country, code, duty and the conditions that select it (gender, age, CIF value, footwear style…).">
     <div class="rejilla-campos mt-chico" style="margin-bottom: 10px">
       <label class="campo"><span>Country</span>
-        <select v-model="modal.pais" class="entrada"><option value="">The one in the Country column</option><option v-for="p in paises" :key="p.iso" :value="p.iso">{{ p.iso }} · {{ p.nombre }}</option></select></label>
+        <Seleccion v-model="modal.pais" class="entrada"><option value="">The one in the Country column</option><option v-for="p in paises" :key="p.iso" :value="p.iso">{{ p.iso }} · {{ p.nombre }}</option></Seleccion></label>
     </div>
     <label v-if="modal.pais" class="check" style="margin-bottom: 10px"><input v-model="modal.reemplazar" type="checkbox" /><span>Replace every code of {{ modal.pais }} with this file (for a new tariff version)</span></label>
   </CargaMasiva>
+  <CargaMasiva v-if="modal?.tipo === 'carga-notas'" titulo="Upload SAC legal notes" ruta="/aranceles/notas/importar" plantilla="/aranceles/notas/plantilla"
+               @cerrar="modal = null" @cargado="cargarNotas(); cargarContexto(true)"
+               ayuda="A note with the same kind, section or chapter and number is replaced by the text of the file. Use it to load the official text of the SAC in force." />
   <CargaMasiva v-if="modal?.tipo === 'carga-sac'" titulo="Upload SAC headings and subheadings" ruta="/aranceles/sac/importar" plantilla="/aranceles/sac/plantilla"
                @cerrar="modal = null" @cargado="alCargar" ayuda="Codes already loaded are updated with the new text." />
 </template>

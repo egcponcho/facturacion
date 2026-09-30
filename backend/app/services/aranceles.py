@@ -7,7 +7,7 @@ import re
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from ..models import IncisoNacional, PaisArancel, PartidaSAC, Usuario, ahora
+from ..models import IncisoNacional, NotaSAC, PaisArancel, PartidaSAC, Usuario, ahora
 from . import documentos, exportar
 from .common import ErrorNegocio, exigir, registrar
 from .meta import cond_texto, opciones_cond, valor_opcion
@@ -147,6 +147,57 @@ def borrar_sac(db: Session, user: Usuario, sac_id: int) -> None:
     if not x:
         raise ErrorNegocio("The subheading does not exist.", 404, "no_encontrado")
     db.delete(x)
+
+
+# ---- Notas legales del SAC ---------------------------------------------------------------
+AMBITOS = {"reglas": "General rules", "seccion": "Section note", "capitulo": "Chapter note", "subpartida": "Subheading note"}
+
+
+def _fila_nota(n: NotaSAC) -> dict:
+    return {"id": n.id, "ambito": n.ambito, "ambito_txt": AMBITOS.get(n.ambito, n.ambito), "codigo": n.codigo,
+            "numero": n.numero, "texto": n.texto, "capitulos": n.capitulos or [], "claves": n.claves or [],
+            "fuente": n.fuente, "activo": n.activo}
+
+
+def listar_notas(db: Session, user: Usuario, filtros: dict) -> dict:
+    exigir(user, "producto.ver")
+    notas = db.scalars(select(NotaSAC).order_by(NotaSAC.id)).all()
+    caps = _lista(filtros.get("capitulo"))
+    if caps:
+        notas = [n for n in notas if not n.capitulos or set(caps) & set(n.capitulos or [])]
+    if filtros.get("q"):
+        t = filtros["q"].strip().lower()
+        notas = [n for n in notas if t in n.texto.lower() or t in n.codigo.lower() or t in n.numero.lower()]
+    return {"items": [_fila_nota(n) for n in notas], "total": len(notas), "ambitos": AMBITOS}
+
+
+def guardar_nota(db: Session, user: Usuario, datos, nota_id: int | None = None) -> dict:
+    exigir(user, "producto.clasificar")
+    if datos.ambito not in AMBITOS:
+        raise ErrorNegocio("Choose the kind of note.", 422, "validacion")
+    if not (datos.texto or "").strip() or not (datos.codigo or "").strip():
+        raise ErrorNegocio("Write the section or chapter and the text of the note.", 422, "validacion")
+    n = db.get(NotaSAC, nota_id) if nota_id else None
+    if nota_id and not n:
+        raise ErrorNegocio("The note does not exist.", 404, "no_encontrado")
+    if not n:
+        n = NotaSAC(fuente="manual")
+        db.add(n)
+    caps = sorted({c.strip().zfill(2) for c in datos.capitulos if c.strip().isdigit()})
+    n.ambito, n.codigo, n.numero = datos.ambito, datos.codigo.strip().upper()[:10], (datos.numero or "").strip()[:20]
+    n.texto, n.capitulos, n.activo = datos.texto.strip(), caps, datos.activo
+    n.fuente = "manual" if n.fuente == "base" else n.fuente
+    n.actualizado_en = ahora()
+    db.flush()
+    return _fila_nota(n)
+
+
+def borrar_nota(db: Session, user: Usuario, nota_id: int) -> None:
+    exigir(user, "producto.clasificar")
+    n = db.get(NotaSAC, nota_id)
+    if not n:
+        raise ErrorNegocio("The note does not exist.", 404, "no_encontrado")
+    db.delete(n)
 
 
 # ---- Códigos nacionales ----------------------------------------------------------------
@@ -415,6 +466,70 @@ def importar_sac(db: Session, user: Usuario, nombre: str, contenido: bytes) -> d
         x.actualizado_en = ahora()
     registrar(db, user, "aranceles", 0, "importar_sac", {"creados": creados, "actualizados": actualizados})
     return {"creados": creados, "actualizados": actualizados, "errores": errores[:200]}
+
+
+AMBITO_ALIAS = {"reglas": "reglas", "general rules": "reglas", "general rule": "reglas", "rgi": "reglas", "regla": "reglas",
+                "seccion": "seccion", "section": "seccion", "section note": "seccion", "capitulo": "capitulo",
+                "chapter": "capitulo", "chapter note": "capitulo", "subpartida": "subpartida", "subheading": "subpartida",
+                "subheading note": "subpartida"}
+
+
+def plantilla_notas() -> bytes:
+    return plantilla("SAC legal notes", [
+        {"nombre": "Kind", "req": True, "opciones": list(AMBITOS.values()), "ancho": 16},
+        {"nombre": "Section or chapter", "req": True, "ayuda": "RGI for the general rules, XI for a section, 64 for a chapter.", "ancho": 14},
+        {"nombre": "Number", "ayuda": "Number of the note, e.g. 4, 2 A), Subp. 1.", "ancho": 12},
+        {"nombre": "Text", "req": True, "ayuda": "Official text of the note, as published in the SAC.", "ancho": 90},
+        {"nombre": "Applies to chapters", "ayuda": "Chapters separated by commas (empty = all).", "ancho": 20},
+        {"nombre": "Active", "opciones": ["Yes", "No"], "ancho": 8},
+    ], [["Chapter note", "64", "4", "Salvo lo dispuesto en la Nota 3 de este Capítulo: a) la materia de la parte superior …", "64", "Yes"]],
+        ["One row per note. A note with the same kind, section or chapter and number is replaced with the new text.",
+         "Use it to load the official text of the SAC in force."])
+
+
+def importar_notas(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
+    exigir(user, "producto.clasificar")
+    filas = leer(nombre, contenido, {"kind": "ambito", "tipo": "ambito", "section_or_chapter": "codigo", "chapter": "codigo",
+                                     "codigo": "codigo", "number": "numero", "numero": "numero", "text": "texto",
+                                     "texto": "texto", "applies_to_chapters": "capitulos", "capitulos": "capitulos",
+                                     "active": "activo", "activo": "activo"})
+    actuales = {(x.ambito, x.codigo, x.numero): x for x in db.scalars(select(NotaSAC))}
+    creados = actualizados = 0
+    errores = []
+    for f in filas:
+        amb = AMBITO_ALIAS.get(norm(f.get("ambito") or "").replace("_", " "))
+        cod, num, txt = (f.get("codigo") or "").strip().upper(), (f.get("numero") or "").strip(), (f.get("texto") or "").strip()
+        if not amb or not cod or not txt:
+            errores.append({"fila": f["_fila"], "mensaje": "Kind, section or chapter and text are required."})
+            continue
+        x = actuales.get((amb, cod, num))
+        if x:
+            actualizados += 1
+        else:
+            x = actuales[(amb, cod, num)] = NotaSAC(ambito=amb, codigo=cod[:10], numero=num[:20])
+            db.add(x)
+            creados += 1
+        x.texto = txt
+        caps = [c.strip().zfill(2) for c in str(f.get("capitulos") or "").split(",") if c.strip().isdigit()]
+        x.capitulos = caps or ([cod.zfill(2)] if cod.isdigit() else x.capitulos or [])
+        x.activo = si_no(f.get("activo")) is not False
+        x.fuente = "archivo"
+        x.actualizado_en = ahora()
+    registrar(db, user, "aranceles", 0, "importar_notas", {"creados": creados, "actualizados": actualizados})
+    return {"creados": creados, "actualizados": actualizados, "errores": errores[:200]}
+
+
+def exportar_notas(db: Session, user: Usuario, filtros: dict, formato: str) -> bytes:
+    r = listar_notas(db, user, filtros)
+    columnas = [("Kind", 1, False), ("Section or chapter", 0.8, False), ("Number", 0.7, False), ("Text", 6, False),
+                ("Applies to chapters", 1, False)]
+    filas = [[x["ambito_txt"], x["codigo"], x["numero"], x["texto"], ", ".join(x["capitulos"]) or "All"] for x in r["items"]]
+    texto = _filtros_txt(filtros, {"q": "Search", "capitulo": "Chapter"})
+    titulo, sub = "SAC legal notes", "General rules, section, chapter and subheading notes"
+    if formato == "pdf":
+        return documentos.pdf_reporte(titulo, sub, texto, [("Notes", f"{r['total']:,}")], columnas,
+                                      [[str(v) for v in f] for f in filas])
+    return exportar.exportar_reporte(titulo, sub, texto, [("Notes", f"{r['total']:,}")], columnas, filas)
 
 
 # ---- Exportar con los filtros de la pantalla ------------------------------------------------

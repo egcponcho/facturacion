@@ -84,6 +84,46 @@ def borrar_sac(sac_id: int, db: Db, user: User):
     return {"ok": True}
 
 
+@router.get("/aranceles/notas")
+def notas(request: Request, db: Db, user: User):
+    """Notas legales del SAC que el sistema tiene en cuenta al clasificar."""
+    return svc.listar_notas(db, user, dict(request.query_params))
+
+
+@router.get("/aranceles/notas/plantilla")
+def notas_plantilla(user: User, vista: bool = False):
+    return plantilla_o_vista(svc.plantilla_notas(), "template_sac_notes", vista)
+
+
+@router.get("/aranceles/notas/exportar")
+def notas_exportar(request: Request, db: Db, user: User, formato: Formato = "xlsx"):
+    return descarga(svc.exportar_notas(db, user, dict(request.query_params), formato), f"sac_notes_{date.today():%Y%m%d}", formato)
+
+
+@router.post("/aranceles/notas/importar")
+async def notas_importar(db: Db, user: User, archivo: UploadFile = File(...)):
+    r = svc.importar_notas(db, user, archivo.filename or "", await archivo.read())
+    db.commit()
+    return r
+
+
+@router.post("/aranceles/notas")
+def crear_nota(datos: s.NotaSACIn, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.guardar_nota(db, user, datos))
+
+
+@router.put("/aranceles/notas/{nota_id}")
+def editar_nota(nota_id: int, datos: s.NotaSACIn, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.guardar_nota(db, user, datos, nota_id))
+
+
+@router.delete("/aranceles/notas/{nota_id}")
+def borrar_nota(nota_id: int, db: Db, user: User):
+    svc.borrar_nota(db, user, nota_id)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/aranceles/codigos")
 def codigos(request: Request, db: Db, user: User, orden: str | None = None, page: int = Query(1, ge=1),
             size: int = Query(50, ge=1, le=500)):

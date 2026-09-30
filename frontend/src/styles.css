@@ -357,7 +357,8 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--acento); width
 .panel-cabeza p { color: var(--tinta-3); font-size: 0.86rem; margin-top: 2px; }
 .panel-plano { box-shadow: none; }
 
-.pestanas { display: flex; gap: 4px; border-bottom: 1px solid var(--linea); margin: 20px 0 16px; overflow-x: auto; }
+.pestanas { display: flex; gap: 4px; border-bottom: 1px solid var(--linea); margin: 20px 0 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.pestanas::-webkit-scrollbar { display: none; }
 .pestana { background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer; color: var(--tinta-2); font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; margin-bottom: -1px; }
 .pestana:hover { color: var(--tinta); }
 .pestana[aria-selected='true'] { color: var(--acento-texto); border-bottom-color: var(--acento); }
@@ -512,6 +513,7 @@ a.cajas-rango { color: var(--tinta); }
 
 /* ---- Dashboard -------------------------------------------------------- */
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 14px; }
+.kpis + .panel, .kpis + section, .kpis + div { margin-top: 16px; }
 .kpi {
   text-align: left; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); padding: 16px 18px;
   display: flex; flex-direction: column; gap: 4px; box-shadow: var(--sombra); cursor: pointer; position: relative; overflow: hidden;
@@ -792,6 +794,8 @@ th.num .orden-btn { flex-direction: row-reverse; }
 
 /* ---- Lista desplegable con búsqueda ------------------------------------- */
 .sb { position: relative; min-width: 150px; }
+.filtros .sb { width: auto; min-width: 170px; max-width: 260px; }
+.campo .sb, .campo-f .sb { width: 100%; }
 .sb-boton {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
   font: inherit; font-size: 0.9rem; color: var(--tinta); background: var(--superficie); border: 1px solid var(--linea);

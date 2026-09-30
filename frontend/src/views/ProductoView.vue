@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { api } from '../api'
 import EstadoBadge from '../components/EstadoBadge.vue'
@@ -39,6 +40,36 @@ const puedeAprobar = computed(() => !!p.value?.puede_aprobar)
 const r = computed(() => (ctx.value && p.value && f.id ? calcular(f, ctx.value, codOficial.value) : null))
 const codigo = computed(() => (aprobado.value ? p.value.codigo : codOficial.value || M.fmtCode(r.value?.o.completo || r.value?.o.codigo || '')))
 const codigo6 = computed(() => M.digits(codigo.value).slice(0, 6))
+// Notas legales del SAC que aplican a la subpartida: primero las del capítulo
+// y de subpartida, luego las de sección y al final las reglas generales
+const ORDEN_NOTA = { subpartida: 0, capitulo: 1, seccion: 2, reglas: 3 }
+// Relevancia: las que cita el razonamiento del motor y las que tocan datos de
+// esta ficha (bebé, unisex, recubierta, cuero, deporte, conjunto…) van primero
+const etiquetasFicha = computed(() => {
+  const x = r.value?.s || f
+  const t = new Set([x.tipo, M.grupoTipo(x.tipo)])
+  if (M.edadDe(x) === 'bebe') t.add('bebe')
+  if (x.genero === 'U') t.add('unisex')
+  if (['prenda'].includes(M.grupoTipo(x.tipo))) { t.add('genero'); t.add('composicion'); t.add(x.tejido || 'punto') }
+  if (M.grupoTipo(x.tipo) === 'calzado') { t.add('corte'); t.add('suela') }
+  if (x.recubierta) t.add('recubierta')
+  if (['entrenamiento', 'deporte'].includes(x.disenio) || x.estiloCalz === 'tacos') t.add('deporte')
+  for (const parte of Object.keys(x.comp || {})) { const c = M.claseTexto(x.comp[parte]); if (c) t.add(c.clase) }
+  return t
+})
+const citada = (n) => {
+  const t = (r.value?.o.razones || []).join(' ').toLowerCase()
+  const cita = n.ambito !== 'reglas' && t.includes(`note ${String(n.numero).toLowerCase().split(' ')[0]}`) && t.includes(`chapter ${n.codigo}`) ? 3 : 0
+  const propio = n.codigo === codigo6.value.slice(0, 2) ? 0.5 : 0 // las del capítulo de la partida antes que las de otros
+  return cita + propio + (n.claves || []).filter((k) => etiquetasFicha.value.has(k)).length
+}
+const notasSac = computed(() => {
+  const cap = codigo6.value.slice(0, 2)
+  if (!cap) return []
+  return (ctx.value?.notas_sac || []).filter((n) => !n.capitulos.length || n.capitulos.includes(cap))
+    .sort((a, b) => citada(b) - citada(a) || (ORDEN_NOTA[a.ambito] ?? 9) - (ORDEN_NOTA[b.ambito] ?? 9))
+})
+const verNotas = ref(false)
 
 // ---- Carga ---------------------------------------------------------------
 function tomar(det) {
@@ -439,7 +470,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         <section class="panel">
           <div class="eyebrow">Tariff classification</div>
           <div class="sello" :class="aprobado ? 'aprobado' : codigo6.length === 6 ? 'sugerido' : 'vacio'">
-            <span class="codigo-grande">{{ codigo || '——.——' }}</span>
+            <span class="codigo-grande">{{ codigo6.length === 6 ? M.fmtCode(codigo6) : '——.——' }}</span>
             <span class="sello-texto">{{ aprobado ? 'Approved' : codigo6.length === 6 ? (codOficial ? 'Chosen by you' : 'Suggested') : 'No code yet' }}</span>
           </div>
           <p v-if="codigo6.length === 6" class="desc-sac">{{ M.descDe(codigo6) }}</p>
@@ -489,6 +520,17 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
           </div>
         </section>
 
+        <section v-if="notasSac.length" class="panel">
+          <div class="panel-cabeza"><div><h2>SAC notes that apply</h2><p>Chapter {{ codigo6.slice(0, 2) }}, its section and the general rules</p></div></div>
+          <ul class="notas-sac">
+            <li v-for="n in (verNotas ? notasSac : notasSac.slice(0, 2))" :key="n.id">
+              <b>{{ n.codigo === 'RGI' ? 'General rule' : n.ambito === 'seccion' ? `Section ${n.codigo}` : `Chapter ${n.codigo}` }}, note {{ n.numero }}</b>
+              <span>{{ n.texto }}</span>
+            </li>
+          </ul>
+          <button v-if="notasSac.length > 2" type="button" class="btn-texto" @click="verNotas = !verNotas">{{ verNotas ? 'Show fewer' : `See all ${notasSac.length} notes` }}</button>
+        </section>
+
         <section class="panel">
           <div class="panel-cabeza"><div><h2>By destination</h2><p>{{ paisesOk }} of {{ paises.length }} national codes complete</p></div></div>
           <table class="tabla paises">
@@ -510,10 +552,10 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
                     <span v-else-if="!['ok', 'auto'].includes(x.estado)" class="sub">{{ x.estado === 'elegir' ? 'Choose one of the listed codes or type it' : M.EST_PAIS[x.estado]?.[1] }}</span>
                   </template>
                   <template v-else>
-                    <select v-if="x.estado === 'elegir' && x.opciones?.length && puedeEditar" class="entrada" :aria-label="`Code for ${x.nombre}`" @change="codigoPais(x.iso, $event.target.value)">
+                    <Seleccion v-if="x.estado === 'elegir' && x.opciones?.length && puedeEditar" class="entrada" :aria-label="`Code for ${x.nombre}`" @change="codigoPais(x.iso, $event)">
                       <option value="">Choose…</option>
                       <option v-for="o in x.opciones" :key="o.codigo" :value="o.codigo">{{ M.fmtPais(o.codigo, x.digitos) }} · {{ M.condTexto(o.cond) }}</option>
-                    </select>
+                    </Seleccion>
                     <template v-else>
                       <span class="codigo-sac" :class="{ tentativo: !['ok', 'auto'].includes(x.estado) }">{{ x.codigo ? M.fmtPais(x.codigo, x.digitos) : '—' }}</span>
                       <span v-if="x.manual" class="etiqueta acento" title="Set by hand">manual</span>
@@ -633,7 +675,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 .foto img { width: 100%; height: 100%; object-fit: cover; }
 .foto .btn-icono { position: absolute; top: 4px; right: 4px; background: var(--superficie); }
 .desc-aduana { font-size: 0.9rem; letter-spacing: 0.01em; background: var(--superficie-2); border: 1px dashed var(--linea); border-radius: var(--radio); padding: 10px 12px; }
-.sello { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 6px 0 4px; }
+.sello { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; margin: 6px 0 4px; }
 .codigo-grande { font-stretch: 125%; font-weight: 780; font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .sello.vacio .codigo-grande { color: var(--tinta-3); }
 .sello-texto { font-size: 0.78rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; padding: 3px 8px; border-radius: 6px; background: var(--linea-suave); color: var(--tinta-2); }
@@ -667,6 +709,10 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 .entrada-pais.tentativo { border-style: dashed; }
 .entrada-pais.invalida { border-color: var(--error); box-shadow: 0 0 0 3px var(--error-fondo); }
 .paises .sub .btn-texto { font-size: inherit; padding: 0; }
+.notas-sac { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 0.84rem; line-height: 1.45; }
+.notas-sac li { display: flex; flex-direction: column; gap: 2px; padding-left: 10px; border-left: 3px solid var(--acento-claro); }
+.notas-sac b { font-size: 0.78rem; color: var(--acento-texto); }
+.notas-sac span { color: var(--tinta-2); }
 .parecidos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 0.88rem; }
 .parecidos .codigo-sac { margin-left: 6px; }
 .opinion p + p { margin-top: 6px; }
