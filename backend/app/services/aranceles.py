@@ -13,7 +13,7 @@ from .common import ErrorNegocio, exigir, registrar
 from .meta import cond_texto, opciones_cond, valor_opcion
 from .plantillas import leer, norm, plantilla, si_no
 
-FUENTES = {"base": "Base", "aprendido": "Learned", "manual": "By hand", "archivo": "File"}
+FUENTES = {"oficial": "Official (SIECA)", "base": "Base (ADOC)", "aprendido": "Learned", "manual": "By hand", "archivo": "File"}
 
 
 def _dig(s) -> str:
@@ -135,7 +135,7 @@ def guardar_sac(db: Session, user: Usuario, datos, sac_id: int | None = None) ->
         db.add(x)
     x.codigo, x.descripcion = cod, datos.descripcion.strip()[:400]
     x.nota, x.activo = (datos.nota or "")[:300] or None, datos.activo
-    x.fuente = "manual" if x.fuente in (None, "base") else x.fuente
+    x.fuente = "manual" if x.fuente in (None, "base", "oficial") else x.fuente
     x.actualizado_en = ahora()
     db.flush()
     return {"id": x.id}
@@ -196,7 +196,8 @@ def condiciones_aplicables(db: Session, user: Usuario, pais: str | None, codigo:
 
 
 # ---- Notas legales del SAC ---------------------------------------------------------------
-AMBITOS = {"reglas": "General rules", "seccion": "Section note", "capitulo": "Chapter note", "subpartida": "Subheading note"}
+AMBITOS = {"reglas": "General rules", "seccion": "Section note", "capitulo": "Chapter note", "subpartida": "Subheading note",
+           "complementaria": "Central American complementary note"}
 
 
 def _fila_nota(n: NotaSAC) -> dict:
@@ -232,7 +233,7 @@ def guardar_nota(db: Session, user: Usuario, datos, nota_id: int | None = None) 
     caps = sorted({c.strip().zfill(2) for c in datos.capitulos if c.strip().isdigit()})
     n.ambito, n.codigo, n.numero = datos.ambito, datos.codigo.strip().upper()[:10], (datos.numero or "").strip()[:20]
     n.texto, n.capitulos, n.activo = datos.texto.strip(), caps, datos.activo
-    n.fuente = "manual" if n.fuente == "base" else n.fuente
+    n.fuente = "manual" if n.fuente in ("base", "oficial") else n.fuente
     n.actualizado_en = ahora()
     db.flush()
     return _fila_nota(n)
@@ -517,7 +518,8 @@ def importar_sac(db: Session, user: Usuario, nombre: str, contenido: bytes) -> d
 AMBITO_ALIAS = {"reglas": "reglas", "general rules": "reglas", "general rule": "reglas", "rgi": "reglas", "regla": "reglas",
                 "seccion": "seccion", "section": "seccion", "section note": "seccion", "capitulo": "capitulo",
                 "chapter": "capitulo", "chapter note": "capitulo", "subpartida": "subpartida", "subheading": "subpartida",
-                "subheading note": "subpartida"}
+                "subheading note": "subpartida", "complementaria": "complementaria",
+                "central american complementary note": "complementaria", "ncc": "complementaria"}
 
 
 def plantilla_notas() -> bytes:

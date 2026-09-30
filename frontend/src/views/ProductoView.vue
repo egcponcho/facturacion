@@ -42,7 +42,7 @@ const codigo = computed(() => (aprobado.value ? p.value.codigo : codOficial.valu
 const codigo6 = computed(() => M.digits(codigo.value).slice(0, 6))
 // Notas legales del SAC que aplican a la subpartida: primero las del capítulo
 // y de subpartida, luego las de sección y al final las reglas generales
-const ORDEN_NOTA = { subpartida: 0, capitulo: 1, seccion: 2, reglas: 3 }
+const ORDEN_NOTA = { subpartida: 0, capitulo: 1, complementaria: 1, seccion: 2, reglas: 3 }
 // Relevancia: las que cita el razonamiento del motor y las que tocan datos de
 // esta ficha (bebé, unisex, recubierta, cuero, deporte, conjunto…) van primero
 const etiquetasFicha = computed(() => {
@@ -524,7 +524,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
           <div class="panel-cabeza"><div><h2>SAC notes that apply</h2><p>Chapter {{ codigo6.slice(0, 2) }}, its section and the general rules</p></div></div>
           <ul class="notas-sac">
             <li v-for="n in (verNotas ? notasSac : notasSac.slice(0, 2))" :key="n.id">
-              <b>{{ n.codigo === 'RGI' ? 'General rule' : n.ambito === 'seccion' ? `Section ${n.codigo}` : `Chapter ${n.codigo}` }}, note {{ n.numero }}</b>
+              <b>{{ n.codigo === 'RGI' ? `General rule ${n.numero}` : n.ambito === 'seccion' ? `Section ${n.codigo}, note ${n.numero}` : n.ambito === 'complementaria' ? `Chapter ${n.codigo}, Central American note ${n.numero.replace('NCC ', '')}` : `Chapter ${n.codigo}, note ${n.numero}` }}</b>
               <span>{{ n.texto }}</span>
             </li>
           </ul>

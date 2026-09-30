@@ -42,6 +42,7 @@ from ..models import (
     Usuario,
     ahora,
 )
+from .meta import meta as meta_motor
 from .common import (
     ErrorNegocio,
     asegurar_proveedor,
@@ -521,7 +522,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
         "recs": recs, "incisos": incisos,
         "notas_sac": notas_contexto(db),
         "sac": [{"codigo": x.codigo, "descripcion": x.descripcion}
-                for x in db.scalars(select(PartidaSAC).where(PartidaSAC.fuente != "base", PartidaSAC.activo.is_(True)))], "marcas": marcas, "proveedores": provs,
+                for x in db.scalars(select(PartidaSAC).where(PartidaSAC.fuente.not_in(("base", "oficial")), PartidaSAC.activo.is_(True)))], "marcas": marcas, "proveedores": provs,
         "palabras": [{"id": x.id, "frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})}
                      for x in db.scalars(select(PalabraClave))],
         "sinonimos": [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))],
@@ -854,24 +855,47 @@ def notas_de(db: Session, codigo: str | None) -> list:
 
 
 def cargar_incisos_base(db: Session) -> int:
-    """Países destino, subpartidas SAC con su texto y códigos nacionales
-    conocidos de Centroamérica y Panamá (base ADOC 2026)."""
+    """Países destino, el SAC oficial (Arancel Centroamericano de Importación,
+    VII Enmienda, SIECA) con sus partidas, subpartidas y notas legales, y los
+    códigos nacionales: los incisos del ACI con su DAI para los países que usan
+    los 10 dígitos del SAC y la base de artículos ADOC 2026 para el resto."""
     for i, d in enumerate(DESTINOS):
         db.add(PaisArancel(iso=d["iso"], nombre=d["nombre"], digitos=d["digitos"], mcca=d["mcca"],
                            impuesto=d["impuesto"], orden=i))
     carpeta = Path(__file__).resolve().parent.parent / "data"
-    for x in json.loads((carpeta / "sac_base.json").read_text(encoding="utf-8")):
-        db.add(PartidaSAC(codigo=x["codigo"], descripcion=x["descripcion"][:400], fuente="base"))
-    for x in json.loads((carpeta / "sac_notas.json").read_text(encoding="utf-8")):
+    leer = lambda nombre: json.loads((carpeta / nombre).read_text(encoding="utf-8"))  # noqa: E731
+    oficiales = {x["codigo"] for x in leer("sac_oficial.json")}
+    for x in leer("sac_oficial.json"):
+        db.add(PartidaSAC(codigo=x["codigo"], descripcion=x["descripcion"][:400], fuente="oficial"))
+    for x in leer("sac_base.json"):
+        if x["codigo"] not in oficiales:
+            db.add(PartidaSAC(codigo=x["codigo"], descripcion=x["descripcion"][:400], fuente="base"))
+    for x in leer("sac_notas.json"):
         db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"],
-                       capitulos=x.get("capitulos") or [], claves=x.get("claves") or [], fuente="base"))
-    ruta = Path(__file__).resolve().parent.parent / "data" / "incisos_base.json"
-    datos = json.loads(ruta.read_text(encoding="utf-8"))
-    for x in datos:
+                       capitulos=x.get("capitulos") or [], claves=x.get("claves") or [], fuente="oficial"))
+    # Incisos del ACI (10 dígitos) en los capítulos que clasifica el motor, para
+    # los países del SAC a 10 dígitos; las condiciones de la base ADOC se conservan
+    capitulos = set(meta_motor()["capitulos"])
+    aci = {x["codigo"]: x for x in leer("aci_incisos.json") if x["codigo"][:2] in capitulos}
+    base = leer("incisos_base.json")
+    diez = [d["iso"] for d in DESTINOS if d["digitos"] == 10 and d["mcca"]]
+    cond_base = {(x["pais"], x["codigo"]): x for x in base}
+    n = 0
+    for pais in diez:
+        for cod, x in aci.items():
+            b = cond_base.get((pais, cod))
+            db.add(IncisoNacional(pais=pais, codigo=cod, sub6=cod[:6], cond=(b or {}).get("cond") or x["cond"],
+                                  prio=(b or {}).get("prio") or 0, dai=x["dai_txt"] or "", descripcion=x["descripcion"][:300],
+                                  fuente="oficial", nota="ACI SIECA VII Enmienda, versión 6 (agosto 2025)"))
+            n += 1
+    for x in base:
+        if x["pais"] in diez and x["codigo"] in aci:
+            continue
         db.add(IncisoNacional(pais=x["pais"], codigo=x["codigo"], sub6=x["codigo"][:6], cond=x.get("cond") or {},
                               prio=x.get("prio") or 0, fuente="base",
                               nota=f"Base ADOC 2026 ({x.get('articulos', 0)} items)"))
-    return len(datos)
+        n += 1
+    return n
 
 
 # ---- Proveedores y catálogos para la pantalla -------------------------------------
