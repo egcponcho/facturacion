@@ -309,6 +309,166 @@ class Prepack(Base):
         return sum(c.cantidad for c in self.componentes)
 
 
+class Producto(Base):
+    """Ficha técnica de un estilo-color de un proveedor. La comparten todas sus
+    tallas (artículos) y sus prepacks; aquí vive su clasificación arancelaria:
+    la partida SAC aprobada y el código nacional de cada país destino."""
+
+    __tablename__ = "productos"
+    __table_args__ = (UniqueConstraint("proveedor_id", "estilo", "color"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
+    estilo: Mapped[str] = mapped_column(String(40))
+    color: Mapped[str | None] = mapped_column(String(60))
+    marca_id: Mapped[int | None] = mapped_column(ForeignKey("marcas.id"), index=True)
+    grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"))
+    codigo_generico: Mapped[str | None] = mapped_column(String(20))
+    nombre: Mapped[str | None] = mapped_column(String(200))  # nombre comercial del estilo
+    # Ficha técnica: tipo de producto del clasificador, atributos, composición
+    # por parte, uso, tallas, usuario y datos que piden los aranceles nacionales
+    tipo: Mapped[str | None] = mapped_column(String(30))
+    ficha: Mapped[dict] = mapped_column(JSON, default=dict)
+    descripcion_aduana: Mapped[str | None] = mapped_column(String(400))  # en español, para la DUCA
+    pais_origen: Mapped[str | None] = mapped_column(String(2))
+    pais_procedencia: Mapped[str | None] = mapped_column(String(2))
+    ficha_completa: Mapped[bool] = mapped_column(Boolean, default=False)
+    faltan: Mapped[list] = mapped_column(JSON, default=list)
+    # Versión de la ficha: al cambiar una ficha aprobada se cierra y se abre otra
+    version_ficha: Mapped[int] = mapped_column(Integer, default=1)
+    vigente_desde: Mapped[date | None] = mapped_column(Date)
+    # borrador | sugerida | aprobado | corregido | observado
+    estado: Mapped[str] = mapped_column(String(12), default="borrador", index=True)
+    sugerido: Mapped[str | None] = mapped_column(String(14))  # partida del motor
+    propuesta: Mapped[str | None] = mapped_column(String(14))  # traída de un archivo o del proveedor
+    codigo: Mapped[str | None] = mapped_column(String(14))  # partida aprobada
+    confianza: Mapped[str | None] = mapped_column(String(10))
+    fuente: Mapped[str | None] = mapped_column(String(12))  # regla | historial | criterio
+    perfil: Mapped[str | None] = mapped_column(String(200))
+    analisis: Mapped[dict | None] = mapped_column(JSON)  # razones, fundamento, alternativas, alertas
+    alertas_ok: Mapped[list] = mapped_column(JSON, default=list)
+    observaciones: Mapped[str | None] = mapped_column(String(2000))  # del especialista
+    resolucion: Mapped[str | None] = mapped_column(String(200))  # resolución anticipada o criterio DGA
+    notas: Mapped[str | None] = mapped_column(String(1000))
+    opinion_ia: Mapped[dict | None] = mapped_column(JSON)
+    revisado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    revisado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)  # control de concurrencia
+
+    proveedor: Mapped["Proveedor"] = relationship()
+    marca: Mapped["Marca | None"] = relationship()
+    grupo: Mapped["GrupoArticulo | None"] = relationship()
+    revisado_por: Mapped["Usuario | None"] = relationship()
+    articulos: Mapped[list["Articulo"]] = relationship(back_populates="producto", order_by="Articulo.id")
+    partidas: Mapped[list["PartidaPais"]] = relationship(
+        back_populates="producto", cascade="all, delete-orphan", order_by="PartidaPais.pais"
+    )
+    fotos: Mapped[list["ProductoFoto"]] = relationship(
+        back_populates="producto", cascade="all, delete-orphan", order_by="ProductoFoto.id"
+    )
+    versiones: Mapped[list["ProductoVersion"]] = relationship(
+        back_populates="producto", cascade="all, delete-orphan", order_by="ProductoVersion.version"
+    )
+
+    @property
+    def aprobado(self) -> bool:
+        return self.estado in ("aprobado", "corregido") and bool(self.codigo)
+
+
+class PartidaPais(Base):
+    """Código arancelario nacional del producto en un país destino."""
+
+    __tablename__ = "partidas_pais"
+    __table_args__ = (UniqueConstraint("producto_id", "pais"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
+    pais: Mapped[str] = mapped_column(String(2))
+    codigo: Mapped[str] = mapped_column(String(14))
+    dai: Mapped[str | None] = mapped_column(String(10))  # derecho arancelario a la importación, %
+    estado: Mapped[str] = mapped_column(String(12))  # ok | auto | sac | nuevo | sinarancel | elegir
+    fuente: Mapped[str | None] = mapped_column(String(12))  # base | aprendido | manual | arancel
+    manual: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    producto: Mapped[Producto] = relationship(back_populates="partidas")
+
+
+class ProductoFoto(Base):
+    __tablename__ = "producto_fotos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
+    nombre: Mapped[str] = mapped_column(String(300))
+    ruta: Mapped[str] = mapped_column(String(500))
+    tipo_mime: Mapped[str] = mapped_column(String(60))
+    tamano: Mapped[int] = mapped_column(Integer)
+    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    subido_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    producto: Mapped[Producto] = relationship(back_populates="fotos")
+
+
+class ProductoVersion(Base):
+    """Versión cerrada de la ficha técnica, con su vigencia y la partida que tenía."""
+
+    __tablename__ = "producto_versiones"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    desde: Mapped[date | None] = mapped_column(Date)
+    hasta: Mapped[date | None] = mapped_column(Date)
+    motivo: Mapped[str | None] = mapped_column(String(300))
+    datos: Mapped[dict] = mapped_column(JSON)  # copia de la ficha y su clasificación
+    cerrado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    cerrado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    producto: Mapped[Producto] = relationship(back_populates="versiones")
+
+
+class IncisoNacional(Base):
+    """Código nacional conocido de un país (8 a 12 dígitos), con las condiciones
+    que lo distinguen dentro de su subpartida: de la base cargada, aprendido al
+    confirmar un producto o escrito a mano."""
+
+    __tablename__ = "incisos_nacionales"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pais: Mapped[str] = mapped_column(String(2), index=True)
+    codigo: Mapped[str] = mapped_column(String(14))
+    sub6: Mapped[str] = mapped_column(String(6), index=True)
+    cond: Mapped[dict] = mapped_column(JSON, default=dict)
+    prio: Mapped[int] = mapped_column(Integer, default=0)
+    dai: Mapped[str | None] = mapped_column(String(10))
+    descripcion: Mapped[str | None] = mapped_column(String(300))
+    nota: Mapped[str | None] = mapped_column(String(300))
+    fuente: Mapped[str] = mapped_column(String(12), default="manual")  # base | aprendido | manual
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
+class PalabraClave(Base):
+    """Frase del nombre del estilo que el clasificador aprendió a reconocer
+    (p. ej. "old skool" es un tenis)."""
+
+    __tablename__ = "clasif_palabras"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    frase: Mapped[str] = mapped_column(String(100))
+    tipo: Mapped[str] = mapped_column(String(30))
+    marca: Mapped[str | None] = mapped_column(String(100))
+    atributos: Mapped[dict] = mapped_column(JSON, default=dict)
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
+class SinonimoMaterial(Base):
+    """Palabra de composición que el clasificador aprendió (p. ej. "cordura" es nylon)."""
+
+    __tablename__ = "clasif_sinonimos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    palabra: Mapped[str] = mapped_column(String(60), unique=True)
+    equivale: Mapped[str] = mapped_column(String(30))
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
 class Articulo(Base):
     """Dato maestro del artículo (SKU). Un sólido es un estilo-color-talla;
     un prepack es una caja con una curva de sólidos."""
@@ -327,13 +487,14 @@ class Articulo(Base):
     unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ (prepack)
     tipo: Mapped[str] = mapped_column(String(10), default="SOLIDO")  # SOLIDO | PREPACK
     prepack_id: Mapped[int | None] = mapped_column(ForeignKey("prepacks.id"))
-    partida_arancelaria: Mapped[str | None] = mapped_column(String(20))
-    pais_origen: Mapped[str | None] = mapped_column(String(2))
+    # La ficha técnica y la clasificación son del estilo-color (producto)
+    producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     marca: Mapped[Marca] = relationship()
     grupo: Mapped[GrupoArticulo] = relationship()
     prepack: Mapped[Prepack | None] = relationship()
+    producto: Mapped[Producto | None] = relationship(back_populates="articulos")
 
 
 class PrepackComponente(Base):
@@ -409,7 +570,6 @@ class PosicionOC(Base):
     precio: Mapped[float] = mapped_column(Float)
     fecha_entrega: Mapped[date | None] = mapped_column(Date)
     pais_origen: Mapped[str | None] = mapped_column(String(3))
-    partida_arancelaria: Mapped[str | None] = mapped_column(String(20))
     bloqueada: Mapped[bool] = mapped_column(Boolean, default=False)
     motivo_bloqueo: Mapped[str | None] = mapped_column(String(200))
 

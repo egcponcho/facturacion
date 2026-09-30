@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from .models import (
     Almacen,
     Articulo,
+    ahora,
     Centro,
     Contacto,
     Embarque,
@@ -37,6 +38,7 @@ from .models import (
 )
 from .security import hash_password
 from .services.common import registrar
+from .services.productos import _guardar_partidas, asegurar_producto, cargar_incisos_base, partida_para, partidas_simples
 
 PAISES = [
     ("VN", "Vietnam"), ("CN", "China"), ("ID", "Indonesia"), ("KH", "Cambodia"), ("BD", "Bangladesh"),
@@ -141,6 +143,61 @@ ESTILOS = [
     ("VN0A4BV4", "White", "VANS", "CALZ-CAS", "VANS", "PAR", 21.00, "CN", "6404.19", "Basic canvas footwear",
      (12, None), ["7", "8", "9", "10"]),
 ]
+# Ficha técnica y clasificación de cada estilo-color (producto). La partida
+# aprobada es la que saca el motor de clasificación con esta ficha; el código
+# nacional de cada país sale de la base de incisos.
+FICHAS = {
+    ("NF0A5GLL", "JK3 TNF Black"): dict(
+        nombre="Men's Antora rain jacket", tipo="chaqueta", estado="aprobado", codigo="620140",
+        ficha={"genero": "M", "edad": "general", "edadNac": "adulto", "tejido": "plano", "hechura": "chaqueta",
+               "relleno_tipo": "ninguno", "tieneForro": True, "recubierta": False, "manga": "larga",
+               "uso": "Waterproof shell jacket for hiking", "tallas": "S to XXL",
+               "comp": {"exterior": "100% nylon", "forro": "100% polyester"}},
+        desc="CHAQUETA DE TEJIDO PLANO DE FIBRA SINTÉTICA (100% NYLON), PARA HOMBRE, MARCA THE NORTH FACE"),
+    ("NF0A5GLL", "Summit blue"): dict(
+        nombre="Men's Antora rain jacket", tipo="chaqueta", estado="observado",
+        ficha={"genero": "M", "edad": "general", "edadNac": "adulto", "tejido": "plano", "hechura": "chaqueta",
+               "uso": "Waterproof shell jacket for hiking", "tallas": "M to L", "comp": {}},
+        faltan=["Composition: outer fabric or surface"],
+        observaciones="Send the shell composition. If the coating is visible on the outside it goes in 6210; "
+                      "if it is a hidden membrane, in 6201."),
+    ("NF0A7W4G", "KX7 Black"): dict(
+        nombre="Men's Vectiv trail running shoe", tipo="calzado", estado="aprobado", codigo="640411",
+        ficha={"genero": "M", "edadNac": "adulto", "estiloCalz": "tenis", "disenio": "entrenamiento", "altura": "bajo",
+               "puntera": "ninguna", "impermeable": False, "suelaEspumosa": False, "uso": "Trail running shoe",
+               "tallas": "8 to 12", "comp": {"corte": "80% textile, 20% synthetic", "suela": "100% rubber",
+                                             "forro": "100% polyester", "plantilla": "100% EVA"}},
+        desc="TENIS CON CORTE DE MATERIA TEXTIL Y SUELA DE CAUCHO O PLÁSTICO, SIN CUBRIR EL TOBILLO, "
+             "PARA DEPORTE O ENTRENAMIENTO, PARA HOMBRE, MARCA THE NORTH FACE"),
+    ("NF0A3VY2", "JK3 TNF Black"): dict(
+        nombre="Borealis backpack 28 L", tipo="mochila", estado="aprobado", codigo="420292",
+        ficha={"genero": "U", "edadNac": "adulto", "tieneForro": True, "claseBolso": "mochila", "uso": "Daypack",
+               "tallas": "One size", "comp": {"exterior": "100% polyester", "forro": "100% polyester"}},
+        desc="MOCHILA CON SUPERFICIE EXTERIOR DE MATERIA TEXTIL (100% POLYESTER), UNISEX, MARCA THE NORTH FACE"),
+    ("NF0A5IHO", "Heather grey"): dict(
+        nombre="Glacier half-zip fleece", tipo="sudadera", estado="aprobado", codigo="611030",
+        ficha={"genero": "U", "edad": "general", "edadNac": "adulto", "tejido": "punto", "hechuraSud": "pullover",
+               "manga": "larga", "capucha": False, "sueter": False, "uso": "Mid layer fleece", "tallas": "S to L",
+               "comp": {"exterior": "100% polyester"}},
+        desc="SUDADERA DE PUNTO DE FIBRA SINTÉTICA (100% POLYESTER), UNISEX, MARCA THE NORTH FACE"),
+    ("VN000EE3", "BLK Black"): dict(
+        nombre="Old Skool", tipo="calzado", estado="aprobado", codigo="640419",
+        ficha={"genero": "U", "edadNac": "adulto", "estiloCalz": "tenis", "disenio": "casual", "altura": "bajo",
+               "puntera": "ninguna", "impermeable": False, "suelaEspumosa": False, "uso": "Casual skate-style sneaker",
+               "tallas": "7 to 12", "comp": {"corte": "65% canvas, 35% suede", "suela": "100% rubber",
+                                             "forro": "100% cotton", "plantilla": "100% EVA"}},
+        desc="TENIS CON CORTE DE MATERIA TEXTIL Y SUELA DE CAUCHO O PLÁSTICO, SIN CUBRIR EL TOBILLO, UNISEX, MARCA VANS"),
+    ("VN0A4BV4", "White"): dict(
+        nombre="Authentic", tipo="calzado", estado="sugerida", sugerido="640419",
+        ficha={"genero": "U", "edadNac": "adulto", "estiloCalz": "tenis", "disenio": "casual", "altura": "bajo",
+               "puntera": "ninguna", "impermeable": False, "suelaEspumosa": False, "uso": "Casual canvas sneaker",
+               "tallas": "7 to 10", "comp": {"corte": "100% canvas", "suela": "100% rubber", "forro": "100% cotton",
+                                             "plantilla": "100% EVA"}},
+        desc="TENIS CON CORTE DE MATERIA TEXTIL Y SUELA DE CAUCHO O PLÁSTICO, SIN CUBRIR EL TOBILLO, UNISEX, MARCA VANS"),
+}
+PERFILES = {"chaqueta": "chaqueta|plano|M|-|-|sintetica|-|chaqueta", "mochila": "mochila|textil",
+            "sudadera": "sudadera|punto|F|-|-|sintetica|-|pullover"}
+
 # Prepacks: estilo, color, prepack ID (es la "talla" del artículo prepack), curva
 PREPACKS = [
     ("VN000EE3", "BLK Black", "AB12", {"7": 1, "8": 2, "9": 3, "10": 3, "11": 2, "12": 1}),  # 12 pares
@@ -204,9 +261,10 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
             siguiente += 1
             a = Articulo(sku=sku, upc=f"0196{siguiente % 10**8:08d}", estilo=estilo, color=color, talla=talla,
                          descripcion=desc, marca_id=cat["marcas"][marca].id, grupo_id=cat["grupos"][grupo].id,
-                         proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO",
-                         partida_arancelaria=partida, pais_origen=origen)
+                         proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO")
             a.precio_demo = precio
+            a.origen_demo = origen
+            a.partida_demo = partida
             a.empaque_demo = empaque or (None, None)
             arts[(estilo, color, talla)] = a
     db.add_all(arts.values())
@@ -222,14 +280,52 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
         a = Articulo(sku=str(siguiente), estilo=estilo, color=color, talla=codigo,
                      descripcion=f"{base.descripcion}, prepack {codigo}", marca_id=base.marca_id,
                      grupo_id=base.grupo_id, proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK",
-                     prepack_id=pp.id, partida_arancelaria=base.partida_arancelaria, pais_origen=base.pais_origen)
+                     prepack_id=pp.id)
+        a.origen_demo = base.origen_demo
+        a.partida_demo = base.partida_demo
         siguiente += 1
         a.precio_demo = base.precio_demo * sum(curva.values())
         a.empaque_demo = (None, None)
         db.add(a)
         db.flush()
         arts[(estilo, color, codigo)] = a
+    _productos(db, arts)
     return arts
+
+
+def _productos(db, arts) -> None:
+    """Cada estilo-color es un producto con su ficha técnica y su clasificación."""
+    from .models import Usuario as U
+
+    interno = db.scalar(select(U).where(U.rol == "interno"))
+    for a in arts.values():
+        asegurar_producto(db, a)
+    db.flush()
+    for (estilo, color), x in FICHAS.items():
+        a = next(v for k, v in arts.items() if k[0] == estilo and k[1] == color)
+        p = a.producto
+        p.nombre, p.tipo, p.ficha = x["nombre"], x["tipo"], x["ficha"]
+        p.pais_origen = p.pais_procedencia = a.origen_demo
+        p.descripcion_aduana = x.get("desc")
+        p.faltan = x.get("faltan", [])
+        p.ficha_completa = not p.faltan
+        p.observaciones = x.get("observaciones")
+        p.vigente_desde = date.today() - timedelta(days=200)
+        f = x["ficha"]
+        p.perfil = PERFILES.get(p.tipo) or (
+            f"calzado|{f.get('estiloCalz')}|textil|caucho|{f.get('altura')}|{f.get('disenio')}|-|-" if p.tipo == "calzado" else None)
+        if x.get("codigo"):
+            p.sugerido = p.codigo = x["codigo"]
+            p.confianza, p.fuente, p.estado = "high", "regla", "aprobado"
+            p.revisado_por_id = interno.id if interno else None
+            p.revisado_en = ahora() - timedelta(days=150)
+            _guardar_partidas(p, partidas_simples(db, p, p.codigo))
+        else:
+            p.sugerido = x.get("sugerido")
+            p.estado = x["estado"]
+            p.confianza = "high" if p.sugerido else None
+            if p.sugerido:
+                _guardar_partidas(p, partidas_simples(db, p, p.sugerido))
 
 
 def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", almacen="BF19", destino="2220",
@@ -252,8 +348,7 @@ def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", a
                 categoria=a.grupo.categoria, tipo_empaque=a.tipo, casepack=a.empaque_demo[0], inner_pack=a.empaque_demo[1],
                 prepack=a.prepack.codigo if a.prepack else None,
                 unidades_por_caja=a.prepack.total if a.prepack else None, cantidad=cantidad, unidad=a.unidad,
-                precio=a.precio_demo, fecha_entrega=xf, pais_origen=a.pais_origen,
-                partida_arancelaria=a.partida_arancelaria,
+                precio=a.precio_demo, fecha_entrega=xf, pais_origen=a.origen_demo,
             ))
             pos += 10
     db.flush()
@@ -277,7 +372,8 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
                              estilo=p.estilo, color=p.color, talla=p.talla, descripcion=p.descripcion,
                              unidad=p.unidad, marca=p.marca, categoria=p.categoria, tipo_empaque=p.tipo_empaque,
                              casepack=p.casepack, inner_pack=p.inner_pack, centro_destino=oc.centro_destino, pais_origen=p.pais_origen,
-                             partida_arancelaria=p.partida_arancelaria, descripcion_comercial=p.descripcion)
+                             partida_arancelaria=partida_para(p.articulo.producto, "SV") or p.articulo.partida_demo,
+                             descripcion_comercial=p.articulo.producto.descripcion_aduana or p.descripcion)
         f.lineas.append(linea)
         pll = PLLinea(factura_linea=linea, cantidad=p.cantidad)
         pl.lineas.append(pll)
@@ -379,6 +475,7 @@ def seed(db: Session) -> None:
     ])
     db.flush()
     cat = _catalogos(db)
+    cargar_incisos_base(db)
     # Cada proveedor maneja sus marcas y trabaja con sus sociedades
     tnf.marcas = [cat["marcas"]["TNF"]]
     vans.marcas = [cat["marcas"]["VANS"]]
