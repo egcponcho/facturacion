@@ -322,13 +322,19 @@ class Producto(Base):
     color: Mapped[str | None] = mapped_column(String(60))
     marca_id: Mapped[int | None] = mapped_column(ForeignKey("marcas.id"), index=True)
     grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"))
-    codigo_generico: Mapped[str | None] = mapped_column(String(20))
+    # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
+    # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
+    codigo_generico: Mapped[str | None] = mapped_column(String(20), unique=True, index=True)
+    unidad: Mapped[str | None] = mapped_column(String(5))  # unidad de sus tallas sólidas: PAR | UN
     nombre: Mapped[str | None] = mapped_column(String(200))  # nombre comercial del estilo
     # Ficha técnica: tipo de producto del clasificador, atributos, composición
     # por parte, uso, tallas, usuario y datos que piden los aranceles nacionales
     tipo: Mapped[str | None] = mapped_column(String(30))
     ficha: Mapped[dict] = mapped_column(JSON, default=dict)
-    descripcion_aduana: Mapped[str | None] = mapped_column(String(400))  # en español, para la DUCA
+    # Dos descripciones que se arman solas con la ficha (se pueden editar):
+    # la técnica en español para la DUCA y la comercial para catálogos y documentos
+    descripcion_aduana: Mapped[str | None] = mapped_column(String(400))
+    descripcion_comercial: Mapped[str | None] = mapped_column(String(300))
     pais_origen: Mapped[str | None] = mapped_column(String(2))
     pais_procedencia: Mapped[str | None] = mapped_column(String(2))
     ficha_completa: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -424,6 +430,37 @@ class ProductoVersion(Base):
     producto: Mapped[Producto] = relationship(back_populates="versiones")
 
 
+class PaisArancel(Base):
+    """País destino con arancel propio: cuántos dígitos usa su código nacional
+    y si pertenece al Mercado Común Centroamericano (comparte el SAC a 8-10
+    dígitos). Se pueden agregar países y cargar sus códigos."""
+
+    __tablename__ = "paises_arancel"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    iso: Mapped[str] = mapped_column(String(2), unique=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    digitos: Mapped[int] = mapped_column(Integer, default=10)
+    mcca: Mapped[bool] = mapped_column(Boolean, default=False)
+    impuesto: Mapped[str | None] = mapped_column(String(60))  # p. ej. "VAT 13%"
+    nota: Mapped[str | None] = mapped_column(String(300))
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class PartidaSAC(Base):
+    """Subpartida del Sistema Arancelario Centroamericano (6 dígitos) o partida
+    (4 dígitos) con su texto oficial."""
+
+    __tablename__ = "partidas_sac"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(6), unique=True)
+    descripcion: Mapped[str] = mapped_column(String(400))
+    nota: Mapped[str | None] = mapped_column(String(300))
+    fuente: Mapped[str] = mapped_column(String(12), default="base")  # base | manual | archivo
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
 class IncisoNacional(Base):
     """Código nacional conocido de un país (8 a 12 dígitos), con las condiciones
     que lo distinguen dentro de su subpartida: de la base cargada, aprendido al
@@ -439,7 +476,8 @@ class IncisoNacional(Base):
     dai: Mapped[str | None] = mapped_column(String(10))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     nota: Mapped[str | None] = mapped_column(String(300))
-    fuente: Mapped[str] = mapped_column(String(12), default="manual")  # base | aprendido | manual
+    fuente: Mapped[str] = mapped_column(String(12), default="manual")  # base | aprendido | manual | archivo
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
@@ -475,7 +513,9 @@ class Articulo(Base):
 
     __tablename__ = "articulos"
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Código de artículo interno (11 dígitos, empieza con 3); distinto del SKU del proveedor
     sku: Mapped[str] = mapped_column(String(40), unique=True)  # texto: conserva ceros
+    sku_proveedor: Mapped[str | None] = mapped_column(String(60), index=True)
     upc: Mapped[str | None] = mapped_column(String(40))
     estilo: Mapped[str] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))

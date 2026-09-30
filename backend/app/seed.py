@@ -38,7 +38,14 @@ from .models import (
 )
 from .security import hash_password
 from .services.common import registrar
-from .services.productos import _guardar_partidas, asegurar_producto, cargar_incisos_base, partida_para, partidas_simples
+from .services.productos import (
+    _guardar_partidas,
+    asegurar_producto,
+    cargar_incisos_base,
+    descripcion_comercial_simple,
+    partida_para,
+    partidas_simples,
+)
 
 PAISES = [
     ("VN", "Vietnam"), ("CN", "China"), ("ID", "Indonesia"), ("KH", "Cambodia"), ("BD", "Bangladesh"),
@@ -254,12 +261,17 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
     ropa) con un número de artículo por estilo-color-talla, y prepacks cuya
     talla es su prepack ID."""
     arts = {}
-    siguiente = 30095120001
-    for estilo, color, marca, grupo, prov, unidad, precio, origen, partida, desc, empaque, tallas in ESTILOS:
+    # Código de artículo: los 8 primeros dígitos son el genérico (estilo-color) y
+    # los 3 últimos la talla; los prepacks del genérico siguen con su propia talla
+    genericos = {}
+    for n, (estilo, color, marca, grupo, prov, unidad, precio, origen, partida, desc, empaque, tallas) in enumerate(ESTILOS):
+        gen = str(30095120 + n)
+        genericos[(estilo, color)] = [gen, 0]
         for talla in tallas:
-            sku = str(siguiente)
-            siguiente += 1
-            a = Articulo(sku=sku, upc=f"0196{siguiente % 10**8:08d}", estilo=estilo, color=color, talla=talla,
+            genericos[(estilo, color)][1] += 1
+            sku = f"{gen}{genericos[(estilo, color)][1]:03d}"
+            a = Articulo(sku=sku, sku_proveedor=_sku_proveedor(estilo, color, talla), upc=f"0196{int(sku) % 10**8:08d}",
+                         estilo=estilo, color=color, talla=talla,
                          descripcion=desc, marca_id=cat["marcas"][marca].id, grupo_id=cat["grupos"][grupo].id,
                          proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO")
             a.precio_demo = precio
@@ -277,13 +289,15 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
             pp.componentes.append(PrepackComponente(articulo_id=arts[(estilo, color, talla)].id, cantidad=cant))
         db.add(pp)
         db.flush()
-        a = Articulo(sku=str(siguiente), estilo=estilo, color=color, talla=codigo,
+        gen = genericos[(estilo, color)]
+        gen[1] += 1
+        a = Articulo(sku=f"{gen[0]}{gen[1]:03d}", sku_proveedor=_sku_proveedor(estilo, color, codigo), estilo=estilo,
+                     color=color, talla=codigo,
                      descripcion=f"{base.descripcion}, prepack {codigo}", marca_id=base.marca_id,
                      grupo_id=base.grupo_id, proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK",
                      prepack_id=pp.id)
         a.origen_demo = base.origen_demo
         a.partida_demo = base.partida_demo
-        siguiente += 1
         a.precio_demo = base.precio_demo * sum(curva.values())
         a.empaque_demo = (None, None)
         db.add(a)
@@ -291,6 +305,13 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
         arts[(estilo, color, codigo)] = a
     _productos(db, arts)
     return arts
+
+
+def _sku_proveedor(estilo: str, color: str, talla: str) -> str:
+    """SKU del proveedor: estilo + código de color + talla (distinto del código de artículo)."""
+    primera = (color or "").split()[0] if color else ""
+    cod = primera.upper() if len(primera) <= 3 else primera[:3].upper()
+    return f"{estilo}{cod}-{talla}".replace(" ", "")
 
 
 def _productos(db, arts) -> None:
@@ -311,6 +332,7 @@ def _productos(db, arts) -> None:
         p.ficha_completa = not p.faltan
         p.observaciones = x.get("observaciones")
         p.vigente_desde = date.today() - timedelta(days=200)
+        p.descripcion_comercial = descripcion_comercial_simple(p)
         f = x["ficha"]
         p.perfil = PERFILES.get(p.tipo) or (
             f"calzado|{f.get('estiloCalz')}|textil|caucho|{f.get('altura')}|{f.get('disenio')}|-|-" if p.tipo == "calzado" else None)

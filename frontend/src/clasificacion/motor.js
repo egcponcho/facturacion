@@ -2114,7 +2114,9 @@ function partidaPais(f, iso, codBase, ctx){
   const cb = digits(codBase), sub = cb.slice(0,6), n = digitosPais(iso, ds);
   if (sub.length < 6) return {estado:'sin_codigo', codigo:''};
   let lista = incisosDe(iso, sub, incisos, ds);
-  const unaSac = () => MCCA5.includes(iso) && cb.length > 6 && cb.length >= Math.min(n, 10);
+  const dd = (ds || DESTINOS_BASE).find(x=>x.iso === iso);
+  const esMcca = dd && dd.mcca !== undefined && dd.mcca !== null ? !!dd.mcca : MCCA5.includes(iso);
+  const unaSac = () => esMcca && cb.length > 6 && cb.length >= Math.min(n, 10);
   const man = f.partidas && f.partidas[iso];
   if (man && man.manual && digits(man.codigo).startsWith(sub)){ const mc = digits(man.codigo).slice(0, n); const x = lista.find(y=>y.codigo === mc); return {codigo:mc, dai:x ? x.dai : (man.dai || ''), estado:'ok', desc:x ? x.desc : '', fuente:x ? x.fuente : 'manual'}; }
   if (n <= 6) return {codigo:sub, dai:lista.length === 1 ? lista[0].dai : '', estado:'ok', desc:descDe(sub), fuente:lista.length ? lista[0].fuente : ''};
@@ -2314,8 +2316,27 @@ const FUENTES = {regla:'Harmonized System rules', historial:'Your history: produ
 ESTADOS.observado = 'Observed';
 ESTADO_COLOR.observado = '#B42318';
 
+/* Descripciones SAC cargadas en la base (se pueden editar y agregar) */
+function setSac(lista){ (lista || []).forEach(x=>{ const c = digits(x.codigo); if (c.length >= 4 && x.descripcion) DESC[c] = x.descripcion; }); }
+/* Descripción comercial en inglés, armada con la ficha técnica */
+/* Descripción comercial: simple, como va en la factura y el packing list:
+   el tipo de producto en español y la marca (p. ej. "CALZADO VANS"). */
+function tipoComercial(f){
+  const t = f.tipo; if (!t) return '';
+  if (grupoTipo(t) === 'calzado' || t === 'calzado') return 'CALZADO';
+  if (t === 'chaqueta') return ['chaleco','chaleco_relleno','reflectivo'].includes(f.hechura) ? 'CHALECO' : f.hechura === 'blazer' ? 'SACO' : 'CHAQUETA';
+  if (t === 'pantalon') return f.largo === 'corto' ? 'SHORT' : 'PANTALÓN';
+  if (t === 'camiseta') return f.polo ? 'POLO' : 'CAMISETA';
+  if (t === 'sudadera') return f.sueter ? 'SUÉTER' : 'SUDADERA';
+  return String(TIPO_CORTO_ES[t] || TIPO_CORTO[t] || t).split(' o ')[0].toUpperCase();
+}
+function descripcionComercial(f){
+  const tipo = tipoComercial(f); if (!tipo) return '';
+  return (tipo + ' ' + String(f.marca || '').trim()).trim().toUpperCase();
+}
+
 export {
-  norm, digits, fmtCode, fmtPais, descDe, CAPITULOS, DESC, DESTINOS_BASE, MCCA5, notaOrigenDestino,
+  norm, digits, fmtCode, fmtPais, descDe, setSac, descripcionComercial, tipoComercial, TIPO_CORTO_ES, CAPITULOS, DESC, DESTINOS_BASE, MCCA5, notaOrigenDestino,
   TIPOS, TIPO_LBL, TIPO_CORTO, buscarTipos, grupoTipo, partesDe, partesPrincipales, PARTE_LBL, PARTE_PH,
   FIB_LBL, MAT_LBL, MAT_EQUIV, MAT_AMBIGUAS, setSinonimos, prepMat, parseComp, parseMat, claseMat, resumenMat, segmentosComp,
   ATTRS, ATTR_BY, ATTR_IDS, opcionLbl, opcionesValidas, prepararEstado, normalizar, aplicarImplica, atributosLegibles, estadoAttr, motivoDefinido,

@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.get("/productos")
-def listar(db: Db, user: User, q: str | None = None, proveedor_id: int | None = None, marca_id: int | None = None,
+def listar(db: Db, user: User, q: str | None = None, proveedor_id: int | None = None, marca_id: str | None = None,
            grupo_id: int | None = None, estado: str | None = None, tipo: str | None = None, orden: str | None = None,
            page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
     filtros = {"q": q, "proveedor_id": proveedor_id, "marca_id": marca_id, "grupo_id": grupo_id, "estado": estado,
@@ -21,7 +21,7 @@ def listar(db: Db, user: User, q: str | None = None, proveedor_id: int | None = 
 
 
 @router.get("/productos/exportar")
-def exportar(db: Db, user: User, q: str | None = None, proveedor_id: int | None = None, marca_id: int | None = None,
+def exportar(db: Db, user: User, q: str | None = None, proveedor_id: int | None = None, marca_id: str | None = None,
              estado: str | None = None, tipo: str | None = None, orden: str | None = None, formato: Formato = "xlsx"):
     filtros = {"q": q, "proveedor_id": proveedor_id, "marca_id": marca_id, "estado": estado, "tipo": tipo}
     return descarga(svc.exportar_lista(db, user, filtros, orden, formato), f"productos_{date.today():%Y%m%d}", formato)

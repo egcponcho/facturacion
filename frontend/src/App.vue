@@ -34,6 +34,7 @@ const ajustes = computed(() => {
   const items = []
   if (puede('catalogos.ver')) items.push({ to: '/mantenimiento', texto: 'Master data', detalle: 'Items, brands, suppliers, plants', icono: 'base' })
   items.push({ to: '/plantillas', texto: 'Packing templates', detalle: 'Reusable carton layouts', icono: 'capas' })
+  if (puede('producto.clasificar')) items.push({ to: '/aranceles', texto: 'Tariff schedule', detalle: 'SAC, countries and national codes', icono: 'etiqueta' })
   if (puede('oc.importar')) items.push({ to: '/importar', texto: 'Import purchase orders', detalle: 'From the ERP file', icono: 'importar' })
   if (puede('admin')) items.push({ to: '/admin', texto: 'Users and access', detalle: 'Roles, suppliers, sessions', icono: 'usuarios' })
   return items
@@ -42,7 +43,7 @@ const ajustesAbierto = ref(false)
 const enAjustes = computed(() => ajustes.value.some((i) => route.path.startsWith(i.to)))
 
 const activo = (to) => (to === '/' ? route.path === '/' : route.path.startsWith(to) ||
-  (to === '/facturas' && route.path.startsWith('/packing-lists')))
+  (to === '/facturas' && route.path.startsWith('/packing-lists')) || (to === '/productos' && route.path.startsWith('/aranceles')))
 
 const iniciales = computed(() => (sesion.usuario?.nombre || '?').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase())
 

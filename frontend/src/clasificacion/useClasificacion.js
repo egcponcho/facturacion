@@ -13,6 +13,7 @@ export async function cargarContexto(forzar = false) {
   if (estado.cargando && !forzar) return estado.cargando
   estado.cargando = api.get('/clasificacion/contexto').then((c) => {
     M.setSinonimos(c.sinonimos || [])
+    M.setSac(c.sac || [])
     const porEstilo = new Map()
     const porGenerico = new Map()
     for (const r of c.recs) {
@@ -21,7 +22,7 @@ export async function cargarContexto(forzar = false) {
       const g = M.norm(r.generico).trim()
       if (g) porGenerico.set(g, [...(porGenerico.get(g) || []), r])
     }
-    const destinos = c.destinos.map((d) => ({ iso: d.iso, nombre: d.nombre, digitos: d.digitos }))
+    const destinos = c.destinos.map((d) => ({ iso: d.iso, nombre: d.nombre, digitos: d.digitos, mcca: d.mcca }))
     estado.ctx = {
       ...c,
       destinos,
@@ -74,7 +75,8 @@ export function calcular(f, ctx, codFinal) {
   const partidas = M.digits(base).length >= 6 ? M.partidasDe(s, base, { incisos: ctx.incisos, destinos: ctx.destinos }) : {}
   const fe = M.estadoFicha(s, ctx.obligatorios)
   const desc = s.descManual ? (s.desc || '') : M.descripcionProfesional(s)
-  return { s, o, partidas, completa: fe.completa, faltan: fe.faltan, desc, avisosNorm }
+  const descCom = s.comManual ? (s.descCom || '') : M.descripcionComercial(s)
+  return { s, o, partidas, completa: fe.completa, faltan: fe.faltan, desc, descCom, avisosNorm }
 }
 
 // Resultado para el servidor (esquema ResultadoMotor)
@@ -98,6 +100,7 @@ export function resultadoServidor(r) {
     faltantes: (o.faltantes || []).slice(0, 20),
     alertas: (o.alertas || []).slice(0, 60),
     descripcion_aduana: r.desc ? r.desc.slice(0, 400) : null,
+    descripcion_comercial: r.descCom ? r.descCom.slice(0, 300) : null,
     completa: r.completa,
     faltan: r.faltan.slice(0, 30),
     partidas,
@@ -110,17 +113,39 @@ export function resultadoServidor(r) {
   }
 }
 
-// Clasifica varios productos (lista) sin abrir cada uno
-export async function clasificarVarios(ids) {
+// Completa lo que no trae la ficha (por ejemplo, de una carga masiva): la
+// categoría escrita en el archivo, los atributos que se deducen del nombre,
+// el uso y la composición, y los datos de los códigos nacionales.
+export function completarFicha(f, ctx) {
+  const vacio = (v) => v === undefined || v === null || v === ''
+  if (!f.tipo && f._categoria) f.tipo = M.buscarTipos(f._categoria, 1)[0] || ''
+  const d = M.detectarFicha({ ...f }, ctx.palabras)
+  for (const k of ['tipo', ...M.ATTR_IDS]) if (vacio(f[k]) && !vacio(d[k])) f[k] = d[k]
+  M.detectarNac(f, true)
+  M.normalizar(f)
+  return f
+}
+
+// Clasifica varios productos (lista o carga masiva) sin abrir cada uno
+export async function clasificarVarios(ids, alAvanzar) {
   const ctx = await cargarContexto()
   const items = []
+  let n = 0
   for (const id of ids) {
     const p = await api.get(`/productos/${id}`)
+    alAvanzar?.(++n, ids.length)
     if (['aprobado', 'corregido'].includes(p.estado)) continue
-    items.push({ id, resultado: resultadoServidor(calcular(fichaDe(p), ctx)) })
+    const f = completarFicha(fichaDe(p), ctx)
+    const r = calcular(f, ctx)
+    items.push({ id, tipo: r.s.tipo || null, ficha: fichaParaGuardar(r.s), resultado: resultadoServidor(r) })
   }
   if (!items.length) return { clasificados: 0, omitidos: [] }
-  return api.post('/productos/clasificar', { items })
+  let total = { clasificados: 0, omitidos: [] }
+  for (let i = 0; i < items.length; i += 200) {
+    const x = await api.post('/productos/clasificar', { items: items.slice(i, i + 200) })
+    total = { clasificados: total.clasificados + x.clasificados, omitidos: [...total.omitidos, ...x.omitidos] }
+  }
+  return total
 }
 
 export { M }

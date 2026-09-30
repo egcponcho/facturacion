@@ -5,6 +5,8 @@ import { api } from '../api'
 import Avance from '../components/Avance.vue'
 import BarraFlujo from '../components/BarraFlujo.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import FiltroMulti from '../components/FiltroMulti.vue'
+import FiltroPeriodo, { periodoInicial } from '../components/FiltroPeriodo.vue'
 import GraficoColumnas from '../components/GraficoColumnas.vue'
 import Icono from '../components/Icono.vue'
 import Kpi from '../components/Kpi.vue'
@@ -15,14 +17,16 @@ import { fmtFecha, fmtFechaHora, fmtMoneda, fmtNum, plural } from '../utils'
 const router = useRouter()
 const d = ref(null)
 const cargando = ref(true)
+// Periodo de las gráficas y del resumen: por defecto, el mes en curso
+const periodo = ref(periodoInicial())
+const marcas = ref([])
 
 const ICONOS_KPI = { por_facturar: 'moneda', en_proceso: 'factura', pl_abiertos: 'caja', listas: 'check', tentativas: 'reloj', en_camino: 'barco', riesgo: 'alerta' }
 const ICONOS_TAREA = { clasificar: 'etiqueta', empacar: 'caja', pl: 'caja', datos: 'editar', correccion: 'alerta', finalizar: 'check', antiguo: 'reloj', embarcar: 'barco', liberacion: 'candado' }
-const MES = new Intl.DateTimeFormat('en', { month: 'short' })
 
 async function cargar() {
   try {
-    d.value = await api.get('/dashboard', { proveedor_id: sesion.proveedorId })
+    d.value = await api.get('/dashboard', { proveedor_id: sesion.proveedorId, desde: periodo.value.desde, hasta: periodo.value.hasta, marcas: marcas.value.join(',') })
   } catch (e) {
     errorApi(e)
   } finally {
@@ -37,11 +41,11 @@ const saludo = computed(() => {
 })
 const hoy = new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
-const meses = computed(() => (d.value?.facturado_mes || []).map((m) => {
-  const [a, mm] = m.mes.split('-')
-  return { etiqueta: MES.format(new Date(Number(a), Number(mm) - 1, 1)).replace('.', ''), valor: m.importe, detalle: plural(m.facturas, 'invoice', 'invoices') }
-}))
-const totalSeisMeses = computed(() => meses.value.reduce((a, m) => a + m.valor, 0))
+const serie = computed(() => (d.value?.periodo?.facturado.serie || []).map((x) => ({ etiqueta: x.etiqueta, valor: x.importe, detalle: plural(x.facturas, 'invoice', 'invoices') })))
+const totalPeriodo = computed(() => serie.value.reduce((a, m) => a + m.valor, 0))
+const GRANO = { dia: 'per day', semana: 'per week', mes: 'per month' }
+const ICONOS_PERIODO = { facturado: 'moneda', pls: 'caja', llegadas: 'barco', clasificados: 'etiqueta' }
+const RUTAS_PERIODO = { facturado: '/facturas', pls: '/facturas', llegadas: '/seguimiento', clasificados: '/productos' }
 
 // Avance del viaje entre salida (ETD) y llegada (ETA)
 function viaje(e) {
@@ -73,6 +77,7 @@ async function resolver(a) {
 
 onMounted(cargar)
 watch(() => sesion.proveedorId, cargar)
+watch(periodo, cargar, { deep: true })
 </script>
 
 <template>
@@ -94,6 +99,20 @@ watch(() => sesion.proveedorId, cargar)
     <section class="kpis" aria-label="Indicators">
       <Kpi v-for="k in d.kpis" :key="k.clave" :titulo="k.titulo" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
            :detalle="k.detalle" :tono="k.tono" :icono="ICONOS_KPI[k.clave]" @abrir="router.push({ path: k.ruta, query: k.query })" />
+    </section>
+
+    <section class="panel periodo-panel" aria-label="Period">
+      <div class="panel-cabeza">
+        <div><h2>In the period</h2><p>What happened in the selected period; the chart below uses it too.</p></div>
+        <div class="fila-flex" style="gap: 8px">
+          <FiltroMulti v-if="d.periodo.marcas.length > 1" v-model="marcas" etiqueta="Brand" :opciones="d.periodo.marcas.map((m) => ({ valor: m, texto: m }))" @change="cargar" />
+          <FiltroPeriodo v-model="periodo" />
+        </div>
+      </div>
+      <div class="kpis kpis-periodo">
+        <Kpi v-for="k in d.periodo.resumen" :key="k.clave" :titulo="k.titulo" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
+             :detalle="k.detalle" :icono="ICONOS_PERIODO[k.clave]" @abrir="router.push(RUTAS_PERIODO[k.clave])" />
+      </div>
     </section>
 
     <div class="tablero">
@@ -161,11 +180,11 @@ watch(() => sesion.proveedorId, cargar)
       <div class="col">
         <section class="panel">
           <div class="panel-cabeza">
-            <div><h2>Invoiced per month</h2><p>Finalized invoices, last 6 months ({{ d.moneda }}).</p></div>
-            <b>{{ fmtMoneda(totalSeisMeses, d.moneda) }}</b>
+            <div><h2>Invoiced</h2><p>Finalized invoices {{ GRANO[d.periodo.facturado.grano] }}, {{ fmtFecha(d.periodo.desde) }} – {{ fmtFecha(d.periodo.hasta) }} ({{ d.moneda }}{{ marcas.length ? ` · ${marcas.join(', ')}` : '' }}).</p></div>
+            <b>{{ fmtMoneda(totalPeriodo, d.moneda) }}</b>
           </div>
-          <GraficoColumnas v-if="totalSeisMeses" :datos="meses" titulo="Invoiced value per month" :formato="(v) => fmtMoneda(v, d.moneda)" />
-          <p v-else class="ayuda">No finalized invoices in this period yet.</p>
+          <GraficoColumnas v-if="totalPeriodo" :datos="serie" titulo="Invoiced value" :formato="(v) => fmtMoneda(v, d.moneda)" />
+          <p v-else class="ayuda">No finalized invoices in this period. Try a longer period (quarter or year).</p>
         </section>
 
         <section class="panel">

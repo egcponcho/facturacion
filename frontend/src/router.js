@@ -10,6 +10,7 @@ const routes = [
   { path: '/facturas/:id', component: () => import('./views/FacturaView.vue'), props: true },
   { path: '/packing-lists/:id', component: () => import('./views/PackingListView.vue'), props: true },
   { path: '/productos', component: () => import('./views/ProductosView.vue') },
+  { path: '/aranceles', component: () => import('./views/ArancelesView.vue') },
   { path: '/productos/:id', component: () => import('./views/ProductoView.vue'), props: true },
   { path: '/plantillas', component: () => import('./views/PlantillasView.vue') },
   // Rutas restringidas: cada una exige el permiso de su rol (el servidor

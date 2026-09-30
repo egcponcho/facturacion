@@ -840,3 +840,7 @@ th.num .orden-btn { flex-direction: row-reverse; }
 /* Códigos arancelarios: anchos y tabulares, como en la DUCA */
 .codigo-sac { font-stretch: 112%; font-weight: 680; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; }
 .codigo-sac.tentativo { color: var(--tinta-3); font-style: italic; font-weight: 560; }
+/* Resumen del periodo en el inicio */
+.periodo-panel { margin-bottom: 16px; }
+.periodo-panel .kpis { margin: 0; }
+.kpis-periodo { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }

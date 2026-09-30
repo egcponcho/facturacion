@@ -217,6 +217,12 @@ function irA(id) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
+function editarCom() {
+  if (!f.comManual) {
+    f.descCom = props.r?.descCom || props.producto.descripcion_comercial || ''
+    f.comManual = true
+  } else f.comManual = false
+}
 // Descripción aduanera: se arma sola; se puede escribir a mano
 function editarDesc() {
   if (!f.descManual) {
@@ -253,8 +259,8 @@ if (props.editable) deteccion()
           <p v-if="f.tipo" class="hint">{{ CAPITULO[M.grupoTipo(f.tipo)] ? `Chapter ${CAPITULO[M.grupoTipo(f.tipo)]} · ` : '' }}only what changes its code is asked</p>
         </div>
         <div class="campo-f">
-          <label for="f_generico">Generic code <span class="opcional">(optional)</span></label>
-          <input id="f_generico" v-model="f.generico" class="entrada" type="text" maxlength="20" :disabled="!props.editable" />
+          <span class="lbl-f">Generic</span>
+          <span class="generico-fijo" title="First 8 digits of the item code: all its sizes share this sheet">{{ producto.codigo_generico || '—' }}<small>{{ producto.skus }} sizes<template v-if="producto.prepacks"> · {{ producto.prepacks }} prepacks</template></small></span>
         </div>
       </div>
       <div class="fila3">
@@ -294,12 +300,22 @@ if (props.editable) deteccion()
                  placeholder="E.g. bag worn on the waist to carry climbing chalk" @input="detectarLuego" />
         </div>
       </div>
-      <div class="campo-f">
-        <label for="f_desc">Customs description <span class="opcional">{{ f.descManual ? '(written by hand)' : '(built from the classification, in Spanish for the DUCA)' }}</span></label>
-        <div class="desc-fila">
-          <textarea id="f_desc" :value="f.descManual ? f.desc : (props.editable ? props.r?.desc : producto.descripcion_aduana) || ''" class="entrada" rows="2" maxlength="400"
-                    :readonly="!f.descManual || !props.editable" placeholder="Appears when you choose the category and the composition" @input="f.desc = $event.target.value"></textarea>
-          <button v-if="props.editable" type="button" class="btn btn-chico btn-fantasma" @click="editarDesc">{{ f.descManual ? 'Automatic' : 'Edit' }}</button>
+      <div class="descripciones">
+        <div class="campo-f">
+          <label for="f_desc">Technical description <span class="opcional">{{ f.descManual ? '(edited by hand)' : '(built from the sheet · Spanish, for the invoice and the DUCA)' }}</span></label>
+          <div class="desc-fila">
+            <textarea id="f_desc" :value="f.descManual ? f.desc : (props.editable ? props.r?.desc : producto.descripcion_aduana) || ''" class="entrada" rows="2" maxlength="400"
+                      :readonly="!f.descManual || !props.editable" placeholder="Appears when you choose the category and the composition" @input="f.desc = $event.target.value"></textarea>
+            <button v-if="props.editable" type="button" class="btn btn-chico btn-fantasma" @click="editarDesc">{{ f.descManual ? 'Automatic' : 'Edit' }}</button>
+          </div>
+        </div>
+        <div class="campo-f">
+          <label for="f_desc_com">Commercial description <span class="opcional">{{ f.comManual ? '(edited by hand)' : '(type and brand, as on invoices and packing lists)' }}</span></label>
+          <div class="desc-fila">
+            <textarea id="f_desc_com" :value="f.comManual ? f.descCom : (props.editable ? props.r?.descCom : producto.descripcion_comercial) || ''" class="entrada comercial" rows="2" maxlength="300"
+                      :readonly="!f.comManual || !props.editable" placeholder="Appears when you choose the category" @input="f.descCom = $event.target.value"></textarea>
+            <button v-if="props.editable" type="button" class="btn btn-chico btn-fantasma" @click="editarCom">{{ f.comManual ? 'Automatic' : 'Edit' }}</button>
+          </div>
         </div>
       </div>
       <div v-if="mostrarEnsenar" class="ensenar">
@@ -438,6 +454,13 @@ legend { font-size: 0.84rem; font-weight: 650; color: var(--tinta-3); padding: 0
 .auto-tag { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ok); margin-left: 6px; }
 .desc-fila { display: flex; gap: 8px; align-items: flex-start; }
 .desc-fila textarea { flex: 1; resize: vertical; min-height: 52px; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.01em; }
+.desc-fila textarea.comercial { font-weight: 500; letter-spacing: 0; }
+.generico-fijo { font-stretch: 112%; font-weight: 700; font-size: 1.02rem; padding: 6px 0; display: flex; gap: 8px; align-items: baseline; }
+.generico-fijo small { font-stretch: 100%; font-weight: 450; font-size: 0.8rem; color: var(--tinta-3); }
+.descripciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .generico-fijo { font-stretch: 112%; font-weight: 700; font-size: 1.02rem; padding: 6px 0; display: flex; gap: 8px; align-items: baseline; }
+.generico-fijo small { font-stretch: 100%; font-weight: 450; font-size: 0.8rem; color: var(--tinta-3); }
+.descripciones { grid-template-columns: minmax(0, 1fr); } }
 .desc-fila textarea[readonly] { background: var(--superficie); border-style: dashed; }
 .ensenar { border: 1px solid var(--acento); border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; background: var(--acento-claro); font-size: 0.86rem; }
 .fotos { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }

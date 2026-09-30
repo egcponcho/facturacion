@@ -148,13 +148,22 @@ def _opciones(todas: list[dict]) -> dict:
     }
 
 
+def _en(valor, filtro) -> bool:
+    """Filtro de uno o varios valores (separados por comas)."""
+    if isinstance(filtro, (list, tuple, set)):
+        opciones = {str(x) for x in filtro}
+    else:
+        opciones = {x.strip() for x in str(filtro).split(",")} if "," in str(filtro) else {str(filtro)}
+    return str(valor) in opciones
+
+
 def _filtrar(todas: list[dict], filtros: dict) -> list[dict]:
     """Los mismos filtros para los tres tableros de mercancía, contenedores y OCs."""
     filas = todas
     for campo in FILTROS_EXACTOS:
         if campo in filtros:
             valor = filtros[campo]
-            filas = [f for f in filas if str(f[campo]) == str(valor)]
+            filas = [f for f in filas if _en(f[campo], valor)]
     for campo in RANGOS:
         desde, hasta = filtros.get(f"{campo}_desde"), filtros.get(f"{campo}_hasta")
         if desde:
@@ -245,9 +254,9 @@ def embarques(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     todas = filas_seguimiento(db, user, proveedor_id)
     filas = [f for f in _filtrar(todas, filtros) if f["embarque_id"]]
     if filtros.get("estado"):
-        filas = [f for f in filas if f["estado_embarque"] == filtros["estado"]]
+        filas = [f for f in filas if _en(f["estado_embarque"], filtros["estado"])]
     if filtros.get("modo"):
-        filas = [f for f in filas if f["modo"] == filtros["modo"]]
+        filas = [f for f in filas if _en(f["modo"], filtros["modo"])]
     por_emb: dict[int, list] = {}
     for f in filas:
         por_emb.setdefault(f["embarque_id"], []).append(f)
@@ -409,7 +418,7 @@ def ordenes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros
         items.append(o)
     for campo in ("estado", "liberacion_comercial", "liberacion_logistica", "sociedad", "centro", "proveedor"):
         if campo in filtros:
-            items = [o for o in items if str(o[campo]) == str(filtros[campo])]
+            items = [o for o in items if _en(o[campo], filtros[campo])]
     if filtros.get("xf_vencida") in ("1", "true", True):
         items = [o for o in items if o["xf_vencida"]]
     resumen = {k: 0 for k, _ in ESTADOS_OC}
@@ -519,7 +528,7 @@ def seguimiento_documentos(db: Session, user: Usuario, proveedor_id: int | None 
     }
     for campo in ("etapa", "estado_factura", "estado_pl", "sociedad", "centro", "embarque_id", "proveedor"):
         if campo in filtros:
-            filas = [f for f in filas if str(f[campo]) == str(filtros[campo])]
+            filas = [f for f in filas if _en(f[campo], filtros[campo])]
     if filtros.get("con_pendientes") in ("1", "true", True):
         filas = [f for f in filas if f["pendientes"] or f["pendientes_factura"]]
     if filtros.get("q"):

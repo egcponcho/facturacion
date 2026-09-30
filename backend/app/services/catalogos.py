@@ -7,7 +7,6 @@ tablas, así que agregar un campo aquí lo agrega en pantalla.
 """
 import csv
 import io
-import re
 
 from openpyxl import load_workbook
 from sqlalchemy import func, or_, select
@@ -32,7 +31,7 @@ from ..models import (
     Usuario,
 )
 from .common import ErrorNegocio, exigir, registrar
-from .productos import asegurar_producto, fmt_codigo
+from .productos import asegurar_producto, fmt_codigo, generico_de, producto_de, producto_por_generico
 
 UNIDADES = [["PAR", "Pairs"], ["UN", "Units"], ["CJ", "Cartons (prepack)"]]
 CATEGORIAS = [["CALZADO", "Footwear"], ["ROPA", "Apparel"], ["ACCESORIO", "Accessories"]]
@@ -153,7 +152,8 @@ CATALOGOS = {
     },
     "grupos": {
         "modelo": GrupoArticulo, "titulo": "Item groups", "singular": "group",
-        "ayuda": "Each item belongs to a single group. The category sets the packing rule.",
+        "ayuda": "Each item belongs to a single group. The category sets the packing rule; it does not define the "
+                 "product type, which comes from the technical sheet.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=15, mayus=True),
             c("nombre", "Name", obligatorio=True),
@@ -223,18 +223,21 @@ CATALOGOS = {
     },
     "articulos": {
         "modelo": Articulo, "titulo": "Items", "singular": "item",
-        "ayuda": "Master data of each item with its unit of measure. Solids are created here; casepack and inner "
-                 "pack come on each PO line. Prepacks are created in the Prepacks tab with their breakdown.",
+        "ayuda": "Master data of each item: the item code (11 digits starting with 3) and the supplier SKU are different. "
+                 "The description, the product type and the HS code come from the product's technical sheet (Products), "
+                 "not from this form. Prepacks are created in the Prepacks tab and take the classification of their solids.",
         "campos": [
-            c("sku", "Item number (SKU)", obligatorio=True, max=18, patron=r"^\d{6,18}$",
-              mensaje_patron="Digits only, for example 30095120001."),
+            c("sku", "Item code", obligatorio=True, max=11, patron=r"^3\d{10}$",
+              mensaje_patron="11 digits starting with 3, for example 30095120001."),
+            c("sku_proveedor", "Supplier SKU", max=60, mayus=True,
+              ayuda="The supplier's own code, e.g. VN0A4BV4W00-7."),
             c("estilo", "Style", obligatorio=True, mayus=True),
             c("color", "Color", obligatorio=True),
             c("talla", "Size / prepack ID", obligatorio=True, mayus=True,
               ayuda="For a prepack it is its prepack ID, e.g. AB12."),
-            c("descripcion", "Description"),
             c("marca_id", "Brand", "ref", obligatorio=True, catalogo="marcas", filtro=True),
-            c("grupo_id", "Group", "ref", obligatorio=True, catalogo="grupos", filtro=True),
+            c("grupo_id", "Item group", "ref", obligatorio=True, catalogo="grupos", filtro=True,
+              ayuda="Internal grouping and packing rule; the product type is set by the technical sheet."),
             c("proveedor_id", "Supplier", "ref", obligatorio=True, catalogo="proveedores", filtro=True,
               ayuda="Each supplier handles its items; the brand must be one of theirs."),
             c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
@@ -243,7 +246,7 @@ CATALOGOS = {
             c("upc", "UPC"),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["sku", "estilo", "color", "upc", "descripcion"],
+        "buscar": ["sku", "sku_proveedor", "estilo", "color", "upc", "descripcion"],
     },
     "prepacks": {
         "modelo": Prepack, "titulo": "Prepacks (assortments)", "singular": "prepack",
@@ -307,8 +310,12 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
             fila[campo["nombre"] + "_txt"] = refs.get((campo["catalogo"], v))
     if isinstance(obj, Articulo):
         # La ficha técnica y la partida viven en el producto (estilo-color)
-        prod = obj.producto
-        fila["producto_id"] = obj.producto_id
+        prod = producto_de(obj)
+        fila["producto_id"] = prod.id if prod else None
+        # Descripción que se arma con la ficha técnica (comercial + talla)
+        base = prod.descripcion_comercial or prod.nombre if prod else None
+        fila["descripcion"] = f"{base}, {'prepack' if obj.tipo == 'PREPACK' else 'size'} {obj.talla}" if base and obj.talla \
+            else (base or obj.descripcion)
         fila["partida_txt"] = fmt_codigo(prod.codigo) if prod and prod.codigo else None
         fila["clasificacion"] = prod.estado if prod else None
     if isinstance(obj, Prepack):
@@ -498,6 +505,23 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             limpio["prepack_id"] = None
             if final.get("unidad") == "CJ":
                 errores.append({"campo": "unidad", "mensaje": "A solid is handled in pairs or units."})
+    # Los primeros 8 dígitos son el genérico (estilo-color): todas sus tallas,
+    # sólidos y prepacks, comparten estilo, color, marca, grupo y proveedor
+    if cat["modelo"] is Articulo and generico_de(final.get("sku")):
+        gen = generico_de(final["sku"])
+        ref = db.scalar(select(Articulo).where(Articulo.sku.startswith(gen), Articulo.tipo == "SOLIDO",
+                                               *([Articulo.id != actual.id] if actual else [])).limit(1))
+        prod = producto_por_generico(db, gen)
+        base = ({"estilo": ref.estilo, "color": ref.color, "marca_id": ref.marca_id, "proveedor_id": ref.proveedor_id}
+                if ref else {"estilo": prod.estilo, "color": prod.color, "marca_id": prod.marca_id,
+                             "proveedor_id": prod.proveedor_id} if prod else None)
+        if base:
+            distintos = [k for k, v in base.items() if v is not None and final.get(k) not in (None, "") and final.get(k) != v]
+            if distintos:
+                nombres = {"estilo": "style", "color": "color", "marca_id": "brand", "proveedor_id": "supplier"}
+                errores.append({"campo": distintos[0], "mensaje":
+                                f"Generic {gen} is {base['estilo']} {base['color'] or ''}: every size must have the same "
+                                f"{', '.join(nombres[k] for k in distintos)}. Use another generic (first 8 digits)."})
     if cat["modelo"] is Articulo and final.get("proveedor_id") and final.get("marca_id"):
         prov = db.get(Proveedor, final["proveedor_id"])
         if prov and prov.marcas and final["marca_id"] not in {m.id for m in prov.marcas}:
@@ -652,8 +676,9 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
     estilo = str(datos.get("estilo") or "").strip().upper()
     color = str(datos.get("color") or "").strip()
     errores = []
-    if not re.fullmatch(r"\d{6,18}", sku):
-        errores.append({"campo": "sku", "mensaje": "Product code: digits only, for example 30095120027."})
+    if not generico_de(sku):
+        errores.append({"campo": "sku", "mensaje": "Item code: 11 digits starting with 3; the first 8 are the generic "
+                                                   "of its solids and the last 3 the prepack size, e.g. 30095125007."})
     elif db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
         errores.append({"campo": "sku", "mensaje": f"Code {sku} already exists in the item master."})
     if not re.fullmatch(r"[A-Z0-9]{2,10}", codigo):
@@ -664,6 +689,10 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
         errores.append({"campo": "codigo", "mensaje": f"Prepack {codigo} already exists for {estilo} {color}."})
     arts, err_curva = _validar_curva(db, estilo, color, datos.get("componentes") or [])
     errores += err_curva
+    gens = {generico_de(a.sku) for a, _ in arts}
+    if arts and not err_curva and generico_de(sku) and gens != {generico_de(sku)}:
+        errores.append({"campo": "sku", "mensaje": f"The prepack must have the generic of its solids ({', '.join(sorted(g or '—' for g in gens))}): "
+                                                   f"same first 8 digits, only the last 3 change."})
     if errores:
         raise ErrorNegocio("The prepack is not valid.", 422, "validacion", errores)
     base = arts[0][0]
@@ -720,75 +749,6 @@ def _filas_archivo(nombre: str, contenido: bytes) -> list[dict]:
     enc = [COLUMNAS_EN.get(_norm(h), _norm(h)) for h in filas[0]]
     return [{**{enc[i]: (f[i] if i < len(f) else "") for i in range(len(enc))}, "_fila": n}
             for n, f in enumerate(filas[1:], start=2) if any(f)]
-
-
-def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
-    """Crea o actualiza artículos por SKU. Marca, grupo, proveedor y prepack
-    se indican por código."""
-    exigir(user, "catalogos.editar")
-    filas = _filas_archivo(nombre, contenido)
-    if not filas:
-        raise ErrorNegocio("The file has no rows with data.", 422, "archivo_vacio")
-    por_codigo = {
-        "marca": {m.codigo: m.id for m in db.scalars(select(Marca))},
-        "grupo": {g.codigo: g.id for g in db.scalars(select(GrupoArticulo))},
-        "proveedor": {p.codigo: p.id for p in db.scalars(select(Proveedor))},
-    }
-    cat = CATALOGOS["articulos"]
-    creados = actualizados = 0
-    errores = []
-    for f in filas:
-        datos = {k: f.get(k, "") for k in ("sku", "estilo", "color", "talla", "descripcion", "upc", "unidad")}
-        # Origen y partida propuesta van al producto (estilo-color), no a la talla
-        origen = (f.get("pais_origen") or "").strip().upper()[:2]
-        propuesta = re.sub(r"\D", "", f.get("partida_arancelaria") or "")
-        datos["tipo"] = (f.get("tipo") or "SOLIDO").upper()
-        if datos["tipo"] == "PREPACK":
-            errores.append({"fila": f["_fila"], "mensaje":
-                            "Prepacks are loaded with the prepack format (product code and breakdown)."})
-            continue
-        datos["unidad"] = (datos["unidad"] or "").upper()
-        faltan = []
-        for campo, destino in (("marca", "marca_id"), ("grupo", "grupo_id"), ("proveedor", "proveedor_id")):
-            codigo = (f.get(campo) or "").strip().upper()
-            if not codigo:
-                continue
-            if codigo not in por_codigo[campo]:
-                faltan.append(f"{CAMPO_EN[campo]} {codigo} does not exist")
-            else:
-                datos[destino] = por_codigo[campo][codigo]
-        if faltan:
-            errores.append({"fila": f["_fila"], "mensaje": "; ".join(faltan) + "."})
-            continue
-        existente = db.scalar(select(Articulo).where(Articulo.sku == datos["sku"].strip()))
-        try:
-            with db.begin_nested():
-                if existente:
-                    limpio = _limpiar(db, cat, {k: v for k, v in datos.items() if v != ""}, parcial=True, actual=existente)
-                    for k, v in limpio.items():
-                        setattr(existente, k, v)
-                    art = existente
-                else:
-                    limpio = _limpiar(db, cat, datos, parcial=False)
-                    art = Articulo(**limpio, activo=True)
-                    db.add(art)
-                db.flush()
-                prod = asegurar_producto(db, art)
-                if prod and origen and not prod.pais_origen:
-                    prod.pais_origen = origen
-                if prod and len(propuesta) >= 6 and not prod.aprobado:
-                    prod.propuesta = propuesta[:14]
-            if existente:
-                actualizados += 1
-            else:
-                creados += 1
-        except IntegrityError:
-            errores.append({"fila": f["_fila"], "mensaje": "Duplicated or inconsistent data."})
-        except ErrorNegocio as e:
-            errores.append({"fila": f["_fila"], "mensaje": "; ".join(d["mensaje"] for d in e.detalle or []) or e.mensaje})
-    registrar(db, user, "articulos", 0, "importar", {"creados": creados, "actualizados": actualizados,
-                                                      "errores": len(errores)})
-    return {"creados": creados, "actualizados": actualizados, "errores": errores[:200]}
 
 
 def importar_prepacks(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:

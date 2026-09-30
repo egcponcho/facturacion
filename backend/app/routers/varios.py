@@ -13,8 +13,10 @@ router = APIRouter()
 
 
 @router.get("/dashboard")
-def dashboard(db: Db, user: User, proveedor_id: int | None = None):
-    return tablero.dashboard(db, user, proveedor_id)
+def dashboard(db: Db, user: User, proveedor_id: int | None = None, desde: date | None = None,
+              hasta: date | None = None, marcas: str | None = None):
+    """Tablero; el periodo (por defecto el mes en curso) y las marcas filtran las gráficas y el resumen."""
+    return tablero.dashboard(db, user, proveedor_id, desde, hasta, marcas)
 
 
 # Los tres tableros de mercancía comparten los mismos filtros
@@ -29,7 +31,7 @@ def _filtros_de(request: Request) -> dict:
     for k in list(f):
         if k.endswith("_desde") or k.endswith("_hasta"):
             f[k] = date.fromisoformat(f[k])
-        elif k in ("embarque_id", "oc_id"):
+        elif k in ("embarque_id", "oc_id") and "," not in f[k]:
             f[k] = int(f[k])
     return f
 
@@ -80,7 +82,7 @@ def seguimiento_exportar(vista: str, request: Request, db: Db, user: User, prove
         raise HTTPException(404, "Report not found")
     if vista == "documentos":
         filtros = {k: v for k, v in request.query_params.items() if k in FILTROS_DOC and v != ""}
-        if "embarque_id" in filtros:
+        if "embarque_id" in filtros and "," not in filtros["embarque_id"]:
             filtros["embarque_id"] = int(filtros["embarque_id"])
         if filtros.get("con_pendientes") in ("1", "true"):
             filtros["con_pendientes"] = True
