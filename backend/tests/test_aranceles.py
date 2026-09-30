@@ -139,3 +139,20 @@ def test_base_oficial_sieca(interno):
     notas = interno.get("/aranceles/notas", params={"capitulo": "61"}).json()["items"]
     assert any(n["ambito"] == "capitulo" and n["numero"] == "9" and "izquierda sobre derecha" in n["texto"] for n in notas)
     assert len(interno.get("/aranceles/notas").json()["items"]) > 400
+
+
+def test_acuerdos_por_origen(interno, vans):
+    """Los acuerdos comerciales dicen en qué destinos entra con preferencia un origen."""
+    ctx = interno.get("/clasificacion/contexto").json()
+    ac = ctx["acuerdos"]
+    cubre = lambda o, d: [a["codigo"] for a in ac if o in a["origenes"] and d in a["destinos"]]  # noqa: E731
+    assert cubre("CN", "CR") == ["CN-CR"] and cubre("CN", "NI") == ["CN-NI"]
+    assert not cubre("CN", "GT") and not cubre("CN", "SV") and not cubre("VN", "PA")
+    assert "CAFTA-DR" in cubre("US", "SV") and not cubre("US", "PA")
+    assert "UE-CA" in cubre("DE", "PA")
+    # Se mantienen en Master data → Trade agreements
+    assert vans.post("/catalogos/acuerdos", {"codigo": "VN-XX", "nombre": "x", "origenes": "VN", "destinos": "GT"}).status_code == 403
+    assert interno.post("/catalogos/acuerdos", {"codigo": "VN-XX", "nombre": "x", "origenes": "vn", "destinos": "gt, sv"}).status_code in (200, 201)
+    assert interno.post("/catalogos/acuerdos", {"codigo": "BAD", "nombre": "x", "origenes": "VNM", "destinos": "GT"}).status_code == 422
+    ac = interno.get("/clasificacion/contexto").json()["acuerdos"]
+    assert any(a["codigo"] == "VN-XX" and a["destinos"] == ["GT", "SV"] for a in ac)

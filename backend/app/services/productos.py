@@ -42,6 +42,7 @@ from ..models import (
     Usuario,
     ahora,
 )
+from .acuerdos import acuerdos_contexto, cargar_acuerdos
 from .meta import meta as meta_motor
 from .common import (
     ErrorNegocio,
@@ -520,7 +521,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
     return {
         "destinos": destinos(db), "pais_base": settings.PAIS_BASE_CLASIF, "obligatorios": OBLIGATORIOS,
         "recs": recs, "incisos": incisos,
-        "notas_sac": notas_contexto(db),
+        "notas_sac": notas_contexto(db), "acuerdos": acuerdos_contexto(db),
         "sac": [{"codigo": x.codigo, "descripcion": x.descripcion}
                 for x in db.scalars(select(PartidaSAC).where(PartidaSAC.fuente.not_in(("base", "oficial")), PartidaSAC.activo.is_(True)))], "marcas": marcas, "proveedores": provs,
         "palabras": [{"id": x.id, "frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})}
@@ -895,6 +896,7 @@ def cargar_incisos_base(db: Session) -> int:
                               prio=x.get("prio") or 0, fuente="base",
                               nota=f"Base ADOC 2026 ({x.get('articulos', 0)} items)"))
         n += 1
+    cargar_acuerdos(db)
     return n
 
 
