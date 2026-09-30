@@ -149,6 +149,52 @@ def borrar_sac(db: Session, user: Usuario, sac_id: int) -> None:
     db.delete(x)
 
 
+# ---- Condiciones que aplican a un código nacional ----------------------------------------------
+# Qué datos de la ficha pueden abrir un inciso nacional en cada capítulo: lo
+# que distingue las aperturas nacionales de ese capítulo (sexo y edad en
+# prendas y calzado, estilo y puntera en calzado, forma en tocados…). El valor
+# CIF lo usan algunos países en cualquier capítulo.
+COND_CAPITULO = {
+    "42": ["claseBolso", "usoPrevisto", "genero"],
+    "61": ["genero", "edadNac", "tejido", "largo", "manga", "conCuello", "capucha", "peto", "sueter", "usoPrevisto"],
+    "62": ["genero", "edadNac", "tejido", "largo", "manga", "mezclilla", "conCuello", "capucha", "peto", "usoPrevisto"],
+    "63": ["usoPrevisto", "edadNac"],
+    "64": ["genero", "edadNac", "estiloCalz", "puntera", "altura", "suelaEspumosa", "rodeaDedo", "usoPrevisto"],
+    "65": ["formaTocado", "genero", "edadNac", "usoPrevisto"],
+    "95": ["usoPrevisto", "edadNac"],
+}
+COND_SIEMPRE = ["cifMax", "cifMin"]
+
+
+def condiciones_aplicables(db: Session, user: Usuario, pais: str | None, codigo: str | None) -> dict:
+    """Condiciones que conviene pedir para un código nacional: las que ya usa
+    ese país en la misma subpartida, las que usan los demás países y las que
+    distinguen las aperturas nacionales de su capítulo."""
+    exigir(user, "producto.ver")
+    cod = _dig(codigo)
+    sub6, cap = cod[:6], cod[:2]
+    oc = opciones_cond()
+    if len(sub6) < 6:
+        return {"aplican": list(oc), "del_pais": [], "de_otros": [], "hermanos": [], "subpartida": None}
+    pais = (pais or "").upper()
+    del_pais, de_otros, hermanos = {}, {}, []
+    for x in db.scalars(select(IncisoNacional).where(IncisoNacional.sub6 == sub6, IncisoNacional.activo.is_(True))
+                        .order_by(IncisoNacional.pais, IncisoNacional.codigo)):
+        destino = del_pais if x.pais == pais else de_otros
+        for k in (x.cond or {}):
+            destino[k] = destino.get(k, 0) + 1
+        if x.pais == pais:
+            hermanos.append({"codigo": x.codigo, "codigo_txt": _fmt(x.codigo), "cond_txt": cond_texto(x.cond or {}) or "Any product",
+                             "descripcion": x.descripcion, "dai": x.dai})
+    en_cap = {k for x in db.scalars(select(IncisoNacional).where(IncisoNacional.sub6.startswith(cap))) for k in (x.cond or {})}
+    orden = list(del_pais) + [k for k in de_otros if k not in del_pais] + \
+        [k for k in COND_CAPITULO.get(cap, []) + sorted(en_cap) if k not in del_pais and k not in de_otros]
+    aplican = [k for k in dict.fromkeys(orden + COND_SIEMPRE) if k in oc]
+    sac = db.scalar(select(PartidaSAC).where(PartidaSAC.codigo == sub6))
+    return {"aplican": aplican, "del_pais": list(del_pais), "de_otros": list(de_otros), "hermanos": hermanos,
+            "subpartida": {"codigo": _fmt(sub6), "descripcion": sac.descripcion if sac else None}}
+
+
 # ---- Notas legales del SAC ---------------------------------------------------------------
 AMBITOS = {"reglas": "General rules", "seccion": "Section note", "capitulo": "Chapter note", "subpartida": "Subheading note"}
 

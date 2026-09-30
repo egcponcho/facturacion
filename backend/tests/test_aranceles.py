@@ -118,3 +118,12 @@ def test_notas_sac_excel(interno):
     assert n4[0]["texto"].startswith("Texto oficial") and n4[0]["fuente"] == "archivo"
     x = interno.get("/aranceles/notas/exportar", params={"formato": "xlsx", "capitulo": "64"})
     assert x.status_code == 200 and x.content[:2] == b"PK"
+
+
+def test_condiciones_por_pais_y_subpartida(interno):
+    r = interno.get("/aranceles/condiciones", params={"pais": "GT", "codigo": "6404.19"}).json()
+    assert "estiloCalz" in r["aplican"] and "manga" not in r["aplican"] and "cifMax" in r["aplican"]
+    assert r["subpartida"]["codigo"] == "6404.19" and all(h["codigo"].startswith("640419") for h in r["hermanos"])
+    prendas = interno.get("/aranceles/condiciones", params={"pais": "SV", "codigo": "620342"}).json()
+    assert "largo" in prendas["aplican"] and "estiloCalz" not in prendas["aplican"]
+    assert len(interno.get("/aranceles/condiciones", params={"pais": "GT", "codigo": "64"}).json()["aplican"]) > 10

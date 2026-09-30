@@ -84,6 +84,12 @@ def borrar_sac(sac_id: int, db: Db, user: User):
     return {"ok": True}
 
 
+@router.get("/aranceles/condiciones")
+def condiciones(db: Db, user: User, pais: str | None = None, codigo: str | None = None):
+    """Condiciones que aplican a un código nacional según el país y la subpartida."""
+    return svc.condiciones_aplicables(db, user, pais, codigo)
+
+
 @router.get("/aranceles/notas")
 def notas(request: Request, db: Db, user: User):
     """Notas legales del SAC que el sistema tiene en cuenta al clasificar."""

@@ -64,6 +64,7 @@ const recargarC = () => { fc.page = 1; cargarCodigos() }
 let espera
 const buscarC = () => { clearTimeout(espera); espera = setTimeout(recargarC, 300) }
 const digitosDe = (iso) => paises.value.find((p) => p.iso === iso)?.digitos || 10
+const digits = (v) => String(v || '').replace(/\D/g, '')
 function fmtPais(c, n) {
   const d = String(c || '').replace(/\D/g, '')
   const s = d.padEnd(n, '_').slice(0, n)
@@ -81,7 +82,30 @@ function nuevoCodigo() {
 function editarCodigo(x) {
   modal.value = { tipo: 'codigo', ...JSON.parse(JSON.stringify(x)) }
 }
-const condActivas = computed(() => Object.entries(meta.value.condiciones))
+// Solo las condiciones que aplican al país y la subpartida del código: las que
+// ya usa ese país, las que usan los demás y las que abren incisos en su capítulo
+const aplicables = ref(null)
+const verTodas = ref(false)
+let esperaCond
+watch(() => modal.value?.tipo === 'codigo' && [modal.value.pais, digits(modal.value.codigo).slice(0, 6)].join('|'), (clave) => {
+  clearTimeout(esperaCond)
+  if (!clave) return
+  esperaCond = setTimeout(async () => {
+    try {
+      aplicables.value = await api.get('/aranceles/condiciones', { pais: modal.value.pais, codigo: modal.value.codigo })
+    } catch {
+      aplicables.value = null
+    }
+  }, 250)
+}, { immediate: true })
+const condActivas = computed(() => {
+  const todas = meta.value.condiciones
+  const a = aplicables.value
+  if (verTodas.value || !a || digits(modal.value?.codigo || '').length < 6) return Object.entries(todas)
+  const puestas = Object.keys(modal.value?.cond || {})
+  return [...new Set([...a.aplican, ...puestas])].filter((k) => todas[k]).map((k) => [k, todas[k]])
+})
+const origenCond = (k) => (aplicables.value?.del_pais.includes(k) ? 'pais' : aplicables.value?.de_otros.includes(k) ? 'otros' : '')
 function valorCond(k) {
   const v = modal.value.cond[k]
   return v === undefined ? [] : Array.isArray(v) ? v : [v]
@@ -424,10 +448,17 @@ watch(() => fs.size, recargarS)
       <label class="campo" style="grid-column: 1 / -1"><span>Description</span><input v-model="modal.descripcion" class="entrada" maxlength="300" /></label>
     </div>
     <h3 class="mt">When it applies</h3>
-    <p class="ayuda">Leave empty what does not matter. The engine picks the code whose conditions match the technical sheet.</p>
+    <p class="ayuda">Leave empty what does not matter. The engine picks the code whose conditions match the technical sheet.
+      <template v-if="aplicables?.subpartida && !verTodas"> Only the data that splits {{ aplicables.subpartida.codigo }} is shown: what {{ modal.pais }} already uses, what the other countries use and what opens national codes in chapter {{ aplicables.subpartida.codigo.slice(0, 2) }}.</template>
+      <template v-else-if="digits(modal.codigo || '').length < 6"> Type the code to see only the conditions that apply to its subheading.</template>
+      <button v-if="aplicables?.subpartida" type="button" class="btn-texto" @click="verTodas = !verTodas">{{ verTodas ? 'Show only the ones that apply' : 'Show all conditions' }}</button></p>
+    <div v-if="aplicables?.hermanos?.length" class="hermanos">
+      <b>How {{ modal.pais }} splits {{ aplicables.subpartida.codigo }} today</b>
+      <ul><li v-for="h in aplicables.hermanos" :key="h.codigo" :class="{ actual: digits(h.codigo) === digits(modal.codigo || '') }"><span class="codigo-sac">{{ h.codigo_txt }}</span> {{ h.cond_txt }}<template v-if="h.dai !== null && h.dai !== ''"> · DAI {{ h.dai }}%</template></li></ul>
+    </div>
     <div class="conds">
       <div v-for="[k, d] in condActivas" :key="k" class="campo">
-        <span>{{ d.label }}</span>
+        <span>{{ d.label }}<small v-if="origenCond(k) === 'pais'" class="etiqueta acento" :title="`${modal.pais} already uses it in this subheading`">{{ modal.pais }}</small><small v-else-if="origenCond(k) === 'otros'" class="etiqueta" title="Other countries use it in this subheading">other countries</small></span>
         <FiltroMulti v-if="d.tipo === 'opciones'" :model-value="valorCond(k)" etiqueta="Values" vacio="any" :opciones="Object.entries(d.ops).map(([valor, texto]) => ({ valor, texto }))" @update:model-value="(v) => ponerCond(k, v)" />
         <Seleccion v-else-if="d.tipo === 'sino'" class="entrada" :value="modal.cond[k] === undefined ? '' : String(modal.cond[k])" @change="ponerCond(k, $event === '' ? '' : $event === 'true')">
           <option value="">Any</option><option value="true">Yes</option><option value="false">No</option>
@@ -538,6 +569,10 @@ watch(() => fs.size, recargarS)
 
 <style scoped>
 .sub-mod { margin-bottom: 10px; }
+.hermanos { border: 1px solid var(--linea); border-radius: var(--radio); padding: 10px 12px; margin: 8px 0 12px; background: var(--superficie-2); font-size: 0.84rem; }
+.hermanos ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.hermanos li.actual { font-weight: 650; }
+.conds .campo > span .etiqueta { margin-left: 6px; font-size: 0.66rem; }
 .sub-mod .pildora { text-decoration: none; }
 .paises-resumen { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
 .pais-tarjeta { display: flex; align-items: center; gap: 10px; border: 1px solid var(--linea); background: var(--superficie); border-radius: 10px; padding: 8px 12px; cursor: pointer; font: inherit; text-align: left; color: var(--tinta); }
