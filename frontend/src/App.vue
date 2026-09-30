@@ -17,23 +17,32 @@ const menuAbierto = ref(false)
 const ROLES = { admin: 'Administrator', interno: 'Imports', proveedor: 'Supplier' }
 
 // Each role only sees the pages it has permission for (the router and the
-// server check it again)
+// server check it again). The daily work goes in the bar; setup pages go in
+// the settings menu so the bar stays short.
 const navegacion = computed(() => {
   const items = [
     { to: '/', texto: 'Home', icono: 'tablero' },
     { to: '/ordenes', texto: 'Orders', icono: 'ordenes', cuenta: carrito.items.length || null },
     { to: '/facturas', texto: 'Invoices', icono: 'factura' },
-    { to: '/seguimiento', texto: 'Tracking', icono: 'ruta' },
   ]
   if (puede('transporte.gestionar')) items.push({ to: '/transporte', texto: 'Shipments', icono: 'barco' })
-  items.push({ to: '/plantillas', texto: 'Templates', icono: 'capas' })
-  if (puede('catalogos.ver')) items.push({ to: '/mantenimiento', texto: 'Master data', icono: 'base' })
-  if (puede('admin')) items.push({ to: '/admin', texto: 'Users', icono: 'usuarios' })
+  items.push({ to: '/productos', texto: 'Products', icono: 'etiqueta' })
+  items.push({ to: '/seguimiento', texto: 'Tracking', icono: 'ruta' })
   return items
 })
+const ajustes = computed(() => {
+  const items = []
+  if (puede('catalogos.ver')) items.push({ to: '/mantenimiento', texto: 'Master data', detalle: 'Items, brands, suppliers, plants', icono: 'base' })
+  items.push({ to: '/plantillas', texto: 'Packing templates', detalle: 'Reusable carton layouts', icono: 'capas' })
+  if (puede('oc.importar')) items.push({ to: '/importar', texto: 'Import purchase orders', detalle: 'From the ERP file', icono: 'importar' })
+  if (puede('admin')) items.push({ to: '/admin', texto: 'Users and access', detalle: 'Roles, suppliers, sessions', icono: 'usuarios' })
+  return items
+})
+const ajustesAbierto = ref(false)
+const enAjustes = computed(() => ajustes.value.some((i) => route.path.startsWith(i.to)))
 
 const activo = (to) => (to === '/' ? route.path === '/' : route.path.startsWith(to) ||
-  (to === '/facturas' && route.path.startsWith('/packing-lists')) || (to === '/ordenes' && route.path.startsWith('/importar')))
+  (to === '/facturas' && route.path.startsWith('/packing-lists')))
 
 const iniciales = computed(() => (sesion.usuario?.nombre || '?').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase())
 
@@ -43,7 +52,10 @@ const textoGuardado = computed(() => ({
   error: 'Not saved',
 })[ui.guardado] || '')
 
-watch(() => route.fullPath, () => (menuAbierto.value = false))
+watch(() => route.fullPath, () => {
+  menuAbierto.value = false
+  ajustesAbierto.value = false
+})
 
 async function salir() {
   await cerrarSesion()
@@ -111,10 +123,21 @@ async function cambiarClave() {
             <Icono :nombre="i.icono" :tam="16" />{{ i.texto }}
             <span v-if="i.cuenta" class="nav-cuenta" :aria-label="`${i.cuenta} in the selection`">{{ i.cuenta }}</span>
           </router-link>
+          <div class="nav-ajustes" @keydown.esc="ajustesAbierto = false">
+            <button type="button" class="nav-link" :class="{ activo: enAjustes }" :aria-expanded="ajustesAbierto" aria-haspopup="true"
+                    @click="ajustesAbierto = !ajustesAbierto"><Icono nombre="engrane" :tam="16" />Settings<Icono nombre="abajo" :tam="14" /></button>
+            <div v-if="ajustesAbierto" class="menu-ajustes" role="menu">
+              <router-link v-for="i in ajustes" :key="i.to" :to="i.to" class="menu-item" role="menuitem">
+                <span class="menu-icono"><Icono :nombre="i.icono" :tam="16" /></span>
+                <span><b>{{ i.texto }}</b><small>{{ i.detalle }}</small></span>
+              </router-link>
+            </div>
+            <div v-if="ajustesAbierto" class="menu-velo" @click="ajustesAbierto = false"></div>
+          </div>
         </nav>
       </div>
       <nav class="nav-movil" :class="{ abierta: menuAbierto }" aria-label="Main (mobile)">
-        <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }">
+        <router-link v-for="i in [...navegacion, ...ajustes]" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }">
           <Icono :nombre="i.icono" :tam="17" />{{ i.texto }}
           <span v-if="i.cuenta" class="nav-cuenta">{{ i.cuenta }}</span>
         </router-link>

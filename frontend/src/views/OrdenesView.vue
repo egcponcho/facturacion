@@ -423,7 +423,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                       <!-- Item data comes from the item master; PO line data comes with the purchase order -->
                       <tr class="grupo-columnas">
                         <th colspan="2"></th>
-                        <th colspan="3" title="Taken from the item master (the same on every PO)">Item · master data</th>
+                        <th colspan="4" title="Taken from the item master and its technical sheet (the same on every PO)">Item · master data</th>
                         <th colspan="7" title="Comes with this purchase order line">PO line · purchase data</th>
                         <th></th>
                       </tr>
@@ -435,6 +435,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                         <th>Item</th>
                         <th>Size</th>
                         <th>UoM</th>
+                        <th title="HS code for the destination country, from the approved technical sheet">HS code</th>
                         <th>Warehouse</th>
                         <th>Packing</th>
                         <th class="num">Quantity</th>
@@ -457,6 +458,14 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                         </td>
                         <td><strong>{{ p.talla }}</strong></td>
                         <td><span class="etiqueta" style="margin-left: 0" :title="unidadTxt(p.unidad, 2)">{{ p.unidad }}</span></td>
+                        <td>
+                          <router-link v-if="p.clasificacion?.producto_id" :to="`/productos/${p.clasificacion.producto_id}`" class="enlace"
+                                       :title="p.partida_arancelaria ? 'Approved HS code for the destination country' : 'Open the technical sheet'">
+                            <span v-if="p.partida_arancelaria" class="codigo-sac">{{ p.partida_arancelaria }}</span>
+                            <span v-else class="etiqueta aviso" style="margin-left: 0">{{ p.clasificacion.estado === 'observado' ? 'Sheet returned' : 'Not classified' }}</span>
+                          </router-link>
+                          <span v-else class="apagado">—</span>
+                        </td>
                         <td class="codigo">{{ p.almacen || '—' }}</td>
                         <td>
                           <span class="fila-flex" style="gap: 4px; flex-wrap: wrap">

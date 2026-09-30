@@ -20,6 +20,12 @@ const MAPA = {
   ARRIBADO: ['Arrived', 'info'],
   ENTREGADO: ['Delivered', 'ok'],
   RECIBIDO: ['Received', 'ok'],
+  // Ficha técnica y clasificación del producto
+  borrador: ['Draft', 'neutro'],
+  sugerida: ['To review', 'info'],
+  aprobado: ['Approved', 'ok'],
+  corregido: ['Approved', 'ok'],
+  observado: ['Returned', 'aviso'],
 }
 </script>
 

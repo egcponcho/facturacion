@@ -27,6 +27,7 @@ from ..models import (
     ahora,
 )
 from .cantidades import facturado_por_posicion, facturas_por_posicion
+from .productos import clasificacion_txt, pais_de_centro, partida_para
 from .common import ErrorNegocio, asegurar_proveedor, exigir, proveedor_filtro, registrar
 
 # Dos liberaciones de dos equipos distintos:
@@ -284,8 +285,11 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
     ids = [p.id for p in oc.posiciones]
     facturado = facturado_por_posicion(db, ids)
     facturas = facturas_por_posicion(db, ids)
+    # La partida sale de la clasificación del producto, con el código del país destino
+    pais_destino = pais_de_centro(db, oc.centro_destino)
     posiciones = []
     for p in oc.posiciones:
+        prod = p.articulo.producto if p.articulo else None
         fact = facturado.get(p.id, 0)
         fs = facturas.get(p.id, [])
         estado, motivo, restringida = estado_posicion(oc, p, fact, fs)
@@ -314,7 +318,8 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "total": round(p.cantidad * p.precio, 2),
                 "fecha_entrega": p.fecha_entrega,
                 "pais_origen": p.pais_origen,
-                "partida_arancelaria": p.partida_arancelaria,
+                "partida_arancelaria": partida_para(prod, pais_destino),
+                "clasificacion": clasificacion_txt(prod),
                 "facturado": fact,
                 "disponible": max(p.cantidad - fact, 0),
                 "facturas": fs,
@@ -412,7 +417,7 @@ CAMPOS_CABECERA = ["sociedad", "centro", "centro_destino", "moneda", "incoterm",
 CAMPOS_POSICION = [
     "almacen", "articulo_id", "codigo_sap", "upc", "estilo", "color", "talla", "descripcion", "marca", "grupo", "categoria",
     "tipo_empaque", "casepack", "inner_pack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
-    "pais_origen", "partida_arancelaria",
+    "pais_origen",
 ]
 UNIDADES = {"PAR": "PAR", "PR": "PAR", "PARES": "PAR", "PRS": "PAR",
             "UN": "UN", "UND": "UN", "UNIDAD": "UN", "UNIDADES": "UN", "EA": "UN", "PC": "UN", "PZA": "UN",
@@ -634,12 +639,11 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
             articulo_id=art.id, upc=art.upc, estilo=art.estilo, color=art.color, talla=art.talla,
             descripcion=art.descripcion, marca=art.marca.codigo, grupo=art.grupo.codigo,
             categoria=art.grupo.categoria, tipo_empaque=art.tipo, unidad=art.unidad,
-            partida_arancelaria=art.partida_arancelaria,
             prepack=art.prepack.codigo if art.prepack else None,
             unidades_por_caja=art.prepack.total if art.prepack else None,
         )
         errores += validar_empaque(art.tipo, d["casepack"], d["inner_pack"], d["cantidad"])
-        d["pais_origen_pos"] = art.pais_origen or d["pais_origen"]
+        d["pais_origen_pos"] = (art.producto.pais_origen if art.producto else None) or d["pais_origen"]
     return d, errores
 
 

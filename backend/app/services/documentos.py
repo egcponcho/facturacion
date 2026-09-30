@@ -574,3 +574,132 @@ def pdf_reporte(titulo: str, subtitulo: str, filtros: str, indicadores: list[tup
         h += [_rejilla(e, indicadores, ancho, columnas=min(len(indicadores), 5)), Spacer(1, 7)]
     h.append(_tabla(e, columnas, filas, ancho))
     return _construir(h, tam, titulo, False)
+
+
+# ---- Ficha técnica del producto -------------------------------------------------------
+CAMPOS_FICHA = {
+    "genero": "Gender", "edadNac": "Age group", "edad": "Age", "estiloCalz": "Footwear style", "disenio": "Design",
+    "altura": "Height", "puntera": "Toe cap", "impermeable": "Waterproof", "suelaEspumosa": "Foam sole",
+    "uso": "Use", "tallas": "Sizes", "prenda": "Garment", "tejido": "Fabric construction", "cierre": "Closure",
+    "manga": "Sleeve", "forma": "Shape", "material": "Material", "capas": "Layers", "acolchado": "Padding",
+}
+
+
+PARTES = {"exterior": "Outer fabric or surface", "forro": "Lining", "relleno": "Fill", "corte": "Upper",
+          "suela": "Sole", "plantilla": "Insole", "material": "Main material"}
+
+
+VALORES_FICHA = {
+    "genero": {"M": "Men", "F": "Women", "U": "Unisex"},
+    "edadNac": {"adulto": "Adult", "nino": "Child or youth", "bebe": "Baby"},
+    "edad": {"general": "Child, youth or adult", "bebe": "Baby"},
+    "estiloCalz": {"tenis": "Sneaker", "senderismo": "Hiking", "bota": "Boot", "botin": "Ankle boot", "zapato": "Closed shoe",
+                   "sandalia": "Sandal", "slide": "Slide", "chancla_tetones": "Flip-flop", "pantufla": "Slipper"},
+    "disenio": {"entrenamiento": "Athletic", "casual": "Casual or lifestyle", "skate": "Skate"},
+    "altura": {"bajo": "Does not cover the ankle", "tobillo": "Covers the ankle", "rodilla": "Covers the knee"},
+    "puntera": {"ninguna": "No toe cap", "metalica": "Metal", "no_metalica": "Non-metal"},
+    "tejido": {"punto": "Knitted", "plano": "Woven"},
+    "relleno_tipo": {"ninguno": "No fill", "plumon": "Down or feather", "sintetico": "Synthetic"},
+    "hechura": {"chaqueta": "Jacket, anorak or parka", "chaleco_relleno": "Padded vest", "chaleco": "Vest"},
+    "hechuraSud": {"pullover": "Pullover", "cierre": "Full zip", "chaqueta_fleece": "Fleece jacket"},
+    "manga": {"sin": "Sleeveless", "corta": "Short", "larga": "Long"},
+}
+TIPOS_FICHA = {"calzado": "Footwear", "chaqueta": "Jacket or vest", "sudadera": "Sweatshirt", "camiseta": "T-shirt",
+               "camisa": "Shirt or polo", "pantalon": "Pants or shorts", "mochila": "Backpack", "gorra": "Cap or headwear",
+               "bolso_viaje": "Sports or travel bag", "calcetines": "Socks", "guantes": "Gloves"}
+CAMPOS_FICHA.update({"edad": "Who it is for", "edadNac": "Who it is for", "relleno_tipo": "Fill", "hechuraSud": "Construction",
+                     "hechura": "Construction", "tieneForro": "Lining", "recubierta": "Coated fabric", "exterior": "Outer surface"})
+
+
+def _valor_ficha(v, k: str = "") -> str:
+    if k in VALORES_FICHA and v in VALORES_FICHA[k]:
+        return VALORES_FICHA[k][v]
+    if isinstance(v, bool):
+        return "Yes" if v else "No"
+    if isinstance(v, list):
+        return ", ".join(str(x) for x in v)
+    return str(v)
+
+
+def _fmt_partida(c) -> str:
+    d = "".join(ch for ch in str(c or "") if ch.isdigit())
+    if len(d) <= 4:
+        return d or "—"
+    return ".".join([d[:4]] + [d[i:i + 2] for i in range(4, len(d), 2)])
+
+
+def pdf_ficha_producto(d: dict) -> bytes:
+    """Ficha técnica con el veredicto de clasificación y los códigos por país."""
+    e = _estilos()
+    tam = letter
+    ancho = tam[0] - 28 * mm
+    estado = d.get("estado_txt") or d.get("estado")
+    cab = Table([[[Paragraph(_esc(f"{d['estilo']} · {d['color']}"), e["titulo"]),
+                   Paragraph(_esc(d.get("nombre")), e["base"]),
+                   Paragraph(f"{_esc(d.get('proveedor'))} · {_esc(d.get('marca_nombre') or d.get('marca'))}", e["chico"])],
+                  [Paragraph("TECHNICAL SHEET", ParagraphStyle("t", parent=e["negrita"], fontSize=11, leading=13,
+                                                               textColor=ACENTO, alignment=TA_RIGHT)),
+                   Paragraph(f"Version {d.get('version_ficha') or 1} · {_esc(estado)}",
+                             ParagraphStyle("s", parent=e["base"], alignment=TA_RIGHT)),
+                   Paragraph(f"Generated {datetime.now():%d/%m/%Y %H:%M}",
+                             ParagraphStyle("f", parent=e["chico"], alignment=TA_RIGHT))]]],
+                colWidths=[ancho * 0.62, ancho * 0.38])
+    cab.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, 0), 1.2, ACENTO),
+                             ("BOTTOMPADDING", (0, 0), (-1, -1), 6), ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                             ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+    h = [cab, Spacer(1, 8)]
+
+    codigo = d.get("codigo") or d.get("sugerido")
+    veredicto = [("HS code (SAC)", codigo or "Not classified"),
+                 ("Status", estado), ("Confidence", d.get("confianza") or "—"),
+                 ("Reviewed by", f"{d.get('revisado_por') or '—'}" + (f" · {_fecha(d['revisado_en'])}"
+                                                                        if d.get("revisado_en") else ""))]
+    h += [Paragraph("CLASSIFICATION", e["etiqueta"]), Spacer(1, 2), _rejilla(e, veredicto, ancho), Spacer(1, 4)]
+    if d.get("descripcion_aduana"):
+        h += [Paragraph(f"<b>Customs description (DUCA):</b> {_esc(d['descripcion_aduana'])}", e["base"]),
+              Spacer(1, 4)]
+    razones = (d.get("analisis") or {}).get("razones") or []
+    for r in razones[:8]:
+        h.append(Paragraph(f"• {_esc(r)}", e["chico"]))
+    if d.get("observaciones"):
+        h += [Spacer(1, 3), Paragraph(f"<b>Notes to the supplier:</b> {_esc(d['observaciones'])}", e["base"])]
+    h.append(Spacer(1, 8))
+
+    partidas = d.get("partidas") or {}
+    if partidas:
+        orden = ["GT", "SV", "HN", "NI", "CR", "PA"]
+        estados = {"ok": "National", "auto": "National", "sac": "SAC", "elegir": "Pending"}
+        filas = [[pais, _fmt_partida(x.get("codigo")), f"{x['dai']}%" if x.get("dai") not in (None, "") else "—",
+                  estados.get(x.get("estado"), x.get("estado")), "By hand" if x.get("manual") else (x.get("fuente") or "—").capitalize()]
+                 for pais, x in sorted(partidas.items(), key=lambda kv: orden.index(kv[0]) if kv[0] in orden else 99)]
+        h += [Paragraph("NATIONAL TARIFF CODES BY DESTINATION", e["etiqueta"]), Spacer(1, 2),
+              _tabla(e, [("Country", 0.8, False), ("Code", 1.6, False), ("Duty (DAI)", 0.8, True),
+                         ("Status", 0.8, False), ("Source", 0.8, False)], filas, ancho), Spacer(1, 8)]
+
+    f = d.get("ficha") or {}
+    an = d.get("analisis") or {}
+    datos = [("Product type", an.get("tipo_txt") or TIPOS_FICHA.get(d.get("tipo"), d.get("tipo")) or "—"), ("Country of origin", d.get("pais_origen") or "—"),
+             ("Generic code", d.get("codigo_generico") or "—"), ("Group", d.get("grupo") or "—")]
+    for k in ("uso", "tallas"):
+        if f.get(k):
+            datos.append((CAMPOS_FICHA[k], str(f[k])))
+    if an.get("atributos"):
+        datos += [(str(a[0]), str(a[1])) for a in an["atributos"] if len(a) == 2]
+    else:
+        datos += [(CAMPOS_FICHA.get(k, k), _valor_ficha(v, k)) for k, v in f.items()
+                  if k not in ("comp", "descManual", "uso", "tallas", "desc", "edad") and v not in (None, "", [], {})]
+    h += [Paragraph("PRODUCT DATA", e["etiqueta"]), Spacer(1, 2), _rejilla(e, datos, ancho), Spacer(1, 8)]
+    comp = f.get("comp") or {}
+    if isinstance(comp, dict) and comp:
+        h += [Paragraph("COMPOSITION", e["etiqueta"]), Spacer(1, 2),
+              _tabla(e, [("Part", 1, False), ("Materials", 3, False)],
+                     [[PARTES.get(k, k.capitalize()), v] for k, v in comp.items() if v], ancho), Spacer(1, 8)]
+
+    arts = [a for a in d.get("articulos") or [] if a["tipo"] == "SOLIDO"]
+    if arts:
+        h += [Paragraph("SIZES", e["etiqueta"]), Spacer(1, 2),
+              _tabla(e, [("SKU", 1.4, False), ("UPC", 1.4, False), ("Size", 0.7, False), ("Unit", 0.6, False),
+                         ("Description", 2.4, False)],
+                     [[a["sku"], a["upc"], a["talla"], a["unidad"], a["descripcion"]] for a in arts], ancho)]
+    return _construir(h, tam, f"Technical sheet {d['estilo']} {d['color']} · {d.get('proveedor') or ''}",
+                      d.get("estado") not in ("aprobado", "corregido"))

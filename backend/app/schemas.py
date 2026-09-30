@@ -341,3 +341,108 @@ class EventoIn(BaseModel):
     fecha: datetime
     ubicacion: str | None = None
     observacion: str | None = None
+
+
+# ---- Productos y clasificación arancelaria -------------------------------------
+class ResultadoMotor(BaseModel):
+    """Lo que calculó el motor de clasificación en el navegador."""
+
+    sugerido: str | None = Field(None, max_length=20)
+    confianza: str | None = Field(None, max_length=20)
+    fuente: str | None = Field(None, max_length=20)
+    perfil: str | None = Field(None, max_length=300)
+    razones: list[str] = Field(default_factory=list, max_length=30)
+    razones_regla: list[str] = Field(default_factory=list, max_length=30)
+    codigo_regla: str | None = Field(None, max_length=20)
+    fundamento: str | None = Field(None, max_length=1000)
+    alternativas: list[dict] = Field(default_factory=list, max_length=20)
+    avisos: list[str] = Field(default_factory=list, max_length=20)
+    faltantes: list[str] = Field(default_factory=list, max_length=20)
+    alertas: list[dict] = Field(default_factory=list, max_length=60)
+    descripcion_aduana: str | None = Field(None, max_length=400)
+    completa: bool = False
+    faltan: list[str] = Field(default_factory=list, max_length=30)
+    partidas: dict | None = None
+    # Etiquetas legibles de la ficha (para el PDF): [["Gender", "Men"], ...]
+    atributos: list[list[str]] = Field(default_factory=list, max_length=60)
+    tipo_txt: str | None = Field(None, max_length=100)
+
+
+class FichaIn(BaseModel):
+    version: int
+    tipo: str | None = Field(None, max_length=30)
+    ficha: dict = Field(default_factory=dict)
+    nombre: str | None = Field(None, max_length=200)
+    codigo_generico: str | None = Field(None, max_length=20)
+    pais_origen: str | None = Field(None, max_length=2)
+    pais_procedencia: str | None = Field(None, max_length=2)
+    descripcion_aduana: str | None = Field(None, max_length=400)
+    notas: str | None = Field(None, max_length=1000)
+    alertas_ok: list[str] = Field(default_factory=list, max_length=100)
+    resultado: ResultadoMotor | None = None
+
+
+class ClasificarItem(BaseModel):
+    id: int
+    resultado: ResultadoMotor
+
+
+class ClasificarLote(BaseModel):
+    items: list[ClasificarItem] = Field(min_length=1, max_length=200)
+
+
+class AprobarIn(BaseModel):
+    version: int
+    codigo: str | None = Field(None, max_length=20)
+    partidas: dict | None = None
+    forzar: bool = False
+
+
+class AprobarLote(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=200)
+
+
+class ObservarIn(BaseModel):
+    version: int
+    observaciones: str | None = Field(None, max_length=2000)
+    resolucion: str | None = Field(None, max_length=200)
+    devolver: bool = False
+
+
+class NuevaVersionIn(BaseModel):
+    version: int
+    desde: date | None = None
+    motivo: str | None = Field(None, max_length=300)
+
+
+class IncisoIn(BaseModel):
+    pais: str = Field(max_length=2)
+    codigo: str = Field(max_length=20)
+    cond: dict = Field(default_factory=dict)
+    dai: str | None = Field(None, max_length=10)
+    nota: str | None = Field(None, max_length=300)
+
+
+class PalabraIn(BaseModel):
+    frase: str = Field(max_length=100)
+    tipo: str = Field(max_length=30)
+    marca: str | None = Field(None, max_length=100)
+    atributos: dict = Field(default_factory=dict)
+
+
+class SinonimoIn(BaseModel):
+    palabra: str = Field(max_length=60)
+    equivale: str = Field(max_length=30)
+
+
+class AnalizarIn(BaseModel):
+    """Datos para la opinión del especialista (los arma el navegador)."""
+
+    ficha_texto: str = Field(max_length=6000)
+    sugerido: str | None = Field(None, max_length=20)
+    confianza: str | None = Field(None, max_length=20)
+    razones: list[str] = Field(default_factory=list, max_length=30)
+    alertas: list[str] = Field(default_factory=list, max_length=30)
+    parecidos: list[str] = Field(default_factory=list, max_length=10)
+    campos: str | None = Field(None, max_length=6000)
+    con_fotos: bool = True

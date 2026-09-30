@@ -114,7 +114,6 @@ const CAMPOS_MASIVOS = [
   ['precio_unitario', 'Unit price', 'number'],
   ['cantidad', 'Quantity', 'number'],
   ['pais_origen', 'Country of origin', 'text'],
-  ['partida_arancelaria', 'HS code', 'text'],
   ['descripcion_comercial', 'Commercial description', 'text'],
 ]
 
@@ -230,7 +229,7 @@ async function finalizar(incluir) {
     modal.value = null
     await cargar()
   } catch (e) {
-    if (e.codigo === 'pendientes') modal.value = { tipo: 'pendientes', titulo: 'Pending data to finalize', detalle: e.detalle }
+    if (e.codigo === 'pendientes' || e.detalle?.some((d) => d.codigo === 'sin_clasificar')) modal.value = { tipo: 'pendientes', titulo: 'Pending data to finalize', detalle: e.detalle }
     else trasError(e)
   } finally {
     ocupado.value = false
@@ -482,8 +481,11 @@ onMounted(async () => {
                 <template v-else>{{ l.pais_origen }}</template>
               </td>
               <td style="width: 110px">
-                <CeldaEditable v-if="editable" :valor="l.partida_arancelaria" :guardar="celda(l, 'partida_arancelaria')" vacia-texto="Missing" :etiqueta="`HS code of ${l.codigo_sap}`" />
-                <template v-else>{{ l.partida_arancelaria }}</template>
+                <router-link v-if="l.producto_id" :to="`/productos/${l.producto_id}`" class="enlace" title="From the approved technical sheet of the product">
+                  <span v-if="l.partida_arancelaria" class="codigo-sac">{{ l.partida_arancelaria }}</span>
+                  <span v-else class="etiqueta aviso" style="margin-left: 0">Not classified</span>
+                </router-link>
+                <span v-else class="codigo-sac">{{ l.partida_arancelaria || '—' }}</span>
               </td>
               <td class="envolver">
                 <CeldaEditable v-if="editable" :valor="l.descripcion_comercial" :guardar="celda(l, 'descripcion_comercial')" vacia-texto="Missing" :etiqueta="`Description of ${l.codigo_sap}`" />
@@ -712,7 +714,10 @@ onMounted(async () => {
   </Modal>
 
   <Modal v-if="modal?.tipo === 'pendientes'" :titulo="modal.titulo" ancho="640px" @cerrar="modal = null">
-    <ul class="lista-mensajes"><li v-for="(d, i) in modal.detalle" :key="i">{{ textoDetalle(d) }}</li></ul>
+    <ul class="lista-mensajes">
+      <li v-for="(d, i) in modal.detalle" :key="i">{{ textoDetalle(d) }}
+        <router-link v-if="d.producto_id" :to="`/productos/${d.producto_id}`" class="enlace">Open technical sheet</router-link></li>
+    </ul>
     <template #pie><button class="btn btn-primario" @click="modal = null">Got it</button></template>
   </Modal>
 

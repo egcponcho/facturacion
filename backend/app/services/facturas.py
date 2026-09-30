@@ -32,6 +32,7 @@ from .cantidades import (
     totales_pl,
 )
 from .partes import partes
+from .productos import pais_de_centro, partida_para
 from .common import (
     EDITABLE_FACTURA,
     EDITABLE_PL,
@@ -186,7 +187,9 @@ def _preparar_posiciones(
     return posiciones, ocs, pedidas, advertencias
 
 
-def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
+def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int, pais: str | None = None) -> FacturaLinea:
+    # Partida, origen y descripción aduanera salen del producto clasificado
+    prod = p.articulo.producto if p.articulo else None
     return FacturaLinea(
         posicion_oc_id=p.id,
         cantidad=cantidad,
@@ -210,10 +213,30 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
         prepack=p.prepack,
         unidades_por_caja=p.unidades_por_caja,
         centro_destino=oc.centro_destino,
-        pais_origen=p.pais_origen,
-        partida_arancelaria=p.partida_arancelaria,
-        descripcion_comercial=p.descripcion,
+        pais_origen=p.pais_origen or (prod.pais_origen if prod else None),
+        partida_arancelaria=partida_para(prod, pais),
+        descripcion_comercial=(prod.descripcion_aduana if prod and prod.aprobado and prod.descripcion_aduana
+                               else p.descripcion),
     )
+
+
+def completar_aduana(db: Session, f: Factura) -> None:
+    """Llena la partida y el origen que falten en las líneas con el producto
+    ya clasificado (por ejemplo, si se aprobó después de facturar)."""
+    paises: dict[str | None, str | None] = {}
+    for l in f.lineas:
+        if l.partida_arancelaria and l.pais_origen:
+            continue
+        a = l.posicion_oc.articulo
+        prod = a.producto if a else None
+        if not prod:
+            continue
+        if l.centro_destino not in paises:
+            paises[l.centro_destino] = pais_de_centro(db, l.centro_destino)
+        if not l.partida_arancelaria:
+            l.partida_arancelaria = partida_para(prod, paises[l.centro_destino])
+        if not l.pais_origen:
+            l.pais_origen = prod.pais_origen
 
 
 def crear_factura(db: Session, user: Usuario, datos: FacturaCrear) -> dict:
@@ -239,7 +262,7 @@ def crear_factura(db: Session, user: Usuario, datos: FacturaCrear) -> dict:
     )
     db.add(f)
     for p in posiciones:
-        f.lineas.append(_nueva_linea(p, ocs[p.oc_id], pedidas[p.id]))
+        f.lineas.append(_nueva_linea(p, ocs[p.oc_id], pedidas[p.id], pais_de_centro(db, ocs[p.oc_id].centro_destino)))
     db.flush()
     registrar(
         db, user, "factura", f.id, "crear",
@@ -262,7 +285,7 @@ def agregar_lineas(db: Session, user: Usuario, factura_id: int, version: int, li
             existentes[p.id].cantidad += pedidas[p.id]
             aumentadas += 1
         else:
-            f.lineas.append(_nueva_linea(p, ocs[p.oc_id], pedidas[p.id]))
+            f.lineas.append(_nueva_linea(p, ocs[p.oc_id], pedidas[p.id], pais_de_centro(db, ocs[p.oc_id].centro_destino)))
             agregadas += 1
     tocar(f)
     registrar(db, user, "factura", f.id, "agregar_lineas",
@@ -377,7 +400,8 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
         elif "motivo_precio" in campos:
             l.motivo_precio = (campos["motivo_precio"] or "").strip() or None
 
-        for campo in ("pais_origen", "partida_arancelaria", "descripcion_comercial"):
+        # La partida no se captura en la factura: viene de la ficha técnica aprobada
+        for campo in ("pais_origen", "descripcion_comercial"):
             if campo in campos:
                 valor = (campos[campo] or "").strip() or None
                 if campo == "pais_origen" and valor:
@@ -520,7 +544,13 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
             if not l.pais_origen:
                 errores.append({"linea_id": l.id, "mensaje": f"{ref}: the country of origin is missing."})
             if not l.partida_arancelaria:
-                errores.append({"linea_id": l.id, "mensaje": f"{ref}: the HS code is missing."})
+                prod = l.posicion_oc.articulo.producto if l.posicion_oc.articulo else None
+                if prod and not prod.aprobado:
+                    errores.append({"linea_id": l.id, "codigo": "sin_clasificar", "producto_id": prod.id, "mensaje":
+                                    f"{ref}: the HS code is missing: product {prod.estilo} {prod.color or ''} is not "
+                                    "classified yet (Products)."})
+                else:
+                    errores.append({"linea_id": l.id, "mensaje": f"{ref}: the HS code is missing."})
         p = l.posicion_oc
         if facturado.get(p.id, 0) > p.cantidad:
             errores.append({"linea_id": l.id, "mensaje":
@@ -538,6 +568,7 @@ def finalizar(db: Session, user: Usuario, factura_id: int, version: int, incluir
     if f.estado not in EDITABLE_FACTURA:
         raise ErrorNegocio(f"The invoice is already {ESTADO_TXT[f.estado]}.", 409, "no_editable")
     verificar_version(f, version, "invoice")
+    completar_aduana(db, f)
     errores = validar_factura(db, f)
     pls = []
     if incluir_pls:
@@ -753,6 +784,9 @@ def _info_transporte(pl: PackingList) -> dict | None:
 
 def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
     f = cargar_factura(db, user, factura_id)
+    if f.estado in ("BORRADOR", "EN_CORRECCION"):
+        # Productos aprobados después de facturar: la partida ya se ve (se guarda al finalizar)
+        completar_aduana(db, f)
     pls_activos = [pl for pl in f.packing_lists if pl.estado != "CANCELADO"]
     en_pl: dict[int, int] = {}
     empacado: dict[int, int] = {}
@@ -800,6 +834,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "total": total,
             "pais_origen": l.pais_origen,
             "partida_arancelaria": l.partida_arancelaria,
+            "producto_id": l.posicion_oc.articulo.producto_id if l.posicion_oc.articulo else None,
             "descripcion_comercial": l.descripcion_comercial,
             "en_pl": a,
             "sin_asignar": l.cantidad - a,

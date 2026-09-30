@@ -47,11 +47,16 @@ class Settings:
     TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")
     TWILIO_FROM: str = os.getenv("TWILIO_FROM", "")
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./archivos")
+    # Clasificación arancelaria: país cuyo código nacional completa la partida sugerida
+    PAIS_BASE_CLASIF: str = os.getenv("PAIS_BASE_CLASIF", "SV").upper()
+    # Opinión del especialista con Claude (opcional): sin clave, la opción no aparece
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    CLAUDE_MODELO: str = os.getenv("CLAUDE_MODELO", "claude-opus-5-5")
     FRONTEND_DIST: str = os.getenv("FRONTEND_DIST", "../frontend/dist")
     SEED_DEMO: bool = _bool("SEED_DEMO", True)
     # Versión del esquema de datos. En modo demo (SEED_DEMO=1), si la base
     # tiene otra versión se borra y se vuelve a crear con los datos de prueba.
-    ESQUEMA_VERSION: str = "8"
+    ESQUEMA_VERSION: str = "9"
     CORS_ORIGINS: list[str] = [
         o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
     ]

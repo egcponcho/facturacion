@@ -53,6 +53,12 @@ def _matriz() -> dict[str, set[str]]:
         "recepcion.registrar": INTERNOS,
         "alertas.ver": INTERNOS,
         "catalogos.ver": INTERNOS,
+        # Productos: el proveedor completa la ficha técnica de lo suyo; el equipo
+        # interno clasifica, aprueba, devuelve y enseña códigos nacionales
+        "producto.ver": TODOS,
+        "producto.ficha": TODOS,
+        "producto.crear": INTERNOS,
+        "producto.clasificar": INTERNOS,
         "catalogos.editar": INTERNOS,
         "admin": {"admin"},
     }

@@ -29,6 +29,7 @@ const erroresForm = ref({})
 const modal = ref(null)
 const ocupado = ref(false)
 const formAbierto = ref(false) // alta y edición en ventana emergente
+const ESTADO_FICHA = { borrador: 'Sheet in draft', sugerida: 'To review', observado: 'Returned' }
 
 const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
 const campos = computed(() => cat.value?.campos || [])
@@ -310,6 +311,7 @@ onMounted(async () => {
             <tr>
               <ThOrden v-for="c in columnas" :key="c.nombre" :campo="c.nombre" :orden="filtros.orden" :num="c.tipo === 'entero'" @ordenar="ordenar">{{ c.etiqueta }}</ThOrden>
               <th v-for="ex in extras" :key="ex.nombre">{{ ex.etiqueta }}</th>
+              <th v-if="tipo === 'articulos'" title="The technical sheet and the HS code belong to the style and color">Sheet · HS code</th>
               <th v-if="tipo === 'prepacks'">Item code</th>
               <th v-if="tipo === 'prepacks'" class="num">Per carton</th>
               <th></th>
@@ -329,6 +331,13 @@ onMounted(async () => {
                   {{ ex.nombre === 'centros_txt' ? (fila.centros_txt || 'Assign plants') : `${fila[ex.nombre] || 0} ${fila[ex.nombre] === 1 ? ex.etiqueta.toLowerCase().replace(/s$/, '') : ex.etiqueta.toLowerCase()}` }}
                 </button>
               </td>
+              <td v-if="tipo === 'articulos'">
+                <router-link v-if="fila.producto_id" :to="`/productos/${fila.producto_id}`" class="enlace" :title="`Technical sheet of ${fila.estilo} ${fila.color}`">
+                  <span v-if="fila.partida_txt" class="codigo-sac">{{ fila.partida_txt }}</span>
+                  <template v-else>{{ ESTADO_FICHA[fila.clasificacion] || 'Open sheet' }}</template>
+                </router-link>
+                <span v-else class="apagado">—</span>
+              </td>
               <td v-if="tipo === 'prepacks'" class="codigo fuerte">{{ fila.sku || '—' }}</td>
               <td v-if="tipo === 'prepacks'" class="num">{{ fila.total }} <span class="sub">{{ fila.componentes }} tallas</span></td>
               <td class="num" style="white-space: nowrap">
@@ -338,7 +347,7 @@ onMounted(async () => {
                 <button class="btn-icono" style="color: var(--error)" :aria-label="`Delete ${cat.singular}`" title="Delete" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
               </td>
             </tr>
-            <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : 2)" class="vacio">No records match these filters.</td></tr>
+            <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : tipo === 'articulos' ? 3 : 2)" class="vacio">No records match these filters.</td></tr>
           </tbody>
         </table>
       </div>

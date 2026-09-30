@@ -80,7 +80,8 @@ The demo data already has history: invoices from past months, a received contain
 4. In *To pack*, click **Auto-pack**. Lines with a casepack are packed with that exact quantity per carton, lines with an inner pack in whole inner packs, and the rest with the suggested template. The remainder that does not fill a carton goes to a partial carton with estimated weight (or stays unpacked).
 5. In *Review*, check the contents **by destination** and the **suggested load units**, **Confirm estimates** and **Finalize packing list**. Back in the invoice, enter number and date and click **Finalize**.
 6. Sign in as **interno@demo.com**, open *Shipments* → EMB-0003, choose 40HC #1 and click **Assign cargo**: the panel suggests the load units for the selected volume and weight. Assign it; what is already finalized is confirmed in the same step. Then **Record departure**.
-7. *Tracking* shows each PO (and, when opened, each SKU by stage), and each shipment with its units, with the margin against the in-store date. Everything downloads as PDF or Excel. *Master data* holds all catalogs.
+7. Open **Products** (as interno@demo.com). *Ready to approve* has the Vans Authentic White: the classification panel shows the suggested HS code 6404.19, why, and the national code for each destination country. Click **Approve**. From then on its PO lines show 6404.19.90.00 (El Salvador) and invoices take it automatically. As tnf@demo.com, the *Summit blue* jacket was returned with notes: fill in the outer fabric composition and save it; it goes back to review.
+8. *Tracking* shows each PO (and, when opened, each SKU by stage), and each shipment with its units, with the margin against the in-store date. Everything downloads as PDF or Excel. *Master data* holds all catalogs.
 
 ## Item data vs. PO line data
 
@@ -89,10 +90,24 @@ The demo data already has history: invoices from past months, a received contain
 | SKU, style, color, size / prepack ID, description | PO number and line, company, plant, storage location |
 | Brand, group (category → packing rule), supplier | Destination center (country), port of loading, countries of origin and shipment |
 | Type (solid or prepack), unit of measure (PAR, UN, CJ) | Quantity, unit price, currency, incoterm |
-| UPC, HS code, country of origin | XF dates, in-store date, commercial and logistics release |
+| UPC | XF dates, in-store date, commercial and logistics release |
 | Prepack breakdown (sizes per master carton) | **Casepack** and **inner pack** (the purchase packing) |
 
 The item has no casepack: it is set on each PO line, because the same item can be bought in different packs. In *Purchase orders* the line table groups the columns as “Item · master data” and “PO line · purchase data”, and the internal team can edit a line's casepack and inner pack while it is not invoiced.
+
+The HS code and the country of origin are not item fields any more: they belong to the **product** (next section), shared by all its sizes.
+
+## Products: technical sheet and tariff classification
+
+A **product** is a style and color of one supplier. Its sizes (SKUs, each with its UPC) and prepacks share one technical sheet and one classification, so products are created automatically from the item master and nothing is typed twice.
+
+- **Technical sheet**: product type, gender, who it is for, use, size range, country of origin, composition by part (outer fabric, lining, upper, sole…), the features that change the code (only those are asked), photos and the customs description in Spanish for the DUCA (built from the sheet, or written by hand).
+- **Classification engine**: runs in the browser while the sheet is edited. It applies the Harmonized System 2022 rules (GRI, section and chapter notes) for clothing, footwear, bags and accessories, learns from what was already approved and returns the 6-digit SAC subheading, its confidence, the reasoning, alternatives and inconsistencies to check.
+- **National codes by destination**: GT, SV and HN use 10 digits; NI, CR and PA 12. They come from a base of national codes with conditions (gender, age, use, CIF value…). When a country splits the subheading further, the sheet asks only for that data. The internal team can set a code by hand and **remember** it for similar products.
+- **Flow**: the supplier completes the sheet → *To review* → the internal team **approves** (or chooses another code) or **returns** it with notes. Approved sheets are locked; a change opens a **new version**, and the previous one stays in the history with its code and dates.
+- **Where it is used**: each PO line shows the code for its destination country; invoice lines take the code, origin and customs description from the approved sheet (they are not typed on the invoice). An invoice cannot be finalized while a product is not classified; the message links to its sheet.
+- **Specialist opinion (optional)**: with `ANTHROPIC_API_KEY`, the internal team can ask Claude for a second opinion with the sheet and up to two photos. It never approves anything.
+- The sheet downloads as **PDF**, and the product list as Excel or PDF.
 
 ## Packing rules
 
@@ -203,6 +218,8 @@ Environment variables (see `backend/app/config.py`):
 | `CODIGO_VALIDEZ_MIN` / `CODIGO_REENVIO_SEG` | `5` / `30` | Code validity and wait before resending. |
 | `SMS_PROVEEDOR` | `consola` | `consola` (server log) or `twilio` (with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`). |
 | `COOKIE_SEGURA` | `0` | Set to `1` behind HTTPS (Secure cookie and HSTS). |
+| `PAIS_BASE_CLASIF` | `SV` | Country whose national code completes the suggested HS code. |
+| `ANTHROPIC_API_KEY` / `CLAUDE_MODELO` | — | Enables the optional specialist opinion in *Products*. |
 
 Other variables: `DATABASE_URL`, `SECRET_KEY` (change it in production), `SEED_DEMO`, `UPLOAD_DIR`, `CORS_ORIGINS`.
 
@@ -222,11 +239,15 @@ TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost/tests pytest   # 
 backend/app/
   config.py          configurable rules and security settings
   models.py          data model
-  services/          business logic (quantities, invoices, packing, transport, import, access, SMS, suggestions)
+  services/          business logic (quantities, invoices, packing, transport, import, access, SMS, suggestions,
+                     products and classification, specialist opinion)
+  data/              base of national tariff codes by country
   routers/           REST endpoints under /api
 backend/tests/       full flow, packing rules, secure access and concurrency
 frontend/src/
-  views/             Home, Orders, Invoices, Invoice, Packing list, Templates, Shipments, Shipment, Tracking, Master data, Import, Users, Login
+  views/             Home, Orders, Invoices, Invoice, Packing list, Shipments, Shipment, Products, Product, Tracking,
+                     and under Settings: Master data, Templates, Import, Users
+  clasificacion/     tariff classification engine (pure logic) and its bridge to the API
   components/        icons, steps, SVG charts, bulk action bar, modals, statuses, destinations and load units
   stores/            session, invoicing selection, notices
 ```

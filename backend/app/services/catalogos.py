@@ -7,6 +7,7 @@ tablas, así que agregar un campo aquí lo agrega en pantalla.
 """
 import csv
 import io
+import re
 
 from openpyxl import load_workbook
 from sqlalchemy import func, or_, select
@@ -31,6 +32,7 @@ from ..models import (
     Usuario,
 )
 from .common import ErrorNegocio, exigir, registrar
+from .productos import asegurar_producto, fmt_codigo
 
 UNIDADES = [["PAR", "Pairs"], ["UN", "Units"], ["CJ", "Cartons (prepack)"]]
 CATEGORIAS = [["CALZADO", "Footwear"], ["ROPA", "Apparel"], ["ACCESORIO", "Accessories"]]
@@ -239,8 +241,6 @@ CATALOGOS = {
               opciones=[["SOLIDO", "Solid"], ["PREPACK", "Prepack"]]),
             c("unidad", "Unit", "opcion", obligatorio=True, opciones=UNIDADES, filtro=True),
             c("upc", "UPC"),
-            c("partida_arancelaria", "HS code"),
-            c("pais_origen", "Country of origin", "codigo", catalogo="paises"),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["sku", "estilo", "color", "upc", "descripcion"],
@@ -305,6 +305,12 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
         fila[campo["nombre"]] = v
         if campo["tipo"] == "ref" and v:
             fila[campo["nombre"] + "_txt"] = refs.get((campo["catalogo"], v))
+    if isinstance(obj, Articulo):
+        # La ficha técnica y la partida viven en el producto (estilo-color)
+        prod = obj.producto
+        fila["producto_id"] = obj.producto_id
+        fila["partida_txt"] = fmt_codigo(prod.codigo) if prod and prod.codigo else None
+        fila["clasificacion"] = prod.estado if prod else None
     if isinstance(obj, Prepack):
         fila["total"] = obj.total
         fila["componentes"] = len(obj.componentes)
@@ -532,6 +538,8 @@ def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
             db.flush()
     except IntegrityError:
         raise ErrorNegocio(f"A {cat['singular']} with that code already exists.", 409, "duplicado") from None
+    if isinstance(obj, Articulo):
+        asegurar_producto(db, obj)
     registrar(db, user, tipo, obj.id, "crear", {"codigo": _mostrar(obj)})
     return _fila(cat, obj, _refs(db, cat, [obj]))
 
@@ -557,6 +565,8 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
             db.flush()
     except IntegrityError:
         raise ErrorNegocio(f"A {cat['singular']} with that code already exists.", 409, "duplicado") from None
+    if isinstance(obj, Articulo) and {"estilo", "color", "proveedor_id"} & set(cambios):
+        asegurar_producto(db, obj)
     if cambios:
         registrar(db, user, tipo, obj.id, "editar", cambios)
     return _fila(cat, obj, _refs(db, cat, [obj]))
@@ -667,9 +677,10 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
     art = Articulo(sku=sku, upc=(datos.get("upc") or "").strip() or None, estilo=estilo, color=color, talla=codigo,
                    descripcion=p.descripcion, marca_id=base.marca_id, grupo_id=base.grupo_id,
                    proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK", prepack_id=p.id,
-                   partida_arancelaria=base.partida_arancelaria, pais_origen=base.pais_origen, activo=True)
+                   activo=True)
     db.add(art)
     db.flush()
+    asegurar_producto(db, art)
     registrar(db, user, "prepacks", p.id, "crear",
               {"sku": sku, "prepack": codigo, "explosion": {a.talla: c for a, c in arts}})
     return componentes(db, user, p.id)
@@ -727,8 +738,10 @@ def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes
     creados = actualizados = 0
     errores = []
     for f in filas:
-        datos = {k: f.get(k, "") for k in ("sku", "estilo", "color", "talla", "descripcion", "upc",
-                                            "partida_arancelaria", "pais_origen", "unidad")}
+        datos = {k: f.get(k, "") for k in ("sku", "estilo", "color", "talla", "descripcion", "upc", "unidad")}
+        # Origen y partida propuesta van al producto (estilo-color), no a la talla
+        origen = (f.get("pais_origen") or "").strip().upper()[:2]
+        propuesta = re.sub(r"\D", "", f.get("partida_arancelaria") or "")
         datos["tipo"] = (f.get("tipo") or "SOLIDO").upper()
         if datos["tipo"] == "PREPACK":
             errores.append({"fila": f["_fila"], "mensaje":
@@ -754,10 +767,17 @@ def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes
                     limpio = _limpiar(db, cat, {k: v for k, v in datos.items() if v != ""}, parcial=True, actual=existente)
                     for k, v in limpio.items():
                         setattr(existente, k, v)
+                    art = existente
                 else:
                     limpio = _limpiar(db, cat, datos, parcial=False)
-                    db.add(Articulo(**limpio, activo=True))
+                    art = Articulo(**limpio, activo=True)
+                    db.add(art)
                 db.flush()
+                prod = asegurar_producto(db, art)
+                if prod and origen and not prod.pais_origen:
+                    prod.pais_origen = origen
+                if prod and len(propuesta) >= 6 and not prod.aprobado:
+                    prod.propuesta = propuesta[:14]
             if existente:
                 actualizados += 1
             else:
