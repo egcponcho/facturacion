@@ -133,9 +133,9 @@ onBeforeUnmount(() => {
   <div ref="raiz" class="sb" :class="{ abierto, deshabilitado }">
     <button type="button" class="sb-boton" :disabled="deshabilitado" :aria-label="etiqueta || placeholder"
             aria-haspopup="listbox" :aria-expanded="abierto" @click="abrir" @keydown.down.prevent="abrir">
-      <span v-if="multiple && resumen" class="sb-valor" :title="resumen">{{ resumen }}</span>
-      <span v-else-if="multiple" class="sb-placeholder">{{ placeholder }}</span>
-      <span v-else-if="elegido && (elegido.valor !== '' || !vacio)" class="sb-valor">{{ elegido.texto }}</span>
+      <span v-if="multiple && resumen" class="sb-valor" :title="`${etiqueta}: ${resumen}`"><span v-if="vacio && etiqueta" class="sb-etq">{{ etiqueta }}:</span> {{ resumen }}</span>
+      <span v-else-if="multiple" :class="vacio ? 'sb-valor' : 'sb-placeholder'">{{ vacio || placeholder }}</span>
+      <span v-else-if="elegido && (elegido.valor !== '' || !vacio)" class="sb-valor" :title="elegido.texto"><span v-if="vacio && etiqueta" class="sb-etq">{{ etiqueta }}:</span> {{ elegido.texto }}</span>
       <span v-else-if="vacio && !modelValue" class="sb-valor">{{ vacio }}</span>
       <span v-else class="sb-placeholder">{{ placeholder }}</span>
       <Icono nombre="abajo" :tam="14" />

@@ -120,29 +120,29 @@ function buscar() {
   <div class="filtros">
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
-      <input v-model="filtros.q" type="search" placeholder="SKU, PO, invoice, PL, container or B/L" aria-label="Search" @input="buscar" />
+      <input v-model="filtros.q" type="search" placeholder="SKU, PO, invoice, PL, B/L…" aria-label="Search" @input="buscar" />
     </label>
     <template v-if="vista === 'embarques'">
       <select v-model="filtros.modo" aria-label="Mode of transport" @change="aplicar">
-        <option value="">Mode: all</option><option v-for="[v, t] in MODOS" :key="v" :value="v">{{ t }}</option>
+        <option value="">Mode: all</option><option v-for="[v, t] in MODOS" :key="v" :value="v">Mode: {{ t }}</option>
       </select>
       <select v-model="filtros.estado" aria-label="Shipment status" @change="aplicar">
-        <option value="">Status: all</option><option v-for="[v, t] in ESTADOS_EMB" :key="v" :value="v">{{ t }}</option>
+        <option value="">Status: all</option><option v-for="[v, t] in ESTADOS_EMB" :key="v" :value="v">Status: {{ t }}</option>
       </select>
     </template>
     <template v-if="vista === 'ordenes'">
       <select v-model="filtros.estado" aria-label="PO status" @change="aplicar">
-        <option value="">PO status: all</option><option v-for="[v, t] in ESTADOS_OC" :key="v" :value="v">{{ t }}</option>
+        <option value="">PO status: all</option><option v-for="[v, t] in ESTADOS_OC" :key="v" :value="v">PO status: {{ t }}</option>
       </select>
       <select v-model="filtros.liberacion_comercial" aria-label="Commercial release" @change="aplicar">
-        <option value="">Commercial rel.: all</option><option value="C">C · Released</option><option value="P">P · Pending</option>
+        <option value="">Commercial rel.: all</option><option value="C">Commercial rel.: C · Released</option><option value="P">Commercial rel.: P · Pending</option>
       </select>
       <select v-model="filtros.liberacion_logistica" aria-label="Logistics release" @change="aplicar">
-        <option value="">Logistics rel.: all</option><option value="300">300</option><option value="301">301</option><option value="304">304 · Not released</option>
+        <option value="">Logistics rel.: all</option><option value="300">Logistics rel.: 300 · Released</option><option value="301">Logistics rel.: 301 · Released, changed</option><option value="304">Logistics rel.: 304 · Not released</option>
       </select>
     </template>
     <select v-model="filtros.etapa" aria-label="Goods stage" @change="aplicar">
-      <option value="">Stage: all</option><option v-for="[v, t] in ETAPAS" :key="v" :value="v">{{ t }}</option>
+      <option value="">Stage: all</option><option v-for="[v, t] in ETAPAS" :key="v" :value="v">Stage: {{ t }}</option>
     </select>
     <SelectBusqueda multiple :model-value="lst(filtros.marca)" @update:model-value="(v) => (filtros.marca = v.join(','))" :opciones="opciones.marcas || []" vacio="Brand: all" etiqueta="Brand" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.grupo)" @update:model-value="(v) => (filtros.grupo = v.join(','))" :opciones="opciones.grupos || []" vacio="Group: all" etiqueta="Item group" @change="aplicar" />
@@ -164,8 +164,8 @@ function buscar() {
     <SelectBusqueda multiple :model-value="lst(filtros.sociedad)" @update:model-value="(v) => (filtros.sociedad = v.join(','))" :opciones="opciones.sociedades || []" vacio="Company: all" etiqueta="Company" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.centro)" @update:model-value="(v) => (filtros.centro = v.join(','))" :opciones="opciones.centros || []" vacio="Plant: all" etiqueta="Plant" @change="aplicar" />
     <select v-model="filtros.riesgo" aria-label="Risk" @change="aplicar">
-      <option value="">In-store arrival: all</option>
-      <option v-for="(r, k) in RIESGOS" :key="k" :value="k">{{ r }}</option>
+      <option value="">Vs. port deadline: all</option>
+      <option v-for="(r, k) in RIESGOS" :key="k" :value="k">Vs. port deadline: {{ r }}</option>
     </select>
     <label v-if="vista === 'ordenes'" class="check"><input type="checkbox" :checked="!!filtros.xf_vencida" @change="filtros.xf_vencida = $event.target.checked ? '1' : ''; aplicar()" /> XF overdue, not invoiced</label>
     <label v-for="[k, t] in [['eta', 'ETA'], ['fecha_xf', 'XF'], ['fecha_tienda', 'In store']]" :key="k" class="rango-fechas">

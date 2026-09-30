@@ -395,9 +395,15 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--acento); width
 table.tabla { width: 100%; border-collapse: collapse; font-size: 0.87rem; font-variant-numeric: tabular-nums; }
 .tabla th {
   text-align: left; font-weight: 620; color: var(--tinta-3); font-size: 0.76rem; letter-spacing: 0.03em; text-transform: uppercase;
-  padding: 9px 10px; border-bottom: 1px solid var(--linea); background: var(--superficie-2); position: sticky; top: 0; white-space: nowrap; z-index: 1;
+  padding: 9px 10px; border-bottom: 1px solid var(--linea); background: var(--superficie-2); position: sticky; top: 0; white-space: normal; line-height: 1.3; vertical-align: bottom; z-index: 1;
 }
 .tabla td { padding: 8px 10px; border-bottom: 1px solid var(--linea-suave); vertical-align: middle; white-space: nowrap; }
+.acciones-apiladas { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.acciones-apiladas .btn { justify-content: center; }
+.insignias.columna { flex-direction: column; align-items: flex-start; }
+.tabla td.ajustar { white-space: normal; min-width: 120px; max-width: 190px; }
+.insignias { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.insignias .etiqueta { margin-left: 0; }
 .tabla td.envolver { white-space: normal; min-width: 240px; }
 .tabla tr:last-child td { border-bottom: 0; }
 .tabla tbody tr:hover > td { background: var(--fila-hover); }
@@ -481,7 +487,7 @@ a.cajas-rango { color: var(--tinta); }
 .modal .rejilla-campos { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 .modal-pie { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px 18px; border-top: 1px solid var(--linea-suave); flex-wrap: wrap; }
 .lista-mensajes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
-.nota { background: var(--info-fondo); color: var(--info-texto); border-radius: var(--radio); padding: 10px 12px; font-size: 0.9rem; display: flex; gap: 10px; align-items: flex-start; }
+.nota { background: var(--info-fondo); color: var(--info-texto); border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-left: 4px solid currentColor; border-radius: var(--radio); padding: 10px 14px; font-size: 0.88rem; line-height: 1.45; display: flex; gap: 10px; align-items: flex-start; }
 .nota > svg { margin-top: 1px; }
 .nota.aviso { background: var(--aviso-fondo); color: var(--aviso); }
 .nota.error { background: var(--error-fondo); color: var(--error); }
@@ -617,12 +623,21 @@ a.cajas-rango { color: var(--tinta); }
 .caja-items div { font-size: 0.86rem; }
 
 /* ---- Avisos ----------------------------------------------------------- */
-.avisos { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 60; max-width: min(440px, calc(100vw - 36px)); }
-.aviso-toast { background: var(--flotante); color: #fff; border-radius: 10px; padding: 12px 14px; box-shadow: var(--sombra-flotante); display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; animation: subir 0.16s ease-out; }
-.aviso-toast.error { background: var(--toast-error); }
-.aviso-toast.ok > svg { color: #8fd6a8; }
-.aviso-toast ul { margin: 6px 0 0; padding-left: 18px; font-size: 0.84rem; }
-.aviso-toast button { margin-left: auto; background: none; border: 0; color: inherit; cursor: pointer; opacity: 0.8; display: grid; place-items: center; padding: 0; }
+.avisos { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 60; width: min(420px, calc(100vw - 32px)); }
+.aviso-toast { --tono: var(--ok); background: var(--superficie); color: var(--tinta); border: 1px solid var(--linea); border-left: 4px solid var(--tono);
+  border-radius: 12px; padding: 12px 12px 12px 14px; box-shadow: var(--sombra-flotante); display: flex; gap: 12px; align-items: flex-start;
+  font-size: 0.88rem; animation: subir 0.16s ease-out; }
+.aviso-toast.error { --tono: var(--error); }
+.aviso-toast.aviso { --tono: var(--aviso); }
+.aviso-toast.info { --tono: var(--azul); }
+.aviso-icono { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none; color: var(--tono);
+  background: color-mix(in srgb, var(--tono) 14%, transparent); }
+.aviso-cuerpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.aviso-cuerpo b { font-size: 0.86rem; }
+.aviso-cuerpo span { color: var(--tinta-2); overflow-wrap: anywhere; }
+.aviso-toast ul { margin: 6px 0 0; padding-left: 18px; font-size: 0.82rem; color: var(--tinta-2); max-height: 160px; overflow-y: auto; }
+.aviso-toast button { background: none; border: 0; color: var(--tinta-3); cursor: pointer; display: grid; place-items: center; padding: 2px; border-radius: 6px; }
+.aviso-toast button:hover { background: var(--superficie-2); color: var(--tinta); }
 
 /* ---- Transporte ------------------------------------------------------- */
 .unidades-pestanas { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
@@ -704,7 +719,7 @@ a.cajas-rango { color: var(--tinta); }
 }
 
 /* ---- Tablas con altura fija, orden y paginación ------------------------- */
-.tabla-fija { height: max(420px, calc(100vh - 330px)); overflow: auto; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.tabla-fija { overflow-x: auto; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .tabla-fija .tabla th { position: sticky; top: 0; z-index: 2; }
 .paginacion {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px;
@@ -787,6 +802,7 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .sb-boton:disabled { opacity: 0.6; cursor: not-allowed; }
 .sb-boton svg { flex: none; color: var(--tinta-3); }
 .sb-valor, .sb-placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-etq { color: var(--tinta-3); font-weight: 500; }
 .sb-placeholder { color: var(--tinta-3); }
 .sb-requerido { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; bottom: 0; left: 50%; }
 .sb-panel {

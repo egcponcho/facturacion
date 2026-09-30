@@ -110,14 +110,15 @@ def test_genericos(interno):
     assert interno.post("/catalogos/genericos", {**base, "generico": "2009997"}).status_code == 422
     r = interno.post("/catalogos/genericos", {**base, "generico": "30099970", "nombre": "Era",
                                               "tallas": [{"talla": "8", "upc": "0196999000001", "sku_proveedor": "VN0A3WM3NVY-8"},
-                                                         {"talla": "9"}, {"talla": "10", "sufijo": "010"}]})
+                                                         {"talla": "9.5"}, {"talla": "10", "sufijo": "101"}]})
     assert r.status_code == 200, r.text
     d = r.json()
-    assert [t["sku"] for t in d["tallas"]] == ["30099970001", "30099970002", "30099970010"] and d["siguiente"] == "011"
+    # Código usual de calzado: talla × 10 (8 → 080, 9.5 → 095); también se puede escribir
+    assert [t["sku"] for t in d["tallas"]] == ["30099970080", "30099970095", "30099970101"] and d["siguiente"] == "001"
     assert d["estilo"] == "VN0A3WM3"
     # Agregar tallas: heredan los datos del genérico; una talla repetida no entra
     r = interno.post("/catalogos/genericos/30099970/tallas", {"tallas": [{"talla": "11"}]})
-    assert r.status_code == 200 and r.json()["tallas"][-1]["sku"] == "30099970011"
+    assert r.status_code == 200 and r.json()["tallas"][-1]["sku"] == "30099970110"
     assert interno.post("/catalogos/genericos/30099970/tallas", {"tallas": [{"talla": "8"}]}).status_code == 422
     # Un artículo suelto con ese genérico debe ser del mismo estilo-color
     r = interno.post("/catalogos/articulos", {**base, "sku": "30099970020", "talla": "12", "color": "Red", "tipo": "SOLIDO"})
@@ -126,7 +127,7 @@ def test_genericos(interno):
     prod = interno.get("/productos", params={"q": "30099970"}).json()["items"]
     assert len(prod) == 1 and prod[0]["codigo_generico"] == "30099970" and prod[0]["skus"] == 4
     # Un prepack debe llevar el genérico de sus sólidos
-    sol = interno.get("/catalogos/articulos", params={"q": "30099970001"}).json()["items"][0]
+    sol = interno.get("/catalogos/articulos", params={"q": "30099970080"}).json()["items"][0]
     r = interno.post("/catalogos/prepacks", {"sku": "30099971001", "codigo": "EE04", "estilo": "VN0A3WM3", "color": "Navy",
                                              "componentes": [{"articulo_id": sol["id"], "cantidad": 4}]})
     assert r.status_code == 422 and "generic of its solids" in r.text
@@ -164,7 +165,7 @@ def test_carga_por_generico(interno):
     assert r["genericos_creados"] == 1 and r["creados"] == 2 and len(r["errores"]) == 2, r
     det = interno.get(f"/productos/{r['productos'][0]}").json()
     assert det["codigo_generico"] == "30099960" and det["ficha"]["comp"]["corte"] == "100% suede"
-    assert sorted(a["sku"] for a in det["articulos"]) == ["30099960001", "30099960002"]
+    assert sorted(a["sku"] for a in det["articulos"]) == ["30099960070", "30099960080"]
     # La misma carga otra vez actualiza (no duplica)
     b.seek(0)
     r = _subir(interno, "/catalogos/articulos/importar", b.getvalue()).json()

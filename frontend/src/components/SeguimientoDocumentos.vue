@@ -141,9 +141,7 @@ onMounted(cargar)
           <ThOrden campo="estado_factura" :orden="filtros.orden" @ordenar="ordenar">Invoice status</ThOrden>
           <ThOrden campo="estado_pl" :orden="filtros.orden" @ordenar="ordenar">Packing list</ThOrden>
           <ThOrden campo="avance" :orden="filtros.orden" @ordenar="ordenar">Packed</ThOrden>
-          <ThOrden campo="cajas" :orden="filtros.orden" num @ordenar="ordenar">Cartons</ThOrden>
-          <ThOrden campo="peso_bruto" :orden="filtros.orden" num @ordenar="ordenar">Gross kg</ThOrden>
-          <ThOrden campo="cbm" :orden="filtros.orden" num @ordenar="ordenar">m³</ThOrden>
+          <ThOrden campo="cajas" :orden="filtros.orden" num @ordenar="ordenar">Cartons · kg · m³</ThOrden>
           <ThOrden campo="pendientes" :orden="filtros.orden" num @ordenar="ordenar">Pending</ThOrden>
           <ThOrden campo="etapa" :orden="filtros.orden" @ordenar="ordenar">Step</ThOrden>
           <ThOrden campo="embarque" :orden="filtros.orden" @ordenar="ordenar">Load unit</ThOrden>
@@ -151,15 +149,15 @@ onMounted(cargar)
         </tr>
       </thead>
       <tbody>
-        <tr v-if="cargando && !datos.items.length"><td colspan="13" class="vacio">Loading…</td></tr>
-        <tr v-else-if="!datos.items.length"><td colspan="13" class="vacio">No documents match these filters.</td></tr>
+        <tr v-if="cargando && !datos.items.length"><td colspan="11" class="vacio">Loading…</td></tr>
+        <tr v-else-if="!datos.items.length"><td colspan="11" class="vacio">No documents match these filters.</td></tr>
         <tr v-for="f in datos.items" :key="`${f.factura_id}-${f.pl_id}`">
           <td>
             <router-link :to="`/facturas/${f.factura_id}`" class="fuerte">{{ f.factura }}</router-link>
             <span class="sub codigo">{{ f.ocs.join(', ') }}</span>
           </td>
           <td v-if="!sesion.proveedorId">{{ f.proveedor }}</td>
-          <td><span class="codigo">{{ f.sociedad }} · {{ f.centro || '—' }}</span><span class="sub">destination {{ f.centro_destino || '—' }} · {{ fmtMoneda(f.importe, f.moneda) }}</span></td>
+          <td class="ajustar"><span class="codigo">{{ f.sociedad }} · {{ f.centro || '—' }}</span><span class="sub">destination {{ f.centro_destino || '—' }} · {{ fmtMoneda(f.importe, f.moneda) }}</span></td>
           <td><EstadoBadge :estado="f.estado_factura" /><span v-if="f.pendientes_factura" class="sub">{{ f.pendientes_factura }} fields to complete</span></td>
           <td>
             <template v-if="f.pl_id">
@@ -167,13 +165,11 @@ onMounted(cargar)
             </template>
             <span v-else class="ayuda">No packing list</span>
           </td>
-          <td style="min-width: 120px"><Avance v-if="f.pl_id" :porcentaje="f.avance" /><span v-else class="ayuda">—</span></td>
-          <td class="num">{{ fmtNum(f.cajas) }}<span v-if="f.pallets" class="sub">{{ f.pallets }} pallets</span></td>
-          <td class="num">{{ fmtNum(f.peso_bruto, 1) }}</td>
-          <td class="num">{{ fmtNum(f.cbm, 2) }}</td>
+          <td style="min-width: 100px"><Avance v-if="f.pl_id" :porcentaje="f.avance" /><span v-else class="ayuda">—</span></td>
+          <td class="num">{{ fmtNum(f.cajas) }}<template v-if="f.pallets"> · {{ f.pallets }} pallets</template><span class="sub">{{ fmtNum(f.peso_bruto, 1) }} kg · {{ fmtNum(f.cbm, 2) }} m³</span></td>
           <td class="num"><span v-if="f.pendientes" class="etiqueta aviso">{{ f.pendientes }}</span><span v-else class="ayuda">0</span></td>
           <td><span class="etiqueta" :class="TONO[f.etapa]" style="margin-left: 0">{{ nombreEtapa[f.etapa] || f.etapa }}</span></td>
-          <td>
+          <td class="ajustar">
             <template v-if="f.embarque_id">
               <span class="codigo">{{ f.contenedor }}</span>
               <span class="sub">

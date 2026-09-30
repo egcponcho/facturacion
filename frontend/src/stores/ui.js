@@ -3,7 +3,7 @@ import { reactive } from 'vue'
 export const ui = reactive({ toasts: [], guardado: '' })
 let siguiente = 0
 
-export function avisar(mensaje, tipo = 'ok', detalle = null, ms = 4500) {
+export function avisar(mensaje, tipo = 'ok', detalle = null, ms = tipo === 'error' && detalle?.length ? 0 : tipo === 'error' ? 8000 : 4500) {
   const t = { id: ++siguiente, mensaje, tipo, detalle }
   ui.toasts.push(t)
   if (ms) setTimeout(() => cerrarAviso(t.id), ms)

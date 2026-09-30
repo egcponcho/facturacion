@@ -61,7 +61,6 @@ def _cols_ficha() -> list[dict]:
         {"nombre": "Gender", "opciones": list(GENERO.values()), "ancho": 10},
         {"nombre": "Who it is for", "opciones": list(EDAD.values()), "ancho": 12},
         {"nombre": "What it is for", "ayuda": "Short phrase, e.g. casual everyday sneaker.", "ancho": 26},
-        {"nombre": "Size range", "ayuda": "e.g. 7 to 12, S to XL. If empty, taken from the sizes.", "ancho": 12},
         {"nombre": "Country of origin", "ayuda": "ISO code or name (e.g. VN or Vietnam).", "ancho": 14},
     ]
     for k, l in PARTES:
@@ -93,15 +92,15 @@ def plantilla_articulos(db: Session) -> bytes:
     tallas_cols = [
         {"nombre": "Generic code", "req": True, "ayuda": "The generic of the sheet Generics (or one already loaded).", "ancho": 13},
         {"nombre": "Size", "req": True, "ayuda": "e.g. 8, 8.5, M, OS.", "ancho": 8},
-        {"nombre": "Size code", "ayuda": "Last 3 digits of the item code. Empty = the next free one (001, 002…).", "ancho": 10},
+        {"nombre": "Size code", "ayuda": "Last 3 digits of the item code. Empty = generated: numeric sizes use the size × 10 (7 → 070, 7.5 → 075, 10.5 → 105); letter sizes the next free one (001, 002…).", "ancho": 10},
         {"nombre": "UPC", "ancho": 15},
         {"nombre": "Supplier SKU", "ayuda": "The supplier's own code (e.g. VN0A5KRFBLK-8).", "ancho": 18},
         {"nombre": "Active", "opciones": ["Yes", "No"], "ancho": 8},
     ]
     ej_gen = ["30095129", "VN0A5KRF", "Black", marcas[-1] if marcas else "", grupos[0] if grupos else "",
               provs[-1] if provs else "", "PAR", "Footwear: sneakers, boots, shoes, sandals", "Unisex",
-              "Adult", "Casual skate sneaker", "6 to 12", "VN", "", "", "", "100% canvas", "100% rubber", "100% textile", "100% EVA"]
-    ej_tallas = [["30095129", t, f"{i:03d}", f"01960129{i:04d}", f"VN0A5KRFBLK-{t}", "Yes"] for i, t in enumerate(["8", "9", "10"], 1)]
+              "Adult", "Casual skate sneaker", "VN", "", "", "", "100% canvas", "100% rubber", "100% textile", "100% EVA"]
+    ej_tallas = [["30095129", t, f"{int(t) * 10:03d}", f"01960129{i:04d}", f"VN0A5KRFBLK-{t}", "Yes"] for i, t in enumerate(["8", "9", "10"], 1)]
     return plantilla_hojas("Items by generic, with technical sheet",
                            [("Generics", gen_cols, [ej_gen]), ("Sizes", tallas_cols, ej_tallas)], [
         "The item code has 11 digits: the first 8 are the generic (style-color) and the last 3 the size. "
@@ -207,7 +206,7 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
         if suf and not re.fullmatch(r"\d{3}", suf):
             errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": "The size code has 3 digits (e.g. 001)."})
             continue
-        datos = {"sku": existente.sku if existente else gen + (suf or siguiente_sufijo(db, gen)),
+        datos = {"sku": existente.sku if existente else gen + (suf or siguiente_sufijo(db, gen, talla=talla)),
                  "estilo": p.estilo, "color": p.color, "talla": talla, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
                  "proveedor_id": p.proveedor_id, "tipo": "SOLIDO", "unidad": p.unidad or "UN"}
         for k in ("upc", "sku_proveedor"):

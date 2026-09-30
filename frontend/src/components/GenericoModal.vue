@@ -37,16 +37,27 @@ onMounted(async () => {
   }
 })
 const opc = (l) => l.map((x) => ({ valor: x.id, texto: x.texto }))
-// Código que tendrá cada talla (el siguiente libre si no se escribe)
+// Código que tendrá cada talla si no se escribe: el usual de calzado (talla × 10:
+// 7 → 070, 7.5 → 075, 10.5 → 105) si está libre; si no, el primer libre desde 001
+const convencional = (t) => {
+  const x = String(t || '').trim().replace(',', '.')
+  if (!/^\d{1,2}(\.\d)?$/.test(x)) return null
+  const n = Math.round(Number(x) * 10)
+  return n > 0 && n < 1000 && Math.abs(Number(x) * 10 - n) < 1e-9 ? String(n).padStart(3, '0') : null
+}
 const codigos = computed(() => {
   const gen = agregar.value ? props.generico : g.generico
-  let n = agregar.value ? Number(info.value?.siguiente || 1) : 1
-  const usados = new Set(filas.value.map((f) => f.sufijo).filter(Boolean))
+  const base = gen && /^\d{8}$/.test(gen) ? gen : '········'
+  const usados = new Set([...(agregar.value ? info.value?.usados || [] : []), ...filas.value.map((f) => f.sufijo).filter(Boolean)])
   return filas.value.map((f) => {
-    const base = gen && /^\d{8}$/.test(gen) ? gen : '········'
     if (f.sufijo) return `${base}${f.sufijo}`
-    while (usados.has(String(n).padStart(3, '0'))) n++
-    const s = String(n++).padStart(3, '0')
+    let s = convencional(f.talla)
+    if (!s || usados.has(s)) {
+      let n = 1
+      while (usados.has(String(n).padStart(3, '0'))) n++
+      s = String(n).padStart(3, '0')
+    }
+    usados.add(s)
     return `${base}${s}`
   })
 })
@@ -122,7 +133,7 @@ async function guardar() {
       <input v-model="rapido" class="entrada" style="max-width: 300px" placeholder="Quick: 7-10, 12 · 6.5-9.5 · S-XL" @keydown.enter.prevent="aplicarRapido" />
       <button type="button" class="btn btn-chico" @click="aplicarRapido">Add these sizes</button>
     </div>
-    <p class="ayuda" style="margin: 0 0 8px">Combine ranges and single sizes for gaps (e.g. 7-10, 12, 14). Size code: leave it empty and it is generated (next free: {{ agregar ? info?.siguiente || '001' : '001' }}), or type your own 3 digits.</p>
+    <p class="ayuda" style="margin: 0 0 8px">Combine ranges and single sizes for gaps (e.g. 7-10, 12, 14). Size code: leave it empty and it is generated — numeric sizes use the size × 10 (7 → 070, 7.5 → 075, 10.5 → 105), letter sizes the next free one (001, 002…) — or type your own 3 digits.</p>
     <table class="tabla tallas">
       <thead><tr><th>Item code</th><th>Size *</th><th>Size code</th><th>UPC</th><th>Supplier SKU</th><th></th></tr></thead>
       <tbody>

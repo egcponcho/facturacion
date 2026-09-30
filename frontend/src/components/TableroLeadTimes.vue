@@ -110,8 +110,8 @@ onMounted(cargar)
           <tr>
             <th>Origin</th>
             <th class="num">POs</th>
-            <th style="min-width: 220px">Lead time</th>
-            <th v-for="(e, i) in datos.etapas" :key="e.clave" class="num"><i class="punto" :style="{ background: COLOR(i) }"></i> {{ e.nombre }}</th>
+            <th style="min-width: 150px">Lead time</th>
+            <th v-for="(e, i) in datos.etapas" :key="e.clave" class="num col-etapa"><i class="punto" :style="{ background: COLOR(i) }"></i> {{ e.nombre }}</th>
             <th class="num">Total</th>
             <th title="Logistics release before the XF: average days and share on time">Release vs XF</th>
             <th class="num" title="Pickup date minus XF: positive = picked up after the XF">Pickup vs XF</th>
@@ -130,9 +130,9 @@ onMounted(cargar)
               </div>
               <span v-else class="apagado">No stage completed yet</span>
             </td>
-            <td v-for="e in datos.etapas" :key="e.clave" class="num" :title="o.etapas[e.clave].n ? `${o.etapas[e.clave].n} POs` : 'No data yet'">{{ d(o.etapas[e.clave].prom) }}</td>
+            <td v-for="e in datos.etapas" :key="e.clave" class="num col-etapa" :title="o.etapas[e.clave].n ? `${o.etapas[e.clave].n} POs` : 'No data yet'">{{ d(o.etapas[e.clave].prom) }}</td>
             <td class="num fuerte" :title="o.completas ? `${o.completas} POs with every stage` : 'No PO has every stage yet'">{{ d(o.total_prom) }}</td>
-            <td>
+            <td class="ajustar" style="max-width: 150px">
               <template v-if="o.lib.total">
                 <span class="etiqueta" :class="o.lib.pct >= 80 ? 'ok' : 'error'" style="margin-left: 0">{{ o.lib.pct }}% on time</span>
                 <span class="sub">avg {{ d(o.lib.dias_antes_xf) }} before · target {{ o.lib.meta }} d</span>
@@ -207,7 +207,7 @@ onMounted(cargar)
           <tr v-if="abiertas.has(o.oc_id)" class="fila-hija">
             <td colspan="9">
               <div class="subtabla">
-                <ol class="hitos" :aria-label="`Milestones of ${o.oc}`">
+                <ol class="lt-hitos" :aria-label="`Milestones of ${o.oc}`">
                   <li v-for="h in o.hitos" :key="h.clave" :class="`hito-${ESTADO[h.estado][1]}`">
                     <span class="hito-nombre">{{ h.nombre }}</span>
                     <span class="hito-fecha">{{ h.fecha ? fmtFecha(h.fecha) : h.estimada ? `≈ ${fmtFecha(h.estimada)}` : '—' }}</span>
@@ -228,16 +228,19 @@ onMounted(cargar)
 
 <style scoped>
 .lt-origenes td { white-space: nowrap; }
-.lt-origenes th { white-space: normal; vertical-align: bottom; min-width: 84px; line-height: 1.25; }
+/* En pantallas angostas las etapas se leen en la barra (con su detalle al pasar el cursor) */
+@media (max-width: 1360px) { .col-etapa { display: none; } }
+.lt-origenes th { white-space: normal; vertical-align: bottom; min-width: 64px; line-height: 1.25; font-size: 0.7rem; }
+.lt-origenes td, .lt-origenes th { padding-left: 8px; padding-right: 8px; }
 .lt-origenes th .punto { margin-right: 2px; }
-.hitos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.hitos li { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: var(--radio); background: var(--superficie); border: 1px solid var(--linea); border-top: 3px solid var(--linea); }
-.hitos li.hito-ok { border-top-color: var(--ok); }
-.hitos li.hito-error { border-top-color: var(--error); }
-.hitos li.hito-aviso { border-top-color: var(--aviso); }
-.hitos li.hito-info { border-top-color: var(--azul); }
+.lt-hitos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.lt-hitos li { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: var(--radio); background: var(--superficie); border: 1px solid var(--linea); border-top: 3px solid var(--linea); }
+.lt-hitos li.hito-ok { border-top-color: var(--ok); }
+.lt-hitos li.hito-error { border-top-color: var(--error); }
+.lt-hitos li.hito-aviso { border-top-color: var(--aviso); }
+.lt-hitos li.hito-info { border-top-color: var(--azul); }
 .hito-nombre { font-size: 0.78rem; color: var(--tinta-2); font-weight: 600; }
 .hito-fecha { font-weight: 700; }
 .hito-meta { font-size: 0.78rem; color: var(--tinta-3); }
-.hitos .etiqueta { align-self: flex-start; font-size: 0.72rem; }
+.lt-hitos .etiqueta { align-self: flex-start; font-size: 0.72rem; }
 </style>

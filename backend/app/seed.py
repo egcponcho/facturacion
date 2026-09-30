@@ -39,6 +39,7 @@ from .models import (
 )
 from .security import hash_password
 from .services.common import registrar
+from .services.genericos import sufijo_convencional
 from .services.productos import (
     _guardar_partidas,
     asegurar_producto,
@@ -277,10 +278,13 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
     genericos = {}
     for n, (estilo, color, marca, grupo, prov, unidad, precio, origen, partida, desc, empaque, tallas) in enumerate(ESTILOS):
         gen = str(30095120 + n)
-        genericos[(estilo, color)] = [gen, 0]
+        genericos[(estilo, color)] = [gen, set()]
         for talla in tallas:
-            genericos[(estilo, color)][1] += 1
-            sku = f"{gen}{genericos[(estilo, color)][1]:03d}"
+            # Calzado: la talla por 10 (7 → 070, 10 → 100); letras: 001, 002…
+            suf = sufijo_convencional(talla) or next(f"{i:03d}" for i in range(1, 1000)
+                                                     if f"{i:03d}" not in genericos[(estilo, color)][1])
+            genericos[(estilo, color)][1].add(suf)
+            sku = f"{gen}{suf}"
             a = Articulo(sku=sku, sku_proveedor=_sku_proveedor(estilo, color, talla), upc=f"0196{int(sku) % 10**8:08d}",
                          estilo=estilo, color=color, talla=talla,
                          descripcion=desc, marca_id=cat["marcas"][marca].id, grupo_id=cat["grupos"][grupo].id,
@@ -301,8 +305,9 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
         db.add(pp)
         db.flush()
         gen = genericos[(estilo, color)]
-        gen[1] += 1
-        a = Articulo(sku=f"{gen[0]}{gen[1]:03d}", sku_proveedor=_sku_proveedor(estilo, color, codigo), estilo=estilo,
+        suf = next(f"{i:03d}" for i in range(1, 1000) if f"{i:03d}" not in gen[1])
+        gen[1].add(suf)
+        a = Articulo(sku=f"{gen[0]}{suf}", sku_proveedor=_sku_proveedor(estilo, color, codigo), estilo=estilo,
                      color=color, talla=codigo,
                      descripcion=f"{base.descripcion}, prepack {codigo}", marca_id=base.marca_id,
                      grupo_id=base.grupo_id, proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK",

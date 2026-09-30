@@ -28,7 +28,6 @@ const tocados = reactive(new Set([...Object.entries(f).filter(([k, v]) => !['com
 const autos = reactive(new Set())
 const detectado = ref(null)
 const ensenarCerrado = ref(false)
-const avisoTallas = ref('')
 
 function tocar(...ks) {
   ks.forEach((k) => { tocados.add(k); autos.delete(k) })
@@ -97,15 +96,6 @@ function ponerEdad(v, manual = true) {
   f.edadNac = v
   if (M.ATTR_BY.edad.aplica({ ...f, edad: '' })) f.edad = v === 'bebe' ? 'bebe' : 'general'
   if (manual) tocar('edadNac', 'edad')
-  avisoTallas.value = ''
-}
-// El rango de tallas, si dice bebé o niño, ayuda a definir para quién es
-function alCambiarTallas() {
-  const t = M.parseTallas(f.tallas || '')
-  if (t && !tocados.has('edadNac') && M.edadDe(f) !== t) {
-    ponerEdad(t, false)
-    avisoTallas.value = `Auto: by the sizes, ${{ bebe: 'baby', nino: 'child or youth', adulto: 'adult' }[t]}`
-  } else if (!t) avisoTallas.value = ''
 }
 
 // ---- Características según el capítulo ---------------------------------------
@@ -275,20 +265,14 @@ if (props.editable) deteccion()
           </div>
         </div>
         <div class="campo-f">
-          <label for="f_tallas">Size range</label>
-          <input id="f_tallas" v-model="f.tallas" class="entrada" type="text" maxlength="60" :disabled="!props.editable"
-                 :placeholder="producto.rango_tallas || 'E.g. S to XL, 5 to 10, 0-12M'" @input="alCambiarTallas" />
-          <p v-if="avisoTallas" class="hint auto">{{ avisoTallas }}</p>
-        </div>
-      </div>
-      <div class="fila2">
-        <div class="campo-f">
           <label for="f_origen">Country of origin<span class="req-ast">*</span></label>
           <select id="f_origen" v-model="f.origen" class="entrada" :disabled="!props.editable">
             <option value="">Choose…</option>
             <option v-for="x in props.paises" :key="x.codigo" :value="x.codigo">{{ x.nombre }}</option>
           </select>
         </div>
+      </div>
+      <div class="fila1">
         <div class="campo-f">
           <label for="f_uso">What it is for <span class="opcional">(optional)</span></label>
           <input id="f_uso" v-model="f.uso" class="entrada" type="text" maxlength="200" :disabled="!props.editable"
@@ -424,6 +408,7 @@ if (props.editable) deteccion()
 .bloque-head h3 { font-size: 1.02rem; font-weight: 720; margin: 0; }
 .bloque-head .sub { font-size: 0.8rem; color: var(--tinta-3); }
 .vbadge { font-size: 0.74rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--acento-claro); color: var(--acento-texto); }
+.fila1 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .fila3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .fila2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 900px) { .fila3, .fila2 { grid-template-columns: minmax(0, 1fr); } }
@@ -452,6 +437,7 @@ legend { font-size: 0.84rem; font-weight: 650; color: var(--tinta-3); padding: 0
 .desc-fila textarea.comercial { font-weight: 500; letter-spacing: 0; }
 .generico-fijo { font-stretch: 112%; font-weight: 700; font-size: 1.02rem; padding: 6px 0; display: flex; gap: 8px; align-items: baseline; }
 .generico-fijo small { font-stretch: 100%; font-weight: 450; font-size: 0.8rem; color: var(--tinta-3); }
+.descripciones textarea { field-sizing: content; min-height: 64px; resize: vertical; }
 .descripciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 900px) { .generico-fijo { font-stretch: 112%; font-weight: 700; font-size: 1.02rem; padding: 6px 0; display: flex; gap: 8px; align-items: baseline; }
 .generico-fijo small { font-stretch: 100%; font-weight: 450; font-size: 0.8rem; color: var(--tinta-3); }

@@ -383,9 +383,11 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             </td>
             <td>
               <strong class="codigo">{{ oc.numero }}</strong>
-              <span class="etiqueta" :class="COMERCIAL[oc.liberacion_comercial]?.[1]" :title="COMERCIAL[oc.liberacion_comercial]?.[2]">{{ COMERCIAL[oc.liberacion_comercial]?.[0] }}</span>
-              <span v-if="LIBERACION[oc.liberacion_logistica]" class="etiqueta" :class="LIBERACION[oc.liberacion_logistica][1]" :title="LIBERACION[oc.liberacion_logistica][2]">{{ LIBERACION[oc.liberacion_logistica][0] }}</span>
               <span class="sub">{{ fmtFecha(oc.fecha) }} · {{ oc.posiciones }} lines<template v-if="oc.marcas.length"> · {{ oc.marcas.join(', ') }}</template></span>
+              <span class="insignias">
+                <span class="etiqueta" :class="COMERCIAL[oc.liberacion_comercial]?.[1]" :title="COMERCIAL[oc.liberacion_comercial]?.[2]">{{ COMERCIAL[oc.liberacion_comercial]?.[0] }}</span>
+                <span v-if="LIBERACION[oc.liberacion_logistica]" class="etiqueta" :class="LIBERACION[oc.liberacion_logistica][1]" :title="LIBERACION[oc.liberacion_logistica][2]">{{ LIBERACION[oc.liberacion_logistica][0] }}</span>
+              </span>
             </td>
             <td v-if="!sesion.proveedorId">{{ oc.proveedor }}</td>
             <td><span class="codigo">{{ oc.sociedad }} · {{ oc.centro || '—' }}</span><span class="sub" :title="oc.almacenes.length > 1 ? 'Lines go to different warehouses' : ''">{{ oc.almacenes.join(' · ') || 'No warehouse' }}</span></td>
@@ -395,20 +397,20 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             </td>
             <td>
               {{ fmtFecha(oc.fecha_xf) }}
-              <span v-if="xfCambio(oc)" class="sub" :title="`Original XF ${fmtFecha(oc.fecha_xf_original)}`"><s>{{ fmtFecha(oc.fecha_xf_original) }}</s> original</span>
+              <span v-if="xfCambio(oc)" class="sub" :title="`Original XF ${fmtFecha(oc.fecha_xf_original)}`">was <s>{{ fmtFecha(oc.fecha_xf_original) }}</s></span>
             </td>
             <td>
               {{ fmtFecha(oc.fecha_tienda) }}
               <span v-if="oc.dias_tienda !== null" class="sub" :style="tonoTienda(oc.dias_tienda) ? { color: `var(--${tonoTienda(oc.dias_tienda)})` } : null">{{ diasTxt(oc.dias_tienda) }}</span>
             </td>
-            <td>
+            <td class="ajustar" style="min-width: 100px">
               <span class="fuerte">{{ porUnidadTxt(oc.por_unidad, 'disponible') }}</span>
               <span class="sub">of {{ porUnidadTxt(oc.por_unidad, 'cantidad') }}</span>
             </td>
             <td class="num">{{ fmtMoneda(oc.importe, oc.moneda) }}</td>
-            <td style="min-width: 130px"><Avance :porcentaje="oc.avance" /></td>
+            <td style="min-width: 110px"><Avance :porcentaje="oc.avance" /></td>
             <td class="num">
-              <div class="fila-flex" style="justify-content: flex-end; flex-wrap: nowrap">
+              <div class="acciones-apiladas">
                 <button class="btn btn-chico" type="button" :disabled="!tieneSaldo(oc)" title="Add the whole balance to the selection" @click="agregarOCs([oc.id])"><Icono nombre="mas" :tam="14" />Add</button>
                 <button class="btn btn-chico btn-primario" type="button" :disabled="!tieneSaldo(oc)" title="Add the whole balance and review the invoice" @click="agregarOCs([oc.id], true)">Invoice</button>
               </div>
