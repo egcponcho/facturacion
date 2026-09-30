@@ -57,8 +57,7 @@ for _k, _l in ATRIBUTOS:
 def _cols_ficha() -> list[dict]:
     categorias = [t["l"] for t in tipos().values()]
     cols = [
-        {"nombre": "Commercial name", "ayuda": "Technical sheet: product name, e.g. Old Skool canvas sneaker. The engine reads it.", "ancho": 30},
-        {"nombre": "Category", "opciones": categorias, "ayuda": "Technical sheet: what the product is. If empty, the engine detects it from the name.", "ancho": 30},
+        {"nombre": "Category", "opciones": categorias, "ayuda": "Technical sheet: what the product is. Required to classify.", "ancho": 30},
         {"nombre": "Gender", "opciones": list(GENERO.values()), "ancho": 10},
         {"nombre": "Who it is for", "opciones": list(EDAD.values()), "ancho": 12},
         {"nombre": "What it is for", "ayuda": "Short phrase, e.g. casual everyday sneaker.", "ancho": 26},
@@ -100,7 +99,7 @@ def plantilla_articulos(db: Session) -> bytes:
         {"nombre": "Active", "opciones": ["Yes", "No"], "ancho": 8},
     ]
     ej_gen = ["30095129", "VN0A5KRF", "Black", marcas[-1] if marcas else "", grupos[0] if grupos else "",
-              provs[-1] if provs else "", "PAR", "Sk8-Hi canvas sneaker", "Footwear: sneakers, boots, shoes, sandals", "Unisex",
+              provs[-1] if provs else "", "PAR", "Footwear: sneakers, boots, shoes, sandals", "Unisex",
               "Adult", "Casual skate sneaker", "6 to 12", "VN", "", "", "", "100% canvas", "100% rubber", "100% textile", "100% EVA"]
     ej_tallas = [["30095129", t, f"{i:03d}", f"01960129{i:04d}", f"VN0A5KRFBLK-{t}", "Yes"] for i, t in enumerate(["8", "9", "10"], 1)]
     return plantilla_hojas("Items by generic, with technical sheet",

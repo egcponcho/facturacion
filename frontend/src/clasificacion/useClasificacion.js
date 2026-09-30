@@ -47,6 +47,7 @@ export function fichaDe(p) {
     tipo: p.tipo || '',
     estilo: p.estilo,
     descArchivo: p.nombre || '',
+    tallas: f.tallas || p.rango_tallas || '',
     color: p.color,
     generico: p.codigo_generico,
     marca: p.marca_nombre || p.marca || '',

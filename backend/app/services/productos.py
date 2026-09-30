@@ -333,10 +333,52 @@ def _resumen(p: Producto, tallas: dict, ds: list[dict]) -> dict:
         "propuesta": fmt_codigo(p.propuesta) if p.propuesta else None,
         "confianza": p.confianza, "ficha_completa": p.ficha_completa, "faltan": p.faltan or [],
         "paises_ok": ok, "paises_total": total, "foto_id": foto, "pais_origen": p.pais_origen,
-        "tallas": t.get("tallas", []), "skus": t.get("skus", 0), "prepacks": t.get("prepacks", 0),
+        "tallas": t.get("tallas", []), "rango_tallas": rango_tallas(t.get("tallas", [])), "skus": t.get("skus", 0),
+        "n_prepacks": t.get("prepacks", 0),
         "unidad": t.get("unidad"), "descripcion_comercial": p.descripcion_comercial,
         "actualizado_en": p.actualizado_en, "version": p.version, "version_ficha": p.version_ficha,
     }
+
+
+ORDEN_LETRAS = ["XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL", "5XL"]
+EQUIV_LETRAS = {"2XS": "XXS", "3XS": "XXXS", "2XL": "XXL", "3XL": "XXXL", "XXXXL": "4XL"}
+
+
+def rango_tallas(tallas: list[str]) -> str:
+    """Tallas en texto corto: tramos seguidos como "7 to 10" y los saltos
+    separados por comas ("7 to 9, 11"); igual con S, M, L…"""
+    ts = [str(t).strip().upper() for t in tallas if str(t or "").strip()]
+    if not ts:
+        return ""
+
+    def tramos(valores: list, paso, texto) -> str:
+        grupos, actual = [], [valores[0]]
+        for v in valores[1:]:
+            if abs((v - actual[-1]) - paso) < 1e-9:
+                actual.append(v)
+            else:
+                grupos.append(actual)
+                actual = [v]
+        grupos.append(actual)
+        out = []
+        for g in grupos:
+            if len(g) >= 3:
+                out.append(f"{texto(g[0])} to {texto(g[-1])}")
+            else:
+                out += [texto(x) for x in g]
+        return ", ".join(out)
+
+    try:
+        nums = sorted({float(t.replace(",", ".")) for t in ts})
+        paso = 0.5 if any(not n.is_integer() for n in nums) else 1
+        return tramos(nums, paso, lambda n: str(int(n)) if n.is_integer() else str(n))
+    except ValueError:
+        pass
+    letras = [EQUIV_LETRAS.get(t, t) for t in ts]
+    if all(t in ORDEN_LETRAS for t in letras):
+        idx = sorted({ORDEN_LETRAS.index(t) for t in letras})
+        return tramos(idx, 1, lambda i: ORDEN_LETRAS[i])
+    return ", ".join(dict.fromkeys(ts))
 
 
 def _tallas(db: Session, ids: list[int]) -> dict:

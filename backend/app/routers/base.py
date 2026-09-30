@@ -24,6 +24,14 @@ def descarga(contenido: bytes, nombre: str, formato: str) -> Response:
                     headers={"Content-Disposition": f'attachment; filename="{nombre}.{formato}"'})
 
 
+def plantilla_o_vista(contenido: bytes, nombre: str, vista: bool):
+    """Plantilla Excel para descargar o, con ?vista=1, su vista previa en JSON."""
+    if vista:
+        from ..services.plantillas import vista as vista_plantilla
+        return vista_plantilla(contenido)
+    return descarga(contenido, nombre, "xlsx")
+
+
 def ejecutar(db: Session, user: Usuario, clave: str | None, fn):
     """Ejecuta una operación en una sola transacción (todo o nada) y la
     protege contra duplicados con la clave de idempotencia."""

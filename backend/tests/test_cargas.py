@@ -132,12 +132,18 @@ def test_genericos(interno):
     r = interno.post("/catalogos/prepacks", {"sku": "30099970900", "codigo": "EE04", "estilo": "VN0A3WM3", "color": "Navy",
                                              "componentes": [{"articulo_id": sol["id"], "cantidad": 4}]})
     assert r.status_code == 200, r.text
-    assert interno.get("/productos", params={"q": "30099970"}).json()["items"][0]["prepacks"] == 1
+    assert interno.get("/productos", params={"q": "30099970"}).json()["items"][0]["n_prepacks"] == 1
 
 
 def test_carga_por_generico(interno):
     pl = load_workbook(io.BytesIO(interno.get("/catalogos/articulos/plantilla").content))
     assert pl.sheetnames[:2] == ["Generics", "Sizes"] and pl["Generics"]["A1"].value == "Generic code *"
+    v = interno.get("/catalogos/articulos/plantilla", params={"vista": 1}).json()
+    assert [h["nombre"] for h in v["hojas"]] == ["Generics", "Sizes"] and v["instrucciones"]
+    cols = {c["nombre"]: c for c in v["hojas"][1]["columnas"]}
+    assert cols["Generic code"]["req"] and "next free" in cols["Size code"]["ayuda"] and v["hojas"][1]["filas"]
+    assert "Commercial name" not in [c["nombre"] for c in v["hojas"][0]["columnas"]]
+    assert interno.get("/aranceles/sac/plantilla", params={"vista": 1}).json()["hojas"]
     wb = Workbook()
     ws = wb.active
     ws.title = "Generics"
@@ -162,3 +168,21 @@ def test_carga_por_generico(interno):
     b.seek(0)
     r = _subir(interno, "/catalogos/articulos/importar", b.getvalue()).json()
     assert r["genericos_actualizados"] == 1 and r["actualizados"] == 2 and r["creados"] == 0
+
+
+def test_genericos_compacto_y_edicion(interno):
+    r = interno.get("/catalogos/genericos", params={"q": "30095126"}).json()
+    g = r["items"][0]
+    assert r["total"] == 1 and g["generico"] == "30095126" and g["n_tallas"] >= 4 and g["n_prepacks"] >= 1
+    assert g["rango_tallas"] and g["descripcion_comercial"].startswith("CALZADO VANS")
+    det = interno.get("/catalogos/genericos/30095126").json()
+    datos = {k: det[k] for k in ("estilo", "color", "marca_id", "grupo_id", "proveedor_id", "unidad")}
+    # Con prepacks no cambia estilo ni color
+    assert interno.put("/catalogos/genericos/30095126", json={**datos, "color": "Otro"}).status_code == 422
+    grupos = interno.get("/catalogos/grupos/opciones").json()
+    otro = next(x["id"] for x in grupos if x["id"] != datos["grupo_id"])
+    r = interno.put("/catalogos/genericos/30095126", json={**datos, "grupo_id": otro})
+    assert r.status_code == 200, r.text
+    arts = interno.get("/catalogos/articulos", params={"q": "30095126", "size": 50}).json()["items"]
+    assert arts and all(a["grupo_id"] == otro for a in arts)
+    assert interno.put("/catalogos/genericos/30095126", json=datos).status_code == 200

@@ -4,7 +4,7 @@ from fastapi import APIRouter, File, Query, Request, UploadFile
 
 from .. import schemas as s
 from ..services import aranceles as svc
-from .base import Clave, Db, Formato, User, descarga, ejecutar
+from .base import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
 
 router = APIRouter()
 XLSX = "xlsx"
@@ -56,8 +56,8 @@ def sac_exportar(request: Request, db: Db, user: User, formato: Formato = "xlsx"
 
 
 @router.get("/aranceles/sac/plantilla")
-def sac_plantilla(user: User):
-    return descarga(svc.plantilla_sac(), "template_sac", XLSX)
+def sac_plantilla(user: User, vista: bool = False):
+    return plantilla_o_vista(svc.plantilla_sac(), "template_sac", vista)
 
 
 @router.post("/aranceles/sac/importar")
@@ -97,8 +97,8 @@ def codigos_exportar(request: Request, db: Db, user: User, orden: str | None = N
 
 
 @router.get("/aranceles/codigos/plantilla")
-def codigos_plantilla(db: Db, user: User, pais: str | None = None):
-    return descarga(svc.plantilla_incisos(db, pais), f"template_national_codes{'_' + pais if pais else ''}", XLSX)
+def codigos_plantilla(db: Db, user: User, pais: str | None = None, vista: bool = False):
+    return plantilla_o_vista(svc.plantilla_incisos(db, pais), f"template_national_codes{'_' + pais if pais else ''}", vista)
 
 
 @router.post("/aranceles/codigos/importar")

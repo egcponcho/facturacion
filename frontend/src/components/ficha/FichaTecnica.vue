@@ -246,21 +246,16 @@ if (props.editable) deteccion()
     <!-- Producto -->
     <section id="blk-producto" class="bloque">
       <div class="bloque-head"><h3>Product</h3><span class="sub">What it is and who it is for. Shared by every size and prepack.</span></div>
-      <div class="fila3">
-        <div class="campo-f">
-          <label for="f_nombre">Commercial name</label>
-          <input id="f_nombre" v-model="f.descArchivo" class="entrada" type="text" maxlength="200" :disabled="!props.editable"
-                 placeholder="E.g. Old Skool canvas sneaker, W Nuptse Jacket…" @input="detectarLuego" />
-          <p v-if="detTexto" class="hint det" :title="detTexto">{{ detTexto }}</p>
-        </div>
+      <div class="fila2">
         <div class="campo-f">
           <label for="f_categoria">Category<span class="req-ast">*</span></label>
           <CampoCategoria id="f_categoria" :model-value="f.tipo" :disabled="!props.editable" @update:model-value="elegirTipo" />
-          <p v-if="f.tipo" class="hint">{{ CAPITULO[M.grupoTipo(f.tipo)] ? `Chapter ${CAPITULO[M.grupoTipo(f.tipo)]} · ` : '' }}only what changes its code is asked</p>
+          <p v-if="detTexto" class="hint det" :title="detTexto">{{ detTexto }}</p>
+          <p v-else-if="f.tipo" class="hint">{{ CAPITULO[M.grupoTipo(f.tipo)] ? `Chapter ${CAPITULO[M.grupoTipo(f.tipo)]} · ` : '' }}only what changes its code is asked</p>
         </div>
         <div class="campo-f">
           <span class="lbl-f">Generic</span>
-          <span class="generico-fijo" title="First 8 digits of the item code: all its sizes share this sheet">{{ producto.codigo_generico || '—' }}<small>{{ producto.skus }} sizes<template v-if="producto.prepacks"> · {{ producto.prepacks }} prepacks</template></small></span>
+          <span class="generico-fijo" title="First 8 digits of the item code: all its sizes share this sheet">{{ producto.codigo_generico || '—' }}<small>{{ producto.skus }} {{ producto.skus === 1 ? 'size' : 'sizes' }}<template v-if="producto.rango_tallas"> ({{ producto.rango_tallas }})</template><template v-if="producto.n_prepacks"> · {{ producto.n_prepacks }} {{ producto.n_prepacks === 1 ? 'prepack' : 'prepacks' }}</template></small></span>
         </div>
       </div>
       <div class="fila3">
@@ -282,7 +277,7 @@ if (props.editable) deteccion()
         <div class="campo-f">
           <label for="f_tallas">Size range</label>
           <input id="f_tallas" v-model="f.tallas" class="entrada" type="text" maxlength="60" :disabled="!props.editable"
-                 :placeholder="producto.tallas.length ? `${producto.tallas[0]} to ${producto.tallas.at(-1)}` : 'E.g. S to XL, 5 to 10, 0-12M'" @input="alCambiarTallas" />
+                 :placeholder="producto.rango_tallas || 'E.g. S to XL, 5 to 10, 0-12M'" @input="alCambiarTallas" />
           <p v-if="avisoTallas" class="hint auto">{{ avisoTallas }}</p>
         </div>
       </div>
