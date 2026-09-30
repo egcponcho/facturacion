@@ -2114,7 +2114,9 @@ function partidaPais(f, iso, codBase, ctx){
   const cb = digits(codBase), sub = cb.slice(0,6), n = digitosPais(iso, ds);
   if (sub.length < 6) return {estado:'sin_codigo', codigo:''};
   let lista = incisosDe(iso, sub, incisos, ds);
-  const unaSac = () => MCCA5.includes(iso) && cb.length > 6 && cb.length >= Math.min(n, 10);
+  const dd = (ds || DESTINOS_BASE).find(x=>x.iso === iso);
+  const esMcca = dd && dd.mcca !== undefined && dd.mcca !== null ? !!dd.mcca : MCCA5.includes(iso);
+  const unaSac = () => esMcca && cb.length > 6 && cb.length >= Math.min(n, 10);
   const man = f.partidas && f.partidas[iso];
   if (man && man.manual && digits(man.codigo).startsWith(sub)){ const mc = digits(man.codigo).slice(0, n); const x = lista.find(y=>y.codigo === mc); return {codigo:mc, dai:x ? x.dai : (man.dai || ''), estado:'ok', desc:x ? x.desc : '', fuente:x ? x.fuente : 'manual'}; }
   if (n <= 6) return {codigo:sub, dai:lista.length === 1 ? lista[0].dai : '', estado:'ok', desc:descDe(sub), fuente:lista.length ? lista[0].fuente : ''};
@@ -2314,8 +2316,48 @@ const FUENTES = {regla:'Harmonized System rules', historial:'Your history: produ
 ESTADOS.observado = 'Observed';
 ESTADO_COLOR.observado = '#B42318';
 
+/* Descripciones SAC cargadas en la base (se pueden editar y agregar) */
+function setSac(lista){ (lista || []).forEach(x=>{ const c = digits(x.codigo); if (c.length >= 4 && x.descripcion) DESC[c] = x.descripcion; }); }
+/* Descripción comercial en inglés, armada con la ficha técnica */
+function materialPrincipal(txt){
+  const rows = filasDesdeTexto(txt).filter(r=>r.m);
+  if (!rows.length) return '';
+  const top = rows.slice().sort((a,b)=>(parseFloat(b.pct) || 0) - (parseFloat(a.pct) || 0))[0];
+  return String(top.m).toLowerCase();
+}
+function descripcionComercial(f){
+  const t = f.tipo; if (!t) return '';
+  const g = grupoTipo(t), e = edadDe(f), gen = f.genero;
+  const para = e === 'bebe' ? 'Baby' : e === 'nino' ? (gen === 'M' ? "Boys'" : gen === 'F' ? "Girls'" : "Kids'") : gen === 'M' ? "Men's" : gen === 'F' ? "Women's" : gen === 'U' ? 'Unisex' : '';
+  let que = (TIPO_CORTO[t] || t).toLowerCase();
+  const comp = [];
+  if (g === 'calzado'){
+    que = f.estiloCalz ? opcionLbl('estiloCalz', f.estiloCalz).toLowerCase() : 'footwear';
+    if (f.estiloCalz === 'tenis' && f.disenio === 'casual') que = 'casual sneaker';
+    else if (f.estiloCalz === 'tenis' && f.disenio === 'entrenamiento') que = 'athletic sneaker';
+    else if (f.estiloCalz === 'tenis' && f.disenio === 'skate') que = 'skate shoe';
+    const u = materialPrincipal((f.comp || {}).corte), so = materialPrincipal((f.comp || {}).suela);
+    if (u) comp.push(u + ' upper'); if (so) comp.push(so + ' sole');
+    if (f.impermeable) comp.push('waterproof');
+  } else {
+    if (t === 'chaqueta') que = ({chaqueta:'jacket', chaleco_relleno:'padded vest', chaleco:'vest', reflectivo:'safety vest', blazer:'blazer'})[f.hechura] || 'jacket';
+    else if (t === 'pantalon') que = f.largo === 'corto' ? 'shorts' : 'pants';
+    else if (t === 'sudadera') que = f.sueter ? 'sweater' : f.hechuraSud === 'cierre' ? 'full-zip sweatshirt' : f.hechuraSud === 'chaqueta_fleece' ? 'fleece jacket' : 'sweatshirt';
+    else if (t === 'camisa') que = f.polo ? 'polo' : 'shirt';
+    const ext = String((f.comp || {}).exterior || (f.comp || {}).material || '').trim();
+    if (ext) comp.push(ext.toLowerCase());
+    if (g === 'prenda' && f.tejido) comp.push(f.tejido === 'punto' ? 'knit' : 'woven');
+    if (f.recubierta) comp.push('coated');
+    if (f.relleno_tipo === 'plumon') comp.push('down fill'); else if (f.relleno_tipo === 'sintetico') comp.push('synthetic fill');
+  }
+  const nombre = [f.marca, f.descArchivo].filter(x=>String(x || '').trim()).join(' ').trim();
+  const cuerpo = [para, que].filter(Boolean).join(' ');
+  const txt = cuerpo.charAt(0).toUpperCase() + cuerpo.slice(1) + (comp.length ? ', ' + comp.join(', ') : '');
+  return (nombre ? nombre + ' · ' : '') + txt;
+}
+
 export {
-  norm, digits, fmtCode, fmtPais, descDe, CAPITULOS, DESC, DESTINOS_BASE, MCCA5, notaOrigenDestino,
+  norm, digits, fmtCode, fmtPais, descDe, setSac, descripcionComercial, CAPITULOS, DESC, DESTINOS_BASE, MCCA5, notaOrigenDestino,
   TIPOS, TIPO_LBL, TIPO_CORTO, buscarTipos, grupoTipo, partesDe, partesPrincipales, PARTE_LBL, PARTE_PH,
   FIB_LBL, MAT_LBL, MAT_EQUIV, MAT_AMBIGUAS, setSinonimos, prepMat, parseComp, parseMat, claseMat, resumenMat, segmentosComp,
   ATTRS, ATTR_BY, ATTR_IDS, opcionLbl, opcionesValidas, prepararEstado, normalizar, aplicarImplica, atributosLegibles, estadoAttr, motivoDefinido,

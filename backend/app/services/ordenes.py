@@ -27,7 +27,7 @@ from ..models import (
     ahora,
 )
 from .cantidades import facturado_por_posicion, facturas_por_posicion
-from .productos import clasificacion_txt, pais_de_centro, partida_para
+from .productos import clasificacion_txt, pais_de_centro, partida_para, producto_de
 from .common import ErrorNegocio, asegurar_proveedor, exigir, proveedor_filtro, registrar
 
 # Dos liberaciones de dos equipos distintos:
@@ -289,7 +289,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
     pais_destino = pais_de_centro(db, oc.centro_destino)
     posiciones = []
     for p in oc.posiciones:
-        prod = p.articulo.producto if p.articulo else None
+        prod = producto_de(p.articulo)
         fact = facturado.get(p.id, 0)
         fs = facturas.get(p.id, [])
         estado, motivo, restringida = estado_posicion(oc, p, fact, fs)
@@ -643,7 +643,7 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
             unidades_por_caja=art.prepack.total if art.prepack else None,
         )
         errores += validar_empaque(art.tipo, d["casepack"], d["inner_pack"], d["cantidad"])
-        d["pais_origen_pos"] = (art.producto.pais_origen if art.producto else None) or d["pais_origen"]
+        d["pais_origen_pos"] = (producto_de(art).pais_origen if producto_de(art) else None) or d["pais_origen"]
     return d, errores
 
 

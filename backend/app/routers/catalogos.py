@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Body, File, Query, Request, UploadFile
 
+from ..services import cargas
 from ..services import catalogos as svc
-from .base import Clave, Db, User, ejecutar
+from .base import Clave, Db, Formato, User, descarga, ejecutar
 
 router = APIRouter(prefix="/catalogos")
 RESERVADOS = {"q", "orden", "page", "size"}
@@ -12,18 +13,24 @@ def meta(db: Db, user: User):
     return svc.meta(db, user)
 
 
-@router.post("/articulos/importar")
-async def importar_articulos(db: Db, user: User, archivo: UploadFile = File(...)):
-    res = svc.importar_articulos(db, user, archivo.filename or "articulos.csv", await archivo.read())
+@router.post("/{tipo}/importar")
+async def importar(tipo: str, db: Db, user: User, archivo: UploadFile = File(...)):
+    """Artículos (con su ficha técnica), prepacks o cualquier catálogo desde Excel o CSV."""
+    res = cargas.importar_catalogo(db, user, tipo, archivo.filename or "datos.csv", await archivo.read())
     db.commit()
     return res
 
 
-@router.post("/prepacks/importar")
-async def importar_prepacks(db: Db, user: User, archivo: UploadFile = File(...)):
-    res = svc.importar_prepacks(db, user, archivo.filename or "prepacks.csv", await archivo.read())
-    db.commit()
-    return res
+@router.get("/{tipo}/plantilla")
+def plantilla(tipo: str, db: Db, user: User):
+    return descarga(cargas.plantilla_catalogo(db, user, tipo), f"template_{tipo}", "xlsx")
+
+
+@router.get("/{tipo}/exportar")
+def exportar(tipo: str, request: Request, db: Db, user: User, q: str | None = None, orden: str | None = None,
+             formato: Formato = "xlsx"):
+    filtros = {k: v for k, v in request.query_params.items() if k not in RESERVADOS | {"formato"}}
+    return descarga(cargas.exportar_catalogo(db, user, tipo, q, filtros, orden, formato), f"{tipo}", formato)
 
 
 @router.get("/prepacks/{prepack_id}/componentes")

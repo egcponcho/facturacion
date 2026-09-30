@@ -26,7 +26,10 @@ def test_lista_contexto_y_separacion(tnf, vans, interno):
     assert r["kpis"]["total"] >= 7 and r["kpis"]["pendientes"] >= 2 and r["kpis"]["aprobados"] >= 5
     # Cada talla (artículo) pertenece a su producto estilo-color
     old = _producto(interno, "VN000EE3", "BLK Black")
-    assert old["estado"] == "aprobado" and old["codigo"] == "6404.19" and old["skus"] >= 7
+    assert old["estado"] == "aprobado" and old["codigo"] == "6404.19" and old["skus"] >= 6
+    # El prepack no se clasifica: toma el producto (y la partida) de sus sólidos
+    assert old["prepacks"] >= 1
+    assert old["descripcion_comercial"].startswith("Vans Old Skool")
     assert old["paises_ok"] == old["paises_total"] == 6
     # El proveedor solo ve lo suyo y recibe 404 en lo ajeno
     assert all(p["proveedor"] == "Vans" for p in vans.get("/productos", params={"size": 100}).json()["items"])

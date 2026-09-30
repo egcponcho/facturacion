@@ -32,7 +32,7 @@ from .cantidades import (
     totales_pl,
 )
 from .partes import partes
-from .productos import pais_de_centro, partida_para
+from .productos import pais_de_centro, partida_para, producto_de
 from .common import (
     EDITABLE_FACTURA,
     EDITABLE_PL,
@@ -189,7 +189,7 @@ def _preparar_posiciones(
 
 def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int, pais: str | None = None) -> FacturaLinea:
     # Partida, origen y descripción aduanera salen del producto clasificado
-    prod = p.articulo.producto if p.articulo else None
+    prod = producto_de(p.articulo)
     return FacturaLinea(
         posicion_oc_id=p.id,
         cantidad=cantidad,
@@ -228,7 +228,7 @@ def completar_aduana(db: Session, f: Factura) -> None:
         if l.partida_arancelaria and l.pais_origen:
             continue
         a = l.posicion_oc.articulo
-        prod = a.producto if a else None
+        prod = producto_de(a)
         if not prod:
             continue
         if l.centro_destino not in paises:
@@ -544,7 +544,7 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
             if not l.pais_origen:
                 errores.append({"linea_id": l.id, "mensaje": f"{ref}: the country of origin is missing."})
             if not l.partida_arancelaria:
-                prod = l.posicion_oc.articulo.producto if l.posicion_oc.articulo else None
+                prod = producto_de(l.posicion_oc.articulo)
                 if prod and not prod.aprobado:
                     errores.append({"linea_id": l.id, "codigo": "sin_clasificar", "producto_id": prod.id, "mensaje":
                                     f"{ref}: the HS code is missing: product {prod.estilo} {prod.color or ''} is not "
@@ -834,7 +834,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "total": total,
             "pais_origen": l.pais_origen,
             "partida_arancelaria": l.partida_arancelaria,
-            "producto_id": l.posicion_oc.articulo.producto_id if l.posicion_oc.articulo else None,
+            "producto_id": (producto_de(l.posicion_oc.articulo).id if producto_de(l.posicion_oc.articulo) else None),
             "descripcion_comercial": l.descripcion_comercial,
             "en_pl": a,
             "sin_asignar": l.cantidad - a,

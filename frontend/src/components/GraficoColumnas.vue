@@ -21,6 +21,8 @@ onMounted(() => {
 })
 onBeforeUnmount(() => observador?.disconnect())
 const M = { arriba: 16, derecha: 8, abajo: 26, izquierda: 52 }
+// Con muchas columnas se rotula una de cada n para que las etiquetas no se encimen
+const cadaN = computed(() => Math.max(1, Math.ceil(props.datos.length / Math.max(1, Math.floor((ANCHO_REF.value - 60) / 58)))))
 const activo = ref(null)
 
 // Máximo "limpio" para las marcas del eje: 1, 2, 2.5 o 5 × 10^n
@@ -73,7 +75,7 @@ const posTooltip = computed(() => {
       </g>
       <g v-for="(d, i) in props.datos" :key="d.etiqueta">
         <path class="columna" :class="{ apagada: activo !== null && activo !== i }" :d="camino(d, i)" />
-        <text class="eje" :x="centro(i)" :y="ALTO - 8" text-anchor="middle">{{ d.etiqueta }}</text>
+        <text v-if="i % cadaN === 0" class="eje" :x="centro(i)" :y="ALTO - 8" text-anchor="middle">{{ d.etiqueta }}</text>
         <rect class="zona" :x="M.izquierda + banda * i" :y="M.arriba" :width="banda" :height="alto" tabindex="0"
               :aria-label="`${d.etiqueta}: ${props.formato(d.valor)}`" @mouseenter="activo = i" @focus="activo = i" @blur="activo = null" />
       </g>

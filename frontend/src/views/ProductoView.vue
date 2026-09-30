@@ -118,6 +118,7 @@ function cuerpoFicha() {
     codigo_generico: f.generico || '',
     pais_origen: f.origen || '',
     descripcion_aduana: s.descManual ? s.desc || '' : null,
+    descripcion_comercial: s.comManual ? s.descCom || '' : null,
     alertas_ok: f.alertasOk || [],
     resultado: resultadoServidor(r.value),
   }
@@ -358,17 +359,18 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 
         <!-- Tallas y prepacks -->
         <div v-else-if="pestana === 'tallas'">
-          <p class="ayuda mt-chico">Every size and prepack of this style and color shares the technical sheet and the HS code.</p>
+          <p class="ayuda mt-chico">Every size of this style and color shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.</p>
           <div class="tabla-marco mt-chico">
             <table class="tabla">
-              <thead><tr><th>SKU</th><th>UPC</th><th>Size</th><th>Unit</th><th>Description</th><th>Status</th></tr></thead>
+              <thead><tr><th>Item code</th><th>Supplier SKU</th><th>UPC</th><th>Size</th><th>Unit</th><th>Description</th><th>Status</th></tr></thead>
               <tbody>
                 <tr v-for="a in p.articulos" :key="a.id">
                   <td class="fuerte">{{ a.sku }}<span v-if="a.tipo === 'PREPACK'" class="etiqueta acento">Prepack</span></td>
+                  <td>{{ a.sku_proveedor || '—' }}</td>
                   <td>{{ a.upc || '—' }}</td>
                   <td>{{ a.talla || '—' }}</td>
                   <td>{{ a.unidad }}</td>
-                  <td class="apagado">{{ a.descripcion }}</td>
+                  <td class="apagado">{{ p.descripcion_comercial ? `${p.descripcion_comercial}, ${a.tipo === 'PREPACK' ? 'prepack' : 'size'} ${a.talla}` : a.descripcion }}</td>
                   <td><span v-if="a.activo" class="etiqueta ok">Active</span><span v-else class="etiqueta">Inactive</span></td>
                 </tr>
               </tbody>

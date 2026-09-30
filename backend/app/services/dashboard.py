@@ -106,6 +106,88 @@ def _flujo(db: Session, facturas: list[Factura], saldo: dict) -> dict:
     return flujo
 
 
+def _cubetas(desde: date, hasta: date) -> tuple[str, list[tuple[date, date, str]]]:
+    """Agrupa el periodo según su largo: por día (hasta 2 semanas), por
+    semana (hasta ~3 meses) o por mes."""
+    dias = (hasta - desde).days + 1
+    out = []
+    if dias <= 14:
+        d = desde
+        while d <= hasta:
+            out.append((d, d, d.strftime("%b %d")))
+            d += timedelta(days=1)
+        return "dia", out
+    if dias <= 95:
+        d = desde - timedelta(days=desde.weekday())
+        while d <= hasta:
+            fin = d + timedelta(days=6)
+            out.append((max(d, desde), min(fin, hasta), f"{max(d, desde):%b %d}"))
+            d = fin + timedelta(days=1)
+        return "semana", out
+    d = desde.replace(day=1)
+    fmt = "%b" if desde.year == hasta.year else "%b %y"
+    while d <= hasta:
+        sig = (d.replace(day=28) + timedelta(days=4)).replace(day=1)
+        out.append((max(d, desde), min(sig - timedelta(days=1), hasta), d.strftime(fmt)))
+        d = sig
+    return "mes", out
+
+
+def _fecha_factura(f: Factura) -> date | None:
+    return f.fecha or (f.finalizado_en.date() if f.finalizado_en else None)
+
+
+def _serie_facturado(facturas: list[Factura], moneda: str, desde: date, hasta: date, marcas: set | None) -> dict:
+    """Valor facturado (facturas finalizadas) en el periodo, agrupado según su largo."""
+    grano, cubetas = _cubetas(desde, hasta)
+    serie = [{"etiqueta": e, "desde": a, "hasta": b, "importe": 0.0, "facturas": 0} for a, b, e in cubetas]
+    for f in facturas:
+        if f.estado != "FINALIZADA" or f.moneda != moneda:
+            continue
+        fecha = _fecha_factura(f)
+        if not fecha or fecha < desde or fecha > hasta:
+            continue
+        lineas = [l for l in f.lineas if not marcas or (l.marca or "") in marcas]
+        if not lineas:
+            continue
+        c = next((x for x in serie if x["desde"] <= fecha <= x["hasta"]), None)
+        if c:
+            c["importe"] += sum(l.cantidad * l.precio_unitario for l in lineas)
+            c["facturas"] += 1
+    for x in serie:
+        x["importe"] = round(x["importe"], 2)
+    return {"grano": grano, "serie": serie}
+
+
+def _resumen_periodo(db: Session, facturas: list[Factura], moneda: str, desde: date, hasta: date,
+                     prov: int | None, marcas: set | None, interno: bool) -> list[dict]:
+    """Lo que pasó en el periodo elegido (por defecto, el mes en curso)."""
+    fin = [f for f in facturas if f.estado == "FINALIZADA" and (_fecha_factura(f) or date.min) >= desde
+           and (_fecha_factura(f) or date.max) <= hasta]
+    importe = sum(l.cantidad * l.precio_unitario for f in fin if f.moneda == moneda for l in f.lineas
+                  if not marcas or (l.marca or "") in marcas)
+    pls = [pl for f in facturas for pl in f.packing_lists if pl.estado == "FINALIZADO" and pl.actualizado_en
+           and desde <= pl.actualizado_en.date() <= hasta]
+    llegadas = db.scalars(select(Embarque).where(Embarque.eta >= desde, Embarque.eta <= hasta)).all()
+    if prov:
+        llegadas = [e for e in llegadas if any(pl.factura.proveedor_id == prov for u in e.unidades for pl in u.packing_lists)]
+    out = [
+        {"clave": "facturado", "titulo": "Invoiced", "valor": round(importe, 2), "formato": "moneda", "moneda": moneda,
+         "detalle": f"{len(fin)} finalized invoices"},
+        {"clave": "pls", "titulo": "Packing lists finalized", "valor": len(pls),
+         "detalle": f"{sum(totales_pl(pl)['cajas'] for pl in pls):,} cartons"},
+        {"clave": "llegadas", "titulo": "Shipments arriving", "valor": len(llegadas),
+         "detalle": f"{sum(1 for e in llegadas if e.estado in ('ARRIBADO', 'ENTREGADO', 'RECIBIDO'))} already arrived"},
+    ]
+    q = select(Producto).where(Producto.revisado_en.is_not(None))
+    if prov:
+        q = q.where(Producto.proveedor_id == prov)
+    aprobados = [p for p in db.scalars(q) if desde <= p.revisado_en.date() <= hasta]
+    out.append({"clave": "clasificados", "titulo": "Products classified", "valor": len(aprobados),
+                "detalle": "HS codes approved" if interno else "technical sheets approved"})
+    return out
+
+
 def _facturado_por_mes(facturas: list[Factura], moneda: str) -> list[dict]:
     meses = _meses(6)
     res = {m: {"mes": m, "importe": 0.0, "facturas": 0} for m in meses}
@@ -267,8 +349,15 @@ def _por_proveedor(db: Session, facturas: list[Factura], distribucion: dict, sal
     return list(filas.values())
 
 
-def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None) -> dict:
+def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None, desde: date | None = None,
+              hasta: date | None = None, marcas: str | None = None) -> dict:
     prov = proveedor_filtro(user, proveedor_id)
+    hoy = date.today()
+    desde = desde or hoy.replace(day=1)
+    hasta = hasta or hoy
+    if hasta < desde:
+        desde, hasta = hasta, desde
+    filtro_marcas = {m.strip() for m in (marcas or "").split(",") if m.strip()} or None
     interno = es_interno(user)
 
     consulta = select(Factura).where(Factura.estado != "CANCELADA").order_by(Factura.actualizado_en.desc())
@@ -337,6 +426,10 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None) -> di
         "tareas": tareas[:12],
         "flujo": _flujo(db, facturas, saldo),
         "facturado_mes": _facturado_por_mes(facturas, moneda),
+        "periodo": {"desde": desde, "hasta": hasta,
+                    "resumen": _resumen_periodo(db, facturas, moneda, desde, hasta, prov, filtro_marcas, interno),
+                    "facturado": _serie_facturado(facturas, moneda, desde, hasta, filtro_marcas),
+                    "marcas": sorted({l.marca for f in facturas for l in f.lineas if l.marca})},
         "envios": envios,
         "contenedores": _contenedores(db) if interno else [],
         "proveedores": _por_proveedor(db, facturas, distribucion, saldo) if interno and not prov else [],

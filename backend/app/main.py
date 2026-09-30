@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from .config import settings
 from .db import Base, SessionLocal, engine
 from .models import Meta
-from .routers import auth_admin, catalogos, facturas, ordenes, packing, productos, transporte, varios
+from .routers import aranceles, auth_admin, catalogos, facturas, ordenes, packing, productos, transporte, varios
 from .services.common import ErrorNegocio
 
 
@@ -106,7 +106,7 @@ async def _error_validacion(_: Request, exc: RequestValidationError):
         "mensaje": "Check the data you sent.", "codigo": "datos_invalidos", "detalle": detalle})
 
 
-for r in (auth_admin, catalogos, ordenes, facturas, packing, productos, transporte, varios):
+for r in (aranceles, auth_admin, catalogos, ordenes, facturas, packing, productos, transporte, varios):
     app.include_router(r.router, prefix="/api")
 
 

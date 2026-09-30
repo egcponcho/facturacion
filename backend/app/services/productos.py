@@ -28,6 +28,8 @@ from ..models import (
     IncisoNacional,
     Marca,
     Pais,
+    PaisArancel,
+    PartidaSAC,
     PalabraClave,
     PartidaPais,
     Prepack,
@@ -51,15 +53,29 @@ from .common import (
 )
 
 # Países destino y dígitos de su código nacional (Centroamérica y Panamá)
+# Países destino de fábrica; en la base se pueden agregar otros y cambiar sus dígitos
 DESTINOS = [
-    {"iso": "GT", "nombre": "Guatemala", "digitos": 10},
-    {"iso": "SV", "nombre": "El Salvador", "digitos": 10},
-    {"iso": "HN", "nombre": "Honduras", "digitos": 10},
-    {"iso": "NI", "nombre": "Nicaragua", "digitos": 12},
-    {"iso": "CR", "nombre": "Costa Rica", "digitos": 12},
-    {"iso": "PA", "nombre": "Panama", "digitos": 12},
+    {"iso": "GT", "nombre": "Guatemala", "digitos": 10, "mcca": True, "impuesto": "VAT 12%"},
+    {"iso": "SV", "nombre": "El Salvador", "digitos": 10, "mcca": True, "impuesto": "VAT 13%"},
+    {"iso": "HN", "nombre": "Honduras", "digitos": 10, "mcca": True, "impuesto": "Sales tax 15%"},
+    {"iso": "NI", "nombre": "Nicaragua", "digitos": 12, "mcca": True, "impuesto": "VAT 15%"},
+    {"iso": "CR", "nombre": "Costa Rica", "digitos": 12, "mcca": True, "impuesto": "VAT 13%"},
+    {"iso": "PA", "nombre": "Panama", "digitos": 12, "mcca": False, "impuesto": "ITBMS 7%"},
 ]
-DIGITOS = {d["iso"]: d["digitos"] for d in DESTINOS}
+
+
+def destinos(db: Session) -> list[dict]:
+    """Países destino activos con su arancel (de la base)."""
+    filas = db.scalars(select(PaisArancel).where(PaisArancel.activo.is_(True))
+                       .order_by(PaisArancel.orden, PaisArancel.iso)).all()
+    if not filas:
+        return DESTINOS
+    return [{"iso": x.iso, "nombre": x.nombre, "digitos": x.digitos, "mcca": x.mcca, "impuesto": x.impuesto}
+            for x in filas]
+
+
+def digitos_pais(db: Session) -> dict:
+    return {d["iso"]: d["digitos"] for d in destinos(db)}
 ESTADOS = {"borrador": "Draft", "sugerida": "Suggested", "aprobado": "Approved", "corregido": "Corrected",
            "observado": "Returned"}
 APROBADOS = ("aprobado", "corregido")
@@ -83,8 +99,33 @@ def fmt_codigo(c) -> str:
 
 
 # ---- Producto de cada artículo ------------------------------------------------
+def producto_de(a: Articulo | None) -> Producto | None:
+    """Producto que da la clasificación a un artículo. Un prepack no se
+    clasifica: se arma con sólidos y toma la ficha de ellos."""
+    if not a:
+        return None
+    if a.tipo == "PREPACK" and a.prepack:
+        for c in a.prepack.componentes:
+            if c.articulo and c.articulo.producto:
+                return c.articulo.producto
+    return a.producto
+
+
 def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
-    """Liga el artículo con el producto de su estilo-color (lo crea si no existe)."""
+    """Liga el artículo con el producto de su estilo-color (lo crea si no existe).
+    Un prepack no abre producto propio: queda ligado al de sus sólidos."""
+    if a.tipo == "PREPACK":
+        p = producto_de(a) if a.prepack else None
+        if p:
+            a.producto = p
+            return p
+        if a.producto_id or not a.proveedor_id or not a.estilo:
+            return a.producto
+        p = db.scalar(select(Producto).where(Producto.proveedor_id == a.proveedor_id, Producto.estilo == a.estilo,
+                                             Producto.color.is_(None) if a.color is None else Producto.color == a.color))
+        if p:
+            a.producto = p
+        return p
     if not a.proveedor_id or not a.estilo:
         return None
     p = a.producto if a.producto and a.producto.estilo == a.estilo and a.producto.color == a.color \
@@ -173,8 +214,9 @@ def partidas_simples(db: Session, p: Producto, codigo: str) -> dict:
     sub = cb[:6]
     ficha = dict(p.ficha or {}, tipo=p.tipo)
     out = {}
-    incisos = db.scalars(select(IncisoNacional).where(IncisoNacional.sub6 == sub)).all() if len(sub) == 6 else []
-    for d in DESTINOS:
+    incisos = db.scalars(select(IncisoNacional).where(IncisoNacional.sub6 == sub, IncisoNacional.activo.is_(True))).all() \
+        if len(sub) == 6 else []
+    for d in destinos(db):
         iso, n = d["iso"], d["digitos"]
         if len(sub) < 6:
             out[iso] = {"codigo": "", "estado": "sin_codigo"}
@@ -186,7 +228,7 @@ def partidas_simples(db: Session, p: Producto, codigo: str) -> dict:
             if not choca:
                 vivos.append((sc + (x.prio or 0) * 10, len(x.cond or {}), faltan, x))
         if not vivos:
-            out[iso] = {"codigo": cb[:n] if len(cb) >= min(n, 10) and iso in ("GT", "SV", "HN", "NI", "CR") else sub,
+            out[iso] = {"codigo": cb[:n] if len(cb) >= min(n, 10) and d.get("mcca") else sub,
                         "estado": "sac" if len(cb) >= min(n, 10) else ("nuevo" if lista else "sinarancel")}
             continue
         vivos.sort(key=lambda v: (-v[0], -v[1]))
@@ -202,8 +244,7 @@ def partidas_simples(db: Session, p: Producto, codigo: str) -> dict:
 
 def _guardar_partidas(p: Producto, partidas: dict | None) -> None:
     previas = {x.pais: x for x in p.partidas}
-    for d in DESTINOS:
-        iso = d["iso"]
+    for iso in sorted(set(previas) | {k for k in (partidas or {}) if isinstance(k, str) and len(k) == 2}):
         x = (partidas or {}).get(iso)
         if not x or not digitos(x.get("codigo")):
             if iso in previas:
@@ -229,13 +270,14 @@ def _producto(db: Session, user: Usuario, producto_id: int) -> Producto:
     return p
 
 
-def _paises_completos(p: Producto) -> tuple[int, int]:
-    ok = sum(1 for x in p.partidas if x.estado in ("ok", "auto") and len(digitos(x.codigo)) >= DIGITOS.get(x.pais, 10))
-    return ok, len(DESTINOS)
+def _paises_completos(p: Producto, ds: list[dict]) -> tuple[int, int]:
+    dig = {d["iso"]: d["digitos"] for d in ds}
+    ok = sum(1 for x in p.partidas if x.pais in dig and x.estado in ("ok", "auto") and len(digitos(x.codigo)) >= dig[x.pais])
+    return ok, len(ds)
 
 
-def _resumen(p: Producto, tallas: dict) -> dict:
-    ok, total = _paises_completos(p)
+def _resumen(p: Producto, tallas: dict, ds: list[dict]) -> dict:
+    ok, total = _paises_completos(p, ds)
     foto = p.fotos[0].id if p.fotos else None
     t = tallas.get(p.id, {})
     return {
@@ -248,7 +290,8 @@ def _resumen(p: Producto, tallas: dict) -> dict:
         "propuesta": fmt_codigo(p.propuesta) if p.propuesta else None,
         "confianza": p.confianza, "ficha_completa": p.ficha_completa, "faltan": p.faltan or [],
         "paises_ok": ok, "paises_total": total, "foto_id": foto, "pais_origen": p.pais_origen,
-        "tallas": t.get("tallas", []), "skus": t.get("skus", 0), "unidad": t.get("unidad"),
+        "tallas": t.get("tallas", []), "skus": t.get("skus", 0), "prepacks": t.get("prepacks", 0),
+        "unidad": t.get("unidad"), "descripcion_comercial": p.descripcion_comercial,
         "actualizado_en": p.actualizado_en, "version": p.version, "version_ficha": p.version_ficha,
     }
 
@@ -258,7 +301,10 @@ def _tallas(db: Session, ids: list[int]) -> dict:
     if not ids:
         return out
     for a in db.scalars(select(Articulo).where(Articulo.producto_id.in_(ids)).order_by(Articulo.id)):
-        d = out.setdefault(a.producto_id, {"tallas": [], "skus": 0, "unidad": None})
+        d = out.setdefault(a.producto_id, {"tallas": [], "skus": 0, "prepacks": 0, "unidad": None})
+        if a.tipo == "PREPACK":
+            d["prepacks"] += 1
+            continue
         d["skus"] += 1
         if a.tipo == "SOLIDO" and a.talla:
             d["tallas"].append(a.talla)
@@ -277,11 +323,12 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     if prov:
         base = base.where(Producto.proveedor_id == prov)
     if filtros.get("marca_id"):
-        base = base.where(Producto.marca_id == filtros["marca_id"])
+        ids = [int(x) for x in str(filtros["marca_id"]).split(",") if x.strip().isdigit()]
+        base = base.where(Producto.marca_id.in_(ids))
     if filtros.get("grupo_id"):
         base = base.where(Producto.grupo_id == filtros["grupo_id"])
     if filtros.get("tipo"):
-        base = base.where(Producto.tipo == filtros["tipo"])
+        base = base.where(Producto.tipo.in_(str(filtros["tipo"]).split(",")))
     if filtros.get("q"):
         patron = f"%{filtros['q'].strip()}%"
         skus = select(Articulo.producto_id).where(or_(Articulo.sku.ilike(patron), Articulo.upc.ilike(patron)))
@@ -312,7 +359,8 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
         "observado": conteo.get("observado", 0),
         "aprobados": sum(conteo.get(e, 0) for e in APROBADOS),
     }
-    return {"items": [_resumen(p, tallas) for p in filas], "total": total, "page": page, "size": size, "kpis": kpis}
+    ds = destinos(db)
+    return {"items": [_resumen(p, tallas, ds) for p in filas], "total": total, "page": page, "size": size, "kpis": kpis}
 
 
 def _historial(db: Session, p: Producto) -> list[dict]:
@@ -328,7 +376,9 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
     arts = db.scalars(select(Articulo).where(Articulo.producto_id == p.id).order_by(Articulo.tipo.desc(), Articulo.id)).all()
     pps = db.scalars(select(Prepack).where(Prepack.estilo == p.estilo, Prepack.color == p.color)).all()
     sku_pp = {a.prepack_id: a for a in arts if a.prepack_id}
-    r = _resumen(p, _tallas(db, [p.id]))
+    ds = destinos(db)
+    dig = {d["iso"]: d["digitos"] for d in ds}
+    r = _resumen(p, _tallas(db, [p.id]), ds)
     r.update({
         "ficha": p.ficha or {}, "descripcion_aduana": p.descripcion_aduana, "pais_procedencia": p.pais_procedencia,
         "marca_id": p.marca_id, "grupo_id": p.grupo_id,
@@ -337,13 +387,13 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
         "revisado_por": p.revisado_por.nombre if p.revisado_por else None, "revisado_en": p.revisado_en,
         "vigente_desde": p.vigente_desde, "creado_en": p.creado_en,
         "partidas": {x.pais: {"codigo": x.codigo, "dai": x.dai or "", "estado": x.estado, "fuente": x.fuente,
-                              "manual": x.manual, "digitos": DIGITOS.get(x.pais, 10)} for x in p.partidas},
+                              "manual": x.manual, "digitos": dig.get(x.pais, 10)} for x in p.partidas},
         "fotos": [{"id": f.id, "nombre": f.nombre} for f in p.fotos],
         "versiones": [{"version": v.version, "desde": v.desde, "hasta": v.hasta, "motivo": v.motivo,
                        "codigo": fmt_codigo(v.datos.get("codigo")) if v.datos.get("codigo") else None,
                        "estado": v.datos.get("estado"), "tipo": v.datos.get("tipo"), "cerrado_en": v.cerrado_en}
                       for v in reversed(p.versiones)],
-        "articulos": [{"id": a.id, "sku": a.sku, "upc": a.upc, "talla": a.talla, "unidad": a.unidad, "tipo": a.tipo,
+        "articulos": [{"id": a.id, "sku": a.sku, "sku_proveedor": a.sku_proveedor, "upc": a.upc, "talla": a.talla, "unidad": a.unidad, "tipo": a.tipo,
                        "descripcion": a.descripcion, "activo": a.activo, "prepack_id": a.prepack_id} for a in arts],
         "prepacks": [{"id": x.id, "codigo": x.codigo, "descripcion": x.descripcion, "total": x.total,
                       "sku": sku_pp[x.id].sku if x.id in sku_pp else None,
@@ -373,7 +423,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
                      "tsMod": int(p.actualizado_en.timestamp() * 1000) if p.actualizado_en else 0})
     incisos = [{"id": x.id, "pais": x.pais, "codigo": x.codigo, "cond": x.cond or {}, "prio": x.prio,
                 "dai": x.dai or "", "descripcion": x.descripcion, "nota": x.nota, "fuente": x.fuente}
-               for x in db.scalars(select(IncisoNacional))]
+               for x in db.scalars(select(IncisoNacional).where(IncisoNacional.activo.is_(True)))]
     marcas = [{"nombre": m.nombre, "codigo": m.codigo, "activa": m.activa} for m in db.scalars(select(Marca))]
     provs = []
     for pr in db.scalars(select(Proveedor)):
@@ -381,8 +431,10 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
             continue
         provs.append({"nombre": pr.nombre, "marcas": [m.nombre for m in pr.marcas]})
     return {
-        "destinos": DESTINOS, "pais_base": settings.PAIS_BASE_CLASIF, "obligatorios": OBLIGATORIOS,
-        "recs": recs, "incisos": incisos, "marcas": marcas, "proveedores": provs,
+        "destinos": destinos(db), "pais_base": settings.PAIS_BASE_CLASIF, "obligatorios": OBLIGATORIOS,
+        "recs": recs, "incisos": incisos,
+        "sac": [{"codigo": x.codigo, "descripcion": x.descripcion}
+                for x in db.scalars(select(PartidaSAC).where(PartidaSAC.fuente != "base", PartidaSAC.activo.is_(True)))], "marcas": marcas, "proveedores": provs,
         "palabras": [{"id": x.id, "frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})}
                      for x in db.scalars(select(PalabraClave))],
         "sinonimos": [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))],
@@ -409,6 +461,8 @@ def _aplicar_resultado(p: Producto, r: dict | None) -> None:
                                         "razones_regla", "codigo_regla", "atributos", "tipo_txt") if r.get(k) is not None}
     if r.get("descripcion_aduana") is not None and not (p.ficha or {}).get("descManual"):
         p.descripcion_aduana = str(r["descripcion_aduana"])[:400] or None
+    if r.get("descripcion_comercial") is not None and not (p.ficha or {}).get("comManual"):
+        p.descripcion_comercial = str(r["descripcion_comercial"])[:300] or None
     p.ficha_completa = bool(r.get("completa"))
     p.faltan = [str(x)[:120] for x in (r.get("faltan") or [])][:20]
     if p.estado not in APROBADOS:
@@ -435,6 +489,8 @@ def guardar_ficha(db: Session, user: Usuario, producto_id: int, datos) -> dict:
         p.pais_procedencia = (datos.pais_procedencia or "").upper()[:2] or None
     if datos.descripcion_aduana is not None and (p.ficha or {}).get("descManual"):
         p.descripcion_aduana = datos.descripcion_aduana.strip()[:400] or None
+    if datos.descripcion_comercial is not None and (p.ficha or {}).get("comManual"):
+        p.descripcion_comercial = datos.descripcion_comercial.strip()[:300] or None
     p.alertas_ok = list(datos.alertas_ok or [])[:100]
     devuelto = p.estado == "observado"
     _aplicar_resultado(p, datos.resultado)
@@ -456,6 +512,13 @@ def clasificar_lote(db: Session, user: Usuario, items: list) -> dict:
             omitidos.append({"id": p.id, "mensaje": f"{p.estilo} is already approved."})
             continue
         antes = p.estado
+        if it.ficha is not None:
+            # Solo completa: lo que la ficha ya tenía no cambia
+            p.ficha = {**it.ficha, **{k: v for k, v in (p.ficha or {}).items() if v not in (None, "", [], {})}}
+            if it.ficha.get("comp"):
+                p.ficha["comp"] = {**it.ficha["comp"], **((p.ficha or {}).get("comp") or {})}
+        if it.tipo and not p.tipo:
+            p.tipo = it.tipo[:30]
         _aplicar_resultado(p, it.resultado)
         tocar(p)
         registrar(db, user, "producto", p.id, "clasificado", {"estado": [antes, p.estado],
@@ -631,11 +694,12 @@ def obtener_foto(db: Session, user: Usuario, foto_id: int) -> ProductoFoto:
 def ensenar_inciso(db: Session, user: Usuario, datos) -> dict:
     exigir(user, "producto.clasificar")
     pais = (datos.pais or "").upper()
-    if pais not in DIGITOS:
+    dig = digitos_pais(db)
+    if pais not in dig:
         raise ErrorNegocio("Choose a destination country.", 422, "validacion")
     cod = digitos(datos.codigo)
-    if len(cod) != DIGITOS[pais]:
-        raise ErrorNegocio(f"{pais} uses {DIGITOS[pais]}-digit codes; you entered {len(cod)}.", 422, "validacion")
+    if len(cod) != dig[pais]:
+        raise ErrorNegocio(f"{pais} uses {dig[pais]}-digit codes; you entered {len(cod)}.", 422, "validacion")
     cond = {k: v for k, v in (datos.cond or {}).items() if v not in (None, "")}
     ya = db.scalar(select(IncisoNacional).where(IncisoNacional.pais == pais, IncisoNacional.codigo == cod))
     if ya and (ya.cond or {}) == cond:
@@ -689,7 +753,14 @@ def ensenar_sinonimo(db: Session, user: Usuario, datos) -> dict:
 
 # ---- Base de códigos nacionales -------------------------------------------------
 def cargar_incisos_base(db: Session) -> int:
-    """Códigos nacionales conocidos de Centroamérica y Panamá (base ADOC 2026)."""
+    """Países destino, subpartidas SAC con su texto y códigos nacionales
+    conocidos de Centroamérica y Panamá (base ADOC 2026)."""
+    for i, d in enumerate(DESTINOS):
+        db.add(PaisArancel(iso=d["iso"], nombre=d["nombre"], digitos=d["digitos"], mcca=d["mcca"],
+                           impuesto=d["impuesto"], orden=i))
+    carpeta = Path(__file__).resolve().parent.parent / "data"
+    for x in json.loads((carpeta / "sac_base.json").read_text(encoding="utf-8")):
+        db.add(PartidaSAC(codigo=x["codigo"], descripcion=x["descripcion"][:400], fuente="base"))
     ruta = Path(__file__).resolve().parent.parent / "data" / "incisos_base.json"
     datos = json.loads(ruta.read_text(encoding="utf-8"))
     for x in datos:

@@ -10,6 +10,9 @@ import TableroOrdenes from '../components/TableroOrdenes.vue'
 import { esInterno, sesion } from '../stores/sesion'
 import { fmtFecha } from '../utils'
 
+// Filtros de varios valores: se guardan como texto separado por comas
+const lst = (v) => (v ? String(v).split(',').filter(Boolean) : [])
+
 // Tres tableros sin repetir información:
 //  - Órdenes de compra: liberaciones y avance; cada OC se abre en su detalle
 //    por SKU (etapa, factura/PL, embarque y unidad, llegada vs. tienda).
@@ -61,7 +64,8 @@ const activos = computed(() => FILTROS.filter((k) => k !== 'q' && filtros[k]).ma
   if (k === 'riesgo') texto = RIESGOS[filtros[k]] || texto
   if (k === 'estado') texto = [...ESTADOS_EMB, ...ESTADOS_OC].find(([v]) => v === filtros[k])?.[1] || texto
   if (k === 'xf_vencida') texto = 'yes'
-  if (k === 'embarque_id') texto = opciones.value.embarques?.find((e) => String(e.id) === String(filtros[k]))?.codigo || texto
+  if (k === 'embarque_id') texto = lst(filtros[k]).map((id) => opciones.value.embarques?.find((e) => String(e.id) === id)?.codigo || id).join(', ')
+  else if (!k.endsWith('_desde') && !k.endsWith('_hasta')) texto = String(texto).split(',').join(', ')
   if (k.endsWith('_desde') || k.endsWith('_hasta')) texto = fmtFecha(texto)
   return { k, texto: `${NOMBRES[k]}: ${texto}` }
 }))
@@ -137,25 +141,25 @@ function buscar() {
     <select v-model="filtros.etapa" aria-label="Goods stage" @change="aplicar">
       <option value="">Stage: all</option><option v-for="[v, t] in ETAPAS" :key="v" :value="v">{{ t }}</option>
     </select>
-    <SelectBusqueda v-model="filtros.marca" :opciones="opciones.marcas || []" vacio="Brand: all" etiqueta="Brand" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.grupo" :opciones="opciones.grupos || []" vacio="Group: all" etiqueta="Item group" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.estilo" :opciones="opciones.estilos || []" vacio="Style: all" etiqueta="Style" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.color" :opciones="opciones.colores || []" vacio="Color: all" etiqueta="Color" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.contenedor" :opciones="opciones.contenedores || []" vacio="Load unit: all" etiqueta="Container, air waybill or truck" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.documento" :opciones="opciones.documentos || []" vacio="B/L / AWB: all" etiqueta="Transport document" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.marca)" @update:model-value="(v) => (filtros.marca = v.join(','))" :opciones="opciones.marcas || []" vacio="Brand: all" etiqueta="Brand" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.grupo)" @update:model-value="(v) => (filtros.grupo = v.join(','))" :opciones="opciones.grupos || []" vacio="Group: all" etiqueta="Item group" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.estilo)" @update:model-value="(v) => (filtros.estilo = v.join(','))" :opciones="opciones.estilos || []" vacio="Style: all" etiqueta="Style" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.color)" @update:model-value="(v) => (filtros.color = v.join(','))" :opciones="opciones.colores || []" vacio="Color: all" etiqueta="Color" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.contenedor)" @update:model-value="(v) => (filtros.contenedor = v.join(','))" :opciones="opciones.contenedores || []" vacio="Load unit: all" etiqueta="Container, air waybill or truck" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.documento)" @update:model-value="(v) => (filtros.documento = v.join(','))" :opciones="opciones.documentos || []" vacio="B/L / AWB: all" etiqueta="Transport document" @change="aplicar" />
     <button type="button" class="btn btn-fantasma btn-chico" :aria-expanded="masFiltros" @click="masFiltros = !masFiltros">
       <Icono nombre="filtro" :tam="14" />{{ masFiltros ? 'Fewer filters' : 'More filters' }}
     </button>
   </div>
   <div v-if="masFiltros" class="filtros filtros-extra">
-    <SelectBusqueda v-model="filtros.talla" :opciones="opciones.tallas || []" vacio="Size: all" etiqueta="Size" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.sku" :opciones="opciones.skus || []" vacio="SKU: all" etiqueta="Item code" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.almacen" :opciones="opciones.almacenes || []" vacio="Warehouse: all" etiqueta="Warehouse" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.embarque_id" :opciones="(opciones.embarques || []).map((e) => ({ valor: String(e.id), texto: e.codigo }))"
+    <SelectBusqueda multiple :model-value="lst(filtros.talla)" @update:model-value="(v) => (filtros.talla = v.join(','))" :opciones="opciones.tallas || []" vacio="Size: all" etiqueta="Size" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.sku)" @update:model-value="(v) => (filtros.sku = v.join(','))" :opciones="opciones.skus || []" vacio="SKU: all" etiqueta="Item code" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.almacen)" @update:model-value="(v) => (filtros.almacen = v.join(','))" :opciones="opciones.almacenes || []" vacio="Warehouse: all" etiqueta="Warehouse" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.embarque_id)" @update:model-value="(v) => (filtros.embarque_id = v.join(','))" :opciones="(opciones.embarques || []).map((e) => ({ valor: String(e.id), texto: e.codigo }))"
                     vacio="Shipment: all" etiqueta="Shipment" @change="aplicar" />
-    <SelectBusqueda v-if="esInterno()" v-model="filtros.proveedor" :opciones="opciones.proveedores || []" vacio="Supplier: all" etiqueta="Supplier" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.sociedad" :opciones="opciones.sociedades || []" vacio="Company: all" etiqueta="Company" @change="aplicar" />
-    <SelectBusqueda v-model="filtros.centro" :opciones="opciones.centros || []" vacio="Plant: all" etiqueta="Plant" @change="aplicar" />
+    <SelectBusqueda v-if="esInterno()" multiple :model-value="lst(filtros.proveedor)" @update:model-value="(v) => (filtros.proveedor = v.join(','))" :opciones="opciones.proveedores || []" vacio="Supplier: all" etiqueta="Supplier" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.sociedad)" @update:model-value="(v) => (filtros.sociedad = v.join(','))" :opciones="opciones.sociedades || []" vacio="Company: all" etiqueta="Company" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.centro)" @update:model-value="(v) => (filtros.centro = v.join(','))" :opciones="opciones.centros || []" vacio="Plant: all" etiqueta="Plant" @change="aplicar" />
     <select v-model="filtros.riesgo" aria-label="Risk" @change="aplicar">
       <option value="">In-store arrival: all</option>
       <option v-for="(r, k) in RIESGOS" :key="k" :value="k">{{ r }}</option>

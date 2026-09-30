@@ -90,12 +90,13 @@ The demo data already has history: invoices from past months, a received contain
 | SKU, style, color, size / prepack ID, description | PO number and line, company, plant, storage location |
 | Brand, group (category → packing rule), supplier | Destination center (country), port of loading, countries of origin and shipment |
 | Type (solid or prepack), unit of measure (PAR, UN, CJ) | Quantity, unit price, currency, incoterm |
-| UPC | XF dates, in-store date, commercial and logistics release |
+| Item code (11 digits starting with 3) and supplier SKU | XF dates, in-store date, commercial and logistics release |
+| UPC | |
 | Prepack breakdown (sizes per master carton) | **Casepack** and **inner pack** (the purchase packing) |
 
 The item has no casepack: it is set on each PO line, because the same item can be bought in different packs. In *Purchase orders* the line table groups the columns as “Item · master data” and “PO line · purchase data”, and the internal team can edit a line's casepack and inner pack while it is not invoiced.
 
-The HS code and the country of origin are not item fields any more: they belong to the **product** (next section), shared by all its sizes.
+The HS code, the country of origin, the product type and the description are not typed on the item: they come from the **product's technical sheet** (next section), shared by all its sizes. The item group sets the packing rule; it does not define the product type.
 
 ## Products: technical sheet and tariff classification
 
@@ -107,7 +108,28 @@ A **product** is a style and color of one supplier. Its sizes (SKUs, each with i
 - **Flow**: the supplier completes the sheet → *To review* → the internal team **approves** (or chooses another code) or **returns** it with notes. Approved sheets are locked; a change opens a **new version**, and the previous one stays in the history with its code and dates.
 - **Where it is used**: each PO line shows the code for its destination country; invoice lines take the code, origin and customs description from the approved sheet (they are not typed on the invoice). An invoice cannot be finalized while a product is not classified; the message links to its sheet.
 - **Specialist opinion (optional)**: with `ANTHROPIC_API_KEY`, the internal team can ask Claude for a second opinion with the sheet and up to two photos. It never approves anything.
+- **Two descriptions**, both built from the sheet and editable: the technical one in Spanish for the invoice and the DUCA, and the commercial one used for every size (item code) of the product.
+- **Prepacks are not classified**: they are built from solids and take the product and HS code of their solids.
 - The sheet downloads as **PDF**, and the product list as Excel or PDF.
+
+## Tariff schedule
+
+*Products → Tariff schedule* (internal team) shows and edits everything the engine uses:
+
+- **Countries**: each destination with the digits of its national code (GT/SV/HN 10, NI/CR/PA 12 by default), whether it belongs to the Central American Common Market and its tax. New countries can be added; an inactive country is no longer asked for in the sheets.
+- **SAC headings and subheadings** (4 and 6 digits) with their official text, editable.
+- **National codes** of every country with their duty and the conditions that select them (gender, age, CIF value, use, footwear style…). Filter by one or several countries, chapters and sources, edit inline, delete in bulk, and export to Excel or PDF with the filters applied.
+- **Upload from Excel**: a template per country with the conditions as drop-down columns; a file can update codes or replace a country's whole tariff.
+
+## Bulk uploads and exports
+
+- **Items with their technical sheet** (*Master data → Items* or *Products*): an Excel template with the item columns (item code, supplier SKU, UPC, style, color, size, brand, group, supplier, unit) and the sheet columns (name, category, gender, age, use, sizes, origin, composition by part and the features that change the code). After the upload, the engine completes each product and suggests its HS code automatically.
+- **Every master-data catalog** (brands, groups, suppliers, companies, plants, contacts, warehouses, carriers, unit types, countries, ports) has its own Excel template, upload (creates or updates by code) and Excel/PDF export with the filters of the screen.
+- **Reports** follow the filters selected on screen; the dimension filters accept one or several values.
+
+## Dashboard periods
+
+The dashboard shows *In the period* (invoiced value, packing lists finalized, shipments arriving, products classified) and the invoiced chart for the selected period — this month by default — with quick choices (this week, this month, last month, this quarter, this year, 12 months, custom). The chart groups by day, week or month depending on the length, and it can be filtered by brand.
 
 ## Packing rules
 
@@ -241,7 +263,7 @@ backend/app/
   models.py          data model
   services/          business logic (quantities, invoices, packing, transport, import, access, SMS, suggestions,
                      products and classification, specialist opinion)
-  data/              base of national tariff codes by country
+  data/              base of national tariff codes, SAC texts and the engine vocabulary
   routers/           REST endpoints under /api
 backend/tests/       full flow, packing rules, secure access and concurrency
 frontend/src/

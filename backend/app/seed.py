@@ -259,7 +259,8 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
         for talla in tallas:
             sku = str(siguiente)
             siguiente += 1
-            a = Articulo(sku=sku, upc=f"0196{siguiente % 10**8:08d}", estilo=estilo, color=color, talla=talla,
+            a = Articulo(sku=sku, sku_proveedor=_sku_proveedor(estilo, color, talla), upc=f"0196{siguiente % 10**8:08d}",
+                         estilo=estilo, color=color, talla=talla,
                          descripcion=desc, marca_id=cat["marcas"][marca].id, grupo_id=cat["grupos"][grupo].id,
                          proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO")
             a.precio_demo = precio
@@ -277,7 +278,8 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
             pp.componentes.append(PrepackComponente(articulo_id=arts[(estilo, color, talla)].id, cantidad=cant))
         db.add(pp)
         db.flush()
-        a = Articulo(sku=str(siguiente), estilo=estilo, color=color, talla=codigo,
+        a = Articulo(sku=str(siguiente), sku_proveedor=_sku_proveedor(estilo, color, codigo), estilo=estilo, color=color,
+                     talla=codigo,
                      descripcion=f"{base.descripcion}, prepack {codigo}", marca_id=base.marca_id,
                      grupo_id=base.grupo_id, proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK",
                      prepack_id=pp.id)
@@ -291,6 +293,25 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
         arts[(estilo, color, codigo)] = a
     _productos(db, arts)
     return arts
+
+
+# Descripción comercial que arma el motor con la ficha (la misma que se ve en pantalla)
+COMERCIAL = {
+    ("NF0A5GLL", "JK3 TNF Black"): "The North Face Men's Antora rain jacket · Men's jacket, 100% nylon, woven",
+    ("NF0A5GLL", "Summit blue"): "The North Face Men's Antora rain jacket · Men's jacket, woven",
+    ("NF0A7W4G", "KX7 Black"): "The North Face Men's Vectiv trail running shoe · Men's athletic sneaker, textile upper, rubber sole",
+    ("NF0A3VY2", "JK3 TNF Black"): "The North Face Borealis backpack 28 L · Unisex backpack, 100% polyester",
+    ("NF0A5IHO", "Heather grey"): "The North Face Glacier half-zip fleece · Unisex sweatshirt, 100% polyester, knit",
+    ("VN000EE3", "BLK Black"): "Vans Old Skool · Unisex casual sneaker, canvas upper, rubber sole",
+    ("VN0A4BV4", "White"): "Vans Authentic · Unisex casual sneaker, canvas upper, rubber sole",
+}
+
+
+def _sku_proveedor(estilo: str, color: str, talla: str) -> str:
+    """SKU del proveedor: estilo + código de color + talla (distinto del código de artículo)."""
+    primera = (color or "").split()[0] if color else ""
+    cod = primera.upper() if len(primera) <= 3 else primera[:3].upper()
+    return f"{estilo}{cod}-{talla}".replace(" ", "")
 
 
 def _productos(db, arts) -> None:
@@ -307,6 +328,7 @@ def _productos(db, arts) -> None:
         p.nombre, p.tipo, p.ficha = x["nombre"], x["tipo"], x["ficha"]
         p.pais_origen = p.pais_procedencia = a.origen_demo
         p.descripcion_aduana = x.get("desc")
+        p.descripcion_comercial = COMERCIAL.get((estilo, color))
         p.faltan = x.get("faltan", [])
         p.ficha_completa = not p.faltan
         p.observaciones = x.get("observaciones")

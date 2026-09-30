@@ -360,6 +360,7 @@ class ResultadoMotor(BaseModel):
     faltantes: list[str] = Field(default_factory=list, max_length=20)
     alertas: list[dict] = Field(default_factory=list, max_length=60)
     descripcion_aduana: str | None = Field(None, max_length=400)
+    descripcion_comercial: str | None = Field(None, max_length=300)
     completa: bool = False
     faltan: list[str] = Field(default_factory=list, max_length=30)
     partidas: dict | None = None
@@ -377,6 +378,7 @@ class FichaIn(BaseModel):
     pais_origen: str | None = Field(None, max_length=2)
     pais_procedencia: str | None = Field(None, max_length=2)
     descripcion_aduana: str | None = Field(None, max_length=400)
+    descripcion_comercial: str | None = Field(None, max_length=300)
     notas: str | None = Field(None, max_length=1000)
     alertas_ok: list[str] = Field(default_factory=list, max_length=100)
     resultado: ResultadoMotor | None = None
@@ -385,6 +387,9 @@ class FichaIn(BaseModel):
 class ClasificarItem(BaseModel):
     id: int
     resultado: ResultadoMotor
+    # Ficha completada por el motor (atributos deducidos en una carga masiva)
+    tipo: str | None = Field(None, max_length=30)
+    ficha: dict | None = None
 
 
 class ClasificarLote(BaseModel):
@@ -446,3 +451,35 @@ class AnalizarIn(BaseModel):
     parecidos: list[str] = Field(default_factory=list, max_length=10)
     campos: str | None = Field(None, max_length=6000)
     con_fotos: bool = True
+
+
+class PaisArancelIn(BaseModel):
+    iso: str = Field(max_length=2)
+    nombre: str = Field(min_length=2, max_length=80)
+    digitos: int = Field(ge=6, le=14)
+    mcca: bool = False
+    impuesto: str | None = Field(None, max_length=60)
+    nota: str | None = Field(None, max_length=300)
+    activo: bool = True
+
+
+class PartidaSACIn(BaseModel):
+    codigo: str = Field(max_length=10)
+    descripcion: str = Field(max_length=400)
+    nota: str | None = Field(None, max_length=300)
+    activo: bool = True
+
+
+class IncisoEditIn(BaseModel):
+    pais: str = Field(max_length=2)
+    codigo: str = Field(max_length=20)
+    descripcion: str | None = Field(None, max_length=300)
+    dai: str | None = Field(None, max_length=10)
+    cond: dict = Field(default_factory=dict)
+    prio: int = Field(0, ge=0, le=99)
+    nota: str | None = Field(None, max_length=300)
+    activo: bool = True
+
+
+class IdsIn(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=5000)

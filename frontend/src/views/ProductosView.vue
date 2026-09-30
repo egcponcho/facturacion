@@ -3,7 +3,9 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
+import CargaArticulos from '../components/CargaArticulos.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import FiltroMulti from '../components/FiltroMulti.vue'
 import Icono from '../components/Icono.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
@@ -21,7 +23,8 @@ const interno = esInterno()
 const filtros = reactive({
   estado: route.query.estado ?? (interno ? 'sugerida' : 'pendientes'),
   q: route.query.q || '',
-  marca_id: '',
+  marcas: [],
+  tipos: [],
   orden: '',
   page: 1,
   size: 25,
@@ -31,6 +34,7 @@ const opciones = ref({ marcas: [] })
 const cargando = ref(false)
 const ocupado = ref(false)
 const sel = useSeleccion()
+const cargaAbierta = ref(false)
 
 // Pocas vistas, en el orden en que se trabaja
 const VISTAS = computed(() => {
@@ -44,10 +48,12 @@ const VISTAS = computed(() => {
   ]
 })
 
+const consulta = () => ({ estado: filtros.estado, q: filtros.q, orden: filtros.orden, marca_id: filtros.marcas.join(','), tipo: filtros.tipos.join(',') })
+
 async function cargar() {
   cargando.value = true
   try {
-    datos.value = await api.get('/productos', { ...filtros, proveedor_id: sesion.proveedorId })
+    datos.value = await api.get('/productos', { ...consulta(), page: filtros.page, size: filtros.size, proveedor_id: sesion.proveedorId })
     sel.podar(datos.value.items.map((p) => p.id))
     router.replace({ query: { estado: filtros.estado, ...(filtros.q && { q: filtros.q }) } })
   } catch (e) {
@@ -106,7 +112,7 @@ async function aprobar() {
 
 async function exportar(formato) {
   try {
-    await api.descargar('/productos/exportar', `products.${formato}`, { ...filtros, page: undefined, size: undefined, formato, proveedor_id: sesion.proveedorId })
+    await api.descargar('/productos/exportar', `products.${formato}`, { ...consulta(), formato, proveedor_id: sesion.proveedorId })
   } catch (e) {
     errorApi(e)
   }
@@ -132,6 +138,10 @@ watch(() => sesion.proveedorId, recargar)
 <template>
   <div class="pagina-cabeza">
     <div>
+      <div class="pestanas-pildora sub-mod">
+        <span class="pildora" aria-current="page" aria-pressed="true">Products</span>
+        <router-link to="/aranceles" class="pildora">Tariff schedule</router-link>
+      </div>
       <h1>Products</h1>
       <p v-if="interno">Technical sheets and tariff classification. Approved HS codes flow to purchase orders and invoices for each destination country.</p>
       <p v-else>Complete the technical sheet of each product. Customs uses it to classify it; the approved code appears on your orders and invoices.</p>
@@ -139,6 +149,7 @@ watch(() => sesion.proveedorId, recargar)
     <div class="acciones">
       <button class="btn btn-fantasma" @click="exportar('xlsx')"><Icono nombre="descargar" />Excel</button>
       <button class="btn btn-fantasma" @click="exportar('pdf')"><Icono nombre="descargar" />PDF</button>
+      <button v-if="puede('catalogos.editar')" class="btn" @click="cargaAbierta = true"><Icono nombre="importar" />Upload items and sheets</button>
     </div>
   </div>
 
@@ -153,10 +164,8 @@ watch(() => sesion.proveedorId, recargar)
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" placeholder="Style, color, name, SKU, UPC or HS code" aria-label="Search" @input="buscar" />
     </label>
-    <select v-model="filtros.marca_id" aria-label="Brand" @change="recargar">
-      <option value="">All brands</option>
-      <option v-for="m in opciones.marcas" :key="m.id" :value="m.id">{{ m.nombre }}</option>
-    </select>
+    <FiltroMulti v-model="filtros.marcas" etiqueta="Brand" :opciones="opciones.marcas.map((m) => ({ valor: String(m.id), texto: m.nombre }))" @change="recargar" />
+    <FiltroMulti v-model="filtros.tipos" etiqueta="Category" :opciones="Object.entries(M.TIPO_CORTO).map(([valor, texto]) => ({ valor, texto }))" @change="recargar" />
     <span class="ayuda separar">{{ datos.total }} products</span>
   </div>
 
@@ -218,6 +227,7 @@ watch(() => sesion.proveedorId, recargar)
   </div>
   <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
 
+  <CargaArticulos v-if="cargaAbierta" @cerrar="cargaAbierta = false" @listo="cargar" />
   <BarraSeleccion :cantidad="sel.ids.size" singular="product" plural="products" @limpiar="sel.limpiar()">
     <template #resumen>
       <template v-if="interno && porAprobar.length">{{ porAprobar.length }} ready to approve</template>
@@ -231,6 +241,8 @@ watch(() => sesion.proveedorId, recargar)
 <style scoped>
 .producto-celda { display: flex; align-items: center; gap: 10px; }
 .miniatura { width: 38px; height: 38px; border-radius: 8px; background: var(--superficie-2); border: 1px solid var(--linea); display: grid; place-items: center; color: var(--tinta-3); overflow: hidden; flex: none; }
+.sub-mod { margin-bottom: 10px; }
+.sub-mod .pildora { text-decoration: none; }
 .recortar { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .miniatura img { width: 100%; height: 100%; object-fit: cover; }
 </style>

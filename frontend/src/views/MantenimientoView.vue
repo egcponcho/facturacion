@@ -2,7 +2,10 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
+import BotonesExportar from '../components/BotonesExportar.vue'
 import CargaArchivo from '../components/CargaArchivo.vue'
+import CargaArticulos from '../components/CargaArticulos.vue'
+import CargaMasiva from '../components/CargaMasiva.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import ExplosionPrepack from '../components/ExplosionPrepack.vue'
@@ -270,14 +273,13 @@ onMounted(async () => {
   <div class="pagina-cabeza">
     <div>
       <h1>Master data</h1>
-      <p>Master data used across the system: it validates the PO upload, defines the packing rules and feeds the filters. Item data (style, color, size, brand, UoM, HS code, origin) lives here; purchase data (quantity, price, casepack, inner pack) comes with each PO line.</p>
+      <p>Master data used across the system: it validates the PO upload, defines the packing rules and feeds the filters. Every catalog can be edited here, loaded from Excel and exported with the filters you apply. The technical sheet, description and HS code of each item live in Products.</p>
     </div>
     <div class="acciones">
+      <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="{ q: filtros.q, orden: filtros.orden, ...filtros.extra }" />
+      <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />Template</a>
+      <button v-if="cat" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tipo === 'articulos' ? 'Upload items and sheets' : tipo === 'prepacks' ? 'Upload size runs' : 'Upload Excel' }}</button>
       <button v-if="cat" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />New {{ cat.singular }}</button>
-      <template v-if="tipo === 'articulos' || tipo === 'prepacks'">
-        <a class="btn" :href="tipo === 'articulos' ? '/plantilla_articulos.csv' : '/plantilla_prepacks.csv'" download><Icono nombre="descargar" />Template</a>
-        <button class="btn" @click="abrirCarga"><Icono nombre="importar" />Upload {{ tipo === 'articulos' ? 'items' : 'size runs' }}</button>
-      </template>
     </div>
   </div>
 
@@ -299,7 +301,7 @@ onMounted(async () => {
           <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
                           :vacio="`${c.etiqueta}: all`" :etiqueta="c.etiqueta" @change="filtros.page = 1; cargar()" />
           <select v-else v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
-            <option :value="undefined">{{ c.etiqueta }}: todos</option>
+            <option :value="undefined">{{ c.etiqueta }}: all</option>
             <template v-if="c.tipo === 'bool'"><option value="true">{{ c.etiqueta }}: yes</option><option value="false">{{ c.etiqueta }}: no</option></template>
             <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ t }}</option></template>
           </select>
@@ -311,7 +313,7 @@ onMounted(async () => {
             <tr>
               <ThOrden v-for="c in columnas" :key="c.nombre" :campo="c.nombre" :orden="filtros.orden" :num="c.tipo === 'entero'" @ordenar="ordenar">{{ c.etiqueta }}</ThOrden>
               <th v-for="ex in extras" :key="ex.nombre">{{ ex.etiqueta }}</th>
-              <th v-if="tipo === 'articulos'" title="The technical sheet and the HS code belong to the style and color">Sheet · HS code</th>
+              <th v-if="tipo === 'articulos'" title="The technical sheet, description and HS code belong to the style and color">HS code · description</th>
               <th v-if="tipo === 'prepacks'">Item code</th>
               <th v-if="tipo === 'prepacks'" class="num">Per carton</th>
               <th></th>
@@ -337,6 +339,7 @@ onMounted(async () => {
                   <template v-else>{{ ESTADO_FICHA[fila.clasificacion] || 'Open sheet' }}</template>
                 </router-link>
                 <span v-else class="apagado">—</span>
+                <span v-if="fila.descripcion" class="sub" style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis" :title="fila.descripcion">{{ fila.descripcion }}</span>
               </td>
               <td v-if="tipo === 'prepacks'" class="codigo fuerte">{{ fila.sku || '—' }}</td>
               <td v-if="tipo === 'prepacks'" class="num">{{ fila.total }} <span class="sub">{{ fila.componentes }} tallas</span></td>
@@ -435,9 +438,11 @@ onMounted(async () => {
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'carga'" :titulo="tipo === 'articulos' ? 'Upload items' : 'Upload size runs (prepacks)'" ancho="680px" @cerrar="modal = null">
-    <p class="ayuda" v-if="tipo === 'articulos'">One row per item number (SKU). If it exists it is updated. Brand, group and supplier are given by code. Only solids here; prepacks are uploaded in the Prepacks tab with their breakdown. The casepack is not item data: it comes with each PO line.</p>
-    <p class="ayuda" v-else>One row per size of the breakdown: sku_prepack (item code of the prepack), prepack_id (e.g. AB12), description, solid SKU and quantity. Style and color come from the solids, which must share style and color. It creates the prepack and its item; an existing prepack is never changed.</p>
+  <CargaArticulos v-if="modal?.tipo === 'carga' && tipo === 'articulos'" @cerrar="modal = null" @listo="cargarMeta(); cargar()" />
+  <CargaMasiva v-else-if="modal?.tipo === 'carga' && tipo !== 'prepacks'" :titulo="`Upload ${cat.titulo.toLowerCase()}`" :ruta="`/catalogos/${tipo}/importar`"
+               :plantilla="`/catalogos/${tipo}/plantilla`" :ayuda="cat.ayuda" @cerrar="modal = null" @cargado="cargarMeta(); cargar()" />
+  <Modal v-else-if="modal?.tipo === 'carga'" titulo="Upload size runs (prepacks)" ancho="680px" @cerrar="modal = null">
+    <p class="ayuda">One row per size of the breakdown: sku_prepack (item code of the prepack), prepack_id (e.g. AB12), description, solid SKU and quantity. Style and color come from the solids, which must share style and color. It creates the prepack and its item; an existing prepack is never changed.</p>
     <CargaArchivo v-model="modal.archivo" />
     <template v-if="modal.resultado">
       <div class="nota ok"><Icono nombre="check" />{{ modal.resultado.creados }} created and {{ modal.resultado.actualizados }} updated.</div>
