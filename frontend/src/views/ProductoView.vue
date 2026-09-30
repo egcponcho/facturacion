@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { api } from '../api'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import FichaTecnica from '../components/ficha/FichaTecnica.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import { M, calcular, cargarContexto, fichaDe, fichaParaGuardar, resultadoServidor } from '../clasificacion/useClasificacion'
@@ -27,6 +28,7 @@ const codOficial = ref('')
 const otroCodigo = ref('')
 const modal = ref(null)
 const verRazones = ref(false)
+const cargas = ref(0) // vuelve a montar el formulario tras guardar
 
 const aprobado = computed(() => ['aprobado', 'corregido'].includes(p.value?.estado))
 const puedeEditar = computed(() => !!p.value && !aprobado.value && puede('producto.ficha'))
@@ -42,12 +44,17 @@ function tomar(det) {
   for (const k of Object.keys(f)) delete f[k]
   Object.assign(f, fichaDe(det))
   codOficial.value = ''
+  cargas.value++
   base.value = instantanea()
 }
 function instantanea() {
   return JSON.stringify([fichaParaGuardar(f), f.tipo, f.descArchivo, f.generico, f.origen, f.alertasOk, f.partidas])
 }
 const sucio = computed(() => !!p.value && instantanea() !== base.value)
+
+async function recargarContexto() {
+  ctx.value = await cargarContexto(true)
+}
 
 async function cargar() {
   try {
@@ -60,58 +67,6 @@ async function cargar() {
     if (e.status === 404) router.replace('/productos')
   }
 }
-
-// ---- Formulario ----------------------------------------------------------
-const GENEROS = [['M', 'Men'], ['F', 'Women'], ['U', 'Unisex']]
-const EDADES = [['adulto', 'Adult'], ['nino', 'Child or youth'], ['bebe', 'Baby']]
-const pideGenero = computed(() => ['prenda', 'calzado', 'gorra'].includes(M.grupoTipo(f.tipo)))
-const partes = computed(() => (f.tipo ? M.partesDe(f.tipo, r.value?.s || f) : []))
-const principales = computed(() => M.partesPrincipales(f.tipo))
-const atributos = computed(() => {
-  if (!r.value || !f.tipo) return []
-  const s = r.value.s
-  return M.ATTRS.filter((a) => !['genero', 'edad'].includes(a.id))
-    .map((a) => ({ a, est: M.estadoAttr(a, s), ops: a.ops ? M.opcionesValidas(a, s) : [] }))
-    .filter((x) => x.est !== 'oculto')
-})
-
-function elegirAttr(a, v) {
-  f[a.id] = v
-  M.aplicarImplica(f, a.id, v)
-}
-function elegirEdad(v) {
-  f.edadNac = v
-  f.edad = v === 'bebe' ? 'bebe' : 'general'
-}
-function elegirTipo(t) {
-  f.tipo = t
-}
-function totalParte(parte) {
-  const v = String(f.comp?.[parte] || '').trim()
-  return v && /%/.test(v) ? M.totalTexto(v) : null
-}
-
-// Completa los campos vacíos leyendo el nombre, el uso y la composición
-function detectar() {
-  const d = M.detectarFicha({ ...f, estilo: f.descArchivo || f.estilo }, ctx.value.palabras)
-  let n = 0
-  for (const [k, v] of Object.entries(d)) {
-    if (k.startsWith('_') || v === undefined || v === null || v === '') continue
-    if (k === 'comp') continue
-    if (f[k] === undefined || f[k] === '' || f[k] === null) {
-      f[k] = v
-      n++
-    }
-  }
-  avisar(n ? `Filled ${n} ${n === 1 ? 'field' : 'fields'} from the product name and description.` : 'Nothing new to fill: the fields already have data.', n ? 'ok' : 'info')
-}
-
-// Preguntas que solo necesitan algunos países para su código nacional
-const preguntasNac = computed(() => {
-  if (!r.value) return []
-  const ids = new Set(Object.values(r.value.partidas).flatMap((x) => x.pedir || []))
-  return M.NAC_PREG.filter((q) => ids.has(q.id))
-})
 
 // ---- Clasificación -------------------------------------------------------
 const alertas = computed(() => (r.value ? M.alertasVivas(r.value.o.alertas || [], f.alertasOk) : []))
@@ -398,124 +353,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </div>
 
         <!-- Ficha técnica -->
-        <fieldset v-if="pestana === 'ficha'" class="ficha" :disabled="!puedeEditar">
-          <section class="panel">
-            <div class="panel-cabeza">
-              <div><h2>Product</h2><p>What it is, who it is for and where it is made.</p></div>
-              <button v-if="puedeEditar" type="button" class="btn btn-chico" title="Fill the empty fields from the name, use and composition" @click="detectar"><Icono nombre="varita" />Fill from name</button>
-            </div>
-            <div class="rejilla-campos">
-              <label class="campo ancho-2"><span>Commercial name</span><input v-model="f.descArchivo" class="entrada" maxlength="200" placeholder="E.g. Old Skool canvas sneaker" /></label>
-              <label class="campo"><span>Generic code</span><input v-model="f.generico" class="entrada" maxlength="20" /></label>
-              <label class="campo ancho-2"><span class="req">Product type</span>
-                <select class="entrada" :value="f.tipo" @change="elegirTipo($event.target.value)">
-                  <option value="">Choose…</option>
-                  <optgroup v-for="[grupo, tipos] in M.TIPOS" :key="grupo" :label="grupo">
-                    <option v-for="[k, l] in tipos" :key="k" :value="k">{{ l }}</option>
-                  </optgroup>
-                </select>
-              </label>
-              <label class="campo"><span class="req">Country of origin</span>
-                <select v-model="f.origen" class="entrada">
-                  <option value="">Choose…</option>
-                  <option v-for="x in opciones.paises" :key="x.codigo" :value="x.codigo">{{ x.nombre }}</option>
-                </select>
-              </label>
-              <div v-if="pideGenero" class="campo"><span class="req">Gender</span>
-                <div class="segmentos">
-                  <button v-for="[v, t] in GENEROS" :key="v" type="button" class="segmento" :aria-pressed="f.genero === v" @click="f.genero = v">{{ t }}</button>
-                </div>
-              </div>
-              <div class="campo"><span class="req">Who it is for</span>
-                <div class="segmentos">
-                  <button v-for="[v, t] in EDADES" :key="v" type="button" class="segmento" :aria-pressed="M.edadDe(f) === v" @click="elegirEdad(v)">{{ t }}</button>
-                </div>
-              </div>
-              <label class="campo ancho-2"><span>What it is for</span><input v-model="f.uso" class="entrada" maxlength="200" placeholder="E.g. casual everyday sneaker" /></label>
-              <label class="campo"><span>Size range</span><input v-model="f.tallas" class="entrada" maxlength="60" :placeholder="p.tallas.length ? `${p.tallas[0]} to ${p.tallas.at(-1)}` : 'E.g. S to XL'" /></label>
-            </div>
-          </section>
-
-          <section v-if="f.tipo" class="panel">
-            <div class="panel-cabeza"><div><h2>Composition</h2><p>Percentages by weight for each part, as on the care label.</p></div></div>
-            <div class="rejilla-campos composicion">
-              <label v-for="parte in partes" :key="parte" class="campo">
-                <span :class="{ req: principales.includes(parte) }">{{ M.PARTE_LBL[parte] }}
-                  <span v-if="totalParte(parte) !== null" class="etiqueta" :class="Math.abs(totalParte(parte) - 100) < 0.1 ? 'ok' : 'aviso'">{{ totalParte(parte) }}%</span></span>
-                <input class="entrada" :value="f.comp?.[parte] || ''" :placeholder="M.PARTE_PH[parte]" maxlength="300"
-                       @input="f.comp = { ...f.comp, [parte]: $event.target.value }" />
-              </label>
-            </div>
-          </section>
-
-          <section v-if="atributos.length" class="panel">
-            <div class="panel-cabeza"><div><h2>Features</h2><p>Only what changes the tariff code is asked.</p></div></div>
-            <div class="atributos">
-              <template v-for="{ a, est, ops } in atributos" :key="a.id">
-                <div v-if="est === 'definido'" class="atributo definido">
-                  <span class="atributo-nombre">{{ a.label }}</span>
-                  <span><Icono nombre="check" :tam="13" /> {{ M.opcionLbl(a.id, r.s[a.id]) }} <span class="apagado">· {{ M.motivoDefinido(a, r.s) === 'composition' ? 'from the composition' : 'set by the other data' }}</span></span>
-                </div>
-                <label v-else-if="a.tipo === 'check'" class="atributo check">
-                  <input type="checkbox" :checked="!!f[a.id]" @change="elegirAttr(a, $event.target.checked)" /><span>{{ a.label }}</span>
-                </label>
-                <div v-else-if="a.tipo === 'select' || ops.length > 4" class="atributo">
-                  <span class="atributo-nombre">{{ a.label }}</span>
-                  <select class="entrada" :value="f[a.id] || ''" @change="elegirAttr(a, $event.target.value)">
-                    <option value="">Choose…</option>
-                    <option v-for="o in ops" :key="o.v" :value="o.v">{{ o.l }}</option>
-                  </select>
-                </div>
-                <div v-else class="atributo">
-                  <span class="atributo-nombre">{{ a.label }}<small v-if="a.ayuda" class="ayuda"> · {{ a.ayuda }}</small></span>
-                  <div class="segmentos">
-                    <button v-for="o in ops" :key="o.v" type="button" class="segmento" :aria-pressed="f[a.id] === o.v" @click="elegirAttr(a, o.v)">{{ o.l }}</button>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </section>
-
-          <section v-if="preguntasNac.length && !aprobado" class="panel">
-            <div class="panel-cabeza"><div><h2>For national codes</h2><p>Some countries split this subheading further.</p></div></div>
-            <div class="rejilla-campos">
-              <template v-for="q in preguntasNac" :key="q.id">
-                <label v-if="q.tipo === 'num'" class="campo"><span>{{ q.label }}</span><input v-model="f[q.id]" type="number" min="0" step="0.01" class="entrada" /></label>
-                <div v-else-if="q.tipo === 'sino'" class="campo"><span>{{ q.label }}</span>
-                  <div class="segmentos"><button type="button" class="segmento" :aria-pressed="f[q.id] === true" @click="f[q.id] = true">Yes</button><button type="button" class="segmento" :aria-pressed="f[q.id] === false" @click="f[q.id] = false">No</button></div>
-                </div>
-                <div v-else-if="q.ops" class="campo ancho-2"><span>{{ q.label }}</span>
-                  <div class="segmentos"><button v-for="[v, t] in q.ops" :key="v" type="button" class="segmento" :aria-pressed="f[q.id] === v" @click="q.id === 'edadNac' ? elegirEdad(v) : (f[q.id] = v)">{{ t }}</button></div>
-                </div>
-                <div v-else-if="M.ATTR_BY[q.id]" class="campo ancho-2"><span>{{ q.label }}</span>
-                  <div class="segmentos"><button v-for="o in M.ATTR_BY[q.id].ops" :key="o.v" type="button" class="segmento" :aria-pressed="f[q.id] === o.v" @click="f[q.id] = o.v">{{ o.l }}</button></div>
-                </div>
-              </template>
-            </div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-cabeza"><div><h2>Photos</h2><p>Front, side and sole or label. They help to confirm the materials.</p></div>
-              <label v-if="puedeEditar && p.fotos.length < 8" class="btn btn-chico"><Icono nombre="importar" />Add photo
-                <input type="file" accept="image/jpeg,image/png,image/webp" class="oculto-visual" @change="subirFoto" /></label>
-            </div>
-            <div v-if="p.fotos.length" class="fotos">
-              <figure v-for="x in p.fotos" :key="x.id" class="foto">
-                <a :href="`/api/productos/fotos/${x.id}`" target="_blank" rel="noopener"><img :src="`/api/productos/fotos/${x.id}`" :alt="x.nombre" loading="lazy" /></a>
-                <button v-if="puedeEditar" type="button" class="btn-icono" :aria-label="`Remove ${x.nombre}`" @click="borrarFoto(x)"><Icono nombre="basura" :tam="15" /></button>
-              </figure>
-            </div>
-            <p v-else class="apagado">No photos yet.</p>
-          </section>
-
-          <section class="panel">
-            <div class="panel-cabeza"><div><h2>Customs description</h2><p>In Spanish, as it goes on the invoice and the DUCA. Built from the sheet.</p></div>
-              <label v-if="puedeEditar" class="check"><input type="checkbox" :checked="!!f.descManual" @change="f.descManual = $event.target.checked; if (f.descManual && !f.desc) f.desc = r.desc" /><span>Write it by hand</span></label>
-            </div>
-            <textarea v-if="f.descManual" v-model="f.desc" class="entrada" rows="2" maxlength="400"></textarea>
-            <p v-else class="desc-aduana">{{ (aprobado ? p.descripcion_aduana : r?.desc) || 'Choose the product type and complete the data.' }}</p>
-          </section>
-        </fieldset>
+        <FichaTecnica v-if="pestana === 'ficha'" :key="`${p.id}-${p.version_ficha}-${cargas}`" :f="f" :r="r" :ctx="ctx" :producto="p" :paises="opciones.paises"
+                      :editable="puedeEditar" @subir-foto="subirFoto" @borrar-foto="borrarFoto" @contexto="recargarContexto" />
 
         <!-- Tallas y prepacks -->
         <div v-else-if="pestana === 'tallas'">
