@@ -59,6 +59,22 @@ def esta_liberada(comercial: str, logistica: str) -> bool:
     return comercial == "C" and logistica in ("300", "301")
 
 
+def fechar_liberaciones(oc: OrdenCompra, hoy: date | None = None) -> None:
+    """Fecha de cada liberación para medir los lead times: se guarda el día en
+    que la OC quedó liberada (o la del archivo) y se borra si se revierte."""
+    hoy = hoy or date.today()
+    if oc.liberacion_comercial == "C":
+        oc.fecha_lib_comercial = oc.fecha_lib_comercial or hoy
+    else:
+        oc.fecha_lib_comercial = None
+    if oc.liberacion_logistica in ("300", "301"):
+        oc.fecha_lib_logistica = oc.fecha_lib_logistica or hoy
+        if oc.fecha_lib_comercial and oc.fecha_lib_logistica < oc.fecha_lib_comercial:
+            oc.fecha_lib_logistica = oc.fecha_lib_comercial
+    else:
+        oc.fecha_lib_logistica = None
+
+
 # ---- Vista general de OCs ---------------------------------------------------
 ORDEN_OC = {"numero", "fecha", "fecha_xf", "fecha_tienda", "importe", "avance", "proveedor"}
 
@@ -270,6 +286,8 @@ def _cabecera_oc(oc: OrdenCompra) -> dict:
         "fecha_tienda": oc.fecha_tienda,
         "liberacion_comercial": oc.liberacion_comercial,
         "liberacion_logistica": oc.liberacion_logistica,
+        "fecha_lib_comercial": oc.fecha_lib_comercial,
+        "fecha_lib_logistica": oc.fecha_lib_logistica,
         "liberacion_txt": LIBERACION_TXT.get(oc.liberacion_logistica),
         "comercial_txt": COMERCIAL_TXT.get(oc.liberacion_comercial),
         "liberada": oc.liberada,
@@ -401,6 +419,8 @@ ALIAS = {
     "liberacion_comercial": ["commercial_release", "liberacion_comercial", "lib_comercial", "liberada",
                              "estado_liberacion"],
     "liberacion_logistica": ["logistics_release", "liberacion_logistica", "lib_logistica"],
+    "fecha_lib_comercial": ["commercial_release_date", "fecha_liberacion_comercial", "fecha_lib_comercial"],
+    "fecha_lib_logistica": ["logistics_release_date", "fecha_liberacion_logistica", "fecha_lib_logistica"],
     "codigo_sap": ["sku", "sap_code", "material", "item_code", "codigo_sap", "sap", "codigo"],
     "cantidad": ["quantity", "qty", "cantidad"],
     "unidad": ["uom", "unit", "um", "unidad"],
@@ -588,7 +608,8 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
     d["unidad"] = unidad
     for campo, destino in (("fecha_oc", "fecha"), ("fecha_entrega", "fecha_entrega"),
                            ("fecha_xf_original", "fecha_xf_original"), ("fecha_xf", "fecha_xf"),
-                           ("fecha_tienda", "fecha_tienda")):
+                           ("fecha_tienda", "fecha_tienda"), ("fecha_lib_comercial", "fecha_lib_comercial"),
+                           ("fecha_lib_logistica", "fecha_lib_logistica")):
         try:
             d[destino] = _fecha(r.get(campo, ""))
         except ValueError as e:
@@ -807,6 +828,10 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
         info["cambios"] = info["cambios"] or (c["estado"] == "cambio")
         for campo in CAMPOS_CABECERA:
             setattr(oc, campo, d.get(campo))
+        # Fechas de liberación: las del archivo si vienen; si no, el día en que se liberó
+        for campo in ("fecha_lib_comercial", "fecha_lib_logistica"):
+            if d.get(campo):
+                setattr(oc, campo, d[campo])
         oc.actualizado_en = ahora()
         db.flush()
         pos = db.scalar(select(PosicionOC).where(PosicionOC.oc_id == oc.id, PosicionOC.posicion == d["posicion"]))
@@ -821,6 +846,7 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
         oc.liberacion_logistica = liberacion_logistica(oc.liberacion_comercial, info["explicita"], info["actual"],
                                                        info["cambios"])
         oc.liberada = esta_liberada(oc.liberacion_comercial, oc.liberacion_logistica)
+        fechar_liberaciones(oc)
     resultado = {"resumen": _resumen(clasificadas), "aplicadas": aplicadas}
     imp.estado = "APLICADA"
     imp.resultado = resultado

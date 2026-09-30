@@ -25,6 +25,7 @@ from ..models import (
     PrepackComponente,
     Proveedor,
     Puerto,
+    RegionLeadTime,
     Sociedad,
     TipoUnidad,
     Transportista,
@@ -124,6 +125,26 @@ CATALOGOS = {
             c("codigo", "ISO code", obligatorio=True, max=2, mayus=True, patron=r"^[A-Z]{2}$",
               mensaje_patron="Use the 2-letter ISO code."),
             c("nombre", "Name", obligatorio=True),
+            c("region", "Lead time region", "codigo", catalogo="regiones", filtro=True,
+              ayuda="Origin region whose lead time targets apply (e.g. ASIA). Empty = the default region."),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre"],
+    },
+    "regiones": {
+        "modelo": RegionLeadTime, "titulo": "Lead time targets", "singular": "region",
+        "ayuda": "Targets per origin region. Logistics must release each PO this many days before its XF; after "
+                 "the port arrival the goods need the days to the warehouse, the warehouse entry and the re-export "
+                 "to the store (re-export is not tracked yet). Arrival later than the in-store date minus those days is late.",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=10, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("dias_liberacion", "Release before XF (days)", "entero", obligatorio=True),
+            c("dias_transito", "XF to port arrival (days)", "entero", obligatorio=True),
+            c("dias_puerto_bodega", "Port to warehouse (days)", "entero", obligatorio=True),
+            c("dias_ingreso", "Warehouse entry (days)", "entero", obligatorio=True),
+            c("dias_reexportacion", "Re-export to store (days)", "entero", obligatorio=True),
+            c("predeterminada", "Default for other origins", "bool"),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
@@ -265,7 +286,7 @@ CATALOGOS = {
     },
 }
 ORDEN_CATALOGOS = ["articulos", "prepacks", "marcas", "grupos", "proveedores", "sociedades", "centros",
-                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos"]
+                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
 

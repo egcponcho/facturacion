@@ -87,7 +87,7 @@ onMounted(cargar)
     <Kpi titulo="XF overdue, not invoiced" :valor="datos.kpis.xf_vencida" icono="reloj" :tono="datos.kpis.xf_vencida ? 'alerta' : 'exito'"
          detalle="the XF date has passed" @abrir="emit('filtrar', { xf_vencida: '1' })" />
     <Kpi titulo="Late for the store" :valor="datos.kpis.atraso" icono="alerta" :tono="datos.kpis.atraso ? 'alerta' : 'exito'"
-         detalle="by ETA or without shipment" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
+         detalle="port arrival after the port deadline" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
   </section>
 
   <section class="panel" style="margin-bottom: 16px">
@@ -116,7 +116,7 @@ onMounted(cargar)
           <ThOrden campo="por_facturar" :orden="tabla.orden" num @ordenar="ordenar">To invoice</ThOrden>
           <ThOrden campo="fecha_xf" :orden="tabla.orden" @ordenar="ordenar">XF</ThOrden>
           <ThOrden campo="fecha_tienda" :orden="tabla.orden" @ordenar="ordenar">In store</ThOrden>
-          <ThOrden campo="holgura" :orden="tabla.orden" @ordenar="ordenar">Vs. store</ThOrden>
+          <ThOrden campo="holgura" :orden="tabla.orden" title="Port arrival against the port deadline: the in-store date minus the days to the warehouse, the warehouse entry and the re-export of its origin" @ordenar="ordenar">Vs. port deadline</ThOrden>
           <th>Shipments</th>
         </tr>
       </thead>
@@ -163,7 +163,7 @@ onMounted(cargar)
                 <table class="tabla">
                   <thead>
                     <tr><th>Line</th><th>SKU</th><th>Brand · style · color</th><th>Size</th><th>Warehouse</th><th class="num">Quantity</th>
-                      <th>Stage</th><th>Invoice / PL</th><th>Shipment · unit</th><th>Arrival</th><th>Vs. store</th></tr>
+                      <th>Stage</th><th>Invoice / PL</th><th>Shipment · unit</th><th>Arrival</th><th title="Port arrival against the port deadline (in-store date minus warehouse, entry and re-export days)">Vs. port deadline</th></tr>
                   </thead>
                   <tbody>
                     <tr v-if="!detalles[o.oc_id].length"><td colspan="11" class="vacio">No lines match these filters.</td></tr>

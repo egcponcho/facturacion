@@ -30,6 +30,7 @@ from .models import (
     PrepackComponente,
     Proveedor,
     Puerto,
+    RegionLeadTime,
     Sociedad,
     TipoUnidad,
     Transportista,
@@ -52,6 +53,8 @@ PAISES = [
     ("IN", "India"), ("SV", "El Salvador"), ("PA", "Panama"), ("GT", "Guatemala"), ("HN", "Honduras"),
     ("CR", "Costa Rica"), ("NI", "Nicaragua"), ("US", "United States"), ("MX", "Mexico"), ("BR", "Brazil"),
 ]
+REGION_PAIS = {**dict.fromkeys(["VN", "CN", "ID", "KH", "BD", "IN"], "ASIA"),
+               **dict.fromkeys(["SV", "PA", "GT", "HN", "CR", "NI"], "CAM")}
 # Sociedades de cada país: código, nombre, razón social, NIT/RUC, país, dirección, correos de facturación
 SOCIEDADES = [
     ("8000", "El Salvador Operations", "Distribuidora de Marcas, S.A. de C.V.", "0614-010190-101-2", "SV",
@@ -217,7 +220,15 @@ def _momento(d: date, hora: int = 10) -> datetime:
 
 
 def _catalogos(db: Session) -> dict:
-    db.add_all([Pais(codigo=c, nombre=n) for c, n in PAISES])
+    db.add_all([
+        RegionLeadTime(codigo="ASIA", nombre="Asia", dias_liberacion=21, dias_transito=35, dias_puerto_bodega=3,
+                       dias_ingreso=2, dias_reexportacion=5),
+        RegionLeadTime(codigo="CAM", nombre="Central America", dias_liberacion=15, dias_transito=5,
+                       dias_puerto_bodega=1, dias_ingreso=2, dias_reexportacion=3),
+        RegionLeadTime(codigo="OTROS", nombre="Other origins", dias_liberacion=15, dias_transito=14,
+                       dias_puerto_bodega=2, dias_ingreso=2, dias_reexportacion=4, predeterminada=True),
+    ])
+    db.add_all([Pais(codigo=c, nombre=n, region=REGION_PAIS.get(c)) for c, n in PAISES])
     socs = {c: Sociedad(codigo=c, nombre=n, razon_social=r, id_fiscal=nit, pais=pais, moneda="USD", direccion=dir_,
                         correos=correos)
             for c, n, r, nit, pais, dir_, correos in SOCIEDADES}
@@ -351,14 +362,20 @@ def _productos(db, arts) -> None:
 
 
 def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", almacen="BF19", destino="2220",
-        puerto="VNSGN", origen="VN", xf=None, xf_nueva=None, tienda=None, comercial="C", logistica="300"):
+        puerto="VNSGN", origen="VN", xf=None, xf_nueva=None, tienda=None, comercial="C", logistica="300",
+        lib_antes=24):
     """lineas: [(estilo, color, [(talla, cantidad), ...], almacén opcional)]; posiciones de 10 en 10.
+    lib_antes: días antes de la XF en que logística liberó la OC (Asia pide 21).
     Cada posición puede ir a un almacén distinto dentro de la misma sociedad y centro."""
     oc = OrdenCompra(proveedor_id=prov.id, numero=numero, sociedad=sociedad, centro=centro,
                      centro_destino=destino, moneda="USD", incoterm="FOB", fecha=fecha, puerto_despacho=puerto,
                      pais_origen=origen, pais_procedencia=origen, fecha_xf_original=xf, fecha_xf=xf_nueva or xf,
                      fecha_tienda=tienda, liberacion_comercial=comercial, liberacion_logistica=logistica,
                      liberada=comercial == "C" and logistica in ("300", "301"))
+    if comercial == "C":
+        oc.fecha_lib_comercial = min(fecha + timedelta(days=3), date.today())
+        if logistica in ("300", "301") and oc.fecha_xf:
+            oc.fecha_lib_logistica = min(max(oc.fecha_xf - timedelta(days=lib_antes), oc.fecha_lib_comercial), date.today())
     db.add(oc)
     pos = 10
     for estilo, color, tallas, *alm in lineas:
@@ -459,8 +476,15 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
         (tnf, "4400003704", 20, [("NF0A5IHO", "Heather grey", [("S", 30), ("M", 30)])], "TNF-2026-0915", 6, None, None),
     ]
     for prov, numero, dias_oc, lineas, factura, dias_factura, unidad, recoleccion in historicas:
-        oc = _oc(db, prov, arts, numero, d(dias_oc), lineas, xf=d(dias_factura - 2), tienda=d(dias_factura - 60),
-                 puerto="CNYTN" if unidad is c2 else "VNCMT")
+        # Algunas liberaciones logísticas tarde (Asia pide 21 días antes de la XF)
+        lib_antes = {"4400003702": 16, "4400003752": 12, "4400003703": 23}.get(numero, 26)
+        # XF poco antes de la recolección; OC creada ~80 días antes de la XF; fecha en tienda
+        # según la llegada de su contenedor (unas a tiempo, una tarde)
+        xf = d(recoleccion + 2) if recoleccion else d(dias_factura - 2)
+        tienda = {"4400003701": d(40), "4400003702": d(50), "4400003751": d(35), "4400003703": d(-25),
+                  "4400003752": d(-35)}.get(numero, d(dias_factura - 60))
+        oc = _oc(db, prov, arts, numero, min(d(dias_oc), xf - timedelta(days=80)), lineas, xf=xf, tienda=tienda,
+                 puerto="CNYTN" if unidad is c2 else "VNCMT", origen="CN" if unidad is c2 else "VN", lib_antes=lib_antes)
         usuario = u_tnf if prov is tnf else u_vans
         f = _factura_historica(db, usuario, oc, factura, d(dias_factura), plantillas, unidad,
                                d(recoleccion) if recoleccion else None, pallet=factura == "VN-88177")
@@ -517,13 +541,14 @@ def seed(db: Session) -> None:
         ("NF0A5IHO", "Heather grey", [("S", 30), ("M", 30), ("L", 30)]),
     ], puerto="CNYTN", origen="ID", xf=d(18), tienda=d(80))
     _oc(db, tnf, arts, "4400003850", d(-8), [("NF0A5GLL", "Summit blue", [("M", 30), ("L", 30)])],
-        sociedad="PA01", centro="PA10", almacen="BF01", destino="5910", puerto="VNCMT", xf=d(20), tienda=d(70))
+        sociedad="PA01", centro="PA10", almacen="BF01", destino="5910", puerto="SVAQJ", origen="SV", xf=d(20),
+        tienda=d(70), lib_antes=18)
     _oc(db, tnf, arts, "4400003851", d(-2), [("NF0A5IHO", "Heather grey", [("S", 20), ("M", 20)])],
         origen="KH", puerto="KHKOS", xf=d(35), tienda=d(100), comercial="P", logistica="304")
     _oc(db, vans, arts, "4400003901", d(-15), [
         ("VN000EE3", "BLK Black", [("7", 36), ("8", 48), ("9", 60)], "BF19"),
         ("VN000EE3", "BLK Black", [("10", 48), ("11", 24)]),
-    ], centro="8020", almacen="BF20", xf=d(12), tienda=d(60))
+    ], centro="8020", almacen="BF20", xf=d(12), tienda=d(60), lib_antes=10)
     _oc(db, vans, arts, "4400003902", d(-5), [("VN0A4BV4", "White", [("7", 24), ("8", 24), ("9", 24), ("10", 24)])],
         centro="8020", almacen="BF20", puerto="CNSHA", origen="CN", xf=d(25), xf_nueva=d(22), tienda=d(90),
         logistica="301")

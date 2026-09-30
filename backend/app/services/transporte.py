@@ -18,6 +18,7 @@ from ..models import (
 )
 from .cantidades import nombre_factura, totales_pl
 from .common import ErrorNegocio, exigir, registrar, requerir_motivo
+from .leadtimes import Estandares, limite_puerto
 from .partes import partes
 
 ESTADO_POR_EVENTO = {
@@ -102,16 +103,21 @@ def resumen_unidad(u: UnidadCarga) -> dict:
         alertas.append(f"The volume exceeds the nominal capacity ({pct_cbm}%).")
     if pct_kg and pct_kg > 100:
         alertas.append(f"The weight exceeds the nominal capacity ({pct_kg}%).")
-    tiendas = [pl_linea.factura_linea.posicion_oc.oc.fecha_tienda for pl in pls for pl_linea in pl.lineas
-               if pl_linea.factura_linea.posicion_oc.oc.fecha_tienda]
+    ocs = {pl_linea.factura_linea.posicion_oc.oc for pl in pls for pl_linea in pl.lineas}
+    tiendas = [o.fecha_tienda for o in ocs if o.fecha_tienda]
     llegada = u.embarque.arribo_real or u.embarque.eta
     tienda = min(tiendas) if tiendas else None
+    # Fecha límite de arribo: la fecha en tienda menos puerto→bodega, ingreso y reexportación de su origen
+    ests = Estandares(object_session(u)) if ocs else None
+    limites = [limite_puerto(o.fecha_tienda, ests.de(o.pais_origen)) for o in ocs if o.fecha_tienda]
+    limite = min(limites) if limites else None
     return {
         "id": u.id,
         "embarque_id": u.embarque_id,
         "fecha_tienda": tienda,
-        # Días entre la llegada (real o estimada) y la primera fecha requerida en tienda
-        "holgura_dias": (tienda - llegada).days if tienda and llegada else None,
+        "limite_puerto": limite,
+        # Días entre la llegada al puerto (real o estimada) y la fecha límite de arribo
+        "holgura_dias": (limite - llegada).days if limite and llegada else None,
         "marcas": sorted({pl_linea.factura_linea.marca for pl in pls for pl_linea in pl.lineas
                           if pl_linea.factura_linea.marca}),
         "recolectados": sum(1 for pl in pls if pl.recolectado_en),

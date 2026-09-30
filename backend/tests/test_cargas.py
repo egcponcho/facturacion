@@ -1,6 +1,7 @@
 """Cargas masivas: artículos con su ficha técnica y cualquier catálogo de
 datos maestros desde Excel; exportación con filtros."""
 import io
+from datetime import date, timedelta
 
 from openpyxl import Workbook, load_workbook
 
@@ -186,3 +187,33 @@ def test_genericos_compacto_y_edicion(interno):
     arts = interno.get("/catalogos/articulos", params={"q": "30095126", "size": 50}).json()["items"]
     assert arts and all(a["grupo_id"] == otro for a in arts)
     assert interno.put("/catalogos/genericos/30095126", json=datos).status_code == 200
+
+
+def test_leadtimes_por_origen(interno):
+    r = interno.get("/seguimiento/leadtimes", params={"size": 100}).json()
+    assert [e["clave"] for e in r["etapas"]][:3] == ["comercial", "logistica", "despacho"]
+    reg = {x["codigo"]: x for x in r["regiones"]}
+    assert reg["ASIA"]["dias_liberacion"] == 21 and reg["CAM"]["dias_liberacion"] == 15
+    ocs = {i["oc"]: i for i in r["items"]}
+    # Asia: liberada 16 días antes de la XF (pide 21) -> tarde; 26 días -> a tiempo
+    assert ocs["4400003702"]["lib_dias_antes_xf"] == 16 and ocs["4400003702"]["lib_a_tiempo"] is False
+    assert ocs["4400003701"]["lib_a_tiempo"] is True
+    # Centroamérica pide 15: 20 días antes está a tiempo
+    assert ocs["4400003850"]["region"] == "CAM" and ocs["4400003850"]["lib_a_tiempo"] is True
+    # Temprano/tarde contra la fecha límite en puerto (tienda - bodega - ingreso - reexportación)
+    o = ocs["4400003702"]
+    assert o["riesgo"] == "ATRASO" and o["holgura"] < 0
+    assert o["limite_puerto"] == str(date.fromisoformat(o["fecha_tienda"]) - timedelta(days=10))
+    hitos = {h["clave"]: h for h in o["hitos"]}
+    assert hitos["arribo"]["estado"] == "tarde" and hitos["ingreso"]["fecha"] and hitos["tienda"]["estimada"]
+    vn = next(x for x in r["origenes"] if x["origen"] == "VN")
+    assert vn["etapas"]["transito"]["prom"] == 30 and vn["total_prom"] and vn["lib"]["meta"] == 21
+    assert r["kpis"]["lib_total"] >= 10 and r["kpis"]["tarde"] >= 1
+    # Filtros: región y solo las liberaciones tarde
+    solo = interno.get("/seguimiento/leadtimes", params={"region": "CAM"}).json()
+    assert {i["region"] for i in solo["items"]} == {"CAM"}
+    tarde = interno.get("/seguimiento/leadtimes", params={"lib": "tarde", "size": 100}).json()["items"]
+    assert tarde and all(i["lib_a_tiempo"] is False for i in tarde)
+    # Las unidades de carga usan la misma fecha límite
+    u = interno.get("/seguimiento/embarques").json()["items"]
+    assert u

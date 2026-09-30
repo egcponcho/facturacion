@@ -171,12 +171,13 @@ One place with create, edit, delete and searchable filters for: **companies**, t
 - Each line's **SKU** must exist in the item master, belong to the PO supplier, and the supplier must work with the PO company.
 - **Storage location per line:** the same PO can send each line to a different storage location of the same company.
 - **Releases (two teams):** **commercial** is `P` (pending) or `C` (released; empty means C). **Logistics** is **304** not released, **300** released or **301** released with later changes. Only **C and 300/301** can be invoiced.
+- **Release dates:** each release keeps its date (from the file's `commercial_release_date` / `logistics_release_date`, or the day it became released) to measure lead times. Logistics must release a PO a number of days **before its XF**: 21 for Asia and 15 for other origins by default (*Master data → Lead time targets*).
 
 ### Importing POs
 
 In *Import POs* (internal team) upload the SAP Excel or CSV. A preview shows what is new, changed, unchanged, conflicts and errors; nothing is saved until confirmed. Conflicts (e.g. a quantity below what is invoiced, or a casepack/inner pack change on an invoiced line) are not applied and appear as alerts.
 
-Required columns: `supplier, po, po_line, sku, quantity, unit_price, currency, company, plant, destination`. Optional: `storage_location, incoterm, po_date, port_of_loading, country_of_origin, country_of_shipment, xf_date_original, xf_date, in_store_date, commercial_release, logistics_release, uom, casepack, inner_pack`. The previous Spanish column names and common aliases (`vendor`, `material`, `qty`…) are still accepted. See `plantilla_oc.csv`.
+Required columns: `supplier, po, po_line, sku, quantity, unit_price, currency, company, plant, destination`. Optional: `storage_location, incoterm, po_date, port_of_loading, country_of_origin, country_of_shipment, xf_date_original, xf_date, in_store_date, commercial_release, logistics_release, commercial_release_date, logistics_release_date, uom, casepack, inner_pack`. The previous Spanish column names and common aliases (`vendor`, `material`, `qty`…) are still accepted. See `plantilla_oc.csv`.
 
 Codes are kept as text to preserve leading zeros; format those columns as text in Excel before exporting.
 
@@ -189,11 +190,14 @@ Codes are kept as text to preserve leading zeros; format those columns as text i
 
 ## Tracking
 
-Three boards with shared filters (brand, group, style, color, size, SKU, storage location, stage, load unit, BL/AWB, shipment, supplier, company, plant, late-arrival risk and ETA, XF and in-store date ranges), each downloadable as **PDF or Excel**:
+Four boards. The first two share filters (brand, group, style, color, size, SKU, storage location, stage, load unit, BL/AWB, shipment, supplier, company, plant, late-arrival risk and ETA, XF and in-store date ranges), each downloadable as **PDF or Excel**:
 
-- **Purchase orders:** releases, status, progress, XF overdue and margin against the in-store date; each PO opens into its **detail by SKU**.
+- **Purchase orders:** releases, status, progress, XF overdue and margin against the port deadline; each PO opens into its **detail by SKU**.
 - **Shipments and load units:** one row per shipment and transport document, opening into units and what each unit carries per PO.
 - **Invoicing and packing lists:** which step each document is at and what is missing.
+- **Lead times:** average days of each stage **by country of origin** (PO created → commercial release → logistics release → production and pickup → departure → transit to the destination port → port to warehouse → warehouse entry), the share of logistics releases on time against their target before the XF, pickup against XF and the slack at port. Each PO opens into its **milestones**, each with its target, its actual or estimated date and how many days early or late it is. Filters: period (POs created; last 12 months by default), origin, region and supplier.
+
+**Early or late.** The in-store date is not compared with the port arrival: after the port the goods still have to reach the warehouse, be entered and be re-exported to the store. So each PO has a **port deadline** = in-store date − (port to warehouse + warehouse entry + re-export) days of its origin region, and the arrival (actual, the shipment ETA, or without shipment the XF plus the standard transit) is compared with it: late if after it, tight if less than 7 days to spare. Re-export is not recorded in the system yet; only its days are reserved. The targets per region (release before XF, XF to port arrival, port to warehouse, entry, re-export) are edited in *Master data → Lead time targets*, and each country is assigned a region in *Countries*.
 
 ## Commercial invoice and packing list (PDF and Excel)
 
