@@ -21,7 +21,9 @@
   --fila-hover: #f8fafc;
   --acento: #6d4fe0;
   /* Rampa secuencial (un tono) para etapas ordenadas: de claro a oscuro */
-  --tramo-1: #e4dcfb; --tramo-2: #c4b3f5; --tramo-3: #9a7ff0; --tramo-4: #6d4fe0; --tramo-5: #452a9e;
+  --tramo-1: #86b6ef; --tramo-2: #5598e7; --tramo-3: #2a78d6; --tramo-4: #1c5cab; --tramo-5: #104281;
+  /* Etapas del lead time (categórico, orden fijo validado para daltonismo) */
+  --etapa-1: #2a78d6; --etapa-2: #eb6834; --etapa-3: #1baf7a; --etapa-4: #eda100; --etapa-5: #e87ba4; --etapa-6: #008300; --etapa-7: #4a3aa7;
   --acento-hover: #5a3ccc;
   --acento-claro: #f1edfe;
   --acento-medio: #d9d0fb;
@@ -86,7 +88,8 @@
     --borde-hover: #3d4b63;
     --fila-hover: #1b2739;
     --acento: #a78bfa;
-    --tramo-1: #3a2c6e; --tramo-2: #56419f; --tramo-3: #7a62d0; --tramo-4: #a28ef2; --tramo-5: #d3c8ff;
+    --tramo-1: #184f95; --tramo-2: #256abf; --tramo-3: #3987e5; --tramo-4: #6da7ec; --tramo-5: #9ec5f4;
+    --etapa-1: #3987e5; --etapa-2: #d95926; --etapa-3: #199e70; --etapa-4: #c98500; --etapa-5: #d55181; --etapa-6: #008300; --etapa-7: #9085e9;
     --acento-hover: #b9a2fb;
     --acento-claro: rgba(167, 139, 250, 0.14);
     --acento-medio: rgba(167, 139, 250, 0.5);
@@ -142,7 +145,8 @@
   --borde-hover: #3d4b63;
   --fila-hover: #1b2739;
   --acento: #a78bfa;
-  --tramo-1: #3a2c6e; --tramo-2: #56419f; --tramo-3: #7a62d0; --tramo-4: #a28ef2; --tramo-5: #d3c8ff;
+  --tramo-1: #184f95; --tramo-2: #256abf; --tramo-3: #3987e5; --tramo-4: #6da7ec; --tramo-5: #9ec5f4;
+    --etapa-1: #3987e5; --etapa-2: #d95926; --etapa-3: #199e70; --etapa-4: #c98500; --etapa-5: #d55181; --etapa-6: #008300; --etapa-7: #9085e9;
   --acento-hover: #b9a2fb;
   --acento-claro: rgba(167, 139, 250, 0.14);
   --acento-medio: rgba(167, 139, 250, 0.5);
@@ -762,7 +766,7 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .enlace:hover { text-decoration: underline; }
 .apilada { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--linea-suave); }
 .apilada span { display: block; height: 100%; min-width: 3px; }
-.apilada span + span { border-left: 1.5px solid var(--superficie); }
+.apilada span + span { border-left: 2px solid var(--superficie); }
 .leyenda-etapas { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; font-size: 0.8rem; color: var(--tinta-2); }
 .leyenda-etapas span { display: inline-flex; align-items: center; gap: 6px; }
 @media (max-width: 720px) {

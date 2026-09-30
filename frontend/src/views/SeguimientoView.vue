@@ -6,6 +6,7 @@ import Icono from '../components/Icono.vue'
 import SeguimientoDocumentos from '../components/SeguimientoDocumentos.vue'
 import SelectBusqueda from '../components/SelectBusqueda.vue'
 import TableroEmbarques from '../components/TableroEmbarques.vue'
+import TableroLeadTimes from '../components/TableroLeadTimes.vue'
 import TableroOrdenes from '../components/TableroOrdenes.vue'
 import { esInterno, sesion } from '../stores/sesion'
 import { fmtFecha } from '../utils'
@@ -24,7 +25,7 @@ const route = useRoute()
 const router = useRouter()
 const VISTAS = [
   ['ordenes', 'Purchase orders', 'ordenes'], ['embarques', 'Shipments and load units', 'contenedor'],
-  ['documentos', 'Invoicing and packing lists', 'factura'],
+  ['documentos', 'Invoicing and packing lists', 'factura'], ['leadtimes', 'Lead times', 'reloj'],
 ]
 // Enlaces anteriores: "contenedores" y "mercancia" ahora son embarques y OCs
 const ANTERIORES = { contenedores: 'embarques', mercancia: 'ordenes' }
@@ -104,15 +105,17 @@ function buscar() {
       <h1>Tracking</h1>
       <p v-if="vista === 'ordenes'">Each purchase order with its releases and progress. Open it to see every SKU: its stage, the document and load unit it travels in, and whether it reaches the store on time.</p>
       <p v-else-if="vista === 'embarques'">Each shipment with its transport document, its load units (containers, air waybills or trucks) and what each one carries per purchase order.</p>
-      <p v-else>Each invoice and packing list: its step, what it is missing and whether it already has a load unit.</p>
+      <p v-else-if="vista === 'documentos'">Each invoice and packing list: its step, what it is missing and whether it already has a load unit.</p>
+      <p v-else>How long each stage takes by origin, whether logistics releases on time before the XF, and whether each PO reaches the port early or late for its in-store date.</p>
     </div>
-    <BotonesExportar v-if="vista !== 'documentos'" :ruta="`/seguimiento/${vista}/exportar`" :params="paramsExportar" />
+    <BotonesExportar v-if="!['documentos', 'leadtimes'].includes(vista)" :ruta="`/seguimiento/${vista}/exportar`" :params="paramsExportar" />
   </div>
   <div class="pestanas-pildora" role="tablist">
     <button v-for="[v, t, i] in VISTAS" :key="v" class="pildora" role="tab" :aria-selected="vista === v" @click="vista = v"><Icono :nombre="i" :tam="15" />{{ t }}</button>
   </div>
 
   <SeguimientoDocumentos v-if="vista === 'documentos'" />
+  <TableroLeadTimes v-else-if="vista === 'leadtimes'" />
   <template v-else>
   <div class="filtros">
     <label class="buscador">

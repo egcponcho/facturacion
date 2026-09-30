@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from ..schemas import PlantillaIn, PlantillaPatch
 from ..services import dashboard as tablero
 from ..services import reportes
+from ..services import leadtimes
 from ..services import seguimiento as seg
 from ..services import varios as svc
 from .base import Clave, Db, Formato, User, descarga, ejecutar
@@ -51,6 +52,14 @@ def seguimiento_embarques(request: Request, db: Db, user: User, proveedor_id: in
 @router.get("/seguimiento/unidades/{unidad_id}/explosion")
 def seguimiento_explosion(unidad_id: int, request: Request, db: Db, user: User, proveedor_id: int | None = None):
     return seg.explosion_unidad(db, user, unidad_id, proveedor_id, _filtros_de(request))
+
+
+@router.get("/seguimiento/leadtimes")
+def seguimiento_leadtimes(request: Request, db: Db, user: User, proveedor_id: int | None = None,
+                          orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    """Lead times por origen, liberación logística contra la XF y temprano/tarde por hito."""
+    filtros = {k: v for k, v in request.query_params.items() if k not in ("proveedor_id", "orden", "page", "size")}
+    return leadtimes.leadtimes(db, user, proveedor_id, filtros, orden, page, size)
 
 
 @router.get("/seguimiento/ordenes")

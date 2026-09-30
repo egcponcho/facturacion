@@ -2,8 +2,10 @@
 
 Una fila por cantidad en una misma etapa: el saldo de la OC por facturar, lo
 facturado sin packing list, lo que está en un PL y, si ya tiene contenedor,
-en qué embarque va. Con la fecha requerida en tienda se calcula la holgura
-(días entre la llegada y la fecha en tienda) para ver a tiempo lo que se atrasa.
+en qué embarque va. La holgura son los días entre la llegada al puerto (real,
+estimada del embarque o, sin embarque, XF más el tránsito estándar) y la fecha
+límite de arribo: la fecha en tienda menos los días que su región necesita para
+llevarla a la bodega, darle ingreso y reexportarla (ver leadtimes).
 """
 from datetime import date, timedelta
 
@@ -13,6 +15,7 @@ from sqlalchemy.orm import Session
 from ..models import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
 from .cantidades import facturado_por_posicion, nombre_factura
 from .common import proveedor_filtro
+from .leadtimes import Estandares, arribo_estimado, limite_puerto
 
 ETAPAS = [
     ("PEND_LIBERACION", "Pending release"),
@@ -39,8 +42,9 @@ def _riesgo(holgura: int | None) -> str | None:
     return "A_TIEMPO"
 
 
-def _base(p: PosicionOC, oc: OrdenCompra, hoy: date) -> dict:
+def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) -> dict:
     return {
+        "limite_puerto": limite_puerto(oc.fecha_tienda, est) if est else None,
         "marca": p.marca, "estilo": p.estilo, "color": p.color, "talla": p.talla, "sku": p.codigo_sap,
         "oc_id": oc.id, "oc": oc.numero, "posicion": p.posicion, "almacen": p.almacen, "grupo": p.grupo,
         "proveedor": oc.proveedor.nombre, "documento": None, "sociedad": oc.sociedad, "centro": oc.centro,
@@ -63,13 +67,25 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     if prov:
         consulta = consulta.where(OrdenCompra.proveedor_id == prov)
     posiciones = list(db.scalars(consulta).all())
+    ests = Estandares(db)
+
+    def sin_embarque(fila: dict, oc: OrdenCompra) -> None:
+        # Aún sin embarque: se estima el arribo con la XF y el tránsito estándar de su origen
+        lim = fila["limite_puerto"]
+        if lim:
+            llegada = arribo_estimado(oc.fecha_xf, ests.de(oc.pais_origen), hoy) or hoy
+            fila["holgura"] = (lim - llegada).days
+            fila["riesgo"] = _riesgo(fila["holgura"])
+
     facturado = facturado_por_posicion(db, [p.id for p in posiciones])
     filas = []
     for p in posiciones:
         saldo = p.cantidad - facturado.get(p.id, 0)
         if saldo > 0:
-            filas.append({**_base(p, p.oc, hoy), "cantidad": saldo,
-                          "etapa": "POR_FACTURAR" if p.oc.liberada else "PEND_LIBERACION"})
+            fila = {**_base(p, p.oc, hoy, ests.de(p.oc.pais_origen)), "cantidad": saldo,
+                    "etapa": "POR_FACTURAR" if p.oc.liberada else "PEND_LIBERACION"}
+            sin_embarque(fila, p.oc)
+            filas.append(fila)
 
     consulta = select(FacturaLinea).join(Factura).where(Factura.estado != "CANCELADA")
     if prov:
@@ -84,7 +100,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             if pl.estado == "CANCELADO":
                 continue
             en_pl += pll.cantidad
-            fila = {**_base(p, oc, hoy), "cantidad": pll.cantidad, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen)), "cantidad": pll.cantidad, "factura_id": f.id,
                     "factura": nombre_factura(f), "pl_id": pl.id, "pl": pl.numero, "etapa": "EN_PL",
                     "recolectado_en": pl.recolectado_en}
             if pl.recolectado_en and oc.fecha_xf:
@@ -100,20 +116,17 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
                             salida_real=e.salida_real, arribo_real=e.arribo_real,
                             etapa="CONTENEDOR" if e.estado == "PLANIFICADO" else e.estado)
                 llegada = e.arribo_real or e.eta
-                if oc.fecha_tienda and llegada:
-                    fila["holgura"] = (oc.fecha_tienda - llegada).days
-            elif oc.fecha_tienda:
-                # Sin embarque aún: la holgura es lo que queda hasta la fecha en tienda
-                fila["holgura"] = (oc.fecha_tienda - hoy).days
-            fila["riesgo"] = _riesgo(fila["holgura"])
+                if fila["limite_puerto"] and llegada:
+                    fila["holgura"] = (fila["limite_puerto"] - llegada).days
+                fila["riesgo"] = _riesgo(fila["holgura"])
+            else:
+                sin_embarque(fila, oc)
             filas.append(fila)
         resto = fl.cantidad - en_pl
         if resto > 0:
-            fila = {**_base(p, oc, hoy), "cantidad": resto, "factura_id": f.id, "factura": nombre_factura(f),
-                    "etapa": "FACTURADO"}
-            if oc.fecha_tienda:
-                fila["holgura"] = (oc.fecha_tienda - hoy).days
-                fila["riesgo"] = _riesgo(fila["holgura"])
+            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen)), "cantidad": resto, "factura_id": f.id,
+                    "factura": nombre_factura(f), "etapa": "FACTURADO"}
+            sin_embarque(fila, oc)
             filas.append(fila)
     return filas
 

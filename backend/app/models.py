@@ -254,6 +254,26 @@ class Pais(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(2), unique=True)  # ISO 3166-1 alfa-2
     nombre: Mapped[str] = mapped_column(String(100))
+    region: Mapped[str | None] = mapped_column(String(10))  # región de origen para los lead times (ASIA…)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class RegionLeadTime(Base):
+    """Estándares de tiempo por región de origen: con cuántos días de
+    anticipación a la XF se libera logísticamente la OC y cuánto toma cada
+    etapa después de la llegada al puerto (bodega, ingreso y reexportación
+    a tienda) para saber si un embarque llega temprano o tarde."""
+
+    __tablename__ = "regiones_leadtime"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    dias_liberacion: Mapped[int] = mapped_column(Integer, default=15)  # liberación logística antes de la XF
+    dias_transito: Mapped[int] = mapped_column(Integer, default=10)  # XF a arribo al puerto destino (estimado)
+    dias_puerto_bodega: Mapped[int] = mapped_column(Integer, default=3)
+    dias_ingreso: Mapped[int] = mapped_column(Integer, default=2)
+    dias_reexportacion: Mapped[int] = mapped_column(Integer, default=5)  # aún no se registra en el sistema
+    predeterminada: Mapped[bool] = mapped_column(Boolean, default=False)  # para orígenes sin región
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -571,6 +591,8 @@ class OrdenCompra(Base):
     # comercial; 300 liberada por sourcing; 301 liberada con cambios posteriores.
     liberacion_comercial: Mapped[str] = mapped_column(String(1), default="C")
     liberacion_logistica: Mapped[str] = mapped_column(String(3), default="300")
+    fecha_lib_comercial: Mapped[date | None] = mapped_column(Date)
+    fecha_lib_logistica: Mapped[date | None] = mapped_column(Date)
     liberada: Mapped[bool] = mapped_column(Boolean, default=True)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 

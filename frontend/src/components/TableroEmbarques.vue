@@ -113,7 +113,7 @@ onMounted(cargar)
           <th>Route</th>
           <ThOrden campo="etd" :orden="tabla.orden" @ordenar="ordenar">Departure</ThOrden>
           <ThOrden campo="eta" :orden="tabla.orden" @ordenar="ordenar">Arrival</ThOrden>
-          <ThOrden campo="holgura" :orden="tabla.orden" @ordenar="ordenar">Vs. store</ThOrden>
+          <ThOrden campo="holgura" :orden="tabla.orden" title="Port arrival against the port deadline: the in-store date minus the days to the warehouse, the warehouse entry and the re-export of its origin" @ordenar="ordenar">Vs. port deadline</ThOrden>
           <ThOrden campo="unidades" :orden="tabla.orden" num @ordenar="ordenar">Units</ThOrden>
           <ThOrden campo="ocs" :orden="tabla.orden" num @ordenar="ordenar">POs</ThOrden>
           <th class="num">Contents</th>
