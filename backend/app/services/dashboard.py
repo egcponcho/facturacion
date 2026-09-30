@@ -301,10 +301,10 @@ def _tareas_productos(db: Session, user: Usuario, prov: int | None) -> list[dict
     n = dict(db.execute(q).all())
     out = []
     if es_interno(user):
-        if n.get("sugerida"):
-            out.append({"prioridad": 2, "tipo": "clasificar", "titulo": f"Approve {n['sugerida']} HS code" + ("s" if n["sugerida"] > 1 else ""),
-                        "detalle": "Complete technical sheets with a suggested code.",
-                        "ruta": "/productos?estado=sugerida", "accion": "Review"})
+        if n.get("revision"):
+            out.append({"prioridad": 2, "tipo": "clasificar", "titulo": f"Review {n['revision']} technical sheet" + ("s" if n["revision"] > 1 else ""),
+                        "detalle": "Sent to review with a suggested HS code: approve or return them.",
+                        "ruta": "/productos?estado=revision", "accion": "Review"})
     else:
         if n.get("observado"):
             out.append({"prioridad": 0, "tipo": "correccion", "titulo": f"Correct {n['observado']} technical sheet" + ("s" if n["observado"] > 1 else ""),
@@ -314,6 +314,10 @@ def _tareas_productos(db: Session, user: Usuario, prov: int | None) -> list[dict
             out.append({"prioridad": 3, "tipo": "clasificar", "titulo": f"Complete {n['borrador']} technical sheet" + ("s" if n["borrador"] > 1 else ""),
                         "detalle": "Products without the data customs needs to classify them.",
                         "ruta": "/productos?estado=borrador", "accion": "Complete"})
+        if n.get("sugerida"):
+            out.append({"prioridad": 2, "tipo": "clasificar", "titulo": f"Send {n['sugerida']} technical sheet" + ("s" if n["sugerida"] > 1 else "") + " to review",
+                        "detalle": "Complete drafts: nobody reviews them until you send them.",
+                        "ruta": "/productos?estado=sugerida", "accion": "Send"})
     return out
 
 

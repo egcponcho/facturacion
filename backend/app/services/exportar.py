@@ -386,3 +386,27 @@ def _hoja_reporte(ws, titulo, subtitulo, filtros, indicadores, columnas, filas):
         ws.auto_filter.ref = f"A{fila_cab}:{get_column_letter(h.n)}{fila_cab + len(filas)}"
     ws.freeze_panes = f"A{fila_cab + 1}"
     h.imprimir(fila_cab, True, titulo, False)
+
+
+def exportar_ficha(d: dict, x: dict) -> bytes:
+    """Ficha técnica en Excel: datos y clasificación en la primera hoja; la
+    composición, los códigos por país y las tallas en las siguientes."""
+    titulo = f"Technical sheet {d['estilo']} · {d['color']}"
+    sub = " · ".join(str(v) for v in (d.get("nombre"), d.get("proveedor"), d.get("marca_nombre") or d.get("marca")) if v)
+    estado = f"Version {d.get('version_ficha') or 1} · {d.get('estado_txt') or d.get('estado') or ''}"
+    filas = [["Classification", k, str(v)] for k, v in x["clasificacion"]]
+    if x["descripcion"]:
+        filas.append(["Classification", "Customs description", x["descripcion"]])
+    if x.get("descripcion_comercial"):
+        filas.append(["Classification", "Commercial description", x["descripcion_comercial"]])
+    filas += [["Product data", k, str(v)] for k, v in x["datos"]]
+    filas += [["Reasoning", "", r] for r in x["razones"]]
+    hojas = [
+        {"titulo": "Composition", "columnas": [("Part", 1.6, False), ("Materials", 5, False)], "filas": x["composicion"]},
+        {"titulo": "National codes", "columnas": [("Country", 0.8, False), ("Code", 1.6, False), ("Duty (DAI)", 0.9, False),
+                                                  ("Status", 0.9, False), ("Source", 0.9, False)], "filas": x["partidas"]},
+        {"titulo": "Sizes", "columnas": [("SKU", 1.4, False), ("UPC", 1.4, False), ("Size", 0.7, False), ("Unit", 0.6, False),
+                                         ("Description", 3, False)], "filas": x["tallas"]},
+    ]
+    return exportar_reporte(titulo, sub, estado, [], [("Section", 1.4, False), ("Field", 1.8, False), ("Value", 6, False)],
+                            filas, hojas)

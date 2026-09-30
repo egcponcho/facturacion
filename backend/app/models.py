@@ -394,7 +394,7 @@ class Producto(Base):
     # Versión de la ficha: al cambiar una ficha aprobada se cierra y se abre otra
     version_ficha: Mapped[int] = mapped_column(Integer, default=1)
     vigente_desde: Mapped[date | None] = mapped_column(Date)
-    # borrador | sugerida | aprobado | corregido | observado
+    # borrador | sugerida (borrador completo) | revision (enviada) | aprobado | corregido | observado
     estado: Mapped[str] = mapped_column(String(12), default="borrador", index=True)
     sugerido: Mapped[str | None] = mapped_column(String(14))  # partida del motor
     propuesta: Mapped[str | None] = mapped_column(String(14))  # traída de un archivo o del proveedor

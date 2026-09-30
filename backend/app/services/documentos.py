@@ -127,6 +127,11 @@ def _transporte(db: Session, pls: list) -> dict:
 def _fecha(v) -> str:
     if not v:
         return "—"
+    if isinstance(v, str):
+        try:
+            v = datetime.fromisoformat(v)
+        except ValueError:
+            return v
     if isinstance(v, datetime):
         v = v.date()
     return v.strftime("%d/%m/%Y") if isinstance(v, date) else str(v)
@@ -628,6 +633,49 @@ def _fmt_partida(c) -> str:
     return ".".join([d[:4]] + [d[i:i + 2] for i in range(4, len(d), 2)])
 
 
+PAISES_ORDEN = ["GT", "SV", "HN", "NI", "CR", "PA"]
+ESTADO_PARTIDA = {"ok": "National", "auto": "National", "sac": "SAC", "elegir": "Pending"}
+
+
+def secciones_ficha(d: dict) -> dict:
+    """Contenido de la ficha técnica ya en texto (lo usan el PDF, el Excel y la
+    vista de versiones anteriores)."""
+    estado = d.get("estado_txt") or d.get("estado")
+    codigo = d.get("codigo") or d.get("sugerido")
+    clasif = [("HS code (SAC)", codigo or "Not classified"), ("Status", estado or "—"),
+              ("Confidence", d.get("confianza") or "—"),
+              ("Reviewed by", f"{d.get('revisado_por') or '—'}" + (f" · {_fecha(d['revisado_en'])}" if d.get("revisado_en") else ""))]
+    partidas = []
+    for pais, x in sorted((d.get("partidas") or {}).items(),
+                          key=lambda kv: PAISES_ORDEN.index(kv[0]) if kv[0] in PAISES_ORDEN else 99):
+        x = x if isinstance(x, dict) else {"codigo": x}
+        partidas.append([pais, _fmt_partida(x.get("codigo")), f"{x['dai']}%" if x.get("dai") not in (None, "") else "—",
+                         ESTADO_PARTIDA.get(x.get("estado"), x.get("estado") or "—"),
+                         "By hand" if x.get("manual") else (x.get("fuente") or "—").capitalize()])
+    f = d.get("ficha") or {}
+    an = d.get("analisis") or {}
+    datos = [("Product type", an.get("tipo_txt") or TIPOS_FICHA.get(d.get("tipo"), d.get("tipo")) or "—"),
+             ("Country of origin", d.get("pais_origen") or "—"),
+             ("Generic code", d.get("codigo_generico") or "—"), ("Group", d.get("grupo") or "—")]
+    for k in ("uso", "tallas"):
+        if f.get(k):
+            datos.append((CAMPOS_FICHA[k], str(f[k])))
+    if an.get("atributos"):
+        datos += [(str(a[0]), str(a[1])) for a in an["atributos"] if len(a) == 2]
+    else:
+        datos += [(CAMPOS_FICHA.get(k, k), _valor_ficha(v, k)) for k, v in f.items()
+                  if k not in ("comp", "descManual", "comManual", "uso", "tallas", "desc", "descCom", "edad")
+                  and v not in (None, "", [], {})]
+    comp = f.get("comp") or {}
+    composicion = [[PARTES.get(k, k.capitalize()), v] for k, v in comp.items() if v] if isinstance(comp, dict) else []
+    tallas = [[a["sku"], a["upc"] or "—", a["talla"], a["unidad"], a["descripcion"] or "—"]
+              for a in d.get("articulos") or [] if a["tipo"] == "SOLIDO"]
+    return {"clasificacion": clasif, "descripcion": d.get("descripcion_aduana") or "",
+            "descripcion_comercial": d.get("descripcion_comercial") or "",
+            "razones": [str(r) for r in (an.get("razones") or [])[:8]], "partidas": partidas, "datos": datos,
+            "composicion": composicion, "tallas": tallas}
+
+
 def pdf_ficha_producto(d: dict) -> bytes:
     """Ficha técnica con el veredicto de clasificación y los códigos por país."""
     e = _estilos()
@@ -649,57 +697,26 @@ def pdf_ficha_producto(d: dict) -> bytes:
                              ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
     h = [cab, Spacer(1, 8)]
 
-    codigo = d.get("codigo") or d.get("sugerido")
-    veredicto = [("HS code (SAC)", codigo or "Not classified"),
-                 ("Status", estado), ("Confidence", d.get("confianza") or "—"),
-                 ("Reviewed by", f"{d.get('revisado_por') or '—'}" + (f" · {_fecha(d['revisado_en'])}"
-                                                                        if d.get("revisado_en") else ""))]
-    h += [Paragraph("CLASSIFICATION", e["etiqueta"]), Spacer(1, 2), _rejilla(e, veredicto, ancho), Spacer(1, 4)]
-    if d.get("descripcion_aduana"):
-        h += [Paragraph(f"<b>Customs description:</b> {_esc(d['descripcion_aduana'])}", e["base"]),
-              Spacer(1, 4)]
-    razones = (d.get("analisis") or {}).get("razones") or []
-    for r in razones[:8]:
+    x = secciones_ficha(d)
+    h += [Paragraph("CLASSIFICATION", e["etiqueta"]), Spacer(1, 2), _rejilla(e, x["clasificacion"], ancho), Spacer(1, 4)]
+    if x["descripcion"]:
+        h += [Paragraph(f"<b>Customs description:</b> {_esc(x['descripcion'])}", e["base"]), Spacer(1, 4)]
+    for r in x["razones"]:
         h.append(Paragraph(f"• {_esc(r)}", e["chico"]))
     if d.get("observaciones"):
         h += [Spacer(1, 3), Paragraph(f"<b>Notes to the supplier:</b> {_esc(d['observaciones'])}", e["base"])]
     h.append(Spacer(1, 8))
-
-    partidas = d.get("partidas") or {}
-    if partidas:
-        orden = ["GT", "SV", "HN", "NI", "CR", "PA"]
-        estados = {"ok": "National", "auto": "National", "sac": "SAC", "elegir": "Pending"}
-        filas = [[pais, _fmt_partida(x.get("codigo")), f"{x['dai']}%" if x.get("dai") not in (None, "") else "—",
-                  estados.get(x.get("estado"), x.get("estado")), "By hand" if x.get("manual") else (x.get("fuente") or "—").capitalize()]
-                 for pais, x in sorted(partidas.items(), key=lambda kv: orden.index(kv[0]) if kv[0] in orden else 99)]
+    if x["partidas"]:
         h += [Paragraph("NATIONAL TARIFF CODES BY DESTINATION", e["etiqueta"]), Spacer(1, 2),
               _tabla(e, [("Country", 0.8, False), ("Code", 1.6, False), ("Duty (DAI)", 0.8, True),
-                         ("Status", 0.8, False), ("Source", 0.8, False)], filas, ancho), Spacer(1, 8)]
-
-    f = d.get("ficha") or {}
-    an = d.get("analisis") or {}
-    datos = [("Product type", an.get("tipo_txt") or TIPOS_FICHA.get(d.get("tipo"), d.get("tipo")) or "—"), ("Country of origin", d.get("pais_origen") or "—"),
-             ("Generic code", d.get("codigo_generico") or "—"), ("Group", d.get("grupo") or "—")]
-    for k in ("uso", "tallas"):
-        if f.get(k):
-            datos.append((CAMPOS_FICHA[k], str(f[k])))
-    if an.get("atributos"):
-        datos += [(str(a[0]), str(a[1])) for a in an["atributos"] if len(a) == 2]
-    else:
-        datos += [(CAMPOS_FICHA.get(k, k), _valor_ficha(v, k)) for k, v in f.items()
-                  if k not in ("comp", "descManual", "uso", "tallas", "desc", "edad") and v not in (None, "", [], {})]
-    h += [Paragraph("PRODUCT DATA", e["etiqueta"]), Spacer(1, 2), _rejilla(e, datos, ancho), Spacer(1, 8)]
-    comp = f.get("comp") or {}
-    if isinstance(comp, dict) and comp:
+                         ("Status", 0.8, False), ("Source", 0.8, False)], x["partidas"], ancho), Spacer(1, 8)]
+    h += [Paragraph("PRODUCT DATA", e["etiqueta"]), Spacer(1, 2), _rejilla(e, x["datos"], ancho), Spacer(1, 8)]
+    if x["composicion"]:
         h += [Paragraph("COMPOSITION", e["etiqueta"]), Spacer(1, 2),
-              _tabla(e, [("Part", 1, False), ("Materials", 3, False)],
-                     [[PARTES.get(k, k.capitalize()), v] for k, v in comp.items() if v], ancho), Spacer(1, 8)]
-
-    arts = [a for a in d.get("articulos") or [] if a["tipo"] == "SOLIDO"]
-    if arts:
+              _tabla(e, [("Part", 1, False), ("Materials", 3, False)], x["composicion"], ancho), Spacer(1, 8)]
+    if x["tallas"]:
         h += [Paragraph("SIZES", e["etiqueta"]), Spacer(1, 2),
               _tabla(e, [("SKU", 1.4, False), ("UPC", 1.4, False), ("Size", 0.7, False), ("Unit", 0.6, False),
-                         ("Description", 2.4, False)],
-                     [[a["sku"], a["upc"], a["talla"], a["unidad"], a["descripcion"]] for a in arts], ancho)]
+                         ("Description", 2.4, False)], x["tallas"], ancho)]
     return _construir(h, tam, f"Technical sheet {d['estilo']} {d['color']} · {d.get('proveedor') or ''}",
                       d.get("estado") not in ("aprobado", "corregido"))

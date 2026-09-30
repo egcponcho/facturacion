@@ -1,6 +1,8 @@
 """Productos: ficha técnica, clasificación arancelaria y su paso a la OC y la factura."""
 import io
 
+from openpyxl import load_workbook
+
 from test_flujo import _oc
 
 PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
@@ -16,7 +18,7 @@ def _resultado(codigo, completa=True):
     return {"sugerido": codigo, "confianza": "high", "fuente": "regla", "perfil": "calzado|tenis|textil|caucho|bajo|casual|-|-",
             "razones": ["Footwear → chapter 64", "Sneaker: casual or lifestyle → 6404.19"], "completa": completa,
             "faltan": [] if completa else ["Country of origin"],
-            "descripcion_aduana": "TENIS CON CORTE DE MATERIA TEXTIL Y SUELA DE CAUCHO O PLÁSTICO, UNISEX, MARCA VANS",
+            "descripcion_aduana": "TENIS DE TEXTIL, UNISEX, MARCA VANS",
             "partidas": {"SV": {"codigo": "6404199000", "estado": "ok", "fuente": "base"},
                          "PA": {"codigo": "640419970000", "estado": "auto", "fuente": "base"}}}
 
@@ -36,7 +38,7 @@ def test_lista_contexto_y_separacion(tnf, vans, interno):
     assert vans.get(f"/productos/{_producto(interno, 'NF0A5GLL', 'JK3 TNF Black')['id']}").status_code == 404
     # Filtros de estado
     pend = interno.get("/productos", params={"estado": "pendientes"}).json()["items"]
-    assert {p["estado"] for p in pend} <= {"borrador", "sugerida", "observado"}
+    assert {p["estado"] for p in pend} <= {"borrador", "sugerida", "observado", "revision"}
     ctx = interno.get("/clasificacion/contexto").json()
     assert len(ctx["destinos"]) == 6 and ctx["pais_base"] == "SV" and ctx["puede_aprobar"]
     assert any(x["pais"] == "PA" and x["cond"] for x in ctx["incisos"]) and ctx["recs"]
@@ -68,6 +70,17 @@ def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
         "ficha": {**det["ficha"], "uso": "Casual canvas sneaker"}, "resultado": _resultado("640419")}).json()
     assert det["estado"] == "sugerida" and det["sugerido"] == "6404.19" and det["partidas"]["PA"]["codigo"] == "640419970000"
     assert vans.post(f"/productos/{p['id']}/aprobar", {"version": det["version"]}).status_code == 403
+    # Borrador → enviar a revisión: queda cerrada para el proveedor hasta que se revise o la retire
+    assert vans.post("/productos/enviar", {"ids": [p["id"]]}).json()["enviados"] == 1
+    det = vans.get(f"/productos/{p['id']}").json()
+    assert det["estado"] == "revision" and any(h["accion"] == "enviado" for h in det["historial"])
+    r = vans.put(f"/productos/{p['id']}/ficha", {"version": det["version"], "ficha": det["ficha"]})
+    assert r.status_code == 409 and r.json()["codigo"] == "en_revision"
+    assert vans.post(f"/productos/{p['id']}/retirar").json()["estado"] == "sugerida"
+    vans.post("/productos/enviar", {"ids": [p["id"]]})
+    revisar = interno.get("/productos", params={"estado": "revision"}).json()
+    assert revisar["kpis"]["revision"] >= 1 and any(x["id"] == p["id"] for x in revisar["items"])
+    det = interno.get(f"/productos/{p['id']}").json()
     # Un código nacional que no empieza con la subpartida se rechaza
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640419",
                                                         "partidas": {"SV": {"codigo": "6402991000", "estado": "ok"}}})
@@ -93,6 +106,16 @@ def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
     det = vans.post(f"/productos/{p['id']}/versiones", {"version": det["version"], "motivo": "New outsole"}).json()
     assert det["estado"] == "borrador" and det["version_ficha"] == 2 and det["versiones"][0]["codigo"] == "6404.19"
     assert not det["partidas"]
+    # La versión anterior se puede ver y descargar tal como quedó
+    v1 = vans.get(f"/productos/{p['id']}/versiones/1").json()
+    assert v1["version"] == 1 and v1["clasificacion"][0][1] == "6404.19"
+    assert any(x[0] == "SV" and x[1] == "6404.19.90.00" for x in v1["partidas"]) and v1["composicion"]
+    assert vans.get(f"/productos/{p['id']}/versiones/9").status_code == 404
+    x = vans.get(f"/productos/{p['id']}/ficha", params={"formato": "xlsx", "version": 1})
+    assert x.status_code == 200 and x.content[:2] == b"PK"
+    wb = load_workbook(io.BytesIO(x.content))
+    assert {"Composition", "National codes", "Sizes"} <= set(wb.sheetnames)
+    assert vans.get(f"/productos/{p['id']}/ficha", params={"formato": "pdf"}).content[:4] == b"%PDF"
 
 
 def test_devolver_aprobar_lote_y_aprendizaje(vans, interno):
@@ -145,3 +168,11 @@ def test_exportar(vans, interno):
     for formato in ("xlsx", "pdf"):
         r = interno.get("/productos/exportar", params={"formato": formato, "estado": "pendientes"})
         assert r.status_code == 200 and len(r.content) > 1000
+    # El reporte completo lleva la composición y el código guardado por país
+    wb = load_workbook(io.BytesIO(interno.get("/productos/exportar", params={"formato": "xlsx", "estado": "aprobados"}).content))
+    assert {"Composition", "National codes"} <= set(wb.sheetnames)
+    cab = [c.value for fila in wb.worksheets[0].iter_rows(max_row=20) for c in fila]
+    assert "Composition" in cab and "Code SV" in cab and "Code PA" in cab
+    assert any(f[3].value == "SV" for f in wb["National codes"].iter_rows() if len(f) > 3)
+    x = vans.get(f"/productos/{p['id']}/ficha", params={"formato": "xlsx"})
+    assert x.status_code == 200 and "Composition" in load_workbook(io.BytesIO(x.content)).sheetnames

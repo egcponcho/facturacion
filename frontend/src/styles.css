@@ -493,6 +493,7 @@ a.cajas-rango { color: var(--tinta); }
 .nota.aviso { background: var(--aviso-fondo); color: var(--aviso); }
 .nota.error { background: var(--error-fondo); color: var(--error); }
 .nota.ok { background: var(--ok-fondo); color: var(--ok); }
+.nota.info { background: var(--info-fondo); color: var(--info-texto); }
 .nota.bloque { display: block; }
 
 /* ---- Panel lateral (cajón) --------------------------------------------- */

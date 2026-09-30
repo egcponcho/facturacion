@@ -47,7 +47,7 @@ function cambiarVista(v) {
   try { localStorage.setItem('mant.vistaArticulos', v) } catch { /* sin almacenamiento */ }
   cargar()
 }
-const ESTADO_FICHA = { borrador: 'Sheet in draft', sugerida: 'To review', observado: 'Returned' }
+const ESTADO_FICHA = { borrador: 'Sheet in draft', sugerida: 'Draft complete', revision: 'In review', observado: 'Returned' }
 
 const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
 const campos = computed(() => cat.value?.campos || [])

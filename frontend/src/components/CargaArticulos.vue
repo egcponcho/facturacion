@@ -38,7 +38,7 @@ async function alCargar(r) {
     <template #resultado="{ resultado }">
       <template v-if="resultado.productos_total"> {{ resultado.productos_total }} products (style-color).</template>
       <template v-if="avance"> Classifying {{ avance.n }} of {{ avance.total }}…</template>
-      <template v-else-if="clasificados !== null"> {{ clasificados }} classified; they are waiting for review in <router-link to="/productos?estado=sugerida">Products</router-link>.</template>
+      <template v-else-if="clasificados !== null"> {{ clasificados }} classified as drafts; send them to review from <router-link to="/productos?estado=sugerida">Products</router-link>.</template>
     </template>
   </CargaMasiva>
 </template>
