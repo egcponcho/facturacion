@@ -7,7 +7,7 @@ inciso nacional de cada país. Es lógica pura: no toca la pantalla ni guarda
 nada; la ficha técnica y lo aprendido se guardan en el servidor.
 
 Los textos oficiales del SAC (DESC, CAPITULOS) y la descripción aduanera que
-se arma para la DUCA quedan en español; todo lo demás está en inglés. */
+se arma para aduana quedan en español; todo lo demás está en inglés. */
 const norm = s => (s == null ? '' : String(s)).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const digits = s => (s == null ? '' : String(s)).replace(/\D/g, '');
 function fmtCode(c){
@@ -226,7 +226,7 @@ const TIPOS = [
 const TIPO_LBL = {}; TIPOS.forEach(g=>g[1].forEach(([k,l])=>{ TIPO_LBL[k] = l; }));
 const TIPO_CORTO = {camiseta:'T-shirt',camisa:'Shirt or polo',sudadera:'Sweatshirt',chaqueta:'Jacket or vest',pantalon:'Pants or shorts',falda:'Skirt',vestido:'Dress',enterizo:'Coverall',conjunto:'Tracksuit',ropa_interior:'Underwear or pajamas',brasier:'Bra',traje_bano:'Swimsuit',calcetines:'Socks',guantes:'Gloves',bufanda:'Scarf or bandana',gorra:'Cap or headwear',cinturon:'Belt',calzado:'Footwear',plantilla:'Insole',cordones:'Shoelaces',polainas:'Gaiters',cuidado_calzado:'Shoe care',mochila:'Backpack',bolso_viaje:'Sports or travel bag',bolso_mano:'Handbag',maleta:'Suitcase or briefcase',billetera:'Wallet or case',lentes_sol:'Sunglasses',reloj:'Watch',bisuteria:'Costume jewelry',llavero:'Keychain or lanyard',sombrilla:'Umbrella',botella:'Bottle or thermos',parche:'Patch or sticker',mascota:'Pet accessory',tienda:'Tent',saco:'Sleeping bag',colchoneta:'Sleeping pad or pillow',manta:'Blanket',toalla:'Towel',mueble_camping:'Camp chair or table',linterna:'Flashlight',bastones:'Trekking poles',equipo_deporte:'Sports equipment',magnesio:'Climbing chalk',patineta:'Skateboard',bolsa_compra:'Shopping bag',caja:'Box or packaging',gancho:'Hanger',etiqueta:'Label',exhibidor:'Display or mannequin'};
 Object.assign(TIPO_CORTO, {accesorio_pelo:'Hair accessory', peleteria:'Fur article', correa_reloj:'Watch strap', avios:'Trims', hamaca:'Hammock'});
-/* Nombres cortos en español para la descripción aduanera (DUCA) */
+/* Nombres cortos en español para la descripción aduanera */
 const TIPO_CORTO_ES = {camiseta:'Camiseta',camisa:'Camisa o polo',sudadera:'Sudadera',chaqueta:'Chaqueta o chaleco',pantalon:'Pantalón o short',falda:'Falda',vestido:'Vestido',enterizo:'Enterizo',conjunto:'Conjunto deportivo',ropa_interior:'Ropa interior o pijama',brasier:'Brasier',traje_bano:'Traje de baño',calcetines:'Calcetines',guantes:'Guantes',bufanda:'Bufanda o bandana',gorra:'Gorra o tocado',cinturon:'Cinturón',calzado:'Calzado',plantilla:'Plantilla',cordones:'Cordones',polainas:'Polainas',cuidado_calzado:'Cuidado de calzado',mochila:'Mochila',bolso_viaje:'Bolso deportivo o de viaje',bolso_mano:'Bolso de mano',maleta:'Maleta o maletín',billetera:'Billetera o estuche',lentes_sol:'Lentes de sol',reloj:'Reloj',bisuteria:'Bisutería',llavero:'Llavero o lanyard',sombrilla:'Sombrilla',botella:'Botella o termo',parche:'Parche o sticker',mascota:'Accesorio para mascota',tienda:'Tienda de campaña',saco:'Saco de dormir',colchoneta:'Colchoneta o almohada',manta:'Manta',toalla:'Toalla',mueble_camping:'Silla o mesa de camping',linterna:'Linterna',bastones:'Bastones',equipo_deporte:'Equipo deportivo',magnesio:'Magnesio',patineta:'Patineta',bolsa_compra:'Bolsa de compra',caja:'Caja o empaque',gancho:'Gancho o percha',etiqueta:'Etiqueta',exhibidor:'Exhibidor o maniquí'};
 Object.assign(TIPO_CORTO_ES, {accesorio_pelo:'Accesorio de cabello', peleteria:'Peletería', correa_reloj:'Correa de reloj', avios:'Avíos', hamaca:'Hamaca'});
 const TIPO_ALIAS = {
@@ -334,8 +334,6 @@ const MAT_CALZ = [
   {g:'otro', re:/\b(madera|wood|corcho|cork|metal|metalico|acero|steel|inoxidable|stainless|aluminio|aluminum|aluminium|hierro|iron|zinc|bronce|brass|laton|titanio|titanium|yute|jute|papel|paper|carton|cardboard|cartulina|kraft|vidrio|glass|cristal|paja|straw|palma|rafia|mdf|arce|maple|bambu|bamboo|pino|alambre|wire|cromo)\b/g}
 ];
 const FIB_LBL = {lana:'wool',seda:'silk',algodon:'cotton',vegetal:'vegetable fiber (linen, hemp)',sintetica:'synthetic fiber',artificial:'artificial fiber',cuero:'leather',otra:'unidentified material'};
-/* Para la descripción aduanera (en español, como va en la DUCA) */
-const FIB_LBL_ES = {lana:'lana',seda:'seda',algodon:'algodón',vegetal:'fibra vegetal (lino, cáñamo)',sintetica:'fibra sintética',artificial:'fibra artificial',cuero:'cuero',otra:'materia no identificada'};
 const MAT_LBL = {plastico:'rubber or plastics',cuero:'leather',textil:'textile',otro:'other material',otra:'unidentified',caucho:'rubber or plastics'};
 const MAT_STOP = new Set(('shell body cuerpo exterior forro lining relleno fill filling upper sole suela outsole insole plantilla midsole entresuela and with the con del los las por para sin recycled reciclado reciclada organic organico organica virgin main trim trims rib ribete principal capa layer fabric material materials materiales total other others demas parte partes superficie surface interior bonded laminado laminated coated recubierto without full grain flor split top bottom excluding contar refuerzos adornos accessories accesorios hood capucha pocket pocketing bolsillo bolsillos contrast contraste panel paneles power goose duck down plumon pluma plumas feather feathers fiber fibra fibras blend mezcla mix approx aprox aproximadamente weight peso gsm denier oz yarn hilo thread face back backing soporte membrane membrana dryvent futurelight goretex gore insulation aislante padding guata primaloft thermoball heatseeker vibram ortholite cushion foam espuma molded moldeado injected inyectado vulcanized vulcanizado cemented stitched cosido parts one outer inner lined unlined logo logos print estampado bci grs rcs eco otros otras resto rest').split(' '));
 const MAT_AMBIGUAS = {microfibra:'Microfiber can be textile or synthetic (PU): say which', microfiber:'Microfiber can be textile or synthetic (PU): say which', microfibre:'Microfiber can be textile or synthetic (PU): say which', neopreno:'Neoprene: counts as textile if the fabric faces out; if the rubber is exposed, as rubber or plastics', neoprene:'Neoprene: counts as textile if the fabric faces out; if the rubber is exposed, as rubber or plastics'};
@@ -1072,15 +1070,15 @@ function detectarCon(texto, comp, tallas, palabras, marca){
 }
 const NOMBRE_CALZ = {tenis:'TENIS', zapato:'ZAPATO', bota:'BOTA', botin:'BOTÍN', sandalia:'SANDALIA', slide:'SANDALIA TIPO SLIDE', chancla_tetones:'CHANCLA DE DEDO', pantufla:'PANTUFLA', mocasin:'MOCASÍN', tacon:'ZAPATO DE TACÓN',
   seguridad:'CALZADO DE SEGURIDAD', senderismo:'CALZADO DE SENDERISMO', tacos:'CALZADO DEPORTIVO CON TACOS', zueco:'ZUECO', bota_lluvia:'BOTA DE LLUVIA', acuatico:'CALZADO ACUÁTICO', esqui:'BOTA DE ESQUÍ', danza:'CALZADO DE DANZA', cubrecalzado:'CUBRECALZADO', roller:'CALZADO CON RUEDAS'};
-const MAT_TXT = {plastico:'CAUCHO O PLÁSTICO', cuero:'CUERO NATURAL', textil:'MATERIA TEXTIL', otro:'OTRAS MATERIAS', metal:'METAL', madera:'MADERA', papel:'PAPEL O CARTÓN', vidrio:'VIDRIO', paja:'PAJA'};
-/* Descripción aduanera: qué es, de qué está hecho y lo que define su partida */
+const MAT_TXT = {plastico:'CAUCHO O PLÁSTICO', cuero:'CUERO', textil:'MATERIA TEXTIL', otro:'OTRAS MATERIAS', metal:'METAL', madera:'MADERA', papel:'PAPEL O CARTÓN', vidrio:'VIDRIO', paja:'PAJA'};
+/* Descripción aduanera: qué es, la categoría de su material (textil, cuero,
+   sintético…) sin porcentajes ni detalle de fibras, y lo que define su partida */
 function descripcionProfesional(f){
   const t = f.tipo; if (!t) return '';
   const g = grupoTipo(t), U = x => String(x || '').toUpperCase().trim();
   const e = edadDe(f), gen = f.genero;
   const para = e === 'bebe' ? 'PARA BEBÉ' : gen === 'M' ? (e === 'nino' ? 'PARA NIÑO' : 'PARA HOMBRE') : gen === 'F' ? (e === 'nino' ? 'PARA NIÑA' : 'PARA MUJER') : gen === 'U' ? (e === 'nino' ? 'PARA NIÑO O NIÑA' : 'UNISEX') : (e === 'nino' ? 'PARA NIÑO O NIÑA' : '');
   const cab = [], ext = [];
-  const compTxt = x => x && /%/.test(x) ? '(' + U(x) + ')' : '';
   if (g === 'calzado'){
     const dv = derivarCalzado(f);
     cab.push(NOMBRE_CALZ[f.estiloCalz] || 'CALZADO');
@@ -1098,21 +1096,18 @@ function descripcionProfesional(f){
       : U(TIPO_CORTO_ES[t] || t));
     if (t !== 'gorra') cab.push(f.tejido === 'plano' ? 'DE TEJIDO PLANO' : (f.tejido === 'punto' || t === 'calcetines') ? 'DE PUNTO' : '');
     const c = parseComp((f.comp || {}).exterior || '');
-    if (c && c.pred) cab.push('DE ' + U(FIB_LBL_ES[c.pred.grupo] || c.pred.grupo));
-    cab.push(compTxt((f.comp || {}).exterior));
+    if (c && c.pred) cab.push(c.pred.grupo === 'cuero' ? 'DE CUERO' : ['sintetica','artificial'].includes(c.pred.grupo) ? 'DE FIBRA SINTÉTICA' : 'DE MATERIA TEXTIL');
     if (f.recubierta) ext.push('RECUBIERTA CON PLÁSTICO O CAUCHO');
     if (f.relleno_tipo === 'plumon') ext.push('CON RELLENO DE PLUMÓN'); else if (f.relleno_tipo === 'sintetico' && t === 'chaqueta') ext.push('CON RELLENO SINTÉTICO');
   } else if (g === 'bolso'){
     cab.push(U(TIPO_CORTO_ES[t] || t));
-    const txt = {cuero:'CUERO NATURAL', plastico:'HOJAS DE PLÁSTICO', textil:'MATERIA TEXTIL', otro:'OTRAS MATERIAS'}[f.exterior || ''];
-    if (txt) cab.push('CON SUPERFICIE EXTERIOR DE ' + txt);
-    cab.push(compTxt((f.comp || {}).exterior));
+    const txt = {cuero:'CUERO', plastico:'MATERIAL SINTÉTICO (PLÁSTICO)', textil:'MATERIA TEXTIL', otro:'OTRAS MATERIAS'}[f.exterior || ''];
+    if (txt) cab.push('DE ' + txt);
   } else {
     cab.push(U(TIPO_CORTO_ES[t] || t));
     const parte = partesDe(t, f).includes('exterior') ? 'exterior' : 'material';
     const cm = claseMat(f, parte);
     if (cm) cab.push('DE ' + (MAT_TXT[cm.pred] || U(cm.pred)));
-    cab.push(compTxt((f.comp || {})[parte]));
     if (t === 'botella' && f.alVacio) ext.push('CON AISLAMIENTO AL VACÍO');
   }
   if (para) ext.push(para);

@@ -314,7 +314,7 @@ if (props.editable) deteccion()
       </div>
       <div class="descripciones">
         <div class="campo-f">
-          <div class="lbl-fila"><label for="f_desc">Technical description <span class="opcional">{{ f.descManual ? '(edited by hand)' : '(built from the sheet · Spanish, for the invoice and the DUCA)' }}</span></label><button v-if="props.editable" type="button" class="btn-texto" @click="editarDesc">{{ f.descManual ? 'Use automatic' : 'Edit' }}</button></div>
+          <div class="lbl-fila"><label for="f_desc">Customs description <span class="opcional">{{ f.descManual ? '(edited by hand)' : '(built from the sheet · Spanish, as declared at customs)' }}</span></label><button v-if="props.editable" type="button" class="btn-texto" @click="editarDesc">{{ f.descManual ? 'Use automatic' : 'Edit' }}</button></div>
           <div class="desc-fila">
             <textarea id="f_desc" :value="f.descManual ? f.desc : (props.editable ? props.r?.desc : producto.descripcion_aduana) || ''" class="entrada" rows="2" maxlength="400"
                       :readonly="!f.descManual || !props.editable" placeholder="Appears when you choose the category and the composition" @input="f.desc = $event.target.value"></textarea>

@@ -164,7 +164,7 @@ FICHAS = {
                "relleno_tipo": "ninguno", "tieneForro": True, "recubierta": False, "manga": "larga",
                "uso": "Waterproof shell jacket for hiking", "tallas": "S to XXL",
                "comp": {"exterior": "100% nylon", "forro": "100% polyester"}},
-        desc="CHAQUETA DE TEJIDO PLANO DE FIBRA SINTÉTICA (100% NYLON), PARA HOMBRE, MARCA THE NORTH FACE"),
+        desc="CHAQUETA DE TEJIDO PLANO DE FIBRA SINTÉTICA, PARA HOMBRE, MARCA THE NORTH FACE"),
     ("NF0A5GLL", "Summit blue"): dict(
         nombre="Men's Antora rain jacket", tipo="chaqueta", estado="observado",
         ficha={"genero": "M", "edad": "general", "edadNac": "adulto", "tejido": "plano", "hechura": "chaqueta",
@@ -184,13 +184,13 @@ FICHAS = {
         nombre="Borealis backpack 28 L", tipo="mochila", estado="aprobado", codigo="420292",
         ficha={"genero": "U", "edadNac": "adulto", "tieneForro": True, "claseBolso": "mochila", "uso": "Daypack",
                "tallas": "One size", "comp": {"exterior": "100% polyester", "forro": "100% polyester"}},
-        desc="MOCHILA CON SUPERFICIE EXTERIOR DE MATERIA TEXTIL (100% POLYESTER), UNISEX, MARCA THE NORTH FACE"),
+        desc="MOCHILA DE MATERIA TEXTIL, UNISEX, MARCA THE NORTH FACE"),
     ("NF0A5IHO", "Heather grey"): dict(
         nombre="Glacier half-zip fleece", tipo="sudadera", estado="aprobado", codigo="611030",
         ficha={"genero": "U", "edad": "general", "edadNac": "adulto", "tejido": "punto", "hechuraSud": "pullover",
                "manga": "larga", "capucha": False, "sueter": False, "uso": "Mid layer fleece", "tallas": "S to L",
                "comp": {"exterior": "100% polyester"}},
-        desc="SUDADERA DE PUNTO DE FIBRA SINTÉTICA (100% POLYESTER), UNISEX, MARCA THE NORTH FACE"),
+        desc="SUDADERA DE PUNTO DE FIBRA SINTÉTICA, UNISEX, MARCA THE NORTH FACE"),
     ("VN000EE3", "BLK Black"): dict(
         nombre="Old Skool", tipo="calzado", estado="aprobado", codigo="640419",
         ficha={"genero": "U", "edadNac": "adulto", "estiloCalz": "tenis", "disenio": "casual", "altura": "bajo",
