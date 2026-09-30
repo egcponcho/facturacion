@@ -20,7 +20,7 @@ const props = defineProps({
   paises: { type: Array, default: () => [] },
   editable: Boolean,
 })
-const emit = defineEmits(['subir-foto', 'borrar-foto', 'contexto'])
+const emit = defineEmits(['subir-foto', 'borrar-foto', 'contexto', 'acuerdos'])
 const f = props.f
 
 // ---- Lo que eligió la persona y lo que se llenó solo ----------------------
@@ -190,18 +190,9 @@ function respNac(k, v) {
   tocar(k)
 }
 
-// ---- Acuerdos comerciales según el país de origen ----------------------------
-const acuerdosDestino = computed(() => {
-  const o = f.origen
-  const nombres = Object.fromEntries((props.paises || []).map((x) => [x.codigo, x.nombre]))
-  return (props.ctx.destinos || []).map((d) => ({
-    iso: d.iso,
-    nombre: nombres[d.iso] || d.nombre,
-    local: o === d.iso,
-    acuerdos: o ? (props.ctx.acuerdos || []).filter((a) => a.origenes.includes(o) && a.destinos.includes(d.iso)) : [],
-  }))
-})
-const nAcuerdos = computed(() => acuerdosDestino.value.filter((d) => d.local || d.acuerdos.length).length)
+// ---- Acuerdos comerciales según el país de origen (detalle en su pestaña) ------
+const nAcuerdos = computed(() => (props.ctx.destinos || []).filter((d) => f.origen === d.iso
+  || (props.ctx.acuerdos || []).some((a) => a.origenes.includes(f.origen) && a.destinos.includes(d.iso))).length)
 
 // ---- Avance ----------------------------------------------------------------------
 const pasos = computed(() => {
@@ -279,33 +270,15 @@ if (props.editable) deteccion()
           </div>
         </div>
       </div>
-      <div class="origen-bloque">
-        <div class="campo-f origen-sel">
+      <div class="fila2">
+        <div class="campo-f">
           <label for="f_origen">Country of origin<span class="req-ast">*</span></label>
           <Seleccion id="f_origen" v-model="f.origen" class="entrada" :disabled="!props.editable">
             <option value="">Choose…</option>
             <option v-for="x in props.paises" :key="x.codigo" :value="x.codigo">{{ x.nombre }}</option>
           </Seleccion>
-          <p class="hint">{{ f.origen ? `${nAcuerdos} of ${acuerdosDestino.length} destinations with an agreement` : 'Shows the trade agreements per destination' }}</p>
+          <p class="hint"><button v-if="f.origen" type="button" class="btn-texto" @click="emit('acuerdos')">Trade agreements: {{ nAcuerdos }} of {{ (props.ctx.destinos || []).length }} destinations</button><template v-else>Decides the trade agreements by destination</template></p>
         </div>
-        <div class="campo-f">
-          <span class="lbl-f">Trade agreements by destination <span class="opcional">(proof of origin to present)</span></span>
-          <div v-if="!f.origen" class="acuerdos-vacio">Choose the country of origin to see where it enters with a preference.</div>
-          <ul v-else class="acuerdos">
-            <li v-for="d in acuerdosDestino" :key="d.iso" :class="d.local ? 'local' : d.acuerdos.length ? 'si' : 'no'">
-              <div class="ac-pais"><span class="codigo">{{ d.iso }}</span>{{ d.nombre }}</div>
-              <template v-if="d.local"><span class="ac-estado">Domestic product</span></template>
-              <template v-else-if="d.acuerdos.length">
-                <span v-for="a in d.acuerdos" :key="a.codigo" class="ac-estado" :title="[a.nombre, a.nota].filter(Boolean).join(' · ')">
-                  <Icono nombre="check" :tam="13" />{{ a.codigo }}<small>{{ a.prueba || 'Certificate of origin' }}</small>
-                </span>
-              </template>
-              <span v-else class="ac-estado">No agreement<small>Full DAI applies</small></span>
-            </li>
-          </ul>
-        </div>
-      </div>
-      <div class="fila1">
         <div class="campo-f">
           <label for="f_uso">What it is for <span class="opcional">(optional)</span></label>
           <input id="f_uso" v-model="f.uso" class="entrada" type="text" maxlength="200" :disabled="!props.editable"
@@ -445,21 +418,9 @@ if (props.editable) deteccion()
 .vbadge { font-size: 0.74rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--acento-claro); color: var(--acento-texto); }
 .fila1 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .fila3 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.origen-bloque { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 16px; align-items: start; padding: 12px 0 0; border-top: 1px solid var(--linea); margin-bottom: 4px; }
-.origen-sel .hint { white-space: normal; }
-.acuerdos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
-.acuerdos li { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid var(--linea); border-radius: 8px; background: var(--superficie-2); min-width: 0; }
-.acuerdos li.si { border-color: color-mix(in srgb, var(--ok) 45%, var(--linea)); }
-.acuerdos li.local { border-style: dashed; }
-.ac-pais { display: flex; gap: 6px; align-items: baseline; font-size: 0.86rem; font-weight: 620; color: var(--tinta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ac-pais .codigo { font-size: 0.74rem; color: var(--tinta-3); }
-.ac-estado { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: 620; color: var(--tinta-3); }
-.ac-estado small { flex-basis: 100%; font-weight: 400; font-size: 0.76rem; color: var(--tinta-3); line-height: 1.3; }
-.acuerdos li.si .ac-estado { color: var(--ok); }
-.acuerdos li.si .ac-estado small { color: var(--tinta-2); }
-.acuerdos-vacio { font-size: 0.84rem; color: var(--tinta-3); padding: 10px 12px; border: 1px dashed var(--linea); border-radius: 8px; }
+.hint .btn-texto { font-size: inherit; padding: 0; }
 .fila2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 900px) { .fila3, .fila2, .origen-bloque { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .fila3, .fila2 { grid-template-columns: minmax(0, 1fr); } }
 .campo-f { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; min-width: 0; }
 .campo-f label, .lbl-f { font-size: 0.84rem; font-weight: 620; color: var(--tinta); }
 .rejilla-attrs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 20px; align-items: start; }

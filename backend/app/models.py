@@ -118,12 +118,27 @@ class TipoUnidad(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class Rol(Base):
+    """Rol con sus permisos: el tipo dice qué datos ve el usuario (el
+    proveedor solo lo suyo) y los permisos, a qué módulos y acciones entra."""
+
+    __tablename__ = "roles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80), unique=True)
+    descripcion: Mapped[str | None] = mapped_column(String(300))
+    tipo: Mapped[str] = mapped_column(String(20))  # admin | interno | proveedor
+    permisos: Mapped[list] = mapped_column(JSON, default=list)
+    sistema: Mapped[bool] = mapped_column(Boolean, default=False)  # los de fábrica no se borran
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class Usuario(Base):
     __tablename__ = "usuarios"
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(200), unique=True)
     nombre: Mapped[str] = mapped_column(String(200))
-    rol: Mapped[str] = mapped_column(String(20))  # admin | interno | proveedor
+    rol: Mapped[str] = mapped_column(String(20))  # tipo del rol: admin | interno | proveedor
+    rol_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"))
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
     password_hash: Mapped[str] = mapped_column(String(300))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -136,6 +151,7 @@ class Usuario(Base):
     ultimo_acceso: Mapped[datetime | None] = mapped_column(DateTime)
     password_cambiado_en: Mapped[datetime | None] = mapped_column(DateTime)
     proveedor: Mapped[Proveedor | None] = relationship()
+    rol_ref: Mapped[Rol | None] = relationship()
 
 
 class SesionUsuario(Base):
@@ -378,7 +394,7 @@ class Producto(Base):
     # Versión de la ficha: al cambiar una ficha aprobada se cierra y se abre otra
     version_ficha: Mapped[int] = mapped_column(Integer, default=1)
     vigente_desde: Mapped[date | None] = mapped_column(Date)
-    # borrador | sugerida | aprobado | corregido | observado
+    # borrador | sugerida (borrador completo) | revision (enviada) | aprobado | corregido | observado
     estado: Mapped[str] = mapped_column(String(12), default="borrador", index=True)
     sugerido: Mapped[str | None] = mapped_column(String(14))  # partida del motor
     propuesta: Mapped[str | None] = mapped_column(String(14))  # traída de un archivo o del proveedor

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from ..config import settings
 from ..models import Usuario
 from ..deps import COOKIE
-from ..schemas import DesafioIn, LoginIn, PasswordIn, ProveedorIn, ProveedorPatch, UsuarioIn, UsuarioPatch, VerificarIn
+from ..schemas import DesafioIn, LoginIn, PasswordIn, ProveedorIn, ProveedorPatch, RolIn, RolPatch, UsuarioIn, UsuarioPatch, VerificarIn
 from ..services import acceso
 from ..services.limites import limitar
 from ..services import varios
@@ -20,6 +20,7 @@ def _yo(u: Usuario) -> dict:
         "email": u.email,
         "nombre": u.nombre,
         "rol": u.rol,
+        "rol_nombre": u.rol_ref.nombre if u.rol_ref else None,
         "proveedor_id": u.proveedor_id,
         "proveedor": u.proveedor.nombre if u.proveedor else None,
         "permisos": permisos_de(u),
@@ -120,3 +121,23 @@ def crear_usuario(datos: UsuarioIn, db: Db, user: User, clave: Clave = None):
 @router.patch("/usuarios/{usuario_id}")
 def actualizar_usuario(usuario_id: int, datos: UsuarioPatch, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: varios.actualizar_usuario(db, user, usuario_id, datos))
+
+
+@router.get("/roles")
+def roles(db: Db, user: User):
+    return varios.listar_roles(db, user)
+
+
+@router.post("/roles")
+def crear_rol(datos: RolIn, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: varios.guardar_rol(db, user, datos))
+
+
+@router.patch("/roles/{rol_id}")
+def actualizar_rol(rol_id: int, datos: RolPatch, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: varios.guardar_rol(db, user, datos, rol_id))
+
+
+@router.delete("/roles/{rol_id}")
+def borrar_rol(rol_id: int, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: varios.borrar_rol(db, user, rol_id) or {"ok": True})

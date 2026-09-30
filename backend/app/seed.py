@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .models import (
+    Rol,
     Almacen,
     Articulo,
     ahora,
@@ -40,6 +41,7 @@ from .models import (
 from .security import hash_password
 from .services.common import registrar
 from .services.genericos import sufijo_convencional
+from .services.varios import crear_roles_fabrica
 from .services.productos import (
     _guardar_partidas,
     asegurar_producto,
@@ -164,7 +166,7 @@ FICHAS = {
                "relleno_tipo": "ninguno", "tieneForro": True, "recubierta": False, "manga": "larga",
                "uso": "Waterproof shell jacket for hiking", "tallas": "S to XXL",
                "comp": {"exterior": "100% nylon", "forro": "100% polyester"}},
-        desc="CHAQUETA DE TEJIDO PLANO DE FIBRA SINTÉTICA, PARA HOMBRE, MARCA THE NORTH FACE"),
+        desc="CHAQUETA DE TEXTIL, PARA HOMBRE, MARCA THE NORTH FACE"),
     ("NF0A5GLL", "Summit blue"): dict(
         nombre="Men's Antora rain jacket", tipo="chaqueta", estado="observado",
         ficha={"genero": "M", "edad": "general", "edadNac": "adulto", "tejido": "plano", "hechura": "chaqueta",
@@ -178,33 +180,32 @@ FICHAS = {
                "puntera": "ninguna", "impermeable": False, "suelaEspumosa": False, "uso": "Trail running shoe",
                "tallas": "8 to 12", "comp": {"corte": "80% textile, 20% synthetic", "suela": "100% rubber",
                                              "forro": "100% polyester", "plantilla": "100% EVA"}},
-        desc="TENIS CON CORTE DE MATERIA TEXTIL Y SUELA DE CAUCHO O PLÁSTICO, SIN CUBRIR EL TOBILLO, "
-             "PARA DEPORTE O ENTRENAMIENTO, PARA HOMBRE, MARCA THE NORTH FACE"),
+        desc="TENIS DE TEXTIL, PARA HOMBRE, MARCA THE NORTH FACE"),
     ("NF0A3VY2", "JK3 TNF Black"): dict(
         nombre="Borealis backpack 28 L", tipo="mochila", estado="aprobado", codigo="420292",
         ficha={"genero": "U", "edadNac": "adulto", "tieneForro": True, "claseBolso": "mochila", "uso": "Daypack",
                "tallas": "One size", "comp": {"exterior": "100% polyester", "forro": "100% polyester"}},
-        desc="MOCHILA DE MATERIA TEXTIL, UNISEX, MARCA THE NORTH FACE"),
+        desc="MOCHILA DE TEXTIL, UNISEX, MARCA THE NORTH FACE"),
     ("NF0A5IHO", "Heather grey"): dict(
         nombre="Glacier half-zip fleece", tipo="sudadera", estado="aprobado", codigo="611030",
         ficha={"genero": "U", "edad": "general", "edadNac": "adulto", "tejido": "punto", "hechuraSud": "pullover",
                "manga": "larga", "capucha": False, "sueter": False, "uso": "Mid layer fleece", "tallas": "S to L",
                "comp": {"exterior": "100% polyester"}},
-        desc="SUDADERA DE PUNTO DE FIBRA SINTÉTICA, UNISEX, MARCA THE NORTH FACE"),
+        desc="SUDADERA DE TEXTIL, UNISEX, MARCA THE NORTH FACE"),
     ("VN000EE3", "BLK Black"): dict(
         nombre="Old Skool", tipo="calzado", estado="aprobado", codigo="640419",
         ficha={"genero": "U", "edadNac": "adulto", "estiloCalz": "tenis", "disenio": "casual", "altura": "bajo",
                "puntera": "ninguna", "impermeable": False, "suelaEspumosa": False, "uso": "Casual skate-style sneaker",
                "tallas": "7 to 12", "comp": {"corte": "65% canvas, 35% suede", "suela": "100% rubber",
                                              "forro": "100% cotton", "plantilla": "100% EVA"}},
-        desc="TENIS CON CORTE DE MATERIA TEXTIL Y SUELA DE CAUCHO O PLÁSTICO, SIN CUBRIR EL TOBILLO, UNISEX, MARCA VANS"),
+        desc="TENIS DE TEXTIL, UNISEX, MARCA VANS"),
     ("VN0A4BV4", "White"): dict(
         nombre="Authentic", tipo="calzado", estado="sugerida", sugerido="640419",
         ficha={"genero": "U", "edadNac": "adulto", "estiloCalz": "tenis", "disenio": "casual", "altura": "bajo",
                "puntera": "ninguna", "impermeable": False, "suelaEspumosa": False, "uso": "Casual canvas sneaker",
                "tallas": "7 to 10", "comp": {"corte": "100% canvas", "suela": "100% rubber", "forro": "100% cotton",
                                              "plantilla": "100% EVA"}},
-        desc="TENIS CON CORTE DE MATERIA TEXTIL Y SUELA DE CAUCHO O PLÁSTICO, SIN CUBRIR EL TOBILLO, UNISEX, MARCA VANS"),
+        desc="TENIS DE TEXTIL, UNISEX, MARCA VANS"),
 }
 PERFILES = {"chaqueta": "chaqueta|plano|M|-|-|sintetica|-|chaqueta", "mochila": "mochila|textil",
             "sudadera": "sudadera|punto|F|-|-|sintetica|-|pullover"}
@@ -510,16 +511,20 @@ def seed(db: Session) -> None:
                      contacto="Wei Chen", correos="export.vans@vans.demo", telefono="+86 755 2660 8899")
     db.add_all([tnf, vans])
     db.flush()
-    # Todos con celular registrado y verificación en dos pasos
+    # Roles de fábrica y uno de ejemplo; todos con celular y verificación en dos pasos
+    roles = crear_roles_fabrica(db)
+    db.add(Rol(nombre="Supplier (view only)", tipo="proveedor", sistema=False,
+               descripcion="Sees its POs and technical sheets; cannot invoice or edit.",
+               permisos=["oc.ver", "producto.ver"]))
     pw = hash_password(PASSWORD_DEMO)
-    u_tnf = Usuario(email="tnf@demo.com", nombre="TNF supplier", rol="proveedor", proveedor_id=tnf.id,
-                    password_hash=pw, telefono="+84283770001")
-    u_vans = Usuario(email="vans@demo.com", nombre="Vans supplier", rol="proveedor", proveedor_id=vans.id,
-                     password_hash=pw, telefono="+867552660001")
+    u_tnf = Usuario(email="tnf@demo.com", nombre="TNF supplier", rol="proveedor", rol_id=roles["proveedor"].id,
+                    proveedor_id=tnf.id, password_hash=pw, telefono="+84283770001")
+    u_vans = Usuario(email="vans@demo.com", nombre="Vans supplier", rol="proveedor", rol_id=roles["proveedor"].id,
+                     proveedor_id=vans.id, password_hash=pw, telefono="+867552660001")
     db.add_all([
-        Usuario(email="admin@demo.com", nombre="Administrator", rol="admin", password_hash=pw,
+        Usuario(email="admin@demo.com", nombre="Administrator", rol="admin", rol_id=roles["admin"].id, password_hash=pw,
                 telefono="+50370000001"),
-        Usuario(email="interno@demo.com", nombre="Import team", rol="interno", password_hash=pw,
+        Usuario(email="interno@demo.com", nombre="Import team", rol="interno", rol_id=roles["interno"].id, password_hash=pw,
                 telefono="+50370000002"),
         u_tnf,
         u_vans,

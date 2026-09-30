@@ -551,7 +551,15 @@ def test_catalogos(interno, tnf):
     assert soc["centros_txt"] == "2220, 8010, 8020" and soc["contactos"] == 1
 
 
-def test_seguimiento(tnf, interno):
+def _rol_proveedor(admin):
+    return next(r for r in admin.get("/roles").json()["roles"] if r["sistema"] and r["tipo"] == "proveedor")
+
+
+def test_seguimiento(tnf, interno, admin):
+    # A los proveedores no les interesa: su rol no lo trae, pero se les puede dar
+    assert tnf.get("/seguimiento").status_code == 403
+    rol = _rol_proveedor(admin)
+    assert admin.patch(f"/roles/{rol['id']}", {"permisos": rol["permisos"] + ["seguimiento.ver"]}).status_code == 200
     s = tnf.get("/seguimiento").json()
     assert s["total"] and all(f["proveedor"] == "The North Face" for f in s["items"])
     assert "VANS" not in s["opciones"]["marcas"]
@@ -600,6 +608,8 @@ def test_seguimiento(tnf, interno):
     camino = interno.get("/seguimiento/documentos", params={"etapa": "EN_CAMINO"}).json()["items"]
     assert camino and all(f["estado_embarque"] in ("EN_TRANSITO", "ARRIBADO", "ENTREGADO") for f in camino)
     assert all(f["proveedor"] == "The North Face" for f in tnf.get("/seguimiento/documentos").json()["items"])
+    admin.patch(f"/roles/{rol['id']}", {"permisos": rol["permisos"]})
+    assert tnf.get("/seguimiento/documentos").status_code == 403
 
 
 def test_documentos_y_reportes(tnf, interno):

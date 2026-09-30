@@ -4,6 +4,7 @@ import Seleccion from '../components/Seleccion.vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { api } from '../api'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import AcuerdosOrigen from '../components/ficha/AcuerdosOrigen.vue'
 import FichaTecnica from '../components/ficha/FichaTecnica.vue'
 import GenericoModal from '../components/GenericoModal.vue'
 import Icono from '../components/Icono.vue'
@@ -34,7 +35,10 @@ const agregarTallas = ref(false)
 const cargas = ref(0) // vuelve a montar el formulario tras guardar
 
 const aprobado = computed(() => ['aprobado', 'corregido'].includes(p.value?.estado))
-const puedeEditar = computed(() => !!p.value && !aprobado.value && puede('producto.ficha'))
+const enRevision = computed(() => p.value?.estado === 'revision')
+// En borrador la edita cualquiera con permiso; enviada a revisión, solo quien revisa
+const puedeEditar = computed(() => !!p.value && !aprobado.value && puede('producto.ficha') && (!enRevision.value || !!p.value.puede_aprobar))
+const puedeEnviar = computed(() => !!p.value && ['borrador', 'sugerida', 'observado'].includes(p.value.estado) && puede('producto.ficha'))
 const puedeAprobar = computed(() => !!p.value?.puede_aprobar)
 
 const r = computed(() => (ctx.value && p.value && f.id ? calcular(f, ctx.value, codOficial.value) : null))
@@ -183,7 +187,7 @@ async function guardar(silencioso = false) {
   ocupado.value = true
   try {
     tomar(await api.put(`/productos/${p.value.id}/ficha`, cuerpoFicha()))
-    if (!silencioso) avisar(p.value.ficha_completa ? 'Technical sheet saved. It is ready for review.' : 'Technical sheet saved.')
+    if (!silencioso) avisar(p.value.ficha_completa && puedeEnviar.value ? 'Draft saved. Send it to review when it is ready.' : 'Technical sheet saved.')
     return true
   } catch (e) {
     errorApi(e)
@@ -315,9 +319,45 @@ function aplicarCorreccion(c) {
   else f[c.campo] = c.valor
 }
 
-async function descargarPdf() {
+async function descargarFicha(formato, version) {
   try {
-    await api.descargar(`/productos/${p.value.id}/pdf`, `sheet_${p.value.estilo}.pdf`)
+    await api.descargar(`/productos/${p.value.id}/ficha`, `sheet_${p.value.estilo}${version ? `_v${version}` : ''}.${formato}`, { formato, version })
+  } catch (e) {
+    errorApi(e)
+  }
+}
+
+// ---- Borrador → revisión ------------------------------------------------------
+async function enviarRevision() {
+  if (sucio.value && !(await guardar(true))) return
+  ocupado.value = true
+  try {
+    await api.post('/productos/enviar', { ids: [p.value.id] })
+    tomar(await api.get(`/productos/${p.value.id}`))
+    avisar('Sent to review. It stays locked until customs approves or returns it.')
+  } catch (e) {
+    errorApi(e)
+  } finally {
+    ocupado.value = false
+  }
+}
+async function retirarRevision() {
+  ocupado.value = true
+  try {
+    tomar(await api.post(`/productos/${p.value.id}/retirar`))
+    avisar('Back to draft: you can edit it again.')
+  } catch (e) {
+    errorApi(e)
+  } finally {
+    ocupado.value = false
+  }
+}
+
+// ---- Versiones anteriores ------------------------------------------------------
+const versionVista = ref(null)
+async function verVersion(v) {
+  try {
+    versionVista.value = await api.get(`/productos/${p.value.id}/versiones/${v.version}`)
   } catch (e) {
     errorApi(e)
   }
@@ -332,6 +372,8 @@ const ACCION = {
   devuelto: 'Returned to the supplier',
   observacion: 'Added a note',
   nueva_version: 'Opened a new version',
+  enviado: 'Sent to review',
+  retirado: 'Took it back to draft',
   opinion_especialista: 'Asked the specialist',
   foto_agregada: 'Added a photo',
   foto_quitada: 'Removed a photo',
@@ -377,9 +419,13 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         <EstadoBadge :estado="p.estado" />
         <span v-if="p.version_ficha > 1" class="etiqueta">Version {{ p.version_ficha }}</span>
         <div class="doc-acciones">
-          <button class="btn btn-fantasma" title="Technical sheet with the classification, as PDF" @click="descargarPdf"><Icono nombre="descargar" />PDF</button>
+          <button class="btn btn-fantasma" title="Technical sheet with the classification, as PDF" @click="descargarFicha('pdf')"><Icono nombre="descargar" />PDF</button>
+          <button class="btn btn-fantasma" title="Technical sheet with composition and national codes, as Excel" @click="descargarFicha('xlsx')"><Icono nombre="descargar" />Excel</button>
           <button v-if="aprobado && puede('producto.ficha')" class="btn" @click="modal = { tipo: 'version', texto: '', desde: '' }"><Icono nombre="editar" />New version</button>
-          <button v-if="puedeEditar" class="btn btn-primario" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ sucio ? 'Save sheet' : 'Saved' }}</button>
+          <button v-if="enRevision && puede('producto.ficha')" class="btn" :disabled="ocupado" title="Take it back to draft to change it" @click="retirarRevision"><Icono nombre="atras" />Back to draft</button>
+          <button v-if="puedeEditar" class="btn" :class="{ 'btn-primario': !puedeEnviar || puedeAprobar }" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ sucio ? (puedeEnviar ? 'Save draft' : 'Save sheet') : 'Saved' }}</button>
+          <button v-if="puedeEnviar && !puedeAprobar" class="btn btn-primario" :disabled="ocupado || !r?.completa || codigo6.length < 6"
+                  :title="!r?.completa ? `Complete first: ${(r?.faltan || []).join(', ')}` : 'Customs reviews it and approves or returns it'" @click="enviarRevision"><Icono nombre="enviar" />Send to review</button>
         </div>
       </div>
       <div class="doc-meta">
@@ -393,6 +439,12 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
     <p v-if="p.estado === 'observado' && p.observaciones" class="nota aviso" role="status">
       <Icono nombre="alerta" /><span><b>Returned for correction.</b> {{ p.observaciones }}</span>
     </p>
+    <p v-else-if="enRevision" class="nota info" role="status">
+      <Icono nombre="reloj" /><span><b>In review.</b> {{ p.puede_aprobar ? 'Check it and approve the code or return it with notes.' : 'Customs is reviewing it; it stays locked until they approve or return it. Take it back to draft if you need to change something.' }}</span>
+    </p>
+    <p v-else-if="puedeEnviar && p.estado !== 'observado'" class="nota" role="status">
+      <Icono nombre="editar" /><span><b>Draft.</b> Anyone with access can edit it. Nobody reviews it until it is <b>sent to review</b>.</span>
+    </p>
     <p v-else-if="aprobado" class="nota ok">
       <Icono nombre="check" /><span>This sheet is approved and locked. Purchase orders and invoices use its codes. To change it, open a new version.</span>
     </p>
@@ -404,18 +456,78 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
             <span v-if="r && r.faltan.length && !aprobado" class="cuenta alerta">{{ r.faltan.length }}</span></button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'tallas'" @click="pestana = 'tallas'"><Icono nombre="caja" :tam="16" />Sizes and prepacks
             <span class="cuenta">{{ p.articulos.length }}</span></button>
+          <button class="pestana" role="tab" :aria-selected="pestana === 'acuerdos'" @click="pestana = 'acuerdos'"><Icono nombre="ruta" :tam="16" />Trade agreements</button>
+          <button class="pestana" role="tab" :aria-selected="pestana === 'versiones'" @click="pestana = 'versiones'"><Icono nombre="capas" :tam="16" />Versions
+            <span class="cuenta">{{ p.versiones.length + 1 }}</span></button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'historial'" @click="pestana = 'historial'"><Icono nombre="historial" :tam="16" />History</button>
         </div>
 
         <!-- Ficha técnica -->
         <FichaTecnica v-if="pestana === 'ficha'" :key="`${p.id}-${p.version_ficha}-${cargas}`" :f="f" :r="r" :ctx="ctx" :producto="p" :paises="opciones.paises"
-                      :editable="puedeEditar" @subir-foto="subirFoto" @borrar-foto="borrarFoto" @contexto="recargarContexto" />
+                      :editable="puedeEditar" @subir-foto="subirFoto" @borrar-foto="borrarFoto" @contexto="recargarContexto" @acuerdos="pestana = 'acuerdos'" />
+
+        <!-- Acuerdos comerciales por destino según el origen -->
+        <AcuerdosOrigen v-else-if="pestana === 'acuerdos'" :origen="f.origen || ''" :ctx="ctx" :paises="opciones.paises" />
+
+        <!-- Versiones: la vigente y las anteriores, para verlas y descargarlas -->
+        <div v-else-if="pestana === 'versiones'" class="panel mt-chico">
+          <div class="tabla-marco">
+            <table class="tabla">
+              <thead><tr><th>Version</th><th>Valid</th><th>Status</th><th>HS code</th><th>Reason for the change</th><th></th></tr></thead>
+              <tbody>
+                <tr class="seleccionada">
+                  <td class="fuerte">{{ p.version_ficha }} <span class="etiqueta acento">Current</span></td>
+                  <td>{{ p.vigente_desde ? `From ${fmtFecha(p.vigente_desde)}` : 'Current' }}</td>
+                  <td><EstadoBadge :estado="p.estado" /></td>
+                  <td class="codigo-sac">{{ p.codigo || p.sugerido || '—' }}</td><td class="apagado">—</td>
+                  <td class="num fila-flex" style="justify-content: flex-end">
+                    <button class="btn btn-chico" @click="pestana = 'ficha'">Open</button>
+                    <button class="btn btn-chico" @click="descargarFicha('pdf')">PDF</button>
+                    <button class="btn btn-chico" @click="descargarFicha('xlsx')">Excel</button>
+                  </td>
+                </tr>
+                <tr v-for="v in p.versiones" :key="v.version" :class="{ seleccionada: versionVista?.version === v.version }">
+                  <td class="fuerte">{{ v.version }}</td><td>{{ fmtFecha(v.desde) }} – {{ fmtFecha(v.hasta) }}</td>
+                  <td><EstadoBadge :estado="v.estado" /></td>
+                  <td class="codigo-sac">{{ v.codigo || '—' }}</td><td>{{ v.motivo || '—' }}</td>
+                  <td class="num fila-flex" style="justify-content: flex-end">
+                    <button class="btn btn-chico" @click="verVersion(v)"><Icono nombre="lupa" :tam="13" />View</button>
+                    <button class="btn btn-chico" @click="descargarFicha('pdf', v.version)">PDF</button>
+                    <button class="btn btn-chico" @click="descargarFicha('xlsx', v.version)">Excel</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-if="!p.versiones.length" class="ayuda mt-chico">There are no previous versions yet. Approved sheets are changed by opening a new version; the previous one stays here as it was.</p>
+          <div v-if="versionVista" class="version-vista mt">
+            <div class="fila-flex" style="justify-content: space-between">
+              <h3>Version {{ versionVista.version }} · {{ versionVista.estado_txt }}<span v-if="versionVista.vigencia" class="apagado"> · {{ fmtFecha(versionVista.vigencia.desde) }} – {{ fmtFecha(versionVista.vigencia.hasta) }}</span></h3>
+              <button class="btn-icono" aria-label="Close version" @click="versionVista = null"><Icono nombre="cerrar" :tam="16" /></button>
+            </div>
+            <div class="rejilla-dl"><div v-for="[k, v] in versionVista.clasificacion" :key="k" class="par"><span>{{ k }}</span><b>{{ v }}</b></div></div>
+            <p v-if="versionVista.descripcion" class="mt-chico"><b>Customs description:</b> {{ versionVista.descripcion }}</p>
+            <h4 class="mt">Product data</h4>
+            <div class="rejilla-dl"><div v-for="[k, v] in versionVista.datos" :key="k" class="par"><span>{{ k }}</span><b>{{ v }}</b></div></div>
+            <template v-if="versionVista.composicion.length">
+              <h4 class="mt">Composition</h4>
+              <div class="rejilla-dl"><div v-for="[k, v] in versionVista.composicion" :key="k" class="par"><span>{{ k }}</span><b>{{ v }}</b></div></div>
+            </template>
+            <template v-if="versionVista.partidas.length">
+              <h4 class="mt">National codes by destination</h4>
+              <table class="tabla mt-chico">
+                <thead><tr><th>Country</th><th>Code</th><th>Duty (DAI)</th><th>Status</th><th>Source</th></tr></thead>
+                <tbody><tr v-for="x in versionVista.partidas" :key="x[0]"><td>{{ x[0] }}</td><td class="codigo-sac">{{ x[1] }}</td><td>{{ x[2] }}</td><td>{{ x[3] }}</td><td>{{ x[4] }}</td></tr></tbody>
+              </table>
+            </template>
+          </div>
+        </div>
 
         <!-- Tallas y prepacks -->
         <div v-else-if="pestana === 'tallas'">
           <div class="fila-flex mt-chico" style="justify-content: space-between">
             <p class="ayuda">Every size of generic <b>{{ p.codigo_generico || '—' }}</b> (first 8 digits of the item code) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.</p>
-            <button v-if="p.codigo_generico && puede('catalogos.editar')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />Add sizes</button>
+            <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />Add sizes</button>
           </div>
           <div class="tabla-marco mt-chico">
             <table class="tabla">
@@ -450,18 +562,6 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
             </li>
             <li v-if="!p.historial.length" class="apagado">No changes recorded yet.</li>
           </ol>
-          <template v-if="p.versiones.length">
-            <h3 class="mt">Previous versions</h3>
-            <table class="tabla mt-chico">
-              <thead><tr><th>Version</th><th>Valid</th><th>HS code</th><th>Reason for the change</th></tr></thead>
-              <tbody>
-                <tr v-for="v in p.versiones" :key="v.version">
-                  <td>{{ v.version }}</td><td>{{ fmtFecha(v.desde) }} – {{ fmtFecha(v.hasta) }}</td>
-                  <td class="codigo-sac">{{ v.codigo || '—' }}</td><td>{{ v.motivo || '—' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </template>
         </div>
       </div>
 
@@ -606,8 +706,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
           <button class="btn" :disabled="ocupado" @click="modal = { tipo: 'devolver', texto: p.observaciones || (r?.faltan.length ? `Please complete: ${r.faltan.join(', ')}.` : '') }">Return to supplier</button>
         </div>
         <p v-else-if="!aprobado && puedeEditar" class="ayuda acciones-clasif">
-          <template v-if="r?.completa">Complete. Save it and customs will review it.</template>
-          <template v-else>Complete the required fields; customs reviews it once the sheet is complete.</template>
+          <template v-if="!puedeEnviar">Sent to review.</template>
+          <template v-else-if="r?.completa">Complete. Send it to review when it is ready; until then it stays as a draft.</template>
+          <template v-else>Complete the required fields, then send it to review.</template>
         </p>
       </aside>
     </div>
@@ -648,6 +749,13 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 </template>
 
 <style scoped>
+.version-vista { border-top: 1px solid var(--linea); padding-top: 12px; }
+.version-vista h3 { font-size: 1rem; margin: 0; }
+.version-vista h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); margin-bottom: 6px; }
+.rejilla-dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 16px; }
+.rejilla-dl .par { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.rejilla-dl .par span { font-size: 0.76rem; color: var(--tinta-3); }
+.rejilla-dl .par b { font-weight: 560; font-size: 0.9rem; overflow-wrap: anywhere; }
 .producto-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; margin-top: 4px; }
 .producto-principal .pestanas { margin-top: 4px; }
 .clasif { display: flex; flex-direction: column; gap: 14px; }

@@ -21,7 +21,7 @@ const route = useRoute()
 const router = useRouter()
 const interno = esInterno()
 const filtros = reactive({
-  estado: route.query.estado ?? (interno ? 'sugerida' : 'pendientes'),
+  estado: route.query.estado ?? (interno ? 'revision' : 'borradores'),
   q: route.query.q || '',
   marcas: [],
   tipos: [],
@@ -40,8 +40,8 @@ const cargaAbierta = ref(false)
 const VISTAS = computed(() => {
   const k = datos.value.kpis || {}
   return [
-    ['pendientes', interno ? 'To classify' : 'To complete', k.pendientes],
-    ...(interno ? [['sugerida', 'Ready to approve', k.sugerida]] : []),
+    ['borradores', 'Drafts', k.borradores],
+    ['revision', interno ? 'To review' : 'Sent to review', k.revision],
     ['observado', interno ? 'Returned' : 'Returned to you', k.observado],
     ['aprobados', 'Approved', k.aprobados],
     ['', 'All', k.total],
@@ -79,7 +79,23 @@ function ordenar(campo) {
 
 const ids = computed(() => datos.value.items.map((p) => p.id))
 const elegidos = computed(() => datos.value.items.filter((p) => sel.tiene(p.id)))
-const porAprobar = computed(() => elegidos.value.filter((p) => p.estado === 'sugerida' && p.ficha_completa))
+const porAprobar = computed(() => elegidos.value.filter((p) => ['sugerida', 'revision'].includes(p.estado) && p.ficha_completa))
+const porEnviar = computed(() => elegidos.value.filter((p) => ['sugerida', 'observado', 'borrador'].includes(p.estado)))
+
+async function enviar() {
+  ocupado.value = true
+  try {
+    const r = await api.post('/productos/enviar', { ids: porEnviar.value.map((p) => p.id) })
+    if (r.errores.length) avisar(`${r.enviados} sent to review; ${r.errores.length} need attention.`, 'error', r.errores.map((e) => e.mensaje))
+    else avisar(`${r.enviados} ${r.enviados === 1 ? 'sheet' : 'sheets'} sent to review.`)
+    sel.limpiar()
+    await cargar()
+  } catch (e) {
+    errorApi(e)
+  } finally {
+    ocupado.value = false
+  }
+}
 
 async function clasificar() {
   ocupado.value = true
@@ -138,7 +154,7 @@ watch(() => sesion.proveedorId, recargar)
 <template>
   <div class="pagina-cabeza">
     <div>
-      <div class="pestanas-pildora sub-mod">
+      <div v-if="puede('aranceles.ver')" class="pestanas-pildora sub-mod">
         <span class="pildora" aria-current="page" aria-pressed="true">Products</span>
         <router-link to="/aranceles" class="pildora">Tariff schedule</router-link>
       </div>
@@ -149,7 +165,7 @@ watch(() => sesion.proveedorId, recargar)
     <div class="acciones">
       <button class="btn btn-fantasma" @click="exportar('xlsx')"><Icono nombre="descargar" />Excel</button>
       <button class="btn btn-fantasma" @click="exportar('pdf')"><Icono nombre="descargar" />PDF</button>
-      <button v-if="puede('catalogos.editar')" class="btn" @click="cargaAbierta = true"><Icono nombre="importar" />Upload items and sheets</button>
+      <button v-if="puede('catalogos.crear')" class="btn" @click="cargaAbierta = true"><Icono nombre="importar" />Upload items and sheets</button>
     </div>
   </div>
 
@@ -218,7 +234,7 @@ watch(() => sesion.proveedorId, recargar)
         </tr>
         <tr v-if="!datos.items.length && !cargando">
           <td colspan="7" class="vacio">
-            <template v-if="filtros.estado === 'pendientes' || filtros.estado === 'sugerida'"><Icono nombre="check" /> Nothing pending here.</template>
+            <template v-if="['pendientes', 'sugerida', 'revision', 'borradores'].includes(filtros.estado)"><Icono nombre="check" /> Nothing pending here.</template>
             <template v-else>No products match these filters.</template>
           </td>
         </tr>
@@ -235,6 +251,8 @@ watch(() => sesion.proveedorId, recargar)
     <button class="btn" :disabled="ocupado" title="Run the classification engine on the saved technical sheets" @click="clasificar"><Icono nombre="varita" />Classify</button>
     <button v-if="puede('producto.clasificar')" class="btn btn-primario" :disabled="ocupado || !porAprobar.length"
             title="Approve the suggested code of the complete sheets" @click="aprobar"><Icono nombre="check" />Approve {{ porAprobar.length || '' }}</button>
+    <button v-if="puede('producto.ficha') && !interno" class="btn btn-primario" :disabled="ocupado || !porEnviar.length"
+            title="Send the complete drafts to review" @click="enviar"><Icono nombre="enviar" />Send to review {{ porEnviar.length || '' }}</button>
   </BarraSeleccion>
 </template>
 

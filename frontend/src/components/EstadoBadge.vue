@@ -22,7 +22,8 @@ const MAPA = {
   RECIBIDO: ['Received', 'ok'],
   // Ficha técnica y clasificación del producto
   borrador: ['Draft', 'neutro'],
-  sugerida: ['To review', 'info'],
+  sugerida: ['Draft · complete', 'neutro'],
+  revision: ['In review', 'info'],
   aprobado: ['Approved', 'ok'],
   corregido: ['Approved', 'ok'],
   observado: ['Returned', 'aviso'],

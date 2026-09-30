@@ -47,7 +47,7 @@ from .meta import meta as meta_motor
 from .common import (
     ErrorNegocio,
     asegurar_proveedor,
-    es_interno,
+    tiene,
     exigir,
     proveedor_filtro,
     registrar,
@@ -79,10 +79,14 @@ def destinos(db: Session) -> list[dict]:
 
 def digitos_pais(db: Session) -> dict:
     return {d["iso"]: d["digitos"] for d in destinos(db)}
-ESTADOS = {"borrador": "Draft", "sugerida": "Suggested", "aprobado": "Approved", "corregido": "Corrected",
-           "observado": "Returned"}
+# Borrador (incompleto o completo) → enviado a revisión → aprobado o devuelto.
+# Mientras es borrador, lo edita cualquiera con permiso; enviado queda
+# cerrado para el proveedor hasta que se apruebe o se devuelva.
+ESTADOS = {"borrador": "Draft", "sugerida": "Draft · complete", "revision": "In review", "aprobado": "Approved",
+           "corregido": "Corrected", "observado": "Returned"}
 APROBADOS = ("aprobado", "corregido")
-PENDIENTES = ("borrador", "sugerida", "observado")
+BORRADORES = ("borrador", "sugerida", "observado")
+PENDIENTES = BORRADORES + ("revision",)
 OBLIGATORIOS = ["tipo", "genero", "edadNac", "composicion", "origen"]
 TIPOS_FOTO = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
@@ -429,6 +433,8 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     estado = filtros.get("estado")
     if estado == "pendientes":
         base = base.where(Producto.estado.in_(PENDIENTES))
+    elif estado == "borradores":
+        base = base.where(Producto.estado.in_(BORRADORES))
     elif estado == "aprobados":
         base = base.where(Producto.estado.in_(APROBADOS))
     elif estado:
@@ -444,6 +450,7 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
         "total": sum(conteo.values()),
         "pendientes": sum(conteo.get(e, 0) for e in PENDIENTES),
         "borrador": conteo.get("borrador", 0), "sugerida": conteo.get("sugerida", 0),
+        "revision": conteo.get("revision", 0), "borradores": sum(conteo.get(e, 0) for e in BORRADORES),
         "observado": conteo.get("observado", 0),
         "aprobados": sum(conteo.get(e, 0) for e in APROBADOS),
     }
@@ -488,7 +495,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
                       "componentes": [{"talla": c.articulo.talla, "sku": c.articulo.sku, "cantidad": c.cantidad}
                                       for c in x.componentes]} for x in pps],
         "historial": _historial(db, p),
-        "puede_aprobar": es_interno(user),
+        "puede_aprobar": tiene(user, "producto.clasificar"),
     })
     return r
 
@@ -527,7 +534,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
         "palabras": [{"id": x.id, "frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})}
                      for x in db.scalars(select(PalabraClave))],
         "sinonimos": [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))],
-        "puede_aprobar": es_interno(user),
+        "puede_aprobar": tiene(user, "producto.clasificar"),
     }
 
 
@@ -556,7 +563,8 @@ def _aplicar_resultado(p: Producto, r: dict | None) -> None:
     p.faltan = [str(x)[:120] for x in (r.get("faltan") or [])][:20]
     if p.estado not in APROBADOS:
         _guardar_partidas(p, r.get("partidas"))
-        p.estado = "sugerida" if p.ficha_completa and p.sugerido else "borrador"
+        if p.estado != "revision":
+            p.estado = "sugerida" if p.ficha_completa and p.sugerido else "borrador"
 
 
 def guardar_ficha(db: Session, user: Usuario, producto_id: int, datos) -> dict:
@@ -565,6 +573,8 @@ def guardar_ficha(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     verificar_version(p, datos.version, "product")
     if p.estado in APROBADOS:
         raise ErrorNegocio("The technical sheet is approved. Create a new version to change it.", 409, "ficha_aprobada")
+    if p.estado == "revision" and not tiene(user, "producto.clasificar"):
+        raise ErrorNegocio("The technical sheet was sent to review. Take it back to draft to change it.", 409, "en_revision")
     antes = {"tipo": p.tipo, "ficha": p.ficha, "estado": p.estado}
     p.tipo = (datos.tipo or None) and datos.tipo[:30]
     p.ficha = datos.ficha or {}
@@ -665,7 +675,7 @@ def aprobar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
         p = _producto(db, user, pid)
         if p.estado in APROBADOS:
             continue
-        if p.estado != "sugerida" or not p.ficha_completa:
+        if p.estado not in ("sugerida", "revision") or not p.ficha_completa:
             errores.append({"id": p.id, "mensaje": f"{p.estilo} {p.color or ''}: the sheet is not complete.".replace(" :", ":")})
             continue
         try:
@@ -699,6 +709,42 @@ def observar(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     return detalle(db, user, p.id)
 
 
+def enviar_revision(db: Session, user: Usuario, ids: list[int]) -> dict:
+    """Envía fichas en borrador a revisión: deben estar completas y con partida."""
+    exigir(user, "producto.ficha")
+    ok, errores = 0, []
+    for pid in ids:
+        p = _producto(db, user, pid)
+        nombre = f"{p.estilo} {p.color or ''}".strip()
+        if p.estado not in BORRADORES:
+            errores.append({"id": p.id, "mensaje": f"{nombre} is {ESTADOS.get(p.estado, p.estado).lower()}."})
+            continue
+        if not p.ficha_completa or not p.sugerido:
+            falta = ", ".join((p.faltan or [])[:4]) or "the HS code"
+            errores.append({"id": p.id, "mensaje": f"{nombre}: complete the sheet first ({falta})."})
+            continue
+        antes = p.estado
+        p.estado = "revision"
+        tocar(p)
+        registrar(db, user, "producto", p.id, "enviado", {"estado": [antes, p.estado]})
+        ok += 1
+    if len(ids) == 1 and errores:
+        raise ErrorNegocio(errores[0]["mensaje"], 422, "no_enviado", errores)
+    return {"enviados": ok, "errores": errores}
+
+
+def retirar_revision(db: Session, user: Usuario, producto_id: int) -> dict:
+    """Vuelve a borrador una ficha enviada (para corregirla antes de que la revisen)."""
+    exigir(user, "producto.ficha")
+    p = _producto(db, user, producto_id)
+    if p.estado != "revision":
+        raise ErrorNegocio("Only a sheet in review can go back to draft.", 409, "estado")
+    p.estado = "sugerida" if p.ficha_completa and p.sugerido else "borrador"
+    tocar(p)
+    registrar(db, user, "producto", p.id, "retirado", {"estado": ["revision", p.estado]})
+    return detalle(db, user, p.id)
+
+
 def nueva_version(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     """Cierra la ficha vigente con su partida y abre una copia para editar."""
     exigir(user, "producto.ficha")
@@ -711,8 +757,10 @@ def nueva_version(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     db.add(ProductoVersion(
         producto=p, version=p.version_ficha, desde=inicio, hasta=desde - timedelta(days=1), motivo=(datos.motivo or "")[:300] or None,
         datos={"tipo": p.tipo, "ficha": p.ficha, "codigo": p.codigo, "sugerido": p.sugerido, "estado": p.estado,
-               "descripcion_aduana": p.descripcion_aduana, "pais_origen": p.pais_origen,
-               "partidas": {x.pais: x.codigo for x in p.partidas},
+               "descripcion_aduana": p.descripcion_aduana, "descripcion_comercial": p.descripcion_comercial,
+               "pais_origen": p.pais_origen, "analisis": p.analisis, "confianza": p.confianza,
+               "partidas": {x.pais: {"codigo": x.codigo, "dai": x.dai, "estado": x.estado, "fuente": x.fuente,
+                                     "manual": x.manual} for x in p.partidas},
                "revisado_por": p.revisado_por.nombre if p.revisado_por else None,
                "revisado_en": p.revisado_en.isoformat() if p.revisado_en else None},
         cerrado_por=user.id))
@@ -720,7 +768,7 @@ def nueva_version(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     p.vigente_desde = desde
     p.estado = "borrador"
     p.codigo = None
-    p.revisado_por_id = None
+    p.revisado_por = None
     p.revisado_en = None
     p.partidas.clear()
     tocar(p)
@@ -914,29 +962,108 @@ def opciones(db: Session, user: Usuario) -> dict:
     }
 
 
-def exportar_ficha(db: Session, user: Usuario, producto_id: int) -> tuple[bytes, str]:
-    from . import documentos
+def ficha_de_version(db: Session, user: Usuario, producto_id: int, version: int | None = None) -> dict:
+    """La ficha vigente o, con `version`, la copia cerrada de una versión anterior."""
     d = detalle(db, user, producto_id)
-    return documentos.pdf_ficha_producto(d), f"ficha_{d['estilo']}_{digitos(d['color'])[:6] or d['id']}"
+    if not version or version == d["version_ficha"]:
+        return d
+    p = _producto(db, user, producto_id)
+    v = next((x for x in p.versiones if x.version == version), None)
+    if not v:
+        raise ErrorNegocio(f"Version {version} does not exist.", 404, "no_encontrado")
+    x = v.datos or {}
+    partidas = x.get("partidas") or {}
+    return {**d, "version_ficha": v.version, "tipo": x.get("tipo"), "ficha": x.get("ficha") or {},
+            "codigo": fmt_codigo(x.get("codigo")) if x.get("codigo") else None,
+            "sugerido": fmt_codigo(x.get("sugerido")) if x.get("sugerido") else None,
+            "estado": x.get("estado"), "estado_txt": ESTADOS.get(x.get("estado"), x.get("estado")),
+            "descripcion_aduana": x.get("descripcion_aduana"), "descripcion_comercial": x.get("descripcion_comercial"),
+            "pais_origen": x.get("pais_origen"), "analisis": x.get("analisis") or {}, "confianza": x.get("confianza"),
+            "partidas": {k: (c if isinstance(c, dict) else {"codigo": c}) for k, c in partidas.items()},
+            "revisado_por": x.get("revisado_por"), "revisado_en": x.get("revisado_en"), "observaciones": None,
+            "vigencia": {"desde": v.desde, "hasta": v.hasta, "motivo": v.motivo}, "historica": True}
+
+
+def ver_version(db: Session, user: Usuario, producto_id: int, version: int) -> dict:
+    from . import documentos
+    d = ficha_de_version(db, user, producto_id, version)
+    return {"version": d["version_ficha"], "vigencia": d.get("vigencia"), "estado_txt": d.get("estado_txt"),
+            **documentos.secciones_ficha(d)}
+
+
+def exportar_ficha(db: Session, user: Usuario, producto_id: int, formato: str = "pdf",
+                   version: int | None = None) -> tuple[bytes, str]:
+    from . import documentos, exportar
+    d = ficha_de_version(db, user, producto_id, version)
+    nombre = f"ficha_{d['estilo']}_{digitos(d['color'])[:6] or d['id']}" + (f"_v{d['version_ficha']}" if version else "")
+    if formato == "xlsx":
+        return exportar.exportar_ficha(d, documentos.secciones_ficha(d)), nombre
+    return documentos.pdf_ficha_producto(d), nombre
 
 
 def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None, formato: str) -> bytes:
+    """Reporte de productos con su composición, descripción aduanal y el
+    código nacional guardado para cada país destino."""
     from . import documentos, exportar
     r = listar(db, user, filtros, 1, 100_000, orden)
     k = r["kpis"]
-    indicadores = [("Products", f"{k['total']:,}"), ("To classify", f"{k['pendientes']:,}"),
+    indicadores = [("Products", f"{k['total']:,}"), ("Drafts", f"{k['borradores']:,}"), ("In review", f"{k['revision']:,}"),
                    ("Returned", f"{k['observado']:,}"), ("Approved", f"{k['aprobados']:,}")]
-    columnas = [("Generic", 1, False), ("Style", 1.1, False), ("Color", 1.3, False), ("Name", 1.8, False), ("Supplier", 1.2, False),
-                ("Brand", 0.7, False), ("Type", 0.9, False), ("Status", 0.9, False), ("HS code", 0.9, False),
-                ("Suggested", 0.9, False), ("Countries", 0.7, True), ("Origin", 0.6, False), ("SKUs", 0.5, True)]
-    filas = [[p["codigo_generico"] or "—", p["estilo"], p["color"], p["nombre"] or "—", p["proveedor"] or "—", p["marca"] or "—", p["tipo"] or "—",
-              p["estado_txt"], p["codigo"] or "—", p["sugerido"] or "—", f"{p['paises_ok']}/{p['paises_total']}",
-              p["pais_origen"] or "—", p["skus"]] for p in r["items"]]
+    ids = [p["id"] for p in r["items"]]
+    prods = {p.id: p for p in db.scalars(select(Producto).where(Producto.id.in_(ids))
+                                         .options(selectinload(Producto.partidas)))} if ids else {}
+    paises = [d["iso"] for d in destinos(db)]
+
+    def comp(p: Producto | None) -> str:
+        c = ((p.ficha or {}).get("comp") or {}) if p else {}
+        return " · ".join(f"{documentos.PARTES.get(k, k.capitalize())}: {v}" for k, v in c.items() if v) if isinstance(c, dict) else ""
+
+    def codigos(p: Producto | None) -> dict:
+        return {x.pais: fmt_codigo(x.codigo) for x in (p.partidas if p else []) if x.codigo}
+
     nombres = {"q": "Search", "estado": "Status", "tipo": "Type", "proveedor_id": "Supplier", "marca_id": "Brand"}
     texto = " · ".join(f"{nombres.get(c, c)}: {v}" for c, v in filtros.items() if v not in (None, ""))
     texto = f"Filters: {texto}" if texto else "No filters"
-    titulo, sub = "Products and tariff classification", "Technical sheets, HS codes and national codes by destination"
+    titulo, sub = "Products and tariff classification", "Technical sheets, composition, HS codes and national codes by destination"
     if formato == "pdf":
-        return documentos.pdf_reporte(titulo, sub, texto, indicadores, columnas,
-                                      [[str(v) for v in f] for f in filas])
-    return exportar.exportar_reporte(titulo, sub, texto, indicadores, columnas, filas)
+        columnas = [("Generic", 1, False), ("Style", 1, False), ("Color", 1.1, False), ("Supplier", 1, False), ("Type", 0.8, False),
+                    ("Status", 0.8, False), ("HS code", 0.8, False), ("Origin", 0.5, False), ("Composition", 2.6, False)] \
+            + [(iso, 1, False) for iso in paises]
+        filas = []
+        for p in r["items"]:
+            cods = codigos(prods.get(p["id"]))
+            filas.append([p["codigo_generico"] or "—", p["estilo"], p["color"], p["proveedor"] or "—", p["tipo"] or "—", p["estado_txt"],
+                          p["codigo"] or "—", p["pais_origen"] or "—", comp(prods.get(p["id"])) or "—"]
+                         + [cods.get(iso, "—") for iso in paises])
+        return documentos.pdf_reporte(titulo, sub, texto, indicadores, columnas, [[str(v) for v in f] for f in filas])
+    columnas = [("Generic", 1, False), ("Style", 1.1, False), ("Color", 1.3, False), ("Name", 1.8, False), ("Supplier", 1.2, False),
+                ("Brand", 0.7, False), ("Type", 0.9, False), ("Status", 0.9, False), ("Version", 0.6, True), ("HS code", 0.9, False),
+                ("Suggested", 0.9, False), ("Origin", 0.6, False), ("Customs description", 4, False),
+                ("Commercial description", 1.8, False), ("Composition", 4, False)] \
+        + [(f"Code {iso}", 1.4, False) for iso in paises] + [("SKUs", 0.5, True)]
+    filas, partes, codigos_filas = [], [], []
+    for p in r["items"]:
+        pr = prods.get(p["id"])
+        cods = codigos(pr)
+        filas.append([p["codigo_generico"] or "—", p["estilo"], p["color"], p["nombre"] or "—", p["proveedor"] or "—",
+                      p["marca"] or "—", p["tipo"] or "—", p["estado_txt"], pr.version_ficha if pr else 1, p["codigo"] or "—",
+                      p["sugerido"] or "—", p["pais_origen"] or "—", (pr.descripcion_aduana if pr else None) or "—",
+                      p.get("descripcion_comercial") or "—", comp(pr) or "—"]
+                     + [cods.get(iso, "—") for iso in paises] + [p["skus"]])
+        c = ((pr.ficha or {}).get("comp") or {}) if pr else {}
+        for parte, materiales in (c.items() if isinstance(c, dict) else []):
+            if materiales:
+                partes.append([p["codigo_generico"] or "—", p["estilo"], p["color"], documentos.PARTES.get(parte, parte.capitalize()),
+                               str(materiales)])
+        for x in (pr.partidas if pr else []):
+            codigos_filas.append([p["codigo_generico"] or "—", p["estilo"], p["color"], x.pais, fmt_codigo(x.codigo) or "—",
+                                  f"{x.dai}%" if x.dai not in (None, "") else "—", documentos.ESTADO_PARTIDA.get(x.estado, x.estado or "—"),
+                                  "By hand" if x.manual else (x.fuente or "—").capitalize()])
+    hojas = [
+        {"titulo": "Composition", "columnas": [("Generic", 1, False), ("Style", 1.1, False), ("Color", 1.3, False),
+                                               ("Part", 1.6, False), ("Materials", 5, False)], "filas": partes},
+        {"titulo": "National codes", "columnas": [("Generic", 1, False), ("Style", 1.1, False), ("Color", 1.3, False),
+                                                  ("Country", 0.7, False), ("Code", 1.6, False), ("Duty (DAI)", 0.9, False),
+                                                  ("Status", 0.9, False), ("Source", 0.9, False)], "filas": codigos_filas},
+    ]
+    return exportar.exportar_reporte(titulo, sub, texto, indicadores, columnas, filas, hojas)

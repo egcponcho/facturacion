@@ -37,10 +37,27 @@ class ProveedorPatch(BaseModel):
     activo: bool | None = None
 
 
+class RolIn(BaseModel):
+    nombre: str = Field(max_length=80)
+    descripcion: str | None = Field(default=None, max_length=300)
+    tipo: Literal["admin", "interno", "proveedor"]
+    permisos: list[str] = []
+    activo: bool = True
+
+
+class RolPatch(BaseModel):
+    nombre: str | None = Field(default=None, max_length=80)
+    descripcion: str | None = Field(default=None, max_length=300)
+    tipo: Literal["admin", "interno", "proveedor"] | None = None
+    permisos: list[str] | None = None
+    activo: bool | None = None
+
+
 class UsuarioIn(BaseModel):
     email: str
     nombre: str
-    rol: Literal["admin", "interno", "proveedor"]
+    rol: Literal["admin", "interno", "proveedor"] | None = None
+    rol_id: int | None = None
     proveedor_id: int | None = None
     password: str = Field(max_length=200)
     telefono: str | None = None
@@ -50,6 +67,7 @@ class UsuarioIn(BaseModel):
 class UsuarioPatch(BaseModel):
     nombre: str | None = None
     rol: Literal["admin", "interno", "proveedor"] | None = None
+    rol_id: int | None = None
     proveedor_id: int | None = None
     password: str | None = Field(default=None, max_length=200)
     activo: bool | None = None

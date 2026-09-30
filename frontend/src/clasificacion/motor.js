@@ -1071,48 +1071,41 @@ function detectarCon(texto, comp, tallas, palabras, marca){
 const NOMBRE_CALZ = {tenis:'TENIS', zapato:'ZAPATO', bota:'BOTA', botin:'BOTÍN', sandalia:'SANDALIA', slide:'SANDALIA TIPO SLIDE', chancla_tetones:'CHANCLA DE DEDO', pantufla:'PANTUFLA', mocasin:'MOCASÍN', tacon:'ZAPATO DE TACÓN',
   seguridad:'CALZADO DE SEGURIDAD', senderismo:'CALZADO DE SENDERISMO', tacos:'CALZADO DEPORTIVO CON TACOS', zueco:'ZUECO', bota_lluvia:'BOTA DE LLUVIA', acuatico:'CALZADO ACUÁTICO', esqui:'BOTA DE ESQUÍ', danza:'CALZADO DE DANZA', cubrecalzado:'CUBRECALZADO', roller:'CALZADO CON RUEDAS'};
 const MAT_TXT = {plastico:'CAUCHO O PLÁSTICO', cuero:'CUERO', textil:'MATERIA TEXTIL', otro:'OTRAS MATERIAS', metal:'METAL', madera:'MADERA', papel:'PAPEL O CARTÓN', vidrio:'VIDRIO', paja:'PAJA'};
-/* Descripción aduanera: qué es, la categoría de su material (textil, cuero,
-   sintético…) sin porcentajes ni detalle de fibras, y lo que define su partida */
+/* Descripción aduanal: solo qué es y la categoría de su material (textil,
+   cuero o sintético), sin porcentajes ni detalles; luego para quién y la marca.
+   Ej.: TENIS DE TEXTIL, UNISEX, MARCA VANS */
+const CAT_MAT = {textil:'TEXTIL', cuero:'CUERO', plastico:'MATERIAL SINTÉTICO', sintetica:'MATERIAL SINTÉTICO', artificial:'MATERIAL SINTÉTICO'};
 function descripcionProfesional(f){
   const t = f.tipo; if (!t) return '';
   const g = grupoTipo(t), U = x => String(x || '').toUpperCase().trim();
   const e = edadDe(f), gen = f.genero;
   const para = e === 'bebe' ? 'PARA BEBÉ' : gen === 'M' ? (e === 'nino' ? 'PARA NIÑO' : 'PARA HOMBRE') : gen === 'F' ? (e === 'nino' ? 'PARA NIÑA' : 'PARA MUJER') : gen === 'U' ? (e === 'nino' ? 'PARA NIÑO O NIÑA' : 'UNISEX') : (e === 'nino' ? 'PARA NIÑO O NIÑA' : '');
-  const cab = [], ext = [];
+  let nombre, cat = '';
   if (g === 'calzado'){
-    const dv = derivarCalzado(f);
-    cab.push(NOMBRE_CALZ[f.estiloCalz] || 'CALZADO');
-    if (dv.upper) cab.push('CON CORTE DE ' + (MAT_TXT[dv.upper] || U(dv.upper)) + ' Y SUELA DE ' + (MAT_TXT[dv.sole || 'plastico'] || 'CAUCHO O PLÁSTICO'));
-    if (f.altura === 'rodilla') ext.push('QUE CUBRE LA RODILLA'); else if (f.altura === 'tobillo') ext.push('QUE CUBRE EL TOBILLO'); else if (f.altura === 'bajo') ext.push('SIN CUBRIR EL TOBILLO');
-    if (f.puntera === 'metalica') ext.push('CON PUNTERA METÁLICA DE PROTECCIÓN');
-    if (f.impermeable) ext.push('IMPERMEABLE');
-    if (f.disenio === 'entrenamiento' && ['tenis','senderismo'].includes(f.estiloCalz)) ext.push('PARA DEPORTE O ENTRENAMIENTO');
+    nombre = NOMBRE_CALZ[f.estiloCalz] || 'CALZADO';
+    cat = CAT_MAT[derivarCalzado(f).upper] || '';
   } else if (g === 'prenda'){
-    cab.push(t === 'chaqueta' ? ({chaleco_relleno:'CHALECO ACOLCHADO', chaleco:'CHALECO', reflectivo:'CHALECO REFLECTIVO', blazer:'SACO TIPO BLAZER'})[f.hechura] || 'CHAQUETA'
-      : t === 'pantalon' ? (f.largo === 'corto' ? 'PANTALÓN CORTO (SHORT)' : 'PANTALÓN')
+    nombre = t === 'chaqueta' ? ({chaleco_relleno:'CHALECO', chaleco:'CHALECO', reflectivo:'CHALECO REFLECTIVO', blazer:'SACO'})[f.hechura] || 'CHAQUETA'
+      : t === 'pantalon' ? (f.largo === 'corto' ? 'PANTALÓN CORTO' : 'PANTALÓN')
       : t === 'camisa' || (t === 'camiseta' && f.polo) ? (f.polo ? 'CAMISA TIPO POLO' : 'CAMISA')
       : t === 'sudadera' ? (f.sueter ? 'SUÉTER' : 'SUDADERA')
       : t === 'gorra' ? ({sombrero:'SOMBRERO', gorro:'GORRO'})[f.formaTocado] || 'GORRA'
-      : U(TIPO_CORTO_ES[t] || t));
-    if (t !== 'gorra') cab.push(f.tejido === 'plano' ? 'DE TEJIDO PLANO' : (f.tejido === 'punto' || t === 'calcetines') ? 'DE PUNTO' : '');
+      : U(TIPO_CORTO_ES[t] || t);
     const c = parseComp((f.comp || {}).exterior || '');
-    if (c && c.pred) cab.push(c.pred.grupo === 'cuero' ? 'DE CUERO' : ['sintetica','artificial'].includes(c.pred.grupo) ? 'DE FIBRA SINTÉTICA' : 'DE MATERIA TEXTIL');
-    if (f.recubierta) ext.push('RECUBIERTA CON PLÁSTICO O CAUCHO');
-    if (f.relleno_tipo === 'plumon') ext.push('CON RELLENO DE PLUMÓN'); else if (f.relleno_tipo === 'sintetico' && t === 'chaqueta') ext.push('CON RELLENO SINTÉTICO');
+    cat = c && c.pred ? (c.pred.grupo === 'cuero' ? 'CUERO' : f.recubierta ? 'MATERIAL SINTÉTICO' : 'TEXTIL') : '';
   } else if (g === 'bolso'){
-    cab.push(U(TIPO_CORTO_ES[t] || t));
-    const txt = {cuero:'CUERO', plastico:'MATERIAL SINTÉTICO (PLÁSTICO)', textil:'MATERIA TEXTIL', otro:'OTRAS MATERIAS'}[f.exterior || ''];
-    if (txt) cab.push('DE ' + txt);
+    nombre = U(TIPO_CORTO_ES[t] || t);
+    cat = CAT_MAT[f.exterior] || '';
   } else {
-    cab.push(U(TIPO_CORTO_ES[t] || t));
+    nombre = U(TIPO_CORTO_ES[t] || t);
     const parte = partesDe(t, f).includes('exterior') ? 'exterior' : 'material';
     const cm = claseMat(f, parte);
-    if (cm) cab.push('DE ' + (MAT_TXT[cm.pred] || U(cm.pred)));
-    if (t === 'botella' && f.alVacio) ext.push('CON AISLAMIENTO AL VACÍO');
+    cat = cm ? (CAT_MAT[cm.pred] || MAT_TXT[cm.pred] || U(cm.pred)) : '';
   }
+  const ext = [];
   if (para) ext.push(para);
   if (f.marca) ext.push('MARCA ' + U(f.marca));
-  return [cab.filter(Boolean).join(' ')].concat(ext).filter(Boolean).join(', ');
+  return [nombre + (cat ? ' DE ' + cat : '')].concat(ext).join(', ');
 }
 function derivarCalzado(f){
   const c = f.comp || {};
@@ -1733,8 +1726,8 @@ function fmtPais(cod, n){
   for (let i = 6; i < s.length; i += 2) o += '.' + s.slice(i, i + 2);
   return o;
 }
-const ESTADOS = {borrador:'Draft', sugerida:'Suggested', aprobado:'Approved', corregido:'Corrected'};
-const ESTADO_COLOR = {borrador:'#94A3B8', sugerida:'#D69E2E', aprobado:'#2F855A', corregido:'#4636A6'};
+const ESTADOS = {borrador:'Draft', sugerida:'Draft · complete', revision:'In review', aprobado:'Approved', corregido:'Corrected'};
+const ESTADO_COLOR = {borrador:'#94A3B8', sugerida:'#D69E2E', revision:'#1D5FB0', aprobado:'#2F855A', corregido:'#4636A6'};
 const EDAD_LBL = {adulto:'adult', nino:'child or youth', bebe:'baby', general:'child, youth or adult'};
 
 /* ---------- Consistencia: incoherencias y verificación del código ---------- */

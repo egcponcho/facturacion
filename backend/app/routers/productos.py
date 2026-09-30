@@ -49,9 +49,21 @@ def detalle(producto_id: int, db: Db, user: User):
 
 
 @router.get("/productos/{producto_id}/pdf")
-def ficha_pdf(producto_id: int, db: Db, user: User):
-    contenido, nombre = svc.exportar_ficha(db, user, producto_id)
+def ficha_pdf(producto_id: int, db: Db, user: User, version: int | None = None):
+    contenido, nombre = svc.exportar_ficha(db, user, producto_id, "pdf", version)
     return descarga(contenido, nombre, "pdf")
+
+
+@router.get("/productos/{producto_id}/ficha")
+def ficha_archivo(producto_id: int, db: Db, user: User, formato: str = Query("pdf", pattern="^(pdf|xlsx)$"),
+                  version: int | None = None):
+    contenido, nombre = svc.exportar_ficha(db, user, producto_id, formato, version)
+    return descarga(contenido, nombre, formato)
+
+
+@router.get("/productos/{producto_id}/versiones/{version}")
+def ver_version(producto_id: int, version: int, db: Db, user: User):
+    return svc.ver_version(db, user, producto_id, version)
 
 
 @router.put("/productos/{producto_id}/ficha")
@@ -67,6 +79,16 @@ def clasificar_lote(datos: s.ClasificarLote, db: Db, user: User, clave: Clave = 
 @router.post("/productos/aprobar")
 def aprobar_lote(datos: s.AprobarLote, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.aprobar_lote(db, user, datos.ids))
+
+
+@router.post("/productos/enviar")
+def enviar_revision(datos: s.AprobarLote, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.enviar_revision(db, user, datos.ids))
+
+
+@router.post("/productos/{producto_id}/retirar")
+def retirar_revision(producto_id: int, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.retirar_revision(db, user, producto_id))
 
 
 @router.post("/productos/{producto_id}/aprobar")
