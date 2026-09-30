@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .models import (
+    Rol,
     Almacen,
     Articulo,
     ahora,
@@ -40,6 +41,7 @@ from .models import (
 from .security import hash_password
 from .services.common import registrar
 from .services.genericos import sufijo_convencional
+from .services.varios import crear_roles_fabrica
 from .services.productos import (
     _guardar_partidas,
     asegurar_producto,
@@ -510,16 +512,20 @@ def seed(db: Session) -> None:
                      contacto="Wei Chen", correos="export.vans@vans.demo", telefono="+86 755 2660 8899")
     db.add_all([tnf, vans])
     db.flush()
-    # Todos con celular registrado y verificación en dos pasos
+    # Roles de fábrica y uno de ejemplo; todos con celular y verificación en dos pasos
+    roles = crear_roles_fabrica(db)
+    db.add(Rol(nombre="Supplier (view only)", tipo="proveedor", sistema=False,
+               descripcion="Sees its POs and technical sheets; cannot invoice or edit.",
+               permisos=["oc.ver", "producto.ver"]))
     pw = hash_password(PASSWORD_DEMO)
-    u_tnf = Usuario(email="tnf@demo.com", nombre="TNF supplier", rol="proveedor", proveedor_id=tnf.id,
-                    password_hash=pw, telefono="+84283770001")
-    u_vans = Usuario(email="vans@demo.com", nombre="Vans supplier", rol="proveedor", proveedor_id=vans.id,
-                     password_hash=pw, telefono="+867552660001")
+    u_tnf = Usuario(email="tnf@demo.com", nombre="TNF supplier", rol="proveedor", rol_id=roles["proveedor"].id,
+                    proveedor_id=tnf.id, password_hash=pw, telefono="+84283770001")
+    u_vans = Usuario(email="vans@demo.com", nombre="Vans supplier", rol="proveedor", rol_id=roles["proveedor"].id,
+                     proveedor_id=vans.id, password_hash=pw, telefono="+867552660001")
     db.add_all([
-        Usuario(email="admin@demo.com", nombre="Administrator", rol="admin", password_hash=pw,
+        Usuario(email="admin@demo.com", nombre="Administrator", rol="admin", rol_id=roles["admin"].id, password_hash=pw,
                 telefono="+50370000001"),
-        Usuario(email="interno@demo.com", nombre="Import team", rol="interno", password_hash=pw,
+        Usuario(email="interno@demo.com", nombre="Import team", rol="interno", rol_id=roles["interno"].id, password_hash=pw,
                 telefono="+50370000002"),
         u_tnf,
         u_vans,

@@ -7,6 +7,7 @@ from ..services import dashboard as tablero
 from ..services import reportes
 from ..services import leadtimes
 from ..services import seguimiento as seg
+from ..services.common import exigir
 from ..services import varios as svc
 from .base import Clave, Db, Formato, User, descarga, ejecutar
 
@@ -40,17 +41,20 @@ def _filtros_de(request: Request) -> dict:
 @router.get("/seguimiento")
 def seguimiento(request: Request, db: Db, user: User, proveedor_id: int | None = None, orden: str | None = None,
                 page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    exigir(user, "seguimiento.ver")
     return seg.seguimiento(db, user, proveedor_id, _filtros_de(request), orden, page, size)
 
 
 @router.get("/seguimiento/embarques")
 def seguimiento_embarques(request: Request, db: Db, user: User, proveedor_id: int | None = None,
                           orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    exigir(user, "seguimiento.ver")
     return seg.embarques(db, user, proveedor_id, _filtros_de(request), orden, page, size)
 
 
 @router.get("/seguimiento/unidades/{unidad_id}/explosion")
 def seguimiento_explosion(unidad_id: int, request: Request, db: Db, user: User, proveedor_id: int | None = None):
+    exigir(user, "seguimiento.ver")
     return seg.explosion_unidad(db, user, unidad_id, proveedor_id, _filtros_de(request))
 
 
@@ -58,6 +62,7 @@ def seguimiento_explosion(unidad_id: int, request: Request, db: Db, user: User, 
 def seguimiento_leadtimes(request: Request, db: Db, user: User, proveedor_id: int | None = None,
                           orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
     """Lead times por origen, liberación logística contra la XF y temprano/tarde por hito."""
+    exigir(user, "seguimiento.ver")
     filtros = {k: v for k, v in request.query_params.items() if k not in ("proveedor_id", "orden", "page", "size")}
     return leadtimes.leadtimes(db, user, proveedor_id, filtros, orden, page, size)
 
@@ -65,6 +70,7 @@ def seguimiento_leadtimes(request: Request, db: Db, user: User, proveedor_id: in
 @router.get("/seguimiento/ordenes")
 def seguimiento_ordenes(request: Request, db: Db, user: User, proveedor_id: int | None = None,
                         orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    exigir(user, "seguimiento.ver")
     return seg.ordenes(db, user, proveedor_id, _filtros_de(request), orden, page, size)
 
 
@@ -74,6 +80,7 @@ def seguimiento_documentos(db: Db, user: User, proveedor_id: int | None = None, 
                            sociedad: str | None = None, centro: str | None = None, embarque_id: int | None = None,
                            proveedor: str | None = None, con_pendientes: bool = False, orden: str | None = None,
                            page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    exigir(user, "seguimiento.ver")
     filtros = {k: v for k, v in locals().items()
                if k not in ("db", "user", "proveedor_id", "orden", "page", "size")}
     return seg.seguimiento_documentos(db, user, proveedor_id, filtros, orden, page, size)
@@ -87,6 +94,7 @@ FILTROS_DOC = ("q", "etapa", "estado_factura", "estado_pl", "sociedad", "centro"
 def seguimiento_exportar(vista: str, request: Request, db: Db, user: User, proveedor_id: int | None = None,
                          orden: str | None = None, formato: Formato = "xlsx"):
     """Reporte del tablero con los filtros de la pantalla, en PDF o Excel."""
+    exigir(user, "seguimiento.ver")
     if vista not in reportes.REPORTES:
         raise HTTPException(404, "Report not found")
     if vista == "documentos":

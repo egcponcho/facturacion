@@ -21,21 +21,19 @@ const ROLES = { admin: 'Administrator', interno: 'Imports', proveedor: 'Supplier
 // server check it again). The daily work goes in the bar; setup pages go in
 // the settings menu so the bar stays short.
 const navegacion = computed(() => {
-  const items = [
-    { to: '/', texto: 'Home', icono: 'tablero' },
-    { to: '/ordenes', texto: 'Orders', icono: 'ordenes', cuenta: carrito.items.length || null },
-    { to: '/facturas', texto: 'Invoices', icono: 'factura' },
-  ]
+  const items = [{ to: '/', texto: 'Home', icono: 'tablero' }]
+  if (puede('oc.ver')) items.push({ to: '/ordenes', texto: 'Orders', icono: 'ordenes', cuenta: carrito.items.length || null })
+  if (puede('oc.ver')) items.push({ to: '/facturas', texto: 'Invoices', icono: 'factura' })
   if (puede('transporte.gestionar')) items.push({ to: '/transporte', texto: 'Shipments', icono: 'barco' })
-  items.push({ to: '/productos', texto: 'Products', icono: 'etiqueta' })
-  items.push({ to: '/seguimiento', texto: 'Tracking', icono: 'ruta' })
+  if (puede('producto.ver')) items.push({ to: '/productos', texto: 'Products', icono: 'etiqueta' })
+  if (puede('seguimiento.ver')) items.push({ to: '/seguimiento', texto: 'Tracking', icono: 'ruta' })
   return items
 })
 const ajustes = computed(() => {
   const items = []
   if (puede('catalogos.ver')) items.push({ to: '/mantenimiento', texto: 'Master data', detalle: 'Items, brands, suppliers, plants', icono: 'base' })
-  items.push({ to: '/plantillas', texto: 'Packing templates', detalle: 'Reusable carton layouts', icono: 'capas' })
-  if (puede('producto.clasificar')) items.push({ to: '/aranceles', texto: 'Tariff schedule', detalle: 'SAC, countries and national codes', icono: 'etiqueta' })
+  if (puede('plantilla.editar')) items.push({ to: '/plantillas', texto: 'Packing templates', detalle: 'Reusable carton layouts', icono: 'capas' })
+  if (puede('aranceles.ver')) items.push({ to: '/aranceles', texto: 'Tariff schedule', detalle: 'SAC, countries and national codes', icono: 'etiqueta' })
   if (puede('oc.importar')) items.push({ to: '/importar', texto: 'Import purchase orders', detalle: 'From the ERP file', icono: 'importar' })
   if (puede('admin')) items.push({ to: '/admin', texto: 'Users and access', detalle: 'Roles, suppliers, sessions', icono: 'usuarios' })
   return items
@@ -110,7 +108,7 @@ async function cambiarClave() {
             <span class="avatar" aria-hidden="true">{{ iniciales }}</span>
             <div class="usuario-datos">
               <b>{{ sesion.usuario.nombre }}</b>
-              <span>{{ sesion.usuario.proveedor || ROLES[sesion.usuario.rol] }}</span>
+              <span>{{ sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol] }}</span>
             </div>
             <button type="button" class="btn-icono" aria-label="Change password" title="Change password"
                     @click="clave = { actual: '', nueva: '', repetir: '', error: '' }"><Icono nombre="candado" /></button>

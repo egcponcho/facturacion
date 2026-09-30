@@ -35,6 +35,7 @@ from .common import (
     asegurar_proveedor,
     cant_txt,
     es_interno,
+    permisos_de,
     exigir,
     registrar,
     requerir_motivo,
@@ -900,6 +901,7 @@ def _sugerencias(db: Session, pl: PackingList) -> dict[int, int]:
 
 
 def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
+    permisos = permisos_de(user)
     from .facturas import _info_transporte
 
     pl = cargar_pl(db, user, pl_id)
@@ -1026,15 +1028,11 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
         ] if editable else [],
         "puede": {
             "editar": editable,
-            "finalizar": editable and (es_interno(user) or "pl.finalizar" in _permisos(user)),
-            "reabrir": pl.estado == "FINALIZADO" and es_interno(user),
-            "cancelar": pl.estado != "CANCELADO" and (es_interno(user) or pl.estado == "BORRADOR"),
-            "recepcion": pl.estado == "FINALIZADO" and es_interno(user),
+            "finalizar": editable and "pl.finalizar" in permisos,
+            "reabrir": pl.estado == "FINALIZADO" and "pl.reabrir" in permisos,
+            "cancelar": pl.estado != "CANCELADO" and "pl.cancelar" in permisos and (es_interno(user) or pl.estado == "BORRADOR"),
+            "recepcion": pl.estado == "FINALIZADO" and "recepcion.registrar" in permisos,
         },
     }
 
 
-def _permisos(user: Usuario) -> list[str]:
-    from .common import permisos_de
-
-    return permisos_de(user)

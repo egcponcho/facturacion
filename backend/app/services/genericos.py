@@ -67,7 +67,7 @@ def detalle(db: Session, user: Usuario, gen: str) -> dict:
 
 def crear(db: Session, user: Usuario, datos) -> dict:
     """Genérico nuevo con sus datos maestros y, si vienen, sus tallas."""
-    exigir(user, "catalogos.editar")
+    exigir(user, "catalogos.crear")
     gen = (datos.generico or "").strip()
     errores = []
     if not RE_GEN.match(gen):
@@ -103,7 +103,7 @@ def crear(db: Session, user: Usuario, datos) -> dict:
 
 def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list) -> list[int]:
     """Tallas nuevas de un genérico: heredan sus datos maestros."""
-    exigir(user, "catalogos.editar")
+    exigir(user, "catalogos.crear")
     p = producto_por_generico(db, gen)
     if not p:
         raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")

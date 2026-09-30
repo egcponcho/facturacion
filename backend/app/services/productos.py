@@ -47,7 +47,7 @@ from .meta import meta as meta_motor
 from .common import (
     ErrorNegocio,
     asegurar_proveedor,
-    es_interno,
+    tiene,
     exigir,
     proveedor_filtro,
     registrar,
@@ -488,7 +488,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
                       "componentes": [{"talla": c.articulo.talla, "sku": c.articulo.sku, "cantidad": c.cantidad}
                                       for c in x.componentes]} for x in pps],
         "historial": _historial(db, p),
-        "puede_aprobar": es_interno(user),
+        "puede_aprobar": tiene(user, "producto.clasificar"),
     })
     return r
 
@@ -527,7 +527,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
         "palabras": [{"id": x.id, "frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})}
                      for x in db.scalars(select(PalabraClave))],
         "sinonimos": [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))],
-        "puede_aprobar": es_interno(user),
+        "puede_aprobar": tiene(user, "producto.clasificar"),
     }
 
 

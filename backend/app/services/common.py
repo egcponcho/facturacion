@@ -33,43 +33,95 @@ class ErrorNegocio(Exception):
 TODOS = {"admin", "interno", "proveedor"}
 INTERNOS = {"admin", "interno"}
 
+# Catálogo de permisos por módulo: (clave, etiqueta, roles de fábrica que lo
+# tienen, si un rol de proveedor puede tenerlo). Los roles se arman en Users
+# and access marcando estos permisos; el proveedor sigue viendo solo lo suyo.
+MODULOS = [
+    ("Orders", [
+        ("oc.ver", "See purchase orders", TODOS, True),
+        ("oc.importar", "Import POs from the ERP", INTERNOS, False),
+        ("oc.empaque", "Edit casepack and inner pack of a PO line", INTERNOS, False),
+    ]),
+    ("Invoices", [
+        ("factura.editar", "Create and edit invoices", TODOS, True),
+        ("factura.finalizar", "Finalize invoices", "finalizan", True),
+        ("factura.reabrir", "Reopen finalized invoices", INTERNOS, False),
+        ("factura.cancelar", "Cancel invoices", TODOS, True),
+    ]),
+    ("Packing lists", [
+        ("pl.editar", "Create and edit packing lists", TODOS, True),
+        ("pl.finalizar", "Finalize packing lists", "finalizan", True),
+        ("pl.reabrir", "Reopen finalized packing lists", INTERNOS, False),
+        ("pl.cancelar", "Cancel packing lists", TODOS, True),
+        ("plantilla.editar", "Create and edit packing templates", TODOS, True),
+    ]),
+    ("Shipments", [
+        ("transporte.gestionar", "See and manage shipments and load units", INTERNOS, False),
+        ("recepcion.registrar", "Register warehouse receipts", INTERNOS, False),
+    ]),
+    ("Products", [
+        ("producto.ver", "See products and technical sheets", TODOS, True),
+        ("producto.ficha", "Edit technical sheets and send them to review", TODOS, True),
+        ("producto.crear", "Create products", INTERNOS, False),
+        ("producto.clasificar", "Classify, approve and return sheets", INTERNOS, False),
+    ]),
+    ("Tariff schedule", [
+        ("aranceles.ver", "See the tariff schedule", INTERNOS, False),
+        ("aranceles.editar", "Edit countries, SAC, notes and national codes", INTERNOS, False),
+    ]),
+    ("Master data", [
+        ("catalogos.ver", "See master data", INTERNOS, False),
+        ("catalogos.crear", "Create and upload master data", INTERNOS, False),
+        ("catalogos.editar", "Edit master data", INTERNOS, False),
+        ("catalogos.eliminar", "Delete master data", INTERNOS, False),
+    ]),
+    ("Tracking", [
+        ("seguimiento.ver", "See tracking and lead times", INTERNOS, True),
+        ("alertas.ver", "See and resolve alerts", INTERNOS, False),
+    ]),
+    ("Administration", [
+        ("admin", "Users, roles and suppliers", {"admin"}, False),
+    ]),
+]
+PERMISOS = {k: (et, roles, prov) for _, ps in MODULOS for k, et, roles, prov in ps}
+
 
 def _matriz() -> dict[str, set[str]]:
     finalizan = INTERNOS | ({"proveedor"} if settings.PROVEEDOR_PUEDE_FINALIZAR else set())
-    return {
-        "oc.ver": TODOS,
-        "oc.importar": INTERNOS,
-        "oc.empaque": INTERNOS,
-        "factura.editar": TODOS,
-        "factura.finalizar": finalizan,
-        "factura.reabrir": INTERNOS,
-        "factura.cancelar": TODOS,  # el proveedor solo en borrador
-        "pl.editar": TODOS,
-        "pl.finalizar": finalizan,
-        "pl.reabrir": INTERNOS,
-        "pl.cancelar": TODOS,
-        "plantilla.editar": TODOS,
-        "transporte.gestionar": INTERNOS,
-        "recepcion.registrar": INTERNOS,
-        "alertas.ver": INTERNOS,
-        "catalogos.ver": INTERNOS,
-        # Productos: el proveedor completa la ficha técnica de lo suyo; el equipo
-        # interno clasifica, aprueba, devuelve y enseña códigos nacionales
-        "producto.ver": TODOS,
-        "producto.ficha": TODOS,
-        "producto.crear": INTERNOS,
-        "producto.clasificar": INTERNOS,
-        "catalogos.editar": INTERNOS,
-        "admin": {"admin"},
-    }
+    return {k: finalizan if roles == "finalizan" else roles for k, (_, roles, _) in PERMISOS.items()}
+
+
+def permisos_fabrica(tipo: str) -> list[str]:
+    return sorted(p for p, roles in _matriz().items() if tipo in roles)
+
+
+def permisos_validos(tipo: str, permisos) -> list[str]:
+    """Lo que un rol de ese tipo puede tener: el de proveedor no recibe
+    permisos de datos globales y solo el administrador administra."""
+    return sorted({p for p in permisos or [] if p in PERMISOS and (p != "admin" or tipo == "admin")
+                   and (tipo != "proveedor" or PERMISOS[p][2])})
+
+
+def catalogo_permisos() -> list[dict]:
+    return [{"modulo": m, "permisos": [{"clave": k, "etiqueta": et, "proveedor": prov} for k, et, _, prov in ps]}
+            for m, ps in MODULOS]
 
 
 def permisos_de(user: Usuario) -> list[str]:
-    return sorted(p for p, roles in _matriz().items() if user.rol in roles)
+    if user.rol == "admin":
+        return sorted(PERMISOS)
+    r = user.rol_ref
+    if r is not None and r.activo:
+        return permisos_validos(user.rol, r.permisos)
+    return permisos_fabrica(user.rol)
+
+
+def tiene(user: Usuario, permiso: str) -> bool:
+    return permiso in permisos_de(user)
 
 
 def exigir(user: Usuario, permiso: str) -> None:
-    if user.rol not in _matriz().get(permiso, set()):
+    if not tiene(user, permiso):
         raise ErrorNegocio("You do not have permission for this action.", 403, "sin_permiso")
 
 

@@ -593,7 +593,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
 
 
 def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
-    exigir(user, "catalogos.editar")
+    exigir(user, "catalogos.crear")
     if tipo == "prepacks":
         return crear_prepack(db, user, datos)
     cat = _cat(tipo)
@@ -643,7 +643,7 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
 
 
 def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
-    exigir(user, "catalogos.editar")
+    exigir(user, "catalogos.eliminar")
     cat = _cat(tipo)
     obj = db.get(cat["modelo"], obj_id)
     if not obj:
@@ -716,7 +716,7 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
     prepack con su propio código de producto. La explosión ya no cambia."""
     import re
 
-    exigir(user, "catalogos.editar")
+    exigir(user, "catalogos.crear")
     sku = str(datos.get("sku") or "").strip()
     codigo = str(datos.get("codigo") or "").strip().upper()
     estilo = str(datos.get("estilo") or "").strip().upper()
@@ -801,7 +801,7 @@ def importar_prepacks(db: Session, user: Usuario, nombre: str, contenido: bytes)
     """Columnas: sku_prepack (código de producto del prepack), prepack_id,
     descripcion, sku (sólido) y cantidad. Una fila por talla de la explosión.
     Estilo y color salen de los sólidos. Un prepack que ya existe no cambia."""
-    exigir(user, "catalogos.editar")
+    exigir(user, "catalogos.crear")
     filas = _filas_archivo(nombre, contenido)
     grupos: dict[str, dict] = {}
     errores = []

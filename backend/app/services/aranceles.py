@@ -45,7 +45,7 @@ def paises(db: Session, user: Usuario) -> list[dict]:
 
 
 def guardar_pais(db: Session, user: Usuario, datos, pais_id: int | None = None) -> dict:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     iso = (datos.iso or "").strip().upper()
     if not re.fullmatch(r"[A-Z]{2}", iso):
         raise ErrorNegocio("The country code has 2 letters (ISO), e.g. DO.", 422, "validacion")
@@ -72,7 +72,7 @@ def guardar_pais(db: Session, user: Usuario, datos, pais_id: int | None = None) 
 
 
 def borrar_pais(db: Session, user: Usuario, pais_id: int) -> None:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     x = db.get(PaisArancel, pais_id)
     if not x:
         raise ErrorNegocio("The country does not exist.", 404, "no_encontrado")
@@ -120,7 +120,7 @@ def listar_sac(db: Session, user: Usuario, filtros: dict, page: int, size: int) 
 
 
 def guardar_sac(db: Session, user: Usuario, datos, sac_id: int | None = None) -> dict:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     cod = _dig(datos.codigo)
     if len(cod) not in (4, 6):
         raise ErrorNegocio("Use the 4-digit heading or the 6-digit subheading.", 422, "validacion")
@@ -142,7 +142,7 @@ def guardar_sac(db: Session, user: Usuario, datos, sac_id: int | None = None) ->
 
 
 def borrar_sac(db: Session, user: Usuario, sac_id: int) -> None:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     x = db.get(PartidaSAC, sac_id)
     if not x:
         raise ErrorNegocio("The subheading does not exist.", 404, "no_encontrado")
@@ -219,7 +219,7 @@ def listar_notas(db: Session, user: Usuario, filtros: dict) -> dict:
 
 
 def guardar_nota(db: Session, user: Usuario, datos, nota_id: int | None = None) -> dict:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     if datos.ambito not in AMBITOS:
         raise ErrorNegocio("Choose the kind of note.", 422, "validacion")
     if not (datos.texto or "").strip() or not (datos.codigo or "").strip():
@@ -240,7 +240,7 @@ def guardar_nota(db: Session, user: Usuario, datos, nota_id: int | None = None) 
 
 
 def borrar_nota(db: Session, user: Usuario, nota_id: int) -> None:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     n = db.get(NotaSAC, nota_id)
     if not n:
         raise ErrorNegocio("The note does not exist.", 404, "no_encontrado")
@@ -316,7 +316,7 @@ def _cond_limpia(cond: dict | None) -> dict:
 
 
 def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = None) -> dict:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     ps = _paises_dict(db)
     pais = (datos.pais or "").upper()
     if pais not in ps:
@@ -342,7 +342,7 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
 
 
 def borrar_incisos(db: Session, user: Usuario, ids: list[int]) -> dict:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     n = 0
     for x in db.scalars(select(IncisoNacional).where(IncisoNacional.id.in_(ids))):
         db.delete(x)
@@ -400,7 +400,7 @@ def plantilla_incisos(db: Session, pais: str | None = None) -> bytes:
 
 def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, pais: str | None = None,
                      reemplazar: bool = False) -> dict:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     ps = _paises_dict(db)
     filas = leer(nombre, contenido, _alias_incisos())
     oc = opciones_cond()
@@ -489,7 +489,7 @@ def plantilla_sac() -> bytes:
 
 
 def importar_sac(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     filas = leer(nombre, contenido, {"code": "codigo", "codigo": "codigo", "description": "descripcion",
                                      "descripcion": "descripcion", "note": "nota", "nota": "nota"})
     actuales = {x.codigo: x for x in db.scalars(select(PartidaSAC))}
@@ -536,7 +536,7 @@ def plantilla_notas() -> bytes:
 
 
 def importar_notas(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
-    exigir(user, "producto.clasificar")
+    exigir(user, "aranceles.editar")
     filas = leer(nombre, contenido, {"kind": "ambito", "tipo": "ambito", "section_or_chapter": "codigo", "chapter": "codigo",
                                      "codigo": "codigo", "number": "numero", "numero": "numero", "text": "texto",
                                      "texto": "texto", "applies_to_chapters": "capitulos", "capitulos": "capitulos",

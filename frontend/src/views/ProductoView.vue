@@ -415,7 +415,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         <div v-else-if="pestana === 'tallas'">
           <div class="fila-flex mt-chico" style="justify-content: space-between">
             <p class="ayuda">Every size of generic <b>{{ p.codigo_generico || '—' }}</b> (first 8 digits of the item code) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.</p>
-            <button v-if="p.codigo_generico && puede('catalogos.editar')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />Add sizes</button>
+            <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />Add sizes</button>
           </div>
           <div class="tabla-marco mt-chico">
             <table class="tabla">

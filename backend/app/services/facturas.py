@@ -41,6 +41,7 @@ from .common import (
     asegurar_proveedor,
     cant_txt,
     es_interno,
+    permisos_de,
     exigir,
     proveedor_filtro,
     registrar,
@@ -844,7 +845,8 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
 
     r = resumen_distribucion(db, [f.id])[f.id]
     editable = f.estado in EDITABLE_FACTURA
-    permisos_finalizar = user.rol in ("admin", "interno") or settings.PROVEEDOR_PUEDE_FINALIZAR
+    permisos = permisos_de(user)
+    permisos_finalizar = "factura.finalizar" in permisos
     return {
         "id": f.id,
         "nombre": nombre_factura(f),
@@ -883,8 +885,8 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
         "puede": {
             "editar": editable,
             "finalizar": editable and permisos_finalizar,
-            "reabrir": f.estado == "FINALIZADA" and es_interno(user),
-            "cancelar": f.estado != "CANCELADA" and (es_interno(user) or f.estado == "BORRADOR"),
+            "reabrir": f.estado == "FINALIZADA" and "factura.reabrir" in permisos,
+            "cancelar": f.estado != "CANCELADA" and "factura.cancelar" in permisos and (es_interno(user) or f.estado == "BORRADOR"),
             "crear_pl": f.estado != "CANCELADA" and any(l["sin_asignar"] > 0 for l in lineas),
         },
     }

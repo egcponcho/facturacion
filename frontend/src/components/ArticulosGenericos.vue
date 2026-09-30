@@ -1,4 +1,5 @@
 <script setup>
+import { puede } from '../stores/sesion'
 import { reactive, ref, watch } from 'vue'
 import { api } from '../api'
 import { errorApi } from '../stores/ui'
@@ -107,8 +108,8 @@ cargar()
               </router-link>
             </td>
             <td class="num" style="white-space: nowrap">
-              <button class="btn btn-chico" title="Add sizes to this generic" @click="modal = { generico: g.generico }"><Icono nombre="mas" :tam="13" />Sizes</button>
-              <button class="btn-icono" :aria-label="`Edit generic ${g.generico}`" title="Edit the generic (applies to all its sizes)" @click="modal = { generico: g.generico, editar: true }"><Icono nombre="editar" :tam="16" /></button>
+              <button v-if="puede('catalogos.crear')" class="btn btn-chico" title="Add sizes to this generic" @click="modal = { generico: g.generico }"><Icono nombre="mas" :tam="13" />Sizes</button>
+              <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="`Edit generic ${g.generico}`" title="Edit the generic (applies to all its sizes)" @click="modal = { generico: g.generico, editar: true }"><Icono nombre="editar" :tam="16" /></button>
             </td>
           </tr>
           <tr v-if="abiertas.has(g.generico)" class="fila-hija">
@@ -131,8 +132,8 @@ cargar()
                         <td><span class="etiqueta" :class="a.activo ? 'ok' : ''">{{ a.activo ? 'Yes' : 'No' }}</span></td>
                         <td class="num" style="white-space: nowrap">
                           <button v-if="a.tipo === 'PREPACK'" class="btn btn-chico" title="See the breakdown" @click="emit('desglose', a)"><Icono nombre="lupa" :tam="13" />Breakdown</button>
-                          <button class="btn-icono" :aria-label="`Edit item ${a.sku}`" title="Edit" @click="emit('editar-articulo', a)"><Icono nombre="editar" :tam="15" /></button>
-                          <button class="btn-icono" style="color: var(--error)" :aria-label="`Delete item ${a.sku}`" title="Delete" @click="emit('eliminar-articulo', a)"><Icono nombre="basura" :tam="15" /></button>
+                          <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="`Edit item ${a.sku}`" title="Edit" @click="emit('editar-articulo', a)"><Icono nombre="editar" :tam="15" /></button>
+                          <button v-if="puede('catalogos.eliminar')" class="btn-icono" style="color: var(--error)" :aria-label="`Delete item ${a.sku}`" title="Delete" @click="emit('eliminar-articulo', a)"><Icono nombre="basura" :tam="15" /></button>
                         </td>
                       </tr>
                       <tr v-if="detalles[g.generico] && !detalles[g.generico].length"><td colspan="8" class="vacio">This generic has no sizes yet.</td></tr>

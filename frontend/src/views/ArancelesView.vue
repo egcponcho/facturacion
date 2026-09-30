@@ -23,7 +23,7 @@ import { fmtNum, useSeleccion } from '../utils'
 // desde Excel y exportación con los filtros de la pantalla.
 const route = useRoute()
 const router = useRouter()
-const edita = puede('producto.clasificar')
+const edita = puede('aranceles.editar')
 const vista = ref(route.query.vista || 'codigos')
 const paises = ref([])
 const meta = ref({ condiciones: {}, fuentes: {} })

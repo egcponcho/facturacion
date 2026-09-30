@@ -87,3 +87,8 @@ def vans(client):
 @pytest.fixture(scope="session")
 def interno(client):
     return Api(client, "interno@demo.com")
+
+
+@pytest.fixture(scope="session")
+def admin(client):
+    return Api(client, "admin@demo.com")

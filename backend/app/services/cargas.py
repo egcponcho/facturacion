@@ -114,7 +114,7 @@ def plantilla_articulos(db: Session) -> bytes:
 
 
 def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
-    exigir(user, "catalogos.editar")
+    exigir(user, "catalogos.crear")
     if "Generics" in hojas(nombre, contenido) or "Sizes" in hojas(nombre, contenido):
         return importar_por_generico(db, user, nombre, contenido)
     return _importar_por_articulo(db, user, nombre, contenido)
@@ -417,7 +417,7 @@ def plantilla_catalogo(db: Session, user: Usuario, tipo: str) -> bytes:
 
 
 def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, contenido: bytes) -> dict:
-    exigir(user, "catalogos.editar")
+    exigir(user, "catalogos.crear")
     if tipo == "articulos":
         return importar_articulos(db, user, nombre, contenido)
     if tipo == "prepacks":

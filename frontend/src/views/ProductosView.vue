@@ -149,7 +149,7 @@ watch(() => sesion.proveedorId, recargar)
     <div class="acciones">
       <button class="btn btn-fantasma" @click="exportar('xlsx')"><Icono nombre="descargar" />Excel</button>
       <button class="btn btn-fantasma" @click="exportar('pdf')"><Icono nombre="descargar" />PDF</button>
-      <button v-if="puede('catalogos.editar')" class="btn" @click="cargaAbierta = true"><Icono nombre="importar" />Upload items and sheets</button>
+      <button v-if="puede('catalogos.crear')" class="btn" @click="cargaAbierta = true"><Icono nombre="importar" />Upload items and sheets</button>
     </div>
   </div>
 

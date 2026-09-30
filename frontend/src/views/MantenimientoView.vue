@@ -1,4 +1,5 @@
 <script setup>
+import { puede } from '../stores/sesion'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -307,9 +308,9 @@ onMounted(async () => {
     <div class="acciones">
       <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="{ q: filtros.q, orden: filtros.orden, ...filtros.extra }" />
       <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />Template</a>
-      <button v-if="cat" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tipo === 'articulos' ? 'Upload items and sheets' : tipo === 'prepacks' ? 'Upload size runs' : 'Upload Excel' }}</button>
-      <button v-if="tipo === 'articulos'" class="btn btn-primario" title="Generic (first 8 digits) with its sizes" @click="genericoNuevo = true"><Icono nombre="mas" />New generic</button>
-      <button v-else-if="cat" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />New {{ cat.singular }}</button>
+      <button v-if="cat && puede('catalogos.crear')" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tipo === 'articulos' ? 'Upload items and sheets' : tipo === 'prepacks' ? 'Upload size runs' : 'Upload Excel' }}</button>
+      <button v-if="tipo === 'articulos' && puede('catalogos.crear')" class="btn btn-primario" title="Generic (first 8 digits) with its sizes" @click="genericoNuevo = true"><Icono nombre="mas" />New generic</button>
+      <button v-else-if="cat && tipo !== 'articulos' && puede('catalogos.crear')" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />New {{ cat.singular }}</button>
     </div>
   </div>
 
@@ -359,7 +360,7 @@ onMounted(async () => {
           <tbody>
             <tr v-for="fila in datos.items" :key="fila.id" :class="{ seleccionada: editando === fila.id }">
               <td v-for="c in columnas" :key="c.nombre" :class="{ num: c.tipo === 'entero' }">
-                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="`Change ${c.etiqueta.toLowerCase()}`" @click="alternarActivo(fila, c.nombre)">
+                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :disabled="!puede('catalogos.editar')" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="`Change ${c.etiqueta.toLowerCase()}`" @click="alternarActivo(fila, c.nombre)">
                   {{ fila[c.nombre] ? 'Yes' : 'No' }}
                 </button>
                 <span v-else :class="{ codigo: ['codigo', 'sku'].includes(c.nombre), fuerte: c.nombre === 'codigo' || c.nombre === 'sku' }">{{ valorCelda(c, fila) }}</span>
@@ -383,8 +384,8 @@ onMounted(async () => {
               <td class="num" style="white-space: nowrap">
                 <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" title="See the breakdown (it never changes)"
                         @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />Breakdown</button>
-                <button class="btn-icono" :aria-label="`Edit ${cat.singular}`" title="Edit" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
-                <button class="btn-icono" style="color: var(--error)" :aria-label="`Delete ${cat.singular}`" title="Delete" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
+                <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="`Edit ${cat.singular}`" title="Edit" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
+                <button v-if="puede('catalogos.eliminar')" class="btn-icono" style="color: var(--error)" :aria-label="`Delete ${cat.singular}`" title="Delete" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
               </td>
             </tr>
             <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : tipo === 'articulos' ? 3 : 2)" class="vacio">No records match these filters.</td></tr>
