@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { api } from '../api'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
@@ -62,6 +63,7 @@ async function actualizar(ruta, datos, mensaje) {
     errorApi(e)
   }
 }
+onMounted(cargar)
 </script>
 
 <template>
@@ -136,13 +138,13 @@ async function actualizar(ruta, datos, mensaje) {
       <label class="campo"><span class="req">Name</span><input v-model="nuevoUsr.nombre" required /></label>
       <label class="campo"><span class="req">Email</span><input v-model="nuevoUsr.email" type="email" required /></label>
       <label class="campo"><span class="req">Role</span>
-        <select v-model="nuevoUsr.rol"><option v-for="(t, r) in ROLES" :key="r" :value="r">{{ t }}</option></select>
+        <Seleccion v-model="nuevoUsr.rol"><option v-for="(t, r) in ROLES" :key="r" :value="r">{{ t }}</option></Seleccion>
       </label>
       <label v-if="nuevoUsr.rol === 'proveedor'" class="campo"><span class="req">Supplier</span>
-        <select v-model="nuevoUsr.proveedor_id" required>
+        <Seleccion v-model="nuevoUsr.proveedor_id" required>
           <option value="" disabled>Choose</option>
           <option v-for="p in proveedores" :key="p.id" :value="p.id">{{ p.nombre }}</option>
-        </select>
+        </Seleccion>
       </label>
       <label class="campo"><span :class="{ req: nuevoUsr.dos_pasos }">Mobile for two-step verification</span>
         <input v-model="nuevoUsr.telefono" type="tel" placeholder="+503 7000 1234" :required="nuevoUsr.dos_pasos" autocomplete="off" />

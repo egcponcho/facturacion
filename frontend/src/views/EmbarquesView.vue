@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import Avance from '../components/Avance.vue'
@@ -157,9 +158,9 @@ onMounted(cargar)
   <Modal v-if="modal" titulo="New shipment" ancho="660px" @cerrar="modal = null">
     <div class="rejilla-campos">
       <label class="campo"><span class="req">Mode of transport</span>
-        <select v-model="modal.tipo_transporte" @change="ajustarRuta">
+        <Seleccion v-model="modal.tipo_transporte" @change="ajustarRuta">
           <option value="MARITIMO">Ocean</option><option value="AEREO">Air</option><option value="TERRESTRE">Road</option>
-        </select>
+        </Seleccion>
         <small class="ayuda">It sets the ports, carriers and load units offered. The modality (FCL, LCL…) belongs to each unit; a shipment can combine them.</small>
       </label>
       <label class="campo"><span class="req">Receiving plant (notify)</span>

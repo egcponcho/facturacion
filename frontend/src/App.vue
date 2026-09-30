@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import Seleccion from './components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icono from './components/Icono.vue'
 import Modal from './components/Modal.vue'
@@ -99,10 +100,10 @@ async function cambiarClave() {
           </router-link>
           <label v-if="esInterno()" class="selector-proveedor fila-flex" style="gap: 6px; flex-wrap: nowrap">
             <span class="ayuda">Supplier</span>
-            <select class="entrada" :value="sesion.proveedorId || ''" @change="elegirProveedor(Number($event.target.value) || null)">
+            <Seleccion class="entrada" :value="sesion.proveedorId || ''" @change="elegirProveedor(Number($event) || null)">
               <option value="">All</option>
               <option v-for="p in sesion.proveedores" :key="p.id" :value="p.id">{{ p.nombre }}</option>
-            </select>
+            </Seleccion>
           </label>
           <SelectorTema />
           <div class="usuario">

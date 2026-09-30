@@ -470,6 +470,15 @@ class PartidaSACIn(BaseModel):
     activo: bool = True
 
 
+class NotaSACIn(BaseModel):
+    ambito: str = Field(max_length=12)
+    codigo: str = Field(max_length=10)
+    numero: str | None = Field(None, max_length=20)
+    texto: str = Field(max_length=4000)
+    capitulos: list[str] = Field(default_factory=list, max_length=100)
+    activo: bool = True
+
+
 class IncisoEditIn(BaseModel):
     pais: str = Field(max_length=2)
     codigo: str = Field(max_length=20)

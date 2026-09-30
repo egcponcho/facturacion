@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, ref } from 'vue'
+import Seleccion from '../Seleccion.vue'
 import { M } from '../../clasificacion/useClasificacion'
 
 // Composición de una parte (tela exterior, corte, suela…) por filas
@@ -122,8 +123,12 @@ function pegar() {
     </div>
 
     <div v-for="(f, i) in props.filas" :key="i" class="crow">
-      <input v-model="f.m" class="entrada" type="text" :list="`mat_${props.parte}`" :data-mat="i" placeholder="Material" :aria-label="`Material ${i + 1}`"
-             :disabled="!props.editable" @input="cambio" @keydown.enter.prevent="enterMat(i)" />
+      <span class="cmat">
+        <input v-model="f.m" class="entrada" type="text" :list="`mat_${props.parte}`" :data-mat="i" placeholder="Material" :aria-label="`Material ${i + 1}`"
+               :disabled="!props.editable" @input="cambio" @keydown.enter.prevent="enterMat(i)" />
+        <span v-if="f.m && M.claseTexto(f.m)" class="ctag" :class="M.claseTexto(f.m).clase" :title="`Counts as ${M.claseTexto(f.m).lbl.toLowerCase()} for the tariff`">{{ M.claseTexto(f.m).lbl }}</span>
+        <span v-else-if="f.m && f.m.trim().length > 2" class="ctag desconocido" title="Not recognized: choose what it is below so the system learns it">?</span>
+      </span>
       <span class="cpct">
         <input class="entrada" type="text" inputmode="decimal" :value="f.pct" :data-pct="i" :placeholder="placeholders[i]" :aria-label="`Percentage of ${f.m || 'material'}`"
                :disabled="!props.editable" @input="escribirPct(i, $event)" @keydown.enter.prevent="enterPct(i)" /><span>%</span>
@@ -131,7 +136,7 @@ function pegar() {
       <button v-if="props.editable" type="button" class="cx" :aria-label="`Remove ${f.m || 'row'}`" @click="quitar(i)">×</button>
     </div>
     <p v-if="!props.filas.length" class="cvacio">{{ props.editable ? 'Tap a material to add it.' : 'Not given.' }}</p>
-    <datalist :id="`mat_${props.parte}`"><option v-for="m in sug.todos" :key="m" :value="m" /></datalist>
+    <datalist :id="`mat_${props.parte}`"><option v-for="m in sug.todos" :key="m" :value="m">{{ M.claseTexto(m)?.lbl || '' }}</option></datalist>
 
     <template v-if="props.editable">
       <div v-if="soloUno || faltaUltimo" class="mchips">
@@ -153,10 +158,10 @@ function pegar() {
       <span v-if="lectura.main" class="chip-l main">{{ lectura.main }}</span>
       <span v-for="w in lectura.ambiguas" :key="w" class="chip-l">{{ M.MAT_AMBIGUAS[w] }}</span>
       <span v-for="w in lectura.desconocidas" :key="w" class="teach">What is “{{ w }}”?
-        <select :aria-label="`What is ${w}`" :disabled="!props.editable" @change="$event.target.value && emit('ensenar', w, $event.target.value)">
+        <Seleccion :aria-label="`What is ${w}`" :disabled="!props.editable" @change="$event && emit('ensenar', w, $event)">
           <option value="">Choose…</option>
           <option v-for="[k, l] in M.MAT_EQUIV" :key="k" :value="k">{{ l }}</option>
-        </select>
+        </Seleccion>
       </span>
     </div>
 
@@ -173,6 +178,14 @@ function pegar() {
 .lbl { font-size: 0.86rem; font-weight: 620; }
 .req-ast { color: var(--error); font-weight: 700; margin-left: 2px; }
 .opcional { font-weight: 400; color: var(--tinta-3); }
+.cmat { position: relative; display: block; min-width: 0; }
+.cmat input { width: 100%; padding-right: 150px; }
+.ctag { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; font-weight: 650; padding: 2px 7px; border-radius: 999px;
+  background: var(--superficie-2); color: var(--tinta-2); border: 1px solid var(--linea); pointer-events: auto; white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.ctag.cuero { background: var(--aviso-fondo); color: var(--aviso); border-color: var(--aviso-borde); }
+.ctag.textil { background: var(--info-fondo); color: var(--info-texto); border-color: transparent; }
+.ctag.plastico { background: var(--acento-claro); color: var(--acento-texto); border-color: transparent; }
+.ctag.desconocido { background: var(--error-fondo); color: var(--error); border-color: transparent; }
 .crow { display: grid; grid-template-columns: minmax(0, 1fr) 108px 34px; gap: 8px; align-items: center; margin-bottom: 6px; }
 .cpct { position: relative; display: block; }
 .cpct input { padding-right: 26px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 620; width: 100%; }

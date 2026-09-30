@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
@@ -590,10 +591,10 @@ onMounted(async () => {
       <div class="panel-cabeza"><div><h2>Files</h2><p>Attach the supplier's official invoice (PDF) and other supporting documents.</p></div></div>
       <div v-if="f.estado !== 'CANCELADA'" class="fila-flex">
         <input type="file" aria-label="File" @change="subida.archivo = $event.target.files[0]" />
-        <select v-model="subida.tipo" class="entrada" aria-label="File type">
+        <Seleccion v-model="subida.tipo" class="entrada" aria-label="File type">
           <option value="FACTURA_OFICIAL">Official invoice</option>
           <option value="OTRO">Other document</option>
-        </select>
+        </Seleccion>
         <button class="btn btn-primario" :disabled="!subida.archivo" @click="subir"><Icono nombre="importar" />Attach</button>
       </div>
       <div class="tabla-marco mt" style="box-shadow: none">
@@ -682,9 +683,9 @@ onMounted(async () => {
 
   <Modal v-if="modal?.tipo === 'masivo'" :titulo="`Change a field on ${sel.ids.size} lines`" @cerrar="modal = null">
     <label class="campo"><span>Field</span>
-      <select v-model="modal.campo">
+      <Seleccion v-model="modal.campo">
         <option v-for="[c, t] in CAMPOS_MASIVOS" :key="c" :value="c">{{ t }}</option>
-      </select>
+      </Seleccion>
     </label>
     <label class="campo"><span>New value</span>
       <input v-model="modal.valor" :type="CAMPOS_MASIVOS.find((c) => c[0] === modal.campo)[2]" step="any" />

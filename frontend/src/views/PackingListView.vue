@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import Anillo from '../components/Anillo.vue'
@@ -775,10 +776,10 @@ onMounted(cargar)
     <div class="fila-flex">
       <label v-for="u in unidadesAuto" :key="u" class="campo" style="min-width: 240px">
         <span>Template for all rows in {{ { PAR: 'pairs', UN: 'units', CJ: 'prepack cartons' }[u] }}</span>
-        <select @change="aplicarATodas(u, $event.target.value); $event.target.value = ''">
+        <Seleccion @change="aplicarATodas(u, $event)">
           <option value="">Choose template…</option>
           <option v-for="t in plantillasDe(u)" :key="t.id" :value="t.id">{{ t.nombre }} ({{ t.cantidad_por_caja }} per carton)</option>
-        </select>
+        </Seleccion>
       </label>
     </div>
     <div class="tabla-marco" style="max-height: 320px; overflow-y: auto; box-shadow: none">
@@ -790,12 +791,12 @@ onMounted(cargar)
             <td><span class="etiqueta" :class="REGLAS[f.regla]?.[1]" style="margin-left: 0">{{ f.regla_txt }}</span></td>
             <td class="num">{{ cantTxt(f.sin_caja, f.unidad) }}</td>
             <td>
-              <select v-model="modal.filas[i].plantilla_id" class="entrada" style="max-width: 210px" :aria-label="`Template for ${f.ref}`">
+              <Seleccion v-model="modal.filas[i].plantilla_id" class="entrada" style="max-width: 210px" :aria-label="`Template for ${f.ref}`">
                 <option value="omitir">Do not pack this row</option>
                 <option v-if="f.regla !== 'LIBRE'" value="">No template (dimensions later)</option>
                 <option v-else value="" disabled>Choose a template…</option>
                 <option v-for="t in plantillasFila(f)" :key="t.id" :value="t.id">{{ t.nombre }}<template v-if="f.regla === 'LIBRE'"> ({{ t.cantidad_por_caja }})</template></option>
-              </select>
+              </Seleccion>
             </td>
             <template v-if="f.cajas !== null">
               <td class="num">{{ f.cajas }}</td>
@@ -825,10 +826,10 @@ onMounted(cargar)
     <div class="rejilla-campos">
       <label class="campo"><span class="req">Number of identical cartons</span><input v-model.number="modal.num_cajas" type="number" min="1" /></label>
       <label class="campo"><span>Dimensions and weights from a template (optional)</span>
-        <select v-model="modal.plantilla_id">
+        <Seleccion v-model="modal.plantilla_id">
           <option value="">No template</option>
           <option v-for="t in plantillas" :key="t.id" :value="t.id">{{ t.nombre }}</option>
-        </select>
+        </Seleccion>
       </label>
     </div>
     <div class="tabla-marco" style="box-shadow: none">
@@ -861,10 +862,10 @@ onMounted(cargar)
 
   <Modal v-if="modal?.tipo === 'mover' || modal?.tipo === 'quitar'" :titulo="modal.tipo === 'mover' ? 'Split into another packing list' : 'Remove from the packing list'" ancho="660px" @cerrar="modal = null">
     <label v-if="modal.tipo === 'mover'" class="campo"><span>Destination PL</span>
-      <select v-model="modal.destino">
+      <Seleccion v-model="modal.destino">
         <option v-for="o in pl.otros_pl" :key="o.id" :value="o.id">{{ o.numero }}</option>
         <option value="">A new packing list</option>
-      </select>
+      </Seleccion>
     </label>
     <p v-else class="ayuda">The quantity goes back to the invoice as pending assignment to a packing list.</p>
     <div class="tabla-marco" style="max-height: 300px; overflow-y: auto; box-shadow: none">
@@ -890,10 +891,10 @@ onMounted(cargar)
 
   <Modal v-if="modal?.tipo === 'editar_cajas'" :titulo="`Dimensions and weights of ${plural(modal.cajas, 'carton', 'cartons')}`" ancho="640px" @cerrar="modal = null">
     <label class="campo"><span>Copy from a template (optional)</span>
-      <select v-model="modal.plantilla_id">
+      <Seleccion v-model="modal.plantilla_id">
         <option value="">Do not copy</option>
         <option v-for="t in plantillas" :key="t.id" :value="t.id">{{ t.nombre }} · {{ t.largo }}×{{ t.ancho }}×{{ t.alto }} cm, {{ t.peso_bruto }} kg</option>
-      </select>
+      </Seleccion>
     </label>
     <p class="ayuda">Leave blank what you do not want to change. What you type here overrides the template. Entering a weight removes the estimated flag.</p>
     <div class="rejilla-campos">
@@ -913,10 +914,10 @@ onMounted(cargar)
 
   <Modal v-if="modal?.tipo === 'mover_cajas'" titulo="Move cartons to another packing list" ancho="600px" @cerrar="modal = null">
     <label class="campo"><span>Destination PL</span>
-      <select v-model="modal.destino">
+      <Seleccion v-model="modal.destino">
         <option v-for="o in pl.otros_pl" :key="o.id" :value="o.id">{{ o.numero }}</option>
         <option value="">A new packing list</option>
-      </select>
+      </Seleccion>
     </label>
     <div class="tabla-marco" style="box-shadow: none">
       <table class="tabla">
@@ -949,10 +950,10 @@ onMounted(cargar)
   <Modal v-if="modal?.tipo === 'pallet'" titulo="Palletize cartons" ancho="560px" @cerrar="modal = null">
     <p>{{ plural(cajasSel, 'carton', 'cartons') }} selected. If the goods travel on pallets, group them into pallets with their dimensions.</p>
     <label class="campo"><span>Pallet</span>
-      <select v-model="modal.destino">
+      <Seleccion v-model="modal.destino">
         <option value="">New pallet</option>
         <option v-for="p in pl.pallets" :key="p.id" :value="p.id">Add to pallet {{ p.numero }} ({{ p.cajas }} cartons)</option>
-      </select>
+      </Seleccion>
     </label>
     <div v-if="!modal.destino" class="rejilla-campos">
       <label class="campo"><span class="req">Length cm</span><input v-model.number="modal.largo" type="number" min="1" /></label>

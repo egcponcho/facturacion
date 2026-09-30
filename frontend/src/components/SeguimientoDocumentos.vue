@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import Seleccion from './Seleccion.vue'
 import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, sesion } from '../stores/sesion'
@@ -86,14 +87,14 @@ onMounted(cargar)
     <SelectBusqueda v-if="esInterno()" multiple :model-value="lst(filtros.proveedor)" @update:model-value="(v) => (filtros.proveedor = v.join(','))" :opciones="datos.opciones.proveedores || []" vacio="Supplier: all" etiqueta="Supplier" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.sociedad)" @update:model-value="(v) => (filtros.sociedad = v.join(','))" :opciones="datos.opciones.sociedades || []" vacio="Bill to: all" etiqueta="Company" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.centro)" @update:model-value="(v) => (filtros.centro = v.join(','))" :opciones="datos.opciones.centros || []" vacio="Plant: all" etiqueta="Plant" @change="aplicar" />
-    <select v-model="filtros.estado_factura" aria-label="Invoice status" @change="aplicar">
+    <Seleccion v-model="filtros.estado_factura" aria-label="Invoice status" @change="aplicar">
       <option value="">Invoice: all</option><option value="BORRADOR">Draft</option>
       <option value="EN_CORRECCION">In correction</option><option value="FINALIZADA">Finalized</option>
-    </select>
-    <select v-model="filtros.estado_pl" aria-label="Packing list status" @change="aplicar">
+    </Seleccion>
+    <Seleccion v-model="filtros.estado_pl" aria-label="Packing list status" @change="aplicar">
       <option value="">Packing list: all</option><option value="BORRADOR">Draft</option>
       <option value="EN_CORRECCION">In correction</option><option value="FINALIZADO">Finalized</option>
-    </select>
+    </Seleccion>
     <SelectBusqueda multiple :model-value="lst(filtros.embarque_id)" @update:model-value="(v) => (filtros.embarque_id = v.join(','))" :opciones="(datos.opciones.embarques || []).map((e) => ({ valor: String(e.id), texto: e.codigo }))"
                     vacio="Shipment: all" etiqueta="Shipment" @change="aplicar" />
     <label class="check"><input v-model="filtros.con_pendientes" type="checkbox" @change="aplicar" /> Only with pending data</label>

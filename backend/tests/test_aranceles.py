@@ -83,3 +83,19 @@ def test_cargar_y_exportar(interno):
     assert interno.get("/aranceles/sac/exportar", params={"q": "Prueba", "formato": "pdf"}).status_code == 200
     # Borrar códigos seleccionados
     assert interno.post("/aranceles/codigos/borrar", {"ids": [x["id"]]}).json()["borrados"] == 1
+
+
+def test_notas_sac(interno):
+    r = interno.get("/aranceles/notas", params={"capitulo": "64"}).json()
+    nums = {(n["codigo"], n["numero"]) for n in r["items"]}
+    # Las del capítulo 64 (materia de la parte superior y de la suela) y las reglas generales
+    assert ("64", "4") in nums and ("RGI", "3") in nums and ("61", "9") not in nums
+    assert any(n["codigo"] == "64" for n in interno.get("/clasificacion/contexto").json()["notas_sac"])
+    n = interno.post("/aranceles/notas", {"ambito": "capitulo", "codigo": "64", "numero": "X", "texto": "Nota de prueba",
+                                          "capitulos": ["64"]})
+    assert n.status_code == 200, n.text
+    nid = n.json()["id"]
+    assert interno.put(f"/aranceles/notas/{nid}", {"ambito": "capitulo", "codigo": "64", "numero": "X",
+                                                   "texto": "Nota editada", "capitulos": ["64"], "activo": False}).json()["activo"] is False
+    assert interno.post("/aranceles/notas", {"ambito": "otro", "codigo": "64", "texto": "x"}).status_code == 422
+    assert interno.delete_(f"/aranceles/notas/{nid}").status_code == 200

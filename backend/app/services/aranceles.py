@@ -7,7 +7,7 @@ import re
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from ..models import IncisoNacional, PaisArancel, PartidaSAC, Usuario, ahora
+from ..models import IncisoNacional, NotaSAC, PaisArancel, PartidaSAC, Usuario, ahora
 from . import documentos, exportar
 from .common import ErrorNegocio, exigir, registrar
 from .meta import cond_texto, opciones_cond, valor_opcion
@@ -147,6 +147,57 @@ def borrar_sac(db: Session, user: Usuario, sac_id: int) -> None:
     if not x:
         raise ErrorNegocio("The subheading does not exist.", 404, "no_encontrado")
     db.delete(x)
+
+
+# ---- Notas legales del SAC ---------------------------------------------------------------
+AMBITOS = {"reglas": "General rules", "seccion": "Section note", "capitulo": "Chapter note", "subpartida": "Subheading note"}
+
+
+def _fila_nota(n: NotaSAC) -> dict:
+    return {"id": n.id, "ambito": n.ambito, "ambito_txt": AMBITOS.get(n.ambito, n.ambito), "codigo": n.codigo,
+            "numero": n.numero, "texto": n.texto, "capitulos": n.capitulos or [], "claves": n.claves or [],
+            "fuente": n.fuente, "activo": n.activo}
+
+
+def listar_notas(db: Session, user: Usuario, filtros: dict) -> dict:
+    exigir(user, "producto.ver")
+    notas = db.scalars(select(NotaSAC).order_by(NotaSAC.id)).all()
+    caps = _lista(filtros.get("capitulo"))
+    if caps:
+        notas = [n for n in notas if not n.capitulos or set(caps) & set(n.capitulos or [])]
+    if filtros.get("q"):
+        t = filtros["q"].strip().lower()
+        notas = [n for n in notas if t in n.texto.lower() or t in n.codigo.lower() or t in n.numero.lower()]
+    return {"items": [_fila_nota(n) for n in notas], "total": len(notas), "ambitos": AMBITOS}
+
+
+def guardar_nota(db: Session, user: Usuario, datos, nota_id: int | None = None) -> dict:
+    exigir(user, "producto.clasificar")
+    if datos.ambito not in AMBITOS:
+        raise ErrorNegocio("Choose the kind of note.", 422, "validacion")
+    if not (datos.texto or "").strip() or not (datos.codigo or "").strip():
+        raise ErrorNegocio("Write the section or chapter and the text of the note.", 422, "validacion")
+    n = db.get(NotaSAC, nota_id) if nota_id else None
+    if nota_id and not n:
+        raise ErrorNegocio("The note does not exist.", 404, "no_encontrado")
+    if not n:
+        n = NotaSAC(fuente="manual")
+        db.add(n)
+    caps = sorted({c.strip().zfill(2) for c in datos.capitulos if c.strip().isdigit()})
+    n.ambito, n.codigo, n.numero = datos.ambito, datos.codigo.strip().upper()[:10], (datos.numero or "").strip()[:20]
+    n.texto, n.capitulos, n.activo = datos.texto.strip(), caps, datos.activo
+    n.fuente = "manual" if n.fuente == "base" else n.fuente
+    n.actualizado_en = ahora()
+    db.flush()
+    return _fila_nota(n)
+
+
+def borrar_nota(db: Session, user: Usuario, nota_id: int) -> None:
+    exigir(user, "producto.clasificar")
+    n = db.get(NotaSAC, nota_id)
+    if not n:
+        raise ErrorNegocio("The note does not exist.", 404, "no_encontrado")
+    db.delete(n)
 
 
 # ---- Códigos nacionales ----------------------------------------------------------------

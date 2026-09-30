@@ -15,6 +15,8 @@ const props = defineProps({
   etiqueta: { type: String, default: '' },
   deshabilitado: Boolean,
   requerido: Boolean,
+  busqueda: { type: Boolean, default: null },
+  prefijo: { type: Boolean, default: true }, // en filtros: "Marca: valor" // null: solo con más de 7 opciones
 })
 const emit = defineEmits(['update:modelValue', 'change'])
 
@@ -60,6 +62,7 @@ const filtrados = computed(() => {
   return conVacio
 })
 const visibles = computed(() => filtrados.value.slice(0, MAX))
+const conBusqueda = computed(() => (props.busqueda === null ? items.value.length > 7 : props.busqueda))
 
 function colocar() {
   const r = raiz.value?.getBoundingClientRect()
@@ -80,7 +83,8 @@ async function abrir() {
   activo.value = props.multiple ? 0 : Math.max(0, visibles.value.findIndex((o) => String(o.valor) === String(props.modelValue)))
   colocar()
   await nextTick()
-  campo.value?.focus()
+  if (conBusqueda.value) campo.value?.focus()
+  else lista.value?.querySelector('.sb-lista')?.focus()
   desplazar()
 }
 function cerrar() {
@@ -133,9 +137,9 @@ onBeforeUnmount(() => {
   <div ref="raiz" class="sb" :class="{ abierto, deshabilitado }">
     <button type="button" class="sb-boton" :disabled="deshabilitado" :aria-label="etiqueta || placeholder"
             aria-haspopup="listbox" :aria-expanded="abierto" @click="abrir" @keydown.down.prevent="abrir">
-      <span v-if="multiple && resumen" class="sb-valor" :title="`${etiqueta}: ${resumen}`"><span v-if="vacio && etiqueta" class="sb-etq">{{ etiqueta }}:</span> {{ resumen }}</span>
+      <span v-if="multiple && resumen" class="sb-valor" :title="`${etiqueta}: ${resumen}`"><span v-if="prefijo && vacio && etiqueta" class="sb-etq">{{ etiqueta }}:</span> {{ resumen }}</span>
       <span v-else-if="multiple" :class="vacio ? 'sb-valor' : 'sb-placeholder'">{{ vacio || placeholder }}</span>
-      <span v-else-if="elegido && (elegido.valor !== '' || !vacio)" class="sb-valor" :title="elegido.texto"><span v-if="vacio && etiqueta" class="sb-etq">{{ etiqueta }}:</span> {{ elegido.texto }}</span>
+      <span v-else-if="elegido && (elegido.valor !== '' || !vacio)" class="sb-valor" :title="elegido.texto"><span v-if="prefijo && vacio && etiqueta" class="sb-etq">{{ etiqueta }}:</span> {{ elegido.texto }}</span>
       <span v-else-if="vacio && !modelValue" class="sb-valor">{{ vacio }}</span>
       <span v-else class="sb-placeholder">{{ placeholder }}</span>
       <Icono nombre="abajo" :tam="14" />
@@ -143,12 +147,12 @@ onBeforeUnmount(() => {
     <input v-if="requerido" class="sb-requerido" :value="multiple ? elegidos.join(',') : modelValue" required tabindex="-1" aria-hidden="true" />
     <Teleport to="body">
       <div v-if="abierto" ref="lista" class="sb-panel" :style="pos">
-        <label class="sb-buscar">
+        <label v-if="conBusqueda" class="sb-buscar">
           <Icono nombre="buscar" :tam="15" />
           <input ref="campo" v-model="texto" type="search" placeholder="Search…" :aria-label="`Search ${etiqueta}`"
                  role="combobox" aria-autocomplete="list" :aria-expanded="true" @keydown="tecla" />
         </label>
-        <ul class="sb-lista" role="listbox" :aria-multiselectable="multiple || undefined">
+        <ul class="sb-lista" role="listbox" :aria-multiselectable="multiple || undefined" :aria-label="etiqueta || placeholder" tabindex="-1" @keydown="tecla">
           <li v-for="(o, i) in visibles" :key="`${o.valor}-${i}`" role="option" :aria-selected="i === activo"
               :class="{ elegido: esElegido(o), vacio: o.vacio }" :aria-checked="multiple ? esElegido(o) : undefined"
               @mousedown.prevent="elegir(o)" @mousemove="activo = i">

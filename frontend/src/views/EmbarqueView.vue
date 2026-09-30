@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import Avance from '../components/Avance.vue'
@@ -616,7 +617,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
   <Modal v-if="modal?.tipo === 'unidad'" :titulo="`Add ${unidadTxt[0].toLowerCase()}`" @cerrar="modal = null">
     <div class="rejilla-campos">
       <label class="campo"><span class="req">Type</span>
-        <select v-model="modal.unidad"><option v-for="t in e.tipos_unidad" :key="t.codigo" :value="t.codigo">{{ tipoTxt(t) }}</option></select>
+        <Seleccion v-model="modal.unidad"><option v-for="t in e.tipos_unidad" :key="t.codigo" :value="t.codigo">{{ tipoTxt(t) }}</option></Seleccion>
       </label>
       <label class="campo"><span>Number (optional)</span><input v-model="modal.numero" :placeholder="{ MARITIMO: 'MSKU 123456-7', AEREO: '045-12345675', TERRESTRE: 'Plate C-123456' }[e.tipo_transporte]" /></label>
       <label v-if="tipoElegido?.requiere_sello" class="campo"><span>Seal (optional)</span><input v-model="modal.sello" /></label>
@@ -631,7 +632,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
   <Modal v-if="modal?.tipo === 'evento'" titulo="Record event" @cerrar="modal = null">
     <div class="rejilla-campos">
       <label class="campo"><span class="req">Event</span>
-        <select v-model="modal.evento"><option v-for="[v, t] in eventosPermitidos" :key="v" :value="v">{{ t }}</option></select>
+        <Seleccion v-model="modal.evento"><option v-for="[v, t] in eventosPermitidos" :key="v" :value="v">{{ t }}</option></Seleccion>
       </label>
       <label class="campo"><span class="req">Date and time</span><input v-model="modal.fecha" type="datetime-local" required :min="ultimoEvento?.slice(0, 16)" /></label>
       <label class="campo"><span>Location</span><input v-model="modal.ubicacion" /></label>
@@ -656,7 +657,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
 
   <Modal v-if="modal?.tipo === 'mover'" titulo="Move to another load unit" @cerrar="modal = null">
     <label class="campo"><span>Destination unit</span>
-      <select v-model="modal.destino"><option v-for="o in u.otras_unidades" :key="o.id" :value="o.id">{{ o.nombre }}</option></select>
+      <Seleccion v-model="modal.destino"><option v-for="o in u.otras_unidades" :key="o.id" :value="o.id">{{ o.nombre }}</option></Seleccion>
     </label>
     <label class="check"><input v-model="modal.modo" type="checkbox" true-value="AUTO" false-value="TENTATIVA" /> Confirm the ready ones at the destination</label>
     <label class="campo"><span :class="{ req: requiereMotivo }">Reason{{ requiereMotivo ? '' : ' (optional)' }}</span><textarea v-model="modal.motivo"></textarea></label>

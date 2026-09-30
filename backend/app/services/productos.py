@@ -29,6 +29,7 @@ from ..models import (
     Marca,
     Pais,
     PaisArancel,
+    NotaSAC,
     PartidaSAC,
     PalabraClave,
     PartidaPais,
@@ -518,6 +519,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
     return {
         "destinos": destinos(db), "pais_base": settings.PAIS_BASE_CLASIF, "obligatorios": OBLIGATORIOS,
         "recs": recs, "incisos": incisos,
+        "notas_sac": notas_contexto(db),
         "sac": [{"codigo": x.codigo, "descripcion": x.descripcion}
                 for x in db.scalars(select(PartidaSAC).where(PartidaSAC.fuente != "base", PartidaSAC.activo.is_(True)))], "marcas": marcas, "proveedores": provs,
         "palabras": [{"id": x.id, "frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})}
@@ -837,6 +839,20 @@ def ensenar_sinonimo(db: Session, user: Usuario, datos) -> dict:
 
 
 # ---- Base de códigos nacionales -------------------------------------------------
+def notas_contexto(db: Session) -> list[dict]:
+    return [{"id": n.id, "ambito": n.ambito, "codigo": n.codigo, "numero": n.numero, "texto": n.texto,
+             "capitulos": n.capitulos or [], "claves": n.claves or []}
+            for n in db.scalars(select(NotaSAC).where(NotaSAC.activo.is_(True)).order_by(NotaSAC.id))]
+
+
+def notas_de(db: Session, codigo: str | None) -> list:
+    """Notas legales que aplican a una subpartida: las reglas generales, las de
+    su sección y las de su capítulo."""
+    cap = (codigo or "")[:2]
+    return [n for n in db.scalars(select(NotaSAC).where(NotaSAC.activo.is_(True)).order_by(NotaSAC.id))
+            if not n.capitulos or cap in (n.capitulos or [])]
+
+
 def cargar_incisos_base(db: Session) -> int:
     """Países destino, subpartidas SAC con su texto y códigos nacionales
     conocidos de Centroamérica y Panamá (base ADOC 2026)."""
@@ -846,6 +862,9 @@ def cargar_incisos_base(db: Session) -> int:
     carpeta = Path(__file__).resolve().parent.parent / "data"
     for x in json.loads((carpeta / "sac_base.json").read_text(encoding="utf-8")):
         db.add(PartidaSAC(codigo=x["codigo"], descripcion=x["descripcion"][:400], fuente="base"))
+    for x in json.loads((carpeta / "sac_notas.json").read_text(encoding="utf-8")):
+        db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"],
+                       capitulos=x.get("capitulos") or [], claves=x.get("claves") or [], fuente="base"))
     ruta = Path(__file__).resolve().parent.parent / "data" / "incisos_base.json"
     datos = json.loads(ruta.read_text(encoding="utf-8"))
     for x in datos:

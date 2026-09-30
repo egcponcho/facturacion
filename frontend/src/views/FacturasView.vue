@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, reactive, ref, watch } from 'vue'
+import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import Avance from '../components/Avance.vue'
@@ -87,13 +88,13 @@ watch(() => sesion.proveedorId, recargar)
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" placeholder="Search invoice or PO number" aria-label="Search" @input="buscar" />
     </label>
-    <select v-model="filtros.estado" aria-label="Status" @change="recargar">
+    <Seleccion v-model="filtros.estado" aria-label="Status" @change="recargar">
       <option value="">Any status</option>
       <option value="BORRADOR">Draft</option>
       <option value="EN_CORRECCION">In correction</option>
       <option value="FINALIZADA">Finalized</option>
       <option value="CANCELADA">Cancelled</option>
-    </select>
+    </Seleccion>
     <span class="ayuda separar">{{ datos.total }} invoices</span>
   </div>
 

@@ -84,6 +84,29 @@ def borrar_sac(sac_id: int, db: Db, user: User):
     return {"ok": True}
 
 
+@router.get("/aranceles/notas")
+def notas(request: Request, db: Db, user: User):
+    """Notas legales del SAC que el sistema tiene en cuenta al clasificar."""
+    return svc.listar_notas(db, user, dict(request.query_params))
+
+
+@router.post("/aranceles/notas")
+def crear_nota(datos: s.NotaSACIn, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.guardar_nota(db, user, datos))
+
+
+@router.put("/aranceles/notas/{nota_id}")
+def editar_nota(nota_id: int, datos: s.NotaSACIn, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.guardar_nota(db, user, datos, nota_id))
+
+
+@router.delete("/aranceles/notas/{nota_id}")
+def borrar_nota(nota_id: int, db: Db, user: User):
+    svc.borrar_nota(db, user, nota_id)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/aranceles/codigos")
 def codigos(request: Request, db: Db, user: User, orden: str | None = None, page: int = Query(1, ge=1),
             size: int = Query(50, ge=1, le=500)):

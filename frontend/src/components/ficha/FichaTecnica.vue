@@ -1,5 +1,6 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
+import Seleccion from '../Seleccion.vue'
 import { api } from '../../api'
 import { M } from '../../clasificacion/useClasificacion'
 import { avisar, errorApi } from '../../stores/ui'
@@ -266,10 +267,10 @@ if (props.editable) deteccion()
         </div>
         <div class="campo-f">
           <label for="f_origen">Country of origin<span class="req-ast">*</span></label>
-          <select id="f_origen" v-model="f.origen" class="entrada" :disabled="!props.editable">
+          <Seleccion id="f_origen" v-model="f.origen" class="entrada" :disabled="!props.editable">
             <option value="">Choose…</option>
             <option v-for="x in props.paises" :key="x.codigo" :value="x.codigo">{{ x.nombre }}</option>
-          </select>
+          </Seleccion>
         </div>
       </div>
       <div class="fila1">
@@ -281,19 +282,17 @@ if (props.editable) deteccion()
       </div>
       <div class="descripciones">
         <div class="campo-f">
-          <label for="f_desc">Technical description <span class="opcional">{{ f.descManual ? '(edited by hand)' : '(built from the sheet · Spanish, for the invoice and the DUCA)' }}</span></label>
+          <div class="lbl-fila"><label for="f_desc">Technical description <span class="opcional">{{ f.descManual ? '(edited by hand)' : '(built from the sheet · Spanish, for the invoice and the DUCA)' }}</span></label><button v-if="props.editable" type="button" class="btn-texto" @click="editarDesc">{{ f.descManual ? 'Use automatic' : 'Edit' }}</button></div>
           <div class="desc-fila">
             <textarea id="f_desc" :value="f.descManual ? f.desc : (props.editable ? props.r?.desc : producto.descripcion_aduana) || ''" class="entrada" rows="2" maxlength="400"
                       :readonly="!f.descManual || !props.editable" placeholder="Appears when you choose the category and the composition" @input="f.desc = $event.target.value"></textarea>
-            <button v-if="props.editable" type="button" class="btn btn-chico btn-fantasma" @click="editarDesc">{{ f.descManual ? 'Automatic' : 'Edit' }}</button>
           </div>
         </div>
         <div class="campo-f">
-          <label for="f_desc_com">Commercial description <span class="opcional">{{ f.comManual ? '(edited by hand)' : '(type and brand, as on invoices and packing lists)' }}</span></label>
+          <div class="lbl-fila"><label for="f_desc_com">Commercial description <span class="opcional">{{ f.comManual ? '(edited by hand)' : '(type and brand, as on invoices and packing lists)' }}</span></label><button v-if="props.editable" type="button" class="btn-texto" @click="editarCom">{{ f.comManual ? 'Use automatic' : 'Edit' }}</button></div>
           <div class="desc-fila">
             <textarea id="f_desc_com" :value="f.comManual ? f.descCom : (props.editable ? props.r?.descCom : producto.descripcion_comercial) || ''" class="entrada comercial" rows="2" maxlength="300"
                       :readonly="!f.comManual || !props.editable" placeholder="Appears when you choose the category" @input="f.descCom = $event.target.value"></textarea>
-            <button v-if="props.editable" type="button" class="btn btn-chico btn-fantasma" @click="editarCom">{{ f.comManual ? 'Automatic' : 'Edit' }}</button>
           </div>
         </div>
       </div>
@@ -320,14 +319,15 @@ if (props.editable) deteccion()
       <fieldset v-if="f.tipo" id="blk-carac" class="fs" :disabled="!props.editable">
         <legend>Features</legend>
         <p v-if="!preguntar.length" class="hint">This category needs no more data to be classified.</p>
+        <div class="rejilla-attrs">
         <template v-for="a in preguntar" :key="a.id">
           <label v-if="a.tipo === 'check'" class="check-f"><input type="checkbox" :checked="!!f[a.id]" @change="elegirAttr(a, $event.target.checked)" /><span>{{ a.label }}</span></label>
           <div v-else-if="a.tipo === 'select'" class="campo-f select-f">
             <label :for="`a_${a.id}`">{{ a.label }}<span v-if="!a.info" class="req-ast">*</span><span v-if="a.ayuda" class="opcional"> ({{ a.ayuda }})</span></label>
-            <select :id="`a_${a.id}`" class="entrada" :value="f[a.id] || ''" @change="elegirAttr(a, $event.target.value)">
+            <Seleccion :id="`a_${a.id}`" class="entrada" :value="f[a.id] || ''" @change="elegirAttr(a, $event)">
               <option value="">Choose…</option>
               <option v-for="o in ops(a)" :key="o.v" :value="o.v">{{ o.l }}</option>
-            </select>
+            </Seleccion>
           </div>
           <div v-else class="opts">
             <span class="lbl-f">{{ a.label }}<span v-if="!a.info" class="req-ast">*</span><span v-if="a.ayuda" class="opcional"> ({{ a.ayuda }})</span><span v-if="a.info" class="opcional"> (detail)</span>
@@ -337,6 +337,7 @@ if (props.editable) deteccion()
             </div>
           </div>
         </template>
+        </div>
         <p v-if="definidos.length" class="hint ya">
           Already defined:
           <template v-for="(a, i) in definidos" :key="a.id">{{ i ? ' · ' : '' }}{{ a.label }}: <b>{{ M.opcionLbl(a.id, s[a.id]).toLowerCase() }}</b> <span class="apagado">(by {{ MOTIVO[M.motivoDefinido(a, s)] }})</span></template>
@@ -346,9 +347,11 @@ if (props.editable) deteccion()
       <fieldset v-if="partes.length" id="blk-comp" class="fs">
         <legend>Composition</legend>
         <p class="hint" style="margin-bottom: 8px">{{ COMP_HINT[M.grupoTipo(f.tipo)] || 'Materials of the product and their percentage.' }}</p>
+        <div class="rejilla-partes">
         <ComposicionParte v-for="p in partes" :key="`${f.tipo}-${p}`" :parte="p" :filas="filasDe(p)" :s="s" :recs="props.ctx.recs"
                           :usadas="props.editable ? usadasDe(p) : []" :principal="principales.includes(p)" :editable="props.editable"
                           @cambio="cambioParte" @ensenar="ensenarMaterial" />
+        </div>
       </fieldset>
 
       <fieldset v-if="preguntasNac.length && props.editable" class="fs">
@@ -414,7 +417,13 @@ if (props.editable) deteccion()
 @media (max-width: 900px) { .fila3, .fila2 { grid-template-columns: minmax(0, 1fr); } }
 .campo-f { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; min-width: 0; }
 .campo-f label, .lbl-f { font-size: 0.84rem; font-weight: 620; color: var(--tinta); }
-.select-f select { max-width: 460px; }
+.rejilla-attrs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 20px; align-items: start; }
+.rejilla-attrs .check-f { grid-column: 1 / -1; }
+.rejilla-partes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.rejilla-partes > * { margin-bottom: 0; }
+@media (max-width: 1100px) { .rejilla-attrs, .rejilla-partes { grid-template-columns: minmax(0, 1fr); } }
+.lbl-fila { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.lbl-fila .btn-texto { font-size: 0.8rem; flex: none; }
 .hint { margin: 0; font-size: 0.8rem; color: var(--tinta-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hint.det { color: var(--acento-texto); }
 .hint.auto { color: var(--ok); }
@@ -435,7 +444,7 @@ legend { font-size: 0.84rem; font-weight: 650; color: var(--tinta-3); padding: 0
 .desc-fila { display: flex; gap: 8px; align-items: flex-start; }
 .desc-fila textarea { flex: 1; resize: vertical; min-height: 52px; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.01em; }
 .desc-fila textarea.comercial { font-weight: 500; letter-spacing: 0; }
-.generico-fijo { font-stretch: 112%; font-weight: 700; font-size: 1.02rem; padding: 6px 0; display: flex; gap: 8px; align-items: baseline; }
+.generico-fijo { font-stretch: 112%; font-weight: 700; font-size: 1.02rem; padding: 7px 12px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; background: var(--superficie-2); border: 1px solid var(--linea); border-radius: var(--radio); min-height: 38px; }
 .generico-fijo small { font-stretch: 100%; font-weight: 450; font-size: 0.8rem; color: var(--tinta-3); }
 .descripciones textarea { field-sizing: content; min-height: 64px; resize: vertical; }
 .descripciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
