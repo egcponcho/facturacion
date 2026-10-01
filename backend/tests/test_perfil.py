@@ -52,3 +52,12 @@ def test_formatos_de_fecha():
     preferencias._actual.set({**preferencias.DEFECTO, "formato_fecha": "DD-MMM-YYYY"})
     assert preferencias.fecha_txt(d) == "07-Mar-2026" and preferencias.leer_fecha("07-Mar-2026") == d
     preferencias._actual.set({**preferencias.DEFECTO})
+
+
+def test_busqueda_de_varios_codigos(interno):
+    """Varios códigos pegados (con espacios, comas o saltos de línea) traen
+    todos; varias palabras deben estar todas."""
+    r = interno.get("/ordenes", params={"q": "4400003904 4400003850", "solo_disponible": False}).json()["items"]
+    assert {o["numero"] for o in r} == {"4400003904", "4400003850"}
+    r = interno.get("/ordenes", params={"q": "4400003904,\n4400003850;4400003851", "solo_disponible": False}).json()["items"]
+    assert {o["numero"] for o in r} == {"4400003904", "4400003850", "4400003851"}

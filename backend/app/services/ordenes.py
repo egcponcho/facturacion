@@ -29,7 +29,7 @@ from ..models import (
 )
 from .cantidades import facturado_por_posicion, facturas_por_posicion
 from .productos import clasificacion_txt, pais_de_centro, partida_para, producto_de
-from .common import ErrorNegocio, asegurar_proveedor, exigir, proveedor_filtro, registrar
+from .common import ErrorNegocio, asegurar_proveedor, exigir, proveedor_filtro, registrar, filtro_texto, terminos
 
 # Dos liberaciones de dos equipos distintos:
 # - Comercial: P (pendiente) o C (liberada; si viene vacío también es C).
@@ -134,16 +134,11 @@ def listar_ordenes(
     if prov:
         consulta = consulta.where(OrdenCompra.proveedor_id == prov)
     if q:
-        patron = f"%{q.strip()}%"
-        sub = select(PosicionOC.oc_id).where(
-            or_(
-                PosicionOC.estilo.ilike(patron),
-                PosicionOC.codigo_sap.ilike(patron),
-                PosicionOC.upc.ilike(patron),
-                PosicionOC.color.ilike(patron),
-            )
-        )
-        consulta = consulta.where(or_(OrdenCompra.numero.ilike(patron), OrdenCompra.id.in_(sub)))
+        consulta = consulta.where(filtro_texto(q, lambda p: [
+            OrdenCompra.numero.ilike(p),
+            OrdenCompra.id.in_(select(PosicionOC.oc_id).where(or_(
+                PosicionOC.estilo.ilike(p), PosicionOC.codigo_sap.ilike(p), PosicionOC.upc.ilike(p), PosicionOC.color.ilike(p)))),
+        ]))
     if centro:
         consulta = consulta.where(OrdenCompra.centro == centro)
     if sociedad:
@@ -1021,9 +1016,8 @@ def articulos_formulario(db: Session, user: Usuario, proveedor: str, q: str = ""
     if not prov or (user.proveedor_id and prov.id != user.proveedor_id):
         return []
     consulta = select(Articulo).where(Articulo.proveedor_id == prov.id, Articulo.activo.is_(True))
-    if q.strip():
-        t = f"%{q.strip()}%"
-        consulta = consulta.where(or_(Articulo.sku.ilike(t), Articulo.estilo.ilike(t), Articulo.color.ilike(t),
-                                      Articulo.sku_proveedor.ilike(t), Articulo.upc.ilike(t)))
+    if terminos(q):
+        consulta = consulta.where(filtro_texto(q, lambda t: [Articulo.sku.ilike(t), Articulo.estilo.ilike(t), Articulo.color.ilike(t),
+                                                             Articulo.sku_proveedor.ilike(t), Articulo.upc.ilike(t)]))
     return [{"valor": a.sku, "texto": f"{a.sku} · {a.estilo} {a.color or ''} {a.talla or ''}".strip(), "unidad": a.unidad,
              "tipo": a.tipo} for a in db.scalars(consulta.order_by(Articulo.estilo, Articulo.color, Articulo.sku).limit(300))]

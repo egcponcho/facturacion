@@ -34,6 +34,7 @@ from .cantidades import (
 from .partes import partes
 from .productos import pais_de_centro, partida_para, producto_de, sin_marca
 from .common import (
+    filtro_texto,
     EDITABLE_FACTURA,
     EDITABLE_PL,
     ESTADO_TXT,
@@ -711,9 +712,8 @@ def listar_facturas(
     if estado:
         consulta = consulta.where(Factura.estado == estado)
     if q:
-        patron = f"%{q.strip()}%"
-        sub = select(FacturaLinea.factura_id).where(FacturaLinea.oc_numero.ilike(patron))
-        consulta = consulta.where((Factura.numero.ilike(patron)) | Factura.id.in_(sub))
+        consulta = consulta.where(filtro_texto(q, lambda p: [
+            Factura.numero.ilike(p), Factura.id.in_(select(FacturaLinea.factura_id).where(FacturaLinea.oc_numero.ilike(p)))]))
     if vista == "editables":
         consulta = consulta.where(Factura.estado.in_(EDITABLE_FACTURA))
     elif vista == "pl_incompletos":

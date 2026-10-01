@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Articulo, GrupoArticulo, Marca, Producto, Proveedor, Usuario
 from . import catalogos as cat_svc
-from .common import ErrorNegocio, exigir, registrar
+from .common import ErrorNegocio, exigir, registrar, filtro_texto
 from .productos import MSG_CODIGO, asegurar_producto, codigo_valido, descripcion_comercial_simple, producto_por_generico
 
 
@@ -179,9 +179,9 @@ def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: i
     if filtros.get("unidad"):
         q = q.where(Producto.unidad == filtros["unidad"])
     if filtros.get("q"):
-        t = f"%{filtros['q'].strip()}%"
-        skus = select(Articulo.producto_id).where(or_(Articulo.sku.ilike(t), Articulo.upc.ilike(t), Articulo.sku_proveedor.ilike(t)))
-        q = q.where(or_(Producto.codigo_generico.ilike(t), Producto.estilo.ilike(t), Producto.color.ilike(t), Producto.id.in_(skus)))
+        q = q.where(filtro_texto(filtros["q"], lambda t: [
+            Producto.codigo_generico.ilike(t), Producto.estilo.ilike(t), Producto.color.ilike(t),
+            Producto.id.in_(select(Articulo.producto_id).where(or_(Articulo.sku.ilike(t), Articulo.upc.ilike(t), Articulo.sku_proveedor.ilike(t))))]))
     total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
     col, _, d = (orden or "generico:asc").partition(":")
     c = ORDEN.get(col, Producto.codigo_generico)

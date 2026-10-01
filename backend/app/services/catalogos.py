@@ -9,7 +9,7 @@ import csv
 import io
 
 from openpyxl import load_workbook
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -34,7 +34,7 @@ from ..models import (
     Transportista,
     Usuario,
 )
-from .common import ErrorNegocio, exigir, registrar
+from .common import ErrorNegocio, exigir, registrar, filtro_texto
 from .productos import (
     asegurar_producto,
     fmt_codigo,
@@ -417,8 +417,7 @@ def listar(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dict, 
     modelo = cat["modelo"]
     consulta = select(modelo)
     if q:
-        patron = f"%{q.strip()}%"
-        consulta = consulta.where(or_(*[getattr(modelo, b).ilike(patron) for b in cat["buscar"]]))
+        consulta = consulta.where(filtro_texto(q, lambda p: [getattr(modelo, b).ilike(p) for b in cat["buscar"]]))
     nombres = {x["nombre"]: x for x in cat["campos"]}
     for k, v in filtros.items():
         if k not in nombres or v in (None, ""):

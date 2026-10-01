@@ -7,6 +7,7 @@ import { sesion } from '../stores/sesion'
 import { avisar } from '../stores/ui'
 import Icono from './Icono.vue'
 import SelectBusqueda from './SelectBusqueda.vue'
+import Seleccion from './Seleccion.vue'
 
 // Orden de compra creada en la plataforma. Arma las mismas filas que el archivo
 // de carga (una por línea con los datos de la cabecera) y el servidor las valida
@@ -106,9 +107,9 @@ async function guardar() {
           <SelectBusqueda v-model="cab.pais_origen" :opciones="op?.paises || []" :vacio="t('Not defined')" :etiqueta="t('Country of origin')" /></div>
         <label class="campo"><span>{{ t('In-store date') }}</span><CampoFecha v-model="cab.fecha_tienda" /></label>
         <label class="campo"><span>{{ t('Commercial release') }}</span>
-          <select v-model="cab.liberacion_comercial" class="entrada"><option value="C">{{ t('Released') }}</option><option value="P">{{ t('Pending') }}</option></select></label>
+          <Seleccion v-model="cab.liberacion_comercial" class="entrada"><option value="C">{{ t('Released') }}</option><option value="P">{{ t('Pending') }}</option></Seleccion></label>
         <label class="campo"><span>{{ t('Logistics release') }}</span>
-          <select v-model="cab.liberacion_logistica" class="entrada"><option value="">{{ t('Automatic') }}</option><option value="300">{{ t('Released') }}</option><option value="304">{{ t('Not released') }}</option></select></label>
+          <Seleccion v-model="cab.liberacion_logistica" class="entrada"><option value="">{{ t('Automatic') }}</option><option value="300">{{ t('Released') }}</option><option value="304">{{ t('Not released') }}</option></Seleccion></label>
       </div>
       <div v-if="erroresCab.length" class="nota error bloque mt-chico"><ul class="lista-mensajes"><li v-for="(e, i) in erroresCab" :key="i">{{ tx(e) }}</li></ul></div>
     </section>

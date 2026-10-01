@@ -16,9 +16,9 @@ const props = defineProps({
   etiqueta: { type: String, default: '' },
   deshabilitado: Boolean,
   requerido: Boolean,
-  busqueda: { type: Boolean, default: null },
+  busqueda: { type: Boolean, default: null }, // null: con más de 5 opciones
   botonId: { type: String, default: undefined }, // para que el <label for> del formulario apunte al botón
-  prefijo: { type: Boolean, default: true }, // en filtros: "Marca: valor" // null: solo con más de 7 opciones
+  prefijo: { type: Boolean, default: true }, // en filtros: "Marca: valor"
 })
 const emit = defineEmits(['update:modelValue', 'change'])
 
@@ -44,16 +44,25 @@ const resumen = computed(() => {
   return textos.length > 3 ? t('{0} and {1} more', [textos.slice(0, 3).join(', '), textos.length - 3]) : textos.join(', ')
 })
 
+// Búsqueda: los términos se separan por espacios, comas, punto y coma o saltos
+// de línea. Varios códigos (con números) traen cualquiera de ellos; varias
+// palabras deben estar todas. Se ignoran acentos, mayúsculas y separadores
+// dentro de los códigos (4400-003904 = 4400003904).
+const compacto = (v) => normal(v).replace(/[\s.\-_/]/g, '')
 const filtrados = computed(() => {
-  const palabras = normal(texto.value).split(/\s+/).filter(Boolean)
+  const palabras = [...new Set(normal(texto.value).split(/[\s,;|]+/).filter(Boolean))]
   let res = items.value
   if (palabras.length) {
+    const algunos = palabras.length > 1 && palabras.every((p) => /\d/.test(p))
+    const coincide = (heno, hc, p) => heno.includes(p) || hc.includes(compacto(p))
     res = res
       .map((o) => {
         const heno = normal(`${o.valor} ${o.texto} ${o.sub || ''}`)
-        if (!palabras.every((p) => heno.includes(p))) return null
+        const hc = compacto(`${o.valor} ${o.texto}`)
+        const ok = algunos ? palabras.some((p) => coincide(heno, hc, p)) : palabras.every((p) => coincide(heno, hc, p))
+        if (!ok) return null
         // Primero lo que empieza con lo escrito (código o nombre)
-        const inicio = normal(o.valor).startsWith(palabras[0]) || normal(o.texto).startsWith(palabras[0])
+        const inicio = palabras.some((p) => normal(o.valor).startsWith(p) || normal(o.texto).startsWith(p))
         return { o, peso: inicio ? 0 : 1 }
       })
       .filter(Boolean)
@@ -64,7 +73,7 @@ const filtrados = computed(() => {
   return conVacio
 })
 const visibles = computed(() => filtrados.value.slice(0, MAX))
-const conBusqueda = computed(() => (props.busqueda === null ? items.value.length > 7 : props.busqueda))
+const conBusqueda = computed(() => (props.busqueda === null ? items.value.length > 5 : props.busqueda))
 
 function colocar() {
   const r = raiz.value?.getBoundingClientRect()

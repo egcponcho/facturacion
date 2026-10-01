@@ -6,6 +6,7 @@ import Icono from '../components/Icono.vue'
 import { guardarPerfil, puede, sesion } from '../stores/sesion'
 import { fechaTexto, horaTexto, numeroTexto } from '../stores/preferencias'
 import { avisar, errorApi } from '../stores/ui'
+import Seleccion from '../components/Seleccion.vue'
 
 // Perfil del usuario: sus datos básicos, su contraseña y sus preferencias
 // (idioma, formatos, tema, filas por página y página de inicio). Las
@@ -98,27 +99,27 @@ async function cambiarClave() {
       <div class="panel-cabeza"><div><h2>{{ t('Preferences') }}</h2><p>{{ t('They apply on this and any other device where you sign in.') }}</p></div></div>
       <div class="rejilla-campos">
         <label class="campo"><span>{{ t('Language') }}</span>
-          <select v-model="datos.idioma" class="entrada"><option v-for="x in IDIOMAS" :key="x.codigo" :value="x.codigo" :lang="x.codigo">{{ x.nombre }}</option></select>
+          <Seleccion v-model="datos.idioma" class="entrada"><option v-for="x in IDIOMAS" :key="x.codigo" :value="x.codigo" :lang="x.codigo">{{ x.nombre }}</option></Seleccion>
           <small class="ayuda">{{ t('Changing it reloads the page.') }}</small></label>
         <label class="campo"><span>{{ t('Date format') }}</span>
-          <select v-model="datos.formato_fecha" class="entrada">
+          <Seleccion v-model="datos.formato_fecha" class="entrada">
             <option v-for="f in op?.formatos_fecha || [datos.formato_fecha]" :key="f" :value="f">{{ f }} — {{ fechaTexto(isoHoy, f) }}</option>
-          </select>
+          </Seleccion>
           <small class="ayuda">{{ t('Used to show dates, to type them and to read the dates of the files you upload.') }}</small></label>
         <label class="campo"><span>{{ t('Time format') }}</span>
-          <select v-model="datos.formato_hora" class="entrada">
+          <Seleccion v-model="datos.formato_hora" class="entrada">
             <option v-for="f in op?.formatos_hora || ['12', '24']" :key="f" :value="f">{{ f === '12' ? t('12 hours') : t('24 hours') }} — {{ ejemploHora(f) }}</option>
-          </select></label>
+          </Seleccion></label>
         <label class="campo"><span>{{ t('Number format') }}</span>
-          <select v-model="datos.formato_numero" class="entrada">
+          <Seleccion v-model="datos.formato_numero" class="entrada">
             <option v-for="f in op?.formatos_numero || [datos.formato_numero]" :key="f" :value="f">{{ ejemploNumero(f) }}</option>
-          </select></label>
+          </Seleccion></label>
         <label class="campo"><span>{{ t('Theme') }}</span>
-          <select v-model="datos.tema" class="entrada"><option v-for="(txt, v) in TEMAS" :key="v" :value="v">{{ tx(txt) }}</option></select></label>
+          <Seleccion v-model="datos.tema" class="entrada"><option v-for="(txt, v) in TEMAS" :key="v" :value="v">{{ tx(txt) }}</option></Seleccion></label>
         <label class="campo"><span>{{ t('Rows per page') }}</span>
-          <select v-model="datos.filas" class="entrada"><option v-for="n in op?.filas || [10, 25, 50, 100]" :key="n" :value="n">{{ n }}</option></select></label>
+          <Seleccion v-model="datos.filas" class="entrada"><option v-for="n in op?.filas || [10, 25, 50, 100]" :key="n" :value="n">{{ n }}</option></Seleccion></label>
         <label class="campo"><span>{{ t('Start page') }}</span>
-          <select v-model="datos.inicio" class="entrada"><option v-for="[v, txt] in INICIOS" :key="v" :value="v">{{ tx(txt) }}</option></select>
+          <Seleccion v-model="datos.inicio" class="entrada"><option v-for="[v, txt] in INICIOS" :key="v" :value="v">{{ tx(txt) }}</option></Seleccion>
           <small class="ayuda">{{ t('Where you land after signing in.') }}</small></label>
       </div>
     </section>

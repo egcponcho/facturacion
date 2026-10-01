@@ -45,6 +45,7 @@ from ..models import (
 from .acuerdos import acuerdos_contexto, cargar_acuerdos
 from .meta import meta as meta_motor
 from .common import (
+    filtro_texto,
     ErrorNegocio,
     asegurar_proveedor,
     tiene,
@@ -458,11 +459,10 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     if filtros.get("tipo"):
         base = base.where(Producto.tipo.in_(str(filtros["tipo"]).split(",")))
     if filtros.get("q"):
-        patron = f"%{filtros['q'].strip()}%"
-        skus = select(Articulo.producto_id).where(or_(Articulo.sku.ilike(patron), Articulo.upc.ilike(patron)))
-        base = base.where(or_(Producto.estilo.ilike(patron), Producto.color.ilike(patron), Producto.nombre.ilike(patron),
-                              Producto.codigo_generico.ilike(patron), Producto.codigo.ilike(patron.replace(".", "")),
-                              Producto.id.in_(skus)))
+        base = base.where(filtro_texto(filtros["q"], lambda p: [
+            Producto.estilo.ilike(p), Producto.color.ilike(p), Producto.nombre.ilike(p), Producto.codigo_generico.ilike(p),
+            Producto.codigo.ilike(p.replace(".", "")),
+            Producto.id.in_(select(Articulo.producto_id).where(or_(Articulo.sku.ilike(p), Articulo.upc.ilike(p))))]))
     # Indicadores por estado con los mismos filtros (menos el de estado)
     sub = base.subquery()
     conteo = {e: n for e, n in db.execute(select(sub.c.estado, func.count()).group_by(sub.c.estado)).all()}

@@ -17,7 +17,7 @@ from ..models import (
     Usuario,
 )
 from .cantidades import nombre_factura, totales_pl
-from .common import ErrorNegocio, exigir, registrar, requerir_motivo
+from .common import ErrorNegocio, exigir, registrar, requerir_motivo, filtro_texto
 from .leadtimes import Estandares, _riesgo, limite_puerto
 from .partes import partes
 
@@ -175,8 +175,7 @@ def listar_embarques(db: Session, user: Usuario, estado: str | None = None, q: s
     if estado:
         consulta = consulta.where(Embarque.estado == estado)
     if q:
-        patron = f"%{q.strip()}%"
-        consulta = consulta.where(Embarque.codigo.ilike(patron) | Embarque.documento_numero.ilike(patron))
+        consulta = consulta.where(filtro_texto(q, lambda p: [Embarque.codigo.ilike(p), Embarque.documento_numero.ilike(p)]))
     res = []
     for e in db.scalars(consulta).all():
         unidades = [resumen_unidad(u) for u in e.unidades]
@@ -562,7 +561,7 @@ def disponibles(db: Session, user: Usuario, unidad_id: int, proveedor_id: int | 
     if u.embarque.centro:
         consulta = consulta.where(Factura.centro == u.embarque.centro)
     if q:
-        consulta = consulta.where(Factura.numero.ilike(f"%{q.strip()}%"))
+        consulta = consulta.where(filtro_texto(q, lambda p: [Factura.numero.ilike(p)]))
     grupos: dict[int, dict] = {}
     for pl in db.scalars(consulta).all():
         fila = _fila_pl(pl)

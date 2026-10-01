@@ -1,4 +1,7 @@
+import re
+
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -222,3 +225,27 @@ def requerir_motivo(motivo: str | None, accion: str) -> str:
     if not motivo or not motivo.strip():
         raise ErrorNegocio(f"Enter the reason to {accion}.", 422, "motivo_requerido")
     return motivo.strip()
+
+
+# ---- Búsqueda de texto --------------------------------------------------------
+SEPARADORES = re.compile(r"[\s,;|]+")
+
+
+def terminos(q: str | None) -> list[str]:
+    """Términos de una búsqueda: se separan por espacios, comas, punto y coma,
+    barras o saltos de línea (p. ej. una lista de OCs pegada desde Excel)."""
+    return list(dict.fromkeys(t for t in SEPARADORES.split(str(q or "").strip()) if t))
+
+
+def filtro_texto(q: str | None, condiciones):
+    """Condición SQL para una búsqueda de uno o varios términos.
+    `condiciones(patron)` devuelve las columnas comparadas con ese patrón.
+    Varios códigos (términos con números) se buscan cualquiera de ellos; varias
+    palabras deben estar todas (camisa azul = camisa y azul)."""
+    ts = terminos(q)
+    if not ts:
+        return None
+    por_termino = [or_(*condiciones(f"%{t}%")) for t in ts]
+    if len(ts) == 1:
+        return por_termino[0]
+    return or_(*por_termino) if all(re.search(r"\d", t) for t in ts) else and_(*por_termino)

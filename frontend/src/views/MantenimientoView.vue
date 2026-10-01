@@ -321,9 +321,9 @@ onMounted(async () => {
   <!-- En el celular, un selector en lugar de las 16 pestañas -->
   <label class="selector-catalogo solo-movil">
     <span>{{ t('Catalog') }}</span>
-    <select class="entrada" :value="tipo" @change="elegir($event.target.value)">
+    <Seleccion class="entrada" :value="tipo" @change="elegir">
       <option v-for="c in catalogos" :key="c.tipo" :value="c.tipo">{{ tx(c.titulo) }} ({{ tx(c.total) }})</option>
-    </select>
+    </Seleccion>
   </label>
   <div class="pestanas-pildora solo-escritorio" role="tablist">
     <button v-for="c in catalogos" :key="c.tipo" class="pildora" role="tab" :aria-selected="c.tipo === tipo" @click="elegir(c.tipo)">
