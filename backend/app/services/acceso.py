@@ -55,15 +55,34 @@ def validar_telefono(tel: str | None) -> str | None:
     return tel
 
 
+# Reglas de la contraseña (las mismas que muestra la pantalla mientras se escribe)
+REGLAS_PASSWORD = [
+    ("largo", "At least 10 characters", lambda p, e: len(p) >= 10),
+    ("mayuscula", "An uppercase letter", lambda p, e: bool(re.search(r"[A-Z]", p))),
+    ("minuscula", "A lowercase letter", lambda p, e: bool(re.search(r"[a-z]", p))),
+    ("numero", "A number", lambda p, e: bool(re.search(r"\d", p))),
+    ("simbolo", "A symbol (such as ! # $ % * -)", lambda p, e: bool(re.search(r"[^A-Za-z0-9]", p))),
+    ("usuario", "Does not contain your user name", lambda p, e: not (e and e.split("@")[0].lower() in p.lower())),
+]
+
+
+def reglas_password() -> list[dict]:
+    return [{"clave": k, "texto": t} for k, t, _ in REGLAS_PASSWORD]
+
+
 def politica_password(password: str, email: str | None = None) -> list[str]:
-    errores = []
-    if len(password) < 10:
-        errores.append("At least 10 characters.")
-    if not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
-        errores.append("Letters and numbers.")
-    if email and email.split("@")[0].lower() in password.lower():
-        errores.append("It must not contain your user name.")
-    return errores
+    return [t + "." for _, t, ok in REGLAS_PASSWORD if not ok(password or "", email)]
+
+
+def password_temporal() -> str:
+    """Contraseña temporal que cumple la política (se cambia al primer ingreso)."""
+    import string
+
+    while True:
+        letras = string.ascii_letters + string.digits
+        p = "".join(secrets.choice(letras) for _ in range(10)) + secrets.choice("!#$%*-") + secrets.choice("0123456789")
+        if not politica_password(p):
+            return p
 
 
 def exigir_politica(password: str, email: str | None = None) -> None:
@@ -232,5 +251,6 @@ def cambiar_password(db: Session, u: Usuario, actual: str, nueva: str, token_act
         raise ErrorNegocio("The new password must be different.", 422, "validacion")
     u.password_hash = hash_password(nueva)
     u.password_cambiado_en = _ahora()
+    u.clave_temporal = False
     revocar_sesiones(db, u.id, excepto=token_actual)
     registrar(db, u, "usuario", u.id, "cambio_password", None)

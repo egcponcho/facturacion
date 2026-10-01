@@ -39,9 +39,15 @@ def usuario_actual(
     return user
 
 
-async def usuario_con_preferencias(user: Usuario = Depends(usuario_actual)) -> Usuario:
+# Con contraseña temporal solo se puede completar el asistente inicial
+PERMITIDO_TEMPORAL = ("/api/auth/", "/api/perfil")
+
+
+async def usuario_con_preferencias(request: Request, user: Usuario = Depends(usuario_actual)) -> Usuario:
     """El usuario de la sesión, dejando sus preferencias (formato de fecha,
     etc.) en el contexto de la petición. Es asíncrona a propósito: así el valor
     se fija en el contexto de la petición y lo ven las rutas que corren en hilos."""
     preferencias.usar(user)
+    if user.clave_temporal and not request.url.path.startswith(PERMITIDO_TEMPORAL):
+        raise ErrorNegocio("Change your temporary password to continue.", 403, "clave_temporal")
     return user

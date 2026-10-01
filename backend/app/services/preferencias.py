@@ -109,6 +109,18 @@ def opciones() -> dict:
             "formatos_hora": list(FORMATOS_HORA), "temas": list(TEMAS), "filas": list(FILAS), "inicios": list(INICIOS)}
 
 
+FOTO = re.compile(r"^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$")
+
+
+def guardar_foto(db: Session, user: Usuario, foto: str | None) -> dict:
+    """Foto de perfil: una imagen pequeña (la pantalla la reduce antes de enviarla)."""
+    if foto and not FOTO.match(foto):
+        raise ErrorNegocio("Use a PNG, JPEG or WebP image.", 422, "validacion")
+    user.foto = foto or None
+    registrar(db, user, "usuario", user.id, "foto", {"foto": bool(foto)})
+    return {"foto": user.foto}
+
+
 def guardar(db: Session, user: Usuario, datos) -> dict:
     """El usuario edita su nombre y sus preferencias (no su correo, rol ni proveedor)."""
     campos = datos.model_dump(exclude_unset=True)

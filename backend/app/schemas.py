@@ -37,6 +37,10 @@ class ProveedorPatch(BaseModel):
     activo: bool | None = None
 
 
+class FotoIn(BaseModel):
+    foto: str | None = Field(default=None, max_length=400_000)  # data URL de una imagen reducida; vacío la quita
+
+
 class PerfilIn(BaseModel):
     nombre: str | None = Field(default=None, max_length=200)
     idioma: str | None = None
@@ -68,9 +72,12 @@ class UsuarioIn(BaseModel):
     rol: Literal["admin", "interno", "proveedor"] | None = None
     rol_id: int | None = None
     proveedor_id: int | None = None
-    password: str = Field(max_length=200)
+    password: str | None = Field(default=None, max_length=200)  # vacío: se genera una temporal
     telefono: str | None = None
     dos_pasos: bool = True
+    cargo: str | None = Field(default=None, max_length=120)
+    area: str | None = Field(default=None, max_length=120)
+    empresa: str | None = Field(default=None, max_length=200)
 
 
 class UsuarioPatch(BaseModel):
@@ -79,9 +86,14 @@ class UsuarioPatch(BaseModel):
     rol_id: int | None = None
     proveedor_id: int | None = None
     password: str | None = Field(default=None, max_length=200)
+    generar_clave: bool | None = None  # restablecer con una contraseña temporal generada
     activo: bool | None = None
     telefono: str | None = None
     dos_pasos: bool | None = None
+    email: str | None = Field(default=None, max_length=200)
+    cargo: str | None = Field(default=None, max_length=120)
+    area: str | None = Field(default=None, max_length=120)
+    empresa: str | None = Field(default=None, max_length=200)
 
 
 # ---- Facturas ---------------------------------------------------------------

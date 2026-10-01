@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import Seleccion from './components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icono from './components/Icono.vue'
+import Avatar from './components/Avatar.vue'
 import SelectorIdioma from './components/SelectorIdioma.vue'
 import SelectorTema from './components/SelectorTema.vue'
 import Toasts from './components/Toasts.vue'
@@ -44,7 +45,6 @@ const enAjustes = computed(() => ajustes.value.some((i) => route.path.startsWith
 const activo = (to) => (to === '/' ? route.path === '/' : route.path.startsWith(to) ||
   (to === '/facturas' && route.path.startsWith('/packing-lists')) || (to === '/productos' && route.path.startsWith('/aranceles')))
 
-const iniciales = computed(() => (sesion.usuario?.nombre || '?').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase())
 
 const textoGuardado = computed(() => ({
   guardando: t('Saving…'),
@@ -66,7 +66,7 @@ async function salir() {
 </script>
 
 <template>
-  <div v-if="route.name !== 'login' && sesion.usuario" class="marco">
+  <div v-if="route.name !== 'login' && !route.meta.sinMarco && sesion.usuario" class="marco">
     <header class="cabecera">
       <div class="cabecera-fila">
         <button type="button" class="btn-icono boton-menu" :aria-expanded="menuAbierto" :aria-label="t('Menu')" @click="menuAbierto = !menuAbierto">
@@ -92,7 +92,7 @@ async function salir() {
           <SelectorTema class="solo-escritorio" />
           <div class="usuario">
             <router-link to="/perfil" class="usuario-enlace" :title="t('My profile')" :aria-label="t('My profile')">
-              <span class="avatar" aria-hidden="true">{{ tx(iniciales) }}</span>
+              <Avatar :nombre="sesion.usuario.nombre" :foto="sesion.usuario.foto" :tam="32" />
               <div class="usuario-datos">
                 <b>{{ tx(sesion.usuario.nombre) }}</b>
                 <span>{{ tx(sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol]) }}</span>
@@ -140,6 +140,6 @@ async function salir() {
       <router-view :key="route.path" />
     </main>
   </div>
-  <router-view v-else-if="route.name === 'login'" />
+  <router-view v-else-if="route.name === 'login' || route.meta.sinMarco" />
   <Toasts />
 </template>

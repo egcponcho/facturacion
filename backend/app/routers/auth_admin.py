@@ -4,11 +4,11 @@ from sqlalchemy import select
 from ..config import settings
 from ..models import Usuario
 from ..deps import COOKIE
-from ..schemas import DesafioIn, LoginIn, PasswordIn, PerfilIn, ProveedorIn, ProveedorPatch, RolIn, RolPatch, UsuarioIn, UsuarioPatch, VerificarIn
+from ..schemas import DesafioIn, FotoIn, LoginIn, PasswordIn, PerfilIn, ProveedorIn, ProveedorPatch, RolIn, RolPatch, UsuarioIn, UsuarioPatch, VerificarIn
 from ..services import acceso, preferencias
 from ..services.limites import limitar
 from ..services import varios
-from ..services.common import permisos_de
+from ..services.common import catalogo_permisos, permisos_de
 from .base import Clave, Db, User, ejecutar
 
 router = APIRouter()
@@ -25,6 +25,9 @@ def _yo(u: Usuario) -> dict:
         "proveedor": u.proveedor.nombre if u.proveedor else None,
         "permisos": permisos_de(u),
         "preferencias": preferencias.de(u),
+        "foto": u.foto, "cargo": u.cargo, "area": u.area, "empresa": u.empresa,
+        "clave_temporal": bool(u.clave_temporal), "ultimo_acceso": u.ultimo_acceso,
+        "password_cambiado_en": u.password_cambiado_en,
         "telefono": acceso.mascara_telefono(u.telefono),
         "dos_pasos": bool(settings.DOS_PASOS and u.dos_pasos),
         "sesion_inactividad_min": settings.SESION_INACTIVIDAD_MIN,
@@ -96,7 +99,22 @@ def yo(user: User):
 
 @router.get("/perfil")
 def perfil(user: User):
-    return {**_yo(user), "opciones": preferencias.opciones()}
+    # Lo que el usuario puede hacer, por módulo (solo lectura: lo define su rol)
+    propios = set(permisos_de(user))
+    accesos = [{"modulo": m["modulo"], "permisos": [p["etiqueta"] for p in m["permisos"] if p["clave"] in propios]}
+               for m in catalogo_permisos()]
+    return {**_yo(user), "opciones": preferencias.opciones(), "accesos": [a for a in accesos if a["permisos"]]}
+
+
+@router.get("/auth/politica")
+def politica():
+    """Reglas de la contraseña, para mostrarlas mientras se escribe."""
+    return acceso.reglas_password()
+
+
+@router.put("/perfil/foto")
+def foto_perfil(datos: FotoIn, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: preferencias.guardar_foto(db, user, datos.foto))
 
 
 @router.patch("/perfil")

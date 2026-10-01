@@ -149,3 +149,21 @@ export const ACCIONES = {
   pallet: t('Palletized'),
   empaque: t('Changed the packing'),
 }
+
+// Foto de perfil: se recorta al centro y se reduce en el navegador antes de enviarla
+export function reducirImagen(archivo, lado = 256) {
+  return new Promise((resolve, reject) => {
+    if (!archivo || !/^image\/(png|jpeg|webp)$/.test(archivo.type)) return reject(new Error(t('Use a PNG, JPEG or WebP image.')))
+    const img = new Image()
+    img.onload = () => {
+      const c = document.createElement('canvas')
+      c.width = c.height = lado
+      const m = Math.min(img.width, img.height)
+      c.getContext('2d').drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, lado, lado)
+      URL.revokeObjectURL(img.src)
+      resolve(c.toDataURL('image/jpeg', 0.85))
+    }
+    img.onerror = () => reject(new Error(t('The image could not be read.')))
+    img.src = URL.createObjectURL(archivo)
+  })
+}

@@ -152,6 +152,14 @@ class Usuario(Base):
     password_cambiado_en: Mapped[datetime | None] = mapped_column(DateTime)
     # Idioma, formatos de fecha/hora/número, tema, filas por página (solo lo que difiere del defecto)
     preferencias: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Datos del perfil: la foto la cambia el usuario; cargo, área y empresa, la administración
+    foto: Mapped[str | None] = mapped_column(Text)  # imagen pequeña (data URL)
+    cargo: Mapped[str | None] = mapped_column(String(120))
+    area: Mapped[str | None] = mapped_column(String(120))
+    empresa: Mapped[str | None] = mapped_column(String(200))
+    # Contraseña temporal (creada o restablecida por la administración): hasta
+    # cambiarla, el usuario solo puede completar el asistente inicial
+    clave_temporal: Mapped[bool] = mapped_column(Boolean, default=False)
     proveedor: Mapped[Proveedor | None] = relationship()
     rol_ref: Mapped[Rol | None] = relationship()
 

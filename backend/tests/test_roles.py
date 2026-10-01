@@ -1,6 +1,6 @@
 """Roles con permisos por módulo y acción: se crean, se asignan y limitan lo
 que el usuario ve y puede hacer; el proveedor sigue limitado a lo suyo."""
-from conftest import Api, PASSWORD
+from conftest import Api
 
 
 def test_roles_y_permisos(client, admin, interno, tnf):
@@ -19,9 +19,17 @@ def test_roles_y_permisos(client, admin, interno, tnf):
     mixto = admin.post("/roles", {"nombre": "Sheets", "permisos": ["producto.ver", "producto.ficha", "catalogos.ver"]}).json()
     assert mixto["permisos"] == ["catalogos.ver", "producto.ficha", "producto.ver"]
     # Se asigna a un usuario nuevo y limita lo que hace
+    # Sin contraseña, se genera una temporal; hasta cambiarla solo se completa el asistente inicial
     u = admin.post("/usuarios", {"email": "visor@demo.com", "nombre": "Viewer", "rol_id": nuevo["id"],
-                                 "password": PASSWORD, "telefono": "+50370000099", "dos_pasos": True}).json()
-    visor = Api(client, "visor@demo.com")
+                                 "telefono": "+50370000099", "dos_pasos": True, "cargo": "Analyst"}).json()
+    temporal = u["password_temporal"]
+    assert temporal and len(temporal) >= 10
+    visor = Api(client, "visor@demo.com", temporal)
+    assert visor.get("/auth/me").json()["clave_temporal"] is True
+    assert visor.get("/catalogos/marcas").status_code == 403
+    assert visor.post("/auth/password", {"actual": temporal, "nueva": "sinsimbolo2026"}).status_code == 422
+    assert visor.post("/auth/password", {"actual": temporal, "nueva": "Lector#Clave2026"}).status_code == 200
+    assert visor.get("/auth/me").json()["clave_temporal"] is False
     yo = visor.get("/auth/me").json()
     assert yo["rol"] == "interno" and yo["rol_nombre"] == "Master data viewer" and "oc.ver" not in yo["permisos"]
     assert visor.get("/catalogos/marcas").status_code == 200

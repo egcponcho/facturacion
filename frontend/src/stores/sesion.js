@@ -35,7 +35,8 @@ export async function cargarSesion(forzar = false) {
   if (sesion.cargada && !forzar) return !!sesion.usuario
   try {
     sesion.usuario = await api.get('/auth/me')
-    sesion.proveedores = await api.get('/proveedores')
+    // Con contraseña temporal solo se usa el asistente inicial
+    sesion.proveedores = sesion.usuario.clave_temporal ? [] : await api.get('/proveedores')
     if (!esInterno()) sesion.proveedorId = sesion.usuario.proveedor_id
     sesion.expirada = false
     usarPreferencias(sesion.usuario.preferencias)

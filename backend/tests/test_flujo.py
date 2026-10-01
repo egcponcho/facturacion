@@ -787,27 +787,27 @@ def test_acceso_seguro(client):
     r = admin.post("/usuarios", {"email": "nuevo@demo.com", "nombre": "Nuevo", "rol": "interno", "password": "abc12"})
     assert r.status_code == 422 and r.json()["codigo"] == "password_debil"
     r = admin.post("/usuarios", {"email": "nuevo@demo.com", "nombre": "Nuevo", "rol": "interno",
-                                 "password": "Seguridad2026", "telefono": "7000"})
+                                 "password": "Seguridad-2026", "telefono": "7000"})
     assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "telefono"
     r = admin.post("/usuarios", {"email": "nuevo@demo.com", "nombre": "Nuevo", "rol": "interno",
-                                 "password": "Seguridad2026", "telefono": "+503 7000-1234"})
+                                 "password": "Seguridad-2026", "telefono": "+503 7000-1234"})
     assert r.status_code == 200, r.text
     nuevo_id = r.json()["id"]
     nuevo = next(u for u in admin.get("/usuarios").json() if u["id"] == nuevo_id)
     assert nuevo["telefono"] == "+50370001234" and nuevo["dos_pasos"]
     # Sin celular registrado no se puede entrar con dos pasos
     admin.patch(f"/usuarios/{nuevo_id}", {"telefono": None})
-    r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "Seguridad2026"})
+    r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "Seguridad-2026"})
     assert r.status_code == 403 and r.json()["codigo"] == "sin_telefono"
     admin.patch(f"/usuarios/{nuevo_id}", {"telefono": "+50370001234"})
     # Cambiar la contraseña propia cierra las otras sesiones
     reiniciar()
-    t1 = iniciar_sesion(client, "nuevo@demo.com", "Seguridad2026")
-    t2 = iniciar_sesion(client, "nuevo@demo.com", "Seguridad2026")
+    t1 = iniciar_sesion(client, "nuevo@demo.com", "Seguridad-2026")
+    t2 = iniciar_sesion(client, "nuevo@demo.com", "Seguridad-2026")
     h1, h2 = {"Authorization": f"Bearer {t1}"}, {"Authorization": f"Bearer {t2}"}
-    r = client.post("/api/auth/password", json={"actual": "Seguridad2026", "nueva": "corta"}, headers=h1)
+    r = client.post("/api/auth/password", json={"actual": "Seguridad-2026", "nueva": "corta"}, headers=h1)
     assert r.status_code == 422
-    r = client.post("/api/auth/password", json={"actual": "Seguridad2026", "nueva": "OtraClave2027"}, headers=h1)
+    r = client.post("/api/auth/password", json={"actual": "Seguridad-2026", "nueva": "Otra#Clave2027"}, headers=h1)
     assert r.status_code == 200
     assert client.get("/api/auth/me", headers=h1).status_code == 200
     assert client.get("/api/auth/me", headers=h2).status_code == 401
@@ -815,13 +815,13 @@ def test_acceso_seguro(client):
     for _ in range(5):
         r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "mala"})
     assert r.status_code == 423
-    r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "OtraClave2027"})
+    r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "Otra#Clave2027"})
     assert r.status_code == 423 and r.json()["codigo"] == "bloqueado"
     assert next(u for u in admin.get("/usuarios").json() if u["id"] == nuevo_id)["bloqueado"]
     # El administrador desbloquea al restablecer la contraseña
-    admin.patch(f"/usuarios/{nuevo_id}", {"password": "Restablecida2028"})
+    admin.patch(f"/usuarios/{nuevo_id}", {"password": "Restablecida-2028"})
     reiniciar()
-    assert iniciar_sesion(client, "nuevo@demo.com", "Restablecida2028")
+    assert iniciar_sesion(client, "nuevo@demo.com", "Restablecida-2028")
     # Mismo mensaje para correo inexistente y contraseña incorrecta
     a = client.post("/api/auth/login", json={"email": "nadie@demo.com", "password": "x"}).json()["mensaje"]
     b = client.post("/api/auth/login", json={"email": "admin@demo.com", "password": "x"}).json()["mensaje"]

@@ -5,6 +5,7 @@ import Seleccion from '../components/Seleccion.vue'
 import { api } from '../api'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import Avatar from '../components/Avatar.vue'
 import { sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { fmtFechaHora } from '../utils'
@@ -12,7 +13,7 @@ import { fmtFechaHora } from '../utils'
 const proveedores = ref([])
 const usuarios = ref([])
 const nuevoProv = reactive({ codigo: '', nombre: '' })
-const vacioUsr = () => ({ nombre: '', email: '', rol_id: '', proveedor_id: '', password: '', telefono: '', dos_pasos: true })
+const vacioUsr = () => ({ nombre: '', email: '', rol_id: '', proveedor_id: '', password: '', telefono: '', dos_pasos: true, cargo: '', area: '', empresa: '' })
 const nuevoUsr = reactive(vacioUsr())
 // 'proveedor' | 'usuario' | { tipo: 'clave', usuario, clave } | { tipo: 'telefono', usuario, telefono, dos_pasos }
 const modal = ref(null)
@@ -55,18 +56,32 @@ async function crearProveedor() {
 
 async function crearUsuario() {
   try {
-    await api.post('/usuarios', {
-      ...nuevoUsr, telefono: nuevoUsr.telefono || null,
+    const r = await api.post('/usuarios', {
+      ...nuevoUsr, telefono: nuevoUsr.telefono || null, password: nuevoUsr.password || null,
       rol_id: Number(nuevoUsr.rol_id) || null,
       proveedor_id: Number(nuevoUsr.proveedor_id) || null,
     })
     avisar(t('User {0} created.', [nuevoUsr.email]))
+    // La contraseña temporal se muestra una sola vez para entregarla al usuario
+    modal.value = r.password_temporal ? { tipo: 'temporal', email: nuevoUsr.email, clave: r.password_temporal } : null
     Object.assign(nuevoUsr, vacioUsr())
-    modal.value = null
     cargar()
   } catch (e) {
     errorApi(e)
   }
+}
+
+async function claveTemporal(u) {
+  try {
+    const r = await api.patch(`/usuarios/${u.id}`, { generar_clave: true })
+    modal.value = { tipo: 'temporal', email: u.email, clave: r.password_temporal }
+    cargar()
+  } catch (e) {
+    errorApi(e)
+  }
+}
+function copiar(texto) {
+  navigator.clipboard?.writeText(texto).then(() => avisar(t('Copied.'))).catch(() => {})
 }
 
 async function actualizar(ruta, datos, mensaje) {
@@ -185,7 +200,8 @@ onMounted(cargar)
         <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Email') }}</th><th>{{ t('Role') }}</th><th>{{ t('Supplier') }}</th><th>{{ t('Registered mobile') }}</th><th>{{ t('Last sign-in') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
         <tbody>
           <tr v-for="u in usuarios" :key="u.id">
-            <td>{{ tx(u.nombre) }}</td>
+            <td><span class="usuario-fila"><Avatar :nombre="u.nombre" :foto="u.foto" :tam="30" /><span>{{ tx(u.nombre) }}<span class="sub">{{ tx([u.cargo, u.area].filter(Boolean).join(' · ')) }}</span>
+              <span v-if="u.clave_temporal" class="etiqueta aviso" style="margin-inline-start: 0">{{ t('Temporary password') }}</span></span></span></td>
             <td>{{ tx(u.email) }}</td>
             <td>{{ tx(u.rol_nombre || '—') }}<span v-if="tx(u.rol_nombre) !== tx(ALCANCE[u.rol])" class="sub">{{ tx(ALCANCE[u.rol]) }}</span></td>
             <td>{{ tx(u.proveedor || t('Internal')) }}</td>
@@ -202,6 +218,7 @@ onMounted(cargar)
             <td class="fila-flex">
               <button class="btn btn-chico" @click="abrirRolUsuario(u)">{{ t('Role and supplier') }}</button>
               <button class="btn btn-chico" @click="modal = { tipo: 'telefono', usuario: u, telefono: u.telefono || '', dos_pasos: u.dos_pasos }">{{ t('Mobile') }}</button>
+              <button class="btn btn-chico" @click="modal = { tipo: 'datos', usuario: u, nombre: u.nombre, email: u.email, cargo: u.cargo || '', area: u.area || '', empresa: u.empresa || '' }">{{ t('Edit data') }}</button>
               <button class="btn btn-chico" @click="modal = { tipo: 'clave', usuario: u, clave: '' }">{{ t('Reset password') }}</button>
               <button class="btn btn-chico" @click="actualizar(`/usuarios/${u.id}`, { activo: !u.activo }, t('User updated.'))">{{ tx(u.activo ? t('Deactivate') : t('Activate')) }}</button>
             </td>
@@ -241,8 +258,11 @@ onMounted(cargar)
         <input v-model="nuevoUsr.telefono" type="tel" placeholder="+503 7000 1234" :required="nuevoUsr.dos_pasos" autocomplete="off" />
         <small class="ayuda">{{ t('International format: + country code and number.') }}</small>
       </label>
-      <label class="campo"><span class="req">{{ t('Initial password') }}</span><input v-model="nuevoUsr.password" type="password" minlength="10" required autocomplete="new-password" />
-        <small class="ayuda">{{ t('At least 10 characters, with letters and numbers.') }}</small></label>
+      <label class="campo"><span>{{ t('Job title') }}</span><input v-model="nuevoUsr.cargo" maxlength="120" /></label>
+      <label class="campo"><span>{{ t('Area') }}</span><input v-model="nuevoUsr.area" maxlength="120" /></label>
+      <label class="campo"><span>{{ t('Company') }}</span><input v-model="nuevoUsr.empresa" maxlength="200" /></label>
+      <label class="campo"><span>{{ t('Initial password') }}</span><input v-model="nuevoUsr.password" type="password" autocomplete="new-password" :placeholder="t('Empty: a temporary one is generated')" />
+        <small class="ayuda">{{ t('The user changes it the first time they sign in, in a short guided setup.') }}</small></label>
       <label class="check"><input v-model="nuevoUsr.dos_pasos" type="checkbox" /> {{ t('Require two-step verification (recommended)') }}</label>
     </form>
     <template #pie>
@@ -297,13 +317,28 @@ onMounted(cargar)
     </template>
   </Modal>
   <Modal v-if="modal?.tipo === 'clave'" :titulo="t('Password for {0}', [modal.usuario.email])" @cerrar="modal = null">
-    <form id="form-clave" @submit.prevent="actualizar(`/usuarios/${modal.usuario.id}`, { password: modal.clave }, t('Password reset. The user\'s sessions were closed.'))">
-      <label class="campo"><span class="req">{{ t('New password') }}</span><input v-model="modal.clave" type="password" minlength="10" required autocomplete="new-password" /></label>
-      <p class="ayuda">{{ t('At least 10 characters, with letters and numbers. Resetting it also unlocks the account and closes its open sessions.') }}</p>
+    <p>{{ t('A temporary password is generated; the user replaces it with their own when signing in. Resetting it also unlocks the account and closes its open sessions.') }}</p>
+    <template #pie>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" @click="claveTemporal(modal.usuario)"><Icono nombre="candado" :tam="15" />{{ t('Generate temporary password') }}</button>
+    </template>
+  </Modal>
+  <Modal v-if="modal?.tipo === 'temporal'" :titulo="t('Temporary password')" @cerrar="modal = null">
+    <p>{{ t('Give this password to {0}. It is shown only once; when signing in, the user will create their own.', [modal.email]) }}</p>
+    <div class="clave-temporal"><code>{{ modal.clave }}</code><button class="btn btn-chico" @click="copiar(modal.clave)">{{ t('Copy') }}</button></div>
+    <template #pie><button class="btn btn-primario" @click="modal = null">{{ t('Done') }}</button></template>
+  </Modal>
+  <Modal v-if="modal?.tipo === 'datos'" :titulo="t('Data of {0}', [modal.usuario.email])" @cerrar="modal = null">
+    <form id="form-datos" class="rejilla-campos" @submit.prevent="actualizar(`/usuarios/${modal.usuario.id}`, { nombre: modal.nombre, email: modal.email, cargo: modal.cargo || null, area: modal.area || null, empresa: modal.empresa || null }, t('User updated.'))">
+      <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="modal.nombre" required maxlength="200" /></label>
+      <label class="campo"><span class="req">{{ t('Email') }}</span><input v-model="modal.email" type="email" required /></label>
+      <label class="campo"><span>{{ t('Job title') }}</span><input v-model="modal.cargo" maxlength="120" /></label>
+      <label class="campo"><span>{{ t('Area') }}</span><input v-model="modal.area" maxlength="120" /></label>
+      <label class="campo"><span>{{ t('Company') }}</span><input v-model="modal.empresa" maxlength="200" /></label>
     </form>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
-      <button class="btn btn-primario" type="submit" form="form-clave">{{ t('Save') }}</button>
+      <button class="btn btn-primario" type="submit" form="form-datos">{{ t('Save') }}</button>
     </template>
   </Modal>
   <Modal v-if="modal?.tipo === 'telefono'" :titulo="t('Mobile for {0}', [modal.usuario.email])" @cerrar="modal = null">
@@ -330,4 +365,7 @@ onMounted(cargar)
 .permiso { display: flex; align-items: flex-start; gap: 6px; font-size: 0.84rem; padding: 3px 0; }
 .permiso small { font-size: 0.74rem; }
 .permiso.apagado { color: var(--tinta-3); text-decoration: line-through; }
+.clave-temporal { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radio); background: var(--superficie-2); }
+.clave-temporal code { font-size: 1.15rem; letter-spacing: 0.04em; flex: 1; overflow-wrap: anywhere; }
+.usuario-fila { display: flex; align-items: center; gap: 8px; }
 </style>

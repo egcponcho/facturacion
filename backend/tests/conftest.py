@@ -50,9 +50,9 @@ def iniciar_sesion(client, email, password=PASSWORD) -> str:
 
 
 class Api:
-    def __init__(self, client, email):
+    def __init__(self, client, email, password=PASSWORD):
         self.c = client
-        self.h = {"Authorization": f"Bearer {iniciar_sesion(client, email)}"}
+        self.h = {"Authorization": f"Bearer {iniciar_sesion(client, email, password)}"}
         self.yo = self.c.get("/api/auth/me", headers=self.h).json()
 
     def get(self, url, **kw):

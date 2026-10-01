@@ -9,7 +9,9 @@ from ..models import (
     Usuario,
 )
 from ..security import hash_password
-from .acceso import exigir_politica, revocar_sesiones, validar_telefono
+from .acceso import exigir_politica, password_temporal, revocar_sesiones, validar_telefono
+from .normalizar import nombre as nombre_fmt
+from .normalizar import texto as texto_fmt
 from .common import (
     ErrorNegocio,
     alcance,
@@ -254,6 +256,7 @@ def _usuario_dict(u: Usuario) -> dict:
             "rol_id": u.rol_id, "rol_nombre": u.rol_ref.nombre if u.rol_ref else None,
             "proveedor_id": u.proveedor_id, "proveedor": u.proveedor.nombre if u.proveedor else None,
             "telefono": u.telefono, "dos_pasos": u.dos_pasos, "ultimo_acceso": u.ultimo_acceso,
+            "cargo": u.cargo, "area": u.area, "empresa": u.empresa, "foto": u.foto, "clave_temporal": bool(u.clave_temporal),
             "bloqueado": bool(u.bloqueado_hasta and u.bloqueado_hasta > _ahora())}
 
 
@@ -271,13 +274,18 @@ def crear_usuario(db: Session, user: Usuario, datos) -> dict:
     prov = _proveedor_elegido(db, datos.proveedor_id)
     if datos.rol == "proveedor" and not prov:
         raise ErrorNegocio("A supplier user must have a supplier assigned.", 422, "validacion")
-    exigir_politica(datos.password, email)
-    u = Usuario(email=email, nombre=datos.nombre.strip(), rol=alcance(rol.permisos, prov), rol_id=rol.id,
-                proveedor_id=prov, password_hash=hash_password(datos.password), activo=True,
-                telefono=validar_telefono(datos.telefono), dos_pasos=datos.dos_pasos)
+    # Sin contraseña, se genera una temporal: el usuario la cambia en su primer ingreso
+    temporal = not datos.password
+    clave = password_temporal() if temporal else datos.password
+    if not temporal:
+        exigir_politica(clave, email)
+    u = Usuario(email=email, nombre=nombre_fmt(datos.nombre), rol=alcance(rol.permisos, prov), rol_id=rol.id,
+                proveedor_id=prov, password_hash=hash_password(clave), activo=True, clave_temporal=True,
+                telefono=validar_telefono(datos.telefono), dos_pasos=datos.dos_pasos,
+                cargo=texto_fmt(datos.cargo) or None, area=texto_fmt(datos.area) or None, empresa=texto_fmt(datos.empresa) or None)
     db.add(u)
     db.flush()
-    return {"id": u.id}
+    return {"id": u.id, "password_temporal": clave if temporal else None}
 
 
 def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> dict:
@@ -287,13 +295,31 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
         raise ErrorNegocio("The user does not exist.", 404, "no_encontrado")
     campos = datos.model_dump(exclude_unset=True)
     revocar = False
+    temporal = None
+    if campos.pop("generar_clave", None):
+        campos["password"], temporal = None, password_temporal()
+        u.password_hash = hash_password(temporal)
+        u.clave_temporal = True
+        u.bloqueado_hasta, u.intentos_fallidos = None, 0
+        revocar = True
     if "password" in campos:
         pw = campos.pop("password")
         if pw:
             exigir_politica(pw, u.email)
             u.password_hash = hash_password(pw)
+            # La clave puesta por la administración es temporal: se cambia al entrar
+            u.clave_temporal = True
             u.bloqueado_hasta, u.intentos_fallidos = None, 0
             revocar = True
+    for k in ("cargo", "area", "empresa"):
+        if k in campos:
+            campos[k] = texto_fmt(campos[k]) or None
+    if "email" in campos:
+        nuevo = (campos.pop("email") or "").strip().lower()
+        if nuevo and nuevo != u.email:
+            if db.scalar(select(Usuario.id).where(Usuario.email == nuevo)):
+                raise ErrorNegocio("A user with that email already exists.", 409, "duplicado")
+            u.email = nuevo
     if "telefono" in campos:
         campos["telefono"] = validar_telefono(campos["telefono"])
         revocar = revocar or campos["telefono"] != u.telefono
@@ -313,4 +339,4 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
     db.refresh(u)
     u.rol = alcance(u.rol_ref.permisos if u.rol_ref else [], u.proveedor_id)
     _sin_administrador(db)
-    return {"ok": True}
+    return {"ok": True, "password_temporal": temporal}
