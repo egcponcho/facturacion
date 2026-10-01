@@ -105,17 +105,17 @@ async function cambiarClave() {
               <option v-for="p in sesion.proveedores" :key="p.id" :value="p.id">{{ tx(p.nombre) }}</option>
             </Seleccion>
           </label>
-          <SelectorIdioma />
-          <SelectorTema />
+          <SelectorIdioma class="solo-escritorio" />
+          <SelectorTema class="solo-escritorio" />
           <div class="usuario">
             <span class="avatar" aria-hidden="true">{{ tx(iniciales) }}</span>
             <div class="usuario-datos">
               <b>{{ tx(sesion.usuario.nombre) }}</b>
               <span>{{ tx(sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol]) }}</span>
             </div>
-            <button type="button" class="btn-icono" :aria-label="t('Change password')" :title="t('Change password')"
+            <button type="button" class="btn-icono solo-escritorio" :aria-label="t('Change password')" :title="t('Change password')"
                     @click="clave = { actual: '', nueva: '', repetir: '', error: '' }"><Icono nombre="candado" /></button>
-            <button type="button" class="btn-icono" :aria-label="t('Sign out')" :title="t('Sign out')" @click="salir"><Icono nombre="salir" /></button>
+            <button type="button" class="btn-icono solo-escritorio" :aria-label="t('Sign out')" :title="t('Sign out')" @click="salir"><Icono nombre="salir" /></button>
           </div>
         </div>
       </div>
@@ -144,6 +144,13 @@ async function cambiarClave() {
           <Icono :nombre="i.icono" :tam="17" />{{ tx(i.texto) }}
           <span v-if="i.cuenta" class="nav-cuenta">{{ tx(i.cuenta) }}</span>
         </router-link>
+        <!-- En celular, las preferencias y la cuenta viven en el menú para no saturar la cabecera -->
+        <div class="nav-movil-extra">
+          <SelectorIdioma />
+          <SelectorTema />
+          <button type="button" class="nav-link" @click="clave = { actual: '', nueva: '', repetir: '', error: '' }"><Icono nombre="candado" :tam="17" />{{ t('Change password') }}</button>
+          <button type="button" class="nav-link" @click="salir"><Icono nombre="salir" :tam="17" />{{ t('Sign out') }}</button>
+        </div>
       </nav>
     </header>
     <main class="contenido">

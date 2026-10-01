@@ -118,7 +118,7 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
       </button>
     </div>
     <div class="tabla-marco tabla-fija">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead>
           <tr>
             <ThOrden campo="fila" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">{{ t('Row') }}</ThOrden>

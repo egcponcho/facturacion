@@ -136,7 +136,7 @@ async function guardar() {
       <button type="button" class="btn btn-chico" @click="aplicarRapido">{{ t('Add these sizes') }}</button>
     </div>
     <p class="ayuda" style="margin: 0 0 8px">{{ t('Combine ranges and single sizes for gaps (e.g. 7-10, 12, 14). Item code: type your own, or leave it empty to use the generic plus a size code.') }}</p>
-    <table class="tabla tallas">
+    <table class="tabla tallas" v-tarjetas>
       <thead><tr><th>{{ t('Size *') }}</th><th>{{ t('Item code') }}</th><th>UPC</th><th>{{ t('Supplier SKU') }}</th><th></th></tr></thead>
       <tbody>
         <tr v-for="(f, i) in filas" :key="i">

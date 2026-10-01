@@ -80,14 +80,14 @@ onMounted(cargar)
 </script>
 
 <template>
-  <div class="filtros">
+  <div class="filtros" v-filtros>
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" :placeholder="t('Invoice, PL, PO or container')" :aria-label="t('Search')" @input="buscar" />
     </label>
     <SelectBusqueda v-if="esInterno()" multiple :model-value="lst(filtros.proveedor)" @update:model-value="(v) => (filtros.proveedor = v.join(','))" :opciones="datos.opciones.proveedores || []" :vacio="t('Supplier: all')" :etiqueta="t('Supplier')" @change="aplicar" />
-    <SelectBusqueda multiple :model-value="lst(filtros.sociedad)" @update:model-value="(v) => (filtros.sociedad = v.join(','))" :opciones="datos.opciones.sociedades || []" :vacio="t('Bill to: all')" :etiqueta="t('Company')" @change="aplicar" />
-    <SelectBusqueda multiple :model-value="lst(filtros.centro)" @update:model-value="(v) => (filtros.centro = v.join(','))" :opciones="datos.opciones.centros || []" :vacio="t('Plant: all')" :etiqueta="t('Plant')" @change="aplicar" />
+    <SelectBusqueda v-if="(datos.opciones.sociedades || []).length > 1 || filtros.sociedad" multiple :model-value="lst(filtros.sociedad)" @update:model-value="(v) => (filtros.sociedad = v.join(','))" :opciones="datos.opciones.sociedades || []" :vacio="t('Bill to: all')" :etiqueta="t('Company')" @change="aplicar" />
+    <SelectBusqueda v-if="(datos.opciones.centros || []).length > 1 || filtros.centro" multiple :model-value="lst(filtros.centro)" @update:model-value="(v) => (filtros.centro = v.join(','))" :opciones="datos.opciones.centros || []" :vacio="t('Plant: all')" :etiqueta="t('Plant')" @change="aplicar" />
     <Seleccion v-model="filtros.estado_factura" :aria-label="t('Invoice status')" @change="aplicar">
       <option value="">{{ t('Invoice: all') }}</option><option value="BORRADOR">{{ t('Draft') }}</option>
       <option value="EN_CORRECCION">{{ t('In correction') }}</option><option value="FINALIZADA">{{ t('Finalized') }}</option>
@@ -134,16 +134,16 @@ onMounted(cargar)
 
 
   <div class="tabla-marco tabla-fija">
-    <table class="tabla">
+    <table class="tabla" v-tarjetas>
       <thead>
         <tr>
           <ThOrden campo="factura" :orden="filtros.orden" @ordenar="ordenar">{{ t('Invoice') }}</ThOrden>
           <ThOrden v-if="!sesion.proveedorId" campo="proveedor" :orden="filtros.orden" @ordenar="ordenar">{{ t('Supplier') }}</ThOrden>
-          <ThOrden campo="centro" :orden="filtros.orden" @ordenar="ordenar">{{ t('Bill to / notify') }}</ThOrden>
+          <ThOrden class="col-sec" campo="centro" :orden="filtros.orden" @ordenar="ordenar">{{ t('Bill to / notify') }}</ThOrden>
           <ThOrden campo="estado_factura" :orden="filtros.orden" @ordenar="ordenar">{{ t('Invoice status') }}</ThOrden>
           <ThOrden campo="estado_pl" :orden="filtros.orden" @ordenar="ordenar">{{ t('Packing list') }}</ThOrden>
           <ThOrden campo="avance" :orden="filtros.orden" @ordenar="ordenar">{{ t('Packed') }}</ThOrden>
-          <ThOrden campo="cajas" :orden="filtros.orden" num @ordenar="ordenar">{{ t('Cartons · kg · m³') }}</ThOrden>
+          <ThOrden class="col-sec" campo="cajas" :orden="filtros.orden" num @ordenar="ordenar">{{ t('Cartons · kg · m³') }}</ThOrden>
           <ThOrden campo="pendientes" :orden="filtros.orden" num @ordenar="ordenar">{{ t('Pending') }}</ThOrden>
           <ThOrden campo="etapa" :orden="filtros.orden" @ordenar="ordenar">{{ t('Step') }}</ThOrden>
           <ThOrden campo="embarque" :orden="filtros.orden" @ordenar="ordenar">{{ t('Load unit') }}</ThOrden>

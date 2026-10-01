@@ -79,12 +79,12 @@ watch(() => sesion.proveedorId, recargar)
     <router-link class="btn btn-primario" to="/ordenes"><Icono nombre="mas" />{{ t('New invoice from POs') }}</router-link>
   </div>
 
-  <div class="filtros">
+  <div class="filtros" v-filtros>
     <div class="segmentos" role="group" :aria-label="t('View')">
       <button v-for="[v, txt] in VISTAS" :key="v" class="segmento" type="button" :aria-pressed="filtros.vista === v" @click="filtros.vista = v; recargar()">{{ tx(txt) }}</button>
     </div>
   </div>
-  <div class="filtros">
+  <div class="filtros" v-filtros>
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" :placeholder="t('Search invoice or PO number')" :aria-label="t('Search')" @input="buscar" />
@@ -100,15 +100,15 @@ watch(() => sesion.proveedorId, recargar)
   </div>
 
   <div class="tabla-marco tabla-fija">
-    <table class="tabla">
+    <table class="tabla" v-tarjetas>
       <thead>
         <tr>
           <ThOrden campo="nombre" :orden="filtros.orden" @ordenar="ordenar">{{ t('Invoice') }}</ThOrden>
           <ThOrden v-if="!sesion.proveedorId" campo="proveedor" :orden="filtros.orden" @ordenar="ordenar">{{ t('Supplier') }}</ThOrden>
           <ThOrden campo="estado" :orden="filtros.orden" @ordenar="ordenar">{{ t('Status') }}</ThOrden>
           <th class="num">{{ t('Amount') }}</th>
-          <th>{{ t('In packing lists') }}</th>
-          <th>{{ t('Packing') }}</th>
+          <th class="col-sec">{{ t('In packing lists') }}</th>
+          <th class="col-sec">{{ t('Packing') }}</th>
           <th>{{ t('Transport') }}</th>
           <th></th>
         </tr>

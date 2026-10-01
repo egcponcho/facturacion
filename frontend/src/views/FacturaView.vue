@@ -425,7 +425,7 @@ const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.c
         {{ t('{0} fields are missing on the lines before you can finalize (cells marked “Missing”).', [pendLineas.length]) }}
         <button class="btn-texto" @click="modal = { tipo: 'pendientes', titulo: t('Pending data to finalize'), detalle: f.pendientes }">{{ t('See which') }}</button>
       </p>
-      <div class="filtros">
+      <div class="filtros" v-filtros>
         <label class="buscador">
           <Icono nombre="buscar" :tam="16" />
           <input v-model="filtro" type="search" :placeholder="t('Filter by code, style, color, size or PO')" :aria-label="t('Filter lines')" />
@@ -434,7 +434,7 @@ const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.c
         <button v-if="editable" class="btn" @click="agregarDesdeOC"><Icono nombre="mas" />{{ t('Add from POs') }}</button>
       </div>
       <div class="tabla-marco tabla-fija">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead>
             <tr>
               <th class="chk"><input type="checkbox" :aria-label="t('Select all filtered lines')" :checked="sel.todos(idsFiltrados)" @change="sel.alternarTodos(idsFiltrados)" /></th>
@@ -443,10 +443,10 @@ const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.c
               <ThOrden campo="estilo" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">{{ t('Item') }}</ThOrden>
               <ThOrden campo="talla" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">{{ t('Size') }}</ThOrden>
               <ThOrden campo="cantidad" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar"><span class="req">{{ t('Quantity') }}</span></ThOrden>
-              <th>{{ t('UoM') }}</th>
+              <th class="col-sec">{{ t('UoM') }}</th>
               <th class="num" :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ t('Per carton') }}</th>
-              <th class="num">{{ t('Per inner pack') }}</th>
-              <th class="num">{{ t('Inner packs per carton') }}</th>
+              <th class="num col-sec">{{ t('Per inner pack') }}</th>
+              <th class="num col-sec">{{ t('Inner packs per carton') }}</th>
               <ThOrden campo="precio_unitario" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar"><span class="req">{{ t('Unit price') }}</span></ThOrden>
               <ThOrden campo="total" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar">{{ t('Total') }}</ThOrden>
               <ThOrden campo="sin_asignar" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar">{{ t('In packing list') }}</ThOrden>
@@ -540,7 +540,7 @@ const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.c
         <span class="ayuda">{{ t('One packing list per invoice is usually enough. To split the shipment use “Move” inside the PL.') }}</span>
       </div>
       <div class="tabla-marco">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead>
             <tr>
               <th>{{ t('Packing list') }}</th>
@@ -548,10 +548,10 @@ const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.c
               <th>{{ t('Contents') }}</th>
               <th>{{ t('Packing') }}</th>
               <th class="num">{{ t('Gross weight') }}</th>
-              <th class="num">{{ t('Volume') }}</th>
-              <th>{{ t('Load unit') }}</th>
+              <th class="num col-sec">{{ t('Volume') }}</th>
+              <th class="col-sec">{{ t('Load unit') }}</th>
               <th>{{ t('Shipment') }}</th>
-              <th>ETA</th>
+              <th class="col-sec">ETA</th>
             </tr>
           </thead>
           <tbody>
@@ -607,7 +607,7 @@ const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.c
         <button class="btn btn-primario" :disabled="!subida.archivo" @click="subir"><Icono nombre="importar" />{{ t('Attach') }}</button>
       </div>
       <div class="tabla-marco mt" style="box-shadow: none">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('File') }}</th><th>{{ t('Type') }}</th><th class="num">{{ t('Size') }}</th><th>{{ t('Uploaded') }}</th><th></th></tr></thead>
           <tbody>
             <tr v-for="a in archivos" :key="a.id">

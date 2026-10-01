@@ -82,12 +82,12 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
 
   <template v-else>
 
-    <div class="filtros">
+    <div class="filtros" v-filtros>
       <label class="check"><input v-model="incluirInactivas" type="checkbox" /> {{ t('Show inactive') }}</label>
       <button class="btn btn-primario separar" @click="formAbierto = true"><Icono nombre="mas" />{{ t('New template') }}</button>
     </div>
     <div class="tabla-marco tabla-fija">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead>
           <tr>
             <ThOrden campo="nombre" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Name') }}</ThOrden>

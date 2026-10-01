@@ -33,6 +33,7 @@ const filtros = reactive({
   size: 15,
   ...Object.fromEntries(Object.keys(EXTRA).map((k) => [k, route.query[k] || ''])),
 })
+const LIB_FILTRO = { 300: t('Logistics rel.: Released'), 301: t('Logistics rel.: Released, changed'), 304: t('Logistics rel.: Not released') }
 const opcionesFiltro = ref({ sociedades: [], centros: [], almacenes: [], marcas: [], destinos: [], puertos: [], liberaciones: [] })
 const activos = computed(() => Object.keys(EXTRA).filter((k) => filtros[k]).map((k) => {
   let v = filtros[k]
@@ -327,23 +328,23 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
     </div>
   </div>
 
-  <div class="filtros">
+  <div class="filtros" v-filtros>
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" :placeholder="t('Search PO, style, color, SKU or UPC')" :aria-label="t('Search')" @input="buscar" />
     </label>
-    <SelectBusqueda v-model="filtros.sociedad" :opciones="opcionesFiltro.sociedades" :vacio="t('Company: all')" :etiqueta="t('Company')" @change="filtrar" />
-    <SelectBusqueda v-model="filtros.centro" :opciones="opcionesFiltro.centros" :vacio="t('Plant: all')" :etiqueta="t('Plant')" @change="filtrar" />
-    <SelectBusqueda v-model="filtros.almacen" :opciones="opcionesFiltro.almacenes" :vacio="t('Warehouse: all')" :etiqueta="t('Warehouse')" @change="filtrar" />
-    <SelectBusqueda v-model="filtros.marca" :opciones="opcionesFiltro.marcas" :vacio="t('Brand: all')" :etiqueta="t('Brand')" @change="filtrar" />
-    <SelectBusqueda v-model="filtros.destino" :opciones="opcionesFiltro.destinos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
+    <SelectBusqueda v-if="opcionesFiltro.sociedades.length > 1 || filtros.sociedad" v-model="filtros.sociedad" :opciones="opcionesFiltro.sociedades" :vacio="t('Company: all')" :etiqueta="t('Company')" @change="filtrar" />
+    <SelectBusqueda v-if="opcionesFiltro.centros.length > 1 || filtros.centro" v-model="filtros.centro" :opciones="opcionesFiltro.centros" :vacio="t('Plant: all')" :etiqueta="t('Plant')" @change="filtrar" />
+    <SelectBusqueda v-if="opcionesFiltro.almacenes.length > 1 || filtros.almacen" v-model="filtros.almacen" :opciones="opcionesFiltro.almacenes" :vacio="t('Warehouse: all')" :etiqueta="t('Warehouse')" @change="filtrar" />
+    <SelectBusqueda v-if="opcionesFiltro.marcas.length > 1 || filtros.marca" v-model="filtros.marca" :opciones="opcionesFiltro.marcas" :vacio="t('Brand: all')" :etiqueta="t('Brand')" @change="filtrar" />
+    <SelectBusqueda v-if="opcionesFiltro.destinos.length > 1 || filtros.destino" v-model="filtros.destino" :opciones="opcionesFiltro.destinos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
                     :vacio="t('Destination plant: all')" :etiqueta="t('Destination plant')" @change="filtrar" />
-    <SelectBusqueda v-model="filtros.puerto" :opciones="opcionesFiltro.puertos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
+    <SelectBusqueda v-if="opcionesFiltro.puertos.length > 1 || filtros.puerto" v-model="filtros.puerto" :opciones="opcionesFiltro.puertos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
                     :vacio="t('Port: all')" :etiqueta="t('Port of loading')" @change="filtrar" />
     <Seleccion v-model="filtros.comercial" :aria-label="t('Commercial release')" @change="filtrar">
-      <option value="">{{ t('Commercial rel.: all') }}</option><option value="C">{{ t('C · Released') }}</option><option value="P">{{ t('P · Pending') }}</option>
+      <option value="">{{ t('Commercial rel.: all') }}</option><option value="C">{{ t('Commercial rel.: Released') }}</option><option value="P">{{ t('Commercial rel.: Pending') }}</option>
     </Seleccion>
-    <Seleccion v-model="filtros.liberacion" :aria-label="t('Logistics release')" @change="filtrar"><option value="">{{ t('Logistics rel.: all') }}</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ tx(l.codigo) }} · {{ tx(l.nombre) }}</option></Seleccion>
+    <Seleccion v-model="filtros.liberacion" :aria-label="t('Logistics release')" @change="filtrar"><option value="">{{ t('Logistics rel.: all') }}</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ tx(LIB_FILTRO[l.codigo] || l.nombre) }}</option></Seleccion>
     <div class="segmentos" role="group" :aria-label="t('Show')">
       <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">{{ t('With balance to invoice') }}</button>
       <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">{{ t('All') }}</button>
@@ -355,7 +356,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
   </div>
 
   <div class="tabla-marco tabla-fija">
-    <table class="tabla">
+    <table class="tabla" v-tarjetas>
       <thead>
         <tr>
           <th class="chk">
@@ -364,12 +365,12 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
           <th><span class="oculto-visual">{{ t('See lines') }}</span></th>
           <ThOrden campo="numero" :orden="filtros.orden" @ordenar="ordenar">{{ t('Purchase order') }}</ThOrden>
           <ThOrden v-if="!sesion.proveedorId" campo="proveedor" :orden="filtros.orden" @ordenar="ordenar">{{ t('Supplier') }}</ThOrden>
-          <th>{{ t('Company · plant · warehouse') }}</th>
-          <th>{{ t('Destination plant / port') }}</th>
-          <ThOrden campo="fecha_xf" :orden="filtros.orden" @ordenar="ordenar">{{ t('XF date') }}</ThOrden>
+          <th class="col-sec">{{ t('Company · plant · warehouse') }}</th>
+          <th class="col-sec">{{ t('Destination plant / port') }}</th>
+          <ThOrden class="col-sec" campo="fecha_xf" :orden="filtros.orden" @ordenar="ordenar">{{ t('XF date') }}</ThOrden>
           <ThOrden campo="fecha_tienda" :orden="filtros.orden" @ordenar="ordenar">{{ t('In store') }}</ThOrden>
           <th :title="t('Estimated with the lead times of its origin')">{{ t('Est. in store') }}</th>
-          <th>{{ t('To invoice') }}</th>
+          <th class="col-sec">{{ t('To invoice') }}</th>
           <ThOrden campo="importe" :orden="filtros.orden" num @ordenar="ordenar">{{ t('PO value') }}</ThOrden>
           <ThOrden campo="avance" :orden="filtros.orden" @ordenar="ordenar">{{ t('Invoiced') }}</ThOrden>
           <th></th>
@@ -426,7 +427,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             <td :colspan="columnas">
               <div class="subtabla">
                 <div class="tabla-marco">
-                  <table class="tabla">
+                  <table class="tabla" v-tarjetas>
                     <thead>
                       <!-- Item data comes from the item master; PO line data comes with the purchase order -->
                       <tr class="grupo-columnas">
@@ -442,12 +443,12 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                         <th>{{ t('Line') }}</th>
                         <th>{{ t('Item') }}</th>
                         <th>{{ t('Size') }}</th>
-                        <th>{{ t('UoM') }}</th>
+                        <th class="col-sec">{{ t('UoM') }}</th>
                         <th :title="t('HS code for the destination country, from the approved technical sheet')">{{ t('HS code') }}</th>
-                        <th>{{ t('Warehouse') }}</th>
+                        <th class="col-sec">{{ t('Warehouse') }}</th>
                         <th>{{ t('Packing') }}</th>
                         <th class="num">{{ t('Quantity') }}</th>
-                        <th class="num">{{ t('Available') }}</th>
+                        <th class="num col-sec">{{ t('Available') }}</th>
                         <th class="num">{{ t('To invoice') }}</th>
                         <th class="num">{{ t('Price') }}</th>
                         <th class="num">{{ t('Total') }}</th>

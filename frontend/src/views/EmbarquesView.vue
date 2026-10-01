@@ -104,7 +104,7 @@ onMounted(cargar)
     <router-link class="btn btn-chico separar" :to="{ path: '/facturas', query: { vista: 'lista_transporte' } }">{{ t('See which') }}</router-link>
   </p>
 
-  <div class="filtros">
+  <div class="filtros" v-filtros>
     <div class="segmentos" role="group" :aria-label="t('Status')">
       <button v-for="[v, txt] in ESTADOS" :key="v" class="segmento" :aria-pressed="filtros.estado === v" @click="filtros.estado = v; cargar()">
         {{ tx(txt) }}<span v-if="cuenta[v]" class="cuenta">{{ tx(cuenta[v]) }}</span>
@@ -117,7 +117,7 @@ onMounted(cargar)
   </div>
 
   <div class="tabla-marco tabla-fija">
-    <table class="tabla">
+    <table class="tabla" v-tarjetas>
       <thead>
         <tr>
           <ThOrden campo="codigo" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Shipment') }}</ThOrden>
@@ -126,9 +126,9 @@ onMounted(cargar)
           <ThOrden campo="eta" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">ETA</ThOrden>
           <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Status') }}</ThOrden>
           <ThOrden campo="holgura_dias" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Vs. in-store date') }}</ThOrden>
-          <th>{{ t('Load units') }}</th>
+          <th class="col-sec">{{ t('Load units') }}</th>
           <ThOrden campo="packing_lists" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">PL</ThOrden>
-          <th>{{ t('Suppliers') }}</th>
+          <th class="col-sec">{{ t('Suppliers') }}</th>
         </tr>
       </thead>
       <tbody>

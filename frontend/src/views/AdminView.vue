@@ -141,7 +141,7 @@ onMounted(cargar)
   <section class="panel">
     <div class="panel-cabeza"><h2>{{ t('Suppliers') }}</h2><button class="btn btn-primario" @click="modal = 'proveedor'"><Icono nombre="mas" />{{ t('New supplier') }}</button></div>
     <div class="tabla-marco">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Name') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
         <tbody>
           <tr v-for="p in proveedores" :key="p.id">
@@ -161,7 +161,7 @@ onMounted(cargar)
       <button class="btn btn-primario" @click="abrirRol(null)"><Icono nombre="mas" />{{ t('New role') }}</button>
     </div>
     <div class="tabla-marco">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Role') }}</th><th>{{ t('Type') }}</th><th>{{ t('Access') }}</th><th>{{ t('Users') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
         <tbody>
           <tr v-for="r in roles" :key="r.id">
@@ -186,7 +186,7 @@ onMounted(cargar)
   <section class="panel">
     <div class="panel-cabeza"><h2>{{ t('Users') }}</h2><button class="btn btn-primario" @click="modal = 'usuario'"><Icono nombre="mas" />{{ t('New user') }}</button></div>
     <div class="tabla-marco">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Email') }}</th><th>{{ t('Role') }}</th><th>{{ t('Supplier') }}</th><th>{{ t('Registered mobile') }}</th><th>{{ t('Last sign-in') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
         <tbody>
           <tr v-for="u in usuarios" :key="u.id">

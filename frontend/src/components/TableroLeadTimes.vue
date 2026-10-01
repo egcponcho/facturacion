@@ -81,10 +81,10 @@ onMounted(cargar)
 </script>
 
 <template>
-  <div class="filtros">
+  <div class="filtros" v-filtros>
     <FiltroPeriodo v-model="periodo" />
-    <FiltroMulti v-model="f.origen" :etiqueta="t('Origin')" :opciones="datos.opciones.origenes || []" @change="recargar" />
-    <FiltroMulti v-model="f.region" :etiqueta="t('Region')" :opciones="datos.opciones.regiones || []" @change="recargar" />
+    <FiltroMulti v-if="(datos.opciones.origenes || []).length > 1 || f.origen.length" v-model="f.origen" :etiqueta="t('Origin')" :opciones="datos.opciones.origenes || []" @change="recargar" />
+    <FiltroMulti v-if="(datos.opciones.regiones || []).length > 1 || f.region.length" v-model="f.region" :etiqueta="t('Region')" :opciones="datos.opciones.regiones || []" @change="recargar" />
     <FiltroMulti v-if="esInterno()" v-model="f.proveedor" :etiqueta="t('Supplier')" :opciones="(datos.opciones.proveedores || []).map((p) => ({ valor: p, texto: p }))" @change="recargar" />
     <span class="ayuda separar">{{ t('POs created in the period · {0}', [datos.kpis.ocs ?? 0]) }}</span>
   </div>
@@ -108,7 +108,7 @@ onMounted(cargar)
       </div>
     </div>
     <div class="tabla-marco">
-      <table class="tabla lt-origenes">
+      <table class="tabla lt-origenes" v-tarjetas>
         <thead>
           <tr>
             <th>{{ t('Origin') }}</th>
@@ -159,7 +159,7 @@ onMounted(cargar)
     </p>
   </section>
 
-  <div class="filtros">
+  <div class="filtros" v-filtros>
     <div class="segmentos" role="group" :aria-label="t('Arrival')">
       <button v-for="[v, txt] in [['', t('All')], ['ATRASO', t('Late')], ['JUSTO', t('At risk')], ['A_TIEMPO', t('On time')]]" :key="v" type="button" class="segmento"
               :aria-pressed="f.riesgo === v" @click="f.riesgo = v; recargar()">{{ tx(txt) }}</button>
@@ -169,7 +169,7 @@ onMounted(cargar)
     </Seleccion>
   </div>
   <div class="tabla-marco tabla-fija">
-    <table class="tabla">
+    <table class="tabla" v-tarjetas>
       <thead>
         <tr>
           <th><span class="oculto-visual">{{ t('Open') }}</span></th>

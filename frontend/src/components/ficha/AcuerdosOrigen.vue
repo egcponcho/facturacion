@@ -30,7 +30,7 @@ const conAcuerdo = computed(() => filas.value.filter((d) => d.local || d.acuerdo
       </div>
     </div>
     <div v-if="origen" class="tabla-marco">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th style="width: 180px">{{ t('Destination') }}</th><th style="width: 140px">{{ t('Result') }}</th><th>{{ t('Agreement') }}</th><th>{{ t('Proof of origin to present') }}</th></tr></thead>
         <tbody>
           <tr v-for="d in filas" :key="d.iso">

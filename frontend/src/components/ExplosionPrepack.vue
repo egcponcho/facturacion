@@ -33,7 +33,7 @@ onMounted(async () => {
         <div><span class="ayuda">{{ t('Unit of measure') }}</span><b>{{ t('CJ · prepack carton') }}</b></div>
       </div>
       <div class="tabla-marco" style="box-shadow: none">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead>
             <tr>
               <th>{{ t('Solid SKU') }}</th><th>{{ t('Size') }}</th><th>{{ t('UoM') }}</th><th class="num">{{ t('Per carton') }}</th>

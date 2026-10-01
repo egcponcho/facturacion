@@ -104,7 +104,7 @@ onMounted(cargar)
   </div>
 
   <div class="tabla-marco tabla-fija">
-    <table class="tabla">
+    <table class="tabla" v-tarjetas>
       <thead>
         <tr>
           <th><span class="oculto-visual">{{ t('Open') }}</span></th>
@@ -173,7 +173,7 @@ onMounted(cargar)
                         <span class="separar fuerte">{{ porUnidadTxt(o.por_unidad, null) }}</span>
                       </div>
                       <div class="tabla-marco" style="box-shadow: none">
-                        <table class="tabla">
+                        <table class="tabla" v-tarjetas>
                           <thead><tr><th>{{ t('Line') }}</th><th>SKU</th><th>{{ t('Brand · group') }}</th><th>{{ t('Style · color') }}</th><th>{{ t('Size') }}</th><th>{{ t('Warehouse') }}</th><th>{{ t('UoM') }}</th><th class="num">{{ t('Quantity') }}</th><th>{{ t('Invoice / PL') }}</th></tr></thead>
                           <tbody>
                             <tr v-for="(l, i) in o.lineas" :key="i">

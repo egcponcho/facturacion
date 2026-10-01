@@ -324,7 +324,7 @@ onMounted(async () => {
   <div v-if="cat">
 
     <section>
-      <div class="filtros">
+      <div class="filtros" v-filtros>
         <label class="buscador">
           <Icono nombre="buscar" :tam="16" />
           <input v-model="filtros.q" type="search" :placeholder="tx(compacta ? t('Search generic, style, color, item code, UPC or supplier SKU') : t('Search {0}', [cat.titulo.toLowerCase()]))" :aria-label="t('Search')" @input="buscar" />
@@ -347,7 +347,7 @@ onMounted(async () => {
                           @editar-articulo="editar" @eliminar-articulo="(fila) => (modal = { tipo: 'eliminar', fila })" @desglose="(a) => (explosion = { sku: a.sku })" @cambio="cargarMeta" />
       <template v-else>
       <div class="tabla-marco tabla-fija">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead>
             <tr>
               <ThOrden v-for="c in columnas" :key="c.nombre" :campo="c.nombre" :orden="filtros.orden" :num="c.tipo === 'entero'" @ordenar="ordenar">{{ tx(c.etiqueta) }}</ThOrden>
@@ -421,7 +421,7 @@ onMounted(async () => {
         <div v-if="nuevoPP.estilo && nuevoPP.color" class="campo">
           <span class="req">{{ t('Breakdown per master carton') }}<template v-if="tallasPP.length"> ({{ tx(tallasPP[0].unidad) }})</template></span>
           <div class="tabla-marco" style="box-shadow: none">
-            <table class="tabla">
+            <table class="tabla" v-tarjetas>
               <thead><tr><th>{{ t('Size') }}</th><th>SKU</th><th class="num">{{ t('Qty') }}</th></tr></thead>
               <tbody>
                 <tr v-for="a in tallasPP" :key="a.id">
@@ -487,7 +487,7 @@ onMounted(async () => {
     <template v-if="modal.resultado">
       <div class="nota ok"><Icono nombre="check" />{{ t('{0} created and {1} updated.', [modal.resultado.creados, modal.resultado.actualizados]) }}</div>
       <div v-if="modal.resultado.errores.length" class="tabla-marco" style="max-height: 240px; overflow: auto; box-shadow: none">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Row') }}</th><th>{{ t('Error') }}</th></tr></thead>
           <tbody><tr v-for="(er, i) in modal.resultado.errores" :key="i"><td>{{ tx(er.fila) }}</td><td class="envolver">{{ tx(er.mensaje) }}</td></tr></tbody>
         </table>

@@ -106,7 +106,7 @@ onMounted(cargar)
   </section>
 
   <div class="tabla-marco tabla-fija">
-    <table class="tabla">
+    <table class="tabla" v-tarjetas>
       <thead>
         <tr>
           <th><span class="oculto-visual">{{ t('Open') }}</span></th>
@@ -166,7 +166,7 @@ onMounted(cargar)
           <td colspan="12">
             <div class="subtabla">
               <div class="tabla-marco">
-                <table class="tabla">
+                <table class="tabla" v-tarjetas>
                   <thead>
                     <tr><th>{{ t('Line') }}</th><th>SKU</th><th>{{ t('Brand · style · color') }}</th><th>{{ t('Size') }}</th><th>{{ t('Warehouse') }}</th><th class="num">{{ t('Quantity') }}</th>
                       <th>{{ t('Stage') }}</th><th>{{ t('Invoice / PL') }}</th><th>{{ t('Shipment · unit') }}</th><th>{{ t('Arrival') }}</th><th :title="t('Port arrival against the port deadline (in-store date minus warehouse, entry and re-export days)')">{{ t('Vs. port deadline') }}</th></tr>

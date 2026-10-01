@@ -70,7 +70,7 @@ cargar()
 
 <template>
   <div class="tabla-marco tabla-fija">
-    <table class="tabla">
+    <table class="tabla" v-tarjetas>
       <thead>
         <tr>
           <th style="width: 36px"></th>
@@ -118,7 +118,7 @@ cargar()
             <td colspan="10">
               <div class="subtabla">
                 <div class="tabla-marco">
-                  <table class="tabla">
+                  <table class="tabla" v-tarjetas>
                     <thead>
                       <tr><th>{{ t('Item code') }}</th><th>{{ t('Size code') }}</th><th>{{ t('Type') }}</th><th>{{ t('Size') }}</th><th>UPC</th><th>{{ t('Supplier SKU') }}</th><th>{{ t('Active') }}</th><th></th></tr>
                     </thead>

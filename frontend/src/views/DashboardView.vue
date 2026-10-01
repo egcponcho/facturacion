@@ -152,7 +152,7 @@ watch(periodo, cargar, { deep: true })
         <section v-if="d.proveedores.length" class="panel">
           <div class="panel-cabeza"><div><h2>{{ t('By supplier') }}</h2><p>{{ t('Click one to filter the whole system.') }}</p></div></div>
           <div class="tabla-marco" style="box-shadow: none">
-            <table class="tabla">
+            <table class="tabla" v-tarjetas>
               <thead>
                 <tr>
                   <th>{{ t('Supplier') }}</th>

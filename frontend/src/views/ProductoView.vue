@@ -485,7 +485,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         <!-- Versiones: la vigente y las anteriores, para verlas y descargarlas -->
         <div v-else-if="pestana === 'versiones'" class="panel mt-chico">
           <div class="tabla-marco">
-            <table class="tabla">
+            <table class="tabla" v-tarjetas>
               <thead><tr><th>{{ t('Version') }}</th><th>{{ t('Valid') }}</th><th>{{ t('Status') }}</th><th>{{ t('HS code') }}</th><th>{{ t('Reason for the change') }}</th><th></th></tr></thead>
               <tbody>
                 <tr class="seleccionada">
@@ -528,7 +528,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
             </template>
             <template v-if="versionVista.partidas.length">
               <h4 class="mt">{{ t('National codes by destination') }}</h4>
-              <table class="tabla mt-chico">
+              <table class="tabla mt-chico" v-tarjetas>
                 <thead><tr><th>{{ t('Country') }}</th><th>{{ t('Code') }}</th><th>{{ t('Duty (DAI)') }}</th><th>{{ t('Status') }}</th><th>{{ t('Source') }}</th></tr></thead>
                 <tbody><tr v-for="x in versionVista.partidas" :key="x[0]"><td>{{ tx(x[0]) }}</td><td class="codigo-sac">{{ tx(x[1]) }}</td><td>{{ tx(x[2]) }}</td><td>{{ tx(x[3]) }}</td><td>{{ tx(x[4]) }}</td></tr></tbody>
               </table>
@@ -543,7 +543,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
             <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />{{ t('Add sizes') }}</button>
           </div>
           <div class="tabla-marco mt-chico">
-            <table class="tabla">
+            <table class="tabla" v-tarjetas>
               <thead><tr><th>{{ t('Item code') }}</th><th>{{ t('Size code') }}</th><th>{{ t('Supplier SKU') }}</th><th>UPC</th><th>{{ t('Size') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Description') }}</th><th>{{ t('Status') }}</th></tr></thead>
               <tbody>
                 <tr v-for="a in p.articulos" :key="a.id">
@@ -655,7 +655,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 
         <section class="panel">
           <div class="panel-cabeza"><div><h2>{{ t('By destination') }}</h2><p>{{ t('{0} of {1} national codes complete', [paisesOk, paises.length]) }}</p></div></div>
-          <table class="tabla paises">
+          <table class="tabla paises" v-tarjetas>
             <tbody>
               <tr v-for="x in paises" :key="x.iso">
                 <td class="fuerte">{{ tx(x.iso) }}</td>

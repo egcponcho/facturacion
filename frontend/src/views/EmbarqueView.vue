@@ -425,7 +425,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           </template>
         </div>
         <div class="tabla-marco mt-chico" style="box-shadow: none">
-          <table class="tabla">
+          <table class="tabla" v-tarjetas>
             <thead>
               <tr>
                 <th v-if="!cerrado" class="chk"><input type="checkbox" :aria-label="t('Select all assigned')" :checked="selA.todos(u.asignados.map((p) => p.id))" @change="selA.alternarTodos(u.asignados.map((p) => p.id))" /></th>
@@ -541,7 +541,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
       <button class="btn-icono" type="button" :aria-label="t('Close')" @click="cajon = false"><Icono nombre="cerrar" :tam="20" /></button>
     </div>
     <div class="cajon-cuerpo">
-      <div class="filtros">
+      <div class="filtros" v-filtros>
         <label class="buscador">
           <Icono nombre="buscar" :tam="16" />
           <input v-model="filtros.q" type="search" :placeholder="t('Search invoice number')" :aria-label="t('Search invoice')" @input="buscar" />
@@ -549,7 +549,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
         <label class="check"><input v-model="filtros.solo_listos" type="checkbox" @change="cargarDisponibles" /> {{ t('Only ready to confirm') }}</label>
       </div>
       <div class="tabla-marco" style="box-shadow: none">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead>
             <tr>
               <th class="chk"><input type="checkbox" :aria-label="t('Select everything available')" :checked="selD.todos(todosDisponibles.map((p) => p.id))" @change="selD.alternarTodos(todosDisponibles.map((p) => p.id))" /></th>

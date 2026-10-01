@@ -499,7 +499,7 @@ onMounted(cargar)
           </button>
         </div>
 
-        <div class="filtros mt">
+        <div class="filtros mt" v-filtros>
           <label class="buscador">
             <Icono nombre="buscar" :tam="16" />
             <input v-model="filtro.texto" type="search" :placeholder="t('Filter by code, style, color, size or PO')" :aria-label="t('Filter contents')" />
@@ -510,21 +510,21 @@ onMounted(cargar)
           </div>
         </div>
         <div class="tabla-marco tabla-fija">
-          <table class="tabla">
+          <table class="tabla" v-tarjetas>
             <thead>
               <tr>
                 <th class="chk"><input type="checkbox" :aria-label="t('Select all filtered rows')" :checked="selL.todos(idsFiltrados)" @change="selL.alternarTodos(idsFiltrados)" /></th>
                 <ThOrden campo="estilo" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Item') }}</ThOrden>
                 <ThOrden campo="talla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Size') }}</ThOrden>
                 <ThOrden campo="oc" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('PO / line') }}</ThOrden>
-                <ThOrden campo="regla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Rule') }}</ThOrden>
+                <ThOrden class="col-sec" campo="regla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Rule') }}</ThOrden>
                 <th class="num" :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ t('Per carton') }}</th>
                 <th class="num" :title="t('Units or pairs per inner pack; defined here when the PO does not bring it')">{{ t('Per inner pack') }}</th>
-                <th class="num">{{ t('Inner packs per carton') }}</th>
+                <th class="num col-sec">{{ t('Inner packs per carton') }}</th>
                 <ThOrden campo="cantidad" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">{{ t('Quantity') }}</ThOrden>
                 <ThOrden campo="en_cajas" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">{{ t('In cartons') }}</ThOrden>
                 <ThOrden campo="sin_caja" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">{{ t('Not packed') }}</ThOrden>
-                <th>{{ t('Suggested template') }}</th>
+                <th class="col-sec">{{ t('Suggested template') }}</th>
                 <ThOrden campo="estado_empaque" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Packing') }}</ThOrden>
               </tr>
             </thead>
@@ -590,7 +590,7 @@ onMounted(cargar)
       <section v-if="pl.pallets?.length" class="panel" style="margin-bottom: 14px">
         <div class="panel-cabeza"><div><h2>{{ t('Pallets') }}</h2><p>{{ t('The shipment volume uses the pallet dimensions; the gross weight adds its tare.') }}</p></div></div>
         <div class="tabla-marco" style="box-shadow: none">
-          <table class="tabla">
+          <table class="tabla" v-tarjetas>
             <thead><tr><th>{{ t('Pallet') }}</th><th>{{ t('Cartons') }}</th><th class="num"><span class="req">{{ t('Length') }}</span></th><th class="num"><span class="req">{{ t('Width') }}</span></th><th class="num"><span class="req">{{ t('Height cm') }}</span></th><th class="num">{{ t('Tare kg') }}</th><th class="num">{{ t('Gross kg') }}</th><th class="num">m³</th><th></th></tr></thead>
             <tbody>
               <tr v-for="p in pl.pallets" :key="p.id">
@@ -613,7 +613,7 @@ onMounted(cargar)
         <span><b>{{ t('Check with the Commercial Brand Manager:') }}</b> <template v-for="a in pl.avisos" :key="a.grupo_id">{{ tx(a.mensaje) }} </template></span>
       </p>
       <div class="tabla-marco tabla-fija">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead>
             <tr>
               <th class="chk"><input type="checkbox" :aria-label="t('Select all cartons')" :checked="selG.todos(idsGrupos)" @change="selG.alternarTodos(idsGrupos)" /></th>
@@ -628,9 +628,9 @@ onMounted(cargar)
               <th class="num"><span class="req">{{ t('Height cm') }}</span></th>
               <th class="num"><span class="req">{{ t('Net/ctn') }}</span></th>
               <th class="num"><span class="req">{{ t('Gross/ctn kg') }}</span></th>
-              <th class="num">m³</th>
+              <th class="num col-sec">m³</th>
               <th class="num">{{ t('Gross total') }}</th>
-              <th>{{ t('Notes') }}</th>
+              <th class="col-sec">{{ t('Notes') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -749,7 +749,7 @@ onMounted(cargar)
     <!-- Contents (read only) -->
     <section v-if="tab === 'contenido'">
       <div class="tabla-marco">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Item') }}</th><th>{{ t('Size') }}</th><th>{{ t('PO / line') }}</th><th class="num">{{ t('Quantity') }}</th><th class="num">{{ t('In cartons') }}</th><th>{{ t('Packing') }}</th></tr></thead>
           <tbody>
             <tr v-for="l in pl.lineas" :key="l.id">
@@ -772,7 +772,7 @@ onMounted(cargar)
         <button class="btn btn-primario" :disabled="ocupado" @click="guardarRecepcion">{{ t('Save receipt') }}</button>
       </div>
       <div class="tabla-marco" style="box-shadow: none">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead>
             <tr><th>{{ t('Row') }}</th><th class="num">{{ t('Per PL') }}</th><th class="num">{{ t('Received') }}</th><th class="num">{{ t('Damaged') }}</th><th class="num">{{ t('Difference') }}</th><th>{{ t('Remark') }}</th></tr>
           </thead>
@@ -806,7 +806,7 @@ onMounted(cargar)
       </label>
     </div>
     <div class="tabla-marco" style="max-height: 320px; overflow-y: auto; box-shadow: none">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Row') }}</th><th>{{ t('Rule') }}</th><th class="num">{{ t('Not packed') }}</th><th>{{ t('Template') }}</th><th class="num">{{ t('Cartons') }}</th><th class="num">{{ t('Leftover') }}</th></tr></thead>
         <tbody>
           <tr v-for="(f, i) in calculoAuto.filas" :key="f.pl_linea_id">
@@ -856,7 +856,7 @@ onMounted(cargar)
       </label>
     </div>
     <div class="tabla-marco" style="box-shadow: none">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Row') }}</th><th class="num">{{ t('Not packed') }}</th><th class="num"><span class="req">{{ t('Per carton') }}</span></th><th class="num">{{ t('Total') }}</th></tr></thead>
         <tbody>
           <tr v-for="i in modal.items" :key="i.pl_linea_id">
@@ -892,7 +892,7 @@ onMounted(cargar)
     </label>
     <p v-else class="ayuda">{{ t('The quantity goes back to the invoice as pending assignment to a packing list.') }}</p>
     <div class="tabla-marco" style="max-height: 300px; overflow-y: auto; box-shadow: none">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Row') }}</th><th class="num">{{ t('Not packed') }}</th><th class="num">{{ tx(modal.tipo === 'mover' ? t('Move') : t('Remove')) }}</th></tr></thead>
         <tbody>
           <tr v-for="fm in modal.filas" :key="fm.pl_linea_id">
@@ -943,7 +943,7 @@ onMounted(cargar)
       </Seleccion>
     </label>
     <div class="tabla-marco" style="box-shadow: none">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Cartons') }}</th><th class="num">{{ t('Available') }}</th><th class="num">{{ t('Move') }}</th></tr></thead>
         <tbody>
           <tr v-for="gm in modal.grupos" :key="gm.grupo_id">

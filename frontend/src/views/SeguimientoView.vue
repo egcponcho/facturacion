@@ -119,7 +119,7 @@ function buscar() {
   <SeguimientoDocumentos v-if="vista === 'documentos'" />
   <TableroLeadTimes v-else-if="vista === 'leadtimes'" />
   <template v-else>
-  <div class="filtros">
+  <div class="filtros" v-filtros>
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" :placeholder="t('SKU, PO, invoice, PL, B/L…')" :aria-label="t('Search')" @input="buscar" />
@@ -156,7 +156,7 @@ function buscar() {
       <Icono nombre="filtro" :tam="14" />{{ tx(masFiltros ? t('Fewer filters') : t('More filters')) }}
     </button>
   </div>
-  <div v-if="masFiltros" class="filtros filtros-extra">
+  <div v-if="masFiltros" class="filtros filtros-extra" v-filtros>
     <SelectBusqueda multiple :model-value="lst(filtros.talla)" @update:model-value="(v) => (filtros.talla = v.join(','))" :opciones="opciones.tallas || []" :vacio="t('Size: all')" :etiqueta="t('Size')" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.sku)" @update:model-value="(v) => (filtros.sku = v.join(','))" :opciones="opciones.skus || []" :vacio="t('SKU: all')" :etiqueta="t('Item code')" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.almacen)" @update:model-value="(v) => (filtros.almacen = v.join(','))" :opciones="opciones.almacenes || []" :vacio="t('Warehouse: all')" :etiqueta="t('Warehouse')" @change="aplicar" />

@@ -325,7 +325,7 @@ watch(() => fs.size, recargarS)
 
   <!-- Códigos nacionales -->
   <section v-if="vista === 'codigos'">
-    <div class="filtros">
+    <div class="filtros" v-filtros>
       <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fc.q" type="search" :placeholder="t('Code or description')" :aria-label="t('Search')" @input="buscarC" /></label>
       <FiltroMulti v-model="fc.pais" :etiqueta="t('Country')" :opciones="opcionesPais" @change="recargarC" />
       <FiltroMulti v-model="fc.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="recargarC" />
@@ -340,7 +340,7 @@ watch(() => fs.size, recargarS)
       </div>
     </div>
     <div class="tabla-marco tabla-fija">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead>
           <tr>
             <th v-if="edita" class="check"><input type="checkbox" :aria-label="t('Select all')" :checked="sel.todos(codigos.items.map((x) => x.id))" @change="sel.alternarTodos(codigos.items.map((x) => x.id))" /></th>
@@ -382,7 +382,7 @@ watch(() => fs.size, recargarS)
 
   <!-- SAC -->
   <section v-else-if="vista === 'sac'">
-    <div class="filtros">
+    <div class="filtros" v-filtros>
       <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fs.q" type="search" :placeholder="t('Code or text')" :aria-label="t('Search')" @input="buscarS" /></label>
       <FiltroMulti v-model="fs.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="recargarS" />
       <Seleccion v-model="fs.nivel" :aria-label="t('Level')" @change="recargarS"><option value="">{{ t('Headings and subheadings') }}</option><option value="4">{{ t('Headings (4 digits)') }}</option><option value="6">{{ t('Subheadings (6 digits)') }}</option></Seleccion>
@@ -395,7 +395,7 @@ watch(() => fs.size, recargarS)
       </div>
     </div>
     <div class="tabla-marco tabla-fija">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Official description') }}</th><th class="num">{{ t('National codes') }}</th><th>{{ t('Source') }}</th><th v-if="edita"></th></tr></thead>
         <tbody>
           <tr v-for="x in sac.items" :key="x.id">
@@ -478,7 +478,7 @@ watch(() => fs.size, recargarS)
 
   <section v-if="vista === 'notas'">
     <p class="ayuda" style="margin-top: 0">{{ t('General rules of interpretation and the section, chapter and subheading notes of the SAC (HS 2022) for the chapters used by the classification: exclusions, definitions and priority rules. The classification panel shows the ones that apply to the suggested code, starting with the ones that concern the product, and the specialist opinion reads them. Load the official text in force with') }} <b>{{ t('Upload official text') }}</b>.</p>
-    <div class="filtros">
+    <div class="filtros" v-filtros>
       <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fn.q" type="search" :placeholder="t('Text, chapter or number')" :aria-label="t('Search notes')" @input="buscarN" /></label>
       <FiltroMulti v-model="fn.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="cargarNotas" />
       <span class="ayuda">{{ t('{0} notes', [notas.items.length]) }}</span>
@@ -491,7 +491,7 @@ watch(() => fs.size, recargarS)
       </div>
     </div>
     <div class="tabla-marco">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Note') }}</th><th>{{ t('Text') }}</th><th>{{ t('Applies to chapters') }}</th><th v-if="edita"></th></tr></thead>
         <tbody>
           <tr v-for="n in notas.items" :key="n.id" :class="{ apagado: !n.activo }">
