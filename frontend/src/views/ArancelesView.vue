@@ -13,6 +13,7 @@ import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
+import PanelArbol from '../components/aranceles/PanelArbol.vue'
 import PanelCapitulos from '../components/aranceles/PanelCapitulos.vue'
 import PanelDominios from '../components/aranceles/PanelDominios.vue'
 import PanelFuentes from '../components/aranceles/PanelFuentes.vue'
@@ -322,6 +323,7 @@ watch(() => fs.size, recargarS)
   </div>
 
   <div class="pestanas" role="tablist">
+    <button class="pestana" role="tab" :aria-selected="vista === 'arbol'" @click="cambiarVista('arbol')">{{ t('Tariff tree') }}</button>
     <button class="pestana" role="tab" :aria-selected="vista === 'codigos'" @click="cambiarVista('codigos')">{{ t('National codes') }} <span class="cuenta">{{ fmtNum(codigos.total) }}</span></button>
     <button class="pestana" role="tab" :aria-selected="vista === 'sac'" @click="cambiarVista('sac')">{{ t('SAC headings and subheadings') }}</button>
     <button class="pestana" role="tab" :aria-selected="vista === 'notas'" @click="cambiarVista('notas')">{{ t('SAC legal notes') }}</button>
@@ -331,7 +333,8 @@ watch(() => fs.size, recargarS)
     <button class="pestana" role="tab" :aria-selected="vista === 'fuentes'" @click="cambiarVista('fuentes')">{{ t('Sources and versions') }}</button>
     <button class="pestana" role="tab" :aria-selected="vista === 'importacion'" @click="cambiarVista('importacion')">{{ t('Data import') }}</button>
   </div>
-  <PanelCapitulos v-if="vista === 'capitulos'" />
+  <PanelArbol v-if="vista === 'arbol'" />
+  <PanelCapitulos v-else-if="vista === 'capitulos'" />
   <PanelDominios v-else-if="vista === 'dominios'" />
   <PanelFuentes v-else-if="vista === 'fuentes'" />
   <PanelImportacion v-else-if="vista === 'importacion'" @cargado="cargarBase" />

@@ -666,6 +666,35 @@ class DominioCapitulo(Base):
     dominio: Mapped[DominioClasificacion] = relationship(back_populates="capitulos")
 
 
+class NodoArancel(Base):
+    """Nodo del árbol arancelario oficial de una versión: capítulo (2), partida
+    (4), subpartida (6) e inciso SAC (8-10) o nacional. Datos oficiales
+    solamente: las condiciones del producto viven en las reglas del motor.
+    Lo publicado no se borra; una nueva versión del arancel trae otro árbol."""
+
+    __tablename__ = "nodos_arancel"
+    __table_args__ = (UniqueConstraint("version_id", "pais", "codigo_norm"),
+                      Index("ix_nodos_arancel_version_padre", "version_id", "padre_id"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version_id: Mapped[int] = mapped_column(ForeignKey("versiones_dataset.id"), index=True)
+    nomenclatura: Mapped[str] = mapped_column(String(10), default="SAC")  # SAC | HS | NACIONAL
+    pais: Mapped[str | None] = mapped_column(String(2))  # vacío = regional
+    nivel: Mapped[str] = mapped_column(String(12))  # CAPITULO | PARTIDA | SUBPARTIDA | INCISO
+    codigo: Mapped[str] = mapped_column(String(20))  # como se muestra: 6404.19.90.00
+    codigo_norm: Mapped[str] = mapped_column(String(16), index=True)  # solo dígitos
+    padre_id: Mapped[int | None] = mapped_column(ForeignKey("nodos_arancel.id"))
+    descripcion: Mapped[str] = mapped_column(Text)  # texto oficial completo
+    texto_propio: Mapped[str | None] = mapped_column(String(400))  # solo el renglón de este nivel
+    dai: Mapped[str | None] = mapped_column(String(12))
+    hojas: Mapped[int] = mapped_column(Integer, default=0)  # hijos directos (para el árbol)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    estado: Mapped[str] = mapped_column(String(12), default="PUBLICADO")
+    vigente_desde: Mapped[date | None] = mapped_column(Date)
+    vigente_hasta: Mapped[date | None] = mapped_column(Date)
+    fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id"))
+    nota: Mapped[str | None] = mapped_column(String(300))
+
+
 class NotaSAC(Base):
     """Nota legal del SAC (Reglas Generales, notas de sección, de capítulo o de
     subpartida) que se tiene en cuenta al clasificar. `capitulos` dice a qué

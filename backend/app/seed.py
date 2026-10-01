@@ -620,6 +620,10 @@ def seed(db: Session) -> None:
     from .services import oficial
 
     oficial.cargar_paquetes_base(db)
+    # Árbol arancelario oficial completo (capítulo → partida → subpartida → inciso) de la versión SAC-2025-V6
+    from .services import arbol
+
+    arbol.cargar_sac(db)
     # Cada proveedor maneja sus marcas y trabaja con sus sociedades
     tnf.marcas = [cat["marcas"]["TNF"]]
     vans.marcas = [cat["marcas"]["VANS"]]

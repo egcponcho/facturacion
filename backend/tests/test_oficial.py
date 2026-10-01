@@ -70,3 +70,29 @@ def test_reimportar_es_idempotente_y_valida(interno):
                        files={"archivo": ("v.xlsx", io.BytesIO(b.getvalue()), "application/octet-stream")})
     errores = [e["mensaje"] for e in r.json()["errores"]]
     assert any("Valid to" in m for m in errores) and any("SRC-NO-EXISTE" in m for m in errores)
+
+
+def test_arbol_arancelario_completo(interno):
+    r = interno.get("/aranceles/arbol/resumen").json()
+    assert r["version"] == "SAC-2025-V6" and len(r["checksum"]) == 64
+    assert r["niveles"]["CAPITULO"] == 99 and r["niveles"]["PARTIDA"] > 1000 and r["niveles"]["INCISO"] > 8000
+    caps = interno.get("/aranceles/arbol").json()["items"]
+    c64 = next(c for c in caps if c["codigo"] == "64")
+    assert c64["capitulo_habilitado"] and c64["hijos"] == 6
+    # Capítulos fuera del motor actual también tienen sus incisos (p. ej. químicos, cap. 29)
+    c29 = next(c for c in caps if c["codigo"] == "29")
+    partidas = interno.get("/aranceles/arbol", params={"padre_id": c29["id"]}).json()["items"]
+    assert partidas[0]["codigo"].startswith("29") and partidas[0]["nivel"] == "PARTIDA"
+    # Búsqueda por código (con puntos o varios) y por palabras en cualquier orden
+    r = interno.get("/aranceles/arbol", params={"q": "6404.19"}).json()
+    assert r["items"][0]["codigo"] == "6404.19" and all(i["codigo_norm"].startswith("640419") for i in r["items"])
+    r = interno.get("/aranceles/arbol", params={"q": "6404.11 4202.92"}).json()
+    assert {i["codigo_norm"][:6] for i in r["items"]} == {"640411", "420292"}
+    r = interno.get("/aranceles/arbol", params={"q": "caucho suela calzado"}).json()
+    assert r["total"] > 0 and any(i["codigo_norm"].startswith("64") for i in r["items"])
+    n = interno.get(f"/aranceles/arbol/{r['items'][0]['id']}").json()
+    assert n["ruta"][0]["nivel"] == "CAPITULO" and n["version"]["fuente"] == "SRC-SIECA-ACI"
+    sub = next(i for i in interno.get("/aranceles/arbol", params={"q": "6404.19"}).json()["items"] if i["codigo"] == "6404.19")
+    d = interno.get(f"/aranceles/arbol/{sub['id']}").json()
+    assert d["hijos_lista"] and d["hijos_lista"][0]["dai"] is not None
+    assert any(p["iso"] == "SV" and p["codigos"] for p in d["paises"]) and d["notas"]

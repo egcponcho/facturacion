@@ -232,3 +232,28 @@ async def oficial_importar(db: Db, user: User, archivo: UploadFile = File(...)):
     r = oficial.importar(db, await archivo.read(), user, archivo.filename or "")
     db.commit()
     return r
+
+
+# ---- Árbol arancelario oficial ---------------------------------------------------
+@router.get("/aranceles/arbol")
+def arbol_hijos(db: Db, user: User, padre_id: int | None = None, version: str | None = None, q: str | None = None):
+    """Sin `q`: hijos de un nodo (o los capítulos). Con `q`: búsqueda por código o texto."""
+    from ..services import arbol
+
+    if q:
+        return arbol.buscar(db, user, q, version)
+    return arbol.hijos(db, user, padre_id, version)
+
+
+@router.get("/aranceles/arbol/resumen")
+def arbol_resumen(db: Db, user: User, version: str | None = None):
+    from ..services import arbol
+
+    return arbol.resumen(db, user, version)
+
+
+@router.get("/aranceles/arbol/{nodo_id}")
+def arbol_nodo(nodo_id: int, db: Db, user: User):
+    from ..services import arbol
+
+    return arbol.nodo(db, user, nodo_id)
