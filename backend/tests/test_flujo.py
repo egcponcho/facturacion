@@ -995,3 +995,52 @@ def test_numero_propio_del_pl(interno, vans):
     if otro.status_code == 200:
         r = vans.put(f"/packing-lists/{otro.json()['id']}/numero", {"numero": "vn-pl 2026/88"})
         assert r.status_code == 409
+
+
+def test_estructura_fisica_por_carga(interno, vans):
+    """El PL se arma desde un archivo con el identificador de cada nivel:
+    unidades iguales se agrupan y los pesos salen de la estructura."""
+    import io
+
+    from openpyxl import Workbook, load_workbook
+
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    cab = {"proveedor": "VANS", "oc": "PO-ESTR-1", "sociedad": "8000", "moneda": "USD", "centro_destino": "2220",
+           "liberacion_comercial": "C", "liberacion_logistica": "300"}
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 24, "precio": 10}]})
+    pos = interno.get(f"/ordenes/{r.json()['oc_id']}/posiciones").json()["posiciones"][0]
+    fid = vans.post("/facturas", {"lineas": [{"posicion_id": pos["id"], "cantidad": 24}]}).json()["id"]
+    pl_id = vans.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
+    plantilla = vans.c.get(f"/api/packing-lists/{pl_id}/estructura/plantilla", headers=vans.h)
+    enc = [c.value for c in load_workbook(io.BytesIO(plantilla.content))["Data"][1]]
+    assert enc[:3] == ["Pallet", "Master carton", "Inner pack"] and "Item code *" in enc
+
+    def subir(filas):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Data"
+        ws.append(["Pallet", "Master carton", "Inner pack", "Item code", "PO", "Quantity"])
+        for f in filas:
+            ws.append(f)
+        b = io.BytesIO()
+        wb.save(b)
+        return vans.c.post(f"/api/packing-lists/{pl_id}/estructura/importar", headers=vans.h,
+                           files={"archivo": ("e.xlsx", io.BytesIO(b.getvalue()), "application/octet-stream")})
+
+    # Más de lo que tiene el PL o una relación que los tipos no permiten: no cambia nada
+    r = subir([["P001", "C001", "PK001", sku, "", 30]])
+    assert r.status_code == 422 and "more than" in r.text
+    r = subir([["P001", "", "PK001", sku, "", 6]])
+    assert r.status_code == 422 and "Not allowed" in r.text
+    filas = [["P001", f"C00{c}", f"PK00{(c - 1) * 2 + k}", sku, "", 6] for c in (1, 2) for k in (1, 2)]
+    r = subir(filas)
+    assert r.status_code == 200, r.text
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    por_tipo = {g["tipo"]: g for g in pl["grupos"]}
+    pallet, caja, inner = por_tipo["Pallet"], por_tipo["Master carton"], por_tipo["Inner pack"]
+    assert (pallet["num_cajas"], caja["num_cajas"], inner["num_cajas"]) == (1, 2, 4)
+    assert caja["padre_id"] == pallet["id"] and inner["padre_id"] == caja["id"] and inner["items"][0]["cantidad_por_caja"] == 6
+    peso = inner["items"][0]["peso_unitario"]
+    assert abs(caja["peso_bruto_caja"] - (12 * peso + 2 * inner["tara"] + caja["tara"])) < 1e-6
+    assert abs(pl["totales"]["peso_bruto"] - (2 * caja["peso_bruto_caja"] + pallet["tara"])) < 1e-3
+    assert pl["lineas"][0]["sin_caja"] == 0 and pl["totales"]["cajas"] == 2 and pl["totales"]["pallets"] == 1

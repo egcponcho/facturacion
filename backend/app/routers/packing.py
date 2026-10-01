@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, File, UploadFile
 
 from ..schemas import (
     CajaManual,
@@ -22,7 +22,7 @@ from ..schemas import (
 )
 from ..services import documentos, exportar
 from ..services import packing as svc
-from .base import Clave, Db, Formato, User, descarga, ejecutar
+from .base import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
 
 router = APIRouter(prefix="/packing-lists")
 
@@ -134,3 +134,23 @@ def exportar_pl(pl_id: int, db: Db, user: User, formato: Formato = "xlsx"):
     d = documentos.datos_pl(db, pl)
     contenido = documentos.pdf_pl(d) if formato == "pdf" else exportar.exportar_pl(d)
     return descarga(contenido, f"{pl.factura.numero or f'borrador_{pl.factura_id}'}_{pl.numero}", formato)
+
+
+@router.get("/{pl_id}/estructura/plantilla")
+def plantilla_estructura(pl_id: int, db: Db, user: User, vista: bool = False):
+    """Plantilla para cargar la estructura física (una columna por tipo de empaque)."""
+    from ..services import estructura_pl
+
+    pl = svc.cargar_pl(db, user, pl_id)
+    return plantilla_o_vista(estructura_pl.plantilla_estructura(db, pl), f"structure_{pl.numero}", vista)
+
+
+@router.post("/{pl_id}/estructura/importar")
+async def importar_estructura(pl_id: int, db: Db, user: User, archivo: UploadFile = File(...)):
+    """Arma el empaque del PL desde los identificadores de cada nivel (reemplaza el actual)."""
+    from ..services import estructura_pl
+
+    pl = svc._editable(db, user, pl_id, None)
+    res = estructura_pl.importar_estructura(db, user, pl, archivo.filename or "datos.csv", await archivo.read())
+    db.commit()
+    return res

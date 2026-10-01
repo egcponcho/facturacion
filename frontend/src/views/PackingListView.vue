@@ -10,6 +10,7 @@ import DestinosYUnidades from '../components/DestinosYUnidades.vue'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
 import ArbolEmpaque from '../components/ArbolEmpaque.vue'
 import CeldaEditable from '../components/CeldaEditable.vue'
+import CargaMasiva from '../components/CargaMasiva.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
@@ -535,6 +536,11 @@ onMounted(cargar)
             <b>{{ t('Manual or mixed carton') }}</b>
             <span>{{ t('{0} You set how many go per carton; with several rows it is an assorted carton (same destination only).', [selConPendiente.length ? t('With the {0} selected rows.', [selConPendiente.length]) : t('Select rows below.')]) }}</span>
           </button>
+          <button class="opcion" @click="modal = { tipo: 'estructura' }">
+            <span class="opcion-icono"><Icono nombre="importar" /></span>
+            <b>{{ t('Upload the physical structure') }}</b>
+            <span>{{ t('From Excel: one row per item with the identifier of each level (pallet, carton, inner pack…). Identical units are grouped and weights are calculated. Replaces the current packing.') }}</span>
+          </button>
           <button class="opcion" :disabled="!pendientes.length" @click="abrirMover">
             <span class="opcion-icono"><Icono nombre="mover" /></span>
             <b>{{ t('Split into another packing list') }}</b>
@@ -829,6 +835,9 @@ onMounted(cargar)
   </template>
 
   <!-- Dialogs -->
+  <CargaMasiva v-if="modal?.tipo === 'estructura'" :titulo="t('Upload the physical structure')" :ruta="url('/estructura/importar')"
+               :plantilla="url('/estructura/plantilla')" :ayuda="t('The columns are your packaging types. Leave empty the levels you do not use.')"
+               @cerrar="modal = null" @cargado="modal = null; cargar(); tab = 'cajas'" />
   <Modal v-if="modal?.tipo === 'auto'" :titulo="t('Auto-pack')" ancho="1000px" @cerrar="modal = null">
     <p class="ayuda">{{ t('Each row is packed into full cartons. If the PO line has a') }} <b>casepack</b>{{ t(', every carton carries exactly that quantity (no mixed sizes); a') }} <b>prepack</b> {{ t('goes one size run per master carton. Without a casepack, the template sets the quantity per carton. With an') }} <b>{{ t('inner pack') }}</b>{{ t(', cartons always carry whole inner packs. The template also adds dimensions and weights.') }}</p>
     <div class="fila-flex">
