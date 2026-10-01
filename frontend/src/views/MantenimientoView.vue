@@ -226,7 +226,7 @@ function valorCelda(c, fila) {
   if (c.tipo === 'codigo') return opciones[c.catalogo]?.find((o) => o.codigo === v)?.texto || v
   return v
 }
-const campoActivo = computed(() => campos.value.find((c) => c.tipo === 'bool')?.nombre)
+const campoActivo = computed(() => campos.value.find((c) => c.tipo === 'bool' && ['activo', 'activa'].includes(c.nombre))?.nombre || campos.value.find((c) => c.tipo === 'bool')?.nombre)
 
 // ---- Carga masiva -----------------------------------------------------------
 function abrirCarga() {

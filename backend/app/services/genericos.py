@@ -135,7 +135,8 @@ def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list, escala_id
         ya.add(talla)
         datos = {"sku": sku, "generico": gen, "sku_proveedor": (t.sku_proveedor or "").strip() or None, "upc": (t.upc or "").strip() or None,
                  "estilo": p.estilo, "color": p.color, "talla": talla, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
-                 "proveedor_id": p.proveedor_id, "tipo": "SOLIDO", "unidad": p.unidad or "UN"}
+                 "proveedor_id": p.proveedor_id, "tipo": "SOLIDO", "unidad": p.unidad or "UN",
+                 "peso_unitario": getattr(t, "peso_unitario", None)}
         try:
             limpio = cat_svc._limpiar(db, cat, {k: v for k, v in datos.items() if v is not None}, parcial=False)
         except ErrorNegocio as e:

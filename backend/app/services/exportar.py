@@ -318,8 +318,9 @@ def exportar_pl(d: dict) -> bytes:
         texto={0, 2, 3, 4, 5})
     if d["pallets"]:
         h.parrafo("PALLETS", negrita=True, color=ACENTO, tam=8)
-        h.tabla([("Pallet", None), ("Cartons", _ENTERO), ("Dimensions cm", None), ("Tare kg", "0.0"), ("m³", "0.000")],
-                [[f"P{p['numero']}", p["cajas"], p["medidas"], p["tara"], p["cbm"]] for p in d["pallets"]])
+        h.tabla([("Pallet", None), ("Cartons", _ENTERO), ("Dimensions cm", None), ("Tare kg", "0.0"), ("Gross kg", "0.00"),
+                 ("m³", "0.000")],
+                [[p["numero"], p["cajas"], p["medidas"], p["tara"], p["bruto"], p["cbm"]] for p in d["pallets"]])
     if d["sin_caja"]:
         h.parrafo("NOT YET PACKED", negrita=True, color=ACENTO, tam=8)
         h.tabla([("PO", None), ("Item code", None), ("Style", None), ("Size", None), ("Quantity", _ENTERO),
@@ -327,7 +328,7 @@ def exportar_pl(d: dict) -> bytes:
                 [[x["oc"], x["sku"], x["estilo"], x["talla"], x["cantidad"], x["unidad"]] for x in d["sin_caja"]],
                 texto={0, 1})
     h.rejilla([
-        ("Total packages", f"{d['total_cajas']:,} cartons" + (f" on {len(d['pallets'])} pallets" if d["pallets"] else "")),
+        ("Total packages", f"{d['total_cajas']:,} cartons" + (f" on {tp['pallets']:,} pallets" if tp["pallets"] else "")),
         ("Quantity", tp["por_unidad_txt"]), ("Net weight", f"{tp['peso_neto']:,.2f} kg"),
         ("Gross weight", f"{tp['peso_bruto']:,.2f} kg"), ("Volume", f"{tp['cbm']:,.3f} m³"),
     ], columnas=5)

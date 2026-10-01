@@ -8,6 +8,7 @@ import { api } from '../api'
 import Anillo from '../components/Anillo.vue'
 import DestinosYUnidades from '../components/DestinosYUnidades.vue'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
+import ArbolEmpaque from '../components/ArbolEmpaque.vue'
 import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
@@ -139,7 +140,11 @@ const lineasFiltradas = computed(() => {
     (!filtro.solo_pendiente || l.sin_caja > 0) && coincide([l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion]))
 })
 const tablaL = useTabla(lineasFiltradas, { porPagina: filasDefecto(), valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
-const tablaG = useTabla(computed(() => pl.value?.grupos || []), { porPagina: filasDefecto(), valores: { rango: (g) => g.desde, etiqueta: (g) => g.etiqueta?.tipo } })
+// La tabla de cajas muestra los bultos (y lo suelto que no va dentro de otro empaque);
+// los inner packs y los pallets se ven en la estructura física
+const cajasLista = computed(() => (pl.value?.grupos || []).filter((g) => g.cuenta_como === 'BULTO' || (!g.padre_id && g.cuenta_como !== 'SOPORTE')))
+const tiposEmpaque = computed(() => pl.value?.tipos_empaque || [])
+const tablaG = useTabla(cajasLista, { porPagina: filasDefecto(), valores: { rango: (g) => g.desde, etiqueta: (g) => g.etiqueta?.tipo } })
 const idsFiltrados = computed(() => lineasFiltradas.value.map((l) => l.id))
 
 // Packing rule of the PO line: prepack (1 size run per carton), exact casepack
@@ -249,9 +254,10 @@ function abrirCaja() {
     tipo: 'caja',
     num_cajas: 1,
     plantilla_id: '',
-    valores: { largo: '', ancho: '', alto: '', peso_neto_caja: '', peso_bruto_caja: '', observacion: '' },
+    tipo_empaque_id: '',
+    valores: { largo: '', ancho: '', alto: '', tara: '', peso_neto_caja: '', observacion: '' },
     items: selConPendiente.value.map((l) => ({
-      pl_linea_id: l.id, ref: ref_(l), unidad: l.unidad, sin_caja: l.sin_caja, inner: l.inner_pack,
+      pl_linea_id: l.id, ref: ref_(l), unidad: l.unidad, sin_caja: l.sin_caja, inner: l.inner_pack, peso_unitario: l.peso_unitario,
       cantidad_por_caja: selConPendiente.value.length === 1 ? (l.regla === 'CASEPACK' ? Math.min(l.casepack, l.sin_caja) : l.sin_caja) : (l.regla === 'CASEPACK' ? l.casepack : ''),
     })),
   }
@@ -270,6 +276,7 @@ function crearCaja() {
     version: pl.value.version,
     num_cajas: Number(m.num_cajas),
     plantilla_id: m.plantilla_id || null,
+    tipo_empaque_id: m.tipo_empaque_id || null,
     items: m.items.map((i) => ({ pl_linea_id: i.pl_linea_id, cantidad_por_caja: Number(i.cantidad_por_caja) })),
     ...valores,
   }), m.items.length > 1 ? t('Mixed carton created.') : t('{0} created.', [plural(m.num_cajas, t('carton'), t('cartons'))]))
@@ -304,9 +311,11 @@ function quitar() {
 
 // ---- Cajas -----------------------------------------------------------------
 const selGrupos = computed(() => (pl.value?.grupos || []).filter((g) => selG.tiene(g.id)))
-const idsGrupos = computed(() => (pl.value?.grupos || []).map((g) => g.id))
+const idsGrupos = computed(() => cajasLista.value.map((g) => g.id))
 const cajasSel = computed(() => selGrupos.value.reduce((a, g) => a + g.num_cajas, 0))
-const rango = (g) => (g.desde === g.hasta ? `${g.desde}` : `${g.desde}–${g.hasta}`)
+const rango = (g) => g.etiqueta_rango || (g.desde === g.hasta ? `${g.desde}` : `${g.desde}–${g.hasta}`)
+// Si algún artículo no tiene peso unitario, el neto se escribe a mano
+const faltaPeso = (filas) => filas.some((x) => x.peso_unitario == null)
 
 const celdaGrupo = (g, campo) => async (valor) => {
   try {
@@ -323,16 +332,18 @@ const celdaGrupo = (g, campo) => async (valor) => {
 function abrirEditarCajas(grupos = selGrupos.value) {
   modal.value = {
     tipo: 'editar_cajas', grupo_ids: grupos.map((g) => g.id), cajas: grupos.reduce((a, g) => a + g.num_cajas, 0), plantilla_id: '',
-    valores: { num_cajas: '', largo: '', ancho: '', alto: '', peso_neto_caja: '', peso_bruto_caja: '', observacion: '' },
+    tipo_empaque_id: '', manual: grupos.some((g) => !g.peso_calculado),
+    valores: { num_cajas: '', largo: '', ancho: '', alto: '', tara: '', peso_neto_caja: '', observacion: '' },
   }
 }
 function editarCajas() {
   const m = modal.value
   const valores = Object.fromEntries(Object.entries(m.valores).filter(([, v]) => v !== '')
     .map(([k, v]) => [k, k === 'observacion' ? v : Number(v)]))
-  if (!Object.keys(valores).length && !m.plantilla_id) return avisar(t('Choose a template or enter at least one value.'), 'error')
+  if (!Object.keys(valores).length && !m.plantilla_id && !m.tipo_empaque_id) return avisar(t('Choose a template or enter at least one value.'), 'error')
   accion(() => api.patch(url('/cajas'), {
     version: pl.value.version, grupo_ids: m.grupo_ids, ...valores, ...(m.plantilla_id ? { desde_plantilla_id: m.plantilla_id } : {}),
+    ...(m.tipo_empaque_id ? { tipo_empaque_id: m.tipo_empaque_id } : {}),
   }), t('{0} updated.', [plural(m.cajas, t('carton'), t('cartons'))]))
 }
 function confirmarPesos(grupos) {
@@ -354,17 +365,32 @@ function moverCajas() {
   }), (r) => t('Cartons moved to {0} with their contents.', [r.destino_numero]))
 }
 // ---- Pallets -----------------------------------------------------------------
-function abrirPaletizar() {
-  modal.value = { tipo: 'pallet', destino: '', largo: 120, ancho: 100, alto: 150, peso_tara: 25 }
+// Tipos que pueden llevar lo seleccionado (según el catálogo de tipos de empaque)
+const contenedoresPosibles = computed(() => {
+  const sel = new Set(selGrupos.value.map((g) => g.tipo_empaque_id).filter(Boolean))
+  return tiposEmpaque.value.filter((x) => [...sel].every((id) => x.contiene.includes(id)) && x.contiene.length)
+})
+function tipoContenedor(id) {
+  const x = tiposEmpaque.value.find((y) => y.id === Number(id))
+  if (!x || !modal.value) return
+  Object.assign(modal.value, { tipo_empaque_id: x.id, largo: x.largo || '', ancho: x.ancho || '', peso_tara: x.tara ?? 0,
+    alto: x.cuenta_como === 'SOPORTE' ? '' : x.alto || '' })
 }
+function abrirPaletizar() {
+  modal.value = { tipo: 'pallet', destino: '', tipo_empaque_id: '', num: 1, largo: '', ancho: '', alto: '', peso_tara: 0 }
+  const def = contenedoresPosibles.value.find((x) => x.cuenta_como === 'SOPORTE') || contenedoresPosibles.value[0]
+  if (def) tipoContenedor(def.id)
+}
+const nombreTipo = (id) => tiposEmpaque.value.find((x) => x.id === Number(id))?.nombre || t('Pallet')
 function paletizar() {
   const m = modal.value
   const nuevo = !m.destino
   const cajas = cajasSel.value
   accion(() => api.post(url('/pallets'), {
     version: pl.value.version, grupo_ids: selG.lista(), pallet_id: m.destino || null,
-    ...(nuevo ? { largo: Number(m.largo), ancho: Number(m.ancho), alto: Number(m.alto), peso_tara: Number(m.peso_tara) || 0 } : {}),
-  }), (r) => t('{0} on pallet {1}.', [plural(cajas, t('carton'), t('cartons')), r.numero]))
+    ...(nuevo ? { tipo_empaque_id: m.tipo_empaque_id || null, num: Number(m.num) || 1, largo: Number(m.largo), ancho: Number(m.ancho),
+      alto: Number(m.alto), peso_tara: Number(m.peso_tara) || 0 } : {}),
+  }), (r) => t('{0} in {1} {2}.', [plural(cajas, t('carton'), t('cartons')), nombreTipo(m.tipo_empaque_id).toLowerCase(), r.numero]))
   selG.limpiar()
 }
 function despaletizar(grupoIds, palletId = null) {
@@ -604,26 +630,10 @@ onMounted(cargar)
         <span>{{ t('Carton groups with an estimated weight (partial cartons): {0}. Weigh and correct them, or confirm the estimate.', [fmtNum(estimadas.length)]) }}</span>
         <button class="btn btn-chico separar" :disabled="ocupado" @click="confirmarPesos(estimadas)">{{ t('Confirm all estimates') }}</button>
       </p>
-      <section v-if="pl.pallets?.length" class="panel" style="margin-bottom: 14px">
-        <div class="panel-cabeza"><div><h2>{{ t('Pallets') }}</h2><p>{{ t('The shipment volume uses the pallet dimensions; the gross weight adds its tare.') }}</p></div></div>
-        <div class="tabla-marco" style="box-shadow: none">
-          <table class="tabla" v-tarjetas>
-            <thead><tr><th>{{ t('Pallet') }}</th><th>{{ t('Cartons') }}</th><th class="num"><span class="req">{{ t('Length') }}</span></th><th class="num"><span class="req">{{ t('Width') }}</span></th><th class="num"><span class="req">{{ t('Height cm') }}</span></th><th class="num">{{ t('Tare kg') }}</th><th class="num">{{ t('Gross kg') }}</th><th class="num">m³</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="p in pl.pallets" :key="p.id">
-                <td class="fuerte">{{ t('Pallet {0}', [p.numero]) }}</td>
-                <td>{{ tx(p.cajas) }} <span class="sub">{{ t('cartons {0}', [p.rangos.join(', ')]) }}</span></td>
-                <td v-for="campo in ['largo', 'ancho', 'alto', 'peso_tara']" :key="campo" class="num" style="width: 90px">
-                  <CeldaEditable v-if="editable" tipo="number" :min="0" :valor="p[campo]" :guardar="celdaPallet(p, campo)" :etiqueta="t('{0} of pallet {1}', [campo, p.numero])" />
-                  <template v-else>{{ fmtNum(p[campo], campo === 'peso_tara' ? 1 : 0) }}</template>
-                </td>
-                <td class="num">{{ fmtNum(p.peso_bruto, 1) }}</td>
-                <td class="num">{{ fmtNum(p.cbm, 3) }}</td>
-                <td class="num"><button v-if="editable" class="btn btn-chico btn-fantasma" :disabled="ocupado" @click="despaletizar([], p.id)">{{ t('Undo') }}</button></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <section v-if="pl.grupos.some((g) => g.padre_id)" class="panel" style="margin-bottom: 14px">
+        <div class="panel-cabeza"><div><h2>{{ t('Physical structure') }}</h2>
+          <p>{{ t('Packaging inside packaging. Net = products (unit weight of each item); gross adds the tare of every level. The volume is the outer size of the top level.') }}</p></div></div>
+        <ArbolEmpaque :grupos="pl.grupos" :editable="editable" :ocupado="ocupado" :guardar="celdaPallet" @deshacer="(g) => despaletizar([], g.id)" />
       </section>
       <p v-if="pl.avisos?.length" class="nota aviso bloque" style="margin-bottom: 12px">
         <Icono nombre="alerta" />
@@ -643,8 +653,9 @@ onMounted(cargar)
               <th class="num"><span class="req">{{ t('Length') }}</span></th>
               <th class="num"><span class="req">{{ t('Width') }}</span></th>
               <th class="num"><span class="req">{{ t('Height cm') }}</span></th>
-              <th class="num"><span class="req">{{ t('Net/ctn') }}</span></th>
-              <th class="num"><span class="req">{{ t('Gross/ctn kg') }}</span></th>
+              <th class="num">{{ t('Tare kg') }}</th>
+              <th class="num">{{ t('Net/ctn') }}</th>
+              <th class="num">{{ t('Gross/ctn kg') }}</th>
               <th class="num col-sec">m³</th>
               <th class="num">{{ t('Gross total') }}</th>
               <th class="col-sec">{{ t('Notes') }}</th>
@@ -653,10 +664,11 @@ onMounted(cargar)
           <tbody>
             <tr v-for="g in tablaG.filas.value" :key="g.id" :class="{ seleccionada: selG.tiene(g.id) }">
               <td class="chk"><input type="checkbox" :aria-label="t('Select cartons {0}', [rango(g)])" :checked="selG.tiene(g.id)" @change="selG.alternar(g.id)" /></td>
-              <td class="cajas-rango">{{ tx(rango(g)) }}<span v-if="g.pallet" class="etiqueta acento" :title="t('On pallet')">P{{ tx(g.pallet) }}</span></td>
+              <td class="cajas-rango">{{ tx(rango(g)) }}<span v-if="g.pallet" class="etiqueta acento" :title="t('On pallet')">{{ tx(g.pallet) }}</span>
+                <span class="sub">{{ tx(g.tipo) }}</span></td>
               <td class="envolver">
                 <div class="caja-items">
-                  <div v-for="it in g.items" :key="it.pl_linea_id">{{ tx(it.estilo) }} <b>{{ tx(it.talla) }}</b></div>
+                  <div v-for="it in g.contenido" :key="it.pl_linea_id">{{ tx(it.estilo) }} <b>{{ tx(it.talla) }}</b></div>
                 </div>
                 <div v-if="g.etiqueta" class="fila-flex" style="gap: 4px; margin-top: 4px">
                   <span class="etiqueta" :class="g.etiqueta.tipo === 'ESTANDAR' ? 'ok' : 'acento'" style="margin-inline-start: 0"
@@ -667,17 +679,23 @@ onMounted(cargar)
                   <span v-if="g.etiqueta.centro_destino" class="ayuda">{{ t('· destination {0}', [g.etiqueta.centro_destino]) }}</span>
                 </div>
               </td>
-              <td class="num"><div class="caja-items"><div v-for="it in g.items" :key="it.pl_linea_id">{{ it.inner_packs_por_caja ? fmtNum(it.inner_packs_por_caja) : '—' }}</div></div></td>
-              <td class="num"><div class="caja-items"><div v-for="it in g.items" :key="it.pl_linea_id">{{ it.inner_pack ? cantTxt(it.inner_pack, it.unidad) : '—' }}</div></div></td>
-              <td class="num"><div class="caja-items"><div v-for="it in g.items" :key="it.pl_linea_id">{{ cantTxt(it.cantidad_por_caja, it.unidad) }}</div></div></td>
+              <td class="num"><div class="caja-items"><div v-for="it in g.contenido" :key="it.pl_linea_id">{{ it.inner_packs_por_caja ? fmtNum(it.inner_packs_por_caja) : '—' }}</div></div></td>
+              <td class="num"><div class="caja-items"><div v-for="it in g.contenido" :key="it.pl_linea_id">{{ it.inner_pack ? cantTxt(it.inner_pack, it.unidad) : '—' }}</div></div></td>
+              <td class="num"><div class="caja-items"><div v-for="it in g.contenido" :key="it.pl_linea_id">{{ cantTxt(it.cantidad_por_caja, it.unidad) }}</div></div></td>
               <td class="num" style="width: 70px">
                 <CeldaEditable v-if="editable" tipo="number" :min="1" paso="1" :valor="g.num_cajas" :guardar="celdaGrupo(g, 'num_cajas')" :etiqueta="t('Number of cartons')" />
                 <template v-else>{{ tx(g.num_cajas) }}</template>
               </td>
-              <td v-for="campo in ['largo', 'ancho', 'alto', 'peso_neto_caja', 'peso_bruto_caja']" :key="campo" class="num" style="width: 82px">
-                <CeldaEditable v-if="editable" tipo="number" :min="0" :valor="g[campo]" :guardar="celdaGrupo(g, campo)" :vacia-texto="t('Missing')" :etiqueta="tx(campo.replaceAll('_', ' '))" />
-                <template v-else>{{ fmtNum(g[campo], campo.startsWith('peso') ? 2 : 0) }}</template>
+              <td v-for="campo in ['largo', 'ancho', 'alto', 'tara']" :key="campo" class="num" style="width: 78px">
+                <CeldaEditable v-if="editable" tipo="number" :min="0" :valor="g[campo]" :guardar="celdaGrupo(g, campo)" :vacia-texto="tx(campo === 'tara' ? '0' : t('Missing'))" :etiqueta="tx(campo.replaceAll('_', ' '))" />
+                <template v-else>{{ fmtNum(g[campo], campo === 'tara' ? 2 : 0) }}</template>
               </td>
+              <td class="num" style="width: 82px">
+                <CeldaEditable v-if="editable && !g.peso_calculado" tipo="number" :min="0" :valor="g.peso_neto_caja" :guardar="celdaGrupo(g, 'peso_neto_caja')"
+                               :vacia-texto="t('Missing')" :etiqueta="t('Net weight per carton (items without unit weight)')" />
+                <span v-else :title="t('Calculated: unit weight of each item × quantity')">{{ fmtNum(g.peso_neto_caja, 2) }}</span>
+              </td>
+              <td class="num" :title="t('Net + tare of the carton and of everything inside it')">{{ fmtNum(g.peso_bruto_caja, 2) }}</td>
               <td class="num">{{ fmtNum(g.cbm_total, 3) }}</td>
               <td class="num">{{ fmtNum(g.peso_bruto_total, 1) }}</td>
               <td>
@@ -689,7 +707,7 @@ onMounted(cargar)
               </td>
             </tr>
             <tr v-if="!pl.grupos.length">
-              <td colspan="15" class="vacio">
+              <td colspan="16" class="vacio">
                 <Icono nombre="caja" :tam="28" />
                 <p>{{ t('No cartons yet.') }}</p>
                 <button v-if="editable" class="btn btn-primario" @click="tab = 'empacar'">{{ t('Start packing') }}</button>
@@ -699,9 +717,9 @@ onMounted(cargar)
           <tfoot v-if="pl.grupos.length">
             <tr>
               <td></td>
-              <td colspan="2">{{ t('Total') }}</td>
+              <td colspan="5">{{ t('Total') }}</td>
               <td class="num">{{ fmtNum(pl.totales.cajas) }}</td>
-              <td colspan="5"></td>
+              <td colspan="6"></td>
               <td class="num">{{ fmtNum(pl.totales.cbm, 3) }}</td>
               <td class="num">{{ fmtNum(pl.totales.peso_bruto, 1) }}</td>
               <td></td>
@@ -718,8 +736,8 @@ onMounted(cargar)
           <button v-if="selGrupos.some((g) => g.peso_estimado)" class="btn" :disabled="ocupado" @click="confirmarPesos(selGrupos.filter((g) => g.peso_estimado))">{{ t('Confirm weights') }}</button>
           <button class="btn" @click="abrirMoverCajas"><Icono nombre="mover" :tam="15" />{{ t('Move to another PL') }}</button>
           <button class="btn" :disabled="selGrupos.length !== 1 || selGrupos[0].mixta" :title="t('Single-item cartons only')" @click="modal = { tipo: 'guardar_plantilla', grupo_id: selGrupos[0].id, nombre: '' }"><Icono nombre="capas" :tam="15" />{{ t('Save as template') }}</button>
-          <button class="btn" @click="abrirPaletizar"><Icono nombre="capas" :tam="15" />{{ t('Palletize') }}</button>
-          <button v-if="selGrupos.some((g) => g.pallet)" class="btn" :disabled="ocupado" @click="despaletizar(selGrupos.filter((g) => g.pallet).map((g) => g.id))">{{ t('Take off pallet') }}</button>
+          <button class="btn" @click="abrirPaletizar"><Icono nombre="capas" :tam="15" />{{ t('Put in a pallet or container') }}</button>
+          <button v-if="selGrupos.some((g) => g.padre_id)" class="btn" :disabled="ocupado" @click="despaletizar(selGrupos.filter((g) => g.padre_id).map((g) => g.id))">{{ t('Take out of its container') }}</button>
           <button class="btn btn-peligro" @click="modal = { tipo: 'desempacar' }">{{ t('Unpack') }}</button>
         </template>
       </BarraSeleccion>
@@ -865,10 +883,16 @@ onMounted(cargar)
   <Modal v-if="modal?.tipo === 'caja'" :titulo="tx(modal.items.length > 1 ? t('Mixed carton') : t('Manual carton'))" ancho="700px" @cerrar="modal = null">
     <div class="rejilla-campos">
       <label class="campo"><span class="req">{{ t('Number of identical cartons') }}</span><input v-model.number="modal.num_cajas" type="number" min="1" /></label>
-      <label class="campo"><span>{{ t('Dimensions and weights from a template (optional)') }}</span>
+      <label class="campo"><span>{{ t('Dimensions and tare from a template (optional)') }}</span>
         <Seleccion v-model="modal.plantilla_id">
           <option value="">{{ t('No template') }}</option>
           <option v-for="txt in plantillas" :key="txt.id" :value="txt.id">{{ tx(txt.nombre) }}</option>
+        </Seleccion>
+      </label>
+      <label class="campo"><span>{{ t('Packaging type') }}</span>
+        <Seleccion v-model="modal.tipo_empaque_id">
+          <option value="">{{ t('From the template or the default') }}</option>
+          <option v-for="x in tiposEmpaque.filter((y) => y.contiene_productos)" :key="x.id" :value="x.id">{{ tx(x.nombre) }}</option>
         </Seleccion>
       </label>
     </div>
@@ -885,13 +909,15 @@ onMounted(cargar)
         </tbody>
       </table>
     </div>
-    <p class="ayuda">{{ t('Leave blank what you want to take from the template{0}. With an inner pack the quantity per carton must be a multiple of it; a casepack is exact.', [plantillaModal ? t(' ({0}×{1}×{2} cm, {3} kg gross)', [plantillaModal.largo, plantillaModal.ancho, plantillaModal.alto, plantillaModal.peso_bruto]) : '']) }}</p>
+    <p class="ayuda">{{ t('Leave blank what you want to take from the template{0}. With an inner pack the quantity per carton must be a multiple of it; a casepack is exact.', [plantillaModal ? t(' ({0}×{1}×{2} cm, tare {3} kg)', [plantillaModal.largo, plantillaModal.ancho, plantillaModal.alto, plantillaModal.tara ?? 0]) : '']) }}
+      {{ t('The weight is calculated: unit weight of each item × quantity, plus the tare of each packaging level.') }}</p>
     <div class="rejilla-campos">
       <label class="campo"><span>{{ t('Length cm') }}</span><input v-model="modal.valores.largo" type="number" min="0" step="any" /></label>
       <label class="campo"><span>{{ t('Width cm') }}</span><input v-model="modal.valores.ancho" type="number" min="0" step="any" /></label>
       <label class="campo"><span>{{ t('Height cm') }}</span><input v-model="modal.valores.alto" type="number" min="0" step="any" /></label>
-      <label class="campo"><span>{{ t('Net weight per carton kg') }}</span><input v-model="modal.valores.peso_neto_caja" type="number" min="0" step="any" /></label>
-      <label class="campo"><span>{{ t('Gross weight per carton kg') }}</span><input v-model="modal.valores.peso_bruto_caja" type="number" min="0" step="any" /></label>
+      <label class="campo"><span>{{ t('Tare per carton kg') }}</span><input v-model="modal.valores.tara" type="number" min="0" step="any" /></label>
+      <label v-if="faltaPeso(modal.items)" class="campo"><span>{{ t('Net weight per carton kg') }}</span><input v-model="modal.valores.peso_neto_caja" type="number" min="0" step="any" />
+        <small class="ayuda">{{ t('Some items have no unit weight: enter the net weight.') }}</small></label>
       <label class="campo"><span>{{ t('Remark') }}</span><input v-model="modal.valores.observacion" /></label>
     </div>
     <template #pie>
@@ -933,16 +959,23 @@ onMounted(cargar)
     <label class="campo"><span>{{ t('Copy from a template (optional)') }}</span>
       <Seleccion v-model="modal.plantilla_id">
         <option value="">{{ t('Do not copy') }}</option>
-        <option v-for="txt in plantillas" :key="txt.id" :value="txt.id">{{ t('{0} · {1}×{2}×{3} cm, {4} kg', [txt.nombre, txt.largo, txt.ancho, txt.alto, txt.peso_bruto]) }}</option>
+        <option v-for="txt in plantillas" :key="txt.id" :value="txt.id">{{ t('{0} · {1}×{2}×{3} cm, tare {4} kg', [txt.nombre, txt.largo, txt.ancho, txt.alto, txt.tara ?? 0]) }}</option>
       </Seleccion>
     </label>
-    <p class="ayuda">{{ t('Leave blank what you do not want to change. What you type here overrides the template. Entering a weight removes the estimated flag.') }}</p>
+    <label class="campo"><span>{{ t('Packaging type') }}</span>
+      <Seleccion v-model="modal.tipo_empaque_id">
+        <option value="">{{ t('Do not change') }}</option>
+        <option v-for="x in tiposEmpaque" :key="x.id" :value="x.id">{{ tx(x.nombre) }}</option>
+      </Seleccion>
+    </label>
+    <p class="ayuda">{{ t('Leave blank what you do not want to change. What you type here overrides the template. The weight is calculated from the items and the tare of each level.') }}</p>
     <div class="rejilla-campos">
       <label class="campo"><span>{{ t('Length cm') }}</span><input v-model="modal.valores.largo" type="number" min="0" step="any" /></label>
       <label class="campo"><span>{{ t('Width cm') }}</span><input v-model="modal.valores.ancho" type="number" min="0" step="any" /></label>
       <label class="campo"><span>{{ t('Height cm') }}</span><input v-model="modal.valores.alto" type="number" min="0" step="any" /></label>
-      <label class="campo"><span>{{ t('Net weight per carton kg') }}</span><input v-model="modal.valores.peso_neto_caja" type="number" min="0" step="any" /></label>
-      <label class="campo"><span>{{ t('Gross weight per carton kg') }}</span><input v-model="modal.valores.peso_bruto_caja" type="number" min="0" step="any" /></label>
+      <label class="campo"><span>{{ t('Tare per carton kg') }}</span><input v-model="modal.valores.tara" type="number" min="0" step="any" /></label>
+      <label v-if="modal.manual" class="campo"><span>{{ t('Net weight per carton kg') }}</span><input v-model="modal.valores.peso_neto_caja" type="number" min="0" step="any" />
+        <small class="ayuda">{{ t('Only for cartons with items without unit weight.') }}</small></label>
       <label class="campo"><span>{{ t('Cartons per group') }}</span><input v-model="modal.valores.num_cajas" type="number" min="1" /></label>
       <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Remark') }}</span><input v-model="modal.valores.observacion" /></label>
     </div>
@@ -980,30 +1013,37 @@ onMounted(cargar)
 
   <Modal v-if="modal?.tipo === 'guardar_plantilla'" :titulo="t('Save as template')" @cerrar="modal = null">
     <label class="campo"><span class="req">{{ t('Template name') }}</span><input v-model="modal.nombre" :placeholder="t('For example: 12-pair carton large sizes')" /></label>
-    <p class="ayuda">{{ t('Saves the quantity per carton, dimensions and weights to use in auto-pack.') }}</p>
+    <p class="ayuda">{{ t('Saves the quantity per carton, packaging type, dimensions and tare to use in auto-pack.') }}</p>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" :disabled="ocupado || !modal.nombre.trim()" @click="guardarPlantilla">{{ t('Save template') }}</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'pallet'" :titulo="t('Palletize cartons')" ancho="560px" @cerrar="modal = null">
-    <p>{{ t('{0} selected. If the goods travel on pallets, group them into pallets with their dimensions.', [plural(cajasSel, t('carton'), t('cartons'))]) }}</p>
-    <label class="campo"><span>{{ t('Pallet') }}</span>
+  <Modal v-if="modal?.tipo === 'pallet'" :titulo="t('Put in a pallet or container')" ancho="600px" @cerrar="modal = null">
+    <p>{{ t('{0} selected. Group them inside another packaging (pallet or any type that can contain them); each group is split evenly among its units.', [plural(cajasSel, t('carton'), t('cartons'))]) }}</p>
+    <label class="campo"><span>{{ t('Container') }}</span>
       <Seleccion v-model="modal.destino">
-        <option value="">{{ t('New pallet') }}</option>
-        <option v-for="p in pl.pallets" :key="p.id" :value="p.id">{{ t('Add to pallet {0} ({1} cartons)', [p.numero, p.cajas]) }}</option>
+        <option value="">{{ t('New container') }}</option>
+        <option v-for="p in pl.pallets" :key="p.id" :value="p.id">{{ t('Add to {0} {1} ({2} inside)', [p.tipo, p.etiqueta, p.cajas]) }}</option>
       </Seleccion>
     </label>
     <div v-if="!modal.destino" class="rejilla-campos">
+      <label class="campo"><span class="req">{{ t('Packaging type') }}</span>
+        <Seleccion :model-value="modal.tipo_empaque_id" @update:model-value="tipoContenedor">
+          <option v-for="x in contenedoresPosibles" :key="x.id" :value="x.id">{{ tx(x.nombre) }}</option>
+        </Seleccion>
+        <small v-if="!contenedoresPosibles.length" class="ayuda">{{ t('No packaging type can contain the selection. Set “Can contain” in Master data › Packaging types.') }}</small>
+      </label>
+      <label class="campo"><span class="req">{{ t('Units') }}</span><input v-model.number="modal.num" type="number" min="1" /></label>
       <label class="campo"><span class="req">{{ t('Length cm') }}</span><input v-model.number="modal.largo" type="number" min="1" /></label>
       <label class="campo"><span class="req">{{ t('Width cm') }}</span><input v-model.number="modal.ancho" type="number" min="1" /></label>
       <label class="campo"><span class="req">{{ t('Height cm (loaded)') }}</span><input v-model.number="modal.alto" type="number" min="1" /></label>
-      <label class="campo"><span>{{ t('Tare kg (pallet)') }}</span><input v-model.number="modal.peso_tara" type="number" min="0" /></label>
+      <label class="campo"><span>{{ t('Tare kg') }}</span><input v-model.number="modal.peso_tara" type="number" min="0" /></label>
     </div>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
-      <button class="btn btn-primario" :disabled="ocupado || (!modal.destino && !(modal.largo > 0 && modal.ancho > 0 && modal.alto > 0))" @click="paletizar">{{ t('Palletize') }}</button>
+      <button class="btn btn-primario" :disabled="ocupado || (!modal.destino && !(modal.largo > 0 && modal.ancho > 0 && modal.alto > 0 && modal.num >= 1))" @click="paletizar">{{ t('Put inside') }}</button>
     </template>
   </Modal>
 

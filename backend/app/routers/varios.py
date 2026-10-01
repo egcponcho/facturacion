@@ -119,6 +119,14 @@ def resolver(alerta_id: int, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.resolver_alerta(db, user, alerta_id))
 
 
+@router.get("/tipos-empaque")
+def tipos_empaque(db: Db, user: User):
+    """Tipos de empaque activos (para plantillas y el armado del PL)."""
+    from ..services import empaques
+
+    return [empaques.tipo_dict(t) for t in empaques.tipos_activos(db)]
+
+
 @router.get("/plantillas")
 def plantillas(db: Db, user: User, proveedor_id: int | None = None, incluir_inactivas: bool = False):
     return svc.listar_plantillas(db, user, proveedor_id, incluir_inactivas)

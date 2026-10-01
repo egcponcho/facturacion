@@ -203,8 +203,14 @@ def datos_factura(db: Session, f) -> dict:
 def datos_pl(db: Session, pl) -> dict:
     f = pl.factura
     base = datos_factura(db, f)
+    from . import empaques
+
+    empaques.recalcular(pl) if pl.estado != "FINALIZADO" else None
     rangos = numeracion(pl)
-    total_cajas = sum(g.num_cajas for g in pl.grupos)
+    # El documento lista los bultos (cajas) con su contenido completo, aunque
+    # vaya dentro de inner packs, y aparte los soportes (pallets) que los llevan
+    bultos = [g for g in empaques._orden_arbol(pl) if empaques.cuenta_como(g) == "BULTO"]
+    total_cajas = sum(g.num_cajas for g in bultos)
     from .packing import destinos_pl
 
     destinos = [f"{x['centro_destino']} · {x['nombre'] or ''}" + (f" ({x['pais']})" if x["pais"] else "")
@@ -212,27 +218,32 @@ def datos_pl(db: Session, pl) -> dict:
     grupos = []
     from .packing import etiqueta_caja
 
-    for g in pl.grupos:
-        d, h = rangos[g.id]
+    for g in bultos:
         cbm = cbm_caja(g)
-        et = etiqueta_caja(g)
+        et = etiqueta_caja(g, pl)
         items = []
-        for it in g.items:
-            fl = it.pl_linea.factura_linea
+        for pll, n in empaques.contenido(pl, g):
+            fl = pll.factura_linea
             items.append({"oc": fl.oc_numero, "posicion": fl.posicion, "sku": fl.codigo_sap, "upc": fl.upc,
                           "marca": fl.marca, "descripcion": sin_marca(fl.descripcion_comercial or fl.descripcion, fl.marca),
                           "estilo": fl.estilo, "color": fl.color, "talla": fl.talla, "unidad": fl.unidad,
-                          "por_caja": it.cantidad_por_caja, "total": it.cantidad_por_caja * g.num_cajas,
+                          "por_caja": n, "total": n * g.num_cajas,
                           "partida": fl.partida_arancelaria, "inner_pack": inner_de(fl),
-                          "inners": it.cantidad_por_caja // inner_de(fl) if inner_de(fl) else None})
+                          "inners": n // inner_de(fl) if inner_de(fl) else None})
+        soporte = next((a for a in empaques.ancestros(g) if empaques.cuenta_como(a) == "SOPORTE"), None)
         grupos.append({
-            "rango": str(d) if d == h else f"{d}-{h}", "num_cajas": g.num_cajas, "items": items,
+            "rango": empaques.rango_txt(pl, g, rangos), "num_cajas": g.num_cajas, "items": items,
+            "tipo": empaques.nombre_tipo(g),
+            "interior": ", ".join(f"{empaques.por_padre(g, h):g} × {empaques.nombre_tipo(h)}"
+                                  for h in empaques.hijos(pl, g)) or None,
             "medidas": f"{_num(g.largo)} x {_num(g.ancho)} x {_num(g.alto)}" if g.largo else "—",
-            "neto_caja": g.peso_neto_caja, "bruto_caja": g.peso_bruto_caja,
+            "neto_caja": g.peso_neto_caja, "bruto_caja": g.peso_bruto_caja, "tara_caja": (
+                round(g.peso_bruto_caja - g.peso_neto_caja, 3) if g.peso_bruto_caja is not None else None),
             "neto_total": round(g.peso_neto_caja * g.num_cajas, 2) if g.peso_neto_caja else None,
             "bruto_total": round(g.peso_bruto_caja * g.num_cajas, 2) if g.peso_bruto_caja else None,
-            "cbm": round(cbm * g.num_cajas, 4) if cbm else None,
-            "pallet": g.pallet.numero if g.pallet else None,
+            # Lo que va sobre un soporte ocupa el volumen del soporte
+            "cbm": round(cbm * g.num_cajas, 4) if cbm and not soporte else None,
+            "pallet": empaques.rango_txt(pl, soporte, rangos) if soporte else None,
             "etiqueta": "Standard" if et["tipo"] == "ESTANDAR" else "Consolidated",
             "ocs": et["ocs"], "centro_destino": et["centro_destino"],
             "largo": g.largo, "ancho": g.ancho, "alto": g.alto,
@@ -243,10 +254,16 @@ def datos_pl(db: Session, pl) -> dict:
                 for pll in pl.lineas if pll.cantidad - cubierto(pll) > 0]
     t = totales_pl(pl)
     pallets = []
-    for pa in sorted(pl.pallets, key=lambda x: x.numero):
-        cajas = sum(g.num_cajas for g in pl.grupos if g.pallet is pa)
-        pallets.append({"numero": pa.numero, "cajas": cajas, "medidas": f"{_num(pa.largo)} x {_num(pa.ancho)} x {_num(pa.alto)}",
-                        "tara": pa.peso_tara, "cbm": round(pa.largo * pa.ancho * pa.alto / 1_000_000, 3)})
+    for pa in empaques._orden_arbol(pl):
+        if empaques.cuenta_como(pa) != "SOPORTE":
+            continue
+        dentro = [h for h in empaques.descendientes(pl, pa) if empaques.cuenta_como(h) == "BULTO"]
+        cbm_pa = cbm_caja(pa)
+        pallets.append({"numero": empaques.rango_txt(pl, pa, rangos), "tipo": empaques.nombre_tipo(pa),
+                        "unidades": pa.num_cajas, "cajas": sum(h.num_cajas for h in dentro),
+                        "medidas": f"{_num(pa.largo)} x {_num(pa.ancho)} x {_num(pa.alto)}" if pa.largo else "—",
+                        "tara": pa.tara or 0, "bruto": round((pa.peso_bruto_caja or 0) * pa.num_cajas, 2),
+                        "cbm": round(cbm_pa * pa.num_cajas, 3) if cbm_pa else None})
     return {
         **base, "tipo": "pl", "numero_pl": pl.numero, "oficial": pl.estado == "FINALIZADO", "estado": pl.estado,
         "transporte": _transporte(db, [pl]), "grupos": grupos, "sin_caja": sin_caja, "pallets": pallets,
@@ -522,7 +539,7 @@ def pdf_pl(d: dict) -> bytes:
                 g["medidas"] if primera else "", _num(g["neto_caja"], 2) if primera else "",
                 _num(g["bruto_caja"], 2) if primera else "", _num(g["neto_total"], 2) if primera else "",
                 _num(g["bruto_total"], 2) if primera else "", _num(g["cbm"], 3) if primera else "",
-                (f"P{g['pallet']}" if g["pallet"] else "—") if primera else "",
+                (g["pallet"] or "—") if primera else "",
                 (g["etiqueta"] + (f" → {g['centro_destino']}" if g["centro_destino"] else "")) if primera else "",
             ])
     h.append(_tabla(e, [
@@ -537,9 +554,9 @@ def pdf_pl(d: dict) -> bytes:
     if d["pallets"]:
         h += [Spacer(1, 6), Paragraph("PALLETS", e["etiqueta"]),
               _tabla(e, [("Pallet", 1, False), ("Cartons", 1, True), ("Dimensions cm", 2, False), ("Tare kg", 1, True),
-                         ("m³", 1, True)],
-                     [[f"P{p['numero']}", _num(p["cajas"]), p["medidas"], _num(p["tara"], 1), _num(p["cbm"], 3)]
-                      for p in d["pallets"]], ancho * 0.5)]
+                         ("Gross kg", 1, True), ("m³", 1, True)],
+                     [[p["numero"], _num(p["cajas"]), p["medidas"], _num(p["tara"], 1), _num(p["bruto"], 2),
+                       _num(p["cbm"], 3) if p["cbm"] else "—"] for p in d["pallets"]], ancho * 0.6)]
     if d["sin_caja"]:
         h += [Spacer(1, 6), Paragraph("NOT YET PACKED", e["etiqueta"]),
               _tabla(e, [("PO", 1, False), ("Item code", 1.4, False), ("Style", 1.4, False), ("Size", 0.6, False),
@@ -551,7 +568,7 @@ def pdf_pl(d: dict) -> bytes:
               f"Invoice {_esc(d['numero'])} · PO per carton label<br/>Carton no. __ of {d['total_cajas']} · "
               f"Made in {_esc(d['pais_origen'])}")
     resumen = _rejilla(e, [
-        ("Total packages", f"{_num(d['total_cajas'])} cartons" + (f" on {len(d['pallets'])} pallets" if d["pallets"] else "")),
+        ("Total packages", f"{_num(d['total_cajas'])} cartons" + (f" on {_num(tp['pallets'])} pallets" if tp["pallets"] else "")),
         ("Quantity", tp["por_unidad_txt"]), ("Net weight", f"{_num(tp['peso_neto'], 2)} kg"),
         ("Gross weight", f"{_num(tp['peso_bruto'], 2)} kg"), ("Volume", f"{_num(tp['cbm'], 3)} m³"),
     ], ancho, columnas=5)

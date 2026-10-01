@@ -25,7 +25,6 @@ from .cantidades import (
     cubierto,
     facturado_por_posicion,
     fuera_de_inner,
-    limpiar_pallets,
     facturas_por_posicion,
     nombre_factura,
     pl_lineas_activas,
@@ -438,16 +437,24 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
 def eliminar_pl_linea(db: Session, pll: PLLinea) -> None:
     """Quita una parte de un PL junto con su empaque. En cajas mixtas solo
     se quita su contenido y la caja queda marcada para revisar."""
+    from . import empaques
+
+    pl = pll.pl
     for it in list(pll.items):
         g = it.grupo
         g.items.remove(it)
-        if not g.items:
-            g.pl.grupos.remove(g)
-        else:
-            g.peso_estimado = True
-            g.observacion = "Check: contents were removed from this mixed carton."
-    limpiar_pallets(pll.pl)
+        if g.items or empaques.hijos(pl, g):
+            empaques.nodo_bulto(g).observacion = "Check: contents were removed from this mixed carton."
+    # Los empaques que quedaron vacíos (y los contenedores que solo los llevaban) se quitan
+    cambio = True
+    while cambio:
+        cambio = False
+        for g in list(pl.grupos):
+            if not g.items and not empaques.hijos(pl, g):
+                pl.grupos.remove(g)
+                cambio = True
     db.flush()
+    empaques.recalcular(pl)
     db.expire(pll, ["items"])
     pll.pl.lineas.remove(pll)
 

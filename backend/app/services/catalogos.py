@@ -31,6 +31,7 @@ from ..models import (
     Proveedor,
     Puerto,
     PlanLeadTime,
+    TipoEmpaque,
     RegionLeadTime,
     Sociedad,
     TipoUnidad,
@@ -218,6 +219,39 @@ CATALOGOS = {
         ],
         "buscar": ["codigo", "nombre"],
     },
+    "tipos_empaque": {
+        "modelo": TipoEmpaque, "titulo": "Packaging types", "singular": "packaging type",
+        "ayuda": "Configurable logistics units (inner pack, carton, pallet, bag, drum…) and which ones each can "
+                 "contain. A packing list is a tree of packaging inside packaging with the products inside: the "
+                 "net weight comes from each item's unit weight, and each level adds its tare.",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("nivel", "Level", "entero", obligatorio=True, minimo=1, ayuda="1 = the innermost."),
+            c("prefijo", "Label prefix", max=6, mayus=True, ayuda="Numbering of each unit, e.g. C → C1, C2…"),
+            c("cuenta_como", "Counts as", "opcion", obligatorio=True, filtro=True, opciones=[
+                ["BULTO", "Package (carton)"], ["INTERIOR", "Inner unit (inside a package)"],
+                ["SOPORTE", "Support that carries packages (pallet)"]]),
+            c("contiene", "Can contain", "multi", catalogo="tipos_empaque",
+              ayuda="Packaging types that can go inside this one."),
+            c("contiene_productos", "Holds products directly", "bool"),
+            c("largo", "Length (cm)", "numero", minimo=0, ayuda="Outer dimensions by default; each unit can change them."),
+            c("ancho", "Width (cm)", "numero", minimo=0),
+            c("alto", "Height (cm)", "numero", minimo=0),
+            c("tara", "Tare (kg)", "numero", minimo=0, ayuda="Weight of the empty packaging."),
+            c("peso_max", "Max gross weight (kg)", "numero", minimo=0),
+            c("max_unidades", "Max product units", "entero", minimo=1),
+            c("max_contenido", "Max inner packaging", "entero", minimo=1),
+            c("mezcla_productos", "Can mix products", "bool"),
+            c("mezcla_tallas", "Can mix sizes", "bool"),
+            c("mezcla_oc", "Can mix POs", "bool"),
+            c("uom", "UoM", max=10, mayus=True),
+            c("identificador", "Identifier", "opcion", opciones=[
+                ["SERIAL", "Serial number"], ["CODIGO_BARRAS", "Barcode"], ["SSCC", "SSCC (GS1)"]]),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre", "prefijo"],
+    },
     "marcas": {
         "modelo": Marca, "titulo": "Brands", "singular": "brand",
         "campos": [
@@ -345,6 +379,9 @@ CATALOGOS = {
             c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
               opciones=[["SOLIDO", "Solid"], ["PREPACK", "Prepack"]]),
             c("unidad", "Unit", "opcion", obligatorio=True, opciones=UNIDADES, filtro=True),
+            c("peso_unitario", "Unit weight (kg)", "numero", minimo=0,
+              ayuda="Net weight of one unit (pair, piece or, for a prepack, the whole size run). The packaging "
+                    "weight is not included: each packaging level adds its own tare. Empty in a prepack = sum of its solids."),
             c("upc", "UPC"),
             c("activo", "Active", "bool", filtro=True),
         ],
@@ -366,7 +403,7 @@ CATALOGOS = {
         "buscar": ["codigo", "estilo", "color", "descripcion"],
     },
 }
-ORDEN_CATALOGOS = ["articulos", "prepacks", "escalas", "marcas", "grupos", "proveedores", "sociedades", "centros",
+ORDEN_CATALOGOS = ["articulos", "prepacks", "escalas", "tipos_empaque", "marcas", "grupos", "proveedores", "sociedades", "centros",
                    "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "leadtimes", "acuerdos"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 

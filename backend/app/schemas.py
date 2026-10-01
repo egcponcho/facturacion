@@ -221,8 +221,10 @@ class ValoresCaja(BaseModel):
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)
     alto: float | None = Field(default=None, ge=0)
+    tara: float | None = Field(default=None, ge=0)  # kg de una unidad de empaque vacía
+    # Neto por unidad escrito a mano: solo se usa si falta el peso de algún artículo
     peso_neto_caja: float | None = Field(default=None, ge=0)
-    peso_bruto_caja: float | None = Field(default=None, ge=0)
+    tipo_empaque_id: int | None = None
     observacion: str | None = None
 
 
@@ -285,9 +287,8 @@ class PlantillaIn(BaseModel):
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)
     alto: float | None = Field(default=None, ge=0)
-    peso_neto: float | None = Field(default=None, ge=0)
-    peso_bruto: float | None = Field(default=None, ge=0)
-    tara: float | None = Field(default=None, ge=0)
+    tara: float | None = Field(default=None, ge=0)  # solo el empaque: el neto sale del peso de los artículos
+    tipo_empaque_id: int | None = None
 
 
 class PlantillaPatch(BaseModel):
@@ -297,9 +298,8 @@ class PlantillaPatch(BaseModel):
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)
     alto: float | None = Field(default=None, ge=0)
-    peso_neto: float | None = Field(default=None, ge=0)
-    peso_bruto: float | None = Field(default=None, ge=0)
     tara: float | None = Field(default=None, ge=0)
+    tipo_empaque_id: int | None = None
     activa: bool | None = None
 
 
@@ -332,7 +332,9 @@ class EmbarquePatch(BaseModel):
 class Paletizar(BaseModel):
     version: int
     grupo_ids: list[int] = Field(min_length=1)
-    pallet_id: int | None = None  # None = pallet nuevo con estas medidas
+    pallet_id: int | None = None  # None = contenedor nuevo con estas medidas
+    tipo_empaque_id: int | None = None  # tipo del contenedor nuevo (por defecto el de soporte, p. ej. pallet)
+    num: int | None = Field(default=None, gt=0)  # unidades del contenedor nuevo
     largo: float | None = None
     ancho: float | None = None
     alto: float | None = None
@@ -550,6 +552,7 @@ class TallaIn(BaseModel):
     sku: str | None = Field(None, max_length=40)  # código de artículo completo, si la empresa usa otro formato
     upc: str | None = Field(None, max_length=40)
     sku_proveedor: str | None = Field(None, max_length=60)
+    peso_unitario: float | None = Field(None, ge=0)  # kg netos de una unidad de esta talla
 
 
 class GenericoIn(BaseModel):

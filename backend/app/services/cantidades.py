@@ -5,6 +5,8 @@ from collections import defaultdict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from . import empaques
+
 from ..models import (
     Factura,
     FacturaLinea,
@@ -106,44 +108,18 @@ def cubierto_por_ids(db: Session, pl_linea_ids) -> dict[int, int]:
 
 
 def numeracion(pl: PackingList) -> dict[int, tuple[int, int]]:
-    """Rangos de cajas (desde, hasta) por grupo, en el orden del PL."""
-    res = {}
-    siguiente = 1
-    for g in pl.grupos:
-        res[g.id] = (siguiente, siguiente + g.num_cajas - 1)
-        siguiente += g.num_cajas
-    return res
+    """Rangos de numeración (desde, hasta) por nodo, dentro de su tipo de empaque."""
+    return empaques.numeracion(pl)
 
 
 def cbm_caja(g: GrupoCajas) -> float | None:
-    if g.largo and g.ancho and g.alto:
-        return g.largo * g.ancho * g.alto / 1_000_000
-    return None
-
-
-def limpiar_pallets(pl: PackingList) -> None:
-    """Quita los pallets que quedaron vacíos y renumera los demás."""
-    usados = {id(g.pallet) for g in pl.grupos if g.pallet is not None}
-    for p in list(pl.pallets):
-        if id(p) not in usados:
-            pl.pallets.remove(p)
-    for i, p in enumerate(sorted(pl.pallets, key=lambda x: x.numero), start=1):
-        p.numero = i
+    return empaques.volumen(g)
 
 
 def totales_pl(pl: PackingList) -> dict:
-    cajas = 0
-    neto = bruto = cbm = 0.0
-    for g in pl.grupos:
-        cajas += g.num_cajas
-        neto += (g.peso_neto_caja or 0) * g.num_cajas
-        bruto += (g.peso_bruto_caja or 0) * g.num_cajas
-        # Lo paletizado ocupa el volumen del pallet, no el de sus cajas
-        if not g.pallet_id:
-            cbm += (cbm_caja(g) or 0) * g.num_cajas
-    for p in pl.pallets:
-        bruto += p.peso_tara or 0
-        cbm += p.largo * p.ancho * p.alto / 1_000_000
+    """Totales desde la estructura física (ver empaques): bultos, soportes,
+    pesos acumulados de abajo hacia arriba y volumen exterior."""
+    t = empaques.totales(pl)
     por_unidad: dict[str, dict] = {}
     for pll in pl.lineas:
         u = pll.factura_linea.unidad
@@ -153,11 +129,13 @@ def totales_pl(pl: PackingList) -> dict:
         d["en_cajas"] += c
         d["sin_caja"] += pll.cantidad - c
     return {
-        "cajas": cajas,
-        "peso_neto": round(neto, 3),
-        "peso_bruto": round(bruto, 3),
-        "cbm": round(cbm, 4),
-        "pallets": len(pl.pallets),
+        "cajas": t["bultos"],
+        "peso_neto": t["peso_neto"],
+        "peso_bruto": t["peso_bruto"],
+        "cbm": t["cbm"],
+        "pallets": t["soportes"],
+        "sin_peso": t["sin_peso"],
+        "por_tipo": t["por_tipo"],
         "por_unidad": por_unidad,
     }
 

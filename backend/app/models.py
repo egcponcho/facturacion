@@ -51,6 +51,12 @@ transportista_sociedades = Table(
     Column("transportista_id", ForeignKey("transportistas.id", ondelete="CASCADE"), primary_key=True),
     Column("sociedad_id", ForeignKey("sociedades.id", ondelete="CASCADE"), primary_key=True),
 )
+# Qué tipos de empaque puede llevar dentro cada tipo (relación configurable)
+tipo_empaque_contiene = Table(
+    "tipo_empaque_contiene", Base.metadata,
+    Column("padre_id", ForeignKey("tipos_empaque.id", ondelete="CASCADE"), primary_key=True),
+    Column("hijo_id", ForeignKey("tipos_empaque.id", ondelete="CASCADE"), primary_key=True),
+)
 centro_puertos = Table(
     "centro_puertos", Base.metadata,
     Column("centro_id", ForeignKey("centros.id", ondelete="CASCADE"), primary_key=True),
@@ -647,6 +653,9 @@ class Articulo(Base):
     grupo_id: Mapped[int] = mapped_column(ForeignKey("grupos_articulos.id"), index=True)
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
     unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ (prepack)
+    # Peso neto de una unidad (par, pieza o, en un prepack, la curva completa), en kg.
+    # El peso del empaque no va aquí: es la tara de cada nivel de empaque.
+    peso_unitario: Mapped[float | None] = mapped_column(Float)
     tipo: Mapped[str] = mapped_column(String(10), default="SOLIDO")  # SOLIDO | PREPACK
     prepack_id: Mapped[int | None] = mapped_column(ForeignKey("prepacks.id"))
     # La ficha técnica y la clasificación son del estilo-color (producto)
@@ -860,7 +869,6 @@ class PackingList(Base):
         back_populates="pl", cascade="all, delete-orphan", order_by="GrupoCajas.id"
     )
     unidad: Mapped["UnidadCarga | None"] = relationship(back_populates="packing_lists")
-    pallets: Mapped[list["Pallet"]] = relationship(cascade="all, delete-orphan", order_by="Pallet.numero")
 
 
 class PLLinea(Base):
@@ -882,9 +890,17 @@ class PLLinea(Base):
 
 
 class GrupoCajas(Base):
-    """N cajas iguales. Guarda sus propios valores: la plantilla solo sirvió
-    para llenarlos rápido. Si tiene varios items es una caja mixta/surtida;
-    el peso y volumen pertenecen al grupo y se cuentan una sola vez."""
+    """Nodo del árbol físico de empaque: N unidades iguales de un tipo de
+    empaque (caja, inner pack, pallet…). `num_cajas` es el total de esas
+    unidades en el PL; si tiene padre, se reparten por igual entre las
+    unidades del padre (40 inner en 10 cajas = 4 por caja). Lleva producto
+    (items, por unidad) y/o empaques hijos.
+
+    Pesos por unidad, calculados de abajo hacia arriba: neto = artículos
+    (peso de cada artículo × cantidad) + neto de los hijos; bruto = neto +
+    tara propia + tara de los hijos. Si falta el peso de un artículo, el neto
+    se escribe a mano (neto_manual). El volumen es el de las medidas
+    exteriores: lo que va dentro de otro empaque no suma volumen."""
 
     __tablename__ = "grupos_cajas"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -900,28 +916,18 @@ class GrupoCajas(Base):
     es_parcial: Mapped[bool] = mapped_column(Boolean, default=False)
     peso_estimado: Mapped[bool] = mapped_column(Boolean, default=False)
     observacion: Mapped[str | None] = mapped_column(String(300))
-    pallet_id: Mapped[int | None] = mapped_column(ForeignKey("pallets.id"), index=True)
+    tipo_empaque_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_empaque.id"))
+    padre_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_cajas.id", ondelete="SET NULL"), index=True)
+    tara: Mapped[float | None] = mapped_column(Float)  # kg de una unidad de este empaque vacía
+    neto_manual: Mapped[float | None] = mapped_column(Float)  # neto por unidad si falta el peso de algún artículo
 
     pl: Mapped[PackingList] = relationship(back_populates="grupos")
-    pallet: Mapped["Pallet | None"] = relationship(back_populates="grupos")
+    tipo_empaque: Mapped["TipoEmpaque | None"] = relationship()
+    padre: Mapped["GrupoCajas | None"] = relationship(remote_side=lambda: GrupoCajas.id, back_populates="hijos")
+    hijos: Mapped[list["GrupoCajas"]] = relationship(back_populates="padre", order_by="GrupoCajas.id")
     items: Mapped[list["GrupoCajasItem"]] = relationship(
         back_populates="grupo", cascade="all, delete-orphan", order_by="GrupoCajasItem.id"
     )
-
-
-class Pallet(Base):
-    """Tarima con cajas del PL. Sus medidas son las del pallet armado."""
-
-    __tablename__ = "pallets"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    pl_id: Mapped[int] = mapped_column(ForeignKey("packing_lists.id"), index=True)
-    numero: Mapped[int] = mapped_column(Integer)
-    largo: Mapped[float] = mapped_column(Float)  # cm
-    ancho: Mapped[float] = mapped_column(Float)
-    alto: Mapped[float] = mapped_column(Float)
-    peso_tara: Mapped[float] = mapped_column(Float, default=0)  # kg de la tarima vacía
-
-    grupos: Mapped[list[GrupoCajas]] = relationship(back_populates="pallet")
 
 
 class GrupoCajasItem(Base):
@@ -935,6 +941,41 @@ class GrupoCajasItem(Base):
     pl_linea: Mapped[PLLinea] = relationship(back_populates="items")
 
 
+class TipoEmpaque(Base):
+    """Unidad logística configurable (inner pack, caja, pallet, bolsa, tambor…).
+    Nada está fijo en el código: cada empresa define sus tipos, qué puede
+    contener cada uno, su tara, medidas y límites. Un PL se arma como un árbol
+    de empaques dentro de empaques con el producto en las hojas."""
+
+    __tablename__ = "tipos_empaque"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    nivel: Mapped[int] = mapped_column(Integer, default=1)  # 1 = el más interno
+    prefijo: Mapped[str | None] = mapped_column(String(6))  # etiqueta de cada unidad: C1, PK1, P1
+    # BULTO: cuenta como bulto del documento; INTERIOR: va dentro de un bulto;
+    # SOPORTE: lleva bultos (pallet, rack)
+    cuenta_como: Mapped[str] = mapped_column(String(10), default="BULTO")
+    uom: Mapped[str | None] = mapped_column(String(10))
+    largo: Mapped[float | None] = mapped_column(Float)  # cm, exteriores
+    ancho: Mapped[float | None] = mapped_column(Float)
+    alto: Mapped[float | None] = mapped_column(Float)
+    tara: Mapped[float | None] = mapped_column(Float)  # kg del empaque vacío
+    peso_max: Mapped[float | None] = mapped_column(Float)  # kg brutos por unidad
+    max_unidades: Mapped[int | None] = mapped_column(Integer)  # unidades de producto por unidad
+    max_contenido: Mapped[int | None] = mapped_column(Integer)  # empaques internos por unidad
+    contiene_productos: Mapped[bool] = mapped_column(Boolean, default=True)
+    mezcla_productos: Mapped[bool] = mapped_column(Boolean, default=True)
+    mezcla_tallas: Mapped[bool] = mapped_column(Boolean, default=True)
+    mezcla_oc: Mapped[bool] = mapped_column(Boolean, default=True)
+    identificador: Mapped[str | None] = mapped_column(String(15))  # SERIAL | CODIGO_BARRAS | SSCC
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    contiene: Mapped[list["TipoEmpaque"]] = relationship(
+        secondary=tipo_empaque_contiene, primaryjoin=lambda: TipoEmpaque.id == tipo_empaque_contiene.c.padre_id,
+        secondaryjoin=lambda: TipoEmpaque.id == tipo_empaque_contiene.c.hijo_id, order_by="TipoEmpaque.nivel")
+
+
 class PlantillaCaja(Base):
     __tablename__ = "plantillas_caja"
     __table_args__ = (UniqueConstraint("proveedor_id", "nombre"),)
@@ -946,10 +987,12 @@ class PlantillaCaja(Base):
     largo: Mapped[float | None] = mapped_column(Float)
     ancho: Mapped[float | None] = mapped_column(Float)
     alto: Mapped[float | None] = mapped_column(Float)
-    peso_neto: Mapped[float | None] = mapped_column(Float)
-    peso_bruto: Mapped[float | None] = mapped_column(Float)
+    # Solo la tara del empaque: el peso neto sale del peso de cada artículo
     tara: Mapped[float | None] = mapped_column(Float)
+    tipo_empaque_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_empaque.id"))
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    tipo_empaque: Mapped["TipoEmpaque | None"] = relationship()
 
 
 class RecepcionLinea(Base):

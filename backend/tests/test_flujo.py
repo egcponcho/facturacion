@@ -135,7 +135,8 @@ def test_plantilla_con_sobrante(tnf):
     grupos = [g for g in pl["grupos"] if g["items"][0]["pl_linea_id"] == xl["id"]]
     assert [(g["num_cajas"], g["items"][0]["cantidad_por_caja"], g["es_parcial"]) for g in grupos] == [(2, 10, False), (1, 7, True)]
     parcial = grupos[1]
-    assert parcial["peso_estimado"] and parcial["peso_neto_caja"] == 6.3 and parcial["peso_bruto_caja"] == 7.5
+    # El peso sale del peso unitario del artículo (0.9 kg) y la tara de la caja (1.2 kg): no es estimado
+    assert not parcial["peso_estimado"] and parcial["peso_neto_caja"] == 6.3 and parcial["peso_bruto_caja"] == 7.5
     assert next(l for l in pl["lineas"] if l["id"] == xl["id"])["sin_caja"] == 0
 
 
@@ -167,14 +168,15 @@ def test_empacar_todo_y_finalizar(tnf):
     r = _empacar(tnf, pl_id, pl["version"], filas)
     assert r.status_code == 200, r.text
     v = r.json()["version"]
-    # 36 pares / 12 = 3 cajas exactas, sin sobrante; pesos parciales pendientes de confirmar
-    r = tnf.post(f"/packing-lists/{pl_id}/finalizar", {"version": v})
-    assert r.status_code == 422 and any(e.get("codigo") == "peso_estimado" for e in r.json()["detalle"])
+    # Los pesos salen solos de la estructura: neto = artículos, bruto = neto + tara de cada nivel
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
-    estimadas = [g["id"] for g in pl["grupos"] if g["peso_estimado"]]
-    r = tnf.patch(f"/packing-lists/{pl_id}/cajas", {"version": pl["version"], "grupo_ids": estimadas, "confirmar_pesos": True})
-    assert r.status_code == 200, r.text
-    r = tnf.post(f"/packing-lists/{pl_id}/finalizar", {"version": r.json()["version"]})
+    for g in pl["grupos"]:
+        neto = sum(i["cantidad_por_caja"] * i["peso_unitario"] for i in g["contenido"])
+        assert g["peso_calculado"] and abs(g["peso_neto_caja"] - neto) < 1e-6
+        assert abs(g["peso_bruto_caja"] - neto - g["tara"]) < 1e-6
+    t = pl["totales"]
+    assert abs(t["peso_bruto"] - sum(g["peso_bruto_total"] for g in pl["grupos"] if not g["padre_id"])) < 1e-3
+    r = tnf.post(f"/packing-lists/{pl_id}/finalizar", {"version": v})
     assert r.status_code == 200, r.text
 
     # PL-002: 14 pares -> 1 caja de 12 + caja parcial de 2. La plantilla se
@@ -186,9 +188,7 @@ def test_empacar_todo_y_finalizar(tnf):
     assert r.status_code == 200 and r.json()["resumen"]["cajas_completas"] == 1, r.text
     pl2 = tnf.get(f"/packing-lists/{pl2['id']}").json()
     assert [g["num_cajas"] for g in pl2["grupos"]] == [1, 1] and pl2["grupos"][1]["es_parcial"]
-    r = tnf.patch(f"/packing-lists/{pl2['id']}/cajas", {"version": pl2["version"],
-                  "grupo_ids": [g["id"] for g in pl2["grupos"]], "confirmar_pesos": True})
-    r = tnf.post(f"/packing-lists/{pl2['id']}/finalizar", {"version": r.json()["version"]})
+    r = tnf.post(f"/packing-lists/{pl2['id']}/finalizar", {"version": pl2["version"]})
     assert r.status_code == 200, r.text
 
 
@@ -478,6 +478,10 @@ def test_reglas_de_empaque(vans):
     pl = vans.get(f"/packing-lists/{pl_id}").json()
     assert len(pl["pallets"]) == 1 and pl["pallets"][0]["cajas"] == 12 and pl["totales"]["pallets"] == 1
     assert pl["totales"]["cbm"] == 1.8  # el volumen es el del pallet
+    # Bruto del pallet = bruto de sus cajas (artículos + tara de cada caja) + tara del pallet
+    cajas_bruto = sum(g["peso_bruto_total"] for g in pl["grupos"] if g["padre_id"] == pallet)
+    assert abs(pl["pallets"][0]["peso_bruto"] - (cajas_bruto + 20)) < 1e-3
+    assert abs(pl["totales"]["peso_bruto"] - pl["pallets"][0]["peso_bruto"]) < 1e-3
     # Sacar todas las cajas elimina el pallet vacío
     r = vans.post(f"/packing-lists/{pl_id}/pallets/quitar", {"version": pl["version"], "pallet_id": pallet})
     assert r.status_code == 200 and vans.get(f"/packing-lists/{pl_id}").json()["pallets"] == []
@@ -698,12 +702,19 @@ def test_inner_pack_y_casepack_de_la_oc(tnf, vans, interno):
     r = _empacar(tnf, pl_id, r.json()["version"], [(lm["id"], None)])
     assert r.status_code == 200, r.text
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
-    inners = {g["items"][0]["pl_linea_id"]: (g["num_cajas"], g["items"][0]["inner_packs_por_caja"]) for g in pl["grupos"]}
+    cajas = [g for g in pl["grupos"] if g["cuenta_como"] == "BULTO"]
+    inners = {g["contenido"][0]["pl_linea_id"]: (g["num_cajas"], g["contenido"][0]["inner_packs_por_caja"]) for g in cajas}
     assert inners == {lf["id"]: (2, 3), lm["id"]: (3, 4)}
+    # Los inner packs son empaques físicos dentro de cada caja, con su tara
+    caja = next(g for g in cajas if g["contenido"][0]["pl_linea_id"] == lf["id"])
+    inner = next(g for g in pl["grupos"] if g["padre_id"] == caja["id"])
+    assert inner["num_cajas"] == 6 and inner["por_padre"] == 3 and inner["items"][0]["cantidad_por_caja"] == 5
+    assert abs(caja["peso_bruto_caja"] - (15 * 0.5 + 3 * inner["tara"] + caja["tara"])) < 1e-6
     # Por destino y sugerencia de unidades de carga
     assert [d["centro_destino"] for d in pl["destinos"]] == ["2220"] and pl["destinos"][0]["cajas"] == 5
-    # Sin medidas ni pesos todavía no hay volumen que acomodar
-    assert pl["sugerencia_unidades"] == {"cbm": 0, "kg": 0, "modos": {}}
+    # Las cajas toman las medidas del tipo de empaque y el peso sale de los artículos: ya hay volumen y peso
+    t = pl["totales"]
+    assert t["cbm"] == 5 * 0.096 and pl["sugerencia_unidades"]["kg"] == round(t["peso_bruto"], 2) > 0
 
 
 def test_sugerencia_de_unidades(interno):
@@ -927,8 +938,8 @@ def test_inner_pack_en_el_packing_list(interno, vans):
     assert r.status_code == 200, r.text
     pl = vans.get(f"/packing-lists/{pl_id}").json()
     assert not pl["lineas"][0]["inner_editable"]
-    grupo = pl["grupos"][0]
-    assert grupo["items"][0]["inner_packs_por_caja"] == 3
+    grupo = next(g for g in pl["grupos"] if g["cuenta_como"] == "BULTO")
+    assert grupo["contenido"][0]["inner_packs_por_caja"] == 3
     assert vans.put(url, {"version": pl["version"], "inner_pack": 6}).status_code == 409
 
 

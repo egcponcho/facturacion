@@ -4,12 +4,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import (
+    TipoEmpaque,
     Factura,
     FacturaLinea,
     GrupoCajas,
     GrupoCajasItem,
     PackingList,
-    Pallet,
     PlantillaCaja,
     PLLinea,
     RecepcionLinea,
@@ -23,12 +23,12 @@ from .cantidades import (
     cubierto,
     fuera_de_inner,
     inner_de,
-    limpiar_pallets,
     nombre_factura,
     numeracion,
     sin_caja,
     totales_pl,
 )
+from . import empaques
 from .partes import partes
 from .common import (
     EDITABLE_PL,
@@ -46,7 +46,91 @@ from .common import (
 )
 from .facturas import cargar_factura
 
-CAMPOS_VALOR = ("largo", "ancho", "alto", "peso_neto_caja", "peso_bruto_caja")
+CAMPOS_VALOR = ("largo", "ancho", "alto", "tara")
+
+
+# ---- Árbol físico -----------------------------------------------------------
+def _quitar_nodo(pl: PackingList, g: GrupoCajas) -> None:
+    """Quita un nodo y todo lo que lleva dentro."""
+    for d in [*empaques.descendientes(pl, g), g]:
+        if d in pl.grupos:
+            pl.grupos.remove(d)
+
+
+def _limpiar_vacios(pl: PackingList) -> None:
+    """Quita los empaques que quedaron sin producto ni empaques dentro."""
+    cambio = True
+    while cambio:
+        cambio = False
+        for g in list(pl.grupos):
+            if not g.items and not empaques.hijos(pl, g):
+                pl.grupos.remove(g)
+                cambio = True
+
+
+def _escalar(pl: PackingList, g: GrupoCajas, nuevo: int) -> None:
+    """Cambia la cantidad de unidades de un nodo y, en proporción, la de todo lo que lleva dentro."""
+    viejo = g.num_cajas
+    for d in empaques.descendientes(pl, g):
+        d.num_cajas = d.num_cajas * nuevo // viejo
+    g.num_cajas = nuevo
+
+
+def _rehacer(db: Session, pl: PackingList) -> None:
+    """Recalcula los pesos de toda la estructura (después de cada cambio)."""
+    db.flush()
+    empaques.recalcular(pl)
+
+
+def _tipo(db: Session, tipo_id: int | None, plantilla: PlantillaCaja | None = None) -> TipoEmpaque | None:
+    if tipo_id:
+        t = db.get(TipoEmpaque, tipo_id)
+        if not t or not t.activo:
+            raise ErrorNegocio("The packaging type does not exist or is inactive.", 404, "no_encontrado")
+        return t
+    if plantilla and plantilla.tipo_empaque:
+        return plantilla.tipo_empaque
+    return empaques.tipo_bulto(db)
+
+
+def _nodo(db: Session, pl: PackingList, num: int, items: list[tuple], plantilla: PlantillaCaja | None = None,
+          tipo: TipoEmpaque | None = None, **extra) -> GrupoCajas:
+    """Crea N unidades de empaque con su producto. Medidas y tara salen de la
+    plantilla o, si no hay, del tipo de empaque. Si las líneas tienen inner pack
+    y el tipo admite un empaque interno con producto, se arman los inner packs
+    como empaques físicos dentro de cada caja (con su propia tara)."""
+    tipo = tipo or _tipo(db, None, plantilla)
+    base = plantilla or tipo
+    g = GrupoCajas(num_cajas=num, tipo_empaque=tipo,
+                   largo=getattr(base, "largo", None), ancho=getattr(base, "ancho", None),
+                   alto=getattr(base, "alto", None), tara=getattr(base, "tara", None),
+                   plantilla_id=plantilla.id if plantilla else None,
+                   plantilla_nombre=plantilla.nombre if plantilla else None)
+    for k, v in extra.items():
+        setattr(g, k, v)
+    pl.grupos.append(g)
+    interior = empaques.tipo_interior(tipo)
+    for pll, cant in items:
+        n = inner_de(pll.factura_linea)
+        if interior and n and cant % n == 0:
+            h = GrupoCajas(num_cajas=num * (cant // n), tipo_empaque=interior, padre=g, largo=interior.largo,
+                           ancho=interior.ancho, alto=interior.alto, tara=interior.tara,
+                           plantilla_id=g.plantilla_id, plantilla_nombre=g.plantilla_nombre)
+            h.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=n))
+            pl.grupos.append(h)
+        else:
+            g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=cant))
+    return g
+
+
+def _bultos_propios(pl: PackingList, pll: PLLinea) -> list[GrupoCajas]:
+    """Bultos que llevan solo esta fila (se pueden volver a empacar)."""
+    res = []
+    for it in pll.items:
+        b = empaques.nodo_bulto(it.grupo)
+        if b not in res and all(x is pll for x, _ in empaques.contenido(pl, b)):
+            res.append(b)
+    return res
 
 
 # ---- Carga ------------------------------------------------------------------
@@ -101,9 +185,9 @@ def regla_empaque(fl) -> tuple[str, int | None]:
     return "LIBRE", None
 
 
-def etiqueta_caja(g) -> dict:
+def etiqueta_caja(g, pl: PackingList | None = None) -> dict:
     """Estándar: una sola OC, estilo, color y talla. Consolidada: varias."""
-    lineas = [it.pl_linea.factura_linea for it in g.items]
+    lineas = [x.factura_linea for x, _ in empaques.contenido(pl or g.pl, g)]
     ocs = sorted({fl.oc_numero for fl in lineas})
     destinos = sorted({fl.centro_destino for fl in lineas if fl.centro_destino})
     return {"tipo": "ESTANDAR" if len(lineas) == 1 else "CONSOLIDADA", "ocs": ocs,
@@ -283,9 +367,8 @@ def mover_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     for mg in datos.grupos:
         g = grupos[mg.grupo_id]
         if mg.num_cajas < g.num_cajas:
-            g.num_cajas -= mg.num_cajas
-            mover_g = _clonar_grupo(g, mg.num_cajas)
-            origen.grupos.append(mover_g)
+            mover_g = _clonar_grupo(origen, g, mg.num_cajas)
+            _escalar(origen, g, g.num_cajas - mg.num_cajas)
             db.flush()
         else:
             mover_g = g
@@ -297,10 +380,21 @@ def mover_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
             it.pl_linea = dest_linea
             if src.cantidad == 0:
                 origen.lineas.remove(src)
+        for d in empaques.descendientes(origen, mover_g):
+            for it in list(d.items):
+                src = it.pl_linea
+                cantidad = it.cantidad_por_caja * d.num_cajas
+                src.cantidad -= cantidad
+                it.pl_linea = _agregar_cantidad(destino, src.factura_linea_id, cantidad)
+                if src.cantidad == 0:
+                    origen.lineas.remove(src)
+            d.pl = destino
         mover_g.pl = destino
-        mover_g.pallet = None
+        mover_g.padre = None
         total_cajas += mover_g.num_cajas
-    limpiar_pallets(origen)
+    _limpiar_vacios(origen)
+    _rehacer(db, origen)
+    _rehacer(db, destino)
     tocar(origen)
     tocar(destino)
     registrar(db, user, "packing_list", origen.id, "mover_cajas",
@@ -308,79 +402,120 @@ def mover_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     return {"destino_id": destino.id, "destino_numero": destino.numero, "version": origen.version}
 
 
-def _clonar_grupo(g: GrupoCajas, num_cajas: int) -> GrupoCajas:
+def _clonar_grupo(pl: PackingList, g: GrupoCajas, num_cajas: int, padre: GrupoCajas | None = None) -> GrupoCajas:
+    """Copia `num_cajas` unidades de un nodo con todo lo que lleva dentro."""
     nuevo = GrupoCajas(
         num_cajas=num_cajas,
         **{c: getattr(g, c) for c in CAMPOS_VALOR},
+        tipo_empaque=g.tipo_empaque, neto_manual=g.neto_manual,
         plantilla_id=g.plantilla_id,
         plantilla_nombre=g.plantilla_nombre,
         es_parcial=g.es_parcial,
         peso_estimado=g.peso_estimado,
         observacion=g.observacion,
+        padre=padre,
     )
     for it in g.items:
         nuevo.items.append(GrupoCajasItem(pl_linea=it.pl_linea, cantidad_por_caja=it.cantidad_por_caja))
+    pl.grupos.append(nuevo)
+    for h in empaques.hijos(pl, g):
+        if h is not nuevo:
+            _clonar_grupo(pl, h, h.num_cajas * num_cajas // g.num_cajas, nuevo)
     return nuevo
 
 
-# ---- Pallets -----------------------------------------------------------------
-def resumen_pallets(pl: PackingList) -> list[dict]:
-    rangos = numeracion(pl)
+# ---- Contenedores (pallets u otro empaque que lleva empaques) ---------------
+def resumen_contenedores(pl: PackingList, rangos=None) -> list[dict]:
+    """Empaques que llevan otros empaques dentro (pallets, cajas con inner…),
+    con lo que contienen, su tara y su peso bruto acumulado."""
+    rangos = rangos or numeracion(pl)
     res = []
-    for p in sorted(pl.pallets, key=lambda x: x.numero):
-        grupos = [g for g in pl.grupos if g.pallet is p]
-        cajas = sum(g.num_cajas for g in grupos)
-        bruto = sum((g.peso_bruto_caja or 0) * g.num_cajas for g in grupos) + (p.peso_tara or 0)
+    for g in empaques._orden_arbol(pl):
+        hs = empaques.hijos(pl, g)
+        if not hs or (empaques.cuenta_como(g) == "BULTO"
+                      and all(empaques.cuenta_como(h) == "INTERIOR" for h in hs)):
+            continue
+        cbm = empaques.volumen(g)
         res.append({
-            "id": p.id, "numero": p.numero, "largo": p.largo, "ancho": p.ancho, "alto": p.alto,
-            "peso_tara": p.peso_tara, "cajas": cajas, "peso_bruto": round(bruto, 3),
-            "cbm": round(p.largo * p.ancho * p.alto / 1_000_000, 4),
-            "rangos": [f"{rangos[g.id][0]}" if rangos[g.id][0] == rangos[g.id][1]
-                       else f"{rangos[g.id][0]}–{rangos[g.id][1]}" for g in grupos if g.id in rangos],
+            "id": g.id, "tipo": empaques.nombre_tipo(g), "tipo_id": g.tipo_empaque_id,
+            "etiqueta": empaques.rango_txt(pl, g, rangos), "num": g.num_cajas,
+            "numero": rangos[g.id][0],
+            "largo": g.largo, "ancho": g.ancho, "alto": g.alto, "peso_tara": g.tara, "tara": g.tara,
+            "contenido": [{"id": h.id, "tipo": empaques.nombre_tipo(h), "etiqueta": empaques.rango_txt(pl, h, rangos),
+                           "por_unidad": empaques.por_padre(g, h), "total": h.num_cajas} for h in hs],
+            "cajas": sum(h.num_cajas for h in hs),
+            "peso_bruto": round((g.peso_bruto_caja or 0) * g.num_cajas, 3),
+            "cbm": round(cbm * g.num_cajas, 4) if cbm else None,
+            "rangos": [empaques.rango_txt(pl, h, rangos) for h in hs],
         })
     return res
 
 
+resumen_pallets = resumen_contenedores
+
+
 def paletizar(db: Session, user: Usuario, pl_id: int, datos) -> dict:
-    """Pone grupos de cajas en un pallet nuevo (con sus medidas) o en uno
-    existente. Un grupo va completo a un solo pallet."""
+    """Pone empaques dentro de un contenedor nuevo (pallet u otro tipo, con sus
+    medidas) o de uno existente. Cada grupo va completo y se reparte por igual
+    entre las unidades del contenedor."""
     pl = _editable(db, user, pl_id, datos.version)
     grupos = {g.id: g for g in pl.grupos}
     faltan = [i for i in datos.grupo_ids if i not in grupos]
     if faltan or not datos.grupo_ids:
         raise ErrorNegocio("Choose cartons from this packing list.", 422, "validacion")
     if datos.pallet_id:
-        pallet = next((p for p in pl.pallets if p.id == datos.pallet_id), None)
-        if not pallet:
+        cont = grupos.get(datos.pallet_id)
+        if not cont:
             raise ErrorNegocio("The pallet does not exist in this packing list.", 404, "no_encontrado")
     else:
+        tipo = _tipo(db, datos.tipo_empaque_id) if datos.tipo_empaque_id else empaques.tipo_soporte(db)
+        # Largo y ancho pueden venir del tipo; el alto de un soporte armado (pallet
+        # con su carga) siempre se mide
+        medidas = {c: getattr(datos, c) or (getattr(tipo, c) if tipo and not (
+            c == "alto" and tipo.cuenta_como == "SOPORTE") else None) for c in ("largo", "ancho", "alto")}
         errores = [{"campo": c, "mensaje": f"Pallet {t} is required and must be greater than zero."}
                    for c, t in (("largo", "length"), ("ancho", "width"), ("alto", "height"))
-                   if not getattr(datos, c) or getattr(datos, c) <= 0]
+                   if not medidas[c] or medidas[c] <= 0]
         if errores:
             raise ErrorNegocio("The pallet dimensions are missing.", 422, "validacion", errores)
-        pallet = Pallet(numero=len(pl.pallets) + 1, largo=datos.largo, ancho=datos.ancho, alto=datos.alto,
-                        peso_tara=datos.peso_tara or 0)
-        pl.pallets.append(pallet)
+        tara = datos.peso_tara if datos.peso_tara is not None else (tipo.tara if tipo else 0)
+        cont = GrupoCajas(num_cajas=datos.num or 1, tipo_empaque=tipo, tara=tara, **medidas)
+        pl.grupos.append(cont)
+    errores = []
     for i in datos.grupo_ids:
-        grupos[i].pallet = pallet
-    db.flush()
-    limpiar_pallets(pl)
+        g = grupos[i]
+        if g is cont or cont in empaques.ancestros(g) or g in empaques.ancestros(cont):
+            errores.append({"grupo_id": i, "mensaje": "A packaging cannot go inside itself."})
+        elif g.num_cajas % cont.num_cajas:
+            errores.append({"grupo_id": i, "mensaje": f"{g.num_cajas} units cannot be split evenly into {cont.num_cajas}."})
+        elif cont.tipo_empaque and g.tipo_empaque and g.tipo_empaque not in cont.tipo_empaque.contiene:
+            errores.append({"grupo_id": i, "mensaje": f"A {cont.tipo_empaque.nombre.lower()} cannot contain a "
+                            f"{g.tipo_empaque.nombre.lower()}. Check the packaging types."})
+    if errores:
+        if not datos.pallet_id:
+            pl.grupos.remove(cont)
+        raise ErrorNegocio("Those cartons cannot go in that packaging.", 422, "validacion", errores)
+    for i in datos.grupo_ids:
+        grupos[i].padre = cont
+    _limpiar_vacios(pl)
+    _rehacer(db, pl)
     tocar(pl)
+    numero = numeracion(pl)[cont.id][0]
     registrar(db, user, "packing_list", pl.id, "paletizar",
-              {"pallet": pallet.numero, "cajas": sum(grupos[i].num_cajas for i in datos.grupo_ids)},
+              {"pallet": numero, "cajas": sum(grupos[i].num_cajas for i in datos.grupo_ids)},
               factura_id=pl.factura_id)
-    return {"pallet_id": pallet.id, "numero": pallet.numero, "version": pl.version}
+    return {"pallet_id": cont.id, "numero": numero, "version": pl.version}
 
 
 def despaletizar(db: Session, user: Usuario, pl_id: int, datos) -> dict:
-    """Saca cajas de su pallet (o vacía un pallet completo)."""
+    """Saca empaques de su contenedor (o vacía un contenedor completo). Los
+    contenedores que quedan vacíos se quitan."""
     pl = _editable(db, user, pl_id, datos.version)
     for g in pl.grupos:
-        if g.id in datos.grupo_ids or (datos.pallet_id and g.pallet_id == datos.pallet_id):
-            g.pallet = None
-    db.flush()
-    limpiar_pallets(pl)
+        if g.id in datos.grupo_ids or (datos.pallet_id and g.padre_id == datos.pallet_id):
+            g.padre = None
+    _limpiar_vacios(pl)
+    _rehacer(db, pl)
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "despaletizar", None, factura_id=pl.factura_id)
     return {"version": pl.version}
@@ -445,38 +580,25 @@ def renombrar(db: Session, user: Usuario, pl_id: int, datos) -> dict:
 
 def editar_pallet(db: Session, user: Usuario, pl_id: int, pallet_id: int, datos) -> dict:
     pl = _editable(db, user, pl_id, datos.version)
-    pallet = next((p for p in pl.pallets if p.id == pallet_id), None)
-    if not pallet:
+    cont = next((g for g in pl.grupos if g.id == pallet_id), None)
+    if not cont:
         raise ErrorNegocio("The pallet does not exist in this packing list.", 404, "no_encontrado")
     for c in ("largo", "ancho", "alto", "peso_tara"):
         v = getattr(datos, c)
         if v is not None:
             if v < 0 or (c != "peso_tara" and v == 0):
                 raise ErrorNegocio("Pallet dimensions must be greater than zero.", 422, "validacion")
-            setattr(pallet, c, v)
+            setattr(cont, "tara" if c == "peso_tara" else c, v)
+    _rehacer(db, pl)
     tocar(pl)
     return {"version": pl.version}
 
 
 # ---- Plantillas y cajas -----------------------------------------------------
 def _valores_plantilla(t: PlantillaCaja, cantidad: int | None = None) -> dict:
-    """Valores por caja copiados de la plantilla. Para una caja parcial el peso
-    se estima (neto proporcional; bruto = neto + empaque) y queda por confirmar."""
-    valores = {"largo": t.largo, "ancho": t.ancho, "alto": t.alto,
-               "peso_neto_caja": t.peso_neto, "peso_bruto_caja": t.peso_bruto}
-    if cantidad is None or cantidad == t.cantidad_por_caja:
-        return valores
-    neto = round(t.peso_neto * cantidad / t.cantidad_por_caja, 3) if t.peso_neto else None
-    if t.tara is not None and neto is not None:
-        bruto = round(neto + t.tara, 3)
-    elif t.peso_bruto and t.peso_neto is not None and neto is not None:
-        bruto = round(neto + (t.peso_bruto - t.peso_neto), 3)
-    elif t.peso_bruto:
-        bruto = round(t.peso_bruto * cantidad / t.cantidad_por_caja, 3)
-    else:
-        bruto = None
-    valores.update(peso_neto_caja=neto, peso_bruto_caja=bruto)
-    return valores
+    """Medidas y tara de la plantilla. El peso no se copia: el neto sale del
+    peso de cada artículo y el bruto le suma la tara de cada nivel."""
+    return {"largo": t.largo, "ancho": t.ancho, "alto": t.alto, "tara": t.tara}
 
 
 def _propuesta(db: Session, pl: PackingList, filas, reemplazar: bool) -> list[dict]:
@@ -500,7 +622,7 @@ def _propuesta(db: Session, pl: PackingList, filas, reemplazar: bool) -> list[di
         unidad = fl.unidad
         if reemplazar:
             # Lo que está en cajas de una sola fila se volvería a empacar
-            propio = sum(it.cantidad_por_caja * it.grupo.num_cajas for it in pll.items if len(it.grupo.items) == 1)
+            propio = sum(n * b.num_cajas for b in _bultos_propios(pl, pll) for _, n in empaques.contenido(pl, b))
             libre = sin_caja(pll) + propio
         else:
             libre = sin_caja(pll)
@@ -528,19 +650,6 @@ def _propuesta(db: Session, pl: PackingList, filas, reemplazar: bool) -> list[di
     return res
 
 
-def _valores_regla(t: PlantillaCaja | None, fl, por_caja: int) -> tuple[dict, bool]:
-    """Medidas y pesos para una caja con `por_caja` unidades. Devuelve también
-    si el peso es estimado (la plantilla no corresponde exactamente)."""
-    if not t:
-        return {}, False
-    if t.unidad == fl.unidad:
-        exacta = por_caja == t.cantidad_por_caja
-        return _valores_plantilla(t, None if exacta else por_caja), not exacta
-    # Unidad distinta (p. ej. plantilla en pares para un prepack): medidas sí,
-    # pesos copiados como referencia y marcados para confirmar
-    return _valores_plantilla(t), True
-
-
 def _resumen_propuesta(filas: list[dict]) -> dict:
     validas = [f for f in filas if "omitida" not in f]
     return {
@@ -560,10 +669,9 @@ def empaque_previa(db: Session, user: Usuario, pl_id: int, datos) -> dict:
 
 
 def _desempacar_propio(pl: PackingList, pll: PLLinea) -> None:
-    for it in list(pll.items):
-        g = it.grupo
-        if len(g.items) == 1:
-            pl.grupos.remove(g)
+    for b in _bultos_propios(pl, pll):
+        _quitar_nodo(pl, b)
+    _limpiar_vacios(pl)
 
 
 def aplicar_empaque(db: Session, user: Usuario, pl_id: int, datos) -> dict:
@@ -585,22 +693,15 @@ def aplicar_empaque(db: Session, user: Usuario, pl_id: int, datos) -> dict:
         if "omitida" in f:
             continue
         pll = _linea(pl, f["pl_linea_id"])
-        fl = pll.factura_linea
         t = db.get(PlantillaCaja, f["plantilla_id"]) if f["plantilla_id"] else None
         por_caja = f["cantidad_por_caja"]
-        nombre = {"plantilla_id": t.id if t else None, "plantilla_nombre": t.nombre if t else None}
         if f["cajas"]:
-            valores, estimado = _valores_regla(t, fl, por_caja)
-            g = GrupoCajas(num_cajas=f["cajas"], peso_estimado=estimado, **nombre, **valores)
-            g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=por_caja))
-            pl.grupos.append(g)
+            _nodo(db, pl, f["cajas"], [(pll, por_caja)], t)
         if f["sobrante"] and datos.sobrante == "caja_parcial":
-            valores, _ = _valores_regla(t, fl, f["sobrante"])
-            g = GrupoCajas(num_cajas=1, es_parcial=True, peso_estimado=bool(t), **nombre, **valores)
+            g = _nodo(db, pl, 1, [(pll, f["sobrante"])], t, es_parcial=True)
             if f["regla"] == "CASEPACK":
                 g.observacion = f"Partial carton: {f['sobrante']} of {por_caja} of the casepack."
-            g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=f["sobrante"]))
-            pl.grupos.append(g)
+    _rehacer(db, pl)
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "aplicar_plantilla",
               {"plantillas": sorted({f["plantilla"] or "casepack" for f in filas if "omitida" not in f}),
@@ -630,24 +731,16 @@ def crear_caja(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     if errores:
         raise ErrorNegocio("The carton does not follow the packing rules.", 422, "regla_empaque", errores)
     por_caja = sum(i.cantidad_por_caja for i in datos.items)
-    valores = _valores_plantilla(t, por_caja) if t else {}
     explicitos = datos.model_dump(exclude_unset=True)
+    tipo = _tipo(db, explicitos.get("tipo_empaque_id"), t)
+    g = _nodo(db, pl, datos.num_cajas, [(_linea(pl, i.pl_linea_id), i.cantidad_por_caja) for i in datos.items], t, tipo,
+              es_parcial=bool(t) and por_caja < t.cantidad_por_caja, observacion=explicitos.get("observacion"))
     for c in CAMPOS_VALOR:
         if c in explicitos:
-            valores[c] = explicitos[c]
-    estimado = bool(t) and por_caja != t.cantidad_por_caja and not {"peso_neto_caja", "peso_bruto_caja"} <= set(explicitos)
-    g = GrupoCajas(
-        num_cajas=datos.num_cajas,
-        plantilla_id=t.id if t else None,
-        plantilla_nombre=t.nombre if t else None,
-        es_parcial=bool(t) and por_caja < t.cantidad_por_caja,
-        peso_estimado=estimado,
-        observacion=explicitos.get("observacion"),
-        **valores,
-    )
-    for item in datos.items:
-        g.items.append(GrupoCajasItem(pl_linea=_linea(pl, item.pl_linea_id), cantidad_por_caja=item.cantidad_por_caja))
-    pl.grupos.append(g)
+            setattr(g, c, explicitos[c])
+    if explicitos.get("peso_neto_caja") is not None:
+        g.neto_manual = explicitos["peso_neto_caja"]
+    _rehacer(db, pl)
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "crear_caja",
               {"cajas": datos.num_cajas, "mixta": len(datos.items) > 1}, factura_id=pl.factura_id)
@@ -696,29 +789,43 @@ def editar_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     campos = datos.model_dump(exclude_unset=True)
     t = _plantilla(db, pl, datos.desde_plantilla_id) if datos.desde_plantilla_id else None
     errores = []
+    tipo = _tipo(db, campos["tipo_empaque_id"]) if campos.get("tipo_empaque_id") else None
     for g in seleccion:
         if t:
-            por_caja = sum(it.cantidad_por_caja for it in g.items)
-            for c, v in _valores_plantilla(t, por_caja).items():
+            for c, v in _valores_plantilla(t).items():
                 setattr(g, c, v)
             g.plantilla_id, g.plantilla_nombre = t.id, t.nombre
-            g.peso_estimado = por_caja != t.cantidad_por_caja
+            if t.tipo_empaque:
+                g.tipo_empaque = t.tipo_empaque
+        if tipo:
+            g.tipo_empaque = tipo
+            for c in ("largo", "ancho", "alto", "tara"):
+                if getattr(tipo, c) is not None and c not in campos:
+                    setattr(g, c, getattr(tipo, c))
         for c in CAMPOS_VALOR:
             if c in campos:
                 setattr(g, c, campos[c])
-                if c.startswith("peso"):
-                    g.peso_estimado = False
+        if "peso_neto_caja" in campos:
+            # Neto escrito a mano: solo cuenta si falta el peso de algún artículo
+            g.neto_manual = campos["peso_neto_caja"]
+            g.peso_estimado = False
         if "observacion" in campos:
             g.observacion = (campos["observacion"] or "").strip() or None
         if datos.num_cajas and datos.num_cajas != g.num_cajas:
-            for it in g.items:
-                otros = cubierto(it.pl_linea) - it.cantidad_por_caja * g.num_cajas
-                if otros + it.cantidad_por_caja * datos.num_cajas > it.pl_linea.cantidad:
+            for pll, n in empaques.contenido(pl, g):
+                otros = cubierto(pll) - n * g.num_cajas
+                if otros + n * datos.num_cajas > pll.cantidad:
                     errores.append({"grupo_id": g.id, "mensaje":
-                        f"{_ref(it.pl_linea)}: not enough quantity for {datos.num_cajas} cartons."})
-            g.num_cajas = datos.num_cajas
-        if datos.confirmar_pesos:
-            if g.peso_neto_caja is None or g.peso_bruto_caja is None:
+                        f"{_ref(pll)}: not enough quantity for {datos.num_cajas} cartons."})
+            if any(d.num_cajas * datos.num_cajas % g.num_cajas for d in empaques.descendientes(pl, g)):
+                errores.append({"grupo_id": g.id, "mensaje": "What it carries inside cannot be split evenly "
+                                f"into {datos.num_cajas} units."})
+            else:
+                _escalar(pl, g, datos.num_cajas)
+    _rehacer(db, pl)
+    if datos.confirmar_pesos:
+        for g in seleccion:
+            if g.peso_neto_caja is None:
                 errores.append({"grupo_id": g.id, "mensaje": "Some cartons have no weight; enter it before confirming."})
             g.peso_estimado = False
     if errores:
@@ -739,13 +846,16 @@ def eliminar_cajas(db: Session, user: Usuario, pl_id: int, datos) -> dict:
         g = grupos.get(gid)
         if not g:
             raise ErrorNegocio("One of the cartons is no longer in the packing list. Reload.", 404, "no_encontrado")
+        if g not in pl.grupos:
+            continue  # ya salió con su contenedor
         total += g.num_cajas
-        afectadas.update(it.pl_linea for it in g.items)
-        pl.grupos.remove(g)
-    limpiar_pallets(pl)
+        afectadas.update(pll for pll, _ in empaques.contenido(pl, g))
+        _quitar_nodo(pl, g)
+    _limpiar_vacios(pl)
     db.flush()
     for pll in afectadas:
         db.expire(pll, ["items"])
+    _rehacer(db, pl)
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "desempacar", {"cajas": total}, factura_id=pl.factura_id)
     return {"version": pl.version}
@@ -757,18 +867,19 @@ def guardar_como_plantilla(db: Session, user: Usuario, pl_id: int, grupo_id: int
     g = next((x for x in pl.grupos if x.id == grupo_id), None)
     if not g:
         raise ErrorNegocio("The carton does not exist.", 404, "no_encontrado")
-    if len(g.items) != 1:
+    cont = empaques.contenido(pl, g)
+    if len(cont) != 1:
         raise ErrorNegocio("Only a single-product carton can be saved as a template.", 422, "validacion")
     nombre = nombre.strip()
     existe = db.scalar(select(PlantillaCaja.id).where(
         PlantillaCaja.proveedor_id == pl.factura.proveedor_id, PlantillaCaja.nombre == nombre))
     if existe:
         raise ErrorNegocio(f"A template named “{nombre}” already exists.", 409, "duplicado")
-    it = g.items[0]
+    pll, n = cont[0]
     t = PlantillaCaja(
-        proveedor_id=pl.factura.proveedor_id, nombre=nombre, cantidad_por_caja=it.cantidad_por_caja,
-        unidad=it.pl_linea.factura_linea.unidad, largo=g.largo, ancho=g.ancho, alto=g.alto,
-        peso_neto=g.peso_neto_caja, peso_bruto=g.peso_bruto_caja, activa=True,
+        proveedor_id=pl.factura.proveedor_id, nombre=nombre, cantidad_por_caja=int(n),
+        unidad=pll.factura_linea.unidad, largo=g.largo, ancho=g.ancho, alto=g.alto,
+        tara=g.tara, tipo_empaque=g.tipo_empaque, activa=True,
     )
     db.add(t)
     db.flush()
@@ -786,7 +897,9 @@ def destinos_pl(db: Session, pl: PackingList) -> list[dict]:
         d = por.setdefault(fl.centro_destino, {"centro_destino": fl.centro_destino, "por_unidad": {}, "cajas": 0})
         d["por_unidad"][fl.unidad] = d["por_unidad"].get(fl.unidad, 0) + pll.cantidad
     for g in pl.grupos:
-        destinos = {it.pl_linea.factura_linea.centro_destino for it in g.items}
+        if empaques.cuenta_como(g) != "BULTO":
+            continue
+        destinos = {x.factura_linea.centro_destino for x, _ in empaques.contenido(pl, g)}
         if len(destinos) == 1:
             por[destinos.pop()]["cajas"] += g.num_cajas
     for d in por.values():
@@ -816,23 +929,27 @@ def validar_pl(pl: PackingList) -> list[dict]:
             f"{cant_txt(cantidad, unidad)} not in cartons (rows: {filas})."})
     rangos = numeracion(pl)
     for g in pl.grupos:
-        d, h = rangos[g.id]
-        etiqueta = f"Carton {d}" if d == h else f"Cartons {d}–{h}"
-        faltan = [n for n, v in (("largo", g.largo), ("ancho", g.ancho), ("alto", g.alto)) if not v]
-        if faltan:
-            errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: dimensions missing ({', '.join(MEDIDA_TXT[x] for x in faltan)})."})
-        if not g.peso_neto_caja or not g.peso_bruto_caja:
-            errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: net or gross weight missing."})
-        elif g.peso_bruto_caja < g.peso_neto_caja:
-            errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: gross weight is less than net weight."})
+        etiqueta = f"{empaques.nombre_tipo(g)} {empaques.rango_txt(pl, g, rangos)}"
+        # Medidas exteriores: las necesita el bulto y lo que no va dentro de otro empaque
+        if g.padre is None or empaques.cuenta_como(g) == "BULTO":
+            faltan = [n for n, v in (("largo", g.largo), ("ancho", g.ancho), ("alto", g.alto)) if not v]
+            if faltan:
+                errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: dimensions missing ({', '.join(MEDIDA_TXT[x] for x in faltan)})."})
+        if g.items and not g.peso_neto_caja:
+            sin = sorted({it.pl_linea.factura_linea.codigo_sap for it in g.items
+                          if empaques.peso_linea(it.pl_linea.factura_linea) is None})
+            errores.append({"grupo_id": g.id, "codigo": "sin_peso", "mensaje":
+                            f"{etiqueta}: net weight missing. Set the unit weight of item {', '.join(sin)} "
+                            "or enter the net weight." if sin else f"{etiqueta}: net weight missing."})
         for it in g.items:
             n = inner_de(it.pl_linea.factura_linea)
             if n and it.cantidad_por_caja % n:
                 errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: {_ref(it.pl_linea)} carries "
                                 f"{it.cantidad_por_caja} per carton, not whole inner packs of {n}."})
-        if g.peso_estimado:
+        if g.peso_estimado and not empaques.calculado(g):
             errores.append({"grupo_id": g.id, "codigo": "peso_estimado",
                             "mensaje": f"{etiqueta}: the weight is estimated; confirm or correct it."})
+    errores.extend(empaques.validar(pl, rangos))
     return errores
 
 
@@ -841,15 +958,22 @@ def avisos_pl(pl: PackingList) -> list[dict]:
     avisos = []
     rangos = numeracion(pl)
     for g in pl.grupos:
-        if len(g.items) != 1:
+        if empaques.cuenta_como(g) != "BULTO":
             continue
-        it = g.items[0]
-        regla, por_caja = regla_empaque(it.pl_linea.factura_linea)
-        if regla == "CASEPACK" and it.cantidad_por_caja != por_caja:
-            d, h = rangos[g.id]
+        cont = empaques.contenido(pl, g)
+        if len(cont) != 1:
+            continue
+        pll, n = cont[0]
+        regla, por_caja = regla_empaque(pll.factura_linea)
+        if regla == "CASEPACK" and n != por_caja:
             avisos.append({"grupo_id": g.id, "mensaje":
-                f"Carton {d if d == h else f'{d}–{h}'}: partial ({it.cantidad_por_caja} of {por_caja} of the casepack). "
+                f"Carton {empaques.rango_txt(pl, g, rangos)}: partial ({n:g} of {por_caja} of the casepack). "
                 "Confirm it with the Commercial Brand Manager."})
+    sin_peso = sorted({pll.factura_linea.codigo_sap for pll in pl.lineas if empaques.peso_linea(pll.factura_linea) is None})
+    if sin_peso:
+        lista = ", ".join(sin_peso[:8]) + ("…" if len(sin_peso) > 8 else "")
+        avisos.append({"codigo": "sin_peso_articulo",
+                       "mensaje": f"Items without unit weight: {lista}. Their net weight is entered by hand."})
     return avisos
 
 
@@ -858,6 +982,7 @@ def finalizar_pl(db: Session, user: Usuario, pl_id: int, version: int) -> dict:
     pl = _editable(db, user, pl_id, version)
     if pl.factura.estado == "CANCELADA":
         raise ErrorNegocio("The invoice is cancelled.", 409, "no_editable")
+    _rehacer(db, pl)
     errores = validar_pl(pl)
     if errores:
         raise ErrorNegocio("Some data is missing before finalizing.", 422, "pendientes", errores)
@@ -966,6 +1091,8 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
 
     pl = cargar_pl(db, user, pl_id)
     f = pl.factura
+    if pl.estado in EDITABLE_PL:
+        empaques.recalcular(pl)  # el peso de los artículos pudo cambiar
     rangos = numeracion(pl)
     ultima_plantilla = _sugerencias(db, pl)
 
@@ -988,6 +1115,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "talla": fl.talla,
             "descripcion": fl.descripcion,
             "unidad": fl.unidad,
+            "peso_unitario": empaques.peso_linea(fl),
             "marca": fl.marca,
             "tipo_empaque": fl.tipo_empaque,
             "casepack": fl.casepack,
@@ -1015,46 +1143,60 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
         })
 
     grupos = []
-    for g in pl.grupos:
+    for g in empaques._orden_arbol(pl):
         d, h = rangos[g.id]
         cbm = cbm_caja(g)
-        items = [{
-            "pl_linea_id": it.pl_linea_id,
-            "codigo_sap": it.pl_linea.factura_linea.codigo_sap,
-            "estilo": it.pl_linea.factura_linea.estilo,
-            "color": it.pl_linea.factura_linea.color,
-            "talla": it.pl_linea.factura_linea.talla,
-            "unidad": it.pl_linea.factura_linea.unidad,
-            "cantidad_por_caja": it.cantidad_por_caja,
-            "cantidad_total": it.cantidad_por_caja * g.num_cajas,
-            "inner_pack": inner_de(it.pl_linea.factura_linea),
-            "inner_packs_por_caja": (it.cantidad_por_caja // inner_de(it.pl_linea.factura_linea)
-                                     if inner_de(it.pl_linea.factura_linea) else None),
-        } for it in g.items]
+
+        def item(pll, n, g=g):
+            fl = pll.factura_linea
+            return {
+                "pl_linea_id": pll.id, "codigo_sap": fl.codigo_sap, "estilo": fl.estilo, "color": fl.color,
+                "talla": fl.talla, "unidad": fl.unidad, "cantidad_por_caja": n, "cantidad_total": n * g.num_cajas,
+                "peso_unitario": empaques.peso_linea(fl), "inner_pack": inner_de(fl),
+                "inner_packs_por_caja": (n // inner_de(fl) if inner_de(fl) else None),
+            }
+
+        hs = empaques.hijos(pl, g)
         grupos.append({
             "id": g.id,
             "desde": d,
             "hasta": h,
+            "etiqueta_rango": empaques.rango_txt(pl, g, rangos),
             "num_cajas": g.num_cajas,
-            "items": items,
-            "mixta": len(items) > 1,
+            "tipo_empaque_id": g.tipo_empaque_id,
+            "tipo": empaques.nombre_tipo(g),
+            "cuenta_como": empaques.cuenta_como(g),
+            "nivel": len(empaques.ancestros(g)),
+            "padre_id": g.padre_id,
+            "padre": empaques.rango_txt(pl, g.padre, rangos) if g.padre else None,
+            "por_padre": empaques.por_padre(g.padre, g) if g.padre else None,
+            "hijos": [{"id": x.id, "tipo": empaques.nombre_tipo(x), "etiqueta": empaques.rango_txt(pl, x, rangos),
+                       "por_unidad": empaques.por_padre(g, x)} for x in hs],
+            "items": [item(it.pl_linea, it.cantidad_por_caja) for it in g.items],
+            "contenido": [item(pll, n) for pll, n in empaques.contenido(pl, g)],
+            "mixta": len(empaques.contenido(pl, g)) > 1,
             "largo": g.largo,
             "ancho": g.ancho,
             "alto": g.alto,
+            "tara": g.tara,
+            "neto_manual": g.neto_manual,
+            "peso_calculado": empaques.calculado(g),
             "peso_neto_caja": g.peso_neto_caja,
             "peso_bruto_caja": g.peso_bruto_caja,
             "cbm_caja": round(cbm, 4) if cbm else None,
-            "cbm_total": round(cbm * g.num_cajas, 4) if cbm else None,
+            "cbm_total": round(cbm * g.num_cajas, 4) if cbm and g.padre is None else None,
             "peso_neto_total": round(g.peso_neto_caja * g.num_cajas, 3) if g.peso_neto_caja else None,
             "peso_bruto_total": round(g.peso_bruto_caja * g.num_cajas, 3) if g.peso_bruto_caja else None,
             "plantilla_id": g.plantilla_id,
             "plantilla_nombre": g.plantilla_nombre,
             "es_parcial": g.es_parcial,
-            "peso_estimado": g.peso_estimado,
+            "peso_estimado": g.peso_estimado and not empaques.calculado(g),
             "observacion": g.observacion,
-            "etiqueta": etiqueta_caja(g),
-            "pallet_id": g.pallet_id,
-            "pallet": g.pallet.numero if g.pallet else None,
+            "etiqueta": etiqueta_caja(g, pl),
+            # Compatibilidad: el soporte (pallet) en el que va
+            "pallet_id": next((a.id for a in empaques.ancestros(g) if empaques.cuenta_como(a) == "SOPORTE"), None),
+            "pallet": next((empaques.rango_txt(pl, a, rangos) for a in empaques.ancestros(g)
+                            if empaques.cuenta_como(a) == "SOPORTE"), None),
         })
 
     saldo = _saldo_factura(db, f)
@@ -1068,7 +1210,8 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
                     "proveedor_id": f.proveedor_id, "proveedor": f.proveedor.nombre},
         "lineas": lineas,
         "grupos": grupos,
-        "pallets": resumen_pallets(pl),
+        "pallets": resumen_contenedores(pl, rangos),
+        "tipos_empaque": [empaques.tipo_dict(t) for t in empaques.tipos_activos(db)],
         "partes": partes(db, f.sociedad, f.centro, f.centro_destino),
         "totales": totales_pl(pl),
         "destinos": destinos_pl(db, pl),
@@ -1084,8 +1227,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
         "transporte": _info_transporte(pl),
         "plantillas": [
             {"id": t.id, "nombre": t.nombre, "cantidad_por_caja": t.cantidad_por_caja, "unidad": t.unidad,
-             "largo": t.largo, "ancho": t.ancho, "alto": t.alto, "peso_neto": t.peso_neto,
-             "peso_bruto": t.peso_bruto}
+             "largo": t.largo, "ancho": t.ancho, "alto": t.alto, "tara": t.tara, "tipo_empaque_id": t.tipo_empaque_id}
             for t in db.scalars(select(PlantillaCaja).where(
                 PlantillaCaja.proveedor_id == f.proveedor_id, PlantillaCaja.activa.is_(True))
                 .order_by(PlantillaCaja.nombre)).all()

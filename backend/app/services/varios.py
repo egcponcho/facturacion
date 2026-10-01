@@ -48,7 +48,7 @@ def resolver_alerta(db: Session, user: Usuario, alerta_id: int) -> dict:
 def _plantilla_dict(t: PlantillaCaja) -> dict:
     return {c: getattr(t, c) for c in (
         "id", "proveedor_id", "nombre", "cantidad_por_caja", "unidad", "largo", "ancho", "alto",
-        "peso_neto", "peso_bruto", "tara", "activa")}
+        "tara", "tipo_empaque_id", "activa")} | {"tipo_empaque": t.tipo_empaque.nombre if t.tipo_empaque else None}
 
 
 def listar_plantillas(db: Session, user: Usuario, proveedor_id: int | None, incluir_inactivas: bool) -> list[dict]:
@@ -61,9 +61,11 @@ def listar_plantillas(db: Session, user: Usuario, proveedor_id: int | None, incl
     return [_plantilla_dict(t) for t in db.scalars(consulta).all()]
 
 
-def _validar_pesos(neto, bruto):
-    if neto is not None and bruto is not None and bruto < neto:
-        raise ErrorNegocio("Gross weight cannot be less than net weight.", 422, "validacion")
+def _validar_tipo(db: Session, tipo_id):
+    from ..models import TipoEmpaque
+
+    if tipo_id and not db.get(TipoEmpaque, tipo_id):
+        raise ErrorNegocio("The packaging type does not exist.", 404, "no_encontrado")
 
 
 def crear_plantilla(db: Session, user: Usuario, datos) -> dict:
@@ -71,7 +73,7 @@ def crear_plantilla(db: Session, user: Usuario, datos) -> dict:
     prov = proveedor_filtro(user, datos.proveedor_id)
     if not prov:
         raise ErrorNegocio("Choose the template's supplier.", 422, "validacion")
-    _validar_pesos(datos.peso_neto, datos.peso_bruto)
+    _validar_tipo(db, datos.tipo_empaque_id)
     nombre = datos.nombre.strip()
     if db.scalar(select(PlantillaCaja.id).where(PlantillaCaja.proveedor_id == prov, PlantillaCaja.nombre == nombre)):
         raise ErrorNegocio(f"A template named “{nombre}” already exists.", 409, "duplicado")
@@ -97,9 +99,9 @@ def actualizar_plantilla(db: Session, user: Usuario, plantilla_id: int, datos) -
             PlantillaCaja.id != t.id))
         if otra:
             raise ErrorNegocio(f"A template named “{campos['nombre']}” already exists.", 409, "duplicado")
+    _validar_tipo(db, campos.get("tipo_empaque_id"))
     for k, v in campos.items():
         setattr(t, k, v)
-    _validar_pesos(t.peso_neto, t.peso_bruto)
     return _plantilla_dict(t)
 
 

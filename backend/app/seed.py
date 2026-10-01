@@ -25,7 +25,6 @@ from .models import (
     OrdenCompra,
     PackingList,
     Pais,
-    Pallet,
     PlantillaCaja,
     PLLinea,
     PosicionOC,
@@ -34,6 +33,7 @@ from .models import (
     Proveedor,
     Puerto,
     PlanLeadTime,
+    TipoEmpaque,
     RegionLeadTime,
     Sociedad,
     TipoUnidad,
@@ -42,6 +42,7 @@ from .models import (
     Usuario,
 )
 from .security import hash_password
+from .services import empaques
 from .services import pasos_leadtime as pasos_svc
 from .services.common import registrar
 from .services.genericos import sufijo_convencional
@@ -300,6 +301,31 @@ def _catalogos(db: Session) -> dict:
     return {"marcas": marcas, "grupos": grupos, "sociedades": socs}
 
 
+# Peso neto de una unidad por grupo (kg); el empaque suma su propia tara
+PESO_GRUPO = {"CALZ-OUT": 0.9, "CALZ-CAS": 0.8, "CHAQ": 0.9, "FLEE": 0.5, "MOCH": 0.8}
+# Tipos de empaque de ejemplo: cada empresa define los suyos
+TIPOS_EMPAQUE = [
+    # código, nombre, nivel, prefijo, cuenta como, medidas, tara, peso máx., lleva producto
+    ("INNER", "Inner pack", 1, "PK", "INTERIOR", None, 0.05, None, True),
+    ("CAJA", "Master carton", 2, "C", "BULTO", (60, 40, 40), 0.7, 30, True),
+    ("PALLET", "Pallet", 3, "P", "SOPORTE", (120, 100, 15), 20, 1000, False),
+]
+
+
+def _tipos_empaque(db: Session) -> dict:
+    tipos = {}
+    for cod, nom, nivel, pre, cuenta, medidas, tara, maximo, producto in TIPOS_EMPAQUE:
+        largo, ancho, alto = medidas or (None, None, None)
+        tipos[cod] = TipoEmpaque(codigo=cod, nombre=nom, nivel=nivel, prefijo=pre, cuenta_como=cuenta, largo=largo,
+                                 ancho=ancho, alto=alto, tara=tara, peso_max=maximo, contiene_productos=producto,
+                                 identificador="SSCC" if cuenta != "INTERIOR" else None)
+    tipos["CAJA"].contiene = [tipos["INNER"]]
+    tipos["PALLET"].contiene = [tipos["CAJA"]]
+    db.add_all(tipos.values())
+    db.flush()
+    return tipos
+
+
 def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
     """Maestro de artículos: sólidos (con casepack en calzado, sin casepack en
     ropa) con un número de artículo por estilo-color-talla, y prepacks cuya
@@ -320,7 +346,8 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
             a = Articulo(sku=sku, generico=gen, sku_proveedor=_sku_proveedor(estilo, color, talla), upc=f"0196{int(sku) % 10**8:08d}",
                          estilo=estilo, color=color, talla=talla,
                          descripcion=desc, marca_id=cat["marcas"][marca].id, grupo_id=cat["grupos"][grupo].id,
-                         proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO")
+                         proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO",
+                         peso_unitario=PESO_GRUPO.get(grupo))
             a.precio_demo = precio
             a.origen_demo = origen
             a.partida_demo = partida
@@ -455,18 +482,27 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
         pl.lineas.append(pll)
         t = plantillas[p.estilo]
         g = GrupoCajas(num_cajas=p.cantidad // t.cantidad_por_caja, largo=t.largo, ancho=t.ancho, alto=t.alto,
-                       peso_neto_caja=t.peso_neto, peso_bruto_caja=t.peso_bruto, plantilla_id=t.id,
-                       plantilla_nombre=t.nombre)
-        g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=t.cantidad_por_caja))
+                       tara=t.tara, tipo_empaque=t.tipo_empaque, plantilla_id=t.id, plantilla_nombre=t.nombre)
         pl.grupos.append(g)
+        n = p.inner_pack if p.tipo_empaque != "PREPACK" else None
+        if n and t.cantidad_por_caja % n == 0 and t.tipo_empaque:
+            # Inner packs físicos dentro de cada caja, con su tara
+            inner = empaques.tipo_interior(t.tipo_empaque)
+            h = GrupoCajas(num_cajas=g.num_cajas * t.cantidad_por_caja // n, tipo_empaque=inner, padre=g, tara=inner.tara)
+            h.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=n))
+            pl.grupos.append(h)
+        else:
+            g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=t.cantidad_por_caja))
     if pallet:
-        # Todo el PL en un pallet estándar
-        tarima = Pallet(numero=1, largo=120, ancho=100, alto=160, peso_tara=25)
-        pl.pallets.append(tarima)
-        for g in pl.grupos:
-            g.pallet = tarima
+        # Todo el PL en un pallet estándar: el pallet armado mide 160 cm de alto
+        tipo = db.scalar(select(TipoEmpaque).where(TipoEmpaque.codigo == "PALLET"))
+        tarima = GrupoCajas(num_cajas=1, tipo_empaque=tipo, largo=120, ancho=100, alto=160, tara=tipo.tara)
+        for g in [x for x in pl.grupos if x.padre is None]:
+            g.padre = tarima
+        pl.grupos.append(tarima)
     db.add(f)
     db.flush()
+    empaques.recalcular(pl)
     registrar(db, usuario, "factura", f.id, "crear", {"lineas": len(f.lineas), "ocs": [oc.numero]}, factura_id=f.id)
     registrar(db, usuario, "packing_list", pl.id, "aplicar_plantilla", {"plantillas": sorted(
         {plantillas[p.estilo].nombre for p in oc.posiciones})}, factura_id=f.id)
@@ -572,6 +608,7 @@ def seed(db: Session) -> None:
     vans.sociedades = [cat["sociedades"]["8000"], cat["sociedades"]["PA01"]]
     db.flush()
     arts = _articulos(db, cat, {"TNF": tnf, "VANS": vans})
+    tipos = _tipos_empaque(db)
     hoy = date.today()
     d = lambda n: hoy + timedelta(days=n)  # noqa: E731
 
@@ -603,19 +640,19 @@ def seed(db: Session) -> None:
         logistica="304")
 
     chaqueta = PlantillaCaja(proveedor_id=tnf.id, nombre="Jacket carton 10 units", cantidad_por_caja=10, unidad="UN",
-                             largo=60, ancho=40, alto=40, peso_neto=9.0, peso_bruto=10.2, tara=1.2)
+                             largo=60, ancho=40, alto=40, tara=1.2, tipo_empaque=tipos["CAJA"])
     calzado = PlantillaCaja(proveedor_id=tnf.id, nombre="Footwear carton 12 pairs", cantidad_por_caja=12, unidad="PAR",
-                            largo=55, ancho=35, alto=33, peso_neto=10.8, peso_bruto=12.3, tara=1.5)
+                            largo=55, ancho=35, alto=33, tara=1.5, tipo_empaque=tipos["CAJA"])
     mochila = PlantillaCaja(proveedor_id=tnf.id, nombre="Backpack carton 20 units", cantidad_por_caja=20, unidad="UN",
-                            largo=70, ancho=50, alto=45, peso_neto=16.0, peso_bruto=17.5, tara=1.5)
+                            largo=70, ancho=50, alto=45, tara=1.5, tipo_empaque=tipos["CAJA"])
     fleece = PlantillaCaja(proveedor_id=tnf.id, nombre="Fleece carton 15 units", cantidad_por_caja=15, unidad="UN",
-                           largo=60, ancho=40, alto=35, peso_neto=7.5, peso_bruto=8.6, tara=1.1)
+                           largo=60, ancho=40, alto=35, tara=1.1, tipo_empaque=tipos["CAJA"])
     master12 = PlantillaCaja(proveedor_id=vans.id, nombre="Master 12 pairs", cantidad_por_caja=12, unidad="PAR",
-                             largo=60, ancho=38, alto=35, peso_neto=9.6, peso_bruto=11.0, tara=1.4)
+                             largo=60, ancho=38, alto=35, tara=1.4, tipo_empaque=tipos["CAJA"])
     master10 = PlantillaCaja(proveedor_id=vans.id, nombre="Master 10 pairs", cantidad_por_caja=10, unidad="PAR",
-                             largo=55, ancho=38, alto=32, peso_neto=8.0, peso_bruto=9.2, tara=1.2)
+                             largo=55, ancho=38, alto=32, tara=1.2, tipo_empaque=tipos["CAJA"])
     prepack = PlantillaCaja(proveedor_id=vans.id, nombre="Master prepack (1 assortment)", cantidad_por_caja=1, unidad="CJ",
-                            largo=60, ancho=38, alto=35, peso_neto=9.6, peso_bruto=11.0, tara=1.4)
+                            largo=60, ancho=38, alto=35, tara=1.4, tipo_empaque=tipos["CAJA"])
     db.add_all([chaqueta, calzado, mochila, fleece, master12, master10, prepack])
     db.flush()
     _historial_demo(db, hoy, tnf, vans, (u_tnf, u_vans), {

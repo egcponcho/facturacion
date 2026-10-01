@@ -41,6 +41,8 @@ ALIAS_ART = {
     "brand": "marca", "marca": "marca", "item_group": "grupo", "group": "grupo", "grupo": "grupo",
     "supplier": "proveedor", "proveedor": "proveedor", "unit": "unidad", "uom": "unidad", "unidad": "unidad",
     "type": "tipo", "active": "activo",
+    "unit_weight_kg": "peso_unitario", "unit_weight": "peso_unitario", "weight_kg": "peso_unitario",
+    "peso_unitario": "peso_unitario", "peso_unitario_kg": "peso_unitario", "peso": "peso_unitario",
     "commercial_name": "nombre", "product_name": "nombre", "name": "nombre", "description": "nombre",
     "category": "categoria", "product_type": "categoria", "categoria": "categoria",
     "gender": "genero", "genero": "genero", "who_it_is_for": "edad", "age": "edad", "edad": "edad",
@@ -96,6 +98,8 @@ def plantilla_articulos(db: Session) -> bytes:
         {"nombre": "Size", "req": True, "ayuda": "e.g. 8, 8.5, M, OS.", "ancho": 8},
         {"nombre": "Item code", "ayuda": "Your item code for this size (numbers or letters). Empty = generic + size code.", "ancho": 14},
         {"nombre": "Size code", "ayuda": "Only if the item code is empty: it is added to the generic. Empty = generated (numeric sizes × 10: 7 → 070; others 001, 002…).", "ancho": 10},
+        {"nombre": "Unit weight kg", "ayuda": "Net weight of one unit (pair or piece), without packaging: each "
+         "packaging level adds its own tare in the packing list.", "ancho": 11},
         {"nombre": "UPC", "ancho": 15},
         {"nombre": "Supplier SKU", "ayuda": "The supplier's own code (e.g. VN0A5KRFBLK-8).", "ancho": 18},
         {"nombre": "Active", "opciones": ["Yes", "No"], "ancho": 8},
@@ -103,7 +107,8 @@ def plantilla_articulos(db: Session) -> bytes:
     ej_gen = ["30095129", "VN0A5KRF", "Black", marcas[-1] if marcas else "", grupos[0] if grupos else "",
               provs[-1] if provs else "", "PAR", "Footwear: sneakers, boots, shoes, sandals", "Unisex",
               "Adult", "Casual skate sneaker", "VN", "", "", "", "100% canvas", "100% rubber", "100% textile", "100% EVA"]
-    ej_tallas = [["30095129", t, "", f"{int(t) * 10:03d}", f"01960129{i:04d}", f"VN0A5KRFBLK-{t}", "Yes"] for i, t in enumerate(["8", "9", "10"], 1)]
+    ej_tallas = [["30095129", t, "", f"{int(t) * 10:03d}", 0.8, f"01960129{i:04d}", f"VN0A5KRFBLK-{t}", "Yes"]
+                 for i, t in enumerate(["8", "9", "10"], 1)]
     return plantilla_hojas("Items by generic, with technical sheet",
                            [("Generics", gen_cols, [ej_gen]), ("Sizes", tallas_cols, ej_tallas)], [
         "The generic groups the sizes of one style-color: classification and technical sheet are per generic, "
@@ -214,6 +219,8 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
         for k in ("upc", "sku_proveedor"):
             if f.get(k):
                 datos[k] = f[k].strip()
+        if f.get("peso_unitario"):
+            datos["peso_unitario"] = f["peso_unitario"].replace(",", ".").strip()
         if f.get("activo"):
             datos["activo"] = si_no(f["activo"]) is not False
         try:
