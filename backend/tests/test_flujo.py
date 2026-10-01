@@ -910,3 +910,24 @@ def test_inner_pack_en_el_packing_list(interno, vans):
     grupo = pl["grupos"][0]
     assert grupo["items"][0]["inner_packs_por_caja"] == 3
     assert vans.put(url, {"version": pl["version"], "inner_pack": 6}).status_code == 409
+
+
+def test_estado_del_embarque_frente_a_tienda(interno):
+    """El embarque se califica con la fecha estimada en tienda: en tiempo, en
+    riesgo o atrasado. El tipo de producto puede sumar días después del puerto."""
+    from datetime import date
+    embs = interno.get("/embarques").json()
+    assert all("estado_tiempo" in e for e in embs)
+    con = [e for e in embs if e["estado_tiempo"]]
+    assert con and all(e["estado_tiempo"] in ("A_TIEMPO", "JUSTO", "ATRASO") for e in con)
+    det = interno.get(f"/embarques/{con[0]['id']}").json()
+    assert det["estado_tiempo"] == con[0]["estado_tiempo"]
+    # Días extra del tipo de producto: la estimación en tienda se corre
+    ocs = interno.get("/ordenes", params={"size": 50}).json()["items"]
+    o = next(o for o in ocs if o.get("tienda_estimada"))
+    grupo = interno.get(f"/ordenes/{o['id']}/posiciones").json()["posiciones"][0]["grupo"]
+    g = next(x for x in interno.get("/catalogos/grupos").json()["items"] if x["codigo"] == grupo)
+    assert interno.patch(f"/catalogos/grupos/{g['id']}", {"dias_extra": 10}).status_code == 200
+    o2 = next(x for x in interno.get("/ordenes", params={"size": 50}).json()["items"] if x["id"] == o["id"])
+    assert (date.fromisoformat(o2["tienda_estimada"]) - date.fromisoformat(o["tienda_estimada"])).days == 10
+    interno.patch(f"/catalogos/grupos/{g['id']}", {"dias_extra": None})

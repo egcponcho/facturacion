@@ -83,6 +83,9 @@ class Settings:
     # Campos de la OC que no se pueden mezclar en una factura (bloquean)
     # y campos que solo generan advertencia.
     COMPATIBILIDAD_BLOQUEANTE: tuple[str, ...] = ("sociedad", "moneda", "centro")
+    # Holgura mínima (días) frente a la fecha en tienda para considerarse "en tiempo";
+    # con menos queda "en riesgo" y con holgura negativa, "atrasado"
+    DIAS_MARGEN_RIESGO: int = 7
     COMPATIBILIDAD_ADVERTENCIA: tuple[str, ...] = ("incoterm", "centro_destino")
 
 

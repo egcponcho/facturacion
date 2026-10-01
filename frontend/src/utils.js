@@ -57,6 +57,12 @@ export const COMERCIAL = {
   C: [t('Commercial released'), 'ok', t('Released by commercial')],
   P: [t('Commercial pending'), 'aviso', t('Pending commercial release: logistics cannot release')],
 }
+// Frente a la fecha requerida en tienda (la holgura mínima se configura en el servidor)
+export const TIEMPO = {
+  A_TIEMPO: [t('On time'), 'ok'],
+  JUSTO: [t('At risk'), 'aviso'],
+  ATRASO: [t('Late'), 'error'],
+}
 export const LIBERACION = {
   300: [t('Released'), 'ok', t('Released by logistics')],
   301: [t('Released with changes'), 'info', t('Released by logistics; the PO changed afterwards')],

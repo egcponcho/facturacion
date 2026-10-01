@@ -18,7 +18,7 @@ from ..models import (
 )
 from .cantidades import nombre_factura, totales_pl
 from .common import ErrorNegocio, exigir, registrar, requerir_motivo
-from .leadtimes import Estandares, limite_puerto
+from .leadtimes import Estandares, _riesgo, limite_puerto
 from .partes import partes
 
 ESTADO_POR_EVENTO = {
@@ -104,12 +104,22 @@ def resumen_unidad(u: UnidadCarga) -> dict:
     if pct_kg and pct_kg > 100:
         alertas.append(f"The weight exceeds the nominal capacity ({pct_kg}%).")
     ocs = {pl_linea.factura_linea.posicion_oc.oc for pl in pls for pl_linea in pl.lineas}
+    grupos: dict[int, set] = {}
+    for pl in pls:
+        for pl_linea in pl.lineas:
+            pos = pl_linea.factura_linea.posicion_oc
+            grupos.setdefault(pos.oc_id, set()).add(pos.grupo)
     tiendas = [o.fecha_tienda for o in ocs if o.fecha_tienda]
-    llegada = u.embarque.arribo_real or u.embarque.eta
-    tienda = min(tiendas) if tiendas else None
-    # Fecha límite de arribo: la fecha en tienda menos puerto→bodega, ingreso y reexportación de su origen
+    e = u.embarque
     ests = Estandares(object_session(u)) if ocs else None
-    limites = [limite_puerto(o.fecha_tienda, ests.de(o.pais_origen)) for o in ocs if o.fecha_tienda]
+    # Llegada: real, ETA o la salida (real o ETD) más el tránsito estándar de su origen
+    salida = e.salida_real or e.etd
+    transito = max((ests.de(o.pais_origen)["dias_transito"] for o in ocs), default=0) if ests else 0
+    llegada = e.arribo_real or e.eta or (salida + timedelta(days=transito) if salida else None)
+    tienda = min(tiendas) if tiendas else None
+    # Fecha límite de arribo: la fecha en tienda menos puerto→bodega, ingreso, reexportación
+    # y los días extra del tipo de producto, según su origen
+    limites = [limite_puerto(o.fecha_tienda, ests.de(o.pais_origen, grupos.get(o.id))) for o in ocs if o.fecha_tienda]
     limite = min(limites) if limites else None
     return {
         "id": u.id,
@@ -118,6 +128,9 @@ def resumen_unidad(u: UnidadCarga) -> dict:
         "limite_puerto": limite,
         # Días entre la llegada al puerto (real o estimada) y la fecha límite de arribo
         "holgura_dias": (limite - llegada).days if limite and llegada else None,
+        # En tiempo / en riesgo / atrasado frente a la fecha en tienda (None: faltan fechas)
+        "estado_tiempo": _riesgo((limite - llegada).days) if limite and llegada else None,
+        "llegada_estimada": llegada,
         "marcas": sorted({pl_linea.factura_linea.marca for pl in pls for pl_linea in pl.lineas
                           if pl_linea.factura_linea.marca}),
         "recolectados": sum(1 for pl in pls if pl.recolectado_en),
@@ -145,6 +158,17 @@ def resumen_unidad(u: UnidadCarga) -> dict:
 
 
 # ---- Embarques --------------------------------------------------------------
+def tiempo_embarque(unidades: list[dict]) -> dict:
+    """Estado del embarque frente a la fecha en tienda: el peor de sus unidades
+    (atrasado > en riesgo > en tiempo); sin fechas suficientes queda pendiente."""
+    estados = [u["estado_tiempo"] for u in unidades if u.get("estado_tiempo")]
+    holguras = [u["holgura_dias"] for u in unidades if u.get("holgura_dias") is not None]
+    tiendas = [u["fecha_tienda"] for u in unidades if u.get("fecha_tienda")]
+    peor = next((x for x in ("ATRASO", "JUSTO", "A_TIEMPO") if x in estados), None)
+    return {"estado_tiempo": peor, "holgura_dias": min(holguras) if holguras else None,
+            "fecha_tienda": min(tiendas) if tiendas else None}
+
+
 def listar_embarques(db: Session, user: Usuario, estado: str | None = None, q: str | None = None) -> list[dict]:
     exigir(user, "transporte.gestionar")
     consulta = select(Embarque).order_by(Embarque.etd.desc().nullslast(), Embarque.id.desc())
@@ -163,6 +187,7 @@ def listar_embarques(db: Session, user: Usuario, estado: str | None = None, q: s
             "tentativas": sum(u["tentativas"] for u in unidades),
             "cbm": round(sum(u["cbm"] for u in unidades), 3),
             "proveedores": sorted({p for u in unidades for p in u["proveedores"]}),
+            **tiempo_embarque(unidades),
             "ocupacion": [{"id": u["id"], "nombre": u["nombre"], "tipo": u["tipo"], "pct_cbm": u["pct_cbm"],
                            "cbm": u["cbm"]} for u in unidades],
         })
@@ -311,9 +336,11 @@ def detalle_embarque(db: Session, user: Usuario, embarque_id: int) -> dict:
         select(Historial).where(Historial.entidad == "embarque", Historial.entidad_id == e.id)
         .order_by(Historial.fecha.desc())
     ).all()
+    unidades = [resumen_unidad(u) for u in e.unidades]
     return {
         **_cabecera(e),
-        "unidades": [resumen_unidad(u) for u in e.unidades],
+        "unidades": unidades,
+        **tiempo_embarque(unidades),
         "eventos": [
             {"id": ev.id, "tipo": ev.tipo, "fecha": ev.fecha, "ubicacion": ev.ubicacion,
              "observacion": ev.observacion}

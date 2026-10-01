@@ -5,7 +5,7 @@ import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, sesion } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
-import { fmtDiaMes, fmtFecha, fmtNum, porUnidadTxt } from '../utils'
+import { TIEMPO, fmtDiaMes, fmtFecha, fmtNum, porUnidadTxt } from '../utils'
 import EstadoBadge from './EstadoBadge.vue'
 import ExplosionPrepack from './ExplosionPrepack.vue'
 import GraficoColumnas from './GraficoColumnas.vue'
@@ -25,7 +25,7 @@ const tabla = reactive({ orden: '', page: 1, size: 25 })
 const abiertos = reactive({})
 const explosiones = reactive({})
 const explosion = ref(null)
-const RIESGOS = { ATRASO: [t('Arrives late'), 'error'], JUSTO: [t('Tight'), 'aviso'], A_TIEMPO: [t('On time'), 'ok'] }
+const RIESGOS = TIEMPO
 const MODOS = {
   MARITIMO: { nombre: t('Ocean'), icono: 'barco', unidad: t('Container'), doc: 'B/L' },
   AEREO: { nombre: t('Air'), icono: 'avion', unidad: t('Air waybill'), doc: 'AWB' },

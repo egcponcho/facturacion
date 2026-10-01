@@ -11,7 +11,7 @@ import TableroEmbarques from '../components/TableroEmbarques.vue'
 import TableroLeadTimes from '../components/TableroLeadTimes.vue'
 import TableroOrdenes from '../components/TableroOrdenes.vue'
 import { esInterno, sesion } from '../stores/sesion'
-import { fmtFecha } from '../utils'
+import { TIEMPO, fmtFecha } from '../utils'
 
 // Filtros de varios valores: se guardan como texto separado por comas
 const lst = (v) => (v ? String(v).split(',').filter(Boolean) : [])
@@ -58,7 +58,7 @@ const ETAPAS = [['PEND_LIBERACION', t('Pending release')], ['POR_FACTURAR', t('T
   ['EN_PL', t('In packing list')], ['CONTENEDOR', t('Assigned to a unit')], ['EN_TRANSITO', t('In transit')], ['ARRIBADO', t('Arrived')],
   ['ENTREGADO', t('Delivered')], ['RECIBIDO', t('Received')]]
 const MODOS = [['MARITIMO', t('Ocean')], ['AEREO', t('Air')], ['TERRESTRE', t('Road')]]
-const RIESGOS = { ATRASO: t('Arrives late'), JUSTO: t('Tight'), A_TIEMPO: t('On time') }
+const RIESGOS = Object.fromEntries(Object.entries(TIEMPO).map(([k, v]) => [k, v[0]]))
 
 const activos = computed(() => FILTROS.filter((k) => k !== 'q' && filtros[k]).map((k) => {
   let texto = filtros[k]

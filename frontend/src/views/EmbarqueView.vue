@@ -8,6 +8,7 @@ import Avance from '../components/Avance.vue'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
 import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import EstadoTiempo from '../components/EstadoTiempo.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import SelectBusqueda from '../components/SelectBusqueda.vue'
@@ -65,8 +66,6 @@ const FIJOS_SALIDA = ['documento_numero', 'transportista_id', 'puerto_origen', '
 const fijo = (campo) => cerrado.value && (FIJOS_SALIDA.includes(campo) || (e.value.arribo_real && ['eta', 'puerto_destino'].includes(campo)))
 const eventosPermitidos = computed(() => EVENTOS.filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)))
 const ultimoEvento = computed(() => (e.value?.eventos || []).reduce((a, ev) => (!a || ev.fecha > a ? ev.fecha : a), null))
-const tonoHolgura = (d) => (d === null || d === undefined ? '' : d < 0 ? 'error' : d < 7 ? 'aviso' : 'ok')
-const holguraTxt = (d) => (d < 0 ? t('{0} d late for the store', [-d]) : t('{0} d margin', [d]))
 const exigeSello = computed(() => !!u.value?.requiere_sello)
 const modo = computed(() => MODOS[e.value?.tipo_transporte] || MODOS.MARITIMO)
 const UNIDADES_TXT = { MARITIMO: [t('Container'), t('Containers')], AEREO: [t('Air waybill'), t('Air waybills')], TERRESTRE: [t('Truck'), t('Trucks')] }
@@ -311,6 +310,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
         <Icono :nombre="icono" :tam="26" />
         <span class="doc-numero">{{ tx(e.codigo) }}</span>
         <EstadoBadge :estado="e.estado" />
+        <EstadoTiempo :estado="e.estado_tiempo" :holgura="e.holgura_dias" />
         <span class="doc-sub">{{ tx(modo.nombre) }}</span>
         <span v-if="e.modalidad" class="etiqueta acento" :title="tx(e.modalidad === 'MIXTO' ? t('Combines units of different modalities (e.g. FCL and LCL)') : '')">{{ tx(e.modalidad) }}</span>
         <div class="doc-acciones">
@@ -377,7 +377,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <Avance v-if="x.capacidad_cbm" :porcentaje="x.pct_cbm || 0" />
           <span class="ayuda">{{ plural(x.packing_lists, 'PL', t('PLs')) }} · {{ fmtNum(x.cbm, 1) }} m³<template v-if="x.tentativas"> · <span class="etiqueta aviso">{{ t('{0} tentative', [x.tentativas]) }}</span></template></span>
           <span v-if="x.marcas?.length" class="ayuda">{{ tx(x.marcas.join(' · ')) }}</span>
-          <span v-if="x.holgura_dias !== null && x.holgura_dias !== undefined" class="etiqueta" :class="tonoHolgura(x.holgura_dias)" style="margin-inline-start: 0">{{ tx(holguraTxt(x.holgura_dias)) }}</span>
+          <EstadoTiempo v-if="x.estado_tiempo" :estado="x.estado_tiempo" :holgura="x.holgura_dias" />
           <span v-for="a in x.alertas" :key="a" class="etiqueta error">{{ tx(a) }}</span>
         </button>
         <button v-if="!cerrado" class="unidad-pestana agregar" @click="abrirNuevaUnidad"><Icono nombre="mas" :tam="20" />{{ t('Add {0}', [unidadTxt[0].toLowerCase()]) }}</button>
@@ -397,8 +397,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
               </label>
               <div class="dato"><span>{{ t('First in-store date') }}</span><b>{{ fmtFecha(u.fecha_tienda) }}</b></div>
               <div class="dato"><span>{{ t('Arrival vs. store') }}</span>
-                <b v-if="u.holgura_dias !== null && u.holgura_dias !== undefined"><span class="etiqueta" :class="tonoHolgura(u.holgura_dias)" style="margin-inline-start: 0">{{ tx(holguraTxt(u.holgura_dias)) }}</span></b>
-                <b v-else class="apagado">{{ t('ETA or in-store date missing') }}</b>
+                <b><EstadoTiempo :estado="u.estado_tiempo" :holgura="u.holgura_dias" /></b>
               </div>
             </div>
           </div>

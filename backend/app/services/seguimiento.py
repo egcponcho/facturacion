@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..models import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
 from .cantidades import facturado_por_posicion, nombre_factura
 from .common import proveedor_filtro
-from .leadtimes import Estandares, arribo_estimado, dias_post_arribo, limite_puerto
+from .leadtimes import Estandares, _riesgo, arribo_estimado, dias_post_arribo, limite_puerto
 
 ETAPAS = [
     ("PEND_LIBERACION", "Pending release"),
@@ -32,14 +32,6 @@ ORDEN = {"almacen", "grupo", "documento", "marca", "estilo", "color", "talla", "
          "holgura", "embarque", "contenedor", "recolectado_en", "proveedor"}
 
 
-def _riesgo(holgura: int | None) -> str | None:
-    if holgura is None:
-        return None
-    if holgura < 0:
-        return "ATRASO"
-    if holgura < 7:
-        return "JUSTO"
-    return "A_TIEMPO"
 
 
 def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) -> dict:
@@ -80,9 +72,9 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     posiciones = list(db.scalars(consulta).all())
     ests = Estandares(db)
 
-    def sin_embarque(fila: dict, oc: OrdenCompra) -> None:
+    def sin_embarque(fila: dict, oc: OrdenCompra, grupo: str | None = None) -> None:
         # Aún sin embarque: se estima el arribo con la XF y el tránsito estándar de su origen
-        est = ests.de(oc.pais_origen)
+        est = ests.de(oc.pais_origen, grupo)
         llegada = arribo_estimado(oc.fecha_xf, est, hoy)
         _en_tienda(fila, llegada, est)
         lim = fila["limite_puerto"]
@@ -95,9 +87,9 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     for p in posiciones:
         saldo = p.cantidad - facturado.get(p.id, 0)
         if saldo > 0:
-            fila = {**_base(p, p.oc, hoy, ests.de(p.oc.pais_origen)), "cantidad": saldo,
+            fila = {**_base(p, p.oc, hoy, ests.de(p.oc.pais_origen, p.grupo)), "cantidad": saldo,
                     "etapa": "POR_FACTURAR" if p.oc.liberada else "PEND_LIBERACION"}
-            sin_embarque(fila, p.oc)
+            sin_embarque(fila, p.oc, p.grupo)
             filas.append(fila)
 
     consulta = select(FacturaLinea).join(Factura).where(Factura.estado != "CANCELADA")
@@ -113,7 +105,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             if pl.estado == "CANCELADO":
                 continue
             en_pl += pll.cantidad
-            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen)), "cantidad": pll.cantidad, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen, p.grupo)), "cantidad": pll.cantidad, "factura_id": f.id,
                     "factura": nombre_factura(f), "pl_id": pl.id, "pl": pl.numero, "etapa": "EN_PL",
                     "recolectado_en": pl.recolectado_en}
             if pl.recolectado_en and oc.fecha_xf:
@@ -131,18 +123,18 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
                 llegada = e.arribo_real or e.eta or (
                     (e.salida_real or e.etd) + timedelta(days=ests.de(oc.pais_origen)["dias_transito"])
                     if (e.salida_real or e.etd) else arribo_estimado(oc.fecha_xf, ests.de(oc.pais_origen), hoy))
-                _en_tienda(fila, llegada, ests.de(oc.pais_origen))
+                _en_tienda(fila, llegada, ests.de(oc.pais_origen, p.grupo))
                 if fila["limite_puerto"] and llegada:
                     fila["holgura"] = (fila["limite_puerto"] - llegada).days
                 fila["riesgo"] = _riesgo(fila["holgura"])
             else:
-                sin_embarque(fila, oc)
+                sin_embarque(fila, oc, p.grupo)
             filas.append(fila)
         resto = fl.cantidad - en_pl
         if resto > 0:
-            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen)), "cantidad": resto, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen, p.grupo)), "cantidad": resto, "factura_id": f.id,
                     "factura": nombre_factura(f), "etapa": "FACTURADO"}
-            sin_embarque(fila, oc)
+            sin_embarque(fila, oc, p.grupo)
             filas.append(fila)
     return filas
 

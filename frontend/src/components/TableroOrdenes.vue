@@ -6,7 +6,7 @@ import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, sesion } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
-import { COMERCIAL, LIBERACION, cantTxt, diasTxt, fmtFecha, fmtNum } from '../utils'
+import { COMERCIAL, LIBERACION, TIEMPO, cantTxt, diasTxt, fmtFecha, fmtNum } from '../utils'
 import ExplosionPrepack from './ExplosionPrepack.vue'
 import GraficoColumnas from './GraficoColumnas.vue'
 import Icono from './Icono.vue'
@@ -27,7 +27,7 @@ const TONO = {
   SIN_COMERCIAL: 'aviso', SIN_LOGISTICA: 'aviso', POR_FACTURAR: 'neutro', PARCIAL: 'info', FACTURADA: 'acento',
   EN_CAMINO: 'info', RECIBIDA: 'ok',
 }
-const RIESGOS = { ATRASO: [t('Arrives late'), 'error'], JUSTO: [t('Tight'), 'aviso'], A_TIEMPO: [t('On time'), 'ok'] }
+const RIESGOS = TIEMPO
 // Tramos de la barra de avance: del pedido a lo recibido (un solo tono, de claro a oscuro)
 const TRAMOS = [
   ['por_facturar', t('To invoice'), 'var(--tramo-1)'], ['facturado', t('Invoiced'), 'var(--tramo-2)'],

@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import Avance from '../components/Avance.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import EstadoTiempo from '../components/EstadoTiempo.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import Paginacion from '../components/Paginacion.vue'
@@ -124,6 +125,7 @@ onMounted(cargar)
           <ThOrden campo="etd" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">ETD</ThOrden>
           <ThOrden campo="eta" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">ETA</ThOrden>
           <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Status') }}</ThOrden>
+          <ThOrden campo="holgura_dias" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Vs. in-store date') }}</ThOrden>
           <th>{{ t('Load units') }}</th>
           <ThOrden campo="packing_lists" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">PL</ThOrden>
           <th>{{ t('Suppliers') }}</th>
@@ -137,9 +139,10 @@ onMounted(cargar)
             <span class="sub">{{ tx(e.documento_numero ? `${MODOS[e.tipo_transporte]?.doc} ${e.documento_numero}` : t('{0} pending', [MODOS[e.tipo_transporte]?.doc])) }}{{ tx(e.transportista ? ` · ${e.transportista}` : '') }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span>
           </td>
           <td>{{ tx(e.puerto_origen || '—') }} <Icono nombre="flecha" :tam="13" /> {{ tx(e.puerto_destino || '—') }}<span class="sub">{{ tx(e.centro ? t('plant {0}', [e.centro]) : t('Plant to be defined')) }}</span></td>
-          <td>{{ fmtFecha(e.salida_real || e.etd) }}<span class="sub">{{ tx(e.salida_real ? 'actual' : 'estimated') }}</span></td>
-          <td>{{ fmtFecha(e.arribo_real || e.eta) }}<span class="sub">{{ tx(e.arribo_real ? 'actual' : 'estimated') }}</span></td>
+          <td>{{ fmtFecha(e.salida_real || e.etd) }}<span class="sub">{{ e.salida_real ? t('actual') : t('estimated') }}</span></td>
+          <td>{{ fmtFecha(e.arribo_real || e.eta) }}<span class="sub">{{ e.arribo_real ? t('actual') : t('estimated') }}</span></td>
           <td><EstadoBadge :estado="e.estado" /></td>
+          <td><EstadoTiempo :estado="e.estado_tiempo" :holgura="e.holgura_dias" /></td>
           <td>
             <div v-if="e.ocupacion.length" class="mini-ocupacion">
               <div v-for="o in e.ocupacion" :key="o.id"><span>{{ tx(o.nombre) }}</span><Avance v-if="o.pct_cbm !== null" :porcentaje="o.pct_cbm" /><span v-else>{{ fmtNum(o.cbm, 1) }} m³</span></div>
@@ -149,7 +152,7 @@ onMounted(cargar)
           <td class="num">{{ tx(e.packing_lists) }}<span v-if="e.tentativas" class="etiqueta aviso">{{ t('{0} tentative', [e.tentativas]) }}</span></td>
           <td class="envolver" style="min-width: 140px">{{ tx(e.proveedores.join(', ') || '—') }}</td>
         </tr>
-        <tr v-if="!lista.length"><td colspan="8" class="vacio">{{ t('No shipments match these filters.') }}</td></tr>
+        <tr v-if="!lista.length"><td colspan="9" class="vacio">{{ t('No shipments match these filters.') }}</td></tr>
       </tbody>
     </table>
   </div>

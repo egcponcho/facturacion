@@ -205,6 +205,9 @@ CATALOGOS = {
             c("codigo", "Code", obligatorio=True, max=15, mayus=True),
             c("nombre", "Name", obligatorio=True),
             c("categoria", "Category", "opcion", obligatorio=True, opciones=CATEGORIAS, filtro=True),
+            c("dias_extra", "Extra days after arrival", "numero", minimo=0,
+              ayuda="Handling this product type needs after the port (inspection, labeling, permits). "
+                    "It is added to the in-store estimate; empty = none."),
             c("activo", "Active", "bool", filtro=True),
         ],
         "extras": [{"nombre": "articulos", "etiqueta": "Items", "catalogo": "articulos", "filtro": "grupo_id"}],

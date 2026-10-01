@@ -336,6 +336,9 @@ class GrupoArticulo(Base):
     codigo: Mapped[str] = mapped_column(String(15), unique=True)
     nombre: Mapped[str] = mapped_column(String(100))
     categoria: Mapped[str] = mapped_column(String(10))  # CALZADO | ROPA | ACCESORIO
+    # Días que este tipo de producto necesita además de los de su región después
+    # del puerto (inspección, etiquetado, permisos); se suman a la fecha en tienda
+    dias_extra: Mapped[int | None] = mapped_column(Integer)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

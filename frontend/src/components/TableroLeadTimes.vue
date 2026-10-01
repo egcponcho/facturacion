@@ -7,7 +7,7 @@ import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, sesion } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
-import { fmtFecha } from '../utils'
+import { TIEMPO, fmtFecha } from '../utils'
 import FiltroMulti from './FiltroMulti.vue'
 import FiltroPeriodo, { rango } from './FiltroPeriodo.vue'
 import Icono from './Icono.vue'
@@ -35,7 +35,7 @@ const ESTADO = {
   vencido: [t('Overdue'), 'error', 'reloj'], riesgo: [t('At risk'), 'aviso', 'alerta'], en_plan: [t('On plan'), 'info', 'reloj'],
   pendiente: [t('Pending'), 'neutro', 'reloj'],
 }
-const RIESGO = { ATRASO: [t('Late'), 'error'], JUSTO: [t('Tight'), 'aviso'], A_TIEMPO: [t('On time'), 'ok'] }
+const RIESGO = TIEMPO
 
 async function cargar() {
   cargando.value = true
@@ -97,7 +97,7 @@ onMounted(cargar)
     <Kpi :titulo="t('Average lead time (days)')" :valor="datos.kpis.total_prom ?? 0" icono="grafica"
          :detalle="t('PO created to warehouse entry · transit {0}', [d(datos.kpis.transito_prom)])" />
     <Kpi :titulo="t('Late for the port deadline')" :valor="datos.kpis.tarde ?? 0" icono="alerta" :tono="datos.kpis.tarde ? 'alerta' : 'exito'"
-         :detalle="t('{0} tight (under 7 days of slack)', [datos.kpis.justo || 0])" @abrir="f.riesgo = f.riesgo === 'ATRASO' ? '' : 'ATRASO'; recargar()" />
+         :detalle="t('{0} at risk (little slack before the in-store date)', [datos.kpis.justo || 0])" @abrir="f.riesgo = f.riesgo === 'ATRASO' ? '' : 'ATRASO'; recargar()" />
   </section>
 
   <section class="panel" style="margin-bottom: 16px">
@@ -161,7 +161,7 @@ onMounted(cargar)
 
   <div class="filtros">
     <div class="segmentos" role="group" :aria-label="t('Arrival')">
-      <button v-for="[v, txt] in [['', t('All')], ['ATRASO', t('Late')], ['JUSTO', t('Tight')], ['A_TIEMPO', t('On time')]]" :key="v" type="button" class="segmento"
+      <button v-for="[v, txt] in [['', t('All')], ['ATRASO', t('Late')], ['JUSTO', t('At risk')], ['A_TIEMPO', t('On time')]]" :key="v" type="button" class="segmento"
               :aria-pressed="f.riesgo === v" @click="f.riesgo = v; recargar()">{{ tx(txt) }}</button>
     </div>
     <Seleccion v-model="f.lib" :aria-label="t('Logistics release')" @change="recargar">
