@@ -337,6 +337,25 @@ class Marca(Base):
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class EscalaTalla(Base):
+    """Escala de tallas reutilizable (calzado, ropa, accesorios u otra): sus
+    tallas en orden y cómo se forma el código de cada talla. Los genéricos
+    parten de una escala; el código se genera con la regla o se escribe."""
+
+    __tablename__ = "escalas_talla"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    nombre: Mapped[str] = mapped_column(String(120))
+    categoria: Mapped[str | None] = mapped_column(String(20))
+    # MULTIPLICAR: talla numérica × factor (7.5 × 10 → 075); CONSECUTIVO: 001, 002…;
+    # TALLA: la misma talla (S, M, XL). Un código escrito en la lista manda.
+    regla: Mapped[str] = mapped_column(String(15), default="CONSECUTIVO")
+    factor: Mapped[int | None] = mapped_column(Integer, default=10)
+    longitud: Mapped[int | None] = mapped_column(Integer, default=3)
+    tallas: Mapped[str] = mapped_column(Text)  # "6, 6.5, 7=070, 8-10" o "S, M, L"
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class GrupoArticulo(Base):
     """Grupo de artículos. La categoría decide la regla de empaque:
     calzado (casepack exacto, sin mezclar tallas) o ropa y accesorios."""

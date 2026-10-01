@@ -16,6 +16,7 @@ from .models import (
     EventoEmbarque,
     Factura,
     FacturaLinea,
+    EscalaTalla,
     GrupoArticulo,
     GrupoCajas,
     GrupoCajasItem,
@@ -264,6 +265,17 @@ def _catalogos(db: Session) -> dict:
                               sociedades=[socs[x] for x in lista]) for c, n, t, ci, pais, correos, lista in TRANSPORTISTAS])
     marcas = {c: Marca(codigo=c, nombre=n) for c, n in MARCAS}
     grupos = {c: GrupoArticulo(codigo=c, nombre=n, categoria=cat) for c, n, cat in GRUPOS}
+    # Escalas de tallas reutilizables (ejemplos; cada empresa crea las suyas)
+    db.add_all([
+        EscalaTalla(codigo="US-CALZ", nombre="US footwear (half sizes)", categoria="CALZADO", regla="MULTIPLICAR", factor=10,
+                    longitud=3, tallas="5-12.5, 13"),
+        EscalaTalla(codigo="US-CALZ-ENT", nombre="US footwear (whole sizes)", categoria="CALZADO", regla="MULTIPLICAR", factor=10,
+                    longitud=3, tallas="6-13"),
+        EscalaTalla(codigo="LETRAS", nombre="Apparel letters", categoria="ROPA", regla="CONSECUTIVO", longitud=3,
+                    tallas="XXS, XS, S, M, L, XL, XXL, XXXL"),
+        EscalaTalla(codigo="CINTURA", nombre="Waist (inches)", categoria="ROPA", regla="TALLA", tallas="28, 29, 30, 31, 32, 33, 34, 36, 38, 40"),
+        EscalaTalla(codigo="UNICA", nombre="One size", categoria="ACCESORIO", regla="CONSECUTIVO", longitud=3, tallas="OS=000"),
+    ])
     db.add_all([*marcas.values(), *grupos.values()])
     db.flush()
     return {"marcas": marcas, "grupos": grupos, "sociedades": socs}

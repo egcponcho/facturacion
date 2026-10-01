@@ -42,9 +42,23 @@ def generico(gen: str, db: Db, user: User):
 @router.post("/genericos/{gen}/tallas")
 def agregar_tallas(gen: str, datos: s.TallasIn, db: Db, user: User, clave: Clave = None):
     def hacer():
-        genericos.agregar_tallas(db, user, gen, datos.tallas)
+        genericos.agregar_tallas(db, user, gen, datos.tallas, datos.escala_id)
         return genericos.detalle(db, user, gen)
     return ejecutar(db, user, clave, hacer)
+
+
+@router.get("/escalas/{escala_id}/tallas")
+def tallas_escala(escala_id: int, db: Db, user: User):
+    """Tallas de una escala con el código que tendrá cada una."""
+    from ..models import EscalaTalla
+    from ..services import tallas as tallas_svc
+    from ..services.common import ErrorNegocio, exigir
+
+    exigir(user, "catalogos.ver")
+    e = db.get(EscalaTalla, escala_id)
+    if not e:
+        raise ErrorNegocio("The size scale does not exist.", 404, "no_encontrado")
+    return {"id": e.id, "codigo": e.codigo, "nombre": e.nombre, "tallas": tallas_svc.con_codigos(e)}
 
 
 @router.post("/{tipo}/importar")

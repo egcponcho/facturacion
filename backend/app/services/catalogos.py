@@ -19,6 +19,7 @@ from ..models import (
     Articulo,
     Centro,
     Contacto,
+    EscalaTalla,
     GrupoArticulo,
     Marca,
     OrdenCompra,
@@ -208,6 +209,25 @@ CATALOGOS = {
         ],
         "buscar": ["codigo", "nombre"],
     },
+    "escalas": {
+        "modelo": EscalaTalla, "titulo": "Size scales", "singular": "size scale",
+        "ayuda": "Reusable size structures for any product (footwear, apparel, accessories…). A generic starts from a "
+                 "scale: its sizes come in order and each size code is generated with the scale's rule or typed in the list.",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("categoria", "Category", "opcion", opciones=CATEGORIAS + [["OTRO", "Other"]], filtro=True),
+            c("regla", "Size code rule", "opcion", obligatorio=True, filtro=True, opciones=[
+                ["MULTIPLICAR", "Size × factor (7.5 × 10 → 075)"], ["CONSECUTIVO", "Consecutive (001, 002…)"],
+                ["TALLA", "Same as the size (S, M, XL)"]]),
+            c("factor", "Factor", "entero", minimo=1, ayuda="For Size × factor, e.g. 10."),
+            c("longitud", "Code digits", "entero", minimo=1, ayuda="Zeros on the left, e.g. 3 → 070."),
+            c("tallas", "Sizes", obligatorio=True,
+              ayuda="In order, separated by commas. Ranges allowed (6-10, 6.5-9.5). A fixed code with = (7=070)."),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre", "tallas"],
+    },
     "grupos": {
         "modelo": GrupoArticulo, "titulo": "Item groups", "singular": "group",
         "ayuda": "Each item belongs to a single group. The category sets the packing rule; it does not define the "
@@ -328,7 +348,7 @@ CATALOGOS = {
         "buscar": ["codigo", "estilo", "color", "descripcion"],
     },
 }
-ORDEN_CATALOGOS = ["articulos", "prepacks", "marcas", "grupos", "proveedores", "sociedades", "centros",
+ORDEN_CATALOGOS = ["articulos", "prepacks", "escalas", "marcas", "grupos", "proveedores", "sociedades", "centros",
                    "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "acuerdos"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
@@ -462,7 +482,7 @@ def opciones(db: Session, user: Usuario, tipo: str) -> list[dict]:
     clave = "sku" if tipo == "articulos" else "codigo"
     # Datos para filtrar campos dependientes: sus referencias y, al revés, qué
     # registros de otros catálogos lo incluyen (p. ej. los proveedores de una marca)
-    propios = [x for x in cat["campos"] if x["tipo"] in ("ref", "codigo", "multi")]
+    propios = [x for x in cat["campos"] if x["tipo"] in ("ref", "codigo", "multi", "opcion")]
     inversas = [(t, x["nombre"]) for t, c2 in CATALOGOS.items() for x in c2["campos"]
                 if x["tipo"] == "multi" and x.get("catalogo") == tipo]
     inv: dict[str, dict[int, list[int]]] = {}
@@ -671,6 +691,12 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             errores.append({"campo": "sociedades", "mensaje":
                             f"The supplier has purchase orders with {', '.join(sorted(usadas - quedan))}: "
                             "those companies cannot be removed."})
+    if cat["modelo"] is EscalaTalla and final.get("tallas"):
+        from .tallas import validar as validar_escala
+
+        errores += [{"campo": "tallas", "mensaje": m} for m in validar_escala(final["tallas"])]
+        if final.get("regla") == "MULTIPLICAR" and not final.get("factor"):
+            errores.append({"campo": "factor", "mensaje": "Enter the factor for the rule Size × factor."})
     if cat["modelo"] is Contacto and not final.get("sociedad_id") and not final.get("centro_id"):
         errores.append({"campo": "sociedad_id", "mensaje": "Enter the contact's company or plant."})
     if cat["modelo"] in (Centro, Almacen) and actual and "sociedad_id" in limpio and limpio["sociedad_id"] != actual.sociedad_id:

@@ -562,10 +562,12 @@ class GenericoIn(BaseModel):
     unidad: str = Field(max_length=5)
     nombre: str | None = Field(None, max_length=200)
     tallas: list[TallaIn] = Field(default_factory=list, max_length=200)
+    escala_id: int | None = None  # escala de tallas de la que parten los códigos
 
 
 class TallasIn(BaseModel):
     tallas: list[TallaIn] = Field(min_length=1, max_length=200)
+    escala_id: int | None = None
 
 
 class GenericoEditIn(BaseModel):

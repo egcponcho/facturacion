@@ -14,9 +14,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..models import Articulo, GrupoArticulo, Marca, Producto, Proveedor, Usuario
+from ..models import Articulo, EscalaTalla, GrupoArticulo, Marca, Producto, Proveedor, Usuario
 from . import catalogos as cat_svc
 from .common import ErrorNegocio, exigir, registrar, filtro_texto
+from . import tallas as tallas_svc
 from .productos import MSG_CODIGO, asegurar_producto, codigo_valido, descripcion_comercial_simple, producto_por_generico
 
 
@@ -39,19 +40,11 @@ def sufijo_convencional(talla: str | None) -> str | None:
     return f"{n:03d}" if 0 < n < 1000 and abs(float(t) * 10 - n) < 1e-9 else None
 
 
-def siguiente_sufijo(db: Session, gen: str, usados: set[str] | None = None, talla: str | None = None) -> str:
-    """Código de talla para una talla nueva: el usual (talla × 10) si está libre;
-    si no, el primer código libre desde 001."""
+def siguiente_sufijo(db: Session, gen: str, usados: set[str] | None = None, talla: str | None = None, escala=None) -> str:
+    """Código de talla para una talla nueva: el de su escala de tallas (o, sin
+    escala, la regla usual talla × 10); si está usado, el siguiente libre."""
     usados = usados if usados is not None else _sufijos(db, gen)
-    conv = sufijo_convencional(talla)
-    if conv and conv not in usados:
-        return conv
-    n = 1
-    while f"{n:03d}" in usados:
-        n += 1
-    if n > 999:
-        raise ErrorNegocio(f"Generic {gen} has no free size codes.", 422, "sin_codigos")
-    return f"{n:03d}"
+    return tallas_svc.codigo(escala, talla, usados)
 
 
 def detalle(db: Session, user: Usuario, gen: str) -> dict:
@@ -103,17 +96,18 @@ def crear(db: Session, user: Usuario, datos) -> dict:
                            "duplicado") from None
     p.descripcion_comercial = descripcion_comercial_simple(p)
     registrar(db, user, "genericos", p.id, "crear", {"generico": gen, "estilo": estilo, "color": color})
-    creadas = agregar_tallas(db, user, gen, datos.tallas or []) if datos.tallas else []
+    creadas = agregar_tallas(db, user, gen, datos.tallas or [], getattr(datos, "escala_id", None)) if datos.tallas else []
     return {**detalle(db, user, gen), "creadas": len(creadas)}
 
 
-def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list) -> list[int]:
+def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list, escala_id: int | None = None) -> list[int]:
     """Tallas nuevas de un genérico: heredan sus datos maestros."""
     exigir(user, "catalogos.crear")
     p = producto_por_generico(db, gen)
     if not p:
         raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
     usados = _sufijos(db, gen)
+    escala = db.get(EscalaTalla, escala_id) if escala_id else None
     ya = {a.talla.upper() for a in db.scalars(_articulos(db, gen).where(Articulo.tipo == "SOLIDO")) if a.talla}
     cat = cat_svc.CATALOGOS["articulos"]
     ids, errores = [], []
@@ -135,7 +129,7 @@ def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list) -> list[i
             if suf and (not re.fullmatch(r"[A-Z0-9._\-/]{1,20}", suf) or suf in usados):
                 errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: size code {suf} is taken or not valid."})
                 continue
-            suf = suf or siguiente_sufijo(db, gen, usados, talla)
+            suf = suf or siguiente_sufijo(db, gen, usados, talla, escala)
             usados.add(suf)
             sku = gen + suf
         ya.add(talla)

@@ -16,7 +16,12 @@ const props = defineProps({ generico: { type: String, default: '' }, editar: Boo
 const emit = defineEmits(['cerrar', 'listo'])
 const agregar = computed(() => !!props.generico && !props.editar)
 const g = reactive({ generico: '', estilo: '', color: '', marca_id: '', grupo_id: '', proveedor_id: '', unidad: 'PAR' })
-const filas = ref([{ talla: '', sku: '', upc: '', sku_proveedor: '' }])
+const nuevaFila = (talla = '', sufijo = '') => ({ talla, sufijo, sku: '', upc: '', sku_proveedor: '' })
+const filas = ref([nuevaFila()])
+// Escala de tallas: la base genérica de la que parten las tallas y sus códigos
+const escalas = ref([])
+const escalaId = ref('')
+const escala = ref(null)
 const rapido = ref('')
 const op = reactive({ marcas: [], grupos: [], proveedores: [] })
 const info = ref(null)
@@ -30,6 +35,7 @@ onMounted(async () => {
       const [m, gr, p] = await Promise.all(['marcas', 'grupos', 'proveedores'].map((t) => api.get(`/catalogos/${t}/opciones`)))
       Object.assign(op, { marcas: m, grupos: gr, proveedores: p })
     }
+    if (!props.editar) escalas.value = (await api.get('/catalogos/escalas/opciones')).filter((e) => e.activo !== false)
     if (props.editar && info.value) {
       const i = info.value
       Object.assign(g, { generico: i.generico, estilo: i.estilo, color: i.color, marca_id: i.marca_id, grupo_id: i.grupo_id, proveedor_id: i.proveedor_id, unidad: i.unidad })
@@ -39,6 +45,16 @@ onMounted(async () => {
   }
 })
 const opc = (l) => l.map((x) => ({ valor: x.id, texto: x.texto }))
+// Escalas de la categoría del grupo elegido (y las que no tienen categoría)
+const categoriaGrupo = computed(() => op.grupos.find((x) => String(x.id) === String(g.grupo_id))?.categoria)
+const escalasValidas = computed(() => escalas.value.filter((e) => !categoriaGrupo.value || !e.categoria || e.categoria === categoriaGrupo.value))
+watch(escalaId, async (id) => {
+  escala.value = id ? await api.get(`/catalogos/escalas/${id}/tallas`).catch(() => null) : null
+  if (!escala.value) return
+  // Sus tallas con su código; se pueden quitar las que no lleva este genérico
+  const ya = new Set(agregar.value ? (info.value?.tallas || []).map((x) => String(x.talla).toUpperCase()) : [])
+  filas.value = escala.value.tallas.filter((x) => !ya.has(x.talla)).map((x) => nuevaFila(x.talla, x.codigo))
+})
 // Solo las marcas autorizadas al proveedor elegido
 const marcasProveedor = computed(() => op.marcas.filter((m) => g.proveedor_id && (m.proveedores || []).map(String).includes(String(g.proveedor_id))))
 watch(() => g.proveedor_id, () => {
@@ -59,6 +75,7 @@ const codigos = computed(() => {
   const usados = new Set(agregar.value ? info.value?.usados || [] : [])
   return filas.value.map((f) => {
     if (f.sku) return f.sku.trim().toUpperCase()
+    if (f.sufijo) { usados.add(f.sufijo.trim().toUpperCase()); return `${base}${f.sufijo.trim().toUpperCase()}` }
     let s = convencional(f.talla)
     if (!s || usados.has(s)) {
       let n = 1
@@ -90,7 +107,7 @@ function aplicarRapido() {
   if (!t) return
   const lista = expandir(t)
   const vacias = filas.value.filter((f) => f.talla || f.upc || f.sku_proveedor)
-  filas.value = [...vacias, ...lista.map((talla) => ({ talla: talla.toUpperCase(), sku: '', upc: '', sku_proveedor: '' }))]
+  filas.value = [...vacias, ...lista.map((talla) => nuevaFila(talla.toUpperCase()))]
   rapido.value = ''
 }
 async function guardar() {
@@ -105,8 +122,8 @@ async function guardar() {
       return
     }
     const r = agregar.value
-      ? await api.post(`/catalogos/genericos/${props.generico}/tallas`, { tallas })
-      : await api.post('/catalogos/genericos', { ...g, marca_id: Number(g.marca_id), grupo_id: Number(g.grupo_id), proveedor_id: Number(g.proveedor_id), tallas })
+      ? await api.post(`/catalogos/genericos/${props.generico}/tallas`, { tallas, escala_id: Number(escalaId.value) || null })
+      : await api.post('/catalogos/genericos', { ...g, marca_id: Number(g.marca_id), grupo_id: Number(g.grupo_id), proveedor_id: Number(g.proveedor_id), tallas, escala_id: Number(escalaId.value) || null })
     avisar(agregar.value ? t('{0} sizes added to {1}.', [tallas.length, props.generico]) : t('Generic {0} created with {1} sizes. Complete its technical sheet in Products.', [r.generico, r.tallas.length]))
     emit('listo', r)
   } catch (e) {
@@ -138,16 +155,22 @@ async function guardar() {
 
     <template v-if="!props.editar">
     <h3 class="mt">{{ t('Sizes') }}</h3>
+    <div class="rejilla-campos" style="margin: 6px 0">
+      <div class="campo"><span>{{ t('Size scale') }}</span>
+        <SelectBusqueda v-model="escalaId" :opciones="escalasValidas.map((e) => ({ valor: e.id, texto: e.texto }))" :vacio="t('No scale (type the sizes)')" :etiqueta="t('Size scale')" />
+        <small class="ayuda">{{ t('Loads its sizes in order with their size codes; remove the ones this generic does not have. Codes can be changed.') }}</small></div>
+    </div>
     <div class="fila-flex" style="gap: 6px; margin: 6px 0 4px">
       <input v-model="rapido" class="entrada" style="max-width: 300px" :placeholder="t('Quick: 7-10, 12 · 6.5-9.5 · S-XL')" @keydown.enter.prevent="aplicarRapido" />
       <button type="button" class="btn btn-chico" @click="aplicarRapido">{{ t('Add these sizes') }}</button>
     </div>
     <p class="ayuda" style="margin: 0 0 8px">{{ t('Combine ranges and single sizes for gaps (e.g. 7-10, 12, 14). Item code: type your own, or leave it empty to use the generic plus a size code.') }}</p>
     <table class="tabla tallas" v-tarjetas>
-      <thead><tr><th>{{ t('Size *') }}</th><th>{{ t('Item code') }}</th><th>UPC</th><th>{{ t('Supplier SKU') }}</th><th></th></tr></thead>
+      <thead><tr><th>{{ t('Size *') }}</th><th>{{ t('Size code') }}</th><th>{{ t('Item code') }}</th><th>UPC</th><th>{{ t('Supplier SKU') }}</th><th></th></tr></thead>
       <tbody>
         <tr v-for="(f, i) in filas" :key="i">
           <td><input v-model="f.talla" class="entrada" maxlength="20" :aria-label="t('Size {0}', [i + 1])" /></td>
+          <td><input v-model="f.sufijo" class="entrada" maxlength="20" :placeholder="t('Auto')" :aria-label="t('Size code {0}', [i + 1])" :disabled="!!f.sku" /></td>
           <td><input v-model="f.sku" class="entrada" maxlength="40" :placeholder="codigos[i]" :aria-label="t('Item code {0}', [i + 1])" /></td>
           <td><input v-model="f.upc" class="entrada" maxlength="40" :aria-label="tx(t('UPC {0}', [i + 1]))" /></td>
           <td><input v-model="f.sku_proveedor" class="entrada" maxlength="60" :aria-label="t('Supplier SKU {0}', [i + 1])" /></td>
@@ -155,7 +178,7 @@ async function guardar() {
         </tr>
       </tbody>
     </table>
-    <button type="button" class="btn btn-chico mt-chico" @click="filas.push({ talla: '', sku: '', upc: '', sku_proveedor: '' })"><Icono nombre="mas" :tam="14" />{{ t('Add row') }}</button>
+    <button type="button" class="btn btn-chico mt-chico" @click="filas.push(nuevaFila())"><Icono nombre="mas" :tam="14" />{{ t('Add row') }}</button>
     </template>
     <div v-if="errores.length" class="nota error bloque mt-chico"><ul class="lista-mensajes"><li v-for="(e, i) in errores" :key="i">{{ tx(e) }}</li></ul></div>
     <template #pie>

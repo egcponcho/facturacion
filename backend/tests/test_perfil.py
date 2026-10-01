@@ -108,3 +108,26 @@ def test_normalizacion_en_cargas(interno):
     assert r.status_code == 200, r.text
     p = interno.get("/catalogos/puertos", params={"q": "SVX01"}).json()["items"][0]
     assert p["codigo"] == "SVX01" and p["pais"] == "SV" and p["nombre"] == "Puerto de Prueba"
+
+
+def test_escalas_de_tallas(interno):
+    """Escalas de tallas reutilizables: tallas en orden y códigos por regla o escritos."""
+    escalas = {e["codigo"]: e for e in interno.get("/catalogos/escalas/opciones").json()}
+    calz = interno.get(f"/catalogos/escalas/{escalas['US-CALZ']['id']}/tallas").json()["tallas"]
+    assert calz[:3] == [{"talla": "5", "codigo": "050"}, {"talla": "5.5", "codigo": "055"}, {"talla": "6", "codigo": "060"}]
+    letras = interno.get(f"/catalogos/escalas/{escalas['LETRAS']['id']}/tallas").json()["tallas"]
+    assert [x["codigo"] for x in letras[:3]] == ["001", "002", "003"] and letras[2]["talla"] == "S"
+    r = interno.post("/catalogos/escalas", {"codigo": "test", "nombre": "Test", "regla": "TALLA", "tallas": "S=1, M=1"})
+    assert r.status_code == 422 and "same code" in str(r.json()["detalle"])
+    r = interno.post("/catalogos/escalas", {"codigo": "kids", "nombre": "Kids", "regla": "CONSECUTIVO", "longitud": 2, "tallas": "2T, 3T, 4T"})
+    assert r.status_code == 200, r.text
+    # Un genérico parte de la escala: los códigos de talla salen de ella
+    provs = {p["codigo"]: p["id"] for p in interno.get("/catalogos/proveedores/opciones").json()}
+    marca = next(m for m in interno.get("/catalogos/marcas/opciones").json() if m["codigo"] == "TNF")["id"]
+    grupo = interno.get("/catalogos/grupos/opciones").json()[0]["id"]
+    r = interno.post("/catalogos/genericos", {"generico": "ESC-TEST", "estilo": "ESCTEST", "color": "Black", "marca_id": marca,
+                                              "grupo_id": grupo, "proveedor_id": provs["TNF"], "unidad": "UN",
+                                              "escala_id": escalas["LETRAS"]["id"], "tallas": [{"talla": "M"}, {"talla": "L"}]})
+    assert r.status_code == 200, r.text
+    skus = sorted(t["sku"] for t in interno.get("/catalogos/genericos/ESC-TEST").json()["tallas"])
+    assert skus == ["ESC-TEST004", "ESC-TEST005"]
