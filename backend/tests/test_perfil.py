@@ -80,3 +80,31 @@ def test_campos_dependientes(interno):
     r = interno.post("/catalogos/genericos", {"generico": "DEPTEST-X", "estilo": "DEPTEST", "color": "X", "marca_id": vans["id"],
                                               "grupo_id": grupo, "proveedor_id": provs["TNF"], "unidad": "UN", "tallas": []})
     assert r.status_code == 422
+
+
+def test_normalizacion_en_cargas(interno):
+    """Valores escritos de otra forma se enlazan con lo que ya existe y los
+    nombres en MAYÚSCULAS o minúsculas se ordenan; los códigos no cambian."""
+    oc = interno.get("/ordenes", params={"q": "4400003901", "solo_disponible": False}).json()["items"][0]
+    sku = interno.get(f"/ordenes/{oc['id']}/posiciones").json()["posiciones"][0]["codigo_sap"]
+    csv = ("supplier,po,po_line,company,destination,sku,quantity\n"
+           f"  vans ,PO-NORM-1,10, 8000 ,el salvador distribution center,{sku},6\n")
+    r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("n.csv", csv.encode(), "text/csv")})
+    assert r.status_code == 200 and r.json()["resumen"]["nuevo"] == 1, r.text
+    # Catálogo: la marca escrita en minúsculas actualiza la existente, no crea otra
+    antes = len(interno.get("/catalogos/marcas/opciones").json())
+    contenido = "code,name\nvans,Vans\n"
+    r = interno.c.post("/api/catalogos/marcas/importar", headers=interno.h,
+                       files={"archivo": ("m.csv", contenido.encode(), "text/csv")})
+    assert r.status_code == 200 and r.json()["creados"] == 0 and r.json()["actualizados"] == 1, r.text
+    assert len(interno.get("/catalogos/marcas/opciones").json()) == antes
+    # Nombres de personas: de MAYÚSCULAS a nombre propio; el país por su nombre
+    socs = {s["codigo"]: s["id"] for s in interno.get("/catalogos/sociedades/opciones").json()}
+    r = interno.post("/catalogos/contactos", {"nombre": "  MARÍA   DE LOS ÁNGELES  ", "rol": "NOTIFY", "sociedad_id": socs["8000"]})
+    assert r.status_code == 200, r.text
+    c = next(x for x in interno.get("/catalogos/contactos", params={"q": "Ángeles"}).json()["items"])
+    assert c["nombre"] == "María de los Ángeles"
+    r = interno.post("/catalogos/puertos", {"codigo": "svx01", "nombre": "PUERTO DE PRUEBA", "pais": "el salvador", "tipo": "MARITIMO"})
+    assert r.status_code == 200, r.text
+    p = interno.get("/catalogos/puertos", params={"q": "SVX01"}).json()["items"][0]
+    assert p["codigo"] == "SVX01" and p["pais"] == "SV" and p["nombre"] == "Puerto de Prueba"

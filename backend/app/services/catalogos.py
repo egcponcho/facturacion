@@ -34,7 +34,10 @@ from ..models import (
     Transportista,
     Usuario,
 )
-from .common import ErrorNegocio, exigir, registrar, filtro_texto
+from .common import ErrorNegocio, exigir, filtro_texto, registrar
+from .normalizar import Referencias
+from .normalizar import nombre as nombre_fmt
+from .normalizar import texto as texto_fmt
 from .productos import (
     asegurar_producto,
     fmt_codigo,
@@ -68,7 +71,7 @@ CATALOGOS = {
         "ayuda": "Companies that are invoiced (the PO company). Each one has its assigned plants.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=10, mayus=True),
-            c("nombre", "Name", obligatorio=True),
+            c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("razon_social", "Legal name"),
             c("id_fiscal", "Tax ID"),
             c("pais", "Country", "codigo", catalogo="paises", filtro=True),
@@ -88,7 +91,7 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=10, mayus=True),
             c("sociedad_id", "Company", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
-            c("nombre", "Name", obligatorio=True),
+            c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("pais", "Country", "codigo", obligatorio=True, catalogo="paises", filtro=True),
             c("puerto", "Arrival port", "codigo", catalogo="puertos", filtro=True, depende={"campo": "pais", "clave": "pais"}),
             c("tipo", "Type", "opcion", obligatorio=True,
@@ -110,7 +113,7 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=10, mayus=True),
             c("sociedad_id", "Company", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
-            c("nombre", "Name", obligatorio=True),
+            c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
               opciones=[["VIRTUAL", "Virtual"], ["DETALLE", "Retail"], ["MAYOREO", "Wholesale"]]),
             c("activo", "Active", "bool", filtro=True),
@@ -122,8 +125,8 @@ CATALOGOS = {
         "ayuda": "Contact people of a company (billing) or of a plant (notify party). "
                  "They appear on the invoice and the packing list.",
         "campos": [
-            c("nombre", "Name", obligatorio=True),
-            c("cargo", "Job title"),
+            c("nombre", "Name", obligatorio=True, formato="nombre"),
+            c("cargo", "Job title", formato="nombre"),
             c("rol", "Role", "opcion", obligatorio=True, filtro=True,
               opciones=[["FACTURACION", "Billing"], ["NOTIFY", "Notify party"], ["LOGISTICA", "Logistics"]]),
             c("sociedad_id", "Company", "ref", catalogo="sociedades", filtro=True),
@@ -140,7 +143,7 @@ CATALOGOS = {
         "campos": [
             c("codigo", "ISO code", obligatorio=True, max=2, mayus=True, patron=r"^[A-Z]{2}$",
               mensaje_patron="Use the 2-letter ISO code."),
-            c("nombre", "Name", obligatorio=True),
+            c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("region", "Lead time region", "codigo", catalogo="regiones", filtro=True,
               ayuda="Origin region whose lead time targets apply (e.g. ASIA). Empty = the default region."),
             c("activo", "Active", "bool", filtro=True),
@@ -172,7 +175,7 @@ CATALOGOS = {
                  "to the store (re-export is not tracked yet). Arrival later than the in-store date minus those days is late.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=10, mayus=True),
-            c("nombre", "Name", obligatorio=True),
+            c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("dias_liberacion", "Release before XF (days)", "entero", obligatorio=True),
             c("dias_transito", "XF to port arrival (days)", "entero", obligatorio=True),
             c("dias_puerto_bodega", "Port to warehouse (days)", "entero", obligatorio=True),
@@ -188,7 +191,7 @@ CATALOGOS = {
         "ayuda": "Sea ports and airports (UN/LOCODE).",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=10, mayus=True),
-            c("nombre", "Name", obligatorio=True),
+            c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("pais", "Country", "codigo", obligatorio=True, catalogo="paises", filtro=True),
             c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
               opciones=[["MARITIMO", "Ocean"], ["AEREO", "Air"], ["TERRESTRE", "Road"]]),
@@ -211,7 +214,7 @@ CATALOGOS = {
                  "product type, which comes from the technical sheet.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=15, mayus=True),
-            c("nombre", "Name", obligatorio=True),
+            c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("categoria", "Category", "opcion", obligatorio=True, opciones=CATEGORIAS, filtro=True),
             c("dias_extra", "Extra days after arrival", "numero", minimo=0,
               ayuda="Handling this product type needs after the port (inspection, labeling, permits). "
@@ -231,7 +234,7 @@ CATALOGOS = {
             c("id_fiscal", "Tax ID"),
             c("pais", "Country", "codigo", catalogo="paises", filtro=True),
             c("direccion", "Address"),
-            c("contacto", "Contact"),
+            c("contacto", "Contact", formato="nombre"),
             c("correos", "Emails", "correos", ayuda="One or more, separated by commas."),
             c("telefono", "Phone"),
             c("marcas", "Brands handled", "multi", catalogo="marcas", filtro=True),
@@ -252,7 +255,7 @@ CATALOGOS = {
               ayuda="Shipping line SCAC or airline IATA prefix."),
             c("id_fiscal", "Tax ID"),
             c("pais", "Country", "codigo", catalogo="paises"),
-            c("contacto", "Contact"),
+            c("contacto", "Contact", formato="nombre"),
             c("correos", "Emails", "correos"),
             c("telefono", "Phone"),
             c("sociedades", "Companies it works with", "multi", catalogo="sociedades", ayuda="Empty = it works with every company.",
@@ -532,7 +535,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             continue
         v = datos[n]
         if isinstance(v, str):
-            v = v.strip()
+            v = nombre_fmt(v) if campo.get("formato") == "nombre" else texto_fmt(v)
             if campo.get("mayus"):
                 v = v.upper()
         if v in ("", None) or (campo["tipo"] == "multi" and v == [] and not campo["obligatorio"]):
@@ -563,11 +566,14 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                 if not db.get(CATALOGOS[campo["catalogo"]]["modelo"], v):
                     raise ValueError
             elif t == "codigo":
-                v = str(v).upper()
+                # El código o el nombre, escrito de cualquier forma, se enlaza con el registro
                 modelo = CATALOGOS[campo["catalogo"]]["modelo"]
-                if not db.scalar(select(modelo.id).where(modelo.codigo == v)):
+                obj = db.scalar(select(modelo).where(modelo.codigo == str(v).upper())) or \
+                    Referencias(db, modelo).buscar(v)
+                if not obj:
                     errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: {v} is not in the catalog."})
                     continue
+                v = obj.codigo
             elif t == "opcion" and v not in [o[0] for o in campo["opciones"]]:
                 raise ValueError
             elif t == "multi":

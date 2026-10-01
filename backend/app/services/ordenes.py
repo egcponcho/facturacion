@@ -547,6 +547,16 @@ class Maestros:
         self.paises = {p.codigo for p in db.scalars(select(Pais))}
         self.articulos: dict[str, Articulo] = {}
         self._db = db
+        # Códigos escritos de otra forma (minúsculas, espacios, por nombre) -> código real
+        from .normalizar import Referencias
+
+        self.refs = {"proveedor": Referencias(db, Proveedor), "sociedad": Referencias(db, Sociedad),
+                     "centro": Referencias(db, Centro), "almacen": Referencias(db, Almacen),
+                     "puerto": Referencias(db, Puerto), "pais": Referencias(db, Pais)}
+
+    def canon(self, tabla: str, valor):
+        obj = self.refs[tabla].buscar(valor)
+        return obj.codigo if obj else valor
 
     def articulo(self, sku: str) -> Articulo | None:
         if sku not in self.articulos:
@@ -641,6 +651,11 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
 
     if m is None:
         return d, errores
+    for campo, tabla in (("proveedor", "proveedor"), ("sociedad", "sociedad"), ("centro", "centro"), ("almacen", "almacen"),
+                         ("centro_destino", "centro"), ("puerto_despacho", "puerto"), ("pais_origen", "pais"),
+                         ("pais_procedencia", "pais")):
+        if d.get(campo):
+            d[campo] = m.canon(tabla, d[campo])
     # Datos maestros. Todo queda encadenado: el proveedor trabaja con la
     # sociedad; centro, almacén y centro destino son de esa sociedad; el
     # artículo y su marca son del proveedor. Sin sociedad, se toma la del

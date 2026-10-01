@@ -17,6 +17,8 @@ from ..models import Articulo, GrupoArticulo, Marca, Pais, Producto, Proveedor, 
 from . import catalogos as cat_svc
 from . import documentos, exportar
 from .common import ErrorNegocio, exigir, registrar
+from .normalizar import Referencias
+from .normalizar import texto as texto_fmt
 from .meta import attrs, tipo_de, tipos, valor_opcion
 from .plantillas import hojas, leer, norm, plantilla, plantilla_hojas, si_no
 from .productos import APROBADOS, asegurar_producto, descripcion_comercial_simple, producto_por_generico
@@ -139,11 +141,8 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
              "size_code": "sufijo", "sufijo": "sufijo"}
     gens = leer(nombre, contenido, alias, hoja="Generics", vacio_ok=True)
     tallas = leer(nombre, contenido, alias, hoja="Sizes", vacio_ok=True)
-    cods = {
-        "marca": {m.codigo: m.id for m in db.scalars(select(Marca))},
-        "grupo": {g.codigo: g.id for g in db.scalars(select(GrupoArticulo))},
-        "proveedor": {p.codigo: p.id for p in db.scalars(select(Proveedor))},
-    }
+    # Marca, grupo y proveedor por código o nombre, escritos de cualquier forma
+    cods = {"marca": Referencias(db, Marca), "grupo": Referencias(db, GrupoArticulo), "proveedor": Referencias(db, Proveedor)}
     paises = _paises(db)
     errores, productos = [], {}
     creados = actualizados = 0
@@ -154,10 +153,11 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
             continue
         faltan, ids = [], {}
         for campo, lbl in (("marca", "Brand"), ("grupo", "Item group"), ("proveedor", "Supplier")):
-            cod = (f.get(campo) or "").strip().upper()
-            if cod not in cods[campo]:
+            cod = texto_fmt(f.get(campo))
+            obj = cods[campo].buscar(cod)
+            if not obj:
                 faltan.append(f"{lbl} {cod or '(empty)'} does not exist")
-            ids[campo] = cods[campo].get(cod)
+            ids[campo] = obj.id if obj else None
         unidad = (f.get("unidad") or "").strip().upper()
         if unidad not in ("PAR", "UN"):
             faltan.append("Unit must be PAR or UN")
@@ -437,33 +437,39 @@ def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, conten
     clave = "codigo" if any(x["nombre"] == "codigo" for x in c["campos"]) else None
     creados = actualizados = 0
     errores = []
+    refs_cache: dict = {}
+    # Registro existente: por su código escrito de cualquier forma (" tnf" = "TNF")
+    existentes = Referencias(db, modelo, ("codigo",)) if clave else None
     for f in filas:
         datos, mal = {}, None
         for x in c["campos"]:
             n = x["nombre"]
             if n not in f or f[n] == "":
                 continue
-            v = f[n].strip()
+            v = texto_fmt(f[n])
             if x["tipo"] == "opcion":
                 v = next((k for k, t in x["opciones"] if norm(v) in (norm(k), norm(t))), v)
             elif x["tipo"] == "bool":
                 v = si_no(v) is not False
             elif x["tipo"] in ("ref", "multi"):
-                m = cat_svc.CATALOGOS[x["catalogo"]]["modelo"]
-                campo_cod = m.sku if x["catalogo"] == "articulos" else m.codigo
-                cods = [s.strip().upper() for s in v.split(",") if s.strip()] if x["tipo"] == "multi" else [v.upper()]
-                ids = [db.scalar(select(m.id).where(campo_cod == cd)) for cd in cods]
-                if None in ids:
-                    mal = f"{x['etiqueta']}: {cods[ids.index(None)]} does not exist."
+                # Por código o nombre, escrito de cualquier forma (sin duplicar registros)
+                refs = refs_cache.setdefault(x["catalogo"], Referencias(
+                    db, cat_svc.CATALOGOS[x["catalogo"]]["modelo"], ("sku",) if x["catalogo"] == "articulos" else ("codigo", "nombre")))
+                cods = [s.strip() for s in re.split(r"[,;]", v) if s.strip()] if x["tipo"] == "multi" else [v]
+                objs = [refs.buscar(cd) for cd in cods]
+                if None in objs:
+                    mal = f"{x['etiqueta']}: {cods[objs.index(None)]} does not exist."
                     break
-                v = ids if x["tipo"] == "multi" else ids[0]
+                v = [o.id for o in objs] if x["tipo"] == "multi" else objs[0].id
             datos[n] = v
         if mal:
             errores.append({"fila": f["_fila"], "mensaje": mal})
             continue
         actual = None
         if clave and datos.get(clave):
-            actual = db.scalar(select(modelo).where(getattr(modelo, clave) == str(datos[clave]).strip().upper()))
+            actual = existentes.buscar(datos[clave])
+            if actual:
+                datos[clave] = actual.codigo
         try:
             with db.begin_nested():
                 if actual:
