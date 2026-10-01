@@ -1,4 +1,5 @@
 <script setup>
+import { filtrar } from '../busqueda.js'
 import { t, tx } from '../i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
@@ -45,10 +46,7 @@ const plEditables = computed(() => plsActivos.value.some((p) => ['BORRADOR', 'EN
 
 const lineasFiltradas = computed(() => {
   if (!f.value) return []
-  const q = filtro.value.trim().toLowerCase()
-  if (!q) return f.value.lineas
-  return f.value.lineas.filter((l) =>
-    [l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion].some((v) => (v || '').toLowerCase().includes(q)))
+  return filtrar(f.value.lineas, filtro.value, (l) => [l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion])
 })
 const tablaLineas = useTabla(lineasFiltradas, { porPagina: filasDefecto(), valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
 const idsFiltrados = computed(() => lineasFiltradas.value.map((l) => l.id))

@@ -513,9 +513,21 @@ def opciones(db: Session, user: Usuario, tipo: str) -> list[dict]:
         for otro in db.scalars(select(CATALOGOS[t]["modelo"])).all():
             for rel in getattr(otro, campo):
                 m.setdefault(rel.id, []).append(otro.id)
+    # Nombres de los registros referidos (país de un puerto, región de un país…):
+    # van en `sub` para que la búsqueda los encuentre ("vietnam cat" → Cat Lai)
+    nombres_ref: dict[str, dict] = {}
+    for x in propios:
+        if x["tipo"] in ("ref", "codigo") and x.get("catalogo") and x["catalogo"] != tipo:
+            m = CATALOGOS[x["catalogo"]]["modelo"]
+            k = "id" if x["tipo"] == "ref" else ("sku" if x["catalogo"] == "articulos" else "codigo")
+            nombres_ref[x["nombre"]] = {getattr(r, k): (getattr(r, "nombre", None) or _mostrar(r))
+                                        for r in db.scalars(select(m)).all()}
     res = []
     for o in objs:
         fila = {"id": o.id, "codigo": getattr(o, clave), "texto": _mostrar(o)}
+        sub = [nombres_ref[n].get(getattr(o, n)) for n in nombres_ref if getattr(o, n, None) is not None]
+        if any(sub):
+            fila["sub"] = " · ".join(x for x in sub if x)
         if hasattr(o, "activo") or hasattr(o, "activa"):
             fila["activo"] = bool(getattr(o, "activo", getattr(o, "activa", True)))
         for x in propios:

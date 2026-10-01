@@ -108,7 +108,8 @@ def listar_proveedores(db: Session, user: Usuario) -> list[dict]:
     consulta = select(Proveedor).order_by(Proveedor.nombre)
     if user.rol == "proveedor":
         consulta = consulta.where(Proveedor.id == user.proveedor_id)
-    return [{"id": p.id, "codigo": p.codigo, "nombre": p.nombre, "activo": p.activo}
+    return [{"id": p.id, "codigo": p.codigo, "nombre": p.nombre, "activo": p.activo, "pais": p.pais,
+             "razon_social": p.razon_social, "marcas": [m.nombre for m in getattr(p, "marcas", [])]}
             for p in db.scalars(consulta).all()]
 
 

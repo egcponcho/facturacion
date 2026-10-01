@@ -2,6 +2,7 @@
 import { t, tx } from '../i18n/index.js'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import Icono from './Icono.vue'
+import { buscador, relevancia, terminos } from '../busqueda.js'
 
 // Lista desplegable con búsqueda. Busca sin importar acentos ni mayúsculas,
 // por código, nombre o detalle, y con varias palabras (todas deben estar).
@@ -31,7 +32,6 @@ const lista = ref(null)
 const pos = ref({})
 const MAX = 150
 
-const normal = (v) => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const items = computed(() => props.opciones.map((o) => (typeof o === 'object' && o !== null
   ? { valor: o.valor ?? o.id ?? o.codigo, texto: o.texto ?? o.nombre ?? String(o.valor ?? o.codigo), sub: o.sub }
   : { valor: o, texto: String(o) })))
@@ -44,28 +44,16 @@ const resumen = computed(() => {
   return textos.length > 3 ? t('{0} and {1} more', [textos.slice(0, 3).join(', '), textos.length - 3]) : textos.join(', ')
 })
 
-// Búsqueda: los términos se separan por espacios, comas, punto y coma o saltos
-// de línea. Varios códigos (con números) traen cualquiera de ellos; varias
-// palabras deben estar todas. Se ignoran acentos, mayúsculas y separadores
-// dentro de los códigos (4400-003904 = 4400003904).
-const compacto = (v) => normal(v).replace(/[\s.\-_/]/g, '')
+// Búsqueda inteligente global (ver busqueda.js): varios términos en cualquier
+// orden, en el código, el nombre o el detalle, sin acentos ni mayúsculas.
 const filtrados = computed(() => {
-  const palabras = [...new Set(normal(texto.value).split(/[\s,;|]+/).filter(Boolean))]
+  const palabras = terminos(texto.value)
   let res = items.value
   if (palabras.length) {
-    const algunos = palabras.length > 1 && palabras.every((p) => /\d/.test(p))
-    const coincide = (heno, hc, p) => heno.includes(p) || hc.includes(compacto(p))
+    const coincide = buscador(texto.value)
     res = res
-      .map((o) => {
-        const heno = normal(`${o.valor} ${o.texto} ${o.sub || ''}`)
-        const hc = compacto(`${o.valor} ${o.texto}`)
-        const ok = algunos ? palabras.some((p) => coincide(heno, hc, p)) : palabras.every((p) => coincide(heno, hc, p))
-        if (!ok) return null
-        // Primero lo que empieza con lo escrito (código o nombre)
-        const inicio = palabras.some((p) => normal(o.valor).startsWith(p) || normal(o.texto).startsWith(p))
-        return { o, peso: inicio ? 0 : 1 }
-      })
-      .filter(Boolean)
+      .filter((o) => coincide([o.valor, o.texto, o.sub]))
+      .map((o) => ({ o, peso: relevancia(texto.value, [o.valor, o.texto]) }))
       .sort((a, b) => a.peso - b.peso)
       .map((x) => x.o)
   }

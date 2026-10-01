@@ -63,6 +63,18 @@ def test_busqueda_de_varios_codigos(interno):
     assert {o["numero"] for o in r} == {"4400003904", "4400003850", "4400003851"}
 
 
+def test_busqueda_inteligente(interno):
+    """Términos en cualquier orden, partes de palabras, sin acentos ni mayúsculas."""
+    for q in ("cat ho", "LAI chi", "hó chí  cat"):
+        r = interno.get("/catalogos/puertos", params={"q": q}).json()["items"]
+        assert "VNSGN" in {p["codigo"] for p in r}, q
+    r = interno.get("/catalogos/paises", params={"q": "víetnam"}).json()["items"]
+    assert [p["codigo"] for p in r] == ["VN"]
+    # Las opciones traen el nombre de lo referido para buscar por él (país del puerto)
+    ops = {o["codigo"]: o for o in interno.get("/catalogos/puertos/opciones").json()}
+    assert ops["VNSGN"]["sub"] == "Vietnam"
+
+
 def test_campos_dependientes(interno):
     """Las opciones dependientes traen el dato con el que se filtran y el
     servidor rechaza una combinación que no corresponde."""

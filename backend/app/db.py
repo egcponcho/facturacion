@@ -19,6 +19,16 @@ if ES_SQLITE:
         cur.execute("PRAGMA foreign_keys=ON")
         cur.execute("PRAGMA journal_mode=WAL")
         cur.close()
+        # plano(x): texto sin acentos y en minúsculas, para la búsqueda inteligente
+        dbapi_conn.create_function("plano", 1, plano, deterministic=True)
+
+
+def plano(v):
+    import unicodedata
+
+    if v is None:
+        return None
+    return unicodedata.normalize("NFKD", str(v)).encode("ascii", "ignore").decode().lower()
 
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

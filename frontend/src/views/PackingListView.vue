@@ -1,4 +1,5 @@
 <script setup>
+import { buscador } from '../busqueda.js'
 import { t, tx } from '../i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
@@ -133,10 +134,9 @@ const partes = computed(() => {
   return { cuenta, indice }
 })
 const lineasFiltradas = computed(() => {
-  const q = filtro.texto.trim().toLowerCase()
+  const coincide = buscador(filtro.texto)
   return (pl.value?.lineas || []).filter((l) =>
-    (!filtro.solo_pendiente || l.sin_caja > 0) &&
-    (!q || [l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc].some((v) => (v || '').toLowerCase().includes(q))))
+    (!filtro.solo_pendiente || l.sin_caja > 0) && coincide([l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion]))
 })
 const tablaL = useTabla(lineasFiltradas, { porPagina: filasDefecto(), valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
 const tablaG = useTabla(computed(() => pl.value?.grupos || []), { porPagina: filasDefecto(), valores: { rango: (g) => g.desde, etiqueta: (g) => g.etiqueta?.tipo } })

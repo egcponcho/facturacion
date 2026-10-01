@@ -1,7 +1,7 @@
 <script setup>
+import SelectBusqueda from './components/SelectBusqueda.vue'
 import { t, tx } from './i18n/index.js'
 import { computed, ref, watch } from 'vue'
-import Seleccion from './components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icono from './components/Icono.vue'
 import Avatar from './components/Avatar.vue'
@@ -15,6 +15,10 @@ import { ui } from './stores/ui'
 const route = useRoute()
 const router = useRouter()
 const menuAbierto = ref(false)
+// Selector de proveedor (usuarios internos): busca por código, nombre, razón social, país o marcas
+const opcionesProveedor = computed(() => sesion.proveedores.map((p) => ({
+  valor: p.id, texto: p.nombre, sub: [p.codigo, p.pais, p.razon_social, ...(p.marcas || [])].filter(Boolean).join(' · '),
+})))
 
 const ROLES = { admin: t('Administrator'), interno: t('Imports'), proveedor: t('Supplier') }
 
@@ -81,13 +85,11 @@ async function salir() {
           <router-link v-if="carrito.items.length" to="/ordenes?seleccion=1" class="chip-seleccion" :title="t('Order lines ready to invoice')">
             <Icono nombre="carrito" :tam="15" /><b>{{ tx(carrito.items.length) }}</b>
           </router-link>
-          <label v-if="esInterno()" class="selector-proveedor fila-flex" style="gap: 6px; flex-wrap: nowrap">
+          <div v-if="esInterno()" class="selector-proveedor fila-flex" style="gap: 6px; flex-wrap: nowrap">
             <span class="ayuda">{{ t('Supplier') }}</span>
-            <Seleccion class="entrada" :value="sesion.proveedorId || ''" @change="elegirProveedor(Number($event) || null)">
-              <option value="">{{ t('All') }}</option>
-              <option v-for="p in sesion.proveedores" :key="p.id" :value="p.id">{{ tx(p.nombre) }}</option>
-            </Seleccion>
-          </label>
+            <SelectBusqueda :model-value="sesion.proveedorId || ''" :opciones="opcionesProveedor" :vacio="t('All suppliers')" :busqueda="true"
+                            :etiqueta="t('Supplier')" :prefijo="false" @update:model-value="elegirProveedor(Number($event) || null)" />
+          </div>
           <SelectorIdioma class="solo-escritorio" />
           <SelectorTema class="solo-escritorio" />
           <div class="usuario">

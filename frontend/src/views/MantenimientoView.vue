@@ -68,7 +68,7 @@ const valida = (c, o, datos) => {
   return Array.isArray(dato) ? dato.map(String).includes(String(base)) : String(dato) === String(base)
 }
 const opcionesDe = (c, datos = null) => (opciones[c.catalogo] || []).filter((o) => valida(c, o, datos))
-  .map((o) => ({ valor: ['ref', 'multi'].includes(c.tipo) ? o.id : o.codigo, texto: o.texto }))
+  .map((o) => ({ valor: ['ref', 'multi'].includes(c.tipo) ? o.id : o.codigo, texto: o.texto, sub: o.sub }))
 // Al cambiar el campo base, se quita lo que ya no corresponde
 watch(() => campos.value.filter((c) => c.depende).map((c) => form.value?.[c.depende.campo]), () => {
   for (const c of campos.value.filter((x) => x.depende)) {

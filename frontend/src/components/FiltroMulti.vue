@@ -1,4 +1,5 @@
 <script setup>
+import { filtrar } from '../busqueda.js'
 import { t, tx } from '../i18n/index.js'
 import { computed, ref } from 'vue'
 import Icono from './Icono.vue'
@@ -13,7 +14,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'change'])
 const abierto = ref(false)
 const q = ref('')
-const visibles = computed(() => props.opciones.filter((o) => !q.value || o.texto.toLowerCase().includes(q.value.toLowerCase())))
+const visibles = computed(() => filtrar(props.opciones, q.value, (o) => [o.valor, o.texto, o.sub]))
 const resumen = computed(() => {
   const n = props.modelValue.length
   if (!n) return props.vacio

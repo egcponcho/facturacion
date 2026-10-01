@@ -252,7 +252,7 @@ button.nav-link { background: none; border-top: 0; border-inline-start: 0; borde
 .usuario-datos { font-size: 0.82rem; line-height: 1.2; max-width: 170px; }
 .usuario-datos b { display: block; font-weight: 620; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .usuario-datos span { color: var(--tinta-3); font-size: 0.76rem; }
-.selector-proveedor select { min-width: 170px; }
+.selector-proveedor select, .selector-proveedor .sb { min-width: 190px; }
 .proveedor-fijo { display: inline-flex; align-items: center; gap: 7px; font-weight: 620; font-size: 0.9rem; color: var(--tinta-2); }
 .indicador-guardado { font-size: 0.82rem; color: var(--tinta-3); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .indicador-guardado:empty { display: none; }
@@ -282,7 +282,7 @@ button.nav-link { background: none; border-top: 0; border-inline-start: 0; borde
 @media (max-width: 720px) {
   .cabecera-fila { padding: 0 12px; gap: 10px; }
   .marca-texto span, .indicador-guardado, .selector-proveedor > span, .proveedor-fijo { display: none; }
-  .selector-proveedor select { min-width: 0; max-width: 130px; }
+  .selector-proveedor select, .selector-proveedor .sb { min-width: 0; max-width: 140px; }
   .contenido { padding: 16px 14px 110px; }
 }
 

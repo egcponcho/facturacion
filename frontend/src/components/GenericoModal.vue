@@ -44,7 +44,7 @@ onMounted(async () => {
     errorApi(e)
   }
 })
-const opc = (l) => l.map((x) => ({ valor: x.id, texto: x.texto }))
+const opc = (l) => l.map((x) => ({ valor: x.id, texto: x.texto, sub: x.sub }))
 // Escalas de la categoría del grupo elegido (y las que no tienen categoría)
 const categoriaGrupo = computed(() => op.grupos.find((x) => String(x.id) === String(g.grupo_id))?.categoria)
 const escalasValidas = computed(() => escalas.value.filter((e) => !categoriaGrupo.value || !e.categoria || e.categoria === categoriaGrupo.value))
@@ -157,7 +157,7 @@ async function guardar() {
     <h3 class="mt">{{ t('Sizes') }}</h3>
     <div class="rejilla-campos" style="margin: 6px 0">
       <div class="campo"><span>{{ t('Size scale') }}</span>
-        <SelectBusqueda v-model="escalaId" :opciones="escalasValidas.map((e) => ({ valor: e.id, texto: e.texto }))" :vacio="t('No scale (type the sizes)')" :etiqueta="t('Size scale')" />
+        <SelectBusqueda v-model="escalaId" :opciones="escalasValidas.map((e) => ({ valor: e.id, texto: e.texto, sub: e.sub }))" :vacio="t('No scale (type the sizes)')" :etiqueta="t('Size scale')" />
         <small class="ayuda">{{ t('Loads its sizes in order with their size codes; remove the ones this generic does not have. Codes can be changed.') }}</small></div>
     </div>
     <div class="fila-flex" style="gap: 6px; margin: 6px 0 4px">
