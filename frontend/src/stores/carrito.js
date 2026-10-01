@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js'
 import { reactive, watch } from 'vue'
 
 // Order lines selected for invoicing. Kept while you navigate
@@ -9,7 +10,7 @@ watch(carrito, (v) => sessionStorage.setItem('carrito', JSON.stringify(v)), { de
 
 export function agregarPosiciones(oc, posiciones) {
   if (carrito.items.length && carrito.proveedorId !== oc.proveedor_id) {
-    return { error: 'The selection has lines from another supplier. Invoice them or clear the selection first.' }
+    return { error: t('The selection has lines from another supplier. Invoice them or clear the selection first.') }
   }
   carrito.proveedorId = oc.proveedor_id
   let agregadas = 0

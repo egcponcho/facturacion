@@ -40,7 +40,6 @@ class ProveedorPatch(BaseModel):
 class RolIn(BaseModel):
     nombre: str = Field(max_length=80)
     descripcion: str | None = Field(default=None, max_length=300)
-    tipo: Literal["admin", "interno", "proveedor"]
     permisos: list[str] = []
     activo: bool = True
 
@@ -48,7 +47,6 @@ class RolIn(BaseModel):
 class RolPatch(BaseModel):
     nombre: str | None = Field(default=None, max_length=80)
     descripcion: str | None = Field(default=None, max_length=300)
-    tipo: Literal["admin", "interno", "proveedor"] | None = None
     permisos: list[str] | None = None
     activo: bool | None = None
 
@@ -223,6 +221,16 @@ class EditarCajas(ValoresCaja):
     num_cajas: int | None = Field(default=None, gt=0)
     desde_plantilla_id: int | None = None
     confirmar_pesos: bool = False
+
+
+class PLNumeroIn(BaseModel):
+    version: int | None = None
+    numero: str = Field(min_length=1, max_length=40)
+
+
+class InnerPackIn(BaseModel):
+    version: int | None = None
+    inner_pack: int | None = Field(None, ge=1, le=100000)  # vacío: sin inner pack
 
 
 class EliminarCajas(BaseModel):
@@ -478,6 +486,7 @@ class PaisArancelIn(BaseModel):
     mcca: bool = False
     impuesto: str | None = Field(None, max_length=60)
     nota: str | None = Field(None, max_length=300)
+    base_legal: str | None = Field(None, max_length=300)
     activo: bool = True
 
 
@@ -514,13 +523,14 @@ class IdsIn(BaseModel):
 
 class TallaIn(BaseModel):
     talla: str = Field(max_length=20)
-    sufijo: str | None = Field(None, max_length=3)  # los 3 últimos dígitos; vacío = el siguiente libre
+    sufijo: str | None = Field(None, max_length=20)  # código de talla tras el genérico; vacío = el siguiente libre
+    sku: str | None = Field(None, max_length=40)  # código de artículo completo, si la empresa usa otro formato
     upc: str | None = Field(None, max_length=40)
     sku_proveedor: str | None = Field(None, max_length=60)
 
 
 class GenericoIn(BaseModel):
-    generico: str = Field(max_length=8)
+    generico: str = Field(max_length=40)
     estilo: str = Field(max_length=40)
     color: str = Field(max_length=60)
     marca_id: int

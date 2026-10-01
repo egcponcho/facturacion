@@ -210,6 +210,8 @@ def listar_ordenes(
 
     hoy = date.today()
     centros = {c.codigo: c for c in db.scalars(select(Centro))}
+    from .leadtimes import tiendas_estimadas
+    est_tienda = tiendas_estimadas(db, [oc for oc, *_ in filas])
     items = []
     for oc, prov_nombre, importe, n, importe_f in filas:
         destino = centros.get(oc.centro_destino)
@@ -228,6 +230,8 @@ def listar_ordenes(
                 # Avance por valor: es comparable aunque la OC mezcle pares y unidades
                 "avance": round(float(importe_f or 0) * 100 / importe, 1) if importe else 0,
                 "dias_tienda": (oc.fecha_tienda - hoy).days if oc.fecha_tienda else None,
+                # Con los lead times de su origen: cuándo estaría en tienda
+                **est_tienda.get(oc.id, {}),
                 # El centro de destino dice a qué país llega al final
                 "destino_nombre": destino.nombre if destino else None,
                 "pais_destino": destino.pais if destino else None,
@@ -333,7 +337,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "cantidad": p.cantidad,
                 "unidad": p.unidad,
                 "precio": p.precio,
-                "total": round(p.cantidad * p.precio, 2),
+                "total": round(p.cantidad * p.precio, 2) if p.precio is not None else None,
                 "fecha_entrega": p.fecha_entrega,
                 "pais_origen": p.pais_origen,
                 "partida_arancelaria": partida_para(prod, pais_destino),
@@ -348,7 +352,8 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
         )
     prov = db.get(Proveedor, oc.proveedor_id)
     destino = db.scalar(select(Centro).where(Centro.codigo == oc.centro_destino))
-    return {"oc": {**_cabecera_oc(oc), "proveedor": prov.nombre,
+    from .leadtimes import tiendas_estimadas
+    return {"oc": {**_cabecera_oc(oc), "proveedor": prov.nombre, **tiendas_estimadas(db, [oc]).get(oc.id, {}),
                    "centro_destino_nombre": destino.nombre if destino else None,
                    "pais_destino": destino.pais if destino else None},
             "posiciones": posiciones}
@@ -429,8 +434,11 @@ ALIAS = {
     "inner_pack": ["inner_pack", "inner", "innerpack", "inner_casepack", "pack"],
     "fecha_entrega": ["delivery_date", "fecha_entrega", "entrega"],
 }
-REQUERIDOS = ["proveedor", "oc", "posicion", "codigo_sap", "cantidad", "precio", "moneda", "sociedad", "centro",
-              "centro_destino"]
+# Lo mínimo para registrar una OC; el resto es opcional y lo que falte para
+# facturar (empresa, moneda, precio) se pide al facturar
+REQUERIDOS = ["proveedor", "oc", "posicion", "codigo_sap", "cantidad"]
+NOMBRE_CAMPO = {"proveedor": "supplier", "oc": "PO number", "posicion": "PO line", "codigo_sap": "item code",
+                "cantidad": "quantity"}
 CAMPOS_CABECERA = ["sociedad", "centro", "centro_destino", "moneda", "incoterm", "fecha", "puerto_despacho",
                    "pais_origen", "pais_procedencia", "fecha_xf_original", "fecha_xf", "fecha_tienda",
                    "liberacion_comercial"]
@@ -515,9 +523,24 @@ def _fecha(valor: str) -> date | None:
     raise ValueError(f"invalid date: {valor}")
 
 
+def _logistica(valor: str | None):
+    """Liberación logística del archivo: acepta el código (300, 301, 304) o la
+    palabra; None si no viene, False si no se reconoce."""
+    v = re.sub(r"[^A-Z0-9]", "", (valor or "").strip().upper())
+    if not v:
+        return None
+    if v in ("300", "RELEASED", "LIBERADA", "LIBERADO", "YES", "SI", "Y", "S", "1", "TRUE", "OK"):
+        return "300"
+    if v in ("301", "CHANGED", "RELEASEDCHANGED", "RELEASEDWITHCHANGES", "MODIFICADA", "CAMBIADA", "LIBERADACONCAMBIOS"):
+        return "301"
+    if v in ("304", "NOTRELEASED", "NOLIBERADA", "PENDING", "PENDIENTE", "NO", "N", "0", "FALSE", "BLOQUEADA"):
+        return "304"
+    return False
+
+
 def _comercial(valor: str) -> str:
     v = (valor or "").strip().upper()
-    if v in ("P", "PENDIENTE", "NO", "N", "0", "FALSE", "BLOQUEADA"):
+    if v in ("P", "PENDIENTE", "PENDING", "NOT RELEASED", "NO", "N", "0", "FALSE", "BLOQUEADA"):
         return "P"
     return "C"  # C, vacío o "sí": liberación comercial completa
 
@@ -551,7 +574,7 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
     r = {k: (v or "").strip() for k, v in registro.items() if k != "_fila"}
     for campo in REQUERIDOS:
         if not r.get(campo):
-            errores.append(f"Falta {campo}.")
+            errores.append(f"Missing: {NOMBRE_CAMPO[campo]}.")
     d = {
         "proveedor": r.get("proveedor", "").upper(),
         "oc": r.get("oc", ""),
@@ -569,15 +592,17 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         "liberacion_logistica_archivo": (r.get("liberacion_logistica") or "").strip() or None,
         "codigo_sap": r.get("codigo_sap", ""),
     }
-    log = d["liberacion_logistica_archivo"]
-    if log and log not in LIBERACION_TXT:
-        errores.append(f"Invalid logistics release {log} (use 304, 300 or 301).")
+    log = _logistica(d["liberacion_logistica_archivo"])
+    d["liberacion_logistica_archivo"] = log
+    if log is False:
+        errores.append(f"Invalid logistics release {r.get('liberacion_logistica')} (use Released, Changed or Not released).")
+        log = d["liberacion_logistica_archivo"] = None
     elif log in ("300", "301") and d["liberacion_comercial"] != "C":
         errores.append(f"Logistics cannot release ({log}) without commercial release: the PO is in P.")
-    if d["oc"] and not re.fullmatch(r"44\d{8}", d["oc"]):
-        errores.append(f"PO {d['oc']} does not have the 44 + 8 digits format (for example 4400003856).")
-    if d["posicion"] and (not d["posicion"].isdigit() or int(d["posicion"]) % 10):
-        errores.append(f"Line {d['posicion']} is not a multiple of 10.")
+    if d["oc"] and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}", d["oc"]):
+        errores.append(f"PO {d['oc']}: letters and numbers (also . - _ /), up to 40 characters.")
+    if d["posicion"] and not re.fullmatch(r"[A-Za-z0-9]{1,10}", d["posicion"]):
+        errores.append(f"Line {d['posicion']}: letters and numbers, up to 10 characters.")
     try:
         cant = float(r.get("cantidad", "").replace(",", "")) if r.get("cantidad") else None
         if cant is not None and (cant < 0 or not cant.is_integer()):
@@ -615,15 +640,30 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         except ValueError as e:
             errores.append(str(e).capitalize() + ".")
             d[destino] = None
+    if d["precio"] is not None and not d["moneda"]:
+        errores.append("Enter the currency of the price.")
+    if d["cantidad"] == 0:
+        errores.append("The quantity must be greater than zero.")
+    d["moneda"] = d["moneda"] or None
+    d["sociedad"] = d["sociedad"] or None
     d["fecha_xf_original"] = d["fecha_xf_original"] or d["fecha_xf"]
     d["fecha_xf"] = d["fecha_xf"] or d["fecha_xf_original"]
 
     if m is None:
         return d, errores
-    # Datos maestros
+    # Datos maestros. Todo queda encadenado: el proveedor trabaja con la
+    # sociedad; centro, almacén y centro destino son de esa sociedad; el
+    # artículo y su marca son del proveedor. Sin sociedad, se toma la del
+    # centro o almacén indicado.
+    if not d["sociedad"]:
+        for campo, tabla in (("centro", m.centros), ("almacen", m.almacenes), ("centro_destino", m.centros)):
+            x = tabla.get(d[campo]) if d[campo] else None
+            if x and x.sociedad:
+                d["sociedad"] = x.sociedad.codigo
+                break
     soc = m.sociedades.get(d["sociedad"])
     if d["sociedad"] and not soc:
-        errores.append(f"La sociedad {d['sociedad']} no existe.")
+        errores.append(f"Company {d['sociedad']} does not exist.")
     cen = m.centros.get(d["centro"]) if d["centro"] else None
     if d["centro"] and not cen:
         errores.append(f"Plant {d['centro']} does not exist.")
@@ -636,10 +676,16 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         elif soc and alm.sociedad_id != soc.id:
             errores.append(f"Storage location {d['almacen']} does not belong to company {d['sociedad']}.")
     prov = m.proveedores.get(d["proveedor"])
-    if prov and soc and prov.sociedades and soc.id not in {x.id for x in prov.sociedades}:
-        errores.append(f"Supplier {prov.nombre} does not work with company {d['sociedad']}.")
-    if d["centro_destino"] and d["centro_destino"] not in m.centros:
+    if prov and not prov.activo:
+        errores.append(f"Supplier {prov.nombre} is inactive.")
+    if prov and soc and soc.id not in {x.id for x in prov.sociedades}:
+        errores.append(f"Supplier {prov.nombre} does not work with company {d['sociedad']}. "
+                       "Assign the company to the supplier in master data first.")
+    destino = m.centros.get(d["centro_destino"]) if d["centro_destino"] else None
+    if d["centro_destino"] and not destino:
         errores.append(f"Destination center {d['centro_destino']} is not registered in master data.")
+    elif destino and soc and destino.sociedad_id != soc.id:
+        errores.append(f"Destination center {d['centro_destino']} does not belong to company {d['sociedad']}.")
     if d["puerto_despacho"] and d["puerto_despacho"] not in m.puertos:
         errores.append(f"Port {d['puerto_despacho']} is not registered.")
     for campo in ("pais_origen", "pais_procedencia"):
@@ -652,6 +698,8 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         prov = m.proveedores.get(d["proveedor"])
         if prov and art.proveedor_id and art.proveedor_id != prov.id:
             errores.append(f"SKU {art.sku} belongs to another supplier, not {prov.nombre}.")
+        elif prov and art.marca_id not in {x.id for x in prov.marcas}:
+            errores.append(f"Brand {art.marca.codigo} of SKU {art.sku} is not a brand of {prov.nombre}.")
         if not art.activo:
             errores.append(f"SKU {art.sku} is inactive in the item master.")
         if d["unidad"] and d["unidad"] != art.unidad:
@@ -852,3 +900,95 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
     imp.resultado = resultado
     registrar(db, user, "importacion_oc", imp.id, "aplicar", resultado)
     return resultado
+
+
+# ---- Alta desde el formulario ------------------------------------------------------
+# El formulario arma las mismas filas que un archivo de carga: una por línea con
+# los datos de la cabecera; se validan y se guardan con el mismo proceso.
+CAMPOS_FORM_CAB = ("proveedor", "oc", "sociedad", "centro", "centro_destino", "moneda", "incoterm", "fecha_oc",
+                   "puerto_despacho", "pais_origen", "pais_procedencia", "fecha_xf", "fecha_tienda",
+                   "liberacion_comercial", "liberacion_logistica")
+CAMPOS_FORM_LINEA = ("posicion", "codigo_sap", "cantidad", "precio", "unidad", "casepack", "inner_pack", "almacen",
+                     "fecha_entrega")
+
+
+def crear_oc(db: Session, user: Usuario, datos: dict) -> dict:
+    """Orden de compra creada en la plataforma: misma estructura y mismas
+    validaciones que la carga masiva."""
+    exigir(user, "oc.importar")
+    cab = {k: _texto(v) for k, v in (datos.get("cabecera") or {}).items() if k in CAMPOS_FORM_CAB}
+    if user.proveedor_id:  # un proveedor solo crea OCs propias
+        prov = db.get(Proveedor, user.proveedor_id)
+        cab["proveedor"] = prov.codigo if prov else ""
+    lineas = [x for x in (datos.get("lineas") or []) if any(_texto(v) for v in x.values())]
+    if not lineas:
+        raise ErrorNegocio("Add at least one line.", 422, "validacion", [{"campo": "lineas", "mensaje": "Add at least one line."}])
+    filas = []
+    for i, linea in enumerate(lineas, start=1):
+        fila = {**cab, **{k: _texto(v) for k, v in linea.items() if k in CAMPOS_FORM_LINEA}, "_fila": i}
+        fila["posicion"] = fila.get("posicion") or str(i * 10)
+        filas.append(fila)
+    m = Maestros(db)
+    prov = m.proveedores.get((cab.get("proveedor") or "").upper())
+    if prov and cab.get("oc") and db.scalar(select(OrdenCompra.id).where(
+            OrdenCompra.proveedor_id == prov.id, OrdenCompra.numero == cab["oc"])):
+        raise ErrorNegocio(f"PO {cab['oc']} already exists for this supplier.", 409, "duplicado",
+                           [{"campo": "oc", "mensaje": f"PO {cab['oc']} already exists for this supplier."}])
+    clasificadas = _clasificar(db, filas)
+    malas = [c for c in clasificadas if c["estado"] in ("error", "conflicto")]
+    if malas:
+        # Lo que falla en todas las líneas es de la cabecera; lo demás, de su línea
+        comunes = set.intersection(*(set(c["mensajes"]) for c in clasificadas)) if len(malas) == len(clasificadas) else set()
+        errores = [{"campo": "cabecera", "mensaje": x} for x in sorted(comunes)]
+        for c in malas:
+            errores += [{"campo": f"lineas.{c['fila'] - 1}", "mensaje": f"Line {c['fila']}: {x}"}
+                        for x in c["mensajes"] if x not in comunes]
+        raise ErrorNegocio("Check the purchase order.", 422, "validacion", errores)
+    imp = ImportacionOC(usuario_id=user.id, nombre_archivo="(form)", filas=filas)
+    db.add(imp)
+    db.flush()
+    resultado = importar_aplicar(db, user, imp.id)
+    oc = db.scalar(select(OrdenCompra).where(OrdenCompra.proveedor_id == m.proveedores[cab["proveedor"].upper()].id,
+                                             OrdenCompra.numero == cab["oc"]))
+    return {"oc_id": oc.id, "numero": oc.numero, "lineas": resultado["aplicadas"]}
+
+
+INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"]
+
+
+def opciones_formulario(db: Session, user: Usuario) -> dict:
+    """Listas para el formulario de OC (códigos, como en el archivo de carga)."""
+    exigir(user, "oc.importar")
+    provs = db.scalars(select(Proveedor).where(Proveedor.activo.is_(True),
+                                               *([Proveedor.id == user.proveedor_id] if user.proveedor_id else []))
+                       .order_by(Proveedor.nombre)).all()
+    op = lambda xs, f=lambda x: x.nombre: [{"valor": x.codigo, "texto": f"{x.codigo} · {f(x)}"} for x in xs]  # noqa: E731
+    monedas = sorted({m for (m,) in db.execute(select(OrdenCompra.moneda).distinct()) if m} | {"USD", "EUR"})
+    return {
+        # Cada proveedor lleva sus sociedades: el formulario solo ofrece esas
+        "proveedores": [{**o, "sociedades": [x.codigo for x in p.sociedades]} for o, p in zip(op(provs), provs)],
+        "sociedades": op(db.scalars(select(Sociedad).order_by(Sociedad.codigo))),
+        "centros": [{"valor": c.codigo, "texto": f"{c.codigo} · {c.nombre}", "sociedad": c.sociedad.codigo if c.sociedad else None}
+                    for c in db.scalars(select(Centro).order_by(Centro.codigo))],
+        "almacenes": [{"valor": a.codigo, "texto": f"{a.codigo} · {a.nombre}", "sociedad": a.sociedad.codigo if a.sociedad else None}
+                      for a in db.scalars(select(Almacen).order_by(Almacen.codigo))],
+        "puertos": op(db.scalars(select(Puerto).order_by(Puerto.codigo))),
+        "paises": op(db.scalars(select(Pais).order_by(Pais.nombre))),
+        "monedas": [{"valor": m, "texto": m} for m in monedas],
+        "incoterms": [{"valor": x, "texto": x} for x in INCOTERMS],
+    }
+
+
+def articulos_formulario(db: Session, user: Usuario, proveedor: str, q: str = "") -> list[dict]:
+    """Artículos activos del proveedor para las líneas de la OC."""
+    exigir(user, "oc.importar")
+    prov = db.scalar(select(Proveedor).where(Proveedor.codigo == (proveedor or "").upper()))
+    if not prov or (user.proveedor_id and prov.id != user.proveedor_id):
+        return []
+    consulta = select(Articulo).where(Articulo.proveedor_id == prov.id, Articulo.activo.is_(True))
+    if q.strip():
+        t = f"%{q.strip()}%"
+        consulta = consulta.where(or_(Articulo.sku.ilike(t), Articulo.estilo.ilike(t), Articulo.color.ilike(t),
+                                      Articulo.sku_proveedor.ilike(t), Articulo.upc.ilike(t)))
+    return [{"valor": a.sku, "texto": f"{a.sku} · {a.estilo} {a.color or ''} {a.talla or ''}".strip(), "unidad": a.unidad,
+             "tipo": a.tipo} for a in db.scalars(consulta.order_by(Articulo.estilo, Articulo.color, Articulo.sku).limit(300))]

@@ -11,10 +11,11 @@ from ..models import (
 from ..security import hash_password
 from .acceso import exigir_politica, revocar_sesiones, validar_telefono
 from .common import (
-    PERMISOS,
     ErrorNegocio,
+    alcance,
     catalogo_permisos,
     exigir,
+    permisos_de,
     permisos_fabrica,
     permisos_validos,
     proveedor_filtro,
@@ -131,6 +132,10 @@ def actualizar_proveedor(db: Session, user: Usuario, proveedor_id: int, datos) -
 
 
 # ---- Roles --------------------------------------------------------------------
+# Los roles son libres: nombre, descripción y los permisos que se marquen. Qué
+# datos ve cada usuario no depende del rol sino de si tiene un proveedor
+# asignado (ve solo lo suyo) o no (equipo interno). Estos tres se crean al
+# inicio como punto de partida y se pueden editar o borrar como cualquier otro.
 ROLES_FABRICA = [
     ("Administrator", "admin", "Everything, including users, roles and suppliers."),
     ("Internal team", "interno", "Imports team: classifies, approves and manages shipments and master data."),
@@ -139,7 +144,7 @@ ROLES_FABRICA = [
 
 
 def crear_roles_fabrica(db: Session) -> dict[str, Rol]:
-    """Los tres roles de fábrica con sus permisos por defecto (si faltan)."""
+    """Los roles iniciales con sus permisos por defecto (si faltan)."""
     res = {}
     for nombre, tipo, desc in ROLES_FABRICA:
         r = db.scalar(select(Rol).where(Rol.sistema.is_(True), Rol.tipo == tipo))
@@ -152,26 +157,40 @@ def crear_roles_fabrica(db: Session) -> dict[str, Rol]:
 
 
 def _rol_dict(r: Rol, usuarios: int) -> dict:
-    return {"id": r.id, "nombre": r.nombre, "descripcion": r.descripcion, "tipo": r.tipo, "sistema": r.sistema,
-            "activo": r.activo, "permisos": permisos_de_rol(r), "usuarios": usuarios}
+    return {"id": r.id, "nombre": r.nombre, "descripcion": r.descripcion, "activo": r.activo,
+            "permisos": permisos_validos(r.permisos), "usuarios": usuarios}
 
 
-def permisos_de_rol(r: Rol) -> list[str]:
-    return sorted(PERMISOS) if r.tipo == "admin" else permisos_validos(r.tipo, r.permisos)
+def _admins_activos(db: Session) -> int:
+    """Usuarios activos que pueden administrar: nunca debe quedar ninguno."""
+    return sum(1 for u in db.scalars(select(Usuario).where(Usuario.activo.is_(True))).all()
+               if not u.proveedor_id and "admin" in permisos_de(u))
+
+
+def _sin_administrador(db: Session) -> None:
+    db.flush()
+    db.expire_all()
+    if not _admins_activos(db):
+        raise ErrorNegocio("At least one active user must keep the administration permission.", 422, "validacion")
+
+
+def _recalcular_alcance(db: Session, r: Rol) -> None:
+    for u in db.scalars(select(Usuario).where(Usuario.rol_id == r.id)).all():
+        u.rol = alcance(r.permisos, u.proveedor_id)
 
 
 def listar_roles(db: Session, user: Usuario) -> dict:
     exigir(user, "admin")
     crear_roles_fabrica(db)
     cuenta = dict(db.execute(select(Usuario.rol_id, func.count()).group_by(Usuario.rol_id)).all())
-    roles = db.scalars(select(Rol).order_by(Rol.sistema.desc(), Rol.tipo, Rol.nombre)).all()
+    roles = db.scalars(select(Rol).order_by(Rol.nombre)).all()
     return {"roles": [_rol_dict(r, cuenta.get(r.id, 0)) for r in roles], "catalogo": catalogo_permisos()}
 
 
 def guardar_rol(db: Session, user: Usuario, datos, rol_id: int | None = None) -> dict:
     exigir(user, "admin")
     campos = datos.model_dump(exclude_unset=True)
-    r = db.get(Rol, rol_id) if rol_id else Rol(sistema=False)
+    r = db.get(Rol, rol_id) if rol_id else Rol(sistema=False, tipo="rol")
     if rol_id and not r:
         raise ErrorNegocio("The role does not exist.", 404, "no_encontrado")
     if "nombre" in campos:
@@ -181,20 +200,19 @@ def guardar_rol(db: Session, user: Usuario, datos, rol_id: int | None = None) ->
         otro = db.scalar(select(Rol.id).where(func.lower(Rol.nombre) == campos["nombre"].lower()))
         if otro and otro != rol_id:
             raise ErrorNegocio(f"A role named “{campos['nombre']}” already exists.", 409, "duplicado")
-    if rol_id and r.sistema and "tipo" in campos and campos["tipo"] != r.tipo:
-        raise ErrorNegocio("The type of a built-in role cannot change.", 422, "validacion")
-    if rol_id and "tipo" in campos and campos["tipo"] != r.tipo and db.scalar(select(func.count()).where(Usuario.rol_id == r.id)):
-        raise ErrorNegocio("The role has users: its type cannot change.", 422, "validacion")
-    if rol_id and r.sistema and r.tipo == "admin" and campos.get("activo") is False:
-        raise ErrorNegocio("The administrator role cannot be deactivated.", 422, "validacion")
+    if "descripcion" in campos:
+        campos["descripcion"] = (campos["descripcion"] or "").strip() or None
+    if "permisos" in campos:
+        campos["permisos"] = permisos_validos(campos["permisos"])
     for k, v in campos.items():
         setattr(r, k, v)
-    if not r.tipo or not r.nombre:
-        raise ErrorNegocio("The role needs a name and a type.", 422, "validacion")
-    r.permisos = permisos_de_rol(r)
+    if not r.nombre:
+        raise ErrorNegocio("The role needs a name.", 422, "validacion")
     if not rol_id:
         db.add(r)
     db.flush()
+    _recalcular_alcance(db, r)
+    _sin_administrador(db)
     registrar(db, user, "rol", r.id, "guardado", {"nombre": r.nombre, "permisos": r.permisos})
     return _rol_dict(r, db.scalar(select(func.count()).where(Usuario.rol_id == r.id)) or 0)
 
@@ -204,14 +222,12 @@ def borrar_rol(db: Session, user: Usuario, rol_id: int) -> None:
     r = db.get(Rol, rol_id)
     if not r:
         raise ErrorNegocio("The role does not exist.", 404, "no_encontrado")
-    if r.sistema:
-        raise ErrorNegocio("Built-in roles cannot be deleted; deactivate a custom role instead.", 422, "validacion")
     if db.scalar(select(func.count()).where(Usuario.rol_id == r.id)):
         raise ErrorNegocio("The role has users: assign them another role first.", 422, "en_uso")
     db.delete(r)
 
 
-def _rol_elegido(db: Session, rol_id: int | None, tipo: str | None) -> Rol:
+def _rol_elegido(db: Session, rol_id: int | None, tipo: str | None = None) -> Rol:
     if rol_id:
         r = db.get(Rol, rol_id)
         if not r or not r.activo:
@@ -220,6 +236,15 @@ def _rol_elegido(db: Session, rol_id: int | None, tipo: str | None) -> Rol:
     if not tipo:
         raise ErrorNegocio("Choose a role.", 422, "validacion")
     return crear_roles_fabrica(db)[tipo]
+
+
+def _proveedor_elegido(db: Session, proveedor_id: int | None) -> int | None:
+    if not proveedor_id:
+        return None
+    p = db.get(Proveedor, proveedor_id)
+    if not p or not p.activo:
+        raise ErrorNegocio("Choose an active supplier.", 422, "validacion")
+    return p.id
 
 
 def _usuario_dict(u: Usuario) -> dict:
@@ -243,12 +268,12 @@ def crear_usuario(db: Session, user: Usuario, datos) -> dict:
     if db.scalar(select(Usuario.id).where(Usuario.email == email)):
         raise ErrorNegocio("A user with that email already exists.", 409, "duplicado")
     rol = _rol_elegido(db, datos.rol_id, datos.rol)
-    if rol.tipo == "proveedor" and not datos.proveedor_id:
+    prov = _proveedor_elegido(db, datos.proveedor_id)
+    if datos.rol == "proveedor" and not prov:
         raise ErrorNegocio("A supplier user must have a supplier assigned.", 422, "validacion")
     exigir_politica(datos.password, email)
-    u = Usuario(email=email, nombre=datos.nombre.strip(), rol=rol.tipo, rol_id=rol.id,
-                proveedor_id=datos.proveedor_id if rol.tipo == "proveedor" else None,
-                password_hash=hash_password(datos.password), activo=True,
+    u = Usuario(email=email, nombre=datos.nombre.strip(), rol=alcance(rol.permisos, prov), rol_id=rol.id,
+                proveedor_id=prov, password_hash=hash_password(datos.password), activo=True,
                 telefono=validar_telefono(datos.telefono), dos_pasos=datos.dos_pasos)
     db.add(u)
     db.flush()
@@ -274,9 +299,9 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
         revocar = revocar or campos["telefono"] != u.telefono
     if "rol_id" in campos or "rol" in campos:
         rol = _rol_elegido(db, campos.pop("rol_id", None), campos.pop("rol", None))
-        if u.id == user.id and rol.tipo != "admin":
-            raise ErrorNegocio("You cannot take the administrator role away from yourself.", 422, "validacion")
-        campos["rol"], campos["rol_id"] = rol.tipo, rol.id
+        campos["rol_id"] = rol.id
+    if "proveedor_id" in campos:
+        campos["proveedor_id"] = _proveedor_elegido(db, campos["proveedor_id"])
     if campos.get("activo") is False or campos.get("dos_pasos") is False:
         revocar = True
     if revocar:
@@ -284,8 +309,8 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
         revocar_sesiones(db, u.id)
     for k, v in campos.items():
         setattr(u, k, v)
-    if u.rol == "proveedor" and not u.proveedor_id:
-        raise ErrorNegocio("A supplier user must have a supplier assigned.", 422, "validacion")
-    if u.rol != "proveedor":
-        u.proveedor_id = None
+    db.flush()
+    db.refresh(u)
+    u.rol = alcance(u.rol_ref.permisos if u.rol_ref else [], u.proveedor_id)
+    _sin_administrador(db)
     return {"ok": True}

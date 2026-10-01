@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { computed, ref } from 'vue'
 import Icono from './Icono.vue'
 
@@ -7,7 +8,7 @@ const props = defineProps({
   modelValue: { type: Array, default: () => [] },
   opciones: { type: Array, default: () => [] }, // [{valor, texto}]
   etiqueta: { type: String, required: true },
-  vacio: { type: String, default: 'all' },
+  vacio: { type: String, default: () => t('all') },
 })
 const emit = defineEmits(['update:modelValue', 'change'])
 const abierto = ref(false)
@@ -17,7 +18,7 @@ const resumen = computed(() => {
   const n = props.modelValue.length
   if (!n) return props.vacio
   if (n <= 2) return props.modelValue.map((v) => props.opciones.find((o) => o.valor === v)?.texto || v).join(', ')
-  return `${n} selected`
+  return t('{0} selected', [n])
 })
 function alternar(v) {
   const s = new Set(props.modelValue)
@@ -34,17 +35,17 @@ function limpiar() {
 <template>
   <div class="fm" @keydown.esc="abierto = false">
     <button type="button" class="fm-boton" :class="{ activo: props.modelValue.length }" :aria-expanded="abierto" @click="abierto = !abierto">
-      <span>{{ props.etiqueta }}: <b>{{ resumen }}</b></span><Icono nombre="abajo" :tam="14" />
+      <span>{{ tx(props.etiqueta) }}: <b>{{ tx(resumen) }}</b></span><Icono nombre="abajo" :tam="14" />
     </button>
     <div v-if="abierto" class="fm-velo" @click="abierto = false"></div>
     <div v-if="abierto" class="fm-panel" role="listbox" aria-multiselectable="true">
-      <input v-if="props.opciones.length > 8" v-model="q" class="entrada" type="search" placeholder="Search" aria-label="Search options" />
+      <input v-if="props.opciones.length > 8" v-model="q" class="entrada" type="search" :placeholder="t('Search')" :aria-label="t('Search options')" />
       <div class="fm-lista">
         <label v-for="o in visibles" :key="o.valor" class="fm-op">
-          <input type="checkbox" :checked="props.modelValue.includes(o.valor)" @change="alternar(o.valor)" /><span>{{ o.texto }}</span>
+          <input type="checkbox" :checked="props.modelValue.includes(o.valor)" @change="alternar(o.valor)" /><span>{{ tx(o.texto) }}</span>
         </label>
       </div>
-      <button v-if="props.modelValue.length" type="button" class="btn-texto" @click="limpiar">Clear</button>
+      <button v-if="props.modelValue.length" type="button" class="btn-texto" @click="limpiar">{{ t('Clear') }}</button>
     </div>
   </div>
 </template>
@@ -55,7 +56,7 @@ function limpiar() {
 .fm-boton b { color: var(--tinta); font-weight: 620; }
 .fm-boton.activo { border-color: var(--acento); background: var(--acento-claro); }
 .fm-velo { position: fixed; inset: 0; z-index: 38; }
-.fm-panel { position: absolute; z-index: 39; top: calc(100% + 4px); left: 0; min-width: 240px; background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; box-shadow: var(--sombra-flotante); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.fm-panel { position: absolute; z-index: 39; top: calc(100% + 4px); inset-inline-start: 0; min-width: 240px; background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; box-shadow: var(--sombra-flotante); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 .fm-lista { max-height: 280px; overflow: auto; display: flex; flex-direction: column; }
 .fm-op { display: flex; gap: 8px; align-items: center; padding: 5px 6px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; }
 .fm-op:hover { background: var(--acento-claro); }

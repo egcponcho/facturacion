@@ -1,0 +1,739 @@
+{
+ "_nota": "Términos del sistema (comercio exterior, aduana, confección y calzado) con su traducción aprobada por idioma y las traducciones literales que no se aceptan. Las pruebas verifican que cuando el texto en inglés es exactamente el término, la traducción sea la aprobada, y que ninguna traducción use una forma prohibida.",
+ "terminos": [
+  {
+   "en": "Type",
+   "es": "Tipo",
+   "zh": "类型",
+   "hi": "प्रकार",
+   "ar": "النوع",
+   "prohibido": {
+    "es": [
+     "Chico",
+     "Tío",
+     "Escribir",
+     "Teclear"
+    ],
+    "zh": [
+     "打字",
+     "家伙"
+    ],
+    "hi": [
+     "टाइप करें",
+     "लड़का"
+    ],
+    "ar": [
+     "اكتب",
+     "الرجل"
+    ]
+   }
+  },
+  {
+   "en": "Draft",
+   "es": "Borrador",
+   "zh": "草稿",
+   "hi": "मसौदा",
+   "ar": "مسودة",
+   "prohibido": {
+    "es": [
+     "Corriente de aire",
+     "Calado",
+     "Reclutamiento"
+    ],
+    "zh": [
+     "吃水",
+     "征兵",
+     "气流"
+    ],
+    "hi": [
+     "हवा का झोंका"
+    ],
+    "ar": [
+     "تيار هواء",
+     "تجنيد"
+    ]
+   }
+  },
+  {
+   "en": "Invoice",
+   "es": "Factura",
+   "zh": "发票",
+   "hi": "चालान",
+   "ar": "فاتورة"
+  },
+  {
+   "en": "Invoices",
+   "es": "Facturas",
+   "zh": "发票",
+   "hi": "चालान",
+   "ar": "الفواتير"
+  },
+  {
+   "en": "Packing list",
+   "es": "Lista de empaque",
+   "zh": "装箱单",
+   "hi": "पैकिंग सूची",
+   "ar": "قائمة التعبئة",
+   "prohibido": {
+    "es": [
+     "Lista de embalaje de equipaje"
+    ],
+    "zh": [
+     "打包列表"
+    ]
+   }
+  },
+  {
+   "en": "Purchase order",
+   "es": "Orden de compra",
+   "zh": "采购订单",
+   "hi": "क्रय आदेश",
+   "ar": "أمر الشراء"
+  },
+  {
+   "en": "Orders",
+   "es": "Órdenes",
+   "zh": "订单",
+   "hi": "आदेश",
+   "ar": "الطلبات",
+   "prohibido": {
+    "es": [
+     "Mandatos",
+     "Pedidos militares"
+    ],
+    "zh": [
+     "命令"
+    ],
+    "ar": [
+     "الأوامر العسكرية"
+    ]
+   }
+  },
+  {
+   "en": "Shipment",
+   "es": "Embarque",
+   "zh": "货运",
+   "hi": "शिपमेंट",
+   "ar": "الشحنة"
+  },
+  {
+   "en": "Shipments",
+   "es": "Embarques",
+   "zh": "货运",
+   "hi": "शिपमेंट",
+   "ar": "الشحنات"
+  },
+  {
+   "en": "Supplier",
+   "es": "Proveedor",
+   "zh": "供应商",
+   "hi": "आपूर्तिकर्ता",
+   "ar": "المورد"
+  },
+  {
+   "en": "Size",
+   "es": "Talla",
+   "zh": "尺码",
+   "hi": "साइज़",
+   "ar": "المقاس",
+   "prohibido": {
+    "es": [
+     "Tamaño"
+    ],
+    "zh": [
+     "大小"
+    ],
+    "ar": [
+     "الحجم"
+    ]
+   }
+  },
+  {
+   "en": "Sizes",
+   "es": "Tallas",
+   "zh": "尺码",
+   "hi": "साइज़",
+   "ar": "المقاسات",
+   "prohibido": {
+    "es": [
+     "Tamaños"
+    ],
+    "zh": [
+     "大小"
+    ],
+    "ar": [
+     "الأحجام"
+    ]
+   }
+  },
+  {
+   "en": "Sole",
+   "es": "Suela",
+   "zh": "鞋底",
+   "hi": "तला",
+   "ar": "النعل",
+   "prohibido": {
+    "es": [
+     "Único",
+     "Lenguado"
+    ],
+    "zh": [
+     "唯一",
+     "鳎鱼"
+    ],
+    "hi": [
+     "एकमात्र"
+    ],
+    "ar": [
+     "الوحيد",
+     "سمك موسى"
+    ]
+   }
+  },
+  {
+   "en": "Upper",
+   "es": "Corte",
+   "zh": "鞋面",
+   "hi": "ऊपरी भाग (अपर)",
+   "ar": "وجه الحذاء",
+   "prohibido": {
+    "es": [
+     "Superior",
+     "Más alto"
+    ],
+    "zh": [
+     "上层",
+     "上面的"
+    ],
+    "ar": [
+     "العلوي"
+    ]
+   }
+  },
+  {
+   "en": "Lining",
+   "es": "Forro",
+   "zh": "里料",
+   "hi": "अस्तर",
+   "ar": "البطانة"
+  },
+  {
+   "en": "Fill",
+   "es": "Relleno",
+   "zh": "填充物",
+   "hi": "भराव",
+   "ar": "الحشو",
+   "prohibido": {
+    "es": [
+     "Llenar",
+     "Rellenar"
+    ],
+    "zh": [
+     "填写"
+    ],
+    "hi": [
+     "भरें"
+    ],
+    "ar": [
+     "املأ"
+    ]
+   }
+  },
+  {
+   "en": "Insole",
+   "es": "Plantilla",
+   "zh": "鞋垫",
+   "hi": "इनसोल",
+   "ar": "النعل الداخلي"
+  },
+  {
+   "en": "Release",
+   "es": "Liberación",
+   "zh": "放行",
+   "hi": "रिलीज़",
+   "ar": "الإفراج",
+   "prohibido": {
+    "es": [
+     "Lanzamiento",
+     "Versión"
+    ],
+    "zh": [
+     "发布",
+     "版本"
+    ],
+    "ar": [
+     "إصدار"
+    ]
+   }
+  },
+  {
+   "en": "Generic",
+   "es": "Genérico",
+   "zh": "通用款号",
+   "hi": "जेनेरिक",
+   "ar": "الرمز العام",
+   "prohibido": {
+    "zh": [
+     "仿制药"
+    ],
+    "ar": [
+     "دواء جنيس"
+    ]
+   }
+  },
+  {
+   "en": "Style",
+   "es": "Estilo",
+   "zh": "款号",
+   "hi": "स्टाइल",
+   "ar": "الطراز"
+  },
+  {
+   "en": "Plant",
+   "es": "Centro",
+   "zh": "工厂",
+   "hi": "प्लांट",
+   "ar": "المصنع",
+   "prohibido": {
+    "es": [
+     "Planta"
+    ],
+    "zh": [
+     "植物"
+    ],
+    "hi": [
+     "पौधा"
+    ],
+    "ar": [
+     "نبات"
+    ]
+   }
+  },
+  {
+   "en": "Storage location",
+   "es": "Almacén",
+   "zh": "库存地点",
+   "hi": "भंडारण स्थान",
+   "ar": "موقع التخزين"
+  },
+  {
+   "en": "Load unit",
+   "es": "Unidad de carga",
+   "zh": "装载单元",
+   "hi": "लोड यूनिट",
+   "ar": "وحدة التحميل"
+  },
+  {
+   "en": "Carton",
+   "es": "Caja",
+   "zh": "箱",
+   "hi": "कार्टन",
+   "ar": "كرتونة"
+  },
+  {
+   "en": "Cartons",
+   "es": "Cajas",
+   "zh": "箱数",
+   "hi": "कार्टन",
+   "ar": "الكراتين"
+  },
+  {
+   "en": "Prepack",
+   "es": "Prepack",
+   "zh": "配码包",
+   "hi": "प्रीपैक",
+   "ar": "عبوة مجمّعة"
+  },
+  {
+   "en": "Master data",
+   "es": "Datos maestros",
+   "zh": "主数据",
+   "hi": "मास्टर डेटा",
+   "ar": "البيانات الرئيسية"
+  },
+  {
+   "en": "Tariff schedule",
+   "es": "Arancel",
+   "zh": "关税税则",
+   "hi": "टैरिफ अनुसूची",
+   "ar": "جدول التعريفة الجمركية"
+  },
+  {
+   "en": "HS code",
+   "es": "Partida arancelaria",
+   "zh": "HS编码",
+   "hi": "एचएस कोड",
+   "ar": "رمز النظام المنسق",
+   "prohibido": {
+    "es": [
+     "Código de la escuela"
+    ],
+    "zh": [
+     "高中代码"
+    ]
+   }
+  },
+  {
+   "en": "Tracking",
+   "es": "Seguimiento",
+   "zh": "跟踪",
+   "hi": "ट्रैकिंग",
+   "ar": "التتبع",
+   "prohibido": {
+    "es": [
+     "Rastreo de personas"
+    ],
+    "zh": [
+     "追踪人"
+    ]
+   }
+  },
+  {
+   "en": "Products",
+   "es": "Productos",
+   "zh": "产品",
+   "hi": "उत्पाद",
+   "ar": "المنتجات"
+  },
+  {
+   "en": "Home",
+   "es": "Inicio",
+   "zh": "首页",
+   "hi": "होम",
+   "ar": "الرئيسية",
+   "prohibido": {
+    "es": [
+     "Casa",
+     "Hogar"
+    ],
+    "zh": [
+     "家"
+    ],
+    "hi": [
+     "घर"
+    ],
+    "ar": [
+     "المنزل",
+     "البيت"
+    ]
+   }
+  },
+  {
+   "en": "Settings",
+   "es": "Configuración",
+   "zh": "设置",
+   "hi": "सेटिंग्स",
+   "ar": "الإعدادات",
+   "prohibido": {
+    "es": [
+     "Escenarios",
+     "Engastes"
+    ],
+    "zh": [
+     "场景"
+    ]
+   }
+  },
+  {
+   "en": "Approved",
+   "es": "Aprobada",
+   "zh": "已批准",
+   "hi": "स्वीकृत",
+   "ar": "معتمدة"
+  },
+  {
+   "en": "Returned",
+   "es": "Devuelta",
+   "zh": "已退回",
+   "hi": "लौटाई गई",
+   "ar": "مُعادة"
+  },
+  {
+   "en": "In review",
+   "es": "En revisión",
+   "zh": "审核中",
+   "hi": "समीक्षा में",
+   "ar": "قيد المراجعة"
+  },
+  {
+   "en": "Technical sheet",
+   "es": "Ficha técnica",
+   "zh": "技术规格表",
+   "hi": "तकनीकी शीट",
+   "ar": "البطاقة الفنية",
+   "prohibido": {
+    "es": [
+     "Hoja técnica de cama",
+     "Sábana técnica"
+    ],
+    "zh": [
+     "技术床单"
+    ],
+    "ar": [
+     "الملاءة"
+    ]
+   }
+  },
+  {
+   "en": "Composition",
+   "es": "Composición",
+   "zh": "成分",
+   "hi": "संरचना",
+   "ar": "التركيب",
+   "prohibido": {
+    "zh": [
+     "作文",
+     "构图"
+    ],
+    "hi": [
+     "निबंध"
+    ],
+    "ar": [
+     "الإنشاء"
+    ]
+   }
+  },
+  {
+   "en": "Gender",
+   "es": "Género",
+   "zh": "性别",
+   "hi": "लिंग",
+   "ar": "الجنس"
+  },
+  {
+   "en": "Adult",
+   "es": "Adulto",
+   "zh": "成人",
+   "hi": "वयस्क",
+   "ar": "بالغ"
+  },
+  {
+   "en": "Baby",
+   "es": "Bebé",
+   "zh": "婴儿",
+   "hi": "शिशु",
+   "ar": "رضيع"
+  },
+  {
+   "en": "Unisex",
+   "es": "Unisex",
+   "zh": "男女通用",
+   "hi": "यूनिसेक्स",
+   "ar": "للجنسين"
+  },
+  {
+   "en": "Footwear",
+   "es": "Calzado",
+   "zh": "鞋类",
+   "hi": "फुटवियर",
+   "ar": "الأحذية"
+  },
+  {
+   "en": "Country of origin",
+   "es": "País de origen",
+   "zh": "原产国",
+   "hi": "मूल देश",
+   "ar": "بلد المنشأ"
+  },
+  {
+   "en": "Customs description",
+   "es": "Descripción aduanal",
+   "zh": "报关描述",
+   "hi": "सीमा शुल्क विवरण",
+   "ar": "الوصف الجمركي"
+  },
+  {
+   "en": "Duty",
+   "es": "Arancel",
+   "zh": "关税",
+   "hi": "शुल्क",
+   "ar": "الرسوم الجمركية",
+   "prohibido": {
+    "es": [
+     "Deber",
+     "Turno"
+    ],
+    "zh": [
+     "职责",
+     "值班"
+    ],
+    "hi": [
+     "कर्तव्य",
+     "ड्यूटी"
+    ],
+    "ar": [
+     "واجب",
+     "مناوبة"
+    ]
+   }
+  },
+  {
+   "en": "Released",
+   "es": "Liberada",
+   "zh": "已放行",
+   "hi": "रिलीज़ की गई",
+   "ar": "مُفرج عنها",
+   "prohibido": {
+    "zh": [
+     "已发布"
+    ],
+    "ar": [
+     "صدرت"
+    ]
+   }
+  },
+  {
+   "en": "Container",
+   "es": "Contenedor",
+   "zh": "集装箱",
+   "hi": "कंटेनर",
+   "ar": "الحاوية"
+  },
+  {
+   "en": "Pairs",
+   "es": "Pares",
+   "zh": "双",
+   "hi": "जोड़े",
+   "ar": "أزواج"
+  },
+  {
+   "en": "Units",
+   "es": "Unidades",
+   "zh": "件",
+   "hi": "यूनिट",
+   "ar": "وحدات"
+  },
+  {
+   "en": "Match",
+   "es": "Coincidencia",
+   "zh": "匹配",
+   "hi": "मिलान",
+   "ar": "تطابق",
+   "prohibido": {
+    "es": [
+     "Fósforo",
+     "Cerillo",
+     "Partido"
+    ],
+    "zh": [
+     "火柴",
+     "比赛"
+    ],
+    "hi": [
+     "माचिस"
+    ],
+    "ar": [
+     "عود ثقاب",
+     "مباراة"
+    ]
+   }
+  }
+ ],
+ "igual_permitido": {
+  "_nota": "Textos que pueden quedar idénticos al inglés en ese idioma: nombres propios, siglas, unidades, marcas y préstamos de uso normal en el oficio.",
+  "todos": [
+   "&nbsp;",
+   "ETA {0}",
+   "ETD {0}",
+   "· ETA {0}",
+   "· SKU {0}",
+   "UPC {0}",
+   "Excel",
+   "Mn",
+   "Supplier2026",
+   "The North Face",
+   "Vans",
+   "{0} KB",
+   "{0} kg",
+   "{0} kg · {1} m³"
+  ],
+  "es": [
+   " (color {0})",
+   " · inner {0}",
+   ", {0} kg",
+   "- tipo: {0}",
+   "Alcohol",
+   "B/L / AWB {0}",
+   "Base (ADOC)",
+   "Casepack",
+   "Casepack {0}",
+   "Chile",
+   "China",
+   "Colombia",
+   "Color",
+   "Cordura",
+   "Costa Rica",
+   "Digital",
+   "El Salvador",
+   "Error",
+   "Error {0}",
+   "Falta {0}.",
+   "Guatemala",
+   "Honduras",
+   "Incoterm",
+   "India",
+   "Indonesia",
+   "Inner pack",
+   "Inner {0}",
+   "Lead time",
+   "Lead times",
+   "Lyocell",
+   "Material",
+   "Material {0}",
+   "Metal",
+   "Modal",
+   "Multimodal",
+   "Myanmar",
+   "Nicaragua",
+   "No",
+   "PL {0}",
+   "Pallet",
+   "Pallet {0}",
+   "Pallets",
+   "Portugal",
+   "Prepack",
+   "Prepack {0}",
+   "Ripstop",
+   "Sri Lanka",
+   "Total",
+   "Total 100%",
+   "Tritan",
+   "Unisex",
+   "Vietnam",
+   "Virtual",
+   "Zinc",
+   "inner pack",
+   "{0} {1} prepack {2} ({3} {4})",
+   "{0} · {1}×{2}×{3} cm, {4} kg",
+   "{0}: no",
+   "· DAI {0}%",
+   "· {0} pallets",
+   "manual",
+   "prepack",
+   "prepacks",
+   "unisex"
+  ],
+  "zh": [
+   "name@company.com, other@company.com",
+   "SKUs"
+  ],
+  "hi": [
+   "name@company.com, other@company.com",
+   "B/L / AWB {0}",
+   "PL {0}",
+   "PO {0}",
+   "{0} · {1} PO · {2}",
+   "{0} · {1}×{2}×{3} cm, {4} kg",
+   "· DAI {0}%",
+   "PLs",
+   "POs",
+   "SKUs",
+   "{0} POs",
+   "{0}: {1} ({2} POs)"
+  ],
+  "ar": [
+   "name@company.com, other@company.com",
+   "· DAI {0}%"
+  ]
+ }
+}

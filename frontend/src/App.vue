@@ -1,9 +1,11 @@
 <script setup>
+import { t, tx } from './i18n/index.js'
 import { computed, ref, watch } from 'vue'
 import Seleccion from './components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icono from './components/Icono.vue'
 import Modal from './components/Modal.vue'
+import SelectorIdioma from './components/SelectorIdioma.vue'
 import SelectorTema from './components/SelectorTema.vue'
 import Toasts from './components/Toasts.vue'
 import { carrito } from './stores/carrito'
@@ -15,27 +17,27 @@ const route = useRoute()
 const router = useRouter()
 const menuAbierto = ref(false)
 
-const ROLES = { admin: 'Administrator', interno: 'Imports', proveedor: 'Supplier' }
+const ROLES = { admin: t('Administrator'), interno: t('Imports'), proveedor: t('Supplier') }
 
 // Each role only sees the pages it has permission for (the router and the
 // server check it again). The daily work goes in the bar; setup pages go in
 // the settings menu so the bar stays short.
 const navegacion = computed(() => {
-  const items = [{ to: '/', texto: 'Home', icono: 'tablero' }]
-  if (puede('oc.ver')) items.push({ to: '/ordenes', texto: 'Orders', icono: 'ordenes', cuenta: carrito.items.length || null })
-  if (puede('oc.ver')) items.push({ to: '/facturas', texto: 'Invoices', icono: 'factura' })
-  if (puede('transporte.gestionar')) items.push({ to: '/transporte', texto: 'Shipments', icono: 'barco' })
-  if (puede('producto.ver')) items.push({ to: '/productos', texto: 'Products', icono: 'etiqueta' })
-  if (puede('seguimiento.ver')) items.push({ to: '/seguimiento', texto: 'Tracking', icono: 'ruta' })
+  const items = [{ to: '/', texto: t('Home'), icono: 'tablero' }]
+  if (puede('oc.ver')) items.push({ to: '/ordenes', texto: t('Orders'), icono: 'ordenes', cuenta: carrito.items.length || null })
+  if (puede('oc.ver')) items.push({ to: '/facturas', texto: t('Invoices'), icono: 'factura' })
+  if (puede('transporte.gestionar')) items.push({ to: '/transporte', texto: t('Shipments'), icono: 'barco' })
+  if (puede('producto.ver')) items.push({ to: '/productos', texto: t('Products'), icono: 'etiqueta' })
+  if (puede('seguimiento.ver')) items.push({ to: '/seguimiento', texto: t('Tracking'), icono: 'ruta' })
   return items
 })
 const ajustes = computed(() => {
   const items = []
-  if (puede('catalogos.ver')) items.push({ to: '/mantenimiento', texto: 'Master data', detalle: 'Items, brands, suppliers, plants', icono: 'base' })
-  if (puede('plantilla.editar')) items.push({ to: '/plantillas', texto: 'Packing templates', detalle: 'Reusable carton layouts', icono: 'capas' })
-  if (puede('aranceles.ver')) items.push({ to: '/aranceles', texto: 'Tariff schedule', detalle: 'SAC, countries and national codes', icono: 'etiqueta' })
-  if (puede('oc.importar')) items.push({ to: '/importar', texto: 'Import purchase orders', detalle: 'From the ERP file', icono: 'importar' })
-  if (puede('admin')) items.push({ to: '/admin', texto: 'Users and access', detalle: 'Roles, suppliers, sessions', icono: 'usuarios' })
+  if (puede('catalogos.ver')) items.push({ to: '/mantenimiento', texto: t('Master data'), detalle: t('Items, brands, suppliers, plants'), icono: 'base' })
+  if (puede('plantilla.editar')) items.push({ to: '/plantillas', texto: t('Packing templates'), detalle: t('Reusable carton layouts'), icono: 'capas' })
+  if (puede('aranceles.ver')) items.push({ to: '/aranceles', texto: t('Tariff schedule'), detalle: t('SAC, countries and national codes'), icono: 'etiqueta' })
+  if (puede('oc.importar')) items.push({ to: '/importar', texto: t('Load purchase orders'), detalle: t('File or form'), icono: 'importar' })
+  if (puede('admin')) items.push({ to: '/admin', texto: t('Users and access'), detalle: t('Roles, suppliers, sessions'), icono: 'usuarios' })
   return items
 })
 const ajustesAbierto = ref(false)
@@ -47,9 +49,9 @@ const activo = (to) => (to === '/' ? route.path === '/' : route.path.startsWith(
 const iniciales = computed(() => (sesion.usuario?.nombre || '?').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase())
 
 const textoGuardado = computed(() => ({
-  guardando: 'Saving…',
-  guardado: 'Saved',
-  error: 'Not saved',
+  guardando: t('Saving…'),
+  guardado: t('Saved'),
+  error: t('Not saved'),
 })[ui.guardado] || '')
 
 watch(() => route.fullPath, () => {
@@ -67,13 +69,13 @@ const clave = ref(null)
 async function cambiarClave() {
   clave.value.error = ''
   if (clave.value.nueva !== clave.value.repetir) {
-    clave.value.error = 'The new passwords do not match.'
+    clave.value.error = t('The new passwords do not match.')
     return
   }
   try {
     await api.post('/auth/password', { actual: clave.value.actual, nueva: clave.value.nueva })
     clave.value = null
-    avisar('Password changed. Your other sessions were closed.')
+    avisar(t('Password changed. Your other sessions were closed.'))
   } catch (e) {
     clave.value.error = [e.message, ...(e.detalle || []).map((d) => d.mensaje)].join(' ')
   }
@@ -84,63 +86,71 @@ async function cambiarClave() {
   <div v-if="route.name !== 'login' && sesion.usuario" class="marco">
     <header class="cabecera">
       <div class="cabecera-fila">
-        <button type="button" class="btn-icono boton-menu" :aria-expanded="menuAbierto" aria-label="Menu" @click="menuAbierto = !menuAbierto">
+        <button type="button" class="btn-icono boton-menu" :aria-expanded="menuAbierto" :aria-label="t('Menu')" @click="menuAbierto = !menuAbierto">
           <Icono :nombre="menuAbierto ? 'cerrar' : 'menu'" :tam="22" />
         </button>
         <router-link to="/" class="marca">
           <span class="marca-logo"><Icono nombre="caja" :tam="19" /></span>
-          <span class="marca-texto">Workspace<span>Suppliers</span></span>
+          <span class="marca-texto">{{ t('Workspace') }}<span>{{ t('Suppliers') }}</span></span>
         </router-link>
         <div class="cabecera-derecha">
-          <span class="indicador-guardado" :class="ui.guardado" aria-live="polite"><Icono v-if="ui.guardado === 'guardado'" nombre="check" :tam="14" />{{ textoGuardado }}</span>
-          <router-link v-if="carrito.items.length" to="/ordenes?seleccion=1" class="chip-seleccion" title="Order lines ready to invoice">
-            <Icono nombre="carrito" :tam="15" /><b>{{ carrito.items.length }}</b>
+          <span class="indicador-guardado" :class="ui.guardado" aria-live="polite"><Icono v-if="ui.guardado === 'guardado'" nombre="check" :tam="14" />{{ tx(textoGuardado) }}</span>
+          <router-link v-if="carrito.items.length" to="/ordenes?seleccion=1" class="chip-seleccion" :title="t('Order lines ready to invoice')">
+            <Icono nombre="carrito" :tam="15" /><b>{{ tx(carrito.items.length) }}</b>
           </router-link>
           <label v-if="esInterno()" class="selector-proveedor fila-flex" style="gap: 6px; flex-wrap: nowrap">
-            <span class="ayuda">Supplier</span>
+            <span class="ayuda">{{ t('Supplier') }}</span>
             <Seleccion class="entrada" :value="sesion.proveedorId || ''" @change="elegirProveedor(Number($event) || null)">
-              <option value="">All</option>
-              <option v-for="p in sesion.proveedores" :key="p.id" :value="p.id">{{ p.nombre }}</option>
+              <option value="">{{ t('All') }}</option>
+              <option v-for="p in sesion.proveedores" :key="p.id" :value="p.id">{{ tx(p.nombre) }}</option>
             </Seleccion>
           </label>
-          <SelectorTema />
+          <SelectorIdioma class="solo-escritorio" />
+          <SelectorTema class="solo-escritorio" />
           <div class="usuario">
-            <span class="avatar" aria-hidden="true">{{ iniciales }}</span>
+            <span class="avatar" aria-hidden="true">{{ tx(iniciales) }}</span>
             <div class="usuario-datos">
-              <b>{{ sesion.usuario.nombre }}</b>
-              <span>{{ sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol] }}</span>
+              <b>{{ tx(sesion.usuario.nombre) }}</b>
+              <span>{{ tx(sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol]) }}</span>
             </div>
-            <button type="button" class="btn-icono" aria-label="Change password" title="Change password"
+            <button type="button" class="btn-icono solo-escritorio" :aria-label="t('Change password')" :title="t('Change password')"
                     @click="clave = { actual: '', nueva: '', repetir: '', error: '' }"><Icono nombre="candado" /></button>
-            <button type="button" class="btn-icono" aria-label="Sign out" title="Sign out" @click="salir"><Icono nombre="salir" /></button>
+            <button type="button" class="btn-icono solo-escritorio" :aria-label="t('Sign out')" :title="t('Sign out')" @click="salir"><Icono nombre="salir" /></button>
           </div>
         </div>
       </div>
       <div class="cabecera-nav">
-        <nav class="nav-principal" aria-label="Main">
+        <nav class="nav-principal" :aria-label="t('Main')">
           <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }"
                        :aria-current="activo(i.to) ? 'page' : undefined">
-            <Icono :nombre="i.icono" :tam="16" />{{ i.texto }}
-            <span v-if="i.cuenta" class="nav-cuenta" :aria-label="`${i.cuenta} in the selection`">{{ i.cuenta }}</span>
+            <Icono :nombre="i.icono" :tam="16" />{{ tx(i.texto) }}
+            <span v-if="i.cuenta" class="nav-cuenta" :aria-label="t('{0} in the selection', [i.cuenta])">{{ tx(i.cuenta) }}</span>
           </router-link>
           <div class="nav-ajustes" @keydown.esc="ajustesAbierto = false">
             <button type="button" class="nav-link" :class="{ activo: enAjustes }" :aria-expanded="ajustesAbierto" aria-haspopup="true"
-                    @click="ajustesAbierto = !ajustesAbierto"><Icono nombre="engrane" :tam="16" />Settings<Icono nombre="abajo" :tam="14" /></button>
+                    @click="ajustesAbierto = !ajustesAbierto"><Icono nombre="engrane" :tam="16" />{{ t('Settings') }}<Icono nombre="abajo" :tam="14" /></button>
             <div v-if="ajustesAbierto" class="menu-ajustes" role="menu">
               <router-link v-for="i in ajustes" :key="i.to" :to="i.to" class="menu-item" role="menuitem">
                 <span class="menu-icono"><Icono :nombre="i.icono" :tam="16" /></span>
-                <span><b>{{ i.texto }}</b><small>{{ i.detalle }}</small></span>
+                <span><b>{{ tx(i.texto) }}</b><small>{{ tx(i.detalle) }}</small></span>
               </router-link>
             </div>
             <div v-if="ajustesAbierto" class="menu-velo" @click="ajustesAbierto = false"></div>
           </div>
         </nav>
       </div>
-      <nav class="nav-movil" :class="{ abierta: menuAbierto }" aria-label="Main (mobile)">
+      <nav class="nav-movil" :class="{ abierta: menuAbierto }" :aria-label="t('Main (mobile)')">
         <router-link v-for="i in [...navegacion, ...ajustes]" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }">
-          <Icono :nombre="i.icono" :tam="17" />{{ i.texto }}
-          <span v-if="i.cuenta" class="nav-cuenta">{{ i.cuenta }}</span>
+          <Icono :nombre="i.icono" :tam="17" />{{ tx(i.texto) }}
+          <span v-if="i.cuenta" class="nav-cuenta">{{ tx(i.cuenta) }}</span>
         </router-link>
+        <!-- En celular, las preferencias y la cuenta viven en el menú para no saturar la cabecera -->
+        <div class="nav-movil-extra">
+          <SelectorIdioma />
+          <SelectorTema />
+          <button type="button" class="nav-link" @click="clave = { actual: '', nueva: '', repetir: '', error: '' }"><Icono nombre="candado" :tam="17" />{{ t('Change password') }}</button>
+          <button type="button" class="nav-link" @click="salir"><Icono nombre="salir" :tam="17" />{{ t('Sign out') }}</button>
+        </div>
       </nav>
     </header>
     <main class="contenido">
@@ -148,17 +158,17 @@ async function cambiarClave() {
     </main>
   </div>
   <router-view v-else-if="route.name === 'login'" />
-  <Modal v-if="clave" titulo="Change password" ancho="440px" @cerrar="clave = null">
+  <Modal v-if="clave" :titulo="t('Change password')" ancho="440px" @cerrar="clave = null">
     <form id="form-clave" class="rejilla-campos" style="grid-template-columns: 1fr" @submit.prevent="cambiarClave">
-      <label class="campo"><span class="req">Current password</span><input v-model="clave.actual" type="password" autocomplete="current-password" required /></label>
-      <label class="campo"><span class="req">New password</span><input v-model="clave.nueva" type="password" autocomplete="new-password" minlength="10" required />
-        <small class="ayuda">At least 10 characters, with letters and numbers.</small></label>
-      <label class="campo"><span class="req">Repeat the new password</span><input v-model="clave.repetir" type="password" autocomplete="new-password" required /></label>
-      <p v-if="clave.error" class="nota error" role="alert"><Icono nombre="alerta" />{{ clave.error }}</p>
+      <label class="campo"><span class="req">{{ t('Current password') }}</span><input v-model="clave.actual" type="password" autocomplete="current-password" required /></label>
+      <label class="campo"><span class="req">{{ t('New password') }}</span><input v-model="clave.nueva" type="password" autocomplete="new-password" minlength="10" required />
+        <small class="ayuda">{{ t('At least 10 characters, with letters and numbers.') }}</small></label>
+      <label class="campo"><span class="req">{{ t('Repeat the new password') }}</span><input v-model="clave.repetir" type="password" autocomplete="new-password" required /></label>
+      <p v-if="clave.error" class="nota error" role="alert"><Icono nombre="alerta" />{{ tx(clave.error) }}</p>
     </form>
     <template #pie>
-      <button class="btn" @click="clave = null">Cancel</button>
-      <button class="btn btn-primario" type="submit" form="form-clave">Change password</button>
+      <button class="btn" @click="clave = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" type="submit" form="form-clave">{{ t('Change password') }}</button>
     </template>
   </Modal>
   <Toasts />

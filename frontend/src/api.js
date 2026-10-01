@@ -1,3 +1,4 @@
+import { t } from './i18n/index.js'
 const BASE = '/api'
 let alNoAutorizado = null
 
@@ -7,7 +8,7 @@ export function manejarNoAutorizado(fn) {
 
 export class ApiError extends Error {
   constructor(status, cuerpo) {
-    super(cuerpo?.mensaje || `Error ${status}`)
+    super(cuerpo?.mensaje || t('Error {0}', [status]))
     this.status = status
     this.codigo = cuerpo?.codigo
     this.detalle = cuerpo?.detalle
@@ -47,7 +48,7 @@ async function pedir(metodo, url, cuerpo, { params, clave } = {}) {
   try {
     r = await fetch(BASE + url + qs(params), { method: metodo, headers, body, credentials: 'same-origin' })
   } catch {
-    throw new ApiError(0, { mensaje: 'No connection to the server. Check your network and try again.' })
+    throw new ApiError(0, { mensaje: t('No connection to the server. Check your network and try again.') })
   }
   const datos = await r.json().catch(() => null)
   if (r.status === 401 && !url.startsWith('/auth/') && alNoAutorizado) alNoAutorizado()

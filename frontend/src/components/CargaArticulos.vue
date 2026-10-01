@@ -1,4 +1,5 @@
 <script setup>
+import { t } from '../i18n/index.js'
 import { ref } from 'vue'
 import { clasificarVarios } from '../clasificacion/useClasificacion'
 import { avisar, errorApi } from '../stores/ui'
@@ -21,7 +22,7 @@ async function alCargar(r) {
   try {
     const x = await clasificarVarios(r.productos, (n, total) => (avance.value = { n, total }))
     clasificados.value = x.clasificados
-    avisar(`${x.clasificados} products classified by the engine. Review them in Products.`)
+    avisar(t('{0} products classified by the engine. Review them in Products.', [x.clasificados]))
   } catch (e) {
     errorApi(e)
   } finally {
@@ -32,13 +33,13 @@ async function alCargar(r) {
 </script>
 
 <template>
-  <CargaMasiva titulo="Upload items with their technical sheet" ruta="/catalogos/articulos/importar" plantilla="/catalogos/articulos/plantilla"
-               ayuda="Sheet Generics: one row per generic (first 8 digits) with its data and technical sheet. Sheet Sizes: one row per size; leave Size code empty to generate it (001, 002…) or type your own 3 digits. After the upload the engine completes the sheet and suggests the HS code."
+  <CargaMasiva :titulo="t('Upload items with their technical sheet')" ruta="/catalogos/articulos/importar" plantilla="/catalogos/articulos/plantilla"
+               :ayuda="t('Sheet Generics: one row per generic (style-color) with its data and technical sheet. Sheet Sizes: one row per size with your item code, or leave it empty to use the generic plus a size code. After the upload the engine completes the sheet and suggests the HS code.')"
                @cerrar="emit('cerrar')" @cargado="alCargar">
     <template #resultado="{ resultado }">
-      <template v-if="resultado.productos_total"> {{ resultado.productos_total }} products (style-color).</template>
-      <template v-if="avance"> Classifying {{ avance.n }} of {{ avance.total }}…</template>
-      <template v-else-if="clasificados !== null"> {{ clasificados }} classified as drafts; send them to review from <router-link to="/productos?estado=sugerida">Products</router-link>.</template>
+      <template v-if="resultado.productos_total"> {{ t('{0} products (style-color).', [resultado.productos_total]) }}</template>
+      <template v-if="avance"> {{ t('Classifying {0} of {1}…', [avance.n, avance.total]) }}</template>
+      <template v-else-if="clasificados !== null"> {{ t('{0} classified as drafts; send them to review from', [clasificados]) }} <router-link to="/productos?estado=sugerida">{{ t('Products') }}</router-link>.</template>
     </template>
   </CargaMasiva>
 </template>

@@ -1,4 +1,6 @@
-from sqlalchemy import select
+import re
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -384,6 +386,63 @@ def despaletizar(db: Session, user: Usuario, pl_id: int, datos) -> dict:
     return {"version": pl.version}
 
 
+def _unidad_componentes(fl) -> str | None:
+    """Unidad de los sólidos que forman un prepack (pares o unidades)."""
+    art = fl.posicion_oc.articulo if fl.posicion_oc else None
+    if not art or not art.prepack or not art.prepack.componentes:
+        return None
+    return art.prepack.componentes[0].articulo.unidad
+
+
+def definir_inner(db: Session, user: Usuario, pl_id: int, pl_linea_id: int, datos) -> dict:
+    """Inner pack definido al armar el PL: la OC normalmente trae solo el
+    casepack (sólidos) o la curva (prepacks); el inner pack se decide aquí."""
+    pl = _editable(db, user, pl_id, datos.version)
+    pll = next((x for x in pl.lineas if x.id == pl_linea_id), None)
+    if not pll:
+        raise ErrorNegocio("One of the rows is no longer in the packing list. Reload.", 404, "no_encontrado")
+    fl = pll.factura_linea
+    n = datos.inner_pack or None
+    if fl.tipo_empaque == "PREPACK":
+        raise ErrorNegocio("A prepack carton is defined by its size run; it has no inner pack.", 422, "validacion")
+    if fl.posicion_oc and fl.posicion_oc.inner_pack:
+        raise ErrorNegocio(f"The PO defines the inner pack ({fl.posicion_oc.inner_pack}); it cannot change here.", 422, "validacion")
+    partes = db.scalars(select(PLLinea).where(PLLinea.factura_linea_id == fl.id)).all()
+    if any(cubierto(x) for x in partes):
+        raise ErrorNegocio("Unpack this line first to change its inner pack.", 409, "con_cajas")
+    if n:
+        if fl.casepack and fl.casepack % n:
+            raise ErrorNegocio(f"The casepack ({fl.casepack}) must be a multiple of the inner pack ({n}).", 422, "validacion")
+        malas = [x.cantidad for x in partes if x.cantidad % n] + ([fl.cantidad] if fl.cantidad % n else [])
+        if malas:
+            raise ErrorNegocio(f"The quantity ({malas[0]}) must be a multiple of the inner pack ({n}): "
+                               "all inner packs carry the same quantity.", 422, "validacion")
+    fl.inner_pack = n
+    tocar(pl)
+    registrar(db, user, "packing_list", pl.id, "inner_pack", {"linea": fl.codigo_sap, "inner_pack": n})
+    return {"version": pl.version}
+
+
+def renombrar(db: Session, user: Usuario, pl_id: int, datos) -> dict:
+    """Número propio del packing list (el del proveedor). Único entre los PL
+    vigentes del mismo proveedor."""
+    pl = _editable(db, user, pl_id, datos.version)
+    numero = re.sub(r"\s+", " ", datos.numero).strip()
+    if not numero:
+        raise ErrorNegocio("Enter the packing list number.", 422, "validacion")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9\s._\-/#]{0,39}", numero):
+        raise ErrorNegocio("Use letters, numbers and . _ - / # (up to 40 characters).", 422, "validacion")
+    repetido = db.scalar(select(PackingList.id).join(Factura, Factura.id == PackingList.factura_id).where(
+        Factura.proveedor_id == pl.factura.proveedor_id, PackingList.id != pl.id, PackingList.estado != "CANCELADO",
+        func.lower(PackingList.numero) == numero.lower()).limit(1))
+    if repetido:
+        raise ErrorNegocio(f"Packing list {numero} already exists for this supplier.", 409, "duplicado")
+    anterior, pl.numero = pl.numero, numero
+    tocar(pl)
+    registrar(db, user, "packing_list", pl.id, "numero", {"anterior": anterior, "numero": numero}, factura_id=pl.factura_id)
+    return {"numero": pl.numero, "version": pl.version}
+
+
 def editar_pallet(db: Session, user: Usuario, pl_id: int, pallet_id: int, datos) -> dict:
     pl = _editable(db, user, pl_id, datos.version)
     pallet = next((p for p in pl.pallets if p.id == pallet_id), None)
@@ -754,7 +813,7 @@ def validar_pl(pl: PackingList) -> list[dict]:
             d[1] += 1
     for unidad, (cantidad, filas) in pendientes.items():
         errores.append({"codigo": "sin_caja", "mensaje":
-            f"{cant_txt(cantidad, unidad)} not in cartons in {filas} row{'s' if filas > 1 else ''}."})
+            f"{cant_txt(cantidad, unidad)} not in cartons (rows: {filas})."})
     rangos = numeracion(pl)
     for g in pl.grupos:
         d, h = rangos[g.id]
@@ -818,9 +877,10 @@ def reabrir_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> di
         raise ErrorNegocio(f"{pl.numero} is already traveling on {pl.unidad.embarque.codigo}; it cannot be reopened.", 409,
                            "embarque_cerrado")
     nota = None
-    if pl.asignacion == "CONFIRMADA":
-        pl.asignacion = "TENTATIVA"
-        nota = "The load unit assignment became tentative."
+    if pl.unidad:
+        # Solo lo finalizado va en un embarque: al reabrirlo sale de la unidad de carga
+        nota = f"Removed from {pl.unidad.numero or pl.unidad.etiqueta}. Add it again once finalized."
+        pl.unidad_carga_id, pl.asignacion, pl.recolectado_en = None, None, None
     pl.estado = "EN_CORRECCION"
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "reabrir", {"nota": nota} if nota else None, motivo,
@@ -932,8 +992,12 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "tipo_empaque": fl.tipo_empaque,
             "casepack": fl.casepack,
             "inner_pack": inner_de(fl),
+            # El inner pack se define en el PL si la OC no lo trae y aún no hay cajas
+            "inner_editable": fl.tipo_empaque != "PREPACK" and not (fl.posicion_oc and fl.posicion_oc.inner_pack)
+            and en_cajas == 0,
             "prepack": fl.prepack,
             "unidades_por_caja": fl.unidades_por_caja,
+            "unidad_componentes": _unidad_componentes(fl),
             "centro_destino": fl.centro_destino,
             "regla": regla_empaque(fl)[0],
             "cantidad": pll.cantidad,

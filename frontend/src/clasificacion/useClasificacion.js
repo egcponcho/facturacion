@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js'
 /* Puente entre el motor de clasificación (lógica pura en el navegador) y el
 servidor: carga el contexto una vez (historial, códigos nacionales, lo
 aprendido), arma la ficha que el motor entiende a partir del producto y
@@ -22,7 +23,7 @@ export async function cargarContexto(forzar = false) {
       const g = M.norm(r.generico).trim()
       if (g) porGenerico.set(g, [...(porGenerico.get(g) || []), r])
     }
-    const destinos = c.destinos.map((d) => ({ iso: d.iso, nombre: d.nombre, digitos: d.digitos, mcca: d.mcca }))
+    const destinos = c.destinos.map((d) => ({ iso: d.iso, nombre: d.nombre, digitos: d.digitos, mcca: d.mcca, base_legal: d.base_legal }))
     estado.ctx = {
       ...c,
       destinos,
@@ -107,8 +108,8 @@ export function resultadoServidor(r) {
     partidas,
     tipo_txt: M.TIPO_LBL[r.s.tipo] || null,
     atributos: [
-      ...(r.s.genero ? [['Gender', { M: 'Men', F: 'Women', U: 'Unisex' }[r.s.genero] || r.s.genero]] : []),
-      ...(M.edadDe(r.s) ? [['Who it is for', { adulto: 'Adult', nino: 'Child or youth', bebe: 'Baby' }[M.edadDe(r.s)]]] : []),
+      ...(r.s.genero ? [[t('Gender'), { M: t('Men'), F: t('Women'), U: t('Unisex') }[r.s.genero] || r.s.genero]] : []),
+      ...(M.edadDe(r.s) ? [[t('Who it is for'), { adulto: t('Adult'), nino: t('Child or youth'), bebe: t('Baby') }[M.edadDe(r.s)]]] : []),
       ...M.atributosLegibles(r.s).filter(([k]) => k !== 'Gender' && k !== 'Who it is for'),
     ].slice(0, 60).map(([k, v]) => [String(k), String(v)]),
   }

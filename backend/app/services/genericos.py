@@ -1,5 +1,7 @@
-"""Genéricos: el código de artículo tiene 11 dígitos; los 8 primeros son el
-genérico (estilo-color) y los 3 últimos la talla (sólidos y prepacks).
+"""Genéricos: agrupan las tallas (sólidos) y prepacks de un estilo-color. El
+código del genérico y el de cada artículo los define la empresa (numéricos o
+alfanuméricos); si el código de una talla no se escribe, se arma con el
+genérico más un código de talla.
 
 Un genérico se crea una vez con sus datos maestros (estilo, color, marca,
 grupo, proveedor, unidad) y luego solo se le agregan tallas con lo propio de
@@ -15,13 +17,16 @@ from sqlalchemy.orm import Session
 from ..models import Articulo, GrupoArticulo, Marca, Producto, Proveedor, Usuario
 from . import catalogos as cat_svc
 from .common import ErrorNegocio, exigir, registrar
-from .productos import asegurar_producto, descripcion_comercial_simple, producto_por_generico
+from .productos import MSG_CODIGO, asegurar_producto, codigo_valido, descripcion_comercial_simple, producto_por_generico
 
-RE_GEN = re.compile(r"^3\d{7}$")
+
+def _articulos(db: Session, gen: str):
+    return select(Articulo).where(Articulo.generico == gen)
 
 
 def _sufijos(db: Session, gen: str) -> set[str]:
-    return {s[8:] for (s,) in db.execute(select(Articulo.sku).where(Articulo.sku.startswith(gen)))}
+    """Códigos de talla ya usados: lo que sigue al genérico en el código de artículo."""
+    return {s[len(gen):] for (s,) in db.execute(select(Articulo.sku).where(Articulo.sku.startswith(gen)))}
 
 
 def sufijo_convencional(talla: str | None) -> str | None:
@@ -54,25 +59,25 @@ def detalle(db: Session, user: Usuario, gen: str) -> dict:
     p = producto_por_generico(db, gen)
     if not p:
         raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
-    arts = db.scalars(select(Articulo).where(Articulo.sku.startswith(gen)).order_by(Articulo.sku)).all()
+    arts = db.scalars(_articulos(db, gen).order_by(Articulo.sku)).all()
     return {
         "generico": gen, "producto_id": p.id, "estilo": p.estilo, "color": p.color, "marca_id": p.marca_id,
         "grupo_id": p.grupo_id, "proveedor_id": p.proveedor_id, "unidad": p.unidad, "nombre": p.nombre,
         "descripcion_comercial": p.descripcion_comercial,
-        "tallas": [{"id": a.id, "sku": a.sku, "sufijo": a.sku[8:], "talla": a.talla, "upc": a.upc,
+        "tallas": [{"id": a.id, "sku": a.sku, "sufijo": a.sku[len(gen):] if a.sku.startswith(gen) else "", "talla": a.talla, "upc": a.upc,
                     "sku_proveedor": a.sku_proveedor, "tipo": a.tipo, "activo": a.activo} for a in arts],
-        "siguiente": siguiente_sufijo(db, gen), "usados": sorted(a.sku[8:] for a in arts),
+        "siguiente": siguiente_sufijo(db, gen), "usados": sorted(a.sku[len(gen):] for a in arts if a.sku.startswith(gen)),
     }
 
 
 def crear(db: Session, user: Usuario, datos) -> dict:
     """Genérico nuevo con sus datos maestros y, si vienen, sus tallas."""
     exigir(user, "catalogos.crear")
-    gen = (datos.generico or "").strip()
+    gen = (datos.generico or "").strip().upper()
     errores = []
-    if not RE_GEN.match(gen):
-        errores.append({"campo": "generico", "mensaje": "The generic has 8 digits and starts with 3 (e.g. 30095125)."})
-    elif producto_por_generico(db, gen) or _sufijos(db, gen):
+    if not codigo_valido(gen):
+        errores.append({"campo": "generico", "mensaje": f"Generic code: {MSG_CODIGO}"})
+    elif producto_por_generico(db, gen) or db.scalar(_articulos(db, gen).limit(1)):
         errores.append({"campo": "generico", "mensaje": f"Generic {gen} already exists: add sizes to it instead."})
     estilo, color = (datos.estilo or "").strip().upper(), (datos.color or "").strip()
     if not estilo or not color:
@@ -108,26 +113,32 @@ def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list) -> list[i
     if not p:
         raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
     usados = _sufijos(db, gen)
-    ya = {a.talla.upper() for a in db.scalars(select(Articulo).where(Articulo.sku.startswith(gen), Articulo.tipo == "SOLIDO"))
-          if a.talla}
+    ya = {a.talla.upper() for a in db.scalars(_articulos(db, gen).where(Articulo.tipo == "SOLIDO")) if a.talla}
     cat = cat_svc.CATALOGOS["articulos"]
     ids, errores = [], []
     for i, t in enumerate(tallas):
         talla = (t.talla or "").strip().upper()
-        suf = (t.sufijo or "").strip()
+        suf = (t.sufijo or "").strip().upper()
+        sku = (getattr(t, "sku", None) or "").strip().upper()
         if not talla:
             errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: the size is required."})
             continue
         if talla in ya:
             errores.append({"campo": f"tallas.{i}", "mensaje": f"Size {talla} already exists in generic {gen}."})
             continue
-        if suf and (not re.fullmatch(r"\d{3}", suf) or suf in usados):
-            errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: size code {suf} is taken or not 3 digits."})
-            continue
-        suf = suf or siguiente_sufijo(db, gen, usados, talla)
-        usados.add(suf)
+        if sku:
+            if not codigo_valido(sku) or db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
+                errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: item code {sku} is taken or not valid."})
+                continue
+        else:
+            if suf and (not re.fullmatch(r"[A-Z0-9._\-/]{1,20}", suf) or suf in usados):
+                errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: size code {suf} is taken or not valid."})
+                continue
+            suf = suf or siguiente_sufijo(db, gen, usados, talla)
+            usados.add(suf)
+            sku = gen + suf
         ya.add(talla)
-        datos = {"sku": gen + suf, "sku_proveedor": (t.sku_proveedor or "").strip() or None, "upc": (t.upc or "").strip() or None,
+        datos = {"sku": sku, "generico": gen, "sku_proveedor": (t.sku_proveedor or "").strip() or None, "upc": (t.upc or "").strip() or None,
                  "estilo": p.estilo, "color": p.color, "talla": talla, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
                  "proveedor_id": p.proveedor_id, "tipo": "SOLIDO", "unidad": p.unidad or "UN"}
         try:
@@ -202,7 +213,7 @@ def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
     p = producto_por_generico(db, gen)
     if not p:
         raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
-    arts = db.scalars(select(Articulo).where(Articulo.sku.startswith(gen))).all()
+    arts = db.scalars(_articulos(db, gen)).all()
     estilo, color = (datos.estilo or p.estilo).strip().upper(), (datos.color or p.color or "").strip()
     errores = []
     if (estilo != p.estilo or color != (p.color or "")) and any(a.tipo == "PREPACK" for a in arts):

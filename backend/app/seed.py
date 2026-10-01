@@ -134,7 +134,7 @@ TRANSPORTISTAS = [
 ]
 PASSWORD_DEMO = "Supplier2026"
 MARCAS = [("TNF", "The North Face"), ("VANS", "Vans"), ("MERR", "Merrell"), ("CAT", "Caterpillar"),
-          ("HPU", "Hush Puppies"), ("ADOC", "ADOC")]
+          ("HPU", "Hush Puppies"), ("CASA", "House brand")]
 GRUPOS = [("CALZ-OUT", "Outdoor footwear", "CALZADO"), ("CALZ-CAS", "Casual footwear", "CALZADO"),
           ("CHAQ", "Jackets", "ROPA"), ("FLEE", "Fleece and sweatshirts", "ROPA"), ("MOCH", "Backpacks", "ACCESORIO")]
 # estilo, color, marca, grupo, proveedor, unidad, precio, origen, partida, descripción, empaque de la OC, tallas
@@ -166,7 +166,7 @@ FICHAS = {
                "relleno_tipo": "ninguno", "tieneForro": True, "recubierta": False, "manga": "larga",
                "uso": "Waterproof shell jacket for hiking", "tallas": "S to XXL",
                "comp": {"exterior": "100% nylon", "forro": "100% polyester"}},
-        desc="CHAQUETA DE TEXTIL, PARA HOMBRE, MARCA THE NORTH FACE"),
+        desc="CHAQUETA DE TEXTIL, PARA HOMBRE"),
     ("NF0A5GLL", "Summit blue"): dict(
         nombre="Men's Antora rain jacket", tipo="chaqueta", estado="observado",
         ficha={"genero": "M", "edad": "general", "edadNac": "adulto", "tejido": "plano", "hechura": "chaqueta",
@@ -180,32 +180,32 @@ FICHAS = {
                "puntera": "ninguna", "impermeable": False, "suelaEspumosa": False, "uso": "Trail running shoe",
                "tallas": "8 to 12", "comp": {"corte": "80% textile, 20% synthetic", "suela": "100% rubber",
                                              "forro": "100% polyester", "plantilla": "100% EVA"}},
-        desc="TENIS DE TEXTIL, PARA HOMBRE, MARCA THE NORTH FACE"),
+        desc="TENIS DE TEXTIL, PARA HOMBRE"),
     ("NF0A3VY2", "JK3 TNF Black"): dict(
         nombre="Borealis backpack 28 L", tipo="mochila", estado="aprobado", codigo="420292",
         ficha={"genero": "U", "edadNac": "adulto", "tieneForro": True, "claseBolso": "mochila", "uso": "Daypack",
                "tallas": "One size", "comp": {"exterior": "100% polyester", "forro": "100% polyester"}},
-        desc="MOCHILA DE TEXTIL, UNISEX, MARCA THE NORTH FACE"),
+        desc="MOCHILA DE TEXTIL, UNISEX"),
     ("NF0A5IHO", "Heather grey"): dict(
         nombre="Glacier half-zip fleece", tipo="sudadera", estado="aprobado", codigo="611030",
         ficha={"genero": "U", "edad": "general", "edadNac": "adulto", "tejido": "punto", "hechuraSud": "pullover",
                "manga": "larga", "capucha": False, "sueter": False, "uso": "Mid layer fleece", "tallas": "S to L",
                "comp": {"exterior": "100% polyester"}},
-        desc="SUDADERA DE TEXTIL, UNISEX, MARCA THE NORTH FACE"),
+        desc="SUDADERA DE TEXTIL, UNISEX"),
     ("VN000EE3", "BLK Black"): dict(
         nombre="Old Skool", tipo="calzado", estado="aprobado", codigo="640419",
         ficha={"genero": "U", "edadNac": "adulto", "estiloCalz": "tenis", "disenio": "casual", "altura": "bajo",
                "puntera": "ninguna", "impermeable": False, "suelaEspumosa": False, "uso": "Casual skate-style sneaker",
                "tallas": "7 to 12", "comp": {"corte": "65% canvas, 35% suede", "suela": "100% rubber",
                                              "forro": "100% cotton", "plantilla": "100% EVA"}},
-        desc="TENIS DE TEXTIL, UNISEX, MARCA VANS"),
+        desc="TENIS DE TEXTIL, UNISEX"),
     ("VN0A4BV4", "White"): dict(
         nombre="Authentic", tipo="calzado", estado="sugerida", sugerido="640419",
         ficha={"genero": "U", "edadNac": "adulto", "estiloCalz": "tenis", "disenio": "casual", "altura": "bajo",
                "puntera": "ninguna", "impermeable": False, "suelaEspumosa": False, "uso": "Casual canvas sneaker",
                "tallas": "7 to 10", "comp": {"corte": "100% canvas", "suela": "100% rubber", "forro": "100% cotton",
                                              "plantilla": "100% EVA"}},
-        desc="TENIS DE TEXTIL, UNISEX, MARCA VANS"),
+        desc="TENIS DE TEXTIL, UNISEX"),
 }
 PERFILES = {"chaqueta": "chaqueta|plano|M|-|-|sintetica|-|chaqueta", "mochila": "mochila|textil",
             "sudadera": "sudadera|punto|F|-|-|sintetica|-|pullover"}
@@ -274,8 +274,8 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
     ropa) con un número de artículo por estilo-color-talla, y prepacks cuya
     talla es su prepack ID."""
     arts = {}
-    # Código de artículo: los 8 primeros dígitos son el genérico (estilo-color) y
-    # los 3 últimos la talla; los prepacks del genérico siguen con su propia talla
+    # Datos de ejemplo: el código de artículo de esta empresa demo es el genérico
+    # (estilo-color) más un código de talla; cada empresa usa su propio formato
     genericos = {}
     for n, (estilo, color, marca, grupo, prov, unidad, precio, origen, partida, desc, empaque, tallas) in enumerate(ESTILOS):
         gen = str(30095120 + n)
@@ -286,7 +286,7 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
                                                      if f"{i:03d}" not in genericos[(estilo, color)][1])
             genericos[(estilo, color)][1].add(suf)
             sku = f"{gen}{suf}"
-            a = Articulo(sku=sku, sku_proveedor=_sku_proveedor(estilo, color, talla), upc=f"0196{int(sku) % 10**8:08d}",
+            a = Articulo(sku=sku, generico=gen, sku_proveedor=_sku_proveedor(estilo, color, talla), upc=f"0196{int(sku) % 10**8:08d}",
                          estilo=estilo, color=color, talla=talla,
                          descripcion=desc, marca_id=cat["marcas"][marca].id, grupo_id=cat["grupos"][grupo].id,
                          proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO")
@@ -308,7 +308,7 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
         gen = genericos[(estilo, color)]
         suf = next(f"{i:03d}" for i in range(1, 1000) if f"{i:03d}" not in gen[1])
         gen[1].add(suf)
-        a = Articulo(sku=f"{gen[0]}{suf}", sku_proveedor=_sku_proveedor(estilo, color, codigo), estilo=estilo,
+        a = Articulo(sku=f"{gen[0]}{suf}", generico=gen[0], sku_proveedor=_sku_proveedor(estilo, color, codigo), estilo=estilo,
                      color=color, talla=codigo,
                      descripcion=f"{base.descripcion}, prepack {codigo}", marca_id=base.marca_id,
                      grupo_id=base.grupo_id, proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK",

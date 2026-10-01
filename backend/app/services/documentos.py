@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from ..models import Pais, Proveedor, Puerto
 from .cantidades import cbm_caja, cubierto, inner_de, nombre_factura, numeracion, totales_pl
 from .partes import partes
+from .productos import sin_marca
 
 TINTA = colors.HexColor("#1f2430")
 TENUE = colors.HexColor("#5b6475")
@@ -165,7 +166,7 @@ def datos_factura(db: Session, f) -> dict:
         por_unidad[l.unidad] = por_unidad.get(l.unidad, 0) + l.cantidad
         lineas.append({
             "oc": l.oc_numero, "posicion": l.posicion, "sku": l.codigo_sap, "upc": l.upc, "marca": l.marca, "estilo": l.estilo,
-            "color": l.color, "talla": l.talla, "descripcion": l.descripcion_comercial or l.descripcion,
+            "color": l.color, "talla": l.talla, "descripcion": sin_marca(l.descripcion_comercial or l.descripcion, l.marca),
             "partida": l.partida_arancelaria, "origen": l.pais_origen, "cantidad": l.cantidad, "unidad": l.unidad,
             "precio": l.precio_unitario, "total": total, "motivo_precio": l.motivo_precio, "prepack": l.prepack if l.tipo_empaque == "PREPACK" else None,
         })
@@ -217,7 +218,7 @@ def datos_pl(db: Session, pl) -> dict:
         for it in g.items:
             fl = it.pl_linea.factura_linea
             items.append({"oc": fl.oc_numero, "posicion": fl.posicion, "sku": fl.codigo_sap, "upc": fl.upc,
-                          "marca": fl.marca,
+                          "marca": fl.marca, "descripcion": sin_marca(fl.descripcion_comercial or fl.descripcion, fl.marca),
                           "estilo": fl.estilo, "color": fl.color, "talla": fl.talla, "unidad": fl.unidad,
                           "por_caja": it.cantidad_por_caja, "total": it.cantidad_por_caja * g.num_cajas,
                           "partida": fl.partida_arancelaria, "inner_pack": inner_de(fl),
@@ -449,17 +450,18 @@ def pdf_factura(d: dict) -> bytes:
     ]
     filas = []
     for l in d["lineas"]:
-        desc = f"<b>{_esc(l['marca'])} {_esc(l['estilo'])}</b> · {_esc(l['color'])} · size {_esc(l['talla'])}<br/>" \
-               f"<font color='#5b6475'>{_esc(l['descripcion'])}</font>"
+        desc = f"<b>{_esc(l['descripcion'] or '')}</b><br/>" \
+               f"<font color='#5b6475'>{_esc(l['estilo'])}{' · ' + _esc(l['color']) if l['color'] else ''}" \
+               f"{' · size ' + _esc(l['talla']) if l['talla'] else ''}</font>"
         if l["prepack"]:
             desc += f"<br/><font color='#5b3fd1'>Prepack {_esc(l['prepack'])}</font>"
-        filas.append([f"{l['oc']}/{l['posicion']}", l["sku"], Paragraph(desc, e["celda"]), l["partida"], l["origen"],
+        filas.append([f"{l['oc']}/{l['posicion']}", l["sku"], l["marca"] or "—", Paragraph(desc, e["celda"]), l["partida"], l["origen"],
                       _num(l["cantidad"]), l["unidad"], _num(l["precio"], 2), _num(l["total"], 2)])
     t = d["totales"]
-    h.append(_tabla(e, [("PO / line", 1.75, False), ("Item code", 1.45, False), ("Commercial description", 4.0, False),
+    h.append(_tabla(e, [("PO / line", 1.75, False), ("Item code", 1.45, False), ("Brand", 0.9, False), ("Customs description", 3.1, False),
                         ("HS code (SAC)", 1.2, False), ("Origin", 0.7, False), ("Quantity", 0.9, True),
                         ("UoM", 0.5, False), ("Unit price", 1.1, True), ("Amount", 1.3, True)],
-                    filas, ancho, pie=["", "", f"{len(d['lineas'])} lines", "", "", _num(sum(l['cantidad'] for l in d['lineas'])),
+                    filas, ancho, pie=["", "", "", f"{len(d['lineas'])} lines", "", "", _num(sum(l['cantidad'] for l in d['lineas'])),
                                        "", "Total", f"{d['moneda']} {_num(t['importe'], 2)}"]))
     resumen = _rejilla(e, [
         ("Total quantity", _por_unidad_txt(t["por_unidad"])), ("Packages", f"{_num(t['bultos'])} cartons"
@@ -510,9 +512,11 @@ def pdf_pl(d: dict) -> bytes:
             primera = i == 0
             filas.append([
                 g["rango"] if primera else "", _num(g["num_cajas"]) if primera else "",
-                f"{it['oc']}/{it['posicion']}", it["sku"], f"{it['marca'] or ''} {it['estilo']} · {it['color']}",
-                it["talla"], _num(it["por_caja"]), f"{it['inners']} × {it['inner_pack']}" if it["inners"] else "—",
-                _num(it["total"]), it["unidad"],
+                f"{it['oc']}/{it['posicion']}", it["sku"], it["marca"] or "—",
+                Paragraph(f"{_esc(it['descripcion'] or '')}<br/><font color='#5b6475'>{_esc(it['estilo'])}"
+                          f"{' · ' + _esc(it['color']) if it['color'] else ''}</font>", e["celda"]),
+                it["talla"], _num(it["inners"]) if it["inners"] else "—", _num(it["inner_pack"]) if it["inner_pack"] else "—",
+                _num(it["por_caja"]), _num(it["total"]), it["unidad"],
                 g["medidas"] if primera else "", _num(g["neto_caja"], 2) if primera else "",
                 _num(g["bruto_caja"], 2) if primera else "", _num(g["neto_total"], 2) if primera else "",
                 _num(g["bruto_total"], 2) if primera else "", _num(g["cbm"], 3) if primera else "",
@@ -520,13 +524,13 @@ def pdf_pl(d: dict) -> bytes:
                 (g["etiqueta"] + (f" → {g['centro_destino']}" if g["centro_destino"] else "")) if primera else "",
             ])
     h.append(_tabla(e, [
-        ("Cartons", 0.75, False), ("Qty", 0.45, True), ("PO / line", 1.2, False), ("Item code", 1.25, False),
-        ("Brand · style · color", 2.1, False), ("Size", 0.5, False), ("Per ctn", 0.6, True),
-        ("Inner packs", 0.75, False), ("Total", 0.65, True),
-        ("UoM", 0.45, False), ("Dimensions cm", 1.15, False), ("Net/ctn", 0.75, True), ("Gross/ctn", 0.85, True),
+        ("Cartons", 0.75, False), ("Qty", 0.45, True), ("PO / line", 1.1, False), ("Item code", 1.15, False),
+        ("Brand", 0.7, False), ("Customs description · style", 2.0, False), ("Size", 0.45, False),
+        ("Inner packs / ctn", 0.6, True), ("Per inner pack", 0.6, True), ("Total / ctn", 0.6, True), ("Total", 0.65, True),
+        ("UoM", 0.45, False), ("Dimensions cm", 1.05, False), ("Net/ctn", 0.75, True), ("Gross/ctn", 0.85, True),
         ("Net total", 0.75, True), ("Gross total", 0.8, True), ("m³", 0.6, True), ("Pallet", 0.5, False),
         ("Label → dest.", 1.0, False)],
-        filas, ancho, pie=["Total", _num(d["total_cajas"]), "", "", "", "", "", "", "", "", "", "", "",
+        filas, ancho, pie=["Total", _num(d["total_cajas"]), "", "", "", "", "", "", "", "", "", "", "", "", "",
                            _num(tp["peso_neto"], 2), _num(tp["peso_bruto"], 2), _num(tp["cbm"], 3), "", ""]))
     if d["pallets"]:
         h += [Spacer(1, 6), Paragraph("PALLETS", e["etiqueta"]),
@@ -613,7 +617,8 @@ TIPOS_FICHA = {"calzado": "Footwear", "chaqueta": "Jacket or vest", "sudadera": 
                "camisa": "Shirt or polo", "pantalon": "Pants or shorts", "mochila": "Backpack", "gorra": "Cap or headwear",
                "bolso_viaje": "Sports or travel bag", "calcetines": "Socks", "guantes": "Gloves"}
 CAMPOS_FICHA.update({"edad": "Who it is for", "edadNac": "Who it is for", "relleno_tipo": "Fill", "hechuraSud": "Construction",
-                     "hechura": "Construction", "tieneForro": "Lining", "recubierta": "Coated fabric", "exterior": "Outer surface"})
+                     "hechura": "Construction", "tieneForro": "Lining", "recubierta": "Coated fabric", "exterior": "Outer surface",
+                     "sacElegido": "SAC subheading", "queEs": "Name in Spanish"})
 
 
 def _valor_ficha(v, k: str = "") -> str:
@@ -664,7 +669,7 @@ def secciones_ficha(d: dict) -> dict:
         datos += [(str(a[0]), str(a[1])) for a in an["atributos"] if len(a) == 2]
     else:
         datos += [(CAMPOS_FICHA.get(k, k), _valor_ficha(v, k)) for k, v in f.items()
-                  if k not in ("comp", "descManual", "comManual", "uso", "tallas", "desc", "descCom", "edad")
+                  if k not in ("comp", "descManual", "comManual", "uso", "tallas", "desc", "descCom", "edad", "sacDesc")
                   and v not in (None, "", [], {})]
     comp = f.get("comp") or {}
     composicion = [[PARTES.get(k, k.capitalize()), v] for k, v in comp.items() if v] if isinstance(comp, dict) else []

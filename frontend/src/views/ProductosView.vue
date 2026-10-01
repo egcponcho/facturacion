@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
@@ -40,11 +41,11 @@ const cargaAbierta = ref(false)
 const VISTAS = computed(() => {
   const k = datos.value.kpis || {}
   return [
-    ['borradores', 'Drafts', k.borradores],
-    ['revision', interno ? 'To review' : 'Sent to review', k.revision],
-    ['observado', interno ? 'Returned' : 'Returned to you', k.observado],
-    ['aprobados', 'Approved', k.aprobados],
-    ['', 'All', k.total],
+    ['borradores', t('Drafts'), k.borradores],
+    ['revision', interno ? t('To review') : t('Sent to review'), k.revision],
+    ['observado', interno ? t('Returned') : t('Returned to you'), k.observado],
+    ['aprobados', t('Approved'), k.aprobados],
+    ['', t('All'), k.total],
   ]
 })
 
@@ -86,8 +87,8 @@ async function enviar() {
   ocupado.value = true
   try {
     const r = await api.post('/productos/enviar', { ids: porEnviar.value.map((p) => p.id) })
-    if (r.errores.length) avisar(`${r.enviados} sent to review; ${r.errores.length} need attention.`, 'error', r.errores.map((e) => e.mensaje))
-    else avisar(`${r.enviados} ${r.enviados === 1 ? 'sheet' : 'sheets'} sent to review.`)
+    if (r.errores.length) avisar(t('{0} sent to review; {1} need attention.', [r.enviados, r.errores.length]), 'error', r.errores.map((e) => e.mensaje))
+    else avisar(t('{0} {1} sent to review.', [r.enviados, r.enviados === 1 ? 'sheet' : 'sheets']))
     sel.limpiar()
     await cargar()
   } catch (e) {
@@ -101,7 +102,7 @@ async function clasificar() {
   ocupado.value = true
   try {
     const r = await clasificarVarios(elegidos.value.filter((p) => !['aprobado', 'corregido'].includes(p.estado)).map((p) => p.id))
-    avisar(`${r.clasificados} ${r.clasificados === 1 ? 'product' : 'products'} classified.`)
+    avisar(t('Products classified: {0}.', [r.clasificados]))
     sel.limpiar()
     await cargar()
   } catch (e) {
@@ -115,8 +116,8 @@ async function aprobar() {
   ocupado.value = true
   try {
     const r = await api.post('/productos/aprobar', { ids: porAprobar.value.map((p) => p.id) })
-    if (r.errores.length) avisar(`${r.aprobados} approved; ${r.errores.length} need attention.`, 'error', r.errores.map((e) => e.mensaje))
-    else avisar(`${r.aprobados} ${r.aprobados === 1 ? 'product' : 'products'} approved.`)
+    if (r.errores.length) avisar(t('{0} approved; {1} need attention.', [r.aprobados, r.errores.length]), 'error', r.errores.map((e) => e.mensaje))
+    else avisar(t('Products approved: {0}.', [r.aprobados]))
     sel.limpiar()
     await cargar()
   } catch (e) {
@@ -128,7 +129,7 @@ async function aprobar() {
 
 async function exportar(formato) {
   try {
-    await api.descargar('/productos/exportar', `products.${formato}`, { ...consulta(), formato, proveedor_id: sesion.proveedorId })
+    await api.descargar('/productos/exportar', t('products.{0}', [formato]), { ...consulta(), formato, proveedor_id: sesion.proveedorId })
   } catch (e) {
     errorApi(e)
   }
@@ -155,52 +156,52 @@ watch(() => sesion.proveedorId, recargar)
   <div class="pagina-cabeza">
     <div>
       <div v-if="puede('aranceles.ver')" class="pestanas-pildora sub-mod">
-        <span class="pildora" aria-current="page" aria-pressed="true">Products</span>
-        <router-link to="/aranceles" class="pildora">Tariff schedule</router-link>
+        <span class="pildora" aria-current="page" aria-pressed="true">{{ t('Products') }}</span>
+        <router-link to="/aranceles" class="pildora">{{ t('Tariff schedule') }}</router-link>
       </div>
-      <h1>Products</h1>
-      <p v-if="interno">Technical sheets and tariff classification. Approved HS codes flow to purchase orders and invoices for each destination country.</p>
-      <p v-else>Complete the technical sheet of each product. Customs uses it to classify it; the approved code appears on your orders and invoices.</p>
+      <h1>{{ t('Products') }}</h1>
+      <p v-if="interno">{{ t('Technical sheets and tariff classification. Approved HS codes flow to purchase orders and invoices for each destination country.') }}</p>
+      <p v-else>{{ t('Complete the technical sheet of each product. Customs uses it to classify it; the approved code appears on your orders and invoices.') }}</p>
     </div>
     <div class="acciones">
-      <button class="btn btn-fantasma" @click="exportar('xlsx')"><Icono nombre="descargar" />Excel</button>
+      <button class="btn btn-fantasma" @click="exportar('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
       <button class="btn btn-fantasma" @click="exportar('pdf')"><Icono nombre="descargar" />PDF</button>
-      <button v-if="puede('catalogos.crear')" class="btn" @click="cargaAbierta = true"><Icono nombre="importar" />Upload items and sheets</button>
+      <button v-if="puede('catalogos.crear')" class="btn" @click="cargaAbierta = true"><Icono nombre="importar" />{{ t('Upload items and sheets') }}</button>
     </div>
   </div>
 
-  <div class="filtros">
-    <div class="segmentos" role="group" aria-label="View">
-      <button v-for="[v, t, n] in VISTAS" :key="v" class="segmento" type="button" :aria-pressed="filtros.estado === v"
-              @click="filtros.estado = v; recargar()">{{ t }}<span v-if="n !== undefined" class="cuenta">{{ n }}</span></button>
+  <div class="filtros" v-filtros>
+    <div class="segmentos" role="group" :aria-label="t('View')">
+      <button v-for="[v, txt, n] in VISTAS" :key="v" class="segmento" type="button" :aria-pressed="filtros.estado === v"
+              @click="filtros.estado = v; recargar()">{{ tx(txt) }}<span v-if="n !== undefined" class="cuenta">{{ tx(n) }}</span></button>
     </div>
   </div>
-  <div class="filtros">
+  <div class="filtros" v-filtros>
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
-      <input v-model="filtros.q" type="search" placeholder="Generic, style, color, name, item code, UPC or HS code" aria-label="Search" @input="buscar" />
+      <input v-model="filtros.q" type="search" :placeholder="t('Generic, style, color, name, item code, UPC or HS code')" :aria-label="t('Search')" @input="buscar" />
     </label>
-    <FiltroMulti v-model="filtros.marcas" etiqueta="Brand" :opciones="opciones.marcas.map((m) => ({ valor: String(m.id), texto: m.nombre }))" @change="recargar" />
-    <FiltroMulti v-model="filtros.tipos" etiqueta="Category" :opciones="Object.entries(M.TIPO_CORTO).map(([valor, texto]) => ({ valor, texto }))" @change="recargar" />
-    <span class="ayuda separar">{{ datos.total }} products</span>
+    <FiltroMulti v-if="opciones.marcas.length > 1 || filtros.marcas.length" v-model="filtros.marcas" :etiqueta="t('Brand')" :opciones="opciones.marcas.map((m) => ({ valor: String(m.id), texto: m.nombre }))" @change="recargar" />
+    <FiltroMulti v-model="filtros.tipos" :etiqueta="t('Category')" :opciones="Object.entries(M.TIPO_CORTO).map(([valor, texto]) => ({ valor, texto }))" @change="recargar" />
+    <span class="ayuda separar">{{ t('{0} products', [datos.total]) }}</span>
   </div>
 
   <div class="tabla-marco tabla-fija">
-    <table class="tabla">
+    <table class="tabla" v-tarjetas>
       <thead>
         <tr>
-          <th class="check"><input type="checkbox" aria-label="Select all" :checked="sel.todos(ids)" @change="sel.alternarTodos(ids)" /></th>
-          <ThOrden campo="estilo" :orden="filtros.orden" @ordenar="ordenar">Product</ThOrden>
-          <th v-if="!sesion.proveedorId && interno">Supplier</th>
-          <ThOrden campo="codigo" :orden="filtros.orden" @ordenar="ordenar">HS code</ThOrden>
-          <th>Countries</th>
-          <ThOrden campo="estado" :orden="filtros.orden" @ordenar="ordenar">Status</ThOrden>
+          <th class="check"><input type="checkbox" :aria-label="t('Select all')" :checked="sel.todos(ids)" @change="sel.alternarTodos(ids)" /></th>
+          <ThOrden campo="estilo" :orden="filtros.orden" @ordenar="ordenar">{{ t('Product') }}</ThOrden>
+          <th v-if="!sesion.proveedorId && interno">{{ t('Supplier') }}</th>
+          <ThOrden campo="codigo" :orden="filtros.orden" @ordenar="ordenar">{{ t('HS code') }}</ThOrden>
+          <th>{{ t('Countries') }}</th>
+          <ThOrden campo="estado" :orden="filtros.orden" @ordenar="ordenar">{{ t('Status') }}</ThOrden>
           <th></th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="p in datos.items" :key="p.id" class="clicable" @click="router.push(`/productos/${p.id}`)">
-          <td class="check" @click.stop><input type="checkbox" :aria-label="`Select ${p.estilo}`" :checked="sel.tiene(p.id)" @change="sel.alternar(p.id)" /></td>
+          <td class="check" @click.stop><input type="checkbox" :aria-label="t('Select {0}', [p.estilo])" :checked="sel.tiene(p.id)" @change="sel.alternar(p.id)" /></td>
           <td>
             <div class="producto-celda">
               <span class="miniatura">
@@ -208,34 +209,34 @@ watch(() => sesion.proveedorId, recargar)
                 <Icono v-else nombre="caja" :tam="18" />
               </span>
               <span>
-                <router-link :to="`/productos/${p.id}`" class="fuerte" @click.stop><span v-if="p.codigo_generico" class="codigo-sac">{{ p.codigo_generico }}</span> {{ p.estilo }} · {{ p.color }}</router-link>
-                <span class="sub">{{ p.descripcion_comercial || '—' }} · {{ p.rango_tallas || 'no sizes' }}<template v-if="p.tipo"> · {{ M.TIPO_CORTO[p.tipo] || p.tipo }}</template></span>
+                <router-link :to="`/productos/${p.id}`" class="fuerte" @click.stop><span v-if="p.codigo_generico" class="codigo-sac">{{ tx(p.codigo_generico) }}</span> {{ tx(p.estilo) }} · {{ tx(p.color) }}</router-link>
+                <span class="sub">{{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.rango_tallas || t('no sizes')) }}<template v-if="p.tipo"> · {{ tx(M.TIPO_CORTO[p.tipo] || p.tipo) }}</template></span>
               </span>
             </div>
           </td>
-          <td v-if="!sesion.proveedorId && interno">{{ p.proveedor }}</td>
+          <td v-if="!sesion.proveedorId && interno">{{ tx(p.proveedor) }}</td>
           <td>
             <template v-if="codigoDe(p)">
-              <span class="codigo-sac" :class="{ tentativo: !p.codigo }">{{ codigoDe(p) }}</span>
-              <span class="sub" :title="M.descDe(codigoDe(p))">{{ p.codigo ? descCorta(p.codigo) : 'Suggested, not approved' }}</span>
+              <span class="codigo-sac" :class="{ tentativo: !p.codigo }">{{ tx(codigoDe(p)) }}</span>
+              <span class="sub" :title="tx(M.descDe(codigoDe(p)))">{{ tx(p.codigo ? descCorta(p.codigo) : t('Suggested, not approved')) }}</span>
             </template>
-            <span v-else class="apagado">Not classified</span>
+            <span v-else class="apagado">{{ t('Not classified') }}</span>
           </td>
           <td>
-            <span v-if="p.paises_ok === p.paises_total" class="etiqueta ok"><Icono nombre="check" :tam="12" />{{ p.paises_ok }}/{{ p.paises_total }}</span>
-            <span v-else-if="p.paises_ok" class="etiqueta aviso">{{ p.paises_ok }}/{{ p.paises_total }}</span>
+            <span v-if="p.paises_ok === p.paises_total" class="etiqueta ok"><Icono nombre="check" :tam="12" />{{ tx(p.paises_ok) }}/{{ tx(p.paises_total) }}</span>
+            <span v-else-if="p.paises_ok" class="etiqueta aviso">{{ tx(p.paises_ok) }}/{{ tx(p.paises_total) }}</span>
             <span v-else class="apagado">—</span>
           </td>
           <td>
             <EstadoBadge :estado="p.estado" />
-            <span v-if="!p.ficha_completa && !['aprobado', 'corregido'].includes(p.estado)" class="sub recortar" :title="p.faltan.join(', ')">{{ p.faltan.length ? `Missing: ${p.faltan[0]}` : 'Sheet incomplete' }}</span>
+            <span v-if="!p.ficha_completa && !['aprobado', 'corregido'].includes(p.estado)" class="sub recortar" :title="tx(p.faltan.join(', '))">{{ tx(p.faltan.length ? t('Missing: {0}', [p.faltan[0]]) : t('Sheet incomplete')) }}</span>
           </td>
           <td class="num"><Icono nombre="derecha" :tam="16" /></td>
         </tr>
         <tr v-if="!datos.items.length && !cargando">
           <td colspan="7" class="vacio">
-            <template v-if="['pendientes', 'sugerida', 'revision', 'borradores'].includes(filtros.estado)"><Icono nombre="check" /> Nothing pending here.</template>
-            <template v-else>No products match these filters.</template>
+            <template v-if="['pendientes', 'sugerida', 'revision', 'borradores'].includes(filtros.estado)"><Icono nombre="check" /> {{ t('Nothing pending here.') }}</template>
+            <template v-else>{{ t('No products match these filters.') }}</template>
           </td>
         </tr>
       </tbody>
@@ -246,13 +247,13 @@ watch(() => sesion.proveedorId, recargar)
   <CargaArticulos v-if="cargaAbierta" @cerrar="cargaAbierta = false" @listo="cargar" />
   <BarraSeleccion :cantidad="sel.ids.size" singular="product" plural="products" @limpiar="sel.limpiar()">
     <template #resumen>
-      <template v-if="interno && porAprobar.length">{{ porAprobar.length }} ready to approve</template>
+      <template v-if="interno && porAprobar.length">{{ t('{0} ready to approve', [porAprobar.length]) }}</template>
     </template>
-    <button class="btn" :disabled="ocupado" title="Run the classification engine on the saved technical sheets" @click="clasificar"><Icono nombre="varita" />Classify</button>
+    <button class="btn" :disabled="ocupado" :title="t('Run the classification engine on the saved technical sheets')" @click="clasificar"><Icono nombre="varita" />{{ t('Classify') }}</button>
     <button v-if="puede('producto.clasificar')" class="btn btn-primario" :disabled="ocupado || !porAprobar.length"
-            title="Approve the suggested code of the complete sheets" @click="aprobar"><Icono nombre="check" />Approve {{ porAprobar.length || '' }}</button>
+            :title="t('Approve the suggested code of the complete sheets')" @click="aprobar"><Icono nombre="check" />{{ t('Approve {0}', [porAprobar.length || '']) }}</button>
     <button v-if="puede('producto.ficha') && !interno" class="btn btn-primario" :disabled="ocupado || !porEnviar.length"
-            title="Send the complete drafts to review" @click="enviar"><Icono nombre="enviar" />Send to review {{ porEnviar.length || '' }}</button>
+            :title="t('Send the complete drafts to review')" @click="enviar"><Icono nombre="enviar" />{{ t('Send to review {0}', [porEnviar.length || '']) }}</button>
   </BarraSeleccion>
 </template>
 

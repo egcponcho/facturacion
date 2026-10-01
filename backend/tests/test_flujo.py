@@ -212,13 +212,9 @@ def test_transporte_y_salida(interno, tnf):
     disp = interno.get(f"/unidades/{unidad['id']}/disponibles").json()
     grupo = next(g for g in disp if g["factura_id"] == estado["fid"])
     pl_ids = [p["id"] for p in grupo["packing_lists"]]
-    r = interno.post(f"/unidades/{unidad['id']}/asignar", {"pl_ids": pl_ids, "modo": "TENTATIVA"})
+    r = interno.post(f"/unidades/{unidad['id']}/asignar", {"pl_ids": pl_ids})
     assert r.status_code == 200, r.text
-    assert r.json()["tentativos"] == len(pl_ids)
-    r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": f"{HOY}T08:00:00"})
-    assert r.status_code == 409 and r.json()["codigo"] == "tentativas_pendientes"
-    r = interno.post(f"/unidades/{unidad['id']}/confirmar", {"pl_ids": pl_ids})
-    assert r.status_code == 200, r.text
+    assert r.json()["confirmados"] == len(pl_ids) and r.json()["tentativos"] == 0
     # Sin BL, contenedor ni sello no hay salida: son datos obligatorios del transporte
     r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": f"{HOY}T08:00:00"})
     assert r.status_code == 422 and r.json()["codigo"] == "datos_transporte"
@@ -396,29 +392,31 @@ def test_asignacion_automatica(interno, vans):
     if len(centros) > 1:
         r = interno.post(f"/unidades/{nueva}/asignar", {"pl_ids": [p["id"] for g in disp for p in g["packing_lists"]]})
         assert r.status_code == 422 and r.json()["codigo"] == "centro_distinto"
-    # Un centro con carga pendiente de finalizar (irá tentativa)
-    centro = next(c for c in centros if any(not p["puede_confirmar"] for g in disp if g["centro"] == c
-                                             for p in g["packing_lists"]))
+    # Solo se ofrece y se acepta lo finalizado (factura y PL)
+    assert all(p["puede_confirmar"] for g in disp for p in g["packing_lists"])
+    centro = sorted(centros)[0]
     pls = [p for g in disp if g["centro"] == centro for p in g["packing_lists"]]
-    listos = [p for p in pls if p["puede_confirmar"]]
-    assert len(listos) < len(pls)
-    r = interno.post(f"/unidades/{nueva}/asignar", {"pl_ids": [p["id"] for p in pls], "modo": "AUTO"})
+    r = interno.post(f"/unidades/{nueva}/asignar", {"pl_ids": [p["id"] for p in pls]})
     assert r.status_code == 200, r.text
-    assert r.json() == {"asignados": len(pls), "confirmados": len(listos), "tentativos": len(pls) - len(listos)}
-    asignados = {p["id"]: p["asignacion"] for p in interno.get(f"/unidades/{nueva}").json()["asignados"]}
-    assert all(asignados[p["id"]] == "CONFIRMADA" for p in listos)
-    # Confirmar explícitamente sigue exigiendo documentos finalizados
-    pendiente = next(p for p in pls if not p["puede_confirmar"])
-    r = interno.post(f"/unidades/{nueva}/confirmar", {"pl_ids": [pendiente["id"]]})
+    assert r.json() == {"asignados": len(pls), "confirmados": len(pls), "tentativos": 0}
+    borrador = next((f for f in interno.get("/seguimiento/documentos", params={"size": 200}).json()["items"]
+                     if f["pl_id"] and f["estado_pl"] in ("BORRADOR", "EN_CORRECCION")), None)
+    assert borrador
+    r = interno.post(f"/unidades/{nueva}/asignar", {"pl_ids": [borrador["pl_id"]]})
     assert r.status_code == 422
-    r = interno.post(f"/unidades/{nueva}/desasignar", {"pl_ids": [p["id"] for p in pls], "motivo": "Prueba"})
-    assert r.status_code == 200, r.text
+    # Al reabrir un PL cargado, sale de la unidad
+    r = interno.post(f"/packing-lists/{pls[0]['id']}/reabrir", {"motivo": "Corrección"})
+    assert r.status_code == 200 and "Removed from" in r.json()["nota"]
+    assert pls[0]["id"] not in {p["id"] for p in interno.get(f"/unidades/{nueva}").json()["asignados"]}
+    if pls[1:]:
+        r = interno.post(f"/unidades/{nueva}/desasignar", {"pl_ids": [p["id"] for p in pls[1:]], "motivo": "Prueba"})
+        assert r.status_code == 200, r.text
 
 
 def test_dashboard(interno, tnf):
     d = interno.get("/dashboard").json()
     claves = {k["clave"] for k in d["kpis"]}
-    assert {"por_facturar", "listas", "tentativas", "en_camino"} <= claves
+    assert {"por_facturar", "listas", "sin_contenedor", "en_camino"} <= claves
     assert d["proveedores"] and {p["nombre"] for p in d["proveedores"]} >= {"The North Face", "Vans"}
     assert len(d["facturado_mes"]) == 6 and d["contenedores"] is not None
     # El proveedor solo ve lo suyo y no recibe datos internos
@@ -515,7 +513,7 @@ def test_catalogos(interno, tnf):
     r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": []})
     assert r.status_code == 422 and "has items" in r.json()["detalle"][0]["mensaje"]
     assert provs["TNF"]["marcas_txt"] == "TNF" and "8000" in provs["TNF"]["sociedades_txt"]
-    r = interno.post("/catalogos/articulos", {**base, "sku": "X1", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
+    r = interno.post("/catalogos/articulos", {**base, "sku": "X 1!", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
     assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "sku"
     # Un prepack no se crea como artículo suelto: se crea con su código y su explosión
     r = interno.post("/catalogos/articulos", {**base, "sku": "30099990001", "talla": "AB12", "tipo": "PREPACK",
@@ -552,7 +550,7 @@ def test_catalogos(interno, tnf):
 
 
 def _rol_proveedor(admin):
-    return next(r for r in admin.get("/roles").json()["roles"] if r["sistema"] and r["tipo"] == "proveedor")
+    return next(r for r in admin.get("/roles").json()["roles"] if r["nombre"] == "Supplier")
 
 
 def test_seguimiento(tnf, interno, admin):
@@ -641,7 +639,7 @@ def test_documentos_y_reportes(tnf, interno):
     ws = load_workbook(BytesIO(r.content)).active
     textos = {str(c.value) for fila in ws.iter_rows() for c in fila if c.value}
     assert "PACKING LIST" in textos and any(t.startswith("TOTAL PACKAGES: ") for t in textos)
-    assert "Inner packs" in textos and "FINAL DESTINATION" in textos
+    assert "Inner packs per carton" in textos and "Per inner pack" in textos and "FINAL DESTINATION" in textos
     for vista in ("ordenes", "embarques", "documentos"):
         for formato in ("pdf", "xlsx"):
             r = interno.get(f"/seguimiento/{vista}/exportar", params={"formato": formato, "marca": "TNF"})
@@ -825,3 +823,160 @@ def test_acceso_seguro(client):
     b = client.post("/api/auth/login", json={"email": "admin@demo.com", "password": "x"}).json()["mensaje"]
     assert a == b
     reiniciar()
+
+
+def test_fecha_estimada_en_tienda(interno):
+    """Con los lead times de su origen cada OC tiene su fecha estimada en tienda."""
+    from datetime import date, timedelta
+    ocs = interno.get("/ordenes", params={"size": 50}).json()["items"]
+    con = [o for o in ocs if o.get("tienda_estimada")]
+    assert con and all(o["tienda_estimada"] >= (o.get("arribo_estimado") or "") for o in con)
+    o = next(o for o in con if o["fecha_tienda"])
+    dif = (date.fromisoformat(o["tienda_estimada"]) - date.fromisoformat(o["fecha_tienda"])).days
+    assert o["dias_vs_tienda"] == dif
+    det = interno.get(f"/ordenes/{o['id']}/posiciones").json()["oc"]
+    assert det["tienda_estimada"] == o["tienda_estimada"]
+    # Sin embarque: XF (u hoy) + tránsito + puerto, ingreso y reexportación de su región
+    lt = interno.get("/seguimiento/leadtimes", params={"size": 100}).json()
+    x = next(i for i in lt["items"] if i["oc_id"] == o["id"])
+    assert x["tienda_estimada"] == o["tienda_estimada"]
+    fila = next(f for f in interno.get("/seguimiento", params={"size": 200}).json()["items"] if f["tienda_estimada"])
+    assert fila["tienda_estimada"] > (date.today() - timedelta(days=400)).isoformat()
+    por_oc = interno.get("/seguimiento/ordenes", params={"size": 100}).json()["items"]
+    assert any(p["tienda_estimada"] for p in por_oc)
+
+
+def test_crear_oc_desde_formulario(interno, vans):
+    """La OC se puede crear en la plataforma con la misma estructura y
+    validaciones que la carga masiva; precio, moneda y empresa son opcionales
+    al crearla, pero se exigen al facturar."""
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    cab = {"proveedor": "VANS", "oc": "PO-FORM-1", "centro_destino": "2220", "liberacion_comercial": "C",
+           "liberacion_logistica": "Released"}
+    # Lo mínimo: proveedor, número, artículo y cantidad
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku}]})
+    assert r.status_code == 422 and any("quantity" in d["mensaje"] for d in r.json()["detalle"])
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": "NOEXISTE", "cantidad": 5}]})
+    assert r.status_code == 422 and "item master" in r.json()["detalle"][0]["mensaje"]
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 12, "casepack": 6}]})
+    assert r.status_code == 200, r.text
+    oc = r.json()
+    assert oc["numero"] == "PO-FORM-1" and oc["lineas"] == 1
+    det = interno.get(f"/ordenes/{oc['oc_id']}/posiciones").json()
+    assert det["posiciones"][0]["posicion"] == "10" and det["posiciones"][0]["casepack"] == 6
+    assert det["posiciones"][0]["total"] is None  # sin precio: el valor queda pendiente
+    # El mismo número no se repite para el proveedor
+    assert interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 1}]}).status_code == 409
+    # Sin precio, moneda ni empresa no se puede facturar: se dice qué falta
+    r = vans.post("/facturas", {"lineas": [{"posicion_id": det["posiciones"][0]["id"], "cantidad": 6}]})
+    assert r.status_code == 422 and "missing currency, price" in r.json()["detalle"][0]["mensaje"]
+    # La sociedad se toma del centro destino: el proveedor solo trabaja con las suyas
+    assert det["oc"]["sociedad"] == "8000"
+    r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-3", "centro_destino": "3200"},
+                                  "lineas": [{"codigo_sap": sku, "cantidad": 2}]})
+    assert r.status_code == 422 and "does not work with company GT01" in str(r.json()["detalle"])
+    r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-3", "sociedad": "8000", "centro_destino": "PA20"},
+                                  "lineas": [{"codigo_sap": sku, "cantidad": 2}]})
+    assert r.status_code == 422 and "does not belong to company 8000" in str(r.json()["detalle"])
+    r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-3", "sociedad": "8000", "centro": "PA10"},
+                                  "lineas": [{"codigo_sap": sku, "cantidad": 2}]})
+    assert r.status_code == 422 and "does not belong to company 8000" in str(r.json()["detalle"])
+    # Un artículo de otro proveedor no entra en la OC
+    otro = _oc(interno, "4400003850")["posiciones"][0]["codigo_sap"]
+    r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-3"}, "lineas": [{"codigo_sap": otro, "cantidad": 2}]})
+    assert r.status_code == 422 and "another supplier" in str(r.json()["detalle"])
+    # Las opciones del formulario dicen con qué sociedades trabaja cada proveedor
+    op = interno.get("/ordenes/formulario").json()
+    assert next(p for p in op["proveedores"] if p["valor"] == "VANS")["sociedades"] == ["8000", "PA01"]
+    # Precio sin moneda no es válido
+    r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-2"}, "lineas": [{"codigo_sap": sku, "cantidad": 2, "precio": 10}]})
+    assert r.status_code == 422 and "currency" in r.json()["detalle"][0]["mensaje"]
+
+
+def test_inner_pack_en_el_packing_list(interno, vans):
+    """La OC trae el casepack (sólidos) o la curva (prepacks); el inner pack se
+    define al armar el packing list, mientras la línea no tenga cajas."""
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    cab = {"proveedor": "VANS", "oc": "PO-INNER-1", "sociedad": "8000", "moneda": "USD", "centro_destino": "2220",
+           "liberacion_comercial": "C", "liberacion_logistica": "300"}
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 24, "precio": 10, "casepack": 12}]})
+    assert r.status_code == 200, r.text
+    pos = interno.get(f"/ordenes/{r.json()['oc_id']}/posiciones").json()["posiciones"][0]
+    assert pos["inner_pack"] is None
+    fid = vans.post("/facturas", {"lineas": [{"posicion_id": pos["id"], "cantidad": 24}]}).json()["id"]
+    # La descripción de la factura es la aduanera, sin repetir la marca (que tiene su columna)
+    lf = vans.get(f"/facturas/{fid}").json()["lineas"][0]
+    assert lf["marca"] == "VANS" and "VANS" not in (lf["descripcion_comercial"] or "").upper()
+    pl_id = vans.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    linea = pl["lineas"][0]
+    assert linea["inner_editable"] and linea["inner_pack"] is None
+    url = f"/packing-lists/{pl_id}/lineas/{linea['id']}/inner"
+    r = vans.put(url, {"version": pl["version"], "inner_pack": 5})
+    assert r.status_code == 422 and "multiple of the inner pack" in r.json()["mensaje"]
+    r = vans.put(url, {"version": pl["version"], "inner_pack": 4})
+    assert r.status_code == 200, r.text
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    assert pl["lineas"][0]["inner_pack"] == 4
+    # Con cajas ya no se cambia
+    r = _empacar(vans, pl_id, pl["version"], [(pl["lineas"][0]["id"], None)])
+    assert r.status_code == 200, r.text
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    assert not pl["lineas"][0]["inner_editable"]
+    grupo = pl["grupos"][0]
+    assert grupo["items"][0]["inner_packs_por_caja"] == 3
+    assert vans.put(url, {"version": pl["version"], "inner_pack": 6}).status_code == 409
+
+
+def test_estado_del_embarque_frente_a_tienda(interno):
+    """El embarque se califica con la fecha estimada en tienda: en tiempo, en
+    riesgo o atrasado. El tipo de producto puede sumar días después del puerto."""
+    from datetime import date
+    embs = interno.get("/embarques").json()
+    assert all("estado_tiempo" in e for e in embs)
+    con = [e for e in embs if e["estado_tiempo"]]
+    assert con and all(e["estado_tiempo"] in ("A_TIEMPO", "JUSTO", "ATRASO") for e in con)
+    det = interno.get(f"/embarques/{con[0]['id']}").json()
+    assert det["estado_tiempo"] == con[0]["estado_tiempo"]
+    # Días extra del tipo de producto: la estimación en tienda se corre
+    ocs = interno.get("/ordenes", params={"size": 50}).json()["items"]
+    o = next(o for o in ocs if o.get("tienda_estimada"))
+    grupo = interno.get(f"/ordenes/{o['id']}/posiciones").json()["posiciones"][0]["grupo"]
+    g = next(x for x in interno.get("/catalogos/grupos").json()["items"] if x["codigo"] == grupo)
+    assert interno.patch(f"/catalogos/grupos/{g['id']}", {"dias_extra": 10}).status_code == 200
+    o2 = next(x for x in interno.get("/ordenes", params={"size": 50}).json()["items"] if x["id"] == o["id"])
+    assert (date.fromisoformat(o2["tienda_estimada"]) - date.fromisoformat(o["tienda_estimada"])).days == 10
+    interno.patch(f"/catalogos/grupos/{g['id']}", {"dias_extra": None})
+
+
+def test_consistencia_de_maestros(interno):
+    """Los maestros quedan encadenados: no se quita a un proveedor una sociedad
+    con la que tiene OCs, y el contacto de un centro es de la sociedad de ese centro."""
+    socs = {s["codigo"]: s["id"] for s in interno.get("/catalogos/sociedades", params={"size": 100}).json()["items"]}
+    vans = next(p for p in interno.get("/catalogos/proveedores").json()["items"] if p["codigo"] == "VANS")
+    r = interno.patch(f"/catalogos/proveedores/{vans['id']}", {"sociedades": [socs["PA01"]]})
+    assert r.status_code == 422 and "8000" in r.json()["detalle"][0]["mensaje"]
+    cen = {c["codigo"]: c["id"] for c in interno.get("/catalogos/centros", params={"size": 100}).json()["items"]}
+    r = interno.post("/catalogos/contactos", {"nombre": "Test", "rol": "NOTIFY", "sociedad_id": socs["8000"],
+                                              "centro_id": cen["PA10"]})
+    assert r.status_code == 422 and "does not belong" in r.json()["detalle"][0]["mensaje"]
+
+
+def test_numero_propio_del_pl(interno, vans):
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    cab = {"proveedor": "VANS", "oc": "PO-PLNUM-1", "sociedad": "8000", "moneda": "USD", "centro_destino": "2220",
+           "liberacion_comercial": "C", "liberacion_logistica": "300"}
+    oc = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 24, "precio": 10}]}).json()
+    pos = interno.get(f"/ordenes/{oc['oc_id']}/posiciones").json()["posiciones"][0]
+    fid = vans.post("/facturas", {"lineas": [{"posicion_id": pos["id"], "cantidad": 24}]}).json()["id"]
+    pl_id = vans.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    r = vans.put(f"/packing-lists/{pl_id}/numero", {"version": pl["version"], "numero": "VN-PL 2026/88"})
+    assert r.status_code == 200 and r.json()["numero"] == "VN-PL 2026/88"
+    assert vans.get(f"/packing-lists/{pl_id}").json()["numero"] == "VN-PL 2026/88"
+    r = vans.put(f"/packing-lists/{pl_id}/numero", {"numero": "<script>"})
+    assert r.status_code == 422
+    otro = vans.post(f"/facturas/{fid}/packing-lists", {})
+    if otro.status_code == 200:
+        r = vans.put(f"/packing-lists/{otro.json()['id']}/numero", {"numero": "vn-pl 2026/88"})
+        assert r.status_code == 409

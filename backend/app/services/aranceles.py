@@ -13,7 +13,7 @@ from .common import ErrorNegocio, exigir, registrar
 from .meta import cond_texto, opciones_cond, valor_opcion
 from .plantillas import leer, norm, plantilla, si_no
 
-FUENTES = {"oficial": "Official (SIECA)", "base": "Base (ADOC)", "aprendido": "Learned", "manual": "By hand", "archivo": "File"}
+FUENTES = {"oficial": "Official (SIECA)", "base": "Company base", "resumen": "Summary (not the official text)", "aprendido": "Learned", "manual": "By hand", "archivo": "File"}
 
 
 def _dig(s) -> str:
@@ -40,7 +40,7 @@ def paises(db: Session, user: Usuario) -> list[dict]:
     exigir(user, "producto.ver")
     n = dict(db.execute(select(IncisoNacional.pais, func.count()).group_by(IncisoNacional.pais)).all())
     return [{"id": x.id, "iso": x.iso, "nombre": x.nombre, "digitos": x.digitos, "mcca": x.mcca, "impuesto": x.impuesto,
-             "nota": x.nota, "orden": x.orden, "activo": x.activo, "codigos": n.get(x.iso, 0)}
+             "nota": x.nota, "base_legal": x.base_legal, "orden": x.orden, "activo": x.activo, "codigos": n.get(x.iso, 0)}
             for x in db.scalars(select(PaisArancel).order_by(PaisArancel.orden, PaisArancel.iso))]
 
 
@@ -63,6 +63,7 @@ def guardar_pais(db: Session, user: Usuario, datos, pais_id: int | None = None) 
     antes = x.iso
     x.iso, x.nombre, x.digitos = iso, datos.nombre.strip()[:80], datos.digitos
     x.mcca, x.impuesto, x.nota, x.activo = datos.mcca, (datos.impuesto or "")[:60] or None, (datos.nota or "")[:300] or None, datos.activo
+    x.base_legal = (datos.base_legal or "").strip()[:300] or None
     if antes and antes != iso:
         for i in db.scalars(select(IncisoNacional).where(IncisoNacional.pais == antes)):
             i.pais = iso
@@ -197,7 +198,7 @@ def condiciones_aplicables(db: Session, user: Usuario, pais: str | None, codigo:
 
 # ---- Notas legales del SAC ---------------------------------------------------------------
 AMBITOS = {"reglas": "General rules", "seccion": "Section note", "capitulo": "Chapter note", "subpartida": "Subheading note",
-           "complementaria": "Central American complementary note"}
+           "complementaria": "Central American complementary note", "explicativa": "Explanatory note (HS)"}
 
 
 def _fila_nota(n: NotaSAC) -> dict:

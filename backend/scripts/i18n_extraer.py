@@ -1,0 +1,92 @@
+"""Textos del servidor que llegan a la pantalla (mensajes de error, etiquetas
+de catálogos y permisos, tareas del tablero, estados…), como plantillas con
+{0}, {1}… en lugar de los valores. El frontend los traduce aunque lleguen ya
+armados. Escribe app/i18n_claves.json.
+
+Uso: python scripts/i18n_extraer.py
+"""
+import ast
+import json
+import re
+from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parent.parent / "app"
+# Documentos y plantillas para aduana/ERP, datos de demostración y textos oficiales: no se traducen aquí
+OMITIR = {"seed.py", "documentos.py", "exportar.py", "plantillas.py", "sms.py", "config.py", "db.py", "security.py",
+          "especialista.py", "main.py", "deps.py", "models.py"}
+MODELOS: set = set()
+ESPANOL = re.compile(r"[áéíóúñ¿¡]|\b(de|del|la|el|los|las|y|para|con|por|una|que)\b", re.I)
+
+
+def es_texto(s: str) -> bool:
+    t = s.strip()
+    if not re.search(r"[A-Za-z]{2,}", t) or not re.search(r"[a-z]", t):
+        return False
+    if re.match(r"^(/|#|\.|@|https?:|var\(|%|\{)", t) and not re.search(r"\s", t):
+        return False
+    if re.fullmatch(r"[\w.:-]+", t) and not re.search(r"[A-Z]", t):
+        return False
+    if not re.search(r"\s", t) and re.search(r"[:/_?=\-]", t):
+        return False
+    if re.fullmatch(r"[a-z]+[A-Z]\w*", t):
+        return False
+    if t.startswith("^") or t.startswith("attachment;"):
+        return False
+    if ESPANOL.search(t):
+        return False
+    if re.fullmatch(r"\w+\.\w+", t) or t in MODELOS or "max-age" in t or "self'" in t:
+        return False
+    if re.search(r"\b(select|where|join)\b", t) and "(" in t:
+        return False
+    return True
+
+
+def plantilla(nodo: ast.JoinedStr) -> str:
+    out, n = "", 0
+    for v in nodo.values:
+        if isinstance(v, ast.Constant):
+            out += str(v.value)
+        else:
+            out += "{" + str(n) + "}"
+            n += 1
+    return out
+
+
+def docstrings(arbol) -> set:
+    ids = set()
+    for n in ast.walk(arbol):
+        if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)) and n.body:
+            p = n.body[0]
+            if isinstance(p, ast.Expr) and isinstance(getattr(p, "value", None), ast.Constant):
+                ids.add(id(p.value))
+    return ids
+
+
+def extraer() -> list[str]:
+    claves = set()
+    for ruta in RAIZ.rglob("*.py"):
+        if ruta.name in OMITIR:
+            continue
+        arbol = ast.parse(ruta.read_text(encoding="utf-8"))
+        docs = docstrings(arbol)
+        dentro_fstring = set()
+        for n in ast.walk(arbol):
+            if isinstance(n, ast.JoinedStr):
+                for v in n.values:
+                    dentro_fstring.add(id(v))
+                t = plantilla(n)
+                if es_texto(t) and re.search(r"[A-Za-z]{3,}", re.sub(r"\{\d\}", "", t)):
+                    claves.add(t)
+        for n in ast.walk(arbol):
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs and id(n) not in dentro_fstring:
+                if es_texto(n.value):
+                    claves.add(n.value)
+    # Concatenaciones "texto: " + ", ".join(...) quedan como su parte fija
+    return sorted(claves)
+
+
+if __name__ == "__main__":
+    MODELOS.update(re.findall(r"^class (\w+)\(", (RAIZ / "models.py").read_text(encoding="utf-8"), re.M))
+    lista = extraer()
+    (RAIZ / "i18n_claves.json").write_text(json.dumps(lista, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    print(len(lista), "textos del servidor")

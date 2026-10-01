@@ -76,7 +76,7 @@ def test_cargar_y_exportar(interno):
     # La misma fila actualiza (no duplica)
     assert _subir(interno, "/aranceles/codigos/importar", contenido).json()["actualizados"] == 1
     for formato in ("xlsx", "pdf"):
-        r = interno.get("/aranceles/codigos/exportar", params={"pais": "SV", "formato": formato})
+        r = interno.get("/aranceles/codigos/exportar", params={"pais": "SV", "capitulo": "64", "formato": formato})
         assert r.status_code == 200 and len(r.content) > 1000
     r = _subir(interno, "/aranceles/sac/importar", _xlsx([["Code", "Description"], ["9999.99", "Prueba"]]))
     assert r.json()["creados"] == 1
@@ -156,3 +156,16 @@ def test_acuerdos_por_origen(interno, vans):
     assert interno.post("/catalogos/acuerdos", {"codigo": "BAD", "nombre": "x", "origenes": "VNM", "destinos": "GT"}).status_code == 422
     ac = interno.get("/clasificacion/contexto").json()["acuerdos"]
     assert any(a["codigo"] == "VN-XX" and a["destinos"] == ["GT", "SV"] for a in ac)
+
+
+def test_soporte_de_clasificacion(interno, vans):
+    """La ficha se clasifica con el motor y se revisa con su soporte: base legal
+    de cada destino y notas legales y explicativas de la partida. No hay
+    búsqueda libre en todo el SAC desde la ficha."""
+    assert vans.get("/clasificacion/sac", params={"q": "8471.30"}).status_code in (404, 405)
+    ctx = interno.get("/clasificacion/contexto").json()
+    assert all(d["base_legal"] for d in ctx["destinos"])
+    # Notas explicativas por partida (resumen propio, no el texto oficial)
+    notas = interno.get("/aranceles/notas", params={"capitulo": "64"}).json()
+    ne = [n for n in notas["items"] if n["ambito"] == "explicativa"]
+    assert any(n["codigo"] == "6404" for n in ne) and "explicativa" in notas["ambitos"]

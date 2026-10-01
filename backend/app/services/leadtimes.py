@@ -28,10 +28,12 @@ from ..models import (
     Pais,
     PLLinea,
     PosicionOC,
+    GrupoArticulo,
     RegionLeadTime,
     UnidadCarga,
     Usuario,
 )
+from ..config import settings
 from .common import proveedor_filtro
 
 # Región por defecto si no hay ninguna configurada
@@ -65,9 +67,16 @@ class Estandares:
         self.defecto = _dict(pred) if pred else POR_DEFECTO
         self.pais_region = {p.codigo: p.region for p in db.scalars(select(Pais))}
         self.nombres = {p.codigo: p.nombre for p in db.scalars(select(Pais))}
+        self.extra_grupo = {g.codigo: g.dias_extra or 0 for g in db.scalars(select(GrupoArticulo))}
 
-    def de(self, pais: str | None) -> dict:
-        return self.regiones.get(self.pais_region.get(pais or "") or "", self.defecto)
+    def de(self, pais: str | None, grupos=None) -> dict:
+        """Estándares de la región de origen más los días extra del tipo de
+        producto (el mayor de los grupos dados)."""
+        base = self.regiones.get(self.pais_region.get(pais or "") or "", self.defecto)
+        if isinstance(grupos, str):
+            grupos = [grupos]
+        extra = max([self.extra_grupo.get(g, 0) for g in (grupos or []) if g] or [0])
+        return {**base, "dias_extra": extra} if extra else base
 
 
 def _dict(r: RegionLeadTime) -> dict:
@@ -78,7 +87,7 @@ def _dict(r: RegionLeadTime) -> dict:
 
 def dias_post_arribo(est: dict) -> int:
     """Días que necesita la mercancía después del puerto para estar en tienda."""
-    return est["dias_puerto_bodega"] + est["dias_ingreso"] + est["dias_reexportacion"]
+    return est["dias_puerto_bodega"] + est["dias_ingreso"] + est["dias_reexportacion"] + est.get("dias_extra", 0)
 
 
 def limite_puerto(fecha_tienda: date | None, est: dict) -> date | None:
@@ -156,9 +165,19 @@ def _estado(real: date | None, meta: date | None, estimada: date | None, hoy: da
 
 
 def _riesgo(holgura: int | None) -> str | None:
+    """En tiempo, en riesgo (holgura menor al margen) o atrasado (holgura negativa)."""
     if holgura is None:
         return None
-    return "ATRASO" if holgura < 0 else "JUSTO" if holgura < 7 else "A_TIEMPO"
+    return "ATRASO" if holgura < 0 else "JUSTO" if holgura < settings.DIAS_MARGEN_RIESGO else "A_TIEMPO"
+
+
+def estado_tiempo(tienda_estimada: date | None, fecha_tienda: date | None) -> dict:
+    """Estado frente a la fecha requerida en tienda; sin una de las dos fechas
+    queda pendiente (no se inventa un resultado)."""
+    if not tienda_estimada or not fecha_tienda:
+        return {"estado": None, "holgura": None}
+    holgura = (fecha_tienda - tienda_estimada).days
+    return {"estado": _riesgo(holgura), "holgura": holgura}
 
 
 def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
@@ -193,7 +212,7 @@ def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
     ingreso = real["ingreso"] or (entrega + timedelta(days=est["dias_ingreso"]) if entrega else None)
     if not real["ingreso"]:
         est_fecha["ingreso"] = ingreso
-    est_fecha["tienda"] = ingreso + timedelta(days=est["dias_reexportacion"]) if ingreso else None
+    est_fecha["tienda"] = ingreso + timedelta(days=est["dias_reexportacion"] + est.get("dias_extra", 0)) if ingreso else None
     hitos = []
     for clave, nombre in HITOS:
         estimada = est_fecha.get(clave)
@@ -202,7 +221,10 @@ def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
                       "estimada": estimada, "dif": dif, "estado": estado})
     holgura = (lim_arribo - arribo).days if lim_arribo and arribo else None
     lib = real["lib_logistica"]
+    tienda_est = est_fecha["tienda"]
     return {
+        "tienda_estimada": tienda_est,
+        "dias_vs_tienda": (tienda_est - tienda).days if tienda_est and tienda else None,
         "hitos": hitos, "limite_puerto": lim_arribo, "arribo": arribo, "arribo_real": bool(real["arribo"]),
         "holgura": holgura, "riesgo": _riesgo(holgura),
         "lib_dias_antes_xf": (xf - lib).days if xf and lib else None,
@@ -221,6 +243,19 @@ def _prom(valores: list) -> float | None:
 
 def _lista(v) -> list[str]:
     return [x for x in str(v or "").split(",") if x]
+
+
+def tiendas_estimadas(db: Session, ocs: list[OrdenCompra]) -> dict[int, dict]:
+    """Fecha estimada en tienda de cada OC con los lead times de su origen."""
+    hoy = date.today()
+    ests = Estandares(db)
+    hitos = _hitos_por_oc(db, [o.id for o in ocs])
+    out = {}
+    for o in ocs:
+        a = analizar_oc(o, hitos.get(o.id), ests.de(o.pais_origen, [x.grupo for x in o.posiciones]), hoy)
+        out[o.id] = {"tienda_estimada": a["tienda_estimada"], "dias_vs_tienda": a["dias_vs_tienda"],
+                     "arribo_estimado": a["arribo"], "riesgo": a["riesgo"]}
+    return out
 
 
 def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros: dict | None = None,
@@ -248,7 +283,7 @@ def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     hitos = _hitos_por_oc(db, [o.id for o in ocs])
     items = []
     for o in ocs:
-        est = ests.de(o.pais_origen)
+        est = ests.de(o.pais_origen, [x.grupo for x in o.posiciones])
         a = analizar_oc(o, hitos.get(o.id), est, hoy)
         items.append({"oc_id": o.id, "oc": o.numero, "proveedor": o.proveedor.nombre, "origen": o.pais_origen,
                       "origen_nombre": ests.nombres.get(o.pais_origen or "", o.pais_origen),
@@ -301,7 +336,8 @@ def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     elif filtros.get("lib") == "tarde":
         items = [i for i in items if i["lib_a_tiempo"] is False]
     col, _, d = (orden or "fecha_xf:asc").partition(":")
-    if col in {"oc", "proveedor", "origen", "fecha_xf", "fecha_tienda", "holgura", "limite_puerto", "arribo"}:
+    if col in {"oc", "proveedor", "origen", "fecha_xf", "fecha_tienda", "holgura", "limite_puerto", "arribo",
+               "tienda_estimada", "dias_vs_tienda"}:
         items.sort(key=lambda i: (i[col] is None, i[col] if i[col] is not None else 0), reverse=d == "desc")
         if d == "desc":  # los vacíos siempre al final
             items.sort(key=lambda i: i[col] is None)

@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { computed, useAttrs, useSlots } from 'vue'
 import SelectBusqueda from './SelectBusqueda.vue'
 
@@ -55,7 +56,7 @@ function cambiar(v) {
 </script>
 
 <template>
-  <SelectBusqueda :class="clase" :style="attrs.style" :boton-id="attrs.id" :model-value="valor" :opciones="opciones" :vacio="vacia?.texto || ''"
-                  :placeholder="vacia?.texto || 'Choose…'"   :etiqueta="prefijoComun || etq" :prefijo="!!prefijoComun" :deshabilitado="disabled" :requerido="required"
+  <SelectBusqueda :class="clase" :style="attrs.style" :boton-id="attrs.id" :model-value="valor" :opciones="opciones" :vacio="tx(vacia?.texto || '')"
+                  :placeholder="tx(vacia?.texto || t('Choose…'))"   :etiqueta="tx(prefijoComun || etq)" :prefijo="!!prefijoComun" :deshabilitado="disabled" :requerido="required"
                   @update:model-value="cambiar" />
 </template>

@@ -336,6 +336,9 @@ class GrupoArticulo(Base):
     codigo: Mapped[str] = mapped_column(String(15), unique=True)
     nombre: Mapped[str] = mapped_column(String(100))
     categoria: Mapped[str] = mapped_column(String(10))  # CALZADO | ROPA | ACCESORIO
+    # Días que este tipo de producto necesita además de los de su región después
+    # del puerto (inspección, etiquetado, permisos); se suman a la fecha en tienda
+    dias_extra: Mapped[int | None] = mapped_column(Integer)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -376,7 +379,7 @@ class Producto(Base):
     grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"))
     # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
     # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
-    codigo_generico: Mapped[str | None] = mapped_column(String(20), unique=True, index=True)
+    codigo_generico: Mapped[str | None] = mapped_column(String(40), unique=True, index=True)
     unidad: Mapped[str | None] = mapped_column(String(5))  # unidad de sus tallas sólidas: PAR | UN
     nombre: Mapped[str | None] = mapped_column(String(200))  # nombre comercial del estilo
     # Ficha técnica: tipo de producto del clasificador, atributos, composición
@@ -495,6 +498,7 @@ class PaisArancel(Base):
     mcca: Mapped[bool] = mapped_column(Boolean, default=False)
     impuesto: Mapped[str | None] = mapped_column(String(60))  # p. ej. "VAT 13%"
     nota: Mapped[str | None] = mapped_column(String(300))
+    base_legal: Mapped[str | None] = mapped_column(String(300))  # arancel y norma que lo pone en vigor
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -583,8 +587,11 @@ class Articulo(Base):
 
     __tablename__ = "articulos"
     id: Mapped[int] = mapped_column(primary_key=True)
-    # Código de artículo interno (11 dígitos, empieza con 3); distinto del SKU del proveedor
+    # Código de artículo de la empresa (numérico o alfanumérico, el formato lo
+    # define cada empresa); distinto del SKU del proveedor
     sku: Mapped[str] = mapped_column(String(40), unique=True)  # texto: conserva ceros
+    # Genérico: agrupa las tallas y prepacks de un estilo-color, que comparten ficha
+    generico: Mapped[str | None] = mapped_column(String(40), index=True)
     sku_proveedor: Mapped[str | None] = mapped_column(String(60), index=True)
     upc: Mapped[str | None] = mapped_column(String(40))
     estilo: Mapped[str] = mapped_column(String(40))
@@ -624,11 +631,12 @@ class OrdenCompra(Base):
     __table_args__ = (UniqueConstraint("proveedor_id", "numero"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
-    numero: Mapped[str] = mapped_column(String(30))  # 44xxxxxxxx
-    sociedad: Mapped[str] = mapped_column(String(10))
+    numero: Mapped[str] = mapped_column(String(40))  # formato de cada empresa
+    # Empresa que factura, moneda y precio: opcionales al cargar la OC, se exigen al facturar
+    sociedad: Mapped[str | None] = mapped_column(String(10))
     centro: Mapped[str | None] = mapped_column(String(10))
     centro_destino: Mapped[str | None] = mapped_column(String(10))  # centro del país al que va (p. ej. 2220)
-    moneda: Mapped[str] = mapped_column(String(3))
+    moneda: Mapped[str | None] = mapped_column(String(3))
     incoterm: Mapped[str | None] = mapped_column(String(10))
     fecha: Mapped[date | None] = mapped_column(Date)
     puerto_despacho: Mapped[str | None] = mapped_column(String(10))
@@ -679,7 +687,7 @@ class PosicionOC(Base):
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total de la curva
     cantidad: Mapped[int] = mapped_column(Integer)
     unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ
-    precio: Mapped[float] = mapped_column(Float)
+    precio: Mapped[float | None] = mapped_column(Float)
     fecha_entrega: Mapped[date | None] = mapped_column(Date)
     pais_origen: Mapped[str | None] = mapped_column(String(3))
     bloqueada: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -789,7 +797,7 @@ class PackingList(Base):
     __tablename__ = "packing_lists"
     id: Mapped[int] = mapped_column(primary_key=True)
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
-    numero: Mapped[str] = mapped_column(String(20))
+    numero: Mapped[str] = mapped_column(String(40))  # PL-001 por defecto; el proveedor puede poner el suyo
     estado: Mapped[str] = mapped_column(String(20), default="BORRADOR", index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     unidad_carga_id: Mapped[int | None] = mapped_column(ForeignKey("unidades_carga.id"), index=True)

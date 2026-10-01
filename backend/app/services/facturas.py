@@ -32,7 +32,7 @@ from .cantidades import (
     totales_pl,
 )
 from .partes import partes
-from .productos import pais_de_centro, partida_para, producto_de
+from .productos import pais_de_centro, partida_para, producto_de, sin_marca
 from .common import (
     EDITABLE_FACTURA,
     EDITABLE_PL,
@@ -171,6 +171,11 @@ def _preparar_posiciones(
                     }
                 )
                 continue
+        faltan = [x for x, v in (("company (bill to)", oc.sociedad), ("currency", oc.moneda), ("price", p.precio))
+                  if v in (None, "")]
+        if faltan:
+            errores.append({"posicion_id": p.id, "mensaje": f"{ref}: complete the PO before invoicing; missing {', '.join(faltan)}."})
+            continue
         if (msg := fuera_de_inner(p, cantidad)):
             errores.append({"posicion_id": p.id, "mensaje": f"{ref}: {msg}"})
             continue
@@ -216,8 +221,9 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int, pais: str | None
         centro_destino=oc.centro_destino,
         pais_origen=p.pais_origen or (prod.pais_origen if prod else None),
         partida_arancelaria=partida_para(prod, pais),
-        # Descripción comercial simple de la ficha (tipo y marca, p. ej. CALZADO VANS)
-        descripcion_comercial=(prod.descripcion_comercial if prod and prod.descripcion_comercial else p.descripcion),
+        # Descripción aduanera del artículo, sin la marca (va en su propia columna)
+        descripcion_comercial=sin_marca((prod.descripcion_aduana or prod.descripcion_comercial) if prod else None, p.marca)
+        or sin_marca(p.descripcion, p.marca),
     )
 
 
@@ -602,10 +608,21 @@ def reabrir(db: Session, user: Usuario, factura_id: int, motivo: str | None) -> 
     f = cargar_factura(db, user, factura_id, bloquear=True)
     if f.estado != "FINALIZADA":
         raise ErrorNegocio("Only finalized invoices can be reopened.", 409, "no_editable")
+    viajando = [pl.numero for pl in f.packing_lists if pl.unidad and pl.unidad.embarque.estado != "PLANIFICADO"]
+    if viajando:
+        raise ErrorNegocio(f"Its packing lists are already traveling: {', '.join(viajando)}. It cannot be reopened.",
+                           409, "embarque_cerrado")
+    # Solo lo finalizado va en un embarque: al reabrirla, sus PL salen de la unidad de carga
+    quitados = []
+    for pl in f.packing_lists:
+        if pl.unidad_carga_id and pl.estado != "CANCELADO":
+            quitados.append(f"{pl.numero} ({pl.unidad.numero or pl.unidad.etiqueta})")
+            pl.unidad_carga_id, pl.asignacion, pl.recolectado_en = None, None, None
     f.estado = "EN_CORRECCION"
     tocar(f)
-    registrar(db, user, "factura", f.id, "reabrir", None, motivo, factura_id=f.id)
-    return {"estado": f.estado, "version": f.version}
+    nota = f"Removed from their load unit: {', '.join(quitados)}. Add them again once finalized." if quitados else None
+    registrar(db, user, "factura", f.id, "reabrir", {"nota": nota} if nota else None, motivo, factura_id=f.id)
+    return {"estado": f.estado, "version": f.version, "nota": nota}
 
 
 def cancelar(db: Session, user: Usuario, factura_id: int, motivo: str | None) -> dict:

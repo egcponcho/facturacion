@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../../i18n/index.js'
 import { computed, nextTick, ref } from 'vue'
 import Seleccion from '../Seleccion.vue'
 import { M } from '../../clasificacion/useClasificacion'
@@ -46,13 +47,13 @@ const lectura = computed(() => {
   let main = ''
   if (props.parte === 'corte' || props.parte === 'suela') {
     const pm = M.parseMat(v, props.parte === 'suela' ? 'suela' : 'corte')
-    if (pm?.pred) main = (props.parte === 'corte' ? 'Upper material: ' : 'Sole of ') + M.MAT_LBL[pm.pred]
+    if (pm?.pred) main = (props.parte === 'corte' ? t('Upper material: ') : t('Sole of ')) + M.MAT_LBL[pm.pred]
   } else if (props.parte === 'exterior' && (g === 'prenda' || ['tienda', 'manta', 'toalla', 'saco', 'colchoneta'].includes(props.s.tipo))) {
     const c = M.parseComp(v)
-    if (c?.pred) main = `Predominates: ${M.FIB_LBL[c.pred.grupo] || c.pred.grupo} (${c.pred.pct}%)`
+    if (c?.pred) main = t('Predominates: {0} ({1}%)', [M.FIB_LBL[c.pred.grupo] || c.pred.grupo, c.pred.pct])
   } else if (props.parte === 'exterior' || props.parte === 'material') {
     const c = M.claseMat({ ...props.s, comp: { ...props.s.comp, [props.parte]: v } }, props.parte)
-    if (c) main = 'Main material: ' + ({ plastico: 'plastic', cuero: 'leather', metal: 'metal', madera: 'wood', papel: 'paper or board', vidrio: 'glass', paja: 'straw', textil: 'textile' }[c.pred] || c.pred)
+    if (c) main = t('Main material: {0}', [{ plastico: 'plastic', cuero: 'leather', metal: 'metal', madera: 'wood', papel: t('paper or board'), vidrio: 'glass', paja: 'straw', textil: 'textile' }[c.pred] || c.pred])
   }
   return { main, ambiguas: pr.ambiguas, desconocidas: ['relleno', 'plantilla'].includes(props.parte) ? [] : pr.desconocidas }
 })
@@ -116,58 +117,58 @@ function pegar() {
 <template>
   <div ref="caja" class="cparte">
     <div class="chead">
-      <span class="lbl">{{ M.PARTE_LBL[props.parte] }}<span v-if="props.principal" class="req-ast" aria-hidden="true">*</span><span v-else class="opcional"> (optional)</span></span>
-      <span v-if="props.filas.length && Math.abs(resto) < 0.05" class="est ok">Total 100%</span>
-      <span v-else-if="props.filas.length && resto > 0" class="est pend">Total {{ total }}% · {{ resto }}% missing</span>
-      <span v-else-if="props.filas.length" class="est mal">Total {{ total }}% · {{ -resto }}% over</span>
+      <span class="lbl">{{ tx(M.PARTE_LBL[props.parte]) }}<span v-if="props.principal" class="req-ast" aria-hidden="true">*</span><span v-else class="opcional"> {{ t('(optional)') }}</span></span>
+      <span v-if="props.filas.length && Math.abs(resto) < 0.05" class="est ok">{{ t('Total 100%') }}</span>
+      <span v-else-if="props.filas.length && resto > 0" class="est pend">{{ t('Total {0}% · {1}% missing', [total, resto]) }}</span>
+      <span v-else-if="props.filas.length" class="est mal">{{ t('Total {0}% · {1}% over', [total, -resto]) }}</span>
     </div>
 
     <div v-for="(f, i) in props.filas" :key="i" class="crow">
       <span class="cmat">
-        <input v-model="f.m" class="entrada" type="text" :list="`mat_${props.parte}`" :data-mat="i" placeholder="Material" :aria-label="`Material ${i + 1}`"
+        <input v-model="f.m" class="entrada" type="text" :list="`mat_${props.parte}`" :data-mat="i" :placeholder="t('Material')" :aria-label="t('Material {0}', [i + 1])"
                :disabled="!props.editable" @input="cambio" @keydown.enter.prevent="enterMat(i)" />
-        <span v-if="f.m && M.claseTexto(f.m)" class="ctag" :class="M.claseTexto(f.m).clase" :title="`Counts as ${M.claseTexto(f.m).lbl.toLowerCase()} for the tariff`">{{ M.claseTexto(f.m).lbl }}</span>
-        <span v-else-if="f.m && f.m.trim().length > 2" class="ctag desconocido" title="Not recognized: choose what it is below so the system learns it">?</span>
+        <span v-if="f.m && M.claseTexto(f.m)" class="ctag" :class="M.claseTexto(f.m).clase" :title="t('Counts as {0} for the tariff', [M.claseTexto(f.m).lbl.toLowerCase()])">{{ tx(M.claseTexto(f.m).lbl) }}</span>
+        <span v-else-if="f.m && f.m.trim().length > 2" class="ctag desconocido" :title="t('Not recognized: choose what it is below so the system learns it')">?</span>
       </span>
       <span class="cpct">
-        <input class="entrada" type="text" inputmode="decimal" :value="f.pct" :data-pct="i" :placeholder="placeholders[i]" :aria-label="`Percentage of ${f.m || 'material'}`"
+        <input class="entrada" type="text" inputmode="decimal" :value="f.pct" :data-pct="i" :placeholder="tx(placeholders[i])" :aria-label="t('Percentage of {0}', [f.m || 'material'])"
                :disabled="!props.editable" @input="escribirPct(i, $event)" @keydown.enter.prevent="enterPct(i)" /><span>%</span>
       </span>
-      <button v-if="props.editable" type="button" class="cx" :aria-label="`Remove ${f.m || 'row'}`" @click="quitar(i)">×</button>
+      <button v-if="props.editable" type="button" class="cx" :aria-label="t('Remove {0}', [f.m || 'row'])" @click="quitar(i)">×</button>
     </div>
-    <p v-if="!props.filas.length" class="cvacio">{{ props.editable ? 'Tap a material to add it.' : 'Not given.' }}</p>
-    <datalist :id="`mat_${props.parte}`"><option v-for="m in sug.todos" :key="m" :value="m">{{ M.claseTexto(m)?.lbl || '' }}</option></datalist>
+    <p v-if="!props.filas.length" class="cvacio">{{ tx(props.editable ? t('Tap a material to add it.') : t('Not given.')) }}</p>
+    <datalist :id="`mat_${props.parte}`"><option v-for="m in sug.todos" :key="m" :value="m">{{ tx(M.claseTexto(m)?.lbl || '') }}</option></datalist>
 
     <template v-if="props.editable">
       <div v-if="soloUno || faltaUltimo" class="mchips">
-        <button type="button" class="lleno" @click="llenar">{{ soloUno ? `100% ${props.filas[0].m}` : `Complete ${props.filas.at(-1).m || 'last'} with ${resto}%` }}</button>
+        <button type="button" class="lleno" @click="llenar">{{ tx(soloUno ? `100% ${props.filas[0].m}` : t('Complete {0} with {1}%', [props.filas.at(-1).m || 'last', resto])) }}</button>
       </div>
       <div v-if="resto > 0 || !props.filas.length" class="mchips">
         <button v-for="x in sug.mats" :key="x.m" type="button" :class="{ rel: x.fuente === 'rel' }"
-                :title="x.fuente === 'rel' ? 'Mentioned in the product name' : x.fuente === 'base' ? 'What you use most for this category' : 'Common for this product'"
-                @click="agregar(x.m)">+ {{ x.m }}</button>
-        <button type="button" @click="agregar('')">+ Other</button>
+                :title="tx(x.fuente === 'rel' ? t('Mentioned in the product name') : x.fuente === 'base' ? t('What you use most for this category') : t('Common for this product'))"
+                @click="agregar(x.m)">+ {{ tx(x.m) }}</button>
+        <button type="button" @click="agregar('')">{{ t('+ Other') }}</button>
       </div>
       <div v-if="props.usadas.length && !props.filas.length" class="mchips">
-        <span class="mlbl">Already used:</span>
-        <button v-for="c in props.usadas" :key="c.txt" type="button" class="fix" @click="usarTexto(c.txt)">{{ c.txt }}<small>{{ c.de }}</small></button>
+        <span class="mlbl">{{ t('Already used:') }}</span>
+        <button v-for="c in props.usadas" :key="c.txt" type="button" class="fix" @click="usarTexto(c.txt)">{{ tx(c.txt) }}<small>{{ tx(c.de) }}</small></button>
       </div>
     </template>
 
     <div v-if="lectura.main || lectura.ambiguas.length || lectura.desconocidas.length" class="chips-lectura">
-      <span v-if="lectura.main" class="chip-l main">{{ lectura.main }}</span>
-      <span v-for="w in lectura.ambiguas" :key="w" class="chip-l">{{ M.MAT_AMBIGUAS[w] }}</span>
-      <span v-for="w in lectura.desconocidas" :key="w" class="teach">What is “{{ w }}”?
-        <Seleccion :aria-label="`What is ${w}`" :disabled="!props.editable" @change="$event && emit('ensenar', w, $event)">
-          <option value="">Choose…</option>
-          <option v-for="[k, l] in M.MAT_EQUIV" :key="k" :value="k">{{ l }}</option>
+      <span v-if="lectura.main" class="chip-l main">{{ tx(lectura.main) }}</span>
+      <span v-for="w in lectura.ambiguas" :key="w" class="chip-l">{{ tx(M.MAT_AMBIGUAS[w]) }}</span>
+      <span v-for="w in lectura.desconocidas" :key="w" class="teach">{{ t('What is “{0}”?', [w]) }}
+        <Seleccion :aria-label="t('What is {0}', [w])" :disabled="!props.editable" @change="$event && emit('ensenar', w, $event)">
+          <option value="">{{ t('Choose…') }}</option>
+          <option v-for="[k, l] in M.MAT_EQUIV" :key="k" :value="k">{{ tx(l) }}</option>
         </Seleccion>
       </span>
     </div>
 
     <div v-if="props.editable" class="ctexto">
-      <button type="button" class="resumen" :aria-expanded="verPegar" @click="verPegar = !verPegar">{{ verPegar ? '▾' : '▸' }} Paste as text</button>
-      <input v-if="verPegar" v-model="pegado" class="entrada" type="text" placeholder="E.g. 60% cotton, 35% polyester, 5% elastane" @keydown.enter.prevent="pegar" @change="pegar" />
+      <button type="button" class="resumen" :aria-expanded="verPegar" @click="verPegar = !verPegar">{{ t('{0} Paste as text', [verPegar ? '▾' : '▸']) }}</button>
+      <input v-if="verPegar" v-model="pegado" class="entrada" type="text" :placeholder="t('E.g. 60% cotton, 35% polyester, 5% elastane')" @keydown.enter.prevent="pegar" @change="pegar" />
     </div>
   </div>
 </template>
@@ -176,11 +177,11 @@ function pegar() {
 .cparte { border: 1px solid var(--linea); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; background: var(--superficie); }
 .chead { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
 .lbl { font-size: 0.86rem; font-weight: 620; }
-.req-ast { color: var(--error); font-weight: 700; margin-left: 2px; }
+.req-ast { color: var(--error); font-weight: 700; margin-inline-start: 2px; }
 .opcional { font-weight: 400; color: var(--tinta-3); }
 .cmat { position: relative; display: block; min-width: 0; }
-.cmat input { width: 100%; padding-right: 150px; }
-.ctag { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; font-weight: 650; padding: 2px 7px; border-radius: 999px;
+.cmat input { width: 100%; padding-inline-end: 150px; }
+.ctag { position: absolute; inset-inline-end: 6px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; font-weight: 650; padding: 2px 7px; border-radius: 999px;
   background: var(--superficie-2); color: var(--tinta-2); border: 1px solid var(--linea); pointer-events: auto; white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 .ctag.cuero { background: var(--aviso-fondo); color: var(--aviso); border-color: var(--aviso-borde); }
 .ctag.textil { background: var(--info-fondo); color: var(--info-texto); border-color: transparent; }
@@ -188,8 +189,8 @@ function pegar() {
 .ctag.desconocido { background: var(--error-fondo); color: var(--error); border-color: transparent; }
 .crow { display: grid; grid-template-columns: minmax(0, 1fr) 108px 34px; gap: 8px; align-items: center; margin-bottom: 6px; }
 .cpct { position: relative; display: block; }
-.cpct input { padding-right: 26px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 620; width: 100%; }
-.cpct span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--tinta-3); font-weight: 620; pointer-events: none; }
+.cpct input { padding-inline-end: 26px; text-align: end; font-variant-numeric: tabular-nums; font-weight: 620; width: 100%; }
+.cpct span { position: absolute; inset-inline-end: 10px; top: 50%; transform: translateY(-50%); color: var(--tinta-3); font-weight: 620; pointer-events: none; }
 .cx { border: 1px solid var(--linea); background: none; border-radius: 7px; height: 36px; cursor: pointer; color: var(--tinta-3); font-size: 17px; line-height: 1; }
 .cx:hover { color: var(--error); border-color: var(--error); background: var(--error-fondo); }
 .cvacio { font-size: 0.84rem; color: var(--tinta-3); margin: 0 0 6px; }
@@ -198,11 +199,11 @@ function pegar() {
 .est.pend { background: var(--aviso-fondo); color: var(--aviso); }
 .est.mal { background: var(--error-fondo); color: var(--error); }
 .mchips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; align-items: center; }
-.mlbl { font-size: 0.76rem; color: var(--tinta-3); margin-right: 2px; }
+.mlbl { font-size: 0.76rem; color: var(--tinta-3); margin-inline-end: 2px; }
 .mchips button { border: 1px dashed var(--borde-hover); background: none; border-radius: 999px; padding: 2px 10px; font-size: 0.8rem; cursor: pointer; color: var(--tinta); font-family: inherit; }
 .mchips button:hover { border-color: var(--acento); color: var(--acento-texto); background: var(--acento-claro); }
 .mchips button.rel, .mchips button.fix { border-style: solid; border-color: var(--acento); color: var(--acento-texto); font-weight: 600; }
-.mchips button small { color: var(--tinta-3); font-weight: 400; margin-left: 5px; }
+.mchips button small { color: var(--tinta-3); font-weight: 400; margin-inline-start: 5px; }
 .mchips .lleno { border-style: solid; background: var(--acento); border-color: var(--acento); color: var(--sobre-acento); font-weight: 650; }
 .mchips .lleno:hover { background: var(--acento-hover); color: var(--sobre-acento); }
 .chips-lectura { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

@@ -30,7 +30,7 @@ def test_lista_contexto_y_separacion(tnf, vans, interno):
     old = _producto(interno, "VN000EE3", "BLK Black")
     assert old["estado"] == "aprobado" and old["codigo"] == "6404.19" and old["skus"] >= 6
     # El prepack no se clasifica: toma el producto (y la partida) de sus sólidos
-    assert old["n_prepacks"] >= 1 and old["rango_tallas"] == "7 to 12"
+    assert old["n_prepacks"] >= 1 and old["rango_tallas"] == "7–12"
     assert old["descripcion_comercial"] == "CALZADO VANS" and old["codigo_generico"] == "30095125"
     assert old["paises_ok"] == old["paises_total"] == 6
     # El proveedor solo ve lo suyo y recibe 404 en lo ajeno

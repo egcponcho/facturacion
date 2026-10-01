@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..models import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
 from .cantidades import facturado_por_posicion, nombre_factura
 from .common import proveedor_filtro
-from .leadtimes import Estandares, arribo_estimado, limite_puerto
+from .leadtimes import Estandares, _riesgo, arribo_estimado, dias_post_arribo, limite_puerto
 
 ETAPAS = [
     ("PEND_LIBERACION", "Pending release"),
@@ -32,14 +32,6 @@ ORDEN = {"almacen", "grupo", "documento", "marca", "estilo", "color", "talla", "
          "holgura", "embarque", "contenedor", "recolectado_en", "proveedor"}
 
 
-def _riesgo(holgura: int | None) -> str | None:
-    if holgura is None:
-        return None
-    if holgura < 0:
-        return "ATRASO"
-    if holgura < 7:
-        return "JUSTO"
-    return "A_TIEMPO"
 
 
 def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) -> dict:
@@ -57,7 +49,18 @@ def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) ->
         "embarque_id": None, "embarque": None, "estado_embarque": None, "asignacion": None,
         "etd": None, "eta": None, "salida_real": None, "arribo_real": None, "recolectado_en": None,
         "atraso_recoleccion": None, "holgura": None, "riesgo": None,
+        "tienda_estimada": None, "dias_vs_tienda": None,
     }
+
+
+def _en_tienda(fila: dict, llegada: date | None, est: dict) -> None:
+    """Fecha estimada en tienda: el arribo (real, ETA o estimado con el
+    tránsito de su origen) más los días de puerto, ingreso y reexportación."""
+    if not llegada:
+        return
+    fila["tienda_estimada"] = llegada + timedelta(days=dias_post_arribo(est))
+    if fila["fecha_tienda"]:
+        fila["dias_vs_tienda"] = (fila["tienda_estimada"] - fila["fecha_tienda"]).days
 
 
 def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = None) -> list[dict]:
@@ -69,12 +72,14 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     posiciones = list(db.scalars(consulta).all())
     ests = Estandares(db)
 
-    def sin_embarque(fila: dict, oc: OrdenCompra) -> None:
+    def sin_embarque(fila: dict, oc: OrdenCompra, grupo: str | None = None) -> None:
         # Aún sin embarque: se estima el arribo con la XF y el tránsito estándar de su origen
+        est = ests.de(oc.pais_origen, grupo)
+        llegada = arribo_estimado(oc.fecha_xf, est, hoy)
+        _en_tienda(fila, llegada, est)
         lim = fila["limite_puerto"]
         if lim:
-            llegada = arribo_estimado(oc.fecha_xf, ests.de(oc.pais_origen), hoy) or hoy
-            fila["holgura"] = (lim - llegada).days
+            fila["holgura"] = (lim - (llegada or hoy)).days
             fila["riesgo"] = _riesgo(fila["holgura"])
 
     facturado = facturado_por_posicion(db, [p.id for p in posiciones])
@@ -82,9 +87,9 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     for p in posiciones:
         saldo = p.cantidad - facturado.get(p.id, 0)
         if saldo > 0:
-            fila = {**_base(p, p.oc, hoy, ests.de(p.oc.pais_origen)), "cantidad": saldo,
+            fila = {**_base(p, p.oc, hoy, ests.de(p.oc.pais_origen, p.grupo)), "cantidad": saldo,
                     "etapa": "POR_FACTURAR" if p.oc.liberada else "PEND_LIBERACION"}
-            sin_embarque(fila, p.oc)
+            sin_embarque(fila, p.oc, p.grupo)
             filas.append(fila)
 
     consulta = select(FacturaLinea).join(Factura).where(Factura.estado != "CANCELADA")
@@ -100,7 +105,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             if pl.estado == "CANCELADO":
                 continue
             en_pl += pll.cantidad
-            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen)), "cantidad": pll.cantidad, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen, p.grupo)), "cantidad": pll.cantidad, "factura_id": f.id,
                     "factura": nombre_factura(f), "pl_id": pl.id, "pl": pl.numero, "etapa": "EN_PL",
                     "recolectado_en": pl.recolectado_en}
             if pl.recolectado_en and oc.fecha_xf:
@@ -115,18 +120,21 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
                             estado_embarque=e.estado, asignacion=pl.asignacion, etd=e.etd, eta=e.eta,
                             salida_real=e.salida_real, arribo_real=e.arribo_real,
                             etapa="CONTENEDOR" if e.estado == "PLANIFICADO" else e.estado)
-                llegada = e.arribo_real or e.eta
+                llegada = e.arribo_real or e.eta or (
+                    (e.salida_real or e.etd) + timedelta(days=ests.de(oc.pais_origen)["dias_transito"])
+                    if (e.salida_real or e.etd) else arribo_estimado(oc.fecha_xf, ests.de(oc.pais_origen), hoy))
+                _en_tienda(fila, llegada, ests.de(oc.pais_origen, p.grupo))
                 if fila["limite_puerto"] and llegada:
                     fila["holgura"] = (fila["limite_puerto"] - llegada).days
                 fila["riesgo"] = _riesgo(fila["holgura"])
             else:
-                sin_embarque(fila, oc)
+                sin_embarque(fila, oc, p.grupo)
             filas.append(fila)
         resto = fl.cantidad - en_pl
         if resto > 0:
-            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen)), "cantidad": resto, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen, p.grupo)), "cantidad": resto, "factura_id": f.id,
                     "factura": nombre_factura(f), "etapa": "FACTURADO"}
-            sin_embarque(fila, oc)
+            sin_embarque(fila, oc, p.grupo)
             filas.append(fila)
     return filas
 
@@ -370,7 +378,7 @@ ESTADOS_OC = [
 GRUPO_ETAPA = {"PEND_LIBERACION": "por_facturar", "POR_FACTURAR": "por_facturar", "FACTURADO": "facturado",
                "EN_PL": "facturado", "CONTENEDOR": "en_contenedor", "EN_TRANSITO": "en_camino",
                "ARRIBADO": "en_camino", "ENTREGADO": "en_camino", "RECIBIDO": "recibido"}
-ORDEN_OCS = {"oc", "proveedor", "estado", "fecha_xf", "fecha_tienda", "avance", "total", "por_facturar",
+ORDEN_OCS = {"oc", "proveedor", "estado", "fecha_xf", "fecha_tienda", "tienda_estimada", "dias_vs_tienda", "avance", "total", "por_facturar",
              "holgura", "centro"}
 
 
@@ -406,7 +414,7 @@ def ordenes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros
             "centro": f["centro"], "centro_destino": f["centro_destino"],
             "liberacion_comercial": f["liberacion_comercial"], "liberacion_logistica": f["liberacion_logistica"],
             "fecha_xf": f["fecha_xf"], "fecha_tienda": f["fecha_tienda"], "dias_tienda": f["dias_tienda"],
-            "marcas": set(), "unidades": set(), "embarques": set(), "total": 0, "holguras": [],
+            "marcas": set(), "unidades": set(), "embarques": set(), "total": 0, "holguras": [], "tiendas": [],
             "cantidades": {"por_facturar": 0, "facturado": 0, "en_contenedor": 0, "en_camino": 0, "recibido": 0}})
         o["total"] += f["cantidad"]
         o["cantidades"][GRUPO_ETAPA[f["etapa"]]] += f["cantidad"]
@@ -417,12 +425,17 @@ def ordenes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros
             o["embarques"].add(f["embarque"])
         if f["holgura"] is not None:
             o["holguras"].append(f["holgura"])
+        if f["tienda_estimada"] and f["etapa"] != "RECIBIDO":
+            o["tiendas"].append(f["tienda_estimada"])
     items = []
     for o in por_oc.values():
         o["estado"] = _estado_oc(o)
         o["por_facturar"] = o["cantidades"]["por_facturar"]
         o["avance"] = round((o["total"] - o["por_facturar"]) * 100 / o["total"], 1) if o["total"] else 0
         o["holgura"] = min(o.pop("holguras")) if o["holguras"] else None
+        tiendas = o.pop("tiendas")
+        o["tienda_estimada"] = max(tiendas) if tiendas else None  # cuando llega lo último que falta
+        o["dias_vs_tienda"] = (o["tienda_estimada"] - o["fecha_tienda"]).days if o["tienda_estimada"] and o["fecha_tienda"] else None
         o["riesgo"] = _riesgo(o["holgura"])
         o["xf_vencida"] = bool(o["fecha_xf"] and o["fecha_xf"] < hoy and o["por_facturar"] > 0)
         o["marcas"] = sorted(o["marcas"])

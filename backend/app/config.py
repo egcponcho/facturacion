@@ -56,7 +56,7 @@ class Settings:
     SEED_DEMO: bool = _bool("SEED_DEMO", True)
     # Versión del esquema de datos. En modo demo (SEED_DEMO=1), si la base
     # tiene otra versión se borra y se vuelve a crear con los datos de prueba.
-    ESQUEMA_VERSION: str = "17"
+    ESQUEMA_VERSION: str = "21"
     CORS_ORIGINS: list[str] = [
         o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
     ]
@@ -83,6 +83,9 @@ class Settings:
     # Campos de la OC que no se pueden mezclar en una factura (bloquean)
     # y campos que solo generan advertencia.
     COMPATIBILIDAD_BLOQUEANTE: tuple[str, ...] = ("sociedad", "moneda", "centro")
+    # Holgura mínima (días) frente a la fecha en tienda para considerarse "en tiempo";
+    # con menos queda "en riesgo" y con holgura negativa, "atrasado"
+    DIAS_MARGEN_RIESGO: int = 7
     COMPATIBILIDAD_ADVERTENCIA: tuple[str, ...] = ("incoterm", "centro_destino")
 
 

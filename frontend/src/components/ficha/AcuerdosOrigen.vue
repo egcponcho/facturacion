@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../../i18n/index.js'
 import { computed } from 'vue'
 import Icono from '../Icono.vue'
 
@@ -23,37 +24,37 @@ const conAcuerdo = computed(() => filas.value.filter((d) => d.local || d.acuerdo
   <section class="panel acuerdos-panel">
     <div class="panel-cabeza">
       <div>
-        <h2>Trade agreements by destination</h2>
-        <p v-if="origen">Made in <b>{{ nombres[origen] || origen }}</b>: {{ conAcuerdo }} of {{ filas.length }} destinations enter with a preference if the proof of origin is presented.</p>
-        <p v-else>Choose the country of origin in the technical sheet to see where the product enters with a preference.</p>
+        <h2>{{ t('Trade agreements by destination') }}</h2>
+        <p v-if="origen">{{ t('Made in') }} <b>{{ tx(nombres[origen] || origen) }}</b>{{ t(': {0} of {1} destinations enter with a preference if the proof of origin is presented.', [conAcuerdo, filas.length]) }}</p>
+        <p v-else>{{ t('Choose the country of origin in the technical sheet to see where the product enters with a preference.') }}</p>
       </div>
     </div>
     <div v-if="origen" class="tabla-marco">
-      <table class="tabla">
-        <thead><tr><th style="width: 180px">Destination</th><th style="width: 140px">Result</th><th>Agreement</th><th>Proof of origin to present</th></tr></thead>
+      <table class="tabla" v-tarjetas>
+        <thead><tr><th style="width: 180px">{{ t('Destination') }}</th><th style="width: 140px">{{ t('Result') }}</th><th>{{ t('Agreement') }}</th><th>{{ t('Proof of origin to present') }}</th></tr></thead>
         <tbody>
           <tr v-for="d in filas" :key="d.iso">
-            <td><span class="codigo apagado">{{ d.iso }}</span> <span class="fuerte">{{ d.nombre }}</span></td>
+            <td><span class="codigo apagado">{{ tx(d.iso) }}</span> <span class="fuerte">{{ tx(d.nombre) }}</span></td>
             <td>
-              <span v-if="d.local" class="etiqueta" style="margin-left: 0">Domestic product</span>
-              <span v-else-if="d.acuerdos.length" class="etiqueta ok" style="margin-left: 0"><Icono nombre="check" :tam="12" />Preference</span>
-              <span v-else class="etiqueta aviso" style="margin-left: 0">Full DAI</span>
+              <span v-if="d.local" class="etiqueta" style="margin-inline-start: 0">{{ t('Domestic product') }}</span>
+              <span v-else-if="d.acuerdos.length" class="etiqueta ok" style="margin-inline-start: 0"><Icono nombre="check" :tam="12" />{{ t('Preference') }}</span>
+              <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ t('Full DAI') }}</span>
             </td>
             <td>
               <template v-if="d.acuerdos.length">
-                <div v-for="a in d.acuerdos" :key="a.codigo" class="acuerdo"><b>{{ a.codigo }}</b> {{ a.nombre }}<span v-if="a.nota" class="sub">{{ a.nota }}</span></div>
+                <div v-for="a in d.acuerdos" :key="a.codigo" class="acuerdo"><b>{{ tx(a.codigo) }}</b> {{ tx(a.nombre) }}<span v-if="a.nota" class="sub">{{ tx(a.nota) }}</span></div>
               </template>
-              <span v-else class="apagado">{{ d.local ? 'Made in the destination country' : 'No agreement with this origin' }}</span>
+              <span v-else class="apagado">{{ tx(d.local ? t('Made in the destination country') : t('No agreement with this origin')) }}</span>
             </td>
             <td>
-              <div v-for="a in d.acuerdos" :key="a.codigo">{{ a.prueba || 'Certificate of origin' }}</div>
+              <div v-for="a in d.acuerdos" :key="a.codigo">{{ tx(a.prueba || t('Certificate of origin')) }}</div>
               <span v-if="!d.acuerdos.length" class="apagado">—</span>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p class="ayuda mt-chico">Reference base kept in <i>Master data → Trade agreements</i>. Check the rules of origin of each agreement before claiming the preference.</p>
+    <p class="ayuda mt-chico">{{ t('Reference base kept in') }} <i>{{ t('Master data → Trade agreements') }}</i>. {{ t('Check the rules of origin of each agreement before claiming the preference.') }}</p>
   </section>
 </template>
 

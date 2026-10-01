@@ -1,7 +1,9 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { puede } from '../stores/sesion'
 import { reactive, ref, watch } from 'vue'
 import { api } from '../api'
+import { plural } from '../utils'
 import { errorApi } from '../stores/ui'
 import EstadoBadge from './EstadoBadge.vue'
 import GenericoModal from './GenericoModal.vue'
@@ -68,18 +70,18 @@ cargar()
 
 <template>
   <div class="tabla-marco tabla-fija">
-    <table class="tabla">
+    <table class="tabla" v-tarjetas>
       <thead>
         <tr>
           <th style="width: 36px"></th>
-          <ThOrden campo="generico" :orden="f.orden" @ordenar="ordenar">Generic</ThOrden>
-          <ThOrden campo="estilo" :orden="f.orden" @ordenar="ordenar">Style</ThOrden>
-          <ThOrden campo="color" :orden="f.orden" @ordenar="ordenar">Color</ThOrden>
-          <th>Brand</th>
-          <th>Group</th>
-          <th>Supplier</th>
-          <th>Sizes</th>
-          <th title="Invoice and packing list description">Description · HS code</th>
+          <ThOrden campo="generico" :orden="f.orden" @ordenar="ordenar">{{ t('Generic') }}</ThOrden>
+          <ThOrden campo="estilo" :orden="f.orden" @ordenar="ordenar">{{ t('Style') }}</ThOrden>
+          <ThOrden campo="color" :orden="f.orden" @ordenar="ordenar">{{ t('Color') }}</ThOrden>
+          <th>{{ t('Brand') }}</th>
+          <th>{{ t('Group') }}</th>
+          <th>{{ t('Supplier') }}</th>
+          <th>{{ t('Sizes') }}</th>
+          <th :title="t('Invoice and packing list description')">{{ t('Description · HS code') }}</th>
           <th></th>
         </tr>
       </thead>
@@ -87,56 +89,56 @@ cargar()
         <template v-for="g in datos.items" :key="g.generico">
           <tr :class="{ seleccionada: abiertas.has(g.generico) }">
             <td>
-              <button class="btn-icono" type="button" :aria-expanded="abiertas.has(g.generico)" :aria-label="`See the items of generic ${g.generico}`" @click="alternar(g.generico)">
+              <button class="btn-icono" type="button" :aria-expanded="abiertas.has(g.generico)" :aria-label="t('See the items of generic {0}', [g.generico])" @click="alternar(g.generico)">
                 <Icono :nombre="abiertas.has(g.generico) ? 'abajo' : 'derecha'" :tam="16" />
               </button>
             </td>
-            <td><strong class="codigo">{{ g.generico }}</strong><span class="sub">{{ g.unidad }}</span></td>
-            <td class="fuerte">{{ g.estilo }}</td>
-            <td>{{ g.color }}</td>
-            <td>{{ g.marca }}</td>
-            <td class="codigo">{{ g.grupo }}</td>
-            <td>{{ g.proveedor }}</td>
+            <td><strong class="codigo">{{ tx(g.generico) }}</strong><span class="sub">{{ tx(g.unidad) }}</span></td>
+            <td class="fuerte">{{ tx(g.estilo) }}</td>
+            <td>{{ tx(g.color) }}</td>
+            <td>{{ tx(g.marca) }}</td>
+            <td class="codigo">{{ tx(g.grupo) }}</td>
+            <td>{{ tx(g.proveedor) }}</td>
             <td>
-              <span class="fuerte">{{ g.rango_tallas || '—' }}</span>
-              <span class="sub">{{ g.n_tallas }} {{ g.n_tallas === 1 ? 'size' : 'sizes' }}<template v-if="g.n_prepacks"> · {{ g.n_prepacks }} {{ g.n_prepacks === 1 ? 'prepack' : 'prepacks' }}</template></span>
+              <span class="fuerte">{{ tx(g.rango_tallas || '—') }}</span>
+              <span class="sub">{{ plural(g.n_tallas, t('size'), t('sizes')) }}<template v-if="g.n_prepacks"> · {{ plural(g.n_prepacks, t('prepack'), t('prepacks')) }}</template></span>
             </td>
             <td>
-              <span>{{ g.descripcion_comercial || '—' }}</span>
-              <router-link :to="`/productos/${g.producto_id}`" class="sub enlace" :title="`Technical sheet of ${g.generico}`">
-                <span v-if="g.codigo" class="codigo-sac">{{ g.codigo }}</span><EstadoBadge v-else :estado="g.estado" />
+              <span>{{ tx(g.descripcion_comercial || '—') }}</span>
+              <router-link :to="`/productos/${g.producto_id}`" class="sub enlace" :title="t('Technical sheet of {0}', [g.generico])">
+                <span v-if="g.codigo" class="codigo-sac">{{ tx(g.codigo) }}</span><EstadoBadge v-else :estado="g.estado" />
               </router-link>
             </td>
             <td class="num" style="white-space: nowrap">
-              <button v-if="puede('catalogos.crear')" class="btn btn-chico" title="Add sizes to this generic" @click="modal = { generico: g.generico }"><Icono nombre="mas" :tam="13" />Sizes</button>
-              <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="`Edit generic ${g.generico}`" title="Edit the generic (applies to all its sizes)" @click="modal = { generico: g.generico, editar: true }"><Icono nombre="editar" :tam="16" /></button>
+              <button v-if="puede('catalogos.crear')" class="btn btn-chico" :title="t('Add sizes to this generic')" @click="modal = { generico: g.generico }"><Icono nombre="mas" :tam="13" />{{ t('Sizes') }}</button>
+              <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="t('Edit generic {0}', [g.generico])" :title="t('Edit the generic (applies to all its sizes)')" @click="modal = { generico: g.generico, editar: true }"><Icono nombre="editar" :tam="16" /></button>
             </td>
           </tr>
           <tr v-if="abiertas.has(g.generico)" class="fila-hija">
             <td colspan="10">
               <div class="subtabla">
                 <div class="tabla-marco">
-                  <table class="tabla">
+                  <table class="tabla" v-tarjetas>
                     <thead>
-                      <tr><th>Item code</th><th>Size code</th><th>Type</th><th>Size</th><th>UPC</th><th>Supplier SKU</th><th>Active</th><th></th></tr>
+                      <tr><th>{{ t('Item code') }}</th><th>{{ t('Size code') }}</th><th>{{ t('Type') }}</th><th>{{ t('Size') }}</th><th>UPC</th><th>{{ t('Supplier SKU') }}</th><th>{{ t('Active') }}</th><th></th></tr>
                     </thead>
                     <tbody>
-                      <tr v-if="!detalles[g.generico]"><td colspan="8" class="vacio">Loading…</td></tr>
+                      <tr v-if="!detalles[g.generico]"><td colspan="8" class="vacio">{{ t('Loading…') }}</td></tr>
                       <tr v-for="a in detalles[g.generico] || []" :key="a.id">
-                        <td class="codigo fuerte">{{ a.sku }}</td>
-                        <td class="codigo">{{ a.sku.slice(8) }}</td>
-                        <td><span class="etiqueta" :class="{ acento: a.tipo === 'PREPACK' }">{{ a.tipo === 'PREPACK' ? 'Prepack' : 'Solid' }}</span></td>
-                        <td>{{ a.talla }}</td>
-                        <td class="codigo">{{ a.upc || '—' }}</td>
-                        <td class="codigo">{{ a.sku_proveedor || '—' }}</td>
-                        <td><span class="etiqueta" :class="a.activo ? 'ok' : ''">{{ a.activo ? 'Yes' : 'No' }}</span></td>
+                        <td class="codigo fuerte">{{ tx(a.sku) }}</td>
+                        <td class="codigo">{{ tx(a.sku.slice(8)) }}</td>
+                        <td><span class="etiqueta" :class="{ acento: a.tipo === 'PREPACK' }">{{ tx(a.tipo === 'PREPACK' ? t('Prepack') : t('Solid')) }}</span></td>
+                        <td>{{ tx(a.talla) }}</td>
+                        <td class="codigo">{{ tx(a.upc || '—') }}</td>
+                        <td class="codigo">{{ tx(a.sku_proveedor || '—') }}</td>
+                        <td><span class="etiqueta" :class="a.activo ? 'ok' : ''">{{ tx(a.activo ? t('Yes') : t('No')) }}</span></td>
                         <td class="num" style="white-space: nowrap">
-                          <button v-if="a.tipo === 'PREPACK'" class="btn btn-chico" title="See the breakdown" @click="emit('desglose', a)"><Icono nombre="lupa" :tam="13" />Breakdown</button>
-                          <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="`Edit item ${a.sku}`" title="Edit" @click="emit('editar-articulo', a)"><Icono nombre="editar" :tam="15" /></button>
-                          <button v-if="puede('catalogos.eliminar')" class="btn-icono" style="color: var(--error)" :aria-label="`Delete item ${a.sku}`" title="Delete" @click="emit('eliminar-articulo', a)"><Icono nombre="basura" :tam="15" /></button>
+                          <button v-if="a.tipo === 'PREPACK'" class="btn btn-chico" :title="t('See the breakdown')" @click="emit('desglose', a)"><Icono nombre="lupa" :tam="13" />{{ t('Breakdown') }}</button>
+                          <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="t('Edit item {0}', [a.sku])" :title="t('Edit')" @click="emit('editar-articulo', a)"><Icono nombre="editar" :tam="15" /></button>
+                          <button v-if="puede('catalogos.eliminar')" class="btn-icono" style="color: var(--error)" :aria-label="t('Delete item {0}', [a.sku])" :title="t('Delete')" @click="emit('eliminar-articulo', a)"><Icono nombre="basura" :tam="15" /></button>
                         </td>
                       </tr>
-                      <tr v-if="detalles[g.generico] && !detalles[g.generico].length"><td colspan="8" class="vacio">This generic has no sizes yet.</td></tr>
+                      <tr v-if="detalles[g.generico] && !detalles[g.generico].length"><td colspan="8" class="vacio">{{ t('This generic has no sizes yet.') }}</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -144,7 +146,7 @@ cargar()
             </td>
           </tr>
         </template>
-        <tr v-if="!datos.items.length"><td colspan="10" class="vacio">No generics match these filters.</td></tr>
+        <tr v-if="!datos.items.length"><td colspan="10" class="vacio">{{ t('No generics match these filters.') }}</td></tr>
       </tbody>
     </table>
   </div>

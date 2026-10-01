@@ -1,7 +1,9 @@
 <script setup>
+import { t, tx } from '../../i18n/index.js'
 import { computed, reactive, ref, watch } from 'vue'
 import Seleccion from '../Seleccion.vue'
 import { api } from '../../api'
+import { plural } from '../../utils'
 import { M } from '../../clasificacion/useClasificacion'
 import { avisar, errorApi } from '../../stores/ui'
 import Icono from '../Icono.vue'
@@ -64,13 +66,13 @@ const detTexto = computed(() => {
   const out = []
   if (d.tipo && autos.has('tipo')) out.push(M.TIPO_CORTO[d.tipo])
   if (d.estiloCalz && f.tipo === 'calzado') out.push(M.opcionLbl('estiloCalz', d.estiloCalz).toLowerCase())
-  if (d.genero && pideGenero.value && autos.has('genero')) out.push({ M: 'men', F: 'women', U: 'unisex' }[d.genero])
-  if (d.tejido && M.grupoTipo(f.tipo) === 'prenda') out.push(d.tejido === 'punto' ? 'knitted' : 'woven')
+  if (d.genero && pideGenero.value && autos.has('genero')) out.push({ M: t('men'), F: t('women'), U: t('unisex') }[d.genero])
+  if (d.tejido && M.grupoTipo(f.tipo) === 'prenda') out.push(d.tejido === 'punto' ? t('knitted') : t('woven'))
   if (d.hechura && f.tipo === 'chaqueta') out.push(M.opcionLbl('hechura', d.hechura).toLowerCase())
-  if (d.recubierta && M.ATTR_BY.recubierta.aplica(f)) out.push('coated fabric')
-  if (d.puntera === 'metalica' && f.tipo === 'calzado') out.push('metal toe cap')
+  if (d.recubierta && M.ATTR_BY.recubierta.aplica(f)) out.push(t('coated fabric'))
+  if (d.puntera === 'metalica' && f.tipo === 'calzado') out.push(t('metal toe cap'))
   if (!out.length) return ''
-  return `Detected: ${out.join(', ')}${d._palabra ? ` (keyword “${d._palabra}”)` : ''}. You can change it below.`
+  return t('Detected: {0}{1}. You can change it below.', [out.join(', '), d._palabra ? t(' (keyword “{0}”)', [d._palabra]) : ''])
 })
 
 // ---- Producto: categoría, género, edad, tallas ------------------------------
@@ -78,8 +80,8 @@ const pideGenero = computed(() => ['prenda', 'calzado', 'gorra'].includes(M.grup
 const generoFijo = computed(() => (M.ATTR_BY.genero.fijo ? M.ATTR_BY.genero.fijo(f) : null))
 const soloAdulto = computed(() => f.tipo === 'calzado' && ['seguridad', 'tacon', 'tacos', 'esqui'].includes(f.estiloCalz))
 const sinBebe = computed(() => soloAdulto.value || f.tipo === 'brasier' || (f.tipo === 'chaqueta' && ['blazer', 'reflectivo'].includes(f.hechura)))
-const GENEROS = [['M', 'Men', 'Men or boys'], ['F', 'Women', 'Women or girls'], ['U', 'Unisex', '']]
-const EDADES = [['adulto', 'Adult', ''], ['nino', 'Child', 'Child, girl or youth'], ['bebe', 'Baby', 'Up to 86 cm tall']]
+const GENEROS = [['M', t('Men'), t('Men or boys')], ['F', t('Women'), t('Women or girls')], ['U', t('Unisex'), '']]
+const EDADES = [['adulto', t('Adult'), ''], ['nino', t('Child'), t('Child, girl or youth')], ['bebe', t('Baby'), t('Up to 86 cm tall')]]
 
 watch(generoFijo, (g) => { if (g && f.genero !== g) f.genero = g }, { immediate: true })
 
@@ -111,7 +113,7 @@ function elegirAttr(a, v) {
   M.normalizar(f)
 }
 const CAPITULO = { calzado: '64', prenda: '61 / 62', bolso: '42', gorra: '65' }
-const MOTIVO = { composition: 'composition', 'product type': 'product type', 'your choices': 'your choices' }
+const MOTIVO = { composition: 'composition', 'product type': t('product type'), 'your choices': t('your choices') }
 
 // ---- Composición por partes ---------------------------------------------------
 const partes = computed(() => (f.tipo ? M.partesDe(f.tipo, s.value) : []))
@@ -126,16 +128,16 @@ function cambioParte(p, txt) {
   detectarLuego()
 }
 const COMP_HINT = {
-  prenda: 'The fiber that weighs most in the outer fabric governs.',
-  calzado: 'Upper: by external surface, without reinforcements or trims. Sole: by the surface that touches the ground.',
-  bolso: 'The material of the outer surface governs.',
+  prenda: t('The fiber that weighs most in the outer fabric governs.'),
+  calzado: t('Upper: by external surface, without reinforcements or trims. Sole: by the surface that touches the ground.'),
+  bolso: t('The material of the outer surface governs.'),
 }
 // Composiciones ya usadas: del mismo estilo y las más frecuentes en la categoría
 function usadasDe(p) {
   const out = []
   const meter = (txt, de) => { if (txt && !out.some((x) => M.norm(x.txt) === M.norm(txt))) out.push({ txt, de }) }
   const recs = props.ctx.recs.filter((x) => x.id !== f.id && x.comp?.[p])
-  recs.filter((x) => M.norm(x.estilo) === M.norm(f.estilo)).forEach((x) => meter(String(x.comp[p]).trim(), `style ${x.estilo}${x.color ? `, ${x.color}` : ''}`))
+  recs.filter((x) => M.norm(x.estilo) === M.norm(f.estilo)).forEach((x) => meter(String(x.comp[p]).trim(), t('style {0}{1}', [x.estilo, x.color ? `, ${x.color}` : ''])))
   const cuenta = {}
   recs.filter((x) => x.tipo === f.tipo).forEach((x) => {
     const t = String(x.comp[p]).trim()
@@ -144,7 +146,7 @@ function usadasDe(p) {
     if (f.marca && M.norm(x.marca) === M.norm(f.marca)) cuenta[t].marca++
   })
   Object.entries(cuenta).sort((a, b) => b[1].marca - a[1].marca || b[1].n - a[1].n).slice(0, 3)
-    .forEach(([t, c]) => meter(t, `${c.n} ${c.n === 1 ? 'product' : 'products'}${c.marca ? ` of ${f.marca}` : ''}`))
+    .forEach(([txt, c]) => meter(txt, `${plural(c.n, t('product'), t('products'))}${c.marca ? t(' of {0}', [f.marca]) : ''}`))
   return out.slice(0, 3)
 }
 
@@ -152,7 +154,7 @@ async function ensenarMaterial(palabra, equivale) {
   try {
     await api.post('/clasificacion/sinonimos', { palabra, equivale })
     emit('contexto')
-    avisar(`Learned: “${palabra}” = ${(M.MAT_EQUIV.find((x) => x[0] === equivale) || ['', equivale])[1]}. It will be recognized in every sheet.`)
+    avisar(t('Learned: “{0}” = {1}. It will be recognized in every sheet.', [palabra, (M.MAT_EQUIV.find((x) => x[0] === equivale) || ['', equivale])[1]]))
   } catch (e) {
     errorApi(e)
   }
@@ -167,13 +169,13 @@ const fraseSugerida = computed(() => String(f.descArchivo || '').split(/[\s/,;()
 const mostrarEnsenar = computed(() => props.editable && !ensenarCerrado.value && f.tipo && tocados.has('tipo') && tipoDetectado.value !== f.tipo && !!fraseSugerida.value && !autos.has('tipo'))
 watch(fraseSugerida, (v) => (frase.value = v), { immediate: true })
 async function ensenarPalabra() {
-  if (frase.value.trim().length < 2) return avisar('Write the word or phrase.', 'error')
+  if (frase.value.trim().length < 2) return avisar(t('Write the word or phrase.'), 'error')
   const atributos = f.tipo === 'calzado' && f.estiloCalz ? { estiloCalz: f.estiloCalz } : {}
   try {
     await api.post('/clasificacion/palabras', { frase: frase.value.trim(), tipo: f.tipo, marca: soloMarca.value ? f.marca || null : null, atributos })
     ensenarCerrado.value = true
     emit('contexto')
-    avisar(`Learned: “${frase.value.trim()}” will be recognized as ${M.TIPO_CORTO[f.tipo]}.`)
+    avisar(t('Learned: “{0}” will be recognized as {1}.', [frase.value.trim(), M.TIPO_CORTO[f.tipo]]))
   } catch (e) {
     errorApi(e)
   }
@@ -202,10 +204,10 @@ const pasos = computed(() => {
   const compOk = tots.every((t) => Math.abs(t - 100) < 0.05)
   const nFotos = props.producto.fotos.length
   return [
-    ['blk-producto', 'Product', faltanProd ? 'pend' : 'ok', faltanProd ? `${faltanProd} to fill` : ''],
-    ['blk-carac', 'Features', !f.tipo ? '' : pend ? 'pend' : 'ok', pend ? `${pend} to answer` : ''],
-    ['blk-comp', 'Composition', !f.tipo ? '' : compOk ? 'ok' : 'pend', !f.tipo || compOk ? '' : tots.some((t) => t > 0) ? `adds up to ${tots.filter((t) => Math.abs(t - 100) >= 0.05).join(' and ')}%` : 'missing'],
-    ['blk-fotos', 'Photos', nFotos ? 'ok' : '', nFotos ? String(nFotos) : 'optional'],
+    ['blk-producto', t('Product'), faltanProd ? 'pend' : 'ok', faltanProd ? t('{0} to fill', [faltanProd]) : ''],
+    ['blk-carac', t('Features'), !f.tipo ? '' : pend ? 'pend' : 'ok', pend ? t('{0} to answer', [pend]) : ''],
+    ['blk-comp', t('Composition'), !f.tipo ? '' : compOk ? 'ok' : 'pend', !f.tipo || compOk ? '' : tots.some((n) => n > 0) ? t('adds up to {0}%', [tots.filter((n) => Math.abs(n - 100) >= 0.05).join(' · ')]) : t('missing')],
+    ['blk-fotos', t('Photos'), nFotos ? 'ok' : '', nFotos ? String(nFotos) : 'optional'],
   ]
 })
 function irA(id) {
@@ -231,85 +233,84 @@ if (props.editable) deteccion()
 
 <template>
   <div class="ficha-form">
-    <nav class="pasos" aria-label="Sheet progress">
+    <nav class="pasos" :aria-label="t('Sheet progress')">
       <button v-for="([id, l, e, x], i) in pasos" :key="id" type="button" :class="e" @click="irA(id)">
-        <b>{{ i + 1 }}</b> {{ l }}{{ e === 'ok' ? ' ✓' : '' }}{{ x ? ` · ${x}` : '' }}
+        <b>{{ tx(i + 1) }}</b> {{ tx(l) }}{{ tx(e === 'ok' ? ' ✓' : '') }}{{ tx(x ? ` · ${x}` : '') }}
       </button>
-      <span class="req-nota"><span class="req-ast">*</span> Required for a complete sheet</span>
+      <span class="req-nota"><span class="req-ast">*</span> {{ t('Required for a complete sheet') }}</span>
     </nav>
 
     <!-- Producto -->
     <section id="blk-producto" class="bloque">
-      <div class="bloque-head"><h3>Product</h3><span class="sub">What it is and who it is for. Shared by every size and prepack.</span></div>
+      <div class="bloque-head"><h3>{{ t('Product') }}</h3><span class="sub">{{ t('What it is and who it is for. Shared by every size and prepack.') }}</span></div>
       <div class="fila2">
         <div class="campo-f">
-          <label for="f_categoria">Category<span class="req-ast">*</span></label>
+          <label for="f_categoria">{{ t('Category') }}<span class="req-ast">*</span></label>
           <CampoCategoria id="f_categoria" :model-value="f.tipo" :disabled="!props.editable" @update:model-value="elegirTipo" />
-          <p v-if="detTexto" class="hint det" :title="detTexto">{{ detTexto }}</p>
-          <p v-else-if="f.tipo" class="hint">{{ CAPITULO[M.grupoTipo(f.tipo)] ? `Chapter ${CAPITULO[M.grupoTipo(f.tipo)]} · ` : '' }}only what changes its code is asked</p>
+          <p v-if="detTexto" class="hint det" :title="tx(detTexto)">{{ tx(detTexto) }}</p>
+          <p v-else-if="f.tipo" class="hint">{{ t('{0}only what changes its code is asked', [CAPITULO[M.grupoTipo(f.tipo)] ? t('Chapter {0} · ', [CAPITULO[M.grupoTipo(f.tipo)]]) : '']) }}</p>
         </div>
         <div class="campo-f">
-          <span class="lbl-f">Generic</span>
-          <span class="generico-fijo" title="First 8 digits of the item code: all its sizes share this sheet">{{ producto.codigo_generico || '—' }}<small>{{ producto.skus }} {{ producto.skus === 1 ? 'size' : 'sizes' }}<template v-if="producto.rango_tallas"> ({{ producto.rango_tallas }})</template><template v-if="producto.n_prepacks"> · {{ producto.n_prepacks }} {{ producto.n_prepacks === 1 ? 'prepack' : 'prepacks' }}</template></small></span>
+          <span class="lbl-f">{{ t('Generic') }}</span>
+          <span class="generico-fijo" :title="t('Generic (style-color): all its sizes share this sheet')">{{ tx(producto.codigo_generico || '—') }}<small>{{ tx(producto.skus) }} {{ tx(producto.skus === 1 ? 'size' : 'sizes') }}<template v-if="producto.rango_tallas"> ({{ tx(producto.rango_tallas) }})</template><template v-if="producto.n_prepacks"> · {{ tx(producto.n_prepacks) }} {{ tx(producto.n_prepacks === 1 ? 'prepack' : 'prepacks') }}</template></small></span>
         </div>
       </div>
       <div class="fila3">
         <div v-if="pideGenero || generoFijo" class="campo-f">
-          <span class="lbl-f">Gender<span class="req-ast">*</span></span>
-          <div class="segs" role="radiogroup" aria-label="Gender">
-            <button v-for="[v, t, tt] in GENEROS" :key="v" type="button" role="radio" :aria-checked="f.genero === v" :title="generoFijo && v !== generoFijo ? 'This garment is always classified as women’s' : tt"
-                    :disabled="!props.editable || (!!generoFijo && v !== generoFijo)" @click="elegirGenero(v)">{{ t }}</button>
+          <span class="lbl-f">{{ t('Gender') }}<span class="req-ast">*</span></span>
+          <div class="segs" role="radiogroup" :aria-label="t('Gender')">
+            <button v-for="[v, txt, tt] in GENEROS" :key="v" type="button" role="radio" :aria-checked="f.genero === v" :title="tx(generoFijo && v !== generoFijo ? t('This garment is always classified as women’s') : tt)"
+                    :disabled="!props.editable || (!!generoFijo && v !== generoFijo)" @click="elegirGenero(v)">{{ tx(txt) }}</button>
           </div>
         </div>
         <div class="campo-f">
-          <span class="lbl-f">Who it is for<span class="req-ast">*</span></span>
-          <div class="segs" role="radiogroup" aria-label="Who it is for">
-            <button v-for="[v, t, tt] in EDADES" :key="v" type="button" role="radio" :aria-checked="M.edadDe(f) === v"
+          <span class="lbl-f">{{ t('Who it is for') }}<span class="req-ast">*</span></span>
+          <div class="segs" role="radiogroup" :aria-label="t('Who it is for')">
+            <button v-for="[v, txt, tt] in EDADES" :key="v" type="button" role="radio" :aria-checked="M.edadDe(f) === v"
                     :disabled="!props.editable || (v === 'bebe' && sinBebe) || (v === 'nino' && soloAdulto)"
-                    :title="(v === 'bebe' && sinBebe) || (v === 'nino' && soloAdulto) ? 'Does not apply to this product' : tt" @click="ponerEdad(v)">{{ t }}</button>
+                    :title="tx((v === 'bebe' && sinBebe) || (v === 'nino' && soloAdulto) ? t('Does not apply to this product') : tt)" @click="ponerEdad(v)">{{ tx(txt) }}</button>
           </div>
         </div>
       </div>
       <div class="fila2">
         <div class="campo-f">
-          <label for="f_origen">Country of origin<span class="req-ast">*</span></label>
+          <label for="f_origen">{{ t('Country of origin') }}<span class="req-ast">*</span></label>
           <Seleccion id="f_origen" v-model="f.origen" class="entrada" :disabled="!props.editable">
-            <option value="">Choose…</option>
-            <option v-for="x in props.paises" :key="x.codigo" :value="x.codigo">{{ x.nombre }}</option>
+            <option value="">{{ t('Choose…') }}</option>
+            <option v-for="x in props.paises" :key="x.codigo" :value="x.codigo">{{ tx(x.nombre) }}</option>
           </Seleccion>
-          <p class="hint"><button v-if="f.origen" type="button" class="btn-texto" @click="emit('acuerdos')">Trade agreements: {{ nAcuerdos }} of {{ (props.ctx.destinos || []).length }} destinations</button><template v-else>Decides the trade agreements by destination</template></p>
+          <p class="hint"><button v-if="f.origen" type="button" class="btn-texto" @click="emit('acuerdos')">{{ t('Trade agreements: {0} of {1} destinations', [nAcuerdos, (props.ctx.destinos || []).length]) }}</button><template v-else>{{ t('Decides the trade agreements by destination') }}</template></p>
         </div>
         <div class="campo-f">
-          <label for="f_uso">What it is for <span class="opcional">(optional)</span></label>
+          <label for="f_uso">{{ t('What it is for') }} <span class="opcional">{{ t('(optional)') }}</span></label>
           <input id="f_uso" v-model="f.uso" class="entrada" type="text" maxlength="200" :disabled="!props.editable"
-                 placeholder="E.g. bag worn on the waist to carry climbing chalk" @input="detectarLuego" />
+                 :placeholder="t('E.g. bag worn on the waist to carry climbing chalk')" @input="detectarLuego" />
         </div>
       </div>
       <div class="descripciones">
         <div class="campo-f">
-          <div class="lbl-fila"><label for="f_desc">Customs description <span class="opcional">{{ f.descManual ? '(edited by hand)' : '(built from the sheet · Spanish, as declared at customs)' }}</span></label><button v-if="props.editable" type="button" class="btn-texto" @click="editarDesc">{{ f.descManual ? 'Use automatic' : 'Edit' }}</button></div>
+          <div class="lbl-fila"><label for="f_desc">{{ t('Customs description') }} <span class="opcional">{{ tx(f.descManual ? t('(edited by hand)') : t('(built from the sheet · Spanish, as declared at customs)')) }}</span></label><button v-if="props.editable" type="button" class="btn-texto" @click="editarDesc">{{ tx(f.descManual ? t('Use automatic') : t('Edit')) }}</button></div>
           <div class="desc-fila">
             <textarea id="f_desc" :value="f.descManual ? f.desc : (props.editable ? props.r?.desc : producto.descripcion_aduana) || ''" class="entrada" rows="2" maxlength="400"
-                      :readonly="!f.descManual || !props.editable" placeholder="Appears when you choose the category and the composition" @input="f.desc = $event.target.value"></textarea>
+                      :readonly="!f.descManual || !props.editable" :placeholder="t('Appears when you choose the category and the composition')" @input="f.desc = $event.target.value"></textarea>
           </div>
         </div>
         <div class="campo-f">
-          <div class="lbl-fila"><label for="f_desc_com">Commercial description <span class="opcional">{{ f.comManual ? '(edited by hand)' : '(type and brand, as on invoices and packing lists)' }}</span></label><button v-if="props.editable" type="button" class="btn-texto" @click="editarCom">{{ f.comManual ? 'Use automatic' : 'Edit' }}</button></div>
+          <div class="lbl-fila"><label for="f_desc_com">{{ t('Commercial description') }} <span class="opcional">{{ tx(f.comManual ? t('(edited by hand)') : t('(type and brand, as on invoices and packing lists)')) }}</span></label><button v-if="props.editable" type="button" class="btn-texto" @click="editarCom">{{ tx(f.comManual ? t('Use automatic') : t('Edit')) }}</button></div>
           <div class="desc-fila">
             <textarea id="f_desc_com" :value="f.comManual ? f.descCom : (props.editable ? props.r?.descCom : producto.descripcion_comercial) || ''" class="entrada comercial" rows="2" maxlength="300"
-                      :readonly="!f.comManual || !props.editable" placeholder="Appears when you choose the category" @input="f.descCom = $event.target.value"></textarea>
+                      :readonly="!f.comManual || !props.editable" :placeholder="t('Appears when you choose the category')" @input="f.descCom = $event.target.value"></textarea>
           </div>
         </div>
       </div>
       <div v-if="mostrarEnsenar" class="ensenar">
-        <b>Teach the system.</b>
-        {{ tipoDetectado ? `From the name it looked like “${M.TIPO_CORTO[tipoDetectado]}”` : 'The category was not recognized from the name' }} and you chose “{{ M.TIPO_CORTO[f.tipo] }}”.
-        Save a keyword so it is recognized next time.
+        <b>{{ t('Teach the system.') }}</b>
+        {{ t('{0} and you chose “{1}”. Save a keyword so it is recognized next time.', [tipoDetectado ? t('From the name it looked like “{0}”', [M.TIPO_CORTO[tipoDetectado]]) : t('The category was not recognized from the name'), M.TIPO_CORTO[f.tipo]]) }}
         <div class="fila-flex mt-chico">
-          <input v-model="frase" class="entrada" type="text" aria-label="Keyword" style="max-width: 240px" />
-          <label v-if="f.marca" class="check"><input v-model="soloMarca" type="checkbox" /><span>Only for {{ f.marca }}</span></label>
-          <button type="button" class="btn btn-chico" @click="ensenarPalabra">Save keyword</button>
-          <button type="button" class="btn btn-chico btn-fantasma" @click="ensenarCerrado = true">Not now</button>
+          <input v-model="frase" class="entrada" type="text" :aria-label="t('Keyword')" style="max-width: 240px" />
+          <label v-if="f.marca" class="check"><input v-model="soloMarca" type="checkbox" /><span>{{ t('Only for {0}', [f.marca]) }}</span></label>
+          <button type="button" class="btn btn-chico" @click="ensenarPalabra">{{ t('Save keyword') }}</button>
+          <button type="button" class="btn btn-chico btn-fantasma" @click="ensenarCerrado = true">{{ t('Not now') }}</button>
         </div>
       </div>
     </section>
@@ -317,41 +318,41 @@ if (props.editable) deteccion()
     <!-- Ficha técnica: características y composición -->
     <section class="bloque">
       <div class="bloque-head">
-        <h3>Technical sheet</h3><span class="vbadge">Version {{ producto.version_ficha }}</span>
-        <span class="sub">{{ f.tipo ? M.TIPO_LBL[f.tipo] : 'Choose the category first' }}</span>
+        <h3>{{ t('Technical sheet') }}</h3><span class="vbadge">{{ t('Version {0}', [producto.version_ficha]) }}</span>
+        <span class="sub">{{ tx(f.tipo ? M.TIPO_LBL[f.tipo] : t('Choose the category first')) }}</span>
       </div>
 
       <fieldset v-if="f.tipo" id="blk-carac" class="fs" :disabled="!props.editable">
-        <legend>Features</legend>
-        <p v-if="!preguntar.length" class="hint">This category needs no more data to be classified.</p>
+        <legend>{{ t('Features') }}</legend>
+        <p v-if="!preguntar.length" class="hint">{{ t('This category needs no more data to be classified.') }}</p>
         <div class="rejilla-attrs">
         <template v-for="a in preguntar" :key="a.id">
-          <label v-if="a.tipo === 'check'" class="check-f"><input type="checkbox" :checked="!!f[a.id]" @change="elegirAttr(a, $event.target.checked)" /><span>{{ a.label }}</span></label>
+          <label v-if="a.tipo === 'check'" class="check-f"><input type="checkbox" :checked="!!f[a.id]" @change="elegirAttr(a, $event.target.checked)" /><span>{{ tx(a.label) }}</span></label>
           <div v-else-if="a.tipo === 'select'" class="campo-f select-f">
-            <label :for="`a_${a.id}`">{{ a.label }}<span v-if="!a.info" class="req-ast">*</span><span v-if="a.ayuda" class="opcional"> ({{ a.ayuda }})</span></label>
+            <label :for="`a_${a.id}`">{{ tx(a.label) }}<span v-if="!a.info" class="req-ast">*</span><span v-if="a.ayuda" class="opcional"> ({{ tx(a.ayuda) }})</span></label>
             <Seleccion :id="`a_${a.id}`" class="entrada" :value="f[a.id] || ''" @change="elegirAttr(a, $event)">
-              <option value="">Choose…</option>
-              <option v-for="o in ops(a)" :key="o.v" :value="o.v">{{ o.l }}</option>
+              <option value="">{{ t('Choose…') }}</option>
+              <option v-for="o in ops(a)" :key="o.v" :value="o.v">{{ tx(o.l) }}</option>
             </Seleccion>
           </div>
           <div v-else class="opts">
-            <span class="lbl-f">{{ a.label }}<span v-if="!a.info" class="req-ast">*</span><span v-if="a.ayuda" class="opcional"> ({{ a.ayuda }})</span><span v-if="a.info" class="opcional"> (detail)</span>
+            <span class="lbl-f">{{ tx(a.label) }}<span v-if="!a.info" class="req-ast">*</span><span v-if="a.ayuda" class="opcional"> ({{ tx(a.ayuda) }})</span><span v-if="a.info" class="opcional"> {{ t('(detail)') }}</span>
               <span v-if="autos.has(a.id) && f[a.id]" class="auto-tag">auto</span></span>
-            <div class="segs" role="radiogroup" :aria-label="a.label">
-              <button v-for="o in ops(a)" :key="o.v" type="button" role="radio" :aria-checked="s[a.id] === o.v" @click="elegirAttr(a, o.v)">{{ o.l }}</button>
+            <div class="segs" role="radiogroup" :aria-label="tx(a.label)">
+              <button v-for="o in ops(a)" :key="o.v" type="button" role="radio" :aria-checked="s[a.id] === o.v" @click="elegirAttr(a, o.v)">{{ tx(o.l) }}</button>
             </div>
           </div>
         </template>
         </div>
         <p v-if="definidos.length" class="hint ya">
-          Already defined:
-          <template v-for="(a, i) in definidos" :key="a.id">{{ i ? ' · ' : '' }}{{ a.label }}: <b>{{ M.opcionLbl(a.id, s[a.id]).toLowerCase() }}</b> <span class="apagado">(by {{ MOTIVO[M.motivoDefinido(a, s)] }})</span></template>
+          {{ t('Already defined:') }}
+          <template v-for="(a, i) in definidos" :key="a.id">{{ tx(i ? ' · ' : '') }}{{ tx(a.label) }}: <b>{{ tx(M.opcionLbl(a.id, s[a.id]).toLowerCase()) }}</b> <span class="apagado">{{ t('(by {0})', [MOTIVO[M.motivoDefinido(a, s)]]) }}</span></template>
         </p>
       </fieldset>
 
       <fieldset v-if="partes.length" id="blk-comp" class="fs">
-        <legend>Composition</legend>
-        <p class="hint" style="margin-bottom: 8px">{{ COMP_HINT[M.grupoTipo(f.tipo)] || 'Materials of the product and their percentage.' }}</p>
+        <legend>{{ t('Composition') }}</legend>
+        <p class="hint" style="margin-bottom: 8px">{{ tx(COMP_HINT[M.grupoTipo(f.tipo)] || t('Materials of the product and their percentage.')) }}</p>
         <div class="rejilla-partes">
         <ComposicionParte v-for="p in partes" :key="`${f.tipo}-${p}`" :parte="p" :filas="filasDe(p)" :s="s" :recs="props.ctx.recs"
                           :usadas="props.editable ? usadasDe(p) : []" :principal="principales.includes(p)" :editable="props.editable"
@@ -360,25 +361,25 @@ if (props.editable) deteccion()
       </fieldset>
 
       <fieldset v-if="preguntasNac.length && props.editable" class="fs">
-        <legend>For national codes</legend>
-        <p class="hint" style="margin-bottom: 8px">Some destination countries split this subheading further.</p>
+        <legend>{{ t('For national codes') }}</legend>
+        <p class="hint" style="margin-bottom: 8px">{{ t('Some destination countries split this subheading further.') }}</p>
         <template v-for="q in preguntasNac" :key="q.id">
           <div v-if="q.tipo === 'num'" class="campo-f" style="max-width: 280px">
-            <label :for="`n_${q.id}`">{{ q.label }}</label>
+            <label :for="`n_${q.id}`">{{ tx(q.label) }}</label>
             <input :id="`n_${q.id}`" :value="f[q.id]" class="entrada" type="number" min="0" step="0.01" @input="respNac(q.id, $event.target.value)" />
           </div>
           <div v-else class="opts">
-            <span class="lbl-f">{{ q.label }}</span>
+            <span class="lbl-f">{{ tx(q.label) }}</span>
             <div class="segs">
               <template v-if="q.tipo === 'sino'">
-                <button type="button" role="radio" :aria-checked="f[q.id] === true" @click="respNac(q.id, true)">Yes</button>
-                <button type="button" role="radio" :aria-checked="f[q.id] === false" @click="respNac(q.id, false)">No</button>
+                <button type="button" role="radio" :aria-checked="f[q.id] === true" @click="respNac(q.id, true)">{{ t('Yes') }}</button>
+                <button type="button" role="radio" :aria-checked="f[q.id] === false" @click="respNac(q.id, false)">{{ t('No') }}</button>
               </template>
               <template v-else-if="q.ops">
-                <button v-for="[v, t] in q.ops" :key="v" type="button" role="radio" :aria-checked="f[q.id] === v" @click="respNac(q.id, v)">{{ t }}</button>
+                <button v-for="[v, txt] in q.ops" :key="v" type="button" role="radio" :aria-checked="f[q.id] === v" @click="respNac(q.id, v)">{{ tx(txt) }}</button>
               </template>
               <template v-else-if="M.ATTR_BY[q.id]">
-                <button v-for="o in M.ATTR_BY[q.id].ops" :key="o.v" type="button" role="radio" :aria-checked="f[q.id] === o.v" @click="respNac(q.id, o.v)">{{ o.l }}</button>
+                <button v-for="o in M.ATTR_BY[q.id].ops" :key="o.v" type="button" role="radio" :aria-checked="f[q.id] === o.v" @click="respNac(q.id, o.v)">{{ tx(o.l) }}</button>
               </template>
             </div>
           </div>
@@ -386,16 +387,16 @@ if (props.editable) deteccion()
       </fieldset>
 
       <fieldset id="blk-fotos" class="fs">
-        <legend>Photos</legend>
+        <legend>{{ t('Photos') }}</legend>
         <div class="fotos">
           <figure v-for="x in producto.fotos" :key="x.id" class="foto">
-            <a :href="`/api/productos/fotos/${x.id}`" target="_blank" rel="noopener"><img :src="`/api/productos/fotos/${x.id}`" :alt="x.nombre" loading="lazy" /></a>
-            <button v-if="props.editable" type="button" :aria-label="`Remove ${x.nombre}`" @click="emit('borrar-foto', x)">Remove</button>
+            <a :href="`/api/productos/fotos/${x.id}`" target="_blank" rel="noopener"><img :src="`/api/productos/fotos/${x.id}`" :alt="tx(x.nombre)" loading="lazy" /></a>
+            <button v-if="props.editable" type="button" :aria-label="t('Remove {0}', [x.nombre])" @click="emit('borrar-foto', x)">{{ t('Remove') }}</button>
           </figure>
-          <label v-if="props.editable && producto.fotos.length < 8" class="foto-add"><Icono nombre="mas" :tam="16" /> Add photos
+          <label v-if="props.editable && producto.fotos.length < 8" class="foto-add"><Icono nombre="mas" :tam="16" /> {{ t('Add photos') }}
             <input type="file" accept="image/jpeg,image/png,image/webp" class="oculto-visual" @change="emit('subir-foto', $event)" /></label>
         </div>
-        <p class="hint" style="margin-top: 8px">Front, side and sole or label: they help to confirm the materials. JPG, PNG or WebP up to 8 MB.</p>
+        <p class="hint" style="margin-top: 8px">{{ t('Front, side and sole or label: they help to confirm the materials. JPG, PNG or WebP up to 8 MB.') }}</p>
       </fieldset>
     </section>
   </div>
@@ -408,8 +409,8 @@ if (props.editable) deteccion()
 .pasos button.ok { border-color: var(--ok-borde); color: var(--ok); background: var(--ok-fondo); }
 .pasos button.pend { border-color: var(--aviso-borde); color: var(--aviso); background: var(--aviso-fondo); }
 .pasos button b { font-weight: 650; }
-.req-nota { margin-left: auto; font-size: 0.78rem; color: var(--tinta-3); }
-.req-ast { color: var(--error); font-weight: 700; margin-left: 2px; }
+.req-nota { margin-inline-start: auto; font-size: 0.78rem; color: var(--tinta-3); }
+.req-ast { color: var(--error); font-weight: 700; margin-inline-start: 2px; }
 .opcional { font-weight: 400; color: var(--tinta-3); }
 .bloque { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); padding: 14px 18px 6px; margin-bottom: 14px; box-shadow: var(--sombra); scroll-margin-top: 130px; }
 .bloque-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: -2px 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--linea-suave); }
@@ -446,7 +447,7 @@ legend { font-size: 0.84rem; font-weight: 650; color: var(--tinta-3); padding: 0
 .segs button[aria-checked='true']:disabled { opacity: 1; border-style: solid; }
 .check-f { display: flex; gap: 8px; align-items: flex-start; font-size: 0.9rem; margin-bottom: 12px; cursor: pointer; }
 .check-f input { margin-top: 3px; accent-color: var(--acento); }
-.auto-tag { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ok); margin-left: 6px; }
+.auto-tag { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ok); margin-inline-start: 6px; }
 .desc-fila { display: flex; gap: 8px; align-items: flex-start; }
 .desc-fila textarea { flex: 1; resize: vertical; min-height: 52px; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.01em; }
 .desc-fila textarea.comercial { font-weight: 500; letter-spacing: 0; }
@@ -462,7 +463,7 @@ legend { font-size: 0.84rem; font-weight: 650; color: var(--tinta-3); padding: 0
 .fotos { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
 .foto { position: relative; margin: 0; width: 96px; height: 96px; border-radius: 8px; overflow: hidden; border: 1px solid var(--linea); background: var(--superficie-2); }
 .foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.foto button { position: absolute; right: 4px; top: 4px; border: 0; border-radius: 6px; background: var(--superficie); color: var(--tinta); font-size: 0.74rem; padding: 2px 7px; cursor: pointer; opacity: 0.92; }
+.foto button { position: absolute; inset-inline-end: 4px; top: 4px; border: 0; border-radius: 6px; background: var(--superficie); color: var(--tinta); font-size: 0.74rem; padding: 2px 7px; cursor: pointer; opacity: 0.92; }
 .foto-add { width: 96px; height: 96px; border: 1.5px dashed var(--borde-hover); border-radius: 8px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; text-align: center; font-size: 0.8rem; color: var(--tinta-3); cursor: pointer; padding: 6px; }
 .foto-add:hover { border-color: var(--acento); color: var(--acento-texto); }
 </style>

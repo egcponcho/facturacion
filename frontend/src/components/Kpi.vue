@@ -1,4 +1,5 @@
 <script setup>
+import { tx } from '../i18n/index.js'
 import { computed } from 'vue'
 import { fmtNum } from '../utils'
 import Icono from './Icono.vue'
@@ -28,8 +29,8 @@ const cifra = computed(() => {
 
 <template>
   <button type="button" class="kpi" :class="`tono-${props.tono}`" @click="$emit('abrir')">
-    <span class="kpi-titulo"><span class="kpi-icono"><Icono :nombre="props.icono" :tam="17" /></span>{{ props.titulo }}</span>
-    <span class="kpi-valor"><small v-if="props.formato === 'moneda'">{{ props.moneda }}</small>{{ cifra }}</span>
-    <span v-if="props.detalle" class="kpi-detalle">{{ props.detalle }}</span>
+    <span class="kpi-titulo"><span class="kpi-icono"><Icono :nombre="props.icono" :tam="17" /></span>{{ tx(props.titulo) }}</span>
+    <span class="kpi-valor"><small v-if="props.formato === 'moneda'">{{ tx(props.moneda) }}</small>{{ tx(cifra) }}</span>
+    <span v-if="props.detalle" class="kpi-detalle">{{ tx(props.detalle) }}</span>
   </button>
 </template>

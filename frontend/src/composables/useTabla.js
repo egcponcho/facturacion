@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js'
 import { computed, reactive, watch } from 'vue'
 
 // Orden y paginación en el navegador para tablas con todos los datos a mano.

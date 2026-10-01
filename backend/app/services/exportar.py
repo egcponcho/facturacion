@@ -248,7 +248,7 @@ def exportar_factura(d: dict) -> bytes:
               l["origen"], l["partida"], l["cantidad"], l["unidad"], l["precio"], l["total"]] for l in d["lineas"]]
     fila_cab = h.tabla(
         [("PO", None), ("Line", None), ("Item code", None), ("UPC", None), ("Brand", None), ("Style", None),
-         ("Size", None), ("Commercial description · color", None), ("Origin", None), ("HS code (SAC)", None),
+         ("Size", None), ("Customs description · color", None), ("Origin", None), ("HS code (SAC)", None),
          ("Quantity", _ENTERO), ("UoM", None), ("Unit price", "#,##0.0000"), (f"Amount {d['moneda']}", _MONEDA)],
         filas, pie=["Total", None, f"{len(filas)} lines", None, None, None, None, None, None, None,
                     sum(l["cantidad"] for l in d["lineas"]), None, None, t["importe"]],
@@ -298,8 +298,8 @@ def exportar_pl(d: dict) -> bytes:
             p = i == 0
             filas.append([
                 g["rango"] if p else None, g["num_cajas"] if p else None, it["oc"], it["posicion"], it["sku"],
-                it["upc"], f"{it['marca'] or ''} {it['estilo']}".strip(), it["color"], it["talla"], it["por_caja"],
-                f"{it['inners']} × {it['inner_pack']}" if it["inners"] else None, it["total"], it["unidad"], g["largo"] if p else None, g["ancho"] if p else None,
+                it["upc"], it["marca"], it["descripcion"], it["estilo"], it["color"], it["talla"], it["inners"], it["inner_pack"],
+                it["por_caja"], it["total"], it["unidad"], g["largo"] if p else None, g["ancho"] if p else None,
                 g["alto"] if p else None, g["neto_caja"] if p else None, g["bruto_caja"] if p else None,
                 g["neto_total"] if p else None, g["bruto_total"] if p else None, g["cbm"] if p else None,
                 (g["pallet"] if g["pallet"] else None) if p else None, g["etiqueta"] if p else None,
@@ -307,11 +307,11 @@ def exportar_pl(d: dict) -> bytes:
             ])
     fila_cab = h.tabla(
         [("Cartons", None), ("Qty", _ENTERO), ("PO", None), ("Line", None), ("Item code", None), ("UPC", None),
-         ("Brand · style", None), ("Color", None), ("Size", None), ("Per carton", _ENTERO), ("Inner packs", None),
-         ("Total", _ENTERO), ("UoM", None), ("Length cm", "0.0"), ("Width cm", "0.0"), ("Height cm", "0.0"),
+         ("Brand", None), ("Customs description", None), ("Style", None), ("Color", None), ("Size", None),
+         ("Inner packs per carton", _ENTERO), ("Per inner pack", _ENTERO), ("Total per carton", _ENTERO), ("Total", _ENTERO), ("UoM", None), ("Length cm", "0.0"), ("Width cm", "0.0"), ("Height cm", "0.0"),
          ("Net/ctn kg", "0.00"), ("Gross/ctn kg", "0.00"), ("Net total kg", _MONEDA), ("Gross total kg", _MONEDA),
          ("m³", "0.000"), ("Pallet", None), ("Label", None), ("POs in carton → destination", None)],
-        filas, pie=["Total", d["total_cajas"], None, None, None, None, None, None, None, None, None,
+        filas, pie=["Total", d["total_cajas"], None, None, None, None, None, None, None, None, None, None, None, None,
                     sum(it["total"] for g in d["grupos"] for it in g["items"]), None, None, None, None, None, None,
                     tp["peso_neto"], tp["peso_bruto"], tp["cbm"], None, None, None],
         texto={0, 2, 3, 4, 5})
