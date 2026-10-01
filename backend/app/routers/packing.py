@@ -4,6 +4,7 @@ from ..schemas import (
     CajaManual,
     ConMotivo,
     Despaletizar,
+    InnerPackIn,
     EditarCajas,
     EliminarCajas,
     EmpaqueAplicar,
@@ -83,6 +84,11 @@ def paletizar(pl_id: int, datos: Paletizar, db: Db, user: User, clave: Clave = N
 @router.post("/{pl_id}/pallets/quitar")
 def despaletizar(pl_id: int, datos: Despaletizar, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.despaletizar(db, user, pl_id, datos))
+
+
+@router.put("/{pl_id}/lineas/{pl_linea_id}/inner")
+def definir_inner(pl_id: int, pl_linea_id: int, datos: InnerPackIn, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.definir_inner(db, user, pl_id, pl_linea_id, datos))
 
 
 @router.patch("/{pl_id}/pallets/{pallet_id}")

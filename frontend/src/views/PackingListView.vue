@@ -144,8 +144,18 @@ const idsFiltrados = computed(() => lineasFiltradas.value.map((l) => l.id))
 // Packing rule of the PO line: prepack (1 size run per carton), exact casepack
 // or free; with an inner pack, cartons carry whole inner packs
 const REGLAS = { PREPACK: [t('Prepack'), 'acento'], CASEPACK: [t('Casepack'), 'info'], LIBRE: [t('Free'), ''] }
-const reglaTxt = (l) => (l.regla === 'PREPACK' ? t('Prepack {0} · {1} per carton', [l.prepack || '', l.unidades_por_caja || '?'])
-  : `${l.regla === 'CASEPACK' ? t('Casepack {0}', [l.casepack]) : t('Free casepack')}${l.inner_pack ? t(' · inner {0}', [l.inner_pack]) : ''}`)
+// La regla dice cómo se arma la caja; las cantidades van en columnas aparte
+// (por caja, por inner pack e inner packs por caja) para no leer "3x4" ambiguo
+const reglaTxt = (l) => (l.regla === 'PREPACK' ? t('Prepack {0}', [l.prepack || '']) : l.regla === 'CASEPACK' ? t('Casepack') : t('Free'))
+const porCajaLinea = (l) => (l.regla === 'PREPACK' ? l.unidades_por_caja : l.regla === 'CASEPACK' ? l.casepack : null)
+const innersPorCaja = (l) => (porCajaLinea(l) && l.inner_pack && l.regla !== 'PREPACK' ? porCajaLinea(l) / l.inner_pack : null)
+async function guardarInner(l, valor) {
+  const n = valor === '' || valor === null ? null : Number(valor)
+  const r = await api.put(`/packing-lists/${props.id}/lineas/${l.id}/inner`, { version: pl.value.version, inner_pack: n })
+  pl.value.version = r.version
+  await cargar()
+  avisar(n ? t('Inner pack of {0} set for {1}.', [n, l.codigo_sap]) : t('Inner pack removed for {0}.', [l.codigo_sap]))
+}
 const innerTxt = (cant, inner) => (inner ? t(' · {0} inner pack{1} of {2}', [fmtNum(cant / inner), cant / inner === 1 ? '' : 's', inner]) : '')
 const porCajaRegla = (l) => (l.regla === 'PREPACK' ? 1 : l.regla === 'CASEPACK' ? l.casepack : null)
 const selLineas = computed(() => (pl.value?.lineas || []).filter((l) => selL.tiene(l.id)))
@@ -508,7 +518,9 @@ onMounted(cargar)
                 <ThOrden campo="talla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Size') }}</ThOrden>
                 <ThOrden campo="oc" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('PO / line') }}</ThOrden>
                 <ThOrden campo="regla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Rule') }}</ThOrden>
-                <th>{{ t('UoM') }}</th>
+                <th class="num" :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ t('Per carton') }}</th>
+                <th class="num" :title="t('Units or pairs per inner pack; defined here when the PO does not bring it')">{{ t('Per inner pack') }}</th>
+                <th class="num">{{ t('Inner packs per carton') }}</th>
                 <ThOrden campo="cantidad" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">{{ t('Quantity') }}</ThOrden>
                 <ThOrden campo="en_cajas" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">{{ t('In cartons') }}</ThOrden>
                 <ThOrden campo="sin_caja" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">{{ t('Not packed') }}</ThOrden>
@@ -530,7 +542,13 @@ onMounted(cargar)
                           :title="t('See the prepack breakdown')" @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ tx(reglaTxt(l)) }} <Icono nombre="lupa" :tam="12" /></button>
                   <span v-else class="etiqueta" :class="REGLAS[l.regla]?.[1]" style="margin-inline-start: 0">{{ tx(reglaTxt(l)) }}</span>
                 </td>
-                <td><span class="etiqueta" style="margin-inline-start: 0">{{ tx(l.unidad) }}</span></td>
+                <td class="num">{{ porCajaLinea(l) ? cantTxt(porCajaLinea(l), l.regla === 'PREPACK' ? l.unidad_componentes || 'UN' : l.unidad) : '—' }}</td>
+                <td class="num" style="width: 96px">
+                  <CeldaEditable v-if="editable && l.inner_editable" tipo="number" :min="1" paso="1" :valor="l.inner_pack" :vacia-texto="t('Define')"
+                                 :guardar="(v) => guardarInner(l, v)" :etiqueta="t('Per inner pack')" />
+                  <template v-else>{{ l.inner_pack ? cantTxt(l.inner_pack, l.unidad) : '—' }}</template>
+                </td>
+                <td class="num">{{ innersPorCaja(l) ? fmtNum(innersPorCaja(l)) : '—' }}</td>
                 <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
                 <td class="num">{{ fmtNum(l.en_cajas) }}</td>
                 <td class="num"><strong v-if="l.sin_caja">{{ fmtNum(l.sin_caja) }}</strong><span v-else class="apagado">0</span></td>
@@ -545,7 +563,7 @@ onMounted(cargar)
                 </td>
               </tr>
               <tr v-if="!lineasFiltradas.length">
-                <td colspan="11" class="vacio">{{ tx(pl.lineas.length ? t('No row matches the filter.') : t('The packing list is empty.')) }}</td>
+                <td colspan="13" class="vacio">{{ tx(pl.lineas.length ? t('No row matches the filter.') : t('The packing list is empty.')) }}</td>
               </tr>
             </tbody>
           </table>
@@ -601,7 +619,10 @@ onMounted(cargar)
               <th class="chk"><input type="checkbox" :aria-label="t('Select all cartons')" :checked="selG.todos(idsGrupos)" @change="selG.alternarTodos(idsGrupos)" /></th>
               <ThOrden campo="rango" :orden="tablaG.estado.orden" @ordenar="tablaG.ordenar">{{ t('Cartons') }}</ThOrden>
               <ThOrden campo="etiqueta" :orden="tablaG.estado.orden" @ordenar="tablaG.ordenar">{{ t('Contents per carton') }}</ThOrden>
-              <th class="num">{{ t('Qty') }}</th>
+              <th class="num">{{ t('Inner packs per carton') }}</th>
+              <th class="num">{{ t('Per inner pack') }}</th>
+              <th class="num">{{ t('Total per carton') }}</th>
+              <th class="num">{{ t('Cartons') }}</th>
               <th class="num"><span class="req">{{ t('Length') }}</span></th>
               <th class="num"><span class="req">{{ t('Width') }}</span></th>
               <th class="num"><span class="req">{{ t('Height cm') }}</span></th>
@@ -618,9 +639,7 @@ onMounted(cargar)
               <td class="cajas-rango">{{ tx(rango(g)) }}<span v-if="g.pallet" class="etiqueta acento" :title="t('On pallet')">P{{ tx(g.pallet) }}</span></td>
               <td class="envolver">
                 <div class="caja-items">
-                  <div v-for="it in g.items" :key="it.pl_linea_id">
-                    {{ tx(it.estilo) }} <b>{{ tx(it.talla) }}</b> × {{ cantTxt(it.cantidad_por_caja, it.unidad) }}<span v-if="it.inner_packs_por_caja" class="ayuda"> {{ t('({0} inner packs of {1})', [it.inner_packs_por_caja, it.inner_pack]) }}</span>
-                  </div>
+                  <div v-for="it in g.items" :key="it.pl_linea_id">{{ tx(it.estilo) }} <b>{{ tx(it.talla) }}</b></div>
                 </div>
                 <div v-if="g.etiqueta" class="fila-flex" style="gap: 4px; margin-top: 4px">
                   <span class="etiqueta" :class="g.etiqueta.tipo === 'ESTANDAR' ? 'ok' : 'acento'" style="margin-inline-start: 0"
@@ -631,6 +650,9 @@ onMounted(cargar)
                   <span v-if="g.etiqueta.centro_destino" class="ayuda">{{ t('· destination {0}', [g.etiqueta.centro_destino]) }}</span>
                 </div>
               </td>
+              <td class="num"><div class="caja-items"><div v-for="it in g.items" :key="it.pl_linea_id">{{ it.inner_packs_por_caja ? fmtNum(it.inner_packs_por_caja) : '—' }}</div></div></td>
+              <td class="num"><div class="caja-items"><div v-for="it in g.items" :key="it.pl_linea_id">{{ it.inner_pack ? cantTxt(it.inner_pack, it.unidad) : '—' }}</div></div></td>
+              <td class="num"><div class="caja-items"><div v-for="it in g.items" :key="it.pl_linea_id">{{ cantTxt(it.cantidad_por_caja, it.unidad) }}</div></div></td>
               <td class="num" style="width: 70px">
                 <CeldaEditable v-if="editable" tipo="number" :min="1" paso="1" :valor="g.num_cajas" :guardar="celdaGrupo(g, 'num_cajas')" :etiqueta="t('Number of cartons')" />
                 <template v-else>{{ tx(g.num_cajas) }}</template>
@@ -650,7 +672,7 @@ onMounted(cargar)
               </td>
             </tr>
             <tr v-if="!pl.grupos.length">
-              <td colspan="12" class="vacio">
+              <td colspan="15" class="vacio">
                 <Icono nombre="caja" :tam="28" />
                 <p>{{ t('No cartons yet.') }}</p>
                 <button v-if="editable" class="btn btn-primario" @click="tab = 'empacar'">{{ t('Start packing') }}</button>

@@ -6,9 +6,16 @@ import CargaArchivo from '../components/CargaArchivo.vue'
 import Icono from '../components/Icono.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
+import OrdenFormulario from '../components/OrdenFormulario.vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useTabla } from '../composables/useTabla'
 import { avisar, errorApi } from '../stores/ui'
 
+const route = useRoute()
+const router = useRouter()
+// Dos maneras de cargar OCs con la misma estructura y validaciones: archivo o formulario
+const modo = ref(route.query.modo === 'formulario' ? 'formulario' : 'archivo')
+watch(modo, (m) => router.replace({ query: { ...route.query, modo: m } }))
 const archivo = ref(null)
 const previa = ref(null)
 const filtro = ref('')
@@ -65,16 +72,22 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
   <div class="pagina-cabeza">
     <div>
       <router-link to="/ordenes" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Purchase orders') }}</router-link>
-      <h1>{{ t('Import purchase orders') }}</h1>
-      <p>{{ t('Upload the Excel or CSV exported from SAP. Each row is checked against the master data (items, companies, plants, destinations and ports); nothing is saved until you confirm.') }}</p>
+      <h1>{{ t('Load purchase orders') }}</h1>
+      <p>{{ t('Upload a file exported from your ERP or create the PO here. Both are checked the same way against the master data; nothing is saved until you confirm.') }}</p>
     </div>
-    <a class="btn" href="/plantilla_oc.csv" download><Icono nombre="descargar" />{{ t('Sample template') }}</a>
+    <a v-if="modo === 'archivo'" class="btn" href="/plantilla_oc.csv" download><Icono nombre="descargar" />{{ t('Sample template') }}</a>
   </div>
+  <div class="pestanas-pildora" role="tablist">
+    <button type="button" role="tab" class="pildora" :aria-selected="modo === 'archivo'" @click="modo = 'archivo'"><Icono nombre="importar" :tam="15" />{{ t('Upload file') }}</button>
+    <button type="button" role="tab" class="pildora" :aria-selected="modo === 'formulario'" @click="modo = 'formulario'"><Icono nombre="mas" :tam="15" />{{ t('Create in the platform') }}</button>
+  </div>
+  <OrdenFormulario v-if="modo === 'formulario'" />
+  <template v-else>
 
   <div class="dos-columnas" style="grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr)">
     <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('1. Choose the file') }}</h2><p>{{ t('One row per PO line.') }}</p></div></div>
-      <CargaArchivo v-model="archivo" :texto="t('Drag the PO file here or choose it')" :ayuda="t('Excel (.xlsx) or CSV, exported from SAP')" />
+      <CargaArchivo v-model="archivo" :texto="t('Drag the PO file here or choose it')" :ayuda="t('Excel (.xlsx) or CSV, exported from your ERP')" />
       <div class="fila-flex mt">
         <button class="btn btn-primario" :disabled="!archivo || ocupado" @click="revisar"><Icono nombre="lupa" :tam="16" />{{ tx(ocupado ? t('Checking…') : t('Check file')) }}</button>
         <span class="ayuda">{{ t('Codes (PO, line, SKU) are read as text so leading zeros are kept.') }}</span>
@@ -88,7 +101,8 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
         <li><b>{{ t('PO line data comes from the file') }}</b>{{ t(': line, warehouse, quantity, price, dates, and the purchase packing:') }} <b>casepack</b> {{ t('(exact quantity per carton) and') }} <b>{{ t('inner pack') }}</b> {{ t('(units per inner pack). The casepack must be a multiple of the inner pack, and the quantity a whole number of inner packs. A prepack is already a defined carton and takes neither.') }}</li>
         <li>{{ t('Company, plant and warehouse must match each other, and the supplier must work with the company.') }}</li>
         <li>{{ t('Destination plant, port and countries registered in Master data.') }}</li>
-        <li>{{ t('Commercial release P leaves the PO at 304; C or blank releases it (300, or 301 if it was already released and changed).') }}</li>
+        <li>{{ t('Required: supplier, PO number, line, item and quantity. Company, currency and price are optional when loading and required to invoice.') }}</li>
+        <li>{{ t('Commercial release pending leaves the PO not released; released or blank releases it (released with changes if it was already released and changed).') }}</li>
       </ul>
     </section>
   </div>
@@ -133,5 +147,6 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
       <span class="ayuda">{{ t('Conflicts (for example, lowering the quantity below what is already invoiced) are not applied: they are kept as alerts.') }}</span>
       <button class="btn btn-primario separar" :disabled="ocupado || !aplicables" @click="aplicar"><Icono nombre="check" />{{ t('Apply {0} changes', [aplicables]) }}</button>
     </div>
+  </template>
   </template>
 </template>

@@ -232,7 +232,7 @@ def _ruta(db: Session, campos: dict, actual: Embarque | None = None) -> dict:
             if t.tipo not in (modo, "MULTIMODAL"):
                 errores.append({"campo": "transportista_id", "mensaje":
                                 f"{t.nombre} is {MODO_TXT.get(t.tipo, t.tipo)}; the shipment is {MODO_TXT[modo]}."})
-            if c and c.sociedad_id not in {x.id for x in t.sociedades}:
+            if c and t.sociedades and c.sociedad_id not in {x.id for x in t.sociedades}:
                 errores.append({"campo": "transportista_id", "mensaje":
                                 f"{t.nombre} does not work with company {c.sociedad.codigo}."})
             campos["transportista"] = t.nombre

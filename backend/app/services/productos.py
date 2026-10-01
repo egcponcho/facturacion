@@ -129,6 +129,17 @@ RE_CODIGO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}$")
 MSG_CODIGO = "Letters and numbers (also . - _ /), up to 40 characters."
 
 
+def sin_marca(texto: str | None, marca: str | None = None) -> str | None:
+    """Descripción aduanera sin la marca: la marca va en su propio campo en la
+    factura y el packing list, así no se repite."""
+    if not texto:
+        return texto
+    t = re.sub(r"[,;]?\s*\bMARCA\s+[^,;]+", "", str(texto), flags=re.I)
+    for m in [x for x in {marca or ""} if x.strip()]:
+        t = re.sub(rf"[,;]?\s*\b{re.escape(m.strip())}\b", "", t, flags=re.I)
+    return re.sub(r"\s{2,}", " ", t).strip(" ,;") or None
+
+
 def codigo_valido(valor: str | None) -> bool:
     return bool(RE_CODIGO.match(str(valor or "").strip()))
 

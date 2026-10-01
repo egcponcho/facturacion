@@ -343,6 +343,8 @@ onMounted(async () => {
   await cargar()
   cargarTab()
 })
+// Unidades o pares por caja: el casepack de la OC o la curva del prepack
+const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.casepack || null)
 </script>
 
 <template>
@@ -437,28 +439,31 @@ onMounted(async () => {
             <tr>
               <th class="chk"><input type="checkbox" :aria-label="t('Select all filtered lines')" :checked="sel.todos(idsFiltrados)" @change="sel.alternarTodos(idsFiltrados)" /></th>
               <ThOrden campo="oc" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">{{ t('PO / line') }}</ThOrden>
+              <ThOrden campo="marca" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">{{ t('Brand') }}</ThOrden>
               <ThOrden campo="estilo" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">{{ t('Item') }}</ThOrden>
               <ThOrden campo="talla" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">{{ t('Size') }}</ThOrden>
               <ThOrden campo="cantidad" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar"><span class="req">{{ t('Quantity') }}</span></ThOrden>
               <th>{{ t('UoM') }}</th>
+              <th class="num" :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ t('Per carton') }}</th>
+              <th class="num">{{ t('Per inner pack') }}</th>
+              <th class="num">{{ t('Inner packs per carton') }}</th>
               <ThOrden campo="precio_unitario" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar"><span class="req">{{ t('Unit price') }}</span></ThOrden>
               <ThOrden campo="total" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar">{{ t('Total') }}</ThOrden>
               <ThOrden campo="sin_asignar" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar">{{ t('In packing list') }}</ThOrden>
               <ThOrden campo="pais_origen" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar"><span class="req">{{ t('Country of origin') }}</span></ThOrden>
               <th><span class="req">{{ t('HS code') }}</span></th>
-              <th><span class="req">{{ t('Commercial description') }}</span></th>
+              <th :title="t('Customs description of the item, without the brand (it has its own column)')"><span class="req">{{ t('Customs description') }}</span></th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="l in tablaLineas.filas.value" :key="l.id" :class="{ seleccionada: sel.tiene(l.id) }">
               <td class="chk"><input type="checkbox" :aria-label="t('Select {0} size {1}', [l.codigo_sap, l.talla])" :checked="sel.tiene(l.id)" @change="sel.alternar(l.id)" /></td>
               <td class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}<span v-if="l.almacen" class="sub">{{ t('warehouse {0}', [l.almacen]) }}</span></td>
+              <td class="fuerte">{{ tx(l.marca || '—') }}</td>
               <td>
-                <span v-if="l.marca" class="fuerte">{{ tx(l.marca) }}</span> {{ tx(l.estilo) }} · {{ tx(l.color) }}
+                {{ tx(l.estilo) }}<template v-if="l.color"> · {{ tx(l.color) }}</template>
                 <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the prepack breakdown')"
                         @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ t('Prepack {0}', [l.prepack]) }} <Icono nombre="lupa" :tam="12" /></button>
-                <span v-else-if="l.casepack" class="etiqueta info">{{ t('Casepack {0}', [l.casepack]) }}</span>
-                <span v-if="l.inner_pack" class="etiqueta acento" :title="t('Inner packs of {0}: the quantity goes in whole inner packs', [l.inner_pack])">{{ t('Inner {0}', [l.inner_pack]) }}</span>
                 <span class="sub codigo">{{ tx(l.codigo_sap) }}</span>
               </td>
               <td><strong>{{ tx(l.talla) }}</strong></td>
@@ -467,6 +472,9 @@ onMounted(async () => {
                 <template v-else>{{ fmtNum(l.cantidad) }}</template>
               </td>
               <td><span class="etiqueta" style="margin-inline-start: 0">{{ tx(l.unidad) }}</span></td>
+              <td class="num">{{ porCaja(l) ? fmtNum(porCaja(l)) : '—' }}</td>
+              <td class="num" :title="l.inner_pack ? '' : t('Defined in the packing list if needed')">{{ l.inner_pack ? fmtNum(l.inner_pack) : '—' }}</td>
+              <td class="num">{{ porCaja(l) && l.inner_pack && l.tipo_empaque !== 'PREPACK' ? fmtNum(porCaja(l) / l.inner_pack) : '—' }}</td>
               <td class="num" style="width: 130px">
                 <CeldaEditable v-if="editable" tipo="number" :min="0" paso="0.0001" :valor="l.precio_unitario" :guardar="celda(l, 'precio_unitario')" :etiqueta="t('Price of {0}', [l.codigo_sap])" />
                 <template v-else>{{ fmtNum(l.precio_unitario, 2) }}</template>
@@ -495,7 +503,7 @@ onMounted(async () => {
               </td>
             </tr>
             <tr v-if="!lineasFiltradas.length">
-              <td colspan="12" class="vacio">
+              <td colspan="16" class="vacio">
                 {{ tx(f.lineas.length ? t('No line matches the filter.') : t('The invoice has no lines.')) }}
                 <div v-if="editable && !f.lineas.length"><button class="btn" @click="agregarDesdeOC">{{ t('Add lines from POs') }}</button></div>
               </td>

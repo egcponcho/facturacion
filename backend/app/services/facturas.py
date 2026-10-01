@@ -32,7 +32,7 @@ from .cantidades import (
     totales_pl,
 )
 from .partes import partes
-from .productos import pais_de_centro, partida_para, producto_de
+from .productos import pais_de_centro, partida_para, producto_de, sin_marca
 from .common import (
     EDITABLE_FACTURA,
     EDITABLE_PL,
@@ -171,6 +171,11 @@ def _preparar_posiciones(
                     }
                 )
                 continue
+        faltan = [x for x, v in (("company (bill to)", oc.sociedad), ("currency", oc.moneda), ("price", p.precio))
+                  if v in (None, "")]
+        if faltan:
+            errores.append({"posicion_id": p.id, "mensaje": f"{ref}: complete the PO before invoicing; missing {', '.join(faltan)}."})
+            continue
         if (msg := fuera_de_inner(p, cantidad)):
             errores.append({"posicion_id": p.id, "mensaje": f"{ref}: {msg}"})
             continue
@@ -216,8 +221,9 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int, pais: str | None
         centro_destino=oc.centro_destino,
         pais_origen=p.pais_origen or (prod.pais_origen if prod else None),
         partida_arancelaria=partida_para(prod, pais),
-        # Descripción comercial simple de la ficha (tipo y marca, p. ej. CALZADO VANS)
-        descripcion_comercial=(prod.descripcion_comercial if prod and prod.descripcion_comercial else p.descripcion),
+        # Descripción aduanera del artículo, sin la marca (va en su propia columna)
+        descripcion_comercial=sin_marca((prod.descripcion_aduana or prod.descripcion_comercial) if prod else None, p.marca)
+        or sin_marca(p.descripcion, p.marca),
     )
 
 

@@ -628,11 +628,12 @@ class OrdenCompra(Base):
     __table_args__ = (UniqueConstraint("proveedor_id", "numero"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
-    numero: Mapped[str] = mapped_column(String(30))  # 44xxxxxxxx
-    sociedad: Mapped[str] = mapped_column(String(10))
+    numero: Mapped[str] = mapped_column(String(40))  # formato de cada empresa
+    # Empresa que factura, moneda y precio: opcionales al cargar la OC, se exigen al facturar
+    sociedad: Mapped[str | None] = mapped_column(String(10))
     centro: Mapped[str | None] = mapped_column(String(10))
     centro_destino: Mapped[str | None] = mapped_column(String(10))  # centro del país al que va (p. ej. 2220)
-    moneda: Mapped[str] = mapped_column(String(3))
+    moneda: Mapped[str | None] = mapped_column(String(3))
     incoterm: Mapped[str | None] = mapped_column(String(10))
     fecha: Mapped[date | None] = mapped_column(Date)
     puerto_despacho: Mapped[str | None] = mapped_column(String(10))
@@ -683,7 +684,7 @@ class PosicionOC(Base):
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total de la curva
     cantidad: Mapped[int] = mapped_column(Integer)
     unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ
-    precio: Mapped[float] = mapped_column(Float)
+    precio: Mapped[float | None] = mapped_column(Float)
     fecha_entrega: Mapped[date | None] = mapped_column(Date)
     pais_origen: Mapped[str | None] = mapped_column(String(3))
     bloqueada: Mapped[bool] = mapped_column(Boolean, default=False)

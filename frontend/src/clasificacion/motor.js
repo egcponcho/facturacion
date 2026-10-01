@@ -1074,7 +1074,7 @@ const NOMBRE_CALZ = {tenis:'TENIS', zapato:'ZAPATO', bota:'BOTA', botin:'BOTÍN'
 const MAT_TXT = {plastico:'CAUCHO O PLÁSTICO', cuero:'CUERO', textil:'MATERIA TEXTIL', otro:'OTRAS MATERIAS', metal:'METAL', madera:'MADERA', papel:'PAPEL O CARTÓN', vidrio:'VIDRIO', paja:'PAJA'};
 /* Descripción aduanal: solo qué es y la categoría de su material (textil,
    cuero o sintético), sin porcentajes ni detalles; luego para quién y la marca.
-   Ej.: TENIS DE TEXTIL, UNISEX, MARCA VANS */
+   Ej.: TENIS DE TEXTIL, UNISEX (la marca va en su propio campo) */
 const CAT_MAT = {textil:'TEXTIL', cuero:'CUERO', plastico:'MATERIAL SINTÉTICO', sintetica:'MATERIAL SINTÉTICO', artificial:'MATERIAL SINTÉTICO'};
 function descripcionProfesional(f){
   const t = f.tipo; if (!t) return '';
@@ -1105,7 +1105,7 @@ function descripcionProfesional(f){
   }
   const ext = [];
   if (para) ext.push(para);
-  if (f.marca) ext.push('MARCA ' + U(f.marca));
+  // La marca no va aquí: tiene su propio campo en la factura y el packing list
   return [nombre + (cat ? ' DE ' + cat : '')].concat(ext).join(', ');
 }
 function derivarCalzado(f){

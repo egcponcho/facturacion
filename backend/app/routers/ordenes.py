@@ -51,6 +51,26 @@ def empaque(oc_id: int, posicion_id: int, datos: EmpaqueIn, db: Db, user: User, 
                                                                     datos.inner_pack))
 
 
+class OrdenNueva(BaseModel):
+    cabecera: dict = Field(default_factory=dict)
+    lineas: list[dict] = Field(default_factory=list, max_length=500)
+
+
+@router.get("/ordenes/formulario")
+def formulario(db: Db, user: User):
+    return svc.opciones_formulario(db, user)
+
+
+@router.get("/ordenes/formulario/articulos")
+def formulario_articulos(db: Db, user: User, proveedor: str = "", q: str = ""):
+    return svc.articulos_formulario(db, user, proveedor, q)
+
+
+@router.post("/ordenes")
+def crear(datos: OrdenNueva, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: svc.crear_oc(db, user, datos.model_dump()))
+
+
 @router.post("/ordenes/importar/previa")
 async def importar_previa(db: Db, user: User, archivo: UploadFile = File(...)):
     contenido = await archivo.read()

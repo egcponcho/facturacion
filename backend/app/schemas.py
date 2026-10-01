@@ -225,6 +225,11 @@ class EditarCajas(ValoresCaja):
     confirmar_pesos: bool = False
 
 
+class InnerPackIn(BaseModel):
+    version: int | None = None
+    inner_pack: int | None = Field(None, ge=1, le=100000)  # vacío: sin inner pack
+
+
 class EliminarCajas(BaseModel):
     version: int
     grupo_ids: list[int] = Field(min_length=1)

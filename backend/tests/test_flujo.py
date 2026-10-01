@@ -641,7 +641,7 @@ def test_documentos_y_reportes(tnf, interno):
     ws = load_workbook(BytesIO(r.content)).active
     textos = {str(c.value) for fila in ws.iter_rows() for c in fila if c.value}
     assert "PACKING LIST" in textos and any(t.startswith("TOTAL PACKAGES: ") for t in textos)
-    assert "Inner packs" in textos and "FINAL DESTINATION" in textos
+    assert "Inner packs per carton" in textos and "Per inner pack" in textos and "FINAL DESTINATION" in textos
     for vista in ("ordenes", "embarques", "documentos"):
         for formato in ("pdf", "xlsx"):
             r = interno.get(f"/seguimiento/{vista}/exportar", params={"formato": formato, "marca": "TNF"})
@@ -846,3 +846,67 @@ def test_fecha_estimada_en_tienda(interno):
     assert fila["tienda_estimada"] > (date.today() - timedelta(days=400)).isoformat()
     por_oc = interno.get("/seguimiento/ordenes", params={"size": 100}).json()["items"]
     assert any(p["tienda_estimada"] for p in por_oc)
+
+
+def test_crear_oc_desde_formulario(interno, vans):
+    """La OC se puede crear en la plataforma con la misma estructura y
+    validaciones que la carga masiva; precio, moneda y empresa son opcionales
+    al crearla, pero se exigen al facturar."""
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    cab = {"proveedor": "VANS", "oc": "PO-FORM-1", "centro_destino": "2220", "liberacion_comercial": "C",
+           "liberacion_logistica": "Released"}
+    # Lo mínimo: proveedor, número, artículo y cantidad
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku}]})
+    assert r.status_code == 422 and any("quantity" in d["mensaje"] for d in r.json()["detalle"])
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": "NOEXISTE", "cantidad": 5}]})
+    assert r.status_code == 422 and "item master" in r.json()["detalle"][0]["mensaje"]
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 12, "casepack": 6}]})
+    assert r.status_code == 200, r.text
+    oc = r.json()
+    assert oc["numero"] == "PO-FORM-1" and oc["lineas"] == 1
+    det = interno.get(f"/ordenes/{oc['oc_id']}/posiciones").json()
+    assert det["posiciones"][0]["posicion"] == "10" and det["posiciones"][0]["casepack"] == 6
+    assert det["posiciones"][0]["total"] is None  # sin precio: el valor queda pendiente
+    # El mismo número no se repite para el proveedor
+    assert interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 1}]}).status_code == 409
+    # Sin precio, moneda ni empresa no se puede facturar: se dice qué falta
+    r = vans.post("/facturas", {"lineas": [{"posicion_id": det["posiciones"][0]["id"], "cantidad": 6}]})
+    assert r.status_code == 422 and "missing company (bill to), currency, price" in r.json()["detalle"][0]["mensaje"]
+    # Precio sin moneda no es válido
+    r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-2"}, "lineas": [{"codigo_sap": sku, "cantidad": 2, "precio": 10}]})
+    assert r.status_code == 422 and "currency" in r.json()["detalle"][0]["mensaje"]
+
+
+def test_inner_pack_en_el_packing_list(interno, vans):
+    """La OC trae el casepack (sólidos) o la curva (prepacks); el inner pack se
+    define al armar el packing list, mientras la línea no tenga cajas."""
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    cab = {"proveedor": "VANS", "oc": "PO-INNER-1", "sociedad": "8000", "moneda": "USD", "centro_destino": "2220",
+           "liberacion_comercial": "C", "liberacion_logistica": "300"}
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 24, "precio": 10, "casepack": 12}]})
+    assert r.status_code == 200, r.text
+    pos = interno.get(f"/ordenes/{r.json()['oc_id']}/posiciones").json()["posiciones"][0]
+    assert pos["inner_pack"] is None
+    fid = vans.post("/facturas", {"lineas": [{"posicion_id": pos["id"], "cantidad": 24}]}).json()["id"]
+    # La descripción de la factura es la aduanera, sin repetir la marca (que tiene su columna)
+    lf = vans.get(f"/facturas/{fid}").json()["lineas"][0]
+    assert lf["marca"] == "VANS" and "VANS" not in (lf["descripcion_comercial"] or "").upper()
+    pl_id = vans.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    linea = pl["lineas"][0]
+    assert linea["inner_editable"] and linea["inner_pack"] is None
+    url = f"/packing-lists/{pl_id}/lineas/{linea['id']}/inner"
+    r = vans.put(url, {"version": pl["version"], "inner_pack": 5})
+    assert r.status_code == 422 and "multiple of the inner pack" in r.json()["mensaje"]
+    r = vans.put(url, {"version": pl["version"], "inner_pack": 4})
+    assert r.status_code == 200, r.text
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    assert pl["lineas"][0]["inner_pack"] == 4
+    # Con cajas ya no se cambia
+    r = _empacar(vans, pl_id, pl["version"], [(pl["lineas"][0]["id"], None)])
+    assert r.status_code == 200, r.text
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    assert not pl["lineas"][0]["inner_editable"]
+    grupo = pl["grupos"][0]
+    assert grupo["items"][0]["inner_packs_por_caja"] == 3
+    assert vans.put(url, {"version": pl["version"], "inner_pack": 6}).status_code == 409

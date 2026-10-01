@@ -63,8 +63,9 @@ def _saldo_ocs(db: Session, prov: int | None) -> dict:
         saldo = max(cantidad - facturado.get(pid, 0), 0)
         if saldo:
             por_unidad[unidad] += saldo
-            valor[moneda] += saldo * precio
-            por_proveedor[prov_id] += saldo * precio
+            if precio is not None and moneda:  # sin precio el valor queda pendiente
+                valor[moneda] += saldo * precio
+                por_proveedor[prov_id] += saldo * precio
             ocs.add(oc_id)
     return {"por_unidad": dict(por_unidad), "valor": dict(valor), "ocs": len(ocs),
             "por_proveedor": dict(por_proveedor)}

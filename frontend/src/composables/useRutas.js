@@ -52,7 +52,7 @@ export function useRutas() {
   }
   function transportistasDe(modo, centro) {
     const c = centroDe(centro)
-    return transportistas.value.filter((t) => (t.tipo === modo || t.tipo === 'MULTIMODAL') && (!c || t.sociedades.includes(c.sociedad_id)))
+    return transportistas.value.filter((t) => (t.tipo === modo || t.tipo === 'MULTIMODAL') && (!c || !t.sociedades.length || t.sociedades.includes(c.sociedad_id)))
   }
   return { puertos, centros, transportistas, cargarRutas, puertosDe, destinosDe, transportistasDe, centroDe }
 }
