@@ -1,3 +1,4 @@
+import { t } from './i18n/index.js'
 import { createRouter, createWebHistory } from 'vue-router'
 import { cargarSesion, puede, sesion } from './stores/sesion'
 import { avisar } from './stores/ui'
@@ -35,7 +36,7 @@ router.beforeEach(async (to) => {
   if (to.meta.publica) return sesion.usuario ? '/' : true
   if (!sesion.usuario) return { path: '/login', query: to.fullPath === '/' ? {} : { volver: to.fullPath } }
   if (to.meta.permiso && !puede(to.meta.permiso)) {
-    avisar('You do not have access to that page.', 'error')
+    avisar(t('You do not have access to that page.'), 'error')
     return '/'
   }
   return true

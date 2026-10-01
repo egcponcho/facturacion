@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -38,24 +39,24 @@ const ocupado = ref(false)
 const verHistorial = ref(false)
 
 const EVENTOS = [
-  ['RECOLECCION', 'Pickup'],
-  ['SALIDA', 'Departure'],
-  ['TRANSITO', 'In transit'],
-  ['ARRIBO', 'Arrival'],
-  ['LIBERACION', 'Customs release'],
-  ['ENTREGA', 'Delivery'],
-  ['RECEPCION', 'Warehouse receipt'],
-  ['OTRO', 'Other'],
+  ['RECOLECCION', t('Pickup')],
+  ['SALIDA', t('Departure')],
+  ['TRANSITO', t('In transit')],
+  ['ARRIBO', t('Arrival')],
+  ['LIBERACION', t('Customs release')],
+  ['ENTREGA', t('Delivery')],
+  ['RECEPCION', t('Warehouse receipt')],
+  ['OTRO', t('Other')],
 ]
 const nombreEvento = (t) => EVENTOS.find((x) => x[0] === t)?.[1] || t
-const HITOS = [['PLANIFICADO', 'Planned'], ['EN_TRANSITO', 'In transit'], ['ARRIBADO', 'Arrived'], ['ENTREGADO', 'Delivered'], ['RECIBIDO', 'Received']]
+const HITOS = [['PLANIFICADO', t('Planned')], ['EN_TRANSITO', t('In transit')], ['ARRIBADO', t('Arrived')], ['ENTREGADO', t('Delivered')], ['RECIBIDO', t('Received')]]
 const SIGUIENTE = { PLANIFICADO: 'SALIDA', EN_TRANSITO: 'ARRIBO', ARRIBADO: 'ENTREGA', ENTREGADO: 'RECEPCION' }
 // El cuarto valor marca lo que exige el documento de transporte (BL, AWB o
 // carta de porte): sin eso no se registra la salida.
 const CAMPOS = [
-  ['documento_numero', 'Transport document', 'text', true],
-  ['etd', 'ETD (estimated departure)', 'date', false],
-  ['eta', 'ETA (estimated arrival)', 'date', false],
+  ['documento_numero', t('Transport document'), 'text', true],
+  ['etd', t('ETD (estimated departure)'), 'date', false],
+  ['eta', t('ETA (estimated arrival)'), 'date', false],
 ]
 // Al registrar la salida la carga queda cerrada: no se agregan, quitan ni
 // mueven PL o contenedores, y los datos del viaje quedan fijos.
@@ -65,10 +66,10 @@ const fijo = (campo) => cerrado.value && (FIJOS_SALIDA.includes(campo) || (e.val
 const eventosPermitidos = computed(() => EVENTOS.filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)))
 const ultimoEvento = computed(() => (e.value?.eventos || []).reduce((a, ev) => (!a || ev.fecha > a ? ev.fecha : a), null))
 const tonoHolgura = (d) => (d === null || d === undefined ? '' : d < 0 ? 'error' : d < 7 ? 'aviso' : 'ok')
-const holguraTxt = (d) => (d < 0 ? `${-d} d late for the store` : `${d} d margin`)
+const holguraTxt = (d) => (d < 0 ? t('{0} d late for the store', [-d]) : t('{0} d margin', [d]))
 const exigeSello = computed(() => !!u.value?.requiere_sello)
 const modo = computed(() => MODOS[e.value?.tipo_transporte] || MODOS.MARITIMO)
-const UNIDADES_TXT = { MARITIMO: ['Container', 'Containers'], AEREO: ['Air waybill', 'Air waybills'], TERRESTRE: ['Truck', 'Trucks'] }
+const UNIDADES_TXT = { MARITIMO: [t('Container'), t('Containers')], AEREO: [t('Air waybill'), t('Air waybills')], TERRESTRE: [t('Truck'), t('Trucks')] }
 const unidadTxt = computed(() => UNIDADES_TXT[e.value?.tipo_transporte] || UNIDADES_TXT.MARITIMO)
 const indiceEstado = computed(() => HITOS.findIndex(([k]) => k === e.value?.estado))
 const icono = computed(() => ({ AEREO: 'avion', TERRESTRE: 'camion' })[e.value?.tipo_transporte] || 'barco')
@@ -181,7 +182,7 @@ async function ejecutar(fn, exito) {
 }
 
 // ---- Unidades de carga (del catálogo de tipos del modo) --------------------
-const tipoTxt = (t) => `${t.codigo} · ${t.nombre} (${t.modalidad}${t.capacidad_cbm ? `, ${fmtNum(t.capacidad_cbm, 0)} m³` : ''}${t.capacidad_kg ? `, ${fmtNum(t.capacidad_kg, 0)} kg` : ''})`
+const tipoTxt = (u) => `${u.codigo} · ${u.nombre} (${u.modalidad}${u.capacidad_cbm ? `, ${fmtNum(u.capacidad_cbm, 0)} m³` : ''}${u.capacidad_kg ? t(', {0} kg', [fmtNum(u.capacidad_kg, 0)]) : ''})`
 const tipoElegido = computed(() => e.value?.tipos_unidad.find((t) => t.codigo === modal.value?.unidad))
 function abrirNuevaUnidad() {
   const tipos = e.value.tipos_unidad
@@ -190,11 +191,11 @@ function abrirNuevaUnidad() {
 async function agregarUnidad() {
   const m = modal.value
   const r = await ejecutar(() => api.post(`/embarques/${props.id}/unidades`, { tipo: m.unidad, numero: m.numero || null, sello: m.sello || null }),
-    (x) => `${unidadTxt.value[0]} ${x.etiqueta} added.`)
+    (x) => t('{0} {1} added.', [unidadTxt.value[0], x.etiqueta]))
   if (r) unidadId.value = r.id
 }
 function eliminarUnidad() {
-  ejecutar(() => api.del(`/unidades/${unidadId.value}`), `${u.value.nombre} deleted.`)
+  ejecutar(() => api.del(`/unidades/${unidadId.value}`), t('{0} deleted.', [u.value.nombre]))
 }
 
 // ---- Carga del contenedor --------------------------------------------------
@@ -244,9 +245,9 @@ function asignar() {
 }
 function textoAsignados(r) {
   const partes = []
-  if (r.confirmados) partes.push(`${r.confirmados} confirmed`)
-  if (r.tentativos) partes.push(`${r.tentativos} tentative`)
-  return `${plural(r.asignados, 'packing list assigned', 'packing lists assigned')} (${partes.join(', ')}).`
+  if (r.confirmados) partes.push(t('{0} confirmed', [r.confirmados]))
+  if (r.tentativos) partes.push(t('{0} tentative', [r.tentativos]))
+  return `${plural(r.asignados, t('packing list assigned'), t('packing lists assigned'))} (${partes.join(', ')}).`
 }
 // Recolección en la bodega del proveedor: se marca antes de zarpar
 const hoy = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
@@ -255,20 +256,20 @@ function abrirRecoleccion() {
 }
 function recolectar(fecha) {
   ejecutar(() => api.post('/recoleccion', { pl_ids: selA.lista(), fecha }),
-    (r) => (fecha ? `${plural(r.actualizados, 'packing list picked up', 'packing lists picked up')}.` : 'Pickup removed.'))
+    (r) => (fecha ? `${plural(r.actualizados, t('packing list picked up'), t('packing lists picked up'))}.` : t('Pickup removed.')))
 }
 function confirmar() {
   ejecutar(() => api.post(`/unidades/${unidadId.value}/confirmar`, { pl_ids: selAsignados.value.filter((p) => p.asignacion === 'TENTATIVA').map((p) => p.id) }),
-    (r) => `${plural(r.confirmados, 'packing list confirmed', 'packing lists confirmed')}.`)
+    (r) => `${plural(r.confirmados, t('packing list confirmed'), t('packing lists confirmed'))}.`)
 }
 function quitar() {
   ejecutar(() => api.post(`/unidades/${unidadId.value}/desasignar`, { pl_ids: selA.lista(), motivo: modal.value.motivo || null }),
-    'Packing lists removed from the load unit.')
+    t('Packing lists removed from the load unit.'))
 }
 function mover() {
   const { destino, modo, motivo } = modal.value
   ejecutar(() => api.post(`/unidades/${destino}/asignar`, { pl_ids: selA.lista(), modo, motivo: motivo || null }),
-    'Packing lists moved to the other load unit.')
+    t('Packing lists moved to the other load unit.'))
 }
 function alternarAbierta(id) {
   if (abiertas.has(id)) abiertas.delete(id)
@@ -291,9 +292,9 @@ function registrarEvento() {
   const m = modal.value
   ejecutar(() => api.post(`/embarques/${props.id}/eventos`, {
     tipo: m.evento, fecha: m.fecha, ubicacion: m.ubicacion || null, observacion: m.observacion || null,
-  }), (r) => (r.estado === e.value.estado ? 'Event recorded.' : `Event recorded; the shipment is now ${HITOS.find(([k]) => k === r.estado)?.[1].toLowerCase()}.`))
+  }), (r) => (r.estado === e.value.estado ? t('Event recorded.') : t('Event recorded; the shipment is now {0}.', [HITOS.find(([k]) => k === r.estado)?.[1].toLowerCase()])))
 }
-const detalleHistorial = (h) => (h.detalle ? Object.entries(h.detalle).map(([k, v]) => `${k.replaceAll('_', ' ')}: ${Array.isArray(v) ? `${v[0] ?? '—'} to ${v[1] ?? '—'}` : v}`).join(', ') : '')
+const detalleHistorial = (h) => (h.detalle ? Object.entries(h.detalle).map(([k, v]) => `${k.replaceAll('_', ' ')}: ${Array.isArray(v) ? t('{0} to {1}', [v[0] ?? '—', v[1] ?? '—']) : v}`).join(', ') : '')
 
 onMounted(() => {
   cargar()
@@ -304,161 +305,161 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
 
 <template>
   <template v-if="e">
-    <router-link to="/transporte" class="volver"><Icono nombre="atras" :tam="15" />Shipments</router-link>
+    <router-link to="/transporte" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Shipments') }}</router-link>
     <section class="doc-cabeza">
       <div class="doc-fila">
         <Icono :nombre="icono" :tam="26" />
-        <span class="doc-numero">{{ e.codigo }}</span>
+        <span class="doc-numero">{{ tx(e.codigo) }}</span>
         <EstadoBadge :estado="e.estado" />
-        <span class="doc-sub">{{ modo.nombre }}</span>
-        <span v-if="e.modalidad" class="etiqueta acento" :title="e.modalidad === 'MIXTO' ? 'Combines units of different modalities (e.g. FCL and LCL)' : ''">{{ e.modalidad }}</span>
+        <span class="doc-sub">{{ tx(modo.nombre) }}</span>
+        <span v-if="e.modalidad" class="etiqueta acento" :title="tx(e.modalidad === 'MIXTO' ? t('Combines units of different modalities (e.g. FCL and LCL)') : '')">{{ tx(e.modalidad) }}</span>
         <div class="doc-acciones">
-          <button class="btn" @click="abrirEvento('OTRO')"><Icono nombre="ubicacion" />Record event</button>
+          <button class="btn" @click="abrirEvento('OTRO')"><Icono nombre="ubicacion" />{{ t('Record event') }}</button>
           <button v-if="SIGUIENTE[e.estado]" class="btn btn-primario" :disabled="e.estado === 'PLANIFICADO' && (totales.tentativas > 0 || !totales.pls)"
-                  :title="e.estado === 'PLANIFICADO' && totales.tentativas ? 'Confirm or remove the tentative PLs first' : ''" @click="abrirEvento()">
-            <Icono nombre="flecha" />Record {{ nombreEvento(SIGUIENTE[e.estado]).toLowerCase() }}
+                  :title="tx(e.estado === 'PLANIFICADO' && totales.tentativas ? t('Confirm or remove the tentative PLs first') : '')" @click="abrirEvento()">
+            <Icono nombre="flecha" />{{ t('Record {0}', [nombreEvento(SIGUIENTE[e.estado]).toLowerCase()]) }}
           </button>
         </div>
       </div>
-      <ol class="hitos" aria-label="Shipment status">
-        <li v-for="([k, t], i) in HITOS" :key="k" class="hito" :class="{ hecho: i < indiceEstado || (i === indiceEstado && i === HITOS.length - 1), actual: i === indiceEstado && i < HITOS.length - 1 }">
-          <span class="hito-punto"><Icono v-if="i < indiceEstado" nombre="check" :tam="12" /></span>{{ t }}
+      <ol class="hitos" :aria-label="t('Shipment status')">
+        <li v-for="([k, txt], i) in HITOS" :key="k" class="hito" :class="{ hecho: i < indiceEstado || (i === indiceEstado && i === HITOS.length - 1), actual: i === indiceEstado && i < HITOS.length - 1 }">
+          <span class="hito-punto"><Icono v-if="i < indiceEstado" nombre="check" :tam="12" /></span>{{ tx(txt) }}
         </li>
       </ol>
       <p v-if="cerrado" class="bloqueo mt"><Icono nombre="candado" />
-        <span><b>Cargo closed.</b> The shipment departed<template v-if="e.salida_real"> on {{ fmtFecha(e.salida_real) }}</template>: packing lists and load units can no longer be added, removed or moved, and the voyage data is fixed. Only the next tracking events can be recorded.</span>
+        <span><b>{{ t('Cargo closed.') }}</b> {{ t('The shipment departed') }}<template v-if="e.salida_real"> {{ t('on {0}', [fmtFecha(e.salida_real)]) }}</template>{{ t(': packing lists and load units can no longer be added, removed or moved, and the voyage data is fixed. Only the next tracking events can be recorded.') }}</span>
       </p>
-      <p v-if="e.estado === 'PLANIFICADO' && totales.tentativas" class="nota aviso mt"><Icono nombre="alerta" />There {{ totales.tentativas === 1 ? 'is' : 'are' }} {{ plural(totales.tentativas, 'tentative packing list', 'tentative packing lists') }}. Confirm or remove them before recording departure.</p>
+      <p v-if="e.estado === 'PLANIFICADO' && totales.tentativas" class="nota aviso mt"><Icono nombre="alerta" />{{ t('Tentative packing lists: {0}. Confirm or remove them before recording departure.', [totales.tentativas]) }}</p>
       <div class="doc-datos">
         <label v-for="[campo, texto, tipo, obligatorio] in CAMPOS" :key="campo" class="dato">
-          <span :class="{ req: obligatorio }">{{ campo === 'documento_numero' ? modo.doc : texto }}</span>
-          <b v-if="fijo(campo)" :title="'Fixed since departure'">{{ tipo === 'date' ? fmtFecha(e[campo]) : e[campo] || '—' }} <Icono nombre="candado" :tam="12" /></b>
-          <CeldaEditable v-else :tipo="tipo" :valor="e[campo]" :guardar="guardar(campo)" :etiqueta="texto" :vacia-texto="obligatorio ? 'Required' : ''" />
+          <span :class="{ req: obligatorio }">{{ tx(campo === 'documento_numero' ? modo.doc : texto) }}</span>
+          <b v-if="fijo(campo)" :title="t('Fixed since departure')">{{ tx(tipo === 'date' ? fmtFecha(e[campo]) : e[campo] || '—') }} <Icono nombre="candado" :tam="12" /></b>
+          <CeldaEditable v-else :tipo="tipo" :valor="e[campo]" :guardar="guardar(campo)" :etiqueta="tx(texto)" :vacia-texto="tx(obligatorio ? t('Required') : '')" />
         </label>
-        <div class="dato"><span class="req">{{ modo.transportista }}</span>
-          <b v-if="fijo('transportista_id')">{{ e.transportista || '—' }} <Icono nombre="candado" :tam="12" /></b>
-          <SelectBusqueda v-else :model-value="e.transportista_id || ''" :opciones="opcionesTransportista" vacio="Not defined" :etiqueta="modo.transportista"
+        <div class="dato"><span class="req">{{ tx(modo.transportista) }}</span>
+          <b v-if="fijo('transportista_id')">{{ tx(e.transportista || '—') }} <Icono nombre="candado" :tam="12" /></b>
+          <SelectBusqueda v-else :model-value="e.transportista_id || ''" :opciones="opcionesTransportista" :vacio="t('Not defined')" :etiqueta="tx(modo.transportista)"
                           @change="(v) => cambiarRuta('transportista_id', v)" />
         </div>
-        <div class="dato"><span class="req">Receiving plant</span>
-          <b v-if="cerrado">{{ e.centro || '—' }} <Icono nombre="candado" :tam="12" /></b>
-          <SelectBusqueda v-else :model-value="e.centro || ''" :opciones="centros" vacio="Set by the first cargo" etiqueta="Plant"
+        <div class="dato"><span class="req">{{ t('Receiving plant') }}</span>
+          <b v-if="cerrado">{{ tx(e.centro || '—') }} <Icono nombre="candado" :tam="12" /></b>
+          <SelectBusqueda v-else :model-value="e.centro || ''" :opciones="centros" :vacio="t('Set by the first cargo')" :etiqueta="t('Plant')"
                           @change="(v) => cambiarRuta('centro', v)" />
         </div>
-        <div class="dato"><span class="req">{{ modo.puerto }} of loading</span>
-          <b v-if="fijo('puerto_origen')">{{ nombrePuerto(e.puerto_origen) }} <Icono nombre="candado" :tam="12" /></b>
-          <SelectBusqueda v-else :model-value="e.puerto_origen || ''" :opciones="origenes" vacio="Not defined" :etiqueta="`${modo.puerto} of loading`"
+        <div class="dato"><span class="req">{{ t('{0} of loading', [modo.puerto]) }}</span>
+          <b v-if="fijo('puerto_origen')">{{ tx(nombrePuerto(e.puerto_origen)) }} <Icono nombre="candado" :tam="12" /></b>
+          <SelectBusqueda v-else :model-value="e.puerto_origen || ''" :opciones="origenes" :vacio="t('Not defined')" :etiqueta="t('{0} of loading', [modo.puerto])"
                           @change="(v) => cambiarRuta('puerto_origen', v)" />
         </div>
-        <div class="dato"><span class="req">{{ modo.puerto }} of discharge</span>
-          <b v-if="fijo('puerto_destino')">{{ nombrePuerto(e.puerto_destino) }} <Icono nombre="candado" :tam="12" /></b>
-          <SelectBusqueda v-else :model-value="e.puerto_destino || ''" :opciones="destinos" vacio="Not defined" :etiqueta="`${modo.puerto} of discharge`"
+        <div class="dato"><span class="req">{{ t('{0} of discharge', [modo.puerto]) }}</span>
+          <b v-if="fijo('puerto_destino')">{{ tx(nombrePuerto(e.puerto_destino)) }} <Icono nombre="candado" :tam="12" /></b>
+          <SelectBusqueda v-else :model-value="e.puerto_destino || ''" :opciones="destinos" :vacio="t('Not defined')" :etiqueta="t('{0} of discharge', [modo.puerto])"
                           @change="(v) => cambiarRuta('puerto_destino', v)" />
-          <small v-if="!fijo('puerto_destino') && e.puertos_sugeridos?.length > 1" class="ayuda">The plant receives via {{ e.puertos_sugeridos.join(', ') }}.</small>
+          <small v-if="!fijo('puerto_destino') && e.puertos_sugeridos?.length > 1" class="ayuda">{{ t('The plant receives via {0}.', [e.puertos_sugeridos.join(', ')]) }}</small>
         </div>
-        <div class="dato"><span>Actual departure</span><b>{{ fmtFecha(e.salida_real) }}</b></div>
-        <div class="dato"><span>Actual arrival</span><b>{{ fmtFecha(e.arribo_real) }}</b></div>
+        <div class="dato"><span>{{ t('Actual departure') }}</span><b>{{ fmtFecha(e.salida_real) }}</b></div>
+        <div class="dato"><span>{{ t('Actual arrival') }}</span><b>{{ fmtFecha(e.arribo_real) }}</b></div>
       </div>
       <div class="empaque-resumen">
-        <div class="cifra"><span>{{ unidadTxt[1] }}</span><b>{{ e.unidades.length }}</b></div>
-        <div class="cifra"><span>Packing lists</span><b>{{ totales.pls }}</b></div>
-        <div class="cifra"><span>Cartons</span><b>{{ fmtNum(totales.cajas) }}</b></div>
-        <div class="cifra"><span>Volume</span><b>{{ fmtNum(totales.cbm, 2) }} m³</b></div>
-        <div class="cifra"><span>Gross weight</span><b>{{ fmtNum(totales.kg, 0) }} kg</b></div>
+        <div class="cifra"><span>{{ tx(unidadTxt[1]) }}</span><b>{{ tx(e.unidades.length) }}</b></div>
+        <div class="cifra"><span>{{ t('Packing lists') }}</span><b>{{ tx(totales.pls) }}</b></div>
+        <div class="cifra"><span>{{ t('Cartons') }}</span><b>{{ fmtNum(totales.cajas) }}</b></div>
+        <div class="cifra"><span>{{ t('Volume') }}</span><b>{{ fmtNum(totales.cbm, 2) }} m³</b></div>
+        <div class="cifra"><span>{{ t('Gross weight') }}</span><b>{{ t('{0} kg', [fmtNum(totales.kg, 0)]) }}</b></div>
       </div>
     </section>
 
     <section class="panel">
-      <div class="panel-cabeza"><div><h2>{{ unidadTxt[1] }}</h2><p>Choose a unit to see and assign its cargo. Only {{ modo.nombre.toLowerCase() }} unit types are offered.</p></div></div>
+      <div class="panel-cabeza"><div><h2>{{ tx(unidadTxt[1]) }}</h2><p>{{ t('Choose a unit to see and assign its cargo. Only {0} unit types are offered.', [modo.nombre.toLowerCase()]) }}</p></div></div>
       <div class="unidades-pestanas" role="tablist">
         <button v-for="x in e.unidades" :key="x.id" class="unidad-pestana" role="tab" :aria-selected="x.id === unidadId" @click="unidadId = x.id">
-          <span class="fila-flex"><Icono :nombre="e.tipo_transporte === 'MARITIMO' ? 'contenedor' : modo.icono" /><span class="unidad-nombre">{{ x.nombre }}</span><span class="etiqueta" :title="x.tipo_nombre">{{ x.tipo }}</span><span v-if="x.modalidad" class="etiqueta acento">{{ x.modalidad }}</span></span>
+          <span class="fila-flex"><Icono :nombre="e.tipo_transporte === 'MARITIMO' ? 'contenedor' : modo.icono" /><span class="unidad-nombre">{{ tx(x.nombre) }}</span><span class="etiqueta" :title="tx(x.tipo_nombre)">{{ tx(x.tipo) }}</span><span v-if="x.modalidad" class="etiqueta acento">{{ tx(x.modalidad) }}</span></span>
           <Avance v-if="x.capacidad_cbm" :porcentaje="x.pct_cbm || 0" />
-          <span class="ayuda">{{ plural(x.packing_lists, 'PL', 'PLs') }} · {{ fmtNum(x.cbm, 1) }} m³<template v-if="x.tentativas"> · <span class="etiqueta aviso">{{ x.tentativas }} tentative</span></template></span>
-          <span v-if="x.marcas?.length" class="ayuda">{{ x.marcas.join(' · ') }}</span>
-          <span v-if="x.holgura_dias !== null && x.holgura_dias !== undefined" class="etiqueta" :class="tonoHolgura(x.holgura_dias)" style="margin-left: 0">{{ holguraTxt(x.holgura_dias) }}</span>
-          <span v-for="a in x.alertas" :key="a" class="etiqueta error">{{ a }}</span>
+          <span class="ayuda">{{ plural(x.packing_lists, 'PL', t('PLs')) }} · {{ fmtNum(x.cbm, 1) }} m³<template v-if="x.tentativas"> · <span class="etiqueta aviso">{{ t('{0} tentative', [x.tentativas]) }}</span></template></span>
+          <span v-if="x.marcas?.length" class="ayuda">{{ tx(x.marcas.join(' · ')) }}</span>
+          <span v-if="x.holgura_dias !== null && x.holgura_dias !== undefined" class="etiqueta" :class="tonoHolgura(x.holgura_dias)" style="margin-inline-start: 0">{{ tx(holguraTxt(x.holgura_dias)) }}</span>
+          <span v-for="a in x.alertas" :key="a" class="etiqueta error">{{ tx(a) }}</span>
         </button>
-        <button v-if="!cerrado" class="unidad-pestana agregar" @click="abrirNuevaUnidad"><Icono nombre="mas" :tam="20" />Add {{ unidadTxt[0].toLowerCase() }}</button>
+        <button v-if="!cerrado" class="unidad-pestana agregar" @click="abrirNuevaUnidad"><Icono nombre="mas" :tam="20" />{{ t('Add {0}', [unidadTxt[0].toLowerCase()]) }}</button>
       </div>
 
       <template v-if="u">
         <div class="dos-columnas mt" style="align-items: start">
           <div>
             <div class="rejilla-campos">
-              <label class="dato"><span class="req">{{ unidadTxt[0] }} number</span>
-                <b v-if="cerrado">{{ u.numero || '—' }}</b>
-                <CeldaEditable v-else :valor="u.numero" :guardar="guardarUnidad('numero')" etiqueta="Number" vacia-texto="Required" />
+              <label class="dato"><span class="req">{{ t('{0} number', [unidadTxt[0]]) }}</span>
+                <b v-if="cerrado">{{ tx(u.numero || '—') }}</b>
+                <CeldaEditable v-else :valor="u.numero" :guardar="guardarUnidad('numero')" :etiqueta="t('Number')" :vacia-texto="t('Required')" />
               </label>
-              <label class="dato"><span :class="{ req: exigeSello }">Seal</span>
-                <b v-if="cerrado">{{ u.sello || '—' }}</b>
-                <CeldaEditable v-else :valor="u.sello" :guardar="guardarUnidad('sello')" etiqueta="Seal" :vacia-texto="exigeSello ? 'Required' : ''" />
+              <label class="dato"><span :class="{ req: exigeSello }">{{ t('Seal') }}</span>
+                <b v-if="cerrado">{{ tx(u.sello || '—') }}</b>
+                <CeldaEditable v-else :valor="u.sello" :guardar="guardarUnidad('sello')" :etiqueta="t('Seal')" :vacia-texto="tx(exigeSello ? t('Required') : '')" />
               </label>
-              <div class="dato"><span>First in-store date</span><b>{{ fmtFecha(u.fecha_tienda) }}</b></div>
-              <div class="dato"><span>Arrival vs. store</span>
-                <b v-if="u.holgura_dias !== null && u.holgura_dias !== undefined"><span class="etiqueta" :class="tonoHolgura(u.holgura_dias)" style="margin-left: 0">{{ holguraTxt(u.holgura_dias) }}</span></b>
-                <b v-else class="apagado">ETA or in-store date missing</b>
+              <div class="dato"><span>{{ t('First in-store date') }}</span><b>{{ fmtFecha(u.fecha_tienda) }}</b></div>
+              <div class="dato"><span>{{ t('Arrival vs. store') }}</span>
+                <b v-if="u.holgura_dias !== null && u.holgura_dias !== undefined"><span class="etiqueta" :class="tonoHolgura(u.holgura_dias)" style="margin-inline-start: 0">{{ tx(holguraTxt(u.holgura_dias)) }}</span></b>
+                <b v-else class="apagado">{{ t('ETA or in-store date missing') }}</b>
               </div>
             </div>
           </div>
           <div>
             <div v-if="u.capacidad_cbm" class="linea-avance">
-              <span class="ayuda">Volume: {{ fmtNum(u.cbm, 2) }} of {{ fmtNum(u.capacidad_cbm, 0) }} m³</span>
+              <span class="ayuda">{{ t('Volume: {0} of {1} m³', [fmtNum(u.cbm, 2), fmtNum(u.capacidad_cbm, 0)]) }}</span>
               <Avance :porcentaje="u.pct_cbm || 0" />
             </div>
             <div v-if="u.capacidad_kg" class="linea-avance mt-chico">
-              <span class="ayuda">Weight: {{ fmtNum(u.peso_bruto, 0) }} of {{ fmtNum(u.capacidad_kg, 0) }} kg</span>
+              <span class="ayuda">{{ t('Weight: {0} of {1} kg', [fmtNum(u.peso_bruto, 0), fmtNum(u.capacidad_kg, 0)]) }}</span>
               <Avance :porcentaje="u.pct_kg || 0" />
             </div>
-            <p v-if="!u.capacidad_cbm" class="ayuda">{{ fmtNum(u.cbm, 2) }} m³ · {{ fmtNum(u.peso_bruto, 0) }} kg (no nominal capacity)</p>
-            <p v-for="a in u.alertas" :key="a" class="nota error mt-chico"><Icono nombre="alerta" />{{ a }}</p>
+            <p v-if="!u.capacidad_cbm" class="ayuda">{{ t('{0} m³ · {1} kg (no nominal capacity)', [fmtNum(u.cbm, 2), fmtNum(u.peso_bruto, 0)]) }}</p>
+            <p v-for="a in u.alertas" :key="a" class="nota error mt-chico"><Icono nombre="alerta" />{{ tx(a) }}</p>
           </div>
         </div>
 
         <div class="fila-flex mt">
-          <h3>Cargo of {{ u.nombre }}</h3>
-          <span class="ayuda">{{ plural(u.facturas, 'invoice', 'invoices') }} · {{ plural(u.cajas, 'carton', 'cartons') }} · {{ u.recolectados }} of {{ u.packing_lists }} picked up</span>
+          <h3>{{ t('Cargo of {0}', [u.nombre]) }}</h3>
+          <span class="ayuda">{{ t('{0} · {1} · {2} of {3} picked up', [plural(u.facturas, t('invoice'), t('invoices')), plural(u.cajas, t('carton'), t('cartons')), u.recolectados, u.packing_lists]) }}</span>
           <span class="separar"></span>
           <template v-if="!cerrado">
-            <button v-if="!u.packing_lists" class="btn btn-fantasma btn-peligro" @click="eliminarUnidad"><Icono nombre="basura" :tam="15" />Delete {{ unidadTxt[0].toLowerCase() }}</button>
-            <button class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />Assign cargo</button>
+            <button v-if="!u.packing_lists" class="btn btn-fantasma btn-peligro" @click="eliminarUnidad"><Icono nombre="basura" :tam="15" />{{ t('Delete {0}', [unidadTxt[0].toLowerCase()]) }}</button>
+            <button class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />{{ t('Assign cargo') }}</button>
           </template>
         </div>
         <div class="tabla-marco mt-chico" style="box-shadow: none">
           <table class="tabla">
             <thead>
               <tr>
-                <th v-if="!cerrado" class="chk"><input type="checkbox" aria-label="Select all assigned" :checked="selA.todos(u.asignados.map((p) => p.id))" @change="selA.alternarTodos(u.asignados.map((p) => p.id))" /></th>
-                <ThOrden campo="factura" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">Invoice</ThOrden>
-                <ThOrden campo="numero" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">Packing list</ThOrden>
-                <ThOrden campo="proveedor" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">Supplier · brands</ThOrden>
-                <ThOrden campo="asignacion" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">Assignment</ThOrden>
+                <th v-if="!cerrado" class="chk"><input type="checkbox" :aria-label="t('Select all assigned')" :checked="selA.todos(u.asignados.map((p) => p.id))" @change="selA.alternarTodos(u.asignados.map((p) => p.id))" /></th>
+                <ThOrden campo="factura" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Invoice') }}</ThOrden>
+                <ThOrden campo="numero" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Packing list') }}</ThOrden>
+                <ThOrden campo="proveedor" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Supplier · brands') }}</ThOrden>
+                <ThOrden campo="asignacion" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Assignment') }}</ThOrden>
                 <ThOrden campo="fecha_xf" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">XF</ThOrden>
-                <ThOrden campo="recolectado_en" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">Pickup</ThOrden>
-                <ThOrden campo="fecha_tienda" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">In store</ThOrden>
-                <th>Contents</th>
-                <ThOrden campo="cajas" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">Cartons</ThOrden>
-                <ThOrden campo="peso_bruto" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">Gross kg</ThOrden>
+                <ThOrden campo="recolectado_en" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Pickup') }}</ThOrden>
+                <ThOrden campo="fecha_tienda" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('In store') }}</ThOrden>
+                <th>{{ t('Contents') }}</th>
+                <ThOrden campo="cajas" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">{{ t('Cartons') }}</ThOrden>
+                <ThOrden campo="peso_bruto" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">{{ t('Gross kg') }}</ThOrden>
                 <ThOrden campo="cbm" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">m³</ThOrden>
               </tr>
             </thead>
             <tbody>
               <tr v-for="p in tablaA.filas.value" :key="p.id" :class="{ seleccionada: selA.tiene(p.id) }">
-                <td v-if="!cerrado" class="chk"><input type="checkbox" :aria-label="`Select ${p.factura} ${p.numero}`" :checked="selA.tiene(p.id)" @change="selA.alternar(p.id)" /></td>
-                <td><router-link :to="`/facturas/${p.factura_id}`" class="fuerte">{{ p.factura }}</router-link><span class="sub codigo">{{ p.ocs?.join(', ') }}</span></td>
-                <td><router-link :to="`/packing-lists/${p.id}`" class="cajas-rango">{{ p.numero }}</router-link> <EstadoBadge :estado="p.estado" /></td>
-                <td>{{ p.proveedor }}<span v-if="p.marcas?.length" class="sub">{{ p.marcas.join(' · ') }}</span></td>
+                <td v-if="!cerrado" class="chk"><input type="checkbox" :aria-label="t('Select {0} {1}', [p.factura, p.numero])" :checked="selA.tiene(p.id)" @change="selA.alternar(p.id)" /></td>
+                <td><router-link :to="`/facturas/${p.factura_id}`" class="fuerte">{{ tx(p.factura) }}</router-link><span class="sub codigo">{{ tx(p.ocs?.join(', ')) }}</span></td>
+                <td><router-link :to="`/packing-lists/${p.id}`" class="cajas-rango">{{ tx(p.numero) }}</router-link> <EstadoBadge :estado="p.estado" /></td>
+                <td>{{ tx(p.proveedor) }}<span v-if="p.marcas?.length" class="sub">{{ tx(p.marcas.join(' · ')) }}</span></td>
                 <td>
                   <EstadoBadge :estado="p.asignacion" />
-                  <span v-if="p.asignacion === 'TENTATIVA' && !p.puede_confirmar" class="sub">{{ p.motivo_no_confirmable }}</span>
+                  <span v-if="p.asignacion === 'TENTATIVA' && !p.puede_confirmar" class="sub">{{ tx(p.motivo_no_confirmable) }}</span>
                 </td>
                 <td>{{ fmtFecha(p.fecha_xf) }}</td>
                 <td>
                   <template v-if="p.recolectado_en">
                     {{ fmtFecha(p.recolectado_en) }}
-                    <span v-if="p.fecha_xf && p.recolectado_en > p.fecha_xf" class="sub" style="color: var(--error)">after the XF</span>
+                    <span v-if="p.fecha_xf && p.recolectado_en > p.fecha_xf" class="sub" style="color: var(--error)">{{ t('after the XF') }}</span>
                   </template>
-                  <span v-else class="etiqueta aviso" style="margin-left: 0">Pending</span>
+                  <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ t('Pending') }}</span>
                 </td>
                 <td>{{ fmtFecha(p.fecha_tienda) }}</td>
                 <td>{{ porUnidadTxt(p.por_unidad, 'cantidad') }}</td>
@@ -469,62 +470,62 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
               <tr v-if="!u.asignados.length">
                 <td colspan="12" class="vacio">
                   <Icono nombre="contenedor" :tam="28" />
-                  <p>The load unit is empty.</p>
-                  <button v-if="!cerrado" class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />Assign cargo</button>
+                  <p>{{ t('The load unit is empty.') }}</p>
+                  <button v-if="!cerrado" class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />{{ t('Assign cargo') }}</button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <BarraSeleccion :cantidad="selA.ids.size" singular="PL selected" plural="PLs selected" @limpiar="selA.limpiar()">
-          <template #resumen>{{ fmtNum(totSelA.cajas) }} cartons · {{ fmtNum(totSelA.cbm, 2) }} m³</template>
-          <button class="btn btn-primario" :disabled="ocupado || !selAsignados.some((p) => p.asignacion === 'TENTATIVA' && p.puede_confirmar)" @click="confirmar"><Icono nombre="check" :tam="15" />Confirm</button>
-          <button class="btn" :disabled="ocupado || selAsignados.some((p) => p.estado !== 'FINALIZADO')" title="Finalized packing lists only" @click="abrirRecoleccion"><Icono nombre="camion" :tam="15" />Mark picked up</button>
-          <button v-if="selAsignados.some((p) => p.recolectado_en)" class="btn" :disabled="ocupado" @click="recolectar(null)">Remove pickup</button>
-          <button class="btn" :disabled="!u.otras_unidades.length" @click="modal = { tipo: 'mover', destino: u.otras_unidades[0]?.id, modo: 'AUTO', motivo: '' }"><Icono nombre="mover" :tam="15" />Move to another unit</button>
-          <button class="btn btn-peligro" @click="modal = { tipo: 'quitar', motivo: '' }">Remove</button>
+        <BarraSeleccion :cantidad="selA.ids.size" :singular="t('PL selected')" :plural="t('PLs selected')" @limpiar="selA.limpiar()">
+          <template #resumen>{{ t('{0} cartons · {1} m³', [fmtNum(totSelA.cajas), fmtNum(totSelA.cbm, 2)]) }}</template>
+          <button class="btn btn-primario" :disabled="ocupado || !selAsignados.some((p) => p.asignacion === 'TENTATIVA' && p.puede_confirmar)" @click="confirmar"><Icono nombre="check" :tam="15" />{{ t('Confirm') }}</button>
+          <button class="btn" :disabled="ocupado || selAsignados.some((p) => p.estado !== 'FINALIZADO')" :title="t('Finalized packing lists only')" @click="abrirRecoleccion"><Icono nombre="camion" :tam="15" />{{ t('Mark picked up') }}</button>
+          <button v-if="selAsignados.some((p) => p.recolectado_en)" class="btn" :disabled="ocupado" @click="recolectar(null)">{{ t('Remove pickup') }}</button>
+          <button class="btn" :disabled="!u.otras_unidades.length" @click="modal = { tipo: 'mover', destino: u.otras_unidades[0]?.id, modo: 'AUTO', motivo: '' }"><Icono nombre="mover" :tam="15" />{{ t('Move to another unit') }}</button>
+          <button class="btn btn-peligro" @click="modal = { tipo: 'quitar', motivo: '' }">{{ t('Remove') }}</button>
         </BarraSeleccion>
       </template>
       <div v-else class="vacio">
         <Icono nombre="contenedor" :tam="28" />
-        <p>This shipment has no load units yet. Add a {{ unidadTxt[0].toLowerCase() }}.</p>
-        <button class="btn btn-primario" @click="abrirNuevaUnidad"><Icono nombre="mas" />Add {{ unidadTxt[0].toLowerCase() }}</button>
+        <p>{{ t('This shipment has no load units yet. Add a {0}.', [unidadTxt[0].toLowerCase()]) }}</p>
+        <button class="btn btn-primario" @click="abrirNuevaUnidad"><Icono nombre="mas" />{{ t('Add {0}', [unidadTxt[0].toLowerCase()]) }}</button>
       </div>
     </section>
 
     <div v-if="e.notify" class="partes mt">
-      <TarjetaParte titulo="Notify party" icono="ubicacion" :parte="e.notify" />
+      <TarjetaParte :titulo="t('Notify party')" icono="ubicacion" :parte="e.notify" />
     </div>
 
     <div class="dos-columnas mt">
       <section class="panel">
         <div class="panel-cabeza">
-          <div><h2>Tracking</h2><p>Departure, arrival, delivery and receipt events change the shipment status.</p></div>
-          <button class="btn btn-chico" @click="abrirEvento('OTRO')"><Icono nombre="mas" :tam="14" />Event</button>
+          <div><h2>{{ t('Tracking') }}</h2><p>{{ t('Departure, arrival, delivery and receipt events change the shipment status.') }}</p></div>
+          <button class="btn btn-chico" @click="abrirEvento('OTRO')"><Icono nombre="mas" :tam="14" />{{ t('Event') }}</button>
         </div>
         <ul class="linea-tiempo">
           <li v-for="ev in [...e.eventos].reverse()" :key="ev.id">
             <span class="ayuda">{{ fmtFechaHoraLocal(ev.fecha) }}</span>
-            <span><b>{{ nombreEvento(ev.tipo) }}</b>{{ ev.ubicacion ? ` · ${ev.ubicacion}` : '' }}<span v-if="ev.observacion" class="sub">{{ ev.observacion }}</span></span>
+            <span><b>{{ tx(nombreEvento(ev.tipo)) }}</b>{{ tx(ev.ubicacion ? ` · ${ev.ubicacion}` : '') }}<span v-if="ev.observacion" class="sub">{{ tx(ev.observacion) }}</span></span>
           </li>
-          <li v-if="!e.eventos.length"><span></span><span class="ayuda">No events yet.</span></li>
+          <li v-if="!e.eventos.length"><span></span><span class="ayuda">{{ t('No events yet.') }}</span></li>
         </ul>
       </section>
       <section class="panel">
         <div class="panel-cabeza">
-          <div><h2>Change history</h2><p>Who changed dates, load units or cargo.</p></div>
-          <button v-if="e.historial.length > 5" class="btn btn-chico btn-fantasma" @click="verHistorial = !verHistorial">{{ verHistorial ? 'See less' : `See all (${e.historial.length})` }}</button>
+          <div><h2>{{ t('Change history') }}</h2><p>{{ t('Who changed dates, load units or cargo.') }}</p></div>
+          <button v-if="e.historial.length > 5" class="btn btn-chico btn-fantasma" @click="verHistorial = !verHistorial">{{ tx(verHistorial ? t('See less') : t('See all ({0})', [e.historial.length])) }}</button>
         </div>
         <ul class="linea-tiempo">
           <li v-for="(h, i) in verHistorial ? e.historial : e.historial.slice(0, 5)" :key="i">
-            <span class="ayuda">{{ fmtFechaHora(h.fecha) }}<br />{{ h.usuario }}</span>
+            <span class="ayuda">{{ fmtFechaHora(h.fecha) }}<br />{{ tx(h.usuario) }}</span>
             <span>
-              <b>{{ ACCIONES[h.accion] || h.accion }}</b>
-              <span class="sub">{{ detalleHistorial(h) }}</span>
-              <span v-if="h.motivo" class="sub">Reason: {{ h.motivo }}</span>
+              <b>{{ tx(ACCIONES[h.accion] || h.accion) }}</b>
+              <span class="sub">{{ tx(detalleHistorial(h)) }}</span>
+              <span v-if="h.motivo" class="sub">{{ t('Reason: {0}', [h.motivo]) }}</span>
             </span>
           </li>
-          <li v-if="!e.historial.length"><span></span><span class="ayuda">No changes.</span></li>
+          <li v-if="!e.historial.length"><span></span><span class="ayuda">{{ t('No changes.') }}</span></li>
         </ul>
       </section>
     </div>
@@ -532,31 +533,31 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
 
   <!-- Assign cargo -->
   <div v-if="cajon" class="cajon-fondo" @click="cajon = false"></div>
-  <aside v-if="cajon && u" class="cajon" style="width: min(760px, 100vw)" aria-label="Assign cargo">
+  <aside v-if="cajon && u" class="cajon" style="width: min(760px, 100vw)" :aria-label="t('Assign cargo')">
     <div class="cajon-cabeza">
       <div>
-        <h2>Assign cargo to {{ u.nombre }}</h2>
-        <p>Packing lists without a load unit, grouped by invoice. Tick an invoice to take all its PLs.</p>
+        <h2>{{ t('Assign cargo to {0}', [u.nombre]) }}</h2>
+        <p>{{ t('Packing lists without a load unit, grouped by invoice. Tick an invoice to take all its PLs.') }}</p>
       </div>
-      <button class="btn-icono" type="button" aria-label="Close" @click="cajon = false"><Icono nombre="cerrar" :tam="20" /></button>
+      <button class="btn-icono" type="button" :aria-label="t('Close')" @click="cajon = false"><Icono nombre="cerrar" :tam="20" /></button>
     </div>
     <div class="cajon-cuerpo">
       <div class="filtros">
         <label class="buscador">
           <Icono nombre="buscar" :tam="16" />
-          <input v-model="filtros.q" type="search" placeholder="Search invoice number" aria-label="Search invoice" @input="buscar" />
+          <input v-model="filtros.q" type="search" :placeholder="t('Search invoice number')" :aria-label="t('Search invoice')" @input="buscar" />
         </label>
-        <label class="check"><input v-model="filtros.solo_listos" type="checkbox" @change="cargarDisponibles" /> Only ready to confirm</label>
+        <label class="check"><input v-model="filtros.solo_listos" type="checkbox" @change="cargarDisponibles" /> {{ t('Only ready to confirm') }}</label>
       </div>
       <div class="tabla-marco" style="box-shadow: none">
         <table class="tabla">
           <thead>
             <tr>
-              <th class="chk"><input type="checkbox" aria-label="Select everything available" :checked="selD.todos(todosDisponibles.map((p) => p.id))" @change="selD.alternarTodos(todosDisponibles.map((p) => p.id))" /></th>
-              <th><span class="oculto-visual">See PLs</span></th>
-              <th>Invoice</th>
-              <th>Packing lists</th>
-              <th class="num">Cartons</th>
+              <th class="chk"><input type="checkbox" :aria-label="t('Select everything available')" :checked="selD.todos(todosDisponibles.map((p) => p.id))" @change="selD.alternarTodos(todosDisponibles.map((p) => p.id))" /></th>
+              <th><span class="oculto-visual">{{ t('See PLs') }}</span></th>
+              <th>{{ t('Invoice') }}</th>
+              <th>{{ t('Packing lists') }}</th>
+              <th class="num">{{ t('Cartons') }}</th>
               <th class="num">m³</th>
             </tr>
           </thead>
@@ -564,14 +565,14 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
             <template v-for="g in disponibles" :key="g.factura_id">
               <tr :class="{ seleccionada: selD.todos(g.packing_lists.map((p) => p.id)) }">
                 <td class="chk">
-                  <input type="checkbox" :aria-label="`Select the whole invoice ${g.factura}`" :checked="selD.todos(g.packing_lists.map((p) => p.id))" @change="selD.alternarTodos(g.packing_lists.map((p) => p.id))" />
+                  <input type="checkbox" :aria-label="t('Select the whole invoice {0}', [g.factura])" :checked="selD.todos(g.packing_lists.map((p) => p.id))" @change="selD.alternarTodos(g.packing_lists.map((p) => p.id))" />
                 </td>
-                <td><button class="btn-icono" :aria-expanded="abiertas.has(g.factura_id)" :aria-label="`See the PLs of ${g.factura}`" @click="alternarAbierta(g.factura_id)"><Icono :nombre="abiertas.has(g.factura_id) ? 'abajo' : 'derecha'" :tam="16" /></button></td>
-                <td><b>{{ g.factura }}</b> <EstadoBadge :estado="g.factura_estado" /><span class="sub">{{ g.proveedor }}</span></td>
+                <td><button class="btn-icono" :aria-expanded="abiertas.has(g.factura_id)" :aria-label="t('See the PLs of {0}', [g.factura])" @click="alternarAbierta(g.factura_id)"><Icono :nombre="abiertas.has(g.factura_id) ? 'abajo' : 'derecha'" :tam="16" /></button></td>
+                <td><b>{{ tx(g.factura) }}</b> <EstadoBadge :estado="g.factura_estado" /><span class="sub">{{ tx(g.proveedor) }}</span></td>
                 <td>
-                  {{ plural(g.packing_lists.length, 'PL', 'PLs') }}
-                  <span v-if="g.todos_confirmables" class="etiqueta ok">Ready</span>
-                  <span v-else class="etiqueta aviso">Will go tentative</span>
+                  {{ plural(g.packing_lists.length, 'PL', t('PLs')) }}
+                  <span v-if="g.todos_confirmables" class="etiqueta ok">{{ t('Ready') }}</span>
+                  <span v-else class="etiqueta aviso">{{ t('Will go tentative') }}</span>
                 </td>
                 <td class="num">{{ fmtNum(g.cajas) }}</td>
                 <td class="num">{{ fmtNum(g.cbm, 2) }}</td>
@@ -579,101 +580,101 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
               <template v-if="abiertas.has(g.factura_id)">
                 <tr v-for="p in g.packing_lists" :key="p.id" :class="{ seleccionada: selD.tiene(p.id) }">
                   <td></td>
-                  <td class="chk"><input type="checkbox" :aria-label="`Select ${p.numero}`" :checked="selD.tiene(p.id)" @change="selD.alternar(p.id)" /></td>
-                  <td><span class="cajas-rango">{{ p.numero }}</span> <EstadoBadge :estado="p.estado" /><span v-if="!p.puede_confirmar" class="sub">{{ p.motivo_no_confirmable }}</span></td>
+                  <td class="chk"><input type="checkbox" :aria-label="t('Select {0}', [p.numero])" :checked="selD.tiene(p.id)" @change="selD.alternar(p.id)" /></td>
+                  <td><span class="cajas-rango">{{ tx(p.numero) }}</span> <EstadoBadge :estado="p.estado" /><span v-if="!p.puede_confirmar" class="sub">{{ tx(p.motivo_no_confirmable) }}</span></td>
                   <td>{{ porUnidadTxt(p.por_unidad, 'cantidad') }}</td>
                   <td class="num">{{ fmtNum(p.cajas) }}</td>
                   <td class="num">{{ fmtNum(p.cbm, 2) }}</td>
                 </tr>
               </template>
             </template>
-            <tr v-if="!disponibles.length"><td colspan="6" class="vacio">No packing lists without a load unit match these filters.</td></tr>
+            <tr v-if="!disponibles.length"><td colspan="6" class="vacio">{{ t('No packing lists without a load unit match these filters.') }}</td></tr>
           </tbody>
         </table>
       </div>
     </div>
     <div class="cajon-pie">
       <div v-if="proyeccion && selD.ids.size" class="linea-avance">
-        <span class="ayuda">With the selection: {{ fmtNum(proyeccion.cbm, 2) }} m³ ({{ Math.round(proyeccion.pct) }}% of the volume)</span>
+        <span class="ayuda">{{ t('With the selection: {0} m³ ({1}% of the volume)', [fmtNum(proyeccion.cbm, 2), Math.round(proyeccion.pct)]) }}</span>
         <Avance :porcentaje="proyeccion.pct" />
       </div>
-      <p v-if="proyeccion && proyeccion.pct > 100" class="nota error"><Icono nombre="alerta" />The selection exceeds the unit's nominal capacity.</p>
+      <p v-if="proyeccion && proyeccion.pct > 100" class="nota error"><Icono nombre="alerta" />{{ t('The selection exceeds the unit\'s nominal capacity.') }}</p>
       <p v-if="sugerencia?.length" class="nota info sugerencia-unidades">
         <Icono nombre="contenedor" />
-        <span>For {{ fmtNum(totSelD.cbm, 2) }} m³ and {{ fmtNum(totSelD.kg, 0) }} kg the suggested load is <b>{{ sugerencia[0].texto }}</b>
-          <template v-if="sugerencia[0].pct_cbm"> ({{ fmtNum(sugerencia[0].pct_cbm, 0) }}% of the volume)</template>.
-          <template v-if="sugerencia[0].nota"> {{ sugerencia[0].nota }}</template>
-          <template v-if="sugerencia.length > 1"> Other options: {{ sugerencia.slice(1).map((o) => o.texto).join(' · ') }}.</template>
+        <span>{{ t('For {0} m³ and {1} kg the suggested load is', [fmtNum(totSelD.cbm, 2), fmtNum(totSelD.kg, 0)]) }} <b>{{ tx(sugerencia[0].texto) }}</b>
+          <template v-if="sugerencia[0].pct_cbm"> {{ t('({0}% of the volume)', [fmtNum(sugerencia[0].pct_cbm, 0)]) }}</template>.
+          <template v-if="sugerencia[0].nota"> {{ tx(sugerencia[0].nota) }}</template>
+          <template v-if="sugerencia.length > 1"> {{ t('Other options: {0}.', [sugerencia.slice(1).map((o) => o.texto).join(' · ')]) }}</template>
         </span>
       </p>
-      <label class="check"><input v-model="confirmarListos" type="checkbox" /> Confirm right away the ones that are ready (invoice and PL finalized); the rest stay tentative</label>
+      <label class="check"><input v-model="confirmarListos" type="checkbox" /> {{ t('Confirm right away the ones that are ready (invoice and PL finalized); the rest stay tentative') }}</label>
       <div class="fila-flex">
-        <span class="ayuda">{{ plural(selD.ids.size, 'PL selected', 'PLs selected') }}<template v-if="selD.ids.size && confirmarListos"> · {{ listosSel }} will be confirmed</template></span>
-        <button class="btn btn-primario separar" :disabled="ocupado || !selD.ids.size" @click="asignar"><Icono nombre="contenedor" :tam="16" />Assign to {{ u.nombre }}</button>
+        <span class="ayuda">{{ plural(selD.ids.size, t('PL selected'), t('PLs selected')) }}<template v-if="selD.ids.size && confirmarListos"> {{ t('· {0} will be confirmed', [listosSel]) }}</template></span>
+        <button class="btn btn-primario separar" :disabled="ocupado || !selD.ids.size" @click="asignar"><Icono nombre="contenedor" :tam="16" />{{ t('Assign to {0}', [u.nombre]) }}</button>
       </div>
     </div>
   </aside>
 
-  <Modal v-if="modal?.tipo === 'unidad'" :titulo="`Add ${unidadTxt[0].toLowerCase()}`" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'unidad'" :titulo="t('Add {0}', [unidadTxt[0].toLowerCase()])" @cerrar="modal = null">
     <div class="rejilla-campos">
-      <label class="campo"><span class="req">Type</span>
-        <Seleccion v-model="modal.unidad"><option v-for="t in e.tipos_unidad" :key="t.codigo" :value="t.codigo">{{ tipoTxt(t) }}</option></Seleccion>
+      <label class="campo"><span class="req">{{ t('Type') }}</span>
+        <Seleccion v-model="modal.unidad"><option v-for="txt in e.tipos_unidad" :key="txt.codigo" :value="txt.codigo">{{ tx(tipoTxt(txt)) }}</option></Seleccion>
       </label>
-      <label class="campo"><span>Number (optional)</span><input v-model="modal.numero" :placeholder="{ MARITIMO: 'MSKU 123456-7', AEREO: '045-12345675', TERRESTRE: 'Plate C-123456' }[e.tipo_transporte]" /></label>
-      <label v-if="tipoElegido?.requiere_sello" class="campo"><span>Seal (optional)</span><input v-model="modal.sello" /></label>
+      <label class="campo"><span>{{ t('Number (optional)') }}</span><input v-model="modal.numero" :placeholder="tx({ MARITIMO: 'MSKU 123456-7', AEREO: '045-12345675', TERRESTRE: t('Plate C-123456') }[e.tipo_transporte])" /></label>
+      <label v-if="tipoElegido?.requiere_sello" class="campo"><span>{{ t('Seal (optional)') }}</span><input v-model="modal.sello" /></label>
     </div>
-    <p class="ayuda">The number<template v-if="tipoElegido?.requiere_sello"> and the seal</template> can be entered later, when the carrier assigns them; <template v-if="tipoElegido?.requiere_sello">they are required</template><template v-else>the number is required</template> to record departure.</p>
+    <p class="ayuda">{{ t('The number') }}<template v-if="tipoElegido?.requiere_sello"> {{ t('and the seal') }}</template> {{ t('can be entered later, when the carrier assigns them;') }} <template v-if="tipoElegido?.requiere_sello">{{ t('they are required') }}</template><template v-else>{{ t('the number is required') }}</template> {{ t('to record departure.') }}</p>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancel</button>
-      <button class="btn btn-primario" :disabled="ocupado" @click="agregarUnidad">Add</button>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" :disabled="ocupado" @click="agregarUnidad">{{ t('Add') }}</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'evento'" titulo="Record event" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'evento'" :titulo="t('Record event')" @cerrar="modal = null">
     <div class="rejilla-campos">
-      <label class="campo"><span class="req">Event</span>
-        <Seleccion v-model="modal.evento"><option v-for="[v, t] in eventosPermitidos" :key="v" :value="v">{{ t }}</option></Seleccion>
+      <label class="campo"><span class="req">{{ t('Event') }}</span>
+        <Seleccion v-model="modal.evento"><option v-for="[v, txt] in eventosPermitidos" :key="v" :value="v">{{ tx(txt) }}</option></Seleccion>
       </label>
-      <label class="campo"><span class="req">Date and time</span><input v-model="modal.fecha" type="datetime-local" required :min="ultimoEvento?.slice(0, 16)" /></label>
-      <label class="campo"><span>Location</span><input v-model="modal.ubicacion" /></label>
-      <label class="campo"><span>Remark</span><input v-model="modal.observacion" /></label>
+      <label class="campo"><span class="req">{{ t('Date and time') }}</span><input v-model="modal.fecha" type="datetime-local" required :min="ultimoEvento?.slice(0, 16)" /></label>
+      <label class="campo"><span>{{ t('Location') }}</span><input v-model="modal.ubicacion" /></label>
+      <label class="campo"><span>{{ t('Remark') }}</span><input v-model="modal.observacion" /></label>
     </div>
-    <p class="ayuda">Events go in order: only those following the current status appear, and the date cannot be in the future or before the last event.</p>
-    <p v-if="modal.evento === 'SALIDA'" class="nota aviso">To record departure every packing list must be confirmed. Once recorded, the shipment cargo is closed and PLs without pickup are marked picked up on this date.</p>
+    <p class="ayuda">{{ t('Events go in order: only those following the current status appear, and the date cannot be in the future or before the last event.') }}</p>
+    <p v-if="modal.evento === 'SALIDA'" class="nota aviso">{{ t('To record departure every packing list must be confirmed. Once recorded, the shipment cargo is closed and PLs without pickup are marked picked up on this date.') }}</p>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancel</button>
-      <button class="btn btn-primario" :disabled="ocupado || !modal.fecha" @click="registrarEvento">Record</button>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" :disabled="ocupado || !modal.fecha" @click="registrarEvento">{{ t('Record') }}</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'quitar'" titulo="Remove from the load unit" @cerrar="modal = null">
-    <p>The {{ selA.ids.size }} packing lists are left without a load unit and become available again.</p>
-    <label class="campo"><span :class="{ req: requiereMotivo }">Reason{{ requiereMotivo ? '' : ' (optional)' }}</span><textarea v-model="modal.motivo"></textarea></label>
+  <Modal v-if="modal?.tipo === 'quitar'" :titulo="t('Remove from the load unit')" @cerrar="modal = null">
+    <p>{{ t('The {0} packing lists are left without a load unit and become available again.', [selA.ids.size]) }}</p>
+    <label class="campo"><span :class="{ req: requiereMotivo }">{{ t('Reason{0}', [requiereMotivo ? '' : t(' (optional)')]) }}</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>
-      <button class="btn" @click="modal = null">Back</button>
-      <button class="btn btn-peligro" :disabled="ocupado || (requiereMotivo && !modal.motivo.trim())" @click="quitar">Remove</button>
+      <button class="btn" @click="modal = null">{{ t('Back') }}</button>
+      <button class="btn btn-peligro" :disabled="ocupado || (requiereMotivo && !modal.motivo.trim())" @click="quitar">{{ t('Remove') }}</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'mover'" titulo="Move to another load unit" @cerrar="modal = null">
-    <label class="campo"><span>Destination unit</span>
-      <Seleccion v-model="modal.destino"><option v-for="o in u.otras_unidades" :key="o.id" :value="o.id">{{ o.nombre }}</option></Seleccion>
+  <Modal v-if="modal?.tipo === 'mover'" :titulo="t('Move to another load unit')" @cerrar="modal = null">
+    <label class="campo"><span>{{ t('Destination unit') }}</span>
+      <Seleccion v-model="modal.destino"><option v-for="o in u.otras_unidades" :key="o.id" :value="o.id">{{ tx(o.nombre) }}</option></Seleccion>
     </label>
-    <label class="check"><input v-model="modal.modo" type="checkbox" true-value="AUTO" false-value="TENTATIVA" /> Confirm the ready ones at the destination</label>
-    <label class="campo"><span :class="{ req: requiereMotivo }">Reason{{ requiereMotivo ? '' : ' (optional)' }}</span><textarea v-model="modal.motivo"></textarea></label>
+    <label class="check"><input v-model="modal.modo" type="checkbox" true-value="AUTO" false-value="TENTATIVA" /> {{ t('Confirm the ready ones at the destination') }}</label>
+    <label class="campo"><span :class="{ req: requiereMotivo }">{{ t('Reason{0}', [requiereMotivo ? '' : t(' (optional)')]) }}</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>
-      <button class="btn" @click="modal = null">Back</button>
-      <button class="btn btn-primario" :disabled="ocupado || !modal.destino || (requiereMotivo && !modal.motivo.trim())" @click="mover">Move</button>
+      <button class="btn" @click="modal = null">{{ t('Back') }}</button>
+      <button class="btn btn-primario" :disabled="ocupado || !modal.destino || (requiereMotivo && !modal.motivo.trim())" @click="mover">{{ t('Move') }}</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'recoleccion'" titulo="Mark pickup" @cerrar="modal = null">
-    <p>{{ plural(selA.ids.size, 'packing list was', 'packing lists were') }} picked up at the supplier's warehouse.</p>
-    <label class="campo"><span class="req">Pickup date</span><input v-model="modal.fecha" type="date" :max="hoy()" /></label>
-    <p class="ayuda">It is compared with each PO's XF date to measure supplier compliance.</p>
+  <Modal v-if="modal?.tipo === 'recoleccion'" :titulo="t('Mark pickup')" @cerrar="modal = null">
+    <p>{{ t('Packing lists picked up at the supplier\'s warehouse: {0}.', [fmtNum(selA.ids.size)]) }}</p>
+    <label class="campo"><span class="req">{{ t('Pickup date') }}</span><input v-model="modal.fecha" type="date" :max="hoy()" /></label>
+    <p class="ayuda">{{ t('It is compared with each PO\'s XF date to measure supplier compliance.') }}</p>
     <template #pie>
-      <button class="btn" @click="modal = null">Back</button>
-      <button class="btn btn-primario" :disabled="ocupado || !modal.fecha" @click="recolectar(modal.fecha)">Save</button>
+      <button class="btn" @click="modal = null">{{ t('Back') }}</button>
+      <button class="btn btn-primario" :disabled="ocupado || !modal.fecha" @click="recolectar(modal.fecha)">{{ t('Save') }}</button>
     </template>
   </Modal>
 </template>

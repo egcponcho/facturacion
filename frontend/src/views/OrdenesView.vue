@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import FechaTienda from '../components/FechaTienda.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
@@ -23,7 +24,7 @@ const route = useRoute()
 const router = useRouter()
 
 // Filtros que se eligen de listas armadas con lo que realmente hay en las OCs
-const EXTRA = { sociedad: 'Company', centro: 'Plant', almacen: 'Warehouse', marca: 'Brand', comercial: 'Commercial rel.', liberacion: 'Logistics rel.', destino: 'Destination plant', puerto: 'Port' }
+const EXTRA = { sociedad: t('Company'), centro: t('Plant'), almacen: t('Warehouse'), marca: t('Brand'), comercial: t('Commercial rel.'), liberacion: t('Logistics rel.'), destino: t('Destination plant'), puerto: t('Port') }
 const filtros = reactive({
   q: route.query.q || '',
   solo_disponible: route.query.solo_disponible !== '0',
@@ -161,7 +162,7 @@ function informar(r, texto, abrir = false) {
     avisar(r.error, 'error')
     return
   }
-  avisar(`${texto}: ${r.agregadas} lines in the selection` + (r.omitidas ? `; ${r.omitidas} without balance were skipped.` : '.'))
+  avisar(t('{0}: {1} lines in the selection', [texto, r.agregadas]) + (r.omitidas ? t('; {0} without balance were skipped.', [r.omitidas]) : '.'))
   if (abrir) panel.value = true
 }
 
@@ -179,7 +180,7 @@ async function agregarOCs(ids, abrir = false) {
     }
   }
   selOC.limpiar()
-  informar(total, ids.length > 1 ? `${ids.length} full POs` : 'Full PO', abrir)
+  informar(total, ids.length > 1 ? t('{0} full POs', [ids.length]) : t('Full PO'), abrir)
 }
 
 function agregarSeleccionadas(ocId) {
@@ -187,12 +188,12 @@ function agregarSeleccionadas(ocId) {
   const posiciones = d.posiciones.filter((p) => selPos.tiene(p.id))
   const invalidas = posiciones.filter((p) => cantidadInvalida(p.a_facturar, p.disponible, p.inner_pack))
   if (invalidas.length) {
-    avisar(`Check “To invoice” on ${invalidas.length} lines: between 1 and the available quantity, in whole inner packs.`, 'error')
+    avisar(t('Check “To invoice” on {0} lines: between 1 and the available quantity, in whole inner packs.', [invalidas.length]), 'error')
     return
   }
   const r = agregarPosiciones(d.oc, posiciones)
   posiciones.forEach((p) => selPos.ids.delete(p.id))
-  informar(r, `PO ${d.oc.numero}`)
+  informar(r, t('PO {0}', [d.oc.numero]))
 }
 
 // With an inner pack, everything moves in whole inner packs
@@ -211,7 +212,7 @@ async function guardarEmpaque() {
     await api.put(`/ordenes/${e.oc.id}/posiciones/${e.p.id}/empaque`, {
       casepack: Number(e.casepack) || null, inner_pack: Number(e.inner_pack) || null,
     })
-    avisar(`PO ${e.oc.numero} line ${e.p.posicion}: packing updated.`)
+    avisar(t('PO {0} line {1}: packing updated.', [e.oc.numero, e.p.posicion]))
     empaque.value = null
     await cargarDetalle(e.oc.id, true)
   } catch (err) {
@@ -244,8 +245,8 @@ const mezclas = computed(() => {
   const avisos = []
   const centros = new Set(carrito.items.map((i) => i.centro))
   const monedas = new Set(carrito.items.map((i) => i.moneda))
-  if (centros.size > 1) avisos.push(`The selection mixes plants (${[...centros].join(', ')}); they must go on separate invoices.`)
-  if (monedas.size > 1) avisos.push(`The selection mixes currencies (${[...monedas].join(', ')}); they must go on separate invoices.`)
+  if (centros.size > 1) avisos.push(t('The selection mixes plants ({0}); they must go on separate invoices.', [[...centros].join(', ')]))
+  if (monedas.size > 1) avisos.push(t('The selection mixes currencies ({0}); they must go on separate invoices.', [[...monedas].join(', ')]))
   return avisos
 })
 
@@ -274,7 +275,7 @@ async function facturar() {
       const f = await api.get(`/facturas/${destino.value}`)
       const r = await api.post(`/facturas/${destino.value}/lineas`, { version: f.version, lineas })
       id = destino.value
-      avisar(`${f.nombre}: ${r.agregadas} new lines and ${r.aumentadas} with more quantity.`, 'ok',
+      avisar(t('{0}: {1} new lines and {2} with more quantity.', [f.nombre, r.agregadas, r.aumentadas]), 'ok',
         r.advertencias?.length ? r.advertencias : null)
     } else {
       const r = await api.post('/facturas', {
@@ -284,7 +285,7 @@ async function facturar() {
         fecha: nueva.fecha || null,
       })
       id = r.id
-      avisar(`Invoice ${r.nombre} created as a draft.`, 'ok', r.advertencias?.length ? r.advertencias : null)
+      avisar(t('Invoice {0} created as a draft.', [r.nombre]), 'ok', r.advertencias?.length ? r.advertencias : null)
     }
     vaciarCarrito()
     router.push(`/facturas/${id}?tab=lineas`)
@@ -313,14 +314,14 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
 <template>
   <div class="pagina-cabeza">
     <div>
-      <div class="eyebrow">Step 1 of 3 · Invoice</div>
-      <h1>Purchase orders</h1>
-      <p>Choose what to invoice: full POs or only some lines and quantities. You can combine several POs of the same supplier in one invoice.</p>
+      <div class="eyebrow">{{ t('Step 1 of 3 · Invoice') }}</div>
+      <h1>{{ t('Purchase orders') }}</h1>
+      <p>{{ t('Choose what to invoice: full POs or only some lines and quantities. You can combine several POs of the same supplier in one invoice.') }}</p>
     </div>
     <div class="acciones">
-      <router-link v-if="esInterno()" to="/importar" class="btn"><Icono nombre="importar" />Import POs</router-link>
+      <router-link v-if="esInterno()" to="/importar" class="btn"><Icono nombre="importar" />{{ t('Import POs') }}</router-link>
       <button class="btn btn-primario" type="button" :disabled="!carrito.items.length" @click="panel = true">
-        <Icono nombre="carrito" />Review selection ({{ carrito.items.length }})
+        <Icono nombre="carrito" />{{ t('Review selection ({0})', [carrito.items.length]) }}
       </button>
     </div>
   </div>
@@ -328,28 +329,28 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
   <div class="filtros">
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
-      <input v-model="filtros.q" type="search" placeholder="Search PO, style, color, SKU or UPC" aria-label="Search" @input="buscar" />
+      <input v-model="filtros.q" type="search" :placeholder="t('Search PO, style, color, SKU or UPC')" :aria-label="t('Search')" @input="buscar" />
     </label>
-    <SelectBusqueda v-model="filtros.sociedad" :opciones="opcionesFiltro.sociedades" vacio="Company: all" etiqueta="Company" @change="filtrar" />
-    <SelectBusqueda v-model="filtros.centro" :opciones="opcionesFiltro.centros" vacio="Plant: all" etiqueta="Plant" @change="filtrar" />
-    <SelectBusqueda v-model="filtros.almacen" :opciones="opcionesFiltro.almacenes" vacio="Warehouse: all" etiqueta="Warehouse" @change="filtrar" />
-    <SelectBusqueda v-model="filtros.marca" :opciones="opcionesFiltro.marcas" vacio="Brand: all" etiqueta="Brand" @change="filtrar" />
+    <SelectBusqueda v-model="filtros.sociedad" :opciones="opcionesFiltro.sociedades" :vacio="t('Company: all')" :etiqueta="t('Company')" @change="filtrar" />
+    <SelectBusqueda v-model="filtros.centro" :opciones="opcionesFiltro.centros" :vacio="t('Plant: all')" :etiqueta="t('Plant')" @change="filtrar" />
+    <SelectBusqueda v-model="filtros.almacen" :opciones="opcionesFiltro.almacenes" :vacio="t('Warehouse: all')" :etiqueta="t('Warehouse')" @change="filtrar" />
+    <SelectBusqueda v-model="filtros.marca" :opciones="opcionesFiltro.marcas" :vacio="t('Brand: all')" :etiqueta="t('Brand')" @change="filtrar" />
     <SelectBusqueda v-model="filtros.destino" :opciones="opcionesFiltro.destinos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
-                    vacio="Destination plant: all" etiqueta="Destination plant" @change="filtrar" />
+                    :vacio="t('Destination plant: all')" :etiqueta="t('Destination plant')" @change="filtrar" />
     <SelectBusqueda v-model="filtros.puerto" :opciones="opcionesFiltro.puertos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
-                    vacio="Port: all" etiqueta="Port of loading" @change="filtrar" />
-    <Seleccion v-model="filtros.comercial" aria-label="Commercial release" @change="filtrar">
-      <option value="">Commercial rel.: all</option><option value="C">C · Released</option><option value="P">P · Pending</option>
+                    :vacio="t('Port: all')" :etiqueta="t('Port of loading')" @change="filtrar" />
+    <Seleccion v-model="filtros.comercial" :aria-label="t('Commercial release')" @change="filtrar">
+      <option value="">{{ t('Commercial rel.: all') }}</option><option value="C">{{ t('C · Released') }}</option><option value="P">{{ t('P · Pending') }}</option>
     </Seleccion>
-    <Seleccion v-model="filtros.liberacion" aria-label="Logistics release" @change="filtrar"><option value="">Logistics rel.: all</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ l.codigo }} · {{ l.nombre }}</option></Seleccion>
-    <div class="segmentos" role="group" aria-label="Show">
-      <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">With balance to invoice</button>
-      <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">All</button>
+    <Seleccion v-model="filtros.liberacion" :aria-label="t('Logistics release')" @change="filtrar"><option value="">{{ t('Logistics rel.: all') }}</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ tx(l.codigo) }} · {{ tx(l.nombre) }}</option></Seleccion>
+    <div class="segmentos" role="group" :aria-label="t('Show')">
+      <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">{{ t('With balance to invoice') }}</button>
+      <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">{{ t('All') }}</button>
     </div>
   </div>
   <div v-if="activos.length" class="chips">
-    <span v-for="a in activos" :key="a.k" class="chip">{{ a.texto }}<button type="button" :aria-label="`Remove ${a.texto}`" @click="quitarFiltro(a.k)"><Icono nombre="cerrar" :tam="13" /></button></span>
-    <button type="button" class="btn btn-fantasma btn-chico" @click="limpiarFiltros">Clear filters</button>
+    <span v-for="a in activos" :key="a.k" class="chip">{{ tx(a.texto) }}<button type="button" :aria-label="t('Remove {0}', [a.texto])" @click="quitarFiltro(a.k)"><Icono nombre="cerrar" :tam="13" /></button></span>
+    <button type="button" class="btn btn-fantasma btn-chico" @click="limpiarFiltros">{{ t('Clear filters') }}</button>
   </div>
 
   <div class="tabla-marco tabla-fija">
@@ -357,19 +358,19 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       <thead>
         <tr>
           <th class="chk">
-            <input type="checkbox" aria-label="Select all POs with balance" :checked="selOC.todos(conSaldo)" @change="selOC.alternarTodos(conSaldo)" />
+            <input type="checkbox" :aria-label="t('Select all POs with balance')" :checked="selOC.todos(conSaldo)" @change="selOC.alternarTodos(conSaldo)" />
           </th>
-          <th><span class="oculto-visual">See lines</span></th>
-          <ThOrden campo="numero" :orden="filtros.orden" @ordenar="ordenar">Purchase order</ThOrden>
-          <ThOrden v-if="!sesion.proveedorId" campo="proveedor" :orden="filtros.orden" @ordenar="ordenar">Supplier</ThOrden>
-          <th>Company · plant · warehouse</th>
-          <th>Destination plant / port</th>
-          <ThOrden campo="fecha_xf" :orden="filtros.orden" @ordenar="ordenar">XF date</ThOrden>
-          <ThOrden campo="fecha_tienda" :orden="filtros.orden" @ordenar="ordenar">In store</ThOrden>
-          <th title="Estimated with the lead times of its origin">Est. in store</th>
-          <th>To invoice</th>
-          <ThOrden campo="importe" :orden="filtros.orden" num @ordenar="ordenar">PO value</ThOrden>
-          <ThOrden campo="avance" :orden="filtros.orden" @ordenar="ordenar">Invoiced</ThOrden>
+          <th><span class="oculto-visual">{{ t('See lines') }}</span></th>
+          <ThOrden campo="numero" :orden="filtros.orden" @ordenar="ordenar">{{ t('Purchase order') }}</ThOrden>
+          <ThOrden v-if="!sesion.proveedorId" campo="proveedor" :orden="filtros.orden" @ordenar="ordenar">{{ t('Supplier') }}</ThOrden>
+          <th>{{ t('Company · plant · warehouse') }}</th>
+          <th>{{ t('Destination plant / port') }}</th>
+          <ThOrden campo="fecha_xf" :orden="filtros.orden" @ordenar="ordenar">{{ t('XF date') }}</ThOrden>
+          <ThOrden campo="fecha_tienda" :orden="filtros.orden" @ordenar="ordenar">{{ t('In store') }}</ThOrden>
+          <th :title="t('Estimated with the lead times of its origin')">{{ t('Est. in store') }}</th>
+          <th>{{ t('To invoice') }}</th>
+          <ThOrden campo="importe" :orden="filtros.orden" num @ordenar="ordenar">{{ t('PO value') }}</ThOrden>
+          <ThOrden campo="avance" :orden="filtros.orden" @ordenar="ordenar">{{ t('Invoiced') }}</ThOrden>
           <th></th>
         </tr>
       </thead>
@@ -377,30 +378,30 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
         <template v-for="oc in datos.items" :key="oc.id">
           <tr :class="{ seleccionada: selOC.tiene(oc.id) }">
             <td class="chk">
-              <input type="checkbox" :aria-label="`Select PO ${oc.numero}`" :disabled="!tieneSaldo(oc)" :checked="selOC.tiene(oc.id)" @change="selOC.alternar(oc.id)" />
+              <input type="checkbox" :aria-label="t('Select PO {0}', [oc.numero])" :disabled="!tieneSaldo(oc)" :checked="selOC.tiene(oc.id)" @change="selOC.alternar(oc.id)" />
             </td>
             <td>
-              <button class="btn-icono" type="button" :aria-expanded="abiertas.has(oc.id)" :aria-label="`See the lines of PO ${oc.numero}`" @click="alternar(oc)">
+              <button class="btn-icono" type="button" :aria-expanded="abiertas.has(oc.id)" :aria-label="t('See the lines of PO {0}', [oc.numero])" @click="alternar(oc)">
                 <Icono :nombre="abiertas.has(oc.id) ? 'abajo' : 'derecha'" :tam="16" />
               </button>
             </td>
             <td>
-              <strong class="codigo">{{ oc.numero }}</strong>
-              <span class="sub">{{ fmtFecha(oc.fecha) }} · {{ oc.posiciones }} lines<template v-if="oc.marcas.length"> · {{ oc.marcas.join(', ') }}</template></span>
+              <strong class="codigo">{{ tx(oc.numero) }}</strong>
+              <span class="sub">{{ t('{0} · {1} lines', [fmtFecha(oc.fecha), oc.posiciones]) }}<template v-if="oc.marcas.length"> · {{ tx(oc.marcas.join(', ')) }}</template></span>
               <span class="insignias">
-                <span class="etiqueta" :class="COMERCIAL[oc.liberacion_comercial]?.[1]" :title="COMERCIAL[oc.liberacion_comercial]?.[2]">{{ COMERCIAL[oc.liberacion_comercial]?.[0] }}</span>
-                <span v-if="LIBERACION[oc.liberacion_logistica]" class="etiqueta" :class="LIBERACION[oc.liberacion_logistica][1]" :title="LIBERACION[oc.liberacion_logistica][2]">{{ LIBERACION[oc.liberacion_logistica][0] }}</span>
+                <span class="etiqueta" :class="COMERCIAL[oc.liberacion_comercial]?.[1]" :title="tx(COMERCIAL[oc.liberacion_comercial]?.[2])">{{ tx(COMERCIAL[oc.liberacion_comercial]?.[0]) }}</span>
+                <span v-if="LIBERACION[oc.liberacion_logistica]" class="etiqueta" :class="LIBERACION[oc.liberacion_logistica][1]" :title="tx(LIBERACION[oc.liberacion_logistica][2])">{{ tx(LIBERACION[oc.liberacion_logistica][0]) }}</span>
               </span>
             </td>
-            <td v-if="!sesion.proveedorId">{{ oc.proveedor }}</td>
-            <td><span class="codigo">{{ oc.sociedad }} · {{ oc.centro || '—' }}</span><span class="sub" :title="oc.almacenes.length > 1 ? 'Lines go to different warehouses' : ''">{{ oc.almacenes.join(' · ') || 'No warehouse' }}</span></td>
+            <td v-if="!sesion.proveedorId">{{ tx(oc.proveedor) }}</td>
+            <td><span class="codigo">{{ tx(oc.sociedad) }} · {{ tx(oc.centro || '—') }}</span><span class="sub" :title="tx(oc.almacenes.length > 1 ? t('Lines go to different warehouses') : '')">{{ tx(oc.almacenes.join(' · ') || t('No warehouse')) }}</span></td>
             <td>
-              <span class="codigo" :title="oc.destino_nombre || ''">{{ oc.centro_destino || '—' }}<template v-if="oc.pais_destino"> · {{ oc.pais_destino }}</template></span>
-              <span class="sub">{{ oc.puerto_despacho || 'No port' }}<template v-if="oc.pais_origen"> · origin {{ oc.pais_origen }}</template></span>
+              <span class="codigo" :title="tx(oc.destino_nombre || '')">{{ tx(oc.centro_destino || '—') }}<template v-if="oc.pais_destino"> · {{ tx(oc.pais_destino) }}</template></span>
+              <span class="sub">{{ tx(oc.puerto_despacho || t('No port')) }}<template v-if="oc.pais_origen"> {{ t('· origin {0}', [oc.pais_origen]) }}</template></span>
             </td>
             <td>
               {{ fmtFecha(oc.fecha_xf) }}
-              <span v-if="xfCambio(oc)" class="sub" :title="`Original XF ${fmtFecha(oc.fecha_xf_original)}`">was <s>{{ fmtFecha(oc.fecha_xf_original) }}</s></span>
+              <span v-if="xfCambio(oc)" class="sub" :title="t('Original XF {0}', [fmtFecha(oc.fecha_xf_original)])">{{ t('was') }} <s>{{ fmtFecha(oc.fecha_xf_original) }}</s></span>
             </td>
             <td>
               {{ fmtFecha(oc.fecha_tienda) }}
@@ -409,14 +410,14 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             <td><FechaTienda :fecha="oc.tienda_estimada" :dias="oc.dias_vs_tienda" /></td>
             <td class="ajustar" style="min-width: 100px">
               <span class="fuerte">{{ porUnidadTxt(oc.por_unidad, 'disponible') }}</span>
-              <span class="sub">of {{ porUnidadTxt(oc.por_unidad, 'cantidad') }}</span>
+              <span class="sub">{{ t('of {0}', [porUnidadTxt(oc.por_unidad, 'cantidad')]) }}</span>
             </td>
             <td class="num">{{ fmtMoneda(oc.importe, oc.moneda) }}</td>
             <td style="min-width: 110px"><Avance :porcentaje="oc.avance" /></td>
             <td class="num">
               <div class="acciones-apiladas">
-                <button class="btn btn-chico" type="button" :disabled="!tieneSaldo(oc)" title="Add the whole balance to the selection" @click="agregarOCs([oc.id])"><Icono nombre="mas" :tam="14" />Add</button>
-                <button class="btn btn-chico btn-primario" type="button" :disabled="!tieneSaldo(oc)" title="Add the whole balance and review the invoice" @click="agregarOCs([oc.id], true)">Invoice</button>
+                <button class="btn btn-chico" type="button" :disabled="!tieneSaldo(oc)" :title="t('Add the whole balance to the selection')" @click="agregarOCs([oc.id])"><Icono nombre="mas" :tam="14" />{{ t('Add') }}</button>
+                <button class="btn btn-chico btn-primario" type="button" :disabled="!tieneSaldo(oc)" :title="t('Add the whole balance and review the invoice')" @click="agregarOCs([oc.id], true)">{{ t('Invoice') }}</button>
               </div>
             </td>
           </tr>
@@ -429,64 +430,64 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                       <!-- Item data comes from the item master; PO line data comes with the purchase order -->
                       <tr class="grupo-columnas">
                         <th colspan="2"></th>
-                        <th colspan="4" title="Taken from the item master and its technical sheet (the same on every PO)">Item · master data</th>
-                        <th colspan="7" title="Comes with this purchase order line">PO line · purchase data</th>
+                        <th colspan="4" :title="t('Taken from the item master and its technical sheet (the same on every PO)')">{{ t('Item · master data') }}</th>
+                        <th colspan="7" :title="t('Comes with this purchase order line')">{{ t('PO line · purchase data') }}</th>
                         <th></th>
                       </tr>
                       <tr>
                         <th class="chk">
-                          <input type="checkbox" aria-label="Select the lines with balance" :checked="selPos.todos(seleccionables(oc.id))" @change="selPos.alternarTodos(seleccionables(oc.id))" />
+                          <input type="checkbox" :aria-label="t('Select the lines with balance')" :checked="selPos.todos(seleccionables(oc.id))" @change="selPos.alternarTodos(seleccionables(oc.id))" />
                         </th>
-                        <th>Line</th>
-                        <th>Item</th>
-                        <th>Size</th>
-                        <th>UoM</th>
-                        <th title="HS code for the destination country, from the approved technical sheet">HS code</th>
-                        <th>Warehouse</th>
-                        <th>Packing</th>
-                        <th class="num">Quantity</th>
-                        <th class="num">Available</th>
-                        <th class="num">To invoice</th>
-                        <th class="num">Price</th>
-                        <th class="num">Total</th>
-                        <th>Status</th>
+                        <th>{{ t('Line') }}</th>
+                        <th>{{ t('Item') }}</th>
+                        <th>{{ t('Size') }}</th>
+                        <th>{{ t('UoM') }}</th>
+                        <th :title="t('HS code for the destination country, from the approved technical sheet')">{{ t('HS code') }}</th>
+                        <th>{{ t('Warehouse') }}</th>
+                        <th>{{ t('Packing') }}</th>
+                        <th class="num">{{ t('Quantity') }}</th>
+                        <th class="num">{{ t('Available') }}</th>
+                        <th class="num">{{ t('To invoice') }}</th>
+                        <th class="num">{{ t('Price') }}</th>
+                        <th class="num">{{ t('Total') }}</th>
+                        <th>{{ t('Status') }}</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr v-for="p in detalles[oc.id].posiciones" :key="p.id" :class="{ seleccionada: selPos.tiene(p.id) }">
                         <td class="chk">
-                          <input type="checkbox" :aria-label="`Select line ${p.posicion}`" :disabled="!p.disponible || p.estado === 'NO_DISPONIBLE'" :checked="selPos.tiene(p.id)" @change="selPos.alternar(p.id)" />
+                          <input type="checkbox" :aria-label="t('Select line {0}', [p.posicion])" :disabled="!p.disponible || p.estado === 'NO_DISPONIBLE'" :checked="selPos.tiene(p.id)" @change="selPos.alternar(p.id)" />
                         </td>
-                        <td class="codigo">{{ p.posicion }}</td>
+                        <td class="codigo">{{ tx(p.posicion) }}</td>
                         <td>
-                          <span v-if="p.marca" class="fuerte">{{ p.marca }}</span> {{ p.estilo }} · {{ p.color }}
-                          <span class="sub codigo">{{ p.codigo_sap }}<template v-if="p.grupo"> · {{ p.grupo }}</template></span>
+                          <span v-if="p.marca" class="fuerte">{{ tx(p.marca) }}</span> {{ tx(p.estilo) }} · {{ tx(p.color) }}
+                          <span class="sub codigo">{{ tx(p.codigo_sap) }}<template v-if="p.grupo"> · {{ tx(p.grupo) }}</template></span>
                         </td>
-                        <td><strong>{{ p.talla }}</strong></td>
-                        <td><span class="etiqueta" style="margin-left: 0" :title="unidadTxt(p.unidad, 2)">{{ p.unidad }}</span></td>
+                        <td><strong>{{ tx(p.talla) }}</strong></td>
+                        <td><span class="etiqueta" style="margin-inline-start: 0" :title="tx(unidadTxt(p.unidad, 2))">{{ tx(p.unidad) }}</span></td>
                         <td>
                           <router-link v-if="p.clasificacion?.producto_id" :to="`/productos/${p.clasificacion.producto_id}`" class="enlace"
-                                       :title="p.partida_arancelaria ? 'Approved HS code for the destination country' : 'Open the technical sheet'">
-                            <span v-if="p.partida_arancelaria" class="codigo-sac">{{ p.partida_arancelaria }}</span>
-                            <span v-else class="etiqueta aviso" style="margin-left: 0">{{ p.clasificacion.estado === 'observado' ? 'Sheet returned' : 'Not classified' }}</span>
+                                       :title="tx(p.partida_arancelaria ? t('Approved HS code for the destination country') : t('Open the technical sheet'))">
+                            <span v-if="p.partida_arancelaria" class="codigo-sac">{{ tx(p.partida_arancelaria) }}</span>
+                            <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ tx(p.clasificacion.estado === 'observado' ? t('Sheet returned') : t('Not classified')) }}</span>
                           </router-link>
                           <span v-else class="apagado">—</span>
                         </td>
-                        <td class="codigo">{{ p.almacen || '—' }}</td>
+                        <td class="codigo">{{ tx(p.almacen || '—') }}</td>
                         <td>
                           <span class="fila-flex" style="gap: 4px; flex-wrap: wrap">
-                            <button v-if="p.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" style="margin-left: 0"
-                                    title="See the prepack breakdown" @click="explosion = { sku: p.codigo_sap, cajas: p.cantidad }">
-                              Prepack {{ p.prepack }} · {{ p.unidades_por_caja }} per carton <Icono nombre="lupa" :tam="12" />
+                            <button v-if="p.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" style="margin-inline-start: 0"
+                                    :title="t('See the prepack breakdown')" @click="explosion = { sku: p.codigo_sap, cajas: p.cantidad }">
+                              {{ t('Prepack {0} · {1} per carton', [p.prepack, p.unidades_por_caja]) }} <Icono nombre="lupa" :tam="12" />
                             </button>
                             <template v-else>
-                              <span v-if="p.casepack" class="etiqueta info" style="margin-left: 0" title="Exact quantity per master carton">Casepack {{ p.casepack }}</span>
-                              <span v-if="p.inner_pack" class="etiqueta acento" style="margin-left: 0"
-                                    :title="`Inner packs of ${p.inner_pack}${p.casepack ? `; ${p.casepack / p.inner_pack} inner packs per carton` : ''}`">Inner {{ p.inner_pack }}</span>
-                              <span v-if="!p.casepack && !p.inner_pack" class="ayuda">Free</span>
+                              <span v-if="p.casepack" class="etiqueta info" style="margin-inline-start: 0" :title="t('Exact quantity per master carton')">{{ t('Casepack {0}', [p.casepack]) }}</span>
+                              <span v-if="p.inner_pack" class="etiqueta acento" style="margin-inline-start: 0"
+                                    :title="t('Inner packs of {0}{1}', [p.inner_pack, p.casepack ? t('; {0} inner packs per carton', [p.casepack / p.inner_pack]) : ''])">{{ t('Inner {0}', [p.inner_pack]) }}</span>
+                              <span v-if="!p.casepack && !p.inner_pack" class="ayuda">{{ t('Free') }}</span>
                             </template>
                             <button v-if="puede('oc.empaque') && p.tipo_empaque !== 'PREPACK' && !p.facturado" type="button" class="btn-icono"
-                                    :aria-label="`Edit the packing of line ${p.posicion}`" title="Edit casepack and inner pack" @click="editarEmpaque(oc, p)">
+                                    :aria-label="t('Edit the packing of line {0}', [p.posicion])" :title="t('Edit casepack and inner pack')" @click="editarEmpaque(oc, p)">
                               <Icono nombre="editar" :tam="14" />
                             </button>
                           </span>
@@ -502,7 +503,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                             :step="p.inner_pack || 1"
                             :max="p.disponible"
                             style="width: 84px; border-color: var(--linea)"
-                            :aria-label="`To invoice on line ${p.posicion}`"
+                            :aria-label="t('To invoice on line {0}', [p.posicion])"
                             :disabled="!p.disponible || p.estado === 'NO_DISPONIBLE'"
                             @focus="selPos.ids.add(p.id)"
                           />
@@ -511,11 +512,11 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                         <td class="num">{{ fmtNum(p.total, 2) }}</td>
                         <td>
                           <EstadoBadge :estado="p.estado" />
-                          <span v-if="enCarrito(p.id)" class="etiqueta ok">In selection</span>
+                          <span v-if="enCarrito(p.id)" class="etiqueta ok">{{ t('In selection') }}</span>
                           <div v-if="p.motivo || p.facturas.length" class="ayuda">
-                            {{ p.motivo }}
+                            {{ tx(p.motivo) }}
                             <template v-for="fa in p.facturas" :key="fa.id">
-                              <router-link :to="`/facturas/${fa.id}`">{{ fa.nombre }}</router-link> ({{ fmtNum(fa.cantidad) }})
+                              <router-link :to="`/facturas/${fa.id}`">{{ tx(fa.nombre) }}</router-link> ({{ fmtNum(fa.cantidad) }})
                             </template>
                           </div>
                         </td>
@@ -525,66 +526,66 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                 </div>
                 <div class="fila-flex mt">
                   <button class="btn btn-primario btn-chico" type="button" :disabled="!seleccionadas(oc.id)" @click="agregarSeleccionadas(oc.id)">
-                    <Icono nombre="mas" :tam="14" />Add {{ seleccionadas(oc.id) || '' }} selected
+                    <Icono nombre="mas" :tam="14" />{{ t('Add {0} selected', [seleccionadas(oc.id) || '']) }}
                   </button>
-                  <span class="ayuda">Change “To invoice” to take only part; the rest stays available on the PO. With an inner pack it goes in whole inner packs.</span>
+                  <span class="ayuda">{{ t('Change “To invoice” to take only part; the rest stays available on the PO. With an inner pack it goes in whole inner packs.') }}</span>
                 </div>
               </div>
             </td>
           </tr>
         </template>
         <tr v-if="!datos.items.length && !cargando">
-          <td :colspan="columnas" class="vacio">{{ filtros.solo_disponible ? 'No POs with balance to invoice.' : 'No POs match these filters.' }}</td>
+          <td :colspan="columnas" class="vacio">{{ tx(filtros.solo_disponible ? t('No POs with balance to invoice.') : t('No POs match these filters.')) }}</td>
         </tr>
       </tbody>
     </table>
   </div>
   <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
 
-  <BarraSeleccion :cantidad="selOC.ids.size" singular="PO selected" plural="POs selected" @limpiar="selOC.limpiar()">
-    <button class="btn" type="button" @click="agregarOCs(selOC.lista())">Add to the selection</button>
-    <button class="btn btn-primario" type="button" @click="agregarOCs(selOC.lista(), true)">Invoice together</button>
+  <BarraSeleccion :cantidad="selOC.ids.size" :singular="t('PO selected')" :plural="t('POs selected')" @limpiar="selOC.limpiar()">
+    <button class="btn" type="button" @click="agregarOCs(selOC.lista())">{{ t('Add to the selection') }}</button>
+    <button class="btn btn-primario" type="button" @click="agregarOCs(selOC.lista(), true)">{{ t('Invoice together') }}</button>
   </BarraSeleccion>
 
-  <div v-if="carrito.items.length && !panel && !selOC.ids.size" class="barra-seleccion" role="region" aria-label="Selection to invoice">
+  <div v-if="carrito.items.length && !panel && !selOC.ids.size" class="barra-seleccion" role="region" :aria-label="t('Selection to invoice')">
     <Icono nombre="carrito" />
-    <strong>{{ carrito.items.length }} lines ready to invoice</strong>
+    <strong>{{ t('{0} lines ready to invoice', [carrito.items.length]) }}</strong>
     <span class="resumen">{{ porUnidadTxt(totales.porUnidad, null) }} · {{ fmtMoneda(totales.importe, carrito.items[0].moneda) }}</span>
     <div class="acciones">
-      <button class="btn btn-primario" type="button" @click="panel = true">Review and create invoice<Icono nombre="flecha" :tam="16" /></button>
+      <button class="btn btn-primario" type="button" @click="panel = true">{{ t('Review and create invoice') }}<Icono nombre="flecha" :tam="16" /></button>
     </div>
   </div>
 
   <div v-if="panel" class="cajon-fondo" @click="panel = false"></div>
-  <aside v-if="panel" class="cajon" aria-label="Selection to invoice">
+  <aside v-if="panel" class="cajon" :aria-label="t('Selection to invoice')">
     <div class="cajon-cabeza">
       <div>
-        <div class="eyebrow">Step 2 of 3</div>
-        <h2>Review and create the invoice</h2>
-        <p v-if="carrito.items.length">Supplier {{ nombreProveedor(carrito.proveedorId) }}</p>
+        <div class="eyebrow">{{ t('Step 2 of 3') }}</div>
+        <h2>{{ t('Review and create the invoice') }}</h2>
+        <p v-if="carrito.items.length">{{ t('Supplier {0}', [nombreProveedor(carrito.proveedorId)]) }}</p>
       </div>
-      <button class="btn-icono" type="button" aria-label="Close" @click="panel = false"><Icono nombre="cerrar" :tam="20" /></button>
+      <button class="btn-icono" type="button" :aria-label="t('Close')" @click="panel = false"><Icono nombre="cerrar" :tam="20" /></button>
     </div>
     <div class="cajon-cuerpo">
       <div v-if="!carrito.items.length" class="vacio">
         <Icono nombre="carrito" :tam="28" />
-        <p>No lines yet. Use “Add” on a PO or open it and choose lines.</p>
+        <p>{{ t('No lines yet. Use “Add” on a PO or open it and choose lines.') }}</p>
       </div>
       <template v-else>
         <div v-for="g in grupos" :key="g.oc_id" class="grupo-oc">
           <div class="grupo-oc-cabeza">
-            <span>PO {{ g.oc_numero }} <span class="etiqueta">{{ g.centro }}</span></span>
-            <button class="btn-texto" type="button" @click="quitarOC(g.oc_id)">Remove PO</button>
+            <span>{{ t('PO {0}', [g.oc_numero]) }} <span class="etiqueta">{{ tx(g.centro) }}</span></span>
+            <button class="btn-texto" type="button" @click="quitarOC(g.oc_id)">{{ t('Remove PO') }}</button>
           </div>
           <div v-for="i in g.items" :key="i.posicion_id" class="item-carrito">
             <div>
-              <span class="codigo">{{ i.posicion }}</span> {{ i.estilo }} {{ i.color }} <b>{{ i.talla }}</b>
+              <span class="codigo">{{ tx(i.posicion) }}</span> {{ tx(i.estilo) }} {{ tx(i.color) }} <b>{{ tx(i.talla) }}</b>
               <div class="ayuda">
-                {{ cantTxt(i.disponible, i.unidad) }} available<template v-if="i.inner_pack"> · inner packs of {{ i.inner_pack }}</template><template v-if="i.aviso">. {{ i.aviso }}</template>
+                {{ t('{0} available', [cantTxt(i.disponible, i.unidad)]) }}<template v-if="i.inner_pack"> {{ t('· inner packs of {0}', [i.inner_pack]) }}</template><template v-if="i.aviso">. {{ tx(i.aviso) }}</template>
               </div>
             </div>
-            <input v-model.number="i.cantidad" type="number" :min="i.inner_pack || 1" :step="i.inner_pack || 1" :max="i.disponible" :aria-label="`Quantity to invoice on ${i.posicion}`" />
-            <button class="btn-icono" type="button" :aria-label="`Remove line ${i.posicion}`" @click="quitarPosicion(i.posicion_id)"><Icono nombre="cerrar" :tam="16" /></button>
+            <input v-model.number="i.cantidad" type="number" :min="i.inner_pack || 1" :step="i.inner_pack || 1" :max="i.disponible" :aria-label="t('Quantity to invoice on {0}', [i.posicion])" />
+            <button class="btn-icono" type="button" :aria-label="t('Remove line {0}', [i.posicion])" @click="quitarPosicion(i.posicion_id)"><Icono nombre="cerrar" :tam="16" /></button>
           </div>
         </div>
       </template>
@@ -594,52 +595,52 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
         <span>{{ porUnidadTxt(totales.porUnidad, null) }}</span>
         <strong>{{ fmtMoneda(totales.importe, carrito.items[0].moneda) }}</strong>
       </div>
-      <p v-for="a in mezclas" :key="a" class="nota aviso"><Icono nombre="alerta" />{{ a }}</p>
-      <p v-if="invalida" class="nota error"><Icono nombre="alerta" />Some quantities are out of range (between 1 and the available quantity, in whole inner packs).</p>
+      <p v-for="a in mezclas" :key="a" class="nota aviso"><Icono nombre="alerta" />{{ tx(a) }}</p>
+      <p v-if="invalida" class="nota error"><Icono nombre="alerta" />{{ t('Some quantities are out of range (between 1 and the available quantity, in whole inner packs).') }}</p>
       <label class="campo">
-        <span>Where do you invoice it?</span>
+        <span>{{ t('Where do you invoice it?') }}</span>
         <Seleccion v-model="destino">
-          <option value="">On a new invoice</option>
-          <option v-for="b in borradores" :key="b.id" :value="b.id">Add to {{ b.nombre }} ({{ b.estado === 'BORRADOR' ? 'draft' : 'in correction' }})</option>
+          <option value="">{{ t('On a new invoice') }}</option>
+          <option v-for="b in borradores" :key="b.id" :value="b.id">{{ t('Add to {0} ({1})', [b.nombre, b.estado === 'BORRADOR' ? 'draft' : t('in correction')]) }}</option>
         </Seleccion>
       </label>
       <div v-if="!destino" class="rejilla-campos">
-        <label class="campo"><span class="req">Invoice number</span><input v-model="nueva.numero" placeholder="You can add it later" /></label>
-        <label class="campo"><span class="req">Date</span><input v-model="nueva.fecha" type="date" /></label>
+        <label class="campo"><span class="req">{{ t('Invoice number') }}</span><input v-model="nueva.numero" :placeholder="t('You can add it later')" /></label>
+        <label class="campo"><span class="req">{{ t('Date') }}</span><input v-model="nueva.fecha" type="date" /></label>
       </div>
-      <p v-if="!destino" class="leyenda-req">Required to finalize the invoice; you can complete them later.</p>
+      <p v-if="!destino" class="leyenda-req">{{ t('Required to finalize the invoice; you can complete them later.') }}</p>
       <div class="fila-flex">
-        <button class="btn-texto" type="button" @click="vaciarCarrito()">Clear selection</button>
+        <button class="btn-texto" type="button" @click="vaciarCarrito()">{{ t('Clear selection') }}</button>
         <button class="btn btn-primario separar" type="button" :disabled="enviando || invalida" @click="facturar">
-          {{ destino ? 'Add to the invoice' : 'Create invoice' }}<Icono nombre="flecha" :tam="16" />
+          {{ tx(destino ? t('Add to the invoice') : t('Create invoice')) }}<Icono nombre="flecha" :tam="16" />
         </button>
       </div>
     </div>
   </aside>
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
-  <Modal v-if="empaque" :titulo="`Packing of PO ${empaque.oc.numero} line ${empaque.p.posicion}`" ancho="520px" @cerrar="empaque = null">
-    <p class="ayuda" style="margin-top: 0">{{ empaque.p.estilo }} · {{ empaque.p.color }} · size {{ empaque.p.talla }} · {{ cantTxt(empaque.p.cantidad, empaque.p.unidad) }}</p>
+  <Modal v-if="empaque" :titulo="t('Packing of PO {0} line {1}', [empaque.oc.numero, empaque.p.posicion])" ancho="520px" @cerrar="empaque = null">
+    <p class="ayuda" style="margin-top: 0">{{ t('{0} · {1} · size {2} · {3}', [empaque.p.estilo, empaque.p.color, empaque.p.talla, cantTxt(empaque.p.cantidad, empaque.p.unidad)]) }}</p>
     <form id="form-empaque" class="rejilla-campos" @submit.prevent="guardarEmpaque">
-      <label class="campo"><span>Casepack (per master carton)</span>
-        <input v-model="empaque.casepack" type="number" min="1" placeholder="Free" />
-        <small class="ayuda">Exact quantity per carton; only the last carton may be incomplete.</small>
+      <label class="campo"><span>{{ t('Casepack (per master carton)') }}</span>
+        <input v-model="empaque.casepack" type="number" min="1" :placeholder="t('Free')" />
+        <small class="ayuda">{{ t('Exact quantity per carton; only the last carton may be incomplete.') }}</small>
       </label>
-      <label class="campo"><span>Inner pack (units per pack)</span>
-        <input v-model="empaque.inner_pack" type="number" min="1" placeholder="None" />
-        <small class="ayuda">All inner packs carry the same quantity and their own label.</small>
+      <label class="campo"><span>{{ t('Inner pack (units per pack)') }}</span>
+        <input v-model="empaque.inner_pack" type="number" min="1" :placeholder="t('None')" />
+        <small class="ayuda">{{ t('All inner packs carry the same quantity and their own label.') }}</small>
       </label>
     </form>
     <p v-if="empaque.casepack && empaque.inner_pack && empaque.casepack % empaque.inner_pack === 0" class="nota info">
-      <Icono nombre="info" />Each carton carries {{ empaque.casepack / empaque.inner_pack }} inner packs of {{ empaque.inner_pack }}.
+      <Icono nombre="info" />{{ t('Each carton carries {0} inner packs of {1}.', [empaque.casepack / empaque.inner_pack, empaque.inner_pack]) }}
     </p>
     <p v-else-if="!empaque.casepack && empaque.inner_pack" class="nota info">
-      <Icono nombre="info" />Without a casepack, each carton carries the inner packs you define (always multiples of {{ empaque.inner_pack }}).
+      <Icono nombre="info" />{{ t('Without a casepack, each carton carries the inner packs you define (always multiples of {0}).', [empaque.inner_pack]) }}
     </p>
-    <p v-if="empaque.error" class="nota error" role="alert"><Icono nombre="alerta" />{{ empaque.error }}</p>
-    <p class="ayuda">It can only change while nothing on this line is invoiced.</p>
+    <p v-if="empaque.error" class="nota error" role="alert"><Icono nombre="alerta" />{{ tx(empaque.error) }}</p>
+    <p class="ayuda">{{ t('It can only change while nothing on this line is invoiced.') }}</p>
     <template #pie>
-      <button class="btn" @click="empaque = null">Cancel</button>
-      <button class="btn btn-primario" type="submit" form="form-empaque">Save packing</button>
+      <button class="btn" @click="empaque = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" type="submit" form="form-empaque">{{ t('Save packing') }}</button>
     </template>
   </Modal>
 </template>

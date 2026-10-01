@@ -375,7 +375,7 @@ def rango_tallas(tallas: list[str]) -> str:
         out = []
         for g in grupos:
             if len(g) >= 3:
-                out.append(f"{texto(g[0])} to {texto(g[-1])}")
+                out.append(f"{texto(g[0])}–{texto(g[-1])}")
             else:
                 out += [texto(x) for x in g]
         return ", ".join(out)

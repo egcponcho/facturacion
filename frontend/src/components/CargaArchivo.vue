@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { ref } from 'vue'
 import { fmtNum } from '../utils'
 import Icono from './Icono.vue'
@@ -7,8 +8,8 @@ import Icono from './Icono.vue'
 const props = defineProps({
   modelValue: { type: Object, default: null },
   acepta: { type: String, default: '.xlsx,.xlsm,.csv' },
-  texto: { type: String, default: 'Drag the file here or choose it' },
-  ayuda: { type: String, default: 'Excel (.xlsx) or CSV' },
+  texto: { type: String, default: t('Drag the file here or choose it') },
+  ayuda: { type: String, default: t('Excel (.xlsx) or CSV') },
 })
 const emit = defineEmits(['update:modelValue'])
 const encima = ref(false)
@@ -32,18 +33,18 @@ function quitar() {
   <div v-if="props.modelValue" class="archivo-elegido">
     <span class="archivo-icono"><Icono nombre="archivo" :tam="20" /></span>
     <div class="archivo-datos">
-      <b>{{ props.modelValue.name }}</b>
-      <span class="ayuda">{{ fmtNum(props.modelValue.size / 1024, 0) }} KB</span>
+      <b>{{ tx(props.modelValue.name) }}</b>
+      <span class="ayuda">{{ t('{0} KB', [fmtNum(props.modelValue.size / 1024, 0)]) }}</span>
     </div>
-    <button type="button" class="btn btn-chico btn-fantasma" @click="entrada.click()">Change</button>
-    <button type="button" class="btn-icono" aria-label="Remove file" @click="quitar"><Icono nombre="cerrar" :tam="16" /></button>
+    <button type="button" class="btn btn-chico btn-fantasma" @click="entrada.click()">{{ t('Change') }}</button>
+    <button type="button" class="btn-icono" :aria-label="t('Remove file')" @click="quitar"><Icono nombre="cerrar" :tam="16" /></button>
     <input ref="entrada" type="file" :accept="props.acepta" class="oculto-visual" @change="elegir($event.target.files[0])" />
   </div>
   <label v-else class="zona-carga" :class="{ encima }" @dragover.prevent="encima = true" @dragleave="encima = false" @drop.prevent="soltar">
     <span class="zona-icono"><Icono nombre="importar" :tam="22" /></span>
-    <b>{{ props.texto }}</b>
-    <span class="ayuda">{{ props.ayuda }}</span>
-    <span class="btn btn-chico">Choose file</span>
+    <b>{{ tx(props.texto) }}</b>
+    <span class="ayuda">{{ tx(props.ayuda) }}</span>
+    <span class="btn btn-chico">{{ t('Choose file') }}</span>
     <input ref="entrada" type="file" :accept="props.acepta" class="oculto-visual" @change="elegir($event.target.files[0])" />
   </label>
 </template>

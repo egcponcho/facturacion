@@ -1,4 +1,5 @@
 <script setup>
+import { tx } from '../i18n/index.js'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { fmtNum } from '../utils'
 
@@ -66,26 +67,26 @@ const posTooltip = computed(() => {
 
 <template>
   <div ref="marco" class="grafica" @mouseleave="activo = null">
-    <svg :viewBox="`0 0 ${ANCHO_REF} ${ALTO}`" :height="ALTO" role="img" :aria-label="props.titulo">
+    <svg :viewBox="`0 0 ${ANCHO_REF} ${ALTO}`" :height="ALTO" role="img" :aria-label="tx(props.titulo)">
       <g>
         <template v-for="m in escala.marcas" :key="m">
           <line :class="m === 0 ? 'base' : 'rejilla'" :x1="M.izquierda" :x2="ANCHO_REF - M.derecha" :y1="y(m)" :y2="y(m)" />
-          <text class="eje" :x="M.izquierda - 8" :y="y(m) + 4" text-anchor="end">{{ compacto(m) }}</text>
+          <text class="eje" :x="M.izquierda - 8" :y="y(m) + 4" text-anchor="end">{{ tx(compacto(m)) }}</text>
         </template>
       </g>
       <g v-for="(d, i) in props.datos" :key="d.etiqueta">
         <path class="columna" :class="{ apagada: activo !== null && activo !== i }" :d="camino(d, i)" />
-        <text v-if="i % cadaN === 0" class="eje" :x="centro(i)" :y="ALTO - 8" text-anchor="middle">{{ d.etiqueta }}</text>
+        <text v-if="i % cadaN === 0" class="eje" :x="centro(i)" :y="ALTO - 8" text-anchor="middle">{{ tx(d.etiqueta) }}</text>
         <rect class="zona" :x="M.izquierda + banda * i" :y="M.arriba" :width="banda" :height="alto" tabindex="0"
-              :aria-label="`${d.etiqueta}: ${props.formato(d.valor)}`" @mouseenter="activo = i" @focus="activo = i" @blur="activo = null" />
+              :aria-label="tx(`${d.etiqueta}: ${props.formato(d.valor)}`)" @mouseenter="activo = i" @focus="activo = i" @blur="activo = null" />
       </g>
     </svg>
     <div v-if="posTooltip" class="info-flotante" :style="{ left: posTooltip.left, top: posTooltip.top }">
-      <b>{{ props.formato(posTooltip.d.valor) }}</b>{{ posTooltip.d.etiqueta }}<template v-if="posTooltip.d.detalle"> · {{ posTooltip.d.detalle }}</template>
+      <b>{{ tx(props.formato(posTooltip.d.valor)) }}</b>{{ tx(posTooltip.d.etiqueta) }}<template v-if="posTooltip.d.detalle"> · {{ tx(posTooltip.d.detalle) }}</template>
     </div>
     <table class="oculto-visual">
-      <caption>{{ props.titulo }}</caption>
-      <tr v-for="d in props.datos" :key="d.etiqueta"><th>{{ d.etiqueta }}</th><td>{{ props.formato(d.valor) }}</td></tr>
+      <caption>{{ tx(props.titulo) }}</caption>
+      <tr v-for="d in props.datos" :key="d.etiqueta"><th>{{ tx(d.etiqueta) }}</th><td>{{ tx(props.formato(d.valor)) }}</td></tr>
     </table>
   </div>
 </template>

@@ -1,37 +1,38 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 const props = defineProps({ estado: { type: String, default: '' } })
 const MAPA = {
-  BORRADOR: ['Draft', 'neutro'],
-  EN_CORRECCION: ['In correction', 'aviso'],
-  FINALIZADA: ['Finalized', 'ok'],
-  FINALIZADO: ['Finalized', 'ok'],
-  CANCELADA: ['Cancelled', 'error'],
-  CANCELADO: ['Cancelled', 'error'],
-  DISPONIBLE: ['Available', 'ok'],
-  PARCIAL: ['Partial', 'aviso'],
-  FACTURADA: ['Invoiced', 'neutro'],
-  NO_DISPONIBLE: ['Not available', 'error'],
-  SIN_CAJA: ['Not packed', 'error'],
-  COMPLETO: ['Packed', 'ok'],
-  TENTATIVA: ['Tentative', 'aviso'],
-  CONFIRMADA: ['Confirmed', 'ok'],
-  PLANIFICADO: ['Planned', 'neutro'],
-  EN_TRANSITO: ['In transit', 'info'],
-  ARRIBADO: ['Arrived', 'info'],
-  ENTREGADO: ['Delivered', 'ok'],
-  RECIBIDO: ['Received', 'ok'],
+  BORRADOR: [t('Draft'), 'neutro'],
+  EN_CORRECCION: [t('In correction'), 'aviso'],
+  FINALIZADA: [t('Finalized'), 'ok'],
+  FINALIZADO: [t('Finalized'), 'ok'],
+  CANCELADA: [t('Cancelled'), 'error'],
+  CANCELADO: [t('Cancelled'), 'error'],
+  DISPONIBLE: [t('Available'), 'ok'],
+  PARCIAL: [t('Partial'), 'aviso'],
+  FACTURADA: [t('Invoiced'), 'neutro'],
+  NO_DISPONIBLE: [t('Not available'), 'error'],
+  SIN_CAJA: [t('Not packed'), 'error'],
+  COMPLETO: [t('Packed'), 'ok'],
+  TENTATIVA: [t('Tentative'), 'aviso'],
+  CONFIRMADA: [t('Confirmed'), 'ok'],
+  PLANIFICADO: [t('Planned'), 'neutro'],
+  EN_TRANSITO: [t('In transit'), 'info'],
+  ARRIBADO: [t('Arrived'), 'info'],
+  ENTREGADO: [t('Delivered'), 'ok'],
+  RECIBIDO: [t('Received'), 'ok'],
   // Ficha técnica y clasificación del producto
-  borrador: ['Draft', 'neutro'],
-  sugerida: ['Draft · complete', 'neutro'],
-  revision: ['In review', 'info'],
-  aprobado: ['Approved', 'ok'],
-  corregido: ['Approved', 'ok'],
-  observado: ['Returned', 'aviso'],
+  borrador: [t('Draft'), 'neutro'],
+  sugerida: [t('Draft · complete'), 'neutro'],
+  revision: [t('In review'), 'info'],
+  aprobado: [t('Approved'), 'ok'],
+  corregido: [t('Approved'), 'ok'],
+  observado: [t('Returned'), 'aviso'],
 }
 </script>
 
 <template>
   <span class="estado" :class="`estado-${MAPA[props.estado]?.[1] || 'neutro'}`">
-    <span class="estado-marca" aria-hidden="true"></span>{{ MAPA[props.estado]?.[0] || props.estado }}
+    <span class="estado-marca" aria-hidden="true"></span>{{ tx(MAPA[props.estado]?.[0] || props.estado) }}
   </span>
 </template>

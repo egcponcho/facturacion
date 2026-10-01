@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { fmtFecha } from '../utils'
 
 // Fecha estimada en tienda (con los lead times del origen) y cuántos días
@@ -7,10 +8,10 @@ defineProps({ fecha: { type: String, default: null }, dias: { type: Number, defa
 </script>
 
 <template>
-  <span v-if="fecha" class="fecha-tienda" title="Estimated with the lead times of its origin: arrival plus port, warehouse entry and re-export days">
+  <span v-if="fecha" class="fecha-tienda" :title="t('Estimated with the lead times of its origin: arrival plus port, warehouse entry and re-export days')">
     {{ fmtFecha(fecha) }}
     <span v-if="dias !== null" class="sub" :style="{ color: dias > 0 ? 'var(--error)' : 'var(--ok)' }">
-      {{ dias > 0 ? `${dias} ${dias === 1 ? 'day' : 'days'} late` : dias < 0 ? `${-dias} ${dias === -1 ? 'day' : 'days'} early` : 'On the date' }}
+      {{ tx(dias > 0 ? t('{0} d late', [dias]) : dias < 0 ? t('{0} d early', [-dias]) : t('On the date')) }}
     </span>
   </span>
   <span v-else class="apagado">—</span>

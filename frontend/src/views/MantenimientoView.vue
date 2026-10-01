@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { puede } from '../stores/sesion'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
@@ -47,7 +48,7 @@ function cambiarVista(v) {
   try { localStorage.setItem('mant.vistaArticulos', v) } catch { /* sin almacenamiento */ }
   cargar()
 }
-const ESTADO_FICHA = { borrador: 'Sheet in draft', sugerida: 'Draft complete', revision: 'In review', observado: 'Returned' }
+const ESTADO_FICHA = { borrador: t('Sheet in draft'), sugerida: t('Draft complete'), revision: t('In review'), observado: t('Returned') }
 
 const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
 const campos = computed(() => cat.value?.campos || [])
@@ -150,10 +151,10 @@ async function guardar() {
     const cuerpo = Object.fromEntries(Object.entries(form.value).map(([k, v]) => [k, v === '' ? null : v]))
     if (editando.value) {
       await api.patch(`/catalogos/${tipo.value}/${editando.value}`, cuerpo)
-      avisar(`${cap(cat.value.singular)} updated.`)
+      avisar(t('{0} updated.', [cap(cat.value.singular)]))
     } else {
       await api.post(`/catalogos/${tipo.value}`, cuerpo)
-      avisar(`${cap(cat.value.singular)} created.`)
+      avisar(t('{0} created.', [cap(cat.value.singular)]))
       cat.value.total++
     }
     cerrarForm()
@@ -171,7 +172,7 @@ async function eliminar() {
   ocupado.value = true
   try {
     await api.del(`/catalogos/${tipo.value}/${fila.id}`)
-    avisar(`${cap(cat.value.singular)} deleted.`)
+    avisar(t('{0} deleted.', [cap(cat.value.singular)]))
     cat.value.total--
     modal.value = null
     if (editando.value === fila.id) nuevo()
@@ -215,7 +216,7 @@ async function cargarArchivo() {
   try {
     modal.value.resultado = await api.post(`/catalogos/${tipo.value}/importar`, datosForm)
     const r = modal.value.resultado
-    avisar(`${r.creados} created and ${r.actualizados} updated${r.errores.length ? `; ${r.errores.length} rows with errors` : ''}.`,
+    avisar(t('{0} created and {1} updated{2}.', [r.creados, r.actualizados, r.errores.length ? t('; {0} rows with errors', [r.errores.length]) : '']),
       r.errores.length ? 'error' : 'ok')
     await cargarMeta()
     cargar()
@@ -262,7 +263,7 @@ async function crearPrepack() {
     const componentes = tallasPP.value.filter((a) => Number(nuevoPP.cantidades[a.id]) > 0)
       .map((a) => ({ articulo_id: a.id, cantidad: Number(nuevoPP.cantidades[a.id]) }))
     const r = await api.post('/catalogos/prepacks', { ...nuevoPP, cantidades: undefined, componentes })
-    avisar(`Prepack ${r.codigo} created with item code ${r.sku} (${r.total} per carton).`)
+    avisar(t('Prepack {0} created with item code {1} ({2} per carton).', [r.codigo, r.sku, r.total]))
     Object.assign(nuevoPP, { sku: '', codigo: '', descripcion: '', cantidades: {} })
     formAbierto.value = false
     cat.value.total++
@@ -302,21 +303,21 @@ onMounted(async () => {
 <template>
   <div class="pagina-cabeza">
     <div>
-      <h1>Master data</h1>
-      <p>Master data used across the system: it validates the PO upload, defines the packing rules and feeds the filters. Every catalog can be edited here, loaded from Excel and exported with the filters you apply. The technical sheet, description and HS code of each item live in Products.</p>
+      <h1>{{ t('Master data') }}</h1>
+      <p>{{ t('Master data used across the system: it validates the PO upload, defines the packing rules and feeds the filters. Every catalog can be edited here, loaded from Excel and exported with the filters you apply. The technical sheet, description and HS code of each item live in Products.') }}</p>
     </div>
     <div class="acciones">
       <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="{ q: filtros.q, orden: filtros.orden, ...filtros.extra }" />
-      <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />Template</a>
-      <button v-if="cat && puede('catalogos.crear')" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tipo === 'articulos' ? 'Upload items and sheets' : tipo === 'prepacks' ? 'Upload size runs' : 'Upload Excel' }}</button>
-      <button v-if="tipo === 'articulos' && puede('catalogos.crear')" class="btn btn-primario" title="Generic (first 8 digits) with its sizes" @click="genericoNuevo = true"><Icono nombre="mas" />New generic</button>
-      <button v-else-if="cat && tipo !== 'articulos' && puede('catalogos.crear')" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />New {{ cat.singular }}</button>
+      <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />{{ t('Template') }}</a>
+      <button v-if="cat && puede('catalogos.crear')" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload items and sheets') : tipo === 'prepacks' ? t('Upload size runs') : t('Upload Excel')) }}</button>
+      <button v-if="tipo === 'articulos' && puede('catalogos.crear')" class="btn btn-primario" :title="t('Generic (first 8 digits) with its sizes')" @click="genericoNuevo = true"><Icono nombre="mas" />{{ t('New generic') }}</button>
+      <button v-else-if="cat && tipo !== 'articulos' && puede('catalogos.crear')" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />{{ t('New {0}', [cat.singular]) }}</button>
     </div>
   </div>
 
   <div class="pestanas-pildora" role="tablist">
     <button v-for="c in catalogos" :key="c.tipo" class="pildora" role="tab" :aria-selected="c.tipo === tipo" @click="elegir(c.tipo)">
-      {{ c.titulo }}<span class="cuenta">{{ c.total }}</span>
+      {{ tx(c.titulo) }}<span class="cuenta">{{ tx(c.total) }}</span>
     </button>
   </div>
 
@@ -326,19 +327,19 @@ onMounted(async () => {
       <div class="filtros">
         <label class="buscador">
           <Icono nombre="buscar" :tam="16" />
-          <input v-model="filtros.q" type="search" :placeholder="compacta ? 'Search generic, style, color, item code, UPC or supplier SKU' : `Search ${cat.titulo.toLowerCase()}`" aria-label="Search" @input="buscar" />
+          <input v-model="filtros.q" type="search" :placeholder="tx(compacta ? t('Search generic, style, color, item code, UPC or supplier SKU') : t('Search {0}', [cat.titulo.toLowerCase()]))" :aria-label="t('Search')" @input="buscar" />
         </label>
-        <div v-if="tipo === 'articulos'" class="segmentos" role="group" aria-label="Items view">
-          <button type="button" class="segmento" :aria-pressed="vista === 'compacta'" title="One row per generic; expand it to see its sizes" @click="cambiarVista('compacta')">Compact</button>
-          <button type="button" class="segmento" :aria-pressed="vista === 'lista'" title="One row per item code" @click="cambiarVista('lista')">List</button>
+        <div v-if="tipo === 'articulos'" class="segmentos" role="group" :aria-label="t('Items view')">
+          <button type="button" class="segmento" :aria-pressed="vista === 'compacta'" :title="t('One row per generic; expand it to see its sizes')" @click="cambiarVista('compacta')">{{ t('Compact') }}</button>
+          <button type="button" class="segmento" :aria-pressed="vista === 'lista'" :title="t('One row per item code')" @click="cambiarVista('lista')">{{ t('List') }}</button>
         </div>
         <template v-for="c in conFiltro" :key="c.nombre">
           <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
-                          :vacio="`${c.etiqueta}: all`" :etiqueta="c.etiqueta" @change="filtros.page = 1; cargar()" />
-          <Seleccion v-else v-model="filtros.extra[c.nombre]" :aria-label="c.etiqueta" @change="filtros.page = 1; cargar()">
-            <option :value="undefined">{{ c.etiqueta }}: all</option>
-            <template v-if="c.tipo === 'bool'"><option value="true">{{ c.etiqueta }}: yes</option><option value="false">{{ c.etiqueta }}: no</option></template>
-            <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, t] in c.opciones" :key="v" :value="v">{{ c.etiqueta }}: {{ t }}</option></template>
+                          :vacio="t('{0}: all', [c.etiqueta])" :etiqueta="tx(c.etiqueta)" @change="filtros.page = 1; cargar()" />
+          <Seleccion v-else v-model="filtros.extra[c.nombre]" :aria-label="tx(c.etiqueta)" @change="filtros.page = 1; cargar()">
+            <option :value="undefined">{{ t('{0}: all', [c.etiqueta]) }}</option>
+            <template v-if="c.tipo === 'bool'"><option value="true">{{ t('{0}: yes', [c.etiqueta]) }}</option><option value="false">{{ t('{0}: no', [c.etiqueta]) }}</option></template>
+            <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, txt] in c.opciones" :key="v" :value="v">{{ tx(c.etiqueta) }}: {{ tx(txt) }}</option></template>
           </Seleccion>
         </template>
       </div>
@@ -349,46 +350,46 @@ onMounted(async () => {
         <table class="tabla">
           <thead>
             <tr>
-              <ThOrden v-for="c in columnas" :key="c.nombre" :campo="c.nombre" :orden="filtros.orden" :num="c.tipo === 'entero'" @ordenar="ordenar">{{ c.etiqueta }}</ThOrden>
-              <th v-for="ex in extras" :key="ex.nombre">{{ ex.etiqueta }}</th>
-              <th v-if="tipo === 'articulos'" title="The technical sheet, description and HS code belong to the style and color">HS code · description</th>
-              <th v-if="tipo === 'prepacks'">Item code</th>
-              <th v-if="tipo === 'prepacks'" class="num">Per carton</th>
+              <ThOrden v-for="c in columnas" :key="c.nombre" :campo="c.nombre" :orden="filtros.orden" :num="c.tipo === 'entero'" @ordenar="ordenar">{{ tx(c.etiqueta) }}</ThOrden>
+              <th v-for="ex in extras" :key="ex.nombre">{{ tx(ex.etiqueta) }}</th>
+              <th v-if="tipo === 'articulos'" :title="t('The technical sheet, description and HS code belong to the style and color')">{{ t('HS code · description') }}</th>
+              <th v-if="tipo === 'prepacks'">{{ t('Item code') }}</th>
+              <th v-if="tipo === 'prepacks'" class="num">{{ t('Per carton') }}</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="fila in datos.items" :key="fila.id" :class="{ seleccionada: editando === fila.id }">
               <td v-for="c in columnas" :key="c.nombre" :class="{ num: c.tipo === 'entero' }">
-                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :disabled="!puede('catalogos.editar')" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="`Change ${c.etiqueta.toLowerCase()}`" @click="alternarActivo(fila, c.nombre)">
-                  {{ fila[c.nombre] ? 'Yes' : 'No' }}
+                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :disabled="!puede('catalogos.editar')" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="t('Change {0}', [c.etiqueta.toLowerCase()])" @click="alternarActivo(fila, c.nombre)">
+                  {{ tx(fila[c.nombre] ? t('Yes') : t('No')) }}
                 </button>
-                <span v-else :class="{ codigo: ['codigo', 'sku'].includes(c.nombre), fuerte: c.nombre === 'codigo' || c.nombre === 'sku' }">{{ valorCelda(c, fila) }}</span>
+                <span v-else :class="{ codigo: ['codigo', 'sku'].includes(c.nombre), fuerte: c.nombre === 'codigo' || c.nombre === 'sku' }">{{ tx(valorCelda(c, fila)) }}</span>
               </td>
               <td v-for="ex in extras" :key="ex.nombre">
-                <button type="button" class="enlace" :title="`See ${ex.etiqueta.toLowerCase()} of ${fila.codigo || fila.nombre}`"
+                <button type="button" class="enlace" :title="t('See {0} of {1}', [ex.etiqueta.toLowerCase(), fila.codigo || fila.nombre])"
                         @click="elegir(ex.catalogo, { [ex.filtro]: fila.id })">
-                  {{ ex.nombre === 'centros_txt' ? (fila.centros_txt || 'Assign plants') : `${fila[ex.nombre] || 0} ${fila[ex.nombre] === 1 ? ex.etiqueta.toLowerCase().replace(/s$/, '') : ex.etiqueta.toLowerCase()}` }}
+                  {{ tx(ex.nombre === 'centros_txt' ? (fila.centros_txt || t('Assign plants')) : `${fila[ex.nombre] || 0} ${fila[ex.nombre] === 1 ? ex.etiqueta.toLowerCase().replace(/s$/, '') : ex.etiqueta.toLowerCase()}`) }}
                 </button>
               </td>
               <td v-if="tipo === 'articulos'">
-                <router-link v-if="fila.producto_id" :to="`/productos/${fila.producto_id}`" class="enlace" :title="`Technical sheet of ${fila.estilo} ${fila.color}`">
-                  <span v-if="fila.partida_txt" class="codigo-sac">{{ fila.partida_txt }}</span>
-                  <template v-else>{{ ESTADO_FICHA[fila.clasificacion] || 'Open sheet' }}</template>
+                <router-link v-if="fila.producto_id" :to="`/productos/${fila.producto_id}`" class="enlace" :title="t('Technical sheet of {0} {1}', [fila.estilo, fila.color])">
+                  <span v-if="fila.partida_txt" class="codigo-sac">{{ tx(fila.partida_txt) }}</span>
+                  <template v-else>{{ tx(ESTADO_FICHA[fila.clasificacion] || t('Open sheet')) }}</template>
                 </router-link>
                 <span v-else class="apagado">—</span>
-                <span v-if="fila.descripcion" class="sub" style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis" :title="fila.descripcion">{{ fila.descripcion }}</span>
+                <span v-if="fila.descripcion" class="sub" style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis" :title="tx(fila.descripcion)">{{ tx(fila.descripcion) }}</span>
               </td>
-              <td v-if="tipo === 'prepacks'" class="codigo fuerte">{{ fila.sku || '—' }}</td>
-              <td v-if="tipo === 'prepacks'" class="num">{{ fila.total }} <span class="sub">{{ fila.componentes }} tallas</span></td>
+              <td v-if="tipo === 'prepacks'" class="codigo fuerte">{{ tx(fila.sku || '—') }}</td>
+              <td v-if="tipo === 'prepacks'" class="num">{{ tx(fila.total) }} <span class="sub">{{ t('{0} sizes', [fila.componentes]) }}</span></td>
               <td class="num" style="white-space: nowrap">
-                <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" title="See the breakdown (it never changes)"
-                        @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />Breakdown</button>
-                <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="`Edit ${cat.singular}`" title="Edit" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
-                <button v-if="puede('catalogos.eliminar')" class="btn-icono" style="color: var(--error)" :aria-label="`Delete ${cat.singular}`" title="Delete" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
+                <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" :title="t('See the breakdown (it never changes)')"
+                        @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />{{ t('Breakdown') }}</button>
+                <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="t('Edit {0}', [cat.singular])" :title="t('Edit')" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
+                <button v-if="puede('catalogos.eliminar')" class="btn-icono" style="color: var(--error)" :aria-label="t('Delete {0}', [cat.singular])" :title="t('Delete')" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
               </td>
             </tr>
-            <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : tipo === 'articulos' ? 3 : 2)" class="vacio">No records match these filters.</td></tr>
+            <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : tipo === 'articulos' ? 3 : 2)" class="vacio">{{ t('No records match these filters.') }}</td></tr>
           </tbody>
         </table>
       </div>
@@ -397,104 +398,104 @@ onMounted(async () => {
     </section>
   </div>
 
-  <Modal v-if="formAbierto && cat" :titulo="editando ? `Edit ${cat.singular}` : `New ${cat.singular}`" ancho="640px" @cerrar="cerrarForm">
-    <p v-if="cat.ayuda" class="ayuda" style="margin-top: 0">{{ cat.ayuda }}</p>
+  <Modal v-if="formAbierto && cat" :titulo="tx(editando ? t('Edit {0}', [cat.singular]) : t('New {0}', [cat.singular]))" ancho="640px" @cerrar="cerrarForm">
+    <p v-if="cat.ayuda" class="ayuda" style="margin-top: 0">{{ tx(cat.ayuda) }}</p>
       <form v-if="tipo === 'prepacks' && !editando" class="form-catalogo" @submit.prevent="crearPrepack">
-        <label class="campo"><span class="req">Item code</span>
-          <input v-model="nuevoPP.sku" inputmode="numeric" maxlength="11" placeholder="Generic of its solids + 3 digits" required />
-          <small v-if="erroresPP.sku" class="nota error" style="padding: 4px 8px">{{ erroresPP.sku }}</small>
-          <small v-else class="ayuda">Same generic (first 8 digits) as its solids; only the last 3 digits change. It is proposed when you choose style and color.</small>
+        <label class="campo"><span class="req">{{ t('Item code') }}</span>
+          <input v-model="nuevoPP.sku" inputmode="numeric" maxlength="11" :placeholder="t('Generic of its solids + 3 digits')" required />
+          <small v-if="erroresPP.sku" class="nota error" style="padding: 4px 8px">{{ tx(erroresPP.sku) }}</small>
+          <small v-else class="ayuda">{{ t('Same generic (first 8 digits) as its solids; only the last 3 digits change. It is proposed when you choose style and color.') }}</small>
         </label>
-        <label class="campo"><span class="req">Style</span>
-          <SelectBusqueda v-model="nuevoPP.estilo" :opciones="estilosPP" requerido etiqueta="Style" />
+        <label class="campo"><span class="req">{{ t('Style') }}</span>
+          <SelectBusqueda v-model="nuevoPP.estilo" :opciones="estilosPP" requerido :etiqueta="t('Style')" />
         </label>
-        <label class="campo"><span class="req">Color</span>
-          <SelectBusqueda v-model="nuevoPP.color" :opciones="coloresPP" requerido etiqueta="Color" :deshabilitado="!nuevoPP.estilo" />
+        <label class="campo"><span class="req">{{ t('Color') }}</span>
+          <SelectBusqueda v-model="nuevoPP.color" :opciones="coloresPP" requerido :etiqueta="t('Color')" :deshabilitado="!nuevoPP.estilo" />
         </label>
-        <label class="campo"><span class="req">Prepack ID (size)</span>
+        <label class="campo"><span class="req">{{ t('Prepack ID (size)') }}</span>
           <input v-model="nuevoPP.codigo" maxlength="10" placeholder="AB12" style="text-transform: uppercase" required />
-          <small v-if="erroresPP.codigo" class="nota error" style="padding: 4px 8px">{{ erroresPP.codigo }}</small>
-          <small v-else class="ayuda">Usually 2 letters and 2 digits. It is the size of the prepack item.</small>
+          <small v-if="erroresPP.codigo" class="nota error" style="padding: 4px 8px">{{ tx(erroresPP.codigo) }}</small>
+          <small v-else class="ayuda">{{ t('Usually 2 letters and 2 digits. It is the size of the prepack item.') }}</small>
         </label>
-        <label class="campo"><span>Description</span><input v-model="nuevoPP.descripcion" /></label>
+        <label class="campo"><span>{{ t('Description') }}</span><input v-model="nuevoPP.descripcion" /></label>
         <div v-if="nuevoPP.estilo && nuevoPP.color" class="campo">
-          <span class="req">Breakdown per master carton<template v-if="tallasPP.length"> ({{ tallasPP[0].unidad }})</template></span>
+          <span class="req">{{ t('Breakdown per master carton') }}<template v-if="tallasPP.length"> ({{ tx(tallasPP[0].unidad) }})</template></span>
           <div class="tabla-marco" style="box-shadow: none">
             <table class="tabla">
-              <thead><tr><th>Size</th><th>SKU</th><th class="num">Qty</th></tr></thead>
+              <thead><tr><th>{{ t('Size') }}</th><th>SKU</th><th class="num">{{ t('Qty') }}</th></tr></thead>
               <tbody>
                 <tr v-for="a in tallasPP" :key="a.id">
-                  <td><b>{{ a.talla }}</b></td>
-                  <td class="codigo">{{ a.sku }}</td>
-                  <td class="num"><input v-model.number="nuevoPP.cantidades[a.id]" class="celda num" type="number" min="0" style="width: 64px; border-color: var(--linea)" :aria-label="`Quantity size ${a.talla}`" /></td>
+                  <td><b>{{ tx(a.talla) }}</b></td>
+                  <td class="codigo">{{ tx(a.sku) }}</td>
+                  <td class="num"><input v-model.number="nuevoPP.cantidades[a.id]" class="celda num" type="number" min="0" style="width: 64px; border-color: var(--linea)" :aria-label="t('Quantity size {0}', [a.talla])" /></td>
                 </tr>
               </tbody>
-              <tfoot><tr><td colspan="2">Total per carton</td><td class="num">{{ totalPP }}</td></tr></tfoot>
+              <tfoot><tr><td colspan="2">{{ t('Total per carton') }}</td><td class="num">{{ tx(totalPP) }}</td></tr></tfoot>
             </table>
           </div>
-          <small v-if="erroresPP.componentes" class="nota error" style="padding: 4px 8px">{{ erroresPP.componentes }}</small>
-          <small v-else class="ayuda">Only solids of {{ nuevoPP.estilo }} {{ nuevoPP.color }}. Leave at 0 the sizes it does not carry. Once created it never changes.</small>
+          <small v-if="erroresPP.componentes" class="nota error" style="padding: 4px 8px">{{ tx(erroresPP.componentes) }}</small>
+          <small v-else class="ayuda">{{ t('Only solids of {0} {1}. Leave at 0 the sizes it does not carry. Once created it never changes.', [nuevoPP.estilo, nuevoPP.color]) }}</small>
         </div>
-        <p class="leyenda-req">Required</p>
-        <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />Create prepack</button>
+        <p class="leyenda-req">{{ t('Required') }}</p>
+        <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />{{ t('Create prepack') }}</button>
       </form>
       <form v-else class="form-catalogo" @submit.prevent="guardar">
         <label v-for="c in campos" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
           <template v-if="c.tipo === 'bool'">
-            <input v-model="form[c.nombre]" type="checkbox" /> {{ c.etiqueta }}
+            <input v-model="form[c.nombre]" type="checkbox" /> {{ tx(c.etiqueta) }}
           </template>
           <template v-else>
-            <span :class="{ req: c.obligatorio }">{{ c.etiqueta }}</span>
+            <span :class="{ req: c.obligatorio }">{{ tx(c.etiqueta) }}</span>
             <Seleccion v-if="c.tipo === 'opcion'" v-model="form[c.nombre]" :required="c.obligatorio" :disabled="bloqueado(c)">
-              <option value="">Choose…</option>
-              <option v-for="[v, t] in opcionesCampo(c)" :key="v" :value="v">{{ t }}</option>
+              <option value="">{{ t('Choose…') }}</option>
+              <option v-for="[v, txt] in opcionesCampo(c)" :key="v" :value="v">{{ tx(txt) }}</option>
             </Seleccion>
             <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c)"
-                            :vacio="c.obligatorio ? '' : 'None'" :requerido="c.obligatorio" :etiqueta="c.etiqueta" :deshabilitado="bloqueado(c)" />
+                            :vacio="tx(c.obligatorio ? '' : t('None'))" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" :deshabilitado="bloqueado(c)" />
             <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c)" multiple
-                            placeholder="Choose one or more…" :requerido="c.obligatorio" :etiqueta="c.etiqueta" />
+                            :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
             <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
-                      placeholder="name@company.com, other@company.com"></textarea>
+                      :placeholder="t('name@company.com, other@company.com')"></textarea>
             <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : 'text'"
-                   :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="bloqueado(c) ? 'Cannot change: it is part of the prepack' : ''" />
-            <small v-if="erroresForm[c.nombre]" class="nota error" style="padding: 4px 8px">{{ erroresForm[c.nombre] }}</small>
-            <small v-else-if="c.ayuda" class="ayuda">{{ c.ayuda }}</small>
+                   :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="tx(bloqueado(c) ? t('Cannot change: it is part of the prepack') : '')" />
+            <small v-if="erroresForm[c.nombre]" class="nota error" style="padding: 4px 8px">{{ tx(erroresForm[c.nombre]) }}</small>
+            <small v-else-if="c.ayuda" class="ayuda">{{ tx(c.ayuda) }}</small>
           </template>
         </label>
-        <p class="leyenda-req">Required</p>
+        <p class="leyenda-req">{{ t('Required') }}</p>
         <div class="fila-flex">
-          <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ editando ? 'Save changes' : `Create ${cat.singular}` }}</button>
-          <button class="btn btn-fantasma" type="button" @click="cerrarForm">Cancel</button>
+          <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ tx(editando ? t('Save changes') : t('Create {0}', [cat.singular])) }}</button>
+          <button class="btn btn-fantasma" type="button" @click="cerrarForm">{{ t('Cancel') }}</button>
         </div>
       </form>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'eliminar'" :titulo="`Delete ${cat.singular}`" @cerrar="modal = null">
-    <p>Delete <b>{{ modal.fila.codigo || modal.fila.sku }}</b>? If other records already use it, it cannot be deleted; deactivate it instead.</p>
+  <Modal v-if="modal?.tipo === 'eliminar'" :titulo="t('Delete {0}', [cat.singular])" @cerrar="modal = null">
+    <p>{{ t('Delete') }} <b>{{ tx(modal.fila.codigo || modal.fila.sku) }}</b>{{ t('? If other records already use it, it cannot be deleted; deactivate it instead.') }}</p>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancel</button>
-      <button class="btn btn-peligro" :disabled="ocupado" @click="eliminar">Delete</button>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-peligro" :disabled="ocupado" @click="eliminar">{{ t('Delete') }}</button>
     </template>
   </Modal>
 
   <CargaArticulos v-if="modal?.tipo === 'carga' && tipo === 'articulos'" @cerrar="modal = null" @listo="cargarMeta(); cargar()" />
-  <CargaMasiva v-else-if="modal?.tipo === 'carga' && tipo !== 'prepacks'" :titulo="`Upload ${cat.titulo.toLowerCase()}`" :ruta="`/catalogos/${tipo}/importar`"
-               :plantilla="`/catalogos/${tipo}/plantilla`" :ayuda="cat.ayuda" @cerrar="modal = null" @cargado="cargarMeta(); cargar()" />
-  <Modal v-else-if="modal?.tipo === 'carga'" titulo="Upload size runs (prepacks)" ancho="680px" @cerrar="modal = null">
-    <p class="ayuda">One row per size of the breakdown: sku_prepack (item code of the prepack), prepack_id (e.g. AB12), description, solid SKU and quantity. Style and color come from the solids, which must share style and color. It creates the prepack and its item; an existing prepack is never changed.</p>
+  <CargaMasiva v-else-if="modal?.tipo === 'carga' && tipo !== 'prepacks'" :titulo="t('Upload {0}', [cat.titulo.toLowerCase()])" :ruta="`/catalogos/${tipo}/importar`"
+               :plantilla="`/catalogos/${tipo}/plantilla`" :ayuda="tx(cat.ayuda)" @cerrar="modal = null" @cargado="cargarMeta(); cargar()" />
+  <Modal v-else-if="modal?.tipo === 'carga'" :titulo="t('Upload size runs (prepacks)')" ancho="680px" @cerrar="modal = null">
+    <p class="ayuda">{{ t('One row per size of the breakdown: sku_prepack (item code of the prepack), prepack_id (e.g. AB12), description, solid SKU and quantity. Style and color come from the solids, which must share style and color. It creates the prepack and its item; an existing prepack is never changed.') }}</p>
     <CargaArchivo v-model="modal.archivo" />
     <template v-if="modal.resultado">
-      <div class="nota ok"><Icono nombre="check" />{{ modal.resultado.creados }} created and {{ modal.resultado.actualizados }} updated.</div>
+      <div class="nota ok"><Icono nombre="check" />{{ t('{0} created and {1} updated.', [modal.resultado.creados, modal.resultado.actualizados]) }}</div>
       <div v-if="modal.resultado.errores.length" class="tabla-marco" style="max-height: 240px; overflow: auto; box-shadow: none">
         <table class="tabla">
-          <thead><tr><th>Row</th><th>Error</th></tr></thead>
-          <tbody><tr v-for="(er, i) in modal.resultado.errores" :key="i"><td>{{ er.fila }}</td><td class="envolver">{{ er.mensaje }}</td></tr></tbody>
+          <thead><tr><th>{{ t('Row') }}</th><th>{{ t('Error') }}</th></tr></thead>
+          <tbody><tr v-for="(er, i) in modal.resultado.errores" :key="i"><td>{{ tx(er.fila) }}</td><td class="envolver">{{ tx(er.mensaje) }}</td></tr></tbody>
         </table>
       </div>
     </template>
     <template #pie>
-      <button class="btn" @click="modal = null">Close</button>
-      <button class="btn btn-primario" :disabled="ocupado || !modal.archivo" @click="cargarArchivo"><Icono nombre="importar" :tam="16" />Upload</button>
+      <button class="btn" @click="modal = null">{{ t('Close') }}</button>
+      <button class="btn btn-primario" :disabled="ocupado || !modal.archivo" @click="cargarArchivo"><Icono nombre="importar" :tam="16" />{{ t('Upload') }}</button>
     </template>
   </Modal>
 

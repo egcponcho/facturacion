@@ -259,6 +259,15 @@ Other variables: `DATABASE_URL`, `SECRET_KEY` (change it in production), `SEED_D
 
 **Database reset:** in demo mode (`SEED_DEMO=1`) the database is wiped and re-seeded when the schema version changes (`ESQUEMA_VERSION` in `config.py`). In production (`SEED_DEMO=0`) nothing is ever deleted.
 
+## Languages
+
+The interface is available in English, Spanish, Simplified Chinese, Hindi and Arabic (right-to-left). Pick the language from the globe selector in the header or on the sign-in screen; the whole interface switches, including dates and numbers in each language's format.
+
+- English text is the key; each language has its own dictionary in `frontend/src/i18n/` (`es.json`, `zh.json`, `hi.json`, `ar.json`). Translations are adapted to the business, not literal: `glosario.json` fixes the approved term for each concept (e.g. *Type* → *Tipo*, never *Chico*) and lists the literal translations that are not accepted.
+- `backend/tests/test_i18n.py` checks every language: all texts present, the same `{0}` placeholders, written in the language's own script, glossary terms respected, and `claves.json` up to date with the code.
+- After changing interface texts run `node frontend/scripts/i18n-extraer.mjs` (and `python backend/scripts/i18n_extraer.py` for server messages), then add the new translations.
+- Official texts stay as published: SAC descriptions and the customs description are in Spanish, and trade documents (invoice, packing list) are in English.
+
 ## Tests
 
 ```bash

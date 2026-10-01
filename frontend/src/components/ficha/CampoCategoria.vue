@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../../i18n/index.js'
 import { computed, nextTick, ref, watch } from 'vue'
 import { M } from '../../clasificacion/useClasificacion'
 
@@ -20,7 +21,7 @@ const grupos = computed(() => {
   const q = M.norm(texto.value).trim()
   if (q && !POR_LBL[q]) {
     const ks = M.buscarTipos(texto.value, 25)
-    return [{ t: ks.length ? 'Matches' : '', items: ks }]
+    return [{ t: ks.length ? t('Matches') : '', items: ks }]
   }
   return M.TIPOS.map(([g, ops]) => ({ t: g, items: ops.map(([k]) => k) }))
 })
@@ -63,17 +64,17 @@ function tecla(e) {
 <template>
   <div class="cbx">
     <input :id="props.id" v-model="texto" class="entrada" type="text" autocomplete="off" role="combobox" aria-autocomplete="list"
-           :aria-expanded="abierta" :disabled="props.disabled" placeholder="Search or choose: sneaker, backpack, bottle…"
+           :aria-expanded="abierta" :disabled="props.disabled" :placeholder="t('Search or choose: sneaker, backpack, bottle…')"
            @focus="abrir" @click="abierta || abrir()" @input="abierta = true; activo = -1" @keydown="tecla" @blur="alSalir" />
     <div v-if="abierta" ref="lista" class="cbx-lista" role="listbox" @mousedown.prevent>
       <template v-for="g in grupos" :key="g.t">
-        <div v-if="g.t" class="grp">{{ g.t }}</div>
+        <div v-if="g.t" class="grp">{{ tx(g.t) }}</div>
         <button v-for="k in g.items" :key="k" type="button" role="option" :aria-selected="k === props.modelValue"
                 :class="{ elegido: k === props.modelValue, act: items[activo] === k }" @click="elegir(k)">
-          {{ k === props.modelValue ? '✓ ' : '' }}{{ M.TIPO_LBL[k] }}
+          {{ tx(k === props.modelValue ? '✓ ' : '') }}{{ tx(M.TIPO_LBL[k]) }}
         </button>
       </template>
-      <div v-if="!items.length" class="vacio-cbx">No category matches. Try another word (e.g. “jacket”, “bag”).</div>
+      <div v-if="!items.length" class="vacio-cbx">{{ t('No category matches. Try another word (e.g. “jacket”, “bag”).') }}</div>
     </div>
   </div>
 </template>
@@ -81,9 +82,9 @@ function tecla(e) {
 <style scoped>
 .cbx { position: relative; width: 100%; }
 .cbx .entrada { width: 100%; }
-.cbx-lista { position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 2px); min-width: min(320px, 90vw); max-height: 300px; overflow: auto; background: var(--superficie); border: 1px solid var(--linea); border-radius: 8px; box-shadow: var(--sombra-flotante); padding: 4px 0; }
+.cbx-lista { position: absolute; z-index: 40; inset-inline-start: 0; inset-inline-end: 0; top: calc(100% + 2px); min-width: min(320px, 90vw); max-height: 300px; overflow: auto; background: var(--superficie); border: 1px solid var(--linea); border-radius: 8px; box-shadow: var(--sombra-flotante); padding: 4px 0; }
 .grp { font-size: 0.72rem; font-weight: 650; color: var(--tinta-3); padding: 8px 12px 4px; text-transform: uppercase; letter-spacing: 0.03em; }
-.cbx-lista button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 7px 12px; font-size: 0.9rem; cursor: pointer; color: var(--tinta); font-family: inherit; }
+.cbx-lista button { display: block; width: 100%; text-align: start; border: 0; background: none; padding: 7px 12px; font-size: 0.9rem; cursor: pointer; color: var(--tinta); font-family: inherit; }
 .cbx-lista button.act, .cbx-lista button:hover { background: var(--acento-claro); }
 .cbx-lista button.elegido { font-weight: 650; color: var(--acento-texto); }
 .vacio-cbx { padding: 8px 12px; font-size: 0.84rem; color: var(--tinta-3); }

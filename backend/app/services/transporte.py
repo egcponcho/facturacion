@@ -344,7 +344,7 @@ def _documentos_salida(e: Embarque, pls: list[PackingList]) -> list[str]:
     if not e.documento_numero:
         faltan.append("BL, AWB or waybill number.")
     if not e.transportista:
-        faltan.append("Naviera o transportista.")
+        faltan.append("Shipping line or carrier.")
     if not e.puerto_origen or not e.puerto_destino:
         faltan.append("Origin and destination.")
     if not e.centro:
@@ -420,7 +420,7 @@ def _validar_tipo(db: Session, e: Embarque, codigo: str) -> TipoUnidad:
 
 def agregar_unidad(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
     e = _embarque(db, user, embarque_id)
-    _exigir_planificado(e, "agregar contenedores")
+    _exigir_planificado(e, "add containers")
     _validar_tipo(db, e, datos.tipo)
     n = sum(1 for u in e.unidades if u.tipo == datos.tipo) + 1
     u = UnidadCarga(tipo=datos.tipo, etiqueta=f"{datos.tipo} #{n}",
@@ -455,7 +455,7 @@ def actualizar_unidad(db: Session, user: Usuario, unidad_id: int, datos) -> dict
 
 def eliminar_unidad(db: Session, user: Usuario, unidad_id: int) -> dict:
     u = _unidad(db, user, unidad_id)
-    _exigir_planificado(u.embarque, "eliminar contenedores")
+    _exigir_planificado(u.embarque, "remove containers")
     if any(pl.estado != "CANCELADO" for pl in u.packing_lists):
         raise ErrorNegocio("The unit has packing lists assigned; remove them first.", 409, "con_carga")
     for pl in list(u.packing_lists):

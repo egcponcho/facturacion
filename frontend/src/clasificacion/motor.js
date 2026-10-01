@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n/index.js'
 /* Motor de clasificación arancelaria (SAC, Centroamérica y Panamá).
 
 Viene del clasificador SAC: reglas del Sistema Armonizado 2022 para ropa,
@@ -171,8 +172,8 @@ Object.assign(CAPITULOS, Object.fromEntries(Object.entries({'40':'Caucho y sus m
 
 /* ---------- Países de destino (Centroamérica y Panamá) ---------- */
 const DESTINOS_BASE = [
-  {iso:'GT', nombre:'Guatemala', mcca:true, impuesto:'VAT 12%', digitos:10}, {iso:'SV', nombre:'El Salvador', mcca:true, impuesto:'VAT 13%', digitos:10}, {iso:'HN', nombre:'Honduras', mcca:true, impuesto:'Sales tax 15%', digitos:10},
-  {iso:'NI', nombre:'Nicaragua', mcca:true, impuesto:'VAT 15%', digitos:12}, {iso:'CR', nombre:'Costa Rica', mcca:true, impuesto:'VAT 13%', digitos:12}, {iso:'PA', nombre:'Panama', mcca:false, impuesto:'ITBMS 7%', digitos:12}
+  {iso:'GT', nombre:tr('Guatemala'), mcca:true, impuesto:'VAT 12%', digitos:10}, {iso:'SV', nombre:tr('El Salvador'), mcca:true, impuesto:'VAT 13%', digitos:10}, {iso:'HN', nombre:tr('Honduras'), mcca:true, impuesto:tr('Sales tax 15%'), digitos:10},
+  {iso:'NI', nombre:tr('Nicaragua'), mcca:true, impuesto:'VAT 15%', digitos:12}, {iso:'CR', nombre:tr('Costa Rica'), mcca:true, impuesto:'VAT 13%', digitos:12}, {iso:'PA', nombre:tr('Panama'), mcca:false, impuesto:'ITBMS 7%', digitos:12}
 ];
 const ISO_DE = {'guatemala':'GT','el salvador':'SV','honduras':'HN','nicaragua':'NI','costa rica':'CR','panama':'PA','estados unidos':'US','usa':'US','eeuu':'US','republica dominicana':'DO','mexico':'MX','chile':'CL','colombia':'CO','peru':'PE','corea del sur':'KR','corea':'KR','taiwan':'TW','china':'CN','reino unido':'GB',
   'eslovenia':'EU','italia':'EU','portugal':'EU','espana':'EU','alemania':'EU','francia':'EU','rumania':'EU','polonia':'EU','union europea':'EU','paises bajos':'EU','belgica':'EU','austria':'EU'};
@@ -212,21 +213,21 @@ function notaOrigenDestino(origen, dest, paisesCat){
 const descDe = c => { const d = digits(c); return DESC[d.slice(0,6)] || DESC[d.slice(0,4)] || DESC[d.slice(0,2)] || ''; };
 
 const TIPOS = [
-  ['Tops',[['camiseta','T-shirt, tee, tank top or base layer'],['camisa','Shirt, polo or blouse'],['sudadera','Sweatshirt, hoodie, sweater or fleece'],['chaqueta','Jacket, parka, vest or blazer']]],
-  ['Bottoms and one-pieces',[['pantalon','Pants, shorts, joggers, leggings or bib overalls'],['falda','Skirt'],['vestido','Dress'],['enterizo','Coverall, jumpsuit, romper or baby onesie'],['conjunto','Tracksuit or ski suit']]],
-  ['Underwear, sleepwear and swimwear',[['ropa_interior','Underwear, pajamas or robe'],['brasier','Bra or sports bra'],['traje_bano','Swimsuit or boardshorts']]],
-  ['Clothing accessories',[['calcetines','Socks or hosiery'],['guantes','Gloves'],['bufanda','Scarf, neck gaiter or bandana'],['gorra','Cap, beanie, hat or helmet'],['cinturon','Belt'],['accesorio_pelo','Hair accessory'],['peleteria','Fur or faux fur article']]],
-  ['Footwear and accessories',[['calzado','Footwear: sneakers, boots, shoes, sandals'],['plantilla','Insole or heel cushion'],['cordones','Shoelaces'],['polainas','Gaiters or shoe protectors'],['cuidado_calzado','Shoe care: creams, sprays, brushes']]],
-  ['Bags and luggage',[['mochila','Backpack'],['bolso_viaje','Sports or travel bag'],['bolso_mano','Handbag, purse or crossbody'],['maleta','Suitcase, trolley or briefcase'],['billetera','Wallet, card holder or pocket case']]],
-  ['Personal accessories',[['lentes_sol','Sunglasses'],['reloj','Watch'],['bisuteria','Costume jewelry: bracelets, necklaces, pins'],['llavero','Keychain or lanyard'],['sombrilla','Umbrella'],['botella','Bottle, thermos or tumbler'],['parche','Patch, sticker or decal'],['mascota','Pet accessory'],['correa_reloj','Watch strap or band']]],
-  ['Camping, sport and outdoors',[['tienda','Tent'],['saco','Sleeping bag'],['colchoneta','Sleeping pad, pillow or cushion'],['manta','Blanket'],['toalla','Towel'],['hamaca','Hammock'],['mueble_camping','Camp chair or table'],['linterna','Flashlight or headlamp'],['bastones','Trekking poles'],['equipo_deporte','Sports or fitness equipment'],['magnesio','Climbing chalk'],['patineta','Skateboard and skate parts']]],
-  ['Trims and parts',[['avios','Button, zipper, buckle or eyelet']]],
-  ['Packaging and store',[['bolsa_compra','Shopping bag'],['caja','Box or packaging'],['gancho','Hanger'],['etiqueta','Label or hang tag'],['exhibidor','Display, store fixture or mannequin']]],
-  ['Any other product',[['otro_sac','Any other product: choose its subheading in the SAC']]]
+  [tr('Tops'),[['camiseta',tr('T-shirt, tee, tank top or base layer')],['camisa',tr('Shirt, polo or blouse')],['sudadera',tr('Sweatshirt, hoodie, sweater or fleece')],['chaqueta',tr('Jacket, parka, vest or blazer')]]],
+  [tr('Bottoms and one-pieces'),[['pantalon',tr('Pants, shorts, joggers, leggings or bib overalls')],['falda',tr('Skirt')],['vestido',tr('Dress')],['enterizo',tr('Coverall, jumpsuit, romper or baby onesie')],['conjunto',tr('Tracksuit or ski suit')]]],
+  [tr('Underwear, sleepwear and swimwear'),[['ropa_interior',tr('Underwear, pajamas or robe')],['brasier',tr('Bra or sports bra')],['traje_bano',tr('Swimsuit or boardshorts')]]],
+  [tr('Clothing accessories'),[['calcetines',tr('Socks or hosiery')],['guantes',tr('Gloves')],['bufanda',tr('Scarf, neck gaiter or bandana')],['gorra',tr('Cap, beanie, hat or helmet')],['cinturon',tr('Belt')],['accesorio_pelo',tr('Hair accessory')],['peleteria',tr('Fur or faux fur article')]]],
+  [tr('Footwear and accessories'),[['calzado',tr('Footwear: sneakers, boots, shoes, sandals')],['plantilla',tr('Insole or heel cushion')],['cordones',tr('Shoelaces')],['polainas',tr('Gaiters or shoe protectors')],['cuidado_calzado',tr('Shoe care: creams, sprays, brushes')]]],
+  [tr('Bags and luggage'),[['mochila',tr('Backpack')],['bolso_viaje',tr('Sports or travel bag')],['bolso_mano',tr('Handbag, purse or crossbody')],['maleta',tr('Suitcase, trolley or briefcase')],['billetera',tr('Wallet, card holder or pocket case')]]],
+  [tr('Personal accessories'),[['lentes_sol',tr('Sunglasses')],['reloj',tr('Watch')],['bisuteria',tr('Costume jewelry: bracelets, necklaces, pins')],['llavero',tr('Keychain or lanyard')],['sombrilla',tr('Umbrella')],['botella',tr('Bottle, thermos or tumbler')],['parche',tr('Patch, sticker or decal')],['mascota',tr('Pet accessory')],['correa_reloj',tr('Watch strap or band')]]],
+  [tr('Camping, sport and outdoors'),[['tienda',tr('Tent')],['saco',tr('Sleeping bag')],['colchoneta',tr('Sleeping pad, pillow or cushion')],['manta',tr('Blanket')],['toalla',tr('Towel')],['hamaca',tr('Hammock')],['mueble_camping',tr('Camp chair or table')],['linterna',tr('Flashlight or headlamp')],['bastones',tr('Trekking poles')],['equipo_deporte',tr('Sports or fitness equipment')],['magnesio',tr('Climbing chalk')],['patineta',tr('Skateboard and skate parts')]]],
+  [tr('Trims and parts'),[['avios',tr('Button, zipper, buckle or eyelet')]]],
+  [tr('Packaging and store'),[['bolsa_compra',tr('Shopping bag')],['caja',tr('Box or packaging')],['gancho',tr('Hanger')],['etiqueta',tr('Label or hang tag')],['exhibidor',tr('Display, store fixture or mannequin')]]],
+  [tr('Any other product'),[['otro_sac',tr('Any other product: choose its subheading in the SAC')]]]
 ];
 const TIPO_LBL = {}; TIPOS.forEach(g=>g[1].forEach(([k,l])=>{ TIPO_LBL[k] = l; }));
-const TIPO_CORTO = {camiseta:'T-shirt',camisa:'Shirt or polo',sudadera:'Sweatshirt',chaqueta:'Jacket or vest',pantalon:'Pants or shorts',falda:'Skirt',vestido:'Dress',enterizo:'Coverall',conjunto:'Tracksuit',ropa_interior:'Underwear or pajamas',brasier:'Bra',traje_bano:'Swimsuit',calcetines:'Socks',guantes:'Gloves',bufanda:'Scarf or bandana',gorra:'Cap or headwear',cinturon:'Belt',calzado:'Footwear',plantilla:'Insole',cordones:'Shoelaces',polainas:'Gaiters',cuidado_calzado:'Shoe care',mochila:'Backpack',bolso_viaje:'Sports or travel bag',bolso_mano:'Handbag',maleta:'Suitcase or briefcase',billetera:'Wallet or case',lentes_sol:'Sunglasses',reloj:'Watch',bisuteria:'Costume jewelry',llavero:'Keychain or lanyard',sombrilla:'Umbrella',botella:'Bottle or thermos',parche:'Patch or sticker',mascota:'Pet accessory',tienda:'Tent',saco:'Sleeping bag',colchoneta:'Sleeping pad or pillow',manta:'Blanket',toalla:'Towel',mueble_camping:'Camp chair or table',linterna:'Flashlight',bastones:'Trekking poles',equipo_deporte:'Sports equipment',magnesio:'Climbing chalk',patineta:'Skateboard',bolsa_compra:'Shopping bag',caja:'Box or packaging',gancho:'Hanger',etiqueta:'Label',exhibidor:'Display or mannequin'};
-Object.assign(TIPO_CORTO, {otro_sac:'Other product', accesorio_pelo:'Hair accessory', peleteria:'Fur article', correa_reloj:'Watch strap', avios:'Trims', hamaca:'Hammock'});
+const TIPO_CORTO = {camiseta:'T-shirt',camisa:tr('Shirt or polo'),sudadera:tr('Sweatshirt'),chaqueta:tr('Jacket or vest'),pantalon:tr('Pants or shorts'),falda:tr('Skirt'),vestido:tr('Dress'),enterizo:tr('Coverall'),conjunto:tr('Tracksuit'),ropa_interior:tr('Underwear or pajamas'),brasier:tr('Bra'),traje_bano:tr('Swimsuit'),calcetines:tr('Socks'),guantes:tr('Gloves'),bufanda:tr('Scarf or bandana'),gorra:tr('Cap or headwear'),cinturon:tr('Belt'),calzado:tr('Footwear'),plantilla:tr('Insole'),cordones:tr('Shoelaces'),polainas:tr('Gaiters'),cuidado_calzado:tr('Shoe care'),mochila:tr('Backpack'),bolso_viaje:tr('Sports or travel bag'),bolso_mano:tr('Handbag'),maleta:tr('Suitcase or briefcase'),billetera:tr('Wallet or case'),lentes_sol:tr('Sunglasses'),reloj:tr('Watch'),bisuteria:tr('Costume jewelry'),llavero:tr('Keychain or lanyard'),sombrilla:tr('Umbrella'),botella:tr('Bottle or thermos'),parche:tr('Patch or sticker'),mascota:tr('Pet accessory'),tienda:tr('Tent'),saco:tr('Sleeping bag'),colchoneta:tr('Sleeping pad or pillow'),manta:tr('Blanket'),toalla:tr('Towel'),mueble_camping:tr('Camp chair or table'),linterna:tr('Flashlight'),bastones:tr('Trekking poles'),equipo_deporte:tr('Sports equipment'),magnesio:tr('Climbing chalk'),patineta:tr('Skateboard'),bolsa_compra:tr('Shopping bag'),caja:tr('Box or packaging'),gancho:tr('Hanger'),etiqueta:tr('Label'),exhibidor:tr('Display or mannequin')};
+Object.assign(TIPO_CORTO, {otro_sac:tr('Other product'), accesorio_pelo:tr('Hair accessory'), peleteria:tr('Fur article'), correa_reloj:tr('Watch strap'), avios:tr('Trims'), hamaca:tr('Hammock')});
 /* Nombres cortos en español para la descripción aduanera */
 const TIPO_CORTO_ES = {camiseta:'Camiseta',camisa:'Camisa o polo',sudadera:'Sudadera',chaqueta:'Chaqueta o chaleco',pantalon:'Pantalón o short',falda:'Falda',vestido:'Vestido',enterizo:'Enterizo',conjunto:'Conjunto deportivo',ropa_interior:'Ropa interior o pijama',brasier:'Brasier',traje_bano:'Traje de baño',calcetines:'Calcetines',guantes:'Guantes',bufanda:'Bufanda o bandana',gorra:'Gorra o tocado',cinturon:'Cinturón',calzado:'Calzado',plantilla:'Plantilla',cordones:'Cordones',polainas:'Polainas',cuidado_calzado:'Cuidado de calzado',mochila:'Mochila',bolso_viaje:'Bolso deportivo o de viaje',bolso_mano:'Bolso de mano',maleta:'Maleta o maletín',billetera:'Billetera o estuche',lentes_sol:'Lentes de sol',reloj:'Reloj',bisuteria:'Bisutería',llavero:'Llavero o lanyard',sombrilla:'Sombrilla',botella:'Botella o termo',parche:'Parche o sticker',mascota:'Accesorio para mascota',tienda:'Tienda de campaña',saco:'Saco de dormir',colchoneta:'Colchoneta o almohada',manta:'Manta',toalla:'Toalla',mueble_camping:'Silla o mesa de camping',linterna:'Linterna',bastones:'Bastones',equipo_deporte:'Equipo deportivo',magnesio:'Magnesio',patineta:'Patineta',bolsa_compra:'Bolsa de compra',caja:'Caja o empaque',gancho:'Gancho o percha',etiqueta:'Etiqueta',exhibidor:'Exhibidor o maniquí'};
 Object.assign(TIPO_CORTO_ES, {accesorio_pelo:'Accesorio de cabello', peleteria:'Peletería', correa_reloj:'Correa de reloj', avios:'Avíos', hamaca:'Hamaca'});
@@ -316,8 +317,8 @@ function partesDe(t, s){
   if (t) return ['material'];
   return [];
 }
-const PARTE_LBL = {exterior:'Outer fabric or surface',forro:'Lining',relleno:'Fill',corte:'Upper',suela:'Sole',plantilla:'Insole',material:'Main material'};
-const PARTE_PH = {exterior:'E.g. 100% polyester, or shell: 100% nylon',forro:'E.g. 100% polyester',relleno:'E.g. 90% down 10% feather',corte:'E.g. 60% leather 40% textile, excluding reinforcements and trims',suela:'E.g. 100% rubber, or EVA and rubber',plantilla:'E.g. EVA with textile cover',material:'E.g. leather, stainless steel, nylon'};
+const PARTE_LBL = {exterior:tr('Outer fabric or surface'),forro:tr('Lining'),relleno:tr('Fill'),corte:tr('Upper'),suela:tr('Sole'),plantilla:tr('Insole'),material:tr('Main material')};
+const PARTE_PH = {exterior:tr('E.g. 100% polyester, or shell: 100% nylon'),forro:tr('E.g. 100% polyester'),relleno:tr('E.g. 90% down 10% feather'),corte:tr('E.g. 60% leather 40% textile, excluding reinforcements and trims'),suela:tr('E.g. 100% rubber, or EVA and rubber'),plantilla:tr('E.g. EVA with textile cover'),material:tr('E.g. leather, stainless steel, nylon')};
 
 /* ---------- Composición ---------- */
 const FIBRAS = [
@@ -335,8 +336,8 @@ const MAT_CALZ = [
   {g:'textil', re:/\b(textil|textile|tela|fabric|mesh|malla|canvas|lona|nylon|poliester|polyester|rpet|poliamida|polyamide|acrilico|acrylic|elastano|elastane|spandex|lycra|viscosa|viscose|rayon|modal|tencel|lino|linen|seda|silk|knit|flyknit|tejido|jersey|microfibra|microfiber|neopreno|neoprene|lana|wool|merino|algodon|cotton|fieltro|felt|corduroy|pana|denim|mezclilla|cordura|ripstop|fleece|polar|terry|felpa|oxford|polipropileno|polypropylene|satin|saten|elastico|lyocell|elastano)\b/g},
   {g:'otro', re:/\b(madera|wood|corcho|cork|metal|metalico|acero|steel|inoxidable|stainless|aluminio|aluminum|aluminium|hierro|iron|zinc|bronce|brass|laton|titanio|titanium|yute|jute|papel|paper|carton|cardboard|cartulina|kraft|vidrio|glass|cristal|paja|straw|palma|rafia|mdf|arce|maple|bambu|bamboo|pino|alambre|wire|cromo)\b/g}
 ];
-const FIB_LBL = {lana:'wool',seda:'silk',algodon:'cotton',vegetal:'vegetable fiber (linen, hemp)',sintetica:'synthetic fiber',artificial:'artificial fiber',cuero:'leather',otra:'unidentified material'};
-const MAT_LBL = {plastico:'rubber or plastics',cuero:'leather',textil:'textile',otro:'other material',otra:'unidentified',caucho:'rubber or plastics'};
+const FIB_LBL = {lana:'wool',seda:'silk',algodon:'cotton',vegetal:tr('vegetable fiber (linen, hemp)'),sintetica:tr('synthetic fiber'),artificial:tr('artificial fiber'),cuero:'leather',otra:tr('unidentified material')};
+const MAT_LBL = {plastico:tr('rubber or plastics'),cuero:'leather',textil:'textile',otro:tr('other material'),otra:'unidentified',caucho:tr('rubber or plastics')};
 const MAT_STOP = new Set(('shell body cuerpo exterior forro lining relleno fill filling upper sole suela outsole insole plantilla midsole entresuela and with the con del los las por para sin recycled reciclado reciclada organic organico organica virgin main trim trims rib ribete principal capa layer fabric material materials materiales total other others demas parte partes superficie surface interior bonded laminado laminated coated recubierto without full grain flor split top bottom excluding contar refuerzos adornos accessories accesorios hood capucha pocket pocketing bolsillo bolsillos contrast contraste panel paneles power goose duck down plumon pluma plumas feather feathers fiber fibra fibras blend mezcla mix approx aprox aproximadamente weight peso gsm denier oz yarn hilo thread face back backing soporte membrane membrana dryvent futurelight goretex gore insulation aislante padding guata primaloft thermoball heatseeker vibram ortholite cushion foam espuma molded moldeado injected inyectado vulcanized vulcanizado cemented stitched cosido parts one outer inner lined unlined logo logos print estampado bci grs rcs eco otros otras resto rest').split(' '));
 const MAT_AMBIGUAS = {microfibra:'Microfiber can be textile or synthetic (PU): say which', microfiber:'Microfiber can be textile or synthetic (PU): say which', microfibre:'Microfiber can be textile or synthetic (PU): say which', neopreno:'Neoprene: counts as textile if the fabric faces out; if the rubber is exposed, as rubber or plastics', neoprene:'Neoprene: counts as textile if the fabric faces out; if the rubber is exposed, as rubber or plastics'};
 const MAT_EQUIV = [['cuero','Natural leather (hide, suede, nubuck)'],['sintetico','Synthetic: rubber or plastics (PU, PVC, TPU)'],['caucho','Rubber or EVA'],['textil','Textile (fabric, canvas, mesh)'],['algodon','Cotton'],['poliester','Polyester'],['nylon','Nylon or polyamide'],['elastano','Elastane or spandex'],['acrilico','Acrylic'],['viscosa','Viscose or rayon'],['lana','Wool'],['seda','Silk'],['lino','Linen or other vegetable fiber'],['metal','Metal'],['madera','Wood, cork or other material']];
@@ -367,7 +368,7 @@ function setSinonimos(lista){
 }
 /* Categoría de un material escrito (una fila de la composición) para mostrarla
    junto al campo: cuero, textil, caucho o plástico (sintético)… */
-const CLASE_LBL = {cuero:'Leather', textil:'Textile', plastico:'Rubber or plastics', metal:'Metal', madera:'Wood or cork', papel:'Paper', vidrio:'Glass', paja:'Straw'};
+const CLASE_LBL = {cuero:tr('Leather'), textil:tr('Textile'), plastico:tr('Rubber or plastics'), metal:tr('Metal'), madera:tr('Wood or cork'), papel:tr('Paper'), vidrio:tr('Glass'), paja:tr('Straw')};
 function claseTexto(txt){
   const t = prepMat(txt || '').s;
   if (!t.trim()) return null;
@@ -376,7 +377,7 @@ function claseTexto(txt){
   for (const [k, n] of Object.entries(pesos)) if (k !== 'otra' && n > best){ best = n; clase = k; }
   if (!clase) return null;
   const sint = clase === 'plastico' && !/\b(caucho|rubber|goma|hule|latex|eva|tpr)\b/.test(t);
-  return {clase, lbl: sint ? 'Synthetic (plastics)' : CLASE_LBL[clase]};
+  return {clase, lbl: sint ? tr('Synthetic (plastics)') : CLASE_LBL[clase]};
 }
 function vocabMat(){
   if (_vocab) return _vocab;
@@ -567,157 +568,157 @@ function requiereGenero(s){
   if (t === 'camiseta') return tej === 'plano' || !!s.polo;
   return tej === 'plano';
 }
-const OPT_LBL = {lana:'wool',seda:'silk',algodon:'cotton',sintetica:'synthetic fiber',artificial:'artificial fiber',manmade:'synthetic or artificial fiber',demas:'other textile material'};
+const OPT_LBL = {lana:'wool',seda:'silk',algodon:'cotton',sintetica:tr('synthetic fiber'),artificial:tr('artificial fiber'),manmade:tr('synthetic or artificial fiber'),demas:tr('other textile material')};
 
 /* ---------- Atributos con dependencias ---------- */
 const NO_TOBILLO = ['sandalia','chancla_tetones','slide','mocasin','pantufla','zueco','tacon','danza'];
 const SI_TOBILLO = ['bota','botin','esqui','bota_lluvia'];
 const PUNTERA_EST = ['bota','botin','zapato','tenis','seguridad','bota_lluvia','senderismo'];
-const SOLO_ADULTO = {seguridad:'Industrial safety footwear is for adults.', tacon:'There are no high heels for babies.', tacos:'There is no cleated or spiked footwear for babies.', esqui:'There are no ski or snowboard boots for babies.'};
-const MSG_PUNTERA = 'Protective toe caps are for adult work footwear.';
+const SOLO_ADULTO = {seguridad:tr('Industrial safety footwear is for adults.'), tacon:tr('There are no high heels for babies.'), tacos:tr('There is no cleated or spiked footwear for babies.'), esqui:tr('There are no ski or snowboard boots for babies.')};
+const MSG_PUNTERA = tr('Protective toe caps are for adult work footwear.');
 const offBotella = (s, tipo) => { const v = prepMat((s.comp || {}).material || '').s; if (!v.trim()) return null;
   const es = /\b(aluminio|aluminum|aluminium)\b/.test(v) ? 'aluminio' : /\b(acero|steel|inoxidable|stainless)\b/.test(v) ? 'acero' : (parseMat(v, 'corte') || {}).pred === 'plastico' ? 'plastico' : '';
-  return es && es !== tipo ? 'The material composition says ' + ({aluminio:'aluminum', acero:'stainless steel', plastico:'plastic'})[es] + '.' : null; };
-const motComp = (parte, s, modo) => { const pm = predParte(s, parte, modo); return 'Taken from the composition ' + ({corte:'of the upper', suela:'of the sole', exterior:'of the outer fabric', material:'of the material'})[parte] + (pm ? ' (' + resumenMat(pm) + ')' : '') + '. If it is wrong, fix the composition.'; };
-const noPlasticoCorte = s => { const pm = predParte(s, 'corte'); return pm && pm.pred !== 'plastico' ? 'The upper composition is ' + MAT_LBL[pm.pred] + ', not rubber or plastics.' : null; };
+  return es && es !== tipo ? tr('The material composition says {0}.', [({aluminio:'aluminum', acero:tr('stainless steel'), plastico:'plastic'})[es]]) : null; };
+const motComp = (parte, s, modo) => { const pm = predParte(s, parte, modo); return tr('Taken from the composition {0}{1}. If it is wrong, fix the composition.', [({corte:tr('of the upper'), suela:tr('of the sole'), exterior:tr('of the outer fabric'), material:tr('of the material')})[parte], pm ? ' (' + resumenMat(pm) + ')' : '']); };
+const noPlasticoCorte = s => { const pm = predParte(s, 'corte'); return pm && pm.pred !== 'plastico' ? tr('The upper composition is {0}, not rubber or plastics.', [MAT_LBL[pm.pred]]) : null; };
 const ATTRS = [
-  {id:'tejido', label:'Fabric', tipo:'seg', aplica:s=>grupoTipo(s.tipo) === 'prenda' && s.tipo !== 'brasier' || (s.tipo === 'cinturon' && s.materialCinturon === 'textil'),
-    ops:[{v:'punto', l:'Knitted'}, {v:'plano', l:'Woven', off:s=> s.tipo === 'camiseta' ? 'A T-shirt is knitted; if the fabric is woven, choose "Shirt, polo or blouse".' : s.tipo === 'calcetines' ? 'Socks are knitted.' : null}]},
-  {id:'edad', label:'Who it is for', tipo:'seg', def:'general', aplica:s=>grupoTipo(s.tipo) === 'prenda' && s.tipo !== 'brasier',
-    ops:[{v:'general', l:'Child, youth or adult'},
-      {v:'bebe', l:'Baby (up to 86 cm tall)', off:s=> s.tipo === 'chaqueta' && ['reflectivo','blazer'].includes(s.hechura) ? 'Not made in baby sizes.' : null}]},
-  {id:'genero', label:'Gender', ayuda:'this garment is classified differently for men and women', tipo:'seg', aplica:s=>requiereGenero(s) || ['falda','vestido','brasier'].includes(s.tipo) && s.edad !== 'bebe',
-    fijo:s=>['falda','vestido','brasier'].includes(s.tipo) ? 'F' : null, fijoMotivo:'This garment is always classified as women\'s.',
-    ops:[{v:'M', l:'Men or boys'}, {v:'F', l:'Women or girls'}, {v:'U', l:'Unisex (anyone)'}]},
-  {id:'hechura', label:'Construction', tipo:'seg', aplica:s=>s.tipo === 'chaqueta',
-    ops:[{v:'chaqueta', l:'Jacket, anorak, parka or windbreaker'}, {v:'chaleco_relleno', l:'Padded or insulated vest'}, {v:'chaleco', l:'Vest without fill'},
-      {v:'reflectivo', l:'Reflective safety vest', off:s=> ['nino','bebe'].includes(edadDe(s)) ? 'It is work equipment for adults.' : null},
-      {v:'blazer', l:'Suit jacket or blazer', off:s=> s.edad === 'bebe' ? 'Not made in baby sizes.' : null}]},
-  {id:'hechuraSud', label:'Construction', tipo:'seg', aplica:s=>s.tipo === 'sudadera',
-    ops:[{v:'pullover', l:'Pullover or hoodie, no full zip'}, {v:'cierre', l:'Full zip'}, {v:'chaqueta_fleece', l:'Fleece jacket worn as outerwear (pockets, lining or high collar)'}]},
-  {id:'polo', tipo:'check', label:'Has a collar and a buttoned placket at the neck (polo style)', aplica:s=>s.tipo === 'camiseta'},
-  {id:'prendaInt', label:'Garment', tipo:'seg', aplica:s=>s.tipo === 'ropa_interior',
-    ops:[{v:'interior', l:'Briefs, boxers or panties'}, {v:'pijama', l:'Pajamas or nightgown'}, {v:'camiseta_int', l:'Undershirt'}, {v:'bata', l:'Robe or bathrobe'}]},
-  {id:'tipoBufanda', label:'Garment', tipo:'seg', aplica:s=>s.tipo === 'bufanda',
-    ops:[{v:'bufanda', l:'Scarf, neck warmer or gaiter'}, {v:'bandana', l:'Square handkerchief or bandana, up to 60 cm per side'}]},
-  {id:'recubierta', tipo:'check', label:'Fabric coated or laminated with visible plastic or rubber (membrane such as DryVent, Gore-Tex, PU)', aplica:s=>['camiseta','camisa','sudadera','chaqueta','pantalon','guantes','conjunto','enterizo'].includes(s.tipo) && s.hechura !== 'blazer',
-    offCheck:s=> s.edad === 'bebe' ? 'Baby garments go in 6111 or 6209 even if the fabric is coated.' : null},
-  {id:'relleno_tipo', label:'Fill', tipo:'seg', aplica:s=>(s.tipo === 'chaqueta' && ['','chaqueta','chaleco_relleno'].includes(s.hechura || '')) || s.tipo === 'saco', info:true,
-    ops:[{v:'ninguno', l:'No fill', off:s=> s.hechura === 'chaleco_relleno' ? 'A padded vest has fill.' : s.tipo === 'saco' ? 'A sleeping bag has fill.' : null}, {v:'plumon', l:'Down or feather'}, {v:'sintetico', l:'Synthetic'}]},
-  {id:'tieneForro', tipo:'check', label:'Has a lining', aplica:s=>TIPOS_FORRO.includes(s.tipo) && s.hechura !== 'reflectivo', info:true},
-  {id:'manga', label:'Sleeve', tipo:'seg', aplica:s=>['camiseta','camisa','sudadera','vestido','chaqueta'].includes(s.tipo), info:true, soloNac:true,
-    ops:[{v:'sin', l:'Sleeveless'}, {v:'corta', l:'Short'}, {v:'larga', l:'Long'}]},
-  {id:'esqui', tipo:'check', label:'It is a ski or snowboard suit', aplica:s=>s.tipo === 'conjunto'},
-  {id:'guanteDeporte', tipo:'check', label:'Leather glove specially designed for sports', aplica:s=>s.tipo === 'guantes' && s._matGuante === 'cuero'},
-  {id:'estiloCalz', label:'Footwear style', tipo:'select', aplica:s=>s.tipo === 'calzado',
-    ops:[{v:'tenis', l:'Sneaker'}, {v:'senderismo', l:'Hiking or trekking'}, {v:'bota', l:'Boot'}, {v:'botin', l:'Ankle boot'},
-      {v:'zapato', l:'Closed shoe (dress, casual, school)'}, {v:'tacon', l:'High-heeled shoe', off:s=> edadDe(s) === 'bebe' ? SOLO_ADULTO.tacon : null}, {v:'mocasin', l:'Moccasin, loafer or boat shoe'},
-      {v:'sandalia', l:'Sandal'}, {v:'slide', l:'Slide'}, {v:'chancla_tetones', l:'Rubber or plastic flip-flop (toe post)', off:noPlasticoCorte}, {v:'zueco', l:'Molded clog'}, {v:'acuatico', l:'Water shoe'}, {v:'pantufla', l:'Slipper or house shoe'}, {v:'danza', l:'Dance shoe'}, {v:'roller', l:'With wheels (roller, Heelys type)'}, {v:'cubrecalzado', l:'Overshoe (worn over other footwear)'},
-      {v:'seguridad', l:'Safety or industrial footwear', off:s=> ['bebe','nino'].includes(edadDe(s)) ? SOLO_ADULTO.seguridad : null},
-      {v:'bota_lluvia', l:'Rain boot', off:noPlasticoCorte},
-      {v:'tacos', l:'With cleats or spikes (soccer, athletics), cycling, wrestling or boxing', off:s=> edadDe(s) === 'bebe' ? SOLO_ADULTO.tacos : null},
-      {v:'esqui', l:'Ski or snowboard', off:s=> edadDe(s) === 'bebe' ? SOLO_ADULTO.esqui : null}],
+  {id:'tejido', label:tr('Fabric'), tipo:'seg', aplica:s=>grupoTipo(s.tipo) === 'prenda' && s.tipo !== 'brasier' || (s.tipo === 'cinturon' && s.materialCinturon === 'textil'),
+    ops:[{v:'punto', l:tr('Knitted')}, {v:'plano', l:tr('Woven'), off:s=> s.tipo === 'camiseta' ? tr('A T-shirt is knitted; if the fabric is woven, choose "Shirt, polo or blouse".') : s.tipo === 'calcetines' ? tr('Socks are knitted.') : null}]},
+  {id:'edad', label:tr('Who it is for'), tipo:'seg', def:'general', aplica:s=>grupoTipo(s.tipo) === 'prenda' && s.tipo !== 'brasier',
+    ops:[{v:'general', l:tr('Child, youth or adult')},
+      {v:'bebe', l:tr('Baby (up to 86 cm tall)'), off:s=> s.tipo === 'chaqueta' && ['reflectivo','blazer'].includes(s.hechura) ? tr('Not made in baby sizes.') : null}]},
+  {id:'genero', label:tr('Gender'), ayuda:tr('this garment is classified differently for men and women'), tipo:'seg', aplica:s=>requiereGenero(s) || ['falda','vestido','brasier'].includes(s.tipo) && s.edad !== 'bebe',
+    fijo:s=>['falda','vestido','brasier'].includes(s.tipo) ? 'F' : null, fijoMotivo:tr('This garment is always classified as women\'s.'),
+    ops:[{v:'M', l:tr('Men or boys')}, {v:'F', l:tr('Women or girls')}, {v:'U', l:tr('Unisex (anyone)')}]},
+  {id:'hechura', label:tr('Construction'), tipo:'seg', aplica:s=>s.tipo === 'chaqueta',
+    ops:[{v:'chaqueta', l:tr('Jacket, anorak, parka or windbreaker')}, {v:'chaleco_relleno', l:tr('Padded or insulated vest')}, {v:'chaleco', l:tr('Vest without fill')},
+      {v:'reflectivo', l:tr('Reflective safety vest'), off:s=> ['nino','bebe'].includes(edadDe(s)) ? tr('It is work equipment for adults.') : null},
+      {v:'blazer', l:tr('Suit jacket or blazer'), off:s=> s.edad === 'bebe' ? tr('Not made in baby sizes.') : null}]},
+  {id:'hechuraSud', label:tr('Construction'), tipo:'seg', aplica:s=>s.tipo === 'sudadera',
+    ops:[{v:'pullover', l:tr('Pullover or hoodie, no full zip')}, {v:'cierre', l:tr('Full zip')}, {v:'chaqueta_fleece', l:tr('Fleece jacket worn as outerwear (pockets, lining or high collar)')}]},
+  {id:'polo', tipo:'check', label:tr('Has a collar and a buttoned placket at the neck (polo style)'), aplica:s=>s.tipo === 'camiseta'},
+  {id:'prendaInt', label:tr('Garment'), tipo:'seg', aplica:s=>s.tipo === 'ropa_interior',
+    ops:[{v:'interior', l:tr('Briefs, boxers or panties')}, {v:'pijama', l:tr('Pajamas or nightgown')}, {v:'camiseta_int', l:tr('Undershirt')}, {v:'bata', l:tr('Robe or bathrobe')}]},
+  {id:'tipoBufanda', label:tr('Garment'), tipo:'seg', aplica:s=>s.tipo === 'bufanda',
+    ops:[{v:'bufanda', l:tr('Scarf, neck warmer or gaiter')}, {v:'bandana', l:tr('Square handkerchief or bandana, up to 60 cm per side')}]},
+  {id:'recubierta', tipo:'check', label:tr('Fabric coated or laminated with visible plastic or rubber (membrane such as DryVent, Gore-Tex, PU)'), aplica:s=>['camiseta','camisa','sudadera','chaqueta','pantalon','guantes','conjunto','enterizo'].includes(s.tipo) && s.hechura !== 'blazer',
+    offCheck:s=> s.edad === 'bebe' ? tr('Baby garments go in 6111 or 6209 even if the fabric is coated.') : null},
+  {id:'relleno_tipo', label:tr('Fill'), tipo:'seg', aplica:s=>(s.tipo === 'chaqueta' && ['','chaqueta','chaleco_relleno'].includes(s.hechura || '')) || s.tipo === 'saco', info:true,
+    ops:[{v:'ninguno', l:tr('No fill'), off:s=> s.hechura === 'chaleco_relleno' ? tr('A padded vest has fill.') : s.tipo === 'saco' ? tr('A sleeping bag has fill.') : null}, {v:'plumon', l:tr('Down or feather')}, {v:'sintetico', l:tr('Synthetic')}]},
+  {id:'tieneForro', tipo:'check', label:tr('Has a lining'), aplica:s=>TIPOS_FORRO.includes(s.tipo) && s.hechura !== 'reflectivo', info:true},
+  {id:'manga', label:tr('Sleeve'), tipo:'seg', aplica:s=>['camiseta','camisa','sudadera','vestido','chaqueta'].includes(s.tipo), info:true, soloNac:true,
+    ops:[{v:'sin', l:tr('Sleeveless')}, {v:'corta', l:tr('Short')}, {v:'larga', l:tr('Long')}]},
+  {id:'esqui', tipo:'check', label:tr('It is a ski or snowboard suit'), aplica:s=>s.tipo === 'conjunto'},
+  {id:'guanteDeporte', tipo:'check', label:tr('Leather glove specially designed for sports'), aplica:s=>s.tipo === 'guantes' && s._matGuante === 'cuero'},
+  {id:'estiloCalz', label:tr('Footwear style'), tipo:'select', aplica:s=>s.tipo === 'calzado',
+    ops:[{v:'tenis', l:tr('Sneaker')}, {v:'senderismo', l:tr('Hiking or trekking')}, {v:'bota', l:tr('Boot')}, {v:'botin', l:tr('Ankle boot')},
+      {v:'zapato', l:tr('Closed shoe (dress, casual, school)')}, {v:'tacon', l:tr('High-heeled shoe'), off:s=> edadDe(s) === 'bebe' ? SOLO_ADULTO.tacon : null}, {v:'mocasin', l:tr('Moccasin, loafer or boat shoe')},
+      {v:'sandalia', l:tr('Sandal')}, {v:'slide', l:tr('Slide')}, {v:'chancla_tetones', l:tr('Rubber or plastic flip-flop (toe post)'), off:noPlasticoCorte}, {v:'zueco', l:tr('Molded clog')}, {v:'acuatico', l:tr('Water shoe')}, {v:'pantufla', l:tr('Slipper or house shoe')}, {v:'danza', l:tr('Dance shoe')}, {v:'roller', l:tr('With wheels (roller, Heelys type)')}, {v:'cubrecalzado', l:tr('Overshoe (worn over other footwear)')},
+      {v:'seguridad', l:tr('Safety or industrial footwear'), off:s=> ['bebe','nino'].includes(edadDe(s)) ? SOLO_ADULTO.seguridad : null},
+      {v:'bota_lluvia', l:tr('Rain boot'), off:noPlasticoCorte},
+      {v:'tacos', l:tr('With cleats or spikes (soccer, athletics), cycling, wrestling or boxing'), off:s=> edadDe(s) === 'bebe' ? SOLO_ADULTO.tacos : null},
+      {v:'esqui', l:tr('Ski or snowboard'), off:s=> edadDe(s) === 'bebe' ? SOLO_ADULTO.esqui : null}],
     implica:{tenis:{altura:'bajo'}, bota:{altura:'tobillo'}, botin:{altura:'tobillo'}, esqui:{altura:'tobillo'}, bota_lluvia:{altura:'tobillo', upper:'plastico', sole:'caucho', impermeable:true},
       sandalia:{altura:'bajo'}, slide:{altura:'bajo'}, mocasin:{altura:'bajo'}, pantufla:{altura:'bajo'}, zapato:{altura:'bajo'}, tacon:{altura:'bajo'}, acuatico:{altura:'bajo'},
       zueco:{altura:'bajo', upper:'plastico', sole:'caucho'}, chancla_tetones:{altura:'bajo', upper:'plastico', sole:'caucho', rodeaDedo:true}, danza:{altura:'bajo'}}},
-  {id:'altura', label:'Height', tipo:'seg', aplica:s=>s.tipo === 'calzado',
-    ops:[{v:'bajo', l:'Does not cover the ankle', off:s=> SI_TOBILLO.includes(s.estiloCalz) ? 'A boot or ankle boot covers the ankle.' : null},
-      {v:'tobillo', l:'Covers the ankle', off:s=> NO_TOBILLO.includes(s.estiloCalz) ? 'This style does not cover the ankle.' : null},
-      {v:'rodilla', l:'Also covers the knee', off:s=> NO_TOBILLO.concat(['botin','tenis','zapato','senderismo','acuatico']).includes(s.estiloCalz) ? 'This style does not reach the knee.' : null}]},
-  {id:'upper', label:'Upper material', ayuda:'the one with the largest external surface, excluding reinforcements and trims', tipo:'seg', aplica:s=>s.tipo === 'calzado', deComp:'corte',
+  {id:'altura', label:tr('Height'), tipo:'seg', aplica:s=>s.tipo === 'calzado',
+    ops:[{v:'bajo', l:tr('Does not cover the ankle'), off:s=> SI_TOBILLO.includes(s.estiloCalz) ? tr('A boot or ankle boot covers the ankle.') : null},
+      {v:'tobillo', l:tr('Covers the ankle'), off:s=> NO_TOBILLO.includes(s.estiloCalz) ? tr('This style does not cover the ankle.') : null},
+      {v:'rodilla', l:tr('Also covers the knee'), off:s=> NO_TOBILLO.concat(['botin','tenis','zapato','senderismo','acuatico']).includes(s.estiloCalz) ? tr('This style does not reach the knee.') : null}]},
+  {id:'upper', label:tr('Upper material'), ayuda:tr('the one with the largest external surface, excluding reinforcements and trims'), tipo:'seg', aplica:s=>s.tipo === 'calzado', deComp:'corte',
     fijo:s=>{ const pm = predParte(s, 'corte'); return pm ? pm.pred : null; }, fijoMotivo:s=>motComp('corte', s),
-    ops:[{v:'textil', l:'Textile', off:s=> s.estiloCalz === 'chancla_tetones' ? 'With textile or leather straps, choose "Sandal".' : null},
-      {v:'cuero', l:'Natural leather', off:s=> s.estiloCalz === 'chancla_tetones' ? 'With textile or leather straps, choose "Sandal".' : null},
-      {v:'plastico', l:'Rubber or plastics (includes synthetic leather)'},
-      {v:'otro', l:'Other', off:s=> s.estiloCalz === 'chancla_tetones' ? 'With straps of another material, choose "Sandal".' : null}]},
-  {id:'sole', label:'Sole material', ayuda:'the one with the largest surface in contact with the ground', tipo:'seg', aplica:s=>s.tipo === 'calzado', deComp:'suela',
+    ops:[{v:'textil', l:tr('Textile'), off:s=> s.estiloCalz === 'chancla_tetones' ? tr('With textile or leather straps, choose "Sandal".') : null},
+      {v:'cuero', l:tr('Natural leather'), off:s=> s.estiloCalz === 'chancla_tetones' ? tr('With textile or leather straps, choose "Sandal".') : null},
+      {v:'plastico', l:tr('Rubber or plastics (includes synthetic leather)')},
+      {v:'otro', l:tr('Other'), off:s=> s.estiloCalz === 'chancla_tetones' ? tr('With straps of another material, choose "Sandal".') : null}]},
+  {id:'sole', label:tr('Sole material'), ayuda:tr('the one with the largest surface in contact with the ground'), tipo:'seg', aplica:s=>s.tipo === 'calzado', deComp:'suela',
     fijo:s=>{ const pm = predParte(s, 'suela', 'suela'); return pm ? pm.pred : null; }, fijoMotivo:s=>motComp('suela', s, 'suela'),
-    ops:[{v:'caucho', l:'Rubber or plastics (EVA, PU, TPU)'},
-      {v:'cuero', l:'Leather', off:s=> ['chancla_tetones','bota_lluvia','zueco','acuatico'].includes(s.estiloCalz) ? 'This style has a rubber or plastic sole.' : null},
-      {v:'otro', l:'Other (wood, cork, textile)', off:s=> ['chancla_tetones','bota_lluvia','acuatico'].includes(s.estiloCalz) ? 'This style has a rubber or plastic sole.' : null}]},
-  {id:'rodeaDedo', tipo:'check', label:'Straps over the instep that go around the big toe', aplica:s=>s.tipo === 'calzado' && s.estiloCalz === 'sandalia'},
-  {id:'disenio', label:'Design', tipo:'seg', aplica:s=>s.tipo === 'calzado' && s.estiloCalz === 'tenis',
-    ops:[{v:'entrenamiento', l:'Athletic: running, trail running, training, basketball, tennis'}, {v:'casual', l:'Casual or lifestyle'}, {v:'skate', l:'Skate'}]},
-  {id:'puntera', label:'Protective toe cap', tipo:'seg', aplica:s=>s.tipo === 'calzado' && PUNTERA_EST.includes(s.estiloCalz),
-    ops:[{v:'ninguna', l:'No toe cap', off:s=> s.estiloCalz === 'seguridad' ? 'Safety footwear has a toe cap; say whether it is metal or not.' : null},
-      {v:'metalica', l:'Metal (steel, aluminum)', off:s=> ['bebe','nino'].includes(edadDe(s)) ? MSG_PUNTERA : null},
-      {v:'no_metalica', l:'Non-metal (composite)', off:s=> ['bebe','nino'].includes(edadDe(s)) ? MSG_PUNTERA : null}]},
-  {id:'impermeable', tipo:'check', label:'Waterproof: upper and sole joined without stitches, rivets, nails or screws (molded or injected)', aplica:s=>s.tipo === 'calzado',
-    offCheck:s=> !(s.upper === 'plastico' && s.sole === 'caucho') ? 'Only applies if upper and sole are rubber or plastics.' : null},
-  {id:'materialCinturon', label:'Belt material', tipo:'seg', aplica:s=>s.tipo === 'cinturon', deComp:'material',
+    ops:[{v:'caucho', l:tr('Rubber or plastics (EVA, PU, TPU)')},
+      {v:'cuero', l:tr('Leather'), off:s=> ['chancla_tetones','bota_lluvia','zueco','acuatico'].includes(s.estiloCalz) ? tr('This style has a rubber or plastic sole.') : null},
+      {v:'otro', l:tr('Other (wood, cork, textile)'), off:s=> ['chancla_tetones','bota_lluvia','acuatico'].includes(s.estiloCalz) ? tr('This style has a rubber or plastic sole.') : null}]},
+  {id:'rodeaDedo', tipo:'check', label:tr('Straps over the instep that go around the big toe'), aplica:s=>s.tipo === 'calzado' && s.estiloCalz === 'sandalia'},
+  {id:'disenio', label:tr('Design'), tipo:'seg', aplica:s=>s.tipo === 'calzado' && s.estiloCalz === 'tenis',
+    ops:[{v:'entrenamiento', l:tr('Athletic: running, trail running, training, basketball, tennis')}, {v:'casual', l:tr('Casual or lifestyle')}, {v:'skate', l:tr('Skate')}]},
+  {id:'puntera', label:tr('Protective toe cap'), tipo:'seg', aplica:s=>s.tipo === 'calzado' && PUNTERA_EST.includes(s.estiloCalz),
+    ops:[{v:'ninguna', l:tr('No toe cap'), off:s=> s.estiloCalz === 'seguridad' ? tr('Safety footwear has a toe cap; say whether it is metal or not.') : null},
+      {v:'metalica', l:tr('Metal (steel, aluminum)'), off:s=> ['bebe','nino'].includes(edadDe(s)) ? MSG_PUNTERA : null},
+      {v:'no_metalica', l:tr('Non-metal (composite)'), off:s=> ['bebe','nino'].includes(edadDe(s)) ? MSG_PUNTERA : null}]},
+  {id:'impermeable', tipo:'check', label:tr('Waterproof: upper and sole joined without stitches, rivets, nails or screws (molded or injected)'), aplica:s=>s.tipo === 'calzado',
+    offCheck:s=> !(s.upper === 'plastico' && s.sole === 'caucho') ? tr('Only applies if upper and sole are rubber or plastics.') : null},
+  {id:'materialCinturon', label:tr('Belt material'), tipo:'seg', aplica:s=>s.tipo === 'cinturon', deComp:'material',
     fijo:s=>matDerivado(s, 'material', {cuero:'cuero', textil:'textil', plastico:'plastico', otro:'otro', metal:'otro'}), fijoMotivo:s=>motComp('material', s),
-    ops:[{v:'cuero', l:'Leather'}, {v:'textil', l:'Textile'}, {v:'plastico', l:'Plastic or synthetic leather'}, {v:'otro', l:'Other'}]},
-  {id:'exterior', label:'Outer surface', tipo:'seg', aplica:s=>grupoTipo(s.tipo) === 'bolso', deComp:'exterior',
+    ops:[{v:'cuero', l:tr('Leather')}, {v:'textil', l:tr('Textile')}, {v:'plastico', l:tr('Plastic or synthetic leather')}, {v:'otro', l:tr('Other')}]},
+  {id:'exterior', label:tr('Outer surface'), tipo:'seg', aplica:s=>grupoTipo(s.tipo) === 'bolso', deComp:'exterior',
     fijo:s=>matDerivado(s, 'exterior', {cuero:'cuero', textil:'textil', plastico:'plastico', otro:'otro'}), fijoMotivo:s=>motComp('exterior', s),
-    ops:[{v:'textil', l:'Textile'}, {v:'plastico', l:'Plastic sheeting'}, {v:'cuero', l:'Leather'}, {v:'otro', l:'Other'}]},
-  {id:'casco', tipo:'check', label:'It is a protective helmet (bike, skate, ski, work)', aplica:s=>s.tipo === 'gorra'},
-  {id:'materialGorra', label:'Material', tipo:'seg', aplica:s=>s.tipo === 'gorra' && !s.casco, deComp:'exterior',
+    ops:[{v:'textil', l:tr('Textile')}, {v:'plastico', l:tr('Plastic sheeting')}, {v:'cuero', l:tr('Leather')}, {v:'otro', l:tr('Other')}]},
+  {id:'casco', tipo:'check', label:tr('It is a protective helmet (bike, skate, ski, work)'), aplica:s=>s.tipo === 'gorra'},
+  {id:'materialGorra', label:tr('Material'), tipo:'seg', aplica:s=>s.tipo === 'gorra' && !s.casco, deComp:'exterior',
     fijo:s=>matDerivado(s, 'exterior', {paja:true, textil:'textil', cuero:'otro', plastico:'otro', otro:'otro'}), fijoMotivo:s=>motComp('exterior', s),
-    ops:[{v:'textil', l:'Fabric or knit'}, {v:'paja', l:'Straw or plaited fibers'}, {v:'otro', l:'Other (plastic, leather)'}]},
-  {id:'alVacio', tipo:'check', label:'Vacuum insulation (thermos)', aplica:s=>s.tipo === 'botella'},
-  {id:'materialBotella', label:'Material', tipo:'seg', aplica:s=>s.tipo === 'botella', deComp:'material',
+    ops:[{v:'textil', l:tr('Fabric or knit')}, {v:'paja', l:tr('Straw or plaited fibers')}, {v:'otro', l:tr('Other (plastic, leather)')}]},
+  {id:'alVacio', tipo:'check', label:tr('Vacuum insulation (thermos)'), aplica:s=>s.tipo === 'botella'},
+  {id:'materialBotella', label:tr('Material'), tipo:'seg', aplica:s=>s.tipo === 'botella', deComp:'material',
     fijo:s=>{ const c = claseMat(s, 'material'); if (!c) return null; return c.pred === 'metal' ? (c.aluminio ? 'aluminio' : 'acero') : c.pred === 'plastico' ? 'plastico' : null; }, fijoMotivo:s=>motComp('material', s),
-    ops:[{v:'acero', l:'Stainless steel'}, {v:'aluminio', l:'Aluminum'}, {v:'plastico', l:'Plastic'}]},
-  {id:'telescopica', tipo:'check', label:'Telescopic (folding) shaft', aplica:s=>s.tipo === 'sombrilla'},
-  {id:'esBase', tipo:'check', label:'It is only the footprint or a tent accessory', aplica:s=>s.tipo === 'tienda'},
-  {id:'kitViaje', tipo:'check', label:'It is a travel kit or set (several items in a case)', aplica:s=>s.tipo === 'cuidado_calzado'},
-  {id:'tipoAvio', label:'What it is', tipo:'seg', aplica:s=>s.tipo === 'avios',
-    ops:[{v:'boton', l:'Button or snap'}, {v:'cremallera', l:'Zipper'}, {v:'hebilla', l:'Buckle or clasp'}, {v:'ojete', l:'Eyelet or hook'}, {v:'remache', l:'Rivet'}]},
-  {id:'forradoTextil', tipo:'check', label:'Covered with fabric', aplica:s=>s.tipo === 'avios' && s.tipoAvio === 'boton'},
-  {id:'materialAvio', label:'Material', tipo:'seg', aplica:s=>['avios','correa_reloj','accesorio_pelo'].includes(s.tipo), deComp:'material',
+    ops:[{v:'acero', l:tr('Stainless steel')}, {v:'aluminio', l:tr('Aluminum')}, {v:'plastico', l:tr('Plastic')}]},
+  {id:'telescopica', tipo:'check', label:tr('Telescopic (folding) shaft'), aplica:s=>s.tipo === 'sombrilla'},
+  {id:'esBase', tipo:'check', label:tr('It is only the footprint or a tent accessory'), aplica:s=>s.tipo === 'tienda'},
+  {id:'kitViaje', tipo:'check', label:tr('It is a travel kit or set (several items in a case)'), aplica:s=>s.tipo === 'cuidado_calzado'},
+  {id:'tipoAvio', label:tr('What it is'), tipo:'seg', aplica:s=>s.tipo === 'avios',
+    ops:[{v:'boton', l:tr('Button or snap')}, {v:'cremallera', l:tr('Zipper')}, {v:'hebilla', l:tr('Buckle or clasp')}, {v:'ojete', l:tr('Eyelet or hook')}, {v:'remache', l:tr('Rivet')}]},
+  {id:'forradoTextil', tipo:'check', label:tr('Covered with fabric'), aplica:s=>s.tipo === 'avios' && s.tipoAvio === 'boton'},
+  {id:'materialAvio', label:tr('Material'), tipo:'seg', aplica:s=>['avios','correa_reloj','accesorio_pelo'].includes(s.tipo), deComp:'material',
     fijo:s=>{ const c = claseMat(s, 'material'); if (!c) return null; return ({metal:'metal', plastico:'plastico', textil:'textil', cuero:'cuero'})[c.pred] || 'otro'; }, fijoMotivo:s=>motComp('material', s),
-    ops:[{v:'metal', l:'Base metal'}, {v:'plastico', l:'Plastic or rubber'}, {v:'textil', l:'Textile'}, {v:'cuero', l:'Leather'}, {v:'otro', l:'Other'}]},
-  {id:'tipoPelo', label:'What it is', tipo:'seg', aplica:s=>s.tipo === 'accesorio_pelo',
-    ops:[{v:'pasador', l:'Hair clip, comb or rigid headband'}, {v:'horquilla', l:'Hairpin or bobby pin'}, {v:'liga', l:'Hair tie, scrunchie or fabric headband'}]},
-  {id:'pelNat', label:'Fur type', tipo:'seg', aplica:s=>s.tipo === 'peleteria',
-    ops:[{v:'natural', l:'Natural fur (hide with hair)'}, {v:'artificial', l:'Faux fur'}]},
-  {id:'esPrenda', tipo:'check', label:'It is a garment or clothing accessory', aplica:s=>s.tipo === 'peleteria' && s.pelNat === 'natural'},
-  {id:'hamacaRed', tipo:'check', label:'It is netting (knotted mesh), not fabric', aplica:s=>s.tipo === 'hamaca'},
-  {id:'producto', label:'Product', tipo:'seg', aplica:s=>s.tipo === 'cuidado_calzado',
-    ops:[{v:'crema', l:'Cream, polish, wax or cleaner'}, {v:'spray', l:'Waterproofing or protective spray'}, {v:'cepillo', l:'Brush'}]},
-  {id:'materialLlavero', label:'Material', tipo:'seg', aplica:s=>s.tipo === 'llavero', deComp:'material',
+    ops:[{v:'metal', l:tr('Base metal')}, {v:'plastico', l:tr('Plastic or rubber')}, {v:'textil', l:tr('Textile')}, {v:'cuero', l:tr('Leather')}, {v:'otro', l:tr('Other')}]},
+  {id:'tipoPelo', label:tr('What it is'), tipo:'seg', aplica:s=>s.tipo === 'accesorio_pelo',
+    ops:[{v:'pasador', l:tr('Hair clip, comb or rigid headband')}, {v:'horquilla', l:tr('Hairpin or bobby pin')}, {v:'liga', l:tr('Hair tie, scrunchie or fabric headband')}]},
+  {id:'pelNat', label:tr('Fur type'), tipo:'seg', aplica:s=>s.tipo === 'peleteria',
+    ops:[{v:'natural', l:tr('Natural fur (hide with hair)')}, {v:'artificial', l:tr('Faux fur')}]},
+  {id:'esPrenda', tipo:'check', label:tr('It is a garment or clothing accessory'), aplica:s=>s.tipo === 'peleteria' && s.pelNat === 'natural'},
+  {id:'hamacaRed', tipo:'check', label:tr('It is netting (knotted mesh), not fabric'), aplica:s=>s.tipo === 'hamaca'},
+  {id:'producto', label:tr('Product'), tipo:'seg', aplica:s=>s.tipo === 'cuidado_calzado',
+    ops:[{v:'crema', l:tr('Cream, polish, wax or cleaner')}, {v:'spray', l:tr('Waterproofing or protective spray')}, {v:'cepillo', l:tr('Brush')}]},
+  {id:'materialLlavero', label:tr('Material'), tipo:'seg', aplica:s=>s.tipo === 'llavero', deComp:'material',
     fijo:s=>matDerivado(s, 'material', {metal:true, cuero:'cuero', textil:'textil', plastico:'plastico'}), fijoMotivo:s=>motComp('material', s),
-    ops:[{v:'metal', l:'Metal'}, {v:'cuero', l:'Leather'}, {v:'textil', l:'Textile (lanyard, webbing)'}, {v:'plastico', l:'Plastic or rubber'}]},
-  {id:'pantalla', label:'Watch type', tipo:'seg', aplica:s=>s.tipo === 'reloj',
-    ops:[{v:'analogico', l:'Analog (hands)'}, {v:'digital', l:'Digital'}, {v:'combinado', l:'Analog and digital'}, {v:'inteligente', l:'Smartwatch'}]},
-  {id:'presentacion', label:'Form', tipo:'seg', aplica:s=>s.tipo === 'magnesio',
-    ops:[{v:'polvo', l:'Powder or block'}, {v:'liquido', l:'Liquid'}]},
-  {id:'tipoColch', label:'Type', tipo:'seg', aplica:s=>s.tipo === 'colchoneta',
-    ops:[{v:'inflable', l:'Inflatable pad'}, {v:'espuma', l:'Foam or self-inflating pad'}, {v:'almohada', l:'Pillow or cushion'}]},
-  {id:'mueble', label:'Furniture', tipo:'seg', aplica:s=>s.tipo === 'mueble_camping', ops:[{v:'silla', l:'Chair or stool'}, {v:'mesa', l:'Table'}]},
-  {id:'acolchada', tipo:'check', label:'Padded seat or backrest (with fill)', aplica:s=>s.tipo === 'mueble_camping' && s.mueble !== 'mesa'},
-  {id:'materialMueble', label:'Frame material', tipo:'seg', aplica:s=>(s.tipo === 'mueble_camping' && s.mueble === 'mesa') || (s.tipo === 'exhibidor' && s.tipoExhib !== 'maniqui'), deComp:'material',
+    ops:[{v:'metal', l:tr('Metal')}, {v:'cuero', l:tr('Leather')}, {v:'textil', l:tr('Textile (lanyard, webbing)')}, {v:'plastico', l:tr('Plastic or rubber')}]},
+  {id:'pantalla', label:tr('Watch type'), tipo:'seg', aplica:s=>s.tipo === 'reloj',
+    ops:[{v:'analogico', l:tr('Analog (hands)')}, {v:'digital', l:tr('Digital')}, {v:'combinado', l:tr('Analog and digital')}, {v:'inteligente', l:tr('Smartwatch')}]},
+  {id:'presentacion', label:tr('Form'), tipo:'seg', aplica:s=>s.tipo === 'magnesio',
+    ops:[{v:'polvo', l:tr('Powder or block')}, {v:'liquido', l:tr('Liquid')}]},
+  {id:'tipoColch', label:tr('Type'), tipo:'seg', aplica:s=>s.tipo === 'colchoneta',
+    ops:[{v:'inflable', l:tr('Inflatable pad')}, {v:'espuma', l:tr('Foam or self-inflating pad')}, {v:'almohada', l:tr('Pillow or cushion')}]},
+  {id:'mueble', label:tr('Furniture'), tipo:'seg', aplica:s=>s.tipo === 'mueble_camping', ops:[{v:'silla', l:tr('Chair or stool')}, {v:'mesa', l:tr('Table')}]},
+  {id:'acolchada', tipo:'check', label:tr('Padded seat or backrest (with fill)'), aplica:s=>s.tipo === 'mueble_camping' && s.mueble !== 'mesa'},
+  {id:'materialMueble', label:tr('Frame material'), tipo:'seg', aplica:s=>(s.tipo === 'mueble_camping' && s.mueble === 'mesa') || (s.tipo === 'exhibidor' && s.tipoExhib !== 'maniqui'), deComp:'material',
     fijo:s=>{ const c = claseMat(s, 'material'); return c && ['metal','madera','plastico'].includes(c.pred) ? c.pred : null; }, fijoMotivo:s=>motComp('material', s),
-    ops:[{v:'metal', l:'Metal'}, {v:'madera', l:'Wood'}, {v:'plastico', l:'Plastic'}]},
-  {id:'rizo', tipo:'check', label:'Terry or loop pile (classic towel)', aplica:s=>s.tipo === 'toalla'},
-  {id:'materialBisu', label:'Material', tipo:'seg', aplica:s=>s.tipo === 'bisuteria', deComp:'material',
+    ops:[{v:'metal', l:tr('Metal')}, {v:'madera', l:tr('Wood')}, {v:'plastico', l:tr('Plastic')}]},
+  {id:'rizo', tipo:'check', label:tr('Terry or loop pile (classic towel)'), aplica:s=>s.tipo === 'toalla'},
+  {id:'materialBisu', label:tr('Material'), tipo:'seg', aplica:s=>s.tipo === 'bisuteria', deComp:'material',
     fijo:s=>{ const c = claseMat(s, 'material'); return c ? ({metal:'metal', cuero:'cuero', textil:'textil'})[c.pred] || 'otro' : null; }, fijoMotivo:s=>motComp('material', s),
-    ops:[{v:'metal', l:'Base metal (steel, brass, zinc)'}, {v:'cuero', l:'Leather'}, {v:'textil', l:'Textile or cord'}, {v:'otro', l:'Plastic, wood or other'}]},
-  {id:'tipoParche', label:'Type', tipo:'seg', aplica:s=>s.tipo === 'parche',
-    ops:[{v:'sticker', l:'Printed sticker or decal'}, {v:'bordado', l:'Embroidered patch'}, {v:'tejido', l:'Woven patch or badge'}, {v:'pvc', l:'PVC or rubber patch'}]},
-  {id:'actividad', label:'Use', tipo:'seg', aplica:s=>s.tipo === 'equipo_deporte',
-    ops:[{v:'fitness', l:'Exercise or gym (yoga mat, bands, jump rope)'}, {v:'escalada', l:'Climbing (crash pad, holds)'}, {v:'protecciones', l:'Protective pads (knee, elbow)'}, {v:'pelota', l:'Inflatable ball'}, {v:'otro', l:'Other sports equipment'}]},
-  {id:'baseAncha', tipo:'check', label:'The base is 40 cm wide or more', aplica:s=>s.tipo === 'bolsa_compra' && s.materialBolsa === 'papel'},
-  {id:'materialBolsa', label:'Material', tipo:'seg', aplica:s=>s.tipo === 'bolsa_compra', deComp:'material',
+    ops:[{v:'metal', l:tr('Base metal (steel, brass, zinc)')}, {v:'cuero', l:tr('Leather')}, {v:'textil', l:tr('Textile or cord')}, {v:'otro', l:tr('Plastic, wood or other')}]},
+  {id:'tipoParche', label:tr('Type'), tipo:'seg', aplica:s=>s.tipo === 'parche',
+    ops:[{v:'sticker', l:tr('Printed sticker or decal')}, {v:'bordado', l:tr('Embroidered patch')}, {v:'tejido', l:tr('Woven patch or badge')}, {v:'pvc', l:tr('PVC or rubber patch')}]},
+  {id:'actividad', label:tr('Use'), tipo:'seg', aplica:s=>s.tipo === 'equipo_deporte',
+    ops:[{v:'fitness', l:tr('Exercise or gym (yoga mat, bands, jump rope)')}, {v:'escalada', l:tr('Climbing (crash pad, holds)')}, {v:'protecciones', l:tr('Protective pads (knee, elbow)')}, {v:'pelota', l:tr('Inflatable ball')}, {v:'otro', l:tr('Other sports equipment')}]},
+  {id:'baseAncha', tipo:'check', label:tr('The base is 40 cm wide or more'), aplica:s=>s.tipo === 'bolsa_compra' && s.materialBolsa === 'papel'},
+  {id:'materialBolsa', label:tr('Material'), tipo:'seg', aplica:s=>s.tipo === 'bolsa_compra', deComp:'material',
     fijo:s=>{ const c = claseMat(s, 'material'); return c ? ({papel:'papel', textil:'tela', plastico:'plastico'})[c.pred] || null : null; }, fijoMotivo:s=>motComp('material', s),
-    ops:[{v:'papel', l:'Paper or card stock'}, {v:'plastico', l:'Plastic'}, {v:'tela', l:'Fabric or non-woven, reusable with handles'}]},
-  {id:'materialCaja', label:'Material', tipo:'seg', aplica:s=>s.tipo === 'caja', deComp:'material',
+    ops:[{v:'papel', l:tr('Paper or card stock')}, {v:'plastico', l:tr('Plastic')}, {v:'tela', l:tr('Fabric or non-woven, reusable with handles')}]},
+  {id:'materialCaja', label:tr('Material'), tipo:'seg', aplica:s=>s.tipo === 'caja', deComp:'material',
     fijo:s=>{ const c = claseMat(s, 'material'); if (!c) return null; if (c.pred === 'papel') return c.corrugado ? 'corrugado' : 'plegadizo'; return c.pred === 'plastico' ? 'plastico' : null; }, fijoMotivo:s=>motComp('material', s),
-    ops:[{v:'corrugado', l:'Corrugated cardboard'}, {v:'plegadizo', l:'Card stock or non-corrugated board (shoe box)'}, {v:'plastico', l:'Plastic'}]},
-  {id:'materialGancho', label:'Material', tipo:'seg', aplica:s=>s.tipo === 'gancho', deComp:'material',
+    ops:[{v:'corrugado', l:tr('Corrugated cardboard')}, {v:'plegadizo', l:tr('Card stock or non-corrugated board (shoe box)')}, {v:'plastico', l:tr('Plastic')}]},
+  {id:'materialGancho', label:tr('Material'), tipo:'seg', aplica:s=>s.tipo === 'gancho', deComp:'material',
     fijo:s=>{ const c = claseMat(s, 'material'); return c && ['plastico','metal','madera'].includes(c.pred) ? c.pred : null; }, fijoMotivo:s=>motComp('material', s),
-    ops:[{v:'plastico', l:'Plastic'}, {v:'metal', l:'Wire or metal'}, {v:'madera', l:'Wood'}]},
-  {id:'materialEtiqueta', label:'Material', tipo:'seg', aplica:s=>s.tipo === 'etiqueta', deComp:'material',
+    ops:[{v:'plastico', l:tr('Plastic')}, {v:'metal', l:tr('Wire or metal')}, {v:'madera', l:tr('Wood')}]},
+  {id:'materialEtiqueta', label:tr('Material'), tipo:'seg', aplica:s=>s.tipo === 'etiqueta', deComp:'material',
     fijo:s=>{ const c = claseMat(s, 'material'); return c ? ({papel:'papel', textil:'tejida', plastico:'plastico'})[c.pred] || null : null; }, fijoMotivo:s=>motComp('material', s),
-    ops:[{v:'papel', l:'Printed paper or board (hang tag)'}, {v:'tejida', l:'Woven (neck label)'}, {v:'plastico', l:'Plastic or PVC'}]},
-  {id:'tipoExhib', label:'Type', tipo:'seg', aplica:s=>s.tipo === 'exhibidor',
-    ops:[{v:'mueble', l:'Fixture, gondola or display'}, {v:'maniqui', l:'Mannequin or bust'}]},
-  {id:'parteSkate', label:'Form', tipo:'seg', aplica:s=>s.tipo === 'patineta', info:true, soloNac:true,
-    ops:[{v:'completa', l:'Complete skateboard'}, {v:'tabla', l:'Deck only'}, {v:'partes', l:'Wheels, trucks or other parts'}]}
+    ops:[{v:'papel', l:tr('Printed paper or board (hang tag)')}, {v:'tejida', l:tr('Woven (neck label)')}, {v:'plastico', l:tr('Plastic or PVC')}]},
+  {id:'tipoExhib', label:tr('Type'), tipo:'seg', aplica:s=>s.tipo === 'exhibidor',
+    ops:[{v:'mueble', l:tr('Fixture, gondola or display')}, {v:'maniqui', l:tr('Mannequin or bust')}]},
+  {id:'parteSkate', label:tr('Form'), tipo:'seg', aplica:s=>s.tipo === 'patineta', info:true, soloNac:true,
+    ops:[{v:'completa', l:tr('Complete skateboard')}, {v:'tabla', l:tr('Deck only')}, {v:'partes', l:tr('Wheels, trucks or other parts')}]}
 ];
 const ATTR_IDS = ATTRS.map(a=>a.id);
 const ATTR_BY = {}; ATTRS.forEach(a=>{ ATTR_BY[a.id] = a; });
-function opcionLbl(id, v){ const a = ATTR_BY[id]; if (!a) return String(v); if (a.tipo === 'check') return v ? 'Yes' : 'No'; const o = (a.ops||[]).find(x=>x.v === v); return o ? o.l : String(v); }
+function opcionLbl(id, v){ const a = ATTR_BY[id]; if (!a) return String(v); if (a.tipo === 'check') return v ? tr('Yes') : tr('No'); const o = (a.ops||[]).find(x=>x.v === v); return o ? o.l : String(v); }
 function prepararEstado(s){
   s._matGuante = '';
   if (s.tipo === 'guantes'){ const c = parseComp((s.comp||{}).exterior || ''); if (c && c.pred && c.pred.grupo === 'cuero') s._matGuante = 'cuero'; }
@@ -731,17 +732,17 @@ function normalizar(s){
       if (!a.aplica(s)) continue;
       const fx = a.fijo ? a.fijo(s) : null;
       if (fx != null && s[a.id] !== fx){
-        if (s[a.id] && a.deComp) avisos.push(a.label + ': changed from "' + opcionLbl(a.id, s[a.id]) + '" a "' + opcionLbl(a.id, fx) + '". ' + (typeof a.fijoMotivo === 'function' ? a.fijoMotivo(s) : ''));
+        if (s[a.id] && a.deComp) avisos.push(tr('{0}: changed from "{1}" to "{2}". {3}', [a.label, opcionLbl(a.id, s[a.id]), opcionLbl(a.id, fx), typeof a.fijoMotivo === 'function' ? a.fijoMotivo(s) : '']));
         s[a.id] = fx;
       }
       const v = s[a.id];
       if (a.tipo === 'check'){
         const r = v && a.offCheck ? a.offCheck(s) : null;
-        if (r){ s[a.id] = false; avisos.push('Unchecked "' + a.label + '": ' + r); }
+        if (r){ s[a.id] = false; avisos.push(tr('Unchecked "{0}": {1}', [a.label, r])); }
       } else if (v){
         const op = a.ops.find(o=>o.v === v);
-        const r = !op ? 'invalid option' : (op.off ? op.off(s) : null);
-        if (r){ s[a.id] = ''; avisos.push('Removed "' + (op ? op.l : v) + '": ' + r); }
+        const r = !op ? tr('invalid option') : (op.off ? op.off(s) : null);
+        if (r){ s[a.id] = ''; avisos.push(tr('Removed "{0}": {1}', [op ? op.l : v, r])); }
       }
     }
   }
@@ -775,7 +776,7 @@ function atributosLegibles(s){
   for (const a of ATTRS){
     if (!a.aplica(prepararEstado(Object.assign({}, s)))) continue;
     const v = s[a.id];
-    if (a.tipo === 'check'){ if (v) out.push([a.label.split(':')[0].split('(')[0].trim(), 'Yes']); }
+    if (a.tipo === 'check'){ if (v) out.push([a.label.split(':')[0].split('(')[0].trim(), tr('Yes')]); }
     else if (v) out.push([a.label, opcionLbl(a.id, v)]);
   }
   return out;
@@ -1125,10 +1126,10 @@ function derivarCalzado(f){
 
 /* ---------- Motor de reglas ---------- */
 const FUND = {
-  prenda:'GRI 1 and 6; Note 2 and Subheading Note 2 to Section XI (predominating textile material) and the notes to chapters 61 and 62.',
-  calzado:'GRI 1 and 6; Note 4 to chapter 64 (the upper is the material with the largest external surface, excluding accessories and reinforcements; the sole, the material with the largest surface in contact with the ground) and Subheading Note 1 to chapter 64 (sports footwear).',
-  bolso:'GRI 1 and 6; text of heading 42.02 and its subheadings, which split by outer surface.',
-  general:'GRI 1 (text of the heading and the section and chapter notes) and GRI 6 (subheadings).'
+  prenda:tr('GRI 1 and 6; Note 2 and Subheading Note 2 to Section XI (predominating textile material) and the notes to chapters 61 and 62.'),
+  calzado:tr('GRI 1 and 6; Note 4 to chapter 64 (the upper is the material with the largest external surface, excluding accessories and reinforcements; the sole, the material with the largest surface in contact with the ground) and Subheading Note 1 to chapter 64 (sports footwear).'),
+  bolso:tr('GRI 1 and 6; text of heading 42.02 and its subheadings, which split by outer surface.'),
+  general:tr('GRI 1 (text of the heading and the section and chapter notes) and GRI 6 (subheadings).')
 };
 function clasificarReglas(f){
   const comp0 = (f.comp && f.comp.exterior) || f.composicion || (/%/.test(textoDet(f)) ? textoDet(f) : '');
@@ -1138,16 +1139,16 @@ function clasificarReglas(f){
   const media = m => { R.conf = Math.min(R.conf, 2); if (m) R.faltantes.push(m); };
   const alt = (c, cuando) => { if (c) R.alternativas.push({codigo:c, cuando}); };
   const t = f.tipo;
-  if (!t){ R.conf = 0; R.faltantes.push('Choose the product type'); return fin(R); }
+  if (!t){ R.conf = 0; R.faltantes.push(tr('Choose the product type')); return fin(R); }
   if (t === 'otro_sac'){
     // Cualquier producto: la subpartida la elige quien llena la ficha en el SAC
     // oficial; el motor pone sus notas y los códigos nacionales que aplican
     const c = digits(f.sacElegido).slice(0, 6);
-    if (c.length < 6){ R.conf = 0; R.faltantes.push('Choose the SAC subheading'); return fin(R); }
-    R.codigo = c; R.conf = 2; R.fundamento = 'General Interpretative Rules 1 and 6: the text of the heading and subheading, and the section and chapter notes.';
+    if (c.length < 6){ R.conf = 0; R.faltantes.push(tr('Choose the SAC subheading')); return fin(R); }
+    R.codigo = c; R.conf = 2; R.fundamento = tr('General Interpretative Rules 1 and 6: the text of the heading and subheading, and the section and chapter notes.');
     const propio = String(descDe(c) || '').split('—').slice(-1)[0].trim();
-    R.razones.push('Subheading chosen in the SAC: ' + fmtCode(c) + (propio ? ' — ' + propio : ''));
-    R.avisos.push('Check it against the section, chapter and explanatory notes of heading ' + c.slice(0, 4) + ' before sending it.');
+    R.razones.push(tr('Subheading chosen in the SAC: {0}{1}', [fmtCode(c), propio ? ' — ' + propio : '']));
+    R.avisos.push(tr('Check it against the section, chapter and explanatory notes of heading {0} before sending it.', [c.slice(0, 4)]));
     return fin(R);
   }
   const grp = grupoTipo(t);
@@ -1156,37 +1157,37 @@ function clasificarReglas(f){
     if (!pred || pred.grupo === 'cuero'){
       R.codigo = Object.values(opts)[0].slice(0,4);
       R.conf = Math.min(R.conf, 1);
-      R.faltantes.push('The outer fabric composition is missing; it is needed to choose the subheading');
-      for (const [k,c] of Object.entries(opts)) alt(c, 'If the predominant fiber is ' + OPT_LBL[k]);
+      R.faltantes.push(tr('The outer fabric composition is missing; it is needed to choose the subheading'));
+      for (const [k,c] of Object.entries(opts)) alt(c, tr('If the predominant fiber is {0}', [OPT_LBL[k]]));
       return;
     }
     const c = pickSub(opts, pred);
     R.codigo = c;
-    let r = 'Predominant fiber: ' + FIB_LBL[pred.grupo] + ' (' + pred.pct + '%)';
-    if (pred.mezclaMM) r += '; synthetic and artificial fibers are added together as one group when comparing';
-    if (pred.empate) r += '; in a tie, the material that comes last in numerical order is taken';
-    if (opts.demas === c && ['sintetica','artificial','lana','seda'].includes(pred.grupo)) r += '; this heading does not split it out, so it goes under "other textile materials"';
+    let r = tr('Predominant fiber: {0} ({1}%)', [FIB_LBL[pred.grupo], pred.pct]);
+    if (pred.mezclaMM) r += tr('; synthetic and artificial fibers are added together as one group when comparing');
+    if (pred.empate) r += tr('; in a tie, the material that comes last in numerical order is taken');
+    if (opts.demas === c && ['sintetica','artificial','lana','seda'].includes(pred.grupo)) r += tr('; this heading does not split it out, so it goes under "other textile materials"');
     R.razones.push(r + ' → ' + fmtCode(c));
-    if (comp && comp.usoSegmento) R.razones.push('The outer fabric is used' + (comp.segmento ? ' ("' + comp.segmento + '")' : '') + '; lining and fill do not count');
+    if (comp && comp.usoSegmento) R.razones.push(tr('The outer fabric is used{0}; lining and fill do not count', [comp.segmento ? ' ("' + comp.segmento + '")' : '']));
   }
 
   if (grp === 'prenda'){
     R.fundamento = FUND.prenda;
     const pmExt = (!pred || pred.grupo === 'otra') ? parseMat(comp0, 'corte') : null;
-    if (pmExt && pmExt.pred === 'plastico' && t !== 'brasier'){ R.codigo = '392620'; R.razones.push('The material is plastic with no textile fibers (for example, a PVC poncho) → 3926.20, plastic garments'); R.avisos.push('If the plastic sheet is on a fabric, it is classified as a garment of coated fabric (6113 or 6210).'); return fin(R); }
-    if (pred && pred.grupo === 'cuero' && t !== 'guantes'){ R.codigo = '420310'; R.razones.push('The predominant material is leather: leather garments go in heading 4203, not in chapters 61 or 62'); return fin(R); }
-    if (t === 'brasier'){ R.codigo = '621210'; R.razones.push('Bras and bra-type sports tops → 6212.10, knitted or not and regardless of fiber'); return fin(R); }
+    if (pmExt && pmExt.pred === 'plastico' && t !== 'brasier'){ R.codigo = '392620'; R.razones.push(tr('The material is plastic with no textile fibers (for example, a PVC poncho) → 3926.20, plastic garments')); R.avisos.push(tr('If the plastic sheet is on a fabric, it is classified as a garment of coated fabric (6113 or 6210).')); return fin(R); }
+    if (pred && pred.grupo === 'cuero' && t !== 'guantes'){ R.codigo = '420310'; R.razones.push(tr('The predominant material is leather: leather garments go in heading 4203, not in chapters 61 or 62')); return fin(R); }
+    if (t === 'brasier'){ R.codigo = '621210'; R.razones.push(tr('Bras and bra-type sports tops → 6212.10, knitted or not and regardless of fiber')); return fin(R); }
     const defTej = {camiseta:'punto',sudadera:'punto',calcetines:'punto',guantes:'punto',bufanda:'punto',ropa_interior:'punto',chaqueta:'plano',pantalon:'plano',camisa:'plano',falda:'plano',vestido:'plano',conjunto:'punto',traje_bano:'punto',enterizo:'plano'}[t];
     let tej = t === 'calcetines' ? 'punto' : f.tejido;
     const defTej2 = t === 'bufanda' && f.tipoBufanda === 'bandana' ? 'plano' : null;
     if (!tej){
       tej = defTej2 || defTej;
-      if (['camiseta','sudadera','guantes','bufanda','calcetines'].includes(t)) R.razones.push('Fabric not given: knitted is assumed, as usual for this type');
-      else media('Fabric not given: assumed ' + (tej === 'punto' ? 'knitted' : 'woven') + ', the most common for this type');
+      if (['camiseta','sudadera','guantes','bufanda','calcetines'].includes(t)) R.razones.push(tr('Fabric not given: knitted is assumed, as usual for this type'));
+      else media(tr('Fabric not given: assumed {0}, the most common for this type', [tej === 'punto' ? 'knitted' : 'woven']));
     }
-    if (t !== 'calcetines') R.razones.push(tej === 'punto' ? 'Knitted fabric → chapter 61' : 'Woven fabric → chapter 62');
+    if (t !== 'calcetines') R.razones.push(tej === 'punto' ? tr('Knitted fabric → chapter 61') : tr('Woven fabric → chapter 62'));
     if (f.edad === 'bebe'){
-      R.razones.push('Baby garment (up to 86 cm tall): the notes to chapters 61 and 62 send it to ' + (tej === 'punto' ? '6111' : '6209') + ' with priority over other headings');
+      R.razones.push(tr('Baby garment (up to 86 cm tall): the notes to chapters 61 and 62 send it to {0} with priority over other headings', [tej === 'punto' ? '6111' : '6209']));
       conFibra(tej === 'punto' ? {algodon:'611120',sintetica:'611130',demas:'611190'} : {algodon:'620920',sintetica:'620930',demas:'620990'});
       return fin(R);
     }
@@ -1194,8 +1195,8 @@ function clasificarReglas(f){
     let g = f.genero;
     if (g !== 'M' && g !== 'F'){
       if (needsG){
-        if (g === 'U') R.razones.push('Unisex: the notes to chapters 61 and 62 classify as women\'s whatever is not identifiable as men\'s');
-        else media('Say whether it is men\'s or women\'s (without it, the rule treats it as women\'s)');
+        if (g === 'U') R.razones.push(tr('Unisex: the notes to chapters 61 and 62 classify as women\'s whatever is not identifiable as men\'s'));
+        else media(tr('Say whether it is men\'s or women\'s (without it, the rule treats it as women\'s)'));
       }
       g = 'F';
     }
@@ -1204,11 +1205,11 @@ function clasificarReglas(f){
       if (tej === 'punto') R.codigo = '611300';
       else if (t === 'chaqueta') R.codigo = g === 'M' ? '621020' : '621030';
       else R.codigo = g === 'M' ? '621040' : '621050';
-      R.razones.push('Fabric coated or laminated with plastic (headings 5903, 5906, 5907) → ' + fmtCode(R.codigo));
-      R.avisos.push('Only applies if the fabric qualifies under 5903: coating or lamination visible to the naked eye, for example. If the membrane is hidden between layers and does not qualify, use the alternative.');
+      R.razones.push(tr('Fabric coated or laminated with plastic (headings 5903, 5906, 5907) → {0}', [fmtCode(R.codigo)]));
+      R.avisos.push(tr('Only applies if the fabric qualifies under 5903: coating or lamination visible to the naked eye, for example. If the membrane is hidden between layers and does not qualify, use the alternative.'));
       const r2 = clasificarReglas(Object.assign({}, f, {recubierta:false}));
-      if (r2.codigo) alt(r2.codigo, 'If the fabric does not qualify as coated or laminated');
-      if (f.recubiertaAuto) media('The coating was detected from the description; confirm it with the technical sheet');
+      if (r2.codigo) alt(r2.codigo, tr('If the fabric does not qualify as coated or laminated'));
+      if (f.recubiertaAuto) media(tr('The coating was detected from the description; confirm it with the technical sheet'));
       return fin(R);
     }
     const O6101 = {algodon:'610120',manmade:'610130',demas:'610190'}, O6102 = {lana:'610210',algodon:'610220',manmade:'610230',demas:'610290'};
@@ -1219,121 +1220,121 @@ function clasificarReglas(f){
     const O6211M = {algodon:'621132',manmade:'621133',demas:'621139'}, O6211F = {algodon:'621142',manmade:'621143',demas:'621149'};
     switch (t){
       case 'camiseta':
-        if (tej === 'plano'){ R.razones.push('6109 only covers knitted garments; in woven fabric it is treated as a shirt → ' + (g === 'M' ? '6205' : '6206')); conFibra(g === 'M' ? O6205 : O6206); }
-        else if (f.polo){ R.razones.push('It has a collar and a buttoned placket: it is a polo, not a T-shirt → ' + (g === 'M' ? '6105' : '6106')); conFibra(g === 'M' ? O6105 : O6106); alt(pickSub({algodon:'610910',demas:'610990'}, pred), 'If it actually has no collar or buttons'); }
-        else { R.razones.push('Knitted T-shirt, tank top or base layer → heading 6109 (no gender split)'); conFibra({algodon:'610910',demas:'610990'}); alt(pickSub(g === 'M' ? O6105 : O6106, pred), 'If it has a collar and a buttoned placket at the neck (polo style)'); }
+        if (tej === 'plano'){ R.razones.push(tr('6109 only covers knitted garments; in woven fabric it is treated as a shirt → {0}', [g === 'M' ? '6205' : '6206'])); conFibra(g === 'M' ? O6205 : O6206); }
+        else if (f.polo){ R.razones.push(tr('It has a collar and a buttoned placket: it is a polo, not a T-shirt → {0}', [g === 'M' ? '6105' : '6106'])); conFibra(g === 'M' ? O6105 : O6106); alt(pickSub({algodon:'610910',demas:'610990'}, pred), tr('If it actually has no collar or buttons')); }
+        else { R.razones.push(tr('Knitted T-shirt, tank top or base layer → heading 6109 (no gender split)')); conFibra({algodon:'610910',demas:'610990'}); alt(pickSub(g === 'M' ? O6105 : O6106, pred), tr('If it has a collar and a buttoned placket at the neck (polo style)')); }
         break;
       case 'camisa':
-        if (tej === 'punto'){ R.razones.push(g === 'M' ? 'Knitted shirt or polo, men\'s → 6105' : 'Knitted shirt, blouse or polo, women\'s → 6106'); conFibra(g === 'M' ? O6105 : O6106); }
-        else { R.razones.push(g === 'M' ? 'Woven shirt, men\'s → 6205' : 'Woven shirt or blouse, women\'s → 6206'); conFibra(g === 'M' ? O6205 : O6206); }
+        if (tej === 'punto'){ R.razones.push(g === 'M' ? tr('Knitted shirt or polo, men\'s → 6105') : tr('Knitted shirt, blouse or polo, women\'s → 6106')); conFibra(g === 'M' ? O6105 : O6106); }
+        else { R.razones.push(g === 'M' ? tr('Woven shirt, men\'s → 6205') : tr('Woven shirt or blouse, women\'s → 6206')); conFibra(g === 'M' ? O6205 : O6206); }
         break;
       case 'sudadera':
-        if (tej === 'punto' && f.hechuraSud === 'chaqueta_fleece'){ R.razones.push('Fleece jacket worn over other garments → ' + (g === 'M' ? '6101' : '6102') + ' (knitted jackets)'); if (g !== 'M' && g !== 'F') media(); conFibra(g === 'M' ? O6101 : O6102); alt(pickSub(O6110, pred), 'If its construction is closer to a sweater or sweatshirt than to outerwear'); media('Fleece: the line between 6110 and 6101/6102 depends on construction; confirm it with photos or the sheet'); }
-        else if (tej === 'punto'){ R.razones.push('Knitted sweater, sweatshirt, hoodie or fleece → heading 6110 (no gender split)'); conFibra(O6110); alt(pickSub(g === 'M' ? O6101 : O6102, pred), 'If it is built like an outer jacket (full zip, pockets, lining)'); if (f.hechuraSud === 'cierre') media('Full zip: confirm it is not a fleece jacket (6101/6102)'); else if (!f.hechuraSud) media('Give the construction: pullover, full zip or fleece jacket'); }
-        else { R.razones.push('Woven top with no more specific heading → 6211'); conFibra(g === 'M' ? O6211M : O6211F); alt(pickSub(g === 'M' ? O6201 : O6202, pred), 'If it is built like a jacket or windbreaker'); }
+        if (tej === 'punto' && f.hechuraSud === 'chaqueta_fleece'){ R.razones.push(tr('Fleece jacket worn over other garments → {0} (knitted jackets)', [g === 'M' ? '6101' : '6102'])); if (g !== 'M' && g !== 'F') media(); conFibra(g === 'M' ? O6101 : O6102); alt(pickSub(O6110, pred), tr('If its construction is closer to a sweater or sweatshirt than to outerwear')); media(tr('Fleece: the line between 6110 and 6101/6102 depends on construction; confirm it with photos or the sheet')); }
+        else if (tej === 'punto'){ R.razones.push(tr('Knitted sweater, sweatshirt, hoodie or fleece → heading 6110 (no gender split)')); conFibra(O6110); alt(pickSub(g === 'M' ? O6101 : O6102, pred), tr('If it is built like an outer jacket (full zip, pockets, lining)')); if (f.hechuraSud === 'cierre') media(tr('Full zip: confirm it is not a fleece jacket (6101/6102)')); else if (!f.hechuraSud) media(tr('Give the construction: pullover, full zip or fleece jacket')); }
+        else { R.razones.push(tr('Woven top with no more specific heading → 6211')); conFibra(g === 'M' ? O6211M : O6211F); alt(pickSub(g === 'M' ? O6201 : O6202, pred), tr('If it is built like a jacket or windbreaker')); }
         break;
       case 'chaqueta':
         if (f.hechura === 'blazer'){
-          R.razones.push('Suit jacket or blazer → ' + (tej === 'punto' ? (g === 'M' ? '6103.3' : '6104.3') : (g === 'M' ? '6203.3' : '6204.3')));
+          R.razones.push(tr('Suit jacket or blazer → {0}', [tej === 'punto' ? (g === 'M' ? '6103.3' : '6104.3') : (g === 'M' ? '6203.3' : '6204.3')]));
           conFibra(tej === 'punto' ? (g === 'M' ? {lana:'610331',algodon:'610332',sintetica:'610333',demas:'610339'} : {lana:'610431',algodon:'610432',sintetica:'610433',demas:'610439'}) : (g === 'M' ? {lana:'620331',algodon:'620332',sintetica:'620333',demas:'620339'} : {lana:'620431',algodon:'620432',sintetica:'620433',demas:'620439'}));
           break;
         }
         if (f.hechura === 'reflectivo'){
-          if (tej === 'punto'){ R.razones.push('Knitted (mesh) reflective safety vest → 6114, other knitted garments'); conFibra({algodon:'611420',manmade:'611430',demas:'611490'}); }
-          else { R.razones.push('Woven reflective safety vest → 6211, other garments'); conFibra(g === 'M' ? O6211M : O6211F); }
-          R.avisos.push('If the vest has fill or a jacket construction, it is classified as a padded vest or jacket.');
+          if (tej === 'punto'){ R.razones.push(tr('Knitted (mesh) reflective safety vest → 6114, other knitted garments')); conFibra({algodon:'611420',manmade:'611430',demas:'611490'}); }
+          else { R.razones.push(tr('Woven reflective safety vest → 6211, other garments')); conFibra(g === 'M' ? O6211M : O6211F); }
+          R.avisos.push(tr('If the vest has fill or a jacket construction, it is classified as a padded vest or jacket.'));
           break;
         }
         if (f.hechura === 'chaleco'){
-          if (tej === 'punto'){ R.razones.push('Knitted vest without fill → 6110 (the heading includes vests)'); conFibra(O6110); alt(pickSub(g === 'M' ? O6101 : O6102, pred), 'If it is built like warm outerwear'); }
-          else { R.razones.push('Woven vest without fill → 6211, other garments (the vests in headings 6201 and 6202 are the padded ones)'); conFibra(g === 'M' ? O6211M : O6211F); alt(pickSub(g === 'M' ? O6201 : O6202, pred), 'If it is padded or built like a windbreaker'); }
+          if (tej === 'punto'){ R.razones.push(tr('Knitted vest without fill → 6110 (the heading includes vests)')); conFibra(O6110); alt(pickSub(g === 'M' ? O6101 : O6102, pred), tr('If it is built like warm outerwear')); }
+          else { R.razones.push(tr('Woven vest without fill → 6211, other garments (the vests in headings 6201 and 6202 are the padded ones)')); conFibra(g === 'M' ? O6211M : O6211F); alt(pickSub(g === 'M' ? O6201 : O6202, pred), tr('If it is padded or built like a windbreaker')); }
           break;
         }
-        if (!f.hechura) media('Give the construction: jacket, vest with or without fill, reflective or blazer');
+        if (!f.hechura) media(tr('Give the construction: jacket, vest with or without fill, reflective or blazer'));
         if (tej === 'punto'){
-          R.razones.push(g === 'M' ? 'Knitted jacket, anorak or vest, men\'s → 6101' : 'Knitted jacket, anorak or vest, women\'s → 6102');
+          R.razones.push(g === 'M' ? tr('Knitted jacket, anorak or vest, men\'s → 6101') : tr('Knitted jacket, anorak or vest, women\'s → 6102'));
           conFibra(g === 'M' ? O6101 : O6102);
-          alt(pickSub(O6110, pred), 'If it is a cardigan or light fleece, closer to a sweater than to outerwear');
-          alt('611300', 'If the knitted fabric is coated or laminated with plastic');
+          alt(pickSub(O6110, pred), tr('If it is a cardigan or light fleece, closer to a sweater than to outerwear'));
+          alt('611300', tr('If the knitted fabric is coated or laminated with plastic'));
         } else {
-          R.razones.push(g === 'M' ? 'Woven jacket, anorak, parka or padded vest, men\'s → 6201' : 'Woven jacket, anorak, parka or padded vest, women\'s → 6202');
+          R.razones.push(g === 'M' ? tr('Woven jacket, anorak, parka or padded vest, men\'s → 6201') : tr('Woven jacket, anorak, parka or padded vest, women\'s → 6202'));
           conFibra(g === 'M' ? O6201 : O6202);
-          alt(g === 'M' ? '621020' : '621030', 'If the outer fabric is coated or laminated with plastic (some rain jackets)');
-          if (/\b(blazer|saco|sport ?coat|americana)\b/.test(norm(textoDet(f)))) alt(pickSub(g === 'M' ? {lana:'620331',algodon:'620332',sintetica:'620333',demas:'620339'} : {lana:'620431',algodon:'620432',sintetica:'620433',demas:'620439'}, pred), 'If it is a dress suit jacket or blazer');
+          alt(g === 'M' ? '621020' : '621030', tr('If the outer fabric is coated or laminated with plastic (some rain jackets)'));
+          if (/\b(blazer|saco|sport ?coat|americana)\b/.test(norm(textoDet(f)))) alt(pickSub(g === 'M' ? {lana:'620331',algodon:'620332',sintetica:'620333',demas:'620339'} : {lana:'620431',algodon:'620432',sintetica:'620433',demas:'620439'}, pred), tr('If it is a dress suit jacket or blazer'));
         }
-        if (f.relleno_tipo === 'plumon' || f.relleno_tipo === 'sintetico') R.razones.push('The fill does not change the heading: the outer fabric governs');
+        if (f.relleno_tipo === 'plumon' || f.relleno_tipo === 'sintetico') R.razones.push(tr('The fill does not change the heading: the outer fabric governs'));
         break;
       case 'pantalon':
-        if (tej === 'punto'){ R.razones.push(g === 'M' ? 'Knitted pants, shorts or overalls, men\'s → 6103' : 'Knitted pants, shorts or overalls, women\'s → 6104'); conFibra(g === 'M' ? {lana:'610341',algodon:'610342',sintetica:'610343',demas:'610349'} : {lana:'610461',algodon:'610462',sintetica:'610463',demas:'610469'}); alt('611300','If the knitted fabric is coated or laminated with plastic'); }
-        else { R.razones.push(g === 'M' ? 'Woven pants, shorts or overalls, men\'s → 6203' : 'Woven pants, shorts or overalls, women\'s → 6204'); conFibra(g === 'M' ? {lana:'620341',algodon:'620342',sintetica:'620343',demas:'620349'} : {lana:'620461',algodon:'620462',sintetica:'620463',demas:'620469'}); alt(g === 'M' ? '621040' : '621050','If the fabric is coated or laminated with plastic (rain pants)'); }
-        alt(g === 'M' ? (tej === 'punto' ? '611231' : '621111') : (tej === 'punto' ? '611241' : '621112'), 'If they are shorts designed for swimming (boardshorts)');
+        if (tej === 'punto'){ R.razones.push(g === 'M' ? tr('Knitted pants, shorts or overalls, men\'s → 6103') : tr('Knitted pants, shorts or overalls, women\'s → 6104')); conFibra(g === 'M' ? {lana:'610341',algodon:'610342',sintetica:'610343',demas:'610349'} : {lana:'610461',algodon:'610462',sintetica:'610463',demas:'610469'}); alt('611300',tr('If the knitted fabric is coated or laminated with plastic')); }
+        else { R.razones.push(g === 'M' ? tr('Woven pants, shorts or overalls, men\'s → 6203') : tr('Woven pants, shorts or overalls, women\'s → 6204')); conFibra(g === 'M' ? {lana:'620341',algodon:'620342',sintetica:'620343',demas:'620349'} : {lana:'620461',algodon:'620462',sintetica:'620463',demas:'620469'}); alt(g === 'M' ? '621040' : '621050',tr('If the fabric is coated or laminated with plastic (rain pants)')); }
+        alt(g === 'M' ? (tej === 'punto' ? '611231' : '621111') : (tej === 'punto' ? '611241' : '621112'), tr('If they are shorts designed for swimming (boardshorts)'));
         break;
       case 'falda':
-        R.razones.push(tej === 'punto' ? 'Knitted skirt → 6104' : 'Woven skirt → 6204');
+        R.razones.push(tej === 'punto' ? tr('Knitted skirt → 6104') : tr('Woven skirt → 6204'));
         conFibra(tej === 'punto' ? {lana:'610451',algodon:'610452',sintetica:'610453',demas:'610459'} : {lana:'620451',algodon:'620452',sintetica:'620453',demas:'620459'});
         break;
       case 'vestido':
-        R.razones.push(tej === 'punto' ? 'Knitted dress → 6104' : 'Woven dress → 6204');
+        R.razones.push(tej === 'punto' ? tr('Knitted dress → 6104') : tr('Woven dress → 6204'));
         conFibra(tej === 'punto' ? {lana:'610441',algodon:'610442',sintetica:'610443',artificial:'610444',demas:'610449'} : {lana:'620441',algodon:'620442',sintetica:'620443',artificial:'620444',demas:'620449'});
         break;
       case 'enterizo':
-        if (tej === 'punto'){ R.razones.push('Knitted coverall, jumpsuit or romper → 6114, other knitted garments (no gender split)'); conFibra({algodon:'611420',manmade:'611430',demas:'611490'}); }
-        else { R.razones.push('Woven coverall or jumpsuit → 6211, other garments'); conFibra(g === 'M' ? O6211M : O6211F); }
-        R.avisos.push('Bib overalls go with pants; a one-piece ski suit goes in 6112.20 or 6211.20.');
+        if (tej === 'punto'){ R.razones.push(tr('Knitted coverall, jumpsuit or romper → 6114, other knitted garments (no gender split)')); conFibra({algodon:'611420',manmade:'611430',demas:'611490'}); }
+        else { R.razones.push(tr('Woven coverall or jumpsuit → 6211, other garments')); conFibra(g === 'M' ? O6211M : O6211F); }
+        R.avisos.push(tr('Bib overalls go with pants; a one-piece ski suit goes in 6112.20 or 6211.20.'));
         break;
       case 'conjunto':
-        if (f.esqui){ R.codigo = tej === 'punto' ? '611220' : '621120'; R.razones.push('Ski or snowboard suit → ' + fmtCode(R.codigo)); break; }
-        if (tej === 'punto'){ R.razones.push('Knitted tracksuit → 6112 (no gender split)'); conFibra({algodon:'611211',sintetica:'611212',demas:'611219'}); }
-        else { R.razones.push('Woven tracksuit → 6211'); conFibra(g === 'M' ? O6211M : O6211F); }
-        R.avisos.push('If the pieces are sold separately, each one is classified on its own.');
+        if (f.esqui){ R.codigo = tej === 'punto' ? '611220' : '621120'; R.razones.push(tr('Ski or snowboard suit → {0}', [fmtCode(R.codigo)])); break; }
+        if (tej === 'punto'){ R.razones.push(tr('Knitted tracksuit → 6112 (no gender split)')); conFibra({algodon:'611211',sintetica:'611212',demas:'611219'}); }
+        else { R.razones.push(tr('Woven tracksuit → 6211')); conFibra(g === 'M' ? O6211M : O6211F); }
+        R.avisos.push(tr('If the pieces are sold separately, each one is classified on its own.'));
         break;
       case 'traje_bano':
-        if (tej === 'punto'){ R.razones.push(g === 'M' ? 'Knitted swimwear, men\'s → 6112.3' : 'Knitted swimwear, women\'s → 6112.4'); conFibra(g === 'M' ? {sintetica:'611231',demas:'611239'} : {sintetica:'611241',demas:'611249'}); }
-        else { R.codigo = g === 'M' ? '621111' : '621112'; R.razones.push('Woven swimwear → ' + fmtCode(R.codigo) + ' (does not depend on fiber)'); }
+        if (tej === 'punto'){ R.razones.push(g === 'M' ? tr('Knitted swimwear, men\'s → 6112.3') : tr('Knitted swimwear, women\'s → 6112.4')); conFibra(g === 'M' ? {sintetica:'611231',demas:'611239'} : {sintetica:'611241',demas:'611249'}); }
+        else { R.codigo = g === 'M' ? '621111' : '621112'; R.razones.push(tr('Woven swimwear → {0} (does not depend on fiber)', [fmtCode(R.codigo)])); }
         break;
       case 'ropa_interior':
         if (f.prendaInt === 'pijama'){
-          if (tej === 'punto'){ R.razones.push(g === 'M' ? 'Knitted pajamas, men\'s → 6107.2' : 'Knitted pajamas or nightgown, women\'s → 6108.3'); conFibra(g === 'M' ? {algodon:'610721',manmade:'610722',demas:'610729'} : {algodon:'610831',manmade:'610832',demas:'610839'}); }
-          else { R.razones.push(g === 'M' ? 'Woven pajamas, men\'s → 6207.2' : 'Woven pajamas or nightgown, women\'s → 6208.2'); conFibra(g === 'M' ? {algodon:'620721',manmade:'620722',demas:'620729'} : {algodon:'620821',manmade:'620822',demas:'620829'}); }
+          if (tej === 'punto'){ R.razones.push(g === 'M' ? tr('Knitted pajamas, men\'s → 6107.2') : tr('Knitted pajamas or nightgown, women\'s → 6108.3')); conFibra(g === 'M' ? {algodon:'610721',manmade:'610722',demas:'610729'} : {algodon:'610831',manmade:'610832',demas:'610839'}); }
+          else { R.razones.push(g === 'M' ? tr('Woven pajamas, men\'s → 6207.2') : tr('Woven pajamas or nightgown, women\'s → 6208.2')); conFibra(g === 'M' ? {algodon:'620721',manmade:'620722',demas:'620729'} : {algodon:'620821',manmade:'620822',demas:'620829'}); }
           break;
         }
         if (f.prendaInt === 'bata'){
-          if (tej === 'punto'){ R.razones.push(g === 'M' ? 'Knitted robe or bathrobe, men\'s → 6107.9' : 'Knitted robe or bathrobe, women\'s → 6108.9'); conFibra(g === 'M' ? {algodon:'610791', demas:'610799'} : {algodon:'610891', manmade:'610892', demas:'610899'}); }
-          else { R.razones.push(g === 'M' ? 'Woven robe or bathrobe, men\'s → 6207.9' : 'Woven robe or bathrobe, women\'s → 6208.9'); conFibra(g === 'M' ? {algodon:'620791', demas:'620799'} : {algodon:'620891', manmade:'620892', demas:'620899'}); }
+          if (tej === 'punto'){ R.razones.push(g === 'M' ? tr('Knitted robe or bathrobe, men\'s → 6107.9') : tr('Knitted robe or bathrobe, women\'s → 6108.9')); conFibra(g === 'M' ? {algodon:'610791', demas:'610799'} : {algodon:'610891', manmade:'610892', demas:'610899'}); }
+          else { R.razones.push(g === 'M' ? tr('Woven robe or bathrobe, men\'s → 6207.9') : tr('Woven robe or bathrobe, women\'s → 6208.9')); conFibra(g === 'M' ? {algodon:'620791', demas:'620799'} : {algodon:'620891', manmade:'620892', demas:'620899'}); }
           break;
         }
         if (f.prendaInt === 'camiseta_int'){
-          if (tej === 'punto'){ R.razones.push('Knitted undershirt → 6109 (no gender split)'); conFibra({algodon:'610910',demas:'610990'}); }
-          else { R.razones.push(g === 'M' ? 'Woven undershirt, men\'s → 6207.9' : 'Woven undershirt, women\'s → 6208.9'); conFibra(g === 'M' ? {algodon:'620791',demas:'620799'} : {algodon:'620891',manmade:'620892',demas:'620899'}); }
+          if (tej === 'punto'){ R.razones.push(tr('Knitted undershirt → 6109 (no gender split)')); conFibra({algodon:'610910',demas:'610990'}); }
+          else { R.razones.push(g === 'M' ? tr('Woven undershirt, men\'s → 6207.9') : tr('Woven undershirt, women\'s → 6208.9')); conFibra(g === 'M' ? {algodon:'620791',demas:'620799'} : {algodon:'620891',manmade:'620892',demas:'620899'}); }
           break;
         }
-        if (tej === 'punto'){ R.razones.push(g === 'M' ? 'Knitted boxers or briefs → 6107' : 'Knitted panties or briefs → 6108'); conFibra(g === 'M' ? {algodon:'610711',manmade:'610712',demas:'610719'} : {algodon:'610821',manmade:'610822',demas:'610829'}); }
-        else { R.razones.push(g === 'M' ? 'Woven underpants → 6207' : 'Woven underwear, women\'s → 6208'); conFibra(g === 'M' ? {algodon:'620711',demas:'620719'} : {algodon:'620891',manmade:'620892',demas:'620899'}); }
+        if (tej === 'punto'){ R.razones.push(g === 'M' ? tr('Knitted boxers or briefs → 6107') : tr('Knitted panties or briefs → 6108')); conFibra(g === 'M' ? {algodon:'610711',manmade:'610712',demas:'610719'} : {algodon:'610821',manmade:'610822',demas:'610829'}); }
+        else { R.razones.push(g === 'M' ? tr('Woven underpants → 6207') : tr('Woven underwear, women\'s → 6208')); conFibra(g === 'M' ? {algodon:'620711',demas:'620719'} : {algodon:'620891',manmade:'620892',demas:'620899'}); }
         break;
       case 'calcetines':
-        R.razones.push('Knitted socks → heading 6115');
+        R.razones.push(tr('Knitted socks → heading 6115'));
         conFibra({lana:'611594',algodon:'611595',sintetica:'611596',demas:'611599'});
-        R.avisos.push('Graduated compression hosiery goes in 6115.10.');
+        R.avisos.push(tr('Graduated compression hosiery goes in 6115.10.'));
         break;
       case 'guantes':
-        if (pred && pred.grupo === 'cuero'){ R.codigo = f.guanteDeporte ? '420321' : '420329'; R.razones.push(f.guanteDeporte ? 'Leather gloves designed for sports → 4203.21' : 'Leather gloves (work or dress) → 4203.29'); R.fundamento = FUND.general; break; }
-        if (tej === 'plano'){ R.codigo = '621600'; R.razones.push('Woven gloves → 6216.00'); break; }
-        if (f.recubierta){ R.codigo = '611610'; R.razones.push('Knitted gloves coated or impregnated with plastic or rubber → 6116.10'); break; }
-        R.razones.push('Knitted gloves → heading 6116');
+        if (pred && pred.grupo === 'cuero'){ R.codigo = f.guanteDeporte ? '420321' : '420329'; R.razones.push(f.guanteDeporte ? tr('Leather gloves designed for sports → 4203.21') : tr('Leather gloves (work or dress) → 4203.29')); R.fundamento = FUND.general; break; }
+        if (tej === 'plano'){ R.codigo = '621600'; R.razones.push(tr('Woven gloves → 6216.00')); break; }
+        if (f.recubierta){ R.codigo = '611610'; R.razones.push(tr('Knitted gloves coated or impregnated with plastic or rubber → 6116.10')); break; }
+        R.razones.push(tr('Knitted gloves → heading 6116'));
         conFibra({lana:'611691',algodon:'611692',sintetica:'611693',demas:'611699'});
         break;
       case 'bufanda':
-        if (f.tipoBufanda === 'bandana' && tej !== 'punto'){ R.razones.push('Handkerchief or bandana up to 60 cm per side → 6213'); conFibra({algodon:'621320',demas:'621390'}); alt(pickSub({seda:'621410',lana:'621420',sintetica:'621430',artificial:'621440',demas:'621490'}, pred), 'If any side is longer than 60 cm'); break; }
-        if (tej === 'punto'){ R.codigo = '611710'; R.razones.push('Knitted scarf, neck warmer or gaiter → 6117.10 (does not depend on fiber)'); }
-        else { R.razones.push('Woven scarf → heading 6214'); conFibra({seda:'621410',lana:'621420',sintetica:'621430',artificial:'621440',demas:'621490'}); }
+        if (f.tipoBufanda === 'bandana' && tej !== 'punto'){ R.razones.push(tr('Handkerchief or bandana up to 60 cm per side → 6213')); conFibra({algodon:'621320',demas:'621390'}); alt(pickSub({seda:'621410',lana:'621420',sintetica:'621430',artificial:'621440',demas:'621490'}, pred), tr('If any side is longer than 60 cm')); break; }
+        if (tej === 'punto'){ R.codigo = '611710'; R.razones.push(tr('Knitted scarf, neck warmer or gaiter → 6117.10 (does not depend on fiber)')); }
+        else { R.razones.push(tr('Woven scarf → heading 6214')); conFibra({seda:'621410',lana:'621420',sintetica:'621430',artificial:'621440',demas:'621490'}); }
         break;
     }
     return fin(R);
   }
 
   if (grp === 'calzado' && f.estiloCalz === 'roller'){
-    R.codigo = '950670'; R.razones.push('Footwear with built-in wheels or skates: roller skates, including footwear with skates attached → 9506.70');
-    R.avisos.push('If the wheels are removable and the shoe is worn normally without them, check chapter 64.'); alt('640299', 'If the wheels are not a fixed part of the footwear');
+    R.codigo = '950670'; R.razones.push(tr('Footwear with built-in wheels or skates: roller skates, including footwear with skates attached → 9506.70'));
+    R.avisos.push(tr('If the wheels are removable and the shoe is worn normally without them, check chapter 64.')); alt('640299', tr('If the wheels are not a fixed part of the footwear'));
     return fin(R);
   }
   if (grp === 'calzado'){
@@ -1341,61 +1342,61 @@ function clasificarReglas(f){
     const dv = derivarCalzado(f);
     const up = dv.upper, so = dv.sole || 'caucho', est = f.estiloCalz || '', altura = f.altura || '';
     const tob = altura === 'tobillo' || altura === 'rodilla';
-    R.razones.push('Footwear → chapter 64');
+    R.razones.push(tr('Footwear → chapter 64'));
     if (!up){
       R.codigo = '64'; R.conf = 1;
-      R.faltantes.push(f.upperMixto ? 'The upper combines leather and textile: give the upper percentages or choose the material with the largest external surface' : 'Give the upper material (the one with the largest external surface) or its composition');
-      alt('6404','If the upper is textile'); alt('6403','If the upper is natural leather'); alt('6402','If the upper is rubber or plastics');
+      R.faltantes.push(f.upperMixto ? tr('The upper combines leather and textile: give the upper percentages or choose the material with the largest external surface') : tr('Give the upper material (the one with the largest external surface) or its composition'));
+      alt('6404',tr('If the upper is textile')); alt('6403',tr('If the upper is natural leather')); alt('6402',tr('If the upper is rubber or plastics'));
       return fin(R);
     }
-    const origenUp = dv.upperComp ? ' (upper composition: ' + resumenMat(dv.corte) + ')' : ' (set by hand, no upper composition)';
-    R.razones.push('Upper of ' + MAT_LBL[up] + origenUp + ' and sole of ' + MAT_LBL[so] + (dv.soleComp ? '' : (f.sole ? ' (set by hand)' : ' (assumed)')) + ' — chapter 64, note 4: upper by its largest outer surface, sole by the surface touching the ground');
-    if (!dv.upperComp) media('Enter the upper composition by surface; without it the upper material cannot be verified');
+    const origenUp = dv.upperComp ? tr(' (upper composition: {0})', [resumenMat(dv.corte)]) : tr(' (set by hand, no upper composition)');
+    R.razones.push(tr('Upper of {0}{1} and sole of {2}{3} — chapter 64, note 4: upper by its largest outer surface, sole by the surface touching the ground', [MAT_LBL[up], origenUp, MAT_LBL[so], dv.soleComp ? '' : (f.sole ? tr(' (set by hand)') : tr(' (assumed)'))]));
+    if (!dv.upperComp) media(tr('Enter the upper composition by surface; without it the upper material cannot be verified'));
     const metal = f.puntera === 'metalica';
-    const conAltura = c => { if (!altura) media('Say whether it covers the ankle: it changes the subheading'); return c; };
+    const conAltura = c => { if (!altura) media(tr('Say whether it covers the ankle: it changes the subheading')); return c; };
     if (up === 'plastico' && so === 'caucho' && f.impermeable){
       R.codigo = metal ? '640110' : conAltura(altura === 'tobillo' ? '640192' : '640199');
-      R.razones.push('Waterproof, with rubber or plastic upper and sole joined without stitches or rivets → 6401' + (altura === 'rodilla' ? '; covers the knee → 6401.99' : ''));
-      alt(tob ? '640291' : '640299', 'If the upper is stitched, riveted or nailed to the sole');
+      R.razones.push(tr('Waterproof, with rubber or plastic upper and sole joined without stitches or rivets → 6401{0}', [altura === 'rodilla' ? tr('; covers the knee → 6401.99') : '']));
+      alt(tob ? '640291' : '640299', tr('If the upper is stitched, riveted or nailed to the sole'));
     } else if (est === 'esqui' && so === 'caucho' && up !== 'otro'){
       R.codigo = up === 'cuero' ? '640312' : up === 'plastico' ? '640212' : '640411';
-      R.razones.push('Ski or snowboard footwear → ' + fmtCode(R.codigo));
+      R.razones.push(tr('Ski or snowboard footwear → {0}', [fmtCode(R.codigo)]));
     } else if (est === 'tacos' && so === 'caucho' && up !== 'otro'){
       R.codigo = up === 'cuero' ? '640319' : up === 'plastico' ? '640219' : '640411';
-      R.razones.push('Sports footwear in the strict sense (cleats, spikes, cycling, wrestling, boxing; chapter 64, subheading note 1) → ' + fmtCode(R.codigo));
+      R.razones.push(tr('Sports footwear in the strict sense (cleats, spikes, cycling, wrestling, boxing; chapter 64, subheading note 1) → {0}', [fmtCode(R.codigo)]));
     } else if (est === 'chancla_tetones' && up === 'plastico' && so === 'caucho'){
-      R.codigo = '640220'; R.razones.push('Straps attached to the sole by plugs (toe post) → 6402.20');
+      R.codigo = '640220'; R.razones.push(tr('Straps attached to the sole by plugs (toe post) → 6402.20'));
     } else if (up === 'textil'){
       if (so === 'caucho'){
-        if (est === 'tenis' && f.disenio === 'entrenamiento'){ R.codigo = '640411'; R.razones.push('Sneaker with athletic or training design → 6404.11'); alt('640419','If it is actually casual or fashion wear'); }
-        else if (est === 'senderismo'){ R.codigo = '640419'; R.razones.push('Hiking or trekking footwear with textile upper → 6404.19: it is not sports or training footwear in the sense of 6404.11'); alt('640411','If it is actually trail running or training'); }
+        if (est === 'tenis' && f.disenio === 'entrenamiento'){ R.codigo = '640411'; R.razones.push(tr('Sneaker with athletic or training design → 6404.11')); alt('640419',tr('If it is actually casual or fashion wear')); }
+        else if (est === 'senderismo'){ R.codigo = '640419'; R.razones.push(tr('Hiking or trekking footwear with textile upper → 6404.19: it is not sports or training footwear in the sense of 6404.11')); alt('640411',tr('If it is actually trail running or training')); }
         else {
-          R.codigo = '640419'; R.razones.push((est === 'tenis' ? 'Sneaker: ' + (f.disenio === 'skate' ? 'skate' : 'casual or lifestyle') : 'Non-athletic footwear') + ' → 6404.19');
-          if (est === 'tenis'){ alt('640411','If it is for training, gym, tennis, basketball or similar'); if (!f.disenio) media('Say whether the sneaker design is athletic or casual'); else media('Casual versus athletic: check the design, the sole and how it is marketed'); }
+          R.codigo = '640419'; R.razones.push((est === 'tenis' ? tr('Sneaker: {0}', [f.disenio === 'skate' ? 'skate' : tr('casual or lifestyle')]) : tr('Non-athletic footwear')) + ' → 6404.19');
+          if (est === 'tenis'){ alt('640411',tr('If it is for training, gym, tennis, basketball or similar')); if (!f.disenio) media(tr('Say whether the sneaker design is athletic or casual')); else media(tr('Casual versus athletic: check the design, the sole and how it is marketed')); }
         }
-      } else if (so === 'cuero'){ R.codigo = '640420'; R.razones.push('Leather sole → 6404.20'); }
-      else { R.codigo = '640520'; R.razones.push('Sole of another material (textile, wood, cork) → 6405.20'); }
+      } else if (so === 'cuero'){ R.codigo = '640420'; R.razones.push(tr('Leather sole → 6404.20')); }
+      else { R.codigo = '640520'; R.razones.push(tr('Sole of another material (textile, wood, cork) → 6405.20')); }
     } else if (up === 'cuero'){
-      if (metal){ R.codigo = '640340'; R.razones.push('Metal protective toe cap → 6403.40'); }
-      else if (so === 'otro'){ R.codigo = '640510'; R.razones.push('Sole that is not rubber, plastics or leather → 6405.10'); }
+      if (metal){ R.codigo = '640340'; R.razones.push(tr('Metal protective toe cap → 6403.40')); }
+      else if (so === 'otro'){ R.codigo = '640510'; R.razones.push(tr('Sole that is not rubber, plastics or leather → 6405.10')); }
       else if (so === 'cuero'){
-        R.codigo = conAltura(tob ? '640351' : '640359'); R.razones.push((tob ? 'Covers the ankle' : 'Does not cover the ankle') + ' → ' + fmtCode(R.codigo));
-        if (est === 'sandalia' && f.rodeaDedo){ R.codigo = '640320'; R.razones.push('Leather sole and upper of leather straps across the instep and around the big toe → 6403.20'); }
-        else if (est === 'sandalia') alt('640320','If the upper is leather straps across the instep and around the big toe');
+        R.codigo = conAltura(tob ? '640351' : '640359'); R.razones.push((tob ? tr('Covers the ankle') : tr('Does not cover the ankle')) + ' → ' + fmtCode(R.codigo));
+        if (est === 'sandalia' && f.rodeaDedo){ R.codigo = '640320'; R.razones.push(tr('Leather sole and upper of leather straps across the instep and around the big toe → 6403.20')); }
+        else if (est === 'sandalia') alt('640320',tr('If the upper is leather straps across the instep and around the big toe'));
       } else {
-        R.codigo = conAltura(tob ? '640391' : '640399'); R.razones.push((tob ? 'Covers the ankle' : 'Does not cover the ankle') + ' → ' + fmtCode(R.codigo));
-        if (est === 'tenis' && f.disenio === 'entrenamiento'){ R.razones.push('With a leather upper, "sports footwear" (6403.19) is limited to footwear with cleats or spikes, or for skiing, skating, wrestling, boxing or cycling'); alt('640319','If it has cleats or spikes, or is for skating, cycling, wrestling or boxing'); }
+        R.codigo = conAltura(tob ? '640391' : '640399'); R.razones.push((tob ? tr('Covers the ankle') : tr('Does not cover the ankle')) + ' → ' + fmtCode(R.codigo));
+        if (est === 'tenis' && f.disenio === 'entrenamiento'){ R.razones.push(tr('With a leather upper, "sports footwear" (6403.19) is limited to footwear with cleats or spikes, or for skiing, skating, wrestling, boxing or cycling')); alt('640319',tr('If it has cleats or spikes, or is for skating, cycling, wrestling or boxing')); }
       }
     } else if (up === 'plastico'){
       if (so === 'caucho'){
-        R.codigo = conAltura(tob ? '640291' : '640299'); R.razones.push((tob ? 'Covers the ankle' : 'Does not cover the ankle') + ' → ' + fmtCode(R.codigo));
-        if (est === 'tenis' && f.disenio === 'entrenamiento'){ R.razones.push('With a rubber or plastic upper, "sports" (6402.19) is limited to footwear with cleats or spikes and to skating, cycling, wrestling or boxing footwear'); alt('640219','If it has cleats or spikes, or is for skating, cycling, wrestling or boxing'); }
-        if (est === 'bota_lluvia' && !f.impermeable) alt(tob ? '640192' : '640199', 'If it is waterproof, with no stitches or rivets between upper and sole');
-        R.avisos.push('Synthetic leather (fabric with a visible plastic layer) counts as plastic for the upper.');
-      } else { R.codigo = '640590'; R.razones.push('Rubber or plastic upper with a sole of another material → 6405.90'); }
-    } else { R.codigo = '640590'; R.razones.push('Upper of another material → 6405.90'); }
-    if (metal && !['640110','640340'].includes(R.codigo)) R.avisos.push('A metal toe cap only has its own subheading in 6401.10 (waterproof) and 6403.40 (leather upper); here it does not change the code.');
-    if (dv.corte && dv.corte.mixto && !f.upper) R.avisos.push('The upper mixes materials: classification follows the one with the largest external surface. Confirm the percentages are by surface, not by weight.');
+        R.codigo = conAltura(tob ? '640291' : '640299'); R.razones.push((tob ? tr('Covers the ankle') : tr('Does not cover the ankle')) + ' → ' + fmtCode(R.codigo));
+        if (est === 'tenis' && f.disenio === 'entrenamiento'){ R.razones.push(tr('With a rubber or plastic upper, "sports" (6402.19) is limited to footwear with cleats or spikes and to skating, cycling, wrestling or boxing footwear')); alt('640219',tr('If it has cleats or spikes, or is for skating, cycling, wrestling or boxing')); }
+        if (est === 'bota_lluvia' && !f.impermeable) alt(tob ? '640192' : '640199', tr('If it is waterproof, with no stitches or rivets between upper and sole'));
+        R.avisos.push(tr('Synthetic leather (fabric with a visible plastic layer) counts as plastic for the upper.'));
+      } else { R.codigo = '640590'; R.razones.push(tr('Rubber or plastic upper with a sole of another material → 6405.90')); }
+    } else { R.codigo = '640590'; R.razones.push(tr('Upper of another material → 6405.90')); }
+    if (metal && !['640110','640340'].includes(R.codigo)) R.avisos.push(tr('A metal toe cap only has its own subheading in 6401.10 (waterproof) and 6403.40 (leather upper); here it does not change the code.'));
+    if (dv.corte && dv.corte.mixto && !f.upper) R.avisos.push(tr('The upper mixes materials: classification follows the one with the largest external surface. Confirm the percentages are by surface, not by weight.'));
     return fin(R);
   }
 
@@ -1403,190 +1404,190 @@ function clasificarReglas(f){
     R.fundamento = FUND.bolso;
     let ext = matDerivado(f, 'exterior', {cuero:'cuero', textil:'textil', plastico:'plastico', otro:'otro'}) || f.exterior;
     if (!ext && pred) ext = pred.grupo === 'cuero' ? 'cuero' : (pred.grupo === 'otra' ? '' : 'textil');
-    if (!ext){ ext = 'textil'; media('Outer surface not given: textile was assumed'); }
+    if (!ext){ ext = 'textil'; media(tr('Outer surface not given: textile was assumed')); }
     const M = {
-      mochila:['420291','420292','420299','Backpack → subheadings 4202.91 to 4202.99 (other containers)'],
-      bolso_viaje:['420291','420292','420299','Sports or travel bag (includes duffels, waist packs, lunch bags, toiletry bags and chalk bags) → 4202.91 to 4202.99'],
-      bolso_mano:['420221','420222','420229','Handbag → 4202.21 to 4202.29'],
-      maleta:['420211','420212','420219','Suitcase, trolley or briefcase → 4202.11 to 4202.19'],
-      billetera:['420231','420232','420239','Wallet, card holder or pocket case → 4202.31 to 4202.39']
+      mochila:['420291','420292','420299',tr('Backpack → subheadings 4202.91 to 4202.99 (other containers)')],
+      bolso_viaje:['420291','420292','420299',tr('Sports or travel bag (includes duffels, waist packs, lunch bags, toiletry bags and chalk bags) → 4202.91 to 4202.99')],
+      bolso_mano:['420221','420222','420229',tr('Handbag → 4202.21 to 4202.29')],
+      maleta:['420211','420212','420219',tr('Suitcase, trolley or briefcase → 4202.11 to 4202.19')],
+      billetera:['420231','420232','420239',tr('Wallet, card holder or pocket case → 4202.31 to 4202.39')]
     }[t];
     R.codigo = ext === 'cuero' ? M[0] : (ext === 'otro' ? M[2] : M[1]);
-    R.razones.push(M[3] + ', according to the outer surface');
-    R.razones.push('Outer surface of ' + ({textil:'textile material',plastico:'plastic sheeting',cuero:'leather',otro:'other material'})[ext] + ' → ' + fmtCode(R.codigo));
-    if (ext === 'textil' || ext === 'plastico') R.avisos.push('Textile and plastic sheeting share a subheading in 4202.');
-    if (t === 'billetera') R.avisos.push('Rigid plastic phone cases do not go in 4202 but as articles of plastic (3926.90).');
+    R.razones.push(tr('{0}, according to the outer surface', [M[3]]));
+    R.razones.push(tr('Outer surface of {0} → {1}', [({textil:tr('textile material'),plastico:tr('plastic sheeting'),cuero:'leather',otro:tr('other material')})[ext], fmtCode(R.codigo)]));
+    if (ext === 'textil' || ext === 'plastico') R.avisos.push(tr('Textile and plastic sheeting share a subheading in 4202.'));
+    if (t === 'billetera') R.avisos.push(tr('Rigid plastic phone cases do not go in 4202 but as articles of plastic (3926.90).'));
     return fin(R);
   }
   if (grp === 'gorra'){
-    if (f.casco){ R.codigo = '650610'; R.razones.push('Protective helmet → 6506.10'); }
-    else if (f.materialGorra === 'paja'){ R.codigo = '650400'; R.razones.push('Straw or plaited hat → 6504.00'); }
-    else if (f.materialGorra === 'otro'){ R.codigo = '650699'; R.razones.push('Headwear of non-textile material → 6506.99'); alt('650500','If it is fabric or knit'); }
-    else { R.codigo = '650500'; R.razones.push('Knitted or fabric cap, beanie or hat → 6505.00 (does not depend on fiber)'); alt('650699','If the outer material is not textile'); }
+    if (f.casco){ R.codigo = '650610'; R.razones.push(tr('Protective helmet → 6506.10')); }
+    else if (f.materialGorra === 'paja'){ R.codigo = '650400'; R.razones.push(tr('Straw or plaited hat → 6504.00')); }
+    else if (f.materialGorra === 'otro'){ R.codigo = '650699'; R.razones.push(tr('Headwear of non-textile material → 6506.99')); alt('650500',tr('If it is fabric or knit')); }
+    else { R.codigo = '650500'; R.razones.push(tr('Knitted or fabric cap, beanie or hat → 6505.00 (does not depend on fiber)')); alt('650699',tr('If the outer material is not textile')); }
     return fin(R);
   }
   if (grp === 'cinturon'){
     let m = matDerivado(f, 'material', {cuero:'cuero', textil:'textil', plastico:'plastico', otro:'otro', metal:'otro'}) || f.materialCinturon;
     if (!m){ const pm = parseMat(textoDet(f), 'corte'); if (pm && pm.pred) m = pm.pred === 'otro' ? '' : pm.pred; }
-    if (m === 'cuero'){ R.codigo = '420330'; R.razones.push('Leather belt → 4203.30'); }
-    else if (m === 'textil'){ const tej = f.tejido || 'plano'; R.codigo = tej === 'punto' ? '611780' : '621710'; R.razones.push('Textile belt, ' + (tej === 'punto' ? 'knitted → 6117.80' : 'woven or webbing → 6217.10')); if (!f.tejido) media('Say whether the webbing is knitted or woven'); }
-    else if (m === 'plastico'){ R.codigo = '392620'; R.razones.push('Plastic or synthetic leather belt → 3926.20'); }
-    else { R.codigo = null; R.conf = 1; R.faltantes.push('Give the belt material'); alt('420330','If it is leather'); alt('621710','If it is fabric'); alt('392620','If it is plastic or synthetic leather'); }
+    if (m === 'cuero'){ R.codigo = '420330'; R.razones.push(tr('Leather belt → 4203.30')); }
+    else if (m === 'textil'){ const tej = f.tejido || 'plano'; R.codigo = tej === 'punto' ? '611780' : '621710'; R.razones.push(tr('Textile belt, {0}', [tej === 'punto' ? tr('knitted → 6117.80') : tr('woven or webbing → 6217.10')])); if (!f.tejido) media(tr('Say whether the webbing is knitted or woven')); }
+    else if (m === 'plastico'){ R.codigo = '392620'; R.razones.push(tr('Plastic or synthetic leather belt → 3926.20')); }
+    else { R.codigo = null; R.conf = 1; R.faltantes.push(tr('Give the belt material')); alt('420330',tr('If it is leather')); alt('621710',tr('If it is fabric')); alt('392620',tr('If it is plastic or synthetic leather')); }
     return fin(R);
   }
-  if (t === 'plantilla'){ R.codigo = '640690'; R.razones.push('Insoles, heel cushions and other footwear parts → 6406.90'); return fin(R); }
-  if (t === 'cordones'){ R.codigo = '630790'; R.razones.push('Textile shoelaces with aglets → 6307.90'); media(); R.avisos.push('If the laces are leather or plastic, the heading changes.'); return fin(R); }
-  if (t === 'cuidado_calzado' && f.kitViaje){ R.codigo = '960500'; R.razones.push('Travel set for shoe cleaning (several items in a case) → 9605.00'); media('Applies if it comes as a travel set; loose products each go by their material'); alt('340510','If it is only the cream or cleaner'); return fin(R); }
+  if (t === 'plantilla'){ R.codigo = '640690'; R.razones.push(tr('Insoles, heel cushions and other footwear parts → 6406.90')); return fin(R); }
+  if (t === 'cordones'){ R.codigo = '630790'; R.razones.push(tr('Textile shoelaces with aglets → 6307.90')); media(); R.avisos.push(tr('If the laces are leather or plastic, the heading changes.')); return fin(R); }
+  if (t === 'cuidado_calzado' && f.kitViaje){ R.codigo = '960500'; R.razones.push(tr('Travel set for shoe cleaning (several items in a case) → 9605.00')); media(tr('Applies if it comes as a travel set; loose products each go by their material')); alt('340510',tr('If it is only the cream or cleaner')); return fin(R); }
   if (t === 'avios'){
     const k = f.tipoAvio || '', m = f.materialAvio || '';
-    if (!k){ R.conf = 1; R.faltantes.push('Say whether it is a button, zipper, buckle, eyelet or rivet'); alt('960621','Plastic button'); alt('960711','Metal zipper'); alt('830890','Metal buckle'); return fin(R); }
-    if (k === 'boton'){ if (f.forradoTextil){ R.codigo = '960629'; R.razones.push('Fabric-covered button → 9606.29'); } else if (m === 'plastico'){ R.codigo = '960621'; R.razones.push('Uncovered plastic button → 9606.21'); } else if (m === 'metal'){ R.codigo = '960622'; R.razones.push('Uncovered base-metal button → 9606.22'); } else { R.codigo = '960629'; R.razones.push('Button of another material → 9606.29'); if (!m) media('Give the button material'); } }
-    else if (k === 'cremallera'){ if (m === 'metal'){ R.codigo = '960711'; R.razones.push('Zipper with base-metal teeth → 9607.11'); } else { R.codigo = '960719'; R.razones.push('Zipper with plastic or other teeth → 9607.19'); if (!m) media('Give the tooth material'); } alt('960720','If they are only parts (pulls, sliders)'); }
-    else if (k === 'hebilla'){ if (m === 'metal'){ R.codigo = '830890'; R.razones.push('Base-metal buckles and clasps → 8308.90'); } else { R.codigo = '392690'; R.razones.push('Plastic buckle → 3926.90'); if (m && m !== 'plastico') media('Check the material: a buckle goes by its material'); } }
-    else if (k === 'ojete'){ R.codigo = m === 'metal' || !m ? '830810' : '392690'; R.razones.push(m === 'metal' || !m ? 'Base-metal eyelets, hooks and eyes → 8308.10' : 'Plastic eyelet → 3926.90'); }
-    else if (k === 'remache'){ R.codigo = '830820'; R.razones.push('Tubular or bifurcated base-metal rivets → 8308.20'); }
+    if (!k){ R.conf = 1; R.faltantes.push(tr('Say whether it is a button, zipper, buckle, eyelet or rivet')); alt('960621',tr('Plastic button')); alt('960711',tr('Metal zipper')); alt('830890',tr('Metal buckle')); return fin(R); }
+    if (k === 'boton'){ if (f.forradoTextil){ R.codigo = '960629'; R.razones.push(tr('Fabric-covered button → 9606.29')); } else if (m === 'plastico'){ R.codigo = '960621'; R.razones.push(tr('Uncovered plastic button → 9606.21')); } else if (m === 'metal'){ R.codigo = '960622'; R.razones.push(tr('Uncovered base-metal button → 9606.22')); } else { R.codigo = '960629'; R.razones.push(tr('Button of another material → 9606.29')); if (!m) media(tr('Give the button material')); } }
+    else if (k === 'cremallera'){ if (m === 'metal'){ R.codigo = '960711'; R.razones.push(tr('Zipper with base-metal teeth → 9607.11')); } else { R.codigo = '960719'; R.razones.push(tr('Zipper with plastic or other teeth → 9607.19')); if (!m) media(tr('Give the tooth material')); } alt('960720',tr('If they are only parts (pulls, sliders)')); }
+    else if (k === 'hebilla'){ if (m === 'metal'){ R.codigo = '830890'; R.razones.push(tr('Base-metal buckles and clasps → 8308.90')); } else { R.codigo = '392690'; R.razones.push(tr('Plastic buckle → 3926.90')); if (m && m !== 'plastico') media(tr('Check the material: a buckle goes by its material')); } }
+    else if (k === 'ojete'){ R.codigo = m === 'metal' || !m ? '830810' : '392690'; R.razones.push(m === 'metal' || !m ? tr('Base-metal eyelets, hooks and eyes → 8308.10') : tr('Plastic eyelet → 3926.90')); }
+    else if (k === 'remache'){ R.codigo = '830820'; R.razones.push(tr('Tubular or bifurcated base-metal rivets → 8308.20')); }
     return fin(R);
   }
   if (t === 'accesorio_pelo'){
     const k = f.tipoPelo || '', m = f.materialAvio || '';
-    if (k === 'liga'){ const tej = f.tejido || 'punto'; R.codigo = tej === 'plano' ? '621710' : '611780'; R.razones.push('Fabric hair tie or scrunchie: textile clothing accessory → ' + fmtCode(R.codigo)); media('If it is only rubber elastic without fabric, check heading 40.16'); alt('401699','Uncovered rubber hair tie'); }
-    else if (k === 'horquilla'){ R.codigo = '961590'; R.razones.push('Hairpins and hair grips → 9615.90'); }
-    else if (k === 'pasador'){ R.codigo = m === 'plastico' ? '961511' : '961519'; R.razones.push('Hair slides, combs and similar ' + (m === 'plastico' ? 'of plastic or hard rubber → 9615.11' : 'of other materials → 9615.19')); if (!m) media('Give the material'); if (m === 'textil') alt('611780','If it is a fabric headband without a rigid frame'); }
-    else { R.conf = 1; R.faltantes.push('Say whether it is a hair clip, hairpin or hair tie'); alt('961511','Plastic hair clip'); alt('611780','Fabric hair tie'); }
+    if (k === 'liga'){ const tej = f.tejido || 'punto'; R.codigo = tej === 'plano' ? '621710' : '611780'; R.razones.push(tr('Fabric hair tie or scrunchie: textile clothing accessory → {0}', [fmtCode(R.codigo)])); media(tr('If it is only rubber elastic without fabric, check heading 40.16')); alt('401699',tr('Uncovered rubber hair tie')); }
+    else if (k === 'horquilla'){ R.codigo = '961590'; R.razones.push(tr('Hairpins and hair grips → 9615.90')); }
+    else if (k === 'pasador'){ R.codigo = m === 'plastico' ? '961511' : '961519'; R.razones.push(tr('Hair slides, combs and similar {0}', [m === 'plastico' ? tr('of plastic or hard rubber → 9615.11') : tr('of other materials → 9615.19')])); if (!m) media(tr('Give the material')); if (m === 'textil') alt('611780',tr('If it is a fabric headband without a rigid frame')); }
+    else { R.conf = 1; R.faltantes.push(tr('Say whether it is a hair clip, hairpin or hair tie')); alt('961511',tr('Plastic hair clip')); alt('611780',tr('Fabric hair tie')); }
     return fin(R);
   }
   if (t === 'correa_reloj'){
     const m = f.materialAvio || '';
-    R.codigo = m === 'metal' ? '911320' : '911390'; R.razones.push(m === 'metal' ? 'Base-metal watch strap → 9113.20' : 'Watch strap of leather, textile, silicone or other material → 9113.90');
-    if (!m) media('Give the strap material');
+    R.codigo = m === 'metal' ? '911320' : '911390'; R.razones.push(m === 'metal' ? tr('Base-metal watch strap → 9113.20') : tr('Watch strap of leather, textile, silicone or other material → 9113.90'));
+    if (!m) media(tr('Give the strap material'));
     return fin(R);
   }
   if (t === 'peleteria'){
-    if (f.pelNat === 'artificial'){ R.codigo = '430400'; R.razones.push('Artificial fur and articles thereof → 4304.00'); R.avisos.push('A fabric garment with only a faux fur trim or lining is classified as a garment, not here.'); }
-    else if (f.pelNat === 'natural'){ R.codigo = f.esPrenda ? '430310' : '430390'; R.razones.push(f.esPrenda ? 'Garments and clothing accessories of fur → 4303.10' : 'Other articles of fur → 4303.90'); R.avisos.push('Skins of some species require a CITES permit.'); }
-    else { R.conf = 1; R.faltantes.push('Say whether it is natural or faux fur'); alt('430400','Faux fur'); alt('430310','Natural fur garment'); }
+    if (f.pelNat === 'artificial'){ R.codigo = '430400'; R.razones.push(tr('Artificial fur and articles thereof → 4304.00')); R.avisos.push(tr('A fabric garment with only a faux fur trim or lining is classified as a garment, not here.')); }
+    else if (f.pelNat === 'natural'){ R.codigo = f.esPrenda ? '430310' : '430390'; R.razones.push(f.esPrenda ? tr('Garments and clothing accessories of fur → 4303.10') : tr('Other articles of fur → 4303.90')); R.avisos.push(tr('Skins of some species require a CITES permit.')); }
+    else { R.conf = 1; R.faltantes.push(tr('Say whether it is natural or faux fur')); alt('430400',tr('Faux fur')); alt('430310',tr('Natural fur garment')); }
     return fin(R);
   }
   if (t === 'hamaca'){
-    if (f.hamacaRed){ R.codigo = '560890'; R.razones.push('Textile net hammock → 5608.90'); }
-    else { R.codigo = '630690'; R.razones.push('Fabric hammock: textile camping article → 6306.90'); media('Confirm with the tariff: some fabric hammocks are classified as other made-up textile articles (6307.90)'); alt('630790','Other made-up textile articles'); }
+    if (f.hamacaRed){ R.codigo = '560890'; R.razones.push(tr('Textile net hammock → 5608.90')); }
+    else { R.codigo = '630690'; R.razones.push(tr('Fabric hammock: textile camping article → 6306.90')); media(tr('Confirm with the tariff: some fabric hammocks are classified as other made-up textile articles (6307.90)')); alt('630790',tr('Other made-up textile articles')); }
     return fin(R);
   }
   if (t === 'cuidado_calzado'){
     const p = f.producto || '';
-    if (p === 'cepillo'){ R.codigo = '960390'; R.razones.push('Shoe brushes → 9603.90'); }
-    else if (p === 'spray'){ R.codigo = '340510'; R.razones.push('Shoe care preparations → 3405.10'); media('Check the spray\'s safety data sheet'); R.avisos.push('Some waterproofing or repellent sprays are classified by their chemical composition in other headings (for example 3809 or 3402).'); }
-    else if (p === 'crema'){ R.codigo = '340510'; R.razones.push('Polishes, creams, waxes and cleaners for footwear or leather → 3405.10'); }
-    else { R.conf = 1; R.faltantes.push('Say which product it is'); alt('340510','Cream, polish or cleaner'); alt('960390','Brush'); }
+    if (p === 'cepillo'){ R.codigo = '960390'; R.razones.push(tr('Shoe brushes → 9603.90')); }
+    else if (p === 'spray'){ R.codigo = '340510'; R.razones.push(tr('Shoe care preparations → 3405.10')); media(tr('Check the spray\'s safety data sheet')); R.avisos.push(tr('Some waterproofing or repellent sprays are classified by their chemical composition in other headings (for example 3809 or 3402).')); }
+    else if (p === 'crema'){ R.codigo = '340510'; R.razones.push(tr('Polishes, creams, waxes and cleaners for footwear or leather → 3405.10')); }
+    else { R.conf = 1; R.faltantes.push(tr('Say which product it is')); alt('340510',tr('Cream, polish or cleaner')); alt('960390',tr('Brush')); }
     return fin(R);
   }
-  if (t === 'lentes_sol'){ R.codigo = '900410'; R.razones.push('Sunglasses → 9004.10'); R.avisos.push('Cases sold with the glasses follow the classification of the glasses.'); return fin(R); }
-  if (t === 'sombrilla'){ R.codigo = f.telescopica ? '660191' : '660199'; R.razones.push(f.telescopica ? 'Umbrella with telescopic shaft → 6601.91' : 'Umbrella with fixed shaft → 6601.99'); return fin(R); }
+  if (t === 'lentes_sol'){ R.codigo = '900410'; R.razones.push(tr('Sunglasses → 9004.10')); R.avisos.push(tr('Cases sold with the glasses follow the classification of the glasses.')); return fin(R); }
+  if (t === 'sombrilla'){ R.codigo = f.telescopica ? '660191' : '660199'; R.razones.push(f.telescopica ? tr('Umbrella with telescopic shaft → 6601.91') : tr('Umbrella with fixed shaft → 6601.99')); return fin(R); }
   if (t === 'botella'){
     const m = f.alVacio ? 'acero_vacio' : f.materialBotella;
-    const MB = {acero_vacio:['961700','Vacuum-insulated thermos or container → 9617.00 (vacuum insulation governs, whatever the material)'], acero:['732393','Stainless steel bottle without vacuum → 7323.93'], aluminio:['761510','Aluminum bottle → 7615.10'], plastico:['392490','Plastic bottle or tumbler: other household articles → 3924.90']};
-    if (MB[m]){ R.codigo = MB[m][0]; R.razones.push(MB[m][1]); if (m === 'plastico') alt('392410', 'If it is presented as tableware'); }
-    else { R.conf = 1; R.faltantes.push('Give the material and whether it is vacuum insulated'); Object.values(MB).forEach(x=>alt(x[0], x[1].split(' → ')[0])); }
+    const MB = {acero_vacio:['961700',tr('Vacuum-insulated thermos or container → 9617.00 (vacuum insulation governs, whatever the material)')], acero:['732393',tr('Stainless steel bottle without vacuum → 7323.93')], aluminio:['761510',tr('Aluminum bottle → 7615.10')], plastico:['392490',tr('Plastic bottle or tumbler: other household articles → 3924.90')]};
+    if (MB[m]){ R.codigo = MB[m][0]; R.razones.push(MB[m][1]); if (m === 'plastico') alt('392410', tr('If it is presented as tableware')); }
+    else { R.conf = 1; R.faltantes.push(tr('Give the material and whether it is vacuum insulated')); Object.values(MB).forEach(x=>alt(x[0], x[1].split(' → ')[0])); }
     return fin(R);
   }
-  if (t === 'tienda' && f.esBase){ R.codigo = '630690'; R.razones.push('Tent footprint or accessory: other camping goods → 6306.90'); return fin(R); }
-  if (t === 'tienda'){ R.razones.push('Tent → heading 6306'); conFibra({sintetica:'630622',demas:'630629'}); return fin(R); }
-  if (t === 'saco'){ R.codigo = '940430'; R.razones.push('Sleeping bags → 9404.30, whatever the fill'); return fin(R); }
-  if (t === 'patineta'){ R.codigo = '950699'; R.razones.push((f.parteSkate === 'partes' ? 'Skateboard wheels, trucks and other parts' : f.parteSkate === 'tabla' ? 'Skateboard deck' : 'Skateboard') + ' → 9506.99, which includes parts'); return fin(R); }
-  if (t === 'polainas'){ R.codigo = '640690'; R.razones.push('Heading 64.06 expressly includes gaiters and similar articles → 6406.90'); return fin(R); }
+  if (t === 'tienda' && f.esBase){ R.codigo = '630690'; R.razones.push(tr('Tent footprint or accessory: other camping goods → 6306.90')); return fin(R); }
+  if (t === 'tienda'){ R.razones.push(tr('Tent → heading 6306')); conFibra({sintetica:'630622',demas:'630629'}); return fin(R); }
+  if (t === 'saco'){ R.codigo = '940430'; R.razones.push(tr('Sleeping bags → 9404.30, whatever the fill')); return fin(R); }
+  if (t === 'patineta'){ R.codigo = '950699'; R.razones.push(tr('{0} → 9506.99, which includes parts', [f.parteSkate === 'partes' ? tr('Skateboard wheels, trucks and other parts') : f.parteSkate === 'tabla' ? tr('Skateboard deck') : tr('Skateboard')])); return fin(R); }
+  if (t === 'polainas'){ R.codigo = '640690'; R.razones.push(tr('Heading 64.06 expressly includes gaiters and similar articles → 6406.90')); return fin(R); }
   if (t === 'llavero'){
     const m = f.materialLlavero || '';
-    const ML = {metal:['732690','Base-metal keychain → 7326.90'], cuero:['420500','Leather keychain → 4205.00, other articles of leather'], textil:['630790','Lanyard or textile webbing keychain → 6307.90'], plastico:['392640','Decorative plastic or rubber keychain → 3926.40']};
-    if (ML[m]){ R.codigo = ML[m][0]; R.razones.push(ML[m][1]); media(); if (m === 'metal') alt('711719','If it is presented as costume jewelry'); if (m === 'plastico') alt('392690','If it is not decorative'); if (m === 'textil') alt('560900', 'If it is cord or rope (not woven webbing)'); }
-    else { R.conf = 1; R.faltantes.push('Give the keychain material'); Object.values(ML).forEach(x=>alt(x[0], x[1].split(' → ')[0])); }
-    R.avisos.push('If it has a bottle opener, flashlight or another function, the classification may change because of that function.');
+    const ML = {metal:['732690',tr('Base-metal keychain → 7326.90')], cuero:['420500',tr('Leather keychain → 4205.00, other articles of leather')], textil:['630790',tr('Lanyard or textile webbing keychain → 6307.90')], plastico:['392640',tr('Decorative plastic or rubber keychain → 3926.40')]};
+    if (ML[m]){ R.codigo = ML[m][0]; R.razones.push(ML[m][1]); media(); if (m === 'metal') alt('711719',tr('If it is presented as costume jewelry')); if (m === 'plastico') alt('392690',tr('If it is not decorative')); if (m === 'textil') alt('560900', tr('If it is cord or rope (not woven webbing)')); }
+    else { R.conf = 1; R.faltantes.push(tr('Give the keychain material')); Object.values(ML).forEach(x=>alt(x[0], x[1].split(' → ')[0])); }
+    R.avisos.push(tr('If it has a bottle opener, flashlight or another function, the classification may change because of that function.'));
     return fin(R);
   }
   if (t === 'reloj'){
-    const MR = {analogico:['910211','Electric wristwatch with mechanical display (hands) → 9102.11'], digital:['910212','Wristwatch with digital display → 9102.12'], combinado:['910219','Watch with analog and digital display → 9102.19'], inteligente:['851762','Smartwatch that receives and transmits data → 8517.62']};
+    const MR = {analogico:['910211',tr('Electric wristwatch with mechanical display (hands) → 9102.11')], digital:['910212',tr('Wristwatch with digital display → 9102.12')], combinado:['910219',tr('Watch with analog and digital display → 9102.19')], inteligente:['851762',tr('Smartwatch that receives and transmits data → 8517.62')]};
     const m = MR[f.pantalla];
-    if (m){ R.codigo = m[0]; R.razones.push(m[1]); if (f.pantalla !== 'inteligente') R.avisos.push('If the case is precious metal it goes in 9101; if it is mechanical (wind-up), in 9102.21 or 9102.29.'); else alt('910212','If it only tells time and does not transmit data'); }
-    else { R.conf = 1; R.faltantes.push('Give the watch type'); Object.values(MR).forEach(x=>alt(x[0], x[1].split(' → ')[0])); }
+    if (m){ R.codigo = m[0]; R.razones.push(m[1]); if (f.pantalla !== 'inteligente') R.avisos.push(tr('If the case is precious metal it goes in 9101; if it is mechanical (wind-up), in 9102.21 or 9102.29.')); else alt('910212',tr('If it only tells time and does not transmit data')); }
+    else { R.conf = 1; R.faltantes.push(tr('Give the watch type')); Object.values(MR).forEach(x=>alt(x[0], x[1].split(' → ')[0])); }
     return fin(R);
   }
   if (t === 'colchoneta'){
-    if (f.tipoColch === 'inflable'){ R.codigo = '630640'; R.razones.push('Textile inflatable mattress → 6306.40'); alt('392690','If it is all plastic'); }
-    else if (f.tipoColch === 'espuma'){ R.codigo = '940429'; R.razones.push('Foam or self-inflating pad → 9404.29, mattresses of other materials'); alt('630640','If it inflates with air only, without foam'); media(); }
-    else if (f.tipoColch === 'almohada'){ R.codigo = '940490'; R.razones.push('Filled pillows and cushions → 9404.90'); alt('630640','If it is an inflatable fabric pillow'); }
-    else { R.conf = 1; R.faltantes.push('Say whether it is inflatable or foam'); alt('630640','Inflatable'); alt('940429','Foam or self-inflating'); }
+    if (f.tipoColch === 'inflable'){ R.codigo = '630640'; R.razones.push(tr('Textile inflatable mattress → 6306.40')); alt('392690',tr('If it is all plastic')); }
+    else if (f.tipoColch === 'espuma'){ R.codigo = '940429'; R.razones.push(tr('Foam or self-inflating pad → 9404.29, mattresses of other materials')); alt('630640',tr('If it inflates with air only, without foam')); media(); }
+    else if (f.tipoColch === 'almohada'){ R.codigo = '940490'; R.razones.push(tr('Filled pillows and cushions → 9404.90')); alt('630640',tr('If it is an inflatable fabric pillow')); }
+    else { R.conf = 1; R.faltantes.push(tr('Say whether it is inflatable or foam')); alt('630640',tr('Inflatable')); alt('940429',tr('Foam or self-inflating')); }
     return fin(R);
   }
-  if (t === 'manta'){ R.razones.push('Blankets → heading 6301 by fiber'); conFibra({lana:'630120',algodon:'630130',sintetica:'630140',demas:'630190'}); return fin(R); }
+  if (t === 'manta'){ R.razones.push(tr('Blankets → heading 6301 by fiber')); conFibra({lana:'630120',algodon:'630130',sintetica:'630140',demas:'630190'}); return fin(R); }
   if (t === 'mueble_camping'){
-    if (f.mueble === 'mesa'){ const MM = {metal:['940320','Table with metal frame → 9403.20'], madera:['940360','Wooden table → 9403.60'], plastico:['940370','Plastic table → 9403.70']}[f.materialMueble]; if (MM){ R.codigo = MM[0]; R.razones.push(MM[1]); } else { R.conf = 1; R.faltantes.push('Give the table material'); alt('940320','Metal'); alt('940370','Plastic'); } return fin(R); }
-    R.codigo = f.acolchada ? '940171' : '940179'; R.razones.push('Chair or seat with metal frame ' + (f.acolchada ? 'and fill → 9401.71' : 'without fill → 9401.79')); if (!f.acolchada) alt('940171','If the seat or backrest has fill'); if (!f.mueble) media('Say whether it is a chair or a table'); R.avisos.push('If the frame is not metal (wood, plastic), the subheading changes.'); return fin(R);
+    if (f.mueble === 'mesa'){ const MM = {metal:['940320',tr('Table with metal frame → 9403.20')], madera:['940360',tr('Wooden table → 9403.60')], plastico:['940370',tr('Plastic table → 9403.70')]}[f.materialMueble]; if (MM){ R.codigo = MM[0]; R.razones.push(MM[1]); } else { R.conf = 1; R.faltantes.push(tr('Give the table material')); alt('940320',tr('Metal')); alt('940370',tr('Plastic')); } return fin(R); }
+    R.codigo = f.acolchada ? '940171' : '940179'; R.razones.push(tr('Chair or seat with metal frame {0}', [f.acolchada ? tr('and fill → 9401.71') : tr('without fill → 9401.79')])); if (!f.acolchada) alt('940171',tr('If the seat or backrest has fill')); if (!f.mueble) media(tr('Say whether it is a chair or a table')); R.avisos.push(tr('If the frame is not metal (wood, plastic), the subheading changes.')); return fin(R);
   }
   if (t === 'toalla'){
-    if (f.rizo && pred && pred.grupo === 'algodon'){ R.codigo = '630260'; R.razones.push('Cotton terry towel → 6302.60'); return fin(R); }
-    R.razones.push('Towels of ' + (f.rizo ? 'non-cotton terry' : 'plain weave or microfiber') + ' → 6302.9'); conFibra({algodon:'630291', manmade:'630293', demas:'630299'}); return fin(R);
+    if (f.rizo && pred && pred.grupo === 'algodon'){ R.codigo = '630260'; R.razones.push(tr('Cotton terry towel → 6302.60')); return fin(R); }
+    R.razones.push(tr('Towels of {0} → 6302.9', [f.rizo ? 'non-cotton terry' : tr('plain weave or microfiber')])); conFibra({algodon:'630291', manmade:'630293', demas:'630299'}); return fin(R);
   }
-  if (t === 'mascota'){ R.codigo = '420100'; R.razones.push('Collars, leashes, harnesses and coats for animals, of any material → 4201.00'); R.avisos.push('Pet beds and toys do not go here: they are classified by what they are (9404, 9503, 6307).'); return fin(R); }
+  if (t === 'mascota'){ R.codigo = '420100'; R.razones.push(tr('Collars, leashes, harnesses and coats for animals, of any material → 4201.00')); R.avisos.push(tr('Pet beds and toys do not go here: they are classified by what they are (9404, 9503, 6307).')); return fin(R); }
   if (t === 'bisuteria'){
-    const MB = {metal:['711719','Base-metal costume jewelry → 7117.19'], cuero:['420500','Leather bracelet or accessory → 4205.00'], textil:['630790','Textile bracelet or cord → 6307.90'], otro:['711790','Costume jewelry of plastic, wood or other materials → 7117.90']}[f.materialBisu];
-    if (MB){ R.codigo = MB[0]; R.razones.push(MB[1]); if (f.materialBisu !== 'metal') media(); } else { R.conf = 1; R.faltantes.push('Give the main material'); alt('711719','Base metal'); alt('711790','Plastic or other'); }
-    R.avisos.push('If it contains gold, silver or platinum, it goes in 7113 (jewelry).'); return fin(R);
+    const MB = {metal:['711719',tr('Base-metal costume jewelry → 7117.19')], cuero:['420500',tr('Leather bracelet or accessory → 4205.00')], textil:['630790',tr('Textile bracelet or cord → 6307.90')], otro:['711790',tr('Costume jewelry of plastic, wood or other materials → 7117.90')]}[f.materialBisu];
+    if (MB){ R.codigo = MB[0]; R.razones.push(MB[1]); if (f.materialBisu !== 'metal') media(); } else { R.conf = 1; R.faltantes.push(tr('Give the main material')); alt('711719',tr('Base metal')); alt('711790',tr('Plastic or other')); }
+    R.avisos.push(tr('If it contains gold, silver or platinum, it goes in 7113 (jewelry).')); return fin(R);
   }
   if (t === 'parche'){
     const tp = f.tipoParche;
-    if (tp === 'sticker'){ R.codigo = '491191'; R.razones.push('Printed sticker or decal → 4911.91, printed pictures'); alt('490890','If it is a transfer decal (a backing peels off and the image stays)'); media(); }
-    else if (tp === 'bordado'){ R.razones.push('Embroidered patch, with or without visible ground → 5810'); conFibra({algodon:'581091', manmade:'581092', demas:'581099'}); if (!pred){ R.codigo = '581092'; R.conf = 2; } }
-    else if (tp === 'tejido'){ R.codigo = '580710'; R.razones.push('Woven patch, badge or label → 5807.10'); }
-    else if (tp === 'pvc'){ R.codigo = '392690'; R.razones.push('PVC or rubber patch → 3926.90'); media(); alt('401699','If it is vulcanized rubber'); }
-    else { R.conf = 1; R.faltantes.push('Say whether it is a sticker, embroidered, woven or PVC'); }
+    if (tp === 'sticker'){ R.codigo = '491191'; R.razones.push(tr('Printed sticker or decal → 4911.91, printed pictures')); alt('490890',tr('If it is a transfer decal (a backing peels off and the image stays)')); media(); }
+    else if (tp === 'bordado'){ R.razones.push(tr('Embroidered patch, with or without visible ground → 5810')); conFibra({algodon:'581091', manmade:'581092', demas:'581099'}); if (!pred){ R.codigo = '581092'; R.conf = 2; } }
+    else if (tp === 'tejido'){ R.codigo = '580710'; R.razones.push(tr('Woven patch, badge or label → 5807.10')); }
+    else if (tp === 'pvc'){ R.codigo = '392690'; R.razones.push(tr('PVC or rubber patch → 3926.90')); media(); alt('401699',tr('If it is vulcanized rubber')); }
+    else { R.conf = 1; R.faltantes.push(tr('Say whether it is a sticker, embroidered, woven or PVC')); }
     return fin(R);
   }
-  if (t === 'linterna'){ R.codigo = '851310'; R.razones.push('Flashlights and headlamps with their own power source → 8513.10'); return fin(R); }
+  if (t === 'linterna'){ R.codigo = '851310'; R.razones.push(tr('Flashlights and headlamps with their own power source → 8513.10')); return fin(R); }
   if (t === 'equipo_deporte'){
-    const A = {fitness:['950691','Exercise or gym articles (yoga mat, bands, ropes) → 9506.91'], escalada:['950699','Climbing equipment such as crash pads → 9506.99'], protecciones:['950699','Knee pads, elbow pads and sports protection → 9506.99'], pelota:['950662','Inflatable balls → 9506.62'], otro:['950699','Other sports articles → 9506.99']}[f.actividad];
-    if (A){ R.codigo = A[0]; R.razones.push(A[1]); if (f.actividad === 'escalada') alt('950691','If it is used as a gym mat'); if (f.actividad === 'protecciones') R.avisos.push('Orthopedic or medical knee braces go in another heading (9021 or 6307).'); }
-    else { R.codigo = '950699'; R.razones.push('Sports equipment → 9506.99'); media('Say what it is used for (exercise, climbing, protection, ball)'); }
+    const A = {fitness:['950691',tr('Exercise or gym articles (yoga mat, bands, ropes) → 9506.91')], escalada:['950699',tr('Climbing equipment such as crash pads → 9506.99')], protecciones:['950699',tr('Knee pads, elbow pads and sports protection → 9506.99')], pelota:['950662',tr('Inflatable balls → 9506.62')], otro:['950699',tr('Other sports articles → 9506.99')]}[f.actividad];
+    if (A){ R.codigo = A[0]; R.razones.push(A[1]); if (f.actividad === 'escalada') alt('950691',tr('If it is used as a gym mat')); if (f.actividad === 'protecciones') R.avisos.push(tr('Orthopedic or medical knee braces go in another heading (9021 or 6307).')); }
+    else { R.codigo = '950699'; R.razones.push(tr('Sports equipment → 9506.99')); media(tr('Say what it is used for (exercise, climbing, protection, ball)')); }
     return fin(R);
   }
   if (t === 'bolsa_compra'){
-    const B = {papel: f.baseAncha ? ['481930','Paper sack or bag with a base of 40 cm or more → 4819.30'] : ['481940','Paper bag → 4819.40'], plastico:['392321','Plastic (polyethylene) bag → 3923.21'], tela:['420292','Fabric shopping bag with handles → 4202.92']}[f.materialBolsa];
-    if (B){ R.codigo = B[0]; R.razones.push(B[1]); if (f.materialBolsa === 'plastico') alt('392329','If it is not polyethylene (for example, PP or PVC)'); if (f.materialBolsa === 'tela') alt('630590','If it is a packing sack without handles'); }
-    else { R.conf = 1; R.faltantes.push('Give the bag material'); alt('481940','Paper'); alt('392321','Plastic'); alt('420292','Reusable fabric'); }
+    const B = {papel: f.baseAncha ? ['481930',tr('Paper sack or bag with a base of 40 cm or more → 4819.30')] : ['481940',tr('Paper bag → 4819.40')], plastico:['392321',tr('Plastic (polyethylene) bag → 3923.21')], tela:['420292',tr('Fabric shopping bag with handles → 4202.92')]}[f.materialBolsa];
+    if (B){ R.codigo = B[0]; R.razones.push(B[1]); if (f.materialBolsa === 'plastico') alt('392329',tr('If it is not polyethylene (for example, PP or PVC)')); if (f.materialBolsa === 'tela') alt('630590',tr('If it is a packing sack without handles')); }
+    else { R.conf = 1; R.faltantes.push(tr('Give the bag material')); alt('481940',tr('Paper')); alt('392321',tr('Plastic')); alt('420292',tr('Reusable fabric')); }
     return fin(R);
   }
   if (t === 'caja'){
-    const C = {corrugado:['481910','Corrugated cardboard box → 4819.10'], plegadizo:['481920','Folding box of card stock or non-corrugated board → 4819.20'], plastico:['392310','Plastic box → 3923.10']}[f.materialCaja];
-    if (C){ R.codigo = C[0]; R.razones.push(C[1]); } else { R.conf = 1; R.faltantes.push('Say whether it is corrugated cardboard, card stock or plastic'); alt('481910','Corrugated'); alt('481920','Card stock'); }
-    R.avisos.push('Boxes that come with the goods they contain are classified with those goods (GRI 5).'); return fin(R);
+    const C = {corrugado:['481910',tr('Corrugated cardboard box → 4819.10')], plegadizo:['481920',tr('Folding box of card stock or non-corrugated board → 4819.20')], plastico:['392310',tr('Plastic box → 3923.10')]}[f.materialCaja];
+    if (C){ R.codigo = C[0]; R.razones.push(C[1]); } else { R.conf = 1; R.faltantes.push(tr('Say whether it is corrugated cardboard, card stock or plastic')); alt('481910',tr('Corrugated')); alt('481920',tr('Card stock')); }
+    R.avisos.push(tr('Boxes that come with the goods they contain are classified with those goods (GRI 5).')); return fin(R);
   }
   if (t === 'gancho'){
-    const G = {plastico:['392690','Plastic hanger → 3926.90'], metal:['732620','Iron or steel wire hanger → 7326.20'], madera:['442110','Wooden hangers → 4421.10']}[f.materialGancho];
-    if (G){ R.codigo = G[0]; R.razones.push(G[1]); } else { R.conf = 1; R.faltantes.push('Give the hanger material'); alt('392690','Plastic'); alt('442110','Wood'); }
+    const G = {plastico:['392690',tr('Plastic hanger → 3926.90')], metal:['732620',tr('Iron or steel wire hanger → 7326.20')], madera:['442110',tr('Wooden hangers → 4421.10')]}[f.materialGancho];
+    if (G){ R.codigo = G[0]; R.razones.push(G[1]); } else { R.conf = 1; R.faltantes.push(tr('Give the hanger material')); alt('392690',tr('Plastic')); alt('442110',tr('Wood')); }
     return fin(R);
   }
   if (t === 'etiqueta'){
-    const E = {papel:['482110','Printed paper or board labels → 4821.10'], tejida:['580710','Woven labels → 5807.10'], plastico:['392690','Plastic labels → 3926.90']}[f.materialEtiqueta];
-    if (E){ R.codigo = E[0]; R.razones.push(E[1]); } else { R.conf = 1; R.faltantes.push('Say whether it is paper, woven or plastic'); alt('482110','Paper'); alt('580710','Woven'); }
+    const E = {papel:['482110',tr('Printed paper or board labels → 4821.10')], tejida:['580710',tr('Woven labels → 5807.10')], plastico:['392690',tr('Plastic labels → 3926.90')]}[f.materialEtiqueta];
+    if (E){ R.codigo = E[0]; R.razones.push(E[1]); } else { R.conf = 1; R.faltantes.push(tr('Say whether it is paper, woven or plastic')); alt('482110',tr('Paper')); alt('580710',tr('Woven')); }
     return fin(R);
   }
   if (t === 'exhibidor'){
-    if (f.tipoExhib === 'maniqui'){ R.codigo = '961800'; R.razones.push('Shop-window mannequins and busts → 9618.00'); return fin(R); }
-    const X = {metal:['940320','Metal fixture or display → 9403.20'], madera:['940360','Wooden fixture or display → 9403.60'], plastico:['940370','Plastic fixture or display → 9403.70']}[f.materialMueble];
-    if (X){ R.codigo = X[0]; R.razones.push(X[1]); media(); alt('961800','If it is a mannequin or bust'); R.avisos.push('If the display is a metal structure for wall or floor mounting with no furniture function, it may go as an article of metal (7326 or 7610).'); }
-    else { R.conf = 1; R.faltantes.push('Give the type and the material'); alt('940320','Metal'); alt('961800','Mannequin'); }
+    if (f.tipoExhib === 'maniqui'){ R.codigo = '961800'; R.razones.push(tr('Shop-window mannequins and busts → 9618.00')); return fin(R); }
+    const X = {metal:['940320',tr('Metal fixture or display → 9403.20')], madera:['940360',tr('Wooden fixture or display → 9403.60')], plastico:['940370',tr('Plastic fixture or display → 9403.70')]}[f.materialMueble];
+    if (X){ R.codigo = X[0]; R.razones.push(X[1]); media(); alt('961800',tr('If it is a mannequin or bust')); R.avisos.push(tr('If the display is a metal structure for wall or floor mounting with no furniture function, it may go as an article of metal (7326 or 7610).')); }
+    else { R.conf = 1; R.faltantes.push(tr('Give the type and the material')); alt('940320',tr('Metal')); alt('961800',tr('Mannequin')); }
     return fin(R);
   }
   if (t === 'magnesio'){
-    if (f.presentacion === 'liquido'){ R.codigo = '382499'; R.razones.push('Liquid chalk: magnesium carbonate mixed with alcohol or others → 3824.99'); media('Confirm the composition with the safety data sheet'); alt('283699','If it is unmixed magnesium carbonate'); }
-    else { R.codigo = '283699'; R.razones.push('Climbing chalk (magnesium carbonate) → 2836.99'); media('Confirm with the safety data sheet that it is magnesium carbonate without additives'); alt('382499','If it is a mixture with additives'); }
+    if (f.presentacion === 'liquido'){ R.codigo = '382499'; R.razones.push(tr('Liquid chalk: magnesium carbonate mixed with alcohol or others → 3824.99')); media(tr('Confirm the composition with the safety data sheet')); alt('283699',tr('If it is unmixed magnesium carbonate')); }
+    else { R.codigo = '283699'; R.razones.push(tr('Climbing chalk (magnesium carbonate) → 2836.99')); media(tr('Confirm with the safety data sheet that it is magnesium carbonate without additives')); alt('382499',tr('If it is a mixture with additives')); }
     return fin(R);
   }
-  if (t === 'bastones'){ R.codigo = '950699'; R.razones.push('Trekking or hiking poles: outdoor sports equipment → 9506.99'); alt('660200','If they are presented as equipment for a specific sport (for example, ski poles)'); media(); return fin(R); }
+  if (t === 'bastones'){ R.codigo = '950699'; R.razones.push(tr('Trekking or hiking poles: outdoor sports equipment → 9506.99')); alt('660200',tr('If they are presented as equipment for a specific sport (for example, ski poles)')); media(); return fin(R); }
   return fin(R);
 }
 function fin(R){
   const d = digits(R.codigo);
   if (d && d.length < 6) R.conf = Math.min(R.conf, 1);
-  R.confianza = ['no data','low','medium','high'][R.conf];
+  R.confianza = [tr('no data'),'low','medium','high'][R.conf];
   const seen = new Set([d]);
   R.alternativas = R.alternativas.filter(a=>{ const k = digits(a.codigo); if (!k || seen.has(k)) return false; seen.add(k); return true; });
   return R;
@@ -1627,10 +1628,10 @@ function perfilDe(f, comp){
 }
 function perfilLegible(p){
   const parts = p.split('|'); const t = parts[0];
-  const L = {punto:'knitted',plano:'woven',M:'men',F:'women',bebe:'baby',rec:'coated',esqui:'ski',tob:'covers ankle',tobillo:'covers ankle',rodilla:'covers knee',bajo:'low cut',pm:'metal toe cap',imp:'waterproof',casco:'helmet',tel:'telescopic',
-    textil:'textile',cuero:'leather',plastico:'rubber or plastics',otro:'other material',caucho:'rubber or plastic sole',casual:'casual',entrenamiento:'athletic',skate:'skate',
-    lana:'wool',seda:'silk',algodon:'cotton',vegetal:'vegetable fiber',sintetica:'synthetic',artificial:'artificial',otra:'other fiber',
-    chaleco_relleno:'padded vest',chaleco:'vest without fill',reflectivo:'reflective',blazer:'blazer',pullover:'pullover',cierre:'full zip',chaqueta_fleece:'fleece jacket',interior:'underwear',pijama:'pajamas',camiseta_int:'undershirt',bandana:'bandana',polo:'polo',senderismo:'hiking',tacon:'high heel',zueco:'clog',acuatico:'water shoe',paja:'straw',metal:'metal',inflable:'inflatable',espuma:'foam',polvo:'powder',liquido:'liquid',acol:'padded',analogico:'analog',digital:'digital',combinado:'analog and digital',inteligente:'smart',acero_vacio:'vacuum thermos',acero:'steel',aluminio:'aluminum',crema:'cream',spray:'spray',cepillo:'brush',tenis:'sneaker',bota:'boot',botin:'ankle boot',zapato:'shoe',mocasin:'moccasin',sandalia:'sandal',slide:'slide',chancla_tetones:'flip-flop',pantufla:'slipper',seguridad:'safety',bota_lluvia:'rain boot',tacos:'with cleats'};
+  const L = {punto:'knitted',plano:'woven',M:'men',F:'women',bebe:'baby',rec:'coated',esqui:'ski',tob:tr('covers ankle'),tobillo:tr('covers ankle'),rodilla:tr('covers knee'),bajo:tr('low cut'),pm:tr('metal toe cap'),imp:'waterproof',casco:'helmet',tel:'telescopic',
+    textil:'textile',cuero:'leather',plastico:tr('rubber or plastics'),otro:tr('other material'),caucho:tr('rubber or plastic sole'),casual:'casual',entrenamiento:'athletic',skate:'skate',
+    lana:'wool',seda:'silk',algodon:'cotton',vegetal:tr('vegetable fiber'),sintetica:'synthetic',artificial:'artificial',otra:tr('other fiber'),
+    chaleco_relleno:tr('padded vest'),chaleco:tr('vest without fill'),reflectivo:'reflective',blazer:'blazer',pullover:'pullover',cierre:tr('full zip'),chaqueta_fleece:tr('fleece jacket'),interior:'underwear',pijama:'pajamas',camiseta_int:'undershirt',bandana:'bandana',polo:'polo',senderismo:'hiking',tacon:tr('high heel'),zueco:'clog',acuatico:tr('water shoe'),paja:'straw',metal:'metal',inflable:'inflatable',espuma:'foam',polvo:'powder',liquido:'liquid',acol:'padded',analogico:'analog',digital:'digital',combinado:tr('analog and digital'),inteligente:'smart',acero_vacio:tr('vacuum thermos'),acero:'steel',aluminio:'aluminum',crema:'cream',spray:'spray',cepillo:'brush',tenis:'sneaker',bota:'boot',botin:tr('ankle boot'),zapato:'shoe',mocasin:'moccasin',sandalia:'sandal',slide:'slide',chancla_tetones:'flip-flop',pantufla:'slipper',seguridad:'safety',bota_lluvia:tr('rain boot'),tacos:tr('with cleats')};
   return [TIPO_CORTO[t] || t].concat(parts.slice(1).map(x=>L[x]).filter(Boolean));
 }
 function similitud(rec, f, toks, perfil){
@@ -1671,18 +1672,18 @@ function sugerir(f, recs, incisos, excluirId){
   const casi = parecidos[0] && parecidos[0].s >= 0.9 && (!f.tipo || !parecidos[0].r.tipo || parecidos[0].r.tipo === f.tipo) ? parecidos[0] : null;
   if (casi){
     out.codigo = d6(casi.r.codigo); out.fuente = 'historial'; out.conf = 3;
-    out.razones = ['You already classified this product ("' + (casi.r.desc || casi.r.estilo) + '") as ' + fmtCode(casi.r.codigo)];
-    if (d6(casi.r.codigo) !== d6(regla.codigo) && regla.codigo) out.alternativas = [{codigo: regla.codigo, cuando:'By the general rules'}].concat(regla.alternativas);
+    out.razones = [tr('You already classified this product ("{0}") as {1}', [casi.r.desc || casi.r.estilo, fmtCode(casi.r.codigo)])];
+    if (d6(casi.r.codigo) !== d6(regla.codigo) && regla.codigo) out.alternativas = [{codigo: regla.codigo, cuando:tr('By the general rules')}].concat(regla.alternativas);
     out.faltantes = []; out.avisos = [];
     out.completo = digits(casi.r.codigo).length > 6 ? digits(casi.r.codigo) : null;
   } else if (top && top[0] !== d6(regla.codigo) && regla.codigo){
     out.codigo = top[0]; out.fuente = 'criterio';
     out.conf = top[1] >= 3 ? 3 : 2;
-    out.razones = ['You have classified ' + top[1] + (top[1] === 1 ? ' product' : ' products') + ' with this same profile in ' + fmtCode(top[0]) + (mismos.length > top[1] ? ' (out of ' + mismos.length + ' in total)' : '')];
-    out.alternativas = [{codigo: regla.codigo, cuando:'By the general rules'}].concat(regla.alternativas);
+    out.razones = [tr('You have classified {0}{1} with this same profile in {2}{3}', [top[1], top[1] === 1 ? ' product' : ' products', fmtCode(top[0]), mismos.length > top[1] ? tr(' (out of {0} in total)', [mismos.length]) : ''])];
+    out.alternativas = [{codigo: regla.codigo, cuando:tr('By the general rules')}].concat(regla.alternativas);
   } else if (top && top[0] === d6(regla.codigo)){
     out.conf = Math.max(out.conf, top[1] >= 2 ? 3 : out.conf);
-    out.razones.push('Matches ' + top[1] + (top[1] === 1 ? ' of your classifications' : ' of your classifications') + ' with this same profile');
+    out.razones.push(tr('Matches {0}{1} with this same profile', [top[1], top[1] === 1 ? tr(' of your classifications') : tr(' of your classifications')]));
   }
   const c6 = d6(out.codigo);
   if (c6.length === 6){
@@ -1696,21 +1697,21 @@ function sugerir(f, recs, incisos, excluirId){
   const seen = new Set([c6]);
   out.alternativas = out.alternativas.filter(a=>{ const k = digits(a.codigo); if (!k || seen.has(k)) return false; seen.add(k); return true; });
   if (digits(out.codigo).length && digits(out.codigo).length < 6) out.conf = Math.min(out.conf, 1);
-  out.confianza = ['no data','low','medium','high'][out.conf];
+  out.confianza = [tr('no data'),'low','medium','high'][out.conf];
   return out;
 }
 
 /* ---------- Origen y acuerdos ---------- */
-const PAISES = ['El Salvador','Guatemala','Honduras','Nicaragua','Costa Rica','Panama','Dominican Republic','Mexico','United States','Colombia','Chile','Brazil','Peru','China','Vietnam','Cambodia','Indonesia','Bangladesh','India','Pakistan','Sri Lanka','Thailand','Philippines','Myanmar','Taiwan','South Korea','Japan','Turkey','Jordan','Egypt','Slovenia','Italy','Portugal','Spain','Germany','France','Romania','Poland','United Kingdom'];
-const ACUERDO_OPC = [['','No trade agreement'],['mcca','Central American Common Market'],['cafta','CAFTA-DR'],['mexico','Central America–Mexico FTA'],['panama','Central America–Panama FTA'],['tlc','Other FTA in force (Chile, Colombia, Taiwan, Korea)'],['ue','EU–Central America Association Agreement'],['uk','UK–Central America Association Agreement']];
+const PAISES = [tr('El Salvador'),tr('Guatemala'),tr('Honduras'),tr('Nicaragua'),tr('Costa Rica'),tr('Panama'),tr('Dominican Republic'),tr('Mexico'),tr('United States'),tr('Colombia'),tr('Chile'),tr('Brazil'),tr('Peru'),tr('China'),tr('Vietnam'),tr('Cambodia'),tr('Indonesia'),tr('Bangladesh'),tr('India'),tr('Pakistan'),tr('Sri Lanka'),tr('Thailand'),tr('Philippines'),tr('Myanmar'),tr('Taiwan'),tr('South Korea'),tr('Japan'),tr('Turkey'),tr('Jordan'),tr('Egypt'),tr('Slovenia'),tr('Italy'),tr('Portugal'),tr('Spain'),tr('Germany'),tr('France'),tr('Romania'),tr('Poland'),tr('United Kingdom')];
+const ACUERDO_OPC = [['',tr('No trade agreement')],['mcca',tr('Central American Common Market')],['cafta','CAFTA-DR'],['mexico',tr('Central America–Mexico FTA')],['panama',tr('Central America–Panama FTA')],['tlc',tr('Other FTA in force (Chile, Colombia, Taiwan, Korea)')],['ue',tr('EU–Central America Association Agreement')],['uk',tr('UK–Central America Association Agreement')]];
 const ACUERDO_TXT = {
-  mcca:'Central American Common Market: normally free of import duty if it meets the Central American rules of origin',
-  cafta:'CAFTA-DR: preference may apply if it meets the treaty\'s rules of origin (for textiles, usually the yarn-forward rule)',
-  mexico:'Central America–Mexico FTA: preference may apply with a certificate of origin',
-  panama:'Central America–Panama FTA: preference may apply with a certificate of origin',
-  tlc:'There is an FTA in force with El Salvador: check whether the product is in the tariff elimination schedule',
-  ue:'EU–Central America Association Agreement: preference may apply with proof of origin',
-  uk:'UK–Central America Association Agreement: preference may apply with proof of origin'
+  mcca:tr('Central American Common Market: normally free of import duty if it meets the Central American rules of origin'),
+  cafta:tr('CAFTA-DR: preference may apply if it meets the treaty\'s rules of origin (for textiles, usually the yarn-forward rule)'),
+  mexico:tr('Central America–Mexico FTA: preference may apply with a certificate of origin'),
+  panama:tr('Central America–Panama FTA: preference may apply with a certificate of origin'),
+  tlc:tr('There is an FTA in force with El Salvador: check whether the product is in the tariff elimination schedule'),
+  ue:tr('EU–Central America Association Agreement: preference may apply with proof of origin'),
+  uk:tr('UK–Central America Association Agreement: preference may apply with proof of origin')
 };
 const ACUERDO_PAIS = [
   [['guatemala','honduras','nicaragua','costa rica','el salvador'], 'mcca'],
@@ -1746,9 +1747,9 @@ function fmtPais(cod, n){
   for (let i = 6; i < s.length; i += 2) o += '.' + s.slice(i, i + 2);
   return o;
 }
-const ESTADOS = {borrador:'Draft', sugerida:'Draft · complete', revision:'In review', aprobado:'Approved', corregido:'Corrected'};
+const ESTADOS = {borrador:tr('Draft'), sugerida:tr('Draft · complete'), revision:tr('In review'), aprobado:tr('Approved'), corregido:tr('Corrected')};
 const ESTADO_COLOR = {borrador:'#94A3B8', sugerida:'#D69E2E', revision:'#1D5FB0', aprobado:'#2F855A', corregido:'#4636A6'};
-const EDAD_LBL = {adulto:'adult', nino:'child or youth', bebe:'baby', general:'child, youth or adult'};
+const EDAD_LBL = {adulto:'adult', nino:tr('child or youth'), bebe:'baby', general:tr('child, youth or adult')};
 
 /* ---------- Consistencia: incoherencias y verificación del código ---------- */
 const CAP_OK = {prenda:['61','62','42','39','65'], calzado:['64'], plantilla:['64'], polainas:['64'], cordones:['63','64','39','42'], cuidado_calzado:['34','38','96'],
@@ -1792,41 +1793,41 @@ function verificarCodigo(f, cod){
   const E = m => A.push({nivel:'error', origen:'codigo', msg:m}), W = m => A.push({nivel:'aviso', origen:'codigo', msg:m});
   const ch = cod.slice(0,2), c6 = cod.slice(0,6), cd = fmtCode(c6);
   const oks = capsOk(t);
-  if (oks && !oks.includes(ch)){ E('Code ' + fmtCode(cod) + ' is in chapter ' + ch + (CAPITULOS[ch] ? ' (' + CAPITULOS[ch] + ')' : '') + ', which does not match "' + TIPO_CORTO[t] + '".'); return A; }
+  if (oks && !oks.includes(ch)){ E(tr('Code {0} is in chapter {1}{2}, which does not match "{3}".', [fmtCode(cod), ch, CAPITULOS[ch] ? ' (' + CAPITULOS[ch] + ')' : '', TIPO_CORTO[t]])); return A; }
   if (c6.length < 6) return A;
-  if (!DESC[c6]) W('Subheading ' + cd + ' is not in the classifier\'s reference table; confirm it in the tariff.');
+  if (!DESC[c6]) W(tr('Subheading {0} is not in the classifier\'s reference table; confirm it in the tariff.', [cd]));
   const I = implicaciones(c6), g = grupoTipo(t);
   if (g === 'prenda' || ['manta','tienda','cinturon'].includes(t)){
-    if (I.tejido && f.tejido && t !== 'calcetines' && I.tejido !== f.tejido) E(cd + ' is ' + (I.tejido === 'punto' ? 'knitted (chapter 61)' : 'woven (chapter 62)') + ', but the item is marked as ' + (f.tejido === 'punto' ? 'knitted.' : 'woven.'));
-    if (I.genero && ['M','F'].includes(f.genero) && I.genero !== f.genero) E(cd + ' is for ' + (I.genero === 'M' ? 'men or boys' : 'women or girls') + ', but the item is for ' + (f.genero === 'M' ? 'men or boys.' : 'women or girls.'));
-    if (I.genero === 'M' && f.genero === 'U') W('Unisex is classified as women\'s; ' + cd + ' is men\'s.');
-    if (I.bebe && f.edad && f.edad !== 'bebe') E(cd + ' is for baby garments (up to 86 cm), but the age is ' + EDAD_LBL[f.edad] + '.');
-    if (!I.bebe && f.edad === 'bebe' && (ch === '61' || ch === '62') && c6.slice(0,4) !== '6212') E('Baby garments go in 6111 or 6209; ' + cd + ' does not apply.');
+    if (I.tejido && f.tejido && t !== 'calcetines' && I.tejido !== f.tejido) E(tr('{0} is {1}, but the item is marked as {2}', [cd, I.tejido === 'punto' ? tr('knitted (chapter 61)') : tr('woven (chapter 62)'), f.tejido === 'punto' ? 'knitted.' : 'woven.']));
+    if (I.genero && ['M','F'].includes(f.genero) && I.genero !== f.genero) E(tr('{0} is for {1}, but the item is for {2}', [cd, I.genero === 'M' ? tr('men or boys') : tr('women or girls'), f.genero === 'M' ? tr('men or boys.') : tr('women or girls.')]));
+    if (I.genero === 'M' && f.genero === 'U') W(tr('Unisex is classified as women\'s; {0} is men\'s.', [cd]));
+    if (I.bebe && f.edad && f.edad !== 'bebe') E(tr('{0} is for baby garments (up to 86 cm), but the age is {1}.', [cd, EDAD_LBL[f.edad]]));
+    if (!I.bebe && f.edad === 'bebe' && (ch === '61' || ch === '62') && c6.slice(0,4) !== '6212') E(tr('Baby garments go in 6111 or 6209; {0} does not apply.', [cd]));
     const comp = parseComp((f.comp || {}).exterior || f.composicion || '');
     if (I.fibra && comp && comp.pred && comp.pred.grupo !== 'cuero'){
       const p = comp.pred, ok = I.fibra === 'manmade' ? p.familia === 'manmade' : p.grupo === I.fibra;
-      if (!ok) E(cd + ' is for ' + OPT_LBL[I.fibra] + ', but the outer fabric is predominantly ' + FIB_LBL[p.grupo] + ' (' + p.pct + '%).');
+      if (!ok) E(tr('{0} is for {1}, but the outer fabric is predominantly {2} ({3}%).', [cd, OPT_LBL[I.fibra], FIB_LBL[p.grupo], p.pct]));
     }
-    if (I.recubierta && f.recubierta === false && ATTR_BY.recubierta.aplica(f)) W(cd + ' is for coated or laminated fabrics; the item is not marked that way.');
-    if (!I.recubierta && f.recubierta && (ch === '61' || ch === '62') && f.edad !== 'bebe') W('The fabric is marked as coated or laminated; it would normally go in 6113 or 6210.');
+    if (I.recubierta && f.recubierta === false && ATTR_BY.recubierta.aplica(f)) W(tr('{0} is for coated or laminated fabrics; the item is not marked that way.', [cd]));
+    if (!I.recubierta && f.recubierta && (ch === '61' || ch === '62') && f.edad !== 'bebe') W(tr('The fabric is marked as coated or laminated; it would normally go in 6113 or 6210.'));
   }
   if (t === 'calzado'){
     const dv = derivarCalzado(f);
-    if (I.upper && dv.upper && I.upper !== dv.upper) E(cd + ' is for an upper of ' + MAT_LBL[I.upper] + ', but the upper is ' + MAT_LBL[dv.upper] + '.');
-    if (I.sole && dv.sole && I.sole !== dv.sole) E(cd + ' is for a sole of ' + MAT_LBL[I.sole] + ', but the sole is ' + MAT_LBL[dv.sole] + '.');
-    if (I.tob !== undefined && f.altura){ const tob = f.altura !== 'bajo'; if (I.tob !== tob) E(cd + (I.tob ? ' is for footwear covering the ankle' : ' is for footwear not covering the ankle') + ', but the item ' + (tob ? 'does' : 'does not') + ' cover it.'); }
-    if (c6 === '640192' && f.altura === 'rodilla') E('6401.92 is for footwear covering the ankle but not the knee; if it covers the knee it goes in 6401.99.');
-    if (I.metal && f.puntera !== 'metalica') E(cd + ' requires a metal protective toe cap.');
-    if (!I.metal && f.puntera === 'metalica' && dv.upper === 'cuero' && c6.startsWith('6403')) E('With a leather upper and a metal toe cap, 6403.40 applies, not ' + cd + '.');
-    if (I.impermeable && !f.impermeable) W(cd + ' is for waterproof footwear without stitches or rivets; the item is not marked that way.');
-    if (I.tetones && f.estiloCalz !== 'chancla_tetones') W('6402.20 is for straps attached to the sole by plugs; the chosen style is different.');
-    if (I.esqui && f.estiloCalz !== 'esqui') W(cd + ' is for ski or snowboard footwear.');
-    if (c6 === '640411' && f.estiloCalz && f.estiloCalz !== 'tenis' && f.estiloCalz !== 'tacos' && f.estiloCalz !== 'esqui') W('6404.11 is for sports or training footwear; the chosen style is ' + opcionLbl('estiloCalz', f.estiloCalz).toLowerCase() + '.');
-    if (c6 === '640411' && f.estiloCalz === 'tenis' && f.disenio && f.disenio !== 'entrenamiento') W('6404.11 is for athletic or training footwear; the design is set as ' + opcionLbl('disenio', f.disenio).toLowerCase() + '.');
+    if (I.upper && dv.upper && I.upper !== dv.upper) E(tr('{0} is for an upper of {1}, but the upper is {2}.', [cd, MAT_LBL[I.upper], MAT_LBL[dv.upper]]));
+    if (I.sole && dv.sole && I.sole !== dv.sole) E(tr('{0} is for a sole of {1}, but the sole is {2}.', [cd, MAT_LBL[I.sole], MAT_LBL[dv.sole]]));
+    if (I.tob !== undefined && f.altura){ const tob = f.altura !== 'bajo'; if (I.tob !== tob) E(I.tob ? (tob ? tr('{0} is for footwear covering the ankle, and the item covers it.', [cd]) : tr('{0} is for footwear covering the ankle, but the item does not cover it.', [cd])) : (tob ? tr('{0} is for footwear not covering the ankle, but the item covers it.', [cd]) : tr('{0} is for footwear not covering the ankle, and the item does not cover it.', [cd]))); }
+    if (c6 === '640192' && f.altura === 'rodilla') E(tr('6401.92 is for footwear covering the ankle but not the knee; if it covers the knee it goes in 6401.99.'));
+    if (I.metal && f.puntera !== 'metalica') E(tr('{0} requires a metal protective toe cap.', [cd]));
+    if (!I.metal && f.puntera === 'metalica' && dv.upper === 'cuero' && c6.startsWith('6403')) E(tr('With a leather upper and a metal toe cap, 6403.40 applies, not {0}.', [cd]));
+    if (I.impermeable && !f.impermeable) W(tr('{0} is for waterproof footwear without stitches or rivets; the item is not marked that way.', [cd]));
+    if (I.tetones && f.estiloCalz !== 'chancla_tetones') W(tr('6402.20 is for straps attached to the sole by plugs; the chosen style is different.'));
+    if (I.esqui && f.estiloCalz !== 'esqui') W(tr('{0} is for ski or snowboard footwear.', [cd]));
+    if (c6 === '640411' && f.estiloCalz && f.estiloCalz !== 'tenis' && f.estiloCalz !== 'tacos' && f.estiloCalz !== 'esqui') W(tr('6404.11 is for sports or training footwear; the chosen style is {0}.', [opcionLbl('estiloCalz', f.estiloCalz).toLowerCase()]));
+    if (c6 === '640411' && f.estiloCalz === 'tenis' && f.disenio && f.disenio !== 'entrenamiento') W(tr('6404.11 is for athletic or training footwear; the design is set as {0}.', [opcionLbl('disenio', f.disenio).toLowerCase()]));
   }
   if (g === 'bolso' && I.exterior && f.exterior){
     const ok = I.exterior === 'textil' ? ['textil','plastico'].includes(f.exterior) : I.exterior === f.exterior;
-    if (!ok) E(cd + ' is for an outer surface of ' + ({cuero:'leather', textil:'textile material or plastic sheeting', otro:'other material'})[I.exterior] + ', but the item has an outer surface of ' + opcionLbl('exterior', f.exterior).toLowerCase() + '.');
+    if (!ok) E(tr('{0} is for an outer surface of {1}, but the item has an outer surface of {2}.', [cd, ({cuero:'leather', textil:tr('textile material or plastic sheeting'), otro:tr('other material')})[I.exterior], opcionLbl('exterior', f.exterior).toLowerCase()]));
   }
   return A;
 }
@@ -1847,29 +1848,29 @@ function validar(f, ctx, codFinal){
       const pcts = [...seg.matchAll(/(\d+(?:[.,]\d+)?)\s*%/g)].map(m=>parseFloat(m[1].replace(',','.')));
       if (pcts.length){
         const sum = Math.round(pcts.reduce((a,b)=>a+b,0)*10)/10;
-        if (sum > 100.5) add('error', PARTE_LBL[p] + ': the percentages add up to ' + sum + '%.');
-        else if (sum < 99.5) add('aviso', PARTE_LBL[p] + ': the percentages add up to ' + sum + '%, not 100%.');
+        if (sum > 100.5) add('error', tr('{0}: the percentages add up to {1}%.', [PARTE_LBL[p], sum]));
+        else if (sum < 99.5) add('aviso', tr('{0}: the percentages add up to {1}%, not 100%.', [PARTE_LBL[p], sum]));
       }
       if (!['relleno','plantilla'].includes(p)){
         const o2 = pesosDe(seg, MAT_CALZ).otra || 0, otra = esMat ? o2 : Math.min(pesosDe(seg, FIBRAS).otra || 0, o2);
-        if (otra && !pr.desconocidas.length) add('aviso', PARTE_LBL[p] + ': ' + otra + '% has no recognizable material.');
+        if (otra && !pr.desconocidas.length) add('aviso', tr('{0}: {1}% has no recognizable material.', [PARTE_LBL[p], otra]));
       }
     });
-    if (!['relleno','plantilla'].includes(p) && pr.desconocidas.length) add('aviso', PARTE_LBL[p] + ': I do not recognize "' + pr.desconocidas.join('", "') + '". Tell me what it is with the list under the composition.', 'material');
+    if (!['relleno','plantilla'].includes(p) && pr.desconocidas.length) add('aviso', tr('{0}: I do not recognize "{1}". Tell me what it is with the list under the composition.', [PARTE_LBL[p], pr.desconocidas.join('", "')]), 'material');
     pr.ambiguas.forEach(w=>add('aviso', PARTE_LBL[p] + ': ' + MAT_AMBIGUAS[w] + '.'));
     const fz = pr.cambios.filter(c=>c.de && !c.aprendido);
-    if (fz.length) add('info', PARTE_LBL[p] + ': I read ' + fz.map(c=>'"' + c.de + '" as ' + c.a).join(', ') + '.');
-    if (pr.cambios.some(c=>c.pct)) add('info', PARTE_LBL[p] + ': numbers without % were taken as percentages (' + pr.s.trim() + ').');
+    if (fz.length) add('info', tr('{0}: I read {1}.', [PARTE_LBL[p], fz.map(c=>tr('"{0}" as {1}', [c.de, c.a])).join(', ')]));
+    if (pr.cambios.some(c=>c.pct)) add('info', tr('{0}: numbers without % were taken as percentages ({1}).', [PARTE_LBL[p], pr.s.trim()]));
     if (['corte','exterior','material'].includes(p) && esMat){
       const pm = parseMat(v, 'corte');
-      if (pm && pm.mixto && !pm.pred) add('aviso', PARTE_LBL[p] + ': mixes ' + pm.grupos.map(g=>MAT_LBL[g]).join(' y ') + ' without percentages. Enter them by surface to know which governs.');
+      if (pm && pm.mixto && !pm.pred) add('aviso', tr('{0}: mixes {1} without percentages. Enter them by surface to know which governs.', [PARTE_LBL[p], pm.grupos.map(g=>MAT_LBL[g]).join(' y ')]));
     }
   }
   const prep0 = prepararEstado(Object.assign({}, f));
   for (const a of ATTRS){
     if (!a.deComp || !a.aplica(prep0) || !f[a.id]) continue;
     const fx = a.fijo(f);
-    if (fx && fx !== f[a.id]) add('error', a.label + ' recorded as "' + opcionLbl(a.id, f[a.id]) + '", but the composition says ' + opcionLbl(a.id, fx).toLowerCase() + '. It is classified by the composition; fix whichever is wrong.');
+    if (fx && fx !== f[a.id]) add('error', tr('{0} recorded as "{1}", but the composition says {2}. It is classified by the composition; fix whichever is wrong.', [a.label, opcionLbl(a.id, f[a.id]), opcionLbl(a.id, fx).toLowerCase()]));
   }
   if (t === 'calzado'){
     const pmC = parseMat((f.comp || {}).corte || '', 'corte');
@@ -1877,89 +1878,89 @@ function validar(f, ctx, codFinal){
       const p = pmC.pesos;
       const dTex = /\b(canvas|lona|mesh|malla|knit|textile|textil|nylon|ripstop|corduroy|pana|denim|jersey)\b/.test(desc);
       const dCue = /\b(leather|cuero|suede|gamuza|nubuck|piel)\b/.test(desc) && !/\b(synthetic|sintetic[oa]|faux|vegan)\b/.test(desc);
-      if (dTex && !(p.textil > 0)) add('aviso', 'The description mentions canvas, mesh or textile, but the upper composition has no textile. Check the composition by surface.');
-      if (dCue && !(p.cuero > 0)) add('aviso', 'The description mentions leather or suede, but the upper composition does not include it.');
-      if (Object.keys(p).filter(k=>k !== 'otra').length === 1 && pmC.pct === 100 && pmC.pred === 'cuero' && /\b(old skool|sk8|authentic|era|slip-?on|chuck|canvas)\b/.test(desc)) add('aviso', 'This model usually combines suede or leather with canvas; confirm the upper is 100% leather.');
-    } else if (!(f.comp || {}).corte) add('aviso', 'The upper composition is missing: without it the governing material of the footwear cannot be verified.');
-    if (!(f.comp || {}).suela) add('info', 'The sole composition is missing.');
+      if (dTex && !(p.textil > 0)) add('aviso', tr('The description mentions canvas, mesh or textile, but the upper composition has no textile. Check the composition by surface.'));
+      if (dCue && !(p.cuero > 0)) add('aviso', tr('The description mentions leather or suede, but the upper composition does not include it.'));
+      if (Object.keys(p).filter(k=>k !== 'otra').length === 1 && pmC.pct === 100 && pmC.pred === 'cuero' && /\b(old skool|sk8|authentic|era|slip-?on|chuck|canvas)\b/.test(desc)) add('aviso', tr('This model usually combines suede or leather with canvas; confirm the upper is 100% leather.'));
+    } else if (!(f.comp || {}).corte) add('aviso', tr('The upper composition is missing: without it the governing material of the footwear cannot be verified.'));
+    if (!(f.comp || {}).suela) add('info', tr('The sole composition is missing.'));
   }
-  if (grupoTipo(t) === 'prenda' && t !== 'brasier' && !(f.comp || {}).exterior) add('aviso', 'The outer fabric composition is missing: the subheading depends on the predominant fiber.');
-  if (grupoTipo(t) === 'bolso' && !(f.comp || {}).exterior && !f.exterior) add('info', 'The outer surface material is missing.');
+  if (grupoTipo(t) === 'prenda' && t !== 'brasier' && !(f.comp || {}).exterior) add('aviso', tr('The outer fabric composition is missing: the subheading depends on the predominant fiber.'));
+  if (grupoTipo(t) === 'bolso' && !(f.comp || {}).exterior && !f.exterior) add('info', tr('The outer surface material is missing.'));
   if (f.uso && t){
     const du = detectar(f.uso, {}).tipo;
-    if (du && grupoTipo(du) !== grupoTipo(t) && !['bolso_viaje','bolsa_compra'].includes(du)) add('info', 'In "what it is for" you describe something that looks like "' + TIPO_CORTO[du] + '"; the chosen type is "' + TIPO_CORTO[t] + '".');
+    if (du && grupoTipo(du) !== grupoTipo(t) && !['bolso_viaje','bolsa_compra'].includes(du)) add('info', tr('In "what it is for" you describe something that looks like "{0}"; the chosen type is "{1}".', [TIPO_CORTO[du], TIPO_CORTO[t]]));
   }
   if (ctx.porEstilo && (f.estilo || f.generico)){
     const vistos = new Set();
     const otros = [].concat(f.estilo ? (ctx.porEstilo.get(norm(f.estilo).trim()) || []) : [], f.generico && ctx.porGenerico ? (ctx.porGenerico.get(norm(f.generico).trim()) || []) : []).filter(r=>r.id !== f.id && !vistos.has(r.id) && vistos.add(r.id));
     const c6 = digits(codFinal).slice(0,6);
     const difC = c6.length === 6 ? otros.find(r=>digits(r.codigo).length >= 6 && digits(r.codigo).slice(0,6) !== c6) : null;
-    if (difC) add('aviso', 'The same ' + (f.estilo ? 'style ' + f.estilo : 'generic code ' + f.generico) + ' is already classified as ' + fmtCode(difC.codigo) + (difC.color ? ' (color ' + difC.color + ')' : '') + '. Colors of one style usually share the same code; check which is right.', 'codigo');
+    if (difC) add('aviso', tr('The same {0} is already classified as {1}{2}. Colors of one style usually share the same code; check which is right.', [f.estilo ? tr('style {0}', [f.estilo]) : tr('generic code {0}', [f.generico]), fmtCode(difC.codigo), difC.color ? tr(' (color {0})', [difC.color]) : '']), 'codigo');
     const difT = otros.find(r=>r.tipo && t && r.tipo !== t);
-    if (difT) add('aviso', 'The ' + (f.estilo ? 'style ' + f.estilo : 'generic code ' + f.generico) + ' is recorded in another product as "' + TIPO_CORTO[difT.tipo] + '".');
+    if (difT) add('aviso', tr('The {0} is recorded in another product as "{1}".', [f.estilo ? tr('style {0}', [f.estilo]) : tr('generic code {0}', [f.generico]), TIPO_CORTO[difT.tipo]]));
     if (t === 'calzado'){
       const mio = parseMat((f.comp || {}).corte || '', 'corte');
       const otro = otros.map(r=>({r, pm:parseMat((r.comp || {}).corte || '', 'corte')})).find(x=>x.pm && x.pm.pred && mio && mio.pred && x.pm.pred !== mio.pred);
-      if (otro) add('aviso', 'Another color of the same style (' + (otro.r.color || otro.r.id) + ') has an upper of ' + MAT_LBL[otro.pm.pred] + ' (' + resumenMat(otro.pm) + '); this one says ' + MAT_LBL[mio.pred] + '.');
+      if (otro) add('aviso', tr('Another color of the same style ({0}) has an upper of {1} ({2}); this one says {3}.', [otro.r.color || otro.r.id, MAT_LBL[otro.pm.pred], resumenMat(otro.pm), MAT_LBL[mio.pred]]));
     }
   }
   const comp = parseComp((f.comp || {}).exterior || f.composicion || '');
-  if (comp && comp.pred && comp.pred.grupo === 'cuero' && ['camiseta','calcetines','traje_bano','ropa_interior','brasier','bufanda'].includes(t)) add('error', 'The outer fabric says leather, very unusual for ' + TIPO_CORTO[t].toLowerCase() + '. Check the composition or the type.');
-  if (t === 'calzado' && (f.comp || {}).exterior && !(f.comp || {}).corte) add('info', 'For footwear, the composition goes by part: upper and sole.');
+  if (comp && comp.pred && comp.pred.grupo === 'cuero' && ['camiseta','calcetines','traje_bano','ropa_interior','brasier','bufanda'].includes(t)) add('error', tr('The outer fabric says leather, very unusual for {0}. Check the composition or the type.', [TIPO_CORTO[t].toLowerCase()]));
+  if (t === 'calzado' && (f.comp || {}).exterior && !(f.comp || {}).corte) add('info', tr('For footwear, the composition goes by part: upper and sole.'));
   if (textoDet(f)){
     const d = detectarCon(textoDet(f), {}, '', ctx.palabras, f.marca);
-    if (d.tipo && t && grupoTipo(d.tipo) !== grupoTipo(t) && !(d.tipo === 'bolso_viaje' && !/\b(duffel|duffle|belt ?bag|lonchera|lunch)\b/.test(desc))) add('aviso', 'The style looks like "' + TIPO_CORTO[d.tipo] + '", but the chosen type is "' + TIPO_CORTO[t] + '".');
+    if (d.tipo && t && grupoTipo(d.tipo) !== grupoTipo(t) && !(d.tipo === 'bolso_viaje' && !/\b(duffel|duffle|belt ?bag|lonchera|lunch)\b/.test(desc))) add('aviso', tr('The style looks like "{0}", but the chosen type is "{1}".', [TIPO_CORTO[d.tipo], TIPO_CORTO[t]]));
     const prep = prepararEstado(Object.assign({}, f));
     for (const a of ATTRS){
       if (a.tipo === 'check' || !a.aplica(prep) || d[a.id] == null || d[a.id] === '' || f[a.id] === d[a.id]) continue;
       const op = a.ops.find(o=>o.v === d[a.id]);
       const r = op && op.off ? op.off(prep) : null;
-      if (r) add('aviso', 'The style suggests "' + op.l.toLowerCase() + '" (' + a.label.toLowerCase() + '), but it does not fit: ' + r.charAt(0).toLowerCase() + r.slice(1));
+      if (r) add('aviso', tr('The style suggests "{0}" ({1}), but it does not fit: {2}{3}', [op.l.toLowerCase(), a.label.toLowerCase(), r.charAt(0).toLowerCase(), r.slice(1)]));
     }
     const gd = parseGenero(textoDet(f));
-    if (['M','F'].includes(gd) && ['M','F'].includes(f.genero) && gd !== f.genero && ATTR_BY.genero.aplica(f) && !ATTR_BY.genero.fijo(f)) add('aviso', 'The style indicates ' + (gd === 'M' ? 'hombre' : 'mujer') + ', but the chosen gender is ' + (f.genero === 'M' ? 'hombre.' : 'mujer.'));
+    if (['M','F'].includes(gd) && ['M','F'].includes(f.genero) && gd !== f.genero && ATTR_BY.genero.aplica(f) && !ATTR_BY.genero.fijo(f)) add('aviso', tr('The style indicates {0}, but the chosen gender is {1}', [gd === 'M' ? 'hombre' : 'mujer', f.genero === 'M' ? 'hombre.' : 'mujer.']));
     const ed = parseEdad(textoDet(f));
-    if (ATTR_BY.edad.aplica(f) && f.edad && ((ed === 'bebe') !== (f.edad === 'bebe')) && (ed === 'bebe' || f.edad === 'bebe')) add('aviso', ed === 'bebe' ? 'The description suggests a baby garment, but it is not marked that way.' : 'It is marked as a baby garment, but the description does not suggest it.');
+    if (ATTR_BY.edad.aplica(f) && f.edad && ((ed === 'bebe') !== (f.edad === 'bebe')) && (ed === 'bebe' || f.edad === 'bebe')) add('aviso', ed === 'bebe' ? tr('The description suggests a baby garment, but it is not marked that way.') : tr('It is marked as a baby garment, but the description does not suggest it.'));
     if (t === 'calzado'){
-      if (/\b(steel toe|punta de acero|safety toe|alloy toe|aluminum toe)\b/.test(desc) && f.puntera !== 'metalica') add('aviso', 'The description mentions a steel or alloy toe, but the toe cap is not set as metal.');
-      if (/\b(composite|nano toe|carbon toe)\b/.test(desc) && f.puntera === 'metalica') add('aviso', 'The description says composite, which is not a metal toe cap.');
-      if (/\b(hi|high|high-?top|mid|boots?|botas?)\b/.test(desc) && f.altura === 'bajo') add('aviso', 'The description suggests a high cut (hi, mid or boot), but it is marked as not covering the ankle.');
-      if (/\b(low|lo)\b/.test(desc) && ['tobillo','rodilla'].includes(f.altura) && !/\b(mid|hi|high)\b/.test(desc)) add('aviso', 'The description suggests a low model, but it is marked as covering the ankle.');
+      if (/\b(steel toe|punta de acero|safety toe|alloy toe|aluminum toe)\b/.test(desc) && f.puntera !== 'metalica') add('aviso', tr('The description mentions a steel or alloy toe, but the toe cap is not set as metal.'));
+      if (/\b(composite|nano toe|carbon toe)\b/.test(desc) && f.puntera === 'metalica') add('aviso', tr('The description says composite, which is not a metal toe cap.'));
+      if (/\b(hi|high|high-?top|mid|boots?|botas?)\b/.test(desc) && f.altura === 'bajo') add('aviso', tr('The description suggests a high cut (hi, mid or boot), but it is marked as not covering the ankle.'));
+      if (/\b(low|lo)\b/.test(desc) && ['tobillo','rodilla'].includes(f.altura) && !/\b(mid|hi|high)\b/.test(desc)) add('aviso', tr('The description suggests a low model, but it is marked as covering the ankle.'));
       const dv = derivarCalzado(f);
-      if (!(f.comp || {}).corte && dv.upper === 'textil' && /\b(leather|cuero|suede|gamuza|nubuck)\b/.test(desc) && !/\b(synthetic|sintetic[oa]|faux)\b/.test(desc)) add('aviso', 'The description mentions leather but the upper is set as textile. If the upper is mixed, enter its percentages.');
-      if (/\b(waterproof|wp|gore-?tex|impermeable)\b/.test(desc) && dv.upper && dv.upper !== 'plastico') add('info', 'Being waterproof through a membrane does not take it to 6401: that heading requires a rubber or plastic upper and sole without stitching.');
-      if (f.estiloCalz === 'tacon' && f.genero === 'M') add('aviso', 'High-heeled shoe marked as men\'s; confirm the gender.');
-      if (f.estiloCalz === 'zueco' && f.impermeable) add('aviso', 'A clog with ventilation holes is not waterproof; confirm before using 6401.');
-      if (f.estiloCalz === 'seguridad' && dv.upper && !['cuero','plastico','textil'].includes(dv.upper)) add('aviso', 'Safety footwear with an upper of another material: check the upper composition.');
+      if (!(f.comp || {}).corte && dv.upper === 'textil' && /\b(leather|cuero|suede|gamuza|nubuck)\b/.test(desc) && !/\b(synthetic|sintetic[oa]|faux)\b/.test(desc)) add('aviso', tr('The description mentions leather but the upper is set as textile. If the upper is mixed, enter its percentages.'));
+      if (/\b(waterproof|wp|gore-?tex|impermeable)\b/.test(desc) && dv.upper && dv.upper !== 'plastico') add('info', tr('Being waterproof through a membrane does not take it to 6401: that heading requires a rubber or plastic upper and sole without stitching.'));
+      if (f.estiloCalz === 'tacon' && f.genero === 'M') add('aviso', tr('High-heeled shoe marked as men\'s; confirm the gender.'));
+      if (f.estiloCalz === 'zueco' && f.impermeable) add('aviso', tr('A clog with ventilation holes is not waterproof; confirm before using 6401.'));
+      if (f.estiloCalz === 'seguridad' && dv.upper && !['cuero','plastico','textil'].includes(dv.upper)) add('aviso', tr('Safety footwear with an upper of another material: check the upper composition.'));
     }
     if (g === 'prenda'){
-      if (/\b(fleece|polar|jersey|knit|pique|terry)\b/.test(desc) && f.tejido === 'plano') add('aviso', 'The description mentions a knit fabric (fleece, jersey, knit), but it is marked as woven.');
-      if (/\b(denim|jeans?|flannel|franela|poplin|twill|canvas|ripstop|oxford)\b/.test(desc) && f.tejido === 'punto') add('aviso', 'The description mentions a woven fabric (denim, flannel, ripstop), but it is marked as knitted.');
+      if (/\b(fleece|polar|jersey|knit|pique|terry)\b/.test(desc) && f.tejido === 'plano') add('aviso', tr('The description mentions a knit fabric (fleece, jersey, knit), but it is marked as woven.'));
+      if (/\b(denim|jeans?|flannel|franela|poplin|twill|canvas|ripstop|oxford)\b/.test(desc) && f.tejido === 'punto') add('aviso', tr('The description mentions a woven fabric (denim, flannel, ripstop), but it is marked as knitted.'));
       const hay = desc + ' ' + norm(Object.values(f.comp || {}).join(' '));
-      if (f.recubierta && !/\b(dryvent|dry vent|gore|futurelight|waterproof|laminad[oa]|laminated|coated|recubiert[oa]|hyvent|pu|pvc|impermeable|rain)\b/.test(hay)) add('info', 'You marked the fabric as coated but it is not in the description or the composition; confirm it with the technical sheet.');
-      if (t === 'chaqueta' && f.hechura === 'chaqueta' && /\b(vests?|chalecos?|gilet)\b/.test(desc)) add('aviso', 'The description says vest, but the construction is set as jacket.');
-      if (t === 'sudadera' && f.hechuraSud === 'pullover' && /\b(full ?zip|fz|cierre completo)\b/.test(desc)) add('aviso', 'The description says full zip, but the construction is set as pullover.');
-      if (t === 'traje_bano' && f.edad === 'adulto' && /\b(baby|bebe|infant)\b/.test(desc)) add('aviso', 'Swimsuit with a baby description; check the age.');
+      if (f.recubierta && !/\b(dryvent|dry vent|gore|futurelight|waterproof|laminad[oa]|laminated|coated|recubiert[oa]|hyvent|pu|pvc|impermeable|rain)\b/.test(hay)) add('info', tr('You marked the fabric as coated but it is not in the description or the composition; confirm it with the technical sheet.'));
+      if (t === 'chaqueta' && f.hechura === 'chaqueta' && /\b(vests?|chalecos?|gilet)\b/.test(desc)) add('aviso', tr('The description says vest, but the construction is set as jacket.'));
+      if (t === 'sudadera' && f.hechuraSud === 'pullover' && /\b(full ?zip|fz|cierre completo)\b/.test(desc)) add('aviso', tr('The description says full zip, but the construction is set as pullover.'));
+      if (t === 'traje_bano' && f.edad === 'adulto' && /\b(baby|bebe|infant)\b/.test(desc)) add('aviso', tr('Swimsuit with a baby description; check the age.'));
     }
-    if (t === 'botella' && /\b(vacuum|al vacio|termo|thermos|insulated)\b/.test(desc) && !f.alVacio) add('aviso', 'The description says thermos or vacuum, but vacuum insulation is not checked.');
-    if (t === 'reloj' && /\b(smart|gps|bluetooth)\b/.test(desc) && f.pantalla && f.pantalla !== 'inteligente') add('aviso', 'The description suggests a smartwatch.');
-    if (t === 'colchoneta' && /\b(self-?inflating|autoinflable)\b/.test(desc) && f.tipoColch === 'inflable') add('info', 'Self-inflating pads contain foam; check whether the foam option applies.');
+    if (t === 'botella' && /\b(vacuum|al vacio|termo|thermos|insulated)\b/.test(desc) && !f.alVacio) add('aviso', tr('The description says thermos or vacuum, but vacuum insulation is not checked.'));
+    if (t === 'reloj' && /\b(smart|gps|bluetooth)\b/.test(desc) && f.pantalla && f.pantalla !== 'inteligente') add('aviso', tr('The description suggests a smartwatch.'));
+    if (t === 'colchoneta' && /\b(self-?inflating|autoinflable)\b/.test(desc) && f.tipoColch === 'inflable') add('info', tr('Self-inflating pads contain foam; check whether the foam option applies.'));
   }
   if (f.tallas && ATTR_BY.edad.aplica(f)){
     const et = parseTallas(f.tallas);
-    if (et && f.edad && et !== f.edad && (et === 'bebe' || f.edad === 'bebe' || (et === 'nino' && f.edad === 'adulto'))) add('aviso', 'The sizes (' + f.tallas + ') do not match the chosen age (' + EDAD_LBL[f.edad] + ').');
-    if (et === 'bebe' && !f.edad) add('aviso', 'The sizes are baby sizes: mark the age as baby, because it changes the code.');
+    if (et && f.edad && et !== f.edad && (et === 'bebe' || f.edad === 'bebe' || (et === 'nino' && f.edad === 'adulto'))) add('aviso', tr('The sizes ({0}) do not match the chosen age ({1}).', [f.tallas, EDAD_LBL[f.edad]]));
+    if (et === 'bebe' && !f.edad) add('aviso', tr('The sizes are baby sizes: mark the age as baby, because it changes the code.'));
   }
   if (ctx.marcas && f.marca){
     const m = ctx.marcas.find(x=>norm(x.nombre).trim() === norm(f.marca).trim());
     if (m){
-      if (m.activa === false) add('info', 'Brand ' + m.nombre + ' is marked as inactive.');
-      if (t && Array.isArray(m.tipos) && m.tipos.length && !m.tipos.includes(t)) add('aviso', m.nombre + ' does not have "' + TIPO_CORTO[t] + '" among its product types.');
-    } else if (ctx.marcas.length) add('info', 'Brand "' + f.marca + '" is not in the catalog.');
+      if (m.activa === false) add('info', tr('Brand {0} is marked as inactive.', [m.nombre]));
+      if (t && Array.isArray(m.tipos) && m.tipos.length && !m.tipos.includes(t)) add('aviso', tr('{0} does not have "{1}" among its product types.', [m.nombre, TIPO_CORTO[t]]));
+    } else if (ctx.marcas.length) add('info', tr('Brand "{0}" is not in the catalog.', [f.marca]));
   }
   if (ctx.proveedores && f.proveedor && f.marca){
     const p = ctx.proveedores.find(x=>norm(x.nombre).trim() === norm(f.proveedor).trim());
-    if (p && Array.isArray(p.marcas) && p.marcas.length && !p.marcas.some(x=>norm(x).trim() === norm(f.marca).trim())) add('aviso', 'Supplier ' + p.nombre + ' does not have the brand ' + f.marca + '.');
+    if (p && Array.isArray(p.marcas) && p.marcas.length && !p.marcas.some(x=>norm(x).trim() === norm(f.marca).trim())) add('aviso', tr('Supplier {0} does not have the brand {1}.', [p.nombre, f.marca]));
   }
   const cod = digits(codFinal);
   if (cod) verificarCodigo(f, cod).forEach(a=>add(a.nivel, a.msg, 'codigo'));
@@ -1973,7 +1974,7 @@ function evaluar(f, recs, incisos, ctx, codFinal, excluirId){
   const datos = alertasVivas(o.alertas, f.alertasOk).filter(a=>a.origen !== 'codigo');
   if (datos.some(a=>a.nivel === 'error')) o.conf = Math.min(o.conf, 1);
   else if (datos.some(a=>a.nivel === 'aviso')) o.conf = Math.min(o.conf, 2);
-  o.confianza = ['no data','low','medium','high'][o.conf];
+  o.confianza = [tr('no data'),'low','medium','high'][o.conf];
   return o;
 }
 
@@ -1998,7 +1999,7 @@ function recortarIncisos(lista, n){
     if (exactos.length){ exactos.forEach(e=>{ if (vacio(e.dai) && daiS.length === 1) e.dai = daiS[0]; }); return; }
     const conds = [...new Set(ms.map(m=>m.cond ? JSON.stringify(m.cond) : ''))];
     const fte = ms.some(m=>m.fuente === 'arancel') ? 'arancel' : ms[0].fuente;
-    res.push({codigo:c, desc:(ms.length === 1 ? ms[0].desc : descDe(c) + ' (merges ' + ms.length + ' longer codes)') + (daiS.length > 1 ? '. Duty varies: ' + daiS.join('%, ') + '%' : ''),
+    res.push({codigo:c, desc:(ms.length === 1 ? ms[0].desc : tr('{0} (merges {1} longer codes)', [descDe(c), ms.length])) + (daiS.length > 1 ? tr('. Duty varies: {0}%', [daiS.join('%, ')]) : ''),
       dai:daiS.length === 1 ? daiS[0] : '', daiVaria:daiS.length > 1 ? daiS : null, fuente:fte,
       cond:conds.length === 1 && conds[0] ? ms[0].cond : {}, prio:Math.max(0, ...ms.map(m=>m.prio || 0)), id:ms[0].id, recorte:ms.map(m=>m.codigo)});
   });
@@ -2021,21 +2022,21 @@ function cifRango(d){
 }
 /* Datos que piden los aranceles nacionales (solo se preguntan si el arancel del país los usa) */
 const NAC_PREG = [
-  {id:'valorCIF', label:'CIF value per pair or unit (US$)', tipo:'num'},
-  {id:'genero', label:'Gender', tipo:'attr'},
-  {id:'edadNac', label:'User age', tipo:'seg', ops:[['adulto','Adult'],['nino','Child'],['bebe','Infant or baby']]},
-  {id:'usoPrevisto', label:'Use', tipo:'seg', ops:[['casual','Casual or everyday'],['escolar','School or uniform'],['deportivo','Sports'],['trabajo','Work or industrial']]},
-  {id:'largo', label:'Length', tipo:'seg', ops:[['largo','Long'],['corto','Short (shorts or bermudas)']]},
-  {id:'peto', label:'With bib (overalls)', tipo:'sino'},
-  {id:'mezclilla', label:'Denim fabric', tipo:'sino'},
-  {id:'suelaEspumosa', label:'Sole of foam or cellular material (EVA, foam)', tipo:'sino'},
-  {id:'rodeaDedo', label:'Straps over the instep that go around the big toe', tipo:'sino'},
-  {id:'manga', label:'Sleeve', tipo:'attr'},
-  {id:'conCuello', label:'With collar', tipo:'sino'},
-  {id:'capucha', label:'With hood', tipo:'sino'},
-  {id:'sueter', label:'It is a sweater (jersey), not a sweatshirt', tipo:'sino'},
-  {id:'formaTocado', label:'Shape', tipo:'seg', ops:[['gorra','Cap with visor'],['gorro','Beanie'],['sombrero','Hat (with brim)'],['otro','Other']]},
-  {id:'claseBolso', label:'Bag class', tipo:'seg', ops:[['mochila','Backpack'],['cangurera','Waist pack'],['duffel','Duffel or travel bag'],['deporte','Sports bag'],['termico','Cooler or lunch bag'],['neceser','Toiletry bag'],['bolso_mano','Handbag'],['crossbody','Crossbody'],['tote','Tote'],['satchel','Satchel'],['cartera','Purse'],['otro','Other']]}
+  {id:'valorCIF', label:tr('CIF value per pair or unit (US$)'), tipo:'num'},
+  {id:'genero', label:tr('Gender'), tipo:'attr'},
+  {id:'edadNac', label:tr('User age'), tipo:'seg', ops:[['adulto',tr('Adult')],['nino',tr('Child')],['bebe',tr('Infant or baby')]]},
+  {id:'usoPrevisto', label:tr('Use'), tipo:'seg', ops:[['casual',tr('Casual or everyday')],['escolar',tr('School or uniform')],['deportivo',tr('Sports')],['trabajo',tr('Work or industrial')]]},
+  {id:'largo', label:tr('Length'), tipo:'seg', ops:[['largo',tr('Long')],['corto',tr('Short (shorts or bermudas)')]]},
+  {id:'peto', label:tr('With bib (overalls)'), tipo:'sino'},
+  {id:'mezclilla', label:tr('Denim fabric'), tipo:'sino'},
+  {id:'suelaEspumosa', label:tr('Sole of foam or cellular material (EVA, foam)'), tipo:'sino'},
+  {id:'rodeaDedo', label:tr('Straps over the instep that go around the big toe'), tipo:'sino'},
+  {id:'manga', label:tr('Sleeve'), tipo:'attr'},
+  {id:'conCuello', label:tr('With collar'), tipo:'sino'},
+  {id:'capucha', label:tr('With hood'), tipo:'sino'},
+  {id:'sueter', label:tr('It is a sweater (jersey), not a sweatshirt'), tipo:'sino'},
+  {id:'formaTocado', label:tr('Shape'), tipo:'seg', ops:[['gorra',tr('Cap with visor')],['gorro',tr('Beanie')],['sombrero',tr('Hat (with brim)')],['otro',tr('Other')]]},
+  {id:'claseBolso', label:tr('Bag class'), tipo:'seg', ops:[['mochila',tr('Backpack')],['cangurera',tr('Waist pack')],['duffel',tr('Duffel or travel bag')],['deporte',tr('Sports bag')],['termico',tr('Cooler or lunch bag')],['neceser',tr('Toiletry bag')],['bolso_mano',tr('Handbag')],['crossbody',tr('Crossbody')],['tote',tr('Tote')],['satchel',tr('Satchel')],['cartera',tr('Purse')],['otro',tr('Other')]]}
 ];
 const NAC_IDS = NAC_PREG.filter(q=>q.tipo !== 'attr').map(q=>q.id);
 function detectarNac(f, soloVacios){
@@ -2118,7 +2119,7 @@ function elegirInciso(f, opciones){
   return {estado:'elegir', opciones:top.map(v=>v.o).concat(vivos.filter(v=>!top.includes(v)).map(v=>v.o)), pedir:[]};
 }
 /* Condiciones de los incisos aprendidos: el sistema aprende el código nacional de lo que se confirma */
-const COND_CAMPOS = [['genero','Gender'],['edadNac','Age'],['valorCIF','CIF value'],['usoPrevisto','Use'],['estiloCalz','Footwear style'],['puntera','Toe cap'],['altura','Height'],['tejido','Fabric'],['largo','Length'],['manga','Sleeve'],['mezclilla','Denim'],['suelaEspumosa','Foam sole'],['rodeaDedo','Straps around the big toe'],['conCuello','Collar'],['capucha','Hood'],['peto','Bib'],['sueter','Sweater'],['formaTocado','Headwear shape'],['claseBolso','Bag class']];
+const COND_CAMPOS = [['genero',tr('Gender')],['edadNac',tr('Age')],['valorCIF',tr('CIF value')],['usoPrevisto',tr('Use')],['estiloCalz',tr('Footwear style')],['puntera',tr('Toe cap')],['altura',tr('Height')],['tejido',tr('Fabric')],['largo',tr('Length')],['manga',tr('Sleeve')],['mezclilla',tr('Denim')],['suelaEspumosa',tr('Foam sole')],['rodeaDedo',tr('Straps around the big toe')],['conCuello',tr('Collar')],['capucha',tr('Hood')],['peto',tr('Bib')],['sueter',tr('Sweater')],['formaTocado',tr('Headwear shape')],['claseBolso',tr('Bag class')]];
 function valorCond(f, k){ return k === 'edadNac' ? edadDe(f) : f[k]; }
 function textoValor(k, v){
   if (k === 'genero') return ({M:'men', F:'women', U:'unisex'})[v] || v;
@@ -2130,7 +2131,7 @@ function textoValor(k, v){
   return String(v);
 }
 function condTexto(c){
-  if (!c || !Object.keys(c).length) return 'the whole subheading';
+  if (!c || !Object.keys(c).length) return tr('the whole subheading');
   return Object.entries(c).map(([k, v])=>k === 'cifMax' ? 'CIF ≤ ' + v : k === 'cifMin' ? 'CIF > ' + v : textoValor(k, v)).join(', ');
 }
 function evaluarCond(cond, f){
@@ -2178,8 +2179,8 @@ function partidasDe(f, codBase, ctx){
   return o;
 }
 /* Estado de un código de país: [clase, texto] */
-const EST_PAIS = {ok:['ok','National'], auto:['ok','National'], sac:['sa','SAC'], sa:['sa','Not in its tariff'], sinarancel:['sa','No tariff loaded'], nuevo:['pend','Not learned yet'], elegir:['elegir','Needs data'], sin_codigo:['sa','No code']};
-const FUENTE_PAIS = {arancel:'from the tariff', manual:'by hand', aprendido:'learned', base:'base', oficial:'official tariff (SIECA)'};
+const EST_PAIS = {ok:['ok',tr('National')], auto:['ok',tr('National')], sac:['sa','SAC'], sa:['sa',tr('Not in its tariff')], sinarancel:['sa',tr('No tariff loaded')], nuevo:['pend',tr('Not learned yet')], elegir:['elegir',tr('Needs data')], sin_codigo:['sa',tr('No code')]};
+const FUENTE_PAIS = {arancel:tr('from the tariff'), manual:tr('by hand'), aprendido:'learned', base:'base', oficial:tr('official tariff (SIECA)')};
 /* Completo cuando todos los países destino tienen su código a todos los dígitos */
 function paisesCompletos(partidas, ds){
   return (ds || DESTINOS_BASE).every(d=>{ const x = (partidas || {})[d.iso]; return x && ['ok','auto'].includes(x.estado) && digits(x.codigo).length >= digitosPais(d.iso, ds); });
@@ -2200,20 +2201,20 @@ function estadoAttr(a, s){
 }
 function motivoDefinido(a, s){
   if (a.deComp && a.fijo && a.fijo(s) != null) return 'composition';
-  if (a.fijo && a.fijo(s) != null) return 'product type';
-  return 'your choices';
+  if (a.fijo && a.fijo(s) != null) return tr('product type');
+  return tr('your choices');
 }
 const COMP_HINT = {
-  prenda:'The fiber that weighs most in the outer fabric governs.',
-  calzado:'Upper: by external surface, excluding reinforcements and trims. Sole: by the surface that touches the ground.',
-  bolso:'The material of the outer surface governs.'
+  prenda:tr('The fiber that weighs most in the outer fabric governs.'),
+  calzado:tr('Upper: by external surface, excluding reinforcements and trims. Sole: by the surface that touches the ground.'),
+  bolso:tr('The material of the outer surface governs.')
 };
-const MAT_NOMBRE = {algodon:'Cotton', cotton:'Cotton', poliester:'Polyester', polyester:'Polyester', rpet:'Recycled polyester', nylon:'Nylon', nilon:'Nylon', poliamida:'Polyamide', polyamide:'Polyamide', elastano:'Elastane', elastane:'Elastane', spandex:'Elastane', lycra:'Elastane',
-  viscosa:'Viscose', viscose:'Viscose', rayon:'Rayon', modal:'Modal', lyocell:'Lyocell', tencel:'Lyocell', lana:'Wool', wool:'Wool', merino:'Merino wool', acrilico:'Acrylic', acrylic:'Acrylic', lino:'Linen', linen:'Linen', seda:'Silk', silk:'Silk',
-  cuero:'Leather', leather:'Leather', piel:'Leather', gamuza:'Suede', suede:'Suede', nubuck:'Nubuck', nobuck:'Nubuck', charol:'Patent leather', patent:'Patent leather', lona:'Canvas', canvas:'Canvas', malla:'Mesh', mesh:'Mesh', textil:'Textile', textile:'Textile', tela:'Textile',
-  sintetico:'Synthetic', synthetic:'Synthetic', pu:'PU', tpu:'TPU', tpr:'TPR', pvc:'PVC', eva:'EVA', caucho:'Rubber', rubber:'Rubber', goma:'Rubber', hule:'Rubber', latex:'Latex', corcho:'Cork', cork:'Cork', neopreno:'Neoprene', neoprene:'Neoprene',
-  plumon:'Down', pluma:'Feather', down:'Down', feather:'Feather', acero:'Stainless steel', inoxidable:'Stainless steel', stainless:'Stainless steel', aluminio:'Aluminum', aluminum:'Aluminum', plastico:'Plastic', plastic:'Plastic', silicona:'Silicone',
-  metal:'Metal', laton:'Brass', zinc:'Zinc', madera:'Wood', wood:'Wood', mdf:'MDF', papel:'Paper', paper:'Paper', carton:'Cardboard', cartulina:'Card stock', vidrio:'Glass', paja:'Straw', polipropileno:'Polypropylene', satin:'Satin', cordura:'Cordura', fleece:'Polyester'};
+const MAT_NOMBRE = {algodon:tr('Cotton'), cotton:tr('Cotton'), poliester:tr('Polyester'), polyester:tr('Polyester'), rpet:tr('Recycled polyester'), nylon:tr('Nylon'), nilon:tr('Nylon'), poliamida:tr('Polyamide'), polyamide:tr('Polyamide'), elastano:tr('Elastane'), elastane:tr('Elastane'), spandex:tr('Elastane'), lycra:tr('Elastane'),
+  viscosa:tr('Viscose'), viscose:tr('Viscose'), rayon:tr('Rayon'), modal:tr('Modal'), lyocell:tr('Lyocell'), tencel:tr('Lyocell'), lana:tr('Wool'), wool:tr('Wool'), merino:tr('Merino wool'), acrilico:tr('Acrylic'), acrylic:tr('Acrylic'), lino:tr('Linen'), linen:tr('Linen'), seda:tr('Silk'), silk:tr('Silk'),
+  cuero:tr('Leather'), leather:tr('Leather'), piel:tr('Leather'), gamuza:tr('Suede'), suede:tr('Suede'), nubuck:tr('Nubuck'), nobuck:tr('Nubuck'), charol:tr('Patent leather'), patent:tr('Patent leather'), lona:tr('Canvas'), canvas:tr('Canvas'), malla:tr('Mesh'), mesh:tr('Mesh'), textil:tr('Textile'), textile:tr('Textile'), tela:tr('Textile'),
+  sintetico:tr('Synthetic'), synthetic:tr('Synthetic'), pu:'PU', tpu:'TPU', tpr:'TPR', pvc:'PVC', eva:'EVA', caucho:tr('Rubber'), rubber:tr('Rubber'), goma:tr('Rubber'), hule:tr('Rubber'), latex:tr('Latex'), corcho:tr('Cork'), cork:tr('Cork'), neopreno:tr('Neoprene'), neoprene:tr('Neoprene'),
+  plumon:tr('Down'), pluma:tr('Feather'), down:tr('Down'), feather:tr('Feather'), acero:tr('Stainless steel'), inoxidable:tr('Stainless steel'), stainless:tr('Stainless steel'), aluminio:tr('Aluminum'), aluminum:tr('Aluminum'), plastico:tr('Plastic'), plastic:tr('Plastic'), silicona:tr('Silicone'),
+  metal:tr('Metal'), laton:tr('Brass'), zinc:tr('Zinc'), madera:tr('Wood'), wood:tr('Wood'), mdf:'MDF', papel:tr('Paper'), paper:tr('Paper'), carton:tr('Cardboard'), cartulina:tr('Card stock'), vidrio:tr('Glass'), paja:tr('Straw'), polipropileno:tr('Polypropylene'), satin:tr('Satin'), cordura:tr('Cordura'), fleece:tr('Polyester')};
 const PARSE_LISTA = FIBRAS.concat(MAT_CALZ, [{g:'relleno', re:/\b(plumon|pluma|plumas|down|feathers?|goose|duck)\b/g}]);
 function bonito(w){ const k = norm(w).trim(); return MAT_NOMBRE[k] || (w ? w.charAt(0).toUpperCase() + w.slice(1) : ''); }
 /* Composición por filas: material | % */
@@ -2223,57 +2224,57 @@ function filasDesdeTexto(txt){
   const pares = paresDe(prepMat(seg).s, PARSE_LISTA);
   if (!pares.length) return [{m:t, pct:''}];
   if (pares.length === 1 && pares[0].implicito) return [{m:bonito(pares[0].w), pct:'100'}];
-  return pares.map(p=>({m:p.w ? bonito(p.w) : 'Other', pct:p.implicito ? '' : String(Math.round(p.pct * 10) / 10)}));
+  return pares.map(p=>({m:p.w ? bonito(p.w) : tr('Other'), pct:p.implicito ? '' : String(Math.round(p.pct * 10) / 10)}));
 }
 function textoDesdeFilas(rows){ return rows.filter(r=>String(r.m || '').trim()).map(r=>(r.pct !== '' && r.pct != null ? r.pct + '% ' : '') + String(r.m).trim()).join(', '); }
 function totalFilas(rows){ return Math.round(rows.reduce((a,r)=>a + (parseFloat(String(r.pct).replace(',', '.')) || 0), 0) * 10) / 10; }
 function totalTexto(txt){ return totalFilas(filasDesdeTexto(txt)); }
 /* Materiales que se sugieren por parte: los que menciona el estilo y los típicos del tipo */
 const SUG_DESC = [
-  [/\b(suede|gamuza|ante)\b/, 'Suede', ['corte','exterior','material']], [/\b(nubuck|nobuck)\b/, 'Nubuck', ['corte']],
-  [/\b(leather|cuero|piel)\b/, 'Leather', ['corte','exterior','material','forro']], [/\b(patent|charol)\b/, 'Patent leather', ['corte']],
-  [/\b(canvas|lona)\b/, 'Canvas', ['corte','exterior']], [/\b(mesh|malla)\b/, 'Mesh', ['corte','forro','exterior']], [/\b(knit|flyknit|primeknit)\b/, 'Textile', ['corte']],
-  [/\b(synthetic|sintetic[oa]|faux|vegan)\b/, 'Synthetic', ['corte','exterior','material']], [/\b(pvc)\b/, 'PVC', ['corte','exterior','material']],
-  [/\b(rubber|goma|hule|vibram|caucho)\b/, 'Rubber', ['suela']], [/\b(eva|foam)\b/, 'EVA', ['suela','plantilla']], [/\b(cork|corcho)\b/, 'Cork', ['suela','plantilla']],
-  [/\b(cotton|algodon|denim|jeans?|mezclilla|flannel|franela|chambray)\b/, 'Cotton', ['exterior','forro']], [/\b(polyester|poliester|fleece|polar|recycled)\b/, 'Polyester', ['exterior','forro']],
-  [/\b(nylon|ripstop|cordura)\b/, 'Nylon', ['exterior','forro','material']], [/\b(wool|lana|merino)\b/, 'Wool', ['exterior']], [/\b(linen|lino)\b/, 'Linen', ['exterior']],
-  [/\b(spandex|elastane|elastano|lycra|stretch)\b/, 'Elastane', ['exterior']], [/\b(rayon|viscose|viscosa|modal|tencel)\b/, 'Viscose', ['exterior']], [/\b(acrylic|acrilico)\b/, 'Acrylic', ['exterior']],
-  [/\b(down|plumon|goose|duck|nuptse|puffer)\b/, 'Down', ['relleno']], [/\b(primaloft|thermoball|heatseeker|insulated)\b/, 'Polyester', ['relleno']],
-  [/\b(stainless|acero|steel|inox)\b/, 'Stainless steel', ['material']], [/\b(aluminum|aluminio)\b/, 'Aluminum', ['material']], [/\b(plastic|plastico|tritan)\b/, 'Plastic', ['material']],
-  [/\b(straw|paja)\b/, 'Straw', ['exterior']], [/\b(paper|papel|kraft)\b/, 'Paper', ['material']], [/\b(wood|madera)\b/, 'Wood', ['material']], [/\b(metal|metalic[oa])\b/, 'Metal', ['material']]
+  [/\b(suede|gamuza|ante)\b/, tr('Suede'), ['corte','exterior','material']], [/\b(nubuck|nobuck)\b/, tr('Nubuck'), ['corte']],
+  [/\b(leather|cuero|piel)\b/, tr('Leather'), ['corte','exterior','material','forro']], [/\b(patent|charol)\b/, tr('Patent leather'), ['corte']],
+  [/\b(canvas|lona)\b/, tr('Canvas'), ['corte','exterior']], [/\b(mesh|malla)\b/, tr('Mesh'), ['corte','forro','exterior']], [/\b(knit|flyknit|primeknit)\b/, tr('Textile'), ['corte']],
+  [/\b(synthetic|sintetic[oa]|faux|vegan)\b/, tr('Synthetic'), ['corte','exterior','material']], [/\b(pvc)\b/, 'PVC', ['corte','exterior','material']],
+  [/\b(rubber|goma|hule|vibram|caucho)\b/, tr('Rubber'), ['suela']], [/\b(eva|foam)\b/, 'EVA', ['suela','plantilla']], [/\b(cork|corcho)\b/, tr('Cork'), ['suela','plantilla']],
+  [/\b(cotton|algodon|denim|jeans?|mezclilla|flannel|franela|chambray)\b/, tr('Cotton'), ['exterior','forro']], [/\b(polyester|poliester|fleece|polar|recycled)\b/, tr('Polyester'), ['exterior','forro']],
+  [/\b(nylon|ripstop|cordura)\b/, tr('Nylon'), ['exterior','forro','material']], [/\b(wool|lana|merino)\b/, tr('Wool'), ['exterior']], [/\b(linen|lino)\b/, tr('Linen'), ['exterior']],
+  [/\b(spandex|elastane|elastano|lycra|stretch)\b/, tr('Elastane'), ['exterior']], [/\b(rayon|viscose|viscosa|modal|tencel)\b/, tr('Viscose'), ['exterior']], [/\b(acrylic|acrilico)\b/, tr('Acrylic'), ['exterior']],
+  [/\b(down|plumon|goose|duck|nuptse|puffer)\b/, tr('Down'), ['relleno']], [/\b(primaloft|thermoball|heatseeker|insulated)\b/, tr('Polyester'), ['relleno']],
+  [/\b(stainless|acero|steel|inox)\b/, tr('Stainless steel'), ['material']], [/\b(aluminum|aluminio)\b/, tr('Aluminum'), ['material']], [/\b(plastic|plastico|tritan)\b/, tr('Plastic'), ['material']],
+  [/\b(straw|paja)\b/, tr('Straw'), ['exterior']], [/\b(paper|papel|kraft)\b/, tr('Paper'), ['material']], [/\b(wood|madera)\b/, tr('Wood'), ['material']], [/\b(metal|metalic[oa])\b/, tr('Metal'), ['material']]
 ];
 const UNIR = (...ls) => [...new Set(ls.flat())];
-const TEXTIL_BASE = ['Cotton','Polyester','Nylon','Elastane','Viscose','Wool','Acrylic','Linen','Modal','Polyamide','Silk'];
+const TEXTIL_BASE = [tr('Cotton'),tr('Polyester'),tr('Nylon'),tr('Elastane'),tr('Viscose'),tr('Wool'),tr('Acrylic'),tr('Linen'),tr('Modal'),tr('Polyamide'),tr('Silk')];
 function tipicosDe(p, s){
   const t = s.tipo, e = s.estiloCalz, g = grupoTipo(t);
   if (t === 'calzado'){
-    if (p === 'corte') return UNIR(({tenis:['Canvas','Suede','Leather','Mesh'], senderismo:['Mesh','Suede','Nubuck','Leather'], bota:['Leather','Nubuck','Suede'], botin:['Leather','Suede','Synthetic'], zapato:['Leather','Synthetic','Patent leather'], tacon:['Synthetic','Leather','Patent leather'], mocasin:['Leather','Suede','Nubuck'], sandalia:['Synthetic','Leather','Textile'], slide:['EVA','Rubber','Synthetic'], chancla_tetones:['EVA','Rubber','PVC'], zueco:['EVA','Rubber'], bota_lluvia:['PVC','Rubber'], pantufla:['Textile','Fleece','Synthetic'], seguridad:['Leather','Nubuck','Synthetic'], tacos:['Synthetic','Textile']})[e] || [], ['Leather','Suede','Nubuck','Canvas','Mesh','Textile','Synthetic','PVC','Patent leather','Neoprene']);
-    if (p === 'suela') return UNIR(({zapato:['Rubber','Leather','TPR'], mocasin:['Rubber','Leather'], tacon:['TPR','PU','Leather'], sandalia:['EVA','TPR','PU','Cork'], seguridad:['Rubber','PU','TPU'], danza:['Leather','Suede']})[e] || [], ['Rubber','EVA','TPR','PU','TPU','PVC','Leather','Cork']);
-    if (p === 'forro') return ['Textile','Polyester','Mesh','Leather','Synthetic','Cotton'];
-    if (p === 'plantilla') return ['EVA','PU','Latex','Textile','Leather','Cork'];
+    if (p === 'corte') return UNIR(({tenis:[tr('Canvas'),tr('Suede'),tr('Leather'),tr('Mesh')], senderismo:[tr('Mesh'),tr('Suede'),tr('Nubuck'),tr('Leather')], bota:[tr('Leather'),tr('Nubuck'),tr('Suede')], botin:[tr('Leather'),tr('Suede'),tr('Synthetic')], zapato:[tr('Leather'),tr('Synthetic'),tr('Patent leather')], tacon:[tr('Synthetic'),tr('Leather'),tr('Patent leather')], mocasin:[tr('Leather'),tr('Suede'),tr('Nubuck')], sandalia:[tr('Synthetic'),tr('Leather'),tr('Textile')], slide:['EVA',tr('Rubber'),tr('Synthetic')], chancla_tetones:['EVA',tr('Rubber'),'PVC'], zueco:['EVA',tr('Rubber')], bota_lluvia:['PVC',tr('Rubber')], pantufla:[tr('Textile'),tr('Fleece'),tr('Synthetic')], seguridad:[tr('Leather'),tr('Nubuck'),tr('Synthetic')], tacos:[tr('Synthetic'),tr('Textile')]})[e] || [], [tr('Leather'),tr('Suede'),tr('Nubuck'),tr('Canvas'),tr('Mesh'),tr('Textile'),tr('Synthetic'),'PVC',tr('Patent leather'),tr('Neoprene')]);
+    if (p === 'suela') return UNIR(({zapato:[tr('Rubber'),tr('Leather'),'TPR'], mocasin:[tr('Rubber'),tr('Leather')], tacon:['TPR','PU',tr('Leather')], sandalia:['EVA','TPR','PU',tr('Cork')], seguridad:[tr('Rubber'),'PU','TPU'], danza:[tr('Leather'),tr('Suede')]})[e] || [], [tr('Rubber'),'EVA','TPR','PU','TPU','PVC',tr('Leather'),tr('Cork')]);
+    if (p === 'forro') return [tr('Textile'),tr('Polyester'),tr('Mesh'),tr('Leather'),tr('Synthetic'),tr('Cotton')];
+    if (p === 'plantilla') return ['EVA','PU',tr('Latex'),tr('Textile'),tr('Leather'),tr('Cork')];
   }
-  if (p === 'relleno') return ['Down','Feather','Polyester','Cotton','Wool'];
-  if (p === 'forro') return g === 'bolso' ? ['Polyester','Nylon','Cotton','Mesh','Synthetic','Satin'] : ['Polyester','Nylon','Cotton','Viscose','Mesh','Satin'];
+  if (p === 'relleno') return [tr('Down'),tr('Feather'),tr('Polyester'),tr('Cotton'),tr('Wool')];
+  if (p === 'forro') return g === 'bolso' ? [tr('Polyester'),tr('Nylon'),tr('Cotton'),tr('Mesh'),tr('Synthetic'),tr('Satin')] : [tr('Polyester'),tr('Nylon'),tr('Cotton'),tr('Viscose'),tr('Mesh'),tr('Satin')];
   if (p === 'exterior'){
-    if (g === 'bolso') return ['Polyester','Nylon','Canvas','Leather','Synthetic','PVC','Cotton','Cordura','Jute'];
-    const m = {camiseta:['Cotton','Polyester','Elastane'], camisa:['Cotton','Polyester','Linen'], sudadera:['Cotton','Polyester','Acrylic'], chaqueta:['Nylon','Polyester','Cotton'], pantalon:['Cotton','Polyester','Elastane','Nylon'],
-      falda:['Cotton','Viscose','Polyester'], vestido:['Cotton','Viscose','Polyester','Elastane'], traje_bano:['Polyester','Nylon','Elastane'], calcetines:['Cotton','Polyester','Nylon','Elastane'], brasier:['Polyester','Nylon','Elastane','Cotton'],
-      guantes:['Polyester','Acrylic','Nylon','Leather','Wool'], bufanda:['Acrylic','Cotton','Polyester','Wool'], gorra:['Cotton','Polyester','Acrylic','Wool','Nylon','Straw','Leather'],
-      tienda:['Polyester','Nylon','Cotton','Polypropylene','Canvas','PVC'], manta:['Polyester','Cotton','Wool','Acrylic','Viscose','Nylon'], toalla:['Cotton','Polyester','Nylon','Viscose','Linen'],
-      colchoneta:['Polyester','Nylon','PVC','TPU','Cotton','Foam'], saco:['Nylon','Polyester','Cotton','Wool','Silk'], polainas:['Nylon','Polyester','Cordura','Neoprene','Elastane','Leather']}[t];
+    if (g === 'bolso') return [tr('Polyester'),tr('Nylon'),tr('Canvas'),tr('Leather'),tr('Synthetic'),'PVC',tr('Cotton'),tr('Cordura'),tr('Jute')];
+    const m = {camiseta:[tr('Cotton'),tr('Polyester'),tr('Elastane')], camisa:[tr('Cotton'),tr('Polyester'),tr('Linen')], sudadera:[tr('Cotton'),tr('Polyester'),tr('Acrylic')], chaqueta:[tr('Nylon'),tr('Polyester'),tr('Cotton')], pantalon:[tr('Cotton'),tr('Polyester'),tr('Elastane'),tr('Nylon')],
+      falda:[tr('Cotton'),tr('Viscose'),tr('Polyester')], vestido:[tr('Cotton'),tr('Viscose'),tr('Polyester'),tr('Elastane')], traje_bano:[tr('Polyester'),tr('Nylon'),tr('Elastane')], calcetines:[tr('Cotton'),tr('Polyester'),tr('Nylon'),tr('Elastane')], brasier:[tr('Polyester'),tr('Nylon'),tr('Elastane'),tr('Cotton')],
+      guantes:[tr('Polyester'),tr('Acrylic'),tr('Nylon'),tr('Leather'),tr('Wool')], bufanda:[tr('Acrylic'),tr('Cotton'),tr('Polyester'),tr('Wool')], gorra:[tr('Cotton'),tr('Polyester'),tr('Acrylic'),tr('Wool'),tr('Nylon'),tr('Straw'),tr('Leather')],
+      tienda:[tr('Polyester'),tr('Nylon'),tr('Cotton'),tr('Polypropylene'),tr('Canvas'),'PVC'], manta:[tr('Polyester'),tr('Cotton'),tr('Wool'),tr('Acrylic'),tr('Viscose'),tr('Nylon')], toalla:[tr('Cotton'),tr('Polyester'),tr('Nylon'),tr('Viscose'),tr('Linen')],
+      colchoneta:[tr('Polyester'),tr('Nylon'),'PVC','TPU',tr('Cotton'),tr('Foam')], saco:[tr('Nylon'),tr('Polyester'),tr('Cotton'),tr('Wool'),tr('Silk')], polainas:[tr('Nylon'),tr('Polyester'),tr('Cordura'),tr('Neoprene'),tr('Elastane'),tr('Leather')]}[t];
     return UNIR(m || [], TEXTIL_BASE);
   }
-  const mm = {cinturon:['Leather','Synthetic','Canvas','Nylon','Polyester','Elastic','Metal'], botella:['Stainless steel','Aluminum','Plastic','Tritan','Silicone','Glass'], llavero:['Metal','Stainless steel','Brass','Leather','Nylon','Plastic','Silicone'],
-    bisuteria:['Stainless steel','Brass','Zinc','Leather','Textile','Plastic','Wood','Glass'], parche:['Polyester','Cotton','PVC','Paper','Vinyl','Nylon'], mascota:['Nylon','Polyester','Leather','Cotton','Neoprene','Metal'],
-    bolsa_compra:['Paper','Card stock','Plastic','Polypropylene','Cotton','Polyester','Jute'], caja:['Corrugated cardboard','Card stock','Paper','Plastic','Wood','Metal'], gancho:['Plastic','Metal','Wire','Wood','Acrylic','Aluminum'],
-    etiqueta:['Paper','Cardboard','Polyester','Cotton','PVC','Satin','Nylon'], exhibidor:['Metal','Aluminum','Steel','Wood','MDF','Acrylic plastic','Glass'], mueble_camping:['Aluminum','Steel','Polyester','Nylon','Wood','Plastic'],
-    linterna:['Plastic','Aluminum','ABS','Polycarbonate','Silicone','Metal'], bastones:['Aluminum','Carbon','Steel','Cork','Rubber','EVA'], equipo_deporte:['Foam','Nylon','PVC','Polyester','Rubber','EVA'],
-    patineta:['Maple wood','Aluminum','Polyurethane','Steel','Plastic','Bamboo'], lentes_sol:['Plastic','Polycarbonate','Metal','Acetate','Glass','Nylon'], sombrilla:['Polyester','Nylon','Metal','Aluminum','Fiberglass','Plastic'],
-    reloj:['Plastic','Stainless steel','Silicone','Aluminum','Leather','Nylon'], plantilla:['EVA','PU','Latex','Textile','Leather','Cork'], cordones:['Polyester','Cotton','Nylon','Leather','Plastic','Elastic'],
-    cuidado_calzado:['Wax','Silicone','Plastic','Wood','Natural bristle','Nylon'],
-    avios:['Brass','Zinc','Steel','Aluminum','Plastic','Nylon','Polyester','Wood'], accesorio_pelo:['Plastic','Acetate','Metal','Polyester','Satin','Cotton','Elastic'],
-    correa_reloj:['Silicone','Stainless steel','Leather','Nylon','Polyurethane','Titanium'], peleteria:['Polyester','Acrylic','Modacrylic','Natural fur','Cotton','Nylon'], hamaca:['Nylon','Polyester','Cotton','Ripstop','Canvas','Polypropylene'], magnesio:['Magnesium carbonate','Alcohol','Rosin','Silica','Water','Resin']}[t];
-  return mm || ['Metal','Plastic','Leather','Textile','Wood','Paper'];
+  const mm = {cinturon:[tr('Leather'),tr('Synthetic'),tr('Canvas'),tr('Nylon'),tr('Polyester'),tr('Elastic'),tr('Metal')], botella:[tr('Stainless steel'),tr('Aluminum'),tr('Plastic'),tr('Tritan'),tr('Silicone'),tr('Glass')], llavero:[tr('Metal'),tr('Stainless steel'),tr('Brass'),tr('Leather'),tr('Nylon'),tr('Plastic'),tr('Silicone')],
+    bisuteria:[tr('Stainless steel'),tr('Brass'),tr('Zinc'),tr('Leather'),tr('Textile'),tr('Plastic'),tr('Wood'),tr('Glass')], parche:[tr('Polyester'),tr('Cotton'),'PVC',tr('Paper'),tr('Vinyl'),tr('Nylon')], mascota:[tr('Nylon'),tr('Polyester'),tr('Leather'),tr('Cotton'),tr('Neoprene'),tr('Metal')],
+    bolsa_compra:[tr('Paper'),tr('Card stock'),tr('Plastic'),tr('Polypropylene'),tr('Cotton'),tr('Polyester'),tr('Jute')], caja:[tr('Corrugated cardboard'),tr('Card stock'),tr('Paper'),tr('Plastic'),tr('Wood'),tr('Metal')], gancho:[tr('Plastic'),tr('Metal'),tr('Wire'),tr('Wood'),tr('Acrylic'),tr('Aluminum')],
+    etiqueta:[tr('Paper'),tr('Cardboard'),tr('Polyester'),tr('Cotton'),'PVC',tr('Satin'),tr('Nylon')], exhibidor:[tr('Metal'),tr('Aluminum'),tr('Steel'),tr('Wood'),'MDF',tr('Acrylic plastic'),tr('Glass')], mueble_camping:[tr('Aluminum'),tr('Steel'),tr('Polyester'),tr('Nylon'),tr('Wood'),tr('Plastic')],
+    linterna:[tr('Plastic'),tr('Aluminum'),'ABS',tr('Polycarbonate'),tr('Silicone'),tr('Metal')], bastones:[tr('Aluminum'),tr('Carbon'),tr('Steel'),tr('Cork'),tr('Rubber'),'EVA'], equipo_deporte:[tr('Foam'),tr('Nylon'),'PVC',tr('Polyester'),tr('Rubber'),'EVA'],
+    patineta:[tr('Maple wood'),tr('Aluminum'),tr('Polyurethane'),tr('Steel'),tr('Plastic'),tr('Bamboo')], lentes_sol:[tr('Plastic'),tr('Polycarbonate'),tr('Metal'),tr('Acetate'),tr('Glass'),tr('Nylon')], sombrilla:[tr('Polyester'),tr('Nylon'),tr('Metal'),tr('Aluminum'),tr('Fiberglass'),tr('Plastic')],
+    reloj:[tr('Plastic'),tr('Stainless steel'),tr('Silicone'),tr('Aluminum'),tr('Leather'),tr('Nylon')], plantilla:['EVA','PU',tr('Latex'),tr('Textile'),tr('Leather'),tr('Cork')], cordones:[tr('Polyester'),tr('Cotton'),tr('Nylon'),tr('Leather'),tr('Plastic'),tr('Elastic')],
+    cuidado_calzado:[tr('Wax'),tr('Silicone'),tr('Plastic'),tr('Wood'),tr('Natural bristle'),tr('Nylon')],
+    avios:[tr('Brass'),tr('Zinc'),tr('Steel'),tr('Aluminum'),tr('Plastic'),tr('Nylon'),tr('Polyester'),tr('Wood')], accesorio_pelo:[tr('Plastic'),tr('Acetate'),tr('Metal'),tr('Polyester'),tr('Satin'),tr('Cotton'),tr('Elastic')],
+    correa_reloj:[tr('Silicone'),tr('Stainless steel'),tr('Leather'),tr('Nylon'),tr('Polyurethane'),tr('Titanium')], peleteria:[tr('Polyester'),tr('Acrylic'),tr('Modacrylic'),tr('Natural fur'),tr('Cotton'),tr('Nylon')], hamaca:[tr('Nylon'),tr('Polyester'),tr('Cotton'),tr('Ripstop'),tr('Canvas'),tr('Polypropylene')], magnesio:[tr('Magnesium carbonate'),tr('Alcohol'),tr('Rosin'),tr('Silica'),tr('Water'),tr('Resin')]}[t];
+  return mm || [tr('Metal'),tr('Plastic'),tr('Leather'),tr('Textile'),tr('Wood'),tr('Paper')];
 }
 function nombreMat(w){ for (const [re, lbl] of SUG_DESC) if (re.test(w)) return lbl; return bonito(w); }
 /* Sugerencias de materiales para una parte: los del estilo, los que más se usan en este tipo y los típicos */
@@ -2299,7 +2300,7 @@ function sugerenciasComp(p, s, recs){
 }
 function partesPrincipales(t){ const g = grupoTipo(t); if (g === 'calzado') return ['corte','suela']; const ps = partesDe(t); return ps.includes('exterior') ? ['exterior'] : ps.includes('material') ? ['material'] : []; }
 /* Datos obligatorios de la ficha técnica */
-const OBLIG_CAMPOS = [['tipo','Product type'],['genero','Gender'],['edadNac','Who it is for'],['uso','What it is for'],['tallas','Size range'],['composicion','Main composition'],['origen','Country of origin'],['fotos','At least one photo']];
+const OBLIG_CAMPOS = [['tipo',tr('Product type')],['genero',tr('Gender')],['edadNac',tr('Who it is for')],['uso',tr('What it is for')],['tallas',tr('Size range')],['composicion',tr('Main composition')],['origen',tr('Country of origin')],['fotos',tr('At least one photo')]];
 const OBLIG_DEF = ['tipo','genero','edadNac','composicion','origen'];
 function faltanObligatorios(f, obligatorios){
   const out = [];
@@ -2308,8 +2309,8 @@ function faltanObligatorios(f, obligatorios){
     if (k === 'composicion'){
       const pp = partesPrincipales(f.tipo);
       pp.forEach(p=>{ const v = String((f.comp || {})[p] || '').trim();
-        if (!v) out.push({campo:'comp_' + p, label:'Composition: ' + PARTE_LBL[p].toLowerCase()});
-        else { const t = totalTexto(v); if (Math.abs(t - 100) > 0.05) out.push({campo:'comp_' + p, label:PARTE_LBL[p] + ' adds up to ' + t + '%'}); } });
+        if (!v) out.push({campo:'comp_' + p, label:tr('Composition: {0}', [PARTE_LBL[p].toLowerCase()])});
+        else { const t = totalTexto(v); if (Math.abs(t - 100) > 0.05) out.push({campo:'comp_' + p, label:tr('{0} adds up to {1}%', [PARTE_LBL[p], t])}); } });
       const ma = MAT_ATTR[f.tipo]; if (!pp.length && ma && !f[ma]) out.push({campo:ma, label:ATTR_BY[ma].label});
       return;
     }
@@ -2324,14 +2325,14 @@ function faltanObligatorios(f, obligatorios){
 function estadoFicha(f, obligatorios){
   const falt = faltanObligatorios(f, obligatorios).map(x=>x.label);
   const regla = f.tipo ? clasificarReglas(f) : null;
-  if (f.tipo && (!regla || digits(regla.codigo).length < 6)) falt.push(regla && regla.faltantes[0] ? regla.faltantes[0] : 'Data for the code');
+  if (f.tipo && (!regla || digits(regla.codigo).length < 6)) falt.push(regla && regla.faltantes[0] ? regla.faltantes[0] : tr('Data for the code'));
   return {completa: !falt.length, faltan: falt};
 }
 /* Texto de la ficha para la consulta al especialista */
 function fichaTexto(f){
   const L = [];
-  L.push('Type: ' + (TIPO_LBL[f.tipo] || 'not given'));
-  [['marca','Brand'],['estilo','Style (product name)'],['desc','Customs description'],['uso','What it is for'],['color','Color'],['origen','Country of origin'],['tallas','Size range']].forEach(([k, l])=>{ if (f[k]) L.push(l + ': ' + f[k]); });
+  L.push(tr('Type: {0}', [TIPO_LBL[f.tipo] || tr('not given')]));
+  [['marca',tr('Brand')],['estilo',tr('Style (product name)')],['desc',tr('Customs description')],['uso',tr('What it is for')],['color',tr('Color')],['origen',tr('Country of origin')],['tallas',tr('Size range')]].forEach(([k, l])=>{ if (f[k]) L.push(l + ': ' + f[k]); });
   partesDe(f.tipo, f).forEach(p=>{ if (f.comp && f.comp[p]) L.push(PARTE_LBL[p] + ': ' + f.comp[p]); });
   atributosLegibles(f).forEach(([k,v])=>L.push(k + ': ' + v));
   return L.join('\n');
@@ -2339,21 +2340,21 @@ function fichaTexto(f){
 /* Campos y valores que el especialista puede corregir */
 function camposCorregibles(f){
   prepararEstado(f);
-  const L = ['- tipo: ' + Object.keys(TIPO_LBL).join(', ')];
-  ATTRS.filter(a=>a.aplica(f)).forEach(a=>L.push('- ' + a.id + ' (' + a.label + '): ' + (a.tipo === 'check' ? 'true or false' : a.ops.map(o=>o.v).join(', '))));
-  partesDe(f.tipo, f).forEach(p=>L.push('- comp.' + p + ' (' + PARTE_LBL[p] + '): text with percentages, for example "60% suede, 40% canvas"'));
-  L.push('- uso: short phrase of what it is for');
+  const L = [tr('- tipo: {0}', [Object.keys(TIPO_LBL).join(', ')])];
+  ATTRS.filter(a=>a.aplica(f)).forEach(a=>L.push('- ' + a.id + ' (' + a.label + '): ' + (a.tipo === 'check' ? tr('true or false') : a.ops.map(o=>o.v).join(', '))));
+  partesDe(f.tipo, f).forEach(p=>L.push(tr('- comp.{0} ({1}): text with percentages, for example "60% suede, 40% canvas"', [p, PARTE_LBL[p]])));
+  L.push(tr('- uso: short phrase of what it is for'));
   return L.join('\n');
 }
-function nombreCampo(c){ if (c.campo === 'tipo') return 'Type'; if (c.campo === 'uso') return 'What it is for'; if (c.campo.startsWith('comp.')) return PARTE_LBL[c.campo.slice(5)] || c.campo; return (ATTR_BY[c.campo] || {}).label || c.campo; }
+function nombreCampo(c){ if (c.campo === 'tipo') return tr('Type'); if (c.campo === 'uso') return tr('What it is for'); if (c.campo.startsWith('comp.')) return PARTE_LBL[c.campo.slice(5)] || c.campo; return (ATTR_BY[c.campo] || {}).label || c.campo; }
 function valorLegible(c){
   if (c.campo === 'tipo') return TIPO_LBL[c.valor] || c.valor;
   if (ATTR_BY[c.campo]) return opcionLbl(c.campo, ATTR_BY[c.campo].tipo === 'check' ? (c.valor === true || c.valor === 'true') : c.valor);
   return String(c.valor);
 }
 /* Clave estable de una alerta (para marcarla como revisada) */
-const FUENTES = {regla:'Harmonized System rules', historial:'Your history: product already classified', criterio:'Your learned criteria'};
-ESTADOS.observado = 'Observed';
+const FUENTES = {regla:tr('Harmonized System rules'), historial:tr('Your history: product already classified'), criterio:tr('Your learned criteria')};
+ESTADOS.observado = tr('Observed');
 ESTADO_COLOR.observado = '#B42318';
 
 /* Descripciones SAC cargadas en la base (se pueden editar y agregar) */

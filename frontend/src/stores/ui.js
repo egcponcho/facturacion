@@ -1,10 +1,11 @@
+import { t, tx } from '../i18n/index.js'
 import { reactive } from 'vue'
 
 export const ui = reactive({ toasts: [], guardado: '' })
 let siguiente = 0
 
 export function avisar(mensaje, tipo = 'ok', detalle = null, ms = tipo === 'error' && detalle?.length ? 0 : tipo === 'error' ? 8000 : 4500) {
-  const t = { id: ++siguiente, mensaje, tipo, detalle }
+  const t = { id: ++siguiente, mensaje: tx(mensaje), tipo, detalle: Array.isArray(detalle) ? detalle.map(tx) : detalle }
   ui.toasts.push(t)
   if (ms) setTimeout(() => cerrarAviso(t.id), ms)
 }
@@ -21,8 +22,8 @@ export function textoDetalle(d) {
 }
 
 export function errorApi(e) {
-  const detalle = Array.isArray(e?.detalle) ? e.detalle.map(textoDetalle).filter(Boolean) : null
-  avisar(e?.message || 'An unexpected error occurred.', 'error', detalle?.length ? detalle.slice(0, 8) : null,
+  const detalle = Array.isArray(e?.detalle) ? e.detalle.map(textoDetalle).filter(Boolean).map(tx) : null
+  avisar(tx(e?.message) || t('An unexpected error occurred.'), 'error', detalle?.length ? detalle.slice(0, 8) : null,
     detalle?.length ? 12000 : 7000)
 }
 

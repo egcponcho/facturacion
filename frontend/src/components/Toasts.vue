@@ -1,26 +1,27 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { cerrarAviso, ui } from '../stores/ui'
 import Icono from './Icono.vue'
 
 // Avisos flotantes: título por tipo, mensaje y detalle; los errores se quedan
 // hasta cerrarlos si traen detalle.
-const TITULO = { ok: 'Done', error: 'Could not complete', aviso: 'Check this', info: 'Note' }
+const TITULO = { ok: t('Done'), error: t('Could not complete'), aviso: t('Check this'), info: t('Note') }
 const ICONO = { ok: 'check', error: 'alerta', aviso: 'alerta', info: 'info' }
 </script>
 
 <template>
   <div class="avisos" aria-live="polite">
-    <div v-for="t in ui.toasts.slice(-3)" :key="t.id" class="aviso-toast" :class="t.tipo" :role="t.tipo === 'error' ? 'alert' : 'status'">
-      <span class="aviso-icono"><Icono :nombre="ICONO[t.tipo] || 'info'" :tam="16" /></span>
+    <div v-for="txt in ui.toasts.slice(-3)" :key="txt.id" class="aviso-toast" :class="txt.tipo" :role="txt.tipo === 'error' ? 'alert' : 'status'">
+      <span class="aviso-icono"><Icono :nombre="ICONO[txt.tipo] || 'info'" :tam="16" /></span>
       <div class="aviso-cuerpo">
-        <b>{{ TITULO[t.tipo] || 'Note' }}</b>
-        <span>{{ t.mensaje }}</span>
-        <ul v-if="t.detalle?.length">
-          <li v-for="(d, i) in t.detalle.slice(0, 6)" :key="i">{{ d }}</li>
-          <li v-if="t.detalle.length > 6">and {{ t.detalle.length - 6 }} more</li>
+        <b>{{ tx(TITULO[txt.tipo] || t('Note')) }}</b>
+        <span>{{ tx(txt.mensaje) }}</span>
+        <ul v-if="txt.detalle?.length">
+          <li v-for="(d, i) in txt.detalle.slice(0, 6)" :key="i">{{ tx(d) }}</li>
+          <li v-if="txt.detalle.length > 6">{{ t('and {0} more', [txt.detalle.length - 6]) }}</li>
         </ul>
       </div>
-      <button type="button" aria-label="Close notice" @click="cerrarAviso(t.id)"><Icono nombre="cerrar" :tam="16" /></button>
+      <button type="button" :aria-label="t('Close notice')" @click="cerrarAviso(txt.id)"><Icono nombre="cerrar" :tam="16" /></button>
     </div>
   </div>
 </template>

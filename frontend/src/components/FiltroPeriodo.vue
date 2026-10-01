@@ -1,4 +1,5 @@
 <script setup>
+import { actual, t, tx } from '../i18n/index.js'
 import { computed, ref } from 'vue'
 
 // Periodo rápido: semana, mes, trimestre, año, últimos 12 meses o rango propio.
@@ -6,10 +7,10 @@ import { computed, ref } from 'vue'
 const props = defineProps({ modelValue: { type: Object, required: true } })
 const emit = defineEmits(['update:modelValue'])
 
-const OPCIONES = [['semana', 'This week'], ['mes', 'This month'], ['mes_ant', 'Last month'], ['trimestre', 'This quarter'], ['anio', 'This year'], ['12m', '12 months']]
+const OPCIONES = [['semana', t('This week')], ['mes', t('This month')], ['mes_ant', t('Last month')], ['trimestre', t('This quarter')], ['anio', t('This year')], ['12m', t('12 months')]]
 const propio = ref(props.modelValue.clave === 'propio')
 const texto = computed(() => {
-  const f = (s) => new Date(`${s}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  const f = (s) => new Date(`${s}T00:00:00`).toLocaleDateString(actual.locale, { day: '2-digit', month: 'short', year: 'numeric' })
   return `${f(props.modelValue.desde)} – ${f(props.modelValue.hasta)}`
 })
 
@@ -49,16 +50,16 @@ export function periodoInicial(clave = 'mes') {
 
 <template>
   <div class="periodo">
-    <div class="segmentos" role="group" aria-label="Period">
-      <button v-for="[k, t] in OPCIONES" :key="k" type="button" class="segmento" :aria-pressed="props.modelValue.clave === k" @click="elegir(k)">{{ t }}</button>
-      <button type="button" class="segmento" :aria-pressed="props.modelValue.clave === 'propio'" @click="propio = true">Custom</button>
+    <div class="segmentos" role="group" :aria-label="t('Period')">
+      <button v-for="[k, txt] in OPCIONES" :key="k" type="button" class="segmento" :aria-pressed="props.modelValue.clave === k" @click="elegir(k)">{{ tx(txt) }}</button>
+      <button type="button" class="segmento" :aria-pressed="props.modelValue.clave === 'propio'" @click="propio = true">{{ t('Custom') }}</button>
     </div>
     <span v-if="propio || props.modelValue.clave === 'propio'" class="rango-propio">
-      <input type="date" class="entrada" :value="props.modelValue.desde" aria-label="From" @change="rangoPropio('desde', $event.target.value)" />
+      <input type="date" class="entrada" :value="props.modelValue.desde" :aria-label="t('From')" @change="rangoPropio('desde', $event.target.value)" />
       <span class="ayuda">to</span>
-      <input type="date" class="entrada" :value="props.modelValue.hasta" aria-label="To" @change="rangoPropio('hasta', $event.target.value)" />
+      <input type="date" class="entrada" :value="props.modelValue.hasta" :aria-label="t('To')" @change="rangoPropio('hasta', $event.target.value)" />
     </span>
-    <span v-else class="ayuda">{{ texto }}</span>
+    <span v-else class="ayuda">{{ tx(texto) }}</span>
   </div>
 </template>
 

@@ -4,4 +4,6 @@ import { router } from './router'
 import './styles.css'
 import './stores/tema'
 
-createApp(App).use(router).mount('#app')
+import { cargarIdioma } from './i18n/index.js'
+
+cargarIdioma().finally(() => createApp(App).use(router).mount('#app'))

@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { computed } from 'vue'
 import { MODOS } from '../composables/useRutas'
 import { fmtNum, plural, porUnidadTxt } from '../utils'
@@ -15,32 +16,32 @@ const modos = computed(() => Object.entries(props.pl.sugerencia_unidades?.modos 
 <template>
   <div class="destinos-unidades">
     <div v-if="destinos.length">
-      <h3>By destination</h3>
-      <p class="ayuda">Cartons never mix destinations: pack and label each destination separately.</p>
+      <h3>{{ t('By destination') }}</h3>
+      <p class="ayuda">{{ t('Cartons never mix destinations: pack and label each destination separately.') }}</p>
       <ul class="lista-destinos">
         <li v-for="d in destinos" :key="d.centro_destino || '-'">
-          <b>{{ d.centro_destino || 'No destination' }}</b>
-          <span v-if="d.nombre" class="sub">{{ d.nombre }}<template v-if="d.pais"> · {{ d.pais }}</template></span>
-          <span>{{ porUnidadTxt(d.por_unidad, null) }} · {{ plural(d.cajas, 'carton', 'cartons') }}</span>
+          <b>{{ tx(d.centro_destino || t('No destination')) }}</b>
+          <span v-if="d.nombre" class="sub">{{ tx(d.nombre) }}<template v-if="d.pais"> · {{ tx(d.pais) }}</template></span>
+          <span>{{ porUnidadTxt(d.por_unidad, null) }} · {{ plural(d.cajas, t('carton'), t('cartons')) }}</span>
         </li>
       </ul>
     </div>
     <div v-if="modos.length">
-      <h3>Suggested load units</h3>
-      <p class="ayuda">For {{ fmtNum(pl.sugerencia_unidades.cbm, 2) }} m³ and {{ fmtNum(pl.sugerencia_unidades.kg, 0) }} kg, using about 85% of each unit's volume.</p>
+      <h3>{{ t('Suggested load units') }}</h3>
+      <p class="ayuda">{{ t('For {0} m³ and {1} kg, using about 85% of each unit\'s volume.', [fmtNum(pl.sugerencia_unidades.cbm, 2), fmtNum(pl.sugerencia_unidades.kg, 0)]) }}</p>
       <ul class="lista-destinos">
         <li v-for="[modo, ops] in modos" :key="modo">
-          <b><Icono :nombre="MODOS[modo]?.icono || 'caja'" :tam="14" /> {{ MODOS[modo]?.nombre || modo }}</b>
+          <b><Icono :nombre="MODOS[modo]?.icono || 'caja'" :tam="14" /> {{ tx(MODOS[modo]?.nombre || modo) }}</b>
           <span>
-            <span class="etiqueta ok" style="margin-left: 0">{{ ops[0].texto }}</span>
-            <template v-if="ops[0].pct_cbm"> {{ fmtNum(ops[0].pct_cbm, 0) }}% of the volume</template>
+            <span class="etiqueta ok" style="margin-inline-start: 0">{{ tx(ops[0].texto) }}</span>
+            <template v-if="ops[0].pct_cbm"> {{ t('{0}% of the volume', [fmtNum(ops[0].pct_cbm, 0)]) }}</template>
           </span>
-          <span v-if="ops[0].nota" class="sub">{{ ops[0].nota }}</span>
-          <span v-if="ops.length > 1" class="sub">Other options: {{ ops.slice(1).map((o) => o.texto).join(' · ') }}</span>
+          <span v-if="ops[0].nota" class="sub">{{ tx(ops[0].nota) }}</span>
+          <span v-if="ops.length > 1" class="sub">{{ t('Other options: {0}', [ops.slice(1).map((o) => o.texto).join(' · ')]) }}</span>
         </li>
       </ul>
     </div>
-    <p v-if="!modos.length && pl.grupos?.length" class="ayuda">Add carton dimensions and weights to get load unit suggestions.</p>
+    <p v-if="!modos.length && pl.grupos?.length" class="ayuda">{{ t('Add carton dimensions and weights to get load unit suggestions.') }}</p>
   </div>
 </template>
 

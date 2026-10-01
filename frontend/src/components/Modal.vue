@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Icono from './Icono.vue'
 
@@ -19,10 +20,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', tecla))
 <template>
   <Teleport to="body">
     <div class="modal-fondo" @mousedown.self="emit('cerrar')">
-      <div class="modal" role="dialog" aria-modal="true" :aria-label="props.titulo" :style="{ maxWidth: props.ancho }">
+      <div class="modal" role="dialog" aria-modal="true" :aria-label="tx(props.titulo)" :style="{ maxWidth: props.ancho }">
         <header class="modal-cabeza">
-          <h2>{{ props.titulo }}</h2>
-          <button class="btn-icono" type="button" aria-label="Close" @click="emit('cerrar')"><Icono nombre="cerrar" :tam="20" /></button>
+          <h2>{{ tx(props.titulo) }}</h2>
+          <button class="btn-icono" type="button" :aria-label="t('Close')" @click="emit('cerrar')"><Icono nombre="cerrar" :tam="20" /></button>
         </header>
         <div ref="cuerpo" class="modal-cuerpo"><slot /></div>
         <footer v-if="$slots.pie" class="modal-pie"><slot name="pie" /></footer>

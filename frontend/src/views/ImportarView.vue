@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { computed, ref, watch } from 'vue'
 import { api } from '../api'
 import CargaArchivo from '../components/CargaArchivo.vue'
@@ -14,11 +15,11 @@ const filtro = ref('')
 const ocupado = ref(false)
 
 const ESTADOS = {
-  nuevo: ['New', 'ok', 'Will be created'],
-  cambio: ['Changed', 'info', 'Will be updated'],
-  sin_cambio: ['Unchanged', 'neutro', 'Left as they are'],
-  conflicto: ['Conflicts', 'aviso', 'Kept as alerts'],
-  error: ['With errors', 'error', 'Not applied'],
+  nuevo: [t('New'), 'ok', t('Will be created')],
+  cambio: [t('Changed'), 'info', t('Will be updated')],
+  sin_cambio: [t('Unchanged'), 'neutro', t('Left as they are')],
+  conflicto: [t('Conflicts'), 'aviso', t('Kept as alerts')],
+  error: [t('With errors'), 'error', t('Not applied')],
 }
 const filasFiltradas = computed(() => (previa.value?.filas || []).filter((f) => !filtro.value || f.estado === filtro.value))
 const tabla = useTabla(filasFiltradas, { porPagina: 15, orden: 'fila:asc' })
@@ -36,7 +37,7 @@ async function revisar() {
     filtro.value = ''
   } catch (e) {
     errorApi(e)
-    if (e.detalle?.encontradas) avisar(`Columns found: ${e.detalle.encontradas.join(', ')}`, 'error', null, 12000)
+    if (e.detalle?.encontradas) avisar(t('Columns found: {0}', [e.detalle.encontradas.join(', ')]), 'error', null, 12000)
   } finally {
     ocupado.value = false
   }
@@ -46,8 +47,8 @@ async function aplicar() {
   ocupado.value = true
   try {
     const r = await api.post(`/ordenes/importar/${previa.value.importacion_id}/aplicar`)
-    avisar(`Import applied: ${r.aplicadas} order lines created or updated.` +
-      (r.resumen.conflicto ? ` ${r.resumen.conflicto} conflicts were kept as alerts on the home page.` : ''))
+    avisar(t('Import applied: {0} order lines created or updated.', [r.aplicadas]) +
+      (r.resumen.conflicto ? t(' {0} conflicts were kept as alerts on the home page.', [r.resumen.conflicto]) : ''))
     previa.value = null
     archivo.value = null
   } catch (e) {
@@ -63,74 +64,74 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
 <template>
   <div class="pagina-cabeza">
     <div>
-      <router-link to="/ordenes" class="volver"><Icono nombre="atras" :tam="15" />Purchase orders</router-link>
-      <h1>Import purchase orders</h1>
-      <p>Upload the Excel or CSV exported from SAP. Each row is checked against the master data (items, companies, plants, destinations and ports); nothing is saved until you confirm.</p>
+      <router-link to="/ordenes" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Purchase orders') }}</router-link>
+      <h1>{{ t('Import purchase orders') }}</h1>
+      <p>{{ t('Upload the Excel or CSV exported from SAP. Each row is checked against the master data (items, companies, plants, destinations and ports); nothing is saved until you confirm.') }}</p>
     </div>
-    <a class="btn" href="/plantilla_oc.csv" download><Icono nombre="descargar" />Sample template</a>
+    <a class="btn" href="/plantilla_oc.csv" download><Icono nombre="descargar" />{{ t('Sample template') }}</a>
   </div>
 
   <div class="dos-columnas" style="grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr)">
     <section class="panel">
-      <div class="panel-cabeza"><div><h2>1. Choose the file</h2><p>One row per PO line.</p></div></div>
-      <CargaArchivo v-model="archivo" texto="Drag the PO file here or choose it" ayuda="Excel (.xlsx) or CSV, exported from SAP" />
+      <div class="panel-cabeza"><div><h2>{{ t('1. Choose the file') }}</h2><p>{{ t('One row per PO line.') }}</p></div></div>
+      <CargaArchivo v-model="archivo" :texto="t('Drag the PO file here or choose it')" :ayuda="t('Excel (.xlsx) or CSV, exported from SAP')" />
       <div class="fila-flex mt">
-        <button class="btn btn-primario" :disabled="!archivo || ocupado" @click="revisar"><Icono nombre="lupa" :tam="16" />{{ ocupado ? 'Checking…' : 'Check file' }}</button>
-        <span class="ayuda">Codes (PO, line, SKU) are read as text so leading zeros are kept.</span>
+        <button class="btn btn-primario" :disabled="!archivo || ocupado" @click="revisar"><Icono nombre="lupa" :tam="16" />{{ tx(ocupado ? t('Checking…') : t('Check file')) }}</button>
+        <span class="ayuda">{{ t('Codes (PO, line, SKU) are read as text so leading zeros are kept.') }}</span>
       </div>
     </section>
     <section class="panel">
-      <div class="panel-cabeza"><div><h2>What is checked</h2></div></div>
+      <div class="panel-cabeza"><div><h2>{{ t('What is checked') }}</h2></div></div>
       <ul class="lista-mensajes ayuda">
-        <li>PO in the format 44 + 8 digits and lines in steps of 10.</li>
-        <li><b>Item data comes from the item master</b>, not from the file: style, color, size, description, brand, group, UoM, HS code and country of origin. The SKU must exist and belong to the PO's supplier.</li>
-        <li><b>PO line data comes from the file</b>: line, warehouse, quantity, price, dates, and the purchase packing: <b>casepack</b> (exact quantity per carton) and <b>inner pack</b> (units per inner pack). The casepack must be a multiple of the inner pack, and the quantity a whole number of inner packs. A prepack is already a defined carton and takes neither.</li>
-        <li>Company, plant and warehouse must match each other, and the supplier must work with the company.</li>
-        <li>Destination plant, port and countries registered in Master data.</li>
-        <li>Commercial release P leaves the PO at 304; C or blank releases it (300, or 301 if it was already released and changed).</li>
+        <li>{{ t('PO in the format 44 + 8 digits and lines in steps of 10.') }}</li>
+        <li><b>{{ t('Item data comes from the item master') }}</b>{{ t(', not from the file: style, color, size, description, brand, group, UoM, HS code and country of origin. The SKU must exist and belong to the PO\'s supplier.') }}</li>
+        <li><b>{{ t('PO line data comes from the file') }}</b>{{ t(': line, warehouse, quantity, price, dates, and the purchase packing:') }} <b>casepack</b> {{ t('(exact quantity per carton) and') }} <b>{{ t('inner pack') }}</b> {{ t('(units per inner pack). The casepack must be a multiple of the inner pack, and the quantity a whole number of inner packs. A prepack is already a defined carton and takes neither.') }}</li>
+        <li>{{ t('Company, plant and warehouse must match each other, and the supplier must work with the company.') }}</li>
+        <li>{{ t('Destination plant, port and countries registered in Master data.') }}</li>
+        <li>{{ t('Commercial release P leaves the PO at 304; C or blank releases it (300, or 301 if it was already released and changed).') }}</li>
       </ul>
     </section>
   </div>
 
   <template v-if="previa">
-    <h2 class="mt">2. Review the result</h2>
-    <p class="ayuda" style="margin-bottom: 12px">{{ previa.archivo }} · {{ previa.resumen.total }} rows. Click a group to filter.</p>
+    <h2 class="mt">{{ t('2. Review the result') }}</h2>
+    <p class="ayuda" style="margin-bottom: 12px">{{ t('{0} · {1} rows. Click a group to filter.', [previa.archivo, previa.resumen.total]) }}</p>
     <div class="etapas">
       <button v-for="(info, clave) in ESTADOS" :key="clave" type="button" class="etapa" :aria-pressed="filtro === clave" @click="filtro = filtro === clave ? '' : clave">
-        <span class="fila-flex"><span class="estado" :class="`estado-${info[1]}`"><span class="estado-marca"></span>{{ info[0] }}</span></span>
-        <b>{{ previa.resumen[clave] }}</b>
-        <span>{{ info[2] }}</span>
+        <span class="fila-flex"><span class="estado" :class="`estado-${info[1]}`"><span class="estado-marca"></span>{{ tx(info[0]) }}</span></span>
+        <b>{{ tx(previa.resumen[clave]) }}</b>
+        <span>{{ tx(info[2]) }}</span>
       </button>
     </div>
     <div class="tabla-marco tabla-fija">
       <table class="tabla">
         <thead>
           <tr>
-            <ThOrden campo="fila" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">Row</ThOrden>
-            <ThOrden campo="clave" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">PO line</ThOrden>
-            <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">Result</ThOrden>
-            <th>Detail</th>
+            <ThOrden campo="fila" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">{{ t('Row') }}</ThOrden>
+            <ThOrden campo="clave" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('PO line') }}</ThOrden>
+            <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Result') }}</ThOrden>
+            <th>{{ t('Detail') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="f in tabla.filas.value" :key="f.fila">
-            <td class="num">{{ f.fila }}</td>
-            <td class="codigo">{{ f.clave }}</td>
-            <td><span class="estado" :class="`estado-${ESTADOS[f.estado][1]}`"><span class="estado-marca"></span>{{ ESTADOS[f.estado][0] }}</span></td>
+            <td class="num">{{ tx(f.fila) }}</td>
+            <td class="codigo">{{ tx(f.clave) }}</td>
+            <td><span class="estado" :class="`estado-${ESTADOS[f.estado][1]}`"><span class="estado-marca"></span>{{ tx(ESTADOS[f.estado][0]) }}</span></td>
             <td class="envolver">
-              <div v-for="m in f.mensajes" :key="m">{{ m }}</div>
-              <div v-for="(c, campo) in f.cambios" :key="campo" class="ayuda">{{ campo.replaceAll('_', ' ') }}: {{ valorTxt(c.antes) }} → {{ valorTxt(c.despues) }}</div>
+              <div v-for="m in f.mensajes" :key="m">{{ tx(m) }}</div>
+              <div v-for="(c, campo) in f.cambios" :key="campo" class="ayuda">{{ tx(campo.replaceAll('_', ' ')) }}: {{ tx(valorTxt(c.antes)) }} → {{ tx(valorTxt(c.despues)) }}</div>
             </td>
           </tr>
-          <tr v-if="!tabla.total.value"><td colspan="4" class="vacio">No rows in this group.</td></tr>
+          <tr v-if="!tabla.total.value"><td colspan="4" class="vacio">{{ t('No rows in this group.') }}</td></tr>
         </tbody>
       </table>
     </div>
     <Paginacion :page="tabla.estado.pagina" :size="tabla.estado.porPagina" :total="tabla.total.value"
                 @cambiar="(p) => (tabla.estado.pagina = p)" @tamano="(t) => (tabla.estado.porPagina = t)" />
     <div class="fila-flex mt">
-      <span class="ayuda">Conflicts (for example, lowering the quantity below what is already invoiced) are not applied: they are kept as alerts.</span>
-      <button class="btn btn-primario separar" :disabled="ocupado || !aplicables" @click="aplicar"><Icono nombre="check" />Apply {{ aplicables }} changes</button>
+      <span class="ayuda">{{ t('Conflicts (for example, lowering the quantity below what is already invoiced) are not applied: they are kept as alerts.') }}</span>
+      <button class="btn btn-primario separar" :disabled="ocupado || !aplicables" @click="aplicar"><Icono nombre="check" />{{ t('Apply {0} changes', [aplicables]) }}</button>
     </div>
   </template>
 </template>

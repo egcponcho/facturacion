@@ -754,7 +754,7 @@ def validar_pl(pl: PackingList) -> list[dict]:
             d[1] += 1
     for unidad, (cantidad, filas) in pendientes.items():
         errores.append({"codigo": "sin_caja", "mensaje":
-            f"{cant_txt(cantidad, unidad)} not in cartons in {filas} row{'s' if filas > 1 else ''}."})
+            f"{cant_txt(cantidad, unidad)} not in cartons (rows: {filas})."})
     rangos = numeracion(pl)
     for g in pl.grupos:
         d, h = rangos[g.id]

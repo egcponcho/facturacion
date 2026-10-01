@@ -1,4 +1,5 @@
 <script setup>
+import { t, tx } from '../i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
 import { api } from '../api'
@@ -15,8 +16,8 @@ const vacioUsr = () => ({ nombre: '', email: '', rol_id: '', proveedor_id: '', p
 const nuevoUsr = reactive(vacioUsr())
 // 'proveedor' | 'usuario' | { tipo: 'clave', usuario, clave } | { tipo: 'telefono', usuario, telefono, dos_pasos }
 const modal = ref(null)
-const ROLES = { admin: 'Administrator', interno: 'Internal team', proveedor: 'Supplier' }
-const TIPOS = [['interno', 'Internal team', 'Sees every supplier'], ['proveedor', 'Supplier', 'Only its own supplier’s data'], ['admin', 'Administrator', 'Everything']]
+const ROLES = { admin: t('Administrator'), interno: t('Internal team'), proveedor: t('Supplier') }
+const TIPOS = [['interno', t('Internal team'), t('Sees every supplier')], ['proveedor', t('Supplier'), t('Only its own supplier’s data')], ['admin', t('Administrator'), t('Everything')]]
 const roles = ref([])
 const catalogo = ref([])
 const rolesActivos = computed(() => roles.value.filter((r) => r.activo))
@@ -38,7 +39,7 @@ async function cargar() {
 async function crearProveedor() {
   try {
     await api.post('/proveedores', nuevoProv)
-    avisar(`Supplier ${nuevoProv.nombre} created.`)
+    avisar(t('Supplier {0} created.', [nuevoProv.nombre]))
     Object.assign(nuevoProv, { codigo: '', nombre: '' })
     modal.value = null
     cargar()
@@ -54,7 +55,7 @@ async function crearUsuario() {
       rol_id: Number(nuevoUsr.rol_id) || null,
       proveedor_id: tipoDe(nuevoUsr.rol_id) === 'proveedor' ? Number(nuevoUsr.proveedor_id) || null : null,
     })
-    avisar(`User ${nuevoUsr.email} created.`)
+    avisar(t('User {0} created.', [nuevoUsr.email]))
     Object.assign(nuevoUsr, vacioUsr())
     modal.value = null
     cargar()
@@ -102,7 +103,7 @@ async function guardarRol() {
   try {
     if (m.id) await api.patch(`/roles/${m.id}`, cuerpo)
     else await api.post('/roles', cuerpo)
-    avisar(`Role ${m.nombre} saved.`)
+    avisar(t('Role {0} saved.', [m.nombre]))
     modal.value = null
     cargar()
   } catch (e) {
@@ -112,7 +113,7 @@ async function guardarRol() {
 async function borrarRol(r) {
   try {
     await api.del(`/roles/${r.id}`)
-    avisar(`Role ${r.nombre} deleted.`)
+    avisar(t('Role {0} deleted.', [r.nombre]))
     cargar()
   } catch (e) {
     errorApi(e)
@@ -124,7 +125,7 @@ function abrirRolUsuario(u) {
 function guardarRolUsuario() {
   const m = modal.value
   const prov = tipoDe(m.rol_id) === 'proveedor'
-  actualizar(`/usuarios/${m.usuario.id}`, { rol_id: Number(m.rol_id), proveedor_id: prov ? Number(m.proveedor_id) || null : null }, 'Role updated.')
+  actualizar(`/usuarios/${m.usuario.id}`, { rol_id: Number(m.rol_id), proveedor_id: prov ? Number(m.proveedor_id) || null : null }, t('Role updated.'))
 }
 onMounted(cargar)
 </script>
@@ -132,22 +133,22 @@ onMounted(cargar)
 <template>
   <div class="pagina-cabeza">
     <div>
-      <h1>Users and access</h1>
-      <p>Each supplier user only sees their own supplier's POs, invoices and packing lists. Every user signs in with two-step verification: a code sent by SMS to their registered mobile.</p>
+      <h1>{{ t('Users and access') }}</h1>
+      <p>{{ t('Each supplier user only sees their own supplier\'s POs, invoices and packing lists. Every user signs in with two-step verification: a code sent by SMS to their registered mobile.') }}</p>
     </div>
   </div>
 
   <section class="panel">
-    <div class="panel-cabeza"><h2>Suppliers</h2><button class="btn btn-primario" @click="modal = 'proveedor'"><Icono nombre="mas" />New supplier</button></div>
+    <div class="panel-cabeza"><h2>{{ t('Suppliers') }}</h2><button class="btn btn-primario" @click="modal = 'proveedor'"><Icono nombre="mas" />{{ t('New supplier') }}</button></div>
     <div class="tabla-marco">
       <table class="tabla">
-        <thead><tr><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Name') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
         <tbody>
           <tr v-for="p in proveedores" :key="p.id">
-            <td class="codigo">{{ p.codigo }}</td>
-            <td>{{ p.nombre }}</td>
-            <td><span class="etiqueta" :class="p.activo ? 'ok' : ''">{{ p.activo ? 'Active' : 'Inactive' }}</span></td>
-            <td><button class="btn btn-chico" @click="actualizar(`/proveedores/${p.id}`, { activo: !p.activo }, 'Supplier updated.')">{{ p.activo ? 'Deactivate' : 'Activate' }}</button></td>
+            <td class="codigo">{{ tx(p.codigo) }}</td>
+            <td>{{ tx(p.nombre) }}</td>
+            <td><span class="etiqueta" :class="p.activo ? 'ok' : ''">{{ tx(p.activo ? t('Active') : t('Inactive')) }}</span></td>
+            <td><button class="btn btn-chico" @click="actualizar(`/proveedores/${p.id}`, { activo: !p.activo }, t('Supplier updated.'))">{{ tx(p.activo ? t('Deactivate') : t('Activate')) }}</button></td>
           </tr>
         </tbody>
       </table>
@@ -156,25 +157,25 @@ onMounted(cargar)
 
   <section class="panel">
     <div class="panel-cabeza">
-      <div><h2>Roles and access</h2><p class="sub-panel">Each role says which modules and actions its users get. Supplier roles only ever see their own supplier’s data.</p></div>
-      <button class="btn btn-primario" @click="abrirRol(null)"><Icono nombre="mas" />New role</button>
+      <div><h2>{{ t('Roles and access') }}</h2><p class="sub-panel">{{ t('Each role says which modules and actions its users get. Supplier roles only ever see their own supplier’s data.') }}</p></div>
+      <button class="btn btn-primario" @click="abrirRol(null)"><Icono nombre="mas" />{{ t('New role') }}</button>
     </div>
     <div class="tabla-marco">
       <table class="tabla">
-        <thead><tr><th>Role</th><th>Type</th><th>Access</th><th>Users</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>{{ t('Role') }}</th><th>{{ t('Type') }}</th><th>{{ t('Access') }}</th><th>{{ t('Users') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
         <tbody>
           <tr v-for="r in roles" :key="r.id">
-            <td><strong>{{ r.nombre }}</strong><span v-if="r.sistema" class="etiqueta" style="margin-left: 6px">Built-in</span><span class="sub">{{ r.descripcion || '—' }}</span></td>
-            <td>{{ ROLES[r.tipo] }}</td>
+            <td><strong>{{ tx(r.nombre) }}</strong><span v-if="r.sistema" class="etiqueta" style="margin-inline-start: 6px">{{ t('Built-in') }}</span><span class="sub">{{ tx(r.descripcion || '—') }}</span></td>
+            <td>{{ tx(ROLES[r.tipo]) }}</td>
             <td>
-              <span class="fuerte">{{ r.permisos.length }} of {{ totalPermisos }}</span>
-              <span class="sub">{{ catalogo.filter((m) => m.permisos.some((p) => r.permisos.includes(p.clave))).map((m) => m.modulo).join(' · ') || 'No access' }}</span>
+              <span class="fuerte">{{ t('{0} of {1}', [r.permisos.length, totalPermisos]) }}</span>
+              <span class="sub">{{ tx(catalogo.filter((m) => m.permisos.some((p) => r.permisos.includes(p.clave))).map((m) => m.modulo).join(' · ') || t('No access')) }}</span>
             </td>
-            <td class="num">{{ r.usuarios }}</td>
-            <td><span class="etiqueta" :class="r.activo ? 'ok' : ''" style="margin-left: 0">{{ r.activo ? 'Active' : 'Inactive' }}</span></td>
+            <td class="num">{{ tx(r.usuarios) }}</td>
+            <td><span class="etiqueta" :class="r.activo ? 'ok' : ''" style="margin-inline-start: 0">{{ tx(r.activo ? t('Active') : t('Inactive')) }}</span></td>
             <td class="fila-flex">
-              <button class="btn btn-chico" @click="abrirRol(r)"><Icono nombre="editar" :tam="14" />{{ r.tipo === 'admin' ? 'See' : 'Edit access' }}</button>
-              <button v-if="!r.sistema" class="btn-icono" style="color: var(--error)" :disabled="r.usuarios > 0" :title="r.usuarios ? 'Assign its users another role first' : 'Delete role'" :aria-label="`Delete role ${r.nombre}`" @click="borrarRol(r)"><Icono nombre="basura" :tam="15" /></button>
+              <button class="btn btn-chico" @click="abrirRol(r)"><Icono nombre="editar" :tam="14" />{{ tx(r.tipo === 'admin' ? t('See') : t('Edit access')) }}</button>
+              <button v-if="!r.sistema" class="btn-icono" style="color: var(--error)" :disabled="r.usuarios > 0" :title="tx(r.usuarios ? t('Assign its users another role first') : t('Delete role'))" :aria-label="t('Delete role {0}', [r.nombre])" @click="borrarRol(r)"><Icono nombre="basura" :tam="15" /></button>
             </td>
           </tr>
         </tbody>
@@ -183,31 +184,31 @@ onMounted(cargar)
   </section>
 
   <section class="panel">
-    <div class="panel-cabeza"><h2>Users</h2><button class="btn btn-primario" @click="modal = 'usuario'"><Icono nombre="mas" />New user</button></div>
+    <div class="panel-cabeza"><h2>{{ t('Users') }}</h2><button class="btn btn-primario" @click="modal = 'usuario'"><Icono nombre="mas" />{{ t('New user') }}</button></div>
     <div class="tabla-marco">
       <table class="tabla">
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Supplier</th><th>Registered mobile</th><th>Last sign-in</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Email') }}</th><th>{{ t('Role') }}</th><th>{{ t('Supplier') }}</th><th>{{ t('Registered mobile') }}</th><th>{{ t('Last sign-in') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
         <tbody>
           <tr v-for="u in usuarios" :key="u.id">
-            <td>{{ u.nombre }}</td>
-            <td>{{ u.email }}</td>
-            <td>{{ u.rol_nombre || ROLES[u.rol] }}<span class="sub">{{ ROLES[u.rol] }}</span></td>
-            <td>{{ u.proveedor || '—' }}</td>
+            <td>{{ tx(u.nombre) }}</td>
+            <td>{{ tx(u.email) }}</td>
+            <td>{{ tx(u.rol_nombre || ROLES[u.rol]) }}<span class="sub">{{ tx(ROLES[u.rol]) }}</span></td>
+            <td>{{ tx(u.proveedor || '—') }}</td>
             <td>
-              <span v-if="u.telefono" class="codigo">{{ u.telefono }}</span>
-              <span v-else class="etiqueta aviso" style="margin-left: 0">Not registered</span>
-              <span class="sub">{{ u.dos_pasos ? 'Two-step verification on' : 'Password only' }}</span>
+              <span v-if="u.telefono" class="codigo">{{ tx(u.telefono) }}</span>
+              <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ t('Not registered') }}</span>
+              <span class="sub">{{ tx(u.dos_pasos ? t('Two-step verification on') : t('Password only')) }}</span>
             </td>
-            <td>{{ u.ultimo_acceso ? fmtFechaHora(u.ultimo_acceso) : 'Never' }}</td>
+            <td>{{ tx(u.ultimo_acceso ? fmtFechaHora(u.ultimo_acceso) : t('Never')) }}</td>
             <td>
-              <span class="etiqueta" :class="u.activo ? 'ok' : ''" style="margin-left: 0">{{ u.activo ? 'Active' : 'Inactive' }}</span>
-              <span v-if="u.bloqueado" class="etiqueta error" title="Too many failed attempts. Resetting the password unlocks it.">Locked</span>
+              <span class="etiqueta" :class="u.activo ? 'ok' : ''" style="margin-inline-start: 0">{{ tx(u.activo ? t('Active') : t('Inactive')) }}</span>
+              <span v-if="u.bloqueado" class="etiqueta error" :title="t('Too many failed attempts. Resetting the password unlocks it.')">{{ t('Locked') }}</span>
             </td>
             <td class="fila-flex">
-              <button class="btn btn-chico" @click="abrirRolUsuario(u)">Role</button>
-              <button class="btn btn-chico" @click="modal = { tipo: 'telefono', usuario: u, telefono: u.telefono || '', dos_pasos: u.dos_pasos }">Mobile</button>
-              <button class="btn btn-chico" @click="modal = { tipo: 'clave', usuario: u, clave: '' }">Reset password</button>
-              <button class="btn btn-chico" @click="actualizar(`/usuarios/${u.id}`, { activo: !u.activo }, 'User updated.')">{{ u.activo ? 'Deactivate' : 'Activate' }}</button>
+              <button class="btn btn-chico" @click="abrirRolUsuario(u)">{{ t('Role') }}</button>
+              <button class="btn btn-chico" @click="modal = { tipo: 'telefono', usuario: u, telefono: u.telefono || '', dos_pasos: u.dos_pasos }">{{ t('Mobile') }}</button>
+              <button class="btn btn-chico" @click="modal = { tipo: 'clave', usuario: u, clave: '' }">{{ t('Reset password') }}</button>
+              <button class="btn btn-chico" @click="actualizar(`/usuarios/${u.id}`, { activo: !u.activo }, t('User updated.'))">{{ tx(u.activo ? t('Deactivate') : t('Activate')) }}</button>
             </td>
           </tr>
         </tbody>
@@ -215,110 +216,110 @@ onMounted(cargar)
     </div>
   </section>
 
-  <Modal v-if="modal === 'proveedor'" titulo="New supplier" @cerrar="modal = null">
+  <Modal v-if="modal === 'proveedor'" :titulo="t('New supplier')" @cerrar="modal = null">
     <form id="form-proveedor" class="rejilla-campos" @submit.prevent="crearProveedor">
-      <label class="campo"><span class="req">Code (as in SAP)</span><input v-model="nuevoProv.codigo" required /></label>
-      <label class="campo"><span class="req">Name</span><input v-model="nuevoProv.nombre" required /></label>
+      <label class="campo"><span class="req">{{ t('Code (as in SAP)') }}</span><input v-model="nuevoProv.codigo" required /></label>
+      <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="nuevoProv.nombre" required /></label>
     </form>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancel</button>
-      <button class="btn btn-primario" type="submit" form="form-proveedor">Create supplier</button>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" type="submit" form="form-proveedor">{{ t('Create supplier') }}</button>
     </template>
   </Modal>
-  <Modal v-if="modal === 'usuario'" titulo="New user" ancho="620px" @cerrar="modal = null">
+  <Modal v-if="modal === 'usuario'" :titulo="t('New user')" ancho="620px" @cerrar="modal = null">
     <form id="form-usuario" class="rejilla-campos" @submit.prevent="crearUsuario">
-      <label class="campo"><span class="req">Name</span><input v-model="nuevoUsr.nombre" required /></label>
-      <label class="campo"><span class="req">Email</span><input v-model="nuevoUsr.email" type="email" required /></label>
-      <label class="campo"><span class="req">Role</span>
-        <Seleccion v-model="nuevoUsr.rol_id" required><option value="" disabled>Choose</option><option v-for="r in rolesActivos" :key="r.id" :value="r.id">{{ r.nombre }} · {{ ROLES[r.tipo] }}</option></Seleccion>
+      <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="nuevoUsr.nombre" required /></label>
+      <label class="campo"><span class="req">{{ t('Email') }}</span><input v-model="nuevoUsr.email" type="email" required /></label>
+      <label class="campo"><span class="req">{{ t('Role') }}</span>
+        <Seleccion v-model="nuevoUsr.rol_id" required><option value="" disabled>{{ t('Choose') }}</option><option v-for="r in rolesActivos" :key="r.id" :value="r.id">{{ tx(r.nombre) }} · {{ tx(ROLES[r.tipo]) }}</option></Seleccion>
       </label>
-      <label v-if="tipoDe(nuevoUsr.rol_id) === 'proveedor'" class="campo"><span class="req">Supplier</span>
+      <label v-if="tipoDe(nuevoUsr.rol_id) === 'proveedor'" class="campo"><span class="req">{{ t('Supplier') }}</span>
         <Seleccion v-model="nuevoUsr.proveedor_id" required>
-          <option value="" disabled>Choose</option>
-          <option v-for="p in proveedores" :key="p.id" :value="p.id">{{ p.nombre }}</option>
+          <option value="" disabled>{{ t('Choose') }}</option>
+          <option v-for="p in proveedores" :key="p.id" :value="p.id">{{ tx(p.nombre) }}</option>
         </Seleccion>
       </label>
-      <label class="campo"><span :class="{ req: nuevoUsr.dos_pasos }">Mobile for two-step verification</span>
+      <label class="campo"><span :class="{ req: nuevoUsr.dos_pasos }">{{ t('Mobile for two-step verification') }}</span>
         <input v-model="nuevoUsr.telefono" type="tel" placeholder="+503 7000 1234" :required="nuevoUsr.dos_pasos" autocomplete="off" />
-        <small class="ayuda">International format: + country code and number.</small>
+        <small class="ayuda">{{ t('International format: + country code and number.') }}</small>
       </label>
-      <label class="campo"><span class="req">Initial password</span><input v-model="nuevoUsr.password" type="password" minlength="10" required autocomplete="new-password" />
-        <small class="ayuda">At least 10 characters, with letters and numbers.</small></label>
-      <label class="check"><input v-model="nuevoUsr.dos_pasos" type="checkbox" /> Require two-step verification (recommended)</label>
+      <label class="campo"><span class="req">{{ t('Initial password') }}</span><input v-model="nuevoUsr.password" type="password" minlength="10" required autocomplete="new-password" />
+        <small class="ayuda">{{ t('At least 10 characters, with letters and numbers.') }}</small></label>
+      <label class="check"><input v-model="nuevoUsr.dos_pasos" type="checkbox" /> {{ t('Require two-step verification (recommended)') }}</label>
     </form>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancel</button>
-      <button class="btn btn-primario" type="submit" form="form-usuario">Create user</button>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" type="submit" form="form-usuario">{{ t('Create user') }}</button>
     </template>
   </Modal>
-  <Modal v-if="modal?.tipo === 'rol'" :titulo="modal.id ? `Role: ${modal.nombre}` : 'New role'" ancho="860px" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'rol'" :titulo="tx(modal.id ? t('Role: {0}', [modal.nombre]) : t('New role'))" ancho="860px" @cerrar="modal = null">
     <form id="form-rol" class="rol-form" @submit.prevent="guardarRol">
       <div class="rejilla-campos">
-        <label class="campo"><span class="req">Name</span><input v-model="modal.nombre" required maxlength="80" :disabled="modal.rolTipo === 'admin' && modal.sistema" /></label>
-        <label class="campo"><span>Description</span><input v-model="modal.descripcion" maxlength="300" placeholder="What this role is for" /></label>
+        <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="modal.nombre" required maxlength="80" :disabled="modal.rolTipo === 'admin' && modal.sistema" /></label>
+        <label class="campo"><span>{{ t('Description') }}</span><input v-model="modal.descripcion" maxlength="300" :placeholder="t('What this role is for')" /></label>
       </div>
       <div class="campo">
-        <span class="req">Type</span>
-        <div class="segs" role="radiogroup" aria-label="Type">
-          <button v-for="[v, t, d] in TIPOS" :key="v" type="button" role="radio" :aria-checked="modal.rolTipo === v" :disabled="modal.sistema" :title="d" @click="modal.rolTipo = v">{{ t }}<small>{{ d }}</small></button>
+        <span class="req">{{ t('Type') }}</span>
+        <div class="segs" role="radiogroup" :aria-label="t('Type')">
+          <button v-for="[v, txt, d] in TIPOS" :key="v" type="button" role="radio" :aria-checked="modal.rolTipo === v" :disabled="modal.sistema" :title="tx(d)" @click="modal.rolTipo = v">{{ tx(txt) }}<small>{{ tx(d) }}</small></button>
         </div>
       </div>
-      <div class="lbl-permisos"><span class="req">Access</span><span class="sub">{{ modal.rolTipo === 'admin' ? 'The administrator has every permission.' : `${nMarcados} of ${totalPermisos} permissions` }}</span></div>
+      <div class="lbl-permisos"><span class="req">{{ t('Access') }}</span><span class="sub">{{ tx(modal.rolTipo === 'admin' ? t('The administrator has every permission.') : t('{0} of {1} permissions', [nMarcados, totalPermisos])) }}</span></div>
       <div class="modulos">
         <fieldset v-for="m in catalogo" :key="m.modulo" class="modulo" :disabled="modal.rolTipo === 'admin'">
           <legend>
             <label class="check"><input type="checkbox" :checked="m.permisos.filter(permitido).length > 0 && m.permisos.filter(permitido).every(marcado)"
-                   :indeterminate.prop="m.permisos.some(marcado) && !m.permisos.filter(permitido).every(marcado)" :disabled="!m.permisos.some(permitido)" @change="alternarModulo(m)" />{{ m.modulo }}</label>
+                   :indeterminate.prop="m.permisos.some(marcado) && !m.permisos.filter(permitido).every(marcado)" :disabled="!m.permisos.some(permitido)" @change="alternarModulo(m)" />{{ tx(m.modulo) }}</label>
           </legend>
-          <label v-for="p in m.permisos" :key="p.clave" class="check permiso" :class="{ apagado: !permitido(p) }" :title="permitido(p) ? p.clave : 'Not available for supplier roles'">
-            <input type="checkbox" :checked="marcado(p)" :disabled="!permitido(p)" @change="alternarPermiso(p)" />{{ p.etiqueta }}
+          <label v-for="p in m.permisos" :key="p.clave" class="check permiso" :class="{ apagado: !permitido(p) }" :title="tx(permitido(p) ? p.clave : t('Not available for supplier roles'))">
+            <input type="checkbox" :checked="marcado(p)" :disabled="!permitido(p)" @change="alternarPermiso(p)" />{{ tx(p.etiqueta) }}
           </label>
         </fieldset>
       </div>
-      <label v-if="!(modal.sistema && modal.rolTipo === 'admin')" class="check mt-chico"><input v-model="modal.activo" type="checkbox" /> Active</label>
+      <label v-if="!(modal.sistema && modal.rolTipo === 'admin')" class="check mt-chico"><input v-model="modal.activo" type="checkbox" /> {{ t('Active') }}</label>
     </form>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancel</button>
-      <button v-if="modal.rolTipo !== 'admin' || !modal.sistema" class="btn btn-primario" type="submit" form="form-rol">Save role</button>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button v-if="modal.rolTipo !== 'admin' || !modal.sistema" class="btn btn-primario" type="submit" form="form-rol">{{ t('Save role') }}</button>
     </template>
   </Modal>
-  <Modal v-if="modal?.tipo === 'rol-usuario'" :titulo="`Role for ${modal.usuario.email}`" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'rol-usuario'" :titulo="t('Role for {0}', [modal.usuario.email])" @cerrar="modal = null">
     <form id="form-rol-usuario" class="rejilla-campos" @submit.prevent="guardarRolUsuario">
-      <label class="campo"><span class="req">Role</span>
-        <Seleccion v-model="modal.rol_id" required><option v-for="r in rolesActivos" :key="r.id" :value="r.id">{{ r.nombre }} · {{ ROLES[r.tipo] }}</option></Seleccion>
+      <label class="campo"><span class="req">{{ t('Role') }}</span>
+        <Seleccion v-model="modal.rol_id" required><option v-for="r in rolesActivos" :key="r.id" :value="r.id">{{ tx(r.nombre) }} · {{ tx(ROLES[r.tipo]) }}</option></Seleccion>
       </label>
-      <label v-if="tipoDe(modal.rol_id) === 'proveedor'" class="campo"><span class="req">Supplier</span>
+      <label v-if="tipoDe(modal.rol_id) === 'proveedor'" class="campo"><span class="req">{{ t('Supplier') }}</span>
         <Seleccion v-model="modal.proveedor_id" required>
-          <option value="" disabled>Choose</option>
-          <option v-for="p in proveedores" :key="p.id" :value="p.id">{{ p.nombre }}</option>
+          <option value="" disabled>{{ t('Choose') }}</option>
+          <option v-for="p in proveedores" :key="p.id" :value="p.id">{{ tx(p.nombre) }}</option>
         </Seleccion>
       </label>
     </form>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancel</button>
-      <button class="btn btn-primario" type="submit" form="form-rol-usuario">Save</button>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" type="submit" form="form-rol-usuario">{{ t('Save') }}</button>
     </template>
   </Modal>
-  <Modal v-if="modal?.tipo === 'clave'" :titulo="`Password for ${modal.usuario.email}`" @cerrar="modal = null">
-    <form id="form-clave" @submit.prevent="actualizar(`/usuarios/${modal.usuario.id}`, { password: modal.clave }, 'Password reset. The user\'s sessions were closed.')">
-      <label class="campo"><span class="req">New password</span><input v-model="modal.clave" type="password" minlength="10" required autocomplete="new-password" /></label>
-      <p class="ayuda">At least 10 characters, with letters and numbers. Resetting it also unlocks the account and closes its open sessions.</p>
+  <Modal v-if="modal?.tipo === 'clave'" :titulo="t('Password for {0}', [modal.usuario.email])" @cerrar="modal = null">
+    <form id="form-clave" @submit.prevent="actualizar(`/usuarios/${modal.usuario.id}`, { password: modal.clave }, t('Password reset. The user\'s sessions were closed.'))">
+      <label class="campo"><span class="req">{{ t('New password') }}</span><input v-model="modal.clave" type="password" minlength="10" required autocomplete="new-password" /></label>
+      <p class="ayuda">{{ t('At least 10 characters, with letters and numbers. Resetting it also unlocks the account and closes its open sessions.') }}</p>
     </form>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancel</button>
-      <button class="btn btn-primario" type="submit" form="form-clave">Save</button>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" type="submit" form="form-clave">{{ t('Save') }}</button>
     </template>
   </Modal>
-  <Modal v-if="modal?.tipo === 'telefono'" :titulo="`Mobile for ${modal.usuario.email}`" @cerrar="modal = null">
-    <form id="form-telefono" @submit.prevent="actualizar(`/usuarios/${modal.usuario.id}`, { telefono: modal.telefono || null, dos_pasos: modal.dos_pasos }, 'Mobile updated.')">
-      <label class="campo"><span :class="{ req: modal.dos_pasos }">Registered mobile</span>
+  <Modal v-if="modal?.tipo === 'telefono'" :titulo="t('Mobile for {0}', [modal.usuario.email])" @cerrar="modal = null">
+    <form id="form-telefono" @submit.prevent="actualizar(`/usuarios/${modal.usuario.id}`, { telefono: modal.telefono || null, dos_pasos: modal.dos_pasos }, t('Mobile updated.'))">
+      <label class="campo"><span :class="{ req: modal.dos_pasos }">{{ t('Registered mobile') }}</span>
         <input v-model="modal.telefono" type="tel" placeholder="+503 7000 1234" :required="modal.dos_pasos" autocomplete="off" /></label>
-      <label class="check mt-chico"><input v-model="modal.dos_pasos" type="checkbox" /> Require two-step verification</label>
-      <p class="ayuda">Changing the mobile closes the user's open sessions.</p>
+      <label class="check mt-chico"><input v-model="modal.dos_pasos" type="checkbox" /> {{ t('Require two-step verification') }}</label>
+      <p class="ayuda">{{ t('Changing the mobile closes the user\'s open sessions.') }}</p>
     </form>
     <template #pie>
-      <button class="btn" @click="modal = null">Cancel</button>
-      <button class="btn btn-primario" type="submit" form="form-telefono">Save</button>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" type="submit" form="form-telefono">{{ t('Save') }}</button>
     </template>
   </Modal>
 </template>
