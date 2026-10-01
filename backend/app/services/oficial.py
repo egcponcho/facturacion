@@ -3,7 +3,8 @@ código), control de capítulos, dominios de clasificación y atributos.
 
 Se carga desde los paquetes Excel oficiales (hojas Sources, Countries,
 Versions, Chapter_Control, Domain_Chapter_Map, Domains, Attributes,
-Attribute_Options, Attribute_Scope, Classification_Rules, Rule_Conditions). La carga es
+Attribute_Options, Attribute_Scope, Classification_Rules, Rule_Conditions;
+paquete nacional: Country_Source_Map, National_Codes, Regulations, Taxes). La carga es
 idempotente: actualiza por clave natural (código de fuente, ISO, código de
 versión, capítulo, dominio) y nunca borra lo que ya existe.
 """
@@ -31,9 +32,11 @@ from .plantillas import norm
 
 CARPETA = Path(__file__).resolve().parent.parent / "data" / "oficial"
 # El motor (02) trae los dominios que el paquete oficial (01) relaciona con capítulos
-PAQUETES = ["02_carga_motor_dinamico_v3.xlsx", "01_carga_oficial_catalogos_v3.xlsx"]
+# y el nacional (03) usa países, fuentes y versiones del 01
+PAQUETES = ["02_carga_motor_dinamico_v3.xlsx", "01_carga_oficial_catalogos_v3.xlsx", "03_carga_nacional_regulaciones_v3.xlsx"]
 HOJAS = ("Sources", "Versions", "Countries", "Chapter_Control", "Domains", "Domain_Chapter_Map",
-         "Attributes", "Attribute_Options", "Attribute_Scope", "Classification_Rules", "Rule_Conditions")
+         "Attributes", "Attribute_Options", "Attribute_Scope", "Classification_Rules", "Rule_Conditions",
+         "Country_Source_Map", "National_Codes", "Regulations", "Taxes")
 ESTADOS_VERSION = {"PUBLISHED": "PUBLICADA", "PUBLICADA": "PUBLICADA", "DYNAMIC": "DINAMICA", "DINAMICA": "DINAMICA",
                    "DRAFT": "BORRADOR", "BORRADOR": "BORRADOR", "ARCHIVED": "ARCHIVADA", "ARCHIVADA": "ARCHIVADA"}
 
@@ -253,10 +256,11 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         db.add(x)
         cuenta("Domain_Chapter_Map", nuevo)
     db.flush()
-    from . import atributos, reglas  # usan los dominios ya cargados
+    from . import atributos, nacional, reglas  # usan dominios, países, fuentes y versiones ya cargados
 
     atributos.importar_hojas(db, hojas, cuenta, error)
     reglas.importar_hojas(db, hojas, cuenta, error)
+    nacional.importar_hojas(db, hojas, cuenta, error)
     if not res:
         raise ErrorNegocio(f"No known sheet was found ({', '.join(HOJAS)}).", 422, "validacion")
     if usuario:

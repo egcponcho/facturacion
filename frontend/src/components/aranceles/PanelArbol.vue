@@ -74,6 +74,7 @@ const filas = computed(() => {
   visitar(raiz.value, 0)
   return out
 })
+const paisesConDatos = computed(() => (detalle.value?.paises || []).filter((p) => p.codigos.length || p.impuestos?.length || p.regulaciones?.length))
 const AMBITO = { seccion: t('Section note'), capitulo: t('Chapter note'), subpartida: t('Subheading note'), complementaria: t('Complementary note'), explicativa: t('Explanatory summary') }
 const NIVEL = { CAPITULO: t('Chapter'), PARTIDA: t('Heading'), SUBPARTIDA: t('Subheading'), INCISO: t('Tariff line') }
 </script>
@@ -130,13 +131,21 @@ const NIVEL = { CAPITULO: t('Chapter'), PARTIDA: t('Heading'), SUBPARTIDA: t('Su
             <li v-for="h in detalle.hijos_lista" :key="h.id"><button type="button" class="nodo" @click="elegir(h)"><span class="cod">{{ tx(h.codigo) }}</span><span class="txt">{{ tx(h.texto) }}</span><span v-if="h.dai !== null" class="ayuda">{{ t('DAI {0}%', [h.dai]) }}</span></button></li>
           </ul>
         </template>
-        <template v-if="detalle.paises.some((p) => p.codigos.length)">
-          <h4>{{ t('National codes') }}</h4>
+        <template v-if="paisesConDatos.length">
+          <h4>{{ t('By country') }}</h4>
           <div class="paises">
-            <div v-for="p in detalle.paises.filter((x) => x.codigos.length)" :key="p.iso" class="pais">
+            <div v-for="p in paisesConDatos" :key="p.iso" class="pais">
               <b>{{ tx(p.iso) }}</b>
-              <span v-for="c in p.codigos.slice(0, 8)" :key="c.codigo" class="codigo-sac" :title="tx(c.descripcion || '')">{{ tx(c.codigo) }}<small v-if="c.dai"> · {{ tx(c.dai) }}%</small></span>
-              <span v-if="p.codigos.length > 8" class="ayuda">{{ t('+{0} more', [p.codigos.length - 8]) }}</span>
+              <div class="pais-datos">
+                <div v-if="p.codigos.length" class="fila-chips">
+                  <span v-for="c in p.codigos.slice(0, 8)" :key="c.codigo" class="codigo-sac" :title="tx(c.descripcion || '')">{{ tx(c.codigo) }}<small v-if="c.dai"> · {{ tx(c.dai) }}%</small></span>
+                  <span v-if="p.codigos.length > 8" class="ayuda">{{ t('+{0} more', [p.codigos.length - 8]) }}</span>
+                </div>
+                <div v-if="p.impuestos.length || p.regulaciones.length" class="fila-chips">
+                  <span v-for="i in p.impuestos" :key="i.id" class="etiqueta" :title="tx(i.base_legal || '')">{{ tx(i.tipo) }} {{ i.tasa != null ? `${fmtNum(i.tasa)}%` : '' }}</span>
+                  <span v-for="r in p.regulaciones" :key="r.id" class="etiqueta aviso" :title="tx([r.autoridad, r.base_legal].filter(Boolean).join(' · '))"><Icono nombre="candado" :tam="12" />{{ tx(r.nombre) }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </template>
@@ -183,8 +192,12 @@ h4 { margin: 16px 0 6px; font-size: 0.9rem; }
 .hijos { list-style: none; margin: 0; padding: 0; border: 1px solid var(--linea); border-radius: var(--radio); max-height: 280px; overflow-y: auto; }
 .hijos li + li { border-top: 1px solid var(--linea); }
 .paises { display: grid; gap: 6px; }
-.pais { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-.pais b { width: 30px; }
+.pais { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--linea); }
+.pais:first-child { border-top: 0; }
+.pais b { width: 30px; flex: none; padding-top: 2px; }
+.pais-datos { display: grid; gap: 5px; min-width: 0; }
+.fila-chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.etiqueta.aviso { display: inline-flex; gap: 4px; align-items: center; }
 .pais .codigo-sac { font-size: 0.8rem; padding: 2px 6px; }
 .nota-legal { border: 1px solid var(--linea); border-radius: var(--radio); padding: 6px 10px; margin-bottom: 6px; font-size: 0.86rem; }
 .nota-legal summary { cursor: pointer; font-weight: 600; }

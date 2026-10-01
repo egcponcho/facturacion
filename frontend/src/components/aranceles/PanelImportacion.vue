@@ -14,9 +14,9 @@ const emit = defineEmits(['cargado'])
 const edita = puede('aranceles.editar')
 const carga = ref(null)
 const PAQUETES = [
-  { n: 1, titulo: t('Official catalogs'), detalle: t('Sources, versions, countries (code schema), chapter control and domain-chapter map.'), hojas: 'Sources · Versions · Countries · Chapter_Control · Domain_Chapter_Map', carga: true },
-  { n: 2, titulo: t('Dynamic engine'), detalle: t('Classification domains, attributes, options, scopes and rules.'), hojas: 'Domains · Attributes · Attribute_Options · Attribute_Scope · Classification_Rules · Rule_Conditions', carga: true },
-  { n: 3, titulo: t('National codes, regulations and taxes'), detalle: t('Official national codes per country and version, permits and tax rules with their legal basis.'), hojas: 'National_Codes · Regulations · Taxes', carga: false },
+  { n: 1, titulo: t('Official catalogs'), detalle: t('Sources, versions, countries (code schema), chapter control and domain-chapter map.'), hojas: 'Sources · Versions · Countries · Chapter_Control · Domain_Chapter_Map' },
+  { n: 2, titulo: t('Dynamic engine'), detalle: t('Classification domains, attributes, options, scopes and rules.'), hojas: 'Domains · Attributes · Attribute_Options · Attribute_Scope · Classification_Rules · Rule_Conditions' },
+  { n: 3, titulo: t('National codes, regulations and taxes'), detalle: t('Official national codes per country and version, permits and tax rules with their legal basis.'), hojas: 'Country_Source_Map · National_Codes · Regulations · Taxes' },
 ]
 async function bajar(p) {
   try {
@@ -36,11 +36,10 @@ async function bajar(p) {
         <h3>{{ tx(p.titulo) }}</h3>
         <p>{{ tx(p.detalle) }}</p>
         <p class="ayuda codigo">{{ tx(p.hojas) }}</p>
-        <p v-if="!p.carga" class="ayuda">{{ t('Its loader arrives with the national codes phase.') }}</p>
       </div>
       <div class="acciones">
         <button class="btn" @click="bajar(p)"><Icono nombre="descargar" :tam="15" />{{ t('Download package') }}</button>
-        <button v-if="edita && p.carga" class="btn btn-primario" @click="carga = p"><Icono nombre="importar" :tam="15" />{{ t('Upload') }}</button>
+        <button v-if="edita" class="btn btn-primario" @click="carga = p"><Icono nombre="importar" :tam="15" />{{ t('Upload') }}</button>
       </div>
     </article>
     <CargaMasiva v-if="carga" :titulo="t('Upload {0}', [carga.titulo])" ruta="/aranceles/oficial/importar" :plantilla="`/aranceles/oficial/paquete/${carga.n}`"

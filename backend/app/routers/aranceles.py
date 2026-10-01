@@ -312,6 +312,47 @@ def reglas_editar(regla_id: int, datos: s.ReglaIn, db: Db, user: User, clave: Cl
     return ejecutar(db, user, clave, lambda: reglas.guardar(db, user, regla_id, datos.model_dump(exclude_unset=True)))
 
 
+# ---- Regulaciones e impuestos por país ----------------------------------------------
+@router.get("/aranceles/regulaciones")
+def regulaciones_lista(db: Db, user: User, q: str | None = None, pais: str | None = None):
+    from ..services import nacional
+
+    return nacional.regulaciones(db, user, q, pais)
+
+
+@router.post("/aranceles/regulaciones")
+@router.patch("/aranceles/regulaciones/{reg_id}")
+def regulaciones_guardar(datos: s.RegulacionIn, db: Db, user: User, reg_id: int | None = None, clave: Clave = None):
+    from ..services import nacional
+
+    return ejecutar(db, user, clave, lambda: nacional.guardar_regulacion(db, user, reg_id, datos.model_dump(exclude_unset=True)))
+
+
+@router.get("/aranceles/impuestos")
+def impuestos_lista(db: Db, user: User, q: str | None = None, pais: str | None = None):
+    from ..services import nacional
+
+    return nacional.impuestos(db, user, q, pais)
+
+
+@router.post("/aranceles/impuestos")
+@router.patch("/aranceles/impuestos/{imp_id}")
+def impuestos_guardar(datos: s.ImpuestoIn, db: Db, user: User, imp_id: int | None = None, clave: Clave = None):
+    from ..services import nacional
+
+    return ejecutar(db, user, clave, lambda: nacional.guardar_impuesto(db, user, imp_id, datos.model_dump(exclude_unset=True)))
+
+
+@router.get("/aranceles/requisitos")
+def requisitos(db: Db, user: User, pais: str, codigo: str):
+    """DAI, impuestos y regulaciones que aplican hoy a un código en un país."""
+    from ..services import nacional
+    from ..services.common import exigir
+
+    exigir(user, "producto.ver")
+    return nacional.requisitos(db, pais.upper(), codigo)
+
+
 # ---- Árbol arancelario oficial ---------------------------------------------------
 @router.get("/aranceles/arbol")
 def arbol_hijos(db: Db, user: User, padre_id: int | None = None, version: str | None = None, q: str | None = None):

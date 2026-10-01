@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from ..models import ControlCapitulo, IncisoNacional, NodoArancel, NotaSAC, PaisArancel, Usuario, VersionDataset, ahora
 from .common import ErrorNegocio, exigir, filtro_texto
+from .nacional import requisitos
 
 DATOS = Path(__file__).resolve().parent.parent / "data"
 VERSION_SAC = "SAC-2025-V6"
@@ -192,7 +193,9 @@ def nodo(db: Session, user: Usuario, nodo_id: int) -> dict:
         "version": {"codigo": v.codigo, "etiqueta": v.etiqueta, "estado": v.estado,
                     "fuente": v.fuente.codigo if v.fuente else None, "checksum": v.checksum} if v else None,
         "notas": notas,
-        "paises": [{"iso": p.iso, "nombre": p.nombre, "codigos": nacionales.get(p.iso, [])}
+        "paises": [{"iso": p.iso, "nombre": p.nombre, "codigos": nacionales.get(p.iso, []),
+                    **({k: v for k, v in requisitos(db, p.iso, n.codigo_norm).items() if k in ("impuestos", "regulaciones")}
+                       if len(n.codigo_norm) >= 4 else {"impuestos": [], "regulaciones": []})}
                    for p in db.scalars(select(PaisArancel).where(PaisArancel.activo.is_(True)).order_by(PaisArancel.orden))],
     }
 

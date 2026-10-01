@@ -3,6 +3,7 @@ from alembic import context
 
 from app import models  # noqa: F401  (registra las tablas en Base.metadata)
 from app.db import Base, engine
+from app.migraciones import sin_claves_foraneas
 
 target_metadata = Base.metadata
 
@@ -19,7 +20,7 @@ def run_migrations_online() -> None:
     if conexion is not None:
         _correr(conexion)
         return
-    with engine.connect() as con:
+    with engine.connect() as con, sin_claves_foraneas(con):
         _correr(con)
 
 

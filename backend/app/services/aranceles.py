@@ -328,9 +328,8 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
     if pais not in ps:
         raise ErrorNegocio("Choose a country loaded in the tariff schedule.", 422, "validacion")
     cod = _dig(datos.codigo)
-    n = ps[pais].digitos
-    if len(cod) != n:
-        raise ErrorNegocio(f"{ps[pais].nombre} uses {n}-digit codes; you entered {len(cod)}.", 422, "validacion")
+    if msg := ps[pais].error_longitud(cod):
+        raise ErrorNegocio(msg, 422, "validacion")
     x = db.get(IncisoNacional, inciso_id) if inciso_id else None
     if inciso_id and not x:
         raise ErrorNegocio("The code does not exist.", 404, "no_encontrado")
@@ -397,7 +396,7 @@ def plantilla_incisos(db: Session, pais: str | None = None) -> bytes:
     n = ps[iso].digitos if iso in ps else 10
     ej = [[iso, "6404.19.90" + "0" * max(0, n - 8), "Los demás", "15", 0, "", "Adult"] + [""] * (len(cols) - 7)]
     return plantilla("National tariff codes", cols, ej, [
-        "One row per national code. The code must have the digits of its country.",
+        "One row per national code, with all its digits (8 to 14, or the lengths set for its country).",
         "The condition columns say when a product takes this code (gender, age, CIF value, footwear style…). "
         "The engine picks the code whose conditions match the technical sheet.",
         "A row with the same country, code and conditions updates the existing code.",
@@ -419,8 +418,8 @@ def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, 
             errores.append({"fila": f["_fila"], "mensaje": f"Country “{f.get('pais') or ''}” is not in the tariff schedule."})
             continue
         cod = _dig(f.get("codigo"))
-        if len(cod) != ps[iso].digitos:
-            errores.append({"fila": f["_fila"], "mensaje": f"{iso} uses {ps[iso].digitos} digits; the code has {len(cod)}."})
+        if msg := ps[iso].error_longitud(cod):
+            errores.append({"fila": f["_fila"], "mensaje": f"{iso}: {msg}"})
             continue
         cond, mal = {}, None
         for k, d in oc.items():

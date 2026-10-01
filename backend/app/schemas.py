@@ -622,6 +622,40 @@ class AtributoAmbitoIn(BaseModel):
     quitar: bool = False
 
 
+class RegulacionIn(BaseModel):
+    codigo: str | None = Field(None, max_length=40)
+    pais: str | None = Field(None, max_length=2)
+    patron: str | None = Field(None, max_length=40)
+    tipo: str | None = Field(None, max_length=30)
+    nombre: str | None = Field(None, max_length=300)
+    autoridad: str | None = Field(None, max_length=200)
+    codigo_permiso: str | None = Field(None, max_length=60)
+    obligatorio: bool | None = None
+    base_legal: str | None = Field(None, max_length=400)
+    activo: bool | None = None
+    url: str | None = Field(None, max_length=300)
+    nota: str | None = Field(None, max_length=400)
+    vigente_desde: date | None = None
+    vigente_hasta: date | None = None
+
+
+class ImpuestoIn(BaseModel):
+    codigo: str | None = Field(None, max_length=40)
+    pais: str | None = Field(None, max_length=2)
+    patron: str | None = Field(None, max_length=40)
+    tipo: str | None = Field(None, max_length=20)
+    tasa: float | None = Field(None, ge=0, le=1000)
+    base_calculo: str | None = Field(None, max_length=80)
+    umbral_desde: float | None = None
+    umbral_hasta: float | None = None
+    formula: str | None = Field(None, max_length=300)
+    base_legal: str | None = Field(None, max_length=400)
+    activo: bool | None = None
+    url: str | None = Field(None, max_length=300)
+    vigente_desde: date | None = None
+    vigente_hasta: date | None = None
+
+
 class CondicionIn(BaseModel):
     grupo: int = Field(1, ge=1, le=20)
     campo: str = Field(max_length=60)

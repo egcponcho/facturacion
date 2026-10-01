@@ -13,7 +13,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent / "app"
 # Documentos y plantillas para aduana/ERP, datos de demostración y textos oficiales: no se traducen aquí
 OMITIR = {"seed.py", "documentos.py", "exportar.py", "plantillas.py", "sms.py", "config.py", "db.py", "security.py",
-          "especialista.py", "main.py", "deps.py", "models.py"}
+          "especialista.py", "main.py", "deps.py", "models.py", "migraciones.py"}
 MODELOS: set = set()
 ESPANOL = re.compile(r"[áéíóúñ¿¡]|\b(de|del|la|el|los|las|y|para|con|por|una|que)\b", re.I)
 

@@ -872,12 +872,12 @@ def obtener_foto(db: Session, user: Usuario, foto_id: int) -> ProductoFoto:
 def ensenar_inciso(db: Session, user: Usuario, datos) -> dict:
     exigir(user, "producto.clasificar")
     pais = (datos.pais or "").upper()
-    dig = digitos_pais(db)
-    if pais not in dig:
+    p_ = db.scalar(select(PaisArancel).where(PaisArancel.iso == pais, PaisArancel.activo.is_(True)))
+    if not p_:
         raise ErrorNegocio("Choose a destination country.", 422, "validacion")
     cod = digitos(datos.codigo)
-    if len(cod) != dig[pais]:
-        raise ErrorNegocio(f"{pais} uses {dig[pais]}-digit codes; you entered {len(cod)}.", 422, "validacion")
+    if msg := p_.error_longitud(cod):
+        raise ErrorNegocio(msg, 422, "validacion")
     cond = {k: v for k, v in (datos.cond or {}).items() if v not in (None, "")}
     ya = db.scalar(select(IncisoNacional).where(IncisoNacional.pais == pais, IncisoNacional.codigo == cod))
     if ya and (ya.cond or {}) == cond:

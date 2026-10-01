@@ -570,6 +570,26 @@ class PaisArancel(Base):
     base_legal: Mapped[str | None] = mapped_column(String(300))  # arancel y norma que lo pone en vigor
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Fuentes por tipo de dato (hoja Country_Source_Map): códigos = fuente_id
+    fuente_regulaciones_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id", name="fk_paises_fuente_reg"))
+    fuente_impuestos_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id", name="fk_paises_fuente_imp"))
+    ingesta: Mapped[str | None] = mapped_column(String(120))  # conector, API, PDF…
+    autenticacion_fuente: Mapped[str | None] = mapped_column(String(40))
+    estado_fuente: Mapped[str | None] = mapped_column(String(200))
+
+    def longitudes_validas(self) -> list[int]:
+        """Longitudes admitidas del código nacional. Sin esquema configurado se
+        acepta la precisión nacional de 8 a 14 dígitos (no se fija un número)."""
+        lista = [int(x) for x in (self.longitudes or "").split(",") if x.strip().isdigit()]
+        return lista or list(range(8, 15))
+
+    def error_longitud(self, codigo: str) -> str | None:
+        n = len(codigo)
+        if n in self.longitudes_validas():
+            return None
+        if self.longitudes:
+            return f"{self.nombre} accepts national codes of {self.longitudes.replace(',', ', ')} digits; you entered {n}."
+        return f"National codes have 8 to 14 digits; you entered {n}."
 
 
 class FuenteOficial(Base):
@@ -808,10 +828,18 @@ class IncisoNacional(Base):
     dai: Mapped[str | None] = mapped_column(String(10))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     nota: Mapped[str | None] = mapped_column(String(300))
-    fuente: Mapped[str] = mapped_column(String(12), default="manual")  # base | aprendido | manual | archivo
+    fuente: Mapped[str] = mapped_column(String(12), default="manual")  # base | aprendido | manual | archivo | oficial
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    # Dato oficial (paquete 03): versión, fuente, vigencia y código base SAC/HS del que cuelga
+    codigo_oficial: Mapped[str | None] = mapped_column(String(30))  # ID de la fuente (National code ID)
+    codigo_base: Mapped[str | None] = mapped_column(String(14))
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id", name="fk_incisos_version"))
+    fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id", name="fk_incisos_fuente"))
+    vigente_desde: Mapped[date | None] = mapped_column(Date)
+    vigente_hasta: Mapped[date | None] = mapped_column(Date)
+    url: Mapped[str | None] = mapped_column(String(300))
 
     # Las condiciones que eligen este código ya no viven en el código oficial:
     # son una regla de selección nacional (ReglaClasificacion NATIONAL_SELECT).
@@ -847,6 +875,59 @@ class IncisoNacional(Base):
         # Sin condiciones ni prioridad, el código se elige sin regla
         if self.regla and not self.regla.condiciones and not self.regla.prioridad:
             self.regla = None
+
+
+class Regulacion(Base):
+    """Requisito no arancelario de un país (permiso, licencia, registro,
+    etiquetado…) para un código o patrón de códigos (p. ej. 3304*). Un código
+    puede tener cero, uno o varios. Se publica con base legal y vigencia."""
+
+    __tablename__ = "regulaciones"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(40), unique=True)  # Regulation ID
+    pais: Mapped[str] = mapped_column(String(2), index=True)
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+    tipo_ambito: Mapped[str] = mapped_column(String(14), default="PATTERN")  # NATIONAL_CODE | SUBHEADING | HEADING | CHAPTER | PATTERN
+    patron: Mapped[str] = mapped_column(String(40))  # código o prefijo, * = todos
+    tipo: Mapped[str] = mapped_column(String(30))  # PERMIT | LICENSE | REGISTRATION | CERTIFICATE | LABELING | SANITARY | PHYTOSANITARY | OTHER
+    nombre: Mapped[str] = mapped_column(String(300))
+    autoridad: Mapped[str | None] = mapped_column(String(200))
+    codigo_permiso: Mapped[str | None] = mapped_column(String(60))
+    obligatorio: Mapped[bool] = mapped_column(Boolean, default=True)
+    condicion: Mapped[dict | None] = mapped_column(JSON)
+    base_legal: Mapped[str | None] = mapped_column(String(400))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    vigente_desde: Mapped[date | None] = mapped_column(Date)
+    vigente_hasta: Mapped[date | None] = mapped_column(Date)
+    fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id"))
+    url: Mapped[str | None] = mapped_column(String(300))
+    nota: Mapped[str | None] = mapped_column(String(400))
+
+
+class ReglaImpuesto(Base):
+    """Impuesto de importación de un país (DAI, IVA, ITBMS, ISC…) para un
+    código o patrón, con tasa, base de cálculo, umbrales, base legal y
+    vigencia. El DAI de cada código nacional sigue en el código; aquí van los
+    demás tributos y cualquier excepción."""
+
+    __tablename__ = "reglas_impuesto"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(40), unique=True)  # Tax rule ID
+    pais: Mapped[str] = mapped_column(String(2), index=True)
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+    patron: Mapped[str] = mapped_column(String(40), default="*")
+    tipo: Mapped[str] = mapped_column(String(20))  # DAI | IVA | ITBMS | ISV | ISC | SELECTIVO | OTRO
+    tasa: Mapped[float | None] = mapped_column(Float)
+    base_calculo: Mapped[str | None] = mapped_column(String(80))  # CIF, CIF + DAI…
+    umbral_desde: Mapped[float | None] = mapped_column(Float)
+    umbral_hasta: Mapped[float | None] = mapped_column(Float)
+    formula: Mapped[str | None] = mapped_column(String(300))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    vigente_desde: Mapped[date | None] = mapped_column(Date)
+    vigente_hasta: Mapped[date | None] = mapped_column(Date)
+    fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id"))
+    url: Mapped[str | None] = mapped_column(String(300))
+    base_legal: Mapped[str | None] = mapped_column(String(400))
 
 
 class ReglaClasificacion(Base):

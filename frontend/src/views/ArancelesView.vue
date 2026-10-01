@@ -1,6 +1,6 @@
 <script setup>
 import { t, tx } from '../i18n/index.js'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
@@ -18,6 +18,8 @@ import PanelCapitulos from '../components/aranceles/PanelCapitulos.vue'
 import PanelDominios from '../components/aranceles/PanelDominios.vue'
 import PanelAtributos from '../components/aranceles/PanelAtributos.vue'
 import PanelReglas from '../components/aranceles/PanelReglas.vue'
+import PanelRegulaciones from '../components/aranceles/PanelRegulaciones.vue'
+import PanelImpuestos from '../components/aranceles/PanelImpuestos.vue'
 import PanelFuentes from '../components/aranceles/PanelFuentes.vue'
 import PanelImportacion from '../components/aranceles/PanelImportacion.vue'
 import { cargarContexto } from '../clasificacion/useClasificacion'
@@ -33,7 +35,7 @@ import { filasDefecto } from '../stores/preferencias'
 const route = useRoute()
 const router = useRouter()
 const edita = puede('aranceles.editar')
-const vista = ref(route.query.vista || 'codigos')
+const vista = ref(route.query.vista || 'arbol')
 const paises = ref([])
 const meta = ref({ condiciones: {}, fuentes: {} })
 const modal = ref(null)
@@ -277,8 +279,31 @@ function cargarPais(p) {
   modal.value = { tipo: 'carga-codigos', pais: p.iso, reemplazar: false }
 }
 
+// Menú lateral por grupos: arancel oficial, requisitos por país, motor y datos
+const MENU = computed(() => [
+  { titulo: t('Tariff'), items: [['arbol', t('Tariff tree'), 'ruta'], ['capitulos', t('Chapters'), 'lista'],
+    ['codigos', t('National codes'), 'etiqueta', fmtNum(paises.value.reduce((a, p) => a + (p.codigos || 0), 0))],
+    ['sac', t('SAC headings and subheadings'), 'base'], ['notas', t('Legal notes'), 'archivo']] },
+  { titulo: t('Requirements by country'), items: [['regulaciones', t('Regulations'), 'candado'], ['impuestos', t('Taxes'), 'moneda'],
+    ['paises', t('Countries'), 'globo', paises.value.length]] },
+  { titulo: t('Classification engine'), items: [['dominios', t('Domains'), 'capas'], ['atributos', t('Attributes'), 'engrane'],
+    ['reglas', t('Classification rules'), 'varita']] },
+  { titulo: t('Data'), items: [['fuentes', t('Sources and versions'), 'historial'], ['importacion', t('Data import'), 'importar']] },
+])
+
+// En pantallas chicas el menú es una fila con desplazamiento: se centra la sección activa
+const menu = ref(null)
+function centrarMenu() {
+  nextTick(() => {
+    const nav = menu.value
+    const el = nav?.querySelector('[aria-current="page"]')
+    if (nav && el && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = el.offsetLeft - (nav.clientWidth - el.clientWidth) / 2
+  })
+}
+
 function cambiarVista(v) {
   vista.value = v
+  centrarMenu()
   router.replace({ query: { vista: v } })
   if (v === 'codigos') recargarC()
   if (v === 'sac') cargarSac()
@@ -292,10 +317,11 @@ function alCargar() {
 }
 
 onMounted(async () => {
+  centrarMenu()
   await cargarBase()
   if (vista.value === 'sac') cargarSac()
   else if (vista.value === 'notas') cargarNotas()
-  else cargarCodigos()
+  else if (vista.value === 'codigos') cargarCodigos()
 })
 watch(() => fc.size, recargarC)
 watch(() => fs.size, recargarS)
@@ -324,24 +350,23 @@ watch(() => fs.size, recargarS)
     </button>
   </div>
 
-  <div class="pestanas" role="tablist">
-    <button class="pestana" role="tab" :aria-selected="vista === 'arbol'" @click="cambiarVista('arbol')">{{ t('Tariff tree') }}</button>
-    <button class="pestana" role="tab" :aria-selected="vista === 'codigos'" @click="cambiarVista('codigos')">{{ t('National codes') }} <span class="cuenta">{{ fmtNum(codigos.total) }}</span></button>
-    <button class="pestana" role="tab" :aria-selected="vista === 'sac'" @click="cambiarVista('sac')">{{ t('SAC headings and subheadings') }}</button>
-    <button class="pestana" role="tab" :aria-selected="vista === 'notas'" @click="cambiarVista('notas')">{{ t('SAC legal notes') }}</button>
-    <button class="pestana" role="tab" :aria-selected="vista === 'paises'" @click="cambiarVista('paises')">{{ t('Countries') }} <span class="cuenta">{{ tx(paises.length) }}</span></button>
-    <button class="pestana" role="tab" :aria-selected="vista === 'capitulos'" @click="cambiarVista('capitulos')">{{ t('Chapters') }}</button>
-    <button class="pestana" role="tab" :aria-selected="vista === 'dominios'" @click="cambiarVista('dominios')">{{ t('Domains') }}</button>
-    <button class="pestana" role="tab" :aria-selected="vista === 'atributos'" @click="cambiarVista('atributos')">{{ t('Attributes') }}</button>
-    <button class="pestana" role="tab" :aria-selected="vista === 'reglas'" @click="cambiarVista('reglas')">{{ t('Classification rules') }}</button>
-    <button class="pestana" role="tab" :aria-selected="vista === 'fuentes'" @click="cambiarVista('fuentes')">{{ t('Sources and versions') }}</button>
-    <button class="pestana" role="tab" :aria-selected="vista === 'importacion'" @click="cambiarVista('importacion')">{{ t('Data import') }}</button>
-  </div>
+  <div class="arancel-layout">
+  <nav ref="menu" class="menu-lateral" :aria-label="t('Tariff schedule sections')">
+    <template v-for="g in MENU" :key="g.titulo">
+      <p class="menu-grupo">{{ tx(g.titulo) }}</p>
+      <button v-for="[k, l, icono, n] in g.items" :key="k" type="button" class="menu-item" :aria-current="vista === k ? 'page' : undefined" @click="cambiarVista(k)">
+        <Icono :nombre="icono" :tam="16" /><span class="menu-txt">{{ tx(l) }}</span><span v-if="n != null" class="cuenta">{{ tx(n) }}</span>
+      </button>
+    </template>
+  </nav>
+  <div class="arancel-contenido">
   <PanelArbol v-if="vista === 'arbol'" />
   <PanelCapitulos v-else-if="vista === 'capitulos'" />
   <PanelDominios v-else-if="vista === 'dominios'" />
   <PanelAtributos v-else-if="vista === 'atributos'" />
   <PanelReglas v-else-if="vista === 'reglas'" :paises="paises" :condiciones="meta.condiciones" />
+  <PanelRegulaciones v-else-if="vista === 'regulaciones'" :paises="paises" />
+  <PanelImpuestos v-else-if="vista === 'impuestos'" :paises="paises" />
   <PanelFuentes v-else-if="vista === 'fuentes'" />
   <PanelImportacion v-else-if="vista === 'importacion'" @cargado="cargarBase" />
 
@@ -591,9 +616,27 @@ watch(() => fs.size, recargarS)
                :ayuda="t('A note with the same kind, section or chapter and number is replaced by the text of the file. Use it to load the official text of the SAC in force.')" />
   <CargaMasiva v-if="modal?.tipo === 'carga-sac'" :titulo="t('Upload SAC headings and subheadings')" ruta="/aranceles/sac/importar" plantilla="/aranceles/sac/plantilla"
                @cerrar="modal = null" @cargado="alCargar" :ayuda="t('Codes already loaded are updated with the new text.')" />
+  </div>
+  </div>
 </template>
 
 <style scoped>
+.arancel-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 8px; }
+.menu-lateral { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 2px; padding: 10px; border: 1px solid var(--linea); border-radius: var(--radio); background: var(--superficie); }
+.menu-grupo { margin: 10px 8px 4px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-3); }
+.menu-grupo:first-child { margin-top: 2px; }
+.menu-item { display: flex; align-items: center; gap: 9px; width: 100%; border: 0; background: none; color: var(--tinta-2); font: inherit; font-size: 0.88rem; font-weight: 560; padding: 7px 9px; border-radius: 9px; cursor: pointer; text-align: start; }
+.menu-item:hover { background: var(--superficie-2); color: var(--tinta); }
+.menu-item[aria-current='page'] { background: var(--acento-claro); color: var(--acento-texto); font-weight: 650; }
+.menu-item .menu-txt { flex: 1; }
+.menu-item .cuenta { font-size: 0.74rem; opacity: 0.75; }
+.arancel-contenido { min-width: 0; }
+@media (max-width: 900px) {
+  .arancel-layout { grid-template-columns: 1fr; }
+  .menu-lateral { position: relative; top: 0; flex-direction: row; overflow-x: auto; padding: 6px; }
+  .menu-grupo { display: none; }
+  .menu-item { width: auto; white-space: nowrap; flex: none; }
+}
 .sub-mod { margin-bottom: 10px; }
 .hermanos { border: 1px solid var(--linea); border-radius: var(--radio); padding: 10px 12px; margin: 8px 0 12px; background: var(--superficie-2); font-size: 0.84rem; }
 .hermanos ul { margin: 6px 0 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 3px; }
