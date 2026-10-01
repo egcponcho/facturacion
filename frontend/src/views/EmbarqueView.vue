@@ -29,13 +29,12 @@ const e = ref(null)
 const u = ref(null)
 const unidadId = ref(Number(route.query.unidad) || null)
 const disponibles = ref([])
-const filtros = reactive({ q: '', solo_listos: false })
+const filtros = reactive({ q: '' })
 const selA = useSeleccion()
 const selD = useSeleccion()
 const abiertas = reactive(new Set())
 const modal = ref(null)
 const cajon = ref(false)
-const confirmarListos = ref(true)
 const ocupado = ref(false)
 const verHistorial = ref(false)
 
@@ -205,7 +204,6 @@ const selAsignados = computed(() => (u.value?.asignados || []).filter((p) => sel
 const selDisponibles = computed(() => todosDisponibles.value.filter((p) => selD.tiene(p.id)))
 const totSelA = computed(() => suma(selAsignados.value))
 const totSelD = computed(() => suma(selDisponibles.value))
-const listosSel = computed(() => selDisponibles.value.filter((p) => p.puede_confirmar).length)
 const proyeccion = computed(() => {
   if (!u.value?.capacidad_cbm) return null
   const cbm = u.value.cbm + totSelD.value.cbm
@@ -238,15 +236,11 @@ function abrirCajon() {
   cargarDisponibles()
 }
 function asignar() {
-  const modo = confirmarListos.value ? 'AUTO' : 'TENTATIVA'
-  ejecutar(() => api.post(`/unidades/${unidadId.value}/asignar`, { pl_ids: selD.lista(), modo }), textoAsignados)
+  ejecutar(() => api.post(`/unidades/${unidadId.value}/asignar`, { pl_ids: selD.lista() }), textoAsignados)
     .then((r) => r && (cajon.value = false))
 }
 function textoAsignados(r) {
-  const partes = []
-  if (r.confirmados) partes.push(t('{0} confirmed', [r.confirmados]))
-  if (r.tentativos) partes.push(t('{0} tentative', [r.tentativos]))
-  return `${plural(r.asignados, t('packing list assigned'), t('packing lists assigned'))} (${partes.join(', ')}).`
+  return `${plural(r.asignados, t('packing list assigned'), t('packing lists assigned'))}.`
 }
 // Recolección en la bodega del proveedor: se marca antes de zarpar
 const hoy = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
@@ -257,17 +251,13 @@ function recolectar(fecha) {
   ejecutar(() => api.post('/recoleccion', { pl_ids: selA.lista(), fecha }),
     (r) => (fecha ? `${plural(r.actualizados, t('packing list picked up'), t('packing lists picked up'))}.` : t('Pickup removed.')))
 }
-function confirmar() {
-  ejecutar(() => api.post(`/unidades/${unidadId.value}/confirmar`, { pl_ids: selAsignados.value.filter((p) => p.asignacion === 'TENTATIVA').map((p) => p.id) }),
-    (r) => `${plural(r.confirmados, t('packing list confirmed'), t('packing lists confirmed'))}.`)
-}
 function quitar() {
   ejecutar(() => api.post(`/unidades/${unidadId.value}/desasignar`, { pl_ids: selA.lista(), motivo: modal.value.motivo || null }),
     t('Packing lists removed from the load unit.'))
 }
 function mover() {
-  const { destino, modo, motivo } = modal.value
-  ejecutar(() => api.post(`/unidades/${destino}/asignar`, { pl_ids: selA.lista(), modo, motivo: motivo || null }),
+  const { destino, motivo } = modal.value
+  ejecutar(() => api.post(`/unidades/${destino}/asignar`, { pl_ids: selA.lista(), motivo: motivo || null }),
     t('Packing lists moved to the other load unit.'))
 }
 function alternarAbierta(id) {
@@ -450,7 +440,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
                 <td>{{ tx(p.proveedor) }}<span v-if="p.marcas?.length" class="sub">{{ tx(p.marcas.join(' · ')) }}</span></td>
                 <td>
                   <EstadoBadge :estado="p.asignacion" />
-                  <span v-if="p.asignacion === 'TENTATIVA' && !p.puede_confirmar" class="sub">{{ tx(p.motivo_no_confirmable) }}</span>
+                  <span v-if="!p.puede_confirmar" class="sub">{{ tx(p.motivo_no_confirmable) }}</span>
                 </td>
                 <td>{{ fmtFecha(p.fecha_xf) }}</td>
                 <td>
@@ -478,10 +468,9 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
         </div>
         <BarraSeleccion :cantidad="selA.ids.size" :singular="t('PL selected')" :plural="t('PLs selected')" @limpiar="selA.limpiar()">
           <template #resumen>{{ t('{0} cartons · {1} m³', [fmtNum(totSelA.cajas), fmtNum(totSelA.cbm, 2)]) }}</template>
-          <button class="btn btn-primario" :disabled="ocupado || !selAsignados.some((p) => p.asignacion === 'TENTATIVA' && p.puede_confirmar)" @click="confirmar"><Icono nombre="check" :tam="15" />{{ t('Confirm') }}</button>
           <button class="btn" :disabled="ocupado || selAsignados.some((p) => p.estado !== 'FINALIZADO')" :title="t('Finalized packing lists only')" @click="abrirRecoleccion"><Icono nombre="camion" :tam="15" />{{ t('Mark picked up') }}</button>
           <button v-if="selAsignados.some((p) => p.recolectado_en)" class="btn" :disabled="ocupado" @click="recolectar(null)">{{ t('Remove pickup') }}</button>
-          <button class="btn" :disabled="!u.otras_unidades.length" @click="modal = { tipo: 'mover', destino: u.otras_unidades[0]?.id, modo: 'AUTO', motivo: '' }"><Icono nombre="mover" :tam="15" />{{ t('Move to another unit') }}</button>
+          <button class="btn" :disabled="!u.otras_unidades.length" @click="modal = { tipo: 'mover', destino: u.otras_unidades[0]?.id, motivo: '' }"><Icono nombre="mover" :tam="15" />{{ t('Move to another unit') }}</button>
           <button class="btn btn-peligro" @click="modal = { tipo: 'quitar', motivo: '' }">{{ t('Remove') }}</button>
         </BarraSeleccion>
       </template>
@@ -546,7 +535,6 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <Icono nombre="buscar" :tam="16" />
           <input v-model="filtros.q" type="search" :placeholder="t('Search invoice number')" :aria-label="t('Search invoice')" @input="buscar" />
         </label>
-        <label class="check"><input v-model="filtros.solo_listos" type="checkbox" @change="cargarDisponibles" /> {{ t('Only ready to confirm') }}</label>
       </div>
       <div class="tabla-marco" style="box-shadow: none">
         <table class="tabla" v-tarjetas>
@@ -570,8 +558,6 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
                 <td><b>{{ tx(g.factura) }}</b> <EstadoBadge :estado="g.factura_estado" /><span class="sub">{{ tx(g.proveedor) }}</span></td>
                 <td>
                   {{ plural(g.packing_lists.length, 'PL', t('PLs')) }}
-                  <span v-if="g.todos_confirmables" class="etiqueta ok">{{ t('Ready') }}</span>
-                  <span v-else class="etiqueta aviso">{{ t('Will go tentative') }}</span>
                 </td>
                 <td class="num">{{ fmtNum(g.cajas) }}</td>
                 <td class="num">{{ fmtNum(g.cbm, 2) }}</td>
@@ -580,14 +566,14 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
                 <tr v-for="p in g.packing_lists" :key="p.id" :class="{ seleccionada: selD.tiene(p.id) }">
                   <td></td>
                   <td class="chk"><input type="checkbox" :aria-label="t('Select {0}', [p.numero])" :checked="selD.tiene(p.id)" @change="selD.alternar(p.id)" /></td>
-                  <td><span class="cajas-rango">{{ tx(p.numero) }}</span> <EstadoBadge :estado="p.estado" /><span v-if="!p.puede_confirmar" class="sub">{{ tx(p.motivo_no_confirmable) }}</span></td>
+                  <td><span class="cajas-rango">{{ tx(p.numero) }}</span> <EstadoBadge :estado="p.estado" /></td>
                   <td>{{ porUnidadTxt(p.por_unidad, 'cantidad') }}</td>
                   <td class="num">{{ fmtNum(p.cajas) }}</td>
                   <td class="num">{{ fmtNum(p.cbm, 2) }}</td>
                 </tr>
               </template>
             </template>
-            <tr v-if="!disponibles.length"><td colspan="6" class="vacio">{{ t('No packing lists without a load unit match these filters.') }}</td></tr>
+            <tr v-if="!disponibles.length"><td colspan="6" class="vacio">{{ t('No finalized packing lists without a load unit match these filters.') }}</td></tr>
           </tbody>
         </table>
       </div>
@@ -606,9 +592,9 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <template v-if="sugerencia.length > 1"> {{ t('Other options: {0}.', [sugerencia.slice(1).map((o) => o.texto).join(' · ')]) }}</template>
         </span>
       </p>
-      <label class="check"><input v-model="confirmarListos" type="checkbox" /> {{ t('Confirm right away the ones that are ready (invoice and PL finalized); the rest stay tentative') }}</label>
+      <p class="ayuda">{{ t('Only finalized invoices and packing lists are listed: a document goes on a shipment once it is final.') }}</p>
       <div class="fila-flex">
-        <span class="ayuda">{{ plural(selD.ids.size, t('PL selected'), t('PLs selected')) }}<template v-if="selD.ids.size && confirmarListos"> {{ t('· {0} will be confirmed', [listosSel]) }}</template></span>
+        <span class="ayuda">{{ plural(selD.ids.size, t('PL selected'), t('PLs selected')) }}</span>
         <button class="btn btn-primario separar" :disabled="ocupado || !selD.ids.size" @click="asignar"><Icono nombre="contenedor" :tam="16" />{{ t('Assign to {0}', [u.nombre]) }}</button>
       </div>
     </div>
@@ -659,7 +645,6 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
     <label class="campo"><span>{{ t('Destination unit') }}</span>
       <Seleccion v-model="modal.destino"><option v-for="o in u.otras_unidades" :key="o.id" :value="o.id">{{ tx(o.nombre) }}</option></Seleccion>
     </label>
-    <label class="check"><input v-model="modal.modo" type="checkbox" true-value="AUTO" false-value="TENTATIVA" /> {{ t('Confirm the ready ones at the destination') }}</label>
     <label class="campo"><span :class="{ req: requiereMotivo }">{{ t('Reason{0}', [requiereMotivo ? '' : t(' (optional)')]) }}</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Back') }}</button>

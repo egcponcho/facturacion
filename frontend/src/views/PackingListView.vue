@@ -149,6 +149,18 @@ const REGLAS = { PREPACK: [t('Prepack'), 'acento'], CASEPACK: [t('Casepack'), 'i
 const reglaTxt = (l) => (l.regla === 'PREPACK' ? t('Prepack {0}', [l.prepack || '']) : l.regla === 'CASEPACK' ? t('Casepack') : t('Free'))
 const porCajaLinea = (l) => (l.regla === 'PREPACK' ? l.unidades_por_caja : l.regla === 'CASEPACK' ? l.casepack : null)
 const innersPorCaja = (l) => (porCajaLinea(l) && l.inner_pack && l.regla !== 'PREPACK' ? porCajaLinea(l) / l.inner_pack : null)
+async function guardarNumero(valor) {
+  let r
+  try {
+    r = await api.put(`/packing-lists/${props.id}/numero`, { version: pl.value.version, numero: valor })
+  } catch (e) {
+    errorApi(e)
+    throw e
+  }
+  pl.value.version = r.version
+  pl.value.numero = r.numero
+  avisar(t('Packing list number saved: {0}.', [r.numero]))
+}
 async function guardarInner(l, valor) {
   const n = valor === '' || valor === null ? null : Number(valor)
   const r = await api.put(`/packing-lists/${props.id}/lineas/${l.id}/inner`, { version: pl.value.version, inner_pack: n })
@@ -408,14 +420,18 @@ onMounted(cargar)
     <router-link :to="`/facturas/${pl.factura.id}?tab=pl`" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Invoice {0}', [pl.factura.nombre]) }}</router-link>
     <section class="doc-cabeza">
       <div class="doc-fila">
-        <span class="doc-numero">{{ tx(pl.numero) }}</span>
+        <span v-if="!editable" class="doc-numero">{{ tx(pl.numero) }}</span>
+        <CeldaEditable v-else class="doc-numero numero-editable" :valor="pl.numero" :guardar="guardarNumero"
+                       :etiqueta="t('Packing list number')" :title="t('Your own packing list number; you can change it while it is not finalized')" />
         <EstadoBadge :estado="pl.estado" />
         <span class="doc-sub">{{ tx(pl.factura.nombre) }} · {{ tx(pl.factura.proveedor) }}</span>
         <div class="doc-acciones">
-          <button class="btn btn-fantasma" :title="t('Packing list as PDF, ready to print and sign')" @click="descargar('pdf')"><Icono nombre="descargar" />PDF</button>
-          <button class="btn btn-fantasma" :title="t('Packing list as Excel')" @click="descargar('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
-          <button v-if="pl.puede.reabrir" class="btn" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">{{ t('Reopen to correct') }}</button>
-          <button v-if="pl.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">{{ t('Cancel PL') }}</button>
+          <MasOpciones>
+            <button class="btn btn-fantasma" :title="t('Packing list as PDF, ready to print and sign')" @click="descargar('pdf')"><Icono nombre="descargar" />PDF</button>
+            <button class="btn btn-fantasma" :title="t('Packing list as Excel')" @click="descargar('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
+            <button v-if="pl.puede.reabrir" class="btn" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">{{ t('Reopen to correct') }}</button>
+            <button v-if="pl.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">{{ t('Cancel PL') }}</button>
+          </MasOpciones>
           <button v-if="pl.puede.finalizar" class="btn" :class="{ 'btn-primario': listoParaFinalizar }" :disabled="ocupado" @click="listoParaFinalizar ? finalizar() : (tab = 'revision')">
             <Icono nombre="check" />{{ tx(listoParaFinalizar ? t('Finalize packing list') : t('Finalize ({0} pending)', [pl.validaciones.length])) }}
           </button>
@@ -1016,3 +1032,7 @@ onMounted(cargar)
   </Modal>
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
 </template>
+
+<style scoped>
+.numero-editable { font: inherit; font-stretch: 125%; font-weight: 780; font-size: 1.6rem; max-width: 100%; width: 16ch; }
+</style>

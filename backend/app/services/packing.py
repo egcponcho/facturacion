@@ -1,4 +1,6 @@
-from sqlalchemy import select
+import re
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -419,6 +421,26 @@ def definir_inner(db: Session, user: Usuario, pl_id: int, pl_linea_id: int, dato
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "inner_pack", {"linea": fl.codigo_sap, "inner_pack": n})
     return {"version": pl.version}
+
+
+def renombrar(db: Session, user: Usuario, pl_id: int, datos) -> dict:
+    """Número propio del packing list (el del proveedor). Único entre los PL
+    vigentes del mismo proveedor."""
+    pl = _editable(db, user, pl_id, datos.version)
+    numero = re.sub(r"\s+", " ", datos.numero).strip()
+    if not numero:
+        raise ErrorNegocio("Enter the packing list number.", 422, "validacion")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9\s._\-/#]{0,39}", numero):
+        raise ErrorNegocio("Use letters, numbers and . _ - / # (up to 40 characters).", 422, "validacion")
+    repetido = db.scalar(select(PackingList.id).join(Factura, Factura.id == PackingList.factura_id).where(
+        Factura.proveedor_id == pl.factura.proveedor_id, PackingList.id != pl.id, PackingList.estado != "CANCELADO",
+        func.lower(PackingList.numero) == numero.lower()).limit(1))
+    if repetido:
+        raise ErrorNegocio(f"Packing list {numero} already exists for this supplier.", 409, "duplicado")
+    anterior, pl.numero = pl.numero, numero
+    tocar(pl)
+    registrar(db, user, "packing_list", pl.id, "numero", {"anterior": anterior, "numero": numero}, factura_id=pl.factura_id)
+    return {"numero": pl.numero, "version": pl.version}
 
 
 def editar_pallet(db: Session, user: Usuario, pl_id: int, pallet_id: int, datos) -> dict:
@@ -855,9 +877,10 @@ def reabrir_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> di
         raise ErrorNegocio(f"{pl.numero} is already traveling on {pl.unidad.embarque.codigo}; it cannot be reopened.", 409,
                            "embarque_cerrado")
     nota = None
-    if pl.asignacion == "CONFIRMADA":
-        pl.asignacion = "TENTATIVA"
-        nota = "The load unit assignment became tentative."
+    if pl.unidad:
+        # Solo lo finalizado va en un embarque: al reabrirlo sale de la unidad de carga
+        nota = f"Removed from {pl.unidad.numero or pl.unidad.etiqueta}. Add it again once finalized."
+        pl.unidad_carga_id, pl.asignacion, pl.recolectado_en = None, None, None
     pl.estado = "EN_CORRECCION"
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "reabrir", {"nota": nota} if nota else None, motivo,

@@ -797,7 +797,7 @@ class PackingList(Base):
     __tablename__ = "packing_lists"
     id: Mapped[int] = mapped_column(primary_key=True)
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
-    numero: Mapped[str] = mapped_column(String(20))
+    numero: Mapped[str] = mapped_column(String(40))  # PL-001 por defecto; el proveedor puede poner el suyo
     estado: Mapped[str] = mapped_column(String(20), default="BORRADOR", index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     unidad_carga_id: Mapped[int | None] = mapped_column(ForeignKey("unidades_carga.id"), index=True)

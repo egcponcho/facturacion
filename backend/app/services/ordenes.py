@@ -651,7 +651,16 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
 
     if m is None:
         return d, errores
-    # Datos maestros
+    # Datos maestros. Todo queda encadenado: el proveedor trabaja con la
+    # sociedad; centro, almacén y centro destino son de esa sociedad; el
+    # artículo y su marca son del proveedor. Sin sociedad, se toma la del
+    # centro o almacén indicado.
+    if not d["sociedad"]:
+        for campo, tabla in (("centro", m.centros), ("almacen", m.almacenes), ("centro_destino", m.centros)):
+            x = tabla.get(d[campo]) if d[campo] else None
+            if x and x.sociedad:
+                d["sociedad"] = x.sociedad.codigo
+                break
     soc = m.sociedades.get(d["sociedad"])
     if d["sociedad"] and not soc:
         errores.append(f"Company {d['sociedad']} does not exist.")
@@ -667,10 +676,16 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         elif soc and alm.sociedad_id != soc.id:
             errores.append(f"Storage location {d['almacen']} does not belong to company {d['sociedad']}.")
     prov = m.proveedores.get(d["proveedor"])
-    if prov and soc and prov.sociedades and soc.id not in {x.id for x in prov.sociedades}:
-        errores.append(f"Supplier {prov.nombre} does not work with company {d['sociedad']}.")
-    if d["centro_destino"] and d["centro_destino"] not in m.centros:
+    if prov and not prov.activo:
+        errores.append(f"Supplier {prov.nombre} is inactive.")
+    if prov and soc and soc.id not in {x.id for x in prov.sociedades}:
+        errores.append(f"Supplier {prov.nombre} does not work with company {d['sociedad']}. "
+                       "Assign the company to the supplier in master data first.")
+    destino = m.centros.get(d["centro_destino"]) if d["centro_destino"] else None
+    if d["centro_destino"] and not destino:
         errores.append(f"Destination center {d['centro_destino']} is not registered in master data.")
+    elif destino and soc and destino.sociedad_id != soc.id:
+        errores.append(f"Destination center {d['centro_destino']} does not belong to company {d['sociedad']}.")
     if d["puerto_despacho"] and d["puerto_despacho"] not in m.puertos:
         errores.append(f"Port {d['puerto_despacho']} is not registered.")
     for campo in ("pais_origen", "pais_procedencia"):
@@ -683,6 +698,8 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         prov = m.proveedores.get(d["proveedor"])
         if prov and art.proveedor_id and art.proveedor_id != prov.id:
             errores.append(f"SKU {art.sku} belongs to another supplier, not {prov.nombre}.")
+        elif prov and art.marca_id not in {x.id for x in prov.marcas}:
+            errores.append(f"Brand {art.marca.codigo} of SKU {art.sku} is not a brand of {prov.nombre}.")
         if not art.activo:
             errores.append(f"SKU {art.sku} is inactive in the item master.")
         if d["unidad"] and d["unidad"] != art.unidad:
@@ -942,12 +959,14 @@ INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU
 def opciones_formulario(db: Session, user: Usuario) -> dict:
     """Listas para el formulario de OC (códigos, como en el archivo de carga)."""
     exigir(user, "oc.importar")
-    provs = db.scalars(select(Proveedor).where(*([Proveedor.id == user.proveedor_id] if user.proveedor_id else []))
+    provs = db.scalars(select(Proveedor).where(Proveedor.activo.is_(True),
+                                               *([Proveedor.id == user.proveedor_id] if user.proveedor_id else []))
                        .order_by(Proveedor.nombre)).all()
     op = lambda xs, f=lambda x: x.nombre: [{"valor": x.codigo, "texto": f"{x.codigo} · {f(x)}"} for x in xs]  # noqa: E731
     monedas = sorted({m for (m,) in db.execute(select(OrdenCompra.moneda).distinct()) if m} | {"USD", "EUR"})
     return {
-        "proveedores": op(provs),
+        # Cada proveedor lleva sus sociedades: el formulario solo ofrece esas
+        "proveedores": [{**o, "sociedades": [x.codigo for x in p.sociedades]} for o, p in zip(op(provs), provs)],
         "sociedades": op(db.scalars(select(Sociedad).order_by(Sociedad.codigo))),
         "centros": [{"valor": c.codigo, "texto": f"{c.codigo} · {c.nombre}", "sociedad": c.sociedad.codigo if c.sociedad else None}
                     for c in db.scalars(select(Centro).order_by(Centro.codigo))],

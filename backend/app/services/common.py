@@ -95,11 +95,19 @@ def permisos_fabrica(tipo: str) -> list[str]:
     return sorted(p for p, roles in _matriz().items() if tipo in roles)
 
 
-def permisos_validos(tipo: str, permisos) -> list[str]:
-    """Lo que un rol de ese tipo puede tener: el de proveedor no recibe
-    permisos de datos globales y solo el administrador administra."""
-    return sorted({p for p in permisos or [] if p in PERMISOS and (p != "admin" or tipo == "admin")
-                   and (tipo != "proveedor" or PERMISOS[p][2])})
+def alcance(permisos, proveedor_id: int | None) -> str:
+    """Qué datos ve el usuario. No lo define el rol sino el usuario: con un
+    proveedor asignado solo ve lo de ese proveedor; sin proveedor es del equipo
+    interno, y administra si su rol tiene el permiso de administración."""
+    if proveedor_id:
+        return "proveedor"
+    return "admin" if "admin" in (permisos or []) else "interno"
+
+
+def permisos_validos(permisos, proveedor_id: int | None = None) -> list[str]:
+    """Permisos que aplican: un usuario de proveedor no recibe permisos de
+    datos globales ni de administración aunque su rol los tenga."""
+    return sorted({p for p in permisos or [] if p in PERMISOS and (not proveedor_id or (PERMISOS[p][2] and p != "admin"))})
 
 
 def catalogo_permisos() -> list[dict]:
@@ -108,11 +116,10 @@ def catalogo_permisos() -> list[dict]:
 
 
 def permisos_de(user: Usuario) -> list[str]:
-    if user.rol == "admin":
-        return sorted(PERMISOS)
     r = user.rol_ref
-    if r is not None and r.activo:
-        return permisos_validos(user.rol, r.permisos)
+    if r is not None:
+        return permisos_validos(r.permisos, user.proveedor_id) if r.activo else []
+    # Usuarios sin rol asignado (datos anteriores): permisos de fábrica de su tipo
     return permisos_fabrica(user.rol)
 
 

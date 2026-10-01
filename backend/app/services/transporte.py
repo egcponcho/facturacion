@@ -547,13 +547,14 @@ def detalle_unidad(db: Session, user: Usuario, unidad_id: int) -> dict:
 def disponibles(db: Session, user: Usuario, unidad_id: int, proveedor_id: int | None = None,
                 q: str | None = None, solo_listos: bool = False) -> list[dict]:
     """PL sin unidad, agrupados por factura, para asignar completos o parciales.
-    Si el embarque ya tiene centro, solo lo que va a ese centro."""
+    Solo PL finalizados de facturas finalizadas; si el embarque ya tiene
+    centro, solo lo que va a ese centro."""
     u = _unidad(db, user, unidad_id)
     consulta = (
         select(PackingList)
         .join(Factura, Factura.id == PackingList.factura_id)
-        .where(PackingList.unidad_carga_id.is_(None), PackingList.estado != "CANCELADO",
-               Factura.estado != "CANCELADA")
+        .where(PackingList.unidad_carga_id.is_(None), PackingList.estado == "FINALIZADO",
+               Factura.estado == "FINALIZADA")
         .order_by(Factura.id, PackingList.id)
     )
     if proveedor_id:
@@ -637,9 +638,9 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
             if pl.asignacion == "CONFIRMADA" and not motivo:
                 errores.append({"pl_id": pl.id, "mensaje":
                     f"{ref} is confirmed on {anterior.numero or anterior.etiqueta}. Enter the reason to move it."})
-        if datos.modo == "CONFIRMADA" and not _listo(pl):
+        if not _listo(pl):
             errores.append({"pl_id": pl.id, "mensaje":
-                f"{ref}: to confirm, the invoice and the PL must be finalized. You can assign it as tentative."})
+                f"{ref}: only finalized invoices and packing lists go on a shipment."})
         if settings.FACTURA_EN_UNA_SOLA_UNIDAD:
             otras = {x.unidad_carga_id for x in pl.factura.packing_lists
                      if x.id not in ids and x.unidad_carga_id and x.estado != "CANCELADO"}
@@ -666,8 +667,8 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
     confirmados = 0
     for pl in pls:
         anterior = pl.unidad
-        modo = datos.modo if datos.modo != "AUTO" else ("CONFIRMADA" if _listo(pl) else "TENTATIVA")
-        confirmados += modo == "CONFIRMADA"
+        modo = "CONFIRMADA"
+        confirmados += 1
         pl.unidad = u
         pl.asignacion = modo
         registrar(db, user, "packing_list", pl.id, "asignar_unidad", {

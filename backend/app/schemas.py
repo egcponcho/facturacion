@@ -40,7 +40,6 @@ class ProveedorPatch(BaseModel):
 class RolIn(BaseModel):
     nombre: str = Field(max_length=80)
     descripcion: str | None = Field(default=None, max_length=300)
-    tipo: Literal["admin", "interno", "proveedor"]
     permisos: list[str] = []
     activo: bool = True
 
@@ -48,7 +47,6 @@ class RolIn(BaseModel):
 class RolPatch(BaseModel):
     nombre: str | None = Field(default=None, max_length=80)
     descripcion: str | None = Field(default=None, max_length=300)
-    tipo: Literal["admin", "interno", "proveedor"] | None = None
     permisos: list[str] | None = None
     activo: bool | None = None
 
@@ -223,6 +221,11 @@ class EditarCajas(ValoresCaja):
     num_cajas: int | None = Field(default=None, gt=0)
     desde_plantilla_id: int | None = None
     confirmar_pesos: bool = False
+
+
+class PLNumeroIn(BaseModel):
+    version: int | None = None
+    numero: str = Field(min_length=1, max_length=40)
 
 
 class InnerPackIn(BaseModel):

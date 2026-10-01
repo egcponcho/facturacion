@@ -356,10 +356,12 @@ const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.c
         <EstadoBadge :estado="f.estado" />
         <span v-if="f.lista_transporte && confirmados < plsActivos.length" class="etiqueta ok"><Icono nombre="check" :tam="12" />{{ t('Ready to ship') }}</span>
         <div class="doc-acciones">
-          <button class="btn btn-fantasma" :title="t('Commercial invoice as PDF, ready to print and sign')" @click="descargar(`/facturas/${f.id}/exportar?formato=pdf`, 'invoice.pdf')"><Icono nombre="descargar" />PDF</button>
-          <button class="btn btn-fantasma" :title="t('Commercial invoice as Excel')" @click="descargar(`/facturas/${f.id}/exportar?formato=xlsx`, 'invoice.xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
-          <button v-if="f.puede.reabrir" class="btn" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">{{ t('Reopen to correct') }}</button>
-          <button v-if="f.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">{{ t('Cancel invoice') }}</button>
+          <MasOpciones>
+            <button class="btn btn-fantasma" :title="t('Commercial invoice as PDF, ready to print and sign')" @click="descargar(`/facturas/${f.id}/exportar?formato=pdf`, 'invoice.pdf')"><Icono nombre="descargar" />PDF</button>
+            <button class="btn btn-fantasma" :title="t('Commercial invoice as Excel')" @click="descargar(`/facturas/${f.id}/exportar?formato=xlsx`, 'invoice.xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
+            <button v-if="f.puede.reabrir" class="btn" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">{{ t('Reopen to correct') }}</button>
+            <button v-if="f.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">{{ t('Cancel invoice') }}</button>
+          </MasOpciones>
           <button v-if="f.puede.finalizar" :class="['btn', accionPrincipal === 'finalizar' ? 'btn-primario' : '']" :disabled="ocupado" @click="abrirFinalizar">
             <Icono nombre="check" />{{ t('Finalize') }}
           </button>

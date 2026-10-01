@@ -21,7 +21,9 @@ from ..models import (
     Contacto,
     GrupoArticulo,
     Marca,
+    OrdenCompra,
     Pais,
+    PosicionOC,
     Prepack,
     PrepackComponente,
     Proveedor,
@@ -576,9 +578,13 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                                 f"{', '.join(nombres[k] for k in distintos)}. Use another generic."})
     if cat["modelo"] is Articulo and final.get("proveedor_id") and final.get("marca_id"):
         prov = db.get(Proveedor, final["proveedor_id"])
-        if prov and prov.marcas and final["marca_id"] not in {m.id for m in prov.marcas}:
+        if prov and final["marca_id"] not in {m.id for m in prov.marcas}:
             errores.append({"campo": "marca_id", "mensaje":
-                            f"The brand does not belong to {prov.nombre}; its brands are {', '.join(m.codigo for m in prov.marcas)}."})
+                            f"The brand does not belong to {prov.nombre}; its brands are {', '.join(m.codigo for m in prov.marcas)}."
+                            if prov.marcas else f"{prov.nombre} has no brands yet: assign them in Suppliers first."})
+    if cat["modelo"] is Articulo and actual and "proveedor_id" in limpio and limpio["proveedor_id"] != actual.proveedor_id \
+            and db.scalar(select(PosicionOC.id).where(PosicionOC.articulo_id == actual.id).limit(1)):
+        errores.append({"campo": "proveedor_id", "mensaje": "The item is on purchase orders: its supplier cannot change."})
     if cat["modelo"] is Proveedor and actual and "marcas" in limpio:
         quedan = {m.id for m in limpio["marcas"]}
         usadas = {m for (m,) in db.execute(select(Articulo.marca_id).where(Articulo.proveedor_id == actual.id).distinct())}
@@ -586,8 +592,27 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             nombres_m = [m.codigo for m in db.scalars(select(Marca).where(Marca.id.in_(usadas - quedan)))]
             errores.append({"campo": "marcas", "mensaje":
                             f"The supplier has items of {', '.join(nombres_m)}: those brands cannot be removed."})
+    if cat["modelo"] is Proveedor and actual and "sociedades" in limpio:
+        quedan = {x.codigo for x in limpio["sociedades"]}
+        usadas = {c for (c,) in db.execute(select(OrdenCompra.sociedad).where(
+            OrdenCompra.proveedor_id == actual.id, OrdenCompra.sociedad.is_not(None)).distinct())}
+        if usadas - quedan:
+            errores.append({"campo": "sociedades", "mensaje":
+                            f"The supplier has purchase orders with {', '.join(sorted(usadas - quedan))}: "
+                            "those companies cannot be removed."})
     if cat["modelo"] is Contacto and not final.get("sociedad_id") and not final.get("centro_id"):
         errores.append({"campo": "sociedad_id", "mensaje": "Enter the contact's company or plant."})
+    if cat["modelo"] is Contacto and final.get("sociedad_id") and final.get("centro_id"):
+        cen = db.get(Centro, final["centro_id"])
+        if cen and cen.sociedad_id != final["sociedad_id"]:
+            errores.append({"campo": "centro_id", "mensaje": f"Plant {cen.codigo} does not belong to that company."})
+    if cat["modelo"] in (Centro, Almacen) and actual and "sociedad_id" in limpio and limpio["sociedad_id"] != actual.sociedad_id:
+        campo_oc = OrdenCompra.centro_destino if cat["modelo"] is Centro else None
+        en_uso = db.scalar(select(OrdenCompra.id).where(
+            (OrdenCompra.centro == actual.codigo) | (campo_oc == actual.codigo) if campo_oc is not None
+            else OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.almacen == actual.codigo))).limit(1))
+        if en_uso:
+            errores.append({"campo": "sociedad_id", "mensaje": "It is used on purchase orders: its company cannot change."})
     if cat["modelo"] is Prepack and actual:
         fijos = [c for c in ("codigo", "estilo", "color") if c in limpio and limpio[c] != getattr(actual, c)]
         if fijos:

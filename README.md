@@ -67,7 +67,7 @@ The demo does not send real SMS: the sign-in screen shows the verification code 
 - **Restricted routes:** every API route requires a session and checks the role's permissions (suppliers only see their own documents and get 404 for anyone else's). The UI hides and blocks the pages a role cannot use. Changes with the cookie require the `X-Requested-With` header (CSRF protection).
 - **Security headers:** CSP, `X-Frame-Options: DENY`, `nosniff`, strict referrer policy and HSTS behind HTTPS.
 - **Users** (*Users and access*, administrator): each user has a role, a registered mobile in international format (`+50370001234`) and two-step verification on or off.
-- **Roles and access:** besides the built-in roles (Administrator, Internal team, Supplier) the administrator creates roles and ticks, module by module, what they can do: see, create, edit, delete and each module's own actions (import POs, finalize or reopen invoices and packing lists, classify and approve sheets, manage shipments, see tracking, edit the tariff schedule, master data…). A role's type decides what data it sees: a supplier role only ever sees its own supplier's documents and cannot receive permissions over global data. Changes apply at once to every user with that role; the menu and the buttons follow the permissions and the server enforces them. Built-in roles cannot be deleted, and a role with users cannot be deleted or change type.
+- **Roles and access:** roles are free: the administrator creates each one with a **name, a description and the permissions** ticked module by module (see, create, edit, delete and each module's own actions: import POs, finalize or reopen invoices and packing lists, classify and approve sheets, manage shipments, see tracking, edit the tariff schedule, master data, administration…), edits them at any time and assigns them to users. There are no fixed role types: three starter roles (Administrator, Internal team, Supplier) are created as a starting point and can be edited or deleted like any other. **What data a user sees depends on the user, not the role:** a user with a supplier assigned only sees that supplier's documents, and the role's permissions over global data or administration do not apply to them (the role form marks them *Internal users only*). Changes apply at once; the menu and the buttons follow the permissions and the server enforces them. A role with users cannot be deleted, and the system never lets the last active administrator lose the administration permission.
 
 To send real SMS set `SMS_PROVEEDOR=twilio` with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM`. With the default `consola` provider the message goes to the server log, and only in demo mode (`SEED_DEMO=1`) is the code also shown on screen.
 
@@ -80,7 +80,7 @@ The demo data already has history: invoices from past months, a received contain
 3. In the invoice, the steps at the top say what is missing. Click **Pack pending**: it creates the packing list with everything and opens it.
 4. In *To pack*, click **Auto-pack**. Lines with a casepack are packed with that exact quantity per carton, lines with an inner pack in whole inner packs, and the rest with the suggested template. The remainder that does not fill a carton goes to a partial carton with estimated weight (or stays unpacked).
 5. In *Review*, check the contents **by destination** and the **suggested load units**, **Confirm estimates** and **Finalize packing list**. Back in the invoice, enter number and date and click **Finalize**.
-6. Sign in as **interno@demo.com**, open *Shipments* → EMB-0003, choose 40HC #1 and click **Assign cargo**: the panel suggests the load units for the selected volume and weight. Assign it; what is already finalized is confirmed in the same step. Then **Record departure**.
+6. Sign in as **interno@demo.com**, open *Shipments* → EMB-0003, choose 40HC #1 and click **Assign cargo**: the panel suggests the load units for the selected volume and weight. Only finalized invoices and packing lists are offered. Then **Record departure**.
 7. Open **Products** (as interno@demo.com). *Ready to approve* has the Vans Authentic White: the classification panel shows the suggested HS code 6404.19, why, and the national code for each destination country. Click **Approve**. From then on its PO lines show 6404.19.90.00 (El Salvador) and invoices take it automatically. As tnf@demo.com, the *Summit blue* jacket was returned with notes: fill in the outer fabric composition and save it; it goes back to review.
 8. *Tracking* shows each PO (and, when opened, each SKU by stage), and each shipment with its units, with the margin against the in-store date. Everything downloads as PDF or Excel. *Master data* holds all catalogs.
 
@@ -190,12 +190,26 @@ Required columns: `supplier, po, po_line, sku, quantity`. Optional: `unit_price,
 
 Codes are kept as text to preserve leading zeros; format those columns as text in Excel before exporting.
 
+## Data consistency
+
+Master data and documents stay chained, both in the PO file and in the PO form:
+
+- A supplier only works with **its companies** (*Master data → Suppliers*): a PO for another company is rejected, and the form only offers those companies and, from them, their plants, storage locations and destination centers. Without a company, the PO takes the one of its plant, storage location or destination center.
+- Plant, storage location and destination center must belong to the PO company; the item must belong to the PO supplier and its brand must be one of the supplier's brands; inactive suppliers and items are rejected.
+- An item's brand must be one of its supplier's brands; an item on POs cannot change supplier; a supplier cannot lose a company or a brand it already uses; a plant or storage location used on POs cannot change company; a contact's plant must belong to its company.
+- An invoice only takes lines of one supplier (and of compatible POs); a shipment arrives at one plant and its carrier must work with that company.
+
+## Packing list number
+
+Each packing list gets `PL-001`, `PL-002`… by default, and the supplier can type **its own number** (up to 40 characters: letters, numbers and `. _ - / #`) in the packing list header while it is in draft or under correction. It must be unique among the supplier's active packing lists.
+
 ## Shipments
 
 **Status against the in-store date.** Each load unit and shipment estimates its in-store date from the actual arrival, or the ETA, or the departure (actual or ETD) plus the transit time, plus the post-arrival lead times of the destination and the extra days of the product group (*Master data → Item groups → Extra days*, e.g. for products that need labeling or inspection). It is compared with the earliest in-store date of its POs: **On time**, **At risk** (slack below `DIAS_MARGEN_RIESGO`, 7 days by default) or **Late**. A shipment takes the worst status of its units.
 
 - **Everything follows the mode:** an ocean shipment only offers sea ports, shipping lines and containers; air, airports, airlines and air waybills; road, borders, road carriers and trucks. The **service belongs to each unit**, so an ocean shipment can be FCL, LCL or mixed.
-- While **planned**, units and cargo can be added, confirmed, moved or removed. At **departure** the load is closed.
+- **Only finalized documents travel:** a load unit only accepts packing lists that are finalized and whose invoice is finalized; the assignment panel lists only those. Reopening an invoice or a packing list that is on a planned unit takes it off the unit (it is added again once finalized); after departure they can no longer be reopened.
+- While **planned**, units and cargo can be added, moved or removed. At **departure** the load is closed.
 - Events follow the status order (pickup → departure → transit → arrival → release → delivery → receipt); no future dates or dates before the last event.
 - Cargo cannot exceed a unit's nominal capacity. Each shipment arrives at a single plant.
 
@@ -272,6 +286,7 @@ The interface adapts to large monitors, laptops, tablets and phones instead of o
 - **Filters:** on phones the search stays visible and the other filters and secondary actions open from a **Filters** button that shows how many are active (`v-filtros`).
 - **Tables:** on tablets, columns marked secondary (`<th class="col-sec">`) are hidden; on phones each row becomes a **card** with the column name next to each value (`v-tarjetas`).
 - **Header:** on phones the language, theme, password and sign-out move into the menu.
+- **More options:** on phones, secondary actions (PDF and Excel downloads, uploads, reopen, cancel…) go into a **More options** menu, leaving the main action visible. *Master data* replaces its 16 tabs with a catalog selector.
 - **Contextual:** filters with a single possible value (one company, one brand…) are not shown.
 
 ## Languages

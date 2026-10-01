@@ -608,10 +608,21 @@ def reabrir(db: Session, user: Usuario, factura_id: int, motivo: str | None) -> 
     f = cargar_factura(db, user, factura_id, bloquear=True)
     if f.estado != "FINALIZADA":
         raise ErrorNegocio("Only finalized invoices can be reopened.", 409, "no_editable")
+    viajando = [pl.numero for pl in f.packing_lists if pl.unidad and pl.unidad.embarque.estado != "PLANIFICADO"]
+    if viajando:
+        raise ErrorNegocio(f"Its packing lists are already traveling: {', '.join(viajando)}. It cannot be reopened.",
+                           409, "embarque_cerrado")
+    # Solo lo finalizado va en un embarque: al reabrirla, sus PL salen de la unidad de carga
+    quitados = []
+    for pl in f.packing_lists:
+        if pl.unidad_carga_id and pl.estado != "CANCELADO":
+            quitados.append(f"{pl.numero} ({pl.unidad.numero or pl.unidad.etiqueta})")
+            pl.unidad_carga_id, pl.asignacion, pl.recolectado_en = None, None, None
     f.estado = "EN_CORRECCION"
     tocar(f)
-    registrar(db, user, "factura", f.id, "reabrir", None, motivo, factura_id=f.id)
-    return {"estado": f.estado, "version": f.version}
+    nota = f"Removed from their load unit: {', '.join(quitados)}. Add them again once finalized." if quitados else None
+    registrar(db, user, "factura", f.id, "reabrir", {"nota": nota} if nota else None, motivo, factura_id=f.id)
+    return {"estado": f.estado, "version": f.version, "nota": nota}
 
 
 def cancelar(db: Session, user: Usuario, factura_id: int, motivo: str | None) -> dict:

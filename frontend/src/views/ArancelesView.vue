@@ -590,6 +590,11 @@ watch(() => fs.size, recargarS)
 .cond { font-size: 0.84rem; color: var(--tinta-2); min-width: 200px; }
 tr.apagada td { opacity: 0.6; }
 .paises-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+@media (max-width: 720px) {
+  .paises-resumen { display: grid; grid-template-columns: 1fr 1fr; }
+  .pais-tarjeta { min-width: 0; }
+  .paises-grid { grid-template-columns: minmax(0, 1fr); }
+}
 .paises-grid .panel + .panel { margin-top: 0; }
 .pais-panel.inactivo { opacity: 0.65; }
 .conds { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px 14px; margin-top: 8px; }

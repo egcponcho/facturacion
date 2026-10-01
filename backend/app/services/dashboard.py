@@ -395,15 +395,13 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None, desde
     if interno:
         sin_unidad = [pl for f in facturas for pl in f.packing_lists
                       if pl.estado == "FINALIZADO" and not pl.unidad_carga_id]
-        tentativas = [pl for f in facturas for pl in f.packing_lists
-                      if pl.asignacion == "TENTATIVA" and pl.estado != "CANCELADO"]
         kpis += [
             {"clave": "listas", "titulo": "Ready to ship", "valor": len(listas),
              "detalle": f"{len(sin_unidad)} PLs without container", "ruta": "/facturas",
              "query": {"vista": "lista_transporte"}, "tono": "exito" if listas else "normal"},
-            {"clave": "tentativas", "titulo": "Tentative to confirm", "valor": len(tentativas),
-             "detalle": "container assignments", "ruta": "/transporte", "query": {"estado": "PLANIFICADO"},
-             "tono": "alerta" if tentativas else "normal"},
+            {"clave": "sin_contenedor", "titulo": "Finalized without container", "valor": len(sin_unidad),
+             "detalle": "packing lists to load", "ruta": "/transporte", "query": {"estado": "PLANIFICADO"},
+             "tono": "alerta" if sin_unidad else "normal"},
         ]
     kpis.append({"clave": "en_camino", "titulo": "Shipments on the way", "valor": len(en_camino),
                  "formato": "numero", "detalle": f"next arrival {proximo:%b %d}" if proximo else "no upcoming arrivals",

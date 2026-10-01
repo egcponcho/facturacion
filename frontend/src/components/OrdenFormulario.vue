@@ -32,8 +32,20 @@ onMounted(async () => {
 watch(() => cab.proveedor, async (p) => {
   articulos.value = p ? await api.get('/ordenes/formulario/articulos', { proveedor: p }) : []
 })
-const centros = computed(() => (op.value?.centros || []).filter((c) => !cab.sociedad || c.sociedad === cab.sociedad))
-const almacenes = computed(() => (op.value?.almacenes || []).filter((a) => !cab.sociedad || a.sociedad === cab.sociedad))
+// Solo lo coherente con el proveedor: sus sociedades y, de ellas, centros y almacenes
+const socsProveedor = computed(() => op.value?.proveedores.find((p) => p.valor === cab.proveedor)?.sociedades || [])
+const sociedades = computed(() => (op.value?.sociedades || []).filter((x) => socsProveedor.value.includes(x.valor)))
+const permitida = (soc) => (cab.sociedad ? soc === cab.sociedad : socsProveedor.value.includes(soc))
+const centros = computed(() => (op.value?.centros || []).filter((c) => permitida(c.sociedad)))
+const almacenes = computed(() => (op.value?.almacenes || []).filter((a) => permitida(a.sociedad)))
+watch(() => cab.proveedor, () => {
+  if (cab.sociedad && !socsProveedor.value.includes(cab.sociedad)) cab.sociedad = ''
+  if (sociedades.value.length === 1) cab.sociedad = sociedades.value[0].valor
+})
+watch(() => cab.sociedad, () => {
+  for (const k of ['centro', 'centro_destino']) if (cab[k] && !centros.value.some((c) => c.valor === cab[k])) cab[k] = ''
+  lineas.value.forEach((l) => { if (l.almacen && !almacenes.value.some((a) => a.valor === l.almacen)) l.almacen = '' })
+})
 const artDe = (sku) => articulos.value.find((a) => a.valor === sku)
 const esPrepack = (l) => artDe(l.codigo_sap)?.tipo === 'PREPACK'
 const unidadTxt = (l) => ({ PAR: t('pairs'), UN: t('units'), CJ: t('prepack cartons') }[artDe(l.codigo_sap)?.unidad] || '')
@@ -71,7 +83,8 @@ async function guardar() {
           <SelectBusqueda v-model="cab.proveedor" :opciones="op?.proveedores || []" :etiqueta="t('Supplier')" requerido /></div>
         <label class="campo"><span class="req">{{ t('PO number') }}</span><input v-model="cab.oc" class="entrada" maxlength="40" required /></label>
         <div class="campo"><span>{{ t('Company (bill to)') }}</span>
-          <SelectBusqueda v-model="cab.sociedad" :opciones="op?.sociedades || []" :vacio="t('Not defined')" :etiqueta="t('Company (bill to)')" /></div>
+          <SelectBusqueda v-model="cab.sociedad" :opciones="sociedades" :vacio="t('Not defined')" :etiqueta="t('Company (bill to)')" /></div>
+        <p v-if="cab.proveedor && !sociedades.length" class="nota aviso bloque campo-ancho">{{ t('This supplier has no companies assigned. Assign them in Master data → Suppliers.') }}</p>
         <div class="campo"><span>{{ t('Destination plant') }}</span>
           <SelectBusqueda v-model="cab.centro_destino" :opciones="centros" :vacio="t('Not defined')" :etiqueta="t('Destination plant')" /></div>
         <div class="campo"><span>{{ t('Currency') }}</span>

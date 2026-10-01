@@ -897,6 +897,15 @@ th.num .orden-btn { flex-direction: row-reverse; }
   .tabla.tarjetas > * > tr > td::before { content: attr(data-label); float: inline-start; width: 40%; padding-inline-end: 10px; padding-top: 2px;
     color: var(--tinta-3); font-size: 0.72rem; font-weight: 620; letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.25; }
   .tabla.tarjetas > * > tr > td[data-label='']::before { content: none; }
+  /* El rótulo no se parte a media palabra; el fondo de selección o hover va en la tarjeta, no en cada celda */
+  .tabla.tarjetas > * > tr > td::before { overflow-wrap: normal; word-break: normal; hyphens: auto; }
+  .tabla.tarjetas > * > tr > td { background: transparent !important; min-width: 0 !important; max-width: none !important; width: auto !important; }
+  .tabla.tarjetas > tbody > tr.seleccionada { background: var(--acento-claro); }
+  .tabla.tarjetas > tbody > tr:hover { background: transparent; }
+  .tabla.tarjetas > * > tr > td > * { max-width: 100%; }
+  /* Campos editables junto a su rótulo, no debajo */
+  .tabla.tarjetas > * > tr > td:not([data-label='']) > :is(.celda, input:not([type='checkbox']):not([type='radio']), select, .sb) {
+    display: inline-block; width: calc(60% - 10px); vertical-align: middle; }
   .tabla.tarjetas > tfoot > tr > td { flex: 1 1 auto; }
   .tabla.tarjetas > * > tr > td.chk { flex: 0 0 auto; }
   .tabla.tarjetas > * > tr > td.chk::before { content: none; }
@@ -908,8 +917,42 @@ th.num .orden-btn { flex-direction: row-reverse; }
   .tabla.tarjetas td.chk { width: auto; }
 }
 .nav-movil-extra { display: none; }
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .solo-escritorio { display: none !important; }
   .nav-movil.abierta .nav-movil-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--linea); }
   .nav-movil-extra .nav-link { flex: 1 1 100%; background: none; font: inherit; color: inherit; text-align: start; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+}
+
+/* ---- «Más opciones» y vistas solo celular/escritorio ------------------- */
+.mas-opciones { display: contents; }
+.mas-toggle { display: none !important; }
+.mas-menu { display: contents; }
+.solo-movil { display: none !important; }
+.selector-catalogo { flex-direction: column; gap: 4px; margin-bottom: 14px; font-size: 0.8rem; font-weight: 620; color: var(--tinta-2); }
+@media (max-width: 900px) { .solo-movil { display: flex !important; } }
+@media (max-width: 720px) {
+  .mas-opciones { display: block; position: relative; }
+  .mas-toggle { display: inline-flex !important; }
+  .mas-menu { display: none; }
+  .mas-opciones.abierto .mas-menu { display: flex; flex-direction: column; align-items: stretch; gap: 4px; position: absolute; z-index: 30;
+    inset-inline-start: 0; top: calc(100% + 6px); width: max-content; min-width: 100%; max-width: calc(100vw - 32px); padding: 6px;
+    background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); box-shadow: var(--sombra-alta, var(--sombra)); }
+  .mas-opciones.al-final .mas-menu { inset-inline-start: auto; inset-inline-end: 0; }
+  .mas-opciones.abierto .mas-menu .acciones-exportar { display: flex; flex-direction: column; }
+  .mas-opciones.abierto .mas-menu > *, .mas-opciones.abierto .mas-menu .btn { width: 100%; justify-content: flex-start; }
+  .mas-opciones.abierto .mas-menu > * { display: flex; flex-direction: column; gap: 4px; }
+  .mas-opciones.abierto .mas-menu > .btn { flex-direction: row; }
+  .pagina-cabeza .acciones > .mas-opciones { flex: 1 1 auto; }
+  .pagina-cabeza .acciones > .mas-opciones > .mas-toggle { width: 100%; justify-content: center; }
+}
+
+/* ---- Celular: nada más ancho que la pantalla ---------------------------- */
+.tp-linea, .tp-contactos, .tp-correo, .doc-meta, .doc-sub, .nota { overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  .empaque-resumen { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .empaque-resumen > :first-child { grid-column: 1 / -1; }
+  .partes { grid-template-columns: minmax(0, 1fr); }
+  .doc-cabeza { padding: 16px; }
+  .doc-numero { font-size: 1.45rem; overflow-wrap: anywhere; }
+  .modal .rejilla-campos, .rejilla-campos { grid-template-columns: minmax(0, 1fr); }
 }
