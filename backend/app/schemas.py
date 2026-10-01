@@ -580,3 +580,19 @@ class GenericoEditIn(BaseModel):
     grupo_id: int
     proveedor_id: int
     unidad: str = Field(max_length=5)
+
+
+# ---- Capa oficial del arancel -------------------------------------------------
+class CapitulosPatch(BaseModel):
+    ids: list[int] = Field(min_length=1)
+    activo: bool | None = None
+    clasificacion: bool | None = None
+    candidato_auto: bool | None = None
+    solo_manual: bool | None = None
+    archivado: bool | None = None
+
+
+class DominioCapituloIn(BaseModel):
+    relevancia: str | None = None
+    habilitado: bool | None = None
+    quitar: bool = False

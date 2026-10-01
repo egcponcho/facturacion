@@ -1,0 +1,382 @@
+"""Capa oficial del arancel: fuentes, versiones de datos, países (esquema de
+código), control de capítulos y dominios de clasificación.
+
+Se carga desde los paquetes Excel oficiales (hojas Sources, Countries,
+Versions, Chapter_Control, Domain_Chapter_Map, Domains). La carga es
+idempotente: actualiza por clave natural (código de fuente, ISO, código de
+versión, capítulo, dominio) y nunca borra lo que ya existe.
+"""
+import io
+import re
+from datetime import date, datetime
+from pathlib import Path
+
+from openpyxl import load_workbook
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from ..models import (
+    ControlCapitulo,
+    DominioCapitulo,
+    DominioClasificacion,
+    FuenteOficial,
+    PaisArancel,
+    Usuario,
+    VersionDataset,
+    ahora,
+)
+from .common import ErrorNegocio, exigir, filtro_texto, registrar
+from .plantillas import norm
+
+CARPETA = Path(__file__).resolve().parent.parent / "data" / "oficial"
+# El motor (02) trae los dominios que el paquete oficial (01) relaciona con capítulos
+PAQUETES = ["02_carga_motor_dinamico_v3.xlsx", "01_carga_oficial_catalogos_v3.xlsx"]
+ESTADOS_VERSION = {"PUBLISHED": "PUBLICADA", "PUBLICADA": "PUBLICADA", "DYNAMIC": "DINAMICA", "DINAMICA": "DINAMICA",
+                   "DRAFT": "BORRADOR", "BORRADOR": "BORRADOR", "ARCHIVED": "ARCHIVADA", "ARCHIVADA": "ARCHIVADA"}
+
+
+# ---- Lectura -----------------------------------------------------------------
+def _hojas(contenido: bytes) -> dict[str, list[dict]]:
+    """Cada hoja como lista de filas {encabezado normalizado: valor}."""
+    try:
+        wb = load_workbook(io.BytesIO(contenido), read_only=True, data_only=True)
+    except Exception:
+        raise ErrorNegocio("The file could not be read. Use the Excel (.xlsx) package.", 422, "archivo_invalido") from None
+    out = {}
+    for ws in wb.worksheets:
+        filas = list(ws.iter_rows(values_only=True))
+        if not filas:
+            continue
+        enc = [norm(c) if c is not None else "" for c in filas[0]]
+        datos = []
+        for i, f in enumerate(filas[1:], start=2):
+            if not any(v not in (None, "") for v in f):
+                continue
+            d = {enc[j]: f[j] for j in range(min(len(enc), len(f))) if enc[j]}
+            d["_fila"] = i
+            datos.append(d)
+        out[ws.title] = datos
+    return out
+
+
+def _txt(v) -> str | None:
+    if v is None:
+        return None
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    t = re.sub(r"\s+", " ", str(v)).strip()
+    return t or None
+
+
+def _si(v) -> bool:
+    return str(v or "").strip().lower() in ("yes", "si", "sí", "true", "1", "y", "x")
+
+
+def _fecha(v) -> date | None:
+    if isinstance(v, datetime):
+        return v.date()
+    if isinstance(v, date):
+        return v
+    t = _txt(v)
+    if not t:
+        return None
+    try:
+        return date.fromisoformat(t[:10])
+    except ValueError:
+        raise ValueError(f"invalid date {t}") from None
+
+
+def _capitulo(v) -> str | None:
+    t = _txt(v)
+    if not t or not re.fullmatch(r"\d{1,2}", t):
+        return None
+    return t.zfill(2)
+
+
+# ---- Carga ---------------------------------------------------------------------
+def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nombre: str = "") -> dict:
+    """Carga las hojas reconocidas del paquete. Devuelve lo creado/actualizado
+    por hoja y los errores fila por fila (las filas con error no se cargan)."""
+    hojas = _hojas(contenido)
+    res: dict[str, dict] = {}
+    errores: list[dict] = []
+
+    def cuenta(hoja, creado):
+        r = res.setdefault(hoja, {"creados": 0, "actualizados": 0})
+        r["creados" if creado else "actualizados"] += 1
+
+    for hoja in ("Sources", "Versions", "Countries", "Chapter_Control", "Domains", "Domain_Chapter_Map"):
+        if hoja in hojas:
+            res[hoja] = {"creados": 0, "actualizados": 0}
+
+    def error(hoja, fila, msg):
+        errores.append({"fila": f"{hoja} {fila}", "mensaje": msg})
+
+    # Fuentes
+    for f in hojas.get("Sources", []):
+        cod = _txt(f.get("source_id"))
+        if not cod:
+            error("Sources", f["_fila"], "Source ID is required.")
+            continue
+        x = db.scalar(select(FuenteOficial).where(FuenteOficial.codigo == cod))
+        nuevo = x is None
+        x = x or FuenteOficial(codigo=cod)
+        x.ambito = _txt(f.get("country_region")) or "REGIONAL"
+        x.autoridad = _txt(f.get("authority")) or cod
+        x.dataset = _txt(f.get("official_dataset")) or cod
+        x.uso, x.url = _txt(f.get("use")), _txt(f.get("official_url"))
+        x.acceso, x.autenticacion = _txt(f.get("access_mode")), _txt(f.get("authentication"))
+        x.nota_version, x.verificacion = _txt(f.get("version_status_note")), _txt(f.get("verification"))
+        db.add(x)
+        cuenta("Sources", nuevo)
+    db.flush()
+    fuentes = {x.codigo: x for x in db.scalars(select(FuenteOficial))}
+
+    # Versiones
+    for f in hojas.get("Versions", []):
+        cod = _txt(f.get("version_id"))
+        src = _txt(f.get("source_id"))
+        if not cod:
+            error("Versions", f["_fila"], "Version ID is required.")
+            continue
+        if src and src not in fuentes:
+            error("Versions", f["_fila"], f"Source {src} does not exist.")
+            continue
+        try:
+            desde, hasta = _fecha(f.get("valid_from")), _fecha(f.get("valid_to"))
+        except ValueError as e:
+            error("Versions", f["_fila"], str(e))
+            continue
+        if desde and hasta and hasta < desde:
+            error("Versions", f["_fila"], "Valid to must be on or after valid from.")
+            continue
+        x = db.scalar(select(VersionDataset).where(VersionDataset.codigo == cod))
+        nuevo = x is None
+        x = x or VersionDataset(codigo=cod)
+        x.dataset = _txt(f.get("dataset")) or cod
+        x.etiqueta = _txt(f.get("version_label")) or cod
+        x.estado = ESTADOS_VERSION.get((_txt(f.get("status")) or "").upper(), "BORRADOR")
+        x.vigente_desde, x.vigente_hasta = desde, hasta
+        x.fuente = fuentes.get(src)
+        x.nota = _txt(f.get("notes"))
+        x.importado_en = ahora()
+        db.add(x)
+        cuenta("Versions", nuevo)
+    db.flush()
+    versiones = {x.codigo: x for x in db.scalars(select(VersionDataset))}
+
+    # Países: esquema de código configurable (sin longitud fija)
+    for f in hojas.get("Countries", []):
+        iso = (_txt(f.get("iso")) or "").upper()
+        if not re.fullmatch(r"[A-Z]{2}", iso):
+            error("Countries", f["_fila"], "ISO must be 2 letters.")
+            continue
+        x = db.scalar(select(PaisArancel).where(PaisArancel.iso == iso))
+        nuevo = x is None
+        if nuevo:
+            x = PaisArancel(iso=iso, digitos=10, orden=(db.scalar(select(func.max(PaisArancel.orden))) or 0) + 1)
+        x.nombre = _txt(f.get("country")) or x.nombre or iso
+        x.contexto = _txt(f.get("integration_context"))
+        x.modelo_arancel = _txt(f.get("tariff_model"))
+        largo = _txt(f.get("national_code_length")) or ""
+        if re.fullmatch(r"\d+(\s*,\s*\d+)*", largo):
+            x.longitudes = ",".join(p.strip() for p in largo.split(","))
+        src = _txt(f.get("primary_source"))
+        if src and src in fuentes:
+            x.fuente_id = fuentes[src].id
+        x.nota = _txt(f.get("implementation_note")) or x.nota
+        if f.get("active") is not None:
+            x.activo = _si(f.get("active"))
+        db.add(x)
+        cuenta("Countries", nuevo)
+
+    # Control de capítulos
+    for f in hojas.get("Chapter_Control", []):
+        cap = _capitulo(f.get("chapter"))
+        if not cap:
+            error("Chapter_Control", f["_fila"], "Chapter must be 2 digits.")
+            continue
+        ver = _txt(f.get("version"))
+        if ver and ver not in versiones:
+            error("Chapter_Control", f["_fila"], f"Version {ver} does not exist.")
+            continue
+        x = db.scalar(select(ControlCapitulo).where(ControlCapitulo.capitulo == cap))
+        nuevo = x is None
+        x = x or ControlCapitulo(capitulo=cap)
+        x.seccion = _txt(f.get("section"))
+        x.titulo = _txt(f.get("official_working_title")) or f"Chapter {cap}"
+        x.activo, x.clasificacion = _si(f.get("active")), _si(f.get("classification_enabled"))
+        x.candidato_auto, x.solo_manual = _si(f.get("auto_candidate")), _si(f.get("manual_only"))
+        x.archivado = _si(f.get("archived"))
+        x.alcance = _txt(f.get("initial_scope"))
+        x.version_id = versiones[ver].id if ver else None
+        src = _txt(f.get("source_id"))
+        x.fuente_id = fuentes[src].id if src in fuentes else None
+        x.nota = _txt(f.get("notes"))
+        db.add(x)
+        cuenta("Chapter_Control", nuevo)
+
+    # Dominios
+    for i, f in enumerate(hojas.get("Domains", [])):
+        cod = (_txt(f.get("domain_code")) or "").upper()
+        if not cod:
+            error("Domains", f["_fila"], "Domain code is required.")
+            continue
+        x = db.scalar(select(DominioClasificacion).where(DominioClasificacion.codigo == cod))
+        nuevo = x is None
+        x = x or DominioClasificacion(codigo=cod, orden=(i + 1) * 10)
+        x.nombre = _txt(f.get("label")) or cod
+        x.descripcion = _txt(f.get("description"))
+        x.modo = (_txt(f.get("default_mode")) or "AUTO").upper()
+        x.activo = _si(f.get("active")) if f.get("active") is not None else True
+        db.add(x)
+        cuenta("Domains", nuevo)
+    db.flush()
+    dominios = {x.codigo: x for x in db.scalars(select(DominioClasificacion))}
+
+    for f in hojas.get("Domain_Chapter_Map", []):
+        dom = (_txt(f.get("domain")) or "").upper()
+        cap = _capitulo(f.get("chapter"))
+        if dom not in dominios or not cap:
+            error("Domain_Chapter_Map", f["_fila"], f"Domain {dom or '(empty)'} or chapter does not exist.")
+            continue
+        d = dominios[dom]
+        x = db.scalar(select(DominioCapitulo).where(DominioCapitulo.dominio_id == d.id, DominioCapitulo.capitulo == cap))
+        nuevo = x is None
+        x = x or DominioCapitulo(dominio=d, capitulo=cap)
+        x.relevancia = "SECONDARY" if (_txt(f.get("relevance")) or "").upper().startswith("SEC") else "PRIMARY"
+        x.habilitado = _si(f.get("enabled_initially")) if f.get("enabled_initially") is not None else True
+        x.proposito = _txt(f.get("purpose"))
+        db.add(x)
+        cuenta("Domain_Chapter_Map", nuevo)
+    db.flush()
+    if not res:
+        raise ErrorNegocio("No known sheet was found (Sources, Versions, Countries, Chapter_Control, Domains, "
+                           "Domain_Chapter_Map).", 422, "validacion")
+    if usuario:
+        registrar(db, usuario, "aranceles", 0, "importar_oficial", {"archivo": nombre, "hojas": res, "errores": len(errores)})
+    return {"hojas": res, "errores": errores, "creados": sum(r["creados"] for r in res.values()),
+            "actualizados": sum(r["actualizados"] for r in res.values())}
+
+
+def cargar_paquetes_base(db: Session) -> dict:
+    """Carga los paquetes oficiales incluidos en el sistema (semilla)."""
+    out = {}
+    for nombre in PAQUETES:
+        ruta = CARPETA / nombre
+        if ruta.exists():
+            out[nombre] = importar(db, ruta.read_bytes(), nombre=nombre)
+    return out
+
+
+# ---- Consulta y edición ----------------------------------------------------------
+def _fuente_dict(x: FuenteOficial) -> dict:
+    return {c: getattr(x, c) for c in ("id", "codigo", "ambito", "autoridad", "dataset", "uso", "url", "acceso",
+                                         "autenticacion", "nota_version", "verificacion", "activo")}
+
+
+def _version_dict(x: VersionDataset) -> dict:
+    return {"id": x.id, "codigo": x.codigo, "dataset": x.dataset, "etiqueta": x.etiqueta, "estado": x.estado,
+            "vigente_desde": x.vigente_desde, "vigente_hasta": x.vigente_hasta, "nota": x.nota,
+            "fuente": x.fuente.codigo if x.fuente else None, "importado_en": x.importado_en}
+
+
+def fuentes_y_versiones(db: Session, user: Usuario) -> dict:
+    exigir(user, "aranceles.ver")
+    return {"fuentes": [_fuente_dict(x) for x in db.scalars(select(FuenteOficial).order_by(FuenteOficial.ambito, FuenteOficial.codigo))],
+            "versiones": [_version_dict(x) for x in db.scalars(select(VersionDataset).order_by(VersionDataset.codigo))]}
+
+
+def _capitulo_dict(x: ControlCapitulo, dominios: dict) -> dict:
+    return {"id": x.id, "capitulo": x.capitulo, "seccion": x.seccion, "titulo": x.titulo, "activo": x.activo,
+            "clasificacion": x.clasificacion, "candidato_auto": x.candidato_auto, "solo_manual": x.solo_manual,
+            "archivado": x.archivado, "alcance": x.alcance, "nota": x.nota,
+            "version": x.version.codigo if x.version else None, "dominios": dominios.get(x.capitulo, [])}
+
+
+def capitulos(db: Session, user: Usuario, q: str | None = None, estado: str | None = None,
+              dominio: str | None = None) -> dict:
+    exigir(user, "aranceles.ver")
+    dominios: dict[str, list] = {}
+    for dc in db.scalars(select(DominioCapitulo)):
+        dominios.setdefault(dc.capitulo, []).append({"codigo": dc.dominio.codigo, "nombre": dc.dominio.nombre,
+                                                       "relevancia": dc.relevancia, "habilitado": dc.habilitado})
+    consulta = select(ControlCapitulo).order_by(ControlCapitulo.capitulo)
+    if q:
+        consulta = consulta.where(filtro_texto(q, lambda p: [ControlCapitulo.capitulo.ilike(p), ControlCapitulo.titulo.ilike(p),
+                                                             ControlCapitulo.seccion.ilike(p), ControlCapitulo.alcance.ilike(p)]))
+    filas = [_capitulo_dict(x, dominios) for x in db.scalars(consulta)]
+    if estado == "habilitados":
+        filas = [f for f in filas if f["activo"] and f["clasificacion"]]
+    elif estado == "inactivos":
+        filas = [f for f in filas if not f["activo"]]
+    elif estado == "manuales":
+        filas = [f for f in filas if f["solo_manual"]]
+    if dominio:
+        filas = [f for f in filas if any(d["codigo"] == dominio for d in f["dominios"])]
+    total = db.scalar(select(func.count()).select_from(ControlCapitulo)) or 0
+    habilitados = db.scalar(select(func.count()).select_from(ControlCapitulo).where(
+        ControlCapitulo.activo.is_(True), ControlCapitulo.clasificacion.is_(True))) or 0
+    return {"items": filas, "total": total, "habilitados": habilitados}
+
+
+CAMPOS_CAPITULO = ("activo", "clasificacion", "candidato_auto", "solo_manual", "archivado")
+
+
+def actualizar_capitulos(db: Session, user: Usuario, ids: list[int], campos: dict) -> dict:
+    """Cambia en bloque los controles de varios capítulos. Mantiene la
+    coherencia: inactivo o archivado no clasifica; solo manual no genera
+    candidatos automáticos."""
+    exigir(user, "aranceles.editar")
+    cambios = {k: bool(v) for k, v in campos.items() if k in CAMPOS_CAPITULO and v is not None}
+    if not cambios or not ids:
+        raise ErrorNegocio("Choose chapters and what to change.", 422, "validacion")
+    caps = list(db.scalars(select(ControlCapitulo).where(ControlCapitulo.id.in_(ids))))
+    for x in caps:
+        for k, v in cambios.items():
+            setattr(x, k, v)
+        if cambios.get("solo_manual"):
+            x.candidato_auto = False
+        if cambios.get("candidato_auto"):
+            x.solo_manual = False
+        if cambios.get("clasificacion") or cambios.get("candidato_auto"):
+            x.activo, x.archivado = True, False  # habilitar implica activar
+        if not x.activo or x.archivado:
+            x.clasificacion = False
+            x.candidato_auto = False
+    registrar(db, user, "aranceles", 0, "capitulos", {"capitulos": [x.capitulo for x in caps], "cambios": cambios})
+    return {"actualizados": len(caps)}
+
+
+def dominios(db: Session, user: Usuario) -> list[dict]:
+    exigir(user, "aranceles.ver")
+    caps = {x.capitulo: x for x in db.scalars(select(ControlCapitulo))}
+    return [{"id": d.id, "codigo": d.codigo, "nombre": d.nombre, "descripcion": d.descripcion, "modo": d.modo,
+             "activo": d.activo,
+             "capitulos": sorted([{"id": c.id, "capitulo": c.capitulo, "relevancia": c.relevancia, "habilitado": c.habilitado,
+                                   "titulo": caps[c.capitulo].titulo if c.capitulo in caps else "",
+                                   "capitulo_habilitado": bool(caps.get(c.capitulo) and caps[c.capitulo].clasificacion)}
+                                  for c in d.capitulos], key=lambda c: (c["relevancia"], c["capitulo"]))}
+            for d in db.scalars(select(DominioClasificacion).order_by(DominioClasificacion.orden, DominioClasificacion.codigo))]
+
+
+def guardar_dominio_capitulo(db: Session, user: Usuario, dominio_id: int, capitulo: str, relevancia: str | None,
+                             habilitado: bool | None, quitar: bool = False) -> dict:
+    exigir(user, "aranceles.editar")
+    d = db.get(DominioClasificacion, dominio_id)
+    cap = _capitulo(capitulo)
+    if not d or not cap or not db.scalar(select(ControlCapitulo.id).where(ControlCapitulo.capitulo == cap)):
+        raise ErrorNegocio("The domain or chapter does not exist.", 404, "no_encontrado")
+    x = db.scalar(select(DominioCapitulo).where(DominioCapitulo.dominio_id == d.id, DominioCapitulo.capitulo == cap))
+    if quitar:
+        if x:
+            db.delete(x)
+        return {"ok": True}
+    x = x or DominioCapitulo(dominio=d, capitulo=cap)
+    if relevancia:
+        x.relevancia = "SECONDARY" if relevancia.upper().startswith("SEC") else "PRIMARY"
+    if habilitado is not None:
+        x.habilitado = habilitado
+    db.add(x)
+    db.flush()
+    return {"id": x.id}

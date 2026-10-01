@@ -33,7 +33,14 @@ def _preparar_esquema() -> None:
                 for t in tablas:
                     con.execute(text(f'DROP TABLE IF EXISTS "{t}"'))
                 con.execute(text("PRAGMA foreign_keys=ON"))
-    Base.metadata.create_all(engine)
+    from . import migraciones
+
+    if not settings.SEED_DEMO:
+        migraciones.actualizar()  # datos reales: migraciones, nunca create_all
+    else:
+        Base.metadata.create_all(engine)
+        if not inspect(engine).has_table("alembic_version"):
+            migraciones.marcar_actual()
     with SessionLocal() as db:
         if not db.get(Meta, "esquema"):
             db.add(Meta(clave="esquema", valor=settings.ESQUEMA_VERSION))
@@ -42,7 +49,7 @@ def _preparar_esquema() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # En producción usa migraciones (Alembic) en lugar de create_all
+    # Demo: create_all; datos reales: migraciones de Alembic (app/migraciones.py)
     _preparar_esquema()
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     if settings.SEED_DEMO:

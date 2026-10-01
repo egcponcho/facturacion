@@ -168,3 +168,67 @@ def editar_codigo(inciso_id: int, datos: s.IncisoEditIn, db: Db, user: User, cla
 @router.post("/aranceles/codigos/borrar")
 def borrar_codigos(datos: s.IdsIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.borrar_incisos(db, user, datos.ids))
+
+
+# ---- Capa oficial: fuentes, versiones, capítulos y dominios ------------------------
+@router.get("/aranceles/oficial/fuentes")
+def oficial_fuentes(db: Db, user: User):
+    from ..services import oficial
+
+    return oficial.fuentes_y_versiones(db, user)
+
+
+@router.get("/aranceles/oficial/capitulos")
+def oficial_capitulos(db: Db, user: User, q: str | None = None, estado: str | None = None, dominio: str | None = None):
+    from ..services import oficial
+
+    return oficial.capitulos(db, user, q, estado, dominio)
+
+
+@router.patch("/aranceles/oficial/capitulos")
+def oficial_capitulos_editar(datos: s.CapitulosPatch, db: Db, user: User, clave: Clave = None):
+    from ..services import oficial
+
+    return ejecutar(db, user, clave, lambda: oficial.actualizar_capitulos(
+        db, user, datos.ids, datos.model_dump(exclude={"ids"})))
+
+
+@router.get("/aranceles/oficial/dominios")
+def oficial_dominios(db: Db, user: User):
+    from ..services import oficial
+
+    return oficial.dominios(db, user)
+
+
+@router.put("/aranceles/oficial/dominios/{dominio_id}/capitulos/{capitulo}")
+def oficial_dominio_capitulo(dominio_id: int, capitulo: str, datos: s.DominioCapituloIn, db: Db, user: User,
+                             clave: Clave = None):
+    from ..services import oficial
+
+    return ejecutar(db, user, clave, lambda: oficial.guardar_dominio_capitulo(
+        db, user, dominio_id, capitulo, datos.relevancia, datos.habilitado, datos.quitar))
+
+
+@router.get("/aranceles/oficial/paquete/{numero}")
+def oficial_paquete(numero: int, user: User, vista: bool = False):
+    """Descarga el paquete Excel oficial incluido (01 catálogos, 02 motor, 03 nacional)."""
+    from ..services import oficial
+
+    nombre = next((n for n in sorted(p.name for p in oficial.CARPETA.iterdir() if p.suffix == ".xlsx") if n.startswith(f"{numero:02d}_")), None)
+    if not nombre:
+        from ..services.common import ErrorNegocio
+
+        raise ErrorNegocio("The package does not exist.", 404, "no_encontrado")
+    return plantilla_o_vista((oficial.CARPETA / nombre).read_bytes(), nombre[:-5], vista)
+
+
+@router.post("/aranceles/oficial/importar")
+async def oficial_importar(db: Db, user: User, archivo: UploadFile = File(...)):
+    """Carga un paquete oficial (Sources, Versions, Countries, Chapter_Control, Domains, Domain_Chapter_Map)."""
+    from ..services import oficial
+    from ..services.common import exigir
+
+    exigir(user, "aranceles.editar")
+    r = oficial.importar(db, await archivo.read(), user, archivo.filename or "")
+    db.commit()
+    return r

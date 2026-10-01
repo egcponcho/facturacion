@@ -39,8 +39,13 @@ def _lista(v) -> list[str]:
 def paises(db: Session, user: Usuario) -> list[dict]:
     exigir(user, "producto.ver")
     n = dict(db.execute(select(IncisoNacional.pais, func.count()).group_by(IncisoNacional.pais)).all())
+    from ..models import FuenteOficial
+
+    fuentes = {f.id: f.codigo for f in db.scalars(select(FuenteOficial))}
     return [{"id": x.id, "iso": x.iso, "nombre": x.nombre, "digitos": x.digitos, "mcca": x.mcca, "impuesto": x.impuesto,
-             "nota": x.nota, "base_legal": x.base_legal, "orden": x.orden, "activo": x.activo, "codigos": n.get(x.iso, 0)}
+             "nota": x.nota, "base_legal": x.base_legal, "orden": x.orden, "activo": x.activo, "codigos": n.get(x.iso, 0),
+             "longitudes": x.longitudes, "modelo_arancel": x.modelo_arancel, "contexto": x.contexto,
+             "fuente": fuentes.get(x.fuente_id)}
             for x in db.scalars(select(PaisArancel).order_by(PaisArancel.orden, PaisArancel.iso))]
 
 

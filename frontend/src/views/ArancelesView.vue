@@ -13,6 +13,10 @@ import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
+import PanelCapitulos from '../components/aranceles/PanelCapitulos.vue'
+import PanelDominios from '../components/aranceles/PanelDominios.vue'
+import PanelFuentes from '../components/aranceles/PanelFuentes.vue'
+import PanelImportacion from '../components/aranceles/PanelImportacion.vue'
 import { cargarContexto } from '../clasificacion/useClasificacion'
 import { siguienteOrden } from '../composables/useTabla'
 import { puede } from '../stores/sesion'
@@ -322,7 +326,15 @@ watch(() => fs.size, recargarS)
     <button class="pestana" role="tab" :aria-selected="vista === 'sac'" @click="cambiarVista('sac')">{{ t('SAC headings and subheadings') }}</button>
     <button class="pestana" role="tab" :aria-selected="vista === 'notas'" @click="cambiarVista('notas')">{{ t('SAC legal notes') }}</button>
     <button class="pestana" role="tab" :aria-selected="vista === 'paises'" @click="cambiarVista('paises')">{{ t('Countries') }} <span class="cuenta">{{ tx(paises.length) }}</span></button>
+    <button class="pestana" role="tab" :aria-selected="vista === 'capitulos'" @click="cambiarVista('capitulos')">{{ t('Chapters') }}</button>
+    <button class="pestana" role="tab" :aria-selected="vista === 'dominios'" @click="cambiarVista('dominios')">{{ t('Domains') }}</button>
+    <button class="pestana" role="tab" :aria-selected="vista === 'fuentes'" @click="cambiarVista('fuentes')">{{ t('Sources and versions') }}</button>
+    <button class="pestana" role="tab" :aria-selected="vista === 'importacion'" @click="cambiarVista('importacion')">{{ t('Data import') }}</button>
   </div>
+  <PanelCapitulos v-if="vista === 'capitulos'" />
+  <PanelDominios v-else-if="vista === 'dominios'" />
+  <PanelFuentes v-else-if="vista === 'fuentes'" />
+  <PanelImportacion v-else-if="vista === 'importacion'" @cargado="cargarBase" />
 
   <!-- Códigos nacionales -->
   <section v-if="vista === 'codigos'">
@@ -427,6 +439,7 @@ watch(() => fs.size, recargarS)
         <span>{{ t('Codes loaded') }} <b>{{ fmtNum(p.codigos) }}</b></span>
         <span v-if="p.impuesto">{{ t('Tax') }} <b>{{ tx(p.impuesto) }}</b></span>
       </div>
+      <p v-if="p.modelo_arancel" class="ayuda mt-chico"><b>{{ t('Tariff model:') }}</b> {{ tx(p.modelo_arancel) }}<template v-if="p.fuente"> · {{ t('Primary source {0}', [p.fuente]) }}</template></p>
       <p v-if="p.base_legal" class="ayuda mt-chico"><b>{{ t('Legal basis:') }}</b> {{ tx(p.base_legal) }}</p>
       <p v-if="p.nota" class="ayuda mt-chico">{{ tx(p.nota) }}</p>
       <div class="fila-flex mt-chico" style="gap: 6px">

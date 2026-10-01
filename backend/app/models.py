@@ -556,13 +556,114 @@ class PaisArancel(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     iso: Mapped[str] = mapped_column(String(2), unique=True)
     nombre: Mapped[str] = mapped_column(String(80))
-    digitos: Mapped[int] = mapped_column(Integer, default=10)
+    digitos: Mapped[int] = mapped_column(Integer, default=10)  # longitud habitual (sugerencia, no regla fija)
+    # Esquema del código nacional: longitudes admitidas (p. ej. "8,10,12"); vacío = 8 a 14 dígitos
+    longitudes: Mapped[str | None] = mapped_column(String(40))
+    nivel_base: Mapped[str | None] = mapped_column(String(10))  # HS6 | SAC8: de qué nivel cuelga la precisión nacional
+    modelo_arancel: Mapped[str | None] = mapped_column(String(120))  # SAC regional + precisión nacional, nacional propio…
+    contexto: Mapped[str | None] = mapped_column(String(120))
+    fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id"))
     mcca: Mapped[bool] = mapped_column(Boolean, default=False)
     impuesto: Mapped[str | None] = mapped_column(String(60))  # p. ej. "VAT 13%"
     nota: Mapped[str | None] = mapped_column(String(300))
     base_legal: Mapped[str | None] = mapped_column(String(300))  # arancel y norma que lo pone en vigor
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class FuenteOficial(Base):
+    """Fuente oficial de datos arancelarios (SIECA, SAT, DGA, ATENA, ANA…):
+    de dónde sale cada dato, cómo se consulta y cuándo se verificó."""
+
+    __tablename__ = "fuentes_oficiales"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(30), unique=True)  # SRC-SIECA-ACI
+    ambito: Mapped[str] = mapped_column(String(20))  # Regional | GT | SV | … | International
+    autoridad: Mapped[str] = mapped_column(String(150))
+    dataset: Mapped[str] = mapped_column(String(200))
+    uso: Mapped[str | None] = mapped_column(String(300))
+    url: Mapped[str | None] = mapped_column(String(400))
+    acceso: Mapped[str | None] = mapped_column(String(60))  # PDF público, aplicación web, API…
+    autenticacion: Mapped[str | None] = mapped_column(String(60))
+    nota_version: Mapped[str | None] = mapped_column(String(300))
+    verificacion: Mapped[str | None] = mapped_column(String(120))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class VersionDataset(Base):
+    """Versión (instantánea) de un conjunto de datos oficial: el SAC regional,
+    el arancel nacional de un país, sus regulaciones… Lo publicado no se
+    sobrescribe: una actualización crea otra versión."""
+
+    __tablename__ = "versiones_dataset"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(30), unique=True)  # SAC-2025-V6
+    dataset: Mapped[str] = mapped_column(String(120))
+    etiqueta: Mapped[str] = mapped_column(String(200))
+    estado: Mapped[str] = mapped_column(String(12), default="BORRADOR")  # BORRADOR | PUBLICADA | DINAMICA | ARCHIVADA
+    vigente_desde: Mapped[date | None] = mapped_column(Date)
+    vigente_hasta: Mapped[date | None] = mapped_column(Date)
+    fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id"))
+    checksum: Mapped[str | None] = mapped_column(String(64))
+    nota: Mapped[str | None] = mapped_column(String(400))
+    importado_en: Mapped[datetime | None] = mapped_column(DateTime)
+
+    fuente: Mapped[FuenteOficial | None] = relationship()
+
+
+class ControlCapitulo(Base):
+    """Qué capítulos del SAC usa el clasificador: activos, habilitados para
+    clasificar, si generan candidatos automáticos o solo se eligen a mano."""
+
+    __tablename__ = "control_capitulos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    capitulo: Mapped[str] = mapped_column(String(2), unique=True)
+    seccion: Mapped[str | None] = mapped_column(String(6))
+    titulo: Mapped[str] = mapped_column(String(400))
+    activo: Mapped[bool] = mapped_column(Boolean, default=False)
+    clasificacion: Mapped[bool] = mapped_column(Boolean, default=False)  # habilitado para clasificar
+    candidato_auto: Mapped[bool] = mapped_column(Boolean, default=False)
+    solo_manual: Mapped[bool] = mapped_column(Boolean, default=False)
+    archivado: Mapped[bool] = mapped_column(Boolean, default=False)
+    alcance: Mapped[str | None] = mapped_column(String(200))  # dominios iniciales (texto de referencia)
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+    fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id"))
+    nota: Mapped[str | None] = mapped_column(String(300))
+
+    version: Mapped[VersionDataset | None] = relationship()
+
+
+class DominioClasificacion(Base):
+    """Familia comercial (químicos, materias primas, calzado, ropa,
+    accesorios…). Ayuda a elegir preguntas y candidatos; nunca obliga ni
+    excluye un capítulo por sí sola."""
+
+    __tablename__ = "dominios_clasificacion"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(30), unique=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    descripcion: Mapped[str | None] = mapped_column(String(400))
+    modo: Mapped[str] = mapped_column(String(10), default="AUTO")  # AUTO | MANUAL
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    capitulos: Mapped[list["DominioCapitulo"]] = relationship(back_populates="dominio", cascade="all, delete-orphan")
+
+
+class DominioCapitulo(Base):
+    """Capítulo relacionado con un dominio: PRIMARY genera candidatos
+    automáticos; SECONDARY queda disponible si los datos lo justifican."""
+
+    __tablename__ = "dominio_capitulos"
+    __table_args__ = (UniqueConstraint("dominio_id", "capitulo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dominio_id: Mapped[int] = mapped_column(ForeignKey("dominios_clasificacion.id", ondelete="CASCADE"), index=True)
+    capitulo: Mapped[str] = mapped_column(String(2))
+    relevancia: Mapped[str] = mapped_column(String(10), default="PRIMARY")  # PRIMARY | SECONDARY
+    habilitado: Mapped[bool] = mapped_column(Boolean, default=True)
+    proposito: Mapped[str | None] = mapped_column(String(300))
+
+    dominio: Mapped[DominioClasificacion] = relationship(back_populates="capitulos")
 
 
 class NotaSAC(Base):

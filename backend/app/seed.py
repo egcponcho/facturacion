@@ -616,6 +616,10 @@ def seed(db: Session) -> None:
     db.flush()
     cat = _catalogos(db)
     cargar_incisos_base(db)
+    # Capa oficial: fuentes, versiones, países, control de capítulos y dominios (paquetes Excel incluidos)
+    from .services import oficial
+
+    oficial.cargar_paquetes_base(db)
     # Cada proveedor maneja sus marcas y trabaja con sus sociedades
     tnf.marcas = [cat["marcas"]["TNF"]]
     vans.marcas = [cat["marcas"]["VANS"]]
