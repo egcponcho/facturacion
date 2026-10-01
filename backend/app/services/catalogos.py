@@ -36,6 +36,7 @@ from .common import ErrorNegocio, exigir, registrar
 from .productos import (
     asegurar_producto,
     fmt_codigo,
+    codigo_valido,
     generico_de,
     producto_de,
     producto_por_generico,
@@ -269,12 +270,14 @@ CATALOGOS = {
     },
     "articulos": {
         "modelo": Articulo, "titulo": "Items", "singular": "item",
-        "ayuda": "Master data of each item: the item code (11 digits starting with 3) and the supplier SKU are different. "
+        "ayuda": "Master data of each item: the item code (your company's own format) and the supplier SKU are different. "
                  "The description, the product type and the HS code come from the product's technical sheet (Products), "
                  "not from this form. Prepacks are created in the Prepacks tab and take the classification of their solids.",
         "campos": [
-            c("sku", "Item code", obligatorio=True, max=11, patron=r"^3\d{10}$",
-              mensaje_patron="11 digits starting with 3, for example 30095120001."),
+            c("sku", "Item code", obligatorio=True, max=40, mayus=True, patron=r"^[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}$",
+              mensaje_patron="Letters and numbers (also . - _ /), up to 40 characters."),
+            c("generico", "Generic (style-color)", max=40, mayus=True,
+              ayuda="Groups the sizes and prepacks of one style and color: they share the technical sheet. Empty = style-color."),
             c("sku_proveedor", "Supplier SKU", max=60, mayus=True,
               ayuda="The supplier's own code, e.g. VN0A4BV4W00-7."),
             c("estilo", "Style", obligatorio=True, mayus=True),
@@ -551,11 +554,11 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             limpio["prepack_id"] = None
             if final.get("unidad") == "CJ":
                 errores.append({"campo": "unidad", "mensaje": "A solid is handled in pairs or units."})
-    # Los primeros 8 dígitos son el genérico (estilo-color): todas sus tallas,
-    # sólidos y prepacks, comparten estilo, color, marca, grupo y proveedor
-    if cat["modelo"] is Articulo and generico_de(final.get("sku")):
-        gen = generico_de(final["sku"])
-        ref = db.scalar(select(Articulo).where(Articulo.sku.startswith(gen), Articulo.tipo == "SOLIDO",
+    # El genérico (estilo-color) agrupa sus tallas, sólidos y prepacks: todos
+    # comparten estilo, color, marca, grupo y proveedor
+    if cat["modelo"] is Articulo and generico_de(final):
+        gen = generico_de(final)
+        ref = db.scalar(select(Articulo).where(Articulo.generico == gen, Articulo.tipo == "SOLIDO",
                                                *([Articulo.id != actual.id] if actual else [])).limit(1))
         prod = producto_por_generico(db, gen)
         base = ({"estilo": ref.estilo, "color": ref.color, "marca_id": ref.marca_id, "proveedor_id": ref.proveedor_id}
@@ -567,7 +570,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                 nombres = {"estilo": "style", "color": "color", "marca_id": "brand", "proveedor_id": "supplier"}
                 errores.append({"campo": distintos[0], "mensaje":
                                 f"Generic {gen} is {base['estilo']} {base['color'] or ''}: every size must have the same "
-                                f"{', '.join(nombres[k] for k in distintos)}. Use another generic (first 8 digits)."})
+                                f"{', '.join(nombres[k] for k in distintos)}. Use another generic."})
     if cat["modelo"] is Articulo and final.get("proveedor_id") and final.get("marca_id"):
         prov = db.get(Proveedor, final["proveedor_id"])
         if prov and prov.marcas and final["marca_id"] not in {m.id for m in prov.marcas}:
@@ -722,9 +725,8 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
     estilo = str(datos.get("estilo") or "").strip().upper()
     color = str(datos.get("color") or "").strip()
     errores = []
-    if not generico_de(sku):
-        errores.append({"campo": "sku", "mensaje": "Item code: 11 digits starting with 3; the first 8 are the generic "
-                                                   "of its solids and the last 3 the prepack size, e.g. 30095125001."})
+    if not codigo_valido(sku):
+        errores.append({"campo": "sku", "mensaje": "Item code: letters and numbers (also . - _ /), up to 40 characters."})
     elif db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
         errores.append({"campo": "sku", "mensaje": f"Code {sku} already exists in the item master."})
     if not re.fullmatch(r"[A-Z0-9]{2,10}", codigo):
@@ -735,10 +737,6 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
         errores.append({"campo": "codigo", "mensaje": f"Prepack {codigo} already exists for {estilo} {color}."})
     arts, err_curva = _validar_curva(db, estilo, color, datos.get("componentes") or [])
     errores += err_curva
-    gens = {generico_de(a.sku) for a, _ in arts}
-    if arts and not err_curva and generico_de(sku) and gens != {generico_de(sku)}:
-        errores.append({"campo": "sku", "mensaje": f"The prepack must have the generic of its solids ({', '.join(sorted(g or '—' for g in gens))}): "
-                                                   f"same first 8 digits, only the last 3 change."})
     if errores:
         raise ErrorNegocio("The prepack is not valid.", 422, "validacion", errores)
     base = arts[0][0]
@@ -749,7 +747,7 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
         p.componentes.append(PrepackComponente(articulo_id=a.id, cantidad=cant))
     db.add(p)
     db.flush()
-    art = Articulo(sku=sku, upc=(datos.get("upc") or "").strip() or None, estilo=estilo, color=color, talla=codigo,
+    art = Articulo(sku=sku.upper(), generico=base.generico or generico_de(base), upc=(datos.get("upc") or "").strip() or None, estilo=estilo, color=color, talla=codigo,
                    descripcion=p.descripcion, marca_id=base.marca_id, grupo_id=base.grupo_id,
                    proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK", prepack_id=p.id,
                    activo=True)

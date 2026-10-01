@@ -123,14 +123,30 @@ def producto_de(a: Articulo | None) -> Producto | None:
     return a.producto
 
 
-RE_ARTICULO = re.compile(r"^3\d{10}$")
+# Códigos de artículo y de genérico: el formato lo define cada empresa
+# (numérico o alfanumérico, con punto, guion, barra o guion bajo)
+RE_CODIGO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}$")
+MSG_CODIGO = "Letters and numbers (also . - _ /), up to 40 characters."
 
 
-def generico_de(sku: str | None) -> str | None:
-    """Los primeros 8 dígitos del código de artículo (estilo-color); los 3
-    últimos son la talla del sólido o del prepack."""
-    s = str(sku or "").strip()
-    return s[:8] if RE_ARTICULO.match(s) else None
+def codigo_valido(valor: str | None) -> bool:
+    return bool(RE_CODIGO.match(str(valor or "").strip()))
+
+
+def generico_auto(estilo: str | None, color: str | None) -> str | None:
+    """Genérico cuando la empresa no usa uno propio: estilo-color."""
+    base = "-".join(x for x in (str(estilo or "").strip(), str(color or "").strip()) if x).upper()
+    base = re.sub(r"[^A-Z0-9._\-/]+", "-", base).strip("-")
+    return base[:40] or None
+
+
+def generico_de(a) -> str | None:
+    """Genérico (estilo-color) de un artículo o de una fila de datos."""
+    if a is None:
+        return None
+    if isinstance(a, dict):
+        return (str(a.get("generico") or "").strip().upper() or generico_auto(a.get("estilo"), a.get("color")))
+    return a.generico or (a.producto.codigo_generico if a.producto else None) or generico_auto(a.estilo, a.color)
 
 
 def producto_por_generico(db: Session, gen: str | None) -> Producto | None:
@@ -138,10 +154,11 @@ def producto_por_generico(db: Session, gen: str | None) -> Producto | None:
 
 
 def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
-    """Liga el artículo con el producto de su genérico (primeros 8 dígitos);
-    lo crea si no existe. Sólidos y prepacks del mismo genérico comparten la
+    """Liga el artículo con el producto de su genérico (estilo-color); lo crea
+    si no existe. Sólidos y prepacks del mismo genérico comparten la
     ficha técnica y la clasificación: el prepack no se clasifica aparte."""
-    gen = generico_de(a.sku)
+    explicito = a.generico
+    gen = generico_de(a)
     p = producto_por_generico(db, gen)
     if not p and a.tipo == "PREPACK":
         p = producto_de(a) if a.prepack else None
@@ -149,7 +166,8 @@ def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
         # Datos anteriores sin genérico: por proveedor, estilo y color
         p = db.scalar(select(Producto).where(Producto.proveedor_id == a.proveedor_id, Producto.estilo == a.estilo,
                                              Producto.color.is_(None) if a.color is None else Producto.color == a.color,
-                                             or_(Producto.codigo_generico.is_(None), Producto.codigo_generico == gen)))
+                                             *([or_(Producto.codigo_generico.is_(None), Producto.codigo_generico == gen)]
+                                               if explicito else [])))
     if not p:
         if not a.proveedor_id or not a.estilo:
             return None
@@ -165,6 +183,8 @@ def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
         p.unidad = a.unidad
     db.flush()
     a.producto = p
+    if not a.generico:
+        a.generico = p.codigo_generico
     if not p.descripcion_comercial and not (p.ficha or {}).get("comManual"):
         p.descripcion_comercial = descripcion_comercial_simple(p)
     return p
@@ -510,53 +530,6 @@ def _inciso_ctx(x: IncisoNacional) -> dict:
             "dai": x.dai or "", "descripcion": x.descripcion, "nota": x.nota, "fuente": x.fuente}
 
 
-def incisos_de(db: Session, user: Usuario, sub6: str) -> dict:
-    """Códigos nacionales de una subpartida de cualquier capítulo, con su
-    descripción oficial y las notas explicativas de su partida."""
-    exigir(user, "producto.ver")
-    sub = digitos(sub6)[:6]
-    if len(sub) < 6:
-        raise ErrorNegocio("Write the 6-digit subheading.", 422, "validacion")
-    sac = db.scalar(select(PartidaSAC).where(PartidaSAC.codigo == sub))
-    partida = db.scalar(select(PartidaSAC).where(PartidaSAC.codigo == sub[:4]))
-    return {"sub6": sub, "descripcion": sac.descripcion if sac else None,
-            "partida": partida.descripcion if partida else None,
-            "incisos": [_inciso_ctx(x) for x in db.scalars(select(IncisoNacional).where(
-                IncisoNacional.sub6 == sub, IncisoNacional.activo.is_(True)))]}
-
-
-def buscar_sac(db: Session, user: Usuario, q: str, limite: int = 40) -> list[dict]:
-    """Subpartidas (6 dígitos) de todo el SAC para la ficha de cualquier
-    producto: busca por código o por palabras en su texto o en el de su partida."""
-    exigir(user, "producto.ver")
-    q = (q or "").strip()
-    if len(q) < 2:
-        return []
-    es_codigo = bool(re.fullmatch(r"[\d.\s]+", q))
-    d = digitos(q)[:6]
-    palabras = [w for w in re.split(r"\W+", _sin_acentos(q.lower())) if len(w) >= 3]
-    todas = db.scalars(select(PartidaSAC).where(PartidaSAC.activo.is_(True))).all()
-    partidas = {x.codigo: x.descripcion for x in todas if len(x.codigo) == 4}
-    out = []
-    for x in (x for x in todas if len(x.codigo) == 6):
-        if es_codigo:
-            ok, peso = x.codigo.startswith(d), 0
-        else:
-            texto = _sin_acentos(f"{x.descripcion} {partidas.get(x.codigo[:4], '')}".lower())
-            propio = _sin_acentos(x.descripcion.split("—")[-1].lower())
-            ok = bool(palabras) and all(w in texto for w in palabras)
-            peso = sum(w in propio for w in palabras)  # primero las que lo dicen en su propio texto
-        if ok:
-            out.append((-peso, x.codigo, {"codigo": x.codigo, "descripcion": x.descripcion,
-                                           "partida": partidas.get(x.codigo[:4])}))
-    return [x for *_, x in sorted(out, key=lambda t: t[:2])[:limite]]
-
-
-def _sin_acentos(t: str) -> str:
-    import unicodedata
-    return "".join(c for c in unicodedata.normalize("NFD", t) if unicodedata.category(c) != "Mn")
-
-
 def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dict:
     """Lo que el motor necesita en el navegador: destinos, historial de
     clasificaciones, códigos nacionales y lo aprendido."""
@@ -573,12 +546,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
                      "descArchivo": p.nombre, "marca": p.marca.nombre if p.marca else None, "comp": f.get("comp") or {},
                      "estiloCalz": f.get("estiloCalz"), "estado": p.estado,
                      "tsMod": int(p.actualizado_en.timestamp() * 1000) if p.actualizado_en else 0})
-    # Los incisos de los capítulos que clasifica el motor (y los propios) van de
-    # una vez; los del resto del arancel se piden por subpartida (incisos_de)
-    caps = set(meta_motor()["capitulos"])
-    incisos = [_inciso_ctx(x) for x in db.scalars(select(IncisoNacional).where(
-        IncisoNacional.activo.is_(True),
-        or_(func.substr(IncisoNacional.sub6, 1, 2).in_(caps), IncisoNacional.fuente.not_in(("oficial", "base")))))]
+    incisos = [_inciso_ctx(x) for x in db.scalars(select(IncisoNacional).where(IncisoNacional.activo.is_(True)))]
     marcas = [{"nombre": m.nombre, "codigo": m.codigo, "activa": m.activa} for m in db.scalars(select(Marca))]
     provs = []
     for pr in db.scalars(select(Proveedor)):
@@ -967,7 +935,7 @@ def cargar_incisos_base(db: Session) -> int:
     """Países destino, el SAC oficial (Arancel Centroamericano de Importación,
     VII Enmienda, SIECA) con sus partidas, subpartidas y notas legales, y los
     códigos nacionales: los incisos del ACI con su DAI para los países que usan
-    los 10 dígitos del SAC y la base de artículos ADOC 2026 para el resto."""
+    los 10 dígitos del SAC y la base de artículos de la empresa para el resto."""
     for i, d in enumerate(DESTINOS):
         db.add(PaisArancel(iso=d["iso"], nombre=d["nombre"], digitos=d["digitos"], mcca=d["mcca"],
                            impuesto=d["impuesto"], base_legal=d.get("base_legal"), orden=i))
@@ -987,9 +955,10 @@ def cargar_incisos_base(db: Session) -> int:
     for x in leer("sac_explicativas.json"):
         db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"],
                        capitulos=x.get("capitulos") or [], claves=x.get("claves") or [], fuente="resumen"))
-    # Incisos del ACI (10 dígitos) de todo el arancel para los países del SAC a
-    # 10 dígitos; las condiciones de la base ADOC se conservan
-    aci = {x["codigo"]: x for x in leer("aci_incisos.json")}
+    # Incisos del ACI (10 dígitos) de los capítulos que clasifica el motor, para
+    # los países del SAC a 10 dígitos; los demás se cargan desde Aranceles
+    capitulos = set(meta_motor()["capitulos"])
+    aci = {x["codigo"]: x for x in leer("aci_incisos.json") if x["codigo"][:2] in capitulos}
     base = leer("incisos_base.json")
     diez = [d["iso"] for d in DESTINOS if d["digitos"] == 10 and d["mcca"]]
     cond_base = {(x["pais"], x["codigo"]): x for x in base}
@@ -1005,7 +974,7 @@ def cargar_incisos_base(db: Session) -> int:
             continue
         filas.append({"pais": x["pais"], "codigo": x["codigo"], "sub6": x["codigo"][:6], "cond": x.get("cond") or {},
                       "prio": x.get("prio") or 0, "dai": None, "descripcion": None, "fuente": "base",
-                      "nota": f"Base ADOC 2026 ({x.get('articulos', 0)} items)", "activo": True})
+                      "nota": f"Company item base ({x.get('articulos', 0)} items)", "activo": True})
     db.flush()
     db.execute(insert(IncisoNacional), filas)  # inserción masiva: son unos 25 mil
     cargar_acuerdos(db)

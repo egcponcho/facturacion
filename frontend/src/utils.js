@@ -54,13 +54,13 @@ export function unidadTxt(unidad, n) {
 // Dos liberaciones de dos equipos: comercial (P/C) y logística (304/300/301).
 // Sin liberación comercial no hay logística; se factura solo con C y 300/301.
 export const COMERCIAL = {
-  C: [t('Commercial C'), 'ok', t('Released by commercial')],
-  P: [t('Commercial P'), 'aviso', t('Pending commercial release: logistics cannot release')],
+  C: [t('Commercial released'), 'ok', t('Released by commercial')],
+  P: [t('Commercial pending'), 'aviso', t('Pending commercial release: logistics cannot release')],
 }
 export const LIBERACION = {
-  300: [t('300 · Released'), 'ok', t('Released by logistics')],
-  301: [t('301 · Released with changes'), 'info', t('Released by logistics; the PO changed afterwards')],
-  304: [t('304 · Not released'), 'aviso', t('No logistics release: it cannot be invoiced')],
+  300: [t('Released'), 'ok', t('Released by logistics')],
+  301: [t('Released with changes'), 'info', t('Released by logistics; the PO changed afterwards')],
+  304: [t('Not released'), 'aviso', t('No logistics release: it cannot be invoiced')],
 }
 
 export function diasTxt(n) {

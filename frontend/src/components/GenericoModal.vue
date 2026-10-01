@@ -16,7 +16,7 @@ const props = defineProps({ generico: { type: String, default: '' }, editar: Boo
 const emit = defineEmits(['cerrar', 'listo'])
 const agregar = computed(() => !!props.generico && !props.editar)
 const g = reactive({ generico: '', estilo: '', color: '', marca_id: '', grupo_id: '', proveedor_id: '', unidad: 'PAR' })
-const filas = ref([{ talla: '', sufijo: '', upc: '', sku_proveedor: '' }])
+const filas = ref([{ talla: '', sku: '', upc: '', sku_proveedor: '' }])
 const rapido = ref('')
 const op = reactive({ marcas: [], grupos: [], proveedores: [] })
 const info = ref(null)
@@ -49,10 +49,10 @@ const convencional = (t) => {
 }
 const codigos = computed(() => {
   const gen = agregar.value ? props.generico : g.generico
-  const base = gen && /^\d{8}$/.test(gen) ? gen : '········'
-  const usados = new Set([...(agregar.value ? info.value?.usados || [] : []), ...filas.value.map((f) => f.sufijo).filter(Boolean)])
+  const base = gen ? String(gen).trim().toUpperCase() : '…'
+  const usados = new Set(agregar.value ? info.value?.usados || [] : [])
   return filas.value.map((f) => {
-    if (f.sufijo) return `${base}${f.sufijo}`
+    if (f.sku) return f.sku.trim().toUpperCase()
     let s = convencional(f.talla)
     if (!s || usados.has(s)) {
       let n = 1
@@ -84,7 +84,7 @@ function aplicarRapido() {
   if (!t) return
   const lista = expandir(t)
   const vacias = filas.value.filter((f) => f.talla || f.upc || f.sku_proveedor)
-  filas.value = [...vacias, ...lista.map((talla) => ({ talla: talla.toUpperCase(), sufijo: '', upc: '', sku_proveedor: '' }))]
+  filas.value = [...vacias, ...lista.map((talla) => ({ talla: talla.toUpperCase(), sku: '', upc: '', sku_proveedor: '' }))]
   rapido.value = ''
 }
 async function guardar() {
@@ -113,13 +113,13 @@ async function guardar() {
 
 <template>
   <Modal :titulo="tx(props.editar ? t('Edit generic {0}', [props.generico]) : agregar ? t('Add sizes to generic {0}', [props.generico]) : t('New generic'))" ancho="820px" @cerrar="emit('cerrar')">
-    <p class="ayuda">{{ t('The item code has 11 digits: the first 8 are the generic (style-color) and the last 3 the size. The technical sheet and the HS code belong to the generic.') }}</p>
+    <p class="ayuda">{{ t('The generic groups the sizes of one style and color: they share the technical sheet and the HS code. Codes follow your company\'s own format.') }}</p>
     <div v-if="agregar && info" class="doc-meta" style="margin-top: 6px">
       <span>{{ t('Style') }} <b>{{ tx(info.estilo) }}</b></span><span>{{ t('Color') }} <b>{{ tx(info.color) }}</b></span><span>{{ t('Unit') }} <b>{{ tx(info.unidad) }}</b></span>
       <span>{{ t('Sizes') }} <b>{{ tx(info.tallas.filter((t) => t.tipo === 'SOLIDO').map((t) => t.talla).join(', ') || '—') }}</b></span>
     </div>
     <div v-else-if="!agregar" class="rejilla-campos mt-chico">
-      <label class="campo"><span class="req">{{ t('Generic code (8 digits)') }}</span><input v-model="g.generico" class="entrada" maxlength="8" inputmode="numeric" placeholder="30095129" :disabled="props.editar" /></label>
+      <label class="campo"><span class="req">{{ t('Generic code') }}</span><input v-model="g.generico" class="entrada" maxlength="40" :placeholder="t('e.g. 30095129 or VN0A5KRF-BLK')" :disabled="props.editar" /></label>
       <label class="campo"><span class="req">{{ t('Style') }}</span><input v-model="g.estilo" class="entrada" maxlength="40" /></label>
       <label class="campo"><span class="req">{{ t('Color') }}</span><input v-model="g.color" class="entrada" maxlength="60" /></label>
       <div class="campo"><span class="req">{{ t('Supplier') }}</span><SelectBusqueda v-model="g.proveedor_id" :opciones="opc(op.proveedores)" :etiqueta="t('Supplier')" /></div>
@@ -135,21 +135,20 @@ async function guardar() {
       <input v-model="rapido" class="entrada" style="max-width: 300px" :placeholder="t('Quick: 7-10, 12 · 6.5-9.5 · S-XL')" @keydown.enter.prevent="aplicarRapido" />
       <button type="button" class="btn btn-chico" @click="aplicarRapido">{{ t('Add these sizes') }}</button>
     </div>
-    <p class="ayuda" style="margin: 0 0 8px">{{ t('Combine ranges and single sizes for gaps (e.g. 7-10, 12, 14). Size code: leave it empty and it is generated — numeric sizes use the size × 10 (7 → 070, 7.5 → 075, 10.5 → 105), letter sizes the next free one (001, 002…) — or type your own 3 digits.') }}</p>
+    <p class="ayuda" style="margin: 0 0 8px">{{ t('Combine ranges and single sizes for gaps (e.g. 7-10, 12, 14). Item code: type your own, or leave it empty to use the generic plus a size code.') }}</p>
     <table class="tabla tallas">
-      <thead><tr><th>{{ t('Item code') }}</th><th>{{ t('Size *') }}</th><th>{{ t('Size code') }}</th><th>UPC</th><th>{{ t('Supplier SKU') }}</th><th></th></tr></thead>
+      <thead><tr><th>{{ t('Size *') }}</th><th>{{ t('Item code') }}</th><th>UPC</th><th>{{ t('Supplier SKU') }}</th><th></th></tr></thead>
       <tbody>
         <tr v-for="(f, i) in filas" :key="i">
-          <td class="codigo-sac">{{ tx(codigos[i]) }}</td>
           <td><input v-model="f.talla" class="entrada" maxlength="20" :aria-label="t('Size {0}', [i + 1])" /></td>
-          <td><input v-model="f.sufijo" class="entrada" maxlength="3" inputmode="numeric" placeholder="auto" :aria-label="t('Size code {0}', [i + 1])" /></td>
+          <td><input v-model="f.sku" class="entrada" maxlength="40" :placeholder="codigos[i]" :aria-label="t('Item code {0}', [i + 1])" /></td>
           <td><input v-model="f.upc" class="entrada" maxlength="40" :aria-label="tx(t('UPC {0}', [i + 1]))" /></td>
           <td><input v-model="f.sku_proveedor" class="entrada" maxlength="60" :aria-label="t('Supplier SKU {0}', [i + 1])" /></td>
           <td><button type="button" class="btn-icono" :aria-label="t('Remove row {0}', [i + 1])" @click="filas.splice(i, 1)"><Icono nombre="cerrar" :tam="15" /></button></td>
         </tr>
       </tbody>
     </table>
-    <button type="button" class="btn btn-chico mt-chico" @click="filas.push({ talla: '', sufijo: '', upc: '', sku_proveedor: '' })"><Icono nombre="mas" :tam="14" />{{ t('Add row') }}</button>
+    <button type="button" class="btn btn-chico mt-chico" @click="filas.push({ talla: '', sku: '', upc: '', sku_proveedor: '' })"><Icono nombre="mas" :tam="14" />{{ t('Add row') }}</button>
     </template>
     <div v-if="errores.length" class="nota error bloque mt-chico"><ul class="lista-mensajes"><li v-for="(e, i) in errores" :key="i">{{ tx(e) }}</li></ul></div>
     <template #pie>

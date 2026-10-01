@@ -515,7 +515,7 @@ def test_catalogos(interno, tnf):
     r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": []})
     assert r.status_code == 422 and "has items" in r.json()["detalle"][0]["mensaje"]
     assert provs["TNF"]["marcas_txt"] == "TNF" and "8000" in provs["TNF"]["sociedades_txt"]
-    r = interno.post("/catalogos/articulos", {**base, "sku": "X1", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
+    r = interno.post("/catalogos/articulos", {**base, "sku": "X 1!", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
     assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "sku"
     # Un prepack no se crea como artículo suelto: se crea con su código y su explosión
     r = interno.post("/catalogos/articulos", {**base, "sku": "30099990001", "talla": "AB12", "tipo": "PREPACK",

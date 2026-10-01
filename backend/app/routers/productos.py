@@ -127,16 +127,6 @@ def borrar_foto(producto_id: int, foto_id: int, db: Db, user: User):
     return {"ok": True}
 
 
-@router.get("/clasificacion/sac")
-def buscar_sac(db: Db, user: User, q: str = ""):
-    return svc.buscar_sac(db, user, q)
-
-
-@router.get("/clasificacion/incisos/{sub6}")
-def incisos_de(sub6: str, db: Db, user: User):
-    return svc.incisos_de(db, user, sub6)
-
-
 @router.post("/clasificacion/incisos")
 def ensenar_inciso(datos: s.IncisoIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.ensenar_inciso(db, user, datos))

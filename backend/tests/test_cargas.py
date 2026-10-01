@@ -34,7 +34,7 @@ def test_articulos_con_ficha(interno):
              ["30099980001", "VN0A5KRFBLK-8", "VN0A5KRF", "Black", "8", "VANS", "CALZ-CAS", "VANS", "PAR", "Sk8-Hi canvas sneaker",
               "Footwear: sneakers, boots, shoes, sandals", "Unisex", "Adult", "Vietnam", "100% canvas", "100% rubber", "Sneaker"],
              ["30099980002", "VN0A5KRFBLK-9", "VN0A5KRF", "Black", "9", "VANS", "CALZ-CAS", "VANS", "PAR", "", "", "", "", "", "", "", ""],
-             ["99", "", "X", "Y", "1", "VANS", "CALZ-CAS", "VANS", "PAR", "", "", "", "", "", "", "", ""],
+             ["99 *", "", "X", "Y", "1", "VANS", "CALZ-CAS", "VANS", "PAR", "", "", "", "", "", "", "", ""],
              ["30099980003", "", "VN0A5KRF", "Black", "10", "NOPE", "CALZ-CAS", "VANS", "PAR", "", "", "", "", "", "", "", ""]]
     r = _subir(interno, "/catalogos/articulos/importar", _xlsx(filas))
     assert r.status_code == 200, r.text
@@ -54,8 +54,8 @@ def test_articulos_con_ficha(interno):
     # Completa lo que faltaba sin pisar lo cargado
     assert det["estado"] == "sugerida" and det["ficha"]["altura"] == "tobillo" and det["ficha"]["genero"] == "U"
     assert det["ficha"]["comp"]["forro"] == "100% textile" and det["descripcion_comercial"] == "Vans Sk8-Hi · Unisex sneaker"
-    # El código de artículo tiene 11 dígitos y empieza con 3
-    assert any("11 digits starting with 3" in e["mensaje"] for e in r["errores"])
+    # El código de artículo es libre (letras y números), pero no acepta cualquier carácter
+    assert any("Letters and numbers" in e["mensaje"] for e in r["errores"])
 
 
 def test_catalogos_por_excel(interno):
@@ -107,7 +107,7 @@ def test_genericos(interno):
     pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
     base = {"estilo": "vn0a3wm3", "color": "Navy", "marca_id": m["VANS"], "grupo_id": g["CALZ-CAS"], "proveedor_id": pv["VANS"],
             "unidad": "PAR"}
-    assert interno.post("/catalogos/genericos", {**base, "generico": "2009997"}).status_code == 422
+    assert interno.post("/catalogos/genericos", {**base, "generico": "2009 997?"}).status_code == 422
     r = interno.post("/catalogos/genericos", {**base, "generico": "30099970", "nombre": "Era",
                                               "tallas": [{"talla": "8", "upc": "0196999000001", "sku_proveedor": "VN0A3WM3NVY-8"},
                                                          {"talla": "9.5"}, {"talla": "10", "sufijo": "101"}]})
@@ -121,19 +121,18 @@ def test_genericos(interno):
     assert r.status_code == 200 and r.json()["tallas"][-1]["sku"] == "30099970110"
     assert interno.post("/catalogos/genericos/30099970/tallas", {"tallas": [{"talla": "8"}]}).status_code == 422
     # Un artículo suelto con ese genérico debe ser del mismo estilo-color
-    r = interno.post("/catalogos/articulos", {**base, "sku": "30099970020", "talla": "12", "color": "Red", "tipo": "SOLIDO"})
+    r = interno.post("/catalogos/articulos", {**base, "sku": "30099970020", "generico": "30099970", "talla": "12", "color": "Red", "tipo": "SOLIDO"})
     assert r.status_code == 422 and "Generic 30099970" in r.json()["detalle"][0]["mensaje"]
     # Todas las tallas son un solo producto (la clasificación es del genérico)
     prod = interno.get("/productos", params={"q": "30099970"}).json()["items"]
     assert len(prod) == 1 and prod[0]["codigo_generico"] == "30099970" and prod[0]["skus"] == 4
-    # Un prepack debe llevar el genérico de sus sólidos
+    # El prepack toma el genérico de sus sólidos, sea cual sea su código
     sol = interno.get("/catalogos/articulos", params={"q": "30099970080"}).json()["items"][0]
-    r = interno.post("/catalogos/prepacks", {"sku": "30099971001", "codigo": "EE04", "estilo": "VN0A3WM3", "color": "Navy",
-                                             "componentes": [{"articulo_id": sol["id"], "cantidad": 4}]})
-    assert r.status_code == 422 and "generic of its solids" in r.text
-    r = interno.post("/catalogos/prepacks", {"sku": "30099970900", "codigo": "EE04", "estilo": "VN0A3WM3", "color": "Navy",
+    r = interno.post("/catalogos/prepacks", {"sku": "PP-EE04", "codigo": "EE04", "estilo": "VN0A3WM3", "color": "Navy",
                                              "componentes": [{"articulo_id": sol["id"], "cantidad": 4}]})
     assert r.status_code == 200, r.text
+    pp = interno.get("/catalogos/articulos", params={"q": "PP-EE04"}).json()["items"][0]
+    assert pp["generico"] == "30099970"
     assert interno.get("/productos", params={"q": "30099970"}).json()["items"][0]["n_prepacks"] == 1
 
 
@@ -143,7 +142,7 @@ def test_carga_por_generico(interno):
     v = interno.get("/catalogos/articulos/plantilla", params={"vista": 1}).json()
     assert [h["nombre"] for h in v["hojas"]] == ["Generics", "Sizes"] and v["instrucciones"]
     cols = {c["nombre"]: c for c in v["hojas"][1]["columnas"]}
-    assert cols["Generic code"]["req"] and "next free" in cols["Size code"]["ayuda"] and v["hojas"][1]["filas"]
+    assert cols["Generic code"]["req"] and "item code is empty" in cols["Size code"]["ayuda"] and v["hojas"][1]["filas"]
     assert "Commercial name" not in [c["nombre"] for c in v["hojas"][0]["columnas"]]
     assert interno.get("/aranceles/sac/plantilla", params={"vista": 1}).json()["hojas"]
     wb = Workbook()
@@ -153,7 +152,7 @@ def test_carga_por_generico(interno):
                "Country of origin", "Upper", "Sole"])
     ws.append(["30099960", "VN0A4U39", "True White", "VANS", "CALZ-CAS", "VANS", "PAR", "Old Skool Pro", "China",
                "100% suede", "100% rubber"])
-    ws.append(["3009996", "X", "Y", "VANS", "CALZ-CAS", "VANS", "PAR", "", "", "", ""])
+    ws.append(["3009 996?", "X", "Y", "VANS", "CALZ-CAS", "VANS", "PAR", "", "", "", ""])
     t = wb.create_sheet("Sizes")
     t.append(["Generic code", "Size", "Size code", "UPC", "Supplier SKU"])
     t.append(["30099960", "7", "", "0196888000007", "VN0A4U39W-7"])

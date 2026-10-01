@@ -82,7 +82,7 @@ def plantilla_articulos(db: Session) -> bytes:
     grupos = [g.codigo for g in db.scalars(select(GrupoArticulo).order_by(GrupoArticulo.codigo))]
     provs = [p.codigo for p in db.scalars(select(Proveedor).order_by(Proveedor.codigo))]
     gen_cols = [
-        {"nombre": "Generic code", "req": True, "ayuda": "First 8 digits of the item code (style-color), starting with 3, e.g. 30095129.", "ancho": 13},
+        {"nombre": "Generic code", "req": True, "ayuda": "Your code for the style-color (numbers or letters); all its sizes share the technical sheet.", "ancho": 13},
         {"nombre": "Style", "req": True, "ancho": 12}, {"nombre": "Color", "req": True, "ancho": 14},
         {"nombre": "Brand", "req": True, "opciones": marcas, "ayuda": "Brand code.", "ancho": 10},
         {"nombre": "Item group", "req": True, "opciones": grupos, "ayuda": "Group code (packing rule).", "ancho": 12},
@@ -92,7 +92,8 @@ def plantilla_articulos(db: Session) -> bytes:
     tallas_cols = [
         {"nombre": "Generic code", "req": True, "ayuda": "The generic of the sheet Generics (or one already loaded).", "ancho": 13},
         {"nombre": "Size", "req": True, "ayuda": "e.g. 8, 8.5, M, OS.", "ancho": 8},
-        {"nombre": "Size code", "ayuda": "Last 3 digits of the item code. Empty = generated: numeric sizes use the size × 10 (7 → 070, 7.5 → 075, 10.5 → 105); letter sizes the next free one (001, 002…).", "ancho": 10},
+        {"nombre": "Item code", "ayuda": "Your item code for this size (numbers or letters). Empty = generic + size code.", "ancho": 14},
+        {"nombre": "Size code", "ayuda": "Only if the item code is empty: it is added to the generic. Empty = generated (numeric sizes × 10: 7 → 070; others 001, 002…).", "ancho": 10},
         {"nombre": "UPC", "ancho": 15},
         {"nombre": "Supplier SKU", "ayuda": "The supplier's own code (e.g. VN0A5KRFBLK-8).", "ancho": 18},
         {"nombre": "Active", "opciones": ["Yes", "No"], "ancho": 8},
@@ -100,11 +101,11 @@ def plantilla_articulos(db: Session) -> bytes:
     ej_gen = ["30095129", "VN0A5KRF", "Black", marcas[-1] if marcas else "", grupos[0] if grupos else "",
               provs[-1] if provs else "", "PAR", "Footwear: sneakers, boots, shoes, sandals", "Unisex",
               "Adult", "Casual skate sneaker", "VN", "", "", "", "100% canvas", "100% rubber", "100% textile", "100% EVA"]
-    ej_tallas = [["30095129", t, f"{int(t) * 10:03d}", f"01960129{i:04d}", f"VN0A5KRFBLK-{t}", "Yes"] for i, t in enumerate(["8", "9", "10"], 1)]
+    ej_tallas = [["30095129", t, "", f"{int(t) * 10:03d}", f"01960129{i:04d}", f"VN0A5KRFBLK-{t}", "Yes"] for i, t in enumerate(["8", "9", "10"], 1)]
     return plantilla_hojas("Items by generic, with technical sheet",
                            [("Generics", gen_cols, [ej_gen]), ("Sizes", tallas_cols, ej_tallas)], [
-        "The item code has 11 digits: the first 8 are the generic (style-color) and the last 3 the size. "
-        "Classification and technical sheet are per generic, so they are loaded once in the sheet Generics.",
+        "The generic groups the sizes of one style-color: classification and technical sheet are per generic, "
+        "so they are loaded once in the sheet Generics. Item codes follow your company's own format.",
         "Sheet Sizes: one row per size of each generic with its own data (size code, UPC, supplier SKU). "
         "The style, color, brand, group, supplier and unit come from the generic.",
         "Fill the technical sheet columns you have: the classification engine completes the rest and suggests the HS code right after the upload.",
@@ -131,7 +132,8 @@ def _paises(db: Session) -> dict:
 def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
     """Hoja Generics: datos maestros y ficha de cada genérico. Hoja Sizes:
     las tallas de cada genérico con su código, UPC y SKU del proveedor."""
-    from .genericos import RE_GEN, siguiente_sufijo, _sufijos
+    from .genericos import siguiente_sufijo, _articulos
+    from .productos import MSG_CODIGO, codigo_valido
 
     alias = {**ALIAS_ART, "generic_code": "generico", "generic": "generico", "generico": "generico",
              "size_code": "sufijo", "sufijo": "sufijo"}
@@ -146,9 +148,9 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
     errores, productos = [], {}
     creados = actualizados = 0
     for f in gens:
-        gen = (f.get("generico") or "").strip()
-        if not RE_GEN.match(gen):
-            errores.append({"fila": f"Generics {f['_fila']}", "mensaje": "The generic code has 8 digits and starts with 3."})
+        gen = (f.get("generico") or "").strip().upper()
+        if not codigo_valido(gen):
+            errores.append({"fila": f"Generics {f['_fila']}", "mensaje": f"Generic code: {MSG_CODIGO}"})
             continue
         faltan, ids = [], {}
         for campo, lbl in (("marca", "Brand"), ("grupo", "Item group"), ("proveedor", "Supplier")):
@@ -166,7 +168,7 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
             errores.append({"fila": f"Generics {f['_fila']}", "mensaje": "; ".join(faltan) + "."})
             continue
         p = producto_por_generico(db, gen)
-        if p and _sufijos(db, gen) and (p.estilo != estilo or (p.color or "") != color or p.proveedor_id != ids["proveedor"]):
+        if p and db.scalar(_articulos(db, gen).limit(1)) and (p.estilo != estilo or (p.color or "") != color or p.proveedor_id != ids["proveedor"]):
             errores.append({"fila": f"Generics {f['_fila']}", "mensaje": f"Generic {gen} already exists as {p.estilo} {p.color}."})
             continue
         try:
@@ -191,22 +193,22 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
     cat = cat_svc.CATALOGOS["articulos"]
     tallas_creadas = tallas_act = 0
     for f in tallas:
-        gen = (f.get("generico") or "").strip()
-        sku = (f.get("sku") or "").strip()
+        gen = (f.get("generico") or "").strip().upper()
+        sku = (f.get("sku") or "").strip().upper()
         if not gen and sku:
-            gen = sku[:8]
+            gen = (db.scalar(select(Articulo.generico).where(Articulo.sku == sku)) or "")
         p = producto_por_generico(db, gen)
         talla = (f.get("talla") or "").strip().upper()
         if not p or not talla:
             errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": f"Generic {gen or '(empty)'} does not exist or the size is empty."})
             continue
-        suf = (f.get("sufijo") or "").strip() or (sku[8:] if len(sku) == 11 else "")
-        existente = db.scalar(select(Articulo).where(Articulo.sku == gen + suf)) if suf else db.scalar(
-            select(Articulo).where(Articulo.sku.startswith(gen), Articulo.tipo == "SOLIDO", Articulo.talla == talla))
-        if suf and not re.fullmatch(r"\d{3}", suf):
-            errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": "The size code has 3 digits (e.g. 001)."})
+        suf = (f.get("sufijo") or "").strip().upper()
+        if sku and not codigo_valido(sku):
+            errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": f"Item code: {MSG_CODIGO}"})
             continue
-        datos = {"sku": existente.sku if existente else gen + (suf or siguiente_sufijo(db, gen, talla=talla)),
+        existente = (db.scalar(select(Articulo).where(Articulo.sku == (sku or gen + suf))) if sku or suf else None) or db.scalar(
+            _articulos(db, gen).where(Articulo.tipo == "SOLIDO", Articulo.talla == talla))
+        datos = {"sku": existente.sku if existente else sku or gen + (suf or siguiente_sufijo(db, gen, talla=talla)), "generico": gen,
                  "estilo": p.estilo, "color": p.color, "talla": talla, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
                  "proveedor_id": p.proveedor_id, "tipo": "SOLIDO", "unidad": p.unidad or "UN"}
         for k in ("upc", "sku_proveedor"):
@@ -259,6 +261,8 @@ def _importar_por_articulo(db: Session, user: Usuario, nombre: str, contenido: b
             errores.append({"fila": f["_fila"], "mensaje": "Prepacks are loaded in Master data → Prepacks with their breakdown."})
             continue
         datos = {k: f.get(k, "") for k in ("sku", "sku_proveedor", "estilo", "color", "talla", "upc") if f.get(k, "") != ""}
+        if f.get("codigo_generico"):
+            datos["generico"] = f["codigo_generico"].strip().upper()
         datos["tipo"] = "SOLIDO"
         if f.get("unidad"):
             datos["unidad"] = f["unidad"].strip().upper()
@@ -277,7 +281,7 @@ def _importar_por_articulo(db: Session, user: Usuario, nombre: str, contenido: b
         if faltan:
             errores.append({"fila": f["_fila"], "mensaje": "; ".join(faltan) + "."})
             continue
-        existente = db.scalar(select(Articulo).where(Articulo.sku == (datos.get("sku") or "").strip()))
+        existente = db.scalar(select(Articulo).where(Articulo.sku == (datos.get("sku") or "").strip().upper()))
         try:
             with db.begin_nested():
                 if existente:

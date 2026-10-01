@@ -246,12 +246,12 @@ const tallasPP = computed(() => solidos.value.filter((a) => a.estilo === nuevoPP
 const totalPP = computed(() => tallasPP.value.reduce((t, a) => t + (Number(nuevoPP.cantidades[a.id]) || 0), 0))
 watch(() => [nuevoPP.estilo, nuevoPP.color], async () => {
   nuevoPP.cantidades = {}
-  // El prepack lleva el genérico de sus sólidos (8 primeros dígitos) y su propia talla (3 últimos)
-  const gen = tallasPP.value[0]?.sku?.slice(0, 8)
-  if (!gen || !/^3\d{7}$/.test(gen)) return
+  // El prepack lleva el genérico de sus sólidos; se propone genérico + código libre
+  const gen = tallasPP.value[0]?.generico
+  if (!gen) return
   try {
-    const d = await api.get(`/catalogos/genericos/${gen}`)
-    if (!nuevoPP.sku || nuevoPP.sku.slice(0, 8) !== gen) nuevoPP.sku = `${gen}${d.siguiente}`
+    const d = await api.get(`/catalogos/genericos/${encodeURIComponent(gen)}`)
+    if (!nuevoPP.sku || !nuevoPP.sku.startsWith(gen)) nuevoPP.sku = `${gen}${d.siguiente}`
   } catch {
     /* sin genérico registrado: se escribe a mano */
   }
@@ -310,7 +310,7 @@ onMounted(async () => {
       <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="{ q: filtros.q, orden: filtros.orden, ...filtros.extra }" />
       <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />{{ t('Template') }}</a>
       <button v-if="cat && puede('catalogos.crear')" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload items and sheets') : tipo === 'prepacks' ? t('Upload size runs') : t('Upload Excel')) }}</button>
-      <button v-if="tipo === 'articulos' && puede('catalogos.crear')" class="btn btn-primario" :title="t('Generic (first 8 digits) with its sizes')" @click="genericoNuevo = true"><Icono nombre="mas" />{{ t('New generic') }}</button>
+      <button v-if="tipo === 'articulos' && puede('catalogos.crear')" class="btn btn-primario" :title="t('Generic (style-color) with its sizes')" @click="genericoNuevo = true"><Icono nombre="mas" />{{ t('New generic') }}</button>
       <button v-else-if="cat && tipo !== 'articulos' && puede('catalogos.crear')" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />{{ t('New {0}', [cat.singular]) }}</button>
     </div>
   </div>
@@ -402,9 +402,9 @@ onMounted(async () => {
     <p v-if="cat.ayuda" class="ayuda" style="margin-top: 0">{{ tx(cat.ayuda) }}</p>
       <form v-if="tipo === 'prepacks' && !editando" class="form-catalogo" @submit.prevent="crearPrepack">
         <label class="campo"><span class="req">{{ t('Item code') }}</span>
-          <input v-model="nuevoPP.sku" inputmode="numeric" maxlength="11" :placeholder="t('Generic of its solids + 3 digits')" required />
+          <input v-model="nuevoPP.sku" maxlength="40" :placeholder="t('Your item code for the prepack')" required />
           <small v-if="erroresPP.sku" class="nota error" style="padding: 4px 8px">{{ tx(erroresPP.sku) }}</small>
-          <small v-else class="ayuda">{{ t('Same generic (first 8 digits) as its solids; only the last 3 digits change. It is proposed when you choose style and color.') }}</small>
+          <small v-else class="ayuda">{{ t('Any code in your format. The prepack takes the generic of its solids; a code is proposed when you choose style and color.') }}</small>
         </label>
         <label class="campo"><span class="req">{{ t('Style') }}</span>
           <SelectBusqueda v-model="nuevoPP.estilo" :opciones="estilosPP" requerido :etiqueta="t('Style')" />

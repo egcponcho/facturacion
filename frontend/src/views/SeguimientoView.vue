@@ -137,10 +137,10 @@ function buscar() {
         <option value="">{{ t('PO status: all') }}</option><option v-for="[v, txt] in ESTADOS_OC" :key="v" :value="v">{{ t('PO status: {0}', [txt]) }}</option>
       </Seleccion>
       <Seleccion v-model="filtros.liberacion_comercial" :aria-label="t('Commercial release')" @change="aplicar">
-        <option value="">{{ t('Commercial rel.: all') }}</option><option value="C">{{ t('Commercial rel.: C · Released') }}</option><option value="P">{{ t('Commercial rel.: P · Pending') }}</option>
+        <option value="">{{ t('Commercial rel.: all') }}</option><option value="C">{{ t('Commercial rel.: Released') }}</option><option value="P">{{ t('Commercial rel.: Pending') }}</option>
       </Seleccion>
       <Seleccion v-model="filtros.liberacion_logistica" :aria-label="t('Logistics release')" @change="aplicar">
-        <option value="">{{ t('Logistics rel.: all') }}</option><option value="300">{{ t('Logistics rel.: 300 · Released') }}</option><option value="301">{{ t('Logistics rel.: 301 · Released, changed') }}</option><option value="304">{{ t('Logistics rel.: 304 · Not released') }}</option>
+        <option value="">{{ t('Logistics rel.: all') }}</option><option value="300">{{ t('Logistics rel.: Released') }}</option><option value="301">{{ t('Logistics rel.: Released, changed') }}</option><option value="304">{{ t('Logistics rel.: Not released') }}</option>
       </Seleccion>
     </template>
     <Seleccion v-model="filtros.etapa" :aria-label="t('Goods stage')" @change="aplicar">

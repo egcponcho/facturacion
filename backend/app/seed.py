@@ -134,7 +134,7 @@ TRANSPORTISTAS = [
 ]
 PASSWORD_DEMO = "Supplier2026"
 MARCAS = [("TNF", "The North Face"), ("VANS", "Vans"), ("MERR", "Merrell"), ("CAT", "Caterpillar"),
-          ("HPU", "Hush Puppies"), ("ADOC", "ADOC")]
+          ("HPU", "Hush Puppies"), ("CASA", "House brand")]
 GRUPOS = [("CALZ-OUT", "Outdoor footwear", "CALZADO"), ("CALZ-CAS", "Casual footwear", "CALZADO"),
           ("CHAQ", "Jackets", "ROPA"), ("FLEE", "Fleece and sweatshirts", "ROPA"), ("MOCH", "Backpacks", "ACCESORIO")]
 # estilo, color, marca, grupo, proveedor, unidad, precio, origen, partida, descripción, empaque de la OC, tallas
@@ -274,8 +274,8 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
     ropa) con un número de artículo por estilo-color-talla, y prepacks cuya
     talla es su prepack ID."""
     arts = {}
-    # Código de artículo: los 8 primeros dígitos son el genérico (estilo-color) y
-    # los 3 últimos la talla; los prepacks del genérico siguen con su propia talla
+    # Datos de ejemplo: el código de artículo de esta empresa demo es el genérico
+    # (estilo-color) más un código de talla; cada empresa usa su propio formato
     genericos = {}
     for n, (estilo, color, marca, grupo, prov, unidad, precio, origen, partida, desc, empaque, tallas) in enumerate(ESTILOS):
         gen = str(30095120 + n)
@@ -286,7 +286,7 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
                                                      if f"{i:03d}" not in genericos[(estilo, color)][1])
             genericos[(estilo, color)][1].add(suf)
             sku = f"{gen}{suf}"
-            a = Articulo(sku=sku, sku_proveedor=_sku_proveedor(estilo, color, talla), upc=f"0196{int(sku) % 10**8:08d}",
+            a = Articulo(sku=sku, generico=gen, sku_proveedor=_sku_proveedor(estilo, color, talla), upc=f"0196{int(sku) % 10**8:08d}",
                          estilo=estilo, color=color, talla=talla,
                          descripcion=desc, marca_id=cat["marcas"][marca].id, grupo_id=cat["grupos"][grupo].id,
                          proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO")
@@ -308,7 +308,7 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
         gen = genericos[(estilo, color)]
         suf = next(f"{i:03d}" for i in range(1, 1000) if f"{i:03d}" not in gen[1])
         gen[1].add(suf)
-        a = Articulo(sku=f"{gen[0]}{suf}", sku_proveedor=_sku_proveedor(estilo, color, codigo), estilo=estilo,
+        a = Articulo(sku=f"{gen[0]}{suf}", generico=gen[0], sku_proveedor=_sku_proveedor(estilo, color, codigo), estilo=estilo,
                      color=color, talla=codigo,
                      descripcion=f"{base.descripcion}, prepack {codigo}", marca_id=base.marca_id,
                      grupo_id=base.grupo_id, proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK",

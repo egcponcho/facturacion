@@ -158,18 +158,12 @@ def test_acuerdos_por_origen(interno, vans):
     assert any(a["codigo"] == "VN-XX" and a["destinos"] == ["GT", "SV"] for a in ac)
 
 
-def test_todo_el_sac(interno, vans):
-    """Cualquier producto: se busca su subpartida en todo el SAC y trae los
-    códigos nacionales del ACI de cualquier capítulo, con su base legal."""
-    r = vans.get("/clasificacion/sac", params={"q": "maquinas portatiles"}).json()
-    assert r and r[0]["codigo"] == "847130" and r[0]["partida"], r[:3]
-    assert [x["codigo"] for x in vans.get("/clasificacion/sac", params={"q": "8471.30"}).json()] == ["847130"]
-    inc = vans.get(f"/clasificacion/incisos/{r[0]['codigo']}").json()
-    assert inc["descripcion"] and {x["pais"] for x in inc["incisos"]} >= {"GT", "SV", "HN"}
-    assert all(x["dai"] != "" for x in inc["incisos"] if x["pais"] == "SV")
-    # El contexto de la ficha no carga todo el arancel: los demás capítulos van bajo demanda
+def test_soporte_de_clasificacion(interno, vans):
+    """La ficha se clasifica con el motor y se revisa con su soporte: base legal
+    de cada destino y notas legales y explicativas de la partida. No hay
+    búsqueda libre en todo el SAC desde la ficha."""
+    assert vans.get("/clasificacion/sac", params={"q": "8471.30"}).status_code in (404, 405)
     ctx = interno.get("/clasificacion/contexto").json()
-    assert not any(x["codigo"].startswith("84") for x in ctx["incisos"])
     assert all(d["base_legal"] for d in ctx["destinos"])
     # Notas explicativas por partida (resumen propio, no el texto oficial)
     notas = interno.get("/aranceles/notas", params={"capitulo": "64"}).json()

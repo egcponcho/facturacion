@@ -83,7 +83,7 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
     <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('What is checked') }}</h2></div></div>
       <ul class="lista-mensajes ayuda">
-        <li>{{ t('PO in the format 44 + 8 digits and lines in steps of 10.') }}</li>
+        <li>{{ t('PO number and line in your own format (letters and numbers).') }}</li>
         <li><b>{{ t('Item data comes from the item master') }}</b>{{ t(', not from the file: style, color, size, description, brand, group, UoM, HS code and country of origin. The SKU must exist and belong to the PO\'s supplier.') }}</li>
         <li><b>{{ t('PO line data comes from the file') }}</b>{{ t(': line, warehouse, quantity, price, dates, and the purchase packing:') }} <b>casepack</b> {{ t('(exact quantity per carton) and') }} <b>{{ t('inner pack') }}</b> {{ t('(units per inner pack). The casepack must be a multiple of the inner pack, and the quantity a whole number of inner packs. A prepack is already a defined carton and takes neither.') }}</li>
         <li>{{ t('Company, plant and warehouse must match each other, and the supplier must work with the company.') }}</li>

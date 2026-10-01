@@ -520,9 +520,24 @@ def _fecha(valor: str) -> date | None:
     raise ValueError(f"invalid date: {valor}")
 
 
+def _logistica(valor: str | None):
+    """Liberación logística del archivo: acepta el código (300, 301, 304) o la
+    palabra; None si no viene, False si no se reconoce."""
+    v = re.sub(r"[^A-Z0-9]", "", (valor or "").strip().upper())
+    if not v:
+        return None
+    if v in ("300", "RELEASED", "LIBERADA", "LIBERADO", "YES", "SI", "Y", "S", "1", "TRUE", "OK"):
+        return "300"
+    if v in ("301", "CHANGED", "RELEASEDCHANGED", "RELEASEDWITHCHANGES", "MODIFICADA", "CAMBIADA", "LIBERADACONCAMBIOS"):
+        return "301"
+    if v in ("304", "NOTRELEASED", "NOLIBERADA", "PENDING", "PENDIENTE", "NO", "N", "0", "FALSE", "BLOQUEADA"):
+        return "304"
+    return False
+
+
 def _comercial(valor: str) -> str:
     v = (valor or "").strip().upper()
-    if v in ("P", "PENDIENTE", "NO", "N", "0", "FALSE", "BLOQUEADA"):
+    if v in ("P", "PENDIENTE", "PENDING", "NOT RELEASED", "NO", "N", "0", "FALSE", "BLOQUEADA"):
         return "P"
     return "C"  # C, vacío o "sí": liberación comercial completa
 
@@ -574,15 +589,17 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         "liberacion_logistica_archivo": (r.get("liberacion_logistica") or "").strip() or None,
         "codigo_sap": r.get("codigo_sap", ""),
     }
-    log = d["liberacion_logistica_archivo"]
-    if log and log not in LIBERACION_TXT:
-        errores.append(f"Invalid logistics release {log} (use 304, 300 or 301).")
+    log = _logistica(d["liberacion_logistica_archivo"])
+    d["liberacion_logistica_archivo"] = log
+    if log is False:
+        errores.append(f"Invalid logistics release {r.get('liberacion_logistica')} (use Released, Changed or Not released).")
+        log = d["liberacion_logistica_archivo"] = None
     elif log in ("300", "301") and d["liberacion_comercial"] != "C":
         errores.append(f"Logistics cannot release ({log}) without commercial release: the PO is in P.")
-    if d["oc"] and not re.fullmatch(r"44\d{8}", d["oc"]):
-        errores.append(f"PO {d['oc']} does not have the 44 + 8 digits format (for example 4400003856).")
-    if d["posicion"] and (not d["posicion"].isdigit() or int(d["posicion"]) % 10):
-        errores.append(f"Line {d['posicion']} is not a multiple of 10.")
+    if d["oc"] and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}", d["oc"]):
+        errores.append(f"PO {d['oc']}: letters and numbers (also . - _ /), up to 40 characters.")
+    if d["posicion"] and not re.fullmatch(r"[A-Za-z0-9]{1,10}", d["posicion"]):
+        errores.append(f"Line {d['posicion']}: letters and numbers, up to 10 characters.")
     try:
         cant = float(r.get("cantidad", "").replace(",", "")) if r.get("cantidad") else None
         if cant is not None and (cant < 0 or not cant.is_integer()):

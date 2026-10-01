@@ -76,23 +76,11 @@ const notasSac = computed(() => {
     .sort((a, b) => citada(b) - citada(a) || (ORDEN_NOTA[a.ambito] ?? 9) - (ORDEN_NOTA[b.ambito] ?? 9))
 })
 const verNotas = ref(false)
+const soporte = ref('legales')
+const notasLegales = computed(() => notasSac.value.filter((n) => n.ambito !== 'explicativa'))
+const notasExplicativas = computed(() => notasSac.value.filter((n) => n.ambito === 'explicativa'))
+const notasVista = computed(() => (soporte.value === 'explicativas' ? notasExplicativas.value : notasLegales.value))
 
-// ---- Todo el SAC: los códigos nacionales de otros capítulos se piden al elegir
-const pedidos = new Set()
-async function incisosDe(sub6) {
-  if (sub6.length < 6 || pedidos.has(sub6) || !ctx.value) return
-  pedidos.add(sub6)
-  if (ctx.value.incisos.some((x) => x.codigo.startsWith(sub6) && ['oficial', 'base'].includes(x.fuente))) return
-  try {
-    const r = await api.get(`/clasificacion/incisos/${sub6}`)
-    if (r.descripcion) M.setSac([{ codigo: sub6, descripcion: r.descripcion }])
-    const ya = new Set(ctx.value.incisos.map((x) => x.id))
-    ctx.value.incisos.push(...r.incisos.filter((x) => !ya.has(x.id)))
-  } catch {
-    pedidos.delete(sub6)
-  }
-}
-watch(codigo6, (c) => incisosDe(c))
 // Base legal de cada país destino (agrupada: varios comparten el mismo arancel)
 const basesLegales = computed(() => {
   const g = new Map()
@@ -105,7 +93,6 @@ function tomar(det) {
   p.value = det
   for (const k of Object.keys(f)) delete f[k]
   Object.assign(f, fichaDe(det))
-  if (f.sacElegido && f.sacDesc) M.setSac([{ codigo: f.sacElegido, descripcion: f.sacDesc }])
   codOficial.value = ''
   cargas.value++
   base.value = instantanea()
@@ -440,7 +427,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </span>
         <div>
           <span class="doc-numero">{{ tx(p.estilo) }} · {{ tx(p.color) }}</span>
-          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento" style="margin-inline-start: 0" :title="t('Generic: first 8 digits of the item code')">{{ t('Generic {0}', [p.codigo_generico]) }}</span> {{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.marca_nombre || p.marca) }}<template v-if="p.proveedor && p.proveedor !== (p.marca_nombre || p.marca)"> · {{ tx(p.proveedor) }}</template></div>
+          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento" style="margin-inline-start: 0" :title="t('Generic (style-color)')">{{ t('Generic {0}', [p.codigo_generico]) }}</span> {{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.marca_nombre || p.marca) }}<template v-if="p.proveedor && p.proveedor !== (p.marca_nombre || p.marca)"> · {{ tx(p.proveedor) }}</template></div>
         </div>
         <EstadoBadge :estado="p.estado" />
         <span v-if="p.version_ficha > 1" class="etiqueta">{{ t('Version {0}', [p.version_ficha]) }}</span>
@@ -490,7 +477,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 
         <!-- Ficha técnica -->
         <FichaTecnica v-if="pestana === 'ficha'" :key="`${p.id}-${p.version_ficha}-${cargas}`" :f="f" :r="r" :ctx="ctx" :producto="p" :paises="opciones.paises"
-                      :editable="puedeEditar" @subir-foto="subirFoto" @borrar-foto="borrarFoto" @contexto="recargarContexto" @acuerdos="pestana = 'acuerdos'" @sac="incisosDe" />
+                      :editable="puedeEditar" @subir-foto="subirFoto" @borrar-foto="borrarFoto" @contexto="recargarContexto" @acuerdos="pestana = 'acuerdos'" />
 
         <!-- Acuerdos comerciales por destino según el origen -->
         <AcuerdosOrigen v-else-if="pestana === 'acuerdos'" :origen="f.origen || ''" :ctx="ctx" :paises="opciones.paises" />
@@ -552,7 +539,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         <!-- Tallas y prepacks -->
         <div v-else-if="pestana === 'tallas'">
           <div class="fila-flex mt-chico" style="justify-content: space-between">
-            <p class="ayuda">{{ t('Every size of generic') }} <b>{{ tx(p.codigo_generico || '—') }}</b> {{ t('(first 8 digits of the item code) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.') }}</p>
+            <p class="ayuda">{{ t('Every size of generic') }} <b>{{ tx(p.codigo_generico || '—') }}</b> {{ t('(style-color) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.') }}</p>
             <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />{{ t('Add sizes') }}</button>
           </div>
           <div class="tabla-marco mt-chico">
@@ -646,15 +633,24 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
           </div>
         </section>
 
-        <section v-if="notasSac.length" class="panel">
-          <div class="panel-cabeza"><div><h2>{{ t('SAC notes that apply') }}</h2><p>{{ t('Chapter {0}, its section, the general rules and the explanatory notes of heading {1}', [codigo6.slice(0, 2), M.fmtCode(codigo6.slice(0, 4))]) }}</p></div></div>
-          <ul class="notas-sac">
-            <li v-for="n in (verNotas ? notasSac : notasSac.slice(0, 2))" :key="n.id">
+        <section v-if="codigo6.length === 6" class="panel soporte">
+          <div class="panel-cabeza"><div><h2>{{ t('Classification support') }}</h2><p>{{ t('Legal notes, explanatory notes and legal basis to check heading {0} before approving it.', [M.fmtCode(codigo6.slice(0, 4))]) }}</p></div></div>
+          <div class="pestanas-pildora" role="tablist">
+            <button v-for="[k, txt, n] in [['legales', t('Legal notes'), notasLegales.length], ['explicativas', t('Explanatory notes'), notasExplicativas.length], ['base', t('Legal basis'), basesLegales.length]]" :key="k"
+                    type="button" role="tab" class="pildora" :aria-selected="soporte === k" @click="soporte = k">{{ txt }} <span class="cuenta">{{ n }}</span></button>
+          </div>
+          <ul v-if="soporte !== 'base'" class="notas-sac">
+            <li v-for="n in (verNotas ? notasVista : notasVista.slice(0, 3))" :key="n.id">
               <b>{{ tx(n.ambito === 'explicativa' ? t('Explanatory note, heading {0}', [M.fmtCode(n.codigo)]) : n.codigo === 'RGI' ? t('General rule {0}', [n.numero]) : n.ambito === 'seccion' ? t('Section {0}, note {1}', [n.codigo, n.numero]) : n.ambito === 'complementaria' ? t('Chapter {0}, Central American note {1}', [n.codigo, n.numero.replace('NCC ', '')]) : t('Chapter {0}, note {1}', [n.codigo, n.numero])) }}</b>
               <span>{{ tx(n.texto) }}</span>
             </li>
+            <li v-if="!notasVista.length" class="apagado">{{ soporte === 'explicativas' ? t('No explanatory notes loaded for this heading. Load them in Tariff schedule → Notes.') : t('No legal notes loaded for this chapter.') }}</li>
           </ul>
-          <button v-if="notasSac.length > 2" type="button" class="btn-texto" @click="verNotas = !verNotas">{{ tx(verNotas ? t('Show fewer') : t('See all {0} notes', [notasSac.length])) }}</button>
+          <button v-if="soporte !== 'base' && notasVista.length > 3" type="button" class="btn-texto" @click="verNotas = !verNotas">{{ tx(verNotas ? t('Show fewer') : t('See all {0} notes', [notasVista.length])) }}</button>
+          <div v-if="soporte === 'base'" class="bases-legales">
+            <p v-for="b in basesLegales" :key="b.texto"><b>{{ tx(b.isos.join(', ')) }}</b> · {{ tx(b.texto) }}</p>
+            <p v-if="!basesLegales.length" class="apagado">{{ t('No legal basis registered for the destination countries. Add it in Tariff schedule → Countries.') }}</p>
+          </div>
         </section>
 
         <section class="panel">
@@ -693,10 +689,6 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
               </tr>
             </tbody>
           </table>
-          <div v-if="basesLegales.length" class="bases-legales">
-            <span class="eyebrow">{{ t('Legal basis') }}</span>
-            <p v-for="b in basesLegales" :key="b.texto"><b>{{ tx(b.isos.join(', ')) }}</b> · {{ tx(b.texto) }}</p>
-          </div>
         </section>
 
         <section v-if="!aprobado && r?.o.parecidos?.length" class="panel">

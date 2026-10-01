@@ -34,7 +34,7 @@ async function alCargar(r) {
 
 <template>
   <CargaMasiva :titulo="t('Upload items with their technical sheet')" ruta="/catalogos/articulos/importar" plantilla="/catalogos/articulos/plantilla"
-               :ayuda="t('Sheet Generics: one row per generic (first 8 digits) with its data and technical sheet. Sheet Sizes: one row per size; leave Size code empty to generate it (001, 002…) or type your own 3 digits. After the upload the engine completes the sheet and suggests the HS code.')"
+               :ayuda="t('Sheet Generics: one row per generic (style-color) with its data and technical sheet. Sheet Sizes: one row per size with your item code, or leave it empty to use the generic plus a size code. After the upload the engine completes the sheet and suggests the HS code.')"
                @cerrar="emit('cerrar')" @cargado="alCargar">
     <template #resultado="{ resultado }">
       <template v-if="resultado.productos_total"> {{ t('{0} products (style-color).', [resultado.productos_total]) }}</template>

@@ -8,7 +8,6 @@ import { M } from '../../clasificacion/useClasificacion'
 import { avisar, errorApi } from '../../stores/ui'
 import Icono from '../Icono.vue'
 import CampoCategoria from './CampoCategoria.vue'
-import SacBuscador from './SacBuscador.vue'
 import ComposicionParte from './ComposicionParte.vue'
 
 // Formulario de la ficha técnica, con la misma lógica del clasificador:
@@ -23,7 +22,7 @@ const props = defineProps({
   paises: { type: Array, default: () => [] },
   editable: Boolean,
 })
-const emit = defineEmits(['subir-foto', 'borrar-foto', 'contexto', 'acuerdos', 'sac'])
+const emit = defineEmits(['subir-foto', 'borrar-foto', 'contexto', 'acuerdos'])
 const f = props.f
 
 // ---- Lo que eligió la persona y lo que se llenó solo ----------------------
@@ -197,15 +196,6 @@ function respNac(k, v) {
 const nAcuerdos = computed(() => (props.ctx.destinos || []).filter((d) => f.origen === d.iso
   || (props.ctx.acuerdos || []).some((a) => a.origenes.includes(f.origen) && a.destinos.includes(d.iso))).length)
 
-// ---- Cualquier producto: subpartida elegida en el SAC --------------------------
-function elegirSac(x) {
-  f.sacElegido = x.codigo
-  f.sacDesc = x.descripcion
-  M.setSac([{ codigo: x.codigo, descripcion: x.descripcion }])
-  tocar('sacElegido')
-  emit('sac', x.codigo)
-}
-
 // ---- Avance ----------------------------------------------------------------------
 const pasos = computed(() => {
   const faltanProd = [!f.tipo, pideGenero.value && !f.genero, !M.edadDe(f), !f.origen].filter(Boolean).length
@@ -262,19 +252,7 @@ if (props.editable) deteccion()
         </div>
         <div class="campo-f">
           <span class="lbl-f">{{ t('Generic') }}</span>
-          <span class="generico-fijo" :title="t('First 8 digits of the item code: all its sizes share this sheet')">{{ tx(producto.codigo_generico || '—') }}<small>{{ tx(producto.skus) }} {{ tx(producto.skus === 1 ? 'size' : 'sizes') }}<template v-if="producto.rango_tallas"> ({{ tx(producto.rango_tallas) }})</template><template v-if="producto.n_prepacks"> · {{ tx(producto.n_prepacks) }} {{ tx(producto.n_prepacks === 1 ? 'prepack' : 'prepacks') }}</template></small></span>
-        </div>
-      </div>
-      <div v-if="f.tipo === 'otro_sac'" class="fila2 otro-sac">
-        <div class="campo-f">
-          <label for="f_sac">{{ t('SAC subheading') }}<span class="req-ast">*</span></label>
-          <SacBuscador id="f_sac" :model-value="f.sacElegido || ''" :descripcion="f.sacDesc || ''" :disabled="!props.editable" @elegir="elegirSac" />
-          <p class="hint">{{ t('Any product of the tariff: its section, chapter and explanatory notes and the national codes of each country apply.') }}</p>
-        </div>
-        <div class="campo-f">
-          <label for="f_quees">{{ t('Name in Spanish for customs') }} <span class="opcional">{{ t('(optional)') }}</span></label>
-          <input id="f_quees" v-model="f.queEs" class="entrada" type="text" maxlength="80" :disabled="!props.editable" :placeholder="t('E.g. audífonos inalámbricos')" />
-          <p class="hint">{{ t('Without it, the customs description uses the text of the subheading.') }}</p>
+          <span class="generico-fijo" :title="t('Generic (style-color): all its sizes share this sheet')">{{ tx(producto.codigo_generico || '—') }}<small>{{ tx(producto.skus) }} {{ tx(producto.skus === 1 ? 'size' : 'sizes') }}<template v-if="producto.rango_tallas"> ({{ tx(producto.rango_tallas) }})</template><template v-if="producto.n_prepacks"> · {{ tx(producto.n_prepacks) }} {{ tx(producto.n_prepacks === 1 ? 'prepack' : 'prepacks') }}</template></small></span>
         </div>
       </div>
       <div class="fila3">

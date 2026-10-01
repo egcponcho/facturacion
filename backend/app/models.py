@@ -376,7 +376,7 @@ class Producto(Base):
     grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"))
     # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
     # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
-    codigo_generico: Mapped[str | None] = mapped_column(String(20), unique=True, index=True)
+    codigo_generico: Mapped[str | None] = mapped_column(String(40), unique=True, index=True)
     unidad: Mapped[str | None] = mapped_column(String(5))  # unidad de sus tallas sólidas: PAR | UN
     nombre: Mapped[str | None] = mapped_column(String(200))  # nombre comercial del estilo
     # Ficha técnica: tipo de producto del clasificador, atributos, composición
@@ -584,8 +584,11 @@ class Articulo(Base):
 
     __tablename__ = "articulos"
     id: Mapped[int] = mapped_column(primary_key=True)
-    # Código de artículo interno (11 dígitos, empieza con 3); distinto del SKU del proveedor
+    # Código de artículo de la empresa (numérico o alfanumérico, el formato lo
+    # define cada empresa); distinto del SKU del proveedor
     sku: Mapped[str] = mapped_column(String(40), unique=True)  # texto: conserva ceros
+    # Genérico: agrupa las tallas y prepacks de un estilo-color, que comparten ficha
+    generico: Mapped[str | None] = mapped_column(String(40), index=True)
     sku_proveedor: Mapped[str | None] = mapped_column(String(60), index=True)
     upc: Mapped[str | None] = mapped_column(String(40))
     estilo: Mapped[str] = mapped_column(String(40))

@@ -13,7 +13,7 @@ from .common import ErrorNegocio, exigir, registrar
 from .meta import cond_texto, opciones_cond, valor_opcion
 from .plantillas import leer, norm, plantilla, si_no
 
-FUENTES = {"oficial": "Official (SIECA)", "base": "Base (ADOC)", "resumen": "Summary (not the official text)", "aprendido": "Learned", "manual": "By hand", "archivo": "File"}
+FUENTES = {"oficial": "Official (SIECA)", "base": "Company base", "resumen": "Summary (not the official text)", "aprendido": "Learned", "manual": "By hand", "archivo": "File"}
 
 
 def _dig(s) -> str:

@@ -515,13 +515,14 @@ class IdsIn(BaseModel):
 
 class TallaIn(BaseModel):
     talla: str = Field(max_length=20)
-    sufijo: str | None = Field(None, max_length=3)  # los 3 últimos dígitos; vacío = el siguiente libre
+    sufijo: str | None = Field(None, max_length=20)  # código de talla tras el genérico; vacío = el siguiente libre
+    sku: str | None = Field(None, max_length=40)  # código de artículo completo, si la empresa usa otro formato
     upc: str | None = Field(None, max_length=40)
     sku_proveedor: str | None = Field(None, max_length=60)
 
 
 class GenericoIn(BaseModel):
-    generico: str = Field(max_length=8)
+    generico: str = Field(max_length=40)
     estilo: str = Field(max_length=40)
     color: str = Field(max_length=60)
     marca_id: int
