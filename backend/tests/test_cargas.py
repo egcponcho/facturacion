@@ -5,6 +5,8 @@ from datetime import date, timedelta
 
 from openpyxl import Workbook, load_workbook
 
+from app.services.leadtimes import sumar
+
 
 def _xlsx(filas):
     wb = Workbook()
@@ -203,7 +205,10 @@ def test_leadtimes_por_origen(interno):
     # Temprano/tarde contra la fecha límite en puerto (tienda - bodega - ingreso - reexportación)
     o = ocs["4400003702"]
     assert o["riesgo"] == "ATRASO" and o["holgura"] < 0
-    assert o["limite_puerto"] == str(date.fromisoformat(o["fecha_tienda"]) - timedelta(days=10))
+    # Plan ASIA: reexportación 5 d, ingreso 2 días hábiles, acarreo 1 d y aduana 2 días hábiles
+    lim = date.fromisoformat(o["fecha_tienda"]) - timedelta(days=5)
+    lim = sumar(sumar(lim, 2, True, -1) - timedelta(days=1), 2, True, -1)
+    assert o["plan"] == "ASIA" and o["limite_puerto"] == str(lim)
     hitos = {h["clave"]: h for h in o["hitos"]}
     assert hitos["arribo"]["estado"] == "tarde" and hitos["ingreso"]["fecha"] and hitos["tienda"]["estimada"]
     vn = next(x for x in r["origenes"] if x["origen"] == "VN")
@@ -217,3 +222,39 @@ def test_leadtimes_por_origen(interno):
     # Las unidades de carga usan la misma fecha límite
     u = interno.get("/seguimiento/embarques").json()["items"]
     assert u
+
+
+def test_cadena_de_pasos_de_leadtime(interno):
+    from app.services.leadtimes import mover
+
+    lunes = date(2026, 6, 1)
+    # Días hábiles saltan el fin de semana; un paso en paralelo no alarga el tramo
+    est = {"pasos": [
+        {"codigo": "A", "tramo": "puerto", "dias": 3, "habiles": True},
+        {"codigo": "B", "tramo": "puerto", "dias": 2, "depende": "INICIO"},
+        {"codigo": "C", "tramo": "puerto", "dias": 2, "depende": "A"},
+        {"codigo": "AIR", "tramo": "puerto", "dias": 9, "modo": "AEREO"},
+    ], "modo": "MARITIMO"}
+    assert mover(lunes, est, ["puerto"]) == date(2026, 6, 6)  # jueves + 2 d
+    assert mover(date(2026, 6, 6), est, ["puerto"], -1) == lunes
+    assert mover(lunes, {**est, "modo": "AEREO"}, ["puerto"]) == date(2026, 6, 15)
+    # Catálogo: pasos en texto (como en Excel), validados en el servidor
+    base = {"codigo": "T-AIR", "nombre": "Test air", "region": "ASIA", "modo": "AEREO", "activo": True}
+    r = interno.post("/catalogos/leadtimes", json={**base, "pasos": "transito: Flight = 4d; puerto: Customs = 1bd (after X)"})
+    assert r.status_code == 422 and "same stage" in r.text
+    r = interno.post("/catalogos/leadtimes", json={**base, "pasos": "liberacion: Release = 10d; transito: Flight = 4d; "
+                                                                      "puerto: Customs = 1bd; puerto: Docs = 1d (start)"})
+    assert r.status_code in (200, 201), r.text
+    plan = r.json()
+    assert plan["pasos"][2] == {"codigo": "CUSTOMS", "nombre": "Customs", "tramo": "puerto", "dias": 1,
+                                "habiles": True, "depende": "", "modo": ""}
+    assert plan["pasos"][3]["depende"] == "INICIO" and "(||)" in plan["pasos_txt"]
+    # El plan más específico gana: Asia por aire sobre Asia
+    from app.db import SessionLocal
+    from app.services.leadtimes import Estandares
+
+    with SessionLocal() as db:
+        ests = Estandares(db)
+        assert ests.de("VN", modo="AEREO")["plan"] in ("ASIA-AIR", "T-AIR")
+        assert ests.de("VN", modo="MARITIMO")["plan"] == "ASIA"
+        assert ests.de("ZZ")["plan"] == "GENERAL"

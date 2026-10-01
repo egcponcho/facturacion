@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..models import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
 from .cantidades import facturado_por_posicion, nombre_factura
 from .common import proveedor_filtro
-from .leadtimes import Estandares, _riesgo, arribo_estimado, dias_post_arribo, limite_puerto
+from .leadtimes import DESPUES_ARRIBO, Estandares, _riesgo, arribo_estimado, limite_puerto, mover
 
 ETAPAS = [
     ("PEND_LIBERACION", "Pending release"),
@@ -58,7 +58,7 @@ def _en_tienda(fila: dict, llegada: date | None, est: dict) -> None:
     tránsito de su origen) más los días de puerto, ingreso y reexportación."""
     if not llegada:
         return
-    fila["tienda_estimada"] = llegada + timedelta(days=dias_post_arribo(est))
+    fila["tienda_estimada"] = mover(llegada, est, DESPUES_ARRIBO)
     if fila["fecha_tienda"]:
         fila["dias_vs_tienda"] = (fila["tienda_estimada"] - fila["fecha_tienda"]).days
 
@@ -74,7 +74,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
 
     def sin_embarque(fila: dict, oc: OrdenCompra, grupo: str | None = None) -> None:
         # Aún sin embarque: se estima el arribo con la XF y el tránsito estándar de su origen
-        est = ests.de(oc.pais_origen, grupo)
+        est = ests.de_oc(oc, grupo)
         llegada = arribo_estimado(oc.fecha_xf, est, hoy)
         _en_tienda(fila, llegada, est)
         lim = fila["limite_puerto"]
@@ -87,7 +87,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     for p in posiciones:
         saldo = p.cantidad - facturado.get(p.id, 0)
         if saldo > 0:
-            fila = {**_base(p, p.oc, hoy, ests.de(p.oc.pais_origen, p.grupo)), "cantidad": saldo,
+            fila = {**_base(p, p.oc, hoy, ests.de_oc(p.oc, p.grupo)), "cantidad": saldo,
                     "etapa": "POR_FACTURAR" if p.oc.liberada else "PEND_LIBERACION"}
             sin_embarque(fila, p.oc, p.grupo)
             filas.append(fila)
@@ -105,7 +105,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             if pl.estado == "CANCELADO":
                 continue
             en_pl += pll.cantidad
-            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen, p.grupo)), "cantidad": pll.cantidad, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de_oc(oc, p.grupo)), "cantidad": pll.cantidad, "factura_id": f.id,
                     "factura": nombre_factura(f), "pl_id": pl.id, "pl": pl.numero, "etapa": "EN_PL",
                     "recolectado_en": pl.recolectado_en}
             if pl.recolectado_en and oc.fecha_xf:
@@ -121,9 +121,9 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
                             salida_real=e.salida_real, arribo_real=e.arribo_real,
                             etapa="CONTENEDOR" if e.estado == "PLANIFICADO" else e.estado)
                 llegada = e.arribo_real or e.eta or (
-                    (e.salida_real or e.etd) + timedelta(days=ests.de(oc.pais_origen)["dias_transito"])
-                    if (e.salida_real or e.etd) else arribo_estimado(oc.fecha_xf, ests.de(oc.pais_origen), hoy))
-                _en_tienda(fila, llegada, ests.de(oc.pais_origen, p.grupo))
+                    mover(e.salida_real or e.etd, ests.de_oc(oc, modo=e.tipo_transporte), ["transito"])
+                    if (e.salida_real or e.etd) else arribo_estimado(oc.fecha_xf, ests.de_oc(oc), hoy))
+                _en_tienda(fila, llegada, ests.de_oc(oc, p.grupo, e.tipo_transporte))
                 if fila["limite_puerto"] and llegada:
                     fila["holgura"] = (fila["limite_puerto"] - llegada).days
                 fila["riesgo"] = _riesgo(fila["holgura"])
@@ -132,7 +132,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             filas.append(fila)
         resto = fl.cantidad - en_pl
         if resto > 0:
-            fila = {**_base(p, oc, hoy, ests.de(oc.pais_origen, p.grupo)), "cantidad": resto, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de_oc(oc, p.grupo)), "cantidad": resto, "factura_id": f.id,
                     "factura": nombre_factura(f), "etapa": "FACTURADO"}
             sin_embarque(fila, oc, p.grupo)
             filas.append(fila)

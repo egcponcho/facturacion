@@ -7,6 +7,7 @@ tablas, así que agregar un campo aquí lo agrega en pantalla.
 """
 import csv
 import io
+import json
 
 from openpyxl import load_workbook
 from sqlalchemy import func, select
@@ -29,6 +30,7 @@ from ..models import (
     PrepackComponente,
     Proveedor,
     Puerto,
+    PlanLeadTime,
     RegionLeadTime,
     Sociedad,
     TipoUnidad,
@@ -37,6 +39,7 @@ from ..models import (
 )
 from .common import ErrorNegocio, exigir, filtro_texto, registrar
 from .normalizar import Referencias
+from . import pasos_leadtime as pasos_svc
 from .normalizar import nombre as nombre_fmt
 from .normalizar import texto as texto_fmt
 from .productos import (
@@ -146,7 +149,7 @@ CATALOGOS = {
               mensaje_patron="Use the 2-letter ISO code."),
             c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("region", "Lead time region", "codigo", catalogo="regiones", filtro=True,
-              ayuda="Origin region whose lead time targets apply (e.g. ASIA). Empty = the default region."),
+              ayuda="Origin region (e.g. ASIA). Lead time plans can apply to the whole region."),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
@@ -170,19 +173,34 @@ CATALOGOS = {
         "buscar": ["codigo", "nombre", "origenes", "destinos"],
     },
     "regiones": {
-        "modelo": RegionLeadTime, "titulo": "Lead time targets", "singular": "region",
-        "ayuda": "Targets per origin region. Logistics must release each PO this many days before its XF; after "
-                 "the port arrival the goods need the days to the warehouse, the warehouse entry and the re-export "
-                 "to the store (re-export is not tracked yet). Arrival later than the in-store date minus those days is late.",
+        "modelo": RegionLeadTime, "titulo": "Regions", "singular": "region",
+        "ayuda": "Groups of origin countries (Asia, Central America…) to filter, compare and apply one lead time "
+                 "plan to the whole region.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=10, mayus=True),
             c("nombre", "Name", obligatorio=True, formato="nombre"),
-            c("dias_liberacion", "Release before XF (days)", "entero", obligatorio=True),
-            c("dias_transito", "XF to port arrival (days)", "entero", obligatorio=True),
-            c("dias_puerto_bodega", "Port to warehouse (days)", "entero", obligatorio=True),
-            c("dias_ingreso", "Warehouse entry (days)", "entero", obligatorio=True),
-            c("dias_reexportacion", "Re-export to store (days)", "entero", obligatorio=True),
             c("predeterminada", "Default for other origins", "bool"),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre"],
+    },
+    "leadtimes": {
+        "modelo": PlanLeadTime, "titulo": "Lead time plans", "singular": "lead time plan",
+        "ayuda": "Each plan is a chain of steps between the milestones the system measures. It applies to the "
+                 "conditions it has (region, country, port, supplier, transport mode); empty conditions apply to "
+                 "all, and the most specific plan wins. A plan without conditions is the default.",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("region", "Region", "codigo", catalogo="regiones", filtro=True),
+            c("pais", "Origin country", "codigo", catalogo="paises", filtro=True,
+              depende={"campo": "region", "clave": "region"}),
+            c("puerto", "Port of departure", "codigo", catalogo="puertos", depende={"campo": "pais", "clave": "pais"}),
+            c("proveedor_id", "Supplier", "ref", catalogo="proveedores", filtro=True),
+            c("modo", "Transport mode", "opcion", opciones=MODOS, filtro=True),
+            c("pasos", "Steps", "pasos", obligatorio=True,
+              ayuda="In order. Each step belongs to a stage, counts calendar or business days, starts after the "
+                    "previous step (or another one, or in parallel) and can apply to a single transport mode."),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
@@ -349,7 +367,7 @@ CATALOGOS = {
     },
 }
 ORDEN_CATALOGOS = ["articulos", "prepacks", "escalas", "marcas", "grupos", "proveedores", "sociedades", "centros",
-                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "acuerdos"]
+                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "leadtimes", "acuerdos"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
 
@@ -388,6 +406,10 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
         if campo["tipo"] == "multi":
             fila[campo["nombre"]] = [x.id for x in v]
             fila[campo["nombre"] + "_txt"] = ", ".join(x.codigo for x in v) or None
+            continue
+        if campo["tipo"] == "pasos":
+            fila[campo["nombre"]] = pasos_svc.cargar(v)
+            fila[campo["nombre"] + "_txt"] = pasos_svc.texto(fila[campo["nombre"]])
             continue
         fila[campo["nombre"]] = v
         if campo["tipo"] == "ref" and v:
@@ -554,6 +576,15 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                 errores.append({"campo": n, "mensaje": f"{campo['etiqueta']} is required."})
             continue
         v = datos[n]
+        if campo["tipo"] == "pasos":
+            pasos, errs = pasos_svc.validar(v)
+            if errs:
+                errores.extend({"campo": n, "mensaje": e} for e in errs)
+            elif not pasos and campo["obligatorio"]:
+                errores.append({"campo": n, "mensaje": "Add at least one step."})
+            else:
+                limpio[n] = json.dumps(pasos, ensure_ascii=False)
+            continue
         if isinstance(v, str):
             v = nombre_fmt(v) if campo.get("formato") == "nombre" else texto_fmt(v)
             if campo.get("mayus"):

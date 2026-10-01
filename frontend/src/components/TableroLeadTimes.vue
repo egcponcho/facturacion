@@ -154,9 +154,9 @@ onMounted(cargar)
       <span v-for="(e, i) in datos.etapas" :key="e.clave"><i class="punto" :style="{ background: COLOR(i) }"></i>{{ tx(e.nombre) }}</span>
     </div>
     <p class="ayuda" style="margin: 10px 0 0">
-      {{ t('Port deadline = in-store date minus port to warehouse, warehouse entry and re-export days of each region') }}
+      {{ t('Port deadline = in-store date minus the steps after the port arrival in the lead time plan of each PO') }}
       <template v-for="(r, i) in datos.regiones" :key="r.codigo">{{ tx(tx(i ? ' · ' : ' (')) }}{{ tx(r.nombre) }} {{ tx(r.dias_puerto_bodega) }}+{{ tx(r.dias_ingreso) }}+{{ tx(r.dias_reexportacion) }} d{{ tx(tx(i === datos.regiones.length - 1 ? ')' : '')) }}</template>.
-      {{ t('Re-export is not recorded yet: its days are reserved.') }} <router-link v-if="esInterno()" to="/mantenimiento?catalogo=regiones" class="enlace">{{ t('Edit the targets') }}</router-link>
+      {{ t('Re-export is not recorded yet: its days are reserved.') }} <router-link v-if="esInterno()" to="/mantenimiento?catalogo=leadtimes" class="enlace">{{ t('Edit the lead time plans') }}</router-link>
     </p>
   </section>
 
@@ -191,7 +191,7 @@ onMounted(cargar)
           <tr class="clicable" @click="alternar(o.oc_id)">
             <td><button type="button" class="btn-icono" :aria-expanded="abiertas.has(o.oc_id)" :aria-label="t('See the milestones of {0}', [o.oc])"><Icono :nombre="abiertas.has(o.oc_id) ? 'abajo' : 'derecha'" :tam="16" /></button></td>
             <td><span class="codigo fuerte">{{ tx(o.oc) }}</span><span class="sub">{{ tx(o.proveedor) }}<template v-if="o.embarques.length"> · {{ tx(o.embarques.join(', ')) }}</template></span></td>
-            <td>{{ tx(o.origen_nombre || '—') }}<span class="sub">{{ tx(o.region_nombre) }}</span></td>
+            <td>{{ tx(o.origen_nombre || '—') }}<span class="sub" :title="t('Lead time plan')">{{ tx(o.plan_nombre || o.region_nombre) }}</span></td>
             <td>
               <template v-if="o.lib_dias_antes_xf !== null">
                 <span class="etiqueta" :class="o.lib_a_tiempo ? 'ok' : 'error'" style="margin-inline-start: 0">{{ tx(o.lib_a_tiempo ? t('On time') : t('Late')) }}</span>
@@ -221,7 +221,7 @@ onMounted(cargar)
                     <span class="etiqueta" :class="ESTADO[h.estado][1]" style="margin-inline-start: 0"><Icono :nombre="ESTADO[h.estado][2]" :tam="12" />{{ tx(ESTADO[h.estado][0]) }}<template v-if="difTxt(h)"> · {{ tx(difTxt(h)) }}</template></span>
                   </li>
                 </ol>
-                <p class="ayuda" style="margin: 8px 0 0">{{ t('≈ estimated from the shipment ETA or the standard days of {0}. In store is estimated after warehouse entry plus re-export (not recorded yet).', [o.region_nombre]) }}</p>
+                <p class="ayuda" style="margin: 8px 0 0">{{ t('≈ estimated from the shipment ETA or the standard days of {0}. In store is estimated after warehouse entry plus re-export (not recorded yet).', [o.plan_nombre || o.region_nombre]) }}</p>
               </div>
             </td>
           </tr>

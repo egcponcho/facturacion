@@ -10,6 +10,7 @@ import CargaArchivo from '../components/CargaArchivo.vue'
 import CargaArticulos from '../components/CargaArticulos.vue'
 import ArticulosGenericos from '../components/ArticulosGenericos.vue'
 import CargaMasiva from '../components/CargaMasiva.vue'
+import EditorPasos from '../components/EditorPasos.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import ExplosionPrepack from '../components/ExplosionPrepack.vue'
@@ -82,7 +83,7 @@ const conFiltro = computed(() => campos.value.filter((c) => c.filtro && !(compac
 
 function vacio() {
   const f = {}
-  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? true : c.tipo === 'multi' ? [] : ''
+  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? true : c.tipo === 'multi' || c.tipo === 'pasos' ? [] : ''
   return f
 }
 
@@ -157,7 +158,7 @@ function editar(fila) {
   filaEditada.value = fila
   erroresForm.value = {}
   const f = vacio()
-  for (const c of campos.value) f[c.nombre] = c.tipo === 'multi' ? [...(fila[c.nombre] || [])] : fila[c.nombre] ?? (c.tipo === 'bool' ? false : '')
+  for (const c of campos.value) f[c.nombre] = c.tipo === 'multi' ? [...(fila[c.nombre] || [])] : c.tipo === 'pasos' ? (fila[c.nombre] || []).map((p) => ({ ...p })) : fila[c.nombre] ?? (c.tipo === 'bool' ? false : '')
   form.value = f
 }
 function nuevo() {
@@ -182,7 +183,7 @@ async function guardar() {
     delete opciones[tipo.value]
     cargar()
   } catch (e) {
-    if (Array.isArray(e.detalle)) erroresForm.value = Object.fromEntries(e.detalle.filter((d) => d.campo).map((d) => [d.campo, d.mensaje]))
+    if (Array.isArray(e.detalle)) erroresForm.value = e.detalle.filter((d) => d.campo).reduce((o, d) => ({ ...o, [d.campo]: o[d.campo] ? `${o[d.campo]} ${d.mensaje}` : d.mensaje }), {})
     errorApi(e)
   } finally {
     ocupado.value = false
@@ -220,6 +221,7 @@ function valorCelda(c, fila) {
   if (v === null || v === undefined || v === '') return '—'
   if (c.tipo === 'ref') return fila[`${c.nombre}_txt`] || v
   if (c.tipo === 'multi') return fila[`${c.nombre}_txt`] || '—'
+  if (c.tipo === 'pasos') return t('{0} steps', [v.length])
   if (c.tipo === 'opcion') return c.opciones.find((o) => o[0] === v)?.[1] || v
   if (c.tipo === 'codigo') return opciones[c.catalogo]?.find((o) => o.codigo === v)?.texto || v
   return v
@@ -470,7 +472,7 @@ onMounted(async () => {
         <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />{{ t('Create prepack') }}</button>
       </form>
       <form v-else class="form-catalogo" @submit.prevent="guardar">
-        <label v-for="c in campos" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
+        <component :is="c.tipo === 'pasos' ? 'div' : 'label'" v-for="c in campos" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
           <template v-if="c.tipo === 'bool'">
             <input v-model="form[c.nombre]" type="checkbox" /> {{ tx(c.etiqueta) }}
           </template>
@@ -484,6 +486,7 @@ onMounted(async () => {
                             :vacio="tx(c.obligatorio ? '' : t('None'))" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" :deshabilitado="bloqueado(c)" />
             <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)" multiple
                             :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
+            <EditorPasos v-else-if="c.tipo === 'pasos'" v-model="form[c.nombre]" />
             <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
                       :placeholder="t('name@company.com, other@company.com')"></textarea>
             <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : 'text'"
@@ -491,7 +494,7 @@ onMounted(async () => {
             <small v-if="erroresForm[c.nombre]" class="nota error" style="padding: 4px 8px">{{ tx(erroresForm[c.nombre]) }}</small>
             <small v-else-if="c.ayuda" class="ayuda">{{ tx(c.ayuda) }}</small>
           </template>
-        </label>
+        </component>
         <p class="leyenda-req">{{ t('Required') }}</p>
         <div class="fila-flex">
           <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ tx(editando ? t('Save changes') : t('Create {0}', [cat.singular])) }}</button>

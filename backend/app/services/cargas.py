@@ -503,7 +503,7 @@ def exportar_catalogo(db: Session, user: Usuario, tipo: str, q: str | None, filt
 
     def val(x, fila):
         n = x["nombre"]
-        if x["tipo"] in ("ref", "multi"):
+        if x["tipo"] in ("ref", "multi", "pasos"):
             return fila.get(n + "_txt") or "—"
         if x["tipo"] == "bool":
             return "Yes" if fila.get(n) else "No"

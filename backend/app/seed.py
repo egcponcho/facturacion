@@ -1,5 +1,6 @@
 """Datos de demostración. Se cargan solo si la base está vacía.
 Uso manual: python -m app.seed"""
+import json
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import func, select
@@ -32,6 +33,7 @@ from .models import (
     PrepackComponente,
     Proveedor,
     Puerto,
+    PlanLeadTime,
     RegionLeadTime,
     Sociedad,
     TipoUnidad,
@@ -40,6 +42,7 @@ from .models import (
     Usuario,
 )
 from .security import hash_password
+from .services import pasos_leadtime as pasos_svc
 from .services.common import registrar
 from .services.genericos import sufijo_convencional
 from .services.varios import crear_roles_fabrica
@@ -218,19 +221,35 @@ PREPACKS = [
 ]
 
 
+# Lead times de ejemplo como cadena de pasos (ver pasos_leadtime para el formato)
+PLANES_LEADTIME = [
+    ("ASIA", "Asia by sea", "ASIA", None,
+     "liberacion: Logistics release = 21d; transito: Ocean transit = 35d; puerto: Customs clearance = 2bd; "
+     "puerto: Trucking to warehouse = 1d; ingreso: Warehouse entry = 2bd; tienda: Re-export to store = 5d"),
+    ("ASIA-AIR", "Asia by air", "ASIA", "AEREO",
+     "liberacion: Logistics release = 15d; transito: Air freight = 5d; puerto: Customs clearance = 1bd; "
+     "ingreso: Warehouse entry = 1bd; tienda: Re-export to store = 3d"),
+    ("CAM", "Central America by road", "CAM", None,
+     "liberacion: Logistics release = 15d; transito: Road transit = 5d; puerto: Border and customs = 1bd; "
+     "ingreso: Warehouse entry = 2bd; tienda: Re-export to store = 3d"),
+    ("GENERAL", "Other origins", None, None,
+     "liberacion: Logistics release = 15d; transito: Transit = 14d; puerto: Customs clearance = 2bd; "
+     "ingreso: Warehouse entry = 2bd; tienda: Re-export to store = 4d"),
+]
+
+
 def _momento(d: date, hora: int = 10) -> datetime:
     return datetime.combine(d, time(hora))
 
 
 def _catalogos(db: Session) -> dict:
     db.add_all([
-        RegionLeadTime(codigo="ASIA", nombre="Asia", dias_liberacion=21, dias_transito=35, dias_puerto_bodega=3,
-                       dias_ingreso=2, dias_reexportacion=5),
-        RegionLeadTime(codigo="CAM", nombre="Central America", dias_liberacion=15, dias_transito=5,
-                       dias_puerto_bodega=1, dias_ingreso=2, dias_reexportacion=3),
-        RegionLeadTime(codigo="OTROS", nombre="Other origins", dias_liberacion=15, dias_transito=14,
-                       dias_puerto_bodega=2, dias_ingreso=2, dias_reexportacion=4, predeterminada=True),
+        RegionLeadTime(codigo="ASIA", nombre="Asia"),
+        RegionLeadTime(codigo="CAM", nombre="Central America"),
+        RegionLeadTime(codigo="OTROS", nombre="Other origins", predeterminada=True),
     ])
+    db.add_all([PlanLeadTime(codigo=c, nombre=n, region=r, modo=m, pasos=json.dumps(pasos_svc.validar(p)[0]))
+                for c, n, r, m, p in PLANES_LEADTIME])
     db.add_all([Pais(codigo=c, nombre=n, region=REGION_PAIS.get(c)) for c, n in PAISES])
     socs = {c: Sociedad(codigo=c, nombre=n, razon_social=r, id_fiscal=nit, pais=pais, moneda="USD", direccion=dir_,
                         correos=correos)

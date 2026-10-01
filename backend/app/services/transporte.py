@@ -18,7 +18,7 @@ from ..models import (
 )
 from .cantidades import nombre_factura, totales_pl
 from .common import ErrorNegocio, exigir, registrar, requerir_motivo, filtro_texto
-from .leadtimes import Estandares, _riesgo, limite_puerto
+from .leadtimes import Estandares, _riesgo, limite_puerto, mover
 from .partes import partes
 
 ESTADO_POR_EVENTO = {
@@ -114,12 +114,12 @@ def resumen_unidad(u: UnidadCarga) -> dict:
     ests = Estandares(object_session(u)) if ocs else None
     # Llegada: real, ETA o la salida (real o ETD) más el tránsito estándar de su origen
     salida = e.salida_real or e.etd
-    transito = max((ests.de(o.pais_origen)["dias_transito"] for o in ocs), default=0) if ests else 0
-    llegada = e.arribo_real or e.eta or (salida + timedelta(days=transito) if salida else None)
+    llegadas = [mover(salida, ests.de_oc(o, modo=e.tipo_transporte), ["transito"]) for o in ocs] if ests and salida else []
+    llegada = e.arribo_real or e.eta or max(llegadas, default=salida)
     tienda = min(tiendas) if tiendas else None
     # Fecha límite de arribo: la fecha en tienda menos puerto→bodega, ingreso, reexportación
     # y los días extra del tipo de producto, según su origen
-    limites = [limite_puerto(o.fecha_tienda, ests.de(o.pais_origen, grupos.get(o.id))) for o in ocs if o.fecha_tienda]
+    limites = [limite_puerto(o.fecha_tienda, ests.de_oc(o, grupos.get(o.id), e.tipo_transporte)) for o in ocs if o.fecha_tienda]
     limite = min(limites) if limites else None
     return {
         "id": u.id,

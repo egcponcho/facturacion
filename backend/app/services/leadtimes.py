@@ -27,6 +27,8 @@ from ..models import (
     PackingList,
     Pais,
     PLLinea,
+    PlanLeadTime,
+    Puerto,
     PosicionOC,
     GrupoArticulo,
     RegionLeadTime,
@@ -34,13 +36,10 @@ from ..models import (
     Usuario,
 )
 from ..config import settings
+from . import pasos_leadtime as pasos_svc
 from .common import proveedor_filtro
 
-# Región por defecto si no hay ninguna configurada
-POR_DEFECTO = {"codigo": "OTROS", "nombre": "Other origins", "dias_liberacion": 15, "dias_transito": 10,
-               "dias_puerto_bodega": 3, "dias_ingreso": 2, "dias_reexportacion": 5}
-
-# Etapas del lead time, en orden: de un hito al siguiente
+# Etapas medidas del lead time, en orden: de un hito al siguiente
 ETAPAS = [
     ("comercial", "Commercial release", "creada", "lib_comercial"),
     ("logistica", "Logistics release", "lib_comercial", "lib_logistica"),
@@ -56,50 +55,172 @@ HITOS = [
     ("entrega", "At warehouse"), ("ingreso", "Warehouse entry"), ("tienda", "In store"),
 ]
 
+# Tramos entre los hitos que el sistema mide. Cada paso configurable de un
+# plan pertenece a uno; la duración del tramo sale de sus pasos.
+TRAMOS = [
+    ("liberacion", "Logistics release to XF"),
+    ("transito", "XF to port arrival"),
+    ("puerto", "Port to warehouse"),
+    ("ingreso", "Warehouse entry"),
+    ("tienda", "Entry to store"),
+]
+DESPUES_ARRIBO = ["puerto", "ingreso", "tienda"]
+# Plan de respaldo si no hay ninguno configurado
+PASOS_DEFECTO = [
+    {"codigo": "LIB", "nombre": "Logistics release", "tramo": "liberacion", "dias": 15},
+    {"codigo": "TRANS", "nombre": "Transit", "tramo": "transito", "dias": 10},
+    {"codigo": "BOD", "nombre": "Port to warehouse", "tramo": "puerto", "dias": 3},
+    {"codigo": "ING", "nombre": "Warehouse entry", "tramo": "ingreso", "dias": 2},
+    {"codigo": "REEX", "nombre": "Re-export to store", "tramo": "tienda", "dias": 5},
+]
+# Peso de cada condición para elegir el plan más específico
+PESOS = {"proveedor_id": 16, "puerto": 8, "pais": 4, "modo": 2, "region": 1}
+CAMPOS_DIAS = {"liberacion": "dias_liberacion", "transito": "dias_transito", "puerto": "dias_puerto_bodega",
+               "ingreso": "dias_ingreso", "tienda": "dias_reexportacion"}
+
+
+def sumar(fecha: date, dias: int, habiles: bool = False, signo: int = 1) -> date:
+    """Suma (o resta) días naturales o hábiles (lunes a viernes)."""
+    if not habiles:
+        return fecha + timedelta(days=signo * dias)
+    d, n = fecha, dias
+    while n > 0:
+        d += timedelta(days=signo)
+        if d.weekday() < 5:
+            n -= 1
+    return d
+
+
+def _deps(pasos: list[dict]) -> dict[str, str | None]:
+    """De qué paso arranca cada uno: el indicado, el anterior (por defecto) o
+    ninguno (INICIO: en paralelo desde el inicio del tramo)."""
+    out, previo = {}, None
+    for p in pasos:
+        d = p.get("depende") or previo
+        out[p["codigo"]] = None if d == "INICIO" else d
+        previo = p["codigo"]
+    return out
+
+
+def _tramo(fecha: date, pasos: list[dict], signo: int) -> date:
+    if not pasos:
+        return fecha
+    deps = _deps(pasos)
+    if signo > 0:  # cada paso arranca cuando termina el que lo precede; el tramo acaba con el último
+        fin: dict[str, date] = {}
+        for p in pasos:
+            arranque = fin.get(deps[p["codigo"]], fecha) if deps[p["codigo"]] else fecha
+            fin[p["codigo"]] = sumar(arranque, int(p.get("dias") or 0), bool(p.get("habiles")), 1)
+        return max(fin.values())
+    # Hacia atrás: cada paso debe terminar antes de que arranque cualquiera que dependa de él
+    ini: dict[str, date] = {}
+    for p in reversed(pasos):
+        hijos = [ini[q] for q, d in deps.items() if d == p["codigo"] and q in ini]
+        ini[p["codigo"]] = sumar(min(hijos) if hijos else fecha, int(p.get("dias") or 0), bool(p.get("habiles")), -1)
+    return min(ini.values())
+
+
+def pasos_de(est: dict, tramo: str) -> list[dict]:
+    modo = est.get("modo")
+    return [p for p in est["pasos"] if p.get("tramo") == tramo and (not p.get("modo") or p["modo"] == modo)]
+
+
+def mover(fecha: date | None, est: dict, tramos: list[str], signo: int = 1) -> date | None:
+    """Recorre los tramos dados desde una fecha, hacia adelante o hacia atrás.
+    Los días extra del tipo de producto se suman al tramo a tienda."""
+    if not fecha:
+        return None
+    for t in (tramos if signo > 0 else list(reversed(tramos))):
+        if signo < 0 and t == "tienda" and est.get("dias_extra"):
+            fecha -= timedelta(days=est["dias_extra"])
+        fecha = _tramo(fecha, pasos_de(est, t), signo)
+        if signo > 0 and t == "tienda" and est.get("dias_extra"):
+            fecha += timedelta(days=est["dias_extra"])
+    return fecha
+
+
+def _resumen(est: dict, ref: date | None = None) -> dict:
+    """Días naturales de cada tramo (para mostrar y comparar)."""
+    ref = ref or date.today()
+    return {campo: (mover(ref, {**est, "dias_extra": 0}, [t]) - ref).days for t, campo in CAMPOS_DIAS.items()}
+
 
 class Estandares:
-    """Estándares de la región de cada país de origen (con caché por consulta)."""
+    """Elige el plan de lead time de cada OC (con caché por consulta)."""
 
     def __init__(self, db: Session):
         regiones = {r.codigo: r for r in db.scalars(select(RegionLeadTime).where(RegionLeadTime.activo))}
-        self.regiones = {c: _dict(r) for c, r in regiones.items()}
+        self.regiones = {c: {"codigo": c, "nombre": r.nombre} for c, r in regiones.items()}
         pred = next((r for r in regiones.values() if r.predeterminada), None)
-        self.defecto = _dict(pred) if pred else POR_DEFECTO
+        self.region_defecto = {"codigo": pred.codigo, "nombre": pred.nombre} if pred else \
+            {"codigo": "OTROS", "nombre": "Other origins"}
+        self.planes = [{"codigo": p.codigo, "nombre": p.nombre, "region": p.region, "pais": p.pais, "puerto": p.puerto,
+                        "proveedor_id": p.proveedor_id, "modo": p.modo, "pasos": pasos_svc.cargar(p.pasos)}
+                       for p in db.scalars(select(PlanLeadTime).where(PlanLeadTime.activo).order_by(PlanLeadTime.codigo))]
         self.pais_region = {p.codigo: p.region for p in db.scalars(select(Pais))}
         self.nombres = {p.codigo: p.nombre for p in db.scalars(select(Pais))}
+        self.puerto_modo = {p.codigo: p.tipo for p in db.scalars(select(Puerto))}
         self.extra_grupo = {g.codigo: g.dias_extra or 0 for g in db.scalars(select(GrupoArticulo))}
+        self._cache: dict = {}
+        sin = {"codigo": "DEFAULT", "nombre": "Default", "pasos": PASOS_DEFECTO}
+        self.defecto = next((p for p in self.planes if not any(p[k] for k in PESOS)), sin)
 
-    def de(self, pais: str | None, grupos=None) -> dict:
-        """Estándares de la región de origen más los días extra del tipo de
-        producto (el mayor de los grupos dados)."""
-        base = self.regiones.get(self.pais_region.get(pais or "") or "", self.defecto)
+    def plan(self, region, pais, puerto, proveedor_id, modo) -> dict:
+        datos = {"region": region, "pais": pais, "puerto": puerto, "proveedor_id": proveedor_id, "modo": modo}
+        mejor, puntos = self.defecto, -1
+        for p in self.planes:
+            if any(p[k] and p[k] != datos[k] for k in PESOS):
+                continue
+            pts = sum(w for k, w in PESOS.items() if p[k])
+            if pts > puntos:
+                mejor, puntos = p, pts
+        return mejor
+
+    def de(self, pais: str | None, grupos=None, proveedor_id: int | None = None, puerto: str | None = None,
+           modo: str | None = None) -> dict:
+        """Plan que aplica a la OC más los días extra del tipo de producto
+        (el mayor de los grupos dados)."""
         if isinstance(grupos, str):
             grupos = [grupos]
         extra = max([self.extra_grupo.get(g, 0) for g in (grupos or []) if g] or [0])
-        return {**base, "dias_extra": extra} if extra else base
+        modo = modo or self.puerto_modo.get(puerto or "")
+        clave = (pais, extra, proveedor_id, puerto, modo)
+        if clave not in self._cache:
+            cod_region = self.pais_region.get(pais or "")
+            region = self.regiones.get(cod_region or "", self.region_defecto)
+            plan = self.plan(cod_region, pais, puerto, proveedor_id, modo)
+            est = {**region, "plan": plan["codigo"], "plan_nombre": plan["nombre"], "pasos": plan["pasos"],
+                   "modo": modo, "dias_extra": extra}
+            self._cache[clave] = {**est, **_resumen(est)}
+        return self._cache[clave]
 
+    def de_oc(self, oc: OrdenCompra, grupos=None, modo: str | None = None) -> dict:
+        return self.de(oc.pais_origen, grupos, oc.proveedor_id, oc.puerto_despacho, modo)
 
-def _dict(r: RegionLeadTime) -> dict:
-    return {"codigo": r.codigo, "nombre": r.nombre, "dias_liberacion": r.dias_liberacion,
-            "dias_transito": r.dias_transito, "dias_puerto_bodega": r.dias_puerto_bodega,
-            "dias_ingreso": r.dias_ingreso, "dias_reexportacion": r.dias_reexportacion}
+    def resumen_planes(self) -> list[dict]:
+        out = []
+        for p in self.planes or [self.defecto]:
+            est = {"pasos": p["pasos"], "modo": p.get("modo")}
+            out.append({"codigo": p["codigo"], "nombre": p["nombre"], "pasos": len(p["pasos"]), **_resumen(est)})
+        return out
 
 
 def dias_post_arribo(est: dict) -> int:
-    """Días que necesita la mercancía después del puerto para estar en tienda."""
-    return est["dias_puerto_bodega"] + est["dias_ingreso"] + est["dias_reexportacion"] + est.get("dias_extra", 0)
+    """Días naturales que necesita la mercancía después del puerto para estar en tienda."""
+    hoy = date.today()
+    return (mover(hoy, est, DESPUES_ARRIBO) - hoy).days
 
 
 def limite_puerto(fecha_tienda: date | None, est: dict) -> date | None:
     """Última fecha de arribo al puerto destino para llegar a tiempo a tienda."""
-    return fecha_tienda - timedelta(days=dias_post_arribo(est)) if fecha_tienda else None
+    return mover(fecha_tienda, est, DESPUES_ARRIBO, -1)
 
 
 def arribo_estimado(fecha_xf: date | None, est: dict, hoy: date) -> date | None:
-    """Sin embarque todavía: la XF (o hoy si ya pasó) más el tránsito estándar."""
+    """Sin embarque todavía: la XF (o hoy si ya pasó) más el tránsito del plan."""
     if not fecha_xf:
         return None
-    return max(fecha_xf, hoy) + timedelta(days=est["dias_transito"])
+    return mover(max(fecha_xf, hoy), est, ["transito"])
 
 
 def _dia(x) -> date | None:
@@ -189,12 +310,12 @@ def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
             "recoleccion": h.get("recoleccion"), "salida": h.get("salida"), "arribo": h.get("arribo"),
             "entrega": h.get("entrega"), "ingreso": h.get("ingreso"), "tienda": None}
     meta = {
-        "lib_logistica": xf - timedelta(days=est["dias_liberacion"]) if xf else None,
+        "lib_logistica": mover(xf, est, ["liberacion"], -1),
         "recoleccion": xf,
-        "salida": lim_arribo - timedelta(days=est["dias_transito"]) if lim_arribo else None,
+        "salida": mover(lim_arribo, est, ["transito"], -1),
         "arribo": lim_arribo,
-        "entrega": lim_arribo + timedelta(days=est["dias_puerto_bodega"]) if lim_arribo else None,
-        "ingreso": (lim_arribo + timedelta(days=est["dias_puerto_bodega"] + est["dias_ingreso"])) if lim_arribo else None,
+        "entrega": mover(lim_arribo, est, ["puerto"]),
+        "ingreso": mover(lim_arribo, est, ["puerto", "ingreso"]),
         "tienda": tienda,
     }
     # Estimados de lo que falta, encadenados desde el arribo
@@ -202,17 +323,17 @@ def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
     if not real["salida"]:
         est_fecha["salida"] = h.get("etd")
     salio = real["salida"] or h.get("etd")
-    arribo = (real["arribo"] or h.get("eta") or (salio + timedelta(days=est["dias_transito"]) if salio else None)
+    arribo = (real["arribo"] or h.get("eta") or mover(salio, est, ["transito"])
               or arribo_estimado(xf, est, hoy))
     if not real["arribo"]:
         est_fecha["arribo"] = arribo
-    entrega = real["entrega"] or (arribo + timedelta(days=est["dias_puerto_bodega"]) if arribo else None)
+    entrega = real["entrega"] or mover(arribo, est, ["puerto"])
     if not real["entrega"]:
         est_fecha["entrega"] = entrega
-    ingreso = real["ingreso"] or (entrega + timedelta(days=est["dias_ingreso"]) if entrega else None)
+    ingreso = real["ingreso"] or mover(entrega, est, ["ingreso"])
     if not real["ingreso"]:
         est_fecha["ingreso"] = ingreso
-    est_fecha["tienda"] = ingreso + timedelta(days=est["dias_reexportacion"] + est.get("dias_extra", 0)) if ingreso else None
+    est_fecha["tienda"] = mover(ingreso, est, ["tienda"])
     hitos = []
     for clave, nombre in HITOS:
         estimada = est_fecha.get(clave)
@@ -252,7 +373,7 @@ def tiendas_estimadas(db: Session, ocs: list[OrdenCompra]) -> dict[int, dict]:
     hitos = _hitos_por_oc(db, [o.id for o in ocs])
     out = {}
     for o in ocs:
-        a = analizar_oc(o, hitos.get(o.id), ests.de(o.pais_origen, [x.grupo for x in o.posiciones]), hoy)
+        a = analizar_oc(o, hitos.get(o.id), ests.de_oc(o, [x.grupo for x in o.posiciones]), hoy)
         out[o.id] = {"tienda_estimada": a["tienda_estimada"], "dias_vs_tienda": a["dias_vs_tienda"],
                      "arribo_estimado": a["arribo"], "riesgo": a["riesgo"]}
     return out
@@ -283,11 +404,12 @@ def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     hitos = _hitos_por_oc(db, [o.id for o in ocs])
     items = []
     for o in ocs:
-        est = ests.de(o.pais_origen, [x.grupo for x in o.posiciones])
+        est = ests.de_oc(o, [x.grupo for x in o.posiciones])
         a = analizar_oc(o, hitos.get(o.id), est, hoy)
         items.append({"oc_id": o.id, "oc": o.numero, "proveedor": o.proveedor.nombre, "origen": o.pais_origen,
                       "origen_nombre": ests.nombres.get(o.pais_origen or "", o.pais_origen),
                       "region": est["codigo"], "region_nombre": est["nombre"], "dias_liberacion": est["dias_liberacion"],
+                      "plan": est["plan"], "plan_nombre": est["plan_nombre"],
                       "fecha": o.fecha, "fecha_xf": o.fecha_xf, "fecha_tienda": o.fecha_tienda,
                       "liberacion_comercial": o.liberacion_comercial, "liberacion_logistica": o.liberacion_logistica,
                       **a})
@@ -345,7 +467,7 @@ def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
         "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size,
         "kpis": kpis, "origenes": origenes,
         "etapas": [{"clave": k, "nombre": n, "desde": a, "hasta": b} for k, n, a, b in ETAPAS],
-        "regiones": list(ests.regiones.values()) or [ests.defecto],
+        "regiones": ests.resumen_planes(),
         "opciones": {"origenes": [{"valor": c, "texto": f"{c} · {ests.nombres.get(c, c)}"} for c in todas_origen],
                      "regiones": [{"valor": r["codigo"], "texto": r["nombre"]} for r in ests.regiones.values()],
                      "proveedores": todas_prov},
