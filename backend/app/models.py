@@ -9,6 +9,7 @@ Todo se maneja por cantidades:
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (
+    event,
     JSON,
     Column,
     Table,
@@ -804,8 +805,6 @@ class IncisoNacional(Base):
     pais: Mapped[str] = mapped_column(String(2), index=True)
     codigo: Mapped[str] = mapped_column(String(14))
     sub6: Mapped[str] = mapped_column(String(6), index=True)
-    cond: Mapped[dict] = mapped_column(JSON, default=dict)
-    prio: Mapped[int] = mapped_column(Integer, default=0)
     dai: Mapped[str | None] = mapped_column(String(10))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     nota: Mapped[str | None] = mapped_column(String(300))
@@ -813,6 +812,120 @@ class IncisoNacional(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    # Las condiciones que eligen este código ya no viven en el código oficial:
+    # son una regla de selección nacional (ReglaClasificacion NATIONAL_SELECT).
+    regla: Mapped["ReglaClasificacion | None"] = relationship(back_populates="inciso", uselist=False, lazy="selectin",
+                                                               cascade="all, delete-orphan")
+
+    @property
+    def cond(self) -> dict:
+        """Condiciones de la regla de selección, en el formato del motor."""
+        return self.regla.cond() if self.regla else {}
+
+    @cond.setter
+    def cond(self, valor: dict | None) -> None:
+        self._regla_nacional().poner_cond(valor or {})
+        self._limpiar_regla()
+
+    @property
+    def prio(self) -> int:
+        return self.regla.prioridad if self.regla else 0
+
+    @prio.setter
+    def prio(self, valor: int | None) -> None:
+        self._regla_nacional().prioridad = int(valor or 0)
+        self._limpiar_regla()
+
+    def _regla_nacional(self) -> "ReglaClasificacion":
+        if not self.regla:
+            self.regla = ReglaClasificacion.nacional(self)
+        self.regla.pais, self.regla.codigo_ambito = self.pais, self.sub6 or ""
+        return self.regla
+
+    def _limpiar_regla(self) -> None:
+        # Sin condiciones ni prioridad, el código se elige sin regla
+        if self.regla and not self.regla.condiciones and not self.regla.prioridad:
+            self.regla = None
+
+
+class ReglaClasificacion(Base):
+    """Regla del motor de clasificación, en datos y no en código.
+
+    Reglas del sistema (paquete 02: capítulos habilitados, prioridad legal,
+    preguntas que discriminan, revisión por ambigüedad…) y reglas de selección
+    nacional (NATIONAL_SELECT): las condiciones del producto que eligen un
+    código nacional dentro de su subpartida. Las condiciones se agrupan: dentro
+    de un grupo se cumplen todas (Y); entre grupos basta uno (O)."""
+
+    __tablename__ = "reglas_clasificacion"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(40), unique=True)
+    tipo_ambito: Mapped[str] = mapped_column(String(14), default="SYSTEM")  # SYSTEM | DOMAIN | CHAPTER | HEADING | SUBHEADING | CATEGORY | NATIONAL_CODE
+    codigo_ambito: Mapped[str] = mapped_column(String(40), default="ALL")
+    pais: Mapped[str | None] = mapped_column(String(2), index=True)
+    tipo_regla: Mapped[str] = mapped_column(String(20))  # HARD_CONSTRAINT | SOFT_SIGNAL | QUESTION_GATE | REVIEW_GATE | NATIONAL_SELECT
+    prioridad: Mapped[int] = mapped_column(Integer, default=0)
+    tipo_fuente: Mapped[str] = mapped_column(String(20), default="INTERNAL_ENGINE")  # INTERNAL_ENGINE | LEGAL_NOTE | NATIONAL_TARIFF | LEARNED | MANUAL
+    familia: Mapped[str | None] = mapped_column(String(30))
+    efecto: Mapped[str | None] = mapped_column(String(500))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    requiere_revision: Mapped[bool] = mapped_column(Boolean, default=False)
+    inciso_id: Mapped[int | None] = mapped_column(ForeignKey("incisos_nacionales.id", ondelete="CASCADE"), unique=True)
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+    actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, onupdate=ahora)
+
+    inciso: Mapped[IncisoNacional | None] = relationship(back_populates="regla")
+    condiciones: Mapped[list["CondicionRegla"]] = relationship(back_populates="regla", cascade="all, delete-orphan",
+                                                               lazy="selectin", order_by="[CondicionRegla.grupo, CondicionRegla.id]")
+
+    FUENTE_INCISO = {"aprendido": "LEARNED", "manual": "MANUAL", "archivo": "NATIONAL_TARIFF", "oficial": "NATIONAL_TARIFF", "base": "LEARNED"}
+
+    @classmethod
+    def nacional(cls, x: IncisoNacional) -> "ReglaClasificacion":
+        import secrets
+
+        return cls(codigo=f"NAC-{secrets.token_hex(5).upper()}", tipo_ambito="NATIONAL_CODE", codigo_ambito=x.sub6 or "",
+                   pais=x.pais, tipo_regla="NATIONAL_SELECT", tipo_fuente=cls.FUENTE_INCISO.get(x.fuente or "", "MANUAL"),
+                   familia="NATIONAL_CODE", prioridad=0)
+
+    def cond(self) -> dict:
+        """Condiciones como las entiende el motor de la ficha:
+        {atributo: valor | [valores] | sí/no, cifMax, cifMin}."""
+        out: dict = {}
+        for c in self.condiciones:
+            if c.campo == "valorCIF":
+                out["cifMax" if c.operador == "LTE" else "cifMin"] = c.valor
+            else:
+                out[c.campo] = c.valor
+        return out
+
+    def poner_cond(self, cond: dict) -> None:
+        self.condiciones = [CondicionRegla.desde_cond(k, v) for k, v in cond.items() if v not in (None, "", [])]
+
+
+class CondicionRegla(Base):
+    """Condición de una regla: campo (atributo de la ficha o del sistema),
+    operador y valor. Para la selección nacional los operadores son los que
+    entiende el motor: EQUAL, IN y, para el valor CIF, LTE o GT."""
+
+    __tablename__ = "reglas_condiciones"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    regla_id: Mapped[int] = mapped_column(ForeignKey("reglas_clasificacion.id", ondelete="CASCADE"), index=True)
+    grupo: Mapped[int] = mapped_column(Integer, default=1)
+    campo: Mapped[str] = mapped_column(String(60))
+    operador: Mapped[str] = mapped_column(String(10), default="EQUAL")  # EQUAL | NOT_EQUAL | IN | GT | GTE | LT | LTE | BETWEEN | EXISTS
+    valor: Mapped[object | None] = mapped_column(JSON)
+    valor_hasta: Mapped[object | None] = mapped_column(JSON)
+    negado: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    regla: Mapped[ReglaClasificacion] = relationship(back_populates="condiciones")
+
+    @classmethod
+    def desde_cond(cls, k: str, v) -> "CondicionRegla":
+        if k in ("cifMax", "cifMin"):
+            return cls(campo="valorCIF", operador="LTE" if k == "cifMax" else "GT", valor=v)
+        return cls(campo=k, operador="IN" if isinstance(v, list) else "EQUAL", valor=v)
 
 
 class PalabraClave(Base):
@@ -1331,3 +1444,14 @@ class ImportacionOC(Base):
     filas: Mapped[list] = mapped_column(JSON)
     resultado: Mapped[dict | None] = mapped_column(JSON)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
+@event.listens_for(ReglaClasificacion, "before_insert")
+@event.listens_for(ReglaClasificacion, "before_update")
+def _regla_nacional_al_dia(_mapper, _conn, r: ReglaClasificacion) -> None:
+    """La regla de selección nacional sigue al código que elige (país,
+    subpartida y origen del dato), aunque se haya creado antes de llenarlos."""
+    if r.tipo_regla == "NATIONAL_SELECT" and r.inciso is not None:
+        r.pais, r.codigo_ambito = r.inciso.pais, r.inciso.sub6 or ""
+        if r.id is None:
+            r.tipo_fuente = ReglaClasificacion.FUENTE_INCISO.get(r.inciso.fuente or "", r.tipo_fuente)

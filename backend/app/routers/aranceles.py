@@ -296,6 +296,22 @@ def atributos_ambito(atributo_id: int, datos: s.AtributoAmbitoIn, db: Db, user: 
                                                                       datos.model_dump(exclude_unset=True)))
 
 
+# ---- Reglas de clasificación ------------------------------------------------------------
+@router.get("/aranceles/reglas")
+def reglas_lista(db: Db, user: User, q: str | None = None, tipo: str | None = None, pais: str | None = None,
+                 page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200)):
+    from ..services import reglas
+
+    return reglas.listar(db, user, q, tipo, pais, page, size)
+
+
+@router.patch("/aranceles/reglas/{regla_id}")
+def reglas_editar(regla_id: int, datos: s.ReglaIn, db: Db, user: User, clave: Clave = None):
+    from ..services import reglas
+
+    return ejecutar(db, user, clave, lambda: reglas.guardar(db, user, regla_id, datos.model_dump(exclude_unset=True)))
+
+
 # ---- Árbol arancelario oficial ---------------------------------------------------
 @router.get("/aranceles/arbol")
 def arbol_hijos(db: Db, user: User, padre_id: int | None = None, version: str | None = None, q: str | None = None):

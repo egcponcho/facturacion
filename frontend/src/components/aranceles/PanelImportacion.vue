@@ -15,7 +15,7 @@ const edita = puede('aranceles.editar')
 const carga = ref(null)
 const PAQUETES = [
   { n: 1, titulo: t('Official catalogs'), detalle: t('Sources, versions, countries (code schema), chapter control and domain-chapter map.'), hojas: 'Sources · Versions · Countries · Chapter_Control · Domain_Chapter_Map', carga: true },
-  { n: 2, titulo: t('Dynamic engine'), detalle: t('Classification domains, attributes, options, scopes and rules.'), hojas: 'Domains · Attributes · Attribute_Options · Attribute_Scope · Classification_Rules', carga: true },
+  { n: 2, titulo: t('Dynamic engine'), detalle: t('Classification domains, attributes, options, scopes and rules.'), hojas: 'Domains · Attributes · Attribute_Options · Attribute_Scope · Classification_Rules · Rule_Conditions', carga: true },
   { n: 3, titulo: t('National codes, regulations and taxes'), detalle: t('Official national codes per country and version, permits and tax rules with their legal basis.'), hojas: 'National_Codes · Regulations · Taxes', carga: false },
 ]
 async function bajar(p) {

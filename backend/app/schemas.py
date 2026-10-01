@@ -622,6 +622,23 @@ class AtributoAmbitoIn(BaseModel):
     quitar: bool = False
 
 
+class CondicionIn(BaseModel):
+    grupo: int = Field(1, ge=1, le=20)
+    campo: str = Field(max_length=60)
+    operador: str = "EQUAL"
+    valor: str | int | float | bool | list | None = None
+    valor_hasta: str | int | float | None = None
+    negado: bool = False
+
+
+class ReglaIn(BaseModel):
+    prioridad: int | None = Field(None, ge=0, le=10000)
+    efecto: str | None = Field(None, max_length=500)
+    activo: bool | None = None
+    requiere_revision: bool | None = None
+    condiciones: list[CondicionIn] | None = None
+
+
 class DominioCapituloIn(BaseModel):
     relevancia: str | None = None
     habilitado: bool | None = None

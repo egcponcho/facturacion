@@ -989,7 +989,14 @@ def cargar_incisos_base(db: Session) -> int:
                       "prio": x.get("prio") or 0, "dai": None, "descripcion": None, "fuente": "base",
                       "nota": f"Company item base ({x.get('articulos', 0)} items)", "activo": True})
     db.flush()
-    db.execute(insert(IncisoNacional), filas)  # inserción masiva: son unos 25 mil
+    # Inserción masiva de los códigos (son miles); las condiciones que eligen
+    # cada código van aparte, como reglas de selección nacional
+    sin = [{k: v for k, v in f.items() if k not in ("cond", "prio")} for f in filas if not (f["cond"] or f["prio"])]
+    db.execute(insert(IncisoNacional), sin)
+    for f in filas:
+        if f["cond"] or f["prio"]:
+            db.add(IncisoNacional(**f))
+    db.flush()
     cargar_acuerdos(db)
     return len(filas)
 

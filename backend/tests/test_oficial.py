@@ -149,3 +149,46 @@ def test_editar_atributos_opciones_y_ambitos(interno):
     r = interno.c.post("/api/aranceles/oficial/importar", headers=interno.h,
                        files={"archivo": ("02.xlsx", io.BytesIO(paquete), "application/octet-stream")}).json()
     assert r["hojas"]["Attributes"]["creados"] == 0 and r["hojas"]["Attribute_Options"]["creados"] == 0 and not r["errores"]
+
+
+def test_reglas_del_sistema_y_seleccion_nacional(interno):
+    r = interno.get("/aranceles/reglas", params={"tipo": "HARD_CONSTRAINT"}).json()
+    sis = {x["codigo"]: x for x in r["items"]}
+    assert {"R-SYS-001", "R-SYS-006", "R-SYS-009"} <= set(sis)
+    assert [(c["campo"], c["valor"]) for c in sis["R-SYS-001"]["condiciones"]] == [("chapter.active", True), ("chapter.classification_enabled", True)]
+    assert r["por_tipo"]["NATIONAL_SELECT"] > 50 and r["por_tipo"]["REVIEW_GATE"] == 1
+    # Las condiciones de los códigos nacionales son reglas NATIONAL_SELECT
+    nac = interno.get("/aranceles/reglas", params={"tipo": "NATIONAL_SELECT", "pais": "SV", "q": "genero"}).json()["items"]
+    assert nac and all(x["pais"] == "SV" and x["inciso"]["codigo"].startswith(x["codigo_ambito"]) for x in nac)
+    assert any(c["campo"] == "genero" for c in nac[0]["condiciones"]) and nac[0]["cond_txt"]
+    # Búsqueda por código nacional
+    cod = nac[0]["inciso"]["codigo"]
+    assert any(x["id"] == nac[0]["id"] for x in interno.get("/aranceles/reglas", params={"q": cod[:8]}).json()["items"])
+
+
+def test_editar_regla_nacional_llega_al_motor(interno):
+    # Un código con condiciones creado desde Aranceles queda como regla
+    r = interno.post("/aranceles/codigos", {"pais": "SV", "codigo": "6404.19.90.99", "descripcion": "Prueba regla",
+                                            "cond": {"genero": "F", "cifMax": 15}, "prio": 3})
+    assert r.status_code == 200, r.text
+    iid = r.json()["id"]
+    regla = next(x for x in interno.get("/aranceles/reglas", params={"q": "6404199099"}).json()["items"] if x["inciso"]["id"] == iid)
+    assert regla["prioridad"] == 3 and {(c["campo"], c["operador"], c["valor"]) for c in regla["condiciones"]} == {
+        ("genero", "EQUAL", "F"), ("valorCIF", "LTE", 15)}
+    # Editar las condiciones de la regla cambia lo que recibe la ficha
+    r = interno.patch(f"/aranceles/reglas/{regla['id']}", {"condiciones": [
+        {"campo": "genero", "operador": "IN", "valor": ["F", "U"]}, {"campo": "valorCIF", "operador": "GT", "valor": 10}]})
+    assert r.status_code == 200, r.text
+    ctx = next(x for x in interno.get("/clasificacion/contexto").json()["incisos"] if x["id"] == iid)
+    assert ctx["cond"] == {"genero": ["F", "U"], "cifMin": 10} and ctx["prio"] == 3
+    # Validaciones: en selección nacional solo los operadores del motor y un solo grupo
+    assert interno.patch(f"/aranceles/reglas/{regla['id']}", {"condiciones": [{"campo": "genero", "operador": "NOT_EQUAL", "valor": "M"}]}).status_code == 422
+    assert interno.patch(f"/aranceles/reglas/{regla['id']}", {"condiciones": [{"campo": "genero", "operador": "IN", "valor": "M"}]}).status_code == 422
+    assert interno.patch(f"/aranceles/reglas/{regla['id']}", {"condiciones": [
+        {"grupo": 1, "campo": "genero", "valor": "M"}, {"grupo": 2, "campo": "genero", "valor": "F"}]}).status_code == 422
+    # Apagar la regla apaga su código
+    interno.patch(f"/aranceles/reglas/{regla['id']}", {"activo": False})
+    assert not any(x["id"] == iid for x in interno.get("/clasificacion/contexto").json()["incisos"])
+    # Quitar condiciones y prioridad desde el código deja el código sin regla
+    interno.put(f"/aranceles/codigos/{iid}", {"pais": "SV", "codigo": "6404.19.90.99", "cond": {}, "prio": 0, "activo": True})
+    assert not [x for x in interno.get("/aranceles/reglas", params={"q": "6404199099"}).json()["items"] if x.get("inciso", {}).get("id") == iid]
