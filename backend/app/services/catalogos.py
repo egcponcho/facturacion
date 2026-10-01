@@ -52,6 +52,12 @@ def c(nombre, etiqueta, tipo="texto", obligatorio=False, **extra):
     return {"nombre": nombre, "etiqueta": etiqueta, "tipo": tipo, "obligatorio": obligatorio, **extra}
 
 
+# Dependencias entre campos (configurables, no propias de una empresa):
+#   depende={"campo": <campo del mismo formulario>, "clave": <dato de la opción>}
+# La opción solo vale si su dato `clave` coincide con el valor del campo (o lo
+# contiene, si es una lista). Ej.: la marca de un artículo depende del
+# proveedor (la marca trae la lista de proveedores que la manejan). El
+# formulario filtra las opciones y el servidor lo valida al guardar.
 # tipo: texto | entero | numero | bool | opcion (opciones) | ref (catalogo: guarda el id)
 #       | codigo (catalogo: guarda el código, p. ej. país ISO) | correos
 #       | multi (catalogo: varios registros, p. ej. las marcas de un proveedor)
@@ -84,11 +90,11 @@ CATALOGOS = {
             c("sociedad_id", "Company", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
             c("nombre", "Name", obligatorio=True),
             c("pais", "Country", "codigo", obligatorio=True, catalogo="paises", filtro=True),
-            c("puerto", "Arrival port", "codigo", catalogo="puertos", filtro=True),
+            c("puerto", "Arrival port", "codigo", catalogo="puertos", filtro=True, depende={"campo": "pais", "clave": "pais"}),
             c("tipo", "Type", "opcion", obligatorio=True,
               opciones=[["BODEGA_FISCAL", "Bonded warehouse"], ["ZONA_FRANCA", "Free trade zone"], ["LOCAL", "Local warehouse"],
                         ["TIENDA", "Store / DC"]]),
-            c("puertos", "Other arrival ports", "multi", catalogo="puertos",
+            c("puertos", "Other arrival ports", "multi", catalogo="puertos", depende={"campo": "pais", "clave": "pais"},
               ayuda="Besides the main one. The shipment suggests the main port and lets you switch between these."),
             c("direccion", "Address"),
             c("correos", "Emails (notify)", "correos", ayuda="One or more, separated by commas."),
@@ -121,7 +127,7 @@ CATALOGOS = {
             c("rol", "Role", "opcion", obligatorio=True, filtro=True,
               opciones=[["FACTURACION", "Billing"], ["NOTIFY", "Notify party"], ["LOGISTICA", "Logistics"]]),
             c("sociedad_id", "Company", "ref", catalogo="sociedades", filtro=True),
-            c("centro_id", "Plant", "ref", catalogo="centros", filtro=True),
+            c("centro_id", "Plant", "ref", catalogo="centros", filtro=True, depende={"campo": "sociedad_id", "clave": "sociedad_id"}),
             c("correos", "Emails", "correos", ayuda="One or more, separated by commas."),
             c("telefono", "Phone"),
             c("activo", "Active", "bool", filtro=True),
@@ -289,7 +295,8 @@ CATALOGOS = {
             c("color", "Color", ayuda="Empty if the item has no color."),
             c("talla", "Size / prepack ID", mayus=True,
               ayuda="For a prepack it is its prepack ID, e.g. AB12."),
-            c("marca_id", "Brand", "ref", obligatorio=True, catalogo="marcas", filtro=True),
+            c("marca_id", "Brand", "ref", obligatorio=True, catalogo="marcas", filtro=True,
+              depende={"campo": "proveedor_id", "clave": "proveedores"}),
             c("grupo_id", "Item group", "ref", obligatorio=True, catalogo="grupos", filtro=True,
               ayuda="Internal grouping and packing rule; the product type is set by the technical sheet."),
             c("proveedor_id", "Supplier", "ref", obligatorio=True, catalogo="proveedores", filtro=True,
@@ -450,7 +457,66 @@ def opciones(db: Session, user: Usuario, tipo: str) -> list[dict]:
     modelo = cat["modelo"]
     objs = db.scalars(select(modelo).order_by(modelo.id)).all()
     clave = "sku" if tipo == "articulos" else "codigo"
-    return [{"id": o.id, "codigo": getattr(o, clave), "texto": _mostrar(o)} for o in objs]
+    # Datos para filtrar campos dependientes: sus referencias y, al revés, qué
+    # registros de otros catálogos lo incluyen (p. ej. los proveedores de una marca)
+    propios = [x for x in cat["campos"] if x["tipo"] in ("ref", "codigo", "multi")]
+    inversas = [(t, x["nombre"]) for t, c2 in CATALOGOS.items() for x in c2["campos"]
+                if x["tipo"] == "multi" and x.get("catalogo") == tipo]
+    inv: dict[str, dict[int, list[int]]] = {}
+    for t, campo in inversas:
+        m = inv.setdefault(t, {})
+        for otro in db.scalars(select(CATALOGOS[t]["modelo"])).all():
+            for rel in getattr(otro, campo):
+                m.setdefault(rel.id, []).append(otro.id)
+    res = []
+    for o in objs:
+        fila = {"id": o.id, "codigo": getattr(o, clave), "texto": _mostrar(o)}
+        if hasattr(o, "activo") or hasattr(o, "activa"):
+            fila["activo"] = bool(getattr(o, "activo", getattr(o, "activa", True)))
+        for x in propios:
+            v = getattr(o, x["nombre"])
+            fila[x["nombre"]] = [y.id for y in v] if x["tipo"] == "multi" else v
+        for t, m in inv.items():
+            fila[t] = m.get(o.id, [])
+        res.append(fila)
+    return res
+
+
+def _valor_dato(db: Session, catalogo: str, valor, clave: str):
+    """Dato `clave` de la opción elegida (id o código) de un catálogo."""
+    modelo = CATALOGOS[catalogo]["modelo"]
+    obj = db.get(modelo, valor) if isinstance(valor, int) else db.scalar(select(modelo).where(modelo.codigo == valor))
+    if not obj:
+        return None
+    if hasattr(obj, clave):
+        v = getattr(obj, clave)
+        return [y.id for y in v] if isinstance(v, list) else v
+    # Relación inversa: qué registros de `clave` (otro catálogo) incluyen esta opción
+    for x in CATALOGOS.get(clave, {}).get("campos", []):
+        if x["tipo"] == "multi" and x.get("catalogo") == catalogo:
+            m = CATALOGOS[clave]["modelo"]
+            return [o.id for o in db.scalars(select(m)).all() if obj in getattr(o, x["nombre"])]
+    return None
+
+
+def _dependencias(db: Session, cat: dict, final: dict) -> list[dict]:
+    """Valida los campos dependientes declarados en el catálogo."""
+    errores = []
+    for x in cat["campos"]:
+        dep = x.get("depende")
+        v, base = final.get(x["nombre"]), final.get((dep or {}).get("campo"))
+        if not dep or v in (None, "", []) or base in (None, ""):
+            continue
+        for elegido in (v if isinstance(v, list) else [v]):
+            ident = elegido.id if hasattr(elegido, "id") else elegido
+            dato = _valor_dato(db, x["catalogo"], ident, dep["clave"])
+            ok = (base in dato) if isinstance(dato, list) else (dato == base)
+            if not ok:
+                nombre_base = next((y["etiqueta"] for y in cat["campos"] if y["nombre"] == dep["campo"]), dep["campo"])
+                errores.append({"campo": x["nombre"], "mensaje":
+                                f"{x['etiqueta']}: the option chosen does not belong to the selected {nombre_base.lower()}."})
+                break
+    return errores
 
 
 def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) -> dict:
@@ -601,10 +667,6 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                             "those companies cannot be removed."})
     if cat["modelo"] is Contacto and not final.get("sociedad_id") and not final.get("centro_id"):
         errores.append({"campo": "sociedad_id", "mensaje": "Enter the contact's company or plant."})
-    if cat["modelo"] is Contacto and final.get("sociedad_id") and final.get("centro_id"):
-        cen = db.get(Centro, final["centro_id"])
-        if cen and cen.sociedad_id != final["sociedad_id"]:
-            errores.append({"campo": "centro_id", "mensaje": f"Plant {cen.codigo} does not belong to that company."})
     if cat["modelo"] in (Centro, Almacen) and actual and "sociedad_id" in limpio and limpio["sociedad_id"] != actual.sociedad_id:
         campo_oc = OrdenCompra.centro_destino if cat["modelo"] is Centro else None
         en_uso = db.scalar(select(OrdenCompra.id).where(
@@ -617,6 +679,8 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         if fijos:
             errores.append({"campo": fijos[0], "mensaje":
                             "The prepack ID, style and color cannot change; only the description and whether it is active."})
+    ya = {e.get("campo") for e in errores}
+    errores += [e for e in _dependencias(db, cat, final) if e["campo"] not in ya]
     if errores:
         raise ErrorNegocio("Check the data.", 422, "validacion", errores)
     return limpio

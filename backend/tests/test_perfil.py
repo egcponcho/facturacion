@@ -61,3 +61,22 @@ def test_busqueda_de_varios_codigos(interno):
     assert {o["numero"] for o in r} == {"4400003904", "4400003850"}
     r = interno.get("/ordenes", params={"q": "4400003904,\n4400003850;4400003851", "solo_disponible": False}).json()["items"]
     assert {o["numero"] for o in r} == {"4400003904", "4400003850", "4400003851"}
+
+
+def test_campos_dependientes(interno):
+    """Las opciones dependientes traen el dato con el que se filtran y el
+    servidor rechaza una combinación que no corresponde."""
+    marcas = interno.get("/catalogos/marcas/opciones").json()
+    provs = {p["codigo"]: p["id"] for p in interno.get("/catalogos/proveedores/opciones").json()}
+    vans = next(m for m in marcas if m["codigo"] == "VANS")
+    assert vans["proveedores"] == [provs["VANS"]]
+    centros = interno.get("/catalogos/centros/opciones").json()
+    assert all("sociedad_id" in c and "pais" in c for c in centros)
+    # Una marca que el proveedor no tiene autorizada no se acepta
+    grupo = interno.get("/catalogos/grupos/opciones").json()[0]["id"]
+    r = interno.post("/catalogos/articulos", {"sku": "DEP-TEST-1", "estilo": "DEPTEST", "marca_id": vans["id"], "grupo_id": grupo,
+                                              "proveedor_id": provs["TNF"], "tipo": "SOLIDO", "unidad": "UN"})
+    assert r.status_code == 422 and any(e["campo"] == "marca_id" for e in r.json()["detalle"])
+    r = interno.post("/catalogos/genericos", {"generico": "DEPTEST-X", "estilo": "DEPTEST", "color": "X", "marca_id": vans["id"],
+                                              "grupo_id": grupo, "proveedor_id": provs["TNF"], "unidad": "UN", "tallas": []})
+    assert r.status_code == 422

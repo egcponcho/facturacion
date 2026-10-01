@@ -1,6 +1,6 @@
 <script setup>
 import { t, tx } from '../i18n/index.js'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from './Seleccion.vue'
 import { api } from '../api'
 import { avisar, errorApi } from '../stores/ui'
@@ -39,6 +39,12 @@ onMounted(async () => {
   }
 })
 const opc = (l) => l.map((x) => ({ valor: x.id, texto: x.texto }))
+// Solo las marcas autorizadas al proveedor elegido
+const marcasProveedor = computed(() => op.marcas.filter((m) => g.proveedor_id && (m.proveedores || []).map(String).includes(String(g.proveedor_id))))
+watch(() => g.proveedor_id, () => {
+  if (g.marca_id && !marcasProveedor.value.some((m) => String(m.id) === String(g.marca_id))) g.marca_id = ''
+  if (!g.marca_id && marcasProveedor.value.length === 1) g.marca_id = marcasProveedor.value[0].id
+})
 // Código que tendrá cada talla si no se escribe: el usual de calzado (talla × 10:
 // 7 → 070, 7.5 → 075, 10.5 → 105) si está libre; si no, el primer libre desde 001
 const convencional = (t) => {
@@ -123,7 +129,8 @@ async function guardar() {
       <label class="campo"><span class="req">{{ t('Style') }}</span><input v-model="g.estilo" class="entrada" maxlength="40" /></label>
       <label class="campo"><span class="req">{{ t('Color') }}</span><input v-model="g.color" class="entrada" maxlength="60" /></label>
       <div class="campo"><span class="req">{{ t('Supplier') }}</span><SelectBusqueda v-model="g.proveedor_id" :opciones="opc(op.proveedores)" :etiqueta="t('Supplier')" /></div>
-      <div class="campo"><span class="req">{{ t('Brand') }}</span><SelectBusqueda v-model="g.marca_id" :opciones="opc(op.marcas)" :etiqueta="t('Brand')" /></div>
+      <div class="campo"><span class="req">{{ t('Brand') }}</span><SelectBusqueda v-model="g.marca_id" :opciones="opc(marcasProveedor)" :etiqueta="t('Brand')" :deshabilitado="!g.proveedor_id"
+            :placeholder="tx(g.proveedor_id ? t('Choose…') : t('Choose the supplier first'))" /></div>
       <div class="campo"><span class="req">{{ t('Item group') }}</span><SelectBusqueda v-model="g.grupo_id" :opciones="opc(op.grupos)" :etiqueta="t('Item group')" /></div>
       <label class="campo"><span class="req">{{ t('Unit of its sizes') }}</span><Seleccion v-model="g.unidad" class="entrada"><option value="PAR">{{ t('Pairs (PAR)') }}</option><option value="UN">{{ t('Units (UN)') }}</option></Seleccion></label>
     </div>

@@ -57,7 +57,27 @@ const columnas = computed(() => campos.value.filter((c) => !['descripcion', 'dir
   !(c.nombre === 'correos' && tipo.value !== 'contactos')))
 const extras = computed(() => cat.value?.extras || [])
 // Opciones para la lista con búsqueda: por id (ref) o por código
-const opcionesDe = (c) => (opciones[c.catalogo] || []).map((o) => ({ valor: ['ref', 'multi'].includes(c.tipo) ? o.id : o.codigo, texto: o.texto }))
+// Campo dependiente (c.depende): solo las opciones relacionadas con el valor del
+// campo del que depende (p. ej. las marcas del proveedor elegido)
+const valida = (c, o, datos) => {
+  const dep = c.depende
+  const base = dep && datos ? datos[dep.campo] : ''
+  if (!dep || base === '' || base === null || base === undefined) return true
+  const dato = o[dep.clave]
+  return Array.isArray(dato) ? dato.map(String).includes(String(base)) : String(dato) === String(base)
+}
+const opcionesDe = (c, datos = null) => (opciones[c.catalogo] || []).filter((o) => valida(c, o, datos))
+  .map((o) => ({ valor: ['ref', 'multi'].includes(c.tipo) ? o.id : o.codigo, texto: o.texto }))
+// Al cambiar el campo base, se quita lo que ya no corresponde
+watch(() => campos.value.filter((c) => c.depende).map((c) => form.value?.[c.depende.campo]), () => {
+  for (const c of campos.value.filter((x) => x.depende)) {
+    const v = form.value?.[c.nombre]
+    if (v === '' || v === null || v === undefined) continue
+    const validos = new Set(opcionesDe(c, form.value).map((o) => String(o.valor)))
+    if (Array.isArray(v)) form.value[c.nombre] = v.filter((x) => validos.has(String(x)))
+    else if (!validos.has(String(v))) form.value[c.nombre] = ''
+  }
+})
 const conFiltro = computed(() => campos.value.filter((c) => c.filtro && !(compacta.value && ['tipo', 'activo'].includes(c.nombre))))
 
 function vacio() {
@@ -344,7 +364,7 @@ onMounted(async () => {
           <button type="button" class="segmento" :aria-pressed="vista === 'lista'" :title="t('One row per item code')" @click="cambiarVista('lista')">{{ t('List') }}</button>
         </div>
         <template v-for="c in conFiltro" :key="c.nombre">
-          <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c)"
+          <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c, filtros.extra)"
                           :vacio="t('{0}: all', [c.etiqueta])" :etiqueta="tx(c.etiqueta)" @change="filtros.page = 1; cargar()" />
           <Seleccion v-else v-model="filtros.extra[c.nombre]" :aria-label="tx(c.etiqueta)" @change="filtros.page = 1; cargar()">
             <option :value="undefined">{{ t('{0}: all', [c.etiqueta]) }}</option>
@@ -460,9 +480,9 @@ onMounted(async () => {
               <option value="">{{ t('Choose…') }}</option>
               <option v-for="[v, txt] in opcionesCampo(c)" :key="v" :value="v">{{ tx(txt) }}</option>
             </Seleccion>
-            <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c)"
+            <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)"
                             :vacio="tx(c.obligatorio ? '' : t('None'))" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" :deshabilitado="bloqueado(c)" />
-            <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c)" multiple
+            <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)" multiple
                             :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
             <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
                       :placeholder="t('name@company.com, other@company.com')"></textarea>

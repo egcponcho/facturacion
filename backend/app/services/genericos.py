@@ -87,7 +87,8 @@ def crear(db: Session, user: Usuario, datos) -> dict:
     marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
     if not marca or not grupo or not prov:
         errores.append({"campo": "marca_id", "mensaje": "Choose the brand, the item group and the supplier."})
-    elif prov.marcas and marca.id not in {m.id for m in prov.marcas}:
+    elif marca.id not in {m.id for m in prov.marcas}:
+        # Solo las marcas autorizadas al proveedor (Datos maestros → Proveedores)
         errores.append({"campo": "marca_id", "mensaje": f"{marca.codigo} is not a brand of {prov.nombre}."})
     if errores:
         raise ErrorNegocio("Check the generic.", 422, "validacion", errores)
@@ -223,7 +224,8 @@ def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
     marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
     if not marca or not grupo or not prov:
         errores.append({"campo": "marca_id", "mensaje": "Choose the brand, the item group and the supplier."})
-    elif prov.marcas and marca.id not in {m.id for m in prov.marcas}:
+    elif marca.id not in {m.id for m in prov.marcas}:
+        # Solo las marcas autorizadas al proveedor (Datos maestros → Proveedores)
         errores.append({"campo": "marca_id", "mensaje": f"{marca.codigo} is not a brand of {prov.nombre}."})
     if errores:
         raise ErrorNegocio("Check the generic.", 422, "validacion", errores)
