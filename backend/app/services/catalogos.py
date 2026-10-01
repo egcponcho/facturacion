@@ -30,7 +30,8 @@ from ..models import (
     PrepackComponente,
     Proveedor,
     Puerto,
-    PlanLeadTime,
+    PasoLeadTime,
+    ReglaLeadTime,
     TipoEmpaque,
     RegionLeadTime,
     Sociedad,
@@ -40,7 +41,7 @@ from ..models import (
 )
 from .common import ErrorNegocio, exigir, filtro_texto, registrar
 from .normalizar import Referencias
-from . import pasos_leadtime as pasos_svc
+from . import reglas_lt as rlt
 from .normalizar import nombre as nombre_fmt
 from .normalizar import texto as texto_fmt
 from .productos import (
@@ -185,26 +186,37 @@ CATALOGOS = {
         ],
         "buscar": ["codigo", "nombre"],
     },
-    "leadtimes": {
-        "modelo": PlanLeadTime, "titulo": "Lead time plans", "singular": "lead time plan",
-        "ayuda": "Each plan is a chain of steps between the milestones the system measures. It applies to the "
-                 "conditions it has (region, country, port, supplier, transport mode); empty conditions apply to "
-                 "all, and the most specific plan wins. A plan without conditions is the default.",
+    "pasos_lt": {
+        "modelo": PasoLeadTime, "titulo": "Lead time steps", "singular": "lead time step",
+        "ayuda": "Catalog of the steps a lead time can use (booking, release, XF, ETD, ETA, customs…). Each "
+                 "configuration chooses which steps apply, their reference and days. Linking a step to a "
+                 "measured date lets the system compare the plan with what really happened.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True),
-            c("region", "Region", "codigo", catalogo="regiones", filtro=True),
-            c("pais", "Origin country", "codigo", catalogo="paises", filtro=True,
-              depende={"campo": "region", "clave": "region"}),
-            c("puerto", "Port of departure", "codigo", catalogo="puertos", depende={"campo": "pais", "clave": "pais"}),
-            c("proveedor_id", "Supplier", "ref", catalogo="proveedores", filtro=True),
-            c("modo", "Transport mode", "opcion", opciones=MODOS, filtro=True),
-            c("pasos", "Steps", "pasos", obligatorio=True,
-              ayuda="In order. Each step belongs to a stage, counts calendar or business days, starts after the "
-                    "previous step (or another one, or in parallel) and can apply to a single transport mode."),
+            c("hito", "Measured date", "opcion", filtro=True, opciones=[[h, n] for h, n in rlt.HITOS],
+              ayuda="Optional. The date the system records for this step (to compare plan and reality)."),
+            c("descripcion", "Description"),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["codigo", "nombre"],
+        "buscar": ["codigo", "nombre", "descripcion"],
+    },
+    "leadtimes": {
+        "modelo": ReglaLeadTime, "titulo": "Lead time rules", "singular": "lead time rule",
+        "ayuda": "Lead times by geographic level with inheritance: Port > Country > Region > Global. Each rule only "
+                 "defines what it changes (steps it adds, overrides or removes, and the order); the rest is "
+                 "inherited from the level above. See the result in Lead time › Effective lead time.",
+        "campos": [
+            c("nivel", "Level", "opcion", obligatorio=True, filtro=True, opciones=[[n, t] for n, t in rlt.NIVELES]),
+            c("region", "Region", "codigo", catalogo="regiones", filtro=True, mostrar_si={"campo": "nivel", "valores": ["REGION"]}),
+            c("pais", "Country", "codigo", catalogo="paises", filtro=True, mostrar_si={"campo": "nivel", "valores": ["PAIS"]}),
+            c("puerto", "Port", "codigo", catalogo="puertos", mostrar_si={"campo": "nivel", "valores": ["PUERTO"]}),
+            c("nombre", "Name", obligatorio=True),
+            c("pasos", "Steps", "regla_lt", obligatorio=True,
+              ayuda="Inherited steps appear in grey: override only what changes at this level."),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["nombre", "region", "pais", "puerto"],
     },
     "puertos": {
         "modelo": Puerto, "titulo": "Ports", "singular": "port",
@@ -404,7 +416,7 @@ CATALOGOS = {
     },
 }
 ORDEN_CATALOGOS = ["articulos", "prepacks", "escalas", "tipos_empaque", "marcas", "grupos", "proveedores", "sociedades", "centros",
-                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "leadtimes", "acuerdos"]
+                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "pasos_lt", "leadtimes", "acuerdos"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
 
@@ -444,9 +456,10 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
             fila[campo["nombre"]] = [x.id for x in v]
             fila[campo["nombre"] + "_txt"] = ", ".join(x.codigo for x in v) or None
             continue
-        if campo["tipo"] == "pasos":
-            fila[campo["nombre"]] = pasos_svc.cargar(v)
-            fila[campo["nombre"] + "_txt"] = pasos_svc.texto(fila[campo["nombre"]])
+        if campo["tipo"] == "regla_lt":
+            fila[campo["nombre"]] = rlt.cargar(v)
+            n = len(fila[campo["nombre"]]["pasos"])
+            fila[campo["nombre"] + "_txt"] = f"{n} change" if n == 1 else f"{n} changes"
             continue
         fila[campo["nombre"]] = v
         if campo["tipo"] == "ref" and v:
@@ -625,14 +638,12 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                 errores.append({"campo": n, "mensaje": f"{campo['etiqueta']} is required."})
             continue
         v = datos[n]
-        if campo["tipo"] == "pasos":
-            pasos, errs = pasos_svc.validar(v)
+        if campo["tipo"] == "regla_lt":
+            regla, errs = rlt.validar(db, v)
             if errs:
                 errores.extend({"campo": n, "mensaje": e} for e in errs)
-            elif not pasos and campo["obligatorio"]:
-                errores.append({"campo": n, "mensaje": "Add at least one step."})
             else:
-                limpio[n] = json.dumps(pasos, ensure_ascii=False)
+                limpio[n] = json.dumps(regla, ensure_ascii=False)
             continue
         if isinstance(v, str):
             v = nombre_fmt(v) if campo.get("formato") == "nombre" else texto_fmt(v)
@@ -771,6 +782,8 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             errores.append({"campo": "sociedades", "mensaje":
                             f"The supplier has purchase orders with {', '.join(sorted(usadas - quedan))}: "
                             "those companies cannot be removed."})
+    if cat["modelo"] is ReglaLeadTime:
+        errores += _validar_regla_lt(db, final, actual, limpio)
     if cat["modelo"] is EscalaTalla and final.get("tallas"):
         from .tallas import validar as validar_escala
 
@@ -848,12 +861,41 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
     return _fila(cat, obj, _refs(db, cat, [obj]))
 
 
+def _validar_regla_lt(db: Session, final: dict, actual, limpio: dict) -> list[dict]:
+    """Una regla por ámbito, con su ámbito según el nivel, y la cadena que
+    resulta (con lo heredado) debe ser válida."""
+    errores = []
+    nivel = final.get("nivel")
+    campo = rlt.CAMPO_NIVEL.get(nivel)
+    for otro in rlt.CAMPO_NIVEL.values():
+        if otro != campo:
+            final[otro] = limpio[otro] = None
+    ambito = final.get(campo) if campo else None
+    if campo and not ambito:
+        return [{"campo": campo, "mensaje": "Choose the scope of this level."}]
+    filtro = [ReglaLeadTime.nivel == nivel] + ([getattr(ReglaLeadTime, campo) == ambito] if campo else [])
+    otra = db.scalar(select(ReglaLeadTime.id).where(*filtro, ReglaLeadTime.id != (actual.id if actual else 0)))
+    if otra:
+        errores.append({"campo": campo or "nivel", "mensaje": "There is already a rule for that scope; edit it."})
+    regla = rlt.cargar(final.get("pasos"))
+    kw = {campo: ambito} if campo else {}
+    res = rlt.efectivo(db, **kw, con_regla=(nivel, ambito, regla))
+    errores += [{"campo": "pasos", "mensaje": m} for m in res["errores"]]
+    return errores
+
+
 def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
     exigir(user, "catalogos.eliminar")
     cat = _cat(tipo)
     obj = db.get(cat["modelo"], obj_id)
     if not obj:
         raise ErrorNegocio(f"The {cat['singular']} does not exist.", 404, "no_encontrado")
+    if isinstance(obj, PasoLeadTime):
+        usan = [r.nombre for r in db.scalars(select(ReglaLeadTime)) if any(
+            e["paso"] == obj.codigo or e.get("ref") == obj.codigo for e in rlt.cargar(r.pasos)["pasos"])]
+        if usan:
+            raise ErrorNegocio(f"It cannot be deleted: the step is used in {', '.join(usan)}. Deactivate it instead.",
+                               409, "en_uso")
     try:
         with db.begin_nested():
             db.delete(obj)

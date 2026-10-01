@@ -154,9 +154,9 @@ onMounted(cargar)
       <span v-for="(e, i) in datos.etapas" :key="e.clave"><i class="punto" :style="{ background: COLOR(i) }"></i>{{ tx(e.nombre) }}</span>
     </div>
     <p class="ayuda" style="margin: 10px 0 0">
-      {{ t('Port deadline = in-store date minus the steps after the port arrival in the lead time plan of each PO') }}
+      {{ t('Port deadline = in-store date minus the steps after the port arrival in the effective lead time of each PO (Port > Country > Region > Global)') }}
       <template v-for="(r, i) in datos.regiones" :key="r.codigo">{{ tx(tx(i ? ' · ' : ' (')) }}{{ tx(r.nombre) }} {{ tx(r.dias_puerto_bodega) }}+{{ tx(r.dias_ingreso) }}+{{ tx(r.dias_reexportacion) }} d{{ tx(tx(i === datos.regiones.length - 1 ? ')' : '')) }}</template>.
-      {{ t('Re-export is not recorded yet: its days are reserved.') }} <router-link v-if="esInterno()" to="/mantenimiento?catalogo=leadtimes" class="enlace">{{ t('Edit the lead time plans') }}</router-link>
+      {{ t('Re-export is not recorded yet: its days are reserved.') }} <router-link v-if="esInterno()" to="/leadtimes" class="enlace">{{ t('See the effective lead time') }}</router-link>
     </p>
   </section>
 

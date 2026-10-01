@@ -10,7 +10,7 @@ import CargaArchivo from '../components/CargaArchivo.vue'
 import CargaArticulos from '../components/CargaArticulos.vue'
 import ArticulosGenericos from '../components/ArticulosGenericos.vue'
 import CargaMasiva from '../components/CargaMasiva.vue'
-import EditorPasos from '../components/EditorPasos.vue'
+import EditorReglaLT from '../components/EditorReglaLT.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import ExplosionPrepack from '../components/ExplosionPrepack.vue'
@@ -57,6 +57,8 @@ const campos = computed(() => cat.value?.campos || [])
 const columnas = computed(() => campos.value.filter((c) => !['descripcion', 'direccion', 'razon_social', 'upc'].includes(c.nombre) &&
   !(c.nombre === 'correos' && tipo.value !== 'contactos')))
 const extras = computed(() => cat.value?.extras || [])
+// Campos que dependen de otro para mostrarse (p. ej. el país solo en una regla de nivel país)
+const camposVisibles = computed(() => campos.value.filter((c) => !c.mostrar_si || c.mostrar_si.valores.includes(form.value?.[c.mostrar_si.campo])))
 // Opciones para la lista con búsqueda: por id (ref) o por código
 // Campo dependiente (c.depende): solo las opciones relacionadas con el valor del
 // campo del que depende (p. ej. las marcas del proveedor elegido)
@@ -83,7 +85,7 @@ const conFiltro = computed(() => campos.value.filter((c) => c.filtro && !(compac
 
 function vacio() {
   const f = {}
-  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? true : c.tipo === 'multi' || c.tipo === 'pasos' ? [] : ''
+  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? true : c.tipo === 'multi' ? [] : c.tipo === 'regla_lt' ? { pasos: [], orden: null } : ''
   return f
 }
 
@@ -158,7 +160,7 @@ function editar(fila) {
   filaEditada.value = fila
   erroresForm.value = {}
   const f = vacio()
-  for (const c of campos.value) f[c.nombre] = c.tipo === 'multi' ? [...(fila[c.nombre] || [])] : c.tipo === 'pasos' ? (fila[c.nombre] || []).map((p) => ({ ...p })) : fila[c.nombre] ?? (c.tipo === 'bool' ? false : '')
+  for (const c of campos.value) f[c.nombre] = c.tipo === 'multi' ? [...(fila[c.nombre] || [])] : c.tipo === 'regla_lt' ? JSON.parse(JSON.stringify(fila[c.nombre] || { pasos: [], orden: null })) : fila[c.nombre] ?? (c.tipo === 'bool' ? false : '')
   form.value = f
 }
 function nuevo() {
@@ -221,7 +223,7 @@ function valorCelda(c, fila) {
   if (v === null || v === undefined || v === '') return '—'
   if (c.tipo === 'ref') return fila[`${c.nombre}_txt`] || v
   if (c.tipo === 'multi') return fila[`${c.nombre}_txt`] || '—'
-  if (c.tipo === 'pasos') return t('{0} steps', [v.length])
+  if (c.tipo === 'regla_lt') return fila[`${c.nombre}_txt`] || '—'
   if (c.tipo === 'opcion') return c.opciones.find((o) => o[0] === v)?.[1] || v
   if (c.tipo === 'codigo') return opciones[c.catalogo]?.find((o) => o.codigo === v)?.texto || v
   return v
@@ -332,6 +334,7 @@ onMounted(async () => {
     <div class="acciones">
       <MasOpciones>
         <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="{ q: filtros.q, orden: filtros.orden, ...filtros.extra }" />
+        <router-link v-if="tipo === 'leadtimes' || tipo === 'pasos_lt'" class="btn" to="/leadtimes"><Icono nombre="reloj" :tam="15" />{{ t('Effective lead time') }}</router-link>
         <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />{{ t('Template') }}</a>
         <button v-if="cat && puede('catalogos.crear')" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload items and sheets') : tipo === 'prepacks' ? t('Upload size runs') : t('Upload Excel')) }}</button>
       </MasOpciones>
@@ -472,7 +475,7 @@ onMounted(async () => {
         <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />{{ t('Create prepack') }}</button>
       </form>
       <form v-else class="form-catalogo" @submit.prevent="guardar">
-        <component :is="c.tipo === 'pasos' ? 'div' : 'label'" v-for="c in campos" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
+        <component :is="c.tipo === 'regla_lt' ? 'div' : 'label'" v-for="c in camposVisibles" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
           <template v-if="c.tipo === 'bool'">
             <input v-model="form[c.nombre]" type="checkbox" /> {{ tx(c.etiqueta) }}
           </template>
@@ -486,7 +489,7 @@ onMounted(async () => {
                             :vacio="tx(c.obligatorio ? '' : t('None'))" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" :deshabilitado="bloqueado(c)" />
             <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)" multiple
                             :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
-            <EditorPasos v-else-if="c.tipo === 'pasos'" v-model="form[c.nombre]" />
+            <EditorReglaLT v-else-if="c.tipo === 'regla_lt'" v-model="form[c.nombre]" :form="form" :regla-id="editando" />
             <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
                       :placeholder="t('name@company.com, other@company.com')"></textarea>
             <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : 'text'"

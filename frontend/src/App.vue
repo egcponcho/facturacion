@@ -37,6 +37,7 @@ const navegacion = computed(() => {
 const ajustes = computed(() => {
   const items = []
   if (puede('catalogos.ver')) items.push({ to: '/mantenimiento', texto: t('Master data'), detalle: t('Items, brands, suppliers, plants'), icono: 'base' })
+  if (puede('catalogos.ver')) items.push({ to: '/leadtimes', texto: t('Lead times'), detalle: t('Steps, rules by region, country and port'), icono: 'reloj' })
   if (puede('plantilla.editar')) items.push({ to: '/plantillas', texto: t('Packing templates'), detalle: t('Reusable carton layouts'), icono: 'capas' })
   if (puede('aranceles.ver')) items.push({ to: '/aranceles', texto: t('Tariff schedule'), detalle: t('SAC, countries and national codes'), icono: 'etiqueta' })
   if (puede('oc.importar')) items.push({ to: '/importar', texto: t('Load purchase orders'), detalle: t('File or form'), icono: 'importar' })

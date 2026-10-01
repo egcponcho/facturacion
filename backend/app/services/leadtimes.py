@@ -27,7 +27,6 @@ from ..models import (
     PackingList,
     Pais,
     PLLinea,
-    PlanLeadTime,
     Puerto,
     PosicionOC,
     GrupoArticulo,
@@ -36,7 +35,7 @@ from ..models import (
     Usuario,
 )
 from ..config import settings
-from . import pasos_leadtime as pasos_svc
+from . import reglas_lt as rlt
 from .common import proveedor_filtro
 
 # Etapas medidas del lead time, en orden: de un hito al siguiente
@@ -55,142 +54,110 @@ HITOS = [
     ("entrega", "At warehouse"), ("ingreso", "Warehouse entry"), ("tienda", "In store"),
 ]
 
-# Tramos entre los hitos que el sistema mide. Cada paso configurable de un
-# plan pertenece a uno; la duración del tramo sale de sus pasos.
-TRAMOS = [
-    ("liberacion", "Logistics release to XF"),
-    ("transito", "XF to port arrival"),
-    ("puerto", "Port to warehouse"),
-    ("ingreso", "Warehouse entry"),
-    ("tienda", "Entry to store"),
-]
-DESPUES_ARRIBO = ["puerto", "ingreso", "tienda"]
-# Plan de respaldo si no hay ninguno configurado
-PASOS_DEFECTO = [
-    {"codigo": "LIB", "nombre": "Logistics release", "tramo": "liberacion", "dias": 15},
-    {"codigo": "TRANS", "nombre": "Transit", "tramo": "transito", "dias": 10},
-    {"codigo": "BOD", "nombre": "Port to warehouse", "tramo": "puerto", "dias": 3},
-    {"codigo": "ING", "nombre": "Warehouse entry", "tramo": "ingreso", "dias": 2},
-    {"codigo": "REEX", "nombre": "Re-export to store", "tramo": "tienda", "dias": 5},
-]
-# Peso de cada condición para elegir el plan más específico
-PESOS = {"proveedor_id": 16, "puerto": 8, "pais": 4, "modo": 2, "region": 1}
-CAMPOS_DIAS = {"liberacion": "dias_liberacion", "transito": "dias_transito", "puerto": "dias_puerto_bodega",
-               "ingreso": "dias_ingreso", "tienda": "dias_reexportacion"}
+CAMPOS_DIAS = {"dias_liberacion": ("lib_logistica", "xf"), "dias_transito": ("salida", "arribo"),
+               "dias_puerto_bodega": ("arribo", "entrega"), "dias_ingreso": ("entrega", "ingreso"),
+               "dias_reexportacion": ("ingreso", "tienda")}
 
 
-def sumar(fecha: date, dias: int, habiles: bool = False, signo: int = 1) -> date:
-    """Suma (o resta) días naturales o hábiles (lunes a viernes)."""
-    if not habiles:
-        return fecha + timedelta(days=signo * dias)
-    d, n = fecha, dias
-    while n > 0:
-        d += timedelta(days=signo)
-        if d.weekday() < 5:
-            n -= 1
-    return d
+def _nodo_hito(est: dict, hito: str) -> str | None:
+    """Paso de la cadena que representa una fecha medida. Si la cadena no
+    tiene ese hito, vale el anterior que sí tenga (sin días de por medio)."""
+    i = rlt.ORDEN_HITOS.index(hito)
+    for h in reversed(rlt.ORDEN_HITOS[:i + 1]):
+        if est["hitos"].get(h):
+            return est["hitos"][h]
+    for h in rlt.ORDEN_HITOS[i + 1:]:  # sin anteriores (p. ej. liberación): el siguiente
+        if est["hitos"].get(h):
+            return est["hitos"][h]
+    return None
 
 
-def _deps(pasos: list[dict]) -> dict[str, str | None]:
-    """De qué paso arranca cada uno: el indicado, el anterior (por defecto) o
-    ninguno (INICIO: en paralelo desde el inicio del tramo)."""
-    out, previo = {}, None
-    for p in pasos:
-        d = p.get("depende") or previo
-        out[p["codigo"]] = None if d == "INICIO" else d
-        previo = p["codigo"]
-    return out
-
-
-def _tramo(fecha: date, pasos: list[dict], signo: int) -> date:
-    if not pasos:
-        return fecha
-    deps = _deps(pasos)
-    if signo > 0:  # cada paso arranca cuando termina el que lo precede; el tramo acaba con el último
-        fin: dict[str, date] = {}
-        for p in pasos:
-            arranque = fin.get(deps[p["codigo"]], fecha) if deps[p["codigo"]] else fecha
-            fin[p["codigo"]] = sumar(arranque, int(p.get("dias") or 0), bool(p.get("habiles")), 1)
-        return max(fin.values())
-    # Hacia atrás: cada paso debe terminar antes de que arranque cualquiera que dependa de él
-    ini: dict[str, date] = {}
-    for p in reversed(pasos):
-        hijos = [ini[q] for q, d in deps.items() if d == p["codigo"] and q in ini]
-        ini[p["codigo"]] = sumar(min(hijos) if hijos else fecha, int(p.get("dias") or 0), bool(p.get("habiles")), -1)
-    return min(ini.values())
-
-
-def pasos_de(est: dict, tramo: str) -> list[dict]:
-    modo = est.get("modo")
-    return [p for p in est["pasos"] if p.get("tramo") == tramo and (not p.get("modo") or p["modo"] == modo)]
-
-
-def mover(fecha: date | None, est: dict, tramos: list[str], signo: int = 1) -> date | None:
-    """Recorre los tramos dados desde una fecha, hacia adelante o hacia atrás.
-    Los días extra del tipo de producto se suman al tramo a tienda."""
+def entre(fecha: date | None, est: dict, desde: str, hasta: str) -> date | None:
+    """Fecha del hito `hasta` conociendo la del hito `desde`, con la cadena de
+    pasos efectiva de la OC. Los días extra del tipo de producto van antes de tienda."""
     if not fecha:
         return None
-    for t in (tramos if signo > 0 else list(reversed(tramos))):
-        if signo < 0 and t == "tienda" and est.get("dias_extra"):
-            fecha -= timedelta(days=est["dias_extra"])
-        fecha = _tramo(fecha, pasos_de(est, t), signo)
-        if signo > 0 and t == "tienda" and est.get("dias_extra"):
-            fecha += timedelta(days=est["dias_extra"])
-    return fecha
+    a, b = _nodo_hito(est, desde), _nodo_hito(est, hasta)
+    res = rlt.entre_pasos(fecha, est["nodos"], a, b) if a and b else fecha
+    extra = est.get("dias_extra") or 0
+    if extra and hasta == "tienda" and desde != "tienda":
+        res += timedelta(days=extra)
+    if extra and desde == "tienda" and hasta != "tienda":
+        res -= timedelta(days=extra)
+    return res
 
 
 def _resumen(est: dict, ref: date | None = None) -> dict:
-    """Días naturales de cada tramo (para mostrar y comparar)."""
+    """Días naturales entre las fechas medidas (para mostrar y comparar)."""
     ref = ref or date.today()
-    return {campo: (mover(ref, {**est, "dias_extra": 0}, [t]) - ref).days for t, campo in CAMPOS_DIAS.items()}
+    base = {**est, "dias_extra": 0}
+    out = {}
+    for campo, (a, b) in CAMPOS_DIAS.items():
+        out[campo] = (entre(ref, base, a, b) - ref).days
+    return out
 
 
 class Estandares:
-    """Elige el plan de lead time de cada OC (con caché por consulta)."""
+    """Lead time efectivo de cada OC: reglas Global → Región → País → Puerto
+    (con caché por consulta)."""
 
     def __init__(self, db: Session):
+        self.db = db
         regiones = {r.codigo: r for r in db.scalars(select(RegionLeadTime).where(RegionLeadTime.activo))}
         self.regiones = {c: {"codigo": c, "nombre": r.nombre} for c, r in regiones.items()}
         pred = next((r for r in regiones.values() if r.predeterminada), None)
         self.region_defecto = {"codigo": pred.codigo, "nombre": pred.nombre} if pred else \
             {"codigo": "OTROS", "nombre": "Other origins"}
-        self.planes = [{"codigo": p.codigo, "nombre": p.nombre, "region": p.region, "pais": p.pais, "puerto": p.puerto,
-                        "proveedor_id": p.proveedor_id, "modo": p.modo, "pasos": pasos_svc.cargar(p.pasos)}
-                       for p in db.scalars(select(PlanLeadTime).where(PlanLeadTime.activo).order_by(PlanLeadTime.codigo))]
+        self.catalogo = rlt.catalogo(db)
+        self.reglas = rlt._reglas(db)
+        self.nombres_ambito = rlt.nombres_ambito(db)
         self.pais_region = {p.codigo: p.region for p in db.scalars(select(Pais))}
         self.nombres = {p.codigo: p.nombre for p in db.scalars(select(Pais))}
+        self.puerto_pais = {p.codigo: p.pais for p in db.scalars(select(Puerto))}
         self.puerto_modo = {p.codigo: p.tipo for p in db.scalars(select(Puerto))}
         self.extra_grupo = {g.codigo: g.dias_extra or 0 for g in db.scalars(select(GrupoArticulo))}
         self._cache: dict = {}
-        sin = {"codigo": "DEFAULT", "nombre": "Default", "pasos": PASOS_DEFECTO}
-        self.defecto = next((p for p in self.planes if not any(p[k] for k in PESOS)), sin)
+        self._cadenas: dict = {}
 
-    def plan(self, region, pais, puerto, proveedor_id, modo) -> dict:
-        datos = {"region": region, "pais": pais, "puerto": puerto, "proveedor_id": proveedor_id, "modo": modo}
-        mejor, puntos = self.defecto, -1
-        for p in self.planes:
-            if any(p[k] and p[k] != datos[k] for k in PESOS):
-                continue
-            pts = sum(w for k, w in PESOS.items() if p[k])
-            if pts > puntos:
-                mejor, puntos = p, pts
-        return mejor
+    def cadena(self, region, pais, puerto) -> dict:
+        clave = (region, pais, puerto)
+        if clave not in self._cadenas:
+            niveles = [("GLOBAL", None)] + [(n, a) for n, a in (("REGION", region), ("PAIS", pais), ("PUERTO", puerto)) if a]
+            usados = []
+            for n, a in niveles:
+                r = self.reglas.get((n, a))
+                nombre = "Global" if n == "GLOBAL" else self.nombres_ambito.get((n, a), a)
+                usados.append((n, a, nombre, rlt.cargar(r.pasos) if r else {"pasos": [], "orden": None}))
+            res = rlt.combinar(usados, self.catalogo)
+            con_regla = [x for x in usados if x[3]["pasos"] or x[0] == "GLOBAL"]
+            res["ruta"] = " › ".join(x[2] for x in usados[1:]) or "Global"
+            res["mas_especifico"] = con_regla[-1][0] if con_regla else "GLOBAL"
+            self._cadenas[clave] = res
+        return self._cadenas[clave]
 
     def de(self, pais: str | None, grupos=None, proveedor_id: int | None = None, puerto: str | None = None,
            modo: str | None = None) -> dict:
-        """Plan que aplica a la OC más los días extra del tipo de producto
-        (el mayor de los grupos dados)."""
+        """Lead time efectivo para un origen (país y puerto de salida) y modo,
+        más los días extra del tipo de producto (el mayor de los grupos)."""
         if isinstance(grupos, str):
             grupos = [grupos]
         extra = max([self.extra_grupo.get(g, 0) for g in (grupos or []) if g] or [0])
         modo = modo or self.puerto_modo.get(puerto or "")
-        clave = (pais, extra, proveedor_id, puerto, modo)
+        if puerto and self.puerto_pais.get(puerto) != pais:
+            puerto = None  # el puerto de salida debe ser del país de origen para usar su regla
+        clave = (pais, extra, puerto, modo)
         if clave not in self._cache:
             cod_region = self.pais_region.get(pais or "")
             region = self.regiones.get(cod_region or "", self.region_defecto)
-            plan = self.plan(cod_region, pais, puerto, proveedor_id, modo)
-            est = {**region, "plan": plan["codigo"], "plan_nombre": plan["nombre"], "pasos": plan["pasos"],
-                   "modo": modo, "dias_extra": extra}
+            cad = self.cadena(cod_region, pais, puerto)
+            nodos = rlt.de_modo(cad["pasos"], modo)
+            hitos = {}
+            for c, p in nodos.items():
+                h = self.catalogo.get(c, {}).get("hito")
+                if h and h not in hitos:
+                    hitos[h] = c
+            est = {**region, "plan": cad["mas_especifico"], "plan_nombre": cad["ruta"], "pasos": cad["pasos"],
+                   "nodos": nodos, "hitos": hitos, "modo": modo, "dias_extra": extra}
             self._cache[clave] = {**est, **_resumen(est)}
         return self._cache[clave]
 
@@ -198,29 +165,38 @@ class Estandares:
         return self.de(oc.pais_origen, grupos, oc.proveedor_id, oc.puerto_despacho, modo)
 
     def resumen_planes(self) -> list[dict]:
+        """Días de cada tramo para la configuración global y cada región."""
         out = []
-        for p in self.planes or [self.defecto]:
-            est = {"pasos": p["pasos"], "modo": p.get("modo")}
-            out.append({"codigo": p["codigo"], "nombre": p["nombre"], "pasos": len(p["pasos"]), **_resumen(est)})
+        for codigo, nombre in [("GLOBAL", "Global"), *[(c, r["nombre"]) for c, r in self.regiones.items()]]:
+            region = None if codigo == "GLOBAL" else codigo
+            cad = self.cadena(region, None, None)
+            nodos = rlt.de_modo(cad["pasos"], None)
+            hitos = {}
+            for c in nodos:
+                h = self.catalogo.get(c, {}).get("hito")
+                if h and h not in hitos:
+                    hitos[h] = c
+            out.append({"codigo": codigo, "nombre": nombre, "pasos": len(nodos),
+                        **_resumen({"nodos": nodos, "hitos": hitos})})
         return out
 
 
 def dias_post_arribo(est: dict) -> int:
     """Días naturales que necesita la mercancía después del puerto para estar en tienda."""
     hoy = date.today()
-    return (mover(hoy, est, DESPUES_ARRIBO) - hoy).days
+    return (entre(hoy, est, "arribo", "tienda") - hoy).days
 
 
 def limite_puerto(fecha_tienda: date | None, est: dict) -> date | None:
     """Última fecha de arribo al puerto destino para llegar a tiempo a tienda."""
-    return mover(fecha_tienda, est, DESPUES_ARRIBO, -1)
+    return entre(fecha_tienda, est, "tienda", "arribo")
 
 
 def arribo_estimado(fecha_xf: date | None, est: dict, hoy: date) -> date | None:
-    """Sin embarque todavía: la XF (o hoy si ya pasó) más el tránsito del plan."""
+    """Sin embarque todavía: la XF (o hoy si ya pasó) más lo que la cadena pone hasta el arribo."""
     if not fecha_xf:
         return None
-    return mover(max(fecha_xf, hoy), est, ["transito"])
+    return entre(max(fecha_xf, hoy), est, "xf", "arribo")
 
 
 def _dia(x) -> date | None:
@@ -310,12 +286,12 @@ def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
             "recoleccion": h.get("recoleccion"), "salida": h.get("salida"), "arribo": h.get("arribo"),
             "entrega": h.get("entrega"), "ingreso": h.get("ingreso"), "tienda": None}
     meta = {
-        "lib_logistica": mover(xf, est, ["liberacion"], -1),
+        "lib_logistica": entre(xf, est, "xf", "lib_logistica"),
         "recoleccion": xf,
-        "salida": mover(lim_arribo, est, ["transito"], -1),
+        "salida": entre(lim_arribo, est, "arribo", "salida"),
         "arribo": lim_arribo,
-        "entrega": mover(lim_arribo, est, ["puerto"]),
-        "ingreso": mover(lim_arribo, est, ["puerto", "ingreso"]),
+        "entrega": entre(lim_arribo, est, "arribo", "entrega"),
+        "ingreso": entre(lim_arribo, est, "arribo", "ingreso"),
         "tienda": tienda,
     }
     # Estimados de lo que falta, encadenados desde el arribo
@@ -323,17 +299,17 @@ def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
     if not real["salida"]:
         est_fecha["salida"] = h.get("etd")
     salio = real["salida"] or h.get("etd")
-    arribo = (real["arribo"] or h.get("eta") or mover(salio, est, ["transito"])
+    arribo = (real["arribo"] or h.get("eta") or entre(salio, est, "salida", "arribo")
               or arribo_estimado(xf, est, hoy))
     if not real["arribo"]:
         est_fecha["arribo"] = arribo
-    entrega = real["entrega"] or mover(arribo, est, ["puerto"])
+    entrega = real["entrega"] or entre(arribo, est, "arribo", "entrega")
     if not real["entrega"]:
         est_fecha["entrega"] = entrega
-    ingreso = real["ingreso"] or mover(entrega, est, ["ingreso"])
+    ingreso = real["ingreso"] or entre(entrega, est, "entrega", "ingreso")
     if not real["ingreso"]:
         est_fecha["ingreso"] = ingreso
-    est_fecha["tienda"] = mover(ingreso, est, ["tienda"])
+    est_fecha["tienda"] = entre(ingreso, est, "ingreso", "tienda")
     hitos = []
     for clave, nombre in HITOS:
         estimada = est_fecha.get(clave)

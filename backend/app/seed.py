@@ -32,7 +32,8 @@ from .models import (
     PrepackComponente,
     Proveedor,
     Puerto,
-    PlanLeadTime,
+    PasoLeadTime,
+    ReglaLeadTime,
     TipoEmpaque,
     RegionLeadTime,
     Sociedad,
@@ -43,7 +44,7 @@ from .models import (
 )
 from .security import hash_password
 from .services import empaques
-from .services import pasos_leadtime as pasos_svc
+from .services import reglas_lt as rlt
 from .services.common import registrar
 from .services.genericos import sufijo_convencional
 from .services.varios import crear_roles_fabrica
@@ -222,20 +223,32 @@ PREPACKS = [
 ]
 
 
-# Lead times de ejemplo como cadena de pasos (ver pasos_leadtime para el formato)
-PLANES_LEADTIME = [
-    ("ASIA", "Asia by sea", "ASIA", None,
-     "liberacion: Logistics release = 21d; transito: Ocean transit = 35d; puerto: Customs clearance = 2bd; "
-     "puerto: Trucking to warehouse = 1d; ingreso: Warehouse entry = 2bd; tienda: Re-export to store = 5d"),
-    ("ASIA-AIR", "Asia by air", "ASIA", "AEREO",
-     "liberacion: Logistics release = 15d; transito: Air freight = 5d; puerto: Customs clearance = 1bd; "
-     "ingreso: Warehouse entry = 1bd; tienda: Re-export to store = 3d"),
-    ("CAM", "Central America by road", "CAM", None,
-     "liberacion: Logistics release = 15d; transito: Road transit = 5d; puerto: Border and customs = 1bd; "
-     "ingreso: Warehouse entry = 2bd; tienda: Re-export to store = 3d"),
-    ("GENERAL", "Other origins", None, None,
-     "liberacion: Logistics release = 15d; transito: Transit = 14d; puerto: Customs clearance = 2bd; "
-     "ingreso: Warehouse entry = 2bd; tienda: Re-export to store = 4d"),
+# Catálogo de pasos de lead time (cada empresa crea los suyos) y el hito medido que representan
+PASOS_LT = [
+    ("BOOKING", "Booking", None), ("LIB", "Logistics release", "lib_logistica"),
+    ("PROD", "Production finished", None), ("CARGA", "Cargo ready", None), ("XF", "XF (ex-factory)", "xf"),
+    ("ETD", "ETD (departure)", "salida"), ("ETA", "ETA (port arrival)", "arribo"), ("ADUANA", "Customs clearance", None),
+    ("BODEGA", "Warehouse delivery", "entrega"), ("INGRESO", "Warehouse entry", "ingreso"),
+    ("TIENDA", "Available in store", "tienda"),
+]
+
+
+def _p(paso, ref="", dias=0, habiles=False, modo=""):
+    return {"paso": paso, "ref": ref, "dias": dias, "habiles": habiles, "modo": modo, "quitar": False}
+
+
+# Reglas por nivel: cada una define solo lo que cambia frente al nivel superior
+REGLAS_LT = [
+    ("GLOBAL", None, "Global standard", [
+        _p("BOOKING", "XF", -20), _p("LIB", "XF", -15), _p("PROD", "XF", -5), _p("CARGA", "XF", -2), _p("XF"),
+        _p("ETD", "XF", 3), _p("ETA", "ETD", 14), _p("ADUANA", "ETA", 2, True), _p("BODEGA", "ADUANA", 1),
+        _p("INGRESO", "BODEGA", 2, True), _p("TIENDA", "INGRESO", 4)]),
+    ("REGION", "ASIA", "Asia", [
+        _p("LIB", "XF", -21), _p("ETA", "ETD", 35), _p("ETA", "ETD", 5, modo="AEREO"), _p("TIENDA", "INGRESO", 5)]),
+    ("REGION", "CAM", "Central America", [
+        _p("ETA", "ETD", 5), _p("ADUANA", "ETA", 1, True), _p("TIENDA", "INGRESO", 3)]),
+    ("PAIS", "VN", "Vietnam", [_p("LIB", "XF", -15)]),
+    ("PUERTO", "VNSGN", "Cat Lai", [_p("LIB", "XF", -12)]),
 ]
 
 
@@ -249,8 +262,10 @@ def _catalogos(db: Session) -> dict:
         RegionLeadTime(codigo="CAM", nombre="Central America"),
         RegionLeadTime(codigo="OTROS", nombre="Other origins", predeterminada=True),
     ])
-    db.add_all([PlanLeadTime(codigo=c, nombre=n, region=r, modo=m, pasos=json.dumps(pasos_svc.validar(p)[0]))
-                for c, n, r, m, p in PLANES_LEADTIME])
+    db.add_all([PasoLeadTime(codigo=c, nombre=n, hito=h) for c, n, h in PASOS_LT])
+    db.add_all([ReglaLeadTime(nivel=nv, nombre=nm, pasos=json.dumps({"pasos": ps, "orden": None}),
+                              **({rlt.CAMPO_NIVEL[nv]: amb} if nv in rlt.CAMPO_NIVEL else {}))
+                for nv, amb, nm, ps in REGLAS_LT])
     db.add_all([Pais(codigo=c, nombre=n, region=REGION_PAIS.get(c)) for c, n in PAISES])
     socs = {c: Sociedad(codigo=c, nombre=n, razon_social=r, id_fiscal=nit, pais=pais, moneda="USD", direccion=dir_,
                         correos=correos)

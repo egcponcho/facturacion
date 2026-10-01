@@ -20,6 +20,7 @@ const routes = [
   { path: '/transporte/embarques/:id', component: () => import('./views/EmbarqueView.vue'), props: true, meta: { permiso: 'transporte.gestionar' } },
   { path: '/importar', component: () => import('./views/ImportarView.vue'), meta: { permiso: 'oc.importar' } },
   { path: '/mantenimiento', component: () => import('./views/MantenimientoView.vue'), meta: { permiso: 'catalogos.ver' } },
+  { path: '/leadtimes', component: () => import('./views/LeadTimeView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/seguimiento', component: () => import('./views/SeguimientoView.vue'), meta: { permiso: 'seguimiento.ver' } },
   { path: '/perfil', component: () => import('./views/PerfilView.vue') },
   { path: '/bienvenida', name: 'bienvenida', component: () => import('./views/BienvenidaView.vue'), meta: { sinMarco: true } },

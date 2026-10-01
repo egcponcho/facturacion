@@ -302,26 +302,37 @@ class RegionLeadTime(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class PlanLeadTime(Base):
-    """Lead time como cadena de pasos configurable. Aplica a la combinación de
-    condiciones que tenga (región, país, puerto, proveedor, modo de
-    transporte); las vacías valen para todo. Gana el plan más específico.
+class PasoLeadTime(Base):
+    """Catálogo de pasos de lead time (Booking, Liberación, XF, ETD, ETA,
+    Aduana…). Cada empresa crea los suyos. `hito` enlaza el paso con una fecha
+    que el sistema mide (liberación logística, XF, salida, arribo, entrega,
+    ingreso, tienda); un paso sin hito es solo de planificación."""
 
-    `pasos` es una lista JSON en orden: cada paso pertenece a un tramo entre
-    hitos que el sistema mide (liberación→XF, tránsito, puerto→bodega,
-    ingreso, tienda), cuenta días naturales o hábiles, puede depender de otro
-    paso del tramo (o arrancar en paralelo) y aplicar solo a un modo."""
-
-    __tablename__ = "planes_leadtime"
+    __tablename__ = "pasos_leadtime"
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(20), unique=True)
     nombre: Mapped[str] = mapped_column(String(100))
+    hito: Mapped[str | None] = mapped_column(String(15))
+    descripcion: Mapped[str | None] = mapped_column(String(300))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class ReglaLeadTime(Base):
+    """Configuración de lead time de un nivel geográfico: GLOBAL, REGION, PAIS
+    o PUERTO. Hereda la del nivel superior (Puerto > País > Región > Global) y
+    define solo lo que cambia: pasos que agrega, sobrescribe o quita, y si
+    quiere, otro orden. `pasos` es JSON:
+        {"pasos": [{"paso", "ref", "dias", "habiles", "modo", "quitar"}], "orden": [códigos] | null}
+    `dias` es relativo al paso de referencia (negativo = antes)."""
+
+    __tablename__ = "reglas_leadtime"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nivel: Mapped[str] = mapped_column(String(10))  # GLOBAL | REGION | PAIS | PUERTO
     region: Mapped[str | None] = mapped_column(String(10))
     pais: Mapped[str | None] = mapped_column(String(2))
     puerto: Mapped[str | None] = mapped_column(String(10))
-    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
-    modo: Mapped[str | None] = mapped_column(String(12))
-    pasos: Mapped[str] = mapped_column(Text, default="[]")
+    nombre: Mapped[str] = mapped_column(String(100))
+    pasos: Mapped[str] = mapped_column(Text, default="{}")
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

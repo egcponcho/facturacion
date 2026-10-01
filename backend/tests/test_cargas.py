@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 from openpyxl import Workbook, load_workbook
 
-from app.services.leadtimes import sumar
+from app.services.reglas_lt import sumar
 
 
 def _xlsx(filas):
@@ -197,22 +197,25 @@ def test_leadtimes_por_origen(interno):
     reg = {x["codigo"]: x for x in r["regiones"]}
     assert reg["ASIA"]["dias_liberacion"] == 21 and reg["CAM"]["dias_liberacion"] == 15
     ocs = {i["oc"]: i for i in r["items"]}
-    # Asia: liberada 16 días antes de la XF (pide 21) -> tarde; 26 días -> a tiempo
-    assert ocs["4400003702"]["lib_dias_antes_xf"] == 16 and ocs["4400003702"]["lib_a_tiempo"] is False
+    # Asia pide 21 días antes de la XF, pero Vietnam lo sobrescribe a 15: 16 días está a tiempo
+    assert ocs["4400003702"]["origen"] == "VN" and ocs["4400003702"]["dias_liberacion"] == 15
+    assert ocs["4400003702"]["lib_dias_antes_xf"] == 16 and ocs["4400003702"]["lib_a_tiempo"] is True
+    # China hereda los 21 de Asia: 12 días antes es tarde
+    assert ocs["4400003752"]["origen"] == "CN" and ocs["4400003752"]["lib_a_tiempo"] is False
     assert ocs["4400003701"]["lib_a_tiempo"] is True
     # Centroamérica pide 15: 20 días antes está a tiempo
     assert ocs["4400003850"]["region"] == "CAM" and ocs["4400003850"]["lib_a_tiempo"] is True
     # Temprano/tarde contra la fecha límite en puerto (tienda - bodega - ingreso - reexportación)
     o = ocs["4400003702"]
     assert o["riesgo"] == "ATRASO" and o["holgura"] < 0
-    # Plan ASIA: reexportación 5 d, ingreso 2 días hábiles, acarreo 1 d y aduana 2 días hábiles
+    # Vietnam hereda de Asia (y Asia de Global) aduana (2 días hábiles), entrega en bodega (1 d) e ingreso (2 hábiles) y cambia tienda a 5 d
     lim = date.fromisoformat(o["fecha_tienda"]) - timedelta(days=5)
-    lim = sumar(sumar(lim, 2, True, -1) - timedelta(days=1), 2, True, -1)
-    assert o["plan"] == "ASIA" and o["limite_puerto"] == str(lim)
+    lim = sumar(sumar(lim, -2, True) - timedelta(days=1), -2, True)
+    assert o["plan"] == "PAIS" and o["plan_nombre"] == "Asia › Vietnam › Cai Mep" and o["limite_puerto"] == str(lim)
     hitos = {h["clave"]: h for h in o["hitos"]}
     assert hitos["arribo"]["estado"] == "tarde" and hitos["ingreso"]["fecha"] and hitos["tienda"]["estimada"]
     vn = next(x for x in r["origenes"] if x["origen"] == "VN")
-    assert vn["etapas"]["transito"]["prom"] == 30 and vn["total_prom"] and vn["lib"]["meta"] == 21
+    assert vn["etapas"]["transito"]["prom"] == 30 and vn["total_prom"] and vn["lib"]["meta"] == 15  # Vietnam sobrescribe a Asia
     assert r["kpis"]["lib_total"] >= 10 and r["kpis"]["tarde"] >= 1
     # Filtros: región y solo las liberaciones tarde
     solo = interno.get("/seguimiento/leadtimes", params={"region": "CAM"}).json()
@@ -224,37 +227,53 @@ def test_leadtimes_por_origen(interno):
     assert u
 
 
-def test_cadena_de_pasos_de_leadtime(interno):
-    from app.services.leadtimes import mover
+def test_lead_time_con_herencia(interno):
+    """Catálogo de pasos → reglas por nivel → herencia Puerto > País > Región > Global."""
+    from datetime import date
 
+    from app.services.reglas_lt import entre_pasos
+
+    # Liberación: Asia 21 días antes de XF, Vietnam 15, Cat Lai 12; el resto se hereda
+    def lib(**amb):
+        r = interno.get("/leadtimes/efectivo", params=amb).json()
+        assert not r["errores"], r["errores"]
+        return next(p for p in r["pasos"] if p["paso"] == "LIB"), r
+    asia, r = lib(region="ASIA")
+    assert asia["dias"] == -21 and asia["origen"]["nombre"] == "Asia" and asia["previo"]["dias"] == -15
+    china, _ = lib(pais="CN")
+    assert china["dias"] == -21 and china["origen"]["nivel"] == "REGION"
+    vn, _ = lib(pais="VN")
+    assert vn["dias"] == -15 and vn["origen"]["nivel"] == "PAIS" and vn["previo"]["origen"]["nombre"] == "Asia"
+    catlai, r = lib(puerto="VNSGN")
+    assert catlai["dias"] == -12 and catlai["origen"]["ambito"] == "VNSGN"
+    assert [n["nivel"] for n in r["niveles"]] == ["GLOBAL", "REGION", "PAIS", "PUERTO"]
+    eta = next(p for p in r["pasos"] if p["paso"] == "ETA" and not p["modo"])
+    assert eta["dias"] == 35 and eta["origen"]["nombre"] == "Asia"  # heredado de Asia
+    assert r["dias"]["LIB"] == -12 and r["dias"]["XF"] == 0
+    # Fechas: días hábiles saltan el fin de semana
+    nodos = {"XF": {"ref": ""}, "A": {"ref": "XF", "dias": 3, "habiles": True}, "B": {"ref": "XF", "dias": -2}}
     lunes = date(2026, 6, 1)
-    # Días hábiles saltan el fin de semana; un paso en paralelo no alarga el tramo
-    est = {"pasos": [
-        {"codigo": "A", "tramo": "puerto", "dias": 3, "habiles": True},
-        {"codigo": "B", "tramo": "puerto", "dias": 2, "depende": "INICIO"},
-        {"codigo": "C", "tramo": "puerto", "dias": 2, "depende": "A"},
-        {"codigo": "AIR", "tramo": "puerto", "dias": 9, "modo": "AEREO"},
-    ], "modo": "MARITIMO"}
-    assert mover(lunes, est, ["puerto"]) == date(2026, 6, 6)  # jueves + 2 d
-    assert mover(date(2026, 6, 6), est, ["puerto"], -1) == lunes
-    assert mover(lunes, {**est, "modo": "AEREO"}, ["puerto"]) == date(2026, 6, 15)
-    # Catálogo: pasos en texto (como en Excel), validados en el servidor
-    base = {"codigo": "T-AIR", "nombre": "Test air", "region": "ASIA", "modo": "AEREO", "activo": True}
-    r = interno.post("/catalogos/leadtimes", json={**base, "pasos": "transito: Flight = 4d; puerto: Customs = 1bd (after X)"})
-    assert r.status_code == 422 and "same stage" in r.text
-    r = interno.post("/catalogos/leadtimes", json={**base, "pasos": "liberacion: Release = 10d; transito: Flight = 4d; "
-                                                                      "puerto: Customs = 1bd; puerto: Docs = 1d (start)"})
-    assert r.status_code in (200, 201), r.text
-    plan = r.json()
-    assert plan["pasos"][2] == {"codigo": "CUSTOMS", "nombre": "Customs", "tramo": "puerto", "dias": 1,
-                                "habiles": True, "depende": "", "modo": ""}
-    assert plan["pasos"][3]["depende"] == "INICIO" and "(||)" in plan["pasos_txt"]
-    # El plan más específico gana: Asia por aire sobre Asia
-    from app.db import SessionLocal
-    from app.services.leadtimes import Estandares
-
-    with SessionLocal() as db:
-        ests = Estandares(db)
-        assert ests.de("VN", modo="AEREO")["plan"] in ("ASIA-AIR", "T-AIR")
-        assert ests.de("VN", modo="MARITIMO")["plan"] == "ASIA"
-        assert ests.de("ZZ")["plan"] == "GENERAL"
+    assert entre_pasos(lunes, nodos, "XF", "A") == date(2026, 6, 4)
+    assert entre_pasos(date(2026, 6, 4), nodos, "A", "B") == date(2026, 5, 30)
+    # Una regla nueva solo cambia lo suyo; la cadena se valida con lo heredado
+    pasos = {p["codigo"] for p in interno.get("/leadtimes/ambitos").json()["pasos"]}
+    assert {"BOOKING", "XF", "ETD", "ETA", "TIENDA"} <= pasos
+    r = interno.post("/catalogos/leadtimes", {"nivel": "PAIS", "pais": "CN", "nombre": "China", "activo": True,
+                                              "pasos": {"pasos": [{"paso": "ADUANA", "ref": "NOEXISTE", "dias": 2}]}})
+    assert r.status_code == 422
+    r = interno.post("/catalogos/leadtimes", {"nivel": "PAIS", "pais": "CN", "nombre": "China", "activo": True,
+                                              "pasos": {"pasos": [{"paso": "XF", "quitar": True}]}})
+    assert r.status_code == 422 and "reference" in r.text  # quitar el ancla rompe la cadena
+    r = interno.post("/catalogos/leadtimes", {"nivel": "PAIS", "pais": "CN", "nombre": "China", "activo": True,
+                                              "pasos": {"pasos": [{"paso": "BOOKING", "quitar": True},
+                                                                  {"paso": "LIB", "ref": "XF", "dias": -30}]}})
+    assert r.status_code == 200, r.text
+    r = interno.get("/leadtimes/efectivo", params={"pais": "CN"}).json()
+    assert "BOOKING" not in {p["paso"] for p in r["pasos"]} and r["quitados"][0]["paso"] == "BOOKING"
+    assert next(p for p in r["pasos"] if p["paso"] == "LIB")["dias"] == -30
+    # Una regla por ámbito
+    assert interno.post("/catalogos/leadtimes", {"nivel": "PAIS", "pais": "CN", "nombre": "Otra", "activo": True,
+                                                 "pasos": {"pasos": []}}).status_code == 422
+    # Un paso usado no se elimina
+    paso = next(p for p in interno.get("/catalogos/pasos_lt", params={"q": "BOOKING"}).json()["items"])
+    assert interno.delete_(f"/catalogos/pasos_lt/{paso['id']}").status_code == 409

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..models import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
 from .cantidades import facturado_por_posicion, nombre_factura
 from .common import proveedor_filtro
-from .leadtimes import DESPUES_ARRIBO, Estandares, _riesgo, arribo_estimado, limite_puerto, mover
+from .leadtimes import Estandares, _riesgo, arribo_estimado, entre, limite_puerto
 
 ETAPAS = [
     ("PEND_LIBERACION", "Pending release"),
@@ -58,7 +58,7 @@ def _en_tienda(fila: dict, llegada: date | None, est: dict) -> None:
     tránsito de su origen) más los días de puerto, ingreso y reexportación."""
     if not llegada:
         return
-    fila["tienda_estimada"] = mover(llegada, est, DESPUES_ARRIBO)
+    fila["tienda_estimada"] = entre(llegada, est, "arribo", "tienda")
     if fila["fecha_tienda"]:
         fila["dias_vs_tienda"] = (fila["tienda_estimada"] - fila["fecha_tienda"]).days
 
@@ -121,7 +121,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
                             salida_real=e.salida_real, arribo_real=e.arribo_real,
                             etapa="CONTENEDOR" if e.estado == "PLANIFICADO" else e.estado)
                 llegada = e.arribo_real or e.eta or (
-                    mover(e.salida_real or e.etd, ests.de_oc(oc, modo=e.tipo_transporte), ["transito"])
+                    entre(e.salida_real or e.etd, ests.de_oc(oc, modo=e.tipo_transporte), "salida", "arribo")
                     if (e.salida_real or e.etd) else arribo_estimado(oc.fecha_xf, ests.de_oc(oc), hoy))
                 _en_tienda(fila, llegada, ests.de_oc(oc, p.grupo, e.tipo_transporte))
                 if fila["limite_puerto"] and llegada:
