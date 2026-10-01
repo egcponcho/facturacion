@@ -43,6 +43,7 @@ from ..models import (
     ahora,
 )
 from .acuerdos import acuerdos_contexto, cargar_acuerdos
+from .atributos import config_motor as atributos_cfg
 from .meta import meta as meta_motor
 from .common import (
     filtro_texto,
@@ -574,6 +575,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
                      for x in db.scalars(select(PalabraClave))],
         "sinonimos": [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))],
         "puede_aprobar": tiene(user, "producto.clasificar"),
+        "atributos": atributos_cfg(db),
     }
 
 

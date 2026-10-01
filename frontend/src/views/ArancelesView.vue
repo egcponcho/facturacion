@@ -16,6 +16,7 @@ import ThOrden from '../components/ThOrden.vue'
 import PanelArbol from '../components/aranceles/PanelArbol.vue'
 import PanelCapitulos from '../components/aranceles/PanelCapitulos.vue'
 import PanelDominios from '../components/aranceles/PanelDominios.vue'
+import PanelAtributos from '../components/aranceles/PanelAtributos.vue'
 import PanelFuentes from '../components/aranceles/PanelFuentes.vue'
 import PanelImportacion from '../components/aranceles/PanelImportacion.vue'
 import { cargarContexto } from '../clasificacion/useClasificacion'
@@ -330,12 +331,14 @@ watch(() => fs.size, recargarS)
     <button class="pestana" role="tab" :aria-selected="vista === 'paises'" @click="cambiarVista('paises')">{{ t('Countries') }} <span class="cuenta">{{ tx(paises.length) }}</span></button>
     <button class="pestana" role="tab" :aria-selected="vista === 'capitulos'" @click="cambiarVista('capitulos')">{{ t('Chapters') }}</button>
     <button class="pestana" role="tab" :aria-selected="vista === 'dominios'" @click="cambiarVista('dominios')">{{ t('Domains') }}</button>
+    <button class="pestana" role="tab" :aria-selected="vista === 'atributos'" @click="cambiarVista('atributos')">{{ t('Attributes') }}</button>
     <button class="pestana" role="tab" :aria-selected="vista === 'fuentes'" @click="cambiarVista('fuentes')">{{ t('Sources and versions') }}</button>
     <button class="pestana" role="tab" :aria-selected="vista === 'importacion'" @click="cambiarVista('importacion')">{{ t('Data import') }}</button>
   </div>
   <PanelArbol v-if="vista === 'arbol'" />
   <PanelCapitulos v-else-if="vista === 'capitulos'" />
   <PanelDominios v-else-if="vista === 'dominios'" />
+  <PanelAtributos v-else-if="vista === 'atributos'" />
   <PanelFuentes v-else-if="vista === 'fuentes'" />
   <PanelImportacion v-else-if="vista === 'importacion'" @cargado="cargarBase" />
 

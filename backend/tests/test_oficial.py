@@ -96,3 +96,56 @@ def test_arbol_arancelario_completo(interno):
     d = interno.get(f"/aranceles/arbol/{sub['id']}").json()
     assert d["hijos_lista"] and d["hijos_lista"][0]["dai"] is not None
     assert any(p["iso"] == "SV" and p["codigos"] for p in d["paises"]) and d["notas"]
+
+
+def test_atributos_en_base_de_datos(interno):
+    """Atributos oficiales (paquete 02) y de la ficha del motor, con opciones y ámbitos."""
+    r = interno.get("/aranceles/atributos").json()
+    assert r["por_origen"]["OFICIAL"] == 38 and r["por_origen"]["MOTOR"] == 57
+    por = {a["codigo"]: a for a in r["items"]}
+    assert por["cas_number"]["dominio"] == "CHEMICALS" and por["material_composition"]["tipo_dato"] == "composition"
+    assert por["estiloCalz"]["dominio"] == "FOOTWEAR" and por["tejido"]["dominio"] == "APPAREL"
+    d = interno.get(f"/aranceles/atributos/{por['physical_state']['id']}").json()
+    assert [o["codigo"] for o in d["opciones"]] == ["SOLID", "LIQUID", "GAS", "POWDER", "PASTE"]
+    assert d["ambitos"][0]["tipo_ambito"] == "DOMAIN" and d["ambitos"][0]["codigo_ambito"] == "CHEMICALS"
+    # Ámbitos del motor: categorías donde aplica y respuestas que lo activan
+    t = interno.get(f"/aranceles/atributos/{por['tejido']['id']}").json()
+    cint = next(x for x in t["ambitos"] if x["codigo_ambito"] == "cinturon")
+    assert {"materialCinturon": "textil"} in cint["condicion"]
+    assert next(x for x in t["ambitos"] if x["codigo_ambito"] == "camiseta")["condicion"] is None
+    # Búsqueda inteligente
+    assert {a["codigo"] for a in interno.get("/aranceles/atributos", params={"q": "name chemic"}).json()["items"]} == {"chemical_name"}
+    # La ficha recibe el catálogo en el contexto
+    ctx = interno.get("/clasificacion/contexto").json()["atributos"]
+    assert ctx["motor"]["tejido"]["opciones"]["punto"]["activo"] and len(ctx["genericos"]) == 38
+
+
+def test_editar_atributos_opciones_y_ambitos(interno):
+    por = {a["codigo"]: a for a in interno.get("/aranceles/atributos").json()["items"]}
+    aid = por["physical_state"]["id"]
+    d = interno.post(f"/aranceles/atributos/{aid}/opciones", {"codigo": "GRANULE", "etiqueta": "Granules", "alias": "pellets; granules"}).json()
+    assert d["opciones"][-1]["codigo"] == "GRANULE"
+    gas = next(o for o in d["opciones"] if o["codigo"] == "GAS")
+    d = interno.patch(f"/aranceles/atributos/{aid}/opciones/{gas['id']}", {"activo": False}).json()
+    assert not next(o for o in d["opciones"] if o["codigo"] == "GAS")["activo"]
+    d = interno.post(f"/aranceles/atributos/{aid}/ambitos", {"tipo_ambito": "CHAPTER", "codigo_ambito": "28", "modo": "REQUIRE", "prioridad": 950}).json()
+    amb = next(x for x in d["ambitos"] if x["tipo_ambito"] == "CHAPTER")
+    assert amb["modo"] == "REQUIRE"
+    r = interno.post(f"/aranceles/atributos/{aid}/ambitos", {"tipo_ambito": "CHAPTER", "codigo_ambito": "28"})
+    assert r.status_code == 422
+    d = interno.patch(f"/aranceles/atributos/{aid}/ambitos/{amb['id']}", {"quitar": True}).json()
+    assert not any(x["tipo_ambito"] == "CHAPTER" for x in d["ambitos"])
+    # Etiqueta editada y atributo apagado llegan a la ficha
+    interno.patch(f"/aranceles/atributos/{por['polo']['id']}", {"etiqueta": "Polo collar", "activo": False})
+    ctx = interno.get("/clasificacion/contexto").json()["atributos"]["motor"]["polo"]
+    assert ctx["etiqueta"] == "Polo collar" and ctx["activo"] is False
+    interno.patch(f"/aranceles/atributos/{por['polo']['id']}", {"etiqueta": "Has a collar and a buttoned placket at the neck (polo style)", "activo": True})
+    # Nuevo atributo del usuario
+    d = interno.post("/aranceles/atributos", {"codigo": "flash_point", "etiqueta": "Flash point", "tipo_dato": "number", "unidad": "°C", "dominio": "CHEMICALS"}).json()
+    assert d["origen"] == "USUARIO" and d["unidad"] == "°C"
+    assert interno.post("/aranceles/atributos", {"codigo": "flash_point", "etiqueta": "x"}).status_code == 422
+    # Recargar el paquete no duplica
+    paquete = (RAIZ / "app/data/oficial/02_carga_motor_dinamico_v3.xlsx").read_bytes()
+    r = interno.c.post("/api/aranceles/oficial/importar", headers=interno.h,
+                       files={"archivo": ("02.xlsx", io.BytesIO(paquete), "application/octet-stream")}).json()
+    assert r["hojas"]["Attributes"]["creados"] == 0 and r["hojas"]["Attribute_Options"]["creados"] == 0 and not r["errores"]

@@ -716,6 +716,30 @@ const ATTRS = [
 ];
 const ATTR_IDS = ATTRS.map(a=>a.id);
 const ATTR_BY = {}; ATTRS.forEach(a=>{ ATTR_BY[a.id] = a; });
+/* Catálogo de atributos de la base (Aranceles → Atributos): etiqueta editada,
+opciones desactivadas u ordenadas y atributos apagados. La lógica de cada
+pregunta (cuándo aplica, opciones imposibles) sigue aquí. Una opción
+desactivada queda como imposible: la ficha avisa y la quita al editarla. */
+const ATTRS_ORIG = new Map();
+function setAtributos(cfg){
+  const m = (cfg && cfg.motor) || {};
+  for (const a of ATTRS){
+    if (!ATTRS_ORIG.has(a.id)) ATTRS_ORIG.set(a.id, {label:a.label, aplica:a.aplica, ops:(a.ops || []).map(o=>({...o}))});
+    const o = ATTRS_ORIG.get(a.id), c = m[a.id];
+    a.label = o.label; a.aplica = o.aplica; a.ops = o.ops.map(x=>({...x}));
+    if (!c) continue;
+    if (c.etiqueta && tr(c.etiqueta) !== o.label) a.label = tr(c.etiqueta);
+    if (c.activo === false) a.aplica = ()=>false;
+    const ops = c.opciones || {};
+    a.ops.forEach(op=>{
+      const x = ops[op.v];
+      if (!x) return;
+      if (x.etiqueta && tr(x.etiqueta) !== op.l) op.l = tr(x.etiqueta);
+      if (x.activo === false){ const antes = op.off; op.off = s=>(antes && antes(s)) || tr('Option disabled in the attribute catalog.'); }
+    });
+    if (a.ops.some(op=>ops[op.v] && ops[op.v].orden != null)) a.ops.sort((p, q)=>((ops[p.v] || {}).orden ?? 9999) - ((ops[q.v] || {}).orden ?? 9999));
+  }
+}
 function opcionLbl(id, v){ const a = ATTR_BY[id]; if (!a) return String(v); if (a.tipo === 'check') return v ? tr('Yes') : tr('No'); const o = (a.ops||[]).find(x=>x.v === v); return o ? o.l : String(v); }
 function prepararEstado(s){
   s._matGuante = '';
@@ -2372,7 +2396,7 @@ export {
   norm, digits, fmtCode, fmtPais, descDe, setSac, descripcionComercial, tipoComercial, TIPO_CORTO_ES, CAPITULOS, DESC, DESTINOS_BASE, MCCA5, notaOrigenDestino,
   TIPOS, TIPO_LBL, TIPO_CORTO, buscarTipos, grupoTipo, partesDe, partesPrincipales, PARTE_LBL, PARTE_PH,
   FIB_LBL, MAT_LBL, MAT_EQUIV, MAT_AMBIGUAS, setSinonimos, claseTexto, CLASE_LBL, prepMat, parseComp, parseMat, claseMat, resumenMat, segmentosComp,
-  ATTRS, ATTR_BY, ATTR_IDS, opcionLbl, opcionesValidas, prepararEstado, normalizar, aplicarImplica, atributosLegibles, estadoAttr, motivoDefinido,
+  ATTRS, ATTR_BY, ATTR_IDS, setAtributos, opcionLbl, opcionesValidas, prepararEstado, normalizar, aplicarImplica, atributosLegibles, estadoAttr, motivoDefinido,
   detectar, detectarFicha, detectarCon, parseTallas, edadDe, descripcionProfesional, clasificarReglas, sugerir, perfilDe, perfilLegible,
   validar, verificarCodigo, alertaKey, alertasVivas, evaluar, ESTADOS, ESTADO_COLOR, EDAD_LBL, FUENTES,
   digitosPais, incisosDe, incisosBase, partidaPais, partidasDe, paisesCompletos, EST_PAIS, FUENTE_PAIS, NAC_PREG, NAC_IDS, detectarNac,

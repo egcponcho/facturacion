@@ -695,6 +695,73 @@ class NodoArancel(Base):
     nota: Mapped[str | None] = mapped_column(String(300))
 
 
+class AtributoDef(Base):
+    """Atributo de la ficha técnica que el motor puede preguntar. OFICIAL viene
+    del paquete del motor dinámico (genérico por dominio); MOTOR son los
+    atributos de la ficha de ropa, calzado y accesorios; USUARIO, los creados a
+    mano. Solo con datos se agregan preguntas: no hace falta tocar el código."""
+
+    __tablename__ = "atributos_def"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(40), unique=True)
+    etiqueta: Mapped[str] = mapped_column(String(200))
+    tipo_dato: Mapped[str] = mapped_column(String(20), default="text")  # text | select | multi_select | boolean | number | composition | country | measurement_set
+    unidad: Mapped[str | None] = mapped_column(String(10))
+    multiple: Mapped[bool] = mapped_column(Boolean, default=False)
+    usado_clasificacion: Mapped[bool] = mapped_column(Boolean, default=True)
+    dominio: Mapped[str | None] = mapped_column(String(30))  # CORE o código de dominio (pista, no restricción)
+    descripcion: Mapped[str | None] = mapped_column(String(400))
+    origen: Mapped[str] = mapped_column(String(10), default="OFICIAL")  # OFICIAL | MOTOR | USUARIO
+    de_composicion: Mapped[bool] = mapped_column(Boolean, default=False)  # se deduce de la composición
+    informativo: Mapped[bool] = mapped_column(Boolean, default=False)  # no cambia el código, solo describe
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+
+    opciones: Mapped[list["AtributoOpcion"]] = relationship(back_populates="atributo", cascade="all, delete-orphan",
+                                                           order_by="AtributoOpcion.orden")
+    ambitos: Mapped[list["AtributoAmbito"]] = relationship(back_populates="atributo", cascade="all, delete-orphan")
+
+
+class AtributoOpcion(Base):
+    """Valor posible de un atributo de selección, con sinónimos para leerlo
+    desde el texto del proveedor. Desactivar una opción no borra las fichas
+    guardadas: la ficha avisa y la quita cuando se vuelve a editar."""
+
+    __tablename__ = "atributo_opciones"
+    __table_args__ = (UniqueConstraint("atributo_id", "codigo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    atributo_id: Mapped[int] = mapped_column(ForeignKey("atributos_def.id", ondelete="CASCADE"), index=True)
+    codigo: Mapped[str] = mapped_column(String(60))
+    etiqueta: Mapped[str] = mapped_column(String(300))
+    alias: Mapped[str | None] = mapped_column(String(400))  # separados por ;
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    atributo: Mapped[AtributoDef] = relationship(back_populates="opciones")
+
+
+class AtributoAmbito(Base):
+    """Dónde aparece un atributo: en todo el sistema, en un dominio, un
+    capítulo/partida/subpartida o una categoría de producto, con modo
+    SHOW (preguntar), REQUIRE (obligatorio) o HIDE (no preguntar) y, si hace
+    falta, las respuestas que lo activan (lista de alternativas {atributo: valor})."""
+
+    __tablename__ = "atributo_ambitos"
+    __table_args__ = (UniqueConstraint("atributo_id", "tipo_ambito", "codigo_ambito"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    atributo_id: Mapped[int] = mapped_column(ForeignKey("atributos_def.id", ondelete="CASCADE"), index=True)
+    tipo_ambito: Mapped[str] = mapped_column(String(12))  # SYSTEM | DOMAIN | CHAPTER | HEADING | SUBHEADING | CATEGORY
+    codigo_ambito: Mapped[str] = mapped_column(String(40))  # ALL, CHEMICALS, 64, 6404, calzado…
+    modo: Mapped[str] = mapped_column(String(8), default="SHOW")  # SHOW | REQUIRE | HIDE
+    prioridad: Mapped[int] = mapped_column(Integer, default=500)
+    condicion: Mapped[list | None] = mapped_column(JSON)  # [{atributo: valor}, …] cualquiera activa
+    nota: Mapped[str | None] = mapped_column(String(300))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    atributo: Mapped[AtributoDef] = relationship(back_populates="ambitos")
+
+
 class NotaSAC(Base):
     """Nota legal del SAC (Reglas Generales, notas de sección, de capítulo o de
     subpartida) que se tiene en cuenta al clasificar. `capitulos` dice a qué

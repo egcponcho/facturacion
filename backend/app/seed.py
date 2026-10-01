@@ -620,6 +620,10 @@ def seed(db: Session) -> None:
     from .services import oficial
 
     oficial.cargar_paquetes_base(db)
+    # Atributos de la ficha de ropa, calzado y accesorios (opciones y categorías del motor)
+    from .services import atributos
+
+    atributos.cargar_motor(db)
     # Árbol arancelario oficial completo (capítulo → partida → subpartida → inciso) de la versión SAC-2025-V6
     from .services import arbol
 

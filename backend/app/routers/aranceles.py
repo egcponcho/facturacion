@@ -224,7 +224,7 @@ def oficial_paquete(numero: int, user: User, vista: bool = False):
 
 @router.post("/aranceles/oficial/importar")
 async def oficial_importar(db: Db, user: User, archivo: UploadFile = File(...)):
-    """Carga un paquete oficial (Sources, Versions, Countries, Chapter_Control, Domains, Domain_Chapter_Map)."""
+    """Carga un paquete oficial (fuentes, versiones, países, capítulos, dominios y atributos)."""
     from ..services import oficial
     from ..services.common import exigir
 
@@ -232,6 +232,68 @@ async def oficial_importar(db: Db, user: User, archivo: UploadFile = File(...)):
     r = oficial.importar(db, await archivo.read(), user, archivo.filename or "")
     db.commit()
     return r
+
+
+# ---- Atributos de la ficha (definición, opciones y ámbitos) ------------------------
+@router.get("/aranceles/atributos")
+def atributos_lista(db: Db, user: User, q: str | None = None, dominio: str | None = None, origen: str | None = None):
+    from ..services import atributos
+
+    return atributos.listar(db, user, q, dominio, origen)
+
+
+@router.post("/aranceles/atributos/motor")
+def atributos_motor(db: Db, user: User, clave: Clave = None):
+    """Agrega los atributos de la ficha del motor que aún no están en la base."""
+    from ..services import atributos
+    from ..services.common import exigir
+
+    def correr():
+        exigir(user, "aranceles.editar")
+        return {"nuevos": atributos.cargar_motor(db)}
+
+    return ejecutar(db, user, clave, correr)
+
+
+@router.get("/aranceles/atributos/{atributo_id}")
+def atributos_detalle(atributo_id: int, db: Db, user: User):
+    from ..services import atributos
+
+    return atributos.detalle(db, user, atributo_id)
+
+
+@router.post("/aranceles/atributos")
+def atributos_crear(datos: s.AtributoIn, db: Db, user: User, clave: Clave = None):
+    from ..services import atributos
+
+    return ejecutar(db, user, clave, lambda: atributos.guardar(db, user, None, datos.model_dump(exclude_unset=True)))
+
+
+@router.patch("/aranceles/atributos/{atributo_id}")
+def atributos_editar(atributo_id: int, datos: s.AtributoIn, db: Db, user: User, clave: Clave = None):
+    from ..services import atributos
+
+    return ejecutar(db, user, clave, lambda: atributos.guardar(db, user, atributo_id, datos.model_dump(exclude_unset=True)))
+
+
+@router.post("/aranceles/atributos/{atributo_id}/opciones")
+@router.patch("/aranceles/atributos/{atributo_id}/opciones/{opcion_id}")
+def atributos_opcion(atributo_id: int, datos: s.AtributoOpcionIn, db: Db, user: User, opcion_id: int | None = None,
+                     clave: Clave = None):
+    from ..services import atributos
+
+    return ejecutar(db, user, clave, lambda: atributos.guardar_opcion(db, user, atributo_id, opcion_id,
+                                                                      datos.model_dump(exclude_unset=True)))
+
+
+@router.post("/aranceles/atributos/{atributo_id}/ambitos")
+@router.patch("/aranceles/atributos/{atributo_id}/ambitos/{ambito_id}")
+def atributos_ambito(atributo_id: int, datos: s.AtributoAmbitoIn, db: Db, user: User, ambito_id: int | None = None,
+                     clave: Clave = None):
+    from ..services import atributos
+
+    return ejecutar(db, user, clave, lambda: atributos.guardar_ambito(db, user, atributo_id, ambito_id,
+                                                                      datos.model_dump(exclude_unset=True)))
 
 
 # ---- Árbol arancelario oficial ---------------------------------------------------

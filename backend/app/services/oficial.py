@@ -1,8 +1,9 @@
 """Capa oficial del arancel: fuentes, versiones de datos, países (esquema de
-código), control de capítulos y dominios de clasificación.
+código), control de capítulos, dominios de clasificación y atributos.
 
 Se carga desde los paquetes Excel oficiales (hojas Sources, Countries,
-Versions, Chapter_Control, Domain_Chapter_Map, Domains). La carga es
+Versions, Chapter_Control, Domain_Chapter_Map, Domains, Attributes,
+Attribute_Options, Attribute_Scope). La carga es
 idempotente: actualiza por clave natural (código de fuente, ISO, código de
 versión, capítulo, dominio) y nunca borra lo que ya existe.
 """
@@ -31,6 +32,8 @@ from .plantillas import norm
 CARPETA = Path(__file__).resolve().parent.parent / "data" / "oficial"
 # El motor (02) trae los dominios que el paquete oficial (01) relaciona con capítulos
 PAQUETES = ["02_carga_motor_dinamico_v3.xlsx", "01_carga_oficial_catalogos_v3.xlsx"]
+HOJAS = ("Sources", "Versions", "Countries", "Chapter_Control", "Domains", "Domain_Chapter_Map",
+         "Attributes", "Attribute_Options", "Attribute_Scope")
 ESTADOS_VERSION = {"PUBLISHED": "PUBLICADA", "PUBLICADA": "PUBLICADA", "DYNAMIC": "DINAMICA", "DINAMICA": "DINAMICA",
                    "DRAFT": "BORRADOR", "BORRADOR": "BORRADOR", "ARCHIVED": "ARCHIVADA", "ARCHIVADA": "ARCHIVADA"}
 
@@ -105,7 +108,7 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         r = res.setdefault(hoja, {"creados": 0, "actualizados": 0})
         r["creados" if creado else "actualizados"] += 1
 
-    for hoja in ("Sources", "Versions", "Countries", "Chapter_Control", "Domains", "Domain_Chapter_Map"):
+    for hoja in HOJAS:
         if hoja in hojas:
             res[hoja] = {"creados": 0, "actualizados": 0}
 
@@ -250,9 +253,11 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         db.add(x)
         cuenta("Domain_Chapter_Map", nuevo)
     db.flush()
+    from . import atributos  # usa los dominios ya cargados
+
+    atributos.importar_hojas(db, hojas, cuenta, error)
     if not res:
-        raise ErrorNegocio("No known sheet was found (Sources, Versions, Countries, Chapter_Control, Domains, "
-                           "Domain_Chapter_Map).", 422, "validacion")
+        raise ErrorNegocio(f"No known sheet was found ({', '.join(HOJAS)}).", 422, "validacion")
     if usuario:
         registrar(db, usuario, "aranceles", 0, "importar_oficial", {"archivo": nombre, "hojas": res, "errores": len(errores)})
     return {"hojas": res, "errores": errores, "creados": sum(r["creados"] for r in res.values()),

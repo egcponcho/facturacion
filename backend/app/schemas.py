@@ -592,6 +592,36 @@ class CapitulosPatch(BaseModel):
     archivado: bool | None = None
 
 
+class AtributoIn(BaseModel):
+    codigo: str | None = Field(None, max_length=40, pattern=r"^[A-Za-z][A-Za-z0-9_]*$")
+    etiqueta: str | None = Field(None, max_length=200)
+    tipo_dato: str | None = None
+    unidad: str | None = Field(None, max_length=10)
+    dominio: str | None = Field(None, max_length=30)
+    descripcion: str | None = Field(None, max_length=400)
+    activo: bool | None = None
+    usado_clasificacion: bool | None = None
+    orden: int | None = None
+
+
+class AtributoOpcionIn(BaseModel):
+    codigo: str | None = Field(None, max_length=60)
+    etiqueta: str | None = Field(None, max_length=300)
+    alias: str | None = Field(None, max_length=400)
+    orden: int | None = None
+    activo: bool | None = None
+
+
+class AtributoAmbitoIn(BaseModel):
+    tipo_ambito: str | None = None
+    codigo_ambito: str | None = Field(None, max_length=40)
+    modo: str | None = None
+    prioridad: int | None = Field(None, ge=0, le=10000)
+    nota: str | None = Field(None, max_length=300)
+    activo: bool | None = None
+    quitar: bool = False
+
+
 class DominioCapituloIn(BaseModel):
     relevancia: str | None = None
     habilitado: bool | None = None

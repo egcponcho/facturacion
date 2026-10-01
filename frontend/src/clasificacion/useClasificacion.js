@@ -15,6 +15,7 @@ export async function cargarContexto(forzar = false) {
   estado.cargando = api.get('/clasificacion/contexto').then((c) => {
     M.setSinonimos(c.sinonimos || [])
     M.setSac(c.sac || [])
+    M.setAtributos(c.atributos)
     const porEstilo = new Map()
     const porGenerico = new Map()
     for (const r of c.recs) {
