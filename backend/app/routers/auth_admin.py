@@ -4,8 +4,8 @@ from sqlalchemy import select
 from ..config import settings
 from ..models import Usuario
 from ..deps import COOKIE
-from ..schemas import DesafioIn, LoginIn, PasswordIn, ProveedorIn, ProveedorPatch, RolIn, RolPatch, UsuarioIn, UsuarioPatch, VerificarIn
-from ..services import acceso
+from ..schemas import DesafioIn, LoginIn, PasswordIn, PerfilIn, ProveedorIn, ProveedorPatch, RolIn, RolPatch, UsuarioIn, UsuarioPatch, VerificarIn
+from ..services import acceso, preferencias
 from ..services.limites import limitar
 from ..services import varios
 from ..services.common import permisos_de
@@ -24,6 +24,7 @@ def _yo(u: Usuario) -> dict:
         "proveedor_id": u.proveedor_id,
         "proveedor": u.proveedor.nombre if u.proveedor else None,
         "permisos": permisos_de(u),
+        "preferencias": preferencias.de(u),
         "telefono": acceso.mascara_telefono(u.telefono),
         "dos_pasos": bool(settings.DOS_PASOS and u.dos_pasos),
         "sesion_inactividad_min": settings.SESION_INACTIVIDAD_MIN,
@@ -91,6 +92,16 @@ def cambiar_password(datos: PasswordIn, request: Request, db: Db, user: User):
 @router.get("/auth/me")
 def yo(user: User):
     return _yo(user)
+
+
+@router.get("/perfil")
+def perfil(user: User):
+    return {**_yo(user), "opciones": preferencias.opciones()}
+
+
+@router.patch("/perfil")
+def editar_perfil(datos: PerfilIn, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: preferencias.guardar(db, user, datos))
 
 
 @router.get("/proveedores")

@@ -17,6 +17,7 @@ import ThOrden from '../components/ThOrden.vue'
 import { useTabla } from '../composables/useTabla'
 import { elegirProveedor, esInterno } from '../stores/sesion'
 import { avisar, errorApi, guardando, textoDetalle } from '../stores/ui'
+import { filasDefecto } from '../stores/preferencias'
 import {
   ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtMoneda, fmtNum, pct, plural, porUnidadTxt, useSeleccion,
 } from '../utils'
@@ -49,7 +50,7 @@ const lineasFiltradas = computed(() => {
   return f.value.lineas.filter((l) =>
     [l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion].some((v) => (v || '').toLowerCase().includes(q)))
 })
-const tablaLineas = useTabla(lineasFiltradas, { porPagina: 25, valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
+const tablaLineas = useTabla(lineasFiltradas, { porPagina: filasDefecto(), valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
 const idsFiltrados = computed(() => lineasFiltradas.value.map((l) => l.id))
 const seleccion = computed(() => (f.value?.lineas || []).filter((l) => sel.tiene(l.id)))
 const resumenSeleccion = computed(() => {

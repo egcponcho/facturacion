@@ -10,6 +10,7 @@ import OrdenFormulario from '../components/OrdenFormulario.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTabla } from '../composables/useTabla'
 import { avisar, errorApi } from '../stores/ui'
+import { filasDefecto } from '../stores/preferencias'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,7 +30,7 @@ const ESTADOS = {
   error: [t('With errors'), 'error', t('Not applied')],
 }
 const filasFiltradas = computed(() => (previa.value?.filas || []).filter((f) => !filtro.value || f.estado === filtro.value))
-const tabla = useTabla(filasFiltradas, { porPagina: 15, orden: 'fila:asc' })
+const tabla = useTabla(filasFiltradas, { porPagina: filasDefecto(), orden: 'fila:asc' })
 const aplicables = computed(() => (previa.value?.resumen.nuevo || 0) + (previa.value?.resumen.cambio || 0))
 watch(archivo, () => (previa.value = null))
 watch(filtro, () => (tabla.estado.pagina = 1))
@@ -75,7 +76,7 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
       <h1>{{ t('Load purchase orders') }}</h1>
       <p>{{ t('Upload a file exported from your ERP or create the PO here. Both are checked the same way against the master data; nothing is saved until you confirm.') }}</p>
     </div>
-    <a v-if="modo === 'archivo'" class="btn" href="/plantilla_oc.csv" download><Icono nombre="descargar" />{{ t('Sample template') }}</a>
+    <button v-if="modo === 'archivo'" type="button" class="btn" :title="t('Excel template with the dates in the format of your profile')" @click="api.descargar('/ordenes/plantilla', 'purchase_orders_template.xlsx')"><Icono nombre="descargar" />{{ t('Sample template') }}</button>
   </div>
   <div class="pestanas-pildora" role="tablist">
     <button type="button" role="tab" class="pildora" :aria-selected="modo === 'archivo'" @click="modo = 'archivo'"><Icono nombre="importar" :tam="15" />{{ t('Upload file') }}</button>

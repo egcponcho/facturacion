@@ -727,9 +727,13 @@ def test_plantillas_de_carga_en_ingles(interno):
         with open(os.path.join(base, archivo), "rb") as f:
             return interno.c.post("/api" + ruta, headers=interno.h, files={"archivo": (archivo, f.read(), "text/csv")})
 
-    r = subir("/ordenes/importar/previa", "plantilla_oc.csv")
+    # La plantilla de OC se genera con las fechas en el formato del usuario y se lee tal cual
+    plantilla = interno.c.get("/api/ordenes/plantilla", headers=interno.h).content
+    r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h,
+                       files={"archivo": ("plantilla.xlsx", plantilla, "application/octet-stream")})
     assert r.status_code == 200, r.text
-    assert r.json()["filas"] and not any("column" in m for f in r.json()["filas"] for m in f["mensajes"])
+    filas = r.json()["filas"]
+    assert filas and not any("column" in m or "date" in m for f in filas for m in f["mensajes"])
     r = subir("/catalogos/articulos/importar", "plantilla_articulos.csv")
     assert r.status_code == 200 and not r.json()["errores"] and r.json()["creados"] == 3, r.text
     r = subir("/catalogos/prepacks/importar", "plantilla_prepacks.csv")

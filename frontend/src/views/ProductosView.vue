@@ -15,6 +15,7 @@ import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, puede, sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { useSeleccion } from '../utils'
+import { filasDefecto } from '../stores/preferencias'
 
 // Un producto es un estilo-color de un proveedor: su ficha técnica y su
 // clasificación arancelaria valen para todas sus tallas (SKU) y prepacks.
@@ -28,7 +29,7 @@ const filtros = reactive({
   tipos: [],
   orden: '',
   page: 1,
-  size: 25,
+  size: filasDefecto(),
 })
 const datos = ref({ items: [], total: 0, kpis: {} })
 const opciones = ref({ marcas: [] })

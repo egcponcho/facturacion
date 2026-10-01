@@ -3,6 +3,7 @@ tablero en pantalla: órdenes de compra (con el detalle por SKU), embarques
 (con sus unidades de carga) y facturación/packing lists."""
 from sqlalchemy.orm import Session
 
+from .preferencias import fecha_txt
 from ..models import Usuario
 from . import documentos, exportar
 from . import seguimiento as seg
@@ -35,7 +36,7 @@ def _filtros_txt(filtros: dict) -> str:
         elif k == "etapa":
             v = ETAPAS.get(v) or ETAPAS_DOC.get(v) or v
         elif k.endswith(("_desde", "_hasta")) and hasattr(v, "strftime"):
-            v = v.strftime("%m/%d/%Y")
+            v = fecha_txt(v)
         partes.append(f"{NOMBRES_FILTRO.get(k, k)}: {'yes' if v is True else v}")
     return "Filters: " + " · ".join(partes) if partes else "No filters"
 

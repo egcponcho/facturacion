@@ -19,6 +19,7 @@ import { agregarPosiciones, carrito, quitarOC, quitarPosicion, vaciarCarrito } f
 import { esInterno, nombreProveedor, puede, sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { COMERCIAL, LIBERACION, cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '../utils'
+import { filasDefecto } from '../stores/preferencias'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,7 +31,7 @@ const filtros = reactive({
   solo_disponible: route.query.solo_disponible !== '0',
   orden: '',
   page: 1,
-  size: 15,
+  size: filasDefecto(),
   ...Object.fromEntries(Object.keys(EXTRA).map((k) => [k, route.query[k] || ''])),
 })
 const LIB_FILTRO = { 300: t('Logistics rel.: Released'), 301: t('Logistics rel.: Released, changed'), 304: t('Logistics rel.: Not released') }
@@ -608,7 +609,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       </label>
       <div v-if="!destino" class="rejilla-campos">
         <label class="campo"><span class="req">{{ t('Invoice number') }}</span><input v-model="nueva.numero" :placeholder="t('You can add it later')" /></label>
-        <label class="campo"><span class="req">{{ t('Date') }}</span><input v-model="nueva.fecha" type="date" /></label>
+        <label class="campo"><span class="req">{{ t('Date') }}</span><CampoFecha v-model="nueva.fecha" /></label>
       </div>
       <p v-if="!destino" class="leyenda-req">{{ t('Required to finalize the invoice; you can complete them later.') }}</p>
       <div class="fila-flex">

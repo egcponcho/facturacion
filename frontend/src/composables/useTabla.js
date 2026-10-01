@@ -1,10 +1,11 @@
 import { t } from '../i18n/index.js'
 import { computed, reactive, watch } from 'vue'
+import { filasDefecto } from '../stores/preferencias'
 
 // Orden y paginación en el navegador para tablas con todos los datos a mano.
 // `fuente` es un ref/computed con las filas; `valores` permite ordenar por un
 // dato calculado ({ columna: (fila) => valor }).
-export function useTabla(fuente, { porPagina = 15, orden = '', valores = {} } = {}) {
+export function useTabla(fuente, { porPagina = filasDefecto(), orden = '', valores = {} } = {}) {
   const estado = reactive({ pagina: 1, porPagina, orden })
 
   const comparar = (a, b) => {

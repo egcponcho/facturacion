@@ -13,6 +13,7 @@ import Icono from './Icono.vue'
 import Kpi from './Kpi.vue'
 import Paginacion from './Paginacion.vue'
 import ThOrden from './ThOrden.vue'
+import { filasDefecto } from '../stores/preferencias'
 
 // Tablero de órdenes de compra: liberaciones (comercial y logística), cuánto
 // falta por facturar, qué va en contenedor, en camino y recibido. Cada OC se
@@ -22,7 +23,7 @@ const props = defineProps({ filtros: { type: Object, required: true } })
 const emit = defineEmits(['opciones', 'filtrar'])
 const datos = ref({ items: [], total: 0, kpis: {}, estados: [] })
 const cargando = ref(true)
-const tabla = reactive({ orden: 'fecha_xf:asc', page: 1, size: 25 })
+const tabla = reactive({ orden: 'fecha_xf:asc', page: 1, size: filasDefecto() })
 const TONO = {
   SIN_COMERCIAL: 'aviso', SIN_LOGISTICA: 'aviso', POR_FACTURAR: 'neutro', PARCIAL: 'info', FACTURADA: 'acento',
   EN_CAMINO: 'info', RECIBIDA: 'ok',

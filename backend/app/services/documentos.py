@@ -22,6 +22,7 @@ from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Space
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .preferencias import fecha_hora_txt, fecha_txt
 from ..models import Pais, Proveedor, Puerto
 from .cantidades import cbm_caja, cubierto, inner_de, nombre_factura, numeracion, totales_pl
 from .partes import partes
@@ -135,7 +136,8 @@ def _fecha(v) -> str:
             return v
     if isinstance(v, datetime):
         v = v.date()
-    return v.strftime("%d/%m/%Y") if isinstance(v, date) else str(v)
+    # Formato de fecha del usuario (preferencias del perfil)
+    return fecha_txt(v) if isinstance(v, date) else str(v)
 
 
 def _num(v, d: int = 0) -> str:
@@ -573,7 +575,7 @@ def pdf_reporte(titulo: str, subtitulo: str, filtros: str, indicadores: list[tup
     tam = landscape(letter)
     ancho = tam[0] - 28 * mm
     cab = Table([[[Paragraph(titulo, e["titulo"]), Paragraph(subtitulo, e["chico"])],
-                  Paragraph(f"Generated {datetime.now():%d/%m/%Y %H:%M}<br/>{_esc(filtros) if filtros else 'No filters'}",
+                  Paragraph(f"Generated {fecha_hora_txt(datetime.now())}<br/>{_esc(filtros) if filtros else 'No filters'}",
                             ParagraphStyle("f", parent=e["chico"], alignment=TA_RIGHT))]],
                 colWidths=[ancho * 0.6, ancho * 0.4])
     cab.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, 0), 1.2, ACENTO),
@@ -694,7 +696,7 @@ def pdf_ficha_producto(d: dict) -> bytes:
                                                                textColor=ACENTO, alignment=TA_RIGHT)),
                    Paragraph(f"Version {d.get('version_ficha') or 1} · {_esc(estado)}",
                              ParagraphStyle("s", parent=e["base"], alignment=TA_RIGHT)),
-                   Paragraph(f"Generated {datetime.now():%d/%m/%Y %H:%M}",
+                   Paragraph(f"Generated {fecha_hora_txt(datetime.now())}",
                              ParagraphStyle("f", parent=e["chico"], alignment=TA_RIGHT))]]],
                 colWidths=[ancho * 0.62, ancho * 0.38])
     cab.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, 0), 1.2, ACENTO),

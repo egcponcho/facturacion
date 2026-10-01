@@ -1,5 +1,6 @@
 <script setup>
-import { actual, t, tx } from '../i18n/index.js'
+import { t, tx } from '../i18n/index.js'
+import { fmtFecha } from '../utils'
 import { computed, ref } from 'vue'
 
 // Periodo rápido: semana, mes, trimestre, año, últimos 12 meses o rango propio.
@@ -10,8 +11,7 @@ const emit = defineEmits(['update:modelValue'])
 const OPCIONES = [['semana', t('This week')], ['mes', t('This month')], ['mes_ant', t('Last month')], ['trimestre', t('This quarter')], ['anio', t('This year')], ['12m', t('12 months')]]
 const propio = ref(props.modelValue.clave === 'propio')
 const texto = computed(() => {
-  const f = (s) => new Date(`${s}T00:00:00`).toLocaleDateString(actual.locale, { day: '2-digit', month: 'short', year: 'numeric' })
-  return `${f(props.modelValue.desde)} – ${f(props.modelValue.hasta)}`
+  return `${fmtFecha(props.modelValue.desde)} – ${fmtFecha(props.modelValue.hasta)}`
 })
 
 function elegir(clave) {
@@ -55,9 +55,9 @@ export function periodoInicial(clave = 'mes') {
       <button type="button" class="segmento" :aria-pressed="props.modelValue.clave === 'propio'" @click="propio = true">{{ t('Custom') }}</button>
     </div>
     <span v-if="propio || props.modelValue.clave === 'propio'" class="rango-propio">
-      <input type="date" class="entrada" :value="props.modelValue.desde" :aria-label="t('From')" @change="rangoPropio('desde', $event.target.value)" />
+      <CampoFecha :model-value="props.modelValue.desde" :aria-label="t('From')" @change="(v) => rangoPropio('desde', v)" />
       <span class="ayuda">to</span>
-      <input type="date" class="entrada" :value="props.modelValue.hasta" :aria-label="t('To')" @change="rangoPropio('hasta', $event.target.value)" />
+      <CampoFecha :model-value="props.modelValue.hasta" :aria-label="t('To')" @change="(v) => rangoPropio('hasta', v)" />
     </span>
     <span v-else class="ayuda">{{ tx(texto) }}</span>
   </div>
@@ -66,5 +66,5 @@ export function periodoInicial(clave = 'mes') {
 <style scoped>
 .periodo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .rango-propio { display: inline-flex; align-items: center; gap: 6px; }
-.rango-propio input { padding: 5px 8px; }
+.rango-propio .campo-fecha { width: 10.5em; }
 </style>

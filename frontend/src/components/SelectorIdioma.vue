@@ -1,6 +1,14 @@
 <script setup>
 import { IDIOMAS, cambiarIdioma, idioma, t } from '../i18n/index.js'
 import Icono from './Icono.vue'
+import { guardarPerfil, sesion } from '../stores/sesion'
+import { errorApi } from '../stores/ui'
+
+// Con sesión, el idioma se guarda en el perfil (y se recarga la página)
+function elegir(codigo) {
+  if (sesion.usuario) guardarPerfil({ idioma: codigo }).catch(errorApi)
+  else cambiarIdioma(codigo)
+}
 
 // Idioma de la interfaz: cada uno con su nombre en su propio idioma
 </script>
@@ -8,7 +16,7 @@ import Icono from './Icono.vue'
 <template>
   <label class="idioma" :title="t('Language')">
     <Icono nombre="globo" :tam="16" />
-    <select :value="idioma" :aria-label="t('Language')" @change="cambiarIdioma($event.target.value)">
+    <select :value="idioma" :aria-label="t('Language')" @change="elegir($event.target.value)">
       <option v-for="x in IDIOMAS" :key="x.codigo" :value="x.codigo" :lang="x.codigo">{{ x.nombre }}</option>
     </select>
   </label>

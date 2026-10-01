@@ -89,7 +89,7 @@ async function guardar() {
           <SelectBusqueda v-model="cab.centro_destino" :opciones="centros" :vacio="t('Not defined')" :etiqueta="t('Destination plant')" /></div>
         <div class="campo"><span>{{ t('Currency') }}</span>
           <SelectBusqueda v-model="cab.moneda" :opciones="op?.monedas || []" :vacio="t('Not defined')" :etiqueta="t('Currency')" /></div>
-        <label class="campo"><span>{{ t('XF date') }}</span><input v-model="cab.fecha_xf" class="entrada" type="date" /></label>
+        <label class="campo"><span>{{ t('XF date') }}</span><CampoFecha v-model="cab.fecha_xf" /></label>
       </div>
       <button type="button" class="btn-texto mt-chico" :aria-expanded="masDatos" @click="masDatos = !masDatos">
         <Icono :nombre="masDatos ? 'abajo' : 'derecha'" :tam="14" />{{ tx(masDatos ? t('Fewer details') : t('More details (optional)')) }}
@@ -99,12 +99,12 @@ async function guardar() {
           <SelectBusqueda v-model="cab.centro" :opciones="centros" :vacio="t('Not defined')" :etiqueta="t('Receiving plant')" /></div>
         <div class="campo"><span>{{ t('Incoterm') }}</span>
           <SelectBusqueda v-model="cab.incoterm" :opciones="op?.incoterms || []" :vacio="t('Not defined')" :etiqueta="t('Incoterm')" /></div>
-        <label class="campo"><span>{{ t('PO date') }}</span><input v-model="cab.fecha_oc" class="entrada" type="date" /></label>
+        <label class="campo"><span>{{ t('PO date') }}</span><CampoFecha v-model="cab.fecha_oc" /></label>
         <div class="campo"><span>{{ t('Port of loading') }}</span>
           <SelectBusqueda v-model="cab.puerto_despacho" :opciones="op?.puertos || []" :vacio="t('Not defined')" :etiqueta="t('Port of loading')" /></div>
         <div class="campo"><span>{{ t('Country of origin') }}</span>
           <SelectBusqueda v-model="cab.pais_origen" :opciones="op?.paises || []" :vacio="t('Not defined')" :etiqueta="t('Country of origin')" /></div>
-        <label class="campo"><span>{{ t('In-store date') }}</span><input v-model="cab.fecha_tienda" class="entrada" type="date" /></label>
+        <label class="campo"><span>{{ t('In-store date') }}</span><CampoFecha v-model="cab.fecha_tienda" /></label>
         <label class="campo"><span>{{ t('Commercial release') }}</span>
           <select v-model="cab.liberacion_comercial" class="entrada"><option value="C">{{ t('Released') }}</option><option value="P">{{ t('Pending') }}</option></select></label>
         <label class="campo"><span>{{ t('Logistics release') }}</span>

@@ -16,6 +16,7 @@ import Icono from './Icono.vue'
 import Paginacion from './Paginacion.vue'
 import SelectBusqueda from './SelectBusqueda.vue'
 import ThOrden from './ThOrden.vue'
+import { filasDefecto } from '../stores/preferencias'
 
 // Filtros de varios valores: se guardan como texto separado por comas
 const lst = (v) => (v ? String(v).split(',').filter(Boolean) : [])
@@ -24,7 +25,7 @@ const lst = (v) => (v ? String(v).split(',').filter(Boolean) : [])
 // factura sin PL), con el paso en que va y lo que le falta.
 const filtros = reactive({
   q: '', etapa: '', estado_factura: '', estado_pl: '', sociedad: '', centro: '', embarque_id: '', proveedor: '',
-  con_pendientes: false, orden: 'dias:desc', page: 1, size: 25,
+  con_pendientes: false, orden: 'dias:desc', page: 1, size: filasDefecto(),
 })
 const datos = ref({ items: [], total: 0, etapas: [], opciones: {}, kpis: {} })
 const cargando = ref(true)

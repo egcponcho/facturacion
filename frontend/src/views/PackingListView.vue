@@ -19,6 +19,7 @@ import ThOrden from '../components/ThOrden.vue'
 import { useTabla } from '../composables/useTabla'
 import { avisar, errorApi, guardando, textoDetalle } from '../stores/ui'
 import { cantTxt, fmtNum, pct, plural, porUnidadTxt, useSeleccion } from '../utils'
+import { filasDefecto } from '../stores/preferencias'
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -137,8 +138,8 @@ const lineasFiltradas = computed(() => {
     (!filtro.solo_pendiente || l.sin_caja > 0) &&
     (!q || [l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc].some((v) => (v || '').toLowerCase().includes(q))))
 })
-const tablaL = useTabla(lineasFiltradas, { porPagina: 25, valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
-const tablaG = useTabla(computed(() => pl.value?.grupos || []), { porPagina: 25, valores: { rango: (g) => g.desde, etiqueta: (g) => g.etiqueta?.tipo } })
+const tablaL = useTabla(lineasFiltradas, { porPagina: filasDefecto(), valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
+const tablaG = useTabla(computed(() => pl.value?.grupos || []), { porPagina: filasDefecto(), valores: { rango: (g) => g.desde, etiqueta: (g) => g.etiqueta?.tipo } })
 const idsFiltrados = computed(() => lineasFiltradas.value.map((l) => l.id))
 
 // Packing rule of the PO line: prepack (1 size run per carton), exact casepack

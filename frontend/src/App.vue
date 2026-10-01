@@ -4,14 +4,12 @@ import { computed, ref, watch } from 'vue'
 import Seleccion from './components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icono from './components/Icono.vue'
-import Modal from './components/Modal.vue'
 import SelectorIdioma from './components/SelectorIdioma.vue'
 import SelectorTema from './components/SelectorTema.vue'
 import Toasts from './components/Toasts.vue'
 import { carrito } from './stores/carrito'
 import { cerrarSesion, elegirProveedor, esInterno, puede, sesion } from './stores/sesion'
-import { api } from './api'
-import { avisar, ui } from './stores/ui'
+import { ui } from './stores/ui'
 
 const route = useRoute()
 const router = useRouter()
@@ -65,21 +63,6 @@ async function salir() {
 }
 
 // Change own password: closes the other open sessions
-const clave = ref(null)
-async function cambiarClave() {
-  clave.value.error = ''
-  if (clave.value.nueva !== clave.value.repetir) {
-    clave.value.error = t('The new passwords do not match.')
-    return
-  }
-  try {
-    await api.post('/auth/password', { actual: clave.value.actual, nueva: clave.value.nueva })
-    clave.value = null
-    avisar(t('Password changed. Your other sessions were closed.'))
-  } catch (e) {
-    clave.value.error = [e.message, ...(e.detalle || []).map((d) => d.mensaje)].join(' ')
-  }
-}
 </script>
 
 <template>
@@ -108,13 +91,13 @@ async function cambiarClave() {
           <SelectorIdioma class="solo-escritorio" />
           <SelectorTema class="solo-escritorio" />
           <div class="usuario">
-            <span class="avatar" aria-hidden="true">{{ tx(iniciales) }}</span>
-            <div class="usuario-datos">
-              <b>{{ tx(sesion.usuario.nombre) }}</b>
-              <span>{{ tx(sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol]) }}</span>
-            </div>
-            <button type="button" class="btn-icono solo-escritorio" :aria-label="t('Change password')" :title="t('Change password')"
-                    @click="clave = { actual: '', nueva: '', repetir: '', error: '' }"><Icono nombre="candado" /></button>
+            <router-link to="/perfil" class="usuario-enlace" :title="t('My profile')" :aria-label="t('My profile')">
+              <span class="avatar" aria-hidden="true">{{ tx(iniciales) }}</span>
+              <div class="usuario-datos">
+                <b>{{ tx(sesion.usuario.nombre) }}</b>
+                <span>{{ tx(sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol]) }}</span>
+              </div>
+            </router-link>
             <button type="button" class="btn-icono solo-escritorio" :aria-label="t('Sign out')" :title="t('Sign out')" @click="salir"><Icono nombre="salir" /></button>
           </div>
         </div>
@@ -148,7 +131,7 @@ async function cambiarClave() {
         <div class="nav-movil-extra">
           <SelectorIdioma />
           <SelectorTema />
-          <button type="button" class="nav-link" @click="clave = { actual: '', nueva: '', repetir: '', error: '' }"><Icono nombre="candado" :tam="17" />{{ t('Change password') }}</button>
+          <router-link to="/perfil" class="nav-link" :class="{ activo: activo('/perfil') }"><Icono nombre="usuario" :tam="17" />{{ t('My profile') }}</router-link>
           <button type="button" class="nav-link" @click="salir"><Icono nombre="salir" :tam="17" />{{ t('Sign out') }}</button>
         </div>
       </nav>
@@ -158,18 +141,5 @@ async function cambiarClave() {
     </main>
   </div>
   <router-view v-else-if="route.name === 'login'" />
-  <Modal v-if="clave" :titulo="t('Change password')" ancho="440px" @cerrar="clave = null">
-    <form id="form-clave" class="rejilla-campos" style="grid-template-columns: 1fr" @submit.prevent="cambiarClave">
-      <label class="campo"><span class="req">{{ t('Current password') }}</span><input v-model="clave.actual" type="password" autocomplete="current-password" required /></label>
-      <label class="campo"><span class="req">{{ t('New password') }}</span><input v-model="clave.nueva" type="password" autocomplete="new-password" minlength="10" required />
-        <small class="ayuda">{{ t('At least 10 characters, with letters and numbers.') }}</small></label>
-      <label class="campo"><span class="req">{{ t('Repeat the new password') }}</span><input v-model="clave.repetir" type="password" autocomplete="new-password" required /></label>
-      <p v-if="clave.error" class="nota error" role="alert"><Icono nombre="alerta" />{{ tx(clave.error) }}</p>
-    </form>
-    <template #pie>
-      <button class="btn" @click="clave = null">{{ t('Cancel') }}</button>
-      <button class="btn btn-primario" type="submit" form="form-clave">{{ t('Change password') }}</button>
-    </template>
-  </Modal>
   <Toasts />
 </template>

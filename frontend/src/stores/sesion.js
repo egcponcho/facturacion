@@ -1,5 +1,8 @@
 import { reactive } from 'vue'
 import { api, manejarNoAutorizado } from '../api'
+import { cambiarIdioma, idioma } from '../i18n/index.js'
+import { aplicarPreferencias, pref } from './preferencias'
+import { tema } from './tema'
 
 export const sesion = reactive({
   usuario: null,
@@ -35,11 +38,27 @@ export async function cargarSesion(forzar = false) {
     sesion.proveedores = await api.get('/proveedores')
     if (!esInterno()) sesion.proveedorId = sesion.usuario.proveedor_id
     sesion.expirada = false
+    usarPreferencias(sesion.usuario.preferencias)
   } catch {
     sesion.usuario = null
   }
   sesion.cargada = true
   return !!sesion.usuario
+}
+
+// Las preferencias del perfil mandan: idioma, formatos, tema y filas por página
+function usarPreferencias(p) {
+  aplicarPreferencias(p)
+  tema.value = pref.tema
+  if (pref.idioma !== idioma) cambiarIdioma(pref.idioma)
+}
+
+export async function guardarPerfil(cambios) {
+  const r = await api.patch('/perfil', cambios)
+  sesion.usuario.nombre = r.nombre
+  sesion.usuario.preferencias = r.preferencias
+  usarPreferencias(r.preferencias)
+  return r
 }
 
 export async function cerrarSesion() {

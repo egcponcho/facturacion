@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import Usuario
+from .services import preferencias
 from .services.acceso import usuario_de_sesion
 from .services.common import ErrorNegocio
 
@@ -35,4 +36,12 @@ def usuario_actual(
     if not user:
         raise ErrorNegocio("Your session expired. Sign in again.", 401, "no_autenticado")
     request.state.token = token
+    return user
+
+
+async def usuario_con_preferencias(user: Usuario = Depends(usuario_actual)) -> Usuario:
+    """El usuario de la sesión, dejando sus preferencias (formato de fecha,
+    etc.) en el contexto de la petición. Es asíncrona a propósito: así el valor
+    se fija en el contexto de la petición y lo ven las rutas que corren en hilos."""
+    preferencias.usar(user)
     return user

@@ -13,6 +13,7 @@ import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, sesion } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
 import { fmtFecha, fmtMoneda } from '../utils'
+import { filasDefecto } from '../stores/preferencias'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,7 +23,7 @@ const filtros = reactive({
   q: route.query.q || '',
   orden: '',
   page: 1,
-  size: 15,
+  size: filasDefecto(),
 })
 const datos = ref({ items: [], total: 0 })
 const cargando = ref(false)

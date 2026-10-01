@@ -18,6 +18,7 @@ import { siguienteOrden } from '../composables/useTabla'
 import { puede } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { fmtNum, useSeleccion } from '../utils'
+import { filasDefecto } from '../stores/preferencias'
 
 // Arancel: países destino (con sus dígitos), subpartidas SAC y códigos
 // nacionales con las condiciones que los eligen. Todo editable, con carga
@@ -50,7 +51,7 @@ async function cargarBase() {
 }
 
 // ---- Códigos nacionales -------------------------------------------------------
-const fc = reactive({ q: route.query.q || '', pais: route.query.pais ? String(route.query.pais).split(',') : [], capitulo: [], fuente: [], activo: '', orden: '', page: 1, size: 25 })
+const fc = reactive({ q: route.query.q || '', pais: route.query.pais ? String(route.query.pais).split(',') : [], capitulo: [], fuente: [], activo: '', orden: '', page: 1, size: filasDefecto() })
 const codigos = ref({ items: [], total: 0, por_pais: {} })
 const paramsC = computed(() => ({ q: fc.q, pais: fc.pais.join(','), capitulo: fc.capitulo.join(','), fuente: fc.fuente.join(','), activo: fc.activo, orden: fc.orden }))
 async function cargarCodigos() {
@@ -150,7 +151,7 @@ async function borrarSeleccion() {
 }
 
 // ---- Subpartidas SAC ---------------------------------------------------------------
-const fs = reactive({ q: '', capitulo: [], nivel: '', fuente: [], page: 1, size: 25 })
+const fs = reactive({ q: '', capitulo: [], nivel: '', fuente: [], page: 1, size: filasDefecto() })
 const sac = ref({ items: [], total: 0 })
 const paramsS = computed(() => ({ q: fs.q, capitulo: fs.capitulo.join(','), nivel: fs.nivel, fuente: fs.fuente.join(',') }))
 async function cargarSac() {

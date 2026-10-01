@@ -9,6 +9,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from .documentos import _fecha, _por_unidad_txt
+from .preferencias import fecha_hora_txt
 
 ACENTO = "5B3FD1"
 TENUE = "5B6475"
@@ -370,7 +371,7 @@ def _hoja_reporte(ws, titulo, subtitulo, filtros, indicadores, columnas, filas):
     h.unir(1, 1, h.n)
     h.celda(2, 1, subtitulo, color=TENUE, tam=8)
     h.unir(2, 1, h.n)
-    h.celda(3, 1, f"Generated {datetime.now():%d/%m/%Y %H:%M} · {filtros or 'No filters'}", color=TENUE, tam=8)
+    h.celda(3, 1, f"Generated {fecha_hora_txt(datetime.now())} · {filtros or 'No filters'}", color=TENUE, tam=8)
     h.unir(3, 1, h.n)
     for c in range(1, h.n + 1):
         ws.cell(row=3, column=c).border = Border(bottom=_FUERTE)

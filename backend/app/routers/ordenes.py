@@ -56,6 +56,15 @@ class OrdenNueva(BaseModel):
     lineas: list[dict] = Field(default_factory=list, max_length=500)
 
 
+@router.get("/ordenes/plantilla")
+def plantilla_oc(user: User):
+    from fastapi import Response
+
+    contenido = svc.plantilla_oc(user)
+    return Response(contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="purchase_orders_template.xlsx"'})
+
+
 @router.get("/ordenes/formulario")
 def formulario(db: Db, user: User):
     return svc.opciones_formulario(db, user)

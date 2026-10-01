@@ -172,9 +172,9 @@ function buscar() {
     <label v-if="vista === 'ordenes'" class="check"><input type="checkbox" :checked="!!filtros.xf_vencida" @change="filtros.xf_vencida = $event.target.checked ? '1' : ''; aplicar()" /> {{ t('XF overdue, not invoiced') }}</label>
     <label v-for="[k, txt] in [['eta', 'ETA'], ['fecha_xf', 'XF'], ['fecha_tienda', t('In store')]]" :key="k" class="rango-fechas">
       <span>{{ tx(txt) }}</span>
-      <input v-model="filtros[`${k}_desde`]" type="date" :aria-label="tx(t('{0} from', [txt]))" @change="aplicar" />
+      <CampoFecha v-model="filtros[`${k}_desde`]" :aria-label="tx(t('{0} from', [txt]))" @change="aplicar" />
       <span>to</span>
-      <input v-model="filtros[`${k}_hasta`]" type="date" :aria-label="tx(t('{0} to', [txt]))" @change="aplicar" />
+      <CampoFecha v-model="filtros[`${k}_hasta`]" :aria-label="tx(t('{0} to', [txt]))" @change="aplicar" />
     </label>
   </div>
   <div v-if="activos.length" class="chips">

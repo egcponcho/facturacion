@@ -750,7 +750,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
       <p class="ayuda">{{ t('The approved version is kept in the history with its code. The new one starts as a draft and needs approval again.') }}</p>
       <div class="rejilla-campos mt-chico">
         <label class="campo ancho-2"><span class="req">{{ t('Reason for the change') }}</span><input v-model="modal.texto" class="entrada" maxlength="300" :placeholder="t('E.g. new outsole material')" /></label>
-        <label class="campo"><span>{{ t('Valid from') }}</span><input v-model="modal.desde" type="date" class="entrada" /></label>
+        <label class="campo"><span>{{ t('Valid from') }}</span><CampoFecha v-model="modal.desde" /></label>
       </div>
       <template #pie>
         <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>

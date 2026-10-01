@@ -37,6 +37,17 @@ class ProveedorPatch(BaseModel):
     activo: bool | None = None
 
 
+class PerfilIn(BaseModel):
+    nombre: str | None = Field(default=None, max_length=200)
+    idioma: str | None = None
+    formato_fecha: str | None = None
+    formato_hora: str | None = None
+    formato_numero: str | None = None
+    tema: str | None = None
+    filas: int | None = None
+    inicio: str | None = None
+
+
 class RolIn(BaseModel):
     nombre: str = Field(max_length=80)
     descripcion: str | None = Field(default=None, max_length=300)

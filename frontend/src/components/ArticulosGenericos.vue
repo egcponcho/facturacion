@@ -11,6 +11,7 @@ import Icono from './Icono.vue'
 import Paginacion from './Paginacion.vue'
 import ThOrden from './ThOrden.vue'
 import { siguienteOrden } from '../composables/useTabla'
+import { filasDefecto } from '../stores/preferencias'
 
 // Vista compacta de artículos: un renglón por genérico (estilo-color) con sus
 // datos maestros; al desplegarlo se ven sus tallas y prepacks, como las líneas
@@ -18,7 +19,7 @@ import { siguienteOrden } from '../composables/useTabla'
 const props = defineProps({ q: { type: String, default: '' }, extra: { type: Object, default: () => ({}) }, recarga: { type: Number, default: 0 } })
 const emit = defineEmits(['editar-articulo', 'eliminar-articulo', 'desglose', 'cambio'])
 const datos = ref({ items: [], total: 0 })
-const f = reactive({ orden: '', page: 1, size: 15 })
+const f = reactive({ orden: '', page: 1, size: filasDefecto() })
 const abiertas = reactive(new Set())
 const detalles = reactive({})
 const modal = ref(null) // { generico, editar }

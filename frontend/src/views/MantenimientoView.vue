@@ -20,6 +20,7 @@ import ThOrden from '../components/ThOrden.vue'
 import { siguienteOrden } from '../composables/useTabla'
 import { avisar, errorApi } from '../stores/ui'
 import { fmtNum } from '../utils'
+import { filasDefecto } from '../stores/preferencias'
 
 // Un solo lugar para todos los datos maestros. Cada catálogo llega descrito
 // desde el servidor (campos, tipos, obligatorios, filtros) y esta vista dibuja
@@ -29,7 +30,7 @@ const router = useRouter()
 const catalogos = ref([])
 const tipo = ref(route.query.catalogo || 'articulos')
 const datos = ref({ items: [], total: 0 })
-const filtros = reactive({ q: '', orden: '', page: 1, size: 15, extra: {} })
+const filtros = reactive({ q: '', orden: '', page: 1, size: filasDefecto(), extra: {} })
 const opciones = reactive({})
 const form = ref({})
 const editando = ref(null)

@@ -150,6 +150,8 @@ class Usuario(Base):
     bloqueado_hasta: Mapped[datetime | None] = mapped_column(DateTime)
     ultimo_acceso: Mapped[datetime | None] = mapped_column(DateTime)
     password_cambiado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    # Idioma, formatos de fecha/hora/número, tema, filas por página (solo lo que difiere del defecto)
+    preferencias: Mapped[dict] = mapped_column(JSON, default=dict)
     proveedor: Mapped[Proveedor | None] = relationship()
     rol_ref: Mapped[Rol | None] = relationship()
 

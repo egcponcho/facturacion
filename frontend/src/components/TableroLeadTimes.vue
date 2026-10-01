@@ -1,5 +1,5 @@
 <script setup>
-import { actual, t, tx } from '../i18n/index.js'
+import { t, tx } from '../i18n/index.js'
 import FechaTienda from './FechaTienda.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from './Seleccion.vue'
@@ -7,13 +7,14 @@ import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, sesion } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
-import { TIEMPO, fmtFecha } from '../utils'
+import { TIEMPO, fmtFecha, fmtNum } from '../utils'
 import FiltroMulti from './FiltroMulti.vue'
 import FiltroPeriodo, { rango } from './FiltroPeriodo.vue'
 import Icono from './Icono.vue'
 import Kpi from './Kpi.vue'
 import Paginacion from './Paginacion.vue'
 import ThOrden from './ThOrden.vue'
+import { filasDefecto } from '../stores/preferencias'
 
 // Lead times por origen: cuánto tarda en promedio cada etapa (de la OC al
 // ingreso en bodega), si logística libera a tiempo antes de la XF (Asia 21
@@ -24,7 +25,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const [d0, d1] = rango('12m')
 const periodo = ref({ clave: '12m', desde: iso(d0), hasta: iso(d1) })
 const f = reactive({ origen: [], region: [], proveedor: [], riesgo: '', lib: '' })
-const tabla = reactive({ orden: 'fecha_xf:asc', page: 1, size: 15 })
+const tabla = reactive({ orden: 'fecha_xf:asc', page: 1, size: filasDefecto() })
 const datos = ref({ items: [], total: 0, kpis: {}, origenes: [], etapas: [], regiones: [], opciones: {} })
 const cargando = ref(true)
 const abiertas = reactive(new Set())
@@ -66,7 +67,7 @@ function alternar(id) {
 const segmentos = (o) => datos.value.etapas.map((e, i) => ({ ...e, i, prom: o.etapas[e.clave]?.prom, n: o.etapas[e.clave]?.n }))
   .filter((s) => s.prom)
 const maxTotal = computed(() => Math.max(1, ...datos.value.origenes.map((o) => segmentos(o).reduce((a, s) => a + s.prom, 0))))
-const d = (n) => (n === null || n === undefined ? '—' : `${Number(n).toLocaleString(actual.locale, { maximumFractionDigits: 1 })} d`)
+const d = (n) => (n === null || n === undefined ? '—' : `${fmtNum(n, Number.isInteger(Number(n)) ? 0 : 1)} d`)
 const difTxt = (h) => {
   if (h.dif === null || h.dif === undefined) return ''
   if (h.dif === 0) return t('on the day')

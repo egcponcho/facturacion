@@ -21,6 +21,7 @@ const routes = [
   { path: '/importar', component: () => import('./views/ImportarView.vue'), meta: { permiso: 'oc.importar' } },
   { path: '/mantenimiento', component: () => import('./views/MantenimientoView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/seguimiento', component: () => import('./views/SeguimientoView.vue'), meta: { permiso: 'seguimiento.ver' } },
+  { path: '/perfil', component: () => import('./views/PerfilView.vue') },
   { path: '/admin', component: () => import('./views/AdminView.vue'), meta: { permiso: 'admin' } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

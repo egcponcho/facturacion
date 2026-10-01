@@ -18,9 +18,8 @@ const CLAVE = 'idioma'
 function inicial() {
   let guardado = null
   try { guardado = localStorage.getItem(CLAVE) } catch { /* sin almacenamiento */ }
-  if (IDIOMAS.some((x) => x.codigo === guardado)) return guardado
-  const nav = (typeof navigator !== 'undefined' && navigator.language || 'en').slice(0, 2)
-  return IDIOMAS.some((x) => x.codigo === nav) ? nav : 'en'
+  // Por defecto, inglés para todos; cada usuario elige el suyo en su perfil
+  return IDIOMAS.some((x) => x.codigo === guardado) ? guardado : 'en'
 }
 
 import SERVIDOR from './servidor.json' with { type: 'json' }

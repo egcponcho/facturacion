@@ -182,8 +182,8 @@ onMounted(cargar)
         <SelectBusqueda v-model="modal.puerto_destino" :opciones="destinos" :vacio="t('Not defined')" :etiqueta="t('{0} of discharge', [modo.puerto])" />
         <small v-if="modal.centro && destinos[0]?.sub" class="ayuda">{{ t('Suggested: the main port of plant {0}; you can change it to another of its ports.', [modal.centro]) }}</small>
       </label>
-      <label class="campo"><span>ETD</span><input v-model="modal.etd" type="date" /></label>
-      <label class="campo"><span>ETA</span><input v-model="modal.eta" type="date" /></label>
+      <label class="campo"><span>ETD</span><CampoFecha v-model="modal.etd" /></label>
+      <label class="campo"><span>ETA</span><CampoFecha v-model="modal.eta" /></label>
     </div>
     <p class="leyenda-req">{{ t('Required on the transport document; you can create the shipment without them, but departure cannot be recorded until they are complete.') }}</p>
     <template #pie>

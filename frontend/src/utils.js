@@ -1,11 +1,12 @@
-import { actual, t } from './i18n/index.js'
+import { t } from './i18n/index.js'
+import { fechaTexto, horaTexto, numeroTexto, pref } from './stores/preferencias'
 import { reactive } from 'vue'
 
-const numero = (d) => new Intl.NumberFormat(actual.locale, { minimumFractionDigits: d, maximumFractionDigits: d })
-
+// Números, fechas y horas siguen las preferencias del perfil (separadores,
+// formato de fecha MM/DD/YYYY por defecto y reloj de 12 o 24 horas)
 export function fmtNum(n, decimales = 0) {
   if (n === null || n === undefined || n === '') return '—'
-  return numero(decimales).format(Number(n))
+  return numeroTexto(n, decimales)
 }
 
 export function fmtMoneda(n, moneda = 'USD') {
@@ -13,25 +14,27 @@ export function fmtMoneda(n, moneda = 'USD') {
   return `${moneda} ${fmtNum(n, 2)}`
 }
 
-const formatoFecha = new Intl.DateTimeFormat(actual.locale, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })
 export function fmtFecha(valor) {
   if (!valor) return '—'
-  const [a, m, d] = String(valor).slice(0, 10).split('-').map(Number)
-  if (!a || !m || !d) return String(valor)
-  return formatoFecha.format(new Date(Date.UTC(a, m - 1, d)))
+  return fechaTexto(valor) || String(valor)
 }
 
-const formatoDiaMes = new Intl.DateTimeFormat(actual.locale, { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
 export function fmtDiaMes(valor) {
   if (!valor) return '—'
-  const [a, m, d] = String(valor).slice(0, 10).split('-').map(Number)
-  return formatoDiaMes.format(new Date(Date.UTC(a, m - 1, d)))
+  const f = fechaTexto(valor)
+  switch (pref.formato_fecha) {
+    case 'YYYY-MM-DD': return f.slice(5)
+    case 'DD-MMM-YYYY': return f.slice(0, 6)
+    case 'MMM DD, YYYY': return f.slice(0, 6)
+    default: return f.slice(0, 5)
+  }
 }
 
 export function fmtFechaHora(valor) {
   if (!valor) return '—'
   const f = new Date(String(valor).endsWith('Z') ? valor : `${valor}Z`)
-  return f.toLocaleString(actual.locale, { dateStyle: 'short', timeStyle: 'short' })
+  const iso = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`
+  return `${fechaTexto(iso)} ${horaTexto(f)}`
 }
 
 export function plural(n, singular, plural) {

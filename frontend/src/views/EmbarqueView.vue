@@ -654,7 +654,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
 
   <Modal v-if="modal?.tipo === 'recoleccion'" :titulo="t('Mark pickup')" @cerrar="modal = null">
     <p>{{ t('Packing lists picked up at the supplier\'s warehouse: {0}.', [fmtNum(selA.ids.size)]) }}</p>
-    <label class="campo"><span class="req">{{ t('Pickup date') }}</span><input v-model="modal.fecha" type="date" :max="hoy()" /></label>
+    <label class="campo"><span class="req">{{ t('Pickup date') }}</span><CampoFecha v-model="modal.fecha" :max="hoy()" /></label>
     <p class="ayuda">{{ t('It is compared with each PO\'s XF date to measure supplier compliance.') }}</p>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Back') }}</button>

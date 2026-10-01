@@ -6,6 +6,7 @@ import Icono from '../components/Icono.vue'
 import SelectorIdioma from '../components/SelectorIdioma.vue'
 import SelectorTema from '../components/SelectorTema.vue'
 import { iniciarSesion, reenviarCodigo, verificarCodigo } from '../stores/sesion'
+import { pref } from '../stores/preferencias'
 
 // Two steps: password, then the one-time code sent by SMS to the user's
 // registered mobile. The session lives in an httpOnly cookie.
@@ -40,7 +41,7 @@ function contar(segundos) {
 }
 
 function continuar() {
-  router.push(route.query.volver || '/')
+  router.push(route.query.volver || pref.inicio || '/')
 }
 
 async function entrar() {

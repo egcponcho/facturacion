@@ -13,6 +13,7 @@ import Icono from './Icono.vue'
 import Kpi from './Kpi.vue'
 import Paginacion from './Paginacion.vue'
 import ThOrden from './ThOrden.vue'
+import { filasDefecto } from '../stores/preferencias'
 
 // Tablero de embarques: un renglón por embarque y su documento de transporte
 // (BL, AWB o carta de porte). Se abre en sus unidades de carga y cada unidad
@@ -21,7 +22,7 @@ const props = defineProps({ filtros: { type: Object, required: true } })
 const emit = defineEmits(['opciones', 'filtrar'])
 const datos = ref({ items: [], total: 0, kpis: {}, por_estado: [], llegadas: [] })
 const cargando = ref(true)
-const tabla = reactive({ orden: '', page: 1, size: 25 })
+const tabla = reactive({ orden: '', page: 1, size: filasDefecto() })
 const abiertos = reactive({})
 const explosiones = reactive({})
 const explosion = ref(null)

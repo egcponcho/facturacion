@@ -8,6 +8,7 @@ from openpyxl import load_workbook
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from .preferencias import leer_fecha
 from ..config import settings
 from ..models import (
     Alerta,
@@ -513,14 +514,8 @@ def _leer_archivo(nombre: str, contenido: bytes) -> list[dict]:
 
 
 def _fecha(valor: str) -> date | None:
-    if not valor:
-        return None
-    for formato in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y%m%d"):
-        try:
-            return datetime.strptime(valor[:10], formato).date()
-        except ValueError:
-            continue
-    raise ValueError(f"invalid date: {valor}")
+    # ISO o el formato de fecha del usuario (con su orden día/mes para no confundirlos)
+    return leer_fecha(valor)
 
 
 def _logistica(valor: str | None):
@@ -954,6 +949,46 @@ def crear_oc(db: Session, user: Usuario, datos: dict) -> dict:
 
 
 INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"]
+
+
+def plantilla_oc(user: Usuario) -> bytes:
+    """Plantilla de carga de OC en Excel, con las fechas de ejemplo en el
+    formato del usuario (el mismo con el que se leerán)."""
+    from datetime import timedelta
+
+    from .plantillas import plantilla
+    from .preferencias import actual, fecha_txt
+
+    hoy = date.today()
+    fechas = {"fecha_oc": hoy, "fecha_xf_original": hoy + timedelta(days=45), "fecha_xf": hoy + timedelta(days=50),
+              "fecha_tienda": hoy + timedelta(days=100), "fecha_lib_comercial": None, "fecha_lib_logistica": None,
+              "fecha_entrega": None}
+    ayudas = {"proveedor": "Supplier code.", "oc": "PO number (letters and numbers, up to 40).", "posicion": "Line number.",
+              "codigo_sap": "Item code from the item master.", "cantidad": "Quantity in the item unit.",
+              "sociedad": "Company (bill to). Optional; needed to invoice.", "moneda": "Needed if there is a price.",
+              "precio": "Optional; needed to invoice.", "casepack": "Solids: exact quantity per carton (optional).",
+              "inner_pack": "Usually defined later in the packing list.",
+              "liberacion_comercial": "C = released, P = pending (or the words).",
+              "liberacion_logistica": "300 released, 301 released with changes, 304 not released (or the words)."}
+    formato = actual()["formato_fecha"]
+    columnas = []
+    for campo, alias in ALIAS.items():
+        ayuda = ayudas.get(campo, "")
+        if campo.startswith("fecha"):
+            ayuda = (ayuda + " " if ayuda else "") + f"Date as {formato} (your profile setting) or YYYY-MM-DD."
+        columnas.append({"nombre": alias[0], "req": campo in REQUERIDOS, "ayuda": ayuda})
+    base = {"proveedor": "SUPPLIER", "oc": "PO-0001", "sociedad": "", "moneda": "USD", "incoterm": "FOB",
+            "liberacion_comercial": "C", "liberacion_logistica": "300", "unidad": "", "precio": 10.5, "casepack": 12}
+    ejemplos = []
+    for linea, cant in ((10, 48), (20, 36)):
+        fila = {**base, "posicion": linea, "codigo_sap": "ITEM-CODE", "cantidad": cant,
+                **{k: fecha_txt(v) for k, v in fechas.items() if v}}
+        ejemplos.append([fila.get(c, "") for c in ALIAS])
+    return plantilla("Purchase orders", columnas, ejemplos, [
+        "One row per PO line; the header data (supplier, PO, company…) is repeated on each line.",
+        "Columns with * are required. Company, currency and price can be completed later; they are needed to invoice.",
+        f"Dates: {formato} — the format chosen in your profile — or YYYY-MM-DD. Excel date cells are also read.",
+    ])
 
 
 def opciones_formulario(db: Session, user: Usuario) -> dict:
