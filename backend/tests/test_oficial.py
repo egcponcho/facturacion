@@ -384,10 +384,18 @@ def test_producto_guarda_hs6_y_cada_pais_su_linea_con_evidencia(interno):
     partidas = {"GT": {"codigo": "6404199000", "estado": "ok", "dai": "15"},
                 "PA": {"codigo": "640419970000", "estado": "ok", "manual": True, "sugerido": "640419910000", "motivo": "Revisado con la nota 4"}}
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "6404199000", "partidas": partidas, "forzar": True})
+    # Un país con varias líneas posibles y sin los datos para elegir: se elige a mano entre sus opciones
+    for x in (r.json().get("detalle") or []) if r.status_code == 422 and r.json()["codigo"] == "faltan_paises" else []:
+        assert x["opciones"] and all(o.startswith("640419") for o in x["opciones"])
+        partidas[x["pais"]] = {"codigo": x["opciones"][0], "estado": "ok"}
+    r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "6404199000", "partidas": partidas, "forzar": True})
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["codigo"] == "6404.19" and d["sac_codigo"] == "6404.19.90.00"
-    assert d["evidencia"]["version_arancel"] == "SAC-2025-V6" and "R-SYS-001" in d["evidencia"]["reglas_sistema"]
+    ev = d["evidencia"]
+    assert ev["version"]["codigo"] == "SAC-2025-V6" and ev["aprobacion"]["hs6"] == "640419" and ev["aprobacion"]["sac"] == "6404199000"
+    assert any(t["regla"] == "R-SYS-001" for t in ev["reglas"]) and all(t.get("firma") for t in ev["reglas"])
+    assert {x["pais"] for x in ev["paises"]} == set(d["partidas"])
     gt, pa = d["partidas"]["GT"], d["partidas"]["PA"]
     assert gt["inciso_id"] and gt["evidencia"]["linea_oficial"] and any(i["tipo"] == "IVA" for i in gt["evidencia"]["impuestos"])
     assert gt["sugerido"] == "6404199000" and gt["aprobado_en"]
@@ -449,6 +457,8 @@ def test_configuracion_custom_cambia_la_clasificacion(interno):
     assert s["candidatos"] == [] or all(c["capitulo"] in caps_dom for c in s["candidatos"])
     interno.patch(f"/aranceles/reglas/{sis['id']}", {"activo": True})
     interno.patch(f"/aranceles/reglas/{r2['id']}", {"activo": False})
+    for x in (a, b):  # deja el dominio como estaba para las demás pruebas
+        interno.patch(f"/aranceles/atributos/{x['id']}", {"activo": False})
     # Validaciones de reglas propias
     assert interno.post("/aranceles/reglas", {"tipo_regla": "SOFT_SIGNAL", "accion": {"tipo": "EXCLUDE", "codigos": ["64"]}}).status_code == 422
     assert interno.post("/aranceles/reglas", {"tipo_regla": "QUESTION_GATE", "accion": {"tipo": "ASK"}}).status_code == 422

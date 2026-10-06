@@ -395,31 +395,6 @@ class EventoIn(BaseModel):
 
 
 # ---- Productos y clasificación arancelaria -------------------------------------
-class ResultadoMotor(BaseModel):
-    """Lo que calculó el motor de clasificación en el navegador."""
-
-    sugerido: str | None = Field(None, max_length=20)
-    confianza: str | None = Field(None, max_length=20)
-    fuente: str | None = Field(None, max_length=20)
-    perfil: str | None = Field(None, max_length=300)
-    razones: list[str] = Field(default_factory=list, max_length=30)
-    razones_regla: list[str] = Field(default_factory=list, max_length=30)
-    codigo_regla: str | None = Field(None, max_length=20)
-    fundamento: str | None = Field(None, max_length=1000)
-    alternativas: list[dict] = Field(default_factory=list, max_length=20)
-    avisos: list[str] = Field(default_factory=list, max_length=20)
-    faltantes: list[str] = Field(default_factory=list, max_length=20)
-    alertas: list[dict] = Field(default_factory=list, max_length=60)
-    descripcion_aduana: str | None = Field(None, max_length=400)
-    descripcion_comercial: str | None = Field(None, max_length=300)
-    completa: bool = False
-    faltan: list[str] = Field(default_factory=list, max_length=30)
-    partidas: dict | None = None
-    # Etiquetas legibles de la ficha (para el PDF): [["Gender", "Men"], ...]
-    atributos: list[list[str]] = Field(default_factory=list, max_length=60)
-    tipo_txt: str | None = Field(None, max_length=100)
-
-
 class FichaIn(BaseModel):
     version: int
     tipo: str | None = Field(None, max_length=30)
@@ -432,19 +407,13 @@ class FichaIn(BaseModel):
     descripcion_comercial: str | None = Field(None, max_length=300)
     notas: str | None = Field(None, max_length=1000)
     alertas_ok: list[str] = Field(default_factory=list, max_length=100)
-    resultado: ResultadoMotor | None = None
-
-
-class ClasificarItem(BaseModel):
-    id: int
-    resultado: ResultadoMotor
-    # Ficha completada por el motor (atributos deducidos en una carga masiva)
-    tipo: str | None = Field(None, max_length=30)
-    ficha: dict | None = None
+    tocados: list[str] = Field(default_factory=list, max_length=200)  # lo que eligió la persona (la detección no lo pisa)
+    partidas: dict = Field(default_factory=dict)  # {iso: {codigo, manual}}: códigos nacionales escritos a mano
 
 
 class ClasificarLote(BaseModel):
-    items: list[ClasificarItem] = Field(min_length=1, max_length=200)
+    """Clasificación masiva: el mismo motor del servidor, producto por producto."""
+    ids: list[int] = Field(min_length=1, max_length=2000)
 
 
 class AprobarIn(BaseModel):

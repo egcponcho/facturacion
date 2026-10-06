@@ -63,6 +63,17 @@ CAPA_ORDEN = {"LEGAL": 0, "SISTEMA": 1, "PROPIA": 2}
 
 
 # ---- Condiciones -------------------------------------------------------------------
+def _datos_producto(db: Session, entrada: dict) -> dict:
+    """Atributos que no son de la ficha sino del registro del producto (nombre,
+    países de destino): se toman de ahí para no pedirlos dos veces."""
+    nombre = (entrada.get("nombre") or entrada.get("estilo") or "").strip()
+    paises = entrada.get("destinos") or [p.iso for p in db.scalars(select(PaisArancel).where(PaisArancel.activo.is_(True)).order_by(PaisArancel.orden))]
+    out = {"destination_country": paises}
+    if nombre:
+        out["product_name"] = nombre
+    return out
+
+
 def _vacio(v) -> bool:
     return v is None or v == "" or v == [] or v == {}
 
@@ -314,10 +325,15 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
         s[c["campo"]] = c.get("valor")
         for k in cat.aplicar_implica(s, c["campo"], c.get("valor")):
             autos.add(k)
+    for k, val in _datos_producto(db, entrada).items():  # lo que ya dice el registro del producto
+        if k in cat.por_codigo and _vacio(s.get(k)):
+            s[k] = val
     avisos = cat.normalizar(s)
     for a in cat.atributos:  # la ficha guardada lleva lo normalizado (no los hechos derivados)
         if a.seccion == "derivado" or a.tipo_dato == "composition":
             continue
+        if a.booleano and s.get(a.codigo) is False and ficha.get(a.codigo) is not False and not cat.aplica(a, s):
+            continue  # el «no» por defecto de una casilla que no aplica no se guarda
         if a.codigo in s and not _vacio(s[a.codigo]):
             ficha[a.codigo] = s[a.codigo]
         elif a.codigo in ficha and not (a.booleano and ficha[a.codigo] is False):
@@ -369,7 +385,10 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     pendientes: dict[str, set] = {}
     decisiva = None
     for f in sorted(base):
-        traza.append({"regla": next(r.codigo for r in reglas if r.familia == f), "resultado": True, "efecto": f"BUILTIN {f}", "aplicada": True})
+        r = next(r for r in reglas if r.familia == f)
+        foto = foto_regla(r)
+        traza.append({"regla": r.codigo, "revision": r.revision or 1, "firma": firma_regla(foto), "foto": foto, "capa": CAPA.get(r.tipo_fuente, "PROPIA"),
+                      "tipo_fuente": r.tipo_fuente, "prioridad": r.prioridad, "resultado": True, "efecto": f"BUILTIN {f}", "aplicada": True})
     for r in reglas:
         a = _accion(r)
         if a["tipo"] == "BUILTIN" or not _aplica_a_producto(r, hechos):
@@ -900,7 +919,7 @@ def _paises(db: Session, hs6: str, sac: str | None, hechos: dict, hoy: date, man
         mejor = vivos[0] if vivos else None
         empate = mejor and len([x for x in vivos if (x.prio or 0) == (mejor.prio or 0) and len(x.cond or {}) == len(mejor.cond or {})]) > 1
         man = manuales.get(p.iso) or {}
-        mcod = "".join(ch for ch in str(man.get("codigo") or "") if ch.isdigit()) if man.get("manual") else ""
+        mcod = "".join(ch for ch in str(man.get("codigo") or "") if ch.isdigit())  # la línea que eligió la persona
         error = None
         x = None
         if mcod:
@@ -926,7 +945,8 @@ def _paises(db: Session, hs6: str, sac: str | None, hechos: dict, hoy: date, man
                     "dai": x.dai if x else None, "inciso_id": x.id if x else None, "regla": x.regla.codigo if x and x.regla else None,
                     "descripcion": (desc_ov.get(x.id) or x.descripcion) if x else None, "fuente": x.fuente if x else ("manual" if mcod else None),
                     "version": {"id": vp.id, "codigo": vp.codigo} if vp else None, "longitudes": p.longitudes_validas(), "digitos": p.digitos,
-                    "error": error, "manual": bool(mcod),
+                    "error": error, "manual": bool(mcod) and not (mejor and not empate and mcod == mejor.codigo),
+                    "sugerido": mejor.codigo if mejor and not empate else None,
                     "opciones": [{"codigo": y.codigo, "cond": y.cond, "descripcion": desc_ov.get(y.id) or y.descripcion, "dai": y.dai, "inciso_id": y.id}
                                  for y in (vivos + pendientes + [z for z in lineas_ok if z not in vivos and z not in pendientes])][:12],
                     "faltan": sorted(faltan), "impuestos": req["impuestos"], "regulaciones": req["regulaciones"], "overrides": aplicados})

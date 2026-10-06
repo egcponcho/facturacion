@@ -46,16 +46,13 @@ def test_articulos_con_ficha(interno):
     assert det["tipo"] == "calzado" and det["pais_origen"] == "VN" and det["nombre"] == "Sk8-Hi canvas sneaker"
     assert det["ficha"]["comp"] == {"corte": "100% canvas", "suela": "100% rubber"} and det["ficha"]["estiloCalz"] == "tenis"
     assert det["ficha"]["genero"] == "U" and {a["sku_proveedor"] for a in det["articulos"]} == {"VN0A5KRFBLK-8", "VN0A5KRFBLK-9"}
-    # El navegador completa la ficha con el motor y guarda la clasificación
-    resultado = {"sugerido": "640419", "confianza": "high", "completa": True, "descripcion_comercial": "Vans Sk8-Hi · Unisex sneaker",
-                 "partidas": {"SV": {"codigo": "6404199000", "estado": "ok"}}}
-    x = interno.post("/productos/clasificar", {"items": [{"id": det["id"], "tipo": "calzado", "resultado": resultado,
-                                                          "ficha": {"altura": "tobillo", "genero": "M", "comp": {"forro": "100% textile"}}}]})
-    assert x.status_code == 200, x.text
+    # Clasificación masiva en el servidor, con el mismo motor que la ficha
+    x = interno.post("/productos/clasificar", {"ids": [det["id"]]})
+    assert x.status_code == 200 and x.json()["clasificados"] == 1, x.text
     det = interno.get(f"/productos/{det['id']}").json()
-    # Completa lo que faltaba sin pisar lo cargado
-    assert det["estado"] == "sugerida" and det["ficha"]["altura"] == "tobillo" and det["ficha"]["genero"] == "U"
-    assert det["ficha"]["comp"]["forro"] == "100% textile" and det["descripcion_comercial"] == "Vans Sk8-Hi · Unisex sneaker"
+    assert det["estado"] == "sugerida" and det["sugerido"] == "6404.19" and det["ficha"]["genero"] == "U"
+    assert det["ficha"]["upper"] == "textil" and det["descripcion_comercial"] == "CALZADO VANS"
+    assert det["descripcion_aduana"].startswith("TENIS CON CORTE DE TEXTIL")
     # El código de artículo es libre (letras y números), pero no acepta cualquier carácter
     assert any("Letters and numbers" in e["mensaje"] for e in r["errores"])
 

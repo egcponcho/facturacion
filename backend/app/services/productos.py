@@ -27,8 +27,6 @@ from ..models import (
     GrupoArticulo,
     Historial,
     IncisoNacional,
-    NodoArancel,
-    ReglaClasificacion,
     Marca,
     Pais,
     PaisArancel,
@@ -45,7 +43,6 @@ from ..models import (
     ahora,
 )
 from .acuerdos import acuerdos_contexto, cargar_acuerdos
-from .motor_clasificacion import resolver_version_vigente
 from .atributos import config_motor as atributos_cfg
 from .generico import dominios_ficha
 from .categorias import categorias as categorias_config
@@ -268,73 +265,11 @@ def clasificacion_txt(p: Producto | None) -> dict:
 
 
 # ---- Códigos nacionales en el servidor (base cargada y aprobaciones en lote) ---
-def _valor_cond(ficha: dict, k: str):
-    if k == "edadNac":
-        return "bebe" if ficha.get("edad") == "bebe" else ficha.get("edadNac") or None
-    return ficha.get(k)
-
-
-def _evaluar_cond(cond: dict, ficha: dict) -> tuple[int, bool, list]:
-    sc, choca, faltan = 0, False, []
-    for k, v in (cond or {}).items():
-        if k in ("cifMax", "cifMin"):
-            try:
-                x = float(ficha.get("valorCIF"))
-            except (TypeError, ValueError):
-                faltan.append("valorCIF")
-                continue
-            if (k == "cifMax" and x <= v) or (k == "cifMin" and x > v):
-                sc += 4
-            else:
-                choca = True
-            continue
-        a = _valor_cond(ficha, k)
-        if a in (None, ""):
-            faltan.append(k)
-            continue
-        ok = (str(a) in [str(x) for x in v]) if isinstance(v, list) else (bool(a) == v if isinstance(v, bool) else str(a) == str(v))
-        if ok:
-            sc += 4
-        else:
-            choca = True
-    return sc, choca, faltan
-
-
-def partidas_simples(db: Session, p: Producto, codigo: str) -> dict:
-    """Elige el código de cada país con las condiciones de los incisos
-    conocidos. El navegador hace lo mismo con más detalle; esto sirve para la
-    base de demostración y para aprobar en lote."""
-    cb = digitos(codigo)
-    sub = cb[:6]
-    ficha = dict(p.ficha or {}, tipo=p.tipo)
-    out = {}
-    incisos = db.scalars(select(IncisoNacional).where(IncisoNacional.sub6 == sub, IncisoNacional.activo.is_(True))).all() \
-        if len(sub) == 6 else []
-    for d in destinos(db):
-        iso, n = d["iso"], d["digitos"]
-        if len(sub) < 6:
-            out[iso] = {"codigo": "", "estado": "sin_codigo"}
-            continue
-        lista = [x for x in incisos if x.pais == iso]
-        vivos = []
-        for x in lista:
-            sc, choca, faltan = _evaluar_cond(x.cond, ficha)
-            if not choca:
-                vivos.append((sc + (x.prio or 0) * 10, len(x.cond or {}), faltan, x))
-        if not vivos:
-            # El país usa la línea SAC tal cual solo si existe completa (nunca se recorta)
-            out[iso] = {"codigo": cb if len(cb) >= min(n, 10) and d.get("mcca") else sub,
-                        "estado": "sac" if len(cb) >= min(n, 10) else ("nuevo" if lista else "sinarancel")}
-            continue
-        vivos.sort(key=lambda v: (-v[0], -v[1]))
-        mejor = vivos[0]
-        empate = [v for v in vivos if v[0] == mejor[0] and v[1] == mejor[1]]
-        if mejor[2] or len(empate) > 1:
-            out[iso] = {"codigo": "", "estado": "elegir"}
-        else:
-            x = mejor[3]
-            out[iso] = {"codigo": digitos(x.codigo), "estado": "ok", "dai": x.dai or "", "fuente": x.fuente}
-    return out
+def _codigo_fila(codigo) -> str:
+    c = digitos(codigo)
+    if len(c) > 14:  # nunca se recorta un código
+        raise ErrorNegocio(f"{codigo}: a national code has at most 14 digits.", 422, "validacion")
+    return c
 
 
 def _guardar_partidas(p: Producto, partidas: dict | None) -> None:
@@ -346,7 +281,7 @@ def _guardar_partidas(p: Producto, partidas: dict | None) -> None:
                 p.partidas.remove(previas[iso])
             continue
         fila = previas.get(iso) or PartidaPais(pais=iso)
-        fila.codigo = digitos(x.get("codigo"))[:14]
+        fila.codigo = _codigo_fila(x.get("codigo"))
         fila.dai = str(x.get("dai") or "")[:10] or None
         fila.estado = str(x.get("estado") or "ok")[:12]
         fila.fuente = (x.get("fuente") or None) and str(x.get("fuente"))[:12]
@@ -354,7 +289,7 @@ def _guardar_partidas(p: Producto, partidas: dict | None) -> None:
         if not fila.manual:
             fila.sugerido = fila.codigo  # lo que eligió el motor (para comparar con el final)
         elif x.get("sugerido"):
-            fila.sugerido = digitos(x.get("sugerido"))[:14]
+            fila.sugerido = _codigo_fila(x.get("sugerido"))
         if x.get("motivo"):
             fila.motivo = str(x["motivo"])[:300]
         if iso not in previas:
@@ -605,30 +540,76 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
 CAMPOS_TEXTO = {"nombre": 200, "notas": 1000}  # el genérico sale del código de artículo
 
 
-def _aplicar_resultado(p: Producto, r: dict | None) -> None:
-    """Guarda lo que calculó el motor (sin aprobar nada)."""
-    if not r:
-        return
-    if hasattr(r, "model_dump"):
-        r = r.model_dump()
-    sug = digitos(r.get("sugerido"))
-    p.sugerido = sug[:6] if len(sug) >= 6 else None  # el producto guarda el HS6
-    p.sac_sugerido = sug if len(sug) in (8, 10) else None  # la línea SAC se valida al aprobar
-    p.confianza = (r.get("confianza") or None) and str(r["confianza"])[:10]
-    p.fuente = (r.get("fuente") or None) and str(r["fuente"])[:12]
-    p.perfil = (r.get("perfil") or None) and str(r["perfil"])[:200]
-    p.analisis = {k: r.get(k) for k in ("razones", "fundamento", "alternativas", "avisos", "faltantes", "alertas",
-                                        "razones_regla", "codigo_regla", "atributos", "tipo_txt") if r.get(k) is not None}
-    if r.get("descripcion_aduana") is not None and not (p.ficha or {}).get("descManual"):
-        p.descripcion_aduana = str(r["descripcion_aduana"])[:400] or None
+def entrada_producto(p: Producto, extra: dict | None = None) -> dict:
+    """La ficha natural del producto para el motor único (la misma para la
+    pantalla, el guardado, la aprobación y el lote)."""
+    f = dict(p.ficha or {})
+    return {"categoria": p.tipo, "ficha": f, "estilo": p.estilo, "nombre": p.nombre, "uso": f.get("uso"), "tallas": f.get("tallas"),
+            "marca": p.marca.nombre if p.marca else None, "proveedor": p.proveedor.nombre if p.proveedor else None,
+            "origen": p.pais_origen, "generico": p.codigo_generico, "producto_id": p.id, "alertas_ok": p.alertas_ok or [],
+            "partidas": {x.pais: {"codigo": x.codigo, "manual": True} for x in p.partidas if x.manual}, "detectar": False, **(extra or {})}
+
+
+def _valor_legible(c: dict) -> str:
+    v = c.get("valor")
+    if c["tipo_dato"] == "boolean":
+        return "Yes" if v else "No"
+    if isinstance(v, list):
+        return ", ".join(next((o["etiqueta"] for o in c["opciones"] if o["codigo"] == x), str(x)) for x in v)
+    return next((o["etiqueta"] for o in c["opciones"] if o["codigo"] == v), str(v))
+
+
+def _fuente_motor(r: dict) -> str:
+    top = (r.get("candidatos") or [{}])[0]
+    origen = top.get("origen") or []
+    if any(o.startswith("regla") for o in origen):
+        return "regla"
+    return "historial" if "historial" in origen else "texto"
+
+
+def _aplicar_motor(p: Producto, r: dict) -> None:
+    """Guarda lo que calculó el motor único (sin aprobar nada)."""
+    if r.get("categoria"):
+        p.tipo = r["categoria"]["codigo"][:30]
+    p.ficha = r["ficha"]
+    hs6, sac = r.get("hs6"), r["clasificacion"]["sac"]["codigo"]
+    p.sugerido, p.sac_sugerido = hs6, sac
+    p.confianza = r["confianza"]
+    p.fuente = _fuente_motor(r) if hs6 else None
+    p.perfil = (r.get("perfil") or "")[:200] or None
+    legibles = [[c["etiqueta"], _valor_legible(c)] for c in r["campos"]
+                if c["seccion"] in ("producto", "caracteristicas", "composicion", "nacional") and c["tipo_dato"] != "composition"
+                and c.get("valor") not in (None, "", [], False)]
+    p.analisis = {"razones": r["razones"], "alternativas": r["alternativas"][:20], "avisos": [a["texto"] for a in r["avisos"]][:20],
+                  "faltantes": [f["etiqueta"] for f in r["faltantes"]][:20], "alertas": r["alertas"][:60], "revision_por": r["revision_por"][:20],
+                  "requiere_revision": r["requiere_revision"], "atributos": legibles[:60],
+                  "tipo_txt": (r.get("categoria") or {}).get("nombre"), "version": r.get("version")}
+    if not (p.ficha or {}).get("descManual"):
+        p.descripcion_aduana = (r["descripciones"]["aduana"] or "")[:400] or None
     if not (p.ficha or {}).get("comManual"):
-        p.descripcion_comercial = (str(r.get("descripcion_comercial") or "")[:300] or None) or descripcion_comercial_simple(p)
-    p.ficha_completa = bool(r.get("completa"))
-    p.faltan = [str(x)[:120] for x in (r.get("faltan") or [])][:20]
+        p.descripcion_comercial = (r["descripciones"]["comercial"] or "")[:300] or descripcion_comercial_simple(p)
+    faltan = [f["etiqueta"] for f in r["faltantes"]]
+    if not p.tipo:
+        faltan.insert(0, "Product type")
+    if not p.pais_origen:
+        faltan.append("Country of origin")
+    if not hs6:
+        faltan.append("Data for the code")
+    p.ficha_completa = not faltan
+    p.faltan = [str(x)[:120] for x in faltan][:20]
     if p.estado not in APROBADOS:
-        _guardar_partidas(p, r.get("partidas"))
+        _guardar_partidas(p, {x["pais"]: {"codigo": x["codigo"], "dai": x["dai"], "estado": x["estado"], "fuente": x["fuente"],
+                                          "manual": x["manual"]} for x in r["clasificacion"]["paises"]})
         if p.estado != "revision":
             p.estado = "sugerida" if p.ficha_completa and p.sugerido else "borrador"
+
+
+def clasificar_y_guardar(db: Session, p: Producto, extra: dict | None = None, catalogo=None) -> dict:
+    from .motor_clasificacion import clasificar_producto
+
+    r = clasificar_producto(db, entrada_producto(p, extra), catalogo=catalogo)
+    _aplicar_motor(p, r)
+    return r
 
 
 def guardar_ficha(db: Session, user: Usuario, producto_id: int, datos) -> dict:
@@ -650,13 +631,20 @@ def guardar_ficha(db: Session, user: Usuario, producto_id: int, datos) -> dict:
         p.pais_origen = (datos.pais_origen or "").upper()[:2] or None
     if datos.pais_procedencia is not None:
         p.pais_procedencia = (datos.pais_procedencia or "").upper()[:2] or None
+    p.alertas_ok = list(datos.alertas_ok or [])[:100]
+    # Códigos nacionales escritos a mano (se validan en el motor: existen o tienen una longitud válida)
+    manuales = {iso: x for iso, x in (datos.partidas or {}).items() if isinstance(x, dict) and x.get("manual") and digitos(x.get("codigo"))}
+    for x in list(p.partidas):
+        if x.manual and x.pais not in manuales:
+            p.partidas.remove(x)
+    _guardar_partidas(p, {**{x.pais: {"codigo": x.codigo, "dai": x.dai, "estado": x.estado, "fuente": x.fuente, "manual": x.manual}
+                             for x in p.partidas}, **{iso: {**x, "estado": "manual"} for iso, x in manuales.items()}})
+    devuelto = p.estado == "observado"
+    clasificar_y_guardar(db, p, {"tocados": list(datos.tocados or [])})
     if datos.descripcion_aduana is not None and (p.ficha or {}).get("descManual"):
         p.descripcion_aduana = datos.descripcion_aduana.strip()[:400] or None
     if datos.descripcion_comercial is not None and (p.ficha or {}).get("comManual"):
         p.descripcion_comercial = datos.descripcion_comercial.strip()[:300] or None
-    p.alertas_ok = list(datos.alertas_ok or [])[:100]
-    devuelto = p.estado == "observado"
-    _aplicar_resultado(p, datos.resultado)
     tocar(p)
     cambios = [k for k in ("tipo", "ficha") if antes[k] != getattr(p, k)]
     registrar(db, user, "producto", p.id, "ficha_guardada",
@@ -665,102 +653,97 @@ def guardar_ficha(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     return detalle(db, user, p.id)
 
 
-def clasificar_lote(db: Session, user: Usuario, items: list) -> dict:
-    """Guarda el resultado del motor para varios productos (sin tocar su ficha)."""
+def clasificar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
+    """Clasifica varios productos con el mismo motor que la ficha (lo que se
+    deduce del nombre y la composición completa lo vacío; nada se pisa)."""
+    from .ficha import Catalogo
+
     exigir(user, "producto.ficha")
+    cat = Catalogo.desde_db(db)
     hechos, omitidos = 0, []
-    for it in items:
-        p = _producto(db, user, it.id)
+    for pid in ids:
+        p = _producto(db, user, pid)
         if p.estado in APROBADOS:
             omitidos.append({"id": p.id, "mensaje": f"{p.estilo} is already approved."})
             continue
         antes = p.estado
-        if it.ficha is not None:
-            # Solo completa: lo que la ficha ya tenía no cambia
-            p.ficha = {**it.ficha, **{k: v for k, v in (p.ficha or {}).items() if v not in (None, "", [], {})}}
-            if it.ficha.get("comp"):
-                p.ficha["comp"] = {**it.ficha["comp"], **((p.ficha or {}).get("comp") or {})}
-        if it.tipo and not p.tipo:
-            p.tipo = it.tipo[:30]
-        _aplicar_resultado(p, it.resultado)
+        clasificar_y_guardar(db, p, {"detectar": True}, catalogo=cat)
         tocar(p)
-        registrar(db, user, "producto", p.id, "clasificado", {"estado": [antes, p.estado],
-                                                              "sugerido": fmt_codigo(p.sugerido) or None})
+        registrar(db, user, "producto", p.id, "clasificado", {"estado": [antes, p.estado], "sugerido": fmt_codigo(p.sugerido) or None})
         hechos += 1
     return {"clasificados": hechos, "omitidos": omitidos}
 
 
 # ---- Aprobar, devolver y versiones -------------------------------------------
 def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partidas: dict | None) -> None:
+    """Aprueba con el motor único: el código se vuelve a validar contra el árbol
+    de la versión vigente y contra las reglas; cada país con su línea nacional
+    de la versión vigente del país. Guarda la evidencia completa."""
+    from .motor_clasificacion import clasificar_producto
+
     oficial = digitos(codigo or p.propuesta or p.sac_sugerido or p.sugerido)
     if len(oficial) < 6:
         raise ErrorNegocio(f"{p.estilo}: there is no HS code to approve.", 422, "sin_partida")
     if len(oficial) > 14:
         raise ErrorNegocio("The HS code is too long.", 422, "validacion")
-    # El producto guarda el HS6; la línea SAC regional solo si existe en el árbol oficial vigente
-    version = resolver_version_vigente(db, "REGIONAL")
-    sac = None
-    if len(oficial) > 6:
-        if not version or not db.scalar(select(NodoArancel.id).where(NodoArancel.version_id == version.id, NodoArancel.pais.is_(None),
-                                                                        NodoArancel.codigo_norm == oficial)):
-            raise ErrorNegocio(f"{fmt_codigo(oficial)} is not an official SAC line of the tariff in force. "
-                               "The product keeps its HS6 and each country chooses its own national line.", 422, "no_es_linea_sac")
-        sac = oficial
-    # R-SYS-001: solo capítulos activos y habilitados para clasificar
-    cap = db.scalar(select(ControlCapitulo).where(ControlCapitulo.capitulo == oficial[:2]))
-    if cap and not (cap.activo and cap.clasificacion and not cap.archivado):
-        raise ErrorNegocio(f"Chapter {cap.capitulo} is not enabled for classification. Enable it in Tariff schedule → Chapters or choose another code.",
-                           422, "capitulo_no_habilitado")
-    parts = partidas if partidas is not None else partidas_simples(db, p, oficial)
-    pend = [iso for iso, x in (parts or {}).items() if x.get("estado") == "elegir" and not digitos(x.get("codigo"))]
+    # Cada línea nacional que indica quien aprueba es una elección: el motor la valida
+    elegidas = {iso: x for iso, x in (partidas or {}).items() if isinstance(x, dict) and digitos(x.get("codigo"))}
+    if partidas is None:
+        elegidas = {x.pais: {"codigo": x.codigo, "manual": True, "sugerido": x.sugerido, "motivo": x.motivo} for x in p.partidas if x.manual}
+    r = clasificar_producto(db, entrada_producto(p, {"codigo_final": oficial,
+                                                     "partidas": {iso: {"codigo": digitos(x["codigo"])} for iso, x in elegidas.items()}}))
+    errores = [a["msg"] for a in r["alertas"] if a["nivel"] == "error" and a.get("origen") in ("codigo", "capitulo")]
+    if any(a.get("origen") == "capitulo" and a["nivel"] == "error" for a in r["alertas"]):
+        raise ErrorNegocio(f"{p.estilo}: " + " ".join(errores), 422, "capitulo_no_habilitado")
+    if len(oficial) > 6 and r["sac"] != oficial:
+        raise ErrorNegocio(f"{fmt_codigo(oficial)} is not an official SAC line of the tariff in force. "
+                           "The product keeps its HS6 and each country chooses its own national line.", 422, "no_es_linea_sac")
+    if errores:
+        raise ErrorNegocio(f"{p.estilo}: " + " ".join(errores), 422, "codigo_invalido")
+    paises = r["clasificacion"]["paises"]
+    invalidos = [x for x in paises if x["estado"] == "invalido"]
+    if invalidos:
+        raise ErrorNegocio("; ".join(f"{x['pais']}: {x['error']}" for x in invalidos), 422, "codigo_nacional_invalido")
+    pend = [x for x in paises if x["estado"] == "elegir" and not x["codigo"]]
     if pend:
-        raise ErrorNegocio(f"{p.estilo}: choose the national code for " + ", ".join(pend) + ".", 422, "faltan_paises",
-                           [{"pais": iso} for iso in pend])
-    for iso, x in (parts or {}).items():
-        c = digitos(x.get("codigo"))
-        if c and not c.startswith(oficial[:6]):
-            raise ErrorNegocio(f"The code for {iso} must start with {fmt_codigo(oficial[:6])}.", 422, "validacion")
+        raise ErrorNegocio(f"{p.estilo}: choose the national code for " + ", ".join(x["pais"] for x in pend) + ".", 422, "faltan_paises",
+                           [{"pais": x["pais"], "opciones": [o["codigo"] for o in x["opciones"]]} for x in pend])
     sug = digitos(p.sugerido)
     p.estado = "aprobado" if not sug or sug[:6] == oficial[:6] else "corregido"
     p.codigo = oficial[:6]
-    p.sac_codigo = sac
+    p.sac_codigo = oficial if len(oficial) > 6 else r["sac"]
     p.propuesta = None
-    p.version_arancel_id = version.id if version else None
-    p.evidencia = {"fecha": ahora().isoformat(), "hs6": oficial[:6], "sac": sac, "sugerido": sug or None,
-                   "version_arancel": version.codigo if version else None, "checksum": version.checksum if version else None,
-                   "confianza": p.confianza, "fuente": p.fuente, "razones": (p.analisis or {}).get("razones", [])[:20],
-                   "reglas_sistema": [r.codigo for r in db.scalars(select(ReglaClasificacion).where(
-                       ReglaClasificacion.tipo_regla != "NATIONAL_SELECT", ReglaClasificacion.activo.is_(True)))]}
-    _guardar_partidas(p, parts)
+    p.version_arancel_id = r["version"]["id"] if r.get("version") else None
+    ahora_ = ahora()
+    p.evidencia = {**r["evidencia"], "aprobacion": {"fecha": ahora_.isoformat(), "usuario": user.nombre if user else None, "hs6": p.codigo,
+                                                    "sac": p.sac_codigo, "sugerido": sug or None, "confianza": r["confianza"],
+                                                    "requiere_revision": r["requiere_revision"], "revision_por": r["revision_por"],
+                                                    "razones": r["razones"], "alternativas": r["alternativas"][:10]},
+                   "paises": [{k: x[k] for k in ("pais", "estado", "codigo", "dai", "inciso_id", "regla", "version", "fuente", "manual",
+                                                 "descripcion", "overrides")} for x in paises]}
+    _guardar_partidas(p, {x["pais"]: {"codigo": x["codigo"], "dai": x["dai"], "estado": x["estado"], "fuente": x["fuente"],
+                                      "manual": x["manual"] or bool((elegidas.get(x["pais"]) or {}).get("manual")),
+                                      "sugerido": (elegidas.get(x["pais"]) or {}).get("sugerido") or x["sugerido"],
+                                      "motivo": (elegidas.get(x["pais"]) or {}).get("motivo")} for x in paises})
     db.flush()
-    _evidencia_paises(db, user, p)
-    p.revisado_por_id = user.id
-    p.revisado_en = ahora()
+    por_pais = {x["pais"]: x for x in paises}
+    for fila in p.partidas:
+        x = por_pais.get(fila.pais) or {}
+        fila.inciso_id = x.get("inciso_id")
+        fila.version_id = (x.get("version") or {}).get("id") if x.get("inciso_id") else None
+        inc = db.get(IncisoNacional, x["inciso_id"]) if x.get("inciso_id") else None
+        fila.fuente_id = inc.fuente_id if inc else None
+        fila.evidencia = {"linea_oficial": bool(inc and inc.fuente == "oficial"), "fuente_dato": x.get("fuente"), "regla": x.get("regla"),
+                          "version": x.get("version"), "overrides": x.get("overrides"),
+                          "impuestos": [{k: i.get(k) for k in ("codigo", "tipo", "tasa", "base_calculo", "base_legal")} for i in x.get("impuestos") or []],
+                          "regulaciones": [{k: g.get(k) for k in ("codigo", "tipo", "nombre", "autoridad", "base_legal")} for g in x.get("regulaciones") or []]}
+        fila.aprobado_por_id, fila.aprobado_en = (user.id if user else None), ahora_
+    p.revisado_por_id = user.id if user else None
+    p.revisado_en = ahora_
     tocar(p)
     registrar(db, user, "producto", p.id, "aprobado" if p.estado == "aprobado" else "corregido",
               {"codigo": fmt_codigo(oficial), "sugerido": fmt_codigo(sug) or None,
-               "paises": {iso: fmt_codigo(x.get("codigo")) for iso, x in (parts or {}).items() if x.get("codigo")}})
-
-
-def _evidencia_paises(db: Session, user: Usuario, p: Producto) -> None:
-    """Liga cada código nacional a su línea oficial (sin recortar nada) y
-    guarda lo que aplicaba al aprobar: versión, fuente, regla de selección,
-    impuestos y regulaciones."""
-    from .nacional import requisitos
-
-    for x in p.partidas:
-        cod = digitos(x.codigo)
-        inc = db.scalar(select(IncisoNacional).where(IncisoNacional.pais == x.pais, IncisoNacional.codigo == cod,
-                                                     IncisoNacional.activo.is_(True)).order_by(IncisoNacional.version_id.is_(None)))
-        x.inciso_id = inc.id if inc else None
-        x.version_id = inc.version_id if inc else None
-        x.fuente_id = inc.fuente_id if inc else None
-        req = requisitos(db, x.pais, cod, inc.dai if inc else x.dai)
-        x.evidencia = {"linea_oficial": bool(inc), "fuente_dato": inc.fuente if inc else x.fuente,
-                       "regla": {"codigo": inc.regla.codigo, "condiciones": inc.cond, "prioridad": inc.prio} if inc and inc.regla else None,
-                       "impuestos": [{k: i[k] for k in ("codigo", "tipo", "tasa", "base_calculo", "base_legal")} for i in req["impuestos"]],
-                       "regulaciones": [{k: r[k] for k in ("codigo", "tipo", "nombre", "autoridad", "base_legal")} for r in req["regulaciones"]]}
-        x.aprobado_por_id, x.aprobado_en = user.id, ahora()
+               "paises": {x["pais"]: fmt_codigo(x["codigo"]) for x in paises if x.get("codigo")}})
 
 
 def aprobar(db: Session, user: Usuario, producto_id: int, datos) -> dict:
@@ -864,11 +847,18 @@ def nueva_version(db: Session, user: Usuario, producto_id: int, datos) -> dict:
         raise ErrorNegocio("The new version must start after the current one.", 422, "validacion")
     db.add(ProductoVersion(
         producto=p, version=p.version_ficha, desde=inicio, hasta=desde - timedelta(days=1), motivo=(datos.motivo or "")[:300] or None,
-        datos={"tipo": p.tipo, "ficha": p.ficha, "codigo": p.codigo, "sugerido": p.sugerido, "estado": p.estado,
-               "descripcion_aduana": p.descripcion_aduana, "descripcion_comercial": p.descripcion_comercial,
-               "pais_origen": p.pais_origen, "analisis": p.analisis, "confianza": p.confianza,
-               "partidas": {x.pais: {"codigo": x.codigo, "dai": x.dai, "estado": x.estado, "fuente": x.fuente,
-                                     "manual": x.manual} for x in p.partidas},
+        # Autosuficiente para auditoría: ficha, clasificación, versión arancelaria,
+        # evidencia (reglas con su foto, hechos, notas, overrides) y países con su línea
+        datos={"tipo": p.tipo, "ficha": p.ficha, "nombre": p.nombre, "codigo": p.codigo, "sac_codigo": p.sac_codigo, "sugerido": p.sugerido,
+               "sac_sugerido": p.sac_sugerido, "estado": p.estado, "descripcion_aduana": p.descripcion_aduana,
+               "descripcion_comercial": p.descripcion_comercial, "pais_origen": p.pais_origen, "pais_procedencia": p.pais_procedencia,
+               "analisis": p.analisis, "confianza": p.confianza, "fuente": p.fuente, "perfil": p.perfil,
+               "version_arancel": ({"id": p.version_arancel_id, **((p.evidencia or {}).get("version") or {})} if p.version_arancel_id else None),
+               "evidencia": p.evidencia, "observaciones": p.observaciones, "resolucion": p.resolucion,
+               "partidas": {x.pais: {"codigo": x.codigo, "dai": x.dai, "estado": x.estado, "fuente": x.fuente, "manual": x.manual,
+                                     "sugerido": x.sugerido, "motivo": x.motivo, "inciso_id": x.inciso_id, "version_id": x.version_id,
+                                     "evidencia": x.evidencia, "aprobado_en": x.aprobado_en.isoformat() if x.aprobado_en else None}
+                            for x in p.partidas},
                "revisado_por": p.revisado_por.nombre if p.revisado_por else None,
                "revisado_en": p.revisado_en.isoformat() if p.revisado_en else None},
         cerrado_por=user.id))

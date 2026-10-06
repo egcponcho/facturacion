@@ -14,15 +14,6 @@ def _producto(api, estilo, color):
     return next(p for p in items if p["estilo"] == estilo and p["color"] == color)
 
 
-def _resultado(codigo, completa=True):
-    return {"sugerido": codigo, "confianza": "high", "fuente": "regla", "perfil": "calzado|tenis|textil|caucho|bajo|casual|-|-",
-            "razones": ["Footwear → chapter 64", "Sneaker: casual or lifestyle → 6404.19"], "completa": completa,
-            "faltan": [] if completa else ["Country of origin"],
-            "descripcion_aduana": "TENIS DE TEXTIL, UNISEX, MARCA VANS",
-            "partidas": {"SV": {"codigo": "6404199000", "estado": "ok", "fuente": "base"},
-                         "PA": {"codigo": "640419970000", "estado": "auto", "fuente": "base"}}}
-
-
 def test_lista_contexto_y_separacion(tnf, vans, interno):
     r = interno.get("/productos", params={"size": 100}).json()
     assert r["kpis"]["total"] >= 7 and r["kpis"]["pendientes"] >= 2 and r["kpis"]["aprobados"] >= 5
@@ -67,7 +58,7 @@ def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
     # El proveedor completa la ficha; aprobar es del equipo interno
     det = vans.put(f"/productos/{p['id']}/ficha", {
         "version": det["version"], "tipo": "calzado", "pais_origen": "CN",
-        "ficha": {**det["ficha"], "uso": "Casual canvas sneaker"}, "resultado": _resultado("640419")}).json()
+        "ficha": {**det["ficha"], "uso": "Casual canvas sneaker"}}).json()
     assert det["estado"] == "sugerida" and det["sugerido"] == "6404.19" and det["partidas"]["PA"]["codigo"] == "640419970000"
     assert vans.post(f"/productos/{p['id']}/aprobar", {"version": det["version"]}).status_code == 403
     # Borrador → enviar a revisión: queda cerrada para el proveedor hasta que se revise o la retire

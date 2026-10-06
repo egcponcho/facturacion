@@ -99,7 +99,7 @@ def guardar_ficha(producto_id: int, datos: s.FichaIn, db: Db, user: User, clave:
 
 @router.post("/productos/clasificar")
 def clasificar_lote(datos: s.ClasificarLote, db: Db, user: User, clave: Clave = None):
-    return ejecutar(db, user, clave, lambda: svc.clasificar_lote(db, user, datos.items))
+    return ejecutar(db, user, clave, lambda: svc.clasificar_lote(db, user, datos.ids))
 
 
 @router.post("/productos/aprobar")

@@ -49,12 +49,12 @@ from .services.common import registrar
 from .services.genericos import sufijo_convencional
 from .services.varios import crear_roles_fabrica
 from .services.productos import (
-    _guardar_partidas,
+    _aprobar,
+    clasificar_y_guardar,
     asegurar_producto,
     cargar_incisos_base,
     descripcion_comercial_simple,
     partida_para,
-    partidas_simples,
 )
 
 PAISES = [
@@ -213,8 +213,6 @@ FICHAS = {
                                              "plantilla": "100% EVA"}},
         desc="TENIS CON CORTE DE TEXTIL Y SUELA DE SINTÉTICO, SIN CUBRIR EL TOBILLO, UNISEX"),
 }
-PERFILES = {"chaqueta": "chaqueta|plano|M|-|-|sintetica|-|chaqueta", "mochila": "mochila|textil",
-            "sudadera": "sudadera|punto|F|-|-|sintetica|-|pullover"}
 
 # Prepacks: estilo, color, prepack ID (es la "talla" del artículo prepack), curva
 PREPACKS = [
@@ -423,21 +421,15 @@ def _productos(db, arts) -> None:
         p.observaciones = x.get("observaciones")
         p.vigente_desde = date.today() - timedelta(days=200)
         p.descripcion_comercial = descripcion_comercial_simple(p)
-        f = x["ficha"]
-        p.perfil = PERFILES.get(p.tipo) or (
-            f"calzado|{f.get('estiloCalz')}|textil|caucho|{f.get('altura')}|{f.get('disenio')}|-|-" if p.tipo == "calzado" else None)
+        # La clasificación sale del motor único, como en la pantalla
+        p.estado = x["estado"] if x["estado"] != "aprobado" else "sugerida"
+        db.flush()
+        clasificar_y_guardar(db, p)
+        if x["estado"] == "observado":
+            p.estado = "observado"
         if x.get("codigo"):
-            p.sugerido = p.codigo = x["codigo"]
-            p.confianza, p.fuente, p.estado = "high", "regla", "aprobado"
-            p.revisado_por_id = interno.id if interno else None
+            _aprobar(db, interno, p, x["codigo"], None)
             p.revisado_en = ahora() - timedelta(days=150)
-            _guardar_partidas(p, partidas_simples(db, p, p.codigo))
-        else:
-            p.sugerido = x.get("sugerido")
-            p.estado = x["estado"]
-            p.confianza = "high" if p.sugerido else None
-            if p.sugerido:
-                _guardar_partidas(p, partidas_simples(db, p, p.sugerido))
 
 
 def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", almacen="BF19", destino="2220",
@@ -638,6 +630,7 @@ def seed(db: Session) -> None:
     from .services import arbol
 
     arbol.cargar_sac(db)
+    db.commit()  # el motor lee el árbol (índice en memoria) con su propia sesión
     # Cada proveedor maneja sus marcas y trabaja con sus sociedades
     tnf.marcas = [cat["marcas"]["TNF"]]
     vans.marcas = [cat["marcas"]["VANS"]]
