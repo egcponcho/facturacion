@@ -323,7 +323,8 @@ def partidas_simples(db: Session, p: Producto, codigo: str) -> dict:
             if not choca:
                 vivos.append((sc + (x.prio or 0) * 10, len(x.cond or {}), faltan, x))
         if not vivos:
-            out[iso] = {"codigo": cb[:n] if len(cb) >= min(n, 10) and d.get("mcca") else sub,
+            # El país usa la línea SAC tal cual solo si existe completa (nunca se recorta)
+            out[iso] = {"codigo": cb if len(cb) >= min(n, 10) and d.get("mcca") else sub,
                         "estado": "sac" if len(cb) >= min(n, 10) else ("nuevo" if lista else "sinarancel")}
             continue
         vivos.sort(key=lambda v: (-v[0], -v[1]))

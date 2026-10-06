@@ -1764,10 +1764,10 @@ function digitosPais(iso, ds){
   const d = (ds || DESTINOS_BASE).find(x=>x.iso === iso) || DESTINOS_BASE.find(x=>x.iso === iso);
   return d ? limDig(d.digitos, 10) : 10;
 }
-/* Muestra el código con los dígitos que usa el país: corta lo que sobra y marca con _ lo que falta */
+/* Muestra el código del país: marca con _ lo que falta para su longitud habitual y nunca corta lo que sobra */
 function fmtPais(cod, n){
   const d = digits(cod); if (!d) return '';
-  const len = n || d.length;
+  const len = Math.max(n || 0, d.length);
   const s = (d + '_'.repeat(Math.max(0, len - d.length))).slice(0, len);
   let o = s.slice(0, 4) + '.' + s.slice(4, 6);
   for (let i = 6; i < s.length; i += 2) o += '.' + s.slice(i, i + 2);
@@ -2012,24 +2012,8 @@ const vacio = v => v === undefined || v === null || v === '';
 function incisosDe(iso, sub6, incisos, ds){
   const out = [];
   (incisos || []).forEach(x=>{ if (x.pais === iso && digits(x.codigo).startsWith(sub6)) out.push({codigo:digits(x.codigo), desc:x.descripcion || descDe(x.codigo), dai:x.dai, nota:x.nota, fuente:x.fuente || 'manual', cond:x.cond || null, prio:x.prio || 0, id:x.id}); });
-  const res = recortarIncisos(out, digitosPais(iso, ds));
-  return res.filter(x=>x.cond || !res.some(y=>y !== x && y.codigo.length > x.codigo.length && y.codigo.startsWith(x.codigo))).sort((a,b)=>a.codigo.localeCompare(b.codigo));
-}
-/* Lleva los incisos a los dígitos del país. Los más largos se cortan; si varios quedan iguales se juntan. */
-function recortarIncisos(lista, n){
-  const res = [], grupos = new Map();
-  lista.forEach(o=>{ if (o.codigo.length > n){ const c = o.codigo.slice(0, n); if (!grupos.has(c)) grupos.set(c, []); grupos.get(c).push(o); } else res.push(o); });
-  grupos.forEach((ms, c)=>{
-    const daiS = [...new Set(ms.map(m=>vacio(m.dai) ? '' : String(m.dai)).filter(Boolean))];
-    const exactos = res.filter(o=>o.codigo === c);
-    if (exactos.length){ exactos.forEach(e=>{ if (vacio(e.dai) && daiS.length === 1) e.dai = daiS[0]; }); return; }
-    const conds = [...new Set(ms.map(m=>m.cond ? JSON.stringify(m.cond) : ''))];
-    const fte = ms.some(m=>m.fuente === 'arancel') ? 'arancel' : ms[0].fuente;
-    res.push({codigo:c, desc:(ms.length === 1 ? ms[0].desc : tr('{0} (merges {1} longer codes)', [descDe(c), ms.length])) + (daiS.length > 1 ? tr('. Duty varies: {0}%', [daiS.join('%, ')]) : ''),
-      dai:daiS.length === 1 ? daiS[0] : '', daiVaria:daiS.length > 1 ? daiS : null, fuente:fte,
-      cond:conds.length === 1 && conds[0] ? ms[0].cond : {}, prio:Math.max(0, ...ms.map(m=>m.prio || 0)), id:ms[0].id, recorte:ms.map(m=>m.codigo)});
-  });
-  return res;
+  // Solo líneas reales del arancel del país: nunca se recorta un código para llevarlo a «los dígitos del país»
+  return out.filter(x=>x.cond || !out.some(y=>y !== x && y.codigo.length > x.codigo.length && y.codigo.startsWith(x.codigo))).sort((a,b)=>a.codigo.localeCompare(b.codigo));
 }
 /* Inciso único por subpartida del país base (para completar la sugerida a todos sus dígitos) */
 function incisosBase(incisos, iso, ds){
