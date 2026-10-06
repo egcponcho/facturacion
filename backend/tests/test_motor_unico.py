@@ -335,3 +335,19 @@ def test_pais_configurable_y_lineas_oficiales_con_override(interno):
     gt2 = interno.get("/aranceles/codigos", params={"pais": "GT", "q": "6404199000"}).json()["items"][0]
     assert gt2["descripcion"] == "Tenis de lona (compras)" and gt2["descripcion_oficial"] == gt["descripcion"] and gt2["override"]
     interno.delete_(f"/aranceles/codigos/{gt['id']}/override")
+
+
+def test_dominio_manual_no_se_aprueba_solo(interno):
+    """Domain.modo = MANUAL: el motor sigue sugiriendo, pero no elige solo; la
+    clasificación queda para revisión y lo dice. En AUTO vuelve a decidir."""
+    dom = next(d for d in interno.get("/aranceles/oficial/dominios").json() if d["codigo"] == "FOOTWEAR")
+    base = {"categoria": "calzado", "ficha": {"estiloCalz": "tenis", "altura": "bajo", "puntera": "ninguna", "genero": "U", "edadNac": "adulto",
+                                              "comp": {"corte": "100% canvas", "suela": "100% rubber"}}, "origen": "CN", "paises": False}
+    s = interno.post("/clasificacion/sesion", base).json()
+    assert s["hs6"] == "640419" and s["clasificacion"]["hs6"]["automatico"] and not s["requiere_revision"]
+    assert interno.patch(f"/aranceles/oficial/dominios/{dom['id']}", {"modo": "MANUAL"}).status_code == 200
+    s = interno.post("/clasificacion/sesion", base).json()
+    assert s["hs6"] == "640419" and not s["clasificacion"]["hs6"]["automatico"] and s["requiere_revision"]
+    assert any("by hand" in x for x in s["revision_por"])
+    interno.patch(f"/aranceles/oficial/dominios/{dom['id']}", {"modo": "AUTO"})
+    assert not interno.post("/clasificacion/sesion", base).json()["requiere_revision"]
