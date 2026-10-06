@@ -121,12 +121,40 @@ The **item code** is free: any numeric or alphanumeric code of up to 40 characte
 
 ## Tariff schedule
 
-*Products → Tariff schedule* (internal team) shows and edits everything the engine uses:
+*Products → Tariff schedule* (internal team) has a side menu in four groups. Official data, the engine's configuration and each country's requirements are kept apart:
 
-- **Countries**: each destination with the digits of its national code (GT/SV/HN 10, NI/CR/PA 12 by default), whether it belongs to the Central American Common Market and its tax. New countries can be added; an inactive country is no longer asked for in the sheets.
-- **SAC headings and subheadings** (4 and 6 digits) with their official text, editable.
-- **National codes** of every country with their duty and the conditions that select them (gender, age, CIF value, use, footwear style…). Filter by one or several countries, chapters and sources, edit inline, delete in bulk, and export to Excel or PDF with the filters applied.
-- **Upload from Excel**: a template per country with the conditions as drop-down columns; a file can update codes or replace a country's whole tariff.
+**Tariff**
+- **Tariff tree**: the official SAC 2025 v6 (99 chapters, 1,012 headings, 5,595 subheadings, 8,242 tariff lines with their DAI), versioned with source and checksum. Search by code or words; each node shows its legal notes and, per country, the national codes, taxes and regulations.
+- **Chapters**: which chapters the classifier uses (active, enabled, automatic candidate, manual only, archived), in bulk.
+- **National codes** of every country with their duty, version, source and validity. The code length is configurable per country (8 to 14 digits when no schema is set).
+- **SAC headings and subheadings** and **Legal notes**, editable.
+
+**Requirements by country**
+- **Regulations**: permits, licenses, registrations, labeling… for a code or a pattern (e.g. `3304`).
+- **Taxes**: VAT/ITBMS/ISV, excise… with rate, basis, thresholds and legal basis. The most specific pattern of each type wins.
+- **Countries**: the code schema and the source of each kind of data.
+
+**Classification engine**
+- **Domains** (chemicals, raw materials, footwear, apparel, accessories) and their chapters. A domain only orders questions and candidates; it never forces or excludes a chapter.
+- **Attributes**: what the product sheet asks, with its options (synonyms, order, active) and where (system, domain, chapter, heading, subheading or product category; ask, required or do not ask). The sheet takes labels, disabled options and switched-off questions from here.
+- **Classification rules**: the system rules (only enabled chapters, legal notes over text similarity, ask only what distinguishes, specialist review when ambiguous…) and the national selection rules. These are the product conditions that pick each national code, kept apart from the official code.
+
+**Data**
+- **Sources and versions** of every dataset.
+- **Data import**: the three official packages (01 catalogs, 02 dynamic engine, 03 national codes, regulations and taxes) are loaded by stages:
+  1. Upload the file to a preview. It validates the file and shows each new, changed or replaced record (before → after), the errors and the warnings.
+  2. Publish to apply it, or discard it. If the data changed since the preview, you are asked to review it again.
+
+  Loads never delete what is published.
+
+Products outside the apparel/footwear/accessories sheet (chemicals, raw materials, anything else) use **Other product**:
+- The questions come from the attribute catalog.
+- The candidates come from the official tariff text, and only from enabled chapters.
+- The result is always a suggestion that a specialist confirms.
+
+A code from a chapter that is not enabled cannot be approved.
+
+The database schema is managed with Alembic (`backend/alembic`). With real data (`SEED_DEMO=0`) pending migrations run at start-up. A test checks that the migrations match the models.
 
 ## Bulk uploads and exports
 

@@ -747,6 +747,9 @@ function setAtributos(cfg){
     if (a.ops.some(op=>ops[op.v] && ops[op.v].orden != null)) a.ops.sort((p, q)=>((ops[p.v] || {}).orden ?? 9999) - ((ops[q.v] || {}).orden ?? 9999));
   }
 }
+/* Títulos de capítulo desde el control de capítulos de la base (los del
+motor quedan como respaldo para los que no estén cargados). */
+function setCapitulos(lista){ (lista || []).forEach(c=>{ if (c.titulo) CAPITULOS[c.capitulo] = c.titulo; }); }
 function opcionLbl(id, v){ const a = ATTR_BY[id]; if (!a) return String(v); if (a.tipo === 'check') return v ? tr('Yes') : tr('No'); const o = (a.ops||[]).find(x=>x.v === v); return o ? o.l : String(v); }
 function prepararEstado(s){
   s._matGuante = '';
@@ -2403,7 +2406,7 @@ export {
   norm, digits, fmtCode, fmtPais, descDe, setSac, descripcionComercial, tipoComercial, TIPO_CORTO_ES, CAPITULOS, DESC, DESTINOS_BASE, MCCA5, notaOrigenDestino,
   TIPOS, TIPO_LBL, TIPO_CORTO, GENERICO, buscarTipos, grupoTipo, partesDe, partesPrincipales, PARTE_LBL, PARTE_PH,
   FIB_LBL, MAT_LBL, MAT_EQUIV, MAT_AMBIGUAS, setSinonimos, claseTexto, CLASE_LBL, prepMat, parseComp, parseMat, claseMat, resumenMat, segmentosComp,
-  ATTRS, ATTR_BY, ATTR_IDS, setAtributos, opcionLbl, opcionesValidas, prepararEstado, normalizar, aplicarImplica, atributosLegibles, estadoAttr, motivoDefinido,
+  ATTRS, ATTR_BY, ATTR_IDS, setAtributos, setCapitulos, opcionLbl, opcionesValidas, prepararEstado, normalizar, aplicarImplica, atributosLegibles, estadoAttr, motivoDefinido,
   detectar, detectarFicha, detectarCon, parseTallas, edadDe, descripcionProfesional, clasificarReglas, sugerir, perfilDe, perfilLegible,
   validar, verificarCodigo, alertaKey, alertasVivas, evaluar, ESTADOS, ESTADO_COLOR, EDAD_LBL, FUENTES,
   digitosPais, incisosDe, incisosBase, partidaPais, partidasDe, paisesCompletos, EST_PAIS, FUENTE_PAIS, NAC_PREG, NAC_IDS, detectarNac,

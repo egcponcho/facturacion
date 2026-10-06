@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..config import settings
 from ..models import (
+    ControlCapitulo,
     Articulo,
     Centro,
     GrupoArticulo,
@@ -578,6 +579,9 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
         "puede_aprobar": tiene(user, "producto.clasificar"),
         "atributos": atributos_cfg(db),
         "dominios_genericos": dominios_ficha(db),
+        # Control de capítulos (R-SYS-001): solo los habilitados se eligen automáticamente
+        "capitulos": [{"capitulo": c.capitulo, "titulo": c.titulo, "habilitado": bool(c.activo and c.clasificacion and not c.archivado),
+                       "solo_manual": c.solo_manual} for c in db.scalars(select(ControlCapitulo))],
     }
 
 
@@ -676,6 +680,11 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
         raise ErrorNegocio(f"{p.estilo}: there is no HS code to approve.", 422, "sin_partida")
     if len(oficial) > 14:
         raise ErrorNegocio("The HS code is too long.", 422, "validacion")
+    # R-SYS-001: solo capítulos activos y habilitados para clasificar
+    cap = db.scalar(select(ControlCapitulo).where(ControlCapitulo.capitulo == oficial[:2]))
+    if cap and not (cap.activo and cap.clasificacion and not cap.archivado):
+        raise ErrorNegocio(f"Chapter {cap.capitulo} is not enabled for classification. Enable it in Tariff schedule → Chapters or choose another code.",
+                           422, "capitulo_no_habilitado")
     parts = partidas if partidas is not None else partidas_simples(db, p, oficial)
     pend = [iso for iso, x in (parts or {}).items() if x.get("estado") == "elegir" and not digitos(x.get("codigo"))]
     if pend:

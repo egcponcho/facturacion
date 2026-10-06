@@ -133,6 +133,7 @@
  "Chapter must be 2 digits.",
  "Chapter note",
  "Chapter {0}",
+ "Chapter {0} is not enabled for classification. Enable it in Tariff schedule → Chapters or choose another code.",
  "Chapters",
  "Chapters separated by commas (empty = all).",
  "Chargeable weight {0} kg (greater of actual weight and {1} kg per m³).",

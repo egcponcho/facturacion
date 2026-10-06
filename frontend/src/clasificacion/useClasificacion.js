@@ -16,6 +16,7 @@ export async function cargarContexto(forzar = false) {
     M.setSinonimos(c.sinonimos || [])
     M.setSac(c.sac || [])
     M.setAtributos(c.atributos)
+    M.setCapitulos(c.capitulos)
     const porEstilo = new Map()
     const porGenerico = new Map()
     for (const r of c.recs) {
@@ -76,6 +77,7 @@ export function calcular(f, ctx, codFinal) {
   const avisosNorm = M.normalizar(s)
   const o = M.evaluar(s, ctx.recs, ctx.base, ctx.validar, codFinal, f.id)
   const base = codFinal || o.completo || o.codigo
+  o.alertas = [...(o.alertas || []), ...alertaCapitulo(base, ctx)]
   const partidas = M.digits(base).length >= 6 ? M.partidasDe(s, base, { incisos: ctx.incisos, destinos: ctx.destinos }) : {}
   const fe = M.estadoFicha(s, ctx.obligatorios)
   const desc = s.descManual ? (s.desc || '') : M.descripcionProfesional(s)
@@ -109,6 +111,7 @@ function calcularGenerico(f, ctx, codFinal) {
     alertas: [],
     parecidos: [],
   }
+  o.alertas = alertaCapitulo(codigo, ctx)
   const partidas = codigo.length >= 6 ? M.partidasDe(s, codigo, { incisos: ctx.incisos, destinos: ctx.destinos }) : {}
   const faltan = [...faltanReq]
   if (!s.origen) faltan.push(t('Country of origin'))
@@ -117,6 +120,16 @@ function calcularGenerico(f, ctx, codFinal) {
   const desc = s.descManual ? (s.desc || '') : String(nombre).toUpperCase().slice(0, 400)
   const descCom = s.comManual ? (s.descCom || '') : [s.gen.product_name || s.descArchivo, s.marca].filter(Boolean).join(' ')
   return { s, o, partidas, completa: !faltan.length, faltan, desc, descCom, avisosNorm: [] }
+}
+// R-SYS-001: un código de un capítulo no habilitado no se puede aprobar (se
+// habilita en Aranceles → Capítulos); uno «solo manual» se avisa
+function alertaCapitulo(codigo, ctx) {
+  const cap = M.digits(codigo).slice(0, 2)
+  const c = cap && (ctx.capitulos || []).find((x) => x.capitulo === cap)
+  if (!c) return []
+  if (!c.habilitado) return [{ nivel: 'error', origen: 'capitulo', msg: t('Chapter {0} ({1}) is not enabled for classification. Enable it in Tariff schedule → Chapters or choose another code.', [cap, c.titulo]) }]
+  if (c.solo_manual) return [{ nivel: 'aviso', origen: 'capitulo', msg: t('Chapter {0} is manual only: confirm the code with the legal notes.', [cap]) }]
+  return []
 }
 const vacioGen = (v) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)
 

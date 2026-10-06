@@ -347,3 +347,15 @@ def test_carga_por_etapas_previa_diferencias_publicar(interno):
     interno.c.post("/api/aranceles/oficial/importar", headers=interno.h,
                    files={"archivo": ("x.xlsx", _libro({"Domains": dom + [["CHEMICALS", "Chemicals", None, "Yes", "AUTO"]]}), "application/octet-stream")})
     assert interno.post(f"/aranceles/oficial/lotes/{viejo['id']}/publicar").status_code == 409
+
+
+def test_aprobar_respeta_control_de_capitulos(interno):
+    """R-SYS-001: un código de un capítulo no habilitado no se aprueba."""
+    caps = {c["capitulo"]: c for c in interno.get("/aranceles/oficial/capitulos").json()["items"]}
+    assert not caps["01"]["clasificacion"]
+    ctx = interno.get("/clasificacion/contexto").json()
+    assert {c["capitulo"]: c["habilitado"] for c in ctx["capitulos"]}["64"] is True
+    p = next(x for x in interno.get("/productos", params={"size": 50}).json()["items"] if x["estado"] not in ("aprobado", "corregido"))
+    det = interno.get(f"/productos/{p['id']}").json()
+    r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "0101210000", "forzar": True})
+    assert r.status_code == 422 and r.json()["codigo"] == "capitulo_no_habilitado", r.text
