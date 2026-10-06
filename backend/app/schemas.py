@@ -622,6 +622,12 @@ class AtributoAmbitoIn(BaseModel):
     quitar: bool = False
 
 
+class ClasificacionGenericaIn(BaseModel):
+    texto: str = Field("", max_length=2000)
+    dominio: str | None = Field(None, max_length=30)
+    respuestas: dict = Field(default_factory=dict)
+
+
 class RegulacionIn(BaseModel):
     codigo: str | None = Field(None, max_length=40)
     pais: str | None = Field(None, max_length=2)

@@ -4,7 +4,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { M } from '../../clasificacion/useClasificacion'
 
 // Categoría del producto: se busca escribiendo (tenis, mochila, termo…) o se
-// elige de la lista agrupada. Cada categoría abre las preguntas de su capítulo.
+// elige de la lista agrupada. Cada categoría abre las preguntas de su capítulo;
+// «Otro producto» abre la ficha genérica (químicos, materias primas…).
 const props = defineProps({ modelValue: { type: String, default: '' }, disabled: Boolean, id: String })
 const emit = defineEmits(['update:modelValue'])
 
@@ -19,11 +20,13 @@ watch(() => props.modelValue, sync, { immediate: true })
 const POR_LBL = Object.fromEntries(Object.entries(M.TIPO_LBL).map(([k, l]) => [M.norm(l).trim(), k]))
 const grupos = computed(() => {
   const q = M.norm(texto.value).trim()
+  // La ruta genérica siempre está al final: lo que no es de la lista no queda sin ficha
+  const otros = { t: t('Other products'), items: [M.GENERICO] }
   if (q && !POR_LBL[q]) {
-    const ks = M.buscarTipos(texto.value, 25)
-    return [{ t: ks.length ? t('Matches') : '', items: ks }]
+    const ks = M.buscarTipos(texto.value, 25).filter((k) => k !== M.GENERICO)
+    return [{ t: ks.length ? t('Matches') : '', items: ks }, otros]
   }
-  return M.TIPOS.map(([g, ops]) => ({ t: g, items: ops.map(([k]) => k) }))
+  return [...M.TIPOS.map(([g, ops]) => ({ t: g, items: ops.map(([k]) => k) })), otros]
 })
 const items = computed(() => grupos.value.flatMap((g) => g.items))
 

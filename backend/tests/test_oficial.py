@@ -289,3 +289,23 @@ def test_longitud_de_codigo_configurable(interno):
     r = interno.post("/aranceles/codigos", {"pais": "SV", "codigo": "6404.19.90.00.02"})
     assert r.status_code == 422 and "10 digits" in r.json()["mensaje"]
     _cargar(interno, {"Countries": [["ISO", "Country", "National code length"], ["SV", "El Salvador", "CONFIGURABLE"]]})
+
+
+def test_ruta_generica_quimicos_y_materias_primas(interno):
+    r = interno.post("/clasificacion/generico", {"texto": "ácido acético glacial", "dominio": "CHEMICALS",
+                                                 "respuestas": {"substance_or_mixture": "SUBSTANCE", "physical_state": "LIQUID"}})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["candidatos"][0]["codigo"] == "291521", [c["codigo"] for c in d["candidatos"]]
+    assert d["revision"] and d["candidatos"][0]["incisos"] and d["candidatos"][0]["dominio"]
+    # Pregunta lo obligatorio y lo del dominio; marca lo ya respondido
+    pregs = {p["codigo"]: p for p in d["preguntas"]}
+    assert pregs["product_name"]["modo"] == "REQUIRE" and pregs["physical_state"]["respondida"]
+    assert "chemical_name" in pregs and "upper_material" not in pregs
+    # Materias primas: el dominio ordena, no obliga (otro capítulo habilitado también puede salir)
+    r = interno.post("/clasificacion/generico", {"texto": "hilados de algodón crudo", "dominio": "RAW_MATERIALS"}).json()
+    assert "52" in [c["capitulo"] for c in r["candidatos"][:3]]
+    # Capítulos no habilitados nunca son candidatos automáticos
+    caps = {c["capitulo"]: c for c in interno.get("/aranceles/oficial/capitulos").json()["items"]}
+    assert all(caps[c["capitulo"]]["clasificacion"] for c in r["candidatos"])
+    assert interno.get("/clasificacion/contexto").json()["dominios_genericos"][0]["codigo"] == "CHEMICALS"

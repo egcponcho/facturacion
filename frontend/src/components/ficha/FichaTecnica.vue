@@ -9,6 +9,7 @@ import { avisar, errorApi } from '../../stores/ui'
 import Icono from '../Icono.vue'
 import CampoCategoria from './CampoCategoria.vue'
 import ComposicionParte from './ComposicionParte.vue'
+import FichaGenerica from './FichaGenerica.vue'
 
 // Formulario de la ficha técnica, con la misma lógica del clasificador:
 // empieza por qué es el producto y va pidiendo solo lo que hace falta para su
@@ -24,6 +25,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['subir-foto', 'borrar-foto', 'contexto', 'acuerdos'])
 const f = props.f
+const esGenerico = computed(() => f.tipo === M.GENERICO)
 
 // ---- Lo que eligió la persona y lo que se llenó solo ----------------------
 // Al abrir una ficha guardada, lo que ya tiene valor cuenta como elegido.
@@ -255,7 +257,7 @@ if (props.editable) deteccion()
           <span class="generico-fijo" :title="t('Generic (style-color): all its sizes share this sheet')">{{ tx(producto.codigo_generico || '—') }}<small>{{ tx(producto.skus) }} {{ tx(producto.skus === 1 ? 'size' : 'sizes') }}<template v-if="producto.rango_tallas"> ({{ tx(producto.rango_tallas) }})</template><template v-if="producto.n_prepacks"> · {{ tx(producto.n_prepacks) }} {{ tx(producto.n_prepacks === 1 ? 'prepack' : 'prepacks') }}</template></small></span>
         </div>
       </div>
-      <div class="fila3">
+      <div v-if="!esGenerico" class="fila3">
         <div v-if="pideGenero || generoFijo" class="campo-f">
           <span class="lbl-f">{{ t('Gender') }}<span class="req-ast">*</span></span>
           <div class="segs" role="radiogroup" :aria-label="t('Gender')">
@@ -322,7 +324,8 @@ if (props.editable) deteccion()
         <span class="sub">{{ tx(f.tipo ? M.TIPO_LBL[f.tipo] : t('Choose the category first')) }}</span>
       </div>
 
-      <fieldset v-if="f.tipo" id="blk-carac" class="fs" :disabled="!props.editable">
+      <FichaGenerica v-if="esGenerico" :f="f" :ctx="props.ctx" :editable="props.editable" />
+      <fieldset v-if="f.tipo && !esGenerico" id="blk-carac" class="fs" :disabled="!props.editable">
         <legend>{{ t('Features') }}</legend>
         <p v-if="!preguntar.length" class="hint">{{ t('This category needs no more data to be classified.') }}</p>
         <div class="rejilla-attrs">
@@ -350,7 +353,7 @@ if (props.editable) deteccion()
         </p>
       </fieldset>
 
-      <fieldset v-if="partes.length" id="blk-comp" class="fs">
+      <fieldset v-if="partes.length && !esGenerico" id="blk-comp" class="fs">
         <legend>{{ t('Composition') }}</legend>
         <p class="hint" style="margin-bottom: 8px">{{ tx(COMP_HINT[M.grupoTipo(f.tipo)] || t('Materials of the product and their percentage.')) }}</p>
         <div class="rejilla-partes">

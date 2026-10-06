@@ -71,6 +71,7 @@ export function fichaParaGuardar(f) {
 
 // Evalúa la ficha: código sugerido, razones, alertas, códigos por país y si está completa
 export function calcular(f, ctx, codFinal) {
+  if (f.tipo === M.GENERICO) return calcularGenerico(f, ctx, codFinal)
   const s = { ...f, comp: { ...(f.comp || {}) } }
   const avisosNorm = M.normalizar(s)
   const o = M.evaluar(s, ctx.recs, ctx.base, ctx.validar, codFinal, f.id)
@@ -82,8 +83,55 @@ export function calcular(f, ctx, codFinal) {
   return { s, o, partidas, completa: fe.completa, faltan: fe.faltan, desc, descCom, avisosNorm }
 }
 
+// Ruta genérica: la ficha la arma el catálogo de atributos y los candidatos
+// los trae el servidor del árbol oficial (FichaGenerica los guarda en la
+// ficha como evidencia). Nunca confirma sola: queda como sugerencia y pide
+// revisión del especialista (reglas R-SYS-003 y R-SYS-005).
+function calcularGenerico(f, ctx, codFinal) {
+  const s = { ...f, gen: { ...(f.gen || {}) }, comp: { ...(f.comp || {}) } }
+  const cands = s.genCand || []
+  const codigo = M.digits(codFinal || s.codigoGen || '')
+  const elegido = cands.find((c) => codigo.startsWith(c.codigo))
+  const defs = Object.fromEntries((ctx.atributos?.genericos || []).map((a) => [a.codigo, a]))
+  const faltanReq = (s.genReq || []).filter((k) => vacioGen(s.gen[k])).map((k) => defs[k]?.etiqueta || k)
+  const o = {
+    codigo: codigo.slice(0, 6),
+    completo: codigo.length >= 8 ? codigo : '',
+    confianza: codigo ? (elegido && s.genConf === 'medium' ? 'medium' : 'low') : 'low',
+    fuente: 'generic',
+    perfil: s.dominio || '',
+    razones: elegido
+      ? [t('Candidate from the official tariff text: {0} (matches {1}).', [M.fmtCode(elegido.codigo), elegido.terminos.join(', ')]), t('Text never confirms a code by itself: a specialist reviews it.')]
+      : codigo ? [t('Code chosen by hand.')] : [],
+    alternativas: cands.filter((c) => !codigo.startsWith(c.codigo)).slice(0, 6).map((c) => ({ codigo: c.codigo, cuando: c.descripcion.split(' — ').slice(-1)[0] })),
+    faltantes: faltanReq,
+    avisos: [],
+    alertas: [],
+    parecidos: [],
+  }
+  const partidas = codigo.length >= 6 ? M.partidasDe(s, codigo, { incisos: ctx.incisos, destinos: ctx.destinos }) : {}
+  const faltan = [...faltanReq]
+  if (!s.origen) faltan.push(t('Country of origin'))
+  if (!codigo) faltan.push(t('Data for the code'))
+  const nombre = s.gen.chemical_name || s.gen.product_name || s.descArchivo || ''
+  const desc = s.descManual ? (s.desc || '') : String(nombre).toUpperCase().slice(0, 400)
+  const descCom = s.comManual ? (s.descCom || '') : [s.gen.product_name || s.descArchivo, s.marca].filter(Boolean).join(' ')
+  return { s, o, partidas, completa: !faltan.length, faltan, desc, descCom, avisosNorm: [] }
+}
+const vacioGen = (v) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)
+
+// Atributos de la ficha genérica en palabras (para el resultado y reportes)
+function atributosGenericos(s, ctx) {
+  const defs = Object.fromEntries((ctx?.atributos?.genericos || []).map((a) => [a.codigo, a]))
+  return Object.entries(s.gen || {}).filter(([, v]) => !vacioGen(v)).map(([k, v]) => {
+    const a = defs[k]
+    const txt = (x) => a?.opciones?.find((o) => o.codigo === x)?.etiqueta || (x === true ? t('Yes') : x === false ? t('No') : x)
+    return [a?.etiqueta || k, (Array.isArray(v) ? v.map(txt).join(', ') : txt(v)) + (a?.unidad && typeof v === 'number' ? ` ${a.unidad}` : '')]
+  })
+}
+
 // Resultado para el servidor (esquema ResultadoMotor)
-export function resultadoServidor(r) {
+export function resultadoServidor(r, ctx = estado.ctx) {
   const { o } = r
   const partidas = {}
   for (const [iso, x] of Object.entries(r.partidas)) {
@@ -108,11 +156,11 @@ export function resultadoServidor(r) {
     faltan: r.faltan.slice(0, 30),
     partidas,
     tipo_txt: M.TIPO_LBL[r.s.tipo] || null,
-    atributos: [
+    atributos: (r.s.tipo === M.GENERICO ? atributosGenericos(r.s, ctx) : [
       ...(r.s.genero ? [[t('Gender'), { M: t('Men'), F: t('Women'), U: t('Unisex') }[r.s.genero] || r.s.genero]] : []),
       ...(M.edadDe(r.s) ? [[t('Who it is for'), { adulto: t('Adult'), nino: t('Child or youth'), bebe: t('Baby') }[M.edadDe(r.s)]]] : []),
       ...M.atributosLegibles(r.s).filter(([k]) => k !== 'Gender' && k !== 'Who it is for'),
-    ].slice(0, 60).map(([k, v]) => [String(k), String(v)]),
+    ]).slice(0, 60).map(([k, v]) => [String(k), String(v)]),
   }
 }
 

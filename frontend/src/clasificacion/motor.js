@@ -270,6 +270,13 @@ const TIPO_ALIAS = {
   gancho:'hanger gancho percha colgador', etiqueta:'hang tag etiqueta label etiqueta de precio etiqueta tejida',
   exhibidor:'display exhibidor góndola mueble de tienda shoe wall maniquí mannequin busto'
 };
+/* Ruta genérica (químicos, materias primas y todo lo que no está en la lista):
+la ficha la arma el catálogo de atributos de la base y los candidatos salen
+del árbol arancelario oficial en el servidor; este motor no la clasifica. */
+const GENERICO = 'generico';
+TIPO_LBL[GENERICO] = tr('Other product: chemicals, raw materials or anything not listed');
+TIPO_CORTO[GENERICO] = tr('Other product');
+TIPO_CORTO_ES[GENERICO] = 'Otro producto';
 const TIPO_ANTES = {bolsa_magnesio:'bolso_viaje', crash_pad:'equipo_deporte', silla:'mueble_camping'};
 function buscarTipos(q, n){
   const w = norm(q).split(/[^a-z0-9]+/).filter(x=>x.length >= 2);
@@ -2394,7 +2401,7 @@ function descripcionComercial(f){
 
 export {
   norm, digits, fmtCode, fmtPais, descDe, setSac, descripcionComercial, tipoComercial, TIPO_CORTO_ES, CAPITULOS, DESC, DESTINOS_BASE, MCCA5, notaOrigenDestino,
-  TIPOS, TIPO_LBL, TIPO_CORTO, buscarTipos, grupoTipo, partesDe, partesPrincipales, PARTE_LBL, PARTE_PH,
+  TIPOS, TIPO_LBL, TIPO_CORTO, GENERICO, buscarTipos, grupoTipo, partesDe, partesPrincipales, PARTE_LBL, PARTE_PH,
   FIB_LBL, MAT_LBL, MAT_EQUIV, MAT_AMBIGUAS, setSinonimos, claseTexto, CLASE_LBL, prepMat, parseComp, parseMat, claseMat, resumenMat, segmentosComp,
   ATTRS, ATTR_BY, ATTR_IDS, setAtributos, opcionLbl, opcionesValidas, prepararEstado, normalizar, aplicarImplica, atributosLegibles, estadoAttr, motivoDefinido,
   detectar, detectarFicha, detectarCon, parseTallas, edadDe, descripcionProfesional, clasificarReglas, sugerir, perfilDe, perfilLegible,

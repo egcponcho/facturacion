@@ -37,6 +37,15 @@ def contexto(db: Db, user: User, proveedor_id: int | None = None):
     return {**svc.contexto(db, user, proveedor_id), "especialista": especialista.disponible()}
 
 
+@router.post("/clasificacion/generico")
+def clasificacion_generica(datos: s.ClasificacionGenericaIn, db: Db, user: User):
+    """Ruta genérica (químicos, materias primas, otros): candidatos del árbol
+    oficial y las preguntas que conviene hacer. Nunca confirma un código."""
+    from ..services import generico
+
+    return generico.candidatos(db, user, datos.texto, datos.dominio, datos.respuestas)
+
+
 @router.get("/productos/fotos/{foto_id}")
 def foto(foto_id: int, db: Db, user: User):
     f = svc.obtener_foto(db, user, foto_id)
