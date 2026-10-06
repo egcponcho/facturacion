@@ -21,6 +21,7 @@ import PanelReglas from '../components/aranceles/PanelReglas.vue'
 import PanelRegulaciones from '../components/aranceles/PanelRegulaciones.vue'
 import PanelImpuestos from '../components/aranceles/PanelImpuestos.vue'
 import PanelFuentes from '../components/aranceles/PanelFuentes.vue'
+import PanelIntegridad from '../components/aranceles/PanelIntegridad.vue'
 import PanelImportacion from '../components/aranceles/PanelImportacion.vue'
 import { cargarContexto } from '../clasificacion/useClasificacion'
 import { digits, fmtPais } from '../clasificacion/formato.js'
@@ -45,7 +46,9 @@ const sel = useSeleccion()
 
 const opcionesPais = computed(() => paises.value.map((p) => ({ valor: p.iso, texto: `${p.iso} · ${p.nombre}` })))
 // Versiones oficiales a las que puede pertenecer una línea del país (la nacional o la regional del SAC)
-const versionesDe = (iso) => (meta.value.versiones_oficiales || []).filter((v) => v.fuente && [iso, 'REGIONAL'].includes(v.ambito))
+// (las publicadas no cambian: solo borrador o dinámica)
+const versionesDe = (iso) => (meta.value.versiones_oficiales || []).filter((v) => v.fuente && [iso, 'REGIONAL'].includes(v.ambito)
+  && ['BORRADOR', 'DINAMICA'].includes(v.estado))
 const opcionesFuente = computed(() => Object.entries(meta.value.fuentes).map(([v, t]) => ({ valor: v, texto: t })))
 const CAPITULOS = [['42', t('42 · Leather goods, bags')], ['61', t('61 · Knitted apparel')], ['62', t('62 · Woven apparel')], ['63', t('63 · Other textile articles')],
   ['64', t('64 · Footwear')], ['65', t('65 · Headwear')], ['39', t('39 · Plastics')], ['40', t('40 · Rubber')], ['48', t('48 · Paper')], ['66', t('66 · Umbrellas')],
@@ -302,7 +305,8 @@ const MENU = computed(() => [
     ['paises', t('Countries'), 'globo', paises.value.length]] },
   { titulo: t('Classification engine'), items: [['dominios', t('Domains'), 'capas'], ['atributos', t('Attributes'), 'engrane'],
     ['reglas', t('Classification rules'), 'varita']] },
-  { titulo: t('Data'), items: [['fuentes', t('Sources and versions'), 'historial'], ['importacion', t('Data import'), 'importar']] },
+  { titulo: t('Data'), items: [['fuentes', t('Sources and versions'), 'historial'], ['importacion', t('Data import'), 'importar'],
+    ['integridad', t('Tariff data integrity'), 'check']] },
 ])
 
 // En pantallas chicas el menú es una fila con desplazamiento: se centra la sección activa
@@ -382,6 +386,7 @@ watch(() => fs.size, recargarS)
   <PanelRegulaciones v-else-if="vista === 'regulaciones'" :paises="paises" />
   <PanelImpuestos v-else-if="vista === 'impuestos'" :paises="paises" />
   <PanelFuentes v-else-if="vista === 'fuentes'" />
+  <PanelIntegridad v-else-if="vista === 'integridad'" />
   <PanelImportacion v-else-if="vista === 'importacion'" @cargado="cargarBase" />
 
   <!-- Códigos nacionales -->

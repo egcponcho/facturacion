@@ -315,9 +315,12 @@ def cargar_lineas_regionales(db: Session, version: str = "SAC-2025-V6") -> int:
         for cod, desc, dai in nodos:
             if (iso, cod) in ya:
                 continue
-            f = {"pais": iso, "codigo": cod, "sub6": cod[:6], "dai": dai or None, "descripcion": (desc or "")[:300], "fuente": "oficial",
-                 "fuente_id": v.fuente_id, "version_id": v.id, "vigente_desde": v.vigente_desde, "vigente_hasta": v.vigente_hasta,
-                 "codigo_base": cod[:8], "nota": nota[:300], "url": fuente.url if fuente else None, "activo": True}
+            # DAI de la Parte II: distinto por país, no está en el texto regional (queda vacío, con la nota)
+            parte2 = bool(dai) and dai.upper().startswith("PARTE II")
+            f = {"pais": iso, "codigo": cod, "sub6": cod[:6], "dai": None if parte2 else (dai or None), "descripcion": (desc or "")[:300],
+                 "fuente": "oficial", "fuente_id": v.fuente_id, "version_id": v.id, "vigente_desde": v.vigente_desde,
+                 "vigente_hasta": v.vigente_hasta, "codigo_base": cod[:8], "url": fuente.url if fuente else None, "activo": True,
+                 "nota": (f"{nota} · DAI in Part II of the ACI (country-specific)" if parte2 else nota)[:300]}
             (con_cond if cod in interpretacion else filas).append(f)
     if filas:
         db.execute(insert(IncisoNacional), filas)

@@ -19,7 +19,7 @@ El historial empresarial solo reordena candidatos ya permitidos.
 | Archivo / dato | Contenido | Clasificación | Destino |
 |---|---|---|---|
 | `data/sac_oficial.json` | 6 607 capítulos, partidas y subpartidas, texto del ACI (SIECA, VII Enmienda, v6, ago-2025), extraído por `scripts/sieca` | **1. Oficial** | Árbol `NodoArancel`, versión SAC-2025-V6, fuente SRC-SIECA-ACI |
-| `data/aci_incisos.json` → `codigo, descripcion, dai` | 8 242 líneas de 10 dígitos con DAI del ACI | **1. Oficial** | Árbol + líneas nacionales de los países que aplican el SAC regional a 10 dígitos, con fuente y versión regional |
+| `data/aci_incisos.json` → `codigo, descripcion, dai` | 8 242 filas = 7 517 líneas de 10 dígitos con DAI del ACI; 519 líneas remitidas a la Parte II vienen repetidas con tasas de la Parte II sin su país | **1. Oficial** | Árbol (una línea por código) + líneas nacionales de los países que aplican el SAC regional a 10 dígitos, con fuente y versión regional; el DAI de la Parte II queda vacío (por país) |
 | `data/aci_incisos.json` → `cond` | 20 condiciones (género…) deducidas por nuestro script del texto oficial | **2. Motor** (interpretación) | Reglas `NATIONAL_SELECT` de capa sistema (guía del clasificador), nunca en el dato oficial |
 | `data/incisos_base.json` | 563 códigos por país con condiciones (`puntera`, `edadNac`, `estiloCalz`…) y conteo de artículos, construidos desde artículos de una empresa | **3. Empresa** | `CompanyClassificationHistory` (preferencias por país); ya no crea `IncisoNacional` |
 | NI, CR, PA "códigos nacionales" | Venían solo de `incisos_base.json` (fuente `base`) | **3. Empresa / 6. Sin fuente oficial** | Se retiran del catálogo oficial: el país queda *Official national tariff data not available* hasta cargar su arancel |
@@ -47,3 +47,25 @@ El historial empresarial solo reordena candidatos ya permitidos.
 
 Las fichas SDS/TDS/COA son **evidencia técnica del producto** (capa empresa,
 adjuntas al producto): alimentan hechos, nunca códigos.
+
+## Auditor de integridad
+
+`services/integridad.py` (`GET /aranceles/oficial/integridad`, pantalla
+*Tariff schedule → Tariff data integrity*) revisa sin corregir nada:
+
+| Nivel | Qué detecta |
+|---|---|
+| `SOURCE_MISSING` | Línea, versión, nota oficial, impuesto o regulación sin fuente oficial / base legal; país activo sin fuente (*Pending official source verification*) |
+| `CONTAMINATION` | Línea con `fuente` distinta de oficial, línea que solo existe en la base de artículos de la empresa, resumen interno marcado como texto legal, regla del motor o de la empresa presentada como legal |
+| `ERROR` | Línea sin país, que no cuelga de su subpartida, fuera de la nomenclatura base (SAC regional) de un país SAC10, largo inválido, versión de otro país, duplicada; impuesto sin tasa o base de cálculo |
+| `VERSION_EXPIRED` | Línea, impuesto o regulación activa con vigencia vencida; ámbito sin versión vigente |
+| `WARNING` | Versión publicada modificada a mano; versiones publicadas del mismo ámbito con vigencias traslapadas |
+
+Las versiones publicadas no cambian: a mano o desde Excel solo se escriben
+líneas de versiones en borrador o dinámicas; lo publicado llega por la carga
+oficial por etapas (previa → diferencias → publicar).
+
+El auditor encontró que el ACI incluido repetía 519 líneas remitidas a la
+Parte II (DAI no armonizado) con tasas de la Parte II sin su país. Ahora se
+carga una línea por código y su DAI queda vacío con la nota *DAI in Part II of
+the ACI (country-specific)* (migración 0018).

@@ -35,6 +35,20 @@ def formato(c: str) -> str:
     return ".".join([c[:4]] + [c[i:i + 2] for i in range(4, len(c), 2)])
 
 
+def lineas_aci() -> list[dict]:
+    """Líneas del ACI, una por código. Las que el ACI remite a la Parte II
+    (DAI no armonizado, distinto por país) vienen repetidas con las tasas de la
+    Parte II sin el país al que pertenecen: se deja una sola línea con el DAI
+    «Parte II» (pendiente del arancel nacional), nunca una tasa que podría ser
+    de otro país."""
+    vistas: dict[str, dict] = {}
+    for x in _leer("aci_incisos.json"):
+        c = digitos(x["codigo"])
+        if c not in vistas:
+            vistas[c] = x
+    return list(vistas.values())
+
+
 def _leer(nombre: str):
     import json
 
@@ -85,7 +99,7 @@ def cargar_sac(db: Session, version: str = VERSION_DATOS_SEED) -> int:
             total += len(filas)
     seis, cuatro, dos = ids_de(6), ids_de(4), ids_de(2)
     filas = []
-    for x in _leer("aci_incisos.json"):
+    for x in lineas_aci():
         c = digitos(x["codigo"])
         p = seis.get(c[:6]) or cuatro.get(c[:4]) or dos.get(c[:2])
         filas.append({**base, "nivel": "INCISO", "codigo": formato(c), "codigo_norm": c, "padre_id": p,

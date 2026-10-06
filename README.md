@@ -124,7 +124,7 @@ The **item code** is free: any numeric or alphanumeric code of up to 40 characte
 *Products → Tariff schedule* (internal team) has a side menu in four groups. Official data, the engine's configuration and each country's requirements are kept apart:
 
 **Tariff**
-- **Tariff tree**: the official SAC 2025 v6 (99 chapters, 1,012 headings, 5,595 subheadings, 8,242 tariff lines with their DAI), versioned with source and checksum. Search by code or words; each node shows its legal notes and, per country, the national codes, taxes and regulations.
+- **Tariff tree**: the official SAC 2025 v6 (99 chapters, 1,012 headings, 5,595 subheadings, 7,517 tariff lines with their DAI; the 519 lines whose DAI the ACI sends to Part II, which differs by country, keep no single rate), versioned with source and checksum. Search by code or words; each node shows its legal notes and, per country, the national codes, taxes and regulations.
 - **Chapters**: which chapters the classifier uses (active, enabled, automatic candidate, manual only, archived), in bulk.
 - **National codes** of every country with their duty, version, source and validity. The code length is configurable per country (8 to 14 digits when no schema is set).
 - **SAC headings and subheadings** and **Legal notes**, editable.

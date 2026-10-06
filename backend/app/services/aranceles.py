@@ -477,6 +477,7 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
     v_ok = _version_de_pais(version, ps[pais])
     if not v_ok:
         raise ErrorNegocio(f"Version {version.codigo} is not a tariff version of {pais} or of the regional SAC.", 422, "validacion")
+    _version_editable(version)
     if not _en_arbol(db, cod):
         raise ErrorNegocio(f"{_fmt(cod)} does not hang from a subheading of the official tariff tree.", 422, "codigo_inexistente")
     x = IncisoNacional(pais=pais, codigo=cod, sub6=cod[:6], fuente="oficial", fuente_id=fuente.id, version_id=version.id,
@@ -515,6 +516,15 @@ def _procedencia(db: Session, fuente_cod: str | None, version_cod: str | None, p
 
 def _version_de_pais(v, p) -> bool:
     return (v.ambito or "").upper() in (p.iso, "REGIONAL")
+
+
+def _version_editable(v) -> None:
+    """Una versión publicada no cambia: sus líneas llegan por la carga oficial
+    por etapas (previa → diferencias → publicar). A mano o desde Excel solo se
+    escriben líneas de una versión en borrador o dinámica."""
+    if (v.estado or "").upper() not in ("BORRADOR", "DINAMICA"):
+        raise ErrorNegocio(f"Version {v.codigo} is published and does not change. Load the new lines in a draft version, "
+                           "or through the official staged upload.", 422, "version_publicada")
 
 
 def _en_arbol(db: Session, cod: str) -> bool:
@@ -623,6 +633,7 @@ def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, 
     de esa misma versión (las otras versiones no se tocan)."""
     exigir(user, "aranceles.editar")
     f_ofi, v_ofi = _procedencia(db, fuente, version)
+    _version_editable(v_ofi)
     ps = _paises_dict(db)
     filas = leer(nombre, contenido, _alias_incisos(db))
     oc = opciones_cond(db)

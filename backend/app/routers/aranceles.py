@@ -195,6 +195,14 @@ def borrar_codigos(datos: s.IdsIn, db: Db, user: User, clave: Clave = None):
 
 
 # ---- Capa oficial: fuentes, versiones, capítulos y dominios ------------------------
+@router.get("/aranceles/oficial/integridad")
+def oficial_integridad(db: Db, user: User):
+    """Auditor de integridad: dato oficial sin fuente, contaminación de la empresa, versiones…"""
+    from ..services import integridad
+
+    return integridad.auditar(db, user)
+
+
 @router.get("/aranceles/oficial/fuentes")
 def oficial_fuentes(db: Db, user: User):
     from ..services import oficial

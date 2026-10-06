@@ -78,7 +78,7 @@ def test_reimportar_es_idempotente_y_valida(interno):
 def test_arbol_arancelario_completo(interno):
     r = interno.get("/aranceles/arbol/resumen").json()
     assert r["version"] == "SAC-2025-V6" and len(r["checksum"]) == 64
-    assert r["niveles"]["CAPITULO"] == 99 and r["niveles"]["PARTIDA"] > 1000 and r["niveles"]["INCISO"] > 8000
+    assert r["niveles"]["CAPITULO"] == 99 and r["niveles"]["PARTIDA"] > 1000 and r["niveles"]["INCISO"] == 7517  # una línea por código (las de la Parte II no se repiten)
     caps = interno.get("/aranceles/arbol").json()["items"]
     c64 = next(c for c in caps if c["codigo"] == "64")
     assert c64["capitulo_habilitado"] and c64["hijos"] == 6
@@ -174,9 +174,9 @@ def test_reglas_del_sistema_y_seleccion_nacional(interno):
 
 def test_editar_regla_nacional_llega_al_motor(interno):
     # Un código con condiciones creado desde Aranceles queda como regla
-    r = interno.post("/aranceles/codigos", {"pais": "SV", "codigo": "6404.19.90.99", "descripcion": "Prueba regla",
+    r = interno.post("/aranceles/codigos", {"pais": "CR", "codigo": "6404.19.90.99", "descripcion": "Prueba regla",
                                             "cond": {"genero": "F", "cifMax": 15}, "prio": 3,
-                                            "fuente": "SRC-SIECA-ACI", "version": "SAC-2025-V6"})
+                                            "fuente": "SRC-CR-ATENA", "version": "CR-ATENA"})
     assert r.status_code == 200, r.text
     iid = r.json()["id"]
     regla = next(x for x in interno.get("/aranceles/reglas", params={"q": "6404199099"}).json()["items"] if x["inciso"]["id"] == iid)
@@ -200,7 +200,7 @@ def test_editar_regla_nacional_llega_al_motor(interno):
         x = db.get(IncisoNacional, iid)
         assert not x.regla.activo and x.activo and x.regla.tipo_fuente == "MANUAL"
     # Quitar condiciones y prioridad desde el código deja el código sin regla
-    r = interno.put(f"/aranceles/codigos/{iid}", {"pais": "SV", "codigo": "6404.19.90.99", "descripcion": "Prueba regla", "cond": {}, "prio": 0,
+    r = interno.put(f"/aranceles/codigos/{iid}", {"pais": "CR", "codigo": "6404.19.90.99", "descripcion": "Prueba regla", "cond": {}, "prio": 0,
                                                   "activo": True})
     assert r.status_code == 200, r.text
     assert not [x for x in interno.get("/aranceles/reglas", params={"q": "6404199099"}).json()["items"] if x.get("inciso", {}).get("id") == iid]

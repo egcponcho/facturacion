@@ -16,6 +16,19 @@ def _xlsx(filas):
     return b.getvalue()
 
 
+def _version_borrador(api, codigo, ambito):
+    """Una versión nacional en borrador (las publicadas no cambian)."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Versions"
+    ws.append(["Version ID", "Dataset", "Version label", "Status", "Valid from", "Valid to", "Source ID", "Scope"])
+    ws.append([codigo, f"{ambito} national tariff (draft)", "Draft", "Draft", "2026-01-01", None, "SRC-SIECA-ACI", ambito])
+    b = io.BytesIO()
+    wb.save(b)
+    r = api.c.post("/api/aranceles/oficial/importar", headers=api.h, files={"archivo": ("v.xlsx", io.BytesIO(b.getvalue()), "application/octet-stream")})
+    assert r.status_code == 200, r.text
+
+
 def _subir(api, url, contenido, **params):
     return api.c.post(f"/api{url}", headers=api.h, params=params,
                       files={"archivo": ("datos.xlsx", io.BytesIO(contenido), "application/octet-stream")})
@@ -64,7 +77,11 @@ def test_paises_sac_y_codigos(interno, vans):
     assert sin.status_code == 422 and sin.json()["codigo"] == "sin_procedencia"
     # Tampoco una que no cuelga del árbol oficial
     assert interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "9999.99.00", "fuente": "SRC-SIECA-ACI", "version": "SAC-2025-V6"}).status_code == 422
-    r = interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "6404.19.00", "dai": "20%", "fuente": "SRC-SIECA-ACI", "version": "SAC-2025-V6",
+    # Ni se agregan líneas a una versión publicada: van a una versión en borrador
+    r = interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "6404.19.00", "fuente": "SRC-SIECA-ACI", "version": "SAC-2025-V6"})
+    assert r.status_code == 422 and r.json()["codigo"] == "version_publicada"
+    _version_borrador(interno, "DO-DRAFT", "DO")
+    r = interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "6404.19.00", "dai": "20%", "fuente": "SRC-SIECA-ACI", "version": "DO-DRAFT",
                                             "cond": {"genero": "M", "edadNac": "adulto"}})
     assert r.status_code == 200, r.text
     lista = interno.get("/aranceles/codigos", params={"pais": "DO"}).json()
@@ -92,22 +109,32 @@ def test_cargar_y_exportar(interno):
     # Una carga de líneas nacionales es la publicación oficial de un país: sin fuente ni versión no entra
     sin = _subir(interno, "/aranceles/codigos/importar", contenido)
     assert sin.status_code == 422 and sin.json()["codigo"] == "sin_procedencia"
+    # Una versión publicada no cambia (ni su texto ni su DAI)
     r = _subir(interno, "/aranceles/codigos/importar", contenido, fuente="SRC-SIECA-ACI", version="SAC-2025-V6")
+    assert r.status_code == 422 and r.json()["codigo"] == "version_publicada"
+    _version_borrador(interno, "SV-DRAFT", "SV")
+    r = _subir(interno, "/aranceles/codigos/importar", contenido, fuente="SRC-SIECA-ACI", version="SV-DRAFT")
     assert r.status_code == 200, r.text
     r = r.json()
-    # La línea ya existe en esa versión: se actualiza (no se duplica) y las condiciones son configuración propia
-    assert r["creados"] == 0 and r["actualizados"] == 1 and len(r["errores"]) == 2
-    x = interno.get("/aranceles/codigos", params={"pais": "SV", "q": "6402991000"}).json()["items"][0]
+    assert r["creados"] == 1 and r["actualizados"] == 0 and len(r["errores"]) == 2
+    items = interno.get("/aranceles/codigos", params={"pais": "SV", "q": "6402991000"}).json()["items"]
+    x = next(i for i in items if i["version"] == "SV-DRAFT")
+    publicada = next(i for i in items if i["version"] == "SAC-2025-V6")
     assert x["cond"] == {"genero": "M", "estiloCalz": "tenis"} and x["fuente"] == "oficial" and x["oficial"]
-    assert _subir(interno, "/aranceles/codigos/importar", contenido, fuente="SRC-SIECA-ACI", version="SAC-2025-V6").json()["actualizados"] == 1
+    # La misma línea en la misma versión se actualiza (no se duplica)
+    assert _subir(interno, "/aranceles/codigos/importar", contenido, fuente="SRC-SIECA-ACI", version="SV-DRAFT").json()["actualizados"] == 1
+    # La versión en borrador no es la vigente: El Salvador sigue clasificando con la regional
+    s = interno.post("/clasificacion/sesion", {"categoria": "calzado", "ficha": {}, "hs6": "640299"}).json()
+    assert all(p["version"] != "SV-DRAFT" for p in (s.get("clasificacion") or {}).get("paises") or [])
     for formato in ("xlsx", "pdf"):
         r = interno.get("/aranceles/codigos/exportar", params={"pais": "SV", "capitulo": "64", "formato": formato})
         assert r.status_code == 200 and len(r.content) > 1000
     r = _subir(interno, "/aranceles/sac/importar", _xlsx([["Code", "Description"], ["9999.99", "Prueba"], ["6403.51", "Botas de cuero (interno)"]])).json()
     assert r["actualizados"] == 1 and len(r["errores"]) == 1  # 9999.99 no es oficial: no se inventa
     assert interno.get("/aranceles/sac/exportar", params={"q": "6403", "formato": "pdf"}).status_code == 200
-    # Una línea oficial de una versión publicada no se borra
-    assert interno.post("/aranceles/codigos/borrar", {"ids": [x["id"]]}).status_code == 422
+    # Una línea oficial de una versión publicada no se borra; la de un borrador sí
+    assert interno.post("/aranceles/codigos/borrar", {"ids": [publicada["id"]]}).status_code == 422
+    assert interno.post("/aranceles/codigos/borrar", {"ids": [x["id"]]}).status_code == 200
 
 
 def test_notas_sac(interno):
