@@ -200,6 +200,31 @@ def oficial_dominios(db: Db, user: User):
     return oficial.dominios(db, user)
 
 
+@router.post("/aranceles/oficial/dominios")
+@router.patch("/aranceles/oficial/dominios/{dominio_id}")
+def oficial_dominio_guardar(datos: s.DominioIn, db: Db, user: User, dominio_id: int | None = None, clave: Clave = None):
+    from ..services import categorias
+
+    return ejecutar(db, user, clave, lambda: categorias.guardar_dominio(db, user, dominio_id, datos.model_dump(exclude_unset=True)))
+
+
+@router.get("/aranceles/categorias")
+def categorias_lista(db: Db, user: User, todas: bool = False):
+    from ..services import categorias
+    from ..services.common import exigir
+
+    exigir(user, "producto.ver")
+    return categorias.categorias(db, not todas)
+
+
+@router.post("/aranceles/categorias")
+@router.patch("/aranceles/categorias/{cat_id}")
+def categorias_guardar(datos: s.CategoriaIn, db: Db, user: User, cat_id: int | None = None, clave: Clave = None):
+    from ..services import categorias
+
+    return ejecutar(db, user, clave, lambda: categorias.guardar_categoria(db, user, cat_id, datos.model_dump(exclude_unset=True)))
+
+
 @router.put("/aranceles/oficial/dominios/{dominio_id}/capitulos/{capitulo}")
 def oficial_dominio_capitulo(dominio_id: int, capitulo: str, datos: s.DominioCapituloIn, db: Db, user: User,
                              clave: Clave = None):

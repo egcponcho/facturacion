@@ -87,8 +87,17 @@ const EDADES = [['adulto', t('Adult'), ''], ['nino', t('Child'), t('Child, girl 
 
 watch(generoFijo, (g) => { if (g && f.genero !== g) f.genero = g }, { immediate: true })
 
+// Una categoría de configuración sin ficha especializada abre la ficha dinámica de su dominio
 function elegirTipo(t) {
-  f.tipo = t
+  const c = (props.ctx.categorias || []).find((x) => x.codigo === t)
+  if (c && !c.ficha_motor) {
+    f.tipo = M.GENERICO
+    f.categoria = c.codigo
+    f.dominio = c.dominio || ''
+  } else {
+    f.tipo = t
+    f.categoria = t === M.GENERICO ? '' : undefined
+  }
   tocar('tipo')
   M.normalizar(f)
   deteccion()
@@ -248,7 +257,8 @@ if (props.editable) deteccion()
       <div class="fila2">
         <div class="campo-f">
           <label for="f_categoria">{{ t('Category') }}<span class="req-ast">*</span></label>
-          <CampoCategoria id="f_categoria" :model-value="f.tipo" :disabled="!props.editable" @update:model-value="elegirTipo" />
+          <CampoCategoria id="f_categoria" :model-value="esGenerico && f.categoria ? f.categoria : f.tipo" :categorias="props.ctx.categorias || []"
+                          :disabled="!props.editable" @update:model-value="elegirTipo" />
           <p v-if="detTexto" class="hint det" :title="tx(detTexto)">{{ tx(detTexto) }}</p>
           <p v-else-if="f.tipo" class="hint">{{ t('{0}only what changes its code is asked', [CAPITULO[M.grupoTipo(f.tipo)] ? t('Chapter {0} · ', [CAPITULO[M.grupoTipo(f.tipo)]]) : '']) }}</p>
         </div>

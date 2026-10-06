@@ -695,6 +695,25 @@ class ReglaIn(BaseModel):
     condiciones: list[CondicionIn] | None = None
 
 
+class DominioIn(BaseModel):
+    codigo: str | None = Field(None, max_length=30)
+    nombre: str | None = Field(None, max_length=100)
+    descripcion: str | None = Field(None, max_length=400)
+    modo: str | None = Field(None, max_length=10)
+    activo: bool | None = None
+    orden: int | None = None
+
+
+class CategoriaIn(BaseModel):
+    codigo: str | None = Field(None, max_length=40)
+    nombre: str | None = Field(None, max_length=120)
+    grupo: str | None = Field(None, max_length=80)
+    dominio: str | None = Field(None, max_length=30)
+    alias: str | None = Field(None, max_length=400)
+    orden: int | None = None
+    activo: bool | None = None
+
+
 class DominioCapituloIn(BaseModel):
     relevancia: str | None = None
     habilitado: bool | None = None

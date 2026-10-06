@@ -49,6 +49,7 @@ from .acuerdos import acuerdos_contexto, cargar_acuerdos
 from .arbol import VERSION_SAC
 from .atributos import config_motor as atributos_cfg
 from .generico import dominios_ficha
+from .categorias import categorias as categorias_config
 from .overrides import vigentes as overrides_vigentes
 from .meta import meta as meta_motor
 from .common import (
@@ -593,6 +594,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
         "puede_aprobar": tiene(user, "producto.clasificar"),
         "atributos": atributos_cfg(db),
         "dominios_genericos": dominios_ficha(db),
+        "categorias": categorias_config(db),
         # Control de capítulos (R-SYS-001): solo los habilitados se eligen automáticamente
         "capitulos": [{"capitulo": c.capitulo, "titulo": c.titulo, "habilitado": bool(c.activo and c.clasificacion and not c.archivado),
                        "solo_manual": c.solo_manual} for c in db.scalars(select(ControlCapitulo))],

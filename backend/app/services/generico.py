@@ -67,8 +67,7 @@ def candidatos(db: Session, user: Usuario, texto: str, dominio: str | None = Non
 
 
 def dominios_ficha(db: Session) -> list[dict]:
-    """Dominios que la ficha genérica ofrece (químicos, materias primas…), más «otro»."""
+    """Dominios activos que ofrece la ficha dinámica (todos: salen de la configuración)."""
     return [{"codigo": d.codigo, "nombre": d.nombre, "descripcion": d.descripcion}
-            for d in db.scalars(select(DominioClasificacion).where(DominioClasificacion.activo.is_(True)).order_by(DominioClasificacion.orden))
-            if d.codigo not in ("APPAREL", "FOOTWEAR", "ACCESSORIES_MERCH")]
+            for d in db.scalars(select(DominioClasificacion).where(DominioClasificacion.activo.is_(True)).order_by(DominioClasificacion.orden))]
 

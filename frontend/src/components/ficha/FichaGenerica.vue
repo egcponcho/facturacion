@@ -30,7 +30,7 @@ function buscar() {
     cargando.value = true
     try {
       // Motor único del servidor: candidatos, preguntas discriminantes y reglas aplicadas
-      const r = await api.post('/clasificacion/sesion', { texto: texto.value, dominio: f.dominio || null, respuestas: f.gen, paises: false })
+      const r = await api.post('/clasificacion/sesion', { texto: texto.value, dominio: f.dominio || null, categoria: f.categoria || null, respuestas: f.gen, paises: false })
       res.value = r
       if (props.editable) {
         // Evidencia guardada con la ficha: candidatos, obligatorios y confianza
@@ -49,7 +49,7 @@ function buscar() {
   }, 350)
 }
 onMounted(buscar)
-watch([texto, () => f.dominio, () => JSON.stringify(f.gen)], buscar)
+watch([texto, () => f.dominio, () => f.categoria, () => JSON.stringify(f.gen)], buscar)
 
 function poner(k, v) {
   f.gen = { ...f.gen, [k]: v }

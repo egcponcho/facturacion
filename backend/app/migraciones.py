@@ -56,6 +56,13 @@ def actualizar() -> None:
             if tablas and "alembic_version" not in tablas:
                 command.stamp(cfg, BASE)
             command.upgrade(cfg, "head")
+    # Configuración base que no viene en los paquetes oficiales (si falta)
+    from .db import SessionLocal
+    from .services import categorias
+
+    with SessionLocal() as db:
+        if categorias.sembrar(db):
+            db.commit()
 
 
 def marcar_actual() -> None:

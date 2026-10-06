@@ -2,11 +2,14 @@
 import { t, tx } from '../../i18n/index.js'
 import { computed, nextTick, ref, watch } from 'vue'
 import { M } from '../../clasificacion/useClasificacion'
+import { filtrar } from '../../busqueda.js'
 
-// Categoría del producto: se busca escribiendo (tenis, mochila, termo…) o se
-// elige de la lista agrupada. Cada categoría abre las preguntas de su capítulo;
-// «Otro producto» abre la ficha genérica (químicos, materias primas…).
-const props = defineProps({ modelValue: { type: String, default: '' }, disabled: Boolean, id: String })
+// «¿Qué es el producto?»: las categorías salen de la configuración (Aranceles →
+// Dominios), no del código. Las de ropa, calzado y accesorios todavía abren su
+// ficha especializada; las demás (químicos, materias primas o cualquier
+// dominio nuevo) abren la ficha dinámica de su dominio. Al final siempre está
+// «Otro producto».
+const props = defineProps({ modelValue: { type: String, default: '' }, categorias: { type: Array, default: () => [] }, disabled: Boolean, id: String })
 const emit = defineEmits(['update:modelValue'])
 
 const texto = ref('')
@@ -14,22 +17,25 @@ const abierta = ref(false)
 const activo = ref(-1)
 const lista = ref(null)
 
-const sync = () => (texto.value = props.modelValue ? M.TIPO_LBL[props.modelValue] || '' : '')
-watch(() => props.modelValue, sync, { immediate: true })
+const etiqueta = (k) => {
+  const c = props.categorias.find((x) => x.codigo === k)
+  return c ? (c.ficha_motor ? M.TIPO_LBL[k] || c.nombre : c.nombre) : M.TIPO_LBL[k] || ''
+}
+const sync = () => (texto.value = props.modelValue ? etiqueta(props.modelValue) : '')
+watch(() => [props.modelValue, props.categorias.length], sync, { immediate: true })
 
-const POR_LBL = Object.fromEntries(Object.entries(M.TIPO_LBL).map(([k, l]) => [M.norm(l).trim(), k]))
+const otros = computed(() => ({ t: t('Other products'), items: [M.GENERICO] }))
 const grupos = computed(() => {
-  const q = M.norm(texto.value).trim()
-  // La ruta genérica siempre está al final: lo que no es de la lista no queda sin ficha
-  const otros = { t: t('Other products'), items: [M.GENERICO] }
-  if (q && !POR_LBL[q]) {
-    const ks = M.buscarTipos(texto.value, 25).filter((k) => k !== M.GENERICO)
-    return [{ t: ks.length ? t('Matches') : '', items: ks }, otros]
+  const q = texto.value.trim()
+  if (q && q !== etiqueta(props.modelValue)) {
+    const ks = filtrar(props.categorias, q, (c) => [c.nombre, etiqueta(c.codigo), c.alias, c.grupo, c.dominio]).map((c) => c.codigo)
+    return [{ t: ks.length ? t('Matches') : '', items: ks.slice(0, 25) }, otros.value]
   }
-  return [...M.TIPOS.map(([g, ops]) => ({ t: g, items: ops.map(([k]) => k) })), otros]
+  const g = new Map()
+  for (const c of props.categorias) g.set(c.grupo || t('Other'), [...(g.get(c.grupo || t('Other')) || []), c.codigo])
+  return [...[...g].map(([nombre, items]) => ({ t: nombre, items })), otros.value]
 })
 const items = computed(() => grupos.value.flatMap((g) => g.items))
-
 function abrir() {
   if (props.disabled) return
   abierta.value = true
@@ -43,7 +49,7 @@ function cerrar() {
 const alSalir = () => setTimeout(cerrar, 150)
 function elegir(k) {
   emit('update:modelValue', k)
-  texto.value = M.TIPO_LBL[k]
+  texto.value = etiqueta(k)
   abierta.value = false
 }
 function tecla(e) {
@@ -74,7 +80,7 @@ function tecla(e) {
         <div v-if="g.t" class="grp">{{ tx(g.t) }}</div>
         <button v-for="k in g.items" :key="k" type="button" role="option" :aria-selected="k === props.modelValue"
                 :class="{ elegido: k === props.modelValue, act: items[activo] === k }" @click="elegir(k)">
-          {{ tx(k === props.modelValue ? '✓ ' : '') }}{{ tx(M.TIPO_LBL[k]) }}
+          {{ tx(k === props.modelValue ? '✓ ' : '') }}{{ tx(etiqueta(k)) }}
         </button>
       </template>
       <div v-if="!items.length" class="vacio-cbx">{{ t('No category matches. Try another word (e.g. “jacket”, “bag”).') }}</div>

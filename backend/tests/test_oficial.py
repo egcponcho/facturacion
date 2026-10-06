@@ -452,3 +452,38 @@ def test_configuracion_custom_cambia_la_clasificacion(interno):
     # Validaciones de reglas propias
     assert interno.post("/aranceles/reglas", {"tipo_regla": "SOFT_SIGNAL", "accion": {"tipo": "EXCLUDE", "codigos": ["64"]}}).status_code == 422
     assert interno.post("/aranceles/reglas", {"tipo_regla": "QUESTION_GATE", "accion": {"tipo": "ASK"}}).status_code == 422
+
+
+def test_dominio_nuevo_solo_con_configuracion(interno):
+    """Un dominio nuevo (ELECTRONICS) con su categoría, atributo, ámbito, regla y
+    capítulos aparece en la ficha y clasifica sin programar nada."""
+    d = interno.post("/aranceles/oficial/dominios", {"codigo": "electronics", "nombre": "Electronics", "modo": "AUTO"})
+    assert d.status_code == 200, d.text
+    d = d.json()
+    assert d["codigo"] == "ELECTRONICS"
+    assert interno.post("/aranceles/oficial/dominios", {"codigo": "ELECTRONICS", "nombre": "x"}).status_code == 422
+    interno.put(f"/aranceles/oficial/dominios/{d['id']}/capitulos/85", {"relevancia": "PRIMARY", "habilitado": True})
+    caps = {c["capitulo"]: c for c in interno.get("/aranceles/oficial/capitulos").json()["items"]}
+    interno.patch("/aranceles/oficial/capitulos", {"ids": [caps["85"]["id"]], "clasificacion": True, "candidato_auto": True})
+    c = interno.post("/aranceles/categorias", {"nombre": "Batteries and power banks", "dominio": "ELECTRONICS", "grupo": "Electronics"}).json()
+    assert c["codigo"] == "batteries_and_power_banks" and not c["ficha_motor"]
+    assert any(x["codigo"] == c["codigo"] for x in interno.get("/clasificacion/contexto").json()["categorias"])
+    a = interno.post("/aranceles/atributos", {"codigo": "battery_chemistry", "etiqueta": "Battery chemistry", "tipo_dato": "select", "dominio": "ELECTRONICS"}).json()
+    for o in ("LITHIUM_ION", "LEAD_ACID", "NICKEL"):
+        interno.post(f"/aranceles/atributos/{a['id']}/opciones", {"codigo": o, "etiqueta": o.replace("_", " ").title()})
+    interno.post(f"/aranceles/atributos/{a['id']}/ambitos", {"tipo_ambito": "CATEGORY", "codigo_ambito": c["codigo"], "modo": "REQUIRE", "prioridad": 900})
+    interno.post("/aranceles/reglas", {"tipo_ambito": "CATEGORY", "codigo_ambito": c["codigo"], "tipo_regla": "HARD_CONSTRAINT",
+                                        "condiciones": [{"campo": "battery_chemistry", "operador": "EQUAL", "valor": "LITHIUM_ION"}],
+                                        "accion": {"tipo": "RESTRICT", "codigos": ["850760"]}})
+    base = {"texto": "batería recargable", "dominio": "ELECTRONICS", "categoria": c["codigo"]}
+    s = interno.post("/clasificacion/sesion", base).json()
+    assert s["preguntas"][0]["codigo"] == "battery_chemistry"
+    s = interno.post("/clasificacion/sesion", {**base, "respuestas": {"battery_chemistry": "LITHIUM_ION"}}).json()
+    assert s["hs6"] == "850760" and s["confianza"] == "high"
+    # Archivar el dominio y la categoría: dejan de ofrecerse
+    interno.patch(f"/aranceles/oficial/dominios/{d['id']}", {"activo": False})
+    interno.patch(f"/aranceles/categorias/{c['id']}", {"activo": False})
+    ctx = interno.get("/clasificacion/contexto").json()
+    assert not any(x["codigo"] == "ELECTRONICS" for x in ctx["dominios_genericos"])
+    assert not any(x["codigo"] == c["codigo"] for x in ctx["categorias"])
+    assert any(x["ficha_motor"] and x["codigo"] == "calzado" for x in ctx["categorias"])
