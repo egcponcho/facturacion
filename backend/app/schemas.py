@@ -520,6 +520,7 @@ class PartidaSACIn(BaseModel):
     descripcion: str = Field(max_length=400)
     nota: str | None = Field(None, max_length=300)
     activo: bool = True
+    motivo: str | None = Field(None, max_length=300)  # por qué se reemplaza el texto oficial
 
 
 class NotaSACIn(BaseModel):
@@ -529,6 +530,7 @@ class NotaSACIn(BaseModel):
     texto: str = Field(max_length=4000)
     capitulos: list[str] = Field(default_factory=list, max_length=100)
     activo: bool = True
+    motivo: str | None = Field(None, max_length=300)
 
 
 class IncisoEditIn(BaseModel):

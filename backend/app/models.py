@@ -815,23 +815,38 @@ class NotaSAC(Base):
     texto: Mapped[str] = mapped_column(Text)
     capitulos: Mapped[list] = mapped_column(JSON, default=list)
     claves: Mapped[list] = mapped_column(JSON, default=list)
-    fuente: Mapped[str] = mapped_column(String(12), default="base")
+    fuente: Mapped[str] = mapped_column(String(12), default="base")  # oficial | resumen | manual (custom propia)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    # Nota oficial versionada: de qué versión y fuente sale y su vigencia (no se edita; se le pone un override)
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id", name="fk_notas_version"))
+    fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id", name="fk_notas_fuente"))
+    vigente_desde: Mapped[date | None] = mapped_column(Date)
+    vigente_hasta: Mapped[date | None] = mapped_column(Date)
 
 
-class PartidaSAC(Base):
-    """Subpartida del Sistema Arancelario Centroamericano (6 dígitos) o partida
-    (4 dígitos) con su texto oficial."""
+class OverrideArancel(Base):
+    """Capa CUSTOM encima del dato oficial: nunca se toca el oficial. Guarda el
+    valor propio (descripción interna, nota, texto de una nota, activa o no)
+    con su motivo, quién, cuándo y vigencia. Un cambio nuevo del mismo campo
+    deja el anterior en el historial (inactivo); quitar el override vuelve al
+    texto oficial."""
 
-    __tablename__ = "partidas_sac"
+    __tablename__ = "overrides_arancel"
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(6), unique=True)
-    descripcion: Mapped[str] = mapped_column(String(400))
-    nota: Mapped[str | None] = mapped_column(String(300))
-    fuente: Mapped[str] = mapped_column(String(12), default="base")  # base | manual | archivo
+    tipo: Mapped[str] = mapped_column(String(10))  # NODO | NOTA | INCISO
+    objetivo: Mapped[str] = mapped_column(String(40), index=True)  # código del nodo, id de la nota…
+    campo: Mapped[str] = mapped_column(String(30))  # descripcion | nota | texto | activo
+    valor: Mapped[str | None] = mapped_column(Text)
+    valor_oficial: Mapped[str | None] = mapped_column(Text)  # lo que decía el oficial al crear el override
+    motivo: Mapped[str] = mapped_column(String(300))
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    vigente_desde: Mapped[date | None] = mapped_column(Date)
+    vigente_hasta: Mapped[date | None] = mapped_column(Date)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
-    actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    usuario: Mapped["Usuario | None"] = relationship()
 
 
 class IncisoNacional(Base):

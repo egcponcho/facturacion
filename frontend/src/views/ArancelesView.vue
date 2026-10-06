@@ -191,7 +191,7 @@ async function guardarNota() {
   const m = modal.value
   ocupado.value = true
   try {
-    const cuerpo = { ambito: m.ambito, codigo: m.codigo, numero: m.numero, texto: m.texto, activo: m.activo,
+    const cuerpo = { ambito: m.ambito, codigo: m.codigo, numero: m.numero, texto: m.texto, activo: m.activo, motivo: m.motivo || null,
                      capitulos: String(m.capitulos_txt || '').split(/[\s,;]+/).filter(Boolean) }
     if (m.id) await api.put(`/aranceles/notas/${m.id}`, cuerpo)
     else await api.post('/aranceles/notas', cuerpo)
@@ -206,7 +206,7 @@ async function guardarNota() {
   }
 }
 async function borrarNota(n) {
-  if (!confirm(t('Delete note {0} {1}?', [n.codigo, n.numero]))) return
+  if (!confirm(n.oficial ? t('Deactivate official note {0} {1}? It stays in the official tariff.', [n.codigo, n.numero]) : t('Delete note {0} {1}?', [n.codigo, n.numero]))) return
   try {
     await api.del(`/aranceles/notas/${n.id}`)
     cargarNotas()
@@ -220,7 +220,7 @@ async function guardarSac() {
   const m = modal.value
   ocupado.value = true
   try {
-    const cuerpo = { codigo: m.codigo, descripcion: m.descripcion, nota: m.nota, activo: m.activo }
+    const cuerpo = { codigo: m.codigo, descripcion: m.descripcion, nota: m.nota, activo: m.activo, motivo: m.motivo || null }
     if (m.id) await api.put(`/aranceles/sac/${m.id}`, cuerpo)
     else await api.post('/aranceles/sac', cuerpo)
     modal.value = null
@@ -234,7 +234,7 @@ async function guardarSac() {
   }
 }
 async function borrarSac(x) {
-  if (!window.confirm(t('Delete {0}?', [x.codigo_txt]))) return
+  if (!window.confirm(t('Remove the custom text of {0} and go back to the official one?', [x.codigo_txt]))) return
   try {
     await api.del(`/aranceles/sac/${x.id}`)
     cargarSac()
@@ -437,22 +437,22 @@ watch(() => fs.size, recargarS)
         <BotonesExportar ruta="/aranceles/sac/exportar" :params="paramsS" />
         <template v-if="edita">
           <button class="btn" @click="modal = { tipo: 'carga-sac' }"><Icono nombre="importar" />{{ t('Upload Excel') }}</button>
-          <button class="btn btn-primario" @click="modal = { tipo: 'sac', id: null, codigo: '', descripcion: '', nota: '', activo: true }"><Icono nombre="mas" />{{ t('Add') }}</button>
         </template>
       </div>
     </div>
     <div class="tabla-marco tabla-fija">
       <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Official description') }}</th><th class="num">{{ t('National codes') }}</th><th>{{ t('Source') }}</th><th v-if="edita"></th></tr></thead>
+        <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Description') }}</th><th class="num">{{ t('National codes') }}</th><th>{{ t('Source') }}</th><th v-if="edita"></th></tr></thead>
         <tbody>
           <tr v-for="x in sac.items" :key="x.id">
             <td :class="x.codigo.length === 4 ? 'fuerte' : ''"><span class="codigo-sac">{{ tx(x.codigo_txt) }}</span></td>
-            <td :class="{ fuerte: x.codigo.length === 4 }">{{ tx(x.descripcion) }}<span v-if="x.nota" class="sub">{{ tx(x.nota) }}</span></td>
+            <td :class="{ fuerte: x.codigo.length === 4 }">{{ tx(x.descripcion) }}<span v-if="x.nota" class="sub">{{ tx(x.nota) }}</span>
+              <details v-if="x.custom" class="oficial-txt"><summary>{{ t('Official text') }}</summary>{{ tx(x.descripcion_oficial) }}</details></td>
             <td class="num"><button v-if="x.nacionales" type="button" class="enlace" @click="verCodigosDe(x)">{{ tx(x.nacionales) }}</button><span v-else class="apagado">—</span></td>
-            <td><span class="etiqueta">{{ tx(meta.fuentes[x.fuente] || x.fuente) }}</span></td>
+            <td><span class="etiqueta" :class="x.custom ? 'acento' : 'ok'">{{ tx(x.custom ? t('Custom over official') : t('Official')) }}</span></td>
             <td v-if="edita" class="num" style="white-space: nowrap">
-              <button class="btn-icono" :aria-label="t('Edit {0}', [x.codigo_txt])" @click="modal = { tipo: 'sac', ...x }"><Icono nombre="editar" :tam="16" /></button>
-              <button class="btn-icono" style="color: var(--error)" :aria-label="t('Delete {0}', [x.codigo_txt])" @click="borrarSac(x)"><Icono nombre="basura" :tam="16" /></button>
+              <button class="btn-icono" :aria-label="t('Edit {0}', [x.codigo_txt])" @click="modal = { tipo: 'sac', ...x, motivo: '' }"><Icono nombre="editar" :tam="16" /></button>
+              <button v-if="x.custom" class="btn-icono" :title="t('Back to the official text')" :aria-label="t('Back to the official text')" @click="borrarSac(x)"><Icono nombre="historial" :tam="16" /></button>
             </td>
           </tr>
           <tr v-if="!sac.items.length"><td colspan="5" class="vacio">{{ t('Nothing matches these filters.') }}</td></tr>
@@ -543,8 +543,10 @@ watch(() => fs.size, recargarS)
         <thead><tr><th>{{ t('Note') }}</th><th>{{ t('Text') }}</th><th>{{ t('Applies to chapters') }}</th><th v-if="edita"></th></tr></thead>
         <tbody>
           <tr v-for="n in notas.items" :key="n.id" :class="{ apagado: !n.activo }">
-            <td><span class="fuerte">{{ tx(n.codigo) }} · {{ tx(n.numero) }}</span><span class="sub">{{ tx(n.ambito_txt) }}<template v-if="n.fuente !== 'base'"> {{ t('· edited') }}</template></span></td>
-            <td class="envolver" style="min-width: 420px; line-height: 1.45">{{ tx(n.texto) }}</td>
+            <td><span class="fuerte">{{ tx(n.codigo) }} · {{ tx(n.numero) }}</span><span class="sub">{{ tx(n.ambito_txt) }}</span>
+              <span class="etiqueta" :class="n.custom ? 'acento' : n.oficial ? 'ok' : ''">{{ tx(n.custom ? t('Custom over official') : n.oficial ? t('Official') : t('Own note')) }}</span></td>
+            <td class="envolver" style="min-width: 420px; line-height: 1.45">{{ tx(n.texto) }}
+              <details v-if="n.texto_oficial" class="oficial-txt"><summary>{{ t('Official text') }}</summary>{{ tx(n.texto_oficial) }}</details></td>
             <td>{{ tx(n.capitulos.length ? n.capitulos.join(', ') : t('All')) }}</td>
             <td v-if="edita" class="num" style="white-space: nowrap">
               <button class="btn-icono" :aria-label="t('Edit note {0} {1}', [n.codigo, n.numero])" @click="modal = { tipo: 'nota', ...n, capitulos_txt: n.capitulos.join(', ') }"><Icono nombre="editar" :tam="16" /></button>
@@ -566,22 +568,28 @@ watch(() => fs.size, recargarS)
       <label class="campo"><span>{{ t('Applies to chapters') }}</span><input v-model="modal.capitulos_txt" class="entrada" :placeholder="t('64 (empty = all)')" /></label>
       <label class="campo" style="grid-column: 1 / -1"><span class="req">{{ t('Text') }}</span><textarea v-model="modal.texto" class="entrada" rows="6" maxlength="4000"></textarea></label>
       <label class="check" style="grid-column: 1 / -1"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active: used by the classification') }}</span></label>
+      <template v-if="modal.oficial">
+        <p class="ayuda" style="grid-column: 1 / -1">{{ t('This is an official note: its text is never replaced. Your change is saved as a custom layer with its reason, and you can go back to the official text.') }}</p>
+        <label class="campo" style="grid-column: 1 / -1"><span class="req">{{ t('Reason') }}</span><input v-model="modal.motivo" class="entrada" maxlength="300" /></label>
+      </template>
     </div>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
-      <button class="btn btn-primario" :disabled="ocupado" @click="guardarNota">{{ t('Save') }}</button>
+      <button class="btn btn-primario" :disabled="ocupado || (modal.oficial && !modal.motivo)" @click="guardarNota">{{ t('Save') }}</button>
     </template>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'sac'" :titulo="tx(modal.id ? t('Subheading {0}', [modal.codigo_txt]) : t('New heading or subheading'))" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'sac'" :titulo="t('Subheading {0}', [modal.codigo_txt])" @cerrar="modal = null">
+    <p class="ayuda">{{ t('The official text comes from the tariff in force and is never edited. Here you add an internal description or note (custom layer) with its reason.') }}</p>
     <div class="rejilla-campos" style="grid-template-columns: 1fr">
-      <label class="campo"><span class="req">{{ t('Code (4 or 6 digits)') }}</span><input v-model="modal.codigo" class="entrada" placeholder="6404.19" /></label>
-      <label class="campo"><span class="req">{{ t('Official description') }}</span><textarea v-model="modal.descripcion" class="entrada" rows="3" maxlength="400"></textarea></label>
-      <label class="campo"><span>{{ t('Note') }}</span><input v-model="modal.nota" class="entrada" maxlength="300" /></label>
+      <div class="campo"><span>{{ t('Official text') }}</span><p class="oficial-fijo">{{ tx(modal.descripcion_oficial) }}</p></div>
+      <label class="campo"><span>{{ t('Internal description') }}</span><textarea v-model="modal.descripcion" class="entrada" rows="3" maxlength="400"></textarea></label>
+      <label class="campo"><span>{{ t('Internal note') }}</span><input v-model="modal.nota" class="entrada" maxlength="300" /></label>
+      <label class="campo"><span class="req">{{ t('Reason') }}</span><input v-model="modal.motivo" class="entrada" maxlength="300" /></label>
     </div>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
-      <button class="btn btn-primario" :disabled="ocupado" @click="guardarSac">{{ t('Save') }}</button>
+      <button class="btn btn-primario" :disabled="ocupado || !modal.motivo" @click="guardarSac">{{ t('Save') }}</button>
     </template>
   </Modal>
 
@@ -621,6 +629,9 @@ watch(() => fs.size, recargarS)
 </template>
 
 <style scoped>
+.oficial-txt { font-size: 0.8rem; color: var(--tinta-3); margin-top: 4px; }
+.oficial-txt summary { cursor: pointer; }
+.oficial-fijo { margin: 0; padding: 8px 10px; background: var(--superficie-2); border-radius: var(--radio); font-size: 0.88rem; }
 .arancel-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 8px; }
 .menu-lateral { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 2px; padding: 10px; border: 1px solid var(--linea); border-radius: var(--radio); background: var(--superficie); }
 .menu-grupo { margin: 10px 8px 4px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-3); }

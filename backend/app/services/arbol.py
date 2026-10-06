@@ -98,6 +98,9 @@ def cargar_sac(db: Session, version: str = VERSION_SAC) -> int:
         NodoArancel.version_id == v.id, NodoArancel.padre_id.is_not(None)).group_by(NodoArancel.padre_id)).all())
     for nid, n in cuentas.items():
         db.execute(NodoArancel.__table__.update().where(NodoArancel.id == nid).values(hojas=n))
+    # Notas oficiales: ligadas a esta versión y su fuente, con su vigencia
+    db.execute(NotaSAC.__table__.update().where(NotaSAC.fuente == "oficial", NotaSAC.version_id.is_(None))
+               .values(version_id=v.id, fuente_id=v.fuente_id, vigente_desde=v.vigente_desde))
     v.checksum = checksum("sac_oficial.json", "aci_incisos.json")
     v.importado_en = ahora()
     db.flush()
@@ -171,10 +174,12 @@ def nodo(db: Session, user: Usuario, nodo_id: int) -> dict:
     caps = {c.capitulo: c for c in db.scalars(select(ControlCapitulo))}
     cap = caps.get(n.codigo_norm[:2])
     hijos_ = list(db.scalars(select(NodoArancel).where(NodoArancel.padre_id == n.id).order_by(NodoArancel.codigo_norm)))
-    notas = [{"id": x.id, "ambito": x.ambito, "codigo": x.codigo, "numero": x.numero, "texto": x.texto}
-             for x in db.scalars(select(NotaSAC).where(NotaSAC.activo.is_(True)).order_by(NotaSAC.id))
-             if x.ambito != "reglas" and n.codigo_norm[:2] in (x.capitulos or [])
-             and (x.ambito != "explicativa" or n.codigo_norm.startswith(digitos(x.codigo)))][:40]
+    from .aranceles import notas_vigentes
+
+    notas = [{"id": x["id"], "ambito": x["ambito"], "codigo": x["codigo"], "numero": x["numero"], "texto": x["texto"], "custom": x["custom"]}
+             for x in notas_vigentes(db)
+             if x["ambito"] != "reglas" and n.codigo_norm[:2] in (x["capitulos"] or [])
+             and (x["ambito"] != "explicativa" or n.codigo_norm.startswith(digitos(x["codigo"])))][:40]
     nacionales: dict[str, list] = {}
     if len(n.codigo_norm) >= 6:
         pref = n.codigo_norm

@@ -34,7 +34,6 @@ from ..models import (
     Pais,
     PaisArancel,
     NotaSAC,
-    PartidaSAC,
     PalabraClave,
     PartidaPais,
     Prepack,
@@ -50,6 +49,7 @@ from .acuerdos import acuerdos_contexto, cargar_acuerdos
 from .arbol import VERSION_SAC
 from .atributos import config_motor as atributos_cfg
 from .generico import dominios_ficha
+from .overrides import vigentes as overrides_vigentes
 from .meta import meta as meta_motor
 from .common import (
     filtro_texto,
@@ -585,8 +585,8 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
         "destinos": destinos(db), "pais_base": settings.PAIS_BASE_CLASIF, "obligatorios": OBLIGATORIOS,
         "recs": recs, "incisos": incisos,
         "notas_sac": notas_contexto(db), "acuerdos": acuerdos_contexto(db),
-        "sac": [{"codigo": x.codigo, "descripcion": x.descripcion}
-                for x in db.scalars(select(PartidaSAC).where(PartidaSAC.fuente.not_in(("base", "oficial")), PartidaSAC.activo.is_(True)))], "marcas": marcas, "proveedores": provs,
+        # Descripciones propias (capa custom) de partidas/subpartidas; el texto oficial lo trae el motor/árbol
+        "sac": [{"codigo": cod, "descripcion": ov["descripcion"]} for cod, ov in overrides_vigentes(db, "NODO").items() if ov.get("descripcion")], "marcas": marcas, "proveedores": provs,
         "palabras": [{"id": x.id, "frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})}
                      for x in db.scalars(select(PalabraClave))],
         "sinonimos": [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))],
@@ -996,17 +996,21 @@ def ensenar_sinonimo(db: Session, user: Usuario, datos) -> dict:
 
 # ---- Base de códigos nacionales -------------------------------------------------
 def notas_contexto(db: Session) -> list[dict]:
-    return [{"id": n.id, "ambito": n.ambito, "codigo": n.codigo, "numero": n.numero, "texto": n.texto,
-             "capitulos": n.capitulos or [], "claves": n.claves or []}
-            for n in db.scalars(select(NotaSAC).where(NotaSAC.activo.is_(True)).order_by(NotaSAC.id))]
+    """Notas activas con la capa custom aplicada (el texto oficial no se edita)."""
+    from .aranceles import notas_vigentes
+
+    return [{k: n[k] for k in ("id", "ambito", "codigo", "numero", "texto", "capitulos", "claves")} for n in notas_vigentes(db)]
 
 
 def notas_de(db: Session, codigo: str | None) -> list:
     """Notas legales que aplican a una subpartida: las reglas generales, las de
     su sección y las de su capítulo."""
+    from types import SimpleNamespace
+
+    from .aranceles import notas_vigentes
+
     cap = (codigo or "")[:2]
-    return [n for n in db.scalars(select(NotaSAC).where(NotaSAC.activo.is_(True)).order_by(NotaSAC.id))
-            if not n.capitulos or cap in (n.capitulos or [])]
+    return [SimpleNamespace(**n) for n in notas_vigentes(db) if not n["capitulos"] or cap in n["capitulos"]]
 
 
 def cargar_incisos_base(db: Session) -> int:
@@ -1019,12 +1023,7 @@ def cargar_incisos_base(db: Session) -> int:
                            impuesto=d["impuesto"], base_legal=d.get("base_legal"), orden=i))
     carpeta = Path(__file__).resolve().parent.parent / "data"
     leer = lambda nombre: json.loads((carpeta / nombre).read_text(encoding="utf-8"))  # noqa: E731
-    oficiales = {x["codigo"] for x in leer("sac_oficial.json")}
-    for x in leer("sac_oficial.json"):
-        db.add(PartidaSAC(codigo=x["codigo"], descripcion=x["descripcion"][:400], fuente="oficial"))
-    for x in leer("sac_base.json"):
-        if x["codigo"] not in oficiales:
-            db.add(PartidaSAC(codigo=x["codigo"], descripcion=x["descripcion"][:400], fuente="base"))
+    # Partidas y subpartidas: el árbol oficial (arbol.cargar_sac) es la única fuente del texto SAC
     for x in leer("sac_notas.json"):
         db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"],
                        capitulos=x.get("capitulos") or [], claves=x.get("claves") or [], fuente="oficial"))

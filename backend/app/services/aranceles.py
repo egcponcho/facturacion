@@ -7,7 +7,8 @@ import re
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from ..models import IncisoNacional, NotaSAC, PaisArancel, PartidaSAC, Usuario, ahora
+from ..models import IncisoNacional, NodoArancel, NotaSAC, PaisArancel, Usuario, VersionDataset, ahora
+from . import overrides
 from . import documentos, exportar
 from .common import ErrorNegocio, exigir, registrar
 from .meta import cond_texto, opciones_cond, valor_opcion
@@ -93,66 +94,90 @@ def _paises_dict(db: Session) -> dict[str, PaisArancel]:
     return {x.iso: x for x in db.scalars(select(PaisArancel))}
 
 
-# ---- Subpartidas SAC ---------------------------------------------------------------
-def _q_sac(filtros: dict):
-    q = select(PartidaSAC)
+# ---- Partidas y subpartidas: el árbol oficial + la capa custom ---------------------------
+# El texto oficial sale del árbol arancelario de la versión vigente (NodoArancel)
+# y no se edita: lo propio (descripción interna, nota) es un override con motivo.
+def _version_sac(db: Session):
+    from .arbol import VERSION_SAC
+
+    return db.scalar(select(VersionDataset).where(VersionDataset.codigo == VERSION_SAC))
+
+
+def textos_sac(db: Session, codigos) -> dict[str, str]:
+    """Texto de partidas/subpartidas: el oficial, o el custom si lo hay."""
+    v = _version_sac(db)
+    codigos = list({c for c in codigos if c})
+    if not v or not codigos:
+        return {}
+    out = dict(db.execute(select(NodoArancel.codigo_norm, NodoArancel.descripcion).where(
+        NodoArancel.version_id == v.id, NodoArancel.pais.is_(None), NodoArancel.codigo_norm.in_(codigos))).all())
+    for cod, ov in overrides.vigentes(db, "NODO", codigos).items():
+        if ov.get("descripcion"):
+            out[cod] = ov["descripcion"]
+    return out
+
+
+def _q_sac(db: Session, filtros: dict):
+    v = _version_sac(db)
+    q = select(NodoArancel).where(NodoArancel.version_id == (v.id if v else -1), NodoArancel.pais.is_(None),
+                                  NodoArancel.nivel.in_(("PARTIDA", "SUBPARTIDA")))
     if filtros.get("q"):
         t = filtros["q"].strip()
         d = _dig(t)
-        q = q.where(or_(PartidaSAC.descripcion.ilike(f"%{t}%"), *( [PartidaSAC.codigo.startswith(d)] if d else [])))
+        q = q.where(or_(NodoArancel.descripcion.ilike(f"%{t}%"), *([NodoArancel.codigo_norm.startswith(d)] if d else [])))
     caps = _lista(filtros.get("capitulo"))
     if caps:
-        q = q.where(or_(*[PartidaSAC.codigo.startswith(_dig(c)[:2]) for c in caps]))
+        q = q.where(or_(*[NodoArancel.codigo_norm.startswith(_dig(c)[:2]) for c in caps]))
     if filtros.get("nivel") in ("4", "6"):
-        q = q.where(func.length(PartidaSAC.codigo) == int(filtros["nivel"]))
-    fuentes = _lista(filtros.get("fuente"))
-    if fuentes:
-        q = q.where(PartidaSAC.fuente.in_(fuentes))
+        q = q.where(NodoArancel.nivel == ("PARTIDA" if filtros["nivel"] == "4" else "SUBPARTIDA"))
+    if "custom" in _lista(filtros.get("fuente")):
+        con = list(overrides.vigentes(db, "NODO"))
+        q = q.where(NodoArancel.codigo_norm.in_(con or ["-"]))
     return q
 
 
 def listar_sac(db: Session, user: Usuario, filtros: dict, page: int, size: int) -> dict:
     exigir(user, "producto.ver")
-    q = _q_sac(filtros)
+    q = _q_sac(db, filtros)
     total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
-    filas = db.scalars(q.order_by(PartidaSAC.codigo).offset((page - 1) * size).limit(size)).all()
-    subs = [x.codigo for x in filas if len(x.codigo) == 6]
+    filas = db.scalars(q.order_by(NodoArancel.codigo_norm).offset((page - 1) * size).limit(size)).all()
+    subs = [x.codigo_norm for x in filas if len(x.codigo_norm) == 6]
     n = dict(db.execute(select(IncisoNacional.sub6, func.count()).where(IncisoNacional.sub6.in_(subs))
                         .group_by(IncisoNacional.sub6)).all()) if subs else {}
-    caps = sorted({r[0][:2] for r in db.execute(select(PartidaSAC.codigo))})
-    return {"items": [{"id": x.id, "codigo": x.codigo, "codigo_txt": _fmt(x.codigo), "descripcion": x.descripcion,
-                       "nota": x.nota, "fuente": x.fuente, "activo": x.activo, "nacionales": n.get(x.codigo, 0)}
-                      for x in filas], "total": total, "page": page, "size": size, "capitulos": caps}
+    ovs = overrides.vigentes(db, "NODO", [x.codigo_norm for x in filas])
+    caps = [c for (c,) in db.execute(select(NodoArancel.codigo_norm).where(NodoArancel.nivel == "CAPITULO").order_by(NodoArancel.codigo_norm))]
+    items = []
+    for x in filas:
+        ov = ovs.get(x.codigo_norm, {})
+        items.append({"id": x.id, "codigo": x.codigo_norm, "codigo_txt": _fmt(x.codigo_norm), "descripcion": ov.get("descripcion") or x.descripcion,
+                      "descripcion_oficial": x.descripcion, "nota": ov.get("nota"), "fuente": "custom" if ov else "oficial",
+                      "custom": bool(ov), "activo": x.activo, "nacionales": n.get(x.codigo_norm, 0)})
+    return {"items": items, "total": total, "page": page, "size": size, "capitulos": caps}
 
 
 def guardar_sac(db: Session, user: Usuario, datos, sac_id: int | None = None) -> dict:
+    """Descripción interna o nota propia de una partida/subpartida oficial (override)."""
     exigir(user, "aranceles.editar")
     cod = _dig(datos.codigo)
-    if len(cod) not in (4, 6):
-        raise ErrorNegocio("Use the 4-digit heading or the 6-digit subheading.", 422, "validacion")
-    if not (datos.descripcion or "").strip():
-        raise ErrorNegocio("Write the official description.", 422, "validacion")
-    x = db.get(PartidaSAC, sac_id) if sac_id else db.scalar(select(PartidaSAC).where(PartidaSAC.codigo == cod))
-    otro = db.scalar(select(PartidaSAC).where(PartidaSAC.codigo == cod))
-    if otro and x is not otro:
-        raise ErrorNegocio(f"{_fmt(cod)} is already loaded.", 409, "duplicado")
-    if not x:
-        x = PartidaSAC(codigo=cod)
-        db.add(x)
-    x.codigo, x.descripcion = cod, datos.descripcion.strip()[:400]
-    x.nota, x.activo = (datos.nota or "")[:300] or None, datos.activo
-    x.fuente = "manual" if x.fuente in (None, "base", "oficial") else x.fuente
-    x.actualizado_en = ahora()
-    db.flush()
+    v = _version_sac(db)
+    x = db.get(NodoArancel, sac_id) if sac_id else db.scalar(select(NodoArancel).where(
+        NodoArancel.version_id == (v.id if v else -1), NodoArancel.pais.is_(None), NodoArancel.codigo_norm == cod))
+    if not x or x.nivel not in ("PARTIDA", "SUBPARTIDA"):
+        raise ErrorNegocio("Headings and subheadings come from the official tariff: load a new version to add codes. "
+                           "Here you can only add an internal description or note.", 422, "no_oficial")
+    motivo = getattr(datos, "motivo", None)
+    overrides.poner(db, user, "NODO", x.codigo_norm, "descripcion", (datos.descripcion or "").strip()[:400] or None, x.descripcion, motivo)
+    overrides.poner(db, user, "NODO", x.codigo_norm, "nota", (datos.nota or "").strip()[:300] or None, None, motivo)
     return {"id": x.id}
 
 
 def borrar_sac(db: Session, user: Usuario, sac_id: int) -> None:
+    """Quita lo custom: vuelve al texto oficial (el oficial no se borra)."""
     exigir(user, "aranceles.editar")
-    x = db.get(PartidaSAC, sac_id)
+    x = db.get(NodoArancel, sac_id)
     if not x:
         raise ErrorNegocio("The subheading does not exist.", 404, "no_encontrado")
-    db.delete(x)
+    overrides.quitar(db, user, "NODO", x.codigo_norm)
 
 
 # ---- Condiciones que aplican a un código nacional ----------------------------------------------
@@ -196,9 +221,8 @@ def condiciones_aplicables(db: Session, user: Usuario, pais: str | None, codigo:
     orden = list(del_pais) + [k for k in de_otros if k not in del_pais] + \
         [k for k in COND_CAPITULO.get(cap, []) + sorted(en_cap) if k not in del_pais and k not in de_otros]
     aplican = [k for k in dict.fromkeys(orden + COND_SIEMPRE) if k in oc]
-    sac = db.scalar(select(PartidaSAC).where(PartidaSAC.codigo == sub6))
     return {"aplican": aplican, "del_pais": list(del_pais), "de_otros": list(de_otros), "hermanos": hermanos,
-            "subpartida": {"codigo": _fmt(sub6), "descripcion": sac.descripcion if sac else None}}
+            "subpartida": {"codigo": _fmt(sub6), "descripcion": textos_sac(db, [sub6]).get(sub6)}}
 
 
 # ---- Notas legales del SAC ---------------------------------------------------------------
@@ -206,25 +230,45 @@ AMBITOS = {"reglas": "General rules", "seccion": "Section note", "capitulo": "Ch
            "complementaria": "Central American complementary note", "explicativa": "Explanatory note (HS)"}
 
 
-def _fila_nota(n: NotaSAC) -> dict:
+OFICIALES_NOTA = ("oficial", "resumen", "base")  # las cargadas con el sistema: no se editan en sitio
+
+
+def _verdad(v) -> bool:
+    return str(v).lower() in ("true", "1", "yes")
+
+
+def _fila_nota(n: NotaSAC, ov: dict | None = None) -> dict:
+    ov = ov or {}
     return {"id": n.id, "ambito": n.ambito, "ambito_txt": AMBITOS.get(n.ambito, n.ambito), "codigo": n.codigo,
-            "numero": n.numero, "texto": n.texto, "capitulos": n.capitulos or [], "claves": n.claves or [],
-            "fuente": n.fuente, "activo": n.activo}
+            "numero": n.numero, "texto": ov.get("texto") or n.texto, "texto_oficial": n.texto if ov.get("texto") else None,
+            "capitulos": n.capitulos or [], "claves": n.claves or [], "fuente": n.fuente,
+            "oficial": n.fuente in OFICIALES_NOTA, "custom": bool(ov),
+            "activo": _verdad(ov["activo"]) if "activo" in ov else n.activo, "version_id": n.version_id,
+            "vigente_desde": n.vigente_desde, "vigente_hasta": n.vigente_hasta}
+
+
+def notas_vigentes(db: Session) -> list[dict]:
+    """Notas activas con la capa custom aplicada (para el motor y el soporte)."""
+    notas = db.scalars(select(NotaSAC).order_by(NotaSAC.id)).all()
+    ovs = overrides.vigentes(db, "NOTA")
+    return [f for f in (_fila_nota(n, ovs.get(str(n.id))) for n in notas) if f["activo"]]
 
 
 def listar_notas(db: Session, user: Usuario, filtros: dict) -> dict:
     exigir(user, "producto.ver")
-    notas = db.scalars(select(NotaSAC).order_by(NotaSAC.id)).all()
+    ovs = overrides.vigentes(db, "NOTA")
+    notas = [_fila_nota(n, ovs.get(str(n.id))) for n in db.scalars(select(NotaSAC).order_by(NotaSAC.id))]
     caps = _lista(filtros.get("capitulo"))
     if caps:
-        notas = [n for n in notas if not n.capitulos or set(caps) & set(n.capitulos or [])]
+        notas = [n for n in notas if not n["capitulos"] or set(caps) & set(n["capitulos"])]
     if filtros.get("q"):
         t = filtros["q"].strip().lower()
-        notas = [n for n in notas if t in n.texto.lower() or t in n.codigo.lower() or t in n.numero.lower()]
-    return {"items": [_fila_nota(n) for n in notas], "total": len(notas), "ambitos": AMBITOS}
+        notas = [n for n in notas if t in n["texto"].lower() or t in n["codigo"].lower() or t in n["numero"].lower()]
+    return {"items": notas, "total": len(notas), "ambitos": AMBITOS}
 
 
 def guardar_nota(db: Session, user: Usuario, datos, nota_id: int | None = None) -> dict:
+    """Nota propia (custom) o override de una oficial: el texto oficial nunca se reemplaza."""
     exigir(user, "aranceles.editar")
     if datos.ambito not in AMBITOS:
         raise ErrorNegocio("Choose the kind of note.", 422, "validacion")
@@ -233,23 +277,31 @@ def guardar_nota(db: Session, user: Usuario, datos, nota_id: int | None = None) 
     n = db.get(NotaSAC, nota_id) if nota_id else None
     if nota_id and not n:
         raise ErrorNegocio("The note does not exist.", 404, "no_encontrado")
+    if n and n.fuente in OFICIALES_NOTA:
+        motivo = getattr(datos, "motivo", None)
+        overrides.poner(db, user, "NOTA", str(n.id), "texto", datos.texto.strip(), n.texto, motivo)
+        overrides.poner(db, user, "NOTA", str(n.id), "activo", str(bool(datos.activo)).lower(), str(n.activo).lower(), motivo)
+        return _fila_nota(n, overrides.vigentes(db, "NOTA", [n.id]).get(str(n.id)))
     if not n:
         n = NotaSAC(fuente="manual")
         db.add(n)
     caps = sorted({c.strip().zfill(2) for c in datos.capitulos if c.strip().isdigit()})
     n.ambito, n.codigo, n.numero = datos.ambito, datos.codigo.strip().upper()[:10], (datos.numero or "").strip()[:20]
     n.texto, n.capitulos, n.activo = datos.texto.strip(), caps, datos.activo
-    n.fuente = "manual" if n.fuente in ("base", "oficial") else n.fuente
     n.actualizado_en = ahora()
     db.flush()
     return _fila_nota(n)
 
 
-def borrar_nota(db: Session, user: Usuario, nota_id: int) -> None:
+def borrar_nota(db: Session, user: Usuario, nota_id: int, motivo: str | None = None) -> None:
+    """Una nota propia se borra; una oficial solo se desactiva con un override."""
     exigir(user, "aranceles.editar")
     n = db.get(NotaSAC, nota_id)
     if not n:
         raise ErrorNegocio("The note does not exist.", 404, "no_encontrado")
+    if n.fuente in OFICIALES_NOTA:
+        overrides.poner(db, user, "NOTA", str(n.id), "activo", "false", str(n.activo).lower(), motivo or "Deactivated by the user")
+        return
     db.delete(n)
 
 
@@ -291,8 +343,7 @@ def listar_incisos(db: Session, user: Usuario, filtros: dict, page: int, size: i
              "dai": IncisoNacional.dai}.get(col, IncisoNacional.codigo)
     filas = db.scalars(q.order_by(campo.desc() if dirn == "desc" else campo.asc(), IncisoNacional.pais, IncisoNacional.id)
                        .offset((page - 1) * size).limit(size)).all()
-    sac = dict(db.execute(select(PartidaSAC.codigo, PartidaSAC.descripcion)
-                          .where(PartidaSAC.codigo.in_({x.sub6 for x in filas}))).all()) if filas else {}
+    sac = textos_sac(db, {x.sub6 for x in filas}) if filas else {}
     por_pais = dict(db.execute(select(IncisoNacional.pais, func.count()).group_by(IncisoNacional.pais)).all())
     return {"items": [_fila_inciso(x, sac) for x in filas], "total": total, "page": page, "size": size,
             "por_pais": por_pais}
@@ -494,10 +545,14 @@ def plantilla_sac() -> bytes:
 
 
 def importar_sac(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
+    """Descripciones internas por archivo: se guardan como capa custom sobre el
+    árbol oficial (el texto oficial solo cambia con una versión nueva)."""
     exigir(user, "aranceles.editar")
     filas = leer(nombre, contenido, {"code": "codigo", "codigo": "codigo", "description": "descripcion",
                                      "descripcion": "descripcion", "note": "nota", "nota": "nota"})
-    actuales = {x.codigo: x for x in db.scalars(select(PartidaSAC))}
+    v = _version_sac(db)
+    oficiales = dict(db.execute(select(NodoArancel.codigo_norm, NodoArancel.descripcion).where(
+        NodoArancel.version_id == (v.id if v else -1), NodoArancel.pais.is_(None), NodoArancel.nivel.in_(("PARTIDA", "SUBPARTIDA")))).all())
     creados = actualizados = 0
     errores = []
     for f in filas:
@@ -505,17 +560,14 @@ def importar_sac(db: Session, user: Usuario, nombre: str, contenido: bytes) -> d
         if len(cod) not in (4, 6) or not (f.get("descripcion") or "").strip():
             errores.append({"fila": f["_fila"], "mensaje": "Code with 4 or 6 digits and description are required."})
             continue
-        x = actuales.get(cod)
-        if x:
+        if cod not in oficiales:
+            errores.append({"fila": f["_fila"], "mensaje": f"{_fmt(cod)} is not in the official tariff in force."})
+            continue
+        motivo = f"Uploaded file {nombre}"[:300]
+        if overrides.poner(db, user, "NODO", cod, "descripcion", f["descripcion"].strip()[:400], oficiales[cod], motivo):
             actualizados += 1
-        else:
-            x = actuales[cod] = PartidaSAC(codigo=cod)
-            db.add(x)
-            creados += 1
-        x.descripcion = f["descripcion"].strip()[:400]
-        x.nota = (f.get("nota") or "")[:300] or x.nota
-        x.fuente = "archivo"
-        x.actualizado_en = ahora()
+        if (f.get("nota") or "").strip():
+            overrides.poner(db, user, "NODO", cod, "nota", f["nota"].strip()[:300], None, motivo)
     registrar(db, user, "aranceles", 0, "importar_sac", {"creados": creados, "actualizados": actualizados})
     return {"creados": creados, "actualizados": actualizados, "errores": errores[:200]}
 
@@ -556,6 +608,11 @@ def importar_notas(db: Session, user: Usuario, nombre: str, contenido: bytes) ->
             errores.append({"fila": f["_fila"], "mensaje": "Kind, section or chapter and text are required."})
             continue
         x = actuales.get((amb, cod, num))
+        if x and x.fuente in OFICIALES_NOTA:
+            # Nota oficial: el texto del archivo queda como capa custom (el oficial no se pisa)
+            if overrides.poner(db, user, "NOTA", str(x.id), "texto", txt, x.texto, f"Uploaded file {nombre}"[:300]):
+                actualizados += 1
+            continue
         if x:
             actualizados += 1
         else:

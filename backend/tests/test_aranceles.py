@@ -37,8 +37,19 @@ def test_paises_sac_y_codigos(interno, vans):
     assert sac["total"] > 5 and all(x["codigo"].startswith("64") for x in sac["items"])
     x = next(x for x in sac["items"] if x["codigo"] == "640419")
     assert x["nacionales"] >= 6
-    assert interno.put(f"/aranceles/sac/{x['id']}", {"codigo": "640419", "descripcion": "Los demás (texto corregido)"}).status_code == 200
+    # Lo propio es un override con motivo: el texto oficial no se toca
+    assert interno.put(f"/aranceles/sac/{x['id']}", {"codigo": "640419", "descripcion": "Los demás (texto corregido)"}).status_code == 422
+    assert interno.put(f"/aranceles/sac/{x['id']}", {"codigo": "640419", "descripcion": "Los demás (texto corregido)",
+                                                     "motivo": "Descripción interna de compras"}).status_code == 200
     assert any(y["codigo"] == "640419" for y in interno.get("/clasificacion/contexto").json()["sac"])
+    y = next(y for y in interno.get("/aranceles/sac", params={"q": "6404.19", "nivel": "6"}).json()["items"] if y["codigo"] == "640419")
+    assert y["custom"] and y["descripcion"] == "Los demás (texto corregido)" and y["descripcion_oficial"] != y["descripcion"]
+    # Un código que no está en el arancel oficial no se crea aquí
+    assert interno.post("/aranceles/sac", {"codigo": "999999", "descripcion": "Inventado", "motivo": "x"}).status_code == 422
+    # Quitar lo custom vuelve al oficial
+    interno.delete_(f"/aranceles/sac/{x['id']}")
+    y = next(y for y in interno.get("/aranceles/sac", params={"q": "6404.19", "nivel": "6"}).json()["items"] if y["codigo"] == "640419")
+    assert not y["custom"] and y["descripcion"] == y["descripcion_oficial"]
 
     # Códigos nacionales: agregar con condiciones y validar los dígitos del país
     assert interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "6404199"}).status_code == 422
@@ -78,9 +89,9 @@ def test_cargar_y_exportar(interno):
     for formato in ("xlsx", "pdf"):
         r = interno.get("/aranceles/codigos/exportar", params={"pais": "SV", "capitulo": "64", "formato": formato})
         assert r.status_code == 200 and len(r.content) > 1000
-    r = _subir(interno, "/aranceles/sac/importar", _xlsx([["Code", "Description"], ["9999.99", "Prueba"]]))
-    assert r.json()["creados"] == 1
-    assert interno.get("/aranceles/sac/exportar", params={"q": "Prueba", "formato": "pdf"}).status_code == 200
+    r = _subir(interno, "/aranceles/sac/importar", _xlsx([["Code", "Description"], ["9999.99", "Prueba"], ["6403.51", "Botas de cuero (interno)"]])).json()
+    assert r["actualizados"] == 1 and len(r["errores"]) == 1  # 9999.99 no es oficial: no se inventa
+    assert interno.get("/aranceles/sac/exportar", params={"q": "6403", "formato": "pdf"}).status_code == 200
     # Borrar códigos seleccionados
     assert interno.post("/aranceles/codigos/borrar", {"ids": [x["id"]]}).json()["borrados"] == 1
 
@@ -115,7 +126,8 @@ def test_notas_sac_excel(interno):
     r = _subir(interno, "/aranceles/notas/importar", b.getvalue()).json()
     assert r["actualizados"] == 1 and r["creados"] == 0 and len(r["errores"]) == 1, r
     n4 = [n for n in interno.get("/aranceles/notas", params={"capitulo": "64"}).json()["items"] if n["codigo"] == "64" and n["numero"] == "4"]
-    assert n4[0]["texto"].startswith("Texto oficial") and n4[0]["fuente"] == "archivo"
+    # La nota oficial no se pisa: el texto del archivo queda como capa custom
+    assert n4[0]["texto"].startswith("Texto oficial") and n4[0]["custom"] and n4[0]["oficial"] and n4[0]["texto_oficial"]
     x = interno.get("/aranceles/notas/exportar", params={"formato": "xlsx", "capitulo": "64"})
     assert x.status_code == 200 and x.content[:2] == b"PK"
 
