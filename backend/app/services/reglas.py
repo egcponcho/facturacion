@@ -8,7 +8,16 @@
   un código nacional dentro de su subpartida. Antes vivían en el propio código
   (IncisoNacional.cond/prio); ahora son reglas que se pueden revisar, apagar y
   priorizar sin tocar el dato oficial.
+- Reglas de la ficha (MOTOR_JS): la lógica de decisión que vivía en
+  motor.js (clasificarReglas), extraída como árbol de decisión por
+  frontend/scripts/motor-reglas.mjs a data/motor_reglas.json. Ámbito
+  CATEGORY, condiciones sobre atributos y hechos derivados de la
+  composición, y RESTRICT al código (o mapa fibra → subpartida).
 """
+import hashlib
+import json
+from pathlib import Path
+
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -105,13 +114,16 @@ def _dict(r: ReglaClasificacion) -> dict:
 
 
 def listar(db: Session, user: Usuario, q: str | None = None, tipo: str | None = None, pais: str | None = None,
-           page: int = 1, size: int = 50) -> dict:
+           page: int = 1, size: int = 50, fuente: str | None = None) -> dict:
     exigir(user, "aranceles.ver")
     consulta = select(ReglaClasificacion).options(selectinload(ReglaClasificacion.inciso))
     if tipo:
         consulta = consulta.where(ReglaClasificacion.tipo_regla == tipo)
     if pais:
         consulta = consulta.where(ReglaClasificacion.pais == pais.upper())
+    if fuente:
+        consulta = consulta.where(ReglaClasificacion.tipo_fuente == fuente.upper()) if not fuente.startswith("-") else \
+            consulta.where(ReglaClasificacion.tipo_fuente != fuente[1:].upper())
     if q:
         digitos = "".join(ch for ch in q if ch.isdigit())
         consulta = consulta.where(or_(
@@ -123,7 +135,9 @@ def listar(db: Session, user: Usuario, q: str | None = None, tipo: str | None = 
     filas = db.scalars(consulta.order_by(ReglaClasificacion.tipo_regla != "HARD_CONSTRAINT", -ReglaClasificacion.prioridad,
                                          ReglaClasificacion.pais, ReglaClasificacion.codigo_ambito, ReglaClasificacion.codigo)
                        .offset((page - 1) * size).limit(size)).all()
-    por_tipo = dict(db.execute(select(ReglaClasificacion.tipo_regla, func.count()).group_by(ReglaClasificacion.tipo_regla)).all())
+    por_tipo = dict(db.execute(select(ReglaClasificacion.tipo_regla, func.count()).where(ReglaClasificacion.tipo_fuente != "MOTOR_JS")
+                               .group_by(ReglaClasificacion.tipo_regla)).all())
+    por_tipo["MOTOR_JS"] = db.scalar(select(func.count()).select_from(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "MOTOR_JS")) or 0
     return {"items": [_dict(r) for r in filas], "total": total, "page": page, "size": size, "por_tipo": por_tipo}
 
 
@@ -157,6 +171,12 @@ def _forma(r: ReglaClasificacion, datos: dict) -> None:
             raise ErrorNegocio("Codes must have at least 2 digits.", 422, "validacion")
         if a["tipo"] in ("RESTRICT", "EXCLUDE", "BOOST") and not a["codigos"] and r.tipo_ambito not in ("CHAPTER", "HEADING", "SUBHEADING"):
             raise ErrorNegocio("Say which codes the rule restricts, excludes or raises.", 422, "validacion")
+        if a.get("mapa") is not None:
+            # Código según el valor de un hecho (p. ej. subpartida por fibra predominante)
+            if not isinstance(a["mapa"], dict) or not (a.get("por") or "").strip():
+                raise ErrorNegocio("A code map needs the field it depends on and a code for each value.", 422, "validacion")
+            a["mapa"] = {str(k): "".join(ch for ch in str(v) if ch.isdigit()) for k, v in a["mapa"].items() if str(v).strip()}
+            a["codigos"] = sorted(set(a["codigos"]) | set(a["mapa"].values()))
         if a["tipo"] == "ASK" and not a.get("atributos"):
             raise ErrorNegocio("Say which attributes the rule asks.", 422, "validacion")
         r.accion = {k: v for k, v in a.items() if v not in (None, "", [])}
@@ -216,3 +236,55 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
     registrar(db, user, "aranceles", r.id, "regla", {"codigo": r.codigo, "cambios": {k: datos[k] for k in datos if k != "condiciones"},
                                                        "condiciones": len(r.condiciones)})
     return _dict(r)
+
+
+# ---- Reglas extraídas del motor de la ficha (motor.js) ------------------------------
+DATOS_MOTOR = Path(__file__).resolve().parent.parent / "data" / "motor_reglas.json"
+PRIORIDAD_MOTOR = 900  # antes que las propias (800): una regla propia posterior manda sobre ellas
+
+
+def _firma_motor(condiciones: list, accion: dict) -> str:
+    conds = [{k: c.get(k) for k in ("grupo", "campo", "operador", "valor", "valor_hasta", "negado")} | {"grupo": c.get("grupo") or 1,
+                                                                                                        "negado": bool(c.get("negado"))}
+             for c in condiciones]
+    a = {k: v for k, v in (accion or {}).items() if k != "firma"}
+    return hashlib.sha1(json.dumps([conds, a], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+
+
+def cargar_motor_js(db: Session) -> dict:
+    """Siembra o pone al día las reglas extraídas de motor.js. Una regla que
+    alguien editó (su firma ya no coincide) no se pisa; las que el motor ya no
+    produce se apagan si nadie las tocó."""
+    datos = json.loads(DATOS_MOTOR.read_text(encoding="utf-8"))
+    existentes = {r.codigo: r for r in db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "MOTOR_JS"))}
+    n = {"nuevas": 0, "actualizadas": 0, "editadas": 0, "retiradas": 0}
+    vistas = set()
+    for d in datos["reglas"]:
+        vistas.add(d["codigo"])
+        conds = [{"grupo": 1, **c} for c in d["condiciones"]]
+        accion = dict(d["accion"])
+        firma = _firma_motor(conds, accion)
+        r = existentes.get(d["codigo"])
+        if r:
+            actual = [_cond_dict(c) for c in r.condiciones]
+            if (r.accion or {}).get("firma") != _firma_motor(actual, r.accion or {}):
+                n["editadas"] += 1  # alguien la cambió: se respeta
+                continue
+            if (r.accion or {}).get("firma") == firma and r.efecto == d.get("efecto"):
+                continue
+            n["actualizadas"] += 1
+        else:
+            r = ReglaClasificacion(codigo=d["codigo"], tipo_fuente="MOTOR_JS", activo=True)
+            db.add(r)
+            n["nuevas"] += 1
+        r.tipo_regla, r.tipo_ambito, r.codigo_ambito = "HARD_CONSTRAINT", "CATEGORY", d["categoria"]
+        r.familia, r.prioridad, r.efecto = f"MOTOR_{d['grupo'].upper()}"[:30], PRIORIDAD_MOTOR, d.get("efecto")
+        r.accion = {**accion, "firma": firma}
+        r.condiciones = [CondicionRegla(grupo=c["grupo"], campo=c["campo"], operador=c["operador"], valor=c.get("valor"),
+                                        valor_hasta=c.get("valor_hasta"), negado=bool(c.get("negado"))) for c in conds]
+    for cod, r in existentes.items():
+        if cod not in vistas and r.activo and (r.accion or {}).get("firma") == _firma_motor([_cond_dict(c) for c in r.condiciones], r.accion or {}):
+            r.activo = False
+            n["retiradas"] += 1
+    db.flush()
+    return n

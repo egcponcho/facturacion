@@ -315,6 +315,19 @@ def atributos_lista(db: Db, user: User, q: str | None = None, dominio: str | Non
     return atributos.listar(db, user, q, dominio, origen)
 
 
+@router.post("/aranceles/reglas/motor")
+def reglas_motor(db: Db, user: User, clave: Clave = None):
+    """Pone al día las reglas extraídas de la ficha (motor.js); no pisa las editadas."""
+    from ..services import reglas
+    from ..services.common import exigir
+
+    def correr():
+        exigir(user, "aranceles.editar")
+        return reglas.cargar_motor_js(db)
+
+    return ejecutar(db, user, clave, correr)
+
+
 @router.post("/aranceles/atributos/motor")
 def atributos_motor(db: Db, user: User, clave: Clave = None):
     """Agrega los atributos de la ficha del motor que aún no están en la base."""
@@ -372,10 +385,10 @@ def atributos_ambito(atributo_id: int, datos: s.AtributoAmbitoIn, db: Db, user: 
 # ---- Reglas de clasificación ------------------------------------------------------------
 @router.get("/aranceles/reglas")
 def reglas_lista(db: Db, user: User, q: str | None = None, tipo: str | None = None, pais: str | None = None,
-                 page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200)):
+                 fuente: str | None = None, page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200)):
     from ..services import reglas
 
-    return reglas.listar(db, user, q, tipo, pais, page, size)
+    return reglas.listar(db, user, q, tipo, pais, page, size, fuente)
 
 
 @router.post("/aranceles/reglas")

@@ -27,15 +27,18 @@ const modal = ref(null)
 const ocupado = ref(false)
 
 const TIPO = { HARD_CONSTRAINT: t('Hard constraint'), SOFT_SIGNAL: t('Signal'), QUESTION_GATE: t('Question gate'), REVIEW_GATE: t('Review gate'), NATIONAL_SELECT: t('National selection') }
-const FUENTE = { INTERNAL_ENGINE: t('Engine'), LEGAL_NOTE: t('Legal note'), NATIONAL_TARIFF: t('National tariff'), LEARNED: t('Learned'), MANUAL: t('Manual') }
+const FUENTE = { INTERNAL_ENGINE: t('Engine'), MOTOR_JS: t('Product sheet logic'), LEGAL_NOTE: t('Legal note'), NATIONAL_TARIFF: t('National tariff'), LEARNED: t('Learned'), MANUAL: t('Manual') }
 const OPERADOR = { EQUAL: '=', NOT_EQUAL: '≠', IN: t('one of'), GT: '>', GTE: '≥', LT: '<', LTE: '≤', BETWEEN: t('between'), EXISTS: t('has a value') }
-const PESTANAS = [['', t('All')], ['NATIONAL_SELECT', t('National selection')], ['HARD_CONSTRAINT', t('Hard constraints')],
+const PESTANAS = [['', t('All')], ['NATIONAL_SELECT', t('National selection')], ['HARD_CONSTRAINT', t('Hard constraints')], ['MOTOR_JS', t('Product sheet logic')],
   ['QUESTION_GATE', t('Questions')], ['REVIEW_GATE', t('Review')], ['SOFT_SIGNAL', t('Signals')]]
 
 let temporizador = null
 async function cargar() {
   try {
-    datos.value = await api.get('/aranceles/reglas', { q: f.q || undefined, tipo: f.tipo || undefined, pais: f.pais || undefined, page: f.page, size: f.size })
+    // Las reglas extraídas de la ficha (motor.js) van en su propia pestaña
+    const fuente = f.tipo === 'MOTOR_JS' ? 'MOTOR_JS' : f.tipo ? '-MOTOR_JS' : undefined
+    datos.value = await api.get('/aranceles/reglas', { q: f.q || undefined, tipo: f.tipo && f.tipo !== 'MOTOR_JS' ? f.tipo : undefined, fuente,
+      pais: f.pais || undefined, page: f.page, size: f.size })
   } catch (e) {
     errorApi(e)
   }
@@ -45,14 +48,27 @@ function buscar() {
   temporizador = setTimeout(() => { f.page = 1; cargar() }, 250)
 }
 const filtrar = (k, v) => { f[k] = v; f.page = 1; cargar() }
-onMounted(cargar)
+onMounted(() => { cargar(); cargarCatalogo() })
 
+// Etiquetas del catálogo de atributos (y de los hechos que la ficha deriva de la composición)
+const catalogo = ref({})
+async function cargarCatalogo() {
+  try {
+    const [a, M] = await Promise.all([api.get('/aranceles/atributos'), import('../../clasificacion/motor.js')])
+    const c = Object.fromEntries(a.items.map((x) => [x.codigo, { label: x.etiqueta, ops: Object.fromEntries((x.opciones_min || []).map((o) => [o.codigo, o.etiqueta])) }]))
+    c.fibra = { label: t('Predominant fiber'), ops: M.FIB_LBL }
+    catalogo.value = c
+  } catch {
+    /* sin catálogo se muestran los códigos */
+  }
+}
 function valorTxt(c) {
   const v = Array.isArray(c.valor) ? c.valor : [c.valor]
-  const ops = props.condiciones[c.campo]?.ops || {}
-  return v.map((x) => (x === true ? t('Yes') : x === false ? t('No') : ops[x] || x)).join(', ') + (c.valor_hasta != null ? ` – ${c.valor_hasta}` : '')
+  const ops = props.condiciones[c.campo]?.ops || catalogo.value[c.campo]?.ops || {}
+  return v.map((x) => (x === true ? t('Yes') : x === false ? t('No') : x === '' ? t('(no value)') : ops[x] || x)).join(', ') + (c.valor_hasta != null ? ` – ${c.valor_hasta}` : '')
 }
-const campoTxt = (c) => (c.campo === 'valorCIF' ? t('CIF value (US$)') : props.condiciones[c.campo]?.label || c.campo)
+const DERIVADOS = { valorCIF: t('CIF value (US$)'), fibra: t('Predominant fiber'), material_corte: t('Outer material (non-textile)'), categoria: t('Product category') }
+const campoTxt = (c) => DERIVADOS[c.campo] || props.condiciones[c.campo]?.label || catalogo.value[c.campo]?.label || c.campo
 const total = computed(() => Object.values(datos.value.por_tipo || {}).reduce((a, b) => a + b, 0))
 
 async function guardar(r, cambios, msg) {
@@ -147,7 +163,9 @@ async function guardarModal() {
             <td :data-label="t('Scope')" class="codigo">{{ tx(r.tipo_ambito === 'NATIONAL_CODE' ? r.codigo_ambito : `${r.tipo_ambito} · ${r.codigo_ambito}`) }}</td>
             <td :data-label="t('Conditions')" class="envolver condiciones">
               <span v-if="!r.condiciones.length" class="ayuda">{{ t('Always') }}</span>
-              <span v-if="r.accion?.tipo" class="cond accion">→ {{ tx(r.accion.tipo) }} {{ tx((r.accion.codigos || r.accion.atributos || []).join(', ')) }}</span>
+              <span v-if="r.accion?.mapa" class="cond accion">→ {{ tx(r.accion.tipo) }} {{ t('by {0}', [campoTxt({ campo: r.accion.por })]) }}:
+                {{ tx(Object.entries(r.accion.mapa).map(([k, v]) => `${k ? valorTxt({ campo: r.accion.por, valor: k }) : t('(no value)')} ${v}`).join(' · ')) }}</span>
+              <span v-else-if="r.accion?.tipo" class="cond accion">→ {{ tx(r.accion.tipo) }} {{ tx((r.accion.codigos || r.accion.atributos || []).join(', ')) }}</span>
               <span v-for="c in r.condiciones" :key="c.id" class="cond"><b>{{ tx(campoTxt(c)) }}</b> {{ tx(c.negado ? t('not') + ' ' : '') }}{{ tx(OPERADOR[c.operador] || c.operador) }} {{ tx(valorTxt(c)) }}</span>
             </td>
             <td :data-label="t('Priority')" class="num">{{ fmtNum(r.prioridad) }}</td>

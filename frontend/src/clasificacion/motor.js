@@ -1610,6 +1610,35 @@ function clasificarReglas(f){
   if (t === 'bastones'){ R.codigo = '950699'; R.razones.push(tr('Trekking or hiking poles: outdoor sports equipment → 9506.99')); alt('660200',tr('If they are presented as equipment for a specific sport (for example, ski poles)')); media(); return fin(R); }
   return fin(R);
 }
+/* Hechos con los que decide clasificarReglas: los atributos que lee y lo que
+   se deriva de la composición (fibra predominante, material del corte, suela,
+   exterior). El servidor ejecuta las reglas extraídas de este motor sobre
+   estos mismos hechos (scripts/motor-reglas.mjs). */
+const HECHOS_CAMPOS = ['tejido','genero','edad','hechura','hechuraSud','prendaInt','tipoBufanda','polo','recubierta','esqui','guanteDeporte',
+  'estiloCalz','disenio','altura','puntera','impermeable','rodeaDedo','casco','materialGorra','tipoAvio','materialAvio','forradoTextil','tipoPelo',
+  'pelNat','esPrenda','hamacaRed','producto','kitViaje','telescopica','alVacio','materialBotella','esBase','parteSkate','materialLlavero','pantalla',
+  'tipoColch','mueble','materialMueble','acolchada','rizo','materialBisu','tipoParche','actividad','materialBolsa','baseAncha','materialCaja',
+  'materialGancho','materialEtiqueta','tipoExhib','presentacion'];
+function hechosDe(f){
+  const h = {categoria: f.tipo || ''};
+  for (const k of HECHOS_CAMPOS){
+    if (ATTR_BY[k] && ATTR_BY[k].tipo === 'check') h[k] = !!f[k];
+    else if (f[k]) h[k] = f[k];
+  }
+  const grp = grupoTipo(f.tipo);
+  const comp0 = (f.comp && f.comp.exterior) || f.composicion || (/%/.test(textoDet(f)) ? textoDet(f) : '');
+  const pc = parseComp(comp0), pred = pc ? pc.pred : null;
+  if (pred) h.fibra = pred.grupo;
+  if (grp === 'prenda' && (!pred || pred.grupo === 'otra')){ const pm = parseMat(comp0, 'corte'); if (pm && pm.pred) h.material_corte = pm.pred; }
+  if (grp === 'calzado'){ const dv = derivarCalzado(f); if (dv.upper) h.upper = dv.upper; if (dv.sole) h.sole = dv.sole; }
+  if (grp === 'bolso'){ const ext = matDerivado(f, 'exterior', {cuero:'cuero', textil:'textil', plastico:'plastico', otro:'otro'}) || f.exterior; if (ext) h.exterior = ext; }
+  if (grp === 'cinturon'){
+    let m = matDerivado(f, 'material', {cuero:'cuero', textil:'textil', plastico:'plastico', otro:'otro', metal:'otro'}) || f.materialCinturon;
+    if (!m){ const pm = parseMat(textoDet(f), 'corte'); if (pm && pm.pred) m = pm.pred === 'otro' ? '' : pm.pred; }
+    if (m) h.materialCinturon = m;
+  }
+  return h;
+}
 function fin(R){
   const d = digits(R.codigo);
   if (d && d.length < 6) R.conf = Math.min(R.conf, 1);
@@ -2391,7 +2420,7 @@ export {
   TIPOS, TIPO_LBL, TIPO_CORTO, GENERICO, buscarTipos, grupoTipo, partesDe, partesPrincipales, PARTE_LBL, PARTE_PH,
   FIB_LBL, MAT_LBL, MAT_EQUIV, MAT_AMBIGUAS, setSinonimos, claseTexto, CLASE_LBL, prepMat, parseComp, parseMat, claseMat, resumenMat, segmentosComp,
   ATTRS, ATTR_BY, ATTR_IDS, setAtributos, setCapitulos, opcionLbl, opcionesValidas, prepararEstado, normalizar, aplicarImplica, atributosLegibles, estadoAttr, motivoDefinido,
-  detectar, detectarFicha, detectarCon, parseTallas, edadDe, descripcionProfesional, clasificarReglas, sugerir, perfilDe, perfilLegible,
+  detectar, detectarFicha, detectarCon, parseTallas, edadDe, descripcionProfesional, clasificarReglas, hechosDe, HECHOS_CAMPOS, sugerir, perfilDe, perfilLegible,
   validar, verificarCodigo, alertaKey, alertasVivas, evaluar, ESTADOS, ESTADO_COLOR, EDAD_LBL, FUENTES,
   digitosPais, incisosDe, incisosBase, partidaPais, partidasDe, paisesCompletos, EST_PAIS, FUENTE_PAIS, NAC_PREG, NAC_IDS, detectarNac,
   COND_CAMPOS, condTexto, condDeArticulo, valorCond, textoValor, vacio,

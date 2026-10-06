@@ -17,6 +17,7 @@ const emit = defineEmits(['cerrar', 'guardada'])
 const atributos = ref([])
 const dominios = ref([])
 const categorias = ref({})
+const fibras = ref({})
 const ocupado = ref(false)
 const r = props.regla
 const m = ref({
@@ -25,6 +26,8 @@ const m = ref({
   condiciones: (r?.condiciones || []).map(({ grupo, campo, operador, valor, valor_hasta, negado }) => ({ grupo, campo, operador, valor, valor_hasta, negado })),
   accion: { tipo: r?.accion?.tipo || 'RESTRICT', codigos: (r?.accion?.codigos || []).join(', '), peso: r?.accion?.peso ?? null,
     atributos: r?.accion?.atributos || [], mensaje: r?.accion?.mensaje || '' },
+  // Código según un hecho (p. ej. subpartida por fibra predominante): [[valor, código]]
+  por: r?.accion?.por || '', mapa: Object.entries(r?.accion?.mapa || {}),
 })
 onMounted(async () => {
   try {
@@ -33,6 +36,7 @@ onMounted(async () => {
     dominios.value = d
     const M = await import('../../clasificacion/motor.js')
     categorias.value = M.TIPO_CORTO
+    fibras.value = M.FIB_LBL
   } catch (e) {
     errorApi(e)
   }
@@ -48,6 +52,9 @@ const AMBITOS = [['SYSTEM', t('Whole system')], ['DOMAIN', t('Domain')], ['CATEG
 const sistema = computed(() => [
   { valor: 'dominio', texto: t('Domain'), opciones: dominios.value.map((d) => ({ valor: d.codigo, texto: d.nombre })) },
   { valor: 'categoria', texto: t('Product category'), opciones: Object.entries(categorias.value).map(([valor, texto]) => ({ valor, texto })) },
+  // Hechos que la ficha deriva de la composición
+  { valor: 'fibra', texto: t('Predominant fiber'), opciones: Object.entries(fibras.value).map(([valor, texto]) => ({ valor, texto })) },
+  { valor: 'material_corte', texto: t('Outer material (non-textile)'), opciones: ['plastico', 'cuero', 'otro'].map((valor) => ({ valor, texto: valor })) },
 ])
 function tipo(v) {
   m.value.tipo_regla = v
@@ -60,8 +67,9 @@ async function guardar() {
     tipo_regla: x.tipo_regla, tipo_ambito: x.tipo_ambito, codigo_ambito: x.tipo_ambito === 'SYSTEM' ? 'ALL' : x.codigo_ambito,
     prioridad: Number(x.prioridad) || 0, efecto: x.efecto || null, requiere_revision: x.requiere_revision,
     condiciones: x.condiciones.filter((c) => c.campo),
-    accion: { tipo: x.accion.tipo, codigos: x.accion.codigos.split(/[,\s]+/).filter(Boolean), peso: x.accion.peso ? Number(x.accion.peso) : null,
-      atributos: x.accion.atributos, mensaje: x.accion.mensaje || null },
+    accion: { tipo: x.accion.tipo, codigos: x.por ? [] : x.accion.codigos.split(/[,\s]+/).filter(Boolean), peso: x.accion.peso ? Number(x.accion.peso) : null,
+      atributos: x.accion.atributos, mensaje: x.accion.mensaje || null,
+      ...(x.por ? { por: x.por, mapa: Object.fromEntries(x.mapa.filter(([, c]) => String(c).trim())) } : {}) },
   }
   ocupado.value = true
   try {
@@ -105,7 +113,13 @@ async function guardar() {
     <div class="rejilla-campos">
       <label class="campo"><span>{{ t('Action') }}</span>
         <select v-model="m.accion.tipo" class="entrada"><option v-for="[v, l] in ACCIONES[m.tipo_regla]" :key="v" :value="v">{{ tx(l) }}</option></select></label>
-      <label v-if="necesitaCodigos" class="campo ancho"><span>{{ t('Codes (HS6, heading or chapter)') }}</span>
+      <div v-if="necesitaCodigos && m.por" class="campo ancho"><span>{{ t('Code by {0}', [m.por === 'fibra' ? t('predominant fiber') : m.por]) }}</span>
+        <div class="mapa">
+          <label v-for="(fila, i) in m.mapa" :key="i" class="mapa-fila"><span>{{ fila[0] ? tx(fila[0]) : t('(no value)') }}</span>
+            <input v-model="fila[1]" class="entrada" inputmode="numeric" :aria-label="t('Code')" /></label>
+        </div>
+      </div>
+      <label v-else-if="necesitaCodigos" class="campo ancho"><span>{{ t('Codes (HS6, heading or chapter)') }}</span>
         <input v-model="m.accion.codigos" class="entrada" :placeholder="t('e.g. 6401.92, 6402')" /></label>
       <label v-if="m.accion.tipo === 'BOOST'" class="campo"><span>{{ t('Weight') }}</span><input v-model="m.accion.peso" type="number" step="any" class="entrada" placeholder="5" /></label>
       <label v-if="m.accion.tipo === 'ASK'" class="campo ancho"><span>{{ t('Attributes to ask') }}</span>
@@ -128,4 +142,6 @@ async function guardar() {
 .tipo small { color: var(--tinta-3); font-size: 0.78rem; }
 .tipo[aria-checked='true'] { border-color: var(--acento); background: var(--acento-claro); }
 .campo.ancho { grid-column: 1 / -1; }
+.mapa { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+.mapa-fila { display: grid; grid-template-columns: 1fr 110px; gap: 6px; align-items: center; font-size: 0.85rem; }
 </style>

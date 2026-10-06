@@ -65,7 +65,7 @@ const numerico = (c) => ['GT', 'GTE', 'LT', 'LTE', 'BETWEEN'].includes(c.operado
           </select>
           <template v-if="c.operador !== 'EXISTS'">
             <FiltroMulti v-if="c.operador === 'IN' && opciones(c.campo).length" :model-value="c.valor || []" :etiqueta="t('Values')" vacio="—"
-                         :opciones="opciones(c.campo)" @update:model-value="cambiar(c.i, 'valor', $event)" />
+                         :opciones="[...opciones(c.campo), { valor: '', texto: t('(no value)') }]" @update:model-value="cambiar(c.i, 'valor', $event)" />
             <input v-else-if="c.operador === 'IN'" class="entrada val" :value="(c.valor || []).join(', ')" :placeholder="t('values separated by commas')"
                    @change="cambiar(c.i, 'valor', $event.target.value.split(',').map((x) => x.trim()).filter(Boolean))" />
             <select v-else-if="!numerico(c) && opciones(c.campo).length" class="entrada val" :value="String(c.valor ?? '')" :aria-label="t('Value')"

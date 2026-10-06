@@ -18,6 +18,7 @@
  "300 released, 301 released with changes, 304 not released (or the words).",
  "4-digit heading or 6-digit subheading (dots optional).",
  "A carton cannot mix goods for different destination countries (",
+ "A code map needs the field it depends on and a code for each value.",
  "A lowercase letter",
  "A national selection rule has a single group of conditions.",
  "A number",

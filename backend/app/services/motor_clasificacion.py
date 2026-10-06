@@ -20,8 +20,9 @@ Todo lo que decide sale de la base:
   genera candidatos y nunca confirma solo.
 """
 from dataclasses import dataclass, field
+from functools import lru_cache
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import (
@@ -71,6 +72,8 @@ def condicion(op: str, valor_hecho, valor, valor_hasta=None, negado: bool = Fals
         r = not _vacio(valor_hecho)
         return (not r) if negado else r
     if _vacio(valor_hecho):
+        if op == "IN" and isinstance(valor, list) and "" in valor:
+            return not negado  # la lista admite «sin dato» explícitamente
         return None
     vals = valor_hecho if isinstance(valor_hecho, list) else [valor_hecho]
     if op == "EQUAL":
@@ -163,6 +166,14 @@ def _accion(r: ReglaClasificacion) -> dict:
     return a
 
 
+@lru_cache(maxsize=4)
+def _por_codigo(version_id: int, marca: int) -> dict:
+    """Código → (nivel, descripción, DAI) de la versión (en memoria, como el índice de texto)."""
+    from .generico import _indice
+
+    return {c: (n, d, dai) for c, n, d, dai, _ in _indice(version_id, marca)[0]}
+
+
 def _aplica_a_producto(r: ReglaClasificacion, hechos: dict) -> bool:
     if r.tipo_ambito == "DOMAIN":
         return (hechos.get("dominio") or "") == r.codigo_ambito
@@ -183,8 +194,10 @@ def clasificar(db: Session, texto: str = "", dominio: str | None = None, categor
     v = db.scalar(select(VersionDataset).where(VersionDataset.codigo == VERSION_SAC))
     if not v:
         return {"candidatos": [], "preguntas": [], "hs6": None, "confianza": "low", "revision": True, "reglas": [], "paises": []}
+    # Las reglas de categoría solo se cargan para la categoría del producto
     reglas = list(db.scalars(select(ReglaClasificacion).options(selectinload(ReglaClasificacion.condiciones))
-                             .where(ReglaClasificacion.activo.is_(True), ReglaClasificacion.tipo_regla != "NATIONAL_SELECT")
+                             .where(ReglaClasificacion.activo.is_(True), ReglaClasificacion.tipo_regla != "NATIONAL_SELECT",
+                                    or_(ReglaClasificacion.tipo_ambito != "CATEGORY", ReglaClasificacion.codigo_ambito == (categoria or "")))
                              .order_by(ReglaClasificacion.prioridad.desc(), ReglaClasificacion.codigo)))
     base = {r.familia for r in reglas if _accion(r)["tipo"] == "BUILTIN" and r.familia in FAMILIAS_BASE}
     traza: list[dict] = []
@@ -220,16 +233,19 @@ def clasificar(db: Session, texto: str = "", dominio: str | None = None, categor
             elif isinstance(x, str) and a.tipo_dato in ("text", "composition"):
                 extra.append(x)
     terminos = list(dict.fromkeys(palabras(f"{texto} {' '.join(extra)}")))
-    nodos, df = _indice(v.id, int(v.importado_en.timestamp() if v.importado_en else 0))
-    por_cod = {c: (n, d, dai) for c, n, d, dai, _ in nodos}
+    marca = int(v.importado_en.timestamp() if v.importado_en else 0)
+    nodos, df = _indice(v.id, marca)
+    por_cod = _por_codigo(v.id, marca)
     cands: dict[str, Candidato] = {}
     if "TEXT_CANDIDATES" in base and terminos:
         total = max(len(nodos), 1)
         idf = {t: math.log(1 + total / (1 + df.get(t, 0))) for t in terminos}
+        # Palabras del vocabulario que cuenta cada término (exacta, o que empiezan con él si tiene 5+ letras)
+        alcance = {t: {t} | ({w for w in df if w.startswith(t)} if len(t) >= 5 else set()) for t in terminos}
         for cod, nivel, _desc, _dai, ps in nodos:
             if cod[:2] not in habilitados:
                 continue
-            hechos_t = [t for t in terminos if t in ps or (len(t) >= 5 and any(p.startswith(t) for p in ps))]
+            hechos_t = [t for t in terminos if not ps.isdisjoint(alcance[t])]
             if not hechos_t:
                 continue
             puntos = sum(idf[t] for t in hechos_t) * peso_dom.get(cod[:2], 1.0)
@@ -271,6 +287,16 @@ def clasificar(db: Session, texto: str = "", dominio: str | None = None, categor
             traza.append({"regla": r.codigo, "resultado": False, "efecto": "no"})
             continue
         efecto = a["tipo"]
+        if a.get("por") and isinstance(a.get("mapa"), dict):
+            # Subpartida según un hecho (p. ej. la fibra predominante): mapa valor → código
+            val = hechos.get(a["por"])
+            elegido = a["mapa"].get("" if _vacio(val) else str(val))
+            if _vacio(val):
+                pendientes.setdefault(r.codigo, set()).add(a["por"])  # ese dato es el que discrimina
+            if not elegido:
+                traza.append({"regla": r.codigo, "resultado": None, "efecto": "pending", "faltan": [a["por"]]})
+                continue
+            codigos = [elegido]
         if efecto == "RESTRICT" and codigos:
             for c in codigos:
                 agregar(c, float(a.get("peso") or 10), f"regla:{r.codigo}")
@@ -292,9 +318,12 @@ def clasificar(db: Session, texto: str = "", dominio: str | None = None, categor
 
     # 3. Ranking y resultado
     lista = sorted(cands.values(), key=lambda c: (-c.puntaje, c.codigo))
+    lineas_de: dict[str, list] = {}
+    for k in sorted(k for k in por_cod if len(k) > 6 and k[:6] in cands):
+        lineas_de.setdefault(k[:6], []).append(k)
     for c in lista:
         c.incisos = [{"codigo": k, "codigo_txt": formato(k), "descripcion": por_cod[k][1].split(" — ")[-1], "dai": por_cod[k][2]}
-                     for k in sorted(por_cod) if k.startswith(c.codigo) and len(k) > 6]
+                     for k in lineas_de.get(c.codigo, [])]
     hs6 = lista[0].codigo if lista else None
     por_regla = bool(lista and any(o.startswith("regla:") for o in lista[0].origen))
     if restringido and len(lista) == 1:

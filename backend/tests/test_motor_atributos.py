@@ -22,6 +22,14 @@ def test_ambitos_exportados_al_dia_con_el_motor():
         assert json.loads(salida.read_text(encoding="utf-8")) == actual, "Ejecuta node scripts/motor-ambitos.mjs"
 
 
+def test_reglas_extraidas_al_dia_con_el_motor():
+    """motor_reglas.json (la lógica de clasificarReglas como reglas de datos) se
+    regenera con scripts/motor-reglas.mjs al cambiar el motor; el script además
+    comprueba la paridad del árbol con motor.js sobre muestras al azar."""
+    r = subprocess.run([NODE, "scripts/motor-reglas.mjs", "--verificar"], cwd=RAIZ / "frontend", capture_output=True, text=True, timeout=900)
+    assert r.returncode == 0, r.stderr[-2000:] + "\nEjecuta node scripts/motor-reglas.mjs"
+
+
 def test_motor_aplica_el_catalogo_de_la_base():
     script = """
 const M = await import(process.argv[2])

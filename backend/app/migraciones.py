@@ -58,11 +58,12 @@ def actualizar() -> None:
             command.upgrade(cfg, "head")
     # Configuración base que no viene en los paquetes oficiales (si falta)
     from .db import SessionLocal
-    from .services import categorias
+    from .services import categorias, reglas
 
     with SessionLocal() as db:
-        if categorias.sembrar(db):
-            db.commit()
+        categorias.sembrar(db)
+        reglas.cargar_motor_js(db)  # reglas extraídas de motor.js (no pisa las editadas)
+        db.commit()
 
 
 def marcar_actual() -> None:
