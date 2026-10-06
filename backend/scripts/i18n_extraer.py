@@ -30,7 +30,7 @@ def es_texto(s: str) -> bool:
         return False
     if re.fullmatch(r"[a-z]+[A-Z]\w*", t):
         return False
-    if t.startswith("^") or t.startswith("attachment;"):
+    if t.startswith("^") or t.startswith("attachment;") or t.startswith("\\b") or t.endswith("%") or "|\\(" in t:  # patrones
         return False
     if ESPANOL.search(t):
         return False
@@ -79,7 +79,8 @@ def extraer() -> list[str]:
                     claves.add(t)
         for n in ast.walk(arbol):
             if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs and id(n) not in dentro_fstring:
-                if es_texto(n.value):
+                # El vocabulario del lector de composiciones (palabras en minúscula) no es texto de pantalla
+                if es_texto(n.value) and not (ruta.name == "composicion.py" and not n.value[:1].isupper()):
                     claves.add(n.value)
     # Concatenaciones "texto: " + ", ".join(...) quedan como su parte fija
     return sorted(claves)
@@ -87,6 +88,7 @@ def extraer() -> list[str]:
 
 if __name__ == "__main__":
     MODELOS.update(re.findall(r"^class (\w+)\(", (RAIZ / "models.py").read_text(encoding="utf-8"), re.M))
+    MODELOS.update(re.findall(r"^class (\w+)", (RAIZ / "services" / "ficha.py").read_text(encoding="utf-8"), re.M))
     lista = extraer()
     (RAIZ / "i18n_claves.json").write_text(json.dumps(lista, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(len(lista), "textos del servidor")

@@ -10,23 +10,29 @@ import FichaTecnica from '../components/ficha/FichaTecnica.vue'
 import GenericoModal from '../components/GenericoModal.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
-import { M, calcular, cargarContexto, fichaDe, fichaParaGuardar, resultadoServidor } from '../clasificacion/useClasificacion'
+import { cargarContexto, entradaDe, fichaDe, sesion } from '../clasificacion/useClasificacion'
+import { EST_PAIS, FUENTES, digits, fmtCode, fmtPais } from '../clasificacion/formato.js'
 import { puede } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { fmtFecha, fmtFechaHora } from '../utils'
 
 // Ficha técnica del producto (estilo-color) y su clasificación arancelaria.
-// El motor corre en el navegador mientras se escribe; el servidor guarda la
-// ficha, valida la aprobación y lleva el código a la OC y la factura.
+// Cada cambio se manda al motor único del servidor (/clasificacion/sesion),
+// que devuelve los campos, la sugerencia, los códigos por país y la evidencia;
+// guardar y aprobar vuelven a pasar por el mismo motor.
 const props = defineProps({ id: [String, Number] })
 const router = useRouter()
 
 const p = ref(null)
 const ctx = ref(null)
 const opciones = ref({ paises: [] })
-const f = reactive({})
+const f = reactive({ ficha: { comp: {} }, partidas: {}, alertasOk: [] })
+const r = ref(null) // respuesta del motor
+const tocados = reactive(new Set())
+const filas = reactive({}) // filas de composición que se editan, por campo comp.*
 const pestana = ref('ficha')
 const ocupado = ref(false)
+const calculando = ref(false)
 const base = ref('')
 const codOficial = ref('')
 const otroCodigo = ref('')
@@ -42,31 +48,89 @@ const puedeEditar = computed(() => !!p.value && !aprobado.value && puede('produc
 const puedeEnviar = computed(() => !!p.value && ['borrador', 'sugerida', 'observado'].includes(p.value.estado) && puede('producto.ficha'))
 const puedeAprobar = computed(() => !!p.value?.puede_aprobar)
 
-const r = computed(() => (ctx.value && p.value && f.id ? calcular(f, ctx.value, codOficial.value) : null))
-const codigo = computed(() => (aprobado.value ? p.value.sac_codigo || p.value.codigo : codOficial.value || M.fmtCode(r.value?.o.completo || r.value?.o.codigo || '')))
-const codigo6 = computed(() => M.digits(codigo.value).slice(0, 6))
-// Notas legales del SAC que aplican a la subpartida: primero las del capítulo
-// y de subpartida, luego las de sección y al final las reglas generales
+const sugerido = computed(() => r.value?.clasificacion?.sac?.codigo || r.value?.hs6 || '')
+const codigo = computed(() => (aprobado.value ? fmtCode(p.value.sac_codigo || p.value.codigo) : codOficial.value || fmtCode(sugerido.value)))
+const codigo6 = computed(() => digits(codigo.value).slice(0, 6))
+const descHs6 = computed(() => (aprobado.value || !r.value ? '' : r.value.clasificacion?.hs6?.descripcion || ''))
+
+// ---- El motor del servidor ---------------------------------------------------
+// Cada cambio pide una evaluación nueva (con espera corta); una respuesta vieja
+// se descarta. Lo que el motor normaliza vuelve a la ficha.
+let espera = null
+let turno = 0
+let cambioPend = null
+const reiniciar = new Set()
+function pedir(cambio = null, ms = 250) {
+  if (cambio) cambioPend = cambio
+  clearTimeout(espera)
+  espera = setTimeout(evaluar, ms)
+}
+async function evaluar() {
+  if (!p.value) return
+  const n = ++turno
+  const cambio = cambioPend
+  cambioPend = null
+  calculando.value = true
+  try {
+    const res = await sesion(entradaDe(p.value, f, {
+      tocados: [...tocados], autos: r.value?.autos || [], cambio, detectar: puedeEditar.value,
+      codigo_final: digits(codOficial.value) || null,
+    }))
+    if (n !== turno) return
+    r.value = res
+    if (puedeEditar.value) {
+      f.ficha = { ...res.ficha, comp: { ...(res.ficha.comp || {}) } }
+      if (res.categoria?.codigo && res.categoria.codigo !== f.tipo) f.tipo = res.categoria.codigo
+    }
+    for (const c of res.campos.filter((x) => x.tipo_dato === 'composition' && x.codigo.startsWith('comp.'))) {
+      if (!filas[c.codigo] || reiniciar.has(c.codigo)) filas[c.codigo] = (c.composicion?.filas || []).map(({ m, pct }) => ({ m, pct }))
+      reiniciar.delete(c.codigo)
+    }
+  } catch (e) {
+    if (n === turno) errorApi(e)
+  } finally {
+    if (n === turno) calculando.value = false
+  }
+}
+
+function cambio({ campo, valor, reiniciar: rei, extra }) {
+  if (campo === 'tipo') {
+    f.tipo = valor
+    tocados.add('tipo')
+    return pedir()
+  }
+  if (campo === 'origen') {
+    f.origen = valor
+    return pedir()
+  }
+  if (campo.startsWith('comp.')) {
+    f.ficha.comp = { ...(f.ficha.comp || {}), [campo.slice(5)]: valor }
+    tocados.add(campo)
+    if (rei) reiniciar.add(campo)
+    return pedir()
+  }
+  if (['desc', 'descCom', 'descManual', 'comManual'].includes(campo)) {
+    f.ficha[campo] = valor
+    Object.assign(f.ficha, extra || {})
+    return
+  }
+  f.ficha[campo] = valor
+  tocados.add(campo)
+  pedir(campo === 'uso' ? null : { campo, valor }, campo === 'uso' ? 400 : 150)
+}
+
+// ---- Notas legales de apoyo ---------------------------------------------------
+// Primero las del capítulo y de subpartida, luego las de sección y al final las
+// reglas generales; las que cita el razonamiento del motor y las que tocan datos
+// de esta ficha (r.etiquetas: categoría, género, edad, materiales…) van primero
 const ORDEN_NOTA = { explicativa: 0, subpartida: 0, capitulo: 1, complementaria: 1, seccion: 2, reglas: 3 }
-// Relevancia: las que cita el razonamiento del motor y las que tocan datos de
-// esta ficha (bebé, unisex, recubierta, cuero, deporte, conjunto…) van primero
-const etiquetasFicha = computed(() => {
-  const x = r.value?.s || f
-  const t = new Set([x.tipo, M.grupoTipo(x.tipo)])
-  if (M.edadDe(x) === 'bebe') t.add('bebe')
-  if (x.genero === 'U') t.add('unisex')
-  if (['prenda'].includes(M.grupoTipo(x.tipo))) { t.add('genero'); t.add('composicion'); t.add(x.tejido || 'punto') }
-  if (M.grupoTipo(x.tipo) === 'calzado') { t.add('corte'); t.add('suela') }
-  if (x.recubierta) t.add('recubierta')
-  if (['entrenamiento', 'deporte'].includes(x.disenio) || x.estiloCalz === 'tacos') t.add('deporte')
-  for (const parte of Object.keys(x.comp || {})) { const c = M.claseTexto(x.comp[parte]); if (c) t.add(c.clase) }
-  return t
-})
+const etiquetasFicha = computed(() => new Set(r.value?.etiquetas || []))
 const citada = (n) => {
-  const t = (r.value?.o.razones || []).join(' ').toLowerCase()
-  const cita = n.ambito !== 'reglas' && t.includes(`note ${String(n.numero).toLowerCase().split(' ')[0]}`) && t.includes(`chapter ${n.codigo}`) ? 3 : 0
-  const propio = n.codigo === codigo6.value.slice(0, 2) ? 0.5 : 0 // las del capítulo de la partida antes que las de otros
-  return cita + propio + (n.claves || []).filter((k) => etiquetasFicha.value.has(k)).length
+  const txt = (r.value?.razones || []).join(' ').toLowerCase()
+  const cita = n.ambito !== 'reglas' && txt.includes(`note ${String(n.numero).toLowerCase().split(' ')[0]}`) && txt.includes(`chapter ${n.codigo}`) ? 3 : 0
+  const propio = n.codigo === codigo6.value.slice(0, 2) ? 0.5 : 0
+  const legal = (r.value?.evidencia?.notas || []).some((x) => x.id === n.id) ? 4 : 0 // la cita una regla legal aplicada
+  return legal + cita + propio + (n.claves || []).filter((k) => etiquetasFicha.value.has(k)).length
 }
 const notasSac = computed(() => {
   const cap = codigo6.value.slice(0, 2)
@@ -88,22 +152,33 @@ const basesLegales = computed(() => {
   return [...g].map(([texto, isos]) => ({ texto, isos }))
 })
 
+// Reglas que decidieron: las de nota legal (evidencia legal) aparte de las ejecutadas del sistema o propias
+const reglasAplicadas = computed(() => (r.value?.reglas || []).filter((x) => x.aplicada && !String(x.efecto).startsWith('BUILTIN')))
+
 // ---- Carga ---------------------------------------------------------------
 function tomar(det) {
   p.value = det
+  const x = fichaDe(det)
   for (const k of Object.keys(f)) delete f[k]
-  Object.assign(f, fichaDe(det))
+  Object.assign(f, x)
+  tocados.clear()
+  // Al abrir una ficha guardada, lo que ya tiene valor cuenta como elegido
+  for (const [k, v] of Object.entries(x.ficha)) if (k !== 'comp' && v !== '' && v != null && v !== false) tocados.add(k)
+  if (x.tipo) tocados.add('tipo')
+  for (const k of Object.keys(filas)) delete filas[k]
   codOficial.value = ''
   cargas.value++
   base.value = instantanea()
+  evaluar()
 }
 function instantanea() {
-  return JSON.stringify([fichaParaGuardar(f), f.tipo, f.descArchivo, f.generico, f.origen, f.alertasOk, f.partidas])
+  return JSON.stringify([f.tipo, f.ficha, f.nombre, f.origen, f.alertasOk, f.partidas])
 }
 const sucio = computed(() => !!p.value && instantanea() !== base.value)
 
 async function recargarContexto() {
   ctx.value = await cargarContexto(true)
+  pedir()
 }
 
 async function cargar() {
@@ -119,79 +194,93 @@ async function cargar() {
 }
 
 // ---- Clasificación -------------------------------------------------------
-const alertas = computed(() => (r.value ? M.alertasVivas(r.value.o.alertas || [], f.alertasOk) : []))
+const alertas = computed(() => r.value?.alertas || [])
+const faltan = computed(() => [...(f.tipo ? [] : [t('Product type')]), ...(r.value?.faltantes || []).map((x) => x.etiqueta)])
+const completa = computed(() => !!r.value?.completa && !!f.tipo)
 // Lo que subiría la confianza (no bloquea la ficha)
-const pistas = computed(() => (r.value ? [...(r.value.o.faltantes || []), ...(r.value.o.avisos || [])].filter((x) => !r.value.faltan.includes(x)).slice(0, 3) : []))
+const pistas = computed(() => [...(r.value?.avisos || []).map((x) => x.texto), ...(r.value?.revision_por || [])].slice(0, 3))
 const errores = computed(() => alertas.value.filter((a) => a.nivel === 'error'))
-const confNivel = computed(() => ({ high: 3, medium: 2, low: 1 })[r.value?.o.confianza] || 0)
+const confNivel = computed(() => ({ high: 3, medium: 2, low: 1 })[r.value?.confianza] || 0)
+const fuente = computed(() => {
+  const o = r.value?.candidatos?.[0]?.origen || []
+  return o.some((x) => x.startsWith('regla')) ? 'regla' : o.includes('historial') ? 'historial' : 'texto'
+})
 
 function revisada(a) {
-  f.alertasOk = [...new Set([...(f.alertasOk || []), M.alertaKey(a.msg)])]
+  f.alertasOk = [...new Set([...(f.alertasOk || []), a.clave])]
+  pedir()
 }
 function usarCodigo(c) {
-  codOficial.value = M.fmtCode(c)
+  codOficial.value = fmtCode(c)
   otroCodigo.value = ''
+  pedir()
 }
 function aplicarOtro() {
-  const d = M.digits(otroCodigo.value)
+  const d = digits(otroCodigo.value)
   if (d.length < 6) return avisar(t('Write at least the 6-digit subheading.'), 'error')
   usarCodigo(d)
 }
+watch(codOficial, (v, antes) => { if (!v && antes) pedir() })
 
 const paises = computed(() => {
   if (!ctx.value) return []
-  return ctx.value.destinos.map((d) => {
-    if (aprobado.value) {
+  if (aprobado.value) {
+    return ctx.value.destinos.map((d) => {
       const x = p.value.partidas[d.iso] || {}
-      return { ...d, codigo: x.codigo, dai: x.dai, estado: x.codigo ? 'ok' : 'sin_codigo', fuente: x.fuente, manual: x.manual }
-    }
-    return { ...d, ...(r.value?.partidas[d.iso] || { estado: 'sin_codigo' }) }
-  })
+      return { ...d, codigo: x.codigo, dai: x.dai, estado: x.codigo ? 'ok' : 'sin_codigo', fuente: x.fuente, manual: x.manual, opciones: [] }
+    })
+  }
+  const por = Object.fromEntries((r.value?.clasificacion?.paises || []).map((x) => [x.pais, x]))
+  return ctx.value.destinos.map((d) => ({ ...d, ...(por[d.iso] ? { ...por[d.iso], iso: d.iso } : { estado: 'sin_codigo', opciones: [] }) }))
 })
-const paisesOk = computed(() => paises.value.filter((x) => ['ok', 'auto'].includes(x.estado) && M.digits(x.codigo).length >= x.digitos).length)
+const paisesOk = computed(() => paises.value.filter((x) => ['ok', 'manual', 'sac'].includes(x.estado) && x.codigo).length)
 function codigoPais(iso, c) {
-  f.partidas = { ...(f.partidas || {}), [iso]: { codigo: M.digits(c), manual: true } }
+  f.partidas = { ...(f.partidas || {}), [iso]: { codigo: digits(c), manual: true } }
+  pedir()
 }
-// Código nacional escrito directo en la tabla de destinos: se aplica al salir
-// del campo o con Enter si tiene los dígitos del país y empieza con la subpartida
+// Código nacional escrito en la tabla de destinos: se aplica al salir del
+// campo o con Enter si empieza con la subpartida y tiene una longitud válida
+// del país; el motor lo vuelve a validar (línea del arancel o código propio)
 const errPais = reactive({})
 function escribirPais(x, el) {
-  const c = M.digits(el.value)
+  const c = digits(el.value)
   errPais[x.iso] = ''
   if (!c) {
     if (x.manual) quitarManual(x.iso)
-    else el.value = x.codigo ? M.fmtPais(x.codigo, x.digitos) : ''
+    else el.value = x.codigo ? fmtPais(x.codigo, x.digitos) : ''
     return
   }
-  if (c === M.digits(x.codigo || '')) {
-    el.value = M.fmtPais(c, x.digitos)
+  if (c === digits(x.codigo || '')) {
+    el.value = fmtPais(c, x.digitos)
     return
   }
-  if (!c.startsWith(codigo6.value)) errPais[x.iso] = t('Must start with {0}', [M.fmtCode(codigo6.value)])
-  else if (c.length !== x.digitos) errPais[x.iso] = t('{0} digits ({1} typed)', [x.digitos, c.length])
+  const lons = x.longitudes?.length ? x.longitudes : [x.digitos]
+  if (!c.startsWith(codigo6.value)) errPais[x.iso] = t('Must start with {0}', [fmtCode(codigo6.value)])
+  else if (!lons.includes(c.length)) errPais[x.iso] = t('{0} digits ({1} typed)', [lons.join(' / '), c.length])
   else {
     codigoPais(x.iso, c)
-    el.value = M.fmtPais(c, x.digitos)
+    el.value = fmtPais(c, x.digitos)
   }
 }
 function quitarManual(iso) {
   const { [iso]: _, ...resto } = f.partidas || {}
   f.partidas = resto
+  pedir()
 }
 
 // ---- Guardar y flujo ---------------------------------------------------------
 function cuerpoFicha() {
-  const s = r.value.s
   return {
     version: p.value.version,
     tipo: f.tipo || null,
-    ficha: fichaParaGuardar(s),
-    nombre: f.descArchivo || '',
+    ficha: f.ficha,
+    nombre: f.nombre || '',
     pais_origen: f.origen || '',
-    descripcion_aduana: s.descManual ? s.desc || '' : null,
-    descripcion_comercial: s.comManual ? s.descCom || '' : null,
+    descripcion_aduana: f.ficha.descManual ? f.ficha.desc || '' : null,
+    descripcion_comercial: f.ficha.comManual ? f.ficha.descCom || '' : null,
     alertas_ok: f.alertasOk || [],
-    resultado: resultadoServidor(r.value),
+    tocados: [...tocados],
+    partidas: f.partidas || {},
   }
 }
 
@@ -215,9 +304,8 @@ async function aprobar() {
   const cod = codOficial.value || codigo.value
   ocupado.value = true
   try {
-    const rr = calcular(f, ctx.value, cod)
-    tomar(await api.post(`/productos/${p.value.id}/aprobar`, { version: p.value.version, codigo: M.digits(cod), partidas: resultadoServidor(rr).partidas }))
-    avisar(t('Approved as {0}. Orders and invoices now use it.', [p.value.codigo]))
+    tomar(await api.post(`/productos/${p.value.id}/aprobar`, { version: p.value.version, codigo: digits(cod), partidas: f.partidas || {} }))
+    avisar(t('Approved as {0}. Orders and invoices now use it.', [fmtCode(p.value.codigo)]))
     cargarContexto(true)
   } catch (e) {
     errorApi(e)
@@ -252,20 +340,30 @@ async function nuevaVersion() {
   }
 }
 
-// Enseñar el código nacional para que se use en productos parecidos
+// Enseñar el código nacional para que se use en productos parecidos: las
+// condiciones son los datos de esta ficha que separan las líneas del país
+const campoDe = (k) => (r.value?.campos || []).find((c) => c.codigo === k)
+function textoHecho(k, v) {
+  const c = campoDe(k)
+  if (typeof v === 'boolean') return v ? t('Yes') : t('No')
+  return c?.opciones?.find((o) => o.codigo === v)?.etiqueta || String(v)
+}
 function abrirEnsenar(x) {
-  const conds = M.condDeArticulo(r.value.s)
-  modal.value = { tipo: 'ensenar', pais: x, conds: conds.map((c) => ({ ...c, usar: (x.pedir || []).includes(c.k) })) }
+  const hechos = r.value?.hechos || {}
+  const ks = [...new Set([...(x.opciones || []).flatMap((o) => Object.keys(o.cond || {})), ...(x.faltan || [])])]
+  const conds = ks.filter((k) => hechos[k] !== undefined && hechos[k] !== null && hechos[k] !== '')
+    .map((k) => ({ k, v: hechos[k], l: campoDe(k)?.etiqueta || k, usar: true }))
+  modal.value = { tipo: 'ensenar', pais: x, conds }
 }
 async function ensenar() {
   const m = modal.value
   const cond = Object.fromEntries(m.conds.filter((c) => c.usar).map((c) => [c.k, c.v]))
   ocupado.value = true
   try {
-    await api.post('/clasificacion/incisos', { pais: m.pais.iso, codigo: M.digits(m.pais.codigo), cond })
-    ctx.value = await cargarContexto(true)
+    await api.post('/clasificacion/incisos', { pais: m.pais.iso, codigo: digits(m.pais.codigo), cond })
     modal.value = null
-    avisar(t('Saved. {0} will use {1} for products like this one.', [m.pais.nombre, M.fmtCode(m.pais.codigo)]))
+    avisar(t('Saved. {0} will use {1} for products like this one.', [m.pais.nombre, fmtCode(m.pais.codigo)]))
+    pedir()
   } catch (e) {
     errorApi(e)
   } finally {
@@ -305,20 +403,13 @@ async function borrarFoto(foto) {
 }
 
 // ---- Especialista (Claude) -----------------------------------------------------
+// El servidor arma lo que ve el especialista con el mismo motor (ficha, sugerencia,
+// razones, alertas, parecidos y los campos que puede corregir)
 async function consultar() {
-  const s = r.value.s
+  if (sucio.value && !(await guardar(true))) return
   ocupado.value = true
   try {
-    const op = await api.post(`/productos/${p.value.id}/analizar`, {
-      ficha_texto: M.fichaTexto({ ...s, estilo: f.descArchivo || f.estilo, desc: r.value.desc }),
-      sugerido: M.fmtCode(r.value.o.codigo || ''),
-      confianza: r.value.o.confianza,
-      razones: r.value.o.razones || [],
-      alertas: alertas.value.map((a) => a.msg).slice(0, 30),
-      parecidos: (r.value.o.parecidos || []).map((x) => `${x.r.estilo} ${x.r.color || ''}: ${M.fmtCode(x.r.codigo)}`),
-      campos: M.camposCorregibles({ ...s }),
-      con_fotos: true,
-    })
+    const op = await api.post(`/productos/${p.value.id}/analizar`, { con_fotos: true })
     p.value = { ...p.value, opinion_ia: op }
   } catch (e) {
     errorApi(e)
@@ -326,10 +417,15 @@ async function consultar() {
     ocupado.value = false
   }
 }
+const nombreCampo = (c) => campoDe(c.campo)?.etiqueta || c.campo
+function valorCorreccion(c) {
+  const k = campoDe(c.campo)
+  if (k?.tipo_dato === 'boolean') return c.valor === true || c.valor === 'true'
+  return c.valor
+}
+const valorLegible = (c) => textoHecho(c.campo, valorCorreccion(c))
 function aplicarCorreccion(c) {
-  if (c.campo.startsWith('comp.')) f.comp = { ...f.comp, [c.campo.slice(5)]: c.valor }
-  else if (M.ATTR_BY[c.campo]?.tipo === 'check') f[c.campo] = c.valor === true || c.valor === 'true'
-  else f[c.campo] = c.valor
+  cambio({ campo: c.campo, valor: valorCorreccion(c) })
 }
 
 async function descargarFicha(formato, version) {
@@ -439,8 +535,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
             <button v-if="enRevision && puede('producto.ficha')" class="btn" :disabled="ocupado" :title="t('Take it back to draft to change it')" @click="retirarRevision"><Icono nombre="atras" />{{ t('Back to draft') }}</button>
           </MasOpciones>
           <button v-if="puedeEditar" class="btn" :class="{ 'btn-primario': !puedeEnviar || puedeAprobar }" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ tx(sucio ? (puedeEnviar ? t('Save draft') : t('Save sheet')) : t('Saved')) }}</button>
-          <button v-if="puedeEnviar && !puedeAprobar" class="btn btn-primario" :disabled="ocupado || !r?.completa || codigo6.length < 6"
-                  :title="tx(!r?.completa ? t('Complete first: {0}', [(r?.faltan || []).join(', ')]) : t('Customs reviews it and approves or returns it'))" @click="enviarRevision"><Icono nombre="enviar" />{{ t('Send to review') }}</button>
+          <button v-if="puedeEnviar && !puedeAprobar" class="btn btn-primario" :disabled="ocupado || !completa || codigo6.length < 6"
+                  :title="tx(!completa ? t('Complete first: {0}', [faltan.join(', ')]) : t('Customs reviews it and approves or returns it'))" @click="enviarRevision"><Icono nombre="enviar" />{{ t('Send to review') }}</button>
         </div>
       </div>
       <div class="doc-meta">
@@ -468,7 +564,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
       <div class="producto-principal">
         <div class="pestanas" role="tablist">
           <button class="pestana" role="tab" :aria-selected="pestana === 'ficha'" @click="pestana = 'ficha'"><Icono nombre="lista" :tam="16" />{{ t('Technical sheet') }}
-            <span v-if="r && r.faltan.length && !aprobado" class="cuenta alerta">{{ tx(r.faltan.length) }}</span></button>
+            <span v-if="r && faltan.length && !aprobado" class="cuenta alerta">{{ tx(faltan.length) }}</span></button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'tallas'" @click="pestana = 'tallas'"><Icono nombre="caja" :tam="16" />{{ t('Sizes and prepacks') }}
             <span class="cuenta">{{ tx(p.articulos.length) }}</span></button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'acuerdos'" @click="pestana = 'acuerdos'"><Icono nombre="ruta" :tam="16" />{{ t('Trade agreements') }}</button>
@@ -479,7 +575,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 
         <!-- Ficha técnica -->
         <FichaTecnica v-if="pestana === 'ficha'" :key="`${p.id}-${p.version_ficha}-${cargas}`" :f="f" :r="r" :ctx="ctx" :producto="p" :paises="opciones.paises"
-                      :editable="puedeEditar" @subir-foto="subirFoto" @borrar-foto="borrarFoto" @contexto="recargarContexto" @acuerdos="pestana = 'acuerdos'" />
+                      :filas="filas" :tocados="tocados" :editable="puedeEditar" @cambio="cambio" @subir-foto="subirFoto" @borrar-foto="borrarFoto" @contexto="recargarContexto" @acuerdos="pestana = 'acuerdos'" />
 
         <!-- Acuerdos comerciales por destino según el origen -->
         <AcuerdosOrigen v-else-if="pestana === 'acuerdos'" :origen="f.origen || ''" :ctx="ctx" :paises="opciones.paises" />
@@ -585,34 +681,45 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         <section class="panel">
           <div class="eyebrow">{{ t('Tariff classification') }}</div>
           <div class="sello" :class="aprobado ? 'aprobado' : codigo6.length === 6 ? 'sugerido' : 'vacio'">
-            <span class="codigo-grande">{{ tx(codigo6.length === 6 ? M.fmtCode(codigo6) : '——.——') }}</span>
+            <span class="codigo-grande">{{ tx(codigo6.length === 6 ? fmtCode(codigo6) : '——.——') }}</span>
             <span class="sello-texto">{{ tx(aprobado ? t('Approved') : codigo6.length === 6 ? (codOficial ? t('Chosen by you') : t('Suggested')) : t('No code yet')) }}</span>
           </div>
-          <p v-if="codigo6.length === 6" class="desc-sac">{{ tx(M.descDe(codigo6)) }}</p>
+          <p v-if="codigo6.length === 6 && descHs6" class="desc-sac">{{ tx(descHs6) }}</p>
 
           <template v-if="!aprobado && r">
-            <div class="confianza" :title="tx(t('Confidence: {0}', [r.o.confianza]))">
+            <div class="confianza" :title="tx(t('Confidence: {0}', [r.confianza]))">
               <span v-for="n in 3" :key="n" class="barra" :class="{ llena: n <= confNivel, ['n' + confNivel]: true }"></span>
-              <span class="ayuda">{{ t('{0} confidence · {1}', [r.o.confianza, M.FUENTES[r.o.fuente] || 'rules']) }}</span>
+              <span class="ayuda">{{ t('{0} confidence · {1}', [r.confianza, FUENTES[fuente] || '']) }}</span>
             </div>
             <ul class="razones">
-              <li v-for="(x, i) in (verRazones ? r.o.razones : r.o.razones.slice(0, 3))" :key="i">{{ tx(x) }}</li>
+              <li v-for="(x, i) in (verRazones ? r.razones : r.razones.slice(0, 3))" :key="i">{{ tx(x) }}</li>
             </ul>
             <ul v-if="pistas.length" class="pistas">
               <li v-for="x in pistas" :key="x"><Icono nombre="info" :tam="13" />{{ tx(x) }}</li>
             </ul>
-            <button v-if="r.o.razones.length > 3" type="button" class="btn-texto" @click="verRazones = !verRazones">{{ tx(verRazones ? t('Less') : t('Why ({0} steps)', [r.o.razones.length])) }}</button>
+            <button v-if="r.razones.length > 3" type="button" class="btn-texto" @click="verRazones = !verRazones">{{ tx(verRazones ? t('Less') : t('Why ({0} steps)', [r.razones.length])) }}</button>
           </template>
 
-          <div v-if="!aprobado && r && r.faltan.length" class="bloque-clasif">
+          <div v-if="!aprobado && reglasAplicadas.length" class="bloque-clasif">
+            <h3><Icono nombre="lista" :tam="15" />{{ t('Rules that decided') }}</h3>
+            <ul class="reglas-ev">
+              <li v-for="x in reglasAplicadas" :key="x.regla" :class="x.capa === 'LEGAL' ? 'legal' : ''">
+                <span class="etiqueta" :class="x.capa === 'LEGAL' ? 'ok' : x.capa === 'PROPIA' ? 'acento' : ''">{{ tx(x.capa === 'LEGAL' ? t('Legal evidence') : x.capa === 'PROPIA' ? t('Company rule') : t('System rule')) }}</span>
+                <b>{{ tx(x.regla) }}</b> <span class="apagado">{{ tx(x.efecto) }} · {{ t('priority {0}', [x.prioridad]) }} · {{ t('rev. {0}', [x.revision]) }}</span>
+                <span v-if="x.foto?.efecto" class="sub">{{ tx(x.foto.efecto) }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="!aprobado && r && faltan.length" class="bloque-clasif">
             <h3><Icono nombre="alerta" :tam="15" />{{ t('To complete the sheet') }}</h3>
-            <ul class="lista-simple"><li v-for="x in r.faltan" :key="x">{{ tx(x) }}</li></ul>
+            <ul class="lista-simple"><li v-for="x in faltan" :key="x">{{ tx(x) }}</li></ul>
           </div>
 
           <div v-if="!aprobado && alertas.length" class="bloque-clasif">
             <h3><Icono nombre="info" :tam="15" />{{ t('Check') }}</h3>
             <ul class="alertas">
-              <li v-for="a in alertas" :key="a.msg" :class="a.nivel">
+              <li v-for="a in alertas" :key="a.clave" :class="a.nivel">
                 <span>{{ tx(a.msg) }}</span>
                 <button v-if="a.nivel !== 'error' && puedeEditar" type="button" class="btn-texto" @click="revisada(a)">{{ t('Reviewed') }}</button>
               </li>
@@ -622,8 +729,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
           <div v-if="!aprobado && puedeAprobar && r" class="bloque-clasif">
             <h3>{{ t('Other codes') }}</h3>
             <ul class="alternativas">
-              <li v-for="a in r.o.alternativas.slice(0, 4)" :key="a.codigo">
-                <button type="button" class="enlace" @click="usarCodigo(a.codigo)">{{ M.fmtCode(a.codigo) }}</button>
+              <li v-for="a in r.alternativas.slice(0, 4)" :key="a.codigo">
+                <button type="button" class="enlace" @click="usarCodigo(a.codigo)">{{ fmtCode(a.codigo) }}</button>
                 <span class="sub">{{ tx(a.cuando) }}</span>
               </li>
             </ul>
@@ -636,14 +743,14 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </section>
 
         <section v-if="codigo6.length === 6" class="panel soporte">
-          <div class="panel-cabeza"><div><h2>{{ t('Classification support') }}</h2><p>{{ t('Legal notes, explanatory notes and legal basis to check heading {0} before approving it.', [M.fmtCode(codigo6.slice(0, 4))]) }}</p></div></div>
+          <div class="panel-cabeza"><div><h2>{{ t('Classification support') }}</h2><p>{{ t('Legal notes, explanatory notes and legal basis to check heading {0} before approving it.', [fmtCode(codigo6.slice(0, 4))]) }}</p></div></div>
           <div class="pestanas-pildora" role="tablist">
             <button v-for="[k, txt, n] in [['legales', t('Legal notes'), notasLegales.length], ['explicativas', t('Explanatory notes'), notasExplicativas.length], ['base', t('Legal basis'), basesLegales.length]]" :key="k"
                     type="button" role="tab" class="pildora" :aria-selected="soporte === k" @click="soporte = k">{{ txt }} <span class="cuenta">{{ n }}</span></button>
           </div>
           <ul v-if="soporte !== 'base'" class="notas-sac">
             <li v-for="n in (verNotas ? notasVista : notasVista.slice(0, 3))" :key="n.id">
-              <b>{{ tx(n.ambito === 'explicativa' ? t('Explanatory note, heading {0}', [M.fmtCode(n.codigo)]) : n.codigo === 'RGI' ? t('General rule {0}', [n.numero]) : n.ambito === 'seccion' ? t('Section {0}, note {1}', [n.codigo, n.numero]) : n.ambito === 'complementaria' ? t('Chapter {0}, Central American note {1}', [n.codigo, n.numero.replace('NCC ', '')]) : t('Chapter {0}, note {1}', [n.codigo, n.numero])) }}</b>
+              <b>{{ tx(n.ambito === 'explicativa' ? t('Explanatory note, heading {0}', [fmtCode(n.codigo)]) : n.codigo === 'RGI' ? t('General rule {0}', [n.numero]) : n.ambito === 'seccion' ? t('Section {0}, note {1}', [n.codigo, n.numero]) : n.ambito === 'complementaria' ? t('Chapter {0}, Central American note {1}', [n.codigo, n.numero.replace('NCC ', '')]) : t('Chapter {0}, note {1}', [n.codigo, n.numero])) }}</b>
               <span>{{ tx(n.texto) }}</span>
             </li>
             <li v-if="!notasVista.length" class="apagado">{{ soporte === 'explicativas' ? t('No explanatory notes loaded for this heading. Load them in Tariff schedule → Notes.') : t('No legal notes loaded for this chapter.') }}</li>
@@ -663,28 +770,28 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
                 <td class="fuerte">{{ tx(x.iso) }}</td>
                 <td>
                   <template v-if="!aprobado && puedeAprobar">
-                    <input class="entrada entrada-pais" :class="{ invalida: errPais[x.iso], tentativo: !['ok', 'auto'].includes(x.estado) && !x.manual }"
-                           :value="x.codigo ? M.fmtPais(x.codigo, x.digitos) : ''" :placeholder="t('{0}… ({1} digits)', [M.fmtCode(codigo6) || t('Code'), x.digitos])"
-                           :list="x.opciones?.length ? `ops-${x.iso}` : undefined" inputmode="numeric" :maxlength="x.digitos + 6"
+                    <input class="entrada entrada-pais" :class="{ invalida: errPais[x.iso], tentativo: !['ok', 'manual'].includes(x.estado) && !x.manual }"
+                           :value="x.codigo ? fmtPais(x.codigo, x.digitos) : ''" :placeholder="t('{0}… ({1} digits)', [fmtCode(codigo6) || t('Code'), x.digitos])"
+                           :list="x.opciones?.length ? `ops-${x.iso}` : undefined" inputmode="numeric" :maxlength="Math.max(...(x.longitudes?.length ? x.longitudes : [x.digitos])) + 8"
                            :aria-label="t('National code for {0}', [x.nombre])" :title="t('Type the {0}-digit code; it applies when you leave the field', [x.digitos])"
                            @blur="escribirPais(x, $event.target)" @keydown.enter.prevent="$event.target.blur()" />
                     <datalist v-if="x.opciones?.length" :id="`ops-${x.iso}`">
-                      <option v-for="o in x.opciones" :key="o.codigo" :value="M.fmtPais(o.codigo, x.digitos)">{{ tx(M.condTexto(o.cond) || o.desc) }}</option>
+                      <option v-for="o in x.opciones" :key="o.codigo" :value="fmtPais(o.codigo, x.digitos)">{{ tx(o.cond_txt || o.descripcion) }}</option>
                     </datalist>
                     <span v-if="errPais[x.iso]" class="sub" style="color: var(--error)">{{ tx(errPais[x.iso]) }}</span>
                     <span v-else-if="x.manual" class="sub">{{ t('Set by hand ·') }} <button type="button" class="btn-texto" @click="quitarManual(x.iso)">{{ t('use automatic') }}</button> · <button type="button" class="btn-texto" @click="abrirEnsenar(x)">{{ t('remember for similar') }}</button></span>
-                    <span v-else-if="!['ok', 'auto'].includes(x.estado)" class="sub">{{ tx(x.estado === 'elegir' ? t('Choose one of the listed codes or type it') : M.EST_PAIS[x.estado]?.[1]) }}</span>
+                    <span v-else-if="!['ok', 'manual'].includes(x.estado)" class="sub">{{ tx(x.error || (x.estado === 'elegir' ? t('Choose one of the listed codes or type it') : EST_PAIS[x.estado])) }}</span>
                   </template>
                   <template v-else>
                     <Seleccion v-if="x.estado === 'elegir' && x.opciones?.length && puedeEditar" class="entrada" :aria-label="t('Code for {0}', [x.nombre])" @change="codigoPais(x.iso, $event)">
                       <option value="">{{ t('Choose…') }}</option>
-                      <option v-for="o in x.opciones" :key="o.codigo" :value="o.codigo">{{ M.fmtPais(o.codigo, x.digitos) }} · {{ tx(M.condTexto(o.cond) || o.desc) }}</option>
+                      <option v-for="o in x.opciones" :key="o.codigo" :value="o.codigo">{{ fmtPais(o.codigo, x.digitos) }} · {{ tx(o.cond_txt || o.descripcion) }}</option>
                     </Seleccion>
                     <template v-else>
-                      <span class="codigo-sac" :class="{ tentativo: !['ok', 'auto'].includes(x.estado) }">{{ tx(x.codigo ? M.fmtPais(x.codigo, x.digitos) : '—') }}</span>
+                      <span class="codigo-sac" :class="{ tentativo: !['ok', 'manual'].includes(x.estado) }">{{ tx(x.codigo ? fmtPais(x.codigo, x.digitos) : '—') }}</span>
                       <span v-if="x.manual" class="etiqueta acento" :title="t('Set by hand')">{{ t('manual') }}</span>
                     </template>
-                    <span v-if="!['ok', 'auto'].includes(x.estado) && x.estado !== 'elegir'" class="sub">{{ tx(M.EST_PAIS[x.estado]?.[1]) }}</span>
+                    <span v-if="!['ok', 'manual'].includes(x.estado) && x.estado !== 'elegir'" class="sub">{{ tx(x.error || EST_PAIS[x.estado]) }}</span>
                   </template>
                 </td>
                 <td class="num apagado">{{ tx(x.dai !== '' && x.dai != null ? `${x.dai}%` : '') }}</td>
@@ -693,27 +800,27 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
           </table>
         </section>
 
-        <section v-if="!aprobado && r?.o.parecidos?.length" class="panel">
+        <section v-if="!aprobado && r?.parecidos?.length" class="panel">
           <div class="panel-cabeza"><div><h2>{{ t('Similar products') }}</h2><p>{{ t('Already classified') }}</p></div></div>
           <ul class="parecidos">
-            <li v-for="x in r.o.parecidos.slice(0, 3)" :key="x.r.id">
-              <router-link :to="`/productos/${x.r.id}`"><span v-if="x.r.generico" class="codigo">{{ tx(x.r.generico) }}</span> {{ tx(x.r.estilo) }} {{ tx(x.r.color) }}</router-link>
-              <span class="codigo-sac">{{ M.fmtCode(x.r.codigo) }}</span>
-              <span class="sub">{{ tx(x.r.desc) }}</span>
+            <li v-for="x in r.parecidos.slice(0, 3)" :key="x.id">
+              <router-link :to="`/productos/${x.id}`"><span v-if="x.generico" class="codigo">{{ tx(x.generico) }}</span> {{ tx(x.estilo) }} {{ tx(x.color) }}</router-link>
+              <span class="codigo-sac">{{ tx(x.codigo_txt) }}</span>
+              <span class="sub">{{ tx(x.descripcion) }}</span>
             </li>
           </ul>
         </section>
 
-        <section v-if="(ctx.especialista && puedeAprobar && !aprobado) || p.opinion_ia" class="panel">
+        <section v-if="(opciones.especialista && puedeAprobar && !aprobado) || p.opinion_ia" class="panel">
           <div class="panel-cabeza"><div><h2>{{ t('Specialist opinion') }}</h2><p>{{ t('A second opinion by Claude. It never approves anything.') }}</p></div>
-            <button v-if="ctx.especialista && puedeAprobar && !aprobado" class="btn btn-chico" :disabled="ocupado" @click="consultar"><Icono nombre="varita" />{{ tx(p.opinion_ia ? t('Ask again') : t('Ask')) }}</button>
+            <button v-if="opciones.especialista && puedeAprobar && !aprobado" class="btn btn-chico" :disabled="ocupado" @click="consultar"><Icono nombre="varita" />{{ tx(p.opinion_ia ? t('Ask again') : t('Ask')) }}</button>
           </div>
           <div v-if="p.opinion_ia" class="opinion">
-            <p><span class="codigo-sac">{{ M.fmtCode(p.opinion_ia.codigo) }}</span> <span class="etiqueta">{{ tx(p.opinion_ia.confianza) }}</span>
+            <p><span class="codigo-sac">{{ fmtCode(p.opinion_ia.codigo) }}</span> <span class="etiqueta">{{ tx(p.opinion_ia.confianza) }}</span>
               <button v-if="!aprobado && puedeAprobar && p.opinion_ia.codigo" type="button" class="btn-texto" @click="usarCodigo(p.opinion_ia.codigo)">{{ t('Use this code') }}</button></p>
             <p class="sub">{{ tx(p.opinion_ia.razonamiento) }}</p>
             <ul v-if="p.opinion_ia.correcciones?.length" class="lista-simple">
-              <li v-for="c in p.opinion_ia.correcciones" :key="c.campo">{{ tx(M.nombreCampo(c)) }} → <b>{{ tx(M.valorLegible(c)) }}</b> <span class="apagado">{{ tx(c.motivo) }}</span>
+              <li v-for="c in p.opinion_ia.correcciones" :key="c.campo">{{ tx(nombreCampo(c)) }} → <b>{{ tx(valorLegible(c)) }}</b> <span class="apagado">{{ tx(c.motivo) }}</span>
                 <button v-if="puedeEditar" type="button" class="btn-texto" @click="aplicarCorreccion(c)">{{ t('Apply') }}</button></li>
             </ul>
             <ul v-if="p.opinion_ia.preguntas_proveedor?.length" class="lista-simple apagado">
@@ -723,15 +830,15 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </section>
 
         <div v-if="!aprobado && puedeAprobar" class="acciones-clasif">
-          <button class="btn btn-primario btn-grande" :disabled="ocupado || !r || codigo6.length < 6 || !r.completa || errores.length > 0"
-                  :title="tx(!r?.completa ? t('Complete the technical sheet first') : errores.length ? t('Fix the errors first') : '')" @click="aprobar">
+          <button class="btn btn-primario btn-grande" :disabled="ocupado || calculando || !r || codigo6.length < 6 || !completa || errores.length > 0"
+                  :title="tx(!completa ? t('Complete the technical sheet first') : errores.length ? t('Fix the errors first') : '')" @click="aprobar">
             <Icono nombre="check" />{{ t('Approve {0}', [codigo]) }}
           </button>
-          <button class="btn" :disabled="ocupado" @click="modal = { tipo: 'devolver', texto: p.observaciones || (r?.faltan.length ? t('Please complete: {0}.', [r.faltan.join(', ')]) : '') }">{{ t('Return to supplier') }}</button>
+          <button class="btn" :disabled="ocupado" @click="modal = { tipo: 'devolver', texto: p.observaciones || (faltan.length ? t('Please complete: {0}.', [faltan.join(', ')]) : '') }">{{ t('Return to supplier') }}</button>
         </div>
         <p v-else-if="!aprobado && puedeEditar" class="ayuda acciones-clasif">
           <template v-if="!puedeEnviar">{{ t('Sent to review.') }}</template>
-          <template v-else-if="r?.completa">{{ t('Complete. Send it to review when it is ready; until then it stays as a draft.') }}</template>
+          <template v-else-if="completa">{{ t('Complete. Send it to review when it is ready; until then it stays as a draft.') }}</template>
           <template v-else>{{ t('Complete the required fields, then send it to review.') }}</template>
         </p>
       </aside>
@@ -757,10 +864,10 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         <button class="btn btn-primario" :disabled="ocupado || !modal.texto.trim()" @click="nuevaVersion">{{ t('Open new version') }}</button>
       </template>
     </Modal>
-    <Modal v-if="modal?.tipo === 'ensenar'" :titulo="t('Remember {0} for {1}', [M.fmtPais(modal.pais.codigo, modal.pais.digitos), modal.pais.nombre])" ancho="480px" @cerrar="modal = null">
+    <Modal v-if="modal?.tipo === 'ensenar'" :titulo="t('Remember {0} for {1}', [fmtPais(modal.pais.codigo, modal.pais.digitos), modal.pais.nombre])" ancho="480px" @cerrar="modal = null">
       <p class="ayuda">{{ t('Products with this subheading that match the checked data will get this code automatically.') }}</p>
       <div class="lista-cond">
-        <label v-for="c in modal.conds" :key="c.k" class="check"><input v-model="c.usar" type="checkbox" /><span>{{ tx(c.l) }}: <b>{{ tx(M.textoValor(c.k, c.v)) }}</b></span></label>
+        <label v-for="c in modal.conds" :key="c.k" class="check"><input v-model="c.usar" type="checkbox" /><span>{{ tx(c.l) }}: <b>{{ tx(textoHecho(c.k, c.v)) }}</b></span></label>
         <p v-if="!modal.conds.length" class="apagado">{{ t('No distinguishing data: it will apply to the whole subheading.') }}</p>
       </div>
       <template #pie>
@@ -797,6 +904,10 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 .ancho-2 { grid-column: span 2; }
 @media (max-width: 640px) { .ancho-2 { grid-column: auto; } }
 .composicion { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.reglas-ev { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; }
+.reglas-ev li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
+.reglas-ev li .sub { flex-basis: 100%; color: var(--tinta-3); font-size: 0.78rem; }
+.reglas-ev li.legal b { color: var(--ok); }
 .atributos { display: flex; flex-direction: column; gap: 14px; }
 .atributo { display: flex; flex-direction: column; gap: 6px; }
 .atributo-nombre { font-weight: 580; font-size: 0.86rem; color: var(--tinta-2); }

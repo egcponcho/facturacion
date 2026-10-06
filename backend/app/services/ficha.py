@@ -204,7 +204,7 @@ class Catalogo:
         materiales sugeridos (los que nombra el producto, los más usados en la
         categoría y los típicos: opciones del atributo) y composiciones ya usadas.
         historial: [{estilo, color, marca, comp: {parte: texto}}] de la misma categoría."""
-        from .composicion import MAT_AMBIGUAS, etiqueta_clase, norm, total_filas
+        from .composicion import MAT_AMBIGUAS, MAT_EQUIV, etiqueta_clase, norm, total_filas
 
         L = self.lector
         parte = a.codigo[5:] if a.codigo.startswith("comp.") else a.codigo
@@ -224,7 +224,10 @@ class Catalogo:
                 pc = L.parse_comp(txt)
                 if pc:
                     x["pct"] = pc["pred"].get("pct")
+            x["interno"] = b.seccion == "derivado"
             lectura.append(x)
+        if any(not x["interno"] for x in lectura):  # si la ficha muestra el dato, no se repite el hecho interno
+            lectura = [x for x in lectura if not x["interno"]]
         pr = L.prep(txt) if txt.strip() else {"ambiguas": [], "desconocidas": []}
         usados = {norm(f["m"]).strip() for f in filas}
         base = norm(" ".join(str(x or "") for x in (texto, s.get("uso"), marca)))
@@ -275,7 +278,8 @@ class Catalogo:
         return {"parte": parte, "filas": filas, "total": total_filas(filas), "lectura": lectura,
                 "ambiguas": [{"palabra": w, "texto": MAT_AMBIGUAS.get(w, w)} for w in pr.get("ambiguas") or []],
                 "desconocidas": [] if parte in ("relleno", "plantilla") else list(pr.get("desconocidas") or []),
-                "sugerencias": mats[:10], "todos": todos, "usadas": usadas[:3]}
+                "sugerencias": mats[:10], "todos": todos, "usadas": usadas[:3],
+                "equivalencias": [{"codigo": k, "etiqueta": v} for k, v in MAT_EQUIV] if pr.get("desconocidas") else []}
 
     # ---- Derivaciones ------------------------------------------------------------------------
     def derivar(self, a: Atributo, s: dict):

@@ -115,7 +115,7 @@ function agregar(d) {
         <span class="lbl">{{ t('Product categories') }}</span>
         <button v-for="c in catsDe(d)" :key="c.id" type="button" class="cat-chip" :class="{ off: !c.activo }" :disabled="!edita"
                 :title="tx(c.activo ? t('Click to deactivate') : t('Click to activate'))" @click="activarCategoria(c)">
-          {{ tx(c.nombre) }}<small v-if="c.ficha_motor"> · {{ t('specialized sheet') }}</small></button>
+          {{ tx(c.nombre) }}</button>
         <form v-if="edita" class="cat-nueva" @submit.prevent="agregarCategoria(d)">
           <input v-model="nuevaCat[d.id]" class="entrada" maxlength="120" :placeholder="t('New category…')" :aria-label="t('New category')" />
         </form>

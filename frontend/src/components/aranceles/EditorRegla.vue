@@ -17,7 +17,6 @@ const emit = defineEmits(['cerrar', 'guardada'])
 const atributos = ref([])
 const dominios = ref([])
 const categorias = ref({})
-const fibras = ref({})
 const ocupado = ref(false)
 const r = props.regla
 const m = ref({
@@ -34,9 +33,9 @@ onMounted(async () => {
     const [a, d] = await Promise.all([api.get('/aranceles/atributos'), api.get('/aranceles/oficial/dominios')])
     atributos.value = a.items.filter((x) => x.activo)
     dominios.value = d
-    const M = await import('../../clasificacion/motor.js')
-    categorias.value = M.TIPO_CORTO
-    fibras.value = M.FIB_LBL
+    // Categorías de la configuración (las mismas que ve la ficha)
+    const ctx = await cargarContexto()
+    categorias.value = Object.fromEntries((ctx.categorias || []).map((c) => [c.codigo, c.nombre_corto || c.nombre]))
   } catch (e) {
     errorApi(e)
   }
@@ -52,9 +51,7 @@ const AMBITOS = [['SYSTEM', t('Whole system')], ['DOMAIN', t('Domain')], ['CATEG
 const sistema = computed(() => [
   { valor: 'dominio', texto: t('Domain'), opciones: dominios.value.map((d) => ({ valor: d.codigo, texto: d.nombre })) },
   { valor: 'categoria', texto: t('Product category'), opciones: Object.entries(categorias.value).map(([valor, texto]) => ({ valor, texto })) },
-  // Hechos que la ficha deriva de la composición
-  { valor: 'fibra', texto: t('Predominant fiber'), opciones: Object.entries(fibras.value).map(([valor, texto]) => ({ valor, texto })) },
-  { valor: 'material_corte', texto: t('Outer material (non-textile)'), opciones: ['plastico', 'cuero', 'otro'].map((valor) => ({ valor, texto: valor })) },
+  // Los hechos que se derivan de la composición (fibra, material…) son atributos del catálogo: van con los demás
 ])
 function tipo(v) {
   m.value.tipo_regla = v

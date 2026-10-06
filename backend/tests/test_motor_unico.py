@@ -293,3 +293,19 @@ def test_composicion_y_campos_salen_del_servidor(interno):
     campos = {c["codigo"]: c for c in s["campos"]}
     assert campos["estiloCalz"]["principal"] and not campos["technical_description"]["principal"]
     assert all(a.get("clave") for a in s["alertas"])
+
+
+def test_especialista_recibe_la_ficha_del_motor(interno):
+    """La opinión del especialista se arma en el servidor con el motor único
+    (sin texto armado por el navegador): ficha legible, sugerencia, razones y
+    los campos que puede corregir con sus valores válidos."""
+    from app.models import Producto
+    from app.services import especialista
+
+    with SessionLocal() as db:
+        p = db.scalar(select(Producto).where(Producto.estilo == "VN000EE3"))
+        d = especialista.entrada(db, p)
+    assert "Footwear style: " in d["ficha_texto"] and d["sugerido"] == "6404.19"
+    assert "- estiloCalz (Footwear style): tenis = Sneaker" in d["campos"] and "comp.corte" in d["campos"]
+    texto = especialista._prompt(d)
+    assert "Rule engine suggestion: 6404.19" in texto

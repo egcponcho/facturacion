@@ -10,7 +10,7 @@ import FiltroMulti from '../components/FiltroMulti.vue'
 import Icono from '../components/Icono.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
-import { clasificarVarios, M } from '../clasificacion/useClasificacion'
+import { cargarContexto, clasificarVarios } from '../clasificacion/useClasificacion'
 import { siguienteOrden } from '../composables/useTabla'
 import { esInterno, puede, sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
@@ -137,10 +137,10 @@ async function exportar(formato) {
 }
 
 const codigoDe = (p) => p.codigo || p.sugerido
-const descCorta = (c) => {
-  const d = M.descDe(c)
-  return d && d.length > 60 ? `${d.slice(0, 58)}…` : d
-}
+const descCorta = (d) => (d && d.length > 60 ? `${d.slice(0, 58)}…` : d || '')
+// Categorías para el filtro: las de la configuración
+const categorias = ref([])
+cargarContexto().then((c) => (categorias.value = (c.categorias || []).filter((x) => x.activo !== false).map((x) => ({ valor: x.codigo, texto: x.nombre_corto || x.nombre })))).catch(() => {})
 
 onMounted(async () => {
   cargar()
@@ -183,7 +183,7 @@ watch(() => sesion.proveedorId, recargar)
       <input v-model="filtros.q" type="search" :placeholder="t('Generic, style, color, name, item code, UPC or HS code')" :aria-label="t('Search')" @input="buscar" />
     </label>
     <FiltroMulti v-if="opciones.marcas.length > 1 || filtros.marcas.length" v-model="filtros.marcas" :etiqueta="t('Brand')" :opciones="opciones.marcas.map((m) => ({ valor: String(m.id), texto: m.nombre }))" @change="recargar" />
-    <FiltroMulti v-model="filtros.tipos" :etiqueta="t('Category')" :opciones="Object.entries(M.TIPO_CORTO).map(([valor, texto]) => ({ valor, texto }))" @change="recargar" />
+    <FiltroMulti v-model="filtros.tipos" :etiqueta="t('Category')" :opciones="categorias" @change="recargar" />
     <span class="ayuda separar">{{ t('{0} products', [datos.total]) }}</span>
   </div>
 
@@ -211,7 +211,7 @@ watch(() => sesion.proveedorId, recargar)
               </span>
               <span>
                 <router-link :to="`/productos/${p.id}`" class="fuerte" @click.stop><span v-if="p.codigo_generico" class="codigo-sac">{{ tx(p.codigo_generico) }}</span> {{ tx(p.estilo) }} · {{ tx(p.color) }}</router-link>
-                <span class="sub">{{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.rango_tallas || t('no sizes')) }}<template v-if="p.tipo"> · {{ tx(M.TIPO_CORTO[p.tipo] || p.tipo) }}</template></span>
+                <span class="sub">{{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.rango_tallas || t('no sizes')) }}<template v-if="p.tipo"> · {{ tx(p.tipo_txt || p.tipo) }}</template></span>
               </span>
             </div>
           </td>
@@ -219,7 +219,7 @@ watch(() => sesion.proveedorId, recargar)
           <td>
             <template v-if="codigoDe(p)">
               <span class="codigo-sac" :class="{ tentativo: !p.codigo }">{{ tx(codigoDe(p)) }}</span>
-              <span class="sub" :title="tx(M.descDe(codigoDe(p)))">{{ tx(p.codigo ? descCorta(p.codigo) : t('Suggested, not approved')) }}</span>
+              <span class="sub" :title="tx(p.codigo_desc || '')">{{ tx(p.codigo ? descCorta(p.codigo_desc) : t('Suggested, not approved')) }}</span>
             </template>
             <span v-else class="apagado">{{ t('Not classified') }}</span>
           </td>

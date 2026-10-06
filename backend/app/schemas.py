@@ -461,15 +461,8 @@ class SinonimoIn(BaseModel):
 
 
 class AnalizarIn(BaseModel):
-    """Datos para la opinión del especialista (los arma el navegador)."""
+    """Opinión del especialista: el servidor arma la ficha con el motor único."""
 
-    ficha_texto: str = Field(max_length=6000)
-    sugerido: str | None = Field(None, max_length=20)
-    confianza: str | None = Field(None, max_length=20)
-    razones: list[str] = Field(default_factory=list, max_length=30)
-    alertas: list[str] = Field(default_factory=list, max_length=30)
-    parecidos: list[str] = Field(default_factory=list, max_length=10)
-    campos: str | None = Field(None, max_length=6000)
     con_fotos: bool = True
 
 

@@ -50,14 +50,12 @@ function buscar() {
 const filtrar = (k, v) => { f[k] = v; f.page = 1; cargar() }
 onMounted(() => { cargar(); cargarCatalogo() })
 
-// Etiquetas del catálogo de atributos (y de los hechos que la ficha deriva de la composición)
+// Etiquetas del catálogo de atributos (también los que se derivan de la composición)
 const catalogo = ref({})
 async function cargarCatalogo() {
   try {
-    const [a, M] = await Promise.all([api.get('/aranceles/atributos'), import('../../clasificacion/motor.js')])
-    const c = Object.fromEntries(a.items.map((x) => [x.codigo, { label: x.etiqueta, ops: Object.fromEntries((x.opciones_min || []).map((o) => [o.codigo, o.etiqueta])) }]))
-    c.fibra = { label: t('Predominant fiber'), ops: M.FIB_LBL }
-    catalogo.value = c
+    const a = await api.get('/aranceles/atributos')
+    catalogo.value = Object.fromEntries(a.items.map((x) => [x.codigo, { label: x.etiqueta, ops: Object.fromEntries((x.opciones_min || []).map((o) => [o.codigo, o.etiqueta])) }]))
   } catch {
     /* sin catálogo se muestran los códigos */
   }

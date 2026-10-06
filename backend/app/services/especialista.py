@@ -1,7 +1,8 @@
 """Opinión del especialista en clasificación con Claude (opcional).
 
-Solo se ofrece si hay ANTHROPIC_API_KEY. Recibe la ficha que armó el
-navegador, la sugerencia del motor y hasta dos fotos, y devuelve una opinión
+Solo se ofrece si hay ANTHROPIC_API_KEY. Le pasa la ficha del producto tal
+como la lee el motor único (campos, composición, sugerencia, razones,
+alertas y parecidos) y hasta dos fotos, y devuelve una opinión
 estructurada (JSON validado por el esquema). Es una segunda opinión: nunca
 aprueba nada por su cuenta.
 """
@@ -51,17 +52,45 @@ def disponible() -> bool:
     return bool(settings.ANTHROPIC_API_KEY)
 
 
-def _prompt(d, notas: list | None = None) -> str:
+def entrada(db: Session, p) -> dict:
+    """Lo que ve el especialista, armado con el motor único de clasificación."""
+    from .motor_clasificacion import clasificar_producto
+
+    r = clasificar_producto(db, productos.entrada_producto(p), paises=False)
+    lineas = [f"Category: {(r.get('categoria') or {}).get('nombre') or p.tipo or 'not chosen'}",
+              f"Style / name: {p.estilo} {p.nombre or ''}".strip(), f"Country of origin: {p.pais_origen or 'not given'}"]
+    corregibles = []
+    for c in r["campos"]:
+        if c["tipo_dato"] == "composition":
+            if c.get("valor"):
+                lineas.append(f"{c['etiqueta']}: {c['valor']}")
+            continue
+        if c.get("valor") not in (None, "", [], False) or (c["tipo_dato"] == "boolean" and c.get("respondida")):
+            lineas.append(f"{c['etiqueta']}: {productos._valor_legible(c)}")
+        if c["tipo_dato"] in ("select", "boolean") and c["seccion"] != "derivado":
+            ops = "Yes / No (true / false)" if c["tipo_dato"] == "boolean" else ", ".join(f"{o['codigo']} = {o['etiqueta']}" for o in c["opciones"])
+            corregibles.append(f"- {c['codigo']} ({c['etiqueta']}): {ops}")
+    for c in r["campos"]:
+        if c["tipo_dato"] == "composition" and c["codigo"].startswith("comp."):
+            corregibles.append(f"- {c['codigo']} ({c['etiqueta']}): composition text, e.g. 60% cotton, 40% polyester")
+    if (p.ficha or {}).get("uso"):
+        lineas.append(f"What it is for: {p.ficha['uso']}")
+    parecidos = [f"{x['estilo']} {x.get('color') or ''}: {x['codigo_txt']}" for x in r.get("parecidos") or []]
+    return {"ficha_texto": "\n".join(lineas), "sugerido": r.get("hs6_txt"), "confianza": r["confianza"], "razones": r["razones"][:30],
+            "alertas": [a["msg"] for a in r["alertas"]][:30], "parecidos": parecidos[:10], "campos": "\n".join(corregibles)}
+
+
+def _prompt(d: dict, notas: list | None = None) -> str:
     partes = [
-        "Product to classify (data captured by the supplier; it may contain errors):", d.ficha_texto,
-        f"\nRule engine suggestion: {d.sugerido or 'no code'} (confidence {d.confianza or 'n/a'}).",
+        "Product to classify (data captured by the supplier; it may contain errors):", d["ficha_texto"],
+        f"\nRule engine suggestion: {d['sugerido'] or 'no code'} (confidence {d['confianza'] or 'n/a'}).",
     ]
-    if d.razones:
-        partes.append("Engine reasoning:\n" + "\n".join(f"- {r}" for r in d.razones))
-    partes.append("Inconsistencies detected by the system:\n" + "\n".join(f"- {a}" for a in d.alertas)
-                  if d.alertas else "The system found no inconsistencies, but review it anyway.")
-    if d.parecidos:
-        partes.append("Similar products already approved:\n" + "\n".join(f"- {p}" for p in d.parecidos))
+    if d["razones"]:
+        partes.append("Engine reasoning:\n" + "\n".join(f"- {r}" for r in d["razones"]))
+    partes.append("Inconsistencies detected by the system:\n" + "\n".join(f"- {a}" for a in d["alertas"])
+                  if d["alertas"] else "The system found no inconsistencies, but review it anyway.")
+    if d["parecidos"]:
+        partes.append("Similar products already approved:\n" + "\n".join(f"- {p}" for p in d["parecidos"]))
     if notas:
         partes.append("Legal notes of the SAC that apply (rules, section and chapter notes):\n" + "\n".join(
             f"- {n.codigo} note {n.numero}: {n.texto}" for n in notas))
@@ -70,7 +99,7 @@ def _prompt(d, notas: list | None = None) -> str:
         "do, say so and classify with the most reliable data. Do not invent data: if something is missing, ask for it "
         "in the questions. In the reasoning (3 to 5 sentences) cite the General Rules of Interpretation and the legal "
         "notes that apply. Only propose corrections when the evidence shows a captured value is wrong, and only with "
-        "these fields and values:\n" + (d.campos or "- tipo, uso"))
+        "these fields and values (use the code before the parenthesis as the field):\n" + (d["campos"] or "- uso"))
     return "\n\n".join(partes)
 
 
@@ -82,17 +111,18 @@ def analizar(db: Session, user: Usuario, producto_id: int, d) -> dict:
     import anthropic  # solo se carga si la opción está configurada
 
     contenido = []
+    datos = entrada(db, p)
     if d.con_fotos:
         for f in p.fotos[:2]:
             try:
                 with open(f.ruta, "rb") as fh:
-                    datos = fh.read()
+                    img = fh.read()
             except OSError:
                 continue
-            if f.tipo_mime in ("image/jpeg", "image/png", "image/webp") and len(datos) <= 5 * 1024 * 1024:
+            if f.tipo_mime in ("image/jpeg", "image/png", "image/webp") and len(img) <= 5 * 1024 * 1024:
                 contenido.append({"type": "image", "source": {"type": "base64", "media_type": f.tipo_mime,
-                                                              "data": base64.standard_b64encode(datos).decode()}})
-    texto = _prompt(d, productos.notas_de(db, d.sugerido))
+                                                              "data": base64.standard_b64encode(img).decode()}})
+    texto = _prompt(datos, productos.notas_de(db, productos.digitos(datos["sugerido"])))
     if contenido:
         texto += f"\n\n{len(contenido)} photo(s) of the product are attached: use them to confirm fabric, style, height and visible materials."
     contenido.append({"type": "text", "text": texto})

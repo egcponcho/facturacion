@@ -427,7 +427,18 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
         "aprobados": sum(conteo.get(e, 0) for e in APROBADOS),
     }
     ds = destinos(db)
-    return {"items": [_resumen(p, tallas, ds) for p in filas], "total": total, "page": page, "size": size, "kpis": kpis}
+    items = [_resumen(p, tallas, ds) for p in filas]
+    # Para mostrar: el texto del código (árbol oficial o su override) y el nombre corto de la categoría
+    from .aranceles import textos_sac
+    from .ficha import catalogo
+
+    textos = textos_sac(db, list({digitos(p.codigo or p.sugerido)[:6] for p in filas if p.codigo or p.sugerido}))
+    cats = catalogo(db).categorias
+    for x, p in zip(items, filas):
+        x["codigo_desc"] = textos.get(digitos(p.codigo or p.sugerido or "")[:6])
+        c = cats.get(p.tipo or "")
+        x["tipo_txt"] = (c.nombre_corto or c.nombre) if c else p.tipo
+    return {"items": items, "total": total, "page": page, "size": size, "kpis": kpis}
 
 
 def _historial(db: Session, p: Producto) -> list[dict]:
@@ -552,8 +563,6 @@ def _aplicar_motor(p: Producto, r: dict) -> None:
     faltan = [f["etiqueta"] for f in r["faltantes"]]
     if not p.tipo:
         faltan.insert(0, "Product type")
-    if not p.pais_origen:
-        faltan.append("Country of origin")
     if not hs6:
         faltan.append("Data for the code")
     p.ficha_completa = not faltan

@@ -1,4 +1,5 @@
 <script setup>
+import { cargarContexto } from '../../clasificacion/useClasificacion'
 import { t, tx } from '../../i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { api } from '../../api'
@@ -20,7 +21,6 @@ const edita = puede('aranceles.editar')
 const datos = ref({ items: [], por_origen: {}, total: 0 })
 const dominios = ref([])
 const categorias = ref({})
-const motor = ref(null) // etiquetas de partes y opciones del motor de la ficha
 const f = reactive({ q: '', origen: '', dominio: '' })
 const elegido = ref(null)
 const det = ref(null)
@@ -44,11 +44,13 @@ async function cargar() {
 onMounted(async () => {
   cargar()
   dominios.value = await api.get('/aranceles/oficial/dominios').catch(() => [])
-  import('../../clasificacion/motor.js').then((m) => { categorias.value = m.TIPO_CORTO; motor.value = m }).catch(() => {})
+  cargarContexto().then((c) => (categorias.value = Object.fromEntries((c.categorias || []).map((x) => [x.codigo, x.nombre_corto || x.nombre])))).catch(() => {})
 })
 const lista = computed(() => filtrar(datos.value.items.filter((a) => (!f.origen || a.origen === f.origen) && (!f.dominio || a.dominio === f.dominio)),
   f.q, (a) => [a.codigo, a.etiqueta, a.descripcion, a.dominio, TIPO[a.tipo_dato]]))
 const etiquetaDe = computed(() => Object.fromEntries(datos.value.items.map((a) => [a.codigo, a.etiqueta])))
+// Etiqueta de una opción de cualquier atributo del catálogo
+const opcionDe = (k, v) => datos.value.items.find((a) => a.codigo === k)?.opciones_min?.find((o) => o.codigo === v)?.etiqueta || v
 const nombreDominio = (c) => (c === 'CORE' ? t('Core (all products)') : dominios.value.find((d) => d.codigo === c)?.nombre || c || '—')
 const opcionesDominio = computed(() => [{ valor: 'CORE', texto: t('Core (all products)') }, ...dominios.value.map((d) => ({ valor: d.codigo, texto: d.nombre }))])
 
@@ -96,15 +98,7 @@ async function guardarDep() {
 }
 function condTexto(cond) {
   if (!cond || !cond.length) return t('Always')
-  const M = motor.value
-  const una = ([k, v]) => {
-    if (k.startsWith('material.')) {
-      const parte = k.slice(9)
-      return `${M?.PARTE_LBL[parte] || parte}: ${M?.CLASE_LBL[v] || v}`
-    }
-    const valor = v === true ? t('Yes') : M?.ATTR_BY[k] ? M.opcionLbl(k, v) : v
-    return `${etiquetaDe.value[k] || k}: ${valor}`
-  }
+  const una = ([k, v]) => `${etiquetaDe.value[k] || k}: ${v === true ? t('Yes') : v === false ? t('No') : opcionDe(k, v)}`
   if (cond.every((c) => c && 'campo' in c)) {
     const g = {}
     cond.forEach((c) => (g[c.grupo || 1] ||= []).push(`${etiquetaDe.value[c.campo] || c.campo} ${c.negado ? t('not') + ' ' : ''}${c.operador === 'EQUAL' ? '=' : c.operador === 'IN' ? t('one of') : c.operador} ${Array.isArray(c.valor) ? c.valor.join(', ') : c.valor ?? ''}`))

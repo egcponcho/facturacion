@@ -1,11 +1,10 @@
-import { t } from '../i18n/index.js'
-/* Puente entre el motor de clasificación (lógica pura en el navegador) y el
-servidor: carga el contexto una vez (historial, códigos nacionales, lo
-aprendido), arma la ficha que el motor entiende a partir del producto y
-devuelve el resultado en el formato que guarda el servidor. */
+/* La pantalla y el motor único del servidor: el contexto para mostrar
+(destinos, categorías, capítulos, notas de apoyo) se carga una vez; cada
+cambio de la ficha se manda a /clasificacion/sesion, que devuelve los campos
+que aplican, las preguntas, la composición leída, la sugerencia, los códigos
+por país y la evidencia. El navegador no clasifica. */
 import { reactive } from 'vue'
 import { api } from '../api'
-import * as M from './motor'
 
 const estado = reactive({ ctx: null, cargando: null })
 
@@ -13,206 +12,62 @@ export async function cargarContexto(forzar = false) {
   if (estado.ctx && !forzar) return estado.ctx
   if (estado.cargando && !forzar) return estado.cargando
   estado.cargando = api.get('/clasificacion/contexto').then((c) => {
-    M.setSinonimos(c.sinonimos || [])
-    M.setSac(c.sac || [])
-    M.setAtributos(c.atributos)
-    M.setCapitulos(c.capitulos)
-    const porEstilo = new Map()
-    const porGenerico = new Map()
-    for (const r of c.recs) {
-      const k = M.norm(r.estilo).trim()
-      if (k) porEstilo.set(k, [...(porEstilo.get(k) || []), r])
-      const g = M.norm(r.generico).trim()
-      if (g) porGenerico.set(g, [...(porGenerico.get(g) || []), r])
-    }
-    const destinos = c.destinos.map((d) => ({ iso: d.iso, nombre: d.nombre, digitos: d.digitos, mcca: d.mcca, base_legal: d.base_legal }))
-    estado.ctx = {
-      ...c,
-      destinos,
-      base: M.incisosBase(c.incisos, c.pais_base, destinos),
-      validar: { marcas: c.marcas, proveedores: c.proveedores, palabras: c.palabras, porEstilo, porGenerico },
-    }
+    estado.ctx = c
     estado.cargando = null
-    return estado.ctx
+    return c
   })
   return estado.cargando
 }
 
 export const contexto = estado
 
-// Producto del servidor -> ficha del motor
+// Lo editable de un producto del servidor
 export function fichaDe(p) {
-  const f = JSON.parse(JSON.stringify(p.ficha || {}))
+  const ficha = JSON.parse(JSON.stringify(p.ficha || {}))
+  ficha.comp = ficha.comp || {}
   return {
-    ...f,
-    comp: f.comp || {},
     id: p.id,
     tipo: p.tipo || '',
-    estilo: p.estilo,
-    descArchivo: p.nombre || '',
-    tallas: f.tallas || p.rango_tallas || '',
-    color: p.color,
-    generico: p.codigo_generico,
-    marca: p.marca_nombre || p.marca || '',
-    proveedor: p.proveedor || '',
+    ficha,
+    nombre: p.nombre || '',
     origen: p.pais_origen || '',
-    alertasOk: p.alertas_ok || [],
-    fotos: p.fotos || [],
-    partidas: Object.fromEntries(Object.entries(p.partidas || {}).filter(([, x]) => x.manual).map(([k, x]) => [k, x])),
+    alertasOk: [...(p.alertas_ok || [])],
+    // Solo los códigos nacionales escritos a mano viajan: los demás los elige el motor
+    partidas: Object.fromEntries(Object.entries(p.partidas || {}).filter(([, x]) => x.manual).map(([k, x]) => [k, { codigo: x.codigo, manual: true }])),
   }
 }
 
-// Campos del motor que no se guardan dentro de la ficha (van en columnas propias)
-const FUERA = ['id', 'tipo', 'estilo', 'descArchivo', 'color', 'generico', 'marca', 'proveedor', 'origen', 'alertasOk', 'fotos', 'partidas', '_matGuante']
-export function fichaParaGuardar(f) {
-  const out = {}
-  for (const [k, v] of Object.entries(f)) if (!FUERA.includes(k) && v !== undefined) out[k] = v
-  return out
-}
-
-// Evalúa la ficha: código sugerido, razones, alertas, códigos por país y si está completa
-export function calcular(f, ctx, codFinal) {
-  if (f.tipo === M.GENERICO) return calcularGenerico(f, ctx, codFinal)
-  const s = { ...f, comp: { ...(f.comp || {}) } }
-  const avisosNorm = M.normalizar(s)
-  const o = M.evaluar(s, ctx.recs, ctx.base, ctx.validar, codFinal, f.id)
-  const base = codFinal || o.completo || o.codigo
-  o.alertas = [...(o.alertas || []), ...alertaCapitulo(base, ctx)]
-  const partidas = M.digits(base).length >= 6 ? M.partidasDe(s, base, { incisos: ctx.incisos, destinos: ctx.destinos }) : {}
-  const fe = M.estadoFicha(s, ctx.obligatorios)
-  const desc = s.descManual ? (s.desc || '') : M.descripcionProfesional(s)
-  const descCom = s.comManual ? (s.descCom || '') : M.descripcionComercial(s)
-  return { s, o, partidas, completa: fe.completa, faltan: fe.faltan, desc, descCom, avisosNorm }
-}
-
-// Ruta genérica: la ficha la arma el catálogo de atributos y los candidatos
-// los trae el servidor del árbol oficial (FichaGenerica los guarda en la
-// ficha como evidencia). Nunca confirma sola: queda como sugerencia y pide
-// revisión del especialista (reglas R-SYS-003 y R-SYS-005).
-function calcularGenerico(f, ctx, codFinal) {
-  const s = { ...f, gen: { ...(f.gen || {}) }, comp: { ...(f.comp || {}) } }
-  const cands = s.genCand || []
-  // HS6 del producto y, si se eligió, la línea SAC regional (el servidor los guarda por separado)
-  const codigo = M.digits(codFinal || s.sacGen || s.codigoGen || '')
-  const elegido = cands.find((c) => codigo.startsWith(c.codigo))
-  const defs = Object.fromEntries((ctx.atributos?.genericos || []).map((a) => [a.codigo, a]))
-  const faltanReq = (s.genReq || []).filter((k) => vacioGen(s.gen[k])).map((k) => defs[k]?.etiqueta || k)
-  const o = {
-    codigo: codigo.slice(0, 6),
-    completo: codigo.length >= 8 ? codigo : '',
-    confianza: codigo ? (elegido && s.genConf === 'medium' ? 'medium' : 'low') : 'low',
-    fuente: 'generic',
-    perfil: s.dominio || '',
-    razones: elegido
-      ? [t('Candidate from the official tariff text: {0} (matches {1}).', [M.fmtCode(elegido.codigo), elegido.terminos.join(', ')]),
-        ...(s.genReglas || []).map((x) => t('Rule {0} applied.', [x])),
-        t('Text never confirms a code by itself: a specialist reviews it.')]
-      : codigo ? [t('Code chosen by hand.')] : [],
-    alternativas: cands.filter((c) => !codigo.startsWith(c.codigo)).slice(0, 6).map((c) => ({ codigo: c.codigo, cuando: c.descripcion.split(' — ').slice(-1)[0] })),
-    faltantes: faltanReq,
-    avisos: [],
-    alertas: [],
-    parecidos: [],
-  }
-  o.alertas = alertaCapitulo(codigo, ctx)
-  const partidas = codigo.length >= 6 ? M.partidasDe(s, codigo, { incisos: ctx.incisos, destinos: ctx.destinos }) : {}
-  const faltan = [...faltanReq]
-  if (!s.origen) faltan.push(t('Country of origin'))
-  if (!codigo) faltan.push(t('Data for the code'))
-  const nombre = s.gen.chemical_name || s.gen.product_name || s.descArchivo || ''
-  const desc = s.descManual ? (s.desc || '') : String(nombre).toUpperCase().slice(0, 400)
-  const descCom = s.comManual ? (s.descCom || '') : [s.gen.product_name || s.descArchivo, s.marca].filter(Boolean).join(' ')
-  return { s, o, partidas, completa: !faltan.length, faltan, desc, descCom, avisosNorm: [] }
-}
-// R-SYS-001: un código de un capítulo no habilitado no se puede aprobar (se
-// habilita en Aranceles → Capítulos); uno «solo manual» se avisa
-function alertaCapitulo(codigo, ctx) {
-  const cap = M.digits(codigo).slice(0, 2)
-  const c = cap && (ctx.capitulos || []).find((x) => x.capitulo === cap)
-  if (!c) return []
-  if (!c.habilitado) return [{ nivel: 'error', origen: 'capitulo', msg: t('Chapter {0} ({1}) is not enabled for classification. Enable it in Tariff schedule → Chapters or choose another code.', [cap, c.titulo]) }]
-  if (c.solo_manual) return [{ nivel: 'aviso', origen: 'capitulo', msg: t('Chapter {0} is manual only: confirm the code with the legal notes.', [cap]) }]
-  return []
-}
-const vacioGen = (v) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)
-
-// Atributos de la ficha genérica en palabras (para el resultado y reportes)
-function atributosGenericos(s, ctx) {
-  const defs = Object.fromEntries((ctx?.atributos?.genericos || []).map((a) => [a.codigo, a]))
-  return Object.entries(s.gen || {}).filter(([, v]) => !vacioGen(v)).map(([k, v]) => {
-    const a = defs[k]
-    const txt = (x) => a?.opciones?.find((o) => o.codigo === x)?.etiqueta || (x === true ? t('Yes') : x === false ? t('No') : x)
-    return [a?.etiqueta || k, (Array.isArray(v) ? v.map(txt).join(', ') : txt(v)) + (a?.unidad && typeof v === 'number' ? ` ${a.unidad}` : '')]
-  })
-}
-
-// Resultado para el servidor (esquema ResultadoMotor)
-export function resultadoServidor(r, ctx = estado.ctx) {
-  const { o } = r
-  const partidas = {}
-  for (const [iso, x] of Object.entries(r.partidas)) {
-    partidas[iso] = { codigo: x.codigo, dai: x.dai, estado: x.estado, fuente: x.fuente, manual: !!x.manual }
-  }
+// Lo que el motor necesita del producto y de la ficha que se está editando
+export function entradaDe(p, f, extra = {}) {
   return {
-    sugerido: M.digits(o.completo || o.codigo) || null,
-    confianza: o.confianza,
-    fuente: o.fuente,
-    perfil: o.perfil,
-    razones: (o.razones || []).slice(0, 30),
-    razones_regla: (o.razonesRegla || []).slice(0, 30),
-    codigo_regla: o.codigoRegla || null,
-    fundamento: o.fundamento ? String(o.fundamento).slice(0, 1000) : null,
-    alternativas: (o.alternativas || []).slice(0, 20),
-    avisos: (o.avisos || []).slice(0, 20),
-    faltantes: (o.faltantes || []).slice(0, 20),
-    alertas: (o.alertas || []).slice(0, 60),
-    descripcion_aduana: r.desc ? r.desc.slice(0, 400) : null,
-    descripcion_comercial: r.descCom ? r.descCom.slice(0, 300) : null,
-    completa: r.completa,
-    faltan: r.faltan.slice(0, 30),
-    partidas,
-    tipo_txt: M.TIPO_LBL[r.s.tipo] || null,
-    atributos: (r.s.tipo === M.GENERICO ? atributosGenericos(r.s, ctx) : [
-      ...(r.s.genero ? [[t('Gender'), { M: t('Men'), F: t('Women'), U: t('Unisex') }[r.s.genero] || r.s.genero]] : []),
-      ...(M.edadDe(r.s) ? [[t('Who it is for'), { adulto: t('Adult'), nino: t('Child or youth'), bebe: t('Baby') }[M.edadDe(r.s)]]] : []),
-      ...M.atributosLegibles(r.s).filter(([k]) => k !== 'Gender' && k !== 'Who it is for'),
-    ]).slice(0, 60).map(([k, v]) => [String(k), String(v)]),
+    categoria: f.tipo || null,
+    ficha: f.ficha,
+    estilo: p.estilo,
+    nombre: f.nombre || '',
+    uso: f.ficha.uso || '',
+    tallas: f.ficha.tallas || p.rango_tallas || '',
+    marca: p.marca_nombre || p.marca || null,
+    proveedor: p.proveedor || null,
+    origen: f.origen || null,
+    generico: p.codigo_generico || null,
+    producto_id: p.id,
+    alertas_ok: f.alertasOk || [],
+    partidas: f.partidas || {},
+    ...extra,
   }
 }
 
-// Completa lo que no trae la ficha (por ejemplo, de una carga masiva): la
-// categoría escrita en el archivo, los atributos que se deducen del nombre,
-// el uso y la composición, y los datos de los códigos nacionales.
-export function completarFicha(f, ctx) {
-  const vacio = (v) => v === undefined || v === null || v === ''
-  if (!f.tipo && f._categoria) f.tipo = M.buscarTipos(f._categoria, 1)[0] || ''
-  const d = M.detectarFicha({ ...f }, ctx.palabras)
-  for (const k of ['tipo', ...M.ATTR_IDS]) if (vacio(f[k]) && !vacio(d[k])) f[k] = d[k]
-  M.detectarNac(f, true)
-  M.normalizar(f)
-  return f
+export function sesion(entrada) {
+  return api.post('/clasificacion/sesion', entrada)
 }
 
-// Clasifica varios productos (lista o carga masiva) sin abrir cada uno
+// Clasifica varios productos (lista o carga masiva) en el servidor, con el mismo motor
 export async function clasificarVarios(ids, alAvanzar) {
-  const ctx = await cargarContexto()
-  const items = []
-  let n = 0
-  for (const id of ids) {
-    const p = await api.get(`/productos/${id}`)
-    alAvanzar?.(++n, ids.length)
-    if (['aprobado', 'corregido'].includes(p.estado)) continue
-    const f = completarFicha(fichaDe(p), ctx)
-    const r = calcular(f, ctx)
-    items.push({ id, tipo: r.s.tipo || null, ficha: fichaParaGuardar(r.s), resultado: resultadoServidor(r) })
-  }
-  if (!items.length) return { clasificados: 0, omitidos: [] }
   let total = { clasificados: 0, omitidos: [] }
-  for (let i = 0; i < items.length; i += 200) {
-    const x = await api.post('/productos/clasificar', { items: items.slice(i, i + 200) })
+  for (let i = 0; i < ids.length; i += 200) {
+    const x = await api.post('/productos/clasificar', { ids: ids.slice(i, i + 200) })
     total = { clasificados: total.clasificados + x.clasificados, omitidos: [...total.omitidos, ...x.omitidos] }
+    alAvanzar?.(Math.min(i + 200, ids.length), ids.length)
   }
   return total
 }
-
-export { M }

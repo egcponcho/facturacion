@@ -2,19 +2,15 @@
 import { t, tx } from '../../i18n/index.js'
 import { computed, nextTick, ref } from 'vue'
 import Seleccion from '../Seleccion.vue'
-import { M } from '../../clasificacion/useClasificacion'
+import { norm, textoDesdeFilas, totalFilas } from '../../clasificacion/formato.js'
 
 // Composición de una parte (tela exterior, corte, suela…) por filas
-// material | %. Sugiere materiales (los que dice el nombre del producto, los
-// que más usas en esta categoría y los típicos), completa el porcentaje que
-// falta y reconoce lo que se pega como texto.
+// material | %. Lo que el motor lee de la parte (clase de cada material, lo
+// que se deriva, palabras dudosas o desconocidas, materiales sugeridos y
+// composiciones ya usadas) lo calcula el servidor: aquí solo se edita.
 const props = defineProps({
-  parte: { type: String, required: true },
-  filas: { type: Array, required: true },
-  s: { type: Object, required: true }, // ficha ya normalizada por el motor
-  recs: { type: Array, default: () => [] },
-  usadas: { type: Array, default: () => [] }, // [{txt, de}]
-  principal: Boolean,
+  campo: { type: Object, required: true }, // campo del motor (tipo composition) con su análisis
+  filas: { type: Array, required: true }, // filas que se editan
   editable: Boolean,
 })
 const emit = defineEmits(['cambio', 'ensenar'])
@@ -22,11 +18,11 @@ const caja = ref(null)
 const pegado = ref('')
 const verPegar = ref(false)
 
+const an = computed(() => props.campo.composicion || { filas: [], lectura: [], ambiguas: [], desconocidas: [], sugerencias: [], todos: [], usadas: [], equivalencias: [] })
 const r1 = (n) => Math.round(n * 10) / 10
-const total = computed(() => M.totalFilas(props.filas))
+const total = computed(() => totalFilas(props.filas))
 const resto = computed(() => r1(100 - total.value))
-const texto = computed(() => M.textoDesdeFilas(props.filas))
-const sug = computed(() => M.sugerenciasComp(props.parte, { ...props.s, comp: { ...props.s.comp, [props.parte]: texto.value } }, props.recs))
+const texto = computed(() => textoDesdeFilas(props.filas))
 const soloUno = computed(() => props.filas.length === 1 && props.filas[0].m && String(props.filas[0].pct).trim() === '')
 const faltaUltimo = computed(() => props.filas.length > 1 && String(props.filas.at(-1).pct).trim() === '' && resto.value > 0)
 const placeholders = computed(() => {
@@ -37,29 +33,17 @@ const placeholders = computed(() => {
     return x > 0 ? String(x) : '0'
   })
 })
-
-// Lo que el motor entiende de esta parte
-const lectura = computed(() => {
-  const v = texto.value
-  if (!v.trim()) return { main: '', ambiguas: [], desconocidas: [] }
-  const g = M.grupoTipo(props.s.tipo)
-  const pr = M.prepMat(v)
-  let main = ''
-  if (props.parte === 'corte' || props.parte === 'suela') {
-    const pm = M.parseMat(v, props.parte === 'suela' ? 'suela' : 'corte')
-    if (pm?.pred) main = (props.parte === 'corte' ? t('Upper material: ') : t('Sole of ')) + M.MAT_LBL[pm.pred]
-  } else if (props.parte === 'exterior' && (g === 'prenda' || ['tienda', 'manta', 'toalla', 'saco', 'colchoneta'].includes(props.s.tipo))) {
-    const c = M.parseComp(v)
-    if (c?.pred) main = t('Predominates: {0} ({1}%)', [M.FIB_LBL[c.pred.grupo] || c.pred.grupo, c.pred.pct])
-  } else if (props.parte === 'exterior' || props.parte === 'material') {
-    const c = M.claseMat({ ...props.s, comp: { ...props.s.comp, [props.parte]: v } }, props.parte)
-    if (c) main = t('Main material: {0}', [{ plastico: 'plastic', cuero: 'leather', metal: 'metal', madera: 'wood', papel: t('paper or board'), vidrio: 'glass', paja: 'straw', textil: 'textile' }[c.pred] || c.pred])
-  }
-  return { main, ambiguas: pr.ambiguas, desconocidas: ['relleno', 'plantilla'].includes(props.parte) ? [] : pr.desconocidas }
-})
+// Clase de cada fila según el servidor (cuando la fila ya llegó al motor)
+function clase(f) {
+  const k = norm(f.m).trim()
+  return an.value.filas.find((x) => norm(x.m).trim() === k)?.clase || null
+}
+const usados = computed(() => new Set(props.filas.map((f) => norm(f.m).trim())))
+const sugerencias = computed(() => an.value.sugerencias.filter((x) => !usados.value.has(norm(x.m).trim())))
+const deUsadas = (u) => (u.de?.estilo ? t('style {0}{1}', [u.de.estilo, u.de.color ? `, ${u.de.color}` : '']) : `${u.de?.productos || ''} ${t('products')}${u.de?.marca ? t(' of {0}', [u.de.marca]) : ''}`)
 
 function cambio() {
-  emit('cambio', props.parte, texto.value)
+  emit('cambio', props.campo.codigo, texto.value)
 }
 async function enfocar(i, campo) {
   await nextTick()
@@ -85,9 +69,6 @@ function escribirPct(i, e) {
   cambio()
 }
 // Enter en el material pasa al %; en el % vacío pone lo que falta y sigue
-function enterMat(i) {
-  enfocar(i, 'pct')
-}
 function enterPct(i) {
   const f = props.filas[i]
   if (!String(f.pct).trim() && resto.value > 0) {
@@ -102,9 +83,10 @@ function llenar() {
   last.pct = props.filas.length === 1 ? '100' : String(resto.value)
   cambio()
 }
+// Un texto pegado o una composición ya usada: el servidor la parte en filas
 function usarTexto(txt) {
-  props.filas.splice(0, props.filas.length, ...M.filasDesdeTexto(txt))
-  cambio()
+  props.filas.splice(0, props.filas.length)
+  emit('cambio', props.campo.codigo, txt, true)
 }
 function pegar() {
   if (!pegado.value.trim()) return
@@ -117,7 +99,7 @@ function pegar() {
 <template>
   <div ref="caja" class="cparte">
     <div class="chead">
-      <span class="lbl">{{ tx(M.PARTE_LBL[props.parte]) }}<span v-if="props.principal" class="req-ast" aria-hidden="true">*</span><span v-else class="opcional"> {{ t('(optional)') }}</span></span>
+      <span class="lbl">{{ tx(props.campo.etiqueta) }}<span v-if="props.campo.modo === 'REQUIRE'" class="req-ast" aria-hidden="true">*</span><span v-else class="opcional"> {{ t('(optional)') }}</span></span>
       <span v-if="props.filas.length && Math.abs(resto) < 0.05" class="est ok">{{ t('Total 100%') }}</span>
       <span v-else-if="props.filas.length && resto > 0" class="est pend">{{ t('Total {0}% · {1}% missing', [total, resto]) }}</span>
       <span v-else-if="props.filas.length" class="est mal">{{ t('Total {0}% · {1}% over', [total, -resto]) }}</span>
@@ -125,10 +107,10 @@ function pegar() {
 
     <div v-for="(f, i) in props.filas" :key="i" class="crow">
       <span class="cmat">
-        <input v-model="f.m" class="entrada" type="text" :list="`mat_${props.parte}`" :data-mat="i" :placeholder="t('Material')" :aria-label="t('Material {0}', [i + 1])"
-               :disabled="!props.editable" @input="cambio" @keydown.enter.prevent="enterMat(i)" />
-        <span v-if="f.m && M.claseTexto(f.m)" class="ctag" :class="M.claseTexto(f.m).clase" :title="t('Counts as {0} for the tariff', [M.claseTexto(f.m).lbl.toLowerCase()])">{{ tx(M.claseTexto(f.m).lbl) }}</span>
-        <span v-else-if="f.m && f.m.trim().length > 2" class="ctag desconocido" :title="t('Not recognized: choose what it is below so the system learns it')">?</span>
+        <input v-model="f.m" class="entrada" type="text" :list="`mat_${props.campo.codigo}`" :data-mat="i" :placeholder="t('Material')" :aria-label="t('Material {0}', [i + 1])"
+               :disabled="!props.editable" @input="cambio" @keydown.enter.prevent="enfocar(i, 'pct')" />
+        <span v-if="f.m && clase(f)" class="ctag" :class="clase(f).clase" :title="t('Counts as {0} for the tariff', [tx(clase(f).lbl).toLowerCase()])">{{ tx(clase(f).lbl) }}</span>
+        <span v-else-if="f.m && f.m.trim().length > 2 && an.desconocidas.some((w) => norm(f.m).includes(w))" class="ctag desconocido" :title="t('Not recognized: choose what it is below so the system learns it')">?</span>
       </span>
       <span class="cpct">
         <input class="entrada" type="text" inputmode="decimal" :value="f.pct" :data-pct="i" :placeholder="tx(placeholders[i])" :aria-label="t('Percentage of {0}', [f.m || 'material'])"
@@ -137,31 +119,31 @@ function pegar() {
       <button v-if="props.editable" type="button" class="cx" :aria-label="t('Remove {0}', [f.m || 'row'])" @click="quitar(i)">×</button>
     </div>
     <p v-if="!props.filas.length" class="cvacio">{{ tx(props.editable ? t('Tap a material to add it.') : t('Not given.')) }}</p>
-    <datalist :id="`mat_${props.parte}`"><option v-for="m in sug.todos" :key="m" :value="m">{{ tx(M.claseTexto(m)?.lbl || '') }}</option></datalist>
+    <datalist :id="`mat_${props.campo.codigo}`"><option v-for="m in an.todos" :key="m" :value="m"></option></datalist>
 
     <template v-if="props.editable">
       <div v-if="soloUno || faltaUltimo" class="mchips">
         <button type="button" class="lleno" @click="llenar">{{ tx(soloUno ? `100% ${props.filas[0].m}` : t('Complete {0} with {1}%', [props.filas.at(-1).m || 'last', resto])) }}</button>
       </div>
       <div v-if="resto > 0 || !props.filas.length" class="mchips">
-        <button v-for="x in sug.mats" :key="x.m" type="button" :class="{ rel: x.fuente === 'rel' }"
+        <button v-for="x in sugerencias" :key="x.m" type="button" :class="{ rel: x.fuente === 'rel' }"
                 :title="tx(x.fuente === 'rel' ? t('Mentioned in the product name') : x.fuente === 'base' ? t('What you use most for this category') : t('Common for this product'))"
                 @click="agregar(x.m)">+ {{ tx(x.m) }}</button>
         <button type="button" @click="agregar('')">{{ t('+ Other') }}</button>
       </div>
-      <div v-if="props.usadas.length && !props.filas.length" class="mchips">
+      <div v-if="an.usadas.length && !props.filas.length" class="mchips">
         <span class="mlbl">{{ t('Already used:') }}</span>
-        <button v-for="c in props.usadas" :key="c.txt" type="button" class="fix" @click="usarTexto(c.txt)">{{ tx(c.txt) }}<small>{{ tx(c.de) }}</small></button>
+        <button v-for="u in an.usadas" :key="u.txt" type="button" class="fix" @click="usarTexto(u.txt)">{{ tx(u.txt) }}<small>{{ tx(deUsadas(u)) }}</small></button>
       </div>
     </template>
 
-    <div v-if="lectura.main || lectura.ambiguas.length || lectura.desconocidas.length" class="chips-lectura">
-      <span v-if="lectura.main" class="chip-l main">{{ tx(lectura.main) }}</span>
-      <span v-for="w in lectura.ambiguas" :key="w" class="chip-l">{{ tx(M.MAT_AMBIGUAS[w]) }}</span>
-      <span v-for="w in lectura.desconocidas" :key="w" class="teach">{{ t('What is “{0}”?', [w]) }}
+    <div v-if="an.lectura.length || an.ambiguas.length || an.desconocidas.length" class="chips-lectura">
+      <span v-for="x in an.lectura" :key="x.campo" class="chip-l main">{{ tx(x.etiqueta) }}: {{ tx(x.texto) }}<template v-if="x.pct"> ({{ tx(x.pct) }}%)</template></span>
+      <span v-for="w in an.ambiguas" :key="w.palabra" class="chip-l">{{ tx(w.texto) }}</span>
+      <span v-for="w in an.desconocidas" :key="w" class="teach">{{ t('What is “{0}”?', [w]) }}
         <Seleccion :aria-label="t('What is {0}', [w])" :disabled="!props.editable" @change="$event && emit('ensenar', w, $event)">
           <option value="">{{ t('Choose…') }}</option>
-          <option v-for="[k, l] in M.MAT_EQUIV" :key="k" :value="k">{{ tx(l) }}</option>
+          <option v-for="e in an.equivalencias" :key="e.codigo" :value="e.codigo">{{ tx(e.etiqueta) }}</option>
         </Seleccion>
       </span>
     </div>

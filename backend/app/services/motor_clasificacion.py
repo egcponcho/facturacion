@@ -326,7 +326,8 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
         s[c["campo"]] = c.get("valor")
         for k in cat.aplicar_implica(s, c["campo"], c.get("valor")):
             autos.add(k)
-    for k, val in _datos_producto(db, entrada).items():  # lo que ya dice el registro del producto
+    del_registro = _datos_producto(db, entrada)
+    for k, val in del_registro.items():  # lo que ya dice el registro del producto
         if k in cat.por_codigo and _vacio(s.get(k)):
             s[k] = val
     avisos = cat.normalizar(s)
@@ -519,6 +520,8 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     discriminan = set().union(*pendientes.values()) if pendientes and "NEXT_BEST_QUESTION" in base else set()
     usados = {c.campo for r in reglas for c in r.condiciones}
     campos, preguntas, faltantes = _campos(cat, s, ficha, codigos_c, preguntar, discriminan, autos, usados)
+    for c in campos:
+        c["del_registro"] = c["codigo"] in del_registro  # se toma del producto (nombre, destinos): no se pregunta
     comps = [c for c in campos if c["tipo_dato"] == "composition"]
     if comps:
         hist = _historial_composicion(db, categoria, entrada.get("producto_id"))
@@ -568,6 +571,8 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     for k, ov in overrides.vigentes(db, "NODO", list(nombres), hoy).items():  # descripción propia (capa custom)
         if ov.get("descripcion") and k in nombres:
             nombres[k] = ov["descripcion"]
+    if not (entrada.get("origen") or entrada.get("sin_origen")):
+        faltantes.append({"campo": "origen", "etiqueta": "Country of origin"})
     completa = not faltantes and bool(hs6) and len(hs6) == 6 and bool(entrada.get("origen") or entrada.get("sin_origen"))
     candidatos = [{"codigo": c.codigo, "codigo_txt": formato(c.codigo), "descripcion": nombres.get(c.codigo, ""), "capitulo": c.codigo[:2],
                    "titulo_capitulo": caps[c.codigo[:2]].titulo if c.codigo[:2] in caps else "", "puntaje": round(c.puntaje, 2),
@@ -597,6 +602,7 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
                           "paises": out_paises},
         "confianza": confianza, "requiere_revision": revision, "revision_por": revision_por, "razones": razones,
         "alternativas": alternativas, "candidatos": candidatos, "alertas": vivas, "descripciones": desc, "perfil": perfil,
+        "parecidos": historial["parecidos"], "etiquetas": _etiquetas(cat, s, cobj),
         "evidencia": evidencia, "terminos": terminos,
         # Forma corta (sesión de clasificación y pruebas)
         "hs6": hs6, "hs6_txt": formato(hs6) if hs6 else None, "sac": sac, "sac_txt": formato(sac) if sac else None,
@@ -660,6 +666,30 @@ def _perfil(categoria, hechos, traza) -> str:
     return "|".join([categoria or "?"] + [f"{k}={hechos.get(k)}" for k in usados if not _vacio(hechos.get(k)) and k != "categoria"])[:200]
 
 
+def _etiquetas(cat, s: dict, cobj) -> list[str]:
+    """Palabras que describen el producto, para ordenar las notas legales de
+    apoyo por relevancia (las notas llevan las mismas claves)."""
+    out = set()
+    if cobj:
+        out.update(x for x in (cobj.codigo, cobj.familia, cobj.dominio) if x)
+    for k, v in s.items():
+        if k.startswith("_") or v in (None, "", False, [], {}):
+            continue
+        if k.startswith("comp."):
+            out.add(k[5:])
+            out.add("composicion")
+            c = cat.lector.clase_texto(v) if isinstance(v, str) else None
+            if c:
+                out.add(c["clase"])
+            continue
+        out.add(k)
+        if isinstance(v, str):
+            out.add(v)
+    if s.get("genero") == "U":
+        out.add("unisex")
+    return sorted(out)
+
+
 def _historial_composicion(db: Session, categoria, pid) -> list[dict]:
     """Composiciones de los productos de la misma categoría (para sugerir materiales)."""
     if not categoria:
@@ -675,17 +705,23 @@ def _historial(db: Session, entrada: dict, categoria, perfil: str) -> dict:
     """Clasificaciones aprobadas parecidas: el mismo estilo/genérico y el mismo perfil."""
     from .productos import APROBADOS
 
-    out = {"tally": {}, "mismo": None, "evidencia": [], "mismo_estilo": []}
+    out = {"tally": {}, "mismo": None, "evidencia": [], "mismo_estilo": [], "parecidos": []}
     if not categoria:
         return out
     pid = entrada.get("producto_id")
-    q = select(Producto.id, Producto.estilo, Producto.color, Producto.codigo_generico, Producto.codigo, Producto.perfil, Producto.tipo).where(
+    q = select(Producto.id, Producto.estilo, Producto.color, Producto.codigo_generico, Producto.codigo, Producto.perfil, Producto.tipo,
+               Producto.nombre, Producto.descripcion_aduana, Producto.sac_codigo).where(
         Producto.estado.in_(APROBADOS), Producto.codigo.is_not(None))
     for x in db.execute(q.where(or_(Producto.perfil == perfil, Producto.estilo == (entrada.get("estilo") or "\0"),
                                     Producto.codigo_generico == (entrada.get("generico") or "\0")))):
         if x.id == pid:
             continue
         cod = x.codigo[:6]
+        mismo_est = (entrada.get("estilo") and x.estilo == entrada.get("estilo")) or (entrada.get("generico") and x.codigo_generico == entrada.get("generico"))
+        if (x.perfil == perfil and x.tipo == categoria) or mismo_est:
+            c = x.sac_codigo or x.codigo
+            out["parecidos"].append({"id": x.id, "estilo": x.estilo, "color": x.color, "generico": x.codigo_generico, "codigo": c,
+                                     "codigo_txt": formato(c), "descripcion": x.nombre or x.descripcion_aduana, "mismo_estilo": bool(mismo_est)})
         if x.perfil == perfil and x.tipo == categoria:
             out["tally"][cod] = out["tally"].get(cod, 0) + 1
         if (entrada.get("estilo") and x.estilo == entrada.get("estilo")) or (entrada.get("generico") and x.codigo_generico == entrada.get("generico")):
@@ -694,6 +730,7 @@ def _historial(db: Session, entrada: dict, categoria, perfil: str) -> dict:
                 out["mismo"] = {"id": x.id, "codigo": x.codigo, "estilo": x.estilo}
                 out["tally"][cod] = out["tally"].get(cod, 0) + 2
     out["evidencia"] = [{"codigo": k, "productos": n} for k, n in sorted(out["tally"].items(), key=lambda kv: -kv[1])]
+    out["parecidos"] = sorted(out["parecidos"], key=lambda x: not x["mismo_estilo"])[:5]
     return out
 
 

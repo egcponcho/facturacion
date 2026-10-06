@@ -1,14 +1,11 @@
 <script setup>
 import { t, tx } from '../../i18n/index.js'
 import { computed, nextTick, ref, watch } from 'vue'
-import { M } from '../../clasificacion/useClasificacion'
 import { filtrar } from '../../busqueda.js'
 
 // «¿Qué es el producto?»: las categorías salen de la configuración (Aranceles →
-// Dominios), no del código. Las de ropa, calzado y accesorios todavía abren su
-// ficha especializada; las demás (químicos, materias primas o cualquier
-// dominio nuevo) abren la ficha dinámica de su dominio. Al final siempre está
-// «Otro producto».
+// Dominios y categorías), no del código. Todas abren la misma ficha dinámica
+// del motor del servidor; las genéricas (químico, materia prima, otro) van al final.
 const props = defineProps({ modelValue: { type: String, default: '' }, categorias: { type: Array, default: () => [] }, disabled: Boolean, id: String })
 const emit = defineEmits(['update:modelValue'])
 
@@ -17,23 +14,20 @@ const abierta = ref(false)
 const activo = ref(-1)
 const lista = ref(null)
 
-const etiqueta = (k) => {
-  const c = props.categorias.find((x) => x.codigo === k)
-  return c ? (c.ficha_motor ? M.TIPO_LBL[k] || c.nombre : c.nombre) : M.TIPO_LBL[k] || ''
-}
+const activas = computed(() => props.categorias.filter((c) => c.activo !== false))
+const etiqueta = (k) => props.categorias.find((x) => x.codigo === k)?.nombre || ''
 const sync = () => (texto.value = props.modelValue ? etiqueta(props.modelValue) : '')
 watch(() => [props.modelValue, props.categorias.length], sync, { immediate: true })
 
-const otros = computed(() => ({ t: t('Other products'), items: [M.GENERICO] }))
 const grupos = computed(() => {
   const q = texto.value.trim()
   if (q && q !== etiqueta(props.modelValue)) {
-    const ks = filtrar(props.categorias, q, (c) => [c.nombre, etiqueta(c.codigo), c.alias, c.grupo, c.dominio]).map((c) => c.codigo)
-    return [{ t: ks.length ? t('Matches') : '', items: ks.slice(0, 25) }, otros.value]
+    const ks = filtrar(activas.value, q, (c) => [c.nombre, c.nombre_corto, c.alias, c.grupo, c.dominio]).map((c) => c.codigo)
+    return [{ t: ks.length ? t('Matches') : '', items: ks.slice(0, 25) }]
   }
   const g = new Map()
-  for (const c of props.categorias) g.set(c.grupo || t('Other'), [...(g.get(c.grupo || t('Other')) || []), c.codigo])
-  return [...[...g].map(([nombre, items]) => ({ t: nombre, items })), otros.value]
+  for (const c of [...activas.value].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))) g.set(c.grupo || t('Other'), [...(g.get(c.grupo || t('Other')) || []), c.codigo])
+  return [...g].map(([nombre, items]) => ({ t: nombre, items }))
 })
 const items = computed(() => grupos.value.flatMap((g) => g.items))
 function abrir() {
