@@ -12,16 +12,6 @@ NODE = shutil.which("node")
 pytestmark = pytest.mark.skipif(not NODE, reason="node no está instalado")
 
 
-def test_ambitos_exportados_al_dia_con_el_motor():
-    """motor_ambitos.json se regenera con scripts/motor-ambitos.mjs al cambiar el motor."""
-    with tempfile.TemporaryDirectory() as tmp:
-        salida = Path(tmp) / "ambitos.json"
-        r = subprocess.run([NODE, "scripts/motor-ambitos.mjs", str(salida)], cwd=RAIZ / "frontend", capture_output=True, text=True)
-        assert r.returncode == 0, r.stderr
-        actual = json.loads((RAIZ / "backend/app/data/motor_ambitos.json").read_text(encoding="utf-8"))
-        assert json.loads(salida.read_text(encoding="utf-8")) == actual, "Ejecuta node scripts/motor-ambitos.mjs"
-
-
 def test_reglas_extraidas_al_dia_con_el_motor():
     """motor_reglas.json (la lógica de clasificarReglas como reglas de datos) se
     regenera con scripts/motor-reglas.mjs al cambiar el motor; el script además

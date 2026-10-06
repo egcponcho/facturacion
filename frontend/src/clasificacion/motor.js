@@ -2420,7 +2420,7 @@ export {
   TIPOS, TIPO_LBL, TIPO_CORTO, GENERICO, buscarTipos, grupoTipo, partesDe, partesPrincipales, PARTE_LBL, PARTE_PH,
   FIB_LBL, MAT_LBL, MAT_EQUIV, MAT_AMBIGUAS, setSinonimos, claseTexto, CLASE_LBL, prepMat, parseComp, parseMat, claseMat, resumenMat, segmentosComp,
   ATTRS, ATTR_BY, ATTR_IDS, setAtributos, setCapitulos, opcionLbl, opcionesValidas, prepararEstado, normalizar, aplicarImplica, atributosLegibles, estadoAttr, motivoDefinido,
-  detectar, detectarFicha, detectarCon, parseTallas, edadDe, descripcionProfesional, clasificarReglas, hechosDe, HECHOS_CAMPOS, sugerir, perfilDe, perfilLegible,
+  detectar, detectarFicha, detectarCon, parseTallas, parseGenero, parseEdad, DET_TIPO, DET_ESTILO, TIPO_ALIAS, CAP_OK, requiereGenero, MAT_ATTR, OPT_LBL, tipicosDe, SUG_DESC, edadDe, descripcionProfesional, clasificarReglas, hechosDe, HECHOS_CAMPOS, sugerir, perfilDe, perfilLegible,
   validar, verificarCodigo, alertaKey, alertasVivas, evaluar, ESTADOS, ESTADO_COLOR, EDAD_LBL, FUENTES,
   digitosPais, incisosDe, incisosBase, partidaPais, partidasDe, paisesCompletos, EST_PAIS, FUENTE_PAIS, NAC_PREG, NAC_IDS, detectarNac,
   COND_CAMPOS, condTexto, condDeArticulo, valorCond, textoValor, vacio,

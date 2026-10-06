@@ -101,7 +101,7 @@ def test_arbol_arancelario_completo(interno):
 def test_atributos_en_base_de_datos(interno):
     """Atributos oficiales (paquete 02) y de la ficha del motor, con opciones y ámbitos."""
     r = interno.get("/aranceles/atributos").json()
-    assert r["por_origen"]["OFICIAL"] == 38 and r["por_origen"]["MOTOR"] == 57
+    assert r["por_origen"]["OFICIAL"] == 38 and r["por_origen"]["MOTOR"] == 79
     por = {a["codigo"]: a for a in r["items"]}
     assert por["cas_number"]["dominio"] == "CHEMICALS" and por["material_composition"]["tipo_dato"] == "composition"
     assert por["estiloCalz"]["dominio"] == "FOOTWEAR" and por["tejido"]["dominio"] == "APPAREL"
@@ -111,7 +111,7 @@ def test_atributos_en_base_de_datos(interno):
     # Ámbitos del motor: categorías donde aplica y respuestas que lo activan
     t = interno.get(f"/aranceles/atributos/{por['tejido']['id']}").json()
     cint = next(x for x in t["ambitos"] if x["codigo_ambito"] == "cinturon")
-    assert {"materialCinturon": "textil"} in cint["condicion"]
+    assert {"campo": "materialCinturon", "operador": "EQUAL", "valor": "textil"}.items() <= cint["condicion"][0].items()
     assert next(x for x in t["ambitos"] if x["codigo_ambito"] == "camiseta")["condicion"] is None
     # Búsqueda inteligente
     assert {a["codigo"] for a in interno.get("/aranceles/atributos", params={"q": "name chemic"}).json()["items"]} == {"chemical_name"}

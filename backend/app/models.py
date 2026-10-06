@@ -707,6 +707,14 @@ class CategoriaProducto(Base):
     ficha_motor: Mapped[bool] = mapped_column(Boolean, default=False)
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Familia de producto (prenda, calzado…), nombre corto, nombre para la
+    # descripción aduanera, patrones para reconocerla en el nombre del estilo
+    # y capítulos compatibles (un código de otro capítulo se marca como error)
+    familia: Mapped[str | None] = mapped_column(String(30))
+    nombre_corto: Mapped[str | None] = mapped_column(String(80))
+    nombre_aduana: Mapped[str | None] = mapped_column(String(120))
+    patrones: Mapped[list | None] = mapped_column(JSON)
+    capitulos: Mapped[list | None] = mapped_column(JSON)
 
 
 class DominioCapitulo(Base):
@@ -776,6 +784,18 @@ class AtributoDef(Base):
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+    # Comportamiento en la ficha, como datos (app/services/ficha.py):
+    # sección (producto | caracteristicas | composicion | nacional | derivado),
+    # valor por defecto, derivación (lo que fija la composición, una constante
+    # u otro atributo), bloqueos de la casilla [{condiciones, mensaje}],
+    # patrones de detección por texto y control preferido (lista, botones)
+    seccion: Mapped[str] = mapped_column(String(16), default="caracteristicas")
+    valor_defecto: Mapped[str | None] = mapped_column(String(60))
+    derivacion: Mapped[dict | None] = mapped_column(JSON)
+    bloqueo: Mapped[list | None] = mapped_column(JSON)
+    patrones: Mapped[list | None] = mapped_column(JSON)
+    patrones_falso: Mapped[list | None] = mapped_column(JSON)
+    control: Mapped[str | None] = mapped_column(String(12))
 
     opciones: Mapped[list["AtributoOpcion"]] = relationship(back_populates="atributo", cascade="all, delete-orphan",
                                                            order_by="AtributoOpcion.orden")
@@ -796,6 +816,11 @@ class AtributoOpcion(Base):
     alias: Mapped[str | None] = mapped_column(String(400))  # separados por ;
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Combinaciones imposibles [{condiciones, mensaje}], respuestas que completa
+    # al elegirla {atributo: valor} y patrones para detectarla en el texto
+    bloqueo: Mapped[list | None] = mapped_column(JSON)
+    implica: Mapped[dict | None] = mapped_column(JSON)
+    patrones: Mapped[list | None] = mapped_column(JSON)
 
     atributo: Mapped[AtributoDef] = relationship(back_populates="opciones")
 

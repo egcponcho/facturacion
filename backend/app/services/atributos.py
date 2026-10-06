@@ -5,12 +5,11 @@ Dos orígenes:
 - OFICIAL: hojas Attributes, Attribute_Options y Attribute_Scope del paquete del
   motor dinámico (02); atributos genéricos y por dominio (químicos, materias
   primas, calzado, ropa, accesorios).
-- MOTOR: los atributos de la ficha de ropa, calzado y accesorios, con sus
-  opciones (motor_meta.json) y las categorías donde aplican (motor_ambitos.json,
-  exportado del motor con scripts/motor-ambitos.mjs).
-
-La ficha del navegador toma de aquí etiquetas, opciones activas y atributos
-apagados; la lógica de cada pregunta sigue en el motor hasta migrarla a reglas.
+- MOTOR: los atributos de la ficha de ropa, calzado y accesorios
+  (motor_atributos.json), con su comportamiento como datos: cuándo aplican
+  (ámbitos con condiciones), lo que fija la composición, opciones imposibles,
+  implicaciones y patrones de detección. Los ejecuta app/services/ficha.py.
+- USUARIO: los creados a mano, con las mismas capacidades.
 """
 import json
 from pathlib import Path
@@ -20,7 +19,6 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..models import AtributoAmbito, AtributoDef, AtributoOpcion, DominioClasificacion, Usuario
 from .common import ErrorNegocio, exigir, filtro_texto, registrar
-from .meta import meta
 from .oficial import _si, _txt
 
 DATOS = Path(__file__).resolve().parent.parent / "data"
@@ -105,36 +103,48 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
     db.flush()
 
 
-# ---- Carga desde el motor de la ficha -----------------------------------------------
+# ---- Carga de los atributos de la ficha (motor_atributos.json) -----------------------
 def cargar_motor(db: Session) -> int:
-    """Siembra los atributos de la ficha actual (ropa, calzado, accesorios) con
-    sus opciones y categorías. No pisa lo editado: solo agrega lo que falta."""
-    ambitos = json.loads((DATOS / "motor_ambitos.json").read_text(encoding="utf-8"))
-    grupo = {t["k"]: t["grupoTipo"] for g in meta()["tipos"] for t in g["tipos"]}
-    existentes = {a.codigo: a for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones)))}
-    base = (db.scalar(select(func.max(AtributoDef.orden))) or 0) + 10
+    """Siembra o completa los atributos de la ficha de ropa, calzado y
+    accesorios con su comportamiento como datos (derivación, bloqueos,
+    implicaciones, patrones de detección, ámbitos con condiciones). Crea lo que
+    falta y completa lo que está vacío; nunca pisa lo que alguien editó."""
+    datos = json.loads((DATOS / "motor_atributos.json").read_text(encoding="utf-8"))
+    existentes = {a.codigo: a for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones), selectinload(AtributoDef.ambitos)))}
+    familia = {c["codigo"]: c.get("familia") for c in datos["categorias"]}
     nuevos = 0
-    for i, m in enumerate(meta()["attrs"]):
-        cats = ambitos.get(m["id"], {})
-        doms = [DOMINIO_GRUPO.get(grupo.get(c, ""), "ACCESSORIES_MERCH") for c in cats]
-        a = existentes.get(m["id"])
+    for m in datos["atributos"]:
+        doms = [DOMINIO_GRUPO.get(familia.get(x["codigo_ambito"]) or "", "ACCESSORIES_MERCH") for x in m.get("ambitos") or [] if x["tipo_ambito"] == "CATEGORY"]
+        dominio = max(set(doms), key=doms.count) if doms else None
+        a = existentes.get(m["codigo"])
         if not a:
-            a = AtributoDef(codigo=m["id"], etiqueta=m["label"], tipo_dato=TIPO_MOTOR.get(m["tipo"], "text"), origen="MOTOR",
-                            dominio=max(set(doms), key=doms.count) if doms else None, de_composicion=bool(m.get("deComp")),
-                            informativo=bool(m.get("info")), orden=base + i * 10, usado_clasificacion=not m.get("info"))
+            a = AtributoDef(codigo=m["codigo"], etiqueta=m["etiqueta"], tipo_dato=m["tipo_dato"], origen="MOTOR", orden=m.get("orden", 0),
+                            informativo=bool(m.get("informativo")), usado_clasificacion=not m.get("informativo"), unidad=m.get("unidad"),
+                            de_composicion=m.get("seccion") == "composicion", descripcion=m.get("ayuda"), dominio=dominio)
             db.add(a)
             nuevos += 1
-        tiene = {o.codigo for o in a.opciones}
-        for j, o in enumerate(m.get("ops") or []):
-            if o["v"] not in tiene:
-                a.opciones.append(AtributoOpcion(codigo=o["v"], etiqueta=o["l"], orden=(j + 1) * 10))
-        tiene = {(x.tipo_ambito, x.codigo_ambito) for x in a.ambitos}
-        for cat, conds in cats.items():
-            if ("CATEGORY", cat) in tiene:
-                continue
-            cond = None if conds == [None] else [c for c in conds if c]
-            a.ambitos.append(AtributoAmbito(tipo_ambito="CATEGORY", codigo_ambito=cat, modo="SHOW", prioridad=500,
-                                            condicion=cond, nota="Asked when another answer activates it." if cond else None))
+        for k in ("seccion", "valor_defecto", "derivacion", "bloqueo", "patrones", "patrones_falso", "control"):
+            if getattr(a, k) in (None, [], {}) and m.get(k) not in (None, [], {}):
+                setattr(a, k, m[k])
+        if a.seccion is None:
+            a.seccion = "caracteristicas"
+        ops = {o.codigo: o for o in a.opciones}
+        for o in m.get("opciones") or []:
+            x = ops.get(o["codigo"])
+            if not x:
+                x = AtributoOpcion(codigo=o["codigo"], etiqueta=o["etiqueta"], orden=o.get("orden", 0))
+                a.opciones.append(x)
+            for k in ("bloqueo", "implica", "patrones"):
+                if getattr(x, k) in (None, [], {}) and o.get(k) not in (None, [], {}):
+                    setattr(x, k, o[k])
+        amb = {(x.tipo_ambito, x.codigo_ambito): x for x in a.ambitos}
+        for x in m.get("ambitos") or []:
+            y = amb.get((x["tipo_ambito"], x["codigo_ambito"]))
+            if not y:
+                a.ambitos.append(AtributoAmbito(tipo_ambito=x["tipo_ambito"], codigo_ambito=x["codigo_ambito"], modo=x.get("modo") or "SHOW",
+                                                prioridad=x.get("prioridad", 500), condicion=x.get("condicion")))
+            elif y.condicion is not None and not all(isinstance(c, dict) and "campo" in c for c in y.condicion):
+                y.condicion = x.get("condicion")  # formato anterior (exportado del navegador): se reemplaza por el exacto
     db.flush()
     return nuevos
 

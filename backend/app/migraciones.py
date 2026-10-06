@@ -58,10 +58,11 @@ def actualizar() -> None:
             command.upgrade(cfg, "head")
     # Configuración base que no viene en los paquetes oficiales (si falta)
     from .db import SessionLocal
-    from .services import categorias, reglas
+    from .services import atributos, categorias, reglas
 
     with SessionLocal() as db:
         categorias.sembrar(db)
+        atributos.cargar_motor(db)  # comportamiento de los atributos de la ficha (no pisa lo editado)
         reglas.cargar_motor_js(db)  # reglas extraídas de motor.js (no pisa las editadas)
         db.commit()
 

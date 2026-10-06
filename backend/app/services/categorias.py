@@ -4,41 +4,50 @@ Agregar un dominio nuevo (p. ej. ELECTRONICS) con sus categorías, atributos,
 ámbitos y reglas, y habilitar sus capítulos, basta para que la ficha lo
 ofrezca y el motor lo clasifique: no hace falta programar una ficha.
 """
+import json
 import re
+from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import CategoriaProducto, DominioClasificacion, Usuario
 from .common import ErrorNegocio, exigir, registrar
-from .meta import meta
 
+DATOS = Path(__file__).resolve().parent.parent / "data"
 DOMINIO_GRUPO = {"prenda": "APPAREL", "calzado": "FOOTWEAR", "calzado_acc": "FOOTWEAR"}
 # Categorías iniciales de los dominios que no tienen ficha especializada
 GENERICAS = [("quimico", "Chemical product", "CHEMICALS", "Chemicals and raw materials", "chemical; reagent; solvent; acid; químico"),
              ("materia_prima", "Raw material or semi-processed input", "RAW_MATERIALS", "Chemicals and raw materials",
-              "raw material; yarn; resin; sheet; materia prima")]
+              "raw material; yarn; resin; sheet; materia prima"),
+             ("otro", "Other product", None, "Other", "other; otro")]
 
 
 def sembrar(db: Session) -> int:
-    """Categorías de la ficha especializada (motor) y las genéricas por dominio."""
-    if db.scalar(select(func.count()).select_from(CategoriaProducto)):
-        return 0
+    """Categorías iniciales (motor_atributos.json y las genéricas por dominio).
+    Crea las que faltan y completa los campos vacíos; la base manda después."""
+    datos = json.loads((DATOS / "motor_atributos.json").read_text(encoding="utf-8"))
+    existentes = {c.codigo: c for c in db.scalars(select(CategoriaProducto))}
     n = 0
-    for gi, g in enumerate(meta()["tipos"]):
-        for ti, t in enumerate(g["tipos"]):
-            db.add(CategoriaProducto(codigo=t["k"], nombre=t["l"], grupo=g["grupo"], ficha_motor=True, orden=gi * 100 + ti,
-                                     dominio=DOMINIO_GRUPO.get(t["grupoTipo"], "ACCESSORIES_MERCH"), alias=t.get("corto")))
+    filas = [{**c, "dominio": DOMINIO_GRUPO.get(c.get("familia") or "", "ACCESSORIES_MERCH")} for c in datos["categorias"]]
+    filas += [{"codigo": cod, "nombre": nombre, "grupo": grupo, "dominio": dom, "alias": alias, "orden": 5000 + i}
+              for i, (cod, nombre, dom, grupo, alias) in enumerate(GENERICAS)]
+    for c in filas:
+        x = existentes.get(c["codigo"])
+        if not x:
+            x = CategoriaProducto(codigo=c["codigo"], nombre=c["nombre"], orden=c.get("orden", 0), activo=True, ficha_motor=bool(c.get("familia")))
+            db.add(x)
             n += 1
-    for i, (cod, nombre, dom, grupo, alias) in enumerate(GENERICAS):
-        db.add(CategoriaProducto(codigo=cod, nombre=nombre, grupo=grupo, dominio=dom, alias=alias, orden=5000 + i))
-        n += 1
+        for k in ("grupo", "dominio", "alias", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos"):
+            if getattr(x, k) in (None, [], "") and c.get(k) not in (None, [], ""):
+                setattr(x, k, c[k])
     db.flush()
     return n
 
 
 def _cat(x: CategoriaProducto) -> dict:
-    return {c: getattr(x, c) for c in ("id", "codigo", "nombre", "grupo", "dominio", "alias", "ficha_motor", "orden", "activo")}
+    return {c: getattr(x, c) for c in ("id", "codigo", "nombre", "grupo", "dominio", "alias", "ficha_motor", "orden", "activo", "familia",
+                                       "nombre_corto", "nombre_aduana", "patrones", "capitulos")}
 
 
 def categorias(db: Session, solo_activas: bool = True) -> list[dict]:
@@ -59,9 +68,11 @@ def guardar_categoria(db: Session, user: Usuario, cat_id: int | None, datos: dic
             raise ErrorNegocio("Give the category a code that is not in use.", 422, "validacion")
         x = CategoriaProducto(codigo=cod, orden=(db.scalar(select(func.max(CategoriaProducto.orden))) or 0) + 10)
         db.add(x)
-    for k in ("nombre", "grupo", "dominio", "alias", "orden", "activo"):
+    for k in ("nombre", "grupo", "dominio", "alias", "orden", "activo", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos"):
         if k in datos and datos[k] is not None:
             setattr(x, k, datos[k])
+    if x.capitulos is not None:
+        x.capitulos = sorted({"".join(ch for ch in str(c) if ch.isdigit())[:2] for c in x.capitulos if str(c).strip()})
     if not (x.nombre or "").strip():
         raise ErrorNegocio("The name is required.", 422, "validacion")
     if x.dominio and not db.scalar(select(DominioClasificacion.id).where(DominioClasificacion.codigo == x.dominio)):
