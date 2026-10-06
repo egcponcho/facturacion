@@ -28,7 +28,10 @@ def test_categoria_historica_usa_el_motor_del_servidor(interno):
     assert s["descripciones"]["aduana"].startswith("TENIS CON CORTE DE TEXTIL Y SUELA DE SINTÉTICO")
     assert s["version"]["codigo"] == "SAC-2025-V6" and s["evidencia"]["version"]["ambito"] == "REGIONAL"
     paises = {p["pais"]: p for p in s["clasificacion"]["paises"]}
-    assert paises["SV"]["codigo"] and paises["SV"]["version"]["codigo"].startswith("SV")
+    # SV aplica el SAC regional a 10 dígitos: su línea sale de la versión regional oficial, con su fuente
+    assert paises["SV"]["codigo"] and paises["SV"]["version"]["codigo"] == "SAC-2025-V6" and paises["SV"]["fuente_oficial"]
+    # Sin arancel nacional oficial cargado, el país lo dice (no se rellena con datos de la empresa)
+    assert paises["PA"]["codigo"] is None and paises["PA"]["sin_datos_oficiales"] and "not available" in paises["PA"]["error"]
     assert all(p["codigo"] is None or p["codigo"].startswith("640419") for p in paises.values())
     regla = next(t for t in s["evidencia"]["reglas"] if t.get("aplicada") and t["regla"].startswith("R-MJS-CALZADO"))
     assert regla["foto"]["condiciones"] and regla["firma"] and regla["revision"] == 1
@@ -204,13 +207,16 @@ def test_codigos_nacionales_por_version_y_varias_longitudes(interno):
         assert "640419909911" not in cods26 and "640419909911" in cods27  # nunca se mezclan versiones
         assert "640419909922" in cods26 and "640419909922" not in cods27  # ni se usa una línea vencida
         assert p27["version"]["codigo"] == "CR-2027-T" and p27["longitudes"] == [8, 10, 12]
-        # Un código propio de 8 dígitos es válido; uno de 9 no, y nunca se recorta
-        ok = next(p for p in _sesion(interno, {**CALZADO, "partidas": {"CR": {"codigo": "64041999", "manual": True}}})["clasificacion"]["paises"]
+        # Elegir una línea oficial vigente es válido; un código que no es línea oficial no (la empresa no crea códigos)
+        ok = next(p for p in _sesion(interno, {**CALZADO, "partidas": {"CR": {"codigo": "640419909922", "manual": True}}})["clasificacion"]["paises"]
                   if p["pais"] == "CR")
-        assert ok["estado"] in ("ok", "manual") and ok["codigo"] == "64041999"
+        assert ok["estado"] == "ok" and ok["codigo"] == "640419909922"
+        propio = next(p for p in _sesion(interno, {**CALZADO, "partidas": {"CR": {"codigo": "64041999", "manual": True}}})["clasificacion"]["paises"]
+                      if p["pais"] == "CR")
+        assert propio["estado"] == "invalido" and propio["codigo"] is None and "not an official national line" in propio["error"]
         mal = next(p for p in _sesion(interno, {**CALZADO, "partidas": {"CR": {"codigo": "640419999", "manual": True}}})["clasificacion"]["paises"]
                    if p["pais"] == "CR")
-        assert mal["estado"] == "invalido" and mal["codigo"] is None and "9" in mal["error"]
+        assert mal["estado"] == "invalido" and mal["codigo"] is None
     finally:
         with SessionLocal() as db:
             db.get(VersionDataset, nueva_id).estado = "ARCHIVADA"
@@ -256,7 +262,9 @@ def test_categoria_nueva_solo_con_configuracion(interno):
                                                 "condiciones": [{"campo": "battery_chem", "operador": "EQUAL", "valor": chem}],
                                                 "accion": {"tipo": "RESTRICT", "codigos": [cod]}})
         assert r.status_code == 200, r.text
-    r = interno.post("/aranceles/codigos", {"pais": "CR", "codigo": "850760001000", "descripcion": "Baterías de iones de litio", "dai": "0"})
+    # La línea nacional entra como dato oficial: con la fuente y la versión de su publicación
+    r = interno.post("/aranceles/codigos", {"pais": "CR", "codigo": "850760001000", "descripcion": "Baterías de iones de litio", "dai": "0",
+                                            "fuente": "SRC-CR-ATENA", "version": "CR-ATENA"})
     assert r.status_code in (200, 201), r.text
     # La categoría se reconoce por el nombre, la pregunta aparece, la dependiente no
     s = _sesion(interno, {"estilo": "Slim power bank 10000 mAh", "ficha": {}})

@@ -175,7 +175,8 @@ def test_reglas_del_sistema_y_seleccion_nacional(interno):
 def test_editar_regla_nacional_llega_al_motor(interno):
     # Un código con condiciones creado desde Aranceles queda como regla
     r = interno.post("/aranceles/codigos", {"pais": "SV", "codigo": "6404.19.90.99", "descripcion": "Prueba regla",
-                                            "cond": {"genero": "F", "cifMax": 15}, "prio": 3})
+                                            "cond": {"genero": "F", "cifMax": 15}, "prio": 3,
+                                            "fuente": "SRC-SIECA-ACI", "version": "SAC-2025-V6"})
     assert r.status_code == 200, r.text
     iid = r.json()["id"]
     regla = next(x for x in interno.get("/aranceles/reglas", params={"q": "6404199099"}).json()["items"] if x["inciso"]["id"] == iid)
@@ -198,7 +199,9 @@ def test_editar_regla_nacional_llega_al_motor(interno):
     with SessionLocal() as db:
         assert not db.get(IncisoNacional, iid).regla.activo
     # Quitar condiciones y prioridad desde el código deja el código sin regla
-    interno.put(f"/aranceles/codigos/{iid}", {"pais": "SV", "codigo": "6404.19.90.99", "cond": {}, "prio": 0, "activo": True})
+    r = interno.put(f"/aranceles/codigos/{iid}", {"pais": "SV", "codigo": "6404.19.90.99", "descripcion": "Prueba regla", "cond": {}, "prio": 0,
+                                                  "activo": False})
+    assert r.status_code == 200, r.text
     assert not [x for x in interno.get("/aranceles/reglas", params={"q": "6404199099"}).json()["items"] if x.get("inciso", {}).get("id") == iid]
 
 
@@ -261,14 +264,15 @@ def test_paquete_nacional_codigos_regulaciones_impuestos(interno):
     # Requisitos de ese código en Costa Rica: IVA general + selectivo + registro sanitario
     req = interno.get("/aranceles/requisitos", params={"pais": "CR", "codigo": "3304.99.00.00.10"}).json()
     tipos = {i["tipo"]: i for i in req["impuestos"]}
-    assert tipos["IVA"]["tasa"] == 13 and tipos["SELECTIVO"]["tasa"] == 10
+    # El IVA sin fuente ni base legal no se cargó; no hay impuestos de demostración
+    assert "IVA" not in tipos and tipos["SELECTIVO"]["tasa"] == 10 and all(i["base_legal"] or i["fuente"] for i in req["impuestos"])
     assert [x["codigo"] for x in req["regulaciones"]] == ["REG-CR-1"] and req["regulaciones"][0]["condicion"] == {"uso": "cosmetico"}
     # Otro capítulo no lleva el registro sanitario
     assert not interno.get("/aranceles/requisitos", params={"pais": "CR", "codigo": "6404.19"}).json()["regulaciones"]
     # El árbol muestra impuestos y regulaciones por país
     sub = next(i for i in interno.get("/aranceles/arbol", params={"q": "3304.99"}).json()["items"] if i["codigo"] == "3304.99")
     cr = next(p for p in interno.get(f"/aranceles/arbol/{sub['id']}").json()["paises"] if p["iso"] == "CR")
-    assert cr["regulaciones"] and {i["tipo"] for i in cr["impuestos"]} >= {"IVA", "SELECTIVO"}
+    assert cr["regulaciones"] and {i["tipo"] for i in cr["impuestos"]} == {"SELECTIVO"}
 
 
 def test_regulaciones_e_impuestos_crud(interno):
@@ -284,19 +288,21 @@ def test_regulaciones_e_impuestos_crud(interno):
     assert any(x["id"] == reg["id"] for x in interno.get("/aranceles/regulaciones", params={"pais": "GT", "q": "etiquetado"}).json()["items"])
     imp = interno.post("/aranceles/impuestos", {"pais": "GT", "patron": "*", "tipo": "OTRO", "tasa": 1, "base_legal": "Prueba"}).json()
     assert imp["patron"] == "*" and imp["fuente"]
-    # Impuesto general sembrado (demo): IVA de Guatemala
-    assert any(x["tipo"] == "IVA" and x["tasa"] == 12 for x in interno.get("/aranceles/impuestos", params={"pais": "GT"}).json()["items"])
+    # Sin impuestos de demostración: todo impuesto tiene fuente o base legal
+    imps = interno.get("/aranceles/impuestos", params={"pais": "GT"}).json()["items"]
+    assert not any(x["tipo"] == "IVA" for x in imps) and all(x["fuente"] or x["base_legal"] for x in imps)
 
 
 def test_longitud_de_codigo_configurable(interno):
+    prov = {"fuente": "SRC-CR-ATENA", "version": "CR-ATENA"}
     # Sin esquema configurado: 8 a 14 dígitos (no un número fijo)
-    r = interno.post("/aranceles/codigos", {"pais": "SV", "codigo": "6404.19.90.00.01"})
+    r = interno.post("/aranceles/codigos", {"pais": "CR", "codigo": "6404.19.90.00.01", **prov})
     assert r.status_code == 200, r.text
     # Con esquema: solo las longitudes declaradas
-    _cargar(interno, {"Countries": [["ISO", "Country", "National code length"], ["SV", "El Salvador", "10"]]})
-    r = interno.post("/aranceles/codigos", {"pais": "SV", "codigo": "6404.19.90.00.02"})
+    _cargar(interno, {"Countries": [["ISO", "Country", "National code length"], ["CR", "Costa Rica", "10"]]})
+    r = interno.post("/aranceles/codigos", {"pais": "CR", "codigo": "6404.19.90.00.02", **prov})
     assert r.status_code == 422 and "10 digits" in r.json()["mensaje"]
-    _cargar(interno, {"Countries": [["ISO", "Country", "National code length"], ["SV", "El Salvador", "CONFIGURABLE"]]})
+    _cargar(interno, {"Countries": [["ISO", "Country", "National code length"], ["CR", "Costa Rica", "CONFIGURABLE"]]})
 
 
 def test_ruta_generica_quimicos_y_materias_primas(interno):
@@ -389,25 +395,30 @@ def test_producto_guarda_hs6_y_cada_pais_su_linea_con_evidencia(interno):
     # Un código nacional de 12 dígitos no es una línea SAC
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640419900090", "forzar": True})
     assert r.status_code == 422 and r.json()["codigo"] == "no_es_linea_sac", r.text
+    # Un código nacional que no publicó una fuente oficial no se acepta (Panamá no tiene arancel nacional cargado)
     partidas = {"GT": {"codigo": "6404199000", "estado": "ok", "dai": "15"},
                 "PA": {"codigo": "640419970000", "estado": "ok", "manual": True, "sugerido": "640419910000", "motivo": "Revisado con la nota 4"}}
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "6404199000", "partidas": partidas, "forzar": True})
-    # Un país con varias líneas posibles y sin los datos para elegir: se elige a mano entre sus opciones
-    for x in (r.json().get("detalle") or []) if r.status_code == 422 and r.json()["codigo"] == "faltan_paises" else []:
-        assert x["opciones"] and all(o.startswith("640419") for o in x["opciones"])
-        partidas[x["pais"]] = {"codigo": x["opciones"][0], "estado": "ok"}
+    assert r.status_code == 422 and r.json()["codigo"] == "codigo_nacional_invalido" and "not an official national line" in r.json()["mensaje"]
+    del partidas["PA"]
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "6404199000", "partidas": partidas, "forzar": True})
+    # Un país con varias líneas posibles y sin los datos para elegir: se elige a mano entre sus opciones
+    if r.status_code == 422 and r.json()["codigo"] == "faltan_paises":
+        for x in r.json()["detalle"]:
+            assert x["opciones"] and all(o.startswith("640419") for o in x["opciones"])
+            partidas[x["pais"]] = {"codigo": x["opciones"][0], "estado": "ok"}
+        r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "6404199000", "partidas": partidas, "forzar": True})
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["codigo"] == "6404.19" and d["sac_codigo"] == "6404.19.90.00"
     ev = d["evidencia"]
     assert ev["version"]["codigo"] == "SAC-2025-V6" and ev["aprobacion"]["hs6"] == "640419" and ev["aprobacion"]["sac"] == "6404199000"
     assert any(t["regla"] == "R-SYS-001" for t in ev["reglas"]) and all(t.get("firma") for t in ev["reglas"])
-    assert {x["pais"] for x in ev["paises"]} == set(d["partidas"])
-    gt, pa = d["partidas"]["GT"], d["partidas"]["PA"]
-    assert gt["inciso_id"] and gt["evidencia"]["linea_oficial"] and any(i["tipo"] == "IVA" for i in gt["evidencia"]["impuestos"])
+    assert {x["pais"] for x in ev["paises"] if x["codigo"]} == set(d["partidas"]) and "PA" not in d["partidas"]
+    assert next(x for x in ev["paises"] if x["pais"] == "PA")["sin_datos_oficiales"]
+    gt = d["partidas"]["GT"]
+    assert gt["inciso_id"] and gt["evidencia"]["linea_oficial"] and all(i["fuente"] or i["base_legal"] for i in gt["evidencia"]["impuestos"])
     assert gt["sugerido"] == "6404199000" and gt["aprobado_en"]
-    assert pa["codigo"] == "640419970000" and pa["sugerido"] == "640419910000" and pa["motivo"] == "Revisado con la nota 4"
 
 
 def test_configuracion_custom_cambia_la_clasificacion(interno):

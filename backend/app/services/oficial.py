@@ -14,7 +14,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from openpyxl import load_workbook
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -191,6 +191,9 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         src = _txt(f.get("primary_source"))
         if src and src in fuentes:
             x.fuente_id = fuentes[src].id
+            # La base legal sale de la fuente oficial declarada (no se escribe a mano)
+            x.base_legal = x.base_legal or f"{fuentes[src].dataset} — {fuentes[src].autoridad}"[:300]
+        x.mcca = "common market" in (x.contexto or "").lower()
         x.nota = _txt(f.get("implementation_note")) or x.nota
         if f.get("active") is not None:
             x.activo = _si(f.get("active"))
@@ -278,6 +281,76 @@ def cargar_paquetes_base(db: Session) -> dict:
         if ruta.exists():
             out[nombre] = importar(db, ruta.read_bytes(), nombre=nombre)
     return out
+
+
+# ---- Datos oficiales incluidos -------------------------------------------------------
+DATOS = Path(__file__).resolve().parent.parent / "data"
+
+
+def cargar_lineas_regionales(db: Session, version: str = "SAC-2025-V6") -> int:
+    """Los países que aplican tal cual las líneas del SAC regional a 10 dígitos
+    (nivel_base SAC10, configuración del país) reciben como líneas nacionales
+    las líneas oficiales del árbol de esa versión: con su fuente (la de la
+    versión regional), su versión, vigencia y DAI. Nada sale de datos de la
+    empresa. Las condiciones que el clasificador deduce del texto oficial (p.
+    ej. «para hombres») van como reglas del motor (CLASSIFIER), no en el dato."""
+    import json
+
+    from ..models import IncisoNacional, NodoArancel, VersionDataset
+
+    v = db.scalar(select(VersionDataset).where(VersionDataset.codigo == version))
+    if not v:
+        return 0
+    paises = [p.iso for p in db.scalars(select(PaisArancel).where(PaisArancel.nivel_base == "SAC10"))]
+    if not paises:
+        return 0
+    ya = {(i, c) for i, c in db.execute(select(IncisoNacional.pais, IncisoNacional.codigo).where(IncisoNacional.version_id == v.id))}
+    nodos = db.execute(select(NodoArancel.codigo_norm, NodoArancel.descripcion, NodoArancel.dai).where(
+        NodoArancel.version_id == v.id, NodoArancel.nivel == "INCISO")).all()
+    interpretacion = {x["codigo"]: x["cond"] for x in json.loads((DATOS / "aci_incisos.json").read_text(encoding="utf-8")) if x.get("cond")}
+    fuente = db.get(FuenteOficial, v.fuente_id) if v.fuente_id else None
+    nota = f"{fuente.dataset} — {v.etiqueta}" if fuente else v.etiqueta
+    filas, con_cond = [], []
+    for iso in paises:
+        for cod, desc, dai in nodos:
+            if (iso, cod) in ya:
+                continue
+            f = {"pais": iso, "codigo": cod, "sub6": cod[:6], "dai": dai or None, "descripcion": (desc or "")[:300], "fuente": "oficial",
+                 "fuente_id": v.fuente_id, "version_id": v.id, "vigente_desde": v.vigente_desde, "vigente_hasta": v.vigente_hasta,
+                 "codigo_base": cod[:8], "nota": nota[:300], "url": fuente.url if fuente else None, "activo": True}
+            (con_cond if cod in interpretacion else filas).append(f)
+    if filas:
+        db.execute(insert(IncisoNacional), filas)
+    for f in con_cond:
+        db.add(IncisoNacional(**f, cond=interpretacion[f["codigo"]]))
+    db.flush()
+    return len(filas) + len(con_cond)
+
+
+def cargar_notas_incluidas(db: Session, version: str = "SAC-2025-V6") -> int:
+    """Notas legales oficiales del ACI (RGI, sección, capítulo, subpartida y
+    complementarias) con su fuente y versión, y aparte la guía interna del
+    clasificador (resúmenes propios de las Notas Explicativas)."""
+    import json
+
+    from ..models import NotaSAC, VersionDataset
+
+    if db.scalar(select(func.count()).select_from(NotaSAC)):
+        return 0
+    v = db.scalar(select(VersionDataset).where(VersionDataset.codigo == version))
+    leer = lambda nombre: json.loads((DATOS / nombre).read_text(encoding="utf-8"))  # noqa: E731
+    n = 0
+    for x in leer("sac_notas.json"):
+        db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"], capitulos=x.get("capitulos") or [],
+                       claves=x.get("claves") or [], fuente="oficial", version_id=v.id if v else None, fuente_id=v.fuente_id if v else None,
+                       vigente_desde=v.vigente_desde if v else None))
+        n += 1
+    for x in leer("sac_explicativas.json"):
+        db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"], capitulos=x.get("capitulos") or [],
+                       claves=x.get("claves") or [], fuente="guia"))
+        n += 1
+    db.flush()
+    return n
 
 
 # ---- Consulta y edición ----------------------------------------------------------

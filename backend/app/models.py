@@ -579,7 +579,7 @@ class PaisArancel(Base):
     digitos: Mapped[int] = mapped_column(Integer, default=10)  # longitud habitual (sugerencia, no regla fija)
     # Esquema del código nacional: longitudes admitidas (p. ej. "8,10,12"); vacío = 8 a 14 dígitos
     longitudes: Mapped[str | None] = mapped_column(String(40))
-    nivel_base: Mapped[str | None] = mapped_column(String(10))  # HS6 | SAC8: de qué nivel cuelga la precisión nacional
+    nivel_base: Mapped[str | None] = mapped_column(String(10))  # HS6 | SAC8: de qué nivel cuelga la precisión nacional; SAC10: el código nacional es la línea regional del SAC
     modelo_arancel: Mapped[str | None] = mapped_column(String(120))  # SAC regional + precisión nacional, nacional propio…
     contexto: Mapped[str | None] = mapped_column(String(120))
     fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id"))
@@ -900,9 +900,10 @@ class OverrideArancel(Base):
 
 
 class IncisoNacional(Base):
-    """Código nacional conocido de un país (8 a 12 dígitos), con las condiciones
-    que lo distinguen dentro de su subpartida: de la base cargada, aprendido al
-    confirmar un producto o escrito a mano."""
+    """Línea arancelaria nacional OFICIAL de un país (capa OFFICIAL TARIFF DATA):
+    existe solo porque una fuente oficial la publicó, con su fuente, versión y
+    vigencia. Lo que la empresa aprende de ella va a HistorialClasificacion; las
+    condiciones que la eligen son reglas del motor (NATIONAL_SELECT)."""
 
     __tablename__ = "incisos_nacionales"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -912,7 +913,7 @@ class IncisoNacional(Base):
     dai: Mapped[str | None] = mapped_column(String(10))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     nota: Mapped[str | None] = mapped_column(String(300))
-    fuente: Mapped[str] = mapped_column(String(12), default="manual")  # base | aprendido | manual | archivo | oficial
+    fuente: Mapped[str] = mapped_column(String(12), default="oficial")  # solo oficial: tiene fuente y versión
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
@@ -1054,7 +1055,9 @@ class ReglaClasificacion(Base):
     condiciones: Mapped[list["CondicionRegla"]] = relationship(back_populates="regla", cascade="all, delete-orphan",
                                                                lazy="selectin", order_by="[CondicionRegla.grupo, CondicionRegla.id]")
 
-    FUENTE_INCISO = {"aprendido": "LEARNED", "manual": "MANUAL", "archivo": "NATIONAL_TARIFF", "oficial": "NATIONAL_TARIFF", "base": "LEARNED"}
+    # Las condiciones que eligen una línea oficial son interpretación del motor
+    # (CLASSIFIER, capa sistema) o configuración propia (MANUAL): nunca legales
+    FUENTE_INCISO = {"oficial": "CLASSIFIER"}
 
     @classmethod
     def nacional(cls, x: IncisoNacional) -> "ReglaClasificacion":
@@ -1124,6 +1127,30 @@ class SinonimoMaterial(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     palabra: Mapped[str] = mapped_column(String(60), unique=True)
     equivale: Mapped[str] = mapped_column(String(30))
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
+class HistorialClasificacion(Base):
+    """Conocimiento de la empresa (capa COMPANY KNOWLEDGE): un código que la
+    empresa usó, con los datos del producto que lo eligieron. Viene de
+    clasificaciones aprobadas, correcciones de un especialista, lo que se
+    enseñó desde la ficha o un historial importado. Solo ordena candidatos
+    que el motor ya permite (historical_confidence): nunca crea un código, un
+    DAI ni modifica un dato oficial, y el código debe existir en la capa oficial
+    para poder usarse."""
+
+    __tablename__ = "historial_clasificacion"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pais: Mapped[str | None] = mapped_column(String(2), index=True)  # vacío = HS6/SAC regional
+    codigo: Mapped[str] = mapped_column(String(14), index=True)
+    sub6: Mapped[str] = mapped_column(String(6), index=True)
+    categoria: Mapped[str | None] = mapped_column(String(40))
+    condiciones: Mapped[dict] = mapped_column(JSON, default=dict)  # hechos del producto que llevaron a este código
+    origen: Mapped[str] = mapped_column(String(12))  # APROBACION | CORRECCION | ENSENADO | IMPORTADO
+    conteo: Mapped[int] = mapped_column(Integer, default=1)  # productos o artículos que lo respaldan
+    producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id", ondelete="SET NULL"))
+    nota: Mapped[str | None] = mapped_column(String(300))
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 

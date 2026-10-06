@@ -24,7 +24,11 @@ def _subir(api, url, contenido, **params):
 def test_paises_sac_y_codigos(interno, vans):
     ps = interno.get("/aranceles/paises").json()
     assert {p["iso"] for p in ps} >= {"GT", "SV", "HN", "NI", "CR", "PA"}
-    assert next(p for p in ps if p["iso"] == "PA")["digitos"] == 12 and all(p["codigos"] > 0 for p in ps)
+    # Solo hay líneas nacionales donde una fuente oficial las publicó: los países que aplican
+    # el SAC regional a 10 dígitos (ACI de SIECA); NI, CR y PA esperan su arancel nacional
+    por = {p["iso"]: p for p in ps}
+    assert por["PA"]["digitos"] == 12 and all(por[i]["codigos"] > 0 for i in ("GT", "SV", "HN"))
+    assert all(por[i]["codigos"] == 0 for i in ("NI", "CR", "PA"))
     # Un país nuevo con sus propios dígitos; el proveedor no puede
     assert vans.post("/aranceles/paises", {"iso": "DO", "nombre": "Dominican Republic", "digitos": 8}).status_code == 403
     r = interno.post("/aranceles/paises", {"iso": "DO", "nombre": "Dominican Republic", "digitos": 8, "impuesto": "ITBIS 18%"})
@@ -36,7 +40,7 @@ def test_paises_sac_y_codigos(interno, vans):
     sac = interno.get("/aranceles/sac", params={"capitulo": "64", "nivel": "6"}).json()
     assert sac["total"] > 5 and all(x["codigo"].startswith("64") for x in sac["items"])
     x = next(x for x in sac["items"] if x["codigo"] == "640419")
-    assert x["nacionales"] >= 6
+    assert x["nacionales"] >= 3
     # Lo propio es un override con motivo: el texto oficial no se toca
     assert interno.put(f"/aranceles/sac/{x['id']}", {"codigo": "640419", "descripcion": "Los demás (texto corregido)"}).status_code == 422
     assert interno.put(f"/aranceles/sac/{x['id']}", {"codigo": "640419", "descripcion": "Los demás (texto corregido)",
@@ -55,7 +59,12 @@ def test_paises_sac_y_codigos(interno, vans):
 
     # Códigos nacionales: agregar con condiciones y validar los dígitos del país
     assert interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "6404199"}).status_code == 422
-    r = interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "6404.19.00", "dai": "20%",
+    # Una línea nacional es dato oficial: sin fuente y versión no se crea
+    sin = interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "6404.19.00", "dai": "20%"})
+    assert sin.status_code == 422 and sin.json()["codigo"] == "sin_procedencia"
+    # Tampoco una que no cuelga del árbol oficial
+    assert interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "9999.99.00", "fuente": "SRC-SIECA-ACI", "version": "SAC-2025-V6"}).status_code == 422
+    r = interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "6404.19.00", "dai": "20%", "fuente": "SRC-SIECA-ACI", "version": "SAC-2025-V6",
                                             "cond": {"genero": "M", "edadNac": "adulto"}})
     assert r.status_code == 200, r.text
     lista = interno.get("/aranceles/codigos", params={"pais": "DO"}).json()
@@ -80,22 +89,25 @@ def test_cargar_y_exportar(interno):
                        ["SV", "6402.99.10.00", "Para hombre", "15", "Men", "Sneaker"],
                        ["SV", "6402991", "Mal", "", "", ""],
                        ["XX", "6402.99.10.00", "", "", "", ""]])
-    r = _subir(interno, "/aranceles/codigos/importar", contenido)
+    # Una carga de líneas nacionales es la publicación oficial de un país: sin fuente ni versión no entra
+    sin = _subir(interno, "/aranceles/codigos/importar", contenido)
+    assert sin.status_code == 422 and sin.json()["codigo"] == "sin_procedencia"
+    r = _subir(interno, "/aranceles/codigos/importar", contenido, fuente="SRC-SIECA-ACI", version="SAC-2025-V6")
     assert r.status_code == 200, r.text
     r = r.json()
-    assert r["creados"] == 1 and len(r["errores"]) == 2
-    x = interno.get("/aranceles/codigos", params={"pais": "SV", "q": "6402991000", "fuente": "archivo"}).json()["items"][0]
-    assert x["cond"] == {"genero": "M", "estiloCalz": "tenis"} and x["fuente"] == "archivo"
-    # La misma fila actualiza (no duplica)
-    assert _subir(interno, "/aranceles/codigos/importar", contenido).json()["actualizados"] == 1
+    # La línea ya existe en esa versión: se actualiza (no se duplica) y las condiciones son configuración propia
+    assert r["creados"] == 0 and r["actualizados"] == 1 and len(r["errores"]) == 2
+    x = interno.get("/aranceles/codigos", params={"pais": "SV", "q": "6402991000"}).json()["items"][0]
+    assert x["cond"] == {"genero": "M", "estiloCalz": "tenis"} and x["fuente"] == "oficial" and x["oficial"]
+    assert _subir(interno, "/aranceles/codigos/importar", contenido, fuente="SRC-SIECA-ACI", version="SAC-2025-V6").json()["actualizados"] == 1
     for formato in ("xlsx", "pdf"):
         r = interno.get("/aranceles/codigos/exportar", params={"pais": "SV", "capitulo": "64", "formato": formato})
         assert r.status_code == 200 and len(r.content) > 1000
     r = _subir(interno, "/aranceles/sac/importar", _xlsx([["Code", "Description"], ["9999.99", "Prueba"], ["6403.51", "Botas de cuero (interno)"]])).json()
     assert r["actualizados"] == 1 and len(r["errores"]) == 1  # 9999.99 no es oficial: no se inventa
     assert interno.get("/aranceles/sac/exportar", params={"q": "6403", "formato": "pdf"}).status_code == 200
-    # Borrar códigos seleccionados
-    assert interno.post("/aranceles/codigos/borrar", {"ids": [x["id"]]}).json()["borrados"] == 1
+    # Una línea oficial de una versión publicada no se borra
+    assert interno.post("/aranceles/codigos/borrar", {"ids": [x["id"]]}).status_code == 422
 
 
 def test_notas_sac(interno):

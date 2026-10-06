@@ -23,7 +23,8 @@ def test_lista_contexto_y_separacion(tnf, vans, interno):
     # El prepack no se clasifica: toma el producto (y la partida) de sus sólidos
     assert old["n_prepacks"] >= 1 and old["rango_tallas"] == "7–12"
     assert old["descripcion_comercial"] == "CALZADO VANS" and old["codigo_generico"] == "30095125"
-    assert old["paises_ok"] == old["paises_total"] == 6
+    # Solo GT, SV y HN tienen arancel nacional oficial cargado; NI, CR y PA no cuentan como completos
+    assert old["paises_ok"] == 3 and old["paises_total"] == 6
     # El proveedor solo ve lo suyo y recibe 404 en lo ajeno
     assert all(p["proveedor"] == "Vans" for p in vans.get("/productos", params={"size": 100}).json()["items"])
     assert vans.get(f"/productos/{_producto(interno, 'NF0A5GLL', 'JK3 TNF Black')['id']}").status_code == 404
@@ -60,7 +61,7 @@ def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
     det = vans.put(f"/productos/{p['id']}/ficha", {
         "version": det["version"], "tipo": "calzado", "pais_origen": "CN",
         "ficha": {**det["ficha"], "uso": "Casual canvas sneaker"}}).json()
-    assert det["estado"] == "sugerida" and det["sugerido"] == "6404.19" and det["partidas"]["PA"]["codigo"] == "640419970000"
+    assert det["estado"] == "sugerida" and det["sugerido"] == "6404.19" and "PA" not in det["partidas"] and det["partidas"]["SV"]["codigo"].startswith("640419")
     assert vans.post(f"/productos/{p['id']}/aprobar", {"version": det["version"]}).status_code == 403
     # Borrador → enviar a revisión: queda cerrada para el proveedor hasta que se revise o la retire
     assert vans.post("/productos/enviar", {"ids": [p["id"]]}).json()["enviados"] == 1
@@ -77,10 +78,12 @@ def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640419",
                                                         "partidas": {"SV": {"codigo": "6402991000", "estado": "ok"}}})
     assert r.status_code == 422
+    # Un código de Panamá que ninguna fuente oficial publicó tampoco
+    r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "6404.19",
+                                                        "partidas": {"PA": {"codigo": "640419970000", "estado": "auto"}}})
+    assert r.status_code == 422 and r.json()["codigo"] == "codigo_nacional_invalido"
     det = interno.post(f"/productos/{p['id']}/aprobar", {
-        "version": det["version"], "codigo": "6404.19",
-        "partidas": {"SV": {"codigo": "6404199000", "estado": "ok", "fuente": "base"},
-                     "PA": {"codigo": "640419970000", "estado": "auto", "fuente": "base"}}}).json()
+        "version": det["version"], "codigo": "6404.19", "partidas": {"SV": {"codigo": "6404199000", "estado": "ok"}}}).json()
     assert det["estado"] == "aprobado" and det["codigo"] == "6404.19" and det["revisado_por"]
     assert any(h["accion"] == "aprobado" for h in det["historial"]), det["historial"]
 
@@ -124,11 +127,13 @@ def test_devolver_aprobar_lote_y_aprendizaje(vans, interno):
     r = interno.post("/productos/aprobar", {"ids": [p["id"]]}).json()
     assert r["aprobados"] == 0 and r["errores"]
 
-    # Enseñar un código nacional: dígitos del país y condiciones
-    assert interno.post("/clasificacion/incisos", {"pais": "PA", "codigo": "6404199"}).status_code == 422
+    # Enseñar un código nacional: queda en el historial de la empresa, solo sobre líneas oficiales
+    assert interno.post("/clasificacion/incisos", {"pais": "SV", "codigo": "6404199"}).status_code == 422
     r = interno.post("/clasificacion/incisos", {"pais": "PA", "codigo": "640419990000", "cond": {"edadNac": "bebe"}})
-    assert r.status_code == 200
-    assert vans.post("/clasificacion/incisos", {"pais": "PA", "codigo": "640419990000"}).status_code == 403
+    assert r.status_code == 422 and r.json()["codigo"] == "no_es_linea_oficial"  # el historial no crea líneas
+    r = interno.post("/clasificacion/incisos", {"pais": "SV", "codigo": "6404.19.90.00", "cond": {"edadNac": "bebe"}})
+    assert r.status_code == 200, r.text
+    assert vans.post("/clasificacion/incisos", {"pais": "SV", "codigo": "6404199000"}).status_code == 403
     assert interno.post("/clasificacion/palabras", {"frase": "old skool", "tipo": "calzado",
                                                     "atributos": {"estiloCalz": "tenis"}}).status_code == 200
     assert vans.post("/clasificacion/sinonimos", {"palabra": "cordura", "equivale": "nylon"}).status_code == 200

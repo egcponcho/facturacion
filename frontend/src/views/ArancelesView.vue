@@ -44,6 +44,8 @@ const ocupado = ref(false)
 const sel = useSeleccion()
 
 const opcionesPais = computed(() => paises.value.map((p) => ({ valor: p.iso, texto: `${p.iso} · ${p.nombre}` })))
+// Versiones oficiales a las que puede pertenecer una línea del país (la nacional o la regional del SAC)
+const versionesDe = (iso) => (meta.value.versiones_oficiales || []).filter((v) => v.fuente && [iso, 'REGIONAL'].includes(v.ambito))
 const opcionesFuente = computed(() => Object.entries(meta.value.fuentes).map(([v, t]) => ({ valor: v, texto: t })))
 const CAPITULOS = [['42', t('42 · Leather goods, bags')], ['61', t('61 · Knitted apparel')], ['62', t('62 · Woven apparel')], ['63', t('63 · Other textile articles')],
   ['64', t('64 · Footwear')], ['65', t('65 · Headwear')], ['39', t('39 · Plastics')], ['40', t('40 · Rubber')], ['48', t('48 · Paper')], ['66', t('66 · Umbrellas')],
@@ -84,7 +86,7 @@ async function guardarCampo(x, campo, valor) {
   cargarContexto(true)
 }
 function nuevoCodigo() {
-  modal.value = { tipo: 'codigo', id: null, pais: fc.pais[0] || paises.value[0]?.iso, codigo: '', descripcion: '', dai: '', prio: 0, nota: '', activo: true, cond: {} }
+  modal.value = { tipo: 'codigo', id: null, pais: fc.pais[0] || paises.value[0]?.iso, codigo: '', descripcion: '', dai: '', prio: 0, nota: '', activo: true, cond: {}, version: '' }
 }
 async function quitarOverride(m) {
   try {
@@ -140,6 +142,7 @@ async function guardarCodigo() {
     // Una línea oficial no se modifica: descripción, nota y activo se guardan como ajuste propio (con motivo)
     const cuerpo = { pais: m.pais, codigo: m.codigo, descripcion: m.descripcion, dai: m.dai, cond: m.cond, prio: Number(m.prio) || 0, nota: m.nota, activo: m.activo,
       motivo: m.oficial ? m.motivo || null : null }
+    if (!m.id) Object.assign(cuerpo, { version: m.version || null, fuente: versionesDe(m.pais).find((v) => v.codigo === m.version)?.fuente || null })
     if (m.id) await api.put(`/aranceles/codigos/${m.id}`, cuerpo)
     else await api.post('/aranceles/codigos', cuerpo)
     modal.value = null
@@ -508,6 +511,10 @@ watch(() => fs.size, recargarS)
       <label class="campo"><span>{{ t('Duty (DAI %)') }}</span><input v-model="modal.dai" class="entrada" :disabled="modal.oficial" /></label>
       <label class="campo"><span>{{ t('Priority') }}</span><input v-model="modal.prio" type="number" min="0" max="99" class="entrada" /></label>
       <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Description') }}</span><input v-model="modal.descripcion" class="entrada" maxlength="300" /></label>
+      <label v-if="!modal.id" class="campo" style="grid-column: 1 / -1"><span class="req">{{ t('Official version it comes from') }}</span>
+        <Seleccion v-model="modal.version" class="entrada"><option value="">{{ t('Choose…') }}</option>
+          <option v-for="v in versionesDe(modal.pais)" :key="v.codigo" :value="v.codigo">{{ tx(v.texto) }}{{ v.fuente ? ` · ${v.fuente}` : '' }}</option></Seleccion>
+        <small class="ayuda">{{ t('National lines are official data: they are created only from a published source and version. Your own preferences go to the company history.') }}</small></label>
     </div>
     <h3 class="mt">{{ t('When it applies') }}</h3>
     <p class="ayuda">{{ t('Leave empty what does not matter. The engine picks the code whose conditions match the technical sheet.') }}
@@ -635,11 +642,15 @@ watch(() => fs.size, recargarS)
   </Modal>
 
   <CargaMasiva v-if="modal?.tipo === 'carga-codigos'" :titulo="t('Upload national codes')" ruta="/aranceles/codigos/importar" plantilla="/aranceles/codigos/plantilla"
-               :params="{ pais: modal.pais, reemplazar: modal.reemplazar }" @cerrar="modal = null" @cargado="alCargar"
-               :ayuda="t('One row per national code with its country, code, duty and the conditions that select it (gender, age, CIF value, footwear style…).')">
+               :params="{ pais: modal.pais, reemplazar: modal.reemplazar, version: modal.version, fuente: versionesDe(modal.pais).find((v) => v.codigo === modal.version)?.fuente }"
+               @cerrar="modal = null" @cargado="alCargar"
+               :ayuda="t('One row per official national line with its country, code and duty, from the published tariff of that version. Optional columns hold the conditions the engine uses to choose it.')">
     <div class="rejilla-campos mt-chico" style="margin-bottom: 10px">
       <label class="campo"><span>{{ t('Country') }}</span>
         <Seleccion v-model="modal.pais" class="entrada"><option value="">{{ t('The one in the Country column') }}</option><option v-for="p in paises" :key="p.iso" :value="p.iso">{{ tx(p.iso) }} · {{ tx(p.nombre) }}</option></Seleccion></label>
+      <label class="campo"><span class="req">{{ t('Official version it comes from') }}</span>
+        <Seleccion v-model="modal.version" class="entrada"><option value="">{{ t('Choose…') }}</option>
+          <option v-for="v in versionesDe(modal.pais)" :key="v.codigo" :value="v.codigo">{{ tx(v.texto) }}{{ v.fuente ? ` · ${v.fuente}` : '' }}</option></Seleccion></label>
     </div>
     <label v-if="modal.pais" class="check" style="margin-bottom: 10px"><input v-model="modal.reemplazar" type="checkbox" /><span>{{ t('Replace every code of {0} with this file (for a new tariff version)', [modal.pais]) }}</span></label>
   </CargaMasiva>

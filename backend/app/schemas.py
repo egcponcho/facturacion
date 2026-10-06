@@ -478,7 +478,7 @@ class PaisArancelIn(BaseModel):
     # Esquema del arancel nacional: longitudes admitidas (p. ej. "10,12"), de qué nivel
     # cuelga la precisión nacional, modelo, contexto y fuente oficial
     longitudes: list[int] | None = None
-    nivel_base: Literal["HS6", "SAC8"] | None = None
+    nivel_base: Literal["HS6", "SAC8", "SAC10"] | None = None
     modelo_arancel: str | None = Field(None, max_length=120)
     contexto: str | None = Field(None, max_length=120)
     fuente: str | None = Field(None, max_length=40)  # código de la fuente oficial
@@ -512,6 +512,9 @@ class IncisoEditIn(BaseModel):
     nota: str | None = Field(None, max_length=300)
     activo: bool = True
     motivo: str | None = Field(None, max_length=300)  # por qué se personaliza una línea oficial
+    # Línea nueva: es dato oficial, viene de una publicación (fuente y versión obligatorias)
+    fuente: str | None = Field(None, max_length=30)
+    version: str | None = Field(None, max_length=30)
 
 
 class IncisoOverrideIn(BaseModel):

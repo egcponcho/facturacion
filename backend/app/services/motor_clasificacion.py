@@ -46,6 +46,7 @@ from ..models import (
     DominioClasificacion,
     IncisoNacional,
     NodoArancel,
+    HistorialClasificacion,
     PaisArancel,
     Marca,
     Producto,
@@ -58,7 +59,7 @@ OPERADORES = ("EQUAL", "NOT_EQUAL", "IN", "GT", "GTE", "LT", "LTE", "BETWEEN", "
 ACCIONES = ("RESTRICT", "EXCLUDE", "BOOST", "ASK", "REVIEW", "WARN", "BUILTIN")
 ACCION_TIPO = {"HARD_CONSTRAINT": "RESTRICT", "SOFT_SIGNAL": "BOOST", "QUESTION_GATE": "ASK", "REVIEW_GATE": "REVIEW"}
 FAMILIAS_BASE = {"ACTIVE_CHAPTERS", "TEXT_CANDIDATES", "NEXT_BEST_QUESTION", "AMBIGUITY", "FAMILY_NOT_LEGAL", "LEGAL_PRIORITY"}
-CAPA = {"LEGAL_NOTE": "LEGAL", "NATIONAL_TARIFF": "LEGAL", "INTERNAL_ENGINE": "SISTEMA", "SHEET_RULES": "SISTEMA", "LEARNED": "SISTEMA",
+CAPA = {"LEGAL_NOTE": "LEGAL", "NATIONAL_TARIFF": "LEGAL", "INTERNAL_ENGINE": "SISTEMA", "SHEET_RULES": "SISTEMA", "CLASSIFIER": "SISTEMA", "LEARNED": "SISTEMA",
         "MANUAL": "PROPIA"}
 CAPA_ORDEN = {"LEGAL": 0, "SISTEMA": 1, "PROPIA": 2}
 
@@ -534,7 +535,7 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     lineas_sac = sorted(k for k in por_cod if elegido and k.startswith(elegido) and len(k) > 6)
     if not sac and len(lineas_sac) == 1:
         sac = lineas_sac[0]
-    out_paises = _paises(db, elegido, sac, hechos, hoy, entrada.get("partidas") or {}, cat) if paises and elegido else []
+    out_paises = _paises(db, elegido, sac, hechos, hoy, entrada.get("partidas") or {}, cat, categoria) if paises and elegido else []
     for p in out_paises:
         for k in p["faltan"]:
             if k in cat.por_codigo and not any(q["codigo"] == k for q in preguntas):
@@ -964,17 +965,19 @@ def _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, histori
 
 
 # ---- Clasificación por país --------------------------------------------------------------------
-def _paises(db: Session, hs6: str, sac: str | None, hechos: dict, hoy: date, manuales: dict, cat=None) -> list[dict]:
-    """Cada país por separado, con la versión vigente de su arancel: se elige
-    una línea nacional existente con las reglas de selección; nunca se recorta
-    ni se completa un código; un código propio solo si tiene una longitud válida."""
+def _paises(db: Session, hs6: str, sac: str | None, hechos: dict, hoy: date, manuales: dict, cat=None, categoria=None) -> list[dict]:
+    """Cada país por separado, con la versión vigente de su arancel. Las líneas
+    salen solo de la capa oficial (fuente y versión); las reglas del motor
+    eligen entre ellas y, si aún queda más de una, el historial de la empresa
+    solo puede ordenarlas. Un código que no es una línea oficial vigente no se
+    acepta; nunca se recorta ni se completa un código."""
     from . import overrides
     from .nacional import requisitos
 
     out = []
     base = sac or hs6
     for p in db.scalars(select(PaisArancel).where(PaisArancel.activo.is_(True)).order_by(PaisArancel.orden)):
-        vp = resolver_version_vigente(db, p.iso, hoy)
+        vp = version_lineas(db, p, hoy)
         lineas = _lineas(db, p.iso, hs6, vp)
         lineas = [x for x in lineas if (not x.vigente_desde or x.vigente_desde <= hoy) and (not x.vigente_hasta or x.vigente_hasta >= hoy)]
         ovs = overrides.vigentes(db, "INCISO", [x.id for x in lineas], hoy)
@@ -1004,48 +1007,99 @@ def _paises(db: Session, hs6: str, sac: str | None, hechos: dict, hoy: date, man
         mcod = "".join(ch for ch in str(man.get("codigo") or "") if ch.isdigit())  # la línea que eligió la persona
         error = None
         x = None
+        historial = None
         if mcod:
             x = next((y for y in lineas if y.codigo == mcod), None)
             if not mcod.startswith(hs6):
                 estado, codigo, error = "invalido", None, f"{mcod} does not belong to subheading {formato(hs6)}."
             elif x:
                 estado, codigo = "ok", mcod
-            elif len(mcod) in p.longitudes_validas():
-                estado, codigo = "manual", mcod  # código propio de la empresa (no está en el arancel cargado)
             else:
-                estado, codigo, error = "invalido", None, p.error_longitud(mcod)
+                estado, codigo = "invalido", None
+                error = (f"{formato(mcod)} is not an official national line of {p.nombre} in force"
+                         + (f" (version {vp.codigo})." if vp else ". Official national tariff data not available."))
         elif mejor and not empate and not (pendientes and len(mejor.cond or {}) == 0):
             estado, codigo, x = "ok", mejor.codigo, mejor
         elif lineas_ok:
-            estado, codigo = "elegir", None
-        elif sac and len(sac) in p.longitudes_validas() and p.mcca:
-            estado, codigo = "sac", sac  # el país usa la línea SAC regional tal cual
+            # Varias líneas oficiales posibles: el historial de la empresa solo puede ordenarlas
+            candidatas = vivos if empate else vivos + pendientes
+            historial = _preferencia_historial(db, p.iso, candidatas, hechos, categoria)
+            if historial:
+                estado, x = "historial", historial["linea"]
+                codigo = x.codigo
+            else:
+                estado, codigo = "elegir", None
         else:
             estado, codigo = "pendiente", None
+            error = (f"Official national tariff data not available for {p.nombre}" + (f" (version {vp.codigo})." if vp else ".")
+                     if not lineas else None)
         req = requisitos(db, p.iso, codigo or base, x.dai if x else None, hoy)
         out.append({"pais": p.iso, "nombre": p.nombre, "estado": estado, "codigo": codigo, "codigo_txt": formato(codigo) if codigo else None,
                     "dai": x.dai if x else None, "inciso_id": x.id if x else None, "regla": x.regla.codigo if x and x.regla else None,
-                    "descripcion": (desc_ov.get(x.id) or x.descripcion) if x else None, "fuente": x.fuente if x else ("manual" if mcod else None),
+                    "descripcion": (desc_ov.get(x.id) or x.descripcion) if x else None, "fuente": x.fuente if x else None,
+                    "fuente_oficial": x.fuente_id if x else None,
                     "version": {"id": vp.id, "codigo": vp.codigo} if vp else None, "longitudes": p.longitudes_validas(), "digitos": p.digitos,
                     "error": error, "manual": bool(mcod) and not (mejor and not empate and mcod == mejor.codigo),
                     "sugerido": mejor.codigo if mejor and not empate else None,
+                    "historial": {k: v for k, v in historial.items() if k != "linea"} if historial else None,
+                    "sin_datos_oficiales": not lineas,
                     "opciones": [{"codigo": y.codigo, "cond": y.cond, "cond_txt": _cond_txt(y.cond, cat), "descripcion": desc_ov.get(y.id) or y.descripcion,
                                   "dai": y.dai, "inciso_id": y.id}
                                  for y in (vivos + pendientes + [z for z in lineas_ok if z not in vivos and z not in pendientes])][:12],
-                    "faltan": sorted(faltan), "impuestos": req["impuestos"], "regulaciones": req["regulaciones"], "overrides": aplicados})
+                    "faltan": sorted(faltan), "impuestos": req["impuestos"], "regulaciones": req["regulaciones"],
+                    "requisitos_estado": req.get("estado"), "overrides": aplicados})
     return out
 
 
+def version_lineas(db: Session, p: PaisArancel, hoy: date | None = None) -> VersionDataset | None:
+    """Versión de la que salen las líneas nacionales del país: su arancel
+    nacional vigente si tiene líneas cargadas; si el país aplica tal cual las
+    líneas del SAC regional a 10 dígitos (nivel_base SAC10), la versión
+    regional vigente. Nunca se mezclan versiones."""
+    vp = resolver_version_vigente(db, p.iso, hoy)
+    if vp and db.scalar(select(IncisoNacional.id).where(IncisoNacional.pais == p.iso, IncisoNacional.version_id == vp.id).limit(1)):
+        return vp
+    if p.nivel_base == "SAC10":
+        return resolver_version_vigente(db, "REGIONAL", hoy) or vp
+    return vp
+
+
 def _lineas(db: Session, iso: str, hs6: str, vp) -> list[IncisoNacional]:
-    """Líneas del país para la subpartida: las oficiales de la versión vigente
-    (nunca de otra versión) y las propias de la empresa (sin versión)."""
+    """Líneas oficiales del país para la subpartida, solo de la versión que
+    aplica (nunca de otra versión ni sin fuente)."""
+    if not vp:
+        return []
     q = select(IncisoNacional).options(selectinload(IncisoNacional.regla)).where(
-        IncisoNacional.pais == iso, IncisoNacional.sub6 == hs6, IncisoNacional.activo.is_(True))
-    if vp:
-        q = q.where(or_(IncisoNacional.version_id == vp.id, IncisoNacional.version_id.is_(None)))
-    else:
-        q = q.where(IncisoNacional.version_id.is_(None))
+        IncisoNacional.pais == iso, IncisoNacional.sub6 == hs6, IncisoNacional.activo.is_(True),
+        IncisoNacional.version_id == vp.id, IncisoNacional.fuente == "oficial")
     return list(db.scalars(q.order_by(IncisoNacional.codigo)))
+
+
+def _preferencia_historial(db: Session, iso: str, candidatas: list, hechos: dict, categoria) -> dict | None:
+    """Entre líneas oficiales que el motor dejó empatadas, la que más usó la
+    empresa con productos como este (mismas condiciones). Es una señal
+    histórica: no la hace correcta ni crea nada."""
+    if len(candidatas) < 2:
+        return None
+    por_codigo = {y.codigo: y for y in candidatas}
+    filas = db.scalars(select(HistorialClasificacion).where(HistorialClasificacion.pais == iso,
+                                                            HistorialClasificacion.codigo.in_(list(por_codigo)))).all()
+    puntos: dict = {}
+    for h in filas:
+        cond = h.condiciones or {}
+        if categoria and h.categoria and h.categoria != categoria:
+            continue
+        if any(hechos.get(k) not in (v if isinstance(v, list) else [v]) for k, v in cond.items()):
+            continue
+        puntos[h.codigo] = puntos.get(h.codigo, 0) + (h.conteo or 1) * (1 + len(cond))
+    if not puntos:
+        return None
+    orden = sorted(puntos.items(), key=lambda kv: -kv[1])
+    if len(orden) > 1 and orden[0][1] == orden[1][1]:
+        return None
+    total = sum(puntos.values())
+    cod = orden[0][0]
+    return {"linea": por_codigo[cod], "codigo": cod, "historical_confidence": round(orden[0][1] / total, 2), "registros": len(filas)}
 
 
 # ---- Validación de códigos de reglas ---------------------------------------------------

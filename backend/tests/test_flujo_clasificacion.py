@@ -75,5 +75,7 @@ def test_flujo_completo_de_la_ficha_a_la_aprobacion(interno):
         assert ev["aprobacion"]["hs6"] == sugerido and ev["aprobacion"]["sugerido"] == sugerido
         aplicadas = [t for t in ev["reglas"] if t.get("aplicada")]
         assert aplicadas and all(t["firma"] and t["revision"] for t in aplicadas)
-        assert {y["pais"] for y in ev["paises"]} == set(p["partidas"])
+        # Cada país con línea oficial la guarda; los que no tienen arancel nacional oficial cargado lo dicen
+        assert {y["pais"] for y in ev["paises"] if y["codigo"]} == set(p["partidas"]) == {"GT", "SV", "HN"}
+        assert all(y["sin_datos_oficiales"] and not y["codigo"] for y in ev["paises"] if y["pais"] in ("NI", "CR", "PA"))
         assert all(f.version_id or f.manual for f in x.partidas if f.inciso_id)

@@ -149,8 +149,8 @@ def codigos_plantilla(db: Db, user: User, pais: str | None = None, vista: bool =
 
 @router.post("/aranceles/codigos/importar")
 async def codigos_importar(db: Db, user: User, archivo: UploadFile = File(...), pais: str | None = None,
-                           reemplazar: bool = False):
-    r = svc.importar_incisos(db, user, archivo.filename or "", await archivo.read(), pais, reemplazar)
+                           reemplazar: bool = False, fuente: str | None = None, version: str | None = None):
+    r = svc.importar_incisos(db, user, archivo.filename or "", await archivo.read(), pais, reemplazar, fuente, version)
     db.commit()
     return r
 

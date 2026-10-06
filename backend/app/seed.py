@@ -52,7 +52,6 @@ from .services.productos import (
     _aprobar,
     clasificar_y_guardar,
     asegurar_producto,
-    cargar_incisos_base,
     descripcion_comercial_simple,
     partida_para,
 )
@@ -432,6 +431,29 @@ def _productos(db, arts) -> None:
             p.revisado_en = ahora() - timedelta(days=150)
 
 
+# Configuración de la instalación de demostración: qué países aplican tal cual
+# las líneas del SAC regional a 10 dígitos (su código nacional es la línea del
+# ACI) y la longitud habitual que muestra la pantalla. Es configuración del
+# administrador, no un dato oficial: NI, CR y PA no tienen su arancel nacional
+# cargado y lo dicen («Official national tariff data not available»).
+PAISES_DEMO = {"GT": {"nivel_base": "SAC10", "longitudes": "10", "digitos": 10},
+               "SV": {"nivel_base": "SAC10", "longitudes": "10", "digitos": 10},
+               "HN": {"nivel_base": "SAC10", "longitudes": "10", "digitos": 10},
+               "NI": {"digitos": 12}, "CR": {"digitos": 12}, "PA": {"digitos": 12}}
+
+
+def _configurar_paises_demo(db) -> None:
+    from .models import PaisArancel
+
+    for i, (iso, conf) in enumerate(PAISES_DEMO.items()):
+        p = db.scalar(select(PaisArancel).where(PaisArancel.iso == iso))
+        if p:
+            for k, v in conf.items():
+                setattr(p, k, v)
+            p.orden = i
+    db.flush()
+
+
 def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", almacen="BF19", destino="2220",
         puerto="VNSGN", origen="VN", xf=None, xf_nueva=None, tienda=None, comercial="C", logistica="300",
         lib_antes=24):
@@ -607,29 +629,23 @@ def seed(db: Session) -> None:
     ])
     db.flush()
     cat = _catalogos(db)
-    cargar_incisos_base(db)
-    # Capa oficial: fuentes, versiones, países, control de capítulos y dominios (paquetes Excel incluidos)
-    from .services import oficial
-
-    oficial.cargar_paquetes_base(db)
-    from .services.nacional import asignar_versiones
-
-    asignar_versiones(db)
-    # Atributos de la ficha de ropa, calzado y accesorios (opciones y categorías del motor)
-    from .services import atributos, categorias, nacional
-
-    atributos.cargar_motor(db)
-    categorias.sembrar(db)
-    # Reglas de la ficha por categoría (datos del motor único)
+    # ---- Capa OFFICIAL TARIFF DATA: fuentes, versiones y países del paquete oficial 01,
+    # árbol del ACI (SIECA), notas legales y líneas regionales. Nada sale de la empresa.
+    from .services import acuerdos, arbol, atributos, categorias, conocimiento, oficial
     from .services import reglas as reglas_srv
 
-    reglas_srv.cargar_reglas_ficha(db)
-    # Demostración: impuesto general a la importación por país (el paquete 03 trae las plantillas vacías)
-    nacional.impuestos_generales(db)
-    # Árbol arancelario oficial completo (capítulo → partida → subpartida → inciso) de la versión SAC-2025-V6
-    from .services import arbol
-
+    oficial.cargar_paquetes_base(db)
+    _configurar_paises_demo(db)
     arbol.cargar_sac(db)
+    oficial.cargar_notas_incluidas(db)
+    oficial.cargar_lineas_regionales(db)
+    acuerdos.cargar_acuerdos(db)
+    # ---- Capa CLASSIFICATION ENGINE: categorías, atributos y reglas de la ficha
+    atributos.cargar_motor(db)
+    categorias.sembrar(db)
+    reglas_srv.cargar_reglas_ficha(db)
+    # ---- Capa COMPANY KNOWLEDGE (demostración): historial de la empresa de ejemplo
+    conocimiento.cargar_historial_demo(db)
     db.commit()  # el motor lee el árbol (índice en memoria) con su propia sesión
     # Cada proveedor maneja sus marcas y trabaja con sus sociedades
     tnf.marcas = [cat["marcas"]["TNF"]]

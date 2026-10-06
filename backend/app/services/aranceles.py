@@ -210,10 +210,20 @@ def _conds_capitulo(db: Session, cap: str, oc: dict) -> list[str]:
     cat = catalogo(db)
     cats = {c.codigo for c in cat.categorias.values() if cap in (c.capitulos or [])}
     doms = {c.dominio for c in cat.categorias.values() if c.codigo in cats and c.dominio}
+    def menciona(cond) -> bool:  # una condición «categoria IN [...]» de las categorías del capítulo
+        return any(c.get("campo") == "categoria" and set(c.get("valor") if isinstance(c.get("valor"), list) else [c.get("valor")]) & cats
+                   for c in (cond or []) if isinstance(c, dict))
+
     out = []
     for a in cat.atributos:
-        if a.codigo in oc and any((x.tipo == "CHAPTER" and x.codigo == cap) or (x.tipo == "CATEGORY" and x.codigo in cats)
-                                  or (x.tipo == "DOMAIN" and x.codigo in doms) or (x.tipo == "SYSTEM" and a.seccion == "nacional") for x in a.ambitos):
+        if a.codigo not in oc:
+            continue
+        por_ambito = any((x.tipo == "CHAPTER" and x.codigo == cap) or (x.tipo == "CATEGORY" and x.codigo in cats)
+                         or (x.tipo == "DOMAIN" and x.codigo in doms) or (x.tipo == "SYSTEM" and a.seccion == "nacional") for x in a.ambitos)
+        # Un dato nacional sin ámbitos: aplica a las categorías que nombran sus patrones de detección
+        por_patron = a.seccion == "nacional" and any(menciona(p.get("cuando")) for o in a.opciones for p in o.patrones) \
+            or a.seccion == "nacional" and any(menciona(p.get("cuando")) for p in a.patrones)
+        if por_ambito or por_patron:
             out.append(a.codigo)
     return out
 
@@ -429,17 +439,30 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
             raise ErrorNegocio("Official national codes cannot change their country, code or duty; load a new version instead.", 422, "oficial")
         cambios = {"descripcion": (datos.descripcion or "").strip()[:300] or None, "nota": (datos.nota or "")[:300] or None, "activo": datos.activo}
         guardar_override_inciso(db, user, x, cambios, datos.motivo)
-        x.cond = _cond_limpia(db, datos.cond)
-        x.prio = datos.prio or 0
+        cond = _cond_limpia(db, datos.cond)
+        if cond != (x.cond or {}) or (datos.prio or 0) != (x.prio or 0):
+            x.cond = cond
+            x.prio = datos.prio or 0
+            if x.regla:
+                x.regla.tipo_fuente = "MANUAL"  # la empresa cambió cómo se elige: regla propia
         db.flush()
         return {"id": x.id}
-    if not x:
-        x = IncisoNacional(fuente="manual", creado_por=user.id)
-        db.add(x)
-    x.pais, x.codigo, x.sub6 = pais, cod, cod[:6]
+    # Una línea nueva es un dato oficial: se escribe desde una publicación, con su
+    # fuente y su versión (no hay líneas «propias» de la empresa)
+    fuente, version = _procedencia(db, getattr(datos, "fuente", None), getattr(datos, "version", None), pais)
+    v_ok = _version_de_pais(version, ps[pais])
+    if not v_ok:
+        raise ErrorNegocio(f"Version {version.codigo} is not a tariff version of {pais} or of the regional SAC.", 422, "validacion")
+    if not _en_arbol(db, cod):
+        raise ErrorNegocio(f"{_fmt(cod)} does not hang from a subheading of the official tariff tree.", 422, "codigo_inexistente")
+    x = IncisoNacional(pais=pais, codigo=cod, sub6=cod[:6], fuente="oficial", fuente_id=fuente.id, version_id=version.id,
+                       vigente_desde=version.vigente_desde, vigente_hasta=version.vigente_hasta, url=fuente.url, creado_por=user.id)
+    db.add(x)
     x.descripcion = (datos.descripcion or "").strip()[:300] or None
     x.dai = (datos.dai or "").replace("%", "").strip()[:10] or None
     x.cond = _cond_limpia(db, datos.cond)
+    if x.regla:
+        x.regla.tipo_fuente = "MANUAL"  # condiciones puestas por la empresa: capa propia, nunca legal
     x.prio, x.nota, x.activo = datos.prio or 0, (datos.nota or "")[:300] or None, datos.activo
     db.flush()
     registrar(db, user, "aranceles", x.id, "codigo_nacional", {"pais": pais, "codigo": _fmt(cod)})
@@ -448,6 +471,33 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
 
 def _es_oficial(x: IncisoNacional) -> bool:
     return x.fuente == "oficial" or x.version_id is not None
+
+
+def _procedencia(db: Session, fuente_cod: str | None, version_cod: str | None, pais: str | None = None):
+    """Fuente oficial y versión de una carga de líneas: obligatorias."""
+    from ..models import FuenteOficial, VersionDataset
+
+    if not fuente_cod or not version_cod:
+        raise ErrorNegocio("National tariff lines are official data: give the official source and the version they come from.",
+                           422, "sin_procedencia")
+    f = db.scalar(select(FuenteOficial).where(FuenteOficial.codigo == fuente_cod.strip()))
+    v = db.scalar(select(VersionDataset).where(VersionDataset.codigo == version_cod.strip()))
+    if not f:
+        raise ErrorNegocio(f"The official source {fuente_cod} does not exist.", 422, "validacion")
+    if not v:
+        raise ErrorNegocio(f"The version {version_cod} does not exist.", 422, "validacion")
+    return f, v
+
+
+def _version_de_pais(v, p) -> bool:
+    return (v.ambito or "").upper() in (p.iso, "REGIONAL")
+
+
+def _en_arbol(db: Session, cod: str) -> bool:
+    """La línea cuelga de una subpartida del árbol oficial vigente."""
+    from .motor_clasificacion import codigo_existe
+
+    return bool(cod) and len(cod) >= 6 and codigo_existe(db, cod[:6])
 
 
 def guardar_override_inciso(db: Session, user: Usuario, x: IncisoNacional, cambios: dict, motivo: str | None,
@@ -475,17 +525,19 @@ def quitar_override_inciso(db: Session, user: Usuario, inciso_id: int) -> dict:
 
 
 def borrar_incisos(db: Session, user: Usuario, ids: list[int]) -> dict:
+    """Las líneas oficiales de una versión publicada no se borran (se apagan
+    para la empresa con un override); solo las de una versión en borrador."""
+    from ..models import VersionDataset
+
     exigir(user, "aranceles.editar")
-    n = 0
-    oficiales = db.scalar(select(func.count()).select_from(IncisoNacional).where(IncisoNacional.id.in_(ids), or_(
-        IncisoNacional.fuente == "oficial", IncisoNacional.version_id.is_not(None)))) or 0
-    if oficiales:
+    xs = db.scalars(select(IncisoNacional).where(IncisoNacional.id.in_(ids))).all()
+    borrador = {v.id for v in db.scalars(select(VersionDataset).where(VersionDataset.estado == "BORRADOR"))}
+    if any(x.version_id not in borrador for x in xs):
         raise ErrorNegocio("Official national codes are not deleted: turn them off for your company with an override.", 422, "oficial")
-    for x in db.scalars(select(IncisoNacional).where(IncisoNacional.id.in_(ids))):
+    for x in xs:
         db.delete(x)
-        n += 1
-    registrar(db, user, "aranceles", 0, "borrar_codigos", {"n": n})
-    return {"borrados": n}
+    registrar(db, user, "aranceles", 0, "borrar_codigos", {"n": len(xs)})
+    return {"borrados": len(xs)}
 
 
 # ---- Cargas desde Excel ------------------------------------------------------------------
@@ -541,8 +593,12 @@ def plantilla_incisos(db: Session, pais: str | None = None) -> bytes:
 
 
 def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, pais: str | None = None,
-                     reemplazar: bool = False) -> dict:
+                     reemplazar: bool = False, fuente: str | None = None, version: str | None = None) -> dict:
+    """Carga de líneas nacionales desde la publicación oficial de un país: toda
+    la carga lleva su fuente y su versión. «Reemplazar» solo quita las líneas
+    de esa misma versión (las otras versiones no se tocan)."""
     exigir(user, "aranceles.editar")
+    f_ofi, v_ofi = _procedencia(db, fuente, version)
     ps = _paises_dict(db)
     filas = leer(nombre, contenido, _alias_incisos(db))
     oc = opciones_cond(db)
@@ -554,9 +610,15 @@ def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, 
         if iso not in ps:
             errores.append({"fila": f["_fila"], "mensaje": f"Country “{f.get('pais') or ''}” is not in the tariff schedule."})
             continue
+        if not _version_de_pais(v_ofi, ps[iso]):
+            errores.append({"fila": f["_fila"], "mensaje": f"Version {v_ofi.codigo} is not a tariff version of {iso}."})
+            continue
         cod = _dig(f.get("codigo"))
         if msg := ps[iso].error_longitud(cod):
             errores.append({"fila": f["_fila"], "mensaje": f"{iso}: {msg}"})
+            continue
+        if not _en_arbol(db, cod):
+            errores.append({"fila": f["_fila"], "mensaje": f"{_fmt(cod)} does not hang from a subheading of the official tariff tree."})
             continue
         cond, mal = {}, None
         for k, d in oc.items():
@@ -591,20 +653,23 @@ def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, 
     creados = actualizados = borrados = 0
     if reemplazar and validas:
         for iso in {v[0] for v in validas}:
-            for x in db.scalars(select(IncisoNacional).where(IncisoNacional.pais == iso)):
+            for x in db.scalars(select(IncisoNacional).where(IncisoNacional.pais == iso, IncisoNacional.version_id == v_ofi.id)):
                 db.delete(x)
                 borrados += 1
         db.flush()
+    # Una línea es única por país, código y versión: la misma fila actualiza
     existentes = {} if reemplazar else {
-        (x.pais, x.codigo, repr(sorted((x.cond or {}).items()))): x
-        for x in db.scalars(select(IncisoNacional).where(IncisoNacional.pais.in_({v[0] for v in validas})))}
+        (x.pais, x.codigo): x
+        for x in db.scalars(select(IncisoNacional).where(IncisoNacional.pais.in_({v[0] for v in validas}),
+                                                         IncisoNacional.version_id == v_ofi.id))}
     for iso, cod, cond, f, prio in validas:
-        clave = (iso, cod, repr(sorted(cond.items())))
+        clave = (iso, cod)
         x = existentes.get(clave)
         if x:
             actualizados += 1
         else:
-            x = IncisoNacional(pais=iso, codigo=cod, sub6=cod[:6], cond=cond, fuente="archivo", creado_por=user.id)
+            x = IncisoNacional(pais=iso, codigo=cod, sub6=cod[:6], cond=cond, fuente="oficial", fuente_id=f_ofi.id, version_id=v_ofi.id,
+                               vigente_desde=v_ofi.vigente_desde, vigente_hasta=v_ofi.vigente_hasta, url=f_ofi.url, creado_por=user.id)
             db.add(x)
             existentes[clave] = x
             creados += 1
@@ -614,7 +679,10 @@ def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, 
             x.dai = f["dai"].replace("%", "").strip()[:10]
         if f.get("nota"):
             x.nota = f["nota"][:300]
+        x.cond = cond
         x.prio = prio
+        if x.regla:
+            x.regla.tipo_fuente = "MANUAL"  # condiciones de la carga: configuración de la empresa, no texto legal
         x.activo = True
     registrar(db, user, "aranceles", 0, "importar_codigos",
               {"creados": creados, "actualizados": actualizados, "borrados": borrados, "errores": len(errores)})
@@ -764,7 +832,7 @@ def exportar_sac(db: Session, user: Usuario, filtros: dict, formato: str) -> byt
 def opciones(db: Session, user: Usuario) -> dict:
     exigir(user, "producto.ver")
     return {"condiciones": {k: {"label": d["label"], "tipo": d["tipo"], "ops": d["ops"]} for k, d in opciones_cond(db).items()},
-            "fuentes": FUENTES, "fuentes_oficiales": _fuentes_oficiales(db)}
+            "fuentes": FUENTES, "fuentes_oficiales": _fuentes_oficiales(db), "versiones_oficiales": _versiones_oficiales(db)}
 
 
 def _fuentes_oficiales(db: Session) -> list[dict]:
@@ -772,3 +840,12 @@ def _fuentes_oficiales(db: Session) -> list[dict]:
 
     return [{"codigo": f.codigo, "texto": f"{f.codigo} · {f.autoridad}", "ambito": f.ambito}
             for f in db.scalars(select(FuenteOficial).order_by(FuenteOficial.codigo))]
+
+
+def _versiones_oficiales(db: Session) -> list[dict]:
+    """Versiones a las que puede pertenecer una línea nacional (con su fuente)."""
+    from ..models import VersionDataset
+
+    return [{"codigo": v.codigo, "ambito": v.ambito, "estado": v.estado, "fuente": v.fuente.codigo if v.fuente else None,
+             "texto": f"{v.codigo} · {v.etiqueta or v.dataset}"}
+            for v in db.scalars(select(VersionDataset).order_by(VersionDataset.codigo)) if v.ambito]

@@ -33,16 +33,18 @@ export function totalFilas(rows) {
   return Math.round(rows.reduce((a, r) => a + (parseFloat(String(r.pct).replace(',', '.')) || 0), 0) * 10) / 10
 }
 
-// Estado de la línea nacional de cada país (lo calcula el servidor)
+// Estado de la línea nacional de cada país (lo calcula el servidor). Solo hay
+// líneas publicadas por una fuente oficial; el historial de la empresa solo ayuda a elegir
 export const EST_PAIS = {
-  ok: t('National'),
-  manual: t('Company code'),
+  ok: t('Official national line'),
+  historial: t('Official line preferred by your company history'),
   elegir: t('Needs data or a choice'),
-  sac: t('Regional SAC line'),
-  pendiente: t('No national line loaded'),
+  pendiente: t('Official national tariff data not available'),
   invalido: t('Invalid code'),
   sin_codigo: t('No code'),
 }
+// Estados con un código nacional oficial elegido
+export const PAIS_LISTO = ['ok', 'historial']
 
 // De dónde salió la sugerencia
 export const FUENTES = { regla: t('Harmonized System rules'), historial: t('Your history: product already classified'), texto: t('Official tariff text') }

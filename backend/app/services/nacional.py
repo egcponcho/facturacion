@@ -148,7 +148,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
             continue
         x = db.scalar(select(IncisoNacional).where(IncisoNacional.pais == c["pais"], IncisoNacional.codigo == cod,
                                                    or_(IncisoNacional.version_id == c["version"].id, IncisoNacional.version_id.is_(None)),
-                                                   IncisoNacional.fuente.in_(("oficial", "archivo", "base")))
+                                                   IncisoNacional.fuente == "oficial")
                       .order_by(IncisoNacional.version_id.is_(None)))
         nuevo = x is None
         x = x or IncisoNacional(pais=c["pais"], codigo=cod, sub6=cod[:6])
@@ -244,24 +244,6 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         db.add(x)
         cuenta("Taxes", nuevo)
     db.flush()
-
-
-def impuestos_generales(db: Session) -> int:
-    """Demostración: el impuesto general a la importación de cada país (lo que
-    ya dice el país, p. ej. «VAT 12%») como regla con su fuente de impuestos."""
-    n = 0
-    tipos = {"VAT": "IVA", "SALES": "ISV", "ITBMS": "ITBMS"}
-    for p in db.scalars(select(PaisArancel)):
-        m = re.match(r"\s*([A-Za-z]+)[^\d]*([\d.]+)\s*%", p.impuesto or "")
-        cod = f"TAX-{p.iso}-GENERAL"
-        if not m or db.scalar(select(ReglaImpuesto.id).where(ReglaImpuesto.codigo == cod)):
-            continue
-        db.add(ReglaImpuesto(codigo=cod, pais=p.iso, patron="*", tipo=tipos.get(m.group(1).upper(), "OTRO"), tasa=float(m.group(2)),
-                             base_calculo="CIF + DAI", fuente_id=p.fuente_impuestos_id or p.fuente_id,
-                             base_legal=f"General import rate ({p.impuesto}). Verify against the country's official tax source."))
-        n += 1
-    db.flush()
-    return n
 
 
 # ---- Consulta ---------------------------------------------------------------------
@@ -392,17 +374,3 @@ def _aplicar(db: Session, x, datos: dict, campos: tuple) -> None:
             setattr(x, k, datos[k].upper() if k == "tipo" and isinstance(datos[k], str) else datos[k])
     if x.vigente_desde and x.vigente_hasta and x.vigente_hasta < x.vigente_desde:
         raise ErrorNegocio("Valid to must be on or after valid from.", 422, "validacion")
-
-
-def asignar_versiones(db: Session) -> int:
-    """Los códigos nacionales oficiales sin versión quedan en la versión vigente
-    de su país (nunca se mezclan versiones de un mismo país)."""
-    from .motor_clasificacion import resolver_version_vigente
-
-    n = 0
-    for iso in db.scalars(select(IncisoNacional.pais).where(IncisoNacional.version_id.is_(None), IncisoNacional.fuente == "oficial").distinct()):
-        v = resolver_version_vigente(db, iso)
-        if v:
-            n += db.execute(IncisoNacional.__table__.update().where(IncisoNacional.pais == iso, IncisoNacional.version_id.is_(None),
-                                                                    IncisoNacional.fuente == "oficial").values(version_id=v.id)).rowcount
-    return n

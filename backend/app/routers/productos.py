@@ -158,13 +158,6 @@ def ensenar_inciso(datos: s.IncisoIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.ensenar_inciso(db, user, datos))
 
 
-@router.delete("/clasificacion/incisos/{inciso_id}")
-def borrar_inciso(inciso_id: int, db: Db, user: User):
-    svc.borrar_inciso(db, user, inciso_id)
-    db.commit()
-    return {"ok": True}
-
-
 @router.post("/clasificacion/palabras")
 def ensenar_palabra(datos: s.PalabraIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.ensenar_palabra(db, user, datos))

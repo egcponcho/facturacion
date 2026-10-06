@@ -11,7 +11,7 @@ import GenericoModal from '../components/GenericoModal.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import { cargarContexto, entradaDe, fichaDe, sesion } from '../clasificacion/useClasificacion'
-import { EST_PAIS, FUENTES, digits, fmtCode, fmtPais } from '../clasificacion/formato.js'
+import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '../clasificacion/formato.js'
 import { puede } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { fmtFecha, fmtFechaHora } from '../utils'
@@ -233,7 +233,7 @@ const paises = computed(() => {
   const por = Object.fromEntries((r.value?.clasificacion?.paises || []).map((x) => [x.pais, x]))
   return ctx.value.destinos.map((d) => ({ ...d, ...(por[d.iso] ? { ...por[d.iso], iso: d.iso } : { estado: 'sin_codigo', opciones: [] }) }))
 })
-const paisesOk = computed(() => paises.value.filter((x) => ['ok', 'manual', 'sac'].includes(x.estado) && x.codigo).length)
+const paisesOk = computed(() => paises.value.filter((x) => PAIS_LISTO.includes(x.estado) && x.codigo).length)
 function codigoPais(iso, c) {
   f.partidas = { ...(f.partidas || {}), [iso]: { codigo: digits(c), manual: true } }
   pedir()
@@ -362,7 +362,7 @@ async function ensenar() {
   try {
     await api.post('/clasificacion/incisos', { pais: m.pais.iso, codigo: digits(m.pais.codigo), cond })
     modal.value = null
-    avisar(t('Saved. {0} will use {1} for products like this one.', [m.pais.nombre, fmtCode(m.pais.codigo)]))
+    avisar(t('Saved in your company history: {0} will prefer {1} for products like this one.', [m.pais.nombre, fmtCode(m.pais.codigo)]))
     pedir()
   } catch (e) {
     errorApi(e)
@@ -770,7 +770,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
                 <td class="fuerte">{{ tx(x.iso) }}</td>
                 <td>
                   <template v-if="!aprobado && puedeAprobar">
-                    <input class="entrada entrada-pais" :class="{ invalida: errPais[x.iso], tentativo: !['ok', 'manual'].includes(x.estado) && !x.manual }"
+                    <input class="entrada entrada-pais" :class="{ invalida: errPais[x.iso], tentativo: !PAIS_LISTO.includes(x.estado) && !x.manual }"
                            :value="x.codigo ? fmtPais(x.codigo, x.digitos) : ''" :placeholder="t('{0}… ({1} digits)', [fmtCode(codigo6) || t('Code'), x.digitos])"
                            :list="x.opciones?.length ? `ops-${x.iso}` : undefined" inputmode="numeric" :maxlength="Math.max(...(x.longitudes?.length ? x.longitudes : [x.digitos])) + 8"
                            :aria-label="t('National code for {0}', [x.nombre])" :title="t('Type the {0}-digit code; it applies when you leave the field', [x.digitos])"
@@ -780,7 +780,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
                     </datalist>
                     <span v-if="errPais[x.iso]" class="sub" style="color: var(--error)">{{ tx(errPais[x.iso]) }}</span>
                     <span v-else-if="x.manual" class="sub">{{ t('Set by hand ·') }} <button type="button" class="btn-texto" @click="quitarManual(x.iso)">{{ t('use automatic') }}</button> · <button type="button" class="btn-texto" @click="abrirEnsenar(x)">{{ t('remember for similar') }}</button></span>
-                    <span v-else-if="!['ok', 'manual'].includes(x.estado)" class="sub">{{ tx(x.error || (x.estado === 'elegir' ? t('Choose one of the listed codes or type it') : EST_PAIS[x.estado])) }}</span>
+                    <span v-else-if="x.estado === 'historial'" class="sub">{{ EST_PAIS.historial }}</span>
+                    <span v-else-if="!PAIS_LISTO.includes(x.estado)" class="sub">{{ tx(x.error || (x.estado === 'elegir' ? t('Choose one of the listed codes or type it') : EST_PAIS[x.estado])) }}</span>
                   </template>
                   <template v-else>
                     <Seleccion v-if="x.estado === 'elegir' && x.opciones?.length && puedeEditar" class="entrada" :aria-label="t('Code for {0}', [x.nombre])" @change="codigoPais(x.iso, $event)">
@@ -788,10 +789,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
                       <option v-for="o in x.opciones" :key="o.codigo" :value="o.codigo">{{ fmtPais(o.codigo, x.digitos) }} · {{ tx(o.cond_txt || o.descripcion) }}</option>
                     </Seleccion>
                     <template v-else>
-                      <span class="codigo-sac" :class="{ tentativo: !['ok', 'manual'].includes(x.estado) }">{{ tx(x.codigo ? fmtPais(x.codigo, x.digitos) : '—') }}</span>
+                      <span class="codigo-sac" :class="{ tentativo: !PAIS_LISTO.includes(x.estado) }">{{ tx(x.codigo ? fmtPais(x.codigo, x.digitos) : '—') }}</span>
                       <span v-if="x.manual" class="etiqueta acento" :title="t('Set by hand')">{{ t('manual') }}</span>
                     </template>
-                    <span v-if="!['ok', 'manual'].includes(x.estado) && x.estado !== 'elegir'" class="sub">{{ tx(x.error || EST_PAIS[x.estado]) }}</span>
+                    <span v-if="!PAIS_LISTO.includes(x.estado) && x.estado !== 'elegir'" class="sub">{{ tx(x.error || EST_PAIS[x.estado]) }}</span>
+                    <span v-else-if="x.estado === 'historial'" class="sub">{{ EST_PAIS.historial }}</span>
                   </template>
                 </td>
                 <td class="num apagado">{{ tx(x.dai !== '' && x.dai != null ? `${x.dai}%` : '') }}</td>
