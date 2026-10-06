@@ -103,7 +103,8 @@ def _cond_dict(c: CondicionRegla) -> dict:
 
 def _dict(r: ReglaClasificacion) -> dict:
     d = {c: getattr(r, c) for c in ("id", "codigo", "tipo_ambito", "codigo_ambito", "pais", "tipo_regla", "prioridad",
-                                     "tipo_fuente", "familia", "efecto", "accion", "activo", "requiere_revision", "actualizado_en")}
+                                     "tipo_fuente", "familia", "efecto", "accion", "activo", "requiere_revision", "actualizado_en", "revision", "nota_id")}
+    d["capa"] = {"LEGAL_NOTE": "LEGAL", "NATIONAL_TARIFF": "LEGAL", "MANUAL": "PROPIA"}.get(r.tipo_fuente, "SISTEMA")
     d["editable_completa"] = r.tipo_regla != "NATIONAL_SELECT" and r.tipo_fuente != "INTERNAL_ENGINE"
     d["condiciones"] = [_cond_dict(c) for c in r.condiciones]
     if r.inciso:
@@ -111,6 +112,27 @@ def _dict(r: ReglaClasificacion) -> dict:
         d["inciso"] = {"id": x.id, "codigo": x.codigo, "descripcion": x.descripcion, "dai": x.dai, "fuente": x.fuente, "activo": x.activo}
         d["cond_txt"] = cond_texto(r.cond())
     return d
+
+
+def _fuente(db: Session, r: ReglaClasificacion, datos: dict) -> None:
+    """Una regla propia puede declararse LEGAL (fundada en una nota legal, que se
+    referencia): entonces es un límite que ninguna otra regla puede violar."""
+    from ..models import NotaSAC
+
+    if datos.get("tipo_fuente") in ("MANUAL", "LEGAL_NOTE"):
+        r.tipo_fuente = datos["tipo_fuente"]
+    if datos.get("nota_id") is not None:
+        r.nota_id = datos["nota_id"] or None
+    if r.nota_id and not db.get(NotaSAC, r.nota_id):
+        raise ErrorNegocio("The legal note does not exist.", 422, "validacion")
+    if r.tipo_fuente == "LEGAL_NOTE" and not r.nota_id:
+        raise ErrorNegocio("A legal rule must reference the legal note that supports it.", 422, "validacion")
+
+
+def _firma_completa(r: ReglaClasificacion) -> str:
+    from .motor_clasificacion import firma_regla, foto_regla
+
+    return firma_regla({**foto_regla(r), "revision": 0, "activo": r.activo})
 
 
 def listar(db: Session, user: Usuario, q: str | None = None, tipo: str | None = None, pais: str | None = None,
@@ -142,9 +164,17 @@ def listar(db: Session, user: Usuario, q: str | None = None, tipo: str | None = 
 
 
 # ---- Edición ------------------------------------------------------------------------
-ACCIONES = ("RESTRICT", "EXCLUDE", "BOOST", "ASK", "REVIEW")
+ACCIONES = ("RESTRICT", "EXCLUDE", "BOOST", "ASK", "REVIEW", "WARN")
 TIPOS_PROPIOS = ("HARD_CONSTRAINT", "SOFT_SIGNAL", "QUESTION_GATE", "REVIEW_GATE")
-ACCION_DE = {"HARD_CONSTRAINT": ("RESTRICT", "EXCLUDE"), "SOFT_SIGNAL": ("BOOST",), "QUESTION_GATE": ("ASK",), "REVIEW_GATE": ("REVIEW",)}
+ACCION_DE = {"HARD_CONSTRAINT": ("RESTRICT", "EXCLUDE"), "SOFT_SIGNAL": ("BOOST",), "QUESTION_GATE": ("ASK",), "REVIEW_GATE": ("REVIEW", "WARN")}
+
+
+def db_de(r: ReglaClasificacion):
+    from sqlalchemy.orm import object_session
+
+    from ..db import SessionLocal
+
+    return object_session(r) or SessionLocal()
 
 
 def _forma(r: ReglaClasificacion, datos: dict) -> None:
@@ -177,6 +207,12 @@ def _forma(r: ReglaClasificacion, datos: dict) -> None:
                 raise ErrorNegocio("A code map needs the field it depends on and a code for each value.", 422, "validacion")
             a["mapa"] = {str(k): "".join(ch for ch in str(v) if ch.isdigit()) for k, v in a["mapa"].items() if str(v).strip()}
             a["codigos"] = sorted(set(a["codigos"]) | set(a["mapa"].values()))
+        # Nunca una regla hacia un código que no existe en el árbol de la versión vigente
+        from .motor_clasificacion import codigos_invalidos
+
+        malos = codigos_invalidos(db_de(r), a["codigos"])
+        if malos:
+            raise ErrorNegocio(f"These codes do not exist in the tariff in force: {', '.join(malos)}.", 422, "codigo_inexistente")
         if a["tipo"] == "ASK" and not a.get("atributos"):
             raise ErrorNegocio("Say which attributes the rule asks.", 422, "validacion")
         r.accion = {k: v for k, v in a.items() if v not in (None, "", [])}
@@ -193,10 +229,13 @@ def crear(db: Session, user: Usuario, datos: dict) -> dict:
                            prioridad=int(datos.get("prioridad") or 500), efecto=datos.get("efecto"),
                            requiere_revision=bool(datos.get("requiere_revision")), activo=True,
                            tipo_ambito="SYSTEM", codigo_ambito="ALL", tipo_regla="HARD_CONSTRAINT")
-    _forma(r, {"tipo_ambito": "SYSTEM", "codigo_ambito": "ALL", **datos})
     db.add(r)
+    _forma(r, {"tipo_ambito": "SYSTEM", "codigo_ambito": "ALL", **datos})
+    _fuente(db, r, datos)
     db.flush()
-    return guardar(db, user, r.id, {"condiciones": datos.get("condiciones") or []})
+    d = guardar(db, user, r.id, {"condiciones": datos.get("condiciones") or []})
+    r.revision = d["revision"] = 1  # la regla nace en su primera revisión
+    return d
 
 
 
@@ -207,12 +246,15 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
     r = db.get(ReglaClasificacion, regla_id)
     if not r:
         raise ErrorNegocio("The rule does not exist.", 404, "no_encontrado")
-    for k in ("prioridad", "efecto", "requiere_revision", "activo"):
+    antes = _firma_completa(r)
+    for k in ("prioridad", "efecto", "requiere_revision", "activo", "nota_id"):
         if datos.get(k) is not None:
-            setattr(r, k, datos[k])
+            setattr(r, k, datos[k] or None if k == "nota_id" else datos[k])
     # Ámbito, tipo y acción solo en reglas propias (las del paquete y las nacionales conservan su forma)
     if r.tipo_regla != "NATIONAL_SELECT" and r.tipo_fuente != "INTERNAL_ENGINE":
         _forma(r, datos)
+        if r.tipo_fuente in ("MANUAL", "LEGAL_NOTE"):
+            _fuente(db, r, datos)
     if datos.get("condiciones") is not None:
         nuevas = []
         for c in datos["condiciones"]:
@@ -233,6 +275,8 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
     if r.inciso and datos.get("activo") is not None:
         r.inciso.activo = bool(datos["activo"])
     db.flush()
+    if _firma_completa(r) != antes:
+        r.revision = (r.revision or 1) + 1  # la evidencia guarda la revisión y una foto de la regla
     registrar(db, user, "aranceles", r.id, "regla", {"codigo": r.codigo, "cambios": {k: datos[k] for k in datos if k != "condiciones"},
                                                        "condiciones": len(r.condiciones)})
     return _dict(r)

@@ -29,7 +29,6 @@ from ..models import (
     IncisoNacional,
     NodoArancel,
     ReglaClasificacion,
-    VersionDataset,
     Marca,
     Pais,
     PaisArancel,
@@ -46,7 +45,7 @@ from ..models import (
     ahora,
 )
 from .acuerdos import acuerdos_contexto, cargar_acuerdos
-from .arbol import VERSION_SAC
+from .motor_clasificacion import resolver_version_vigente
 from .atributos import config_motor as atributos_cfg
 from .generico import dominios_ficha
 from .categorias import categorias as categorias_config
@@ -699,7 +698,7 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
     if len(oficial) > 14:
         raise ErrorNegocio("The HS code is too long.", 422, "validacion")
     # El producto guarda el HS6; la línea SAC regional solo si existe en el árbol oficial vigente
-    version = db.scalar(select(VersionDataset).where(VersionDataset.codigo == VERSION_SAC))
+    version = resolver_version_vigente(db, "REGIONAL")
     sac = None
     if len(oficial) > 6:
         if not version or not db.scalar(select(NodoArancel.id).where(NodoArancel.version_id == version.id, NodoArancel.pais.is_(None),

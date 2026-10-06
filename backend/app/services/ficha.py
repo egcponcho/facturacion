@@ -50,6 +50,7 @@ class Opcion:
     bloqueo: list = field(default_factory=list)
     implica: dict | None = None
     patrones: list = field(default_factory=list)
+    texto_aduana: dict | None = None
 
 
 @dataclass
@@ -84,6 +85,7 @@ class Atributo:
     control: str | None = None
     dominio: str | None = None
     origen: str = "USUARIO"
+    texto_aduana: dict | None = None
 
     def opcion(self, v) -> Opcion | None:
         return next((o for o in self.opciones if o.codigo == v), None)
@@ -107,6 +109,7 @@ class Categoria:
     capitulos: list = field(default_factory=list)
     orden: int = 0
     activo: bool = True
+    plantilla_aduana: dict | None = None
 
 
 class Catalogo:
@@ -136,11 +139,12 @@ class Catalogo:
                 codigo=a.codigo, etiqueta=a.etiqueta, tipo_dato=a.tipo_dato, seccion=a.seccion or "caracteristicas", ayuda=a.descripcion,
                 informativo=a.informativo, usado_clasificacion=a.usado_clasificacion, valor_defecto=a.valor_defecto, derivacion=a.derivacion,
                 bloqueo=a.bloqueo or [], patrones=a.patrones or [], patrones_falso=a.patrones_falso or [], orden=a.orden, unidad=a.unidad,
-                control=a.control, dominio=a.dominio, origen=a.origen,
-                opciones=[Opcion(o.codigo, o.etiqueta, o.orden, o.activo, o.bloqueo or [], o.implica, o.patrones or []) for o in a.opciones],
+                control=a.control, dominio=a.dominio, origen=a.origen, texto_aduana=a.texto_aduana,
+                opciones=[Opcion(o.codigo, o.etiqueta, o.orden, o.activo, o.bloqueo or [], o.implica, o.patrones or [], o.texto_aduana)
+                          for o in a.opciones],
                 ambitos=[Ambito(x.tipo_ambito, x.codigo_ambito, x.modo, x.prioridad, x.condicion, x.nota, x.id) for x in a.ambitos if x.activo]))
         cats = [Categoria(c.codigo, c.nombre, c.dominio, c.grupo, c.familia, c.nombre_corto, c.nombre_aduana, c.alias, c.patrones or [],
-                          c.capitulos or [], c.orden, c.activo) for c in db.scalars(select(CategoriaProducto))]
+                          c.capitulos or [], c.orden, c.activo, c.plantilla_aduana) for c in db.scalars(select(CategoriaProducto))]
         sin = [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))]
         pal = [{"frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})} for x in db.scalars(select(PalabraClave))]
         return cls(attrs, cats, sin, pal)
@@ -155,13 +159,15 @@ class Catalogo:
                 codigo=a["codigo"], etiqueta=a["etiqueta"], tipo_dato=a["tipo_dato"], seccion=a.get("seccion") or "caracteristicas",
                 ayuda=a.get("ayuda"), informativo=bool(a.get("informativo")), valor_defecto=a.get("valor_defecto"), derivacion=a.get("derivacion"),
                 bloqueo=a.get("bloqueo") or [], patrones=a.get("patrones") or [], patrones_falso=a.get("patrones_falso") or [],
-                orden=a.get("orden", 0), unidad=a.get("unidad"), control=a.get("control"), origen="MOTOR",
-                opciones=[Opcion(o["codigo"], o["etiqueta"], o.get("orden", 0), True, o.get("bloqueo") or [], o.get("implica"), o.get("patrones") or [])
+                orden=a.get("orden", 0), unidad=a.get("unidad"), control=a.get("control"), origen="MOTOR", texto_aduana=a.get("texto_aduana"),
+                opciones=[Opcion(o["codigo"], o["etiqueta"], o.get("orden", 0), True, o.get("bloqueo") or [], o.get("implica"), o.get("patrones") or [],
+                                 o.get("texto_aduana"))
                           for o in a.get("opciones") or []],
                 ambitos=[Ambito(x["tipo_ambito"], x["codigo_ambito"], x.get("modo") or "SHOW", x.get("prioridad", 500), x.get("condicion"))
                          for x in a.get("ambitos") or []]))
         cats = [Categoria(c["codigo"], c["nombre"], c.get("dominio"), c.get("grupo"), c.get("familia"), c.get("nombre_corto"), c.get("nombre_aduana"),
-                          c.get("alias"), c.get("patrones") or [], c.get("capitulos") or [], c.get("orden", 0)) for c in d["categorias"]]
+                          c.get("alias"), c.get("patrones") or [], c.get("capitulos") or [], c.get("orden", 0), True, c.get("plantilla_aduana"))
+                for c in d["categorias"]]
         return cls(attrs, cats)
 
     # ---- Ámbitos ---------------------------------------------------------------------------

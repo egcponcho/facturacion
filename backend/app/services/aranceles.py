@@ -7,7 +7,7 @@ import re
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from ..models import IncisoNacional, NodoArancel, NotaSAC, PaisArancel, Usuario, VersionDataset, ahora
+from ..models import IncisoNacional, NodoArancel, NotaSAC, PaisArancel, Usuario, ahora
 from . import overrides
 from . import documentos, exportar
 from .common import ErrorNegocio, exigir, registrar
@@ -98,9 +98,9 @@ def _paises_dict(db: Session) -> dict[str, PaisArancel]:
 # El texto oficial sale del árbol arancelario de la versión vigente (NodoArancel)
 # y no se edita: lo propio (descripción interna, nota) es un override con motivo.
 def _version_sac(db: Session):
-    from .arbol import VERSION_SAC
+    from .motor_clasificacion import resolver_version_vigente
 
-    return db.scalar(select(VersionDataset).where(VersionDataset.codigo == VERSION_SAC))
+    return resolver_version_vigente(db, "REGIONAL")
 
 
 def textos_sac(db: Session, codigos) -> dict[str, str]:
@@ -384,6 +384,17 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
     x = db.get(IncisoNacional, inciso_id) if inciso_id else None
     if inciso_id and not x:
         raise ErrorNegocio("The code does not exist.", 404, "no_encontrado")
+    if x and _es_oficial(x):
+        # El dato oficial no se edita: lo propio va en la capa custom (override con
+        # motivo) y en la regla de selección (condiciones y prioridad)
+        if pais != x.pais or cod != x.codigo or (datos.dai or "").replace("%", "").strip() not in ("", x.dai or ""):
+            raise ErrorNegocio("Official national codes cannot change their country, code or duty; load a new version instead.", 422, "oficial")
+        cambios = {"descripcion": (datos.descripcion or "").strip()[:300] or None, "nota": (datos.nota or "")[:300] or None, "activo": datos.activo}
+        guardar_override_inciso(db, user, x, cambios, datos.motivo)
+        x.cond = _cond_limpia(datos.cond)
+        x.prio = datos.prio or 0
+        db.flush()
+        return {"id": x.id}
     if not x:
         x = IncisoNacional(fuente="manual", creado_por=user.id)
         db.add(x)
@@ -397,9 +408,41 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
     return {"id": x.id}
 
 
+def _es_oficial(x: IncisoNacional) -> bool:
+    return x.fuente == "oficial" or x.version_id is not None
+
+
+def guardar_override_inciso(db: Session, user: Usuario, x: IncisoNacional, cambios: dict, motivo: str | None,
+                            desde=None, hasta=None) -> dict:
+    """Personaliza una línea nacional oficial sin tocarla: descripción interna,
+    nota o apagarla para la empresa, con motivo, usuario, fecha y vigencia."""
+    oficial = {"descripcion": x.descripcion, "nota": x.nota, "activo": "true" if x.activo else "false"}
+    for campo, valor in cambios.items():
+        if valor is None and campo == "activo":
+            continue
+        v = ("true" if valor else "false") if campo == "activo" else valor
+        if campo != "activo" and valor is None:
+            continue
+        overrides.poner(db, user, "INCISO", str(x.id), campo, v, oficial[campo], motivo, desde, hasta)
+    db.flush()
+    return {"id": x.id, "overrides": overrides.vigentes(db, "INCISO", [x.id]).get(str(x.id), {}),
+            "historial": overrides.historial(db, "INCISO", str(x.id))}
+
+
+def quitar_override_inciso(db: Session, user: Usuario, inciso_id: int) -> dict:
+    exigir(user, "aranceles.editar")
+    if not db.get(IncisoNacional, inciso_id):
+        raise ErrorNegocio("The code does not exist.", 404, "no_encontrado")
+    return {"quitados": overrides.quitar(db, user, "INCISO", str(inciso_id))}
+
+
 def borrar_incisos(db: Session, user: Usuario, ids: list[int]) -> dict:
     exigir(user, "aranceles.editar")
     n = 0
+    oficiales = db.scalar(select(func.count()).select_from(IncisoNacional).where(IncisoNacional.id.in_(ids), or_(
+        IncisoNacional.fuente == "oficial", IncisoNacional.version_id.is_not(None)))) or 0
+    if oficiales:
+        raise ErrorNegocio("Official national codes are not deleted: turn them off for your company with an override.", 422, "oficial")
     for x in db.scalars(select(IncisoNacional).where(IncisoNacional.id.in_(ids))):
         db.delete(x)
         n += 1

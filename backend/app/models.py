@@ -647,6 +647,9 @@ class VersionDataset(Base):
     checksum: Mapped[str | None] = mapped_column(String(64))
     nota: Mapped[str | None] = mapped_column(String(400))
     importado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    # De qué arancel es: REGIONAL (SAC) o el ISO del país. El motor elige la
+    # versión vigente de cada ámbito por estado y fechas (resolver_version_vigente)
+    ambito: Mapped[str | None] = mapped_column(String(10), index=True)
 
     fuente: Mapped[FuenteOficial | None] = relationship()
 
@@ -715,6 +718,8 @@ class CategoriaProducto(Base):
     nombre_aduana: Mapped[str | None] = mapped_column(String(120))
     patrones: Mapped[list | None] = mapped_column(JSON)
     capitulos: Mapped[list | None] = mapped_column(JSON)
+    # Cómo se arma su descripción aduanera: {material, requiere, si_falta, como, si}
+    plantilla_aduana: Mapped[dict | None] = mapped_column(JSON)
 
 
 class DominioCapitulo(Base):
@@ -796,6 +801,8 @@ class AtributoDef(Base):
     patrones: Mapped[list | None] = mapped_column(JSON)
     patrones_falso: Mapped[list | None] = mapped_column(JSON)
     control: Mapped[str | None] = mapped_column(String(12))
+    # En la descripción aduanera (casillas): {frase, nombre, comercial, orden, cuando}
+    texto_aduana: Mapped[dict | None] = mapped_column(JSON)
 
     opciones: Mapped[list["AtributoOpcion"]] = relationship(back_populates="atributo", cascade="all, delete-orphan",
                                                            order_by="AtributoOpcion.orden")
@@ -821,6 +828,8 @@ class AtributoOpcion(Base):
     bloqueo: Mapped[list | None] = mapped_column(JSON)
     implica: Mapped[dict | None] = mapped_column(JSON)
     patrones: Mapped[list | None] = mapped_column(JSON)
+    # En la descripción aduanera: {nombre, comercial, frase, orden, cuando}
+    texto_aduana: Mapped[dict | None] = mapped_column(JSON)
 
     atributo: Mapped[AtributoDef] = relationship(back_populates="opciones")
 
@@ -1038,6 +1047,11 @@ class ReglaClasificacion(Base):
     inciso_id: Mapped[int | None] = mapped_column(ForeignKey("incisos_nacionales.id", ondelete="CASCADE"), unique=True)
     version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, onupdate=ahora)
+    # Revisión: sube con cada cambio; la evidencia de una clasificación guarda
+    # la revisión y una foto de la regla tal como era al aplicarse
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    # Nota legal que la fundamenta (evidencia; la nota sola no ejecuta nada)
+    nota_id: Mapped[int | None] = mapped_column(ForeignKey("notas_sac.id", ondelete="SET NULL", name="fk_reglas_nota"))
 
     inciso: Mapped[IncisoNacional | None] = relationship(back_populates="regla")
     condiciones: Mapped[list["CondicionRegla"]] = relationship(back_populates="regla", cascade="all, delete-orphan",

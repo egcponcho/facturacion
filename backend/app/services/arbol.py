@@ -18,7 +18,7 @@ from .common import ErrorNegocio, exigir, filtro_texto
 from .nacional import requisitos
 
 DATOS = Path(__file__).resolve().parent.parent / "data"
-VERSION_SAC = "SAC-2025-V6"
+VERSION_DATOS_SEED = "SAC-2025-V6"  # versión del archivo sac_oficial.json que trae el seed; el motor usa la versión vigente
 NIVELES = {2: "CAPITULO", 4: "PARTIDA", 6: "SUBPARTIDA", 8: "INCISO", 10: "INCISO", 12: "INCISO"}
 NOMBRE_NIVEL = {"CAPITULO": "Chapter", "PARTIDA": "Heading", "SUBPARTIDA": "Subheading", "INCISO": "Tariff line"}
 
@@ -48,7 +48,7 @@ def checksum(*nombres: str) -> str:
     return h.hexdigest()
 
 
-def cargar_sac(db: Session, version: str = VERSION_SAC) -> int:
+def cargar_sac(db: Session, version: str = VERSION_DATOS_SEED) -> int:
     """Carga el árbol regional de la versión (si aún no está cargado)."""
     v = db.scalar(select(VersionDataset).where(VersionDataset.codigo == version))
     if not v:
@@ -109,7 +109,9 @@ def cargar_sac(db: Session, version: str = VERSION_SAC) -> int:
 
 # ---- Consulta --------------------------------------------------------------------
 def _version(db: Session, codigo: str | None) -> VersionDataset:
-    v = db.scalar(select(VersionDataset).where(VersionDataset.codigo == (codigo or VERSION_SAC)))
+    from .motor_clasificacion import resolver_version_vigente
+
+    v = db.scalar(select(VersionDataset).where(VersionDataset.codigo == codigo)) if codigo else resolver_version_vigente(db, "REGIONAL")
     if not v:
         raise ErrorNegocio("The tariff version does not exist.", 404, "no_encontrado")
     return v

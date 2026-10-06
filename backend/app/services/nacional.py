@@ -392,3 +392,17 @@ def _aplicar(db: Session, x, datos: dict, campos: tuple) -> None:
             setattr(x, k, datos[k].upper() if k == "tipo" and isinstance(datos[k], str) else datos[k])
     if x.vigente_desde and x.vigente_hasta and x.vigente_hasta < x.vigente_desde:
         raise ErrorNegocio("Valid to must be on or after valid from.", 422, "validacion")
+
+
+def asignar_versiones(db: Session) -> int:
+    """Los códigos nacionales oficiales sin versión quedan en la versión vigente
+    de su país (nunca se mezclan versiones de un mismo país)."""
+    from .motor_clasificacion import resolver_version_vigente
+
+    n = 0
+    for iso in db.scalars(select(IncisoNacional.pais).where(IncisoNacional.version_id.is_(None), IncisoNacional.fuente == "oficial").distinct()):
+        v = resolver_version_vigente(db, iso)
+        if v:
+            n += db.execute(IncisoNacional.__table__.update().where(IncisoNacional.pais == iso, IncisoNacional.version_id.is_(None),
+                                                                    IncisoNacional.fuente == "oficial").values(version_id=v.id)).rowcount
+    return n

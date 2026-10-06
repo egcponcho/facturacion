@@ -22,7 +22,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "camisa",
@@ -45,7 +74,37 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ],
+    "nombre": "CAMISA"
+   }
   },
   {
    "codigo": "sudadera",
@@ -68,7 +127,37 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ],
+    "nombre": "SUDADERA"
+   }
   },
   {
    "codigo": "chaqueta",
@@ -91,7 +180,37 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ],
+    "nombre": "CHAQUETA"
+   }
   },
   {
    "codigo": "pantalon",
@@ -114,7 +233,37 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ],
+    "nombre": "PANTALÓN"
+   }
   },
   {
    "codigo": "falda",
@@ -137,7 +286,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "vestido",
@@ -160,7 +338,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "enterizo",
@@ -183,7 +390,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "conjunto",
@@ -206,7 +442,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "ropa_interior",
@@ -229,7 +494,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "brasier",
@@ -252,7 +546,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "traje_bano",
@@ -275,7 +598,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "calcetines",
@@ -298,7 +650,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "guantes",
@@ -321,7 +702,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "bufanda",
@@ -344,7 +754,36 @@
     "42",
     "39",
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    },
+    "si": [
+     {
+      "cuando": [
+       {
+        "campo": "fibra",
+        "operador": "NOT_EQUAL",
+        "valor": "cuero"
+       },
+       {
+        "campo": "recubierta",
+        "operador": "EQUAL",
+        "valor": true
+       }
+      ],
+      "material": "DE SINTÉTICO"
+     }
+    ]
+   }
   },
   {
    "codigo": "gorra",
@@ -363,7 +802,14 @@
    ],
    "capitulos": [
     "65"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "cinturon",
@@ -385,7 +831,14 @@
     "61",
     "62",
     "39"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "accesorio_pelo",
@@ -407,7 +860,14 @@
     "61",
     "62",
     "40"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "peleteria",
@@ -426,7 +886,14 @@
    ],
    "capitulos": [
     "43"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "calzado",
@@ -445,7 +912,16 @@
    ],
    "capitulos": [
     "64"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "CON CORTE DE {upper} Y SUELA DE {sole}",
+    "requiere": [
+     "upper"
+    ],
+    "si_falta": {
+     "sole": "plastico"
+    }
+   }
   },
   {
    "codigo": "plantilla",
@@ -464,7 +940,14 @@
    ],
    "capitulos": [
     "64"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "cordones",
@@ -486,7 +969,14 @@
     "64",
     "39",
     "42"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "polainas",
@@ -505,7 +995,14 @@
    ],
    "capitulos": [
     "64"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "cuidado_calzado",
@@ -526,7 +1023,14 @@
     "34",
     "38",
     "96"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "mochila",
@@ -546,7 +1050,13 @@
    "capitulos": [
     "42",
     "63"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "CON SUPERFICIE EXTERIOR DE {exterior}",
+    "requiere": [
+     "exterior"
+    ]
+   }
   },
   {
    "codigo": "bolso_viaje",
@@ -574,7 +1084,13 @@
    "capitulos": [
     "42",
     "63"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "CON SUPERFICIE EXTERIOR DE {exterior}",
+    "requiere": [
+     "exterior"
+    ]
+   }
   },
   {
    "codigo": "bolso_mano",
@@ -594,7 +1110,13 @@
    "capitulos": [
     "42",
     "63"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "CON SUPERFICIE EXTERIOR DE {exterior}",
+    "requiere": [
+     "exterior"
+    ]
+   }
   },
   {
    "codigo": "maleta",
@@ -614,7 +1136,13 @@
    "capitulos": [
     "42",
     "63"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "CON SUPERFICIE EXTERIOR DE {exterior}",
+    "requiere": [
+     "exterior"
+    ]
+   }
   },
   {
    "codigo": "billetera",
@@ -634,7 +1162,13 @@
    "capitulos": [
     "42",
     "63"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "CON SUPERFICIE EXTERIOR DE {exterior}",
+    "requiere": [
+     "exterior"
+    ]
+   }
   },
   {
    "codigo": "lentes_sol",
@@ -653,7 +1187,14 @@
    ],
    "capitulos": [
     "90"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "reloj",
@@ -673,7 +1214,14 @@
    "capitulos": [
     "91",
     "85"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "bisuteria",
@@ -695,7 +1243,14 @@
     "42",
     "63",
     "39"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "llavero",
@@ -719,7 +1274,14 @@
     "63",
     "39",
     "83"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "sombrilla",
@@ -738,7 +1300,14 @@
    ],
    "capitulos": [
     "66"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "botella",
@@ -761,7 +1330,14 @@
     "76",
     "39",
     "70"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "parche",
@@ -783,7 +1359,14 @@
     "58",
     "39",
     "40"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "mascota",
@@ -802,7 +1385,14 @@
    ],
    "capitulos": [
     "42"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "correa_reloj",
@@ -821,7 +1411,14 @@
    ],
    "capitulos": [
     "91"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "tienda",
@@ -840,7 +1437,14 @@
    ],
    "capitulos": [
     "63"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "saco",
@@ -859,7 +1463,14 @@
    ],
    "capitulos": [
     "94"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "colchoneta",
@@ -881,7 +1492,14 @@
     "63",
     "39",
     "40"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "manta",
@@ -900,7 +1518,14 @@
    ],
    "capitulos": [
     "63"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "toalla",
@@ -919,7 +1544,14 @@
    ],
    "capitulos": [
     "63"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "hamaca",
@@ -939,7 +1571,14 @@
    "capitulos": [
     "56",
     "63"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "mueble_camping",
@@ -958,7 +1597,14 @@
    ],
    "capitulos": [
     "94"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "linterna",
@@ -977,7 +1623,14 @@
    ],
    "capitulos": [
     "85"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "bastones",
@@ -997,7 +1650,14 @@
    "capitulos": [
     "66",
     "95"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "equipo_deporte",
@@ -1019,7 +1679,14 @@
     "94",
     "40",
     "39"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "magnesio",
@@ -1039,7 +1706,14 @@
    "capitulos": [
     "28",
     "38"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "patineta",
@@ -1058,7 +1732,14 @@
    ],
    "capitulos": [
     "95"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "avios",
@@ -1079,7 +1760,14 @@
     "96",
     "83",
     "39"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "bolsa_compra",
@@ -1101,7 +1789,14 @@
     "39",
     "42",
     "63"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "caja",
@@ -1121,7 +1816,14 @@
    "capitulos": [
     "48",
     "39"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "gancho",
@@ -1142,7 +1844,14 @@
     "39",
     "73",
     "44"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "etiqueta",
@@ -1163,7 +1872,14 @@
     "48",
     "58",
     "39"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   },
   {
    "codigo": "exhibidor",
@@ -1185,7 +1901,14 @@
     "96",
     "73",
     "76"
-   ]
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "exterior",
+     "material"
+    ]
+   }
   }
  ],
  "atributos": [
@@ -1214,7 +1937,34 @@
        "en": "todo",
        "prioridad": 1
       }
-     ]
+     ],
+     "texto_aduana": {
+      "frase": "DE PUNTO",
+      "orden": 10,
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "camiseta",
+         "camisa",
+         "sudadera",
+         "chaqueta",
+         "pantalon",
+         "falda",
+         "vestido",
+         "enterizo",
+         "conjunto",
+         "ropa_interior",
+         "brasier",
+         "traje_bano",
+         "calcetines",
+         "guantes",
+         "bufanda"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "plano",
@@ -1253,7 +2003,34 @@
        "en": "todo",
        "prioridad": 2
       }
-     ]
+     ],
+     "texto_aduana": {
+      "frase": "DE TEJIDO PLANO",
+      "orden": 10,
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "camiseta",
+         "camisa",
+         "sudadera",
+         "chaqueta",
+         "pantalon",
+         "falda",
+         "vestido",
+         "enterizo",
+         "conjunto",
+         "ropa_interior",
+         "brasier",
+         "traje_bano",
+         "calcetines",
+         "guantes",
+         "bufanda"
+        ]
+       }
+      ]
+     }
     }
    ],
    "ambitos": [
@@ -1745,7 +2522,20 @@
        ],
        "y_en": "todo"
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CHALECO ACOLCHADO",
+      "comercial": "CHALECO",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "chaqueta"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "chaleco",
@@ -1762,7 +2552,20 @@
        ],
        "y_en": "todo"
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CHALECO",
+      "comercial": "CHALECO",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "chaqueta"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "reflectivo",
@@ -1813,7 +2616,20 @@
        "re": "\\b(reflectiv[oa]|hi-?vis|alta visibilidad|safety vest|chaleco de seguridad)\\b",
        "prioridad": 1
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CHALECO REFLECTIVO",
+      "comercial": "CHALECO",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "chaqueta"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "blazer",
@@ -1839,7 +2655,20 @@
        "re": "\\b(blazers?|sport ?coat|saco de vestir|americana)\\b",
        "prioridad": 2
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "SACO TIPO BLAZER",
+      "comercial": "SACO",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "chaqueta"
+        ]
+       }
+      ]
+     }
     }
    ],
    "ambitos": [
@@ -1935,7 +2764,20 @@
      "modo": "SHOW"
     }
    ],
-   "orden": 60
+   "orden": 60,
+   "texto_aduana": {
+    "nombre": "CAMISA TIPO POLO",
+    "cuando": [
+     {
+      "campo": "categoria",
+      "operador": "IN",
+      "valor": [
+       "camiseta",
+       "camisa"
+      ]
+     }
+    ]
+   }
   },
   {
    "codigo": "prendaInt",
@@ -2258,7 +3100,34 @@
      "modo": "SHOW"
     }
    ],
-   "orden": 90
+   "orden": 90,
+   "texto_aduana": {
+    "frase": "RECUBIERTA CON PLÁSTICO O CAUCHO",
+    "orden": 20,
+    "cuando": [
+     {
+      "campo": "categoria",
+      "operador": "IN",
+      "valor": [
+       "camiseta",
+       "camisa",
+       "sudadera",
+       "chaqueta",
+       "pantalon",
+       "falda",
+       "vestido",
+       "enterizo",
+       "conjunto",
+       "ropa_interior",
+       "brasier",
+       "traje_bano",
+       "calcetines",
+       "guantes",
+       "bufanda"
+      ]
+     }
+    ]
+   }
   },
   {
    "codigo": "relleno_tipo",
@@ -2357,7 +3226,34 @@
        "en": "todo",
        "prioridad": 1
       }
-     ]
+     ],
+     "texto_aduana": {
+      "frase": "CON RELLENO DE PLUMÓN",
+      "orden": 30,
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "camiseta",
+         "camisa",
+         "sudadera",
+         "chaqueta",
+         "pantalon",
+         "falda",
+         "vestido",
+         "enterizo",
+         "conjunto",
+         "ropa_interior",
+         "brasier",
+         "traje_bano",
+         "calcetines",
+         "guantes",
+         "bufanda"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "sintetico",
@@ -2371,7 +3267,20 @@
        "en": "todo",
        "prioridad": 2
       }
-     ]
+     ],
+     "texto_aduana": {
+      "frase": "CON RELLENO SINTÉTICO",
+      "orden": 30,
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "chaqueta"
+        ]
+       }
+      ]
+     }
     }
    ],
    "ambitos": [
@@ -2819,7 +3728,19 @@
        "defecto": true,
        "prioridad": 99
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "TENIS",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "senderismo",
@@ -2832,7 +3753,19 @@
        "re": "\\b(hiking|hiker|senderismo|trekking|moab|hedgehog|approach)\\b",
        "prioridad": 11
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CALZADO DE SENDERISMO",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "bota",
@@ -2847,7 +3780,19 @@
        "re": "\\b(boots?|botas?)\\b",
        "prioridad": 10
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "BOTA",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "botin",
@@ -2862,7 +3807,19 @@
        "re": "\\b(botin(es)?|chelsea|chukka|ankle boots?|desert boots?|safari)\\b",
        "prioridad": 9
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "BOTÍN",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "zapato",
@@ -2877,7 +3834,19 @@
        "re": "\\b(zapatos?|dress shoes?|oxfords?|derby|blucher|brogues?|monk ?straps?|wing ?tips?|flats|balerinas?|ballerinas?|escolar|alpargatas?|espadrilles?|mules?)\\b",
        "prioridad": 20
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "ZAPATO",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "tacon",
@@ -2927,7 +3896,19 @@
        "re": "\\b(tacon(es)?|heels?|stilettos?|pumps|cunas?|wedges?)\\b",
        "prioridad": 19
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "ZAPATO DE TACÓN",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "mocasin",
@@ -2942,7 +3923,19 @@
        "re": "\\b(mocasin(es)?|loafers?|moccasins?|moc|boat shoes?|boatshoes?|nautico|drivers?)\\b",
        "prioridad": 18
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "MOCASÍN",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "sandalia",
@@ -2957,7 +3950,19 @@
        "re": "\\b(sandals?|sandalias?|sandalia flat|anklestrap|pata de gallo)\\b",
        "prioridad": 13
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "SANDALIA",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "slide",
@@ -2972,7 +3977,19 @@
        "re": "\\b(slides?|chanclas?)\\b",
        "prioridad": 14
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "SANDALIA TIPO SLIDE",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "chancla_tetones",
@@ -3027,7 +4044,19 @@
        "re": "\\b(flip ?flops?|chanclas? de dedo|thong sandals?|sandalias de playa|chinelas? con espigas)\\b",
        "prioridad": 12
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CHANCLA DE DEDO",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "zueco",
@@ -3044,7 +4073,19 @@
        "re": "\\b(clogs?|zuecos?|hydro moc)\\b",
        "prioridad": 7
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "ZUECO",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "acuatico",
@@ -3059,7 +4100,19 @@
        "re": "\\b(water shoes?|aqua shoes?|acuatic[oa]s?|hydro)\\b",
        "prioridad": 8
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CALZADO ACUÁTICO",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "pantufla",
@@ -3074,7 +4127,19 @@
        "re": "\\b(slippers?|pantuflas?|house shoes?|calzado de casa)\\b",
        "prioridad": 15
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "PANTUFLA",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "danza",
@@ -3089,7 +4154,19 @@
        "re": "\\b(dance shoes?|danza|ballet|jazz shoes?|zapatillas de baile)\\b",
        "prioridad": 16
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CALZADO DE DANZA",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "roller",
@@ -3102,7 +4179,19 @@
        "re": "\\b(roller|heelys|con ruedas|with wheels|patin(es)?)\\b",
        "prioridad": 4
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CALZADO CON RUEDAS",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "cubrecalzado",
@@ -3115,7 +4204,19 @@
        "re": "\\b(overshoes?|cubrecalzados?|cubre ?calzado|galoshes?)\\b",
        "prioridad": 17
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CUBRECALZADO",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "seguridad",
@@ -3166,7 +4267,19 @@
        "re": "\\b(safety|seguridad|industrial|steel toe|composite toe|punta de acero|puntera de acero|puntera metalica|punta de composite|work shoes?|zapato de trabajo|dieléctric[oa]|electrical hazard)\\b",
        "prioridad": 1
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CALZADO DE SEGURIDAD",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "bota_lluvia",
@@ -3221,7 +4334,19 @@
        "re": "\\b(rain ?boots?|bota de lluvia|botas de hule|wellingtons?)\\b",
        "prioridad": 2
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "BOTA DE LLUVIA",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "tacos",
@@ -3269,7 +4394,19 @@
        "re": "\\b(cleats?|spikes?|tacos|tachones|cycling shoes?|ciclismo|boxing|wrestling)\\b",
        "prioridad": 6
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "CALZADO DEPORTIVO CON TACOS",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "esqui",
@@ -3319,7 +4456,19 @@
        "re": "\\b(ski boots?|snowboard boots?|botas? de esqui|botas? de snowboard)\\b",
        "prioridad": 3
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "BOTA DE ESQUÍ",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     }
    ],
    "ambitos": [
@@ -3369,7 +4518,20 @@
       }
      ],
      "implica": null,
-     "patrones": []
+     "patrones": [],
+     "texto_aduana": {
+      "frase": "SIN CUBRIR EL TOBILLO",
+      "orden": 10,
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "tobillo",
@@ -3404,7 +4566,20 @@
        "re": "\\b(hi|high|high-?top|mid|boots?|botas?|botin(es)?|chukka|mte)\\b",
        "prioridad": 1
       }
-     ]
+     ],
+     "texto_aduana": {
+      "frase": "QUE CUBRE EL TOBILLO",
+      "orden": 10,
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "rodilla",
@@ -3439,7 +4614,20 @@
       }
      ],
      "implica": null,
-     "patrones": []
+     "patrones": [],
+     "texto_aduana": {
+      "frase": "QUE CUBRE LA RODILLA",
+      "orden": 10,
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     }
    ],
    "ambitos": [
@@ -3736,7 +4924,28 @@
        "re": "\\b(running|run|trail|training|trainers?|basketball|baloncesto|gym|gimnasia|entrenamiento|vectiv|deportivo)\\b",
        "prioridad": 1
       }
-     ]
+     ],
+     "texto_aduana": {
+      "frase": "PARA DEPORTE O ENTRENAMIENTO",
+      "orden": 40,
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       },
+       {
+        "campo": "estiloCalz",
+        "operador": "IN",
+        "valor": [
+         "tenis",
+         "senderismo"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "casual",
@@ -3876,7 +5085,20 @@
        "re": "\\b(steel toe|punta de acero|acero|aluminum toe|alloy toe|puntera metalica)\\b",
        "prioridad": 1
       }
-     ]
+     ],
+     "texto_aduana": {
+      "frase": "CON PUNTERA METÁLICA DE PROTECCIÓN",
+      "orden": 20,
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "calzado"
+        ]
+       }
+      ]
+     }
     },
     {
      "codigo": "no_metalica",
@@ -4018,7 +5240,20 @@
      "modo": "SHOW"
     }
    ],
-   "orden": 220
+   "orden": 220,
+   "texto_aduana": {
+    "frase": "IMPERMEABLE",
+    "orden": 30,
+    "cuando": [
+     {
+      "campo": "categoria",
+      "operador": "IN",
+      "valor": [
+       "calzado"
+      ]
+     }
+    ]
+   }
   },
   {
    "codigo": "materialCinturon",
@@ -4344,7 +5579,20 @@
      "modo": "SHOW"
     }
    ],
-   "orden": 270
+   "orden": 270,
+   "texto_aduana": {
+    "frase": "CON AISLAMIENTO AL VACÍO",
+    "orden": 10,
+    "cuando": [
+     {
+      "campo": "categoria",
+      "operador": "IN",
+      "valor": [
+       "botella"
+      ]
+     }
+    ]
+   }
   },
   {
    "codigo": "materialBotella",
@@ -7731,7 +8979,20 @@
         }
        ]
       }
-     ]
+     ],
+     "texto_aduana": {
+      "nombre": "PANTALÓN CORTO (SHORT)",
+      "comercial": "SHORT",
+      "cuando": [
+       {
+        "campo": "categoria",
+        "operador": "IN",
+        "valor": [
+         "pantalon"
+        ]
+       }
+      ]
+     }
     }
    ],
    "patrones": [],
@@ -7894,7 +9155,20 @@
     }
    ],
    "ambitos": [],
-   "orden": 780
+   "orden": 780,
+   "texto_aduana": {
+    "nombre": "SUÉTER",
+    "comercial": "SUÉTER",
+    "cuando": [
+     {
+      "campo": "categoria",
+      "operador": "IN",
+      "valor": [
+       "sudadera"
+      ]
+     }
+    ]
+   }
   },
   {
    "codigo": "formaTocado",

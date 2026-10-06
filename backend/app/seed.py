@@ -620,6 +620,9 @@ def seed(db: Session) -> None:
     from .services import oficial
 
     oficial.cargar_paquetes_base(db)
+    from .services.nacional import asignar_versiones
+
+    asignar_versiones(db)
     # Atributos de la ficha de ropa, calzado y accesorios (opciones y categorías del motor)
     from .services import atributos, categorias, nacional
 

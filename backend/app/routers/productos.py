@@ -45,7 +45,13 @@ def clasificacion_sesion(datos: s.SesionClasificacionIn, db: Db, user: User):
     from ..services.common import exigir
 
     exigir(user, "producto.ver")
-    return motor_clasificacion.clasificar(db, datos.texto, datos.dominio, datos.categoria, datos.respuestas, datos.paises)
+    entrada = datos.model_dump(exclude={"paises", "respuestas"})
+    entrada["ficha"] = {**(datos.ficha or {}), **datos.respuestas}
+    if entrada.get("detectar") is None:
+        entrada["detectar"] = bool(datos.ficha is not None or datos.estilo or datos.nombre)
+    if not datos.ficha and not datos.estilo:
+        entrada["sin_origen"] = True
+    return motor_clasificacion.clasificar_producto(db, entrada, paises=datos.paises)
 
 
 @router.post("/clasificacion/generico")

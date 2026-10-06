@@ -1,6 +1,6 @@
 """Cuerpos de las peticiones. Las respuestas se arman como dicts en los servicios."""
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -542,6 +542,16 @@ class IncisoEditIn(BaseModel):
     prio: int = Field(0, ge=0, le=99)
     nota: str | None = Field(None, max_length=300)
     activo: bool = True
+    motivo: str | None = Field(None, max_length=300)  # por qué se personaliza una línea oficial
+
+
+class IncisoOverrideIn(BaseModel):
+    descripcion: str | None = Field(None, max_length=300)
+    nota: str | None = Field(None, max_length=300)
+    activo: bool | None = None
+    motivo: str = Field(min_length=3, max_length=300)
+    vigente_desde: date | None = None
+    vigente_hasta: date | None = None
 
 
 class IdsIn(BaseModel):
@@ -557,11 +567,36 @@ class TallaIn(BaseModel):
     peso_unitario: float | None = Field(None, ge=0)  # kg netos de una unidad de esta talla
 
 
+class CambioFichaIn(BaseModel):
+    campo: str = Field(max_length=60)
+    valor: Any = None
+
+
 class SesionClasificacionIn(BaseModel):
+    """Entrada del motor único: la ficha natural del producto (o texto libre y
+    respuestas para la sesión de clasificación)."""
     texto: str = Field("", max_length=2000)
     dominio: str | None = Field(None, max_length=30)
     categoria: str | None = Field(None, max_length=40)
-    respuestas: dict = Field(default_factory=dict)
+    respuestas: dict = Field(default_factory=dict)  # atajo: respuestas sueltas (se suman a la ficha)
+    ficha: dict | None = None
+    estilo: str | None = Field(None, max_length=200)
+    nombre: str | None = Field(None, max_length=200)
+    uso: str | None = Field(None, max_length=200)
+    tallas: str | None = Field(None, max_length=200)
+    marca: str | None = Field(None, max_length=120)
+    proveedor: str | None = Field(None, max_length=200)
+    origen: str | None = Field(None, max_length=2)
+    generico: str | None = Field(None, max_length=40)
+    tocados: list[str] = Field(default_factory=list)
+    autos: list[str] = Field(default_factory=list)
+    cambio: CambioFichaIn | None = None
+    detectar: bool | None = None
+    producto_id: int | None = None
+    codigo_final: str | None = Field(None, max_length=14)
+    partidas: dict = Field(default_factory=dict)
+    alertas_ok: list[str] = Field(default_factory=list)
+    fecha: date | None = None
     paises: bool = True
 
 
@@ -693,6 +728,8 @@ class ReglaIn(BaseModel):
     activo: bool | None = None
     requiere_revision: bool | None = None
     condiciones: list[CondicionIn] | None = None
+    tipo_fuente: str | None = Field(None, pattern="^(MANUAL|LEGAL_NOTE)$")
+    nota_id: int | None = None
 
 
 class DominioIn(BaseModel):
@@ -712,6 +749,12 @@ class CategoriaIn(BaseModel):
     alias: str | None = Field(None, max_length=400)
     orden: int | None = None
     activo: bool | None = None
+    familia: str | None = Field(None, max_length=30)
+    nombre_corto: str | None = Field(None, max_length=80)
+    nombre_aduana: str | None = Field(None, max_length=120)
+    patrones: list[dict] | None = None  # [{re, prioridad}] para reconocerla en el nombre
+    capitulos: list[str] | None = None  # capítulos compatibles
+    plantilla_aduana: dict | None = None
 
 
 class DominioCapituloIn(BaseModel):

@@ -164,6 +164,7 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         x.estado = ESTADOS_VERSION.get((_txt(f.get("status")) or "").upper(), "BORRADOR")
         x.vigente_desde, x.vigente_hasta = desde, hasta
         x.fuente = fuentes.get(src)
+        x.ambito = ambito_version(cod, x.fuente, _txt(f.get("scope")))
         x.nota = _txt(f.get("notes"))
         x.importado_en = ahora()
         db.add(x)
@@ -280,6 +281,19 @@ def cargar_paquetes_base(db: Session) -> dict:
 
 
 # ---- Consulta y edición ----------------------------------------------------------
+def ambito_version(codigo: str, fuente=None, explicito: str | None = None) -> str:
+    """REGIONAL o el ISO del país de una versión: lo que diga el paquete, si
+    no el ámbito de su fuente, si no el prefijo del código (CR-ATENA → CR)."""
+    for v in (explicito, fuente.ambito if fuente else None):
+        v = (v or "").strip().upper()
+        if re.fullmatch(r"[A-Z]{2}", v):
+            return v
+        if v.startswith("REGION"):
+            return "REGIONAL"
+    m = re.match(r"^([A-Z]{2})-", codigo or "")
+    return m.group(1) if m and not codigo.startswith("SAC") else "REGIONAL"
+
+
 def _fuente_dict(x: FuenteOficial) -> dict:
     return {c: getattr(x, c) for c in ("id", "codigo", "ambito", "autoridad", "dataset", "uso", "url", "acceso",
                                          "autenticacion", "nota_version", "verificacion", "activo")}

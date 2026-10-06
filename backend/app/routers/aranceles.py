@@ -165,6 +165,30 @@ def editar_codigo(inciso_id: int, datos: s.IncisoEditIn, db: Db, user: User, cla
     return ejecutar(db, user, clave, lambda: svc.guardar_inciso(db, user, datos, inciso_id))
 
 
+@router.patch("/aranceles/codigos/{inciso_id}/override")
+def codigo_override(inciso_id: int, datos: s.IncisoOverrideIn, db: Db, user: User, clave: Clave = None):
+    """Capa custom de una línea nacional oficial (no se edita el dato oficial)."""
+    from ..models import IncisoNacional
+    from ..services.common import ErrorNegocio, exigir
+
+    def correr():
+        exigir(user, "aranceles.editar")
+        x = db.get(IncisoNacional, inciso_id)
+        if not x:
+            raise ErrorNegocio("The code does not exist.", 404, "no_encontrado")
+        return svc.guardar_override_inciso(db, user, x, datos.model_dump(include={"descripcion", "nota", "activo"}), datos.motivo,
+                                           datos.vigente_desde, datos.vigente_hasta)
+
+    return ejecutar(db, user, clave, correr)
+
+
+@router.delete("/aranceles/codigos/{inciso_id}/override")
+def codigo_override_quitar(inciso_id: int, db: Db, user: User):
+    r = svc.quitar_override_inciso(db, user, inciso_id)
+    db.commit()
+    return r
+
+
 @router.post("/aranceles/codigos/borrar")
 def borrar_codigos(datos: s.IdsIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.borrar_incisos(db, user, datos.ids))

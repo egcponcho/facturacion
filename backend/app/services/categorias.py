@@ -38,8 +38,8 @@ def sembrar(db: Session) -> int:
             x = CategoriaProducto(codigo=c["codigo"], nombre=c["nombre"], orden=c.get("orden", 0), activo=True, ficha_motor=bool(c.get("familia")))
             db.add(x)
             n += 1
-        for k in ("grupo", "dominio", "alias", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos"):
-            if getattr(x, k) in (None, [], "") and c.get(k) not in (None, [], ""):
+        for k in ("grupo", "dominio", "alias", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos", "plantilla_aduana"):
+            if getattr(x, k) in (None, [], "", {}) and c.get(k) not in (None, [], "", {}):
                 setattr(x, k, c[k])
     db.flush()
     return n
@@ -47,7 +47,7 @@ def sembrar(db: Session) -> int:
 
 def _cat(x: CategoriaProducto) -> dict:
     return {c: getattr(x, c) for c in ("id", "codigo", "nombre", "grupo", "dominio", "alias", "ficha_motor", "orden", "activo", "familia",
-                                       "nombre_corto", "nombre_aduana", "patrones", "capitulos")}
+                                       "nombre_corto", "nombre_aduana", "patrones", "capitulos", "plantilla_aduana")}
 
 
 def categorias(db: Session, solo_activas: bool = True) -> list[dict]:
@@ -68,7 +68,8 @@ def guardar_categoria(db: Session, user: Usuario, cat_id: int | None, datos: dic
             raise ErrorNegocio("Give the category a code that is not in use.", 422, "validacion")
         x = CategoriaProducto(codigo=cod, orden=(db.scalar(select(func.max(CategoriaProducto.orden))) or 0) + 10)
         db.add(x)
-    for k in ("nombre", "grupo", "dominio", "alias", "orden", "activo", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos"):
+    for k in ("nombre", "grupo", "dominio", "alias", "orden", "activo", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos",
+              "plantilla_aduana"):
         if k in datos and datos[k] is not None:
             setattr(x, k, datos[k])
     if x.capitulos is not None:

@@ -29,45 +29,79 @@ def test_reglas_del_motor_sembradas(interno):
 
 
 def test_paridad_con_motor_js(interno):
-    """Todos los casos: el servidor llega al mismo código que motor.js."""
-    malos = []
+    """Todos los casos posibles: el servidor llega al mismo código que motor.js.
+    Los estados que la ficha nunca permite (p. ej. camiseta de tejido plano) los
+    corrige el normalizador antes de las reglas: esos se omiten."""
+    from app.services.ficha import Catalogo
+
+    malos, probados = [], 0
     with SessionLocal() as db:
+        cat = Catalogo.desde_db(db)
         habilitados = {c.capitulo for c in db.scalars(select(ControlCapitulo)) if c.activo and c.clasificacion and not c.archivado and not c.solo_manual}
         for caso in DATOS["casos"]:
-            h, esperado = caso["hechos"], caso["codigo"]
+            h, esperado = dict(caso["hechos"]), caso["codigo"]
             if esperado[:2] not in habilitados:
                 continue  # capítulo apagado en la configuración: el servidor no lo propone (R-SYS-001)
-            r = motor_clasificacion.clasificar(db, "", None, h["categoria"], h, paises=False, limite=50)
+            ficha = {k: v for k, v in h.items() if k != "categoria"}
+            if "edad" in ficha:
+                ficha["edadNac"] = "bebe" if ficha["edad"] == "bebe" else "adulto"
+            s = cat.hechos_base(ficha, h["categoria"])
+            cat.normalizar(s)
+            if any(s.get(k) != v for k, v in ficha.items()):
+                continue
+            probados += 1
+            r = motor_clasificacion.clasificar_producto(db, {"categoria": h["categoria"], "ficha": ficha, "detectar": False}, catalogo=cat,
+                                                        paises=False, limite=50)
             cods = [c["codigo"] for c in r["candidatos"]]
             ok = (r["hs6"] == esperado and r["confianza"] == "high") if len(esperado) == 6 else (cods and all(c.startswith(esperado) for c in cods))
             if not ok:
                 malos.append((h, esperado, cods[:5]))
-    assert not malos, f"{len(malos)} casos sin paridad, p. ej. {malos[:3]}"
+    assert probados > 1000 and not malos, f"{len(malos)} de {probados} casos sin paridad, p. ej. {malos[:3]}"
 
 
-def test_regla_propia_manda_sobre_la_extraida(interno):
-    """Las reglas de la ficha son datos: una regla propia de la categoría las
-    corrige, y apagar la extraída deja de aplicarla."""
-    base = {"categoria": "falda", "respuestas": {"tejido": "plano", "edad": "general", "fibra": "algodon"}, "paises": False}
+def test_precedencia_de_reglas(interno):
+    """Mayor prioridad = mayor precedencia; una regla de menor prioridad que
+    choca queda superada (no se aplica, y la evidencia dice por qué); una
+    regla legal es un límite que ninguna otra viola, tenga la prioridad que tenga."""
+    base = {"categoria": "falda", "ficha": {"tejido": "plano", "edadNac": "adulto", "comp": {"exterior": "100% cotton"}}, "paises": False}
     s = interno.post("/clasificacion/sesion", base).json()
     assert s["hs6"] == "620452" and s["confianza"] == "high"
-    aplicada = next(t for t in s["reglas"] if t["regla"].startswith("R-MJS-FALDA") and t["resultado"] is True)
-    assert aplicada["codigos"] == ["620452"]
-    # Sin fibra: queda la partida (todas sus subpartidas) y la fibra es lo que discrimina
-    s = interno.post("/clasificacion/sesion", {**base, "respuestas": {"tejido": "plano"}}).json()
-    assert s["hs6"].startswith("6204") and all(c["codigo"].startswith("6204") for c in s["candidatos"]) and s["confianza"] != "high"
-    # Regla propia de la categoría (después de las extraídas: prioridad menor) que la corrige
+    aplicada = next(t for t in s["reglas"] if t["regla"].startswith("R-MJS-FALDA") and t.get("aplicada"))
+    assert aplicada["codigos"] == ["620452"] and aplicada["foto"]["condiciones"] and aplicada["firma"]
+    cond = [{"campo": "fibra", "operador": "EQUAL", "valor": "algodon"}, {"campo": "tejido", "operador": "EQUAL", "valor": "plano"}]
+    # Propia de menor prioridad (800 < 900): queda superada
     r = interno.post("/aranceles/reglas", {"tipo_ambito": "CATEGORY", "codigo_ambito": "falda", "tipo_regla": "HARD_CONSTRAINT", "prioridad": 800,
-                                            "condiciones": [{"campo": "fibra", "operador": "EQUAL", "valor": "algodon"}, {"campo": "tejido", "operador": "EQUAL", "valor": "plano"}],
-                                            "accion": {"tipo": "RESTRICT", "codigos": ["620459"]}}).json()
+                                            "condiciones": cond, "accion": {"tipo": "RESTRICT", "codigos": ["620459"]}}).json()
+    s = interno.post("/clasificacion/sesion", base).json()
+    t = next(t for t in s["reglas"] if t["regla"] == r["codigo"])
+    assert s["hs6"] == "620452" and t["aplicada"] is False and t["motivo"].startswith("overridden_by:R-MJS-FALDA")
+    # Con mayor prioridad (950) manda
+    interno.patch(f"/aranceles/reglas/{r['id']}", {"prioridad": 950})
     s = interno.post("/clasificacion/sesion", base).json()
     assert s["hs6"] == "620459"
-    interno.patch(f"/aranceles/reglas/{r['id']}", {"activo": False})
-    # Apagar la extraída: deja de restringir
-    interno.patch(f"/aranceles/reglas/{next(x['id'] for x in interno.get('/aranceles/reglas', params={'q': aplicada['regla']}).json()['items'])}", {"activo": False})
+    assert next(t for t in s["reglas"] if t["regla"] == r["codigo"])["revision"] == 2  # cada cambio sube la revisión
+    # Una regla legal (con su nota) es un límite: la propia de prioridad 950 no la puede violar
+    nota = interno.get("/aranceles/notas", params={"capitulo": "62"}).json()["items"][0]
+    legal = interno.post("/aranceles/reglas", {"tipo_ambito": "CATEGORY", "codigo_ambito": "falda", "tipo_regla": "HARD_CONSTRAINT", "prioridad": 10,
+                                                "tipo_fuente": "LEGAL_NOTE", "nota_id": nota["id"], "condiciones": cond,
+                                                "accion": {"tipo": "RESTRICT", "codigos": ["620452"]}}).json()
+    assert legal["capa"] == "LEGAL"
     s = interno.post("/clasificacion/sesion", base).json()
-    assert aplicada["regla"] not in {t["regla"] for t in s["reglas"] if t["resultado"] is True}
-    interno.patch(f"/aranceles/reglas/{next(x['id'] for x in interno.get('/aranceles/reglas', params={'q': aplicada['regla']}).json()['items'])}", {"activo": True})
+    t = next(t for t in s["reglas"] if t["regla"] == r["codigo"])
+    assert s["hs6"] == "620452" and t["aplicada"] is False and t["motivo"] == "blocked_by_legal"
+    assert any(n["id"] == nota["id"] for n in s["evidencia"]["notas"])
+    # Sin nota no hay regla legal
+    sin = interno.post("/aranceles/reglas", {"tipo_ambito": "CATEGORY", "codigo_ambito": "falda", "tipo_fuente": "LEGAL_NOTE",
+                                              "accion": {"tipo": "RESTRICT", "codigos": ["6204"]}})
+    assert sin.status_code == 422
+    for x in (r, legal):
+        interno.patch(f"/aranceles/reglas/{x['id']}", {"activo": False})
+    # Apagar la extraída: deja de restringir
+    rid = next(x["id"] for x in interno.get("/aranceles/reglas", params={"q": aplicada["regla"]}).json()["items"])
+    interno.patch(f"/aranceles/reglas/{rid}", {"activo": False})
+    s = interno.post("/clasificacion/sesion", base).json()
+    assert aplicada["regla"] not in {t["regla"] for t in s["reglas"] if t.get("aplicada")}
+    interno.patch(f"/aranceles/reglas/{rid}", {"activo": True})
     # Editada, la carga no la pisa
     with SessionLocal() as db:
         x = db.scalar(select(ReglaClasificacion).where(ReglaClasificacion.codigo == aplicada["regla"]))
@@ -76,3 +110,12 @@ def test_regla_propia_manda_sobre_la_extraida(interno):
         db.flush()
         assert reglas.cargar_motor_js(db)["editadas"] == 1
         db.rollback()
+
+
+def test_codigos_de_reglas_se_validan_contra_el_arbol(interno):
+    r = interno.post("/aranceles/reglas", {"tipo_ambito": "CATEGORY", "codigo_ambito": "falda", "accion": {"tipo": "RESTRICT", "codigos": ["999999"]}})
+    assert r.status_code == 422 and "999999" in r.json()["mensaje"]
+    r = interno.post("/aranceles/reglas", {"tipo_ambito": "CATEGORY", "codigo_ambito": "falda", "tipo_regla": "SOFT_SIGNAL",
+                                            "accion": {"tipo": "BOOST", "codigos": ["6204", "620452"]}})
+    assert r.status_code == 200, r.text
+    interno.patch(f"/aranceles/reglas/{r.json()['id']}", {"activo": False})

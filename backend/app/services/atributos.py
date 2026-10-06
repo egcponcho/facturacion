@@ -123,7 +123,7 @@ def cargar_motor(db: Session) -> int:
                             de_composicion=m.get("seccion") == "composicion", descripcion=m.get("ayuda"), dominio=dominio)
             db.add(a)
             nuevos += 1
-        for k in ("seccion", "valor_defecto", "derivacion", "bloqueo", "patrones", "patrones_falso", "control"):
+        for k in ("seccion", "valor_defecto", "derivacion", "bloqueo", "patrones", "patrones_falso", "control", "texto_aduana"):
             if getattr(a, k) in (None, [], {}) and m.get(k) not in (None, [], {}):
                 setattr(a, k, m[k])
         if a.seccion is None:
@@ -134,7 +134,7 @@ def cargar_motor(db: Session) -> int:
             if not x:
                 x = AtributoOpcion(codigo=o["codigo"], etiqueta=o["etiqueta"], orden=o.get("orden", 0))
                 a.opciones.append(x)
-            for k in ("bloqueo", "implica", "patrones"):
+            for k in ("bloqueo", "implica", "patrones", "texto_aduana"):
                 if getattr(x, k) in (None, [], {}) and o.get(k) not in (None, [], {}):
                     setattr(x, k, o[k])
         amb = {(x.tipo_ambito, x.codigo_ambito): x for x in a.ambitos}
