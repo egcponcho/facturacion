@@ -29,11 +29,15 @@ function buscar() {
   espera = setTimeout(async () => {
     cargando.value = true
     try {
-      const r = await api.post('/clasificacion/generico', { texto: texto.value, dominio: f.dominio || null, respuestas: f.gen })
+      // Motor único del servidor: candidatos, preguntas discriminantes y reglas aplicadas
+      const r = await api.post('/clasificacion/sesion', { texto: texto.value, dominio: f.dominio || null, respuestas: f.gen, paises: false })
       res.value = r
       if (props.editable) {
         // Evidencia guardada con la ficha: candidatos, obligatorios y confianza
-        f.genCand = r.candidatos.map((c) => ({ codigo: c.codigo, descripcion: c.descripcion, terminos: c.terminos, puntaje: c.puntaje }))
+        f.genCand = r.candidatos.map((c) => ({ codigo: c.codigo, descripcion: c.descripcion, terminos: c.terminos, puntaje: c.puntaje, origen: c.origen }))
+        f.genReglas = r.reglas.filter((x) => x.resultado === true && !String(x.efecto).startsWith('BUILTIN')).map((x) => x.regla)
+        // Si una regla dejó un solo candidato, el motor lo propone; la persona puede cambiarlo
+        if (r.confianza === 'high' && r.hs6 && !f.codigoGen) f.codigoGen = r.hs6
         f.genReq = r.preguntas.filter((p) => p.modo === 'REQUIRE').map((p) => p.codigo)
         f.genConf = r.confianza
       }
@@ -53,9 +57,17 @@ function poner(k, v) {
 }
 // Una subpartida con un solo inciso toma el inciso (así los países con el SAC
 // a 10 dígitos reciben su código completo)
+// El producto guarda el HS6; la línea SAC regional se elige aparte (opcional)
+// y cada país elige su línea nacional por su cuenta
 function elegir(c) {
-  f.codigoGen = typeof c === 'string' ? c : c.incisos.length === 1 ? c.incisos[0].codigo : c.codigo
+  f.codigoGen = c.codigo
+  f.sacGen = c.incisos.length === 1 ? c.incisos[0].codigo : ''
 }
+function elegirSac(c, x) {
+  f.codigoGen = c.codigo
+  f.sacGen = x.codigo
+}
+const traza = computed(() => (res.value?.reglas || []).filter((x) => !String(x.efecto).startsWith('BUILTIN') && x.resultado !== false))
 const preguntas = computed(() => (res.value?.preguntas || []).filter((p) => p.codigo !== 'destination_country'))
 const pendientes = computed(() => preguntas.value.filter((p) => !p.respondida).length)
 const opciones = (p) => (p.opciones || []).filter((o) => o.activo)
@@ -78,7 +90,7 @@ const opciones = (p) => (p.opciones || []).filter((o) => o.activo)
       <p class="hint">{{ t('Only what can distinguish the candidates or is mandatory is asked. Describe the product in Spanish, like the tariff text, for better candidates.') }}</p>
       <div class="rejilla-gen">
         <div v-for="p in preguntas" :key="p.codigo" class="campo-f" :class="{ ancho: ['text', 'composition'].includes(p.tipo_dato) && /description|function|use/.test(p.codigo) }">
-          <label :for="`g_${p.codigo}`">{{ tx(p.etiqueta) }}<span v-if="p.modo === 'REQUIRE'" class="req-ast">*</span><span v-if="p.unidad" class="opcional"> ({{ tx(p.unidad) }})</span></label>
+          <label :for="`g_${p.codigo}`">{{ tx(p.etiqueta) }}<span v-if="p.modo === 'REQUIRE'" class="req-ast">*</span><span v-if="p.discrimina && !p.respondida" class="etiqueta acento disc">{{ t('decides the code') }}</span><span v-if="p.unidad" class="opcional"> ({{ tx(p.unidad) }})</span></label>
           <div v-if="p.tipo_dato === 'select' && opciones(p).length <= 6" class="segs" role="radiogroup" :aria-label="tx(p.etiqueta)">
             <button v-for="o in opciones(p)" :key="o.codigo" type="button" role="radio" :aria-checked="f.gen[p.codigo] === o.codigo"
                     @click="poner(p.codigo, f.gen[p.codigo] === o.codigo ? '' : o.codigo)">{{ tx(o.etiqueta) }}</button>
@@ -110,20 +122,28 @@ const opciones = (p) => (p.opciones || []).filter((o) => o.activo)
             <span class="cand-txt">{{ tx(c.descripcion.split(' — ').slice(-1)[0]) }}<small>{{ t('Chapter {0} · {1}', [c.capitulo, c.titulo_capitulo]) }}</small></span>
             <span v-if="i === 0" class="etiqueta acento">{{ t('Best match') }}</span>
             <span v-if="c.dominio" class="etiqueta" :title="t('Chapter related to the chosen domain')">{{ t('domain') }}</span>
+            <span v-if="c.origen?.some((o) => o.startsWith('regla:'))" class="etiqueta ok" :title="tx(c.origen.join(', '))">{{ t('by rule') }}</span>
             <button v-if="props.editable" type="button" class="btn btn-chico" @click="elegir(c)">{{ t('Use') }}</button>
           </div>
           <p class="hint">{{ t('Matches: {0}', [c.terminos.join(', ')]) }}</p>
           <ul v-if="c.incisos.length" class="incisos">
             <li v-for="x in c.incisos" :key="x.codigo">
-              <button v-if="props.editable" type="button" class="enlace" :class="{ fuerte: f.codigoGen === x.codigo }" @click="elegir(x.codigo)">{{ tx(x.codigo_txt) }}</button>
+              <button v-if="props.editable" type="button" class="enlace" :class="{ fuerte: f.sacGen === x.codigo }" @click="elegirSac(c, x)">{{ tx(x.codigo_txt) }}</button>
               <span v-else class="codigo">{{ tx(x.codigo_txt) }}</span>
               {{ tx(x.descripcion) }}<span v-if="x.dai != null" class="ayuda"> · {{ t('DAI {0}%', [x.dai]) }}</span>
             </li>
           </ul>
         </li>
       </ul>
-      <p v-if="f.codigoGen" class="elegido-txt"><Icono nombre="check" :tam="15" />{{ t('Suggested code: {0}. A specialist confirms it.', [M.fmtCode(f.codigoGen)]) }}
-        <button v-if="props.editable" type="button" class="btn-texto" @click="f.codigoGen = ''">{{ t('Clear') }}</button></p>
+      <p v-if="f.codigoGen" class="elegido-txt"><Icono nombre="check" :tam="15" />{{ t('Suggested HS6: {0}. A specialist confirms it.', [M.fmtCode(f.codigoGen)]) }}
+        <span v-if="f.sacGen" class="ayuda">{{ t('SAC line {0}', [M.fmtCode(f.sacGen)]) }}</span>
+        <button v-if="props.editable" type="button" class="btn-texto" @click="f.codigoGen = ''; f.sacGen = ''">{{ t('Clear') }}</button></p>
+      <div v-if="traza.length" class="traza">
+        <b>{{ t('Rules that acted') }}</b>
+        <ul><li v-for="x in traza" :key="x.regla"><span class="codigo">{{ tx(x.regla) }}</span>
+          <template v-if="x.resultado === null"> · {{ t('waiting for: {0}', [x.faltan.join(', ')]) }}</template>
+          <template v-else> · {{ tx(x.efecto) }}<template v-if="x.codigos?.length"> {{ tx(x.codigos.map(M.fmtCode).join(', ')) }}</template><template v-if="x.mensaje"> — {{ tx(x.mensaje) }}</template></template></li></ul>
+      </div>
     </fieldset>
   </div>
 </template>
@@ -147,6 +167,7 @@ legend .cuenta { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .check-f { display: flex; gap: 8px; align-items: center; font-size: 0.9rem; cursor: pointer; }
 .check-f input { accent-color: var(--acento); }
 .ficha-gen { display: grid; gap: 4px; }
+.disc { margin-inline-start: 6px; font-size: 0.7rem; }
 .dominios { flex-wrap: wrap; }
 .rejilla-gen { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px 16px; }
 .rejilla-gen .ancho { grid-column: 1 / -1; }
@@ -157,5 +178,7 @@ legend .cuenta { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .cand-txt { flex: 1; min-width: 180px; }
 .cand-txt small { display: block; color: var(--tinta-3); }
 .incisos { margin: 4px 0 0; padding-inline-start: 18px; font-size: 0.86rem; }
+.traza { margin-top: 10px; font-size: 0.84rem; }
+.traza ul { margin: 4px 0 0; padding-inline-start: 18px; }
 .elegido-txt { display: flex; gap: 6px; align-items: center; margin-top: 8px; font-weight: 600; }
 </style>

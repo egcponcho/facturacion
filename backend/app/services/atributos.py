@@ -158,6 +158,7 @@ def _dict(a: AtributoDef, detalle: bool = False) -> dict:
         d["opciones"] = [_opcion_dict(o) for o in a.opciones]
         d["ambitos"] = [_ambito_dict(x) for x in sorted(a.ambitos, key=lambda x: (AMBITOS.index(x.tipo_ambito), -x.prioridad, x.codigo_ambito))]
     else:
+        d["opciones_min"] = [{"codigo": o.codigo, "etiqueta": o.etiqueta} for o in a.opciones if o.activo]
         d["ambitos_resumen"] = sorted({f"{x.tipo_ambito}:{x.codigo_ambito}" for x in a.ambitos})[:12]
     return d
 
@@ -253,6 +254,25 @@ def guardar_opcion(db: Session, user: Usuario, atributo_id: int, opcion_id: int 
     return _dict(a, True)
 
 
+def _condicion(cond) -> list | None:
+    """Dependencia del ámbito: condiciones {campo, operador, valor, grupo}
+    (dentro de un grupo todas; entre grupos basta una)."""
+    from .motor_clasificacion import OPERADORES
+
+    if not cond:
+        return None
+    out = []
+    for c in cond:
+        op = (c.get("operador") or "EQUAL").upper()
+        if not (c.get("campo") or "").strip() or op not in OPERADORES:
+            raise ErrorNegocio("Each dependency needs a field and an operator.", 422, "validacion")
+        if op == "IN" and not isinstance(c.get("valor"), list):
+            raise ErrorNegocio("The one of operator needs a list of values.", 422, "validacion")
+        out.append({"grupo": int(c.get("grupo") or 1), "campo": c["campo"].strip(), "operador": op, "valor": c.get("valor"),
+                    "valor_hasta": c.get("valor_hasta"), "negado": bool(c.get("negado"))})
+    return out
+
+
 def guardar_ambito(db: Session, user: Usuario, atributo_id: int, ambito_id: int | None, datos: dict) -> dict:
     exigir(user, "aranceles.editar")
     a = db.get(AtributoDef, atributo_id)
@@ -284,6 +304,8 @@ def guardar_ambito(db: Session, user: Usuario, atributo_id: int, ambito_id: int 
     for k in ("prioridad", "nota", "activo"):
         if k in datos and datos[k] is not None:
             setattr(x, k, datos[k])
+    if "condicion" in datos:
+        x.condicion = _condicion(datos["condicion"])
     db.add(x)
     db.flush()
     return _dict(a, True)

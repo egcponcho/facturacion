@@ -969,6 +969,11 @@ class ReglaClasificacion(Base):
     tipo_fuente: Mapped[str] = mapped_column(String(20), default="INTERNAL_ENGINE")  # INTERNAL_ENGINE | LEGAL_NOTE | NATIONAL_TARIFF | LEARNED | MANUAL
     familia: Mapped[str | None] = mapped_column(String(30))
     efecto: Mapped[str | None] = mapped_column(String(500))
+    # Qué hace la regla cuando sus condiciones se cumplen (motor_clasificacion):
+    # {"tipo": RESTRICT|EXCLUDE|BOOST|ASK|REVIEW, "codigos": [...], "peso": n,
+    #  "atributos": [...], "mensaje": "..."}. Sin acción, las del motor base
+    # gobiernan por familia (BUILTIN).
+    accion: Mapped[dict | None] = mapped_column(JSON)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     requiere_revision: Mapped[bool] = mapped_column(Boolean, default=False)
     inciso_id: Mapped[int | None] = mapped_column(ForeignKey("incisos_nacionales.id", ondelete="CASCADE"), unique=True)

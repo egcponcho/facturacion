@@ -8,6 +8,7 @@ import Interruptor from '../Interruptor.vue'
 import Modal from '../Modal.vue'
 import Paginacion from '../Paginacion.vue'
 import Seleccion from '../Seleccion.vue'
+import EditorRegla from './EditorRegla.vue'
 import SelectBusqueda from '../SelectBusqueda.vue'
 import { cargarContexto } from '../../clasificacion/useClasificacion'
 import { puede } from '../../stores/sesion'
@@ -68,7 +69,9 @@ async function guardar(r, cambios, msg) {
 }
 
 // ---- Edición: en selección nacional, las condiciones con el mismo catálogo que la ficha
+const editor = ref(null) // regla propia: constructor completo (ámbito, condiciones Y/O, acción)
 function abrir(r) {
+  if (r.editable_completa) return (editor.value = { regla: r })
   const cond = {}
   for (const c of r.condiciones) {
     if (c.campo === 'valorCIF') cond[c.operador === 'LTE' ? 'cifMax' : 'cifMin'] = c.valor
@@ -127,6 +130,7 @@ async function guardarModal() {
     <div class="filtros" v-filtros>
       <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="f.q" type="search" :placeholder="t('Rule, family, attribute or national code')" :aria-label="t('Search')" @input="buscar" /></label>
       <SelectBusqueda :model-value="f.pais" :opciones="paises.map((p) => ({ valor: p.iso, texto: `${p.iso} · ${p.nombre}` }))" :vacio="t('All countries')" :etiqueta="t('Country')" @update:model-value="filtrar('pais', $event)" />
+      <button v-if="edita" class="btn btn-primario separar" @click="editor = { regla: null }"><Icono nombre="mas" />{{ t('New rule') }}</button>
     </div>
     <div class="tabla-marco">
       <table class="tabla" v-tarjetas>
@@ -143,6 +147,7 @@ async function guardarModal() {
             <td :data-label="t('Scope')" class="codigo">{{ tx(r.tipo_ambito === 'NATIONAL_CODE' ? r.codigo_ambito : `${r.tipo_ambito} · ${r.codigo_ambito}`) }}</td>
             <td :data-label="t('Conditions')" class="envolver condiciones">
               <span v-if="!r.condiciones.length" class="ayuda">{{ t('Always') }}</span>
+              <span v-if="r.accion?.tipo" class="cond accion">→ {{ tx(r.accion.tipo) }} {{ tx((r.accion.codigos || r.accion.atributos || []).join(', ')) }}</span>
               <span v-for="c in r.condiciones" :key="c.id" class="cond"><b>{{ tx(campoTxt(c)) }}</b> {{ tx(c.negado ? t('not') + ' ' : '') }}{{ tx(OPERADOR[c.operador] || c.operador) }} {{ tx(valorTxt(c)) }}</span>
             </td>
             <td :data-label="t('Priority')" class="num">{{ fmtNum(r.prioridad) }}</td>
@@ -154,6 +159,7 @@ async function guardarModal() {
     </div>
     <Paginacion :page="f.page" :size="f.size" :total="datos.total" @cambiar="(p) => { f.page = p; cargar() }" @tamano="(n) => { f.size = n; f.page = 1; cargar() }" />
 
+    <EditorRegla v-if="editor" :regla="editor.regla" @cerrar="editor = null" @guardada="editor = null; cargar()" />
     <Modal v-if="modal" :titulo="modal.r.inciso ? t('Selection rule for {0} {1}', [modal.r.pais, modal.r.inciso.codigo]) : t('Rule {0}', [modal.r.codigo])" ancho="640px" @cerrar="modal = null">
       <div class="campos">
         <label class="campo"><span>{{ t('Priority') }}</span><input v-model="modal.prioridad" type="number" min="0" max="10000" class="entrada" /></label>
@@ -195,6 +201,7 @@ async function guardarModal() {
 .condiciones { min-width: 200px; max-width: 360px; }
 .cond { display: inline-block; margin: 0 6px 3px 0; padding: 2px 7px; border-radius: 8px; background: var(--superficie-2); font-size: 0.82rem; }
 tr.apagada td { opacity: 0.55; }
+.cond.accion { background: var(--acento-claro); color: var(--acento-texto); font-weight: 600; }
 .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
 .campo.ancho { grid-column: 1 / -1; }
 .conds { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }

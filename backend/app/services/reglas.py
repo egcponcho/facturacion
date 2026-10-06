@@ -94,7 +94,8 @@ def _cond_dict(c: CondicionRegla) -> dict:
 
 def _dict(r: ReglaClasificacion) -> dict:
     d = {c: getattr(r, c) for c in ("id", "codigo", "tipo_ambito", "codigo_ambito", "pais", "tipo_regla", "prioridad",
-                                     "tipo_fuente", "familia", "efecto", "activo", "requiere_revision", "actualizado_en")}
+                                     "tipo_fuente", "familia", "efecto", "accion", "activo", "requiere_revision", "actualizado_en")}
+    d["editable_completa"] = r.tipo_regla != "NATIONAL_SELECT" and r.tipo_fuente != "INTERNAL_ENGINE"
     d["condiciones"] = [_cond_dict(c) for c in r.condiciones]
     if r.inciso:
         x = r.inciso
@@ -127,6 +128,58 @@ def listar(db: Session, user: Usuario, q: str | None = None, tipo: str | None = 
 
 
 # ---- Edición ------------------------------------------------------------------------
+ACCIONES = ("RESTRICT", "EXCLUDE", "BOOST", "ASK", "REVIEW")
+TIPOS_PROPIOS = ("HARD_CONSTRAINT", "SOFT_SIGNAL", "QUESTION_GATE", "REVIEW_GATE")
+ACCION_DE = {"HARD_CONSTRAINT": ("RESTRICT", "EXCLUDE"), "SOFT_SIGNAL": ("BOOST",), "QUESTION_GATE": ("ASK",), "REVIEW_GATE": ("REVIEW",)}
+
+
+def _forma(r: ReglaClasificacion, datos: dict) -> None:
+    """Ámbito, tipo y acción de una regla propia, validados."""
+    for k in ("tipo_ambito", "codigo_ambito", "tipo_regla"):
+        if datos.get(k):
+            setattr(r, k, str(datos[k]).strip().upper() if k != "codigo_ambito" or r.tipo_ambito != "CATEGORY" else str(datos[k]).strip())
+    if r.tipo_ambito not in AMBITOS or r.tipo_ambito == "NATIONAL_CODE":
+        raise ErrorNegocio("Choose a scope: system, domain, category, chapter, heading or subheading.", 422, "validacion")
+    if r.tipo_regla not in TIPOS_PROPIOS:
+        raise ErrorNegocio("Choose a rule type: hard constraint, signal, question gate or review gate.", 422, "validacion")
+    if r.tipo_ambito in ("CHAPTER", "HEADING", "SUBHEADING"):
+        largo = {"CHAPTER": 2, "HEADING": 4, "SUBHEADING": 6}[r.tipo_ambito]
+        r.codigo_ambito = "".join(ch for ch in r.codigo_ambito if ch.isdigit())
+        if len(r.codigo_ambito) != largo:
+            raise ErrorNegocio(f"The scope code must have {largo} digits.", 422, "validacion")
+    if datos.get("accion") is not None:
+        a = dict(datos["accion"])
+        a["tipo"] = (a.get("tipo") or ACCION_DE[r.tipo_regla][0]).upper()
+        if a["tipo"] not in ACCION_DE[r.tipo_regla]:
+            raise ErrorNegocio(f"A {r.tipo_regla} rule can only {', '.join(ACCION_DE[r.tipo_regla])}.", 422, "validacion")
+        a["codigos"] = ["".join(ch for ch in str(c) if ch.isdigit()) for c in (a.get("codigos") or []) if str(c).strip()]
+        if any(len(c) < 2 for c in a["codigos"]):
+            raise ErrorNegocio("Codes must have at least 2 digits.", 422, "validacion")
+        if a["tipo"] in ("RESTRICT", "EXCLUDE", "BOOST") and not a["codigos"] and r.tipo_ambito not in ("CHAPTER", "HEADING", "SUBHEADING"):
+            raise ErrorNegocio("Say which codes the rule restricts, excludes or raises.", 422, "validacion")
+        if a["tipo"] == "ASK" and not a.get("atributos"):
+            raise ErrorNegocio("Say which attributes the rule asks.", 422, "validacion")
+        r.accion = {k: v for k, v in a.items() if v not in (None, "", [])}
+    if not r.accion:
+        raise ErrorNegocio("The rule needs an action.", 422, "validacion")
+
+
+def crear(db: Session, user: Usuario, datos: dict) -> dict:
+    """Regla propia (custom): ámbito, condiciones (grupos Y, entre grupos O),
+    acción y prioridad. Se versiona en la bitácora y se apaga, no se borra."""
+    exigir(user, "aranceles.editar")
+    n = (db.scalar(select(func.count()).select_from(ReglaClasificacion).where(ReglaClasificacion.codigo.like("R-USR-%"))) or 0) + 1
+    r = ReglaClasificacion(codigo=f"R-USR-{n:04d}", tipo_fuente="MANUAL", familia=(datos.get("familia") or "CUSTOM")[:30],
+                           prioridad=int(datos.get("prioridad") or 500), efecto=datos.get("efecto"),
+                           requiere_revision=bool(datos.get("requiere_revision")), activo=True,
+                           tipo_ambito="SYSTEM", codigo_ambito="ALL", tipo_regla="HARD_CONSTRAINT")
+    _forma(r, {"tipo_ambito": "SYSTEM", "codigo_ambito": "ALL", **datos})
+    db.add(r)
+    db.flush()
+    return guardar(db, user, r.id, {"condiciones": datos.get("condiciones") or []})
+
+
+
 def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
     """Activa/desactiva, cambia prioridad, efecto y revisión, y reemplaza las
     condiciones. Apagar una regla de selección nacional apaga su código."""
@@ -137,6 +190,9 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
     for k in ("prioridad", "efecto", "requiere_revision", "activo"):
         if datos.get(k) is not None:
             setattr(r, k, datos[k])
+    # Ámbito, tipo y acción solo en reglas propias (las del paquete y las nacionales conservan su forma)
+    if r.tipo_regla != "NATIONAL_SELECT" and r.tipo_fuente != "INTERNAL_ENGINE":
+        _forma(r, datos)
     if datos.get("condiciones") is not None:
         nuevas = []
         for c in datos["condiciones"]:

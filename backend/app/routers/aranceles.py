@@ -344,6 +344,13 @@ def reglas_lista(db: Db, user: User, q: str | None = None, tipo: str | None = No
     return reglas.listar(db, user, q, tipo, pais, page, size)
 
 
+@router.post("/aranceles/reglas")
+def reglas_crear(datos: s.ReglaIn, db: Db, user: User, clave: Clave = None):
+    from ..services import reglas
+
+    return ejecutar(db, user, clave, lambda: reglas.crear(db, user, datos.model_dump(exclude_unset=True)))
+
+
 @router.patch("/aranceles/reglas/{regla_id}")
 def reglas_editar(regla_id: int, datos: s.ReglaIn, db: Db, user: User, clave: Clave = None):
     from ..services import reglas

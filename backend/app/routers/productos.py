@@ -37,6 +37,17 @@ def contexto(db: Db, user: User, proveedor_id: int | None = None):
     return {**svc.contexto(db, user, proveedor_id), "especialista": especialista.disponible()}
 
 
+@router.post("/clasificacion/sesion")
+def clasificacion_sesion(datos: s.SesionClasificacionIn, db: Db, user: User):
+    """Motor único: candidatos, preguntas discriminantes, HS6, SAC, países,
+    regulaciones e impuestos, con la traza de reglas aplicadas."""
+    from ..services import motor_clasificacion
+    from ..services.common import exigir
+
+    exigir(user, "producto.ver")
+    return motor_clasificacion.clasificar(db, datos.texto, datos.dominio, datos.categoria, datos.respuestas, datos.paises)
+
+
 @router.post("/clasificacion/generico")
 def clasificacion_generica(datos: s.ClasificacionGenericaIn, db: Db, user: User):
     """Ruta genérica (químicos, materias primas, otros): candidatos del árbol

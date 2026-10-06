@@ -382,3 +382,63 @@ def test_producto_guarda_hs6_y_cada_pais_su_linea_con_evidencia(interno):
     assert gt["inciso_id"] and gt["evidencia"]["linea_oficial"] and any(i["tipo"] == "IVA" for i in gt["evidencia"]["impuestos"])
     assert gt["sugerido"] == "6404199000" and gt["aprobado_en"]
     assert pa["codigo"] == "640419970000" and pa["sugerido"] == "640419910000" and pa["motivo"] == "Revisado con la nota 4"
+
+
+def test_configuracion_custom_cambia_la_clasificacion(interno):
+    """Criterio de aceptación: atributo custom → ámbito → regla → clasificar →
+    aparece la pregunta → se responde → cambian los candidatos y el HS6."""
+    base = {"texto": "calzado con suela y parte superior de caucho", "dominio": "FOOTWEAR"}
+    antes = interno.post("/clasificacion/sesion", base).json()
+    assert antes["hs6"] and antes["hs6"] != "640192"
+    # 1. Atributo custom con opciones y ámbito obligatorio en el dominio
+    a = interno.post("/aranceles/atributos", {"codigo": "waterproof_level", "etiqueta": "Waterproof level", "tipo_dato": "select", "dominio": "FOOTWEAR"}).json()
+    for cod in ("NONE", "WATER_RESISTANT", "WATERPROOF"):
+        interno.post(f"/aranceles/atributos/{a['id']}/opciones", {"codigo": cod, "etiqueta": cod.title()})
+    interno.post(f"/aranceles/atributos/{a['id']}/ambitos", {"tipo_ambito": "DOMAIN", "codigo_ambito": "FOOTWEAR", "modo": "REQUIRE", "prioridad": 990})
+    # Dependencia: otro atributo solo se pregunta si es impermeable
+    b = interno.post("/aranceles/atributos", {"codigo": "sealed_seams", "etiqueta": "Sealed seams", "tipo_dato": "boolean", "dominio": "FOOTWEAR"}).json()
+    r = interno.post(f"/aranceles/atributos/{b['id']}/ambitos", {"tipo_ambito": "DOMAIN", "codigo_ambito": "FOOTWEAR", "modo": "SHOW",
+                                                                 "condicion": [{"campo": "waterproof_level", "operador": "EQUAL", "valor": "WATERPROOF"}]})
+    assert r.status_code == 200, r.text
+    # 2. Reglas custom: impermeable → solo 6401.92; no impermeable → nunca 6401
+    r1 = interno.post("/aranceles/reglas", {"tipo_ambito": "DOMAIN", "codigo_ambito": "FOOTWEAR", "tipo_regla": "HARD_CONSTRAINT", "prioridad": 950,
+                                             "efecto": "Waterproof footwear goes to 64.01",
+                                             "condiciones": [{"campo": "waterproof_level", "operador": "EQUAL", "valor": "WATERPROOF"}],
+                                             "accion": {"tipo": "RESTRICT", "codigos": ["640192"]}})
+    assert r1.status_code == 200, r1.text
+    r1 = r1.json()
+    assert r1["codigo"].startswith("R-USR-") and r1["accion"]["codigos"] == ["640192"]
+    r2 = interno.post("/aranceles/reglas", {"tipo_ambito": "DOMAIN", "codigo_ambito": "FOOTWEAR", "tipo_regla": "HARD_CONSTRAINT", "prioridad": 940,
+                                             "condiciones": [{"campo": "waterproof_level", "operador": "IN", "valor": ["NONE", "WATER_RESISTANT"]}],
+                                             "accion": {"tipo": "EXCLUDE", "codigos": ["6401"]}}).json()
+    # 3. Clasificar: la pregunta aparece primero (obligatoria y discriminante); la dependiente no
+    s = interno.post("/clasificacion/sesion", base).json()
+    pregs = {p["codigo"]: p for p in s["preguntas"]}
+    assert s["preguntas"][0]["codigo"] == "waterproof_level" and pregs["waterproof_level"]["discrimina"] and pregs["waterproof_level"]["modo"] == "REQUIRE"
+    assert "sealed_seams" not in pregs
+    assert any(t["regla"] == r1["codigo"] and t["resultado"] is None for t in s["reglas"])
+    # 4. Respondo impermeable: cambia el HS6, sube la confianza y aparece la dependiente
+    s = interno.post("/clasificacion/sesion", {**base, "respuestas": {"waterproof_level": "WATERPROOF"}}).json()
+    assert s["hs6"] == "640192" and s["confianza"] == "high" and [c["codigo"] for c in s["candidatos"]] == ["640192"]
+    assert "sealed_seams" in {p["codigo"] for p in s["preguntas"]}
+    assert s["paises"] and all(p["pais"] for p in s["paises"])
+    # 5. Respondo no impermeable: 64.01 queda fuera
+    s = interno.post("/clasificacion/sesion", {**base, "respuestas": {"waterproof_level": "NONE"}}).json()
+    assert s["hs6"] and not any(c["codigo"].startswith("6401") for c in s["candidatos"])
+    # 6. Apagar la regla devuelve el comportamiento anterior
+    interno.patch(f"/aranceles/reglas/{r1['id']}", {"activo": False})
+    s = interno.post("/clasificacion/sesion", {**base, "respuestas": {"waterproof_level": "WATERPROOF"}}).json()
+    assert s["hs6"] == antes["hs6"]
+    # 7. Las reglas del sistema gobiernan: sin R-SYS-009 el dominio pasa a filtrar capítulos
+    sis = next(x for x in interno.get("/aranceles/reglas", params={"q": "R-SYS-009"}).json()["items"] if x["codigo"] == "R-SYS-009")
+    caps_dom = {c["capitulo"] for d in interno.get("/aranceles/oficial/dominios").json() if d["codigo"] == "FOOTWEAR" for c in d["capitulos"]}
+    con = interno.post("/clasificacion/sesion", {"texto": "bolsa de papel", "dominio": "FOOTWEAR"}).json()
+    assert any(c["capitulo"] not in caps_dom for c in con["candidatos"])  # con R-SYS-009 el dominio solo ordena
+    interno.patch(f"/aranceles/reglas/{sis['id']}", {"activo": False})
+    s = interno.post("/clasificacion/sesion", {"texto": "bolsa de papel", "dominio": "FOOTWEAR"}).json()
+    assert s["candidatos"] == [] or all(c["capitulo"] in caps_dom for c in s["candidatos"])
+    interno.patch(f"/aranceles/reglas/{sis['id']}", {"activo": True})
+    interno.patch(f"/aranceles/reglas/{r2['id']}", {"activo": False})
+    # Validaciones de reglas propias
+    assert interno.post("/aranceles/reglas", {"tipo_regla": "SOFT_SIGNAL", "accion": {"tipo": "EXCLUDE", "codigos": ["64"]}}).status_code == 422
+    assert interno.post("/aranceles/reglas", {"tipo_regla": "QUESTION_GATE", "accion": {"tipo": "ASK"}}).status_code == 422

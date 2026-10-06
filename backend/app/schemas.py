@@ -555,6 +555,14 @@ class TallaIn(BaseModel):
     peso_unitario: float | None = Field(None, ge=0)  # kg netos de una unidad de esta talla
 
 
+class SesionClasificacionIn(BaseModel):
+    texto: str = Field("", max_length=2000)
+    dominio: str | None = Field(None, max_length=30)
+    categoria: str | None = Field(None, max_length=40)
+    respuestas: dict = Field(default_factory=dict)
+    paises: bool = True
+
+
 class GenericoIn(BaseModel):
     generico: str = Field(max_length=40)
     estilo: str = Field(max_length=40)
@@ -613,6 +621,7 @@ class AtributoOpcionIn(BaseModel):
 
 
 class AtributoAmbitoIn(BaseModel):
+    condicion: list | None = None  # [{campo, operador, valor, grupo}] — dependencia: solo se pregunta si se cumple
     tipo_ambito: str | None = None
     codigo_ambito: str | None = Field(None, max_length=40)
     modo: str | None = None
@@ -672,6 +681,11 @@ class CondicionIn(BaseModel):
 
 
 class ReglaIn(BaseModel):
+    tipo_ambito: str | None = Field(None, max_length=14)
+    codigo_ambito: str | None = Field(None, max_length=40)
+    tipo_regla: str | None = Field(None, max_length=20)
+    familia: str | None = Field(None, max_length=30)
+    accion: dict | None = None
     prioridad: int | None = Field(None, ge=0, le=10000)
     efecto: str | None = Field(None, max_length=500)
     activo: bool | None = None

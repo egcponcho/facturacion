@@ -92,7 +92,8 @@ export function calcular(f, ctx, codFinal) {
 function calcularGenerico(f, ctx, codFinal) {
   const s = { ...f, gen: { ...(f.gen || {}) }, comp: { ...(f.comp || {}) } }
   const cands = s.genCand || []
-  const codigo = M.digits(codFinal || s.codigoGen || '')
+  // HS6 del producto y, si se eligió, la línea SAC regional (el servidor los guarda por separado)
+  const codigo = M.digits(codFinal || s.sacGen || s.codigoGen || '')
   const elegido = cands.find((c) => codigo.startsWith(c.codigo))
   const defs = Object.fromEntries((ctx.atributos?.genericos || []).map((a) => [a.codigo, a]))
   const faltanReq = (s.genReq || []).filter((k) => vacioGen(s.gen[k])).map((k) => defs[k]?.etiqueta || k)
@@ -103,7 +104,9 @@ function calcularGenerico(f, ctx, codFinal) {
     fuente: 'generic',
     perfil: s.dominio || '',
     razones: elegido
-      ? [t('Candidate from the official tariff text: {0} (matches {1}).', [M.fmtCode(elegido.codigo), elegido.terminos.join(', ')]), t('Text never confirms a code by itself: a specialist reviews it.')]
+      ? [t('Candidate from the official tariff text: {0} (matches {1}).', [M.fmtCode(elegido.codigo), elegido.terminos.join(', ')]),
+        ...(s.genReglas || []).map((x) => t('Rule {0} applied.', [x])),
+        t('Text never confirms a code by itself: a specialist reviews it.')]
       : codigo ? [t('Code chosen by hand.')] : [],
     alternativas: cands.filter((c) => !codigo.startsWith(c.codigo)).slice(0, 6).map((c) => ({ codigo: c.codigo, cuando: c.descripcion.split(' — ').slice(-1)[0] })),
     faltantes: faltanReq,

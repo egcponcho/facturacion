@@ -7,6 +7,7 @@ import Icono from '../Icono.vue'
 import Interruptor from '../Interruptor.vue'
 import Modal from '../Modal.vue'
 import SelectBusqueda from '../SelectBusqueda.vue'
+import EditorCondiciones from './EditorCondiciones.vue'
 import { puede } from '../../stores/sesion'
 import { avisar, errorApi } from '../../stores/ui'
 import { fmtNum } from '../../utils'
@@ -82,6 +83,17 @@ async function agregarAmbito() {
   if (await guardar(`${base()}/ambitos`, { ...nuevoAmb }, 'post', t('Scope added.'))) nuevoAmb.codigo_ambito = ''
 }
 // {materialCinturon: 'textil'} → «Belt material: Textile»; {'material.corte': 'cuero'} → «Upper: Leather»
+// Dependencia de un ámbito: la pregunta solo aparece si se cumplen estas condiciones
+const dep = ref(null)
+function abrirDep(x) {
+  const c = x.condicion || []
+  const conds = c.every((y) => y && 'campo' in y) ? c.map((y) => ({ ...y }))
+    : c.flatMap((alt, i) => Object.entries(alt || {}).map(([campo, valor]) => ({ grupo: i + 1, campo, operador: Array.isArray(valor) ? 'IN' : 'EQUAL', valor, negado: false })))
+  dep.value = { x, conds }
+}
+async function guardarDep() {
+  if (await ambito(dep.value.x, { condicion: dep.value.conds.filter((c) => c.campo) })) dep.value = null
+}
 function condTexto(cond) {
   if (!cond || !cond.length) return t('Always')
   const M = motor.value
@@ -92,6 +104,11 @@ function condTexto(cond) {
     }
     const valor = v === true ? t('Yes') : M?.ATTR_BY[k] ? M.opcionLbl(k, v) : v
     return `${etiquetaDe.value[k] || k}: ${valor}`
+  }
+  if (cond.every((c) => c && 'campo' in c)) {
+    const g = {}
+    cond.forEach((c) => (g[c.grupo || 1] ||= []).push(`${etiquetaDe.value[c.campo] || c.campo} ${c.negado ? t('not') + ' ' : ''}${c.operador === 'EQUAL' ? '=' : c.operador === 'IN' ? t('one of') : c.operador} ${Array.isArray(c.valor) ? c.valor.join(', ') : c.valor ?? ''}`))
+    return Object.values(g).map((x) => x.join(t(' and '))).join(t(' or '))
   }
   return cond.map((c) => Object.entries(c).map(una).join(', ')).join(t(' or '))
 }
@@ -217,7 +234,8 @@ async function sincronizar() {
                   </select>
                 </td>
                 <td><input class="celda num" type="number" :value="x.prioridad" :disabled="!edita" :aria-label="t('Priority')" @change="ambito(x, { prioridad: +$event.target.value })" /></td>
-                <td class="envolver ayuda">{{ tx(condTexto(x.condicion)) }}<template v-if="x.nota"><br />{{ tx(x.nota) }}</template></td>
+                <td class="envolver ayuda">{{ tx(condTexto(x.condicion)) }}<template v-if="x.nota"><br />{{ tx(x.nota) }}</template>
+                  <button v-if="edita" type="button" class="btn-texto" @click="abrirDep(x)">{{ t('Edit dependency') }}</button></td>
                 <td><button v-if="edita" type="button" class="btn-icono" :aria-label="t('Remove')" @click="ambito(x, { quitar: true })"><Icono nombre="basura" :tam="15" /></button></td>
               </tr>
             </tbody>
@@ -236,6 +254,14 @@ async function sincronizar() {
       <p v-else class="ayuda vacio-det"><Icono nombre="info" :tam="18" />{{ t('Choose an attribute to see its options and where the product sheet asks it.') }}</p>
     </section>
 
+    <Modal v-if="dep" :titulo="t('When to ask {0}', [det?.etiqueta])" ancho="760px" @cerrar="dep = null">
+      <p class="ayuda">{{ t('The question appears only when these conditions are met by the answers already given. Without conditions it is asked whenever its scope applies.') }}</p>
+      <EditorCondiciones v-model="dep.conds" :atributos="datos.items.filter((a) => a.id !== det?.id)" />
+      <template #pie>
+        <button class="btn" @click="dep = null">{{ t('Cancel') }}</button>
+        <button class="btn btn-primario" @click="guardarDep">{{ t('Save') }}</button>
+      </template>
+    </Modal>
     <Modal v-if="modal" :titulo="t('New attribute')" @cerrar="modal = null">
       <div class="campos">
         <label class="campo"><span>{{ t('Code') }}</span><input v-model="modal.codigo" maxlength="40" :placeholder="t('e.g. flash_point')" /></label>
