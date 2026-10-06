@@ -935,7 +935,8 @@ def notas_contexto(db: Session) -> list[dict]:
     """Notas activas con la capa custom aplicada (el texto oficial no se edita)."""
     from .aranceles import notas_vigentes
 
-    return [{k: n[k] for k in ("id", "ambito", "codigo", "numero", "texto", "capitulos", "claves")} for n in notas_vigentes(db)]
+    return [{k: n[k] for k in ("id", "ambito", "codigo", "numero", "texto", "capitulos", "claves", "oficial", "tipo_fuente")}
+            for n in notas_vigentes(db)]
 
 
 def notas_de(db: Session, codigo: str | None) -> list:

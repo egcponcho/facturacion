@@ -757,7 +757,8 @@ def _notas(db: Session, traza) -> list[dict]:
     ids = {t["foto"]["nota_id"] for t in traza if t.get("aplicada") and t.get("foto") and t["foto"].get("nota_id")}
     if not ids:
         return []
-    return [{"id": n.id, "ambito": n.ambito, "codigo": n.codigo, "numero": n.numero, "texto": n.texto[:600], "fuente": n.fuente}
+    return [{"id": n.id, "ambito": n.ambito, "codigo": n.codigo, "numero": n.numero, "texto": n.texto[:600],
+             "tipo_fuente": n.tipo_fuente, "oficial": n.oficial}
             for n in db.scalars(select(NotaSAC).where(NotaSAC.id.in_(ids)))]
 
 
@@ -994,7 +995,8 @@ def _paises(db: Session, hs6: str, sac: str | None, hechos: dict, hoy: date, man
         desc_ov = {x.id: ov.get("descripcion") for x, ov in vivas_l if ov.get("descripcion")}
         vivos, pendientes, faltan = [], [], set()
         for x in lineas_ok:
-            res, f = evaluar(x.regla.condiciones, hechos) if x.regla else (True, set())
+            # Una regla de selección apagada no elige: la línea queda sin condiciones
+            res, f = evaluar(x.regla.condiciones, hechos) if x.regla and x.regla.activo else (True, set())
             if res is True:
                 vivos.append(x)
             elif res is None:

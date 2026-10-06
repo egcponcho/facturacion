@@ -322,7 +322,9 @@ def cargar_lineas_regionales(db: Session, version: str = "SAC-2025-V6") -> int:
     if filas:
         db.execute(insert(IncisoNacional), filas)
     for f in con_cond:
-        db.add(IncisoNacional(**f, cond=interpretacion[f["codigo"]]))
+        x = IncisoNacional(**f, cond=interpretacion[f["codigo"]])
+        x.regla.tipo_fuente = "CLASSIFIER"  # lo que el clasificador lee del texto oficial: motor, no ley ni empresa
+        db.add(x)
     db.flush()
     return len(filas) + len(con_cond)
 
@@ -342,12 +344,12 @@ def cargar_notas_incluidas(db: Session, version: str = "SAC-2025-V6") -> int:
     n = 0
     for x in leer("sac_notas.json"):
         db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"], capitulos=x.get("capitulos") or [],
-                       claves=x.get("claves") or [], fuente="oficial", version_id=v.id if v else None, fuente_id=v.fuente_id if v else None,
+                       claves=x.get("claves") or [], tipo_fuente="OFFICIAL_LEGAL", version_id=v.id if v else None, fuente_id=v.fuente_id if v else None,
                        vigente_desde=v.vigente_desde if v else None))
         n += 1
     for x in leer("sac_explicativas.json"):
         db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"], capitulos=x.get("capitulos") or [],
-                       claves=x.get("claves") or [], fuente="guia"))
+                       claves=x.get("claves") or [], tipo_fuente="CLASSIFIER_GUIDANCE"))
         n += 1
     db.flush()
     return n

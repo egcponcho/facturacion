@@ -152,7 +152,8 @@ const NIVEL = { CAPITULO: t('Chapter'), PARTIDA: t('Heading'), SUBPARTIDA: t('Su
         <template v-if="detalle.notas.length">
           <h4>{{ t('Legal notes') }}</h4>
           <details v-for="nota in detalle.notas.slice(0, 12)" :key="nota.id" class="nota-legal">
-            <summary>{{ tx(AMBITO[nota.ambito] || nota.ambito) }} {{ tx(nota.codigo) }} · {{ tx(nota.numero) }}</summary>
+            <summary>{{ tx(AMBITO[nota.ambito] || nota.ambito) }} {{ tx(nota.codigo) }} · {{ tx(nota.numero) }}
+              <span class="etiqueta" :class="nota.oficial ? 'ok' : 'aviso'">{{ nota.oficial ? t('Official text') : t('Guidance, not legal text') }}</span></summary>
             <p>{{ tx(nota.texto) }}</p>
           </details>
         </template>

@@ -390,7 +390,7 @@ watch(() => fs.size, recargarS)
       <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fc.q" type="search" :placeholder="t('Code or description')" :aria-label="t('Search')" @input="buscarC" /></label>
       <FiltroMulti v-model="fc.pais" :etiqueta="t('Country')" :opciones="opcionesPais" @change="recargarC" />
       <FiltroMulti v-model="fc.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="recargarC" />
-      <FiltroMulti v-model="fc.fuente" :etiqueta="t('Source')" :opciones="opcionesFuente" @change="recargarC" />
+      <FiltroMulti v-model="fc.fuente" :etiqueta="t('Official source')" :opciones="(meta.fuentes_oficiales || []).map((f) => ({ valor: f.codigo, texto: f.texto }))" @change="recargarC" />
       <Seleccion v-model="fc.activo" :aria-label="t('Active')" @change="recargarC"><option value="">{{ t('Active and inactive') }}</option><option value="true">{{ t('Active') }}</option><option value="false">{{ t('Inactive') }}</option></Seleccion>
       <div class="separar fila-flex">
         <BotonesExportar ruta="/aranceles/codigos/exportar" :params="paramsC" />
@@ -429,7 +429,7 @@ watch(() => fs.size, recargarS)
               <template v-else>{{ tx(x.dai ?? '—') }}</template>
             </td>
             <td class="cond">{{ tx(x.cond_txt) }}<span v-if="x.prio" class="etiqueta">{{ t('priority {0}', [x.prio]) }}</span></td>
-            <td><span class="etiqueta" :class="{ acento: x.fuente === 'aprendido', info: x.fuente === 'archivo' }">{{ tx(x.fuente_txt) }}</span><span v-if="!x.activo" class="etiqueta">{{ t('Inactive') }}</span></td>
+            <td><span class="etiqueta ok" :title="tx(x.autoridad || '')">{{ tx(x.fuente_oficial || t('No source')) }}</span> <small class="apagado">{{ tx(x.version || '') }}</small><span v-if="!x.activo" class="etiqueta">{{ t('Inactive') }}</span></td>
             <td v-if="edita" class="num"><button class="btn-icono" :aria-label="t('Edit {0}', [x.codigo_txt])" :title="t('Edit')" @click="editarCodigo(x)"><Icono nombre="editar" :tam="16" /></button></td>
           </tr>
           <tr v-if="!codigos.items.length"><td :colspan="edita ? 8 : 6" class="vacio">{{ t('No national codes match these filters.') }}</td></tr>
@@ -488,6 +488,7 @@ watch(() => fs.size, recargarS)
         <span>{{ t('Codes loaded') }} <b>{{ fmtNum(p.codigos) }}</b></span>
         <span v-if="p.impuesto">{{ t('Tax') }} <b>{{ tx(p.impuesto) }}</b></span>
       </div>
+      <p class="mt-chico"><span class="etiqueta" :class="{ ok: p.datos_oficiales === 'OK', aviso: p.datos_oficiales !== 'OK' }">{{ tx(p.datos_oficiales_txt) }}</span></p>
       <p v-if="p.modelo_arancel" class="ayuda mt-chico"><b>{{ t('Tariff model:') }}</b> {{ tx(p.modelo_arancel) }}<template v-if="p.fuente"> · {{ t('Primary source {0}', [p.fuente]) }}</template></p>
       <p v-if="p.base_legal" class="ayuda mt-chico"><b>{{ t('Legal basis:') }}</b> {{ tx(p.base_legal) }}</p>
       <p v-if="p.nota" class="ayuda mt-chico">{{ tx(p.nota) }}</p>
@@ -568,7 +569,7 @@ watch(() => fs.size, recargarS)
         <tbody>
           <tr v-for="n in notas.items" :key="n.id" :class="{ apagado: !n.activo }">
             <td><span class="fuerte">{{ tx(n.codigo) }} · {{ tx(n.numero) }}</span><span class="sub">{{ tx(n.ambito_txt) }}</span>
-              <span class="etiqueta" :class="n.custom ? 'acento' : n.oficial ? 'ok' : ''">{{ tx(n.custom ? t('Custom over official') : n.oficial ? t('Official') : t('Own note')) }}</span></td>
+              <span class="etiqueta" :class="n.custom ? 'acento' : n.oficial ? 'ok' : 'aviso'" :title="tx(n.tipo_txt)">{{ tx(n.custom ? t('Custom over official') : n.oficial ? t('Official text') : n.tipo_fuente === 'CLASSIFIER_GUIDANCE' ? t('Classifier summary') : t('Internal guidance')) }}</span></td>
             <td class="envolver" style="min-width: 420px; line-height: 1.45">{{ tx(n.texto) }}
               <details v-if="n.texto_oficial" class="oficial-txt"><summary>{{ t('Official text') }}</summary>{{ tx(n.texto_oficial) }}</details></td>
             <td>{{ tx(n.capitulos.length ? n.capitulos.join(', ') : t('All')) }}</td>

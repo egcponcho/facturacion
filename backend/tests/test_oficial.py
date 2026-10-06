@@ -194,13 +194,14 @@ def test_editar_regla_nacional_llega_al_motor(interno):
     assert interno.patch(f"/aranceles/reglas/{regla['id']}", {"condiciones": [{"campo": "genero", "operador": "IN", "valor": "M"}]}).status_code == 422
     assert interno.patch(f"/aranceles/reglas/{regla['id']}", {"condiciones": [
         {"grupo": 1, "campo": "genero", "valor": "M"}, {"grupo": 2, "campo": "genero", "valor": "F"}]}).status_code == 422
-    # Apagar la regla apaga su código
+    # Apagar la regla deja de usar sus condiciones; la línea oficial no se toca
     interno.patch(f"/aranceles/reglas/{regla['id']}", {"activo": False})
     with SessionLocal() as db:
-        assert not db.get(IncisoNacional, iid).regla.activo
+        x = db.get(IncisoNacional, iid)
+        assert not x.regla.activo and x.activo and x.regla.tipo_fuente == "MANUAL"
     # Quitar condiciones y prioridad desde el código deja el código sin regla
     r = interno.put(f"/aranceles/codigos/{iid}", {"pais": "SV", "codigo": "6404.19.90.99", "descripcion": "Prueba regla", "cond": {}, "prio": 0,
-                                                  "activo": False})
+                                                  "activo": True})
     assert r.status_code == 200, r.text
     assert not [x for x in interno.get("/aranceles/reglas", params={"q": "6404199099"}).json()["items"] if x.get("inciso", {}).get("id") == iid]
 
@@ -286,7 +287,10 @@ def test_regulaciones_e_impuestos_crud(interno):
     reg = interno.patch(f"/aranceles/regulaciones/{reg['id']}", {"activo": False}).json()
     assert not interno.get("/aranceles/requisitos", params={"pais": "GT", "codigo": "6404199000"}).json()["regulaciones"]
     assert any(x["id"] == reg["id"] for x in interno.get("/aranceles/regulaciones", params={"pais": "GT", "q": "etiquetado"}).json()["items"])
-    imp = interno.post("/aranceles/impuestos", {"pais": "GT", "patron": "*", "tipo": "OTRO", "tasa": 1, "base_legal": "Prueba"}).json()
+    imp = interno.post("/aranceles/impuestos", {"pais": "GT", "patron": "*", "tipo": "OTRO", "tasa": 1, "base_calculo": "CIF",
+                                               "base_legal": "Prueba"}).json()
+    # Un impuesto sin tasa o sin base de cálculo no es un dato oficial completo
+    assert interno.post("/aranceles/impuestos", {"pais": "GT", "patron": "*", "tipo": "OTRO", "base_legal": "Prueba"}).status_code == 422
     assert imp["patron"] == "*" and imp["fuente"]
     # Sin impuestos de demostración: todo impuesto tiene fuente o base legal
     imps = interno.get("/aranceles/impuestos", params={"pais": "GT"}).json()["items"]

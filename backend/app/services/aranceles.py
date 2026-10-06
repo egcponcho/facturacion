@@ -14,7 +14,8 @@ from .common import ErrorNegocio, exigir, registrar
 from .meta import cond_texto, opciones_cond, valor_opcion
 from .plantillas import leer, norm, plantilla, si_no
 
-FUENTES = {"oficial": "Official (SIECA)", "base": "Company base", "resumen": "Summary (not the official text)", "aprendido": "Learned", "manual": "By hand", "archivo": "File"}
+# Origen de un dato de la consulta: el publicado o el ajuste propio de la empresa encima
+FUENTES = {"oficial": "Official (published source)", "custom": "Company override over the official"}
 
 
 def _dig(s) -> str:
@@ -47,8 +48,18 @@ def paises(db: Session, user: Usuario) -> list[dict]:
              "nota": x.nota, "base_legal": x.base_legal, "orden": x.orden, "activo": x.activo, "codigos": n.get(x.iso, 0),
              "longitudes": x.longitudes_validas() if x.longitudes else [], "longitudes_validas": x.longitudes_validas(),
              "nivel_base": x.nivel_base, "modelo_arancel": x.modelo_arancel, "contexto": x.contexto,
-             "fuente": fuentes.get(x.fuente_id)}
+             "fuente": fuentes.get(x.fuente_id), **_estado_oficial(x, n.get(x.iso, 0))}
             for x in db.scalars(select(PaisArancel).order_by(PaisArancel.orden, PaisArancel.iso))]
+
+
+def _estado_oficial(x: PaisArancel, lineas: int) -> dict:
+    """Qué tan respaldado está el arancel del país por una fuente oficial
+    (nunca se rellena con datos de la empresa)."""
+    if not x.fuente_id:
+        return {"datos_oficiales": "PENDING_VERIFICATION", "datos_oficiales_txt": "Pending official source verification"}
+    if not lineas:
+        return {"datos_oficiales": "NO_NATIONAL_DATA", "datos_oficiales_txt": "Official national tariff data not available"}
+    return {"datos_oficiales": "OK", "datos_oficiales_txt": "Official national lines loaded"}
 
 
 def guardar_pais(db: Session, user: Usuario, datos, pais_id: int | None = None) -> dict:
@@ -264,7 +275,9 @@ AMBITOS = {"reglas": "General rules", "seccion": "Section note", "capitulo": "Ch
            "complementaria": "Central American complementary note", "explicativa": "Explanatory note (HS)"}
 
 
-OFICIALES_NOTA = ("oficial", "resumen", "base")  # las cargadas con el sistema: no se editan en sitio
+# Las notas cargadas con el sistema (texto oficial y guía del clasificador) no se
+# editan en sitio: lo propio va como override. Solo OFFICIAL_* es texto legal.
+CARGADAS_NOTA = NotaSAC.OFICIALES + ("CLASSIFIER_GUIDANCE",)
 
 
 def _verdad(v) -> bool:
@@ -275,8 +288,8 @@ def _fila_nota(n: NotaSAC, ov: dict | None = None) -> dict:
     ov = ov or {}
     return {"id": n.id, "ambito": n.ambito, "ambito_txt": AMBITOS.get(n.ambito, n.ambito), "codigo": n.codigo,
             "numero": n.numero, "texto": ov.get("texto") or n.texto, "texto_oficial": n.texto if ov.get("texto") else None,
-            "capitulos": n.capitulos or [], "claves": n.claves or [], "fuente": n.fuente,
-            "oficial": n.fuente in OFICIALES_NOTA, "custom": bool(ov),
+            "capitulos": n.capitulos or [], "claves": n.claves or [], "tipo_fuente": n.tipo_fuente,
+            "tipo_txt": NotaSAC.TIPOS.get(n.tipo_fuente, n.tipo_fuente), "oficial": n.oficial, "custom": bool(ov),
             "activo": _verdad(ov["activo"]) if "activo" in ov else n.activo, "version_id": n.version_id,
             "vigente_desde": n.vigente_desde, "vigente_hasta": n.vigente_hasta}
 
@@ -311,13 +324,13 @@ def guardar_nota(db: Session, user: Usuario, datos, nota_id: int | None = None) 
     n = db.get(NotaSAC, nota_id) if nota_id else None
     if nota_id and not n:
         raise ErrorNegocio("The note does not exist.", 404, "no_encontrado")
-    if n and n.fuente in OFICIALES_NOTA:
+    if n and n.tipo_fuente in CARGADAS_NOTA:
         motivo = getattr(datos, "motivo", None)
         overrides.poner(db, user, "NOTA", str(n.id), "texto", datos.texto.strip(), n.texto, motivo)
         overrides.poner(db, user, "NOTA", str(n.id), "activo", str(bool(datos.activo)).lower(), str(n.activo).lower(), motivo)
         return _fila_nota(n, overrides.vigentes(db, "NOTA", [n.id]).get(str(n.id)))
     if not n:
-        n = NotaSAC(fuente="manual")
+        n = NotaSAC(tipo_fuente="INTERNAL_GUIDANCE")  # nota propia: guía interna, nunca texto legal
         db.add(n)
     caps = sorted({c.strip().zfill(2) for c in datos.capitulos if c.strip().isdigit()})
     n.ambito, n.codigo, n.numero = datos.ambito, datos.codigo.strip().upper()[:10], (datos.numero or "").strip()[:20]
@@ -333,7 +346,7 @@ def borrar_nota(db: Session, user: Usuario, nota_id: int, motivo: str | None = N
     n = db.get(NotaSAC, nota_id)
     if not n:
         raise ErrorNegocio("The note does not exist.", 404, "no_encontrado")
-    if n.fuente in OFICIALES_NOTA:
+    if n.tipo_fuente in CARGADAS_NOTA:
         overrides.poner(db, user, "NOTA", str(n.id), "activo", "false", str(n.activo).lower(), motivo or "Deactivated by the user")
         return
     db.delete(n)
@@ -353,9 +366,11 @@ def _q_incisos(filtros: dict):
     caps = _lista(filtros.get("capitulo"))
     if caps:
         q = q.where(or_(*[IncisoNacional.sub6.startswith(_dig(c)[:2]) for c in caps]))
-    fuentes = _lista(filtros.get("fuente"))
+    fuentes = _lista(filtros.get("fuente"))  # códigos de fuente oficial
     if fuentes:
-        q = q.where(IncisoNacional.fuente.in_(fuentes))
+        from ..models import FuenteOficial
+
+        q = q.where(IncisoNacional.fuente_id.in_(select(FuenteOficial.id).where(FuenteOficial.codigo.in_(fuentes))))
     if filtros.get("activo") in ("true", "false"):
         q = q.where(IncisoNacional.activo.is_(filtros["activo"] == "true"))
     return q
@@ -367,7 +382,16 @@ def _fila_inciso(x: IncisoNacional, sac: dict) -> dict:
     return {"id": x.id, "pais": x.pais, "codigo": x.codigo, "codigo_txt": _fmt(x.codigo), "sub6": x.sub6,
             "sac": sac.get(x.sub6), "descripcion": x.descripcion, "dai": x.dai, "cond": x.cond or {},
             "cond_txt": cond_texto(object_session(x), x.cond), "prio": x.prio, "nota": x.nota, "fuente": x.fuente,
-            "fuente_txt": FUENTES.get(x.fuente, x.fuente), "activo": x.activo}
+            "fuente_txt": FUENTES.get(x.fuente, x.fuente), "activo": x.activo, **_procedencia_txt(object_session(x), x)}
+
+
+def _procedencia_txt(db: Session, x) -> dict:
+    """Fuente oficial y versión de un dato oficial (para mostrar de dónde sale)."""
+    from ..models import FuenteOficial, VersionDataset
+
+    f = db.get(FuenteOficial, x.fuente_id) if x.fuente_id else None
+    v = db.get(VersionDataset, x.version_id) if x.version_id else None
+    return {"fuente_oficial": f.codigo if f else None, "autoridad": f.autoridad if f else None, "version": v.codigo if v else None}
 
 
 def listar_incisos(db: Session, user: Usuario, filtros: dict, page: int, size: int, orden: str | None) -> dict:
@@ -762,7 +786,7 @@ def importar_notas(db: Session, user: Usuario, nombre: str, contenido: bytes) ->
             errores.append({"fila": f["_fila"], "mensaje": "Kind, section or chapter and text are required."})
             continue
         x = actuales.get((amb, cod, num))
-        if x and x.fuente in OFICIALES_NOTA:
+        if x and x.tipo_fuente in CARGADAS_NOTA:
             # Nota oficial: el texto del archivo queda como capa custom (el oficial no se pisa)
             if overrides.poner(db, user, "NOTA", str(x.id), "texto", txt, x.texto, f"Uploaded file {nombre}"[:300]):
                 actualizados += 1
@@ -777,7 +801,7 @@ def importar_notas(db: Session, user: Usuario, nombre: str, contenido: bytes) ->
         caps = [c.strip().zfill(2) for c in str(f.get("capitulos") or "").split(",") if c.strip().isdigit()]
         x.capitulos = caps or ([cod.zfill(2)] if cod.isdigit() else x.capitulos or [])
         x.activo = si_no(f.get("activo")) is not False
-        x.fuente = "archivo"
+        x.tipo_fuente = "INTERNAL_GUIDANCE"  # un archivo sin fuente oficial es guía interna
         x.actualizado_en = ahora()
     registrar(db, user, "aranceles", 0, "importar_notas", {"creados": creados, "actualizados": actualizados})
     return {"creados": creados, "actualizados": actualizados, "errores": errores[:200]}
@@ -808,7 +832,7 @@ def exportar_incisos(db: Session, user: Usuario, filtros: dict, orden: str | Non
                 ("Duty %", 0.6, True), ("Conditions", 2.4, False), ("Priority", 0.6, True), ("Source", 0.8, False),
                 ("Active", 0.6, False)]
     filas = [[x["pais"], x["codigo_txt"], x["sac"] or "—", x["descripcion"] or "—", x["dai"] or "—", x["cond_txt"],
-              x["prio"], x["fuente_txt"], "Yes" if x["activo"] else "No"] for x in r["items"]]
+              x["prio"], " · ".join(v for v in (x["fuente_oficial"], x["version"]) if v) or "—", "Yes" if x["activo"] else "No"] for x in r["items"]]
     ind = [("Codes", f"{r['total']:,}")] + [(k, f"{v:,}") for k, v in sorted(r["por_pais"].items())][:5]
     texto = _filtros_txt(filtros, {"pais": "Country", "q": "Search", "capitulo": "Chapter", "fuente": "Source"})
     titulo, sub = "National tariff codes", "Codes by destination country with the conditions that select them"

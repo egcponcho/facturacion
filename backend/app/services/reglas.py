@@ -126,10 +126,15 @@ def _fuente(db: Session, r: ReglaClasificacion, datos: dict) -> None:
         r.tipo_fuente = datos["tipo_fuente"]
     if datos.get("nota_id") is not None:
         r.nota_id = datos["nota_id"] or None
-    if r.nota_id and not db.get(NotaSAC, r.nota_id):
+    nota = db.get(NotaSAC, r.nota_id) if r.nota_id else None
+    if r.nota_id and not nota:
         raise ErrorNegocio("The legal note does not exist.", 422, "validacion")
     if r.tipo_fuente == "LEGAL_NOTE" and not r.nota_id:
         raise ErrorNegocio("A legal rule must reference the legal note that supports it.", 422, "validacion")
+    # Solo el texto oficial publicado es ley: una guía o un resumen no fundan una regla legal
+    if r.tipo_fuente == "LEGAL_NOTE" and not nota.oficial:
+        raise ErrorNegocio("A legal rule must cite an official legal text, not internal guidance or a classifier summary.",
+                           422, "nota_no_oficial")
 
 
 def _firma_completa(r: ReglaClasificacion) -> str:
@@ -244,7 +249,8 @@ def crear(db: Session, user: Usuario, datos: dict) -> dict:
 
 def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
     """Activa/desactiva, cambia prioridad, efecto y revisión, y reemplaza las
-    condiciones. Apagar una regla de selección nacional apaga su código."""
+    condiciones. Las condiciones de una línea oficial cambiadas por la empresa
+    quedan como regla propia (MANUAL)."""
     exigir(user, "aranceles.editar")
     r = db.get(ReglaClasificacion, regla_id)
     if not r:
@@ -274,9 +280,11 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
                                          valor_hasta=c.get("valor_hasta"), negado=bool(c.get("negado"))))
         if r.tipo_regla == "NATIONAL_SELECT" and len({c.grupo for c in nuevas}) > 1:
             raise ErrorNegocio("A national selection rule has a single group of conditions.", 422, "validacion")
+        clave = lambda cs: sorted((c.campo, c.operador, json.dumps(c.valor, sort_keys=True)) for c in cs)  # noqa: E731
+        if r.tipo_regla == "NATIONAL_SELECT" and clave(nuevas) != clave(r.condiciones):
+            r.tipo_fuente = "MANUAL"  # la empresa cambió cómo se elige la línea: ya no es la lectura del texto oficial
         r.condiciones = nuevas
-    if r.inciso and datos.get("activo") is not None:
-        r.inciso.activo = bool(datos["activo"])
+    # Apagar la regla nacional solo deja de usar esas condiciones: la línea oficial no se toca
     db.flush()
     if _firma_completa(r) != antes:
         r.revision = (r.revision or 1) + 1  # la evidencia guarda la revisión y una foto de la regla

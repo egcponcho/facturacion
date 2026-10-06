@@ -102,9 +102,9 @@ async function activar(x, v) {
           <SelectBusqueda v-model="modal.pais" :opciones="paises.map((p) => ({ valor: p.iso, texto: `${p.iso} · ${p.nombre}` }))" :etiqueta="t('Country')" :deshabilitado="!!modal.id" /></label>
         <label class="campo"><span class="req">{{ t('Tax') }}</span>
           <SelectBusqueda v-model="modal.tipo" :opciones="Object.entries(TIPO).map(([valor, texto]) => ({ valor, texto }))" :etiqueta="t('Tax')" /></label>
-        <label class="campo"><span>{{ t('Rate %') }}</span><input v-model="modal.tasa" type="number" min="0" step="0.01" class="entrada" /></label>
+        <label class="campo"><span class="req">{{ t('Rate %') }}</span><input v-model="modal.tasa" type="number" min="0" step="0.01" class="entrada" /></label>
         <label class="campo"><span class="req">{{ t('Code or pattern') }}</span><input v-model="modal.patron" class="entrada" maxlength="40" :placeholder="t('e.g. 3304, 6404.19 or * for all')" /></label>
-        <label class="campo"><span>{{ t('Basis') }}</span><input v-model="modal.base_calculo" class="entrada" maxlength="80" :placeholder="t('e.g. CIF + DAI')" /></label>
+        <label class="campo"><span class="req">{{ t('Basis') }}</span><input v-model="modal.base_calculo" class="entrada" maxlength="80" :placeholder="t('e.g. CIF + DAI')" /></label>
         <label class="campo"><span>{{ t('Threshold from') }}</span><input v-model="modal.umbral_desde" type="number" step="0.01" class="entrada" /></label>
         <label class="campo"><span>{{ t('Threshold to') }}</span><input v-model="modal.umbral_hasta" type="number" step="0.01" class="entrada" /></label>
         <label class="campo"><span>{{ t('Valid from') }}</span><CampoFecha v-model="modal.vigente_desde" /></label>
@@ -114,7 +114,7 @@ async function activar(x, v) {
         <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Official link') }}</span><input v-model="modal.url" class="entrada" maxlength="300" type="url" /></label>
         <label class="check"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active') }}</span></label>
       </div>
-      <p class="ayuda">{{ t('Every tax rule needs the official tax source of its country or its legal basis.') }}</p>
+      <p class="ayuda">{{ t('Every tax rule needs its rate, the basis it is calculated on and the official tax source of its country or its legal basis. There are no example taxes: what is not loaded from an official source does not apply.') }}</p>
       <template #pie>
         <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
         <button class="btn btn-primario" :disabled="ocupado || !modal.pais || !modal.patron" @click="guardar">{{ t('Save') }}</button>

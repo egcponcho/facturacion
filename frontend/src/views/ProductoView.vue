@@ -141,8 +141,9 @@ const notasSac = computed(() => {
 })
 const verNotas = ref(false)
 const soporte = ref('legales')
-const notasLegales = computed(() => notasSac.value.filter((n) => n.ambito !== 'explicativa'))
-const notasExplicativas = computed(() => notasSac.value.filter((n) => n.ambito === 'explicativa'))
+// Texto legal publicado (oficial) aparte de la guía: resúmenes del clasificador y notas internas
+const notasLegales = computed(() => notasSac.value.filter((n) => n.oficial))
+const notasExplicativas = computed(() => notasSac.value.filter((n) => !n.oficial))
 const notasVista = computed(() => (soporte.value === 'explicativas' ? notasExplicativas.value : notasLegales.value))
 
 // Base legal de cada país destino (agrupada: varios comparten el mismo arancel)
@@ -743,17 +744,18 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </section>
 
         <section v-if="codigo6.length === 6" class="panel soporte">
-          <div class="panel-cabeza"><div><h2>{{ t('Classification support') }}</h2><p>{{ t('Legal notes, explanatory notes and legal basis to check heading {0} before approving it.', [fmtCode(codigo6.slice(0, 4))]) }}</p></div></div>
+          <div class="panel-cabeza"><div><h2>{{ t('Classification support') }}</h2><p>{{ t('Official legal notes, classifier guidance and legal basis to check heading {0} before approving it.', [fmtCode(codigo6.slice(0, 4))]) }}</p></div></div>
           <div class="pestanas-pildora" role="tablist">
-            <button v-for="[k, txt, n] in [['legales', t('Legal notes'), notasLegales.length], ['explicativas', t('Explanatory notes'), notasExplicativas.length], ['base', t('Legal basis'), basesLegales.length]]" :key="k"
+            <button v-for="[k, txt, n] in [['legales', t('Official legal notes'), notasLegales.length], ['explicativas', t('Guidance (not legal text)'), notasExplicativas.length], ['base', t('Legal basis'), basesLegales.length]]" :key="k"
                     type="button" role="tab" class="pildora" :aria-selected="soporte === k" @click="soporte = k">{{ txt }} <span class="cuenta">{{ n }}</span></button>
           </div>
           <ul v-if="soporte !== 'base'" class="notas-sac">
             <li v-for="n in (verNotas ? notasVista : notasVista.slice(0, 3))" :key="n.id">
               <b>{{ tx(n.ambito === 'explicativa' ? t('Explanatory note, heading {0}', [fmtCode(n.codigo)]) : n.codigo === 'RGI' ? t('General rule {0}', [n.numero]) : n.ambito === 'seccion' ? t('Section {0}, note {1}', [n.codigo, n.numero]) : n.ambito === 'complementaria' ? t('Chapter {0}, Central American note {1}', [n.codigo, n.numero.replace('NCC ', '')]) : t('Chapter {0}, note {1}', [n.codigo, n.numero])) }}</b>
+              <span class="etiqueta" :class="n.oficial ? 'ok' : 'aviso'">{{ n.oficial ? t('Official text') : n.tipo_fuente === 'CLASSIFIER_GUIDANCE' ? t('Classifier summary') : t('Internal guidance') }}</span>
               <span>{{ tx(n.texto) }}</span>
             </li>
-            <li v-if="!notasVista.length" class="apagado">{{ soporte === 'explicativas' ? t('No explanatory notes loaded for this heading. Load them in Tariff schedule → Notes.') : t('No legal notes loaded for this chapter.') }}</li>
+            <li v-if="!notasVista.length" class="apagado">{{ soporte === 'explicativas' ? t('No guidance for this heading. Internal guidance and classifier summaries are added in Tariff schedule → Notes.') : t('No legal notes loaded for this chapter.') }}</li>
           </ul>
           <button v-if="soporte !== 'base' && notasVista.length > 3" type="button" class="btn-texto" @click="verNotas = !verNotas">{{ tx(verNotas ? t('Show fewer') : t('See all {0} notes', [notasVista.length])) }}</button>
           <div v-if="soporte === 'base'" class="bases-legales">

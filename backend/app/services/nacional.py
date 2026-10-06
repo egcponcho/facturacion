@@ -191,6 +191,9 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         if not _txt(f.get("requirement_name")):
             error("Regulations", f["_fila"], "Requirement name is required.")
             continue
+        if not c["fuente"] and not _txt(f.get("legal_basis")):
+            error("Regulations", f["_fila"], "Every regulation needs an official source or its legal basis.")
+            continue
         x = db.scalar(select(Regulacion).where(Regulacion.codigo == cod))
         nuevo = x is None
         x = x or Regulacion(codigo=cod)
@@ -230,6 +233,9 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
             tasa, desde, hasta = _num(f.get("rate")), _num(f.get("threshold_from")), _num(f.get("threshold_to"))
         except ValueError as e:
             error("Taxes", f["_fila"], f"Rate and thresholds must be numbers: {e}.")
+            continue
+        if tasa is None or not _txt(f.get("basis")):
+            error("Taxes", f["_fila"], "Every tax rule needs its rate and the basis it is calculated on (e.g. CIF + DAI).")
             continue
         x = db.scalar(select(ReglaImpuesto).where(ReglaImpuesto.codigo == cod))
         nuevo = x is None
@@ -326,6 +332,8 @@ def guardar_regulacion(db: Session, user: Usuario, reg_id: int | None, datos: di
                             "vigente_desde", "vigente_hasta"))
     if not x.nombre or x.tipo not in TIPOS_REGULACION:
         raise ErrorNegocio(f"Name and a regulation type ({', '.join(TIPOS_REGULACION)}) are required.", 422, "validacion")
+    if not x.fuente_id and not (x.base_legal or "").strip():
+        raise ErrorNegocio("Every regulation needs an official source or its legal basis.", 422, "validacion")
     db.add(x)
     db.flush()
     registrar(db, user, "aranceles", x.id, "regulacion", {"codigo": x.codigo, "pais": x.pais, "patron": x.patron})
@@ -348,6 +356,8 @@ def guardar_impuesto(db: Session, user: Usuario, imp_id: int | None, datos: dict
         raise ErrorNegocio(f"Tax type must be one of {', '.join(TIPOS_IMPUESTO)}.", 422, "validacion")
     if not x.fuente_id and not (x.base_legal or "").strip():
         raise ErrorNegocio("Every tax rule needs an official source or its legal basis.", 422, "validacion")
+    if x.tasa is None or not (x.base_calculo or "").strip():
+        raise ErrorNegocio("Every tax rule needs its rate and the basis it is calculated on (e.g. CIF + DAI).", 422, "validacion")
     db.add(x)
     db.flush()
     registrar(db, user, "aranceles", x.id, "impuesto", {"codigo": x.codigo, "pais": x.pais, "tasa": x.tasa})

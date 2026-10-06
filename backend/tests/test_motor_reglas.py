@@ -79,7 +79,13 @@ def test_precedencia_de_reglas(interno):
     assert s["hs6"] == "620459"
     assert next(t for t in s["reglas"] if t["regla"] == r["codigo"])["revision"] == 2  # cada cambio sube la revisión
     # Una regla legal (con su nota) es un límite: la propia de prioridad 950 no la puede violar
-    nota = interno.get("/aranceles/notas", params={"capitulo": "62"}).json()["items"][0]
+    nota = next(n for n in interno.get("/aranceles/notas", params={"capitulo": "62"}).json()["items"] if n["oficial"])
+    # Una guía del clasificador (resumen propio) no funda una regla legal
+    guia = next(n for n in interno.get("/aranceles/notas").json()["items"] if n["tipo_fuente"] == "CLASSIFIER_GUIDANCE")
+    r_guia = interno.post("/aranceles/reglas", {"tipo_ambito": "CATEGORY", "codigo_ambito": "falda", "tipo_regla": "HARD_CONSTRAINT",
+                                                "tipo_fuente": "LEGAL_NOTE", "nota_id": guia["id"], "condiciones": cond,
+                                                "accion": {"tipo": "RESTRICT", "codigos": ["620452"]}})
+    assert r_guia.status_code == 422 and r_guia.json()["codigo"] == "nota_no_oficial"
     legal = interno.post("/aranceles/reglas", {"tipo_ambito": "CATEGORY", "codigo_ambito": "falda", "tipo_regla": "HARD_CONSTRAINT", "prioridad": 10,
                                                 "tipo_fuente": "LEGAL_NOTE", "nota_id": nota["id"], "condiciones": cond,
                                                 "accion": {"tipo": "RESTRICT", "codigos": ["620452"]}}).json()

@@ -865,9 +865,21 @@ class NotaSAC(Base):
     texto: Mapped[str] = mapped_column(Text)
     capitulos: Mapped[list] = mapped_column(JSON, default=list)
     claves: Mapped[list] = mapped_column(JSON, default=list)
-    fuente: Mapped[str] = mapped_column(String(12), default="base")  # oficial | resumen | manual (custom propia)
+    # Qué es el texto: solo los OFFICIAL_* son texto legal publicado (con fuente y
+    # versión); la guía del clasificador y la interna son ayudas, nunca ley
+    tipo_fuente: Mapped[str] = mapped_column(String(24), default="INTERNAL_GUIDANCE")
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    TIPOS = {"OFFICIAL_LEGAL": "Official legal text", "OFFICIAL_TARIFF": "Official tariff text",
+             "OFFICIAL_NATIONAL": "Official national text", "CLASSIFIER_GUIDANCE": "Classifier guidance (summary, not the legal text)",
+             "INTERNAL_GUIDANCE": "Internal guidance (company)", "COMPANY_HISTORY": "Company history"}
+    OFICIALES = ("OFFICIAL_LEGAL", "OFFICIAL_TARIFF", "OFFICIAL_NATIONAL")
+
+    @property
+    def oficial(self) -> bool:
+        return self.tipo_fuente in self.OFICIALES
+
     # Nota oficial versionada: de qué versión y fuente sale y su vigencia (no se edita; se le pone un override)
     version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id", name="fk_notas_version"))
     fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id", name="fk_notas_fuente"))
@@ -1055,16 +1067,16 @@ class ReglaClasificacion(Base):
     condiciones: Mapped[list["CondicionRegla"]] = relationship(back_populates="regla", cascade="all, delete-orphan",
                                                                lazy="selectin", order_by="[CondicionRegla.grupo, CondicionRegla.id]")
 
-    # Las condiciones que eligen una línea oficial son interpretación del motor
-    # (CLASSIFIER, capa sistema) o configuración propia (MANUAL): nunca legales
-    FUENTE_INCISO = {"oficial": "CLASSIFIER"}
+    # Las condiciones que eligen una línea oficial son configuración propia
+    # (MANUAL) salvo las que el clasificador lee del texto oficial, que su carga
+    # marca CLASSIFIER (capa sistema): nunca son legales
 
     @classmethod
     def nacional(cls, x: IncisoNacional) -> "ReglaClasificacion":
         import secrets
 
         return cls(codigo=f"NAC-{secrets.token_hex(5).upper()}", tipo_ambito="NATIONAL_CODE", codigo_ambito=x.sub6 or "",
-                   pais=x.pais, tipo_regla="NATIONAL_SELECT", tipo_fuente=cls.FUENTE_INCISO.get(x.fuente or "", "MANUAL"),
+                   pais=x.pais, tipo_regla="NATIONAL_SELECT", tipo_fuente="MANUAL",
                    familia="NATIONAL_CODE", prioridad=0)
 
     def cond(self) -> dict:
@@ -1690,9 +1702,7 @@ class ImportacionOC(Base):
 @event.listens_for(ReglaClasificacion, "before_insert")
 @event.listens_for(ReglaClasificacion, "before_update")
 def _regla_nacional_al_dia(_mapper, _conn, r: ReglaClasificacion) -> None:
-    """La regla de selección nacional sigue al código que elige (país,
-    subpartida y origen del dato), aunque se haya creado antes de llenarlos."""
+    """La regla de selección nacional sigue al código que elige (país y
+    subpartida), aunque se haya creado antes de llenarlos."""
     if r.tipo_regla == "NATIONAL_SELECT" and r.inciso is not None:
         r.pais, r.codigo_ambito = r.inciso.pais, r.inciso.sub6 or ""
-        if r.id is None:
-            r.tipo_fuente = ReglaClasificacion.FUENTE_INCISO.get(r.inciso.fuente or "", r.tipo_fuente)
