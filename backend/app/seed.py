@@ -620,10 +620,10 @@ def seed(db: Session) -> None:
 
     atributos.cargar_motor(db)
     categorias.sembrar(db)
-    # Lógica de la ficha (motor.js) como reglas de categoría
+    # Reglas de la ficha por categoría (datos del motor único)
     from .services import reglas as reglas_srv
 
-    reglas_srv.cargar_motor_js(db)
+    reglas_srv.cargar_reglas_ficha(db)
     # Demostración: impuesto general a la importación por país (el paquete 03 trae las plantillas vacías)
     nacional.impuestos_generales(db)
     # Árbol arancelario oficial completo (capítulo → partida → subpartida → inciso) de la versión SAC-2025-V6

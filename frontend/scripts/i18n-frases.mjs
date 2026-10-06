@@ -77,7 +77,7 @@ export function convertir(code, fn = 't') {
 if (process.argv[1] && process.argv[1].endsWith('i18n-frases.mjs')) {
   for (const ruta of process.argv.slice(2)) {
     const src = fs.readFileSync(ruta, 'utf8')
-    const fn = ruta.endsWith('motor.js') ? 'tr' : 't'
+    const fn = 't'
     let r = src
     for (let i = 0; i < 4; i++) {
       r = ruta.endsWith('.vue')

@@ -1,4 +1,4 @@
-"""Paridad de las descripciones aduanera y comercial con las que armaba motor.js
+"""Paridad de las descripciones aduanera y comercial con las que armaba el antiguo clasificador del navegador
 (tests/paridad/descripciones.json); salen de datos (plantillas y textos de aduana)."""
 import json
 from pathlib import Path

@@ -63,7 +63,7 @@ def actualizar() -> None:
     with SessionLocal() as db:
         categorias.sembrar(db)
         atributos.cargar_motor(db)  # comportamiento de los atributos de la ficha (no pisa lo editado)
-        reglas.cargar_motor_js(db)  # reglas extraídas de motor.js (no pisa las editadas)
+        reglas.cargar_reglas_ficha(db)  # reglas de la ficha (no pisa las editadas)
         db.commit()
 
 

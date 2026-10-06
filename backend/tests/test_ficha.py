@@ -1,7 +1,7 @@
 """Ficha → hechos con el catálogo de atributos como datos.
 
-Paridad con motor.js (tests/paridad/atributos.json, generado con
-frontend/scripts/motor-atributos.mjs): con los mismos datos de la ficha, el
+Paridad con el antiguo clasificador del navegador (tests/paridad/atributos.json,
+casos fijados al retirarlo, son la referencia de regresión): con los mismos datos de la ficha, el
 normalizador del servidor deja los mismos valores, da los mismos avisos,
 pregunta lo mismo (preguntar / definido) con las mismas opciones y pide las
 mismas partes de la composición. Además, la resolución de ámbitos
@@ -79,7 +79,7 @@ DETECCION = json.loads((Path(__file__).parent / "paridad/deteccion.json").read_t
 
 def test_paridad_deteccion():
     """Lo que se deduce del nombre, el uso, las tallas y la composición: igual
-    que la ficha con motor.js (categoría y respuestas que aplican)."""
+    que el antiguo clasificador del navegador (categoría y respuestas que aplican)."""
     malos = []
     for c in DETECCION:
         js, py = c["detectado"], CAT.detectar({"comp": c["comp"]}, c["estilo"], uso=c["uso"], tallas=c["tallas"])

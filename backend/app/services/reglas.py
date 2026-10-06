@@ -8,11 +8,12 @@
   un código nacional dentro de su subpartida. Antes vivían en el propio código
   (IncisoNacional.cond/prio); ahora son reglas que se pueden revisar, apagar y
   priorizar sin tocar el dato oficial.
-- Reglas de la ficha (MOTOR_JS): la lógica de decisión que vivía en
-  motor.js (clasificarReglas), extraída como árbol de decisión por
-  frontend/scripts/motor-reglas.mjs a data/motor_reglas.json. Ámbito
-  CATEGORY, condiciones sobre atributos y hechos derivados de la
-  composición, y RESTRICT al código (o mapa fibra → subpartida).
+- Reglas de la ficha (SHEET_RULES): reglas de sistema por categoría,
+  sembradas desde data/motor_reglas.json (la lógica de decisión que tenía el
+  antiguo clasificador del navegador, convertida en datos y verificada con
+  tests/test_motor_reglas.py). Ámbito CATEGORY, condiciones sobre atributos
+  y hechos derivados de la composición, y RESTRICT al código (o mapa fibra →
+  subpartida). Se editan, apagan y priorizan como cualquier regla.
 """
 import hashlib
 import json
@@ -159,9 +160,9 @@ def listar(db: Session, user: Usuario, q: str | None = None, tipo: str | None = 
     filas = db.scalars(consulta.order_by(ReglaClasificacion.tipo_regla != "HARD_CONSTRAINT", -ReglaClasificacion.prioridad,
                                          ReglaClasificacion.pais, ReglaClasificacion.codigo_ambito, ReglaClasificacion.codigo)
                        .offset((page - 1) * size).limit(size)).all()
-    por_tipo = dict(db.execute(select(ReglaClasificacion.tipo_regla, func.count()).where(ReglaClasificacion.tipo_fuente != "MOTOR_JS")
+    por_tipo = dict(db.execute(select(ReglaClasificacion.tipo_regla, func.count()).where(ReglaClasificacion.tipo_fuente != "SHEET_RULES")
                                .group_by(ReglaClasificacion.tipo_regla)).all())
-    por_tipo["MOTOR_JS"] = db.scalar(select(func.count()).select_from(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "MOTOR_JS")) or 0
+    por_tipo["SHEET_RULES"] = db.scalar(select(func.count()).select_from(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "SHEET_RULES")) or 0
     return {"items": [_dict(r) for r in filas], "total": total, "page": page, "size": size, "por_tipo": por_tipo}
 
 
@@ -284,7 +285,7 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
     return _dict(r)
 
 
-# ---- Reglas extraídas del motor de la ficha (motor.js) ------------------------------
+# ---- Reglas de la ficha (sembradas desde data/motor_reglas.json) ----------------------
 DATOS_MOTOR = Path(__file__).resolve().parent.parent / "data" / "motor_reglas.json"
 PRIORIDAD_MOTOR = 900  # antes que las propias (800): una regla propia posterior manda sobre ellas
 
@@ -297,12 +298,12 @@ def _firma_motor(condiciones: list, accion: dict) -> str:
     return hashlib.sha1(json.dumps([conds, a], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
 
 
-def cargar_motor_js(db: Session) -> dict:
-    """Siembra o pone al día las reglas extraídas de motor.js. Una regla que
+def cargar_reglas_ficha(db: Session) -> dict:
+    """Siembra o pone al día las reglas de la ficha (data/motor_reglas.json). Una regla que
     alguien editó (su firma ya no coincide) no se pisa; las que el motor ya no
     produce se apagan si nadie las tocó."""
     datos = json.loads(DATOS_MOTOR.read_text(encoding="utf-8"))
-    existentes = {r.codigo: r for r in db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "MOTOR_JS"))}
+    existentes = {r.codigo: r for r in db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "SHEET_RULES"))}
     n = {"nuevas": 0, "actualizadas": 0, "editadas": 0, "retiradas": 0}
     vistas = set()
     for d in datos["reglas"]:
@@ -320,7 +321,7 @@ def cargar_motor_js(db: Session) -> dict:
                 continue
             n["actualizadas"] += 1
         else:
-            r = ReglaClasificacion(codigo=d["codigo"], tipo_fuente="MOTOR_JS", activo=True)
+            r = ReglaClasificacion(codigo=d["codigo"], tipo_fuente="SHEET_RULES", activo=True)
             db.add(r)
             n["nuevas"] += 1
         r.tipo_regla, r.tipo_ambito, r.codigo_ambito = "HARD_CONSTRAINT", "CATEGORY", d["categoria"]

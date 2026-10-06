@@ -35,7 +35,7 @@ export function esTexto(s) {
   return true
 }
 
-let FN = 't' // nombre de la función de traducción (en motor.js es tr: ahí t es una variable)
+let FN = 't' // nombre de la función de traducción
 export const usarNombre = (n) => { FN = n }
 
 // ---- Tokenizador mínimo de JS: cadenas, plantillas, comentarios y regex ----
@@ -287,17 +287,9 @@ export function asegurarImport(src, ruta) {
 if (process.argv[1] && process.argv[1].endsWith('i18n-envolver.mjs')) {
   for (const ruta of process.argv.slice(2)) {
     const src = fs.readFileSync(ruta, 'utf8')
-    usarNombre(ruta.endsWith('motor.js') ? 'tr' : 't')
+    usarNombre('t')
     let r = ruta.endsWith('.vue') ? transformarVue(src) : transformarJS(src)
-    if (ruta.endsWith('motor.js')) {
-      // Textos oficiales del SAC (español), descripción aduanal y palabras de búsqueda: no se traducen
-      r = r.replace(/('\d+'\s*:\s*)tr\(('(?:[^'\\]|\\.)*')\)/g, '$1$2')
-      for (const bloque of ['TIPO_ALIAS', 'TIPO_CORTO_ES', 'MAT_STOP', 'SINONIMOS_BASE', 'ISO_DE', 'NOMBRE_CALZ', 'MAT_TXT', 'CAT_MAT']) {
-        r = r.replace(new RegExp(`((?:const ${bloque} =|Object\\.assign\\(${bloque},)[\\s\\S]*?\\n\\S*?[};)]+;?\\n)`, 'g'),
-          (m) => m.replace(/tr\(('(?:[^'\\]|\\.)*')\)/g, '$1'))
-      }
-      if (!/import \{ t as tr \}/.test(r)) r = "import { t as tr } from '../i18n/index.js'\n" + r
-    } else r = asegurarImport(r, fs.realpathSync(ruta))
+    r = asegurarImport(r, fs.realpathSync(ruta))
     if (r !== src) { fs.writeFileSync(ruta, r); console.log('✓', ruta) }
   }
 }

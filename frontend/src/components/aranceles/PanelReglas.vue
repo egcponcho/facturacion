@@ -27,17 +27,17 @@ const modal = ref(null)
 const ocupado = ref(false)
 
 const TIPO = { HARD_CONSTRAINT: t('Hard constraint'), SOFT_SIGNAL: t('Signal'), QUESTION_GATE: t('Question gate'), REVIEW_GATE: t('Review gate'), NATIONAL_SELECT: t('National selection') }
-const FUENTE = { INTERNAL_ENGINE: t('Engine'), MOTOR_JS: t('Product sheet logic'), LEGAL_NOTE: t('Legal note'), NATIONAL_TARIFF: t('National tariff'), LEARNED: t('Learned'), MANUAL: t('Manual') }
+const FUENTE = { INTERNAL_ENGINE: t('Engine'), SHEET_RULES: t('Product sheet logic'), LEGAL_NOTE: t('Legal note'), NATIONAL_TARIFF: t('National tariff'), LEARNED: t('Learned'), MANUAL: t('Manual') }
 const OPERADOR = { EQUAL: '=', NOT_EQUAL: '≠', IN: t('one of'), GT: '>', GTE: '≥', LT: '<', LTE: '≤', BETWEEN: t('between'), EXISTS: t('has a value') }
-const PESTANAS = [['', t('All')], ['NATIONAL_SELECT', t('National selection')], ['HARD_CONSTRAINT', t('Hard constraints')], ['MOTOR_JS', t('Product sheet logic')],
+const PESTANAS = [['', t('All')], ['NATIONAL_SELECT', t('National selection')], ['HARD_CONSTRAINT', t('Hard constraints')], ['SHEET_RULES', t('Product sheet logic')],
   ['QUESTION_GATE', t('Questions')], ['REVIEW_GATE', t('Review')], ['SOFT_SIGNAL', t('Signals')]]
 
 let temporizador = null
 async function cargar() {
   try {
-    // Las reglas extraídas de la ficha (motor.js) van en su propia pestaña
-    const fuente = f.tipo === 'MOTOR_JS' ? 'MOTOR_JS' : f.tipo ? '-MOTOR_JS' : undefined
-    datos.value = await api.get('/aranceles/reglas', { q: f.q || undefined, tipo: f.tipo && f.tipo !== 'MOTOR_JS' ? f.tipo : undefined, fuente,
+    // Las reglas de la ficha (por categoría) van en su propia pestaña
+    const fuente = f.tipo === 'SHEET_RULES' ? 'SHEET_RULES' : f.tipo ? '-SHEET_RULES' : undefined
+    datos.value = await api.get('/aranceles/reglas', { q: f.q || undefined, tipo: f.tipo && f.tipo !== 'SHEET_RULES' ? f.tipo : undefined, fuente,
       pais: f.pais || undefined, page: f.page, size: f.size })
   } catch (e) {
     errorApi(e)

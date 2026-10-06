@@ -4,9 +4,10 @@ Un producto es el estilo-color de un proveedor. Sus tallas (artículos) y sus
 prepacks comparten la ficha técnica, la partida SAC aprobada y el código
 nacional de cada país destino; de aquí los toman la OC y la factura.
 
-El motor de reglas corre en el navegador (frontend/src/clasificacion/motor.js)
-y manda su resultado al guardar; aquí se guarda, se valida lo que se aprueba y
-se lleva el historial. Aprobar y enseñar códigos es del equipo interno; la
+La clasificación la hace el motor único del servidor (motor_clasificacion):
+la ficha, el guardado, la clasificación masiva y la aprobación pasan por él;
+aquí se guarda lo que calcula, se valida lo que se aprueba y se lleva el
+historial y la evidencia. Aprobar y enseñar códigos es del equipo interno; la
 ficha la puede completar el proveedor.
 """
 import json

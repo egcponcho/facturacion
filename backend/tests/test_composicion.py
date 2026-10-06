@@ -1,6 +1,6 @@
 """Paridad de la lectura de composiciones: app/services/composicion.py frente a
-lo que devolvía motor.js (tests/paridad/composicion.json, generado con
-frontend/scripts/paridad-composicion.mjs antes de retirar el motor del navegador)."""
+lo que devolvía el antiguo clasificador del navegador (tests/paridad/composicion.json,
+casos fijados al retirarlo: son la referencia de regresión)."""
 import json
 from pathlib import Path
 

@@ -341,13 +341,13 @@ def atributos_lista(db: Db, user: User, q: str | None = None, dominio: str | Non
 
 @router.post("/aranceles/reglas/motor")
 def reglas_motor(db: Db, user: User, clave: Clave = None):
-    """Pone al día las reglas extraídas de la ficha (motor.js); no pisa las editadas."""
+    """Pone al día las reglas de la ficha (data/motor_reglas.json); no pisa las editadas."""
     from ..services import reglas
     from ..services.common import exigir
 
     def correr():
         exigir(user, "aranceles.editar")
-        return reglas.cargar_motor_js(db)
+        return reglas.cargar_reglas_ficha(db)
 
     return ejecutar(db, user, clave, correr)
 

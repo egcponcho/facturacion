@@ -1,10 +1,8 @@
-"""Paridad: el motor del servidor, con las reglas extraídas de motor.js
-(data/motor_reglas.json), da el mismo código que la ficha del navegador.
-
-Los casos los genera frontend/scripts/motor-reglas.mjs ejecutando motor.js
-(uno por regla y uno por fibra en las reglas con mapa de subpartidas). La
-prueba de node test_motor_atributos.py comprueba a su vez que el JSON sigue
-al día con motor.js."""
+"""Paridad: el motor del servidor, con las reglas de la ficha
+(data/motor_reglas.json), da el mismo código que daba el antiguo clasificador
+del navegador. Los casos esperados (uno por regla y uno por fibra en las
+reglas con mapa de subpartidas) quedaron fijos en ese archivo al retirarlo:
+son la referencia de regresión."""
 import json
 
 from app.db import SessionLocal
@@ -17,19 +15,19 @@ DATOS = json.loads(reglas.DATOS_MOTOR.read_text(encoding="utf-8"))
 
 def test_reglas_del_motor_sembradas(interno):
     with SessionLocal() as db:
-        n = db.scalar(select(ReglaClasificacion.id).where(ReglaClasificacion.tipo_fuente == "MOTOR_JS").limit(1))
+        n = db.scalar(select(ReglaClasificacion.id).where(ReglaClasificacion.tipo_fuente == "SHEET_RULES").limit(1))
         assert n, "las reglas de la ficha no se sembraron"
-        total = len(list(db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "MOTOR_JS",
+        total = len(list(db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "SHEET_RULES",
                                                                     ReglaClasificacion.activo.is_(True)))))
         assert total == len(DATOS["reglas"])
         # Volver a cargar no cambia nada
-        assert reglas.cargar_motor_js(db) == {"nuevas": 0, "actualizadas": 0, "editadas": 0, "retiradas": 0}
+        assert reglas.cargar_reglas_ficha(db) == {"nuevas": 0, "actualizadas": 0, "editadas": 0, "retiradas": 0}
     r = interno.get("/aranceles/reglas", params={"q": "R-MJS-CHAQUETA"}).json()
     assert r["total"] > 10 and all(x["tipo_ambito"] == "CATEGORY" and x["codigo_ambito"] == "chaqueta" for x in r["items"])
 
 
 def test_paridad_con_motor_js(interno):
-    """Todos los casos posibles: el servidor llega al mismo código que motor.js.
+    """Todos los casos posibles: el servidor llega al mismo código esperado.
     Los estados que la ficha nunca permite (p. ej. camiseta de tejido plano) los
     corrige el normalizador antes de las reglas: esos se omiten."""
     from app.services.ficha import Catalogo
@@ -105,10 +103,10 @@ def test_precedencia_de_reglas(interno):
     # Editada, la carga no la pisa
     with SessionLocal() as db:
         x = db.scalar(select(ReglaClasificacion).where(ReglaClasificacion.codigo == aplicada["regla"]))
-        assert reglas.cargar_motor_js(db)["editadas"] == 0
+        assert reglas.cargar_reglas_ficha(db)["editadas"] == 0
         x.condiciones[0].valor = ["general"]
         db.flush()
-        assert reglas.cargar_motor_js(db)["editadas"] == 1
+        assert reglas.cargar_reglas_ficha(db)["editadas"] == 1
         db.rollback()
 
 

@@ -21,7 +21,7 @@ def _sesion(api, entrada):
 
 
 def test_categoria_historica_usa_el_motor_del_servidor(interno):
-    """Calzado (antes motor.js): ficha natural → hechos derivados → reglas → HS6 → SAC → países, con evidencia."""
+    """Calzado (antes clasificado en el navegador): ficha natural → hechos derivados → reglas → HS6 → SAC → países, con evidencia."""
     s = _sesion(interno, CALZADO)
     assert s["hs6"] == "640419" and s["confianza"] == "high"
     assert s["hechos"]["upper"] == "textil" and s["hechos"]["sole"] == "caucho"  # derivados de la composición en Python

@@ -106,7 +106,7 @@ The **item code** is free: any numeric or alphanumeric code of up to 40 characte
 - **Technical sheet**: product type, gender, who it is for, use, size range, country of origin, composition by part (outer fabric, lining, upper, sole…), the features that change the code (only those are asked), photos and the customs description in Spanish (built from the sheet, or written by hand): complete — what the product is, its parts (upper and sole), height, fabric, fill, use and who it is for — but with each material said only by its category: **CUERO, TEXTIL or SINTÉTICO** (rubber, plastics and artificial leather), without percentages or fibers and without the brand (it has its own field), e.g. *TENIS CON CORTE DE TEXTIL Y SUELA DE SINTÉTICO, SIN CUBRIR EL TOBILLO, PARA DEPORTE O ENTRENAMIENTO, UNISEX*.
 - **Classification engine**: runs in the browser while the sheet is edited. It applies the Harmonized System 2022 rules (GRI, section and chapter notes) for clothing, footwear, bags and accessories, learns from what was already approved and returns the 6-digit SAC subheading, its confidence, the reasoning, alternatives and inconsistencies to check.
 - **National codes by destination**: GT, SV and HN use 10 digits; NI, CR and PA 12. They come from a base of national codes with conditions (gender, age, use, CIF value…). When a country splits the subheading further, the sheet asks only for that data. The internal team types the national code directly in the *By destination* table (it applies when leaving the field, checking the digits and the subheading), can go back to the automatic code and **remember** it for similar products. Similar products show their generic. The sheet no longer asks for the size range: it comes from the generic's sizes. Each material typed in the composition shows how it counts for the tariff (leather, textile, rubber or plastics, synthetic): trade names such as synthetic suede, PU leather, leatherette, cowhide, nubuk, phylon, flyknit or corduroy are recognized, and unknown words can be taught. The classification panel shows the 6-digit SAC subheading and the **SAC legal notes** that apply (general rules, section, chapter and subheading notes); they are edited in *Tariff schedule → SAC legal notes* and the specialist opinion reads them too. The base is the **official text of the SAC** taken from SIECA's Arancel Centroamericano de Importación (VII Amendment, version 6, August 2025): 518 notes (the six General Rules, section notes, chapter notes, subheading notes and the Central American complementary notes of every chapter). The panel lists first the notes cited by the engine and those that touch the sheet (baby, unisex, coated, leather, sport…). Notes can be edited, loaded from Excel and exported. When a national code is added or edited, the form shows only the conditions that split its subheading: the ones that country already uses there, the ones other countries use and the ones that open national codes in its chapter, plus how that country splits the subheading today (all of them can still be shown). Guatemala, El Salvador and Honduras (10 digits) come with the official tariff lines of the ACI (SIECA, VII Amendment, version 6) for the chapters the engine classifies, with their DAI and the conditions deduced from their text (metal toe cap, covering the ankle or the knee, overshoe, for men/women/babies, hats); the conditions of the company base are kept where the line matches. The full list of SAC headings and subheadings (6,607) is loaded with its official text. Nicaragua, Costa Rica (12 digits) and Panama (own tariff) keep the company base until their national tariffs are loaded with *Upload codes*. `backend/scripts/sieca` rebuilds these files from a new ACI version.
-- **Any product of the SAC**: besides the categories the engine classifies by itself (clothing, footwear, bags, accessories, camping, packaging…), the category *Any other product* lets you search the subheading in the whole official SAC (6,607 headings and subheadings) by words or by code. The sheet then applies that chapter's section, chapter and complementary notes and the national codes of every country: the tariff lines of the ACI for all 96 chapters (8,242 per country for Guatemala, El Salvador and Honduras, with their DAI) are loaded, and those outside the engine's chapters are fetched when the subheading is chosen. Nicaragua, Costa Rica and Panama show their code once their national tariff is loaded. An optional name in Spanish is used for the customs description.
+- **Any product**: chemicals, raw materials or anything else uses the same sheet with the generic categories (*Chemical*, *Raw material*, *Other*) or any category created in the configuration. Candidates come from the official tariff text of the enabled chapters, and the result stays a suggestion that a specialist confirms.
 - **Legal basis**: each destination country has its legal basis (the Central American Import Tariff for the MCCA countries, with the 12-digit national openings of Nicaragua and Costa Rica; Panama's National Import Tariff). It is edited in *Tariff schedule → Countries* and shown under the national codes of each sheet.
 - **Explanatory notes**: the notes panel also lists the explanatory notes of the heading. It comes with short summaries of our own for the headings of chapters 42, 61, 62, 64 and 65, marked as such; the official text of the WCO Explanatory Notes is copyrighted and not included, but it can be loaded (kind *Explanatory note (HS)*, heading code) with *Upload notes*.
 - **Trade agreements by origin**: the *Trade agreements* tab of each product shows, for every destination country and according to its country of origin, whether a trade agreement covers that origin and which proof of origin (certificate of origin, EUR.1, FAUCA…) must be presented to get the preference; without one, the full DAI applies. It comes with a reference base of the agreements in force for Central America and Panama (MCCA, DR-CAFTA, EU and UK association agreements, Mexico, Korea, China–Costa Rica, China–Nicaragua, Taiwan–Guatemala, Colombia, Chile, Peru, Canada, Singapore, Dominican Republic, EFTA, Israel–Panama), maintained in *Master data → Trade agreements* (origin and destination ISO codes, proof of origin, notes). Check it against the official sources before relying on it.
@@ -147,10 +147,24 @@ The **item code** is free: any numeric or alphanumeric code of up to 40 characte
 
   Loads never delete what is published.
 
-Products outside the apparel/footwear/accessories sheet (chemicals, raw materials, anything else) use **Other product**:
-- The questions come from the attribute catalog.
-- The candidates come from the official tariff text, and only from enabled chapters.
-- The result is always a suggestion that a specialist confirms.
+### One classification engine (server)
+
+There is **a single classification engine**, in Python (`backend/app/services/motor_clasificacion.py`). The product sheet, saving, bulk classification, uploads, approval and the specialist opinion all call it; the browser only shows and edits (it has no classification logic).
+
+- **Natural sheet → facts.** The UI sends the sheet as typed (category, composition by part, gender, age, use…). The server normalizes it (`ficha.py`): reads compositions (`composicion.py`), derives facts (predominant fiber, upper/sole material…), applies implications and option blocks, detects what the name and use say, and keeps what the person chose.
+- **Every category works the same way**, footwear and apparel included. Categories (`CategoriaProducto`), attributes, options, dependencies and scopes are data. Create a domain, a category, its attributes, options, scopes, rules and national codes in *Tariff schedule*, and its products are classified without code changes.
+- **Scopes (SHOW / REQUIRE / HIDE).** The most specific scope wins: category > domain > subheading > heading > chapter > system. Ties go to priority, then HIDE > REQUIRE > SHOW, then the newest.
+- **Rules.** A higher number means higher precedence. There are three layers: legal (legal notes, national tariff), system and company. A company rule never breaks a legal restriction (`blocked_by_legal`). A rule that collides with a higher one is `overridden_by`.
+  - RESTRICT and EXCLUDE narrow the allowed codes.
+  - BOOST only raises allowed codes.
+  - ASK asks for data.
+  - REVIEW and WARN send the product to review.
+
+  Every rule has a revision number and a signature. A legal rule must reference its legal note, and the UI shows *Legal evidence* apart from *System rule* and *Company rule*. Rule codes are checked against the tree of the version in force.
+- **Versions.** The version in force is resolved by date and scope (regional or per country). The same entry with the same date reproduces a past classification. National lines come only from the country's version in force and within their own validity; official lines are never edited, and company changes are overrides with a reason.
+- **National codes.** Each country has its valid lengths (`10, 12`…). A code is validated against them and never truncated. A company code is accepted only with a valid length and inside the subheading.
+- **Evidence.** Each answer carries the version, inputs, derived facts, rules (evaluated, applied, overridden), legal notes, HS6, SAC, national codes, confidence, alternatives, review reasons and overrides. Approval stores it in the product and in each version.
+- **History** only boosts codes the rules allow.
 
 A code from a chapter that is not enabled cannot be approved.
 
@@ -354,13 +368,13 @@ backend/app/
   models.py          data model
   services/          business logic (quantities, invoices, packing, transport, import, access, SMS, suggestions,
                      products and classification, specialist opinion)
-  data/              base of national tariff codes, SAC texts and the engine vocabulary
+  data/              base of national tariff codes, SAC texts and the seed catalog of the engine (categories, attributes, sheet rules)
   routers/           REST endpoints under /api
-backend/tests/       full flow, packing rules, secure access and concurrency
+backend/tests/       full flow, classification engine (end to end, parity fixtures in tests/paridad), packing rules, secure access and concurrency
 frontend/src/
   views/             Home, Orders, Invoices, Invoice, Packing list, Shipments, Shipment, Products, Product, Tracking,
                      and under Settings: Master data, Templates, Import, Users
-  clasificacion/     tariff classification engine (pure logic) and its bridge to the API
+  clasificacion/     calls to the classification engine (/clasificacion/sesion) and code formatting (no classification logic)
   components/        icons, steps, SVG charts, bulk action bar, modals, statuses, destinations and load units
   stores/            session, invoicing selection, notices
 ```

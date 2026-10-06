@@ -1,5 +1,5 @@
 {
- "origen": "frontend/src/clasificacion/motor.js (ATTRS, partesDe, detectar, DET_TIPO, CAP_OK)",
+ "origen": "Catálogo semilla de la ficha (categorías, atributos, opciones, ámbitos, derivaciones, detección y textos de aduana). Fue extraído del antiguo clasificador del navegador; hoy es solo dato de siembra: lo vigente está en la base y se edita en Aranceles.",
  "categorias": [
   {
    "codigo": "camiseta",

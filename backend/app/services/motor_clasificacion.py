@@ -14,7 +14,7 @@ y el lote:
 Precedencia de reglas (determinista):
 - Capas: LEGAL (LEGAL_NOTE, NATIONAL_TARIFF) es un límite duro: lo que
   restringe o excluye no lo puede deshacer ninguna otra regla. SISTEMA
-  (INTERNAL_ENGINE, MOTOR_JS, LEARNED) y PROPIA (MANUAL) compiten por prioridad.
+  (INTERNAL_ENGINE, SHEET_RULES, LEARNED) y PROPIA (MANUAL) compiten por prioridad.
 - Prioridad: mayor número = mayor precedencia. Se evalúan de mayor a menor;
   a igual prioridad, SISTEMA antes que PROPIA y luego el código de la regla.
 - RESTRICT: deja solo los códigos de la regla (intersección con lo vigente).
@@ -58,7 +58,7 @@ OPERADORES = ("EQUAL", "NOT_EQUAL", "IN", "GT", "GTE", "LT", "LTE", "BETWEEN", "
 ACCIONES = ("RESTRICT", "EXCLUDE", "BOOST", "ASK", "REVIEW", "WARN", "BUILTIN")
 ACCION_TIPO = {"HARD_CONSTRAINT": "RESTRICT", "SOFT_SIGNAL": "BOOST", "QUESTION_GATE": "ASK", "REVIEW_GATE": "REVIEW"}
 FAMILIAS_BASE = {"ACTIVE_CHAPTERS", "TEXT_CANDIDATES", "NEXT_BEST_QUESTION", "AMBIGUITY", "FAMILY_NOT_LEGAL", "LEGAL_PRIORITY"}
-CAPA = {"LEGAL_NOTE": "LEGAL", "NATIONAL_TARIFF": "LEGAL", "INTERNAL_ENGINE": "SISTEMA", "MOTOR_JS": "SISTEMA", "LEARNED": "SISTEMA",
+CAPA = {"LEGAL_NOTE": "LEGAL", "NATIONAL_TARIFF": "LEGAL", "INTERNAL_ENGINE": "SISTEMA", "SHEET_RULES": "SISTEMA", "LEARNED": "SISTEMA",
         "MANUAL": "PROPIA"}
 CAPA_ORDEN = {"LEGAL": 0, "SISTEMA": 1, "PROPIA": 2}
 
