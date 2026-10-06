@@ -359,3 +359,26 @@ def test_aprobar_respeta_control_de_capitulos(interno):
     det = interno.get(f"/productos/{p['id']}").json()
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "0101210000", "forzar": True})
     assert r.status_code == 422 and r.json()["codigo"] == "capitulo_no_habilitado", r.text
+
+
+def test_producto_guarda_hs6_y_cada_pais_su_linea_con_evidencia(interno):
+    """El producto guarda el HS6; la línea SAC va aparte y solo si existe en el
+    árbol oficial; un código nacional no se acepta como código del producto;
+    cada país guarda su línea oficial, versión, regla, impuestos y regulaciones."""
+    ps = interno.get("/productos", params={"size": 50}).json()["items"]
+    p = next(x for x in ps if x["estado"] not in ("aprobado", "corregido") and x["tipo"] == "calzado")
+    det = interno.get(f"/productos/{p['id']}").json()
+    # Un código nacional de 12 dígitos no es una línea SAC
+    r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640419900090", "forzar": True})
+    assert r.status_code == 422 and r.json()["codigo"] == "no_es_linea_sac", r.text
+    partidas = {"GT": {"codigo": "6404199000", "estado": "ok", "dai": "15"},
+                "PA": {"codigo": "640419970000", "estado": "ok", "manual": True, "sugerido": "640419910000", "motivo": "Revisado con la nota 4"}}
+    r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "6404199000", "partidas": partidas, "forzar": True})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["codigo"] == "6404.19" and d["sac_codigo"] == "6404.19.90.00"
+    assert d["evidencia"]["version_arancel"] == "SAC-2025-V6" and "R-SYS-001" in d["evidencia"]["reglas_sistema"]
+    gt, pa = d["partidas"]["GT"], d["partidas"]["PA"]
+    assert gt["inciso_id"] and gt["evidencia"]["linea_oficial"] and any(i["tipo"] == "IVA" for i in gt["evidencia"]["impuestos"])
+    assert gt["sugerido"] == "6404199000" and gt["aprobado_en"]
+    assert pa["codigo"] == "640419970000" and pa["sugerido"] == "640419910000" and pa["motivo"] == "Revisado con la nota 4"

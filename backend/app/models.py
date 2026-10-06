@@ -463,9 +463,16 @@ class Producto(Base):
     vigente_desde: Mapped[date | None] = mapped_column(Date)
     # borrador | sugerida (borrador completo) | revision (enviada) | aprobado | corregido | observado
     estado: Mapped[str] = mapped_column(String(12), default="borrador", index=True)
-    sugerido: Mapped[str | None] = mapped_column(String(14))  # partida del motor
-    propuesta: Mapped[str | None] = mapped_column(String(14))  # traída de un archivo o del proveedor
-    codigo: Mapped[str | None] = mapped_column(String(14))  # partida aprobada
+    # Clasificación genérica del producto: el HS6 (estable, internacional). La
+    # línea regional SAC va aparte y cada país tiene su propia clasificación
+    # (PartidaPais); un código nacional nunca se guarda como código del producto.
+    sugerido: Mapped[str | None] = mapped_column(String(14))  # HS6 del motor
+    propuesta: Mapped[str | None] = mapped_column(String(14))  # HS6 traído de un archivo o del proveedor
+    codigo: Mapped[str | None] = mapped_column(String(14))  # HS6 aprobado
+    sac_sugerido: Mapped[str | None] = mapped_column(String(10))  # línea SAC regional sugerida (8-10)
+    sac_codigo: Mapped[str | None] = mapped_column(String(10))  # línea SAC regional aprobada
+    version_arancel_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id", name="fk_productos_version"))
+    evidencia: Mapped[dict | None] = mapped_column(JSON)  # versión, reglas, candidatos y razones al aprobar
     confianza: Mapped[str | None] = mapped_column(String(10))
     fuente: Mapped[str | None] = mapped_column(String(12))  # regla | historial | criterio
     perfil: Mapped[str | None] = mapped_column(String(200))
@@ -514,6 +521,17 @@ class PartidaPais(Base):
     estado: Mapped[str] = mapped_column(String(12))  # ok | auto | sac | nuevo | sinarancel | elegir
     fuente: Mapped[str | None] = mapped_column(String(12))  # base | aprendido | manual | arancel
     manual: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Clasificación nacional con evidencia: la línea oficial elegida (no un
+    # código recortado), su versión y fuente, lo sugerido frente a lo final,
+    # el motivo si se cambió y lo que aplicaba al aprobar (regla, impuestos, regulaciones)
+    inciso_id: Mapped[int | None] = mapped_column(ForeignKey("incisos_nacionales.id", ondelete="SET NULL", name="fk_partidas_inciso"))
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id", name="fk_partidas_version"))
+    fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id", name="fk_partidas_fuente"))
+    sugerido: Mapped[str | None] = mapped_column(String(14))
+    motivo: Mapped[str | None] = mapped_column(String(300))  # por qué el final difiere del sugerido
+    aprobado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", name="fk_partidas_aprobado_por"))
+    aprobado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    evidencia: Mapped[dict | None] = mapped_column(JSON)  # regla nacional, condiciones, impuestos y regulaciones
 
     producto: Mapped[Producto] = relationship(back_populates="partidas")
 

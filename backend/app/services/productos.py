@@ -27,6 +27,9 @@ from ..models import (
     GrupoArticulo,
     Historial,
     IncisoNacional,
+    NodoArancel,
+    ReglaClasificacion,
+    VersionDataset,
     Marca,
     Pais,
     PaisArancel,
@@ -44,6 +47,7 @@ from ..models import (
     ahora,
 )
 from .acuerdos import acuerdos_contexto, cargar_acuerdos
+from .arbol import VERSION_SAC
 from .atributos import config_motor as atributos_cfg
 from .generico import dominios_ficha
 from .meta import meta as meta_motor
@@ -251,7 +255,7 @@ def partida_para(p: Producto | None, pais: str | None) -> str | None:
         x = next((x for x in p.partidas if x.pais == pais), None)
         if x and x.estado in ("ok", "auto", "sac") and len(digitos(x.codigo)) >= 8:
             return fmt_codigo(x.codigo)
-    return fmt_codigo(p.codigo)
+    return fmt_codigo(p.sac_codigo or p.codigo)
 
 
 def clasificacion_txt(p: Producto | None) -> dict:
@@ -328,7 +332,7 @@ def partidas_simples(db: Session, p: Producto, codigo: str) -> dict:
             out[iso] = {"codigo": "", "estado": "elegir"}
         else:
             x = mejor[3]
-            out[iso] = {"codigo": digitos(x.codigo)[:n], "estado": "ok", "dai": x.dai or "", "fuente": x.fuente}
+            out[iso] = {"codigo": digitos(x.codigo), "estado": "ok", "dai": x.dai or "", "fuente": x.fuente}
     return out
 
 
@@ -346,6 +350,12 @@ def _guardar_partidas(p: Producto, partidas: dict | None) -> None:
         fila.estado = str(x.get("estado") or "ok")[:12]
         fila.fuente = (x.get("fuente") or None) and str(x.get("fuente"))[:12]
         fila.manual = bool(x.get("manual"))
+        if not fila.manual:
+            fila.sugerido = fila.codigo  # lo que eligió el motor (para comparar con el final)
+        elif x.get("sugerido"):
+            fila.sugerido = digitos(x.get("sugerido"))[:14]
+        if x.get("motivo"):
+            fila.motivo = str(x["motivo"])[:300]
         if iso not in previas:
             p.partidas.append(fila)
 
@@ -377,6 +387,7 @@ def _resumen(p: Producto, tallas: dict, ds: list[dict]) -> dict:
         "grupo": p.grupo.codigo if p.grupo else None, "tipo": p.tipo, "estado": p.estado,
         "estado_txt": ESTADOS.get(p.estado, p.estado),
         "codigo": fmt_codigo(p.codigo) if p.codigo else None, "sugerido": fmt_codigo(p.sugerido) if p.sugerido else None,
+        "sac_codigo": fmt_codigo(p.sac_codigo) if p.sac_codigo else None, "sac_sugerido": fmt_codigo(p.sac_sugerido) if p.sac_sugerido else None,
         "propuesta": fmt_codigo(p.propuesta) if p.propuesta else None,
         "confianza": p.confianza, "ficha_completa": p.ficha_completa, "faltan": p.faltan or [],
         "paises_ok": ok, "paises_total": total, "foto_id": foto, "pais_origen": p.pais_origen,
@@ -520,7 +531,10 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
         "resolucion": p.resolucion, "notas": p.notas, "opinion_ia": p.opinion_ia,
         "revisado_por": p.revisado_por.nombre if p.revisado_por else None, "revisado_en": p.revisado_en,
         "vigente_desde": p.vigente_desde, "creado_en": p.creado_en,
+        "evidencia": p.evidencia,
         "partidas": {x.pais: {"codigo": x.codigo, "dai": x.dai or "", "estado": x.estado, "fuente": x.fuente,
+                              "sugerido": x.sugerido, "motivo": x.motivo, "inciso_id": x.inciso_id, "evidencia": x.evidencia,
+                              "aprobado_en": x.aprobado_en,
                               "manual": x.manual, "digitos": dig.get(x.pais, 10)} for x in p.partidas},
         "fotos": [{"id": f.id, "nombre": f.nombre} for f in p.fotos],
         "versiones": [{"version": v.version, "desde": v.desde, "hasta": v.hasta, "motivo": v.motivo,
@@ -556,7 +570,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
     for p in db.scalars(q.order_by(Producto.actualizado_en.desc()).limit(3000)):
         f = p.ficha or {}
         recs.append({"id": p.id, "estilo": p.estilo, "color": p.color, "generico": p.codigo_generico,
-                     "tipo": p.tipo, "perfil": p.perfil, "codigo": p.codigo, "desc": p.nombre or p.descripcion_aduana,
+                     "tipo": p.tipo, "perfil": p.perfil, "codigo": p.sac_codigo or p.codigo, "desc": p.nombre or p.descripcion_aduana,
                      "descArchivo": p.nombre, "marca": p.marca.nombre if p.marca else None, "comp": f.get("comp") or {},
                      "estiloCalz": f.get("estiloCalz"), "estado": p.estado,
                      "tsMod": int(p.actualizado_en.timestamp() * 1000) if p.actualizado_en else 0})
@@ -596,7 +610,8 @@ def _aplicar_resultado(p: Producto, r: dict | None) -> None:
     if hasattr(r, "model_dump"):
         r = r.model_dump()
     sug = digitos(r.get("sugerido"))
-    p.sugerido = sug[:14] if len(sug) >= 6 else None
+    p.sugerido = sug[:6] if len(sug) >= 6 else None  # el producto guarda el HS6
+    p.sac_sugerido = sug if len(sug) in (8, 10) else None  # la línea SAC se valida al aprobar
     p.confianza = (r.get("confianza") or None) and str(r["confianza"])[:10]
     p.fuente = (r.get("fuente") or None) and str(r["fuente"])[:12]
     p.perfil = (r.get("perfil") or None) and str(r["perfil"])[:200]
@@ -675,11 +690,20 @@ def clasificar_lote(db: Session, user: Usuario, items: list) -> dict:
 
 # ---- Aprobar, devolver y versiones -------------------------------------------
 def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partidas: dict | None) -> None:
-    oficial = digitos(codigo or p.propuesta or p.sugerido)
+    oficial = digitos(codigo or p.propuesta or p.sac_sugerido or p.sugerido)
     if len(oficial) < 6:
         raise ErrorNegocio(f"{p.estilo}: there is no HS code to approve.", 422, "sin_partida")
     if len(oficial) > 14:
         raise ErrorNegocio("The HS code is too long.", 422, "validacion")
+    # El producto guarda el HS6; la línea SAC regional solo si existe en el árbol oficial vigente
+    version = db.scalar(select(VersionDataset).where(VersionDataset.codigo == VERSION_SAC))
+    sac = None
+    if len(oficial) > 6:
+        if not version or not db.scalar(select(NodoArancel.id).where(NodoArancel.version_id == version.id, NodoArancel.pais.is_(None),
+                                                                        NodoArancel.codigo_norm == oficial)):
+            raise ErrorNegocio(f"{fmt_codigo(oficial)} is not an official SAC line of the tariff in force. "
+                               "The product keeps its HS6 and each country chooses its own national line.", 422, "no_es_linea_sac")
+        sac = oficial
     # R-SYS-001: solo capítulos activos y habilitados para clasificar
     cap = db.scalar(select(ControlCapitulo).where(ControlCapitulo.capitulo == oficial[:2]))
     if cap and not (cap.activo and cap.clasificacion and not cap.archivado):
@@ -696,15 +720,45 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
             raise ErrorNegocio(f"The code for {iso} must start with {fmt_codigo(oficial[:6])}.", 422, "validacion")
     sug = digitos(p.sugerido)
     p.estado = "aprobado" if not sug or sug[:6] == oficial[:6] else "corregido"
-    p.codigo = oficial[:14]
+    p.codigo = oficial[:6]
+    p.sac_codigo = sac
     p.propuesta = None
+    p.version_arancel_id = version.id if version else None
+    p.evidencia = {"fecha": ahora().isoformat(), "hs6": oficial[:6], "sac": sac, "sugerido": sug or None,
+                   "version_arancel": version.codigo if version else None, "checksum": version.checksum if version else None,
+                   "confianza": p.confianza, "fuente": p.fuente, "razones": (p.analisis or {}).get("razones", [])[:20],
+                   "reglas_sistema": [r.codigo for r in db.scalars(select(ReglaClasificacion).where(
+                       ReglaClasificacion.tipo_regla != "NATIONAL_SELECT", ReglaClasificacion.activo.is_(True)))]}
     _guardar_partidas(p, parts)
+    db.flush()
+    _evidencia_paises(db, user, p)
     p.revisado_por_id = user.id
     p.revisado_en = ahora()
     tocar(p)
     registrar(db, user, "producto", p.id, "aprobado" if p.estado == "aprobado" else "corregido",
               {"codigo": fmt_codigo(oficial), "sugerido": fmt_codigo(sug) or None,
                "paises": {iso: fmt_codigo(x.get("codigo")) for iso, x in (parts or {}).items() if x.get("codigo")}})
+
+
+def _evidencia_paises(db: Session, user: Usuario, p: Producto) -> None:
+    """Liga cada código nacional a su línea oficial (sin recortar nada) y
+    guarda lo que aplicaba al aprobar: versión, fuente, regla de selección,
+    impuestos y regulaciones."""
+    from .nacional import requisitos
+
+    for x in p.partidas:
+        cod = digitos(x.codigo)
+        inc = db.scalar(select(IncisoNacional).where(IncisoNacional.pais == x.pais, IncisoNacional.codigo == cod,
+                                                     IncisoNacional.activo.is_(True)).order_by(IncisoNacional.version_id.is_(None)))
+        x.inciso_id = inc.id if inc else None
+        x.version_id = inc.version_id if inc else None
+        x.fuente_id = inc.fuente_id if inc else None
+        req = requisitos(db, x.pais, cod, inc.dai if inc else x.dai)
+        x.evidencia = {"linea_oficial": bool(inc), "fuente_dato": inc.fuente if inc else x.fuente,
+                       "regla": {"codigo": inc.regla.codigo, "condiciones": inc.cond, "prioridad": inc.prio} if inc and inc.regla else None,
+                       "impuestos": [{k: i[k] for k in ("codigo", "tipo", "tasa", "base_calculo", "base_legal")} for i in req["impuestos"]],
+                       "regulaciones": [{k: r[k] for k in ("codigo", "tipo", "nombre", "autoridad", "base_legal")} for r in req["regulaciones"]]}
+        x.aprobado_por_id, x.aprobado_en = user.id, ahora()
 
 
 def aprobar(db: Session, user: Usuario, producto_id: int, datos) -> dict:

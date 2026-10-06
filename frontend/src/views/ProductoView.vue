@@ -43,7 +43,7 @@ const puedeEnviar = computed(() => !!p.value && ['borrador', 'sugerida', 'observ
 const puedeAprobar = computed(() => !!p.value?.puede_aprobar)
 
 const r = computed(() => (ctx.value && p.value && f.id ? calcular(f, ctx.value, codOficial.value) : null))
-const codigo = computed(() => (aprobado.value ? p.value.codigo : codOficial.value || M.fmtCode(r.value?.o.completo || r.value?.o.codigo || '')))
+const codigo = computed(() => (aprobado.value ? p.value.sac_codigo || p.value.codigo : codOficial.value || M.fmtCode(r.value?.o.completo || r.value?.o.codigo || '')))
 const codigo6 = computed(() => M.digits(codigo.value).slice(0, 6))
 // Notas legales del SAC que aplican a la subpartida: primero las del capítulo
 // y de subpartida, luego las de sección y al final las reglas generales
