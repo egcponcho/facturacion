@@ -181,19 +181,24 @@ def borrar_sac(db: Session, user: Usuario, sac_id: int) -> None:
 
 
 # ---- Condiciones que aplican a un código nacional ----------------------------------------------
-# Qué datos de la ficha pueden abrir un inciso nacional en cada capítulo: lo
-# que distingue las aperturas nacionales de ese capítulo (sexo y edad en
-# prendas y calzado, estilo y puntera en calzado, forma en tocados…). El valor
-# CIF lo usan algunos países en cualquier capítulo.
-COND_CAPITULO = {
-    "42": ["claseBolso", "usoPrevisto", "genero"],
-    "61": ["genero", "edadNac", "tejido", "largo", "manga", "conCuello", "capucha", "peto", "sueter", "usoPrevisto"],
-    "62": ["genero", "edadNac", "tejido", "largo", "manga", "mezclilla", "conCuello", "capucha", "peto", "usoPrevisto"],
-    "63": ["usoPrevisto", "edadNac"],
-    "64": ["genero", "edadNac", "estiloCalz", "puntera", "altura", "suelaEspumosa", "rodeaDedo", "usoPrevisto"],
-    "65": ["formaTocado", "genero", "edadNac", "usoPrevisto"],
-    "95": ["usoPrevisto", "edadNac"],
-}
+# Qué datos de la ficha pueden abrir un inciso nacional en un capítulo: los
+# atributos (de las condiciones) que aplican a ese capítulo, a sus categorías o
+# a sus dominios según el catálogo. El valor CIF lo usan algunos países en
+# cualquier capítulo.
+def _conds_capitulo(db: Session, cap: str, oc: dict) -> list[str]:
+    from .ficha import catalogo
+
+    cat = catalogo(db)
+    cats = {c.codigo for c in cat.categorias.values() if cap in (c.capitulos or [])}
+    doms = {c.dominio for c in cat.categorias.values() if c.codigo in cats and c.dominio}
+    out = []
+    for a in cat.atributos:
+        if a.codigo in oc and any((x.tipo == "CHAPTER" and x.codigo == cap) or (x.tipo == "CATEGORY" and x.codigo in cats)
+                                  or (x.tipo == "DOMAIN" and x.codigo in doms) or (x.tipo == "SYSTEM" and a.seccion == "nacional") for x in a.ambitos):
+            out.append(a.codigo)
+    return out
+
+
 COND_SIEMPRE = ["cifMax", "cifMin"]
 
 
@@ -204,7 +209,7 @@ def condiciones_aplicables(db: Session, user: Usuario, pais: str | None, codigo:
     exigir(user, "producto.ver")
     cod = _dig(codigo)
     sub6, cap = cod[:6], cod[:2]
-    oc = opciones_cond()
+    oc = opciones_cond(db)
     if len(sub6) < 6:
         return {"aplican": list(oc), "del_pais": [], "de_otros": [], "hermanos": [], "subpartida": None}
     pais = (pais or "").upper()
@@ -215,11 +220,11 @@ def condiciones_aplicables(db: Session, user: Usuario, pais: str | None, codigo:
         for k in (x.cond or {}):
             destino[k] = destino.get(k, 0) + 1
         if x.pais == pais:
-            hermanos.append({"codigo": x.codigo, "codigo_txt": _fmt(x.codigo), "cond_txt": cond_texto(x.cond or {}) or "Any product",
+            hermanos.append({"codigo": x.codigo, "codigo_txt": _fmt(x.codigo), "cond_txt": cond_texto(db, x.cond or {}) or "Any product",
                              "descripcion": x.descripcion, "dai": x.dai})
     en_cap = {k for x in db.scalars(select(IncisoNacional).where(IncisoNacional.sub6.startswith(cap))) for k in (x.cond or {})}
     orden = list(del_pais) + [k for k in de_otros if k not in del_pais] + \
-        [k for k in COND_CAPITULO.get(cap, []) + sorted(en_cap) if k not in del_pais and k not in de_otros]
+        [k for k in _conds_capitulo(db, cap, oc) + sorted(en_cap) if k not in del_pais and k not in de_otros]
     aplican = [k for k in dict.fromkeys(orden + COND_SIEMPRE) if k in oc]
     return {"aplican": aplican, "del_pais": list(del_pais), "de_otros": list(de_otros), "hermanos": hermanos,
             "subpartida": {"codigo": _fmt(sub6), "descripcion": textos_sac(db, [sub6]).get(sub6)}}
@@ -328,9 +333,11 @@ def _q_incisos(filtros: dict):
 
 
 def _fila_inciso(x: IncisoNacional, sac: dict) -> dict:
+    from sqlalchemy.orm import object_session
+
     return {"id": x.id, "pais": x.pais, "codigo": x.codigo, "codigo_txt": _fmt(x.codigo), "sub6": x.sub6,
             "sac": sac.get(x.sub6), "descripcion": x.descripcion, "dai": x.dai, "cond": x.cond or {},
-            "cond_txt": cond_texto(x.cond), "prio": x.prio, "nota": x.nota, "fuente": x.fuente,
+            "cond_txt": cond_texto(object_session(x), x.cond), "prio": x.prio, "nota": x.nota, "fuente": x.fuente,
             "fuente_txt": FUENTES.get(x.fuente, x.fuente), "activo": x.activo}
 
 
@@ -349,8 +356,8 @@ def listar_incisos(db: Session, user: Usuario, filtros: dict, page: int, size: i
             "por_pais": por_pais}
 
 
-def _cond_limpia(cond: dict | None) -> dict:
-    oc = opciones_cond()
+def _cond_limpia(db: Session, cond: dict | None) -> dict:
+    oc = opciones_cond(db)
     out = {}
     for k, v in (cond or {}).items():
         if k not in oc or v in (None, "", []):
@@ -391,7 +398,7 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
             raise ErrorNegocio("Official national codes cannot change their country, code or duty; load a new version instead.", 422, "oficial")
         cambios = {"descripcion": (datos.descripcion or "").strip()[:300] or None, "nota": (datos.nota or "")[:300] or None, "activo": datos.activo}
         guardar_override_inciso(db, user, x, cambios, datos.motivo)
-        x.cond = _cond_limpia(datos.cond)
+        x.cond = _cond_limpia(db, datos.cond)
         x.prio = datos.prio or 0
         db.flush()
         return {"id": x.id}
@@ -401,7 +408,7 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
     x.pais, x.codigo, x.sub6 = pais, cod, cod[:6]
     x.descripcion = (datos.descripcion or "").strip()[:300] or None
     x.dai = (datos.dai or "").replace("%", "").strip()[:10] or None
-    x.cond = _cond_limpia(datos.cond)
+    x.cond = _cond_limpia(db, datos.cond)
     x.prio, x.nota, x.activo = datos.prio or 0, (datos.nota or "")[:300] or None, datos.activo
     db.flush()
     registrar(db, user, "aranceles", x.id, "codigo_nacional", {"pais": pais, "codigo": _fmt(cod)})
@@ -451,16 +458,21 @@ def borrar_incisos(db: Session, user: Usuario, ids: list[int]) -> dict:
 
 
 # ---- Cargas desde Excel ------------------------------------------------------------------
-def _columnas_cond() -> list[tuple[str, dict]]:
-    return list(opciones_cond().items())
+def _columnas_cond(db: Session) -> list[tuple[str, dict]]:
+    """Columnas de condición de la plantilla: una por dato, con nombre único."""
+    out, vistos = [], {}
+    for k, d in opciones_cond(db).items():
+        n = vistos[d["label"]] = vistos.get(d["label"], 0) + 1
+        out.append((k, {**d, "label": d["label"] if n == 1 else f"{d['label']} ({k})"}))
+    return out
 
 
-def _alias_incisos() -> dict[str, str]:
+def _alias_incisos(db: Session) -> dict[str, str]:
     a = {"country": "pais", "pais": "pais", "iso": "pais", "code": "codigo", "national_code": "codigo", "codigo": "codigo",
          "inciso": "codigo", "description": "descripcion", "descripcion": "descripcion", "duty": "dai", "duty_dai": "dai",
          "dai": "dai", "duty_dai_percent": "dai", "priority": "prio", "prioridad": "prio", "note": "nota", "nota": "nota",
          "active": "activo"}
-    for k, d in _columnas_cond():
+    for k, d in _columnas_cond(db):
         a[norm(d["label"])] = "c_" + k
         a[norm(k)] = "c_" + k
     return a
@@ -477,7 +489,7 @@ def plantilla_incisos(db: Session, pais: str | None = None) -> bytes:
         {"nombre": "Priority", "ayuda": "Higher wins when several codes fit the same product (0 by default).", "ancho": 10},
         {"nombre": "Note", "ancho": 30},
     ]
-    for k, d in _columnas_cond():
+    for k, d in _columnas_cond(db):
         ayuda = "Condition that selects this code. Leave empty if it does not matter."
         if d["tipo"] == "sino":
             cols.append({"nombre": d["label"], "opciones": ["Yes", "No"], "ayuda": ayuda})
@@ -501,8 +513,8 @@ def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, 
                      reemplazar: bool = False) -> dict:
     exigir(user, "aranceles.editar")
     ps = _paises_dict(db)
-    filas = leer(nombre, contenido, _alias_incisos())
-    oc = opciones_cond()
+    filas = leer(nombre, contenido, _alias_incisos(db))
+    oc = opciones_cond(db)
     errores, validas = [], []
     for f in filas:
         iso = (f.get("pais") or pais or "").strip().upper()
@@ -720,5 +732,5 @@ def exportar_sac(db: Session, user: Usuario, filtros: dict, formato: str) -> byt
 
 def opciones(db: Session, user: Usuario) -> dict:
     exigir(user, "producto.ver")
-    return {"condiciones": {k: {"label": d["label"], "tipo": d["tipo"], "ops": d["ops"]} for k, d in opciones_cond().items()},
+    return {"condiciones": {k: {"label": d["label"], "tipo": d["tipo"], "ops": d["ops"]} for k, d in opciones_cond(db).items()},
             "fuentes": FUENTES}

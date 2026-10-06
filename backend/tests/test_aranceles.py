@@ -41,7 +41,9 @@ def test_paises_sac_y_codigos(interno, vans):
     assert interno.put(f"/aranceles/sac/{x['id']}", {"codigo": "640419", "descripcion": "Los demás (texto corregido)"}).status_code == 422
     assert interno.put(f"/aranceles/sac/{x['id']}", {"codigo": "640419", "descripcion": "Los demás (texto corregido)",
                                                      "motivo": "Descripción interna de compras"}).status_code == 200
-    assert any(y["codigo"] == "640419" for y in interno.get("/clasificacion/contexto").json()["sac"])
+    s = interno.post("/clasificacion/sesion", {"categoria": "calzado", "ficha": {"estiloCalz": "tenis", "comp": {"corte": "100% canvas", "suela": "100% rubber"}},
+                                               "paises": False}).json()
+    assert s["clasificacion"]["hs6"]["descripcion"] == "Los demás (texto corregido)" and s["clasificacion"]["hs6"]["descripcion_oficial"]
     y = next(y for y in interno.get("/aranceles/sac", params={"q": "6404.19", "nivel": "6"}).json()["items"] if y["codigo"] == "640419")
     assert y["custom"] and y["descripcion"] == "Los demás (texto corregido)" and y["descripcion_oficial"] != y["descripcion"]
     # Un código que no está en el arancel oficial no se crea aquí

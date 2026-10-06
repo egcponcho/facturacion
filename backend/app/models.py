@@ -695,10 +695,8 @@ class DominioClasificacion(Base):
 
 class CategoriaProducto(Base):
     """Categoría inicial de la ficha («¿Qué es el producto?»): sale de la
-    configuración, no del código. Cada una pertenece a un dominio; las que
-    todavía usan la ficha especializada del navegador (ropa, calzado,
-    accesorios) llevan `ficha_motor`; las demás abren la ficha dinámica con los
-    atributos, ámbitos y reglas de su dominio."""
+    configuración, no del código. Cada una pertenece a un dominio; todas usan
+    la misma ficha dinámica (atributos, ámbitos y reglas del motor único)."""
 
     __tablename__ = "categorias_producto"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -707,7 +705,6 @@ class CategoriaProducto(Base):
     grupo: Mapped[str | None] = mapped_column(String(80))  # encabezado en la lista
     dominio: Mapped[str | None] = mapped_column(String(30), index=True)  # código de DominioClasificacion
     alias: Mapped[str | None] = mapped_column(String(400))  # palabras para buscarla, separadas por ;
-    ficha_motor: Mapped[bool] = mapped_column(Boolean, default=False)
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     # Familia de producto (prenda, calzado…), nombre corto, nombre para la

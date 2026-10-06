@@ -35,7 +35,7 @@ def sembrar(db: Session) -> int:
     for c in filas:
         x = existentes.get(c["codigo"])
         if not x:
-            x = CategoriaProducto(codigo=c["codigo"], nombre=c["nombre"], orden=c.get("orden", 0), activo=True, ficha_motor=bool(c.get("familia")))
+            x = CategoriaProducto(codigo=c["codigo"], nombre=c["nombre"], orden=c.get("orden", 0), activo=True)
             db.add(x)
             n += 1
         for k in ("grupo", "dominio", "alias", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos", "plantilla_aduana"):
@@ -46,7 +46,7 @@ def sembrar(db: Session) -> int:
 
 
 def _cat(x: CategoriaProducto) -> dict:
-    return {c: getattr(x, c) for c in ("id", "codigo", "nombre", "grupo", "dominio", "alias", "ficha_motor", "orden", "activo", "familia",
+    return {c: getattr(x, c) for c in ("id", "codigo", "nombre", "grupo", "dominio", "alias", "orden", "activo", "familia",
                                        "nombre_corto", "nombre_aduana", "patrones", "capitulos", "plantilla_aduana")}
 
 

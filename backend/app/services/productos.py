@@ -43,11 +43,8 @@ from ..models import (
     ahora,
 )
 from .acuerdos import acuerdos_contexto, cargar_acuerdos
-from .atributos import config_motor as atributos_cfg
 from .generico import dominios_ficha
 from .categorias import categorias as categorias_config
-from .overrides import vigentes as overrides_vigentes
-from .meta import meta as meta_motor
 from .common import (
     filtro_texto,
     ErrorNegocio,
@@ -206,35 +203,24 @@ def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
     return p
 
 
-def tipo_comercial(tipo: str | None, ficha: dict | None) -> str:
-    """El tipo de producto en español para la factura (misma regla que el motor)."""
-    from .meta import tipos
-
-    f = ficha or {}
-    if not tipo:
-        return ""
-    if tipo == "calzado":
-        return "CALZADO"
-    if tipo == "chaqueta":
-        h = f.get("hechura")
-        return "CHALECO" if h in ("chaleco", "chaleco_relleno", "reflectivo") else "SACO" if h == "blazer" else "CHAQUETA"
-    if tipo == "pantalon":
-        return "SHORT" if f.get("largo") == "corto" else "PANTALÓN"
-    if tipo == "camiseta":
-        return "POLO" if f.get("polo") else "CAMISETA"
-    if tipo == "sudadera":
-        return "SUÉTER" if f.get("sueter") else "SUDADERA"
-    t = tipos().get(tipo) or {}
-    return str(t.get("es") or t.get("corto") or tipo).split(" o ")[0].upper()
-
-
 def descripcion_comercial_simple(p: Producto) -> str | None:
-    """Descripción comercial de factura y packing list: tipo y marca (p. ej. CALZADO VANS)."""
-    tipo = tipo_comercial(p.tipo, p.ficha)
-    if not tipo:
+    """Descripción comercial de factura y packing list: tipo y marca (p. ej.
+    CALZADO VANS), con la plantilla de la categoría (la misma del motor)."""
+    from sqlalchemy.orm import object_session
+
+    from .descripciones import descripcion_comercial
+    from .ficha import catalogo
+
+    db = object_session(p)
+    if not p.tipo or db is None:
         return None
-    marca = (p.marca.nombre if p.marca else "") or ""
-    return f"{tipo} {marca}".strip().upper()[:300]
+    cat = catalogo(db)
+    c = cat.categorias.get(p.tipo)
+    if not c:
+        return None
+    s = cat.hechos_base(dict(p.ficha or {}), p.tipo, c.dominio)
+    cat.normalizar(s)
+    return descripcion_comercial(cat, s, c, p.marca.nombre if p.marca else None)[:300] or None
 
 
 def pais_de_centro(db: Session, centro: str | None) -> str | None:
@@ -495,40 +481,15 @@ def _inciso_ctx(x: IncisoNacional) -> dict:
 
 
 def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dict:
-    """Lo que el motor necesita en el navegador: destinos, historial de
-    clasificaciones, códigos nacionales y lo aprendido."""
+    """Lo que la pantalla necesita para mostrar (no para clasificar: eso lo hace
+    el motor del servidor en /clasificacion/sesion): destinos, categorías,
+    capítulos, notas legales de apoyo y acuerdos comerciales."""
     exigir(user, "producto.ver")
-    prov = proveedor_filtro(user, proveedor_id)
-    q = select(Producto).where(Producto.estado.in_(APROBADOS), Producto.codigo.is_not(None))
-    if prov:
-        q = q.where(Producto.proveedor_id == prov)
-    recs = []
-    for p in db.scalars(q.order_by(Producto.actualizado_en.desc()).limit(3000)):
-        f = p.ficha or {}
-        recs.append({"id": p.id, "estilo": p.estilo, "color": p.color, "generico": p.codigo_generico,
-                     "tipo": p.tipo, "perfil": p.perfil, "codigo": p.sac_codigo or p.codigo, "desc": p.nombre or p.descripcion_aduana,
-                     "descArchivo": p.nombre, "marca": p.marca.nombre if p.marca else None, "comp": f.get("comp") or {},
-                     "estiloCalz": f.get("estiloCalz"), "estado": p.estado,
-                     "tsMod": int(p.actualizado_en.timestamp() * 1000) if p.actualizado_en else 0})
-    incisos = [_inciso_ctx(x) for x in db.scalars(select(IncisoNacional).where(IncisoNacional.activo.is_(True)))]
-    marcas = [{"nombre": m.nombre, "codigo": m.codigo, "activa": m.activa} for m in db.scalars(select(Marca))]
-    provs = []
-    for pr in db.scalars(select(Proveedor)):
-        if prov and pr.id != prov:
-            continue
-        provs.append({"nombre": pr.nombre, "marcas": [m.nombre for m in pr.marcas]})
     return {
-        "destinos": destinos(db), "pais_base": settings.PAIS_BASE_CLASIF, "obligatorios": OBLIGATORIOS,
-        "recs": recs, "incisos": incisos,
+        "destinos": destinos(db), "pais_base": settings.PAIS_BASE_CLASIF,
         "notas_sac": notas_contexto(db), "acuerdos": acuerdos_contexto(db),
-        # Descripciones propias (capa custom) de partidas/subpartidas; el texto oficial lo trae el motor/árbol
-        "sac": [{"codigo": cod, "descripcion": ov["descripcion"]} for cod, ov in overrides_vigentes(db, "NODO").items() if ov.get("descripcion")], "marcas": marcas, "proveedores": provs,
-        "palabras": [{"id": x.id, "frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})}
-                     for x in db.scalars(select(PalabraClave))],
-        "sinonimos": [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))],
         "puede_aprobar": tiene(user, "producto.clasificar"),
-        "atributos": atributos_cfg(db),
-        "dominios_genericos": dominios_ficha(db),
+        "dominios": dominios_ficha(db),
         "categorias": categorias_config(db),
         # Control de capítulos (R-SYS-001): solo los habilitados se eligen automáticamente
         "capitulos": [{"capitulo": c.capitulo, "titulo": c.titulo, "habilitado": bool(c.activo and c.clasificacion and not c.archivado),
@@ -656,10 +617,10 @@ def guardar_ficha(db: Session, user: Usuario, producto_id: int, datos) -> dict:
 def clasificar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
     """Clasifica varios productos con el mismo motor que la ficha (lo que se
     deduce del nombre y la composición completa lo vacío; nada se pisa)."""
-    from .ficha import Catalogo
+    from .ficha import catalogo
 
     exigir(user, "producto.ficha")
-    cat = Catalogo.desde_db(db)
+    cat = catalogo(db)
     hechos, omitidos = 0, []
     for pid in ids:
         p = _producto(db, user, pid)
@@ -1026,7 +987,9 @@ def cargar_incisos_base(db: Session) -> int:
                        capitulos=x.get("capitulos") or [], claves=x.get("claves") or [], fuente="resumen"))
     # Incisos del ACI (10 dígitos) de los capítulos que clasifica el motor, para
     # los países del SAC a 10 dígitos; los demás se cargan desde Aranceles
-    capitulos = set(meta_motor()["capitulos"])
+    from .ficha import Catalogo
+
+    capitulos = {c for x in Catalogo.desde_json().categorias.values() for c in (x.capitulos or [])}
     aci = {x["codigo"]: x for x in leer("aci_incisos.json") if x["codigo"][:2] in capitulos}
     base = leer("incisos_base.json")
     diez = [d["iso"] for d in DESTINOS if d["digitos"] == 10 and d["mcca"]]

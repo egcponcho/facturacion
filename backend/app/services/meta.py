@@ -1,77 +1,59 @@
-"""Vocabulario del motor de clasificación (categorías, atributos, partes y
-condiciones de los códigos nacionales), exportado del motor del navegador a
-data/motor_meta.json para que las plantillas y las cargas usen los mismos
-valores."""
-import json
-from functools import lru_cache
-from pathlib import Path
+"""Vocabulario de la ficha para plantillas, cargas y condiciones de los
+códigos nacionales. Sale del catálogo único (atributos, opciones y categorías
+de la base, los mismos que usa el motor de clasificación): nada está escrito
+en el código."""
+import re
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ..models import CondicionRegla, ReglaClasificacion
+from .ficha import catalogo
 from .plantillas import norm
 
-
-@lru_cache
-def meta() -> dict:
-    ruta = Path(__file__).resolve().parent.parent / "data" / "motor_meta.json"
-    return json.loads(ruta.read_text(encoding="utf-8"))
+# Condiciones propias de las líneas nacionales que no son atributos de la ficha
+CIF = {"cifMax": {"label": "CIF value up to (US$)", "tipo": "numero", "ops": {}},
+       "cifMin": {"label": "CIF value over (US$)", "tipo": "numero", "ops": {}}}
 
 
-@lru_cache
-def tipos() -> dict[str, dict]:
-    """{clave: {l, corto, grupoTipo, partes}}"""
-    return {t["k"]: t for g in meta()["tipos"] for t in g["tipos"]}
-
-
-def tipo_de(valor: str) -> str | None:
-    """Categoría por su clave, su nombre o su nombre corto."""
-    v = norm(valor)
-    if not v:
-        return None
-    for k, t in tipos().items():
-        if v in (norm(k), norm(t["l"]), norm(t["corto"])):
-            return k
-    return None
-
-
-@lru_cache
-def attrs() -> dict[str, dict]:
-    return {a["id"]: a for a in meta()["attrs"]}
-
-
-@lru_cache
-def opciones_cond() -> dict[str, dict]:
-    """Por cada condición de los códigos nacionales: etiqueta, tipo
+def opciones_cond(db: Session) -> dict[str, dict]:
+    """Por cada dato que puede separar líneas nacionales (atributos de producto
+    y nacionales, y los que ya usan las líneas cargadas): etiqueta, tipo
     (opciones | sino | numero) y sus opciones {valor: etiqueta}."""
+    if "opciones_cond" in db.info and db.info.get("catalogo") is db.info["opciones_cond"][0]:
+        return db.info["opciones_cond"][1]
+    cat = catalogo(db)
+    # Campos que ya usan las reglas de selección de las líneas nacionales
+    usados = set(db.scalars(select(CondicionRegla.campo).join(ReglaClasificacion)
+                            .where(ReglaClasificacion.tipo_regla == "NATIONAL_SELECT").distinct()))
     out = {}
-    nac = {q["id"]: q for q in meta()["nac"]}
-    for k, lbl in meta()["cond"]:
-        if k == "valorCIF":
+    for a in cat.atributos:
+        if a.tipo_dato not in ("select", "boolean", "number") or not (a.seccion in ("producto", "nacional") or a.codigo in usados):
             continue
-        a = attrs().get(k)
-        q = nac.get(k)
-        if q and q.get("ops"):
-            out[k] = {"label": lbl, "tipo": "opciones", "ops": {v: t for v, t in q["ops"]}}
-        elif a and a.get("ops"):
-            out[k] = {"label": lbl, "tipo": "opciones", "ops": {o["v"]: o["l"] for o in a["ops"]}}
-        else:
-            out[k] = {"label": lbl, "tipo": "sino", "ops": {}}
-    out["genero"] = {"label": "Gender", "tipo": "opciones", "ops": {"M": "Men", "F": "Women", "U": "Unisex"}}
-    out["edadNac"] = {"label": "Age", "tipo": "opciones", "ops": {"adulto": "Adult", "nino": "Child", "bebe": "Baby"}}
-    out["cifMax"] = {"label": "CIF value up to (US$)", "tipo": "numero", "ops": {}}
-    out["cifMin"] = {"label": "CIF value over (US$)", "tipo": "numero", "ops": {}}
+        tipo = "sino" if a.booleano else "numero" if a.tipo_dato == "number" else "opciones"
+        out[a.codigo] = {"label": a.etiqueta, "tipo": tipo, "ops": {o.codigo: o.etiqueta for o in a.opciones if o.activo}}
+    out.update(CIF)
+    db.info["opciones_cond"] = (cat, out)
     return out
 
 
 def valor_opcion(ops: dict, texto: str) -> str | None:
+    """Valor de una opción por su código o su etiqueta; también por el inicio
+    de la etiqueta («Men» para «Men or boys», «Unisex» para «Unisex (anyone)»)
+    si solo una opción empieza así."""
     t = norm(texto)
+    if not t:
+        return None
     for v, lbl in ops.items():
         if t in (norm(v), norm(lbl)):
             return v
-    return None
+    cortas = [v for v, lbl in ops.items() if norm(re.split(r" or |\(|,| o ", str(lbl))[0]) == t]
+    return cortas[0] if len(cortas) == 1 else None
 
 
-def cond_texto(cond: dict) -> str:
+def cond_texto(db: Session, cond: dict) -> str:
     """Condiciones en palabras, para listas y reportes."""
-    oc = opciones_cond()
+    oc = opciones_cond(db) if cond else {}
     partes = []
     for k, v in (cond or {}).items():
         d = oc.get(k, {"label": k, "ops": {}, "tipo": ""})
@@ -83,3 +65,29 @@ def cond_texto(cond: dict) -> str:
             vals = v if isinstance(v, list) else [v]
             partes.append(f"{d['label']}: " + " or ".join(str(d["ops"].get(x, x)) for x in vals))
     return "; ".join(partes) or "Whole subheading"
+
+
+def categoria_de(db: Session, valor: str) -> str | None:
+    """Categoría por su código, su nombre, su nombre corto o en español."""
+    v = norm(valor)
+    if not v:
+        return None
+    for c in catalogo(db).categorias.values():
+        if c.activo and v in (norm(c.codigo), norm(c.nombre), norm(c.nombre_corto or ""), norm(c.nombre_aduana or "")):
+            return c.codigo
+    return None
+
+
+def atributos_carga(db: Session) -> list:
+    """Atributos de la ficha que van como columnas en la carga masiva: los que
+    deciden el código (aparecen en las condiciones de alguna regla activa) y
+    no se deducen de la composición."""
+    cat = catalogo(db)
+    campos = set(db.scalars(select(CondicionRegla.campo).join(ReglaClasificacion).where(ReglaClasificacion.activo.is_(True))))
+    return [a for a in cat.atributos if a.codigo in campos and a.tipo_dato in ("select", "boolean") and a.seccion in ("caracteristicas", "nacional")
+            and not a.derivacion]
+
+
+def partes_carga(db: Session) -> list:
+    """Partes de la composición (atributos comp.*) del catálogo."""
+    return [a for a in catalogo(db).atributos if a.tipo_dato == "composition" and a.codigo.startswith("comp.")]

@@ -7,6 +7,9 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
+from app.db import SessionLocal
+from app.models import IncisoNacional
+
 RAIZ = Path(__file__).resolve().parent.parent
 
 
@@ -115,9 +118,10 @@ def test_atributos_en_base_de_datos(interno):
     assert next(x for x in t["ambitos"] if x["codigo_ambito"] == "camiseta")["condicion"] is None
     # Búsqueda inteligente
     assert {a["codigo"] for a in interno.get("/aranceles/atributos", params={"q": "name chemic"}).json()["items"]} == {"chemical_name"}
-    # La ficha recibe el catálogo en el contexto
-    ctx = interno.get("/clasificacion/contexto").json()["atributos"]
-    assert ctx["motor"]["tejido"]["opciones"]["punto"]["activo"] and len(ctx["genericos"]) >= 38
+    # La ficha recibe el catálogo del motor del servidor (campos con sus opciones)
+    s = interno.post("/clasificacion/sesion", {"categoria": "camiseta", "paises": False}).json()
+    tej = next(c for c in s["campos"] if c["codigo"] == "tejido")
+    assert any(o["codigo"] == "punto" for o in tej["opciones"])
 
 
 def test_editar_atributos_opciones_y_ambitos(interno):
@@ -136,9 +140,11 @@ def test_editar_atributos_opciones_y_ambitos(interno):
     d = interno.patch(f"/aranceles/atributos/{aid}/ambitos/{amb['id']}", {"quitar": True}).json()
     assert not any(x["tipo_ambito"] == "CHAPTER" for x in d["ambitos"])
     # Etiqueta editada y atributo apagado llegan a la ficha
-    interno.patch(f"/aranceles/atributos/{por['polo']['id']}", {"etiqueta": "Polo collar", "activo": False})
-    ctx = interno.get("/clasificacion/contexto").json()["atributos"]["motor"]["polo"]
-    assert ctx["etiqueta"] == "Polo collar" and ctx["activo"] is False
+    sesion = {"categoria": "camiseta", "ficha": {"tejido": "punto"}, "paises": False}
+    interno.patch(f"/aranceles/atributos/{por['polo']['id']}", {"etiqueta": "Polo collar"})
+    assert next(c for c in interno.post("/clasificacion/sesion", sesion).json()["campos"] if c["codigo"] == "polo")["etiqueta"] == "Polo collar"
+    interno.patch(f"/aranceles/atributos/{por['polo']['id']}", {"activo": False})
+    assert not any(c["codigo"] == "polo" for c in interno.post("/clasificacion/sesion", sesion).json()["campos"])
     interno.patch(f"/aranceles/atributos/{por['polo']['id']}", {"etiqueta": "Has a collar and a buttoned placket at the neck (polo style)", "activo": True})
     # Nuevo atributo del usuario
     d = interno.post("/aranceles/atributos", {"codigo": "flash_point", "etiqueta": "Flash point", "tipo_dato": "number", "unidad": "°C", "dominio": "CHEMICALS"}).json()
@@ -179,8 +185,9 @@ def test_editar_regla_nacional_llega_al_motor(interno):
     r = interno.patch(f"/aranceles/reglas/{regla['id']}", {"condiciones": [
         {"campo": "genero", "operador": "IN", "valor": ["F", "U"]}, {"campo": "valorCIF", "operador": "GT", "valor": 10}]})
     assert r.status_code == 200, r.text
-    ctx = next(x for x in interno.get("/clasificacion/contexto").json()["incisos"] if x["id"] == iid)
-    assert ctx["cond"] == {"genero": ["F", "U"], "cifMin": 10} and ctx["prio"] == 3
+    with SessionLocal() as db:
+        x = db.get(IncisoNacional, iid)
+        assert x.cond == {"genero": ["F", "U"], "cifMin": 10} and x.prio == 3
     # Validaciones: en selección nacional solo los operadores del motor y un solo grupo
     assert interno.patch(f"/aranceles/reglas/{regla['id']}", {"condiciones": [{"campo": "genero", "operador": "NOT_EQUAL", "valor": "M"}]}).status_code == 422
     assert interno.patch(f"/aranceles/reglas/{regla['id']}", {"condiciones": [{"campo": "genero", "operador": "IN", "valor": "M"}]}).status_code == 422
@@ -188,7 +195,8 @@ def test_editar_regla_nacional_llega_al_motor(interno):
         {"grupo": 1, "campo": "genero", "valor": "M"}, {"grupo": 2, "campo": "genero", "valor": "F"}]}).status_code == 422
     # Apagar la regla apaga su código
     interno.patch(f"/aranceles/reglas/{regla['id']}", {"activo": False})
-    assert not any(x["id"] == iid for x in interno.get("/clasificacion/contexto").json()["incisos"])
+    with SessionLocal() as db:
+        assert not db.get(IncisoNacional, iid).regla.activo
     # Quitar condiciones y prioridad desde el código deja el código sin regla
     interno.put(f"/aranceles/codigos/{iid}", {"pais": "SV", "codigo": "6404.19.90.99", "cond": {}, "prio": 0, "activo": True})
     assert not [x for x in interno.get("/aranceles/reglas", params={"q": "6404199099"}).json()["items"] if x.get("inciso", {}).get("id") == iid]
@@ -308,7 +316,7 @@ def test_ruta_generica_quimicos_y_materias_primas(interno):
     # Capítulos no habilitados nunca son candidatos automáticos
     caps = {c["capitulo"]: c for c in interno.get("/aranceles/oficial/capitulos").json()["items"]}
     assert all(caps[c["capitulo"]]["clasificacion"] for c in r["candidatos"])
-    assert interno.get("/clasificacion/contexto").json()["dominios_genericos"][0]["codigo"] == "CHEMICALS"
+    assert interno.get("/clasificacion/contexto").json()["dominios"][0]["codigo"] == "CHEMICALS"
 
 
 def test_carga_por_etapas_previa_diferencias_publicar(interno):
@@ -476,7 +484,7 @@ def test_dominio_nuevo_solo_con_configuracion(interno):
     caps = {c["capitulo"]: c for c in interno.get("/aranceles/oficial/capitulos").json()["items"]}
     interno.patch("/aranceles/oficial/capitulos", {"ids": [caps["85"]["id"]], "clasificacion": True, "candidato_auto": True})
     c = interno.post("/aranceles/categorias", {"nombre": "Batteries and power banks", "dominio": "ELECTRONICS", "grupo": "Electronics"}).json()
-    assert c["codigo"] == "batteries_and_power_banks" and not c["ficha_motor"]
+    assert c["codigo"] == "batteries_and_power_banks"
     assert any(x["codigo"] == c["codigo"] for x in interno.get("/clasificacion/contexto").json()["categorias"])
     a = interno.post("/aranceles/atributos", {"codigo": "battery_chemistry", "etiqueta": "Battery chemistry", "tipo_dato": "select", "dominio": "ELECTRONICS"}).json()
     for o in ("LITHIUM_ION", "LEAD_ACID", "NICKEL"):
@@ -494,6 +502,6 @@ def test_dominio_nuevo_solo_con_configuracion(interno):
     interno.patch(f"/aranceles/oficial/dominios/{d['id']}", {"activo": False})
     interno.patch(f"/aranceles/categorias/{c['id']}", {"activo": False})
     ctx = interno.get("/clasificacion/contexto").json()
-    assert not any(x["codigo"] == "ELECTRONICS" for x in ctx["dominios_genericos"])
+    assert not any(x["codigo"] == "ELECTRONICS" for x in ctx["dominios"])
     assert not any(x["codigo"] == c["codigo"] for x in ctx["categorias"])
-    assert any(x["ficha_motor"] and x["codigo"] == "calzado" for x in ctx["categorias"])
+    assert any(x["codigo"] == "calzado" for x in ctx["categorias"])

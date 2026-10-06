@@ -8363,7 +8363,2824 @@
      "modo": "REQUIRE"
     }
    ],
-   "orden": 620
+   "orden": 620,
+   "opciones": [
+    {
+     "codigo": "cotton",
+     "etiqueta": "Cotton",
+     "orden": 0,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "re": "\\b(cotton|algodon|denim|jeans?|mezclilla|flannel|franela|chambray)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "polyester",
+     "etiqueta": "Polyester",
+     "orden": 1,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "re": "\\b(polyester|poliester|fleece|polar|recycled)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "elastane",
+     "etiqueta": "Elastane",
+     "orden": 2,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "re": "\\b(spandex|elastane|elastano|lycra|stretch)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "nylon",
+     "etiqueta": "Nylon",
+     "orden": 3,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "re": "\\b(nylon|ripstop|cordura)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "viscose",
+     "etiqueta": "Viscose",
+     "orden": 4,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "re": "\\b(rayon|viscose|viscosa|modal|tencel)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "wool",
+     "etiqueta": "Wool",
+     "orden": 5,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "re": "\\b(wool|lana|merino)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "acrylic",
+     "etiqueta": "Acrylic",
+     "orden": 6,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "re": "\\b(acrylic|acrilico)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "linen",
+     "etiqueta": "Linen",
+     "orden": 7,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "re": "\\b(linen|lino)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "modal",
+     "etiqueta": "Modal",
+     "orden": 8,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 11
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 11
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 11
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 8
+      }
+     ]
+    },
+    {
+     "codigo": "polyamide",
+     "etiqueta": "Polyamide",
+     "orden": 9,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 11
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 12
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 12
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 12
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 9
+      }
+     ]
+    },
+    {
+     "codigo": "silk",
+     "etiqueta": "Silk",
+     "orden": 10,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camiseta",
+          "pantalon"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "camisa"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sudadera"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "falda"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "calcetines",
+          "conjunto",
+          "enterizo",
+          "ropa_interior"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "brasier",
+          "traje_bano"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 11
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bufanda"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 12
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 13
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 13
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 13
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "manta"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "toalla"
+         ]
+        }
+       ],
+       "prioridad": 10
+      }
+     ]
+    },
+    {
+     "codigo": "leather",
+     "etiqueta": "Leather",
+     "orden": 11,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "guantes"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "re": "\\b(leather|cuero|piel)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "straw",
+     "etiqueta": "Straw",
+     "orden": 12,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gorra"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "re": "\\b(straw|paja)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "cordura",
+     "etiqueta": "Cordura",
+     "orden": 13,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 7
+      }
+     ]
+    },
+    {
+     "codigo": "neoprene",
+     "etiqueta": "Neoprene",
+     "orden": 14,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "polainas"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "canvas",
+     "etiqueta": "Canvas",
+     "orden": 15,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "re": "\\b(canvas|lona)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "synthetic",
+     "etiqueta": "Synthetic",
+     "orden": 16,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "re": "\\b(synthetic|sintetic[oa]|faux|vegan)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "pvc",
+     "etiqueta": "PVC",
+     "orden": 17,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "re": "\\b(pvc)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "jute",
+     "etiqueta": "Jute",
+     "orden": 18,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 8
+      }
+     ]
+    },
+    {
+     "codigo": "polypropylene",
+     "etiqueta": "Polypropylene",
+     "orden": 19,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "tienda"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "tpu",
+     "etiqueta": "TPU",
+     "orden": 20,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "foam",
+     "etiqueta": "Foam",
+     "orden": 21,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "colchoneta"
+         ]
+        }
+       ],
+       "prioridad": 5
+      }
+     ]
+    },
+    {
+     "codigo": "suede",
+     "etiqueta": "Suede",
+     "orden": 22,
+     "patrones": [
+      {
+       "re": "\\b(suede|gamuza|ante)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "mesh",
+     "etiqueta": "Mesh",
+     "orden": 23,
+     "patrones": [
+      {
+       "re": "\\b(mesh|malla)\\b",
+       "nombre": true
+      }
+     ]
+    }
+   ]
   },
   {
    "codigo": "comp.forro",
@@ -8572,7 +11389,518 @@
      "modo": "SHOW"
     }
    ],
-   "orden": 630
+   "orden": 630,
+   "opciones": [
+    {
+     "codigo": "polyester",
+     "etiqueta": "Polyester",
+     "orden": 0,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "conjunto",
+          "enterizo",
+          "falda",
+          "pantalon",
+          "sudadera",
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "re": "\\b(polyester|poliester|fleece|polar|recycled)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "nylon",
+     "etiqueta": "Nylon",
+     "orden": 1,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "conjunto",
+          "enterizo",
+          "falda",
+          "pantalon",
+          "sudadera",
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "re": "\\b(nylon|ripstop|cordura)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "cotton",
+     "etiqueta": "Cotton",
+     "orden": 2,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "conjunto",
+          "enterizo",
+          "falda",
+          "pantalon",
+          "sudadera",
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "re": "\\b(cotton|algodon|denim|jeans?|mezclilla|flannel|franela|chambray)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "viscose",
+     "etiqueta": "Viscose",
+     "orden": 3,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "conjunto",
+          "enterizo",
+          "falda",
+          "pantalon",
+          "sudadera",
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "mesh",
+     "etiqueta": "Mesh",
+     "orden": 4,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "conjunto",
+          "enterizo",
+          "falda",
+          "pantalon",
+          "sudadera",
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "re": "\\b(mesh|malla)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "satin",
+     "etiqueta": "Satin",
+     "orden": 5,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "conjunto",
+          "enterizo",
+          "falda",
+          "pantalon",
+          "sudadera",
+          "vestido"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 5
+      }
+     ]
+    },
+    {
+     "codigo": "textile",
+     "etiqueta": "Textile",
+     "orden": 6,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 0
+      }
+     ]
+    },
+    {
+     "codigo": "leather",
+     "etiqueta": "Leather",
+     "orden": 7,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "re": "\\b(leather|cuero|piel)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "synthetic",
+     "etiqueta": "Synthetic",
+     "orden": 8,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "billetera",
+          "bolso_mano",
+          "bolso_viaje",
+          "maleta",
+          "mochila"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    }
+   ]
   },
   {
    "codigo": "comp.relleno",
@@ -8616,7 +11944,117 @@
      "modo": "SHOW"
     }
    ],
-   "orden": 640
+   "orden": 640,
+   "opciones": [
+    {
+     "codigo": "down",
+     "etiqueta": "Down",
+     "orden": 0,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "re": "\\b(down|plumon|goose|duck|nuptse|puffer)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "feather",
+     "etiqueta": "Feather",
+     "orden": 1,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    },
+    {
+     "codigo": "polyester",
+     "etiqueta": "Polyester",
+     "orden": 2,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "re": "\\b(primaloft|thermoball|heatseeker|insulated)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "cotton",
+     "etiqueta": "Cotton",
+     "orden": 3,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "wool",
+     "etiqueta": "Wool",
+     "orden": 4,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "chaqueta",
+          "saco"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    }
+   ]
   },
   {
    "codigo": "comp.corte",
@@ -8632,7 +12070,2882 @@
      "modo": "REQUIRE"
     }
    ],
-   "orden": 650
+   "orden": 650,
+   "opciones": [
+    {
+     "codigo": "canvas",
+     "etiqueta": "Canvas",
+     "orden": 0,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tenis"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "senderismo"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "botin"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "roller"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacos"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "re": "\\b(canvas|lona)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "suede",
+     "etiqueta": "Suede",
+     "orden": 1,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tenis"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "senderismo"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "botin"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "roller"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacos"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "re": "\\b(suede|gamuza|ante)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "leather",
+     "etiqueta": "Leather",
+     "orden": 2,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tenis"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "senderismo"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "botin"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "roller"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacos"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "re": "\\b(leather|cuero|piel)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "mesh",
+     "etiqueta": "Mesh",
+     "orden": 3,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tenis"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "senderismo"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "botin"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "roller"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacos"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "re": "\\b(mesh|malla)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "nubuck",
+     "etiqueta": "Nubuck",
+     "orden": 4,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tenis"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "senderismo"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "botin"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "roller"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacos"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "re": "\\b(nubuck|nobuck)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "textile",
+     "etiqueta": "Textile",
+     "orden": 5,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tenis"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "senderismo"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "botin"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "roller"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacos"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "re": "\\b(knit|flyknit|primeknit)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "synthetic",
+     "etiqueta": "Synthetic",
+     "orden": 6,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tenis"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "senderismo"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "botin"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "roller"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacos"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "re": "\\b(synthetic|sintetic[oa]|faux|vegan)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "pvc",
+     "etiqueta": "PVC",
+     "orden": 7,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tenis"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "senderismo"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "botin"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "roller"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacos"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "re": "\\b(pvc)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "patent_leather",
+     "etiqueta": "Patent leather",
+     "orden": 8,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tenis"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "senderismo"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "botin"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "roller"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacos"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "re": "\\b(patent|charol)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "neoprene",
+     "etiqueta": "Neoprene",
+     "orden": 9,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tenis"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "senderismo"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "botin"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "roller"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 11
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 11
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 11
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 9
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 10
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacos"
+         ]
+        }
+       ],
+       "prioridad": 9
+      }
+     ]
+    },
+    {
+     "codigo": "eva",
+     "etiqueta": "EVA",
+     "orden": 10,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 0
+      }
+     ]
+    },
+    {
+     "codigo": "rubber",
+     "etiqueta": "Rubber",
+     "orden": 11,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "slide"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "chancla_tetones"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "bota_lluvia"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    },
+    {
+     "codigo": "fleece",
+     "etiqueta": "Fleece",
+     "orden": 12,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "pantufla"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    }
+   ]
   },
   {
    "codigo": "comp.suela",
@@ -8648,7 +14961,1165 @@
      "modo": "REQUIRE"
     }
    ],
-   "orden": 660
+   "orden": 660,
+   "opciones": [
+    {
+     "codigo": "rubber",
+     "etiqueta": "Rubber",
+     "orden": 0,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "esqui",
+          "pantufla",
+          "roller",
+          "senderismo",
+          "slide",
+          "tacos",
+          "tenis",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "mocasin"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "danza"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "re": "\\b(rubber|goma|hule|vibram|caucho)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "eva",
+     "etiqueta": "EVA",
+     "orden": 1,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "esqui",
+          "pantufla",
+          "roller",
+          "senderismo",
+          "slide",
+          "tacos",
+          "tenis",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "mocasin"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "danza"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "re": "\\b(eva|foam)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "tpr",
+     "etiqueta": "TPR",
+     "orden": 2,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "esqui",
+          "pantufla",
+          "roller",
+          "senderismo",
+          "slide",
+          "tacos",
+          "tenis",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "mocasin"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "danza"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "pu",
+     "etiqueta": "PU",
+     "orden": 3,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "esqui",
+          "pantufla",
+          "roller",
+          "senderismo",
+          "slide",
+          "tacos",
+          "tenis",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "mocasin"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "danza"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    },
+    {
+     "codigo": "tpu",
+     "etiqueta": "TPU",
+     "orden": 4,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "esqui",
+          "pantufla",
+          "roller",
+          "senderismo",
+          "slide",
+          "tacos",
+          "tenis",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "mocasin"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "danza"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 2
+      }
+     ]
+    },
+    {
+     "codigo": "pvc",
+     "etiqueta": "PVC",
+     "orden": 5,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "esqui",
+          "pantufla",
+          "roller",
+          "senderismo",
+          "slide",
+          "tacos",
+          "tenis",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "mocasin"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "danza"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 5
+      }
+     ]
+    },
+    {
+     "codigo": "leather",
+     "etiqueta": "Leather",
+     "orden": 6,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "esqui",
+          "pantufla",
+          "roller",
+          "senderismo",
+          "slide",
+          "tacos",
+          "tenis",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "mocasin"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "danza"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 6
+      }
+     ]
+    },
+    {
+     "codigo": "cork",
+     "etiqueta": "Cork",
+     "orden": 7,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "esqui",
+          "pantufla",
+          "roller",
+          "senderismo",
+          "slide",
+          "tacos",
+          "tenis",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "zapato"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "tacon"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "mocasin"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "sandalia"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "danza"
+         ]
+        }
+       ],
+       "prioridad": 8
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "seguridad"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "re": "\\b(cork|corcho)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "suede",
+     "etiqueta": "Suede",
+     "orden": 8,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "danza"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    }
+   ]
   },
   {
    "codigo": "comp.plantilla",
@@ -8691,7 +16162,281 @@
      "modo": "SHOW"
     }
    ],
-   "orden": 670
+   "orden": 670,
+   "opciones": [
+    {
+     "codigo": "eva",
+     "etiqueta": "EVA",
+     "orden": 0,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "re": "\\b(eva|foam)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "pu",
+     "etiqueta": "PU",
+     "orden": 1,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    },
+    {
+     "codigo": "latex",
+     "etiqueta": "Latex",
+     "orden": 2,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 2
+      }
+     ]
+    },
+    {
+     "codigo": "textile",
+     "etiqueta": "Textile",
+     "orden": 3,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "leather",
+     "etiqueta": "Leather",
+     "orden": 4,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "cork",
+     "etiqueta": "Cork",
+     "orden": 5,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "EQUAL",
+         "valor": "calzado"
+        },
+        {
+         "campo": "estiloCalz",
+         "operador": "IN",
+         "valor": [
+          "",
+          "acuatico",
+          "bota",
+          "bota_lluvia",
+          "botin",
+          "chancla_tetones",
+          "cubrecalzado",
+          "danza",
+          "esqui",
+          "mocasin",
+          "pantufla",
+          "roller",
+          "sandalia",
+          "seguridad",
+          "senderismo",
+          "slide",
+          "tacon",
+          "tacos",
+          "tenis",
+          "zapato",
+          "zueco"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "re": "\\b(cork|corcho)\\b",
+       "nombre": true
+      }
+     ]
+    }
+   ]
   },
   {
    "codigo": "comp.material",
@@ -8869,7 +16614,2609 @@
      "modo": "REQUIRE"
     }
    ],
-   "orden": 680
+   "orden": 680,
+   "opciones": [
+    {
+     "codigo": "leather",
+     "etiqueta": "Leather",
+     "orden": 0,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cinturon"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "plantilla"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cordones"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "reloj"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bisuteria"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "llavero"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mascota"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "correa_reloj"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "re": "\\b(leather|cuero|piel)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "synthetic",
+     "etiqueta": "Synthetic",
+     "orden": 1,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cinturon"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "re": "\\b(synthetic|sintetic[oa]|faux|vegan)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "canvas",
+     "etiqueta": "Canvas",
+     "orden": 2,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cinturon"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "hamaca"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "nylon",
+     "etiqueta": "Nylon",
+     "orden": 3,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cinturon"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "peleteria"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cordones"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cuidado_calzado"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "lentes_sol"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "reloj"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "llavero"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sombrilla"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "parche"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mascota"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "correa_reloj"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "hamaca"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mueble_camping"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "equipo_deporte"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "avios"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "etiqueta"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "re": "\\b(nylon|ripstop|cordura)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "polyester",
+     "etiqueta": "Polyester",
+     "orden": 4,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cinturon"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "accesorio_pelo"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "peleteria"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cordones"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sombrilla"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "parche"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mascota"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "hamaca"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mueble_camping"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "equipo_deporte"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "avios"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bolsa_compra"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "etiqueta"
+         ]
+        }
+       ],
+       "prioridad": 2
+      }
+     ]
+    },
+    {
+     "codigo": "elastic",
+     "etiqueta": "Elastic",
+     "orden": 5,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cinturon"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "accesorio_pelo"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cordones"
+         ]
+        }
+       ],
+       "prioridad": 5
+      }
+     ]
+    },
+    {
+     "codigo": "metal",
+     "etiqueta": "Metal",
+     "orden": 6,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cinturon"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "accesorio_pelo"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "lentes_sol"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "llavero"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sombrilla"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mascota"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "linterna"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "caja"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gancho"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "exhibidor"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "re": "\\b(metal|metalic[oa])\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "plastic",
+     "etiqueta": "Plastic",
+     "orden": 7,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "accesorio_pelo"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cordones"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cuidado_calzado"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "lentes_sol"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "reloj"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bisuteria"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "llavero"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sombrilla"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "botella"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mueble_camping"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "linterna"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "patineta"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "avios"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bolsa_compra"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "caja"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gancho"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "re": "\\b(plastic|plastico|tritan)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "acetate",
+     "etiqueta": "Acetate",
+     "orden": 8,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "accesorio_pelo"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "lentes_sol"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "satin",
+     "etiqueta": "Satin",
+     "orden": 9,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "accesorio_pelo"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "etiqueta"
+         ]
+        }
+       ],
+       "prioridad": 5
+      }
+     ]
+    },
+    {
+     "codigo": "cotton",
+     "etiqueta": "Cotton",
+     "orden": 10,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "accesorio_pelo"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "peleteria"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cordones"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "parche"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mascota"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "hamaca"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bolsa_compra"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "etiqueta"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "acrylic",
+     "etiqueta": "Acrylic",
+     "orden": 11,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "peleteria"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gancho"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "modacrylic",
+     "etiqueta": "Modacrylic",
+     "orden": 12,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "peleteria"
+         ]
+        }
+       ],
+       "prioridad": 2
+      }
+     ]
+    },
+    {
+     "codigo": "natural_fur",
+     "etiqueta": "Natural fur",
+     "orden": 13,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "peleteria"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "eva",
+     "etiqueta": "EVA",
+     "orden": 14,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "plantilla"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bastones"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "equipo_deporte"
+         ]
+        }
+       ],
+       "prioridad": 5
+      }
+     ]
+    },
+    {
+     "codigo": "pu",
+     "etiqueta": "PU",
+     "orden": 15,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "plantilla"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    },
+    {
+     "codigo": "latex",
+     "etiqueta": "Latex",
+     "orden": 16,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "plantilla"
+         ]
+        }
+       ],
+       "prioridad": 2
+      }
+     ]
+    },
+    {
+     "codigo": "textile",
+     "etiqueta": "Textile",
+     "orden": 17,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "plantilla"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bisuteria"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "cork",
+     "etiqueta": "Cork",
+     "orden": 18,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "plantilla"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bastones"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "wax",
+     "etiqueta": "Wax",
+     "orden": 19,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cuidado_calzado"
+         ]
+        }
+       ],
+       "prioridad": 0
+      }
+     ]
+    },
+    {
+     "codigo": "silicone",
+     "etiqueta": "Silicone",
+     "orden": 20,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cuidado_calzado"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "reloj"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "llavero"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "botella"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "correa_reloj"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "linterna"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "wood",
+     "etiqueta": "Wood",
+     "orden": 21,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cuidado_calzado"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bisuteria"
+         ]
+        }
+       ],
+       "prioridad": 6
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mueble_camping"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "avios"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "caja"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gancho"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "exhibidor"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "re": "\\b(wood|madera)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "natural_bristle",
+     "etiqueta": "Natural bristle",
+     "orden": 22,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "cuidado_calzado"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "polycarbonate",
+     "etiqueta": "Polycarbonate",
+     "orden": 23,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "lentes_sol"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "linterna"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "glass",
+     "etiqueta": "Glass",
+     "orden": 24,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "lentes_sol"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bisuteria"
+         ]
+        }
+       ],
+       "prioridad": 7
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "botella"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "exhibidor"
+         ]
+        }
+       ],
+       "prioridad": 6
+      }
+     ]
+    },
+    {
+     "codigo": "stainless_steel",
+     "etiqueta": "Stainless steel",
+     "orden": 25,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "reloj"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bisuteria"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "llavero"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "botella"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "correa_reloj"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "re": "\\b(stainless|acero|steel|inox)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "aluminum",
+     "etiqueta": "Aluminum",
+     "orden": 26,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "reloj"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sombrilla"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "botella"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mueble_camping"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "linterna"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bastones"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "patineta"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "avios"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gancho"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "exhibidor"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "re": "\\b(aluminum|aluminio)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "brass",
+     "etiqueta": "Brass",
+     "orden": 27,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bisuteria"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "llavero"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "avios"
+         ]
+        }
+       ],
+       "prioridad": 0
+      }
+     ]
+    },
+    {
+     "codigo": "zinc",
+     "etiqueta": "Zinc",
+     "orden": 28,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bisuteria"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "avios"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    },
+    {
+     "codigo": "fiberglass",
+     "etiqueta": "Fiberglass",
+     "orden": 29,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "sombrilla"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "tritan",
+     "etiqueta": "Tritan",
+     "orden": 30,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "botella"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "pvc",
+     "etiqueta": "PVC",
+     "orden": 31,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "parche"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "equipo_deporte"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "etiqueta"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "re": "\\b(pvc)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "paper",
+     "etiqueta": "Paper",
+     "orden": 32,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "parche"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bolsa_compra"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "caja"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "etiqueta"
+         ]
+        }
+       ],
+       "prioridad": 0
+      },
+      {
+       "re": "\\b(paper|papel|kraft)\\b",
+       "nombre": true
+      }
+     ]
+    },
+    {
+     "codigo": "vinyl",
+     "etiqueta": "Vinyl",
+     "orden": 33,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "parche"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "neoprene",
+     "etiqueta": "Neoprene",
+     "orden": 34,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mascota"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "polyurethane",
+     "etiqueta": "Polyurethane",
+     "orden": 35,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "correa_reloj"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "patineta"
+         ]
+        }
+       ],
+       "prioridad": 2
+      }
+     ]
+    },
+    {
+     "codigo": "titanium",
+     "etiqueta": "Titanium",
+     "orden": 36,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "correa_reloj"
+         ]
+        }
+       ],
+       "prioridad": 5
+      }
+     ]
+    },
+    {
+     "codigo": "ripstop",
+     "etiqueta": "Ripstop",
+     "orden": 37,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "hamaca"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "polypropylene",
+     "etiqueta": "Polypropylene",
+     "orden": 38,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "hamaca"
+         ]
+        }
+       ],
+       "prioridad": 5
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bolsa_compra"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "steel",
+     "etiqueta": "Steel",
+     "orden": 39,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "mueble_camping"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bastones"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "patineta"
+         ]
+        }
+       ],
+       "prioridad": 3
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "avios"
+         ]
+        }
+       ],
+       "prioridad": 2
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "exhibidor"
+         ]
+        }
+       ],
+       "prioridad": 2
+      }
+     ]
+    },
+    {
+     "codigo": "abs",
+     "etiqueta": "ABS",
+     "orden": 40,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "linterna"
+         ]
+        }
+       ],
+       "prioridad": 2
+      }
+     ]
+    },
+    {
+     "codigo": "carbon",
+     "etiqueta": "Carbon",
+     "orden": 41,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bastones"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    },
+    {
+     "codigo": "rubber",
+     "etiqueta": "Rubber",
+     "orden": 42,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bastones"
+         ]
+        }
+       ],
+       "prioridad": 4
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "equipo_deporte"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "foam",
+     "etiqueta": "Foam",
+     "orden": 43,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "equipo_deporte"
+         ]
+        }
+       ],
+       "prioridad": 0
+      }
+     ]
+    },
+    {
+     "codigo": "magnesium_carbonate",
+     "etiqueta": "Magnesium carbonate",
+     "orden": 44,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "magnesio"
+         ]
+        }
+       ],
+       "prioridad": 0
+      }
+     ]
+    },
+    {
+     "codigo": "alcohol",
+     "etiqueta": "Alcohol",
+     "orden": 45,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "magnesio"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    },
+    {
+     "codigo": "rosin",
+     "etiqueta": "Rosin",
+     "orden": 46,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "magnesio"
+         ]
+        }
+       ],
+       "prioridad": 2
+      }
+     ]
+    },
+    {
+     "codigo": "silica",
+     "etiqueta": "Silica",
+     "orden": 47,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "magnesio"
+         ]
+        }
+       ],
+       "prioridad": 3
+      }
+     ]
+    },
+    {
+     "codigo": "water",
+     "etiqueta": "Water",
+     "orden": 48,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "magnesio"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "resin",
+     "etiqueta": "Resin",
+     "orden": 49,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "magnesio"
+         ]
+        }
+       ],
+       "prioridad": 5
+      }
+     ]
+    },
+    {
+     "codigo": "maple_wood",
+     "etiqueta": "Maple wood",
+     "orden": 50,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "patineta"
+         ]
+        }
+       ],
+       "prioridad": 0
+      }
+     ]
+    },
+    {
+     "codigo": "bamboo",
+     "etiqueta": "Bamboo",
+     "orden": 51,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "patineta"
+         ]
+        }
+       ],
+       "prioridad": 5
+      }
+     ]
+    },
+    {
+     "codigo": "card_stock",
+     "etiqueta": "Card stock",
+     "orden": 52,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bolsa_compra"
+         ]
+        }
+       ],
+       "prioridad": 1
+      },
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "caja"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    },
+    {
+     "codigo": "jute",
+     "etiqueta": "Jute",
+     "orden": 53,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "bolsa_compra"
+         ]
+        }
+       ],
+       "prioridad": 6
+      }
+     ]
+    },
+    {
+     "codigo": "corrugated_cardboard",
+     "etiqueta": "Corrugated cardboard",
+     "orden": 54,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "caja"
+         ]
+        }
+       ],
+       "prioridad": 0
+      }
+     ]
+    },
+    {
+     "codigo": "wire",
+     "etiqueta": "Wire",
+     "orden": 55,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "gancho"
+         ]
+        }
+       ],
+       "prioridad": 2
+      }
+     ]
+    },
+    {
+     "codigo": "cardboard",
+     "etiqueta": "Cardboard",
+     "orden": 56,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "etiqueta"
+         ]
+        }
+       ],
+       "prioridad": 1
+      }
+     ]
+    },
+    {
+     "codigo": "mdf",
+     "etiqueta": "MDF",
+     "orden": 57,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "exhibidor"
+         ]
+        }
+       ],
+       "prioridad": 4
+      }
+     ]
+    },
+    {
+     "codigo": "acrylic_plastic",
+     "etiqueta": "Acrylic plastic",
+     "orden": 58,
+     "patrones": [
+      {
+       "cuando": [
+        {
+         "campo": "categoria",
+         "operador": "IN",
+         "valor": [
+          "exhibidor"
+         ]
+        }
+       ],
+       "prioridad": 5
+      }
+     ]
+    },
+    {
+     "codigo": "suede",
+     "etiqueta": "Suede",
+     "orden": 59,
+     "patrones": [
+      {
+       "re": "\\b(suede|gamuza|ante)\\b",
+       "nombre": true
+      }
+     ]
+    }
+   ]
   },
   {
    "codigo": "valorCIF",

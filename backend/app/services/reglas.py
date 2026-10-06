@@ -110,7 +110,9 @@ def _dict(r: ReglaClasificacion) -> dict:
     if r.inciso:
         x = r.inciso
         d["inciso"] = {"id": x.id, "codigo": x.codigo, "descripcion": x.descripcion, "dai": x.dai, "fuente": x.fuente, "activo": x.activo}
-        d["cond_txt"] = cond_texto(r.cond())
+        from sqlalchemy.orm import object_session
+
+        d["cond_txt"] = cond_texto(object_session(r), r.cond())
     return d
 
 

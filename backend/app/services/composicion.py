@@ -430,3 +430,19 @@ def total_filas(filas: list[dict]) -> float:
         except ValueError:
             pass
     return redondear(tot, 1)
+
+
+# ---- Lo que se muestra de una parte en la ficha ------------------------------------------
+CLASE_LBL = {"cuero": "Leather", "textil": "Textile", "plastico": "Rubber or plastics", "metal": "Metal", "madera": "Wood or cork", "papel": "Paper",
+             "vidrio": "Glass", "paja": "Straw"}
+# Para enseñar una palabra que no se reconoce: a qué material equivale
+MAT_EQUIV = [("cuero", "Natural leather (hide, suede, nubuck)"), ("sintetico", "Synthetic: rubber or plastics (PU, PVC, TPU)"), ("caucho", "Rubber or EVA"),
+             ("textil", "Textile (fabric, canvas, mesh)"), ("algodon", "Cotton"), ("poliester", "Polyester"), ("nylon", "Nylon or polyamide"),
+             ("elastano", "Elastane or spandex"), ("acrilico", "Acrylic"), ("viscosa", "Viscose or rayon"), ("lana", "Wool"), ("seda", "Silk"),
+             ("lino", "Linen or other vegetable fiber"), ("metal", "Metal"), ("madera", "Wood, cork or other material")]
+
+
+def etiqueta_clase(c: dict | None) -> dict | None:
+    if not c:
+        return None
+    return {"clase": c["clase"], "lbl": "Synthetic (plastics)" if c["sintetico"] else CLASE_LBL.get(c["clase"], c["clase"])}

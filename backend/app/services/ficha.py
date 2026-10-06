@@ -31,6 +31,9 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from sqlalchemy import event
+from sqlalchemy.orm import Session
+
 from .composicion import Lector, norm, resumen_mat
 from .motor_clasificacion import condicion as _condicion, evaluar
 
@@ -192,6 +195,87 @@ class Catalogo:
     def aplica(self, a: Atributo, s: dict, codigos=None) -> bool:
         x = self.ambito(a, s, codigos)
         return bool(x) and x.modo != "HIDE"
+
+    # ---- Composición: lo que se muestra de cada parte --------------------------------------
+    def analizar_parte(self, a: Atributo, s: dict, texto: str = "", historial: list[dict] | None = None, marca: str | None = None,
+                       estilo: str | None = None) -> dict:
+        """Filas (material, %, clase), total, lo que el motor lee de la parte
+        (los atributos que se derivan de ella), palabras dudosas o desconocidas,
+        materiales sugeridos (los que nombra el producto, los más usados en la
+        categoría y los típicos: opciones del atributo) y composiciones ya usadas.
+        historial: [{estilo, color, marca, comp: {parte: texto}}] de la misma categoría."""
+        from .composicion import MAT_AMBIGUAS, etiqueta_clase, norm, total_filas
+
+        L = self.lector
+        parte = a.codigo[5:] if a.codigo.startswith("comp.") else a.codigo
+        txt = str(s.get(a.codigo) or "")
+        filas = [{**f, "clase": etiqueta_clase(L.clase_texto(f["m"]))} for f in L.filas(txt)]
+        lectura = []
+        for b in self.atributos:
+            d = b.derivacion or {}
+            if d.get("parte") != parte or not self.aplica(b, s):
+                continue
+            v = s.get(b.codigo)
+            if _vacio(v):
+                continue
+            o = b.opcion(v)
+            x = {"campo": b.codigo, "etiqueta": b.etiqueta, "valor": v, "texto": o.etiqueta if o else str(v)}
+            if d.get("modo") == "fibra":
+                pc = L.parse_comp(txt)
+                if pc:
+                    x["pct"] = pc["pred"].get("pct")
+            lectura.append(x)
+        pr = L.prep(txt) if txt.strip() else {"ambiguas": [], "desconocidas": []}
+        usados = {norm(f["m"]).strip() for f in filas}
+        base = norm(" ".join(str(x or "") for x in (texto, s.get("uso"), marca)))
+        hist = historial or []
+        cuenta: dict = {}
+        for r in hist:
+            for f in L.filas((r.get("comp") or {}).get(parte)):
+                cuenta[f["m"]] = cuenta.get(f["m"], 0) + (2 if marca and norm(r.get("marca")) == norm(marca) else 1)
+        frecuentes = [m for m, _ in sorted(cuenta.items(), key=lambda kv: -kv[1])]
+        rel, tipicos = [], []
+        for o in a.opciones:
+            if not o.activo:
+                continue
+            if any(p.get("re") and re.search(p["re"], base) for p in o.patrones if p.get("nombre")):
+                rel.append(o.etiqueta)
+            prios = [p.get("prioridad", 99) for p in o.patrones if "cuando" in p and _cumple(p["cuando"], s)]
+            if prios or not o.patrones:
+                tipicos.append((min(prios) if prios else 99, o.orden, o.etiqueta))
+        tipicos = [x[2] for x in sorted(tipicos)]
+        vistos, mats = set(), []
+        for lista, fuente in ((rel, "rel"), (frecuentes[:5], "base"), (tipicos, "tipico")):
+            for m in lista:
+                k = norm(m).strip()
+                if k and k not in vistos and k not in usados:
+                    vistos.add(k)
+                    mats.append({"m": m, "fuente": fuente})
+        todos = list(dict.fromkeys(rel + frecuentes + tipicos))
+        # Composiciones ya usadas: del mismo estilo y las más frecuentes en la categoría
+        usadas, ya = [], set()
+
+        def meter(t, de):
+            k = norm(t).strip()
+            if t and k not in ya:
+                ya.add(k)
+                usadas.append({"txt": t, "de": de})
+        for r in hist:
+            if estilo and norm(r.get("estilo")) == norm(estilo) and (r.get("comp") or {}).get(parte):
+                meter(str(r["comp"][parte]).strip(), {"estilo": r.get("estilo"), "color": r.get("color")})
+        c2: dict = {}
+        for r in hist:
+            t = str((r.get("comp") or {}).get(parte) or "").strip()
+            if t:
+                x = c2.setdefault(t, [0, 0])
+                x[0] += 1
+                x[1] += 1 if marca and norm(r.get("marca")) == norm(marca) else 0
+        for t, (n, nm) in sorted(c2.items(), key=lambda kv: (-kv[1][1], -kv[1][0]))[:3]:
+            meter(t, {"productos": n, "marca": marca if nm else None})
+        return {"parte": parte, "filas": filas, "total": total_filas(filas), "lectura": lectura,
+                "ambiguas": [{"palabra": w, "texto": MAT_AMBIGUAS.get(w, w)} for w in pr.get("ambiguas") or []],
+                "desconocidas": [] if parte in ("relleno", "plantilla") else list(pr.get("desconocidas") or []),
+                "sugerencias": mats[:10], "todos": todos, "usadas": usadas[:3]}
 
     # ---- Derivaciones ------------------------------------------------------------------------
     def derivar(self, a: Atributo, s: dict):
@@ -567,4 +651,21 @@ def _lbl(a: Atributo, v) -> str:
 
 
 DATOS_ATRIBUTOS = Path(__file__).resolve().parent.parent / "data" / "motor_atributos.json"
+_MODELOS_CATALOGO = ("AtributoDef", "AtributoOpcion", "AtributoAmbito", "CategoriaProducto", "PalabraClave", "SinonimoMaterial")
+
+
+def catalogo(db) -> Catalogo:
+    """El catálogo de la base, una vez por sesión: se vuelve a leer en cuanto
+    la sesión guarda un cambio de atributos, opciones, ámbitos, categorías,
+    palabras clave o sinónimos."""
+    cat = db.info.get("catalogo")
+    if cat is None:
+        cat = db.info["catalogo"] = Catalogo.desde_db(db)
+    return cat
+
+
+@event.listens_for(Session, "after_flush")
+def _invalidar_catalogo(sesion, _contexto) -> None:
+    if "catalogo" in sesion.info and any(type(o).__name__ in _MODELOS_CATALOGO for o in (*sesion.new, *sesion.dirty, *sesion.deleted)):
+        sesion.info.pop("catalogo", None)
 __all__ = ["Catalogo", "Atributo", "Opcion", "Ambito", "Categoria", "norm"]

@@ -32,7 +32,8 @@ def test_lista_contexto_y_separacion(tnf, vans, interno):
     assert {p["estado"] for p in pend} <= {"borrador", "sugerida", "observado", "revision"}
     ctx = interno.get("/clasificacion/contexto").json()
     assert len(ctx["destinos"]) == 6 and ctx["pais_base"] == "SV" and ctx["puede_aprobar"]
-    assert any(x["pais"] == "PA" and x["cond"] for x in ctx["incisos"]) and ctx["recs"]
+    # El contexto es solo para mostrar: ni historial ni códigos nacionales (los usa el motor del servidor)
+    assert "incisos" not in ctx and "recs" not in ctx and ctx["categorias"] and ctx["capitulos"]
     assert not vans.get("/clasificacion/contexto").json()["puede_aprobar"]
 
 
@@ -131,9 +132,11 @@ def test_devolver_aprobar_lote_y_aprendizaje(vans, interno):
     assert interno.post("/clasificacion/palabras", {"frase": "old skool", "tipo": "calzado",
                                                     "atributos": {"estiloCalz": "tenis"}}).status_code == 200
     assert vans.post("/clasificacion/sinonimos", {"palabra": "cordura", "equivale": "nylon"}).status_code == 200
-    ctx = interno.get("/clasificacion/contexto").json()
-    assert any(x["frase"] == "old skool" and x["estiloCalz"] == "tenis" for x in ctx["palabras"])
-    assert any(x["palabra"] == "cordura" for x in ctx["sinonimos"])
+    # Lo aprendido lo usa el motor: la palabra clave da categoría y estilo
+    s = interno.post("/clasificacion/sesion", {"nombre": "Old Skool", "paises": False}).json()
+    assert s["categoria"]["codigo"] == "calzado" and s["ficha"].get("estiloCalz") == "tenis"
+    s = interno.post("/clasificacion/sesion", {"categoria": "mochila", "ficha": {"comp": {"exterior": "100% cordura"}}, "paises": False}).json()
+    assert s["hechos"].get("exterior") == "textil"
 
 
 def test_fotos(vans, interno):

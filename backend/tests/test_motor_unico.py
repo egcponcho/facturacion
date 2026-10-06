@@ -271,3 +271,25 @@ def test_categoria_nueva_solo_con_configuracion(interno):
     assert s["descripciones"]["aduana"].startswith("BATERÍA")
     s = _sesion(interno, {"estilo": "Car battery", "categoria": "bateria", "ficha": {"battery_chem": "LEAD_ACID"}})
     assert s["hs6"] == "850710"
+
+
+def test_composicion_y_campos_salen_del_servidor(interno):
+    """La ficha recibe del motor cada parte de la composición ya leída: filas
+    con su clase, total, lo que se deriva (material del corte), sugerencias
+    (lo que nombra el producto, lo típico de la categoría y el estilo) y las
+    composiciones ya usadas; cada campo dice si es principal."""
+    s = interno.post("/clasificacion/sesion", {"categoria": "calzado", "nombre": "Suede skate shoe", "paises": False,
+                                               "ficha": {"estiloCalz": "tenis", "comp": {"corte": "60% canvas, 40% suede", "suela": ""}}}).json()
+    corte = next(c for c in s["campos"] if c["codigo"] == "comp.corte")["composicion"]
+    assert [f["m"] for f in corte["filas"]] == ["Canvas", "Suede"] and corte["total"] == 100
+    assert {f["clase"]["clase"] for f in corte["filas"]} == {"textil", "cuero"}
+    assert any(x["campo"] == "upper" for x in corte["lectura"])
+    suela = next(c for c in s["campos"] if c["codigo"] == "comp.suela")["composicion"]
+    assert suela["sugerencias"][0]["m"] == "Rubber" and all(x["fuente"] in ("rel", "base", "tipico") for x in suela["sugerencias"])
+    assert suela["usadas"] and all(u["txt"] for u in suela["usadas"])  # del seed: calzado ya clasificado
+    cor = interno.post("/clasificacion/sesion", {"categoria": "calzado", "nombre": "Suede skate shoe", "paises": False}).json()
+    sug = next(c for c in cor["campos"] if c["codigo"] == "comp.corte")["composicion"]["sugerencias"]
+    assert sug[0] == {"m": "Suede", "fuente": "rel"}  # lo nombra el producto
+    campos = {c["codigo"]: c for c in s["campos"]}
+    assert campos["estiloCalz"]["principal"] and not campos["technical_description"]["principal"]
+    assert all(a.get("clave") for a in s["alertas"])

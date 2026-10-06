@@ -47,6 +47,7 @@ from ..models import (
     IncisoNacional,
     NodoArancel,
     PaisArancel,
+    Marca,
     Producto,
     ReglaClasificacion,
     VersionDataset,
@@ -281,13 +282,13 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     que implica), detectar (por defecto sí), codigo_final (el HS6/SAC que se
     quiere aprobar: se verifica), partidas ({iso: {codigo, manual}}),
     producto_id, alertas_ok, fecha, version_id (para reproducir)."""
-    from .ficha import Catalogo
+    from .ficha import catalogo as catalogo_db
 
     hoy = entrada.get("fecha") or date.today()
     if isinstance(hoy, str):
         hoy = date.fromisoformat(hoy[:10])
     v = version_regional(db, hoy, entrada.get("version_id"))
-    cat = catalogo or Catalogo.desde_db(db)
+    cat = catalogo or catalogo_db(db)
     ficha = copy.deepcopy(entrada.get("ficha") or {})
     ficha.setdefault("comp", {})
     texto_det = " ".join(x for x in (entrada.get("estilo"), entrada.get("nombre")) if str(x or "").strip())
@@ -516,7 +517,13 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     # 6. Preguntas: ámbitos, compuertas y lo que discrimina primero
     codigos_c = [c.codigo for c in lista]
     discriminan = set().union(*pendientes.values()) if pendientes and "NEXT_BEST_QUESTION" in base else set()
-    campos, preguntas, faltantes = _campos(cat, s, ficha, codigos_c, preguntar, discriminan, autos)
+    usados = {c.campo for r in reglas for c in r.condiciones}
+    campos, preguntas, faltantes = _campos(cat, s, ficha, codigos_c, preguntar, discriminan, autos, usados)
+    comps = [c for c in campos if c["tipo_dato"] == "composition"]
+    if comps:
+        hist = _historial_composicion(db, categoria, entrada.get("producto_id"))
+        for c in comps:
+            c["composicion"] = cat.analizar_parte(cat.por_codigo[c["codigo"]], s, texto_det, hist, entrada.get("marca"), entrada.get("estilo"))
 
     # 7. SAC regional y 8. clasificación por país
     elegido = final[:6] if len(final) >= 6 else hs6
@@ -524,7 +531,7 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     lineas_sac = sorted(k for k in por_cod if elegido and k.startswith(elegido) and len(k) > 6)
     if not sac and len(lineas_sac) == 1:
         sac = lineas_sac[0]
-    out_paises = _paises(db, elegido, sac, hechos, hoy, entrada.get("partidas") or {}) if paises and elegido else []
+    out_paises = _paises(db, elegido, sac, hechos, hoy, entrada.get("partidas") or {}, cat) if paises and elegido else []
     for p in out_paises:
         for k in p["faltan"]:
             if k in cat.por_codigo and not any(q["codigo"] == k for q in preguntas):
@@ -532,7 +539,9 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
 
     # 9. Alertas de los datos (composición, detección, catálogo, historial)
     alertas += _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, historial, elegido)
-    vivas = [x for x in alertas if x["nivel"] == "error" or _clave_alerta(x["msg"]) not in set(entrada.get("alertas_ok") or [])]
+    for x in alertas:
+        x["clave"] = _clave_alerta(x["msg"])  # para marcarla como revisada
+    vivas = [x for x in alertas if x["nivel"] == "error" or x["clave"] not in set(entrada.get("alertas_ok") or [])]
     datos = [x for x in vivas if x.get("origen") != "codigo"]
     if any(x["nivel"] == "error" for x in datos):
         confianza = "low"
@@ -551,6 +560,14 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     desc = {"aduana": descripcion_aduana(cat, s, cobj), "comercial": descripcion_comercial(cat, s, cobj, entrada.get("marca"))}
     revision = bool(revision_por) or confianza == "low"
     nombres = {c: _desc(por_cod, c) for c in codigos_c[:limite]}
+    if hs6 and hs6 not in nombres:
+        nombres[hs6] = _desc(por_cod, hs6)
+    oficiales = dict(nombres)
+    from . import overrides
+
+    for k, ov in overrides.vigentes(db, "NODO", list(nombres), hoy).items():  # descripción propia (capa custom)
+        if ov.get("descripcion") and k in nombres:
+            nombres[k] = ov["descripcion"]
     completa = not faltantes and bool(hs6) and len(hs6) == 6 and bool(entrada.get("origen") or entrada.get("sin_origen"))
     candidatos = [{"codigo": c.codigo, "codigo_txt": formato(c.codigo), "descripcion": nombres.get(c.codigo, ""), "capitulo": c.codigo[:2],
                    "titulo_capitulo": caps[c.codigo[:2]].titulo if c.codigo[:2] in caps else "", "puntaje": round(c.puntaje, 2),
@@ -573,6 +590,7 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
         "ficha": ficha, "autos": sorted(autos), "avisos": avisos, "detectado": detectado, "hechos": evidencia["hechos"],
         "campos": campos, "preguntas": preguntas, "faltantes": faltantes, "completa": completa,
         "clasificacion": {"hs6": {"codigo": hs6, "codigo_txt": formato(hs6) if hs6 else None, "descripcion": nombres.get(hs6, "") if hs6 else "",
+                                 "descripcion_oficial": oficiales.get(hs6, "") if hs6 else "",
                                   "automatico": auto_ok},
                           "sac": {"codigo": sac, "codigo_txt": formato(sac) if sac else None,
                                   "opciones": [{"codigo": k, "codigo_txt": formato(k), "descripcion": _desc(por_cod, k)} for k in lineas_sac][:20]},
@@ -640,6 +658,17 @@ def _perfil(categoria, hechos, traza) -> str:
     usados = sorted({c["campo"] for t in traza if t.get("aplicada") and t.get("foto") for c in t["foto"]["condiciones"]}
                     | {t["foto"]["accion"]["por"] for t in traza if t.get("aplicada") and t.get("foto") and t["foto"]["accion"].get("por")})
     return "|".join([categoria or "?"] + [f"{k}={hechos.get(k)}" for k in usados if not _vacio(hechos.get(k)) and k != "categoria"])[:200]
+
+
+def _historial_composicion(db: Session, categoria, pid) -> list[dict]:
+    """Composiciones de los productos de la misma categoría (para sugerir materiales)."""
+    if not categoria:
+        return []
+    q = (select(Producto.id, Producto.estilo, Producto.color, Producto.ficha, Producto.marca_id).where(Producto.tipo == categoria)
+         .order_by(Producto.id.desc()).limit(400))
+    marcas = {m.id: m.nombre for m in db.scalars(select(Marca))}
+    return [{"estilo": x.estilo, "color": x.color, "marca": marcas.get(x.marca_id), "comp": (x.ficha or {}).get("comp") or {}}
+            for x in db.execute(q) if x.id != pid]
 
 
 def _historial(db: Session, entrada: dict, categoria, perfil: str) -> dict:
@@ -742,7 +771,7 @@ def _campo(cat, a, s, ficha, estado, amb, discrimina, autos) -> dict:
             "respondida": not _vacio(val) and not (a.booleano and val is False and a.valor_defecto is None)}
 
 
-def _campos(cat, s, ficha, codigos, forzadas, discriminan, autos):
+def _campos(cat, s, ficha, codigos, forzadas, discriminan, autos, usados=frozenset()):
     campos, preguntas, faltantes = [], [], []
     for a in cat.atributos:
         amb = cat.ambito(a, s, codigos)
@@ -760,6 +789,9 @@ def _campos(cat, s, ficha, codigos, forzadas, discriminan, autos):
             if e == "oculto" and a.seccion in ("producto", "caracteristicas") and not amb:
                 continue
         d = _campo(cat, a, s, ficha, e, amb, a.codigo in discriminan, autos)
+        # Lo que decide el código o es obligatorio va arriba; los datos oficiales
+        # opcionales que ninguna regla usa, en «más datos»
+        d["principal"] = not (a.origen == "OFICIAL" and d["modo"] != "REQUIRE" and not d["discrimina"] and a.codigo not in usados)
         campos.append(d)
         requerido = (amb and amb.modo == "REQUIRE") or a.codigo in discriminan
         if requerido and _vacio(s.get(a.codigo)) and a.seccion != "derivado":
@@ -777,6 +809,19 @@ def _campos(cat, s, ficha, codigos, forzadas, discriminan, autos):
 
 
 # ---- Alertas de los datos ----------------------------------------------------------------------
+def _cond_txt(cond: dict | None, cat) -> str:
+    """Condición de una línea nacional en palabras (etiquetas del catálogo)."""
+    out = []
+    for k, v in (cond or {}).items():
+        a = cat.por_codigo.get(k) if cat else None
+        txt = []
+        for x in v if isinstance(v, list) else [v]:
+            o = a.opcion(x) if a and isinstance(x, str) else None
+            txt.append(o.etiqueta if o else ("Yes" if x is True else "No" if x is False else str(x)))
+        out.append(f"{a.etiqueta if a else k}: {' / '.join(txt)}")
+    return "; ".join(out)
+
+
 def _clave_alerta(msg: str) -> str:
     h = 5381
     for ch in str(msg):
@@ -882,7 +927,7 @@ def _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, histori
 
 
 # ---- Clasificación por país --------------------------------------------------------------------
-def _paises(db: Session, hs6: str, sac: str | None, hechos: dict, hoy: date, manuales: dict) -> list[dict]:
+def _paises(db: Session, hs6: str, sac: str | None, hechos: dict, hoy: date, manuales: dict, cat=None) -> list[dict]:
     """Cada país por separado, con la versión vigente de su arancel: se elige
     una línea nacional existente con las reglas de selección; nunca se recorta
     ni se completa un código; un código propio solo si tiene una longitud válida."""
@@ -947,7 +992,8 @@ def _paises(db: Session, hs6: str, sac: str | None, hechos: dict, hoy: date, man
                     "version": {"id": vp.id, "codigo": vp.codigo} if vp else None, "longitudes": p.longitudes_validas(), "digitos": p.digitos,
                     "error": error, "manual": bool(mcod) and not (mejor and not empate and mcod == mejor.codigo),
                     "sugerido": mejor.codigo if mejor and not empate else None,
-                    "opciones": [{"codigo": y.codigo, "cond": y.cond, "descripcion": desc_ov.get(y.id) or y.descripcion, "dai": y.dai, "inciso_id": y.id}
+                    "opciones": [{"codigo": y.codigo, "cond": y.cond, "cond_txt": _cond_txt(y.cond, cat), "descripcion": desc_ov.get(y.id) or y.descripcion,
+                                  "dai": y.dai, "inciso_id": y.id}
                                  for y in (vivos + pendientes + [z for z in lineas_ok if z not in vivos and z not in pendientes])][:12],
                     "faltan": sorted(faltan), "impuestos": req["impuestos"], "regulaciones": req["regulaciones"], "overrides": aplicados})
     return out
