@@ -45,7 +45,8 @@ def paises(db: Session, user: Usuario) -> list[dict]:
     fuentes = {f.id: f.codigo for f in db.scalars(select(FuenteOficial))}
     return [{"id": x.id, "iso": x.iso, "nombre": x.nombre, "digitos": x.digitos, "mcca": x.mcca, "impuesto": x.impuesto,
              "nota": x.nota, "base_legal": x.base_legal, "orden": x.orden, "activo": x.activo, "codigos": n.get(x.iso, 0),
-             "longitudes": x.longitudes, "modelo_arancel": x.modelo_arancel, "contexto": x.contexto,
+             "longitudes": x.longitudes_validas() if x.longitudes else [], "longitudes_validas": x.longitudes_validas(),
+             "nivel_base": x.nivel_base, "modelo_arancel": x.modelo_arancel, "contexto": x.contexto,
              "fuente": fuentes.get(x.fuente_id)}
             for x in db.scalars(select(PaisArancel).order_by(PaisArancel.orden, PaisArancel.iso))]
 
@@ -70,6 +71,24 @@ def guardar_pais(db: Session, user: Usuario, datos, pais_id: int | None = None) 
     x.iso, x.nombre, x.digitos = iso, datos.nombre.strip()[:80], datos.digitos
     x.mcca, x.impuesto, x.nota, x.activo = datos.mcca, (datos.impuesto or "")[:60] or None, (datos.nota or "")[:300] or None, datos.activo
     x.base_legal = (datos.base_legal or "").strip()[:300] or None
+    campos = datos.model_fields_set
+    if "longitudes" in campos:
+        lons = sorted(set(datos.longitudes or []))
+        if any(not 6 <= n <= 14 for n in lons):
+            raise ErrorNegocio("Each valid length has between 6 and 14 digits.", 422, "validacion")
+        if lons and datos.digitos not in lons:
+            raise ErrorNegocio("The usual number of digits must be one of the valid lengths.", 422, "validacion")
+        x.longitudes = ",".join(str(n) for n in lons) or None
+    for k in ("nivel_base", "modelo_arancel", "contexto"):
+        if k in campos:
+            setattr(x, k, (getattr(datos, k) or "").strip() or None)
+    if "fuente" in campos:
+        from ..models import FuenteOficial
+
+        f = db.scalar(select(FuenteOficial).where(FuenteOficial.codigo == datos.fuente)) if datos.fuente else None
+        if datos.fuente and not f:
+            raise ErrorNegocio(f"The official source {datos.fuente} does not exist.", 422, "validacion")
+        x.fuente_id = f.id if f else None
     if antes and antes != iso:
         for i in db.scalars(select(IncisoNacional).where(IncisoNacional.pais == antes)):
             i.pais = iso
@@ -352,8 +371,20 @@ def listar_incisos(db: Session, user: Usuario, filtros: dict, page: int, size: i
                        .offset((page - 1) * size).limit(size)).all()
     sac = textos_sac(db, {x.sub6 for x in filas}) if filas else {}
     por_pais = dict(db.execute(select(IncisoNacional.pais, func.count()).group_by(IncisoNacional.pais)).all())
-    return {"items": [_fila_inciso(x, sac) for x in filas], "total": total, "page": page, "size": size,
-            "por_pais": por_pais}
+    from . import overrides
+
+    ovs = overrides.vigentes(db, "INCISO", [x.id for x in filas]) if filas else {}
+    items = []
+    for x in filas:
+        d = _fila_inciso(x, sac)
+        # Línea oficial: no se edita; lo propio de la empresa va como override (descripción, nota, activo)
+        d["oficial"] = _es_oficial(x)
+        d["override"] = ovs.get(str(x.id)) or None
+        if d["override"]:
+            d["descripcion_oficial"] = x.descripcion
+            d["descripcion"] = d["override"].get("descripcion") or x.descripcion
+        items.append(d)
+    return {"items": items, "total": total, "page": page, "size": size, "por_pais": por_pais}
 
 
 def _cond_limpia(db: Session, cond: dict | None) -> dict:
@@ -733,4 +764,11 @@ def exportar_sac(db: Session, user: Usuario, filtros: dict, formato: str) -> byt
 def opciones(db: Session, user: Usuario) -> dict:
     exigir(user, "producto.ver")
     return {"condiciones": {k: {"label": d["label"], "tipo": d["tipo"], "ops": d["ops"]} for k, d in opciones_cond(db).items()},
-            "fuentes": FUENTES}
+            "fuentes": FUENTES, "fuentes_oficiales": _fuentes_oficiales(db)}
+
+
+def _fuentes_oficiales(db: Session) -> list[dict]:
+    from ..models import FuenteOficial
+
+    return [{"codigo": f.codigo, "texto": f"{f.codigo} · {f.autoridad}", "ambito": f.ambito}
+            for f in db.scalars(select(FuenteOficial).order_by(FuenteOficial.codigo))]

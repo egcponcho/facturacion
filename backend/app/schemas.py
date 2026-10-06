@@ -475,6 +475,13 @@ class PaisArancelIn(BaseModel):
     nota: str | None = Field(None, max_length=300)
     base_legal: str | None = Field(None, max_length=300)
     activo: bool = True
+    # Esquema del arancel nacional: longitudes admitidas (p. ej. "10,12"), de qué nivel
+    # cuelga la precisión nacional, modelo, contexto y fuente oficial
+    longitudes: list[int] | None = None
+    nivel_base: Literal["HS6", "SAC8"] | None = None
+    modelo_arancel: str | None = Field(None, max_length=120)
+    contexto: str | None = Field(None, max_length=120)
+    fuente: str | None = Field(None, max_length=40)  # código de la fuente oficial
 
 
 class PartidaSACIn(BaseModel):

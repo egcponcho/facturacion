@@ -309,3 +309,29 @@ def test_especialista_recibe_la_ficha_del_motor(interno):
     assert "- estiloCalz (Footwear style): tenis = Sneaker" in d["campos"] and "comp.corte" in d["campos"]
     texto = especialista._prompt(d)
     assert "Rule engine suggestion: 6404.19" in texto
+
+
+def test_pais_configurable_y_lineas_oficiales_con_override(interno):
+    """Todo el esquema del país se configura desde la pantalla (longitudes,
+    nivel base, modelo, contexto, fuente) y las líneas oficiales se ven como
+    oficiales, con el ajuste propio aparte."""
+    ps = {p["iso"]: p for p in interno.get("/aranceles/paises").json()}
+    cr = ps["CR"]
+    base = {k: cr[k] for k in ("iso", "nombre", "digitos", "mcca", "impuesto", "nota", "base_legal", "activo")}
+    fuentes = interno.get("/aranceles/opciones").json()["fuentes_oficiales"]
+    assert fuentes
+    r = interno.put(f"/aranceles/paises/{cr['id']}", {**base, "digitos": 12, "longitudes": [10, 12], "nivel_base": "SAC8",
+                                                       "modelo_arancel": "SAC + national precision", "contexto": "test", "fuente": fuentes[0]["codigo"]})
+    assert r.status_code == 200, r.text
+    cr2 = next(p for p in interno.get("/aranceles/paises").json() if p["iso"] == "CR")
+    assert cr2["longitudes"] == [10, 12] and cr2["nivel_base"] == "SAC8" and cr2["fuente"] == fuentes[0]["codigo"]
+    assert interno.put(f"/aranceles/paises/{cr['id']}", {**base, "longitudes": [5]}).status_code == 422
+    assert interno.put(f"/aranceles/paises/{cr['id']}", {**base, "digitos": 8, "longitudes": [10, 12]}).status_code == 422
+    interno.put(f"/aranceles/paises/{cr['id']}", {**base, "longitudes": [], "nivel_base": None, "fuente": None})
+    # Línea oficial: se marca como tal y su ajuste propio se ve aparte del texto oficial
+    gt = interno.get("/aranceles/codigos", params={"pais": "GT", "q": "6404199000"}).json()["items"][0]
+    assert gt["oficial"] and not gt["override"]
+    interno.patch(f"/aranceles/codigos/{gt['id']}/override", {"descripcion": "Tenis de lona (compras)", "motivo": "Texto interno"})
+    gt2 = interno.get("/aranceles/codigos", params={"pais": "GT", "q": "6404199000"}).json()["items"][0]
+    assert gt2["descripcion"] == "Tenis de lona (compras)" and gt2["descripcion_oficial"] == gt["descripcion"] and gt2["override"]
+    interno.delete_(f"/aranceles/codigos/{gt['id']}/override")

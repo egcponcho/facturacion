@@ -23,6 +23,7 @@ import PanelImpuestos from '../components/aranceles/PanelImpuestos.vue'
 import PanelFuentes from '../components/aranceles/PanelFuentes.vue'
 import PanelImportacion from '../components/aranceles/PanelImportacion.vue'
 import { cargarContexto } from '../clasificacion/useClasificacion'
+import { digits, fmtPais } from '../clasificacion/formato.js'
 import { siguienteOrden } from '../composables/useTabla'
 import { puede } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
@@ -75,12 +76,7 @@ const recargarC = () => { fc.page = 1; cargarCodigos() }
 let espera
 const buscarC = () => { clearTimeout(espera); espera = setTimeout(recargarC, 300) }
 const digitosDe = (iso) => paises.value.find((p) => p.iso === iso)?.digitos || 10
-const digits = (v) => String(v || '').replace(/\D/g, '')
-function fmtPais(c, n) {
-  const d = String(c || '').replace(/\D/g, '')
-  const s = d.padEnd(n, '_').slice(0, n)
-  return [s.slice(0, 4), ...s.slice(4).match(/.{1,2}/g) || []].join('.')
-}
+const longitudesDe = (iso) => paises.value.find((p) => p.iso === iso)?.longitudes_validas || [digitosDe(iso)]
 
 async function guardarCampo(x, campo, valor) {
   await api.put(`/aranceles/codigos/${x.id}`, { pais: x.pais, codigo: x.codigo, descripcion: x.descripcion, dai: x.dai, cond: x.cond, prio: x.prio, nota: x.nota, activo: x.activo, [campo]: valor })
@@ -89,6 +85,16 @@ async function guardarCampo(x, campo, valor) {
 }
 function nuevoCodigo() {
   modal.value = { tipo: 'codigo', id: null, pais: fc.pais[0] || paises.value[0]?.iso, codigo: '', descripcion: '', dai: '', prio: 0, nota: '', activo: true, cond: {} }
+}
+async function quitarOverride(m) {
+  try {
+    await api.del(`/aranceles/codigos/${m.id}/override`)
+    modal.value = null
+    avisar(t('Back to the official line.'))
+    cargarCodigos()
+  } catch (e) {
+    errorApi(e)
+  }
 }
 function editarCodigo(x) {
   modal.value = { tipo: 'codigo', ...JSON.parse(JSON.stringify(x)) }
@@ -131,7 +137,9 @@ async function guardarCodigo() {
   const m = modal.value
   ocupado.value = true
   try {
-    const cuerpo = { pais: m.pais, codigo: m.codigo, descripcion: m.descripcion, dai: m.dai, cond: m.cond, prio: Number(m.prio) || 0, nota: m.nota, activo: m.activo }
+    // Una línea oficial no se modifica: descripción, nota y activo se guardan como ajuste propio (con motivo)
+    const cuerpo = { pais: m.pais, codigo: m.codigo, descripcion: m.descripcion, dai: m.dai, cond: m.cond, prio: Number(m.prio) || 0, nota: m.nota, activo: m.activo,
+      motivo: m.oficial ? m.motivo || null : null }
     if (m.id) await api.put(`/aranceles/codigos/${m.id}`, cuerpo)
     else await api.post('/aranceles/codigos', cuerpo)
     modal.value = null
@@ -253,7 +261,10 @@ async function guardarPais() {
   const m = modal.value
   ocupado.value = true
   try {
-    const cuerpo = { iso: m.iso, nombre: m.nombre, digitos: Number(m.digitos), mcca: !!m.mcca, impuesto: m.impuesto, nota: m.nota, base_legal: m.base_legal || null, activo: m.activo }
+    // Longitudes válidas del código nacional (p. ej. 10, 12): el código se valida contra ellas y nunca se recorta
+    const longitudes = String(m.longitudes_txt || '').split(/[\s,;]+/).filter(Boolean).map(Number)
+    const cuerpo = { iso: m.iso, nombre: m.nombre, digitos: Number(m.digitos), mcca: !!m.mcca, impuesto: m.impuesto, nota: m.nota, base_legal: m.base_legal || null,
+      activo: m.activo, longitudes, nivel_base: m.nivel_base || null, modelo_arancel: m.modelo_arancel || null, contexto: m.contexto || null, fuente: m.fuente || null }
     if (m.id) await api.put(`/aranceles/paises/${m.id}`, cuerpo)
     else await api.post('/aranceles/paises', cuerpo)
     modal.value = null
@@ -345,7 +356,7 @@ watch(() => fs.size, recargarS)
       <span class="iso">{{ tx(p.iso) }}</span>
       <span class="pt-datos"><b>{{ tx(p.nombre) }}</b><small>{{ t('{0} digits{1} · {2} codes', [p.digitos, p.mcca ? ' · CACM' : '', fmtNum(p.codigos)]) }}</small></span>
     </button>
-    <button v-if="edita" type="button" class="pais-tarjeta nuevo" @click="modal = { tipo: 'pais', id: null, iso: '', nombre: '', digitos: 10, mcca: false, impuesto: '', nota: '', base_legal: '', activo: true }">
+    <button v-if="edita" type="button" class="pais-tarjeta nuevo" @click="modal = { tipo: 'pais', id: null, iso: '', nombre: '', digitos: 10, mcca: false, impuesto: '', nota: '', base_legal: '', activo: true, longitudes_txt: '', nivel_base: '', modelo_arancel: '', contexto: '', fuente: '' }">
       <Icono nombre="mas" :tam="16" /> {{ t('Add country') }}
     </button>
   </div>
@@ -406,11 +417,12 @@ watch(() => fs.size, recargarS)
             <td class="fuerte">{{ tx(x.pais) }}</td>
             <td><span class="codigo-sac">{{ fmtPais(x.codigo, digitosDe(x.pais)) }}</span><span class="sub" :title="tx(x.sac)">{{ tx(x.sac ? x.sac.slice(0, 70) + (x.sac.length > 70 ? '…' : '') : '') }}</span></td>
             <td style="min-width: 220px">
-              <CeldaEditable v-if="edita" :valor="x.descripcion" vacia-texto="—" :etiqueta="t('Description of {0}', [x.codigo_txt])" :guardar="(v) => guardarCampo(x, 'descripcion', v)" />
+              <template v-if="x.oficial">{{ tx(x.descripcion || '—') }}<span v-if="x.override" class="etiqueta acento" :title="tx(t('Official text: {0}', [x.descripcion_oficial || '—']))">{{ t('company override') }}</span></template>
+              <CeldaEditable v-else-if="edita" :valor="x.descripcion" vacia-texto="—" :etiqueta="t('Description of {0}', [x.codigo_txt])" :guardar="(v) => guardarCampo(x, 'descripcion', v)" />
               <template v-else>{{ tx(x.descripcion || '—') }}</template>
             </td>
             <td class="num" style="width: 90px">
-              <CeldaEditable v-if="edita" :valor="x.dai" vacia-texto="—" :etiqueta="t('Duty of {0}', [x.codigo_txt])" :guardar="(v) => guardarCampo(x, 'dai', v)" />
+              <CeldaEditable v-if="edita && !x.oficial" :valor="x.dai" vacia-texto="—" :etiqueta="t('Duty of {0}', [x.codigo_txt])" :guardar="(v) => guardarCampo(x, 'dai', v)" />
               <template v-else>{{ tx(x.dai ?? '—') }}</template>
             </td>
             <td class="cond">{{ tx(x.cond_txt) }}<span v-if="x.prio" class="etiqueta">{{ t('priority {0}', [x.prio]) }}</span></td>
@@ -466,7 +478,7 @@ watch(() => fs.size, recargarS)
   <section v-else-if="vista === 'paises'" class="paises-grid">
     <article v-for="p in paises" :key="p.iso" class="panel pais-panel" :class="{ inactivo: !p.activo }">
       <div class="panel-cabeza">
-        <div><h2>{{ tx(p.iso) }} · {{ tx(p.nombre) }}</h2><p>{{ t('{0}-digit national codes{1}', [p.digitos, p.mcca ? t(' · Central American Common Market') : '']) }}</p></div>
+        <div><h2>{{ tx(p.iso) }} · {{ tx(p.nombre) }}</h2><p>{{ t('{0}-digit national codes{1}', [(p.longitudes?.length ? p.longitudes : [p.digitos]).join(' / '), p.mcca ? t(' · Central American Common Market') : '']) }}</p></div>
         <span v-if="!p.activo" class="etiqueta">{{ t('Inactive') }}</span>
       </div>
       <div class="doc-meta" style="margin-top: 0">
@@ -480,7 +492,7 @@ watch(() => fs.size, recargarS)
         <button class="btn btn-chico" @click="fc.pais = [p.iso]; cambiarVista('codigos')"><Icono nombre="lista" :tam="14" />{{ t('See codes') }}</button>
         <template v-if="edita">
           <button class="btn btn-chico" @click="cargarPais(p)"><Icono nombre="importar" :tam="14" />{{ t('Upload codes') }}</button>
-          <button class="btn btn-chico btn-fantasma" @click="modal = { tipo: 'pais', ...p }"><Icono nombre="editar" :tam="14" />{{ t('Edit') }}</button>
+          <button class="btn btn-chico btn-fantasma" @click="modal = { tipo: 'pais', ...p, longitudes_txt: (p.longitudes || []).join(', ') }"><Icono nombre="editar" :tam="14" />{{ t('Edit') }}</button>
           <button v-if="!p.codigos" class="btn btn-chico btn-fantasma" style="color: var(--error)" @click="borrarPais(p)"><Icono nombre="basura" :tam="14" />{{ t('Delete') }}</button>
         </template>
       </div>
@@ -491,9 +503,9 @@ watch(() => fs.size, recargarS)
   <Modal v-if="modal?.tipo === 'codigo'" :titulo="tx(modal.id ? t('National code {0}', [modal.codigo]) : t('New national code'))" ancho="760px" @cerrar="modal = null">
     <div class="rejilla-campos">
       <label class="campo"><span class="req">{{ t('Country') }}</span>
-        <Seleccion v-model="modal.pais" class="entrada"><option v-for="p in paises" :key="p.iso" :value="p.iso">{{ tx(p.iso) }} · {{ tx(p.nombre) }}</option></Seleccion></label>
-      <label class="campo"><span class="req">{{ t('Code ({0} digits)', [digitosDe(modal.pais)]) }}</span><input v-model="modal.codigo" class="entrada" :placeholder="tx('0'.repeat(digitosDe(modal.pais)))" /></label>
-      <label class="campo"><span>{{ t('Duty (DAI %)') }}</span><input v-model="modal.dai" class="entrada" /></label>
+        <Seleccion v-model="modal.pais" class="entrada" :disabled="modal.oficial"><option v-for="p in paises" :key="p.iso" :value="p.iso">{{ tx(p.iso) }} · {{ tx(p.nombre) }}</option></Seleccion></label>
+      <label class="campo"><span class="req">{{ t('Code ({0} digits)', [longitudesDe(modal.pais).join(' / ')]) }}</span><input v-model="modal.codigo" class="entrada" :disabled="modal.oficial" :placeholder="tx('0'.repeat(digitosDe(modal.pais)))" /></label>
+      <label class="campo"><span>{{ t('Duty (DAI %)') }}</span><input v-model="modal.dai" class="entrada" :disabled="modal.oficial" /></label>
       <label class="campo"><span>{{ t('Priority') }}</span><input v-model="modal.prio" type="number" min="0" max="99" class="entrada" /></label>
       <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Description') }}</span><input v-model="modal.descripcion" class="entrada" maxlength="300" /></label>
     </div>
@@ -518,6 +530,11 @@ watch(() => fs.size, recargarS)
     </div>
     <label class="campo mt-chico"><span>{{ t('Note') }}</span><input v-model="modal.nota" class="entrada" maxlength="300" /></label>
     <label class="check mt-chico"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active (the engine uses it)') }}</span></label>
+    <template v-if="modal.oficial">
+      <p class="nota info mt-chico"><Icono nombre="info" /><span>{{ t('Official line of the tariff in force: its country, code and duty do not change. Description, note and active are saved as your company override, with the reason.') }}</span></p>
+      <label class="campo mt-chico"><span>{{ t('Reason for the override') }}</span><input v-model="modal.motivo" class="entrada" maxlength="300" :placeholder="t('E.g. internal purchasing description')" /></label>
+      <button v-if="modal.override" type="button" class="btn-texto mt-chico" @click="quitarOverride(modal)">{{ t('Remove the company override (back to the official text)') }}</button>
+    </template>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" :disabled="ocupado" @click="guardarCodigo">{{ t('Save') }}</button>
@@ -599,6 +616,13 @@ watch(() => fs.size, recargarS)
       <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="modal.nombre" class="entrada" maxlength="80" /></label>
       <label class="campo"><span class="req">{{ t('Digits of its national code') }}</span><input v-model="modal.digitos" type="number" min="6" max="14" class="entrada" /></label>
       <label class="campo"><span>{{ t('Tax') }}</span><input v-model="modal.impuesto" class="entrada" placeholder="VAT 13%" /></label>
+      <label class="campo"><span>{{ t('Valid lengths') }}</span><input v-model="modal.longitudes_txt" class="entrada" placeholder="10, 12" :title="t('Every length its national codes can have. Empty: 8 to 14 digits.')" /></label>
+      <label class="campo"><span>{{ t('National precision hangs from') }}</span>
+        <Seleccion v-model="modal.nivel_base" class="entrada"><option value="">—</option><option value="HS6">{{ t('HS6 (6 digits)') }}</option><option value="SAC8">{{ t('Regional SAC (8 digits)') }}</option></Seleccion></label>
+      <label class="campo"><span>{{ t('Tariff model') }}</span><input v-model="modal.modelo_arancel" class="entrada" maxlength="120" :placeholder="t('E.g. regional SAC + national precision')" /></label>
+      <label class="campo"><span>{{ t('Context') }}</span><input v-model="modal.contexto" class="entrada" maxlength="120" /></label>
+      <label class="campo"><span>{{ t('Official source') }}</span>
+        <Seleccion v-model="modal.fuente" class="entrada"><option value="">—</option><option v-for="f in meta.fuentes_oficiales || []" :key="f.codigo" :value="f.codigo">{{ tx(f.texto) }}</option></Seleccion></label>
       <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Legal basis') }}</span><input v-model="modal.base_legal" class="entrada" maxlength="300" :placeholder="t('Tariff and rule that puts it in force')" /></label>
       <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Note') }}</span><input v-model="modal.nota" class="entrada" maxlength="300" /></label>
     </div>
