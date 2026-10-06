@@ -225,13 +225,22 @@ def oficial_paquete(numero: int, user: User, vista: bool = False):
 @router.post("/aranceles/oficial/importar")
 async def oficial_importar(db: Db, user: User, archivo: UploadFile = File(...)):
     """Carga un paquete oficial (fuentes, versiones, países, capítulos, dominios y atributos)."""
-    from ..services import oficial
     from ..services.common import exigir
 
+    from ..services import lotes
+
     exigir(user, "aranceles.editar")
-    r = oficial.importar(db, await archivo.read(), user, archivo.filename or "")
+    # También pasa por la previa: así se validan la inmutabilidad y la diferencia exacta
+    lote = lotes.previa(db, user, await archivo.read(), archivo.filename or "")
+    db.commit()  # la previa queda guardada (y libera la escritura) antes de publicar
+    if lote["filas"]:
+        lotes.publicar(db, user, lote["id"])
+    else:
+        lotes.descartar(db, user, lote["id"])
     db.commit()
-    return r
+    hojas = lote["resumen"]["hojas"]
+    return {"hojas": hojas, "errores": lote["errores"], "lote_id": lote["id"],
+            "creados": sum(h["creados"] for h in hojas.values()), "actualizados": sum(h["actualizados"] for h in hojas.values())}
 
 
 # ---- Cargas oficiales por etapas: previa → diferencias → publicar ------------------------

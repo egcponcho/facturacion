@@ -324,8 +324,7 @@ def test_carga_por_etapas_previa_diferencias_publicar(interno):
     assert lote["estado"] == "PREVIA" and not [f for f in lote["filas"] if f["accion"] != "NUEVO"]
     # Un cambio y un nuevo: se ven antes/después y no se aplican hasta publicar
     lote = subir({"Domains": dom + [["CHEMICALS", "Química", None, "Yes", "AUTO"], ["PLASTICS", "Plastics", "Plastic articles", "Yes", "MANUAL"]],
-                  "Versions": [["Version ID", "Dataset", "Version label", "Status", "Valid from", "Valid to", "Source ID"],
-                               ["SAC-2025-V6", "SAC", "Cambiada", "Published", "2025-08-01", None, "SRC-SIECA-ACI"]]})
+})
     cambio = next(f for f in lote["filas"] if f["clave"] == "CHEMICALS")
     assert cambio["accion"] == "CAMBIO" and cambio["antes"]["nombre"] == "Chemicals" and cambio["despues"]["nombre"] == "Química"
     assert any(f["accion"] == "NUEVO" and f["clave"] == "PLASTICS" for f in lote["filas"])
@@ -342,6 +341,17 @@ def test_carga_por_etapas_previa_diferencias_publicar(interno):
     assert r.status_code == 200 and r.json()["estado"] == "PUBLICADA", r.text
     doms = {d["codigo"]: d for d in interno.get("/aranceles/oficial/dominios").json()}
     assert doms["CHEMICALS"]["nombre"] == "Química" and "PLASTICS" in doms
+    # Una versión publicada es inmutable: cambiarla no se publica
+    inm = subir({"Versions": [["Version ID", "Dataset", "Version label", "Status", "Valid from", "Valid to", "Source ID"],
+                              ["SAC-2025-V6", "SAC", "Cambiada", "Published", "2025-08-01", None, "SRC-SIECA-ACI"]]})
+    assert inm["resumen"]["bloqueos"] == 1 and inm["filas"][0]["advertencia"]
+    r = interno.post(f"/aranceles/oficial/lotes/{inm['id']}/publicar")
+    assert r.status_code == 422 and r.json()["codigo"] == "version_publicada", r.text
+    # Cerrar su vigencia sí se permite
+    v = next(x for x in interno.get("/aranceles/oficial/fuentes").json()["versiones"] if x["codigo"] == "SAC-2025-V6")
+    cierre = subir({"Versions": [["Version ID", "Dataset", "Version label", "Status", "Valid from", "Valid to", "Source ID", "Notes"],
+                                 ["SAC-2025-V6", v["dataset"], v["etiqueta"], "Published", "2025-08-01", "2030-12-31", "SRC-SIECA-ACI", v["nota"]]]})
+    assert cierre["resumen"]["bloqueos"] == 0, cierre["filas"]
     # Lo vigente cambió desde una previa vieja: hay que volver a revisar
     viejo = subir({"Domains": dom + [["CHEMICALS", "Chemicals", None, "Yes", "AUTO"]]})
     interno.c.post("/api/aranceles/oficial/importar", headers=interno.h,
