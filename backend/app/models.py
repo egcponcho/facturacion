@@ -20,6 +20,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -1514,6 +1515,45 @@ class Idempotencia(Base):
     usuario_id: Mapped[int] = mapped_column(Integer)
     respuesta: Mapped[dict | list | None] = mapped_column(JSON)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
+class LoteOficial(Base):
+    """Carga de un paquete oficial por etapas: se sube a una previa (staging),
+    se revisan las diferencias contra lo vigente (nuevo, cambio, sin cambio,
+    error, advertencia) y solo al publicar se aplica. Nunca borra lo publicado."""
+
+    __tablename__ = "lotes_oficiales"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    archivo: Mapped[str] = mapped_column(String(300))
+    checksum: Mapped[str] = mapped_column(String(64))
+    contenido: Mapped[bytes] = mapped_column(LargeBinary)
+    estado: Mapped[str] = mapped_column(String(12), default="PREVIA")  # PREVIA | PUBLICADA | DESCARTADA
+    resumen: Mapped[dict] = mapped_column(JSON, default=dict)  # por hoja: nuevos, cambios, sin_cambio, errores
+    errores: Mapped[list] = mapped_column(JSON, default=list)
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    publicado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    publicado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", name="fk_lotes_publicado_por"))
+
+    filas: Mapped[list["FilaLoteOficial"]] = relationship(back_populates="lote", cascade="all, delete-orphan",
+                                                          order_by="FilaLoteOficial.id")
+
+
+class FilaLoteOficial(Base):
+    """Diferencia de un registro en la previa: qué tabla y clave, la acción y
+    los valores antes y después de los campos que cambian."""
+
+    __tablename__ = "lotes_oficiales_filas"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lote_id: Mapped[int] = mapped_column(ForeignKey("lotes_oficiales.id", ondelete="CASCADE"), index=True)
+    tabla: Mapped[str] = mapped_column(String(40))
+    clave: Mapped[str] = mapped_column(String(120))
+    accion: Mapped[str] = mapped_column(String(10))  # NUEVO | CAMBIO
+    antes: Mapped[dict | None] = mapped_column(JSON)
+    despues: Mapped[dict | None] = mapped_column(JSON)
+    advertencia: Mapped[str | None] = mapped_column(String(300))
+
+    lote: Mapped[LoteOficial] = relationship(back_populates="filas")
 
 
 class ImportacionOC(Base):

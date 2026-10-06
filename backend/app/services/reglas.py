@@ -78,7 +78,9 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
             nuevas.append(CondicionRegla(grupo=int(f.get("group") or 1), campo=campo, operador=op, valor=_valor(f.get("value")),
                                          valor_hasta=_valor(f.get("value_to")), negado=_si(f.get("negated"))))
         creadas = not r.condiciones
-        r.condiciones = nuevas
+        firma = lambda cs: [(c.grupo, c.campo, c.operador, c.valor, c.valor_hasta, bool(c.negado)) for c in cs]  # noqa: E731
+        if firma(nuevas) != firma(r.condiciones):  # iguales: no se reemplazan (sin cambios falsos en la previa)
+            r.condiciones = nuevas
         for _ in nuevas:
             cuenta("Rule_Conditions", creadas)
     db.flush()

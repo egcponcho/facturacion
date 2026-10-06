@@ -234,6 +234,45 @@ async def oficial_importar(db: Db, user: User, archivo: UploadFile = File(...)):
     return r
 
 
+# ---- Cargas oficiales por etapas: previa → diferencias → publicar ------------------------
+@router.post("/aranceles/oficial/previa")
+async def oficial_previa(db: Db, user: User, archivo: UploadFile = File(...)):
+    """Sube un paquete a una previa: valida y muestra qué cambiaría, sin aplicar nada."""
+    from ..services import lotes
+
+    r = lotes.previa(db, user, await archivo.read(), archivo.filename or "")
+    db.commit()
+    return r
+
+
+@router.get("/aranceles/oficial/lotes")
+def oficial_lotes(db: Db, user: User):
+    from ..services import lotes
+
+    return lotes.lotes(db, user)
+
+
+@router.get("/aranceles/oficial/lotes/{lote_id}")
+def oficial_lote(lote_id: int, db: Db, user: User):
+    from ..services import lotes
+
+    return lotes.lote(db, user, lote_id)
+
+
+@router.post("/aranceles/oficial/lotes/{lote_id}/publicar")
+def oficial_publicar(lote_id: int, db: Db, user: User, clave: Clave = None):
+    from ..services import lotes
+
+    return ejecutar(db, user, clave, lambda: lotes.publicar(db, user, lote_id))
+
+
+@router.post("/aranceles/oficial/lotes/{lote_id}/descartar")
+def oficial_descartar(lote_id: int, db: Db, user: User, clave: Clave = None):
+    from ..services import lotes
+
+    return ejecutar(db, user, clave, lambda: lotes.descartar(db, user, lote_id))
+
+
 # ---- Atributos de la ficha (definición, opciones y ámbitos) ------------------------
 @router.get("/aranceles/atributos")
 def atributos_lista(db: Db, user: User, q: str | None = None, dominio: str | None = None, origen: str | None = None):

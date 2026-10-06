@@ -309,3 +309,41 @@ def test_ruta_generica_quimicos_y_materias_primas(interno):
     caps = {c["capitulo"]: c for c in interno.get("/aranceles/oficial/capitulos").json()["items"]}
     assert all(caps[c["capitulo"]]["clasificacion"] for c in r["candidatos"])
     assert interno.get("/clasificacion/contexto").json()["dominios_genericos"][0]["codigo"] == "CHEMICALS"
+
+
+def test_carga_por_etapas_previa_diferencias_publicar(interno):
+    def subir(hojas):
+        r = interno.c.post("/api/aranceles/oficial/previa", headers=interno.h,
+                           files={"archivo": ("p.xlsx", _libro(hojas), "application/octet-stream")})
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    dom = [["Domain code", "Label", "Description", "Active", "Default mode"]]
+    # Sin cambios: la previa no encuentra diferencias
+    lote = subir({"Domains": dom + [["CHEMICALS", "Chemicals", "Chemical substances, mixtures and chemical preparations; dynamic questions based on remaining candidates.", "Yes", "AUTO"]]})
+    assert lote["estado"] == "PREVIA" and not [f for f in lote["filas"] if f["accion"] != "NUEVO"]
+    # Un cambio y un nuevo: se ven antes/después y no se aplican hasta publicar
+    lote = subir({"Domains": dom + [["CHEMICALS", "Química", None, "Yes", "AUTO"], ["PLASTICS", "Plastics", "Plastic articles", "Yes", "MANUAL"]],
+                  "Versions": [["Version ID", "Dataset", "Version label", "Status", "Valid from", "Valid to", "Source ID"],
+                               ["SAC-2025-V6", "SAC", "Cambiada", "Published", "2025-08-01", None, "SRC-SIECA-ACI"]]})
+    cambio = next(f for f in lote["filas"] if f["clave"] == "CHEMICALS")
+    assert cambio["accion"] == "CAMBIO" and cambio["antes"]["nombre"] == "Chemicals" and cambio["despues"]["nombre"] == "Química"
+    assert any(f["accion"] == "NUEVO" and f["clave"] == "PLASTICS" for f in lote["filas"])
+    assert lote["resumen"]["tablas"]["Domains"]["NUEVO"] == 1
+    doms = {d["codigo"]: d for d in interno.get("/aranceles/oficial/dominios").json()}
+    assert doms["CHEMICALS"]["nombre"] == "Chemicals" and "PLASTICS" not in doms
+    # Errores de validación también se ven en la previa
+    malo = subir({"Domain_Chapter_Map": [["Domain", "Chapter", "Relevance"], ["NOPE", "39", "PRIMARY"]]})
+    assert malo["errores"] and not malo["filas"]
+    assert interno.post(f"/aranceles/oficial/lotes/{malo['id']}/descartar").json()["estado"] == "DESCARTADA"
+    assert interno.post(f"/aranceles/oficial/lotes/{malo['id']}/publicar").status_code == 422
+    # Publicar aplica la previa
+    r = interno.post(f"/aranceles/oficial/lotes/{lote['id']}/publicar")
+    assert r.status_code == 200 and r.json()["estado"] == "PUBLICADA", r.text
+    doms = {d["codigo"]: d for d in interno.get("/aranceles/oficial/dominios").json()}
+    assert doms["CHEMICALS"]["nombre"] == "Química" and "PLASTICS" in doms
+    # Lo vigente cambió desde una previa vieja: hay que volver a revisar
+    viejo = subir({"Domains": dom + [["CHEMICALS", "Chemicals", None, "Yes", "AUTO"]]})
+    interno.c.post("/api/aranceles/oficial/importar", headers=interno.h,
+                   files={"archivo": ("x.xlsx", _libro({"Domains": dom + [["CHEMICALS", "Chemicals", None, "Yes", "AUTO"]]}), "application/octet-stream")})
+    assert interno.post(f"/aranceles/oficial/lotes/{viejo['id']}/publicar").status_code == 409
