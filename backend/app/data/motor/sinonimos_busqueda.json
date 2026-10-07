@@ -1,0 +1,809 @@
+{
+ "origen": "Vocabulario de base para buscar en el texto oficial del arancel (en español) con nombres en inglés. Es configuración del motor: se edita en Aranceles → Vocabulario de búsqueda.",
+ "sinonimos": [
+  {
+   "palabra": "acid",
+   "equivale": "acido"
+  },
+  {
+   "palabra": "adhesive",
+   "equivale": "adhesivo"
+  },
+  {
+   "palabra": "alcohol",
+   "equivale": "alcohol"
+  },
+  {
+   "palabra": "aluminium",
+   "equivale": "aluminio"
+  },
+  {
+   "palabra": "aluminum",
+   "equivale": "aluminio"
+  },
+  {
+   "palabra": "backpack",
+   "equivale": "mochila"
+  },
+  {
+   "palabra": "bag",
+   "equivale": "bolsa bolso saco"
+  },
+  {
+   "palabra": "ball",
+   "equivale": "balon pelota"
+  },
+  {
+   "palabra": "basket",
+   "equivale": "cesta"
+  },
+  {
+   "palabra": "battery",
+   "equivale": "acumulador bateria pila"
+  },
+  {
+   "palabra": "bed",
+   "equivale": "cama"
+  },
+  {
+   "palabra": "belt",
+   "equivale": "cinturon"
+  },
+  {
+   "palabra": "bicycle",
+   "equivale": "bicicleta"
+  },
+  {
+   "palabra": "bike",
+   "equivale": "bicicleta"
+  },
+  {
+   "palabra": "blade",
+   "equivale": "hoja cuchilla"
+  },
+  {
+   "palabra": "blanket",
+   "equivale": "manta"
+  },
+  {
+   "palabra": "blender",
+   "equivale": "licuadora"
+  },
+  {
+   "palabra": "book",
+   "equivale": "libro"
+  },
+  {
+   "palabra": "boot",
+   "equivale": "bota calzado"
+  },
+  {
+   "palabra": "bottle",
+   "equivale": "botella"
+  },
+  {
+   "palabra": "bowl",
+   "equivale": "tazon cuenco"
+  },
+  {
+   "palabra": "box",
+   "equivale": "caja"
+  },
+  {
+   "palabra": "brass",
+   "equivale": "laton"
+  },
+  {
+   "palabra": "broom",
+   "equivale": "escoba"
+  },
+  {
+   "palabra": "brush",
+   "equivale": "cepillo"
+  },
+  {
+   "palabra": "bucket",
+   "equivale": "cubo balde"
+  },
+  {
+   "palabra": "bulb",
+   "equivale": "bombilla lampara"
+  },
+  {
+   "palabra": "cable",
+   "equivale": "cable"
+  },
+  {
+   "palabra": "camera",
+   "equivale": "camara"
+  },
+  {
+   "palabra": "candle",
+   "equivale": "vela"
+  },
+  {
+   "palabra": "cap",
+   "equivale": "gorra"
+  },
+  {
+   "palabra": "cardboard",
+   "equivale": "carton"
+  },
+  {
+   "palabra": "carpet",
+   "equivale": "alfombra"
+  },
+  {
+   "palabra": "ceramic",
+   "equivale": "ceramica"
+  },
+  {
+   "palabra": "chair",
+   "equivale": "silla asiento"
+  },
+  {
+   "palabra": "charger",
+   "equivale": "cargador"
+  },
+  {
+   "palabra": "cleaner",
+   "equivale": "limpiador limpieza"
+  },
+  {
+   "palabra": "clock",
+   "equivale": "reloj"
+  },
+  {
+   "palabra": "coat",
+   "equivale": "abrigo"
+  },
+  {
+   "palabra": "compressor",
+   "equivale": "compresor"
+  },
+  {
+   "palabra": "computer",
+   "equivale": "computadora maquina procesamiento datos"
+  },
+  {
+   "palabra": "container",
+   "equivale": "recipiente envase"
+  },
+  {
+   "palabra": "copper",
+   "equivale": "cobre"
+  },
+  {
+   "palabra": "cordless",
+   "equivale": "inalambrico"
+  },
+  {
+   "palabra": "cosmetic",
+   "equivale": "cosmetico"
+  },
+  {
+   "palabra": "cotton",
+   "equivale": "algodon"
+  },
+  {
+   "palabra": "cream",
+   "equivale": "crema"
+  },
+  {
+   "palabra": "cup",
+   "equivale": "taza vaso"
+  },
+  {
+   "palabra": "curtain",
+   "equivale": "cortina"
+  },
+  {
+   "palabra": "cushion",
+   "equivale": "cojin"
+  },
+  {
+   "palabra": "cutlery",
+   "equivale": "cubierto"
+  },
+  {
+   "palabra": "detergent",
+   "equivale": "detergente"
+  },
+  {
+   "palabra": "disinfectant",
+   "equivale": "desinfectante"
+  },
+  {
+   "palabra": "display",
+   "equivale": "exhibidor"
+  },
+  {
+   "palabra": "doll",
+   "equivale": "muñeca"
+  },
+  {
+   "palabra": "dress",
+   "equivale": "vestido"
+  },
+  {
+   "palabra": "drill",
+   "equivale": "taladro taladrar perforadora"
+  },
+  {
+   "palabra": "dye",
+   "equivale": "colorante"
+  },
+  {
+   "palabra": "earphones",
+   "equivale": "auricular"
+  },
+  {
+   "palabra": "earring",
+   "equivale": "arete pendiente"
+  },
+  {
+   "palabra": "engine",
+   "equivale": "motor"
+  },
+  {
+   "palabra": "envelope",
+   "equivale": "sobre"
+  },
+  {
+   "palabra": "fabric",
+   "equivale": "tejido tela"
+  },
+  {
+   "palabra": "fan",
+   "equivale": "ventilador"
+  },
+  {
+   "palabra": "fertilizer",
+   "equivale": "abono fertilizante"
+  },
+  {
+   "palabra": "fishing",
+   "equivale": "pesca"
+  },
+  {
+   "palabra": "flashlight",
+   "equivale": "linterna"
+  },
+  {
+   "palabra": "fork",
+   "equivale": "tenedor"
+  },
+  {
+   "palabra": "frame",
+   "equivale": "marco"
+  },
+  {
+   "palabra": "furniture",
+   "equivale": "mueble"
+  },
+  {
+   "palabra": "game",
+   "equivale": "juego"
+  },
+  {
+   "palabra": "generator",
+   "equivale": "generador"
+  },
+  {
+   "palabra": "glass",
+   "equivale": "vidrio vaso"
+  },
+  {
+   "palabra": "glove",
+   "equivale": "guante"
+  },
+  {
+   "palabra": "gloves",
+   "equivale": "guante"
+  },
+  {
+   "palabra": "glue",
+   "equivale": "cola adhesivo pegamento"
+  },
+  {
+   "palabra": "grinder",
+   "equivale": "amoladora esmeriladora"
+  },
+  {
+   "palabra": "hammer",
+   "equivale": "martillo"
+  },
+  {
+   "palabra": "hanger",
+   "equivale": "percha gancho"
+  },
+  {
+   "palabra": "hat",
+   "equivale": "sombrero"
+  },
+  {
+   "palabra": "headphones",
+   "equivale": "auricular"
+  },
+  {
+   "palabra": "heater",
+   "equivale": "calentador"
+  },
+  {
+   "palabra": "helmet",
+   "equivale": "casco"
+  },
+  {
+   "palabra": "ink",
+   "equivale": "tinta"
+  },
+  {
+   "palabra": "iron",
+   "equivale": "plancha hierro"
+  },
+  {
+   "palabra": "jacket",
+   "equivale": "chaqueta"
+  },
+  {
+   "palabra": "jar",
+   "equivale": "tarro frasco"
+  },
+  {
+   "palabra": "jewelry",
+   "equivale": "bisuteria joyeria"
+  },
+  {
+   "palabra": "kettle",
+   "equivale": "hervidor calentador"
+  },
+  {
+   "palabra": "keyboard",
+   "equivale": "teclado"
+  },
+  {
+   "palabra": "keychain",
+   "equivale": "llavero"
+  },
+  {
+   "palabra": "kitchenware",
+   "equivale": "articulo cocina"
+  },
+  {
+   "palabra": "knife",
+   "equivale": "cuchillo"
+  },
+  {
+   "palabra": "label",
+   "equivale": "etiqueta"
+  },
+  {
+   "palabra": "lamp",
+   "equivale": "lampara"
+  },
+  {
+   "palabra": "laptop",
+   "equivale": "computadora portatil"
+  },
+  {
+   "palabra": "leather",
+   "equivale": "cuero"
+  },
+  {
+   "palabra": "led",
+   "equivale": "diodo led"
+  },
+  {
+   "palabra": "light",
+   "equivale": "luz alumbrado lampara"
+  },
+  {
+   "palabra": "lubricant",
+   "equivale": "lubricante"
+  },
+  {
+   "palabra": "machine",
+   "equivale": "maquina"
+  },
+  {
+   "palabra": "mattress",
+   "equivale": "colchon"
+  },
+  {
+   "palabra": "mirror",
+   "equivale": "espejo"
+  },
+  {
+   "palabra": "monitor",
+   "equivale": "monitor"
+  },
+  {
+   "palabra": "motor",
+   "equivale": "motor"
+  },
+  {
+   "palabra": "mouse",
+   "equivale": "raton"
+  },
+  {
+   "palabra": "mug",
+   "equivale": "taza jarro"
+  },
+  {
+   "palabra": "necklace",
+   "equivale": "collar"
+  },
+  {
+   "palabra": "notebook",
+   "equivale": "cuaderno"
+  },
+  {
+   "palabra": "nylon",
+   "equivale": "nailon poliamida"
+  },
+  {
+   "palabra": "oil",
+   "equivale": "aceite"
+  },
+  {
+   "palabra": "paint",
+   "equivale": "pintura"
+  },
+  {
+   "palabra": "pallet",
+   "equivale": "paleta"
+  },
+  {
+   "palabra": "pan",
+   "equivale": "sarten"
+  },
+  {
+   "palabra": "pants",
+   "equivale": "pantalon"
+  },
+  {
+   "palabra": "paper",
+   "equivale": "papel"
+  },
+  {
+   "palabra": "pen",
+   "equivale": "boligrafo"
+  },
+  {
+   "palabra": "pencil",
+   "equivale": "lapiz"
+  },
+  {
+   "palabra": "perfume",
+   "equivale": "perfume"
+  },
+  {
+   "palabra": "phone",
+   "equivale": "telefono"
+  },
+  {
+   "palabra": "pigment",
+   "equivale": "pigmento"
+  },
+  {
+   "palabra": "pillow",
+   "equivale": "almohada"
+  },
+  {
+   "palabra": "plastic",
+   "equivale": "plastico"
+  },
+  {
+   "palabra": "plate",
+   "equivale": "plato"
+  },
+  {
+   "palabra": "pliers",
+   "equivale": "alicate tenaza"
+  },
+  {
+   "palabra": "plug",
+   "equivale": "clavija enchufe"
+  },
+  {
+   "palabra": "polyester",
+   "equivale": "poliester"
+  },
+  {
+   "palabra": "porcelain",
+   "equivale": "porcelana"
+  },
+  {
+   "palabra": "pot",
+   "equivale": "olla"
+  },
+  {
+   "palabra": "powder",
+   "equivale": "polvo"
+  },
+  {
+   "palabra": "printer",
+   "equivale": "impresora"
+  },
+  {
+   "palabra": "pump",
+   "equivale": "bomba"
+  },
+  {
+   "palabra": "puzzle",
+   "equivale": "rompecabezas"
+  },
+  {
+   "palabra": "racket",
+   "equivale": "raqueta"
+  },
+  {
+   "palabra": "radio",
+   "equivale": "radio"
+  },
+  {
+   "palabra": "resin",
+   "equivale": "resina"
+  },
+  {
+   "palabra": "ring",
+   "equivale": "anillo sortija"
+  },
+  {
+   "palabra": "router",
+   "equivale": "aparato transmision"
+  },
+  {
+   "palabra": "rubber",
+   "equivale": "caucho"
+  },
+  {
+   "palabra": "rug",
+   "equivale": "alfombra"
+  },
+  {
+   "palabra": "salt",
+   "equivale": "sal"
+  },
+  {
+   "palabra": "sandal",
+   "equivale": "sandalia calzado"
+  },
+  {
+   "palabra": "sander",
+   "equivale": "lijadora"
+  },
+  {
+   "palabra": "saw",
+   "equivale": "sierra"
+  },
+  {
+   "palabra": "scarf",
+   "equivale": "bufanda"
+  },
+  {
+   "palabra": "screwdriver",
+   "equivale": "destornillador"
+  },
+  {
+   "palabra": "seat",
+   "equivale": "asiento"
+  },
+  {
+   "palabra": "shampoo",
+   "equivale": "champu"
+  },
+  {
+   "palabra": "sheet",
+   "equivale": "sabana hoja"
+  },
+  {
+   "palabra": "shelf",
+   "equivale": "estante"
+  },
+  {
+   "palabra": "shirt",
+   "equivale": "camisa"
+  },
+  {
+   "palabra": "shoe",
+   "equivale": "calzado"
+  },
+  {
+   "palabra": "shoes",
+   "equivale": "calzado"
+  },
+  {
+   "palabra": "shorts",
+   "equivale": "pantalon corto"
+  },
+  {
+   "palabra": "silk",
+   "equivale": "seda"
+  },
+  {
+   "palabra": "skateboard",
+   "equivale": "patineta"
+  },
+  {
+   "palabra": "skirt",
+   "equivale": "falda"
+  },
+  {
+   "palabra": "smartphone",
+   "equivale": "telefono"
+  },
+  {
+   "palabra": "sneaker",
+   "equivale": "calzado"
+  },
+  {
+   "palabra": "soap",
+   "equivale": "jabon"
+  },
+  {
+   "palabra": "sock",
+   "equivale": "calcetin"
+  },
+  {
+   "palabra": "socks",
+   "equivale": "calcetin"
+  },
+  {
+   "palabra": "solvent",
+   "equivale": "disolvente"
+  },
+  {
+   "palabra": "speaker",
+   "equivale": "altavoz"
+  },
+  {
+   "palabra": "sponge",
+   "equivale": "esponja"
+  },
+  {
+   "palabra": "spoon",
+   "equivale": "cuchara"
+  },
+  {
+   "palabra": "stainless",
+   "equivale": "inoxidable"
+  },
+  {
+   "palabra": "steel",
+   "equivale": "acero"
+  },
+  {
+   "palabra": "sticker",
+   "equivale": "etiqueta autoadhesiva"
+  },
+  {
+   "palabra": "sugar",
+   "equivale": "azucar"
+  },
+  {
+   "palabra": "suitcase",
+   "equivale": "maleta"
+  },
+  {
+   "palabra": "sunglasses",
+   "equivale": "gafas sol"
+  },
+  {
+   "palabra": "switch",
+   "equivale": "interruptor"
+  },
+  {
+   "palabra": "table",
+   "equivale": "mesa"
+  },
+  {
+   "palabra": "tablet",
+   "equivale": "maquina procesamiento datos portatil"
+  },
+  {
+   "palabra": "tableware",
+   "equivale": "vajilla"
+  },
+  {
+   "palabra": "tape",
+   "equivale": "cinta"
+  },
+  {
+   "palabra": "television",
+   "equivale": "televisor"
+  },
+  {
+   "palabra": "tent",
+   "equivale": "tienda campaña"
+  },
+  {
+   "palabra": "thread",
+   "equivale": "hilo"
+  },
+  {
+   "palabra": "toaster",
+   "equivale": "tostador"
+  },
+  {
+   "palabra": "tool",
+   "equivale": "herramienta"
+  },
+  {
+   "palabra": "tools",
+   "equivale": "herramienta"
+  },
+  {
+   "palabra": "torch",
+   "equivale": "linterna"
+  },
+  {
+   "palabra": "towel",
+   "equivale": "toalla"
+  },
+  {
+   "palabra": "toy",
+   "equivale": "juguete"
+  },
+  {
+   "palabra": "toys",
+   "equivale": "juguete"
+  },
+  {
+   "palabra": "trousers",
+   "equivale": "pantalon"
+  },
+  {
+   "palabra": "tshirt",
+   "equivale": "camiseta"
+  },
+  {
+   "palabra": "tv",
+   "equivale": "televisor"
+  },
+  {
+   "palabra": "umbrella",
+   "equivale": "paraguas sombrilla"
+  },
+  {
+   "palabra": "varnish",
+   "equivale": "barniz"
+  },
+  {
+   "palabra": "wallet",
+   "equivale": "billetera cartera"
+  },
+  {
+   "palabra": "watch",
+   "equivale": "reloj"
+  },
+  {
+   "palabra": "wax",
+   "equivale": "cera"
+  },
+  {
+   "palabra": "wire",
+   "equivale": "alambre cable"
+  },
+  {
+   "palabra": "wood",
+   "equivale": "madera"
+  },
+  {
+   "palabra": "wooden",
+   "equivale": "madera"
+  },
+  {
+   "palabra": "wool",
+   "equivale": "lana"
+  },
+  {
+   "palabra": "wrench",
+   "equivale": "llave"
+  },
+  {
+   "palabra": "yarn",
+   "equivale": "hilado"
+  }
+ ]
+}

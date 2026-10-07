@@ -130,6 +130,7 @@ class Catalogo:
         self.canon = {x: a.codigo for a in self.atributos for x in a.alias if x not in self.por_codigo}
         self.categorias = {c.codigo: c for c in categorias}
         self.clases = list(clases or [])
+        self.sinonimos_busqueda: dict[str, list[str]] = {}  # palabra → equivalentes del texto oficial
         self.lector = Lector(sinonimos, clases)
         # Palabra aduanera de cada clase de material (y de los grupos de fibra)
         from .materiales import vocabulario_base
@@ -162,7 +163,11 @@ class Catalogo:
         pal = [{"frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})} for x in db.scalars(select(PalabraClave))]
         cla = [{"codigo": x.codigo, "palabras": x.palabras, "texto_aduana": x.texto_aduana}
                for x in db.scalars(select(ClaseMaterial).where(ClaseMaterial.activo.is_(True)))]
-        return cls(attrs, cats, sin, pal, cla)
+        from .indice_arbol import sinonimos_busqueda
+
+        out = cls(attrs, cats, sin, pal, cla)
+        out.sinonimos_busqueda = sinonimos_busqueda(db)
+        return out
 
     @classmethod
     def desde_json(cls, ruta: Path | None = None) -> "Catalogo":
@@ -753,7 +758,7 @@ def _lbl(a: Atributo, v) -> str:
 
 
 DATOS_ATRIBUTOS = MOTOR / "motor_atributos.json"
-_MODELOS_CATALOGO = ("AtributoDef", "AtributoOpcion", "AtributoAmbito", "CategoriaProducto", "PalabraClave", "SinonimoMaterial", "ClaseMaterial")
+_MODELOS_CATALOGO = ("AtributoDef", "AtributoOpcion", "AtributoAmbito", "CategoriaProducto", "PalabraClave", "SinonimoMaterial", "ClaseMaterial", "SinonimoBusqueda")
 
 
 def catalogo(db) -> Catalogo:

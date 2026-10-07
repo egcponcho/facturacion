@@ -405,6 +405,22 @@ def materiales_guardar(datos: s.ClaseMaterialIn, db: Db, user: User, clase_id: i
     return ejecutar(db, user, clave, lambda: materiales.guardar(db, user, clase_id, datos.model_dump(exclude_unset=True)))
 
 
+@router.get("/aranceles/busqueda")
+def busqueda_lista(db: Db, user: User):
+    """Vocabulario de búsqueda en el texto oficial (palabra → equivalentes)."""
+    from ..services import busqueda
+
+    return busqueda.listar(db, user)
+
+
+@router.post("/aranceles/busqueda")
+@router.patch("/aranceles/busqueda/{sid}")
+def busqueda_guardar(datos: s.SinonimoBusquedaIn, db: Db, user: User, sid: int | None = None, clave: Clave = None):
+    from ..services import busqueda
+
+    return ejecutar(db, user, clave, lambda: busqueda.guardar(db, user, sid, datos.model_dump(exclude_unset=True)))
+
+
 @router.post("/aranceles/atributos")
 def atributos_crear(datos: s.AtributoIn, db: Db, user: User, clave: Clave = None):
     from ..services import atributos

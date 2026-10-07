@@ -215,3 +215,14 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
   opcionales en accesorios personales (migración 0026).
 - El auditor de integridad revisa toda la configuración guardada
   (CONFIG_INVALID).
+
+## Búsqueda en el texto oficial (G4)
+
+- Cada término se compara por su raíz (taladro → taladros, taladradoras).
+- Vocabulario de búsqueda (`SinonimoBusqueda`, Aranceles → Vocabulario de
+  búsqueda): una palabra en inglés o un término comercial y las palabras del
+  texto oficial a las que equivale (drill → taladro). Trae una base editable.
+- Un candidato que solo sale del texto nunca pasa de confianza baja: siempre
+  queda para revisión. Media o alta solo con reglas.
+- Si el texto coincide igual o mejor en un capítulo que no se clasifica solo
+  (manual o no habilitado), el motor lo dice y deja el caso en revisión.

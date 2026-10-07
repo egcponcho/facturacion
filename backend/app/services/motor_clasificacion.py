@@ -470,21 +470,26 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     cands: dict[str, Candidato] = {}
     terminos = _terminos(cat, entrada, ficha, hechos)
     zona = permitidos if permitidos is not None else universo
+    fuera: dict[str, tuple] = {}  # capítulo fuera del universo (manual o no habilitado) → (puntaje, código, términos)
     if "TEXT_CANDIDATES" in base and terminos:
-        from .indice_arbol import _indice
+        from .indice_arbol import _indice, alcance as alcance_de
 
         nodos, df = _indice(v.id, marca_v)
         total = max(len(nodos), 1)
-        idf = {t: math.log(1 + total / (1 + df.get(t, 0))) for t in terminos}
-        alcance = {t: {t} | ({w for w in df if w.startswith(t)} if len(t) >= 5 else set()) for t in terminos}
+        # Cada término cuenta por sus variantes (raíz) y sus equivalentes (vocabulario de búsqueda)
+        alcance = alcance_de(terminos, df, getattr(cat, "sinonimos_busqueda", None))
+        idf = {t: math.log(1 + total / (1 + min(total, sum(df[w] for w in alcance[t])))) for t in terminos if alcance[t]}
         for cod, _nivel, _d, _dai, ps in nodos:
-            if cod[:6] not in zona:
-                continue
-            hit = [t for t in terminos if not ps.isdisjoint(alcance[t])]
+            hit = [t for t in idf if not ps.isdisjoint(alcance[t])]
             if not hit:
                 continue
+            puntaje = sum(idf[t] for t in hit)
+            if cod[:6] not in zona:
+                if cod[:2] in caps and cod[:2] not in habilitados and puntaje > fuera.get(cod[:2], (0,))[0]:
+                    fuera[cod[:2]] = (puntaje, cod[:6], sorted(hit))
+                continue
             c = cands.setdefault(cod[:6], Candidato(cod[:6]))
-            c.puntaje = max(c.puntaje, sum(idf[t] for t in hit) * peso_dom.get(cod[:2], 1.0))
+            c.puntaje = max(c.puntaje, puntaje * peso_dom.get(cod[:2], 1.0))
             c.terminos.update(hit)
             c.origen.add("texto")
     if permitidos is not None:
@@ -518,8 +523,8 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     # historial de la empresa. Nunca se mezclan: el historial ordena, no da certeza legal.
     if permitidos is not None and len(permitidos) == 1:
         confianza = "high"
-    elif legales and legales[0][1] == hs6 and (len(legales) == 1 or legales[0][0] >= 1.5 * legales[1][0]):
-        confianza = "medium"
+    elif por_regla and legales and legales[0][1] == hs6 and (len(legales) == 1 or legales[0][0] >= 1.5 * legales[1][0]):
+        confianza = "medium"  # un candidato que solo sale del texto nunca pasa de confianza baja
     else:
         confianza = "low"
     n_hist = historial["tally"].get(hs6 or "", 0)
@@ -530,6 +535,17 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     # El historial no quita la revisión: un candidato que solo sale del texto la sigue necesitando
     if "TEXT_CANDIDATES" in base and lista and not por_regla:
         revision_por.append("The text never confirms a code by itself: a specialist reviews it.")
+    # El texto coincide mejor en un capítulo que no se clasifica solo (manual o no habilitado): se dice dónde
+    mejor_dentro = lista[0].puntaje if lista and not por_regla else (0 if not lista else float("inf"))
+    for cap, (puntaje, cod, hit) in sorted(fuera.items(), key=lambda kv: -kv[1][0])[:2]:
+        if puntaje >= 0.6 * mejor_dentro:  # comparable o mejor que lo que hay en los capítulos habilitados
+            c = caps[cap]
+            motivo = "is classified by hand only" if c.solo_manual and c.activo and c.clasificacion else "is not enabled for classification"
+            alertas.append({"nivel": "aviso", "origen": "capitulo",
+                            "msg": f"The text also matches chapter {cap} ({c.titulo}), e.g. {formato(cod)} ({', '.join(hit)}): "
+                                   f"that chapter {motivo}. Choose the code by hand or enable the chapter."})
+            if f"Chapter {cap}" not in " ".join(revision_por):
+                revision_por.append(f"The text points to chapter {cap}, which {motivo}.")
     if hs6 and not auto_ok:
         revision_por.append(f"Chapter {hs6[:2]} cannot be chosen automatically: choose the code by hand." if not manual
                             else f"Domain {dominio} is classified by hand.")

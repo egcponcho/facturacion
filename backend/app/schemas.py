@@ -634,6 +634,12 @@ class AtributoIn(BaseModel):
     texto_aduana: dict | list | None = None
 
 
+class SinonimoBusquedaIn(BaseModel):
+    palabra: str | None = Field(None, max_length=60)
+    equivale: str | None = Field(None, max_length=300)
+    activo: bool | None = None
+
+
 class ClaseMaterialIn(BaseModel):
     codigo: str | None = Field(None, max_length=30)
     nombre: str | None = Field(None, max_length=80)

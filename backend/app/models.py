@@ -1191,6 +1191,20 @@ class ClaseMaterial(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class SinonimoBusqueda(Base):
+    """Palabra equivalente para buscar en el texto oficial del arancel (en
+    español): un nombre en inglés u otro término comercial («drill» →
+    «taladro», «mug» → «taza jarro»). Solo ayuda a encontrar candidatos;
+    nunca confirma un código."""
+
+    __tablename__ = "sinonimos_busqueda"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    palabra: Mapped[str] = mapped_column(String(60), unique=True)
+    equivale: Mapped[str] = mapped_column(String(300))  # palabras del texto oficial, separadas por espacio
+    origen: Mapped[str] = mapped_column(String(10), default="USUARIO")  # MOTOR (de base) | USUARIO
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class SinonimoMaterial(Base):
     """Palabra de composición que el clasificador aprendió (p. ej. "cordura" es nylon)."""
 
