@@ -1,6 +1,7 @@
 <script setup>
 import { t, tx } from '../../i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { api } from '../../api'
 import FiltroMulti from '../FiltroMulti.vue'
 import Icono from '../Icono.vue'
@@ -22,6 +23,7 @@ import { fmtNum } from '../../utils'
 const props = defineProps({ paises: { type: Array, default: () => [] }, condiciones: { type: Object, default: () => ({}) } })
 const edita = puede('clasificacion.configurar')
 const datos = ref({ items: [], total: 0, por_tipo: {} })
+const route = useRoute()
 const f = reactive({ q: '', tipo: '', pais: '', page: 1, size: 50 })
 const modal = ref(null)
 const ocupado = ref(false)
@@ -48,7 +50,18 @@ function buscar() {
   temporizador = setTimeout(() => { f.page = 1; cargar() }, 250)
 }
 const filtrar = (k, v) => { f[k] = v; f.page = 1; cargar() }
-onMounted(() => { cargar(); cargarCatalogo() })
+onMounted(async () => {
+  cargar()
+  cargarCatalogo()
+  // Desde un artículo: regla nueva ya llena con la decisión de aduanas
+  if (route.query.desde && edita) {
+    try {
+      editor.value = { regla: null, borrador: await api.get(`/aranceles/reglas/desde-producto/${route.query.desde}`) }
+    } catch (e) {
+      errorApi(e)
+    }
+  }
+})
 
 // Etiquetas del catálogo de atributos (también los que se derivan de la composición)
 const catalogo = ref({})
@@ -175,7 +188,7 @@ async function guardarModal() {
     </div>
     <Paginacion :page="f.page" :size="f.size" :total="datos.total" @cambiar="(p) => { f.page = p; cargar() }" @tamano="(n) => { f.size = n; f.page = 1; cargar() }" />
 
-    <EditorRegla v-if="editor" :regla="editor.regla" @cerrar="editor = null" @guardada="editor = null; cargar()" />
+    <EditorRegla v-if="editor" :regla="editor.regla" :borrador="editor.borrador" @cerrar="editor = null" @guardada="editor = null; cargar()" />
     <Modal v-if="modal" :titulo="modal.r.inciso ? t('Selection rule for {0} {1}', [modal.r.pais, modal.r.inciso.codigo]) : t('Rule {0}', [modal.r.codigo])" ancho="640px" @cerrar="modal = null">
       <div class="campos">
         <label class="campo"><span>{{ t('Priority') }}</span><input v-model="modal.prioridad" type="number" min="0" max="10000" class="entrada" /></label>

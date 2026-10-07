@@ -479,6 +479,22 @@ def reglas_crear(datos: s.ReglaIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: reglas.crear(db, user, datos.model_dump(exclude_unset=True)))
 
 
+@router.post("/aranceles/reglas/simular")
+def reglas_simular(datos: s.ReglaIn, db: Db, user: User, regla_id: int | None = None):
+    """Qué artículos cambiarían de subpartida con esta regla (no guarda nada)."""
+    from ..services import impacto
+
+    return impacto.simular(db, user, datos.model_dump(exclude_unset=True), regla_id)
+
+
+@router.get("/aranceles/reglas/desde-producto/{producto_id}")
+def reglas_desde_producto(producto_id: int, db: Db, user: User):
+    """Borrador de regla a partir de la decisión de aduanas sobre un artículo."""
+    from ..services import impacto
+
+    return impacto.desde_producto(db, user, producto_id)
+
+
 @router.patch("/aranceles/reglas/{regla_id}")
 def reglas_editar(regla_id: int, datos: s.ReglaIn, db: Db, user: User, clave: Clave = None):
     from ..services import reglas

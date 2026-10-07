@@ -54,6 +54,9 @@ const puedeAprobar = computed(() => !!p.value?.puede_aprobar)
 const flujo = computed(() => sesionUsuario.usuario?.flujo || {})
 const oculta = computed(() => !!(p.value?.sugerencia_oculta || r.value?.sugerencia_oculta))
 const envioPrevio = computed(() => puedeEnviar.value && (!puedeAprobar.value || !!flujo.value.revision_obligatoria))
+// Una decisión de aduanas que el motor no habría tomado solo se puede volver regla
+const reglaDesdeAqui = computed(() => aprobado.value && puede('clasificacion.configurar') && !!p.value?.tipo
+  && (p.value.estado === 'corregido' || p.value.confianza !== 'high' || (p.value.evidencia?.aprobacion?.sugerido || '') !== (p.value.evidencia?.aprobacion?.hs6 || '')))
 // Recorrido del artículo: datos → ficha → clasificación → revisión → aprobado
 const pasos = computed(() => {
   if (!p.value) return []
@@ -594,6 +597,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
             <button class="btn btn-fantasma" :title="t('Technical sheet with the classification, as PDF')" @click="descargarFicha('pdf')"><Icono nombre="descargar" />PDF</button>
             <button class="btn btn-fantasma" :title="t('Technical sheet with composition and national codes, as Excel')" @click="descargarFicha('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
             <button v-if="aprobado && puede('producto.ficha')" class="btn" @click="modal = { tipo: 'version', texto: '', desde: '' }"><Icono nombre="editar" />{{ t('New version') }}</button>
+            <router-link v-if="reglaDesdeAqui" class="btn" :to="{ path: '/familias', query: { vista: 'reglas', desde: p.id } }"
+                         :title="t('Next time the engine suggests this code by itself')"><Icono nombre="varita" />{{ t('Turn this decision into a rule') }}</router-link>
             <button v-if="enRevision && puede('producto.ficha')" class="btn" :disabled="ocupado" :title="t('Take it back to draft to change it')" @click="retirarRevision"><Icono nombre="atras" />{{ t('Back to draft') }}</button>
           </MasOpciones>
           <button v-if="puedeEditar" class="btn" :class="{ 'btn-primario': !puedeEnviar || puedeAprobar }" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ tx(sucio ? (puedeEnviar ? t('Save draft') : t('Save sheet')) : t('Saved')) }}</button>

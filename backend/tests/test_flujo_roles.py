@@ -147,3 +147,25 @@ def test_familias_con_su_salud(interno, tnf):
     assert calz["productos"]["total"] >= 1 and calz["estado"] == "lista" and not calz["avisos"]
     assert all(isinstance(f["avisos"], list) and f["estado"] in ("lista", "incompleta") for f in fams.values())
     assert tnf.get("/familias").status_code == 403
+
+
+def test_regla_desde_decision_y_su_impacto(interno, flujo):
+    """Una decisión de aduanas se vuelve borrador de regla; antes de guardarla se
+    ve qué artículos cambiarían, y la simulación no deja nada guardado."""
+    p = _sugerido(interno, "98130003", "VNROL03")
+    hs6 = p["sugerido"].replace(".", "")[:6]
+    r = interno.post(f"/productos/{p['id']}/aprobar", {"version": p["version"], "codigo": hs6})
+    assert r.status_code == 200, r.text
+    b = interno.get(f"/aranceles/reglas/desde-producto/{p['id']}").json()
+    assert b["tipo_ambito"] == "CATEGORY" and b["codigo_ambito"] == "calzado" and b["accion"] == {"tipo": "RESTRICT", "codigos": [hs6]}
+    assert {c["campo"] for c in b["condiciones"]} >= {"estiloCalz", "altura"}
+    antes = interno.get("/aranceles/reglas", params={"size": 1}).json()["total"]
+    sim = interno.post("/aranceles/reglas/simular", {**b, "prioridad": 5000}).json()
+    assert sim["evaluados"] >= 1 and sim["en_ambito"] >= sim["evaluados"]
+    assert not any(x["id"] == p["id"] for x in sim["cambian"])  # la regla confirma lo aprobado: ese artículo no cambia
+    assert interno.get("/aranceles/reglas", params={"size": 1}).json()["total"] == antes  # nada guardado
+    # Con una regla que manda todo el calzado a otra subpartida, los artículos de la categoría cambian
+    otra = interno.post("/aranceles/reglas/simular", {**b, "condiciones": [], "accion": {"tipo": "RESTRICT", "codigos": ["640411"]},
+                                                      "prioridad": 9000}).json()
+    assert otra["cambian"] and all(x["despues"] == "6404.11" for x in otra["cambian"])
+    assert interno.get(f"/aranceles/reglas/desde-producto/{p['id'] + 99999}").status_code == 404

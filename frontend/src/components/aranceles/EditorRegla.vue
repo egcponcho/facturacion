@@ -12,21 +12,23 @@ import { avisar, errorApi } from '../../stores/ui'
 // Regla propia del motor: DÓNDE aplica (ámbito), CUÁNDO (condiciones en
 // grupos Y / O) y QUÉ hace (restringir, excluir o subir códigos, preguntar
 // atributos o exigir revisión). El motor del servidor la ejecuta al clasificar.
-const props = defineProps({ regla: { type: Object, default: null } })
+// borrador: una regla nueva ya llena (p. ej. desde la decisión de aduanas sobre un artículo)
+const props = defineProps({ regla: { type: Object, default: null }, borrador: { type: Object, default: null } })
 const emit = defineEmits(['cerrar', 'guardada'])
 const atributos = ref([])
 const dominios = ref([])
 const categorias = ref({})
 const ocupado = ref(false)
 const r = props.regla
+const base = props.regla || props.borrador
 const m = ref({
-  tipo_regla: r?.tipo_regla || 'HARD_CONSTRAINT', tipo_ambito: r?.tipo_ambito || 'DOMAIN', codigo_ambito: r?.codigo_ambito || '',
-  prioridad: r?.prioridad ?? 800, efecto: r?.efecto || '', requiere_revision: !!r?.requiere_revision,
-  condiciones: (r?.condiciones || []).map(({ grupo, campo, operador, valor, valor_hasta, negado }) => ({ grupo, campo, operador, valor, valor_hasta, negado })),
-  accion: { tipo: r?.accion?.tipo || 'RESTRICT', codigos: (r?.accion?.codigos || []).join(', '), peso: r?.accion?.peso ?? null,
-    atributos: r?.accion?.atributos || [], mensaje: r?.accion?.mensaje || '' },
+  tipo_regla: base?.tipo_regla || 'HARD_CONSTRAINT', tipo_ambito: base?.tipo_ambito || 'DOMAIN', codigo_ambito: base?.codigo_ambito || '',
+  prioridad: base?.prioridad ?? 800, efecto: base?.efecto || '', requiere_revision: !!base?.requiere_revision,
+  condiciones: (base?.condiciones || []).map(({ grupo, campo, operador, valor, valor_hasta, negado }) => ({ grupo, campo, operador, valor, valor_hasta, negado })),
+  accion: { tipo: base?.accion?.tipo || 'RESTRICT', codigos: (base?.accion?.codigos || []).join(', '), peso: base?.accion?.peso ?? null,
+    atributos: base?.accion?.atributos || [], mensaje: base?.accion?.mensaje || '' },
   // Código según un hecho (p. ej. subpartida por fibra predominante): [[valor, código]]
-  por: r?.accion?.por || '', mapa: Object.entries(r?.accion?.mapa || {}),
+  por: base?.accion?.por || '', mapa: Object.entries(base?.accion?.mapa || {}),
 })
 onMounted(async () => {
   try {
@@ -58,9 +60,9 @@ function tipo(v) {
   m.value.accion.tipo = ACCIONES[v][0][0]
 }
 const necesitaCodigos = computed(() => ['RESTRICT', 'EXCLUDE', 'BOOST'].includes(m.value.accion.tipo))
-async function guardar() {
+function cuerpoDe() {
   const x = m.value
-  const cuerpo = {
+  return {
     tipo_regla: x.tipo_regla, tipo_ambito: x.tipo_ambito, codigo_ambito: x.tipo_ambito === 'SYSTEM' ? 'ALL' : x.codigo_ambito,
     prioridad: Number(x.prioridad) || 0, efecto: x.efecto || null, requiere_revision: x.requiere_revision,
     condiciones: x.condiciones.filter((c) => c.campo),
@@ -68,6 +70,21 @@ async function guardar() {
       atributos: x.accion.atributos, mensaje: x.accion.mensaje || null,
       ...(x.por ? { por: x.por, mapa: Object.fromEntries(x.mapa.filter(([, c]) => String(c).trim())) } : {}) },
   }
+}
+// Antes de guardar: qué artículos de su ámbito cambiarían de subpartida (no guarda nada)
+const impacto = ref(null)
+async function verImpacto() {
+  ocupado.value = true
+  try {
+    impacto.value = await api.post('/aranceles/reglas/simular' + (r ? `?regla_id=${r.id}` : ''), cuerpoDe())
+  } catch (e) {
+    errorApi(e)
+  } finally {
+    ocupado.value = false
+  }
+}
+async function guardar() {
+  const cuerpo = cuerpoDe()
   ocupado.value = true
   try {
     const g = r ? await api.patch(`/aranceles/reglas/${r.id}`, cuerpo) : await api.post('/aranceles/reglas', cuerpo)
@@ -124,8 +141,20 @@ async function guardar() {
       <label v-if="m.accion.tipo === 'REVIEW'" class="campo ancho"><span>{{ t('Message for the specialist') }}</span><input v-model="m.accion.mensaje" class="entrada" maxlength="300" /></label>
       <label class="campo ancho"><span>{{ t('Rationale / legal basis') }}</span><input v-model="m.efecto" class="entrada" maxlength="500" :placeholder="t('e.g. Chapter 64, note 4')" /></label>
     </div>
+    <div v-if="impacto" class="impacto" role="status">
+      <b>{{ tx(impacto.cambian.length ? t('{0} of {1} items would change their code', [impacto.cambian.length, impacto.evaluados]) : t('No item would change its code ({0} checked)', [impacto.evaluados])) }}</b>
+      <span v-if="impacto.en_ambito > impacto.evaluados" class="ayuda">{{ t('The {0} most recent of {1} items in its scope were checked.', [impacto.evaluados, impacto.en_ambito]) }}</span>
+      <span v-if="impacto.aprobados_distintos" class="aviso-txt">{{ t('{0} already approved items would get a different suggestion: their approval does not change, but review them.', [impacto.aprobados_distintos]) }}</span>
+      <ul v-if="impacto.cambian.length">
+        <li v-for="x in impacto.cambian.slice(0, 12)" :key="x.id">
+          <router-link :to="`/productos/${x.id}`" target="_blank">{{ tx(x.estilo) }} · {{ tx(x.color) }}</router-link>
+          <span class="codigo-sac">{{ tx(x.antes || '—') }}</span> → <span class="codigo-sac">{{ tx(x.despues || '—') }}</span>
+        </li>
+      </ul>
+    </div>
     <template #pie>
       <button class="btn" @click="emit('cerrar')">{{ t('Cancel') }}</button>
+      <button class="btn" :disabled="ocupado" :title="t('Which items would change their code with this rule (nothing is saved)')" @click="verImpacto">{{ t('Check impact') }}</button>
       <button class="btn btn-primario" :disabled="ocupado" @click="guardar">{{ t('Save rule') }}</button>
     </template>
   </Modal>
@@ -139,6 +168,9 @@ async function guardar() {
 .tipo small { color: var(--tinta-3); font-size: 0.78rem; }
 .tipo[aria-checked='true'] { border-color: var(--acento); background: var(--acento-claro); }
 .campo.ancho { grid-column: 1 / -1; }
+.impacto { margin-top: 14px; border: 1px solid var(--linea); border-radius: var(--radio); background: var(--superficie-2); padding: 10px 12px; display: grid; gap: 4px; font-size: 0.88rem; }
+.impacto ul { margin: 4px 0 0; padding-inline-start: 18px; display: grid; gap: 3px; }
+.aviso-txt { color: var(--aviso); }
 .mapa { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
 .mapa-fila { display: grid; grid-template-columns: 1fr 110px; gap: 6px; align-items: center; font-size: 0.85rem; }
 </style>

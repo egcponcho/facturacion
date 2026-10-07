@@ -630,6 +630,7 @@
  "Only a load in preview can be published.",
  "Only a sheet in review can go back to draft.",
  "Only a single-product carton can be saved as a template.",
+ "Only an approved item with a category can become a rule.",
  "Only finalized invoices can be reopened.",
  "Only finalized packing lists can be reopened.",
  "Only if the item code is empty: it is added to the generic. Empty = generated (numeric sizes × 10: 7 → 070; others 001, 002…).",
