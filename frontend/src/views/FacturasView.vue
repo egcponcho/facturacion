@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import Avance from '../components/Avance.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import EstadoVacio from '../components/EstadoVacio.vue'
 import Icono from '../components/Icono.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
@@ -137,9 +138,17 @@ watch(() => sesion.proveedorId, recargar)
           <td class="num"><Icono nombre="derecha" :tam="16" /></td>
         </tr>
         <tr v-if="!datos.items.length && !cargando">
-          <td colspan="8" class="vacio">
+          <td v-if="filtros.estado || filtros.vista || filtros.q" colspan="8" class="vacio">
             {{ t('No invoices match these filters.') }}
             <div><router-link class="btn" to="/ordenes">{{ t('Create one from purchase orders') }}</router-link></div>
+          </td>
+          <td v-else colspan="8">
+            <EstadoVacio icono="factura" :titulo="t('There are no invoices yet.')"
+                         :texto="t('An invoice is created from the released purchase order lines you are going to ship; its packing lists say how the goods are packed.')"
+                         :titulo-requisitos="t('To create one you need:')"
+                         :requisitos="[t('A released purchase order with quantity to invoice')]">
+              <router-link class="btn btn-primario" to="/ordenes"><Icono nombre="mas" />{{ t('Invoice from POs') }}</router-link>
+            </EstadoVacio>
           </td>
         </tr>
       </tbody>

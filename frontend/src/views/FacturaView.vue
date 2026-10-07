@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
 import CeldaEditable from '../components/CeldaEditable.vue'
+import Requisitos from '../components/Requisitos.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
@@ -218,6 +219,34 @@ async function eliminar(confirmar) {
 }
 
 // ---- Estados ---------------------------------------------------------------
+// Qué falta para finalizar y cómo resolverlo (cada punto lleva a donde se corrige)
+const requisitosFinalizar = computed(() => {
+  const pend = f.value?.pendientes || []
+  const clasif = pend.filter((p) => p.codigo === 'sin_clasificar')
+  const lineas = pendLineas.value.filter((p) => p.codigo !== 'sin_clasificar')
+  const plsAbiertos = plsActivos.value.filter((p) => ['BORRADOR', 'EN_CORRECCION'].includes(p.estado))
+  return [
+    { clave: 'cabecera', ok: !pendCabecera.value.length, titulo: t('Number, date and lines'),
+      detalle: pendCabecera.value.length ? pendCabecera.value.map((p) => tx(p.mensaje)).join(' ') : t('Complete'),
+      acciones: [{ texto: t('Complete the header'), clave: 'cabecera' }] },
+    { clave: 'clasificacion', ok: !clasif.length, titulo: t('Products classified'),
+      detalle: clasif.length ? t('{0} without an approved HS code.', [plural(new Set(clasif.map((c) => c.producto_id)).size, t('product'), t('products'))]) : t('Complete'),
+      acciones: [{ texto: t('See products'), to: '/productos?estado=bloquean' }] },
+    { clave: 'lineas', ok: !lineas.length, titulo: t('Customs data and prices'),
+      detalle: lineas.length ? t('{0} to complete', [lineas.length]) : t('Complete'), acciones: [{ texto: t('See lines'), clave: 'lineas' }] },
+    { clave: 'pl', ok: !sinAsignar.value && !plsAbiertos.length, titulo: t('All in packing lists'),
+      detalle: sinAsignar.value ? t('{0} without packing list (you can finalize the invoice and pack later)', [fmtNum(sinAsignar.value)])
+        : plsAbiertos.length ? t('Open: {0}. Not required to finalize the invoice.', [plsAbiertos.map((p) => p.numero).join(', ')]) : t('Yes'),
+      acciones: plsAbiertos.slice(0, 3).map((p) => ({ texto: t('Open {0}', [p.numero]), to: `/packing-lists/${p.id}` })) },
+  ]
+})
+function resolverRequisito(clave) {
+  modal.value = null
+  if (clave === 'lineas') {
+    tab.value = 'lineas'
+    modal.value = { tipo: 'pendientes', titulo: t('Pending data to finalize'), detalle: f.value.pendientes }
+  } else if (clave === 'cabecera') window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 function abrirFinalizar() {
   modal.value = { tipo: 'finalizar', incluir: plEditables.value }
 }
@@ -641,21 +670,8 @@ const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.c
     </section>
   </template>
 
-  <Modal v-if="modal?.tipo === 'finalizar'" :titulo="t('Finalize invoice')" ancho="600px" @cerrar="modal = null">
-    <ul class="checklist">
-      <li :class="pendCabecera.length ? 'falta' : 'ok'">
-        <span class="marca"><Icono :nombre="pendCabecera.length ? 'alerta' : 'check'" :tam="14" /></span>
-        <span>{{ t('Number, date and lines') }}<span class="sub ayuda">{{ tx(pendCabecera.length ? pendCabecera.map((p) => p.mensaje).join(' ') : t('Complete')) }}</span></span>
-      </li>
-      <li :class="pendLineas.length ? 'falta' : 'ok'">
-        <span class="marca"><Icono :nombre="pendLineas.length ? 'alerta' : 'check'" :tam="14" /></span>
-        <span>{{ t('Customs data and prices') }}<span class="sub ayuda">{{ tx(pendLineas.length ? t('{0} to complete', [pendLineas.length]) : t('Complete')) }}</span></span>
-      </li>
-      <li :class="sinAsignar ? 'falta' : 'ok'">
-        <span class="marca"><Icono :nombre="sinAsignar ? 'alerta' : 'check'" :tam="14" /></span>
-        <span>{{ t('All in packing lists') }}<span class="sub ayuda">{{ tx(sinAsignar ? t('{0} without packing list (you can finalize the invoice and pack later)', [fmtNum(sinAsignar)]) : t('Yes')) }}</span></span>
-      </li>
-    </ul>
+  <Modal v-if="modal?.tipo === 'finalizar'" :titulo="t('Finalize invoice')" ancho="640px" @cerrar="modal = null">
+    <Requisitos :items="requisitosFinalizar" @accion="resolverRequisito" />
     <label v-if="plEditables" class="check"><input v-model="modal.incluir" type="checkbox" /> {{ t('Also finalize its open packing lists') }}</label>
     <p class="ayuda">{{ t('If something is missing, you will see exactly what and nothing is finalized.') }}</p>
     <template #pie>

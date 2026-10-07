@@ -7,6 +7,7 @@ import { api } from '../api'
 import Avance from '../components/Avance.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import EstadoTiempo from '../components/EstadoTiempo.vue'
+import EstadoVacio from '../components/EstadoVacio.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import Paginacion from '../components/Paginacion.vue'
@@ -155,7 +156,17 @@ onMounted(() => {
           <td class="num">{{ tx(e.packing_lists) }}<span v-if="e.tentativas" class="etiqueta aviso">{{ t('{0} tentative', [e.tentativas]) }}</span></td>
           <td class="envolver" style="min-width: 140px">{{ tx(e.proveedores.join(', ') || '—') }}</td>
         </tr>
-        <tr v-if="!lista.length"><td colspan="9" class="vacio">{{ t('No shipments match these filters.') }}</td></tr>
+        <tr v-if="!lista.length && todos.length"><td colspan="9" class="vacio">{{ t('No shipments match these filters.') }}</td></tr>
+        <tr v-else-if="!lista.length">
+          <td colspan="9">
+            <EstadoVacio icono="barco" :titulo="t('There are no shipments yet.')"
+                         :texto="t('A shipment groups the load units (containers, air waybills or trucks) that carry goods ready to ship.')"
+                         :titulo-requisitos="t('To fill one you need:')"
+                         :requisitos="[t('A finalized invoice'), t('A finalized packing list')]">
+              <button class="btn btn-primario" @click="nuevo"><Icono nombre="mas" />{{ t('New shipment') }}</button>
+            </EstadoVacio>
+          </td>
+        </tr>
       </tbody>
     </table>
   </div>

@@ -7,6 +7,7 @@ import BarraSeleccion from '../components/BarraSeleccion.vue'
 import CargaArticulos from '../components/CargaArticulos.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import FiltroMulti from '../components/FiltroMulti.vue'
+import EstadoVacio from '../components/EstadoVacio.vue'
 import Icono from '../components/Icono.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
@@ -270,8 +271,15 @@ watch(() => sesion.proveedorId, recargar)
           <td class="num"><Icono nombre="derecha" :tam="16" /></td>
         </tr>
         <tr v-if="!datos.items.length && !cargando">
-          <td colspan="7" class="vacio">
-            <template v-if="['pendientes', 'sugerida', 'revision', 'borradores', 'baja_confianza'].includes(filtros.estado)"><Icono nombre="check" /> {{ t('Nothing pending here.') }}</template>
+          <td v-if="!datos.kpis?.total && !filtros.q" colspan="7">
+            <EstadoVacio icono="etiqueta" :titulo="t('There are no products yet.')"
+                         :texto="t('A product is a style and color of a supplier: its technical sheet and its HS code apply to all its sizes. Products are created with the items of the purchase orders or from Master data.')">
+              <router-link v-if="puede('catalogos.ver')" class="btn" to="/mantenimiento"><Icono nombre="base" />{{ t('Master data') }}</router-link>
+              <router-link v-if="puede('oc.importar')" class="btn btn-primario" to="/importar"><Icono nombre="importar" />{{ t('Import purchase orders') }}</router-link>
+            </EstadoVacio>
+          </td>
+          <td v-else colspan="7" class="vacio">
+            <template v-if="['pendientes', 'sugerida', 'revision', 'borradores', 'baja_confianza', 'bloquean'].includes(filtros.estado)"><Icono nombre="check" /> {{ t('Nothing pending here.') }}</template>
             <template v-else>{{ t('No products match these filters.') }}</template>
           </td>
         </tr>

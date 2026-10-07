@@ -998,3 +998,6 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .resumen-plegable > summary { cursor: pointer; list-style: revert; padding: 12px 4px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
 .resumen-plegable > summary .ayuda { font-weight: 400; }
 .resumen-plegable[open] > summary { margin-bottom: 10px; }
+/* Motivo visible junto a una acción que todavía no se puede hacer */
+.bloqueo-motivo { display: inline-flex; align-items: flex-start; gap: 6px; max-width: 420px; }
+.bloqueo-motivo svg { flex: none; margin-top: 2px; }

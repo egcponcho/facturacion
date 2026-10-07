@@ -80,6 +80,14 @@ const bloqueoAprobar = computed(() => {
   return ''
 })
 
+// Por qué no se puede aprobar todavía (visible, no solo en el tooltip)
+const motivoNoAprobar = computed(() => {
+  if (bloqueoAprobar.value) return bloqueoAprobar.value
+  if (!completa.value) return t('Complete the technical sheet first: {0}.', [faltan.value.join(', ') || t('required fields')])
+  if (errores.value.length) return t('Fix the errors first')
+  if (!calculando.value && codigo6.value.length < 6) return t('There is no HS code to approve yet: answer the questions or choose a code.')
+  return ''
+})
 const sugerido = computed(() => r.value?.clasificacion?.sac?.codigo || r.value?.hs6 || '')
 const codigo = computed(() => (aprobado.value ? fmtCode(p.value.sac_codigo || p.value.codigo) : codOficial.value || fmtCode(sugerido.value)))
 const codigo6 = computed(() => digits(codigo.value).slice(0, 6))
@@ -926,7 +934,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
                   :title="tx(bloqueoAprobar || (!completa ? t('Complete the technical sheet first') : errores.length ? t('Fix the errors first') : ''))" @click="aprobar">
             <Icono nombre="check" />{{ t('Approve {0}', [codigo]) }}
           </button>
-          <p v-if="bloqueoAprobar" class="ayuda">{{ tx(bloqueoAprobar) }}</p>
+          <p v-if="motivoNoAprobar" class="ayuda bloqueo-motivo"><Icono nombre="info" :tam="14" />{{ tx(motivoNoAprobar) }}</p>
           <button class="btn" :disabled="ocupado" @click="modal = { tipo: 'devolver', texto: p.observaciones || (faltan.length ? t('Please complete: {0}.', [faltan.join(', ')]) : '') }">{{ t('Return to supplier') }}</button>
         </div>
         <p v-else-if="!aprobado && puedeEditar" class="ayuda acciones-clasif">

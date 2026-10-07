@@ -309,6 +309,11 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
                   :title="tx(e.estado === 'PLANIFICADO' && totales.tentativas ? t('Confirm or remove the tentative PLs first') : '')" @click="abrirEvento()">
             <Icono nombre="flecha" />{{ t('Record {0}', [nombreEvento(SIGUIENTE[e.estado]).toLowerCase()]) }}
           </button>
+          <!-- Un botón deshabilitado siempre dice por qué y qué hacer -->
+          <span v-if="SIGUIENTE[e.estado] && e.estado === 'PLANIFICADO' && (totales.tentativas > 0 || !totales.pls)" class="ayuda bloqueo-motivo">
+            <Icono nombre="info" :tam="14" />{{ tx(totales.tentativas > 0 ? t('Confirm or remove the {0} tentative PLs in the load units below first.', [totales.tentativas])
+              : t('Assign at least one finalized packing list to a load unit below first.')) }}
+          </span>
         </div>
       </div>
       <ol class="hitos" :aria-label="t('Shipment status')">
