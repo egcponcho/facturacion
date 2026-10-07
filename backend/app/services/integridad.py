@@ -88,6 +88,7 @@ def auditar(db: Session, user: Usuario | None = None, hoy: date | None = None) -
     inf.check("LINE_VERSION_SCOPE", "National line in a version of another country", "OFFICIAL", "ERROR")
     inf.check("LINE_DUPLICATE", "Duplicate national line in the same version", "OFFICIAL", "ERROR")
     inf.check("LINE_EXPIRED", "Active national line past its validity", "OFFICIAL", "VERSION_EXPIRED")
+    inf.check("LINE_NO_VALIDITY", "National line without validity", "OFFICIAL", "SOURCE_MISSING")
     inf.check("PUBLISHED_MODIFIED", "Published version modified by hand", "OFFICIAL", "WARNING")
 
     empresa = set()
@@ -118,6 +119,8 @@ def auditar(db: Session, user: Usuario | None = None, hoy: date | None = None) -
             inf.hallazgo("LINE_BASE_NOMENCLATURE", "national_line", ref, f"Not a line of {v.codigo}, which {x.pais} applies as its national tariff.", x.id)
         if v and (v.ambito or "").upper() not in (x.pais, "REGIONAL"):
             inf.hallazgo("LINE_VERSION_SCOPE", "national_line", ref, f"Version {v.codigo} belongs to {v.ambito}.", x.id)
+        if not (x.vigente_desde or (v and v.vigente_desde)):
+            inf.hallazgo("LINE_NO_VALIDITY", "national_line", ref, "No valid-from date, neither its own nor its version's.", x.id)
         hasta = x.vigente_hasta or (v.vigente_hasta if v else None)
         if x.activo and hasta and hasta < hoy:
             inf.hallazgo("LINE_EXPIRED", "national_line", ref, f"Valid until {hasta.isoformat()}.", x.id)
@@ -132,6 +135,20 @@ def auditar(db: Session, user: Usuario | None = None, hoy: date | None = None) -
     inf.check("VERSION_OVERLAP", "Published versions of the same scope with overlapping validity", "OFFICIAL", "WARNING")
     inf.check("VERSION_EXPIRED", "Scope whose versions are all past their validity", "OFFICIAL", "VERSION_EXPIRED")
     inf.check("COUNTRY_SOURCE", "Active country pending official source verification", "OFFICIAL", "SOURCE_MISSING")
+    inf.check("SOURCE_NOT_TRACEABLE", "Source without document, link or verification", "OFFICIAL", "SOURCE_MISSING")
+    inf.check("SOURCE_STALE", "Source not verified in the last year", "OFFICIAL", "WARNING")
+    inf.check("VERSION_NO_VALIDITY", "Published version without validity", "OFFICIAL", "SOURCE_MISSING")
+    from .oficial import VERIFICACION_MAX_DIAS, problemas_fuente
+
+    usadas = {v.fuente_id for v in versiones.values() if v.estado in ("PUBLICADA", "DINAMICA")}
+    for f in fuentes.values():
+        if f.id in usadas and (faltas := problemas_fuente(f)):
+            inf.hallazgo("SOURCE_NOT_TRACEABLE", "source", f.codigo, " ".join(faltas), f.id)
+        elif f.id in usadas and f.verificado_en and (hoy - f.verificado_en).days > VERIFICACION_MAX_DIAS:
+            inf.hallazgo("SOURCE_STALE", "source", f.codigo, f"Last verified {f.verificado_en.isoformat()}.", f.id)
+    for v in versiones.values():
+        if v.estado == "PUBLICADA" and not v.vigente_desde:
+            inf.hallazgo("VERSION_NO_VALIDITY", "version", v.codigo, "Published without valid from.", v.id)
     por_ambito: dict[str, list] = {}
     for v in versiones.values():
         if not v.fuente_id or v.fuente_id not in fuentes:

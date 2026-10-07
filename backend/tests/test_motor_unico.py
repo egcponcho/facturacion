@@ -264,7 +264,8 @@ def test_categoria_nueva_solo_con_configuracion(interno):
         assert r.status_code == 200, r.text
     # La línea nacional entra como dato oficial: con la fuente y la versión de su publicación
     r = interno.post("/aranceles/codigos", {"pais": "CR", "codigo": "850760001000", "descripcion": "Baterías de iones de litio", "dai": "0",
-                                            "fuente": "SRC-CR-ATENA", "version": "CR-ATENA"})
+                                            "fuente": "SRC-CR-ATENA", "version": "CR-ATENA",
+                                            "vigente_desde": "2026-01-01"})
     assert r.status_code in (200, 201), r.text
     # La categoría se reconoce por el nombre, la pregunta aparece, la dependiente no
     s = _sesion(interno, {"estilo": "Slim power bank 10000 mAh", "ficha": {}})

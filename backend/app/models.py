@@ -654,6 +654,11 @@ class FuenteOficial(Base):
     autenticacion: Mapped[str | None] = mapped_column(String(60))
     nota_version: Mapped[str | None] = mapped_column(String(300))
     verificacion: Mapped[str | None] = mapped_column(String(120))
+    # Trazabilidad: el documento o dataset oficial exacto y quién y cuándo lo verificó
+    # contra la publicación. Sin verificación la fuente no respalda ningún dato oficial.
+    documento: Mapped[str | None] = mapped_column(String(300))
+    verificado_en: Mapped[date | None] = mapped_column(Date)
+    verificado_por: Mapped[str | None] = mapped_column(String(120))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

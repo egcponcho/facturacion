@@ -67,7 +67,7 @@ def test_company_conditions_never_marked_as_official(interno):
 
 
 def test_official_tax_requires_source_or_legal_basis(interno):
-    base = {"pais": "SV", "patron": "6404", "tipo": "SELECTIVO", "tasa": 5, "base_calculo": "CIF"}
+    base = {"pais": "SV", "patron": "6404", "tipo": "SELECTIVO", "tasa": 5, "base_calculo": "CIF", "vigente_desde": "2026-01-01"}
     with SessionLocal() as db:
         from app.models import PaisArancel
 
@@ -80,6 +80,9 @@ def test_official_tax_requires_source_or_legal_basis(interno):
     assert interno.post("/aranceles/impuestos", {**base, "base_legal": "Ley de prueba, art. 1"}).status_code == 200
     # Sin tasa o sin base de cálculo no es un impuesto completo
     assert interno.post("/aranceles/impuestos", {**base, "tasa": None, "base_legal": "Ley"}).status_code == 422
+    # Ni sin vigencia: nunca se supone desde cuándo rige
+    r = interno.post("/aranceles/impuestos", {**base, "vigente_desde": None, "base_legal": "Ley"})
+    assert r.status_code == 422 and r.json()["codigo"] == "sin_vigencia"
     # Ningún impuesto ni regulación queda sin fuente ni base legal (no hay impuestos de demostración)
     with SessionLocal() as db:
         for x in [*db.scalars(select(ReglaImpuesto)), *db.scalars(select(Regulacion))]:
@@ -256,3 +259,54 @@ def test_company_history_only_affects_ranking(interno):
     assert gt()[1]["estado"] == "elegir"
     assert interno.get("/clasificacion/configuracion").json()["capa"] == "CLASSIFICATION_ENGINE"
     assert interno.get("/conocimiento").json()["palabras"] >= 1
+
+
+def _paquete(api, hojas):
+    import io
+
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    wb.remove(wb.active)
+    for nombre, filas in hojas.items():
+        ws = wb.create_sheet(nombre)
+        for f in filas:
+            ws.append(f)
+    b = io.BytesIO()
+    wb.save(b)
+    return api.c.post("/api/aranceles/oficial/importar", headers=api.h,
+                      files={"archivo": ("p.xlsx", io.BytesIO(b.getvalue()), "application/octet-stream")})
+
+
+def test_official_source_requires_document_version_validity_and_verification(interno):
+    enc_src = ["Source ID", "Country/Region", "Authority", "Official dataset", "Use", "Official URL", "Access mode", "Authentication",
+               "Version/status note", "Verification"]
+    enc_ver = ["Version ID", "Dataset", "Version label", "Status", "Valid from", "Valid to", "Source ID"]
+    # Una fuente sin verificar no respalda una versión publicada: el lote entero se rechaza
+    r = _paquete(interno, {"Sources": [enc_src, ["SRC-SV-TEST", "SV", "DGA", "Arancel de prueba", None, "https://example.gob.sv/arancel",
+                                                 None, None, None, "Pending"]],
+                           "Versions": [enc_ver, ["SV-TEST-1", "SV tariff", "2026", "Published", "2026-01-01", None, "SRC-SV-TEST"]]})
+    assert r.status_code == 422 and r.json()["codigo"] == "lote_con_errores"
+    assert any("has not been verified" in e["mensaje"] for e in r.json()["detalle"])
+    # Ni una versión publicada sin vigencia
+    r = _paquete(interno, {"Versions": [enc_ver, ["SV-TEST-2", "SV tariff", "2026", "Published", None, None, "SRC-SV-DGA"]]})
+    assert r.status_code == 422 and any("without its validity" in e["mensaje"] for e in r.json()["detalle"])
+    # La fuente sin verificar se carga sola (no respalda nada todavía) y se verifica: documento, enlace, fecha y quién
+    assert _paquete(interno, {"Sources": [enc_src, ["SRC-SV-TEST", "SV", "DGA", "Arancel de prueba", None, "https://example.gob.sv/arancel",
+                                                    None, None, None, "Pending"]]}).status_code == 200
+    fuentes = {f["codigo"]: f for f in interno.get("/aranceles/oficial/fuentes").json()["fuentes"]}
+    f = fuentes["SRC-SV-TEST"]
+    assert f["problemas"] and not f["verificado_en"] and not fuentes["SRC-SIECA-ACI"]["problemas"]
+    assert interno.post(f"/aranceles/oficial/fuentes/{f['id']}/verificar", {"verificado_en": "2999-01-01"}).status_code == 422
+    r = interno.post(f"/aranceles/oficial/fuentes/{f['id']}/verificar", {"documento": "Arancel SV 2026, Diario Oficial tomo 450"})
+    assert r.status_code == 200 and r.json()["verificado_en"] and r.json()["verificado_por"] and not r.json()["problemas"]
+    assert _paquete(interno, {"Versions": [enc_ver, ["SV-TEST-1", "SV tariff", "2026", "Draft", "2026-01-01", None, "SRC-SV-TEST"]]}).status_code == 200
+    # Una línea en una versión dinámica sin fecha necesita su vigencia; con ella queda trazable
+    r = interno.post("/aranceles/codigos", {"pais": "CR", "codigo": "6404.19.90.00.77", "fuente": "SRC-CR-ATENA", "version": "CR-ATENA"})
+    assert r.status_code == 422 and r.json()["codigo"] == "sin_vigencia"
+    r = interno.post("/aranceles/codigos", {"pais": "CR", "codigo": "6404.19.90.00.77", "fuente": "SRC-CR-ATENA", "version": "CR-ATENA",
+                                            "vigente_desde": "2026-02-01"})
+    assert r.status_code == 200, r.text
+    with SessionLocal() as db:
+        x = db.get(IncisoNacional, r.json()["id"])
+        assert str(x.vigente_desde) == "2026-02-01" and x.fuente_id and x.version_id

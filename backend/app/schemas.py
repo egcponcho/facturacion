@@ -515,6 +515,7 @@ class IncisoEditIn(BaseModel):
     # Línea nueva: es dato oficial, viene de una publicación (fuente y versión obligatorias)
     fuente: str | None = Field(None, max_length=30)
     version: str | None = Field(None, max_length=30)
+    vigente_desde: date | None = None  # si la versión no trae su vigencia (p. ej. una versión dinámica)
 
 
 class IncisoOverrideIn(BaseModel):
@@ -729,3 +730,9 @@ class DominioCapituloIn(BaseModel):
     relevancia: str | None = None
     habilitado: bool | None = None
     quitar: bool = False
+
+
+class VerificarFuenteIn(BaseModel):
+    documento: str | None = Field(None, max_length=300)  # documento o dataset oficial exacto que se revisó
+    url: str | None = Field(None, max_length=400)
+    verificado_en: date | None = None

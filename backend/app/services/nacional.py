@@ -27,7 +27,7 @@ from ..models import (
     VersionDataset,
 )
 from .common import ErrorNegocio, exigir, filtro_texto, registrar
-from .oficial import _fecha, _si, _txt
+from .oficial import _fecha, _si, _txt, problemas_fuente
 
 TIPOS_REGULACION = ("PERMIT", "LICENSE", "REGISTRATION", "CERTIFICATE", "LABELING", "SANITARY", "PHYTOSANITARY", "TECHNICAL",
                     "QUOTA", "PROHIBITION", "OTHER")
@@ -90,7 +90,26 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         if desde and hasta and hasta < desde:
             error(hoja, f["_fila"], "Valid to must be on or after valid from.")
             return None
-        return {"pais": iso, "version": versiones.get(ver), "fuente": fuentes.get(src), "desde": desde, "hasta": hasta}
+        v = versiones.get(ver)
+        # Procedencia real: la fuente de la fila, la de su versión o la que el país declara para ese dato
+        p = paises[iso]
+        del_pais = {"National_Codes": p.fuente_id, "Regulations": p.fuente_regulaciones_id, "Taxes": p.fuente_impuestos_id}.get(hoja)
+        fuente = fuentes.get(src) or (v.fuente if v else None) or next((x for x in fuentes.values() if x.id == del_pais), None)
+        # La vigencia es la de la fila o la de su versión; nunca se supone
+        desde = desde or (v.vigente_desde if v else None)
+        hasta = hasta or (v.vigente_hasta if v else None)
+        return {"pais": iso, "version": v, "fuente": fuente, "desde": desde, "hasta": hasta,
+                "faltas": problemas_fuente(fuente) if fuente else ["No official source for this row."]}
+
+    def trazable(hoja, f, c, base_legal: str | None = None) -> bool:
+        """Dato oficial trazable: fuente verificada (o, para requisitos, su base legal) y vigencia."""
+        if c["faltas"] and not base_legal:
+            error(hoja, f["_fila"], "Official data needs a traceable source: " + " ".join(c["faltas"]))
+            return False
+        if not c["desde"]:
+            error(hoja, f["_fila"], "Official data needs its validity: give Valid from (or load it in a version that has it).")
+            return False
+        return True
 
     # Fuentes por país y tipo de dato
     for f in hojas.get("Country_Source_Map", []):
@@ -117,7 +136,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
     vistos = set()
     for f in hojas.get("National_Codes", []):
         c = comun("National_Codes", f, version_obligatoria=True)
-        if not c:
+        if not c or not trazable("National_Codes", f, c):
             continue
         cod = _dig(f.get("full_display_code"))
         if not cod:
@@ -191,8 +210,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         if not _txt(f.get("requirement_name")):
             error("Regulations", f["_fila"], "Requirement name is required.")
             continue
-        if not c["fuente"] and not _txt(f.get("legal_basis")):
-            error("Regulations", f["_fila"], "Every regulation needs an official source or its legal basis.")
+        if not trazable("Regulations", f, c, _txt(f.get("legal_basis"))):
             continue
         x = db.scalar(select(Regulacion).where(Regulacion.codigo == cod))
         nuevo = x is None
@@ -207,7 +225,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         x.base_legal, x.url, x.nota = _txt(f.get("legal_basis")), _txt(f.get("source_url")), _txt(f.get("notes"))
         x.activo = _si(f.get("active")) if f.get("active") is not None else True
         x.vigente_desde, x.vigente_hasta = c["desde"], c["hasta"]
-        x.fuente_id = c["fuente"].id if c["fuente"] else None
+        x.fuente_id = c["fuente"].id if c["fuente"] and not c["faltas"] else None
         db.add(x)
         cuenta("Regulations", nuevo)
 
@@ -226,8 +244,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
             error("Taxes", f["_fila"], f"Tax type ({', '.join(TIPOS_IMPUESTO)}) and a valid code pattern are required.")
             continue
         base_legal = _txt(f.get("legal_basis_notes"))
-        if not c["fuente"] and not base_legal:
-            error("Taxes", f["_fila"], "Every tax rule needs an official source or its legal basis.")
+        if not trazable("Taxes", f, c, base_legal):
             continue
         try:
             tasa, desde, hasta = _num(f.get("rate")), _num(f.get("threshold_from")), _num(f.get("threshold_to"))
@@ -246,7 +263,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         x.formula, x.base_legal, x.url = _txt(f.get("formula_rule")), base_legal, _txt(f.get("source_url"))
         x.activo = _si(f.get("active")) if f.get("active") is not None else True
         x.vigente_desde, x.vigente_hasta = c["desde"], c["hasta"]
-        x.fuente_id = c["fuente"].id if c["fuente"] else None
+        x.fuente_id = c["fuente"].id if c["fuente"] and not c["faltas"] else None
         db.add(x)
         cuenta("Taxes", nuevo)
     db.flush()
@@ -384,3 +401,12 @@ def _aplicar(db: Session, x, datos: dict, campos: tuple) -> None:
             setattr(x, k, datos[k].upper() if k == "tipo" and isinstance(datos[k], str) else datos[k])
     if x.vigente_desde and x.vigente_hasta and x.vigente_hasta < x.vigente_desde:
         raise ErrorNegocio("Valid to must be on or after valid from.", 422, "validacion")
+    # La fuente solo respalda el dato si es trazable (documento, enlace y verificación)
+    f = db.get(FuenteOficial, x.fuente_id) if x.fuente_id else None
+    if f and problemas_fuente(f):
+        x.fuente_id = None
+    if not x.fuente_id and not (x.base_legal or "").strip():
+        raise ErrorNegocio("Official data needs a traceable source (a verified official source) or its legal basis.", 422, "fuente_no_trazable",
+                           [{"mensaje": m} for m in (problemas_fuente(f) if f else ["No official source for this country."])])
+    if not x.vigente_desde:
+        raise ErrorNegocio("Official data needs its validity: give Valid from.", 422, "sin_vigencia")

@@ -45,7 +45,9 @@ def test_flujo_completo_de_la_ficha_a_la_aprobacion(interno):
     s = interno.post("/clasificacion/sesion", _entrada(p, ficha, origen="VN", tocados=["estiloCalz", "altura", "genero", "edadNac", "puntera"],
                                                         cambio={"campo": "puntera", "valor": "ninguna"})).json()
     assert s["hs6"] and s["hs6"].startswith("6403") and s["completa"], s["faltantes"]
-    assert s["clasificacion"]["paises"] and all(x["version"] for x in s["clasificacion"]["paises"])
+    # Todo país con código lo toma de una versión oficial; Panamá no tiene versión vigente (la suya sigue en borrador)
+    assert s["clasificacion"]["paises"] and all(x["version"] for x in s["clasificacion"]["paises"] if x["codigo"])
+    assert next(x for x in s["clasificacion"]["paises"] if x["pais"] == "PA")["sin_datos_oficiales"]
     sugerido = s["hs6"]
 
     # 3. Guardar la ficha natural: el servidor vuelve a clasificar con el mismo motor

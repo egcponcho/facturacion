@@ -478,10 +478,11 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
     if not v_ok:
         raise ErrorNegocio(f"Version {version.codigo} is not a tariff version of {pais} or of the regional SAC.", 422, "validacion")
     _version_editable(version)
+    desde, hasta = _vigencia(version, getattr(datos, "vigente_desde", None))
     if not _en_arbol(db, cod):
         raise ErrorNegocio(f"{_fmt(cod)} does not hang from a subheading of the official tariff tree.", 422, "codigo_inexistente")
     x = IncisoNacional(pais=pais, codigo=cod, sub6=cod[:6], fuente="oficial", fuente_id=fuente.id, version_id=version.id,
-                       vigente_desde=version.vigente_desde, vigente_hasta=version.vigente_hasta, url=fuente.url, creado_por=user.id)
+                       vigente_desde=desde, vigente_hasta=hasta, url=fuente.url, creado_por=user.id)
     db.add(x)
     x.descripcion = (datos.descripcion or "").strip()[:300] or None
     x.dai = (datos.dai or "").replace("%", "").strip()[:10] or None
@@ -511,7 +512,22 @@ def _procedencia(db: Session, fuente_cod: str | None, version_cod: str | None, p
         raise ErrorNegocio(f"The official source {fuente_cod} does not exist.", 422, "validacion")
     if not v:
         raise ErrorNegocio(f"The version {version_cod} does not exist.", 422, "validacion")
+    from .oficial import problemas_fuente, problemas_version
+
+    faltas = list(dict.fromkeys(problemas_fuente(f) + problemas_version(v)))
+    if faltas:
+        raise ErrorNegocio("Official data needs a traceable source: " + " ".join(faltas), 422, "fuente_no_trazable",
+                           [{"mensaje": m} for m in faltas])
     return f, v
+
+
+def _vigencia(v, desde) -> tuple:
+    """La vigencia de una línea: la que se indica o la de su versión; nunca se supone."""
+    desde = desde or v.vigente_desde
+    if not desde:
+        raise ErrorNegocio(f"Version {v.codigo} has no validity date: give the date the lines are valid from (as published).",
+                           422, "sin_vigencia")
+    return desde, v.vigente_hasta
 
 
 def _version_de_pais(v, p) -> bool:
@@ -627,13 +643,14 @@ def plantilla_incisos(db: Session, pais: str | None = None) -> bytes:
 
 
 def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, pais: str | None = None,
-                     reemplazar: bool = False, fuente: str | None = None, version: str | None = None) -> dict:
+                     reemplazar: bool = False, fuente: str | None = None, version: str | None = None, vigente_desde=None) -> dict:
     """Carga de líneas nacionales desde la publicación oficial de un país: toda
     la carga lleva su fuente y su versión. «Reemplazar» solo quita las líneas
     de esa misma versión (las otras versiones no se tocan)."""
     exigir(user, "aranceles.editar")
     f_ofi, v_ofi = _procedencia(db, fuente, version)
     _version_editable(v_ofi)
+    desde, hasta = _vigencia(v_ofi, vigente_desde)
     ps = _paises_dict(db)
     filas = leer(nombre, contenido, _alias_incisos(db))
     oc = opciones_cond(db)
@@ -704,7 +721,7 @@ def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, 
             actualizados += 1
         else:
             x = IncisoNacional(pais=iso, codigo=cod, sub6=cod[:6], cond=cond, fuente="oficial", fuente_id=f_ofi.id, version_id=v_ofi.id,
-                               vigente_desde=v_ofi.vigente_desde, vigente_hasta=v_ofi.vigente_hasta, url=f_ofi.url, creado_por=user.id)
+                               vigente_desde=desde, vigente_hasta=hasta, url=f_ofi.url, creado_por=user.id)
             db.add(x)
             existentes[clave] = x
             creados += 1
@@ -882,5 +899,5 @@ def _versiones_oficiales(db: Session) -> list[dict]:
     from ..models import VersionDataset
 
     return [{"codigo": v.codigo, "ambito": v.ambito, "estado": v.estado, "fuente": v.fuente.codigo if v.fuente else None,
-             "texto": f"{v.codigo} · {v.etiqueta or v.dataset}"}
+             "texto": f"{v.codigo} · {v.etiqueta or v.dataset}", "vigente_desde": v.vigente_desde}
             for v in db.scalars(select(VersionDataset).order_by(VersionDataset.codigo)) if v.ambito]

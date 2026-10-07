@@ -149,8 +149,9 @@ def codigos_plantilla(db: Db, user: User, pais: str | None = None, vista: bool =
 
 @router.post("/aranceles/codigos/importar")
 async def codigos_importar(db: Db, user: User, archivo: UploadFile = File(...), pais: str | None = None,
-                           reemplazar: bool = False, fuente: str | None = None, version: str | None = None):
-    r = svc.importar_incisos(db, user, archivo.filename or "", await archivo.read(), pais, reemplazar, fuente, version)
+                           reemplazar: bool = False, fuente: str | None = None, version: str | None = None,
+                           vigente_desde: date | None = None):
+    r = svc.importar_incisos(db, user, archivo.filename or "", await archivo.read(), pais, reemplazar, fuente, version, vigente_desde)
     db.commit()
     return r
 
@@ -201,6 +202,14 @@ def oficial_integridad(db: Db, user: User):
     from ..services import integridad
 
     return integridad.auditar(db, user)
+
+
+@router.post("/aranceles/oficial/fuentes/{fuente_id}/verificar")
+def oficial_fuente_verificar(fuente_id: int, datos: s.VerificarFuenteIn, db: Db, user: User, clave: Clave = None):
+    """Registra la verificación de una fuente contra su publicación oficial."""
+    from ..services import oficial
+
+    return ejecutar(db, user, clave, lambda: oficial.verificar_fuente(db, user, fuente_id, datos.model_dump(exclude_unset=True)))
 
 
 @router.get("/aranceles/oficial/fuentes")
@@ -290,7 +299,7 @@ async def oficial_importar(db: Db, user: User, archivo: UploadFile = File(...)):
     # También pasa por la previa: así se validan la inmutabilidad y la diferencia exacta
     lote = lotes.previa(db, user, await archivo.read(), archivo.filename or "")
     db.commit()  # la previa queda guardada (y libera la escritura) antes de publicar
-    if lote["filas"]:
+    if lote["filas"] or lote["errores"]:  # con errores, publicar lo rechaza (nunca se descarta en silencio)
         lotes.publicar(db, user, lote["id"])
     else:
         lotes.descartar(db, user, lote["id"])

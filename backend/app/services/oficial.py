@@ -133,6 +133,18 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         x.uso, x.url = _txt(f.get("use")), _txt(f.get("official_url"))
         x.acceso, x.autenticacion = _txt(f.get("access_mode")), _txt(f.get("authentication"))
         x.nota_version, x.verificacion = _txt(f.get("version_status_note")), _txt(f.get("verification"))
+        x.documento = _txt(f.get("official_document")) or x.documento
+        try:
+            # Fecha de verificación: la columna propia o la que dice el texto de verificación («Verified 2026-10-01»)
+            verificado = _fecha(f.get("verified_on")) or _fecha_en_texto(x.verificacion)
+        except ValueError as e:
+            error("Sources", f["_fila"], str(e))
+            continue
+        if verificado and verificado > date.today():
+            error("Sources", f["_fila"], f"The verification date {verificado.isoformat()} is in the future.")
+            continue
+        x.verificado_en = verificado or x.verificado_en
+        x.verificado_por = _txt(f.get("verified_by")) or x.verificado_por
         db.add(x)
         cuenta("Sources", nuevo)
     db.flush()
@@ -156,12 +168,21 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         if desde and hasta and hasta < desde:
             error("Versions", f["_fila"], "Valid to must be on or after valid from.")
             continue
+        estado = ESTADOS_VERSION.get((_txt(f.get("status")) or "").upper(), "BORRADOR")
+        # Una versión publicada o dinámica respalda datos oficiales: fuente trazable y, si es publicada, vigencia
+        if estado in ("PUBLICADA", "DINAMICA"):
+            faltas = ([] if src else [f"Version {cod} needs its official source (Source ID)."]) + \
+                     (problemas_fuente(fuentes[src]) if src else []) + \
+                     ([f"Version {cod} is published without its validity (valid from)."] if estado == "PUBLICADA" and not desde else [])
+            if faltas:
+                error("Versions", f["_fila"], " ".join(faltas))
+                continue
         x = db.scalar(select(VersionDataset).where(VersionDataset.codigo == cod))
         nuevo = x is None
         x = x or VersionDataset(codigo=cod)
         x.dataset = _txt(f.get("dataset")) or cod
         x.etiqueta = _txt(f.get("version_label")) or cod
-        x.estado = ESTADOS_VERSION.get((_txt(f.get("status")) or "").upper(), "BORRADOR")
+        x.estado = estado
         x.vigente_desde, x.vigente_hasta = desde, hasta
         x.fuente = fuentes.get(src)
         x.ambito = ambito_version(cod, x.fuente, _txt(f.get("scope")))
@@ -279,7 +300,10 @@ def cargar_paquetes_base(db: Session) -> dict:
     for nombre in PAQUETES:
         ruta = CARPETA / nombre
         if ruta.exists():
-            out[nombre] = importar(db, ruta.read_bytes(), nombre=nombre)
+            out[nombre] = r = importar(db, ruta.read_bytes(), nombre=nombre)
+            # Un paquete incluido con errores no se carga a medias: es un defecto del paquete
+            if r["errores"]:
+                raise ValueError(f"Official package {nombre} has errors: " + "; ".join(f"{e['fila']}: {e['mensaje']}" for e in r["errores"][:5]))
     return out
 
 
@@ -372,9 +396,78 @@ def ambito_version(codigo: str, fuente=None, explicito: str | None = None) -> st
     return m.group(1) if m and not codigo.startswith("SAC") else "REGIONAL"
 
 
+def _fecha_en_texto(t: str | None) -> date | None:
+    m = re.search(r"(\d{4}-\d{2}-\d{2})", t or "")
+    return date.fromisoformat(m.group(1)) if m else None
+
+
+# ---- Trazabilidad: qué le falta a una fuente o versión para respaldar datos oficiales -----
+VERIFICACION_MAX_DIAS = 365
+
+
+def problemas_fuente(f: FuenteOficial | None) -> list[str]:
+    if not f:
+        return ["No official source."]
+    out = []
+    if not (f.dataset or f.documento):
+        out.append(f"Source {f.codigo} does not name its official document or dataset.")
+    if not (f.url or f.documento):
+        out.append(f"Source {f.codigo} has no official link or document reference.")
+    if not f.verificado_en:
+        out.append(f"Source {f.codigo} has not been verified against the official publication (no verification date).")
+    if not f.activo:
+        out.append(f"Source {f.codigo} is inactive.")
+    return out
+
+
+def problemas_version(v: VersionDataset | None) -> list[str]:
+    """Una versión respalda datos oficiales solo si su fuente es trazable y,
+    si está publicada, tiene vigencia."""
+    if not v:
+        return ["No official version."]
+    out = [] if v.fuente else [f"Version {v.codigo} has no official source."]
+    out += problemas_fuente(v.fuente) if v.fuente else []
+    if v.estado == "PUBLICADA" and not v.vigente_desde:
+        out.append(f"Version {v.codigo} is published without its validity (valid from).")
+    return out
+
+
+def exigir_trazable(v: VersionDataset | None) -> None:
+    if p := problemas_version(v):
+        raise ErrorNegocio("Official data needs a traceable source: " + " ".join(p), 422, "fuente_no_trazable", [{"mensaje": x} for x in p])
+
+
+def verificar_fuente(db: Session, user: Usuario, fuente_id: int, datos: dict) -> dict:
+    """Registra que alguien comparó la fuente con la publicación oficial: el
+    documento o dataset exacto, el enlace y la fecha. Queda en la bitácora."""
+    exigir(user, "aranceles.editar")
+    f = db.get(FuenteOficial, fuente_id)
+    if not f:
+        raise ErrorNegocio("The source does not exist.", 404, "no_encontrado")
+    fecha = datos.get("verificado_en") or date.today()
+    if isinstance(fecha, str):
+        fecha = date.fromisoformat(fecha[:10])
+    if fecha > date.today():
+        raise ErrorNegocio("The verification date cannot be in the future.", 422, "validacion")
+    if datos.get("documento"):
+        f.documento = datos["documento"].strip()[:300]
+    if datos.get("url"):
+        f.url = datos["url"].strip()[:400]
+    if not (f.url or f.documento):
+        raise ErrorNegocio("Give the official document or the link that was checked.", 422, "validacion")
+    f.verificado_en, f.verificado_por = fecha, (user.nombre or user.email)[:120]
+    f.verificacion = f"Verified {fecha.isoformat()} by {f.verificado_por}"[:120]
+    db.flush()
+    registrar(db, user, "aranceles", f.id, "fuente_verificada", {"fuente": f.codigo, "fecha": fecha.isoformat(), "documento": f.documento,
+                                                                 "url": f.url})
+    return _fuente_dict(f)
+
+
 def _fuente_dict(x: FuenteOficial) -> dict:
-    return {c: getattr(x, c) for c in ("id", "codigo", "ambito", "autoridad", "dataset", "uso", "url", "acceso",
-                                         "autenticacion", "nota_version", "verificacion", "activo")}
+    d = {c: getattr(x, c) for c in ("id", "codigo", "ambito", "autoridad", "dataset", "uso", "url", "acceso",
+                                     "autenticacion", "nota_version", "verificacion", "documento", "verificado_en", "verificado_por", "activo")}
+    d["problemas"] = problemas_fuente(x)
+    return d
 
 
 def _version_dict(x: VersionDataset) -> dict:

@@ -146,7 +146,8 @@ async function guardarCodigo() {
     // Una línea oficial no se modifica: descripción, nota y activo se guardan como ajuste propio (con motivo)
     const cuerpo = { pais: m.pais, codigo: m.codigo, descripcion: m.descripcion, dai: m.dai, cond: m.cond, prio: Number(m.prio) || 0, nota: m.nota, activo: m.activo,
       motivo: m.oficial ? m.motivo || null : null }
-    if (!m.id) Object.assign(cuerpo, { version: m.version || null, fuente: versionesDe(m.pais).find((v) => v.codigo === m.version)?.fuente || null })
+    if (!m.id) Object.assign(cuerpo, { version: m.version || null, fuente: versionesDe(m.pais).find((v) => v.codigo === m.version)?.fuente || null,
+      vigente_desde: m.vigente_desde || null })
     if (m.id) await api.put(`/aranceles/codigos/${m.id}`, cuerpo)
     else await api.post('/aranceles/codigos', cuerpo)
     modal.value = null
@@ -523,6 +524,8 @@ watch(() => fs.size, recargarS)
         <Seleccion v-model="modal.version" class="entrada"><option value="">{{ t('Choose…') }}</option>
           <option v-for="v in versionesDe(modal.pais)" :key="v.codigo" :value="v.codigo">{{ tx(v.texto) }}{{ v.fuente ? ` · ${v.fuente}` : '' }}</option></Seleccion>
         <small class="ayuda">{{ t('National lines are official data: they are created only from a published source and version. Your own preferences go to the company history.') }}</small></label>
+      <label v-if="!modal.id && modal.version && !versionesDe(modal.pais).find((v) => v.codigo === modal.version)?.vigente_desde" class="campo">
+        <span class="req">{{ t('Valid from (as published)') }}</span><input v-model="modal.vigente_desde" type="date" class="entrada" /></label>
     </div>
     <h3 class="mt">{{ t('When it applies') }}</h3>
     <p class="ayuda">{{ t('Leave empty what does not matter. The engine picks the code whose conditions match the technical sheet.') }}
@@ -650,7 +653,8 @@ watch(() => fs.size, recargarS)
   </Modal>
 
   <CargaMasiva v-if="modal?.tipo === 'carga-codigos'" :titulo="t('Upload national codes')" ruta="/aranceles/codigos/importar" plantilla="/aranceles/codigos/plantilla"
-               :params="{ pais: modal.pais, reemplazar: modal.reemplazar, version: modal.version, fuente: versionesDe(modal.pais).find((v) => v.codigo === modal.version)?.fuente }"
+               :params="{ pais: modal.pais, reemplazar: modal.reemplazar, version: modal.version, fuente: versionesDe(modal.pais).find((v) => v.codigo === modal.version)?.fuente,
+                          vigente_desde: modal.vigente_desde }"
                @cerrar="modal = null" @cargado="alCargar"
                :ayuda="t('One row per official national line with its country, code and duty, from the published tariff of that version. Optional columns hold the conditions the engine uses to choose it.')">
     <div class="rejilla-campos mt-chico" style="margin-bottom: 10px">
@@ -659,6 +663,8 @@ watch(() => fs.size, recargarS)
       <label class="campo"><span class="req">{{ t('Official version it comes from') }}</span>
         <Seleccion v-model="modal.version" class="entrada"><option value="">{{ t('Choose…') }}</option>
           <option v-for="v in versionesDe(modal.pais)" :key="v.codigo" :value="v.codigo">{{ tx(v.texto) }}{{ v.fuente ? ` · ${v.fuente}` : '' }}</option></Seleccion></label>
+      <label v-if="modal.version && !versionesDe(modal.pais).find((v) => v.codigo === modal.version)?.vigente_desde" class="campo">
+        <span class="req">{{ t('Valid from (as published)') }}</span><input v-model="modal.vigente_desde" type="date" class="entrada" /></label>
     </div>
     <label v-if="modal.pais" class="check" style="margin-bottom: 10px"><input v-model="modal.reemplazar" type="checkbox" /><span>{{ t('Replace every code of {0} with this file (for a new tariff version)', [modal.pais]) }}</span></label>
   </CargaMasiva>

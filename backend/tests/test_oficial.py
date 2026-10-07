@@ -71,7 +71,8 @@ def test_reimportar_es_idempotente_y_valida(interno):
     wb.save(b)
     r = interno.c.post("/api/aranceles/oficial/importar", headers=interno.h,
                        files={"archivo": ("v.xlsx", io.BytesIO(b.getvalue()), "application/octet-stream")})
-    errores = [e["mensaje"] for e in r.json()["errores"]]
+    assert r.status_code == 422 and r.json()["codigo"] == "lote_con_errores"
+    errores = [e["mensaje"] for e in r.json()["detalle"]]
     assert any("Valid to" in m for m in errores) and any("SRC-NO-EXISTE" in m for m in errores)
 
 
@@ -177,7 +178,8 @@ def test_editar_regla_nacional_llega_al_motor(interno):
     # Un código con condiciones creado desde Aranceles queda como regla
     r = interno.post("/aranceles/codigos", {"pais": "CR", "codigo": "6404.19.90.99", "descripcion": "Prueba regla",
                                             "cond": {"genero": "F", "cifMax": 15}, "prio": 3,
-                                            "fuente": "SRC-CR-ATENA", "version": "CR-ATENA"})
+                                            "fuente": "SRC-CR-ATENA", "version": "CR-ATENA",
+                                            "vigente_desde": "2026-01-01"})
     assert r.status_code == 200, r.text
     iid = r.json()["id"]
     regla = next(x for x in interno.get("/aranceles/reglas", params={"q": "6404199099"}).json()["items"] if x["inciso"]["id"] == iid)
@@ -248,11 +250,11 @@ def test_paquete_nacional_codigos_regulaciones_impuestos(interno):
                            ["CR-6", "CR", "CR-2026", None, None, None, "9999.99.00.00", None, "Sin padre", None, None, None, None, None, None, None, None]],
         "Regulations": [enc_reg,
                         ["REG-CR-1", "CR", None, "HEADING", "3304*", "SANITARY", "Registro sanitario de cosméticos", "Ministerio de Salud", "RS",
-                         "Yes", '{"uso": "cosmetico"}', "Reglamento de cosméticos", "Yes", None, None, "SRC-CR-ATENA", None, None],
+                         "Yes", '{"uso": "cosmetico"}', "Reglamento de cosméticos", "Yes", "2026-01-01", None, "SRC-CR-ATENA", None, None],
                         ["REG-CR-2", "CR", None, None, "", "PERMIT", "Sin patrón", None, None, None, None, None, None, None, None, None, None, None],
                         ["REG-CR-3", "CR", None, None, "33", "PERMIT", "JSON malo", None, None, None, "{malo", None, None, None, None, None, None, None]],
         "Taxes": [enc_imp,
-                  ["TAX-CR-SEL", "CR", None, "3304", "SELECTIVO", "10", "CIF + DAI", None, None, None, "Yes", None, None, None, None, "Ley de impuesto selectivo de consumo"],
+                  ["TAX-CR-SEL", "CR", None, "3304", "SELECTIVO", "10", "CIF + DAI", None, None, None, "Yes", "2026-01-01", None, None, None, "Ley de impuesto selectivo de consumo"],
                   ["TAX-CR-X", "CR", None, "3304", "IVA", "13", None, None, None, None, None, None, None, None, None, None]],
     }
     # Un lote con errores no se publica, ni en parte: se informa cada error y nada cambia
@@ -261,7 +263,7 @@ def test_paquete_nacional_codigos_regulaciones_impuestos(interno):
     assert r.status_code == 422 and r.json()["codigo"] == "lote_con_errores", r.text
     msgs = " | ".join(e["mensaje"] for e in r.json()["detalle"])
     for esperado in ("Duplicate country + version + code", "does not start with its base code", "Version NO-EXISTE does not exist",
-                     "8 to 14 digits", "does not exist in the tariff tree", "needs a code or pattern", "not valid JSON", "official source or its legal basis"):
+                     "8 to 14 digits", "does not exist in the tariff tree", "needs a code or pattern", "not valid JSON", "needs its validity"):
         assert esperado in msgs, esperado
     assert not interno.get("/aranceles/codigos", params={"pais": "CR", "q": "330499000010"}).json()["items"]
     assert not any(v["codigo"] == "CR-2026" for v in interno.get("/aranceles/oficial/fuentes").json()["versiones"])
@@ -290,7 +292,7 @@ def test_paquete_nacional_codigos_regulaciones_impuestos(interno):
 
 
 def test_regulaciones_e_impuestos_crud(interno):
-    r = interno.post("/aranceles/regulaciones", {"pais": "GT", "patron": "6404", "tipo": "labeling", "nombre": "Etiquetado de calzado",
+    r = interno.post("/aranceles/regulaciones", {"pais": "GT", "patron": "6404", "tipo": "labeling", "nombre": "Etiquetado de calzado", "vigente_desde": "2026-01-01",
                                                  "autoridad": "DIACO"})
     assert r.status_code == 200, r.text
     reg = r.json()
@@ -300,7 +302,7 @@ def test_regulaciones_e_impuestos_crud(interno):
     reg = interno.patch(f"/aranceles/regulaciones/{reg['id']}", {"activo": False}).json()
     assert not interno.get("/aranceles/requisitos", params={"pais": "GT", "codigo": "6404199000"}).json()["regulaciones"]
     assert any(x["id"] == reg["id"] for x in interno.get("/aranceles/regulaciones", params={"pais": "GT", "q": "etiquetado"}).json()["items"])
-    imp = interno.post("/aranceles/impuestos", {"pais": "GT", "patron": "*", "tipo": "OTRO", "tasa": 1, "base_calculo": "CIF",
+    imp = interno.post("/aranceles/impuestos", {"pais": "GT", "patron": "*", "tipo": "OTRO", "tasa": 1, "base_calculo": "CIF", "vigente_desde": "2026-01-01",
                                                "base_legal": "Prueba"}).json()
     # Un impuesto sin tasa o sin base de cálculo no es un dato oficial completo
     assert interno.post("/aranceles/impuestos", {"pais": "GT", "patron": "*", "tipo": "OTRO", "base_legal": "Prueba"}).status_code == 422
@@ -311,7 +313,7 @@ def test_regulaciones_e_impuestos_crud(interno):
 
 
 def test_longitud_de_codigo_configurable(interno):
-    prov = {"fuente": "SRC-CR-ATENA", "version": "CR-ATENA"}
+    prov = {"fuente": "SRC-CR-ATENA", "version": "CR-ATENA", "vigente_desde": "2026-01-01"}
     # Sin esquema configurado: 8 a 14 dígitos (no un número fijo)
     r = interno.post("/aranceles/codigos", {"pais": "CR", "codigo": "6404.19.90.00.01", **prov})
     assert r.status_code == 200, r.text
