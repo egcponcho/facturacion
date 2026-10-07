@@ -26,11 +26,11 @@ const f = reactive({ q: '', tipo: '', pais: '', page: 1, size: 50 })
 const modal = ref(null)
 const ocupado = ref(false)
 
-const TIPO = { HARD_CONSTRAINT: t('Hard constraint'), SOFT_SIGNAL: t('Signal'), QUESTION_GATE: t('Question gate'), REVIEW_GATE: t('Review gate'), NATIONAL_SELECT: t('National selection') }
+const TIPO = { HARD_CONSTRAINT: t('Limit the codes'), SOFT_SIGNAL: t('Prefer codes'), QUESTION_GATE: t('Ask a question'), REVIEW_GATE: t('Send to review'), NATIONAL_SELECT: t('National selection') }
 const FUENTE = { INTERNAL_ENGINE: t('Engine'), SHEET_RULES: t('Product sheet logic'), LEGAL_NOTE: t('Legal note'), NATIONAL_TARIFF: t('National tariff'), LEARNED: t('Learned'), MANUAL: t('Manual') }
 const OPERADOR = { EQUAL: '=', NOT_EQUAL: '≠', IN: t('one of'), GT: '>', GTE: '≥', LT: '<', LTE: '≤', BETWEEN: t('between'), EXISTS: t('has a value') }
-const PESTANAS = [['', t('All')], ['NATIONAL_SELECT', t('National selection')], ['HARD_CONSTRAINT', t('Hard constraints')], ['SHEET_RULES', t('Product sheet logic')],
-  ['QUESTION_GATE', t('Questions')], ['REVIEW_GATE', t('Review')], ['SOFT_SIGNAL', t('Signals')]]
+const PESTANAS = [['', t('All')], ['NATIONAL_SELECT', t('National selection')], ['HARD_CONSTRAINT', t('Limit the codes')], ['SHEET_RULES', t('Product sheet logic')],
+  ['QUESTION_GATE', t('Questions')], ['REVIEW_GATE', t('Review')], ['SOFT_SIGNAL', t('Prefer codes')]]
 
 let temporizador = null
 async function cargar() {
@@ -148,7 +148,7 @@ async function guardarModal() {
     </div>
     <div class="tabla-marco">
       <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Rule') }}</th><th>{{ t('Type') }}</th><th>{{ t('Scope') }}</th><th>{{ t('Conditions') }}</th><th class="num">{{ t('Priority') }}</th><th>{{ t('Active') }}</th><th></th></tr></thead>
+        <thead><tr><th>{{ t('Rule') }}</th><th>{{ t('Type') }}</th><th>{{ t('Applies to') }}</th><th>{{ t('Conditions') }}</th><th class="num">{{ t('Priority') }}</th><th>{{ t('Active') }}</th><th></th></tr></thead>
         <tbody>
           <tr v-if="!datos.items.length"><td colspan="7" class="vacio">{{ t('No results.') }}</td></tr>
           <tr v-for="r in datos.items" :key="r.id" :class="{ apagada: !r.activo }">
@@ -158,7 +158,7 @@ async function guardarModal() {
             </td>
             <td :data-label="t('Type')"><span class="etiqueta" :class="{ acento: r.tipo_regla === 'HARD_CONSTRAINT' }">{{ tx(TIPO[r.tipo_regla] || r.tipo_regla) }}</span>
               <span class="sub">{{ tx(FUENTE[r.tipo_fuente] || r.tipo_fuente) }}<template v-if="r.requiere_revision"> · {{ t('needs review') }}</template></span></td>
-            <td :data-label="t('Scope')" class="codigo">{{ tx(r.tipo_ambito === 'NATIONAL_CODE' ? r.codigo_ambito : `${r.tipo_ambito} · ${r.codigo_ambito}`) }}</td>
+            <td :data-label="t('Applies to')" class="codigo">{{ tx(r.tipo_ambito === 'NATIONAL_CODE' ? r.codigo_ambito : `${r.tipo_ambito} · ${r.codigo_ambito}`) }}</td>
             <td :data-label="t('Conditions')" class="envolver condiciones">
               <span v-if="!r.condiciones.length" class="ayuda">{{ t('Always') }}</span>
               <span v-if="r.accion?.mapa" class="cond accion">→ {{ tx(r.accion.tipo) }} {{ t('by {0}', [campoTxt({ campo: r.accion.por })]) }}:

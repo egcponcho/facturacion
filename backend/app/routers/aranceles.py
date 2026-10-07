@@ -241,6 +241,14 @@ def oficial_dominios(db: Db, user: User):
     return oficial.dominios(db, user)
 
 
+@router.get("/familias")
+def familias_resumen(db: Db, user: User):
+    """Cada familia de producto con lo que tiene configurado, lo que le falta y cómo le va."""
+    from ..services import familias
+
+    return familias.resumen(db, user)
+
+
 @router.post("/aranceles/oficial/dominios")
 @router.patch("/aranceles/oficial/dominios/{dominio_id}")
 def oficial_dominio_guardar(datos: s.DominioIn, db: Db, user: User, dominio_id: int | None = None, clave: Clave = None):

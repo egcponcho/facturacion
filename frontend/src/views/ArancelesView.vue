@@ -15,11 +15,6 @@ import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
 import PanelArbol from '../components/aranceles/PanelArbol.vue'
 import PanelCapitulos from '../components/aranceles/PanelCapitulos.vue'
-import PanelDominios from '../components/aranceles/PanelDominios.vue'
-import PanelAtributos from '../components/aranceles/PanelAtributos.vue'
-import PanelMateriales from '../components/aranceles/PanelMateriales.vue'
-import PanelBusqueda from '../components/aranceles/PanelBusqueda.vue'
-import PanelReglas from '../components/aranceles/PanelReglas.vue'
 import PanelRegulaciones from '../components/aranceles/PanelRegulaciones.vue'
 import PanelImpuestos from '../components/aranceles/PanelImpuestos.vue'
 import PanelFuentes from '../components/aranceles/PanelFuentes.vue'
@@ -40,7 +35,10 @@ import { filasDefecto } from '../stores/preferencias'
 const route = useRoute()
 const router = useRouter()
 const edita = puede('aranceles.editar')
+// La configuración del motor vive en Familias de producto: los enlaces anteriores llevan allá
+const DEL_MOTOR = ['dominios', 'atributos', 'materiales', 'busqueda', 'reglas']
 const vista = ref(route.query.vista || 'arbol')
+if (DEL_MOTOR.includes(vista.value)) router.replace({ path: '/familias', query: { vista: vista.value } })
 const paises = ref([])
 const meta = ref({ condiciones: {}, fuentes: {} })
 const modal = ref(null)
@@ -307,12 +305,10 @@ const MENU = computed(() => [
     ['paises', t('Countries'), 'globo', paises.value.length],
     ['codigos', t('National codes'), 'etiqueta', fmtNum(paises.value.reduce((a, p) => a + (p.codigos || 0), 0))],
     ['sac', t('SAC headings and subheadings'), 'base'], ['notas', t('Legal notes'), 'archivo'], ['impuestos', t('Taxes'), 'moneda'],
-    ['regulaciones', t('Regulations'), 'candado'], ['importacion', t('Data import'), 'importar'], ['integridad', t('Tariff data integrity'), 'check']] },
-  { titulo: t('Classification engine'), items: [['dominios', t('Domains and categories'), 'capas'], ['capitulos', t('Chapters'), 'lista'],
-    ['atributos', t('Attributes, options and scopes'), 'engrane'], ['materiales', t('Material classes'), 'capas'],
-    ['busqueda', t('Search vocabulary'), 'buscar'], ['reglas', t('Classification rules'), 'varita']] },
+    ['regulaciones', t('Regulations'), 'candado'], ['capitulos', t('Chapters'), 'lista'], ['importacion', t('Data import'), 'importar'],
+    ['integridad', t('Tariff data integrity'), 'check']] },
   { titulo: t('Company knowledge'), items: [['conocimiento', t('History, decisions and keywords'), 'usuarios']] },
-].filter((g) => g.titulo !== t('Classification engine') || puede('clasificacion.ver')))
+])
 
 // En pantallas chicas el menú es una fila con desplazamiento: se centra la sección activa
 const menu = ref(null)
@@ -355,10 +351,12 @@ watch(() => fs.size, recargarS)
     <div>
       <div class="pestanas-pildora sub-mod">
         <router-link to="/productos" class="pildora">{{ t('Products') }}</router-link>
+        <router-link v-if="puede('clasificacion.ver')" to="/familias" class="pildora">{{ t('Product families') }}</router-link>
         <span class="pildora" aria-current="page" aria-pressed="true">{{ t('Tariff schedule') }}</span>
       </div>
       <h1>{{ t('Tariff schedule') }}</h1>
-      <p>{{ t('Three separate areas: official data (only what an official source published, with its version), the classification engine (internal configuration that decides what to ask) and company knowledge (history that only orders the official candidates).') }}</p>
+      <p>{{ t('Official data (only what an official source published, with its version) and company knowledge (history that only orders the official candidates).') }}</p>
+      <router-link v-if="puede('clasificacion.ver')" to="/familias" class="enlace-motor"><Icono nombre="capas" :tam="15" />{{ t('Product families, questions and rules are set up in Product families') }}<Icono nombre="derecha" :tam="14" /></router-link>
     </div>
   </div>
 
@@ -373,7 +371,7 @@ watch(() => fs.size, recargarS)
     </button>
   </div>
 
-  <div class="arancel-layout">
+  <div class="layout-lateral">
   <nav ref="menu" class="menu-lateral" :aria-label="t('Tariff schedule sections')">
     <template v-for="g in MENU" :key="g.titulo">
       <p class="menu-grupo">{{ tx(g.titulo) }}</p>
@@ -382,14 +380,9 @@ watch(() => fs.size, recargarS)
       </button>
     </template>
   </nav>
-  <div class="arancel-contenido">
+  <div class="layout-contenido">
   <PanelArbol v-if="vista === 'arbol'" />
   <PanelCapitulos v-else-if="vista === 'capitulos'" />
-  <PanelDominios v-else-if="vista === 'dominios'" />
-  <PanelAtributos v-else-if="vista === 'atributos'" />
-  <PanelMateriales v-else-if="vista === 'materiales'" />
-  <PanelBusqueda v-else-if="vista === 'busqueda'" />
-  <PanelReglas v-else-if="vista === 'reglas'" :paises="paises" :condiciones="meta.condiciones" />
   <PanelRegulaciones v-else-if="vista === 'regulaciones'" :paises="paises" />
   <PanelImpuestos v-else-if="vista === 'impuestos'" :paises="paises" />
   <PanelFuentes v-else-if="vista === 'fuentes'" />
@@ -686,22 +679,8 @@ watch(() => fs.size, recargarS)
 .oficial-txt { font-size: 0.8rem; color: var(--tinta-3); margin-top: 4px; }
 .oficial-txt summary { cursor: pointer; }
 .oficial-fijo { margin: 0; padding: 8px 10px; background: var(--superficie-2); border-radius: var(--radio); font-size: 0.88rem; }
-.arancel-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 8px; }
-.menu-lateral { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 2px; padding: 10px; border: 1px solid var(--linea); border-radius: var(--radio); background: var(--superficie); }
-.menu-grupo { margin: 10px 8px 4px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-3); }
-.menu-grupo:first-child { margin-top: 2px; }
-.menu-item { display: flex; align-items: center; gap: 9px; width: 100%; border: 0; background: none; color: var(--tinta-2); font: inherit; font-size: 0.88rem; font-weight: 560; padding: 7px 9px; border-radius: 9px; cursor: pointer; text-align: start; }
-.menu-item:hover { background: var(--superficie-2); color: var(--tinta); }
-.menu-item[aria-current='page'] { background: var(--acento-claro); color: var(--acento-texto); font-weight: 650; }
-.menu-item .menu-txt { flex: 1; }
-.menu-item .cuenta { font-size: 0.74rem; opacity: 0.75; }
-.arancel-contenido { min-width: 0; }
-@media (max-width: 900px) {
-  .arancel-layout { grid-template-columns: 1fr; }
-  .menu-lateral { position: relative; top: 0; flex-direction: row; overflow-x: auto; padding: 6px; }
-  .menu-grupo { display: none; }
-  .menu-item { width: auto; white-space: nowrap; flex: none; }
-}
+.enlace-motor { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.88rem; font-weight: 600; color: var(--acento-texto); text-decoration: none; }
+.enlace-motor:hover { text-decoration: underline; }
 .sub-mod { margin-bottom: 10px; }
 .hermanos { border: 1px solid var(--linea); border-radius: var(--radio); padding: 10px 12px; margin: 8px 0 12px; background: var(--superficie-2); font-size: 0.84rem; }
 .hermanos ul { margin: 6px 0 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 3px; }

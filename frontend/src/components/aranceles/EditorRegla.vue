@@ -40,13 +40,13 @@ onMounted(async () => {
     errorApi(e)
   }
 })
-const TIPOS = [['HARD_CONSTRAINT', t('Hard constraint'), t('Restricts or excludes codes when the conditions are met.')],
-  ['SOFT_SIGNAL', t('Signal'), t('Raises (or adds) candidate codes; never excludes.')],
-  ['QUESTION_GATE', t('Question gate'), t('Asks attributes when the conditions are met.')],
-  ['REVIEW_GATE', t('Review gate'), t('Requires specialist review when the conditions are met.')]]
+const TIPOS = [['HARD_CONSTRAINT', t('Limit the codes'), t('Keeps only some codes, or excludes some, when the conditions are met.')],
+  ['SOFT_SIGNAL', t('Prefer codes'), t('Raises (or adds) candidate codes; never excludes.')],
+  ['QUESTION_GATE', t('Ask a question'), t('Asks more questions when the conditions are met.')],
+  ['REVIEW_GATE', t('Send to review'), t('Requires specialist review when the conditions are met.')]]
 const ACCIONES = { HARD_CONSTRAINT: [['RESTRICT', t('Keep only these codes')], ['EXCLUDE', t('Exclude these codes')]], SOFT_SIGNAL: [['BOOST', t('Raise these codes')]],
-  QUESTION_GATE: [['ASK', t('Ask these attributes')]], REVIEW_GATE: [['REVIEW', t('Require review')]] }
-const AMBITOS = [['SYSTEM', t('Whole system')], ['DOMAIN', t('Domain')], ['CATEGORY', t('Product category')], ['CHAPTER', t('Chapter')],
+  QUESTION_GATE: [['ASK', t('Ask these questions')]], REVIEW_GATE: [['REVIEW', t('Require review')]] }
+const AMBITOS = [['SYSTEM', t('Whole system')], ['DOMAIN', t('Product family')], ['CATEGORY', t('Product category')], ['CHAPTER', t('Chapter')],
   ['HEADING', t('Heading')], ['SUBHEADING', t('Subheading')]]
 const sistema = computed(() => [
   { valor: 'dominio', texto: t('Domain'), opciones: dominios.value.map((d) => ({ valor: d.codigo, texto: d.nombre })) },
@@ -92,7 +92,7 @@ async function guardar() {
 
     <h3 class="paso">2 · {{ t('Where it applies') }}</h3>
     <div class="rejilla-campos">
-      <label class="campo"><span>{{ t('Scope') }}</span>
+      <label class="campo"><span>{{ t('Applies to') }}</span>
         <select v-model="m.tipo_ambito" class="entrada" @change="m.codigo_ambito = ''"><option v-for="[v, l] in AMBITOS" :key="v" :value="v">{{ tx(l) }}</option></select></label>
       <label v-if="m.tipo_ambito === 'DOMAIN'" class="campo"><span>{{ t('Domain') }}</span>
         <SelectBusqueda v-model="m.codigo_ambito" :opciones="dominios.map((d) => ({ valor: d.codigo, texto: d.nombre }))" :etiqueta="t('Domain')" /></label>
@@ -119,7 +119,7 @@ async function guardar() {
       <label v-else-if="necesitaCodigos" class="campo ancho"><span>{{ t('Codes (HS6, heading or chapter)') }}</span>
         <input v-model="m.accion.codigos" class="entrada" :placeholder="t('e.g. 6401.92, 6402')" /></label>
       <label v-if="m.accion.tipo === 'BOOST'" class="campo"><span>{{ t('Weight') }}</span><input v-model="m.accion.peso" type="number" step="any" class="entrada" placeholder="5" /></label>
-      <label v-if="m.accion.tipo === 'ASK'" class="campo ancho"><span>{{ t('Attributes to ask') }}</span>
+      <label v-if="m.accion.tipo === 'ASK'" class="campo ancho"><span>{{ t('Questions to ask') }}</span>
         <FiltroMulti v-model="m.accion.atributos" :etiqueta="t('Attributes')" vacio="—" :opciones="atributos.map((a) => ({ valor: a.codigo, texto: a.etiqueta }))" /></label>
       <label v-if="m.accion.tipo === 'REVIEW'" class="campo ancho"><span>{{ t('Message for the specialist') }}</span><input v-model="m.accion.mensaje" class="entrada" maxlength="300" /></label>
       <label class="campo ancho"><span>{{ t('Rationale / legal basis') }}</span><input v-model="m.efecto" class="entrada" maxlength="500" :placeholder="t('e.g. Chapter 64, note 4')" /></label>

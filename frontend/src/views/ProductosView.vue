@@ -185,9 +185,10 @@ watch(() => sesion.proveedorId, recargar)
 <template>
   <div class="pagina-cabeza">
     <div>
-      <div v-if="puede('aranceles.ver')" class="pestanas-pildora sub-mod">
+      <div v-if="puede('aranceles.ver') || puede('clasificacion.ver')" class="pestanas-pildora sub-mod">
         <span class="pildora" aria-current="page" aria-pressed="true">{{ t('Products') }}</span>
-        <router-link to="/aranceles" class="pildora">{{ t('Tariff schedule') }}</router-link>
+        <router-link v-if="puede('clasificacion.ver')" to="/familias" class="pildora">{{ t('Product families') }}</router-link>
+        <router-link v-if="puede('aranceles.ver')" to="/aranceles" class="pildora">{{ t('Tariff schedule') }}</router-link>
       </div>
       <h1>{{ t('Products') }}</h1>
       <p v-if="interno">{{ t('Technical sheets and tariff classification. Approved HS codes flow to purchase orders and invoices for each destination country.') }}</p>

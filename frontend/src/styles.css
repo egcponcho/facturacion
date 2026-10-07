@@ -958,3 +958,21 @@ th.num .orden-btn { flex-direction: row-reverse; }
   .doc-numero { font-size: 1.45rem; overflow-wrap: anywhere; }
   .modal .rejilla-campos, .rejilla-campos { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Sección con menú lateral de apartados (Arancel, Familias de producto) */
+.layout-lateral { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 8px; }
+.layout-contenido { min-width: 0; }
+.menu-lateral { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 2px; padding: 10px; border: 1px solid var(--linea); border-radius: var(--radio); background: var(--superficie); }
+.menu-lateral .menu-grupo { margin: 10px 8px 4px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-3); }
+.menu-lateral .menu-grupo:first-child { margin-top: 2px; }
+.menu-lateral .menu-item { display: flex; align-items: center; gap: 9px; width: 100%; border: 0; background: none; color: var(--tinta-2); font: inherit; font-size: 0.88rem; font-weight: 560; padding: 7px 9px; border-radius: 9px; cursor: pointer; text-align: start; }
+.menu-lateral .menu-item:hover { background: var(--superficie-2); color: var(--tinta); }
+.menu-lateral .menu-item[aria-current='page'] { background: var(--acento-claro); color: var(--acento-texto); font-weight: 650; }
+.menu-lateral .menu-txt { flex: 1; }
+.menu-lateral .cuenta { font-size: 0.74rem; opacity: 0.75; }
+@media (max-width: 900px) {
+  .layout-lateral { grid-template-columns: 1fr; }
+  .menu-lateral { position: relative; top: 0; flex-direction: row; overflow-x: auto; padding: 6px; }
+  .menu-lateral .menu-grupo { display: none; }
+  .menu-lateral .menu-item { width: auto; white-space: nowrap; flex: none; }
+}

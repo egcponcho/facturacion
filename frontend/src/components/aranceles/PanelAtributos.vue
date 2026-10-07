@@ -32,7 +32,7 @@ const modal = ref(null)
 const ORIGEN = { PAQUETE: t('Engine package'), MOTOR: t('Included engine configuration'), USUARIO: t('Created by users') }
 const TIPO = { text: t('Text'), select: t('One option'), multi_select: t('Several options'), boolean: t('Yes / no'), number: t('Number'),
   composition: t('Composition (%)'), country: t('Country'), measurement_set: t('Measurements') }
-const AMBITO = { SYSTEM: t('Whole system'), DOMAIN: t('Domain'), CHAPTER: t('Chapter'), HEADING: t('Heading'), SUBHEADING: t('Subheading'), CATEGORY: t('Product category') }
+const AMBITO = { SYSTEM: t('Whole system'), DOMAIN: t('Product family'), CHAPTER: t('Chapter'), HEADING: t('Heading'), SUBHEADING: t('Subheading'), CATEGORY: t('Product category') }
 const MODO = { SHOW: t('Ask'), REQUIRE: t('Required'), HIDE: t('Do not ask') }
 const SECCION = { producto: t('Product data'), caracteristicas: t('Characteristics'), composicion: t('Composition'),
   nacional: t('National data'), derivado: t('Derived (not asked)') }
@@ -125,7 +125,7 @@ async function agregarOpcion() {
 }
 const ambito = (x, datosAmb) => guardar(`${base()}/ambitos/${x.id}`, datosAmb)
 async function agregarAmbito() {
-  if (await guardar(`${base()}/ambitos`, { ...nuevoAmb }, 'post', t('Scope added.'))) nuevoAmb.codigo_ambito = ''
+  if (await guardar(`${base()}/ambitos`, { ...nuevoAmb }, 'post', t('Added: it is asked there too.'))) nuevoAmb.codigo_ambito = ''
 }
 // {materialCinturon: 'textil'} → «Belt material: Textile»; {'material.corte': 'cuero'} → «Upper: Leather»
 // Dependencia de un ámbito: la pregunta solo aparece si se cumplen estas condiciones
@@ -168,7 +168,7 @@ async function crear() {
   try {
     const a = await api.post('/aranceles/atributos', { ...modal.value, unidad: modal.value.unidad || null })
     modal.value = null
-    avisar(t('Attribute created.'))
+    avisar(t('Question created.'))
     await cargar()
     elegir(a)
   } catch (e) {
@@ -190,7 +190,7 @@ async function sincronizar() {
   <div class="atributos">
     <section class="panel lista">
       <div class="cabeza">
-        <h3><Icono nombre="lista" :tam="16" />{{ t('Attributes') }} <span class="cuenta">{{ fmtNum(datos.total) }}</span></h3>
+        <h3><Icono nombre="lista" :tam="16" />{{ t('Questions') }} <span class="cuenta">{{ fmtNum(datos.total) }}</span></h3>
         <div v-if="edita" class="acciones">
           <button class="btn btn-chico" :title="t('Add the product sheet attributes that are not in the database yet')" @click="sincronizar"><Icono nombre="varita" :tam="14" /></button>
           <button class="btn btn-chico btn-primario" @click="abrirNuevo"><Icono nombre="mas" :tam="14" />{{ t('New') }}</button>
@@ -274,7 +274,7 @@ async function sincronizar() {
         <h4>{{ t('Where it is asked') }} <span class="cuenta">{{ tx(det.ambitos.length) }}</span></h4>
         <div class="tabla-marco ambitos">
           <table class="tabla">
-            <thead><tr><th>{{ t('Scope') }}</th><th>{{ t('Mode') }}</th><th>{{ t('Priority') }}</th><th>{{ t('When') }}</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Asked in') }}</th><th>{{ t('Mode') }}</th><th>{{ t('Priority') }}</th><th>{{ t('When') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="x in det.ambitos" :key="x.id" :class="{ apagada: !x.activo }">
                 <td><small class="ayuda">{{ tx(AMBITO[x.tipo_ambito]) }}</small><br />{{ tx(codigoAmbito(x)) }}</td>
@@ -292,13 +292,13 @@ async function sincronizar() {
           </table>
         </div>
         <div v-if="edita" class="agregar">
-          <select v-model="nuevoAmb.tipo_ambito" class="celda" :aria-label="t('Scope')" @change="nuevoAmb.codigo_ambito = ''">
+          <select v-model="nuevoAmb.tipo_ambito" class="celda" :aria-label="t('Asked in')" @change="nuevoAmb.codigo_ambito = ''">
             <option v-for="(l, k) in AMBITO" :key="k" :value="k">{{ tx(l) }}</option>
           </select>
-          <SelectBusqueda v-if="opcionesCodigoAmbito" v-model="nuevoAmb.codigo_ambito" :opciones="opcionesCodigoAmbito" :etiqueta="t('Scope')" :placeholder="t('Choose…')" />
+          <SelectBusqueda v-if="opcionesCodigoAmbito" v-model="nuevoAmb.codigo_ambito" :opciones="opcionesCodigoAmbito" :etiqueta="t('Asked in')" :placeholder="t('Choose…')" />
           <input v-else v-model="nuevoAmb.codigo_ambito" class="celda" :placeholder="t('Code, e.g. 28 or 2915')" :aria-label="t('Code')" maxlength="10" inputmode="numeric" />
           <select v-model="nuevoAmb.modo" class="celda" :aria-label="t('Mode')"><option v-for="(l, k) in MODO" :key="k" :value="k">{{ tx(l) }}</option></select>
-          <button class="btn btn-chico" :disabled="!nuevoAmb.codigo_ambito" @click="agregarAmbito"><Icono nombre="mas" :tam="14" />{{ t('Add scope') }}</button>
+          <button class="btn btn-chico" :disabled="!nuevoAmb.codigo_ambito" @click="agregarAmbito"><Icono nombre="mas" :tam="14" />{{ t('Ask it here too') }}</button>
         </div>
       </template>
       <p v-else class="ayuda vacio-det"><Icono nombre="info" :tam="18" />{{ t('Choose an attribute to see its options and where the product sheet asks it.') }}</p>
@@ -322,7 +322,7 @@ async function sincronizar() {
         <button v-if="edita" class="btn btn-primario" :disabled="Object.values(malos).some(Boolean)" @click="guardarComportamiento">{{ t('Save') }}</button>
       </template>
     </Modal>
-    <Modal v-if="modal" :titulo="t('New attribute')" @cerrar="modal = null">
+    <Modal v-if="modal" :titulo="t('New question')" @cerrar="modal = null">
       <div class="campos">
         <label class="campo"><span>{{ t('Code') }}</span><input v-model="modal.codigo" maxlength="40" :placeholder="t('e.g. flash_point')" /></label>
         <label class="campo"><span>{{ t('Label') }}</span><input v-model="modal.etiqueta" maxlength="200" /></label>

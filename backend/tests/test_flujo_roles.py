@@ -138,3 +138,12 @@ def test_bandeja_baja_confianza(interno, vans, flujo):
     assert len(items) == k["baja_confianza"] and all(x["confianza"] == "low" and x["estado"] != "aprobado" for x in items)
     assert flujo(proveedor_ve_sugerencia=False).status_code == 200
     assert vans.get("/productos").json()["kpis"]["baja_confianza"] is None
+
+
+def test_familias_con_su_salud(interno, tnf):
+    fams = {f["codigo"]: f for f in interno.get("/familias").json()}
+    calz = fams["FOOTWEAR"]
+    assert calz["categorias"] >= 1 and calz["preguntas"] > 5 and calz["reglas_acotan"] > 0 and "64" in calz["capitulos_auto"]
+    assert calz["productos"]["total"] >= 1 and calz["estado"] == "lista" and not calz["avisos"]
+    assert all(isinstance(f["avisos"], list) and f["estado"] in ("lista", "incompleta") for f in fams.values())
+    assert tnf.get("/familias").status_code == 403

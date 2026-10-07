@@ -39,6 +39,7 @@ const ajustes = computed(() => {
   if (puede('catalogos.ver')) items.push({ to: '/mantenimiento', texto: t('Master data'), detalle: t('Items, brands, suppliers, plants'), icono: 'base' })
   if (puede('catalogos.ver')) items.push({ to: '/leadtimes', texto: t('Lead times'), detalle: t('Steps, rules by region, country and port'), icono: 'reloj' })
   if (puede('plantilla.editar')) items.push({ to: '/plantillas', texto: t('Packing templates'), detalle: t('Reusable carton layouts'), icono: 'capas' })
+  if (puede('clasificacion.ver')) items.push({ to: '/familias', texto: t('Product families'), detalle: t('Questions and rules that classify each family'), icono: 'capas' })
   if (puede('aranceles.ver')) items.push({ to: '/aranceles', texto: t('Tariff schedule'), detalle: t('SAC, countries and national codes'), icono: 'etiqueta' })
   if (puede('oc.importar')) items.push({ to: '/importar', texto: t('Load purchase orders'), detalle: t('File or form'), icono: 'importar' })
   if (puede('admin')) items.push({ to: '/admin', texto: t('Users and access'), detalle: t('Roles, suppliers, sessions'), icono: 'usuarios' })
@@ -48,7 +49,7 @@ const ajustesAbierto = ref(false)
 const enAjustes = computed(() => ajustes.value.some((i) => route.path.startsWith(i.to)))
 
 const activo = (to) => (to === '/' ? route.path === '/' : route.path.startsWith(to) ||
-  (to === '/facturas' && route.path.startsWith('/packing-lists')) || (to === '/productos' && route.path.startsWith('/aranceles')))
+  (to === '/facturas' && route.path.startsWith('/packing-lists')) || (to === '/productos' && (route.path.startsWith('/aranceles') || route.path.startsWith('/familias'))))
 
 
 const textoGuardado = computed(() => ({

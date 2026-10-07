@@ -118,7 +118,7 @@ function agregar(d) {
   <section class="dominios">
     <div class="cab">
       <p class="ayuda">{{ t('The commercial domain only helps choose questions and candidates. The legal result always comes from the tariff text, legal notes and rules; a domain never forces or excludes a chapter.') }}</p>
-      <button v-if="edita" class="btn btn-primario" @click="modal = { id: null, codigo: '', nombre: '', descripcion: '', modo: 'AUTO', activo: true }"><Icono nombre="mas" />{{ t('New domain') }}</button>
+      <button v-if="edita" class="btn btn-primario" @click="modal = { id: null, codigo: '', nombre: '', descripcion: '', modo: 'AUTO', activo: true }"><Icono nombre="mas" />{{ t('New family') }}</button>
     </div>
     <article v-for="d in dominios" :key="d.id" class="panel dominio" :class="{ apagado: !d.activo }">
       <header>
@@ -163,8 +163,8 @@ function agregar(d) {
         <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="cat.nombre" class="entrada" maxlength="120" :disabled="!edita" /></label>
         <label class="campo"><span>{{ t('Short name') }}</span><input v-model="cat.nombre_corto" class="entrada" maxlength="80" :disabled="!edita" /></label>
         <label class="campo"><span>{{ t('Customs name') }}</span><input v-model="cat.nombre_aduana" class="entrada" maxlength="120" :disabled="!edita" :placeholder="t('e.g. TAZA')" /></label>
-        <label class="campo"><span>{{ t('Domain') }}</span>
-          <SelectBusqueda v-model="cat.dominio" :opciones="dominios.map((d) => ({ valor: d.codigo, texto: d.nombre }))" :vacio="t('Outside a family')" :deshabilitado="!edita" :etiqueta="t('Domain')" /></label>
+        <label class="campo"><span>{{ t('Product family') }}</span>
+          <SelectBusqueda v-model="cat.dominio" :opciones="dominios.map((d) => ({ valor: d.codigo, texto: d.nombre }))" :vacio="t('Outside a family')" :deshabilitado="!edita" :etiqueta="t('Product family')" /></label>
         <label class="campo"><span>{{ t('Compatible chapters') }}</span><input v-model="cat.capitulosTxt" class="entrada" :disabled="!edita" :placeholder="t('e.g. 69, 70')" /></label>
         <label class="campo"><span>{{ t('Other names (aliases)') }}</span><input v-model="cat.alias" class="entrada" maxlength="400" :disabled="!edita" /></label>
         <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Words of the official text (only order candidates)') }}</span><input v-model="cat.terminos" class="entrada" maxlength="400" :disabled="!edita" /></label>
@@ -180,7 +180,7 @@ function agregar(d) {
         <button v-if="edita" class="btn btn-primario" :disabled="!cat.nombre || Object.values(catMal).some(Boolean)" @click="guardarCategoria">{{ t('Save') }}</button>
       </template>
     </Modal>
-    <Modal v-if="modal" :titulo="modal.id ? t('Domain {0}', [modal.codigo]) : t('New domain')" @cerrar="modal = null">
+    <Modal v-if="modal" :titulo="modal.id ? t('Family {0}', [modal.codigo]) : t('New family')" @cerrar="modal = null">
       <div class="rejilla-campos">
         <label class="campo"><span class="req">{{ t('Code') }}</span><input v-model="modal.codigo" class="entrada" maxlength="30" :disabled="!!modal.id" placeholder="ELECTRONICS" /></label>
         <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="modal.nombre" class="entrada" maxlength="100" /></label>
@@ -188,7 +188,7 @@ function agregar(d) {
         <label class="campo"><span>{{ t('Mode') }}</span><select v-model="modal.modo" class="entrada"><option value="AUTO">{{ t('Automatic') }}</option><option value="MANUAL">{{ t('Manual') }}</option></select></label>
         <label class="check"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active') }}</span></label>
       </div>
-      <p class="ayuda">{{ t('After creating it: add its chapters and categories here, its attributes and scopes in Attributes and its rules in Classification rules. The product sheet offers it right away.') }}</p>
+      <p class="ayuda">{{ t('Next: add its chapters and categories here, then its questions and its rules. The product sheet offers it right away.') }}</p>
       <template #pie>
         <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
         <button class="btn btn-primario" :disabled="!modal.nombre || !modal.codigo" @click="guardarDominio">{{ t('Save') }}</button>
