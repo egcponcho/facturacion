@@ -300,7 +300,9 @@ def test_composicion_y_campos_salen_del_servidor(interno):
     sug = next(c for c in cor["campos"] if c["codigo"] == "comp.corte")["composicion"]["sugerencias"]
     assert sug[0] == {"m": "Suede", "fuente": "rel"}  # lo nombra el producto
     campos = {c["codigo"]: c for c in s["campos"]}
-    assert campos["estiloCalz"]["principal"] and not campos["technical_description"]["principal"]
+    assert campos["estiloCalz"]["principal"]
+    # Un solo vocabulario: la ficha del calzado no repite sus datos con los atributos genéricos del paquete
+    assert not {"technical_description", "upper_material", "footwear_type", "destination_country", "material_main"} & set(campos)
     assert all(a.get("clave") for a in s["alertas"])
 
 

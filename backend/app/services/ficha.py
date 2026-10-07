@@ -91,6 +91,7 @@ class Atributo:
     dominio: str | None = None
     origen: str = "USUARIO"
     texto_aduana: dict | None = None
+    alias: list = field(default_factory=list)
 
     def opcion(self, v) -> Opcion | None:
         return next((o for o in self.opciones if o.codigo == v), None)
@@ -126,6 +127,8 @@ class Catalogo:
         orden = lambda a: (a.seccion != "derivado", a.orden, a.codigo)  # noqa: E731 - los hechos derivados primero
         self.atributos = sorted(atributos, key=orden)
         self.por_codigo = {a.codigo: a for a in self.atributos}
+        # Otros códigos con los que llega un atributo (otro paquete, una SDS, una carga) → su código
+        self.canon = {x: a.codigo for a in self.atributos for x in a.alias if x not in self.por_codigo}
         self.categorias = {c.codigo: c for c in categorias}
         self.lector = Lector(sinonimos)
         self.palabras = palabras or []
@@ -145,7 +148,7 @@ class Catalogo:
                 codigo=a.codigo, etiqueta=a.etiqueta, tipo_dato=a.tipo_dato, seccion=a.seccion or "caracteristicas", ayuda=a.descripcion,
                 informativo=a.informativo, usado_clasificacion=a.usado_clasificacion, valor_defecto=a.valor_defecto, derivacion=a.derivacion,
                 bloqueo=a.bloqueo or [], patrones=a.patrones or [], patrones_falso=a.patrones_falso or [], orden=a.orden, unidad=a.unidad,
-                control=a.control, dominio=a.dominio, origen=a.origen, texto_aduana=a.texto_aduana,
+                control=a.control, dominio=a.dominio, origen=a.origen, texto_aduana=a.texto_aduana, alias=list(a.alias or []),
                 opciones=[Opcion(o.codigo, o.etiqueta, o.orden, o.activo, o.bloqueo or [], o.implica, o.patrones or [], o.texto_aduana,
                                  o.terminos) for o in a.opciones],
                 ambitos=[Ambito(x.tipo_ambito, x.codigo_ambito, x.modo, x.prioridad, x.condicion, x.nota, x.id) for x in a.ambitos if x.activo]))
@@ -175,6 +178,24 @@ class Catalogo:
                           c.get("alias"), c.get("patrones") or [], c.get("capitulos") or [], c.get("orden", 0), True, c.get("plantilla_aduana"))
                 for c in d["categorias"]]
         return cls(attrs, cats)
+
+    def canonico(self, codigo: str) -> str:
+        """El código del atributo en la ficha (resuelve un alias)."""
+        return self.canon.get(codigo, codigo)
+
+    def canonizar(self, ficha: dict | None) -> dict:
+        """La ficha con los alias pasados a su atributo (sin pisar lo que ya tiene).
+        Un alias de una parte de la composición (comp.x) va a ficha.comp.x."""
+        f = dict(ficha or {})
+        for k in [k for k in f if k in self.canon]:
+            v, real = f.pop(k), self.canon[k]
+            if real.startswith("comp."):
+                comp = dict(f.get("comp") or {})
+                comp.setdefault(real[5:], v)
+                f["comp"] = comp
+            else:
+                f.setdefault(real, v)
+        return f
 
     # ---- Ámbitos ---------------------------------------------------------------------------
     def ambito(self, a: Atributo, s: dict, codigos: list[str] | None = None) -> Ambito | None:
@@ -376,6 +397,7 @@ class Catalogo:
     # ---- Normalización ----------------------------------------------------------------------------
     def hechos_base(self, ficha: dict, categoria: str | None, dominio: str | None = None, texto: str = "") -> dict:
         """La ficha llevada a un diccionario plano de hechos (comp.<parte> para la composición)."""
+        ficha = self.canonizar(ficha)
         s = {k: v for k, v in (ficha or {}).items() if k != "comp" and not isinstance(v, dict)}
         for p, v in ((ficha or {}).get("comp") or {}).items():
             s[f"comp.{p}"] = v

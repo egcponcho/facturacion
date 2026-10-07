@@ -16612,6 +16612,19 @@
      "codigo_ambito": "exhibidor",
      "condicion": null,
      "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "SYSTEM",
+     "codigo_ambito": "ALL",
+     "modo": "SHOW",
+     "prioridad": 100,
+     "condicion": [
+      {
+       "campo": "categoria",
+       "operador": "EXISTS",
+       "negado": true
+      }
+     ]
     }
    ],
    "orden": 680,

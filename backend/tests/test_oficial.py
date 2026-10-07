@@ -106,9 +106,10 @@ def test_atributos_en_base_de_datos(interno):
     """Atributos del paquete 02 del motor y de la configuración incluida (ficha y categorías técnicas), con
     opciones y ámbitos: todos son configuración del motor, ninguno es dato oficial."""
     r = interno.get("/aranceles/atributos").json()
-    assert "OFICIAL" not in r["por_origen"] and r["por_origen"]["PAQUETE"] == 38 and r["por_origen"]["MOTOR"] == 79 + 61
+    assert "OFICIAL" not in r["por_origen"] and r["por_origen"]["PAQUETE"] == 19 and r["por_origen"]["MOTOR"] == 79 + 61
     por = {a["codigo"]: a for a in r["items"]}
-    assert por["cas_number"]["dominio"] == "CHEMICALS" and por["material_composition"]["tipo_dato"] == "composition"
+    assert por["cas_number"]["dominio"] == "CHEMICALS" and "material_composition" not in por
+    assert por["comp.material"]["alias"] == ["material_composition"]  # «Same as» del paquete: un alias, no un duplicado
     assert por["estiloCalz"]["dominio"] == "FOOTWEAR" and por["tejido"]["dominio"] == "APPAREL"
     d = interno.get(f"/aranceles/atributos/{por['physical_state']['id']}").json()
     assert [o["codigo"] for o in d["opciones"]] == ["SOLID", "LIQUID", "GAS", "POWDER", "PASTE"]

@@ -837,6 +837,8 @@ class AtributoDef(Base):
     control: Mapped[str | None] = mapped_column(String(12))
     # En la descripción aduanera (casillas): {frase, nombre, comercial, orden, cuando}
     texto_aduana: Mapped[dict | None] = mapped_column(JSON)
+    # Otros códigos con los que llega el mismo atributo (otro paquete, una SDS, una carga): se resuelven a este
+    alias: Mapped[list | None] = mapped_column(JSON)
 
     opciones: Mapped[list["AtributoOpcion"]] = relationship(back_populates="atributo", cascade="all, delete-orphan",
                                                            order_by="AtributoOpcion.orden")

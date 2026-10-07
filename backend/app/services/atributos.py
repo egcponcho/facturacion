@@ -2,9 +2,10 @@
 AtributoAmbito).
 
 Dos orígenes:
-- OFICIAL: hojas Attributes, Attribute_Options y Attribute_Scope del paquete del
-  motor dinámico (02); atributos genéricos y por dominio (químicos, materias
-  primas, calzado, ropa, accesorios).
+- PAQUETE: hojas Attributes, Attribute_Options, Attribute_Scope y
+  Attribute_Scope_Conditions de un paquete del motor (el 02 incluido u otro que
+  se cargue); un atributo que ya existe con otro código se declara «Same as» y
+  queda como alias, nunca duplicado.
 - MOTOR: los atributos de la ficha de ropa, calzado y accesorios
   (motor_atributos.json), con su comportamiento como datos: cuándo aplican
   (ámbitos con condiciones), lo que fija la composición, opciones imposibles,
@@ -31,13 +32,84 @@ DOMINIO_GRUPO = {"prenda": "APPAREL", "calzado": "FOOTWEAR", "calzado_acc": "FOO
 
 
 # ---- Carga desde el paquete oficial ----------------------------------------------
+def canonicos(db: Session) -> dict[str, str]:
+    """Cada código con el que puede llegar un atributo → su código en la ficha
+    (el propio y sus alias)."""
+    out: dict[str, str] = {}
+    for a in db.scalars(select(AtributoDef)):
+        out[a.codigo] = a.codigo
+        for x in a.alias or []:
+            out.setdefault(str(x), a.codigo)
+    return out
+
+
+def _condiciones_hoja(filas: list[dict], hoja: str, error, campo_valido) -> list[dict] | None:
+    """Filas con Group, Field (o Attribute/system field), Operator, Value, Value to y
+    Negated → condiciones del motor; None si alguna fila tiene un error."""
+    from .reglas import OPERADORES, _valor
+
+    out, ok = [], True
+    for f in filas:
+        op = (_txt(f.get("operator")) or "EQUAL").upper()
+        campo = _txt(f.get("field")) or _txt(f.get("attribute_system_field"))
+        if not campo or op not in OPERADORES:
+            error(hoja, f["_fila"], f"Field and operator ({', '.join(OPERADORES)}) are required.")
+            ok = False
+            continue
+        real = campo_valido(campo)
+        if not real:
+            error(hoja, f["_fila"], f"{campo} is not an attribute of the technical sheet nor a product field.")
+            ok = False
+            continue
+        out.append({"grupo": int(f.get("group") or 1), "campo": real, "operador": op, "valor": _valor(f.get("value")),
+                    "valor_hasta": _valor(f.get("value_to")), "negado": _si(f.get("negated"))})
+    return out if ok else None
+
+
+# Campos del producto (no de la ficha) que una condición puede leer
+CAMPOS_PRODUCTO = ("categoria", "dominio", "origen", "product_name")
+
+
+def campo_condicion(canon: dict[str, str]):
+    """Valida el campo de una condición: un atributo (por su código o un alias,
+    que se resuelve) o un campo del producto."""
+    def valido(campo: str) -> str | None:
+        return campo if campo in CAMPOS_PRODUCTO else canon.get(campo)
+    return valido
+
+
+def _codigo_ambito(db: Session, tipo: str, cod: str, dominios: set) -> tuple[str | None, str | None]:
+    """El código del ámbito tal como se guarda y, si no es válido, por qué."""
+    from ..models import CategoriaProducto
+
+    if tipo == "CATEGORY":  # los códigos de categoría van en minúsculas: se respetan tal cual
+        cat = db.scalar(select(CategoriaProducto.codigo).where(func.lower(CategoriaProducto.codigo) == cod.lower()))
+        return (cat, None) if cat else (None, f"Category {cod} does not exist.")
+    cod = cod.upper()
+    if tipo == "DOMAIN" and cod not in dominios:
+        return None, f"Domain {cod} does not exist."
+    if tipo in ("CHAPTER", "HEADING", "SUBHEADING"):
+        dig = "".join(ch for ch in cod if ch.isdigit())
+        if len(dig) != {"CHAPTER": 2, "HEADING": 4, "SUBHEADING": 6}[tipo]:
+            return None, f"{tipo.capitalize()} {cod} must have {({'CHAPTER': 2, 'HEADING': 4, 'SUBHEADING': 6})[tipo]} digits."
+        cod = dig
+    if tipo == "SYSTEM":
+        cod = "ALL"
+    return cod, None
+
+
 def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
-    """Hojas Attributes, Attribute_Options y Attribute_Scope (actualiza por código)."""
+    """Hojas Attributes, Attribute_Options, Attribute_Scope y
+    Attribute_Scope_Conditions (actualiza por código). Un atributo que ya existe
+    con otro código se declara con «Same as»: se reutiliza (sus opciones, ámbitos
+    y las condiciones que lo nombran se resuelven a él) en vez de duplicarlo."""
     dominios = {d.codigo for d in db.scalars(select(DominioClasificacion))}
+    canon = canonicos(db)
     for i, f in enumerate(hojas.get("Attributes", [])):
         cod = _txt(f.get("attribute_code"))
         tipo = (_txt(f.get("data_type")) or "text").lower()
         dom = (_txt(f.get("domain_hint")) or "CORE").upper()
+        igual = _txt(f.get("same_as"))
         if not cod:
             error("Attributes", f["_fila"], "Attribute code is required.")
             continue
@@ -46,6 +118,26 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
             continue
         if dom != "CORE" and dom not in dominios:
             error("Attributes", f["_fila"], f"Domain {dom} does not exist.")
+            continue
+        if igual:
+            base = db.scalar(select(AtributoDef).where(AtributoDef.codigo == canon.get(igual, igual)))
+            if not base:
+                error("Attributes", f["_fila"], f"{cod}: «Same as» {igual} is not an attribute.")
+                continue
+            if base.tipo_dato != tipo:
+                error("Attributes", f["_fila"], f"{cod} is {tipo} but {base.codigo} is {base.tipo_dato}: they cannot be the same attribute.")
+                continue
+            propio = db.scalar(select(AtributoDef).where(AtributoDef.codigo == cod))
+            if propio and propio.id != base.id:
+                error("Attributes", f["_fila"], f"{cod} already exists as its own attribute: it cannot also be {base.codigo}.")
+                continue
+            if cod != base.codigo and cod not in (base.alias or []):
+                base.alias = [*(base.alias or []), cod]
+            canon[cod] = base.codigo
+            cuenta("Attributes", False)
+            continue
+        if canon.get(cod, cod) != cod:
+            error("Attributes", f["_fila"], f"{cod} is already an alias of {canon[cod]}: use «Same as» or another code.")
             continue
         x = db.scalar(select(AtributoDef).where(AtributoDef.codigo == cod))
         nuevo = x is None
@@ -56,50 +148,75 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         x.usado_clasificacion = _si(f.get("used_by_classification")) if f.get("used_by_classification") is not None else True
         x.descripcion = _txt(f.get("description"))
         db.add(x)
+        canon[cod] = cod
         cuenta("Attributes", nuevo)
     db.flush()
     attrs = {a.codigo: a for a in db.scalars(select(AtributoDef))}
 
+    def atributo(f):
+        return attrs.get(canon.get(_txt(f.get("attribute_code")) or "", ""))
+
     for f in hojas.get("Attribute_Options", []):
-        a = attrs.get(_txt(f.get("attribute_code")) or "")
-        cod = (_txt(f.get("option_code")) or "").upper()
+        a = atributo(f)
+        cod = _txt(f.get("option_code")) or ""
         if not a or not cod:
             error("Attribute_Options", f["_fila"], "The attribute does not exist or the option code is empty.")
             continue
         if a.tipo_dato not in ("select", "multi_select"):
             error("Attribute_Options", f["_fila"], f"{a.codigo} is not a selection attribute.")
             continue
-        x = db.scalar(select(AtributoOpcion).where(AtributoOpcion.atributo_id == a.id, AtributoOpcion.codigo == cod))
+        x = next((o for o in a.opciones if o.codigo.lower() == cod.lower()), None)
         nuevo = x is None
         x = x or AtributoOpcion(atributo=a, codigo=cod)
-        x.etiqueta = _txt(f.get("label")) or cod
+        x.etiqueta = _txt(f.get("label")) or x.etiqueta or cod
         x.alias = _txt(f.get("aliases_synonyms"))
         x.orden = int(f.get("sort_order") or 0)
         x.activo = _si(f.get("active")) if f.get("active") is not None else True
         db.add(x)
         cuenta("Attribute_Options", nuevo)
 
+    ambitos: dict[tuple, AtributoAmbito] = {}
     for f in hojas.get("Attribute_Scope", []):
-        a = attrs.get(_txt(f.get("attribute_code")) or "")
+        a = atributo(f)
         tipo = (_txt(f.get("scope_type")) or "").upper()
-        cod = (_txt(f.get("scope_code")) or "").upper()
         modo = (_txt(f.get("mode")) or "SHOW").upper()
-        if not a or tipo not in AMBITOS or not cod or modo not in MODOS:
+        if not a or tipo not in AMBITOS or not _txt(f.get("scope_code")) or modo not in MODOS:
             error("Attribute_Scope", f["_fila"], "Attribute, scope type (SYSTEM, DOMAIN, CHAPTER, HEADING, SUBHEADING, CATEGORY), "
                                                  "scope code and mode (SHOW, REQUIRE, HIDE) are required.")
             continue
-        if tipo == "DOMAIN" and cod not in dominios:
-            error("Attribute_Scope", f["_fila"], f"Domain {cod} does not exist.")
+        cod, problema = _codigo_ambito(db, tipo, _txt(f.get("scope_code")), dominios)
+        if problema:
+            error("Attribute_Scope", f["_fila"], problema)
             continue
-        x = db.scalar(select(AtributoAmbito).where(AtributoAmbito.atributo_id == a.id, AtributoAmbito.tipo_ambito == tipo,
-                                                   AtributoAmbito.codigo_ambito == cod))
+        x = next((y for y in a.ambitos if y.tipo_ambito == tipo and y.codigo_ambito == cod), None)
         nuevo = x is None
         x = x or AtributoAmbito(atributo=a, tipo_ambito=tipo, codigo_ambito=cod)
         x.modo, x.prioridad = modo, int(f.get("priority") or 500)
         x.nota = _txt(f.get("condition_dependency"))
         x.activo = _si(f.get("active")) if f.get("active") is not None else True
         db.add(x)
+        ambitos[(a.codigo, tipo, cod)] = x
         cuenta("Attribute_Scope", nuevo)
+
+    # Condiciones de cada ámbito: se reemplazan completas (la hoja es la verdad)
+    por_ambito: dict[tuple, list] = {}
+    for f in hojas.get("Attribute_Scope_Conditions", []):
+        a = atributo(f)
+        tipo = (_txt(f.get("scope_type")) or "").upper()
+        cod, problema = _codigo_ambito(db, tipo, _txt(f.get("scope_code")) or "", dominios) if a and tipo in AMBITOS else (None, None)
+        x = ambitos.get((a.codigo, tipo, cod)) if a and cod else None
+        if x is None and a and cod:
+            x = next((y for y in a.ambitos if y.tipo_ambito == tipo and y.codigo_ambito == cod), None)
+        if not x:
+            error("Attribute_Scope_Conditions", f["_fila"], problema or "The attribute has no such scope (add it in Attribute_Scope).")
+            continue
+        por_ambito.setdefault(id(x), [x, []])[1].append(f)
+    valido = campo_condicion(canon)
+    for x, filas in por_ambito.values():
+        conds = _condiciones_hoja(filas, "Attribute_Scope_Conditions", error, valido)
+        if conds is not None and conds != (x.condicion or []):
+            x.condicion = conds
+            cuenta("Attribute_Scope_Conditions", False)
     db.flush()
 
 
@@ -199,7 +316,7 @@ def _opcion_dict(x: AtributoOpcion) -> dict:
 
 def _dict(a: AtributoDef, detalle: bool = False) -> dict:
     d = {c: getattr(a, c) for c in ("id", "codigo", "etiqueta", "tipo_dato", "unidad", "multiple", "usado_clasificacion",
-                                     "dominio", "descripcion", "origen", "de_composicion", "informativo", "orden", "activo")}
+                                     "dominio", "descripcion", "origen", "de_composicion", "informativo", "orden", "activo", "alias")}
     d["n_opciones"] = sum(1 for o in a.opciones if o.activo)
     d["n_ambitos"] = len(a.ambitos)
     if detalle:

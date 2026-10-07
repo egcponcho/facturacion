@@ -22,7 +22,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..datos import MOTOR
-from ..models import CondicionRegla, IncisoNacional, ReglaClasificacion, Usuario
+from ..models import CondicionRegla, DominioClasificacion, IncisoNacional, ReglaClasificacion, Usuario
 from .common import ErrorNegocio, exigir, filtro_texto, registrar
 from .meta import cond_texto
 from .oficial import _si, _txt
@@ -49,6 +49,9 @@ def _valor(v):
 
 # ---- Carga desde el paquete oficial -------------------------------------------------
 def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
+    from .atributos import _codigo_ambito, _condiciones_hoja, campo_condicion, canonicos
+
+    dominios = {d.codigo for d in db.scalars(select(DominioClasificacion))}
     for f in hojas.get("Classification_Rules", []):
         cod = _txt(f.get("rule_id"))
         tipo = (_txt(f.get("rule_type")) or "").upper()
@@ -56,10 +59,16 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         if not cod or tipo not in TIPOS or amb not in AMBITOS:
             error("Classification_Rules", f["_fila"], f"Rule ID, a rule type ({', '.join(TIPOS)}) and a scope type are required.")
             continue
+        codigo_ambito = (_txt(f.get("scope_code")) or "ALL")
+        if amb != "NATIONAL_CODE":
+            codigo_ambito, problema = _codigo_ambito(db, amb, codigo_ambito, dominios)
+            if problema:
+                error("Classification_Rules", f["_fila"], problema)
+                continue
         x = db.scalar(select(ReglaClasificacion).where(ReglaClasificacion.codigo == cod))
         nuevo = x is None
         x = x or ReglaClasificacion(codigo=cod)
-        x.tipo_ambito, x.codigo_ambito = amb, (_txt(f.get("scope_code")) or "ALL").upper()
+        x.tipo_ambito, x.codigo_ambito = amb, codigo_ambito
         x.tipo_regla, x.prioridad = tipo, int(f.get("priority") or 0)
         x.tipo_fuente = (_txt(f.get("source_type")) or "INTERNAL_ENGINE").upper()
         x.familia, x.efecto = _txt(f.get("rule_family")), _txt(f.get("rationale_effect"))
@@ -68,7 +77,10 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         db.add(x)
         cuenta("Classification_Rules", nuevo)
     db.flush()
-    # Las condiciones de cada regla se reemplazan completas (la hoja es la verdad)
+    # Las condiciones de cada regla se reemplazan completas (la hoja es la verdad). Un campo es un
+    # atributo de la ficha (por su código o un alias, que se resuelve) o un campo del producto; las
+    # reglas internas del motor (INTERNAL_ENGINE) describen campos del sistema y no se validan.
+    valido = campo_condicion(canonicos(db))
     por_regla: dict[str, list] = {}
     for f in hojas.get("Rule_Conditions", []):
         por_regla.setdefault(_txt(f.get("rule_id")) or "", []).append(f)
@@ -78,15 +90,11 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
             for f in filas:
                 error("Rule_Conditions", f["_fila"], f"Rule {cod or '(empty)'} does not exist.")
             continue
-        nuevas = []
-        for f in filas:
-            op = (_txt(f.get("operator")) or "EQUAL").upper()
-            campo = _txt(f.get("attribute_system_field"))
-            if not campo or op not in OPERADORES:
-                error("Rule_Conditions", f["_fila"], f"Field and operator ({', '.join(OPERADORES)}) are required.")
-                continue
-            nuevas.append(CondicionRegla(grupo=int(f.get("group") or 1), campo=campo, operador=op, valor=_valor(f.get("value")),
-                                         valor_hasta=_valor(f.get("value_to")), negado=_si(f.get("negated"))))
+        conds = _condiciones_hoja(filas, "Rule_Conditions", error,
+                                  (lambda c: c) if r.tipo_fuente == "INTERNAL_ENGINE" else valido)
+        if conds is None:
+            continue
+        nuevas = [CondicionRegla(**c) for c in conds]
         creadas = not r.condiciones
         firma = lambda cs: [(c.grupo, c.campo, c.operador, c.valor, c.valor_hasta, bool(c.negado)) for c in cs]  # noqa: E731
         if firma(nuevas) != firma(r.condiciones):  # iguales: no se reemplazan (sin cambios falsos en la previa)

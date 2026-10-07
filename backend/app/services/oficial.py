@@ -36,7 +36,7 @@ CARPETA = OFICIAL
 # Paquetes incluidos y en qué orden: el 02 (configuración del motor) vive aparte, en data/motor
 PAQUETES = [MOTOR / "02_carga_motor_dinamico_v3.xlsx", OFICIAL / "01_carga_oficial_catalogos_v3.xlsx",
             OFICIAL / "03_carga_nacional_regulaciones_v3.xlsx"]
-HOJAS = ("Sources", "Versions", "Countries", "Chapter_Control", "Domains", "Domain_Chapter_Map",
+HOJAS = ("Sources", "Versions", "Countries", "Chapter_Control", "Domains", "Domain_Chapter_Map", "Attribute_Scope_Conditions",
          "Attributes", "Attribute_Options", "Attribute_Scope", "Classification_Rules", "Rule_Conditions",
          "Country_Source_Map", "National_Codes", "Regulations", "Taxes")
 ESTADOS_VERSION = {"PUBLISHED": "PUBLICADA", "PUBLICADA": "PUBLICADA", "DYNAMIC": "DINAMICA", "DINAMICA": "DINAMICA",

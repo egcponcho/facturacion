@@ -145,3 +145,24 @@ no el destino real. Por eso la OC y la factura llevan siempre la subpartida de
 SAC regional. Las líneas nacionales por país siguen en la ficha del producto
 como referencia. La migración 0023 deja en 6 dígitos las líneas de factura que
 ya tenían un código más largo.
+
+## Un solo vocabulario de atributos (G1)
+
+- Cada dato del producto tiene un único atributo. Si un paquete trae un
+  atributo que ya existe con otro código, lo declara en la columna «Same as»
+  de la hoja Attributes: queda como alias (`AtributoDef.alias`) y sus
+  opciones, ámbitos y las condiciones de reglas que lo nombran se resuelven al
+  atributo de la ficha. Una ficha, una SDS o una carga que traiga el alias
+  llega al mismo atributo.
+- La carga rechaza (y el lote no se publica): un «Same as» a un atributo que
+  no existe o de otro tipo de dato, una condición sobre un campo que no es
+  atributo ni campo del producto (`categoria`, `dominio`, `origen`,
+  `product_name`), un ámbito a una categoría o dominio inexistente, o un
+  capítulo/partida/subpartida con dígitos incorrectos. Los códigos de categoría
+  se guardan como existen (no se pasan a mayúsculas).
+- La hoja Attribute_Scope_Conditions da condiciones a un ámbito (mismas
+  columnas que Rule_Conditions).
+- Producto sin categoría configurada: ficha genérica (descripción técnica y
+  composición). Con categoría: solo su ficha propia.
+- El país destino no es un dato del producto: cada país activo se resuelve por
+  separado.

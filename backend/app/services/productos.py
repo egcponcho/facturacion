@@ -920,6 +920,7 @@ def subir_documento(db: Session, user: Usuario, producto_id: int, tipo: str, nom
         raise ErrorNegocio(f"{tipo} documents are technical evidence, not a tariff source: {', '.join(arancel)} cannot be taken from them.",
                            422, "no_es_fuente_arancelaria")
     cat = catalogo(db)
+    datos = {cat.canonico(k): v for k, v in datos.items()}  # un alias (CAS de otro paquete…) llega a su atributo
     desconocidos = sorted(k for k in datos if k not in cat.por_codigo)
     if desconocidos:
         raise ErrorNegocio(f"These are not attributes of the technical sheet: {', '.join(desconocidos)}.", 422, "validacion")

@@ -66,11 +66,12 @@ CAPA_ORDEN = {"LEGAL": 0, "SISTEMA": 1, "PROPIA": 2}
 
 # ---- Condiciones -------------------------------------------------------------------
 def _datos_producto(db: Session, entrada: dict) -> dict:
-    """Atributos que no son de la ficha sino del registro del producto (nombre,
-    países de destino): se toman de ahí para no pedirlos dos veces."""
+    """Atributos que no son de la ficha sino del registro del producto (el
+    nombre y los datos técnicos de sus SDS/TDS/COA): se toman de ahí para no
+    pedirlos dos veces. El país destino no es un dato del producto: cada país
+    activo se resuelve por separado."""
     nombre = (entrada.get("nombre") or entrada.get("estilo") or "").strip()
-    paises = entrada.get("destinos") or [p.iso for p in db.scalars(select(PaisArancel).where(PaisArancel.activo.is_(True)).order_by(PaisArancel.orden))]
-    out = {"destination_country": paises}
+    out = {}
     if nombre:
         out["product_name"] = nombre
     # Datos técnicos de sus fichas SDS/TDS/COA: hechos del producto (nunca códigos)
@@ -298,7 +299,7 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
         hoy = date.fromisoformat(hoy[:10])
     v = version_regional(db, hoy, entrada.get("version_id"))
     cat = catalogo or catalogo_db(db)
-    ficha = copy.deepcopy(entrada.get("ficha") or {})
+    ficha = cat.canonizar(copy.deepcopy(entrada.get("ficha") or {}))  # un alias llega a su atributo
     ficha.setdefault("comp", {})
     texto_det = " ".join(x for x in (entrada.get("estilo"), entrada.get("nombre"), entrada.get("texto")) if str(x or "").strip())
     tocados = set(entrada.get("tocados") or [])
@@ -340,6 +341,7 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
         for k in cat.aplicar_implica(s, c["campo"], c.get("valor")):
             autos.add(k)
     del_registro = _datos_producto(db, entrada)
+    del_registro = {cat.canonico(k): val for k, val in del_registro.items()}
     for k, val in del_registro.items():  # lo que ya dice el registro del producto
         if k in cat.por_codigo and _vacio(s.get(k)):
             s[k] = val
@@ -541,7 +543,7 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     usados = {c.campo for r in reglas for c in r.condiciones}
     campos, preguntas, faltantes = _campos(cat, s, ficha, codigos_c, preguntar, discriminan, autos, usados)
     for c in campos:
-        c["del_registro"] = c["codigo"] in del_registro  # se toma del producto (nombre, destinos): no se pregunta
+        c["del_registro"] = c["codigo"] in del_registro  # se toma del producto (nombre, SDS): no se pregunta
     comps = [c for c in campos if c["tipo_dato"] == "composition"]
     if comps:
         hist = _historial_composicion(db, categoria, entrada.get("producto_id"))

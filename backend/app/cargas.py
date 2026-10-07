@@ -13,8 +13,10 @@
    ejemplo, historial de clasificaciones, palabras clave, acuerdos de
    referencia). Solo con SEED_DEMO=1.
 
-El orden importa: el paquete 02 define los dominios que el 01 relaciona con
-capítulos, y las reglas de la ficha leen el árbol oficial.
+El orden importa: los atributos de la ficha van antes del paquete 02 (que
+declara «Same as» sobre ellos), el 02 define los dominios que el 01 relaciona
+con capítulos, la capa técnica completa atributos del 02 y las reglas de la
+ficha leen el árbol oficial.
 """
 import json
 
@@ -26,8 +28,11 @@ from .models import AcuerdoComercial, PaisArancel, VersionDataset
 
 
 def cargar_motor_paquete(db: Session) -> None:
-    from .services import oficial
+    """Los atributos de la ficha primero (el paquete 02 declara «Same as» sobre
+    ellos) y después el paquete 02 (dominios, atributos genéricos y reglas del sistema)."""
+    from .services import atributos, oficial
 
+    atributos.cargar_motor(db)
     oficial.cargar_paquetes_base(db, [MOTOR / "02_carga_motor_dinamico_v3.xlsx"])
 
 
@@ -49,7 +54,6 @@ def cargar_motor(db: Session) -> None:
     """Configuración del motor incluida (no pisa lo editado)."""
     from .services import atributos, categorias, reglas
 
-    atributos.cargar_motor(db)
     atributos.cargar_tecnico(db)  # categorías técnicas de químicos y materias primas
     categorias.sembrar(db)
     reglas.cargar_reglas_ficha(db)
