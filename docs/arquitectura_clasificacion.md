@@ -262,3 +262,63 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
   su acción (Action, Codes, By attribute, Code map JSON, Ask attributes,
   Message) y Rule_Conditions. `tests/test_familias_genericas.py` arma una
   familia nueva (vajilla) solo con un paquete y la clasifica.
+
+## Roles y flujo de trabajo configurable
+
+- Quién hace qué: el **proveedor** captura los datos de sus artículos (la
+  ficha); el **comprador** o el **especialista** también pueden capturarlos;
+  las reglas, preguntas, familias y traducciones son del **administrador** y
+  del **especialista de clasificación**. Permisos nuevos:
+  `clasificacion.ver` (ver la configuración del motor) y
+  `clasificacion.configurar` (cambiarla). La migración 0029 los da a quien ya
+  tenía aranceles y crea los roles sugeridos *Classification specialist* y
+  *Buyer* (editables como cualquier rol).
+- Interruptores del flujo (`services/flujo.py`, en *Administración → Flujo de
+  clasificación*, guardados en `Meta` como `flujo.*`): el proveedor captura,
+  el equipo interno captura, el proveedor ve la sugerencia, revisión
+  obligatoria, cuatro ojos (quien envía no aprueba) y aprobación por lote. Los
+  permisos efectivos se recortan según los interruptores, así que apagar uno
+  quita la acción en la API y en la pantalla a la vez. Debe quedar al menos
+  una forma de captura encendida.
+
+## Experiencia de uso (U1–U6)
+
+- U1 Barra de pasos en el artículo (datos → clasificación → revisión →
+  aprobado) que dice qué sigue y quién lo hace.
+- U2 Bandeja por rol en *Artículos*: lo que me toca (capturar, revisar,
+  aprobar) y la vista de baja confianza.
+- U3 *Familias de producto* (`/familias`): todo el motor en un solo lugar,
+  con la salud de cada familia (capítulos, categorías, preguntas, reglas y
+  cómo le va con los artículos reales) y avisos de lo que le falta.
+- U4 Terminología: *preguntas* en lugar de atributos con ámbito, *familia* en
+  lugar de dominio; editores visuales del comportamiento de una pregunta
+  (patrones, textos de aduana, bloqueos, implicaciones, derivación,
+  plantilla) con el JSON como opción avanzada.
+- U5 Reglas conectadas con los artículos: *Convertir esta decisión en regla*
+  arma un borrador desde un artículo aprobado, y *Ver impacto* dice qué
+  artículos del ámbito cambiarían de subpartida antes de guardar
+  (`services/impacto.py`, nada queda guardado).
+- U6 Asistente de familia nueva: la familia nace en **borrador** (no aparece
+  en la ficha ni clasifica artículos reales), se prueba con un artículo de
+  ejemplo y se **publica** cuando tiene capítulos y categorías.
+
+## Infraestructura (I1–I4)
+
+- I1 Cantidades con decimales: columnas NUMERIC(14,3); las unidades que se
+  cuentan (PAR, UN, DOC, JGO, ROL, CJ) exigen enteros y las que se miden
+  admiten tres decimales (migración 0032).
+- I2 Motor por etapas: caso → universo → decisión → candidatos, cada una una
+  función pequeña de `motor_clasificacion.py`; la evidencia guarda la versión
+  de la configuración con que se decidió.
+- I3 Versión de la configuración (`services/version_config.py`): sube en
+  cada cambio de un modelo del motor; el catálogo en memoria se comparte por
+  proceso y se reconstruye solo cuando la versión cambia. Un solo formato de
+  condición (`{campo, operador, valor}`; la migración 0030 convierte lo viejo).
+- I4 Textos del catálogo traducibles (`TraduccionCatalogo`, migración 0033):
+  etiquetas de categorías, preguntas y opciones por idioma, editables en
+  *Familias → Traducciones*; se trae el español. Las razones de las reglas
+  (`efecto`) son datos y quedan como se escribieron.
+- Pendiente, a decidir: búsqueda de texto completo en Postgres (tsvector /
+  pg_trgm) cuando la base pase a Postgres (hoy el índice en memoria basta) y
+  separar la configuración por empresa (multiempresa), que toca todas las
+  tablas del motor.
