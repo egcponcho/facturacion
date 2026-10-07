@@ -36,7 +36,9 @@ FONDO = colors.HexColor("#f3f1fb")
 FONDO_2 = colors.HexColor("#f7f8fa")
 
 MODOS = {"MARITIMO": "Ocean", "AEREO": "Air", "TERRESTRE": "Road"}
-UNIDADES = {"PAR": "Pairs", "UN": "Units", "CJ": "Prepack cartons"}
+from .unidades import UNIDADES as _UNIDADES
+
+UNIDADES = {u[0]: u[2].capitalize() for u in _UNIDADES}
 
 
 # ---- Montos en letras (en inglés) ---------------------------------------------
@@ -605,49 +607,23 @@ def pdf_reporte(titulo: str, subtitulo: str, filtros: str, indicadores: list[tup
 
 
 # ---- Ficha técnica del producto -------------------------------------------------------
-CAMPOS_FICHA = {
-    "genero": "Gender", "edadNac": "Age group", "edad": "Age", "estiloCalz": "Footwear style", "disenio": "Design",
-    "altura": "Height", "puntera": "Toe cap", "impermeable": "Waterproof", "suelaEspumosa": "Foam sole",
-    "uso": "Use", "tallas": "Sizes", "prenda": "Garment", "tejido": "Fabric construction", "cierre": "Closure",
-    "manga": "Sleeve", "forma": "Shape", "material": "Material", "capas": "Layers", "acolchado": "Padding",
-}
+# Las etiquetas salen del catálogo (productos.etiquetas_ficha): ningún nombre fijo de una familia
+ESTADO_PARTIDA = {"ok": "Confirmed", "historial": "Suggested by history", "elegir": "To choose", "pendiente": "No official data",
+                  "invalido": "Invalid"}
+INTERNOS_FICHA = ("comp", "descManual", "comManual", "uso", "tallas", "desc", "descCom", "sacDesc")
 
 
-PARTES = {"exterior": "Outer fabric or surface", "forro": "Lining", "relleno": "Fill", "corte": "Upper",
-          "suela": "Sole", "plantilla": "Insole", "material": "Main material"}
+def _legible(k: str) -> str:
+    return k.replace("_", " ").replace(".", " ").strip().capitalize()
 
 
-VALORES_FICHA = {
-    "genero": {"M": "Men", "F": "Women", "U": "Unisex"},
-    "edadNac": {"adulto": "Adult", "nino": "Child or youth", "bebe": "Baby"},
-    "edad": {"general": "Child, youth or adult", "bebe": "Baby"},
-    "estiloCalz": {"tenis": "Sneaker", "senderismo": "Hiking", "bota": "Boot", "botin": "Ankle boot", "zapato": "Closed shoe",
-                   "sandalia": "Sandal", "slide": "Slide", "chancla_tetones": "Flip-flop", "pantufla": "Slipper"},
-    "disenio": {"entrenamiento": "Athletic", "casual": "Casual or lifestyle", "skate": "Skate"},
-    "altura": {"bajo": "Does not cover the ankle", "tobillo": "Covers the ankle", "rodilla": "Covers the knee"},
-    "puntera": {"ninguna": "No toe cap", "metalica": "Metal", "no_metalica": "Non-metal"},
-    "tejido": {"punto": "Knitted", "plano": "Woven"},
-    "relleno_tipo": {"ninguno": "No fill", "plumon": "Down or feather", "sintetico": "Synthetic"},
-    "hechura": {"chaqueta": "Jacket, anorak or parka", "chaleco_relleno": "Padded vest", "chaleco": "Vest"},
-    "hechuraSud": {"pullover": "Pullover", "cierre": "Full zip", "chaqueta_fleece": "Fleece jacket"},
-    "manga": {"sin": "Sleeveless", "corta": "Short", "larga": "Long"},
-}
-TIPOS_FICHA = {"calzado": "Footwear", "chaqueta": "Jacket or vest", "sudadera": "Sweatshirt", "camiseta": "T-shirt",
-               "camisa": "Shirt or polo", "pantalon": "Pants or shorts", "mochila": "Backpack", "gorra": "Cap or headwear",
-               "bolso_viaje": "Sports or travel bag", "calcetines": "Socks", "guantes": "Gloves"}
-CAMPOS_FICHA.update({"edad": "Who it is for", "edadNac": "Who it is for", "relleno_tipo": "Fill", "hechuraSud": "Construction",
-                     "hechura": "Construction", "tieneForro": "Lining", "recubierta": "Coated fabric", "exterior": "Outer surface",
-                     "sacElegido": "SAC subheading", "queEs": "Name in Spanish"})
-
-
-def _valor_ficha(v, k: str = "") -> str:
-    if k in VALORES_FICHA and v in VALORES_FICHA[k]:
-        return VALORES_FICHA[k][v]
+def _valor_ficha(v, k: str = "", et: dict | None = None) -> str:
+    ops = ((et or {}).get("valores") or {}).get(k) or {}
+    if isinstance(v, list):
+        return ", ".join(str(ops.get(x, x)) for x in v)
     if isinstance(v, bool):
         return "Yes" if v else "No"
-    if isinstance(v, list):
-        return ", ".join(str(x) for x in v)
-    return str(v)
+    return str(ops.get(v, v))
 
 
 def _fmt_partida(c) -> str:
@@ -655,10 +631,6 @@ def _fmt_partida(c) -> str:
     if len(d) <= 4:
         return d or "—"
     return ".".join([d[:4]] + [d[i:i + 2] for i in range(4, len(d), 2)])
-
-
-PAISES_ORDEN = ["GT", "SV", "HN", "NI", "CR", "PA"]
-ESTADO_PARTIDA = {"ok": "National", "auto": "National", "sac": "SAC", "elegir": "Pending"}
 
 
 def secciones_ficha(d: dict) -> dict:
@@ -669,29 +641,32 @@ def secciones_ficha(d: dict) -> dict:
     clasif = [("HS code (SAC)", codigo or "Not classified"), ("Status", estado or "—"),
               ("Confidence", d.get("confianza") or "—"),
               ("Reviewed by", f"{d.get('revisado_por') or '—'}" + (f" · {_fecha(d['revisado_en'])}" if d.get("revisado_en") else ""))]
+    et = d.get("etiquetas") or {}
+    orden_paises = et.get("paises") or []
     partidas = []
     for pais, x in sorted((d.get("partidas") or {}).items(),
-                          key=lambda kv: PAISES_ORDEN.index(kv[0]) if kv[0] in PAISES_ORDEN else 99):
+                          key=lambda kv: (orden_paises.index(kv[0]) if kv[0] in orden_paises else 999, kv[0])):
         x = x if isinstance(x, dict) else {"codigo": x}
         partidas.append([pais, _fmt_partida(x.get("codigo")), f"{x['dai']}%" if x.get("dai") not in (None, "") else "—",
                          ESTADO_PARTIDA.get(x.get("estado"), x.get("estado") or "—"),
                          "By hand" if x.get("manual") else (x.get("fuente") or "—").capitalize()])
     f = d.get("ficha") or {}
     an = d.get("analisis") or {}
-    datos = [("Product type", an.get("tipo_txt") or TIPOS_FICHA.get(d.get("tipo"), d.get("tipo")) or "—"),
+    datos = [("Product type", an.get("tipo_txt") or (et.get("tipos") or {}).get(d.get("tipo"), d.get("tipo")) or "—"),
              ("Country of origin", d.get("pais_origen") or "—"),
              ("Generic code", d.get("codigo_generico") or "—"), ("Group", d.get("grupo") or "—")]
-    for k in ("uso", "tallas"):
+    for k, lbl in (("uso", "Use"), ("tallas", "Sizes")):
         if f.get(k):
-            datos.append((CAMPOS_FICHA[k], str(f[k])))
+            datos.append((lbl, str(f[k])))
     if an.get("atributos"):
         datos += [(str(a[0]), str(a[1])) for a in an["atributos"] if len(a) == 2]
     else:
-        datos += [(CAMPOS_FICHA.get(k, k), _valor_ficha(v, k)) for k, v in f.items()
-                  if k not in ("comp", "descManual", "comManual", "uso", "tallas", "desc", "descCom", "edad", "sacDesc")
-                  and v not in (None, "", [], {})]
+        campos = et.get("campos") or {}
+        datos += [(campos.get(k) or _legible(k), _valor_ficha(v, k, et)) for k, v in f.items()
+                  if k not in INTERNOS_FICHA and v not in (None, "", [], {}) and not isinstance(v, dict)]
     comp = f.get("comp") or {}
-    composicion = [[PARTES.get(k, k.capitalize()), v] for k, v in comp.items() if v] if isinstance(comp, dict) else []
+    partes = et.get("partes") or {}
+    composicion = [[partes.get(k) or _legible(k), v] for k, v in comp.items() if v] if isinstance(comp, dict) else []
     tallas = [[a["sku"], a["upc"] or "—", a["talla"], a["unidad"], a["descripcion"] or "—"]
               for a in d.get("articulos") or [] if a["tipo"] == "SOLIDO"]
     return {"clasificacion": clasif, "descripcion": d.get("descripcion_aduana") or "",

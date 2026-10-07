@@ -377,15 +377,22 @@ def test_history_preferred_national_line_needs_confirmation(interno):
             db.delete(h)
         db.commit()
     assert interno.post("/clasificacion/incisos", {"pais": "GT", "codigo": "6403.99.90.00", "cond": {}}).status_code == 200
+    # Aprobar no exige las líneas nacionales (la OC y la factura llevan 6 dígitos): la que solo
+    # el historial prefiere queda como sugerencia, sin confirmar
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640399"})
-    assert r.status_code == 422 and r.json()["codigo"] == "faltan_paises", r.text
-    gt = next(x for x in r.json()["detalle"] if x["pais"] == "GT")
-    assert sorted(gt["opciones"]) == ["6403991000", "6403999000"]
-    # Confirmada por una persona, se aprueba con esa línea oficial
-    partidas = {x["pais"]: {"codigo": x["opciones"][-1], "manual": True} for x in r.json()["detalle"]}
-    r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640399", "partidas": partidas})
     assert r.status_code == 200, r.text
-    assert r.json()["partidas"]["GT"]["codigo"].replace(".", "") == "6403999000"
+    gt = r.json()["partidas"].get("GT")
+    assert not gt or gt["estado"] != "ok"
+    ops = interno.get(f"/productos/{p['id']}/partidas/GT").json()
+    assert sorted(o["codigo"] for o in ops["opciones"]) == ["6403991000", "6403999000"]
+    # Una línea que no es oficial para la subpartida no se confirma
+    r = interno.post(f"/productos/{p['id']}/partidas/GT", {"codigo": "6404199000"})
+    assert r.status_code == 422 and r.json()["codigo"] == "codigo_nacional_invalido", r.text
+    # Confirmada por una persona, queda como línea oficial confirmada
+    r = interno.post(f"/productos/{p['id']}/partidas/GT", {"codigo": "6403.99.90.00"})
+    assert r.status_code == 200, r.text
+    gt = r.json()["partidas"]["GT"]
+    assert gt["codigo"].replace(".", "") == "6403999000" and gt["estado"] == "ok" and gt["manual"]
 
 
 def test_old_engine_routes_are_gone(interno):

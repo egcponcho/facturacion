@@ -79,13 +79,17 @@ def categoria_de(db: Session, valor: str) -> str | None:
 
 
 def atributos_carga(db: Session) -> list:
-    """Atributos de la ficha que van como columnas en la carga masiva: los que
-    deciden el código (aparecen en las condiciones de alguna regla activa) y
-    no se deducen de la composición."""
+    """Atributos de la ficha que van como columnas en la carga masiva (de
+    cualquier familia): los que deciden el código (en las condiciones de una
+    regla activa) o que alguna categoría exige, de lista o sí/no, que no se
+    deducen de la composición."""
+    from ..models import AtributoAmbito, AtributoDef
+
     cat = catalogo(db)
     campos = set(db.scalars(select(CondicionRegla.campo).join(ReglaClasificacion).where(ReglaClasificacion.activo.is_(True))))
-    return [a for a in cat.atributos if a.codigo in campos and a.tipo_dato in ("select", "boolean") and a.seccion in ("caracteristicas", "nacional")
-            and not a.derivacion]
+    campos |= set(db.scalars(select(AtributoDef.codigo).join(AtributoAmbito).where(AtributoAmbito.modo == "REQUIRE", AtributoAmbito.activo.is_(True))))
+    return [a for a in cat.atributos if a.codigo in campos and a.tipo_dato in ("select", "boolean")
+            and a.seccion in ("producto", "caracteristicas", "nacional") and not a.derivacion]
 
 
 def partes_carga(db: Session) -> list:

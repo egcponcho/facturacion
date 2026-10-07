@@ -230,12 +230,33 @@ const paises = computed(() => {
   if (aprobado.value) {
     return ctx.value.destinos.map((d) => {
       const x = p.value.partidas[d.iso] || {}
-      return { ...d, codigo: x.codigo, dai: x.dai, estado: x.codigo ? 'ok' : 'sin_codigo', fuente: x.fuente, manual: x.manual, opciones: [] }
+      return { ...d, codigo: x.codigo, dai: x.dai, estado: x.codigo ? (x.estado || 'ok') : 'sin_codigo', fuente: x.fuente, manual: x.manual,
+        opciones: opcionesPais[d.iso] || [] }
     })
   }
   const por = Object.fromEntries((r.value?.clasificacion?.paises || []).map((x) => [x.pais, x]))
   return ctx.value.destinos.map((d) => ({ ...d, ...(por[d.iso] ? { ...por[d.iso], iso: d.iso } : { estado: 'sin_codigo', opciones: [] }) }))
 })
+// Producto aprobado: las líneas nacionales son referencia y se confirman país por país
+const opcionesPais = reactive({})
+async function cargarOpcionesPais(x) {
+  try {
+    opcionesPais[x.iso] = (await api.get(`/productos/${p.value.id}/partidas/${x.iso}`)).opciones
+    if (!opcionesPais[x.iso].length) avisar(t('{0} has no official national line in force for this subheading.', [x.nombre]))
+  } catch (e) {
+    errorApi(e)
+  }
+}
+async function confirmarPais(x, codigo) {
+  if (!codigo) return
+  try {
+    tomar(await api.post(`/productos/${p.value.id}/partidas/${x.iso}`, { codigo: digits(codigo) }))
+    delete opcionesPais[x.iso]
+    avisar(t('National code of {0} confirmed.', [x.nombre]))
+  } catch (e) {
+    errorApi(e)
+  }
+}
 const paisesOk = computed(() => paises.value.filter((x) => PAIS_LISTO.includes(x.estado) && x.codigo).length)
 function codigoPais(iso, c) {
   f.partidas = { ...(f.partidas || {}), [iso]: { codigo: digits(c), manual: true } }
@@ -806,6 +827,16 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
                     <span v-else-if="x.estado === 'historial'" class="sub">{{ EST_PAIS.historial }} ·
                       <button type="button" class="btn-texto" @click="codigoPais(x.iso, x.codigo)">{{ t('confirm') }}</button></span>
                     <span v-else-if="!PAIS_LISTO.includes(x.estado)" class="sub">{{ tx(x.error || (x.estado === 'elegir' ? t('Choose one of the listed codes or type it') : EST_PAIS[x.estado])) }}</span>
+                  </template>
+                  <template v-else-if="aprobado && puedeAprobar && !PAIS_LISTO.includes(x.estado)">
+                    <span v-if="x.codigo" class="codigo-sac tentativo">{{ tx(fmtPais(x.codigo, x.digitos)) }}</span>
+                    <Seleccion v-if="x.opciones?.length" class="entrada" :aria-label="t('Code for {0}', [x.nombre])" @change="confirmarPais(x, $event)">
+                      <option value="">{{ t('Choose…') }}</option>
+                      <option v-for="o in x.opciones" :key="o.codigo" :value="o.codigo">{{ fmtPais(o.codigo, x.digitos) }} · {{ tx(o.cond_txt || o.descripcion) }}</option>
+                    </Seleccion>
+                    <span class="sub">{{ tx(x.estado === 'historial' ? EST_PAIS.historial : t('Not confirmed (reference only: documents use the 6-digit subheading)')) }} ·
+                      <button v-if="x.codigo" type="button" class="btn-texto" @click="confirmarPais(x, x.codigo)">{{ t('confirm') }}</button>
+                      <button v-else-if="!x.opciones?.length" type="button" class="btn-texto" @click="cargarOpcionesPais(x)">{{ t('choose') }}</button></span>
                   </template>
                   <template v-else>
                     <Seleccion v-if="x.estado === 'elegir' && x.opciones?.length && puedeEditar" class="entrada" :aria-label="t('Code for {0}', [x.nombre])" @change="codigoPais(x.iso, $event)">

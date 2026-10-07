@@ -214,9 +214,9 @@ def idempotente(db: Session, user: Usuario, clave: str | None, fn):
 
 # ---- Textos -----------------------------------------------------------------
 def unidad_txt(unidad: str, cantidad: int | None = None) -> str:
-    if unidad == "PAR":
-        return "pair" if cantidad == 1 else "pairs"
-    return "unit" if cantidad == 1 else "units"
+    from .unidades import texto
+
+    return texto(unidad, cantidad)
 
 
 def cant_txt(cantidad: int, unidad: str) -> str:

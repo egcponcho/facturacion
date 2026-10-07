@@ -76,7 +76,6 @@ ESTADOS = {"borrador": "Draft", "sugerida": "Draft · complete", "revision": "In
 APROBADOS = ("aprobado", "corregido")
 BORRADORES = ("borrador", "sugerida", "observado")
 PENDIENTES = BORRADORES + ("revision",)
-OBLIGATORIOS = ["tipo", "genero", "edadNac", "composicion", "origen"]
 TIPOS_FOTO = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 TIPOS_DOC = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
 # Campos que una ficha técnica nunca aporta: el arancel solo sale de fuentes oficiales
@@ -658,11 +657,9 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
     if lote and (r["requiere_revision"] or r["confianza"] == "low"):
         raise ErrorNegocio(f"{p.estilo}: needs a specialist review (" + "; ".join(r["revision_por"][:2] or ["low legal confidence"]) + ").",
                            422, "requiere_revision")
-    # Una línea nacional que solo el historial prefiere (o que falta elegir) la confirma una persona
-    pend = [x for x in paises if (x["estado"] == "elegir" and not x["codigo"]) or (x["estado"] == "historial" and x["pais"] not in elegidas)]
-    if pend:
-        raise ErrorNegocio(f"{p.estilo}: choose the national code for " + ", ".join(x["pais"] for x in pend) + ".", 422, "faltan_paises",
-                           [{"pais": x["pais"], "opciones": [o["codigo"] for o in x["opciones"]]} for x in pend])
+    # Las líneas nacionales son referencia (la OC y la factura llevan la subpartida de 6 dígitos):
+    # aprobar no las exige. Una que solo el historial prefiere o que falta elegir queda pendiente
+    # de confirmar por una persona (confirmar_partida), nunca se da por confirmada.
     sug = digitos(p.sugerido)
     p.estado = "aprobado" if not sug or sug[:6] == oficial[:6] else "corregido"
     p.codigo = oficial[:6]
@@ -693,7 +690,8 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
                           "version": x.get("version"), "overrides": x.get("overrides"),
                           "impuestos": [{k: i.get(k) for k in ("codigo", "tipo", "tasa", "base_calculo", "base_legal", "fuente")} for i in x.get("impuestos") or []],
                           "regulaciones": [{k: g.get(k) for k in ("codigo", "tipo", "nombre", "autoridad", "base_legal")} for g in x.get("regulaciones") or []]}
-        fila.aprobado_por_id, fila.aprobado_en = (user.id if user else None), ahora_
+        confirmada = x.get("estado") == "ok"
+        fila.aprobado_por_id, fila.aprobado_en = ((user.id if user else None), ahora_) if confirmada else (None, None)
     p.revisado_por_id = user.id if user else None
     p.revisado_en = ahora_
     # La decisión queda como conocimiento de la empresa (nunca como dato oficial):
@@ -704,7 +702,7 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
     hechos = r.get("hechos") or {}
     registrar_decision(db, pais=None, codigo=p.sac_codigo or p.codigo, condiciones={}, origen=origen, categoria=p.tipo, producto_id=p.id, usuario=user)
     for x in paises:
-        if x.get("inciso_id") and x.get("codigo"):
+        if x.get("estado") == "ok" and x.get("inciso_id") and x.get("codigo"):  # solo lo confirmado es conocimiento
             claves = {k for o in x.get("opciones") or [] for k in (o.get("cond") or {})} | set(x.get("faltan") or [])
             registrar_decision(db, pais=x["pais"], codigo=x["codigo"], condiciones={k: hechos.get(k) for k in claves if hechos.get(k) is not None},
                                origen=origen, categoria=p.tipo, producto_id=p.id, usuario=user)
@@ -712,6 +710,66 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
     registrar(db, user, "producto", p.id, "aprobado" if p.estado == "aprobado" else "corregido",
               {"codigo": fmt_codigo(oficial), "sugerido": fmt_codigo(sug) or None,
                "paises": {x["pais"]: fmt_codigo(x["codigo"]) for x in paises if x.get("codigo")}})
+
+
+def _pais_aprobado(db: Session, user: Usuario, producto_id: int, pais: str, codigo: str | None = None):
+    from .motor_clasificacion import clasificar_producto
+
+    p = _producto(db, user, producto_id)
+    if p.estado not in APROBADOS or not p.codigo:
+        raise ErrorNegocio("Approve the product first: the national codes hang from its approved subheading.", 422, "no_aprobado")
+    extra = {"codigo_final": p.sac_codigo or p.codigo}
+    if codigo is not None:
+        extra["partidas"] = {pais: {"codigo": digitos(codigo)}}
+    r = clasificar_producto(db, entrada_producto(p, extra))
+    x = next((y for y in r["clasificacion"]["paises"] if y["pais"] == pais), None)
+    if not x:
+        raise ErrorNegocio(f"{pais} is not an active destination country.", 404, "no_encontrado")
+    return p, r, x
+
+
+def opciones_partida(db: Session, user: Usuario, producto_id: int, pais: str) -> dict:
+    """Las líneas oficiales vigentes del país para la subpartida aprobada (para confirmar una)."""
+    _, _, x = _pais_aprobado(db, user, producto_id, pais.upper())
+    return {"pais": x["pais"], "estado": x["estado"], "codigo": x["codigo"], "error": x["error"], "digitos": x["digitos"],
+            "opciones": [{"codigo": o["codigo"], "descripcion": o["descripcion"], "cond_txt": o.get("cond_txt"), "dai": o["dai"]} for o in x["opciones"]]}
+
+
+def confirmar_partida(db: Session, user: Usuario, producto_id: int, pais: str, codigo: str) -> dict:
+    """Una persona confirma la línea nacional de un país de un producto ya
+    aprobado: el motor la valida contra el arancel vigente del país (solo una
+    línea oficial de la subpartida aprobada) y queda como decisión de la empresa."""
+    from .conocimiento import registrar_decision
+
+    exigir(user, "producto.clasificar")
+    pais = pais.upper()
+    if not digitos(codigo):
+        raise ErrorNegocio("Write or choose the national code.", 422, "validacion")
+    p, r, x = _pais_aprobado(db, user, producto_id, pais, codigo)
+    if x["estado"] != "ok" or not x.get("inciso_id"):
+        raise ErrorNegocio(x.get("error") or f"{fmt_codigo(codigo)} is not an official national line of {pais} for this subheading.",
+                           422, "codigo_nacional_invalido", [{"codigo": o["codigo"], "descripcion": o["descripcion"]} for o in x["opciones"]])
+    fila = next((y for y in p.partidas if y.pais == pais), None)
+    antes = fila.codigo if fila else None
+    if not fila:
+        fila = PartidaPais(pais=pais)
+        p.partidas.append(fila)
+    fila.sugerido = fila.sugerido or x.get("sugerido") or fila.codigo
+    fila.codigo, fila.dai, fila.estado, fila.fuente, fila.manual = _codigo_fila(x["codigo"]), str(x.get("dai") or "")[:10] or None, "ok", \
+        (x.get("fuente") or None) and str(x["fuente"])[:12], True
+    inc = db.get(IncisoNacional, x["inciso_id"])
+    fila.inciso_id, fila.version_id = x["inciso_id"], (x.get("version") or {}).get("id")
+    fila.fuente_id = inc.fuente_id if inc else None
+    fila.evidencia = {"linea_oficial": bool(inc and inc.fuente == "oficial"), "fuente_dato": x.get("fuente"), "regla": x.get("regla"),
+                      "version": x.get("version"), "confirmada_despues": True}
+    fila.aprobado_por_id, fila.aprobado_en = user.id, ahora()
+    hechos = r.get("hechos") or {}
+    claves = {k for o in x.get("opciones") or [] for k in (o.get("cond") or {})} | set(x.get("faltan") or [])
+    registrar_decision(db, pais=pais, codigo=x["codigo"], condiciones={k: hechos.get(k) for k in claves if hechos.get(k) is not None},
+                       origen="APROBACION", categoria=p.tipo, producto_id=p.id, usuario=user)
+    tocar(p)
+    registrar(db, user, "producto", p.id, "partida_confirmada", {"pais": pais, "codigo": [fmt_codigo(antes) or None, fmt_codigo(x["codigo"])]})
+    return detalle(db, user, p.id)
 
 
 def aprobar(db: Session, user: Usuario, producto_id: int, datos) -> dict:
@@ -1034,9 +1092,23 @@ def opciones(db: Session, user: Usuario) -> dict:
     }
 
 
+def etiquetas_ficha(db: Session) -> dict:
+    """Etiquetas del catálogo para mostrar una ficha en documentos (atributos,
+    opciones, partes de la composición, categorías) y el orden de los países:
+    los documentos no traen nombres fijos de ninguna familia."""
+    from .ficha import catalogo
+
+    cat = catalogo(db)
+    return {"campos": {a.codigo: a.etiqueta for a in cat.atributos},
+            "valores": {a.codigo: {o.codigo: o.etiqueta for o in a.opciones} for a in cat.atributos if a.opciones},
+            "partes": {a.codigo[5:]: a.etiqueta for a in cat.atributos if a.codigo.startswith("comp.")},
+            "tipos": {c.codigo: c.nombre_corto or c.nombre for c in cat.categorias.values()},
+            "paises": [p.iso for p in db.scalars(select(PaisArancel).order_by(PaisArancel.orden, PaisArancel.iso))]}
+
+
 def ficha_de_version(db: Session, user: Usuario, producto_id: int, version: int | None = None) -> dict:
     """La ficha vigente o, con `version`, la copia cerrada de una versión anterior."""
-    d = detalle(db, user, producto_id)
+    d = {**detalle(db, user, producto_id), "etiquetas": etiquetas_ficha(db)}
     if not version or version == d["version_ficha"]:
         return d
     p = _producto(db, user, producto_id)
@@ -1085,10 +1157,11 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
     prods = {p.id: p for p in db.scalars(select(Producto).where(Producto.id.in_(ids))
                                          .options(selectinload(Producto.partidas)))} if ids else {}
     paises = [d["iso"] for d in destinos(db)]
+    nombre_parte = etiquetas_ficha(db)["partes"]
 
     def comp(p: Producto | None) -> str:
         c = ((p.ficha or {}).get("comp") or {}) if p else {}
-        return " · ".join(f"{documentos.PARTES.get(k, k.capitalize())}: {v}" for k, v in c.items() if v) if isinstance(c, dict) else ""
+        return " · ".join(f"{nombre_parte.get(k) or documentos._legible(k)}: {v}" for k, v in c.items() if v) if isinstance(c, dict) else ""
 
     def codigos(p: Producto | None) -> dict:
         return {x.pais: fmt_codigo(x.codigo) for x in (p.partidas if p else []) if x.codigo}
@@ -1125,7 +1198,7 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
         c = ((pr.ficha or {}).get("comp") or {}) if pr else {}
         for parte, materiales in (c.items() if isinstance(c, dict) else []):
             if materiales:
-                partes.append([p["codigo_generico"] or "—", p["estilo"], p["color"], documentos.PARTES.get(parte, parte.capitalize()),
+                partes.append([p["codigo_generico"] or "—", p["estilo"], p["color"], nombre_parte.get(parte) or documentos._legible(parte),
                                str(materiales)])
         for x in (pr.partidas if pr else []):
             codigos_filas.append([p["codigo_generico"] or "—", p["estilo"], p["color"], x.pais, fmt_codigo(x.codigo) or "—",

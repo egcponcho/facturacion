@@ -53,7 +53,9 @@ from .productos import (
     producto_por_generico,
 )
 
-UNIDADES = [["PAR", "Pairs"], ["UN", "Units"], ["CJ", "Cartons (prepack)"]]
+from .unidades import opciones as _opciones_unidad
+
+UNIDADES = _opciones_unidad()
 CATEGORIAS = [["CALZADO", "Footwear"], ["ROPA", "Apparel"], ["ACCESORIO", "Accessories"]]
 
 

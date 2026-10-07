@@ -18,6 +18,7 @@ from ..models import Articulo, EscalaTalla, GrupoArticulo, Marca, Producto, Prov
 from . import catalogos as cat_svc
 from .common import ErrorNegocio, exigir, registrar, filtro_texto
 from . import tallas as tallas_svc
+from .unidades import DE_ARTICULO, normalizar
 from .productos import MSG_CODIGO, asegurar_producto, codigo_valido, descripcion_comercial_simple, producto_por_generico
 
 
@@ -75,8 +76,8 @@ def crear(db: Session, user: Usuario, datos) -> dict:
     estilo, color = (datos.estilo or "").strip().upper(), (datos.color or "").strip()
     if not estilo or not color:
         errores.append({"campo": "estilo", "mensaje": "Style and color are required."})
-    if datos.unidad not in ("PAR", "UN"):
-        errores.append({"campo": "unidad", "mensaje": "The unit of a solid is PAR (pairs) or UN (units)."})
+    if normalizar(datos.unidad) not in DE_ARTICULO:
+        errores.append({"campo": "unidad", "mensaje": f"The unit of a solid is one of {', '.join(DE_ARTICULO)}."})
     marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
     if not marca or not grupo or not prov:
         errores.append({"campo": "marca_id", "mensaje": "Choose the brand, the item group and the supplier."})
@@ -214,8 +215,8 @@ def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
     errores = []
     if (estilo != p.estilo or color != (p.color or "")) and any(a.tipo == "PREPACK" for a in arts):
         errores.append({"campo": "estilo", "mensaje": "The generic has prepacks: its style and color cannot change."})
-    if datos.unidad not in ("PAR", "UN"):
-        errores.append({"campo": "unidad", "mensaje": "The unit is PAR or UN."})
+    if normalizar(datos.unidad) not in DE_ARTICULO:
+        errores.append({"campo": "unidad", "mensaje": f"The unit is one of {', '.join(DE_ARTICULO)}."})
     marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
     if not marca or not grupo or not prov:
         errores.append({"campo": "marca_id", "mensaje": "Choose the brand, the item group and the supplier."})

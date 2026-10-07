@@ -1,6 +1,7 @@
 import { t } from './i18n/index.js'
 import { fechaTexto, horaTexto, numeroTexto, pref } from './stores/preferencias'
 import { reactive } from 'vue'
+import { UNIDADES } from './unidades.js'
 
 // Números, fechas y horas siguen las preferencias del perfil (separadores,
 // formato de fecha MM/DD/YYYY por defecto y reloj de 12 o 24 horas)
@@ -49,9 +50,8 @@ export function fmtFechaHoraLocal(valor) {
 }
 
 export function unidadTxt(unidad, n) {
-  if (unidad === 'PAR') return n === 1 ? t('pair') : t('pairs')
-  if (unidad === 'CJ') return n === 1 ? t('prepack carton') : t('prepack cartons')
-  return n === 1 ? t('unit') : t('units')
+  const u = UNIDADES[unidad] || UNIDADES.UN
+  return n === 1 ? u[0] : u[1]
 }
 
 // Dos liberaciones de dos equipos: comercial (P/C) y logística (304/300/301).

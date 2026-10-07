@@ -21,6 +21,8 @@ const hist = ref({ items: [], total: 0 })
 const palabras = ref([])
 const sinonimos = ref([])
 const resumen = ref(null)
+const paises = ref([])  // los países configurados (Aranceles → Países), no una lista fija
+api.get('/aranceles/paises').then((r) => (paises.value = r.map((p) => p.iso))).catch(() => {})
 
 async function cargar() {
   try {
@@ -70,7 +72,7 @@ const condTxt = (c) => Object.entries(c || {}).map(([k, v]) => `${k}: ${Array.is
       <div class="filtros" v-filtros>
         <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="f.q" type="search" :placeholder="t('Code')" :aria-label="t('Search')" @change="cargar" /></label>
         <Seleccion v-model="f.pais" :aria-label="t('Country')" @change="cargar"><option value="">{{ t('All countries') }}</option>
-          <option v-for="p in ['GT', 'SV', 'HN', 'NI', 'CR', 'PA']" :key="p" :value="p">{{ p }}</option></Seleccion>
+          <option v-for="p in paises" :key="p" :value="p">{{ p }}</option></Seleccion>
       </div>
       <div class="tabla-marco">
         <table class="tabla" v-tarjetas>

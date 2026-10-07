@@ -21,7 +21,7 @@ import Pasos from '../components/Pasos.vue'
 import ThOrden from '../components/ThOrden.vue'
 import { useTabla } from '../composables/useTabla'
 import { avisar, errorApi, guardando, textoDetalle } from '../stores/ui'
-import { cantTxt, fmtNum, pct, plural, porUnidadTxt, useSeleccion } from '../utils'
+import { cantTxt, fmtNum, pct, plural, porUnidadTxt, unidadTxt, useSeleccion } from '../utils'
 import { filasDefecto } from '../stores/preferencias'
 
 const props = defineProps({ id: String })
@@ -604,7 +604,7 @@ onMounted(cargar)
                 <td>
                   <span v-if="sugerida(l)">{{ tx(nombrePlantilla(sugerida(l))) }}<span v-if="l.plantilla_sugerida_id === sugerida(l)" class="etiqueta info" :title="t('The one you used last time with this item')">{{ t('used before') }}</span></span>
                   <span v-else-if="l.regla !== 'LIBRE'" class="apagado">{{ t('Not needed (uses the casepack)') }}</span>
-                  <span v-else class="apagado">{{ t('No template for {0}', [l.unidad === 'PAR' ? t('pairs') : t('units')]) }}</span>
+                  <span v-else class="apagado">{{ t('No template for {0}', [unidadTxt(l.unidad, 2)]) }}</span>
                 </td>
                 <td>
                   <EstadoBadge :estado="l.estado_empaque" />

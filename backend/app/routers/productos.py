@@ -113,6 +113,18 @@ def aprobar(producto_id: int, datos: s.AprobarIn, db: Db, user: User, clave: Cla
     return ejecutar(db, user, clave, lambda: svc.aprobar(db, user, producto_id, datos))
 
 
+@router.get("/productos/{producto_id}/partidas/{pais}")
+def partida_opciones(producto_id: int, pais: str, db: Db, user: User):
+    """Líneas oficiales vigentes del país para la subpartida aprobada."""
+    return svc.opciones_partida(db, user, producto_id, pais)
+
+
+@router.post("/productos/{producto_id}/partidas/{pais}")
+def partida_confirmar(producto_id: int, pais: str, datos: s.ConfirmarPartidaIn, db: Db, user: User, clave: Clave = None):
+    """Confirma la línea nacional de un país de un producto ya aprobado."""
+    return ejecutar(db, user, clave, lambda: svc.confirmar_partida(db, user, producto_id, pais, datos.codigo))
+
+
 @router.post("/productos/{producto_id}/observar")
 def observar(producto_id: int, datos: s.ObservarIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.observar(db, user, producto_id, datos))

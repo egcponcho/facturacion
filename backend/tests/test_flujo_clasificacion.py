@@ -60,10 +60,8 @@ def test_flujo_completo_de_la_ficha_a_la_aprobacion(interno):
     assert interno.post("/productos/enviar", {"ids": [p["id"]]}).json()["enviados"] == 1
     p = interno.get(f"/productos/{p['id']}").json()
     assert p["estado"] == "revision"
+    # Aprobar no exige las líneas nacionales: la OC y la factura llevan la subpartida de 6 dígitos
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": p["version"]})
-    if r.status_code == 422 and r.json()["codigo"] == "faltan_paises":  # un país con varias líneas: se elige una de sus opciones
-        partidas = {x["pais"]: {"codigo": x["opciones"][0], "manual": True} for x in r.json()["detalle"]}
-        r = interno.post(f"/productos/{p['id']}/aprobar", {"version": p["version"], "partidas": partidas})
     assert r.status_code == 200, r.text
     p = r.json()
 
@@ -78,6 +76,13 @@ def test_flujo_completo_de_la_ficha_a_la_aprobacion(interno):
         aplicadas = [t for t in ev["reglas"] if t.get("aplicada")]
         assert aplicadas and all(t["firma"] and t["revision"] for t in aplicadas)
         # Cada país con línea oficial la guarda; los que no tienen arancel nacional oficial cargado lo dicen
-        assert {y["pais"] for y in ev["paises"] if y["codigo"]} == set(p["partidas"]) == {"GT", "SV", "HN"}
+        assert {y["pais"] for y in ev["paises"] if y["codigo"]} == set(p["partidas"]) <= {"GT", "SV", "HN"}
         assert all(y["sin_datos_oficiales"] and not y["codigo"] for y in ev["paises"] if y["pais"] in ("NI", "CR", "PA"))
         assert all(f.version_id or f.manual for f in x.partidas if f.inciso_id)
+    # Un país con varias líneas oficiales queda pendiente; una persona la confirma después
+    for iso in {"GT", "SV", "HN"} - {k for k, v in p["partidas"].items() if v["estado"] == "ok"}:
+        ops = interno.get(f"/productos/{p['id']}/partidas/{iso}").json()["opciones"]
+        r = interno.post(f"/productos/{p['id']}/partidas/{iso}", {"codigo": ops[0]["codigo"]})
+        assert r.status_code == 200, r.text
+        p = r.json()
+    assert {k for k, v in p["partidas"].items() if v["estado"] == "ok"} == {"GT", "SV", "HN"}

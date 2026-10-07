@@ -226,3 +226,20 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
   queda para revisión. Media o alta solo con reglas.
 - Si el texto coincide igual o mejor en un capítulo que no se clasifica solo
   (manual o no habilitado), el motor lo dice y deja el caso en revisión.
+
+## Integración con artículos, aprobación y documentos (G5)
+
+- Aprobar un producto exige su subpartida (la que va en la OC y la factura),
+  no la línea nacional de cada país. Una línea que falta elegir o que solo el
+  historial prefiere queda pendiente y una persona la confirma después, país
+  por país (`GET/POST /productos/{id}/partidas/{país}`); solo lo confirmado se
+  guarda como decisión de la empresa.
+- Unidades de medida en un solo módulo (`services/unidades.py` y
+  `frontend/src/unidades.js`, verificados por una prueba): pares, unidades,
+  docenas, juegos, kg, g, L, ml, m, m², m³ y rollos, con sus alias.
+- La ficha en PDF y Excel y el reporte de productos usan las etiquetas del
+  catálogo (atributos, opciones, partes, categorías) y el orden de países
+  configurado.
+- La carga masiva de artículos arma sus columnas de la ficha con el catálogo
+  (también género y «para quién es», como cualquier atributo) y reconoce sus
+  alias.

@@ -442,9 +442,7 @@ CAMPOS_POSICION = [
     "tipo_empaque", "casepack", "inner_pack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
     "pais_origen",
 ]
-UNIDADES = {"PAR": "PAR", "PR": "PAR", "PARES": "PAR", "PRS": "PAR",
-            "UN": "UN", "UND": "UN", "UNIDAD": "UN", "UNIDADES": "UN", "EA": "UN", "PC": "UN", "PZA": "UN",
-            "CJ": "CJ", "CAJA": "CJ", "CAJAS": "CJ", "CS": "CJ", "CTN": "CJ"}
+from .unidades import _ALIAS as UNIDADES  # alias de cada unidad → su código
 
 
 def _norm(texto: str) -> str:

@@ -77,7 +77,9 @@ def crear_plantilla(db: Session, user: Usuario, datos) -> dict:
     nombre = datos.nombre.strip()
     if db.scalar(select(PlantillaCaja.id).where(PlantillaCaja.proveedor_id == prov, PlantillaCaja.nombre == nombre)):
         raise ErrorNegocio(f"A template named “{nombre}” already exists.", 409, "duplicado")
-    t = PlantillaCaja(**{**datos.model_dump(exclude={"proveedor_id"}), "nombre": nombre, "proveedor_id": prov})
+    from .unidades import validar
+
+    t = PlantillaCaja(**{**datos.model_dump(exclude={"proveedor_id"}), "nombre": nombre, "proveedor_id": prov, "unidad": validar(datos.unidad)})
     db.add(t)
     db.flush()
     return _plantilla_dict(t)
@@ -90,6 +92,10 @@ def actualizar_plantilla(db: Session, user: Usuario, plantilla_id: int, datos) -
     if not t or (user.rol == "proveedor" and t.proveedor_id != user.proveedor_id):
         raise ErrorNegocio("The template does not exist.", 404, "no_encontrado")
     campos = datos.model_dump(exclude_unset=True)
+    if campos.get("unidad") is not None:
+        from .unidades import validar
+
+        campos["unidad"] = validar(campos["unidad"])
     if "nombre" in campos:
         campos["nombre"] = (campos["nombre"] or "").strip()
         if not campos["nombre"]:

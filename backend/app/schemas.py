@@ -283,7 +283,7 @@ class PlantillaIn(BaseModel):
     proveedor_id: int | None = None
     nombre: str = Field(min_length=1, max_length=100)
     cantidad_por_caja: int = Cant
-    unidad: Literal["PAR", "UN", "CJ"] = "PAR"
+    unidad: str = Field("PAR", max_length=5)  # una de services/unidades.py (se valida al guardar)
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)
     alto: float | None = Field(default=None, ge=0)
@@ -294,7 +294,7 @@ class PlantillaIn(BaseModel):
 class PlantillaPatch(BaseModel):
     nombre: str | None = None
     cantidad_por_caja: int | None = Field(default=None, gt=0)
-    unidad: Literal["PAR", "UN", "CJ"] | None = None
+    unidad: str | None = Field(None, max_length=5)
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)
     alto: float | None = Field(default=None, ge=0)
@@ -638,6 +638,10 @@ class SinonimoBusquedaIn(BaseModel):
     palabra: str | None = Field(None, max_length=60)
     equivale: str | None = Field(None, max_length=300)
     activo: bool | None = None
+
+
+class ConfirmarPartidaIn(BaseModel):
+    codigo: str = Field(max_length=20)
 
 
 class ClaseMaterialIn(BaseModel):

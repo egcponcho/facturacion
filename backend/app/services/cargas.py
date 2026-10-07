@@ -22,6 +22,7 @@ from .normalizar import texto as texto_fmt
 from .meta import categoria_de, valor_opcion
 from .plantillas import hojas, leer, norm, plantilla, plantilla_hojas, si_no
 from .productos import APROBADOS, asegurar_producto, descripcion_comercial_simple, producto_por_generico
+from .unidades import DE_ARTICULO, normalizar
 
 # ---- Artículos con ficha técnica -------------------------------------------------------
 ALIAS_BASE = {
@@ -35,7 +36,6 @@ ALIAS_BASE = {
     "peso_unitario": "peso_unitario", "peso_unitario_kg": "peso_unitario", "peso": "peso_unitario",
     "commercial_name": "nombre", "product_name": "nombre", "name": "nombre", "description": "nombre",
     "category": "categoria", "product_type": "categoria", "categoria": "categoria",
-    "gender": "genero", "genero": "genero", "who_it_is_for": "edad", "age": "edad", "edad": "edad",
     "what_it_is_for": "uso", "use": "uso", "uso": "uso", "size_range": "tallas", "tallas": "tallas",
     "country_of_origin": "pais_origen", "origin": "pais_origen", "pais_origen": "pais_origen",
     "generic_code": "codigo_generico", "proposed_hs_code": "partida", "hs_code": "partida", "partida_arancelaria": "partida",
@@ -54,20 +54,18 @@ def _vocab(db: Session) -> dict:
     def nombre(lbl, k):
         n = vistos[norm(lbl)] = vistos.get(norm(lbl), 0) + 1
         return lbl if n == 1 else f"{lbl} ({k})"
-    gen = cat.por_codigo.get("genero")
-    edad = cat.por_codigo.get("edadNac")
-    for x in ("Category", "Gender", "Who it is for", "What it is for", "Country of origin", *ALIAS_BASE):
+    for x in ("Category", "What it is for", "Country of origin", *ALIAS_BASE):
         vistos[norm(x)] = 1  # nombres que ya son de otras columnas
     partes = [(a.codigo.split(".", 1)[1], nombre(a.etiqueta, a.codigo)) for a in partes_carga(db)]
-    attrs = [(a, nombre(a.etiqueta, a.codigo)) for a in atributos_carga(db) if a.codigo not in ("genero", "edadNac")]
+    attrs = [(a, nombre(a.etiqueta, a.codigo)) for a in atributos_carga(db)]
     alias = dict(ALIAS_BASE)
     for k, lbl in partes:
         alias[norm(lbl)] = alias["comp_" + k] = "comp_" + k
     for a, lbl in attrs:
-        alias[norm(lbl)] = alias[norm(a.codigo)] = "a_" + a.codigo
-    return {"cat": cat, "partes": partes, "attrs": attrs, "alias": alias,
-            "genero": {o.codigo: o.etiqueta for o in gen.opciones if o.activo} if gen else {},
-            "edad": {o.codigo: o.etiqueta for o in edad.opciones if o.activo} if edad else {}}
+        for x in (lbl, a.etiqueta, a.codigo, *a.alias):  # su etiqueta, su código y sus otros códigos
+            alias.setdefault(norm(x), "a_" + a.codigo)
+        alias[norm(lbl)] = "a_" + a.codigo
+    return {"cat": cat, "partes": partes, "attrs": attrs, "alias": alias}
 
 
 def _cols_ficha(db: Session) -> list[dict]:
@@ -75,13 +73,11 @@ def _cols_ficha(db: Session) -> list[dict]:
     categorias = [c.nombre for c in sorted(v["cat"].categorias.values(), key=lambda c: (c.orden, c.nombre)) if c.activo]
     cols = [
         {"nombre": "Category", "opciones": categorias, "ayuda": "Technical sheet: what the product is. Required to classify.", "ancho": 30},
-        {"nombre": "Gender", "opciones": list(v["genero"].values()), "ancho": 10},
-        {"nombre": "Who it is for", "opciones": list(v["edad"].values()), "ancho": 12},
         {"nombre": "What it is for", "ayuda": "Short phrase, e.g. casual everyday sneaker.", "ancho": 26},
         {"nombre": "Country of origin", "ayuda": "ISO code or name (e.g. VN or Vietnam).", "ancho": 14},
     ]
     for k, l in v["partes"]:
-        cols.append({"nombre": l, "ayuda": f"Composition of the {l.lower()} with percentages, e.g. 60% cotton, 40% polyester.", "ancho": 22})
+        cols.append({"nombre": l, "ayuda": f"Composition ({l}) with percentages, e.g. 60% cotton, 40% polyester.", "ancho": 22})
     for a, l in v["attrs"]:
         if a.booleano:
             cols.append({"nombre": l, "opciones": ["Yes", "No"], "ayuda": a.etiqueta, "ancho": 12})
@@ -103,7 +99,7 @@ def plantilla_articulos(db: Session) -> bytes:
         {"nombre": "Brand", "req": True, "opciones": marcas, "ayuda": "Brand code.", "ancho": 10},
         {"nombre": "Item group", "req": True, "opciones": grupos, "ayuda": "Group code (packing rule).", "ancho": 12},
         {"nombre": "Supplier", "req": True, "opciones": provs, "ayuda": "Supplier code.", "ancho": 10},
-        {"nombre": "Unit", "req": True, "opciones": ["PAR", "UN"], "ayuda": "PAR (pairs) or UN (units) of its sizes.", "ancho": 8},
+        {"nombre": "Unit", "req": True, "opciones": DE_ARTICULO, "ayuda": f"Unit of its sizes: {', '.join(DE_ARTICULO)}.", "ancho": 8},
     ] + _cols_ficha(db)
     tallas_cols = [
         {"nombre": "Generic code", "req": True, "ayuda": "The generic of the sheet Generics (or one already loaded).", "ancho": 13},
@@ -116,9 +112,10 @@ def plantilla_articulos(db: Session) -> bytes:
         {"nombre": "Supplier SKU", "ayuda": "The supplier's own code (e.g. VN0A5KRFBLK-8).", "ancho": 18},
         {"nombre": "Active", "opciones": ["Yes", "No"], "ancho": 8},
     ]
-    ej_gen = ["30095129", "VN0A5KRF", "Black", marcas[-1] if marcas else "", grupos[0] if grupos else "",
-              provs[-1] if provs else "", "PAR", "Footwear: sneakers, boots, shoes, sandals", "Unisex",
-              "Adult", "Casual skate sneaker", "VN", "", "", "", "100% canvas", "100% rubber", "100% textile", "100% EVA"]
+    # Ejemplo: los datos maestros y la primera categoría; la ficha se llena con lo que tenga cada familia
+    cats = [c for c in _cols_ficha(db)[0].get("opciones") or []]
+    ej_gen = ["30095129", "STYLE01", "Black", marcas[-1] if marcas else "", grupos[0] if grupos else "",
+              provs[-1] if provs else "", DE_ARTICULO[0], cats[0] if cats else "", "Short description of its use", "CN"]
     ej_tallas = [["30095129", t, "", f"{int(t) * 10:03d}", 0.8, f"01960129{i:04d}", f"VN0A5KRFBLK-{t}", "Yes"]
                  for i, t in enumerate(["8", "9", "10"], 1)]
     return plantilla_hojas("Items by generic, with technical sheet",
@@ -176,9 +173,9 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
             if not obj:
                 faltan.append(f"{lbl} {cod or '(empty)'} does not exist")
             ids[campo] = obj.id if obj else None
-        unidad = (f.get("unidad") or "").strip().upper()
-        if unidad not in ("PAR", "UN"):
-            faltan.append("Unit must be PAR or UN")
+        unidad = normalizar(f.get("unidad")) or (f.get("unidad") or "").strip().upper()
+        if unidad not in DE_ARTICULO:
+            faltan.append(f"Unit must be one of {', '.join(DE_ARTICULO)}")
         estilo, color = (f.get("estilo") or "").strip().upper(), (f.get("color") or "").strip()
         if not estilo or not color:
             faltan.append("Style and color are required")
@@ -353,18 +350,6 @@ def _ficha_desde_fila(p, f: dict, paises: dict, voc: dict) -> str | None:
             ficha.pop("_categoria", None)
         elif not p.tipo:
             ficha["_categoria"] = f["categoria"][:100]
-    if f.get("genero"):
-        g = valor_opcion(voc["genero"], f["genero"])
-        if g:
-            ficha["genero"] = g
-        else:
-            avisos.append(f"Gender “{f['genero']}” not recognized")
-    if f.get("edad"):
-        e = valor_opcion(voc["edad"], f["edad"])
-        if e:
-            ficha["edadNac"] = e
-        else:
-            avisos.append(f"Age “{f['edad']}” not recognized")
     for k in ("uso", "tallas"):
         if f.get(k):
             ficha[k] = f[k][:200]
