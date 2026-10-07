@@ -3,6 +3,7 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from ..schemas import PlantillaIn, PlantillaPatch
+from ..services import buscar as buscador
 from ..services import dashboard as tablero
 from ..services import reportes
 from ..services import leadtimes
@@ -19,6 +20,12 @@ def dashboard(db: Db, user: User, proveedor_id: int | None = None, desde: date |
               hasta: date | None = None, marcas: str | None = None):
     """Tablero; el periodo (por defecto el mes en curso) y las marcas filtran las gráficas y el resumen."""
     return tablero.dashboard(db, user, proveedor_id, desde, hasta, marcas)
+
+
+@router.get("/buscar")
+def buscar(db: Db, user: User, q: str = ""):
+    """Búsqueda global agrupada por tipo (órdenes, productos, facturas, PL, embarques…), según los permisos."""
+    return buscador.buscar(db, user, q)
 
 
 # Los tres tableros de mercancía comparten los mismos filtros

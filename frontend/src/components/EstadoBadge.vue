@@ -21,6 +21,9 @@ const MAPA = {
   ARRIBADO: [t('Arrived'), 'info'],
   ENTREGADO: [t('Delivered'), 'ok'],
   RECIBIDO: [t('Received'), 'ok'],
+  // Liberación de la OC (estados universales)
+  RELEASED: [t('Released'), 'ok'],
+  PENDING: [t('Not released'), 'aviso'],
   // Ficha técnica y clasificación del producto
   borrador: [t('Draft'), 'neutro'],
   sugerida: [t('Draft · complete'), 'neutro'],

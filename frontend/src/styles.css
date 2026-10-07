@@ -241,6 +241,7 @@ button.nav-link { background: none; border-top: 0; border-inline-start: 0; borde
 .menu-item small { display: block; color: var(--tinta-3); font-size: 0.78rem; }
 .menu-icono { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--superficie-2); color: var(--acento-texto); flex: none; }
 .nav-cuenta { font-size: 0.72rem; font-weight: 700; background: var(--acento); color: var(--sobre-acento); border-radius: 10px; padding: 0 6px; }
+.cabecera-busqueda { margin-inline-start: 8px; flex: 0 1 auto; min-width: 0; }
 .cabecera-derecha { margin-inline-start: auto; display: flex; align-items: center; gap: 10px; flex: none; }
 .avatar {
   width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none;

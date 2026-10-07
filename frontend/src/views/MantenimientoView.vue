@@ -119,11 +119,11 @@ async function cargar() {
   }
 }
 
-async function elegir(t, extra = {}) {
+async function elegir(t, extra = {}, q = '') {
   if (t === 'prepacks' && !solidos.value.length) cargarSolidos()
   tipo.value = t
   router.replace({ query: { catalogo: t } })
-  Object.assign(filtros, { q: '', orden: '', page: 1, extra: { ...extra } })
+  Object.assign(filtros, { q, orden: '', page: 1, extra: { ...extra } })
   editando.value = null
   erroresForm.value = {}
   form.value = vacio()
@@ -321,7 +321,8 @@ watch(() => filtros.size, () => {
 onMounted(async () => {
   await cargarMeta()
   if (!cat.value) tipo.value = 'articulos'
-  await elegir(tipo.value)
+  // Desde la búsqueda global: ?catalogo=proveedores&q=VANS abre el catálogo ya filtrado
+  await elegir(tipo.value, {}, String(route.query.q || ''))
 })
 </script>
 

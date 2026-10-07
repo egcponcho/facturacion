@@ -86,7 +86,10 @@ function buscar() {
   espera = setTimeout(cargar, 300)
 }
 
-onMounted(cargar)
+onMounted(() => {
+  cargar()
+  if (route.query.nuevo) nuevo() // desde la paleta de comandos: «New shipment»
+})
 </script>
 
 <template>

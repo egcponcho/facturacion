@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icono from './components/Icono.vue'
 import Avatar from './components/Avatar.vue'
+import BusquedaGlobal from './components/BusquedaGlobal.vue'
 import SelectorIdioma from './components/SelectorIdioma.vue'
 import SelectorTema from './components/SelectorTema.vue'
 import Toasts from './components/Toasts.vue'
@@ -82,6 +83,7 @@ async function salir() {
           <span class="marca-logo"><Icono nombre="caja" :tam="19" /></span>
           <span class="marca-texto">{{ t('Workspace') }}<span>{{ t('Suppliers') }}</span></span>
         </router-link>
+        <BusquedaGlobal class="cabecera-busqueda" />
         <div class="cabecera-derecha">
           <span class="indicador-guardado" :class="ui.guardado" aria-live="polite"><Icono v-if="ui.guardado === 'guardado'" nombre="check" :tam="14" />{{ tx(textoGuardado) }}</span>
           <router-link v-if="carrito.items.length" to="/ordenes?seleccion=1" class="chip-seleccion" :title="t('Order lines ready to invoice')">
