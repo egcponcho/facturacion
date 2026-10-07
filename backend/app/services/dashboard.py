@@ -322,6 +322,66 @@ def _tareas_productos(db: Session, user: Usuario, prov: int | None) -> list[dict
     return out
 
 
+def _atencion(db: Session, user: Usuario, prov: int | None, seg: list[dict], en_proceso: list, pls_abiertos: list,
+              sin_unidad: list, atrasadas: set) -> list[dict]:
+    """«¿Qué necesita mi atención hoy?»: cada indicador abre la lista ya
+    filtrada. Primero lo que bloquea el siguiente paso, luego lo que vence o
+    llega pronto. Solo aparece lo que tiene algo pendiente."""
+    from .common import tiene
+    from .productos import ids_bloquean_facturas
+
+    hoy = date.today()
+    semana = hoy + timedelta(days=7)
+    interno = es_interno(user)
+    out = []
+
+    def item(clave, titulo, valor, detalle, ruta, query=None, tono="alerta"):
+        if valor:
+            out.append({"clave": clave, "titulo": titulo, "valor": valor, "detalle": detalle, "ruta": ruta,
+                        "query": query or {}, "tono": tono})
+
+    if tiene(user, "producto.ver"):
+        item("bloquean", "Products blocking invoices", len(ids_bloquean_facturas(db, prov)),
+             "Without an approved HS code, their invoices cannot be finalized.", "/productos", {"estado": "bloquean"}, "error")
+        estados = dict(db.execute(select(Producto.estado, func.count()).where(*([Producto.proveedor_id == prov] if prov else []))
+                                  .group_by(Producto.estado)).all())
+        if interno:
+            item("clasificar", "Products to classify", estados.get("revision", 0), "Sent to review with a suggested HS code.",
+                 "/productos", {"estado": "revision"})
+        else:
+            item("devueltos", "Technical sheets returned", estados.get("observado", 0), "Customs returned them with notes.",
+                 "/productos", {"estado": "observado"}, "error")
+    item("facturas", "Invoices to finalize", len(en_proceso), "Drafts and invoices under correction.", "/facturas",
+         {"vista": "editables"}, "info")
+    pesos = sum(1 for pl in pls_abiertos if any(e.get("codigo") in ("sin_peso", "peso_estimado") for e in validar_pl(pl)))
+    item("pl_incompletos", "Packing lists incomplete", len(pls_abiertos),
+         f"{pesos} with weights to confirm." if pesos else "Cartons to pack or finalize.", "/facturas", {"vista": "pl_incompletos"})
+    xf_semana = {f["oc"] for f in seg if f["etapa"] == "POR_FACTURAR" and f["fecha_xf"] and hoy <= f["fecha_xf"] <= semana}
+    item("xf_proxima", "POs with XF this week", len(xf_semana), "With quantities still to invoice.", "/seguimiento",
+         {"vista": "ordenes", "etapa": "POR_FACTURAR", "fecha_xf_desde": hoy.isoformat(), "fecha_xf_hasta": semana.isoformat()})
+    xf_vencida = {f["oc"] for f in seg if f["etapa"] == "POR_FACTURAR" and f["fecha_xf"] and f["fecha_xf"] < hoy}
+    item("xf_vencida", "POs past XF", len(xf_vencida), "The XF date passed and there is quantity to invoice.", "/seguimiento",
+         {"vista": "ordenes", "xf_vencida": "1"}, "error")
+    if interno or tiene(user, "transporte.gestionar"):
+        item("sin_contenedor", "Packing lists without load unit", len(sin_unidad), "Finalized and waiting for a container.",
+             "/transporte", {"estado": "PLANIFICADO"})
+        salen = db.scalar(select(func.count()).select_from(Embarque).where(Embarque.estado == "PLANIFICADO", Embarque.etd >= hoy,
+                                                                           Embarque.etd <= semana)) or 0
+        item("salen", "Shipments departing this week", salen, "Planned with ETD in the next 7 days.", "/transporte",
+             {"estado": "PLANIFICADO"}, "info")
+    item("riesgo", "POs at risk of arriving late", len(atrasadas), "They arrive after the in-store date.", "/seguimiento",
+         {"riesgo": "ATRASO"}, "error")
+    llegan = {f["embarque"] for f in seg if f.get("embarque") and f.get("eta") and f["etapa"] in ("CONTENEDOR", "EN_TRANSITO")
+              and hoy <= f["eta"] <= semana}
+    item("llegan", "Arrivals this week", len(llegan), "Shipments with ETA in the next 7 days.", "/seguimiento",
+         {"vista": "embarques", "eta_desde": hoy.isoformat(), "eta_hasta": semana.isoformat()}, "info")
+    # Solo lo que el rol puede abrir
+    permiso = {"/productos": "producto.ver", "/facturas": "oc.ver", "/seguimiento": "seguimiento.ver", "/transporte": "transporte.gestionar"}
+    out = [x for x in out if tiene(user, permiso[x["ruta"]])]
+    orden = {"error": 0, "alerta": 1, "info": 2}
+    return sorted(out, key=lambda x: orden[x["tono"]])
+
+
 def _contenedores(db: Session) -> list[dict]:
     unidades = db.scalars(
         select(UnidadCarga).join(Embarque).where(Embarque.estado == "PLANIFICADO")
@@ -416,6 +476,8 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None, desde
     kpis.append({"clave": "riesgo", "titulo": "POs at risk of delay", "valor": len(atrasadas),
                  "detalle": "arrive after the in-store date", "ruta": "/seguimiento",
                  "query": {"riesgo": "ATRASO"}, "tono": "alerta" if atrasadas else "exito"})
+    sin_unidad = [pl for f in facturas for pl in f.packing_lists if pl.estado == "FINALIZADO" and not pl.unidad_carga_id]
+    atencion = _atencion(db, user, prov, seg, en_proceso, pls_abiertos, sin_unidad, atrasadas)
     tareas = _tareas(db, user, facturas, distribucion, prov)
     if pendientes_lib:
         tareas.insert(0, {"prioridad": 1, "tipo": "liberacion",
@@ -426,6 +488,7 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None, desde
         "rol": user.rol,
         "moneda": moneda,
         "kpis": kpis,
+        "atencion": atencion,
         "tareas": tareas[:12],
         "flujo": _flujo(db, facturas, saldo),
         "facturado_mes": _facturado_por_mes(facturas, moneda),

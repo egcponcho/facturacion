@@ -111,6 +111,26 @@ def producto_de(a: Articulo | None) -> Producto | None:
     return a.producto
 
 
+def ids_bloquean_facturas(db: Session, prov: int | None = None) -> set[int]:
+    """Productos sin clasificación aprobada que dejan una factura en curso sin
+    partida (no se puede finalizar hasta aprobarlos)."""
+    from ..models import Factura, FacturaLinea, PosicionOC
+    from .common import EDITABLE_FACTURA
+
+    consulta = (select(FacturaLinea).join(Factura).where(Factura.estado.in_(EDITABLE_FACTURA),
+                                                         or_(FacturaLinea.partida_arancelaria.is_(None),
+                                                             FacturaLinea.partida_arancelaria == ""))
+                .options(selectinload(FacturaLinea.posicion_oc).selectinload(PosicionOC.articulo)))
+    if prov:
+        consulta = consulta.where(Factura.proveedor_id == prov)
+    ids = set()
+    for linea in db.scalars(consulta):
+        prod = producto_de(linea.posicion_oc.articulo if linea.posicion_oc else None)
+        if prod and not prod.aprobado:
+            ids.add(prod.id)
+    return ids
+
+
 # Códigos de artículo y de genérico: el formato lo define cada empresa
 # (numérico o alfanumérico, con punto, guion, barra o guion bajo)
 RE_CODIGO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}$")
@@ -385,7 +405,10 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     baja = (db.scalar(select(func.count()).where(sub.c.estado.in_(PENDIENTES), sub.c.confianza == "low"))
             if flujo.ve_sugerencia(db, user) else None)
     estado = filtros.get("estado")
-    if estado == "pendientes":
+    bloquean = ids_bloquean_facturas(db, prov)
+    if estado == "bloquean":
+        base = base.where(Producto.id.in_(bloquean))
+    elif estado == "pendientes":
         base = base.where(Producto.estado.in_(PENDIENTES))
     elif estado == "borradores":
         base = base.where(Producto.estado.in_(BORRADORES))
@@ -409,6 +432,7 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
         "revision": conteo.get("revision", 0), "borradores": sum(conteo.get(e, 0) for e in BORRADORES),
         "observado": conteo.get("observado", 0),
         "aprobados": sum(conteo.get(e, 0) for e in APROBADOS), "baja_confianza": baja,
+        "bloquean": len(bloquean),
     }
     ds = destinos(db)
     items = [_resumen(p, tallas, ds) for p in filas]

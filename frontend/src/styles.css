@@ -977,3 +977,24 @@ th.num .orden-btn { flex-direction: row-reverse; }
   .menu-lateral .menu-grupo { display: none; }
   .menu-lateral .menu-item { width: auto; white-space: nowrap; flex: none; }
 }
+
+/* Home: «Necesita atención» primero; lo estadístico, plegado */
+.atencion { margin-bottom: 18px; }
+.atencion-lista { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.atencion-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--linea); border-inline-start: 4px solid var(--borde-hover);
+  border-radius: var(--radio); background: var(--superficie); color: inherit; text-decoration: none; height: 100%; }
+.atencion-item:hover { border-color: var(--borde-hover); background: var(--fila-hover); }
+.atencion-item.tono-error { border-inline-start-color: var(--error); }
+.atencion-item.tono-alerta { border-inline-start-color: var(--aviso); }
+.atencion-item.tono-info { border-inline-start-color: var(--azul); }
+.atencion-valor { font-size: 1.5rem; font-weight: 700; min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; }
+.atencion-item.tono-error .atencion-valor { color: var(--error); }
+.atencion-item.tono-alerta .atencion-valor { color: var(--aviso); }
+.atencion-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.atencion-texto small { color: var(--tinta-3); font-size: 0.82rem; }
+.atencion-ir { color: var(--tinta-3); flex: none; }
+.titulo-seccion { font-size: 1rem; margin: 22px 0 10px; }
+.resumen-plegable { margin-top: 18px; }
+.resumen-plegable > summary { cursor: pointer; list-style: revert; padding: 12px 4px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.resumen-plegable > summary .ayuda { font-weight: 400; }
+.resumen-plegable[open] > summary { margin-bottom: 10px; }

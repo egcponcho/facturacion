@@ -21,6 +21,9 @@ const cargando = ref(true)
 // Periodo de las gráficas y del resumen: por defecto, el mes en curso
 const periodo = ref(periodoInicial())
 const marcas = ref([])
+// El resumen estadístico queda plegado: primero lo que pide atención (se recuerda)
+const resumenAbierto = ref((() => { try { return localStorage.getItem('home-resumen') === '1' } catch { return false } })())
+watch(resumenAbierto, (v) => { try { localStorage.setItem('home-resumen', v ? '1' : '0') } catch { /* sin almacenamiento */ } })
 
 const ICONOS_KPI = { por_facturar: 'moneda', en_proceso: 'factura', pl_abiertos: 'caja', listas: 'check', tentativas: 'reloj', en_camino: 'barco', riesgo: 'alerta' }
 const ICONOS_TAREA = { clasificar: 'etiqueta', empacar: 'caja', pl: 'caja', datos: 'editar', correccion: 'alerta', finalizar: 'check', antiguo: 'reloj', embarcar: 'barco', liberacion: 'candado' }
@@ -97,22 +100,22 @@ watch(periodo, cargar, { deep: true })
 
   <p v-if="cargando" class="ayuda">{{ t('Loading the dashboard…') }}</p>
   <template v-if="d">
-    <section class="kpis" :aria-label="t('Indicators')">
-      <Kpi v-for="k in d.kpis" :key="k.clave" :titulo="tx(k.titulo)" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
-           :detalle="tx(k.detalle)" :tono="k.tono" :icono="ICONOS_KPI[k.clave]" @abrir="router.push({ path: k.ruta, query: k.query })" />
-    </section>
-
-    <section class="panel periodo-panel" :aria-label="t('Period')">
+    <section class="panel atencion" :aria-label="t('Needs your attention')">
       <div class="panel-cabeza">
-        <div><h2>{{ t('In the period') }}</h2><p>{{ t('What happened in the selected period; the chart below uses it too.') }}</p></div>
-        <div class="fila-flex" style="gap: 8px">
-          <FiltroMulti v-if="d.periodo.marcas.length > 1" v-model="marcas" :etiqueta="t('Brand')" :opciones="d.periodo.marcas.map((m) => ({ valor: m, texto: m }))" @change="cargar" />
-          <FiltroPeriodo v-model="periodo" />
-        </div>
+        <div><h2>{{ t('Needs your attention') }}</h2><p>{{ t('What blocks the next step comes first. Open any item to see the records already filtered.') }}</p></div>
       </div>
-      <div class="kpis kpis-periodo">
-        <Kpi v-for="k in d.periodo.resumen" :key="k.clave" :titulo="tx(k.titulo)" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
-             :detalle="tx(k.detalle)" :icono="ICONOS_PERIODO[k.clave]" @abrir="router.push(RUTAS_PERIODO[k.clave])" />
+      <ul v-if="d.atencion.length" class="atencion-lista">
+        <li v-for="a in d.atencion" :key="a.clave">
+          <router-link class="atencion-item" :class="`tono-${a.tono}`" :to="{ path: a.ruta, query: a.query }">
+            <span class="atencion-valor">{{ fmtNum(a.valor) }}</span>
+            <span class="atencion-texto"><b>{{ tx(a.titulo) }}</b><small>{{ tx(a.detalle) }}</small></span>
+            <Icono nombre="derecha" :tam="16" class="atencion-ir" />
+          </router-link>
+        </li>
+      </ul>
+      <div v-else class="todo-listo">
+        <span class="icono-ok"><Icono nombre="check" :tam="22" /></span>
+        <div><b>{{ t('Nothing needs your attention') }}</b><p class="ayuda">{{ t('No blocked products, documents to finish, XF dates or arrivals this week.') }}</p></div>
       </div>
     </section>
 
@@ -142,52 +145,8 @@ watch(periodo, cargar, { deep: true })
           </div>
         </section>
 
-        <section class="panel">
-          <div class="panel-cabeza">
-            <div><h2>{{ t('Where the goods are') }}</h2><p>{{ t('From PO to load unit, by unit of measure.') }}</p></div>
-          </div>
-          <BarraFlujo :flujo="d.flujo" />
-        </section>
-
-        <section v-if="d.proveedores.length" class="panel">
-          <div class="panel-cabeza"><div><h2>{{ t('By supplier') }}</h2><p>{{ t('Click one to filter the whole system.') }}</p></div></div>
-          <div class="tabla-marco" style="box-shadow: none">
-            <table class="tabla" v-tarjetas>
-              <thead>
-                <tr>
-                  <th>{{ t('Supplier') }}</th>
-                  <th class="num">{{ t('To invoice') }}</th>
-                  <th class="num" :title="t('Invoices in draft or correction')">{{ t('In process') }}</th>
-                  <th class="num">{{ t('Open PLs') }}</th>
-                  <th class="num" :title="t('Invoices ready to ship')">{{ t('Ready') }}</th>
-                  <th class="num" :title="t('Packing lists in transit or arrived')">{{ t('On the way') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="p in d.proveedores" :key="p.id" class="clicable" @click="elegirProveedor(p.id)">
-                  <td class="principal-celda">{{ tx(p.nombre) }}</td>
-                  <td class="num">{{ fmtMoneda(p.por_facturar, d.moneda) }}</td>
-                  <td class="num">{{ tx(p.en_proceso || '—') }}</td>
-                  <td class="num"><span :class="{ 'etiqueta aviso': p.pl_abiertos }">{{ tx(p.pl_abiertos || '—') }}</span></td>
-                  <td class="num"><span :class="{ 'etiqueta ok': p.listas }">{{ tx(p.listas || '—') }}</span></td>
-                  <td class="num">{{ tx(p.en_camino || '—') }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
       </div>
-
       <div class="col">
-        <section class="panel">
-          <div class="panel-cabeza">
-            <div><h2>{{ t('Invoiced') }}</h2><p>{{ t('Finalized invoices {0}, {1} – {2} ({3}{4}).', [GRANO[d.periodo.facturado.grano], fmtFecha(d.periodo.desde), fmtFecha(d.periodo.hasta), d.moneda, marcas.length ? ` · ${marcas.join(', ')}` : '']) }}</p></div>
-            <b>{{ fmtMoneda(totalPeriodo, d.moneda) }}</b>
-          </div>
-          <GraficoColumnas v-if="totalPeriodo" :datos="serie" :titulo="t('Invoiced value')" :formato="(v) => fmtMoneda(v, d.moneda)" />
-          <p v-else class="ayuda">{{ t('No finalized invoices in this period. Try a longer period (quarter or year).') }}</p>
-        </section>
-
         <section class="panel">
           <div class="panel-cabeza">
             <div><h2>{{ t('Shipments') }}</h2><p>{{ tx(esInterno() ? t('Planned and in-transit shipments.') : t('Shipments carrying your goods.')) }}</p></div>
@@ -219,6 +178,89 @@ watch(periodo, cargar, { deep: true })
           <p v-else class="ayuda">{{ t('No shipments in progress.') }}</p>
         </section>
 
+        <section v-if="esInterno()" class="panel">
+          <div class="panel-cabeza"><div><h2>{{ t('Import alerts') }}</h2><p>{{ t('Conflicts found when loading purchase orders.') }}</p></div></div>
+          <p v-if="!d.alertas.length" class="ayuda">{{ t('No open conflicts.') }}</p>
+          <ul v-else class="linea-tiempo">
+            <li v-for="a in d.alertas" :key="a.id">
+              <span class="ayuda">{{ fmtFechaHora(a.creada_en) }}</span>
+              <span class="fila-flex">{{ tx(a.mensaje) }}<button class="btn btn-chico separar" @click="resolver(a)">{{ t('Mark resolved') }}</button></span>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <h2 class="titulo-seccion">{{ t('Overview') }}</h2>
+    <section class="kpis" :aria-label="t('Indicators')">
+      <Kpi v-for="k in d.kpis" :key="k.clave" :titulo="tx(k.titulo)" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
+           :detalle="tx(k.detalle)" :tono="k.tono" :icono="ICONOS_KPI[k.clave]" @abrir="router.push({ path: k.ruta, query: k.query })" />
+    </section>
+
+
+    <details class="resumen-plegable" :open="resumenAbierto" @toggle="resumenAbierto = $event.target.open">
+      <summary>{{ t('Period summary and charts') }}<span class="ayuda">{{ t('Invoiced, packed, arrivals and classification in the selected period.') }}</span></summary>
+    <section class="panel periodo-panel" :aria-label="t('Period')">
+      <div class="panel-cabeza">
+        <div><h2>{{ t('In the period') }}</h2><p>{{ t('What happened in the selected period; the chart below uses it too.') }}</p></div>
+        <div class="fila-flex" style="gap: 8px">
+          <FiltroMulti v-if="d.periodo.marcas.length > 1" v-model="marcas" :etiqueta="t('Brand')" :opciones="d.periodo.marcas.map((m) => ({ valor: m, texto: m }))" @change="cargar" />
+          <FiltroPeriodo v-model="periodo" />
+        </div>
+      </div>
+      <div class="kpis kpis-periodo">
+        <Kpi v-for="k in d.periodo.resumen" :key="k.clave" :titulo="tx(k.titulo)" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
+             :detalle="tx(k.detalle)" :icono="ICONOS_PERIODO[k.clave]" @abrir="router.push(RUTAS_PERIODO[k.clave])" />
+      </div>
+    </section>
+
+      <div class="tablero">
+        <div class="col">
+        <section class="panel">
+          <div class="panel-cabeza">
+            <div><h2>{{ t('Invoiced') }}</h2><p>{{ t('Finalized invoices {0}, {1} – {2} ({3}{4}).', [GRANO[d.periodo.facturado.grano], fmtFecha(d.periodo.desde), fmtFecha(d.periodo.hasta), d.moneda, marcas.length ? ` · ${marcas.join(', ')}` : '']) }}</p></div>
+            <b>{{ fmtMoneda(totalPeriodo, d.moneda) }}</b>
+          </div>
+          <GraficoColumnas v-if="totalPeriodo" :datos="serie" :titulo="t('Invoiced value')" :formato="(v) => fmtMoneda(v, d.moneda)" />
+          <p v-else class="ayuda">{{ t('No finalized invoices in this period. Try a longer period (quarter or year).') }}</p>
+        </section>
+
+        <section class="panel">
+          <div class="panel-cabeza">
+            <div><h2>{{ t('Where the goods are') }}</h2><p>{{ t('From PO to load unit, by unit of measure.') }}</p></div>
+          </div>
+          <BarraFlujo :flujo="d.flujo" />
+        </section>
+
+        </div>
+        <div class="col">
+        <section v-if="d.proveedores.length" class="panel">
+          <div class="panel-cabeza"><div><h2>{{ t('By supplier') }}</h2><p>{{ t('Click one to filter the whole system.') }}</p></div></div>
+          <div class="tabla-marco" style="box-shadow: none">
+            <table class="tabla" v-tarjetas>
+              <thead>
+                <tr>
+                  <th>{{ t('Supplier') }}</th>
+                  <th class="num">{{ t('To invoice') }}</th>
+                  <th class="num" :title="t('Invoices in draft or correction')">{{ t('In process') }}</th>
+                  <th class="num">{{ t('Open PLs') }}</th>
+                  <th class="num" :title="t('Invoices ready to ship')">{{ t('Ready') }}</th>
+                  <th class="num" :title="t('Packing lists in transit or arrived')">{{ t('On the way') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in d.proveedores" :key="p.id" class="clicable" @click="elegirProveedor(p.id)">
+                  <td class="principal-celda">{{ tx(p.nombre) }}</td>
+                  <td class="num">{{ fmtMoneda(p.por_facturar, d.moneda) }}</td>
+                  <td class="num">{{ tx(p.en_proceso || '—') }}</td>
+                  <td class="num"><span :class="{ 'etiqueta aviso': p.pl_abiertos }">{{ tx(p.pl_abiertos || '—') }}</span></td>
+                  <td class="num"><span :class="{ 'etiqueta ok': p.listas }">{{ tx(p.listas || '—') }}</span></td>
+                  <td class="num">{{ tx(p.en_camino || '—') }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
         <section v-if="d.contenedores.length" class="panel">
           <div class="panel-cabeza"><div><h2>{{ t('Load units being planned') }}</h2><p>{{ t('Fill rate by volume.') }}</p></div></div>
           <div class="contenedores">
@@ -231,17 +273,8 @@ watch(periodo, cargar, { deep: true })
           </div>
         </section>
 
-        <section v-if="esInterno()" class="panel">
-          <div class="panel-cabeza"><div><h2>{{ t('Import alerts') }}</h2><p>{{ t('Conflicts when loading POs from SAP.') }}</p></div></div>
-          <p v-if="!d.alertas.length" class="ayuda">{{ t('No open conflicts.') }}</p>
-          <ul v-else class="linea-tiempo">
-            <li v-for="a in d.alertas" :key="a.id">
-              <span class="ayuda">{{ fmtFechaHora(a.creada_en) }}</span>
-              <span class="fila-flex">{{ tx(a.mensaje) }}<button class="btn btn-chico separar" @click="resolver(a)">{{ t('Mark resolved') }}</button></span>
-            </li>
-          </ul>
-        </section>
+        </div>
       </div>
-    </div>
+    </details>
   </template>
 </template>

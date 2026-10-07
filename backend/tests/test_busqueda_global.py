@@ -46,3 +46,16 @@ def test_proveedor_solo_ve_lo_suyo(interno, vans):
     assert ajena in {x["titulo"] for x in g["ordenes"]}
     una = next(iter(suyas))
     assert una in {x["titulo"] for x in _buscar(vans, una)["ordenes"]}
+
+
+def test_home_necesita_atencion(interno, vans):
+    """Cada indicador del Home abre la lista ya filtrada y solo aparece lo que tiene algo pendiente."""
+    d = interno.get("/dashboard").json()
+    assert d["atencion"] and all(x["valor"] and x["ruta"].startswith("/") for x in d["atencion"])
+    tonos = [x["tono"] for x in d["atencion"]]
+    assert tonos == sorted(tonos, key=["error", "alerta", "info"].index)  # lo que bloquea, primero
+    # El proveedor no ve lo que no puede abrir (embarques)
+    assert all(x["ruta"] != "/transporte" for x in vans.get("/dashboard").json()["atencion"])
+    # «Productos que bloquean facturas» filtra la lista de productos
+    r = interno.get("/productos", params={"estado": "bloquean"}).json()
+    assert r["total"] == r["kpis"]["bloquean"]

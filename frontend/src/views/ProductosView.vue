@@ -43,8 +43,11 @@ const cargaAbierta = ref(false)
 // Bandeja de trabajo: pocas vistas, en el orden en que trabaja cada quien
 const VISTAS = computed(() => {
   const k = datos.value.kpis || {}
+  // Lo que deja facturas sin poder finalizarse va primero (solo cuando hay)
+  const bloquean = k.bloquean || filtros.estado === 'bloquean' ? [['bloquean', t('Blocking invoices'), k.bloquean]] : []
   if (revisa) {
     return [
+      ...bloquean,
       ['revision', t('To review'), k.revision],
       ...(k.baja_confianza != null ? [['baja_confianza', t('Low confidence'), k.baja_confianza]] : []),
       ['borradores', t('Drafts'), k.borradores],
@@ -54,6 +57,7 @@ const VISTAS = computed(() => {
     ]
   }
   return [
+    ...bloquean,
     ['borradores', t('To complete'), k.borradores],
     ['observado', interno ? t('Returned') : t('Returned to you'), k.observado],
     ['revision', t('Sent to review'), k.revision],
