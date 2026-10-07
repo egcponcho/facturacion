@@ -28,7 +28,7 @@ from ..models import (
     ahora,
 )
 from .cantidades import facturado_por_posicion, facturas_por_posicion
-from .productos import clasificacion_txt, pais_de_centro, partida_para, producto_de
+from .productos import clasificacion_txt, partida_para, producto_de
 from .common import ErrorNegocio, asegurar_proveedor, exigir, proveedor_filtro, registrar, filtro_texto, terminos
 
 # Dos liberaciones de dos equipos distintos:
@@ -304,7 +304,6 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
     facturado = facturado_por_posicion(db, ids)
     facturas = facturas_por_posicion(db, ids)
     # La partida sale de la clasificación del producto, con el código del país destino
-    pais_destino = pais_de_centro(db, oc.centro_destino)
     posiciones = []
     for p in oc.posiciones:
         prod = producto_de(p.articulo)
@@ -336,7 +335,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "total": round(p.cantidad * p.precio, 2) if p.precio is not None else None,
                 "fecha_entrega": p.fecha_entrega,
                 "pais_origen": p.pais_origen,
-                "partida_arancelaria": partida_para(prod, pais_destino),
+                "partida_arancelaria": partida_para(prod),  # 6 dígitos: el destino es solo proyectado
                 "clasificacion": clasificacion_txt(prod),
                 "facturado": fact,
                 "disponible": max(p.cantidad - fact, 0),

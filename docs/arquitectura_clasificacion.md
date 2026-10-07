@@ -136,3 +136,12 @@ de la demostración y ningún país se declara SAC10 por su cuenta.
 - Sin fallbacks: un país sin línea nacional oficial no recibe el código SAC
   regional en la OC o la factura; la base legal de un país no se arma con el
   nombre de su fuente.
+
+## Código en la OC y la factura
+
+El país destino de una OC es solo una proyección de a dónde irá la mercancía,
+no el destino real. Por eso la OC y la factura llevan siempre la subpartida de
+6 dígitos (SA) aprobada del producto, nunca la línea nacional de un país ni el
+SAC regional. Las líneas nacionales por país siguen en la ficha del producto
+como referencia. La migración 0023 deja en 6 dígitos las líneas de factura que
+ya tenían un código más largo.

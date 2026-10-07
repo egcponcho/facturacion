@@ -396,14 +396,17 @@ def test_old_engine_routes_are_gone(interno):
     assert interno.post("/clasificacion/generico", {"texto": "x"}).status_code in (404, 405)
 
 
-def test_no_fallback_completes_a_national_code(interno):
-    """Sin línea nacional oficial confirmada no hay código del país: no se completa con el SAC regional."""
+def test_documents_use_six_digits_never_the_projected_destination(interno):
+    """El destino de la OC es solo una proyección: la OC y la factura llevan la
+    subpartida de 6 dígitos aprobada, nunca la línea nacional del país ni el SAC."""
     from app.services.productos import partida_para
-    from app.models import Producto
+    from app.models import FacturaLinea, Producto
 
     with SessionLocal() as db:
         p = next(x for x in db.scalars(select(Producto)) if x.aprobado and x.partidas)
-        assert partida_para(p, "PA") is None  # Panamá no tiene arancel nacional oficial cargado
-        gt = partida_para(p, "GT")
-        assert gt is None or len(gt.replace(".", "")) == 10
-        assert partida_para(p, None)  # sin país: la partida SAC aprobada
+        assert partida_para(p) == f"{p.codigo[:4]}.{p.codigo[4:6]}"
+        no_aprobado = next((x for x in db.scalars(select(Producto)) if not x.aprobado), None)
+        if no_aprobado:
+            assert partida_para(no_aprobado) is None
+        for l in db.scalars(select(FacturaLinea).where(FacturaLinea.partida_arancelaria.is_not(None))):
+            assert len(l.partida_arancelaria.replace(".", "")) == 6, l.partida_arancelaria

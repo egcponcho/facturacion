@@ -445,7 +445,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                         <th>{{ t('Item') }}</th>
                         <th>{{ t('Size') }}</th>
                         <th class="col-sec">{{ t('UoM') }}</th>
-                        <th :title="t('HS code for the destination country, from the approved technical sheet')">{{ t('HS code') }}</th>
+                        <th :title="t('6-digit HS subheading from the approved technical sheet (the destination country is only projected)')">{{ t('HS code') }}</th>
                         <th class="col-sec">{{ t('Warehouse') }}</th>
                         <th>{{ t('Packing') }}</th>
                         <th class="num">{{ t('Quantity') }}</th>
@@ -470,7 +470,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                         <td><span class="etiqueta" style="margin-inline-start: 0" :title="tx(unidadTxt(p.unidad, 2))">{{ tx(p.unidad) }}</span></td>
                         <td>
                           <router-link v-if="p.clasificacion?.producto_id" :to="`/productos/${p.clasificacion.producto_id}`" class="enlace"
-                                       :title="tx(p.partida_arancelaria ? t('Approved HS code for the destination country') : t('Open the technical sheet'))">
+                                       :title="tx(p.partida_arancelaria ? t('Approved 6-digit HS subheading') : t('Open the technical sheet'))">
                             <span v-if="p.partida_arancelaria" class="codigo-sac">{{ tx(p.partida_arancelaria) }}</span>
                             <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ tx(p.clasificacion.estado === 'observado' ? t('Sheet returned') : t('Not classified')) }}</span>
                           </router-link>

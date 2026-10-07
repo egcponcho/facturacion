@@ -31,7 +31,7 @@ from .cantidades import (
     totales_pl,
 )
 from .partes import partes
-from .productos import pais_de_centro, partida_para, producto_de, sin_marca
+from .productos import partida_para, producto_de, sin_marca
 from .common import (
     filtro_texto,
     EDITABLE_FACTURA,
@@ -193,7 +193,7 @@ def _preparar_posiciones(
     return posiciones, ocs, pedidas, advertencias
 
 
-def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int, pais: str | None = None) -> FacturaLinea:
+def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
     # Partida, origen y descripción aduanera salen del producto clasificado
     prod = producto_de(p.articulo)
     return FacturaLinea(
@@ -220,7 +220,7 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int, pais: str | None
         unidades_por_caja=p.unidades_por_caja,
         centro_destino=oc.centro_destino,
         pais_origen=p.pais_origen or (prod.pais_origen if prod else None),
-        partida_arancelaria=partida_para(prod, pais),
+        partida_arancelaria=partida_para(prod),  # 6 dígitos: el destino es solo proyectado
         # Descripción aduanera del artículo, sin la marca (va en su propia columna)
         descripcion_comercial=sin_marca((prod.descripcion_aduana or prod.descripcion_comercial) if prod else None, p.marca)
         or sin_marca(p.descripcion, p.marca),
@@ -230,7 +230,6 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int, pais: str | None
 def completar_aduana(db: Session, f: Factura) -> None:
     """Llena la partida y el origen que falten en las líneas con el producto
     ya clasificado (por ejemplo, si se aprobó después de facturar)."""
-    paises: dict[str | None, str | None] = {}
     for l in f.lineas:
         if l.partida_arancelaria and l.pais_origen:
             continue
@@ -238,10 +237,8 @@ def completar_aduana(db: Session, f: Factura) -> None:
         prod = producto_de(a)
         if not prod:
             continue
-        if l.centro_destino not in paises:
-            paises[l.centro_destino] = pais_de_centro(db, l.centro_destino)
         if not l.partida_arancelaria:
-            l.partida_arancelaria = partida_para(prod, paises[l.centro_destino])
+            l.partida_arancelaria = partida_para(prod)
         if not l.pais_origen:
             l.pais_origen = prod.pais_origen
 
@@ -269,7 +266,7 @@ def crear_factura(db: Session, user: Usuario, datos: FacturaCrear) -> dict:
     )
     db.add(f)
     for p in posiciones:
-        f.lineas.append(_nueva_linea(p, ocs[p.oc_id], pedidas[p.id], pais_de_centro(db, ocs[p.oc_id].centro_destino)))
+        f.lineas.append(_nueva_linea(p, ocs[p.oc_id], pedidas[p.id]))
     db.flush()
     registrar(
         db, user, "factura", f.id, "crear",
@@ -292,7 +289,7 @@ def agregar_lineas(db: Session, user: Usuario, factura_id: int, version: int, li
             existentes[p.id].cantidad += pedidas[p.id]
             aumentadas += 1
         else:
-            f.lineas.append(_nueva_linea(p, ocs[p.oc_id], pedidas[p.id], pais_de_centro(db, ocs[p.oc_id].centro_destino)))
+            f.lineas.append(_nueva_linea(p, ocs[p.oc_id], pedidas[p.id]))
             agregadas += 1
     tocar(f)
     registrar(db, user, "factura", f.id, "agregar_lineas",

@@ -230,6 +230,12 @@ PASOS_LT = [
 ]
 
 
+def _seis(partida: str | None) -> str | None:
+    """La factura lleva la subpartida de 6 dígitos: el destino es solo proyectado."""
+    d = "".join(c for c in partida or "" if c.isdigit())
+    return f"{d[:4]}.{d[4:6]}" if len(d) >= 6 else None
+
+
 def _p(paso, ref="", dias=0, habiles=False, modo=""):
     return {"paso": paso, "ref": ref, "dias": dias, "habiles": habiles, "modo": modo, "quitar": False}
 
@@ -481,7 +487,7 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
                              estilo=p.estilo, color=p.color, talla=p.talla, descripcion=p.descripcion,
                              unidad=p.unidad, marca=p.marca, categoria=p.categoria, tipo_empaque=p.tipo_empaque,
                              casepack=p.casepack, inner_pack=p.inner_pack, centro_destino=oc.centro_destino, pais_origen=p.pais_origen,
-                             partida_arancelaria=partida_para(p.articulo.producto, "SV") or p.articulo.partida_demo,
+                             partida_arancelaria=partida_para(p.articulo.producto) or _seis(p.articulo.partida_demo),
                              descripcion_comercial=p.articulo.producto.descripcion_aduana or p.descripcion)
         f.lineas.append(linea)
         pll = PLLinea(factura_linea=linea, cantidad=p.cantidad)

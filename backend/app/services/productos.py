@@ -23,7 +23,6 @@ from ..models import (
     ProductoDocumento,
     ControlCapitulo,
     Articulo,
-    Centro,
     GrupoArticulo,
     Historial,
     IncisoNacional,
@@ -210,24 +209,15 @@ def descripcion_comercial_simple(p: Producto) -> str | None:
     return descripcion_comercial(cat, s, c, p.marca.nombre if p.marca else None)[:300] or None
 
 
-def pais_de_centro(db: Session, centro: str | None) -> str | None:
-    if not centro:
-        return None
-    return db.scalar(select(Centro.pais).where(Centro.codigo == centro))
-
-
-def partida_para(p: Producto | None, pais: str | None) -> str | None:
-    """Código que va en la OC y la factura: la línea nacional oficial confirmada
-    del país destino. Sin país, la partida SAC aprobada. Nunca se completa el
-    código de un país con otro dato: si el país no tiene línea oficial, no hay."""
+def partida_para(p: Producto | None) -> str | None:
+    """Código que va en la OC y la factura: la subpartida de 6 dígitos (SA)
+    aprobada. El país destino de la OC es solo una proyección de a dónde irá
+    la mercancía, no el destino real, así que nunca se usa la línea nacional
+    de un país ni el SAC regional."""
     if not p or not p.aprobado:
         return None
-    if pais:
-        x = next((x for x in p.partidas if x.pais == pais), None)
-        if x and x.estado == "ok" and x.inciso_id and len(digitos(x.codigo)) >= 8:
-            return fmt_codigo(x.codigo)
-        return None
-    return fmt_codigo(p.sac_codigo or p.codigo)
+    d = digitos(p.codigo)
+    return fmt_codigo(d[:6]) if len(d) >= 6 else None
 
 
 def clasificacion_txt(p: Producto | None) -> dict:

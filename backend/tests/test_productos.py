@@ -87,14 +87,14 @@ def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
     assert det["estado"] == "aprobado" and det["codigo"] == "6404.19" and det["revisado_por"]
     assert any(h["accion"] == "aprobado" for h in det["historial"]), det["historial"]
 
-    # Ahora la OC lleva el código del país destino y la factura se completa al finalizar
+    # La OC lleva la subpartida de 6 dígitos (el destino es solo proyectado) y la factura se completa al finalizar
     assert next(x for x in _oc(vans, "4400003902")["posiciones"] if x["id"] == pos["id"])["partida_arancelaria"] \
-        == "6404.19.90.00"
+        == "6404.19"
     fd = vans.get(f"/facturas/{f['id']}").json()
     r = vans.post(f"/facturas/{f['id']}/finalizar", {"version": fd["version"]})
     assert r.status_code == 200, r.text
     linea = vans.get(f"/facturas/{f['id']}").json()["lineas"][0]
-    assert linea["partida_arancelaria"] == "6404.19.90.00" and linea["pais_origen"]
+    assert linea["partida_arancelaria"] == "6404.19" and linea["pais_origen"]
 
     # Una ficha aprobada no se edita: se abre una versión nueva que vuelve a borrador
     assert vans.put(f"/productos/{p['id']}/ficha", {"version": det["version"], "ficha": {}}).status_code == 409
