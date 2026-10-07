@@ -9,7 +9,7 @@ import Modal from '../Modal.vue'
 import { puede } from '../../stores/sesion'
 import { avisar, errorApi } from '../../stores/ui'
 import { cargarContexto } from '../../clasificacion/useClasificacion'
-import EditorJson from './EditorJson.vue'
+import CampoComportamiento from './comportamiento/CampoComportamiento.vue'
 
 // Dominios de clasificación (químicos, materias primas, calzado, ropa,
 // accesorios…) y los capítulos con que se relacionan. PRIMARY genera
@@ -20,6 +20,8 @@ const capitulos = ref([])
 const nuevo = ref({})
 
 const categorias = ref([])
+// Preguntas del catálogo (para patrones y plantilla): se leen al abrir una categoría
+const atributos = ref([])
 const nuevaCat = ref({})
 const modal = ref(null)
 async function cargar() {
@@ -52,7 +54,7 @@ async function guardarDominio() {
     if (m.id) await api.patch(`/aranceles/oficial/dominios/${m.id}`, cuerpo)
     else await api.post('/aranceles/oficial/dominios', { ...cuerpo, codigo: m.codigo })
     modal.value = null
-    avisar(t('Domain saved.'))
+    avisar(t('Family saved.'))
     cargar()
     cargarContexto(true)
   } catch (e) {
@@ -85,14 +87,15 @@ async function agregarCategoria(d) {
 const cat = ref(null)
 const catMal = ref({})
 const sinDominio = () => categorias.value.filter((c) => !c.dominio)
-function abrirCategoria(c) {
+async function abrirCategoria(c) {
   catMal.value = {}
   cat.value = { ...c, capitulosTxt: (c.capitulos || []).join(', ') }
+  if (!atributos.value.length) atributos.value = (await api.get('/aranceles/atributos').catch(() => ({ items: [] }))).items
 }
 async function guardarCategoria() {
   const c = cat.value
   const cuerpo = { nombre: c.nombre, nombre_corto: c.nombre_corto || null, nombre_aduana: c.nombre_aduana || null, dominio: c.dominio || null,
-    alias: c.alias || null, terminos: c.terminos || null, activo: c.activo, patrones: c.patrones || [], plantilla_aduana: c.plantilla_aduana || {},
+    alias: c.alias || null, terminos: c.terminos || null, activo: c.activo, patrones: (c.patrones || []).filter((x) => x.re || x.cuando?.length || x.defecto), plantilla_aduana: c.plantilla_aduana || {},
     capitulos: c.capitulosTxt.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean) }
   try {
     await api.patch(`/aranceles/categorias/${c.id}`, cuerpo)
@@ -170,11 +173,10 @@ function agregar(d) {
         <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Words of the official text (only order candidates)') }}</span><input v-model="cat.terminos" class="entrada" maxlength="400" :disabled="!edita" /></label>
         <label class="check"><input v-model="cat.activo" type="checkbox" :disabled="!edita" /><span>{{ t('Active') }}</span></label>
       </div>
-      <EditorJson v-model="cat.patrones" :etiqueta="t('How it is recognized in the product name')" :ejemplo="EJ_PATRONES" :deshabilitado="!edita"
-                  :ayuda="t('Text patterns (re) with a priority: the lowest priority that matches wins.')" @valido="catMal.patrones = !$event" />
-      <EditorJson v-model="cat.plantilla_aduana" :etiqueta="t('Customs description template')" :ejemplo="EJ_PLANTILLA" :deshabilitado="!edita"
-                  :ayuda="t('nombre, comercial, material (with {attribute} or {clase}), clase (composition parts), si (alternatives with cuando), requiere, como (value → word).')"
-                  @valido="catMal.plantilla = !$event" />
+      <CampoComportamiento v-model="cat.patrones" tipo="patrones" :atributos="atributos" :etiqueta="t('How it is recognized in the product name')" :ejemplo="EJ_PATRONES"
+                           :deshabilitado="!edita" :ayuda="t('Words that mark the category. The lowest priority that matches wins.')" @valido="catMal.patrones = !$event" />
+      <CampoComportamiento v-model="cat.plantilla_aduana" tipo="plantilla" :atributos="atributos" :etiqueta="t('Customs description template')" :ejemplo="EJ_PLANTILLA"
+                           :deshabilitado="!edita" @valido="catMal.plantilla = !$event" />
       <template #pie>
         <button class="btn" @click="cat = null">{{ t('Cancel') }}</button>
         <button v-if="edita" class="btn btn-primario" :disabled="!cat.nombre || Object.values(catMal).some(Boolean)" @click="guardarCategoria">{{ t('Save') }}</button>

@@ -9,7 +9,7 @@ import Interruptor from '../Interruptor.vue'
 import Modal from '../Modal.vue'
 import SelectBusqueda from '../SelectBusqueda.vue'
 import EditorCondiciones from './EditorCondiciones.vue'
-import EditorJson from './EditorJson.vue'
+import CampoComportamiento from './comportamiento/CampoComportamiento.vue'
 import { puede } from '../../stores/sesion'
 import { avisar, errorApi } from '../../stores/ui'
 import { fmtNum } from '../../utils'
@@ -47,12 +47,12 @@ const EJEMPLO = {
   implica: '{"otro_atributo": "su_opcion"}',
 }
 const AYUDA = {
-  derivacion: t('The value the data sets by itself: constante (a fixed value), valor (from another attribute, with a map) or fibra / material / clase (read from a composition part, with a map to this attribute\'s options).'),
-  patrones: t('How it is recognized in the product name, use or composition: a text pattern (re), where to look (en: estilo, todo, uso, uso_comp, tallas or comp.<part>), a priority and optional conditions (cuando).'),
-  patrones_falso: t('Patterns that say the box is NOT checked.'),
-  texto_aduana: t('What it adds to the customs description: a phrase (frase), a name (nombre) or a commercial name (comercial), with an order and optional conditions. A list of alternatives uses the first whose condition is met.'),
+  derivacion: t('Leave it to the person, or let the data set it: a fixed value, another question, or what a composition part says.'),
+  patrones: t('Words that mark it in the product name, use or composition. The highest priority wins.'),
+  patrones_falso: t('Words that say the box is NOT checked.'),
+  texto_aduana: t('Several rows are alternatives: the first whose condition is met is used.'),
   bloqueo: t('Impossible combinations: when the conditions are met it cannot be chosen, and the message says why.'),
-  implica: t('Answers that choosing this option fills in when they are empty: {attribute: value}.'),
+  implica: t('Answers that choosing this option fills in when they are still empty.'),
 }
 const comp = ref(null)
 const malos = ref({})
@@ -72,7 +72,11 @@ function abrirOpcion(o) {
 async function guardarComportamiento() {
   const c = comp.value
   const ruta = c.tipo === 'atributo' ? base() : `${base()}/opciones/${c.o.id}`
-  if (await guardar(ruta, c.campos, 'patch', t('Behavior saved.'))) comp.value = null
+  // Filas a medio llenar no se envían (una respuesta sin pregunta, un patrón vacío)
+  const campos = { ...c.campos }
+  if (campos.implica) campos.implica = Object.fromEntries(Object.entries(campos.implica).filter(([k]) => k))
+  for (const k of ['patrones', 'patrones_falso']) if (Array.isArray(campos[k])) campos[k] = campos[k].filter((x) => x.re || x.cuando?.length || x.defecto)
+  if (await guardar(ruta, campos, 'patch', t('Behavior saved.'))) comp.value = null
 }
 const aliasTexto = (d) => (d.alias || []).join(', ')
 const guardarAlias = (v) => campo('alias', v.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean))
@@ -313,10 +317,12 @@ async function sincronizar() {
       </template>
     </Modal>
     <Modal v-if="comp" :titulo="t('Behavior of {0}', [comp.titulo])" ancho="760px" @cerrar="comp = null">
-      <p class="ayuda">{{ t('Everything here is configuration: the server checks that the attributes, options, parts and patterns exist before saving.') }}</p>
-      <EditorJson v-for="(_, k) in comp.campos" :key="k" v-model="comp.campos[k]" :etiqueta="{ derivacion: t('Derivation'), patrones: t('Detection patterns'),
-        patrones_falso: t('Patterns that say no'), texto_aduana: t('Customs text'), bloqueo: t('Blocks'), implica: t('Implies') }[k]"
-                  :ayuda="AYUDA[k]" :ejemplo="EJEMPLO[k]" :deshabilitado="!edita" @valido="malos[k] = !$event" />
+      <p class="ayuda">{{ t('How this answer behaves by itself. The server checks every reference (questions, options, composition parts) before saving.') }}</p>
+      <CampoComportamiento v-for="(_, k) in comp.campos" :key="k" v-model="comp.campos[k]" :tipo="k" :atributos="datos.items" :atributo="det"
+                           :etiqueta="{ derivacion: t('How its value is set'), patrones: t('How it is recognized in the product text'),
+                                        patrones_falso: t('How a «no» is recognized'), texto_aduana: t('What it adds to the customs description'),
+                                        bloqueo: t('When it cannot be chosen'), implica: t('What it fills in') }[k]"
+                           :ayuda="AYUDA[k]" :ejemplo="EJEMPLO[k]" :deshabilitado="!edita" @valido="malos[k] = !$event" />
       <template #pie>
         <button class="btn" @click="comp = null">{{ t('Cancel') }}</button>
         <button v-if="edita" class="btn btn-primario" :disabled="Object.values(malos).some(Boolean)" @click="guardarComportamiento">{{ t('Save') }}</button>
