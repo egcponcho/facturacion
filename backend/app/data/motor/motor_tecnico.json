@@ -14,7 +14,8 @@
     }
    ],
    "orden": 5000,
-   "terminos": "inorgánicos"
+   "terminos": "inorgánicos",
+   "nombre_aduana": "PRODUCTO QUÍMICO INORGÁNICO"
   },
   {
    "codigo": "organic_chemical",
@@ -29,7 +30,8 @@
     }
    ],
    "orden": 5010,
-   "terminos": "orgánicos"
+   "terminos": "orgánicos",
+   "nombre_aduana": "PRODUCTO QUÍMICO ORGÁNICO"
   },
   {
    "codigo": "acid",
@@ -44,7 +46,8 @@
     }
    ],
    "orden": 5020,
-   "terminos": "ácido ácidos"
+   "terminos": "ácido ácidos",
+   "nombre_aduana": "ÁCIDO"
   },
   {
    "codigo": "base_alkali",
@@ -59,7 +62,8 @@
     }
    ],
    "orden": 5030,
-   "terminos": "hidróxido"
+   "terminos": "hidróxido",
+   "nombre_aduana": "BASE O ÁLCALI"
   },
   {
    "codigo": "salt",
@@ -74,7 +78,8 @@
     }
    ],
    "orden": 5040,
-   "terminos": "sales"
+   "terminos": "sales",
+   "nombre_aduana": "SAL"
   },
   {
    "codigo": "solvent",
@@ -89,7 +94,8 @@
     }
    ],
    "orden": 5050,
-   "terminos": "disolventes diluyentes"
+   "terminos": "disolventes diluyentes",
+   "nombre_aduana": "DISOLVENTE"
   },
   {
    "codigo": "alcohol",
@@ -104,7 +110,8 @@
     }
    ],
    "orden": 5060,
-   "terminos": "alcohol"
+   "terminos": "alcohol",
+   "nombre_aduana": "ALCOHOL"
   },
   {
    "codigo": "polymer_resin",
@@ -114,7 +121,8 @@
    "alias": "",
    "patrones": [],
    "orden": 5070,
-   "terminos": "formas primarias"
+   "terminos": "formas primarias",
+   "nombre_aduana": "POLÍMERO O RESINA"
   },
   {
    "codigo": "rubber_preparation",
@@ -129,7 +137,8 @@
     }
    ],
    "orden": 5080,
-   "terminos": "aceleradores de vulcanización preparados"
+   "terminos": "aceleradores de vulcanización preparados",
+   "nombre_aduana": "PREPARACIÓN DE CAUCHO"
   },
   {
    "codigo": "dye",
@@ -144,7 +153,8 @@
     }
    ],
    "orden": 5090,
-   "terminos": "colorantes"
+   "terminos": "colorantes",
+   "nombre_aduana": "COLORANTE"
   },
   {
    "codigo": "pigment",
@@ -159,7 +169,8 @@
     }
    ],
    "orden": 5100,
-   "terminos": "pigmentos"
+   "terminos": "pigmentos",
+   "nombre_aduana": "PIGMENTO"
   },
   {
    "codigo": "paint_coating",
@@ -174,7 +185,8 @@
     }
    ],
    "orden": 5110,
-   "terminos": "pinturas barnices"
+   "terminos": "pinturas barnices",
+   "nombre_aduana": "PINTURA O BARNIZ"
   },
   {
    "codigo": "ink",
@@ -189,7 +201,8 @@
     }
    ],
    "orden": 5120,
-   "terminos": "tintas"
+   "terminos": "tintas",
+   "nombre_aduana": "TINTA"
   },
   {
    "codigo": "adhesive",
@@ -204,7 +217,8 @@
     }
    ],
    "orden": 5130,
-   "terminos": "colas adhesivos preparados"
+   "terminos": "colas adhesivos preparados",
+   "nombre_aduana": "ADHESIVO"
   },
   {
    "codigo": "surfactant",
@@ -219,7 +233,8 @@
     }
    ],
    "orden": 5140,
-   "terminos": "agentes de superficie orgánicos"
+   "terminos": "agentes de superficie orgánicos",
+   "nombre_aduana": "AGENTE DE SUPERFICIE ORGÁNICO"
   },
   {
    "codigo": "detergent_cleaning",
@@ -234,7 +249,8 @@
     }
    ],
    "orden": 5150,
-   "terminos": "preparaciones para lavar limpieza"
+   "terminos": "preparaciones para lavar limpieza",
+   "nombre_aduana": "PREPARACIÓN PARA LAVAR O LIMPIAR"
   },
   {
    "codigo": "lubricant",
@@ -249,7 +265,8 @@
     }
    ],
    "orden": 5160,
-   "terminos": "preparaciones lubricantes"
+   "terminos": "preparaciones lubricantes",
+   "nombre_aduana": "LUBRICANTE"
   },
   {
    "codigo": "wax",
@@ -264,7 +281,8 @@
     }
    ],
    "orden": 5170,
-   "terminos": "ceras"
+   "terminos": "ceras",
+   "nombre_aduana": "CERA"
   },
   {
    "codigo": "laboratory_reagent",
@@ -279,7 +297,8 @@
     }
    ],
    "orden": 5180,
-   "terminos": "reactivos de diagnóstico o de laboratorio"
+   "terminos": "reactivos de diagnóstico o de laboratorio",
+   "nombre_aduana": "REACTIVO DE LABORATORIO"
   },
   {
    "codigo": "chemical_preparation",
@@ -294,7 +313,8 @@
     }
    ],
    "orden": 5190,
-   "terminos": "preparaciones"
+   "terminos": "preparaciones",
+   "nombre_aduana": "PREPARACIÓN QUÍMICA"
   },
   {
    "codigo": "quimico",
@@ -308,7 +328,8 @@
      "prioridad": 290
     }
    ],
-   "orden": 5200
+   "orden": 5200,
+   "nombre_aduana": "PRODUCTO QUÍMICO"
   },
   {
    "codigo": "textile_fiber",
@@ -323,7 +344,8 @@
     }
    ],
    "orden": 5210,
-   "terminos": "fibras sin cardar ni peinar"
+   "terminos": "fibras sin cardar ni peinar",
+   "nombre_aduana": "FIBRA TEXTIL"
   },
   {
    "codigo": "staple_fiber",
@@ -338,7 +360,8 @@
     }
    ],
    "orden": 5220,
-   "terminos": "fibras discontinuas"
+   "terminos": "fibras discontinuas",
+   "nombre_aduana": "FIBRA DISCONTINUA"
   },
   {
    "codigo": "filament",
@@ -353,7 +376,8 @@
     }
    ],
    "orden": 5230,
-   "terminos": "filamentos monofilamentos"
+   "terminos": "filamentos monofilamentos",
+   "nombre_aduana": "FILAMENTO"
   },
   {
    "codigo": "yarn",
@@ -368,7 +392,8 @@
     }
    ],
    "orden": 5240,
-   "terminos": "hilados"
+   "terminos": "hilados",
+   "nombre_aduana": "HILADO"
   },
   {
    "codigo": "sewing_thread",
@@ -383,7 +408,8 @@
     }
    ],
    "orden": 5250,
-   "terminos": "hilo de coser"
+   "terminos": "hilo de coser",
+   "nombre_aduana": "HILO DE COSER"
   },
   {
    "codigo": "woven_fabric",
@@ -398,7 +424,8 @@
     }
    ],
    "orden": 5260,
-   "terminos": "tejidos"
+   "terminos": "tejidos",
+   "nombre_aduana": "TEJIDO PLANO"
   },
   {
    "codigo": "knitted_fabric",
@@ -413,7 +440,8 @@
     }
    ],
    "orden": 5270,
-   "terminos": "tejidos de punto"
+   "terminos": "tejidos de punto",
+   "nombre_aduana": "TEJIDO DE PUNTO"
   },
   {
    "codigo": "nonwoven",
@@ -428,7 +456,8 @@
     }
    ],
    "orden": 5280,
-   "terminos": "tela sin tejer"
+   "terminos": "tela sin tejer",
+   "nombre_aduana": "TELA SIN TEJER"
   },
   {
    "codigo": "felt",
@@ -443,7 +472,8 @@
     }
    ],
    "orden": 5290,
-   "terminos": "fieltro"
+   "terminos": "fieltro",
+   "nombre_aduana": "FIELTRO"
   },
   {
    "codigo": "coated_fabric",
@@ -458,7 +488,8 @@
     }
    ],
    "orden": 5300,
-   "terminos": "tejidos impregnados recubiertos revestidos"
+   "terminos": "tejidos impregnados recubiertos revestidos",
+   "nombre_aduana": "TEJIDO RECUBIERTO"
   },
   {
    "codigo": "laminated_fabric",
@@ -473,7 +504,8 @@
     }
    ],
    "orden": 5310,
-   "terminos": "tejidos estratificados"
+   "terminos": "tejidos estratificados",
+   "nombre_aduana": "TEJIDO ESTRATIFICADO"
   },
   {
    "codigo": "leather",
@@ -488,7 +520,8 @@
     }
    ],
    "orden": 5320,
-   "terminos": "cueros curtidos o crust preparados"
+   "terminos": "cueros curtidos o crust preparados",
+   "nombre_aduana": "CUERO"
   },
   {
    "codigo": "split_leather",
@@ -503,7 +536,8 @@
     }
    ],
    "orden": 5330,
-   "terminos": "cueros divididos"
+   "terminos": "cueros divididos",
+   "nombre_aduana": "CUERO DIVIDIDO"
   },
   {
    "codigo": "synthetic_leather",
@@ -518,7 +552,8 @@
     }
    ],
    "orden": 5340,
-   "terminos": "recubiertos plástico"
+   "terminos": "recubiertos plástico",
+   "nombre_aduana": "CUERO SINTÉTICO"
   },
   {
    "codigo": "plastic_resin",
@@ -533,7 +568,8 @@
     }
    ],
    "orden": 5350,
-   "terminos": "formas primarias"
+   "terminos": "formas primarias",
+   "nombre_aduana": "RESINA PLÁSTICA"
   },
   {
    "codigo": "plastic_primary_form",
@@ -548,7 +584,8 @@
     }
    ],
    "orden": 5360,
-   "terminos": "formas primarias dispersiones"
+   "terminos": "formas primarias dispersiones",
+   "nombre_aduana": "PLÁSTICO EN FORMA PRIMARIA"
   },
   {
    "codigo": "plastic_sheet",
@@ -563,7 +600,8 @@
     }
    ],
    "orden": 5370,
-   "terminos": "placas láminas hojas"
+   "terminos": "placas láminas hojas",
+   "nombre_aduana": "LÁMINA DE PLÁSTICO"
   },
   {
    "codigo": "plastic_film",
@@ -578,7 +616,8 @@
     }
    ],
    "orden": 5380,
-   "terminos": "películas hojas tiras"
+   "terminos": "películas hojas tiras",
+   "nombre_aduana": "PELÍCULA DE PLÁSTICO"
   },
   {
    "codigo": "plastic_profile",
@@ -593,7 +632,8 @@
     }
    ],
    "orden": 5390,
-   "terminos": "perfiles tubos barras"
+   "terminos": "perfiles tubos barras",
+   "nombre_aduana": "PERFIL DE PLÁSTICO"
   },
   {
    "codigo": "plastic_foam",
@@ -608,7 +648,8 @@
     }
    ],
    "orden": 5400,
-   "terminos": "productos celulares"
+   "terminos": "productos celulares",
+   "nombre_aduana": "ESPUMA DE PLÁSTICO"
   },
   {
    "codigo": "natural_rubber",
@@ -623,7 +664,8 @@
     }
    ],
    "orden": 5410,
-   "terminos": "caucho natural"
+   "terminos": "caucho natural",
+   "nombre_aduana": "CAUCHO NATURAL"
   },
   {
    "codigo": "synthetic_rubber",
@@ -638,7 +680,8 @@
     }
    ],
    "orden": 5420,
-   "terminos": "caucho sintético"
+   "terminos": "caucho sintético",
+   "nombre_aduana": "CAUCHO SINTÉTICO"
   },
   {
    "codigo": "rubber_compound",
@@ -653,7 +696,8 @@
     }
    ],
    "orden": 5430,
-   "terminos": "caucho mezclado sin vulcanizar"
+   "terminos": "caucho mezclado sin vulcanizar",
+   "nombre_aduana": "CAUCHO MEZCLADO"
   },
   {
    "codigo": "rubber_sheet",
@@ -668,7 +712,8 @@
     }
    ],
    "orden": 5440,
-   "terminos": "placas hojas tiras caucho"
+   "terminos": "placas hojas tiras caucho",
+   "nombre_aduana": "LÁMINA DE CAUCHO"
   },
   {
    "codigo": "paper",
@@ -683,7 +728,8 @@
     }
    ],
    "orden": 5450,
-   "terminos": "papel"
+   "terminos": "papel",
+   "nombre_aduana": "PAPEL"
   },
   {
    "codigo": "paperboard",
@@ -698,7 +744,8 @@
     }
    ],
    "orden": 5460,
-   "terminos": "cartón"
+   "terminos": "cartón",
+   "nombre_aduana": "CARTÓN"
   },
   {
    "codigo": "metal_sheet",
@@ -713,7 +760,8 @@
     }
    ],
    "orden": 5470,
-   "terminos": "productos laminados planos"
+   "terminos": "productos laminados planos",
+   "nombre_aduana": "LÁMINA DE METAL"
   },
   {
    "codigo": "metal_wire",
@@ -728,7 +776,8 @@
     }
    ],
    "orden": 5480,
-   "terminos": "alambre"
+   "terminos": "alambre",
+   "nombre_aduana": "ALAMBRE"
   },
   {
    "codigo": "metal_profile",
@@ -743,7 +792,8 @@
     }
    ],
    "orden": 5490,
-   "terminos": "barras perfiles"
+   "terminos": "barras perfiles",
+   "nombre_aduana": "PERFIL DE METAL"
   },
   {
    "codigo": "metal_component",
@@ -758,7 +808,8 @@
     }
    ],
    "orden": 5500,
-   "terminos": "partes"
+   "terminos": "partes",
+   "nombre_aduana": "PIEZA DE METAL"
   },
   {
    "codigo": "materia_prima",
@@ -772,7 +823,8 @@
      "prioridad": 290
     }
    ],
-   "orden": 5510
+   "orden": 5510,
+   "nombre_aduana": "MATERIA PRIMA"
   },
   {
    "codigo": "otro",
