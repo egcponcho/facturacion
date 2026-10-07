@@ -17,9 +17,11 @@ def test_reglas_del_motor_sembradas(interno):
     with SessionLocal() as db:
         n = db.scalar(select(ReglaClasificacion.id).where(ReglaClasificacion.tipo_fuente == "SHEET_RULES").limit(1))
         assert n, "las reglas de la ficha no se sembraron"
-        total = len(list(db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "SHEET_RULES",
-                                                                    ReglaClasificacion.activo.is_(True)))))
-        assert total == len(DATOS["reglas"])
+        base = [r for f in reglas.ARCHIVOS_REGLAS for r in json.loads(f.read_text(encoding="utf-8"))["reglas"]]
+        total = len([r for r in db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "SHEET_RULES",
+                                                                            ReglaClasificacion.activo.is_(True)))
+                     if r.codigo.startswith(reglas.PREFIJOS_BASE)])
+        assert total == len(base) and all(r["codigo"].startswith(reglas.PREFIJOS_BASE) for r in base)
         # Volver a cargar no cambia nada
         assert reglas.cargar_reglas_ficha(db) == {"nuevas": 0, "actualizadas": 0, "editadas": 0, "retiradas": 0}
     r = interno.get("/aranceles/reglas", params={"q": "R-MJS-CHAQUETA"}).json()

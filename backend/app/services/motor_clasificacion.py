@@ -442,6 +442,14 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
                 limite_legal = nuevo if limite_legal is None else (limite_legal & nuevo)
                 if not nuevo:
                     revision_por.append(f"Legal rules {r.codigo} conflict: no code satisfies them.")
+            if codigos and not conj and capa != "LEGAL":
+                # Sus códigos existen pero están en capítulos que no se clasifican solos (manuales o no habilitados)
+                fuera_r = sorted({c[:2] for c in codigos if c[:2] in caps and c[:2] not in habilitados})
+                if fuera_r:
+                    msg = (f"Rule {r.codigo} points to chapter {', '.join(fuera_r)} ({', '.join(formato(c) for c in codigos[:4])}), "
+                           "which is classified by hand only or not enabled: choose the code by hand or enable the chapter.")
+                    revision_por.append(msg)
+                    alertas.append({"nivel": "aviso", "origen": "capitulo", "msg": msg, "regla": r.codigo})
             if not nuevo and capa != "LEGAL":
                 aplicada = False
                 choca_ley = limite_legal is not None and not (conj & limite_legal) if efecto == "RESTRICT" else False

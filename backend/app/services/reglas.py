@@ -75,6 +75,22 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         x.activo = _si(f.get("active")) if f.get("active") is not None else True
         x.requiere_revision = _si(f.get("requires_review"))
         db.add(x)
+        # Acción (opcional): qué hace la regla (Action), con qué códigos (Codes), o un código por el valor
+        # de un atributo (By attribute + Code map JSON), o qué pregunta (Ask attributes). Validada como en pantalla.
+        if any(_txt(f.get(k)) for k in ("action", "codes", "by_attribute", "code_map_json", "ask_attributes", "message")):
+            from .atributos import json_celda
+
+            try:
+                with db.begin_nested():
+                    accion = {"tipo": _txt(f.get("action")), "mensaje": _txt(f.get("message")),
+                              "codigos": [c.strip() for c in str(_txt(f.get("codes")) or "").replace(";", ",").split(",") if c.strip()],
+                              "por": _txt(f.get("by_attribute")), "mapa": json_celda(f.get("code_map_json"), "Code map JSON"),
+                              "atributos": [c.strip() for c in str(_txt(f.get("ask_attributes")) or "").replace(";", ",").split(",") if c.strip()]}
+                    _forma(x, {"accion": {k: v for k, v in accion.items() if v not in (None, "", [])}})
+                    db.flush()
+            except ErrorNegocio as e:
+                error("Classification_Rules", f["_fila"], f"{cod}: {e}")
+                continue
         cuenta("Classification_Rules", nuevo)
     db.flush()
     # Las condiciones de cada regla se reemplazan completas (la hoja es la verdad). Un campo es un
@@ -213,16 +229,23 @@ def _forma(r: ReglaClasificacion, datos: dict) -> None:
         a["codigos"] = ["".join(ch for ch in str(c) if ch.isdigit()) for c in (a.get("codigos") or []) if str(c).strip()]
         if any(len(c) < 2 for c in a["codigos"]):
             raise ErrorNegocio("Codes must have at least 2 digits.", 422, "validacion")
-        if a["tipo"] in ("RESTRICT", "EXCLUDE", "BOOST") and not a["codigos"] and r.tipo_ambito not in ("CHAPTER", "HEADING", "SUBHEADING"):
-            raise ErrorNegocio("Say which codes the rule restricts, excludes or raises.", 422, "validacion")
         if a.get("mapa") is not None:
             # Código según el valor de un hecho (p. ej. subpartida por fibra predominante)
             if not isinstance(a["mapa"], dict) or not (a.get("por") or "").strip():
                 raise ErrorNegocio("A code map needs the field it depends on and a code for each value.", 422, "validacion")
             a["mapa"] = {str(k): "".join(ch for ch in str(v) if ch.isdigit()) for k, v in a["mapa"].items() if str(v).strip()}
             a["codigos"] = sorted(set(a["codigos"]) | set(a["mapa"].values()))
-        # Nunca una regla hacia un código que no existe en el árbol de la versión vigente
-        from .motor_clasificacion import codigos_invalidos
+        if a["tipo"] in ("RESTRICT", "EXCLUDE", "BOOST") and not a["codigos"] and r.tipo_ambito not in ("CHAPTER", "HEADING", "SUBHEADING"):
+            raise ErrorNegocio("Say which codes the rule restricts, excludes or raises.", 422, "validacion")
+        # Nunca una regla hacia un código que no existe en el árbol de la versión vigente. Una partida
+        # con una sola subpartida (3910 → 3910.00) se escribe como esa subpartida
+        from .motor_clasificacion import codigo_existe, codigos_invalidos
+
+        sesion = db_de(r)
+        a["codigos"] = [c + "00" if len(c) == 4 and not codigo_existe(sesion, c) and codigo_existe(sesion, c + "00") else c for c in a["codigos"]]
+        if a.get("mapa"):
+            a["mapa"] = {k: (c + "00" if len(c) == 4 and not codigo_existe(sesion, c) and codigo_existe(sesion, c + "00") else c)
+                         for k, c in a["mapa"].items()}
 
         malos = codigos_invalidos(db_de(r), a["codigos"])
         if malos:
@@ -311,6 +334,9 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
 
 # ---- Reglas de la ficha (sembradas desde data/motor_reglas.json) ----------------------
 DATOS_MOTOR = MOTOR / "motor_reglas.json"
+# Reglas de la ficha (ropa, calzado, accesorios) y técnicas (químicos y materias primas)
+ARCHIVOS_REGLAS = (DATOS_MOTOR, MOTOR / "motor_reglas_tecnicas.json")
+PREFIJOS_BASE = ("R-MJS-", "R-TEC-")
 PRIORIDAD_MOTOR = 900  # antes que las propias (800): una regla propia posterior manda sobre ellas
 
 
@@ -326,7 +352,7 @@ def cargar_reglas_ficha(db: Session) -> dict:
     """Siembra o pone al día las reglas de la ficha (data/motor_reglas.json). Una regla que
     alguien editó (su firma ya no coincide) no se pisa; las que el motor ya no
     produce se apagan si nadie las tocó."""
-    datos = json.loads(DATOS_MOTOR.read_text(encoding="utf-8"))
+    datos = {"reglas": [r for f in ARCHIVOS_REGLAS for r in json.loads(f.read_text(encoding="utf-8"))["reglas"]]}
     existentes = {r.codigo: r for r in db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "SHEET_RULES"))}
     n = {"nuevas": 0, "actualizadas": 0, "editadas": 0, "retiradas": 0}
     vistas = set()
@@ -354,7 +380,8 @@ def cargar_reglas_ficha(db: Session) -> dict:
         r.condiciones = [CondicionRegla(grupo=c["grupo"], campo=c["campo"], operador=c["operador"], valor=c.get("valor"),
                                         valor_hasta=c.get("valor_hasta"), negado=bool(c.get("negado"))) for c in conds]
     for cod, r in existentes.items():
-        if cod not in vistas and r.activo and (r.accion or {}).get("firma") == _firma_motor([_cond_dict(c) for c in r.condiciones], r.accion or {}):
+        # Solo se retiran reglas de la base (sus prefijos); las de un paquete o de la empresa nunca
+        if cod not in vistas and cod.startswith(PREFIJOS_BASE) and r.activo and (r.accion or {}).get("firma") == _firma_motor([_cond_dict(c) for c in r.condiciones], r.accion or {}):
             r.activo = False
             n["retiradas"] += 1
     db.flush()

@@ -53,12 +53,18 @@ def listar(db: Session, user: Usuario) -> list[dict]:
 def guardar(db: Session, user: Usuario, clase_id: int | None, datos: dict) -> dict:
     """Crea o edita una clase. Las palabras se validan (cada una un patrón simple
     que compila) y no pueden ser de otra clase configurada."""
-    from .composicion import palabras_clase
-
     exigir(user, "aranceles.editar")
     x = db.get(ClaseMaterial, clase_id) if clase_id else None
     if clase_id and not x:
         raise ErrorNegocio("The material class does not exist.", 404, "no_encontrado")
+    x = _aplicar(db, x, datos)
+    registrar(db, user, "aranceles", x.id, "clase_material", {"codigo": x.codigo, "cambios": datos})
+    return _dict(x)
+
+
+def _aplicar(db: Session, x: ClaseMaterial | None, datos: dict) -> ClaseMaterial:
+    from .composicion import palabras_clase
+
     if not x:
         cod = re.sub(r"[^a-z0-9_]+", "_", (datos.get("codigo") or datos.get("nombre") or "").strip().lower()).strip("_")[:30]
         if not cod or db.scalar(select(ClaseMaterial.id).where(ClaseMaterial.codigo == cod)):
@@ -84,5 +90,27 @@ def guardar(db: Session, user: Usuario, clase_id: int | None, datos: dict) -> di
         raise ErrorNegocio(f"These words are already in another class: {', '.join(choques)}.", 422, "configuracion_invalida")
     x.palabras = " ".join(ws) or None
     db.flush()
-    registrar(db, user, "aranceles", x.id, "clase_material", {"codigo": x.codigo, "cambios": datos})
-    return _dict(x)
+    return x
+
+
+def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
+    """Hoja Material_Classes de un paquete del motor: Class code, Name, Words,
+    Customs word, Active (actualiza por código, con la misma validación)."""
+    from .oficial import _si, _txt
+
+    for f in hojas.get("Material_Classes", []):
+        cod = (_txt(f.get("class_code")) or "").strip().lower()
+        if not cod:
+            error("Material_Classes", f["_fila"], "Class code is required.")
+            continue
+        x = db.scalar(select(ClaseMaterial).where(ClaseMaterial.codigo == cod))
+        datos = {"codigo": cod, "nombre": _txt(f.get("name")) or (x.nombre if x else cod), "palabras": _txt(f.get("words")),
+                 "texto_aduana": _txt(f.get("customs_word"))}
+        if f.get("active") is not None:
+            datos["activo"] = _si(f.get("active"))
+        try:
+            with db.begin_nested():
+                _aplicar(db, x, {k: v for k, v in datos.items() if v is not None})
+            cuenta("Material_Classes", x is None)
+        except ErrorNegocio as e:
+            error("Material_Classes", f["_fila"], str(e))

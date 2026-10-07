@@ -103,25 +103,38 @@ def aplicar(db: Session, x: CategoriaProducto | None, datos: dict) -> CategoriaP
     return x
 
 
-def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
+def importar_hojas(db: Session, hojas: dict, cuenta, error, fase: int = 1) -> None:
     """Hoja Categories de un paquete del motor: una familia nueva llega con sus
     categorías (código, nombre, dominio, cómo reconocerla, capítulos y plantilla
-    aduanera). Actualiza por código; lo inválido se informa por fila."""
+    aduanera). Actualiza por código; lo inválido se informa por fila. Fase 1
+    (antes de los atributos, que las nombran en sus ámbitos): todo menos la
+    plantilla; fase 2 (después): la plantilla, que nombra atributos y partes."""
     from .oficial import _si, _txt
     from .atributos import json_celda
 
     for f in hojas.get("Categories", []):
         cod = (_txt(f.get("category_code")) or "").strip().lower()
         if not cod:
-            error("Categories", f["_fila"], "Category code is required.")
+            if fase == 1:
+                error("Categories", f["_fila"], "Category code is required.")
+            continue
+        if fase == 2:
+            x = db.scalar(select(CategoriaProducto).where(CategoriaProducto.codigo == cod))
+            try:
+                plantilla = json_celda(f.get("customs_template_json"), "Customs template JSON")
+                if x and plantilla is not None:
+                    with db.begin_nested():
+                        aplicar(db, x, {"plantilla_aduana": plantilla})
+            except ErrorNegocio as e:
+                error("Categories", f["_fila"], str(e))
             continue
         try:
             datos = {"codigo": cod, "nombre": _txt(f.get("name")), "dominio": (_txt(f.get("domain")) or "").upper() or None,
                      "grupo": _txt(f.get("group")), "nombre_corto": _txt(f.get("short_name")), "nombre_aduana": _txt(f.get("customs_name")),
                      "alias": _txt(f.get("aliases")), "terminos": _txt(f.get("search_terms")),
                      "capitulos": [c.strip() for c in str(_txt(f.get("chapters")) or "").replace(";", ",").split(",") if c.strip()] or None,
-                     "patrones": json_celda(f.get("patterns_json"), "Patterns JSON"),
-                     "plantilla_aduana": json_celda(f.get("customs_template_json"), "Customs template JSON")}
+                     "patrones": json_celda(f.get("patterns_json"), "Patterns JSON")}
+            json_celda(f.get("customs_template_json"), "Customs template JSON")  # que sea JSON; se aplica en la fase 2
             if f.get("active") is not None:
                 datos["activo"] = _si(f.get("active"))
             x = db.scalar(select(CategoriaProducto).where(CategoriaProducto.codigo == cod))

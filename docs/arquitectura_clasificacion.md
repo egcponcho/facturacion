@@ -243,3 +243,22 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
 - La carga masiva de artículos arma sus columnas de la ficha con el catálogo
   (también género y «para quién es», como cualquier atributo) y reconoce sus
   alias.
+
+## Reglas para químicos y materias primas, y familias nuevas (G6)
+
+- `data/motor/motor_reglas_tecnicas.json`: 90 reglas de las categorías
+  técnicas (químicos de los capítulos 28, 29, 32, 34, 35 y 38; plásticos,
+  caucho, cuero, textiles, papel y metales), según las notas de capítulo y las
+  partidas del SA. Son configuración del motor (editables; una regla editada no
+  se pisa). La carga de la base solo retira reglas suyas (R-MJS-, R-TEC-),
+  nunca las de un paquete o de la empresa.
+- Una regla que apunta a un capítulo que se clasifica a mano (o no está
+  habilitado) lo dice y deja el caso en revisión.
+- Una partida con una sola subpartida se escribe como esa subpartida (3910 →
+  3910.00) al guardar una regla.
+- Paquete del motor, para traer una familia completa: Domains,
+  Material_Classes, Categories, Attributes (con columnas de comportamiento),
+  Attribute_Options, Attribute_Scope (y _Conditions), Classification_Rules con
+  su acción (Action, Codes, By attribute, Code map JSON, Ask attributes,
+  Message) y Rule_Conditions. `tests/test_familias_genericas.py` arma una
+  familia nueva (vajilla) solo con un paquete y la clasifica.
