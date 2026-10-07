@@ -127,7 +127,7 @@ def test_engine_code_names_no_family():
     t = json.loads((MOTOR / "motor_tecnico.json").read_text(encoding="utf-8"))
     codigos = {c["codigo"] for c in d["categorias"] + t["categorias"]} | {a["codigo"] for a in d["atributos"] + t["atributos"]}
     codigos |= {o["codigo"] for a in d["atributos"] + t["atributos"] for o in a.get("opciones") or []}
-    del_motor = {"aluminio", "corrugado", "metal", "paja", "fibra", "producto", "etiqueta", "completa", "otra", "composition"}
+    del_motor = {"aluminio", "corrugado", "metal", "paja", "fibra", "producto", "etiqueta", "completa", "otra", "composition", "none"}
     for f in ("ficha.py", "motor_clasificacion.py", "descripciones.py"):
         fuente = (RAIZ / "app" / "services" / f).read_text(encoding="utf-8")
         nombrados = set(re.findall(r'"([A-Za-z_.]+)"', fuente)) & codigos - del_motor
