@@ -81,7 +81,10 @@ function ordenar(campo) {
 
 const ids = computed(() => datos.value.items.map((p) => p.id))
 const elegidos = computed(() => datos.value.items.filter((p) => sel.tiene(p.id)))
-const porAprobar = computed(() => elegidos.value.filter((p) => ['sugerida', 'revision'].includes(p.estado) && p.ficha_completa))
+// Flujo de clasificación configurado por el administrador
+const flujo = computed(() => sesion.usuario?.flujo || {})
+const porAprobar = computed(() => elegidos.value.filter((p) => (flujo.value.revision_obligatoria ? ['revision'] : ['sugerida', 'revision']).includes(p.estado) && p.ficha_completa))
+const envia = computed(() => puede('producto.ficha') && (!puede('producto.clasificar') || !!flujo.value.revision_obligatoria))
 const porEnviar = computed(() => elegidos.value.filter((p) => ['sugerida', 'observado', 'borrador'].includes(p.estado)))
 
 async function enviar() {
@@ -250,10 +253,10 @@ watch(() => sesion.proveedorId, recargar)
     <template #resumen>
       <template v-if="interno && porAprobar.length">{{ t('{0} ready to approve', [porAprobar.length]) }}</template>
     </template>
-    <button class="btn" :disabled="ocupado" :title="t('Run the classification engine on the saved technical sheets')" @click="clasificar"><Icono nombre="varita" />{{ t('Classify') }}</button>
-    <button v-if="puede('producto.clasificar')" class="btn btn-primario" :disabled="ocupado || !porAprobar.length"
+    <button v-if="puede('producto.ficha')" class="btn" :disabled="ocupado" :title="t('Run the classification engine on the saved technical sheets')" @click="clasificar"><Icono nombre="varita" />{{ t('Classify') }}</button>
+    <button v-if="puede('producto.clasificar') && flujo.aprobacion_lote !== false" class="btn btn-primario" :disabled="ocupado || !porAprobar.length"
             :title="t('Approve the suggested code of the complete sheets')" @click="aprobar"><Icono nombre="check" />{{ t('Approve {0}', [porAprobar.length || '']) }}</button>
-    <button v-if="puede('producto.ficha') && !interno" class="btn btn-primario" :disabled="ocupado || !porEnviar.length"
+    <button v-if="envia" class="btn btn-primario" :disabled="ocupado || !porEnviar.length"
             :title="t('Send the complete drafts to review')" @click="enviar"><Icono nombre="enviar" />{{ t('Send to review {0}', [porEnviar.length || '']) }}</button>
   </BarraSeleccion>
 </template>

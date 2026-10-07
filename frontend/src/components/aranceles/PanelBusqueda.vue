@@ -11,7 +11,7 @@ import { avisar, errorApi } from '../../stores/ui'
 // Vocabulario para buscar en el texto oficial del arancel (que está en
 // español): un nombre en inglés o un término comercial y las palabras del
 // texto oficial a las que equivale. Solo ayuda a encontrar candidatos.
-const edita = puede('aranceles.editar')
+const edita = puede('clasificacion.configurar')
 const items = ref([])
 const q = ref('')
 const nueva = reactive({ palabra: '', equivale: '' })

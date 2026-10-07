@@ -6,6 +6,7 @@ import { api } from '../api'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import Avatar from '../components/Avatar.vue'
+import PanelFlujo from '../components/PanelFlujo.vue'
 import { sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { fmtFechaHora } from '../utils'
@@ -192,6 +193,8 @@ onMounted(cargar)
       </table>
     </div>
   </section>
+
+  <PanelFlujo />
 
   <section class="panel">
     <div class="panel-cabeza"><h2>{{ t('Users') }}</h2><button class="btn btn-primario" @click="modal = 'usuario'"><Icono nombre="mas" />{{ t('New user') }}</button></div>

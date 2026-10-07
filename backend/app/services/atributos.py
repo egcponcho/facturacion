@@ -110,39 +110,32 @@ def canonicos(db: Session) -> dict[str, str]:
     return out
 
 
-def _condiciones_hoja(filas: list[dict], hoja: str, error, campo_valido) -> list[dict] | None:
+def _condiciones_hoja(filas: list[dict], hoja: str, error, ctx) -> list[dict] | None:
     """Filas con Group, Field (o Attribute/system field), Operator, Value, Value to y
-    Negated → condiciones del motor; None si alguna fila tiene un error."""
-    from .reglas import OPERADORES, _valor
+    Negated → condiciones del motor, validadas con las mismas reglas que en la
+    pantalla (validacion_config). Sin contexto no se validan los campos (reglas
+    internas del motor, que leen campos del sistema). None si alguna fila falla."""
+    from . import validacion_config as v
+    from .reglas import _valor
 
     out, ok = [], True
     for f in filas:
-        op = (_txt(f.get("operator")) or "EQUAL").upper()
-        campo = _txt(f.get("field")) or _txt(f.get("attribute_system_field"))
-        if not campo or op not in OPERADORES:
-            error(hoja, f["_fila"], f"Field and operator ({', '.join(OPERADORES)}) are required.")
+        c = {"grupo": int(f.get("group") or 1), "campo": _txt(f.get("field")) or _txt(f.get("attribute_system_field")),
+             "operador": (_txt(f.get("operator")) or "EQUAL").upper(), "valor": _valor(f.get("value")),
+             "valor_hasta": _valor(f.get("value_to")), "negado": _si(f.get("negated"))}
+        if not c["campo"] or c["operador"] not in v.OPERADORES:
+            error(hoja, f["_fila"], f"Field and operator ({', '.join(v.OPERADORES)}) are required.")
             ok = False
             continue
-        real = campo_valido(campo)
-        if not real:
-            error(hoja, f["_fila"], f"{campo} is not an attribute of the technical sheet nor a product field.")
-            ok = False
-            continue
-        out.append({"grupo": int(f.get("group") or 1), "campo": real, "operador": op, "valor": _valor(f.get("value")),
-                    "valor_hasta": _valor(f.get("value_to")), "negado": _si(f.get("negated"))})
+        if ctx is not None:
+            try:
+                c = v.condiciones(ctx, [c], "Condition")[0]
+            except ErrorNegocio as e:
+                error(hoja, f["_fila"], e.mensaje)
+                ok = False
+                continue
+        out.append(c)
     return out if ok else None
-
-
-# Campos del producto (no de la ficha) que una condición puede leer
-CAMPOS_PRODUCTO = ("categoria", "dominio", "origen", "product_name")
-
-
-def campo_condicion(canon: dict[str, str]):
-    """Valida el campo de una condición: un atributo (por su código o un alias,
-    que se resuelve) o un campo del producto."""
-    def valido(campo: str) -> str | None:
-        return campo if campo in CAMPOS_PRODUCTO else canon.get(campo)
-    return valido
 
 
 def _codigo_ambito(db: Session, tipo: str, cod: str, dominios: set) -> tuple[str | None, str | None]:
@@ -280,9 +273,11 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         por_ambito.setdefault(id(x), [x, []])[1].append(f)
     db.flush()
     _comportamiento_hojas(db, hojas, error)
-    valido = campo_condicion(canon)
+    from .validacion_config import Contexto
+
+    ctx = Contexto(db)
     for x, filas in por_ambito.values():
-        conds = _condiciones_hoja(filas, "Attribute_Scope_Conditions", error, valido)
+        conds = _condiciones_hoja(filas, "Attribute_Scope_Conditions", error, ctx)
         if conds is not None and conds != (x.condicion or []):
             x.condicion = conds
             cuenta("Attribute_Scope_Conditions", False)
@@ -404,7 +399,7 @@ def _dict(a: AtributoDef, detalle: bool = False) -> dict:
 
 
 def listar(db: Session, user: Usuario, q: str | None = None, dominio: str | None = None, origen: str | None = None) -> dict:
-    exigir(user, "aranceles.ver")
+    exigir(user, "clasificacion.ver")
     consulta = select(AtributoDef).options(selectinload(AtributoDef.opciones), selectinload(AtributoDef.ambitos))
     if q:
         consulta = consulta.where(filtro_texto(q, lambda p: [AtributoDef.codigo.ilike(p), AtributoDef.etiqueta.ilike(p),
@@ -419,7 +414,7 @@ def listar(db: Session, user: Usuario, q: str | None = None, dominio: str | None
 
 
 def detalle(db: Session, user: Usuario, atributo_id: int) -> dict:
-    exigir(user, "aranceles.ver")
+    exigir(user, "clasificacion.ver")
     a = db.get(AtributoDef, atributo_id)
     if not a:
         raise ErrorNegocio("The attribute does not exist.", 404, "no_encontrado")
@@ -451,7 +446,7 @@ def guardar(db: Session, user: Usuario, atributo_id: int | None, datos: dict) ->
     que no es válido no se guarda y el mensaje dice qué y dónde."""
     from . import validacion_config as v
 
-    exigir(user, "aranceles.editar")
+    exigir(user, "clasificacion.configurar")
     if atributo_id:
         a = db.get(AtributoDef, atributo_id)
         if not a:
@@ -517,7 +512,7 @@ def guardar_opcion(db: Session, user: Usuario, atributo_id: int, opcion_id: int 
     patrones de detección y texto aduanero), validado."""
     from . import validacion_config as v
 
-    exigir(user, "aranceles.editar")
+    exigir(user, "clasificacion.configurar")
     a = db.get(AtributoDef, atributo_id)
     if not a or a.tipo_dato not in ("select", "multi_select"):
         raise ErrorNegocio("The attribute does not exist or does not have options.", 404, "no_encontrado")
@@ -554,7 +549,7 @@ def guardar_opcion(db: Session, user: Usuario, atributo_id: int, opcion_id: int 
 
 
 def guardar_ambito(db: Session, user: Usuario, atributo_id: int, ambito_id: int | None, datos: dict) -> dict:
-    exigir(user, "aranceles.editar")
+    exigir(user, "clasificacion.configurar")
     a = db.get(AtributoDef, atributo_id)
     if not a:
         raise ErrorNegocio("The attribute does not exist.", 404, "no_encontrado")

@@ -53,7 +53,7 @@ def categorias(db: Session, solo_activas: bool = True) -> list[dict]:
 
 
 def guardar_categoria(db: Session, user: Usuario, cat_id: int | None, datos: dict) -> dict:
-    exigir(user, "aranceles.editar")
+    exigir(user, "clasificacion.configurar")
     x = db.get(CategoriaProducto, cat_id) if cat_id else None
     if cat_id and not x:
         raise ErrorNegocio("The category does not exist.", 404, "no_encontrado")
@@ -147,7 +147,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error, fase: int = 1) -> No
 
 def guardar_dominio(db: Session, user: Usuario, dom_id: int | None, datos: dict) -> dict:
     """Crea o edita un dominio. No se borra: se desactiva (archiva)."""
-    exigir(user, "aranceles.editar")
+    exigir(user, "clasificacion.configurar")
     d = db.get(DominioClasificacion, dom_id) if dom_id else None
     if dom_id and not d:
         raise ErrorNegocio("The domain does not exist.", 404, "no_encontrado")

@@ -11,7 +11,7 @@ import { avisar, errorApi } from '../../stores/ui'
 // motor; una familia nueva agrega las suyas (cerámica, vidrio templado…) con
 // sus palabras y la palabra con que va en la descripción aduanera. Una
 // derivación «clase» de un atributo las lleva a sus opciones.
-const edita = puede('aranceles.editar')
+const edita = puede('clasificacion.configurar')
 const clases = ref([])
 const nueva = reactive({ codigo: '', nombre: '', palabras: '', texto_aduana: '' })
 

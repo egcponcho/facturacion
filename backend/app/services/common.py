@@ -74,6 +74,10 @@ MODULOS = [
         ("aranceles.ver", "See the tariff schedule", INTERNOS, False),
         ("aranceles.editar", "Edit countries, SAC, notes and national codes", INTERNOS, False),
     ]),
+    ("Classification engine", [
+        ("clasificacion.ver", "See product families, attributes and rules", INTERNOS, False),
+        ("clasificacion.configurar", "Configure product families, attributes and rules", INTERNOS, False),
+    ]),
     ("Master data", [
         ("catalogos.ver", "See master data", INTERNOS, False),
         ("catalogos.crear", "Create and upload master data", INTERNOS, False),
@@ -123,9 +127,24 @@ def catalogo_permisos() -> list[dict]:
 def permisos_de(user: Usuario) -> list[str]:
     r = user.rol_ref
     if r is not None:
-        return permisos_validos(r.permisos, user.proveedor_id) if r.activo else []
-    # Usuarios sin rol asignado (datos anteriores): permisos de fábrica de su tipo
-    return permisos_fabrica(user.rol)
+        permisos = permisos_validos(r.permisos, user.proveedor_id) if r.activo else []
+    else:
+        # Usuarios sin rol asignado (datos anteriores): permisos de fábrica de su tipo
+        permisos = permisos_fabrica(user.rol)
+    return _segun_flujo(user, permisos)
+
+
+def _segun_flujo(user: Usuario, permisos: list[str]) -> list[str]:
+    """El flujo de clasificación decide si el proveedor o el equipo interno
+    llenan las fichas, aunque su rol tenga el permiso."""
+    from sqlalchemy.orm import object_session
+
+    from .flujo import captura_permitida
+
+    db = object_session(user)
+    if db is None or "producto.ficha" not in permisos or captura_permitida(db, user.proveedor_id):
+        return permisos
+    return [p for p in permisos if p != "producto.ficha"]
 
 
 def tiene(user: Usuario, permiso: str) -> bool:

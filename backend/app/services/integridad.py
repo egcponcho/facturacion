@@ -211,14 +211,6 @@ def auditar(db: Session, user: Usuario | None = None, hoy: date | None = None) -
     return inf.resultado()
 
 
-def _cond_nuevas(cond):
-    """Condiciones en el formato del motor (convierte el anterior {atributo: valor})."""
-    if not cond or all(isinstance(c, dict) and "campo" in c for c in cond):
-        return cond
-    return [{"grupo": i, "campo": k, "operador": "IN" if isinstance(v, list) else "EQUAL", "valor": v}
-            for i, alt in enumerate(cond, start=1) for k, v in (alt or {}).items()]
-
-
 def _configuracion(db: Session, inf: _Informe) -> None:
     """La configuración guardada del motor (atributos, opciones, ámbitos,
     categorías y reglas) pasa la misma validación que al editarla: una
@@ -241,7 +233,7 @@ def _configuracion(db: Session, inf: _Informe) -> None:
         probar("attribute", a.codigo, a.id, lambda a=a: v.derivacion(ctx, a, a.derivacion, f"{a.codigo} (derivation)"))
         probar("attribute", a.codigo, a.id, lambda a=a: v.patrones(ctx, a.patrones, f"{a.codigo} (patterns)"))
         probar("attribute", a.codigo, a.id, lambda a=a: v.patrones(ctx, a.patrones_falso, f"{a.codigo} (false patterns)"))
-        probar("attribute", a.codigo, a.id, lambda a=a: v.bloqueos(ctx, [{**b, "condiciones": _cond_nuevas(b.get("condiciones"))} for b in a.bloqueo or []],
+        probar("attribute", a.codigo, a.id, lambda a=a: v.bloqueos(ctx, a.bloqueo or [],
                                                                     f"{a.codigo} (blocks)"))
         probar("attribute", a.codigo, a.id, lambda a=a: v.textos_aduana(ctx, a.texto_aduana, f"{a.codigo} (customs text)"))
         for o in a.opciones:
@@ -249,12 +241,11 @@ def _configuracion(db: Session, inf: _Informe) -> None:
             probar("option", ref, a.id, lambda a=a, o=o, ref=ref: v.implica(ctx, a, o.implica, f"{ref} (implies)"))
             probar("option", ref, a.id, lambda o=o, ref=ref: v.patrones(ctx, o.patrones, f"{ref} (patterns)"))
             probar("option", ref, a.id, lambda o=o, ref=ref: v.textos_aduana(ctx, o.texto_aduana, f"{ref} (customs text)"))
-            probar("option", ref, a.id, lambda o=o, ref=ref: v.bloqueos(ctx, [{**b, "condiciones": _cond_nuevas(b.get("condiciones"))}
-                                                                             for b in o.bloqueo or []], f"{ref} (blocks)"))
+            probar("option", ref, a.id, lambda o=o, ref=ref: v.bloqueos(ctx, o.bloqueo or [], f"{ref} (blocks)"))
         for x in a.ambitos:
             ref = f"{a.codigo} @ {x.tipo_ambito}:{x.codigo_ambito}"
             probar("scope", ref, a.id, lambda x=x: v.ambito(db, x.tipo_ambito, x.codigo_ambito))
-            probar("scope", ref, a.id, lambda x=x, ref=ref: v.condiciones(ctx, _cond_nuevas(x.condicion), ref))
+            probar("scope", ref, a.id, lambda x=x, ref=ref: v.condiciones(ctx, x.condicion, ref))
     for c in db.scalars(select(CategoriaProducto).where(CategoriaProducto.activo.is_(True))):
         for i, p in enumerate(c.patrones or [], start=1):
             probar("category", c.codigo, c.id, lambda p=p, i=i, c=c: v._regex(p.get("re"), f"{c.codigo}, pattern {i}"))

@@ -13,7 +13,7 @@ import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import { cargarContexto, entradaDe, fichaDe, sesion } from '../clasificacion/useClasificacion'
 import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '../clasificacion/formato.js'
-import { puede } from '../stores/sesion'
+import { puede, sesion as sesionUsuario } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { fmtFecha, fmtFechaHora } from '../utils'
 
@@ -49,6 +49,15 @@ const enRevision = computed(() => p.value?.estado === 'revision')
 const puedeEditar = computed(() => !!p.value && !aprobado.value && puede('producto.ficha') && (!enRevision.value || !!p.value.puede_aprobar))
 const puedeEnviar = computed(() => !!p.value && ['borrador', 'sugerida', 'observado'].includes(p.value.estado) && puede('producto.ficha'))
 const puedeAprobar = computed(() => !!p.value?.puede_aprobar)
+// Flujo de clasificación configurado por el administrador
+const flujo = computed(() => sesionUsuario.usuario?.flujo || {})
+const oculta = computed(() => !!(p.value?.sugerencia_oculta || r.value?.sugerencia_oculta))
+const envioPrevio = computed(() => puedeEnviar.value && (!puedeAprobar.value || !!flujo.value.revision_obligatoria))
+const bloqueoAprobar = computed(() => {
+  if (flujo.value.revision_obligatoria && !enRevision.value) return t('Send it to review first: the workflow asks for a review before approval.')
+  if (flujo.value.cuatro_ojos && p.value?.enviado_por_mi) return t('You sent this sheet to review; another person has to approve it.')
+  return ''
+})
 
 const sugerido = computed(() => r.value?.clasificacion?.sac?.codigo || r.value?.hs6 || '')
 const codigo = computed(() => (aprobado.value ? fmtCode(p.value.sac_codigo || p.value.codigo) : codOficial.value || fmtCode(sugerido.value)))
@@ -570,7 +579,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
             <button v-if="enRevision && puede('producto.ficha')" class="btn" :disabled="ocupado" :title="t('Take it back to draft to change it')" @click="retirarRevision"><Icono nombre="atras" />{{ t('Back to draft') }}</button>
           </MasOpciones>
           <button v-if="puedeEditar" class="btn" :class="{ 'btn-primario': !puedeEnviar || puedeAprobar }" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ tx(sucio ? (puedeEnviar ? t('Save draft') : t('Save sheet')) : t('Saved')) }}</button>
-          <button v-if="puedeEnviar && !puedeAprobar" class="btn btn-primario" :disabled="ocupado || !completa || codigo6.length < 6"
+          <button v-if="envioPrevio" class="btn btn-primario" :disabled="ocupado || !completa || (!oculta && codigo6.length < 6)"
                   :title="tx(!completa ? t('Complete first: {0}', [faltan.join(', ')]) : t('Customs reviews it and approves or returns it'))" @click="enviarRevision"><Icono nombre="enviar" />{{ t('Send to review') }}</button>
         </div>
       </div>
@@ -726,7 +735,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
           </div>
           <p v-if="codigo6.length === 6 && descHs6" class="desc-sac">{{ tx(descHs6) }}</p>
 
-          <template v-if="!aprobado && r">
+          <p v-if="!aprobado && oculta" class="ayuda">{{ t('The customs team assigns the code when it approves the sheet. Fill in what is missing below.') }}</p>
+          <template v-if="!aprobado && r && !oculta">
             <div class="confianza" :title="tx(t('Confidence: {0}', [r.confianza]))">
               <span v-for="n in 3" :key="n" class="barra" :class="{ llena: n <= confNivel, ['n' + confNivel]: true }"></span>
               <span class="ayuda">{{ t('Legal confidence: {0} · {1}', [NIVEL_CONF[r.legal_confidence || r.confianza], FUENTES[fuente] || '']) }}</span>
@@ -806,7 +816,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
           </div>
         </section>
 
-        <section class="panel">
+        <section v-if="!oculta" class="panel">
           <div class="panel-cabeza"><div><h2>{{ t('By destination') }}</h2><p>{{ t('{0} of {1} national codes complete', [paisesOk, paises.length]) }}</p></div></div>
           <table class="tabla paises" v-tarjetas>
             <tbody>
@@ -887,10 +897,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         </section>
 
         <div v-if="!aprobado && puedeAprobar" class="acciones-clasif">
-          <button class="btn btn-primario btn-grande" :disabled="ocupado || calculando || !r || codigo6.length < 6 || !completa || errores.length > 0"
-                  :title="tx(!completa ? t('Complete the technical sheet first') : errores.length ? t('Fix the errors first') : '')" @click="aprobar">
+          <button class="btn btn-primario btn-grande" :disabled="ocupado || calculando || !r || codigo6.length < 6 || !completa || errores.length > 0 || !!bloqueoAprobar"
+                  :title="tx(bloqueoAprobar || (!completa ? t('Complete the technical sheet first') : errores.length ? t('Fix the errors first') : ''))" @click="aprobar">
             <Icono nombre="check" />{{ t('Approve {0}', [codigo]) }}
           </button>
+          <p v-if="bloqueoAprobar" class="ayuda">{{ tx(bloqueoAprobar) }}</p>
           <button class="btn" :disabled="ocupado" @click="modal = { tipo: 'devolver', texto: p.observaciones || (faltan.length ? t('Please complete: {0}.', [faltan.join(', ')]) : '') }">{{ t('Return to supplier') }}</button>
         </div>
         <p v-else-if="!aprobado && puedeEditar" class="ayuda acciones-clasif">

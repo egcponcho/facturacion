@@ -18,7 +18,7 @@ import { fmtNum } from '../../utils'
 // opciones y dónde (sistema, dominio, capítulo/partida/subpartida o categoría
 // de producto). Las fichas toman de aquí etiquetas, opciones activas y los
 // atributos apagados; agregar una pregunta ya no requiere cambiar el código.
-const edita = puede('aranceles.editar')
+const edita = puede('clasificacion.configurar')
 const datos = ref({ items: [], por_origen: {}, total: 0 })
 const dominios = ref([])
 const categorias = ref({})

@@ -67,7 +67,7 @@ def condiciones(ctx: Contexto, conds, donde: str) -> list | None:
         error(f"{donde}: the conditions must be a list.")
     out = []
     for c in conds:
-        if not isinstance(c, dict):
+        if not isinstance(c, dict) or "campo" not in c:
             error(f"{donde}: each condition is {{field, operator, value}}.")
         op = str(c.get("operador") or "EQUAL").upper()
         if op not in OPERADORES:

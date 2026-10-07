@@ -54,6 +54,7 @@ from ..models import (
     ReglaClasificacion,
     VersionDataset,
 )
+from . import version_config
 from .arbol import formato
 
 OPERADORES = ("EQUAL", "NOT_EQUAL", "IN", "GT", "GTE", "LT", "LTE", "BETWEEN", "EXISTS")
@@ -167,26 +168,8 @@ def evaluar(condiciones, hechos: dict) -> tuple[bool | None, set]:
 
 
 def condicion_ambito(cond, hechos: dict) -> tuple[bool | None, set]:
-    """Condición de un ámbito: lista de condiciones {campo, operador, valor, grupo}
-    o el formato antiguo (lista de alternativas {atributo: valor})."""
-    if not cond:
-        return True, set()
-    if all(isinstance(c, dict) and "campo" in c for c in cond):
-        return evaluar(cond, hechos)
-    faltan, pendiente = set(), False
-    for alt in cond:
-        res = True
-        for k, v in (alt or {}).items():
-            r = condicion("IN" if isinstance(v, list) else "EQUAL", hechos.get(k), v)
-            if r is False:
-                res = False
-                break
-            if r is None:
-                res, pendiente = None, True
-                faltan.add(k)
-        if res is True:
-            return True, set()
-    return (None if pendiente else False), faltan
+    """Condición de un ámbito: lista de condiciones {campo, operador, valor, grupo}."""
+    return evaluar(cond, hechos) if cond else (True, set())
 
 
 # ---- Versiones ---------------------------------------------------------------------
@@ -284,6 +267,80 @@ class Candidato:
 
 
 # ---- El motor -------------------------------------------------------------------------
+# Una clasificación pasa por etapas que comparten un mismo caso:
+#   1. detección (categoría y atributos por texto) → 2. normalización y hechos
+#   → 3. universo de códigos (versión, capítulos, dominio) → 4. reglas
+#   → 5. candidatos (texto, reglas, historial) → 6. confianza y revisión
+#   → 7. verificación, preguntas, países, alertas y la salida con su evidencia.
+@dataclass
+class Caso:
+    """Lo que se sabe del producto mientras pasa por las etapas."""
+    entrada: dict
+    cat: object
+    hoy: date
+    ficha: dict
+    texto: str
+    tocados: set
+    autos_previos: set
+    categoria: str | None = None
+    autos: set = field(default_factory=set)
+    detectado: dict = field(default_factory=dict)
+    cobj: object = None
+    dominio: str | None = None
+    s: dict = field(default_factory=dict)  # hechos normalizados (con los derivados internos)
+    hechos: dict = field(default_factory=dict)  # lo que leen las reglas
+    del_registro: dict = field(default_factory=dict)
+    avisos: list = field(default_factory=list)
+
+
+@dataclass
+class Universo:
+    """Códigos entre los que puede elegir el motor para este caso."""
+    version: VersionDataset
+    por_cod: dict
+    reglas: list
+    base: set  # familias de reglas internas activas
+    caps: dict
+    habilitados: set
+    auto_caps: set
+    peso_dom: dict
+    dom: DominioClasificacion | None
+    codigos: set
+
+    def expandir(self, codigo: str) -> set:
+        cod = "".join(ch for ch in str(codigo) if ch.isdigit())
+        if len(cod) >= 6:
+            return {cod[:6]} & self.codigos
+        return {c for c in self.codigos if c.startswith(cod)}
+
+
+@dataclass
+class Decision:
+    """Lo que dejaron las reglas: códigos permitidos, refuerzos, preguntas y traza."""
+    traza: list = field(default_factory=list)
+    permitidos: set | None = None
+    limite_legal: set | None = None
+    boosts: dict = field(default_factory=dict)
+    preguntar: dict = field(default_factory=dict)
+    revision_por: list = field(default_factory=list)
+    alertas: list = field(default_factory=list)
+    pendientes: dict = field(default_factory=dict)
+    decisiva: str | None = None
+
+    def zona(self, u: Universo) -> set:
+        return self.permitidos if self.permitidos is not None else u.codigos
+
+
+@dataclass
+class Candidatos:
+    lista: list
+    legales: list
+    historial: dict
+    perfil: str
+    terminos: list
+    fuera: dict  # capítulo fuera del universo → (puntaje, código, términos)
+
+
 def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bool = True, limite: int = 8) -> dict:
     """Clasifica un producto a partir de su ficha natural. `entrada`:
     categoria, dominio, ficha ({atributo: valor, comp: {parte: texto}}),
@@ -293,60 +350,73 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     que implica), detectar (por defecto sí), codigo_final (el HS6/SAC que se
     quiere aprobar: se verifica), partidas ({iso: {codigo, manual}}),
     producto_id, alertas_ok, fecha, version_id (para reproducir)."""
+    caso = _caso(db, entrada, catalogo)
+    _detectar(caso)
+    _normalizar(db, caso)
+    v = version_regional(db, caso.hoy, entrada.get("version_id"))
+    if not v:
+        return _sin_version(caso.categoria, caso.ficha, caso.hechos, caso.avisos)
+    u = _universo(db, v, caso)
+    d = _aplicar_reglas(u, caso)
+    c = _candidatos(db, u, d, caso)
+    hs6, auto_ok, confianza, confianza_hist = _confianza(u, d, c, caso)
+    return _salida(db, u, d, c, caso, hs6, auto_ok, confianza, confianza_hist, paises, limite)
+
+
+def _caso(db: Session, entrada: dict, catalogo) -> Caso:
     from .ficha import catalogo as catalogo_db
 
     hoy = entrada.get("fecha") or date.today()
     if isinstance(hoy, str):
         hoy = date.fromisoformat(hoy[:10])
-    v = version_regional(db, hoy, entrada.get("version_id"))
     cat = catalogo or catalogo_db(db)
     ficha = cat.canonizar(copy.deepcopy(entrada.get("ficha") or {}))  # un alias llega a su atributo
     ficha.setdefault("comp", {})
-    texto_det = " ".join(x for x in (entrada.get("estilo"), entrada.get("nombre"), entrada.get("texto")) if str(x or "").strip())
-    tocados = set(entrada.get("tocados") or [])
-    autos_previos = set(entrada.get("autos") or [])
+    texto = " ".join(x for x in (entrada.get("estilo"), entrada.get("nombre"), entrada.get("texto")) if str(x or "").strip())
+    return Caso(entrada=entrada, cat=cat, hoy=hoy, ficha=ficha, texto=texto, tocados=set(entrada.get("tocados") or []),
+                autos_previos=set(entrada.get("autos") or []), categoria=entrada.get("categoria") or None)
 
-    # 1. Categoría y detección por texto (sin pisar lo que eligió la persona)
-    categoria = entrada.get("categoria") or None
-    autos: set = set()
-    detectado: dict = {}
-    if entrada.get("detectar", True) and (texto_det or entrada.get("uso") or ficha.get("comp")):
-        detectado = cat.detectar(ficha, entrada.get("estilo") or "", entrada.get("nombre") or entrada.get("texto") or "", entrada.get("uso") or "",
-                                 entrada.get("tallas") or "", entrada.get("marca"), categoria)
+
+def _detectar(caso: Caso) -> None:
+    """1. Categoría y atributos por el texto, sin pisar lo que eligió la persona."""
+    e, cat, ficha = caso.entrada, caso.cat, caso.ficha
+    if e.get("detectar", True) and (caso.texto or e.get("uso") or ficha.get("comp")):
+        caso.detectado = cat.detectar(ficha, e.get("estilo") or "", e.get("nombre") or e.get("texto") or "", e.get("uso") or "",
+                                      e.get("tallas") or "", e.get("marca"), caso.categoria)
         # Con el dominio elegido, una categoría detectada de otro dominio no se toma
-        det_cat = cat.categorias.get(detectado.get("categoria") or "")
-        if entrada.get("dominio") and det_cat and det_cat.dominio and det_cat.dominio != entrada["dominio"]:
-            detectado.pop("categoria", None)
-        if not categoria and detectado.get("categoria"):
-            categoria = detectado["categoria"]
-            autos.add("categoria")
-        for k, val in detectado.items():
-            a = cat.por_codigo.get(k)
-            if not a or k in tocados:
+        det_cat = cat.categorias.get(caso.detectado.get("categoria") or "")
+        if e.get("dominio") and det_cat and det_cat.dominio and det_cat.dominio != e["dominio"]:
+            caso.detectado.pop("categoria", None)
+        if not caso.categoria and caso.detectado.get("categoria"):
+            caso.categoria = caso.detectado["categoria"]
+            caso.autos.add("categoria")
+        for k, val in caso.detectado.items():
+            if not cat.por_codigo.get(k) or k in caso.tocados:
                 continue
-            if _vacio(ficha.get(k)) or ficha.get(k) is False or k in autos_previos:
+            if _vacio(ficha.get(k)) or ficha.get(k) is False or k in caso.autos_previos:
                 ficha[k] = val
-                autos.add(k)
-        for k in autos_previos - set(detectado) - tocados:
+                caso.autos.add(k)
+        for k in caso.autos_previos - set(caso.detectado) - caso.tocados:
             a = cat.por_codigo.get(k)
             if a and k in ficha:
                 ficha[k] = False if a.booleano else ""
-    cobj = cat.categorias.get(categoria or "")
-    dominio = entrada.get("dominio") or (cobj.dominio if cobj else None)
+    caso.cobj = cat.categorias.get(caso.categoria or "")
+    caso.dominio = e.get("dominio") or (caso.cobj.dominio if caso.cobj else None)
 
-    # 2. Normalización y hechos derivados
-    s = cat.hechos_base(ficha, categoria, dominio, texto_det)
-    if entrada.get("cambio"):
-        c = entrada["cambio"]
+
+def _normalizar(db: Session, caso: Caso) -> None:
+    """2. Normalización, implicaciones del último cambio, datos del registro y hechos derivados."""
+    cat, ficha, e = caso.cat, caso.ficha, caso.entrada
+    s = cat.hechos_base(ficha, caso.categoria, caso.dominio, caso.texto)
+    if e.get("cambio"):
+        c = e["cambio"]
         s[c["campo"]] = c.get("valor")
-        for k in cat.aplicar_implica(s, c["campo"], c.get("valor")):
-            autos.add(k)
-    del_registro = _datos_producto(db, entrada)
-    del_registro = {cat.canonico(k): val for k, val in del_registro.items()}
-    for k, val in del_registro.items():  # lo que ya dice el registro del producto
+        caso.autos.update(cat.aplicar_implica(s, c["campo"], c.get("valor")))
+    caso.del_registro = {cat.canonico(k): val for k, val in _datos_producto(db, e).items()}
+    for k, val in caso.del_registro.items():  # lo que ya dice el registro del producto
         if k in cat.por_codigo and _vacio(s.get(k)):
             s[k] = val
-    avisos = cat.normalizar(s)
+    caso.avisos = cat.normalizar(s)
     for a in cat.atributos:  # la ficha guardada lleva lo normalizado (no los hechos derivados)
         if a.seccion == "derivado" or a.tipo_dato == "composition":
             continue
@@ -360,18 +430,17 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     for a in cat.atributos:
         if not a.usado_clasificacion and a.codigo in hechos:
             hechos[a.codigo] = None  # se recoge, pero no altera la clasificación
-    if entrada.get("origen"):
-        hechos["origen"] = entrada["origen"]
+    if e.get("origen"):
+        hechos["origen"] = e["origen"]
+    caso.s, caso.hechos = s, hechos
 
-    if not v:
-        return _sin_version(categoria, ficha, hechos, avisos)
 
-    # 3. Reglas
-    marca_v = _marca(v)
-    por_cod = _por_codigo(v.id, marca_v)
+def _universo(db: Session, v: VersionDataset, caso: Caso) -> Universo:
+    """3. Reglas vigentes para el caso y los códigos de los capítulos habilitados (y del dominio)."""
+    por_cod = _por_codigo(v.id, _marca(v))
     reglas = list(db.scalars(select(ReglaClasificacion).options(selectinload(ReglaClasificacion.condiciones))
                              .where(ReglaClasificacion.activo.is_(True), ReglaClasificacion.tipo_regla != "NATIONAL_SELECT",
-                                    or_(ReglaClasificacion.tipo_ambito != "CATEGORY", ReglaClasificacion.codigo_ambito == (categoria or "")))))
+                                    or_(ReglaClasificacion.tipo_ambito != "CATEGORY", ReglaClasificacion.codigo_ambito == (caso.categoria or "")))))
     reglas.sort(key=_clave_precedencia)
     base = {r.familia for r in reglas if _accion(r)["tipo"] == "BUILTIN" and r.familia in FAMILIAS_BASE}
     caps = {c.capitulo: c for c in db.scalars(select(ControlCapitulo))}
@@ -379,113 +448,110 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
                    if "ACTIVE_CHAPTERS" in base else set(caps))
     auto_caps = {k for k in habilitados if caps[k].candidato_auto} if "ACTIVE_CHAPTERS" in base else set(caps)
     peso_dom: dict[str, float] = {}
-    dom = db.scalar(select(DominioClasificacion).where(DominioClasificacion.codigo == dominio)) if dominio else None
+    dom = db.scalar(select(DominioClasificacion).where(DominioClasificacion.codigo == caso.dominio)) if caso.dominio else None
     for dc in (dom.capitulos if dom else []):
         if dc.habilitado:
             peso_dom[dc.capitulo] = 1.5 if dc.relevancia == "PRIMARY" else 1.2
     if dom and "FAMILY_NOT_LEGAL" not in base and peso_dom:
         habilitados &= set(peso_dom)
-    universo = {c for c in por_cod if len(c) == 6 and c[:2] in habilitados}
+    codigos = {c for c in por_cod if len(c) == 6 and c[:2] in habilitados}
+    return Universo(v, por_cod, reglas, base, caps, habilitados, auto_caps, peso_dom, dom, codigos)
 
-    def expandir(codigo: str) -> set:
-        cod = "".join(ch for ch in str(codigo) if ch.isdigit())
-        if len(cod) >= 6:
-            return {cod[:6]} & universo
-        return {c for c in universo if c.startswith(cod)}
 
-    traza: list[dict] = []
-    permitidos: set | None = None
-    limite_legal: set | None = None
-    boosts: dict[str, list] = {}
-    preguntar: dict[str, int] = {}
-    revision_por: list[str] = []
-    alertas: list[dict] = []
-    pendientes: dict[str, set] = {}
-    decisiva = None
-    for f in sorted(base):
-        r = next(r for r in reglas if r.familia == f)
+def _aplicar_reglas(u: Universo, caso: Caso) -> Decision:
+    """4. Cada regla en orden de precedencia (ver el encabezado del módulo)."""
+    d = Decision()
+    for f in sorted(u.base):
+        r = next(r for r in u.reglas if r.familia == f)
         foto = foto_regla(r)
-        traza.append({"regla": r.codigo, "revision": r.revision or 1, "firma": firma_regla(foto), "foto": foto, "capa": CAPA.get(r.tipo_fuente, "PROPIA"),
-                      "tipo_fuente": r.tipo_fuente, "prioridad": r.prioridad, "resultado": True, "efecto": f"BUILTIN {f}", "aplicada": True})
-    for r in reglas:
+        d.traza.append({"regla": r.codigo, "revision": r.revision or 1, "firma": firma_regla(foto), "foto": foto, "capa": CAPA.get(r.tipo_fuente, "PROPIA"),
+                        "tipo_fuente": r.tipo_fuente, "prioridad": r.prioridad, "resultado": True, "efecto": f"BUILTIN {f}", "aplicada": True})
+    for r in u.reglas:
         a = _accion(r)
-        if a["tipo"] == "BUILTIN" or not _aplica_a_producto(r, hechos):
+        if a["tipo"] == "BUILTIN" or not _aplica_a_producto(r, caso.hechos):
             continue
         capa = CAPA.get(r.tipo_fuente, "PROPIA")
         foto = foto_regla(r)
         fila = {"regla": r.codigo, "revision": r.revision or 1, "firma": firma_regla(foto), "capa": capa, "tipo_fuente": r.tipo_fuente,
                 "prioridad": r.prioridad, "efecto": a["tipo"]}
-        res, faltan = evaluar(r.condiciones, hechos)
+        res, faltan = evaluar(r.condiciones, caso.hechos)
         if res is None:
-            pendientes[r.codigo] = faltan
-            traza.append({**fila, "resultado": None, "faltan": sorted(faltan), "aplicada": False})
+            d.pendientes[r.codigo] = faltan
+            d.traza.append({**fila, "resultado": None, "faltan": sorted(faltan), "aplicada": False})
             continue
         if res is False:
-            traza.append({**fila, "resultado": False, "aplicada": False})
+            d.traza.append({**fila, "resultado": False, "aplicada": False})
             continue
         codigos = [c for c in (a.get("codigos") or []) if c]
         if a.get("por") and isinstance(a.get("mapa"), dict):
-            val = hechos.get(a["por"])
+            val = caso.hechos.get(a["por"])
             elegido = a["mapa"].get("" if _vacio(val) else str(val))
             if _vacio(val):
-                pendientes.setdefault(r.codigo, set()).add(a["por"])
+                d.pendientes.setdefault(r.codigo, set()).add(a["por"])
             if not elegido:
-                traza.append({**fila, "resultado": None, "faltan": [a["por"]], "aplicada": False})
+                d.traza.append({**fila, "resultado": None, "faltan": [a["por"]], "aplicada": False})
                 continue
             codigos = [elegido]
-        efecto, motivo, aplicada = a["tipo"], None, True
-        if efecto in ("RESTRICT", "EXCLUDE"):
-            conj = set().union(*(expandir(c) for c in codigos)) if codigos else set()
-            vigente = permitidos if permitidos is not None else universo
-            nuevo = (vigente & conj) if efecto == "RESTRICT" else (vigente - conj)
-            if capa == "LEGAL":
-                limite_legal = nuevo if limite_legal is None else (limite_legal & nuevo)
-                if not nuevo:
-                    revision_por.append(f"Legal rules {r.codigo} conflict: no code satisfies them.")
-            if codigos and not conj and capa != "LEGAL":
-                # Sus códigos existen pero están en capítulos que no se clasifican solos (manuales o no habilitados)
-                fuera_r = sorted({c[:2] for c in codigos if c[:2] in caps and c[:2] not in habilitados})
-                if fuera_r:
-                    msg = (f"Rule {r.codigo} points to chapter {', '.join(fuera_r)} ({', '.join(formato(c) for c in codigos[:4])}), "
-                           "which is classified by hand only or not enabled: choose the code by hand or enable the chapter.")
-                    revision_por.append(msg)
-                    alertas.append({"nivel": "aviso", "origen": "capitulo", "msg": msg, "regla": r.codigo})
-            if not nuevo and capa != "LEGAL":
-                aplicada = False
-                choca_ley = limite_legal is not None and not (conj & limite_legal) if efecto == "RESTRICT" else False
-                motivo = "blocked_by_legal" if choca_ley else f"overridden_by:{decisiva or 'higher precedence'}"
-            else:
-                permitidos = nuevo
-                if efecto == "RESTRICT":
-                    decisiva = decisiva or r.codigo
-        elif efecto == "BOOST":
-            for c in codigos:
-                for x in expandir(c):
-                    boosts.setdefault(x, []).append((float(a.get("peso") or 5), f"regla:{r.codigo}"))
-        elif efecto == "ASK":
-            for at in a.get("atributos") or []:
-                preguntar[at] = max(preguntar.get(at, 0), r.prioridad)
-        elif efecto == "REVIEW":
-            revision_por.append(a.get("mensaje") or r.efecto or r.codigo)
-        elif efecto == "WARN":
-            alertas.append({"nivel": "aviso", "origen": "regla", "msg": a.get("mensaje") or r.efecto or r.codigo, "regla": r.codigo})
+        aplicada, motivo = _efecto(u, d, r, a, capa, codigos)
         if aplicada and r.requiere_revision:
-            revision_por.append(r.efecto or f"Rule {r.codigo} requires review.")
-        traza.append({**fila, "resultado": True, "codigos": codigos, "mensaje": a.get("mensaje"), "aplicada": aplicada, "motivo": motivo,
-                      "foto": foto})
+            d.revision_por.append(r.efecto or f"Rule {r.codigo} requires review.")
+        d.traza.append({**fila, "resultado": True, "codigos": codigos, "mensaje": a.get("mensaje"), "aplicada": aplicada, "motivo": motivo,
+                        "foto": foto})
+    return d
 
-    # 4. Candidatos: texto, dominio, reglas e historial (el historial solo refuerza)
+
+def _efecto(u: Universo, d: Decision, r: ReglaClasificacion, a: dict, capa: str, codigos: list) -> tuple[bool, str | None]:
+    """Aplica la acción de una regla que se cumple. Devuelve (aplicada, motivo si no)."""
+    efecto = a["tipo"]
+    if efecto in ("RESTRICT", "EXCLUDE"):
+        conj = set().union(*(u.expandir(c) for c in codigos)) if codigos else set()
+        vigente = d.zona(u)
+        nuevo = (vigente & conj) if efecto == "RESTRICT" else (vigente - conj)
+        if capa == "LEGAL":
+            d.limite_legal = nuevo if d.limite_legal is None else (d.limite_legal & nuevo)
+            if not nuevo:
+                d.revision_por.append(f"Legal rules {r.codigo} conflict: no code satisfies them.")
+        if codigos and not conj and capa != "LEGAL":
+            # Sus códigos existen pero están en capítulos que no se clasifican solos (manuales o no habilitados)
+            fuera_r = sorted({c[:2] for c in codigos if c[:2] in u.caps and c[:2] not in u.habilitados})
+            if fuera_r:
+                msg = (f"Rule {r.codigo} points to chapter {', '.join(fuera_r)} ({', '.join(formato(c) for c in codigos[:4])}), "
+                       "which is classified by hand only or not enabled: choose the code by hand or enable the chapter.")
+                d.revision_por.append(msg)
+                d.alertas.append({"nivel": "aviso", "origen": "capitulo", "msg": msg, "regla": r.codigo})
+        if not nuevo and capa != "LEGAL":
+            choca_ley = d.limite_legal is not None and not (conj & d.limite_legal) if efecto == "RESTRICT" else False
+            return False, "blocked_by_legal" if choca_ley else f"overridden_by:{d.decisiva or 'higher precedence'}"
+        d.permitidos = nuevo
+        if efecto == "RESTRICT":
+            d.decisiva = d.decisiva or r.codigo
+    elif efecto == "BOOST":
+        for c in codigos:
+            for x in u.expandir(c):
+                d.boosts.setdefault(x, []).append((float(a.get("peso") or 5), f"regla:{r.codigo}"))
+    elif efecto == "ASK":
+        for at in a.get("atributos") or []:
+            d.preguntar[at] = max(d.preguntar.get(at, 0), r.prioridad)
+    elif efecto == "REVIEW":
+        d.revision_por.append(a.get("mensaje") or r.efecto or r.codigo)
+    elif efecto == "WARN":
+        d.alertas.append({"nivel": "aviso", "origen": "regla", "msg": a.get("mensaje") or r.efecto or r.codigo, "regla": r.codigo})
+    return True, None
+
+
+def _candidatos(db: Session, u: Universo, d: Decision, caso: Caso) -> Candidatos:
+    """5. Candidatos del texto oficial, de las reglas y del historial (el historial solo refuerza)."""
     cands: dict[str, Candidato] = {}
-    terminos = _terminos(cat, entrada, ficha, hechos)
-    zona = permitidos if permitidos is not None else universo
-    fuera: dict[str, tuple] = {}  # capítulo fuera del universo (manual o no habilitado) → (puntaje, código, términos)
-    if "TEXT_CANDIDATES" in base and terminos:
+    terminos = _terminos(caso.cat, caso.entrada, caso.ficha, caso.hechos)
+    zona = d.zona(u)
+    fuera: dict[str, tuple] = {}
+    if "TEXT_CANDIDATES" in u.base and terminos:
         from .indice_arbol import _indice, alcance as alcance_de
 
-        nodos, df = _indice(v.id, marca_v)
+        nodos, df = _indice(u.version.id, _marca(u.version))
         total = max(len(nodos), 1)
         # Cada término cuenta por sus variantes (raíz) y sus equivalentes (vocabulario de búsqueda)
-        alcance = alcance_de(terminos, df, getattr(cat, "sinonimos_busqueda", None))
+        alcance = alcance_de(terminos, df, getattr(caso.cat, "sinonimos_busqueda", None))
         idf = {t: math.log(1 + total / (1 + min(total, sum(df[w] for w in alcance[t])))) for t in terminos if alcance[t]}
         for cod, _nivel, _d, _dai, ps in nodos:
             hit = [t for t in idf if not ps.isdisjoint(alcance[t])]
@@ -493,102 +559,114 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
                 continue
             puntaje = sum(idf[t] for t in hit)
             if cod[:6] not in zona:
-                if cod[:2] in caps and cod[:2] not in habilitados and puntaje > fuera.get(cod[:2], (0,))[0]:
+                if cod[:2] in u.caps and cod[:2] not in u.habilitados and puntaje > fuera.get(cod[:2], (0,))[0]:
                     fuera[cod[:2]] = (puntaje, cod[:6], sorted(hit))
                 continue
             c = cands.setdefault(cod[:6], Candidato(cod[:6]))
-            c.puntaje = max(c.puntaje, puntaje * peso_dom.get(cod[:2], 1.0))
+            c.puntaje = max(c.puntaje, puntaje * u.peso_dom.get(cod[:2], 1.0))
             c.terminos.update(hit)
             c.origen.add("texto")
-    if permitidos is not None:
-        for x in permitidos:
+    if d.permitidos is not None:
+        for x in d.permitidos:
             c = cands.setdefault(x, Candidato(x))
-            c.puntaje += 10 / max(len(permitidos), 1)
-            c.origen.add(f"regla:{decisiva}" if decisiva else "regla")
-    for x, lst in boosts.items():
+            c.puntaje += 10 / max(len(d.permitidos), 1)
+            c.origen.add(f"regla:{d.decisiva}" if d.decisiva else "regla")
+    for x, lst in d.boosts.items():
         if x in zona:
             c = cands.setdefault(x, Candidato(x))
             for p, o in lst:
                 c.puntaje += p
                 c.origen.add(o)
-    perfil = _perfil(categoria, hechos, traza)
+    perfil = _perfil(caso.categoria, caso.hechos, d.traza)
     # Puntajes legales (reglas y texto oficial) antes de mirar el historial de la empresa
     legales = sorted(((c.puntaje, c.codigo) for c in cands.values()), key=lambda t: (-t[0], t[1]))
-    historial = _historial(db, entrada, categoria, perfil)
+    historial = _historial(db, caso.entrada, caso.categoria, perfil)
     # El historial solo refuerza candidatos que ya salieron del árbol oficial y las reglas: nunca agrega uno
     for x, n in historial["tally"].items():
         if x in zona and x in cands:
             c = cands[x]
             c.puntaje += min(3.0 * n, 9.0)
             c.origen.add("historial")
-
     lista = sorted(cands.values(), key=lambda c: (-c.puntaje, c.codigo))
-    manual = bool(dom and dom.modo == "MANUAL")
+    return Candidatos(lista, legales, historial, perfil, terminos, fuera)
+
+
+def _confianza(u: Universo, d: Decision, c: Candidatos, caso: Caso) -> tuple:
+    """6. HS6 sugerido, confianza legal e histórica (nunca se mezclan) y motivos de revisión."""
+    lista, permitidos = c.lista, d.permitidos
+    manual = bool(u.dom and u.dom.modo == "MANUAL")
     hs6 = lista[0].codigo if lista else None
-    auto_ok = bool(hs6 and hs6[:2] in auto_caps and not manual)
+    auto_ok = bool(hs6 and hs6[:2] in u.auto_caps and not manual)
     por_regla = bool(lista and any(o.startswith("regla") for o in lista[0].origen))
     # legal_confidence: solo reglas y texto oficial. historical_confidence: solo el
-    # historial de la empresa. Nunca se mezclan: el historial ordena, no da certeza legal.
+    # historial de la empresa. El historial ordena, no da certeza legal.
     if permitidos is not None and len(permitidos) == 1:
         confianza = "high"
-    elif por_regla and legales and legales[0][1] == hs6 and (len(legales) == 1 or legales[0][0] >= 1.5 * legales[1][0]):
+    elif por_regla and c.legales and c.legales[0][1] == hs6 and (len(c.legales) == 1 or c.legales[0][0] >= 1.5 * c.legales[1][0]):
         confianza = "medium"  # un candidato que solo sale del texto nunca pasa de confianza baja
     else:
         confianza = "low"
-    n_hist = historial["tally"].get(hs6 or "", 0)
-    confianza_hist = ("high" if historial["mismo"] and hs6 and historial["mismo"]["codigo"][:6] == hs6
+    n_hist = c.historial["tally"].get(hs6 or "", 0)
+    confianza_hist = ("high" if c.historial["mismo"] and hs6 and c.historial["mismo"]["codigo"][:6] == hs6
                       else "medium" if n_hist >= 2 else "low" if n_hist else "none")
-    if "AMBIGUITY" in base and len(lista) > 1 and lista[1].puntaje >= 0.67 * lista[0].puntaje and not (permitidos and len(permitidos) == 1):
-        revision_por.append("Several plausible candidates remain.")
+    if "AMBIGUITY" in u.base and len(lista) > 1 and lista[1].puntaje >= 0.67 * lista[0].puntaje and not (permitidos and len(permitidos) == 1):
+        d.revision_por.append("Several plausible candidates remain.")
     # El historial no quita la revisión: un candidato que solo sale del texto la sigue necesitando
-    if "TEXT_CANDIDATES" in base and lista and not por_regla:
-        revision_por.append("The text never confirms a code by itself: a specialist reviews it.")
+    if "TEXT_CANDIDATES" in u.base and lista and not por_regla:
+        d.revision_por.append("The text never confirms a code by itself: a specialist reviews it.")
     # El texto coincide mejor en un capítulo que no se clasifica solo (manual o no habilitado): se dice dónde
     mejor_dentro = lista[0].puntaje if lista and not por_regla else (0 if not lista else float("inf"))
-    for cap, (puntaje, cod, hit) in sorted(fuera.items(), key=lambda kv: -kv[1][0])[:2]:
+    for cap, (puntaje, cod, hit) in sorted(c.fuera.items(), key=lambda kv: -kv[1][0])[:2]:
         if puntaje >= 0.6 * mejor_dentro:  # comparable o mejor que lo que hay en los capítulos habilitados
-            c = caps[cap]
-            motivo = "is classified by hand only" if c.solo_manual and c.activo and c.clasificacion else "is not enabled for classification"
-            alertas.append({"nivel": "aviso", "origen": "capitulo",
-                            "msg": f"The text also matches chapter {cap} ({c.titulo}), e.g. {formato(cod)} ({', '.join(hit)}): "
-                                   f"that chapter {motivo}. Choose the code by hand or enable the chapter."})
-            if f"Chapter {cap}" not in " ".join(revision_por):
-                revision_por.append(f"The text points to chapter {cap}, which {motivo}.")
+            ctl = u.caps[cap]
+            motivo = "is classified by hand only" if ctl.solo_manual and ctl.activo and ctl.clasificacion else "is not enabled for classification"
+            d.alertas.append({"nivel": "aviso", "origen": "capitulo",
+                              "msg": f"The text also matches chapter {cap} ({ctl.titulo}), e.g. {formato(cod)} ({', '.join(hit)}): "
+                                     f"that chapter {motivo}. Choose the code by hand or enable the chapter."})
+            if f"Chapter {cap}" not in " ".join(d.revision_por):
+                d.revision_por.append(f"The text points to chapter {cap}, which {motivo}.")
     if hs6 and not auto_ok:
-        revision_por.append(f"Chapter {hs6[:2]} cannot be chosen automatically: choose the code by hand." if not manual
-                            else f"Domain {dominio} is classified by hand.")
+        d.revision_por.append(f"Chapter {hs6[:2]} cannot be chosen automatically: choose the code by hand." if not manual
+                              else f"Domain {caso.dominio} is classified by hand.")
+    return hs6, auto_ok, confianza, confianza_hist
 
-    # 5. Verificación del código que se quiere aprobar (o del sugerido)
+
+def _salida(db: Session, u: Universo, d: Decision, c: Candidatos, caso: Caso, hs6, auto_ok: bool, confianza: str,
+            confianza_hist: str, paises: bool, limite: int) -> dict:
+    """7. Verificación del código, preguntas, países, alertas, descripciones y evidencia."""
+    cat, s, ficha, entrada, v, por_cod = caso.cat, caso.s, caso.ficha, caso.entrada, u.version, u.por_cod
+    lista, alertas = c.lista, d.alertas
+    # Verificación del código que se quiere aprobar (o del sugerido)
     final = "".join(ch for ch in str(entrada.get("codigo_final") or "") if ch.isdigit())
-    alertas += _verificar_codigo(final or hs6, v, cobj, caps, permitidos, limite_legal, traza)
+    alertas += _verificar_codigo(final or hs6, v, caso.cobj, u.caps, d.permitidos, d.limite_legal, d.traza)
 
-    # 6. Preguntas: ámbitos, compuertas y lo que discrimina primero
-    codigos_c = [c.codigo for c in lista]
-    discriminan = set().union(*pendientes.values()) if pendientes and "NEXT_BEST_QUESTION" in base else set()
-    usados = {c.campo for r in reglas for c in r.condiciones}
-    campos, preguntas, faltantes = _campos(cat, s, ficha, codigos_c, preguntar, discriminan, autos, usados)
-    for c in campos:
-        c["del_registro"] = c["codigo"] in del_registro  # se toma del producto (nombre, SDS): no se pregunta
-    comps = [c for c in campos if c["tipo_dato"] == "composition"]
+    # Preguntas: ámbitos, compuertas y lo que discrimina primero
+    codigos_c = [x.codigo for x in lista]
+    discriminan = set().union(*d.pendientes.values()) if d.pendientes and "NEXT_BEST_QUESTION" in u.base else set()
+    usados = {x.campo for r in u.reglas for x in r.condiciones}
+    campos, preguntas, faltantes = _campos(cat, s, ficha, codigos_c, d.preguntar, discriminan, caso.autos, usados)
+    for x in campos:
+        x["del_registro"] = x["codigo"] in caso.del_registro  # se toma del producto (nombre, SDS): no se pregunta
+    comps = [x for x in campos if x["tipo_dato"] == "composition"]
     if comps:
-        hist = _historial_composicion(db, categoria, entrada.get("producto_id"))
-        for c in comps:
-            c["composicion"] = cat.analizar_parte(cat.por_codigo[c["codigo"]], s, texto_det, hist, entrada.get("marca"), entrada.get("estilo"))
+        hist = _historial_composicion(db, caso.categoria, entrada.get("producto_id"))
+        for x in comps:
+            x["composicion"] = cat.analizar_parte(cat.por_codigo[x["codigo"]], s, caso.texto, hist, entrada.get("marca"), entrada.get("estilo"))
 
-    # 7. SAC regional y 8. clasificación por país
+    # SAC regional y clasificación por país
     elegido = final[:6] if len(final) >= 6 else hs6
     sac = final if len(final) in (8, 10) else None
     lineas_sac = sorted(k for k in por_cod if elegido and k.startswith(elegido) and len(k) > 6)
     if not sac and len(lineas_sac) == 1:
         sac = lineas_sac[0]
-    out_paises = _paises(db, elegido, sac, hechos, hoy, entrada.get("partidas") or {}, cat, categoria) if paises and elegido else []
+    out_paises = _paises(db, elegido, sac, caso.hechos, caso.hoy, entrada.get("partidas") or {}, cat, caso.categoria) if paises and elegido else []
     for p in out_paises:
         for k in p["faltan"]:
             if k in cat.por_codigo and not any(q["codigo"] == k for q in preguntas):
-                preguntas.append({**_campo(cat, cat.por_codigo[k], s, ficha, "preguntar", None, False, autos), "nacional": True})
+                preguntas.append({**_campo(cat, cat.por_codigo[k], s, ficha, "preguntar", None, False, caso.autos), "nacional": True})
 
-    # 9. Alertas de los datos (composición, detección, catálogo, historial)
-    alertas += _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, historial, elegido)
+    # Alertas de los datos (composición, detección, catálogo, historial)
+    alertas += _alertas_datos(db, cat, s, ficha, caso.detectado, caso.tocados, entrada, caso.cobj, c.historial, elegido)
     for x in alertas:
         x["clave"] = _clave_alerta(x["msg"])  # para marcarla como revisada
     vivas = [x for x in alertas if x["nivel"] == "error" or x["clave"] not in set(entrada.get("alertas_ok") or [])]
@@ -598,69 +676,71 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     elif any(x["nivel"] == "aviso" for x in datos) and confianza == "high":
         confianza = "medium"
 
-    # 10. Razones, alternativas y descripciones
-    razones = _razones(traza, historial, hs6, lista)
-    alternativas = [{"codigo": c.codigo, "codigo_txt": formato(c.codigo), "cuando": _desc(por_cod, c.codigo)} for c in lista[1:limite]]
-    for t in traza:
+    # Razones, alternativas y descripciones
+    razones = _razones(d.traza, c.historial, hs6, lista)
+    alternativas = [{"codigo": x.codigo, "codigo_txt": formato(x.codigo), "cuando": _desc(por_cod, x.codigo)} for x in lista[1:limite]]
+    for t in d.traza:
         for alt in ((t.get("foto") or {}).get("accion") or {}).get("alternativas") or []:
             if alt.get("codigo") and alt["codigo"] != hs6 and not any(x["codigo"] == alt["codigo"] for x in alternativas):
                 alternativas.append({**alt, "codigo_txt": formato(alt["codigo"])})
     from .descripciones import descripcion_aduana, descripcion_comercial
 
-    desc = {"aduana": descripcion_aduana(cat, s, cobj), "comercial": descripcion_comercial(cat, s, cobj, entrada.get("marca"))}
+    desc = {"aduana": descripcion_aduana(cat, s, caso.cobj), "comercial": descripcion_comercial(cat, s, caso.cobj, entrada.get("marca"))}
     # Un dato que decide el código no se supone: si una regla aplicada leyó un valor puesto por
     # defecto (sin evidencia en los datos del producto), el caso queda para revisión y se pide confirmarlo
-    decisivos = {c["campo"] for t in traza if t.get("aplicada") and t.get("foto") for c in t["foto"]["condiciones"]}
-    supuestos = ((set(detectado.get("_por_defecto") or []) & (autos | autos_previos)) | set(s.get("_supuestos") or [])) - tocados
+    decisivos = {x["campo"] for t in d.traza if t.get("aplicada") and t.get("foto") for x in t["foto"]["condiciones"]}
+    supuestos = ((set(caso.detectado.get("_por_defecto") or []) & (caso.autos | caso.autos_previos)) | set(s.get("_supuestos") or [])) - caso.tocados
     for k in sorted(decisivos & supuestos):
         a = cat.por_codigo.get(k)
-        revision_por.append(f"{a.etiqueta if a else k} was assumed, not stated in the product data: confirm it.")
-    revision = bool(revision_por) or confianza == "low"
-    nombres = {c: _desc(por_cod, c) for c in codigos_c[:limite]}
+        d.revision_por.append(f"{a.etiqueta if a else k} was assumed, not stated in the product data: confirm it.")
+    revision = bool(d.revision_por) or confianza == "low"
+    nombres = {x: _desc(por_cod, x) for x in codigos_c[:limite]}
     if hs6 and hs6 not in nombres:
         nombres[hs6] = _desc(por_cod, hs6)
     oficiales = dict(nombres)
     from . import overrides
 
-    for k, ov in overrides.vigentes(db, "NODO", list(nombres), hoy).items():  # descripción propia (capa custom)
+    for k, ov in overrides.vigentes(db, "NODO", list(nombres), caso.hoy).items():  # descripción propia (capa custom)
         if ov.get("descripcion") and k in nombres:
             nombres[k] = ov["descripcion"]
     if not (entrada.get("origen") or entrada.get("sin_origen")):
         faltantes.append({"campo": "origen", "etiqueta": "Country of origin"})
     completa = not faltantes and bool(hs6) and len(hs6) == 6 and bool(entrada.get("origen") or entrada.get("sin_origen"))
-    candidatos = [{"codigo": c.codigo, "codigo_txt": formato(c.codigo), "descripcion": nombres.get(c.codigo, ""), "capitulo": c.codigo[:2],
-                   "titulo_capitulo": caps[c.codigo[:2]].titulo if c.codigo[:2] in caps else "", "puntaje": round(c.puntaje, 2),
-                   "terminos": sorted(c.terminos), "origen": sorted(c.origen), "dominio": c.codigo[:2] in peso_dom,
-                   "automatico": c.codigo[:2] in auto_caps and not manual,
+    candidatos = [{"codigo": x.codigo, "codigo_txt": formato(x.codigo), "descripcion": nombres.get(x.codigo, ""), "capitulo": x.codigo[:2],
+                   "titulo_capitulo": u.caps[x.codigo[:2]].titulo if x.codigo[:2] in u.caps else "", "puntaje": round(x.puntaje, 2),
+                   "terminos": sorted(x.terminos), "origen": sorted(x.origen), "dominio": x.codigo[:2] in u.peso_dom,
+                   "automatico": x.codigo[:2] in u.auto_caps and not (u.dom and u.dom.modo == "MANUAL"),
                    "incisos": [{"codigo": k, "codigo_txt": formato(k), "descripcion": por_cod[k][1].split(" — ")[-1], "dai": por_cod[k][2]}
-                               for k in lineas_sac_de(por_cod, c.codigo)][:6]} for c in lista[:limite]]
+                               for k in lineas_sac_de(por_cod, x.codigo)][:6]} for x in lista[:limite]]
     evidencia = {
         "version": {"id": v.id, "codigo": v.codigo, "etiqueta": v.etiqueta, "ambito": v.ambito},
-        "fecha": hoy.isoformat(), "categoria": categoria, "dominio": dominio,
+        "fecha": caso.hoy.isoformat(), "categoria": caso.categoria, "dominio": caso.dominio,
+        "configuracion": version_config.actual(db),
         "entrada": {"ficha": ficha, "estilo": entrada.get("estilo"), "nombre": entrada.get("nombre"), "uso": entrada.get("uso"),
                     "tallas": entrada.get("tallas"), "origen": entrada.get("origen"), "texto": entrada.get("texto")},
-        "hechos": {k: val for k, val in hechos.items() if not _vacio(val)},
-        "reglas": [t for t in traza if t.get("resultado") is not False or t.get("capa") == "LEGAL"],
-        "reglas_evaluadas": len(traza), "perfil": perfil, "historial": historial["evidencia"],
-        "notas": _notas(db, traza), "overrides": [o for p in out_paises for o in p.get("overrides", [])],
+        "hechos": {k: val for k, val in caso.hechos.items() if not _vacio(val)},
+        "reglas": [t for t in d.traza if t.get("resultado") is not False or t.get("capa") == "LEGAL"],
+        "reglas_evaluadas": len(d.traza), "perfil": c.perfil, "historial": c.historial["evidencia"],
+        "notas": _notas(db, d.traza), "overrides": [o for p in out_paises for o in p.get("overrides", [])],
     }
     return {
-        "version": evidencia["version"], "categoria": _cat_dict(cobj, categoria), "dominio": dominio,
-        "ficha": ficha, "autos": sorted(autos), "avisos": avisos, "detectado": detectado, "hechos": evidencia["hechos"],
+        "version": evidencia["version"], "categoria": _cat_dict(caso.cobj, caso.categoria), "dominio": caso.dominio,
+        "ficha": ficha, "autos": sorted(caso.autos), "avisos": caso.avisos, "detectado": caso.detectado, "hechos": evidencia["hechos"],
         "campos": campos, "preguntas": preguntas, "faltantes": faltantes, "completa": completa,
         "clasificacion": {"hs6": {"codigo": hs6, "codigo_txt": formato(hs6) if hs6 else None, "descripcion": nombres.get(hs6, "") if hs6 else "",
-                                 "descripcion_oficial": oficiales.get(hs6, "") if hs6 else "",
+                                  "descripcion_oficial": oficiales.get(hs6, "") if hs6 else "",
                                   "automatico": auto_ok},
                           "sac": {"codigo": sac, "codigo_txt": formato(sac) if sac else None,
                                   "opciones": [{"codigo": k, "codigo_txt": formato(k), "descripcion": _desc(por_cod, k)} for k in lineas_sac][:20]},
                           "paises": out_paises},
-        "confianza": confianza, "legal_confidence": confianza, "historical_confidence": confianza_hist, "requiere_revision": revision, "revision_por": revision_por, "razones": razones,
-        "alternativas": alternativas, "candidatos": candidatos, "alertas": vivas, "descripciones": desc, "perfil": perfil,
-        "parecidos": historial["parecidos"], "etiquetas": _etiquetas(cat, s, cobj),
-        "evidencia": evidencia, "terminos": terminos,
+        "confianza": confianza, "legal_confidence": confianza, "historical_confidence": confianza_hist, "requiere_revision": revision,
+        "revision_por": d.revision_por, "razones": razones,
+        "alternativas": alternativas, "candidatos": candidatos, "alertas": vivas, "descripciones": desc, "perfil": c.perfil,
+        "parecidos": c.historial["parecidos"], "etiquetas": _etiquetas(cat, s, caso.cobj),
+        "evidencia": evidencia, "terminos": c.terminos,
         # Forma corta (sesión de clasificación y pruebas)
         "hs6": hs6, "hs6_txt": formato(hs6) if hs6 else None, "sac": sac, "sac_txt": formato(sac) if sac else None,
-        "revision": revision, "reglas": traza, "paises": out_paises,
+        "revision": revision, "reglas": d.traza, "paises": out_paises,
     }
 
 

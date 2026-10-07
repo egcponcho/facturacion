@@ -33,14 +33,14 @@ def _dict(x: SinonimoBusqueda) -> dict:
 
 
 def listar(db: Session, user: Usuario) -> list[dict]:
-    exigir(user, "aranceles.ver")
+    exigir(user, "clasificacion.ver")
     return [_dict(x) for x in db.scalars(select(SinonimoBusqueda).order_by(SinonimoBusqueda.palabra))]
 
 
 def guardar(db: Session, user: Usuario, sid: int | None, datos: dict) -> dict:
     from .indice_arbol import palabras
 
-    exigir(user, "aranceles.editar")
+    exigir(user, "clasificacion.configurar")
     x = db.get(SinonimoBusqueda, sid) if sid else None
     if sid and not x:
         raise ErrorNegocio("The search word does not exist.", 404, "no_encontrado")

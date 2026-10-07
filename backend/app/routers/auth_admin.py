@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Request, Response
 from sqlalchemy import select
+from sqlalchemy.orm import object_session
 
 from ..config import settings
 from ..models import Usuario
 from ..deps import COOKIE
 from ..schemas import DesafioIn, FotoIn, LoginIn, PasswordIn, PerfilIn, ProveedorIn, ProveedorPatch, RolIn, RolPatch, UsuarioIn, UsuarioPatch, VerificarIn
-from ..services import acceso, preferencias
+from ..services import acceso, flujo, preferencias
 from ..services.limites import limitar
 from ..services import varios
 from ..services.common import catalogo_permisos, permisos_de
@@ -37,6 +38,7 @@ def _yo(u: Usuario) -> dict:
             "requerir_datos_aduana": settings.REQUERIR_DATOS_ADUANA,
             "dias_alerta_borrador": settings.DIAS_ALERTA_BORRADOR,
         },
+        "flujo": flujo.valores(object_session(u)) if object_session(u) else dict(flujo.DEFECTOS),
     }
 
 
@@ -165,6 +167,16 @@ def crear_rol(datos: RolIn, db: Db, user: User, clave: Clave = None):
 @router.patch("/roles/{rol_id}")
 def actualizar_rol(rol_id: int, datos: RolPatch, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: varios.guardar_rol(db, user, datos, rol_id))
+
+
+@router.get("/flujo-clasificacion")
+def flujo_clasificacion(db: Db, user: User):
+    return flujo.leer(db, user)
+
+
+@router.put("/flujo-clasificacion")
+def guardar_flujo_clasificacion(datos: dict[str, bool], db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: flujo.guardar(db, user, datos))
 
 
 @router.delete("/roles/{rol_id}")

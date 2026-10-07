@@ -312,7 +312,7 @@ const MENU = computed(() => [
     ['atributos', t('Attributes, options and scopes'), 'engrane'], ['materiales', t('Material classes'), 'capas'],
     ['busqueda', t('Search vocabulary'), 'buscar'], ['reglas', t('Classification rules'), 'varita']] },
   { titulo: t('Company knowledge'), items: [['conocimiento', t('History, decisions and keywords'), 'usuarios']] },
-])
+].filter((g) => g.titulo !== t('Classification engine') || puede('clasificacion.ver')))
 
 // En pantallas chicas el menú es una fila con desplazamiento: se centra la sección activa
 const menu = ref(null)

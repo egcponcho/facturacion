@@ -363,7 +363,7 @@ def reglas_motor(db: Db, user: User, clave: Clave = None):
     from ..services.common import exigir
 
     def correr():
-        exigir(user, "aranceles.editar")
+        exigir(user, "clasificacion.configurar")
         return reglas.cargar_reglas_ficha(db)
 
     return ejecutar(db, user, clave, correr)
@@ -376,7 +376,7 @@ def atributos_motor(db: Db, user: User, clave: Clave = None):
     from ..services.common import exigir
 
     def correr():
-        exigir(user, "aranceles.editar")
+        exigir(user, "clasificacion.configurar")
         return {"nuevos": atributos.cargar_motor(db) + atributos.cargar_tecnico(db)}
 
     return ejecutar(db, user, clave, correr)

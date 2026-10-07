@@ -14,7 +14,7 @@ import EditorJson from './EditorJson.vue'
 // Dominios de clasificación (químicos, materias primas, calzado, ropa,
 // accesorios…) y los capítulos con que se relacionan. PRIMARY genera
 // candidatos automáticos; SECONDARY queda disponible si los datos lo justifican.
-const edita = puede('aranceles.editar')
+const edita = puede('clasificacion.configurar')
 const dominios = ref([])
 const capitulos = ref([])
 const nuevo = ref({})

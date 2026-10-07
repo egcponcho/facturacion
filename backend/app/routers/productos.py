@@ -41,7 +41,7 @@ def contexto(db: Db, user: User, proveedor_id: int | None = None):
 def clasificacion_sesion(datos: s.SesionClasificacionIn, db: Db, user: User):
     """Motor único: candidatos, preguntas discriminantes, HS6, SAC, países,
     regulaciones e impuestos, con la traza de reglas aplicadas."""
-    from ..services import motor_clasificacion
+    from ..services import flujo, motor_clasificacion
     from ..services.common import exigir
 
     exigir(user, "producto.ver")
@@ -51,7 +51,8 @@ def clasificacion_sesion(datos: s.SesionClasificacionIn, db: Db, user: User):
         entrada["detectar"] = bool(datos.ficha is not None or datos.estilo or datos.nombre or datos.texto)
     if not datos.ficha and not datos.estilo:
         entrada["sin_origen"] = True
-    return motor_clasificacion.clasificar_producto(db, entrada, paises=datos.paises)
+    r = motor_clasificacion.clasificar_producto(db, entrada, paises=datos.paises)
+    return r if flujo.ve_sugerencia(db, user) else flujo.ocultar_sesion(r)
 
 
 @router.get("/productos/fotos/{foto_id}")

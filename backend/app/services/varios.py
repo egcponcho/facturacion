@@ -154,6 +154,24 @@ ROLES_FABRICA = [
 ]
 
 
+# Roles sugeridos para repartir la clasificación: se crean una vez como punto
+# de partida (no son de sistema; se editan o borran como cualquier otro)
+ROLES_SUGERIDOS = [
+    ("Classification specialist", "Configures product families, attributes and rules; reviews, approves and returns technical sheets.",
+     ["oc.ver", "producto.ver", "producto.ficha", "producto.clasificar", "aranceles.ver", "clasificacion.ver",
+      "clasificacion.configurar", "seguimiento.ver"]),
+    ("Buyer", "Creates items and fills their technical sheets; sends them to review.",
+     ["oc.ver", "producto.ver", "producto.ficha", "producto.crear", "seguimiento.ver"]),
+]
+
+
+def crear_roles_sugeridos(db: Session) -> None:
+    for nombre, desc, permisos in ROLES_SUGERIDOS:
+        if not db.scalar(select(Rol.id).where(func.lower(Rol.nombre) == nombre.lower())):
+            db.add(Rol(nombre=nombre, tipo="interno", descripcion=desc, permisos=permisos, sistema=False))
+    db.flush()
+
+
 def crear_roles_fabrica(db: Session) -> dict[str, Rol]:
     """Los roles iniciales con sus permisos por defecto (si faltan)."""
     res = {}

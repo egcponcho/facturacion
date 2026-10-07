@@ -47,7 +47,7 @@ from .services import empaques
 from .services import reglas_lt as rlt
 from .services.common import registrar
 from .services.genericos import sufijo_convencional
-from .services.varios import crear_roles_fabrica
+from .services.varios import crear_roles_fabrica, crear_roles_sugeridos
 from .services.productos import (
     _aprobar,
     clasificar_y_guardar,
@@ -592,6 +592,7 @@ def seed(db: Session) -> None:
     db.flush()
     # Roles de fábrica y uno de ejemplo; todos con celular y verificación en dos pasos
     roles = crear_roles_fabrica(db)
+    crear_roles_sugeridos(db)
     db.add(Rol(nombre="Supplier (view only)", tipo="proveedor", sistema=False,
                descripcion="Sees its POs and technical sheets; cannot invoice or edit.",
                permisos=["oc.ver", "producto.ver"]))

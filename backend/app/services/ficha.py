@@ -28,15 +28,14 @@ tests/paridad).
 """
 import json
 import re
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from sqlalchemy import event
-from sqlalchemy.orm import Session
-
 from ..datos import MOTOR
+from . import version_config
 from .composicion import Lector, norm, resumen_mat
-from .motor_clasificacion import condicion as _condicion, evaluar
+from .motor_clasificacion import evaluar
 
 A = re.ASCII
 ESPECIFICIDAD = {"CATEGORY": (4, 0), "DOMAIN": (3, 0), "SUBHEADING": (2, 2), "HEADING": (2, 1), "CHAPTER": (2, 0), "SYSTEM": (0, 0)}
@@ -739,15 +738,7 @@ def _vacio(v) -> bool:
 
 def _cumple(cond, s: dict) -> bool:
     """Condiciones de ámbito o de bloqueo: solo cuentan si se cumplen (pendiente = no)."""
-    if not cond:
-        return True
-    if all(isinstance(c, dict) and "campo" in c for c in cond):
-        return evaluar(cond, s)[0] is True
-    # Formato antiguo: lista de alternativas {atributo: valor}
-    for alt in cond:
-        if all(_condicion("IN" if isinstance(v, list) else "EQUAL", s.get(k), v) is True for k, v in (alt or {}).items()):
-            return True
-    return False
+    return not cond or evaluar(cond, s)[0] is True
 
 
 def _lbl(a: Atributo, v) -> str:
@@ -758,21 +749,30 @@ def _lbl(a: Atributo, v) -> str:
 
 
 DATOS_ATRIBUTOS = MOTOR / "motor_atributos.json"
-_MODELOS_CATALOGO = ("AtributoDef", "AtributoOpcion", "AtributoAmbito", "CategoriaProducto", "PalabraClave", "SinonimoMaterial", "ClaseMaterial", "SinonimoBusqueda")
+# Un catálogo por proceso, para la versión de la configuración con que se leyó
+_PROCESO: dict = {}
+_CANDADO = threading.Lock()
 
 
 def catalogo(db) -> Catalogo:
-    """El catálogo de la base, una vez por sesión: se vuelve a leer en cuanto
-    la sesión guarda un cambio de atributos, opciones, ámbitos, categorías,
-    palabras clave o sinónimos."""
+    """El catálogo de la configuración: una vez por sesión y compartido por el
+    proceso mientras la configuración no cambie (version_config). Una sesión
+    con cambios propios sin confirmar lee el suyo y no lo comparte."""
     cat = db.info.get("catalogo")
+    if cat is not None:
+        return cat
+    propia = version_config.con_cambios(db)
+    v = version_config.actual(db)
+    with _CANDADO:
+        if not propia and _PROCESO.get("version") == v:
+            cat = _PROCESO["catalogo"]
     if cat is None:
-        cat = db.info["catalogo"] = Catalogo.desde_db(db)
+        cat = Catalogo.desde_db(db)
+        if not propia:
+            with _CANDADO:
+                _PROCESO.update(version=v, catalogo=cat)
+    db.info["catalogo"] = cat
     return cat
 
 
-@event.listens_for(Session, "after_flush")
-def _invalidar_catalogo(sesion, _contexto) -> None:
-    if "catalogo" in sesion.info and any(type(o).__name__ in _MODELOS_CATALOGO for o in (*sesion.new, *sesion.dirty, *sesion.deleted)):
-        sesion.info.pop("catalogo", None)
 __all__ = ["Catalogo", "Atributo", "Opcion", "Ambito", "Categoria", "norm"]

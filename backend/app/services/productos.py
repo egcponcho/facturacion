@@ -40,6 +40,7 @@ from ..models import (
     Usuario,
     ahora,
 )
+from . import flujo
 from .acuerdos import acuerdos_contexto
 from .indice_arbol import dominios_ficha
 from .categorias import categorias as categorias_config
@@ -416,6 +417,8 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
         x["codigo_desc"] = textos.get(digitos(p.codigo or p.sugerido or "")[:6])
         c = cats.get(p.tipo or "")
         x["tipo_txt"] = (c.nombre_corto or c.nombre) if c else p.tipo
+        if not flujo.ve_sugerencia(db, user) and not p.aprobado:
+            flujo.ocultar_resumen(x)
     return {"items": items, "total": total, "page": page, "size": size, "kpis": kpis}
 
 
@@ -461,7 +464,10 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
                                       for c in x.componentes]} for x in pps],
         "historial": _historial(db, p),
         "puede_aprobar": tiene(user, "producto.clasificar"),
+        "enviado_por_mi": flujo.quien_envio(db, p.id) == user.id,
     })
+    if not flujo.ve_sugerencia(db, user) and not p.aprobado:
+        flujo.ocultar_resumen(r)
     return r
 
 
@@ -776,6 +782,7 @@ def aprobar(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     exigir(user, "producto.clasificar")
     p = _producto(db, user, producto_id)
     verificar_version(p, datos.version, "product")
+    flujo.exigir_aprobacion(db, user, p)
     if not p.ficha_completa and not datos.forzar:
         raise ErrorNegocio("The technical sheet is incomplete: " + ", ".join(p.faltan[:4]) + ".", 422, "ficha_incompleta",
                            [{"mensaje": x} for x in p.faltan])
@@ -787,6 +794,8 @@ def aprobar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
     """Aprueba la partida sugerida de varios productos con su ficha completa.
     Cada uno se aprueba o no por su cuenta; se informa cuáles no."""
     exigir(user, "producto.clasificar")
+    if not flujo.activo(db, "aprobacion_lote"):
+        raise ErrorNegocio("Bulk approval is turned off: approve each sheet on its own page.", 422, "lote_apagado")
     ok, errores = 0, []
     for pid in ids:
         p = _producto(db, user, pid)
@@ -797,6 +806,7 @@ def aprobar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
             continue
         try:
             with db.begin_nested():
+                flujo.exigir_aprobacion(db, user, p)
                 # Solo cuentan como elección las líneas que una persona eligió; las sugeridas se vuelven a validar
                 _aprobar(db, user, p, None, None, lote=True)
             ok += 1

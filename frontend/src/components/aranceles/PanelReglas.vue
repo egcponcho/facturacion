@@ -20,7 +20,7 @@ import { fmtNum } from '../../utils'
 // producto que eligen cada código nacional dentro de su subpartida, separadas
 // del código oficial: se revisan, priorizan y apagan aquí.
 const props = defineProps({ paises: { type: Array, default: () => [] }, condiciones: { type: Object, default: () => ({}) } })
-const edita = puede('aranceles.editar')
+const edita = puede('clasificacion.configurar')
 const datos = ref({ items: [], total: 0, por_tipo: {} })
 const f = reactive({ q: '', tipo: '', pais: '', page: 1, size: 50 })
 const modal = ref(null)

@@ -551,7 +551,7 @@ def actualizar_capitulos(db: Session, user: Usuario, ids: list[int], campos: dic
 
 
 def dominios(db: Session, user: Usuario) -> list[dict]:
-    exigir(user, "aranceles.ver")
+    exigir(user, "clasificacion.ver")
     caps = {x.capitulo: x for x in db.scalars(select(ControlCapitulo))}
     return [{"id": d.id, "codigo": d.codigo, "nombre": d.nombre, "descripcion": d.descripcion, "modo": d.modo,
              "activo": d.activo,
@@ -564,7 +564,7 @@ def dominios(db: Session, user: Usuario) -> list[dict]:
 
 def guardar_dominio_capitulo(db: Session, user: Usuario, dominio_id: int, capitulo: str, relevancia: str | None,
                              habilitado: bool | None, quitar: bool = False) -> dict:
-    exigir(user, "aranceles.editar")
+    exigir(user, "clasificacion.configurar")
     d = db.get(DominioClasificacion, dominio_id)
     cap = _capitulo(capitulo)
     if not d or not cap or not db.scalar(select(ControlCapitulo.id).where(ControlCapitulo.capitulo == cap)):

@@ -46,14 +46,14 @@ def _dict(x: ClaseMaterial) -> dict:
 
 
 def listar(db: Session, user: Usuario) -> list[dict]:
-    exigir(user, "aranceles.ver")
+    exigir(user, "clasificacion.ver")
     return [_dict(x) for x in db.scalars(select(ClaseMaterial).order_by(ClaseMaterial.origen, ClaseMaterial.codigo))]
 
 
 def guardar(db: Session, user: Usuario, clase_id: int | None, datos: dict) -> dict:
     """Crea o edita una clase. Las palabras se validan (cada una un patrón simple
     que compila) y no pueden ser de otra clase configurada."""
-    exigir(user, "aranceles.editar")
+    exigir(user, "clasificacion.configurar")
     x = db.get(ClaseMaterial, clase_id) if clase_id else None
     if clase_id and not x:
         raise ErrorNegocio("The material class does not exist.", 404, "no_encontrado")

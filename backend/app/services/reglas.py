@@ -49,7 +49,8 @@ def _valor(v):
 
 # ---- Carga desde el paquete oficial -------------------------------------------------
 def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
-    from .atributos import _codigo_ambito, _condiciones_hoja, campo_condicion, canonicos
+    from .atributos import _codigo_ambito, _condiciones_hoja
+    from .validacion_config import Contexto
 
     dominios = {d.codigo for d in db.scalars(select(DominioClasificacion))}
     for f in hojas.get("Classification_Rules", []):
@@ -96,7 +97,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
     # Las condiciones de cada regla se reemplazan completas (la hoja es la verdad). Un campo es un
     # atributo de la ficha (por su código o un alias, que se resuelve) o un campo del producto; las
     # reglas internas del motor (INTERNAL_ENGINE) describen campos del sistema y no se validan.
-    valido = campo_condicion(canonicos(db))
+    ctx = Contexto(db)
     por_regla: dict[str, list] = {}
     for f in hojas.get("Rule_Conditions", []):
         por_regla.setdefault(_txt(f.get("rule_id")) or "", []).append(f)
@@ -106,8 +107,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
             for f in filas:
                 error("Rule_Conditions", f["_fila"], f"Rule {cod or '(empty)'} does not exist.")
             continue
-        conds = _condiciones_hoja(filas, "Rule_Conditions", error,
-                                  (lambda c: c) if r.tipo_fuente == "INTERNAL_ENGINE" else valido)
+        conds = _condiciones_hoja(filas, "Rule_Conditions", error, None if r.tipo_fuente == "INTERNAL_ENGINE" else ctx)
         if conds is None:
             continue
         nuevas = [CondicionRegla(**c) for c in conds]
@@ -169,7 +169,7 @@ def _firma_completa(r: ReglaClasificacion) -> str:
 
 def listar(db: Session, user: Usuario, q: str | None = None, tipo: str | None = None, pais: str | None = None,
            page: int = 1, size: int = 50, fuente: str | None = None) -> dict:
-    exigir(user, "aranceles.ver")
+    exigir(user, "clasificacion.ver")
     consulta = select(ReglaClasificacion).options(selectinload(ReglaClasificacion.inciso))
     if tipo:
         consulta = consulta.where(ReglaClasificacion.tipo_regla == tipo)
@@ -265,7 +265,7 @@ def _forma(r: ReglaClasificacion, datos: dict) -> None:
 def crear(db: Session, user: Usuario, datos: dict) -> dict:
     """Regla propia (custom): ámbito, condiciones (grupos Y, entre grupos O),
     acción y prioridad. Se versiona en la bitácora y se apaga, no se borra."""
-    exigir(user, "aranceles.editar")
+    exigir(user, "clasificacion.configurar")
     n = (db.scalar(select(func.count()).select_from(ReglaClasificacion).where(ReglaClasificacion.codigo.like("R-USR-%"))) or 0) + 1
     r = ReglaClasificacion(codigo=f"R-USR-{n:04d}", tipo_fuente="MANUAL", familia=(datos.get("familia") or "CUSTOM")[:30],
                            prioridad=int(datos.get("prioridad") or 500), efecto=datos.get("efecto"),
@@ -285,7 +285,7 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
     """Activa/desactiva, cambia prioridad, efecto y revisión, y reemplaza las
     condiciones. Las condiciones de una línea oficial cambiadas por la empresa
     quedan como regla propia (MANUAL)."""
-    exigir(user, "aranceles.editar")
+    exigir(user, "clasificacion.configurar")
     r = db.get(ReglaClasificacion, regla_id)
     if not r:
         raise ErrorNegocio("The rule does not exist.", 404, "no_encontrado")
