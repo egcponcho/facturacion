@@ -55,6 +55,13 @@ export async function cargarIdioma() {
   }
 }
 
+// Textos del catálogo (preguntas, opciones, categorías, familias…) traducidos
+// en la configuración: se suman al diccionario sin pisar los de la interfaz
+export function sumarCatalogo(mapa) {
+  for (const [k, v] of Object.entries(mapa || {})) if (v && !(k in dic)) dic[k] = v
+  cache.clear()
+}
+
 function rellenar(texto, args) {
   if (!args) return texto
   return texto.replace(/\{(\d)\}/g, (m, i) => (args[i] === undefined || args[i] === null ? '' : String(args[i])))

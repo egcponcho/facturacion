@@ -1233,6 +1233,21 @@ class SinonimoBusqueda(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class TraduccionCatalogo(Base):
+    """Traducción de un texto del catálogo (pregunta, opción, categoría,
+    familia…) a un idioma de la interfaz. El texto en inglés es la clave, como
+    en el resto de la interfaz: la ficha, las listas y los documentos en
+    pantalla lo muestran en el idioma de cada usuario."""
+
+    __tablename__ = "traducciones_catalogo"
+    __table_args__ = (UniqueConstraint("texto", "idioma"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    texto: Mapped[str] = mapped_column(String(400))
+    idioma: Mapped[str] = mapped_column(String(5), index=True)
+    traduccion: Mapped[str] = mapped_column(String(400))
+    origen: Mapped[str] = mapped_column(String(10), default="USUARIO")  # MOTOR (de base) | USUARIO
+
+
 class SinonimoMaterial(Base):
     """Palabra de composición que el clasificador aprendió (p. ej. "cordura" es nylon)."""
 

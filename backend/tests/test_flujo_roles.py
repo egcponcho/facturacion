@@ -197,3 +197,20 @@ def test_familia_borrador_probar_y_publicar(interno):
     assert interno.post("/familias/TOYS_TEST/publicar").json()["publicada"] is True
     assert any(x["codigo"] == c["codigo"] for x in interno.get("/clasificacion/contexto").json()["categorias"])
     assert interno.post("/familias/NOPE/probar", {"nombre": "x"}).status_code == 404
+
+
+def test_traducciones_del_catalogo(interno, tnf):
+    """Las preguntas, opciones y categorías se traducen como datos: la semilla
+    cubre el catálogo incluido en español y se editan desde el sistema."""
+    es = interno.get("/i18n/catalogo/es").json()
+    assert es["Footwear style"] == "Estilo de calzado" and es["Upper"] == "Corte" and es["Sneaker"] == "Tenis"
+    assert tnf.get("/i18n/catalogo/es").status_code == 200  # cualquiera con sesión la lee
+    assert interno.get("/i18n/catalogo/xx").json() == {}
+    lista = interno.get("/familias/traducciones/es", params={"pendientes": True}).json()
+    assert lista["total"] > 600 and all(not x["traduccion"] for x in lista["items"])
+    assert interno.put("/familias/traducciones/zh", {"texto": "Sneaker", "traduccion": "运动鞋"}).json()["traduccion"] == "运动鞋"
+    assert interno.get("/i18n/catalogo/zh").json()["Sneaker"] == "运动鞋"
+    assert interno.put("/familias/traducciones/zh", {"texto": "Sneaker", "traduccion": ""}).json()["traduccion"] is None
+    assert "Sneaker" not in interno.get("/i18n/catalogo/zh").json()
+    assert interno.put("/familias/traducciones/fr", {"texto": "Sneaker", "traduccion": "x"}).status_code == 422
+    assert tnf.put("/familias/traducciones/es", {"texto": "Sneaker", "traduccion": "x"}).status_code == 403

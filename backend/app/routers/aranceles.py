@@ -256,6 +256,28 @@ def familia_detalle(codigo: str, db: Db, user: User):
     return familias.detalle(db, user, codigo)
 
 
+@router.get("/i18n/catalogo/{idioma}")
+def catalogo_traducido(idioma: str, db: Db, user: User):
+    """Traducciones de los textos del catálogo: el frontend las suma a su diccionario."""
+    from ..services import traducciones
+
+    return traducciones.catalogo(db, idioma)
+
+
+@router.get("/familias/traducciones/{idioma}")
+def traducciones_lista(idioma: str, db: Db, user: User, q: str | None = None, pendientes: bool = False):
+    from ..services import traducciones
+
+    return traducciones.listar(db, user, idioma, q, pendientes)
+
+
+@router.put("/familias/traducciones/{idioma}")
+def traduccion_guardar(idioma: str, datos: dict, db: Db, user: User, clave: Clave = None):
+    from ..services import traducciones
+
+    return ejecutar(db, user, clave, lambda: traducciones.guardar(db, user, idioma, datos.get("texto"), datos.get("traduccion")))
+
+
 @router.post("/familias/{codigo}/probar")
 def familia_probar(codigo: str, datos: dict, db: Db, user: User):
     """Clasifica un artículo de ejemplo con la familia (aunque esté en borrador); no guarda nada."""

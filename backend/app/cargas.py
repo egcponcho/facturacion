@@ -52,13 +52,14 @@ def cargar_oficial(db: Session) -> bool:
 
 def cargar_motor(db: Session) -> None:
     """Configuración del motor incluida (no pisa lo editado)."""
-    from .services import atributos, busqueda, categorias, materiales, reglas
+    from .services import atributos, busqueda, categorias, materiales, reglas, traducciones
 
     atributos.cargar_tecnico(db)  # categorías técnicas de químicos y materias primas
     materiales.sembrar(db)  # clases de material de base con su palabra aduanera
     busqueda.sembrar(db)  # vocabulario de búsqueda en el texto oficial (inglés → español)
     categorias.sembrar(db)
     reglas.cargar_reglas_ficha(db)
+    traducciones.sembrar(db)  # textos del catálogo en los idiomas de la interfaz
     db.flush()
 
 

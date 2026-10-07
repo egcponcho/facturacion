@@ -15,14 +15,14 @@ const activo = ref(-1)
 const lista = ref(null)
 
 const activas = computed(() => props.categorias.filter((c) => c.activo !== false))
-const etiqueta = (k) => props.categorias.find((x) => x.codigo === k)?.nombre || ''
+const etiqueta = (k) => tx(props.categorias.find((x) => x.codigo === k)?.nombre || '')
 const sync = () => (texto.value = props.modelValue ? etiqueta(props.modelValue) : '')
 watch(() => [props.modelValue, props.categorias.length], sync, { immediate: true })
 
 const grupos = computed(() => {
   const q = texto.value.trim()
   if (q && q !== etiqueta(props.modelValue)) {
-    const ks = filtrar(activas.value, q, (c) => [c.nombre, c.nombre_corto, c.alias, c.grupo, c.dominio]).map((c) => c.codigo)
+    const ks = filtrar(activas.value, q, (c) => [c.nombre, tx(c.nombre), c.nombre_corto, tx(c.nombre_corto), c.alias, c.grupo, tx(c.grupo), c.dominio]).map((c) => c.codigo)
     return [{ t: ks.length ? t('Matches') : '', items: ks.slice(0, 25) }]
   }
   const g = new Map()

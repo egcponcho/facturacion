@@ -13,6 +13,7 @@ import PanelReglas from '../components/aranceles/PanelReglas.vue'
 import PanelMateriales from '../components/aranceles/PanelMateriales.vue'
 import PanelBusqueda from '../components/aranceles/PanelBusqueda.vue'
 import AsistenteFamilia from '../components/familias/AsistenteFamilia.vue'
+import PanelTraducciones from '../components/aranceles/PanelTraducciones.vue'
 import { puede } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
 
@@ -28,7 +29,8 @@ const MENU = computed(() => [
   { titulo: t('Product families'), items: [['resumen', t('Overview'), 'tablero', familias.value?.length]] },
   { titulo: t('Set up, in this order'), items: [['dominios', t('1 · Families and categories'), 'capas'],
     ['atributos', t('2 · Questions'), 'lista'], ['reglas', t('3 · Rules'), 'varita']] },
-  { titulo: t('Reference lists'), items: [['materiales', t('Material classes'), 'capas'], ['busqueda', t('Search vocabulary'), 'buscar']] },
+  { titulo: t('Reference lists'), items: [['materiales', t('Material classes'), 'capas'], ['busqueda', t('Search vocabulary'), 'buscar'],
+    ['traducciones', t('Translations'), 'globo']] },
 ])
 // Qué sección resuelve cada aviso de la salud de una familia
 const ARREGLA = [
@@ -149,6 +151,7 @@ onMounted(cargar)
       <PanelReglas v-else-if="vista === 'reglas'" :paises="paises" :condiciones="meta.condiciones" />
       <PanelMateriales v-else-if="vista === 'materiales'" />
       <PanelBusqueda v-else-if="vista === 'busqueda'" />
+      <PanelTraducciones v-else-if="vista === 'traducciones'" />
     </div>
   </div>
 </template>
