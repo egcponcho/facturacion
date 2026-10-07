@@ -236,7 +236,7 @@ def test_paquete_nacional_codigos_regulaciones_impuestos(interno):
                "Permit/license code", "Mandatory", "Condition JSON", "Legal basis", "Active", "Valid from", "Valid to", "Source ID", "Source URL", "Notes"]
     enc_imp = ["Tax rule ID", "Country", "Version", "Code/pattern", "Tax type", "Rate %", "Basis", "Threshold from", "Threshold to",
                "Formula / rule", "Active", "Valid from", "Valid to", "Source ID", "Source URL", "Legal basis / notes"]
-    r = _cargar(interno, {
+    hojas = {
         "Versions": [["Version ID", "Dataset", "Version label", "Status", "Valid from", "Valid to", "Source ID"],
                      ["CR-2026", "Costa Rica national tariff", "2026", "Published", "2026-01-01", None, "SRC-CR-ATENA"]],
         "National_Codes": [enc_cod,
@@ -254,12 +254,24 @@ def test_paquete_nacional_codigos_regulaciones_impuestos(interno):
         "Taxes": [enc_imp,
                   ["TAX-CR-SEL", "CR", None, "3304", "SELECTIVO", "10", "CIF + DAI", None, None, None, "Yes", None, None, None, None, "Ley de impuesto selectivo de consumo"],
                   ["TAX-CR-X", "CR", None, "3304", "IVA", "13", None, None, None, None, None, None, None, None, None, None]],
-    })
-    assert r["hojas"]["National_Codes"]["creados"] == 1 and r["hojas"]["Regulations"]["creados"] == 1 and r["hojas"]["Taxes"]["creados"] == 1
-    msgs = " | ".join(e["mensaje"] for e in r["errores"])
+    }
+    # Un lote con errores no se publica, ni en parte: se informa cada error y nada cambia
+    r = interno.c.post("/api/aranceles/oficial/importar", headers=interno.h,
+                       files={"archivo": ("p.xlsx", _libro(hojas), "application/octet-stream")})
+    assert r.status_code == 422 and r.json()["codigo"] == "lote_con_errores", r.text
+    msgs = " | ".join(e["mensaje"] for e in r.json()["detalle"])
     for esperado in ("Duplicate country + version + code", "does not start with its base code", "Version NO-EXISTE does not exist",
                      "8 to 14 digits", "does not exist in the tariff tree", "needs a code or pattern", "not valid JSON", "official source or its legal basis"):
         assert esperado in msgs, esperado
+    assert not interno.get("/aranceles/codigos", params={"pais": "CR", "q": "330499000010"}).json()["items"]
+    assert not any(v["codigo"] == "CR-2026" for v in interno.get("/aranceles/oficial/fuentes").json()["versiones"])
+    # El lote corregido (solo las filas válidas) sí se publica
+    hojas["National_Codes"] = hojas["National_Codes"][:2]
+    hojas["Regulations"] = hojas["Regulations"][:2]
+    hojas["Taxes"] = hojas["Taxes"][:2]
+    r = _cargar(interno, hojas)
+    assert r["hojas"]["National_Codes"]["creados"] == 1 and r["hojas"]["Regulations"]["creados"] == 1 and r["hojas"]["Taxes"]["creados"] == 1
+    assert not r["errores"]
     # El código oficial queda con versión, fuente, vigencia y código base
     cod = interno.get("/aranceles/codigos", params={"pais": "CR", "q": "330499000010"}).json()["items"][0]
     assert cod["dai"] == "14" and cod["descripcion"] == "Cremas de belleza"

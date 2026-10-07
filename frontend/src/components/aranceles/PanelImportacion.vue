@@ -115,7 +115,8 @@ const valor = (v) => (v === null || v === undefined || v === '' ? '—' : typeof
         </div>
         <div v-if="lote.estado === 'PREVIA' && edita" class="acciones">
           <button class="btn" :disabled="ocupado" @click="accion('descartar')">{{ t('Discard') }}</button>
-          <button class="btn btn-primario" :disabled="ocupado || (!lote.filas.length && !lote.errores.length)" @click="accion('publicar')"><Icono nombre="check" :tam="15" />{{ t('Publish') }}</button>
+          <button class="btn btn-primario" :disabled="ocupado || !lote.filas.length || lote.errores.length > 0"
+                  :title="lote.errores.length ? t('A load with errors cannot be published') : ''" @click="accion('publicar')"><Icono nombre="check" :tam="15" />{{ t('Publish') }}</button>
         </div>
       </header>
       <div class="chips">
@@ -125,7 +126,7 @@ const valor = (v) => (v === null || v === undefined || v === '' ? '—' : typeof
         <span class="ayuda">{{ t('{0} rows without changes', [fmtNum(Math.max(0, lote.resumen.sin_cambio || 0))]) }}</span>
       </div>
       <div v-if="lote.errores.length" class="errores">
-        <b>{{ t('{0} rows with errors (they are not loaded)', [lote.errores.length]) }}</b>
+        <b>{{ t('{0} rows with errors: the load cannot be published until the file is fixed and uploaded again', [lote.errores.length]) }}</b>
         <ul><li v-for="(e, i) in lote.errores.slice(0, 30)" :key="i"><span class="codigo">{{ tx(e.fila) }}</span> {{ tx(e.mensaje) }}</li></ul>
       </div>
       <p v-if="!lote.filas.length && !lote.errores.length" class="ayuda">{{ t('The file matches what is in force: nothing would change.') }}</p>

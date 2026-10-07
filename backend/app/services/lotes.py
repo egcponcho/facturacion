@@ -170,6 +170,10 @@ def publicar(db: Session, user: Usuario, lote_id: int) -> dict:
         raise ErrorNegocio("The load does not exist.", 404, "no_encontrado")
     if x.estado != "PREVIA":
         raise ErrorNegocio("Only a load in preview can be published.", 422, "validacion")
+    # Un lote con errores no se publica, ni en parte: se corrige el archivo y se vuelve a subir
+    if x.errores:
+        raise ErrorNegocio(f"The load has {len(x.errores)} rows with errors: nothing was published. Fix the file and upload it again.",
+                           422, "lote_con_errores", x.errores[:100])
     _, filas = _diferencias(db, x.contenido, x.archivo)
     # Lo publicado es inmutable: un cambio a una versión publicada no se aplica
     bloqueos = [f for f in filas if f["advertencia"]]

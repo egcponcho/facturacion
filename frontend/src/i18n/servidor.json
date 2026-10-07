@@ -980,6 +980,7 @@
  "The label is required.",
  "The legal note does not exist.",
  "The load does not exist.",
+ "The load has {0} rows with errors: nothing was published. Fix the file and upload it again.",
  "The load unit does not exist.",
  "The name is required.",
  "The new password must be different.",

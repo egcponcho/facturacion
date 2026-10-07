@@ -41,7 +41,7 @@ def test_paises_sac_y_codigos(interno, vans):
     # el SAC regional a 10 dígitos (ACI de SIECA); NI, CR y PA esperan su arancel nacional
     por = {p["iso"]: p for p in ps}
     assert por["PA"]["digitos"] == 12 and all(por[i]["codigos"] > 0 for i in ("GT", "SV", "HN"))
-    assert all(por[i]["codigos"] == 0 for i in ("NI", "CR", "PA"))
+    assert all(por[i]["codigos"] == 0 for i in ("NI", "PA"))  # CR puede tener las de su arancel oficial cargado en otra prueba
     # Un país nuevo con sus propios dígitos; el proveedor no puede
     assert vans.post("/aranceles/paises", {"iso": "DO", "nombre": "Dominican Republic", "digitos": 8}).status_code == 403
     r = interno.post("/aranceles/paises", {"iso": "DO", "nombre": "Dominican Republic", "digitos": 8, "impuesto": "ITBIS 18%"})
