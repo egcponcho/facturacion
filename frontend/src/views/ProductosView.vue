@@ -22,8 +22,10 @@ import { filasDefecto } from '../stores/preferencias'
 const route = useRoute()
 const router = useRouter()
 const interno = esInterno()
+// Quien aprueba empieza por lo que espera revisión; quien llena la ficha, por lo que falta completar
+const revisa = puede('producto.clasificar')
 const filtros = reactive({
-  estado: route.query.estado ?? (interno ? 'revision' : 'borradores'),
+  estado: route.query.estado ?? (revisa ? 'revision' : 'borradores'),
   q: route.query.q || '',
   marcas: [],
   tipos: [],
@@ -38,17 +40,41 @@ const ocupado = ref(false)
 const sel = useSeleccion()
 const cargaAbierta = ref(false)
 
-// Pocas vistas, en el orden en que se trabaja
+// Bandeja de trabajo: pocas vistas, en el orden en que trabaja cada quien
 const VISTAS = computed(() => {
   const k = datos.value.kpis || {}
+  if (revisa) {
+    return [
+      ['revision', t('To review'), k.revision],
+      ...(k.baja_confianza != null ? [['baja_confianza', t('Low confidence'), k.baja_confianza]] : []),
+      ['borradores', t('Drafts'), k.borradores],
+      ['observado', t('Returned'), k.observado],
+      ['aprobados', t('Approved'), k.aprobados],
+      ['', t('All'), k.total],
+    ]
+  }
   return [
-    ['borradores', t('Drafts'), k.borradores],
-    ['revision', interno ? t('To review') : t('Sent to review'), k.revision],
+    ['borradores', t('To complete'), k.borradores],
     ['observado', interno ? t('Returned') : t('Returned to you'), k.observado],
+    ['revision', t('Sent to review'), k.revision],
     ['aprobados', t('Approved'), k.aprobados],
     ['', t('All'), k.total],
   ]
 })
+
+// El siguiente paso de cada producto para quien mira la lista
+function siguiente(p) {
+  if (['aprobado', 'corregido'].includes(p.estado)) return null
+  const llena = puede('producto.ficha')
+  if (p.estado === 'revision') return revisa ? { texto: t('Review and approve'), accion: true } : { texto: t('Waiting for customs review') }
+  if (p.estado === 'observado') return llena ? { texto: t('Fix what customs noted'), accion: true } : { texto: t('Returned: waiting for the fix') }
+  if (!p.ficha_completa) {
+    if (!llena) return { texto: t('Waiting for the technical sheet') }
+    return { texto: p.faltan.length ? t('Complete: {0}', [p.faltan[0]]) : t('Complete the technical sheet'), accion: true }
+  }
+  if (llena && (!revisa || flujo.value.revision_obligatoria)) return { texto: t('Send to review'), accion: true }
+  return revisa ? { texto: t('Ready to approve'), accion: true } : { texto: t('Waiting for customs review') }
+}
 
 const consulta = () => ({ estado: filtros.estado, q: filtros.q, orden: filtros.orden, marca_id: filtros.marcas.join(','), tipo: filtros.tipos.join(',') })
 
@@ -233,13 +259,14 @@ watch(() => sesion.proveedorId, recargar)
           </td>
           <td>
             <EstadoBadge :estado="p.estado" />
-            <span v-if="!p.ficha_completa && !['aprobado', 'corregido'].includes(p.estado)" class="sub recortar" :title="tx(p.faltan.join(', '))">{{ tx(p.faltan.length ? t('Missing: {0}', [p.faltan[0]]) : t('Sheet incomplete')) }}</span>
+            <span v-if="siguiente(p)" class="sub recortar siguiente" :class="{ accion: siguiente(p).accion }" :title="tx(p.faltan.join(', '))">
+              <Icono v-if="siguiente(p).accion" nombre="derecha" :tam="12" />{{ tx(siguiente(p).texto) }}</span>
           </td>
           <td class="num"><Icono nombre="derecha" :tam="16" /></td>
         </tr>
         <tr v-if="!datos.items.length && !cargando">
           <td colspan="7" class="vacio">
-            <template v-if="['pendientes', 'sugerida', 'revision', 'borradores'].includes(filtros.estado)"><Icono nombre="check" /> {{ t('Nothing pending here.') }}</template>
+            <template v-if="['pendientes', 'sugerida', 'revision', 'borradores', 'baja_confianza'].includes(filtros.estado)"><Icono nombre="check" /> {{ t('Nothing pending here.') }}</template>
             <template v-else>{{ t('No products match these filters.') }}</template>
           </td>
         </tr>
@@ -265,6 +292,8 @@ watch(() => sesion.proveedorId, recargar)
 .producto-celda { display: flex; align-items: center; gap: 10px; }
 .miniatura { width: 38px; height: 38px; border-radius: 8px; background: var(--superficie-2); border: 1px solid var(--linea); display: grid; place-items: center; color: var(--tinta-3); overflow: hidden; flex: none; }
 .sub-mod { margin-bottom: 10px; }
+.siguiente :deep(svg) { vertical-align: -2px; margin-inline-end: 3px; }
+.siguiente.accion { color: var(--acento-texto); font-weight: 600; }
 .sub-mod .pildora { text-decoration: none; }
 .recortar { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .miniatura img { width: 100%; height: 100%; object-fit: cover; }

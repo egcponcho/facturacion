@@ -113,3 +113,12 @@ def test_migraciones_de_permisos_y_condiciones():
                         {"grupo": 2, "campo": "edad", "operador": "EQUAL", "valor": "adulto"}]
         bloqueo = json.loads(con.execute("SELECT bloqueo FROM atributos_def").fetchone()[0])
         assert bloqueo == [{"condiciones": [{"grupo": 1, "campo": "genero", "operador": "EQUAL", "valor": "M"}], "mensaje": "No"}]
+
+
+def test_bandeja_baja_confianza(interno, vans, flujo):
+    k = interno.get("/productos").json()["kpis"]
+    assert isinstance(k["baja_confianza"], int)
+    items = interno.get("/productos", params={"estado": "baja_confianza", "size": 100}).json()["items"]
+    assert len(items) == k["baja_confianza"] and all(x["confianza"] == "low" and x["estado"] != "aprobado" for x in items)
+    assert flujo(proveedor_ve_sugerencia=False).status_code == 200
+    assert vans.get("/productos").json()["kpis"]["baja_confianza"] is None

@@ -381,6 +381,9 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     # Indicadores por estado con los mismos filtros (menos el de estado)
     sub = base.subquery()
     conteo = {e: n for e, n in db.execute(select(sub.c.estado, func.count()).group_by(sub.c.estado)).all()}
+    # Baja confianza legal: lo que el especialista debe mirar primero (no aplica si el proveedor no ve la sugerencia)
+    baja = (db.scalar(select(func.count()).where(sub.c.estado.in_(PENDIENTES), sub.c.confianza == "low"))
+            if flujo.ve_sugerencia(db, user) else None)
     estado = filtros.get("estado")
     if estado == "pendientes":
         base = base.where(Producto.estado.in_(PENDIENTES))
@@ -388,6 +391,8 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
         base = base.where(Producto.estado.in_(BORRADORES))
     elif estado == "aprobados":
         base = base.where(Producto.estado.in_(APROBADOS))
+    elif estado == "baja_confianza" and baja is not None:
+        base = base.where(Producto.estado.in_(PENDIENTES), Producto.confianza == "low")
     elif estado:
         base = base.where(Producto.estado == estado)
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
@@ -403,7 +408,7 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
         "borrador": conteo.get("borrador", 0), "sugerida": conteo.get("sugerida", 0),
         "revision": conteo.get("revision", 0), "borradores": sum(conteo.get(e, 0) for e in BORRADORES),
         "observado": conteo.get("observado", 0),
-        "aprobados": sum(conteo.get(e, 0) for e in APROBADOS),
+        "aprobados": sum(conteo.get(e, 0) for e in APROBADOS), "baja_confianza": baja,
     }
     ds = destinos(db)
     items = [_resumen(p, tallas, ds) for p in filas]

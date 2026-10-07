@@ -11,6 +11,7 @@ import DocumentosTecnicos from '../components/ficha/DocumentosTecnicos.vue'
 import GenericoModal from '../components/GenericoModal.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
+import Pasos from '../components/Pasos.vue'
 import { cargarContexto, entradaDe, fichaDe, sesion } from '../clasificacion/useClasificacion'
 import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '../clasificacion/formato.js'
 import { puede, sesion as sesionUsuario } from '../stores/sesion'
@@ -53,6 +54,23 @@ const puedeAprobar = computed(() => !!p.value?.puede_aprobar)
 const flujo = computed(() => sesionUsuario.usuario?.flujo || {})
 const oculta = computed(() => !!(p.value?.sugerencia_oculta || r.value?.sugerencia_oculta))
 const envioPrevio = computed(() => puedeEnviar.value && (!puedeAprobar.value || !!flujo.value.revision_obligatoria))
+// Recorrido del artículo: datos → ficha → clasificación → revisión → aprobado
+const pasos = computed(() => {
+  if (!p.value) return []
+  const e = p.value.estado
+  const base = !!f.tipo && !!f.origen
+  const clasificado = oculta.value ? completa.value : codigo6.value.length === 6
+  const revision = aprobado.value ? 'hecho' : e === 'revision' ? 'actual' : e === 'observado' ? 'alerta' : 'pendiente'
+  return [
+    { titulo: t('Product data'), estado: base || aprobado.value ? 'hecho' : 'actual', detalle: base ? '' : t('Category and country of origin') },
+    { titulo: t('Technical sheet'), estado: completa.value || aprobado.value ? 'hecho' : base ? 'actual' : 'pendiente',
+      detalle: !completa.value && !aprobado.value && faltan.value.length ? t('{0} to complete', [faltan.value.length]) : '' },
+    { titulo: t('Classification'), estado: clasificado || aprobado.value ? 'hecho' : 'pendiente',
+      detalle: oculta.value && !aprobado.value ? t('Assigned by customs') : codigo6.value.length === 6 ? fmtCode(codigo6.value) : '' },
+    { titulo: t('Customs review'), estado: revision, detalle: e === 'observado' ? t('Returned with notes') : e === 'revision' ? t('In review') : '' },
+    { titulo: t('Approved'), estado: aprobado.value ? 'hecho' : 'pendiente', detalle: aprobado.value && p.value.revisado_en ? fmtFecha(p.value.revisado_en) : '' },
+  ]
+})
 const bloqueoAprobar = computed(() => {
   if (flujo.value.revision_obligatoria && !enRevision.value) return t('Send it to review first: the workflow asks for a review before approval.')
   if (flujo.value.cuatro_ojos && p.value?.enviado_por_mi) return t('You sent this sheet to review; another person has to approve it.')
@@ -591,6 +609,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
       </div>
     </section>
 
+    <Pasos class="pasos-producto" :pasos="pasos" />
+
     <p v-if="p.estado === 'observado' && p.observaciones" class="nota aviso" role="status">
       <Icono nombre="alerta" /><span><b>{{ t('Returned for correction.') }}</b> {{ tx(p.observaciones) }}</span>
     </p>
@@ -948,6 +968,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 </template>
 
 <style scoped>
+.pasos-producto { margin: 4px 0 16px; }
 .bases-legales { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--linea); }
 .bases-legales p { margin: 4px 0 0; font-size: 0.78rem; color: var(--tinta-3); line-height: 1.35; }
 .bases-legales b { color: var(--tinta-2); }
