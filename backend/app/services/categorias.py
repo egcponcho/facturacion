@@ -7,7 +7,7 @@ ofrezca y el motor lo clasifique: no hace falta programar una ficha.
 import json
 import re
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from ..datos import MOTOR
@@ -47,8 +47,9 @@ def _cat(x: CategoriaProducto) -> dict:
 
 def categorias(db: Session, solo_activas: bool = True) -> list[dict]:
     q = select(CategoriaProducto).order_by(CategoriaProducto.orden, CategoriaProducto.nombre)
-    if solo_activas:
-        q = q.where(CategoriaProducto.activo.is_(True))
+    if solo_activas:  # la ficha: sin las categorías de familias en borrador
+        borrador = select(DominioClasificacion.codigo).where(DominioClasificacion.estado == "BORRADOR")
+        q = q.where(CategoriaProducto.activo.is_(True), or_(CategoriaProducto.dominio.is_(None), CategoriaProducto.dominio.not_in(borrador)))
     return [_cat(x) for x in db.scalars(q)]
 
 
@@ -155,7 +156,8 @@ def guardar_dominio(db: Session, user: Usuario, dom_id: int | None, datos: dict)
         cod = re.sub(r"[^A-Z0-9_]+", "_", (datos.get("codigo") or "").strip().upper()).strip("_")[:30]
         if not cod or db.scalar(select(DominioClasificacion.id).where(DominioClasificacion.codigo == cod)):
             raise ErrorNegocio("Give the domain a code that is not in use (e.g. ELECTRONICS).", 422, "validacion")
-        d = DominioClasificacion(codigo=cod, orden=(db.scalar(select(func.max(DominioClasificacion.orden))) or 0) + 10)
+        # Una familia nueva nace en borrador: se prueba y se publica cuando está lista
+        d = DominioClasificacion(codigo=cod, orden=(db.scalar(select(func.max(DominioClasificacion.orden))) or 0) + 10, estado="BORRADOR")
         db.add(d)
     for k in ("nombre", "descripcion", "modo", "activo", "orden"):
         if k in datos and datos[k] is not None:
@@ -166,4 +168,5 @@ def guardar_dominio(db: Session, user: Usuario, dom_id: int | None, datos: dict)
         raise ErrorNegocio("Mode must be AUTO or MANUAL.", 422, "validacion")
     db.flush()
     registrar(db, user, "aranceles", d.id, "dominio", {"codigo": d.codigo, "activo": d.activo})
-    return {"id": d.id, "codigo": d.codigo, "nombre": d.nombre, "descripcion": d.descripcion, "modo": d.modo, "activo": d.activo}
+    return {"id": d.id, "codigo": d.codigo, "nombre": d.nombre, "descripcion": d.descripcion, "modo": d.modo, "activo": d.activo,
+            "estado": d.estado}

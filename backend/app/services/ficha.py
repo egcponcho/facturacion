@@ -139,11 +139,14 @@ class Catalogo:
 
     # ---- Construcción --------------------------------------------------------------------
     @classmethod
-    def desde_db(cls, db) -> "Catalogo":
+    def desde_db(cls, db, borradores: bool = False) -> "Catalogo":
+        """El catálogo de la configuración. Las categorías de una familia en
+        borrador quedan inactivas (la ficha no las ofrece ni las detecta) salvo
+        para probar la familia (borradores=True)."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
 
-        from ..models import AtributoDef, CategoriaProducto, ClaseMaterial, PalabraClave, SinonimoMaterial
+        from ..models import AtributoDef, CategoriaProducto, ClaseMaterial, DominioClasificacion, PalabraClave, SinonimoMaterial
 
         attrs = []
         for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones), selectinload(AtributoDef.ambitos))
@@ -156,8 +159,10 @@ class Catalogo:
                 opciones=[Opcion(o.codigo, o.etiqueta, o.orden, o.activo, o.bloqueo or [], o.implica, o.patrones or [], o.texto_aduana,
                                  o.terminos) for o in a.opciones],
                 ambitos=[Ambito(x.tipo_ambito, x.codigo_ambito, x.modo, x.prioridad, x.condicion, x.nota, x.id) for x in a.ambitos if x.activo]))
+        en_borrador = set() if borradores else set(db.scalars(select(DominioClasificacion.codigo).where(DominioClasificacion.estado == "BORRADOR")))
         cats = [Categoria(c.codigo, c.nombre, c.dominio, c.grupo, c.familia, c.nombre_corto, c.nombre_aduana, c.alias, c.patrones or [],
-                          c.capitulos or [], c.orden, c.activo, c.plantilla_aduana, c.terminos) for c in db.scalars(select(CategoriaProducto))]
+                          c.capitulos or [], c.orden, c.activo and c.dominio not in en_borrador, c.plantilla_aduana, c.terminos)
+                for c in db.scalars(select(CategoriaProducto))]
         sin = [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))]
         pal = [{"frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})} for x in db.scalars(select(PalabraClave))]
         cla = [{"codigo": x.codigo, "palabras": x.palabras, "texto_aduana": x.texto_aduana}

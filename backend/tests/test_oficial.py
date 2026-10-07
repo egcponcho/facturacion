@@ -527,6 +527,10 @@ def test_dominio_nuevo_solo_con_configuracion(interno):
     interno.patch("/aranceles/oficial/capitulos", {"ids": [caps["85"]["id"]], "clasificacion": True, "candidato_auto": True})
     c = interno.post("/aranceles/categorias", {"nombre": "Batteries and power banks", "dominio": "ELECTRONICS", "grupo": "Electronics"}).json()
     assert c["codigo"] == "batteries_and_power_banks"
+    # En borrador la ficha no la ofrece; publicada, sí
+    assert d["estado"] == "BORRADOR"
+    assert not any(x["codigo"] == c["codigo"] for x in interno.get("/clasificacion/contexto").json()["categorias"])
+    assert interno.post("/familias/ELECTRONICS/publicar").status_code == 200
     assert any(x["codigo"] == c["codigo"] for x in interno.get("/clasificacion/contexto").json()["categorias"])
     a = interno.post("/aranceles/atributos", {"codigo": "battery_chemistry", "etiqueta": "Battery chemistry", "tipo_dato": "select", "dominio": "ELECTRONICS"}).json()
     for o in ("LITHIUM_ION", "LEAD_ACID", "NICKEL"):

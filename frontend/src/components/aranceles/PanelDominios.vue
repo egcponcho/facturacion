@@ -125,7 +125,8 @@ function agregar(d) {
     </div>
     <article v-for="d in dominios" :key="d.id" class="panel dominio" :class="{ apagado: !d.activo }">
       <header>
-        <div><h3>{{ tx(d.nombre) }} <span class="codigo ayuda">{{ tx(d.codigo) }}</span></h3><p class="ayuda">{{ tx(d.descripcion) }}</p></div>
+        <div><h3>{{ tx(d.nombre) }} <span class="codigo ayuda">{{ tx(d.codigo) }}</span>
+          <span v-if="d.estado === 'BORRADOR'" class="etiqueta acento">{{ t('Draft') }}</span></h3><p class="ayuda">{{ tx(d.descripcion) }}</p></div>
         <div class="dom-acc">
           <span class="etiqueta">{{ tx(d.modo === 'AUTO' ? t('Automatic') : t('Manual')) }}</span>
           <Interruptor :model-value="d.activo" :deshabilitado="!edita" :etiqueta="t('Active')" @update:model-value="activarDominio(d, $event)" />

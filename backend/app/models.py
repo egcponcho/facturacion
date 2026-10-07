@@ -721,6 +721,8 @@ class DominioClasificacion(Base):
     modo: Mapped[str] = mapped_column(String(10), default="AUTO")  # AUTO | MANUAL
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # BORRADOR: se arma y se prueba sin que la ficha la ofrezca ni toque artículos reales; PUBLICADA: en uso
+    estado: Mapped[str] = mapped_column(String(10), default="PUBLICADA", server_default="PUBLICADA")
 
     capitulos: Mapped[list["DominioCapitulo"]] = relationship(back_populates="dominio", cascade="all, delete-orphan")
 

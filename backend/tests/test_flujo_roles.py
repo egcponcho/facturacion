@@ -169,3 +169,31 @@ def test_regla_desde_decision_y_su_impacto(interno, flujo):
                                                       "prioridad": 9000}).json()
     assert otra["cambian"] and all(x["despues"] == "6404.11" for x in otra["cambian"])
     assert interno.get(f"/aranceles/reglas/desde-producto/{p['id'] + 99999}").status_code == 404
+
+
+def test_familia_borrador_probar_y_publicar(interno):
+    """Una familia nueva nace en borrador: no aparece en la ficha ni clasifica
+    artículos reales, pero se prueba con un artículo de ejemplo; al publicarla
+    queda en uso."""
+    d = interno.post("/aranceles/oficial/dominios", {"codigo": "TOYS_TEST", "nombre": "Toys", "modo": "AUTO"}).json()
+    assert d["estado"] == "BORRADOR"
+    assert interno.post("/familias/TOYS_TEST/publicar").json()["codigo"] == "validacion"  # sin capítulos
+    interno.put(f"/aranceles/oficial/dominios/{d['id']}/capitulos/95", {"relevancia": "PRIMARY", "habilitado": True})
+    assert interno.post("/familias/TOYS_TEST/publicar").json()["codigo"] == "validacion"  # sin categorías
+    c = interno.post("/aranceles/categorias", {"codigo": "toy_test", "nombre": "Toy vehicles", "dominio": "TOYS_TEST", "capitulos": ["95"],
+                                                "patrones": [{"re": r"\btoy (car|truck)s?\b", "prioridad": 1}]}).json()
+    fam = {f["codigo"]: f for f in interno.get("/familias").json()}["TOYS_TEST"]
+    assert fam["publicada"] is False
+    # La ficha no la ofrece ni la detecta en un artículo real
+    assert not any(x["codigo"] == c["codigo"] for x in interno.get("/clasificacion/contexto").json()["categorias"])
+    s = interno.post("/clasificacion/sesion", {"nombre": "Red toy car with lights", "paises": False}).json()
+    assert (s.get("categoria") or {}).get("codigo") != "toy_test"
+    # Probar sí la usa (sin guardar nada)
+    pr = interno.post("/familias/TOYS_TEST/probar", {"nombre": "Red toy car with lights"}).json()
+    assert pr["categoria"]["codigo"] == "toy_test" and (pr["hs6"] or "").startswith("95")
+    det = interno.get("/familias/TOYS_TEST").json()
+    assert [c["capitulo"] for c in det["capitulos"]] == ["95"] and [c["codigo"] for c in det["categorias"]] == ["toy_test"]
+    assert det["publicada"] is False and det["preguntas"] == [] and det["reglas"] == []
+    assert interno.post("/familias/TOYS_TEST/publicar").json()["publicada"] is True
+    assert any(x["codigo"] == c["codigo"] for x in interno.get("/clasificacion/contexto").json()["categorias"])
+    assert interno.post("/familias/NOPE/probar", {"nombre": "x"}).status_code == 404

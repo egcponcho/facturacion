@@ -554,7 +554,7 @@ def dominios(db: Session, user: Usuario) -> list[dict]:
     exigir(user, "clasificacion.ver")
     caps = {x.capitulo: x for x in db.scalars(select(ControlCapitulo))}
     return [{"id": d.id, "codigo": d.codigo, "nombre": d.nombre, "descripcion": d.descripcion, "modo": d.modo,
-             "activo": d.activo,
+             "activo": d.activo, "estado": d.estado,
              "capitulos": sorted([{"id": c.id, "capitulo": c.capitulo, "relevancia": c.relevancia, "habilitado": c.habilitado,
                                    "titulo": caps[c.capitulo].titulo if c.capitulo in caps else "",
                                    "capitulo_habilitado": bool(caps.get(c.capitulo) and caps[c.capitulo].clasificacion)}

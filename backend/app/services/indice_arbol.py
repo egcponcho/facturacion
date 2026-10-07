@@ -99,5 +99,6 @@ def _indice(version_id: int, _marca: int) -> tuple:
 def dominios_ficha(db: Session) -> list[dict]:
     """Dominios activos que ofrece la ficha dinámica (todos: salen de la configuración)."""
     return [{"codigo": d.codigo, "nombre": d.nombre, "descripcion": d.descripcion}
-            for d in db.scalars(select(DominioClasificacion).where(DominioClasificacion.activo.is_(True)).order_by(DominioClasificacion.orden))]
+            for d in db.scalars(select(DominioClasificacion).where(DominioClasificacion.activo.is_(True), DominioClasificacion.estado != "BORRADOR")
+                                .order_by(DominioClasificacion.orden))]
 

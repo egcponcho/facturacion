@@ -250,6 +250,7 @@ def test_categoria_nueva_solo_con_configuracion(interno):
     c = interno.post("/aranceles/categorias", {"codigo": "bateria", "nombre": "Batteries and power banks", "dominio": "POWER", "capitulos": ["85"],
                                                 "patrones": [{"re": r"\b(power ?banks?|batter(y|ies))\b", "prioridad": 1}], "nombre_aduana": "Batería"})
     assert c.status_code == 200, c.text
+    assert interno.post("/familias/POWER/publicar").status_code == 200
     q = interno.post("/aranceles/atributos", {"codigo": "battery_chem", "etiqueta": "Chemistry", "tipo_dato": "select", "dominio": "POWER"}).json()
     for cod in ("LITHIUM_ION", "LEAD_ACID", "NIMH"):
         interno.post(f"/aranceles/atributos/{q['id']}/opciones", {"codigo": cod, "etiqueta": cod.title()})

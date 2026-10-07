@@ -12,6 +12,7 @@ import PanelAtributos from '../components/aranceles/PanelAtributos.vue'
 import PanelReglas from '../components/aranceles/PanelReglas.vue'
 import PanelMateriales from '../components/aranceles/PanelMateriales.vue'
 import PanelBusqueda from '../components/aranceles/PanelBusqueda.vue'
+import AsistenteFamilia from '../components/familias/AsistenteFamilia.vue'
 import { puede } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
 
@@ -36,6 +37,18 @@ const ARREGLA = [
 const seccionDe = (aviso) => (ARREGLA.find(([re]) => re.test(aviso)) || [null, 'dominios'])[1]
 
 const menu = ref(null)
+// Asistente de una familia: ?vista=asistente&familia=CODIGO (sin código, una familia nueva)
+const familiaAsistente = ref(route.query.familia || '')
+function abrirAsistente(codigo = '') {
+  familiaAsistente.value = codigo
+  vista.value = 'asistente'
+  router.replace({ query: { vista: 'asistente', ...(codigo && { familia: codigo }) } })
+}
+function codigoNuevo(codigo) {
+  familiaAsistente.value = codigo
+  router.replace({ query: { vista: 'asistente', familia: codigo } })
+  cargar()
+}
 function cambiarVista(v) {
   vista.value = v
   router.replace({ query: { vista: v } })
@@ -90,15 +103,19 @@ onMounted(cargar)
           <li><b>{{ t('Rules') }}</b><span>{{ t('Which answers lead to which codes. Without rules the code comes only from the official text, with low confidence.') }}</span></li>
           <li><b>{{ t('Test with an item') }}</b><span>{{ t('Open an item of the family and check the suggested code and why.') }}</span></li>
         </ol>
+        <div v-if="edita" class="acciones-resumen">
+          <button class="btn btn-primario" @click="abrirAsistente()"><Icono nombre="mas" />{{ t('New family') }}</button>
+        </div>
         <p v-if="familias && !familias.length" class="vacio-panel">
           {{ t('There are no product families yet. Create the first one to start classifying.') }}
-          <button v-if="edita" class="btn btn-primario" @click="cambiarVista('dominios')"><Icono nombre="mas" />{{ t('New family') }}</button>
+          <button v-if="edita" class="btn btn-primario" @click="abrirAsistente()"><Icono nombre="mas" />{{ t('New family') }}</button>
         </p>
         <div class="familias">
           <article v-for="f in familias || []" :key="f.codigo" class="panel familia" :class="{ apagada: !f.activo }">
             <header>
               <div><h3>{{ tx(f.nombre) }}</h3><span class="ayuda">{{ tx(f.codigo) }}<template v-if="f.modo === 'MANUAL'"> · {{ t('classified by hand') }}</template></span></div>
-              <span class="etiqueta" :class="f.estado === 'lista' ? 'ok' : 'aviso'">{{ tx(f.estado === 'lista' ? t('Ready') : t('Incomplete')) }}</span>
+              <span v-if="!f.publicada" class="etiqueta acento">{{ t('Draft') }}</span>
+              <span v-else class="etiqueta" :class="f.estado === 'lista' ? 'ok' : 'aviso'">{{ tx(f.estado === 'lista' ? t('Ready') : t('Incomplete')) }}</span>
             </header>
             <div class="cifras">
               <button type="button" @click="cambiarVista('dominios')"><b>{{ tx(f.categorias) }}</b><span>{{ t('categories') }}</span></button>
@@ -115,6 +132,8 @@ onMounted(cargar)
               </template>
               <template v-else>{{ t('No items in this family yet.') }}</template>
             </p>
+            <button v-if="edita && !f.publicada" class="btn" @click="abrirAsistente(f.codigo)"><Icono nombre="derecha" :tam="15" />{{ t('Continue setup and publish') }}</button>
+            <button v-else-if="edita" class="btn btn-fantasma" @click="abrirAsistente(f.codigo)"><Icono nombre="varita" :tam="15" />{{ t('Open in the guided setup') }}</button>
             <ul v-if="f.avisos.length" class="avisos">
               <li v-for="a in f.avisos" :key="a">
                 <Icono nombre="alerta" :tam="14" /><span>{{ tx(a) }}</span>
@@ -124,6 +143,7 @@ onMounted(cargar)
           </article>
         </div>
       </template>
+      <AsistenteFamilia v-else-if="vista === 'asistente'" :codigo="familiaAsistente" @codigo="codigoNuevo" @listo="cargar" @cerrar="cargar(); cambiarVista('resumen')" />
       <PanelDominios v-else-if="vista === 'dominios'" />
       <PanelAtributos v-else-if="vista === 'atributos'" />
       <PanelReglas v-else-if="vista === 'reglas'" :paises="paises" :condiciones="meta.condiciones" />
@@ -156,6 +176,7 @@ onMounted(cargar)
 .avisos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .avisos li { display: flex; gap: 6px; align-items: flex-start; font-size: 0.84rem; color: var(--aviso); background: var(--aviso-suave); border: 1px solid var(--aviso-borde); border-radius: 8px; padding: 6px 8px; }
 .avisos li span { flex: 1; }
+.acciones-resumen { display: flex; justify-content: flex-end; margin: -6px 0 12px; }
 .vacio-panel { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 18px; border: 1px dashed var(--linea); border-radius: var(--radio); }
 @media (max-width: 520px) {
   .cifras { grid-template-columns: repeat(2, 1fr); }

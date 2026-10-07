@@ -249,6 +249,28 @@ def familias_resumen(db: Db, user: User):
     return familias.resumen(db, user)
 
 
+@router.get("/familias/{codigo}")
+def familia_detalle(codigo: str, db: Db, user: User):
+    from ..services import familias
+
+    return familias.detalle(db, user, codigo)
+
+
+@router.post("/familias/{codigo}/probar")
+def familia_probar(codigo: str, datos: dict, db: Db, user: User):
+    """Clasifica un artículo de ejemplo con la familia (aunque esté en borrador); no guarda nada."""
+    from ..services import familias
+
+    return familias.probar(db, user, codigo, datos)
+
+
+@router.post("/familias/{codigo}/publicar")
+def familia_publicar(codigo: str, db: Db, user: User, clave: Clave = None):
+    from ..services import familias
+
+    return ejecutar(db, user, clave, lambda: familias.publicar(db, user, codigo))
+
+
 @router.post("/aranceles/oficial/dominios")
 @router.patch("/aranceles/oficial/dominios/{dominio_id}")
 def oficial_dominio_guardar(datos: s.DominioIn, db: Db, user: User, dominio_id: int | None = None, clave: Clave = None):
