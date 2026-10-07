@@ -1,5 +1,6 @@
 import json, re
-DATA = str(__import__('pathlib').Path(__file__).resolve().parents[2] / 'app' / 'data') + '/'
+DATA = str(__import__('pathlib').Path(__file__).resolve().parents[2] / 'app' / 'data' / 'oficial') + '/'
+MOTOR = str(__import__('pathlib').Path(__file__).resolve().parents[2] / 'app' / 'data' / 'motor') + '/'
 cod = json.load(open('codigos_aci.json', encoding='utf-8'))
 d = {c['codigo']: c for c in cod}
 dig = lambda s: re.sub(r'\D', '', s)
@@ -67,7 +68,7 @@ def condicion(texto):
     if re.search(r'\bsombreros?\b', t) and not re.search(r'\bgorras?\b', t): c['formaTocado'] = 'sombrero'
     return c
 
-incisos = []
+incisos, interpretacion = [], {}
 for c in cod:
     k = dig(c['codigo'])
     if len(k) != 10: continue
@@ -79,9 +80,12 @@ for c in cod:
     except ValueError:
         dai_n = None
     # Solo lo que distingue a este inciso de sus hermanos: su propio texto
-    incisos.append({"codigo": k, "descripcion": desc[:300], "propio": propio[:200], "dai": dai_n,
-                    "dai_txt": dai, "cond": condicion(propio)})
+    incisos.append({"codigo": k, "descripcion": desc[:300], "propio": propio[:200], "dai": dai_n, "dai_txt": dai})
+    if c := condicion(propio):  # lo que el clasificador lee del texto: motor, no dato oficial
+        interpretacion[k] = c
 json.dump(incisos, open(DATA + 'aci_incisos.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
+json.dump({"origen": "Classification engine: conditions the classifier reads from the official ACI line text. Engine rules, never official data.",
+           "condiciones": interpretacion}, open(MOTOR + 'interpretacion_aci.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 
 # ---- Notas oficiales con las claves de relevancia de la versión anterior
 viejas = {(n['codigo'], n['numero'].split(' (')[0]): n.get('claves', []) for n in json.load(open(DATA + 'sac_notas.json', encoding='utf-8'))}

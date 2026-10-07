@@ -11,12 +11,12 @@ versión, capítulo, dominio) y nunca borra lo que ya existe.
 import io
 import re
 from datetime import date, datetime
-from pathlib import Path
 
 from openpyxl import load_workbook
 from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
+from ..datos import MOTOR, OFICIAL
 from ..models import (
     ControlCapitulo,
     DominioCapitulo,
@@ -30,10 +30,12 @@ from ..models import (
 from .common import ErrorNegocio, exigir, filtro_texto, registrar
 from .plantillas import norm
 
-CARPETA = Path(__file__).resolve().parent.parent / "data" / "oficial"
+CARPETA = OFICIAL
 # El motor (02) trae los dominios que el paquete oficial (01) relaciona con capítulos
 # y el nacional (03) usa países, fuentes y versiones del 01
-PAQUETES = ["02_carga_motor_dinamico_v3.xlsx", "01_carga_oficial_catalogos_v3.xlsx", "03_carga_nacional_regulaciones_v3.xlsx"]
+# Paquetes incluidos y en qué orden: el 02 (configuración del motor) vive aparte, en data/motor
+PAQUETES = [MOTOR / "02_carga_motor_dinamico_v3.xlsx", OFICIAL / "01_carga_oficial_catalogos_v3.xlsx",
+            OFICIAL / "03_carga_nacional_regulaciones_v3.xlsx"]
 HOJAS = ("Sources", "Versions", "Countries", "Chapter_Control", "Domains", "Domain_Chapter_Map",
          "Attributes", "Attribute_Options", "Attribute_Scope", "Classification_Rules", "Rule_Conditions",
          "Country_Source_Map", "National_Codes", "Regulations", "Taxes")
@@ -295,11 +297,11 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
             "actualizados": sum(r["actualizados"] for r in res.values())}
 
 
-def cargar_paquetes_base(db: Session) -> dict:
-    """Carga los paquetes oficiales incluidos en el sistema (semilla)."""
+def cargar_paquetes_base(db: Session, paquetes: list | None = None) -> dict:
+    """Carga paquetes incluidos (app.cargas decide cuáles: el 02 es del motor, el 01 y el 03 oficiales)."""
     out = {}
-    for nombre in PAQUETES:
-        ruta = CARPETA / nombre
+    for ruta in paquetes or PAQUETES:
+        nombre = ruta.name
         if ruta.exists():
             out[nombre] = r = importar(db, ruta.read_bytes(), nombre=nombre)
             # Un paquete incluido con errores no se carga a medias: es un defecto del paquete
@@ -309,7 +311,7 @@ def cargar_paquetes_base(db: Session) -> dict:
 
 
 # ---- Datos oficiales incluidos -------------------------------------------------------
-DATOS = Path(__file__).resolve().parent.parent / "data"
+DATOS = OFICIAL
 
 
 def cargar_lineas_regionales(db: Session, version: str = "SAC-2025-V6") -> int:
@@ -332,7 +334,8 @@ def cargar_lineas_regionales(db: Session, version: str = "SAC-2025-V6") -> int:
     ya = {(i, c) for i, c in db.execute(select(IncisoNacional.pais, IncisoNacional.codigo).where(IncisoNacional.version_id == v.id))}
     nodos = db.execute(select(NodoArancel.codigo_norm, NodoArancel.descripcion, NodoArancel.dai).where(
         NodoArancel.version_id == v.id, NodoArancel.nivel == "INCISO")).all()
-    interpretacion = {x["codigo"]: x["cond"] for x in json.loads((DATOS / "aci_incisos.json").read_text(encoding="utf-8")) if x.get("cond")}
+    # Lo que el clasificador lee del texto oficial vive en el motor, no en el archivo oficial
+    interpretacion = json.loads((MOTOR / "interpretacion_aci.json").read_text(encoding="utf-8"))["condiciones"]
     fuente = db.get(FuenteOficial, v.fuente_id) if v.fuente_id else None
     nota = f"{fuente.dataset} — {v.etiqueta}" if fuente else v.etiqueta
     filas, con_cond = [], []
@@ -375,7 +378,7 @@ def cargar_notas_incluidas(db: Session, version: str = "SAC-2025-V6") -> int:
                        claves=x.get("claves") or [], tipo_fuente="OFFICIAL_LEGAL", version_id=v.id if v else None, fuente_id=v.fuente_id if v else None,
                        vigente_desde=v.vigente_desde if v else None))
         n += 1
-    for x in leer("sac_explicativas.json"):
+    for x in json.loads((MOTOR / "sac_explicativas.json").read_text(encoding="utf-8")):
         db.add(NotaSAC(ambito=x["ambito"], codigo=x["codigo"], numero=x["numero"], texto=x["texto"], capitulos=x.get("capitulos") or [],
                        claves=x.get("claves") or [], tipo_fuente="CLASSIFIER_GUIDANCE"))
         n += 1

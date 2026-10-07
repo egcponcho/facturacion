@@ -56,15 +56,13 @@ def actualizar() -> None:
             if tablas and "alembic_version" not in tablas:
                 command.stamp(cfg, BASE)
             command.upgrade(cfg, "head")
-    # Configuración base que no viene en los paquetes oficiales (si falta)
+    # Motor y datos oficiales incluidos (lo oficial solo en una base sin datos
+    # oficiales); nunca la demostración
+    from .cargas import cargar_base
     from .db import SessionLocal
-    from .services import atributos, categorias, reglas
 
     with SessionLocal() as db:
-        categorias.sembrar(db)
-        atributos.cargar_motor(db)  # comportamiento de los atributos de la ficha (no pisa lo editado)
-        atributos.cargar_tecnico(db)  # categorías técnicas de químicos y materias primas
-        reglas.cargar_reglas_ficha(db)  # reglas de la ficha (no pisa las editadas)
+        cargar_base(db)
         db.commit()
 
 

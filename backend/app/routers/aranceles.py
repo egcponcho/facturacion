@@ -280,12 +280,12 @@ def oficial_paquete(numero: int, user: User, vista: bool = False):
     """Descarga el paquete Excel oficial incluido (01 catálogos, 02 motor, 03 nacional)."""
     from ..services import oficial
 
-    nombre = next((n for n in sorted(p.name for p in oficial.CARPETA.iterdir() if p.suffix == ".xlsx") if n.startswith(f"{numero:02d}_")), None)
-    if not nombre:
+    ruta = next((r for r in oficial.PAQUETES if r.name.startswith(f"{numero:02d}_")), None)
+    if not ruta or not ruta.exists():
         from ..services.common import ErrorNegocio
 
         raise ErrorNegocio("The package does not exist.", 404, "no_encontrado")
-    return plantilla_o_vista((oficial.CARPETA / nombre).read_bytes(), nombre[:-5], vista)
+    return plantilla_o_vista(ruta.read_bytes(), ruta.stem, vista)
 
 
 @router.post("/aranceles/oficial/importar")

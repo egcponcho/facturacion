@@ -10,11 +10,11 @@ CONTAMINATION (dato interno o de la empresa dentro de la capa oficial).
 import json
 from collections import Counter
 from datetime import date
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..datos import DEMO
 from ..models import (FuenteOficial, HistorialClasificacion, IncisoNacional, NodoArancel, NotaSAC, PaisArancel, ReglaClasificacion,
                       ReglaImpuesto, Regulacion, Usuario, VersionDataset, ahora)
 from .common import exigir
@@ -22,7 +22,7 @@ from .common import exigir
 NIVELES = ("OK", "WARNING", "ERROR", "SOURCE_MISSING", "VERSION_EXPIRED", "CONTAMINATION")
 # Del más grave al menos grave (el estado general es el peor encontrado)
 GRAVEDAD = {"CONTAMINATION": 5, "ERROR": 4, "SOURCE_MISSING": 3, "VERSION_EXPIRED": 2, "WARNING": 1, "OK": 0}
-DEMO_EMPRESA = Path(__file__).resolve().parent.parent / "data" / "demo" / "historial_empresa_demo.json"
+DEMO_EMPRESA = DEMO / "historial_empresa_demo.json"
 MAX_EJEMPLOS = 50
 
 

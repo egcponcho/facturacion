@@ -6,15 +6,15 @@ ofrezca y el motor lo clasifique: no hace falta programar una ficha.
 """
 import json
 import re
-from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..datos import MOTOR
 from ..models import CategoriaProducto, DominioClasificacion, Usuario
 from .common import ErrorNegocio, exigir, registrar
 
-DATOS = Path(__file__).resolve().parent.parent / "data"
+DATOS = MOTOR
 DOMINIO_GRUPO = {"prenda": "APPAREL", "calzado": "FOOTWEAR", "calzado_acc": "FOOTWEAR"}
 
 

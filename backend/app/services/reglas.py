@@ -17,11 +17,11 @@
 """
 import hashlib
 import json
-from pathlib import Path
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from ..datos import MOTOR
 from ..models import CondicionRegla, IncisoNacional, ReglaClasificacion, Usuario
 from .common import ErrorNegocio, exigir, filtro_texto, registrar
 from .meta import cond_texto
@@ -294,7 +294,7 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
 
 
 # ---- Reglas de la ficha (sembradas desde data/motor_reglas.json) ----------------------
-DATOS_MOTOR = Path(__file__).resolve().parent.parent / "data" / "motor_reglas.json"
+DATOS_MOTOR = MOTOR / "motor_reglas.json"
 PRIORIDAD_MOTOR = 900  # antes que las propias (800): una regla propia posterior manda sobre ellas
 
 

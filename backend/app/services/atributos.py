@@ -12,16 +12,16 @@ Dos orígenes:
 - USUARIO: los creados a mano, con las mismas capacidades.
 """
 import json
-from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from ..datos import MOTOR
 from ..models import AtributoAmbito, AtributoDef, AtributoOpcion, DominioClasificacion, Usuario
 from .common import ErrorNegocio, exigir, filtro_texto, registrar
 from .oficial import _si, _txt
 
-DATOS = Path(__file__).resolve().parent.parent / "data"
+DATOS = MOTOR
 TIPOS_DATO = {"text", "select", "multi_select", "boolean", "number", "composition", "country", "measurement_set"}
 TIPO_MOTOR = {"seg": "select", "select": "select", "check": "boolean", "num": "number"}
 AMBITOS = ("SYSTEM", "DOMAIN", "CHAPTER", "HEADING", "SUBHEADING", "CATEGORY")

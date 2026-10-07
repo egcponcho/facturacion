@@ -1,0 +1,149 @@
+{
+ "origen": "Demo reference list of trade agreements (no official source loaded): verify each agreement before relying on it.",
+ "acuerdos": [
+  {
+   "codigo": "MCCA",
+   "nombre": "Central American Common Market (MCCA)",
+   "origenes": "GT,SV,HN,NI,CR",
+   "destinos": "GT,SV,HN,NI,CR",
+   "prueba": "FAUCA / DUCA-F (Central American origin)",
+   "nota": "Free trade among the five members; Panama trades under its protocol."
+  },
+  {
+   "codigo": "CAFTA-DR",
+   "nombre": "DR-CAFTA (United States – Central America – Dominican Republic)",
+   "origenes": "US,DO",
+   "destinos": "GT,SV,HN,NI,CR",
+   "prueba": "Certification of origin (DR-CAFTA)",
+   "nota": null
+  },
+  {
+   "codigo": "MX-CA",
+   "nombre": "Mexico – Central America FTA",
+   "origenes": "MX",
+   "destinos": "GT,SV,HN,NI,CR",
+   "prueba": "Certificate of origin (Mexico – CA)",
+   "nota": null
+  },
+  {
+   "codigo": "MX-PA",
+   "nombre": "Mexico – Panama FTA",
+   "origenes": "MX",
+   "destinos": "PA",
+   "prueba": "Certificate of origin (Mexico – Panama)",
+   "nota": null
+  },
+  {
+   "codigo": "UE-CA",
+   "nombre": "EU – Central America Association Agreement",
+   "origenes": "AT,BE,BG,CY,CZ,DE,DK,EE,ES,FI,FR,GR,HR,HU,IE,IT,LT,LU,LV,MT,NL,PL,PT,RO,SE,SI,SK",
+   "destinos": "GT,SV,HN,NI,CR,PA",
+   "prueba": "EUR.1 or origin declaration on the invoice",
+   "nota": null
+  },
+  {
+   "codigo": "UK-CA",
+   "nombre": "United Kingdom – Central America Association Agreement",
+   "origenes": "GB",
+   "destinos": "GT,SV,HN,NI,CR,PA",
+   "prueba": "EUR.1 or origin declaration on the invoice",
+   "nota": null
+  },
+  {
+   "codigo": "KR-CA",
+   "nombre": "Korea – Central America FTA",
+   "origenes": "KR",
+   "destinos": "CR,SV,HN,NI,PA",
+   "prueba": "Certificate of origin (Korea – CA)",
+   "nota": "Guatemala's accession is pending entry into force."
+  },
+  {
+   "codigo": "CN-CR",
+   "nombre": "China – Costa Rica FTA",
+   "origenes": "CN",
+   "destinos": "CR",
+   "prueba": "Certificate of origin (China – Costa Rica)",
+   "nota": null
+  },
+  {
+   "codigo": "CN-NI",
+   "nombre": "China – Nicaragua FTA",
+   "origenes": "CN",
+   "destinos": "NI",
+   "prueba": "Certificate of origin (China – Nicaragua)",
+   "nota": "In force since 1 Jan 2024."
+  },
+  {
+   "codigo": "TW-GT",
+   "nombre": "Taiwan – Guatemala FTA",
+   "origenes": "TW",
+   "destinos": "GT",
+   "prueba": "Certificate of origin (Taiwan – Guatemala)",
+   "nota": null
+  },
+  {
+   "codigo": "CO-CA",
+   "nombre": "Colombia FTAs (Northern Triangle, Costa Rica, Panama)",
+   "origenes": "CO",
+   "destinos": "GT,SV,HN,CR,PA",
+   "prueba": "Certificate of origin",
+   "nota": null
+  },
+  {
+   "codigo": "CL-CA",
+   "nombre": "Chile – Central America FTA",
+   "origenes": "CL",
+   "destinos": "GT,SV,HN,NI,CR,PA",
+   "prueba": "Certificate of origin",
+   "nota": null
+  },
+  {
+   "codigo": "PE-CA",
+   "nombre": "Peru FTAs (Costa Rica, Panama, Guatemala)",
+   "origenes": "PE",
+   "destinos": "CR,PA,GT",
+   "prueba": "Certificate of origin",
+   "nota": null
+  },
+  {
+   "codigo": "CA-CA",
+   "nombre": "Canada FTAs (Costa Rica, Honduras, Panama)",
+   "origenes": "CA",
+   "destinos": "CR,HN,PA",
+   "prueba": "Certificate of origin",
+   "nota": null
+  },
+  {
+   "codigo": "SG-CA",
+   "nombre": "Singapore FTAs (Costa Rica, Panama)",
+   "origenes": "SG",
+   "destinos": "CR,PA",
+   "prueba": "Certificate of origin",
+   "nota": null
+  },
+  {
+   "codigo": "DO-CA",
+   "nombre": "Dominican Republic – Central America FTA",
+   "origenes": "DO",
+   "destinos": "GT,SV,HN,NI,CR",
+   "prueba": "Certificate of origin",
+   "nota": null
+  },
+  {
+   "codigo": "EFTA-CA",
+   "nombre": "EFTA – Central American States FTA",
+   "origenes": "CH,NO,IS,LI",
+   "destinos": "CR,PA",
+   "prueba": "EUR.1 or origin declaration on the invoice",
+   "nota": "Guatemala's accession is pending."
+  },
+  {
+   "codigo": "IL-PA",
+   "nombre": "Israel – Panama FTA",
+   "origenes": "IL",
+   "destinos": "PA",
+   "prueba": "Certificate of origin",
+   "nota": null
+  }
+ ]
+}

@@ -27,7 +27,8 @@ down_revision = '0015'
 branch_labels = None
 depends_on = None
 
-ACI = Path(__file__).resolve().parents[2] / "app" / "data" / "aci_incisos.json"
+# La interpretación del clasificador vive en data/motor (antes iba dentro del archivo del ACI)
+ACI = Path(__file__).resolve().parents[2] / "app" / "data" / "motor" / "interpretacion_aci.json"
 
 
 def _cond(con, regla_id) -> dict:
@@ -100,7 +101,7 @@ def upgrade() -> None:
             con.execute(sa.text("UPDATE paises_arancel SET nivel_base = 'SAC10' WHERE iso = :p"), {"p": iso})
 
     # 3. Condiciones de selección sobre líneas oficiales: solo las que el clasificador lee del texto oficial
-    interpretacion = {x["codigo"]: x["cond"] for x in json.loads(ACI.read_text(encoding="utf-8")) if x.get("cond")} if ACI.exists() else {}
+    interpretacion = json.loads(ACI.read_text(encoding="utf-8"))["condiciones"] if ACI.exists() else {}
     reglas = con.execute(sa.text("SELECT r.id, i.pais, i.codigo FROM reglas_clasificacion r JOIN incisos_nacionales i ON i.id = r.inciso_id "
                                  "WHERE r.tipo_regla = 'NATIONAL_SELECT' AND r.tipo_fuente IN ('LEARNED', 'NATIONAL_TARIFF')")).all()
     for rid, pais, codigo in reglas:

@@ -103,3 +103,36 @@ El motor (`POST /clasificacion/sesion`) devuelve `legal_confidence` (solo reglas
 y texto oficial) y `historical_confidence` (solo historial). Por país, cuando
 varias líneas oficiales siguen posibles, el estado `historial` indica que el
 historial eligió una de ellas, con su propia `historical_confidence`.
+
+## Carga por capa y endurecimientos
+
+**Archivos** (`app/datos.py`):
+
+| Carpeta | Capa | Contenido |
+|---|---|---|
+| `data/oficial` | Oficial | Paquetes 01 y 03, árbol del ACI (`sac_oficial.json`, `aci_incisos.json` sin interpretaciones), notas legales |
+| `data/motor` | Motor | Paquete 02, atributos, reglas, categorías técnicas, guía del clasificador, `interpretacion_aci.json` (lo que el clasificador lee del texto oficial) |
+| `data/demo` | Demostración | Historial y palabras clave de la empresa de ejemplo, acuerdos comerciales de referencia (sin fuente oficial) |
+
+**Arranque** (`app/cargas.py`): `cargar_base` carga el motor y, solo en una base
+sin datos oficiales, lo oficial incluido; `cargar_demo` (solo `SEED_DEMO=1`)
+configura los países de ejemplo (GT/SV/HN como SAC10), sus líneas regionales,
+el historial, las palabras clave y los acuerdos. Con datos reales no entra nada
+de la demostración y ningún país se declara SAC10 por su cuenta.
+
+**Endurecimientos**
+
+- Un lote oficial con errores no se publica, ni en parte (`lote_con_errores`);
+  un paquete incluido con errores detiene la carga.
+- Trazabilidad: una fuente respalda datos oficiales solo si nombra su documento
+  o dataset, tiene enlace o referencia y fue verificada (fecha y quién); una
+  versión publicada exige vigencia; toda línea, impuesto o regulación lleva su
+  vigencia (propia o de su versión), nunca supuesta.
+- El historial solo refuerza candidatos que ya salieron del árbol oficial y de
+  las reglas; no crea candidatos ni quita la revisión.
+- Incertidumbre = pendiente: el lote no aprueba casos con revisión o confianza
+  legal baja; una línea nacional que solo prefiere el historial se confirma; un
+  dato decisivo que se llenó por defecto deja el caso en revisión.
+- Sin fallbacks: un país sin línea nacional oficial no recibe el código SAC
+  regional en la OC o la factura; la base legal de un país no se arma con el
+  nombre de su fuente.

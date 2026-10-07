@@ -8,16 +8,16 @@ el motor. Se guarda el checksum de los archivos fuente en la versión.
 """
 import hashlib
 import re
-from pathlib import Path
 
 from sqlalchemy import func, insert, or_, select
 from sqlalchemy.orm import Session
 
+from ..datos import OFICIAL
 from ..models import ControlCapitulo, IncisoNacional, NodoArancel, NotaSAC, PaisArancel, Usuario, VersionDataset, ahora
 from .common import ErrorNegocio, exigir, filtro_texto
 from .nacional import requisitos
 
-DATOS = Path(__file__).resolve().parent.parent / "data"
+DATOS = OFICIAL
 VERSION_DATOS_SEED = "SAC-2025-V6"  # versión del archivo sac_oficial.json que trae el seed; el motor usa la versión vigente
 NIVELES = {2: "CAPITULO", 4: "PARTIDA", 6: "SUBPARTIDA", 8: "INCISO", 10: "INCISO", 12: "INCISO"}
 NOMBRE_NIVEL = {"CAPITULO": "Chapter", "PARTIDA": "Heading", "SUBPARTIDA": "Subheading", "INCISO": "Tariff line"}

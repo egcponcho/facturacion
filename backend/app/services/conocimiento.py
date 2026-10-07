@@ -10,18 +10,18 @@ modifica un dato oficial: un código solo se registra si existe como línea
 oficial vigente (o en el árbol oficial, para HS6/SAC).
 """
 import json
-from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..datos import DEMO as DIR_DEMO
 from ..models import HistorialClasificacion, IncisoNacional, PaisArancel, PalabraClave, SinonimoMaterial, Usuario
 from .common import ErrorNegocio, exigir, registrar
 
-DEMO = Path(__file__).resolve().parent.parent / "data" / "demo" / "historial_empresa_demo.json"
+DEMO = DIR_DEMO / "historial_empresa_demo.json"
 # Nombres de modelos de la empresa de ejemplo («old skool» es un tenis): palabras clave
 # de la empresa, no patrones del motor (otra empresa tendrá los suyos)
-DEMO_PALABRAS = Path(__file__).resolve().parent.parent / "data" / "demo" / "palabras_empresa_demo.json"
+DEMO_PALABRAS = DIR_DEMO / "palabras_empresa_demo.json"
 ORIGENES = ("APROBACION", "CORRECCION", "ENSENADO", "IMPORTADO")
 
 

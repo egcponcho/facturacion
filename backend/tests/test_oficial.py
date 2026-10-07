@@ -153,7 +153,7 @@ def test_editar_atributos_opciones_y_ambitos(interno):
     assert d["origen"] == "USUARIO" and d["unidad"] == "°C"
     assert interno.post("/aranceles/atributos", {"codigo": "flash_point", "etiqueta": "x"}).status_code == 422
     # Recargar el paquete no duplica
-    paquete = (RAIZ / "app/data/oficial/02_carga_motor_dinamico_v3.xlsx").read_bytes()
+    paquete = (RAIZ / "app/data/motor/02_carga_motor_dinamico_v3.xlsx").read_bytes()
     r = interno.c.post("/api/aranceles/oficial/importar", headers=interno.h,
                        files={"archivo": ("02.xlsx", io.BytesIO(paquete), "application/octet-stream")}).json()
     assert r["hojas"]["Attributes"]["creados"] == 0 and r["hojas"]["Attribute_Options"]["creados"] == 0 and not r["errores"]
@@ -410,9 +410,18 @@ def test_producto_guarda_hs6_y_cada_pais_su_linea_con_evidencia(interno):
     """El producto guarda el HS6; la línea SAC va aparte y solo si existe en el
     árbol oficial; un código nacional no se acepta como código del producto;
     cada país guarda su línea oficial, versión, regla, impuestos y regulaciones."""
-    ps = interno.get("/productos", params={"size": 50}).json()["items"]
-    p = next(x for x in ps if x["estado"] not in ("aprobado", "corregido") and x["tipo"] == "calzado")
+    # Un producto propio de esta prueba (los de la demostración los usan otras pruebas)
+    m = {x["codigo"]: x["id"] for x in interno.get("/catalogos/marcas", params={"size": 100}).json()["items"]}
+    g = {x["codigo"]: x["id"] for x in interno.get("/catalogos/grupos").json()["items"]}
+    pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
+    assert interno.post("/catalogos/genericos", {"generico": "30077703", "estilo": "VNEVID01", "color": "White", "marca_id": m["VANS"],
+                                                 "grupo_id": g["CALZ-CAS"], "proveedor_id": pv["VANS"], "unidad": "PAR",
+                                                 "nombre": "Canvas sneaker", "tallas": [{"talla": "8"}]}).status_code == 200
+    p = next(x for x in interno.get("/productos", params={"q": "VNEVID01"}).json()["items"] if x["estilo"] == "VNEVID01")
     det = interno.get(f"/productos/{p['id']}").json()
+    det = interno.put(f"/productos/{p['id']}/ficha", {"version": det["version"], "tipo": "calzado", "pais_origen": "CN", "ficha": {
+        "comp": {"corte": "100% canvas", "suela": "100% rubber"}, "estiloCalz": "tenis", "altura": "bajo", "genero": "U",
+        "edadNac": "adulto", "puntera": "ninguna", "disenio": "casual"}}).json()
     # Un código nacional de 12 dígitos no es una línea SAC
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640419900090", "forzar": True})
     assert r.status_code == 422 and r.json()["codigo"] == "no_es_linea_sac", r.text

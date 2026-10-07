@@ -34,6 +34,7 @@ from pathlib import Path
 from sqlalchemy import event
 from sqlalchemy.orm import Session
 
+from ..datos import MOTOR
 from .composicion import Lector, norm, resumen_mat
 from .motor_clasificacion import condicion as _condicion, evaluar
 
@@ -663,7 +664,7 @@ def _lbl(a: Atributo, v) -> str:
     return o.etiqueta if o else str(v)
 
 
-DATOS_ATRIBUTOS = Path(__file__).resolve().parent.parent / "data" / "motor_atributos.json"
+DATOS_ATRIBUTOS = MOTOR / "motor_atributos.json"
 _MODELOS_CATALOGO = ("AtributoDef", "AtributoOpcion", "AtributoAmbito", "CategoriaProducto", "PalabraClave", "SinonimoMaterial")
 
 

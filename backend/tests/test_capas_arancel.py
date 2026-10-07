@@ -60,7 +60,9 @@ def test_company_conditions_never_marked_as_official(interno):
         import json
         from pathlib import Path
 
-        aci = {x["codigo"]: x["cond"] for x in json.loads((Path(__file__).parents[1] / "app/data/aci_incisos.json").read_text()) if x.get("cond")}
+        aci = json.loads((Path(__file__).parents[1] / "app/data/motor/interpretacion_aci.json").read_text())["condiciones"]
+        # El archivo oficial del ACI no trae interpretaciones del clasificador
+        assert not any("cond" in x for x in json.loads((Path(__file__).parents[1] / "app/data/oficial/aci_incisos.json").read_text()))
         for x in db.scalars(select(IncisoNacional)):
             if x.regla and x.regla.tipo_fuente == "CLASSIFIER":
                 assert x.cond == aci.get(x.codigo), (x.pais, x.codigo, x.cond)

@@ -431,29 +431,6 @@ def _productos(db, arts) -> None:
             p.revisado_en = ahora() - timedelta(days=150)
 
 
-# Configuración de la instalación de demostración: qué países aplican tal cual
-# las líneas del SAC regional a 10 dígitos (su código nacional es la línea del
-# ACI) y la longitud habitual que muestra la pantalla. Es configuración del
-# administrador, no un dato oficial: NI, CR y PA no tienen su arancel nacional
-# cargado y lo dicen («Official national tariff data not available»).
-PAISES_DEMO = {"GT": {"nivel_base": "SAC10", "longitudes": "10", "digitos": 10},
-               "SV": {"nivel_base": "SAC10", "longitudes": "10", "digitos": 10},
-               "HN": {"nivel_base": "SAC10", "longitudes": "10", "digitos": 10},
-               "NI": {"digitos": 12}, "CR": {"digitos": 12}, "PA": {"digitos": 12}}
-
-
-def _configurar_paises_demo(db) -> None:
-    from .models import PaisArancel
-
-    for i, (iso, conf) in enumerate(PAISES_DEMO.items()):
-        p = db.scalar(select(PaisArancel).where(PaisArancel.iso == iso))
-        if p:
-            for k, v in conf.items():
-                setattr(p, k, v)
-            p.orden = i
-    db.flush()
-
-
 def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", almacen="BF19", destino="2220",
         puerto="VNSGN", origen="VN", xf=None, xf_nueva=None, tienda=None, comercial="C", logistica="300",
         lib_antes=24):
@@ -631,23 +608,10 @@ def seed(db: Session) -> None:
     cat = _catalogos(db)
     # ---- Capa OFFICIAL TARIFF DATA: fuentes, versiones y países del paquete oficial 01,
     # árbol del ACI (SIECA), notas legales y líneas regionales. Nada sale de la empresa.
-    from .services import acuerdos, arbol, atributos, categorias, conocimiento, oficial
-    from .services import reglas as reglas_srv
+    from . import cargas
 
-    oficial.cargar_paquetes_base(db)
-    _configurar_paises_demo(db)
-    arbol.cargar_sac(db)
-    oficial.cargar_notas_incluidas(db)
-    oficial.cargar_lineas_regionales(db)
-    acuerdos.cargar_acuerdos(db)
-    # ---- Capa CLASSIFICATION ENGINE: categorías, atributos y reglas de la ficha
-    atributos.cargar_motor(db)
-    atributos.cargar_tecnico(db)  # categorías técnicas de químicos y materias primas (configuración)
-    categorias.sembrar(db)
-    reglas_srv.cargar_reglas_ficha(db)
-    # ---- Capa COMPANY KNOWLEDGE (demostración): historial de la empresa de ejemplo
-    conocimiento.cargar_historial_demo(db)
-    conocimiento.cargar_palabras_demo(db)
+    cargas.cargar_base(db)  # motor y datos oficiales incluidos (lo mismo que con datos reales)
+    cargas.cargar_demo(db)  # la empresa de demostración: países, historial, palabras clave, acuerdos
     db.commit()  # el motor lee el árbol (índice en memoria) con su propia sesión
     # Cada proveedor maneja sus marcas y trabaja con sus sociedades
     tnf.marcas = [cat["marcas"]["TNF"]]
