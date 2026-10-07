@@ -61,6 +61,9 @@ def test_proveedor_sin_sugerencia(vans, interno, flujo):
     assert aprobado["codigo"] and aprobado["sugerido"]  # la partida aprobada sí la ve
     d = vans.get(f"/productos/{pendiente['id']}").json()
     assert d["sugerido"] is None and d["confianza"] is None
+    # Tampoco por el historial, la evidencia ni la opinión del especialista
+    assert d["evidencia"] is None and d["opinion_ia"] is None
+    assert all("sugerido" not in (h["detalle"] or {}) for h in d["historial"])
     assert interno.get(f"/productos/{pendiente['id']}").json()["sugerido"]
     # La sesión de clasificación le deja las preguntas, sin códigos ni candidatos
     s = vans.post("/clasificacion/sesion", {"categoria": "calzado", "ficha": {}, "estilo": "X"}).json()

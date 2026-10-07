@@ -129,6 +129,12 @@ def ocultar_resumen(item: dict) -> dict:
         item["analisis"] = {k: x for k, x in item["analisis"].items() if k in ("faltan", "faltantes")}
     if "partidas" in item and not item.get("codigo"):
         item["partidas"] = {}
+    for k in ("evidencia", "opinion_ia"):
+        if k in item:
+            item[k] = None
+    if item.get("historial"):
+        item["historial"] = [{**h, "detalle": {k: x for k, x in h["detalle"].items() if k not in SUGERENCIA}}
+                             if isinstance(h.get("detalle"), dict) else h for h in item["historial"]]
     item["sugerencia_oculta"] = True
     return item
 

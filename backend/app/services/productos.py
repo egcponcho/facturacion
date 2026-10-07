@@ -1132,7 +1132,7 @@ def ficha_de_version(db: Session, user: Usuario, producto_id: int, version: int 
         raise ErrorNegocio(f"Version {version} does not exist.", 404, "no_encontrado")
     x = v.datos or {}
     partidas = x.get("partidas") or {}
-    return {**d, "version_ficha": v.version, "tipo": x.get("tipo"), "ficha": x.get("ficha") or {},
+    d = {**d, "version_ficha": v.version, "tipo": x.get("tipo"), "ficha": x.get("ficha") or {},
             "codigo": fmt_codigo(x.get("codigo")) if x.get("codigo") else None,
             "sugerido": fmt_codigo(x.get("sugerido")) if x.get("sugerido") else None,
             "estado": x.get("estado"), "estado_txt": ESTADOS.get(x.get("estado"), x.get("estado")),
@@ -1141,6 +1141,9 @@ def ficha_de_version(db: Session, user: Usuario, producto_id: int, version: int 
             "partidas": {k: (c if isinstance(c, dict) else {"codigo": c}) for k, c in partidas.items()},
             "revisado_por": x.get("revisado_por"), "revisado_en": x.get("revisado_en"), "observaciones": None,
             "vigencia": {"desde": v.desde, "hasta": v.hasta, "motivo": v.motivo}, "historica": True}
+    if not flujo.ve_sugerencia(db, user) and x.get("estado") not in APROBADOS:
+        flujo.ocultar_resumen(d)
+    return d
 
 
 def ver_version(db: Session, user: Usuario, producto_id: int, version: int) -> dict:

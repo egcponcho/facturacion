@@ -31,6 +31,8 @@ from ..models import (
 from .cantidades import facturado_por_posicion, facturas_por_posicion
 from .productos import clasificacion_txt, partida_para, producto_de
 from .common import ErrorNegocio, asegurar_proveedor, exigir, proveedor_filtro, registrar, filtro_texto, terminos
+from .unidades import _ALIAS as UNIDADES  # alias de cada unidad → su código
+from .unidades import error_cantidad
 
 # Dos liberaciones de dos equipos distintos:
 # - Comercial: P (pendiente) o C (liberada; si viene vacío también es C).
@@ -443,8 +445,6 @@ CAMPOS_POSICION = [
     "tipo_empaque", "casepack", "inner_pack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
     "pais_origen",
 ]
-from .unidades import _ALIAS as UNIDADES  # alias de cada unidad → su código
-from .unidades import error_cantidad
 
 
 def _norm(texto: str) -> str:
