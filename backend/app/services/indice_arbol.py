@@ -1,7 +1,6 @@
-"""Búsqueda en el texto oficial del árbol (índice de palabras) que usa el
-motor único para proponer candidatos de cualquier dominio. No hay una ruta
-aparte: químicos, materias primas y cualquier otro dominio pasan por
-/clasificacion/sesion.
+"""Índice de palabras del texto oficial del árbol arancelario: el motor único
+(/clasificacion/sesion) lo usa para proponer candidatos de cualquier dominio.
+Solo propone códigos que existen en la versión vigente; nunca confirma uno.
 
 Sigue las reglas del sistema (paquete 02):
 - R-SYS-001: solo capítulos activos y habilitados para clasificar; los de

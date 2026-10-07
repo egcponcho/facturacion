@@ -217,7 +217,8 @@ def test_soporte_de_clasificacion(interno, vans):
     búsqueda libre en todo el SAC desde la ficha."""
     assert vans.get("/clasificacion/sac", params={"q": "8471.30"}).status_code in (404, 405)
     ctx = interno.get("/clasificacion/contexto").json()
-    assert all(d["base_legal"] for d in ctx["destinos"])
+    # La base legal solo existe si el paquete oficial la declara: nunca se arma con el nombre de la fuente
+    assert not any(d["base_legal"] and " — " in d["base_legal"] for d in ctx["destinos"])
     # Notas explicativas por partida (resumen propio, no el texto oficial)
     notas = interno.get("/aranceles/notas", params={"capitulo": "64"}).json()
     ne = [n for n in notas["items"] if n["ambito"] == "explicativa"]

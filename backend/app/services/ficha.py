@@ -23,8 +23,8 @@ específico de una categoría en el código:
   el uso, las tallas o la composición, sin pisar lo que la persona eligió.
 - usado_clasificacion = False: el dato se recoge pero no llega a las reglas.
 
-Antes esta lógica vivía en el navegador (motor.js: ATTRS, normalizar,
-estadoAttr, detectar); tests/test_ficha.py prueba la paridad.
+tests/test_ficha.py fija el resultado esperado (casos de referencia en
+tests/paridad).
 """
 import json
 import re
@@ -382,9 +382,12 @@ class Catalogo:
         s["categoria"] = categoria or ""
         s["dominio"] = dominio or (cat.dominio if cat else "") or ""
         s["_texto"] = texto or ""
+        supuestos = []
         for a in self.atributos:
             if a.booleano and a.valor_defecto in ("false", "true") and s.get(a.codigo) is None:
                 s[a.codigo] = a.valor_defecto == "true"
+                supuestos.append(a.codigo)
+        s["_supuestos"] = supuestos  # valores por defecto: no los dijo nadie
         return s
 
     def normalizar(self, s: dict) -> list[dict]:
@@ -586,12 +589,14 @@ class Catalogo:
         comp = (ficha or {}).get("comp") or {}
         h = self._palabra(texto, marca)
         d, defecto = self._detectar(texto, comp, tallas, uso, categoria or (h or {}).get("tipo"))
+        defecto = set(defecto)
         if h:
             for k, v in h.items():
                 if k in ("frase", "tipo", "marca", "id") or v in (None, ""):
                     continue
                 if k not in d or k in defecto:
                     d[k] = v
+                    defecto.discard(k)  # lo dice una palabra clave del nombre: no es un supuesto
             a = self.por_codigo.get("estiloCalz")
             if h.get("estiloCalz") and a:
                 o = a.opcion(d.get("estiloCalz"))
@@ -614,6 +619,8 @@ class Catalogo:
                     d[k] = v
             if d.get("categoria") == "calzado" and d.get("disenio") == "casual" and d2.get("disenio") == "entrenamiento":
                 d["disenio"] = "entrenamiento"
+        # Lo que se llenó por defecto, sin evidencia en los datos del producto: un supuesto
+        d["_por_defecto"] = sorted(k for k in defecto if k in d)
         # Los datos nacionales se deducen al final, con lo ya detectado
         if d.get("categoria"):
             nac = [a for a in self._candidatos_attr(d["categoria"]) if a.seccion == "nacional" or a.codigo == "edadNac"]

@@ -9,7 +9,7 @@ Todo sale de los datos: el nombre de la categoría (CategoriaProducto.nombre_adu
 o el de una opción elegida (AtributoOpcion.texto_aduana.nombre), la plantilla de
 material de la categoría (CategoriaProducto.plantilla_aduana) y las frases de
 las opciones y casillas (texto_aduana.frase, con su orden y condición).
-Antes lo armaba el navegador (motor.js); tests/test_descripciones.py prueba la paridad.
+tests/test_descripciones.py fija el resultado esperado (casos de referencia en tests/paridad).
 """
 import re
 

@@ -212,8 +212,9 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         src = _txt(f.get("primary_source"))
         if src and src in fuentes:
             x.fuente_id = fuentes[src].id
-            # La base legal sale de la fuente oficial declarada (no se escribe a mano)
-            x.base_legal = x.base_legal or f"{fuentes[src].dataset} — {fuentes[src].autoridad}"[:300]
+        # La base legal solo si el paquete la declara (nunca se arma con el nombre de la fuente)
+        if _txt(f.get("legal_basis")):
+            x.base_legal = _txt(f.get("legal_basis"))[:300]
         x.mcca = "common market" in (x.contexto or "").lower()
         x.nota = _txt(f.get("implementation_note")) or x.nota
         if f.get("active") is not None:

@@ -384,3 +384,24 @@ def test_history_preferred_national_line_needs_confirmation(interno):
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640399", "partidas": partidas})
     assert r.status_code == 200, r.text
     assert r.json()["partidas"]["GT"]["codigo"].replace(".", "") == "6403999000"
+
+
+def test_old_engine_routes_are_gone(interno):
+    """Un solo motor: no quedan rutas del clasificador anterior."""
+    rutas = set(interno.c.get("/openapi.json").json()["paths"])
+    assert "/api/clasificacion/sesion" in rutas
+    assert not [r for r in rutas if r.startswith(("/api/clasificacion/generico", "/api/clasificacion/sac", "/api/clasificar"))]
+    assert interno.post("/clasificacion/generico", {"texto": "x"}).status_code in (404, 405)
+
+
+def test_no_fallback_completes_a_national_code(interno):
+    """Sin línea nacional oficial confirmada no hay código del país: no se completa con el SAC regional."""
+    from app.services.productos import partida_para
+    from app.models import Producto
+
+    with SessionLocal() as db:
+        p = next(x for x in db.scalars(select(Producto)) if x.aprobado and x.partidas)
+        assert partida_para(p, "PA") is None  # Panamá no tiene arancel nacional oficial cargado
+        gt = partida_para(p, "GT")
+        assert gt is None or len(gt.replace(".", "")) == 10
+        assert partida_para(p, None)  # sin país: la partida SAC aprobada

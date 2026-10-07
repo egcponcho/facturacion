@@ -3506,6 +3506,7 @@
  "{0} under correction",
  "{0} units cannot be split evenly into {1}.",
  "{0} updated.",
+ "{0} was assumed, not stated in the product data: confirm it.",
  "{0} was not applied ({1}).",
  "{0} with estimated weight",
  "{0} without PL",

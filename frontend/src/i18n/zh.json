@@ -3506,6 +3506,7 @@
 "{0} under correction": "{0} 更正中",
 "{0} units cannot be split evenly into {1}.": "{0} 个单元无法平均分成 {1} 份。",
 "{0} updated.": "已更新 {0}。",
+"{0} was assumed, not stated in the product data: confirm it.": "{0} 是假定的，产品数据中未注明：请确认。",
 "{0} was not applied ({1}).": "{0}未应用（{1}）。",
 "{0} with estimated weight": "{0} 为估算重量",
 "{0} without PL": "{0} 无装箱单",

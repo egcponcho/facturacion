@@ -210,7 +210,7 @@ def version_regional(db: Session, fecha: date | None = None, version_id: int | N
 @lru_cache(maxsize=4)
 def _por_codigo(version_id: int, marca: int) -> dict:
     """Código → (nivel, descripción, DAI) de la versión (en memoria)."""
-    from .generico import _indice
+    from .indice_arbol import _indice
 
     return {c: (n, d, dai) for c, n, d, dai, _ in _indice(version_id, marca)[0]}
 
@@ -468,7 +468,7 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     terminos = _terminos(cat, entrada, ficha, hechos)
     zona = permitidos if permitidos is not None else universo
     if "TEXT_CANDIDATES" in base and terminos:
-        from .generico import _indice
+        from .indice_arbol import _indice
 
         nodos, df = _indice(v.id, marca_v)
         total = max(len(nodos), 1)
@@ -581,6 +581,13 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     from .descripciones import descripcion_aduana, descripcion_comercial
 
     desc = {"aduana": descripcion_aduana(cat, s, cobj), "comercial": descripcion_comercial(cat, s, cobj, entrada.get("marca"))}
+    # Un dato que decide el código no se supone: si una regla aplicada leyó un valor puesto por
+    # defecto (sin evidencia en los datos del producto), el caso queda para revisión y se pide confirmarlo
+    decisivos = {c["campo"] for t in traza if t.get("aplicada") and t.get("foto") for c in t["foto"]["condiciones"]}
+    supuestos = ((set(detectado.get("_por_defecto") or []) & (autos | autos_previos)) | set(s.get("_supuestos") or [])) - tocados
+    for k in sorted(decisivos & supuestos):
+        a = cat.por_codigo.get(k)
+        revision_por.append(f"{a.etiqueta if a else k} was assumed, not stated in the product data: confirm it.")
     revision = bool(revision_por) or confianza == "low"
     nombres = {c: _desc(por_cod, c) for c in codigos_c[:limite]}
     if hs6 and hs6 not in nombres:
@@ -656,7 +663,7 @@ def _sin_version(categoria, ficha, hechos, avisos) -> dict:
 
 
 def _terminos(cat, entrada, ficha, hechos) -> list[str]:
-    from .generico import palabras
+    from .indice_arbol import palabras
 
     extra = []
     # Términos de búsqueda configurados (palabras del texto oficial): solo ordenan candidatos

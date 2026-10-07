@@ -351,7 +351,8 @@ def test_dominio_manual_no_se_aprueba_solo(interno):
     clasificación queda para revisión y lo dice. En AUTO vuelve a decidir."""
     dom = next(d for d in interno.get("/aranceles/oficial/dominios").json() if d["codigo"] == "FOOTWEAR")
     base = {"categoria": "calzado", "ficha": {"estiloCalz": "tenis", "altura": "bajo", "puntera": "ninguna", "genero": "U", "edadNac": "adulto",
-                                              "comp": {"corte": "100% canvas", "suela": "100% rubber"}}, "origen": "CN", "paises": False}
+                                              "disenio": "casual", "comp": {"corte": "100% canvas", "suela": "100% rubber"}},
+            "origen": "CN", "paises": False}
     s = interno.post("/clasificacion/sesion", base).json()
     assert s["hs6"] == "640419" and s["clasificacion"]["hs6"]["automatico"] and not s["requiere_revision"]
     assert interno.patch(f"/aranceles/oficial/dominios/{dom['id']}", {"modo": "MANUAL"}).status_code == 200
@@ -360,3 +361,7 @@ def test_dominio_manual_no_se_aprueba_solo(interno):
     assert any("by hand" in x for x in s["revision_por"])
     interno.patch(f"/aranceles/oficial/dominios/{dom['id']}", {"modo": "AUTO"})
     assert not interno.post("/clasificacion/sesion", base).json()["requiere_revision"]
+    # Un dato que decide el código y que nadie dijo (el diseño, supuesto por defecto) no se da por cierto
+    sin_disenio = {**base, "ficha": {k: v for k, v in base["ficha"].items() if k != "disenio"}}
+    s = interno.post("/clasificacion/sesion", sin_disenio).json()
+    assert s["requiere_revision"] and any("was assumed" in x for x in s["revision_por"])

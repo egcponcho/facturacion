@@ -3506,6 +3506,7 @@
 "{0} under correction": "{0} قيد التصحيح",
 "{0} units cannot be split evenly into {1}.": "لا يمكن توزيع {0} وحدات بالتساوي على {1}.",
 "{0} updated.": "تم تحديث {0}.",
+"{0} was assumed, not stated in the product data: confirm it.": "{0} مفترض، ولم يرد في بيانات المنتج: أكّده.",
 "{0} was not applied ({1}).": "لم يُطبَّق {0} ({1}).",
 "{0} with estimated weight": "{0} بوزن تقديري",
 "{0} without PL": "{0} بلا قائمة تعبئة",

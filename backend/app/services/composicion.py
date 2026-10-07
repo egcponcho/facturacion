@@ -8,8 +8,8 @@ verdad (sinónimos comerciales, errores de dedo, números sin %, etiquetas como
 de categorías: los atributos dicen de qué parte y con qué lectura se derivan
 (AtributoDef.derivacion).
 
-Antes vivía en el navegador (motor.js); la prueba de paridad
-tests/test_composicion.py compara con lo que devolvía.
+tests/test_composicion.py fija el resultado esperado (casos de referencia
+en tests/paridad).
 """
 import math
 import re

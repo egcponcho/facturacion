@@ -3506,6 +3506,7 @@
 "{0} under correction": "{0} सुधार में",
 "{0} units cannot be split evenly into {1}.": "{0} इकाइयाँ {1} में बराबर नहीं बँटतीं।",
 "{0} updated.": "{0} अपडेट हुआ।",
+"{0} was assumed, not stated in the product data: confirm it.": "{0} मान लिया गया, उत्पाद डेटा में नहीं बताया गया: पुष्टि करें।",
 "{0} was not applied ({1}).": "{0} लागू नहीं हुआ ({1})।",
 "{0} with estimated weight": "{0} अनुमानित वज़न के साथ",
 "{0} without PL": "{0} बिना PL",

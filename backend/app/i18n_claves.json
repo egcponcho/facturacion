@@ -1318,6 +1318,7 @@
  "{0} rows in version {1}.",
  "{0} under correction",
  "{0} units cannot be split evenly into {1}.",
+ "{0} was assumed, not stated in the product data: confirm it.",
  "{0} was not applied ({1}).",
  "{0} without packing list.",
  "{0} {1} already exists for this supplier with another generic.",

@@ -42,7 +42,7 @@ from ..models import (
     ahora,
 )
 from .acuerdos import acuerdos_contexto
-from .generico import dominios_ficha
+from .indice_arbol import dominios_ficha
 from .categorias import categorias as categorias_config
 from .common import (
     filtro_texto,
@@ -217,14 +217,16 @@ def pais_de_centro(db: Session, centro: str | None) -> str | None:
 
 
 def partida_para(p: Producto | None, pais: str | None) -> str | None:
-    """Código que va en la OC y la factura: el nacional del país destino si
-    está completo; si no, la partida SAC aprobada. Nada si no está aprobado."""
+    """Código que va en la OC y la factura: la línea nacional oficial confirmada
+    del país destino. Sin país, la partida SAC aprobada. Nunca se completa el
+    código de un país con otro dato: si el país no tiene línea oficial, no hay."""
     if not p or not p.aprobado:
         return None
     if pais:
         x = next((x for x in p.partidas if x.pais == pais), None)
         if x and x.estado == "ok" and x.inciso_id and len(digitos(x.codigo)) >= 8:
             return fmt_codigo(x.codigo)
+        return None
     return fmt_codigo(p.sac_codigo or p.codigo)
 
 
