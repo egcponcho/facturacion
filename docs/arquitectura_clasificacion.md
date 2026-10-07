@@ -21,7 +21,7 @@ El historial empresarial solo reordena candidatos ya permitidos.
 | `data/sac_oficial.json` | 6 607 capítulos, partidas y subpartidas, texto del ACI (SIECA, VII Enmienda, v6, ago-2025), extraído por `scripts/sieca` | **1. Oficial** | Árbol `NodoArancel`, versión SAC-2025-V6, fuente SRC-SIECA-ACI |
 | `data/aci_incisos.json` → `codigo, descripcion, dai` | 8 242 filas = 7 517 líneas de 10 dígitos con DAI del ACI; 519 líneas remitidas a la Parte II vienen repetidas con tasas de la Parte II sin su país | **1. Oficial** | Árbol (una línea por código) + líneas nacionales de los países que aplican el SAC regional a 10 dígitos, con fuente y versión regional; el DAI de la Parte II queda vacío (por país) |
 | `data/aci_incisos.json` → `cond` | 20 condiciones (género…) deducidas por nuestro script del texto oficial | **2. Motor** (interpretación) | Reglas `NATIONAL_SELECT` de capa sistema (guía del clasificador), nunca en el dato oficial |
-| `data/incisos_base.json` | 563 códigos por país con condiciones (`puntera`, `edadNac`, `estiloCalz`…) y conteo de artículos, construidos desde artículos de una empresa | **3. Empresa** | `CompanyClassificationHistory` (preferencias por país); ya no crea `IncisoNacional` |
+| `data/incisos_base.json` | 563 códigos por país con condiciones (`puntera`, `edadNac`, `estiloCalz`…) y conteo de artículos, construidos desde artículos de una empresa | **3. Empresa** | `HistorialClasificacion` (tabla `historial_clasificacion`) (preferencias por país); ya no crea `IncisoNacional` |
 | NI, CR, PA "códigos nacionales" | Venían solo de `incisos_base.json` (fuente `base`) | **3. Empresa / 6. Sin fuente oficial** | Se retiran del catálogo oficial: el país queda *Official national tariff data not available* hasta cargar su arancel |
 | `data/sac_notas.json` | 518 notas: RGI, notas de sección, capítulo, subpartida y complementarias centroamericanas del ACI | **1. Oficial** | `NotaSAC` tipo `OFFICIAL_LEGAL` con fuente y versión |
 | `data/sac_explicativas.json` | 31 resúmenes propios de Notas Explicativas | **5. Resumen interno** | `NotaSAC` tipo `CLASSIFIER_GUIDANCE`; la UI la muestra como guía, no como texto legal |
@@ -43,7 +43,7 @@ El historial empresarial solo reordena candidatos ya permitidos.
 
 - **Oficial**: `models` `FuenteOficial`, `VersionDataset`, `NodoArancel`, `IncisoNacional`, `NotaSAC` (tipos OFFICIAL_*), `ReglaImpuesto`, `Regulacion`, `PaisArancel`; servicios `arbol.py`, `oficial.py` (fuentes, versiones, cargas por etapas), `nacional.py` (impuestos, regulaciones), `aranceles.py` (consulta de líneas y notas), `integridad.py` (auditor).
 - **Motor**: `DominioClasificacion`, `CategoriaProducto`, `DominioCapitulo`, `ControlCapitulo` (qué capítulos usa el motor), `AtributoDef/Opcion/Ambito`, `ReglaClasificacion/CondicionRegla`; servicios `motor_clasificacion.py`, `ficha.py`, `composicion.py`, `descripciones.py`, `reglas.py`, `atributos.py`, `categorias.py`.
-- **Empresa**: `Producto`, `PartidaPais` (decisiones), `CompanyClassificationHistory`, `PalabraClave`, `SinonimoMaterial`, `OverrideArancel`; servicios `productos.py`, `conocimiento.py`.
+- **Empresa**: `Producto`, `PartidaPais` (decisiones), `HistorialClasificacion` (tabla `historial_clasificacion`), `PalabraClave`, `SinonimoMaterial`, `OverrideArancel`; servicios `productos.py`, `conocimiento.py`.
 
 Las fichas SDS/TDS/COA son **evidencia técnica del producto** (capa empresa,
 adjuntas al producto): alimentan hechos, nunca códigos.
@@ -90,3 +90,16 @@ ruta `/clasificacion/generico` se eliminó.
 **SDS / TDS / COA**: `ProductoDocumento` (pestaña *Technical documents*). Sus
 datos técnicos completan hechos vacíos de la ficha; rechazan cualquier campo
 arancelario (`no_es_fuente_arancelaria`).
+
+## Rutas y pantalla por capa
+
+| Capa | API | Pantalla (*Tariff schedule*) |
+|---|---|---|
+| Oficial | `/aranceles/oficial/…` (fuentes, versiones, paquetes, integridad), `/aranceles/arbol`, `/aranceles/codigos`, `/aranceles/notas`, `/aranceles/impuestos`, `/aranceles/regulaciones` | **Official data** |
+| Motor | `/clasificacion/configuracion/…` (dominios, categorías, atributos, reglas); edición en `/aranceles/categorias`, `/aranceles/atributos`, `/aranceles/reglas` | **Classification engine** |
+| Empresa | `/conocimiento/…` (historial, decisiones, palabras clave, sinónimos) | **Company knowledge** |
+
+El motor (`POST /clasificacion/sesion`) devuelve `legal_confidence` (solo reglas
+y texto oficial) y `historical_confidence` (solo historial). Por país, cuando
+varias líneas oficiales siguen posibles, el estado `historial` indica que el
+historial eligió una de ellas, con su propia `historical_confidence`.

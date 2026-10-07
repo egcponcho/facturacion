@@ -496,6 +496,8 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
                 c.puntaje += p
                 c.origen.add(o)
     perfil = _perfil(categoria, hechos, traza)
+    # Puntajes legales (reglas y texto oficial) antes de mirar el historial de la empresa
+    legales = sorted(((c.puntaje, c.codigo) for c in cands.values()), key=lambda t: (-t[0], t[1]))
     historial = _historial(db, entrada, categoria, perfil)
     for x, n in historial["tally"].items():
         if x in zona:
@@ -508,14 +510,17 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     hs6 = lista[0].codigo if lista else None
     auto_ok = bool(hs6 and hs6[:2] in auto_caps and not manual)
     por_regla = bool(lista and any(o.startswith("regla") for o in lista[0].origen))
+    # legal_confidence: solo reglas y texto oficial. historical_confidence: solo el
+    # historial de la empresa. Nunca se mezclan: el historial ordena, no da certeza legal.
     if permitidos is not None and len(permitidos) == 1:
         confianza = "high"
-    elif len(lista) == 1 or (len(lista) > 1 and lista[0].puntaje >= 1.5 * lista[1].puntaje):
+    elif legales and legales[0][1] == hs6 and (len(legales) == 1 or legales[0][0] >= 1.5 * legales[1][0]):
         confianza = "medium"
     else:
         confianza = "low"
-    if historial["mismo"] and hs6 and historial["mismo"]["codigo"][:6] == hs6 and confianza == "medium":
-        confianza = "high"
+    n_hist = historial["tally"].get(hs6 or "", 0)
+    confianza_hist = ("high" if historial["mismo"] and hs6 and historial["mismo"]["codigo"][:6] == hs6
+                      else "medium" if n_hist >= 2 else "low" if n_hist else "none")
     if "AMBIGUITY" in base and len(lista) > 1 and lista[1].puntaje >= 0.67 * lista[0].puntaje and not (permitidos and len(permitidos) == 1):
         revision_por.append("Several plausible candidates remain.")
     if "TEXT_CANDIDATES" in base and lista and not por_regla and "historial" not in lista[0].origen:
@@ -613,7 +618,7 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
                           "sac": {"codigo": sac, "codigo_txt": formato(sac) if sac else None,
                                   "opciones": [{"codigo": k, "codigo_txt": formato(k), "descripcion": _desc(por_cod, k)} for k in lineas_sac][:20]},
                           "paises": out_paises},
-        "confianza": confianza, "requiere_revision": revision, "revision_por": revision_por, "razones": razones,
+        "confianza": confianza, "legal_confidence": confianza, "historical_confidence": confianza_hist, "requiere_revision": revision, "revision_por": revision_por, "razones": razones,
         "alternativas": alternativas, "candidatos": candidatos, "alertas": vivas, "descripciones": desc, "perfil": perfil,
         "parecidos": historial["parecidos"], "etiquetas": _etiquetas(cat, s, cobj),
         "evidencia": evidencia, "terminos": terminos,
@@ -643,7 +648,7 @@ def _sin_version(categoria, ficha, hechos, avisos) -> dict:
     vacio = {"hs6": None, "sac": None, "paises": []}
     return {"version": None, "categoria": {"codigo": categoria} if categoria else None, "ficha": ficha, "autos": [], "avisos": avisos,
             "hechos": hechos, "campos": [], "preguntas": [], "faltantes": ["No tariff version is in force"], "completa": False,
-            "clasificacion": vacio, "confianza": "low", "requiere_revision": True, "revision_por": ["No tariff version is in force."],
+            "clasificacion": vacio, "confianza": "low", "legal_confidence": "low", "historical_confidence": "none", "requiere_revision": True, "revision_por": ["No tariff version is in force."],
             "razones": [], "alternativas": [], "candidatos": [], "alertas": [], "descripciones": {"aduana": "", "comercial": ""},
             "evidencia": {}, "hs6": None, "sac": None, "revision": True, "reglas": [], "paises": []}
 

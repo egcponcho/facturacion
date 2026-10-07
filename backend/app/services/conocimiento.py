@@ -15,7 +15,7 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..models import HistorialClasificacion, IncisoNacional, PaisArancel, PalabraClave, Usuario
+from ..models import HistorialClasificacion, IncisoNacional, PaisArancel, PalabraClave, SinonimoMaterial, Usuario
 from .common import ErrorNegocio, exigir, registrar
 
 DEMO = Path(__file__).resolve().parent.parent / "data" / "demo" / "historial_empresa_demo.json"
@@ -65,9 +65,12 @@ def ensenar(db: Session, user: Usuario, pais: str, codigo: str, cond: dict | Non
     return {"id": x.id}
 
 
-def listar(db: Session, user: Usuario, pais: str | None = None, q: str | None = None, page: int = 1, size: int = 50) -> dict:
+def listar(db: Session, user: Usuario, pais: str | None = None, q: str | None = None, page: int = 1, size: int = 50,
+           origen: str | None = None) -> dict:
     exigir(user, "producto.ver")
     consulta = select(HistorialClasificacion)
+    if origen:
+        consulta = consulta.where(HistorialClasificacion.origen.in_([o.strip().upper() for o in origen.split(",") if o.strip()]))
     if pais:
         consulta = consulta.where(HistorialClasificacion.pais == pais.upper())
     if q:
@@ -106,3 +109,44 @@ def cargar_palabras_demo(db: Session) -> int:
         db.add(PalabraClave(frase=x["frase"], tipo=x["tipo"], marca=x.get("marca"), atributos=x.get("atributos") or {}))
     db.flush()
     return len(filas)
+
+
+def borrar(db: Session, user: Usuario, hid: int) -> None:
+    """Quitar una entrada del historial: deja de influir en el orden de candidatos."""
+    exigir(user, "producto.clasificar")
+    x = db.get(HistorialClasificacion, hid)
+    if not x:
+        raise ErrorNegocio("The history entry does not exist.", 404, "no_encontrado")
+    db.delete(x)
+    registrar(db, user, "conocimiento", hid, "historial_quitado", {"pais": x.pais, "codigo": x.codigo})
+
+
+def palabras(db: Session, user: Usuario) -> list[dict]:
+    exigir(user, "producto.ver")
+    return [{"id": x.id, "frase": x.frase, "tipo": x.tipo, "marca": x.marca, "atributos": x.atributos or {}, "creado_en": x.creado_en}
+            for x in db.scalars(select(PalabraClave).order_by(PalabraClave.frase))]
+
+
+def sinonimos(db: Session, user: Usuario) -> list[dict]:
+    exigir(user, "producto.ver")
+    return [{"id": x.id, "palabra": x.palabra, "equivale": x.equivale, "creado_en": x.creado_en}
+            for x in db.scalars(select(SinonimoMaterial).order_by(SinonimoMaterial.palabra))]
+
+
+def borrar_palabra(db: Session, user: Usuario, modelo, pid: int) -> None:
+    exigir(user, "producto.clasificar")
+    x = db.get(modelo, pid)
+    if not x:
+        raise ErrorNegocio("It does not exist.", 404, "no_encontrado")
+    db.delete(x)
+    registrar(db, user, "conocimiento", pid, "aprendido_quitado", {"tabla": modelo.__tablename__})
+
+
+def resumen(db: Session, user: Usuario) -> dict:
+    """La capa de conocimiento de la empresa en números: solo señales, nunca datos oficiales."""
+    exigir(user, "producto.ver")
+    por_origen = dict(db.execute(select(HistorialClasificacion.origen, func.count()).group_by(HistorialClasificacion.origen)).all())
+    return {"historial": por_origen, "palabras": db.scalar(select(func.count()).select_from(PalabraClave)) or 0,
+            "sinonimos": db.scalar(select(func.count()).select_from(SinonimoMaterial)) or 0,
+            "nota": "Company knowledge only orders the candidates that official data allows (historical_confidence); "
+                    "it never creates codes, duties, taxes or regulations."}

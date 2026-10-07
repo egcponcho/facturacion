@@ -22,6 +22,7 @@ import PanelRegulaciones from '../components/aranceles/PanelRegulaciones.vue'
 import PanelImpuestos from '../components/aranceles/PanelImpuestos.vue'
 import PanelFuentes from '../components/aranceles/PanelFuentes.vue'
 import PanelIntegridad from '../components/aranceles/PanelIntegridad.vue'
+import PanelConocimiento from '../components/aranceles/PanelConocimiento.vue'
 import PanelImportacion from '../components/aranceles/PanelImportacion.vue'
 import { cargarContexto } from '../clasificacion/useClasificacion'
 import { digits, fmtPais } from '../clasificacion/formato.js'
@@ -296,17 +297,17 @@ function cargarPais(p) {
   modal.value = { tipo: 'carga-codigos', pais: p.iso, reemplazar: false }
 }
 
-// Menú lateral por grupos: arancel oficial, requisitos por país, motor y datos
+// Menú lateral en tres áreas separadas: lo que publicó una fuente oficial, la
+// configuración del motor (no es dato oficial) y lo que sabe la empresa (solo ordena)
 const MENU = computed(() => [
-  { titulo: t('Tariff'), items: [['arbol', t('Tariff tree'), 'ruta'], ['capitulos', t('Chapters'), 'lista'],
+  { titulo: t('Official data'), items: [['fuentes', t('Sources and versions'), 'historial'], ['arbol', t('Tariff tree'), 'ruta'],
+    ['paises', t('Countries'), 'globo', paises.value.length],
     ['codigos', t('National codes'), 'etiqueta', fmtNum(paises.value.reduce((a, p) => a + (p.codigos || 0), 0))],
-    ['sac', t('SAC headings and subheadings'), 'base'], ['notas', t('Legal notes'), 'archivo']] },
-  { titulo: t('Requirements by country'), items: [['regulaciones', t('Regulations'), 'candado'], ['impuestos', t('Taxes'), 'moneda'],
-    ['paises', t('Countries'), 'globo', paises.value.length]] },
-  { titulo: t('Classification engine'), items: [['dominios', t('Domains'), 'capas'], ['atributos', t('Attributes'), 'engrane'],
-    ['reglas', t('Classification rules'), 'varita']] },
-  { titulo: t('Data'), items: [['fuentes', t('Sources and versions'), 'historial'], ['importacion', t('Data import'), 'importar'],
-    ['integridad', t('Tariff data integrity'), 'check']] },
+    ['sac', t('SAC headings and subheadings'), 'base'], ['notas', t('Legal notes'), 'archivo'], ['impuestos', t('Taxes'), 'moneda'],
+    ['regulaciones', t('Regulations'), 'candado'], ['importacion', t('Data import'), 'importar'], ['integridad', t('Tariff data integrity'), 'check']] },
+  { titulo: t('Classification engine'), items: [['dominios', t('Domains and categories'), 'capas'], ['capitulos', t('Chapters'), 'lista'],
+    ['atributos', t('Attributes, options and scopes'), 'engrane'], ['reglas', t('Classification rules'), 'varita']] },
+  { titulo: t('Company knowledge'), items: [['conocimiento', t('History, decisions and keywords'), 'usuarios']] },
 ])
 
 // En pantallas chicas el menú es una fila con desplazamiento: se centra la sección activa
@@ -353,7 +354,7 @@ watch(() => fs.size, recargarS)
         <span class="pildora" aria-current="page" aria-pressed="true">{{ t('Tariff schedule') }}</span>
       </div>
       <h1>{{ t('Tariff schedule') }}</h1>
-      <p>{{ t('Destination countries and their digits, the SAC headings and subheadings, and each country\'s national codes with the conditions that select them. The classification engine uses what is loaded here.') }}</p>
+      <p>{{ t('Three separate areas: official data (only what an official source published, with its version), the classification engine (internal configuration that decides what to ask) and company knowledge (history that only orders the official candidates).') }}</p>
     </div>
   </div>
 
@@ -387,6 +388,7 @@ watch(() => fs.size, recargarS)
   <PanelImpuestos v-else-if="vista === 'impuestos'" :paises="paises" />
   <PanelFuentes v-else-if="vista === 'fuentes'" />
   <PanelIntegridad v-else-if="vista === 'integridad'" />
+  <PanelConocimiento v-else-if="vista === 'conocimiento'" :edita="edita" />
   <PanelImportacion v-else-if="vista === 'importacion'" @cargado="cargarBase" />
 
   <!-- Códigos nacionales -->

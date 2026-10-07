@@ -221,3 +221,38 @@ def test_sds_tds_are_technical_evidence_not_tariff_source(interno):
     assert s["hechos"].get("physical_state") == "SOLID"
     assert interno.get(f"/productos/documentos/{det['documentos'][0]['id']}").content.startswith(b"%PDF")
     assert interno.delete_(f"/productos/{p['id']}/documentos/{det['documentos'][0]['id']}").status_code == 200
+
+
+def test_company_history_only_affects_ranking(interno):
+    """640391 tiene dos líneas oficiales en GT sin condiciones que las separen:
+    sin historial hay que elegir; con historial se prefiere una, pero las
+    opciones siguen siendo las mismas líneas oficiales y la confianza legal no cambia."""
+    with SessionLocal() as db:
+        for h in db.scalars(select(HistorialClasificacion).where(HistorialClasificacion.sub6 == "640391")):
+            db.delete(h)
+        db.commit()
+    entrada = {"categoria": "calzado", "codigo_final": "640391", "ficha": {"comp": {"corte": "100% leather", "suela": "100% rubber"}}}
+
+    def gt():
+        d = interno.post("/clasificacion/sesion", entrada).json()
+        return d, next(p for p in d["clasificacion"]["paises"] if p["pais"] == "GT")
+
+    antes, p0 = gt()
+    assert p0["estado"] == "elegir" and sorted(o["codigo"] for o in p0["opciones"]) == ["6403911000", "6403919000"]
+    # La empresa recuerda una de las líneas oficiales para productos así
+    r = interno.post("/clasificacion/incisos", {"pais": "GT", "codigo": "6403.91.90.00", "cond": {}})
+    assert r.status_code == 200, r.text
+    despues, p1 = gt()
+    assert p1["estado"] == "historial" and p1["codigo"] == "6403919000" and p1["historial"]["historical_confidence"]
+    # Mismas opciones oficiales, misma subpartida y misma confianza legal: el historial solo ordenó
+    assert sorted(o["codigo"] for o in p1["opciones"]) == sorted(o["codigo"] for o in p0["opciones"])
+    assert despues["hs6"] == antes["hs6"] and despues["legal_confidence"] == antes["legal_confidence"]
+    assert {"legal_confidence", "historical_confidence"} <= set(despues)
+    # Las capas se consultan por separado; quitar la entrada del historial vuelve a pedir la elección
+    hist = interno.get("/conocimiento/historial", params={"pais": "GT", "q": "6403919000"}).json()["items"]
+    assert hist and all(h["linea_oficial"] for h in hist)
+    for h in hist:
+        assert interno.delete_(f"/conocimiento/historial/{h['id']}").status_code == 200
+    assert gt()[1]["estado"] == "elegir"
+    assert interno.get("/clasificacion/configuracion").json()["capa"] == "CLASSIFICATION_ENGINE"
+    assert interno.get("/conocimiento").json()["palabras"] >= 1

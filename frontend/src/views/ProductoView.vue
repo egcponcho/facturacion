@@ -32,6 +32,7 @@ const r = ref(null) // respuesta del motor
 const tocados = reactive(new Set())
 const filas = reactive({}) // filas de composición que se editan, por campo comp.*
 const pestana = ref('ficha')
+const NIVEL_CONF = { high: t('high'), medium: t('medium'), low: t('low') }
 const ocupado = ref(false)
 const calculando = ref(false)
 const base = ref('')
@@ -707,8 +708,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
           <template v-if="!aprobado && r">
             <div class="confianza" :title="tx(t('Confidence: {0}', [r.confianza]))">
               <span v-for="n in 3" :key="n" class="barra" :class="{ llena: n <= confNivel, ['n' + confNivel]: true }"></span>
-              <span class="ayuda">{{ t('{0} confidence · {1}', [r.confianza, FUENTES[fuente] || '']) }}</span>
+              <span class="ayuda">{{ t('Legal confidence: {0} · {1}', [NIVEL_CONF[r.legal_confidence || r.confianza], FUENTES[fuente] || '']) }}</span>
             </div>
+            <!-- El historial de la empresa es una señal aparte: ordena, nunca da certeza legal -->
+            <p v-if="r.historical_confidence && r.historical_confidence !== 'none'" class="ayuda conf-hist">
+              {{ t('Company history: {0} (it only orders the official candidates)', [NIVEL_CONF[r.historical_confidence]]) }}</p>
             <ul class="razones">
               <li v-for="(x, i) in (verRazones ? r.razones : r.razones.slice(0, 3))" :key="i">{{ tx(x) }}</li>
             </ul>
@@ -985,6 +989,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 .notas-sac li { display: flex; flex-direction: column; gap: 2px; padding-inline-start: 10px; border-inline-start: 3px solid var(--acento-claro); }
 .notas-sac b { font-size: 0.78rem; color: var(--acento-texto); }
 .notas-sac li .etiqueta { align-self: flex-start; }
+.conf-hist { margin: -4px 0 8px; }
 .notas-sac span { color: var(--tinta-2); }
 .parecidos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 0.88rem; }
 .parecidos .codigo-sac { margin-inline-start: 6px; }
