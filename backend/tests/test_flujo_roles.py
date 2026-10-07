@@ -11,8 +11,23 @@ def flujo(admin):
     assert admin.put("/flujo-clasificacion", antes).status_code == 200
 
 
-def _producto(api, estilo_estado):
-    return next(x for x in api.get("/productos", params={"size": 100}).json()["items"] if x["estado"] == estilo_estado)
+def _sugerido(interno, generico: str, estilo: str) -> dict:
+    """Un artículo propio de Vans con la ficha completa (estado «sugerida»)."""
+    m = {x["codigo"]: x["id"] for x in interno.get("/catalogos/marcas", params={"size": 100}).json()["items"]}
+    g = {x["codigo"]: x["id"] for x in interno.get("/catalogos/grupos").json()["items"]}
+    pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
+    r = interno.post("/catalogos/genericos", {"generico": generico, "estilo": estilo, "color": "Black", "marca_id": m["VANS"],
+                                              "grupo_id": g["CALZ-CAS"], "proveedor_id": pv["VANS"], "unidad": "PAR",
+                                              "nombre": "Leather skate shoe", "tallas": [{"talla": "8"}]})
+    assert r.status_code == 200, r.text
+    p = next(x for x in interno.get("/productos", params={"q": estilo}).json()["items"] if x["estilo"] == estilo)
+    ficha = {"comp": {"corte": "100% leather", "suela": "100% rubber"}, "estiloCalz": "tenis", "altura": "bajo", "genero": "U",
+             "edadNac": "adulto", "puntera": "ninguna"}
+    p = interno.put(f"/productos/{p['id']}/ficha", {"version": p["version"], "tipo": "calzado", "ficha": ficha, "pais_origen": "VN",
+                                                     "nombre": "Leather skate shoe",
+                                                     "tocados": ["estiloCalz", "altura", "genero", "edadNac", "puntera"]}).json()
+    assert p["estado"] == "sugerida", p.get("faltan")
+    return p
 
 
 def test_interruptores_y_permisos(admin, interno, flujo):
@@ -27,7 +42,7 @@ def test_interruptores_y_permisos(admin, interno, flujo):
 
 
 def test_proveedor_sin_captura_solo_ve(tnf, flujo):
-    p = _producto(tnf, "observado")
+    p = tnf.get("/productos", params={"estado": ""}).json()["items"][0]  # se rechaza antes de mirar el estado
     assert "producto.ficha" in tnf.get("/auth/me").json()["permisos"]
     assert flujo(proveedor_captura=False).status_code == 200
     assert "producto.ficha" not in tnf.get("/auth/me").json()["permisos"]
@@ -37,9 +52,10 @@ def test_proveedor_sin_captura_solo_ve(tnf, flujo):
 
 
 def test_proveedor_sin_sugerencia(vans, interno, flujo):
+    propio = _sugerido(interno, "98130001", "VNROL01")
     assert flujo(proveedor_ve_sugerencia=False).status_code == 200
     items = vans.get("/productos", params={"size": 100}).json()["items"]
-    pendiente = next(x for x in items if x["estado"] == "sugerida")
+    pendiente = next(x for x in items if x["id"] == propio["id"])
     aprobado = next(x for x in items if x["estado"] == "aprobado")
     assert pendiente["sugerido"] is None and pendiente["sugerencia_oculta"]
     assert aprobado["codigo"] and aprobado["sugerido"]  # la partida aprobada sí la ve
@@ -53,7 +69,7 @@ def test_proveedor_sin_sugerencia(vans, interno, flujo):
 
 
 def test_aprobacion_con_revision_y_cuatro_ojos(interno, flujo):
-    p = _producto(interno, "sugerida")
+    p = _sugerido(interno, "98130002", "VNROL02")
     assert flujo(revision_obligatoria=True).status_code == 200
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": p["version"]})
     assert r.status_code == 422 and r.json()["codigo"] == "requiere_envio"
