@@ -235,6 +235,9 @@ svg { flex: none; }
 button.nav-link { background: none; border-top: 0; border-inline-start: 0; border-inline-end: 0; cursor: pointer; font-family: inherit; }
 .menu-ajustes { position: absolute; inset-inline-end: 16px; top: 46px; z-index: 40; min-width: 290px; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); box-shadow: var(--sombra-flotante); padding: 6px; display: flex; flex-direction: column; }
 .menu-velo { position: fixed; inset: 0; z-index: 35; }
+.menu-grupo { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); padding: 8px 10px 2px; }
+.menu-grupo:first-child { padding-top: 4px; }
+.menu-ajustes { max-height: calc(100vh - 120px); overflow-y: auto; }
 .menu-item { display: flex; gap: 10px; align-items: center; padding: 9px 10px; border-radius: var(--radio); color: var(--tinta); text-decoration: none; }
 .menu-item:hover, .menu-item.router-link-active { background: var(--acento-claro); }
 .menu-item b { display: block; font-weight: 620; font-size: 0.9rem; }
@@ -1001,3 +1004,12 @@ th.num .orden-btn { flex-direction: row-reverse; }
 /* Motivo visible junto a una acción que todavía no se puede hacer */
 .bloqueo-motivo { display: inline-flex; align-items: flex-start; gap: 6px; max-width: 420px; }
 .bloqueo-motivo svg { flex: none; margin-top: 2px; }
+/* Resumen en panel lateral */
+.resumen-datos { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+.resumen-datos dt { color: var(--tinta-3); }
+.resumen-datos dd { margin: 0; overflow-wrap: anywhere; }
+.resumen-titulo { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); margin: 0 0 8px; }
+.resumen-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.resumen-lista li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tabla tbody tr.fila-activa { background: var(--acento-claro); }
+.pl-cuerpo .linea-tiempo li { grid-template-columns: 1fr; gap: 2px; }

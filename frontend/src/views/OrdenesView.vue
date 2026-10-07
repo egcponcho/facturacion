@@ -4,6 +4,7 @@ import FechaTienda from '../components/FechaTienda.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
+import VistasGuardadas from '../components/VistasGuardadas.vue'
 import { api } from '../api'
 import Avance from '../components/Avance.vue'
 import BarraSeleccion from '../components/BarraSeleccion.vue'
@@ -102,6 +103,15 @@ function filtrar() {
   cargar()
 }
 
+// Vistas guardadas: búsqueda, «solo con saldo» y los filtros de lista
+const filtrosVista = computed(() => ({ q: filtros.q, solo_disponible: filtros.solo_disponible ? '' : '0',
+  ...Object.fromEntries(Object.keys(EXTRA).map((k) => [k, filtros[k]])) }))
+function aplicarVista(q) {
+  filtros.q = q.q || ''
+  filtros.solo_disponible = q.solo_disponible !== '0'
+  for (const k of Object.keys(EXTRA)) filtros[k] = q[k] || ''
+  filtrar()
+}
 function quitarFiltro(k) {
   filtros[k] = ''
   filtrar()
@@ -335,6 +345,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" :placeholder="t('Search PO, style, color, SKU or UPC')" :aria-label="t('Search')" @input="buscar" />
     </label>
+    <VistasGuardadas pantalla="ordenes" :actual="filtrosVista" @aplicar="aplicarVista" />
     <SelectBusqueda v-if="opcionesFiltro.sociedades.length > 1 || filtros.sociedad" v-model="filtros.sociedad" :opciones="opcionesFiltro.sociedades" :vacio="t('Company: all')" :etiqueta="t('Company')" @change="filtrar" />
     <SelectBusqueda v-if="opcionesFiltro.centros.length > 1 || filtros.centro" v-model="filtros.centro" :opciones="opcionesFiltro.centros" :vacio="t('Plant: all')" :etiqueta="t('Plant')" @change="filtrar" />
     <SelectBusqueda v-if="opcionesFiltro.almacenes.length > 1 || filtros.almacen" v-model="filtros.almacen" :opciones="opcionesFiltro.almacenes" :vacio="t('Warehouse: all')" :etiqueta="t('Warehouse')" @change="filtrar" />

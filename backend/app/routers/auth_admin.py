@@ -124,6 +124,12 @@ def editar_perfil(datos: PerfilIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: preferencias.guardar(db, user, datos))
 
 
+@router.put("/perfil/vistas/{pantalla}")
+def guardar_vistas(pantalla: str, datos: list[dict], db: Db, user: User, clave: Clave = None):
+    """Vistas guardadas de una pantalla (filtros con nombre) del propio usuario."""
+    return ejecutar(db, user, clave, lambda: preferencias.guardar_vistas(db, user, pantalla, datos))
+
+
 @router.get("/proveedores")
 def proveedores(db: Db, user: User):
     return varios.listar_proveedores(db, user)

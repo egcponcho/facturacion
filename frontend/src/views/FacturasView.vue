@@ -7,6 +7,7 @@ import { api } from '../api'
 import Avance from '../components/Avance.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import EstadoVacio from '../components/EstadoVacio.vue'
+import ResumenFactura from '../components/ResumenFactura.vue'
 import Icono from '../components/Icono.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
@@ -18,6 +19,8 @@ import { filasDefecto } from '../stores/preferencias'
 
 const route = useRoute()
 const router = useRouter()
+// Clic en la fila: resumen en el panel lateral (sin perder filtros ni página); el número abre la página
+const resumenId = ref(null)
 const filtros = reactive({
   estado: route.query.estado || '',
   vista: route.query.vista || '',
@@ -116,7 +119,7 @@ watch(() => sesion.proveedorId, recargar)
         </tr>
       </thead>
       <tbody>
-        <tr v-for="f in datos.items" :key="f.id" class="clicable" @click="router.push(`/facturas/${f.id}`)">
+        <tr v-for="f in datos.items" :key="f.id" class="clicable" :class="{ 'fila-activa': resumenId === f.id }" @click="resumenId = f.id">
           <td>
             <router-link :to="`/facturas/${f.id}`" class="cajas-rango" @click.stop>{{ tx(f.nombre) }}</router-link>
             <span class="sub">{{ t('{0} · {1} · {2} lines', [fmtFecha(f.fecha), f.centro, f.lineas]) }}</span>
@@ -155,4 +158,5 @@ watch(() => sesion.proveedorId, recargar)
     </table>
   </div>
   <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
+  <ResumenFactura v-if="resumenId" :id="resumenId" @cerrar="resumenId = null" />
 </template>

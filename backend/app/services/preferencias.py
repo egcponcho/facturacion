@@ -148,3 +148,35 @@ def guardar(db: Session, user: Usuario, datos) -> dict:
     usar(user)
     registrar(db, user, "usuario", user.id, "perfil", {"preferencias": user.preferencias})
     return {"nombre": user.nombre, "preferencias": de(user)}
+
+
+# ---- Vistas guardadas ---------------------------------------------------------
+# Cada pantalla con filtros (seguimiento, órdenes…) guarda vistas con nombre:
+# los filtros, la pestaña y el orden que la persona usa a menudo. Son
+# preferencias suyas (no se comparten todavía).
+PANTALLAS_VISTA = ("seguimiento", "ordenes", "facturas", "productos", "embarques")
+MAX_VISTAS = 20
+
+
+def guardar_vistas(db: Session, user: Usuario, pantalla: str, vistas: list) -> dict:
+    if pantalla not in PANTALLAS_VISTA:
+        raise ErrorNegocio("This screen does not keep saved views.", 404, "no_encontrado")
+    limpias, nombres = [], set()
+    for v in (vistas or [])[:MAX_VISTAS]:
+        nombre = re.sub(r"\s+", " ", str((v or {}).get("nombre") or "")).strip()[:60]
+        query = (v or {}).get("query") or {}
+        if not nombre or not isinstance(query, dict):
+            raise ErrorNegocio("Each view needs a name.", 422, "validacion")
+        if nombre.lower() in nombres:
+            raise ErrorNegocio(f"There is already a view called {nombre}.", 422, "validacion")
+        nombres.add(nombre.lower())
+        limpias.append({"nombre": nombre, "query": {str(k)[:40]: str(x)[:300] for k, x in list(query.items())[:40]
+                                                       if x not in (None, "")}})
+    pref = dict(user.preferencias or {})
+    todas = dict(pref.get("vistas") or {})
+    todas[pantalla] = limpias
+    pref["vistas"] = {k: x for k, x in todas.items() if x}
+    user.preferencias = pref
+    usar(user)
+    return {"vistas": pref["vistas"]}
+

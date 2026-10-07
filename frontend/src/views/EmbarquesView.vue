@@ -8,6 +8,7 @@ import Avance from '../components/Avance.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import EstadoTiempo from '../components/EstadoTiempo.vue'
 import EstadoVacio from '../components/EstadoVacio.vue'
+import ResumenEmbarque from '../components/ResumenEmbarque.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import Paginacion from '../components/Paginacion.vue'
@@ -22,6 +23,8 @@ const route = useRoute()
 const router = useRouter()
 const filtros = reactive({ estado: route.query.estado || '', q: '' })
 const lista = ref([])
+// Clic en la fila: resumen en el panel lateral; el código abre la página
+const resumenId = ref(null)
 const todos = ref([])
 const modal = ref(null)
 const listas = ref(null)
@@ -136,7 +139,7 @@ onMounted(() => {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="e in tabla.filas.value" :key="e.id" class="clicable" @click="router.push(`/transporte/embarques/${e.id}`)">
+        <tr v-for="e in tabla.filas.value" :key="e.id" class="clicable" :class="{ 'fila-activa': resumenId === e.id }" @click="resumenId = e.id">
           <td>
             <span class="fila-flex" style="flex-wrap: nowrap"><Icono :nombre="ICONO[e.tipo_transporte]" />
               <router-link :to="`/transporte/embarques/${e.id}`" class="cajas-rango" @click.stop>{{ tx(e.codigo) }}</router-link></span>
@@ -205,4 +208,5 @@ onMounted(() => {
       <button class="btn btn-primario" @click="crear">{{ t('Create shipment') }}</button>
     </template>
   </Modal>
+  <ResumenEmbarque v-if="resumenId" :id="resumenId" @cerrar="resumenId = null" />
 </template>

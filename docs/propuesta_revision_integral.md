@@ -183,3 +183,15 @@ Formato: **Estado actual → Problema → Cambio → Beneficio → UX/UI → Bac
 
 La Etapa 1 se implementa de inmediato. Las Etapas 2 y 3 cambian el modelo y
 se implementan una por una, con migración, pruebas y sin quitar funciones.
+
+## 5. Avance
+
+| Etapa | Estado | Qué quedó |
+|---|---|---|
+| 1a | Hecha | `/buscar` agrupado por tipo con permisos y proveedor; buscador en la barra y paleta Ctrl+K / ⌘K / «/» con acciones rápidas |
+| 1b | Hecha | «Necesita atención» en el Home con accesos ya filtrados; vista «Bloquean facturas» en Productos; resumen estadístico plegado |
+| 1c | Hecha | Componente `Requisitos` (finalizar factura con acciones), motivos visibles en embarque y aprobación de producto; componente `EstadoVacio` en facturas, embarques y productos |
+| 1d | Hecha | `PanelLateral` con resumen de factura y de embarque; vistas guardadas por usuario en Seguimiento y Órdenes (`/perfil/vistas/{pantalla}`); *Settings* agrupado por secciones |
+| Pendiente de la Etapa 1 | — | Selector de columnas (Operativa / Comercial / Logística / Completa) en Órdenes; vistas compartidas (necesitan tabla, Etapa 2) |
+| 2 y 3 | Por aprobar | Cambian el modelo de datos; se implementan una por una con migración |
+

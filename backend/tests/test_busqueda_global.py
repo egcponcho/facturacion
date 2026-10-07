@@ -59,3 +59,14 @@ def test_home_necesita_atencion(interno, vans):
     # «Productos que bloquean facturas» filtra la lista de productos
     r = interno.get("/productos", params={"estado": "bloquean"}).json()
     assert r["total"] == r["kpis"]["bloquean"]
+
+
+def test_vistas_guardadas(interno):
+    """Una vista guardada conserva sus filtros con nombre y es solo del usuario."""
+    r = interno.put("/perfil/vistas/seguimiento", [{"nombre": "Riesgo  VANS", "query": {"riesgo": "ATRASO", "vista": "ordenes", "q": ""}}])
+    assert r.status_code == 200, r.text
+    assert r.json()["vistas"]["seguimiento"] == [{"nombre": "Riesgo VANS", "query": {"riesgo": "ATRASO", "vista": "ordenes"}}]
+    assert interno.get("/auth/me").json()["preferencias"]["vistas"]["seguimiento"][0]["nombre"] == "Riesgo VANS"
+    assert interno.put("/perfil/vistas/seguimiento", [{"nombre": "A", "query": {}}, {"nombre": "a", "query": {}}]).status_code == 422
+    assert interno.put("/perfil/vistas/otra", []).status_code == 404
+    assert interno.put("/perfil/vistas/seguimiento", []).json()["vistas"] == {}

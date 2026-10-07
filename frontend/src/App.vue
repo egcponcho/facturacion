@@ -35,16 +35,26 @@ const navegacion = computed(() => {
   if (puede('seguimiento.ver')) items.push({ to: '/seguimiento', texto: t('Tracking'), icono: 'ruta' })
   return items
 })
+// Configuración agrupada por tema; solo aparece lo que el rol puede abrir
 const ajustes = computed(() => {
   const items = []
-  if (puede('catalogos.ver')) items.push({ to: '/mantenimiento', texto: t('Master data'), detalle: t('Items, brands, suppliers, plants'), icono: 'base' })
-  if (puede('catalogos.ver')) items.push({ to: '/leadtimes', texto: t('Lead times'), detalle: t('Steps, rules by region, country and port'), icono: 'reloj' })
-  if (puede('plantilla.editar')) items.push({ to: '/plantillas', texto: t('Packing templates'), detalle: t('Reusable carton layouts'), icono: 'capas' })
-  if (puede('clasificacion.ver')) items.push({ to: '/familias', texto: t('Product families'), detalle: t('Questions and rules that classify each family'), icono: 'capas' })
-  if (puede('aranceles.ver')) items.push({ to: '/aranceles', texto: t('Tariff schedule'), detalle: t('SAC, countries and national codes'), icono: 'etiqueta' })
-  if (puede('oc.importar')) items.push({ to: '/importar', texto: t('Load purchase orders'), detalle: t('File or form'), icono: 'importar' })
-  if (puede('admin')) items.push({ to: '/admin', texto: t('Users and access'), detalle: t('Roles, suppliers, sessions'), icono: 'usuarios' })
+  if (puede('admin')) items.push({ grupo: t('Organization'), to: '/admin', texto: t('Users and access'), detalle: t('Roles, suppliers, sessions'), icono: 'usuarios' })
+  if (puede('catalogos.ver')) items.push({ grupo: t('Master data'), to: '/mantenimiento', texto: t('Master data'), detalle: t('Items, brands, suppliers, plants'), icono: 'base' })
+  if (puede('plantilla.editar')) items.push({ grupo: t('Master data'), to: '/plantillas', texto: t('Packing templates'), detalle: t('Reusable carton layouts'), icono: 'capas' })
+  if (puede('catalogos.ver')) items.push({ grupo: t('Logistics'), to: '/leadtimes', texto: t('Lead times'), detalle: t('Steps, rules by region, country and port'), icono: 'reloj' })
+  if (puede('clasificacion.ver')) items.push({ grupo: t('Trade and compliance'), to: '/familias', texto: t('Product families'), detalle: t('Questions and rules that classify each family'), icono: 'capas' })
+  if (puede('aranceles.ver')) items.push({ grupo: t('Trade and compliance'), to: '/aranceles', texto: t('Tariff schedule'), detalle: t('Tariff schemes, countries and national codes'), icono: 'etiqueta' })
+  if (puede('oc.importar')) items.push({ grupo: t('Data and system'), to: '/importar', texto: t('Load purchase orders'), detalle: t('File or form'), icono: 'importar' })
   return items
+})
+const gruposAjustes = computed(() => {
+  const g = []
+  for (const i of ajustes.value) {
+    const ultimo = g[g.length - 1]
+    if (ultimo?.nombre === i.grupo) ultimo.items.push(i)
+    else g.push({ nombre: i.grupo, items: [i] })
+  }
+  return g
 })
 const ajustesAbierto = ref(false)
 const enAjustes = computed(() => ajustes.value.some((i) => route.path.startsWith(i.to)))
@@ -119,10 +129,13 @@ async function salir() {
             <button type="button" class="nav-link" :class="{ activo: enAjustes }" :aria-expanded="ajustesAbierto" aria-haspopup="true"
                     @click="ajustesAbierto = !ajustesAbierto"><Icono nombre="engrane" :tam="16" />{{ t('Settings') }}<Icono nombre="abajo" :tam="14" /></button>
             <div v-if="ajustesAbierto" class="menu-ajustes" role="menu">
-              <router-link v-for="i in ajustes" :key="i.to" :to="i.to" class="menu-item" role="menuitem">
-                <span class="menu-icono"><Icono :nombre="i.icono" :tam="16" /></span>
-                <span><b>{{ tx(i.texto) }}</b><small>{{ tx(i.detalle) }}</small></span>
-              </router-link>
+              <template v-for="g in gruposAjustes" :key="g.nombre">
+                <div class="menu-grupo" role="presentation">{{ tx(g.nombre) }}</div>
+                <router-link v-for="i in g.items" :key="i.to" :to="i.to" class="menu-item" role="menuitem">
+                  <span class="menu-icono"><Icono :nombre="i.icono" :tam="16" /></span>
+                  <span><b>{{ tx(i.texto) }}</b><small>{{ tx(i.detalle) }}</small></span>
+                </router-link>
+              </template>
             </div>
             <div v-if="ajustesAbierto" class="menu-velo" @click="ajustesAbierto = false"></div>
           </div>

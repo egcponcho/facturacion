@@ -1,8 +1,9 @@
 <script setup>
 import { t, tx } from '../i18n/index.js'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
+import VistasGuardadas from '../components/VistasGuardadas.vue'
 import BotonesExportar from '../components/BotonesExportar.vue'
 import Icono from '../components/Icono.vue'
 import SeguimientoDocumentos from '../components/SeguimientoDocumentos.vue'
@@ -86,6 +87,16 @@ watch(vista, () => {
   filtros.estado = '' // el estado es del embarque o de la OC según el tablero
   aplicar()
 })
+// Una vista guardada: su pestaña y sus filtros (los demás se limpian)
+async function aplicarVista(q) {
+  if (q.vista && q.vista !== vista.value && VISTAS.some(([v]) => v === q.vista)) {
+    vista.value = q.vista
+    await nextTick()
+  }
+  for (const k of FILTROS) filtros[k] = q[k] || ''
+  masFiltros.value = masFiltros.value || Object.keys(q).some((k) => !['vista', 'q', 'estado', 'modo', 'etapa'].includes(k))
+  aplicar()
+}
 function quitar(k) {
   filtros[k] = ''
   aplicar()
@@ -124,6 +135,7 @@ function buscar() {
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" :placeholder="t('SKU, PO, invoice, PL, B/L…')" :aria-label="t('Search')" @input="buscar" />
     </label>
+    <VistasGuardadas pantalla="seguimiento" :actual="{ vista, ...params }" @aplicar="aplicarVista" />
     <template v-if="vista === 'embarques'">
       <Seleccion v-model="filtros.modo" :aria-label="t('Mode of transport')" @change="aplicar">
         <option value="">{{ t('Mode: all') }}</option><option v-for="[v, txt] in MODOS" :key="v" :value="v">{{ t('Mode: {0}', [txt]) }}</option>
