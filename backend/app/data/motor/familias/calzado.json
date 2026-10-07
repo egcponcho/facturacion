@@ -1,0 +1,2432 @@
+{
+ "origen": "Classification engine configuration written from the Explanatory Notes, chapter 64 (not official data).",
+ "dominio": {
+  "codigo": "FOOTWEAR",
+  "nombre": "Footwear",
+  "orden": 10,
+  "descripcion": "Footwear, gaiters and their parts (chapter 64). The upper and the outer sole decide the heading.",
+  "capitulos": [
+   {
+    "capitulo": "64",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "95",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "63",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "42",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "39",
+    "relevancia": "SECONDARY"
+   }
+  ]
+ },
+ "fuente": "Explanatory Notes, chapter 64",
+ "categorias": [
+  {
+   "codigo": "calzado",
+   "nombre": "Footwear: sneakers, shoes, boots, sandals, slippers",
+   "nombre_corto": "Footwear",
+   "nombre_aduana": "Calzado",
+   "grupo": "Footwear",
+   "familia": "calzado",
+   "dominio": "FOOTWEAR",
+   "capitulos": [
+    "64"
+   ],
+   "alias": "tenis sneaker zapato bota botín sandalia chancla pantufla zueco mocasín tacón calzado de seguridad",
+   "orden": 100,
+   "patrones": [
+    {
+     "re": "\\b(shoes?|sneakers?|zapatos?|zapatillas?|tenis|boots?|botas?|botin(es)?|sandals?|sandalias?|slides?|chanclas?|flip ?flops?|mules?|clogs?|zuecos?|slip-?on|loafers?|mocasin(es)?|moccasins?|slippers?|pantuflas?|heels?|tacon(es)?|pumps|flats|balerinas?|footwear|calzado|chukka|cleats?|tachones|guayos|galoshes?|overshoes?|cubrecalzados?)\\b",
+     "prioridad": 36
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "CON CORTE DE {material_corte} Y SUELA DE {material_suela}",
+    "requiere": [
+     "material_corte"
+    ],
+    "como": {
+     "material_corte": {
+      "plastico": "CAUCHO O PLÁSTICO",
+      "cuero": "CUERO",
+      "textil": "TEXTIL",
+      "otro": "OTRAS MATERIAS"
+     },
+     "material_suela": {
+      "caucho": "CAUCHO O PLÁSTICO",
+      "cuero": "CUERO",
+      "otro": "OTRAS MATERIAS"
+     }
+    },
+    "si_falta": {
+     "material_suela": "caucho"
+    }
+   }
+  },
+  {
+   "codigo": "partes_calzado",
+   "nombre": "Footwear parts: uppers, soles, heels, removable insoles",
+   "nombre_corto": "Footwear part",
+   "nombre_aduana": "Parte de calzado",
+   "grupo": "Footwear",
+   "familia": "partes_calzado",
+   "dominio": "FOOTWEAR",
+   "capitulos": [
+    "64"
+   ],
+   "alias": "plantilla suela tacón corte talonera contrafuerte puntera",
+   "orden": 110,
+   "patrones": [
+    {
+     "re": "\\b(insoles?|plantillas?|taloneras?|heel (cushions?|grips?)|footbeds?|outsoles?|suelas?|uppers?|cortes? de calzado|tacones? para calzado|contrafuertes?|punteras?)\\b",
+     "prioridad": 20
+    }
+   ]
+  },
+  {
+   "codigo": "polainas",
+   "nombre": "Gaiters, leggings and spats",
+   "nombre_corto": "Gaiter",
+   "nombre_aduana": "Polaina",
+   "grupo": "Footwear",
+   "familia": "polainas",
+   "dominio": "FOOTWEAR",
+   "capitulos": [
+    "64"
+   ],
+   "alias": "polaina gaiter",
+   "orden": 120,
+   "patrones": [
+    {
+     "re": "\\b(gaiters?|polainas?|spats|leg warmers? with strap)\\b",
+     "prioridad": 18
+    }
+   ]
+  },
+  {
+   "codigo": "cordones",
+   "nombre": "Shoelaces",
+   "nombre_corto": "Shoelaces",
+   "nombre_aduana": "Cordones para calzado",
+   "grupo": "Footwear",
+   "familia": "cordones",
+   "dominio": "FOOTWEAR",
+   "capitulos": [
+    "63",
+    "42",
+    "39"
+   ],
+   "alias": "cordones agujetas",
+   "orden": 130,
+   "patrones": [
+    {
+     "re": "\\b(shoe ?laces?|laces|agujetas?|cordones?)\\b",
+     "prioridad": 17
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "material"
+    ]
+   }
+  }
+ ],
+ "atributos": [
+  {
+   "codigo": "estilo_calzado",
+   "etiqueta": "Footwear style",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 150,
+   "opciones": [
+    {
+     "codigo": "tenis",
+     "etiqueta": "Sneaker or athletic shoe",
+     "patrones": [
+      {
+       "re": "\\b(sneakers?|tenis|trainers?|running|slip-?on|zapatillas?)\\b",
+       "en": "todo",
+       "prioridad": 21
+      },
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "TENIS"
+     },
+     "orden": 10
+    },
+    {
+     "codigo": "zapato",
+     "etiqueta": "Closed shoe (dress, casual, school)",
+     "patrones": [
+      {
+       "re": "\\b(shoes?|zapatos?|oxfords?|derbys?|brogues?|flats|balerinas?)\\b",
+       "en": "todo",
+       "prioridad": 25
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "ZAPATO"
+     },
+     "orden": 20
+    },
+    {
+     "codigo": "tacon",
+     "etiqueta": "High-heeled shoe",
+     "patrones": [
+      {
+       "re": "\\b(heels?|tacon(es)?|stilettos?|pumps)\\b",
+       "en": "todo",
+       "prioridad": 15
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "ZAPATO DE TACÓN"
+     },
+     "orden": 30
+    },
+    {
+     "codigo": "mocasin",
+     "etiqueta": "Moccasin, loafer or boat shoe",
+     "patrones": [
+      {
+       "re": "\\b(loafers?|mocasin(es)?|moccasins?|boat shoes?|nauticos?)\\b",
+       "en": "todo",
+       "prioridad": 14
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "MOCASÍN"
+     },
+     "orden": 40
+    },
+    {
+     "codigo": "bota",
+     "etiqueta": "Boot",
+     "patrones": [
+      {
+       "re": "\\b(boots?|botas?)\\b",
+       "en": "todo",
+       "prioridad": 12
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "BOTA"
+     },
+     "implica": {
+      "altura": "tobillo"
+     },
+     "orden": 50
+    },
+    {
+     "codigo": "botin",
+     "etiqueta": "Ankle boot or chukka",
+     "patrones": [
+      {
+       "re": "\\b(botin(es)?|ankle boots?|chukkas?|chelsea)\\b",
+       "en": "todo",
+       "prioridad": 11
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "BOTÍN"
+     },
+     "implica": {
+      "altura": "tobillo"
+     },
+     "orden": 60
+    },
+    {
+     "codigo": "sandalia",
+     "etiqueta": "Sandal",
+     "patrones": [
+      {
+       "re": "\\b(sandals?|sandalias?|huaraches?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "SANDALIA"
+     },
+     "orden": 70
+    },
+    {
+     "codigo": "chancla",
+     "etiqueta": "Flip-flop or slide",
+     "patrones": [
+      {
+       "re": "\\b(flip ?flops?|chanclas?|slides?|thongs?|chinelas?)\\b",
+       "en": "todo",
+       "prioridad": 9
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "SANDALIA"
+     },
+     "orden": 80
+    },
+    {
+     "codigo": "pantufla",
+     "etiqueta": "Slipper or house shoe",
+     "patrones": [
+      {
+       "re": "\\b(slippers?|pantuflas?|house shoes?)\\b",
+       "en": "todo",
+       "prioridad": 9
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "PANTUFLA"
+     },
+     "orden": 90
+    },
+    {
+     "codigo": "zueco",
+     "etiqueta": "Clog",
+     "patrones": [
+      {
+       "re": "\\b(clogs?|zuecos?)\\b",
+       "en": "todo",
+       "prioridad": 9
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "ZUECO"
+     },
+     "orden": 100
+    },
+    {
+     "codigo": "bota_lluvia",
+     "etiqueta": "Rain or rubber boot",
+     "patrones": [
+      {
+       "re": "\\b(rain ?boots?|botas? de (lluvia|hule)|wellingtons?|galoshes?)\\b",
+       "en": "todo",
+       "prioridad": 5
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "BOTA"
+     },
+     "implica": {
+      "altura": "tobillo"
+     },
+     "orden": 110
+    },
+    {
+     "codigo": "seguridad",
+     "etiqueta": "Safety or work footwear",
+     "patrones": [
+      {
+       "re": "\\b(safety|steel toe|composite toe|work boots?|industrial|seguridad)\\b",
+       "en": "todo",
+       "prioridad": 6
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "CALZADO DE SEGURIDAD"
+     },
+     "orden": 120
+    },
+    {
+     "codigo": "deporte",
+     "etiqueta": "With cleats or spikes; for skating, wrestling, boxing or cycling",
+     "patrones": [
+      {
+       "re": "\\b(cleats?|spikes?|tachones|guayos|taquetes|football boots?|soccer|futbol|cycling|ciclismo|wrestling|boxing|lucha|box)\\b",
+       "en": "todo",
+       "prioridad": 4
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "CALZADO DEPORTIVO"
+     },
+     "implica": {
+      "uso_deportivo": "tacos"
+     },
+     "orden": 130
+    },
+    {
+     "codigo": "esqui",
+     "etiqueta": "Ski or snowboard boot",
+     "patrones": [
+      {
+       "re": "\\b(ski|esqui|snowboard)\\b",
+       "en": "todo",
+       "prioridad": 3
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "BOTA DE ESQUÍ"
+     },
+     "implica": {
+      "uso_deportivo": "esqui",
+      "altura": "tobillo"
+     },
+     "orden": 140
+    },
+    {
+     "codigo": "cubrecalzado",
+     "etiqueta": "Overshoe (worn over other footwear)",
+     "patrones": [
+      {
+       "re": "\\b(overshoes?|cubrecalzados?)\\b",
+       "en": "todo",
+       "prioridad": 3
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "CUBRECALZADO"
+     },
+     "orden": 150
+    },
+    {
+     "codigo": "patines",
+     "etiqueta": "With skates attached (ice or roller)",
+     "patrones": [
+      {
+       "re": "\\b(skates?|patines?|rollers?|heelys)\\b",
+       "en": "todo",
+       "prioridad": 2
+      }
+     ],
+     "texto_aduana": {
+      "nombre": "CALZADO CON PATINES"
+     },
+     "orden": 160
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "calzado",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "control": "lista"
+  },
+  {
+   "codigo": "material_corte",
+   "etiqueta": "Upper material",
+   "tipo_dato": "select",
+   "seccion": "composicion",
+   "orden": 170,
+   "opciones": [
+    {
+     "codigo": "cuero",
+     "etiqueta": "Natural leather",
+     "orden": 10
+    },
+    {
+     "codigo": "textil",
+     "etiqueta": "Textile",
+     "orden": 20
+    },
+    {
+     "codigo": "plastico",
+     "etiqueta": "Rubber or plastics (includes synthetic leather and coated fabric)",
+     "orden": 30
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other",
+     "orden": 40
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "calzado",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Note 4 a): the material with the largest external surface area, not counting trims or reinforcements; the tongue counts.",
+   "derivacion": {
+    "modo": "material",
+    "parte": "corte",
+    "lectura": "superficie"
+   }
+  },
+  {
+   "codigo": "material_suela",
+   "etiqueta": "Outer sole material",
+   "tipo_dato": "select",
+   "seccion": "composicion",
+   "orden": 180,
+   "opciones": [
+    {
+     "codigo": "caucho",
+     "etiqueta": "Rubber or plastics (EVA, PU, TPR)",
+     "orden": 10
+    },
+    {
+     "codigo": "cuero",
+     "etiqueta": "Natural or regenerated leather",
+     "orden": 20
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other (wood, cork, textile, jute)",
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "calzado",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Note 4 b): the material with the largest surface area in contact with the ground, not counting attachments.",
+   "derivacion": {
+    "modo": "material",
+    "parte": "suela",
+    "lectura": "contacto"
+   }
+  },
+  {
+   "codigo": "impermeable",
+   "etiqueta": "Waterproof, upper not joined to the sole by stitching, rivets, nails, screws or plugs",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 190,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "calzado",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "material_corte",
+       "operador": "EQUAL",
+       "valor": "plastico",
+       "negado": false
+      },
+      {
+       "grupo": 1,
+       "campo": "material_suela",
+       "operador": "EQUAL",
+       "valor": "caucho",
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Heading 64.01: molded, injected, vulcanized or high-frequency welded in one piece (rain boots, some overshoes).",
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(rain ?boots?|botas? de (lluvia|hule)|wellingtons?|galoshes?|waterproof molded|moldead[oa] impermeable)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "uso_deportivo",
+   "etiqueta": "Use",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 200,
+   "opciones": [
+    {
+     "codigo": "no",
+     "etiqueta": "Casual, urban, dress or outdoor",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "entrenamiento",
+     "etiqueta": "Designed for tennis, basketball, gym, training, running or similar",
+     "patrones": [
+      {
+       "re": "\\b(running|trail running|basketball|basquet|baloncesto|tennis shoes?|training|entrenamiento|gym|gimnasio|crossfit|court|indoor|futsal)\\b",
+       "en": "todo",
+       "prioridad": 8
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "tacos",
+     "etiqueta": "With cleats, spikes or special fixings; for skating, wrestling, boxing or cycling",
+     "patrones": [
+      {
+       "re": "\\b(cleats?|spikes?|tachones|guayos|football boots?|cycling|ciclismo|wrestling|boxing)\\b",
+       "en": "todo",
+       "prioridad": 4
+      }
+     ],
+     "orden": 30
+    },
+    {
+     "codigo": "esqui",
+     "etiqueta": "Ski or snowboard",
+     "patrones": [
+      {
+       "re": "\\b(ski|esqui|snowboard)\\b",
+       "en": "todo",
+       "prioridad": 3
+      }
+     ],
+     "orden": 40
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "calzado",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "material_corte",
+       "operador": "IN",
+       "valor": [
+        "plastico",
+        "cuero",
+        "textil"
+       ],
+       "negado": false
+      },
+      {
+       "grupo": 1,
+       "campo": "material_suela",
+       "operador": "IN",
+       "valor": [
+        "caucho",
+        "cuero"
+       ],
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Subheading Note 1: sports footwear is only footwear with (or able to take) spikes, cleats, special fixings or bars, and footwear for skiing, snowboarding, wrestling, boxing or cycling. Tennis, basketball, gym and training shoes count only for a textile upper (6404.11); casual sneakers are not sports footwear."
+  },
+  {
+   "codigo": "altura",
+   "etiqueta": "Height",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 210,
+   "opciones": [
+    {
+     "codigo": "bajo",
+     "etiqueta": "Does not cover the ankle",
+     "bloqueo": [
+      {
+       "condiciones": [
+        {
+         "grupo": 1,
+         "campo": "estilo_calzado",
+         "operador": "IN",
+         "valor": [
+          "bota",
+          "botin"
+         ],
+         "negado": false
+        }
+       ],
+       "mensaje": "A boot covers the ankle."
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "tobillo",
+     "etiqueta": "Covers the ankle",
+     "texto_aduana": {
+      "frase": "QUE CUBRE EL TOBILLO",
+      "orden": 10
+     },
+     "orden": 20
+    },
+    {
+     "codigo": "rodilla",
+     "etiqueta": "Also covers the knee",
+     "texto_aduana": {
+      "frase": "QUE CUBRE LA RODILLA",
+      "orden": 10
+     },
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "calzado",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "material_corte",
+       "operador": "IN",
+       "valor": [
+        "plastico",
+        "cuero"
+       ],
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "bajo"
+  },
+  {
+   "codigo": "puntera_metalica",
+   "etiqueta": "Protective metal toe-cap",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 220,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "calzado",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "material_corte",
+       "operador": "IN",
+       "valor": [
+        "plastico",
+        "cuero"
+       ],
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(steel toe|puntera (de acero|metalica)|metal toe)\\b",
+     "en": "todo"
+    }
+   ],
+   "texto_aduana": {
+    "frase": "CON PUNTERA METÁLICA DE PROTECCIÓN",
+    "orden": 20
+   }
+  },
+  {
+   "codigo": "tiras_tetones",
+   "etiqueta": "Upper of straps or thongs fixed to the sole by plugs",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 230,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "calzado",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "material_corte",
+       "operador": "EQUAL",
+       "valor": "plastico",
+       "negado": false
+      },
+      {
+       "grupo": 1,
+       "campo": "material_suela",
+       "operador": "EQUAL",
+       "valor": "caucho",
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Subheading 6402.20: thong sandals whose straps end in plugs set into holes in the sole.",
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(flip ?flops?|chanclas? de dedo|thongs?|toe post)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "tiras_dedo",
+   "etiqueta": "Upper of leather straps across the instep and around the big toe",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 240,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "calzado",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "material_corte",
+       "operador": "EQUAL",
+       "valor": "cuero",
+       "negado": false
+      },
+      {
+       "grupo": 1,
+       "campo": "material_suela",
+       "operador": "EQUAL",
+       "valor": "cuero",
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Subheading 6403.20.",
+   "valor_defecto": "false"
+  },
+  {
+   "codigo": "tipo_parte",
+   "etiqueta": "Which part",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 250,
+   "opciones": [
+    {
+     "codigo": "corte",
+     "etiqueta": "Upper or parts of the upper (vamps, quarters, linings)",
+     "patrones": [
+      {
+       "re": "\\b(uppers?|cortes?|vamps?|palas?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "suela",
+     "etiqueta": "Outer sole or heel",
+     "patrones": [
+      {
+       "re": "\\b(outsoles?|soles?|suelas?|heels?|tacones?|tacos)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "plantilla",
+     "etiqueta": "Removable insole, heel cushion or similar",
+     "patrones": [
+      {
+       "re": "\\b(insoles?|plantillas?|taloneras?|footbeds?|heel cushions?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 30
+    },
+    {
+     "codigo": "refuerzo",
+     "etiqueta": "Stiffener or toe puff",
+     "orden": 40
+    },
+    {
+     "codigo": "otra",
+     "etiqueta": "Other part",
+     "orden": 50
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "partes_calzado",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  }
+ ],
+ "ambitos_comunes": {
+  "comp.corte": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "calzado",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "comp.suela": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "calzado",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "comp.material": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "partes_calzado",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "cordones",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "material": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "partes_calzado",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "cordones",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "genero": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "calzado",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "edad": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "calzado",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ]
+ },
+ "reglas": [
+  {
+   "codigo": "R-NE-CAL-000",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "estilo_calzado",
+     "operador": "EQUAL",
+     "valor": "patines",
+     "negado": true
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "64"
+    ]
+   },
+   "efecto": "Footwear → chapter 64 (Explanatory Notes, chapter 64, general considerations)"
+  },
+  {
+   "codigo": "R-NE-CAL-001",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "estilo_calzado",
+     "operador": "EQUAL",
+     "valor": "patines",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "950670"
+    ]
+   },
+   "efecto": "Footwear with skates attached → 9506.70 (chapter 64 Note 1 f)"
+  },
+  {
+   "codigo": "R-NE-CAL-011",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "impermeable",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "puntera_metalica",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640110"
+    ]
+   },
+   "efecto": "Waterproof rubber or plastic footwear with a protective metal toe-cap → 6401.10"
+  },
+  {
+   "codigo": "R-NE-CAL-012",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "impermeable",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "puntera_metalica",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "altura",
+     "operador": "EQUAL",
+     "valor": "tobillo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640192"
+    ]
+   },
+   "efecto": "Waterproof footwear covering the ankle but not the knee → 6401.92"
+  },
+  {
+   "codigo": "R-NE-CAL-013",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "impermeable",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "puntera_metalica",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "altura",
+     "operador": "IN",
+     "valor": [
+      "bajo",
+      "rodilla"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640199"
+    ]
+   },
+   "efecto": "Other waterproof footwear (including knee boots, formerly 6401.91) → 6401.99"
+  },
+  {
+   "codigo": "R-NE-CAL-021",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "impermeable",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "EQUAL",
+     "valor": "esqui",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640212"
+    ]
+   },
+   "efecto": "Rubber or plastic ski or snowboard footwear → 6402.12 (subheading Note 1 b)"
+  },
+  {
+   "codigo": "R-NE-CAL-022",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "impermeable",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "EQUAL",
+     "valor": "tacos",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640219"
+    ]
+   },
+   "efecto": "Rubber or plastic sports footwear with spikes, cleats or fixings → 6402.19 (subheading Note 1 a)"
+  },
+  {
+   "codigo": "R-NE-CAL-023",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "impermeable",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "no",
+      "entrenamiento"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tiras_tetones",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640220"
+    ]
+   },
+   "efecto": "Straps fixed to the sole by plugs (flip-flops) → 6402.20"
+  },
+  {
+   "codigo": "R-NE-CAL-024",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "impermeable",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "no",
+      "entrenamiento"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tiras_tetones",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "altura",
+     "operador": "IN",
+     "valor": [
+      "tobillo",
+      "rodilla"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640291"
+    ]
+   },
+   "efecto": "Other rubber or plastic footwear covering the ankle → 6402.91"
+  },
+  {
+   "codigo": "R-NE-CAL-025",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "impermeable",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "no",
+      "entrenamiento"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tiras_tetones",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "altura",
+     "operador": "EQUAL",
+     "valor": "bajo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640299"
+    ]
+   },
+   "efecto": "Other rubber or plastic footwear → 6402.99"
+  },
+  {
+   "codigo": "R-NE-CAL-031",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "IN",
+     "valor": [
+      "caucho",
+      "cuero"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "EQUAL",
+     "valor": "esqui",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640312"
+    ]
+   },
+   "efecto": "Leather ski or snowboard footwear → 6403.12"
+  },
+  {
+   "codigo": "R-NE-CAL-032",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "IN",
+     "valor": [
+      "caucho",
+      "cuero"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "EQUAL",
+     "valor": "tacos",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640319"
+    ]
+   },
+   "efecto": "Leather sports footwear with spikes, cleats or fixings → 6403.19"
+  },
+  {
+   "codigo": "R-NE-CAL-033",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "no",
+      "entrenamiento"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tiras_dedo",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640320"
+    ]
+   },
+   "efecto": "Leather sole, leather straps across the instep and around the big toe → 6403.20"
+  },
+  {
+   "codigo": "R-NE-CAL-034",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "no",
+      "entrenamiento"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "puntera_metalica",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640340"
+    ]
+   },
+   "efecto": "Leather footwear with a protective metal toe-cap → 6403.40"
+  },
+  {
+   "codigo": "R-NE-CAL-035",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "no",
+      "entrenamiento"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tiras_dedo",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "puntera_metalica",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640340"
+    ]
+   },
+   "efecto": "Leather footwear with a protective metal toe-cap → 6403.40"
+  },
+  {
+   "codigo": "R-NE-CAL-036",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "no",
+      "entrenamiento"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tiras_dedo",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "puntera_metalica",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "altura",
+     "operador": "IN",
+     "valor": [
+      "tobillo",
+      "rodilla"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640351"
+    ]
+   },
+   "efecto": "Leather sole and upper, covering the ankle → 6403.51"
+  },
+  {
+   "codigo": "R-NE-CAL-037",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "no",
+      "entrenamiento"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tiras_dedo",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "puntera_metalica",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "altura",
+     "operador": "EQUAL",
+     "valor": "bajo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640359"
+    ]
+   },
+   "efecto": "Leather sole and upper → 6403.59"
+  },
+  {
+   "codigo": "R-NE-CAL-038",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "no",
+      "entrenamiento"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "puntera_metalica",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "altura",
+     "operador": "IN",
+     "valor": [
+      "tobillo",
+      "rodilla"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640391"
+    ]
+   },
+   "efecto": "Leather upper, rubber or plastic sole, covering the ankle → 6403.91"
+  },
+  {
+   "codigo": "R-NE-CAL-039",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "no",
+      "entrenamiento"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "puntera_metalica",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "altura",
+     "operador": "EQUAL",
+     "valor": "bajo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640399"
+    ]
+   },
+   "efecto": "Leather upper, rubber or plastic sole → 6403.99"
+  },
+  {
+   "codigo": "R-NE-CAL-041",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "IN",
+     "valor": [
+      "tacos",
+      "esqui",
+      "entrenamiento"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640411"
+    ]
+   },
+   "efecto": "Textile upper, rubber or plastic sole: sports, tennis, basketball, gym or training footwear → 6404.11"
+  },
+  {
+   "codigo": "R-NE-CAL-042",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_deportivo",
+     "operador": "EQUAL",
+     "valor": "no",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640419"
+    ]
+   },
+   "efecto": "Textile upper, rubber or plastic sole, casual or other → 6404.19 (casual sneakers are not sports footwear)"
+  },
+  {
+   "codigo": "R-NE-CAL-043",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640420"
+    ]
+   },
+   "efecto": "Textile upper, leather sole → 6404.20"
+  },
+  {
+   "codigo": "R-NE-CAL-051",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640510"
+    ]
+   },
+   "efecto": "Leather upper with a sole of other material (wood, cork, textile) → 6405.10"
+  },
+  {
+   "codigo": "R-NE-CAL-052",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640520"
+    ]
+   },
+   "efecto": "Textile upper with a sole of other material → 6405.20"
+  },
+  {
+   "codigo": "R-NE-CAL-053",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material_suela",
+     "operador": "IN",
+     "valor": [
+      "cuero",
+      "otro"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640590"
+    ]
+   },
+   "efecto": "Rubber or plastic upper with a leather or other sole → 6405.90"
+  },
+  {
+   "codigo": "R-NE-CAL-054",
+   "categoria": "calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_corte",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640590"
+    ]
+   },
+   "efecto": "Upper of other materials → 6405.90"
+  },
+  {
+   "codigo": "R-NE-CAL-061",
+   "categoria": "partes_calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_parte",
+     "operador": "EQUAL",
+     "valor": "corte",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640610"
+    ]
+   },
+   "efecto": "Uppers and their parts (not stiffeners) → 6406.10"
+  },
+  {
+   "codigo": "R-NE-CAL-062",
+   "categoria": "partes_calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_parte",
+     "operador": "EQUAL",
+     "valor": "suela",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640620"
+    ]
+   },
+   "efecto": "Outer soles and heels of rubber or plastics → 6406.20"
+  },
+  {
+   "codigo": "R-NE-CAL-063",
+   "categoria": "partes_calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_parte",
+     "operador": "EQUAL",
+     "valor": "suela",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": true
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640690"
+    ]
+   },
+   "efecto": "Outer soles and heels of other materials → 6406.90"
+  },
+  {
+   "codigo": "R-NE-CAL-064",
+   "categoria": "partes_calzado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_parte",
+     "operador": "IN",
+     "valor": [
+      "plantilla",
+      "refuerzo",
+      "otra"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640690"
+    ]
+   },
+   "efecto": "Removable insoles, heel cushions, stiffeners and other parts → 6406.90"
+  },
+  {
+   "codigo": "R-NE-CAL-071",
+   "categoria": "polainas",
+   "condiciones": [],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "640690"
+    ]
+   },
+   "efecto": "Gaiters, leggings and similar articles → 6406.90 (heading 64.06, part II)"
+  },
+  {
+   "codigo": "R-NE-CAL-081",
+   "categoria": "cordones",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "IN",
+     "valor": [
+      "textil",
+      "otro",
+      "papel"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "630790"
+    ]
+   },
+   "efecto": "Shoelaces follow their own material (chapter 64 Note 2): textile → 6307.90"
+  },
+  {
+   "codigo": "R-NE-CAL-082",
+   "categoria": "cordones",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420500"
+    ]
+   },
+   "efecto": "Leather shoelaces → 4205.00"
+  },
+  {
+   "codigo": "R-NE-CAL-083",
+   "categoria": "cordones",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392690"
+    ]
+   },
+   "efecto": "Plastic shoelaces → 3926.90"
+  }
+ ],
+ "casos": [
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "tenis",
+    "comp.corte": "100% canvas",
+    "comp.suela": "100% rubber",
+    "uso_deportivo": "no"
+   },
+   "codigo": "640419"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "tenis",
+    "comp.corte": "80% mesh 20% synthetic",
+    "comp.suela": "rubber",
+    "uso_deportivo": "entrenamiento"
+   },
+   "codigo": "640411"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "tenis",
+    "comp.corte": "100% leather",
+    "comp.suela": "100% rubber",
+    "uso_deportivo": "no",
+    "puntera_metalica": false,
+    "altura": "bajo"
+   },
+   "codigo": "640399"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "bota",
+    "comp.corte": "100% leather",
+    "comp.suela": "rubber",
+    "uso_deportivo": "no",
+    "puntera_metalica": false
+   },
+   "codigo": "640391"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "seguridad",
+    "comp.corte": "leather",
+    "comp.suela": "PU",
+    "uso_deportivo": "no",
+    "puntera_metalica": true
+   },
+   "codigo": "640340"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "deporte",
+    "comp.corte": "leather",
+    "comp.suela": "TPU"
+   },
+   "codigo": "640319"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "zapato",
+    "comp.corte": "leather",
+    "comp.suela": "leather",
+    "uso_deportivo": "no",
+    "tiras_dedo": false,
+    "puntera_metalica": false,
+    "altura": "bajo"
+   },
+   "codigo": "640359"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "sandalia",
+    "comp.corte": "leather",
+    "comp.suela": "leather",
+    "uso_deportivo": "no",
+    "tiras_dedo": true
+   },
+   "codigo": "640320"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "chancla",
+    "comp.corte": "PVC",
+    "comp.suela": "EVA",
+    "impermeable": false,
+    "uso_deportivo": "no",
+    "tiras_tetones": false,
+    "altura": "bajo"
+   },
+   "codigo": "640299"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "chancla",
+    "comp.corte": "rubber",
+    "comp.suela": "rubber",
+    "impermeable": false,
+    "uso_deportivo": "no",
+    "tiras_tetones": true
+   },
+   "codigo": "640220"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "botin",
+    "comp.corte": "synthetic leather",
+    "comp.suela": "TPR",
+    "impermeable": false,
+    "uso_deportivo": "no",
+    "tiras_tetones": false
+   },
+   "codigo": "640291"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "esqui",
+    "comp.corte": "polyurethane",
+    "comp.suela": "rubber",
+    "impermeable": false
+   },
+   "codigo": "640212"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "bota_lluvia",
+    "comp.corte": "100% PVC",
+    "comp.suela": "PVC",
+    "impermeable": true,
+    "puntera_metalica": false
+   },
+   "codigo": "640192"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "bota_lluvia",
+    "comp.corte": "PVC",
+    "comp.suela": "PVC",
+    "impermeable": true,
+    "puntera_metalica": true
+   },
+   "codigo": "640110"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "zapato",
+    "comp.corte": "textile",
+    "comp.suela": "leather"
+   },
+   "codigo": "640420"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "sandalia",
+    "comp.corte": "canvas",
+    "comp.suela": "jute"
+   },
+   "codigo": "640520"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "zueco",
+    "comp.corte": "leather",
+    "comp.suela": "wood"
+   },
+   "codigo": "640510"
+  },
+  {
+   "hechos": {
+    "categoria": "calzado",
+    "estilo_calzado": "patines",
+    "comp.corte": "synthetic",
+    "comp.suela": "rubber"
+   },
+   "codigo": "950670"
+  },
+  {
+   "hechos": {
+    "categoria": "partes_calzado",
+    "tipo_parte": "suela",
+    "comp.material": "rubber"
+   },
+   "codigo": "640620"
+  },
+  {
+   "hechos": {
+    "categoria": "partes_calzado",
+    "tipo_parte": "plantilla",
+    "comp.material": "EVA foam"
+   },
+   "codigo": "640690"
+  },
+  {
+   "hechos": {
+    "categoria": "partes_calzado",
+    "tipo_parte": "corte",
+    "comp.material": "leather"
+   },
+   "codigo": "640610"
+  },
+  {
+   "hechos": {
+    "categoria": "polainas"
+   },
+   "codigo": "640690"
+  },
+  {
+   "hechos": {
+    "categoria": "cordones",
+    "comp.material": "100% polyester"
+   },
+   "codigo": "630790"
+  }
+ ]
+}

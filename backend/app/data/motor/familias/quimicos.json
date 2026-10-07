@@ -1,0 +1,4556 @@
+{
+ "origen": "Classification engine configuration written from the Explanatory Notes, chapters 28, 29, 32, 34, 35 and 38 (not official data).",
+ "dominio": {
+  "codigo": "CHEMICALS",
+  "nombre": "Chemicals",
+  "orden": 40,
+  "descripcion": "Chemically defined compounds (28, 29) and chemical preparations by their function (32, 34, 35, 38).",
+  "capitulos": [
+   {
+    "capitulo": "28",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "29",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "32",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "34",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "35",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "38",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "27",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "22",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "33",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "39",
+    "relevancia": "SECONDARY"
+   }
+  ]
+ },
+ "fuente": "Explanatory Notes, chapters 28, 29, 32, 34, 35 and 38",
+ "categorias": [
+  {
+   "codigo": "quimico_inorganico",
+   "nombre": "Inorganic chemical: acid, base, salt, oxide or element",
+   "nombre_corto": "Inorganic chemical",
+   "nombre_aduana": "Producto químico inorgánico",
+   "grupo": "Chemicals",
+   "familia": "quimico_inorganico",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "28"
+   ],
+   "alias": "ácido base sal óxido hidróxido cloruro sulfato carbonato",
+   "orden": 10,
+   "patrones": [
+    {
+     "re": "\\b(inorganic|inorganic[oa]|acid[oe]s? (sulfuric|hydrochloric|nitric|phosphoric|sulfurico|clorhidrico|nitrico|fosforico)|sodium hydroxide|hidroxido de sodio|caustic soda|soda caustica|zinc oxide|oxido de zinc|silica gel|titanium dioxide|chlorides?|cloruros?|sulfates?|sulfatos?|carbonates?|carbonatos?|nitrates?|nitratos?|hydroxides?|hidroxidos?)\\b",
+     "prioridad": 40
+    }
+   ],
+   "terminos": "inorgánicos"
+  },
+  {
+   "codigo": "quimico_organico",
+   "nombre": "Organic chemical (single compound): solvent, alcohol, acid, ester, amine",
+   "nombre_corto": "Organic chemical",
+   "nombre_aduana": "Producto químico orgánico",
+   "grupo": "Chemicals",
+   "familia": "quimico_organico",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "29"
+   ],
+   "alias": "acetona tolueno metanol alcohol isopropílico acetato glicol",
+   "orden": 20,
+   "patrones": [
+    {
+     "re": "\\b(organic chemical|acetone|acetona|toluene|tolueno|xylene|xileno|methanol|metanol|isopropanol|isopropyl alcohol|alcohol isopropilico|ethyl acetate|acetato de etilo|butyl acetate|acetato de butilo|mek|methyl ethyl ketone|glycol|glicol|glycerol|glicerina|formaldehyde|formaldehido|acetic acid|acido acetico|citric acid|acido citrico|amines?|aminas?)\\b",
+     "prioridad": 40
+    }
+   ],
+   "terminos": "orgánicos"
+  },
+  {
+   "codigo": "colorante",
+   "nombre": "Dye or colorant",
+   "nombre_corto": "Dye",
+   "nombre_aduana": "Colorante",
+   "grupo": "Chemicals",
+   "familia": "colorante",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "32"
+   ],
+   "alias": "colorante tinte anilina",
+   "orden": 30,
+   "patrones": [
+    {
+     "re": "\\b(dyes?|dyestuffs?|colorantes?|tintes?|tinturas?|disperse|reactive dye|acid dye|vat dye|indigo|anilinas?)\\b",
+     "prioridad": 38
+    }
+   ],
+   "terminos": "colorantes"
+  },
+  {
+   "codigo": "pigmento",
+   "nombre": "Pigment or pigment preparation",
+   "nombre_corto": "Pigment",
+   "nombre_aduana": "Pigmento",
+   "grupo": "Chemicals",
+   "familia": "pigmento",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "32"
+   ],
+   "alias": "pigmento masterbatch",
+   "orden": 40,
+   "patrones": [
+    {
+     "re": "\\b(pigments?|pigmentos?|masterbatch|pastas? pigmentarias?|color pastes?)\\b",
+     "prioridad": 37
+    }
+   ],
+   "terminos": "pigmentos"
+  },
+  {
+   "codigo": "pintura",
+   "nombre": "Paint, varnish, lacquer or leather finish",
+   "nombre_corto": "Paint or varnish",
+   "nombre_aduana": "Pintura",
+   "grupo": "Chemicals",
+   "familia": "pintura",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "32"
+   ],
+   "alias": "pintura barniz laca esmalte",
+   "orden": 50,
+   "patrones": [
+    {
+     "re": "\\b(paints?|pinturas?|varnish(es)?|barnices?|barniz|lacquers?|lacas?|coatings?|recubrimientos?|primers?|enamels?|esmaltes?|leather finish)\\b",
+     "prioridad": 37
+    }
+   ],
+   "terminos": "pinturas barnices"
+  },
+  {
+   "codigo": "tinta",
+   "nombre": "Printing or writing ink",
+   "nombre_corto": "Ink",
+   "nombre_aduana": "Tinta",
+   "grupo": "Chemicals",
+   "familia": "tinta",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "32"
+   ],
+   "alias": "tinta serigrafía plastisol",
+   "orden": 60,
+   "patrones": [
+    {
+     "re": "\\b(inks?|tintas?|screen printing ink|plastisol|serigrafia)\\b",
+     "prioridad": 36
+    }
+   ],
+   "terminos": "tintas"
+  },
+  {
+   "codigo": "adhesivo",
+   "nombre": "Glue or adhesive",
+   "nombre_corto": "Adhesive",
+   "nombre_aduana": "Adhesivo",
+   "grupo": "Chemicals",
+   "familia": "adhesivo",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "35"
+   ],
+   "alias": "adhesivo pegamento cola cemento de contacto hot melt",
+   "orden": 70,
+   "patrones": [
+    {
+     "re": "\\b(adhesives?|adhesivos?|glues?|pegamentos?|colas?|cements? de contacto|contact cement|hot ?melt|primers? (para )?(suela|sole))\\b",
+     "prioridad": 39
+    }
+   ],
+   "terminos": "adhesivos colas"
+  },
+  {
+   "codigo": "tensoactivo",
+   "nombre": "Surfactant, detergent or washing preparation",
+   "nombre_corto": "Detergent or surfactant",
+   "nombre_aduana": "Detergente",
+   "grupo": "Chemicals",
+   "familia": "tensoactivo",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "34"
+   ],
+   "alias": "detergente tensoactivo limpiador",
+   "orden": 80,
+   "patrones": [
+    {
+     "re": "\\b(surfactants?|tensoactivos?|detergents?|detergentes?|wetting agents?|humectantes?|emulsifiers?|emulsionantes?|cleaners?|limpiadores?|desengrasantes?|degreasers?)\\b",
+     "prioridad": 35
+    }
+   ],
+   "terminos": "tensoactivos"
+  },
+  {
+   "codigo": "jabon",
+   "nombre": "Soap",
+   "nombre_corto": "Soap",
+   "nombre_aduana": "Jabón",
+   "grupo": "Chemicals",
+   "familia": "jabon",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "34"
+   ],
+   "alias": "jabón",
+   "orden": 90,
+   "patrones": [
+    {
+     "re": "\\b(soaps?|jabon(es)?|hand ?wash)\\b",
+     "prioridad": 34
+    }
+   ],
+   "terminos": "jabón"
+  },
+  {
+   "codigo": "lubricante",
+   "nombre": "Lubricant, release agent or anti-rust preparation",
+   "nombre_corto": "Lubricant",
+   "nombre_aduana": "Lubricante",
+   "grupo": "Chemicals",
+   "familia": "lubricante",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "34",
+    "27"
+   ],
+   "alias": "lubricante grasa desmoldante",
+   "orden": 100,
+   "patrones": [
+    {
+     "re": "\\b(lubricants?|lubricantes?|greases?|grasas? lubricantes?|release agents?|desmoldantes?|anti-?rust|antioxidante de metal|cutting oils?|aceites? de corte|silicone spray)\\b",
+     "prioridad": 34
+    }
+   ],
+   "terminos": "lubricantes"
+  },
+  {
+   "codigo": "cera",
+   "nombre": "Wax: prepared, artificial or paraffin",
+   "nombre_corto": "Wax",
+   "nombre_aduana": "Cera",
+   "grupo": "Chemicals",
+   "familia": "cera",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "34",
+    "27"
+   ],
+   "alias": "cera parafina",
+   "orden": 110,
+   "patrones": [
+    {
+     "re": "\\b(wax(es)?|ceras?|parafinas?|paraffin)\\b",
+     "prioridad": 33
+    }
+   ],
+   "terminos": "ceras"
+  },
+  {
+   "codigo": "betun",
+   "nombre": "Polish or cream for footwear or leather; scouring paste",
+   "nombre_corto": "Shoe polish",
+   "nombre_aduana": "Betún",
+   "grupo": "Chemicals",
+   "familia": "betun",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "34"
+   ],
+   "alias": "betún crema para calzado limpiador de cuero",
+   "orden": 120,
+   "patrones": [
+    {
+     "re": "\\b(shoe (polish|cream|care)|betun(es)?|crema para (calzado|zapatos)|leather (cream|conditioner|polish)|polishes?|abrillantadores?|lustres?|suede cleaner)\\b",
+     "prioridad": 36
+    }
+   ],
+   "terminos": "betunes cremas calzado"
+  },
+  {
+   "codigo": "apresto",
+   "nombre": "Finishing agent, dye fixer or carrier for textiles, paper or leather",
+   "nombre_corto": "Finishing agent",
+   "nombre_aduana": "Apresto",
+   "grupo": "Chemicals",
+   "familia": "apresto",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "38"
+   ],
+   "alias": "apresto suavizante fijador repelente",
+   "orden": 130,
+   "patrones": [
+    {
+     "re": "\\b(finishing agents?|aprestos?|softeners?|suavizantes? textiles?|dye fixing|fijadores?|leveling agents?|igualadores?|waterproofing agents?|repelentes? de agua|dwr|mordants?|mordientes?)\\b",
+     "prioridad": 33
+    }
+   ],
+   "terminos": "aprestos acabado"
+  },
+  {
+   "codigo": "aditivo_polimero",
+   "nombre": "Rubber accelerator, plasticizer, antioxidant or stabilizer",
+   "nombre_corto": "Rubber or plastic additive",
+   "nombre_aduana": "Aditivo para caucho o plástico",
+   "grupo": "Chemicals",
+   "familia": "aditivo_polimero",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "38"
+   ],
+   "alias": "acelerante plastificante antioxidante estabilizador",
+   "orden": 140,
+   "patrones": [
+    {
+     "re": "\\b(accelerators?|aceleradores?|plasticizers?|plastificantes?|antioxidants?|antioxidantes?|stabilizers?|estabilizantes?|vulcaniz\\w+)\\b",
+     "prioridad": 32
+    }
+   ],
+   "terminos": "aceleradores plastificantes"
+  },
+  {
+   "codigo": "disolvente",
+   "nombre": "Solvent or thinner (mixture); paint remover",
+   "nombre_corto": "Solvent or thinner",
+   "nombre_aduana": "Disolvente",
+   "grupo": "Chemicals",
+   "familia": "disolvente",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "38",
+    "29"
+   ],
+   "alias": "disolvente thinner diluyente",
+   "orden": 150,
+   "patrones": [
+    {
+     "re": "\\b(solvents?|disolventes?|solventes?|thinners?|diluyentes?|adelgazadores?|paint removers?|removedores?)\\b",
+     "prioridad": 34
+    }
+   ],
+   "terminos": "disolventes diluyentes"
+  },
+  {
+   "codigo": "biocida",
+   "nombre": "Disinfectant, insecticide, fungicide or similar",
+   "nombre_corto": "Disinfectant or biocide",
+   "nombre_aduana": "Desinfectante",
+   "grupo": "Chemicals",
+   "familia": "biocida",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "38"
+   ],
+   "alias": "desinfectante insecticida fungicida antimicrobiano",
+   "orden": 160,
+   "patrones": [
+    {
+     "re": "\\b(disinfectants?|desinfectantes?|insecticides?|insecticidas?|fungicides?|fungicidas?|antimicrobial|antimicrobianos?|biocides?|biocidas?|anti-?mold|antimoho)\\b",
+     "prioridad": 33
+    }
+   ],
+   "terminos": "desinfectantes"
+  },
+  {
+   "codigo": "reactivo",
+   "nombre": "Laboratory or diagnostic reagent",
+   "nombre_corto": "Reagent",
+   "nombre_aduana": "Reactivo de laboratorio",
+   "grupo": "Chemicals",
+   "familia": "reactivo",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "38"
+   ],
+   "alias": "reactivo de laboratorio",
+   "orden": 170,
+   "patrones": [
+    {
+     "re": "\\b(reagents?|reactivos?|buffer solutions?|test kits?|standards? de laboratorio)\\b",
+     "prioridad": 31
+    }
+   ],
+   "terminos": "reactivos"
+  },
+  {
+   "codigo": "preparacion_quimica",
+   "nombre": "Other chemical preparation",
+   "nombre_corto": "Chemical preparation",
+   "nombre_aduana": "Preparación química",
+   "grupo": "Chemicals",
+   "familia": "preparacion_quimica",
+   "dominio": "CHEMICALS",
+   "capitulos": [
+    "38"
+   ],
+   "alias": "preparación química",
+   "orden": 180,
+   "patrones": [
+    {
+     "re": "\\b(chemical preparations?|preparaciones? quimicas?|compound|blend)\\b",
+     "prioridad": 10
+    }
+   ],
+   "terminos": "preparaciones químicas"
+  }
+ ],
+ "atributos": [
+  {
+   "codigo": "nombre_quimico",
+   "etiqueta": "Chemical or technical name",
+   "tipo_dato": "text",
+   "seccion": "caracteristicas",
+   "orden": 10,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_inorganico",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_organico",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "colorante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigmento",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pintura",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tinta",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tensoactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "jabon",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cera",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "betun",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "apresto",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "aditivo_polimero",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "disolvente",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "biocida",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "preparacion_quimica",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "As in the safety data sheet (SDS). It is used to find the subheading in the official text."
+  },
+  {
+   "codigo": "cas",
+   "etiqueta": "CAS number",
+   "tipo_dato": "text",
+   "seccion": "caracteristicas",
+   "orden": 11,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_inorganico",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_organico",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "colorante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigmento",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pintura",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tinta",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tensoactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "jabon",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cera",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "betun",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "apresto",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "aditivo_polimero",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "disolvente",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "biocida",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "preparacion_quimica",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Optional, from the SDS, e.g. 67-64-1."
+  },
+  {
+   "codigo": "componentes",
+   "etiqueta": "Composition (component, CAS and %)",
+   "tipo_dato": "text",
+   "seccion": "caracteristicas",
+   "orden": 12,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "colorante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigmento",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pintura",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tinta",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tensoactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "jabon",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cera",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "betun",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "apresto",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "aditivo_polimero",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "disolvente",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "biocida",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "preparacion_quimica",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "One component per line, from the SDS.",
+   "informativo": true
+  },
+  {
+   "codigo": "estado_fisico",
+   "etiqueta": "Physical state",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 13,
+   "opciones": [
+    {
+     "codigo": "liquido",
+     "etiqueta": "Liquid",
+     "orden": 10
+    },
+    {
+     "codigo": "solido",
+     "etiqueta": "Solid",
+     "orden": 20
+    },
+    {
+     "codigo": "polvo",
+     "etiqueta": "Powder",
+     "orden": 30
+    },
+    {
+     "codigo": "pasta",
+     "etiqueta": "Paste or gel",
+     "orden": 40
+    },
+    {
+     "codigo": "gas",
+     "etiqueta": "Gas",
+     "orden": 50
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_inorganico",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_organico",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "colorante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigmento",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pintura",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tinta",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tensoactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "jabon",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cera",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "betun",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "apresto",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "aditivo_polimero",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "disolvente",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "biocida",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "preparacion_quimica",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "informativo": true
+  },
+  {
+   "codigo": "definido",
+   "etiqueta": "Single chemically defined compound",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 20,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_inorganico",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_organico",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "disolvente",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "aditivo_polimero",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Notes 1 to chapters 28 and 29: one compound with one formula, even with impurities, in water solution, or with a stabilizer added only for safety or transport. A mixture or preparation is classified by its function.",
+   "valor_defecto": "true"
+  },
+  {
+   "codigo": "grupo_inorganico",
+   "etiqueta": "Kind of inorganic compound",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 21,
+   "opciones": [
+    {
+     "codigo": "elemento",
+     "etiqueta": "Element (sulfur, carbon black, gases, metalloids, alkali metals)",
+     "orden": 10
+    },
+    {
+     "codigo": "acido",
+     "etiqueta": "Inorganic acid or oxygen compound of non-metals",
+     "orden": 20
+    },
+    {
+     "codigo": "halogenuro",
+     "etiqueta": "Halide or sulfide of non-metals",
+     "orden": 30
+    },
+    {
+     "codigo": "base_oxido",
+     "etiqueta": "Base or metal oxide/hydroxide (ammonia, caustic soda, zinc oxide)",
+     "orden": 40
+    },
+    {
+     "codigo": "sal",
+     "etiqueta": "Salt of an inorganic acid or of a metal (chlorides, sulfates, carbonates, silicates)",
+     "orden": 50
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other (precious metal compounds, rare earths, peroxide, carbides)",
+     "orden": 60
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_inorganico",
+     "modo": "REQUIRE",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "definido",
+       "operador": "EQUAL",
+       "valor": true,
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "grupo_organico",
+   "etiqueta": "Functional group",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 22,
+   "opciones": [
+    {
+     "codigo": "hidrocarburo",
+     "etiqueta": "Hydrocarbon or its halogenated, sulfonated or nitrated derivative (toluene, xylene)",
+     "orden": 10
+    },
+    {
+     "codigo": "alcohol",
+     "etiqueta": "Alcohol (methanol, isopropanol, glycols, glycerol)",
+     "orden": 20
+    },
+    {
+     "codigo": "fenol",
+     "etiqueta": "Phenol or phenol-alcohol",
+     "orden": 30
+    },
+    {
+     "codigo": "eter",
+     "etiqueta": "Ether, peroxide, epoxide or acetal",
+     "orden": 40
+    },
+    {
+     "codigo": "aldehido",
+     "etiqueta": "Aldehyde (formaldehyde)",
+     "orden": 50
+    },
+    {
+     "codigo": "cetona",
+     "etiqueta": "Ketone or quinone (acetone, MEK)",
+     "orden": 60
+    },
+    {
+     "codigo": "acido",
+     "etiqueta": "Carboxylic acid, anhydride or ester (acetic acid, ethyl acetate, phthalates)",
+     "orden": 70
+    },
+    {
+     "codigo": "ester_inorg",
+     "etiqueta": "Ester of an inorganic acid (phosphates, carbonates)",
+     "orden": 80
+    },
+    {
+     "codigo": "amina",
+     "etiqueta": "Amine or amino compound",
+     "orden": 90
+    },
+    {
+     "codigo": "nitrogenado",
+     "etiqueta": "Amide, imide, nitrile, isocyanate or other nitrogen compound",
+     "orden": 100
+    },
+    {
+     "codigo": "organo_inorg",
+     "etiqueta": "Organo-sulfur or other organo-inorganic compound",
+     "orden": 110
+    },
+    {
+     "codigo": "heterociclico",
+     "etiqueta": "Heterocyclic compound",
+     "orden": 120
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Vitamin, hormone, sugar, antibiotic or other",
+     "orden": 130
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_organico",
+     "modo": "REQUIRE",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "definido",
+       "operador": "EQUAL",
+       "valor": true,
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "disolvente",
+     "modo": "REQUIRE",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "definido",
+       "operador": "EQUAL",
+       "valor": true,
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Chapter 29 Note 3: a compound that fits two headings goes in the one that comes last."
+  },
+  {
+   "codigo": "clase_colorante",
+   "etiqueta": "Kind of dye",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 30,
+   "opciones": [
+    {
+     "codigo": "dispersos",
+     "etiqueta": "Disperse dyes (polyester)",
+     "patrones": [
+      {
+       "re": "\\bdisperse\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "dispersos",
+     "orden": 10
+    },
+    {
+     "codigo": "acidos",
+     "etiqueta": "Acid or mordant dyes (wool, nylon, leather)",
+     "patrones": [
+      {
+       "re": "\\bacid dyes?\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "ácidos mordientes",
+     "orden": 20
+    },
+    {
+     "codigo": "basicos",
+     "etiqueta": "Basic dyes (acrylic)",
+     "patrones": [
+      {
+       "re": "\\bbasic dyes?\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "básicos",
+     "orden": 30
+    },
+    {
+     "codigo": "directos",
+     "etiqueta": "Direct dyes (cotton)",
+     "patrones": [
+      {
+       "re": "\\bdirect dyes?\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "directos",
+     "orden": 40
+    },
+    {
+     "codigo": "tina",
+     "etiqueta": "Vat dyes, including indigo",
+     "patrones": [
+      {
+       "re": "\\b(vat|indigo|indigo)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "tina",
+     "orden": 50
+    },
+    {
+     "codigo": "reactivos",
+     "etiqueta": "Reactive dyes (cotton)",
+     "patrones": [
+      {
+       "re": "\\breactive\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "reactivos",
+     "orden": 60
+    },
+    {
+     "codigo": "otros",
+     "etiqueta": "Other synthetic dyes or mixtures of the above",
+     "orden": 70
+    },
+    {
+     "codigo": "abrillantador",
+     "etiqueta": "Fluorescent brightening agent",
+     "patrones": [
+      {
+       "re": "\\b(optical brighteners?|blanqueador optico)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "avivado fluorescente",
+     "orden": 80
+    },
+    {
+     "codigo": "natural",
+     "etiqueta": "Of vegetable or animal origin",
+     "patrones": [
+      {
+       "re": "\\b(natural dyes?|vegetal|cochineal|cochinilla)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "origen vegetal",
+     "orden": 90
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "colorante",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "tipo_pigmento",
+   "etiqueta": "Kind of pigment",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 31,
+   "opciones": [
+    {
+     "codigo": "organico",
+     "etiqueta": "Synthetic organic pigment",
+     "terminos": "pigmentos orgánicos",
+     "orden": 10
+    },
+    {
+     "codigo": "dioxido_titanio",
+     "etiqueta": "Titanium dioxide based (80 % or more)",
+     "patrones": [
+      {
+       "re": "\\b(titanium dioxide|tio2|dioxido de titanio)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "dióxido de titanio",
+     "orden": 20
+    },
+    {
+     "codigo": "dioxido_titanio_bajo",
+     "etiqueta": "Titanium dioxide based (under 80 %)",
+     "terminos": "dióxido de titanio",
+     "orden": 30
+    },
+    {
+     "codigo": "inorganico",
+     "etiqueta": "Other inorganic pigment (iron oxide, carbon black preparation)",
+     "terminos": "pigmentos inorgánicos",
+     "orden": 40
+    },
+    {
+     "codigo": "dispersion",
+     "etiqueta": "Dispersed in a non-aqueous medium, for making paints (pigment paste, masterbatch for paints)",
+     "terminos": "dispersos medios no acuosos",
+     "orden": 50
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigmento",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "medio_pintura",
+   "etiqueta": "Medium",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 32,
+   "opciones": [
+    {
+     "codigo": "disolvente",
+     "etiqueta": "Polymer dissolved or dispersed in an organic solvent (solvent-based)",
+     "patrones": [
+      {
+       "re": "\\b(solvent[- ]based|base solvente)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "agua",
+     "etiqueta": "Polymer dispersed or dissolved in water (water-based)",
+     "patrones": [
+      {
+       "re": "\\b(water[- ]based|base agua|acuos[oa])\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other (oil paints, leather water pigments)",
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pintura",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Chapter 32 Note 4: solutions of polymers of 39.01–39.13 with more than 50 % organic solvent by weight are 32.08."
+  },
+  {
+   "codigo": "polimero_pintura",
+   "etiqueta": "Base polymer",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 33,
+   "opciones": [
+    {
+     "codigo": "poliester",
+     "etiqueta": "Polyester",
+     "patrones": [
+      {
+       "re": "\\bpolyester\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "poliésteres",
+     "orden": 10
+    },
+    {
+     "codigo": "acrilico",
+     "etiqueta": "Acrylic or vinyl polymer",
+     "patrones": [
+      {
+       "re": "\\b(acrylic|acrilic[oa]|vinyl|vinil\\w*)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "acrílicos vinílicos",
+     "orden": 20
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other (polyurethane, epoxy, alkyd, nitrocellulose)",
+     "patrones": [
+      {
+       "re": "\\b(polyurethane|poliuretano|pu|epoxy|epoxi|alkyd)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pintura",
+     "modo": "REQUIRE",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "medio_pintura",
+       "operador": "IN",
+       "valor": [
+        "disolvente",
+        "agua"
+       ],
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "tipo_tinta",
+   "etiqueta": "Kind of ink",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 34,
+   "opciones": [
+    {
+     "codigo": "imprimir_negra",
+     "etiqueta": "Printing ink, black",
+     "orden": 10
+    },
+    {
+     "codigo": "imprimir_color",
+     "etiqueta": "Printing ink, other colors (incl. screen printing, plastisol)",
+     "orden": 20
+    },
+    {
+     "codigo": "otra",
+     "etiqueta": "Writing, drawing or other ink",
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tinta",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "menor_1kg",
+   "etiqueta": "Put up for retail sale, net weight 1 kg or less",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 40,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "false"
+  },
+  {
+   "codigo": "base_adhesivo",
+   "etiqueta": "Adhesive base",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 41,
+   "opciones": [
+    {
+     "codigo": "polimero",
+     "etiqueta": "Polymers of 39.01–39.13 or rubber (PU, polychloroprene, EVA hot-melt, acrylic)",
+     "patrones": [
+      {
+       "re": "\\b(polyurethane|poliuretano|pu|neoprene|neopreno|polychloroprene|policloropreno|hot ?melt|eva|acrylic|rubber|caucho|latex)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other (starch, dextrin, casein, animal glue)",
+     "orden": 20
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesivo",
+     "modo": "REQUIRE",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "menor_1kg",
+       "operador": "EQUAL",
+       "valor": false,
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "tipo_tensoactivo",
+   "etiqueta": "What it is",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 42,
+   "opciones": [
+    {
+     "codigo": "anionico",
+     "etiqueta": "Anionic surface-active agent",
+     "orden": 10
+    },
+    {
+     "codigo": "cationico",
+     "etiqueta": "Cationic surface-active agent",
+     "orden": 20
+    },
+    {
+     "codigo": "no_ionico",
+     "etiqueta": "Non-ionic surface-active agent",
+     "orden": 30
+    },
+    {
+     "codigo": "otro_agente",
+     "etiqueta": "Other surface-active agent",
+     "orden": 40
+    },
+    {
+     "codigo": "preparacion_menor",
+     "etiqueta": "Washing or cleaning preparation put up for retail sale",
+     "orden": 50
+    },
+    {
+     "codigo": "preparacion",
+     "etiqueta": "Washing, cleaning or surface-active preparation, not for retail sale",
+     "orden": 60
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tensoactivo",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Chapter 34 Note 3: a surface-active agent at 0.5 % in water at 20 °C gives a clear or stable liquid and lowers the surface tension of water to 45 dyn/cm or less."
+  },
+  {
+   "codigo": "forma_jabon",
+   "etiqueta": "Form",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 43,
+   "opciones": [
+    {
+     "codigo": "barra_tocador",
+     "etiqueta": "Bar, toilet use",
+     "orden": 10
+    },
+    {
+     "codigo": "barra_otra",
+     "etiqueta": "Bar, other use (laundry)",
+     "orden": 20
+    },
+    {
+     "codigo": "liquido_piel",
+     "etiqueta": "Liquid or cream for washing the skin",
+     "orden": 30
+    },
+    {
+     "codigo": "otra",
+     "etiqueta": "Other forms (flakes, powder)",
+     "orden": 40
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "jabon",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "aceite_petroleo",
+   "etiqueta": "Petroleum oil content",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 44,
+   "opciones": [
+    {
+     "codigo": "ninguno",
+     "etiqueta": "No petroleum oil",
+     "orden": 10
+    },
+    {
+     "codigo": "menos_70",
+     "etiqueta": "Contains petroleum oil, under 70 % by weight",
+     "orden": 20
+    },
+    {
+     "codigo": "70_o_mas",
+     "etiqueta": "70 % or more petroleum oil (it is a lubricating oil)",
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricante",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Heading 34.03 versus 27.10: with 70 % or more of petroleum oil it is an oil of chapter 27."
+  },
+  {
+   "codigo": "uso_textil_cuero",
+   "etiqueta": "For treating textiles, leather or furskins",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 45,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricante",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "aceite_petroleo",
+       "operador": "IN",
+       "valor": [
+        "ninguno",
+        "menos_70"
+       ],
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "false"
+  },
+  {
+   "codigo": "tipo_cera",
+   "etiqueta": "Kind of wax",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 46,
+   "opciones": [
+    {
+     "codigo": "preparada",
+     "etiqueta": "Artificial or prepared wax (mixtures, waxes with resins)",
+     "orden": 10
+    },
+    {
+     "codigo": "peg",
+     "etiqueta": "Polyethylene glycol wax",
+     "orden": 20
+    },
+    {
+     "codigo": "parafina",
+     "etiqueta": "Paraffin with under 0.75 % oil",
+     "terminos": "parafina",
+     "orden": 30
+    },
+    {
+     "codigo": "mineral",
+     "etiqueta": "Other mineral wax (microcrystalline, slack wax)",
+     "orden": 40
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cera",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "uso_pulimento",
+   "etiqueta": "For",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 47,
+   "opciones": [
+    {
+     "codigo": "calzado_cuero",
+     "etiqueta": "Footwear or leather",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "madera",
+     "etiqueta": "Wooden furniture or floors",
+     "orden": 20
+    },
+    {
+     "codigo": "carroceria",
+     "etiqueta": "Vehicle bodies, glass or metal",
+     "orden": 30
+    },
+    {
+     "codigo": "fregar",
+     "etiqueta": "Scouring pastes and powders",
+     "orden": 40
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other",
+     "orden": 50
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "betun",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "industria_apresto",
+   "etiqueta": "Used in the industry of",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 48,
+   "opciones": [
+    {
+     "codigo": "textil",
+     "etiqueta": "Textiles",
+     "patrones": [
+      {
+       "re": "\\b(textile|textil|fabric|tela)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "cuero",
+     "etiqueta": "Leather",
+     "patrones": [
+      {
+       "re": "\\b(leather|cuero|piel)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "papel",
+     "etiqueta": "Paper",
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "apresto",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "tipo_aditivo",
+   "etiqueta": "Kind of additive",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 49,
+   "opciones": [
+    {
+     "codigo": "acelerante",
+     "etiqueta": "Prepared rubber accelerator",
+     "orden": 10
+    },
+    {
+     "codigo": "plastificante",
+     "etiqueta": "Compound plasticizer",
+     "orden": 20
+    },
+    {
+     "codigo": "antioxidante_tmq",
+     "etiqueta": "Antioxidant: mixture of TMQ oligomers",
+     "orden": 30
+    },
+    {
+     "codigo": "antioxidante",
+     "etiqueta": "Other antioxidant or stabilizer",
+     "orden": 40
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "aditivo_polimero",
+     "modo": "REQUIRE",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "definido",
+       "operador": "EQUAL",
+       "valor": false,
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "tipo_biocida",
+   "etiqueta": "Kind",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 50,
+   "opciones": [
+    {
+     "codigo": "desinfectante",
+     "etiqueta": "Disinfectant or antimicrobial",
+     "orden": 10
+    },
+    {
+     "codigo": "insecticida",
+     "etiqueta": "Insecticide",
+     "orden": 20
+    },
+    {
+     "codigo": "fungicida",
+     "etiqueta": "Fungicide or anti-mold",
+     "orden": 30
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other",
+     "orden": 40
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "biocida",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "tipo_reactivo",
+   "etiqueta": "Kind",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 51,
+   "opciones": [
+    {
+     "codigo": "referencia",
+     "etiqueta": "Certified reference material",
+     "orden": 10
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other diagnostic or laboratory reagent",
+     "orden": 20
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reactivo",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  }
+ ],
+ "ambitos_comunes": {},
+ "reglas": [
+  {
+   "codigo": "R-NE-QUI-INORG-MEZCLA",
+   "categoria": "quimico_inorganico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "REVIEW"
+   },
+   "efecto": "Not a chemically defined compound: chapter 28 does not apply (Note 1). Choose the category by its function, or other chemical preparations (38.24)."
+  },
+  {
+   "codigo": "R-NE-QUI-INORG-ELEMENTO",
+   "categoria": "quimico_inorganico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_inorganico",
+     "operador": "EQUAL",
+     "valor": "elemento",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2801",
+     "2802",
+     "2803",
+     "2804",
+     "2805"
+    ]
+   },
+   "efecto": "Chemically defined inorganic compound, element → headings 28.01–05 (chapter 28 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-INORG-ACIDO",
+   "categoria": "quimico_inorganico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_inorganico",
+     "operador": "EQUAL",
+     "valor": "acido",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2806",
+     "2807",
+     "2808",
+     "2809",
+     "2810",
+     "2811"
+    ]
+   },
+   "efecto": "Chemically defined inorganic compound, inorganic acid or oxygen compound of non-metals → headings 28.06–11 (chapter 28 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-INORG-HALOGENURO",
+   "categoria": "quimico_inorganico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_inorganico",
+     "operador": "EQUAL",
+     "valor": "halogenuro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2812",
+     "2813"
+    ]
+   },
+   "efecto": "Chemically defined inorganic compound, halide or sulfide of non-metals → headings 28.12–13 (chapter 28 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-INORG-BASE_OXIDO",
+   "categoria": "quimico_inorganico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_inorganico",
+     "operador": "EQUAL",
+     "valor": "base_oxido",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2814",
+     "2815",
+     "2816",
+     "2817",
+     "2818",
+     "2819",
+     "2820",
+     "2821",
+     "2822",
+     "2823",
+     "2824",
+     "2825"
+    ]
+   },
+   "efecto": "Chemically defined inorganic compound, base or metal oxide/hydroxide → headings 28.14–25 (chapter 28 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-INORG-SAL",
+   "categoria": "quimico_inorganico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_inorganico",
+     "operador": "EQUAL",
+     "valor": "sal",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2826",
+     "2827",
+     "2828",
+     "2829",
+     "2830",
+     "2831",
+     "2832",
+     "2833",
+     "2834",
+     "2835",
+     "2836",
+     "2837",
+     "2839",
+     "2840",
+     "2841",
+     "2842"
+    ]
+   },
+   "efecto": "Chemically defined inorganic compound, salt of an inorganic acid or of a metal → headings 28.26–42 (chapter 28 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-INORG-OTRO",
+   "categoria": "quimico_inorganico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_inorganico",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2843",
+     "2844",
+     "2845",
+     "2846",
+     "2847",
+     "2849",
+     "2850",
+     "2852",
+     "2853"
+    ]
+   },
+   "efecto": "Chemically defined inorganic compound, other → headings 28.43–53 (chapter 28 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-MEZCLA",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "REVIEW"
+   },
+   "efecto": "Not a chemically defined compound: chapter 29 does not apply (Note 1). A mixture of solvents is 38.14; otherwise classify it by its function."
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-HIDROCARBURO",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "hidrocarburo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2901",
+     "2902",
+     "2903",
+     "2904"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, hydrocarbon or its halogenated, sulfonated or nitrated derivative → headings 29.01–04 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-ALCOHOL",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "alcohol",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2905",
+     "2906"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, alcohol → headings 29.05–06 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-FENOL",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "fenol",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2907",
+     "2908"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, phenol or phenol-alcohol → headings 29.07–08 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-ETER",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "eter",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2909",
+     "2910",
+     "2911"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, ether, peroxide, epoxide or acetal → headings 29.09–11 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-ALDEHIDO",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "aldehido",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2912",
+     "2913"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, aldehyde → headings 29.12–13 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-CETONA",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "cetona",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2914"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, ketone or quinone → headings 29.14–14 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-ACIDO",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "acido",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2915",
+     "2916",
+     "2917",
+     "2918"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, carboxylic acid, anhydride or ester → headings 29.15–18 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-ESTER_INORG",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "ester_inorg",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2919",
+     "2920"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, ester of an inorganic acid → headings 29.19–20 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-AMINA",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "amina",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2921",
+     "2922"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, amine or amino compound → headings 29.21–22 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-NITROGENADO",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "nitrogenado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2923",
+     "2924",
+     "2925",
+     "2926",
+     "2927",
+     "2928",
+     "2929"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, amide, imide, nitrile, isocyanate or other nitrogen compound → headings 29.23–29 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-ORGANO_INORG",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "organo_inorg",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2930",
+     "2931"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, organo-sulfur or other organo-inorganic compound → headings 29.30–31 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-HETEROCICLICO",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "heterociclico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2932",
+     "2933",
+     "2934",
+     "2935"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, heterocyclic compound → headings 29.32–35 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-ORG-OTRO",
+   "categoria": "quimico_organico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2936",
+     "2937",
+     "2938",
+     "2939",
+     "2940",
+     "2941",
+     "2942"
+    ]
+   },
+   "efecto": "Chemically defined organic compound, vitamin, hormone, sugar, antibiotic or other → headings 29.36–42 (chapter 29 Note 1); the name finds the subheading"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-HIDROCARBURO",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "hidrocarburo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2901",
+     "2902",
+     "2903",
+     "2904"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (hydrocarbon or its halogenated, sulfonated or nitrated derivative)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-ALCOHOL",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "alcohol",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2905",
+     "2906"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (alcohol)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-FENOL",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "fenol",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2907",
+     "2908"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (phenol or phenol-alcohol)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-ETER",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "eter",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2909",
+     "2910",
+     "2911"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (ether, peroxide, epoxide or acetal)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-ALDEHIDO",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "aldehido",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2912",
+     "2913"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (aldehyde)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-CETONA",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "cetona",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2914"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (ketone or quinone)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-ACIDO",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "acido",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2915",
+     "2916",
+     "2917",
+     "2918"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (carboxylic acid, anhydride or ester)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-ESTER_INORG",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "ester_inorg",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2919",
+     "2920"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (ester of an inorganic acid)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-AMINA",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "amina",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2921",
+     "2922"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (amine or amino compound)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-NITROGENADO",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "nitrogenado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2923",
+     "2924",
+     "2925",
+     "2926",
+     "2927",
+     "2928",
+     "2929"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (amide, imide, nitrile, isocyanate or other nitrogen compound)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-ORGANO_INORG",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "organo_inorg",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2930",
+     "2931"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (organo-sulfur or other organo-inorganic compound)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-HETEROCICLICO",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "heterociclico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2932",
+     "2933",
+     "2934",
+     "2935"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (heterocyclic compound)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-OTRO",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "grupo_organico",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "2936",
+     "2937",
+     "2938",
+     "2939",
+     "2940",
+     "2941",
+     "2942"
+    ]
+   },
+   "efecto": "A single solvent compound is chapter 29 (vitamin, hormone, sugar, antibiotic or other)"
+  },
+  {
+   "codigo": "R-NE-QUI-DISOLV-MEZCLA",
+   "categoria": "disolvente",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "381400"
+    ]
+   },
+   "efecto": "Composite organic solvents and thinners; paint removers → 3814.00"
+  },
+  {
+   "codigo": "R-NE-QUI-COLOR-DISPERSOS",
+   "categoria": "colorante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "clase_colorante",
+     "operador": "EQUAL",
+     "valor": "dispersos",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320411"
+    ]
+   },
+   "efecto": "Disperse dyes → 3204.11"
+  },
+  {
+   "codigo": "R-NE-QUI-COLOR-ACIDOS",
+   "categoria": "colorante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "clase_colorante",
+     "operador": "EQUAL",
+     "valor": "acidos",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320412"
+    ]
+   },
+   "efecto": "Acid and mordant dyes → 3204.12"
+  },
+  {
+   "codigo": "R-NE-QUI-COLOR-BASICOS",
+   "categoria": "colorante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "clase_colorante",
+     "operador": "EQUAL",
+     "valor": "basicos",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320413"
+    ]
+   },
+   "efecto": "Basic dyes → 3204.13"
+  },
+  {
+   "codigo": "R-NE-QUI-COLOR-DIRECTOS",
+   "categoria": "colorante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "clase_colorante",
+     "operador": "EQUAL",
+     "valor": "directos",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320414"
+    ]
+   },
+   "efecto": "Direct dyes → 3204.14"
+  },
+  {
+   "codigo": "R-NE-QUI-COLOR-TINA",
+   "categoria": "colorante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "clase_colorante",
+     "operador": "EQUAL",
+     "valor": "tina",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320415"
+    ]
+   },
+   "efecto": "Vat dyes → 3204.15"
+  },
+  {
+   "codigo": "R-NE-QUI-COLOR-REACTIVOS",
+   "categoria": "colorante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "clase_colorante",
+     "operador": "EQUAL",
+     "valor": "reactivos",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320416"
+    ]
+   },
+   "efecto": "Reactive dyes → 3204.16"
+  },
+  {
+   "codigo": "R-NE-QUI-COLOR-OTROS",
+   "categoria": "colorante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "clase_colorante",
+     "operador": "EQUAL",
+     "valor": "otros",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320419"
+    ]
+   },
+   "efecto": "Other synthetic organic dyes → 3204.19"
+  },
+  {
+   "codigo": "R-NE-QUI-COLOR-ABRILLANTADOR",
+   "categoria": "colorante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "clase_colorante",
+     "operador": "EQUAL",
+     "valor": "abrillantador",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320420"
+    ]
+   },
+   "efecto": "Fluorescent brightening agents → 3204.20"
+  },
+  {
+   "codigo": "R-NE-QUI-COLOR-NATURAL",
+   "categoria": "colorante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "clase_colorante",
+     "operador": "EQUAL",
+     "valor": "natural",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320300"
+    ]
+   },
+   "efecto": "Colouring matter of vegetable or animal origin → 3203.00"
+  },
+  {
+   "codigo": "R-NE-QUI-PIGM-ORGANICO",
+   "categoria": "pigmento",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_pigmento",
+     "operador": "EQUAL",
+     "valor": "organico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320417"
+    ]
+   },
+   "efecto": "Synthetic organic pigments → 3204.17"
+  },
+  {
+   "codigo": "R-NE-QUI-PIGM-DIOXIDO_TITANIO",
+   "categoria": "pigmento",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_pigmento",
+     "operador": "EQUAL",
+     "valor": "dioxido_titanio",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320611"
+    ]
+   },
+   "efecto": "Titanium dioxide pigments, 80 % or more → 3206.11"
+  },
+  {
+   "codigo": "R-NE-QUI-PIGM-DIOXIDO_TITANIO_BAJO",
+   "categoria": "pigmento",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_pigmento",
+     "operador": "EQUAL",
+     "valor": "dioxido_titanio_bajo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320619"
+    ]
+   },
+   "efecto": "Other titanium dioxide pigments → 3206.19"
+  },
+  {
+   "codigo": "R-NE-QUI-PIGM-INORGANICO",
+   "categoria": "pigmento",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_pigmento",
+     "operador": "EQUAL",
+     "valor": "inorganico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320620",
+     "320641",
+     "320642",
+     "320649",
+     "320650"
+    ]
+   },
+   "efecto": "Other inorganic pigments → 32.06 (the name finds the subheading)"
+  },
+  {
+   "codigo": "R-NE-QUI-PIGM-DISPERSION",
+   "categoria": "pigmento",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_pigmento",
+     "operador": "EQUAL",
+     "valor": "dispersion",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "321210",
+     "321290"
+    ]
+   },
+   "efecto": "Pigments dispersed in non-aqueous media for paints → 32.12 (chapter 32 Note 3)"
+  },
+  {
+   "codigo": "R-NE-QUI-PINT-DIS-POL",
+   "categoria": "pintura",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "medio_pintura",
+     "operador": "EQUAL",
+     "valor": "disolvente",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "polimero_pintura",
+     "operador": "EQUAL",
+     "valor": "poliester",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320810"
+    ]
+   },
+   "efecto": "Solvent-based paint of polyesters → 3208.10"
+  },
+  {
+   "codigo": "R-NE-QUI-PINT-DIS-ACR",
+   "categoria": "pintura",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "medio_pintura",
+     "operador": "EQUAL",
+     "valor": "disolvente",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "polimero_pintura",
+     "operador": "EQUAL",
+     "valor": "acrilico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320820"
+    ]
+   },
+   "efecto": "Solvent-based paint of acrylic or vinyl polymers → 3208.20"
+  },
+  {
+   "codigo": "R-NE-QUI-PINT-DIS-OTRO",
+   "categoria": "pintura",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "medio_pintura",
+     "operador": "EQUAL",
+     "valor": "disolvente",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "polimero_pintura",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320890"
+    ]
+   },
+   "efecto": "Other solvent-based paints and varnishes (PU, epoxy, alkyd) → 3208.90"
+  },
+  {
+   "codigo": "R-NE-QUI-PINT-AGUA-ACR",
+   "categoria": "pintura",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "medio_pintura",
+     "operador": "EQUAL",
+     "valor": "agua",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "polimero_pintura",
+     "operador": "EQUAL",
+     "valor": "acrilico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320910"
+    ]
+   },
+   "efecto": "Water-based paint of acrylic or vinyl polymers → 3209.10"
+  },
+  {
+   "codigo": "R-NE-QUI-PINT-AGUA-OTRO",
+   "categoria": "pintura",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "medio_pintura",
+     "operador": "EQUAL",
+     "valor": "agua",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "polimero_pintura",
+     "operador": "IN",
+     "valor": [
+      "poliester",
+      "otro"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "320990"
+    ]
+   },
+   "efecto": "Other water-based paints → 3209.90"
+  },
+  {
+   "codigo": "R-NE-QUI-PINT-OTRO",
+   "categoria": "pintura",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "medio_pintura",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "321000"
+    ]
+   },
+   "efecto": "Other paints; water pigments for finishing leather → 3210.00"
+  },
+  {
+   "codigo": "R-NE-QUI-TINTA-NEG",
+   "categoria": "tinta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tinta",
+     "operador": "EQUAL",
+     "valor": "imprimir_negra",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "321511"
+    ]
+   },
+   "efecto": "Black printing ink → 3215.11"
+  },
+  {
+   "codigo": "R-NE-QUI-TINTA-COL",
+   "categoria": "tinta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tinta",
+     "operador": "EQUAL",
+     "valor": "imprimir_color",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "321519"
+    ]
+   },
+   "efecto": "Other printing inks → 3215.19"
+  },
+  {
+   "codigo": "R-NE-QUI-TINTA-OTRA",
+   "categoria": "tinta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tinta",
+     "operador": "EQUAL",
+     "valor": "otra",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "321590"
+    ]
+   },
+   "efecto": "Writing, drawing and other inks → 3215.90"
+  },
+  {
+   "codigo": "R-NE-QUI-ADH-MENOR",
+   "categoria": "adhesivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "menor_1kg",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "350610"
+    ]
+   },
+   "efecto": "Glue or adhesive put up for retail sale, 1 kg or less → 3506.10"
+  },
+  {
+   "codigo": "R-NE-QUI-ADH-POL",
+   "categoria": "adhesivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "menor_1kg",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "base_adhesivo",
+     "operador": "EQUAL",
+     "valor": "polimero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "350691"
+    ]
+   },
+   "efecto": "Adhesive based on polymers of 39.01–39.13 or rubber → 3506.91"
+  },
+  {
+   "codigo": "R-NE-QUI-ADH-OTRO",
+   "categoria": "adhesivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "menor_1kg",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "base_adhesivo",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "350699"
+    ]
+   },
+   "efecto": "Other glues → 3506.99"
+  },
+  {
+   "codigo": "R-NE-QUI-TENSO-ANIONICO",
+   "categoria": "tensoactivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tensoactivo",
+     "operador": "EQUAL",
+     "valor": "anionico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340231",
+     "340239"
+    ]
+   },
+   "efecto": "Anionic organic surface-active agents → 3402.31/39"
+  },
+  {
+   "codigo": "R-NE-QUI-TENSO-CATIONICO",
+   "categoria": "tensoactivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tensoactivo",
+     "operador": "EQUAL",
+     "valor": "cationico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340241"
+    ]
+   },
+   "efecto": "Cationic organic surface-active agents → 3402.41"
+  },
+  {
+   "codigo": "R-NE-QUI-TENSO-NO_IONICO",
+   "categoria": "tensoactivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tensoactivo",
+     "operador": "EQUAL",
+     "valor": "no_ionico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340242"
+    ]
+   },
+   "efecto": "Non-ionic organic surface-active agents → 3402.42"
+  },
+  {
+   "codigo": "R-NE-QUI-TENSO-OTRO_AGENTE",
+   "categoria": "tensoactivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tensoactivo",
+     "operador": "EQUAL",
+     "valor": "otro_agente",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340249"
+    ]
+   },
+   "efecto": "Other organic surface-active agents → 3402.49"
+  },
+  {
+   "codigo": "R-NE-QUI-TENSO-PREPARACION_MENOR",
+   "categoria": "tensoactivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tensoactivo",
+     "operador": "EQUAL",
+     "valor": "preparacion_menor",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340250"
+    ]
+   },
+   "efecto": "Washing and cleaning preparations put up for retail sale → 3402.50"
+  },
+  {
+   "codigo": "R-NE-QUI-TENSO-PREPARACION",
+   "categoria": "tensoactivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tensoactivo",
+     "operador": "EQUAL",
+     "valor": "preparacion",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340290"
+    ]
+   },
+   "efecto": "Other washing, cleaning and surface-active preparations → 3402.90"
+  },
+  {
+   "codigo": "R-NE-QUI-JABON-BARRA_TOCADOR",
+   "categoria": "jabon",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "forma_jabon",
+     "operador": "EQUAL",
+     "valor": "barra_tocador",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340111"
+    ]
+   },
+   "efecto": "Toilet soap in bars → 3401.11"
+  },
+  {
+   "codigo": "R-NE-QUI-JABON-BARRA_OTRA",
+   "categoria": "jabon",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "forma_jabon",
+     "operador": "EQUAL",
+     "valor": "barra_otra",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340119"
+    ]
+   },
+   "efecto": "Other soap in bars → 3401.19"
+  },
+  {
+   "codigo": "R-NE-QUI-JABON-LIQUIDO_PIEL",
+   "categoria": "jabon",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "forma_jabon",
+     "operador": "EQUAL",
+     "valor": "liquido_piel",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340130"
+    ]
+   },
+   "efecto": "Liquid or cream for washing the skin → 3401.30"
+  },
+  {
+   "codigo": "R-NE-QUI-JABON-OTRA",
+   "categoria": "jabon",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "forma_jabon",
+     "operador": "EQUAL",
+     "valor": "otra",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340120"
+    ]
+   },
+   "efecto": "Soap in other forms → 3401.20"
+  },
+  {
+   "codigo": "R-NE-QUI-LUB-ACEITE",
+   "categoria": "lubricante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "aceite_petroleo",
+     "operador": "EQUAL",
+     "valor": "70_o_mas",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "271019"
+    ]
+   },
+   "efecto": "With 70 % or more of petroleum oil it is a lubricating oil of 27.10 (heading 34.03, exclusions)"
+  },
+  {
+   "codigo": "R-NE-QUI-LUB-PET-TEX",
+   "categoria": "lubricante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "aceite_petroleo",
+     "operador": "EQUAL",
+     "valor": "menos_70",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_textil_cuero",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340311"
+    ]
+   },
+   "efecto": "Lubricating preparation with petroleum oil, for textiles or leather → 3403.11"
+  },
+  {
+   "codigo": "R-NE-QUI-LUB-PET",
+   "categoria": "lubricante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "aceite_petroleo",
+     "operador": "EQUAL",
+     "valor": "menos_70",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_textil_cuero",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340319"
+    ]
+   },
+   "efecto": "Other lubricating preparations with petroleum oil → 3403.19"
+  },
+  {
+   "codigo": "R-NE-QUI-LUB-SIN-TEX",
+   "categoria": "lubricante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "aceite_petroleo",
+     "operador": "EQUAL",
+     "valor": "ninguno",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_textil_cuero",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340391"
+    ]
+   },
+   "efecto": "Lubricating preparation without petroleum oil, for textiles or leather → 3403.91"
+  },
+  {
+   "codigo": "R-NE-QUI-LUB-SIN",
+   "categoria": "lubricante",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "aceite_petroleo",
+     "operador": "EQUAL",
+     "valor": "ninguno",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "uso_textil_cuero",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340399"
+    ]
+   },
+   "efecto": "Other lubricating preparations (silicone, release agents) → 3403.99"
+  },
+  {
+   "codigo": "R-NE-QUI-CERA-PREP",
+   "categoria": "cera",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cera",
+     "operador": "EQUAL",
+     "valor": "preparada",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340490"
+    ]
+   },
+   "efecto": "Artificial and prepared waxes → 3404.90 (chapter 34 Note 5)"
+  },
+  {
+   "codigo": "R-NE-QUI-CERA-PEG",
+   "categoria": "cera",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cera",
+     "operador": "EQUAL",
+     "valor": "peg",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340420"
+    ]
+   },
+   "efecto": "Polyethylene glycol waxes → 3404.20"
+  },
+  {
+   "codigo": "R-NE-QUI-CERA-PARAF",
+   "categoria": "cera",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cera",
+     "operador": "EQUAL",
+     "valor": "parafina",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "271220"
+    ]
+   },
+   "efecto": "Paraffin wax with under 0.75 % oil → 2712.20 (chapter 34 Note 5 c)"
+  },
+  {
+   "codigo": "R-NE-QUI-CERA-MIN",
+   "categoria": "cera",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cera",
+     "operador": "EQUAL",
+     "valor": "mineral",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "271290"
+    ]
+   },
+   "efecto": "Other mineral waxes → 2712.90"
+  },
+  {
+   "codigo": "R-NE-QUI-BETUN-CALZADO_CUERO",
+   "categoria": "betun",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_pulimento",
+     "operador": "EQUAL",
+     "valor": "calzado_cuero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340510"
+    ]
+   },
+   "efecto": "Polishes and creams for footwear or leather → 3405.10"
+  },
+  {
+   "codigo": "R-NE-QUI-BETUN-MADERA",
+   "categoria": "betun",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_pulimento",
+     "operador": "EQUAL",
+     "valor": "madera",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340520"
+    ]
+   },
+   "efecto": "Polishes for wooden furniture and floors → 3405.20"
+  },
+  {
+   "codigo": "R-NE-QUI-BETUN-CARROCERIA",
+   "categoria": "betun",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_pulimento",
+     "operador": "EQUAL",
+     "valor": "carroceria",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340530"
+    ]
+   },
+   "efecto": "Polishes for vehicle bodies, glass or metal → 3405.30"
+  },
+  {
+   "codigo": "R-NE-QUI-BETUN-FREGAR",
+   "categoria": "betun",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_pulimento",
+     "operador": "EQUAL",
+     "valor": "fregar",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340540"
+    ]
+   },
+   "efecto": "Scouring pastes and powders → 3405.40"
+  },
+  {
+   "codigo": "R-NE-QUI-BETUN-OTRO",
+   "categoria": "betun",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_pulimento",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "340590"
+    ]
+   },
+   "efecto": "Other polishes → 3405.90"
+  },
+  {
+   "codigo": "R-NE-QUI-APRESTO-TEX",
+   "categoria": "apresto",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "industria_apresto",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "380991"
+    ]
+   },
+   "efecto": "Finishing agents for the textile industry → 3809.91"
+  },
+  {
+   "codigo": "R-NE-QUI-APRESTO-CUE",
+   "categoria": "apresto",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "industria_apresto",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "380993"
+    ]
+   },
+   "efecto": "Finishing agents for the leather industry → 3809.93"
+  },
+  {
+   "codigo": "R-NE-QUI-APRESTO-PAP",
+   "categoria": "apresto",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "industria_apresto",
+     "operador": "EQUAL",
+     "valor": "papel",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "380992"
+    ]
+   },
+   "efecto": "Finishing agents for the paper industry → 3809.92"
+  },
+  {
+   "codigo": "R-NE-QUI-ADIT-DEF",
+   "categoria": "aditivo_polimero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "29"
+    ]
+   },
+   "efecto": "A single defined compound (e.g. a phthalate plasticizer) is chapter 29, not 38.12",
+   "requiere_revision": true
+  },
+  {
+   "codigo": "R-NE-QUI-ADIT-ACELERANTE",
+   "categoria": "aditivo_polimero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tipo_aditivo",
+     "operador": "EQUAL",
+     "valor": "acelerante",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "381210"
+    ]
+   },
+   "efecto": "Prepared rubber accelerators → 3812.10"
+  },
+  {
+   "codigo": "R-NE-QUI-ADIT-PLASTIFICANTE",
+   "categoria": "aditivo_polimero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tipo_aditivo",
+     "operador": "EQUAL",
+     "valor": "plastificante",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "381220"
+    ]
+   },
+   "efecto": "Compound plasticizers → 3812.20"
+  },
+  {
+   "codigo": "R-NE-QUI-ADIT-ANTIOXIDANTE_TMQ",
+   "categoria": "aditivo_polimero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tipo_aditivo",
+     "operador": "EQUAL",
+     "valor": "antioxidante_tmq",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "381231"
+    ]
+   },
+   "efecto": "Mixtures of TMQ oligomers → 3812.31"
+  },
+  {
+   "codigo": "R-NE-QUI-ADIT-ANTIOXIDANTE",
+   "categoria": "aditivo_polimero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "definido",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tipo_aditivo",
+     "operador": "EQUAL",
+     "valor": "antioxidante",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "381239"
+    ]
+   },
+   "efecto": "Other antioxidants and stabilizers → 3812.39"
+  },
+  {
+   "codigo": "R-NE-QUI-BIOC-DESINFECTANTE",
+   "categoria": "biocida",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_biocida",
+     "operador": "EQUAL",
+     "valor": "desinfectante",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "380894"
+    ]
+   },
+   "efecto": "Disinfectants → 3808.94"
+  },
+  {
+   "codigo": "R-NE-QUI-BIOC-INSECTICIDA",
+   "categoria": "biocida",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_biocida",
+     "operador": "EQUAL",
+     "valor": "insecticida",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "380891"
+    ]
+   },
+   "efecto": "Insecticides → 3808.91"
+  },
+  {
+   "codigo": "R-NE-QUI-BIOC-FUNGICIDA",
+   "categoria": "biocida",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_biocida",
+     "operador": "EQUAL",
+     "valor": "fungicida",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "380892"
+    ]
+   },
+   "efecto": "Fungicides → 3808.92"
+  },
+  {
+   "codigo": "R-NE-QUI-BIOC-OTRO",
+   "categoria": "biocida",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_biocida",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "380899"
+    ]
+   },
+   "efecto": "Other → 3808.99"
+  },
+  {
+   "codigo": "R-NE-QUI-REACT-REF",
+   "categoria": "reactivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_reactivo",
+     "operador": "EQUAL",
+     "valor": "referencia",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "382290"
+    ]
+   },
+   "efecto": "Certified reference materials → 3822.90 (chapter 38 Note 2)"
+  },
+  {
+   "codigo": "R-NE-QUI-REACT-OTRO",
+   "categoria": "reactivo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_reactivo",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "382219"
+    ]
+   },
+   "efecto": "Other diagnostic or laboratory reagents → 3822.19"
+  },
+  {
+   "codigo": "R-NE-QUI-PREP",
+   "categoria": "preparacion_quimica",
+   "condiciones": [],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "382499"
+    ]
+   },
+   "efecto": "Chemical preparations not elsewhere specified → 3824.99"
+  }
+ ],
+ "casos": [
+  {
+   "hechos": {
+    "categoria": "quimico_organico",
+    "nombre_quimico": "Acetona",
+    "definido": true,
+    "grupo_organico": "cetona"
+   },
+   "codigo": "291411"
+  },
+  {
+   "hechos": {
+    "categoria": "quimico_inorganico",
+    "nombre_quimico": "Hidróxido de sodio sólido (soda cáustica)",
+    "definido": true,
+    "grupo_inorganico": "base_oxido"
+   },
+   "codigo": "281511"
+  },
+  {
+   "hechos": {
+    "categoria": "adhesivo",
+    "menor_1kg": false,
+    "base_adhesivo": "polimero",
+    "nombre_quimico": "Polyurethane adhesive for soles"
+   },
+   "codigo": "350691"
+  },
+  {
+   "hechos": {
+    "categoria": "adhesivo",
+    "menor_1kg": true
+   },
+   "codigo": "350610"
+  },
+  {
+   "hechos": {
+    "categoria": "pintura",
+    "medio_pintura": "disolvente",
+    "polimero_pintura": "otro"
+   },
+   "codigo": "320890"
+  },
+  {
+   "hechos": {
+    "categoria": "pintura",
+    "medio_pintura": "agua",
+    "polimero_pintura": "acrilico"
+   },
+   "codigo": "320910"
+  },
+  {
+   "hechos": {
+    "categoria": "tinta",
+    "tipo_tinta": "imprimir_color"
+   },
+   "codigo": "321519"
+  },
+  {
+   "hechos": {
+    "categoria": "colorante",
+    "clase_colorante": "dispersos"
+   },
+   "codigo": "320411"
+  },
+  {
+   "hechos": {
+    "categoria": "pigmento",
+    "tipo_pigmento": "dioxido_titanio"
+   },
+   "codigo": "320611"
+  },
+  {
+   "hechos": {
+    "categoria": "tensoactivo",
+    "tipo_tensoactivo": "preparacion_menor"
+   },
+   "codigo": "340250"
+  },
+  {
+   "hechos": {
+    "categoria": "lubricante",
+    "aceite_petroleo": "ninguno",
+    "uso_textil_cuero": false
+   },
+   "codigo": "340399"
+  },
+  {
+   "hechos": {
+    "categoria": "cera",
+    "tipo_cera": "preparada"
+   },
+   "codigo": "340490"
+  },
+  {
+   "hechos": {
+    "categoria": "betun",
+    "uso_pulimento": "calzado_cuero"
+   },
+   "codigo": "340510"
+  },
+  {
+   "hechos": {
+    "categoria": "apresto",
+    "industria_apresto": "textil"
+   },
+   "codigo": "380991"
+  },
+  {
+   "hechos": {
+    "categoria": "aditivo_polimero",
+    "definido": false,
+    "tipo_aditivo": "acelerante"
+   },
+   "codigo": "381210"
+  },
+  {
+   "hechos": {
+    "categoria": "disolvente",
+    "definido": false
+   },
+   "codigo": "381400"
+  },
+  {
+   "hechos": {
+    "categoria": "biocida",
+    "tipo_biocida": "desinfectante"
+   },
+   "codigo": "380894"
+  },
+  {
+   "hechos": {
+    "categoria": "preparacion_quimica"
+   },
+   "codigo": "382499"
+  }
+ ]
+}

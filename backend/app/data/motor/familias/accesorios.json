@@ -1,0 +1,3429 @@
+{
+ "origen": "Classification engine configuration written from the Explanatory Notes, chapters 42, 61, 62, 65, 66, 71, 90, 91 and 96 (not official data).",
+ "dominio": {
+  "codigo": "ACCESSORIES",
+  "nombre": "Accessories",
+  "orden": 30,
+  "descripcion": "Bags and leather goods, belts, gloves, scarves, ties, headwear, umbrellas, imitation jewelry, watches, sunglasses and hair accessories.",
+  "capitulos": [
+   {
+    "capitulo": "42",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "65",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "66",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "71",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "91",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "61",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "62",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "39",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "40",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "85",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "90",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "96",
+    "relevancia": "SECONDARY"
+   }
+  ]
+ },
+ "fuente": "Explanatory Notes, chapters 42, 61, 62, 65, 66, 71, 90, 91 and 96",
+ "categorias": [
+  {
+   "codigo": "maleta",
+   "nombre": "Suitcase, trolley, briefcase, attaché or vanity case",
+   "nombre_corto": "Suitcase or briefcase",
+   "nombre_aduana": "Maleta",
+   "grupo": "Bags and leather goods",
+   "familia": "maleta",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "42"
+   ],
+   "alias": "maleta trolley maletín portafolio",
+   "orden": 10,
+   "patrones": [
+    {
+     "re": "\\b(suitcases?|maletas?|trolleys?|luggage|equipaje|carry-?on|briefcases?|maletines?|portafolios?|attache|vanity cases?)\\b",
+     "prioridad": 30
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "CON SUPERFICIE EXTERIOR DE {superficie_exterior}",
+    "requiere": [
+     "superficie_exterior"
+    ],
+    "como": {
+     "superficie_exterior": {
+      "cuero": "CUERO",
+      "plastico": "PLÁSTICO",
+      "textil": "MATERIA TEXTIL",
+      "otro": "OTRAS MATERIAS"
+     }
+    }
+   }
+  },
+  {
+   "codigo": "bolso_mano",
+   "nombre": "Handbag, shoulder bag, crossbody or clutch",
+   "nombre_corto": "Handbag",
+   "nombre_aduana": "Bolso de mano",
+   "grupo": "Bags and leather goods",
+   "familia": "bolso_mano",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "42"
+   ],
+   "alias": "bolso cartera crossbody clutch",
+   "orden": 20,
+   "patrones": [
+    {
+     "re": "\\b(handbags?|bolsos? de mano|carteras?|purses?|shoulder bags?|crossbody|bandoleras?|clutch(es)?|satchels?|hobo bags?)\\b",
+     "prioridad": 31
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "CON SUPERFICIE EXTERIOR DE {superficie_exterior}",
+    "requiere": [
+     "superficie_exterior"
+    ],
+    "como": {
+     "superficie_exterior": {
+      "cuero": "CUERO",
+      "plastico": "PLÁSTICO",
+      "textil": "MATERIA TEXTIL",
+      "otro": "OTRAS MATERIAS"
+     }
+    }
+   }
+  },
+  {
+   "codigo": "articulo_bolsillo",
+   "nombre": "Wallet, coin purse, card holder, key case or glasses case",
+   "nombre_corto": "Wallet",
+   "nombre_aduana": "Billetera",
+   "grupo": "Bags and leather goods",
+   "familia": "articulo_bolsillo",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "42"
+   ],
+   "alias": "billetera monedero tarjetero estuche de lentes",
+   "orden": 30,
+   "patrones": [
+    {
+     "re": "\\b(wallets?|billeteras?|carteras? de bolsillo|coin purses?|monederos?|card ?holders?|tarjeteros?|key cases?|llaveros? de cuero|glasses cases?|estuches? para (gafas|lentes)|passport (holders?|covers?))\\b",
+     "prioridad": 29
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "CON SUPERFICIE EXTERIOR DE {superficie_exterior}",
+    "requiere": [
+     "superficie_exterior"
+    ],
+    "como": {
+     "superficie_exterior": {
+      "cuero": "CUERO",
+      "plastico": "PLÁSTICO",
+      "textil": "MATERIA TEXTIL",
+      "otro": "OTRAS MATERIAS"
+     }
+    }
+   }
+  },
+  {
+   "codigo": "mochila",
+   "nombre": "Backpack",
+   "nombre_corto": "Backpack",
+   "nombre_aduana": "Mochila",
+   "grupo": "Bags and leather goods",
+   "familia": "mochila",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "42"
+   ],
+   "alias": "mochila backpack",
+   "orden": 40,
+   "patrones": [
+    {
+     "re": "\\b(backpacks?|mochilas?|daypacks?|rucksacks?|bookbags?)\\b",
+     "prioridad": 27
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "CON SUPERFICIE EXTERIOR DE {superficie_exterior}",
+    "requiere": [
+     "superficie_exterior"
+    ],
+    "como": {
+     "superficie_exterior": {
+      "cuero": "CUERO",
+      "plastico": "PLÁSTICO",
+      "textil": "MATERIA TEXTIL",
+      "otro": "OTRAS MATERIAS"
+     }
+    }
+   }
+  },
+  {
+   "codigo": "bolso_viaje",
+   "nombre": "Travel, duffel, sports, tote, toiletry, belt or cooler bag; cases",
+   "nombre_corto": "Bag or case",
+   "nombre_aduana": "Bolso",
+   "grupo": "Bags and leather goods",
+   "familia": "bolso_viaje",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "42"
+   ],
+   "alias": "bolso de viaje maletín deportivo tote neceser canguro lonchera funda",
+   "orden": 50,
+   "patrones": [
+    {
+     "re": "\\b(duffels?|duffle|travel bags?|bolsos? de viaje|gym bags?|sports? bags?|totes?|tote bags?|toiletry bags?|neceser|belt bags?|waist bags?|fanny packs?|canguros?|riñoneras?|cooler bags?|loncheras?|lunch bags?|camera (bags?|cases?)|laptop (bags?|sleeves?)|pouch(es)?|cosmetiqueras?)\\b",
+     "prioridad": 26
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "CON SUPERFICIE EXTERIOR DE {superficie_exterior}",
+    "requiere": [
+     "superficie_exterior"
+    ],
+    "como": {
+     "superficie_exterior": {
+      "cuero": "CUERO",
+      "plastico": "PLÁSTICO",
+      "textil": "MATERIA TEXTIL",
+      "otro": "OTRAS MATERIAS"
+     }
+    }
+   }
+  },
+  {
+   "codigo": "cinturon",
+   "nombre": "Belt",
+   "nombre_corto": "Belt",
+   "nombre_aduana": "Cinturón",
+   "grupo": "Clothing accessories",
+   "familia": "cinturon",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "42",
+    "61",
+    "62",
+    "39"
+   ],
+   "alias": "cinturón cincho",
+   "orden": 60,
+   "patrones": [
+    {
+     "re": "\\b(belts?|cinturon(es)?|cinchos?|correas? de vestir)\\b",
+     "prioridad": 39
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "material"
+    ]
+   }
+  },
+  {
+   "codigo": "guantes",
+   "nombre": "Gloves, mittens or mitts",
+   "nombre_corto": "Gloves",
+   "nombre_aduana": "Guantes",
+   "grupo": "Clothing accessories",
+   "familia": "guantes",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "42",
+    "61",
+    "62",
+    "39",
+    "40"
+   ],
+   "alias": "guantes manoplas",
+   "orden": 70,
+   "patrones": [
+    {
+     "re": "\\b(gloves?|guantes?|mittens?|manoplas?|mitones?)\\b",
+     "prioridad": 37
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "material"
+    ]
+   }
+  },
+  {
+   "codigo": "bufanda",
+   "nombre": "Scarf, shawl, neck warmer, bandana or veil",
+   "nombre_corto": "Scarf",
+   "nombre_aduana": "Bufanda",
+   "grupo": "Clothing accessories",
+   "familia": "bufanda",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "61",
+    "62"
+   ],
+   "alias": "bufanda chal bandana pañuelo de cuello",
+   "orden": 80,
+   "patrones": [
+    {
+     "re": "\\b(scarf|scarves|bufandas?|shawls?|chales?|neck (gaiters?|warmers?)|cuellos?|bandanas?|panuelos? de cuello|veils?|velos?|pashminas?|foulards?)\\b",
+     "prioridad": 36
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    }
+   }
+  },
+  {
+   "codigo": "corbata",
+   "nombre": "Tie, bow tie or cravat",
+   "nombre_corto": "Tie",
+   "nombre_aduana": "Corbata",
+   "grupo": "Clothing accessories",
+   "familia": "corbata",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "61",
+    "62"
+   ],
+   "alias": "corbata corbatín",
+   "orden": 90,
+   "patrones": [
+    {
+     "re": "\\b(ties|neck ?ties?|corbatas?|bow ?ties?|corbatines?|cravats?)\\b",
+     "prioridad": 35
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    }
+   }
+  },
+  {
+   "codigo": "panuelo",
+   "nombre": "Pocket handkerchief",
+   "nombre_corto": "Handkerchief",
+   "nombre_aduana": "Pañuelo",
+   "grupo": "Clothing accessories",
+   "familia": "panuelo",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "62",
+    "61"
+   ],
+   "alias": "pañuelo",
+   "orden": 100,
+   "patrones": [
+    {
+     "re": "\\b(handkerchiefs?|panuelos?( de bolsillo)?|pocket squares?)\\b",
+     "prioridad": 30
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "DE {fibra}",
+    "requiere": [
+     "fibra"
+    ],
+    "como": {
+     "fibra": {
+      "cuero": "CUERO",
+      "*": "TEXTIL"
+     }
+    }
+   }
+  },
+  {
+   "codigo": "gorra",
+   "nombre": "Cap, hat, beanie or helmet",
+   "nombre_corto": "Cap or hat",
+   "nombre_aduana": "Gorra",
+   "grupo": "Clothing accessories",
+   "familia": "gorra",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "65"
+   ],
+   "alias": "gorra sombrero gorro boina casco",
+   "orden": 110,
+   "patrones": [
+    {
+     "re": "\\b(caps?|hats?|beanies?|gorras?|gorros?|sombreros?|bucket hats?|truckers?|visors?|viseras?|balaclavas?|pasamontanas|helmets?|cascos?|boinas?|berets?|headwear)\\b",
+     "prioridad": 40
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "material"
+    ]
+   }
+  },
+  {
+   "codigo": "paraguas",
+   "nombre": "Umbrella or sunshade",
+   "nombre_corto": "Umbrella",
+   "nombre_aduana": "Paraguas",
+   "grupo": "Clothing accessories",
+   "familia": "paraguas",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "66"
+   ],
+   "alias": "paraguas sombrilla",
+   "orden": 120,
+   "patrones": [
+    {
+     "re": "\\b(umbrellas?|paraguas|sombrillas?|parasols?|quitasoles?)\\b",
+     "prioridad": 34
+    }
+   ]
+  },
+  {
+   "codigo": "bisuteria",
+   "nombre": "Imitation jewelry: necklace, earrings, bracelet, ring, cufflinks",
+   "nombre_corto": "Jewelry",
+   "nombre_aduana": "Bisutería",
+   "grupo": "Watches, eyewear and jewelry",
+   "familia": "bisuteria",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "71"
+   ],
+   "alias": "bisutería collar aretes pulsera anillo gemelos",
+   "orden": 130,
+   "patrones": [
+    {
+     "re": "\\b(jewel(le)?ry|bisuteria|necklaces?|collares?|earrings?|aretes?|aros|pendientes|bracelets?|pulseras?|rings?|anillos?|cufflinks?|gemelos|brooches?|broches?|pins?|charms?|dijes?)\\b",
+     "prioridad": 33
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "material"
+    ]
+   }
+  },
+  {
+   "codigo": "reloj",
+   "nombre": "Wrist watch",
+   "nombre_corto": "Watch",
+   "nombre_aduana": "Reloj de pulsera",
+   "grupo": "Watches, eyewear and jewelry",
+   "familia": "reloj",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "91",
+    "85"
+   ],
+   "alias": "reloj smartwatch",
+   "orden": 140,
+   "patrones": [
+    {
+     "re": "\\b(watch(es)?|relojes?|smartwatch(es)?|timepieces?)\\b",
+     "prioridad": 33
+    }
+   ]
+  },
+  {
+   "codigo": "correa_reloj",
+   "nombre": "Watch strap or bracelet",
+   "nombre_corto": "Watch strap",
+   "nombre_aduana": "Correa para reloj",
+   "grupo": "Watches, eyewear and jewelry",
+   "familia": "correa_reloj",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "91"
+   ],
+   "alias": "correa de reloj extensible",
+   "orden": 150,
+   "patrones": [
+    {
+     "re": "\\b(watch ?(straps?|bands?|bracelets?)|correas? (de|para) reloj|extensibles? de reloj)\\b",
+     "prioridad": 22
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "material"
+    ]
+   }
+  },
+  {
+   "codigo": "lentes",
+   "nombre": "Sunglasses or other glasses (not corrective)",
+   "nombre_corto": "Sunglasses",
+   "nombre_aduana": "Anteojos",
+   "grupo": "Watches, eyewear and jewelry",
+   "familia": "lentes",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "90"
+   ],
+   "alias": "lentes de sol gafas anteojos goggles",
+   "orden": 160,
+   "patrones": [
+    {
+     "re": "\\b(sunglasses|lentes de sol|gafas( de sol)?|anteojos|goggles|shades|eyewear)\\b",
+     "prioridad": 32
+    }
+   ]
+  },
+  {
+   "codigo": "accesorio_pelo",
+   "nombre": "Hair accessory: clip, comb, hairband, scrunchie, hairpin",
+   "nombre_corto": "Hair accessory",
+   "nombre_aduana": "Accesorio para el cabello",
+   "grupo": "Clothing accessories",
+   "familia": "accesorio_pelo",
+   "dominio": "ACCESSORIES",
+   "capitulos": [
+    "96",
+    "61",
+    "62"
+   ],
+   "alias": "pasador diadema peine colita scrunchie",
+   "orden": 170,
+   "patrones": [
+    {
+     "re": "\\b(hair ?(clips?|ties?|bands?|pins?|slides?|accessor(y|ies))|scrunchies?|headbands?|diademas?|vinchas?|combs?|peines?|peinetas?|pasadores?|horquillas?|ganchos? (para el )?pelo|colitas?|bobby pins?)\\b",
+     "prioridad": 25
+    }
+   ],
+   "plantilla_aduana": {
+    "material": "DE {clase}",
+    "clase": [
+     "material"
+    ]
+   }
+  }
+ ],
+ "atributos": [
+  {
+   "codigo": "superficie_exterior",
+   "etiqueta": "Material of the outer surface",
+   "tipo_dato": "select",
+   "seccion": "composicion",
+   "orden": 170,
+   "opciones": [
+    {
+     "codigo": "cuero",
+     "etiqueta": "Natural leather (including patent or regenerated leather)",
+     "orden": 10
+    },
+    {
+     "codigo": "plastico",
+     "etiqueta": "Plastic sheeting (includes synthetic leather and PU)",
+     "orden": 20
+    },
+    {
+     "codigo": "textil",
+     "etiqueta": "Textile",
+     "orden": 30
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other (paperboard, vulcanized fiber, wood, metal, straw)",
+     "orden": 40
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "maleta",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "bolso_mano",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "articulo_bolsillo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "mochila",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "bolso_viaje",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Subheadings of 42.02: the material of the outer surface. Leather with a thin, invisible plastic coating is still leather.",
+   "derivacion": {
+    "modo": "material",
+    "parte": "exterior",
+    "lectura": "superficie"
+   }
+  },
+  {
+   "codigo": "deporte_guante",
+   "etiqueta": "Designed specially for sport (e.g. boxing, hockey, golf, cycling)",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 200,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "guantes",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "material",
+       "operador": "EQUAL",
+       "valor": "cuero",
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Subheading 4203.21: gloves with a functional design for the sport.",
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(boxing|box|golf|hockey|cycling|ciclismo|baseball|beisbol|goalkeeper|portero|batting)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "guante_recubierto",
+   "etiqueta": "Impregnated, coated or covered with plastics or rubber",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 210,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "guantes",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "material",
+       "operador": "EQUAL",
+       "valor": "textil",
+       "negado": false
+      },
+      {
+       "grupo": 1,
+       "campo": "tejido",
+       "operador": "EQUAL",
+       "valor": "punto",
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(nitrile|nitrilo|latex|pu (coated|palm)|coated|recubiert[oa]s?)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "guante_medico",
+   "etiqueta": "For medical, surgical, dental or veterinary use",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 215,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "guantes",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "material",
+       "operador": "EQUAL",
+       "valor": "plastico",
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "false"
+  },
+  {
+   "codigo": "cuadrado_60",
+   "etiqueta": "Square or nearly square, no side over 60 cm",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 220,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "bufanda",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "tejido",
+       "operador": "EQUAL",
+       "valor": "plano",
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Chapter 62 Note 7: such a neck scarf is treated as a pocket handkerchief (62.13).",
+   "valor_defecto": "false"
+  },
+  {
+   "codigo": "tipo_tocado",
+   "etiqueta": "How it is made",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 230,
+   "opciones": [
+    {
+     "codigo": "tela",
+     "etiqueta": "Knitted, or made up of fabric, felt or lace in the piece (caps, beanies, bucket hats)",
+     "patrones": [
+      {
+       "re": "\\b(caps?|gorras?|beanies?|gorros?|bucket|truckers?|baseball|knit|tejid[oa]|boinas?|balaclavas?)\\b",
+       "en": "todo",
+       "prioridad": 5
+      },
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "trenzado",
+     "etiqueta": "Plaited or made by assembling strips (straw hats)",
+     "patrones": [
+      {
+       "re": "\\b(straw|paja|panama|raffia|rafia|plaited|trenzad[oa])\\b",
+       "en": "todo",
+       "prioridad": 3
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "casco",
+     "etiqueta": "Safety helmet",
+     "patrones": [
+      {
+       "re": "\\b(safety helmets?|cascos? de seguridad|hard hats?|helmets?|cascos?)\\b",
+       "en": "todo",
+       "prioridad": 2
+      }
+     ],
+     "orden": 30
+    },
+    {
+     "codigo": "caucho_plastico",
+     "etiqueta": "Of rubber or plastics (e.g. shower or swim caps)",
+     "patrones": [
+      {
+       "re": "\\b(shower caps?|swim caps?|gorros? de (bano|natacion))\\b",
+       "en": "todo",
+       "prioridad": 2
+      }
+     ],
+     "orden": 40
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Of other materials (leather, fur)",
+     "orden": 50
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "gorra",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Chapter 65: the construction decides the heading, not the style."
+  },
+  {
+   "codigo": "tipo_paraguas",
+   "etiqueta": "Type",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 240,
+   "opciones": [
+    {
+     "codigo": "jardin",
+     "etiqueta": "Garden, beach or market umbrella (sunshade)",
+     "patrones": [
+      {
+       "re": "\\b(garden|patio|beach|playa|jardin|market|parasol|toldo)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "telescopico",
+     "etiqueta": "Telescopic shaft (folding)",
+     "patrones": [
+      {
+       "re": "\\b(folding|plegable|compact|telescop\\w*|travel|mini)\\b",
+       "en": "todo",
+       "prioridad": 10
+      },
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other (fixed shaft, walking-stick umbrella)",
+     "patrones": [
+      {
+       "re": "\\b(golf|stick|baston|recto)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paraguas",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "material_bisuteria",
+   "etiqueta": "Material",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 250,
+   "opciones": [
+    {
+     "codigo": "metal_comun",
+     "etiqueta": "Base metal, even plated with silver, gold or platinum",
+     "patrones": [
+      {
+       "re": "\\b(brass|laton|zinc|alloy|aleacion|stainless|acero|copper|cobre|plated|banad[oa]|bronce)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "metal_precioso",
+     "etiqueta": "Precious metal or clad with precious metal (jewelry, not imitation)",
+     "patrones": [
+      {
+       "re": "\\b(sterling|plata 925|925|gold 14k|oro (de )?\\d{2}k|18k|14k|10k|platinum)\\b",
+       "en": "todo",
+       "prioridad": 5
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "otra",
+     "etiqueta": "Other (plastic, glass, wood, leather, textile)",
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "bisuteria",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "gemelos",
+   "etiqueta": "Cufflinks or studs",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 255,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "bisuteria",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "material_bisuteria",
+       "operador": "EQUAL",
+       "valor": "metal_comun",
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(cufflinks?|gemelos|mancuernillas?)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "reloj_inteligente",
+   "etiqueta": "Smartwatch (connects to a phone or network)",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 260,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reloj",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "A smartwatch is a communication apparatus (85.17), not a watch of chapter 91.",
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(smart ?watch(es)?|reloj inteligente|fitness tracker|bluetooth)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "reloj_electrico",
+   "etiqueta": "Electrically operated (battery or solar)",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 262,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reloj",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "reloj_inteligente",
+       "operador": "EQUAL",
+       "valor": false,
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "true",
+   "patrones": [
+    {
+     "re": "\\b(quartz|cuarzo|battery|bateria|solar|digital)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "pantalla_reloj",
+   "etiqueta": "Display",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 264,
+   "opciones": [
+    {
+     "codigo": "mecanica",
+     "etiqueta": "Hands only (mechanical display)",
+     "patrones": [
+      {
+       "re": "\\b(analog|analogico|hands|agujas)\\b",
+       "en": "todo",
+       "prioridad": 10
+      },
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "digital",
+     "etiqueta": "Digital only (optoelectronic)",
+     "patrones": [
+      {
+       "re": "\\b(digital|lcd|led)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "ambas",
+     "etiqueta": "Hands and digital (ana-digi)",
+     "patrones": [
+      {
+       "re": "\\b(ana-?digi|analog[- ]digital|dual display)\\b",
+       "en": "todo",
+       "prioridad": 5
+      }
+     ],
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reloj",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "reloj_inteligente",
+       "operador": "EQUAL",
+       "valor": false,
+       "negado": false
+      },
+      {
+       "grupo": 1,
+       "campo": "reloj_electrico",
+       "operador": "EQUAL",
+       "valor": true,
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "automatico",
+   "etiqueta": "Automatic (self-winding)",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 266,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reloj",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "reloj_inteligente",
+       "operador": "EQUAL",
+       "valor": false,
+       "negado": false
+      },
+      {
+       "grupo": 1,
+       "campo": "reloj_electrico",
+       "operador": "EQUAL",
+       "valor": false,
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(automatic|automatico|self-?winding)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "material_correa",
+   "etiqueta": "Material",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 270,
+   "opciones": [
+    {
+     "codigo": "metal_precioso",
+     "etiqueta": "Precious metal or clad with precious metal",
+     "orden": 10
+    },
+    {
+     "codigo": "metal_comun",
+     "etiqueta": "Base metal, even gold- or silver-plated",
+     "patrones": [
+      {
+       "re": "\\b(steel|acero|metal|titanium|titanio)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other (leather, rubber, silicone, textile)",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "correa_reloj",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "tipo_lentes",
+   "etiqueta": "Type",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 280,
+   "opciones": [
+    {
+     "codigo": "sol",
+     "etiqueta": "Sunglasses",
+     "patrones": [
+      {
+       "re": "\\b(sunglasses|lentes de sol|gafas de sol|shades|polarized|polarizad[oa]s?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      },
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "otros",
+     "etiqueta": "Protective or other non-corrective glasses (goggles, safety glasses)",
+     "patrones": [
+      {
+       "re": "\\b(goggles|safety glasses|lentes de seguridad|ski goggles|swim goggles)\\b",
+       "en": "todo",
+       "prioridad": 5
+      }
+     ],
+     "orden": 20
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lentes",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "tipo_pelo",
+   "etiqueta": "Type",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 290,
+   "opciones": [
+    {
+     "codigo": "peine",
+     "etiqueta": "Comb, hair-slide or similar",
+     "patrones": [
+      {
+       "re": "\\b(combs?|peines?|peinetas?|hair ?(clips?|slides?|claws?)|pasadores?|pinzas?|ganchos?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "horquilla",
+     "etiqueta": "Hairpin, bobby pin or curler",
+     "patrones": [
+      {
+       "re": "\\b(bobby pins?|hair ?pins?|horquillas?|curlers?|rulos?|bigudies)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "textil",
+     "etiqueta": "Hairband, scrunchie or headband of fabric",
+     "patrones": [
+      {
+       "re": "\\b(scrunchies?|headbands?|diademas? de tela|hair ?ties?|colitas?|turbantes?|bandanas?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "accesorio_pelo",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  }
+ ],
+ "ambitos_comunes": {
+  "comp.exterior": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "maleta",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "bolso_mano",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "articulo_bolsillo",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "mochila",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "bolso_viaje",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "bufanda",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "corbata",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "panuelo",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "comp.material": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "cinturon",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "guantes",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "gorra",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "bisuteria",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "correa_reloj",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "accesorio_pelo",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "material": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "cinturon",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "guantes",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "gorra",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "accesorio_pelo",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "fibra": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "bufanda",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "corbata",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "panuelo",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "guantes",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "tejido": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "bufanda",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "corbata",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "panuelo",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "cinturon",
+    "modo": "REQUIRE",
+    "condicion": [
+     {
+      "grupo": 1,
+      "campo": "material",
+      "operador": "EQUAL",
+      "valor": "textil",
+      "negado": false
+     }
+    ],
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "guantes",
+    "modo": "REQUIRE",
+    "condicion": [
+     {
+      "grupo": 1,
+      "campo": "material",
+      "operador": "EQUAL",
+      "valor": "textil",
+      "negado": false
+     }
+    ],
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "accesorio_pelo",
+    "modo": "REQUIRE",
+    "condicion": [
+     {
+      "grupo": 1,
+      "campo": "material",
+      "operador": "EQUAL",
+      "valor": "textil",
+      "negado": false
+     }
+    ],
+    "prioridad": 500
+   }
+  ],
+  "edad": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "guantes",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ]
+ },
+ "reglas": [
+  {
+   "codigo": "R-NE-ACC-MALETA-CUE",
+   "categoria": "maleta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420211"
+    ]
+   },
+   "efecto": "Suitcase or briefcase, outer surface of leather → 4202.11 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-MALETA-PLA",
+   "categoria": "maleta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420212"
+    ]
+   },
+   "efecto": "Suitcase or briefcase, outer surface of plastic sheeting → 4202.12 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-MALETA-TEX",
+   "categoria": "maleta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420212"
+    ]
+   },
+   "efecto": "Suitcase or briefcase, outer surface of textile → 4202.12 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-MALETA-OTR",
+   "categoria": "maleta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420219"
+    ]
+   },
+   "efecto": "Suitcase or briefcase, outer surface of other materials → 4202.19 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-BOLSO_MANO-CUE",
+   "categoria": "bolso_mano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420221"
+    ]
+   },
+   "efecto": "Handbag, outer surface of leather → 4202.21 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-BOLSO_MANO-PLA",
+   "categoria": "bolso_mano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420222"
+    ]
+   },
+   "efecto": "Handbag, outer surface of plastic sheeting → 4202.22 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-BOLSO_MANO-TEX",
+   "categoria": "bolso_mano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420222"
+    ]
+   },
+   "efecto": "Handbag, outer surface of textile → 4202.22 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-BOLSO_MANO-OTR",
+   "categoria": "bolso_mano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420229"
+    ]
+   },
+   "efecto": "Handbag, outer surface of other materials → 4202.29 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-ARTICULO_BOLSILLO-CUE",
+   "categoria": "articulo_bolsillo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420231"
+    ]
+   },
+   "efecto": "Wallet, outer surface of leather → 4202.31 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-ARTICULO_BOLSILLO-PLA",
+   "categoria": "articulo_bolsillo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420232"
+    ]
+   },
+   "efecto": "Wallet, outer surface of plastic sheeting → 4202.32 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-ARTICULO_BOLSILLO-TEX",
+   "categoria": "articulo_bolsillo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420232"
+    ]
+   },
+   "efecto": "Wallet, outer surface of textile → 4202.32 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-ARTICULO_BOLSILLO-OTR",
+   "categoria": "articulo_bolsillo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420239"
+    ]
+   },
+   "efecto": "Wallet, outer surface of other materials → 4202.39 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-MOCHILA-CUE",
+   "categoria": "mochila",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420291"
+    ]
+   },
+   "efecto": "Backpack, outer surface of leather → 4202.91 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-MOCHILA-PLA",
+   "categoria": "mochila",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420292"
+    ]
+   },
+   "efecto": "Backpack, outer surface of plastic sheeting → 4202.92 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-MOCHILA-TEX",
+   "categoria": "mochila",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420292"
+    ]
+   },
+   "efecto": "Backpack, outer surface of textile → 4202.92 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-MOCHILA-OTR",
+   "categoria": "mochila",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420299"
+    ]
+   },
+   "efecto": "Backpack, outer surface of other materials → 4202.99 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-BOLSO_VIAJE-CUE",
+   "categoria": "bolso_viaje",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420291"
+    ]
+   },
+   "efecto": "Bag or case, outer surface of leather → 4202.91 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-BOLSO_VIAJE-PLA",
+   "categoria": "bolso_viaje",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420292"
+    ]
+   },
+   "efecto": "Bag or case, outer surface of plastic sheeting → 4202.92 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-BOLSO_VIAJE-TEX",
+   "categoria": "bolso_viaje",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420292"
+    ]
+   },
+   "efecto": "Bag or case, outer surface of textile → 4202.92 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-BOLSO_VIAJE-OTR",
+   "categoria": "bolso_viaje",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "superficie_exterior",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420299"
+    ]
+   },
+   "efecto": "Bag or case, outer surface of other materials → 4202.99 (heading 42.02 and its subheading notes)"
+  },
+  {
+   "codigo": "R-NE-ACC-CINTURON-CUE",
+   "categoria": "cinturon",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420330"
+    ]
+   },
+   "efecto": "Leather belt → 4203.30 (chapter 42 Note 3)"
+  },
+  {
+   "codigo": "R-NE-ACC-CINTURON-PU",
+   "categoria": "cinturon",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "EQUAL",
+     "valor": "punto",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "611780"
+    ]
+   },
+   "efecto": "Knitted belt → 6117.80"
+  },
+  {
+   "codigo": "R-NE-ACC-CINTURON-PL",
+   "categoria": "cinturon",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "IN",
+     "valor": [
+      "plano",
+      "no_tejido"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "621710"
+    ]
+   },
+   "efecto": "Woven belt → 6217.10"
+  },
+  {
+   "codigo": "R-NE-ACC-CINTURON-PLA",
+   "categoria": "cinturon",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392620"
+    ]
+   },
+   "efecto": "Plastic belt (incl. synthetic leather) → 3926.20"
+  },
+  {
+   "codigo": "R-NE-ACC-CINTURON-MET",
+   "categoria": "cinturon",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "metal",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "711719"
+    ]
+   },
+   "efecto": "Base metal chain belt worn as jewelry → 7117.19",
+   "requiere_revision": true
+  },
+  {
+   "codigo": "R-NE-ACC-GUANTES-BEBEPU",
+   "categoria": "guantes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "edad",
+     "operador": "EQUAL",
+     "valor": "bebe",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "EQUAL",
+     "valor": "punto",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "por": "fibra",
+    "mapa": {
+     "lana": "611190",
+     "algodon": "611120",
+     "sintetica": "611130",
+     "artificial": "611190",
+     "seda": "611190",
+     "vegetal": "611190",
+     "otra": "611190",
+     "cuero": "611190",
+     "": "6111"
+    }
+   },
+   "efecto": "Knitted baby gloves → 61.11"
+  },
+  {
+   "codigo": "R-NE-ACC-GUANTES-BEBEPL",
+   "categoria": "guantes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "edad",
+     "operador": "EQUAL",
+     "valor": "bebe",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "IN",
+     "valor": [
+      "plano",
+      "no_tejido"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "por": "fibra",
+    "mapa": {
+     "lana": "620990",
+     "algodon": "620920",
+     "sintetica": "620930",
+     "artificial": "620990",
+     "seda": "620990",
+     "vegetal": "620990",
+     "otra": "620990",
+     "cuero": "620990",
+     "": "6209"
+    }
+   },
+   "efecto": "Woven baby gloves → 62.09"
+  },
+  {
+   "codigo": "R-NE-ACC-GUANTES-DEP",
+   "categoria": "guantes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "deporte_guante",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420321"
+    ]
+   },
+   "efecto": "Leather gloves designed for sport → 4203.21"
+  },
+  {
+   "codigo": "R-NE-ACC-GUANTES-CUE",
+   "categoria": "guantes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "cuero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "deporte_guante",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "420329"
+    ]
+   },
+   "efecto": "Other leather gloves → 4203.29"
+  },
+  {
+   "codigo": "R-NE-ACC-GUANTES-REC",
+   "categoria": "guantes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "edad",
+     "operador": "EQUAL",
+     "valor": "bebe",
+     "negado": true
+    },
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "EQUAL",
+     "valor": "punto",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "guante_recubierto",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "611610"
+    ]
+   },
+   "efecto": "Knitted gloves coated with plastics or rubber → 6116.10"
+  },
+  {
+   "codigo": "R-NE-ACC-GUANTES-PU",
+   "categoria": "guantes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "edad",
+     "operador": "EQUAL",
+     "valor": "bebe",
+     "negado": true
+    },
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "EQUAL",
+     "valor": "punto",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "guante_recubierto",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "por": "fibra",
+    "mapa": {
+     "lana": "611691",
+     "algodon": "611692",
+     "sintetica": "611693",
+     "artificial": "611699",
+     "seda": "611699",
+     "vegetal": "611699",
+     "otra": "611699",
+     "cuero": "611699",
+     "": "61169"
+    }
+   },
+   "efecto": "Knitted gloves → 6116.9x by fiber"
+  },
+  {
+   "codigo": "R-NE-ACC-GUANTES-PL",
+   "categoria": "guantes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "edad",
+     "operador": "EQUAL",
+     "valor": "bebe",
+     "negado": true
+    },
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "IN",
+     "valor": [
+      "plano",
+      "no_tejido"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "621600"
+    ]
+   },
+   "efecto": "Gloves of fabric, not knitted → 6216.00"
+  },
+  {
+   "codigo": "R-NE-ACC-GUANTES-MED",
+   "categoria": "guantes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "guante_medico",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "401512"
+    ]
+   },
+   "efecto": "Rubber gloves for medical, surgical, dental or veterinary use → 4015.12"
+  },
+  {
+   "codigo": "R-NE-ACC-GUANTES-PLA",
+   "categoria": "guantes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "guante_medico",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392620",
+     "401519"
+    ]
+   },
+   "efecto": "Gloves of plastics → 3926.20; of vulcanized rubber → 4015.19 (say which)"
+  },
+  {
+   "codigo": "R-NE-ACC-BUFANDA-PU",
+   "categoria": "bufanda",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "EQUAL",
+     "valor": "punto",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "611710"
+    ]
+   },
+   "efecto": "Knitted scarf or shawl → 6117.10"
+  },
+  {
+   "codigo": "R-NE-ACC-BUFANDA-CUA",
+   "categoria": "bufanda",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "EQUAL",
+     "valor": "plano",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "cuadrado_60",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "por": "fibra",
+    "mapa": {
+     "lana": "621390",
+     "algodon": "621320",
+     "sintetica": "621390",
+     "artificial": "621390",
+     "seda": "621390",
+     "vegetal": "621390",
+     "otra": "621390",
+     "cuero": "621390",
+     "": "6213"
+    }
+   },
+   "efecto": "Square scarf, no side over 60 cm → 62.13 (chapter 62 Note 7)"
+  },
+  {
+   "codigo": "R-NE-ACC-BUFANDA-PL",
+   "categoria": "bufanda",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "IN",
+     "valor": [
+      "plano",
+      "no_tejido"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "cuadrado_60",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": true
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "por": "fibra",
+    "mapa": {
+     "lana": "621420",
+     "algodon": "621490",
+     "sintetica": "621430",
+     "artificial": "621440",
+     "seda": "621410",
+     "vegetal": "621490",
+     "otra": "621490",
+     "cuero": "621490",
+     "": "6214"
+    }
+   },
+   "efecto": "Woven scarf or shawl → 62.14 by fiber"
+  },
+  {
+   "codigo": "R-NE-ACC-CORBATA-PU",
+   "categoria": "corbata",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "EQUAL",
+     "valor": "punto",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "611780"
+    ]
+   },
+   "efecto": "Knitted tie → 6117.80 (6117.20 no longer exists)"
+  },
+  {
+   "codigo": "R-NE-ACC-CORBATA-PL",
+   "categoria": "corbata",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "IN",
+     "valor": [
+      "plano",
+      "no_tejido"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "por": "fibra",
+    "mapa": {
+     "lana": "621590",
+     "algodon": "621590",
+     "sintetica": "621520",
+     "artificial": "621520",
+     "seda": "621510",
+     "vegetal": "621590",
+     "otra": "621590",
+     "cuero": "621590",
+     "": "6215"
+    }
+   },
+   "efecto": "Woven tie → 62.15 by fiber"
+  },
+  {
+   "codigo": "R-NE-ACC-PANUELO-PU",
+   "categoria": "panuelo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "EQUAL",
+     "valor": "punto",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "611780"
+    ]
+   },
+   "efecto": "Knitted handkerchief → 6117.80"
+  },
+  {
+   "codigo": "R-NE-ACC-PANUELO-PL",
+   "categoria": "panuelo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "IN",
+     "valor": [
+      "plano",
+      "no_tejido"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "por": "fibra",
+    "mapa": {
+     "lana": "621390",
+     "algodon": "621320",
+     "sintetica": "621390",
+     "artificial": "621390",
+     "seda": "621390",
+     "vegetal": "621390",
+     "otra": "621390",
+     "cuero": "621390",
+     "": "6213"
+    }
+   },
+   "efecto": "Handkerchief → 62.13 by fiber"
+  },
+  {
+   "codigo": "R-NE-ACC-GORRA-TELA",
+   "categoria": "gorra",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tocado",
+     "operador": "EQUAL",
+     "valor": "tela",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "650500"
+    ]
+   },
+   "efecto": "Hat of knitted or fabric in the piece → 6505.00 (heading 65.05)"
+  },
+  {
+   "codigo": "R-NE-ACC-GORRA-TREN",
+   "categoria": "gorra",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tocado",
+     "operador": "EQUAL",
+     "valor": "trenzado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "650400"
+    ]
+   },
+   "efecto": "Plaited hat or made of strips → 6504.00"
+  },
+  {
+   "codigo": "R-NE-ACC-GORRA-CASCO",
+   "categoria": "gorra",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tocado",
+     "operador": "EQUAL",
+     "valor": "casco",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "650610"
+    ]
+   },
+   "efecto": "Safety helmet → 6506.10"
+  },
+  {
+   "codigo": "R-NE-ACC-GORRA-PLA",
+   "categoria": "gorra",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tocado",
+     "operador": "EQUAL",
+     "valor": "caucho_plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "650691"
+    ]
+   },
+   "efecto": "Headgear of rubber or plastics → 6506.91"
+  },
+  {
+   "codigo": "R-NE-ACC-GORRA-OTRO",
+   "categoria": "gorra",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_tocado",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "650699"
+    ]
+   },
+   "efecto": "Headgear of other materials → 6506.99"
+  },
+  {
+   "codigo": "R-NE-ACC-PARAGUAS-JAR",
+   "categoria": "paraguas",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_paraguas",
+     "operador": "EQUAL",
+     "valor": "jardin",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "660110"
+    ]
+   },
+   "efecto": "Garden or similar umbrellas → 6601.10"
+  },
+  {
+   "codigo": "R-NE-ACC-PARAGUAS-TEL",
+   "categoria": "paraguas",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_paraguas",
+     "operador": "EQUAL",
+     "valor": "telescopico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "660191"
+    ]
+   },
+   "efecto": "Umbrella with a telescopic shaft → 6601.91"
+  },
+  {
+   "codigo": "R-NE-ACC-PARAGUAS-OTRO",
+   "categoria": "paraguas",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_paraguas",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "660199"
+    ]
+   },
+   "efecto": "Other umbrellas → 6601.99"
+  },
+  {
+   "codigo": "R-NE-ACC-BISU-GEM",
+   "categoria": "bisuteria",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_bisuteria",
+     "operador": "EQUAL",
+     "valor": "metal_comun",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "gemelos",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "711711"
+    ]
+   },
+   "efecto": "Base metal cufflinks and studs → 7117.11"
+  },
+  {
+   "codigo": "R-NE-ACC-BISU-MET",
+   "categoria": "bisuteria",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_bisuteria",
+     "operador": "EQUAL",
+     "valor": "metal_comun",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "gemelos",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "711719"
+    ]
+   },
+   "efecto": "Other base metal imitation jewelry → 7117.19"
+  },
+  {
+   "codigo": "R-NE-ACC-BISU-OTRA",
+   "categoria": "bisuteria",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_bisuteria",
+     "operador": "EQUAL",
+     "valor": "otra",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "711790"
+    ]
+   },
+   "efecto": "Imitation jewelry of other materials → 7117.90"
+  },
+  {
+   "codigo": "R-NE-ACC-BISU-PREC",
+   "categoria": "bisuteria",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_bisuteria",
+     "operador": "EQUAL",
+     "valor": "metal_precioso",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "7113"
+    ]
+   },
+   "efecto": "Of precious metal it is jewelry, not imitation jewelry → 71.13",
+   "requiere_revision": true
+  },
+  {
+   "codigo": "R-NE-ACC-RELOJ-SMART",
+   "categoria": "reloj",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "reloj_inteligente",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "851762"
+    ]
+   },
+   "efecto": "Smartwatch → 8517.62 (communication apparatus)",
+   "requiere_revision": true
+  },
+  {
+   "codigo": "R-NE-ACC-RELOJ-MEC",
+   "categoria": "reloj",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "reloj_inteligente",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reloj_electrico",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "pantalla_reloj",
+     "operador": "EQUAL",
+     "valor": "mecanica",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "910211"
+    ]
+   },
+   "efecto": "Electric wrist watch with mechanical display only → 9102.11"
+  },
+  {
+   "codigo": "R-NE-ACC-RELOJ-DIG",
+   "categoria": "reloj",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "reloj_inteligente",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reloj_electrico",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "pantalla_reloj",
+     "operador": "EQUAL",
+     "valor": "digital",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "910212"
+    ]
+   },
+   "efecto": "Electric wrist watch with optoelectronic display only → 9102.12"
+  },
+  {
+   "codigo": "R-NE-ACC-RELOJ-AMB",
+   "categoria": "reloj",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "reloj_inteligente",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reloj_electrico",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "pantalla_reloj",
+     "operador": "EQUAL",
+     "valor": "ambas",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "910219"
+    ]
+   },
+   "efecto": "Other electric wrist watches → 9102.19"
+  },
+  {
+   "codigo": "R-NE-ACC-RELOJ-AUTO",
+   "categoria": "reloj",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "reloj_inteligente",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reloj_electrico",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "automatico",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "910221"
+    ]
+   },
+   "efecto": "Automatic (self-winding) wrist watch → 9102.21"
+  },
+  {
+   "codigo": "R-NE-ACC-RELOJ-CUERDA",
+   "categoria": "reloj",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "reloj_inteligente",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reloj_electrico",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "automatico",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "910229"
+    ]
+   },
+   "efecto": "Other mechanical wrist watches → 9102.29"
+  },
+  {
+   "codigo": "R-NE-ACC-CORREA-PREC",
+   "categoria": "correa_reloj",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_correa",
+     "operador": "EQUAL",
+     "valor": "metal_precioso",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "911310"
+    ]
+   },
+   "efecto": "Watch strap of precious metal → 9113.10"
+  },
+  {
+   "codigo": "R-NE-ACC-CORREA-MET",
+   "categoria": "correa_reloj",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_correa",
+     "operador": "EQUAL",
+     "valor": "metal_comun",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "911320"
+    ]
+   },
+   "efecto": "Watch strap of base metal → 9113.20"
+  },
+  {
+   "codigo": "R-NE-ACC-CORREA-OTRO",
+   "categoria": "correa_reloj",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "material_correa",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "911390"
+    ]
+   },
+   "efecto": "Watch strap of other materials → 9113.90"
+  },
+  {
+   "codigo": "R-NE-ACC-LENTES-SOL",
+   "categoria": "lentes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_lentes",
+     "operador": "EQUAL",
+     "valor": "sol",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "900410"
+    ]
+   },
+   "efecto": "Sunglasses → 9004.10"
+  },
+  {
+   "codigo": "R-NE-ACC-LENTES-OTROS",
+   "categoria": "lentes",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_lentes",
+     "operador": "EQUAL",
+     "valor": "otros",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "900490"
+    ]
+   },
+   "efecto": "Other glasses and goggles → 9004.90"
+  },
+  {
+   "codigo": "R-NE-ACC-PELO-PEINEPL",
+   "categoria": "accesorio_pelo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_pelo",
+     "operador": "EQUAL",
+     "valor": "peine",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "961511"
+    ]
+   },
+   "efecto": "Combs and hair-slides of hard rubber or plastics → 9615.11"
+  },
+  {
+   "codigo": "R-NE-ACC-PELO-PEINEOT",
+   "categoria": "accesorio_pelo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_pelo",
+     "operador": "EQUAL",
+     "valor": "peine",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "material",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": true
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "961519"
+    ]
+   },
+   "efecto": "Combs and hair-slides of other materials → 9615.19"
+  },
+  {
+   "codigo": "R-NE-ACC-PELO-HORQ",
+   "categoria": "accesorio_pelo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_pelo",
+     "operador": "EQUAL",
+     "valor": "horquilla",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "961590"
+    ]
+   },
+   "efecto": "Hairpins, curling pins and curlers → 9615.90"
+  },
+  {
+   "codigo": "R-NE-ACC-PELO-TEXPU",
+   "categoria": "accesorio_pelo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_pelo",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "EQUAL",
+     "valor": "punto",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "611780"
+    ]
+   },
+   "efecto": "Knitted hairband or headband → 6117.80"
+  },
+  {
+   "codigo": "R-NE-ACC-PELO-TEXPL",
+   "categoria": "accesorio_pelo",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_pelo",
+     "operador": "EQUAL",
+     "valor": "textil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "tejido",
+     "operador": "IN",
+     "valor": [
+      "plano",
+      "no_tejido"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "621710"
+    ]
+   },
+   "efecto": "Woven hairband → 6217.10"
+  }
+ ],
+ "casos": [
+  {
+   "hechos": {
+    "categoria": "mochila",
+    "comp.exterior": "100% polyester"
+   },
+   "codigo": "420292"
+  },
+  {
+   "hechos": {
+    "categoria": "mochila",
+    "comp.exterior": "100% leather"
+   },
+   "codigo": "420291"
+  },
+  {
+   "hechos": {
+    "categoria": "bolso_mano",
+    "comp.exterior": "PU synthetic leather"
+   },
+   "codigo": "420222"
+  },
+  {
+   "hechos": {
+    "categoria": "bolso_mano",
+    "comp.exterior": "cowhide leather"
+   },
+   "codigo": "420221"
+  },
+  {
+   "hechos": {
+    "categoria": "articulo_bolsillo",
+    "comp.exterior": "leather"
+   },
+   "codigo": "420231"
+  },
+  {
+   "hechos": {
+    "categoria": "maleta",
+    "comp.exterior": "polycarbonate"
+   },
+   "codigo": "420212"
+  },
+  {
+   "hechos": {
+    "categoria": "bolso_viaje",
+    "comp.exterior": "nylon"
+   },
+   "codigo": "420292"
+  },
+  {
+   "hechos": {
+    "categoria": "cinturon",
+    "comp.material": "leather"
+   },
+   "codigo": "420330"
+  },
+  {
+   "hechos": {
+    "categoria": "cinturon",
+    "comp.material": "100% polyester webbing",
+    "tejido": "plano"
+   },
+   "codigo": "621710"
+  },
+  {
+   "hechos": {
+    "categoria": "guantes",
+    "comp.material": "100% polyester",
+    "tejido": "punto",
+    "guante_recubierto": false,
+    "comp.exterior": "100% polyester"
+   },
+   "codigo": "611693"
+  },
+  {
+   "hechos": {
+    "categoria": "guantes",
+    "comp.material": "leather",
+    "deporte_guante": true
+   },
+   "codigo": "420321"
+  },
+  {
+   "hechos": {
+    "categoria": "bufanda",
+    "comp.exterior": "100% acrylic",
+    "tejido": "punto"
+   },
+   "codigo": "611710"
+  },
+  {
+   "hechos": {
+    "categoria": "bufanda",
+    "comp.exterior": "100% wool",
+    "tejido": "plano",
+    "cuadrado_60": false
+   },
+   "codigo": "621420"
+  },
+  {
+   "hechos": {
+    "categoria": "corbata",
+    "comp.exterior": "100% silk",
+    "tejido": "plano"
+   },
+   "codigo": "621510"
+  },
+  {
+   "hechos": {
+    "categoria": "gorra",
+    "comp.material": "100% cotton",
+    "tipo_tocado": "tela"
+   },
+   "codigo": "650500"
+  },
+  {
+   "hechos": {
+    "categoria": "gorra",
+    "comp.material": "paper straw",
+    "tipo_tocado": "trenzado"
+   },
+   "codigo": "650400"
+  },
+  {
+   "hechos": {
+    "categoria": "paraguas",
+    "tipo_paraguas": "telescopico"
+   },
+   "codigo": "660191"
+  },
+  {
+   "hechos": {
+    "categoria": "bisuteria",
+    "comp.material": "zinc alloy",
+    "material_bisuteria": "metal_comun",
+    "gemelos": false
+   },
+   "codigo": "711719"
+  },
+  {
+   "hechos": {
+    "categoria": "reloj",
+    "reloj_inteligente": false,
+    "reloj_electrico": true,
+    "pantalla_reloj": "mecanica"
+   },
+   "codigo": "910211"
+  },
+  {
+   "hechos": {
+    "categoria": "reloj",
+    "reloj_inteligente": false,
+    "reloj_electrico": false,
+    "automatico": true
+   },
+   "codigo": "910221"
+  },
+  {
+   "hechos": {
+    "categoria": "correa_reloj",
+    "comp.material": "silicone",
+    "material_correa": "otro"
+   },
+   "codigo": "911390"
+  },
+  {
+   "hechos": {
+    "categoria": "lentes",
+    "tipo_lentes": "sol"
+   },
+   "codigo": "900410"
+  },
+  {
+   "hechos": {
+    "categoria": "accesorio_pelo",
+    "comp.material": "plastic",
+    "tipo_pelo": "peine"
+   },
+   "codigo": "961511"
+  }
+ ]
+}

@@ -1,0 +1,6158 @@
+{
+ "origen": "Classification engine configuration written from the Explanatory Notes, Section XI and chapters 39, 40, 41, 48, 58, 59, 60, 83 and 96 (not official data).",
+ "dominio": {
+  "codigo": "RAW_MATERIALS",
+  "nombre": "Raw materials",
+  "orden": 50,
+  "descripcion": "Inputs for making footwear, apparel and accessories: textiles, plastics, rubber, leather, paper, metals and trims.",
+  "capitulos": [
+   {
+    "capitulo": "39",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "40",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "41",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "48",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "50",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "51",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "52",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "53",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "54",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "55",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "56",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "58",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "59",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "60",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "83",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "96",
+    "relevancia": "PRIMARY"
+   },
+   {
+    "capitulo": "72",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "74",
+    "relevancia": "SECONDARY"
+   },
+   {
+    "capitulo": "76",
+    "relevancia": "SECONDARY"
+   }
+  ]
+ },
+ "fuente": "Explanatory Notes, Section XI and chapters 39, 40, 41, 48, 58, 59, 60, 83 and 96",
+ "categorias": [
+  {
+   "codigo": "fibra_textil",
+   "nombre": "Textile fiber, not spun (raw cotton, staple fiber, wool, filling fiber)",
+   "nombre_corto": "Textile fiber",
+   "nombre_aduana": "Fibra textil",
+   "grupo": "Textile materials",
+   "familia": "fibra_textil",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "50",
+    "51",
+    "52",
+    "53",
+    "54",
+    "55"
+   ],
+   "alias": "fibra textil fibra corta fibra de relleno",
+   "orden": 10,
+   "patrones": [
+    {
+     "re": "\\b(staple fibers?|fibras? (cortas?|discontinuas?|textiles?)|raw cotton|algodon sin cardar|polyester fiber|fibra de poliester|wadding fiber|fiberfill|guata de fibra|wool tops?|tow)\\b",
+     "prioridad": 30
+    }
+   ]
+  },
+  {
+   "codigo": "hilado",
+   "nombre": "Yarn or sewing thread",
+   "nombre_corto": "Yarn or thread",
+   "nombre_aduana": "Hilado",
+   "grupo": "Textile materials",
+   "familia": "hilado",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "50",
+    "51",
+    "52",
+    "53",
+    "54",
+    "55"
+   ],
+   "alias": "hilo hilado hilo de coser",
+   "orden": 20,
+   "patrones": [
+    {
+     "re": "\\b(yarns?|hilos?|hilados?|sewing threads?|hilo de coser|filament yarns?|spun yarns?)\\b",
+     "prioridad": 33
+    }
+   ]
+  },
+  {
+   "codigo": "tejido_plano",
+   "nombre": "Woven fabric in the piece",
+   "nombre_corto": "Woven fabric",
+   "nombre_aduana": "Tejido plano",
+   "grupo": "Textile materials",
+   "familia": "tejido_plano",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "50",
+    "51",
+    "52",
+    "53",
+    "54",
+    "55"
+   ],
+   "alias": "tela tejido plano lona mezclilla",
+   "orden": 30,
+   "patrones": [
+    {
+     "re": "\\b(woven fabrics?|tejidos? planos?|telas?|fabrics? (in rolls?|by the meter)|denim|mezclilla|canvas|lona|poplin|popelina|twill|sarga|ripstop|oxford|taffeta|tafetan|chambray|gabardin[ae])\\b",
+     "prioridad": 32
+    }
+   ]
+  },
+  {
+   "codigo": "tejido_punto",
+   "nombre": "Knitted or crocheted fabric in the piece",
+   "nombre_corto": "Knitted fabric",
+   "nombre_aduana": "Tejido de punto",
+   "grupo": "Textile materials",
+   "familia": "tejido_punto",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "60"
+   ],
+   "alias": "tejido de punto malla jersey polar",
+   "orden": 40,
+   "patrones": [
+    {
+     "re": "\\b(knit(ted)? fabrics?|tejidos? de punto|jersey fabric|mesh fabric|malla|spacer mesh|fleece fabric|tela polar|rib knit|single jersey|interlock|tricot|pique fabric)\\b",
+     "prioridad": 32
+    }
+   ]
+  },
+  {
+   "codigo": "no_tejido",
+   "nombre": "Nonwoven or felt",
+   "nombre_corto": "Nonwoven",
+   "nombre_aduana": "Tela sin tejer",
+   "grupo": "Textile materials",
+   "familia": "no_tejido",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "56"
+   ],
+   "alias": "tela sin tejer fieltro spunbond",
+   "orden": 50,
+   "patrones": [
+    {
+     "re": "\\b(nonwovens?|non-woven|tela sin tejer|tnt|spunbond|felt|fieltro|needle ?punch|punzonad[oa])\\b",
+     "prioridad": 31
+    }
+   ]
+  },
+  {
+   "codigo": "tela_recubierta",
+   "nombre": "Fabric coated, covered or laminated with plastics or rubber",
+   "nombre_corto": "Coated fabric",
+   "nombre_aduana": "Tela recubierta",
+   "grupo": "Textile materials",
+   "familia": "tela_recubierta",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "59",
+    "39"
+   ],
+   "alias": "tela recubierta tela laminada tela engomada",
+   "orden": 60,
+   "patrones": [
+    {
+     "re": "\\b(coated fabrics?|telas? recubiertas?|laminated fabrics?|telas? laminadas?|pvc coated|pu coated|rubberi[sz]ed fabric|neoprene fabric|tela engomada)\\b",
+     "prioridad": 31
+    }
+   ]
+  },
+  {
+   "codigo": "cinta_etiqueta",
+   "nombre": "Narrow fabric, label, elastic, hook-and-loop, lace, braid or embroidery",
+   "nombre_corto": "Tape, label or trim",
+   "nombre_aduana": "Cinta textil",
+   "grupo": "Textile materials",
+   "familia": "cinta_etiqueta",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "58",
+    "48"
+   ],
+   "alias": "etiqueta elástico cinta reata velcro encaje bordado",
+   "orden": 70,
+   "patrones": [
+    {
+     "re": "\\b(labels?|etiquetas?|elastic (bands?|tapes?)|elasticos?|cintas?|ribbons?|listones?|webbing|reatas?|hook and loop|velcro|lace|encajes?|braids?|trenzas?|embroider(y|ies)|bordados?|patches? bordad\\w*|piping|vivos?)\\b",
+     "prioridad": 34
+    }
+   ]
+  },
+  {
+   "codigo": "avio",
+   "nombre": "Trim: zipper, button, snap, buckle, eyelet or hook",
+   "nombre_corto": "Trim",
+   "nombre_aduana": "Avío",
+   "grupo": "Other materials",
+   "familia": "avio",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "96",
+    "83"
+   ],
+   "alias": "cierre zipper botón broche hebilla ojete remache",
+   "orden": 80,
+   "patrones": [
+    {
+     "re": "\\b(zippers?|cierres?|cremalleras?|buttons?|botones?|snaps?|broches?|buckles?|hebillas?|eyelets?|ojetes?|ojales metalicos|grommets?|hooks?|ganchos?|rivets?|remaches?|sliders?|tiradores?|cord locks?|topes?)\\b",
+     "prioridad": 35
+    }
+   ]
+  },
+  {
+   "codigo": "resina_plastica",
+   "nombre": "Plastic in primary forms: pellets, powder, liquid resin, masterbatch base",
+   "nombre_corto": "Plastic resin",
+   "nombre_aduana": "Resina plástica",
+   "grupo": "Other materials",
+   "familia": "resina_plastica",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "39"
+   ],
+   "alias": "resina pellets polímero compuesto de PVC",
+   "orden": 90,
+   "patrones": [
+    {
+     "re": "\\b(resins?|resinas?|pellets?|granul(es|os)|polymers?|polimeros?|compounds? de pvc|pvc compound|tpu pellets?|eva pellets?|polyurethane (resin|system)|poliol|polyol|isocyanate|isocianato)\\b",
+     "prioridad": 31
+    }
+   ]
+  },
+  {
+   "codigo": "lamina_plastica",
+   "nombre": "Plastic sheet, film, foam sheet or strip",
+   "nombre_corto": "Plastic sheet or foam",
+   "nombre_aduana": "Lámina de plástico",
+   "grupo": "Other materials",
+   "familia": "lamina_plastica",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "39"
+   ],
+   "alias": "lámina plástica película espuma EVA",
+   "orden": 100,
+   "patrones": [
+    {
+     "re": "\\b(plastic (sheets?|films?)|laminas? (de )?plastic\\w*|films?|peliculas?|foam sheets?|espumas?|eva foam|pu foam|sheets? of (eva|pvc|tpu)|tpu film|hot melt film)\\b",
+     "prioridad": 31
+    }
+   ]
+  },
+  {
+   "codigo": "caucho",
+   "nombre": "Rubber: natural, synthetic, compounded or sheets",
+   "nombre_corto": "Rubber",
+   "nombre_aduana": "Caucho",
+   "grupo": "Other materials",
+   "familia": "caucho",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "40"
+   ],
+   "alias": "caucho hule látex lámina de caucho",
+   "orden": 110,
+   "patrones": [
+    {
+     "re": "\\b(rubber (sheets?|compound|crepe)?|caucho|latex|hule|rubber soling sheets?|planchas? de caucho|crepe)\\b",
+     "prioridad": 31
+    }
+   ]
+  },
+  {
+   "codigo": "cuero",
+   "nombre": "Leather: tanned, crust or finished hides and skins",
+   "nombre_corto": "Leather",
+   "nombre_aduana": "Cuero",
+   "grupo": "Other materials",
+   "familia": "cuero",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "41"
+   ],
+   "alias": "cuero piel wet blue crust nobuck gamuza charol",
+   "orden": 120,
+   "patrones": [
+    {
+     "re": "\\b(leather|cueros?|hides?|wet ?blue|crust|nubuck|suede|gamuza|napa|nappa|patent leather|charol|split leather|carnaza|vaqueta)\\b",
+     "prioridad": 32
+    }
+   ]
+  },
+  {
+   "codigo": "cuero_sintetico",
+   "nombre": "Synthetic leather (PU or PVC)",
+   "nombre_corto": "Synthetic leather",
+   "nombre_aduana": "Cuero sintético",
+   "grupo": "Other materials",
+   "familia": "cuero_sintetico",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "59",
+    "39",
+    "56"
+   ],
+   "alias": "cuero sintético PU PVC cuerina",
+   "orden": 130,
+   "patrones": [
+    {
+     "re": "\\b(synthetic leather|cuero sintetico|pu leather|pvc leather|faux leather|vegan leather|leatherette|microfiber leather|similcuero|cuerina|ecocuero)\\b",
+     "prioridad": 33
+    }
+   ]
+  },
+  {
+   "codigo": "papel_carton",
+   "nombre": "Paper, paperboard, boxes or paper bags",
+   "nombre_corto": "Paper or box",
+   "nombre_aduana": "Papel o cartón",
+   "grupo": "Other materials",
+   "familia": "papel_carton",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "48"
+   ],
+   "alias": "papel cartón caja corrugada bolsa de papel papel de seda",
+   "orden": 140,
+   "patrones": [
+    {
+     "re": "\\b(paper|papel|paperboard|carton|cardboard|boxes?|cajas?|corrugated|corrugad[oa]|tissue paper|papel de seda|paper bags?|bolsas? de papel|kraft)\\b",
+     "prioridad": 30
+    }
+   ]
+  },
+  {
+   "codigo": "metal",
+   "nombre": "Metal sheet, wire, bar or profile",
+   "nombre_corto": "Metal",
+   "nombre_aduana": "Metal",
+   "grupo": "Other materials",
+   "familia": "metal",
+   "dominio": "RAW_MATERIALS",
+   "capitulos": [
+    "72",
+    "74",
+    "76"
+   ],
+   "alias": "acero aluminio latón alambre lámina metálica",
+   "orden": 150,
+   "patrones": [
+    {
+     "re": "\\b(steel (sheets?|wire|bars?)|acero|alumin(i)?um|aluminio|copper|cobre|brass|laton|wire|alambre|metal sheets?|laminas? metalicas?)\\b",
+     "prioridad": 28
+    }
+   ]
+  }
+ ],
+ "atributos": [
+  {
+   "codigo": "filamento",
+   "etiqueta": "Man-made fiber form",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 20,
+   "opciones": [
+    {
+     "codigo": "filamento",
+     "etiqueta": "Filament (continuous)",
+     "patrones": [
+      {
+       "re": "\\b(filament|filamento|continuous|dty|fdy|poy|multifilament)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "discontinua",
+     "etiqueta": "Staple (spun from short fibers)",
+     "patrones": [
+      {
+       "re": "\\b(staple|spun|discontinu\\w+|ring spun|open end)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "fibra_textil",
+     "modo": "REQUIRE",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fibra",
+       "operador": "IN",
+       "valor": [
+        "sintetica",
+        "artificial"
+       ],
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "hilado",
+     "modo": "REQUIRE",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fibra",
+       "operador": "IN",
+       "valor": [
+        "sintetica",
+        "artificial"
+       ],
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tejido_plano",
+     "modo": "REQUIRE",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fibra",
+       "operador": "IN",
+       "valor": [
+        "sintetica",
+        "artificial"
+       ],
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Chapters 54 (filaments) and 55 (staple fibers); Section XI Note 2 B c) treats them together against other chapters."
+  },
+  {
+   "codigo": "uso_hilado",
+   "etiqueta": "Put up as",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 21,
+   "opciones": [
+    {
+     "codigo": "industrial",
+     "etiqueta": "Industrial yarn (cones, beams)",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "venta_menor",
+     "etiqueta": "Put up for retail sale (Section XI Note 4)",
+     "orden": 20
+    },
+    {
+     "codigo": "hilo_coser",
+     "etiqueta": "Sewing thread (Section XI Note 5: on supports up to 1,000 g, dressed, final Z twist)",
+     "patrones": [
+      {
+       "re": "\\b(sewing thread|hilo de coser|hilo para coser)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "hilado",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "predominio85",
+   "etiqueta": "Contains 85 % or more by weight of the predominant fiber",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 22,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "hilado",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fibra",
+       "operador": "IN",
+       "valor": [
+        "algodon",
+        "sintetica",
+        "artificial"
+       ],
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tejido_plano",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fibra",
+       "operador": "IN",
+       "valor": [
+        "algodon",
+        "sintetica",
+        "artificial"
+       ],
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "true"
+  },
+  {
+   "codigo": "mezcla_con",
+   "etiqueta": "Mainly mixed with",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 23,
+   "opciones": [
+    {
+     "codigo": "artificiales_sinteticas",
+     "etiqueta": "Man-made fibers",
+     "orden": 10
+    },
+    {
+     "codigo": "algodon",
+     "etiqueta": "Cotton",
+     "orden": 20
+    },
+    {
+     "codigo": "lana",
+     "etiqueta": "Wool or fine animal hair",
+     "orden": 30
+    },
+    {
+     "codigo": "otras",
+     "etiqueta": "Other fibers or filaments",
+     "orden": 40
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tejido_plano",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "predominio85",
+       "operador": "EQUAL",
+       "valor": false,
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "peso_g_m2",
+   "etiqueta": "Weight",
+   "tipo_dato": "number",
+   "seccion": "caracteristicas",
+   "orden": 24,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tejido_plano",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "no_tejido",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Weight per square meter: cotton fabrics split at 200 g/m², synthetic staple mixed with cotton at 170 g/m², nonwovens at 25, 70 and 150 g/m².",
+   "unidad": "g/m²"
+  },
+  {
+   "codigo": "tipo_punto",
+   "etiqueta": "Kind of knitted fabric",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 25,
+   "opciones": [
+    {
+     "codigo": "pelo",
+     "etiqueta": "Pile, long pile, terry or looped (velour, fleece with pile)",
+     "patrones": [
+      {
+       "re": "\\b(pile|velour|terry|toalla|plush|felpa|sherpa)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "angosto_elastico",
+     "etiqueta": "Width up to 30 cm, 5 % or more elastomeric yarn",
+     "orden": 20
+    },
+    {
+     "codigo": "angosto",
+     "etiqueta": "Width up to 30 cm, other",
+     "orden": 30
+    },
+    {
+     "codigo": "elastico",
+     "etiqueta": "Width over 30 cm, 5 % or more elastomeric yarn",
+     "patrones": [
+      {
+       "re": "\\b(spandex|elastane|elastano|lycra|stretch)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 40
+    },
+    {
+     "codigo": "urdimbre",
+     "etiqueta": "Warp knit (tricot, raschel, mesh)",
+     "patrones": [
+      {
+       "re": "\\b(warp|tricot|raschel|spacer|mesh|malla)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 50
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other weft knit (jersey, rib, interlock, fleece without pile)",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 60
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tejido_punto",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "tipo_no_tejido",
+   "etiqueta": "Kind",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 26,
+   "opciones": [
+    {
+     "codigo": "filamentos",
+     "etiqueta": "Nonwoven of man-made filaments (spunbond)",
+     "patrones": [
+      {
+       "re": "\\b(spunbond|spun ?bond|filament)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other nonwoven (needle-punched staple, spunlace)",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "fieltro",
+     "etiqueta": "Felt",
+     "patrones": [
+      {
+       "re": "\\b(felt|fieltro)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "no_tejido",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "recubrimiento",
+   "etiqueta": "Coating",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 27,
+   "opciones": [
+    {
+     "codigo": "pvc",
+     "etiqueta": "Poly(vinyl chloride)",
+     "patrones": [
+      {
+       "re": "\\b(pvc|vinyl|vinil\\w*)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "pu",
+     "etiqueta": "Polyurethane",
+     "patrones": [
+      {
+       "re": "\\b(pu|polyurethane|poliuretano|tpu)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "otro_plastico",
+     "etiqueta": "Other plastics (acrylic, silicone)",
+     "orden": 30
+    },
+    {
+     "codigo": "caucho",
+     "etiqueta": "Rubber (incl. neoprene laminated with fabric)",
+     "patrones": [
+      {
+       "re": "\\b(rubber|caucho|neoprene|neopreno|latex)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 40
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other (wax, oil, tar)",
+     "orden": 50
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tela_recubierta",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cuero_sintetico",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "soporte",
+   "etiqueta": "Backing",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 28,
+   "opciones": [
+    {
+     "codigo": "tejido",
+     "etiqueta": "Woven or knitted fabric, coating visible",
+     "orden": 10
+    },
+    {
+     "codigo": "no_tejido",
+     "etiqueta": "Nonwoven or microfiber backing",
+     "orden": 20
+    },
+    {
+     "codigo": "sin_soporte",
+     "etiqueta": "No textile backing (or fabric used only to reinforce)",
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tela_recubierta",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cuero_sintetico",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Chapter 59 Note 2: when the textile only reinforces a plastic sheet, or the coating cannot be seen, it is not 59.03.",
+   "valor_defecto": "tejido"
+  },
+  {
+   "codigo": "tipo_cinta",
+   "etiqueta": "Kind",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 29,
+   "opciones": [
+    {
+     "codigo": "elastico",
+     "etiqueta": "Narrow woven fabric with 5 % or more elastomeric yarn (elastic tape)",
+     "patrones": [
+      {
+       "re": "\\b(elastic|elastico)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "velcro",
+     "etiqueta": "Hook-and-loop or pile narrow fabric (velvet ribbon)",
+     "patrones": [
+      {
+       "re": "\\b(velcro|hook and loop|terciopelo)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "cinta",
+     "etiqueta": "Other narrow woven fabric (webbing, ribbon, tape)",
+     "patrones": [
+      {
+       "re": "\\b(webbing|reata|ribbon|liston|tape|cinta|twill tape)\\b",
+       "en": "todo",
+       "prioridad": 10
+      },
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 30
+    },
+    {
+     "codigo": "etiqueta_tejida",
+     "etiqueta": "Woven label or badge",
+     "patrones": [
+      {
+       "re": "\\b(woven labels?|etiquetas? tejidas?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 40
+    },
+    {
+     "codigo": "etiqueta_textil",
+     "etiqueta": "Other textile label (printed satin, heat transfer on fabric)",
+     "orden": 50
+    },
+    {
+     "codigo": "etiqueta_papel",
+     "etiqueta": "Paper or cardboard label or hang tag",
+     "patrones": [
+      {
+       "re": "\\b(hang ?tags?|colgantes?|paper labels?|etiquetas? de (papel|carton))\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 60
+    },
+    {
+     "codigo": "encaje",
+     "etiqueta": "Lace",
+     "patrones": [
+      {
+       "re": "\\b(lace|encaje)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 70
+    },
+    {
+     "codigo": "trenza",
+     "etiqueta": "Braid, cord or ornamental trimming in the piece",
+     "orden": 80
+    },
+    {
+     "codigo": "bordado",
+     "etiqueta": "Embroidery or embroidered badge",
+     "patrones": [
+      {
+       "re": "\\b(embroider\\w*|bordad\\w*)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 90
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cinta_etiqueta",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "impresa",
+   "etiqueta": "Printed",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 30,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cinta_etiqueta",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "tipo_cinta",
+       "operador": "EQUAL",
+       "valor": "etiqueta_papel",
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "true"
+  },
+  {
+   "codigo": "tipo_avio",
+   "etiqueta": "Kind",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 31,
+   "opciones": [
+    {
+     "codigo": "cierre_metal",
+     "etiqueta": "Zipper with base metal teeth",
+     "patrones": [
+      {
+       "re": "\\b(metal zippers?|cierres? metalicos?|brass zipper)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "cierre_otro",
+     "etiqueta": "Zipper with plastic or nylon teeth",
+     "patrones": [
+      {
+       "re": "\\b(zippers?|cierres?|cremalleras?|coil|nylon zipper|vislon)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "cierre_parte",
+     "etiqueta": "Zipper part (slider, tape with teeth)",
+     "patrones": [
+      {
+       "re": "\\b(sliders?|tiradores?|zipper tape|cadena)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 30
+    },
+    {
+     "codigo": "broche_presion",
+     "etiqueta": "Press-fastener, snap or press-stud",
+     "patrones": [
+      {
+       "re": "\\b(snaps?|broches? de presion|press studs?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 40
+    },
+    {
+     "codigo": "boton_plastico",
+     "etiqueta": "Button of plastic, not covered with textile",
+     "patrones": [
+      {
+       "re": "\\b(plastic buttons?|botones? de plastico)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 50
+    },
+    {
+     "codigo": "boton_metal",
+     "etiqueta": "Button of base metal, not covered with textile",
+     "patrones": [
+      {
+       "re": "\\b(metal buttons?|botones? metalicos?|jeans? buttons?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 60
+    },
+    {
+     "codigo": "boton_otro",
+     "etiqueta": "Other button (wood, coconut, covered with textile)",
+     "orden": 70
+    },
+    {
+     "codigo": "gancho_ojete",
+     "etiqueta": "Hook, eye or eyelet of base metal",
+     "patrones": [
+      {
+       "re": "\\b(eyelets?|ojetes?|grommets?|hooks?|ganchos?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 80
+    },
+    {
+     "codigo": "remache",
+     "etiqueta": "Tubular or bifurcated rivet",
+     "patrones": [
+      {
+       "re": "\\b(rivets?|remaches?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 90
+    },
+    {
+     "codigo": "hebilla",
+     "etiqueta": "Buckle, clasp or other base metal fastener",
+     "patrones": [
+      {
+       "re": "\\b(buckles?|hebillas?|clasps?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 100
+    },
+    {
+     "codigo": "plastico",
+     "etiqueta": "Plastic buckle, cord lock or fastener",
+     "patrones": [
+      {
+       "re": "\\b(cord locks?|topes?|plastic buckles?|hebillas? plasticas?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 110
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "avio",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "polimero",
+   "etiqueta": "Polymer",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 32,
+   "opciones": [
+    {
+     "codigo": "polietileno",
+     "etiqueta": "Polyethylene",
+     "patrones": [
+      {
+       "re": "\\b(polyethylene|polietileno|pe|hdpe|ldpe)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "polietileno",
+     "orden": 10
+    },
+    {
+     "codigo": "polipropileno",
+     "etiqueta": "Polypropylene",
+     "patrones": [
+      {
+       "re": "\\b(polypropylene|polipropileno|pp)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "polipropileno",
+     "orden": 20
+    },
+    {
+     "codigo": "eva",
+     "etiqueta": "Ethylene-vinyl acetate (EVA)",
+     "patrones": [
+      {
+       "re": "\\b(eva|ethylene vinyl acetate)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "acetato de vinilo",
+     "orden": 30
+    },
+    {
+     "codigo": "poliestireno",
+     "etiqueta": "Polystyrene, ABS",
+     "patrones": [
+      {
+       "re": "\\b(polystyrene|poliestireno|abs|eps)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "estireno",
+     "orden": 40
+    },
+    {
+     "codigo": "pvc",
+     "etiqueta": "Poly(vinyl chloride)",
+     "patrones": [
+      {
+       "re": "\\b(pvc|vinyl)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "cloruro de vinilo",
+     "orden": 50
+    },
+    {
+     "codigo": "acrilico",
+     "etiqueta": "Acrylic polymer",
+     "patrones": [
+      {
+       "re": "\\b(acrylic|acrilic\\w*|pmma)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "acrílicos",
+     "orden": 60
+    },
+    {
+     "codigo": "poliester",
+     "etiqueta": "Polyester, PET or polycarbonate",
+     "patrones": [
+      {
+       "re": "\\b(pet|polyester|poliester|polycarbonate|policarbonato)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "poliésteres",
+     "orden": 70
+    },
+    {
+     "codigo": "poliamida",
+     "etiqueta": "Polyamide (nylon)",
+     "patrones": [
+      {
+       "re": "\\b(polyamide|poliamida|nylon|pa6)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "poliamidas",
+     "orden": 80
+    },
+    {
+     "codigo": "poliuretano",
+     "etiqueta": "Polyurethane (incl. TPU)",
+     "patrones": [
+      {
+       "re": "\\b(polyurethane|poliuretano|pu|tpu)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "poliuretanos",
+     "orden": 90
+    },
+    {
+     "codigo": "silicona",
+     "etiqueta": "Silicone",
+     "patrones": [
+      {
+       "re": "\\b(silicone|silicona)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "terminos": "siliconas",
+     "orden": 100
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other",
+     "orden": 110
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "resina_plastica",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lamina_plastica",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "autoadhesiva",
+   "etiqueta": "Self-adhesive",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 33,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lamina_plastica",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "false"
+  },
+  {
+   "codigo": "celular",
+   "etiqueta": "Cellular (foam)",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 34,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lamina_plastica",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(foam|espuma|cellular|celular|sponge|esponja)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "reforzada",
+   "etiqueta": "Reinforced, laminated or combined with other materials",
+   "tipo_dato": "boolean",
+   "seccion": "caracteristicas",
+   "orden": 35,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lamina_plastica",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "celular",
+       "operador": "EQUAL",
+       "valor": false,
+       "negado": false
+      },
+      {
+       "grupo": 1,
+       "campo": "autoadhesiva",
+       "operador": "EQUAL",
+       "valor": false,
+       "negado": false
+      }
+     ],
+     "prioridad": 500
+    }
+   ],
+   "valor_defecto": "false"
+  },
+  {
+   "codigo": "forma_caucho",
+   "etiqueta": "Form",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 36,
+   "opciones": [
+    {
+     "codigo": "natural",
+     "etiqueta": "Natural rubber or latex in primary forms",
+     "orden": 10
+    },
+    {
+     "codigo": "sintetico",
+     "etiqueta": "Synthetic rubber in primary forms",
+     "orden": 20
+    },
+    {
+     "codigo": "mezcla",
+     "etiqueta": "Compounded rubber, unvulcanized",
+     "orden": 30
+    },
+    {
+     "codigo": "lamina_celular",
+     "etiqueta": "Vulcanized cellular sheet or strip (sponge)",
+     "orden": 40
+    },
+    {
+     "codigo": "lamina",
+     "etiqueta": "Vulcanized non-cellular sheet or strip (soling sheet)",
+     "orden": 50
+    },
+    {
+     "codigo": "perfil",
+     "etiqueta": "Vulcanized profile or rod",
+     "orden": 60
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "caucho",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "animal",
+   "etiqueta": "Animal",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 37,
+   "opciones": [
+    {
+     "codigo": "bovino",
+     "etiqueta": "Bovine or equine (cow, buffalo, horse)",
+     "patrones": [
+      {
+       "re": "\\b(cow|cowhide|vaca|bovine|bovino|buffalo|bufalo|calf|becerro|vaqueta)\\b",
+       "en": "todo",
+       "prioridad": 10
+      },
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "ovino",
+     "etiqueta": "Sheep or lamb",
+     "patrones": [
+      {
+       "re": "\\b(sheep|lamb|oveja|cordero|ovino)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "caprino",
+     "etiqueta": "Goat or kid",
+     "patrones": [
+      {
+       "re": "\\b(goat|cabra|caprino)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 30
+    },
+    {
+     "codigo": "porcino",
+     "etiqueta": "Pig",
+     "patrones": [
+      {
+       "re": "\\b(pig|pigskin|cerdo|porcino)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 40
+    },
+    {
+     "codigo": "reptil",
+     "etiqueta": "Reptile",
+     "orden": 50
+    },
+    {
+     "codigo": "otro",
+     "etiqueta": "Other animal",
+     "orden": 60
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cuero",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "estado_cuero",
+   "etiqueta": "State",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 38,
+   "opciones": [
+    {
+     "codigo": "humedo",
+     "etiqueta": "Tanned, wet (incl. wet-blue)",
+     "patrones": [
+      {
+       "re": "\\b(wet ?blue|wet white)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "crust",
+     "etiqueta": "Crust (dry, retanned, not finished)",
+     "patrones": [
+      {
+       "re": "\\b(crust)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "terminado",
+     "etiqueta": "Finished after tanning or crusting",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 30
+    },
+    {
+     "codigo": "agamuzado",
+     "etiqueta": "Chamois or oil-tanned",
+     "orden": 40
+    },
+    {
+     "codigo": "charol",
+     "etiqueta": "Patent or metallized",
+     "patrones": [
+      {
+       "re": "\\b(patent|charol|metalliz\\w+|metaliz\\w+)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 50
+    },
+    {
+     "codigo": "regenerado",
+     "etiqueta": "Composition leather (leather fibers)",
+     "patrones": [
+      {
+       "re": "\\b(bonded leather|regenerated|regenerado|reconstituido)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 60
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cuero",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "tipo_papel",
+   "etiqueta": "What it is",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 39,
+   "opciones": [
+    {
+     "codigo": "caja_corrugada",
+     "etiqueta": "Box of corrugated paperboard",
+     "patrones": [
+      {
+       "re": "\\b(corrugated|corrugad\\w*|master cartons?|cajas? master)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "caja_plegable",
+     "etiqueta": "Folding box or carton of non-corrugated board (shoe box)",
+     "patrones": [
+      {
+       "re": "\\b(shoe ?box(es)?|cajas? de zapato|folding)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "bolsa",
+     "etiqueta": "Paper bag or sack",
+     "patrones": [
+      {
+       "re": "\\b(paper bags?|bolsas? de papel|sacks?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 30
+    },
+    {
+     "codigo": "papel",
+     "etiqueta": "Paper or paperboard in rolls or sheets (tissue, kraft, wrapping)",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 40
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "papel_carton",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "metal_base",
+   "etiqueta": "Metal",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 40,
+   "opciones": [
+    {
+     "codigo": "acero",
+     "etiqueta": "Iron or steel (incl. stainless)",
+     "patrones": [
+      {
+       "re": "\\b(steel|acero|iron|hierro|stainless|inoxidable)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "aluminio",
+     "etiqueta": "Aluminum",
+     "patrones": [
+      {
+       "re": "\\b(alumin(i)?um|aluminio)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "cobre",
+     "etiqueta": "Copper or brass",
+     "patrones": [
+      {
+       "re": "\\b(copper|cobre|brass|laton|bronze|bronce)\\b",
+       "en": "todo",
+       "prioridad": 10
+      }
+     ],
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  },
+  {
+   "codigo": "forma_metal",
+   "etiqueta": "Form",
+   "tipo_dato": "select",
+   "seccion": "caracteristicas",
+   "orden": 41,
+   "opciones": [
+    {
+     "codigo": "lamina",
+     "etiqueta": "Sheet, plate, strip or foil",
+     "orden": 10
+    },
+    {
+     "codigo": "alambre",
+     "etiqueta": "Wire",
+     "orden": 20
+    },
+    {
+     "codigo": "barra",
+     "etiqueta": "Bar, rod or profile",
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal",
+     "modo": "REQUIRE",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ]
+  }
+ ],
+ "ambitos_comunes": {
+  "comp.material": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "fibra_textil",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "hilado",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "tejido_plano",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "tejido_punto",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "no_tejido",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "tela_recubierta",
+    "modo": "REQUIRE",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "fibra": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "fibra_textil",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "hilado",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "tejido_plano",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "tejido_punto",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "no_tejido",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "tela_recubierta",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "cinta_etiqueta",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ]
+ },
+ "reglas": [
+  {
+   "codigo": "R-NE-MP-FIBRA-ALGODON",
+   "categoria": "fibra_textil",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5201",
+     "5202",
+     "5203"
+    ]
+   },
+   "efecto": "Textile fiber, not spun, of algodon → its chapter"
+  },
+  {
+   "codigo": "R-NE-MP-FIBRA-LANA",
+   "categoria": "fibra_textil",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "lana",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5101",
+     "5102",
+     "5103",
+     "5104",
+     "5105"
+    ]
+   },
+   "efecto": "Textile fiber, not spun, of lana → its chapter"
+  },
+  {
+   "codigo": "R-NE-MP-FIBRA-SEDA",
+   "categoria": "fibra_textil",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "seda",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5001",
+     "5002",
+     "5003"
+    ]
+   },
+   "efecto": "Textile fiber, not spun, of seda → its chapter"
+  },
+  {
+   "codigo": "R-NE-MP-FIBRA-VEGETAL",
+   "categoria": "fibra_textil",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "vegetal",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5301",
+     "5302",
+     "5303",
+     "5305"
+    ]
+   },
+   "efecto": "Textile fiber, not spun, of vegetal → its chapter"
+  },
+  {
+   "codigo": "R-NE-MP-FIBRA-SINTFIL",
+   "categoria": "fibra_textil",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "sintetica",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "filamento",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5501"
+    ]
+   },
+   "efecto": "Synthetic filament tow → 55.01"
+  },
+  {
+   "codigo": "R-NE-MP-FIBRA-SINTDIS",
+   "categoria": "fibra_textil",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "sintetica",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5503",
+     "5506"
+    ]
+   },
+   "efecto": "Synthetic staple fibers → 55.03 (not carded) or 55.06 (carded or combed)"
+  },
+  {
+   "codigo": "R-NE-MP-FIBRA-ARTFIL",
+   "categoria": "fibra_textil",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "artificial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "filamento",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5502"
+    ]
+   },
+   "efecto": "Artificial filament tow → 55.02"
+  },
+  {
+   "codigo": "R-NE-MP-FIBRA-ARTDIS",
+   "categoria": "fibra_textil",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "artificial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5504",
+     "5507"
+    ]
+   },
+   "efecto": "Artificial staple fibers → 55.04 or 55.07"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-COSER-ALG",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "hilo_coser",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5204"
+    ]
+   },
+   "efecto": "Cotton sewing thread → 52.04 (Section XI Note 5)"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-COSER-FIL",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "hilo_coser",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "IN",
+     "valor": [
+      "sintetica",
+      "artificial"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "filamento",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5401"
+    ]
+   },
+   "efecto": "Sewing thread of man-made filaments → 54.01"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-COSER-DIS",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "hilo_coser",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "IN",
+     "valor": [
+      "sintetica",
+      "artificial"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5508"
+    ]
+   },
+   "efecto": "Sewing thread of man-made staple fibers → 55.08"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-MENOR-ALG",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "venta_menor",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5207"
+    ]
+   },
+   "efecto": "Cotton yarn for retail sale → 52.07"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-MENOR-LANA",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "venta_menor",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "lana",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5109"
+    ]
+   },
+   "efecto": "Wool yarn for retail sale → 51.09"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-MENOR-FIL",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "venta_menor",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "IN",
+     "valor": [
+      "sintetica",
+      "artificial"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "filamento",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5406"
+    ]
+   },
+   "efecto": "Man-made filament yarn for retail sale → 54.06"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-MENOR-DIS",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "venta_menor",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "IN",
+     "valor": [
+      "sintetica",
+      "artificial"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5511"
+    ]
+   },
+   "efecto": "Man-made staple yarn for retail sale → 55.11"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-IND-ALG85",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "industrial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5205"
+    ]
+   },
+   "efecto": "Cotton yarn, 85 % or more cotton → 52.05"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-IND-ALG",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "industrial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5206"
+    ]
+   },
+   "efecto": "Cotton yarn, under 85 % cotton → 52.06"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-IND-LANA",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "industrial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "lana",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5106",
+     "5107",
+     "5108"
+    ]
+   },
+   "efecto": "Wool yarn → 51.06–51.08"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-IND-SEDA",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "IN",
+     "valor": [
+      "industrial",
+      "venta_menor"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "seda",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5004",
+     "5005",
+     "5006"
+    ]
+   },
+   "efecto": "Silk yarn → 50.04–50.06"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-IND-SFIL",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "industrial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "sintetica",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "filamento",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5402",
+     "5404"
+    ]
+   },
+   "efecto": "Synthetic filament yarn (incl. textured, high tenacity) → 54.02; monofilament → 54.04"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-IND-AFIL",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "industrial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "artificial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "filamento",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5403",
+     "5405"
+    ]
+   },
+   "efecto": "Artificial filament yarn → 54.03"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-IND-SDIS",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "industrial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "sintetica",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5509"
+    ]
+   },
+   "efecto": "Synthetic staple yarn → 55.09"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-IND-ADIS",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "EQUAL",
+     "valor": "industrial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "artificial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5510"
+    ]
+   },
+   "efecto": "Artificial staple yarn → 55.10"
+  },
+  {
+   "codigo": "R-NE-MP-HILO-IND-VEG",
+   "categoria": "hilado",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "uso_hilado",
+     "operador": "IN",
+     "valor": [
+      "industrial",
+      "venta_menor"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "vegetal",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5306",
+     "5307",
+     "5308"
+    ]
+   },
+   "efecto": "Yarn of other vegetable fibers → 53.06–53.08"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-ALG85-L",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "LTE",
+     "valor": 200,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5208"
+    ]
+   },
+   "efecto": "Woven cotton, 85 % or more, up to 200 g/m² → 52.08"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-ALG85-P",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "GT",
+     "valor": 200,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5209"
+    ]
+   },
+   "efecto": "Woven cotton, 85 % or more, over 200 g/m² (denim) → 52.09"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-ALGMM-L",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "mezcla_con",
+     "operador": "EQUAL",
+     "valor": "artificiales_sinteticas",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "LTE",
+     "valor": 200,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5210"
+    ]
+   },
+   "efecto": "Woven cotton under 85 %, mixed with man-made fibers, up to 200 g/m² → 52.10"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-ALGMM-P",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "mezcla_con",
+     "operador": "EQUAL",
+     "valor": "artificiales_sinteticas",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "GT",
+     "valor": 200,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5211"
+    ]
+   },
+   "efecto": "Woven cotton under 85 %, mixed with man-made fibers, over 200 g/m² → 52.11"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-ALGOT",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "mezcla_con",
+     "operador": "IN",
+     "valor": [
+      "algodon",
+      "lana",
+      "otras"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5212"
+    ]
+   },
+   "efecto": "Other woven fabrics of cotton → 52.12"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-LANA",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "lana",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5111",
+     "5112",
+     "5113"
+    ]
+   },
+   "efecto": "Woven wool or fine animal hair → 51.11–51.13"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-SEDA",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "seda",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5007"
+    ]
+   },
+   "efecto": "Woven silk → 50.07"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-VEG",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "vegetal",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5309",
+     "5310",
+     "5311"
+    ]
+   },
+   "efecto": "Woven linen, jute or other vegetable fiber → 53.09–53.11"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-SFIL",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "sintetica",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "filamento",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5407"
+    ]
+   },
+   "efecto": "Woven synthetic filament yarn (nylon, polyester ripstop, taffeta) → 54.07"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-AFIL",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "artificial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "filamento",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5408"
+    ]
+   },
+   "efecto": "Woven artificial filament yarn → 54.08"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-SDIS85",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "sintetica",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5512"
+    ]
+   },
+   "efecto": "Woven synthetic staple, 85 % or more → 55.12"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-SDISALG-L",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "sintetica",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "mezcla_con",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "LTE",
+     "valor": 170,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5513"
+    ]
+   },
+   "efecto": "Woven synthetic staple under 85 %, mixed with cotton, up to 170 g/m² → 55.13"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-SDISALG-P",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "sintetica",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "mezcla_con",
+     "operador": "EQUAL",
+     "valor": "algodon",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "GT",
+     "valor": 170,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5514"
+    ]
+   },
+   "efecto": "Woven synthetic staple under 85 %, mixed with cotton, over 170 g/m² → 55.14"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-SDISOT",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "sintetica",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "predominio85",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "mezcla_con",
+     "operador": "IN",
+     "valor": [
+      "artificiales_sinteticas",
+      "lana",
+      "otras"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5515"
+    ]
+   },
+   "efecto": "Other woven synthetic staple → 55.15"
+  },
+  {
+   "codigo": "R-NE-MP-TEJ-ADIS",
+   "categoria": "tejido_plano",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "fibra",
+     "operador": "EQUAL",
+     "valor": "artificial",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "filamento",
+     "operador": "EQUAL",
+     "valor": "discontinua",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5516"
+    ]
+   },
+   "efecto": "Woven artificial staple → 55.16"
+  },
+  {
+   "codigo": "R-NE-MP-PUNTO-PELO",
+   "categoria": "tejido_punto",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_punto",
+     "operador": "EQUAL",
+     "valor": "pelo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "6001"
+    ]
+   },
+   "efecto": "Pile, long pile or looped knitted fabric → 60.01"
+  },
+  {
+   "codigo": "R-NE-MP-PUNTO-ANGEL",
+   "categoria": "tejido_punto",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_punto",
+     "operador": "EQUAL",
+     "valor": "angosto_elastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "6002"
+    ]
+   },
+   "efecto": "Knitted fabric up to 30 cm wide with 5 % or more elastomeric yarn → 60.02"
+  },
+  {
+   "codigo": "R-NE-MP-PUNTO-ANG",
+   "categoria": "tejido_punto",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_punto",
+     "operador": "EQUAL",
+     "valor": "angosto",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "6003"
+    ]
+   },
+   "efecto": "Knitted fabric up to 30 cm wide → 60.03"
+  },
+  {
+   "codigo": "R-NE-MP-PUNTO-EL",
+   "categoria": "tejido_punto",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_punto",
+     "operador": "EQUAL",
+     "valor": "elastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "6004"
+    ]
+   },
+   "efecto": "Knitted fabric over 30 cm wide with 5 % or more elastomeric yarn → 60.04"
+  },
+  {
+   "codigo": "R-NE-MP-PUNTO-URD",
+   "categoria": "tejido_punto",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_punto",
+     "operador": "EQUAL",
+     "valor": "urdimbre",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "6005"
+    ]
+   },
+   "efecto": "Warp knit fabric (tricot, raschel, mesh) → 60.05"
+  },
+  {
+   "codigo": "R-NE-MP-PUNTO-OTRO",
+   "categoria": "tejido_punto",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_punto",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "por": "fibra",
+    "mapa": {
+     "lana": "600610",
+     "algodon": "60062",
+     "sintetica": "60063",
+     "artificial": "60064",
+     "seda": "600690",
+     "vegetal": "600690",
+     "otra": "600690",
+     "cuero": "600690",
+     "": "6006"
+    }
+   },
+   "efecto": "Other knitted fabric → 60.06 by fiber"
+  },
+  {
+   "codigo": "R-NE-MP-NOTEJ-FIL",
+   "categoria": "no_tejido",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_no_tejido",
+     "operador": "EQUAL",
+     "valor": "filamentos",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "56031"
+    ]
+   },
+   "efecto": "Nonwoven of man-made filaments → 5603.1x by weight"
+  },
+  {
+   "codigo": "R-NE-MP-NOTEJ-OTRO",
+   "categoria": "no_tejido",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_no_tejido",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "56039"
+    ]
+   },
+   "efecto": "Other nonwovens → 5603.9x by weight"
+  },
+  {
+   "codigo": "R-NE-MP-NOTEJ-FIELTRO",
+   "categoria": "no_tejido",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_no_tejido",
+     "operador": "EQUAL",
+     "valor": "fieltro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5602"
+    ]
+   },
+   "efecto": "Felt → 56.02"
+  },
+  {
+   "codigo": "R-NE-MP-NOTEJ-P1",
+   "categoria": "no_tejido",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_no_tejido",
+     "operador": "IN",
+     "valor": [
+      "filamentos",
+      "otro"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "GT",
+     "valor": 0,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "LTE",
+     "valor": 25,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "560311",
+     "560391"
+    ]
+   },
+   "efecto": "Nonwoven, up to 25 g/m² → 5603.11 or 5603.91"
+  },
+  {
+   "codigo": "R-NE-MP-NOTEJ-P2",
+   "categoria": "no_tejido",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_no_tejido",
+     "operador": "IN",
+     "valor": [
+      "filamentos",
+      "otro"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "GT",
+     "valor": 25,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "LTE",
+     "valor": 70,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "560312",
+     "560392"
+    ]
+   },
+   "efecto": "Nonwoven, over 25 and up to 70 g/m² → 5603.12 or 5603.92"
+  },
+  {
+   "codigo": "R-NE-MP-NOTEJ-P3",
+   "categoria": "no_tejido",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_no_tejido",
+     "operador": "IN",
+     "valor": [
+      "filamentos",
+      "otro"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "GT",
+     "valor": 70,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "LTE",
+     "valor": 150,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "560313",
+     "560393"
+    ]
+   },
+   "efecto": "Nonwoven, over 70 and up to 150 g/m² → 5603.13 or 5603.93"
+  },
+  {
+   "codigo": "R-NE-MP-NOTEJ-P4",
+   "categoria": "no_tejido",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_no_tejido",
+     "operador": "IN",
+     "valor": [
+      "filamentos",
+      "otro"
+     ],
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "GT",
+     "valor": 150,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "peso_g_m2",
+     "operador": "LTE",
+     "valor": 100000,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "560314",
+     "560394"
+    ]
+   },
+   "efecto": "Nonwoven, over 150 g/m² → 5603.14 or 5603.94"
+  },
+  {
+   "codigo": "R-NE-MP-RECUB-PVC",
+   "categoria": "tela_recubierta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "tejido",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "recubrimiento",
+     "operador": "EQUAL",
+     "valor": "pvc",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "590310"
+    ]
+   },
+   "efecto": "Fabric coated with PVC → 5903.10"
+  },
+  {
+   "codigo": "R-NE-MP-RECUB-PU",
+   "categoria": "tela_recubierta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "tejido",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "recubrimiento",
+     "operador": "EQUAL",
+     "valor": "pu",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "590320"
+    ]
+   },
+   "efecto": "Fabric coated with polyurethane → 5903.20"
+  },
+  {
+   "codigo": "R-NE-MP-RECUB-OPL",
+   "categoria": "tela_recubierta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "tejido",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "recubrimiento",
+     "operador": "EQUAL",
+     "valor": "otro_plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "590390"
+    ]
+   },
+   "efecto": "Fabric coated with other plastics → 5903.90"
+  },
+  {
+   "codigo": "R-NE-MP-RECUB-CAU",
+   "categoria": "tela_recubierta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "tejido",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "recubrimiento",
+     "operador": "EQUAL",
+     "valor": "caucho",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "590691",
+     "590699"
+    ]
+   },
+   "efecto": "Rubberized fabric → 59.06 (5906.91 if knitted)"
+  },
+  {
+   "codigo": "R-NE-MP-RECUB-OTRO",
+   "categoria": "tela_recubierta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "tejido",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "recubrimiento",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "590700"
+    ]
+   },
+   "efecto": "Fabric otherwise coated → 5907.00"
+  },
+  {
+   "codigo": "R-NE-MP-RECUB-SINSOP",
+   "categoria": "tela_recubierta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "sin_soporte",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3921"
+    ]
+   },
+   "efecto": "Plastic sheet where the textile only reinforces it → 39.21 (chapter 59 Note 2)"
+  },
+  {
+   "codigo": "R-NE-MP-RECUB-NOTEJ",
+   "categoria": "tela_recubierta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "no_tejido",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5603",
+     "3921"
+    ]
+   },
+   "efecto": "Coated nonwoven → 56.03, or 39.21 if the plastic gives it its character",
+   "requiere_revision": true
+  },
+  {
+   "codigo": "R-NE-MP-CINTA-ELAST",
+   "categoria": "cinta_etiqueta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cinta",
+     "operador": "EQUAL",
+     "valor": "elastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "580620"
+    ]
+   },
+   "efecto": "Narrow woven fabric with 5 % or more elastomeric yarn → 5806.20"
+  },
+  {
+   "codigo": "R-NE-MP-CINTA-VELCRO",
+   "categoria": "cinta_etiqueta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cinta",
+     "operador": "EQUAL",
+     "valor": "velcro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "580610"
+    ]
+   },
+   "efecto": "Hook-and-loop and pile narrow fabrics → 5806.10"
+  },
+  {
+   "codigo": "R-NE-MP-CINTA-OTRA",
+   "categoria": "cinta_etiqueta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cinta",
+     "operador": "EQUAL",
+     "valor": "cinta",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "por": "fibra",
+    "mapa": {
+     "algodon": "580631",
+     "sintetica": "580632",
+     "artificial": "580632",
+     "lana": "580639",
+     "seda": "580639",
+     "vegetal": "580639",
+     "otra": "580639",
+     "cuero": "580639",
+     "": "58063"
+    }
+   },
+   "efecto": "Other narrow woven fabrics → 5806.3x by fiber"
+  },
+  {
+   "codigo": "R-NE-MP-ETQ-TEJ",
+   "categoria": "cinta_etiqueta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cinta",
+     "operador": "EQUAL",
+     "valor": "etiqueta_tejida",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "580710"
+    ]
+   },
+   "efecto": "Woven textile labels and badges → 5807.10"
+  },
+  {
+   "codigo": "R-NE-MP-ETQ-TEX",
+   "categoria": "cinta_etiqueta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cinta",
+     "operador": "EQUAL",
+     "valor": "etiqueta_textil",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "580790"
+    ]
+   },
+   "efecto": "Other textile labels → 5807.90"
+  },
+  {
+   "codigo": "R-NE-MP-ETQ-PAP-IMP",
+   "categoria": "cinta_etiqueta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cinta",
+     "operador": "EQUAL",
+     "valor": "etiqueta_papel",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "impresa",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "482110"
+    ]
+   },
+   "efecto": "Printed paper labels and tags → 4821.10"
+  },
+  {
+   "codigo": "R-NE-MP-ETQ-PAP",
+   "categoria": "cinta_etiqueta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cinta",
+     "operador": "EQUAL",
+     "valor": "etiqueta_papel",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "impresa",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "482190"
+    ]
+   },
+   "efecto": "Other paper labels → 4821.90"
+  },
+  {
+   "codigo": "R-NE-MP-ENCAJE",
+   "categoria": "cinta_etiqueta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cinta",
+     "operador": "EQUAL",
+     "valor": "encaje",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5804"
+    ]
+   },
+   "efecto": "Lace → 58.04"
+  },
+  {
+   "codigo": "R-NE-MP-TRENZA",
+   "categoria": "cinta_etiqueta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cinta",
+     "operador": "EQUAL",
+     "valor": "trenza",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5808"
+    ]
+   },
+   "efecto": "Braids and ornamental trimmings in the piece → 58.08"
+  },
+  {
+   "codigo": "R-NE-MP-BORDADO",
+   "categoria": "cinta_etiqueta",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_cinta",
+     "operador": "EQUAL",
+     "valor": "bordado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "5810"
+    ]
+   },
+   "efecto": "Embroidery in the piece, strips or motifs → 58.10"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-CIERRE_METAL",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "cierre_metal",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "960711"
+    ]
+   },
+   "efecto": "Zipper with base metal teeth → 9607.11"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-CIERRE_OTRO",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "cierre_otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "960719"
+    ]
+   },
+   "efecto": "Other zippers → 9607.19"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-CIERRE_PARTE",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "cierre_parte",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "960720"
+    ]
+   },
+   "efecto": "Parts of zippers → 9607.20"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-BROCHE_PRESION",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "broche_presion",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "960610"
+    ]
+   },
+   "efecto": "Press-fasteners and snaps → 9606.10"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-BOTON_PLASTICO",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "boton_plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "960621"
+    ]
+   },
+   "efecto": "Plastic buttons → 9606.21"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-BOTON_METAL",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "boton_metal",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "960622"
+    ]
+   },
+   "efecto": "Base metal buttons → 9606.22"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-BOTON_OTRO",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "boton_otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "960629"
+    ]
+   },
+   "efecto": "Other buttons → 9606.29"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-GANCHO_OJETE",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "gancho_ojete",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "830810"
+    ]
+   },
+   "efecto": "Hooks, eyes and eyelets of base metal → 8308.10"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-REMACHE",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "remache",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "830820"
+    ]
+   },
+   "efecto": "Tubular or bifurcated rivets → 8308.20"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-HEBILLA",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "hebilla",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "830890"
+    ]
+   },
+   "efecto": "Buckles and other base metal fasteners → 8308.90"
+  },
+  {
+   "codigo": "R-NE-MP-AVIO-PLASTICO",
+   "categoria": "avio",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_avio",
+     "operador": "EQUAL",
+     "valor": "plastico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392690"
+    ]
+   },
+   "efecto": "Plastic buckles and cord locks → 3926.90"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-POLIETILENO",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "polietileno",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3901"
+    ]
+   },
+   "efecto": "polietileno in primary forms → 3901 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-EVA",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "eva",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "390130"
+    ]
+   },
+   "efecto": "eva in primary forms → 390130 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-POLIPROPILENO",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "polipropileno",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3902"
+    ]
+   },
+   "efecto": "polipropileno in primary forms → 3902 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-POLIESTIRENO",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "poliestireno",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3903"
+    ]
+   },
+   "efecto": "poliestireno in primary forms → 3903 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-PVC",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "pvc",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3904"
+    ]
+   },
+   "efecto": "pvc in primary forms → 3904 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-ACRILICO",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "acrilico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3906"
+    ]
+   },
+   "efecto": "acrilico in primary forms → 3906 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-POLIESTER",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "poliester",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3907"
+    ]
+   },
+   "efecto": "poliester in primary forms → 3907 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-POLIAMIDA",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "poliamida",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3908"
+    ]
+   },
+   "efecto": "poliamida in primary forms → 3908 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-POLIURETANO",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "poliuretano",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "390950"
+    ]
+   },
+   "efecto": "poliuretano in primary forms → 390950 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-SILICONA",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "silicona",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3910"
+    ]
+   },
+   "efecto": "silicona in primary forms → 3910 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-RESINA-OTRO",
+   "categoria": "resina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3905",
+     "3906",
+     "3907",
+     "3908",
+     "3909",
+     "3910",
+     "3911",
+     "3912",
+     "3913",
+     "3914"
+    ]
+   },
+   "efecto": "otro in primary forms → 3905, 3906, 3907, 3908, 3909, 3910, 3911, 3912, 3913, 3914 (chapter 39 Note 6)"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-POLIETILENO",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "polietileno",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392010"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of polietileno → 392010"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-EVA",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "eva",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392010"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of eva → 392010"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-POLIPROPILENO",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "polipropileno",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392020"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of polipropileno → 392020"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-POLIESTIRENO",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "poliestireno",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392030"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of poliestireno → 392030"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-PVC",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "pvc",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "39204"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of pvc → 39204"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-ACRILICO",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "acrilico",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "39205"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of acrilico → 39205"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-POLIESTER",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "poliester",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "39206"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of poliester → 39206"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-POLIAMIDA",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "poliamida",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392092"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of poliamida → 392092"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-POLIURETANO",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "poliuretano",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392099"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of poliuretano → 392099"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-SILICONA",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "silicona",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392099"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of silicona → 392099"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-OTRO",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "polimero",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3920"
+    ]
+   },
+   "efecto": "Non-cellular, unreinforced plastic sheet of otro → 3920"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-AUTOAD",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3919"
+    ]
+   },
+   "efecto": "Self-adhesive plastic sheet or tape → 39.19"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-CEL",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "39211"
+    ]
+   },
+   "efecto": "Cellular plastic sheet (foam) → 3921.1x"
+  },
+  {
+   "codigo": "R-NE-MP-LAMINA-REF",
+   "categoria": "lamina_plastica",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "autoadhesiva",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "celular",
+     "operador": "EQUAL",
+     "valor": false,
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "reforzada",
+     "operador": "EQUAL",
+     "valor": true,
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392190"
+    ]
+   },
+   "efecto": "Reinforced or laminated plastic sheet → 3921.90"
+  },
+  {
+   "codigo": "R-NE-MP-CAUCHO-NATURAL",
+   "categoria": "caucho",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "forma_caucho",
+     "operador": "EQUAL",
+     "valor": "natural",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "4001"
+    ]
+   },
+   "efecto": "Natural rubber in primary forms → 40.01"
+  },
+  {
+   "codigo": "R-NE-MP-CAUCHO-SINTETICO",
+   "categoria": "caucho",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "forma_caucho",
+     "operador": "EQUAL",
+     "valor": "sintetico",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "4002"
+    ]
+   },
+   "efecto": "Synthetic rubber → 40.02 (chapter 40 Note 4)"
+  },
+  {
+   "codigo": "R-NE-MP-CAUCHO-MEZCLA",
+   "categoria": "caucho",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "forma_caucho",
+     "operador": "EQUAL",
+     "valor": "mezcla",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "4005"
+    ]
+   },
+   "efecto": "Compounded rubber, unvulcanized → 40.05 (chapter 40 Note 5)"
+  },
+  {
+   "codigo": "R-NE-MP-CAUCHO-LAMINA_CELULAR",
+   "categoria": "caucho",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "forma_caucho",
+     "operador": "EQUAL",
+     "valor": "lamina_celular",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "400811"
+    ]
+   },
+   "efecto": "Cellular rubber sheet → 4008.11"
+  },
+  {
+   "codigo": "R-NE-MP-CAUCHO-LAMINA",
+   "categoria": "caucho",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "forma_caucho",
+     "operador": "EQUAL",
+     "valor": "lamina",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "400821"
+    ]
+   },
+   "efecto": "Non-cellular rubber sheet → 4008.21"
+  },
+  {
+   "codigo": "R-NE-MP-CAUCHO-PERFIL",
+   "categoria": "caucho",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "forma_caucho",
+     "operador": "EQUAL",
+     "valor": "perfil",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "400819",
+     "400829"
+    ]
+   },
+   "efecto": "Rubber rods and profiles → 4008.19/29"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-BOVINO-HUMEDO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "bovino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "humedo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "41041"
+    ]
+   },
+   "efecto": "Bovino leather, humedo → 41041 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-BOVINO-CRUST",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "bovino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "crust",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "41044"
+    ]
+   },
+   "efecto": "Bovino leather, crust → 41044 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-BOVINO-TERMINADO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "bovino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "terminado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "4107"
+    ]
+   },
+   "efecto": "Bovino leather, terminado → 4107 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-OVINO-HUMEDO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "ovino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "humedo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "410510"
+    ]
+   },
+   "efecto": "Ovino leather, humedo → 410510 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-OVINO-CRUST",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "ovino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "crust",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "410530"
+    ]
+   },
+   "efecto": "Ovino leather, crust → 410530 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-OVINO-TERMINADO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "ovino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "terminado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "411200"
+    ]
+   },
+   "efecto": "Ovino leather, terminado → 411200 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-CAPRINO-HUMEDO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "caprino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "humedo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "410621"
+    ]
+   },
+   "efecto": "Caprino leather, humedo → 410621 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-CAPRINO-CRUST",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "caprino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "crust",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "410622"
+    ]
+   },
+   "efecto": "Caprino leather, crust → 410622 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-CAPRINO-TERMINADO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "caprino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "terminado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "411310"
+    ]
+   },
+   "efecto": "Caprino leather, terminado → 411310 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-PORCINO-HUMEDO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "porcino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "humedo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "410631"
+    ]
+   },
+   "efecto": "Porcino leather, humedo → 410631 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-PORCINO-CRUST",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "porcino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "crust",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "410632"
+    ]
+   },
+   "efecto": "Porcino leather, crust → 410632 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-PORCINO-TERMINADO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "porcino",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "terminado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "411320"
+    ]
+   },
+   "efecto": "Porcino leather, terminado → 411320 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-REPTIL-HUMEDO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "reptil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "humedo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "410640"
+    ]
+   },
+   "efecto": "Reptil leather, humedo → 410640 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-REPTIL-CRUST",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "reptil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "crust",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "410640"
+    ]
+   },
+   "efecto": "Reptil leather, crust → 410640 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-REPTIL-TERMINADO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "reptil",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "terminado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "411330"
+    ]
+   },
+   "efecto": "Reptil leather, terminado → 411330 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-OTRO-HUMEDO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "humedo",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "410691"
+    ]
+   },
+   "efecto": "Otro leather, humedo → 410691 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-OTRO-CRUST",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "crust",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "410692"
+    ]
+   },
+   "efecto": "Otro leather, crust → 410692 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-OTRO-TERMINADO",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "animal",
+     "operador": "EQUAL",
+     "valor": "otro",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "terminado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "411390"
+    ]
+   },
+   "efecto": "Otro leather, terminado → 411390 (chapter 41)"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-AGAM",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "agamuzado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "411410"
+    ]
+   },
+   "efecto": "Chamois leather → 4114.10"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-CHAROL",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "charol",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "411420"
+    ]
+   },
+   "efecto": "Patent and metallized leather → 4114.20"
+  },
+  {
+   "codigo": "R-NE-MP-CUERO-REGEN",
+   "categoria": "cuero",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "estado_cuero",
+     "operador": "EQUAL",
+     "valor": "regenerado",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "411510"
+    ]
+   },
+   "efecto": "Composition leather (chapter 41 Note 3) → 4115.10"
+  },
+  {
+   "codigo": "R-NE-MP-SINT-TEJ-PVC",
+   "categoria": "cuero_sintetico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "tejido",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "recubrimiento",
+     "operador": "EQUAL",
+     "valor": "pvc",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "590310"
+    ]
+   },
+   "efecto": "Synthetic leather of PVC on fabric → 5903.10"
+  },
+  {
+   "codigo": "R-NE-MP-SINT-TEJ-PU",
+   "categoria": "cuero_sintetico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "tejido",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "recubrimiento",
+     "operador": "EQUAL",
+     "valor": "pu",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "590320"
+    ]
+   },
+   "efecto": "Synthetic leather of PU on fabric → 5903.20"
+  },
+  {
+   "codigo": "R-NE-MP-SINT-TEJ-OTRO",
+   "categoria": "cuero_sintetico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "tejido",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "recubrimiento",
+     "operador": "IN",
+     "valor": [
+      "otro_plastico",
+      "otro",
+      "caucho"
+     ],
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "590390",
+     "590699"
+    ]
+   },
+   "efecto": "Synthetic leather of other coatings on fabric → 5903.90 / 59.06"
+  },
+  {
+   "codigo": "R-NE-MP-SINT-NOTEJ",
+   "categoria": "cuero_sintetico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "no_tejido",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "392113",
+     "392112",
+     "392190",
+     "5603"
+    ]
+   },
+   "efecto": "Synthetic leather on nonwoven or microfiber → 39.21 or 56.03 by which gives the character",
+   "requiere_revision": true
+  },
+  {
+   "codigo": "R-NE-MP-SINT-SIN",
+   "categoria": "cuero_sintetico",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "soporte",
+     "operador": "EQUAL",
+     "valor": "sin_soporte",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "3921",
+     "3920"
+    ]
+   },
+   "efecto": "Plastic sheet imitating leather → 39.20/39.21"
+  },
+  {
+   "codigo": "R-NE-MP-PAPEL-CORR",
+   "categoria": "papel_carton",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_papel",
+     "operador": "EQUAL",
+     "valor": "caja_corrugada",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "481910"
+    ]
+   },
+   "efecto": "Boxes of corrugated paperboard → 4819.10"
+  },
+  {
+   "codigo": "R-NE-MP-PAPEL-PLEG",
+   "categoria": "papel_carton",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_papel",
+     "operador": "EQUAL",
+     "valor": "caja_plegable",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "481920"
+    ]
+   },
+   "efecto": "Folding boxes of non-corrugated board → 4819.20"
+  },
+  {
+   "codigo": "R-NE-MP-PAPEL-BOLSA",
+   "categoria": "papel_carton",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_papel",
+     "operador": "EQUAL",
+     "valor": "bolsa",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "481930",
+     "481940"
+    ]
+   },
+   "efecto": "Paper sacks and bags → 4819.30/40"
+  },
+  {
+   "codigo": "R-NE-MP-PAPEL-ROLLO",
+   "categoria": "papel_carton",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "tipo_papel",
+     "operador": "EQUAL",
+     "valor": "papel",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "4801",
+     "4802",
+     "4803",
+     "4804",
+     "4805",
+     "4806",
+     "4807",
+     "4808",
+     "4809",
+     "4810",
+     "4811"
+    ]
+   },
+   "efecto": "Paper and paperboard in rolls or sheets → 48.01–48.11 (the text finds the heading)"
+  },
+  {
+   "codigo": "R-NE-MP-METAL-ACERO-LAMINA",
+   "categoria": "metal",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "metal_base",
+     "operador": "EQUAL",
+     "valor": "acero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "forma_metal",
+     "operador": "EQUAL",
+     "valor": "lamina",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "7208",
+     "7209",
+     "7210",
+     "7211",
+     "7212",
+     "7219",
+     "7220"
+    ]
+   },
+   "efecto": "acero lamina → 7208, 7209, 7210, 7211, 7212, 7219, 7220"
+  },
+  {
+   "codigo": "R-NE-MP-METAL-ACERO-ALAMBRE",
+   "categoria": "metal",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "metal_base",
+     "operador": "EQUAL",
+     "valor": "acero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "forma_metal",
+     "operador": "EQUAL",
+     "valor": "alambre",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "7217",
+     "7223"
+    ]
+   },
+   "efecto": "acero alambre → 7217, 7223"
+  },
+  {
+   "codigo": "R-NE-MP-METAL-ACERO-BARRA",
+   "categoria": "metal",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "metal_base",
+     "operador": "EQUAL",
+     "valor": "acero",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "forma_metal",
+     "operador": "EQUAL",
+     "valor": "barra",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "7213",
+     "7214",
+     "7215",
+     "7216"
+    ]
+   },
+   "efecto": "acero barra → 7213, 7214, 7215, 7216"
+  },
+  {
+   "codigo": "R-NE-MP-METAL-ALUMINIO-LAMINA",
+   "categoria": "metal",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "metal_base",
+     "operador": "EQUAL",
+     "valor": "aluminio",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "forma_metal",
+     "operador": "EQUAL",
+     "valor": "lamina",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "7606",
+     "7607"
+    ]
+   },
+   "efecto": "aluminio lamina → 7606, 7607"
+  },
+  {
+   "codigo": "R-NE-MP-METAL-ALUMINIO-ALAMBRE",
+   "categoria": "metal",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "metal_base",
+     "operador": "EQUAL",
+     "valor": "aluminio",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "forma_metal",
+     "operador": "EQUAL",
+     "valor": "alambre",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "7605"
+    ]
+   },
+   "efecto": "aluminio alambre → 7605"
+  },
+  {
+   "codigo": "R-NE-MP-METAL-ALUMINIO-BARRA",
+   "categoria": "metal",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "metal_base",
+     "operador": "EQUAL",
+     "valor": "aluminio",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "forma_metal",
+     "operador": "EQUAL",
+     "valor": "barra",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "7604"
+    ]
+   },
+   "efecto": "aluminio barra → 7604"
+  },
+  {
+   "codigo": "R-NE-MP-METAL-COBRE-LAMINA",
+   "categoria": "metal",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "metal_base",
+     "operador": "EQUAL",
+     "valor": "cobre",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "forma_metal",
+     "operador": "EQUAL",
+     "valor": "lamina",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "7409",
+     "7410"
+    ]
+   },
+   "efecto": "cobre lamina → 7409, 7410"
+  },
+  {
+   "codigo": "R-NE-MP-METAL-COBRE-ALAMBRE",
+   "categoria": "metal",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "metal_base",
+     "operador": "EQUAL",
+     "valor": "cobre",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "forma_metal",
+     "operador": "EQUAL",
+     "valor": "alambre",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "7408"
+    ]
+   },
+   "efecto": "cobre alambre → 7408"
+  },
+  {
+   "codigo": "R-NE-MP-METAL-COBRE-BARRA",
+   "categoria": "metal",
+   "condiciones": [
+    {
+     "grupo": 1,
+     "campo": "metal_base",
+     "operador": "EQUAL",
+     "valor": "cobre",
+     "negado": false
+    },
+    {
+     "grupo": 1,
+     "campo": "forma_metal",
+     "operador": "EQUAL",
+     "valor": "barra",
+     "negado": false
+    }
+   ],
+   "accion": {
+    "tipo": "RESTRICT",
+    "codigos": [
+     "7407"
+    ]
+   },
+   "efecto": "cobre barra → 7407"
+  }
+ ],
+ "casos": [
+  {
+   "hechos": {
+    "categoria": "tejido_plano",
+    "comp.material": "100% cotton",
+    "predominio85": true,
+    "peso_g_m2": 380
+   },
+   "codigo": "5209"
+  },
+  {
+   "hechos": {
+    "categoria": "tejido_plano",
+    "comp.material": "100% nylon ripstop",
+    "filamento": "filamento"
+   },
+   "codigo": "5407"
+  },
+  {
+   "hechos": {
+    "categoria": "tejido_punto",
+    "comp.material": "100% polyester mesh",
+    "tipo_punto": "urdimbre"
+   },
+   "codigo": "6005"
+  },
+  {
+   "hechos": {
+    "categoria": "tejido_punto",
+    "comp.material": "100% polyester",
+    "tipo_punto": "pelo"
+   },
+   "codigo": "6001"
+  },
+  {
+   "hechos": {
+    "categoria": "hilado",
+    "comp.material": "100% polyester",
+    "uso_hilado": "hilo_coser",
+    "filamento": "filamento"
+   },
+   "codigo": "5401"
+  },
+  {
+   "hechos": {
+    "categoria": "hilado",
+    "comp.material": "100% cotton",
+    "uso_hilado": "industrial",
+    "predominio85": true
+   },
+   "codigo": "5205"
+  },
+  {
+   "hechos": {
+    "categoria": "no_tejido",
+    "comp.material": "100% polypropylene",
+    "tipo_no_tejido": "filamentos",
+    "peso_g_m2": 100
+   },
+   "codigo": "560313"
+  },
+  {
+   "hechos": {
+    "categoria": "tela_recubierta",
+    "comp.material": "100% polyester",
+    "soporte": "tejido",
+    "recubrimiento": "pu"
+   },
+   "codigo": "590320"
+  },
+  {
+   "hechos": {
+    "categoria": "cinta_etiqueta",
+    "tipo_cinta": "elastico"
+   },
+   "codigo": "580620"
+  },
+  {
+   "hechos": {
+    "categoria": "cinta_etiqueta",
+    "tipo_cinta": "etiqueta_tejida"
+   },
+   "codigo": "580710"
+  },
+  {
+   "hechos": {
+    "categoria": "cinta_etiqueta",
+    "tipo_cinta": "etiqueta_papel",
+    "impresa": true
+   },
+   "codigo": "482110"
+  },
+  {
+   "hechos": {
+    "categoria": "avio",
+    "tipo_avio": "cierre_otro"
+   },
+   "codigo": "960719"
+  },
+  {
+   "hechos": {
+    "categoria": "avio",
+    "tipo_avio": "gancho_ojete"
+   },
+   "codigo": "830810"
+  },
+  {
+   "hechos": {
+    "categoria": "resina_plastica",
+    "polimero": "eva"
+   },
+   "codigo": "390130"
+  },
+  {
+   "hechos": {
+    "categoria": "lamina_plastica",
+    "polimero": "poliuretano",
+    "autoadhesiva": false,
+    "celular": true
+   },
+   "codigo": "39211"
+  },
+  {
+   "hechos": {
+    "categoria": "caucho",
+    "forma_caucho": "lamina"
+   },
+   "codigo": "400821"
+  },
+  {
+   "hechos": {
+    "categoria": "cuero",
+    "animal": "bovino",
+    "estado_cuero": "terminado"
+   },
+   "codigo": "4107"
+  },
+  {
+   "hechos": {
+    "categoria": "cuero",
+    "animal": "bovino",
+    "estado_cuero": "humedo"
+   },
+   "codigo": "41041"
+  },
+  {
+   "hechos": {
+    "categoria": "cuero_sintetico",
+    "soporte": "tejido",
+    "recubrimiento": "pu"
+   },
+   "codigo": "590320"
+  },
+  {
+   "hechos": {
+    "categoria": "papel_carton",
+    "tipo_papel": "caja_plegable"
+   },
+   "codigo": "481920"
+  }
+ ]
+}
