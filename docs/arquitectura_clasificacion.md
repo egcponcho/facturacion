@@ -72,16 +72,15 @@ the ACI (country-specific)* (migración 0018).
 
 ## Químicos y materias primas (configuración del motor)
 
-`data/motor_tecnico.json` (cargado por `atributos.cargar_tecnico` y
-`categorias.sembrar`) define las categorías técnicas (ácido, sal, solvente,
-adhesivo, pigmento…; hilado, tejido plano, de punto, recubierto, resina,
-película, caucho, cuero, papel, metales…), sus atributos (CAS, fórmula,
-composición, pureza, concentración, polímero, forma primaria, fibra, %,
-gramaje, acabado, espesor, celular…) y en qué categoría se pregunta cada uno,
-con dependencias (p. ej. *textured* solo si el hilado es de filamento). Las
-categorías **no tienen códigos ni capítulos**: solo deciden qué preguntar; sus
-`terminos` (y los de las opciones) son palabras del texto oficial que ordenan
-candidatos del árbol. Todo se edita en *Aranceles → Motor* sin programar.
+`data/motor/familias/quimicos.json` y `materias_primas.json` (ver *Catálogo de
+las Notas Explicativas* abajo) definen las categorías técnicas (ácido orgánico
+o inorgánico, sal, disolvente, adhesivo, pigmento, tinte, pintura, tensoactivo,
+lubricante, cera, reactivo…; fibra, hilado, tejido plano, de punto, sin tejer,
+recubierto, cinta, avío, resina, lámina, caucho, cuero, papel, metales), sus
+preguntas (CAS, componentes, estado físico, densidad, pH, compuesto definido,
+grupo funcional, polímero, fibra, filamento, peso por m², recubrimiento,
+soporte…) y en qué categoría se pregunta cada una, con dependencias. Todo se
+edita en *Aranceles → Motor* sin programar.
 
 Un solo motor: `POST /clasificacion/sesion` (texto, dominio, categoría, ficha,
 respuestas, países, versión) clasifica calzado, químicos o materias primas. La
@@ -246,11 +245,10 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
 
 ## Reglas para químicos y materias primas, y familias nuevas (G6)
 
-- `data/motor/motor_reglas_tecnicas.json`: 90 reglas de las categorías
-  técnicas (químicos de los capítulos 28, 29, 32, 34, 35 y 38; plásticos,
-  caucho, cuero, textiles, papel y metales), según las notas de capítulo y las
-  partidas del SA. Son configuración del motor (editables; una regla editada no
-  se pisa). La carga de la base solo retira reglas suyas (R-MJS-, R-TEC-),
+- Las reglas de químicos y materias primas viven en sus archivos de familia
+  (`data/motor/familias/`), escritas con las notas de capítulo y las partidas
+  del SA. Son configuración del motor (editables; una regla editada no se
+  pisa). La carga de la base solo retira reglas suyas (R-NE-, R-MJS-, R-TEC-),
   nunca las de un paquete o de la empresa.
 - Una regla que apunta a un capítulo que se clasifica a mano (o no está
   habilitado) lo dice y deja el caso en revisión.
@@ -322,3 +320,43 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
   pg_trgm) cuando la base pase a Postgres (hoy el índice en memoria basta) y
   separar la configuración por empresa (multiempresa), que toca todas las
   tablas del motor.
+
+## Catálogo de las Notas Explicativas (N1–N8)
+
+Las familias de calzado, ropa, accesorios, químicos y materias primas se
+escribieron de nuevo con las Notas Explicativas del SA (`NOTAS_SA2006.pdf`),
+contra el árbol vigente (SAC VII Enmienda / SA 2022: lo que la enmienda movió,
+como 6406.91/99 → 6406.90, se sigue al árbol vigente).
+
+- **Generador** `backend/scripts/familias/` (`python scripts/familias/construir.py`):
+  un módulo por familia (`calzado.py`, `ropa.py`, `accesorios.py`,
+  `quimicos.py`, `materias_primas.py`) y lo común en `comun.py`. Escribe
+  `app/data/motor/familias/*.json` y valida que cada código de regla y de caso
+  exista en el árbol oficial, que cada condición nombre una pregunta y una
+  opción que existen y que cada código caiga en los capítulos de su categoría.
+- **Cada familia** trae su dominio con capítulos, categorías (nombre, nombre
+  de aduana, patrones de texto, capítulos), preguntas con opciones y ayuda
+  citando la nota que las justifica, reglas `R-NE-<FAM>-nnn` y casos de prueba
+  (`tests/test_familias_notas.py` pasa cada caso por el motor completo).
+- **Lo común**: la composición por partes (exterior, forro, relleno, corte,
+  suela, material), lo que se lee de ella (fibra que predomina en peso, Nota 2
+  de la Sección XI; materia del corte y de la suela, Nota 4 del capítulo 64;
+  clase de material), para quién es la prenda (género y edad, con las notas de
+  bebé hasta 86 cm y de prendas no identificables como de mujer) y los datos
+  que piden algunos aranceles nacionales (manga, largo, peto, mezclilla,
+  cuello, capucha, suela espumosa, uso previsto, valor CIF), con ámbito solo en
+  las categorías donde tienen sentido.
+- **Semilla** `services/semilla_familias.py`: junta los archivos; atributos,
+  categorías, reglas, clases de material y dominios se siembran desde ahí y
+  nunca pisan lo editado. Las familias de base nacen publicadas.
+- **Migración 0034**: borra la configuración anterior del motor (reglas
+  salvo las internas y las de selección nacional, atributos, categorías,
+  dominios, clases de material y traducciones) y pasa el tipo de cada producto
+  y del historial a la categoría nueva; los capítulos 58, 59 y 60 pasan a
+  automáticos. Lo capturado en las fichas se conserva.
+- **Valores supuestos**: una pregunta de lista con opción «por defecto» (p. ej.
+  uso no deportivo, altura baja, adulto) se supone solo si es de la categoría
+  del producto, y se avisa para confirmarla; no se guardan supuestos de
+  preguntas ajenas.
+- **Traducciones**: todos los textos nuevos del catálogo traen su español en
+  `data/motor/traducciones_catalogo.json`.

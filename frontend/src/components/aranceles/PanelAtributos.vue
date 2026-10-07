@@ -131,7 +131,7 @@ const ambito = (x, datosAmb) => guardar(`${base()}/ambitos/${x.id}`, datosAmb)
 async function agregarAmbito() {
   if (await guardar(`${base()}/ambitos`, { ...nuevoAmb }, 'post', t('Added: it is asked there too.'))) nuevoAmb.codigo_ambito = ''
 }
-// {materialCinturon: 'textil'} → «Belt material: Textile»; {'material.corte': 'cuero'} → «Upper: Leather»
+// {superficie_exterior: 'textil'} → «Material of the outer surface: Textile»; {'material.corte': 'cuero'} → «Upper: Leather»
 // Dependencia de un ámbito: la pregunta solo aparece si se cumplen estas condiciones
 const dep = ref(null)
 function abrirDep(x) {

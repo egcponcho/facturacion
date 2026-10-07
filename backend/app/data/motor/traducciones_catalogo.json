@@ -1,9 +1,18 @@
 {
+ "70 % or more petroleum oil (it is a lubricating oil)": {
+  "es": "70 % o más de aceite de petróleo (es un aceite lubricante)"
+ },
  "A single compound of defined structure (with or without impurities)": {
   "es": "Un solo compuesto de estructura definida (con o sin impurezas)"
  },
+ "A smartwatch is a communication apparatus (85.17), not a watch of chapter 91.": {
+  "es": "Un reloj inteligente es un aparato de comunicación (85.17), no un reloj del capítulo 91."
+ },
  "ABS": {
   "es": "ABS"
+ },
+ "Accessories": {
+  "es": "Accesorios"
  },
  "Accessories / merchandise": {
   "es": "Accesorios / mercancía promocional"
@@ -17,17 +26,29 @@
  "Acid or mordant": {
   "es": "Ácido o mordiente"
  },
+ "Acid or mordant dyes (wool, nylon, leather)": {
+  "es": "Colorantes ácidos o de mordiente (lana, nailon, cuero)"
+ },
  "Acrylic": {
   "es": "Acrílico"
  },
  "Acrylic (PMMA)": {
   "es": "Acrílico (PMMA)"
  },
+ "Acrylic or vinyl polymer": {
+  "es": "Polímero acrílico o vinílico"
+ },
  "Acrylic plastic": {
   "es": "Plástico acrílico"
  },
+ "Acrylic polymer": {
+  "es": "Polímero acrílico"
+ },
  "Active ingredient": {
   "es": "Ingrediente activo"
+ },
+ "Adhesive": {
+  "es": "Adhesivo"
  },
  "Adhesive base": {
   "es": "Base adhesiva"
@@ -41,8 +62,14 @@
  "Alcohol": {
   "es": "Alcohol"
  },
+ "Alcohol (methanol, isopropanol, glycols, glycerol)": {
+  "es": "Alcohol (metanol, isopropanol, glicoles, glicerol)"
+ },
  "Alcoholic strength": {
   "es": "Grado alcohólico"
+ },
+ "Aldehyde (formaldehyde)": {
+  "es": "Aldehído (formaldehído)"
  },
  "Also covers the knee": {
   "es": "También cubre la rodilla"
@@ -52,6 +79,12 @@
  },
  "Aluminum": {
   "es": "Aluminio"
+ },
+ "Amide, imide, nitrile, isocyanate or other nitrogen compound": {
+  "es": "Amida, imida, nitrilo, isocianato u otro compuesto nitrogenado"
+ },
+ "Amine or amino compound": {
+  "es": "Amina o compuesto aminado"
  },
  "Amphoteric": {
   "es": "Anfótero"
@@ -80,8 +113,17 @@
  "Anionic": {
   "es": "Aniónico"
  },
+ "Anionic surface-active agent": {
+  "es": "Agente de superficie aniónico"
+ },
  "Ankle boot": {
   "es": "Botín"
+ },
+ "Ankle boot or chukka": {
+  "es": "Botín o chukka"
+ },
+ "Antioxidant: mixture of TMQ oligomers": {
+  "es": "Antioxidante: mezcla de oligómeros de TMQ"
  },
  "Apparel": {
   "es": "Ropa"
@@ -92,8 +134,17 @@
  "artificial fiber": {
   "es": "fibra artificial"
  },
+ "Artificial fiber": {
+  "es": "Fibra artificial"
+ },
  "Artificial or prepared": {
   "es": "Artificial o preparado"
+ },
+ "Artificial or prepared wax (mixtures, waxes with resins)": {
+  "es": "Cera artificial o preparada (mezclas, ceras con resinas)"
+ },
+ "As in the safety data sheet (SDS). It is used to find the subheading in the official text.": {
+  "es": "Como en la hoja de seguridad (SDS). Sirve para buscar la subpartida en el texto oficial."
  },
  "As in the SDS, e.g. CH3COOH": {
   "es": "Como en la hoja de seguridad, p. ej. CH3COOH"
@@ -101,14 +152,41 @@
  "Athletic: running, trail running, training, basketball, tennis": {
   "es": "Deportivo: running, trail, entrenamiento, baloncesto, tenis"
  },
+ "Automatic (self-winding)": {
+  "es": "Automático (cuerda automática)"
+ },
+ "Baby": {
+  "es": "Bebé"
+ },
  "Baby (up to 86 cm tall)": {
   "es": "Bebé (hasta 86 cm de estatura)"
+ },
+ "Baby garment": {
+  "es": "Prenda de bebé"
+ },
+ "Baby garment: bodysuit, romper, baby set, bib": {
+  "es": "Prenda de bebé: body, mameluco, conjunto de bebé, babero"
+ },
+ "Baby garments are for children up to 86 cm tall (chapter 61 Note 6, chapter 62 Note 4).": {
+  "es": "Las prendas de bebé son para niños de hasta 86 cm de estatura (Nota 6 del capítulo 61, Nota 4 del capítulo 62)."
+ },
+ "Backing": {
+  "es": "Soporte"
  },
  "Backpack": {
   "es": "Mochila"
  },
  "Bag class": {
   "es": "Tipo de bolso"
+ },
+ "Bag or case": {
+  "es": "Bolso o estuche"
+ },
+ "Bags and leather goods": {
+  "es": "Bolsos y marroquinería"
+ },
+ "Bags and leather goods, belts, gloves, scarves, ties, headwear, umbrellas, imitation jewelry, watches, sunglasses and hair accessories.": {
+  "es": "Bolsos y marroquinería, cinturones, guantes, bufandas, corbatas, sombrerería, paraguas, bisutería, relojes, lentes de sol y accesorios para el cabello."
  },
  "Bags and luggage": {
   "es": "Bolsos y artículos de viaje"
@@ -122,20 +200,50 @@
  "Bar or rod": {
   "es": "Barra o varilla"
  },
+ "Bar, other use (laundry)": {
+  "es": "En barra, otro uso (lavar ropa)"
+ },
+ "Bar, rod or profile": {
+  "es": "Barra, varilla o perfil"
+ },
+ "Bar, toilet use": {
+  "es": "En barra, de tocador"
+ },
  "Base metal": {
   "es": "Metal común"
  },
  "Base metal (steel, brass, zinc)": {
   "es": "Metal común (acero, latón, zinc)"
  },
+ "Base metal, even gold- or silver-plated": {
+  "es": "Metal común, incluso dorado o plateado"
+ },
+ "Base metal, even plated with silver, gold or platinum": {
+  "es": "Metal común, incluso chapado de plata, oro o platino"
+ },
  "Base or alkali": {
   "es": "Base o álcali"
+ },
+ "Base or metal oxide/hydroxide (ammonia, caustic soda, zinc oxide)": {
+  "es": "Base u óxido/hidróxido metálico (amoníaco, soda cáustica, óxido de zinc)"
+ },
+ "Base polymer": {
+  "es": "Polímero base"
  },
  "Basic": {
   "es": "Básico"
  },
+ "Basic dyes (acrylic)": {
+  "es": "Colorantes básicos (acrílico)"
+ },
+ "Bathrobe, dressing gown or house coat": {
+  "es": "Albornoz, bata o batín"
+ },
  "Beanie": {
   "es": "Gorro tejido"
+ },
+ "Beanie, beret or hood without a brim": {
+  "es": "Gorro, boina o capucha sin ala"
  },
  "Belt": {
   "es": "Cinturón"
@@ -145,6 +253,9 @@
  },
  "Blanket": {
   "es": "Manta"
+ },
+ "Blazer": {
+  "es": "Saco (blazer)"
  },
  "Bleached": {
   "es": "Blanqueado"
@@ -161,11 +272,20 @@
  "Bottle, thermos or tumbler": {
   "es": "Botella, termo o vaso térmico"
  },
+ "Bottoms": {
+  "es": "Prendas inferiores"
+ },
  "Bottoms and one-pieces": {
   "es": "Prendas inferiores y enterizos"
  },
  "Bovine": {
   "es": "Bovino"
+ },
+ "Bovine or equine (cow, buffalo, horse)": {
+  "es": "Bovino o equino (vaca, búfalo, caballo)"
+ },
+ "Box of corrugated paperboard": {
+  "es": "Caja de cartón corrugado"
  },
  "Box or packaging": {
   "es": "Caja o empaque"
@@ -173,8 +293,20 @@
  "Bra": {
   "es": "Sostén"
  },
+ "Bra or brassiere (including sports bras and bralettes)": {
+  "es": "Brasier o sostén (incluye brasieres deportivos y bralettes)"
+ },
+ "Bra or shapewear": {
+  "es": "Brasier o faja"
+ },
  "Bra or sports bra": {
   "es": "Sostén o sostén deportivo"
+ },
+ "Bra, girdle, corset, braces or garters": {
+  "es": "Brasier, faja, corsé, tirantes o ligas"
+ },
+ "Braid, cord or ornamental trimming in the piece": {
+  "es": "Trenza, cordón o pasamanería en pieza"
  },
  "Brand merchandise and daily-use accessories: bags, headwear, pins, bottle openers, boards/sport articles, holders, straps and similar; open-ended.": {
   "es": "Mercancía de marca y accesorios de uso diario: bolsos, gorras, pines, destapadores, tablas y artículos deportivos, porta objetos, correas y similares; lista abierta."
@@ -185,14 +317,26 @@
  "Briefs, boxers or panties": {
   "es": "Calzoncillos, bóxers o bragas"
  },
+ "Briefs, boxers, panties or thongs": {
+  "es": "Calzoncillos, bóxers, bragas o tangas"
+ },
  "Brush": {
   "es": "Cepillo"
  },
  "Buckle or clasp": {
   "es": "Hebilla o broche"
  },
+ "Buckle, clasp or other base metal fastener": {
+  "es": "Hebilla, broche u otro cierre de metal común"
+ },
  "Bulk, retail pack, sheet, roll, finished article, set, part, etc.": {
   "es": "A granel, empaque para venta al por menor, hoja, rollo, artículo terminado, juego, parte, etc."
+ },
+ "Button of base metal, not covered with textile": {
+  "es": "Botón de metal común, sin forrar de materia textil"
+ },
+ "Button of plastic, not covered with textile": {
+  "es": "Botón de plástico, sin forrar de materia textil"
  },
  "Button or snap": {
   "es": "Botón o broche de presión"
@@ -212,14 +356,23 @@
  "Canvas": {
   "es": "Lona"
  },
+ "Cap or hat": {
+  "es": "Gorra o sombrero"
+ },
  "Cap or headwear": {
   "es": "Gorra o sombrerería"
+ },
+ "Cap with a visor": {
+  "es": "Gorra con visera"
  },
  "Cap with visor": {
   "es": "Gorra con visera"
  },
  "Cap, beanie, hat or helmet": {
   "es": "Gorra, gorro, sombrero o casco"
+ },
+ "Cap, hat, beanie or helmet": {
+  "es": "Gorra, sombrero, gorro o casco"
  },
  "Capture only if candidate rules require size/measurements.": {
   "es": "Capturar solo si las reglas de los candidatos piden tamaño o medidas."
@@ -229,6 +382,9 @@
  },
  "Carbon black": {
   "es": "Negro de humo"
+ },
+ "Carboxylic acid, anhydride or ester (acetic acid, ethyl acetate, phthalates)": {
+  "es": "Ácido carboxílico, anhídrido o éster (ácido acético, acetato de etilo, ftalatos)"
  },
  "Card stock": {
   "es": "Cartulina"
@@ -248,8 +404,14 @@
  "Casual or lifestyle": {
   "es": "Casual o de estilo de vida"
  },
+ "Casual, urban, dress or outdoor": {
+  "es": "Casual, urbano, de vestir o de exterior"
+ },
  "Cationic": {
   "es": "Catiónico"
+ },
+ "Cationic surface-active agent": {
+  "es": "Agente de superficie catiónico"
  },
  "Cellular (foam)": {
   "es": "Celular (espuma)"
@@ -257,8 +419,44 @@
  "Cellular rubber": {
   "es": "Caucho celular"
  },
+ "Certified reference material": {
+  "es": "Material de referencia certificado"
+ },
  "Chair or stool": {
   "es": "Silla o banco"
+ },
+ "Chamois or oil-tanned": {
+  "es": "Gamuza o curtido al aceite"
+ },
+ "Chapter 29 Note 3: a compound that fits two headings goes in the one that comes last.": {
+  "es": "Nota 3 del capítulo 29: un compuesto que cabe en dos partidas va en la que aparece de última."
+ },
+ "Chapter 32 Note 4: solutions of polymers of 39.01–39.13 with more than 50 % organic solvent by weight are 32.08.": {
+  "es": "Nota 4 del capítulo 32: las soluciones de polímeros de 39.01 a 39.13 con más del 50 % en peso de disolvente orgánico van en 32.08."
+ },
+ "Chapter 34 Note 3: a surface-active agent at 0.5 % in water at 20 °C gives a clear or stable liquid and lowers the surface tension of water to 45 dyn/cm or less.": {
+  "es": "Nota 3 del capítulo 34: un agente de superficie al 0.5 % en agua a 20 °C da un líquido transparente o estable y baja la tensión superficial del agua a 45 dinas/cm o menos."
+ },
+ "Chapter 59 Note 2: when the textile only reinforces a plastic sheet, or the coating cannot be seen, it is not 59.03.": {
+  "es": "Nota 2 del capítulo 59: cuando el textil solo refuerza una lámina de plástico, o el recubrimiento no se ve, no es 59.03."
+ },
+ "Chapter 61 Note 4: heading 61.05 does not cover sleeveless garments.": {
+  "es": "Nota 4 del capítulo 61: la partida 61.05 no comprende las prendas sin mangas."
+ },
+ "Chapter 61 Note 9 and chapter 62 Note 8: closing left over right is men's, right over left is women's; what cannot be identified is classified with women's garments.": {
+  "es": "Nota 9 del capítulo 61 y Nota 8 del capítulo 62: el cierre de izquierda sobre derecha es de hombre y de derecha sobre izquierda es de mujer; lo que no se puede identificar se clasifica con las prendas de mujer."
+ },
+ "Chapter 61 Notes 4 and 5: shirts, blouses and T-shirts cannot have any means of tightening at the bottom.": {
+  "es": "Notas 4 y 5 del capítulo 61: las camisas, blusas y camisetas no pueden tener ningún sistema de ajuste en la parte inferior."
+ },
+ "Chapter 62 Note 7: such a neck scarf is treated as a pocket handkerchief (62.13).": {
+  "es": "Nota 7 del capítulo 62: esa bufanda para el cuello se trata como pañuelo de bolsillo (62.13)."
+ },
+ "Chapter 65: the construction decides the heading, not the style.": {
+  "es": "Capítulo 65: la construcción decide la partida, no el estilo."
+ },
+ "Chapters 54 (filaments) and 55 (staple fibers); Section XI Note 2 B c) treats them together against other chapters.": {
+  "es": "Capítulos 54 (filamentos) y 55 (fibras discontinuas); la Nota 2 B c) de la Sección XI los trata juntos frente a otros capítulos."
  },
  "Chemical / technical name": {
   "es": "Nombre químico / técnico"
@@ -269,11 +467,20 @@
  "Chemical function / use": {
   "es": "Función / uso químico"
  },
+ "Chemical or technical name": {
+  "es": "Nombre químico o técnico"
+ },
+ "Chemical preparation": {
+  "es": "Preparación química"
+ },
  "Chemical preparation or additive": {
   "es": "Preparación química o aditivo"
  },
  "Chemical substances, mixtures and chemical preparations; dynamic questions based on remaining candidates.": {
   "es": "Sustancias químicas, mezclas y preparaciones químicas; preguntas dinámicas según los candidatos que quedan."
+ },
+ "Chemically defined compounds (28, 29) and chemical preparations by their function (32, 34, 35, 38).": {
+  "es": "Compuestos químicos definidos (28, 29) y preparaciones químicas por su función (32, 34, 35, 38)."
  },
  "Chemicals": {
   "es": "Químicos"
@@ -287,6 +494,9 @@
  "Chloroprene (neoprene)": {
   "es": "Cloropreno (neopreno)"
  },
+ "CIF value (US$)": {
+  "es": "Valor CIF (US$)"
+ },
  "CIF value per pair or unit (US$)": {
   "es": "Valor CIF por par o unidad (US$)"
  },
@@ -296,14 +506,23 @@
  "Climbing chalk": {
   "es": "Magnesio para escalada"
  },
+ "Clog": {
+  "es": "Zueco"
+ },
  "Closed shoe (dress, casual, school)": {
   "es": "Zapato cerrado (de vestir, casual, escolar)"
  },
  "Clothing accessories": {
   "es": "Accesorios de vestir"
  },
+ "Coat, jacket, anorak, parka, raincoat or padded vest": {
+  "es": "Abrigo, chaqueta, anorak, parka, impermeable o chaleco acolchado"
+ },
  "Coated": {
   "es": "Recubierto"
+ },
+ "Coated fabric": {
+  "es": "Tela recubierta"
  },
  "Coated, covered or impregnated": {
   "es": "Recubierto, revestido o impregnado"
@@ -320,6 +539,9 @@
  "Coating visible to the naked eye": {
   "es": "Recubrimiento visible a simple vista"
  },
+ "Comb, hair-slide or similar": {
+  "es": "Peine, pasador o similar"
+ },
  "Complete": {
   "es": "Completa"
  },
@@ -335,8 +557,14 @@
  "Composition (component, CAS and %)": {
   "es": "Composición (componente, CAS y %)"
  },
+ "Composition leather (leather fibers)": {
+  "es": "Cuero regenerado (a base de fibras de cuero)"
+ },
  "Composition leather (reconstituted)": {
   "es": "Cuero regenerado (reconstituido)"
+ },
+ "Compound plasticizer": {
+  "es": "Plastificante compuesto"
  },
  "Compounded (with additives)": {
   "es": "Compuesto (con aditivos)"
@@ -344,11 +572,20 @@
  "Compounded rubber": {
   "es": "Caucho mezclado"
  },
+ "Compounded rubber, unvulcanized": {
+  "es": "Caucho mezclado sin vulcanizar"
+ },
  "Concentration": {
   "es": "Concentración"
  },
  "Construction": {
   "es": "Construcción"
+ },
+ "Contains 85 % or more by weight of the predominant fiber": {
+  "es": "Contiene 85 % o más en peso de la fibra que predomina"
+ },
+ "Contains petroleum oil, under 70 % by weight": {
+  "es": "Contiene aceite de petróleo, menos del 70 % en peso"
  },
  "Cooler or lunch bag": {
   "es": "Hielera o lonchera"
@@ -370,6 +607,12 @@
  },
  "Corrugated cardboard": {
   "es": "Cartón corrugado"
+ },
+ "Corselette (girdle and bra combined)": {
+  "es": "Faja-sostén (faja y brasier en una sola pieza)"
+ },
+ "Corset, braces, suspenders, garters or similar": {
+  "es": "Corsé, tirantes, ligueros, ligas o similares"
  },
  "Costume jewelry": {
   "es": "Bisutería"
@@ -404,6 +647,12 @@
  "Crust (dry)": {
   "es": "Crust (seco)"
  },
+ "Crust (dry, retanned, not finished)": {
+  "es": "Crust (seco, recurtido, sin terminar)"
+ },
+ "Cufflinks or studs": {
+  "es": "Gemelos o pasadores de camisa"
+ },
  "Cut to shape": {
   "es": "Cortado a la forma"
  },
@@ -425,8 +674,17 @@
  "Design": {
   "es": "Diseño"
  },
+ "Designed for tennis, basketball, gym, training, running or similar": {
+  "es": "Diseñado para tenis, baloncesto, gimnasio, entrenamiento, correr o similares"
+ },
+ "Designed specially for sport (e.g. boxing, hockey, golf, cycling)": {
+  "es": "Diseñado especialmente para deporte (p. ej. boxeo, hockey, golf, ciclismo)"
+ },
  "Detergent or cleaning preparation": {
   "es": "Detergente o preparación de limpieza"
+ },
+ "Detergent or surfactant": {
+  "es": "Detergente o tensoactivo"
  },
  "Diagnostic": {
   "es": "De diagnóstico"
@@ -434,20 +692,44 @@
  "Digital": {
   "es": "Digital"
  },
+ "Digital only (optoelectronic)": {
+  "es": "Solo digital (optoelectrónico)"
+ },
  "Dimensions": {
   "es": "Dimensiones"
  },
  "Direct": {
   "es": "Directo"
  },
+ "Direct dyes (cotton)": {
+  "es": "Colorantes directos (algodón)"
+ },
+ "Disinfectant or antimicrobial": {
+  "es": "Desinfectante o antimicrobiano"
+ },
+ "Disinfectant or biocide": {
+  "es": "Desinfectante o biocida"
+ },
+ "Disinfectant, insecticide, fungicide or similar": {
+  "es": "Desinfectante, insecticida, fungicida o similar"
+ },
  "Disperse": {
   "es": "Disperso"
+ },
+ "Disperse dyes (polyester)": {
+  "es": "Colorantes dispersos (poliéster)"
+ },
+ "Dispersed in a non-aqueous medium, for making paints (pigment paste, masterbatch for paints)": {
+  "es": "Dispersos en un medio no acuoso, para fabricar pinturas (pasta de pigmento, masterbatch para pinturas)"
  },
  "Dispersed or dissolved in an organic solvent": {
   "es": "Dispersado o disuelto en un solvente orgánico"
  },
  "Dispersion or solution": {
   "es": "Dispersión o solución"
+ },
+ "Display": {
+  "es": "Pantalla"
  },
  "Display or mannequin": {
   "es": "Exhibidor o maniquí"
@@ -473,6 +755,9 @@
  "Dress": {
   "es": "Vestido"
  },
+ "Dresses": {
+  "es": "Vestidos"
+ },
  "Duffel or travel bag": {
   "es": "Maletín o bolso de viaje"
  },
@@ -481,6 +766,9 @@
  },
  "Dye class": {
   "es": "Clase de colorante"
+ },
+ "Dye or colorant": {
+  "es": "Tinte o colorante"
  },
  "Dyed": {
   "es": "Teñido"
@@ -500,11 +788,17 @@
  "E.g. 90% down 10% feather": {
   "es": "P. ej. 90% plumón 10% pluma"
  },
+ "E.g. 90% down 10% feathers, or polyester wadding": {
+  "es": "P. ej. 90% plumón 10% plumas, o guata de poliéster"
+ },
  "E.g. EVA with textile cover": {
   "es": "P. ej. EVA con forro textil"
  },
  "E.g. leather, stainless steel, nylon": {
   "es": "P. ej. cuero, acero inoxidable, nailon"
+ },
+ "E.g. leather, stainless steel, nylon, cotton canvas": {
+  "es": "P. ej. cuero, acero inoxidable, nailon, lona de algodón"
  },
  "Elastane": {
   "es": "Elastano"
@@ -512,11 +806,29 @@
  "Elastic": {
   "es": "Elástico"
  },
+ "Elastic, drawstring or ribbed waistband at the bottom hem": {
+  "es": "Elástico, cordón o pretina acanalada en el borde inferior"
+ },
  "Elastomeric yarn content": {
   "es": "Contenido de hilado elastomérico"
  },
+ "Electrically operated (battery or solar)": {
+  "es": "Eléctrico (batería o solar)"
+ },
+ "Element (sulfur, carbon black, gases, metalloids, alkali metals)": {
+  "es": "Elemento (azufre, negro de humo, gases, metaloides, metales alcalinos)"
+ },
  "Embroidered patch": {
   "es": "Parche bordado"
+ },
+ "Embroidery or embroidered badge": {
+  "es": "Bordado o insignia bordada"
+ },
+ "Ensemble": {
+  "es": "Conjunto"
+ },
+ "Ensemble: matching top and bottom sold together": {
+  "es": "Conjunto: prenda superior e inferior que combinan y se venden juntas"
  },
  "EPDM": {
   "es": "EPDM"
@@ -526,6 +838,12 @@
  },
  "Equine": {
   "es": "Equino"
+ },
+ "Ester of an inorganic acid (phosphates, carbonates)": {
+  "es": "Éster de un ácido inorgánico (fosfatos, carbonatos)"
+ },
+ "Ether, peroxide, epoxide or acetal": {
+  "es": "Éter, peróxido, epóxido o acetal"
  },
  "Ethyl alcohol": {
   "es": "Alcohol etílico"
@@ -548,11 +866,23 @@
  "Fabric coated or laminated with visible plastic or rubber (membrane such as DryVent, Gore-Tex, PU)": {
   "es": "Tela recubierta o laminada con plástico o caucho visible (membrana como DryVent, Gore-Tex, PU)"
  },
+ "Fabric coated, covered or laminated with plastics or rubber": {
+  "es": "Tela recubierta, revestida o laminada con plástico o caucho"
+ },
+ "Fabric coated, covered or laminated with plastics or rubber visible to the naked eye": {
+  "es": "Tela recubierta, revestida o laminada con plástico o caucho visible a simple vista"
+ },
+ "Fabric construction": {
+  "es": "Construcción de la tela"
+ },
  "Fabric or knit": {
   "es": "Tela o tejido de punto"
  },
  "Fabric or non-woven, reusable with handles": {
   "es": "De tela o no tejido, reutilizable y con asas"
+ },
+ "Fabrics of headings 59.03, 59.06 or 59.07 (chapter 61 Note 8, chapter 62 Note 5). A membrane between two fabrics that is not visible, or a quilted padded fabric (58.11), does not count: the outer fabric decides.": {
+  "es": "Telas de las partidas 59.03, 59.06 o 59.07 (Nota 8 del capítulo 61, Nota 5 del capítulo 62). No cuenta una membrana entre dos telas que no se ve ni una tela acolchada (58.11): decide la tela exterior."
  },
  "Faux fur": {
   "es": "Peletería artificial"
@@ -560,14 +890,26 @@
  "Feather": {
   "es": "Pluma"
  },
+ "Feathers": {
+  "es": "Plumas"
+ },
  "Felt": {
   "es": "Fieltro"
+ },
+ "Felt or nonwoven": {
+  "es": "Fieltro o tela sin tejer"
+ },
+ "Fiber that predominates by weight in the outer fabric": {
+  "es": "Fibra que predomina en peso en la tela exterior"
  },
  "Fiberglass": {
   "es": "Fibra de vidrio"
  },
  "Filament": {
   "es": "Filamento"
+ },
+ "Filament (continuous)": {
+  "es": "Filamento (continuo)"
  },
  "Filament or monofilament": {
   "es": "Filamento o monofilamento"
@@ -578,11 +920,23 @@
  "Fill": {
   "es": "Relleno"
  },
+ "Filling or padding": {
+  "es": "Relleno o acolchado"
+ },
  "Finish": {
   "es": "Acabado"
  },
+ "Finished after tanning or crusting": {
+  "es": "Terminado después del curtido o del crust"
+ },
  "Finished material/article": {
   "es": "Material o artículo terminado"
+ },
+ "Finishing agent": {
+  "es": "Agente de acabado"
+ },
+ "Finishing agent, dye fixer or carrier for textiles, paper or leather": {
+  "es": "Agente de acabado, fijador de tintes o carrier para textiles, papel o cuero"
  },
  "Fixture, gondola or display": {
   "es": "Mobiliario, góndola o exhibidor"
@@ -605,11 +959,20 @@
  "Fleece jacket worn as outerwear (pockets, lining or high collar)": {
   "es": "Chaqueta de fleece para usar por fuera (bolsillos, forro o cuello alto)"
  },
+ "Flip-flop or slide": {
+  "es": "Chancla o sandalia de pala"
+ },
+ "Fluorescent brightening agent": {
+  "es": "Abrillantador óptico"
+ },
  "Foam": {
   "es": "Espuma"
  },
  "Foam or self-inflating pad": {
   "es": "Colchoneta de espuma o autoinflable"
+ },
+ "Folding box or carton of non-corrugated board (shoe box)": {
+  "es": "Caja plegadiza de cartón no corrugado (caja de zapatos)"
  },
  "Footwear": {
   "es": "Calzado"
@@ -620,11 +983,38 @@
  "Footwear and directly related constructions/material distinctions.": {
   "es": "Calzado y las distinciones de construcción y material que le corresponden."
  },
+ "Footwear or leather": {
+  "es": "Calzado o cuero"
+ },
+ "Footwear part": {
+  "es": "Parte de calzado"
+ },
+ "Footwear parts: uppers, soles, heels, removable insoles": {
+  "es": "Partes de calzado: cortes, suelas, tacones, plantillas removibles"
+ },
  "Footwear style": {
   "es": "Estilo de calzado"
  },
+ "Footwear, gaiters and their parts (chapter 64). The upper and the outer sole decide the heading.": {
+  "es": "Calzado, polainas y sus partes (capítulo 64). El corte y la suela exterior deciden la partida."
+ },
  "Footwear: sneakers, boots, shoes, sandals": {
   "es": "Calzado: tenis, botas, zapatos, sandalias"
+ },
+ "Footwear: sneakers, shoes, boots, sandals, slippers": {
+  "es": "Calzado: tenis, zapatos, botas, sandalias, pantuflas"
+ },
+ "For": {
+  "es": "Para"
+ },
+ "For medical, surgical, dental or veterinary use": {
+  "es": "Para uso médico, quirúrgico, odontológico o veterinario"
+ },
+ "For men or for women": {
+  "es": "Para hombre o para mujer"
+ },
+ "For treating textiles, leather or furskins": {
+  "es": "Para tratar textiles, cuero o peletería"
  },
  "Form": {
   "es": "Forma"
@@ -641,6 +1031,12 @@
  "Functional description if the tariff distinction depends on use/preparation.": {
   "es": "Descripción funcional si la distinción arancelaria depende del uso o la preparación."
  },
+ "Functional group": {
+  "es": "Grupo funcional"
+ },
+ "Fungicide or anti-mold": {
+  "es": "Fungicida o antimoho"
+ },
  "Fur article": {
   "es": "Artículo de peletería"
  },
@@ -653,8 +1049,14 @@
  "Furniture": {
   "es": "Muebles"
  },
+ "Furskin or with fur parts beyond mere trimming": {
+  "es": "Peletería o con partes de piel más allá de un simple adorno"
+ },
  "Further prepared (finished)": {
   "es": "Más elaborado (acabado)"
+ },
+ "Gaiter": {
+  "es": "Polaina"
  },
  "Gaiters": {
   "es": "Polainas"
@@ -662,11 +1064,23 @@
  "Gaiters or shoe protectors": {
   "es": "Polainas o protectores de calzado"
  },
+ "Gaiters, leggings and spats": {
+  "es": "Polainas, leggings y botines cubrezapatos"
+ },
+ "Garden, beach or market umbrella (sunshade)": {
+  "es": "Sombrilla de jardín, playa o mercado (parasol)"
+ },
  "Garment": {
   "es": "Prenda"
  },
  "Garments and textile clothing; includes knitted/woven and fiber composition logic.": {
   "es": "Prendas y ropa textil; incluye la lógica de tejido de punto o plano y de composición por fibra."
+ },
+ "Garments of chapters 61 (knitted) and 62 (not knitted); leather, plastic, rubber and fur garments by their material.": {
+  "es": "Prendas de los capítulos 61 (de punto) y 62 (no de punto); las de cuero, plástico, caucho y peletería por su materia."
+ },
+ "Garments of leather (42.03), plastics (39.26), rubber (40.15) or furskin (43.03) are excluded from chapters 61 and 62.": {
+  "es": "Las prendas de cuero (42.03), plástico (39.26), caucho (40.15) o peletería (43.03) están excluidas de los capítulos 61 y 62."
  },
  "Gas": {
   "es": "Gas"
@@ -674,11 +1088,20 @@
  "Gender": {
   "es": "Género"
  },
+ "Girdle or panty-girdle": {
+  "es": "Faja o faja braga"
+ },
  "Glass": {
   "es": "Vidrio"
  },
  "Gloves": {
   "es": "Guantes"
+ },
+ "Gloves, mittens or mitts": {
+  "es": "Guantes, mitones o manoplas"
+ },
+ "Glue or adhesive": {
+  "es": "Pegamento o adhesivo"
  },
  "Goat or kid": {
   "es": "Cabra o cabritilla"
@@ -686,11 +1109,17 @@
  "Grade": {
   "es": "Grado"
  },
+ "Graduated compression (e.g. for varicose veins)": {
+  "es": "Compresión progresiva (p. ej. para várices)"
+ },
  "Granules or pellets": {
   "es": "Gránulos o pellets"
  },
  "Hair accessory": {
   "es": "Accesorio para el cabello"
+ },
+ "Hair accessory: clip, comb, hairband, scrunchie, hairpin": {
+  "es": "Accesorio para el cabello: gancho, peine, diadema, scrunchie, horquilla"
  },
  "Hair clip, comb or rigid headband": {
   "es": "Pinza, peineta o diadema rígida"
@@ -698,8 +1127,17 @@
  "Hair tie, scrunchie or fabric headband": {
   "es": "Liga, scrunchie o diadema de tela"
  },
+ "Hairband, scrunchie or headband of fabric": {
+  "es": "Diadema, scrunchie o cintillo de tela"
+ },
  "Hairpin or bobby pin": {
   "es": "Horquilla o pasador"
+ },
+ "Hairpin, bobby pin or curler": {
+  "es": "Horquilla, pinza o rulo"
+ },
+ "Halide or sulfide of non-metals": {
+  "es": "Halogenuro o sulfuro de no metales"
  },
  "Hammock": {
   "es": "Hamaca"
@@ -709,6 +1147,18 @@
  },
  "Handbag, purse or crossbody": {
   "es": "Bolso, cartera o bandolera"
+ },
+ "Handbag, shoulder bag, crossbody or clutch": {
+  "es": "Cartera, bolso de hombro, bandolera o clutch"
+ },
+ "Handkerchief": {
+  "es": "Pañuelo"
+ },
+ "Hands and digital (ana-digi)": {
+  "es": "Agujas y digital (ana-digi)"
+ },
+ "Hands only (mechanical display)": {
+  "es": "Solo agujas (indicador mecánico)"
  },
  "Hanger": {
   "es": "Gancho para ropa"
@@ -722,8 +1172,20 @@
  "Hat (with brim)": {
   "es": "Sombrero (con ala)"
  },
+ "Hat with a brim all around": {
+  "es": "Sombrero con ala alrededor"
+ },
+ "Heading 34.03 versus 27.10: with 70 % or more of petroleum oil it is an oil of chapter 27.": {
+  "es": "Partida 34.03 frente a 27.10: con 70 % o más de aceite de petróleo es un aceite del capítulo 27."
+ },
+ "Heading 64.01: molded, injected, vulcanized or high-frequency welded in one piece (rain boots, some overshoes).": {
+  "es": "Partida 64.01: moldeado, inyectado, vulcanizado o soldado por alta frecuencia en una sola pieza (botas de lluvia, algunos cubrecalzados)."
+ },
  "Height": {
   "es": "Altura"
+ },
+ "Heterocyclic compound": {
+  "es": "Compuesto heterocíclico"
  },
  "High-heeled shoe": {
   "es": "Zapato de tacón alto"
@@ -731,14 +1193,38 @@
  "Hiking or trekking": {
   "es": "Senderismo o trekking"
  },
+ "Hook, eye or eyelet of base metal": {
+  "es": "Corchete, ojal u ojete de metal común"
+ },
+ "Hook-and-loop or pile narrow fabric (velvet ribbon)": {
+  "es": "Cinta de velcro o de pelo (cinta de terciopelo)"
+ },
+ "Hosiery": {
+  "es": "Calcetería"
+ },
+ "How it is made": {
+  "es": "Cómo está hecho"
+ },
  "How the polymer is presented": {
   "es": "Cómo se presenta el polímero"
+ },
+ "Hydrocarbon or its halogenated, sulfonated or nitrated derivative (toluene, xylene)": {
+  "es": "Hidrocarburo o su derivado halogenado, sulfonado o nitrado (tolueno, xileno)"
+ },
+ "Imitation jewelry: necklace, earrings, bracelet, ring, cufflinks": {
+  "es": "Bisutería: collar, aretes, pulsera, anillo, gemelos"
+ },
+ "Impregnated, coated or covered with plastics or rubber": {
+  "es": "Impregnado, recubierto o revestido de plástico o caucho"
  },
  "In packages for sale to the final user": {
   "es": "En empaques para venta al usuario final"
  },
  "Incomplete": {
   "es": "Incompleta"
+ },
+ "Industrial yarn (cones, beams)": {
+  "es": "Hilado industrial (conos, plegadores)"
  },
  "Inflatable ball": {
   "es": "Balón inflable"
@@ -749,8 +1235,23 @@
  "Ink": {
   "es": "Tinta"
  },
+ "Inorganic acid or oxygen compound of non-metals": {
+  "es": "Ácido inorgánico o compuesto oxigenado de no metales"
+ },
+ "Inorganic chemical": {
+  "es": "Químico inorgánico"
+ },
  "Inorganic chemical (element, oxide…)": {
   "es": "Químico inorgánico (elemento, óxido…)"
+ },
+ "Inorganic chemical: acid, base, salt, oxide or element": {
+  "es": "Químico inorgánico: ácido, base, sal, óxido o elemento"
+ },
+ "Inputs for making footwear, apparel and accessories: textiles, plastics, rubber, leather, paper, metals and trims.": {
+  "es": "Insumos para fabricar calzado, ropa y accesorios: textiles, plásticos, caucho, cuero, papel, metales y avíos."
+ },
+ "Insecticide": {
+  "es": "Insecticida"
  },
  "Insole": {
   "es": "Plantilla"
@@ -763,6 +1264,9 @@
  },
  "Iron or non-alloy steel": {
   "es": "Hierro o acero sin alear"
+ },
+ "Iron or steel (incl. stainless)": {
+  "es": "Hierro o acero (incluye inoxidable)"
  },
  "Iron oxide": {
   "es": "Óxido de hierro"
@@ -791,6 +1295,9 @@
  "It is only the footprint or a tent accessory": {
   "es": "Es solo la base o un accesorio de la carpa"
  },
+ "Jacket or coat": {
+  "es": "Chaqueta o abrigo"
+ },
  "Jacket or vest": {
   "es": "Chaqueta o chaleco"
  },
@@ -800,11 +1307,41 @@
  "Jacket, parka, vest or blazer": {
   "es": "Chaqueta, parka, chaleco o blazer"
  },
+ "Jewelry": {
+  "es": "Joyería"
+ },
  "Jute": {
   "es": "Yute"
  },
+ "Ketone or quinone (acetone, MEK)": {
+  "es": "Cetona o quinona (acetona, MEK)"
+ },
  "Keychain or lanyard": {
   "es": "Llavero o cinta porta gafete"
+ },
+ "Kind": {
+  "es": "Tipo"
+ },
+ "Kind of additive": {
+  "es": "Tipo de aditivo"
+ },
+ "Kind of dye": {
+  "es": "Tipo de colorante"
+ },
+ "Kind of ink": {
+  "es": "Tipo de tinta"
+ },
+ "Kind of inorganic compound": {
+  "es": "Tipo de compuesto inorgánico"
+ },
+ "Kind of knitted fabric": {
+  "es": "Tipo de tejido de punto"
+ },
+ "Kind of pigment": {
+  "es": "Tipo de pigmento"
+ },
+ "Kind of wax": {
+  "es": "Tipo de cera"
  },
  "Knit": {
   "es": "Tejido de punto"
@@ -812,11 +1349,23 @@
  "Knitted": {
   "es": "De punto"
  },
+ "Knitted (chapter 61) or not knitted (chapter 62). Look at the fabric: knitted fabric is made of interlocking loops.": {
+  "es": "De punto (capítulo 61) o no de punto (capítulo 62). Mire la tela: el tejido de punto está hecho de mallas entrelazadas."
+ },
  "Knitted fabric": {
   "es": "Tela de punto"
  },
+ "Knitted or crocheted": {
+  "es": "De punto o ganchillo"
+ },
  "Knitted or crocheted fabric": {
   "es": "Tela de punto o ganchillo"
+ },
+ "Knitted or crocheted fabric in the piece": {
+  "es": "Tejido de punto o ganchillo en pieza"
+ },
+ "Knitted, or made up of fabric, felt or lace in the piece (caps, beanies, bucket hats)": {
+  "es": "De punto, o confeccionado con tela, fieltro o encaje en pieza (gorras, gorros, sombreros de pescador)"
  },
  "Kraft": {
   "es": "Kraft"
@@ -829,6 +1378,9 @@
  },
  "Laboratory or diagnostic reagent": {
   "es": "Reactivo de laboratorio o de diagnóstico"
+ },
+ "Lace": {
+  "es": "Encaje"
  },
  "Laminated": {
   "es": "Laminado"
@@ -845,11 +1397,17 @@
  "leather": {
   "es": "cuero"
  },
+ "Leather (natural or regenerated)": {
+  "es": "Cuero (natural o regenerado)"
+ },
  "Leather (tanned or finished)": {
   "es": "Cuero (curtido o terminado)"
  },
  "Leather glove specially designed for sports": {
   "es": "Guante de cuero diseñado especialmente para deporte"
+ },
+ "Leather: tanned, crust or finished hides and skins": {
+  "es": "Cuero: pieles curtidas, en crust o terminadas"
  },
  "Length": {
   "es": "Largo"
@@ -863,6 +1421,9 @@
  "Liquid": {
   "es": "Líquido"
  },
+ "Liquid or cream for washing the skin": {
+  "es": "Líquido o crema para lavar la piel"
+ },
  "Long": {
   "es": "Largo"
  },
@@ -871,6 +1432,9 @@
  },
  "Lubricant base": {
   "es": "Base lubricante"
+ },
+ "Lubricant, release agent or anti-rust preparation": {
+  "es": "Lubricante, desmoldante o preparación antioxidante"
  },
  "Magnesium carbonate": {
   "es": "Carbonato de magnesio"
@@ -887,8 +1451,17 @@
  "Main material": {
   "es": "Material principal"
  },
+ "Mainly mixed with": {
+  "es": "Mezclada principalmente con"
+ },
  "Man-made fiber": {
   "es": "Fibra sintética o artificial"
+ },
+ "Man-made fiber form": {
+  "es": "Forma de la fibra sintética o artificial"
+ },
+ "Man-made fibers": {
+  "es": "Fibras sintéticas o artificiales"
  },
  "Mannequin or bust": {
   "es": "Maniquí o busto"
@@ -902,14 +1475,32 @@
  "Material": {
   "es": "Material"
  },
+ "Material class": {
+  "es": "Clase de material"
+ },
  "Material grade/specification": {
   "es": "Grado o especificación del material"
+ },
+ "Material of the garment": {
+  "es": "Materia de la prenda"
+ },
+ "Material of the outer surface": {
+  "es": "Materia de la superficie exterior"
  },
  "Materials and semi-processed inputs across multiple chapters; never treated as a single tariff chapter.": {
   "es": "Materiales e insumos semielaborados de varios capítulos; nunca se trata como un solo capítulo del arancel."
  },
+ "Materials of the part that touches the ground, e.g. 100% rubber, or EVA and rubber": {
+  "es": "Materias de la parte que toca el suelo, p. ej. 100% caucho, o EVA y caucho"
+ },
+ "Materials of the upper with their share of the outer surface, e.g. 60% leather 40% textile. Trims, reinforcements and the lining do not count; the tongue does.": {
+  "es": "Materias del corte con su parte de la superficie exterior, p. ej. 60% cuero 40% textil. Los adornos, refuerzos y el forro no cuentan; la lengüeta sí."
+ },
  "MDF": {
   "es": "MDF"
+ },
+ "Medium": {
+  "es": "Medio"
  },
  "Men or boys": {
   "es": "Hombres o niños"
@@ -931,6 +1522,9 @@
  },
  "Metal sheet, plate or coil": {
   "es": "Lámina, plancha o bobina de metal"
+ },
+ "Metal sheet, wire, bar or profile": {
+  "es": "Lámina, alambre, barra o perfil de metal"
  },
  "Metal wire": {
   "es": "Alambre de metal"
@@ -956,6 +1550,12 @@
  "Multiple (folded) or cabled": {
   "es": "Retorcido o cableado"
  },
+ "Narrow fabric, label, elastic, hook-and-loop, lace, braid or embroidery": {
+  "es": "Tejido estrecho, etiqueta, elástico, velcro, encaje, trenza o bordado"
+ },
+ "Narrow woven fabric with 5 % or more elastomeric yarn (elastic tape)": {
+  "es": "Tejido estrecho con 5 % o más de hilos de elastómero (cinta elástica)"
+ },
  "Natural": {
   "es": "Natural"
  },
@@ -971,8 +1571,17 @@
  "Natural leather": {
   "es": "Cuero natural"
  },
+ "Natural leather (including patent or regenerated leather)": {
+  "es": "Cuero natural (incluye charol o cuero regenerado)"
+ },
+ "Natural or regenerated leather": {
+  "es": "Cuero natural o regenerado"
+ },
  "Natural rubber": {
   "es": "Caucho natural"
+ },
+ "Natural rubber or latex in primary forms": {
+  "es": "Caucho natural o látex en formas primarias"
  },
  "NBR": {
   "es": "NBR"
@@ -983,8 +1592,17 @@
  "Net weight": {
   "es": "Peso neto"
  },
+ "Nightwear": {
+  "es": "Ropa de dormir"
+ },
  "No fill": {
   "es": "Sin relleno"
+ },
+ "No petroleum oil": {
+  "es": "Sin aceite de petróleo"
+ },
+ "No textile backing (or fabric used only to reinforce)": {
+  "es": "Sin soporte textil (o la tela solo refuerza)"
  },
  "No textile support": {
   "es": "Sin soporte textil"
@@ -995,6 +1613,9 @@
  "Non-ionic": {
   "es": "No iónico"
  },
+ "Non-ionic surface-active agent": {
+  "es": "Agente de superficie no iónico"
+ },
  "Non-metal (composite)": {
   "es": "No metálica (compuesta)"
  },
@@ -1003,6 +1624,24 @@
  },
  "Nonwoven": {
   "es": "No tejido"
+ },
+ "Nonwoven of man-made filaments (spunbond)": {
+  "es": "Tela sin tejer de filamentos sintéticos (spunbond)"
+ },
+ "Nonwoven or felt": {
+  "es": "Tela sin tejer o fieltro"
+ },
+ "Nonwoven or microfiber backing": {
+  "es": "Soporte de tela sin tejer o microfibra"
+ },
+ "Note 4 a): the material with the largest external surface area, not counting trims or reinforcements; the tongue counts.": {
+  "es": "Nota 4 a): la materia con la mayor superficie exterior, sin contar adornos ni refuerzos; la lengüeta cuenta."
+ },
+ "Note 4 b): the material with the largest surface area in contact with the ground, not counting attachments.": {
+  "es": "Nota 4 b): la materia con la mayor superficie en contacto con el suelo, sin contar los accesorios."
+ },
+ "Notes 1 to chapters 28 and 29: one compound with one formula, even with impurities, in water solution, or with a stabilizer added only for safety or transport. A mixture or preparation is classified by its function.": {
+  "es": "Notas 1 de los capítulos 28 y 29: un compuesto con una sola fórmula, incluso con impurezas, en solución acuosa o con un estabilizante agregado solo por seguridad o transporte. Una mezcla o preparación se clasifica por su función."
  },
  "Nubuck": {
   "es": "Nobuk"
@@ -1013,11 +1652,29 @@
  "Nylon / polyamide": {
   "es": "Nailon / poliamida"
  },
+ "Of denim": {
+  "es": "De mezclilla"
+ },
+ "Of other materials (leather, fur)": {
+  "es": "De otras materias (cuero, peletería)"
+ },
+ "Of rubber or plastics (e.g. shower or swim caps)": {
+  "es": "De caucho o plástico (p. ej. gorros de baño o de natación)"
+ },
+ "Of vegetable or animal origin": {
+  "es": "De origen vegetal o animal"
+ },
  "Of yarns of different colours": {
   "es": "Con hilados de distintos colores"
  },
+ "One component per line, from the SDS.": {
+  "es": "Un componente por línea, de la hoja de seguridad (SDS)."
+ },
  "One component per line: name; CAS; % (from the SDS)": {
   "es": "Un componente por línea: nombre; CAS; % (de la hoja de seguridad)"
+ },
+ "Only informative: the lining does not change the code": {
+  "es": "Solo informativo: el forro no cambia el código"
  },
  "Only when the tariff rule distinguishes grade/specification.": {
   "es": "Solo cuando la regla arancelaria distingue grado o especificación."
@@ -1025,29 +1682,101 @@
  "Optional identifier; never required if unavailable.": {
   "es": "Identificador opcional; nunca se exige si no se tiene."
  },
+ "Optional, from the SDS, e.g. 67-64-1.": {
+  "es": "Opcional, de la hoja de seguridad (SDS), p. ej. 67-64-1."
+ },
+ "Organic chemical": {
+  "es": "Químico orgánico"
+ },
  "Organic chemical (separate compound)": {
   "es": "Químico orgánico (compuesto aislado)"
+ },
+ "Organic chemical (single compound): solvent, alcohol, acid, ester, amine": {
+  "es": "Químico orgánico (compuesto único): disolvente, alcohol, ácido, éster, amina"
  },
  "Organic pigment": {
   "es": "Pigmento orgánico"
  },
+ "Organo-sulfur or other organo-inorganic compound": {
+  "es": "Compuesto organoazufrado u otro compuesto órgano-inorgánico"
+ },
  "Other": {
   "es": "Otro"
+ },
+ "Other (fixed shaft, walking-stick umbrella)": {
+  "es": "Otro (mango fijo, paraguas bastón)"
+ },
+ "Other (leather, rubber, silicone, textile)": {
+  "es": "Otro (cuero, caucho, silicona, textil)"
+ },
+ "Other (oil paints, leather water pigments)": {
+  "es": "Otro (pinturas al óleo, pigmentos al agua para cuero)"
+ },
+ "Other (paperboard, vulcanized fiber, wood, metal, straw)": {
+  "es": "Otro (cartón, fibra vulcanizada, madera, metal, paja)"
+ },
+ "Other (plastic, glass, wood, leather, textile)": {
+  "es": "Otro (plástico, vidrio, madera, cuero, textil)"
  },
  "Other (plastic, leather)": {
   "es": "Otro (plástico, cuero)"
  },
+ "Other (polyurethane, epoxy, alkyd, nitrocellulose)": {
+  "es": "Otro (poliuretano, epoxi, alquídico, nitrocelulosa)"
+ },
+ "Other (precious metal compounds, rare earths, peroxide, carbides)": {
+  "es": "Otro (compuestos de metales preciosos, tierras raras, peróxido, carburos)"
+ },
+ "Other (starch, dextrin, casein, animal glue)": {
+  "es": "Otro (almidón, dextrina, caseína, cola animal)"
+ },
+ "Other (wax, oil, tar)": {
+  "es": "Otro (cera, aceite, alquitrán)"
+ },
  "Other (wood, cork, textile)": {
   "es": "Otro (madera, corcho, textil)"
+ },
+ "Other (wood, cork, textile, jute)": {
+  "es": "Otro (madera, corcho, textil, yute)"
  },
  "Other alloy steel": {
   "es": "Otro acero aleado"
  },
+ "Other animal": {
+  "es": "Otro animal"
+ },
+ "Other antioxidant or stabilizer": {
+  "es": "Otro antioxidante o estabilizante"
+ },
+ "Other button (wood, coconut, covered with textile)": {
+  "es": "Otro botón (madera, coco, forrado de textil)"
+ },
+ "Other chemical preparation": {
+  "es": "Otra preparación química"
+ },
  "Other chemical product": {
   "es": "Otro producto químico"
  },
+ "Other diagnostic or laboratory reagent": {
+  "es": "Otro reactivo de diagnóstico o de laboratorio"
+ },
+ "Other fibers or filaments": {
+  "es": "Otras fibras o filamentos"
+ },
+ "Other forms (flakes, powder)": {
+  "es": "Otras formas (escamas, polvo)"
+ },
+ "Other garment": {
+  "es": "Otra prenda"
+ },
+ "Other garments": {
+  "es": "Otras prendas"
+ },
  "Other inorganic pigment": {
   "es": "Otro pigmento inorgánico"
+ },
+ "Other inorganic pigment (iron oxide, carbon black preparation)": {
+  "es": "Otro pigmento inorgánico (óxido de hierro, preparación de negro de humo)"
  },
  "Other material": {
   "es": "Otro material"
@@ -1055,8 +1784,26 @@
  "other material": {
   "es": "otro material"
  },
+ "Other materials": {
+  "es": "Otras materias"
+ },
+ "Other mineral wax (microcrystalline, slack wax)": {
+  "es": "Otra cera mineral (microcristalina, slack wax)"
+ },
+ "Other narrow woven fabric (webbing, ribbon, tape)": {
+  "es": "Otro tejido estrecho (cincha, listón, cinta)"
+ },
+ "Other nonwoven (needle-punched staple, spunlace)": {
+  "es": "Otra tela sin tejer (fibra discontinua punzonada, spunlace)"
+ },
+ "Other part": {
+  "es": "Otra parte"
+ },
  "Other plastic": {
   "es": "Otro plástico"
+ },
+ "Other plastics (acrylic, silicone)": {
+  "es": "Otros plásticos (acrílico, silicona)"
  },
  "Other plating": {
   "es": "Otro chapado"
@@ -1064,14 +1811,32 @@
  "Other product": {
   "es": "Otro producto"
  },
+ "Other product (outside the configured families)": {
+  "es": "Otro producto (fuera de las familias configuradas)"
+ },
  "Other raw material or semi-processed input": {
   "es": "Otra materia prima o insumo semielaborado"
  },
  "Other sports equipment": {
   "es": "Otro artículo deportivo"
  },
+ "Other surface-active agent": {
+  "es": "Otro agente de superficie"
+ },
  "Other synthetic": {
   "es": "Otro sintético"
+ },
+ "Other synthetic dyes or mixtures of the above": {
+  "es": "Otros colorantes sintéticos o mezclas de los anteriores"
+ },
+ "Other textile label (printed satin, heat transfer on fabric)": {
+  "es": "Otra etiqueta textil (satín impreso, transfer sobre tela)"
+ },
+ "Other vegetable fiber (linen, hemp, ramie)": {
+  "es": "Otra fibra vegetal (lino, cáñamo, ramio)"
+ },
+ "Other weft knit (jersey, rib, interlock, fleece without pile)": {
+  "es": "Otro tejido de punto por trama (jersey, rib, interlock, fleece sin pelo)"
  },
  "Outer fabric or surface": {
   "es": "Tela o superficie exterior"
@@ -1079,8 +1844,23 @@
  "Outer material (non-textile)": {
   "es": "Material exterior (no textil)"
  },
+ "Outer sole": {
+  "es": "Suela exterior"
+ },
+ "Outer sole material": {
+  "es": "Materia de la suela exterior"
+ },
+ "Outer sole or heel": {
+  "es": "Suela exterior o tacón"
+ },
  "Outer surface": {
   "es": "Superficie exterior"
+ },
+ "Outerwear": {
+  "es": "Prendas exteriores"
+ },
+ "Overall, jumpsuit, work coat, apron or other garment": {
+  "es": "Overol, enterizo, bata de trabajo, delantal u otra prenda"
  },
  "Overshoe (worn over other footwear)": {
   "es": "Cubrecalzado (se usa sobre otro calzado)"
@@ -1094,14 +1874,26 @@
  "Padded seat or backrest (with fill)": {
   "es": "Asiento o respaldo acolchado (con relleno)"
  },
+ "Paint or varnish": {
+  "es": "Pintura o barniz"
+ },
  "Paint, varnish or coating": {
   "es": "Pintura, barniz o recubrimiento"
+ },
+ "Paint, varnish, lacquer or leather finish": {
+  "es": "Pintura, barniz, laca o acabado para cuero"
  },
  "Painted or plastic coated": {
   "es": "Pintado o recubierto de plástico"
  },
  "Pajamas or nightgown": {
   "es": "Pijama o camisón"
+ },
+ "Pajamas, nightdress or nightshirt": {
+  "es": "Pijama, camisón o camisa de dormir"
+ },
+ "Pajamas, nightgown, bathrobe or dressing gown": {
+  "es": "Pijama, camisón, albornoz o bata"
  },
  "Pants or shorts": {
   "es": "Pantalón o short"
@@ -1112,17 +1904,35 @@
  "Paper": {
   "es": "Papel"
  },
+ "Paper bag or sack": {
+  "es": "Bolsa o saco de papel"
+ },
+ "Paper or box": {
+  "es": "Papel o caja"
+ },
  "Paper or card stock": {
   "es": "Papel o cartulina"
  },
+ "Paper or cardboard label or hang tag": {
+  "es": "Etiqueta o colgante de papel o cartón"
+ },
  "Paper or paperboard": {
   "es": "Papel o cartón"
+ },
+ "Paper or paperboard in rolls or sheets (tissue, kraft, wrapping)": {
+  "es": "Papel o cartón en rollos u hojas (tisú, kraft, de envolver)"
+ },
+ "Paper, paperboard, boxes or paper bags": {
+  "es": "Papel, cartón, cajas o bolsas de papel"
  },
  "Paperboard or carton": {
   "es": "Cartón o caja de cartón"
  },
  "Paraffin": {
   "es": "Parafina"
+ },
+ "Paraffin with under 0.75 % oil": {
+  "es": "Parafina con menos del 0.75 % de aceite"
  },
  "Part or fitting": {
   "es": "Parte o accesorio"
@@ -1132,6 +1942,9 @@
  },
  "Paste / gel": {
   "es": "Pasta / gel"
+ },
+ "Paste or gel": {
+  "es": "Pasta o gel"
  },
  "Patch or sticker": {
   "es": "Parche o calcomanía"
@@ -1145,6 +1958,9 @@
  "Patent or metallised": {
   "es": "Charolado o metalizado"
  },
+ "Patent or metallized": {
+  "es": "Charol o metalizado"
+ },
  "Personal accessories": {
   "es": "Accesorios personales"
  },
@@ -1154,17 +1970,29 @@
  "Petroleum oil < 70 %": {
   "es": "Aceite de petróleo < 70 %"
  },
+ "Petroleum oil content": {
+  "es": "Contenido de aceite de petróleo"
+ },
  "Petroleum oil ≥ 70 %": {
   "es": "Aceite de petróleo ≥ 70 %"
  },
  "pH": {
   "es": "pH"
  },
+ "Phenol or phenol-alcohol": {
+  "es": "Fenol o fenol-alcohol"
+ },
  "Physical state": {
   "es": "Estado físico"
  },
+ "Pig": {
+  "es": "Cerdo"
+ },
  "Pigment": {
   "es": "Pigmento"
+ },
+ "Pigment or pigment preparation": {
+  "es": "Pigmento o preparación de pigmento"
  },
  "Pigment preparation": {
   "es": "Preparación de pigmento"
@@ -1172,14 +2000,23 @@
  "Pile (fleece, velour)": {
   "es": "Con pelo (fleece, velour)"
  },
+ "Pile, long pile, terry or looped (velour, fleece with pile)": {
+  "es": "Con pelo, pelo largo, toalla o rizo (velour, fleece con pelo)"
+ },
  "Pillow or cushion": {
   "es": "Almohada o cojín"
  },
  "Plain": {
   "es": "Liso"
  },
+ "Plaited or made by assembling strips (straw hats)": {
+  "es": "Trenzado o hecho uniendo tiras (sombreros de paja)"
+ },
  "Plastic": {
   "es": "Plástico"
+ },
+ "Plastic buckle, cord lock or fastener": {
+  "es": "Hebilla, tope de cordón o cierre de plástico"
  },
  "Plastic film": {
   "es": "Película plástica"
@@ -1189,6 +2026,9 @@
  },
  "Plastic in other primary forms (powder, liquid, paste)": {
   "es": "Plástico en otras formas primarias (polvo, líquido, pasta)"
+ },
+ "Plastic in primary forms: pellets, powder, liquid resin, masterbatch base": {
+  "es": "Plástico en formas primarias: pellets, polvo, resina líquida, base de masterbatch"
  },
  "Plastic or PVC": {
   "es": "Plástico o PVC"
@@ -1202,20 +2042,47 @@
  "Plastic profile, rod or tube": {
   "es": "Perfil, varilla o tubo de plástico"
  },
+ "Plastic resin": {
+  "es": "Resina plástica"
+ },
  "Plastic resin (pellets, granules)": {
   "es": "Resina plástica (pellets, gránulos)"
+ },
+ "Plastic sheet or foam": {
+  "es": "Lámina o espuma de plástico"
  },
  "Plastic sheet or plate": {
   "es": "Lámina o placa de plástico"
  },
+ "Plastic sheet, film, foam sheet or strip": {
+  "es": "Lámina, película, lámina de espuma o tira de plástico"
+ },
  "Plastic sheeting": {
   "es": "Láminas de plástico"
+ },
+ "Plastic sheeting (includes synthetic leather and PU)": {
+  "es": "Lámina de plástico (incluye cuero sintético y PU)"
+ },
+ "Plastic sheeting (not a fabric)": {
+  "es": "Lámina de plástico (no es una tela)"
  },
  "Plastic, wood or other": {
   "es": "Plástico, madera u otro"
  },
+ "Pocket handkerchief": {
+  "es": "Pañuelo de bolsillo"
+ },
+ "Polish or cream for footwear or leather; scouring paste": {
+  "es": "Betún o crema para calzado o cuero; pasta para fregar"
+ },
+ "Poly(vinyl chloride)": {
+  "es": "Poli(cloruro de vinilo)"
+ },
  "Polyamide": {
   "es": "Poliamida"
+ },
+ "Polyamide (nylon)": {
+  "es": "Poliamida (nailon)"
  },
  "Polyamide (PA, nylon)": {
   "es": "Poliamida (PA, nailon)"
@@ -1229,8 +2096,17 @@
  "Polyester": {
   "es": "Poliéster"
  },
+ "Polyester, PET or polycarbonate": {
+  "es": "Poliéster, PET o policarbonato"
+ },
+ "Polyethylene": {
+  "es": "Polietileno"
+ },
  "Polyethylene (PE)": {
   "es": "Polietileno (PE)"
+ },
+ "Polyethylene glycol wax": {
+  "es": "Cera de polietilenglicol"
  },
  "Polyethylene terephthalate (PET)": {
   "es": "Tereftalato de polietileno (PET)"
@@ -1241,11 +2117,20 @@
  "Polymer content": {
   "es": "Contenido de polímero"
  },
+ "Polymer dispersed or dissolved in water (water-based)": {
+  "es": "Polímero disperso o disuelto en agua (base agua)"
+ },
+ "Polymer dissolved or dispersed in an organic solvent (solvent-based)": {
+  "es": "Polímero disuelto o disperso en un disolvente orgánico (base disolvente)"
+ },
  "Polymer or resin": {
   "es": "Polímero o resina"
  },
  "Polymer or resin (chemical product)": {
   "es": "Polímero o resina (producto químico)"
+ },
+ "Polymers of 39.01–39.13 or rubber (PU, polychloroprene, EVA hot-melt, acrylic)": {
+  "es": "Polímeros de 39.01 a 39.13 o caucho (PU, policloropreno, hot-melt de EVA, acrílico)"
  },
  "Polyol (glycol, glycerol…)": {
   "es": "Poliol (glicol, glicerol…)"
@@ -1259,8 +2144,14 @@
  "Polystyrene (PS)": {
   "es": "Poliestireno (PS)"
  },
+ "Polystyrene, ABS": {
+  "es": "Poliestireno, ABS"
+ },
  "Polyurethane": {
   "es": "Poliuretano"
+ },
+ "Polyurethane (incl. TPU)": {
+  "es": "Poliuretano (incluye TPU)"
  },
  "Polyurethane (PU)": {
   "es": "Poliuretano (PU)"
@@ -1274,14 +2165,26 @@
  "Powder or block": {
   "es": "Polvo o bloque"
  },
+ "Precious metal or clad with precious metal": {
+  "es": "Metal precioso o chapado de metal precioso"
+ },
+ "Precious metal or clad with precious metal (jewelry, not imitation)": {
+  "es": "Metal precioso o chapado de metal precioso (joyería, no bisutería)"
+ },
  "Predominant fiber of the outer fabric": {
   "es": "Fibra predominante de la tela exterior"
+ },
+ "Prepared rubber accelerator": {
+  "es": "Acelerador de vulcanización preparado"
  },
  "Presentation": {
   "es": "Presentación"
  },
  "Presentation / physical form": {
   "es": "Presentación / forma física"
+ },
+ "Press-fastener, snap or press-stud": {
+  "es": "Broche de presión"
  },
  "Primary form": {
   "es": "Forma primaria"
@@ -1295,6 +2198,15 @@
  "Printed sticker or decal": {
   "es": "Calcomanía impresa"
  },
+ "Printing ink, black": {
+  "es": "Tinta de imprenta negra"
+ },
+ "Printing ink, other colors (incl. screen printing, plastisol)": {
+  "es": "Tinta de imprenta de otros colores (incluye serigrafía, plastisol)"
+ },
+ "Printing or writing ink": {
+  "es": "Tinta de imprenta o de escribir"
+ },
  "Processes only when relevant to candidate distinction.": {
   "es": "Procesos solo cuando importan para distinguir candidatos."
  },
@@ -1306,6 +2218,12 @@
  },
  "Product / commercial name": {
   "es": "Nombre del producto / comercial"
+ },
+ "Protective metal toe-cap": {
+  "es": "Puntera protectora de metal"
+ },
+ "Protective or other non-corrective glasses (goggles, safety glasses)": {
+  "es": "Lentes protectores u otros no correctores (gafas de protección, lentes de seguridad)"
  },
  "Protective pads (knee, elbow)": {
   "es": "Protectores (rodilleras, coderas)"
@@ -1325,8 +2243,17 @@
  "Purse": {
   "es": "Monedero"
  },
+ "Put up as": {
+  "es": "Presentado como"
+ },
  "Put up for retail sale": {
   "es": "Acondicionado para la venta al por menor"
+ },
+ "Put up for retail sale (Section XI Note 4)": {
+  "es": "Acondicionado para la venta al por menor (Nota 4 de la Sección XI)"
+ },
+ "Put up for retail sale, net weight 1 kg or less": {
+  "es": "Acondicionado para la venta al por menor, peso neto de 1 kg o menos"
  },
  "PVC": {
   "es": "PVC"
@@ -1336,6 +2263,9 @@
  },
  "Rain boot": {
   "es": "Bota de lluvia"
+ },
+ "Rain or rubber boot": {
+  "es": "Bota de lluvia o de caucho"
  },
  "Raw / unprocessed": {
   "es": "En bruto / sin elaborar"
@@ -1347,6 +2277,12 @@
   "es": "En bruto, semielaborado, terminado, recubierto, tratado, etc."
  },
  "Reactive": {
+  "es": "Reactivo"
+ },
+ "Reactive dyes (cotton)": {
+  "es": "Colorantes reactivos (algodón)"
+ },
+ "Reagent": {
   "es": "Reactivo"
  },
  "Reclaimed": {
@@ -1366,6 +2302,9 @@
  },
  "Relevant when legal text distinguishes purity.": {
   "es": "Relevante cuando el texto legal distingue la pureza."
+ },
+ "Removable insole, heel cushion or similar": {
+  "es": "Plantilla removible, talonera o similar"
  },
  "Reptile": {
   "es": "Reptil"
@@ -1391,6 +2330,15 @@
  "Rubber": {
   "es": "Caucho"
  },
+ "Rubber (incl. neoprene laminated with fabric)": {
+  "es": "Caucho (incluye neopreno laminado con tela)"
+ },
+ "Rubber accelerator, plasticizer, antioxidant or stabilizer": {
+  "es": "Acelerador, plastificante, antioxidante o estabilizante para caucho"
+ },
+ "Rubber or plastic additive": {
+  "es": "Aditivo para caucho o plástico"
+ },
  "Rubber or plastic flip-flop (toe post)": {
   "es": "Chancleta de caucho o plástico (con tira entre los dedos)"
  },
@@ -1400,8 +2348,14 @@
  "rubber or plastics": {
   "es": "caucho o plástico"
  },
+ "Rubber or plastics (EVA, PU, TPR)": {
+  "es": "Caucho o plástico (EVA, PU, TPR)"
+ },
  "Rubber or plastics (EVA, PU, TPU)": {
   "es": "Caucho o plástico (EVA, PU, TPU)"
+ },
+ "Rubber or plastics (includes synthetic leather and coated fabric)": {
+  "es": "Caucho o plástico (incluye cuero sintético y tela recubierta)"
  },
  "Rubber or plastics (includes synthetic leather)": {
   "es": "Caucho o plástico (incluye cuero sintético)"
@@ -1412,11 +2366,23 @@
  "Rubber sheet, plate or strip": {
   "es": "Lámina, placa o tira de caucho"
  },
+ "Rubber: natural, synthetic, compounded or sheets": {
+  "es": "Caucho: natural, sintético, mezclado o en láminas"
+ },
+ "Safety helmet": {
+  "es": "Casco de seguridad"
+ },
  "Safety or industrial footwear": {
   "es": "Calzado de seguridad o industrial"
  },
+ "Safety or work footwear": {
+  "es": "Calzado de seguridad o de trabajo"
+ },
  "Salt": {
   "es": "Sal"
+ },
+ "Salt of an inorganic acid or of a metal (chlorides, sulfates, carbonates, silicates)": {
+  "es": "Sal de un ácido inorgánico o de un metal (cloruros, sulfatos, carbonatos, silicatos)"
  },
  "Sandal": {
   "es": "Sandalia"
@@ -1430,6 +2396,9 @@
  "SBR": {
   "es": "SBR"
  },
+ "Scarf": {
+  "es": "Bufanda"
+ },
  "Scarf or bandana": {
   "es": "Bufanda o pañoleta"
  },
@@ -1439,8 +2408,17 @@
  "Scarf, neck warmer or gaiter": {
   "es": "Bufanda, calentador de cuello o cuello tubular"
  },
+ "Scarf, shawl, neck warmer, bandana or veil": {
+  "es": "Bufanda, chal, cuello, pañoleta o velo"
+ },
  "School or uniform": {
   "es": "Escolar o de uniforme"
+ },
+ "Scouring pastes and powders": {
+  "es": "Pastas y polvos para fregar"
+ },
+ "Section XI, Note 2: the textile material that predominates by weight over each of the others.": {
+  "es": "Nota 2 de la Sección XI: la materia textil que predomina en peso sobre cada una de las demás."
  },
  "Self-adhesive": {
   "es": "Autoadhesivo"
@@ -1451,8 +2429,14 @@
  "Separate chemically defined compound": {
   "es": "Compuesto de constitución química definida aislado"
  },
+ "Sets": {
+  "es": "Conjuntos"
+ },
  "Sewing thread": {
   "es": "Hilo de coser"
+ },
+ "Sewing thread (Section XI Note 5: on supports up to 1,000 g, dressed, final Z twist)": {
+  "es": "Hilo de coser (Nota 5 de la Sección XI: en soportes de hasta 1,000 g, aprestado, con torsión final Z)"
  },
  "Shape": {
   "es": "Forma"
@@ -1463,14 +2447,26 @@
  "Sheep or lamb": {
   "es": "Oveja o cordero"
  },
+ "Sheer: synthetic single yarn under 67 decitex": {
+  "es": "Transparente: hilado sencillo sintético de menos de 67 decitex"
+ },
  "Sheet, bar, roll, granule, powder, profile, yarn, fabric, etc.": {
   "es": "Lámina, barra, rollo, gránulo, polvo, perfil, hilado, tela, etc."
+ },
+ "Sheet, plate, strip or foil": {
+  "es": "Hoja, placa, tira u hoja delgada"
  },
  "Sheets or plates": {
   "es": "Hojas o placas"
  },
+ "Shirt or blouse": {
+  "es": "Camisa o blusa"
+ },
  "Shirt or polo": {
   "es": "Camisa o polo"
+ },
+ "Shirt, blouse or polo": {
+  "es": "Camisa, blusa o polo"
  },
  "Shirt, polo or blouse": {
   "es": "Camisa, polo o blusa"
@@ -1480,6 +2476,9 @@
  },
  "Shoe care: creams, sprays, brushes": {
   "es": "Cuidado del calzado: cremas, aerosoles, cepillos"
+ },
+ "Shoe polish": {
+  "es": "Betún para calzado"
  },
  "Shoelaces": {
   "es": "Cordones"
@@ -1511,6 +2510,9 @@
  "Single": {
   "es": "Sencillo"
  },
+ "Single chemically defined compound": {
+  "es": "Un solo compuesto químicamente definido"
+ },
  "Single substance": {
   "es": "Sustancia única"
  },
@@ -1526,8 +2528,20 @@
  "Ski or snowboard": {
   "es": "Esquí o snowboard"
  },
+ "Ski or snowboard boot": {
+  "es": "Bota de esquí o de snowboard"
+ },
+ "Ski suit": {
+  "es": "Traje de esquí"
+ },
+ "Ski suit or ski ensemble": {
+  "es": "Traje o conjunto de esquí"
+ },
  "Skirt": {
   "es": "Falda"
+ },
+ "Skirt or divided skirt": {
+  "es": "Falda o falda pantalón"
  },
  "Sleeping bag": {
   "es": "Bolsa de dormir"
@@ -1544,8 +2558,14 @@
  "Sleeveless": {
   "es": "Sin mangas"
  },
+ "Sleeves": {
+  "es": "Mangas"
+ },
  "Slide": {
   "es": "Sandalia de pala"
+ },
+ "Slip or petticoat": {
+  "es": "Enagua o combinación"
  },
  "Slipper or house shoe": {
   "es": "Pantufla o zapato de casa"
@@ -1553,20 +2573,38 @@
  "Smartwatch": {
   "es": "Reloj inteligente"
  },
+ "Smartwatch (connects to a phone or network)": {
+  "es": "Reloj inteligente (se conecta a un teléfono o a una red)"
+ },
  "Sneaker": {
   "es": "Tenis"
+ },
+ "Sneaker or athletic shoe": {
+  "es": "Tenis o zapato deportivo"
+ },
+ "Soap": {
+  "es": "Jabón"
  },
  "Socks": {
   "es": "Calcetines"
  },
+ "Socks or ankle socks": {
+  "es": "Calcetines o tobilleras"
+ },
  "Socks or hosiery": {
   "es": "Calcetines o medias"
+ },
+ "Socks, stockings, tights or pantyhose": {
+  "es": "Calcetines, medias, mallas o pantimedias"
  },
  "Sole": {
   "es": "Suela"
  },
  "Sole material": {
   "es": "Material de la suela"
+ },
+ "Sole of cellular (foam) rubber or plastics": {
+  "es": "Suela de caucho o plástico celular (espumoso)"
  },
  "Sole of foam or cellular material (EVA, foam)": {
   "es": "Suela de espuma o material celular (EVA, foam)"
@@ -1582,6 +2620,12 @@
  },
  "Solvent or thinner": {
   "es": "Solvente o diluyente"
+ },
+ "Solvent or thinner (mixture); paint remover": {
+  "es": "Disolvente o diluyente (mezcla); removedor de pintura"
+ },
+ "Some countries split their national codes between hats and caps.": {
+  "es": "Algunos países separan sus códigos nacionales entre sombreros y gorras."
  },
  "Specific gravity": {
   "es": "Gravedad específica"
@@ -1607,11 +2651,20 @@
  "Sports or travel bag": {
   "es": "Bolso deportivo o de viaje"
  },
+ "Sportswear": {
+  "es": "Ropa deportiva"
+ },
  "Square handkerchief or bandana, up to 60 cm per side": {
   "es": "Pañuelo cuadrado o pañoleta, hasta 60 cm por lado"
  },
+ "Square or nearly square, no side over 60 cm": {
+  "es": "Cuadrado o casi cuadrado, ningún lado de más de 60 cm"
+ },
  "Stainless steel": {
   "es": "Acero inoxidable"
+ },
+ "Staple (spun from short fibers)": {
+  "es": "Discontinua (hilada de fibras cortas)"
  },
  "Staple fiber": {
   "es": "Fibra discontinua"
@@ -1624,6 +2677,9 @@
  },
  "Steel": {
   "es": "Acero"
+ },
+ "Stiffener or toe puff": {
+  "es": "Contrafuerte o puntera de refuerzo"
  },
  "Straps over the instep that go around the big toe": {
   "es": "Tiras sobre el empeine que rodean el dedo gordo"
@@ -1640,11 +2696,35 @@
  "Strips": {
   "es": "Tiras"
  },
+ "Subheading 4203.21: gloves with a functional design for the sport.": {
+  "es": "Subpartida 4203.21: guantes con un diseño funcional para el deporte."
+ },
+ "Subheading 6402.20: thong sandals whose straps end in plugs set into holes in the sole.": {
+  "es": "Subpartida 6402.20: sandalias de dedo cuyas tiras terminan en tetones encajados en agujeros de la suela."
+ },
+ "Subheading 6403.20.": {
+  "es": "Subpartida 6403.20."
+ },
+ "Subheading Note 1: sports footwear is only footwear with (or able to take) spikes, cleats, special fixings or bars, and footwear for skiing, snowboarding, wrestling, boxing or cycling. Tennis, basketball, gym and training shoes count only for a textile upper (6404.11); casual sneakers are not sports footwear.": {
+  "es": "Nota 1 de subpartida: el calzado deportivo es solo el que tiene (o puede llevar) clavos, tacos, fijaciones especiales o barras, y el calzado para esquí, snowboard, lucha, boxeo o ciclismo. Los zapatos de tenis, baloncesto, gimnasio y entrenamiento solo cuentan con corte textil (6404.11); los tenis casuales no son calzado deportivo."
+ },
+ "Subheadings 6115.21 and 6115.30: measured per single yarn.": {
+  "es": "Subpartidas 6115.21 y 6115.30: se mide por hilo sencillo."
+ },
+ "Subheadings of 42.02: the material of the outer surface. Leather with a thin, invisible plastic coating is still leather.": {
+  "es": "Subpartidas de la 42.02: la materia de la superficie exterior. El cuero con un recubrimiento de plástico delgado e invisible sigue siendo cuero."
+ },
  "Substance or mixture": {
   "es": "Sustancia o mezcla"
  },
  "Suede": {
   "es": "Gamuza"
+ },
+ "Suit": {
+  "es": "Traje"
+ },
+ "Suit (jacket and trousers or skirt of the same fabric)": {
+  "es": "Traje (saco y pantalón o falda de la misma tela)"
  },
  "Suit jacket or blazer": {
   "es": "Saco o blazer"
@@ -1655,8 +2735,14 @@
  "Suitcase, trolley or briefcase": {
   "es": "Maleta, maleta con ruedas o portafolio"
  },
+ "Suitcase, trolley, briefcase, attaché or vanity case": {
+  "es": "Maleta, trolley, portafolio, maletín o neceser"
+ },
  "Sunglasses": {
   "es": "Lentes de sol"
+ },
+ "Sunglasses or other glasses (not corrective)": {
+  "es": "Lentes de sol u otros lentes (no correctores)"
  },
  "Support of the synthetic leather": {
   "es": "Soporte del cuero sintético"
@@ -1670,6 +2756,15 @@
  "Surfactant type": {
   "es": "Tipo de tensoactivo"
  },
+ "Surfactant, detergent or washing preparation": {
+  "es": "Tensoactivo, detergente o preparación para lavar"
+ },
+ "Sweater or sweatshirt": {
+  "es": "Suéter o sudadera"
+ },
+ "Sweater, sweatshirt, hoodie, cardigan or vest": {
+  "es": "Suéter, sudadera, sudadera con capucha, cárdigan o chaleco"
+ },
  "Sweatshirt": {
   "es": "Sudadera"
  },
@@ -1682,6 +2777,12 @@
  "Swimsuit or boardshorts": {
   "es": "Traje de baño o pantaloneta de baño"
  },
+ "Swimwear": {
+  "es": "Ropa de baño"
+ },
+ "Swimwear: swimsuit, bikini, swim trunks": {
+  "es": "Ropa de baño: traje de baño, bikini, pantaloneta de baño"
+ },
  "Swine": {
   "es": "Porcino"
  },
@@ -1691,14 +2792,35 @@
  "synthetic fiber": {
   "es": "fibra sintética"
  },
+ "Synthetic fiber": {
+  "es": "Fibra sintética"
+ },
+ "Synthetic leather": {
+  "es": "Cuero sintético"
+ },
  "Synthetic leather (plastic-coated textile or plastic sheet)": {
   "es": "Cuero sintético (textil recubierto de plástico o lámina de plástico)"
+ },
+ "Synthetic leather (PU or PVC)": {
+  "es": "Cuero sintético (PU o PVC)"
+ },
+ "Synthetic leather (PU)": {
+  "es": "Cuero sintético (PU)"
+ },
+ "Synthetic organic pigment": {
+  "es": "Pigmento orgánico sintético"
  },
  "Synthetic rubber": {
   "es": "Caucho sintético"
  },
+ "Synthetic rubber in primary forms": {
+  "es": "Caucho sintético en formas primarias"
+ },
  "T-shirt": {
   "es": "Camiseta"
+ },
+ "T-shirt, tank top or singlet": {
+  "es": "Camiseta, camiseta sin mangas o de tirantes"
  },
  "T-shirt, tee, tank top or base layer": {
   "es": "Camiseta, playera, camiseta sin mangas o capa base"
@@ -1706,8 +2828,17 @@
  "Table": {
   "es": "Mesa"
  },
+ "Tailored jacket or blazer": {
+  "es": "Saco sastre o blazer"
+ },
+ "Tanned, wet (incl. wet-blue)": {
+  "es": "Curtido, húmedo (incluye wet-blue)"
+ },
  "Tanned, wet (wet blue)": {
   "es": "Curtido en húmedo (wet blue)"
+ },
+ "Tape, label or trim": {
+  "es": "Cinta, etiqueta o avío"
  },
  "Technical / industrial": {
   "es": "Técnico / industrial"
@@ -1724,6 +2855,9 @@
  "Telescopic (folding) shaft": {
   "es": "Vara telescópica (plegable)"
  },
+ "Telescopic shaft (folding)": {
+  "es": "Mango telescópico (plegable)"
+ },
  "Tent": {
   "es": "Carpa"
  },
@@ -1739,11 +2873,26 @@
  "Textile (lanyard, webbing)": {
   "es": "Textil (cinta porta gafete, cincha)"
  },
+ "Textile (woven, knitted, felt or nonwoven)": {
+  "es": "Textil (tejido plano, de punto, fieltro o tela sin tejer)"
+ },
+ "Textile fiber": {
+  "es": "Fibra textil"
+ },
  "Textile fiber (raw, carded or combed)": {
   "es": "Fibra textil (en bruto, cardada o peinada)"
  },
+ "Textile fiber, not spun (raw cotton, staple fiber, wool, filling fiber)": {
+  "es": "Fibra textil sin hilar (algodón en rama, fibra discontinua, lana, fibra de relleno)"
+ },
+ "Textile materials": {
+  "es": "Materias textiles"
+ },
  "Textile or cord": {
   "es": "Textil o cordón"
+ },
+ "Textiles": {
+  "es": "Textiles"
  },
  "Textured": {
   "es": "Texturizado"
@@ -1772,6 +2921,15 @@
  "this garment is classified differently for men and women": {
   "es": "esta prenda se clasifica distinto para hombre y para mujer"
  },
+ "Tie": {
+  "es": "Corbata"
+ },
+ "Tie, bow tie or cravat": {
+  "es": "Corbata, corbatín o lazo"
+ },
+ "Tights or pantyhose": {
+  "es": "Mallas o pantimedias"
+ },
  "Tin": {
   "es": "Estaño"
  },
@@ -1783,6 +2941,12 @@
  },
  "Titanium dioxide": {
   "es": "Dióxido de titanio"
+ },
+ "Titanium dioxide based (80 % or more)": {
+  "es": "A base de dióxido de titanio (80 % o más)"
+ },
+ "Titanium dioxide based (under 80 %)": {
+  "es": "A base de dióxido de titanio (menos del 80 %)"
  },
  "Toiletry bag": {
   "es": "Neceser"
@@ -1802,14 +2966,29 @@
  "TPU": {
   "es": "TPU"
  },
+ "Track suit": {
+  "es": "Pants deportivo"
+ },
+ "Track suit (jacket and trousers for sport)": {
+  "es": "Pants deportivo (chaqueta y pantalón para deporte)"
+ },
  "Tracksuit": {
   "es": "Conjunto deportivo"
  },
  "Tracksuit or ski suit": {
   "es": "Conjunto deportivo o traje de esquí"
  },
+ "Travel, duffel, sports, tote, toiletry, belt or cooler bag; cases": {
+  "es": "Bolso de viaje, duffel, deportivo, tote, neceser, riñonera o hielera; estuches"
+ },
  "Trekking poles": {
   "es": "Bastones de trekking"
+ },
+ "Trim": {
+  "es": "Avío"
+ },
+ "Trim: zipper, button, snap, buckle, eyelet or hook": {
+  "es": "Avío: zíper, botón, broche, hebilla, ojete o corchete"
  },
  "Trims": {
   "es": "Avíos"
@@ -1820,8 +2999,17 @@
  "Tritan": {
   "es": "Tritan"
  },
+ "Trousers or shorts": {
+  "es": "Pantalón o short"
+ },
+ "Trousers, jeans, shorts or bib overalls": {
+  "es": "Pantalón, jeans, short o pantalón con peto"
+ },
  "Tube or pipe": {
   "es": "Tubo o caño"
+ },
+ "Tubular or bifurcated rivet": {
+  "es": "Remache tubular o bifurcado"
  },
  "Twill (3 or 4 thread, incl. denim)": {
   "es": "Sarga (de 3 o 4 hilos, incl. mezclilla)"
@@ -1829,14 +3017,38 @@
  "Type": {
   "es": "Tipo"
  },
+ "Type of hosiery": {
+  "es": "Tipo de calcetería"
+ },
+ "Type of nightwear": {
+  "es": "Tipo de ropa de dormir"
+ },
+ "Type of support garment": {
+  "es": "Tipo de prenda de sujeción"
+ },
+ "Type of underwear": {
+  "es": "Tipo de ropa interior"
+ },
  "Umbrella": {
   "es": "Paraguas"
+ },
+ "Umbrella or sunshade": {
+  "es": "Paraguas o sombrilla"
  },
  "Unbleached (raw)": {
   "es": "Sin blanquear (crudo)"
  },
  "Undershirt": {
   "es": "Camiseta interior"
+ },
+ "Undershirt or vest worn under clothes": {
+  "es": "Camiseta interior que se usa debajo de la ropa"
+ },
+ "Underwear": {
+  "es": "Ropa interior"
+ },
+ "Underwear and nightwear": {
+  "es": "Ropa interior y de dormir"
  },
  "Underwear or pajamas": {
   "es": "Ropa interior o pijama"
@@ -1847,11 +3059,20 @@
  "Underwear, sleepwear and swimwear": {
   "es": "Ropa interior, de dormir y de baño"
  },
+ "Underwear: briefs, boxers, panties, slips, undershirts": {
+  "es": "Ropa interior: calzoncillos, bóxers, bragas, enaguas, camisetas interiores"
+ },
  "unidentified material": {
   "es": "material no identificado"
  },
+ "Unidentified material": {
+  "es": "Materia no identificada"
+ },
  "Unisex (anyone)": {
   "es": "Unisex (cualquiera)"
+ },
+ "Unisex or not identifiable (classified as women's)": {
+  "es": "Unisex o no identificable (se clasifica como de mujer)"
  },
  "Upper": {
   "es": "Corte"
@@ -1862,6 +3083,15 @@
  "Upper material from the composition": {
   "es": "Material del corte según la composición"
  },
+ "Upper of leather straps across the instep and around the big toe": {
+  "es": "Corte de tiras de cuero que pasan sobre el empeine y rodean el dedo gordo"
+ },
+ "Upper of straps or thongs fixed to the sole by plugs": {
+  "es": "Corte de tiras fijadas a la suela con tetones"
+ },
+ "Upper or parts of the upper (vamps, quarters, linings)": {
+  "es": "Corte o partes del corte (empeines, cuartos, forros)"
+ },
  "Use": {
   "es": "Uso"
  },
@@ -1871,14 +3101,23 @@
  "Use only when thresholds or headings depend on weight.": {
   "es": "Usar solo cuando los umbrales o las partidas dependen del peso."
  },
+ "Used in the industry of": {
+  "es": "Usado en la industria de"
+ },
  "Vacuum insulation (thermos)": {
   "es": "Aislamiento al vacío (termo)"
  },
  "Vat": {
   "es": "A la tina"
  },
+ "Vat dyes, including indigo": {
+  "es": "Colorantes a la tina, incluido el índigo"
+ },
  "vegetable fiber (linen, hemp)": {
   "es": "fibra vegetal (lino, cáñamo)"
+ },
+ "Vehicle bodies, glass or metal": {
+  "es": "Carrocerías, vidrio o metal"
  },
  "Vest without fill": {
   "es": "Chaleco sin relleno"
@@ -1892,11 +3131,29 @@
  "Viscose / rayon": {
   "es": "Viscosa / rayón"
  },
+ "Vitamin, hormone, sugar, antibiotic or other": {
+  "es": "Vitamina, hormona, azúcar, antibiótico u otro"
+ },
  "Vulcanised": {
   "es": "Vulcanizado"
  },
+ "Vulcanized cellular sheet or strip (sponge)": {
+  "es": "Lámina o tira vulcanizada celular (esponja)"
+ },
+ "Vulcanized non-cellular sheet or strip (soling sheet)": {
+  "es": "Lámina o tira vulcanizada no celular (lámina para suelas)"
+ },
+ "Vulcanized profile or rod": {
+  "es": "Perfil o varilla vulcanizados"
+ },
+ "Vulcanized rubber (e.g. neoprene without fabric)": {
+  "es": "Caucho vulcanizado (p. ej. neopreno sin tela)"
+ },
  "Waist pack": {
   "es": "Canguro"
+ },
+ "Wallet": {
+  "es": "Billetera"
  },
  "Wallet or case": {
   "es": "Billetera o estuche"
@@ -1904,8 +3161,20 @@
  "Wallet, card holder or pocket case": {
   "es": "Billetera, tarjetero o estuche de bolsillo"
  },
+ "Wallet, coin purse, card holder, key case or glasses case": {
+  "es": "Billetera, monedero, tarjetero, llavero o estuche para lentes"
+ },
  "Warp knit": {
   "es": "Punto por urdimbre"
+ },
+ "Warp knit (tricot, raschel, mesh)": {
+  "es": "Tejido de punto por urdimbre (tricot, raschel, malla)"
+ },
+ "Washing or cleaning preparation put up for retail sale": {
+  "es": "Preparación para lavar o limpiar acondicionada para la venta al por menor"
+ },
+ "Washing, cleaning or surface-active preparation, not for retail sale": {
+  "es": "Preparación para lavar, limpiar o tensoactiva, no para la venta al por menor"
  },
  "Watch": {
   "es": "Reloj"
@@ -1916,8 +3185,14 @@
  "Watch strap or band": {
   "es": "Correa o pulsera de reloj"
  },
+ "Watch strap or bracelet": {
+  "es": "Correa o pulsera de reloj"
+ },
  "Watch type": {
   "es": "Tipo de reloj"
+ },
+ "Watches, eyewear and jewelry": {
+  "es": "Relojes, lentes y joyería"
  },
  "Water": {
   "es": "Agua"
@@ -1927,6 +3202,9 @@
  },
  "Water shoe": {
   "es": "Zapato acuático"
+ },
+ "Waterproof, upper not joined to the sole by stitching, rivets, nails, screws or plugs": {
+  "es": "Impermeable, corte no unido a la suela por costura, remaches, clavos, tornillos o tetones"
  },
  "Waterproof: upper and sole joined without stitches, rivets, nails or screws (molded or injected)": {
   "es": "Impermeable: corte y suela unidos sin costuras, remaches, clavos ni tornillos (moldeado o inyectado)"
@@ -1940,6 +3218,9 @@
  "Wax type": {
   "es": "Tipo de cera"
  },
+ "Wax: prepared, artificial or paraffin": {
+  "es": "Cera: preparada, artificial o parafina"
+ },
  "Weave": {
   "es": "Ligamento"
  },
@@ -1949,11 +3230,17 @@
  "Weight": {
   "es": "Peso"
  },
+ "Weight per square meter: cotton fabrics split at 200 g/m², synthetic staple mixed with cotton at 170 g/m², nonwovens at 25, 70 and 150 g/m².": {
+  "es": "Peso por metro cuadrado: las telas de algodón se separan en 200 g/m², las de fibras sintéticas discontinuas mezcladas con algodón en 170 g/m² y las telas sin tejer en 25, 70 y 150 g/m²."
+ },
  "What it is": {
   "es": "Qué es"
  },
  "Wheels, trucks or other parts": {
   "es": "Ruedas, trucks u otras partes"
+ },
+ "Which part": {
+  "es": "Qué parte"
  },
  "Who it is for": {
   "es": "Para quién es"
@@ -1961,11 +3248,23 @@
  "Width": {
   "es": "Ancho"
  },
+ "Width over 30 cm, 5 % or more elastomeric yarn": {
+  "es": "Ancho de más de 30 cm, 5 % o más de hilos de elastómero"
+ },
+ "Width up to 30 cm, 5 % or more elastomeric yarn": {
+  "es": "Ancho de hasta 30 cm, 5 % o más de hilos de elastómero"
+ },
+ "Width up to 30 cm, other": {
+  "es": "Ancho de hasta 30 cm, otro"
+ },
  "Wire": {
   "es": "Alambre"
  },
  "Wire or metal": {
   "es": "Alambre o metal"
+ },
+ "With bib": {
+  "es": "Con peto"
  },
  "With bib (overalls)": {
   "es": "Con peto (overol)"
@@ -1973,11 +3272,20 @@
  "With cleats or spikes (soccer, athletics), cycling, wrestling or boxing": {
   "es": "Con tacos o clavos (fútbol, atletismo), de ciclismo, lucha o boxeo"
  },
+ "With cleats or spikes; for skating, wrestling, boxing or cycling": {
+  "es": "Con tacos o clavos; para patinaje, lucha, boxeo o ciclismo"
+ },
+ "With cleats, spikes or special fixings; for skating, wrestling, boxing or cycling": {
+  "es": "Con tacos, clavos o fijaciones especiales; para patinaje, lucha, boxeo o ciclismo"
+ },
  "With collar": {
   "es": "Con cuello"
  },
  "With hood": {
   "es": "Con capucha"
+ },
+ "With skates attached (ice or roller)": {
+  "es": "Con patines fijos (de hielo o de ruedas)"
  },
  "With wheels (roller, Heelys type)": {
   "es": "Con ruedas (patín, tipo Heelys)"
@@ -1985,11 +3293,17 @@
  "Women or girls": {
   "es": "Mujeres o niñas"
  },
+ "Women's stockings or knee-highs": {
+  "es": "Medias o medias hasta la rodilla de mujer"
+ },
  "Wood": {
   "es": "Madera"
  },
  "Wood or cork": {
   "es": "Madera o corcho"
+ },
+ "Wooden furniture or floors": {
+  "es": "Muebles o pisos de madera"
  },
  "Wool": {
   "es": "Lana"
@@ -2012,14 +3326,35 @@
  "Woven fabric": {
   "es": "Tela de tejido plano"
  },
+ "Woven fabric in the piece": {
+  "es": "Tejido plano en pieza"
+ },
+ "Woven label or badge": {
+  "es": "Etiqueta o insignia tejida"
+ },
+ "Woven or knitted fabric, coating visible": {
+  "es": "Tejido plano o de punto, recubrimiento visible"
+ },
  "Woven patch or badge": {
   "es": "Parche o insignia tejida"
+ },
+ "Wrist watch": {
+  "es": "Reloj de pulsera"
  },
  "Writing or printing": {
   "es": "Para escribir o imprimir"
  },
+ "Writing, drawing or other ink": {
+  "es": "Tinta de escribir, de dibujar u otra"
+ },
  "Yarn": {
   "es": "Hilado"
+ },
+ "Yarn or sewing thread": {
+  "es": "Hilado o hilo de coser"
+ },
+ "Yarn or thread": {
+  "es": "Hilado o hilo"
  },
  "Zinc": {
   "es": "Zinc"
@@ -2027,7 +3362,19 @@
  "Zinc (galvanised)": {
   "es": "Zinc (galvanizado)"
  },
+ "Zinc alloy": {
+  "es": "Aleación de zinc"
+ },
  "Zipper": {
   "es": "Cierre"
+ },
+ "Zipper part (slider, tape with teeth)": {
+  "es": "Parte de zíper (deslizador, cinta con dientes)"
+ },
+ "Zipper with base metal teeth": {
+  "es": "Zíper con dientes de metal común"
+ },
+ "Zipper with plastic or nylon teeth": {
+  "es": "Zíper con dientes de plástico o nailon"
  }
 }
