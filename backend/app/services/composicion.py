@@ -56,7 +56,7 @@ FIBRAS = _lista([
     ("artificial", "viscosa viscose rayon modal lyocell tencel acetato acetate triacetato cupro cv cmd".split()),
     ("cuero", "cuero leather piel gamuza suede nubuck nobuck".split()),
 ])
-MAT_CALZ = _lista([
+MATERIALES = _lista([
     ("plastico", ["cuero sintetico", "piel sintetica", "synthetic leather", "faux leather", "pu leather", "vegan leather", "leatherette",
                   *"sinteticos? synthetics? pu tpu tpr kpu pvc vinilo vinyl caucho rubber goma hule latex eva plasticos? plastics? tr phylon poliuretano polyurethane silicona silicone crepe policarbonato polycarbonate tritan abs".split()]),
     ("cuero", "cuero leather piel suede gamuza nubuck nobuck napa nappa charol patent ante carnaza".split()),
@@ -116,7 +116,7 @@ SINONIMOS_BASE = {
 
 # Vocabulario para corregir errores de dedo (en el orden de las listas)
 _VOCAB: list[str] = []
-for _g, _alts, _ in FIBRAS + MAT_CALZ:
+for _g, _alts, _ in FIBRAS + MATERIALES:
     for _w in _alts:
         if re.fullmatch(r"[a-z]{4,}", _w):
             if _w not in _VOCAB:
@@ -124,7 +124,7 @@ for _g, _alts, _ in FIBRAS + MAT_CALZ:
         _m = re.fullmatch(r"([a-z]{4,})(s|es)\?", _w)
         if _m and _m.group(1) not in _VOCAB:
             _VOCAB.append(_m.group(1))
-_CONOCIDAS = [re.compile("(" + "|".join(alts) + ")", A) for _, alts, _ in FIBRAS + MAT_CALZ]
+_CONOCIDAS = [re.compile("(" + "|".join(alts) + ")", A) for _, alts, _ in FIBRAS + MATERIALES]
 
 
 def _conocida(w: str) -> bool:
@@ -227,15 +227,20 @@ class Lector:
             return None
         return {"pesos": pesos, "pred": pred, "segmento": seg["label"], "uso_segmento": len(segs) > 1}
 
-    def parse_mat(self, raw, modo: str = "corte") -> dict | None:
+    def parse_mat(self, raw, modo: str = "superficie") -> dict | None:
+        """Material predominante de una parte. Modo «superficie» (por defecto): el
+        de mayor superficie exterior; sin porcentajes y con varios materiales, es
+        mixto. Modo «contacto»: la parte que toca el suelo (caucho o plástico, cuero
+        u otro). Se aceptan los nombres anteriores «corte» y «suela»."""
+        contacto = modo in ("contacto", "suela")
         s = self.prep(raw)["s"].strip()
         if not s:
             return None
         if "%" not in s:
-            gs = list(dict.fromkeys(m["g"] for m in _coincidencias(s, MAT_CALZ)))
-            if len(gs) > 1 and modo != "suela":
+            gs = list(dict.fromkeys(m["g"] for m in _coincidencias(s, MATERIALES)))
+            if len(gs) > 1 and not contacto:
                 return {"pesos": {}, "pred": None, "mixto": True, "grupos": gs}
-        pesos = pesos_de(s, MAT_CALZ)
+        pesos = pesos_de(s, MATERIALES)
         g, mejor = None, -1
         for k, v in pesos.items():
             if k != "otra" and v > mejor:
@@ -243,7 +248,7 @@ class Lector:
         if not g:
             return {"pesos": pesos, "pred": None}
         cat = g
-        if modo == "suela":
+        if contacto:
             cat = "caucho" if g == "plastico" else "cuero" if g == "cuero" else "otro"
         return {"pesos": pesos, "pred": cat, "pct": mejor, "mixto": len([k for k in pesos if k != "otra"]) > 1}
 
@@ -285,7 +290,7 @@ class Lector:
             return "paja"
         if metal and _METAL.search(t) and not re.search(r"\b(cuero|leather|nylon|poliester|polyester|plastic|plastico|pvc|silicon)", t, A):
             return "metal"
-        pm = self.parse_mat(raw, "corte")
+        pm = self.parse_mat(raw)
         if not pm or not pm["pred"]:
             return None
         v = mapa.get(pm["pred"])
@@ -297,7 +302,7 @@ class Lector:
         if not t:
             return []
         seg = (segmentos(t) or [t])[0]
-        pares = pares_de(self.prep(seg)["s"], FIBRAS + MAT_CALZ + RELLENO)
+        pares = pares_de(self.prep(seg)["s"], FIBRAS + MATERIALES + RELLENO)
         if not pares:
             return [{"m": t, "pct": ""}]
         if len(pares) == 1 and pares[0].get("implicito"):

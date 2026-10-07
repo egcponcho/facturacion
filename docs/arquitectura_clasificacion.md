@@ -166,3 +166,24 @@ ya tenían un código más largo.
   composición). Con categoría: solo su ficha propia.
 - El país destino no es un dato del producto: cada país activo se resuelve por
   separado.
+
+## La ficha sin casos escritos para una familia (G2)
+
+El motor (`motor_clasificacion.py`), la ficha (`ficha.py`) y las descripciones
+(`descripciones.py`) no nombran categorías, atributos ni opciones; una prueba
+(`test_engine_code_names_no_family`) lo vigila.
+
+- Detección: una palabra clave completa lo que implican sus respuestas y quita
+  lo detectado cuyo ámbito ya no aplica; lo que el uso dice con evidencia manda
+  sobre un valor puesto por defecto; un atributo cuya detección depende de otras
+  respuestas se vuelve a deducir al final. Un patrón puede leer cualquier parte
+  de la composición (`en: comp.<parte>`).
+- Composición: cómo se lee una parte sale de los atributos que se derivan de
+  ella (material o fibra); los modos de lectura son «superficie» y «contacto».
+  Una parte que solo describe se marca `informativo` (no se exige reconocible).
+- Descripción aduanera: «PARA HOMBRE / NIÑA / UNISEX…» son frases de las
+  opciones (`texto_aduana` puede ser una lista de alternativas con condición);
+  las palabras de las clases de material son datos (`vocabulario_aduana`) que
+  cada categoría puede cambiar en su plantilla («como»).
+- Cada categoría trae su dominio en los datos; la ficha genérica (descripción
+  técnica y composición) es para productos fuera de una familia (sin dominio).

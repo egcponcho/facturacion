@@ -27,8 +27,6 @@ TIPOS_DATO = {"text", "select", "multi_select", "boolean", "number", "compositio
 TIPO_MOTOR = {"seg": "select", "select": "select", "check": "boolean", "num": "number"}
 AMBITOS = ("SYSTEM", "DOMAIN", "CHAPTER", "HEADING", "SUBHEADING", "CATEGORY")
 MODOS = ("SHOW", "REQUIRE", "HIDE")
-# Familia de cada grupo de categorías del motor → dominio de clasificación
-DOMINIO_GRUPO = {"prenda": "APPAREL", "calzado": "FOOTWEAR", "calzado_acc": "FOOTWEAR"}
 
 
 # ---- Carga desde el paquete oficial ----------------------------------------------
@@ -228,10 +226,11 @@ def cargar_motor(db: Session) -> int:
     falta y completa lo que está vacío; nunca pisa lo que alguien editó."""
     datos = json.loads((DATOS / "motor_atributos.json").read_text(encoding="utf-8"))
     existentes = {a.codigo: a for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones), selectinload(AtributoDef.ambitos)))}
-    familia = {c["codigo"]: c.get("familia") for c in datos["categorias"]}
+    dominio_cat = {c["codigo"]: c.get("dominio") for c in datos["categorias"]}
     nuevos = 0
     for m in datos["atributos"]:
-        doms = [DOMINIO_GRUPO.get(familia.get(x["codigo_ambito"]) or "", "ACCESSORIES_MERCH") for x in m.get("ambitos") or [] if x["tipo_ambito"] == "CATEGORY"]
+        doms = [dominio_cat[x["codigo_ambito"]] for x in m.get("ambitos") or []
+                if x["tipo_ambito"] == "CATEGORY" and dominio_cat.get(x["codigo_ambito"])]
         dominio = max(set(doms), key=doms.count) if doms else None
         a = existentes.get(m["codigo"])
         if not a:

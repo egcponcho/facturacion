@@ -58,11 +58,13 @@ def test_package_errors_name_the_problem(interno):
 
 
 def test_products_without_category_get_the_generic_sheet(interno):
-    """Sin categoría configurada se pregunta lo genérico (descripción técnica y
-    composición); con categoría, solo su ficha propia. El país destino nunca se pregunta."""
-    s = interno.post("/clasificacion/sesion", {"nombre": "LED desk lamp", "paises": False}).json()
-    campos = {c["codigo"] for c in s["campos"]}
-    assert {"technical_description", "comp.material"} <= campos and "destination_country" not in campos
+    """Fuera de una familia configurada (sin dominio) se pregunta lo genérico
+    (descripción técnica y composición); en una familia, solo su ficha propia.
+    El país destino nunca se pregunta."""
+    for e in ({"nombre": "LED desk lamp"}, {"nombre": "Widget", "categoria": "otro"}):
+        s = interno.post("/clasificacion/sesion", {**e, "paises": False}).json()
+        campos = {c["codigo"] for c in s["campos"]}
+        assert {"technical_description", "comp.material"} <= campos and "destination_country" not in campos, (e, campos)
     s = interno.post("/clasificacion/sesion", {"categoria": "calzado", "nombre": "Canvas sneaker", "paises": False}).json()
     campos = {c["codigo"] for c in s["campos"]}
     assert not {"technical_description", "comp.material", "destination_country"} & campos and "comp.corte" in campos
@@ -109,3 +111,24 @@ def test_migration_removes_duplicates_and_keeps_captured_values():
         assert json.loads(con.execute("SELECT alias FROM atributos_def WHERE codigo = 'comp.corte'").fetchone()[0]) == ["upper_material"]
         ficha = json.loads(con.execute("SELECT ficha FROM productos WHERE id = 1").fetchone()[0])
         assert ficha == {"comp": {"suela": "rubber", "corte": "100% canvas"}}
+
+
+def test_engine_code_names_no_family():
+    """El motor, la ficha y las descripciones no nombran categorías, atributos ni
+    opciones de una familia: todo eso es configuración. Solo quedan nombres que
+    son del propio motor (modos de lectura de materiales y claves internas)."""
+    import json
+    import re
+
+    from app.datos import MOTOR
+    from test_oficial import RAIZ
+
+    d = json.loads((MOTOR / "motor_atributos.json").read_text(encoding="utf-8"))
+    t = json.loads((MOTOR / "motor_tecnico.json").read_text(encoding="utf-8"))
+    codigos = {c["codigo"] for c in d["categorias"] + t["categorias"]} | {a["codigo"] for a in d["atributos"] + t["atributos"]}
+    codigos |= {o["codigo"] for a in d["atributos"] + t["atributos"] for o in a.get("opciones") or []}
+    del_motor = {"aluminio", "corrugado", "metal", "paja", "fibra", "producto", "etiqueta", "completa", "otra", "composition"}
+    for f in ("ficha.py", "motor_clasificacion.py", "descripciones.py"):
+        fuente = (RAIZ / "app" / "services" / f).read_text(encoding="utf-8")
+        nombrados = set(re.findall(r'"([A-Za-z_.]+)"', fuente)) & codigos - del_motor
+        assert not nombrados, (f, sorted(nombrados))

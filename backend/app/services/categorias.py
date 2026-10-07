@@ -15,7 +15,6 @@ from ..models import CategoriaProducto, DominioClasificacion, Usuario
 from .common import ErrorNegocio, exigir, registrar
 
 DATOS = MOTOR
-DOMINIO_GRUPO = {"prenda": "APPAREL", "calzado": "FOOTWEAR", "calzado_acc": "FOOTWEAR"}
 
 
 def sembrar(db: Session) -> int:
@@ -27,8 +26,7 @@ def sembrar(db: Session) -> int:
     tecnico = json.loads((DATOS / "motor_tecnico.json").read_text(encoding="utf-8"))
     existentes = {c.codigo: c for c in db.scalars(select(CategoriaProducto))}
     n = 0
-    filas = [{**c, "dominio": DOMINIO_GRUPO.get(c.get("familia") or "", "ACCESSORIES_MERCH")} for c in datos["categorias"]]
-    filas += tecnico["categorias"]
+    filas = datos["categorias"] + tecnico["categorias"]  # cada categoría trae su dominio
     for c in filas:
         x = existentes.get(c["codigo"])
         if not x:

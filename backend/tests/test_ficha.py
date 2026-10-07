@@ -83,12 +83,19 @@ def test_ambito_condicional():
 DETECCION = json.loads((Path(__file__).parent / "paridad/deteccion.json").read_text(encoding="utf-8"))["casos"]
 
 
+# Diferencias buscadas con el antiguo clasificador: lo que el uso dice con evidencia manda sobre
+# un valor que solo estaba por defecto (antes era un caso escrito a mano para un solo atributo)
+MEJORAS = {("calzado", "work and industrial use"): {"estiloCalz": "seguridad", "edadNac": "adulto", "disenio": None}}
+
+
 def test_paridad_deteccion():
     """Lo que se deduce del nombre, el uso, las tallas y la composición: igual
-    que el antiguo clasificador del navegador (categoría y respuestas que aplican)."""
+    que el antiguo clasificador del navegador (categoría y respuestas que aplican),
+    salvo las mejoras documentadas."""
     malos = []
     for c in DETECCION:
         js, py = c["detectado"], CAT.detectar({"comp": c["comp"]}, c["estilo"], uso=c["uso"], tallas=c["tallas"])
+        js = {**js, **MEJORAS.get((c["estilo"], c["uso"]), {})}
         if (js.get("tipo") or None) != py.get("categoria"):
             malos.append((c["estilo"], "categoria", js.get("tipo"), py.get("categoria")))
             continue

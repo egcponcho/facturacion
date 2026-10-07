@@ -42,7 +42,6 @@ A = re.ASCII
 ESPECIFICIDAD = {"CATEGORY": (4, 0), "DOMAIN": (3, 0), "SUBHEADING": (2, 2), "HEADING": (2, 1), "CHAPTER": (2, 0), "SYSTEM": (0, 0)}
 MODO_ORDEN = {"HIDE": 2, "REQUIRE": 1, "SHOW": 0}
 SECCIONES = ("producto", "caracteristicas", "composicion", "nacional", "derivado")
-PARTE_TXT = {"corte": "of the upper", "suela": "of the sole", "exterior": "of the outer fabric", "material": "of the material"}
 
 
 @dataclass
@@ -301,9 +300,24 @@ class Catalogo:
             meter(t, {"productos": n, "marca": marca if nm else None})
         return {"parte": parte, "filas": filas, "total": total_filas(filas), "lectura": lectura,
                 "ambiguas": [{"palabra": w, "texto": MAT_AMBIGUAS.get(w, w)} for w in pr.get("ambiguas") or []],
-                "desconocidas": [] if parte in ("relleno", "plantilla") else list(pr.get("desconocidas") or []),
+                "desconocidas": [] if a.informativo else list(pr.get("desconocidas") or []),
                 "sugerencias": mats[:10], "todos": todos, "usadas": usadas[:3],
                 "equivalencias": [{"codigo": k, "etiqueta": v} for k, v in MAT_EQUIV] if pr.get("desconocidas") else []}
+
+    def lectura_parte(self, parte: str, s: dict) -> tuple[str | None, str]:
+        """Cómo lee el motor una parte de la composición para este producto, según
+        los atributos que aplican y se derivan de ella: «material» (clase o
+        material, con su modo de lectura) o «fibra»; None si ninguno la lee."""
+        modos, lectura = set(), "superficie"
+        for b in self.atributos:
+            d = b.derivacion or {}
+            if d.get("parte") == parte and self.aplica(b, s):
+                modos.add(d.get("modo"))
+                if d.get("modo") in ("material", "clase") and d.get("lectura"):
+                    lectura = d["lectura"]
+        if modos & {"material", "clase"}:
+            return "material", lectura
+        return ("fibra" if "fibra" in modos else None), lectura
 
     # ---- Derivaciones ------------------------------------------------------------------------
     def derivar(self, a: Atributo, s: dict):
@@ -330,7 +344,7 @@ class Catalogo:
         if modo == "material":
             mapa = d.get("mapa")
             if mapa is None and not d.get("paja") and not d.get("metal"):
-                pm = L.parse_mat(txt, d.get("lectura") or "corte")
+                pm = L.parse_mat(txt, d.get("lectura") or "superficie")
                 return pm["pred"] if pm and pm["pred"] else None
             return L.material_derivado(txt, mapa or {}, paja=bool(d.get("paja")), metal=bool(d.get("metal")))
         if modo == "clase":
@@ -369,9 +383,10 @@ class Catalogo:
         if not parte:
             return ""
         txt = s.get(f"comp.{parte}") or ""
-        pm = self.lector.parse_mat(txt, "suela" if d.get("lectura") == "suela" else "corte") if str(txt).strip() else None
+        pm = self.lector.parse_mat(txt, d.get("lectura") or "superficie") if str(txt).strip() else None
         extra = f" ({resumen_mat(pm)})" if pm and pm.get("pred") else ""
-        return f"Taken from the composition {PARTE_TXT.get(parte, '')}{extra}. If it is wrong, fix the composition."
+        comp = self.por_codigo.get(f"comp.{parte}")
+        return f"Taken from the composition ({comp.etiqueta if comp else parte}){extra}. If it is wrong, fix the composition."
 
     # ---- Bloqueos ----------------------------------------------------------------------------------
     def bloqueo_opcion(self, a: Atributo, o: Opcion | None, s: dict) -> str | None:
@@ -504,6 +519,30 @@ class Catalogo:
         return "preguntar"
 
 
+    @staticmethod
+    def _deteccion_dependiente(a: Atributo) -> bool:
+        """Un atributo cuya detección depende de otras respuestas (patrones con
+        condición sobre otro atributo): se vuelve a deducir al final, con todo lo
+        ya detectado, para que no quede uno que salió de una respuesta que cambió."""
+        pats = [*a.patrones, *a.patrones_falso, *(p for o in a.opciones for p in o.patrones)]
+        return any(c.get("campo") not in (None, "categoria") if isinstance(c, dict) and "campo" in c
+                   else any(k != "categoria" for k in (c or {}))
+                   for p in pats for c in (p.get("cuando") or []))
+
+    def _descartado(self, a: Atributo, d: dict) -> bool:
+        """El atributo ya no aplica con lo detectado: todos sus ámbitos de la
+        categoría o el dominio lo ocultan o tienen una condición que no se cumple
+        (una condición que espera un dato que falta no lo descarta)."""
+        from .motor_clasificacion import condicion_ambito
+
+        cat = self.categorias.get(d.get("categoria") or "")
+        ctx = {**d, "dominio": d.get("dominio") or (cat.dominio if cat else "")}
+        toca = [x for x in a.ambitos if x.tipo == "SYSTEM" or (x.tipo == "DOMAIN" and x.codigo == ctx["dominio"])
+                or (x.tipo == "CATEGORY" and x.codigo == ctx.get("categoria"))]
+        if not toca:
+            return False
+        return all(x.modo == "HIDE" or condicion_ambito(x.condicion, ctx)[0] is False for x in toca)
+
     # ---- Detección por texto ------------------------------------------------------------------
     def _palabra(self, texto: str, marca: str | None) -> dict | None:
         """Palabra clave aprendida (PalabraClave): la frase más larga que aparece en el nombre."""
@@ -555,9 +594,7 @@ class Catalogo:
 
     def _detectar(self, texto: str, comp: dict, tallas: str, uso: str, cat_forzada: str | None) -> tuple[dict, set]:
         s = norm(texto)
-        comp_txt = norm(" ".join(str(v) for v in (comp or {}).values()))
-        textos = {"estilo": s, "todo": f"{s} {comp_txt}", "tallas": norm(tallas or ""), "uso": norm(f"{texto} {uso or ''}"),
-                  "uso_comp": norm(f"{texto} {uso or ''} {comp_txt}"), "comp.suela": norm((comp or {}).get("suela") or "")}
+        textos = _textos_deteccion(s, comp, tallas, texto, uso)
         d: dict = {}
         defecto: set = set()
         cat = cat_forzada or self._categoria_texto(s)
@@ -620,14 +657,18 @@ class Catalogo:
                 if k not in d or k in defecto:
                     d[k] = v
                     defecto.discard(k)  # lo dice una palabra clave del nombre: no es un supuesto
-            a = self.por_codigo.get("estiloCalz")
-            if h.get("estiloCalz") and a:
-                o = a.opcion(d.get("estiloCalz"))
-                for k, v in ((o.implica or {}) if o else {}).items():
-                    if (k not in d or k in defecto) and k not in h:
-                        d[k] = v
-                if d.get("estiloCalz") != "tenis":
-                    d.pop("disenio", None)
+            # Lo que implican las respuestas de la palabra clave completa lo no dicho
+            for k in [k for k in h if k in self.por_codigo]:
+                a = self.por_codigo[k]
+                o = a.opcion(d.get(k)) if not a.booleano else None
+                for k2, v2 in ((o.implica or {}) if o else {}).items():
+                    if (k2 not in d or k2 in defecto) and k2 not in h:
+                        d[k2] = v2
+            # Lo detectado que ya no aplica con esas respuestas (su ámbito lo descarta) se quita
+            for k in [k for k in d if k in self.por_codigo and k not in h]:
+                if self._descartado(self.por_codigo[k], d):
+                    d.pop(k)
+                    defecto.discard(k)
             d["_palabra"] = h["frase"]
         if uso and str(uso).strip():
             if not d.get("categoria"):
@@ -636,30 +677,48 @@ class Catalogo:
                 du = dc if dc.get("categoria") else self._detectar(uso, {}, "", "", None)[0]
                 if du.get("categoria"):
                     d["categoria"] = du["categoria"]
-            d2, _ = self._detectar(f"{texto} {uso}", comp, tallas, uso, d.get("categoria"))
+            d2, defecto2 = self._detectar(f"{texto} {uso}", comp, tallas, uso, d.get("categoria"))
             for k, v in d2.items():
                 if k not in d:
                     d[k] = v
-            if d.get("categoria") == "calzado" and d.get("disenio") == "casual" and d2.get("disenio") == "entrenamiento":
-                d["disenio"] = "entrenamiento"
-        # Lo que se llenó por defecto, sin evidencia en los datos del producto: un supuesto
-        d["_por_defecto"] = sorted(k for k in defecto if k in d)
-        # Los datos nacionales se deducen al final, con lo ya detectado
+                    if k in defecto2:
+                        defecto.add(k)
+                elif k in defecto and k not in defecto2 and v != d[k]:
+                    d[k] = v  # el uso lo dice con evidencia; lo anterior era solo un valor por defecto
+                    defecto.discard(k)
+        # Los datos nacionales y los que se detectan según otras respuestas se deducen al final, con lo ya detectado
         if d.get("categoria"):
-            nac = [a for a in self._candidatos_attr(d["categoria"]) if a.seccion == "nacional" or a.codigo == "edadNac"]
-            comp_txt = norm(" ".join(str(v) for v in comp.values()))
+            nac = [a for a in self._candidatos_attr(d["categoria"]) if a.seccion == "nacional" or self._deteccion_dependiente(a)]
             s0 = norm(texto)
-            textos = {"estilo": s0, "todo": f"{s0} {comp_txt}", "tallas": norm(tallas or ""), "uso": norm(f"{texto} {uso or ''}"),
-                      "uso_comp": norm(f"{texto} {uso or ''} {comp_txt}"), "comp.suela": norm(comp.get("suela") or "")}
+            textos = _textos_deteccion(s0, comp, tallas, texto, uso)
             base = {k: v for k, v in d.items() if k not in {a.codigo for a in nac}}
             nuevo: dict = {}
-            self._detectar_attrs(nac, textos, nuevo, set(), base)
+            def_final: set = set()
+            self._detectar_attrs(nac, textos, nuevo, def_final, base)
             for a in nac:
+                defecto.discard(a.codigo)
                 if a.codigo in nuevo:
                     d[a.codigo] = nuevo[a.codigo]
+                    if a.codigo in def_final:
+                        defecto.add(a.codigo)
                 else:
                     d.pop(a.codigo, None)
+        # Lo que se llenó por defecto, sin evidencia en los datos del producto: un supuesto
+        d["_por_defecto"] = sorted(k for k in defecto if k in d)
         return d
+
+
+def _textos_deteccion(nombre: str, comp: dict | None, tallas: str, texto: str, uso: str) -> dict:
+    """Dónde busca un patrón de detección (su clave «en»): el nombre, el nombre y
+    la composición, las tallas, el uso, el uso y la composición, o una parte de
+    la composición (comp.<parte>, cualquiera que tenga la ficha)."""
+    comp = comp or {}
+    comp_txt = norm(" ".join(str(v) for v in comp.values()))
+    out = {"estilo": nombre, "todo": f"{nombre} {comp_txt}", "tallas": norm(tallas or ""), "uso": norm(f"{texto} {uso or ''}"),
+           "uso_comp": norm(f"{texto} {uso or ''} {comp_txt}")}
+    for parte, v in comp.items():
+        out[f"comp.{parte}"] = norm(str(v or ""))
+    return out
 
 
 def _vacio(v) -> bool:

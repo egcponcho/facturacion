@@ -9,18 +9,27 @@ Todo sale de los datos: el nombre de la categoría (CategoriaProducto.nombre_adu
 o el de una opción elegida (AtributoOpcion.texto_aduana.nombre), la plantilla de
 material de la categoría (CategoriaProducto.plantilla_aduana) y las frases de
 las opciones y casillas (texto_aduana.frase, con su orden y condición).
+Para quién es (PARA HOMBRE, PARA NIÑA, UNISEX…) también son frases de las
+opciones (una lista de alternativas con condición: la primera que se cumple).
 tests/test_descripciones.py fija el resultado esperado (casos de referencia en tests/paridad).
 """
+import json
 import re
+from functools import lru_cache
 
-# Vocabulario aduanero de las clases de material (presentación, no clasificación)
-CAT_MAT = {"textil": "TEXTIL", "cuero": "CUERO", "plastico": "SINTÉTICO", "sintetica": "SINTÉTICO", "artificial": "SINTÉTICO", "caucho": "SINTÉTICO"}
-MAT_TXT = {"plastico": "CAUCHO O PLÁSTICO", "cuero": "CUERO", "textil": "MATERIA TEXTIL", "otro": "OTRAS MATERIAS", "metal": "METAL", "madera": "MADERA",
-           "papel": "PAPEL O CARTÓN", "vidrio": "VIDRIO", "paja": "PAJA"}
+from ..datos import MOTOR
+
+
+@lru_cache(maxsize=1)
+def _vocabulario() -> dict:
+    """Palabras aduaneras por defecto de las clases de material (presentación, no
+    clasificación); cada categoría las cambia en su plantilla («como»)."""
+    d = json.loads((MOTOR / "motor_atributos.json").read_text(encoding="utf-8")).get("vocabulario_aduana") or {}
+    return {**(d.get("material") or {}), **(d.get("clase_material") or {})}
 
 
 def _mat(m, defecto: str = "") -> str:
-    return CAT_MAT.get(m) or MAT_TXT.get(m) or defecto
+    return _vocabulario().get(m) or defecto
 
 
 def _cumple(cond, s) -> bool:
@@ -29,18 +38,10 @@ def _cumple(cond, s) -> bool:
     return cumple(cond, s)
 
 
-def _para(s: dict) -> str:
-    e = "bebe" if s.get("edad") == "bebe" else (s.get("edadNac") or (s.get("edad") if s.get("edad") in ("adulto", "nino") else ""))
-    g = s.get("genero")
-    if e == "bebe":
-        return "PARA BEBÉ"
-    nino = e == "nino"
-    return {"M": "PARA NIÑO" if nino else "PARA HOMBRE", "F": "PARA NIÑA" if nino else "PARA MUJER",
-            "U": "PARA NIÑO O NIÑA" if nino else "UNISEX"}.get(g, "PARA NIÑO O NIÑA" if nino else "")
-
-
 def _textos(cat, s: dict):
-    """Textos de aduana de lo elegido: (orden, texto_aduana) de opciones y casillas."""
+    """Textos de aduana de lo elegido: (atributo, texto_aduana) de opciones y
+    casillas. Un texto puede ser una lista de alternativas: va la primera cuya
+    condición se cumple."""
     for a in cat.atributos:
         v = s.get(a.codigo)
         if a.booleano:
@@ -48,8 +49,10 @@ def _textos(cat, s: dict):
         else:
             o = a.opcion(v) if v not in (None, "", []) and not isinstance(v, list) else None
             t = o.texto_aduana if o else None
-        if t and _cumple(t.get("cuando"), s):
-            yield a, t
+        for x in (t if isinstance(t, list) else [t] if t else []):
+            if _cumple(x.get("cuando"), s):
+                yield a, x
+                break
 
 
 def descripcion_aduana(cat, s: dict, categoria) -> str:
@@ -66,10 +69,7 @@ def descripcion_aduana(cat, s: dict, categoria) -> str:
     if mat:
         cab.append(mat)
     frases = sorted(((t.get("orden", 50), i, t["frase"]) for i, (_, t) in enumerate(_textos(cat, s)) if t.get("frase")))
-    ext = [f for _, _, f in frases]
-    para = _para(s)
-    if para:
-        ext.append(para)
+    ext = list(dict.fromkeys(f for _, _, f in frases))  # la misma frase de dos respuestas va una vez
     return ", ".join([" ".join(x for x in cab if x)] + [x for x in ext if x])
 
 

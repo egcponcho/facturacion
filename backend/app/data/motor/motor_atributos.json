@@ -51,7 +51,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "camisa",
@@ -104,7 +105,8 @@
      }
     ],
     "nombre": "CAMISA"
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "sudadera",
@@ -157,7 +159,8 @@
      }
     ],
     "nombre": "SUDADERA"
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "chaqueta",
@@ -210,7 +213,8 @@
      }
     ],
     "nombre": "CHAQUETA"
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "pantalon",
@@ -263,7 +267,8 @@
      }
     ],
     "nombre": "PANTALÓN"
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "falda",
@@ -315,7 +320,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "vestido",
@@ -367,7 +373,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "enterizo",
@@ -419,7 +426,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "conjunto",
@@ -471,7 +479,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "ropa_interior",
@@ -523,7 +532,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "brasier",
@@ -575,7 +585,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "traje_bano",
@@ -627,7 +638,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "calcetines",
@@ -679,7 +691,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "guantes",
@@ -731,7 +744,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "bufanda",
@@ -783,7 +797,8 @@
       "material": "DE SINTÉTICO"
      }
     ]
-   }
+   },
+   "dominio": "APPAREL"
   },
   {
    "codigo": "gorra",
@@ -809,7 +824,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "cinturon",
@@ -838,7 +854,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "accesorio_pelo",
@@ -867,7 +884,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "peleteria",
@@ -893,7 +911,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "calzado",
@@ -921,7 +940,8 @@
     "si_falta": {
      "sole": "plastico"
     }
-   }
+   },
+   "dominio": "FOOTWEAR"
   },
   {
    "codigo": "plantilla",
@@ -947,7 +967,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "FOOTWEAR"
   },
   {
    "codigo": "cordones",
@@ -976,7 +997,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "FOOTWEAR"
   },
   {
    "codigo": "polainas",
@@ -1002,7 +1024,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "FOOTWEAR"
   },
   {
    "codigo": "cuidado_calzado",
@@ -1030,7 +1053,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "FOOTWEAR"
   },
   {
    "codigo": "mochila",
@@ -1056,7 +1080,8 @@
     "requiere": [
      "exterior"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "bolso_viaje",
@@ -1090,7 +1115,8 @@
     "requiere": [
      "exterior"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "bolso_mano",
@@ -1116,7 +1142,8 @@
     "requiere": [
      "exterior"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "maleta",
@@ -1142,7 +1169,8 @@
     "requiere": [
      "exterior"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "billetera",
@@ -1168,7 +1196,8 @@
     "requiere": [
      "exterior"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "lentes_sol",
@@ -1194,7 +1223,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "reloj",
@@ -1221,7 +1251,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "bisuteria",
@@ -1250,7 +1281,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "llavero",
@@ -1281,7 +1313,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "sombrilla",
@@ -1307,7 +1340,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "botella",
@@ -1337,7 +1371,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "parche",
@@ -1366,7 +1401,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "mascota",
@@ -1392,7 +1428,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "correa_reloj",
@@ -1418,7 +1455,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "tienda",
@@ -1444,7 +1482,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "saco",
@@ -1470,7 +1509,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "colchoneta",
@@ -1499,7 +1539,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "manta",
@@ -1525,7 +1566,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "toalla",
@@ -1551,7 +1593,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "hamaca",
@@ -1578,7 +1621,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "mueble_camping",
@@ -1604,7 +1648,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "linterna",
@@ -1630,7 +1675,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "bastones",
@@ -1657,7 +1703,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "equipo_deporte",
@@ -1686,7 +1733,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "magnesio",
@@ -1713,7 +1761,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "patineta",
@@ -1739,7 +1788,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "avios",
@@ -1767,7 +1817,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "bolsa_compra",
@@ -1796,7 +1847,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "caja",
@@ -1823,7 +1875,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "gancho",
@@ -1851,7 +1904,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "etiqueta",
@@ -1879,7 +1933,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   },
   {
    "codigo": "exhibidor",
@@ -1908,7 +1963,8 @@
      "exterior",
      "material"
     ]
-   }
+   },
+   "dominio": "ACCESSORIES_MERCH"
   }
  ],
  "atributos": [
@@ -2193,7 +2249,11 @@
       }
      ],
      "implica": null,
-     "patrones": []
+     "patrones": [],
+     "texto_aduana": {
+      "frase": "PARA BEBÉ",
+      "orden": 1000
+     }
     }
    ],
    "ambitos": [
@@ -2335,6 +2395,59 @@
        "re": "\\b(mens?|hombres?|caballeros?|boys?|nino|ninos|male|masculino)\\b",
        "prioridad": 4
       }
+     ],
+     "texto_aduana": [
+      {
+       "frase": "PARA NIÑO",
+       "orden": 1000,
+       "cuando": [
+        {
+         "grupo": 1,
+         "campo": "edadNac",
+         "operador": "IN",
+         "valor": [
+          "nino"
+         ],
+         "negado": false
+        },
+        {
+         "grupo": 1,
+         "campo": "edad",
+         "operador": "IN",
+         "valor": [
+          "general",
+          ""
+         ],
+         "negado": false
+        }
+       ]
+      },
+      {
+       "frase": "PARA HOMBRE",
+       "orden": 1000,
+       "cuando": [
+        {
+         "grupo": 1,
+         "campo": "edadNac",
+         "operador": "IN",
+         "valor": [
+          "adulto",
+          ""
+         ],
+         "negado": false
+        },
+        {
+         "grupo": 1,
+         "campo": "edad",
+         "operador": "IN",
+         "valor": [
+          "general",
+          ""
+         ],
+         "negado": false
+        }
+       ]
+      }
      ]
     },
     {
@@ -2351,6 +2464,59 @@
       {
        "re": "\\b(womens?|mujer(es)?|damas?|ladies|girls?|nina|ninas|female|femenino)\\b",
        "prioridad": 2
+      }
+     ],
+     "texto_aduana": [
+      {
+       "frase": "PARA NIÑA",
+       "orden": 1000,
+       "cuando": [
+        {
+         "grupo": 1,
+         "campo": "edadNac",
+         "operador": "IN",
+         "valor": [
+          "nino"
+         ],
+         "negado": false
+        },
+        {
+         "grupo": 1,
+         "campo": "edad",
+         "operador": "IN",
+         "valor": [
+          "general",
+          ""
+         ],
+         "negado": false
+        }
+       ]
+      },
+      {
+       "frase": "PARA MUJER",
+       "orden": 1000,
+       "cuando": [
+        {
+         "grupo": 1,
+         "campo": "edadNac",
+         "operador": "IN",
+         "valor": [
+          "adulto",
+          ""
+         ],
+         "negado": false
+        },
+        {
+         "grupo": 1,
+         "campo": "edad",
+         "operador": "IN",
+         "valor": [
+          "general",
+          ""
+         ],
+         "negado": false
+        }
+       ]
       }
      ]
     },
@@ -2369,7 +2535,33 @@
        "re": "\\b(unisex)\\b",
        "prioridad": 6
       }
-     ]
+     ],
+     "texto_aduana": {
+      "frase": "UNISEX",
+      "orden": 1000,
+      "cuando": [
+       {
+        "grupo": 1,
+        "campo": "edadNac",
+        "operador": "IN",
+        "valor": [
+         "adulto",
+         ""
+        ],
+        "negado": false
+       },
+       {
+        "grupo": 1,
+        "campo": "edad",
+        "operador": "IN",
+        "valor": [
+         "general",
+         ""
+        ],
+        "negado": false
+       }
+      ]
+     }
     }
    ],
    "ambitos": [
@@ -4651,7 +4843,7 @@
    "derivacion": {
     "modo": "material",
     "parte": "corte",
-    "lectura": "corte"
+    "lectura": "superficie"
    },
    "bloqueo": null,
    "patrones": [],
@@ -4783,7 +4975,7 @@
    "derivacion": {
     "modo": "material",
     "parte": "suela",
-    "lectura": "suela"
+    "lectura": "contacto"
    },
    "bloqueo": null,
    "patrones": [],
@@ -7527,7 +7719,33 @@
        ],
        "mensaje": "Does not apply to this product"
       }
-     ]
+     ],
+     "texto_aduana": {
+      "frase": "PARA NIÑO O NIÑA",
+      "orden": 1000,
+      "cuando": [
+       {
+        "grupo": 1,
+        "campo": "genero",
+        "operador": "IN",
+        "valor": [
+         "U",
+         ""
+        ],
+        "negado": false
+       },
+       {
+        "grupo": 1,
+        "campo": "edad",
+        "operador": "IN",
+        "valor": [
+         "general",
+         ""
+        ],
+        "negado": false
+       }
+      ]
+     }
     },
     {
      "codigo": "bebe",
@@ -7603,7 +7821,11 @@
        ],
        "mensaje": "Does not apply to this product"
       }
-     ]
+     ],
+     "texto_aduana": {
+      "frase": "PARA BEBÉ",
+      "orden": 1000
+     }
     }
    ],
    "ambitos": [
@@ -8041,7 +8263,7 @@
    "derivacion": {
     "modo": "material",
     "parte": "exterior",
-    "lectura": "corte",
+    "lectura": "superficie",
     "respaldo": [
      "composicion",
      "texto%"
@@ -8181,7 +8403,7 @@
    "derivacion": {
     "modo": "material",
     "parte": "corte",
-    "lectura": "corte"
+    "lectura": "superficie"
    },
    "ambitos": [
     {
@@ -12054,7 +12276,8 @@
       }
      ]
     }
-   ]
+   ],
+   "informativo": true
   },
   {
    "codigo": "comp.corte",
@@ -16436,7 +16659,8 @@
       }
      ]
     }
-   ]
+   ],
+   "informativo": true
   },
   {
    "codigo": "comp.material",
@@ -16620,7 +16844,7 @@
      "prioridad": 100,
      "condicion": [
       {
-       "campo": "categoria",
+       "campo": "dominio",
        "operador": "EXISTS",
        "negado": true
       }
@@ -19928,5 +20152,26 @@
    "ambitos": [],
    "orden": 800
   }
- ]
+ ],
+ "vocabulario_aduana": {
+  "clase_material": {
+   "textil": "TEXTIL",
+   "cuero": "CUERO",
+   "plastico": "SINTÉTICO",
+   "sintetica": "SINTÉTICO",
+   "artificial": "SINTÉTICO",
+   "caucho": "SINTÉTICO"
+  },
+  "material": {
+   "plastico": "CAUCHO O PLÁSTICO",
+   "cuero": "CUERO",
+   "textil": "MATERIA TEXTIL",
+   "otro": "OTRAS MATERIAS",
+   "metal": "METAL",
+   "madera": "MADERA",
+   "papel": "PAPEL O CARTÓN",
+   "vidrio": "VIDRIO",
+   "paja": "PAJA"
+  }
+ }
 }

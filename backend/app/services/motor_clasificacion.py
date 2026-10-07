@@ -33,6 +33,7 @@ import copy
 import hashlib
 import json
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from functools import lru_cache
@@ -694,6 +695,12 @@ def _perfil(categoria, hechos, traza) -> str:
     return "|".join([categoria or "?"] + [f"{k}={hechos.get(k)}" for k in usados if not _vacio(hechos.get(k)) and k != "categoria"])[:200]
 
 
+def norm_etiqueta(t: str) -> str:
+    from .composicion import norm
+
+    return re.sub(r"[^a-z0-9]+", "_", norm(t)).strip("_")
+
+
 def _etiquetas(cat, s: dict, cobj) -> list[str]:
     """Palabras que describen el producto, para ordenar las notas legales de
     apoyo por relevancia (las notas llevan las mismas claves)."""
@@ -713,9 +720,11 @@ def _etiquetas(cat, s: dict, cobj) -> list[str]:
         out.add(k)
         if isinstance(v, str):
             out.add(v)
-    if s.get("genero") == "U":
-        out.add("unisex")
-    return sorted(out)
+            a = cat.por_codigo.get(k)
+            o = a.opcion(v) if a else None
+            if o and o.etiqueta:  # la etiqueta de la opción (p. ej. «Unisex»): las notas usan palabras, no códigos
+                out.add(norm_etiqueta(o.etiqueta))
+    return sorted(x for x in out if x)
 
 
 def _historial_composicion(db: Session, categoria, pid) -> list[dict]:
@@ -908,7 +917,7 @@ def _b36(n: int) -> str:
 def _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, historial, elegido) -> list[dict]:
     import re
 
-    from .composicion import MAT_AMBIGUAS, pesos_de, FIBRAS, MAT_CALZ, segmentos
+    from .composicion import MAT_AMBIGUAS, pesos_de, FIBRAS, MATERIALES, segmentos
 
     out: list[dict] = []
 
@@ -924,7 +933,8 @@ def _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, histori
         if not txt or not str(txt).strip():
             continue
         parte = a.codigo.split(".", 1)[1]
-        es_mat = parte in ("corte", "suela", "material") or (cobj and cobj.familia in ("bolso", "gorra"))
+        modo, lectura = cat.lectura_parte(parte, s)
+        es_mat = modo != "fibra"  # materiales (cuero, plástico…) salvo que solo se lea su fibra
         pr = L.prep(txt)
         for seg in segmentos(txt):
             pcts = [float(m.group(1).replace(",", ".")) for m in re.finditer(r"(\d+(?:[.,]\d+)?)\s*%", seg)]
@@ -934,12 +944,12 @@ def _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, histori
                     add("error", f"{a.etiqueta}: the percentages add up to {tot:g}%.")
                 elif tot < 99.5:
                     add("aviso", f"{a.etiqueta}: the percentages add up to {tot:g}%, not 100%.")
-            if parte not in ("relleno", "plantilla"):
-                o2 = pesos_de(seg, MAT_CALZ).get("otra", 0)
+            if not a.informativo:  # una parte que solo describe (relleno, plantilla…) no se exige reconocible
+                o2 = pesos_de(seg, MATERIALES).get("otra", 0)
                 otra = o2 if es_mat else min(pesos_de(seg, FIBRAS).get("otra", 0), o2)
                 if otra and not pr["desconocidas"]:
                     add("aviso", f"{a.etiqueta}: {otra:g}% has no recognizable material.")
-        if parte not in ("relleno", "plantilla") and pr["desconocidas"]:
+        if not a.informativo and pr["desconocidas"]:
             raras = '", "'.join(pr["desconocidas"])
             add("aviso", f'{a.etiqueta}: I do not recognize "{raras}". Tell me what it is with the list under the composition.', "material")
         for w in pr["ambiguas"]:
@@ -950,8 +960,8 @@ def _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, histori
             add("info", f"{a.etiqueta}: I read {leidos}.")
         if any(c.get("pct") for c in pr["cambios"]):
             add("info", f"{a.etiqueta}: numbers without % were taken as percentages ({pr['s'].strip()}).")
-        if parte in ("corte", "exterior", "material") and es_mat:
-            pm = L.parse_mat(txt, "corte")
+        if modo == "material" and lectura in ("superficie", "corte") or modo is None and not a.informativo:
+            pm = L.parse_mat(txt)
             if pm and pm.get("mixto") and not pm.get("pred"):
                 add("aviso", f"{a.etiqueta}: mixes {' and '.join(pm['grupos'])} without percentages. Enter them by surface to know which governs.")
     # Lo que el nombre sugiere frente a lo que se eligió
