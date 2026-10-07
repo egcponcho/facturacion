@@ -21,3 +21,7 @@ export const UNIDADES = {
 // Las de un artículo sólido (la caja de prepack solo existe para prepacks)
 export const UNIDADES_ARTICULO = Object.keys(UNIDADES).filter((k) => k !== 'CJ')
 export const etiquetaUnidad = (k) => `${(UNIDADES[k]?.[1] || k).replace(/^./, (c) => c.toUpperCase())} (${k})`
+
+// Lo que se cuenta va en enteros (o en inner packs enteros); lo que se mide admite 3 decimales
+const CONTABLES = ['PAR', 'UN', 'DOC', 'JGO', 'ROL', 'CJ']
+export const pasoCantidad = (unidad, inner = null) => (CONTABLES.includes(unidad || 'UN') ? (inner || 1) : 0.001)

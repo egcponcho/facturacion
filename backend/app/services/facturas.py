@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import settings
+from ..models import cant as cant_norm
 from ..models import (
     Archivo,
     Factura,
@@ -24,7 +25,7 @@ from .cantidades import (
     asignado_por_linea,
     cubierto,
     facturado_por_posicion,
-    fuera_de_inner,
+    error_en_linea,
     facturas_por_posicion,
     nombre_factura,
     pl_lineas_activas,
@@ -176,7 +177,7 @@ def _preparar_posiciones(
         if faltan:
             errores.append({"posicion_id": p.id, "mensaje": f"{ref}: complete the PO before invoicing; missing {', '.join(faltan)}."})
             continue
-        if (msg := fuera_de_inner(p, cantidad)):
+        if (msg := error_en_linea(p, cantidad)):
             errores.append({"posicion_id": p.id, "mensaje": f"{ref}: {msg}"})
             continue
         disponible = p.cantidad - facturado.get(p.id, 0)
@@ -358,7 +359,7 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
 
         if c.cantidad is not None and c.cantidad != l.cantidad:
             nueva = c.cantidad
-            if (msg := fuera_de_inner(l, nueva)):
+            if (msg := error_en_linea(l, nueva)):
                 errores.append({"linea_id": l.id, "mensaje": f"{ref}: {msg}"})
                 continue
             if nueva > l.cantidad:
@@ -670,14 +671,14 @@ def resumen_distribucion(db: Session, factura_ids) -> dict[int, dict]:
                func.sum(FacturaLinea.cantidad * FacturaLinea.precio_unitario), func.count(FacturaLinea.id))
         .where(FacturaLinea.factura_id.in_(ids)).group_by(FacturaLinea.factura_id)
     ).all():
-        res[fid].update(facturado=int(cant or 0), importe=round(float(imp or 0), 2), lineas=n)
+        res[fid].update(facturado=cant_norm(cant or 0), importe=round(float(imp or 0), 2), lineas=n)
     for fid, cant in db.execute(
         select(PackingList.factura_id, func.sum(PLLinea.cantidad))
         .join(PLLinea, PLLinea.pl_id == PackingList.id)
         .where(PackingList.factura_id.in_(ids), PackingList.estado != "CANCELADO")
         .group_by(PackingList.factura_id)
     ).all():
-        res[fid]["asignado"] = int(cant or 0)
+        res[fid]["asignado"] = cant_norm(cant or 0)
     for pl in db.scalars(
         select(PackingList).where(PackingList.factura_id.in_(ids), PackingList.estado != "CANCELADO")
     ).all():

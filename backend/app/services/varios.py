@@ -77,9 +77,11 @@ def crear_plantilla(db: Session, user: Usuario, datos) -> dict:
     nombre = datos.nombre.strip()
     if db.scalar(select(PlantillaCaja.id).where(PlantillaCaja.proveedor_id == prov, PlantillaCaja.nombre == nombre)):
         raise ErrorNegocio(f"A template named “{nombre}” already exists.", 409, "duplicado")
-    from .unidades import validar
+    from .unidades import exigir_cantidad, validar
 
-    t = PlantillaCaja(**{**datos.model_dump(exclude={"proveedor_id"}), "nombre": nombre, "proveedor_id": prov, "unidad": validar(datos.unidad)})
+    unidad = validar(datos.unidad)
+    exigir_cantidad(datos.cantidad_por_caja, unidad)
+    t = PlantillaCaja(**{**datos.model_dump(exclude={"proveedor_id"}), "nombre": nombre, "proveedor_id": prov, "unidad": unidad})
     db.add(t)
     db.flush()
     return _plantilla_dict(t)
@@ -92,10 +94,12 @@ def actualizar_plantilla(db: Session, user: Usuario, plantilla_id: int, datos) -
     if not t or (user.rol == "proveedor" and t.proveedor_id != user.proveedor_id):
         raise ErrorNegocio("The template does not exist.", 404, "no_encontrado")
     campos = datos.model_dump(exclude_unset=True)
-    if campos.get("unidad") is not None:
-        from .unidades import validar
+    from .unidades import exigir_cantidad, validar
 
+    if campos.get("unidad") is not None:
         campos["unidad"] = validar(campos["unidad"])
+    if campos.get("cantidad_por_caja") is not None or campos.get("unidad"):
+        exigir_cantidad(campos.get("cantidad_por_caja", t.cantidad_por_caja), campos.get("unidad") or t.unidad)
     if "nombre" in campos:
         campos["nombre"] = (campos["nombre"] or "").strip()
         if not campos["nombre"]:

@@ -77,7 +77,9 @@ const SEPARADORES = { '1,234.56': [',', '.'], '1.234,56': ['.', ','], '1 234,56'
 
 export function numeroTexto(n, decimales = 0, formato = pref.formato_numero) {
   const [miles, dec] = SEPARADORES[formato] || SEPARADORES['1,234.56']
-  const base = new Intl.NumberFormat('en-US', { minimumFractionDigits: decimales, maximumFractionDigits: decimales }).format(Number(n))
+  // Sin decimales pedidos, una cantidad medida (kg, litros, metros) muestra los suyos (hasta 3) en vez de redondearse
+  const max = decimales === 0 && !Number.isInteger(Number(n)) ? 3 : decimales
+  const base = new Intl.NumberFormat('en-US', { minimumFractionDigits: decimales, maximumFractionDigits: max }).format(Number(n))
   return base.replace(/[,.]/g, (c) => (c === ',' ? miles : dec))
 }
 

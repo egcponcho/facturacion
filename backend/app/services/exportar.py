@@ -20,6 +20,7 @@ _FUERTE = Side(style="medium", color=ACENTO)
 _ARRIBA = Alignment(vertical="top", wrap_text=True)
 _MONEDA = "#,##0.00"
 _ENTERO = "#,##0"
+_DECIMAL = "#,##0.000"
 
 
 class _Hoja:
@@ -37,6 +38,8 @@ class _Hoja:
               alinear=None):
         c = self.ws.cell(row=fila, column=col, value=valor)
         c.font = Font(bold=negrita, color=color, size=tam or 9)
+        if formato == _ENTERO and isinstance(valor, float) and valor != int(valor):
+            formato = _DECIMAL  # una cantidad medida (kg, litros, metros) lleva sus decimales
         c.alignment = alinear or _ARRIBA
         if formato:
             c.number_format = formato

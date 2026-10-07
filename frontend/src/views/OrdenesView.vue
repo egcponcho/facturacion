@@ -19,6 +19,7 @@ import { agregarPosiciones, carrito, quitarOC, quitarPosicion, vaciarCarrito } f
 import { esInterno, nombreProveedor, puede, sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { COMERCIAL, LIBERACION, cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '../utils'
+import { pasoCantidad } from '../unidades.js'
 import { filasDefecto } from '../stores/preferencias'
 
 const route = useRoute()
@@ -587,7 +588,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                 {{ t('{0} available', [cantTxt(i.disponible, i.unidad)]) }}<template v-if="i.inner_pack"> {{ t('· inner packs of {0}', [i.inner_pack]) }}</template><template v-if="i.aviso">. {{ tx(i.aviso) }}</template>
               </div>
             </div>
-            <input v-model.number="i.cantidad" type="number" :min="i.inner_pack || 1" :step="i.inner_pack || 1" :max="i.disponible" :aria-label="t('Quantity to invoice on {0}', [i.posicion])" />
+            <input v-model.number="i.cantidad" type="number" :min="pasoCantidad(i.unidad, i.inner_pack)" :step="pasoCantidad(i.unidad, i.inner_pack)" :max="i.disponible" :aria-label="t('Quantity to invoice on {0}', [i.posicion])" />
             <button class="btn-icono" type="button" :aria-label="t('Remove line {0}', [i.posicion])" @click="quitarPosicion(i.posicion_id)"><Icono nombre="cerrar" :tam="16" /></button>
           </div>
         </div>

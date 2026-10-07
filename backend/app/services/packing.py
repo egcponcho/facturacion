@@ -21,7 +21,7 @@ from .cantidades import (
     asignado_por_linea,
     cbm_caja,
     cubierto,
-    fuera_de_inner,
+    error_en_linea,
     inner_de,
     nombre_factura,
     numeracion,
@@ -30,6 +30,7 @@ from .cantidades import (
 )
 from . import empaques
 from .partes import partes
+from .unidades import error_cantidad
 from .common import (
     EDITABLE_PL,
     ESTADO_TXT,
@@ -254,7 +255,7 @@ def _tomar_saldo(db: Session, factura, lineas) -> dict[int, int]:
             errores.append({"mensaje": "One of the lines does not belong to the invoice."})
         elif c > saldo[lid]:
             errores.append({"factura_linea_id": lid, "mensaje": f"Only {saldo[lid]} remain unassigned on that line."})
-        elif (msg := fuera_de_inner(next(l for l in factura.lineas if l.id == lid), c)):
+        elif (msg := error_en_linea(next(l for l in factura.lineas if l.id == lid), c)):
             errores.append({"factura_linea_id": lid, "mensaje": msg})
     if errores:
         raise ErrorNegocio("The quantity could not be assigned.", 422, "validacion", errores)
@@ -300,7 +301,7 @@ def _validar_movimientos(pl: PackingList, movimientos) -> list[tuple[PLLinea, in
             errores.append({"pl_linea_id": pll.id, "mensaje":
                 f"{_ref(pll)}: only {cant_txt(libre, pll.factura_linea.unidad)} are not in cartons. "
                 "Packed goods move with “Move cartons”."})
-        if (msg := fuera_de_inner(pll.factura_linea, m.cantidad)):
+        if (msg := error_en_linea(pll.factura_linea, m.cantidad)):
             errores.append({"pl_linea_id": pll.id, "mensaje": f"{_ref(pll)}: {msg}"})
         pares.append((pll, m.cantidad))
     if errores:
@@ -721,6 +722,9 @@ def crear_caja(db: Session, user: Usuario, pl_id: int, datos) -> dict:
             raise ErrorNegocio("A row appears twice in the carton.", 422, "validacion")
         vistos.add(pll.id)
         unidades.add(pll.factura_linea.unidad)
+        if (msg := error_cantidad(item.cantidad_por_caja, pll.factura_linea.unidad)):
+            errores.append({"pl_linea_id": pll.id, "mensaje": f"{_ref(pll)}: {msg}"})
+            continue
         necesario = item.cantidad_por_caja * datos.num_cajas
         if necesario > sin_caja(pll):
             errores.append({"pl_linea_id": pll.id, "mensaje":
@@ -1044,6 +1048,9 @@ def registrar_recepcion(db: Session, user: Usuario, pl_id: int, datos) -> dict:
         rec = pll.recepcion
         if not rec:
             rec = RecepcionLinea(pl_linea=pll, cantidad_recibida=0)
+        for valor in (item.cantidad_recibida, item.cantidad_danada):
+            if valor and (msg := error_cantidad(valor, pll.factura_linea.unidad)):
+                raise ErrorNegocio(f"{_ref(pll)}: {msg}", 422, "validacion")
         rec.cantidad_recibida = item.cantidad_recibida
         rec.cantidad_danada = item.cantidad_danada
         rec.observacion = (item.observacion or "").strip() or None

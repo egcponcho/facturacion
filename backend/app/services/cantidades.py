@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from . import empaques
 
+from ..models import cant
 from ..models import (
     Factura,
     FacturaLinea,
@@ -32,7 +33,7 @@ def facturado_por_posicion(db: Session, posicion_ids) -> dict[int, int]:
         .where(Factura.estado != "CANCELADA", FacturaLinea.posicion_oc_id.in_(ids))
         .group_by(FacturaLinea.posicion_oc_id)
     ).all()
-    return {pid: int(total or 0) for pid, total in filas}
+    return {pid: cant(total or 0) for pid, total in filas}
 
 
 def facturas_por_posicion(db: Session, posicion_ids) -> dict[int, list[dict]]:
@@ -64,7 +65,7 @@ def asignado_por_linea(db: Session, linea_ids) -> dict[int, int]:
         .where(PackingList.estado != "CANCELADO", PLLinea.factura_linea_id.in_(ids))
         .group_by(PLLinea.factura_linea_id)
     ).all()
-    return {lid: int(total or 0) for lid, total in filas}
+    return {lid: cant(total or 0) for lid, total in filas}
 
 
 def pl_lineas_activas(db: Session, linea_ids) -> list[PLLinea]:
@@ -104,7 +105,7 @@ def cubierto_por_ids(db: Session, pl_linea_ids) -> dict[int, int]:
         .where(GrupoCajasItem.pl_linea_id.in_(ids))
         .group_by(GrupoCajasItem.pl_linea_id)
     ).all()
-    return {lid: int(total or 0) for lid, total in filas}
+    return {lid: cant(total or 0) for lid, total in filas}
 
 
 def numeracion(pl: PackingList) -> dict[int, tuple[int, int]]:
@@ -145,8 +146,14 @@ def inner_de(linea) -> int | None:
     return linea.inner_pack if linea.tipo_empaque != "PREPACK" and linea.inner_pack else None
 
 
-def fuera_de_inner(linea, cantidad: int) -> str | None:
-    """Mensaje si la cantidad no completa inner packs enteros."""
+def error_en_linea(linea, cantidad) -> str | None:
+    """Por qué la cantidad no vale para la línea (posición o línea de factura):
+    entera si su unidad se cuenta, hasta 3 decimales si se mide, y en inner
+    packs enteros cuando la línea los tiene."""
+    from .unidades import error_cantidad
+
+    if (msg := error_cantidad(cantidad, getattr(linea, "unidad", None))):
+        return msg
     n = inner_de(linea)
     if n and cantidad % n:
         return (f"{cantidad} is not a multiple of the inner pack ({n}): quantities move in whole inner packs "

@@ -145,6 +145,8 @@ def _fecha(v) -> str:
 def _num(v, d: int = 0) -> str:
     if v is None or v == "":
         return "—"
+    if d == 0 and isinstance(v, float) and v != int(v):  # cantidad medida: hasta 3 decimales
+        return f"{v:,.3f}".rstrip("0")
     return f"{v:,.{d}f}"
 
 

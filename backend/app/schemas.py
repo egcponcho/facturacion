@@ -1,10 +1,16 @@
 """Cuerpos de las peticiones. Las respuestas se arman como dicts en los servicios."""
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
+
+from .models import cant
 
 Cant = Field(gt=0)
+# Cantidad de un artículo: entera para lo que se cuenta, hasta 3 decimales para
+# lo que se mide (el servicio valida contra la unidad de la posición)
+Cantidad = Annotated[float, Field(gt=0), AfterValidator(cant)]
+CantidadCero = Annotated[float, Field(ge=0), AfterValidator(cant)]
 
 
 # ---- Auth / admin -----------------------------------------------------------
@@ -99,7 +105,7 @@ class UsuarioPatch(BaseModel):
 # ---- Facturas ---------------------------------------------------------------
 class PosicionCantidad(BaseModel):
     posicion_id: int
-    cantidad: int = Cant
+    cantidad: Cantidad
 
 
 class FacturaCrear(BaseModel):
@@ -125,7 +131,7 @@ class FacturaCabecera(BaseModel):
 
 class CambioLinea(BaseModel):
     linea_id: int
-    cantidad: int | None = Field(default=None, gt=0)
+    cantidad: Cantidad | None = None
     precio_unitario: float | None = Field(default=None, ge=0)
     motivo_precio: str | None = None
     pais_origen: str | None = None
@@ -160,7 +166,7 @@ class Finalizar(BaseModel):
 # ---- Packing lists ----------------------------------------------------------
 class LineaFacturaCantidad(BaseModel):
     factura_linea_id: int
-    cantidad: int = Cant
+    cantidad: Cantidad
 
 
 class PLCrear(BaseModel):
@@ -174,7 +180,7 @@ class PLAgregar(BaseModel):
 
 class MovCantidad(BaseModel):
     pl_linea_id: int
-    cantidad: int = Cant
+    cantidad: Cantidad
 
 
 class PLMover(BaseModel):
@@ -230,7 +236,7 @@ class ValoresCaja(BaseModel):
 
 class ItemCaja(BaseModel):
     pl_linea_id: int
-    cantidad_por_caja: int = Cant
+    cantidad_por_caja: Cantidad
 
 
 class CajaManual(ValoresCaja):
@@ -269,8 +275,8 @@ class GuardarPlantilla(BaseModel):
 
 class RecepcionItem(BaseModel):
     pl_linea_id: int
-    cantidad_recibida: int = Field(ge=0)
-    cantidad_danada: int = Field(default=0, ge=0)
+    cantidad_recibida: CantidadCero
+    cantidad_danada: CantidadCero = 0
     observacion: str | None = None
 
 
@@ -282,7 +288,7 @@ class RecepcionIn(BaseModel):
 class PlantillaIn(BaseModel):
     proveedor_id: int | None = None
     nombre: str = Field(min_length=1, max_length=100)
-    cantidad_por_caja: int = Cant
+    cantidad_por_caja: Cantidad
     unidad: str = Field("PAR", max_length=5)  # una de services/unidades.py (se valida al guardar)
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)
@@ -293,7 +299,7 @@ class PlantillaIn(BaseModel):
 
 class PlantillaPatch(BaseModel):
     nombre: str | None = None
-    cantidad_por_caja: int | None = Field(default=None, gt=0)
+    cantidad_por_caja: Cantidad | None = None
     unidad: str | None = Field(None, max_length=5)
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)

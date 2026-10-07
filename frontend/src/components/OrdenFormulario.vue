@@ -1,5 +1,6 @@
 <script setup>
 import { t, tx } from '../i18n/index.js'
+import { pasoCantidad } from '../unidades.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
@@ -125,7 +126,7 @@ async function guardar() {
           <div class="campo campo-ancho"><span class="req">{{ t('Item') }}</span>
             <SelectBusqueda v-model="l.codigo_sap" :opciones="articulos" :etiqueta="t('Item')" requerido /></div>
           <label class="campo"><span class="req">{{ t('Quantity') }}</span>
-            <span class="con-unidad"><input v-model="l.cantidad" class="entrada" type="number" min="1" step="1" required /><small>{{ unidadTxt(l) }}</small></span></label>
+            <span class="con-unidad"><input v-model="l.cantidad" class="entrada" type="number" :min="pasoCantidad(l.unidad)" :step="pasoCantidad(l.unidad)" required /><small>{{ unidadTxt(l) }}</small></span></label>
           <label class="campo"><span>{{ t('Unit price') }}</span><input v-model="l.precio" class="entrada" type="number" min="0" step="any" /></label>
           <label v-if="!esPrepack(l)" class="campo"><span>{{ t('Casepack') }}</span><input v-model="l.casepack" class="entrada" type="number" min="1" step="1" :placeholder="t('Optional')" /></label>
           <div v-else class="campo"><span>{{ t('Packing') }}</span><span class="sub">{{ t('Size run of the prepack') }}</span></div>

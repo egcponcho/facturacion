@@ -1,5 +1,5 @@
 <script setup>
-import { UNIDADES, etiquetaUnidad } from '../unidades.js'
+import { UNIDADES, etiquetaUnidad, pasoCantidad } from '../unidades.js'
 import { t, tx } from '../i18n/index.js'
 import { onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '../components/Seleccion.vue'
@@ -142,7 +142,7 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
   <Modal v-if="formAbierto" :titulo="t('New template{0}', [esInterno() ? t(' for {0}', [nombreProveedor(sesion.proveedorId)]) : ''])" ancho="680px" @cerrar="formAbierto = false">
       <form id="form-plantilla" class="rejilla-campos" @submit.prevent="crear">
         <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="nueva.nombre" required /></label>
-        <label class="campo"><span class="req">{{ t('Quantity per carton') }}</span><input v-model="nueva.cantidad_por_caja" type="number" min="1" required /></label>
+        <label class="campo"><span class="req">{{ t('Quantity per carton') }}</span><input v-model="nueva.cantidad_por_caja" type="number" :min="pasoCantidad(nueva.unidad)" :step="pasoCantidad(nueva.unidad)" required /></label>
         <label class="campo"><span class="req">{{ t('Unit') }}</span>
           <Seleccion v-model="nueva.unidad"><option v-for="(_, u) in UNIDADES" :key="u" :value="u">{{ etiquetaUnidad(u) }}</option></Seleccion>
         </label>

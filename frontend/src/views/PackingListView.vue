@@ -22,6 +22,7 @@ import ThOrden from '../components/ThOrden.vue'
 import { useTabla } from '../composables/useTabla'
 import { avisar, errorApi, guardando, textoDetalle } from '../stores/ui'
 import { cantTxt, fmtNum, pct, plural, porUnidadTxt, unidadTxt, useSeleccion } from '../utils'
+import { pasoCantidad } from '../unidades.js'
 import { filasDefecto } from '../stores/preferencias'
 
 const props = defineProps({ id: String })
@@ -821,8 +822,8 @@ onMounted(cargar)
             <tr v-for="l in pl.lineas" :key="l.id">
               <td>{{ tx(l.estilo) }} <b>{{ tx(l.talla) }}</b><span class="sub codigo">{{ tx(l.codigo_sap) }}</span></td>
               <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
-              <td class="num"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num" type="number" min="0" style="width: 90px; border-color: var(--linea)" :aria-label="t('Received {0}', [ref_(l)])" /></td>
-              <td class="num"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num" type="number" min="0" style="width: 80px; border-color: var(--linea)" :aria-label="t('Damaged {0}', [ref_(l)])" /></td>
+              <td class="num"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 90px; border-color: var(--linea)" :aria-label="t('Received {0}', [ref_(l)])" /></td>
+              <td class="num"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 80px; border-color: var(--linea)" :aria-label="t('Damaged {0}', [ref_(l)])" /></td>
               <td class="num">
                 <span :class="{ 'etiqueta error': recepcion[l.id].cantidad_recibida !== l.cantidad }">{{ fmtNum(recepcion[l.id].cantidad_recibida - l.cantidad) }}</span>
               </td>
@@ -912,7 +913,7 @@ onMounted(cargar)
           <tr v-for="i in modal.items" :key="i.pl_linea_id">
             <td>{{ tx(i.ref) }}<span v-if="i.inner" class="sub">{{ t('inner packs of {0}{1}', [i.inner, i.cantidad_por_caja ? innerTxt(i.cantidad_por_caja, i.inner) : '']) }}</span></td>
             <td class="num">{{ cantTxt(i.sin_caja, i.unidad) }}</td>
-            <td class="num"><input v-model.number="i.cantidad_por_caja" class="celda num" type="number" :min="i.inner || 1" :step="i.inner || 1" style="width: 90px; border-color: var(--linea)" :aria-label="t('Per carton {0}', [i.ref])" /></td>
+            <td class="num"><input v-model.number="i.cantidad_por_caja" class="celda num" type="number" :min="pasoCantidad(i.unidad, i.inner)" :step="pasoCantidad(i.unidad, i.inner)" style="width: 90px; border-color: var(--linea)" :aria-label="t('Per carton {0}', [i.ref])" /></td>
             <td class="num"><span :class="{ 'etiqueta error': i.cantidad_por_caja * modal.num_cajas > i.sin_caja }">{{ fmtNum((i.cantidad_por_caja || 0) * modal.num_cajas) }}</span></td>
           </tr>
         </tbody>
@@ -950,7 +951,7 @@ onMounted(cargar)
           <tr v-for="fm in modal.filas" :key="fm.pl_linea_id">
             <td>{{ tx(fm.ref) }}</td>
             <td class="num">{{ cantTxt(fm.sin_caja, fm.unidad) }}</td>
-            <td class="num"><input v-model.number="fm.cantidad" class="celda num" type="number" min="0" :step="fm.inner || 1" :max="fm.sin_caja" style="width: 90px; border-color: var(--linea)" :aria-label="t('Quantity {0}', [fm.ref])" /></td>
+            <td class="num"><input v-model.number="fm.cantidad" class="celda num" type="number" min="0" :step="pasoCantidad(fm.unidad, fm.inner)" :max="fm.sin_caja" style="width: 90px; border-color: var(--linea)" :aria-label="t('Quantity {0}', [fm.ref])" /></td>
           </tr>
         </tbody>
       </table>

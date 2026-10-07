@@ -7,9 +7,12 @@ Todo se maneja por cantidades:
   Packing list --> Unidad de carga (contenedor, aéreo, LCL...) --> Embarque
 """
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import (
     event,
+    Numeric,
+    TypeDecorator,
     JSON,
     Column,
     Table,
@@ -26,9 +29,32 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from .db import Base
+
+
+def cant(v):
+    """Una cantidad tal como se muestra y se compara: entera si es exacta
+    (pares, unidades, cajas…) y con hasta 3 decimales si se mide (kg, litros,
+    metros…)."""
+    if v is None:
+        return None
+    x = round(float(v), 3)
+    return int(x) if x == int(x) else x
+
+
+class Cantidad(TypeDecorator):
+    """Columna de cantidad: NUMERIC(14,3) que se lee con cant()."""
+
+    impl = Numeric(14, 3)
+    cache_ok = True
+
+    def process_bind_param(self, v, _dialecto):
+        return None if v is None else Decimal(str(round(float(v), 3)))
+
+    def process_result_value(self, v, _dialecto):
+        return cant(v)
 
 
 def ahora() -> datetime:
@@ -1349,8 +1375,8 @@ class PosicionOC(Base):
     inner_pack: Mapped[int | None] = mapped_column(Integer)
     prepack: Mapped[str | None] = mapped_column(String(30))
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total de la curva
-    cantidad: Mapped[int] = mapped_column(Integer)
-    unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ
+    cantidad: Mapped[float] = mapped_column(Cantidad)
+    unidad: Mapped[str] = mapped_column(String(5))  # services/unidades.py: PAR, UN, KG, L, M…
     precio: Mapped[float | None] = mapped_column(Float)
     fecha_entrega: Mapped[date | None] = mapped_column(Date)
     pais_origen: Mapped[str | None] = mapped_column(String(3))
@@ -1359,6 +1385,10 @@ class PosicionOC(Base):
 
     oc: Mapped[OrdenCompra] = relationship(back_populates="posiciones")
     articulo: Mapped[Articulo | None] = relationship()
+
+    @validates("cantidad")
+    def _cantidad(self, _k, v):
+        return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
 # --------------------------------------------------------------------------
@@ -1410,7 +1440,7 @@ class FacturaLinea(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
     posicion_oc_id: Mapped[int] = mapped_column(ForeignKey("posiciones_oc.id"), index=True)
-    cantidad: Mapped[int] = mapped_column(Integer)
+    cantidad: Mapped[float] = mapped_column(Cantidad)
     precio_unitario: Mapped[float] = mapped_column(Float)
     precio_oc: Mapped[float] = mapped_column(Float)
     motivo_precio: Mapped[str | None] = mapped_column(String(300))
@@ -1440,6 +1470,10 @@ class FacturaLinea(Base):
 
     factura: Mapped[Factura] = relationship(back_populates="lineas")
     posicion_oc: Mapped[PosicionOC] = relationship()
+
+    @validates("cantidad")
+    def _cantidad(self, _k, v):
+        return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
 class Archivo(Base):
@@ -1489,7 +1523,7 @@ class PLLinea(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     pl_id: Mapped[int] = mapped_column(ForeignKey("packing_lists.id"), index=True)
     factura_linea_id: Mapped[int] = mapped_column(ForeignKey("factura_lineas.id"), index=True)
-    cantidad: Mapped[int] = mapped_column(Integer)
+    cantidad: Mapped[float] = mapped_column(Cantidad)
 
     pl: Mapped[PackingList] = relationship(back_populates="lineas")
     factura_linea: Mapped[FacturaLinea] = relationship()
@@ -1497,6 +1531,10 @@ class PLLinea(Base):
     recepcion: Mapped["RecepcionLinea | None"] = relationship(
         back_populates="pl_linea", cascade="all, delete-orphan", uselist=False
     )
+
+    @validates("cantidad")
+    def _cantidad(self, _k, v):
+        return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
 class GrupoCajas(Base):
@@ -1545,10 +1583,14 @@ class GrupoCajasItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     grupo_id: Mapped[int] = mapped_column(ForeignKey("grupos_cajas.id"), index=True)
     pl_linea_id: Mapped[int] = mapped_column(ForeignKey("pl_lineas.id"), index=True)
-    cantidad_por_caja: Mapped[int] = mapped_column(Integer)
+    cantidad_por_caja: Mapped[float] = mapped_column(Cantidad)
 
     grupo: Mapped[GrupoCajas] = relationship(back_populates="items")
     pl_linea: Mapped[PLLinea] = relationship(back_populates="items")
+
+    @validates("cantidad_por_caja")
+    def _cantidad(self, _k, v):
+        return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
 class TipoEmpaque(Base):
@@ -1592,7 +1634,7 @@ class PlantillaCaja(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
     nombre: Mapped[str] = mapped_column(String(100))
-    cantidad_por_caja: Mapped[int] = mapped_column(Integer)
+    cantidad_por_caja: Mapped[float] = mapped_column(Cantidad)
     unidad: Mapped[str] = mapped_column(String(5))
     largo: Mapped[float | None] = mapped_column(Float)
     ancho: Mapped[float | None] = mapped_column(Float)
@@ -1604,18 +1646,26 @@ class PlantillaCaja(Base):
 
     tipo_empaque: Mapped["TipoEmpaque | None"] = relationship()
 
+    @validates("cantidad_por_caja")
+    def _cantidad(self, _k, v):
+        return cant(v)  # sin residuos de coma flotante al sumar y restar
+
 
 class RecepcionLinea(Base):
     __tablename__ = "recepciones"
     id: Mapped[int] = mapped_column(primary_key=True)
     pl_linea_id: Mapped[int] = mapped_column(ForeignKey("pl_lineas.id"), unique=True)
-    cantidad_recibida: Mapped[int] = mapped_column(Integer)
-    cantidad_danada: Mapped[int] = mapped_column(Integer, default=0)
+    cantidad_recibida: Mapped[float] = mapped_column(Cantidad)
+    cantidad_danada: Mapped[float] = mapped_column(Cantidad, default=0)
     observacion: Mapped[str | None] = mapped_column(String(300))
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     fecha: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     pl_linea: Mapped[PLLinea] = relationship(back_populates="recepcion")
+
+    @validates("cantidad_recibida", "cantidad_danada")
+    def _cantidad(self, _k, v):
+        return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
 # --------------------------------------------------------------------------

@@ -16,7 +16,7 @@ from collections import defaultdict
 
 from sqlalchemy.orm import Session
 
-from ..models import GrupoCajas, GrupoCajasItem, TipoEmpaque, Usuario
+from ..models import GrupoCajas, GrupoCajasItem, TipoEmpaque, Usuario, cant as cant_norm
 from . import empaques
 from .common import ErrorNegocio, registrar, tocar
 from .plantillas import leer, norm, plantilla
@@ -84,7 +84,7 @@ def importar_estructura(db: Session, user: Usuario, pl, nombre: str, contenido: 
         ruta = [(t, i) for t, i in ruta if i]
         sku, oc = (f.get("sku") or "").strip().upper(), (f.get("oc") or "").strip()
         try:
-            cant = int(float((f.get("cantidad") or "0").replace(",", ".")))
+            cant = cant_norm(float((f.get("cantidad") or "0").replace(",", ".")))
         except ValueError:
             cant = 0
         if not ruta or not sku or cant <= 0:

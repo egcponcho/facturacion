@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from .preferencias import leer_fecha
 from ..config import settings
+from ..models import cant as cant_norm
 from ..models import (
     Alerta,
     Almacen,
@@ -189,8 +190,8 @@ def listar_ordenes(
             .where(PosicionOC.oc_id.in_(ids)).group_by(PosicionOC.oc_id, PosicionOC.unidad, PosicionOC.marca)
         ).all():
             d = por_unidad[oc_id].setdefault(unidad, {"cantidad": 0, "facturado": 0, "disponible": 0})
-            d["cantidad"] += int(cant or 0)
-            d["disponible"] += int(cant or 0)
+            d["cantidad"] = cant_norm(d["cantidad"] + (cant or 0))
+            d["disponible"] = cant_norm(d["disponible"] + (cant or 0))
             if marca_oc:
                 marcas[oc_id].add(marca_oc)
         for oc_id, unidad, cant in db.execute(
@@ -201,7 +202,7 @@ def listar_ordenes(
             .group_by(PosicionOC.oc_id, PosicionOC.unidad)
         ).all():
             d = por_unidad[oc_id][unidad]
-            d["facturado"] = int(cant or 0)
+            d["facturado"] = cant_norm(cant or 0)
             d["disponible"] = max(d["cantidad"] - d["facturado"], 0)
 
     hoy = date.today()
@@ -443,6 +444,7 @@ CAMPOS_POSICION = [
     "pais_origen",
 ]
 from .unidades import _ALIAS as UNIDADES  # alias de cada unidad → su código
+from .unidades import error_cantidad
 
 
 def _norm(texto: str) -> str:
@@ -602,9 +604,9 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         errores.append(f"Line {d['posicion']}: letters and numbers, up to 10 characters.")
     try:
         cant = float(r.get("cantidad", "").replace(",", "")) if r.get("cantidad") else None
-        if cant is not None and (cant < 0 or not cant.is_integer()):
+        if cant is not None and cant < 0:
             raise ValueError
-        d["cantidad"] = int(cant) if cant is not None else None
+        d["cantidad"] = cant_norm(cant)
     except ValueError:
         errores.append(f"Invalid quantity: {r.get('cantidad')}.")
         d["cantidad"] = None
@@ -714,6 +716,8 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
             unidades_por_caja=art.prepack.total if art.prepack else None,
         )
         errores += validar_empaque(art.tipo, d["casepack"], d["inner_pack"], d["cantidad"])
+        if d["cantidad"] and (msg := error_cantidad(d["cantidad"], art.unidad)):
+            errores.append(msg)
         d["pais_origen_pos"] = (producto_de(art).pais_origen if producto_de(art) else None) or d["pais_origen"]
     return d, errores
 

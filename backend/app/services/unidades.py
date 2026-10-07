@@ -49,3 +49,26 @@ def texto(unidad: str, cantidad=None) -> str:
 
 def opciones(articulo: bool = False) -> list[list[str]]:
     return [[c, f"{_TEXTO[c][1].capitalize()} ({c})"] for c in (DE_ARTICULO if articulo else CODIGOS)]
+
+
+# Lo que se cuenta va en enteros; lo que se mide admite hasta 3 decimales
+CONTABLES = {"PAR", "UN", "DOC", "JGO", "ROL", "CJ"}
+
+
+def error_cantidad(cantidad, unidad: str | None) -> str | None:
+    """Por qué la cantidad no vale para la unidad (o None si vale)."""
+    if cantidad is None:
+        return None
+    if float(cantidad) <= 0:
+        return "The quantity must be greater than zero."
+    if (unidad or "UN") in CONTABLES and float(cantidad) != int(float(cantidad)):
+        return f"{texto(unidad or 'UN', 2).capitalize()} are counted in whole numbers: {cantidad} is not valid."
+    if round(float(cantidad), 3) != float(cantidad):
+        return f"At most 3 decimals: {cantidad}."
+    return None
+
+
+def exigir_cantidad(cantidad, unidad: str | None) -> None:
+    msg = error_cantidad(cantidad, unidad)
+    if msg:
+        raise ErrorNegocio(msg, 422, "validacion")
