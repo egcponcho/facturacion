@@ -389,6 +389,22 @@ def atributos_detalle(atributo_id: int, db: Db, user: User):
     return atributos.detalle(db, user, atributo_id)
 
 
+@router.get("/aranceles/materiales")
+def materiales_lista(db: Db, user: User):
+    """Clases de material de la composición (de base y configuradas)."""
+    from ..services import materiales
+
+    return materiales.listar(db, user)
+
+
+@router.post("/aranceles/materiales")
+@router.patch("/aranceles/materiales/{clase_id}")
+def materiales_guardar(datos: s.ClaseMaterialIn, db: Db, user: User, clase_id: int | None = None, clave: Clave = None):
+    from ..services import materiales
+
+    return ejecutar(db, user, clave, lambda: materiales.guardar(db, user, clase_id, datos.model_dump(exclude_unset=True)))
+
+
 @router.post("/aranceles/atributos")
 def atributos_crear(datos: s.AtributoIn, db: Db, user: User, clave: Clave = None):
     from ..services import atributos

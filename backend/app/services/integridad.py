@@ -207,4 +207,62 @@ def auditar(db: Session, user: Usuario | None = None, hoy: date | None = None) -
             inf.hallazgo("RULE_AS_LEGAL", "rule", r.codigo, "Legal rule that does not cite an official legal text.", r.id)
         elif r.tipo_fuente == "LEARNED":
             inf.hallazgo("RULE_AS_LEGAL", "rule", r.codigo, "Learned rule: company knowledge belongs in the classification history.", r.id)
+    _configuracion(db, inf)
     return inf.resultado()
+
+
+def _cond_nuevas(cond):
+    """Condiciones en el formato del motor (convierte el anterior {atributo: valor})."""
+    if not cond or all(isinstance(c, dict) and "campo" in c for c in cond):
+        return cond
+    return [{"grupo": i, "campo": k, "operador": "IN" if isinstance(v, list) else "EQUAL", "valor": v}
+            for i, alt in enumerate(cond, start=1) for k, v in (alt or {}).items()]
+
+
+def _configuracion(db: Session, inf: _Informe) -> None:
+    """La configuración guardada del motor (atributos, opciones, ámbitos,
+    categorías y reglas) pasa la misma validación que al editarla: una
+    referencia rota (atributo, opción, parte o categoría que ya no existe) o
+    un patrón que no compila se reporta aquí antes de que falle una ficha."""
+    from ..models import AtributoDef, CategoriaProducto
+    from . import validacion_config as v
+    from .common import ErrorNegocio
+
+    inf.check("CONFIG_INVALID", "Engine configuration that does not pass validation", "ENGINE", "ERROR")
+    ctx = v.Contexto(db)
+
+    def probar(objeto, ref, id_, fn):
+        try:
+            fn()
+        except ErrorNegocio as e:
+            inf.hallazgo("CONFIG_INVALID", objeto, ref, e.mensaje, id_)
+
+    for a in db.scalars(select(AtributoDef).where(AtributoDef.activo.is_(True))):
+        probar("attribute", a.codigo, a.id, lambda a=a: v.derivacion(ctx, a, a.derivacion, f"{a.codigo} (derivation)"))
+        probar("attribute", a.codigo, a.id, lambda a=a: v.patrones(ctx, a.patrones, f"{a.codigo} (patterns)"))
+        probar("attribute", a.codigo, a.id, lambda a=a: v.patrones(ctx, a.patrones_falso, f"{a.codigo} (false patterns)"))
+        probar("attribute", a.codigo, a.id, lambda a=a: v.bloqueos(ctx, [{**b, "condiciones": _cond_nuevas(b.get("condiciones"))} for b in a.bloqueo or []],
+                                                                    f"{a.codigo} (blocks)"))
+        probar("attribute", a.codigo, a.id, lambda a=a: v.textos_aduana(ctx, a.texto_aduana, f"{a.codigo} (customs text)"))
+        for o in a.opciones:
+            ref = f"{a.codigo} = {o.codigo}"
+            probar("option", ref, a.id, lambda a=a, o=o, ref=ref: v.implica(ctx, a, o.implica, f"{ref} (implies)"))
+            probar("option", ref, a.id, lambda o=o, ref=ref: v.patrones(ctx, o.patrones, f"{ref} (patterns)"))
+            probar("option", ref, a.id, lambda o=o, ref=ref: v.textos_aduana(ctx, o.texto_aduana, f"{ref} (customs text)"))
+            probar("option", ref, a.id, lambda o=o, ref=ref: v.bloqueos(ctx, [{**b, "condiciones": _cond_nuevas(b.get("condiciones"))}
+                                                                             for b in o.bloqueo or []], f"{ref} (blocks)"))
+        for x in a.ambitos:
+            ref = f"{a.codigo} @ {x.tipo_ambito}:{x.codigo_ambito}"
+            probar("scope", ref, a.id, lambda x=x: v.ambito(db, x.tipo_ambito, x.codigo_ambito))
+            probar("scope", ref, a.id, lambda x=x, ref=ref: v.condiciones(ctx, _cond_nuevas(x.condicion), ref))
+    for c in db.scalars(select(CategoriaProducto).where(CategoriaProducto.activo.is_(True))):
+        for i, p in enumerate(c.patrones or [], start=1):
+            probar("category", c.codigo, c.id, lambda p=p, i=i, c=c: v._regex(p.get("re"), f"{c.codigo}, pattern {i}"))
+        probar("category", c.codigo, c.id, lambda c=c: v.plantilla(ctx, c.plantilla_aduana, f"{c.codigo} (customs template)"))
+    for r in db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.activo.is_(True),
+                                                        ReglaClasificacion.tipo_fuente != "INTERNAL_ENGINE")):
+        if r.tipo_ambito != "NATIONAL_CODE":
+            probar("rule", r.codigo, r.id, lambda r=r: v.ambito(db, r.tipo_ambito, r.codigo_ambito))
+        probar("rule", r.codigo, r.id, lambda r=r: v.condiciones(ctx, [{"grupo": c.grupo, "campo": c.campo, "operador": c.operador, "valor": c.valor,
+                                                                          "valor_hasta": c.valor_hasta, "negado": c.negado} for c in r.condiciones],
+                                                                   f"Rule {r.codigo}"))

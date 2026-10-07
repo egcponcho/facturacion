@@ -202,11 +202,9 @@ def _forma(r: ReglaClasificacion, datos: dict) -> None:
         raise ErrorNegocio("Choose a scope: system, domain, category, chapter, heading or subheading.", 422, "validacion")
     if r.tipo_regla not in TIPOS_PROPIOS:
         raise ErrorNegocio("Choose a rule type: hard constraint, signal, question gate or review gate.", 422, "validacion")
-    if r.tipo_ambito in ("CHAPTER", "HEADING", "SUBHEADING"):
-        largo = {"CHAPTER": 2, "HEADING": 4, "SUBHEADING": 6}[r.tipo_ambito]
-        r.codigo_ambito = "".join(ch for ch in r.codigo_ambito if ch.isdigit())
-        if len(r.codigo_ambito) != largo:
-            raise ErrorNegocio(f"The scope code must have {largo} digits.", 422, "validacion")
+    from . import validacion_config as v
+
+    r.codigo_ambito = v.ambito(db_de(r), r.tipo_ambito, r.codigo_ambito)  # la categoría o el dominio existen; los dígitos cuadran
     if datos.get("accion") is not None:
         a = dict(datos["accion"])
         a["tipo"] = (a.get("tipo") or ACCION_DE[r.tipo_regla][0]).upper()
@@ -231,6 +229,11 @@ def _forma(r: ReglaClasificacion, datos: dict) -> None:
             raise ErrorNegocio(f"These codes do not exist in the tariff in force: {', '.join(malos)}.", 422, "codigo_inexistente")
         if a["tipo"] == "ASK" and not a.get("atributos"):
             raise ErrorNegocio("Say which attributes the rule asks.", 422, "validacion")
+        ctx = v.Contexto(db_de(r))
+        if a.get("atributos"):
+            a["atributos"] = [ctx.atributo(x, "The rule asks").codigo for x in a["atributos"]]
+        if a.get("por"):
+            a["por"] = ctx.campo(a["por"], "The code map depends on")
         r.accion = {k: v for k, v in a.items() if v not in (None, "", [])}
     if not r.accion:
         raise ErrorNegocio("The rule needs an action.", 422, "validacion")
@@ -273,12 +276,17 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
         if r.tipo_fuente in ("MANUAL", "LEGAL_NOTE"):
             _fuente(db, r, datos)
     if datos.get("condiciones") is not None:
+        from . import validacion_config as v
+
+        ctx = v.Contexto(db)
         nuevas = []
         for c in datos["condiciones"]:
             op = (c.get("operador") or "EQUAL").upper()
             campo = (c.get("campo") or "").strip()
             if not campo or op not in OPERADORES:
                 raise ErrorNegocio(f"Each condition needs a field and an operator ({', '.join(OPERADORES)}).", 422, "validacion")
+            if r.tipo_fuente != "INTERNAL_ENGINE":  # un campo que no existe dejaría la regla pendiente para siempre
+                campo = ctx.campo(campo, f"Rule {r.codigo}")
             if r.tipo_regla == "NATIONAL_SELECT" and (op not in OPERADORES_NACIONAL or (op in ("LTE", "GT")) != (campo == "valorCIF")):
                 raise ErrorNegocio("National selection rules use equal or one of for product attributes, and up to / over for the CIF value.",
                                    422, "validacion")

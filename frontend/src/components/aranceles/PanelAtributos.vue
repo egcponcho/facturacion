@@ -9,6 +9,7 @@ import Interruptor from '../Interruptor.vue'
 import Modal from '../Modal.vue'
 import SelectBusqueda from '../SelectBusqueda.vue'
 import EditorCondiciones from './EditorCondiciones.vue'
+import EditorJson from './EditorJson.vue'
 import { puede } from '../../stores/sesion'
 import { avisar, errorApi } from '../../stores/ui'
 import { fmtNum } from '../../utils'
@@ -33,6 +34,48 @@ const TIPO = { text: t('Text'), select: t('One option'), multi_select: t('Severa
   composition: t('Composition (%)'), country: t('Country'), measurement_set: t('Measurements') }
 const AMBITO = { SYSTEM: t('Whole system'), DOMAIN: t('Domain'), CHAPTER: t('Chapter'), HEADING: t('Heading'), SUBHEADING: t('Subheading'), CATEGORY: t('Product category') }
 const MODO = { SHOW: t('Ask'), REQUIRE: t('Required'), HIDE: t('Do not ask') }
+const SECCION = { producto: t('Product data'), caracteristicas: t('Characteristics'), composicion: t('Composition'),
+  nacional: t('National data'), derivado: t('Derived (not asked)') }
+
+// Comportamiento como configuración (el servidor lo valida y dice qué falla y dónde)
+const EJEMPLO = {
+  derivacion: '{\n  "modo": "clase",\n  "parte": "material",\n  "mapa": {"metal": "metal", "plastico": "plastico", "*": "otro"}\n}',
+  patrones: '[\n  {"re": "\\\\b(lid|tapa)\\\\b", "en": "todo", "prioridad": 10}\n]',
+  patrones_falso: '[\n  {"re": "\\\\b(no lid|sin tapa)\\\\b", "en": "todo"}\n]',
+  texto_aduana: '{"frase": "CON TAPA", "orden": 60}',
+  bloqueo: '[\n  {"condiciones": [{"campo": "categoria", "operador": "EQUAL", "valor": "caja"}], "mensaje": "A box has no lid of this kind."}\n]',
+  implica: '{"otro_atributo": "su_opcion"}',
+}
+const AYUDA = {
+  derivacion: t('The value the data sets by itself: constante (a fixed value), valor (from another attribute, with a map) or fibra / material / clase (read from a composition part, with a map to this attribute\'s options).'),
+  patrones: t('How it is recognized in the product name, use or composition: a text pattern (re), where to look (en: estilo, todo, uso, uso_comp, tallas or comp.<part>), a priority and optional conditions (cuando).'),
+  patrones_falso: t('Patterns that say the box is NOT checked.'),
+  texto_aduana: t('What it adds to the customs description: a phrase (frase), a name (nombre) or a commercial name (comercial), with an order and optional conditions. A list of alternatives uses the first whose condition is met.'),
+  bloqueo: t('Impossible combinations: when the conditions are met it cannot be chosen, and the message says why.'),
+  implica: t('Answers that choosing this option fills in when they are empty: {attribute: value}.'),
+}
+const comp = ref(null)
+const malos = ref({})
+const hayComportamiento = (o) => (o.patrones?.length || o.bloqueo?.length || Object.keys(o.implica || {}).length || o.texto_aduana) ? true : false
+function abrirComportamiento() {
+  const d = det.value
+  const campos = { derivacion: d.derivacion }
+  if (d.tipo_dato === 'boolean') Object.assign(campos, { patrones: d.patrones, patrones_falso: d.patrones_falso, texto_aduana: d.texto_aduana, bloqueo: d.bloqueo })
+  malos.value = {}
+  comp.value = { tipo: 'atributo', titulo: d.etiqueta, campos }
+}
+function abrirOpcion(o) {
+  malos.value = {}
+  comp.value = { tipo: 'opcion', o, titulo: `${det.value.etiqueta} = ${o.etiqueta}`,
+    campos: { patrones: o.patrones, implica: o.implica, texto_aduana: o.texto_aduana, bloqueo: o.bloqueo } }
+}
+async function guardarComportamiento() {
+  const c = comp.value
+  const ruta = c.tipo === 'atributo' ? base() : `${base()}/opciones/${c.o.id}`
+  if (await guardar(ruta, c.campos, 'patch', t('Behavior saved.'))) comp.value = null
+}
+const aliasTexto = (d) => (d.alias || []).join(', ')
+const guardarAlias = (v) => campo('alias', v.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean))
 
 async function cargar() {
   try {
@@ -185,9 +228,20 @@ async function sincronizar() {
           <label class="campo"><span>{{ t('Domain (hint)') }}</span>
             <SelectBusqueda :model-value="det.dominio || ''" :opciones="opcionesDominio" :deshabilitado="!edita" :etiqueta="t('Domain')" @update:model-value="campo('dominio', $event)" /></label>
           <label class="campo ancho"><span>{{ t('Description') }}</span><input :value="det.descripcion" :disabled="!edita" maxlength="400" @change="campo('descripcion', $event.target.value)" /></label>
+          <label class="campo"><span>{{ t('Section of the sheet') }}</span>
+            <SelectBusqueda :model-value="det.seccion || 'caracteristicas'" :opciones="Object.entries(SECCION).map(([k, v]) => ({ valor: k, texto: v }))"
+                            :deshabilitado="!edita" :etiqueta="t('Section of the sheet')" @update:model-value="campo('seccion', $event)" /></label>
+          <label class="campo"><span>{{ t('Other codes (aliases)') }}</span>
+            <input :value="aliasTexto(det)" :disabled="!edita" :placeholder="t('separated by commas')" @change="guardarAlias($event.target.value)" /></label>
+          <label v-if="det.tipo_dato === 'boolean'" class="campo"><span>{{ t('Default answer') }}</span>
+            <select :value="det.valor_defecto || ''" :disabled="!edita" class="celda" :aria-label="t('Default answer')" @change="campo('valor_defecto', $event.target.value)">
+              <option value="">{{ t('None (must be answered)') }}</option><option value="true">{{ t('Yes') }}</option><option value="false">{{ t('No') }}</option>
+            </select></label>
           <label class="sw"><Interruptor :model-value="det.usado_clasificacion" :deshabilitado="!edita" :etiqueta="t('Used to classify')" @update:model-value="campo('usado_clasificacion', $event)" />{{ t('Used to classify') }}</label>
+          <label class="sw"><Interruptor :model-value="det.informativo" :deshabilitado="!edita" :etiqueta="t('Descriptive only')" @update:model-value="campo('informativo', $event)" />{{ t('Descriptive only') }}</label>
           <span v-if="det.de_composicion" class="ayuda">{{ t('Deduced from the composition when possible.') }}</span>
           <span v-if="det.informativo" class="ayuda">{{ t('Descriptive only: does not change the code.') }}</span>
+          <button type="button" class="btn btn-chico" @click="abrirComportamiento"><Icono nombre="varita" :tam="14" />{{ t('Behavior') }}<span v-if="det.derivacion || det.patrones?.length || det.texto_aduana" class="punto" /></button>
         </div>
 
         <template v-if="['select', 'multi_select'].includes(det.tipo_dato)">
@@ -195,7 +249,7 @@ async function sincronizar() {
           <p v-if="!det.opciones.length" class="ayuda">{{ t('No options yet: add the values the product sheet can choose.') }}</p>
           <div class="tabla-marco">
             <table class="tabla">
-              <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Label') }}</th><th>{{ t('Synonyms') }}</th><th>{{ t('Order') }}</th><th>{{ t('Active') }}</th></tr></thead>
+              <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Label') }}</th><th>{{ t('Synonyms') }}</th><th>{{ t('Order') }}</th><th>{{ t('Active') }}</th><th>{{ t('Behavior') }}</th></tr></thead>
               <tbody>
                 <tr v-for="o in det.opciones" :key="o.id" :class="{ apagada: !o.activo }">
                   <td class="codigo">{{ tx(o.codigo) }}</td>
@@ -203,12 +257,14 @@ async function sincronizar() {
                   <td><input class="celda" :value="o.alias" :disabled="!edita" :aria-label="t('Synonyms')" :placeholder="t('separated by ;')" @change="opcion(o, 'alias', $event.target.value)" /></td>
                   <td><input class="celda num" type="number" :value="o.orden" :disabled="!edita" :aria-label="t('Order')" @change="opcion(o, 'orden', +$event.target.value)" /></td>
                   <td><Interruptor :model-value="o.activo" :deshabilitado="!edita" :etiqueta="t('Active')" @update:model-value="opcion(o, 'activo', $event)" /></td>
+                  <td><button type="button" class="btn-icono" :aria-label="t('Behavior')" :title="t('Detection, implications, customs text and blocks')" @click="abrirOpcion(o)">
+                    <Icono nombre="varita" :tam="15" /><span v-if="hayComportamiento(o)" class="punto" /></button></td>
                 </tr>
                 <tr v-if="edita" class="nueva">
                   <td><input v-model="nuevaOp.codigo" class="celda" :placeholder="t('Code')" :aria-label="t('Code')" maxlength="60" /></td>
                   <td><input v-model="nuevaOp.etiqueta" class="celda" :placeholder="t('Label')" :aria-label="t('Label')" maxlength="300" /></td>
                   <td><input v-model="nuevaOp.alias" class="celda" :placeholder="t('separated by ;')" :aria-label="t('Synonyms')" maxlength="400" /></td>
-                  <td colspan="2"><button class="btn btn-chico" :disabled="!nuevaOp.codigo || !nuevaOp.etiqueta" @click="agregarOpcion"><Icono nombre="mas" :tam="14" />{{ t('Add') }}</button></td>
+                  <td colspan="3"><button class="btn btn-chico" :disabled="!nuevaOp.codigo || !nuevaOp.etiqueta" @click="agregarOpcion"><Icono nombre="mas" :tam="14" />{{ t('Add') }}</button></td>
                 </tr>
               </tbody>
             </table>
@@ -254,6 +310,16 @@ async function sincronizar() {
       <template #pie>
         <button class="btn" @click="dep = null">{{ t('Cancel') }}</button>
         <button class="btn btn-primario" @click="guardarDep">{{ t('Save') }}</button>
+      </template>
+    </Modal>
+    <Modal v-if="comp" :titulo="t('Behavior of {0}', [comp.titulo])" ancho="760px" @cerrar="comp = null">
+      <p class="ayuda">{{ t('Everything here is configuration: the server checks that the attributes, options, parts and patterns exist before saving.') }}</p>
+      <EditorJson v-for="(_, k) in comp.campos" :key="k" v-model="comp.campos[k]" :etiqueta="{ derivacion: t('Derivation'), patrones: t('Detection patterns'),
+        patrones_falso: t('Patterns that say no'), texto_aduana: t('Customs text'), bloqueo: t('Blocks'), implica: t('Implies') }[k]"
+                  :ayuda="AYUDA[k]" :ejemplo="EJEMPLO[k]" :deshabilitado="!edita" @valido="malos[k] = !$event" />
+      <template #pie>
+        <button class="btn" @click="comp = null">{{ t('Cancel') }}</button>
+        <button v-if="edita" class="btn btn-primario" :disabled="Object.values(malos).some(Boolean)" @click="guardarComportamiento">{{ t('Save') }}</button>
       </template>
     </Modal>
     <Modal v-if="modal" :titulo="t('New attribute')" @cerrar="modal = null">
@@ -309,6 +375,7 @@ tr.apagada td { opacity: 0.55; }
 .agregar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
 .agregar .celda { width: auto; }
 .agregar :deep(.sb) { min-width: 220px; }
+.punto { width: 7px; height: 7px; border-radius: 50%; background: var(--acento); display: inline-block; margin-inline-start: 4px; }
 .vacio-det { display: flex; gap: 8px; align-items: center; justify-content: center; min-height: 260px; }
 @media (max-width: 900px) { .atributos { grid-template-columns: 1fr; } }
 </style>

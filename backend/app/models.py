@@ -1174,6 +1174,23 @@ class PalabraClave(Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
 
+class ClaseMaterial(Base):
+    """Clase de material que reconoce la composición (cerámica, vidrio, metal…).
+    Las de base vienen con el motor; aquí se agregan clases nuevas o más
+    palabras para una que ya existe, y la palabra con la que va en la
+    descripción aduanera. Una derivación de modo «clase» la lleva a las
+    opciones de un atributo."""
+
+    __tablename__ = "clases_material"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(30), unique=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    palabras: Mapped[str | None] = mapped_column(String(1000))  # palabras o patrones simples (porcelanas?), separadas por espacio o coma
+    texto_aduana: Mapped[str | None] = mapped_column(String(60))  # CERÁMICA, METAL…
+    origen: Mapped[str] = mapped_column(String(10), default="USUARIO")  # MOTOR (de base) | USUARIO
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class SinonimoMaterial(Base):
     """Palabra de composición que el clasificador aprendió (p. ej. "cordura" es nylon)."""
 

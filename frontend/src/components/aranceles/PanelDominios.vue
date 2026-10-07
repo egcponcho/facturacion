@@ -9,6 +9,7 @@ import Modal from '../Modal.vue'
 import { puede } from '../../stores/sesion'
 import { avisar, errorApi } from '../../stores/ui'
 import { cargarContexto } from '../../clasificacion/useClasificacion'
+import EditorJson from './EditorJson.vue'
 
 // Dominios de clasificación (químicos, materias primas, calzado, ropa,
 // accesorios…) y los capítulos con que se relacionan. PRIMARY genera
@@ -79,15 +80,32 @@ async function agregarCategoria(d) {
     errorApi(e)
   }
 }
-async function activarCategoria(c) {
+// Una categoría completa: cómo se reconoce en el nombre, sus capítulos y su
+// descripción aduanera (el servidor valida patrones, capítulos y plantilla)
+const cat = ref(null)
+const catMal = ref({})
+const sinDominio = () => categorias.value.filter((c) => !c.dominio)
+function abrirCategoria(c) {
+  catMal.value = {}
+  cat.value = { ...c, capitulosTxt: (c.capitulos || []).join(', ') }
+}
+async function guardarCategoria() {
+  const c = cat.value
+  const cuerpo = { nombre: c.nombre, nombre_corto: c.nombre_corto || null, nombre_aduana: c.nombre_aduana || null, dominio: c.dominio || null,
+    alias: c.alias || null, terminos: c.terminos || null, activo: c.activo, patrones: c.patrones || [], plantilla_aduana: c.plantilla_aduana || {},
+    capitulos: c.capitulosTxt.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean) }
   try {
-    await api.patch(`/aranceles/categorias/${c.id}`, { activo: !c.activo })
+    await api.patch(`/aranceles/categorias/${c.id}`, cuerpo)
+    cat.value = null
+    avisar(t('Category saved.'))
     cargar()
     cargarContexto(true)
   } catch (e) {
     errorApi(e)
   }
 }
+const EJ_PATRONES = '[\n  {"re": "\\\\b(mugs?|tazas?)\\\\b", "prioridad": 10}\n]'
+const EJ_PLANTILLA = '{\n  "nombre": "TAZA",\n  "material": "DE {clase}",\n  "clase": ["material"],\n  "comercial": "TAZA"\n}'
 function agregar(d) {
   const cap = nuevo.value[d.id]
   if (!cap) return
@@ -113,8 +131,8 @@ function agregar(d) {
       </header>
       <div class="cats">
         <span class="lbl">{{ t('Product categories') }}</span>
-        <button v-for="c in catsDe(d)" :key="c.id" type="button" class="cat-chip" :class="{ off: !c.activo }" :disabled="!edita"
-                :title="tx(c.activo ? t('Click to deactivate') : t('Click to activate'))" @click="activarCategoria(c)">
+        <button v-for="c in catsDe(d)" :key="c.id" type="button" class="cat-chip" :class="{ off: !c.activo }"
+                :title="t('Open the category')" @click="abrirCategoria(c)">
           {{ tx(c.nombre) }}</button>
         <form v-if="edita" class="cat-nueva" @submit.prevent="agregarCategoria(d)">
           <input v-model="nuevaCat[d.id]" class="entrada" maxlength="120" :placeholder="t('New category…')" :aria-label="t('New category')" />
@@ -134,6 +152,34 @@ function agregar(d) {
         <button class="btn btn-chico" :disabled="!nuevo[d.id]" @click="agregar(d)"><Icono nombre="mas" :tam="14" />{{ t('Add') }}</button>
       </div>
     </article>
+    <article v-if="sinDominio().length" class="panel dominio">
+      <header><div><h3>{{ t('Outside a family') }}</h3><p class="ayuda">{{ t('Categories without a domain: the product sheet asks the generic questions (technical description and composition).') }}</p></div></header>
+      <div class="cats">
+        <button v-for="c in sinDominio()" :key="c.id" type="button" class="cat-chip" :class="{ off: !c.activo }" @click="abrirCategoria(c)">{{ tx(c.nombre) }}</button>
+      </div>
+    </article>
+    <Modal v-if="cat" :titulo="t('Category {0}', [cat.codigo])" ancho="760px" @cerrar="cat = null">
+      <div class="rejilla-campos">
+        <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="cat.nombre" class="entrada" maxlength="120" :disabled="!edita" /></label>
+        <label class="campo"><span>{{ t('Short name') }}</span><input v-model="cat.nombre_corto" class="entrada" maxlength="80" :disabled="!edita" /></label>
+        <label class="campo"><span>{{ t('Customs name') }}</span><input v-model="cat.nombre_aduana" class="entrada" maxlength="120" :disabled="!edita" :placeholder="t('e.g. TAZA')" /></label>
+        <label class="campo"><span>{{ t('Domain') }}</span>
+          <SelectBusqueda v-model="cat.dominio" :opciones="dominios.map((d) => ({ valor: d.codigo, texto: d.nombre }))" :vacio="t('Outside a family')" :deshabilitado="!edita" :etiqueta="t('Domain')" /></label>
+        <label class="campo"><span>{{ t('Compatible chapters') }}</span><input v-model="cat.capitulosTxt" class="entrada" :disabled="!edita" :placeholder="t('e.g. 69, 70')" /></label>
+        <label class="campo"><span>{{ t('Other names (aliases)') }}</span><input v-model="cat.alias" class="entrada" maxlength="400" :disabled="!edita" /></label>
+        <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Words of the official text (only order candidates)') }}</span><input v-model="cat.terminos" class="entrada" maxlength="400" :disabled="!edita" /></label>
+        <label class="check"><input v-model="cat.activo" type="checkbox" :disabled="!edita" /><span>{{ t('Active') }}</span></label>
+      </div>
+      <EditorJson v-model="cat.patrones" :etiqueta="t('How it is recognized in the product name')" :ejemplo="EJ_PATRONES" :deshabilitado="!edita"
+                  :ayuda="t('Text patterns (re) with a priority: the lowest priority that matches wins.')" @valido="catMal.patrones = !$event" />
+      <EditorJson v-model="cat.plantilla_aduana" :etiqueta="t('Customs description template')" :ejemplo="EJ_PLANTILLA" :deshabilitado="!edita"
+                  :ayuda="t('nombre, comercial, material (with {attribute} or {clase}), clase (composition parts), si (alternatives with cuando), requiere, como (value → word).')"
+                  @valido="catMal.plantilla = !$event" />
+      <template #pie>
+        <button class="btn" @click="cat = null">{{ t('Cancel') }}</button>
+        <button v-if="edita" class="btn btn-primario" :disabled="!cat.nombre || Object.values(catMal).some(Boolean)" @click="guardarCategoria">{{ t('Save') }}</button>
+      </template>
+    </Modal>
     <Modal v-if="modal" :titulo="modal.id ? t('Domain {0}', [modal.codigo]) : t('New domain')" @cerrar="modal = null">
       <div class="rejilla-campos">
         <label class="campo"><span class="req">{{ t('Code') }}</span><input v-model="modal.codigo" class="entrada" maxlength="30" :disabled="!!modal.id" placeholder="ELECTRONICS" /></label>

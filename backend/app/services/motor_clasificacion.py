@@ -945,7 +945,7 @@ def _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, histori
                 elif tot < 99.5:
                     add("aviso", f"{a.etiqueta}: the percentages add up to {tot:g}%, not 100%.")
             if not a.informativo:  # una parte que solo describe (relleno, plantilla…) no se exige reconocible
-                o2 = pesos_de(seg, MATERIALES).get("otra", 0)
+                o2 = min(pesos_de(seg, MATERIALES).get("otra", 0), pesos_de(seg, L.clases).get("otra", 0))
                 otra = o2 if es_mat else min(pesos_de(seg, FIBRAS).get("otra", 0), o2)
                 if otra and not pr["desconocidas"]:
                     add("aviso", f"{a.etiqueta}: {otra:g}% has no recognizable material.")

@@ -122,14 +122,19 @@ class Catalogo:
     """Foto del catálogo (atributos y categorías) para una clasificación o un lote."""
 
     def __init__(self, atributos: list[Atributo], categorias: list[Categoria], sinonimos: list[dict] | None = None,
-                 palabras: list[dict] | None = None):
+                 palabras: list[dict] | None = None, clases: list[dict] | None = None):
         orden = lambda a: (a.seccion != "derivado", a.orden, a.codigo)  # noqa: E731 - los hechos derivados primero
         self.atributos = sorted(atributos, key=orden)
         self.por_codigo = {a.codigo: a for a in self.atributos}
         # Otros códigos con los que llega un atributo (otro paquete, una SDS, una carga) → su código
         self.canon = {x: a.codigo for a in self.atributos for x in a.alias if x not in self.por_codigo}
         self.categorias = {c.codigo: c for c in categorias}
-        self.lector = Lector(sinonimos)
+        self.clases = list(clases or [])
+        self.lector = Lector(sinonimos, clases)
+        # Palabra aduanera de cada clase de material (y de los grupos de fibra)
+        from .materiales import vocabulario_base
+
+        self.vocabulario = {**vocabulario_base(), **{c["codigo"]: c["texto_aduana"] for c in clases or [] if c.get("texto_aduana")}}
         self.palabras = palabras or []
 
     # ---- Construcción --------------------------------------------------------------------
@@ -138,7 +143,7 @@ class Catalogo:
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
 
-        from ..models import AtributoDef, CategoriaProducto, PalabraClave, SinonimoMaterial
+        from ..models import AtributoDef, CategoriaProducto, ClaseMaterial, PalabraClave, SinonimoMaterial
 
         attrs = []
         for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones), selectinload(AtributoDef.ambitos))
@@ -155,7 +160,9 @@ class Catalogo:
                           c.capitulos or [], c.orden, c.activo, c.plantilla_aduana, c.terminos) for c in db.scalars(select(CategoriaProducto))]
         sin = [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))]
         pal = [{"frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})} for x in db.scalars(select(PalabraClave))]
-        return cls(attrs, cats, sin, pal)
+        cla = [{"codigo": x.codigo, "palabras": x.palabras, "texto_aduana": x.texto_aduana}
+               for x in db.scalars(select(ClaseMaterial).where(ClaseMaterial.activo.is_(True)))]
+        return cls(attrs, cats, sin, pal, cla)
 
     @classmethod
     def desde_json(cls, ruta: Path | None = None) -> "Catalogo":
@@ -176,7 +183,7 @@ class Catalogo:
         cats = [Categoria(c["codigo"], c["nombre"], c.get("dominio"), c.get("grupo"), c.get("familia"), c.get("nombre_corto"), c.get("nombre_aduana"),
                           c.get("alias"), c.get("patrones") or [], c.get("capitulos") or [], c.get("orden", 0), True, c.get("plantilla_aduana"))
                 for c in d["categorias"]]
-        return cls(attrs, cats)
+        return cls(attrs, cats, clases=d.get("clases_material"))
 
     def canonico(self, codigo: str) -> str:
         """El código del atributo en la ficha (resuelve un alias)."""
@@ -746,7 +753,7 @@ def _lbl(a: Atributo, v) -> str:
 
 
 DATOS_ATRIBUTOS = MOTOR / "motor_atributos.json"
-_MODELOS_CATALOGO = ("AtributoDef", "AtributoOpcion", "AtributoAmbito", "CategoriaProducto", "PalabraClave", "SinonimoMaterial")
+_MODELOS_CATALOGO = ("AtributoDef", "AtributoOpcion", "AtributoAmbito", "CategoriaProducto", "PalabraClave", "SinonimoMaterial", "ClaseMaterial")
 
 
 def catalogo(db) -> Catalogo:

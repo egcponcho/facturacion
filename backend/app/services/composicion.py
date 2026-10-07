@@ -150,8 +150,19 @@ def _lev(a: str, b: str, lim: int) -> int:
 _RE_PCT_SUELTO = re.compile(r"(^|[^\d.,a-z])(\d{1,3}(?:[.,]\d+)?)(?![\d.,]*\s*(?:%|fill|g|gr|gsm|oz|den|d|mm|cm)\b)", A)
 
 
+@lru_cache(maxsize=64)
+def _res_extra(extra: tuple) -> tuple:
+    return tuple(re.compile("(" + w + ")", A) for w in extra)
+
+
+def palabras_clase(texto) -> list[str]:
+    """Las palabras de una clase de material configurada (separadas por espacio o
+    coma), normalizadas; cada una puede ser un patrón simple (p. ej. «porcelanas?»)."""
+    return [w for w in re.split(r"[\s,;]+", norm(texto or "")) if w]
+
+
 @lru_cache(maxsize=4096)
-def _prep(raw: str, sinonimos: tuple) -> dict:
+def _prep(raw: str, sinonimos: tuple, extra: tuple = ()) -> dict:
     s = re.sub(r"\s+", " ", re.sub(r"[/+&]", " , ", norm(raw)))
     cambios, desconocidas, ambiguas = [], [], []
     for k, v in sinonimos:
@@ -160,9 +171,11 @@ def _prep(raw: str, sinonimos: tuple) -> dict:
             s = r.sub(lambda m, v=v: m.group(1) + v, s)
             cambios.append({"de": k, "a": v, "aprendido": True})
 
+    conocidas_extra = _res_extra(extra)
+
     def palabra(m):
         w = m.group(0)
-        if w in MAT_STOP or _conocida(w):
+        if w in MAT_STOP or _conocida(w) or any(r.fullmatch(w) for r in conocidas_extra):
             if w in MAT_AMBIGUAS:
                 ambiguas.append(w)
             return w
@@ -192,18 +205,32 @@ def _prep(raw: str, sinonimos: tuple) -> dict:
 
 class Lector:
     """Lector de composiciones con los sinónimos aprendidos de la empresa
-    (SinonimoMaterial) además de los comerciales de base."""
+    (SinonimoMaterial) además de los comerciales de base, y las clases de
+    material configuradas (ClaseMaterial): una clase nueva (cerámica, vidrio
+    templado…) o más palabras para una que ya existe."""
 
-    def __init__(self, sinonimos: list[dict] | None = None):
+    def __init__(self, sinonimos: list[dict] | None = None, clases: list[dict] | None = None):
         d = dict(SINONIMOS_BASE)
         for x in sinonimos or []:
             k = norm(x.get("palabra")).strip()
             if k and x.get("equivale"):
                 d[k] = x["equivale"]
         self.sinonimos = tuple(d.items())
+        grupos = {g: list(alts) for g, alts, _ in CLASES_MAT}
+        extra = []
+        for c in clases or []:
+            ws = palabras_clase(c.get("palabras"))
+            if c.get("codigo") and ws:
+                grupos.setdefault(c["codigo"], []).extend(w for w in ws if w not in grupos.get(c["codigo"], []))
+                extra += ws
+        self.clases = _lista(list(grupos.items())) if extra else CLASES_MAT
+        self.extra = tuple(sorted(set(extra)))
+        # Palabras de las clases configuradas, para reconocerlas como material en las filas
+        self.extra_lista = _lista([(c["codigo"], palabras_clase(c.get("palabras"))) for c in clases or []
+                                   if c.get("codigo") and palabras_clase(c.get("palabras"))])
 
     def prep(self, raw) -> dict:
-        return _prep("" if raw is None else str(raw), self.sinonimos)
+        return _prep("" if raw is None else str(raw), self.sinonimos, self.extra)
 
     # ---- Fibras (tejido exterior) y materiales (calzado, artículos) ----
     def parse_comp(self, raw) -> dict | None:
@@ -256,7 +283,7 @@ class Lector:
         if raw is None or not str(raw).strip():
             return None
         t = self.prep(raw)["s"]
-        pesos = pesos_de(t, CLASES_MAT)
+        pesos = pesos_de(t, self.clases)
         pred, mejor = None, -1
         for k, n in pesos.items():
             if k != "otra" and n > mejor:
@@ -271,7 +298,7 @@ class Lector:
         t = self.prep(txt or "")["s"]
         if not t.strip():
             return None
-        pesos = pesos_de(t, CLASES_MAT)
+        pesos = pesos_de(t, self.clases)
         clase, mejor = None, -1
         for k, n in pesos.items():
             if k != "otra" and n > mejor:
@@ -302,7 +329,7 @@ class Lector:
         if not t:
             return []
         seg = (segmentos(t) or [t])[0]
-        pares = pares_de(self.prep(seg)["s"], FIBRAS + MATERIALES + RELLENO)
+        pares = pares_de(self.prep(seg)["s"], FIBRAS + MATERIALES + RELLENO + self.extra_lista)
         if not pares:
             return [{"m": t, "pct": ""}]
         if len(pares) == 1 and pares[0].get("implicito"):

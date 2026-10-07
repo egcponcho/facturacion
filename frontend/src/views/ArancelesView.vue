@@ -17,6 +17,7 @@ import PanelArbol from '../components/aranceles/PanelArbol.vue'
 import PanelCapitulos from '../components/aranceles/PanelCapitulos.vue'
 import PanelDominios from '../components/aranceles/PanelDominios.vue'
 import PanelAtributos from '../components/aranceles/PanelAtributos.vue'
+import PanelMateriales from '../components/aranceles/PanelMateriales.vue'
 import PanelReglas from '../components/aranceles/PanelReglas.vue'
 import PanelRegulaciones from '../components/aranceles/PanelRegulaciones.vue'
 import PanelImpuestos from '../components/aranceles/PanelImpuestos.vue'
@@ -307,7 +308,8 @@ const MENU = computed(() => [
     ['sac', t('SAC headings and subheadings'), 'base'], ['notas', t('Legal notes'), 'archivo'], ['impuestos', t('Taxes'), 'moneda'],
     ['regulaciones', t('Regulations'), 'candado'], ['importacion', t('Data import'), 'importar'], ['integridad', t('Tariff data integrity'), 'check']] },
   { titulo: t('Classification engine'), items: [['dominios', t('Domains and categories'), 'capas'], ['capitulos', t('Chapters'), 'lista'],
-    ['atributos', t('Attributes, options and scopes'), 'engrane'], ['reglas', t('Classification rules'), 'varita']] },
+    ['atributos', t('Attributes, options and scopes'), 'engrane'], ['materiales', t('Material classes'), 'capas'],
+    ['reglas', t('Classification rules'), 'varita']] },
   { titulo: t('Company knowledge'), items: [['conocimiento', t('History, decisions and keywords'), 'usuarios']] },
 ])
 
@@ -384,6 +386,7 @@ watch(() => fs.size, recargarS)
   <PanelCapitulos v-else-if="vista === 'capitulos'" />
   <PanelDominios v-else-if="vista === 'dominios'" />
   <PanelAtributos v-else-if="vista === 'atributos'" />
+  <PanelMateriales v-else-if="vista === 'materiales'" />
   <PanelReglas v-else-if="vista === 'reglas'" :paises="paises" :condiciones="meta.condiciones" />
   <PanelRegulaciones v-else-if="vista === 'regulaciones'" :paises="paises" />
   <PanelImpuestos v-else-if="vista === 'impuestos'" :paises="paises" />

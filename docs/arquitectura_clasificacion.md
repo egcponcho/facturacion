@@ -187,3 +187,31 @@ El motor (`motor_clasificacion.py`), la ficha (`ficha.py`) y las descripciones
   cada categoría puede cambiar en su plantilla («como»).
 - Cada categoría trae su dominio en los datos; la ficha genérica (descripción
   técnica y composición) es para productos fuera de una familia (sin dominio).
+
+## Configuración completa desde el sistema (G3)
+
+Todo lo que define una familia se configura en Aranceles → Motor de
+clasificación, o en un paquete Excel, y se valida antes de guardarse
+(`services/validacion_config.py`): una referencia a un atributo, opción,
+parte de la composición, categoría o dominio que no existe, un patrón que no
+compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
+
+- Atributos: sección de la ficha, alias, respuesta por defecto, «solo
+  descriptivo», derivación, patrones de detección (y los que dicen «no»),
+  bloqueos y texto aduanero (botón «Comportamiento»).
+- Opciones: patrones, implicaciones, texto aduanero y bloqueos.
+- Ámbitos: categoría/dominio existentes, dígitos correctos y condiciones válidas.
+- Categorías: nombre aduanero, capítulos, alias, cómo se reconocen en el nombre
+  y plantilla de la descripción aduanera; una categoría sin dominio usa la
+  ficha genérica.
+- Clases de material (`ClaseMaterial`): una familia agrega su clase (p. ej.
+  cerámica) con sus palabras y su palabra aduanera; la composición la reconoce
+  y una derivación «clase» la lleva a las opciones de un atributo.
+- Reglas: campos de condiciones, atributos que pregunta y el campo de un mapa
+  de códigos deben existir.
+- Paquete: hoja Categories y columnas JSON de comportamiento en Attributes y
+  Attribute_Options; cada fila inválida se reporta y el lote no se publica.
+- «Género» y «Para quién es» pasan a ámbitos por dominio (ropa y calzado),
+  opcionales en accesorios personales (migración 0026).
+- El auditor de integridad revisa toda la configuración guardada
+  (CONFIG_INVALID).

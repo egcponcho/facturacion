@@ -57,25 +57,79 @@ def guardar_categoria(db: Session, user: Usuario, cat_id: int | None, datos: dic
     x = db.get(CategoriaProducto, cat_id) if cat_id else None
     if cat_id and not x:
         raise ErrorNegocio("The category does not exist.", 404, "no_encontrado")
+    x = aplicar(db, x, datos)
+    registrar(db, user, "aranceles", x.id, "categoria", {"codigo": x.codigo, "dominio": x.dominio})
+    return _cat(x)
+
+
+def aplicar(db: Session, x: CategoriaProducto | None, datos: dict) -> CategoriaProducto:
+    """Crea (x None) o cambia una categoría con sus datos validados: dominio que
+    existe, capítulos de 2 dígitos, patrones que compilan y plantilla aduanera
+    que nombra atributos y partes que existen. La usan la pantalla y el paquete."""
+    from . import validacion_config as v
+
     if not x:
         cod = re.sub(r"[^a-z0-9_]+", "_", (datos.get("codigo") or datos.get("nombre") or "").strip().lower()).strip("_")[:40]
         if not cod or db.scalar(select(CategoriaProducto.id).where(CategoriaProducto.codigo == cod)):
             raise ErrorNegocio("Give the category a code that is not in use.", 422, "validacion")
         x = CategoriaProducto(codigo=cod, orden=(db.scalar(select(func.max(CategoriaProducto.orden))) or 0) + 10)
         db.add(x)
+    ctx = v.Contexto(db)
     for k in ("nombre", "grupo", "dominio", "alias", "orden", "activo", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos",
               "plantilla_aduana", "terminos"):
         if k in datos and datos[k] is not None:
             setattr(x, k, datos[k])
+    if "dominio" in datos and not datos["dominio"]:
+        x.dominio = None  # fuera de una familia: ficha genérica
+    # Cómo se reconoce en el nombre y su descripción aduanera: validados
+    if datos.get("patrones") is not None:
+        for i, p in enumerate(datos["patrones"], start=1):
+            if not isinstance(p, dict) or not p.get("re"):
+                raise ErrorNegocio(f"Pattern {i}: give the text pattern (re) that recognizes the category.", 422, "configuracion_invalida")
+            v._regex(p["re"], f"Pattern {i}")
+    if datos.get("plantilla_aduana") is not None:
+        x.plantilla_aduana = v.plantilla(ctx, datos["plantilla_aduana"], "Customs template")
     if x.capitulos is not None:
-        x.capitulos = sorted({"".join(ch for ch in str(c) if ch.isdigit())[:2] for c in x.capitulos if str(c).strip()})
+        caps = sorted({"".join(ch for ch in str(c) if ch.isdigit()) for c in x.capitulos if str(c).strip()})
+        malos = [c for c in caps if len(c) != 2 or not 1 <= int(c) <= 99]
+        if malos:
+            raise ErrorNegocio(f"These are not chapters (2 digits, 01 to 99): {', '.join(malos)}.", 422, "validacion")
+        x.capitulos = caps
     if not (x.nombre or "").strip():
         raise ErrorNegocio("The name is required.", 422, "validacion")
     if x.dominio and not db.scalar(select(DominioClasificacion.id).where(DominioClasificacion.codigo == x.dominio)):
         raise ErrorNegocio(f"Domain {x.dominio} does not exist.", 422, "validacion")
     db.flush()
-    registrar(db, user, "aranceles", x.id, "categoria", {"codigo": x.codigo, "dominio": x.dominio})
-    return _cat(x)
+    return x
+
+
+def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
+    """Hoja Categories de un paquete del motor: una familia nueva llega con sus
+    categorías (código, nombre, dominio, cómo reconocerla, capítulos y plantilla
+    aduanera). Actualiza por código; lo inválido se informa por fila."""
+    from .oficial import _si, _txt
+    from .atributos import json_celda
+
+    for f in hojas.get("Categories", []):
+        cod = (_txt(f.get("category_code")) or "").strip().lower()
+        if not cod:
+            error("Categories", f["_fila"], "Category code is required.")
+            continue
+        try:
+            datos = {"codigo": cod, "nombre": _txt(f.get("name")), "dominio": (_txt(f.get("domain")) or "").upper() or None,
+                     "grupo": _txt(f.get("group")), "nombre_corto": _txt(f.get("short_name")), "nombre_aduana": _txt(f.get("customs_name")),
+                     "alias": _txt(f.get("aliases")), "terminos": _txt(f.get("search_terms")),
+                     "capitulos": [c.strip() for c in str(_txt(f.get("chapters")) or "").replace(";", ",").split(",") if c.strip()] or None,
+                     "patrones": json_celda(f.get("patterns_json"), "Patterns JSON"),
+                     "plantilla_aduana": json_celda(f.get("customs_template_json"), "Customs template JSON")}
+            if f.get("active") is not None:
+                datos["activo"] = _si(f.get("active"))
+            x = db.scalar(select(CategoriaProducto).where(CategoriaProducto.codigo == cod))
+            with db.begin_nested():
+                aplicar(db, x, {k: v for k, v in datos.items() if v is not None})
+            cuenta("Categories", x is None)
+        except ErrorNegocio as e:
+            error("Categories", f["_fila"], str(e))
 
 
 def guardar_dominio(db: Session, user: Usuario, dom_id: int | None, datos: dict) -> dict:

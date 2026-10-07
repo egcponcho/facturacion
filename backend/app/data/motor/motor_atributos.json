@@ -2566,104 +2566,20 @@
    ],
    "ambitos": [
     {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "camiseta",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "camisa",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "sudadera",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "chaqueta",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "pantalon",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "falda",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "vestido",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "enterizo",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "conjunto",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "ropa_interior",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "brasier",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "traje_bano",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "calcetines",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "guantes",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "bufanda",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "gorra",
+     "tipo_ambito": "DOMAIN",
+     "codigo_ambito": "APPAREL",
      "condicion": null,
      "modo": "REQUIRE"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "calzado",
+     "condicion": null,
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "gorra",
      "condicion": null,
      "modo": "REQUIRE"
     }
@@ -7830,98 +7746,14 @@
    ],
    "ambitos": [
     {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "camiseta",
+     "tipo_ambito": "DOMAIN",
+     "codigo_ambito": "APPAREL",
      "condicion": null,
      "modo": "REQUIRE"
     },
     {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "camisa",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "sudadera",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "chaqueta",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "pantalon",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "falda",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "vestido",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "enterizo",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "conjunto",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "ropa_interior",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "brasier",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "traje_bano",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "calcetines",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "guantes",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "bufanda",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "gorra",
+     "tipo_ambito": "DOMAIN",
+     "codigo_ambito": "FOOTWEAR",
      "condicion": null,
      "modo": "REQUIRE"
     },
@@ -7929,239 +7761,77 @@
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "cinturon",
      "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "accesorio_pelo",
      "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "peleteria",
      "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "calzado",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "plantilla",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "cordones",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "polainas",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "cuidado_calzado",
-     "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "mochila",
      "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "bolso_viaje",
      "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "bolso_mano",
      "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "maleta",
      "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "billetera",
      "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "lentes_sol",
      "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "reloj",
      "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "bisuteria",
      "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "llavero",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "sombrilla",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "botella",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "parche",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "mascota",
-     "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
      "codigo_ambito": "correa_reloj",
      "condicion": null,
-     "modo": "REQUIRE"
+     "modo": "SHOW"
     },
     {
      "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "tienda",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "saco",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "colchoneta",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "manta",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "toalla",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "hamaca",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "mueble_camping",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "linterna",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "bastones",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "equipo_deporte",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "magnesio",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "patineta",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "avios",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "bolsa_compra",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "caja",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "gancho",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "etiqueta",
-     "condicion": null,
-     "modo": "REQUIRE"
-    },
-    {
-     "tipo_ambito": "CATEGORY",
-     "codigo_ambito": "exhibidor",
+     "codigo_ambito": "gorra",
      "condicion": null,
      "modo": "REQUIRE"
     }
@@ -20154,24 +19824,55 @@
   }
  ],
  "vocabulario_aduana": {
-  "clase_material": {
-   "textil": "TEXTIL",
-   "cuero": "CUERO",
-   "plastico": "SINTÉTICO",
-   "sintetica": "SINTÉTICO",
-   "artificial": "SINTÉTICO",
-   "caucho": "SINTÉTICO"
+  "sintetica": "SINTÉTICO",
+  "artificial": "SINTÉTICO",
+  "caucho": "SINTÉTICO"
+ },
+ "clases_material": [
+  {
+   "codigo": "textil",
+   "nombre": "Textile",
+   "texto_aduana": "TEXTIL"
   },
-  "material": {
-   "plastico": "CAUCHO O PLÁSTICO",
-   "cuero": "CUERO",
-   "textil": "MATERIA TEXTIL",
-   "otro": "OTRAS MATERIAS",
-   "metal": "METAL",
-   "madera": "MADERA",
-   "papel": "PAPEL O CARTÓN",
-   "vidrio": "VIDRIO",
-   "paja": "PAJA"
+  {
+   "codigo": "cuero",
+   "nombre": "Leather",
+   "texto_aduana": "CUERO"
+  },
+  {
+   "codigo": "plastico",
+   "nombre": "Rubber or plastics",
+   "texto_aduana": "SINTÉTICO"
+  },
+  {
+   "codigo": "metal",
+   "nombre": "Metal",
+   "texto_aduana": "METAL"
+  },
+  {
+   "codigo": "madera",
+   "nombre": "Wood or cork",
+   "texto_aduana": "MADERA"
+  },
+  {
+   "codigo": "papel",
+   "nombre": "Paper or paperboard",
+   "texto_aduana": "PAPEL O CARTÓN"
+  },
+  {
+   "codigo": "vidrio",
+   "nombre": "Glass",
+   "texto_aduana": "VIDRIO"
+  },
+  {
+   "codigo": "paja",
+   "nombre": "Straw or plaiting material",
+   "texto_aduana": "PAJA"
+  },
+  {
+   "codigo": "otro",
+   "nombre": "Other material",
+   "texto_aduana": "OTRAS MATERIAS"
   }
- }
+ ]
 }

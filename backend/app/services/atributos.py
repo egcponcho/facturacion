@@ -30,6 +30,75 @@ MODOS = ("SHOW", "REQUIRE", "HIDE")
 
 
 # ---- Carga desde el paquete oficial ----------------------------------------------
+def json_celda(v, columna: str):
+    """Una celda con JSON (patrones, derivación, textos…): vacía → None."""
+    t = _txt(v)
+    if t is None:
+        return None
+    try:
+        return json.loads(t)
+    except ValueError as e:
+        raise ErrorNegocio(f"{columna} is not valid JSON ({e}).", 422, "configuracion_invalida") from None
+
+
+def _comportamiento_hojas(db: Session, hojas: dict, error) -> None:
+    """Columnas de comportamiento de Attributes (Section, Informative, Default
+    value, Aliases, Derivation/Blocks/Patterns/False patterns/Customs text JSON) y
+    de Attribute_Options (Blocks/Implies/Patterns/Customs text JSON), validadas
+    con lo ya cargado: un paquete trae una familia completa, no solo sus nombres."""
+    from . import validacion_config as v
+
+    ctx = v.Contexto(db)
+    for f in hojas.get("Attributes", []):
+        if _txt(f.get("same_as")):
+            continue
+        a = ctx.attrs.get(_txt(f.get("attribute_code")) or "")
+        if not a:
+            continue
+        try:
+            with db.begin_nested():
+                if _txt(f.get("section")):
+                    if f["section"] not in v.SECCIONES:
+                        v.error(f"Section must be one of {', '.join(v.SECCIONES)}.")
+                    a.seccion = f["section"]
+                if f.get("informative") is not None:
+                    a.informativo = _si(f.get("informative"))
+                if _txt(f.get("default_value")) is not None:
+                    a.valor_defecto = _txt(f.get("default_value"))
+                if _txt(f.get("aliases")):
+                    a.alias = v.alias(ctx, a, [x.strip() for x in str(f["aliases"]).replace(";", ",").split(",") if x.strip()], a.codigo)
+                for col, campo, fn in (("derivation_json", "derivacion", lambda x: v.derivacion(ctx, a, x, f"{a.codigo} (derivation)")),
+                                       ("blocks_json", "bloqueo", lambda x: v.bloqueos(ctx, x, f"{a.codigo} (blocks)")),
+                                       ("patterns_json", "patrones", lambda x: v.patrones(ctx, x, f"{a.codigo} (patterns)")),
+                                       ("false_patterns_json", "patrones_falso", lambda x: v.patrones(ctx, x, f"{a.codigo} (false patterns)")),
+                                       ("customs_text_json", "texto_aduana", lambda x: v.textos_aduana(ctx, x, f"{a.codigo} (customs text)"))):
+                    x = json_celda(f.get(col), col)
+                    if x is not None:
+                        setattr(a, campo, fn(x))
+                db.flush()
+        except ErrorNegocio as e:
+            error("Attributes", f["_fila"], str(e))
+    for f in hojas.get("Attribute_Options", []):
+        a = ctx.attrs.get(ctx.canon.get(_txt(f.get("attribute_code")) or "", ""))
+        cod = (_txt(f.get("option_code")) or "").lower()
+        o = next((o for o in (a.opciones if a else []) if o.codigo.lower() == cod), None)
+        if not o:
+            continue
+        try:
+            with db.begin_nested():
+                for col, campo, fn in (("blocks_json", "bloqueo", lambda x: v.bloqueos(ctx, x, f"{a.codigo} = {o.codigo} (blocks)")),
+                                       ("implies_json", "implica", lambda x: v.implica(ctx, a, x, f"{a.codigo} = {o.codigo} (implies)")),
+                                       ("patterns_json", "patrones", lambda x: v.patrones(ctx, x, f"{a.codigo} = {o.codigo} (patterns)")),
+                                       ("customs_text_json", "texto_aduana",
+                                        lambda x: v.textos_aduana(ctx, x, f"{a.codigo} = {o.codigo} (customs text)"))):
+                    x = json_celda(f.get(col), col)
+                    if x is not None:
+                        setattr(o, campo, fn(x))
+                db.flush()
+        except ErrorNegocio as e:
+            error("Attribute_Options", f["_fila"], str(e))
+
+
 def canonicos(db: Session) -> dict[str, str]:
     """Cada código con el que puede llegar un atributo → su código en la ficha
     (el propio y sus alias)."""
@@ -209,6 +278,8 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
             error("Attribute_Scope_Conditions", f["_fila"], problema or "The attribute has no such scope (add it in Attribute_Scope).")
             continue
         por_ambito.setdefault(id(x), [x, []])[1].append(f)
+    db.flush()
+    _comportamiento_hojas(db, hojas, error)
     valido = campo_condicion(canon)
     for x, filas in por_ambito.values():
         conds = _condiciones_hoja(filas, "Attribute_Scope_Conditions", error, valido)
@@ -310,7 +381,8 @@ def _ambito_dict(x: AtributoAmbito) -> dict:
 
 
 def _opcion_dict(x: AtributoOpcion) -> dict:
-    return {"id": x.id, "codigo": x.codigo, "etiqueta": x.etiqueta, "alias": x.alias, "terminos": x.terminos, "orden": x.orden, "activo": x.activo}
+    return {"id": x.id, "codigo": x.codigo, "etiqueta": x.etiqueta, "alias": x.alias, "terminos": x.terminos, "orden": x.orden, "activo": x.activo,
+            "bloqueo": x.bloqueo or [], "implica": x.implica or {}, "patrones": x.patrones or [], "texto_aduana": x.texto_aduana}
 
 
 def _dict(a: AtributoDef, detalle: bool = False) -> dict:
@@ -319,6 +391,10 @@ def _dict(a: AtributoDef, detalle: bool = False) -> dict:
     d["n_opciones"] = sum(1 for o in a.opciones if o.activo)
     d["n_ambitos"] = len(a.ambitos)
     if detalle:
+        for k in ("seccion", "valor_defecto", "control", "derivacion", "texto_aduana"):
+            d[k] = getattr(a, k)
+        for k in ("bloqueo", "patrones", "patrones_falso"):
+            d[k] = getattr(a, k) or []
         d["opciones"] = [_opcion_dict(o) for o in a.opciones]
         d["ambitos"] = [_ambito_dict(x) for x in sorted(a.ambitos, key=lambda x: (AMBITOS.index(x.tipo_ambito), -x.prioridad, x.codigo_ambito))]
     else:
@@ -365,10 +441,16 @@ def config_motor(db: Session) -> dict:
 
 
 # ---- Edición ----------------------------------------------------------------------
-CAMPOS = ("etiqueta", "descripcion", "unidad", "dominio", "activo", "usado_clasificacion", "orden")
+CAMPOS = ("etiqueta", "descripcion", "unidad", "dominio", "activo", "usado_clasificacion", "orden", "informativo", "valor_defecto", "control")
+COMPORTAMIENTO = ("seccion", "alias", "derivacion", "bloqueo", "patrones", "patrones_falso", "texto_aduana")
 
 
 def guardar(db: Session, user: Usuario, atributo_id: int | None, datos: dict) -> dict:
+    """Crea o edita un atributo con todo su comportamiento (sección, alias,
+    derivación, bloqueos, patrones de detección y texto aduanero), validado: lo
+    que no es válido no se guarda y el mensaje dice qué y dónde."""
+    from . import validacion_config as v
+
     exigir(user, "aranceles.editar")
     if atributo_id:
         a = db.get(AtributoDef, atributo_id)
@@ -376,25 +458,65 @@ def guardar(db: Session, user: Usuario, atributo_id: int | None, datos: dict) ->
             raise ErrorNegocio("The attribute does not exist.", 404, "no_encontrado")
     else:
         cod = (datos.get("codigo") or "").strip()
-        if not cod or db.scalar(select(AtributoDef.id).where(AtributoDef.codigo == cod)):
-            raise ErrorNegocio("Give the attribute a code that is not in use.", 422, "validacion")
         tipo = datos.get("tipo_dato") or "text"
         if tipo not in TIPOS_DATO:
             raise ErrorNegocio(f"Data type {tipo} is not valid.", 422, "validacion")
-        a = AtributoDef(codigo=cod, tipo_dato=tipo, origen="USUARIO", multiple=tipo == "multi_select",
+        if tipo == "composition" and cod and not cod.startswith("comp."):
+            cod = f"comp.{cod}"  # una parte de la composición vive en comp.<parte>
+        if tipo != "composition" and cod.startswith("comp."):
+            raise ErrorNegocio("Only a composition part has a code that starts with comp.", 422, "validacion")
+        if not cod or cod in canonicos(db):
+            raise ErrorNegocio("Give the attribute a code that is not in use (nor an alias of another one).", 422, "validacion")
+        a = AtributoDef(codigo=cod, tipo_dato=tipo, origen="USUARIO", multiple=tipo == "multi_select", de_composicion=tipo == "composition",
+                        seccion="composicion" if tipo == "composition" else "caracteristicas",
                         orden=(db.scalar(select(func.max(AtributoDef.orden))) or 0) + 10)
+    if datos.get("dominio") and datos["dominio"] != "CORE" and not db.scalar(
+            select(DominioClasificacion.id).where(DominioClasificacion.codigo == datos["dominio"])):
+        raise ErrorNegocio(f"Domain {datos['dominio']} does not exist.", 422, "validacion")
     for k in CAMPOS:
         if k in datos and datos[k] is not None:
             setattr(a, k, datos[k])
     if not (a.etiqueta or "").strip():
         raise ErrorNegocio("The label is required.", 422, "validacion")
+    if datos.get("seccion") is not None:
+        if datos["seccion"] not in v.SECCIONES:
+            raise ErrorNegocio(f"The section must be one of {', '.join(v.SECCIONES)}.", 422, "validacion")
+        a.seccion = datos["seccion"]
+    if a.tipo_dato == "boolean" and a.valor_defecto not in (None, "", "true", "false"):
+        raise ErrorNegocio("The default of a yes/no box is true or false.", 422, "validacion")
     db.add(a)
     db.flush()
-    registrar(db, user, "aranceles", a.id, "atributo", {"codigo": a.codigo, "cambios": {k: datos[k] for k in CAMPOS if k in datos}})
+    ctx = v.Contexto(db)
+    donde = a.codigo
+    if "alias" in datos:
+        a.alias = v.alias(ctx, a, datos["alias"], donde)
+    if "derivacion" in datos:
+        a.derivacion = v.derivacion(ctx, a, datos["derivacion"], f"{donde} (derivation)")
+    if "bloqueo" in datos:
+        if datos["bloqueo"] and a.tipo_dato != "boolean":
+            raise ErrorNegocio("Blocks on the attribute are for yes/no boxes; for a list, block each option.", 422, "validacion")
+        a.bloqueo = v.bloqueos(ctx, datos["bloqueo"], f"{donde} (blocks)")
+    for k in ("patrones", "patrones_falso"):
+        if k in datos:
+            if datos[k] and a.tipo_dato != "boolean":
+                raise ErrorNegocio("Patterns on the attribute are for yes/no boxes; for a list, give each option its patterns.",
+                                   422, "validacion")
+            setattr(a, k, v.patrones(ctx, datos[k], f"{donde} ({k})"))
+    if "texto_aduana" in datos:
+        if datos["texto_aduana"] and a.tipo_dato != "boolean":
+            raise ErrorNegocio("The customs text of a list goes on each option.", 422, "validacion")
+        a.texto_aduana = v.textos_aduana(ctx, datos["texto_aduana"], f"{donde} (customs text)")
+    db.flush()
+    cambios = {k: datos[k] for k in (*CAMPOS, *COMPORTAMIENTO) if k in datos}
+    registrar(db, user, "aranceles", a.id, "atributo", {"codigo": a.codigo, "cambios": cambios})
     return _dict(a, True)
 
 
 def guardar_opcion(db: Session, user: Usuario, atributo_id: int, opcion_id: int | None, datos: dict) -> dict:
+    """Crea o edita una opción con su comportamiento (bloqueos, implicaciones,
+    patrones de detección y texto aduanero), validado."""
+    from . import validacion_config as v
+
     exigir(user, "aranceles.editar")
     a = db.get(AtributoDef, atributo_id)
     if not a or a.tipo_dato not in ("select", "multi_select"):
@@ -405,7 +527,7 @@ def guardar_opcion(db: Session, user: Usuario, atributo_id: int, opcion_id: int 
             raise ErrorNegocio("The option does not exist.", 404, "no_encontrado")
     else:
         cod = (datos.get("codigo") or "").strip()
-        if not cod or any(x.codigo == cod for x in a.opciones):
+        if not cod or any(x.codigo.lower() == cod.lower() for x in a.opciones):
             raise ErrorNegocio("Give the option a code that is not in use.", 422, "validacion")
         o = AtributoOpcion(atributo=a, codigo=cod, orden=max([x.orden for x in a.opciones] or [0]) + 10)
     for k in ("etiqueta", "alias", "terminos", "orden", "activo"):
@@ -415,26 +537,20 @@ def guardar_opcion(db: Session, user: Usuario, atributo_id: int, opcion_id: int 
         raise ErrorNegocio("The label is required.", 422, "validacion")
     db.add(o)
     db.flush()
+    ctx = v.Contexto(db)
+    donde = f"{a.codigo} = {o.codigo}"
+    if "bloqueo" in datos:
+        o.bloqueo = v.bloqueos(ctx, datos["bloqueo"], f"{donde} (blocks)")
+    if "implica" in datos:
+        o.implica = v.implica(ctx, a, datos["implica"], f"{donde} (implies)")
+    if "patrones" in datos:
+        o.patrones = v.patrones(ctx, datos["patrones"], f"{donde} (patterns)")
+    if "texto_aduana" in datos:
+        o.texto_aduana = v.textos_aduana(ctx, datos["texto_aduana"], f"{donde} (customs text)")
+    db.flush()
+    registrar(db, user, "aranceles", a.id, "opcion", {"codigo": a.codigo, "opcion": o.codigo,
+                                                      "cambios": {k: datos[k] for k in datos if k != "codigo"}})
     return _dict(a, True)
-
-
-def _condicion(cond) -> list | None:
-    """Dependencia del ámbito: condiciones {campo, operador, valor, grupo}
-    (dentro de un grupo todas; entre grupos basta una)."""
-    from .motor_clasificacion import OPERADORES
-
-    if not cond:
-        return None
-    out = []
-    for c in cond:
-        op = (c.get("operador") or "EQUAL").upper()
-        if not (c.get("campo") or "").strip() or op not in OPERADORES:
-            raise ErrorNegocio("Each dependency needs a field and an operator.", 422, "validacion")
-        if op == "IN" and not isinstance(c.get("valor"), list):
-            raise ErrorNegocio("The one of operator needs a list of values.", 422, "validacion")
-        out.append({"grupo": int(c.get("grupo") or 1), "campo": c["campo"].strip(), "operador": op, "valor": c.get("valor"),
-                    "valor_hasta": c.get("valor_hasta"), "negado": bool(c.get("negado"))})
-    return out
 
 
 def guardar_ambito(db: Session, user: Usuario, atributo_id: int, ambito_id: int | None, datos: dict) -> dict:
@@ -452,12 +568,13 @@ def guardar_ambito(db: Session, user: Usuario, atributo_id: int, ambito_id: int 
             db.refresh(a)
             return _dict(a, True)
     else:
+        from . import validacion_config as v
+
         tipo = (datos.get("tipo_ambito") or "").upper()
         cod = (datos.get("codigo_ambito") or "").strip()
         if tipo not in AMBITOS or not cod:
             raise ErrorNegocio("Choose the scope type and its code.", 422, "validacion")
-        if tipo != "CATEGORY":
-            cod = cod.upper()
+        cod = v.ambito(db, tipo, cod)
         if any(y.tipo_ambito == tipo and y.codigo_ambito == cod for y in a.ambitos):
             raise ErrorNegocio("The attribute already has that scope.", 422, "validacion")
         x = AtributoAmbito(atributo=a, tipo_ambito=tipo, codigo_ambito=cod)
@@ -469,7 +586,9 @@ def guardar_ambito(db: Session, user: Usuario, atributo_id: int, ambito_id: int 
         if k in datos and datos[k] is not None:
             setattr(x, k, datos[k])
     if "condicion" in datos:
-        x.condicion = _condicion(datos["condicion"])
+        from . import validacion_config as v
+
+        x.condicion = v.condiciones(v.Contexto(db), datos["condicion"], f"{a.codigo} (scope condition)")
     db.add(x)
     db.flush()
     return _dict(a, True)

@@ -13,23 +13,13 @@ Para quién es (PARA HOMBRE, PARA NIÑA, UNISEX…) también son frases de las
 opciones (una lista de alternativas con condición: la primera que se cumple).
 tests/test_descripciones.py fija el resultado esperado (casos de referencia en tests/paridad).
 """
-import json
 import re
-from functools import lru_cache
-
-from ..datos import MOTOR
 
 
-@lru_cache(maxsize=1)
-def _vocabulario() -> dict:
-    """Palabras aduaneras por defecto de las clases de material (presentación, no
-    clasificación); cada categoría las cambia en su plantilla («como»)."""
-    d = json.loads((MOTOR / "motor_atributos.json").read_text(encoding="utf-8")).get("vocabulario_aduana") or {}
-    return {**(d.get("material") or {}), **(d.get("clase_material") or {})}
-
-
-def _mat(m, defecto: str = "") -> str:
-    return _vocabulario().get(m) or defecto
+def _mat(cat, m, defecto: str = "") -> str:
+    """La palabra aduanera de una clase de material (ClaseMaterial.texto_aduana,
+    configurable); cada categoría la cambia en su plantilla («como»)."""
+    return cat.vocabulario.get(m) or defecto
 
 
 def _cumple(cond, s) -> bool:
@@ -87,7 +77,7 @@ def _material(cat, s: dict, p: dict) -> str:
             txt = s.get(f"comp.{parte}")
             if a and cat.aplica(a, s) and txt and str(txt).strip():
                 c = cat.lector.clase_mat(txt)
-                return plantilla.replace("{clase}", _mat(c["pred"], c["pred"].upper())) if c else ""
+                return plantilla.replace("{clase}", _mat(cat, c["pred"], c["pred"].upper())) if c else ""
             if a and cat.aplica(a, s):
                 return ""
         return ""
@@ -101,7 +91,7 @@ def _material(cat, s: dict, p: dict) -> str:
         mapa = como.get(k)
         if mapa:
             return mapa.get(v) or mapa.get("*") or ""
-        return _mat(v, str(v or "").upper())
+        return _mat(cat, v, str(v or "").upper())
 
     return re.sub(r"\{(\w+)\}", valor, plantilla)
 

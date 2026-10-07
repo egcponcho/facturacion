@@ -611,7 +611,8 @@ class CapitulosPatch(BaseModel):
 
 
 class AtributoIn(BaseModel):
-    codigo: str | None = Field(None, max_length=40, pattern=r"^[A-Za-z][A-Za-z0-9_]*$")
+    # Una parte de la composición es comp.<parte>
+    codigo: str | None = Field(None, max_length=40, pattern=r"^(comp\.)?[A-Za-z][A-Za-z0-9_]*$")
     etiqueta: str | None = Field(None, max_length=200)
     tipo_dato: str | None = None
     unidad: str | None = Field(None, max_length=10)
@@ -620,6 +621,25 @@ class AtributoIn(BaseModel):
     activo: bool | None = None
     usado_clasificacion: bool | None = None
     orden: int | None = None
+    # Comportamiento (validado en el servidor: ver services/validacion_config.py)
+    seccion: str | None = None
+    informativo: bool | None = None
+    valor_defecto: str | None = Field(None, max_length=60)
+    control: str | None = Field(None, max_length=12)
+    alias: list[str] | None = None
+    derivacion: dict | None = None
+    bloqueo: list | None = None
+    patrones: list | None = None
+    patrones_falso: list | None = None
+    texto_aduana: dict | list | None = None
+
+
+class ClaseMaterialIn(BaseModel):
+    codigo: str | None = Field(None, max_length=30)
+    nombre: str | None = Field(None, max_length=80)
+    palabras: str | None = Field(None, max_length=1000)  # palabras o patrones simples, separadas por espacio o coma
+    texto_aduana: str | None = Field(None, max_length=60)
+    activo: bool | None = None
 
 
 class AtributoOpcionIn(BaseModel):
@@ -629,6 +649,10 @@ class AtributoOpcionIn(BaseModel):
     terminos: str | None = Field(None, max_length=400)  # palabras del texto oficial (solo ordenan candidatos)
     orden: int | None = None
     activo: bool | None = None
+    bloqueo: list | None = None  # [{condiciones, mensaje}]: cuándo no se puede elegir
+    implica: dict | None = None  # {atributo: valor}: lo que completa al elegirla
+    patrones: list | None = None  # cómo se reconoce en el nombre, el uso o la composición
+    texto_aduana: dict | list | None = None  # frase, nombre o nombre comercial en la descripción aduanera
 
 
 class AtributoAmbitoIn(BaseModel):

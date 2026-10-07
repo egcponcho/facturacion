@@ -14,7 +14,7 @@ from app.services.ficha import Catalogo
 _PALABRAS = [{"frase": x["frase"], "tipo": x["tipo"], "marca": x.get("marca"), **x["atributos"]}
              for x in json.loads((Path(__file__).parents[1] / "app/data/demo/palabras_empresa_demo.json").read_text(encoding="utf-8"))]
 _BASE = Catalogo.desde_json()
-CAT = Catalogo(_BASE.atributos, list(_BASE.categorias.values()), palabras=_PALABRAS)
+CAT = Catalogo(_BASE.atributos, list(_BASE.categorias.values()), palabras=_PALABRAS, clases=_BASE.clases)
 CASOS = json.loads((Path(__file__).parent / "paridad/descripciones.json").read_text(encoding="utf-8"))["casos"]
 
 
