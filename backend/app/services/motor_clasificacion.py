@@ -499,9 +499,10 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     # Puntajes legales (reglas y texto oficial) antes de mirar el historial de la empresa
     legales = sorted(((c.puntaje, c.codigo) for c in cands.values()), key=lambda t: (-t[0], t[1]))
     historial = _historial(db, entrada, categoria, perfil)
+    # El historial solo refuerza candidatos que ya salieron del árbol oficial y las reglas: nunca agrega uno
     for x, n in historial["tally"].items():
-        if x in zona:
-            c = cands.setdefault(x, Candidato(x))
+        if x in zona and x in cands:
+            c = cands[x]
             c.puntaje += min(3.0 * n, 9.0)
             c.origen.add("historial")
 
@@ -523,7 +524,8 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
                       else "medium" if n_hist >= 2 else "low" if n_hist else "none")
     if "AMBIGUITY" in base and len(lista) > 1 and lista[1].puntaje >= 0.67 * lista[0].puntaje and not (permitidos and len(permitidos) == 1):
         revision_por.append("Several plausible candidates remain.")
-    if "TEXT_CANDIDATES" in base and lista and not por_regla and "historial" not in lista[0].origen:
+    # El historial no quita la revisión: un candidato que solo sale del texto la sigue necesitando
+    if "TEXT_CANDIDATES" in base and lista and not por_regla:
         revision_por.append("The text never confirms a code by itself: a specialist reviews it.")
     if hs6 and not auto_ok:
         revision_por.append(f"Chapter {hs6[:2]} cannot be chosen automatically: choose the code by hand." if not manual

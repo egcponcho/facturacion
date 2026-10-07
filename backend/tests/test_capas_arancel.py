@@ -310,3 +310,77 @@ def test_official_source_requires_document_version_validity_and_verification(int
     with SessionLocal() as db:
         x = db.get(IncisoNacional, r.json()["id"])
         assert str(x.vigente_desde) == "2026-02-01" and x.fuente_id and x.version_id
+
+
+def test_history_never_creates_candidates(interno, monkeypatch):
+    """El historial solo refuerza candidatos que ya salieron del árbol oficial y de las reglas."""
+    from app.services import motor_clasificacion as mc
+
+    entrada = {"categoria": "calzado", "ficha": {"comp": {"corte": "100% leather", "suela": "100% rubber"}, "estiloCalz": "tenis",
+                                                 "altura": "bajo", "genero": "U", "edadNac": "adulto", "puntera": "ninguna"}}
+    with SessionLocal() as db:
+        limpio = mc.clasificar_producto(db, entrada, paises=False)
+    original = mc._historial
+
+    def con_historial(db, ent, categoria, perfil):
+        h = original(db, ent, categoria, perfil)
+        h["tally"] = {"950300": 50, limpio["candidatos"][-1]["codigo"]: 50}  # un juguete (ajeno) y un candidato real
+        return h
+
+    monkeypatch.setattr(mc, "_historial", con_historial)
+    with SessionLocal() as db:
+        r = mc.clasificar_producto(db, entrada, paises=False)
+    assert "950300" not in {c["codigo"] for c in r["candidatos"]}
+    assert {c["codigo"] for c in r["candidatos"]} == {c["codigo"] for c in limpio["candidatos"]}
+    assert r["legal_confidence"] == limpio["legal_confidence"]
+
+
+def test_uncertain_cases_are_never_approved_automatically(interno, monkeypatch):
+    from app.services import motor_clasificacion as mc
+
+    pend = [p for p in interno.get("/productos", params={"estado": "pendientes", "size": 100}).json()["items"]
+            if p["estado"] == "sugerida" and p["ficha_completa"]]
+    assert pend
+    p = pend[0]
+    original = mc.clasificar_producto
+
+    def incierto(db, entrada, **kw):
+        r = original(db, entrada, **kw)
+        return {**r, "requiere_revision": True, "revision_por": ["Several plausible candidates remain."]}
+
+    monkeypatch.setattr(mc, "clasificar_producto", incierto)
+    r = interno.post("/productos/aprobar", {"ids": [p["id"]]}).json()
+    assert r["aprobados"] == 0 and "specialist review" in r["errores"][0]["mensaje"]
+    assert interno.get(f"/productos/{p['id']}").json()["estado"] == "sugerida"
+
+
+def test_history_preferred_national_line_needs_confirmation(interno):
+    """640399 tiene dos líneas oficiales en GT sin condiciones: la que solo el historial
+    prefiere es una sugerencia; al aprobar, una persona la confirma."""
+    m = {x["codigo"]: x["id"] for x in interno.get("/catalogos/marcas", params={"size": 100}).json()["items"]}
+    g = {x["codigo"]: x["id"] for x in interno.get("/catalogos/grupos").json()["items"]}
+    pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
+    r = interno.post("/catalogos/genericos", {"generico": "30077702", "estilo": "VNHIST01", "color": "Black", "marca_id": m["VANS"],
+                                              "grupo_id": g["CALZ-CAS"], "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather court shoe",
+                                              "tallas": [{"talla": "8"}]})
+    assert r.status_code == 200, r.text
+    p = next(x for x in interno.get("/productos", params={"q": "VNHIST01"}).json()["items"] if x["estilo"] == "VNHIST01")
+    det = interno.get(f"/productos/{p['id']}").json()
+    det = interno.put(f"/productos/{p['id']}/ficha", {"version": det["version"], "tipo": "calzado", "pais_origen": "VN", "ficha": {
+        "comp": {"corte": "100% leather", "suela": "100% rubber"}, "estiloCalz": "tenis", "altura": "bajo", "genero": "U", "edadNac": "adulto",
+        "puntera": "ninguna"}}).json()
+    assert det["sugerido"].replace(".", "") == "640399", det["sugerido"]
+    with SessionLocal() as db:
+        for h in db.scalars(select(HistorialClasificacion).where(HistorialClasificacion.sub6 == "640399")):
+            db.delete(h)
+        db.commit()
+    assert interno.post("/clasificacion/incisos", {"pais": "GT", "codigo": "6403.99.90.00", "cond": {}}).status_code == 200
+    r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640399"})
+    assert r.status_code == 422 and r.json()["codigo"] == "faltan_paises", r.text
+    gt = next(x for x in r.json()["detalle"] if x["pais"] == "GT")
+    assert sorted(gt["opciones"]) == ["6403991000", "6403999000"]
+    # Confirmada por una persona, se aprueba con esa línea oficial
+    partidas = {x["pais"]: {"codigo": x["opciones"][-1], "manual": True} for x in r.json()["detalle"]}
+    r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640399", "partidas": partidas})
+    assert r.status_code == 200, r.text
+    assert r.json()["partidas"]["GT"]["codigo"].replace(".", "") == "6403999000"

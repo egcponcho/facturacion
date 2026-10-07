@@ -37,14 +37,15 @@ export function totalFilas(rows) {
 // líneas publicadas por una fuente oficial; el historial de la empresa solo ayuda a elegir
 export const EST_PAIS = {
   ok: t('Official national line'),
-  historial: t('Official line preferred by your company history'),
+  historial: t('Suggested by your company history: confirm it'),
   elegir: t('Needs data or a choice'),
   pendiente: t('Official national tariff data not available'),
   invalido: t('Invalid code'),
   sin_codigo: t('No code'),
 }
-// Estados con un código nacional oficial elegido
-export const PAIS_LISTO = ['ok', 'historial']
+// Estados con un código nacional oficial elegido. «historial» es solo una
+// sugerencia del historial de la empresa: la confirma una persona
+export const PAIS_LISTO = ['ok']
 
 // De dónde salió la sugerencia
 export const FUENTES = { regla: t('Harmonized System rules'), historial: t('Your history: product already classified'), texto: t('Official tariff text') }

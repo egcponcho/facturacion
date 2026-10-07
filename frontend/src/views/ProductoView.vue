@@ -803,7 +803,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
                     </datalist>
                     <span v-if="errPais[x.iso]" class="sub" style="color: var(--error)">{{ tx(errPais[x.iso]) }}</span>
                     <span v-else-if="x.manual" class="sub">{{ t('Set by hand ·') }} <button type="button" class="btn-texto" @click="quitarManual(x.iso)">{{ t('use automatic') }}</button> · <button type="button" class="btn-texto" @click="abrirEnsenar(x)">{{ t('remember for similar') }}</button></span>
-                    <span v-else-if="x.estado === 'historial'" class="sub">{{ EST_PAIS.historial }}</span>
+                    <span v-else-if="x.estado === 'historial'" class="sub">{{ EST_PAIS.historial }} ·
+                      <button type="button" class="btn-texto" @click="codigoPais(x.iso, x.codigo)">{{ t('confirm') }}</button></span>
                     <span v-else-if="!PAIS_LISTO.includes(x.estado)" class="sub">{{ tx(x.error || (x.estado === 'elegir' ? t('Choose one of the listed codes or type it') : EST_PAIS[x.estado])) }}</span>
                   </template>
                   <template v-else>

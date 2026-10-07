@@ -223,7 +223,7 @@ def partida_para(p: Producto | None, pais: str | None) -> str | None:
         return None
     if pais:
         x = next((x for x in p.partidas if x.pais == pais), None)
-        if x and x.estado in ("ok", "historial") and x.inciso_id and len(digitos(x.codigo)) >= 8:
+        if x and x.estado == "ok" and x.inciso_id and len(digitos(x.codigo)) >= 8:
             return fmt_codigo(x.codigo)
     return fmt_codigo(p.sac_codigo or p.codigo)
 
@@ -281,7 +281,7 @@ def _producto(db: Session, user: Usuario, producto_id: int) -> Producto:
 
 def _paises_completos(p: Producto, ds: list[dict]) -> tuple[int, int]:
     dig = {d["iso"]: d["digitos"] for d in ds}
-    ok = sum(1 for x in p.partidas if x.pais in dig and x.estado in ("ok", "auto", "historial") and len(digitos(x.codigo)) >= dig[x.pais])
+    ok = sum(1 for x in p.partidas if x.pais in dig and x.estado in ("ok", "auto") and len(digitos(x.codigo)) >= dig[x.pais])
     return ok, len(ds)
 
 
@@ -633,7 +633,7 @@ def clasificar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
 
 
 # ---- Aprobar, devolver y versiones -------------------------------------------
-def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partidas: dict | None) -> None:
+def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partidas: dict | None, lote: bool = False) -> None:
     """Aprueba con el motor único: el código se vuelve a validar contra el árbol
     de la versión vigente y contra las reglas; cada país con su línea nacional
     de la versión vigente del país. Guarda la evidencia completa."""
@@ -662,7 +662,12 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
     invalidos = [x for x in paises if x["estado"] == "invalido"]
     if invalidos:
         raise ErrorNegocio("; ".join(f"{x['pais']}: {x['error']}" for x in invalidos), 422, "codigo_nacional_invalido")
-    pend = [x for x in paises if x["estado"] == "elegir" and not x["codigo"]]
+    # Con incertidumbre el caso queda pendiente: nunca se aprueba solo. En lote no se aprueba lo que pide revisión
+    if lote and (r["requiere_revision"] or r["confianza"] == "low"):
+        raise ErrorNegocio(f"{p.estilo}: needs a specialist review (" + "; ".join(r["revision_por"][:2] or ["low legal confidence"]) + ").",
+                           422, "requiere_revision")
+    # Una línea nacional que solo el historial prefiere (o que falta elegir) la confirma una persona
+    pend = [x for x in paises if (x["estado"] == "elegir" and not x["codigo"]) or (x["estado"] == "historial" and x["pais"] not in elegidas)]
     if pend:
         raise ErrorNegocio(f"{p.estilo}: choose the national code for " + ", ".join(x["pais"] for x in pend) + ".", 422, "faltan_paises",
                            [{"pais": x["pais"], "opciones": [o["codigo"] for o in x["opciones"]]} for x in pend])
@@ -742,9 +747,8 @@ def aprobar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
             continue
         try:
             with db.begin_nested():
-                partidas = {x.pais: {"codigo": x.codigo, "dai": x.dai, "estado": x.estado, "fuente": x.fuente,
-                                     "manual": x.manual} for x in p.partidas} or None
-                _aprobar(db, user, p, None, partidas)
+                # Solo cuentan como elección las líneas que una persona eligió; las sugeridas se vuelven a validar
+                _aprobar(db, user, p, None, None, lote=True)
             ok += 1
         except ErrorNegocio as e:
             errores.append({"id": p.id, "mensaje": e.mensaje})
