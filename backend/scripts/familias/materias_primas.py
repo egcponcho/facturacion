@@ -25,67 +25,66 @@ def familia() -> dict:
     g_tex, g_otros = "Textile materials", "Other materials"
     cats = [
         categoria("fibra_textil", "Textile fiber, not spun (raw cotton, staple fiber, wool, filling fiber)", corto="Textile fiber",
-                  aduana="Fibra textil", grupo=g_tex, dominio=DOM, capitulos=["50", "51", "52", "53", "54", "55"], orden=10, prioridad=30,
+                  aduana="Fibra textil", grupo=g_tex, dominio=DOM, capitulos=["50", "51", "52", "53", "54", "55"], orden=10, prioridad=200,
                   re_=r"\b(staple fibers?|fibras? (cortas?|discontinuas?|textiles?)|raw cotton|algodon sin cardar|polyester fiber|fibra de poliester|"
                       r"wadding fiber|fiberfill|guata de fibra|wool tops?|tow)\b", alias="fibra textil fibra corta fibra de relleno"),
         categoria("hilado", "Yarn or sewing thread", corto="Yarn or thread", aduana="Hilado", grupo=g_tex, dominio=DOM,
-                  capitulos=["50", "51", "52", "53", "54", "55"], orden=20, prioridad=33,
+                  capitulos=["50", "51", "52", "53", "54", "55"], orden=20, prioridad=203,
                   re_=r"\b(yarns?|hilos?|hilados?|sewing threads?|hilo de coser|filament yarns?|spun yarns?)\b", alias="hilo hilado hilo de coser"),
         categoria("tejido_plano", "Woven fabric in the piece", corto="Woven fabric", aduana="Tejido plano", grupo=g_tex, dominio=DOM,
-                  capitulos=["50", "51", "52", "53", "54", "55"], orden=30, prioridad=32,
+                  capitulos=["50", "51", "52", "53", "54", "55"], orden=30, prioridad=202,
                   re_=r"\b(woven fabrics?|tejidos? planos?|telas?|fabrics? (in rolls?|by the meter)|denim|mezclilla|canvas|lona|poplin|popelina|"
                       r"twill|sarga|ripstop|oxford|taffeta|tafetan|chambray|gabardin[ae])\b", alias="tela tejido plano lona mezclilla"),
         categoria("tejido_punto", "Knitted or crocheted fabric in the piece", corto="Knitted fabric", aduana="Tejido de punto", grupo=g_tex,
-                  dominio=DOM, capitulos=["60"], orden=40, prioridad=32,
+                  dominio=DOM, capitulos=["60"], orden=40, prioridad=202,
                   re_=r"\b(knit(ted)? fabrics?|tejidos? de punto|jersey fabric|mesh fabric|malla|spacer mesh|fleece fabric|tela polar|rib knit|"
                       r"single jersey|interlock|tricot|pique fabric)\b", alias="tejido de punto malla jersey polar"),
         categoria("no_tejido", "Nonwoven or felt", corto="Nonwoven", aduana="Tela sin tejer", grupo=g_tex, dominio=DOM, capitulos=["56"], orden=50,
-                  prioridad=31, re_=r"\b(nonwovens?|non-woven|tela sin tejer|tnt|spunbond|felt|fieltro|needle ?punch|punzonad[oa])\b",
+                  prioridad=201, re_=r"\b(nonwovens?|non-woven|tela sin tejer|tnt|spunbond|felt|fieltro|needle ?punch|punzonad[oa])\b",
                   alias="tela sin tejer fieltro spunbond"),
         categoria("tela_recubierta", "Fabric coated, covered or laminated with plastics or rubber", corto="Coated fabric",
-                  aduana="Tela recubierta", grupo=g_tex, dominio=DOM, capitulos=["59", "39"], orden=60, prioridad=31,
+                  aduana="Tela recubierta", grupo=g_tex, dominio=DOM, capitulos=["59", "39", "56"], orden=60, prioridad=201,
                   re_=r"\b(coated fabrics?|telas? recubiertas?|laminated fabrics?|telas? laminadas?|pvc coated|pu coated|rubberi[sz]ed fabric|"
                       r"neoprene fabric|tela engomada)\b", alias="tela recubierta tela laminada tela engomada"),
         categoria("cinta_etiqueta", "Narrow fabric, label, elastic, hook-and-loop, lace, braid or embroidery", corto="Tape, label or trim",
-                  aduana="Cinta textil", grupo=g_tex, dominio=DOM, capitulos=["58", "48"], orden=70, prioridad=34,
+                  aduana="Cinta textil", grupo=g_tex, dominio=DOM, capitulos=["58", "48"], orden=70, prioridad=204,
                   re_=r"\b(labels?|etiquetas?|elastic (bands?|tapes?)|elasticos?|cintas?|ribbons?|listones?|webbing|reatas?|hook and loop|velcro|"
                       r"lace|encajes?|braids?|trenzas?|embroider(y|ies)|bordados?|patches? bordad\w*|piping|vivos?)\b",
                   alias="etiqueta elástico cinta reata velcro encaje bordado"),
         categoria("avio", "Trim: zipper, button, snap, buckle, eyelet or hook", corto="Trim", aduana="Avío", grupo=g_otros, dominio=DOM,
-                  capitulos=["96", "83"], orden=80, prioridad=35,
+                  capitulos=["96", "83", "39"], orden=80, prioridad=205,
                   re_=r"\b(zippers?|cierres?|cremalleras?|buttons?|botones?|snaps?|broches?|buckles?|hebillas?|eyelets?|ojetes?|ojales metalicos|"
                       r"grommets?|hooks?|ganchos?|rivets?|remaches?|sliders?|tiradores?|cord locks?|topes?)\b",
                   alias="cierre zipper botón broche hebilla ojete remache"),
         categoria("resina_plastica", "Plastic in primary forms: pellets, powder, liquid resin, masterbatch base", corto="Plastic resin",
-                  aduana="Resina plástica", grupo=g_otros, dominio=DOM, capitulos=["39"], orden=90, prioridad=31,
+                  aduana="Resina plástica", grupo=g_otros, dominio=DOM, capitulos=["39"], orden=90, prioridad=201,
                   re_=r"\b(resins?|resinas?|pellets?|granul(es|os)|polymers?|polimeros?|compounds? de pvc|pvc compound|tpu pellets?|eva pellets?|"
                       r"polyurethane (resin|system)|poliol|polyol|isocyanate|isocianato)\b", alias="resina pellets polímero compuesto de PVC"),
         categoria("lamina_plastica", "Plastic sheet, film, foam sheet or strip", corto="Plastic sheet or foam", aduana="Lámina de plástico",
-                  grupo=g_otros, dominio=DOM, capitulos=["39"], orden=100, prioridad=31,
+                  grupo=g_otros, dominio=DOM, capitulos=["39"], orden=100, prioridad=201,
                   re_=r"\b(plastic (sheets?|films?)|laminas? (de )?plastic\w*|films?|peliculas?|foam sheets?|espumas?|eva foam|pu foam|"
                       r"sheets? of (eva|pvc|tpu)|tpu film|hot melt film)\b", alias="lámina plástica película espuma EVA"),
         categoria("caucho", "Rubber: natural, synthetic, compounded or sheets", corto="Rubber", aduana="Caucho", grupo=g_otros, dominio=DOM,
-                  capitulos=["40"], orden=110, prioridad=31,
+                  capitulos=["40"], orden=110, prioridad=201,
                   re_=r"\b(rubber (sheets?|compound|crepe)?|caucho|latex|hule|rubber soling sheets?|planchas? de caucho|crepe)\b",
                   alias="caucho hule látex lámina de caucho"),
         categoria("cuero", "Leather: tanned, crust or finished hides and skins", corto="Leather", aduana="Cuero", grupo=g_otros, dominio=DOM,
-                  capitulos=["41"], orden=120, prioridad=32,
+                  capitulos=["41"], orden=120, prioridad=202,
                   re_=r"\b(leather|cueros?|hides?|wet ?blue|crust|nubuck|suede|gamuza|napa|nappa|patent leather|charol|split leather|carnaza|vaqueta)\b",
                   alias="cuero piel wet blue crust nobuck gamuza charol"),
         categoria("cuero_sintetico", "Synthetic leather (PU or PVC)", corto="Synthetic leather", aduana="Cuero sintético", grupo=g_otros,
-                  dominio=DOM, capitulos=["59", "39", "56"], orden=130, prioridad=33,
+                  dominio=DOM, capitulos=["59", "39", "56"], orden=130, prioridad=203,
                   re_=r"\b(synthetic leather|cuero sintetico|pu leather|pvc leather|faux leather|vegan leather|leatherette|microfiber leather|"
                       r"similcuero|cuerina|ecocuero)\b", alias="cuero sintético PU PVC cuerina"),
         categoria("papel_carton", "Paper, paperboard, boxes or paper bags", corto="Paper or box", aduana="Papel o cartón", grupo=g_otros,
-                  dominio=DOM, capitulos=["48"], orden=140, prioridad=30,
+                  dominio=DOM, capitulos=["48"], orden=140, prioridad=200,
                   re_=r"\b(paper|papel|paperboard|carton|cardboard|boxes?|cajas?|corrugated|corrugad[oa]|tissue paper|papel de seda|"
                       r"paper bags?|bolsas? de papel|kraft)\b", alias="papel cartón caja corrugada bolsa de papel papel de seda"),
         categoria("metal", "Metal sheet, wire, bar or profile", corto="Metal", aduana="Metal", grupo=g_otros, dominio=DOM,
-                  capitulos=["72", "74", "76"], orden=150, prioridad=28,
+                  capitulos=["72", "74", "76"], orden=150, prioridad=198,
                   re_=r"\b(steel (sheets?|wire|bars?)|acero|alumin(i)?um|aluminio|copper|cobre|brass|laton|wire|alambre|metal sheets?|laminas? metalicas?)\b",
                   alias="acero aluminio latón alambre lámina metálica"),
     ]
-    fib = {"lana": "lana", "algodon": "algodon", "seda": "seda", "sintetica": "sintetica", "artificial": "artificial", "vegetal": "vegetal"}
     atrs = [
         atributo("filamento", "Man-made fiber form", "select", [
             opcion("filamento", "Filament (continuous)", re_=r"\b(filament|filamento|continuous|dty|fdy|poy|multifilament)\b"),
@@ -176,7 +175,7 @@ def familia() -> dict:
         atributo("forma_caucho", "Form", "select", [
             opcion("natural", "Natural rubber or latex in primary forms"), opcion("sintetico", "Synthetic rubber in primary forms"),
             opcion("mezcla", "Compounded rubber, unvulcanized"), opcion("lamina_celular", "Vulcanized cellular sheet or strip (sponge)"),
-            opcion("lamina", "Vulcanized non-cellular sheet or strip (soling sheet)"), opcion("perfil", "Vulcanized profile or rod")],
+            opcion("lamina", "Vulcanized non-cellular sheet or strip (soling sheet)"), opcion("perfil_varilla", "Vulcanized profile or rod")],
             ambitos(["caucho"], "REQUIRE"), orden=36),
         atributo("animal", "Animal", "select", [
             opcion("bovino", "Bovine or equine (cow, buffalo, horse)", re_=r"\b(cow|cowhide|vaca|bovine|bovino|buffalo|bufalo|calf|becerro|vaqueta)\b",
@@ -360,7 +359,7 @@ def familia() -> dict:
         ("natural", ["4001"], "Natural rubber in primary forms → 40.01"), ("sintetico", ["4002"], "Synthetic rubber → 40.02 (chapter 40 Note 4)"),
         ("mezcla", ["4005"], "Compounded rubber, unvulcanized → 40.05 (chapter 40 Note 5)"),
         ("lamina_celular", ["400811"], "Cellular rubber sheet → 4008.11"), ("lamina", ["400821"], "Non-cellular rubber sheet → 4008.21"),
-        ("perfil", ["400819", "400829"], "Rubber rods and profiles → 4008.19/29"))]
+        ("perfil_varilla", ["400819", "400829"], "Rubber rods and profiles → 4008.19/29"))]
     # Cuero
     curtido = {"bovino": {"humedo": ["41041"], "crust": ["41044"], "terminado": ["4107"]},
                "ovino": {"humedo": ["410510"], "crust": ["410530"], "terminado": ["411200"]},

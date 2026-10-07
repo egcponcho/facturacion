@@ -66,7 +66,7 @@
    "patrones": [
     {
      "re": "\\b(inorganic|inorganic[oa]|acid[oe]s? (sulfuric|hydrochloric|nitric|phosphoric|sulfurico|clorhidrico|nitrico|fosforico)|sodium hydroxide|hidroxido de sodio|caustic soda|soda caustica|zinc oxide|oxido de zinc|silica gel|titanium dioxide|chlorides?|cloruros?|sulfates?|sulfatos?|carbonates?|carbonatos?|nitrates?|nitratos?|hydroxides?|hidroxidos?)\\b",
-     "prioridad": 40
+     "prioridad": 210
     }
    ],
    "terminos": "inorgánicos"
@@ -87,7 +87,7 @@
    "patrones": [
     {
      "re": "\\b(organic chemical|acetone|acetona|toluene|tolueno|xylene|xileno|methanol|metanol|isopropanol|isopropyl alcohol|alcohol isopropilico|ethyl acetate|acetato de etilo|butyl acetate|acetato de butilo|mek|methyl ethyl ketone|glycol|glicol|glycerol|glicerina|formaldehyde|formaldehido|acetic acid|acido acetico|citric acid|acido citrico|amines?|aminas?)\\b",
-     "prioridad": 40
+     "prioridad": 210
     }
    ],
    "terminos": "orgánicos"
@@ -108,7 +108,7 @@
    "patrones": [
     {
      "re": "\\b(dyes?|dyestuffs?|colorantes?|tintes?|tinturas?|disperse|reactive dye|acid dye|vat dye|indigo|anilinas?)\\b",
-     "prioridad": 38
+     "prioridad": 208
     }
    ],
    "terminos": "colorantes"
@@ -129,7 +129,7 @@
    "patrones": [
     {
      "re": "\\b(pigments?|pigmentos?|masterbatch|pastas? pigmentarias?|color pastes?)\\b",
-     "prioridad": 37
+     "prioridad": 207
     }
    ],
    "terminos": "pigmentos"
@@ -150,7 +150,7 @@
    "patrones": [
     {
      "re": "\\b(paints?|pinturas?|varnish(es)?|barnices?|barniz|lacquers?|lacas?|coatings?|recubrimientos?|primers?|enamels?|esmaltes?|leather finish)\\b",
-     "prioridad": 37
+     "prioridad": 207
     }
    ],
    "terminos": "pinturas barnices"
@@ -171,7 +171,7 @@
    "patrones": [
     {
      "re": "\\b(inks?|tintas?|screen printing ink|plastisol|serigrafia)\\b",
-     "prioridad": 36
+     "prioridad": 206
     }
    ],
    "terminos": "tintas"
@@ -192,7 +192,7 @@
    "patrones": [
     {
      "re": "\\b(adhesives?|adhesivos?|glues?|pegamentos?|colas?|cements? de contacto|contact cement|hot ?melt|primers? (para )?(suela|sole))\\b",
-     "prioridad": 39
+     "prioridad": 209
     }
    ],
    "terminos": "adhesivos colas"
@@ -213,7 +213,7 @@
    "patrones": [
     {
      "re": "\\b(surfactants?|tensoactivos?|detergents?|detergentes?|wetting agents?|humectantes?|emulsifiers?|emulsionantes?|cleaners?|limpiadores?|desengrasantes?|degreasers?)\\b",
-     "prioridad": 35
+     "prioridad": 205
     }
    ],
    "terminos": "tensoactivos"
@@ -234,7 +234,7 @@
    "patrones": [
     {
      "re": "\\b(soaps?|jabon(es)?|hand ?wash)\\b",
-     "prioridad": 34
+     "prioridad": 204
     }
    ],
    "terminos": "jabón"
@@ -256,7 +256,7 @@
    "patrones": [
     {
      "re": "\\b(lubricants?|lubricantes?|greases?|grasas? lubricantes?|release agents?|desmoldantes?|anti-?rust|antioxidante de metal|cutting oils?|aceites? de corte|silicone spray)\\b",
-     "prioridad": 34
+     "prioridad": 204
     }
    ],
    "terminos": "lubricantes"
@@ -278,7 +278,7 @@
    "patrones": [
     {
      "re": "\\b(wax(es)?|ceras?|parafinas?|paraffin)\\b",
-     "prioridad": 33
+     "prioridad": 203
     }
    ],
    "terminos": "ceras"
@@ -299,7 +299,7 @@
    "patrones": [
     {
      "re": "\\b(shoe (polish|cream|care)|betun(es)?|crema para (calzado|zapatos)|leather (cream|conditioner|polish)|polishes?|abrillantadores?|lustres?|suede cleaner)\\b",
-     "prioridad": 36
+     "prioridad": 206
     }
    ],
    "terminos": "betunes cremas calzado"
@@ -320,7 +320,7 @@
    "patrones": [
     {
      "re": "\\b(finishing agents?|aprestos?|softeners?|suavizantes? textiles?|dye fixing|fijadores?|leveling agents?|igualadores?|waterproofing agents?|repelentes? de agua|dwr|mordants?|mordientes?)\\b",
-     "prioridad": 33
+     "prioridad": 203
     }
    ],
    "terminos": "aprestos acabado"
@@ -334,14 +334,15 @@
    "familia": "aditivo_polimero",
    "dominio": "CHEMICALS",
    "capitulos": [
-    "38"
+    "38",
+    "29"
    ],
    "alias": "acelerante plastificante antioxidante estabilizador",
    "orden": 140,
    "patrones": [
     {
      "re": "\\b(accelerators?|aceleradores?|plasticizers?|plastificantes?|antioxidants?|antioxidantes?|stabilizers?|estabilizantes?|vulcaniz\\w+)\\b",
-     "prioridad": 32
+     "prioridad": 202
     }
    ],
    "terminos": "aceleradores plastificantes"
@@ -363,7 +364,7 @@
    "patrones": [
     {
      "re": "\\b(solvents?|disolventes?|solventes?|thinners?|diluyentes?|adelgazadores?|paint removers?|removedores?)\\b",
-     "prioridad": 34
+     "prioridad": 204
     }
    ],
    "terminos": "disolventes diluyentes"
@@ -384,7 +385,7 @@
    "patrones": [
     {
      "re": "\\b(disinfectants?|desinfectantes?|insecticides?|insecticidas?|fungicides?|fungicidas?|antimicrobial|antimicrobianos?|biocides?|biocidas?|anti-?mold|antimoho)\\b",
-     "prioridad": 33
+     "prioridad": 203
     }
    ],
    "terminos": "desinfectantes"
@@ -405,7 +406,7 @@
    "patrones": [
     {
      "re": "\\b(reagents?|reactivos?|buffer solutions?|test kits?|standards? de laboratorio)\\b",
-     "prioridad": 31
+     "prioridad": 201
     }
    ],
    "terminos": "reactivos"
@@ -426,7 +427,7 @@
    "patrones": [
     {
      "re": "\\b(chemical preparations?|preparaciones? quimicas?|compound|blend)\\b",
-     "prioridad": 10
+     "prioridad": 260
     }
    ],
    "terminos": "preparaciones químicas"
@@ -995,7 +996,282 @@
    "informativo": true
   },
   {
-   "codigo": "definido",
+   "codigo": "densidad",
+   "etiqueta": "Density",
+   "tipo_dato": "number",
+   "seccion": "caracteristicas",
+   "orden": 14,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_inorganico",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_organico",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "colorante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigmento",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pintura",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tinta",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tensoactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "jabon",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cera",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "betun",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "apresto",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "aditivo_polimero",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "disolvente",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "biocida",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "preparacion_quimica",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "unidad": "g/cm³",
+   "informativo": true
+  },
+  {
+   "codigo": "ph",
+   "etiqueta": "pH",
+   "tipo_dato": "number",
+   "seccion": "caracteristicas",
+   "orden": 15,
+   "opciones": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_inorganico",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico_organico",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "colorante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigmento",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pintura",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tinta",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "tensoactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "jabon",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricante",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "cera",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "betun",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "apresto",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "aditivo_polimero",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "disolvente",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "biocida",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "reactivo",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "preparacion_quimica",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "informativo": true
+  },
+  {
+   "codigo": "compuesto_definido",
    "etiqueta": "Single chemically defined compound",
    "tipo_dato": "boolean",
    "seccion": "caracteristicas",
@@ -1080,7 +1356,7 @@
      "condicion": [
       {
        "grupo": 1,
-       "campo": "definido",
+       "campo": "compuesto_definido",
        "operador": "EQUAL",
        "valor": true,
        "negado": false
@@ -1171,7 +1447,7 @@
      "condicion": [
       {
        "grupo": 1,
-       "campo": "definido",
+       "campo": "compuesto_definido",
        "operador": "EQUAL",
        "valor": true,
        "negado": false
@@ -1186,7 +1462,7 @@
      "condicion": [
       {
        "grupo": 1,
-       "campo": "definido",
+       "campo": "compuesto_definido",
        "operador": "EQUAL",
        "valor": true,
        "negado": false
@@ -1909,7 +2185,7 @@
      "condicion": [
       {
        "grupo": 1,
-       "campo": "definido",
+       "campo": "compuesto_definido",
        "operador": "EQUAL",
        "valor": false,
        "negado": false
@@ -1994,7 +2270,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": false,
      "negado": false
@@ -2011,7 +2287,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2028,8 +2304,8 @@
     "tipo": "RESTRICT",
     "codigos": [
      "2801",
-     "2802",
-     "2803",
+     "280200",
+     "280300",
      "2804",
      "2805"
     ]
@@ -2042,7 +2318,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2060,9 +2336,9 @@
     "codigos": [
      "2806",
      "2807",
-     "2808",
+     "280800",
      "2809",
-     "2810",
+     "281000",
      "2811"
     ]
    },
@@ -2074,7 +2350,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2102,7 +2378,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2121,13 +2397,13 @@
      "2814",
      "2815",
      "2816",
-     "2817",
+     "281700",
      "2818",
      "2819",
      "2820",
      "2821",
-     "2822",
-     "2823",
+     "282200",
+     "282300",
      "2824",
      "2825"
     ]
@@ -2140,7 +2416,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2182,7 +2458,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2204,7 +2480,7 @@
      "2846",
      "2847",
      "2849",
-     "2850",
+     "285000",
      "2852",
      "2853"
     ]
@@ -2217,7 +2493,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": false,
      "negado": false
@@ -2234,7 +2510,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2264,7 +2540,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2292,7 +2568,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2320,7 +2596,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2338,7 +2614,7 @@
     "codigos": [
      "2909",
      "2910",
-     "2911"
+     "291100"
     ]
    },
    "efecto": "Chemically defined organic compound, ether, peroxide, epoxide or acetal → headings 29.09–11 (chapter 29 Note 1); the name finds the subheading"
@@ -2349,7 +2625,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2366,7 +2642,7 @@
     "tipo": "RESTRICT",
     "codigos": [
      "2912",
-     "2913"
+     "291300"
     ]
    },
    "efecto": "Chemically defined organic compound, aldehyde → headings 29.12–13 (chapter 29 Note 1); the name finds the subheading"
@@ -2377,7 +2653,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2404,7 +2680,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2434,7 +2710,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2462,7 +2738,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2490,7 +2766,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2510,8 +2786,8 @@
      "2924",
      "2925",
      "2926",
-     "2927",
-     "2928",
+     "292700",
+     "292800",
      "2929"
     ]
    },
@@ -2523,7 +2799,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2551,7 +2827,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2581,7 +2857,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2601,9 +2877,9 @@
      "2937",
      "2938",
      "2939",
-     "2940",
+     "294000",
      "2941",
-     "2942"
+     "294200"
     ]
    },
    "efecto": "Chemically defined organic compound, vitamin, hormone, sugar, antibiotic or other → headings 29.36–42 (chapter 29 Note 1); the name finds the subheading"
@@ -2614,7 +2890,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2644,7 +2920,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2672,7 +2948,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2700,7 +2976,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2718,7 +2994,7 @@
     "codigos": [
      "2909",
      "2910",
-     "2911"
+     "291100"
     ]
    },
    "efecto": "A single solvent compound is chapter 29 (ether, peroxide, epoxide or acetal)"
@@ -2729,7 +3005,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2746,7 +3022,7 @@
     "tipo": "RESTRICT",
     "codigos": [
      "2912",
-     "2913"
+     "291300"
     ]
    },
    "efecto": "A single solvent compound is chapter 29 (aldehyde)"
@@ -2757,7 +3033,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2784,7 +3060,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2814,7 +3090,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2842,7 +3118,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2870,7 +3146,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2890,8 +3166,8 @@
      "2924",
      "2925",
      "2926",
-     "2927",
-     "2928",
+     "292700",
+     "292800",
      "2929"
     ]
    },
@@ -2903,7 +3179,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2931,7 +3207,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2961,7 +3237,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2981,9 +3257,9 @@
      "2937",
      "2938",
      "2939",
-     "2940",
+     "294000",
      "2941",
-     "2942"
+     "294200"
     ]
    },
    "efecto": "A single solvent compound is chapter 29 (vitamin, hormone, sugar, antibiotic or other)"
@@ -2994,7 +3270,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": false,
      "negado": false
@@ -4160,7 +4436,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -4181,7 +4457,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": false,
      "negado": false
@@ -4208,7 +4484,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": false,
      "negado": false
@@ -4235,7 +4511,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": false,
      "negado": false
@@ -4262,7 +4538,7 @@
    "condiciones": [
     {
      "grupo": 1,
-     "campo": "definido",
+     "campo": "compuesto_definido",
      "operador": "EQUAL",
      "valor": false,
      "negado": false
@@ -4421,7 +4697,7 @@
    "hechos": {
     "categoria": "quimico_organico",
     "nombre_quimico": "Acetona",
-    "definido": true,
+    "compuesto_definido": true,
     "grupo_organico": "cetona"
    },
    "codigo": "291411"
@@ -4430,7 +4706,7 @@
    "hechos": {
     "categoria": "quimico_inorganico",
     "nombre_quimico": "Hidróxido de sodio sólido (soda cáustica)",
-    "definido": true,
+    "compuesto_definido": true,
     "grupo_inorganico": "base_oxido"
    },
    "codigo": "281511"
@@ -4527,7 +4803,7 @@
   {
    "hechos": {
     "categoria": "aditivo_polimero",
-    "definido": false,
+    "compuesto_definido": false,
     "tipo_aditivo": "acelerante"
    },
    "codigo": "381210"
@@ -4535,7 +4811,7 @@
   {
    "hechos": {
     "categoria": "disolvente",
-    "definido": false
+    "compuesto_definido": false
    },
    "codigo": "381400"
   },

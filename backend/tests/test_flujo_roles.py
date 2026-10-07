@@ -21,11 +21,11 @@ def _sugerido(interno, generico: str, estilo: str) -> dict:
                                               "nombre": "Leather skate shoe", "tallas": [{"talla": "8"}]})
     assert r.status_code == 200, r.text
     p = next(x for x in interno.get("/productos", params={"q": estilo}).json()["items"] if x["estilo"] == estilo)
-    ficha = {"comp": {"corte": "100% leather", "suela": "100% rubber"}, "estiloCalz": "tenis", "altura": "bajo", "genero": "U",
-             "edadNac": "adulto", "puntera": "ninguna"}
+    ficha = {"comp": {"corte": "100% leather", "suela": "100% rubber"}, "estilo_calzado": "tenis", "altura": "bajo", "genero": "U",
+             "edad": "adulto", "uso_deportivo": "no"}
     p = interno.put(f"/productos/{p['id']}/ficha", {"version": p["version"], "tipo": "calzado", "ficha": ficha, "pais_origen": "VN",
                                                      "nombre": "Leather skate shoe",
-                                                     "tocados": ["estiloCalz", "altura", "genero", "edadNac", "puntera"]}).json()
+                                                     "tocados": ["estilo_calzado", "altura", "genero", "edad", "uso_deportivo"]}).json()
     assert p["estado"] == "sugerida", p.get("faltan")
     return p
 
@@ -121,7 +121,8 @@ def test_migraciones_de_permisos_y_condiciones():
                     " VALUES (1, 'DOMAIN', 'FOOTWEAR', 'SHOW', 9, 1, ?)", (json.dumps([{"genero": ["M", "F"]}, {"edad": "adulto"}]),))
         con.commit()
         con.close()
-        r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        # Hasta 0033: la 0034 borra la configuración anterior del motor (se siembra la de las Notas Explicativas)
+        r = subprocess.run(alembic + ["upgrade", "0033"], cwd=RAIZ, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
         con = sqlite3.connect(f"{tmp}/m.db")
         roles = {n: json.loads(p) for n, p in con.execute("SELECT nombre, permisos FROM roles")}
@@ -163,7 +164,7 @@ def test_regla_desde_decision_y_su_impacto(interno, flujo):
     assert r.status_code == 200, r.text
     b = interno.get(f"/aranceles/reglas/desde-producto/{p['id']}").json()
     assert b["tipo_ambito"] == "CATEGORY" and b["codigo_ambito"] == "calzado" and b["accion"] == {"tipo": "RESTRICT", "codigos": [hs6]}
-    assert {c["campo"] for c in b["condiciones"]} >= {"estiloCalz", "altura"}
+    assert {c["campo"] for c in b["condiciones"]} >= {"estilo_calzado", "altura"}
     antes = interno.get("/aranceles/reglas", params={"size": 1}).json()["total"]
     sim = interno.post("/aranceles/reglas/simular", {**b, "prioridad": 5000}).json()
     assert sim["evaluados"] >= 1 and sim["en_ambito"] >= sim["evaluados"]

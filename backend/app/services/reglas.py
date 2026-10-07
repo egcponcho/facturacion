@@ -8,11 +8,11 @@
   un código nacional dentro de su subpartida. Antes vivían en el propio código
   (IncisoNacional.cond/prio); ahora son reglas que se pueden revisar, apagar y
   priorizar sin tocar el dato oficial.
-- Reglas de la ficha (SHEET_RULES): reglas de sistema por categoría,
-  sembradas desde data/motor_reglas.json (la lógica de decisión que tenía el
-  antiguo clasificador del navegador, convertida en datos y verificada con
-  tests/test_motor_reglas.py). Ámbito CATEGORY, condiciones sobre atributos
-  y hechos derivados de la composición, y RESTRICT al código (o mapa fibra →
+- Reglas de las familias (SHEET_RULES): reglas de sistema por categoría,
+  sembradas desde data/motor/familias y escritas con las Notas Explicativas
+  del SA (cada efecto dice qué nota la respalda; tests/test_familias_notas.py
+  fija sus casos). Ámbito CATEGORY, condiciones sobre atributos y hechos
+  derivados de la composición, y RESTRICT al código (o mapa fibra →
   subpartida). Se editan, apagan y priorizan como cualquier regla.
 """
 import hashlib
@@ -21,7 +21,6 @@ import json
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..datos import MOTOR
 from ..models import CondicionRegla, DominioClasificacion, IncisoNacional, ReglaClasificacion, Usuario
 from .common import ErrorNegocio, exigir, filtro_texto, registrar
 from .meta import cond_texto
@@ -332,11 +331,8 @@ def guardar(db: Session, user: Usuario, regla_id: int, datos: dict) -> dict:
     return _dict(r)
 
 
-# ---- Reglas de la ficha (sembradas desde data/motor_reglas.json) ----------------------
-DATOS_MOTOR = MOTOR / "motor_reglas.json"
-# Reglas de la ficha (ropa, calzado, accesorios) y técnicas (químicos y materias primas)
-ARCHIVOS_REGLAS = (DATOS_MOTOR, MOTOR / "motor_reglas_tecnicas.json")
-PREFIJOS_BASE = ("R-MJS-", "R-TEC-")
+# ---- Reglas de las familias (sembradas desde data/motor/familias) -------------------
+PREFIJOS_BASE = ("R-NE-", "R-MJS-", "R-TEC-")  # las de la base (las dos últimas, del catálogo anterior)
 PRIORIDAD_MOTOR = 900  # antes que las propias (800): una regla propia posterior manda sobre ellas
 
 
@@ -349,33 +345,38 @@ def _firma_motor(condiciones: list, accion: dict) -> str:
 
 
 def cargar_reglas_ficha(db: Session) -> dict:
-    """Siembra o pone al día las reglas de la ficha (data/motor_reglas.json). Una regla que
-    alguien editó (su firma ya no coincide) no se pisa; las que el motor ya no
-    produce se apagan si nadie las tocó."""
-    datos = {"reglas": [r for f in ARCHIVOS_REGLAS for r in json.loads(f.read_text(encoding="utf-8"))["reglas"]]}
+    """Siembra o pone al día las reglas de las familias. Una regla que alguien
+    editó (su firma ya no coincide) no se pisa; las que la semilla ya no trae
+    se apagan si nadie las tocó."""
+    from .semilla_familias import semilla
+
     existentes = {r.codigo: r for r in db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "SHEET_RULES"))}
     n = {"nuevas": 0, "actualizadas": 0, "editadas": 0, "retiradas": 0}
     vistas = set()
-    for d in datos["reglas"]:
+    for d in semilla()["reglas"]:
         vistas.add(d["codigo"])
         conds = [{"grupo": 1, **c} for c in d["condiciones"]]
         accion = dict(d["accion"])
         firma = _firma_motor(conds, accion)
+        prioridad = d.get("prioridad", PRIORIDAD_MOTOR)
         r = existentes.get(d["codigo"])
         if r:
             actual = [_cond_dict(c) for c in r.condiciones]
             if (r.accion or {}).get("firma") != _firma_motor(actual, r.accion or {}):
                 n["editadas"] += 1  # alguien la cambió: se respeta
                 continue
-            if (r.accion or {}).get("firma") == firma and r.efecto == d.get("efecto"):
+            if (r.accion or {}).get("firma") == firma and r.efecto == d.get("efecto") and r.prioridad == prioridad:
                 continue
             n["actualizadas"] += 1
         else:
             r = ReglaClasificacion(codigo=d["codigo"], tipo_fuente="SHEET_RULES", activo=True)
             db.add(r)
             n["nuevas"] += 1
-        r.tipo_regla, r.tipo_ambito, r.codigo_ambito = "HARD_CONSTRAINT", "CATEGORY", d["categoria"]
-        r.familia, r.prioridad, r.efecto = f"MOTOR_{d['grupo'].upper()}"[:30], PRIORIDAD_MOTOR, d.get("efecto")
+        tipo = accion.get("tipo") or "RESTRICT"
+        r.tipo_regla = {"REVIEW": "REVIEW_GATE", "ASK": "QUESTION_GATE", "BOOST": "SOFT_SIGNAL"}.get(tipo, "HARD_CONSTRAINT")
+        r.tipo_ambito, r.codigo_ambito = "CATEGORY", d["categoria"]
+        r.familia, r.prioridad, r.efecto = f"NE_{d['familia'].upper()}"[:30], prioridad, d.get("efecto")
+        r.requiere_revision = bool(d.get("requiere_revision"))
         r.accion = {**accion, "firma": firma}
         r.condiciones = [CondicionRegla(grupo=c["grupo"], campo=c["campo"], operador=c["operador"], valor=c.get("valor"),
                                         valor_hasta=c.get("valor_hasta"), negado=bool(c.get("negado"))) for c in conds]

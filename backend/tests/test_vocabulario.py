@@ -42,8 +42,8 @@ def test_package_errors_name_the_problem(interno):
         "Attributes": [ATTRS, ["sole_flag", "Sole", "boolean", None, "No", "Yes", "CORE", None, "comp.suela"],
                        ["ghost", "Ghost", "text", None, "No", "Yes", "CORE", None, "no_such_attribute"]],
         "Attribute_Scope": [["Attribute code", "Scope type", "Scope code", "Mode", "Priority", "Condition / dependency", "Active"],
-                            ["cas_number", "CATEGORY", "not_a_category", "SHOW", 500, None, "Yes"],
-                            ["cas_number", "HEADING", "29", "SHOW", 500, None, "Yes"]],
+                            ["comp.material", "CATEGORY", "not_a_category", "SHOW", 500, None, "Yes"],
+                            ["comp.material", "HEADING", "29", "SHOW", 500, None, "Yes"]],
         "Classification_Rules": [REGLAS, ["R-BAD-1", "DOMAIN", "NOPE", "SOFT_SIGNAL", 10, "COMPANY", "TEST", "x", "No", "No"],
                                  ["R-BAD-2", "SYSTEM", "ALL", "SOFT_SIGNAL", 10, "COMPANY", "TEST", "x", "No", "No"]],
         "Rule_Conditions": [CONDS, ["R-BAD-2", 1, "no_such_field", "EQUAL", "x", None, "No"]],
@@ -102,7 +102,7 @@ def test_migration_removes_duplicates_and_keeps_captured_values():
                                "ficha": json.dumps({"upper_material": "100% canvas", "footwear_type": "X", "comp": {"suela": "rubber"}})})
         con.commit()
         con.close()
-        r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        r = subprocess.run(alembic + ["upgrade", "0033"], cwd=RAIZ, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
         con = sqlite3.connect(f"{tmp}/m.db")
         codigos = {x[0] for x in con.execute("SELECT codigo FROM atributos_def")}
@@ -111,23 +111,29 @@ def test_migration_removes_duplicates_and_keeps_captured_values():
         assert json.loads(con.execute("SELECT alias FROM atributos_def WHERE codigo = 'comp.corte'").fetchone()[0]) == ["upper_material"]
         ficha = json.loads(con.execute("SELECT ficha FROM productos WHERE id = 1").fetchone()[0])
         assert ficha == {"comp": {"suela": "rubber", "corte": "100% canvas"}}
+        con.close()
+        # 0034 borra la configuración anterior del motor (se siembra la de las Notas Explicativas); lo capturado queda
+        r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+        con = sqlite3.connect(f"{tmp}/m.db")
+        assert not con.execute("SELECT 1 FROM atributos_def").fetchall()
+        assert json.loads(con.execute("SELECT ficha FROM productos WHERE id = 1").fetchone()[0]) == ficha
 
 
 def test_engine_code_names_no_family():
     """El motor, la ficha y las descripciones no nombran categorías, atributos ni
     opciones de una familia: todo eso es configuración. Solo quedan nombres que
     son del propio motor (modos de lectura de materiales y claves internas)."""
-    import json
     import re
 
-    from app.datos import MOTOR
     from test_oficial import RAIZ
 
-    d = json.loads((MOTOR / "motor_atributos.json").read_text(encoding="utf-8"))
-    t = json.loads((MOTOR / "motor_tecnico.json").read_text(encoding="utf-8"))
-    codigos = {c["codigo"] for c in d["categorias"] + t["categorias"]} | {a["codigo"] for a in d["atributos"] + t["atributos"]}
-    codigos |= {o["codigo"] for a in d["atributos"] + t["atributos"] for o in a.get("opciones") or []}
-    del_motor = {"aluminio", "corrugado", "metal", "paja", "fibra", "producto", "etiqueta", "completa", "otra", "composition", "none"}
+    from app.services.semilla_familias import semilla
+
+    d = semilla()
+    codigos = {c["codigo"] for c in d["categorias"]} | {a["codigo"] for a in d["atributos"]}
+    codigos |= {o["codigo"] for a in d["atributos"] for o in a.get("opciones") or []}
+    del_motor = {"aluminio", "corrugado", "metal", "paja", "fibra", "producto", "etiqueta", "completa", "otra", "composition", "none", "material", "no"}
     for f in ("ficha.py", "motor_clasificacion.py", "descripciones.py"):
         fuente = (RAIZ / "app" / "services" / f).read_text(encoding="utf-8")
         nombrados = set(re.findall(r'"([A-Za-z_.]+)"', fuente)) & codigos - del_motor

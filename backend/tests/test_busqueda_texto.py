@@ -14,7 +14,7 @@ def test_text_only_is_low_confidence_and_points_to_manual_chapters(interno):
     assert s["confianza"] == "low" and s["requiere_revision"]
     assert any("chapter 84" in a["msg"] and "by hand" in a["msg"] for a in s["alertas"]), s["alertas"]
     # Con reglas de una familia configurada la confianza sí puede ser alta
-    s = _sesion(interno, nombre="Running shoes mesh upper rubber sole")
+    s = _sesion(interno, nombre="Running shoes mesh upper rubber sole", ficha={"comp": {"corte": "100% polyester mesh", "suela": "100% rubber"}})
     assert s["categoria"]["codigo"] == "calzado" and s["confianza"] == "high"
 
 

@@ -107,7 +107,7 @@
    "patrones": [
     {
      "re": "\\b(staple fibers?|fibras? (cortas?|discontinuas?|textiles?)|raw cotton|algodon sin cardar|polyester fiber|fibra de poliester|wadding fiber|fiberfill|guata de fibra|wool tops?|tow)\\b",
-     "prioridad": 30
+     "prioridad": 200
     }
    ]
   },
@@ -132,7 +132,7 @@
    "patrones": [
     {
      "re": "\\b(yarns?|hilos?|hilados?|sewing threads?|hilo de coser|filament yarns?|spun yarns?)\\b",
-     "prioridad": 33
+     "prioridad": 203
     }
    ]
   },
@@ -157,7 +157,7 @@
    "patrones": [
     {
      "re": "\\b(woven fabrics?|tejidos? planos?|telas?|fabrics? (in rolls?|by the meter)|denim|mezclilla|canvas|lona|poplin|popelina|twill|sarga|ripstop|oxford|taffeta|tafetan|chambray|gabardin[ae])\\b",
-     "prioridad": 32
+     "prioridad": 202
     }
    ]
   },
@@ -177,7 +177,7 @@
    "patrones": [
     {
      "re": "\\b(knit(ted)? fabrics?|tejidos? de punto|jersey fabric|mesh fabric|malla|spacer mesh|fleece fabric|tela polar|rib knit|single jersey|interlock|tricot|pique fabric)\\b",
-     "prioridad": 32
+     "prioridad": 202
     }
    ]
   },
@@ -197,7 +197,7 @@
    "patrones": [
     {
      "re": "\\b(nonwovens?|non-woven|tela sin tejer|tnt|spunbond|felt|fieltro|needle ?punch|punzonad[oa])\\b",
-     "prioridad": 31
+     "prioridad": 201
     }
    ]
   },
@@ -211,14 +211,15 @@
    "dominio": "RAW_MATERIALS",
    "capitulos": [
     "59",
-    "39"
+    "39",
+    "56"
    ],
    "alias": "tela recubierta tela laminada tela engomada",
    "orden": 60,
    "patrones": [
     {
      "re": "\\b(coated fabrics?|telas? recubiertas?|laminated fabrics?|telas? laminadas?|pvc coated|pu coated|rubberi[sz]ed fabric|neoprene fabric|tela engomada)\\b",
-     "prioridad": 31
+     "prioridad": 201
     }
    ]
   },
@@ -239,7 +240,7 @@
    "patrones": [
     {
      "re": "\\b(labels?|etiquetas?|elastic (bands?|tapes?)|elasticos?|cintas?|ribbons?|listones?|webbing|reatas?|hook and loop|velcro|lace|encajes?|braids?|trenzas?|embroider(y|ies)|bordados?|patches? bordad\\w*|piping|vivos?)\\b",
-     "prioridad": 34
+     "prioridad": 204
     }
    ]
   },
@@ -253,14 +254,15 @@
    "dominio": "RAW_MATERIALS",
    "capitulos": [
     "96",
-    "83"
+    "83",
+    "39"
    ],
    "alias": "cierre zipper botón broche hebilla ojete remache",
    "orden": 80,
    "patrones": [
     {
      "re": "\\b(zippers?|cierres?|cremalleras?|buttons?|botones?|snaps?|broches?|buckles?|hebillas?|eyelets?|ojetes?|ojales metalicos|grommets?|hooks?|ganchos?|rivets?|remaches?|sliders?|tiradores?|cord locks?|topes?)\\b",
-     "prioridad": 35
+     "prioridad": 205
     }
    ]
   },
@@ -280,7 +282,7 @@
    "patrones": [
     {
      "re": "\\b(resins?|resinas?|pellets?|granul(es|os)|polymers?|polimeros?|compounds? de pvc|pvc compound|tpu pellets?|eva pellets?|polyurethane (resin|system)|poliol|polyol|isocyanate|isocianato)\\b",
-     "prioridad": 31
+     "prioridad": 201
     }
    ]
   },
@@ -300,7 +302,7 @@
    "patrones": [
     {
      "re": "\\b(plastic (sheets?|films?)|laminas? (de )?plastic\\w*|films?|peliculas?|foam sheets?|espumas?|eva foam|pu foam|sheets? of (eva|pvc|tpu)|tpu film|hot melt film)\\b",
-     "prioridad": 31
+     "prioridad": 201
     }
    ]
   },
@@ -320,7 +322,7 @@
    "patrones": [
     {
      "re": "\\b(rubber (sheets?|compound|crepe)?|caucho|latex|hule|rubber soling sheets?|planchas? de caucho|crepe)\\b",
-     "prioridad": 31
+     "prioridad": 201
     }
    ]
   },
@@ -340,7 +342,7 @@
    "patrones": [
     {
      "re": "\\b(leather|cueros?|hides?|wet ?blue|crust|nubuck|suede|gamuza|napa|nappa|patent leather|charol|split leather|carnaza|vaqueta)\\b",
-     "prioridad": 32
+     "prioridad": 202
     }
    ]
   },
@@ -362,7 +364,7 @@
    "patrones": [
     {
      "re": "\\b(synthetic leather|cuero sintetico|pu leather|pvc leather|faux leather|vegan leather|leatherette|microfiber leather|similcuero|cuerina|ecocuero)\\b",
-     "prioridad": 33
+     "prioridad": 203
     }
    ]
   },
@@ -382,7 +384,7 @@
    "patrones": [
     {
      "re": "\\b(paper|papel|paperboard|carton|cardboard|boxes?|cajas?|corrugated|corrugad[oa]|tissue paper|papel de seda|paper bags?|bolsas? de papel|kraft)\\b",
-     "prioridad": 30
+     "prioridad": 200
     }
    ]
   },
@@ -404,7 +406,7 @@
    "patrones": [
     {
      "re": "\\b(steel (sheets?|wire|bars?)|acero|alumin(i)?um|aluminio|copper|cobre|brass|laton|wire|alambre|metal sheets?|laminas? metalicas?)\\b",
-     "prioridad": 28
+     "prioridad": 198
     }
    ]
   }
@@ -876,6 +878,12 @@
     {
      "codigo": "tejido",
      "etiqueta": "Woven or knitted fabric, coating visible",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
      "orden": 10
     },
     {
@@ -905,8 +913,7 @@
      "prioridad": 500
     }
    ],
-   "ayuda": "Chapter 59 Note 2: when the textile only reinforces a plastic sheet, or the coating cannot be seen, it is not 59.03.",
-   "valor_defecto": "tejido"
+   "ayuda": "Chapter 59 Note 2: when the textile only reinforces a plastic sheet, or the coating cannot be seen, it is not 59.03."
   },
   {
    "codigo": "tipo_cinta",
@@ -1461,7 +1468,7 @@
      "orden": 50
     },
     {
-     "codigo": "perfil",
+     "codigo": "perfil_varilla",
      "etiqueta": "Vulcanized profile or rod",
      "orden": 60
     }
@@ -1904,9 +1911,9 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "5201",
+     "520100",
      "5202",
-     "5203"
+     "520300"
     ]
    },
    "efecto": "Textile fiber, not spun, of algodon → its chapter"
@@ -1929,7 +1936,7 @@
      "5101",
      "5102",
      "5103",
-     "5104",
+     "510400",
      "5105"
     ]
    },
@@ -1950,9 +1957,9 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "5001",
-     "5002",
-     "5003"
+     "500100",
+     "500200",
+     "500300"
     ]
    },
    "efecto": "Textile fiber, not spun, of seda → its chapter"
@@ -2002,7 +2009,12 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "5501"
+     "550111",
+     "550119",
+     "550120",
+     "550130",
+     "550140",
+     "550190"
     ]
    },
    "efecto": "Synthetic filament tow → 55.01"
@@ -2085,7 +2097,7 @@
     "tipo": "RESTRICT",
     "codigos": [
      "5504",
-     "5507"
+     "550700"
     ]
    },
    "efecto": "Artificial staple fibers → 55.04 or 55.07"
@@ -2441,9 +2453,9 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "5004",
-     "5005",
-     "5006"
+     "500400",
+     "500500",
+     "500600"
     ]
    },
    "efecto": "Silk yarn → 50.04–50.06"
@@ -2513,7 +2525,7 @@
     "tipo": "RESTRICT",
     "codigos": [
      "5403",
-     "5405"
+     "540500"
     ]
    },
    "efecto": "Artificial filament yarn → 54.03"
@@ -2823,7 +2835,7 @@
     "codigos": [
      "5111",
      "5112",
-     "5113"
+     "511300"
     ]
    },
    "efecto": "Woven wool or fine animal hair → 51.11–51.13"
@@ -3270,7 +3282,10 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "56031"
+     "560311",
+     "560312",
+     "560313",
+     "560314"
     ]
    },
    "efecto": "Nonwoven of man-made filaments → 5603.1x by weight"
@@ -3290,7 +3305,10 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "56039"
+     "560391",
+     "560392",
+     "560393",
+     "560394"
     ]
    },
    "efecto": "Other nonwovens → 5603.9x by weight"
@@ -4283,7 +4301,7 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "3910"
+     "391000"
     ]
    },
    "efecto": "silicona in primary forms → 3910 (chapter 39 Note 6)"
@@ -4308,11 +4326,11 @@
      "3907",
      "3908",
      "3909",
-     "3910",
+     "391000",
      "3911",
      "3912",
      "3913",
-     "3914"
+     "391400"
     ]
    },
    "efecto": "otro in primary forms → 3905, 3906, 3907, 3908, 3909, 3910, 3911, 3912, 3913, 3914 (chapter 39 Note 6)"
@@ -4517,7 +4535,8 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "39204"
+     "392043",
+     "392049"
     ]
    },
    "efecto": "Non-cellular, unreinforced plastic sheet of pvc → 39204"
@@ -4558,7 +4577,8 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "39205"
+     "392051",
+     "392059"
     ]
    },
    "efecto": "Non-cellular, unreinforced plastic sheet of acrilico → 39205"
@@ -4599,7 +4619,10 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "39206"
+     "392061",
+     "392062",
+     "392063",
+     "392069"
     ]
    },
    "efecto": "Non-cellular, unreinforced plastic sheet of poliester → 39206"
@@ -4810,7 +4833,11 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "39211"
+     "392111",
+     "392112",
+     "392113",
+     "392114",
+     "392119"
     ]
    },
    "efecto": "Cellular plastic sheet (foam) → 3921.1x"
@@ -4950,14 +4977,14 @@
    "efecto": "Non-cellular rubber sheet → 4008.21"
   },
   {
-   "codigo": "R-NE-MP-CAUCHO-PERFIL",
+   "codigo": "R-NE-MP-CAUCHO-PERFIL_VARILLA",
    "categoria": "caucho",
    "condiciones": [
     {
      "grupo": 1,
      "campo": "forma_caucho",
      "operador": "EQUAL",
-     "valor": "perfil",
+     "valor": "perfil_varilla",
      "negado": false
     }
    ],
@@ -4992,7 +5019,8 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "41041"
+     "410411",
+     "410419"
     ]
    },
    "efecto": "Bovino leather, humedo → 41041 (chapter 41)"
@@ -5019,7 +5047,8 @@
    "accion": {
     "tipo": "RESTRICT",
     "codigos": [
-     "41044"
+     "410441",
+     "410449"
     ]
    },
    "efecto": "Bovino leather, crust → 41044 (chapter 41)"
@@ -5725,7 +5754,7 @@
     "codigos": [
      "4801",
      "4802",
-     "4803",
+     "480300",
      "4804",
      "4805",
      "4806",
@@ -5794,7 +5823,7 @@
     "tipo": "RESTRICT",
     "codigos": [
      "7217",
-     "7223"
+     "722300"
     ]
    },
    "efecto": "acero alambre → 7217, 7223"

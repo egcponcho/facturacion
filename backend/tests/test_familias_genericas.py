@@ -4,7 +4,6 @@ import json
 
 from sqlalchemy import select
 
-from app.datos import MOTOR
 from app.db import SessionLocal
 from app.models import ReglaClasificacion
 from test_oficial import _cargar
@@ -17,33 +16,33 @@ def _sesion(api, **e):
     return r.json()
 
 
-def test_technical_rules_point_to_codes_of_the_tariff_in_force(interno):
+def test_family_rules_point_to_codes_of_the_tariff_in_force(interno):
     from app.services.motor_clasificacion import codigos_invalidos
+    from app.services.semilla_familias import semilla
 
-    reglas = json.loads((MOTOR / "motor_reglas_tecnicas.json").read_text(encoding="utf-8"))["reglas"]
+    reglas = semilla()["reglas"]
     with SessionLocal() as db:
-        malos = {r["codigo"]: codigos_invalidos(db, r["accion"]["codigos"]) for r in reglas}
+        malos = {r["codigo"]: codigos_invalidos(db, r["accion"].get("codigos") or []) for r in reglas}
         assert not {k: v for k, v in malos.items() if v}
-        cargadas = {r.codigo for r in db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.codigo.like("R-TEC-%")))}
+        cargadas = {r.codigo for r in db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.codigo.like("R-NE-%")))}
     assert cargadas == {r["codigo"] for r in reglas}
 
 
 def test_chemicals_and_raw_materials_are_decided_by_rules(interno):
-    s = _sesion(interno, nombre="Citric acid anhydrous", categoria="organic_chemical", ficha={"chemically_defined": True})
-    assert s["hs6"].startswith("29") and any(t["regla"] == "R-TEC-QUI-002" and t["aplicada"] for t in s["reglas"])
-    s = _sesion(interno, nombre="Polyethylene pellets", categoria="plastic_resin", ficha={"polymer_type": "pe"})
-    assert s["hs6"].startswith("3901") and any(t["regla"] == "R-TEC-PLA-002" and t["aplicada"] for t in s["reglas"])
-    s = _sesion(interno, nombre="Finished cow leather", categoria="leather",
-                ficha={"leather_kind": "full_grain", "tanning_state": "finished", "animal": "bovine"})
+    s = _sesion(interno, nombre="Acido acetico glacial", categoria="quimico_organico", ficha={"compuesto_definido": True, "grupo_organico": "acido"})
+    assert s["hs6"].startswith("2915") and any(t["regla"] == "R-NE-QUI-ORG-ACIDO" and t["aplicada"] for t in s["reglas"])
+    s = _sesion(interno, nombre="Polyethylene pellets", categoria="resina_plastica", ficha={"polimero": "polietileno"})
+    assert s["hs6"].startswith("3901") and any(t["regla"] == "R-NE-MP-RESINA-POLIETILENO" and t["aplicada"] for t in s["reglas"])
+    s = _sesion(interno, nombre="Finished cow leather", categoria="cuero", ficha={"animal": "bovino", "estado_cuero": "terminado"})
     assert s["hs6"].startswith("4107")
-    # Una regla que apunta a un capítulo que se clasifica a mano (59 en el paquete oficial) lo dice y pide revisión
-    s = _sesion(interno, nombre="PVC coated polyester fabric", categoria="coated_fabric", ficha={"coating_material": "pvc"})
-    assert s["requiere_revision"] and any("R-TEC-TEX-050" in m and "chapter 59" in m for m in s["revision_por"]), s["revision_por"]
-    s = _sesion(interno, nombre="Disperse dye", categoria="dye", ficha={"dye_class": "disperse"})
+    s = _sesion(interno, nombre="PVC coated polyester fabric", categoria="tela_recubierta",
+                ficha={"soporte": "tejido", "recubrimiento": "pvc", "comp": {"material": "100% polyester"}})
+    assert s["hs6"] == "590310"
+    s = _sesion(interno, nombre="Disperse dye", categoria="colorante", ficha={"clase_colorante": "dispersos"})
     assert s["hs6"] == "320411" and s["confianza"] == "high"
     # Sin el dato que decide, la regla lo pregunta
-    s = _sesion(interno, nombre="Dye powder", categoria="dye")
-    assert any(q["codigo"] == "dye_class" for q in s["preguntas"][:3]) and s["requiere_revision"]
+    s = _sesion(interno, nombre="Dye powder", categoria="colorante")
+    assert any(q["codigo"] == "clase_colorante" for q in s["preguntas"][:3]) and s["requiere_revision"]
 
 
 def test_new_family_only_with_configuration(interno):

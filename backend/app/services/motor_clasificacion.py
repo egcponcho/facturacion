@@ -422,6 +422,8 @@ def _normalizar(db: Session, caso: Caso) -> None:
             continue
         if a.booleano and s.get(a.codigo) is False and ficha.get(a.codigo) is not False and not cat.aplica(a, s):
             continue  # el «no» por defecto de una casilla que no aplica no se guarda
+        if a.codigo in (s.get("_supuestos") or ()) and _vacio(ficha.get(a.codigo)) and not cat.aplica(a, s):
+            continue  # ni otro valor por defecto de una pregunta que no es de esta categoría
         if a.codigo in s and not _vacio(s[a.codigo]):
             ficha[a.codigo] = s[a.codigo]
         elif a.codigo in ficha and not (a.booleano and ficha[a.codigo] is False):

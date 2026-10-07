@@ -29,14 +29,15 @@ def test_paquete_oficial_cargado(interno):
     assert caps["total"] == 99 and caps["habilitados"] > 60
     por = {c["capitulo"]: c for c in caps["items"]}
     assert por["64"]["clasificacion"] and por["01"]["activo"] is False
-    assert {d["codigo"] for d in por["28"]["dominios"]} == {"CHEMICALS", "RAW_MATERIALS"}
+    assert {d["codigo"] for d in por["28"]["dominios"]} == {"CHEMICALS"}
+    assert {d["codigo"] for d in por["59"]["dominios"]} == {"RAW_MATERIALS"} and por["59"]["candidato_auto"]
     assert por["57"]["solo_manual"] and not por["57"]["candidato_auto"]
     fv = interno.get("/aranceles/oficial/fuentes").json()
     assert {"SRC-SIECA-ACI", "SRC-CR-ATENA", "SRC-PA-ANA"} <= {f["codigo"] for f in fv["fuentes"]}
     sac = next(v for v in fv["versiones"] if v["codigo"] == "SAC-2025-V6")
     assert sac["estado"] == "PUBLICADA" and sac["fuente"] == "SRC-SIECA-ACI" and sac["vigente_desde"] == "2025-08-01"
     doms = {d["codigo"]: d for d in interno.get("/aranceles/oficial/dominios").json()}
-    assert {"CHEMICALS", "RAW_MATERIALS", "FOOTWEAR", "APPAREL", "ACCESSORIES_MERCH"} <= set(doms)  # (otras pruebas agregan dominios)
+    assert {"CHEMICALS", "RAW_MATERIALS", "FOOTWEAR", "APPAREL", "ACCESSORIES"} <= set(doms)  # (otras pruebas agregan dominios)
     quim = {c["capitulo"]: c["relevancia"] for c in doms["CHEMICALS"]["capitulos"]}
     assert quim["29"] == "PRIMARY" and quim["39"] == "SECONDARY"
     # Búsqueda inteligente en capítulos
@@ -103,24 +104,26 @@ def test_arbol_arancelario_completo(interno):
 
 
 def test_atributos_en_base_de_datos(interno):
-    """Atributos del paquete 02 del motor y de la configuración incluida (ficha y categorías técnicas), con
+    """Atributos del paquete 02 del motor (los generales) y de las familias, con
     opciones y ámbitos: todos son configuración del motor, ninguno es dato oficial."""
+    from app.services.semilla_familias import semilla
+
     r = interno.get("/aranceles/atributos").json()
-    assert "OFICIAL" not in r["por_origen"] and r["por_origen"]["PAQUETE"] >= 19 and r["por_origen"]["MOTOR"] == 79 + 61
+    assert "OFICIAL" not in r["por_origen"] and r["por_origen"]["PAQUETE"] >= 8 and r["por_origen"]["MOTOR"] == len(semilla()["atributos"])
     por = {a["codigo"]: a for a in r["items"]}
-    assert por["cas_number"]["dominio"] == "CHEMICALS" and "material_composition" not in por
+    assert por["cas"]["dominio"] == "CHEMICALS" and "material_composition" not in por
     assert por["comp.material"]["alias"] == ["material_composition"]  # «Same as» del paquete: un alias, no un duplicado
-    assert por["estiloCalz"]["dominio"] == "FOOTWEAR" and por["tejido"]["dominio"] == "APPAREL"
-    d = interno.get(f"/aranceles/atributos/{por['physical_state']['id']}").json()
-    assert [o["codigo"] for o in d["opciones"]] == ["SOLID", "LIQUID", "GAS", "POWDER", "PASTE"]
-    assert any(x["tipo_ambito"] == "DOMAIN" and x["codigo_ambito"] == "CHEMICALS" for x in d["ambitos"])
+    assert por["estilo_calzado"]["dominio"] == "FOOTWEAR" and por["materia_base"]["dominio"] == "APPAREL"
+    d = interno.get(f"/aranceles/atributos/{por['estado_fisico']['id']}").json()
+    assert [o["codigo"] for o in d["opciones"]] == ["liquido", "solido", "polvo", "pasta", "gas"]
+    assert any(x["tipo_ambito"] == "CATEGORY" and x["codigo_ambito"] == "adhesivo" for x in d["ambitos"])
     # Ámbitos del motor: categorías donde aplica y respuestas que lo activan
     t = interno.get(f"/aranceles/atributos/{por['tejido']['id']}").json()
     cint = next(x for x in t["ambitos"] if x["codigo_ambito"] == "cinturon")
-    assert {"campo": "materialCinturon", "operador": "EQUAL", "valor": "textil"}.items() <= cint["condicion"][0].items()
-    assert next(x for x in t["ambitos"] if x["codigo_ambito"] == "camiseta")["condicion"] is None
+    assert {"campo": "material", "operador": "EQUAL", "valor": "textil"}.items() <= cint["condicion"][0].items()
+    assert next(x for x in t["ambitos"] if x["codigo_ambito"] == "camiseta")["condicion"][0]["campo"] == "materia_base"
     # Búsqueda inteligente
-    assert "chemical_name" in {a["codigo"] for a in interno.get("/aranceles/atributos", params={"q": "name chemic"}).json()["items"]}
+    assert "nombre_quimico" in {a["codigo"] for a in interno.get("/aranceles/atributos", params={"q": "name chemic"}).json()["items"]}
     # La ficha recibe el catálogo del motor del servidor (campos con sus opciones)
     s = interno.post("/clasificacion/sesion", {"categoria": "camiseta", "paises": False}).json()
     tej = next(c for c in s["campos"] if c["codigo"] == "tejido")
@@ -129,12 +132,12 @@ def test_atributos_en_base_de_datos(interno):
 
 def test_editar_atributos_opciones_y_ambitos(interno):
     por = {a["codigo"]: a for a in interno.get("/aranceles/atributos").json()["items"]}
-    aid = por["physical_state"]["id"]
-    d = interno.post(f"/aranceles/atributos/{aid}/opciones", {"codigo": "GRANULE", "etiqueta": "Granules", "alias": "pellets; granules"}).json()
-    assert d["opciones"][-1]["codigo"] == "GRANULE"
-    gas = next(o for o in d["opciones"] if o["codigo"] == "GAS")
+    aid = por["estado_fisico"]["id"]
+    d = interno.post(f"/aranceles/atributos/{aid}/opciones", {"codigo": "granulos", "etiqueta": "Granules", "alias": "pellets; granules"}).json()
+    assert d["opciones"][-1]["codigo"] == "granulos"
+    gas = next(o for o in d["opciones"] if o["codigo"] == "gas")
     d = interno.patch(f"/aranceles/atributos/{aid}/opciones/{gas['id']}", {"activo": False}).json()
-    assert not next(o for o in d["opciones"] if o["codigo"] == "GAS")["activo"]
+    assert not next(o for o in d["opciones"] if o["codigo"] == "gas")["activo"]
     d = interno.post(f"/aranceles/atributos/{aid}/ambitos", {"tipo_ambito": "CHAPTER", "codigo_ambito": "28", "modo": "REQUIRE", "prioridad": 950}).json()
     amb = next(x for x in d["ambitos"] if x["tipo_ambito"] == "CHAPTER")
     assert amb["modo"] == "REQUIRE"
@@ -144,11 +147,12 @@ def test_editar_atributos_opciones_y_ambitos(interno):
     assert not any(x["tipo_ambito"] == "CHAPTER" for x in d["ambitos"])
     # Etiqueta editada y atributo apagado llegan a la ficha
     sesion = {"categoria": "camiseta", "ficha": {"tejido": "punto"}, "paises": False}
-    interno.patch(f"/aranceles/atributos/{por['polo']['id']}", {"etiqueta": "Polo collar"})
-    assert next(c for c in interno.post("/clasificacion/sesion", sesion).json()["campos"] if c["codigo"] == "polo")["etiqueta"] == "Polo collar"
-    interno.patch(f"/aranceles/atributos/{por['polo']['id']}", {"activo": False})
-    assert not any(c["codigo"] == "polo" for c in interno.post("/clasificacion/sesion", sesion).json()["campos"])
-    interno.patch(f"/aranceles/atributos/{por['polo']['id']}", {"etiqueta": "Has a collar and a buttoned placket at the neck (polo style)", "activo": True})
+    interno.patch(f"/aranceles/atributos/{por['ajuste_bajo']['id']}", {"etiqueta": "Tightening at the hem"})
+    assert next(c for c in interno.post("/clasificacion/sesion", sesion).json()["campos"] if c["codigo"] == "ajuste_bajo")["etiqueta"] == "Tightening at the hem"
+    interno.patch(f"/aranceles/atributos/{por['ajuste_bajo']['id']}", {"activo": False})
+    assert not any(c["codigo"] == "ajuste_bajo" for c in interno.post("/clasificacion/sesion", sesion).json()["campos"])
+    interno.patch(f"/aranceles/atributos/{por['ajuste_bajo']['id']}", {"etiqueta": "Elastic, drawstring or ribbed waistband at the bottom hem",
+                                                                         "activo": True})
     # Nuevo atributo del usuario
     d = interno.post("/aranceles/atributos", {"codigo": "flash_point", "etiqueta": "Flash point", "tipo_dato": "number", "unidad": "°C", "dominio": "CHEMICALS"}).json()
     assert d["origen"] == "USUARIO" and d["unidad"] == "°C"
@@ -329,22 +333,22 @@ def test_quimicos_y_materias_primas_por_el_motor_unico(interno):
     # Ya no hay ruta aparte: el mismo /clasificacion/sesion clasifica cualquier dominio
     assert interno.post("/clasificacion/generico", {"texto": "x"}).status_code in (404, 405)
     r = interno.post("/clasificacion/sesion", {"texto": "ácido acético glacial", "dominio": "CHEMICALS", "paises": False,
-                                                "respuestas": {"substance_or_mixture": "SUBSTANCE", "physical_state": "LIQUID"}})
+                                                "respuestas": {"estado_fisico": "liquido"}})
     assert r.status_code == 200, r.text
     d = r.json()
-    assert d["categoria"]["codigo"] == "acid" and d["candidatos"][0]["codigo"] == "291521", [c["codigo"] for c in d["candidatos"]]
+    assert d["categoria"]["codigo"] == "quimico_organico" and d["candidatos"][0]["codigo"] == "291521", [c["codigo"] for c in d["candidatos"]]
     assert d["revision"] and d["candidatos"][0]["incisos"]
-    # Pregunta lo obligatorio y lo de la categoría técnica; marca lo ya respondido
+    # Pregunta lo obligatorio y lo de la categoría; marca lo ya respondido
     pregs = {p["codigo"]: p for p in d["preguntas"]}
-    assert pregs["product_name"]["modo"] == "REQUIRE" and pregs["physical_state"]["respondida"]
-    assert {"chemical_name", "chemically_defined"} <= set(pregs) and "upper_material" not in pregs
+    assert pregs["product_name"]["modo"] == "REQUIRE" and pregs["estado_fisico"]["respondida"]
+    assert {"nombre_quimico", "compuesto_definido"} <= set(pregs) and "comp.corte" not in pregs
     # Materias primas: el dominio ordena, no obliga
     r = interno.post("/clasificacion/sesion", {"texto": "hilados de algodón crudo", "dominio": "RAW_MATERIALS", "paises": False}).json()
-    assert r["categoria"]["codigo"] == "yarn" and "52" in [c["capitulo"] for c in r["candidatos"][:8]] or "55" in [c["capitulo"] for c in r["candidatos"][:3]]
+    assert r["categoria"]["codigo"] == "hilado" and "52" in [c["capitulo"] for c in r["candidatos"][:8]] or "55" in [c["capitulo"] for c in r["candidatos"][:3]]
     # Capítulos no habilitados nunca son candidatos automáticos
     caps = {c["capitulo"]: c for c in interno.get("/aranceles/oficial/capitulos").json()["items"]}
     assert all(caps[c["capitulo"]]["clasificacion"] for c in r["candidatos"])
-    assert interno.get("/clasificacion/contexto").json()["dominios"][0]["codigo"] == "CHEMICALS"
+    assert interno.get("/clasificacion/contexto").json()["dominios"][0]["codigo"] == "FOOTWEAR"
 
 
 def test_carga_por_etapas_previa_diferencias_publicar(interno):
@@ -356,7 +360,7 @@ def test_carga_por_etapas_previa_diferencias_publicar(interno):
 
     dom = [["Domain code", "Label", "Description", "Active", "Default mode"]]
     # Sin cambios: la previa no encuentra diferencias
-    lote = subir({"Domains": dom + [["CHEMICALS", "Chemicals", "Chemical substances, mixtures and chemical preparations; dynamic questions based on remaining candidates.", "Yes", "AUTO"]]})
+    lote = subir({"Domains": dom + [["CHEMICALS", "Chemicals", "Chemically defined compounds (28, 29) and chemical preparations by their function (32, 34, 35, 38).", "Yes", "AUTO"]]})
     assert lote["estado"] == "PREVIA" and not [f for f in lote["filas"] if f["accion"] != "NUEVO"]
     # Un cambio y un nuevo: se ven antes/después y no se aplican hasta publicar
     lote = subir({"Domains": dom + [["CHEMICALS", "Química", None, "Yes", "AUTO"], ["PLASTICS", "Plastics", "Plastic articles", "Yes", "MANUAL"]],
@@ -421,8 +425,8 @@ def test_producto_guarda_hs6_y_cada_pais_su_linea_con_evidencia(interno):
     p = next(x for x in interno.get("/productos", params={"q": "VNEVID01"}).json()["items"] if x["estilo"] == "VNEVID01")
     det = interno.get(f"/productos/{p['id']}").json()
     det = interno.put(f"/productos/{p['id']}/ficha", {"version": det["version"], "tipo": "calzado", "pais_origen": "CN", "ficha": {
-        "comp": {"corte": "100% canvas", "suela": "100% rubber"}, "estiloCalz": "tenis", "altura": "bajo", "genero": "U",
-        "edadNac": "adulto", "puntera": "ninguna", "disenio": "casual"}}).json()
+        "comp": {"corte": "100% canvas", "suela": "100% rubber"}, "estilo_calzado": "tenis", "altura": "bajo", "genero": "U",
+        "edad": "adulto", "uso_deportivo": "no"}}).json()
     # Un código nacional de 12 dígitos no es una línea SAC
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640419900090", "forzar": True})
     assert r.status_code == 422 and r.json()["codigo"] == "no_es_linea_sac", r.text

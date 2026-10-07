@@ -25,7 +25,7 @@ FAMILIAS = {"calzado": calzado, "ropa": ropa, "accesorios": accesorios, "quimico
 def main() -> None:
     comunes = {a["codigo"]: a for a in comun.atributos()}
     escribir("comun", {"origen": "Classification engine configuration shared by every family (not official data).",
-                       "clases_material": comun.CLASES_MATERIAL, "vocabulario_aduana": comun.VOCABULARIO,
+                       "categorias": comun.CATEGORIAS, "clases_material": comun.CLASES_MATERIAL, "vocabulario_aduana": comun.VOCABULARIO,
                        "atributos": list(comunes.values())})
     vistos_cat, vistos_attr, vistas_reglas = set(), set(comunes), set()
     for nombre, mod in FAMILIAS.items():

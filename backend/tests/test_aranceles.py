@@ -58,7 +58,7 @@ def test_paises_sac_y_codigos(interno, vans):
     assert interno.put(f"/aranceles/sac/{x['id']}", {"codigo": "640419", "descripcion": "Los demás (texto corregido)"}).status_code == 422
     assert interno.put(f"/aranceles/sac/{x['id']}", {"codigo": "640419", "descripcion": "Los demás (texto corregido)",
                                                      "motivo": "Descripción interna de compras"}).status_code == 200
-    s = interno.post("/clasificacion/sesion", {"categoria": "calzado", "ficha": {"estiloCalz": "tenis", "comp": {"corte": "100% canvas", "suela": "100% rubber"}},
+    s = interno.post("/clasificacion/sesion", {"categoria": "calzado", "ficha": {"estilo_calzado": "tenis", "comp": {"corte": "100% canvas", "suela": "100% rubber"}},
                                                "paises": False}).json()
     assert s["clasificacion"]["hs6"]["descripcion"] == "Los demás (texto corregido)" and s["clasificacion"]["hs6"]["descripcion_oficial"]
     y = next(y for y in interno.get("/aranceles/sac", params={"q": "6404.19", "nivel": "6"}).json()["items"] if y["codigo"] == "640419")
@@ -82,10 +82,10 @@ def test_paises_sac_y_codigos(interno, vans):
     assert r.status_code == 422 and r.json()["codigo"] == "version_publicada"
     _version_borrador(interno, "DO-DRAFT", "DO")
     r = interno.post("/aranceles/codigos", {"pais": "DO", "codigo": "6404.19.00", "dai": "20%", "fuente": "SRC-SIECA-ACI", "version": "DO-DRAFT",
-                                            "cond": {"genero": "M", "edadNac": "adulto"}})
+                                            "cond": {"genero": "M", "edad": "adulto"}})
     assert r.status_code == 200, r.text
     lista = interno.get("/aranceles/codigos", params={"pais": "DO"}).json()
-    assert lista["total"] == 1 and lista["items"][0]["cond_txt"].startswith("Gender: Men")
+    assert lista["total"] == 1 and lista["items"][0]["cond_txt"].startswith("For men or for women: Men")
     # Varios países a la vez (filtro con varios valores)
     assert interno.get("/aranceles/codigos", params={"pais": "SV,PA", "capitulo": "64"}).json()["total"] > 0
     # Un país con códigos no se borra: se desactiva y deja de pedirse en las fichas
@@ -101,9 +101,9 @@ def test_cargar_y_exportar(interno):
     assert plantilla.status_code == 200
     wb = load_workbook(io.BytesIO(plantilla.content))
     enc = [c.value for c in wb["Data"][1]]
-    assert enc[:2] == ["Country *", "Code *"] and "Gender" in enc and "Instructions" in wb.sheetnames
-    contenido = _xlsx([["Country", "Code", "Description", "Duty (DAI %)", "Gender", "Footwear style"],
-                       ["SV", "6402.99.10.00", "Para hombre", "15", "Men", "Sneaker"],
+    assert enc[:2] == ["Country *", "Code *"] and "For men or for women" in enc and "Instructions" in wb.sheetnames
+    contenido = _xlsx([["Country", "Code", "Description", "Duty (DAI %)", "For men or for women", "Footwear style"],
+                       ["SV", "6402.99.10.00", "Para hombre", "15", "Men", "Sneaker or athletic shoe"],
                        ["SV", "6402991", "Mal", "", "", ""],
                        ["XX", "6402.99.10.00", "", "", "", ""]])
     # Una carga de líneas nacionales es la publicación oficial de un país: sin fuente ni versión no entra
@@ -120,7 +120,7 @@ def test_cargar_y_exportar(interno):
     items = interno.get("/aranceles/codigos", params={"pais": "SV", "q": "6402991000"}).json()["items"]
     x = next(i for i in items if i["version"] == "SV-DRAFT")
     publicada = next(i for i in items if i["version"] == "SAC-2025-V6")
-    assert x["cond"] == {"genero": "M", "estiloCalz": "tenis"} and x["fuente"] == "oficial" and x["oficial"]
+    assert x["cond"] == {"genero": "M", "estilo_calzado": "tenis"} and x["fuente"] == "oficial" and x["oficial"]
     # La misma línea en la misma versión se actualiza (no se duplica)
     assert _subir(interno, "/aranceles/codigos/importar", contenido, fuente="SRC-SIECA-ACI", version="SV-DRAFT").json()["actualizados"] == 1
     # La versión en borrador no es la vigente: El Salvador sigue clasificando con la regional
@@ -175,10 +175,10 @@ def test_notas_sac_excel(interno):
 
 def test_condiciones_por_pais_y_subpartida(interno):
     r = interno.get("/aranceles/condiciones", params={"pais": "GT", "codigo": "6404.19"}).json()
-    assert "estiloCalz" in r["aplican"] and "manga" not in r["aplican"] and "cifMax" in r["aplican"]
+    assert "estilo_calzado" in r["aplican"] and "manga" not in r["aplican"] and "cifMax" in r["aplican"]
     assert r["subpartida"]["codigo"] == "6404.19" and all(h["codigo"].startswith("640419") for h in r["hermanos"])
     prendas = interno.get("/aranceles/condiciones", params={"pais": "SV", "codigo": "620342"}).json()
-    assert "largo" in prendas["aplican"] and "estiloCalz" not in prendas["aplican"]
+    assert "largo" in prendas["aplican"] and "estilo_calzado" not in prendas["aplican"]
     assert len(interno.get("/aranceles/condiciones", params={"pais": "GT", "codigo": "64"}).json()["aplican"]) > 10
 
 

@@ -27,7 +27,7 @@ SUELA = {"caucho": "CAUCHO O PLÁSTICO", "cuero": "CUERO", "otro": "OTRAS MATERI
 def familia() -> dict:
     cats = [
         categoria("calzado", "Footwear: sneakers, shoes, boots, sandals, slippers", corto="Footwear", aduana="Calzado", grupo="Footwear",
-                  dominio=DOM, capitulos=["64"], orden=100, prioridad=36,
+                  dominio=DOM, capitulos=["64", "95"], orden=100, prioridad=36,
                   re_=r"\b(shoes?|sneakers?|zapatos?|zapatillas?|tenis|boots?|botas?|botin(es)?|sandals?|sandalias?|slides?|chanclas?|"
                       r"flip ?flops?|mules?|clogs?|zuecos?|slip-?on|loafers?|mocasin(es)?|moccasins?|slippers?|pantuflas?|heels?|tacon(es)?|"
                       r"pumps|flats|balerinas?|footwear|calzado|chukka|cleats?|tachones|guayos|galoshes?|overshoes?|cubrecalzados?)\b",
@@ -36,8 +36,10 @@ def familia() -> dict:
                              "como": {"material_corte": CORTE, "material_suela": SUELA}, "si_falta": {"material_suela": "caucho"}}),
         categoria("partes_calzado", "Footwear parts: uppers, soles, heels, removable insoles", corto="Footwear part", aduana="Parte de calzado",
                   grupo="Footwear", dominio=DOM, capitulos=["64"], orden=110, prioridad=20,
-                  re_=r"\b(insoles?|plantillas?|taloneras?|heel (cushions?|grips?)|footbeds?|outsoles?|suelas?|uppers?|cortes? de calzado|"
-                      r"tacones? para calzado|contrafuertes?|punteras?)\b",
+                  # Corte o suela sueltos solo cuando el texto no nombra un calzado completo («running shoes, mesh upper»)
+                  re_=r"\b(insoles?|plantillas?|taloneras?|heel (cushions?|grips?)|footbeds?|cortes? de calzado|tacones? para calzado|"
+                      r"contrafuertes?|punteras?)\b|^(?!.*\b(shoes?|sneakers?|boots?|sandals?|slippers?|zapatos?|zapatillas?|tenis|botas?|"
+                      r"sandalias?)\b).*\b(outsoles?|suelas?|uppers?)\b",
                   alias="plantilla suela tacón corte talonera contrafuerte puntera"),
         categoria("polainas", "Gaiters, leggings and spats", corto="Gaiter", aduana="Polaina", grupo="Footwear", dominio=DOM, capitulos=["64"],
                   orden=120, prioridad=18, re_=r"\b(gaiters?|polainas?|spats|leg warmers? with strap)\b", alias="polaina gaiter"),
@@ -121,7 +123,7 @@ def familia() -> dict:
                  ambitos(["calzado"], condicion=[cond("material_corte", "cuero"), cond("material_suela", "cuero")]), defecto="false",
                  orden=240, ayuda="Subheading 6403.20."),
         atributo("tipo_parte", "Which part", "select", [
-            opcion("corte", "Upper or parts of the upper (vamps, quarters, linings)", re_=r"\b(uppers?|cortes?|vamps?|palas?)\b"),
+            opcion("superior", "Upper or parts of the upper (vamps, quarters, linings)", re_=r"\b(uppers?|cortes?|vamps?|palas?)\b"),
             opcion("suela", "Outer sole or heel", re_=r"\b(outsoles?|soles?|suelas?|heels?|tacones?|tacos)\b"),
             opcion("plantilla", "Removable insole, heel cushion or similar", re_=r"\b(insoles?|plantillas?|taloneras?|footbeds?|heel cushions?)\b"),
             opcion("refuerzo", "Stiffener or toe puff"), opcion("otra", "Other part")],
@@ -135,6 +137,8 @@ def familia() -> dict:
         "material": ambitos(["partes_calzado", "cordones"]),
         "genero": ambitos(["calzado"]),
         "edad": ambitos(["calzado"]),
+        "usoPrevisto": ambitos(["calzado"]),
+        "suelaEspumosa": ambitos(["calzado"]),
     }
     deporte = ["tacos", "esqui", "entrenamiento"]
     no_dep = ["no", "entrenamiento"]
@@ -197,7 +201,7 @@ def familia() -> dict:
               "Rubber or plastic upper with a leather or other sole → 6405.90"),
         regla("R-NE-CAL-054", C, si(material_corte="otro"), ["640590"], "Upper of other materials → 6405.90"),
         # 64.06: partes, plantillas amovibles, polainas
-        regla("R-NE-CAL-061", "partes_calzado", si(tipo_parte="corte"), ["640610"], "Uppers and their parts (not stiffeners) → 6406.10"),
+        regla("R-NE-CAL-061", "partes_calzado", si(tipo_parte="superior"), ["640610"], "Uppers and their parts (not stiffeners) → 6406.10"),
         regla("R-NE-CAL-062", "partes_calzado", si(tipo_parte="suela", material="plastico"), ["640620"],
               "Outer soles and heels of rubber or plastics → 6406.20"),
         regla("R-NE-CAL-063", "partes_calzado", si(tipo_parte="suela", material_no="plastico"), ["640690"],
@@ -215,9 +219,10 @@ def familia() -> dict:
         caso(C, "640411", estilo_calzado="tenis", **{"comp.corte": "80% mesh 20% synthetic", "comp.suela": "rubber"}, uso_deportivo="entrenamiento"),
         caso(C, "640399", estilo_calzado="tenis", **{"comp.corte": "100% leather", "comp.suela": "100% rubber"}, uso_deportivo="no",
              puntera_metalica=False, altura="bajo"),
-        caso(C, "640391", estilo_calzado="bota", **{"comp.corte": "100% leather", "comp.suela": "rubber"}, uso_deportivo="no", puntera_metalica=False),
+        caso(C, "640391", estilo_calzado="bota", **{"comp.corte": "100% leather", "comp.suela": "rubber"}, uso_deportivo="no", puntera_metalica=False,
+             altura="tobillo"),
         caso(C, "640340", estilo_calzado="seguridad", **{"comp.corte": "leather", "comp.suela": "PU"}, uso_deportivo="no", puntera_metalica=True),
-        caso(C, "640319", estilo_calzado="deporte", **{"comp.corte": "leather", "comp.suela": "TPU"}),
+        caso(C, "640319", estilo_calzado="deporte", **{"comp.corte": "leather", "comp.suela": "TPU"}, uso_deportivo="tacos"),
         caso(C, "640359", estilo_calzado="zapato", **{"comp.corte": "leather", "comp.suela": "leather"}, uso_deportivo="no", tiras_dedo=False,
              puntera_metalica=False, altura="bajo"),
         caso(C, "640320", estilo_calzado="sandalia", **{"comp.corte": "leather", "comp.suela": "leather"}, uso_deportivo="no", tiras_dedo=True),
@@ -226,9 +231,9 @@ def familia() -> dict:
         caso(C, "640220", estilo_calzado="chancla", **{"comp.corte": "rubber", "comp.suela": "rubber"}, impermeable=False, uso_deportivo="no",
              tiras_tetones=True),
         caso(C, "640291", estilo_calzado="botin", **{"comp.corte": "synthetic leather", "comp.suela": "TPR"}, impermeable=False, uso_deportivo="no",
-             tiras_tetones=False),
-        caso(C, "640212", estilo_calzado="esqui", **{"comp.corte": "polyurethane", "comp.suela": "rubber"}, impermeable=False),
-        caso(C, "640192", estilo_calzado="bota_lluvia", **{"comp.corte": "100% PVC", "comp.suela": "PVC"}, impermeable=True, puntera_metalica=False),
+             tiras_tetones=False, altura="tobillo"),
+        caso(C, "640212", estilo_calzado="esqui", **{"comp.corte": "polyurethane", "comp.suela": "rubber"}, impermeable=False, uso_deportivo="esqui"),
+        caso(C, "640192", estilo_calzado="bota_lluvia", **{"comp.corte": "100% PVC", "comp.suela": "PVC"}, impermeable=True, puntera_metalica=False, altura="tobillo"),
         caso(C, "640110", estilo_calzado="bota_lluvia", **{"comp.corte": "PVC", "comp.suela": "PVC"}, impermeable=True, puntera_metalica=True),
         caso(C, "640420", estilo_calzado="zapato", **{"comp.corte": "textile", "comp.suela": "leather"}),
         caso(C, "640520", estilo_calzado="sandalia", **{"comp.corte": "canvas", "comp.suela": "jute"}),
@@ -236,7 +241,7 @@ def familia() -> dict:
         caso(C, "950670", estilo_calzado="patines", **{"comp.corte": "synthetic", "comp.suela": "rubber"}),
         caso("partes_calzado", "640620", tipo_parte="suela", **{"comp.material": "rubber"}),
         caso("partes_calzado", "640690", tipo_parte="plantilla", **{"comp.material": "EVA foam"}),
-        caso("partes_calzado", "640610", tipo_parte="corte", **{"comp.material": "leather"}),
+        caso("partes_calzado", "640610", tipo_parte="superior", **{"comp.material": "leather"}),
         caso("polainas", "640690"),
         caso("cordones", "630790", **{"comp.material": "100% polyester"}),
     ]

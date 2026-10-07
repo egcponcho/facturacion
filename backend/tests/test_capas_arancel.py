@@ -55,7 +55,7 @@ def test_company_conditions_never_marked_as_official(interno):
         assert all(CAPA.get(r.tipo_fuente) != "LEGAL" for r in reglas)
         # Las condiciones de la base de artículos de la empresa están en el historial, no en las líneas
         hist = db.scalars(select(HistorialClasificacion).where(HistorialClasificacion.origen == "IMPORTADO")).all()
-        assert any("estiloCalz" in (h.condiciones or {}) or "puntera" in (h.condiciones or {}) for h in hist)
+        assert any("estilo_calzado" in (h.condiciones or {}) or "puntera" in (h.condiciones or {}) for h in hist)
         # Las del motor (CLASSIFIER) son exactamente lo que el clasificador lee del texto oficial del ACI
         import json
         from pathlib import Path
@@ -107,13 +107,10 @@ def test_official_notes_exclude_internal_summaries(interno):
     assert all("oficial" in n and "tipo_fuente" in n for n in ctx["notas_sac"])
 
 
-QUIMICAS = {"inorganic_chemical", "organic_chemical", "acid", "base_alkali", "salt", "solvent", "alcohol", "polymer_resin", "rubber_preparation",
-            "dye", "pigment", "paint_coating", "ink", "adhesive", "surfactant", "detergent_cleaning", "lubricant", "wax", "laboratory_reagent",
-            "chemical_preparation"}
-MATERIAS = {"textile_fiber", "staple_fiber", "filament", "yarn", "sewing_thread", "woven_fabric", "knitted_fabric", "nonwoven", "felt",
-            "coated_fabric", "laminated_fabric", "leather", "split_leather", "synthetic_leather", "plastic_resin", "plastic_primary_form",
-            "plastic_sheet", "plastic_film", "plastic_profile", "plastic_foam", "natural_rubber", "synthetic_rubber", "rubber_compound",
-            "rubber_sheet", "paper", "paperboard", "metal_sheet", "metal_wire", "metal_profile", "metal_component"}
+QUIMICAS = {"quimico_inorganico", "quimico_organico", "colorante", "pigmento", "pintura", "tinta", "adhesivo", "tensoactivo", "jabon",
+            "lubricante", "cera", "betun", "apresto", "aditivo_polimero", "disolvente", "biocida", "reactivo", "preparacion_quimica"}
+MATERIAS = {"fibra_textil", "hilado", "tejido_plano", "tejido_punto", "no_tejido", "tela_recubierta", "cinta_etiqueta", "avio",
+            "resina_plastica", "lamina_plastica", "caucho", "cuero", "cuero_sintetico", "papel_carton", "metal"}
 
 
 def _sesion(api, **kw):
@@ -126,54 +123,56 @@ def test_chemical_categories_are_configurable(interno):
     cats = {c["codigo"]: c for c in interno.get("/aranceles/categorias").json()}
     assert QUIMICAS <= set(cats) and all(cats[c]["dominio"] == "CHEMICALS" for c in QUIMICAS)
     # Cada categoría decide qué preguntar (dinámico, no siempre obligatorio)
-    d = _sesion(interno, categoria="alcohol", texto="alcohol etílico")
-    campos = {c["codigo"]: c for c in d["campos"]}
-    assert campos["alcohol_type"]["modo"] == "REQUIRE" and "alcohol_strength" not in campos  # depende del tipo de alcohol
-    d = _sesion(interno, categoria="alcohol", texto="alcohol etílico", respuestas={"alcohol_type": "ethanol"})
-    assert "alcohol_strength" in {c["codigo"] for c in d["campos"]}
-    d = _sesion(interno, categoria="adhesive", texto="pegamento")
-    assert {"adhesive_base", "retail_packaging"} <= {f["campo"] for f in d["faltantes"]} and "dye_class" not in {c["codigo"] for c in d["campos"]}
+    d = _sesion(interno, categoria="quimico_organico", texto="acetona", ficha={"compuesto_definido": False})
+    assert "grupo_organico" not in {c["codigo"] for c in d["campos"]}  # depende de que sea un compuesto definido
+    d = _sesion(interno, categoria="quimico_organico", texto="acetona", respuestas={"compuesto_definido": True})
+    assert next(c for c in d["campos"] if c["codigo"] == "grupo_organico")["modo"] == "REQUIRE"
+    d = _sesion(interno, categoria="adhesivo", texto="pegamento")
+    assert "base_adhesivo" in {f["campo"] for f in d["faltantes"]} and "clase_colorante" not in {c["codigo"] for c in d["campos"]}
     # Una categoría nueva y su pregunta se crean como configuración, sin programar
     r = interno.post("/aranceles/categorias", {"codigo": "fragrance_compound", "nombre": "Fragrance compound", "dominio": "CHEMICALS",
                                                "patrones": [{"re": "\\b(fragrance compound|compuesto de fragancia)\\b", "prioridad": 70}],
                                                "terminos": "mezclas de sustancias odoríferas"})
     assert r.status_code == 200, r.text
-    attr = next(a for a in interno.get("/aranceles/atributos", params={"q": "main_ingredient"}).json()["items"] if a["codigo"] == "main_ingredient")
+    attr = next(a for a in interno.get("/aranceles/atributos", params={"q": "componentes"}).json()["items"] if a["codigo"] == "componentes")
     assert interno.post(f"/aranceles/atributos/{attr['id']}/ambitos", {"tipo_ambito": "CATEGORY", "codigo_ambito": "fragrance_compound",
                                                                          "modo": "REQUIRE"}).status_code == 200
     d = _sesion(interno, texto="fragrance compound for soaps")
-    assert d["categoria"]["codigo"] == "fragrance_compound" and "main_ingredient" in {f["campo"] for f in d["faltantes"]}
+    assert d["categoria"]["codigo"] == "fragrance_compound" and "componentes" in {c["codigo"] for c in d["campos"]}
 
 
 def test_raw_material_categories_are_configurable(interno):
     cats = {c["codigo"]: c for c in interno.get("/aranceles/categorias").json()}
     assert MATERIAS <= set(cats) and all(cats[c]["dominio"] == "RAW_MATERIALS" for c in MATERIAS)
-    # Hilado: fibra, %, filamento o discontinuo, presentación; textured solo si es filamento
-    d = _sesion(interno, texto="polyester yarn")
-    assert d["categoria"]["codigo"] == "yarn"
-    assert {"fiber", "fiber_pct", "filament_or_staple", "put_up_retail"} <= {f["campo"] for f in d["faltantes"]}
-    assert "textured" not in {c["codigo"] for c in d["campos"]}
-    d = _sesion(interno, texto="polyester yarn", respuestas={"filament_or_staple": "filament"})
-    assert "textured" in {c["codigo"] for c in d["campos"]}
-    # Tela: tejido, composición, gramaje, acabado; resina: polímero y forma primaria; película: espesor, celular, reforzada
-    assert {"weave", "fabric_weight", "fabric_finish"} <= {f["campo"] for f in _sesion(interno, categoria="woven_fabric", texto="tela")["faltantes"]}
-    assert {"polymer_type", "primary_form"} <= {f["campo"] for f in _sesion(interno, categoria="plastic_resin", texto="resina")["faltantes"]}
-    assert {"thickness", "cellular", "reinforced"} <= {f["campo"] for f in _sesion(interno, categoria="plastic_film", texto="film")["faltantes"]}
+    # Hilado: la fibra sale de la composición; filamento o discontinua solo si es sintética o artificial
+    d = _sesion(interno, texto="polyester yarn", ficha={"comp": {"material": "100% polyester"}})
+    assert d["categoria"]["codigo"] == "hilado" and d["hechos"]["fibra"] == "sintetica"
+    assert "filamento" in {f["campo"] for f in d["faltantes"]}
+    d = _sesion(interno, texto="cotton yarn", ficha={"comp": {"material": "100% cotton"}})
+    assert "filamento" not in {c["codigo"] for c in d["campos"]}
+    d = _sesion(interno, texto="polyester yarn", ficha={"comp": {"material": "100% polyester"}}, respuestas={"filamento": "filamento"})
+    assert d["hs6"][:4] in ("5402", "5404")
+    # Tela: peso por m²; resina y lámina: el polímero
+    assert "peso_g_m2" in {f["campo"] for f in _sesion(interno, categoria="tejido_plano", texto="tela")["faltantes"]}
+    assert "polimero" in {f["campo"] for f in _sesion(interno, categoria="resina_plastica", texto="resina")["faltantes"]}
+    assert "polimero" in {f["campo"] for f in _sesion(interno, categoria="lamina_plastica", texto="film")["faltantes"]}
     # Apagar una pregunta en una categoría es configuración (sin programar)
-    attr = next(a for a in interno.get("/aranceles/atributos", params={"q": "fabric_weight"}).json()["items"] if a["codigo"] == "fabric_weight")
+    attr = next(a for a in interno.get("/aranceles/atributos", params={"q": "peso_g_m2"}).json()["items"] if a["codigo"] == "peso_g_m2")
     det = interno.get(f"/aranceles/atributos/{attr['id']}").json()
-    amb = next(x for x in det["ambitos"] if x["codigo_ambito"] == "woven_fabric")
+    amb = next(x for x in det["ambitos"] if x["codigo_ambito"] == "tejido_plano")
     assert interno.patch(f"/aranceles/atributos/{attr['id']}/ambitos/{amb['id']}", {"modo": "HIDE"}).status_code == 200
-    assert "fabric_weight" not in {f["campo"] for f in _sesion(interno, categoria="woven_fabric", texto="tela")["faltantes"]}
+    # Oculta deja de ser obligatoria; solo se pregunta si de verdad decide entre los candidatos que quedan
+    campo = next((c for c in _sesion(interno, categoria="tejido_plano", texto="tela")["campos"] if c["codigo"] == "peso_g_m2"), None)
+    assert campo is None or (campo["modo"] != "REQUIRE" and campo["discrimina"])
     interno.patch(f"/aranceles/atributos/{attr['id']}/ambitos/{amb['id']}", {"modo": "REQUIRE"})
 
 
 def test_same_engine_classifies_footwear_chemical_and_raw_material(interno):
-    calzado = _sesion(interno, categoria="calzado", ficha={"comp": {"corte": "100% leather", "suela": "100% rubber"}, "estiloCalz": "tenis",
-                                                            "altura": "bajo", "genero": "U", "edadNac": "adulto", "puntera": "ninguna"})
-    quimico = _sesion(interno, texto="dióxido de titanio", categoria="pigment", respuestas={"pigment_type": "titanium_dioxide"})
-    materia = _sesion(interno, texto="PVC resin pellets", respuestas={"polymer_type": "pvc", "primary_form": "granules"})
-    assert calzado["hs6"].startswith("6403") and quimico["hs6"].startswith("3206") and materia["hs6"].startswith("3904")
+    calzado = _sesion(interno, categoria="calzado", ficha={"comp": {"corte": "100% leather", "suela": "100% rubber"}, "estilo_calzado": "tenis",
+                                                            "altura": "bajo", "genero": "U", "edad": "adulto"})
+    quimico = _sesion(interno, texto="dióxido de titanio", categoria="pigmento", respuestas={"tipo_pigmento": "dioxido_titanio"})
+    materia = _sesion(interno, texto="PVC resin pellets", categoria="resina_plastica", respuestas={"polimero": "pvc"})
+    assert calzado["hs6"] == "640399" and quimico["hs6"] == "320611" and materia["hs6"].startswith("3904")
     # La misma forma de respuesta y la misma traza de reglas del sistema
     for d in (calzado, quimico, materia):
         assert {"hs6", "candidatos", "preguntas", "faltantes", "reglas", "evidencia", "version"} <= set(d)
@@ -185,10 +184,10 @@ def test_domain_does_not_define_tariff_code_directly(interno):
     from app.services.motor_clasificacion import codigo_existe
 
     cats = interno.get("/aranceles/categorias").json()
-    # Las categorías técnicas no traen códigos ni capítulos fijos: solo deciden qué preguntar
-    assert all(not c["capitulos"] for c in cats if c["codigo"] in QUIMICAS | MATERIAS)
-    for kw in ({"texto": "pegamento de contacto", "respuestas": {"adhesive_base": "rubber"}},
-               {"texto": "woven fabric", "categoria": "woven_fabric", "respuestas": {"fiber": "cotton", "weave": "twill"}}):
+    # Una categoría no trae códigos: sus capítulos solo sirven para avisar si un código no le corresponde
+    assert all("codigos" not in c for c in cats)
+    for kw in ({"texto": "pegamento de contacto"},
+               {"texto": "woven fabric", "categoria": "tejido_plano", "ficha": {"comp": {"material": "100% cotton"}}}):
         d = _sesion(interno, **kw)
         # Todo candidato existe en el árbol oficial vigente; nada sale de la categoría
         with SessionLocal() as db:
@@ -211,19 +210,19 @@ def test_sds_tds_are_technical_evidence_not_tariff_source(interno):
                               files={"archivo": ("sds.pdf", io.BytesIO(b"%PDF-1.4 prueba"), "application/pdf")})
 
     # Un código arancelario no se toma de una ficha técnica
-    r = subir({"cas_number": "64-19-7", "hs_code": "2915.21"})
+    r = subir({"cas": "64-19-7", "hs_code": "2915.21"})
     assert r.status_code == 422 and r.json()["codigo"] == "no_es_fuente_arancelaria"
     assert subir({"no_existe": 1}).status_code == 422
     assert subir({}, tipo="XYZ").status_code == 422
-    r = subir({"cas_number": "64-19-7", "physical_state": "LIQUID", "density": 1.05})
+    r = subir({"cas": "64-19-7", "estado_fisico": "liquido", "densidad": 1.05})
     assert r.status_code == 200, r.text
     det = interno.get(f"/productos/{p['id']}").json()
-    assert det["documentos"][0]["tipo"] == "SDS" and det["documentos"][0]["datos"]["cas_number"] == "64-19-7"
+    assert det["documentos"][0]["tipo"] == "SDS" and det["documentos"][0]["datos"]["cas"] == "64-19-7"
     # Sus datos son hechos del producto para el motor (sin pisar lo que dice la ficha)
-    s = _sesion(interno, producto_id=p["id"], categoria="acid", texto="ácido acético")
-    assert s["hechos"].get("cas_number") == "64-19-7" and s["hechos"].get("physical_state") == "LIQUID"
-    s = _sesion(interno, producto_id=p["id"], categoria="acid", texto="ácido acético", respuestas={"physical_state": "SOLID"})
-    assert s["hechos"].get("physical_state") == "SOLID"
+    s = _sesion(interno, producto_id=p["id"], categoria="quimico_organico", texto="ácido acético")
+    assert s["hechos"].get("cas") == "64-19-7" and s["ficha"].get("estado_fisico") == "liquido"
+    s = _sesion(interno, producto_id=p["id"], categoria="quimico_organico", texto="ácido acético", respuestas={"estado_fisico": "solido"})
+    assert s["ficha"].get("estado_fisico") == "solido"
     assert interno.get(f"/productos/documentos/{det['documentos'][0]['id']}").content.startswith(b"%PDF")
     assert interno.delete_(f"/productos/{p['id']}/documentos/{det['documentos'][0]['id']}").status_code == 200
 
@@ -318,8 +317,8 @@ def test_history_never_creates_candidates(interno, monkeypatch):
     """El historial solo refuerza candidatos que ya salieron del árbol oficial y de las reglas."""
     from app.services import motor_clasificacion as mc
 
-    entrada = {"categoria": "calzado", "ficha": {"comp": {"corte": "100% leather", "suela": "100% rubber"}, "estiloCalz": "tenis",
-                                                 "altura": "bajo", "genero": "U", "edadNac": "adulto", "puntera": "ninguna"}}
+    entrada = {"categoria": "calzado", "ficha": {"comp": {"corte": "100% leather", "suela": "100% rubber"}, "estilo_calzado": "tenis",
+                                                 "altura": "bajo", "genero": "U", "edad": "adulto", "uso_deportivo": "no"}}
     with SessionLocal() as db:
         limpio = mc.clasificar_producto(db, entrada, paises=False)
     original = mc._historial
@@ -369,8 +368,7 @@ def test_history_preferred_national_line_needs_confirmation(interno):
     p = next(x for x in interno.get("/productos", params={"q": "VNHIST01"}).json()["items"] if x["estilo"] == "VNHIST01")
     det = interno.get(f"/productos/{p['id']}").json()
     det = interno.put(f"/productos/{p['id']}/ficha", {"version": det["version"], "tipo": "calzado", "pais_origen": "VN", "ficha": {
-        "comp": {"corte": "100% leather", "suela": "100% rubber"}, "estiloCalz": "tenis", "altura": "bajo", "genero": "U", "edadNac": "adulto",
-        "puntera": "ninguna"}}).json()
+        "comp": {"corte": "100% leather", "suela": "100% rubber"}, "estilo_calzado": "tenis", "altura": "bajo", "genero": "U", "edad": "adulto"}}).json()
     assert det["sugerido"].replace(".", "") == "640399", det["sugerido"]
     with SessionLocal() as db:
         for h in db.scalars(select(HistorialClasificacion).where(HistorialClasificacion.sub6 == "640399")):

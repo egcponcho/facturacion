@@ -1,5 +1,20 @@
 {
  "origen": "Classification engine configuration shared by every family (not official data).",
+ "categorias": [
+  {
+   "codigo": "otro",
+   "nombre": "Other product (outside the configured families)",
+   "nombre_corto": "Other product",
+   "nombre_aduana": "Producto",
+   "grupo": "Other",
+   "familia": "otro",
+   "dominio": null,
+   "capitulos": [],
+   "alias": "",
+   "orden": 9999,
+   "patrones": []
+  }
+ ],
  "clases_material": [
   {
    "codigo": "textil",
@@ -63,61 +78,133 @@
     {
      "codigo": "cotton",
      "etiqueta": "Cotton",
+     "patrones": [
+      {
+       "re": "\\b(cotton)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 10
     },
     {
      "codigo": "polyester",
      "etiqueta": "Polyester",
+     "patrones": [
+      {
+       "re": "\\b(polyester)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 20
     },
     {
      "codigo": "elastane",
      "etiqueta": "Elastane",
+     "patrones": [
+      {
+       "re": "\\b(elastane)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 30
     },
     {
      "codigo": "nylon",
      "etiqueta": "Nylon",
+     "patrones": [
+      {
+       "re": "\\b(nylon)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 40
     },
     {
      "codigo": "viscose",
      "etiqueta": "Viscose",
+     "patrones": [
+      {
+       "re": "\\b(viscose)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 50
     },
     {
      "codigo": "wool",
      "etiqueta": "Wool",
+     "patrones": [
+      {
+       "re": "\\b(wool)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 60
     },
     {
      "codigo": "acrylic",
      "etiqueta": "Acrylic",
+     "patrones": [
+      {
+       "re": "\\b(acrylic)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 70
     },
     {
      "codigo": "linen",
      "etiqueta": "Linen",
+     "patrones": [
+      {
+       "re": "\\b(linen)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 80
     },
     {
      "codigo": "modal",
      "etiqueta": "Modal",
+     "patrones": [
+      {
+       "re": "\\b(modal)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 90
     },
     {
      "codigo": "polyamide",
      "etiqueta": "Polyamide",
+     "patrones": [
+      {
+       "re": "\\b(polyamide)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 100
     },
     {
      "codigo": "silk",
      "etiqueta": "Silk",
+     "patrones": [
+      {
+       "re": "\\b(silk)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 110
     },
     {
      "codigo": "leather",
      "etiqueta": "Leather",
+     "patrones": [
+      {
+       "re": "\\b(leather)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 120
     }
    ],
@@ -134,61 +221,133 @@
     {
      "codigo": "cotton",
      "etiqueta": "Cotton",
+     "patrones": [
+      {
+       "re": "\\b(cotton)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 10
     },
     {
      "codigo": "polyester",
      "etiqueta": "Polyester",
+     "patrones": [
+      {
+       "re": "\\b(polyester)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 20
     },
     {
      "codigo": "elastane",
      "etiqueta": "Elastane",
+     "patrones": [
+      {
+       "re": "\\b(elastane)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 30
     },
     {
      "codigo": "nylon",
      "etiqueta": "Nylon",
+     "patrones": [
+      {
+       "re": "\\b(nylon)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 40
     },
     {
      "codigo": "viscose",
      "etiqueta": "Viscose",
+     "patrones": [
+      {
+       "re": "\\b(viscose)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 50
     },
     {
      "codigo": "wool",
      "etiqueta": "Wool",
+     "patrones": [
+      {
+       "re": "\\b(wool)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 60
     },
     {
      "codigo": "acrylic",
      "etiqueta": "Acrylic",
+     "patrones": [
+      {
+       "re": "\\b(acrylic)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 70
     },
     {
      "codigo": "linen",
      "etiqueta": "Linen",
+     "patrones": [
+      {
+       "re": "\\b(linen)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 80
     },
     {
      "codigo": "modal",
      "etiqueta": "Modal",
+     "patrones": [
+      {
+       "re": "\\b(modal)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 90
     },
     {
      "codigo": "polyamide",
      "etiqueta": "Polyamide",
+     "patrones": [
+      {
+       "re": "\\b(polyamide)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 100
     },
     {
      "codigo": "silk",
      "etiqueta": "Silk",
+     "patrones": [
+      {
+       "re": "\\b(silk)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 110
     },
     {
      "codigo": "leather",
      "etiqueta": "Leather",
+     "patrones": [
+      {
+       "re": "\\b(leather)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 120
     }
    ],
@@ -205,16 +364,34 @@
     {
      "codigo": "down",
      "etiqueta": "Down",
+     "patrones": [
+      {
+       "re": "\\b(down)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 10
     },
     {
      "codigo": "feathers",
      "etiqueta": "Feathers",
+     "patrones": [
+      {
+       "re": "\\b(feathers)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 20
     },
     {
      "codigo": "polyester",
      "etiqueta": "Polyester",
+     "patrones": [
+      {
+       "re": "\\b(polyester)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 30
     }
    ],
@@ -231,56 +408,122 @@
     {
      "codigo": "leather",
      "etiqueta": "Leather",
+     "patrones": [
+      {
+       "re": "\\b(leather)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 10
     },
     {
      "codigo": "suede",
      "etiqueta": "Suede",
+     "patrones": [
+      {
+       "re": "\\b(suede)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 20
     },
     {
      "codigo": "nubuck",
      "etiqueta": "Nubuck",
+     "patrones": [
+      {
+       "re": "\\b(nubuck)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 30
     },
     {
      "codigo": "canvas",
      "etiqueta": "Canvas",
+     "patrones": [
+      {
+       "re": "\\b(canvas)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 40
     },
     {
      "codigo": "mesh",
      "etiqueta": "Mesh",
+     "patrones": [
+      {
+       "re": "\\b(mesh)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 50
     },
     {
      "codigo": "textile",
      "etiqueta": "Textile",
+     "patrones": [
+      {
+       "re": "\\b(textile)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 60
     },
     {
      "codigo": "knit",
      "etiqueta": "Knit",
+     "patrones": [
+      {
+       "re": "\\b(knit)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 70
     },
     {
      "codigo": "synthetic",
      "etiqueta": "Synthetic leather (PU)",
+     "patrones": [
+      {
+       "re": "\\b(synthetic|synthetic leather)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 80
     },
     {
      "codigo": "pvc",
      "etiqueta": "PVC",
+     "patrones": [
+      {
+       "re": "\\b(pvc)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 90
     },
     {
      "codigo": "rubber",
      "etiqueta": "Rubber",
+     "patrones": [
+      {
+       "re": "\\b(rubber)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 100
     },
     {
      "codigo": "eva",
      "etiqueta": "EVA",
+     "patrones": [
+      {
+       "re": "\\b(eva)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 110
     }
    ],
@@ -297,56 +540,122 @@
     {
      "codigo": "rubber",
      "etiqueta": "Rubber",
+     "patrones": [
+      {
+       "re": "\\b(rubber)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 10
     },
     {
      "codigo": "eva",
      "etiqueta": "EVA",
+     "patrones": [
+      {
+       "re": "\\b(eva)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 20
     },
     {
      "codigo": "tpr",
      "etiqueta": "TPR",
+     "patrones": [
+      {
+       "re": "\\b(tpr)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 30
     },
     {
      "codigo": "pu",
      "etiqueta": "PU",
+     "patrones": [
+      {
+       "re": "\\b(pu)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 40
     },
     {
      "codigo": "tpu",
      "etiqueta": "TPU",
+     "patrones": [
+      {
+       "re": "\\b(tpu)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 50
     },
     {
      "codigo": "pvc",
      "etiqueta": "PVC",
+     "patrones": [
+      {
+       "re": "\\b(pvc)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 60
     },
     {
      "codigo": "leather",
      "etiqueta": "Leather",
+     "patrones": [
+      {
+       "re": "\\b(leather)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 70
     },
     {
      "codigo": "cork",
      "etiqueta": "Cork",
+     "patrones": [
+      {
+       "re": "\\b(cork)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 80
     },
     {
      "codigo": "wood",
      "etiqueta": "Wood",
+     "patrones": [
+      {
+       "re": "\\b(wood)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 90
     },
     {
      "codigo": "jute",
      "etiqueta": "Jute",
+     "patrones": [
+      {
+       "re": "\\b(jute)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 100
     },
     {
      "codigo": "textile",
      "etiqueta": "Textile",
+     "patrones": [
+      {
+       "re": "\\b(textile)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 110
     }
    ],
@@ -363,75 +672,175 @@
     {
      "codigo": "leather",
      "etiqueta": "Leather",
+     "patrones": [
+      {
+       "re": "\\b(leather)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 10
     },
     {
      "codigo": "synthetic",
      "etiqueta": "Synthetic leather (PU)",
+     "patrones": [
+      {
+       "re": "\\b(synthetic|synthetic leather)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 20
     },
     {
      "codigo": "polyester",
      "etiqueta": "Polyester",
+     "patrones": [
+      {
+       "re": "\\b(polyester)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 30
     },
     {
      "codigo": "nylon",
      "etiqueta": "Nylon",
+     "patrones": [
+      {
+       "re": "\\b(nylon)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 40
     },
     {
      "codigo": "cotton",
      "etiqueta": "Cotton",
+     "patrones": [
+      {
+       "re": "\\b(cotton)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 50
     },
     {
      "codigo": "canvas",
      "etiqueta": "Canvas",
+     "patrones": [
+      {
+       "re": "\\b(canvas)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 60
     },
     {
      "codigo": "plastic",
      "etiqueta": "Plastic",
+     "patrones": [
+      {
+       "re": "\\b(plastic)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 70
     },
     {
      "codigo": "rubber",
      "etiqueta": "Rubber",
+     "patrones": [
+      {
+       "re": "\\b(rubber)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 80
     },
     {
      "codigo": "metal",
      "etiqueta": "Metal",
+     "patrones": [
+      {
+       "re": "\\b(metal)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 90
     },
     {
      "codigo": "stainless steel",
      "etiqueta": "Stainless steel",
+     "patrones": [
+      {
+       "re": "\\b(stainless steel)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 100
     },
     {
      "codigo": "zinc alloy",
      "etiqueta": "Zinc alloy",
+     "patrones": [
+      {
+       "re": "\\b(zinc alloy)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 110
     },
     {
      "codigo": "wood",
      "etiqueta": "Wood",
+     "patrones": [
+      {
+       "re": "\\b(wood)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 120
     },
     {
      "codigo": "paper",
      "etiqueta": "Paper",
+     "patrones": [
+      {
+       "re": "\\b(paper)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 130
     },
     {
      "codigo": "straw",
      "etiqueta": "Straw",
+     "patrones": [
+      {
+       "re": "\\b(straw)s?\\b",
+       "nombre": true
+      }
+     ],
      "orden": 140
     }
    ],
-   "ambitos": [],
+   "ambitos": [
+    {
+     "tipo_ambito": "SYSTEM",
+     "codigo_ambito": "ALL",
+     "modo": "SHOW",
+     "prioridad": 100,
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "dominio",
+       "operador": "EXISTS",
+       "valor": null,
+       "negado": true
+      }
+     ]
+    }
+   ],
    "ayuda": "E.g. leather, stainless steel, nylon, cotton canvas"
   },
   {
@@ -638,6 +1047,153 @@
    "ayuda": "Knitted (chapter 61) or not knitted (chapter 62). Look at the fabric: knitted fabric is made of interlocking loops."
   },
   {
+   "codigo": "valorCIF",
+   "etiqueta": "CIF value (US$)",
+   "tipo_dato": "number",
+   "seccion": "nacional",
+   "orden": 900,
+   "opciones": [],
+   "ambitos": [],
+   "unidad": "US$"
+  },
+  {
+   "codigo": "usoPrevisto",
+   "etiqueta": "Intended use",
+   "tipo_dato": "select",
+   "seccion": "nacional",
+   "orden": 901,
+   "opciones": [
+    {
+     "codigo": "casual",
+     "etiqueta": "Casual or everyday",
+     "orden": 10
+    },
+    {
+     "codigo": "escolar",
+     "etiqueta": "School or uniform",
+     "orden": 20
+    },
+    {
+     "codigo": "deportivo",
+     "etiqueta": "Sports",
+     "orden": 30
+    },
+    {
+     "codigo": "trabajo",
+     "etiqueta": "Work or industrial",
+     "orden": 40
+    }
+   ],
+   "ambitos": []
+  },
+  {
+   "codigo": "manga",
+   "etiqueta": "Sleeves",
+   "tipo_dato": "select",
+   "seccion": "nacional",
+   "orden": 902,
+   "opciones": [
+    {
+     "codigo": "sin",
+     "etiqueta": "Sleeveless",
+     "orden": 10
+    },
+    {
+     "codigo": "corta",
+     "etiqueta": "Short",
+     "orden": 20
+    },
+    {
+     "codigo": "larga",
+     "etiqueta": "Long",
+     "orden": 30
+    }
+   ],
+   "ambitos": []
+  },
+  {
+   "codigo": "largo",
+   "etiqueta": "Length",
+   "tipo_dato": "select",
+   "seccion": "nacional",
+   "orden": 903,
+   "opciones": [
+    {
+     "codigo": "largo",
+     "etiqueta": "Long",
+     "orden": 10
+    },
+    {
+     "codigo": "corto",
+     "etiqueta": "Short (shorts or bermudas)",
+     "orden": 20
+    }
+   ],
+   "ambitos": []
+  },
+  {
+   "codigo": "peto",
+   "etiqueta": "With bib",
+   "tipo_dato": "boolean",
+   "seccion": "nacional",
+   "orden": 904,
+   "opciones": [],
+   "ambitos": [],
+   "valor_defecto": "false"
+  },
+  {
+   "codigo": "mezclilla",
+   "etiqueta": "Of denim",
+   "tipo_dato": "boolean",
+   "seccion": "nacional",
+   "orden": 905,
+   "opciones": [],
+   "ambitos": [],
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(denim|mezclilla|jeans?)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "conCuello",
+   "etiqueta": "With collar",
+   "tipo_dato": "boolean",
+   "seccion": "nacional",
+   "orden": 906,
+   "opciones": [],
+   "ambitos": [],
+   "valor_defecto": "false"
+  },
+  {
+   "codigo": "capucha",
+   "etiqueta": "With hood",
+   "tipo_dato": "boolean",
+   "seccion": "nacional",
+   "orden": 907,
+   "opciones": [],
+   "ambitos": [],
+   "valor_defecto": "false",
+   "patrones": [
+    {
+     "re": "\\b(hood(ed|ie)?|capucha)\\b",
+     "en": "todo"
+    }
+   ]
+  },
+  {
+   "codigo": "suelaEspumosa",
+   "etiqueta": "Sole of cellular (foam) rubber or plastics",
+   "tipo_dato": "boolean",
+   "seccion": "nacional",
+   "orden": 908,
+   "opciones": [],
+   "ambitos": [],
+   "valor_defecto": "false"
+  },
+  {
    "codigo": "genero",
    "etiqueta": "For men or for women",
    "tipo_dato": "select",
@@ -768,6 +1324,12 @@
     {
      "codigo": "adulto",
      "etiqueta": "Adult",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
      "orden": 10
     },
     {
@@ -812,8 +1374,7 @@
      }
     ],
     "motivo": "categoria"
-   },
-   "valor_defecto": "adulto"
+   }
   }
  ]
 }

@@ -22,8 +22,21 @@ MATERIALES_TEXTILES = [("cotton", "Cotton"), ("polyester", "Polyester"), ("elast
                        ("silk", "Silk"), ("leather", "Leather")]
 
 
+def _nombrado(c: str, e: str) -> list[dict]:
+    """La materia que nombra el producto se sugiere primero («Suede skate shoe» → Suede)."""
+    palabras = sorted({c, e.split(" (")[0].lower()})
+    return [{"re": r"\b(" + "|".join(palabras) + r")s?\b", "nombre": True}]
+
+
 def _comp(codigo, etiqueta, ayuda, materiales, orden):
-    return atributo(codigo, etiqueta, "composition", [opcion(c, e) for c, e in materiales], seccion="composicion", ayuda=ayuda, orden=orden)
+    return atributo(codigo, etiqueta, "composition", [opcion(c, e, patrones=_nombrado(c, e)) for c, e in materiales], seccion="composicion",
+                    ayuda=ayuda, orden=orden)
+
+
+# Un producto fuera de las familias configuradas: ficha genérica (descripción técnica y material)
+CATEGORIAS = [{"codigo": "otro", "nombre": "Other product (outside the configured families)", "nombre_corto": "Other product",
+               "nombre_aduana": "Producto", "grupo": "Other", "familia": "otro", "dominio": None, "capitulos": [], "alias": "",
+               "orden": 9999, "patrones": []}]
 
 
 def atributos() -> list[dict]:
@@ -33,6 +46,13 @@ def atributos() -> list[dict]:
              opcion("artificial", "Artificial fiber"), opcion("cuero", "Leather"), opcion("otra", "Unidentified material")]
     nino = {"campo": "edad", "operador": "EQUAL", "valor": "nino"}
     adulto = {"campo": "edad", "operador": "IN", "valor": ["adulto", ""]}
+    material = _comp("comp.material", "Main material", "E.g. leather, stainless steel, nylon, cotton canvas",
+                     [("leather", "Leather"), ("synthetic", "Synthetic leather (PU)"), ("polyester", "Polyester"), ("nylon", "Nylon"),
+                      ("cotton", "Cotton"), ("canvas", "Canvas"), ("plastic", "Plastic"), ("rubber", "Rubber"), ("metal", "Metal"),
+                      ("stainless steel", "Stainless steel"), ("zinc alloy", "Zinc alloy"), ("wood", "Wood"), ("paper", "Paper"),
+                      ("straw", "Straw")], 680)
+    material["ambitos"] = [{"tipo_ambito": "SYSTEM", "codigo_ambito": "ALL", "modo": "SHOW", "prioridad": 100,
+                            "condicion": [{"grupo": 1, "campo": "dominio", "operador": "EXISTS", "valor": None, "negado": True}]}]
     return [
         _comp("comp.exterior", "Outer fabric or surface", "E.g. 100% polyester, or shell: 100% nylon", MATERIALES_TEXTILES, 620),
         _comp("comp.forro", "Lining", "Only informative: the lining does not change the code", MATERIALES_TEXTILES, 630),
@@ -45,10 +65,7 @@ def atributos() -> list[dict]:
         _comp("comp.suela", "Outer sole", "Materials of the part that touches the ground, e.g. 100% rubber, or EVA and rubber",
               [("rubber", "Rubber"), ("eva", "EVA"), ("tpr", "TPR"), ("pu", "PU"), ("tpu", "TPU"), ("pvc", "PVC"), ("leather", "Leather"),
                ("cork", "Cork"), ("wood", "Wood"), ("jute", "Jute"), ("textile", "Textile")], 660),
-        _comp("comp.material", "Main material", "E.g. leather, stainless steel, nylon, cotton canvas",
-              [("leather", "Leather"), ("synthetic", "Synthetic leather (PU)"), ("polyester", "Polyester"), ("nylon", "Nylon"),
-               ("cotton", "Cotton"), ("canvas", "Canvas"), ("plastic", "Plastic"), ("rubber", "Rubber"), ("metal", "Metal"),
-               ("stainless steel", "Stainless steel"), ("zinc alloy", "Zinc alloy"), ("wood", "Wood"), ("paper", "Paper"), ("straw", "Straw")], 680),
+        material,
         atributo("fibra", "Fiber that predominates by weight in the outer fabric", "select", fibra, seccion="derivado",
                  derivacion={"modo": "fibra", "parte": "exterior", "respaldo": ["comp.material", "composicion", "texto%"]}, orden=590,
                  ayuda="Section XI, Note 2: the textile material that predominates by weight over each of the others."),
@@ -71,6 +88,23 @@ def atributos() -> list[dict]:
                    re_=r"\b(nonwoven|non-woven|tela sin tejer|tnt|felt|fieltro|disposable)\b", prioridad=4)],
             [], orden=10,
             ayuda="Knitted (chapter 61) or not knitted (chapter 62). Look at the fabric: knitted fabric is made of interlocking loops."),
+        # Datos que piden algunos aranceles nacionales para abrir su código (no cambian la subpartida)
+        atributo("valorCIF", "CIF value (US$)", "number", [], [], seccion="nacional", unidad="US$", orden=900),
+        atributo("usoPrevisto", "Intended use", "select", [opcion("casual", "Casual or everyday"), opcion("escolar", "School or uniform"),
+                                                          opcion("deportivo", "Sports"), opcion("trabajo", "Work or industrial")],
+                 [], seccion="nacional", orden=901),
+        atributo("manga", "Sleeves", "select", [opcion("sin", "Sleeveless"), opcion("corta", "Short"), opcion("larga", "Long")], [],
+                 seccion="nacional", orden=902),
+        atributo("largo", "Length", "select", [opcion("largo", "Long"), opcion("corto", "Short (shorts or bermudas)")], [],
+                 seccion="nacional", orden=903),
+        atributo("peto", "With bib", "boolean", [], [], seccion="nacional", defecto="false", orden=904),
+        atributo("mezclilla", "Of denim", "boolean", [], [], seccion="nacional", defecto="false", orden=905,
+                 patrones=[{"re": r"\b(denim|mezclilla|jeans?)\b", "en": "todo"}]),
+        atributo("conCuello", "With collar", "boolean", [], [], seccion="nacional", defecto="false", orden=906),
+        atributo("capucha", "With hood", "boolean", [], [], seccion="nacional", defecto="false", orden=907,
+                 patrones=[{"re": r"\b(hood(ed|ie)?|capucha)\b", "en": "todo"}]),
+        atributo("suelaEspumosa", "Sole of cellular (foam) rubber or plastics", "boolean", [], [], seccion="nacional", defecto="false",
+                 orden=908),
         atributo("genero", "For men or for women", "select", [
             opcion("M", "Men or boys", re_=r"\b(mens?|men's|hombres?|caballeros?|boys?|ninos?|male|masculino)\b", prioridad=4,
                    texto=[{"frase": "PARA NIÑO", "orden": 1000, "cuando": [nino]}, {"frase": "PARA HOMBRE", "orden": 1000, "cuando": [adulto]}]),

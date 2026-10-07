@@ -32,7 +32,6 @@ import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..datos import MOTOR
 from . import version_config
 from .composicion import Lector, norm, resumen_mat
 from .motor_clasificacion import evaluar
@@ -176,7 +175,9 @@ class Catalogo:
     @classmethod
     def desde_json(cls, ruta: Path | None = None) -> "Catalogo":
         """El catálogo de la ficha tal como se siembra (pruebas sin base)."""
-        d = json.loads((ruta or DATOS_ATRIBUTOS).read_text(encoding="utf-8"))
+        from .semilla_familias import semilla
+
+        d = json.loads(ruta.read_text(encoding="utf-8")) if ruta else semilla()
         attrs = []
         for a in d["atributos"]:
             attrs.append(Atributo(
@@ -231,6 +232,12 @@ class Catalogo:
                 mejor, clave_mejor = x, k
         return mejor
 
+    def _de_la_categoria(self, a: Atributo, s: dict) -> bool:
+        """Si el atributo es de la categoría o el dominio del producto (sin mirar
+        condiciones: pueden depender de hechos que aún no se derivan)."""
+        cat, dom = s.get("categoria") or "", s.get("dominio") or ""
+        return any(x.tipo == "SYSTEM" or (x.tipo == "CATEGORY" and x.codigo == cat) or (x.tipo == "DOMAIN" and x.codigo == dom) for x in a.ambitos)
+
     def aplica(self, a: Atributo, s: dict, codigos=None) -> bool:
         x = self.ambito(a, s, codigos)
         return bool(x) and x.modo != "HIDE"
@@ -283,7 +290,7 @@ class Catalogo:
             if any(p.get("re") and re.search(p["re"], base) for p in o.patrones if p.get("nombre")):
                 rel.append(o.etiqueta)
             prios = [p.get("prioridad", 99) for p in o.patrones if "cuando" in p and _cumple(p["cuando"], s)]
-            if prios or not o.patrones:
+            if prios or all(p.get("nombre") for p in o.patrones):  # sin patrón de categoría: típica en todas
                 tipicos.append((min(prios) if prios else 99, o.orden, o.etiqueta))
         tipicos = [x[2] for x in sorted(tipicos)]
         vistos, mats = set(), []
@@ -441,6 +448,12 @@ class Catalogo:
             if a.booleano and a.valor_defecto in ("false", "true") and s.get(a.codigo) is None:
                 s[a.codigo] = a.valor_defecto == "true"
                 supuestos.append(a.codigo)
+            elif a.tipo_dato == "select" and _vacio(s.get(a.codigo)) and not a.derivacion and self._de_la_categoria(a, s):
+                # La opción por defecto (un patrón «por defecto» sin condición), también cuando no hubo detección
+                o = next((o for o in a.opciones if o.activo and any(p.get("defecto") and not p.get("cuando") for p in o.patrones)), None)
+                if o:
+                    s[a.codigo] = o.codigo
+                    supuestos.append(a.codigo)
         s["_supuestos"] = supuestos  # valores por defecto: no los dijo nadie
         return s
 
@@ -589,7 +602,7 @@ class Catalogo:
         for a in self.atributos:
             if a.seccion == "derivado" or a.tipo_dato == "composition":
                 continue
-            if a.seccion == "nacional" or any(x.tipo == "SYSTEM" or (x.tipo == "CATEGORY" and x.codigo == cat) or (x.tipo == "DOMAIN" and x.codigo == dom)
+            if a.seccion == "nacional" and not a.ambitos or any(x.tipo == "SYSTEM" or (x.tipo == "CATEGORY" and x.codigo == cat) or (x.tipo == "DOMAIN" and x.codigo == dom)
                                                for x in a.ambitos):
                 out.append(a)
         return out
@@ -753,7 +766,6 @@ def _lbl(a: Atributo, v) -> str:
     return o.etiqueta if o else str(v)
 
 
-DATOS_ATRIBUTOS = MOTOR / "motor_atributos.json"
 # Un catálogo por proceso, para la versión de la configuración con que se leyó
 _PROCESO: dict = {}
 _CANDADO = threading.Lock()

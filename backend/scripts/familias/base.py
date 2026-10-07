@@ -98,14 +98,31 @@ def si(**kw) -> list[dict]:
     return out
 
 
+def canon(codigo: str) -> str:
+    """Una partida que no está en el árbol como tal (solo tiene una subpartida, «28.02 → 2802.00») se escribe como esa subpartida."""
+    c = "".join(ch for ch in str(codigo) if ch.isdigit())
+    if len(c) == 4 and c not in TEXTO:
+        hijos = subpartidas(c)
+        if len(hijos) == 1:
+            return hijos[0]
+    return c
+
+
+def expandir(codigo: str) -> list[str]:
+    """Un grupo de subpartidas (5 dígitos) o una partida sin texto propio, en sus subpartidas."""
+    if codigo in TEXTO or len(codigo) == 2:
+        return [codigo]
+    return subpartidas(codigo) or [codigo]
+
+
 def regla(codigo: str, categoria: str, condiciones: list, codigos: list | None = None, efecto: str = "", *, por: str | None = None,
           mapa: dict | None = None, prioridad: int | None = None, tipo: str = "RESTRICT", mensaje: str | None = None,
           revision: bool = False) -> dict:
     accion = {"tipo": tipo}
     if codigos:
-        accion["codigos"] = list(codigos)
+        accion["codigos"] = [x for c in codigos for x in expandir(canon(c))]
     if por:
-        accion["por"], accion["mapa"] = por, dict(mapa or {})
+        accion["por"], accion["mapa"] = por, {k: (canon(v) if v else v) for k, v in (mapa or {}).items()}
     if mensaje:
         accion["mensaje"] = mensaje
     r = {"codigo": codigo, "categoria": categoria, "condiciones": condiciones, "accion": accion, "efecto": efecto}
@@ -150,6 +167,12 @@ def atributo(codigo: str, etiqueta: str, tipo: str = "select", opciones: list | 
              seccion: str = "caracteristicas", ayuda: str | None = None, derivacion: dict | None = None, defecto=None,
              patrones: list | None = None, texto: dict | list | None = None, orden: int = 0, control: str | None = None,
              informativo: bool = False, unidad: str | None = None, bloqueo_: list | None = None) -> dict:
+    if tipo == "select" and defecto is not None:
+        # En una lista, el valor por defecto es un patrón «por defecto» de la opción (lo usa la detección)
+        for o in opciones or []:
+            if o["codigo"] == defecto and not any(p.get("defecto") for p in o.get("patrones", [])):
+                o.setdefault("patrones", []).append({"defecto": True, "prioridad": 99})
+        defecto = None
     a = {"codigo": codigo, "etiqueta": etiqueta, "tipo_dato": tipo, "seccion": seccion, "orden": orden,
          "opciones": [dict(o, orden=o.get("orden", (i + 1) * 10)) for i, o in enumerate(opciones or [])],
          "ambitos": ambitos_ or []}
@@ -206,6 +229,12 @@ def validar(fam: dict, atributos_comunes: dict) -> None:
                 for v in vals:
                     if v not in validas and v != "":
                         errores.append(f"{r['codigo']}: {c['campo']}={v} is not an option ({sorted(validas)})")
+    caps = {c["codigo"]: set(c.get("capitulos") or []) for c in fam["categorias"]}
+    for r in fam["reglas"]:
+        a = r["accion"]
+        for c in list(a.get("codigos") or []) + [v for v in (a.get("mapa") or {}).values() if v]:
+            if caps.get(r["categoria"]) and c[:2] not in caps[r["categoria"]]:
+                errores.append(f"{r['codigo']}: code {c} is outside the chapters of category {r['categoria']} {sorted(caps[r['categoria']])}")
     for x in fam.get("casos", []):
         if not existe(x["codigo"]):
             errores.append(f"case {x}: code is not in the official tree")

@@ -7,19 +7,19 @@ palabras a una clase de base y se dice con qué palabra va en la descripción
 aduanera. Una derivación de modo «clase» lleva la clase a las opciones de un
 atributo (mapa clase → opción).
 """
-import json
 import re
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..datos import MOTOR
 from ..models import ClaseMaterial, Usuario
 from .common import ErrorNegocio, exigir, registrar
 
 
 def _semilla() -> dict:
-    return json.loads((MOTOR / "motor_atributos.json").read_text(encoding="utf-8"))
+    from .semilla_familias import semilla
+
+    return semilla()
 
 
 def sembrar(db: Session) -> int:

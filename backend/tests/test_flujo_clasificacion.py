@@ -36,14 +36,14 @@ def test_flujo_completo_de_la_ficha_a_la_aprobacion(interno):
     assert campos["comp.corte"]["modo"] == "REQUIRE" and campos["comp.corte"]["composicion"]["sugerencias"][0]["m"] == "Leather"
 
     # 2. Responder lo que pregunta (composición, estilo) y el origen: el motor sugiere
-    ficha = {**s["ficha"], "_tipo": "calzado", "comp": {"corte": "100% leather", "suela": "100% rubber"}, "estiloCalz": "tenis",
-             "altura": "bajo", "genero": "U", "edadNac": "adulto"}
-    s = interno.post("/clasificacion/sesion", _entrada(p, ficha, origen="VN", tocados=["estiloCalz", "altura", "genero", "edadNac"])).json()
-    # Todavía falta un dato que decide la subpartida: el motor lo pregunta
-    assert [f["campo"] for f in s["faltantes"]] == ["puntera"] and any(q["codigo"] == "puntera" for q in s["preguntas"])
+    ficha = {**s["ficha"], "_tipo": "calzado", "comp": {"corte": "100% leather", "suela": "100% rubber"}, "estilo_calzado": "tenis",
+             "altura": "bajo", "genero": "U", "edad": "adulto"}
+    s = interno.post("/clasificacion/sesion", _entrada(p, ficha, origen="VN", tocados=["estilo_calzado", "altura", "genero", "edad"])).json()
+    # El uso (deportivo o no) decide la subpartida: se supone «no deportivo» y se puede confirmar
+    assert not s["faltantes"] and s["ficha"]["uso_deportivo"] == "no" and any(c["codigo"] == "uso_deportivo" for c in s["campos"])
     ficha = {**s["ficha"], "_tipo": "calzado"}
-    s = interno.post("/clasificacion/sesion", _entrada(p, ficha, origen="VN", tocados=["estiloCalz", "altura", "genero", "edadNac", "puntera"],
-                                                        cambio={"campo": "puntera", "valor": "ninguna"})).json()
+    s = interno.post("/clasificacion/sesion", _entrada(p, ficha, origen="VN", tocados=["estilo_calzado", "altura", "genero", "edad", "uso_deportivo"],
+                                                        cambio={"campo": "uso_deportivo", "valor": "no"})).json()
     assert s["hs6"] and s["hs6"].startswith("6403") and s["completa"], s["faltantes"]
     # Todo país con código lo toma de una versión oficial; Panamá no tiene versión vigente (la suya sigue en borrador)
     assert s["clasificacion"]["paises"] and all(x["version"] for x in s["clasificacion"]["paises"] if x["codigo"])
@@ -52,7 +52,7 @@ def test_flujo_completo_de_la_ficha_a_la_aprobacion(interno):
 
     # 3. Guardar la ficha natural: el servidor vuelve a clasificar con el mismo motor
     p = interno.put(f"/productos/{p['id']}/ficha", {"version": p["version"], "tipo": "calzado", "ficha": s["ficha"], "pais_origen": "VN",
-                                                    "nombre": p["nombre"], "tocados": ["estiloCalz", "altura"]}).json()
+                                                    "nombre": p["nombre"], "tocados": ["estilo_calzado", "altura"]}).json()
     assert p["estado"] == "sugerida" and p["sugerido"].replace(".", "") == sugerido and p["ficha_completa"]
     assert "CUERO" in (p["descripcion_aduana"] or "")
 

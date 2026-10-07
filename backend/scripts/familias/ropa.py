@@ -16,7 +16,7 @@ Los mapas por fibra se leen del texto del árbol vigente (HS 2022): por ejemplo
 6101 ya no tiene subpartida de lana (va a 6101.90) y las corbatas de punto van
 a 6117.80.
 """
-from base import ambitos, atributo, bloqueo, caso, categoria, cond, opcion, por_fibra, regla, si
+from base import ambitos, atributo, caso, categoria, cond, opcion, por_fibra, regla, si
 
 DOM = "APPAREL"
 NE = "Explanatory Notes, chapters 61 and 62"
@@ -120,68 +120,68 @@ def familia() -> dict:
     tops = "Tops"
     cats = [
         categoria("chaqueta", "Coat, jacket, anorak, parka, raincoat or padded vest", corto="Jacket or coat", aduana="Chaqueta", grupo="Outerwear",
-                  dominio=DOM, capitulos=["61", "62"], orden=10, prioridad=48,
+                  dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"], orden=10, prioridad=48,
                   re_=r"\b(jackets?|jkt|chaquetas?|chamarras?|chumpas?|parkas?|anoraks?|windbreakers?|rompevientos|puffer|softshell|hardshell|"
                       r"coats?|abrigos?|raincoats?|impermeables?|ponchos?|capas?|padded vests?|chalecos? acolchados?|gilet)\b",
                   alias="jacket chaqueta chumpa chamarra parka anorak abrigo impermeable chaleco acolchado"),
-        categoria("saco", "Tailored jacket or blazer", corto="Blazer", aduana="Saco", grupo="Outerwear", dominio=DOM, capitulos=["61", "62"],
+        categoria("saco", "Tailored jacket or blazer", corto="Blazer", aduana="Saco", grupo="Outerwear", dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"],
                   orden=20, prioridad=30, re_=r"\b(blazers?|sport ?coats?|sacos? de vestir|americanas?|suit jackets?)\b", alias="saco blazer americana"),
         categoria("traje", "Suit (jacket and trousers or skirt of the same fabric)", corto="Suit", aduana="Traje", grupo="Sets", dominio=DOM,
-                  capitulos=["61", "62"], orden=30, prioridad=29, re_=r"\b(suits?|trajes? (de vestir|sastre)|tuxedos?|esmoquin|ternos?)\b",
+                  capitulos=["61", "62", "42", "39", "40", "43"], orden=30, prioridad=29, re_=r"\b(suits?|trajes? (de vestir|sastre)|tuxedos?|esmoquin|ternos?)\b",
                   alias="traje terno traje sastre esmoquin"),
         categoria("conjunto", "Ensemble: matching top and bottom sold together", corto="Ensemble", aduana="Conjunto", grupo="Sets", dominio=DOM,
-                  capitulos=["61", "62"], orden=40, prioridad=28, re_=r"\b(ensembles?|conjuntos?|co-?ords?|matching sets?|twinsets?)\b",
+                  capitulos=["61", "62", "42", "39", "40", "43"], orden=40, prioridad=28, re_=r"\b(ensembles?|conjuntos?|co-?ords?|matching sets?|twinsets?)\b",
                   alias="conjunto set"),
         categoria("pantalon", "Trousers, jeans, shorts or bib overalls", corto="Trousers or shorts", aduana="Pantalón", grupo="Bottoms",
-                  dominio=DOM, capitulos=["61", "62"], orden=50, prioridad=44,
+                  dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"], orden=50, prioridad=44,
                   re_=r"\b(pants|trousers|pantalon(es)?|jeans?|shorts?|joggers?|chinos?|cargos?|leggings?|mallas?|overalls?|bermudas?|capris?)\b",
                   alias="pantalón jeans short legging jogger overol de peto"),
-        categoria("falda", "Skirt or divided skirt", corto="Skirt", aduana="Falda", grupo="Bottoms", dominio=DOM, capitulos=["61", "62"], orden=60,
+        categoria("falda", "Skirt or divided skirt", corto="Skirt", aduana="Falda", grupo="Bottoms", dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"], orden=60,
                   prioridad=43, re_=r"\b(skirts?|faldas?|skorts?)\b", alias="falda skort"),
-        categoria("vestido", "Dress", corto="Dress", aduana="Vestido", grupo="Dresses", dominio=DOM, capitulos=["61", "62"], orden=70, prioridad=42,
+        categoria("vestido", "Dress", corto="Dress", aduana="Vestido", grupo="Dresses", dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"], orden=70, prioridad=42,
                   re_=r"\b(dress(es)?|vestidos?)\b", alias="vestido"),
-        categoria("camisa", "Shirt, blouse or polo", corto="Shirt or blouse", aduana="Camisa", grupo=tops, dominio=DOM, capitulos=["61", "62"],
+        categoria("camisa", "Shirt, blouse or polo", corto="Shirt or blouse", aduana="Camisa", grupo=tops, dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"],
                   orden=80, prioridad=46, re_=r"\b(shirts?|camisas?|blouses?|blusas?|polos?|button[- ]?(down|up))\b", alias="camisa blusa polo"),
-        categoria("camiseta", "T-shirt, tank top or singlet", corto="T-shirt", aduana="Camiseta", grupo=tops, dominio=DOM, capitulos=["61"],
+        categoria("camiseta", "T-shirt, tank top or singlet", corto="T-shirt", aduana="Camiseta", grupo=tops, dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"],
                   orden=90, prioridad=49, re_=r"\b(tees?|t-?shirts?|camisetas?|playeras?|tanks?|tank tops?|singlets?|base ?layers?)\b",
                   alias="camiseta playera t-shirt tank top"),
         categoria("sueter", "Sweater, sweatshirt, hoodie, cardigan or vest", corto="Sweater or sweatshirt", aduana="Suéter", grupo=tops,
-                  dominio=DOM, capitulos=["61", "62"], orden=100, prioridad=47,
+                  dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"], orden=100, prioridad=47,
                   re_=r"\b(sweaters?|sueter(es)?|sweatshirts?|sudaderas?|hoodies?|pullovers?|jerseys?|cardigans?|fleece|polar|crew ?necks?|vests?|chalecos?)\b",
                   alias="suéter sudadera hoodie cárdigan chaleco fleece"),
         categoria("ropa_interior", "Underwear: briefs, boxers, panties, slips, undershirts", corto="Underwear", aduana="Ropa interior",
-                  grupo="Underwear and nightwear", dominio=DOM, capitulos=["61", "62"], orden=110, prioridad=30,
+                  grupo="Underwear and nightwear", dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"], orden=110, prioridad=30,
                   re_=r"\b(underwear|briefs?|boxers?|calzon(cillos?|es)?|panties|bragas?|bikinis? brief|thongs?|tangas?|slips?|enaguas?|"
                       r"camisetas? interiores?|undershirts?|ropa interior)\b", alias="ropa interior calzoncillo bóxer calzón braga tanga fondo"),
         categoria("ropa_dormir", "Pajamas, nightgown, bathrobe or dressing gown", corto="Nightwear", aduana="Ropa de dormir",
-                  grupo="Underwear and nightwear", dominio=DOM, capitulos=["61", "62"], orden=120, prioridad=30,
+                  grupo="Underwear and nightwear", dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"], orden=120, prioridad=30,
                   re_=r"\b(pajamas?|pyjamas?|pijamas?|nightgowns?|camisones?|sleepwear|bathrobes?|batas?|robes?|dressing gowns?|loungewear)\b",
                   alias="pijama camisón bata albornoz"),
         categoria("brasier", "Bra, girdle, corset, braces or garters", corto="Bra or shapewear", aduana="Sostén", grupo="Underwear and nightwear",
-                  dominio=DOM, capitulos=["62"], orden=130, prioridad=26,
+                  dominio=DOM, capitulos=["62", "42", "39", "40", "43"], orden=130, prioridad=26,
                   re_=r"\b(bras?|brassieres?|brasier|sostenes?|sujetadores?|corpinos?|bralettes?|sports bras?|girdles?|fajas?|corsets?|corses?|"
                       r"suspenders|tirantes|garters?|ligas?|shapewear)\b", alias="brasier sostén top deportivo faja corsé tirantes",
                   plantilla={"material": "DE {fibra}", "requiere": ["fibra"], "como": {"fibra": {"cuero": "CUERO", "*": "TEXTIL"}}}),
         categoria("chandal", "Track suit (jacket and trousers for sport)", corto="Track suit", aduana="Conjunto deportivo", grupo="Sportswear",
-                  dominio=DOM, capitulos=["61", "62"], orden=140, prioridad=27, re_=r"\b(track ?suits?|tracksuits?|chandal(es)?|pants? y chaqueta deportiv)\b",
+                  dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"], orden=140, prioridad=27, re_=r"\b(track ?suits?|tracksuits?|chandal(es)?|pants? y chaqueta deportiv)\b",
                   alias="chándal pants deportivo conjunto deportivo"),
         categoria("ropa_esqui", "Ski suit or ski ensemble", corto="Ski suit", aduana="Ropa de esquí", grupo="Sportswear", dominio=DOM,
-                  capitulos=["61", "62"], orden=150, prioridad=26, re_=r"\b(ski (suits?|overalls?|sets?)|traje de esqui|snow ?suits?)\b",
+                  capitulos=["61", "62", "42", "39", "40", "43"], orden=150, prioridad=26, re_=r"\b(ski (suits?|overalls?|sets?)|traje de esqui|snow ?suits?)\b",
                   alias="traje de esquí"),
         categoria("traje_bano", "Swimwear: swimsuit, bikini, swim trunks", corto="Swimwear", aduana="Traje de baño", grupo="Sportswear", dominio=DOM,
-                  capitulos=["61", "62"], orden=160, prioridad=25,
+                  capitulos=["61", "62", "42", "39", "40", "43"], orden=160, prioridad=25,
                   re_=r"\b(swim(wear|suits?| trunks| shorts)?|trajes? de bano|banadores?|bikinis?|board ?shorts?|boardshorts)\b",
                   alias="traje de baño bikini bañador"),
         categoria("prenda_otra", "Overall, jumpsuit, work coat, apron or other garment", corto="Other garment", aduana="Prenda de vestir",
-                  grupo="Other garments", dominio=DOM, capitulos=["61", "62"], orden=170, prioridad=20,
+                  grupo="Other garments", dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"], orden=170, prioridad=20,
                   re_=r"\b(jumpsuits?|enterizos?|monos?|rompers?|overoles?|coveralls?|boiler ?suits?|aprons?|delantales?|gabachas?|smocks?|"
                       r"lab coats?|scrubs?|uniform(es)?|leotards?|body ?suits?)\b", alias="enterizo mono overol gabacha delantal uniforme"),
         categoria("calcetines", "Socks, stockings, tights or pantyhose", corto="Socks", aduana="Calcetines", grupo="Hosiery", dominio=DOM,
-                  capitulos=["61", "62"], orden=180, prioridad=38,
+                  capitulos=["61", "62", "42", "39", "40", "43"], orden=180, prioridad=38,
                   re_=r"\b(socks?|calcetines|calcetas?|medias?|stockings?|tights|pantyhose|pantimedias?|leotardos?|knee ?highs?)\b",
                   alias="calcetines calcetas medias pantimedias"),
         categoria("prenda_bebe", "Baby garment: bodysuit, romper, baby set, bib", corto="Baby garment", aduana="Prenda para bebé", grupo="Baby",
-                  dominio=DOM, capitulos=["61", "62"], orden=190, prioridad=24,
+                  dominio=DOM, capitulos=["61", "62", "42", "39", "40", "43"], orden=190, prioridad=24,
                   re_=r"\b(onesies?|bodysuits? (para )?bebe|baby (set|bodysuit|romper|bib)|mamelucos?|peleles?|baberos?|bibs?|pañales? de tela)\b",
                   alias="body de bebé mameluco babero pañal de tela"),
     ]
@@ -246,6 +246,14 @@ def familia() -> dict:
         "genero": ambitos([c for c in APAREL if c not in ("camiseta", "ropa_esqui")], "REQUIRE",
                           condicion=[cond("materia_base", "textil")] + no_bebe),
         "edad": ambitos(APAREL),
+        # Datos que piden algunos aranceles nacionales (no cambian la subpartida)
+        "usoPrevisto": ambitos(APAREL),
+        "manga": ambitos(["camisa", "camiseta", "sueter", "vestido", "chaqueta", "prenda_bebe"]),
+        "largo": ambitos(["pantalon", "chandal", "prenda_bebe"]),
+        "peto": ambitos(["pantalon"]),
+        "mezclilla": ambitos(["pantalon", "chaqueta", "falda", "vestido", "camisa"]),
+        "conCuello": ambitos(["camisa", "camiseta", "sueter"]),
+        "capucha": ambitos(["chaqueta", "sueter", "chandal"]),
     }
     reglas = []
     for cat in APAREL:

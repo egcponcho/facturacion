@@ -21,10 +21,10 @@ def test_attribute_behavior_is_validated(interno):
     _rechazo(interno.patch(url, {"patrones": [{"re": "lid", "en": "nowhere"}]}), "«en» must be one of")
     _rechazo(interno.patch(url, {"patrones": [{"re": "lid", "cuando": [{"campo": "no_such", "operador": "EQUAL", "valor": 1}]}]}),
              "no_such is not an attribute")
-    _rechazo(interno.patch(url, {"bloqueo": [{"condiciones": [{"campo": "estiloCalz", "operador": "EQUAL", "valor": "no_option"}],
-                                              "mensaje": "x"}]}), "no_option is not an option of estiloCalz")
+    _rechazo(interno.patch(url, {"bloqueo": [{"condiciones": [{"campo": "estilo_calzado", "operador": "EQUAL", "valor": "no_option"}],
+                                              "mensaje": "x"}]}), "no_option is not an option of estilo_calzado")
     _rechazo(interno.patch(url, {"texto_aduana": {"orden": 3}}), "give a phrase")
-    _rechazo(interno.patch(url, {"alias": ["estiloCalz"]}), "estiloCalz is already an attribute")
+    _rechazo(interno.patch(url, {"alias": ["estilo_calzado"]}), "estilo_calzado is already an attribute")
     _rechazo(interno.patch(url, {"seccion": "nowhere"}), "The section must be one of")
     ok = interno.patch(url, {"patrones": [{"re": r"\b(lid|tapa)\b", "en": "todo", "prioridad": 3}],
                              "texto_aduana": {"frase": "CON TAPA", "orden": 60}, "alias": ["has_lid"]})
@@ -40,15 +40,15 @@ def test_option_derivation_and_scope_are_validated(interno):
         assert interno.post(f"{url}/opciones", {"codigo": o, "etiqueta": o.title()}).status_code == 200
     opc = {o["codigo"]: o for o in interno.get(url).json()["opciones"]}
     _rechazo(interno.patch(f"{url}/opciones/{opc['vidrio']['id']}", {"implica": {"cfg_body_mat": "otro"}}), "cannot imply its own attribute")
-    _rechazo(interno.patch(f"{url}/opciones/{opc['vidrio']['id']}", {"implica": {"estiloCalz": "nope"}}), "nope is not an option of estiloCalz")
+    _rechazo(interno.patch(f"{url}/opciones/{opc['vidrio']['id']}", {"implica": {"estilo_calzado": "nope"}}), "nope is not an option of estilo_calzado")
     _rechazo(interno.patch(url, {"derivacion": {"modo": "clase", "parte": "no_part"}}), "no_part is not a composition part")
     _rechazo(interno.patch(url, {"derivacion": {"modo": "clase", "parte": "material", "mapa": {"vidrio": "glass"}}}), "glass is not an option")
     _rechazo(interno.patch(url, {"derivacion": {"modo": "magic"}}), "the derivation mode must be one of")
     assert interno.patch(url, {"derivacion": {"modo": "clase", "parte": "material", "mapa": {"vidrio": "vidrio", "*": "otro"}}}).status_code == 200
     _rechazo(interno.post(f"{url}/ambitos", {"tipo_ambito": "CATEGORY", "codigo_ambito": "no_such_category"}), "Category no_such_category does not exist")
     _rechazo(interno.post(f"{url}/ambitos", {"tipo_ambito": "HEADING", "codigo_ambito": "69"}), "must have 4 digits")
-    r = interno.post(f"{url}/ambitos", {"tipo_ambito": "CATEGORY", "codigo_ambito": "botella"})
-    amb = next(x for x in r.json()["ambitos"] if x["codigo_ambito"] == "botella")
+    r = interno.post(f"{url}/ambitos", {"tipo_ambito": "CATEGORY", "codigo_ambito": "mochila"})
+    amb = next(x for x in r.json()["ambitos"] if x["codigo_ambito"] == "mochila")
     _rechazo(interno.patch(f"{url}/ambitos/{amb['id']}", {"condicion": [{"campo": "ghost", "operador": "EXISTS"}]}), "ghost is not an attribute")
 
 

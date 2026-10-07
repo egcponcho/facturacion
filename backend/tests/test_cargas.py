@@ -52,7 +52,9 @@ def test_archivos_separados_por_capa():
     data = RAIZ / "app" / "data"
     assert {p.name for p in (data / "oficial").iterdir()} >= {"01_carga_oficial_catalogos_v3.xlsx", "03_carga_nacional_regulaciones_v3.xlsx",
                                                              "sac_oficial.json", "aci_incisos.json", "sac_notas.json"}
-    assert {p.name for p in (data / "motor").iterdir()} >= {"02_carga_motor_dinamico_v3.xlsx", "motor_atributos.json", "motor_reglas.json",
-                                                           "motor_tecnico.json", "sac_explicativas.json", "interpretacion_aci.json"}
+    assert {p.name for p in (data / "motor").iterdir()} >= {"02_carga_motor_dinamico_v3.xlsx", "familias", "sac_explicativas.json",
+                                                           "interpretacion_aci.json"}
+    assert {p.name for p in (data / "motor" / "familias").iterdir()} == {"comun.json", "calzado.json", "ropa.json", "accesorios.json",
+                                                                       "quimicos.json", "materias_primas.json"}
     assert {p.name for p in (data / "demo").iterdir()} >= {"historial_empresa_demo.json", "palabras_empresa_demo.json", "acuerdos_demo.json"}
     assert not [p for p in data.iterdir() if p.is_file()]  # nada suelto fuera de su capa

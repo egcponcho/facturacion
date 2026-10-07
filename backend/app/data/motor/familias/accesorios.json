@@ -240,7 +240,8 @@
     "42",
     "61",
     "62",
-    "39"
+    "39",
+    "71"
    ],
    "alias": "cinturón cincho",
    "orden": 60,
@@ -829,6 +830,65 @@
    "ayuda": "Chapter 65: the construction decides the heading, not the style."
   },
   {
+   "codigo": "forma_tocado",
+   "etiqueta": "Shape",
+   "tipo_dato": "select",
+   "seccion": "nacional",
+   "orden": 235,
+   "opciones": [
+    {
+     "codigo": "gorra",
+     "etiqueta": "Cap with a visor",
+     "patrones": [
+      {
+       "re": "\\b(caps?|gorras?|truckers?|baseball|snapback|visors?|viseras?)\\b",
+       "en": "todo",
+       "prioridad": 10
+      },
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
+     "orden": 10
+    },
+    {
+     "codigo": "sombrero",
+     "etiqueta": "Hat with a brim all around",
+     "patrones": [
+      {
+       "re": "\\b(hats?|sombreros?|bucket|fedora|panama)\\b",
+       "en": "todo",
+       "prioridad": 5
+      }
+     ],
+     "orden": 20
+    },
+    {
+     "codigo": "gorro",
+     "etiqueta": "Beanie, beret or hood without a brim",
+     "patrones": [
+      {
+       "re": "\\b(beanies?|gorros?|boinas?|berets?|balaclavas?)\\b",
+       "en": "todo",
+       "prioridad": 4
+      }
+     ],
+     "orden": 30
+    }
+   ],
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "gorra",
+     "modo": "SHOW",
+     "condicion": null,
+     "prioridad": 500
+    }
+   ],
+   "ayuda": "Some countries split their national codes between hats and caps."
+  },
+  {
    "codigo": "tipo_paraguas",
    "etiqueta": "Type",
    "tipo_dato": "select",
@@ -1096,7 +1156,7 @@
    ]
   },
   {
-   "codigo": "automatico",
+   "codigo": "reloj_automatico",
    "etiqueta": "Automatic (self-winding)",
    "tipo_dato": "boolean",
    "seccion": "caracteristicas",
@@ -2964,7 +3024,7 @@
     },
     {
      "grupo": 1,
-     "campo": "automatico",
+     "campo": "reloj_automatico",
      "operador": "EQUAL",
      "valor": true,
      "negado": false
@@ -2998,7 +3058,7 @@
     },
     {
      "grupo": 1,
-     "campo": "automatico",
+     "campo": "reloj_automatico",
      "operador": "EQUAL",
      "valor": false,
      "negado": false
@@ -3398,7 +3458,7 @@
     "categoria": "reloj",
     "reloj_inteligente": false,
     "reloj_electrico": false,
-    "automatico": true
+    "reloj_automatico": true
    },
    "codigo": "910221"
   },

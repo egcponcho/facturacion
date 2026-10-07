@@ -6,8 +6,8 @@ Dos orígenes:
   Attribute_Scope_Conditions de un paquete del motor (el 02 incluido u otro que
   se cargue); un atributo que ya existe con otro código se declara «Same as» y
   queda como alias, nunca duplicado.
-- MOTOR: los atributos de la ficha de ropa, calzado y accesorios
-  (motor_atributos.json), con su comportamiento como datos: cuándo aplican
+- MOTOR: las preguntas de cada familia (calzado, ropa, accesorios, químicos y
+  materias primas, data/motor/familias), con su comportamiento como datos: cuándo aplican
   (ámbitos con condiciones), lo que fija la composición, opciones imposibles,
   implicaciones y patrones de detección. Los ejecuta app/services/ficha.py.
 - USUARIO: los creados a mano, con las mismas capacidades.
@@ -17,12 +17,10 @@ import json
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..datos import MOTOR
 from ..models import AtributoAmbito, AtributoDef, AtributoOpcion, DominioClasificacion, Usuario
 from .common import ErrorNegocio, exigir, filtro_texto, registrar
 from .oficial import _si, _txt
 
-DATOS = MOTOR
 TIPOS_DATO = {"text", "select", "multi_select", "boolean", "number", "composition", "country", "measurement_set"}
 TIPO_MOTOR = {"seg": "select", "select": "select", "check": "boolean", "num": "number"}
 AMBITOS = ("SYSTEM", "DOMAIN", "CHAPTER", "HEADING", "SUBHEADING", "CATEGORY")
@@ -284,26 +282,30 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
     db.flush()
 
 
-# ---- Carga de los atributos de la ficha (motor_atributos.json) -----------------------
+# ---- Carga de los atributos de la semilla por familia ------------------------------
 def cargar_motor(db: Session) -> int:
-    """Siembra o completa los atributos de la ficha de ropa, calzado y
-    accesorios con su comportamiento como datos (derivación, bloqueos,
-    implicaciones, patrones de detección, ámbitos con condiciones). Crea lo que
-    falta y completa lo que está vacío; nunca pisa lo que alguien editó."""
-    datos = json.loads((DATOS / "motor_atributos.json").read_text(encoding="utf-8"))
+    """Siembra o completa las preguntas de cada familia (data/motor/familias)
+    con su comportamiento como datos (derivación, bloqueos, implicaciones,
+    patrones de detección, ámbitos con condiciones, términos de búsqueda).
+    Crea lo que falta y completa lo que está vacío; nunca pisa lo que alguien editó."""
+    from .semilla_familias import semilla
+
+    datos = semilla()
     existentes = {a.codigo: a for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones), selectinload(AtributoDef.ambitos)))}
     dominio_cat = {c["codigo"]: c.get("dominio") for c in datos["categorias"]}
     nuevos = 0
     for m in datos["atributos"]:
         doms = [dominio_cat[x["codigo_ambito"]] for x in m.get("ambitos") or []
                 if x["tipo_ambito"] == "CATEGORY" and dominio_cat.get(x["codigo_ambito"])]
-        dominio = max(set(doms), key=doms.count) if doms else None
+        dominio = max(set(doms), key=doms.count) if len(set(doms)) == 1 else None
         a = existentes.get(m["codigo"])
         if not a:
             a = AtributoDef(codigo=m["codigo"], etiqueta=m["etiqueta"], tipo_dato=m["tipo_dato"], origen="MOTOR", orden=m.get("orden", 0),
                             informativo=bool(m.get("informativo")), usado_clasificacion=not m.get("informativo"), unidad=m.get("unidad"),
-                            de_composicion=m.get("seccion") == "composicion", descripcion=m.get("ayuda"), dominio=dominio)
+                            de_composicion=m.get("seccion") == "composicion" or m["tipo_dato"] == "composition", descripcion=m.get("ayuda"),
+                            dominio=dominio)
             db.add(a)
+            existentes[a.codigo] = a
             nuevos += 1
         for k in ("seccion", "valor_defecto", "derivacion", "bloqueo", "patrones", "patrones_falso", "control", "texto_aduana"):
             if getattr(a, k) in (None, [], {}) and m.get(k) not in (None, [], {}):
@@ -316,53 +318,13 @@ def cargar_motor(db: Session) -> int:
             if not x:
                 x = AtributoOpcion(codigo=o["codigo"], etiqueta=o["etiqueta"], orden=o.get("orden", 0))
                 a.opciones.append(x)
-            for k in ("bloqueo", "implica", "patrones", "texto_aduana"):
-                if getattr(x, k) in (None, [], {}) and o.get(k) not in (None, [], {}):
+            for k in ("bloqueo", "implica", "patrones", "texto_aduana", "terminos"):
+                if getattr(x, k) in (None, [], {}, "") and o.get(k) not in (None, [], {}, ""):
                     setattr(x, k, o[k])
-        amb = {(x.tipo_ambito, x.codigo_ambito): x for x in a.ambitos}
-        for x in m.get("ambitos") or []:
-            y = amb.get((x["tipo_ambito"], x["codigo_ambito"]))
-            if not y:
-                a.ambitos.append(AtributoAmbito(tipo_ambito=x["tipo_ambito"], codigo_ambito=x["codigo_ambito"], modo=x.get("modo") or "SHOW",
-                                                prioridad=x.get("prioridad", 500), condicion=x.get("condicion")))
-            elif y.condicion is not None and not all(isinstance(c, dict) and "campo" in c for c in y.condicion):
-                y.condicion = x.get("condicion")  # formato anterior (exportado del navegador): se reemplaza por el exacto
-    db.flush()
-    return nuevos
-
-
-def cargar_tecnico(db: Session) -> int:
-    """Siembra la configuración técnica de químicos y materias primas
-    (motor_tecnico.json): atributos con sus opciones y en qué categoría se
-    preguntan, con sus dependencias. Es configuración del motor, no dato
-    oficial: una categoría decide qué preguntar, nunca un código. Crea lo que
-    falta y nunca pisa lo que alguien editó."""
-    datos = json.loads((DATOS / "motor_tecnico.json").read_text(encoding="utf-8"))
-    existentes = {a.codigo: a for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones), selectinload(AtributoDef.ambitos)))}
-    nuevos = 0
-    for m in datos["atributos"]:
-        a = existentes.get(m["codigo"])
-        if not a:
-            if m.get("referencia"):
-                continue  # un atributo de otro paquete que no está cargado: no se inventa
-            a = AtributoDef(codigo=m["codigo"], etiqueta=m["etiqueta"], tipo_dato=m["tipo_dato"], origen="MOTOR", dominio=m.get("dominio"),
-                            unidad=m.get("unidad"), descripcion=m.get("ayuda"), informativo=bool(m.get("informativo")),
-                            usado_clasificacion=not m.get("informativo"), seccion=m.get("seccion") or "caracteristicas",
-                            orden=8000 + len(existentes) + nuevos)
-            db.add(a)
-            existentes[a.codigo] = a
-            nuevos += 1
-        ops = {o.codigo: o for o in a.opciones}
-        for o in m.get("opciones") or []:
-            x = ops.get(o["codigo"])
-            if not x:
-                x = AtributoOpcion(codigo=o["codigo"], etiqueta=o["etiqueta"], orden=o.get("orden", 0))
-                a.opciones.append(x)
-            if not x.terminos and o.get("terminos"):
-                x.terminos = o["terminos"]
         amb = {(x.tipo_ambito, x.codigo_ambito) for x in a.ambitos}
         for x in m.get("ambitos") or []:
             if (x["tipo_ambito"], x["codigo_ambito"]) not in amb:
+                amb.add((x["tipo_ambito"], x["codigo_ambito"]))
                 a.ambitos.append(AtributoAmbito(tipo_ambito=x["tipo_ambito"], codigo_ambito=x["codigo_ambito"], modo=x.get("modo") or "SHOW",
                                                 prioridad=x.get("prioridad", 500), condicion=x.get("condicion")))
     db.flush()

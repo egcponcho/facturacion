@@ -129,19 +129,19 @@ def test_devolver_aprobar_lote_y_aprendizaje(vans, interno):
 
     # Enseñar un código nacional: queda en el historial de la empresa, solo sobre líneas oficiales
     assert interno.post("/clasificacion/incisos", {"pais": "SV", "codigo": "6404199"}).status_code == 422
-    r = interno.post("/clasificacion/incisos", {"pais": "PA", "codigo": "640419990000", "cond": {"edadNac": "bebe"}})
+    r = interno.post("/clasificacion/incisos", {"pais": "PA", "codigo": "640419990000", "cond": {"edad": "bebe"}})
     assert r.status_code == 422 and r.json()["codigo"] == "no_es_linea_oficial"  # el historial no crea líneas
-    r = interno.post("/clasificacion/incisos", {"pais": "SV", "codigo": "6404.19.90.00", "cond": {"edadNac": "bebe"}})
+    r = interno.post("/clasificacion/incisos", {"pais": "SV", "codigo": "6404.19.90.00", "cond": {"edad": "bebe"}})
     assert r.status_code == 200, r.text
     assert vans.post("/clasificacion/incisos", {"pais": "SV", "codigo": "6404199000"}).status_code == 403
     assert interno.post("/clasificacion/palabras", {"frase": "old skool", "tipo": "calzado",
-                                                    "atributos": {"estiloCalz": "tenis"}}).status_code == 200
+                                                    "atributos": {"estilo_calzado": "tenis"}}).status_code == 200
     assert vans.post("/clasificacion/sinonimos", {"palabra": "cordura", "equivale": "nylon"}).status_code == 200
     # Lo aprendido lo usa el motor: la palabra clave da categoría y estilo
     s = interno.post("/clasificacion/sesion", {"nombre": "Old Skool", "paises": False}).json()
-    assert s["categoria"]["codigo"] == "calzado" and s["ficha"].get("estiloCalz") == "tenis"
+    assert s["categoria"]["codigo"] == "calzado" and s["ficha"].get("estilo_calzado") == "tenis"
     s = interno.post("/clasificacion/sesion", {"categoria": "mochila", "ficha": {"comp": {"exterior": "100% cordura"}}, "paises": False}).json()
-    assert s["hechos"].get("exterior") == "textil"
+    assert s["hechos"].get("superficie_exterior") == "textil"
 
 
 def test_fotos(vans, interno):

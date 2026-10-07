@@ -4,30 +4,23 @@ Agregar un dominio nuevo (p. ej. ELECTRONICS) con sus categorías, atributos,
 ámbitos y reglas, y habilitar sus capítulos, basta para que la ficha lo
 ofrezca y el motor lo clasifique: no hace falta programar una ficha.
 """
-import json
 import re
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from ..datos import MOTOR
 from ..models import CategoriaProducto, DominioClasificacion, Usuario
 from .common import ErrorNegocio, exigir, registrar
 
-DATOS = MOTOR
-
-
 def sembrar(db: Session) -> int:
-    """Categorías iniciales como datos: las de la ficha de ropa, calzado y
-    accesorios (motor_atributos.json) y las técnicas de químicos y materias
-    primas (motor_tecnico.json). Crea las que faltan y completa los campos
-    vacíos; la base manda después. Una categoría solo decide qué preguntar."""
-    datos = json.loads((DATOS / "motor_atributos.json").read_text(encoding="utf-8"))
-    tecnico = json.loads((DATOS / "motor_tecnico.json").read_text(encoding="utf-8"))
+    """Categorías de cada familia (data/motor/familias): crea las que faltan y
+    completa los campos vacíos; la base manda después. Una categoría solo decide
+    qué preguntar; el código lo deciden las reglas."""
+    from .semilla_familias import semilla
+
     existentes = {c.codigo: c for c in db.scalars(select(CategoriaProducto))}
     n = 0
-    filas = datos["categorias"] + tecnico["categorias"]  # cada categoría trae su dominio
-    for c in filas:
+    for c in semilla()["categorias"]:  # cada categoría trae su dominio
         x = existentes.get(c["codigo"])
         if not x:
             x = CategoriaProducto(codigo=c["codigo"], nombre=c["nombre"], orden=c.get("orden", 0), activo=True)

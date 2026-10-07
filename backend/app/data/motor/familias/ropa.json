@@ -44,7 +44,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "jacket chaqueta chumpa chamarra parka anorak abrigo impermeable chaleco acolchado",
    "orden": 10,
@@ -89,7 +93,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "saco blazer americana",
    "orden": 20,
@@ -134,7 +142,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "traje terno traje sastre esmoquin",
    "orden": 30,
@@ -179,7 +191,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "conjunto set",
    "orden": 40,
@@ -224,7 +240,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "pantalón jeans short legging jogger overol de peto",
    "orden": 50,
@@ -269,7 +289,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "falda skort",
    "orden": 60,
@@ -314,7 +338,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "vestido",
    "orden": 70,
@@ -359,7 +387,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "camisa blusa polo",
    "orden": 80,
@@ -403,7 +435,12 @@
    "familia": "camiseta",
    "dominio": "APPAREL",
    "capitulos": [
-    "61"
+    "61",
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "camiseta playera t-shirt tank top",
    "orden": 90,
@@ -448,7 +485,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "suéter sudadera hoodie cárdigan chaleco fleece",
    "orden": 100,
@@ -493,7 +534,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "ropa interior calzoncillo bóxer calzón braga tanga fondo",
    "orden": 110,
@@ -538,7 +583,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "pijama camisón bata albornoz",
    "orden": 120,
@@ -582,7 +631,11 @@
    "familia": "brasier",
    "dominio": "APPAREL",
    "capitulos": [
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "brasier sostén top deportivo faja corsé tirantes",
    "orden": 130,
@@ -615,7 +668,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "chándal pants deportivo conjunto deportivo",
    "orden": 140,
@@ -660,7 +717,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "traje de esquí",
    "orden": 150,
@@ -705,7 +766,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "traje de baño bikini bañador",
    "orden": 160,
@@ -750,7 +815,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "enterizo mono overol gabacha delantal uniforme",
    "orden": 170,
@@ -795,7 +864,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "calcetines calcetas medias pantimedias",
    "orden": 180,
@@ -840,7 +913,11 @@
    "dominio": "APPAREL",
    "capitulos": [
     "61",
-    "62"
+    "62",
+    "42",
+    "39",
+    "40",
+    "43"
    ],
    "alias": "body de bebé mameluco babero pañal de tela",
    "orden": 190,
@@ -887,6 +964,12 @@
     {
      "codigo": "textil",
      "etiqueta": "Textile (woven, knitted, felt or nonwoven)",
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
      "orden": 10
     },
     {
@@ -1066,8 +1149,7 @@
      "prioridad": 500
     }
    ],
-   "ayuda": "Garments of leather (42.03), plastics (39.26), rubber (40.15) or furskin (43.03) are excluded from chapters 61 and 62.",
-   "valor_defecto": "textil"
+   "ayuda": "Garments of leather (42.03), plastics (39.26), rubber (40.15) or furskin (43.03) are excluded from chapters 61 and 62."
   },
   {
    "codigo": "recubierta",
@@ -3101,6 +3183,300 @@
    {
     "tipo_ambito": "CATEGORY",
     "codigo_ambito": "brasier",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "usoPrevisto": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "chaqueta",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "saco",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "traje",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "conjunto",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "pantalon",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "falda",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "vestido",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "camisa",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "camiseta",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "sueter",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "chandal",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "ropa_esqui",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "traje_bano",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "prenda_otra",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "ropa_interior",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "ropa_dormir",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "prenda_bebe",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "calcetines",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "brasier",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "manga": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "camisa",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "camiseta",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "sueter",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "vestido",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "chaqueta",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "prenda_bebe",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "largo": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "pantalon",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "chandal",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "prenda_bebe",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "peto": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "pantalon",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "mezclilla": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "pantalon",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "chaqueta",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "falda",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "vestido",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "camisa",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "conCuello": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "camisa",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "camiseta",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "sueter",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "capucha": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "chaqueta",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "sueter",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   },
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "chandal",
     "modo": "SHOW",
     "condicion": null,
     "prioridad": 500

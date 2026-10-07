@@ -1,7 +1,8 @@
 """Carga de los datos incluidos, separada por capa (nunca se mezclan):
 
-1. MOTOR (data/motor): paquete 02 (dominios, atributos, reglas del sistema),
-   atributos de la ficha, categorías técnicas y reglas de la ficha. Es
+1. MOTOR (data/motor): las familias (data/motor/familias: dominios con sus
+   capítulos, categorías, preguntas y reglas escritas con las Notas
+   Explicativas) y el paquete 02 (reglas del sistema). Es
    configuración interna, nunca dato oficial. Se pone al día en cada arranque
    sin pisar lo editado.
 2. OFICIAL (data/oficial): paquetes 01 y 03, árbol del ACI, notas legales y
@@ -13,10 +14,8 @@
    ejemplo, historial de clasificaciones, palabras clave, acuerdos de
    referencia). Solo con SEED_DEMO=1.
 
-El orden importa: los atributos de la ficha van antes del paquete 02 (que
-declara «Same as» sobre ellos), el 02 define los dominios que el 01 relaciona
-con capítulos, la capa técnica completa atributos del 02 y las reglas de la
-ficha leen el árbol oficial.
+El orden importa: las familias ligan sus dominios a los capítulos que trae el
+paquete oficial 01, y sus reglas leen el árbol oficial.
 """
 import json
 
@@ -28,8 +27,8 @@ from .models import AcuerdoComercial, PaisArancel, VersionDataset
 
 
 def cargar_motor_paquete(db: Session) -> None:
-    """Los atributos de la ficha primero (el paquete 02 declara «Same as» sobre
-    ellos) y después el paquete 02 (dominios, atributos genéricos y reglas del sistema)."""
+    """Las preguntas de cada familia y después el paquete 02 (las reglas del sistema:
+    cómo decide el motor)."""
     from .services import atributos, oficial
 
     atributos.cargar_motor(db)
@@ -52,9 +51,9 @@ def cargar_oficial(db: Session) -> bool:
 
 def cargar_motor(db: Session) -> None:
     """Configuración del motor incluida (no pisa lo editado)."""
-    from .services import atributos, busqueda, categorias, materiales, reglas, traducciones
+    from .services import busqueda, categorias, materiales, reglas, semilla_familias, traducciones
 
-    atributos.cargar_tecnico(db)  # categorías técnicas de químicos y materias primas
+    semilla_familias.sembrar_dominios(db)  # familias y los capítulos donde se clasifican
     materiales.sembrar(db)  # clases de material de base con su palabra aduanera
     busqueda.sembrar(db)  # vocabulario de búsqueda en el texto oficial (inglés → español)
     categorias.sembrar(db)

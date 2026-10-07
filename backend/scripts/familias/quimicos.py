@@ -52,70 +52,70 @@ def familia() -> dict:
     g = "Chemicals"
     cats = [
         categoria("quimico_inorganico", "Inorganic chemical: acid, base, salt, oxide or element", corto="Inorganic chemical",
-                  aduana="Producto químico inorgánico", grupo=g, dominio=DOM, capitulos=["28"], orden=10, prioridad=40,
+                  aduana="Producto químico inorgánico", grupo=g, dominio=DOM, capitulos=["28"], orden=10, prioridad=210,
                   re_=r"\b(inorganic|inorganic[oa]|acid[oe]s? (sulfuric|hydrochloric|nitric|phosphoric|sulfurico|clorhidrico|nitrico|fosforico)|"
                       r"sodium hydroxide|hidroxido de sodio|caustic soda|soda caustica|zinc oxide|oxido de zinc|silica gel|titanium dioxide|"
                       r"chlorides?|cloruros?|sulfates?|sulfatos?|carbonates?|carbonatos?|nitrates?|nitratos?|hydroxides?|hidroxidos?)\b",
                   alias="ácido base sal óxido hidróxido cloruro sulfato carbonato", terminos="inorgánicos"),
         categoria("quimico_organico", "Organic chemical (single compound): solvent, alcohol, acid, ester, amine", corto="Organic chemical",
-                  aduana="Producto químico orgánico", grupo=g, dominio=DOM, capitulos=["29"], orden=20, prioridad=40,
+                  aduana="Producto químico orgánico", grupo=g, dominio=DOM, capitulos=["29"], orden=20, prioridad=210,
                   re_=r"\b(organic chemical|acetone|acetona|toluene|tolueno|xylene|xileno|methanol|metanol|isopropanol|isopropyl alcohol|"
                       r"alcohol isopropilico|ethyl acetate|acetato de etilo|butyl acetate|acetato de butilo|mek|methyl ethyl ketone|glycol|glicol|"
                       r"glycerol|glicerina|formaldehyde|formaldehido|acetic acid|acido acetico|citric acid|acido citrico|amines?|aminas?)\b",
                   alias="acetona tolueno metanol alcohol isopropílico acetato glicol", terminos="orgánicos"),
-        categoria("colorante", "Dye or colorant", corto="Dye", aduana="Colorante", grupo=g, dominio=DOM, capitulos=["32"], orden=30, prioridad=38,
+        categoria("colorante", "Dye or colorant", corto="Dye", aduana="Colorante", grupo=g, dominio=DOM, capitulos=["32"], orden=30, prioridad=208,
                   re_=r"\b(dyes?|dyestuffs?|colorantes?|tintes?|tinturas?|disperse|reactive dye|acid dye|vat dye|indigo|anilinas?)\b",
                   alias="colorante tinte anilina", terminos="colorantes"),
         categoria("pigmento", "Pigment or pigment preparation", corto="Pigment", aduana="Pigmento", grupo=g, dominio=DOM, capitulos=["32"], orden=40,
-                  prioridad=37, re_=r"\b(pigments?|pigmentos?|masterbatch|pastas? pigmentarias?|color pastes?)\b", alias="pigmento masterbatch",
+                  prioridad=207, re_=r"\b(pigments?|pigmentos?|masterbatch|pastas? pigmentarias?|color pastes?)\b", alias="pigmento masterbatch",
                   terminos="pigmentos"),
         categoria("pintura", "Paint, varnish, lacquer or leather finish", corto="Paint or varnish", aduana="Pintura", grupo=g, dominio=DOM,
-                  capitulos=["32"], orden=50, prioridad=37,
+                  capitulos=["32"], orden=50, prioridad=207,
                   re_=r"\b(paints?|pinturas?|varnish(es)?|barnices?|barniz|lacquers?|lacas?|coatings?|recubrimientos?|primers?|enamels?|esmaltes?|"
                       r"leather finish)\b", alias="pintura barniz laca esmalte", terminos="pinturas barnices"),
-        categoria("tinta", "Printing or writing ink", corto="Ink", aduana="Tinta", grupo=g, dominio=DOM, capitulos=["32"], orden=60, prioridad=36,
+        categoria("tinta", "Printing or writing ink", corto="Ink", aduana="Tinta", grupo=g, dominio=DOM, capitulos=["32"], orden=60, prioridad=206,
                   re_=r"\b(inks?|tintas?|screen printing ink|plastisol|serigrafia)\b", alias="tinta serigrafía plastisol", terminos="tintas"),
-        categoria("adhesivo", "Glue or adhesive", corto="Adhesive", aduana="Adhesivo", grupo=g, dominio=DOM, capitulos=["35"], orden=70, prioridad=39,
+        categoria("adhesivo", "Glue or adhesive", corto="Adhesive", aduana="Adhesivo", grupo=g, dominio=DOM, capitulos=["35"], orden=70, prioridad=209,
                   re_=r"\b(adhesives?|adhesivos?|glues?|pegamentos?|colas?|cements? de contacto|contact cement|hot ?melt|primers? (para )?(suela|sole))\b",
                   alias="adhesivo pegamento cola cemento de contacto hot melt", terminos="adhesivos colas"),
         categoria("tensoactivo", "Surfactant, detergent or washing preparation", corto="Detergent or surfactant", aduana="Detergente",
-                  grupo=g, dominio=DOM, capitulos=["34"], orden=80, prioridad=35,
+                  grupo=g, dominio=DOM, capitulos=["34"], orden=80, prioridad=205,
                   re_=r"\b(surfactants?|tensoactivos?|detergents?|detergentes?|wetting agents?|humectantes?|emulsifiers?|emulsionantes?|"
                       r"cleaners?|limpiadores?|desengrasantes?|degreasers?)\b", alias="detergente tensoactivo limpiador", terminos="tensoactivos"),
-        categoria("jabon", "Soap", corto="Soap", aduana="Jabón", grupo=g, dominio=DOM, capitulos=["34"], orden=90, prioridad=34,
+        categoria("jabon", "Soap", corto="Soap", aduana="Jabón", grupo=g, dominio=DOM, capitulos=["34"], orden=90, prioridad=204,
                   re_=r"\b(soaps?|jabon(es)?|hand ?wash)\b", alias="jabón", terminos="jabón"),
         categoria("lubricante", "Lubricant, release agent or anti-rust preparation", corto="Lubricant", aduana="Lubricante", grupo=g, dominio=DOM,
-                  capitulos=["34", "27"], orden=100, prioridad=34,
+                  capitulos=["34", "27"], orden=100, prioridad=204,
                   re_=r"\b(lubricants?|lubricantes?|greases?|grasas? lubricantes?|release agents?|desmoldantes?|anti-?rust|antioxidante de metal|"
                       r"cutting oils?|aceites? de corte|silicone spray)\b", alias="lubricante grasa desmoldante", terminos="lubricantes"),
         categoria("cera", "Wax: prepared, artificial or paraffin", corto="Wax", aduana="Cera", grupo=g, dominio=DOM, capitulos=["34", "27"], orden=110,
-                  prioridad=33, re_=r"\b(wax(es)?|ceras?|parafinas?|paraffin)\b", alias="cera parafina", terminos="ceras"),
+                  prioridad=203, re_=r"\b(wax(es)?|ceras?|parafinas?|paraffin)\b", alias="cera parafina", terminos="ceras"),
         categoria("betun", "Polish or cream for footwear or leather; scouring paste", corto="Shoe polish", aduana="Betún", grupo=g, dominio=DOM,
-                  capitulos=["34"], orden=120, prioridad=36,
+                  capitulos=["34"], orden=120, prioridad=206,
                   re_=r"\b(shoe (polish|cream|care)|betun(es)?|crema para (calzado|zapatos)|leather (cream|conditioner|polish)|polishes?|"
                       r"abrillantadores?|lustres?|suede cleaner)\b", alias="betún crema para calzado limpiador de cuero", terminos="betunes cremas calzado"),
         categoria("apresto", "Finishing agent, dye fixer or carrier for textiles, paper or leather", corto="Finishing agent", aduana="Apresto",
-                  grupo=g, dominio=DOM, capitulos=["38"], orden=130, prioridad=33,
+                  grupo=g, dominio=DOM, capitulos=["38"], orden=130, prioridad=203,
                   re_=r"\b(finishing agents?|aprestos?|softeners?|suavizantes? textiles?|dye fixing|fijadores?|leveling agents?|igualadores?|"
                       r"waterproofing agents?|repelentes? de agua|dwr|mordants?|mordientes?)\b", alias="apresto suavizante fijador repelente",
                   terminos="aprestos acabado"),
         categoria("aditivo_polimero", "Rubber accelerator, plasticizer, antioxidant or stabilizer", corto="Rubber or plastic additive",
-                  aduana="Aditivo para caucho o plástico", grupo=g, dominio=DOM, capitulos=["38"], orden=140, prioridad=32,
+                  aduana="Aditivo para caucho o plástico", grupo=g, dominio=DOM, capitulos=["38", "29"], orden=140, prioridad=202,
                   re_=r"\b(accelerators?|aceleradores?|plasticizers?|plastificantes?|antioxidants?|antioxidantes?|stabilizers?|estabilizantes?|"
                       r"vulcaniz\w+)\b", alias="acelerante plastificante antioxidante estabilizador", terminos="aceleradores plastificantes"),
         categoria("disolvente", "Solvent or thinner (mixture); paint remover", corto="Solvent or thinner", aduana="Disolvente", grupo=g, dominio=DOM,
-                  capitulos=["38", "29"], orden=150, prioridad=34,
+                  capitulos=["38", "29"], orden=150, prioridad=204,
                   re_=r"\b(solvents?|disolventes?|solventes?|thinners?|diluyentes?|adelgazadores?|paint removers?|removedores?)\b",
                   alias="disolvente thinner diluyente", terminos="disolventes diluyentes"),
         categoria("biocida", "Disinfectant, insecticide, fungicide or similar", corto="Disinfectant or biocide", aduana="Desinfectante", grupo=g,
-                  dominio=DOM, capitulos=["38"], orden=160, prioridad=33,
+                  dominio=DOM, capitulos=["38"], orden=160, prioridad=203,
                   re_=r"\b(disinfectants?|desinfectantes?|insecticides?|insecticidas?|fungicides?|fungicidas?|antimicrobial|antimicrobianos?|"
                       r"biocides?|biocidas?|anti-?mold|antimoho)\b", alias="desinfectante insecticida fungicida antimicrobiano", terminos="desinfectantes"),
         categoria("reactivo", "Laboratory or diagnostic reagent", corto="Reagent", aduana="Reactivo de laboratorio", grupo=g, dominio=DOM,
-                  capitulos=["38"], orden=170, prioridad=31, re_=r"\b(reagents?|reactivos?|buffer solutions?|test kits?|standards? de laboratorio)\b",
+                  capitulos=["38"], orden=170, prioridad=201, re_=r"\b(reagents?|reactivos?|buffer solutions?|test kits?|standards? de laboratorio)\b",
                   alias="reactivo de laboratorio", terminos="reactivos"),
         categoria("preparacion_quimica", "Other chemical preparation", corto="Chemical preparation", aduana="Preparación química", grupo=g,
-                  dominio=DOM, capitulos=["38"], orden=180, prioridad=10, re_=r"\b(chemical preparations?|preparaciones? quimicas?|compound|blend)\b",
+                  dominio=DOM, capitulos=["38"], orden=180, prioridad=260, re_=r"\b(chemical preparations?|preparaciones? quimicas?|compound|blend)\b",
                   alias="preparación química", terminos="preparaciones químicas"),
     ]
     funcion = ["colorante", "pigmento", "pintura", "tinta", "adhesivo", "tensoactivo", "jabon", "lubricante", "cera", "betun", "apresto",
@@ -130,16 +130,18 @@ def familia() -> dict:
         atributo("estado_fisico", "Physical state", "select", [opcion("liquido", "Liquid"), opcion("solido", "Solid"), opcion("polvo", "Powder"),
                                                                opcion("pasta", "Paste or gel"), opcion("gas", "Gas")], ambitos(todas), orden=13,
                  informativo=True),
-        atributo("definido", "Single chemically defined compound", "boolean", [], ambitos(["quimico_inorganico", "quimico_organico", "disolvente",
+        atributo("densidad", "Density", "number", [], ambitos(todas), unidad="g/cm³", orden=14, informativo=True),
+        atributo("ph", "pH", "number", [], ambitos(todas), orden=15, informativo=True),
+        atributo("compuesto_definido", "Single chemically defined compound", "boolean", [], ambitos(["quimico_inorganico", "quimico_organico", "disolvente",
                                                                                               "aditivo_polimero"], "REQUIRE"),
                  defecto="true", orden=20,
                  ayuda="Notes 1 to chapters 28 and 29: one compound with one formula, even with impurities, in water solution, or with a "
                        "stabilizer added only for safety or transport. A mixture or preparation is classified by its function."),
         atributo("grupo_inorganico", "Kind of inorganic compound", "select",
                  [opcion(k, v[0], terminos=None) for k, v in GRUPOS_INORG.items()],
-                 ambitos(["quimico_inorganico"], "REQUIRE", condicion=[cond("definido", True)]), orden=21),
+                 ambitos(["quimico_inorganico"], "REQUIRE", condicion=[cond("compuesto_definido", True)]), orden=21),
         atributo("grupo_organico", "Functional group", "select", [opcion(k, v[0]) for k, v in GRUPOS_ORG.items()],
-                 ambitos(["quimico_organico", "disolvente"], "REQUIRE", condicion=[cond("definido", True)]), orden=22,
+                 ambitos(["quimico_organico", "disolvente"], "REQUIRE", condicion=[cond("compuesto_definido", True)]), orden=22,
                  ayuda="Chapter 29 Note 3: a compound that fits two headings goes in the one that comes last."),
         atributo("clase_colorante", "Kind of dye", "select", [
             opcion("dispersos", "Disperse dyes (polyester)", terminos="dispersos", re_=r"\bdisperse\b"),
@@ -213,7 +215,7 @@ def familia() -> dict:
         atributo("tipo_aditivo", "Kind of additive", "select", [
             opcion("acelerante", "Prepared rubber accelerator"), opcion("plastificante", "Compound plasticizer"),
             opcion("antioxidante_tmq", "Antioxidant: mixture of TMQ oligomers"), opcion("antioxidante", "Other antioxidant or stabilizer")],
-            ambitos(["aditivo_polimero"], "REQUIRE", condicion=[cond("definido", False)]), orden=49),
+            ambitos(["aditivo_polimero"], "REQUIRE", condicion=[cond("compuesto_definido", False)]), orden=49),
         atributo("tipo_biocida", "Kind", "select", [
             opcion("desinfectante", "Disinfectant or antimicrobial"), opcion("insecticida", "Insecticide"), opcion("fungicida", "Fungicide or anti-mold"),
             opcion("otro", "Other")], ambitos(["biocida"], "REQUIRE"), orden=50),
@@ -222,22 +224,22 @@ def familia() -> dict:
             ambitos(["reactivo"], "REQUIRE"), orden=51),
     ]
     R = regla
-    reglas = [R("R-NE-QUI-INORG-MEZCLA", "quimico_inorganico", si(definido=False), tipo="REVIEW",
+    reglas = [R("R-NE-QUI-INORG-MEZCLA", "quimico_inorganico", si(compuesto_definido=False), tipo="REVIEW",
                 efecto="Not a chemically defined compound: chapter 28 does not apply (Note 1). Choose the category by its function, "
                        "or other chemical preparations (38.24).")]
-    reglas += [R(f"R-NE-QUI-INORG-{k.upper()}", "quimico_inorganico", si(definido=True, grupo_inorganico=k), v[1],
+    reglas += [R(f"R-NE-QUI-INORG-{k.upper()}", "quimico_inorganico", si(compuesto_definido=True, grupo_inorganico=k), v[1],
                  f"Chemically defined inorganic compound, {v[0].split(' (')[0].lower()} → headings {v[1][0][:2]}.{v[1][0][2:]}–{v[1][-1][2:]} "
                  "(chapter 28 Note 1); the name finds the subheading") for k, v in GRUPOS_INORG.items()]
-    reglas += [R("R-NE-QUI-ORG-MEZCLA", "quimico_organico", si(definido=False), tipo="REVIEW",
+    reglas += [R("R-NE-QUI-ORG-MEZCLA", "quimico_organico", si(compuesto_definido=False), tipo="REVIEW",
                  efecto="Not a chemically defined compound: chapter 29 does not apply (Note 1). A mixture of solvents is 38.14; "
                         "otherwise classify it by its function.")]
-    reglas += [R(f"R-NE-QUI-ORG-{k.upper()}", "quimico_organico", si(definido=True, grupo_organico=k), v[1],
+    reglas += [R(f"R-NE-QUI-ORG-{k.upper()}", "quimico_organico", si(compuesto_definido=True, grupo_organico=k), v[1],
                  f"Chemically defined organic compound, {v[0].split(' (')[0].lower()} → headings {v[1][0][:2]}.{v[1][0][2:]}–{v[1][-1][2:]} "
                  "(chapter 29 Note 1); the name finds the subheading") for k, v in GRUPOS_ORG.items()]
-    reglas += [R(f"R-NE-QUI-DISOLV-{k.upper()}", "disolvente", si(definido=True, grupo_organico=k), v[1],
+    reglas += [R(f"R-NE-QUI-DISOLV-{k.upper()}", "disolvente", si(compuesto_definido=True, grupo_organico=k), v[1],
                  f"A single solvent compound is chapter 29 ({v[0].split(' (')[0].lower()})") for k, v in GRUPOS_ORG.items()]
     reglas += [
-        R("R-NE-QUI-DISOLV-MEZCLA", "disolvente", si(definido=False), ["381400"],
+        R("R-NE-QUI-DISOLV-MEZCLA", "disolvente", si(compuesto_definido=False), ["381400"],
           "Composite organic solvents and thinners; paint removers → 3814.00"),
         # Colorantes, pigmentos, pinturas, tintas
         *[R(f"R-NE-QUI-COLOR-{k.upper()}", "colorante", si(clase_colorante=k), [c], f"{t} → {c[:4]}.{c[4:]}") for k, c, t in (
@@ -304,9 +306,9 @@ def familia() -> dict:
         R("R-NE-QUI-APRESTO-TEX", "apresto", si(industria_apresto="textil"), ["380991"], "Finishing agents for the textile industry → 3809.91"),
         R("R-NE-QUI-APRESTO-CUE", "apresto", si(industria_apresto="cuero"), ["380993"], "Finishing agents for the leather industry → 3809.93"),
         R("R-NE-QUI-APRESTO-PAP", "apresto", si(industria_apresto="papel"), ["380992"], "Finishing agents for the paper industry → 3809.92"),
-        R("R-NE-QUI-ADIT-DEF", "aditivo_polimero", si(definido=True), ["29"],
+        R("R-NE-QUI-ADIT-DEF", "aditivo_polimero", si(compuesto_definido=True), ["29"],
           "A single defined compound (e.g. a phthalate plasticizer) is chapter 29, not 38.12", revision=True),
-        *[R(f"R-NE-QUI-ADIT-{k.upper()}", "aditivo_polimero", si(definido=False, tipo_aditivo=k), [c], t) for k, c, t in (
+        *[R(f"R-NE-QUI-ADIT-{k.upper()}", "aditivo_polimero", si(compuesto_definido=False, tipo_aditivo=k), [c], t) for k, c, t in (
             ("acelerante", "381210", "Prepared rubber accelerators → 3812.10"), ("plastificante", "381220", "Compound plasticizers → 3812.20"),
             ("antioxidante_tmq", "381231", "Mixtures of TMQ oligomers → 3812.31"), ("antioxidante", "381239", "Other antioxidants and stabilizers → 3812.39"))],
         *[R(f"R-NE-QUI-BIOC-{k.upper()}", "biocida", si(tipo_biocida=k), [c], t) for k, c, t in (
@@ -317,8 +319,8 @@ def familia() -> dict:
         R("R-NE-QUI-PREP", "preparacion_quimica", [], ["382499"], "Chemical preparations not elsewhere specified → 3824.99"),
     ]
     casos = [
-        caso("quimico_organico", "291411", nombre_quimico="Acetona", definido=True, grupo_organico="cetona"),
-        caso("quimico_inorganico", "281511", nombre_quimico="Hidróxido de sodio sólido (soda cáustica)", definido=True, grupo_inorganico="base_oxido"),
+        caso("quimico_organico", "291411", nombre_quimico="Acetona", compuesto_definido=True, grupo_organico="cetona"),
+        caso("quimico_inorganico", "281511", nombre_quimico="Hidróxido de sodio sólido (soda cáustica)", compuesto_definido=True, grupo_inorganico="base_oxido"),
         caso("adhesivo", "350691", menor_1kg=False, base_adhesivo="polimero", nombre_quimico="Polyurethane adhesive for soles"),
         caso("adhesivo", "350610", menor_1kg=True),
         caso("pintura", "320890", medio_pintura="disolvente", polimero_pintura="otro"),
@@ -331,8 +333,8 @@ def familia() -> dict:
         caso("cera", "340490", tipo_cera="preparada"),
         caso("betun", "340510", uso_pulimento="calzado_cuero"),
         caso("apresto", "380991", industria_apresto="textil"),
-        caso("aditivo_polimero", "381210", definido=False, tipo_aditivo="acelerante"),
-        caso("disolvente", "381400", definido=False),
+        caso("aditivo_polimero", "381210", compuesto_definido=False, tipo_aditivo="acelerante"),
+        caso("disolvente", "381400", compuesto_definido=False),
         caso("biocida", "380894", tipo_biocida="desinfectante"),
         caso("preparacion_quimica", "382499"),
     ]

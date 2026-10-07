@@ -10,7 +10,7 @@ from app.db import SessionLocal
 from app.models import AtributoDef, ControlCapitulo, IncisoNacional, NodoArancel, PaisArancel, VersionDataset
 from app.services import motor_clasificacion as MC
 
-CALZADO = {"categoria": "calzado", "estilo": "Old Skool", "ficha": {"edadNac": "adulto", "genero": "U", "estiloCalz": "tenis", "disenio": "casual",
+CALZADO = {"categoria": "calzado", "estilo": "Old Skool", "ficha": {"edad": "adulto", "genero": "U", "estilo_calzado": "tenis", "uso_deportivo": "no",
                                                                    "comp": {"corte": "100% canvas", "suela": "100% rubber"}}, "paises": True}
 
 
@@ -24,8 +24,8 @@ def test_categoria_historica_usa_el_motor_del_servidor(interno):
     """Calzado (antes clasificado en el navegador): ficha natural → hechos derivados → reglas → HS6 → SAC → países, con evidencia."""
     s = _sesion(interno, CALZADO)
     assert s["hs6"] == "640419" and s["confianza"] == "high"
-    assert s["hechos"]["upper"] == "textil" and s["hechos"]["sole"] == "caucho"  # derivados de la composición en Python
-    assert s["descripciones"]["aduana"].startswith("TENIS CON CORTE DE TEXTIL Y SUELA DE SINTÉTICO")
+    assert s["hechos"]["material_corte"] == "textil" and s["hechos"]["material_suela"] == "caucho"  # derivados de la composición en Python
+    assert s["descripciones"]["aduana"].startswith("TENIS CON CORTE DE TEXTIL Y SUELA DE CAUCHO O PLÁSTICO")
     assert s["version"]["codigo"] == "SAC-2025-V6" and s["evidencia"]["version"]["ambito"] == "REGIONAL"
     paises = {p["pais"]: p for p in s["clasificacion"]["paises"]}
     # SV aplica el SAC regional a 10 dígitos: su línea sale de la versión regional oficial, con su fuente
@@ -33,23 +33,23 @@ def test_categoria_historica_usa_el_motor_del_servidor(interno):
     # Sin arancel nacional oficial cargado, el país lo dice (no se rellena con datos de la empresa)
     assert paises["PA"]["codigo"] is None and paises["PA"]["sin_datos_oficiales"] and "not available" in paises["PA"]["error"]
     assert all(p["codigo"] is None or p["codigo"].startswith("640419") for p in paises.values())
-    regla = next(t for t in s["evidencia"]["reglas"] if t.get("aplicada") and t["regla"].startswith("R-MJS-CALZADO"))
+    regla = next(t for t in s["evidencia"]["reglas"] if t.get("aplicada") and t["regla"].startswith("R-NE-CAL"))
     assert regla["foto"]["condiciones"] and regla["firma"] and regla["revision"] == 1
     # Preguntas que vienen del servidor (la ficha solo las dibuja)
     campos = {c["codigo"]: c for c in s["campos"]}
-    assert campos["estiloCalz"]["estado"] in ("preguntar", "definido") and campos["upper"]["derivado"]
+    assert campos["estilo_calzado"]["estado"] in ("preguntar", "definido") and campos["material_corte"]["derivado"]
     assert campos["comp.corte"]["modo"] == "REQUIRE"
 
 
 def test_ficha_natural_detecta_y_normaliza(interno):
     s = _sesion(interno, {"estilo": "Men's Vectiv trail running shoe", "ficha": {"comp": {"corte": "100% polyester", "suela": "100% rubber"}}})
     assert s["categoria"]["codigo"] == "calzado" and "categoria" in s["autos"]
-    assert s["ficha"]["disenio"] == "entrenamiento" and s["ficha"]["genero"] == "M"
+    assert s["ficha"]["uso_deportivo"] == "entrenamiento" and s["ficha"]["genero"] == "M"
     assert s["hs6"] == "640411"
     # Lo que eligió la persona no se pisa
-    s = _sesion(interno, {"estilo": "Men's Vectiv trail running shoe", "categoria": "calzado", "tocados": ["disenio"],
-                          "ficha": {"disenio": "casual", "comp": {"corte": "100% polyester", "suela": "100% rubber"}}})
-    assert s["ficha"]["disenio"] == "casual" and s["hs6"] == "640419"
+    s = _sesion(interno, {"estilo": "Men's Vectiv trail running shoe", "categoria": "calzado", "tocados": ["uso_deportivo"],
+                          "ficha": {"uso_deportivo": "no", "comp": {"corte": "100% polyester", "suela": "100% rubber"}}})
+    assert s["ficha"]["uso_deportivo"] == "no" and s["hs6"] == "640419"
     assert any("suggests" in a["msg"] for a in s["alertas"])
 
 
@@ -62,7 +62,7 @@ def test_atributo_custom_en_categoria_historica_show_require_hide(interno):
     assert campo["modo"] == "REQUIRE" and any(f["campo"] == "drop_mm" for f in s["faltantes"])
     # HIDE más específico (condicionado) lo oculta
     interno.post(f"/aranceles/atributos/{a['id']}/ambitos", {"tipo_ambito": "SYSTEM", "codigo_ambito": "ALL", "modo": "SHOW", "prioridad": 999})
-    s = _sesion(interno, {**CALZADO, "ficha": {**CALZADO["ficha"], "estiloCalz": "sandalia"}})
+    s = _sesion(interno, {**CALZADO, "ficha": {**CALZADO["ficha"], "estilo_calzado": "sandalia"}})
     assert any(c["codigo"] == "drop_mm" for c in s["campos"])
     d = interno.get(f"/aranceles/atributos/{a['id']}").json()
     cat = next(x for x in d["ambitos"] if x["tipo_ambito"] == "CATEGORY")
@@ -74,7 +74,7 @@ def test_atributo_custom_en_categoria_historica_show_require_hide(interno):
 
 
 def test_acciones_ask_review_warn_boost_exclude(interno):
-    cond = [{"campo": "estiloCalz", "operador": "EQUAL", "valor": "tenis"}]
+    cond = [{"campo": "estilo_calzado", "operador": "EQUAL", "valor": "tenis"}]
     reglas = []
 
     def regla(**d):
@@ -94,7 +94,7 @@ def test_acciones_ask_review_warn_boost_exclude(interno):
     regla(tipo_regla="HARD_CONSTRAINT", condiciones=cond, accion={"tipo": "EXCLUDE", "codigos": ["640419"]}, prioridad=990)
     regla(tipo_regla="SOFT_SIGNAL", condiciones=cond, accion={"tipo": "BOOST", "codigos": ["640419", "640411"], "peso": 50}, prioridad=980)
     s = _sesion(interno, CALZADO)
-    t = next(t for t in s["reglas"] if t["regla"].startswith("R-MJS-CALZADO") and t["resultado"] is True)
+    t = next(t for t in s["reglas"] if t["regla"] == "R-NE-CAL-042" and t["resultado"] is True)
     assert t["aplicada"] is False  # el RESTRICT a 640419 queda superado por el EXCLUDE de mayor precedencia
     assert s["hs6"] == "640411" and "640419" not in [c["codigo"] for c in s["candidatos"]]
     # requiere_revision en la regla aplicada
@@ -108,13 +108,16 @@ def test_acciones_ask_review_warn_boost_exclude(interno):
 
 def test_usado_clasificacion_falso_no_altera_el_resultado(interno):
     with SessionLocal() as db:
-        aid = db.scalar(select(AtributoDef.id).where(AtributoDef.codigo == "disenio"))
-    entrada = {**CALZADO, "ficha": {**CALZADO["ficha"], "disenio": "entrenamiento"}}
+        aid = db.scalar(select(AtributoDef.id).where(AtributoDef.codigo == "uso_deportivo"))
+    entrada = {**CALZADO, "ficha": {**CALZADO["ficha"], "uso_deportivo": "entrenamiento"}}
     assert _sesion(interno, entrada)["hs6"] == "640411"
     interno.patch(f"/aranceles/atributos/{aid}", {"usado_clasificacion": False})
-    s = _sesion(interno, entrada)
-    assert s["hs6"] == "640419" and s["ficha"]["disenio"] == "entrenamiento"  # se recoge, no decide
-    interno.patch(f"/aranceles/atributos/{aid}", {"usado_clasificacion": True})
+    try:
+        s = _sesion(interno, entrada)
+        assert s["ficha"]["uso_deportivo"] == "entrenamiento"  # se recoge, no decide
+        assert not any(t["regla"] == "R-NE-CAL-041" and t["aplicada"] for t in s["reglas"])
+    finally:
+        interno.patch(f"/aranceles/atributos/{aid}", {"usado_clasificacion": True})
 
 
 def test_candidato_auto_falso_no_se_elige_solo(interno):
@@ -289,11 +292,11 @@ def test_composicion_y_campos_salen_del_servidor(interno):
     (lo que nombra el producto, lo típico de la categoría y el estilo) y las
     composiciones ya usadas; cada campo dice si es principal."""
     s = interno.post("/clasificacion/sesion", {"categoria": "calzado", "nombre": "Suede skate shoe", "paises": False,
-                                               "ficha": {"estiloCalz": "tenis", "comp": {"corte": "60% canvas, 40% suede", "suela": ""}}}).json()
+                                               "ficha": {"estilo_calzado": "tenis", "comp": {"corte": "60% canvas, 40% suede", "suela": ""}}}).json()
     corte = next(c for c in s["campos"] if c["codigo"] == "comp.corte")["composicion"]
     assert [f["m"] for f in corte["filas"]] == ["Canvas", "Suede"] and corte["total"] == 100
     assert {f["clase"]["clase"] for f in corte["filas"]} == {"textil", "cuero"}
-    assert any(x["campo"] == "upper" for x in corte["lectura"])
+    assert any(x["campo"] == "material_corte" for x in corte["lectura"])
     suela = next(c for c in s["campos"] if c["codigo"] == "comp.suela")["composicion"]
     assert suela["sugerencias"][0]["m"] == "Rubber" and all(x["fuente"] in ("rel", "base", "tipico") for x in suela["sugerencias"])
     assert suela["usadas"] and all(u["txt"] for u in suela["usadas"])  # del seed: calzado ya clasificado
@@ -301,7 +304,7 @@ def test_composicion_y_campos_salen_del_servidor(interno):
     sug = next(c for c in cor["campos"] if c["codigo"] == "comp.corte")["composicion"]["sugerencias"]
     assert sug[0] == {"m": "Suede", "fuente": "rel"}  # lo nombra el producto
     campos = {c["codigo"]: c for c in s["campos"]}
-    assert campos["estiloCalz"]["principal"]
+    assert campos["estilo_calzado"]["principal"]
     # Un solo vocabulario: la ficha del calzado no repite sus datos con los atributos genéricos del paquete
     assert not {"technical_description", "upper_material", "footwear_type", "destination_country", "material_main"} & set(campos)
     assert all(a.get("clave") for a in s["alertas"])
@@ -318,7 +321,7 @@ def test_especialista_recibe_la_ficha_del_motor(interno):
         p = db.scalar(select(Producto).where(Producto.estilo == "VN000EE3"))
         d = especialista.entrada(db, p)
     assert "Footwear style: " in d["ficha_texto"] and d["sugerido"] == "6404.19"
-    assert "- estiloCalz (Footwear style): tenis = Sneaker" in d["campos"] and "comp.corte" in d["campos"]
+    assert "- estilo_calzado (Footwear style): tenis = Sneaker" in d["campos"] and "comp.corte" in d["campos"]
     texto = especialista._prompt(d)
     assert "Rule engine suggestion: 6404.19" in texto
 
@@ -353,8 +356,8 @@ def test_dominio_manual_no_se_aprueba_solo(interno):
     """Domain.modo = MANUAL: el motor sigue sugiriendo, pero no elige solo; la
     clasificación queda para revisión y lo dice. En AUTO vuelve a decidir."""
     dom = next(d for d in interno.get("/aranceles/oficial/dominios").json() if d["codigo"] == "FOOTWEAR")
-    base = {"categoria": "calzado", "ficha": {"estiloCalz": "tenis", "altura": "bajo", "puntera": "ninguna", "genero": "U", "edadNac": "adulto",
-                                              "disenio": "casual", "comp": {"corte": "100% canvas", "suela": "100% rubber"}},
+    base = {"categoria": "calzado", "ficha": {"estilo_calzado": "tenis", "altura": "bajo", "genero": "U", "edad": "adulto",
+                                              "uso_deportivo": "no", "comp": {"corte": "100% canvas", "suela": "100% rubber"}},
             "origen": "CN", "paises": False}
     s = interno.post("/clasificacion/sesion", base).json()
     assert s["hs6"] == "640419" and s["clasificacion"]["hs6"]["automatico"] and not s["requiere_revision"]
@@ -365,6 +368,6 @@ def test_dominio_manual_no_se_aprueba_solo(interno):
     interno.patch(f"/aranceles/oficial/dominios/{dom['id']}", {"modo": "AUTO"})
     assert not interno.post("/clasificacion/sesion", base).json()["requiere_revision"]
     # Un dato que decide el código y que nadie dijo (el diseño, supuesto por defecto) no se da por cierto
-    sin_disenio = {**base, "ficha": {k: v for k, v in base["ficha"].items() if k != "disenio"}}
-    s = interno.post("/clasificacion/sesion", sin_disenio).json()
+    sin_uso = {**base, "ficha": {k: v for k, v in base["ficha"].items() if k != "uso_deportivo"}}
+    s = interno.post("/clasificacion/sesion", sin_uso).json()
     assert s["requiere_revision"] and any("was assumed" in x for x in s["revision_por"])

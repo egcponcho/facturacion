@@ -39,7 +39,8 @@
    "familia": "calzado",
    "dominio": "FOOTWEAR",
    "capitulos": [
-    "64"
+    "64",
+    "95"
    ],
    "alias": "tenis sneaker zapato bota botín sandalia chancla pantufla zueco mocasín tacón calzado de seguridad",
    "orden": 100,
@@ -87,7 +88,7 @@
    "orden": 110,
    "patrones": [
     {
-     "re": "\\b(insoles?|plantillas?|taloneras?|heel (cushions?|grips?)|footbeds?|outsoles?|suelas?|uppers?|cortes? de calzado|tacones? para calzado|contrafuertes?|punteras?)\\b",
+     "re": "\\b(insoles?|plantillas?|taloneras?|heel (cushions?|grips?)|footbeds?|cortes? de calzado|tacones? para calzado|contrafuertes?|punteras?)\\b|^(?!.*\\b(shoes?|sneakers?|boots?|sandals?|slippers?|zapatos?|zapatillas?|tenis|botas?|sandalias?)\\b).*\\b(outsoles?|suelas?|uppers?)\\b",
      "prioridad": 20
     }
    ]
@@ -659,6 +660,12 @@
        "mensaje": "A boot covers the ankle."
       }
      ],
+     "patrones": [
+      {
+       "defecto": true,
+       "prioridad": 99
+      }
+     ],
      "orden": 10
     },
     {
@@ -699,8 +706,7 @@
      ],
      "prioridad": 500
     }
-   ],
-   "valor_defecto": "bajo"
+   ]
   },
   {
    "codigo": "puntera_metalica",
@@ -823,7 +829,7 @@
    "orden": 250,
    "opciones": [
     {
-     "codigo": "corte",
+     "codigo": "superior",
      "etiqueta": "Upper or parts of the upper (vamps, quarters, linings)",
      "patrones": [
       {
@@ -941,6 +947,24 @@
    }
   ],
   "edad": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "calzado",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "usoPrevisto": [
+   {
+    "tipo_ambito": "CATEGORY",
+    "codigo_ambito": "calzado",
+    "modo": "SHOW",
+    "condicion": null,
+    "prioridad": 500
+   }
+  ],
+  "suelaEspumosa": [
    {
     "tipo_ambito": "CATEGORY",
     "codigo_ambito": "calzado",
@@ -2031,7 +2055,7 @@
      "grupo": 1,
      "campo": "tipo_parte",
      "operador": "EQUAL",
-     "valor": "corte",
+     "valor": "superior",
      "negado": false
     }
    ],
@@ -2238,7 +2262,8 @@
     "comp.corte": "100% leather",
     "comp.suela": "rubber",
     "uso_deportivo": "no",
-    "puntera_metalica": false
+    "puntera_metalica": false,
+    "altura": "tobillo"
    },
    "codigo": "640391"
   },
@@ -2258,7 +2283,8 @@
     "categoria": "calzado",
     "estilo_calzado": "deporte",
     "comp.corte": "leather",
-    "comp.suela": "TPU"
+    "comp.suela": "TPU",
+    "uso_deportivo": "tacos"
    },
    "codigo": "640319"
   },
@@ -2319,7 +2345,8 @@
     "comp.suela": "TPR",
     "impermeable": false,
     "uso_deportivo": "no",
-    "tiras_tetones": false
+    "tiras_tetones": false,
+    "altura": "tobillo"
    },
    "codigo": "640291"
   },
@@ -2329,7 +2356,8 @@
     "estilo_calzado": "esqui",
     "comp.corte": "polyurethane",
     "comp.suela": "rubber",
-    "impermeable": false
+    "impermeable": false,
+    "uso_deportivo": "esqui"
    },
    "codigo": "640212"
   },
@@ -2340,7 +2368,8 @@
     "comp.corte": "100% PVC",
     "comp.suela": "PVC",
     "impermeable": true,
-    "puntera_metalica": false
+    "puntera_metalica": false,
+    "altura": "tobillo"
    },
    "codigo": "640192"
   },
@@ -2410,7 +2439,7 @@
   {
    "hechos": {
     "categoria": "partes_calzado",
-    "tipo_parte": "corte",
+    "tipo_parte": "superior",
     "comp.material": "leather"
    },
    "codigo": "640610"

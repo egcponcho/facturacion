@@ -14,52 +14,52 @@
    "genero": "F"
   },
   "6401100000": {
-   "puntera": "metalica"
+   "puntera_metalica": true
   },
   "6401991000": {
    "altura": "rodilla"
   },
   "6402911000": {
-   "puntera": "metalica"
+   "puntera_metalica": true
   },
   "6402991000": {
-   "puntera": "metalica"
+   "puntera_metalica": true
   },
   "6403400000": {
-   "puntera": "metalica"
+   "puntera_metalica": true
   },
   "6403510000": {
    "altura": "tobillo"
   },
   "6404191000": {
-   "estiloCalz": "cubrecalzado"
+   "estilo_calzado": "cubrecalzado"
   },
   "6501000000": {
-   "formaTocado": "sombrero"
+   "forma_tocado": "sombrero"
   },
   "6502000000": {
-   "formaTocado": "sombrero"
+   "forma_tocado": "sombrero"
   },
   "6504000000": {
-   "formaTocado": "sombrero"
+   "forma_tocado": "sombrero"
   },
   "6505002000": {
-   "formaTocado": "sombrero"
+   "forma_tocado": "sombrero"
   },
   "6507000000": {
-   "formaTocado": "sombrero"
+   "forma_tocado": "sombrero"
   },
   "6812801000": {
-   "formaTocado": "sombrero"
+   "forma_tocado": "sombrero"
   },
   "6812910000": {
-   "formaTocado": "sombrero"
+   "forma_tocado": "sombrero"
   },
   "8449000000": {
-   "formaTocado": "sombrero"
+   "forma_tocado": "sombrero"
   },
   "9503002200": {
-   "formaTocado": "sombrero"
+   "forma_tocado": "sombrero"
   }
  }
 }
