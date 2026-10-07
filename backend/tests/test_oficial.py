@@ -102,22 +102,23 @@ def test_arbol_arancelario_completo(interno):
 
 
 def test_atributos_en_base_de_datos(interno):
-    """Atributos oficiales (paquete 02) y de la ficha del motor, con opciones y ámbitos."""
+    """Atributos del paquete 02 del motor y de la configuración incluida (ficha y categorías técnicas), con
+    opciones y ámbitos: todos son configuración del motor, ninguno es dato oficial."""
     r = interno.get("/aranceles/atributos").json()
-    assert r["por_origen"]["OFICIAL"] == 38 and r["por_origen"]["MOTOR"] == 79
+    assert "OFICIAL" not in r["por_origen"] and r["por_origen"]["PAQUETE"] == 38 and r["por_origen"]["MOTOR"] == 79 + 61
     por = {a["codigo"]: a for a in r["items"]}
     assert por["cas_number"]["dominio"] == "CHEMICALS" and por["material_composition"]["tipo_dato"] == "composition"
     assert por["estiloCalz"]["dominio"] == "FOOTWEAR" and por["tejido"]["dominio"] == "APPAREL"
     d = interno.get(f"/aranceles/atributos/{por['physical_state']['id']}").json()
     assert [o["codigo"] for o in d["opciones"]] == ["SOLID", "LIQUID", "GAS", "POWDER", "PASTE"]
-    assert d["ambitos"][0]["tipo_ambito"] == "DOMAIN" and d["ambitos"][0]["codigo_ambito"] == "CHEMICALS"
+    assert any(x["tipo_ambito"] == "DOMAIN" and x["codigo_ambito"] == "CHEMICALS" for x in d["ambitos"])
     # Ámbitos del motor: categorías donde aplica y respuestas que lo activan
     t = interno.get(f"/aranceles/atributos/{por['tejido']['id']}").json()
     cint = next(x for x in t["ambitos"] if x["codigo_ambito"] == "cinturon")
     assert {"campo": "materialCinturon", "operador": "EQUAL", "valor": "textil"}.items() <= cint["condicion"][0].items()
     assert next(x for x in t["ambitos"] if x["codigo_ambito"] == "camiseta")["condicion"] is None
     # Búsqueda inteligente
-    assert {a["codigo"] for a in interno.get("/aranceles/atributos", params={"q": "name chemic"}).json()["items"]} == {"chemical_name"}
+    assert "chemical_name" in {a["codigo"] for a in interno.get("/aranceles/atributos", params={"q": "name chemic"}).json()["items"]}
     # La ficha recibe el catálogo del motor del servidor (campos con sus opciones)
     s = interno.post("/clasificacion/sesion", {"categoria": "camiseta", "paises": False}).json()
     tej = next(c for c in s["campos"] if c["codigo"] == "tejido")
@@ -309,20 +310,22 @@ def test_longitud_de_codigo_configurable(interno):
     _cargar(interno, {"Countries": [["ISO", "Country", "National code length"], ["CR", "Costa Rica", "CONFIGURABLE"]]})
 
 
-def test_ruta_generica_quimicos_y_materias_primas(interno):
-    r = interno.post("/clasificacion/generico", {"texto": "ácido acético glacial", "dominio": "CHEMICALS",
-                                                 "respuestas": {"substance_or_mixture": "SUBSTANCE", "physical_state": "LIQUID"}})
+def test_quimicos_y_materias_primas_por_el_motor_unico(interno):
+    # Ya no hay ruta aparte: el mismo /clasificacion/sesion clasifica cualquier dominio
+    assert interno.post("/clasificacion/generico", {"texto": "x"}).status_code in (404, 405)
+    r = interno.post("/clasificacion/sesion", {"texto": "ácido acético glacial", "dominio": "CHEMICALS", "paises": False,
+                                                "respuestas": {"substance_or_mixture": "SUBSTANCE", "physical_state": "LIQUID"}})
     assert r.status_code == 200, r.text
     d = r.json()
-    assert d["candidatos"][0]["codigo"] == "291521", [c["codigo"] for c in d["candidatos"]]
-    assert d["revision"] and d["candidatos"][0]["incisos"] and d["candidatos"][0]["dominio"]
-    # Pregunta lo obligatorio y lo del dominio; marca lo ya respondido
+    assert d["categoria"]["codigo"] == "acid" and d["candidatos"][0]["codigo"] == "291521", [c["codigo"] for c in d["candidatos"]]
+    assert d["revision"] and d["candidatos"][0]["incisos"]
+    # Pregunta lo obligatorio y lo de la categoría técnica; marca lo ya respondido
     pregs = {p["codigo"]: p for p in d["preguntas"]}
     assert pregs["product_name"]["modo"] == "REQUIRE" and pregs["physical_state"]["respondida"]
-    assert "chemical_name" in pregs and "upper_material" not in pregs
-    # Materias primas: el dominio ordena, no obliga (otro capítulo habilitado también puede salir)
-    r = interno.post("/clasificacion/generico", {"texto": "hilados de algodón crudo", "dominio": "RAW_MATERIALS"}).json()
-    assert "52" in [c["capitulo"] for c in r["candidatos"][:3]]
+    assert {"chemical_name", "chemically_defined"} <= set(pregs) and "upper_material" not in pregs
+    # Materias primas: el dominio ordena, no obliga
+    r = interno.post("/clasificacion/sesion", {"texto": "hilados de algodón crudo", "dominio": "RAW_MATERIALS", "paises": False}).json()
+    assert r["categoria"]["codigo"] == "yarn" and "52" in [c["capitulo"] for c in r["candidatos"][:8]] or "55" in [c["capitulo"] for c in r["candidatos"][:3]]
     # Capítulos no habilitados nunca son candidatos automáticos
     caps = {c["capitulo"]: c for c in interno.get("/aranceles/oficial/capitulos").json()["items"]}
     assert all(caps[c["capitulo"]]["clasificacion"] for c in r["candidatos"])

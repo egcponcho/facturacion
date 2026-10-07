@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..config import settings
 from ..models import (
+    ProductoDocumento,
     ControlCapitulo,
     Articulo,
     Centro,
@@ -78,6 +79,10 @@ BORRADORES = ("borrador", "sugerida", "observado")
 PENDIENTES = BORRADORES + ("revision",)
 OBLIGATORIOS = ["tipo", "genero", "edadNac", "composicion", "origen"]
 TIPOS_FOTO = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+TIPOS_DOC = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
+# Campos que una ficha técnica nunca aporta: el arancel solo sale de fuentes oficiales
+NO_ARANCEL = {"hs", "hs6", "hs_code", "codigo", "code", "tariff", "tariff_code", "dai", "sac", "partida", "inciso", "impuesto", "tax",
+              "regulacion", "regulation"}
 
 
 def digitos(s) -> str:
@@ -452,6 +457,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
                               "aprobado_en": x.aprobado_en,
                               "manual": x.manual, "digitos": dig.get(x.pais, 10)} for x in p.partidas},
         "fotos": [{"id": f.id, "nombre": f.nombre} for f in p.fotos],
+        "documentos": [_doc_dict(d) for d in p.documentos],
         "versiones": [{"version": v.version, "desde": v.desde, "hasta": v.hasta, "motivo": v.motivo,
                        "codigo": fmt_codigo(v.datos.get("codigo")) if v.datos.get("codigo") else None,
                        "estado": v.datos.get("estado"), "tipo": v.datos.get("tipo"), "cerrado_en": v.cerrado_en}
@@ -888,6 +894,73 @@ def obtener_foto(db: Session, user: Usuario, foto_id: int) -> ProductoFoto:
         raise ErrorNegocio("The photo does not exist.", 404, "no_encontrado")
     _producto(db, user, f.producto_id)
     return f
+
+
+# ---- Fichas técnicas (SDS, TDS, COA): evidencia técnica, no fuente arancelaria ----------
+def _doc_dict(d: ProductoDocumento) -> dict:
+    return {"id": d.id, "tipo": d.tipo, "tipo_txt": ProductoDocumento.TIPOS.get(d.tipo, d.tipo), "nombre": d.nombre, "emisor": d.emisor,
+            "fecha_documento": d.fecha_documento, "datos": d.datos or {}, "subido_en": d.subido_en}
+
+
+def subir_documento(db: Session, user: Usuario, producto_id: int, tipo: str, nombre: str, mime: str, contenido: bytes,
+                    datos: dict | None = None, emisor: str | None = None, fecha=None) -> dict:
+    """Adjunta una SDS, TDS o COA. Sus datos técnicos (CAS, composición, estado
+    físico, densidad, pH…) completan los hechos de la ficha que estén vacíos;
+    nunca aportan un código, DAI, impuesto ni regulación."""
+    from .ficha import catalogo
+
+    exigir(user, "producto.ficha")
+    p = _producto(db, user, producto_id)
+    tipo = (tipo or "").upper()
+    if tipo not in ProductoDocumento.TIPOS:
+        raise ErrorNegocio("Choose the kind of document: SDS, TDS or COA.", 422, "validacion")
+    if mime not in TIPOS_DOC:
+        raise ErrorNegocio("Upload a PDF or an image of the document.", 422, "validacion")
+    if len(contenido) > 15 * 1024 * 1024:
+        raise ErrorNegocio("The document exceeds 15 MB.", 413, "archivo_grande")
+    datos = {str(k).strip(): v for k, v in (datos or {}).items() if v not in (None, "", [])}
+    arancel = sorted(k for k in datos if k.lower() in NO_ARANCEL)
+    if arancel:
+        raise ErrorNegocio(f"{tipo} documents are technical evidence, not a tariff source: {', '.join(arancel)} cannot be taken from them.",
+                           422, "no_es_fuente_arancelaria")
+    cat = catalogo(db)
+    desconocidos = sorted(k for k in datos if k not in cat.por_codigo)
+    if desconocidos:
+        raise ErrorNegocio(f"These are not attributes of the technical sheet: {', '.join(desconocidos)}.", 422, "validacion")
+    carpeta = os.path.join(settings.UPLOAD_DIR, "productos", str(p.id), "documentos")
+    os.makedirs(carpeta, exist_ok=True)
+    ruta = os.path.join(carpeta, uuid.uuid4().hex + TIPOS_DOC[mime])
+    with open(ruta, "wb") as fh:
+        fh.write(contenido)
+    seguro = "".join(c for c in os.path.basename(nombre or "document") if c.isalnum() or c in "._- ")[:200] or "document"
+    d = ProductoDocumento(tipo=tipo, nombre=seguro, ruta=ruta, tipo_mime=mime, tamano=len(contenido), datos=datos,
+                          emisor=(emisor or "").strip()[:200] or None, fecha_documento=fecha, subido_por=user.id)
+    p.documentos.append(d)
+    db.flush()
+    registrar(db, user, "producto", p.id, "documento_agregado", {"tipo": tipo, "documento": seguro, "datos": sorted(datos)})
+    return _doc_dict(d)
+
+
+def borrar_documento(db: Session, user: Usuario, producto_id: int, doc_id: int) -> None:
+    exigir(user, "producto.ficha")
+    p = _producto(db, user, producto_id)
+    d = next((x for x in p.documentos if x.id == doc_id), None)
+    if not d:
+        raise ErrorNegocio("The document does not exist.", 404, "no_encontrado")
+    p.documentos.remove(d)
+    try:
+        os.remove(d.ruta)
+    except OSError:
+        pass
+    registrar(db, user, "producto", p.id, "documento_quitado", {"tipo": d.tipo, "documento": d.nombre})
+
+
+def obtener_documento(db: Session, user: Usuario, doc_id: int) -> ProductoDocumento:
+    d = db.get(ProductoDocumento, doc_id)
+    if not d:
+        raise ErrorNegocio("The document does not exist.", 404, "no_encontrado")
+    _producto(db, user, d.producto_id)
+    return d
 
 
 # ---- Lo que aprende el clasificador ----------------------------------------------

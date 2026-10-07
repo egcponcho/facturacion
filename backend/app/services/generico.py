@@ -1,5 +1,7 @@
-"""Ruta genérica de clasificación: para productos fuera de la ficha de ropa,
-calzado y accesorios (químicos, materias primas y cualquier otro).
+"""Búsqueda en el texto oficial del árbol (índice de palabras) que usa el
+motor único para proponer candidatos de cualquier dominio. No hay una ruta
+aparte: químicos, materias primas y cualquier otro dominio pasan por
+/clasificacion/sesion.
 
 Sigue las reglas del sistema (paquete 02):
 - R-SYS-001: solo capítulos activos y habilitados para clasificar; los de
@@ -20,8 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import plano
-from ..models import DominioClasificacion, NodoArancel, Usuario
-from .common import exigir
+from ..models import DominioClasificacion, NodoArancel
 
 VACIAS = set("""de del la el los las y o en con sin para por que su sus sus un una uno al a e lo se otros otras demas los las
 the and or of for with without in on to from by an as other others its their this that are is be not""".split())
@@ -54,16 +55,6 @@ def _indice(version_id: int, _marca: int) -> tuple:
         for p in ps:
             df[p] = df.get(p, 0) + 1
     return nodos, df
-
-
-def candidatos(db: Session, user: Usuario, texto: str, dominio: str | None = None, respuestas: dict | None = None,
-               limite: int = 8) -> dict:
-    """Compatibilidad: la ruta genérica usa el motor único (motor_clasificacion)."""
-    from .motor_clasificacion import clasificar
-
-    exigir(user, "producto.ver")
-    r = clasificar(db, texto, dominio, None, respuestas, paises=False, limite=limite)
-    return {**r, "reglas": [t["regla"] for t in r["reglas"]]}
 
 
 def dominios_ficha(db: Session) -> list[dict]:

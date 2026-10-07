@@ -54,6 +54,7 @@ class Opcion:
     implica: dict | None = None
     patrones: list = field(default_factory=list)
     texto_aduana: dict | None = None
+    terminos: str | None = None  # palabras del texto oficial que suele usar (solo ordenan candidatos)
 
 
 @dataclass
@@ -113,6 +114,7 @@ class Categoria:
     orden: int = 0
     activo: bool = True
     plantilla_aduana: dict | None = None
+    terminos: str | None = None  # palabras del texto oficial que suele usar (solo ordenan candidatos)
 
 
 class Catalogo:
@@ -143,11 +145,11 @@ class Catalogo:
                 informativo=a.informativo, usado_clasificacion=a.usado_clasificacion, valor_defecto=a.valor_defecto, derivacion=a.derivacion,
                 bloqueo=a.bloqueo or [], patrones=a.patrones or [], patrones_falso=a.patrones_falso or [], orden=a.orden, unidad=a.unidad,
                 control=a.control, dominio=a.dominio, origen=a.origen, texto_aduana=a.texto_aduana,
-                opciones=[Opcion(o.codigo, o.etiqueta, o.orden, o.activo, o.bloqueo or [], o.implica, o.patrones or [], o.texto_aduana)
-                          for o in a.opciones],
+                opciones=[Opcion(o.codigo, o.etiqueta, o.orden, o.activo, o.bloqueo or [], o.implica, o.patrones or [], o.texto_aduana,
+                                 o.terminos) for o in a.opciones],
                 ambitos=[Ambito(x.tipo_ambito, x.codigo_ambito, x.modo, x.prioridad, x.condicion, x.nota, x.id) for x in a.ambitos if x.activo]))
         cats = [Categoria(c.codigo, c.nombre, c.dominio, c.grupo, c.familia, c.nombre_corto, c.nombre_aduana, c.alias, c.patrones or [],
-                          c.capitulos or [], c.orden, c.activo, c.plantilla_aduana) for c in db.scalars(select(CategoriaProducto))]
+                          c.capitulos or [], c.orden, c.activo, c.plantilla_aduana, c.terminos) for c in db.scalars(select(CategoriaProducto))]
         sin = [{"palabra": x.palabra, "equivale": x.equivale} for x in db.scalars(select(SinonimoMaterial))]
         pal = [{"frase": x.frase, "tipo": x.tipo, "marca": x.marca, **(x.atributos or {})} for x in db.scalars(select(PalabraClave))]
         return cls(attrs, cats, sin, pal)

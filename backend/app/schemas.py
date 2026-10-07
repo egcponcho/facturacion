@@ -625,6 +625,7 @@ class AtributoOpcionIn(BaseModel):
     codigo: str | None = Field(None, max_length=60)
     etiqueta: str | None = Field(None, max_length=300)
     alias: str | None = Field(None, max_length=400)
+    terminos: str | None = Field(None, max_length=400)  # palabras del texto oficial (solo ordenan candidatos)
     orden: int | None = None
     activo: bool | None = None
 
@@ -638,12 +639,6 @@ class AtributoAmbitoIn(BaseModel):
     nota: str | None = Field(None, max_length=300)
     activo: bool | None = None
     quitar: bool = False
-
-
-class ClasificacionGenericaIn(BaseModel):
-    texto: str = Field("", max_length=2000)
-    dominio: str | None = Field(None, max_length=30)
-    respuestas: dict = Field(default_factory=dict)
 
 
 class RegulacionIn(BaseModel):
@@ -727,6 +722,7 @@ class CategoriaIn(BaseModel):
     patrones: list[dict] | None = None  # [{re, prioridad}] para reconocerla en el nombre
     capitulos: list[str] | None = None  # capítulos compatibles
     plantilla_aduana: dict | None = None
+    terminos: str | None = Field(None, max_length=400)  # palabras del texto oficial (solo ordenan candidatos)
 
 
 class DominioCapituloIn(BaseModel):

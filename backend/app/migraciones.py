@@ -63,6 +63,7 @@ def actualizar() -> None:
     with SessionLocal() as db:
         categorias.sembrar(db)
         atributos.cargar_motor(db)  # comportamiento de los atributos de la ficha (no pisa lo editado)
+        atributos.cargar_tecnico(db)  # categorías técnicas de químicos y materias primas
         reglas.cargar_reglas_ficha(db)  # reglas de la ficha (no pisa las editadas)
         db.commit()
 

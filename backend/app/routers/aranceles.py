@@ -368,7 +368,7 @@ def atributos_motor(db: Db, user: User, clave: Clave = None):
 
     def correr():
         exigir(user, "aranceles.editar")
-        return {"nuevos": atributos.cargar_motor(db)}
+        return {"nuevos": atributos.cargar_motor(db) + atributos.cargar_tecnico(db)}
 
     return ejecutar(db, user, clave, correr)
 

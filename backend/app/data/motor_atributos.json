@@ -906,7 +906,7 @@
    "alias": "tenis sneaker zapato bota botín sandalia chancla slide mocasín zueco clog pantufla tacón escolar calzado de seguridad steel toe hiking trail",
    "patrones": [
     {
-     "re": "\\b(shoes?|sneakers?|zapatos?|zapatillas?|tenis|boots?|botas?|botin(es)?|sandals?|sandalias?|slides?|chanclas?|flip ?flops?|mules?|clogs?|zuecos?|slip-?on|loafers?|mocasin(es)?|moccasins?|moc|slippers?|pantuflas?|heels?|tacon(es)?|stilettos?|pumps|flats|balerinas?|footwear|calzado|old skool|sk8|authentic|ultrarange|knu skool|half cab|chukka|vectiv|hedgehog|chilkat|moab|second shift|steel toe|safety toe|work boot|water shoes?|overshoes?|cubrecalzados?|galoshes?|dance shoes?|zapatillas de baile|house shoes?)\\b",
+     "re": "\\b(shoes?|sneakers?|zapatos?|zapatillas?|tenis|boots?|botas?|botin(es)?|sandals?|sandalias?|slides?|chanclas?|flip ?flops?|mules?|clogs?|zuecos?|slip-?on|loafers?|mocasin(es)?|moccasins?|moc|slippers?|pantuflas?|heels?|tacon(es)?|stilettos?|pumps|flats|balerinas?|footwear|calzado|chukka|steel toe|safety toe|work boot|water shoes?|overshoes?|cubrecalzados?|galoshes?|dance shoes?|zapatillas de baile|house shoes?)\\b",
      "prioridad": 36
     }
    ],
@@ -3721,7 +3721,7 @@
        "prioridad": 5
       },
       {
-       "re": "\\b(sneakers?|tenis|trainers?|running|shoes?|old skool|sk8|authentic|era|slip-?on|ultrarange|knu skool|half cab|vectiv)\\b",
+       "re": "\\b(sneakers?|tenis|trainers?|running|shoes?|slip-?on)\\b",
        "prioridad": 21
       },
       {
@@ -3750,7 +3750,7 @@
      "implica": null,
      "patrones": [
       {
-       "re": "\\b(hiking|hiker|senderismo|trekking|moab|hedgehog|approach)\\b",
+       "re": "\\b(hiking|hiker|senderismo|trekking|approach)\\b",
        "prioridad": 11
       }
      ],
@@ -4921,7 +4921,7 @@
      "implica": null,
      "patrones": [
       {
-       "re": "\\b(running|run|trail|training|trainers?|basketball|baloncesto|gym|gimnasia|entrenamiento|vectiv|deportivo)\\b",
+       "re": "\\b(running|run|trail|training|trainers?|basketball|baloncesto|gym|gimnasia|entrenamiento|deportivo)\\b",
        "prioridad": 1
       }
      ],

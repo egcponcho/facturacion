@@ -49,7 +49,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
             continue
         x = db.scalar(select(AtributoDef).where(AtributoDef.codigo == cod))
         nuevo = x is None
-        x = x or AtributoDef(codigo=cod, origen="OFICIAL", orden=(i + 1) * 10)
+        x = x or AtributoDef(codigo=cod, origen="PAQUETE", orden=(i + 1) * 10)
         x.etiqueta = _txt(f.get("label")) or cod
         x.tipo_dato, x.unidad, x.dominio = tipo, _txt(f.get("default_unit")), dom
         x.multiple = _si(f.get("multi_select"))
@@ -149,6 +149,44 @@ def cargar_motor(db: Session) -> int:
     return nuevos
 
 
+def cargar_tecnico(db: Session) -> int:
+    """Siembra la configuración técnica de químicos y materias primas
+    (motor_tecnico.json): atributos con sus opciones y en qué categoría se
+    preguntan, con sus dependencias. Es configuración del motor, no dato
+    oficial: una categoría decide qué preguntar, nunca un código. Crea lo que
+    falta y nunca pisa lo que alguien editó."""
+    datos = json.loads((DATOS / "motor_tecnico.json").read_text(encoding="utf-8"))
+    existentes = {a.codigo: a for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones), selectinload(AtributoDef.ambitos)))}
+    nuevos = 0
+    for m in datos["atributos"]:
+        a = existentes.get(m["codigo"])
+        if not a:
+            if m.get("referencia"):
+                continue  # un atributo de otro paquete que no está cargado: no se inventa
+            a = AtributoDef(codigo=m["codigo"], etiqueta=m["etiqueta"], tipo_dato=m["tipo_dato"], origen="MOTOR", dominio=m.get("dominio"),
+                            unidad=m.get("unidad"), descripcion=m.get("ayuda"), informativo=bool(m.get("informativo")),
+                            usado_clasificacion=not m.get("informativo"), seccion=m.get("seccion") or "caracteristicas",
+                            orden=8000 + len(existentes) + nuevos)
+            db.add(a)
+            existentes[a.codigo] = a
+            nuevos += 1
+        ops = {o.codigo: o for o in a.opciones}
+        for o in m.get("opciones") or []:
+            x = ops.get(o["codigo"])
+            if not x:
+                x = AtributoOpcion(codigo=o["codigo"], etiqueta=o["etiqueta"], orden=o.get("orden", 0))
+                a.opciones.append(x)
+            if not x.terminos and o.get("terminos"):
+                x.terminos = o["terminos"]
+        amb = {(x.tipo_ambito, x.codigo_ambito) for x in a.ambitos}
+        for x in m.get("ambitos") or []:
+            if (x["tipo_ambito"], x["codigo_ambito"]) not in amb:
+                a.ambitos.append(AtributoAmbito(tipo_ambito=x["tipo_ambito"], codigo_ambito=x["codigo_ambito"], modo=x.get("modo") or "SHOW",
+                                                prioridad=x.get("prioridad", 500), condicion=x.get("condicion")))
+    db.flush()
+    return nuevos
+
+
 # ---- Consulta ---------------------------------------------------------------------
 def _ambito_dict(x: AtributoAmbito) -> dict:
     return {"id": x.id, "tipo_ambito": x.tipo_ambito, "codigo_ambito": x.codigo_ambito, "modo": x.modo,
@@ -156,7 +194,7 @@ def _ambito_dict(x: AtributoAmbito) -> dict:
 
 
 def _opcion_dict(x: AtributoOpcion) -> dict:
-    return {"id": x.id, "codigo": x.codigo, "etiqueta": x.etiqueta, "alias": x.alias, "orden": x.orden, "activo": x.activo}
+    return {"id": x.id, "codigo": x.codigo, "etiqueta": x.etiqueta, "alias": x.alias, "terminos": x.terminos, "orden": x.orden, "activo": x.activo}
 
 
 def _dict(a: AtributoDef, detalle: bool = False) -> dict:
@@ -254,7 +292,7 @@ def guardar_opcion(db: Session, user: Usuario, atributo_id: int, opcion_id: int 
         if not cod or any(x.codigo == cod for x in a.opciones):
             raise ErrorNegocio("Give the option a code that is not in use.", 422, "validacion")
         o = AtributoOpcion(atributo=a, codigo=cod, orden=max([x.orden for x in a.opciones] or [0]) + 10)
-    for k in ("etiqueta", "alias", "orden", "activo"):
+    for k in ("etiqueta", "alias", "terminos", "orden", "activo"):
         if k in datos and datos[k] is not None:
             setattr(o, k, datos[k])
     if not (o.etiqueta or "").strip():

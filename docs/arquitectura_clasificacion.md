@@ -31,9 +31,9 @@ El historial empresarial solo reordena candidatos ya permitidos.
 | `data/oficial/01_*.xlsx` | Fuentes, versiones, países, control de capítulos, mapa dominio-capítulo, estado de datos oficiales | 1. Oficial (fuentes, versiones, países) + 2. Motor (control de capítulos, dominios) | Se cargan a su capa; los dominios son configuración del motor |
 | `data/oficial/02_*.xlsx` | Dominios, atributos, opciones, ámbitos, reglas del sistema | **2. Motor** | Configuración del motor |
 | `data/oficial/03_*.xlsx` | Plantillas vacías de códigos nacionales, regulaciones e impuestos | **1. Oficial** (sin filas) | Se mantiene como plantilla de carga oficial |
-| `data/motor_atributos.json` | Categorías, atributos, opciones, derivaciones y textos de aduana | **2. Motor** (patrones con nombres de modelos de una marca → **3. Empresa**) | Motor; los nombres de modelos pasan a palabras clave de la empresa |
+| `data/motor_atributos.json` | Categorías, atributos, opciones, derivaciones y textos de aduana | **2. Motor** (patrones con nombres de modelos de una marca → **3. Empresa**) | Motor; los nombres de modelos (old skool, sk8, vectiv…) salieron de los patrones y son palabras clave de la empresa de ejemplo (`data/demo/palabras_empresa_demo.json`) |
 | `data/motor_reglas.json` | Reglas por categoría y casos esperados | **2. Motor** | Motor |
-| `GENERICAS` en `categorias.py` | Categorías químico, materia prima, otro en Python | **2. Motor** escrito en código | Pasa a datos del catálogo, con categorías técnicas de químicos y materias primas |
+| `GENERICAS` en `categorias.py` | Categorías químico, materia prima, otro en Python | **2. Motor** escrito en código | Eliminado: `data/motor_tecnico.json` trae 20 categorías técnicas de químicos y 30 de materias primas, con sus atributos, opciones, ámbitos y dependencias como datos |
 | `PalabraClave`, `SinonimoMaterial` | Aprendidos por la empresa | **3. Empresa** | Solo señales de interpretación |
 | `IncisoNacional` fuente `aprendido`/`manual`/`archivo` | Códigos creados desde la ficha o desde un Excel sin fuente | **3. Empresa / 6. Sin fuente** | Ya no se crean como código; las preferencias van al historial y las cargas de líneas exigen fuente y versión oficial |
 | `OverrideArancel` | Textos propios de la empresa sobre un dato oficial | **3. Empresa** | Se mantiene separado; nunca cambia el oficial |
@@ -69,3 +69,24 @@ El auditor encontró que el ACI incluido repetía 519 líneas remitidas a la
 Parte II (DAI no armonizado) con tasas de la Parte II sin su país. Ahora se
 carga una línea por código y su DAI queda vacío con la nota *DAI in Part II of
 the ACI (country-specific)* (migración 0018).
+
+## Químicos y materias primas (configuración del motor)
+
+`data/motor_tecnico.json` (cargado por `atributos.cargar_tecnico` y
+`categorias.sembrar`) define las categorías técnicas (ácido, sal, solvente,
+adhesivo, pigmento…; hilado, tejido plano, de punto, recubierto, resina,
+película, caucho, cuero, papel, metales…), sus atributos (CAS, fórmula,
+composición, pureza, concentración, polímero, forma primaria, fibra, %,
+gramaje, acabado, espesor, celular…) y en qué categoría se pregunta cada uno,
+con dependencias (p. ej. *textured* solo si el hilado es de filamento). Las
+categorías **no tienen códigos ni capítulos**: solo deciden qué preguntar; sus
+`terminos` (y los de las opciones) son palabras del texto oficial que ordenan
+candidatos del árbol. Todo se edita en *Aranceles → Motor* sin programar.
+
+Un solo motor: `POST /clasificacion/sesion` (texto, dominio, categoría, ficha,
+respuestas, países, versión) clasifica calzado, químicos o materias primas. La
+ruta `/clasificacion/generico` se eliminó.
+
+**SDS / TDS / COA**: `ProductoDocumento` (pestaña *Technical documents*). Sus
+datos técnicos completan hechos vacíos de la ficha; rechazan cualquier campo
+arancelario (`no_es_fuente_arancelaria`).

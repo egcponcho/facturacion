@@ -1,0 +1,4497 @@
+{
+ "origen": "Classification engine configuration (not official tariff data): technical categories decide what to ask; codes always come from the official tariff tree.",
+ "categorias": [
+  {
+   "codigo": "inorganic_chemical",
+   "nombre": "Inorganic chemical (element, oxide…)",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(inorganic|inorg[aá]nic[oa]|[oó]xid[oe]s?|oxides?|per[oó]xid[oe]s?|halogen|hal[oó]gen[oa])\\b",
+     "prioridad": 270
+    }
+   ],
+   "orden": 5000,
+   "terminos": "inorgánicos"
+  },
+  {
+   "codigo": "organic_chemical",
+   "nombre": "Organic chemical (separate compound)",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(organic|org[aá]nic[oa]|esters?|[eé]steres?|ketones?|cetonas?|aldeh[ií]d[oe]s?|amin[ae]s?|glycols?|glicol(es)?|ethers?|[eé]teres?)\\b",
+     "prioridad": 270
+    }
+   ],
+   "orden": 5010,
+   "terminos": "orgánicos"
+  },
+  {
+   "codigo": "acid",
+   "nombre": "Acid",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b([aá]cid[oa]s?|acids?)\\b",
+     "prioridad": 255
+    }
+   ],
+   "orden": 5020,
+   "terminos": "ácido ácidos"
+  },
+  {
+   "codigo": "base_alkali",
+   "nombre": "Base or alkali",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(hydroxides?|hidr[oó]xid[oe]s?|alkali|[aá]lcali|caustic|c[aá]ustic[oa]|ammonia|amon[ií]aco|lej[ií]a)\\b",
+     "prioridad": 255
+    }
+   ],
+   "orden": 5030,
+   "terminos": "hidróxido"
+  },
+  {
+   "codigo": "salt",
+   "nombre": "Salt",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(salts?|chlorides?|clorur[oa]s?|sulfat[eo]s?|sulphates?|nitrat[eo]s?|carbonat[eo]s?|phosphat[eo]s?|fosfat[oe]s?|silicat[eo]s?|acetat[eo]s?)\\b",
+     "prioridad": 260
+    }
+   ],
+   "orden": 5040,
+   "terminos": "sales"
+  },
+  {
+   "codigo": "solvent",
+   "nombre": "Solvent or thinner",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(solvents?|solventes?|disolventes?|thinners?|diluyentes?|acetonas?|acetone|toluen[oe]|xylene|xilen[oe]|hexan[oe])\\b",
+     "prioridad": 250
+    }
+   ],
+   "orden": 5050,
+   "terminos": "disolventes diluyentes"
+  },
+  {
+   "codigo": "alcohol",
+   "nombre": "Alcohol",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(alcohol(es)?|ethanol|etanol|methanol|metanol|isopropanol|isoprop[ií]lic[oa]|isopropyl|glicerin[ae]?|glycerol)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5060,
+   "terminos": "alcohol"
+  },
+  {
+   "codigo": "polymer_resin",
+   "nombre": "Polymer or resin (chemical product)",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [],
+   "orden": 5070,
+   "terminos": "formas primarias"
+  },
+  {
+   "codigo": "rubber_preparation",
+   "nombre": "Rubber preparation (latex, accelerator…)",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(l[aá]tex|latex|aceleran?tes? de vulcanizaci[oó]n|vulcanizing|rubber accelerators?|antioxidantes? para caucho)\\b",
+     "prioridad": 250
+    }
+   ],
+   "orden": 5080,
+   "terminos": "aceleradores de vulcanización preparados"
+  },
+  {
+   "codigo": "dye",
+   "nombre": "Dye",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(dyes?|dyestuffs?|colorantes?|tintes?)\\b",
+     "prioridad": 250
+    }
+   ],
+   "orden": 5090,
+   "terminos": "colorantes"
+  },
+  {
+   "codigo": "pigment",
+   "nombre": "Pigment",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(pigments?|pigmentos?|di[oó]xido de titanio|titanium dioxide|carbon black|negro de humo)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5100,
+   "terminos": "pigmentos"
+  },
+  {
+   "codigo": "paint_coating",
+   "nombre": "Paint, varnish or coating",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(paints?|pinturas?|varnish(es)?|barnices?|barniz|lacquers?|lacas?|primers?|imprimantes?|esmaltes?)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5110,
+   "terminos": "pinturas barnices"
+  },
+  {
+   "codigo": "ink",
+   "nombre": "Ink",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(inks?|tintas?)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5120,
+   "terminos": "tintas"
+  },
+  {
+   "codigo": "adhesive",
+   "nombre": "Adhesive or glue",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(adhesives?|adhesivos?|glues?|pegamentos?|sealants?|selladores?|hot ?melt|cementos? de contacto)\\b",
+     "prioridad": 240
+    }
+   ],
+   "orden": 5130,
+   "terminos": "colas adhesivos preparados"
+  },
+  {
+   "codigo": "surfactant",
+   "nombre": "Surfactant (organic surface-active agent)",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(surfactants?|surfactantes?|tensoactiv[oa]s?|emulsifiers?|emulsionantes?)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5140,
+   "terminos": "agentes de superficie orgánicos"
+  },
+  {
+   "codigo": "detergent_cleaning",
+   "nombre": "Detergent or cleaning preparation",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(detergents?|detergentes?|cleaners?|limpiadore?s?|jab[oó]n(es)?|soaps?|desengrasantes?|degreasers?)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5150,
+   "terminos": "preparaciones para lavar limpieza"
+  },
+  {
+   "codigo": "lubricant",
+   "nombre": "Lubricant",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(lubricants?|lubricantes?|greases?|grasas? lubricantes?)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5160,
+   "terminos": "preparaciones lubricantes"
+  },
+  {
+   "codigo": "wax",
+   "nombre": "Wax",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(wax(es)?|ceras?|parafinas?|paraffin)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5170,
+   "terminos": "ceras"
+  },
+  {
+   "codigo": "laboratory_reagent",
+   "nombre": "Laboratory or diagnostic reagent",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(reagents?|reactivos?|grado anal[ií]tico|analytical grade|diagnostic|diagn[oó]stico|buffers?)\\b",
+     "prioridad": 250
+    }
+   ],
+   "orden": 5180,
+   "terminos": "reactivos de diagnóstico o de laboratorio"
+  },
+  {
+   "codigo": "chemical_preparation",
+   "nombre": "Chemical preparation or additive",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(preparations?|preparad[oa]s?|formulations?|formulaci[oó]n|additives?|aditivos?|auxiliares? textiles?)\\b",
+     "prioridad": 265
+    }
+   ],
+   "orden": 5190,
+   "terminos": "preparaciones"
+  },
+  {
+   "codigo": "quimico",
+   "nombre": "Other chemical product",
+   "dominio": "CHEMICALS",
+   "grupo": "Chemicals",
+   "alias": "chemical; químico",
+   "patrones": [
+    {
+     "re": "\\b(chemicals?|qu[ií]mic[oa]s?)\\b",
+     "prioridad": 290
+    }
+   ],
+   "orden": 5200
+  },
+  {
+   "codigo": "textile_fiber",
+   "nombre": "Textile fiber (raw, carded or combed)",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(fibras? textil(es)?|textile fib(re|er)s?|tow|cable de filamentos|algod[oó]n sin cardar|raw cotton|lana sucia)\\b",
+     "prioridad": 255
+    }
+   ],
+   "orden": 5210,
+   "terminos": "fibras sin cardar ni peinar"
+  },
+  {
+   "codigo": "staple_fiber",
+   "nombre": "Staple fiber",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(staple fib(re|er)s?|fibras? discontinuas?|fibras? cortas?)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5220,
+   "terminos": "fibras discontinuas"
+  },
+  {
+   "codigo": "filament",
+   "nombre": "Filament or monofilament",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(monofilament(o|s)?|filament(o|s)?)\\b",
+     "prioridad": 250
+    }
+   ],
+   "orden": 5230,
+   "terminos": "filamentos monofilamentos"
+  },
+  {
+   "codigo": "yarn",
+   "nombre": "Yarn",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(yarns?|hilad[oa]s?|hilazas?|hilos? de (algod[oó]n|poli[eé]ster|nylon|lana))\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5240,
+   "terminos": "hilados"
+  },
+  {
+   "codigo": "sewing_thread",
+   "nombre": "Sewing thread",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(sewing threads?|hilos? de coser|threads?)\\b",
+     "prioridad": 240
+    }
+   ],
+   "orden": 5250,
+   "terminos": "hilo de coser"
+  },
+  {
+   "codigo": "woven_fabric",
+   "nombre": "Woven fabric",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(woven fabrics?|tejidos? planos?|telas? tejidas?|denim|popelinas?|poplin|twill|sargas?|lonas?|canvas|taffeta|taf[eé]t[aá]n|ripstop|oxford)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5260,
+   "terminos": "tejidos"
+  },
+  {
+   "codigo": "knitted_fabric",
+   "nombre": "Knitted or crocheted fabric",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(knit(ted)? fabrics?|tejidos? de punto|telas? de punto|jersey fabric|mesh|mallas?|fleece fabric|rib knit)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5270,
+   "terminos": "tejidos de punto"
+  },
+  {
+   "codigo": "nonwoven",
+   "nombre": "Nonwoven",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(non-?wovens?|no tejid[oa]s?|telas? no tejidas?|spunbond|meltblown|tnt)\\b",
+     "prioridad": 240
+    }
+   ],
+   "orden": 5280,
+   "terminos": "tela sin tejer"
+  },
+  {
+   "codigo": "felt",
+   "nombre": "Felt",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(felts?|fieltros?)\\b",
+     "prioridad": 240
+    }
+   ],
+   "orden": 5290,
+   "terminos": "fieltro"
+  },
+  {
+   "codigo": "coated_fabric",
+   "nombre": "Coated, covered or impregnated fabric",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(coated fabrics?|telas? (recubiertas?|plastificadas?|impregnadas?|engomadas?)|(pvc|pu) coated)\\b",
+     "prioridad": 235
+    }
+   ],
+   "orden": 5300,
+   "terminos": "tejidos impregnados recubiertos revestidos"
+  },
+  {
+   "codigo": "laminated_fabric",
+   "nombre": "Laminated fabric",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(laminated fabrics?|telas? laminadas?|bonded fabrics?|membranes?)\\b",
+     "prioridad": 235
+    }
+   ],
+   "orden": 5310,
+   "terminos": "tejidos estratificados"
+  },
+  {
+   "codigo": "leather",
+   "nombre": "Leather (tanned or finished)",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(leather|cueros?|full grain|flor entera|nubuck|nob[uo]k|charol|patent leather)\\b",
+     "prioridad": 250
+    }
+   ],
+   "orden": 5320,
+   "terminos": "cueros curtidos o crust preparados"
+  },
+  {
+   "codigo": "split_leather",
+   "nombre": "Split leather",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(split leather|serraje|descarne|crup[oó]n)\\b",
+     "prioridad": 235
+    }
+   ],
+   "orden": 5330,
+   "terminos": "cueros divididos"
+  },
+  {
+   "codigo": "synthetic_leather",
+   "nombre": "Synthetic leather (plastic-coated textile or plastic sheet)",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(synthetic leather|cuero sint[eé]tico|pu leather|cuerinas?|imitation leather|polipiel|microfib(er|ra) leather|leatherette|vinil)\\b",
+     "prioridad": 230
+    }
+   ],
+   "orden": 5340,
+   "terminos": "recubiertos plástico"
+  },
+  {
+   "codigo": "plastic_resin",
+   "nombre": "Plastic resin (pellets, granules)",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(resin[ae]?s?|resinas?|pellets?|granza|gr[aá]nulos?|polymers?|pol[ií]meros?|compuesto de pvc|pvc compound)\\b",
+     "prioridad": 250
+    }
+   ],
+   "orden": 5350,
+   "terminos": "formas primarias"
+  },
+  {
+   "codigo": "plastic_primary_form",
+   "nombre": "Plastic in other primary forms (powder, liquid, paste)",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(masterbatch|polvo de (pvc|poli\\w+)|dispersi[oó]n de pol[ií]mero|plastisol)\\b",
+     "prioridad": 240
+    }
+   ],
+   "orden": 5360,
+   "terminos": "formas primarias dispersiones"
+  },
+  {
+   "codigo": "plastic_sheet",
+   "nombre": "Plastic sheet or plate",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(plastic sheets?|l[aá]minas? pl[aá]sticas?|planchas? de (pvc|acr[ií]lico|policarbonato|pl[aá]stico)|placas? de (pvc|acr[ií]lico|policarbonato))\\b",
+     "prioridad": 240
+    }
+   ],
+   "orden": 5370,
+   "terminos": "placas láminas hojas"
+  },
+  {
+   "codigo": "plastic_film",
+   "nombre": "Plastic film",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(films?|pel[ií]culas?|stretch|film estirable|bopp|cast film|termoencogible|shrink)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5380,
+   "terminos": "películas hojas tiras"
+  },
+  {
+   "codigo": "plastic_profile",
+   "nombre": "Plastic profile, rod or tube",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(perfil(es)? (de )?(pvc|pl[aá]stico)|plastic profiles?|varillas? pl[aá]sticas?|tubos? (de )?(pvc|pl[aá]stico)|plastic (rods?|tubes?))\\b",
+     "prioridad": 240
+    }
+   ],
+   "orden": 5390,
+   "terminos": "perfiles tubos barras"
+  },
+  {
+   "codigo": "plastic_foam",
+   "nombre": "Plastic foam",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(foams?|espumas?|eva foam|foam sheet|esponjas?|poliestireno expandido|eps|poliuretano flexible)\\b",
+     "prioridad": 240
+    }
+   ],
+   "orden": 5400,
+   "terminos": "productos celulares"
+  },
+  {
+   "codigo": "natural_rubber",
+   "nombre": "Natural rubber",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(natural rubber|caucho natural|smoked sheets?|crepe rubber|hule natural)\\b",
+     "prioridad": 235
+    }
+   ],
+   "orden": 5410,
+   "terminos": "caucho natural"
+  },
+  {
+   "codigo": "synthetic_rubber",
+   "nombre": "Synthetic rubber",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(synthetic rubber|caucho sint[eé]tico|sbr|epdm|nbr|neopren[oe]|butyl|butilo)\\b",
+     "prioridad": 235
+    }
+   ],
+   "orden": 5420,
+   "terminos": "caucho sintético"
+  },
+  {
+   "codigo": "rubber_compound",
+   "nombre": "Compounded rubber",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(rubber compounds?|compuestos? de caucho|caucho mezclado)\\b",
+     "prioridad": 230
+    }
+   ],
+   "orden": 5430,
+   "terminos": "caucho mezclado sin vulcanizar"
+  },
+  {
+   "codigo": "rubber_sheet",
+   "nombre": "Rubber sheet, plate or strip",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(rubber sheets?|l[aá]minas? de (caucho|hule)|planchas? de (caucho|hule)|hojas? de caucho)\\b",
+     "prioridad": 230
+    }
+   ],
+   "orden": 5440,
+   "terminos": "placas hojas tiras caucho"
+  },
+  {
+   "codigo": "paper",
+   "nombre": "Paper",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(papers?|papel(es)?)\\b",
+     "prioridad": 255
+    }
+   ],
+   "orden": 5450,
+   "terminos": "papel"
+  },
+  {
+   "codigo": "paperboard",
+   "nombre": "Paperboard or carton",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(paperboard|cart[oó]n|cartulinas?|carton board|kraftliner|corrugated board)\\b",
+     "prioridad": 250
+    }
+   ],
+   "orden": 5460,
+   "terminos": "cartón"
+  },
+  {
+   "codigo": "metal_sheet",
+   "nombre": "Metal sheet, plate or coil",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(steel sheets?|l[aá]minas? (de )?(acero|aluminio|hierro|metal)|chapas?|planchas? (de )?(acero|aluminio)|aluminium sheets?|aluminum sheets?|bobinas? de acero)\\b",
+     "prioridad": 240
+    }
+   ],
+   "orden": 5470,
+   "terminos": "productos laminados planos"
+  },
+  {
+   "codigo": "metal_wire",
+   "nombre": "Metal wire",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(wires?|alambres?)\\b",
+     "prioridad": 245
+    }
+   ],
+   "orden": 5480,
+   "terminos": "alambre"
+  },
+  {
+   "codigo": "metal_profile",
+   "nombre": "Metal bar, rod, profile or tube",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(perfil(es)? (met[aá]lic[oa]s?|de aluminio|de acero)|metal profiles?|[aá]ngulos? de acero|barras? de (acero|aluminio)|tubos? (de )?(acero|aluminio|cobre))\\b",
+     "prioridad": 240
+    }
+   ],
+   "orden": 5490,
+   "terminos": "barras perfiles"
+  },
+  {
+   "codigo": "metal_component",
+   "nombre": "Metal component or fitting",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "",
+   "patrones": [
+    {
+     "re": "\\b(metal parts?|piezas? met[aá]licas?|herrajes?|hardware|fasteners?|hebillas?|buckles?|remaches?|rivets?|ojales? met[aá]licos?|eyelets?)\\b",
+     "prioridad": 255
+    }
+   ],
+   "orden": 5500,
+   "terminos": "partes"
+  },
+  {
+   "codigo": "materia_prima",
+   "nombre": "Other raw material or semi-processed input",
+   "dominio": "RAW_MATERIALS",
+   "grupo": "Raw materials",
+   "alias": "raw material; materia prima",
+   "patrones": [
+    {
+     "re": "\\b(raw materials?|materias? primas?)\\b",
+     "prioridad": 290
+    }
+   ],
+   "orden": 5510
+  },
+  {
+   "codigo": "otro",
+   "nombre": "Other product",
+   "dominio": null,
+   "grupo": "Other",
+   "alias": "other; otro",
+   "patrones": [],
+   "orden": 5520
+  }
+ ],
+ "atributos": [
+  {
+   "codigo": "chemical_formula",
+   "etiqueta": "Chemical formula",
+   "tipo_dato": "text",
+   "dominio": "CHEMICALS",
+   "ayuda": "As in the SDS, e.g. CH3COOH",
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "inorganic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "organic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "base_alkali",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "salt",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "chemical_components",
+   "etiqueta": "Composition (component, CAS and %)",
+   "tipo_dato": "text",
+   "dominio": "CHEMICALS",
+   "ayuda": "One component per line: name; CAS; % (from the SDS)",
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "inorganic_chemical",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "organic_chemical",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "base_alkali",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "salt",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "solvent",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "alcohol",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_preparation",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "dye",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigment",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "surfactant",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laboratory_reagent",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "chemical_preparation",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "substance_or_mixture",
+       "operador": "EQUAL",
+       "valor": "MIXTURE",
+       "negado": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "codigo": "main_ingredient",
+   "etiqueta": "Main ingredient",
+   "tipo_dato": "text",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "solvent",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paint_coating",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "chemical_preparation",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "active_ingredient",
+   "etiqueta": "Active ingredient",
+   "tipo_dato": "text",
+   "dominio": "CHEMICALS",
+   "ayuda": "The substance that gives the product its function",
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "chemical_preparation",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "retail_packaging",
+   "etiqueta": "Put up for retail sale",
+   "tipo_dato": "boolean",
+   "dominio": "CHEMICALS",
+   "ayuda": "In packages for sale to the final user",
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "inorganic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "organic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "base_alkali",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "salt",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "solvent",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "alcohol",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_preparation",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "dye",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigment",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paint_coating",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "ink",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesive",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "surfactant",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "detergent_cleaning",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laboratory_reagent",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "chemical_preparation",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "solvent_based",
+   "etiqueta": "Solvent based",
+   "tipo_dato": "boolean",
+   "dominio": "CHEMICALS",
+   "ayuda": "Dispersed or dissolved in an organic solvent",
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paint_coating",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "ink",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesive",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "water_based",
+   "etiqueta": "Water based",
+   "tipo_dato": "boolean",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "solvent",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paint_coating",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "ph_value",
+   "etiqueta": "pH",
+   "tipo_dato": "number",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": []
+  },
+  {
+   "codigo": "density",
+   "etiqueta": "Density",
+   "tipo_dato": "number",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": "g/cm³",
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": []
+  },
+  {
+   "codigo": "chemically_defined",
+   "etiqueta": "Separate chemically defined compound",
+   "tipo_dato": "boolean",
+   "dominio": "CHEMICALS",
+   "ayuda": "A single compound of defined structure (with or without impurities)",
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "inorganic_chemical",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "organic_chemical",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "base_alkali",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "salt",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "solvent",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "dye",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigment",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "dye_class",
+   "etiqueta": "Dye class",
+   "tipo_dato": "select",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "disperse",
+     "etiqueta": "Disperse",
+     "orden": 10,
+     "terminos": "colorantes dispersos"
+    },
+    {
+     "codigo": "acid",
+     "etiqueta": "Acid or mordant",
+     "orden": 20,
+     "terminos": "colorantes ácidos"
+    },
+    {
+     "codigo": "basic",
+     "etiqueta": "Basic",
+     "orden": 30,
+     "terminos": "colorantes básicos"
+    },
+    {
+     "codigo": "direct",
+     "etiqueta": "Direct",
+     "orden": 40,
+     "terminos": "colorantes directos"
+    },
+    {
+     "codigo": "vat",
+     "etiqueta": "Vat",
+     "orden": 50,
+     "terminos": "colorantes tina"
+    },
+    {
+     "codigo": "reactive",
+     "etiqueta": "Reactive",
+     "orden": 60,
+     "terminos": "colorantes reactivos"
+    },
+    {
+     "codigo": "pigment_prep",
+     "etiqueta": "Pigment preparation",
+     "orden": 70
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 80
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "dye",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "pigment_type",
+   "etiqueta": "Pigment",
+   "tipo_dato": "select",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "titanium_dioxide",
+     "etiqueta": "Titanium dioxide",
+     "orden": 10,
+     "terminos": "dióxido de titanio"
+    },
+    {
+     "codigo": "iron_oxide",
+     "etiqueta": "Iron oxide",
+     "orden": 20,
+     "terminos": "óxidos de hierro"
+    },
+    {
+     "codigo": "carbon_black",
+     "etiqueta": "Carbon black",
+     "orden": 30,
+     "terminos": "negro de carbono"
+    },
+    {
+     "codigo": "organic",
+     "etiqueta": "Organic pigment",
+     "orden": 40
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other inorganic pigment",
+     "orden": 50
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigment",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "adhesive_base",
+   "etiqueta": "Adhesive base",
+   "tipo_dato": "select",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "rubber",
+     "etiqueta": "Rubber",
+     "orden": 10,
+     "terminos": "caucho"
+    },
+    {
+     "codigo": "polymer",
+     "etiqueta": "Polymer or resin",
+     "orden": 20,
+     "terminos": "polímeros"
+    },
+    {
+     "codigo": "starch_dextrin",
+     "etiqueta": "Starch or dextrin",
+     "orden": 30,
+     "terminos": "almidón dextrina"
+    },
+    {
+     "codigo": "animal_glue",
+     "etiqueta": "Animal glue",
+     "orden": 40,
+     "terminos": "colas de origen animal"
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 50
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesive",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "lubricant_base",
+   "etiqueta": "Lubricant base",
+   "tipo_dato": "select",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "petroleum_70",
+     "etiqueta": "Petroleum oil ≥ 70 %",
+     "orden": 10,
+     "terminos": "aceites de petróleo"
+    },
+    {
+     "codigo": "petroleum_less",
+     "etiqueta": "Petroleum oil < 70 %",
+     "orden": 20,
+     "terminos": "aceites de petróleo"
+    },
+    {
+     "codigo": "synthetic",
+     "etiqueta": "Synthetic",
+     "orden": 30
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 40
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricant",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "surfactant_type",
+   "etiqueta": "Surfactant type",
+   "tipo_dato": "select",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "anionic",
+     "etiqueta": "Anionic",
+     "orden": 10,
+     "terminos": "aniónicos"
+    },
+    {
+     "codigo": "cationic",
+     "etiqueta": "Cationic",
+     "orden": 20,
+     "terminos": "catiónicos"
+    },
+    {
+     "codigo": "nonionic",
+     "etiqueta": "Non-ionic",
+     "orden": 30,
+     "terminos": "no iónicos"
+    },
+    {
+     "codigo": "amphoteric",
+     "etiqueta": "Amphoteric",
+     "orden": 40
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "surfactant",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "detergent_cleaning",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "wax_type",
+   "etiqueta": "Wax type",
+   "tipo_dato": "select",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "artificial",
+     "etiqueta": "Artificial or prepared",
+     "orden": 10,
+     "terminos": "ceras artificiales"
+    },
+    {
+     "codigo": "paraffin",
+     "etiqueta": "Paraffin",
+     "orden": 20,
+     "terminos": "parafina"
+    },
+    {
+     "codigo": "animal_vegetable",
+     "etiqueta": "Animal or vegetable",
+     "orden": 30
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 40
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "wax",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "reagent_grade",
+   "etiqueta": "Grade",
+   "tipo_dato": "select",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "analytical",
+     "etiqueta": "Analytical / laboratory",
+     "orden": 10,
+     "terminos": "reactivos laboratorio"
+    },
+    {
+     "codigo": "diagnostic",
+     "etiqueta": "Diagnostic",
+     "orden": 20,
+     "terminos": "reactivos diagnóstico"
+    },
+    {
+     "codigo": "technical",
+     "etiqueta": "Technical / industrial",
+     "orden": 30
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laboratory_reagent",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "alcohol_type",
+   "etiqueta": "Alcohol",
+   "tipo_dato": "select",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "ethanol",
+     "etiqueta": "Ethyl alcohol",
+     "orden": 10,
+     "terminos": "alcohol etílico"
+    },
+    {
+     "codigo": "methanol",
+     "etiqueta": "Methanol",
+     "orden": 20,
+     "terminos": "metanol"
+    },
+    {
+     "codigo": "isopropanol",
+     "etiqueta": "Isopropyl alcohol",
+     "orden": 30,
+     "terminos": "propan"
+    },
+    {
+     "codigo": "polyol",
+     "etiqueta": "Polyol (glycol, glycerol…)",
+     "orden": 40,
+     "terminos": "glicerol glicoles"
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 50
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "alcohol",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "alcohol_strength",
+   "etiqueta": "Alcoholic strength",
+   "tipo_dato": "number",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": "% vol",
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "alcohol",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "alcohol_type",
+       "operador": "EQUAL",
+       "valor": "ethanol",
+       "negado": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "codigo": "denatured",
+   "etiqueta": "Denatured",
+   "tipo_dato": "boolean",
+   "dominio": "CHEMICALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "alcohol",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "alcohol_type",
+       "operador": "EQUAL",
+       "valor": "ethanol",
+       "negado": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "codigo": "polymer_type",
+   "etiqueta": "Polymer",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "pe",
+     "etiqueta": "Polyethylene (PE)",
+     "orden": 10,
+     "terminos": "polietileno etileno"
+    },
+    {
+     "codigo": "pp",
+     "etiqueta": "Polypropylene (PP)",
+     "orden": 20,
+     "terminos": "polipropileno propileno"
+    },
+    {
+     "codigo": "pvc",
+     "etiqueta": "Polyvinyl chloride (PVC)",
+     "orden": 30,
+     "terminos": "cloruro vinilo"
+    },
+    {
+     "codigo": "ps",
+     "etiqueta": "Polystyrene (PS)",
+     "orden": 40,
+     "terminos": "poliestireno estireno"
+    },
+    {
+     "codigo": "pet",
+     "etiqueta": "Polyethylene terephthalate (PET)",
+     "orden": 50,
+     "terminos": "tereftalato etileno"
+    },
+    {
+     "codigo": "abs",
+     "etiqueta": "ABS",
+     "orden": 60,
+     "terminos": "acrilonitrilo butadieno estireno"
+    },
+    {
+     "codigo": "pu",
+     "etiqueta": "Polyurethane (PU)",
+     "orden": 70,
+     "terminos": "poliuretanos"
+    },
+    {
+     "codigo": "pa",
+     "etiqueta": "Polyamide (PA, nylon)",
+     "orden": 80,
+     "terminos": "poliamidas"
+    },
+    {
+     "codigo": "acrylic",
+     "etiqueta": "Acrylic (PMMA)",
+     "orden": 90,
+     "terminos": "polímeros acrílicos"
+    },
+    {
+     "codigo": "pc",
+     "etiqueta": "Polycarbonate (PC)",
+     "orden": 100,
+     "terminos": "policarbonatos"
+    },
+    {
+     "codigo": "eva",
+     "etiqueta": "Ethylene-vinyl acetate (EVA)",
+     "orden": 110,
+     "terminos": "acetato vinilo etileno"
+    },
+    {
+     "codigo": "silicone",
+     "etiqueta": "Silicone",
+     "orden": 120,
+     "terminos": "siliconas"
+    },
+    {
+     "codigo": "epoxy",
+     "etiqueta": "Epoxy",
+     "orden": 130,
+     "terminos": "resinas epoxi"
+    },
+    {
+     "codigo": "tpu",
+     "etiqueta": "Thermoplastic polyurethane (TPU)",
+     "orden": 140,
+     "terminos": "poliuretanos"
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 150
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "polymer_resin",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paint_coating",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "synthetic_leather",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_resin",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_primary_form",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_sheet",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_film",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_profile",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_foam",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "copolymer",
+   "etiqueta": "Copolymer",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "polymer_resin",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_resin",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_primary_form",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_sheet",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_film",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_profile",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_foam",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "primary_form",
+   "etiqueta": "Primary form",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": "How the polymer is presented",
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "granules",
+     "etiqueta": "Granules or pellets",
+     "orden": 10,
+     "terminos": "gránulos"
+    },
+    {
+     "codigo": "powder",
+     "etiqueta": "Powder",
+     "orden": 20,
+     "terminos": "polvo"
+    },
+    {
+     "codigo": "liquid",
+     "etiqueta": "Liquid",
+     "orden": 30,
+     "terminos": "líquidos"
+    },
+    {
+     "codigo": "paste",
+     "etiqueta": "Paste",
+     "orden": 40,
+     "terminos": "pasta"
+    },
+    {
+     "codigo": "blocks",
+     "etiqueta": "Blocks or lumps",
+     "orden": 50,
+     "terminos": "bloques"
+    },
+    {
+     "codigo": "dispersion",
+     "etiqueta": "Dispersion or solution",
+     "orden": 60,
+     "terminos": "dispersiones"
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "polymer_resin",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_resin",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_primary_form",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "natural_rubber",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "synthetic_rubber",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "polymer_pct",
+   "etiqueta": "Polymer content",
+   "tipo_dato": "number",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": "%",
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_resin",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "specific_gravity",
+   "etiqueta": "Specific gravity",
+   "tipo_dato": "number",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": "Distinguishes e.g. low and high density polyethylene (0.94)",
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "polymer_resin",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_resin",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "polymer_type",
+       "operador": "EQUAL",
+       "valor": "pe",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_primary_form",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "polymer_type",
+       "operador": "EQUAL",
+       "valor": "pe",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_sheet",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "polymer_type",
+       "operador": "EQUAL",
+       "valor": "pe",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_film",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "polymer_type",
+       "operador": "EQUAL",
+       "valor": "pe",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_profile",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "polymer_type",
+       "operador": "EQUAL",
+       "valor": "pe",
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_foam",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "polymer_type",
+       "operador": "EQUAL",
+       "valor": "pe",
+       "negado": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "codigo": "thickness",
+   "etiqueta": "Thickness",
+   "tipo_dato": "number",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": "mm",
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "filament",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "leather",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "split_leather",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "synthetic_leather",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_sheet",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_film",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_foam",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_sheet",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_sheet",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_wire",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_profile",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "cellular",
+   "etiqueta": "Cellular (foam)",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laminated_fabric",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_sheet",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_film",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "reinforced",
+   "etiqueta": "Reinforced, laminated or combined with other materials",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_sheet",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_film",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_profile",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_foam",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_sheet",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "self_adhesive",
+   "etiqueta": "Self-adhesive",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_sheet",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_film",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "in_rolls",
+   "etiqueta": "Presentation",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "rolls",
+     "etiqueta": "Rolls",
+     "orden": 10
+    },
+    {
+     "codigo": "sheets",
+     "etiqueta": "Sheets or plates",
+     "orden": 20
+    },
+    {
+     "codigo": "strips",
+     "etiqueta": "Strips",
+     "orden": 30
+    },
+    {
+     "codigo": "cut_shape",
+     "etiqueta": "Cut to shape",
+     "orden": 40
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_sheet",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_film",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_foam",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paper",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paperboard",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "width",
+   "etiqueta": "Width",
+   "tipo_dato": "number",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": "cm",
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "woven_fabric",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "knitted_fabric",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_sheet",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "plastic_film",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_sheet",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "fiber",
+   "etiqueta": "Main fiber",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "cotton",
+     "etiqueta": "Cotton",
+     "orden": 10,
+     "terminos": "algodón"
+    },
+    {
+     "codigo": "wool",
+     "etiqueta": "Wool or fine animal hair",
+     "orden": 20,
+     "terminos": "lana pelo fino"
+    },
+    {
+     "codigo": "silk",
+     "etiqueta": "Silk",
+     "orden": 30,
+     "terminos": "seda"
+    },
+    {
+     "codigo": "flax",
+     "etiqueta": "Flax / linen",
+     "orden": 40,
+     "terminos": "lino"
+    },
+    {
+     "codigo": "polyester",
+     "etiqueta": "Polyester",
+     "orden": 50,
+     "terminos": "poliéster sintéticos"
+    },
+    {
+     "codigo": "nylon",
+     "etiqueta": "Nylon / polyamide",
+     "orden": 60,
+     "terminos": "nailon poliamidas sintéticos"
+    },
+    {
+     "codigo": "acrylic",
+     "etiqueta": "Acrylic",
+     "orden": 70,
+     "terminos": "acrílicas sintéticos"
+    },
+    {
+     "codigo": "polypropylene",
+     "etiqueta": "Polypropylene",
+     "orden": 80,
+     "terminos": "polipropileno sintéticos"
+    },
+    {
+     "codigo": "viscose",
+     "etiqueta": "Viscose / rayon",
+     "orden": 90,
+     "terminos": "rayón viscosa artificiales"
+    },
+    {
+     "codigo": "elastane",
+     "etiqueta": "Elastane",
+     "orden": 100,
+     "terminos": "elastómeros"
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 110
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "textile_fiber",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "staple_fiber",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "filament",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "yarn",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "sewing_thread",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "woven_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "knitted_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "nonwoven",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "felt",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "coated_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laminated_fabric",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "fiber_pct",
+   "etiqueta": "Main fiber content",
+   "tipo_dato": "number",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": "By weight",
+   "unidad": "%",
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "textile_fiber",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "staple_fiber",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "filament",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "yarn",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "sewing_thread",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "woven_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "knitted_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "coated_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laminated_fabric",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "synthetic_or_artificial",
+   "etiqueta": "Man-made fiber",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "synthetic",
+     "etiqueta": "Synthetic",
+     "orden": 10,
+     "terminos": "sintéticos"
+    },
+    {
+     "codigo": "artificial",
+     "etiqueta": "Artificial (regenerated)",
+     "orden": 20,
+     "terminos": "artificiales"
+    },
+    {
+     "codigo": "natural",
+     "etiqueta": "Natural",
+     "orden": 30
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "textile_fiber",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fiber",
+       "operador": "IN",
+       "valor": [
+        "polyester",
+        "nylon",
+        "acrylic",
+        "polypropylene",
+        "viscose",
+        "elastane"
+       ],
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "staple_fiber",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fiber",
+       "operador": "IN",
+       "valor": [
+        "polyester",
+        "nylon",
+        "acrylic",
+        "polypropylene",
+        "viscose",
+        "elastane"
+       ],
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "filament",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fiber",
+       "operador": "IN",
+       "valor": [
+        "polyester",
+        "nylon",
+        "acrylic",
+        "polypropylene",
+        "viscose",
+        "elastane"
+       ],
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "yarn",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fiber",
+       "operador": "IN",
+       "valor": [
+        "polyester",
+        "nylon",
+        "acrylic",
+        "polypropylene",
+        "viscose",
+        "elastane"
+       ],
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "sewing_thread",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fiber",
+       "operador": "IN",
+       "valor": [
+        "polyester",
+        "nylon",
+        "acrylic",
+        "polypropylene",
+        "viscose",
+        "elastane"
+       ],
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "woven_fabric",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fiber",
+       "operador": "IN",
+       "valor": [
+        "polyester",
+        "nylon",
+        "acrylic",
+        "polypropylene",
+        "viscose",
+        "elastane"
+       ],
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "knitted_fabric",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fiber",
+       "operador": "IN",
+       "valor": [
+        "polyester",
+        "nylon",
+        "acrylic",
+        "polypropylene",
+        "viscose",
+        "elastane"
+       ],
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "coated_fabric",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fiber",
+       "operador": "IN",
+       "valor": [
+        "polyester",
+        "nylon",
+        "acrylic",
+        "polypropylene",
+        "viscose",
+        "elastane"
+       ],
+       "negado": false
+      }
+     ]
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laminated_fabric",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "fiber",
+       "operador": "IN",
+       "valor": [
+        "polyester",
+        "nylon",
+        "acrylic",
+        "polypropylene",
+        "viscose",
+        "elastane"
+       ],
+       "negado": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "codigo": "filament_or_staple",
+   "etiqueta": "Filament or staple",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "filament",
+     "etiqueta": "Filament",
+     "orden": 10,
+     "terminos": "filamentos"
+    },
+    {
+     "codigo": "staple",
+     "etiqueta": "Staple fiber",
+     "orden": 20,
+     "terminos": "fibras discontinuas"
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "textile_fiber",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "yarn",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "sewing_thread",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "nonwoven",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "yarn_ply",
+   "etiqueta": "Yarn",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "single",
+     "etiqueta": "Single",
+     "orden": 10,
+     "terminos": "sencillos"
+    },
+    {
+     "codigo": "multiple",
+     "etiqueta": "Multiple (folded) or cabled",
+     "orden": 20,
+     "terminos": "retorcidos cableados"
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "yarn",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "textured",
+   "etiqueta": "Textured",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "filament",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "yarn",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "filament_or_staple",
+       "operador": "EQUAL",
+       "valor": "filament",
+       "negado": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "codigo": "put_up_retail",
+   "etiqueta": "Put up for retail sale",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": "Balls, hanks or reels for the final user",
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "yarn",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "sewing_thread",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "weave",
+   "etiqueta": "Weave",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "plain",
+     "etiqueta": "Plain",
+     "orden": 10,
+     "terminos": "ligamento tafetán"
+    },
+    {
+     "codigo": "twill",
+     "etiqueta": "Twill (3 or 4 thread, incl. denim)",
+     "orden": 20,
+     "terminos": "ligamento sarga"
+    },
+    {
+     "codigo": "satin",
+     "etiqueta": "Satin",
+     "orden": 30,
+     "terminos": "raso"
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 40
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "woven_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "coated_fabric",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "knit_type",
+   "etiqueta": "Knit",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "weft",
+     "etiqueta": "Weft knit (circular)",
+     "orden": 10
+    },
+    {
+     "codigo": "warp",
+     "etiqueta": "Warp knit",
+     "orden": 20
+    },
+    {
+     "codigo": "pile",
+     "etiqueta": "Pile (fleece, velour)",
+     "orden": 30,
+     "terminos": "aterciopelado pelo largo"
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "knitted_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "coated_fabric",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "fabric_weight",
+   "etiqueta": "Weight",
+   "tipo_dato": "number",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": "g/m²",
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "woven_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "knitted_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "nonwoven",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "felt",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "coated_fabric",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laminated_fabric",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "synthetic_leather",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "fabric_finish",
+   "etiqueta": "Finish",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "unbleached",
+     "etiqueta": "Unbleached (raw)",
+     "orden": 10,
+     "terminos": "crudos"
+    },
+    {
+     "codigo": "bleached",
+     "etiqueta": "Bleached",
+     "orden": 20,
+     "terminos": "blanqueados"
+    },
+    {
+     "codigo": "dyed",
+     "etiqueta": "Dyed",
+     "orden": 30,
+     "terminos": "teñidos"
+    },
+    {
+     "codigo": "yarn_dyed",
+     "etiqueta": "Of yarns of different colours",
+     "orden": 40,
+     "terminos": "hilados de distintos colores"
+    },
+    {
+     "codigo": "printed",
+     "etiqueta": "Printed",
+     "orden": 50,
+     "terminos": "estampados"
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "woven_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "knitted_fabric",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "coated",
+   "etiqueta": "Coated, covered or impregnated",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "woven_fabric",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "knitted_fabric",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "nonwoven",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "felt",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paper",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paperboard",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "laminated",
+   "etiqueta": "Laminated",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "woven_fabric",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "knitted_fabric",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "nonwoven",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "coating_material",
+   "etiqueta": "Coating",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "pvc",
+     "etiqueta": "PVC",
+     "orden": 10
+    },
+    {
+     "codigo": "pu",
+     "etiqueta": "Polyurethane",
+     "orden": 20
+    },
+    {
+     "codigo": "rubber",
+     "etiqueta": "Rubber",
+     "orden": 30
+    },
+    {
+     "codigo": "other_plastic",
+     "etiqueta": "Other plastic",
+     "orden": 40
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 50
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "coated_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laminated_fabric",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "coating_visible",
+   "etiqueta": "Coating visible to the naked eye",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "coated_fabric",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "synthetic_leather",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "elastomeric_pct",
+   "etiqueta": "Elastomeric yarn content",
+   "tipo_dato": "number",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": "%",
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "woven_fabric",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "knitted_fabric",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "leather_kind",
+   "etiqueta": "Leather",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "full_grain",
+     "etiqueta": "Full grain or grain split",
+     "orden": 10,
+     "terminos": "plena flor"
+    },
+    {
+     "codigo": "split",
+     "etiqueta": "Split (flesh side)",
+     "orden": 20,
+     "terminos": "divididos"
+    },
+    {
+     "codigo": "composition",
+     "etiqueta": "Composition leather (reconstituted)",
+     "orden": 30,
+     "terminos": "regenerado"
+    },
+    {
+     "codigo": "patent",
+     "etiqueta": "Patent or metallised",
+     "orden": 40
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "leather",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "animal",
+   "etiqueta": "Animal",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "bovine",
+     "etiqueta": "Bovine",
+     "orden": 10,
+     "terminos": "bovino"
+    },
+    {
+     "codigo": "equine",
+     "etiqueta": "Equine",
+     "orden": 20,
+     "terminos": "equino"
+    },
+    {
+     "codigo": "sheep",
+     "etiqueta": "Sheep or lamb",
+     "orden": 30,
+     "terminos": "ovino"
+    },
+    {
+     "codigo": "goat",
+     "etiqueta": "Goat or kid",
+     "orden": 40,
+     "terminos": "caprino"
+    },
+    {
+     "codigo": "swine",
+     "etiqueta": "Swine",
+     "orden": 50,
+     "terminos": "porcino"
+    },
+    {
+     "codigo": "reptile",
+     "etiqueta": "Reptile",
+     "orden": 60,
+     "terminos": "reptil"
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 70
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "leather",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "split_leather",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "tanning_state",
+   "etiqueta": "State",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "wet_blue",
+     "etiqueta": "Tanned, wet (wet blue)",
+     "orden": 10
+    },
+    {
+     "codigo": "crust",
+     "etiqueta": "Crust (dry)",
+     "orden": 20
+    },
+    {
+     "codigo": "finished",
+     "etiqueta": "Further prepared (finished)",
+     "orden": 30
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "leather",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "split_leather",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "synthetic_leather_support",
+   "etiqueta": "Support of the synthetic leather",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "knitted",
+     "etiqueta": "Knitted fabric",
+     "orden": 10
+    },
+    {
+     "codigo": "woven",
+     "etiqueta": "Woven fabric",
+     "orden": 20
+    },
+    {
+     "codigo": "nonwoven",
+     "etiqueta": "Nonwoven",
+     "orden": 30
+    },
+    {
+     "codigo": "none",
+     "etiqueta": "No textile support",
+     "orden": 40
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "synthetic_leather",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "rubber_type",
+   "etiqueta": "Rubber",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "natural",
+     "etiqueta": "Natural rubber",
+     "orden": 10,
+     "terminos": "caucho natural"
+    },
+    {
+     "codigo": "sbr",
+     "etiqueta": "SBR",
+     "orden": 20,
+     "terminos": "estireno butadieno"
+    },
+    {
+     "codigo": "epdm",
+     "etiqueta": "EPDM",
+     "orden": 30,
+     "terminos": "etileno propileno dieno"
+    },
+    {
+     "codigo": "nbr",
+     "etiqueta": "NBR",
+     "orden": 40,
+     "terminos": "acrilonitrilo butadieno"
+    },
+    {
+     "codigo": "cr",
+     "etiqueta": "Chloroprene (neoprene)",
+     "orden": 50,
+     "terminos": "cloropreno"
+    },
+    {
+     "codigo": "other_synthetic",
+     "etiqueta": "Other synthetic",
+     "orden": 60
+    },
+    {
+     "codigo": "reclaimed",
+     "etiqueta": "Reclaimed",
+     "orden": 70,
+     "terminos": "regenerado"
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_preparation",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "synthetic_rubber",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_compound",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_sheet",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "vulcanized",
+   "etiqueta": "Vulcanised",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "synthetic_rubber",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_compound",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_sheet",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "compounded",
+   "etiqueta": "Compounded (with additives)",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_preparation",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "natural_rubber",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "synthetic_rubber",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_compound",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_sheet",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "cellular_rubber",
+   "etiqueta": "Cellular rubber",
+   "tipo_dato": "boolean",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "synthetic_rubber",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_compound",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_sheet",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "paper_kind",
+   "etiqueta": "Paper",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "kraft",
+     "etiqueta": "Kraft",
+     "orden": 10,
+     "terminos": "kraft"
+    },
+    {
+     "codigo": "writing",
+     "etiqueta": "Writing or printing",
+     "orden": 20
+    },
+    {
+     "codigo": "tissue",
+     "etiqueta": "Tissue",
+     "orden": 30,
+     "terminos": "guata"
+    },
+    {
+     "codigo": "coated",
+     "etiqueta": "Coated",
+     "orden": 40,
+     "terminos": "estucados"
+    },
+    {
+     "codigo": "corrugated",
+     "etiqueta": "Corrugated",
+     "orden": 50,
+     "terminos": "ondulado"
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 60
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paper",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paperboard",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "paper_weight",
+   "etiqueta": "Weight",
+   "tipo_dato": "number",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": "g/m²",
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paper",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paperboard",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "metal",
+   "etiqueta": "Metal",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "iron_steel",
+     "etiqueta": "Iron or non-alloy steel",
+     "orden": 10,
+     "terminos": "hierro acero sin alear"
+    },
+    {
+     "codigo": "stainless",
+     "etiqueta": "Stainless steel",
+     "orden": 20,
+     "terminos": "acero inoxidable"
+    },
+    {
+     "codigo": "alloy_steel",
+     "etiqueta": "Other alloy steel",
+     "orden": 30,
+     "terminos": "aceros aleados"
+    },
+    {
+     "codigo": "aluminium",
+     "etiqueta": "Aluminium",
+     "orden": 40,
+     "terminos": "aluminio"
+    },
+    {
+     "codigo": "copper",
+     "etiqueta": "Copper or brass",
+     "orden": 50,
+     "terminos": "cobre"
+    },
+    {
+     "codigo": "zinc",
+     "etiqueta": "Zinc",
+     "orden": 60,
+     "terminos": "cinc"
+    },
+    {
+     "codigo": "other",
+     "etiqueta": "Other",
+     "orden": 70
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_sheet",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_wire",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_profile",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_component",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "metal_shape",
+   "etiqueta": "Shape",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "flat",
+     "etiqueta": "Flat-rolled (sheet, plate, coil)",
+     "orden": 10,
+     "terminos": "laminados planos"
+    },
+    {
+     "codigo": "wire",
+     "etiqueta": "Wire",
+     "orden": 20,
+     "terminos": "alambre"
+    },
+    {
+     "codigo": "bar_rod",
+     "etiqueta": "Bar or rod",
+     "orden": 30,
+     "terminos": "barras"
+    },
+    {
+     "codigo": "profile",
+     "etiqueta": "Angle, shape or section",
+     "orden": 40,
+     "terminos": "perfiles"
+    },
+    {
+     "codigo": "tube",
+     "etiqueta": "Tube or pipe",
+     "orden": 50,
+     "terminos": "tubos"
+    },
+    {
+     "codigo": "part",
+     "etiqueta": "Part or fitting",
+     "orden": 60
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_profile",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_component",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "metal_coating",
+   "etiqueta": "Coating",
+   "tipo_dato": "select",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": null,
+   "unidad": null,
+   "opciones": [
+    {
+     "codigo": "none",
+     "etiqueta": "None",
+     "orden": 10
+    },
+    {
+     "codigo": "zinc",
+     "etiqueta": "Zinc (galvanised)",
+     "orden": 20
+    },
+    {
+     "codigo": "tin",
+     "etiqueta": "Tin",
+     "orden": 30
+    },
+    {
+     "codigo": "paint_plastic",
+     "etiqueta": "Painted or plastic coated",
+     "orden": 40
+    },
+    {
+     "codigo": "plated",
+     "etiqueta": "Other plating",
+     "orden": 50
+    }
+   ],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_sheet",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_wire",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_profile",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_component",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "component_of",
+   "etiqueta": "Component of",
+   "tipo_dato": "text",
+   "dominio": "RAW_MATERIALS",
+   "ayuda": "The article it is made for (e.g. footwear, bags)",
+   "unidad": null,
+   "opciones": [],
+   "informativo": false,
+   "seccion": "caracteristicas",
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "metal_component",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "substance_or_mixture",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "inorganic_chemical",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "organic_chemical",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "base_alkali",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "salt",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "solvent",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "alcohol",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_preparation",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "dye",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigment",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "surfactant",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laboratory_reagent",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "chemical_preparation",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "physical_state",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "inorganic_chemical",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "organic_chemical",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "base_alkali",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "salt",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "solvent",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "alcohol",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "polymer_resin",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_preparation",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "dye",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigment",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "paint_coating",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "ink",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesive",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "surfactant",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "detergent_cleaning",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricant",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "wax",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laboratory_reagent",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "chemical_preparation",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "chemical_name",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "inorganic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "organic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "base_alkali",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "salt",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "solvent",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "alcohol",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_preparation",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "dye",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigment",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "surfactant",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laboratory_reagent",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "chemical_preparation",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "cas_number",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "inorganic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "organic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "base_alkali",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "salt",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "solvent",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "alcohol",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_preparation",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "dye",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigment",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "surfactant",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laboratory_reagent",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "chemical_preparation",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "chemical_function",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "inorganic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "organic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "base_alkali",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "salt",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "solvent",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "alcohol",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "polymer_resin",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "rubber_preparation",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "dye",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "pigment",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "ink",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "surfactant",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "laboratory_reagent",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "chemical_preparation",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "quimico",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "purity",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "inorganic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "organic_chemical",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "salt",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "concentration",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "acid",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "base_alkali",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "net_weight",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "adhesive",
+     "modo": "SHOW",
+     "condicion": [
+      {
+       "grupo": 1,
+       "campo": "retail_packaging",
+       "operador": "EQUAL",
+       "valor": true,
+       "negado": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "codigo": "intended_use",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "detergent_cleaning",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "lubricant",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "wax",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "chemical_preparation",
+     "modo": "REQUIRE"
+    }
+   ]
+  },
+  {
+   "codigo": "processing_degree",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "textile_fiber",
+     "modo": "REQUIRE"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "staple_fiber",
+     "modo": "SHOW"
+    },
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "materia_prima",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "shape_form",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "materia_prima",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "material_grade",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "materia_prima",
+     "modo": "SHOW"
+    }
+   ]
+  },
+  {
+   "codigo": "coating_treatment",
+   "referencia": true,
+   "ambitos": [
+    {
+     "tipo_ambito": "CATEGORY",
+     "codigo_ambito": "materia_prima",
+     "modo": "SHOW"
+    }
+   ]
+  }
+ ]
+}

@@ -73,6 +73,14 @@ def _datos_producto(db: Session, entrada: dict) -> dict:
     out = {"destination_country": paises}
     if nombre:
         out["product_name"] = nombre
+    # Datos técnicos de sus fichas SDS/TDS/COA: hechos del producto (nunca códigos)
+    if entrada.get("producto_id"):
+        from ..models import ProductoDocumento
+
+        for d in db.scalars(select(ProductoDocumento).where(ProductoDocumento.producto_id == entrada["producto_id"])
+                            .order_by(ProductoDocumento.id.desc())):
+            for k, v in (d.datos or {}).items():
+                out.setdefault(k, v)
     return out
 
 
@@ -292,7 +300,7 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     cat = catalogo or catalogo_db(db)
     ficha = copy.deepcopy(entrada.get("ficha") or {})
     ficha.setdefault("comp", {})
-    texto_det = " ".join(x for x in (entrada.get("estilo"), entrada.get("nombre")) if str(x or "").strip())
+    texto_det = " ".join(x for x in (entrada.get("estilo"), entrada.get("nombre"), entrada.get("texto")) if str(x or "").strip())
     tocados = set(entrada.get("tocados") or [])
     autos_previos = set(entrada.get("autos") or [])
 
@@ -301,8 +309,12 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     autos: set = set()
     detectado: dict = {}
     if entrada.get("detectar", True) and (texto_det or entrada.get("uso") or ficha.get("comp")):
-        detectado = cat.detectar(ficha, entrada.get("estilo") or "", entrada.get("nombre") or "", entrada.get("uso") or "",
+        detectado = cat.detectar(ficha, entrada.get("estilo") or "", entrada.get("nombre") or entrada.get("texto") or "", entrada.get("uso") or "",
                                  entrada.get("tallas") or "", entrada.get("marca"), categoria)
+        # Con el dominio elegido, una categoría detectada de otro dominio no se toma
+        det_cat = cat.categorias.get(detectado.get("categoria") or "")
+        if entrada.get("dominio") and det_cat and det_cat.dominio and det_cat.dominio != entrada["dominio"]:
+            detectado.pop("categoria", None)
         if not categoria and detectado.get("categoria"):
             categoria = detectado["categoria"]
             autos.add("categoria")
@@ -611,13 +623,6 @@ def clasificar_producto(db: Session, entrada: dict, *, catalogo=None, paises: bo
     }
 
 
-def clasificar(db: Session, texto: str = "", dominio: str | None = None, categoria: str | None = None,
-               respuestas: dict | None = None, paises: bool = True, limite: int = 8) -> dict:
-    """Sesión de clasificación por texto libre y respuestas (el mismo motor)."""
-    return clasificar_producto(db, {"texto": texto, "dominio": dominio, "categoria": categoria, "ficha": dict(respuestas or {}),
-                                    "detectar": False, "sin_origen": True}, paises=paises, limite=limite)
-
-
 def lineas_sac_de(por_cod: dict, hs6: str) -> list[str]:
     return sorted(k for k in por_cod if k.startswith(hs6) and len(k) > 6)
 
@@ -647,6 +652,10 @@ def _terminos(cat, entrada, ficha, hechos) -> list[str]:
     from .generico import palabras
 
     extra = []
+    # Términos de búsqueda configurados (palabras del texto oficial): solo ordenan candidatos
+    cobj = cat.categorias.get(hechos.get("categoria") or entrada.get("categoria") or "")
+    if cobj and cobj.terminos:
+        extra.append(cobj.terminos)
     for k, val in ficha.items():
         a = cat.por_codigo.get(k)
         if not a or not a.usado_clasificacion or a.tipo_dato == "composition":
@@ -655,6 +664,8 @@ def _terminos(cat, entrada, ficha, hechos) -> list[str]:
             o = a.opcion(x) if not isinstance(x, bool) else None
             if o:
                 extra.append(o.etiqueta)
+                if o.terminos:
+                    extra.append(o.terminos)
             elif isinstance(x, str) and a.tipo_dato == "text":
                 extra.append(x)
     return list(dict.fromkeys(palabras(f"{entrada.get('texto') or ''} {' '.join(extra)}")))
@@ -830,7 +841,7 @@ def _campos(cat, s, ficha, codigos, forzadas, discriminan, autos, usados=frozens
         d = _campo(cat, a, s, ficha, e, amb, a.codigo in discriminan, autos)
         # Lo que decide el código o es obligatorio va arriba; los datos oficiales
         # opcionales que ninguna regla usa, en «más datos»
-        d["principal"] = not (a.origen == "OFICIAL" and d["modo"] != "REQUIRE" and not d["discrimina"] and a.codigo not in usados)
+        d["principal"] = not (a.origen == "PAQUETE" and d["modo"] != "REQUIRE" and not d["discrimina"] and a.codigo not in usados)
         campos.append(d)
         requerido = (amb and amb.modo == "REQUIRE") or a.codigo in discriminan
         if requerido and _vacio(s.get(a.codigo)) and a.seccion != "derivado":
@@ -1113,5 +1124,5 @@ def codigos_invalidos(db: Session, codigos) -> list[str]:
     return [c for c in codigos if "".join(ch for ch in str(c) if ch.isdigit()) not in arbol]
 
 
-__all__ = ["clasificar_producto", "clasificar", "resolver_version_vigente", "codigo_existe", "condicion", "evaluar", "condicion_ambito",
+__all__ = ["clasificar_producto", "resolver_version_vigente", "codigo_existe", "condicion", "evaluar", "condicion_ambito",
            "CategoriaProducto"]

@@ -499,6 +499,9 @@ class Producto(Base):
     fotos: Mapped[list["ProductoFoto"]] = relationship(
         back_populates="producto", cascade="all, delete-orphan", order_by="ProductoFoto.id"
     )
+    documentos: Mapped[list["ProductoDocumento"]] = relationship(
+        back_populates="producto", cascade="all, delete-orphan", order_by="ProductoDocumento.id"
+    )
     versiones: Mapped[list["ProductoVersion"]] = relationship(
         back_populates="producto", cascade="all, delete-orphan", order_by="ProductoVersion.version"
     )
@@ -548,6 +551,30 @@ class ProductoFoto(Base):
     subido_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     producto: Mapped[Producto] = relationship(back_populates="fotos")
+
+
+class ProductoDocumento(Base):
+    """Ficha técnica del proveedor o del laboratorio (SDS, TDS, COA): evidencia
+    técnica del producto (capa de la empresa). Sus datos (CAS, composición,
+    estado físico, densidad, pH…) son hechos para la ficha; nunca una fuente
+    arancelaria: no dan códigos, DAI, impuestos ni regulaciones."""
+
+    __tablename__ = "producto_documentos"
+    TIPOS = {"SDS": "Safety data sheet", "TDS": "Technical data sheet", "COA": "Certificate of analysis"}
+    id: Mapped[int] = mapped_column(primary_key=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
+    tipo: Mapped[str] = mapped_column(String(4))  # SDS | TDS | COA
+    nombre: Mapped[str] = mapped_column(String(300))
+    ruta: Mapped[str] = mapped_column(String(500))
+    tipo_mime: Mapped[str] = mapped_column(String(60))
+    tamano: Mapped[int] = mapped_column(Integer)
+    emisor: Mapped[str | None] = mapped_column(String(200))  # proveedor o laboratorio
+    fecha_documento: Mapped[date | None] = mapped_column(Date)
+    datos: Mapped[dict] = mapped_column(JSON, default=dict)  # {atributo técnico: valor} leídos del documento
+    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    subido_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    producto: Mapped[Producto] = relationship(back_populates="documentos")
 
 
 class ProductoVersion(Base):
@@ -717,6 +744,9 @@ class CategoriaProducto(Base):
     capitulos: Mapped[list | None] = mapped_column(JSON)
     # Cómo se arma su descripción aduanera: {material, requiere, si_falta, como, si}
     plantilla_aduana: Mapped[dict | None] = mapped_column(JSON)
+    # Palabras del texto oficial del arancel que suele usar la categoría (p. ej.
+    # «hilados»): solo ordenan candidatos del árbol, nunca fijan un código
+    terminos: Mapped[str | None] = mapped_column(String(400))
 
 
 class DominioCapitulo(Base):
@@ -780,7 +810,9 @@ class AtributoDef(Base):
     usado_clasificacion: Mapped[bool] = mapped_column(Boolean, default=True)
     dominio: Mapped[str | None] = mapped_column(String(30))  # CORE o código de dominio (pista, no restricción)
     descripcion: Mapped[str | None] = mapped_column(String(400))
-    origen: Mapped[str] = mapped_column(String(10), default="OFICIAL")  # OFICIAL | MOTOR | USUARIO
+    # De dónde sale la definición (todas son configuración del motor, ninguna es dato oficial):
+    # PAQUETE (paquete 02 del motor) | MOTOR (ficha y categorías técnicas incluidas) | USUARIO
+    origen: Mapped[str] = mapped_column(String(10), default="PAQUETE")
     de_composicion: Mapped[bool] = mapped_column(Boolean, default=False)  # se deduce de la composición
     informativo: Mapped[bool] = mapped_column(Boolean, default=False)  # no cambia el código, solo describe
     orden: Mapped[int] = mapped_column(Integer, default=0)
@@ -827,6 +859,9 @@ class AtributoOpcion(Base):
     patrones: Mapped[list | None] = mapped_column(JSON)
     # En la descripción aduanera: {nombre, comercial, frase, orden, cuando}
     texto_aduana: Mapped[dict | None] = mapped_column(JSON)
+    # Palabras del texto oficial del arancel que suele usar esta opción: solo
+    # ordenan los candidatos del árbol (nunca fijan un código)
+    terminos: Mapped[str | None] = mapped_column(String(400))
 
     atributo: Mapped[AtributoDef] = relationship(back_populates="opciones")
 

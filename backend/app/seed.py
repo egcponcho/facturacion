@@ -642,10 +642,12 @@ def seed(db: Session) -> None:
     acuerdos.cargar_acuerdos(db)
     # ---- Capa CLASSIFICATION ENGINE: categorías, atributos y reglas de la ficha
     atributos.cargar_motor(db)
+    atributos.cargar_tecnico(db)  # categorías técnicas de químicos y materias primas (configuración)
     categorias.sembrar(db)
     reglas_srv.cargar_reglas_ficha(db)
     # ---- Capa COMPANY KNOWLEDGE (demostración): historial de la empresa de ejemplo
     conocimiento.cargar_historial_demo(db)
+    conocimiento.cargar_palabras_demo(db)
     db.commit()  # el motor lee el árbol (índice en memoria) con su propia sesión
     # Cada proveedor maneja sus marcas y trabaja con sus sociedades
     tnf.marcas = [cat["marcas"]["TNF"]]

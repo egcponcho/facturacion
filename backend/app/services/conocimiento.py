@@ -15,10 +15,13 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..models import HistorialClasificacion, IncisoNacional, PaisArancel, Usuario
+from ..models import HistorialClasificacion, IncisoNacional, PaisArancel, PalabraClave, Usuario
 from .common import ErrorNegocio, exigir, registrar
 
 DEMO = Path(__file__).resolve().parent.parent / "data" / "demo" / "historial_empresa_demo.json"
+# Nombres de modelos de la empresa de ejemplo («old skool» es un tenis): palabras clave
+# de la empresa, no patrones del motor (otra empresa tendrá los suyos)
+DEMO_PALABRAS = Path(__file__).resolve().parent.parent / "data" / "demo" / "palabras_empresa_demo.json"
 ORIGENES = ("APROBACION", "CORRECCION", "ENSENADO", "IMPORTADO")
 
 
@@ -91,3 +94,15 @@ def cargar_historial_demo(db: Session) -> int:
         n += 1
     db.flush()
     return n
+
+
+def cargar_palabras_demo(db: Session) -> int:
+    """Demostración: palabras clave de la empresa de ejemplo (nombres de sus
+    modelos). Solo interpretan el nombre del producto; nunca crean códigos."""
+    if db.scalar(select(func.count()).select_from(PalabraClave)):
+        return 0
+    filas = json.loads(DEMO_PALABRAS.read_text(encoding="utf-8"))
+    for x in filas:
+        db.add(PalabraClave(frase=x["frase"], tipo=x["tipo"], marca=x.get("marca"), atributos=x.get("atributos") or {}))
+    db.flush()
+    return len(filas)

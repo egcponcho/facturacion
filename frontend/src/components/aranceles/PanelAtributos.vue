@@ -28,7 +28,7 @@ const nuevaOp = reactive({ codigo: '', etiqueta: '', alias: '' })
 const nuevoAmb = reactive({ tipo_ambito: 'DOMAIN', codigo_ambito: '', modo: 'SHOW', prioridad: 500 })
 const modal = ref(null)
 
-const ORIGEN = { OFICIAL: t('Official package'), MOTOR: t('Product sheet engine'), USUARIO: t('Created by users') }
+const ORIGEN = { PAQUETE: t('Engine package'), MOTOR: t('Included engine configuration'), USUARIO: t('Created by users') }
 const TIPO = { text: t('Text'), select: t('One option'), multi_select: t('Several options'), boolean: t('Yes / no'), number: t('Number'),
   composition: t('Composition (%)'), country: t('Country'), measurement_set: t('Measurements') }
 const AMBITO = { SYSTEM: t('Whole system'), DOMAIN: t('Domain'), CHAPTER: t('Chapter'), HEADING: t('Heading'), SUBHEADING: t('Subheading'), CATEGORY: t('Product category') }

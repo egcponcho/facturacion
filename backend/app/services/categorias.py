@@ -16,29 +16,26 @@ from .common import ErrorNegocio, exigir, registrar
 
 DATOS = Path(__file__).resolve().parent.parent / "data"
 DOMINIO_GRUPO = {"prenda": "APPAREL", "calzado": "FOOTWEAR", "calzado_acc": "FOOTWEAR"}
-# Categorías iniciales de los dominios que no tienen ficha especializada
-GENERICAS = [("quimico", "Chemical product", "CHEMICALS", "Chemicals and raw materials", "chemical; reagent; solvent; acid; químico"),
-             ("materia_prima", "Raw material or semi-processed input", "RAW_MATERIALS", "Chemicals and raw materials",
-              "raw material; yarn; resin; sheet; materia prima"),
-             ("otro", "Other product", None, "Other", "other; otro")]
 
 
 def sembrar(db: Session) -> int:
-    """Categorías iniciales (motor_atributos.json y las genéricas por dominio).
-    Crea las que faltan y completa los campos vacíos; la base manda después."""
+    """Categorías iniciales como datos: las de la ficha de ropa, calzado y
+    accesorios (motor_atributos.json) y las técnicas de químicos y materias
+    primas (motor_tecnico.json). Crea las que faltan y completa los campos
+    vacíos; la base manda después. Una categoría solo decide qué preguntar."""
     datos = json.loads((DATOS / "motor_atributos.json").read_text(encoding="utf-8"))
+    tecnico = json.loads((DATOS / "motor_tecnico.json").read_text(encoding="utf-8"))
     existentes = {c.codigo: c for c in db.scalars(select(CategoriaProducto))}
     n = 0
     filas = [{**c, "dominio": DOMINIO_GRUPO.get(c.get("familia") or "", "ACCESSORIES_MERCH")} for c in datos["categorias"]]
-    filas += [{"codigo": cod, "nombre": nombre, "grupo": grupo, "dominio": dom, "alias": alias, "orden": 5000 + i}
-              for i, (cod, nombre, dom, grupo, alias) in enumerate(GENERICAS)]
+    filas += tecnico["categorias"]
     for c in filas:
         x = existentes.get(c["codigo"])
         if not x:
             x = CategoriaProducto(codigo=c["codigo"], nombre=c["nombre"], orden=c.get("orden", 0), activo=True)
             db.add(x)
             n += 1
-        for k in ("grupo", "dominio", "alias", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos", "plantilla_aduana"):
+        for k in ("grupo", "dominio", "alias", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos", "plantilla_aduana", "terminos"):
             if getattr(x, k) in (None, [], "", {}) and c.get(k) not in (None, [], "", {}):
                 setattr(x, k, c[k])
     db.flush()
@@ -47,7 +44,7 @@ def sembrar(db: Session) -> int:
 
 def _cat(x: CategoriaProducto) -> dict:
     return {c: getattr(x, c) for c in ("id", "codigo", "nombre", "grupo", "dominio", "alias", "orden", "activo", "familia",
-                                       "nombre_corto", "nombre_aduana", "patrones", "capitulos", "plantilla_aduana")}
+                                       "nombre_corto", "nombre_aduana", "patrones", "capitulos", "plantilla_aduana", "terminos")}
 
 
 def categorias(db: Session, solo_activas: bool = True) -> list[dict]:
@@ -69,7 +66,7 @@ def guardar_categoria(db: Session, user: Usuario, cat_id: int | None, datos: dic
         x = CategoriaProducto(codigo=cod, orden=(db.scalar(select(func.max(CategoriaProducto.orden))) or 0) + 10)
         db.add(x)
     for k in ("nombre", "grupo", "dominio", "alias", "orden", "activo", "familia", "nombre_corto", "nombre_aduana", "patrones", "capitulos",
-              "plantilla_aduana"):
+              "plantilla_aduana", "terminos"):
         if k in datos and datos[k] is not None:
             setattr(x, k, datos[k])
     if x.capitulos is not None:

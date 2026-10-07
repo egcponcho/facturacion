@@ -7,6 +7,7 @@ import { api } from '../api'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import AcuerdosOrigen from '../components/ficha/AcuerdosOrigen.vue'
 import FichaTecnica from '../components/ficha/FichaTecnica.vue'
+import DocumentosTecnicos from '../components/ficha/DocumentosTecnicos.vue'
 import GenericoModal from '../components/GenericoModal.vue'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
@@ -403,6 +404,17 @@ async function borrarFoto(foto) {
   }
 }
 
+// Fichas técnicas: sus datos son hechos del producto, el motor vuelve a clasificar
+async function recargarDocumentos() {
+  try {
+    const det = await api.get(`/productos/${p.value.id}`)
+    p.value = { ...p.value, documentos: det.documentos }
+    pedir()
+  } catch (e) {
+    errorApi(e)
+  }
+}
+
 // ---- Especialista (Claude) -----------------------------------------------------
 // El servidor arma lo que ve el especialista con el mismo motor (ficha, sugerencia,
 // razones, alertas, parecidos y los campos que puede corregir)
@@ -568,6 +580,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
             <span v-if="r && faltan.length && !aprobado" class="cuenta alerta">{{ tx(faltan.length) }}</span></button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'tallas'" @click="pestana = 'tallas'"><Icono nombre="caja" :tam="16" />{{ t('Sizes and prepacks') }}
             <span class="cuenta">{{ tx(p.articulos.length) }}</span></button>
+          <button class="pestana" role="tab" :aria-selected="pestana === 'documentos'" @click="pestana = 'documentos'"><Icono nombre="archivo" :tam="16" />{{ t('Technical documents') }}
+            <span v-if="p.documentos?.length" class="cuenta">{{ tx(p.documentos.length) }}</span></button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'acuerdos'" @click="pestana = 'acuerdos'"><Icono nombre="ruta" :tam="16" />{{ t('Trade agreements') }}</button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'versiones'" @click="pestana = 'versiones'"><Icono nombre="capas" :tam="16" />{{ t('Versions') }}
             <span class="cuenta">{{ tx(p.versiones.length + 1) }}</span></button>
@@ -577,6 +591,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
         <!-- Ficha técnica -->
         <FichaTecnica v-if="pestana === 'ficha'" :key="`${p.id}-${p.version_ficha}-${cargas}`" :f="f" :r="r" :ctx="ctx" :producto="p" :paises="opciones.paises"
                       :filas="filas" :tocados="tocados" :editable="puedeEditar" @cambio="cambio" @subir-foto="subirFoto" @borrar-foto="borrarFoto" @contexto="recargarContexto" @acuerdos="pestana = 'acuerdos'" />
+
+        <!-- Fichas técnicas SDS / TDS / COA: evidencia técnica, nunca fuente arancelaria -->
+        <DocumentosTecnicos v-else-if="pestana === 'documentos'" :producto="p" :campos="r?.campos || []" :editable="puedeEditar" @cambio="recargarDocumentos" />
 
         <!-- Acuerdos comerciales por destino según el origen -->
         <AcuerdosOrigen v-else-if="pestana === 'acuerdos'" :origen="f.origen || ''" :ctx="ctx" :paises="opciones.paises" />
@@ -959,9 +976,15 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
 .entrada-pais.tentativo { border-style: dashed; }
 .entrada-pais.invalida { border-color: var(--error); box-shadow: 0 0 0 3px var(--error-fondo); }
 .paises .sub .btn-texto { font-size: inherit; padding: 0; }
+.paises { table-layout: fixed; width: 100%; }
+.paises td { overflow-wrap: anywhere; }
+.paises td:first-child { width: 44px; }
+.paises td:last-child { width: 56px; }
+.paises .sub { white-space: normal; display: block; }
 .notas-sac { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 0.84rem; line-height: 1.45; }
 .notas-sac li { display: flex; flex-direction: column; gap: 2px; padding-inline-start: 10px; border-inline-start: 3px solid var(--acento-claro); }
 .notas-sac b { font-size: 0.78rem; color: var(--acento-texto); }
+.notas-sac li .etiqueta { align-self: flex-start; }
 .notas-sac span { color: var(--tinta-2); }
 .parecidos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 0.88rem; }
 .parecidos .codigo-sac { margin-inline-start: 6px; }

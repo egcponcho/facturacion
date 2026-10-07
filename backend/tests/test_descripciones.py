@@ -8,7 +8,13 @@ import pytest
 from app.services.descripciones import descripcion_aduana, descripcion_comercial
 from app.services.ficha import Catalogo
 
-CAT = Catalogo.desde_json()
+# El catálogo del motor más el conocimiento de la empresa de ejemplo: los nombres
+# de sus modelos («old skool» es un tenis) son palabras clave de la empresa, no
+# patrones del motor
+_PALABRAS = [{"frase": x["frase"], "tipo": x["tipo"], "marca": x.get("marca"), **x["atributos"]}
+             for x in json.loads((Path(__file__).parents[1] / "app/data/demo/palabras_empresa_demo.json").read_text(encoding="utf-8"))]
+_BASE = Catalogo.desde_json()
+CAT = Catalogo(_BASE.atributos, list(_BASE.categorias.values()), palabras=_PALABRAS)
 CASOS = json.loads((Path(__file__).parent / "paridad/descripciones.json").read_text(encoding="utf-8"))["casos"]
 
 
