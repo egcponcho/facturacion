@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from ..models import CategoriaProducto, Producto, ReglaClasificacion, Usuario
 from .common import ErrorNegocio, exigir
-from .productos import _producto, entrada_producto, fmt_codigo
+from .productos import APROBADOS, _producto, entrada_producto, fmt_codigo
 
 LIMITE = 120  # artículos que se vuelven a clasificar en una simulación (los más recientes)
 
@@ -74,7 +74,7 @@ def desde_producto(db, user: Usuario, producto_id: int) -> dict:
     exigir(user, "clasificacion.configurar")
     p = _producto(db, user, producto_id)
     hs6 = "".join(ch for ch in str(p.codigo or "") if ch.isdigit())[:6]
-    if len(hs6) < 6 or not p.tipo:
+    if p.estado not in APROBADOS or len(hs6) < 6 or not p.tipo:
         raise ErrorNegocio("Only an approved item with a category can become a rule.", 422, "validacion")
     cat = catalogo(db)
     ficha = p.ficha or {}

@@ -157,6 +157,8 @@ def test_regla_desde_decision_y_su_impacto(interno, flujo):
     ve qué artículos cambiarían, y la simulación no deja nada guardado."""
     p = _sugerido(interno, "98130003", "VNROL03")
     hs6 = p["sugerido"].replace(".", "")[:6]
+    # Solo una decisión aprobada se vuelve regla
+    assert interno.get(f"/aranceles/reglas/desde-producto/{p['id']}").json()["codigo"] == "validacion"
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": p["version"], "codigo": hs6})
     assert r.status_code == 200, r.text
     b = interno.get(f"/aranceles/reglas/desde-producto/{p['id']}").json()
@@ -199,6 +201,9 @@ def test_familia_borrador_probar_y_publicar(interno):
     assert det["publicada"] is False and det["preguntas"] == [] and det["reglas"] == []
     assert interno.post("/familias/TOYS_TEST/publicar").json()["publicada"] is True
     assert any(x["codigo"] == c["codigo"] for x in interno.get("/clasificacion/contexto").json()["categorias"])
+    # Vuelve a borrador para cambiarla con calma: la ficha deja de ofrecerla
+    assert interno.post("/familias/TOYS_TEST/despublicar").json()["publicada"] is False
+    assert not any(x["codigo"] == c["codigo"] for x in interno.get("/clasificacion/contexto").json()["categorias"])
     assert interno.post("/familias/NOPE/probar", {"nombre": "x"}).status_code == 404
 
 

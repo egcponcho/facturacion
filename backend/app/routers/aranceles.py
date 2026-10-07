@@ -293,6 +293,13 @@ def familia_publicar(codigo: str, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: familias.publicar(db, user, codigo))
 
 
+@router.post("/familias/{codigo}/despublicar")
+def familia_despublicar(codigo: str, db: Db, user: User, clave: Clave = None):
+    from ..services import familias
+
+    return ejecutar(db, user, clave, lambda: familias.despublicar(db, user, codigo))
+
+
 @router.post("/aranceles/oficial/dominios")
 @router.patch("/aranceles/oficial/dominios/{dominio_id}")
 def oficial_dominio_guardar(datos: s.DominioIn, db: Db, user: User, dominio_id: int | None = None, clave: Clave = None):

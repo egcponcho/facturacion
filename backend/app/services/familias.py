@@ -118,6 +118,18 @@ def publicar(db: Session, user: Usuario, codigo: str) -> dict:
     return next(x for x in resumen(db, user) if x["codigo"] == d.codigo)
 
 
+def despublicar(db: Session, user: Usuario, codigo: str) -> dict:
+    """La familia vuelve a borrador para cambiarla con calma: la ficha deja de
+    ofrecerla y no clasifica artículos nuevos. Los artículos ya aprobados
+    conservan su partida."""
+    exigir(user, "clasificacion.configurar")
+    d = _familia(db, codigo)
+    d.estado = "BORRADOR"
+    registrar(db, user, "aranceles", d.id, "familia_despublicada", {"codigo": d.codigo})
+    db.flush()
+    return next(x for x in resumen(db, user) if x["codigo"] == d.codigo)
+
+
 def detalle(db: Session, user: Usuario, codigo: str) -> dict:
     """Todo lo que arma una familia, para el asistente: capítulos, categorías,
     preguntas (atributos con ámbito en la familia) y reglas de la familia."""

@@ -130,6 +130,20 @@ async function publicar() {
     ocupado.value = false
   }
 }
+async function despublicar() {
+  if (!confirm(t('Back to draft? The product sheet stops offering this family until you publish it again. Approved items keep their code.'))) return
+  ocupado.value = true
+  try {
+    await api.post(`/familias/${fam.value.codigo}/despublicar`)
+    avisar(t('The family is a draft again.'))
+    cargarContexto(true)
+    await cargar()
+  } catch (e) {
+    errorApi(e)
+  } finally {
+    ocupado.value = false
+  }
+}
 const NIVEL = { high: t('High'), medium: t('Medium'), low: t('Low') }
 
 onMounted(async () => {
@@ -281,7 +295,8 @@ watch(() => props.codigo, cargar)
         <ul v-if="resultado.revision_por?.length" class="razones aviso-txt"><li v-for="(x, i) in resultado.revision_por.slice(0, 3)" :key="i">{{ tx(x) }}</li></ul>
       </div>
       <div class="pie">
-        <span v-if="fam.publicada" class="etiqueta ok">{{ t('Published') }}</span>
+        <template v-if="fam.publicada"><span class="etiqueta ok">{{ t('Published') }}</span>
+          <button class="btn btn-fantasma" :disabled="ocupado" @click="despublicar"><Icono nombre="editar" :tam="15" />{{ t('Back to draft') }}</button></template>
         <button v-else class="btn btn-primario" :disabled="ocupado || !listo.capitulos || !listo.categorias" @click="publicar"><Icono nombre="check" :tam="15" />{{ t('Publish family') }}</button>
       </div>
     </div>
