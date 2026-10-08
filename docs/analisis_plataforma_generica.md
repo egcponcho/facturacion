@@ -377,3 +377,10 @@ y por último G8–G10.
    los edita?
 5. **¿Arrancamos con G1** (concurrencia, el único riesgo que existe hoy) y
    seguimos en el orden propuesto?
+
+---
+
+**Decisiones tomadas y diseño resultante:** ver `docs/diseno_operacion_generica.md`
+(varias empresas en una instalación; PL de exportación por nosotros o el 3PL;
+usuarios bajo un líder en lugar de delegación; edición exclusiva con modo
+lectura para los demás).
