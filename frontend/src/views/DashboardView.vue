@@ -10,6 +10,7 @@ import FiltroMulti from '../components/FiltroMulti.vue'
 import FiltroPeriodo, { periodoInicial } from '../components/FiltroPeriodo.vue'
 import GraficoColumnas from '../components/GraficoColumnas.vue'
 import Icono from '../components/Icono.vue'
+import TableroEsqueleto from '../components/TableroEsqueleto.vue'
 import Kpi from '../components/Kpi.vue'
 import { elegirProveedor, esInterno, nombreProveedor, sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
@@ -98,7 +99,7 @@ watch(periodo, cargar, { deep: true })
     </div>
   </div>
 
-  <p v-if="cargando" class="ayuda">{{ t('Loading the dashboard…') }}</p>
+  <TableroEsqueleto v-if="cargando && !d" />
   <template v-if="d">
     <section class="panel atencion" :aria-label="t('Needs your attention')">
       <div class="panel-cabeza">

@@ -56,7 +56,13 @@ const gruposAjustes = computed(() => {
   }
   return g
 })
-const ajustesAbierto = ref(false)
+// Barra lateral: compacta (solo íconos) o completa; se recuerda por navegador
+const leer = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v === '1' } catch { return d } }
+const guardar = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0') } catch { /* sin almacenamiento */ } }
+const compacta = ref(leer('lateral-compacta', false))
+watch(compacta, (v) => guardar('lateral-compacta', v))
+const ajustesAbierto = ref(leer('lateral-ajustes', false))
+watch(ajustesAbierto, (v) => guardar('lateral-ajustes', v))
 const enAjustes = computed(() => ajustes.value.some((i) => route.path.startsWith(i.to)))
 
 const activo = (to) => (to === '/' ? route.path === '/' : route.path.startsWith(to) ||
@@ -71,8 +77,9 @@ const textoGuardado = computed(() => ({
 
 watch(() => route.fullPath, () => {
   menuAbierto.value = false
-  ajustesAbierto.value = false
 })
+// Si se entra a una página de configuración, la sección queda abierta
+watch(enAjustes, (v) => { if (v) ajustesAbierto.value = true }, { immediate: true })
 
 async function salir() {
   await cerrarSesion()
@@ -83,29 +90,62 @@ async function salir() {
 </script>
 
 <template>
-  <div v-if="route.name !== 'login' && !route.meta.sinMarco && sesion.usuario" class="marco">
-    <header class="cabecera">
-      <div class="cabecera-fila">
-        <button type="button" class="btn-icono boton-menu" :aria-expanded="menuAbierto" :aria-label="t('Menu')" @click="menuAbierto = !menuAbierto">
-          <Icono :nombre="menuAbierto ? 'cerrar' : 'menu'" :tam="22" />
-        </button>
-        <router-link to="/" class="marca">
-          <span class="marca-logo"><Icono nombre="caja" :tam="19" /></span>
+  <div v-if="route.name !== 'login' && !route.meta.sinMarco && sesion.usuario" class="marco" :class="{ compacta }">
+    <div class="progreso-ruta" :class="{ activo: ui.navegando }" aria-hidden="true"></div>
+    <aside class="lateral" :class="{ abierta: menuAbierto }" :aria-label="t('Main')">
+      <div class="lateral-cabeza">
+        <router-link to="/" class="marca" :title="t('Workspace')">
+          <span class="marca-logo"><Icono nombre="caja" :tam="18" /></span>
           <span class="marca-texto">{{ t('Workspace') }}<span>{{ t('Suppliers') }}</span></span>
         </router-link>
+        <button type="button" class="btn-icono lateral-cerrar" :aria-label="t('Close')" @click="menuAbierto = false"><Icono nombre="cerrar" :tam="20" /></button>
+      </div>
+      <nav class="lateral-nav">
+        <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="lateral-item" :class="{ activo: activo(i.to) }"
+                     :aria-current="activo(i.to) ? 'page' : undefined" :title="compacta ? tx(i.texto) : undefined">
+          <Icono :nombre="i.icono" :tam="18" /><span class="lateral-texto">{{ tx(i.texto) }}</span>
+          <span v-if="i.cuenta" class="nav-cuenta">{{ tx(i.cuenta) }}</span>
+        </router-link>
+        <template v-if="ajustes.length">
+          <button type="button" class="lateral-seccion" :aria-expanded="ajustesAbierto" :title="compacta ? t('Settings') : undefined" @click="ajustesAbierto = !ajustesAbierto">
+            <Icono nombre="engrane" :tam="18" /><span class="lateral-texto">{{ t('Settings') }}</span>
+            <Icono :nombre="ajustesAbierto ? 'arriba' : 'abajo'" :tam="14" class="lateral-flecha" />
+          </button>
+          <div v-show="ajustesAbierto" class="lateral-ajustes">
+            <template v-for="g in gruposAjustes" :key="g.nombre">
+              <div class="lateral-grupo">{{ tx(g.nombre) }}</div>
+              <router-link v-for="i in g.items" :key="i.to" :to="i.to" class="lateral-item lateral-sub" :class="{ activo: route.path.startsWith(i.to) }"
+                           :title="compacta ? tx(i.texto) : tx(i.detalle)">
+                <Icono :nombre="i.icono" :tam="16" /><span class="lateral-texto">{{ tx(i.texto) }}</span>
+              </router-link>
+            </template>
+          </div>
+        </template>
+      </nav>
+      <div class="lateral-pie">
+        <div class="lateral-preferencias"><SelectorIdioma /><SelectorTema /></div>
+        <button type="button" class="lateral-item lateral-plegar" :title="compacta ? t('Expand menu') : t('Collapse menu')" @click="compacta = !compacta">
+          <Icono :nombre="compacta ? 'derecha' : 'atras'" :tam="16" /><span class="lateral-texto">{{ t('Collapse menu') }}</span>
+        </button>
+      </div>
+    </aside>
+    <div v-if="menuAbierto" class="lateral-velo" @click="menuAbierto = false"></div>
+
+    <div class="area">
+      <header class="cabecera">
+        <button type="button" class="btn-icono boton-menu" :aria-expanded="menuAbierto" :aria-label="t('Menu')" @click="menuAbierto = true">
+          <Icono nombre="menu" :tam="22" />
+        </button>
         <BusquedaGlobal class="cabecera-busqueda" />
         <div class="cabecera-derecha">
           <span class="indicador-guardado" :class="ui.guardado" aria-live="polite"><Icono v-if="ui.guardado === 'guardado'" nombre="check" :tam="14" />{{ tx(textoGuardado) }}</span>
           <router-link v-if="carrito.items.length" to="/ordenes?seleccion=1" class="chip-seleccion" :title="t('Order lines ready to invoice')">
             <Icono nombre="carrito" :tam="15" /><b>{{ tx(carrito.items.length) }}</b>
           </router-link>
-          <div v-if="esInterno()" class="selector-proveedor fila-flex" style="gap: 6px; flex-wrap: nowrap">
-            <span class="ayuda">{{ t('Supplier') }}</span>
+          <div v-if="esInterno()" class="selector-proveedor">
             <SelectBusqueda :model-value="sesion.proveedorId || ''" :opciones="opcionesProveedor" :vacio="t('All suppliers')" :busqueda="true"
                             :etiqueta="t('Supplier')" :prefijo="false" @update:model-value="elegirProveedor(Number($event) || null)" />
           </div>
-          <SelectorIdioma class="solo-escritorio" />
-          <SelectorTema class="solo-escritorio" />
           <div class="usuario">
             <router-link to="/perfil" class="usuario-enlace" :title="t('My profile')" :aria-label="t('My profile')">
               <Avatar :nombre="sesion.usuario.nombre" :foto="sesion.usuario.foto" :tam="32" />
@@ -114,50 +154,15 @@ async function salir() {
                 <span>{{ tx(sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol]) }}</span>
               </div>
             </router-link>
-            <button type="button" class="btn-icono solo-escritorio" :aria-label="t('Sign out')" :title="t('Sign out')" @click="salir"><Icono nombre="salir" /></button>
+            <button type="button" class="btn-icono" :aria-label="t('Sign out')" :title="t('Sign out')" @click="salir"><Icono nombre="salir" /></button>
           </div>
         </div>
-      </div>
-      <div class="cabecera-nav">
-        <nav class="nav-principal" :aria-label="t('Main')">
-          <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }"
-                       :aria-current="activo(i.to) ? 'page' : undefined">
-            <Icono :nombre="i.icono" :tam="16" />{{ tx(i.texto) }}
-            <span v-if="i.cuenta" class="nav-cuenta" :aria-label="t('{0} in the selection', [i.cuenta])">{{ tx(i.cuenta) }}</span>
-          </router-link>
-          <div class="nav-ajustes" @keydown.esc="ajustesAbierto = false">
-            <button type="button" class="nav-link" :class="{ activo: enAjustes }" :aria-expanded="ajustesAbierto" aria-haspopup="true"
-                    @click="ajustesAbierto = !ajustesAbierto"><Icono nombre="engrane" :tam="16" />{{ t('Settings') }}<Icono nombre="abajo" :tam="14" /></button>
-            <div v-if="ajustesAbierto" class="menu-ajustes" role="menu">
-              <template v-for="g in gruposAjustes" :key="g.nombre">
-                <div class="menu-grupo" role="presentation">{{ tx(g.nombre) }}</div>
-                <router-link v-for="i in g.items" :key="i.to" :to="i.to" class="menu-item" role="menuitem">
-                  <span class="menu-icono"><Icono :nombre="i.icono" :tam="16" /></span>
-                  <span><b>{{ tx(i.texto) }}</b><small>{{ tx(i.detalle) }}</small></span>
-                </router-link>
-              </template>
-            </div>
-            <div v-if="ajustesAbierto" class="menu-velo" @click="ajustesAbierto = false"></div>
-          </div>
-        </nav>
-      </div>
-      <nav class="nav-movil" :class="{ abierta: menuAbierto }" :aria-label="t('Main (mobile)')">
-        <router-link v-for="i in [...navegacion, ...ajustes]" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }">
-          <Icono :nombre="i.icono" :tam="17" />{{ tx(i.texto) }}
-          <span v-if="i.cuenta" class="nav-cuenta">{{ tx(i.cuenta) }}</span>
-        </router-link>
-        <!-- En celular, las preferencias y la cuenta viven en el menú para no saturar la cabecera -->
-        <div class="nav-movil-extra">
-          <SelectorIdioma />
-          <SelectorTema />
-          <router-link to="/perfil" class="nav-link" :class="{ activo: activo('/perfil') }"><Icono nombre="usuario" :tam="17" />{{ t('My profile') }}</router-link>
-          <button type="button" class="nav-link" @click="salir"><Icono nombre="salir" :tam="17" />{{ t('Sign out') }}</button>
-        </div>
-      </nav>
-    </header>
-    <main class="contenido">
-      <router-view :key="route.path" />
-    </main>
+      </header>
+      <main class="contenido">
+        <!-- Cada página entra con un fundido corto (sin esperar a la anterior) -->
+        <div :key="route.path" class="pagina-entra"><router-view /></div>
+      </main>
+    </div>
   </div>
   <router-view v-else-if="route.name === 'login' || route.meta.sinMarco" />
   <Toasts />

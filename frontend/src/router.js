@@ -1,7 +1,7 @@
 import { t } from './i18n/index.js'
 import { createRouter, createWebHistory } from 'vue-router'
 import { cargarSesion, puede, sesion } from './stores/sesion'
-import { avisar } from './stores/ui'
+import { avisar, ui } from './stores/ui'
 
 const routes = [
   { path: '/login', name: 'login', component: () => import('./views/LoginView.vue'), meta: { publica: true } },
@@ -34,6 +34,31 @@ export const router = createRouter({
   routes,
   scrollBehavior: () => ({ top: 0 }),
 })
+
+// Barra de progreso fina mientras carga la página siguiente
+router.beforeEach(() => { ui.navegando = true })
+let precargado = false
+router.afterEach(() => {
+  ui.navegando = false
+  if (sesion.usuario && !precargado) {
+    precargado = true
+    precargarPaginas()
+  }
+})
+router.onError(() => { ui.navegando = false })
+
+// Precarga en segundo plano las pantallas a las que el usuario puede ir: el
+// primer clic ya no espera a descargar su código
+export function precargarPaginas() {
+  const pedir = () => {
+    for (const r of router.getRoutes()) {
+      const c = r.components?.default
+      if (typeof c === 'function' && (!r.meta.permiso || puede(r.meta.permiso))) c().catch(() => {})
+    }
+  }
+  if ('requestIdleCallback' in window) window.requestIdleCallback(pedir, { timeout: 4000 })
+  else setTimeout(pedir, 1500)
+}
 
 router.beforeEach(async (to) => {
   if (!sesion.cargada) await cargarSesion()

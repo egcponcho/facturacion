@@ -9,6 +9,7 @@ import EstadoBadge from '../components/EstadoBadge.vue'
 import EstadoVacio from '../components/EstadoVacio.vue'
 import ResumenFactura from '../components/ResumenFactura.vue'
 import Icono from '../components/Icono.vue'
+import FilasEsqueleto from '../components/FilasEsqueleto.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
 import { siguienteOrden } from '../composables/useTabla'
@@ -140,6 +141,7 @@ watch(() => sesion.proveedorId, recargar)
           </td>
           <td class="num"><Icono nombre="derecha" :tam="16" /></td>
         </tr>
+        <FilasEsqueleto v-if="cargando && !datos.items.length" :columnas="8" />
         <tr v-if="!datos.items.length && !cargando">
           <td v-if="filtros.estado || filtros.vista || filtros.q" colspan="8" class="vacio">
             {{ t('No invoices match these filters.') }}

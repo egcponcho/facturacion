@@ -1,7 +1,7 @@
 import { t, tx } from '../i18n/index.js'
 import { reactive } from 'vue'
 
-export const ui = reactive({ toasts: [], guardado: '' })
+export const ui = reactive({ toasts: [], guardado: '', navegando: false })
 let siguiente = 0
 
 export function avisar(mensaje, tipo = 'ok', detalle = null, ms = tipo === 'error' && detalle?.length ? 0 : tipo === 'error' ? 8000 : 4500) {

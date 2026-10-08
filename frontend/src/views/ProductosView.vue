@@ -9,6 +9,7 @@ import EstadoBadge from '../components/EstadoBadge.vue'
 import FiltroMulti from '../components/FiltroMulti.vue'
 import EstadoVacio from '../components/EstadoVacio.vue'
 import Icono from '../components/Icono.vue'
+import FilasEsqueleto from '../components/FilasEsqueleto.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
 import { cargarContexto, clasificarVarios } from '../clasificacion/useClasificacion'
@@ -270,6 +271,7 @@ watch(() => sesion.proveedorId, recargar)
           </td>
           <td class="num"><Icono nombre="derecha" :tam="16" /></td>
         </tr>
+        <FilasEsqueleto v-if="cargando && !datos.items.length" :columnas="7" />
         <tr v-if="!datos.items.length && !cargando">
           <td v-if="!datos.kpis?.total && !filtros.q" colspan="7">
             <EstadoVacio icono="etiqueta" :titulo="t('There are no products yet.')"

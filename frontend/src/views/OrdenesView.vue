@@ -11,6 +11,7 @@ import BarraSeleccion from '../components/BarraSeleccion.vue'
 import Modal from '../components/Modal.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import Icono from '../components/Icono.vue'
+import FilasEsqueleto from '../components/FilasEsqueleto.vue'
 import ExplosionPrepack from '../components/ExplosionPrepack.vue'
 import Paginacion from '../components/Paginacion.vue'
 import SelectBusqueda from '../components/SelectBusqueda.vue'
@@ -103,6 +104,10 @@ function filtrar() {
   cargar()
 }
 
+// Filtros secundarios: plegados hasta que se piden o ya tienen un valor
+const AVANZADOS = ['sociedad', 'centro', 'almacen', 'destino', 'puerto', 'comercial', 'liberacion']
+const avanzadosActivos = computed(() => AVANZADOS.filter((k) => filtros[k]).length)
+const masFiltros = ref(AVANZADOS.some((k) => route.query[k]))
 // Vistas guardadas: búsqueda, «solo con saldo» y los filtros de lista
 const filtrosVista = computed(() => ({ q: filtros.q, solo_disponible: filtros.solo_disponible ? '' : '0',
   ...Object.fromEntries(Object.keys(EXTRA).map((k) => [k, filtros[k]])) }))
@@ -346,10 +351,19 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       <input v-model="filtros.q" type="search" :placeholder="t('Search PO, style, color, SKU or UPC')" :aria-label="t('Search')" @input="buscar" />
     </label>
     <VistasGuardadas pantalla="ordenes" :actual="filtrosVista" @aplicar="aplicarVista" />
+    <SelectBusqueda v-if="opcionesFiltro.marcas.length > 1 || filtros.marca" v-model="filtros.marca" :opciones="opcionesFiltro.marcas" :vacio="t('Brand: all')" :etiqueta="t('Brand')" @change="filtrar" />
+    <div class="segmentos" role="group" :aria-label="t('Show')">
+      <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">{{ t('With balance to invoice') }}</button>
+      <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">{{ t('All') }}</button>
+    </div>
+    <button type="button" class="btn btn-fantasma mas-filtros-toggle" :aria-expanded="masFiltros" @click="masFiltros = !masFiltros">
+      <Icono nombre="filtro" :tam="15" />{{ masFiltros ? t('Fewer filters') : t('More filters') }}<span v-if="avanzadosActivos" class="cuenta">{{ avanzadosActivos }}</span>
+    </button>
+  </div>
+  <div v-if="masFiltros" class="filtros filtros-avanzados">
     <SelectBusqueda v-if="opcionesFiltro.sociedades.length > 1 || filtros.sociedad" v-model="filtros.sociedad" :opciones="opcionesFiltro.sociedades" :vacio="t('Company: all')" :etiqueta="t('Company')" @change="filtrar" />
     <SelectBusqueda v-if="opcionesFiltro.centros.length > 1 || filtros.centro" v-model="filtros.centro" :opciones="opcionesFiltro.centros" :vacio="t('Plant: all')" :etiqueta="t('Plant')" @change="filtrar" />
     <SelectBusqueda v-if="opcionesFiltro.almacenes.length > 1 || filtros.almacen" v-model="filtros.almacen" :opciones="opcionesFiltro.almacenes" :vacio="t('Warehouse: all')" :etiqueta="t('Warehouse')" @change="filtrar" />
-    <SelectBusqueda v-if="opcionesFiltro.marcas.length > 1 || filtros.marca" v-model="filtros.marca" :opciones="opcionesFiltro.marcas" :vacio="t('Brand: all')" :etiqueta="t('Brand')" @change="filtrar" />
     <SelectBusqueda v-if="opcionesFiltro.destinos.length > 1 || filtros.destino" v-model="filtros.destino" :opciones="opcionesFiltro.destinos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
                     :vacio="t('Destination plant: all')" :etiqueta="t('Destination plant')" @change="filtrar" />
     <SelectBusqueda v-if="opcionesFiltro.puertos.length > 1 || filtros.puerto" v-model="filtros.puerto" :opciones="opcionesFiltro.puertos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
@@ -358,10 +372,6 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       <option value="">{{ t('Commercial rel.: all') }}</option><option value="C">{{ t('Commercial rel.: Released') }}</option><option value="P">{{ t('Commercial rel.: Pending') }}</option>
     </Seleccion>
     <Seleccion v-model="filtros.liberacion" :aria-label="t('Logistics release')" @change="filtrar"><option value="">{{ t('Logistics rel.: all') }}</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ tx(LIB_FILTRO[l.codigo] || l.nombre) }}</option></Seleccion>
-    <div class="segmentos" role="group" :aria-label="t('Show')">
-      <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">{{ t('With balance to invoice') }}</button>
-      <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">{{ t('All') }}</button>
-    </div>
   </div>
   <div v-if="activos.length" class="chips">
     <span v-for="a in activos" :key="a.k" class="chip">{{ tx(a.texto) }}<button type="button" :aria-label="t('Remove {0}', [a.texto])" @click="quitarFiltro(a.k)"><Icono nombre="cerrar" :tam="13" /></button></span>
@@ -549,6 +559,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             </td>
           </tr>
         </template>
+        <FilasEsqueleto v-if="cargando && !datos.items.length" :columnas="columnas" />
         <tr v-if="!datos.items.length && !cargando">
           <td :colspan="columnas" class="vacio">{{ tx(filtros.solo_disponible ? t('No POs with balance to invoice.') : t('No POs match these filters.')) }}</td>
         </tr>
