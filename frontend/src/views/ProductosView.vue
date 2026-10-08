@@ -36,6 +36,9 @@ const filtros = reactive({
   size: filasDefecto(),
 })
 const datos = ref({ items: [], total: 0, kpis: {} })
+// Sin pestaña pedida en la dirección, se abre la primera que tenga productos
+// (y no una vacía con «Nada pendiente aquí»)
+let elegirInicial = route.query.estado === undefined
 const opciones = ref({ marcas: [] })
 const cargando = ref(false)
 const ocupado = ref(false)
@@ -89,6 +92,14 @@ async function cargar() {
   try {
     datos.value = await api.get('/productos', { ...consulta(), page: filtros.page, size: filtros.size, proveedor_id: sesion.proveedorId })
     sel.podar(datos.value.items.map((p) => p.id))
+    if (elegirInicial) {
+      elegirInicial = false
+      if (!datos.value.total) {
+        const conDatos = VISTAS.value.find(([v, , n]) => v && n)
+        filtros.estado = conDatos ? conDatos[0] : ''
+        return cargar()
+      }
+    }
     router.replace({ query: { estado: filtros.estado, ...(filtros.q && { q: filtros.q }) } })
   } catch (e) {
     errorApi(e)

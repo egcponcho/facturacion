@@ -1,16 +1,20 @@
 <script setup>
 import { t, tx } from '../i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Seleccion from '../components/Seleccion.vue'
 import { api } from '../api'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import Avatar from '../components/Avatar.vue'
+import MenuAcciones from '../components/MenuAcciones.vue'
 import PanelFlujo from '../components/PanelFlujo.vue'
 import { sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { fmtFechaHora } from '../utils'
 
+const route = useRoute()
+const router = useRouter()
 const proveedores = ref([])
 const usuarios = ref([])
 const nuevoProv = reactive({ codigo: '', nombre: '' })
@@ -18,6 +22,13 @@ const vacioUsr = () => ({ nombre: '', email: '', rol_id: '', proveedor_id: '', p
 const nuevoUsr = reactive(vacioUsr())
 // 'proveedor' | 'usuario' | { tipo: 'clave', usuario, clave } | { tipo: 'telefono', usuario, telefono, dos_pasos }
 const modal = ref(null)
+// Pestañas: una sección a la vez (antes, todo en una página larga)
+const PESTANAS = [['usuarios', t('Users')], ['roles', t('Roles and access')], ['proveedores', t('Suppliers')], ['flujo', t('Classification workflow')]]
+const pestana = ref(PESTANAS.some(([k]) => k === route.query.tab) ? route.query.tab : 'usuarios')
+function elegirPestana(k) {
+  pestana.value = k
+  router.replace({ query: { ...route.query, tab: k } })
+}
 const ALCANCE = { admin: t('Administrator'), interno: t('Internal team'), proveedor: t('Supplier user') }
 const roles = ref([])
 const catalogo = ref([])
@@ -154,8 +165,14 @@ onMounted(cargar)
       <p>{{ t('Each supplier user only sees their own supplier\'s POs, invoices and packing lists. Every user signs in with two-step verification: a code sent by SMS to their registered mobile.') }}</p>
     </div>
   </div>
+  <div class="pestanas-pildora" role="tablist">
+    <button v-for="[k, txt] in PESTANAS" :key="k" type="button" class="pildora" role="tab" :aria-selected="pestana === k" @click="elegirPestana(k)">
+      {{ txt }}<span v-if="k === 'usuarios'" class="cuenta">{{ usuarios.length }}</span><span v-else-if="k === 'roles'" class="cuenta">{{ roles.length }}</span>
+      <span v-else-if="k === 'proveedores'" class="cuenta">{{ proveedores.length }}</span>
+    </button>
+  </div>
 
-  <section class="panel">
+  <section v-if="pestana === 'proveedores'" class="panel">
     <div class="panel-cabeza"><h2>{{ t('Suppliers') }}</h2><button class="btn btn-primario" @click="modal = 'proveedor'"><Icono nombre="mas" />{{ t('New supplier') }}</button></div>
     <div class="tabla-marco">
       <table class="tabla" v-tarjetas>
@@ -172,7 +189,7 @@ onMounted(cargar)
     </div>
   </section>
 
-  <section class="panel">
+  <section v-if="pestana === 'roles'" class="panel">
     <div class="panel-cabeza">
       <div><h2>{{ t('Roles and access') }}</h2><p class="sub-panel">{{ t('Create each role with a name, a description and the permissions you choose, then assign it to users. What data a user sees depends on the user: with a supplier assigned, only that supplier’s data.') }}</p></div>
       <button class="btn btn-primario" @click="abrirRol(null)"><Icono nombre="mas" />{{ t('New role') }}</button>
@@ -200,13 +217,13 @@ onMounted(cargar)
     </div>
   </section>
 
-  <PanelFlujo />
+  <PanelFlujo v-if="pestana === 'flujo'" />
 
-  <section class="panel">
+  <section v-if="pestana === 'usuarios'" class="panel">
     <div class="panel-cabeza"><h2>{{ t('Users') }}</h2><button class="btn btn-primario" @click="modal = 'usuario'"><Icono nombre="mas" />{{ t('New user') }}</button></div>
     <div class="tabla-marco">
       <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Email') }}</th><th>{{ t('Role') }}</th><th>{{ t('Supplier') }}</th><th>{{ t('Registered mobile') }}</th><th>{{ t('Last sign-in') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
+        <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Email') }}</th><th>{{ t('Role') }}</th><th>{{ t('Supplier') }}</th><th>{{ t('Registered mobile') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
         <tbody>
           <tr v-for="u in usuarios" :key="u.id">
             <td><span class="usuario-fila"><Avatar :nombre="u.nombre" :foto="u.foto" :tam="30" /><span>{{ tx(u.nombre) }}<span class="sub">{{ tx([u.cargo, u.area].filter(Boolean).join(' · ')) }}</span>
@@ -217,19 +234,21 @@ onMounted(cargar)
             <td>
               <span v-if="u.telefono" class="codigo">{{ tx(u.telefono) }}</span>
               <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ t('Not registered') }}</span>
-              <span class="sub">{{ tx(u.dos_pasos ? t('Two-step verification on') : t('Password only')) }}</span>
+              <span class="sub">{{ tx(u.dos_pasos ? t('With SMS code') : t('Password only')) }}</span>
             </td>
-            <td>{{ tx(u.ultimo_acceso ? fmtFechaHora(u.ultimo_acceso) : t('Never')) }}</td>
             <td>
               <span class="etiqueta" :class="u.activo ? 'ok' : ''" style="margin-inline-start: 0">{{ tx(u.activo ? t('Active') : t('Inactive')) }}</span>
+              <span class="sub" :title="t('Last sign-in')">{{ tx(u.ultimo_acceso ? fmtFechaHora(u.ultimo_acceso) : t('Never signed in')) }}</span>
               <span v-if="u.bloqueado" class="etiqueta error" :title="t('Too many failed attempts. Resetting the password unlocks it.')">{{ t('Locked') }}</span>
             </td>
-            <td class="fila-flex">
-              <button class="btn btn-chico" @click="abrirRolUsuario(u)">{{ t('Role and supplier') }}</button>
-              <button class="btn btn-chico" @click="modal = { tipo: 'telefono', usuario: u, telefono: u.telefono || '', dos_pasos: u.dos_pasos }">{{ t('Mobile') }}</button>
-              <button class="btn btn-chico" @click="modal = { tipo: 'datos', usuario: u, nombre: u.nombre, email: u.email, cargo: u.cargo || '', area: u.area || '', empresa: u.empresa || '' }">{{ t('Edit data') }}</button>
-              <button class="btn btn-chico" @click="modal = { tipo: 'clave', usuario: u, clave: '' }">{{ t('Reset password') }}</button>
-              <button class="btn btn-chico" @click="actualizar(`/usuarios/${u.id}`, { activo: !u.activo }, t('User updated.'))">{{ tx(u.activo ? t('Deactivate') : t('Activate')) }}</button>
+            <td class="num">
+              <MenuAcciones :etiqueta="t('Actions for {0}', [u.email])">
+                <button type="button" role="menuitem" @click="abrirRolUsuario(u)">{{ t('Role and supplier') }}</button>
+                <button type="button" role="menuitem" @click="modal = { tipo: 'telefono', usuario: u, telefono: u.telefono || '', dos_pasos: u.dos_pasos }">{{ t('Mobile') }}</button>
+                <button type="button" role="menuitem" @click="modal = { tipo: 'datos', usuario: u, nombre: u.nombre, email: u.email, cargo: u.cargo || '', area: u.area || '', empresa: u.empresa || '' }">{{ t('Edit data') }}</button>
+                <button type="button" role="menuitem" @click="modal = { tipo: 'clave', usuario: u, clave: '' }">{{ t('Reset password') }}</button>
+                <button type="button" role="menuitem" @click="actualizar(`/usuarios/${u.id}`, { activo: !u.activo }, t('User updated.'))">{{ tx(u.activo ? t('Deactivate') : t('Activate')) }}</button>
+              </MenuAcciones>
             </td>
           </tr>
         </tbody>

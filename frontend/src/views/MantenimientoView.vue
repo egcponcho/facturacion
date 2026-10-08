@@ -381,9 +381,9 @@ onMounted(async () => {
         </div>
         <template v-for="c in conFiltro" :key="c.nombre">
           <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c, filtros.extra)"
-                          :vacio="t('{0}: all', [c.etiqueta])" :etiqueta="tx(c.etiqueta)" @change="filtros.page = 1; cargar()" />
+                          :vacio="t('{0}: all', [tx(c.etiqueta)])" :etiqueta="tx(c.etiqueta)" @change="filtros.page = 1; cargar()" />
           <Seleccion v-else v-model="filtros.extra[c.nombre]" :aria-label="tx(c.etiqueta)" @change="filtros.page = 1; cargar()">
-            <option :value="undefined">{{ t('{0}: all', [c.etiqueta]) }}</option>
+            <option :value="undefined">{{ t('{0}: all', [tx(c.etiqueta)]) }}</option>
             <template v-if="c.tipo === 'bool'"><option value="true">{{ t('{0}: yes', [c.etiqueta]) }}</option><option value="false">{{ t('{0}: no', [c.etiqueta]) }}</option></template>
             <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, txt] in c.opciones" :key="v" :value="v">{{ tx(c.etiqueta) }}: {{ tx(txt) }}</option></template>
           </Seleccion>
