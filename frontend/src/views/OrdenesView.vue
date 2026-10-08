@@ -454,7 +454,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             </td>
             <td v-if="cols.ver('tienda')">
               {{ fmtFecha(oc.fecha_tienda) }}
-              <span v-if="oc.dias_tienda !== null" class="sub" :style="tonoTienda(oc.dias_tienda) ? { color: `var(--${tonoTienda(oc.dias_tienda)})` } : null">{{ diasTxt(oc.dias_tienda) }}</span>
+              <span v-if="oc.dias_tienda != null" class="sub" :style="tonoTienda(oc.dias_tienda) ? { color: `var(--${tonoTienda(oc.dias_tienda)})` } : null">{{ diasTxt(oc.dias_tienda) }}</span>
             </td>
             <td v-if="cols.ver('tienda_estimada')"><FechaTienda :fecha="oc.tienda_estimada" :dias="oc.dias_vs_tienda" /></td>
             <td v-if="cols.ver('por_facturar')" class="ajustar" style="min-width: 100px">

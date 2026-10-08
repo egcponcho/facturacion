@@ -39,7 +39,7 @@ export async function cargarIdioma() {
   }
   // Plantillas de los mensajes del servidor (llegan ya armados): con texto
   // fijo suficiente para no confundirlas con datos
-  patrones = SERVIDOR.filter((k) => dic[k] && /\{\d\}/.test(k) && k.replace(/\{\d\}/g, '').replace(/[^A-Za-z]/g, '').length >= 6).map((k) => {
+  patrones = SERVIDOR.filter((k) => dic[k] && /\{\d\}/.test(k) && k.replace(/\{\d\}/g, '').replace(/[^A-Za-z]/g, '').length >= 3).map((k) => {
     const partes = k.split(/(\{\d\})/)
     const orden = []
     const re = partes.map((p) => {

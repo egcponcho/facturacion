@@ -3,7 +3,7 @@ import { t, tx } from '../i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
-import { esInterno, sesion } from '../stores/sesion'
+import { esInterno, sesion, ve } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
 import { TIEMPO, fmtDiaMes, fmtFecha, fmtNum, porUnidadTxt } from '../utils'
 import EstadoBadge from './EstadoBadge.vue'
@@ -89,7 +89,7 @@ onMounted(cargar)
     <Kpi :titulo="t('Load units')" :valor="datos.kpis.unidades" icono="contenedor" :detalle="t('containers, air waybills and trucks')" @abrir="emit('filtrar', {})" />
     <Kpi :titulo="t('In transit')" :valor="datos.kpis.en_camino" icono="barco" :detalle="t('already departed')" @abrir="emit('filtrar', { estado: 'EN_TRANSITO' })" />
     <Kpi :titulo="t('Arriving in 7 days')" :valor="datos.kpis.llegan_7_dias" icono="reloj" :detalle="t('by ETA')" @abrir="emit('filtrar', {})" />
-    <Kpi :titulo="t('Late for the port deadline')" :valor="datos.kpis.atrasados" icono="alerta" :tono="datos.kpis.atrasados ? 'alerta' : 'exito'"
+    <Kpi v-if="ve('fechas_internas')" :titulo="t('Late for the port deadline')" :valor="datos.kpis.atrasados" icono="alerta" :tono="datos.kpis.atrasados ? 'alerta' : 'exito'"
          :detalle="t('ETA after the in-store date')" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
   </section>
 
@@ -115,7 +115,7 @@ onMounted(cargar)
           <th>{{ t('Route') }}</th>
           <ThOrden campo="etd" :orden="tabla.orden" @ordenar="ordenar">{{ t('Departure') }}</ThOrden>
           <ThOrden campo="eta" :orden="tabla.orden" @ordenar="ordenar">{{ t('Arrival') }}</ThOrden>
-          <ThOrden campo="holgura" :orden="tabla.orden" :title="t('Port arrival against the port deadline: the in-store date minus the days to the warehouse, the warehouse entry and the re-export of its origin')" @ordenar="ordenar">{{ t('Vs. port deadline') }}</ThOrden>
+          <ThOrden v-if="ve('fechas_internas')" campo="holgura" :orden="tabla.orden" :title="t('Port arrival against the port deadline: the in-store date minus the days to the warehouse, the warehouse entry and the re-export of its origin')" @ordenar="ordenar">{{ t('Vs. port deadline') }}</ThOrden>
           <ThOrden campo="unidades" :orden="tabla.orden" num @ordenar="ordenar">{{ t('Units') }}</ThOrden>
           <ThOrden campo="ocs" :orden="tabla.orden" num @ordenar="ordenar">{{ t('POs') }}</ThOrden>
           <th class="num">{{ t('Contents') }}</th>
@@ -143,10 +143,10 @@ onMounted(cargar)
             <td><EstadoBadge :estado="e.estado" /></td>
             <td>{{ tx(e.puerto_origen || '—') }} <Icono nombre="flecha" :tam="12" /> {{ tx(e.puerto_destino || '—') }}<span v-if="e.centro" class="sub">{{ t('plant {0}', [e.centro]) }}</span></td>
             <td>{{ fmtFecha(e.etd) }}</td>
-            <td>{{ fmtFecha(e.eta) }}<span class="sub">{{ tx(e.arribado ? 'arrived' : e.dias_eta === null ? '' : e.dias_eta >= 0 ? t('in {0} d', [e.dias_eta]) : t('ETA overdue {0} d', [-e.dias_eta])) }}</span></td>
-            <td>
+            <td>{{ fmtFecha(e.eta) }}<span class="sub">{{ tx(e.arribado ? t('arrived') : e.dias_eta === null ? '' : e.dias_eta >= 0 ? t('in {0} d', [e.dias_eta]) : t('ETA overdue {0} d', [-e.dias_eta])) }}</span></td>
+            <td v-if="ve('fechas_internas')">
               <span v-if="e.riesgo" class="etiqueta" :class="RIESGOS[e.riesgo][1]" style="margin-inline-start: 0">{{ tx(RIESGOS[e.riesgo][0]) }}</span>
-              <span v-if="e.holgura !== null" class="sub">{{ tx(e.holgura < 0 ? t('{0} d late', [-e.holgura]) : t('{0} d margin', [e.holgura])) }}</span>
+              <span v-if="e.holgura != null" class="sub">{{ tx(e.holgura < 0 ? t('{0} d late', [-e.holgura]) : t('{0} d margin', [e.holgura])) }}</span>
             </td>
             <td class="num">{{ tx(e.unidades) }}</td>
             <td class="num">{{ tx(e.ocs) }}</td>

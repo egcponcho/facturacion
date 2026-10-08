@@ -5,7 +5,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from './Seleccion.vue'
 import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
-import { esInterno, sesion } from '../stores/sesion'
+import { esInterno, sesion, ve } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
 import { TIEMPO, fmtFecha, fmtNum } from '../utils'
 import FiltroMulti from './FiltroMulti.vue'
@@ -97,7 +97,7 @@ onMounted(cargar)
          :detalle="t('not released and the target date passed')" @abrir="f.lib = f.lib === 'vencida' ? '' : 'vencida'; recargar()" />
     <Kpi :titulo="t('Average lead time (days)')" :valor="datos.kpis.total_prom ?? 0" icono="grafica"
          :detalle="t('PO created to warehouse entry · transit {0}', [d(datos.kpis.transito_prom)])" />
-    <Kpi :titulo="t('Late for the port deadline')" :valor="datos.kpis.tarde ?? 0" icono="alerta" :tono="datos.kpis.tarde ? 'alerta' : 'exito'"
+    <Kpi v-if="ve('fechas_internas')" :titulo="t('Late for the port deadline')" :valor="datos.kpis.tarde ?? 0" icono="alerta" :tono="datos.kpis.tarde ? 'alerta' : 'exito'"
          :detalle="t('{0} at risk (little slack before the in-store date)', [datos.kpis.justo || 0])" @abrir="f.riesgo = f.riesgo === 'ATRASO' ? '' : 'ATRASO'; recargar()" />
   </section>
 
@@ -180,9 +180,9 @@ onMounted(cargar)
           <ThOrden campo="fecha_xf" :orden="tabla.orden" @ordenar="ordenar">XF</ThOrden>
           <ThOrden campo="arribo" :orden="tabla.orden" @ordenar="ordenar">{{ t('Port arrival') }}</ThOrden>
           <ThOrden campo="limite_puerto" :orden="tabla.orden" @ordenar="ordenar">{{ t('Port deadline') }}</ThOrden>
-          <ThOrden campo="fecha_tienda" :orden="tabla.orden" @ordenar="ordenar">{{ t('In store') }}</ThOrden>
-          <ThOrden campo="tienda_estimada" :orden="tabla.orden" @ordenar="ordenar" :title="t('Estimated: arrival plus port, warehouse entry and re-export days')">{{ t('Est. in store') }}</ThOrden>
-          <ThOrden campo="holgura" :orden="tabla.orden" @ordenar="ordenar">{{ t('Early / late') }}</ThOrden>
+          <ThOrden v-if="ve('fechas_internas')" campo="fecha_tienda" :orden="tabla.orden" @ordenar="ordenar">{{ t('In store') }}</ThOrden>
+          <ThOrden v-if="ve('fechas_internas')" campo="tienda_estimada" :orden="tabla.orden" @ordenar="ordenar" :title="t('Estimated: arrival plus port, warehouse entry and re-export days')">{{ t('Est. in store') }}</ThOrden>
+          <ThOrden v-if="ve('fechas_internas')" campo="holgura" :orden="tabla.orden" @ordenar="ordenar">{{ t('Early / late') }}</ThOrden>
         </tr>
       </thead>
       <tbody>
@@ -203,11 +203,11 @@ onMounted(cargar)
             <td>{{ fmtFecha(o.fecha_xf) }}</td>
             <td>{{ fmtFecha(o.arribo) }}<span class="sub">{{ o.arribo_real ? t('actual') : t('estimated') }}</span></td>
             <td>{{ fmtFecha(o.limite_puerto) }}</td>
-            <td>{{ fmtFecha(o.fecha_tienda) }}</td>
-            <td><FechaTienda :fecha="o.tienda_estimada" :dias="o.dias_vs_tienda" /></td>
-            <td>
+            <td v-if="ve('fechas_internas')">{{ fmtFecha(o.fecha_tienda) }}</td>
+            <td v-if="ve('fechas_internas')"><FechaTienda :fecha="o.tienda_estimada" :dias="o.dias_vs_tienda" /></td>
+            <td v-if="ve('fechas_internas')">
               <span v-if="o.riesgo" class="etiqueta" :class="RIESGO[o.riesgo][1]" style="margin-inline-start: 0">{{ tx(RIESGO[o.riesgo][0]) }}</span>
-              <span class="sub">{{ tx(o.holgura === null ? '—' : o.holgura >= 0 ? t('{0} d to spare', [o.holgura]) : t('{0} d late', [-o.holgura])) }}</span>
+              <span class="sub">{{ tx(o.holgura == null ? '—' : o.holgura >= 0 ? t('{0} d to spare', [o.holgura]) : t('{0} d late', [-o.holgura])) }}</span>
             </td>
           </tr>
           <tr v-if="abiertas.has(o.oc_id)" class="fila-hija">

@@ -184,7 +184,7 @@ onMounted(cargar)
           <td v-if="cols.ver('tienda_estimada')"><FechaTienda :fecha="o.tienda_estimada" :dias="o.dias_vs_tienda" /></td>
           <td v-if="cols.ver('holgura')">
             <span v-if="o.riesgo" class="etiqueta" :class="RIESGOS[o.riesgo][1]" style="margin-inline-start: 0">{{ tx(RIESGOS[o.riesgo][0]) }}</span>
-            <span v-if="o.holgura !== null" class="sub">{{ tx(o.holgura < 0 ? t('{0} d late', [-o.holgura]) : t('{0} d margin', [o.holgura])) }}</span>
+            <span v-if="o.holgura != null" class="sub">{{ tx(o.holgura < 0 ? t('{0} d late', [-o.holgura]) : t('{0} d margin', [o.holgura])) }}</span>
           </td>
           <td v-if="cols.ver('embarques')" class="codigo">{{ tx(o.embarques.join(', ') || '—') }}</td>
         </tr>
