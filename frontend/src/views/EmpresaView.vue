@@ -29,13 +29,15 @@ const REGLAS = {
   DIAS_ALERTA_BORRADOR: t('Days before warning about drafts that still reserve quantities'),
   DIAS_MARGEN_RIESGO: t('Minimum margin (days) before the required date to be on time'),
   PAIS_BASE_CLASIF: t('Country whose national code completes the suggested HS code'),
+  COMPATIBILIDAD_BLOQUEANTE: t('PO data that cannot be mixed in one invoice'),
+  COMPATIBILIDAD_ADVERTENCIA: t('PO data that only warns when mixed in one invoice'),
 }
 
 function copiar(x) {
   datos.value = {
     nombre: x.nombre, razon_social: x.razon_social || '', id_fiscal: x.id_fiscal || '', pais: x.pais || '', logo: x.logo,
     preferencias: { ...x.preferencias },
-    reglas: Object.fromEntries(x.reglas.map((r) => [r.clave, r.valor])),
+    reglas: Object.fromEntries(x.reglas.map((r) => [r.clave, Array.isArray(r.valor) ? [...r.valor] : r.valor])),
   }
 }
 
@@ -126,7 +128,13 @@ async function guardar() {
       <ul class="lista-reglas">
         <li v-for="r in o.reglas" :key="r.clave">
           <span>{{ tx(REGLAS[r.clave] || r.texto) }}</span>
-          <Interruptor v-if="typeof r.valor === 'boolean'" v-model="datos.reglas[r.clave]" :etiqueta="tx(REGLAS[r.clave] || r.texto)" />
+          <div v-if="Array.isArray(r.valor)" class="regla-lista">
+            <label v-for="c in o.campos_compatibilidad" :key="c.clave" class="check">
+              <input type="checkbox" :checked="datos.reglas[r.clave].includes(c.clave)"
+                     @change="datos.reglas[r.clave] = datos.reglas[r.clave].includes(c.clave) ? datos.reglas[r.clave].filter((x) => x !== c.clave) : [...datos.reglas[r.clave], c.clave]" />{{ tx(c.texto) }}
+            </label>
+          </div>
+          <Interruptor v-else-if="typeof r.valor === 'boolean'" v-model="datos.reglas[r.clave]" :etiqueta="tx(REGLAS[r.clave] || r.texto)" />
           <input v-else-if="typeof r.valor === 'number'" v-model.number="datos.reglas[r.clave]" type="number" min="0" max="365" class="entrada regla-numero"
                  :aria-label="tx(REGLAS[r.clave] || r.texto)" />
           <SelectBusqueda v-else v-model="datos.reglas[r.clave]" class="regla-pais" :opciones="paises" :prefijo="false" :etiqueta="tx(REGLAS[r.clave] || r.texto)" />
@@ -148,4 +156,5 @@ async function guardar() {
 .regla-numero { width: 90px; flex: none; }
 @media (max-width: 720px) { .empresa-general { grid-template-columns: 1fr; } }
 .regla-pais { min-width: 220px; }
+.regla-lista { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: flex-end; max-width: 520px; }
 </style>

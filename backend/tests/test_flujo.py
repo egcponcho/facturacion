@@ -63,7 +63,7 @@ def test_factura_parcial_y_reglas(tnf):
     pa20 = _oc(tnf, "4400003850")["posiciones"][0]
     f = tnf.get(f"/facturas/{fid}").json()
     r = tnf.post(f"/facturas/{fid}/lineas", {"version": f["version"], "lineas": [{"posicion_id": pa20["id"], "cantidad": 1}]})
-    assert r.status_code == 422 and any("centers" in d["mensaje"] for d in r.json()["detalle"])
+    assert r.status_code == 422 and any("plants" in d["mensaje"] for d in r.json()["detalle"])
 
 
 def test_version_conflicto(tnf):

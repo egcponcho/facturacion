@@ -579,7 +579,11 @@ def seed(db: Session) -> None:
         return
     from .services.organizacion import asegurar_principal
 
-    asegurar_principal(db).nombre = "Distribuidora de Marcas"
+    empresa = asegurar_principal(db)
+    empresa.nombre, empresa.pais = "Distribuidora de Marcas", "SV"
+    # La empresa de ejemplo completa sus partidas con el código nacional de El Salvador
+    empresa.configuracion = {"reglas": {"PAIS_BASE_CLASIF": "SV"},
+                             "preferencias": {"idioma": "es", "moneda": "USD", "zona_horaria": "America/El_Salvador"}}
     tnf = Proveedor(codigo="TNF", nombre="The North Face", razon_social="VF Outdoor Asia Sourcing Ltd.",
                     id_fiscal="HK-51902231", pais="VN", direccion="Lot C-5, Tan Thuan EPZ, Ho Chi Minh, Vietnam",
                     contacto="Linh Nguyen", correos="export.tnf@vf.demo", telefono="+84 28 3770 1234")

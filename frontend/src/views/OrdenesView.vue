@@ -22,7 +22,7 @@ import { siguienteOrden } from '../composables/useTabla'
 import { agregarPosiciones, carrito, quitarOC, quitarPosicion, vaciarCarrito } from '../stores/carrito'
 import { esInterno, nombreProveedor, puede, sesion, ve } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
-import { COMERCIAL, LIBERACION, cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '../utils'
+import { cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '../utils'
 import { pasoCantidad } from '../unidades.js'
 import { filasDefecto } from '../stores/preferencias'
 
@@ -30,7 +30,7 @@ const route = useRoute()
 const router = useRouter()
 
 // Filtros que se eligen de listas armadas con lo que realmente hay en las OCs
-const EXTRA = { sociedad: t('Company'), centro: t('Plant'), almacen: t('Warehouse'), marca: t('Brand'), comercial: t('Commercial rel.'), liberacion: t('Logistics rel.'), destino: t('Destination plant'), puerto: t('Port') }
+const EXTRA = { sociedad: t('Company'), centro: t('Plant'), almacen: t('Warehouse'), marca: t('Brand'), comercial: t('Commercial rel.'), liberacion: t('Logistics rel.'), liberada: t('Release'), destino: t('Destination plant'), puerto: t('Port') }
 const filtros = reactive({
   q: route.query.q || '',
   solo_disponible: route.query.solo_disponible !== '0',
@@ -39,14 +39,15 @@ const filtros = reactive({
   size: filasDefecto(),
   ...Object.fromEntries(Object.keys(EXTRA).map((k) => [k, route.query[k] || ''])),
 })
-const LIB_FILTRO = { 300: t('Logistics rel.: Released'), 301: t('Logistics rel.: Released, changed'), 304: t('Logistics rel.: Not released') }
-const opcionesFiltro = ref({ sociedades: [], centros: [], almacenes: [], marcas: [], destinos: [], puertos: [], liberaciones: [] })
+const opcionesFiltro = ref({ sociedades: [], centros: [], almacenes: [], marcas: [], destinos: [], puertos: [], liberaciones: [], comerciales: [] })
 const activos = computed(() => Object.keys(EXTRA).filter((k) => filtros[k]).map((k) => {
   let v = filtros[k]
   if (k === 'destino') v = opcionesFiltro.value.destinos.find((d) => d.codigo === v)?.nombre || v
   if (k === 'puerto') v = opcionesFiltro.value.puertos.find((d) => d.codigo === v)?.nombre || v
-  if (k === 'liberacion') v = LIBERACION[v]?.[0] || v
-  if (k === 'comercial') v = COMERCIAL[v]?.[2] || v
+  // Nombres de los estados de liberación que definió la empresa (Datos maestros)
+  if (k === 'liberacion') v = opcionesFiltro.value.liberaciones.find((x) => x.codigo === v)?.nombre || v
+  if (k === 'comercial') v = opcionesFiltro.value.comerciales.find((x) => x.codigo === v)?.nombre || v
+  if (k === 'liberada') v = v === '0' ? t('Not released') : t('Released')
   return { k, texto: `${EXTRA[k]}: ${v}` }
 }))
 const datos = ref({ items: [], total: 0 })
@@ -82,15 +83,11 @@ const cols = useColumnas('ordenes', () => [
 // Selección, ver líneas y acciones + las columnas visibles
 const columnas = computed(() => cols.cuantas.value + 3)
 // Liberación en una sola insignia: solo si no se puede facturar o si cambió
+// después de liberada (los nombres son los de la empresa)
 function liberacion(oc) {
-  if (!oc.liberada) {
-    const motivo = [COMERCIAL[oc.liberacion_comercial]?.[2], LIBERACION[oc.liberacion_logistica]?.[2]].filter(Boolean).join(' · ')
-    return { texto: t('Not released'), clase: 'aviso', motivo }
-  }
-  if (oc.liberacion_logistica && LIBERACION[oc.liberacion_logistica] && oc.liberacion_logistica !== '300') {
-    const [texto, clase, motivo] = LIBERACION[oc.liberacion_logistica]
-    return { texto, clase, motivo }
-  }
+  const motivo = [oc.comercial_txt, oc.liberacion_txt].filter(Boolean).join(' · ')
+  if (!oc.liberada) return { texto: t('Not released'), clase: 'aviso', motivo }
+  if (oc.con_cambios) return { texto: t('Released with changes'), clase: 'info', motivo }
   return null
 }
 
@@ -399,9 +396,9 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
     <SelectBusqueda v-if="opcionesFiltro.puertos.length > 1 || filtros.puerto" v-model="filtros.puerto" :opciones="opcionesFiltro.puertos.map((d) => ({ valor: d.codigo, texto: `${d.codigo} · ${d.nombre}` }))"
                     :vacio="t('Port: all')" :etiqueta="t('Port of loading')" @change="filtrar" />
     <Seleccion v-if="ve('liberaciones')" v-model="filtros.comercial" :aria-label="t('Commercial release')" @change="filtrar">
-      <option value="">{{ t('Commercial rel.: all') }}</option><option value="C">{{ t('Commercial rel.: Released') }}</option><option value="P">{{ t('Commercial rel.: Pending') }}</option>
+      <option value="">{{ t('Commercial rel.: all') }}</option><option v-for="l in opcionesFiltro.comerciales" :key="l.codigo" :value="l.codigo">{{ tx(l.nombre) }}</option>
     </Seleccion>
-    <Seleccion v-if="ve('liberaciones')" v-model="filtros.liberacion" :aria-label="t('Logistics release')" @change="filtrar"><option value="">{{ t('Logistics rel.: all') }}</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ tx(LIB_FILTRO[l.codigo] || l.nombre) }}</option></Seleccion>
+    <Seleccion v-if="ve('liberaciones')" v-model="filtros.liberacion" :aria-label="t('Logistics release')" @change="filtrar"><option value="">{{ t('Logistics rel.: all') }}</option><option v-for="l in opcionesFiltro.liberaciones" :key="l.codigo" :value="l.codigo">{{ tx(l.nombre) }}</option></Seleccion>
   </div>
   <div v-if="activos.length" class="chips">
     <span v-for="a in activos" :key="a.k" class="chip">{{ tx(a.texto) }}<button type="button" :aria-label="t('Remove {0}', [a.texto])" @click="quitarFiltro(a.k)"><Icono nombre="cerrar" :tam="13" /></button></span>

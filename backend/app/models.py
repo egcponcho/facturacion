@@ -440,15 +440,49 @@ class EscalaTalla(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class CategoriaArticulo(Base):
+    """Categoría de artículo (calzado, ropa, accesorios…): lista que define
+    cada empresa en Datos maestros; la usan los grupos de artículos y las
+    escalas de tallas."""
+
+    __tablename__ = "categorias_articulo"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class EstadoLiberacion(Base):
+    """Estado de liberación de una OC tal como lo manda el ERP de la empresa.
+
+    Hay dos liberaciones (comercial y logística) y cada empresa define sus
+    códigos (p. ej. SAP: comercial C/P, logística 300/301/304), su nombre,
+    si permite facturar, cuál es el de «liberada con cambios» y cuál se usa
+    cuando el archivo no trae el dato. `alias` son otras palabras que el
+    importador acepta (separadas por coma)."""
+
+    __tablename__ = "estados_liberacion"
+    __table_args__ = (UniqueConstraint("tipo", "codigo", name="uq_estados_liberacion_tipo_codigo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(10))  # COMERCIAL | LOGISTICA
+    codigo: Mapped[str] = mapped_column(String(10))
+    nombre: Mapped[str] = mapped_column(String(80))
+    libera: Mapped[bool] = mapped_column(Boolean, default=False)  # con este estado se puede facturar
+    con_cambios: Mapped[bool] = mapped_column(Boolean, default=False)  # liberada que cambió después
+    predeterminado: Mapped[bool] = mapped_column(Boolean, default=False)  # si el archivo no trae el dato
+    alias: Mapped[str | None] = mapped_column(String(300))
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class GrupoArticulo(Base):
-    """Grupo de artículos. La categoría decide la regla de empaque:
-    calzado (casepack exacto, sin mezclar tallas) o ropa y accesorios."""
+    """Grupo de artículos con su categoría (Datos maestros → Categorías)."""
 
     __tablename__ = "grupos_articulos"
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(15), unique=True)
     nombre: Mapped[str] = mapped_column(String(100))
-    categoria: Mapped[str] = mapped_column(String(10))  # CALZADO | ROPA | ACCESORIO
+    categoria: Mapped[str] = mapped_column(String(10))  # código de categorias_articulo
     # Días que este tipo de producto necesita además de los de su región después
     # del puerto (inspección, etiquetado, permisos); se suman a la fecha en tienda
     dias_extra: Mapped[int | None] = mapped_column(Integer)
@@ -1373,10 +1407,10 @@ class OrdenCompra(Base):
     fecha_xf_original: Mapped[date | None] = mapped_column(Date)
     fecha_xf: Mapped[date | None] = mapped_column(Date)  # XF actualizada
     fecha_tienda: Mapped[date | None] = mapped_column(Date)  # requerida en tienda
-    # Comercial: P pendiente, C completa. Logística: 304 sin liberación
-    # comercial; 300 liberada por sourcing; 301 liberada con cambios posteriores.
-    liberacion_comercial: Mapped[str] = mapped_column(String(1), default="C")
-    liberacion_logistica: Mapped[str] = mapped_column(String(3), default="300")
+    # Códigos de las dos liberaciones según el ERP de la empresa (catálogo
+    # estados_liberacion); `liberada` dice si con ellos se puede facturar.
+    liberacion_comercial: Mapped[str] = mapped_column(String(10))
+    liberacion_logistica: Mapped[str] = mapped_column(String(10))
     fecha_lib_comercial: Mapped[date | None] = mapped_column(Date)
     fecha_lib_logistica: Mapped[date | None] = mapped_column(Date)
     liberada: Mapped[bool] = mapped_column(Boolean, default=True)

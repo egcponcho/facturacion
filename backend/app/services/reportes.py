@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from .preferencias import fecha_txt
 from ..models import Usuario
-from . import documentos, exportar
+from . import documentos, exportar, liberaciones
 from . import seguimiento as seg
 
 TODO = 100_000
@@ -66,6 +66,7 @@ def _fecha(v):
 
 def reporte_ordenes(db: Session, user: Usuario, proveedor_id, filtros: dict, orden, formato: str) -> bytes:
     r = seg.ordenes(db, user, proveedor_id, filtros, orden, 1, TODO)
+    lib = liberaciones.de(db)
     k = r["kpis"]
     indicadores = [("Purchase orders", f"{k['ocs']:,}"), ("Released", f"{k['liberadas']:,}"),
                    ("Not released", f"{k['sin_liberar']:,}"), ("XF overdue, not invoiced", f"{k['xf_vencida']:,}"),
@@ -75,7 +76,8 @@ def reporte_ordenes(db: Session, user: Usuario, proveedor_id, filtros: dict, ord
                 ("Status", 1.6, False), ("Total", 0.8, True), ("To invoice", 0.9, True), ("% inv.", 0.7, True),
                 ("XF", 0.9, False), ("In store", 0.9, False), ("Vs. store", 1.1, False), ("Shipments", 1.4, False)]
     filas = [[o["oc"], o["proveedor"], f"{o['sociedad']} · {o['centro']}", o["centro_destino"] or "—",
-              o["liberacion_comercial"] or "C", o["liberacion_logistica"], ESTADOS_OC[o["estado"]], o["total"],
+              lib.comercial.nombre(o["liberacion_comercial"]) or "—", lib.logistica.nombre(o["liberacion_logistica"]) or "—",
+              ESTADOS_OC[o["estado"]], o["total"],
               o["por_facturar"], o["avance"], _fecha(o["fecha_xf"]), _fecha(o["fecha_tienda"]), _holgura(o["holgura"]),
               ", ".join(o["embarques"]) or "—"] for o in r["items"]]
     hojas = None

@@ -43,7 +43,7 @@ GRUPOS: dict[str, dict] = {
     "liberaciones": {
         "etiqueta": "Commercial and logistics release details",
         "descripcion": "Release codes and dates. The user still sees whether a PO can be invoiced.",
-        "claves": {"liberacion_comercial", "liberacion_logistica", "comercial_txt", "liberacion_txt",
+        "claves": {"liberacion_comercial", "liberacion_logistica", "comercial_txt", "liberacion_txt", "comercial_ok", "logistica_ok", "con_cambios",
                    "fecha_lib_comercial", "fecha_lib_logistica"},
         "columnas": {"Comm. rel.", "Log. rel."},
     },

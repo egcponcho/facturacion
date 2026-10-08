@@ -54,24 +54,12 @@ export function unidadTxt(unidad, n) {
   return n === 1 ? u[0] : u[1]
 }
 
-// Dos liberaciones de dos equipos: comercial (P/C) y logística (304/300/301).
-// Sin liberación comercial no hay logística; se factura solo con C y 300/301.
-export const COMERCIAL = {
-  C: [t('Commercial released'), 'ok', t('Released by commercial')],
-  P: [t('Commercial pending'), 'aviso', t('Pending commercial release: logistics cannot release')],
-}
 // Frente a la fecha requerida en tienda (la holgura mínima se configura en el servidor)
 export const TIEMPO = {
   A_TIEMPO: [t('On time'), 'ok'],
   JUSTO: [t('At risk'), 'aviso'],
   ATRASO: [t('Late'), 'error'],
 }
-export const LIBERACION = {
-  300: [t('Released'), 'ok', t('Released by logistics')],
-  301: [t('Released with changes'), 'info', t('Released by logistics; the PO changed afterwards')],
-  304: [t('Not released'), 'aviso', t('No logistics release: it cannot be invoiced')],
-}
-
 export function diasTxt(n) {
   if (n === null || n === undefined) return '—'
   if (n === 0) return t('today')

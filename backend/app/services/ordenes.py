@@ -28,55 +28,16 @@ from ..models import (
     Usuario,
     ahora,
 )
+from . import liberaciones
 from .cantidades import facturado_por_posicion, facturas_por_posicion
 from .productos import clasificacion_txt, partida_para, producto_de
 from .common import ErrorNegocio, asegurar_proveedor, exigir, proveedor_filtro, registrar, filtro_texto, terminos
 from .unidades import _ALIAS as UNIDADES  # alias de cada unidad → su código
 from .unidades import error_cantidad
 
-# Dos liberaciones de dos equipos distintos:
-# - Comercial: P (pendiente) o C (liberada; si viene vacío también es C).
-# - Logística: 304 no liberada, 300 liberada, 301 liberada con cambios posteriores.
-# Sin liberación comercial no hay liberación logística. Solo se factura con C y 300/301.
-COMERCIAL_TXT = {"C": "Released by commercial", "P": "Pending commercial"}
-LIBERACION_TXT = {
-    "300": "Released by logistics",
-    "301": "Released with later changes",
-    "304": "Not released by logistics",
-}
-
-
-def liberacion_logistica(comercial: str, explicita: str | None, actual: str | None, hubo_cambios: bool) -> str:
-    """Código logístico final. Sin comercial (P) siempre es 304. Si el archivo
-    trae el código, manda el archivo; si no, se conserva el que tenía (304 si
-    es nueva) y una OC ya liberada (300) que cambia pasa a 301."""
-    if comercial != "C":
-        return "304"
-    if explicita in LIBERACION_TXT:
-        return explicita
-    if actual == "300" and hubo_cambios:
-        return "301"
-    return actual or "304"
-
-
-def esta_liberada(comercial: str, logistica: str) -> bool:
-    return comercial == "C" and logistica in ("300", "301")
-
-
-def fechar_liberaciones(oc: OrdenCompra, hoy: date | None = None) -> None:
-    """Fecha de cada liberación para medir los lead times: se guarda el día en
-    que la OC quedó liberada (o la del archivo) y se borra si se revierte."""
-    hoy = hoy or date.today()
-    if oc.liberacion_comercial == "C":
-        oc.fecha_lib_comercial = oc.fecha_lib_comercial or hoy
-    else:
-        oc.fecha_lib_comercial = None
-    if oc.liberacion_logistica in ("300", "301"):
-        oc.fecha_lib_logistica = oc.fecha_lib_logistica or hoy
-        if oc.fecha_lib_comercial and oc.fecha_lib_logistica < oc.fecha_lib_comercial:
-            oc.fecha_lib_logistica = oc.fecha_lib_comercial
-    else:
-        oc.fecha_lib_logistica = None
+# Dos liberaciones de dos equipos distintos (comercial y logística). Sus
+# códigos, nombres y efecto los define cada empresa en Datos maestros →
+# Estados de liberación (services/liberaciones.py).
 
 
 # ---- Vista general de OCs ---------------------------------------------------
@@ -100,8 +61,10 @@ def listar_ordenes(
     orden: str | None = None,
     almacen: str | None = None,
     comercial: str | None = None,
+    liberada: bool | None = None,
 ) -> dict:
     exigir(user, "oc.ver")
+    lib = liberaciones.de(db)
     prov = proveedor_filtro(user, proveedor_id)
 
     tot = (
@@ -154,6 +117,8 @@ def listar_ordenes(
         consulta = consulta.where(OrdenCompra.liberacion_logistica == liberacion)
     if comercial:
         consulta = consulta.where(OrdenCompra.liberacion_comercial == comercial)
+    if liberada is not None:
+        consulta = consulta.where(OrdenCompra.liberada.is_(liberada))
     if marca:
         consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.marca == marca)))
     if almacen:
@@ -217,7 +182,7 @@ def listar_ordenes(
         importe = float(importe or 0)
         items.append(
             {
-                **_cabecera_oc(oc),
+                **_cabecera_oc(oc, lib),
                 "proveedor": prov_nombre,
                 "posiciones": n,
                 "marcas": sorted(marcas[oc.id]),
@@ -256,6 +221,7 @@ def filtros_ordenes(db: Session, user: Usuario, proveedor_id: int | None = None)
             select(col).where(PosicionOC.oc_id.in_(select(sub.c.id))).distinct()) if v})
 
     marcas = de_posiciones(PosicionOC.marca)
+    lib = liberaciones.de(db)
     return {
         "sociedades": distintos(sub.c.sociedad),
         "centros": distintos(sub.c.centro),
@@ -265,12 +231,12 @@ def filtros_ordenes(db: Session, user: Usuario, proveedor_id: int | None = None)
         "puertos": [{"codigo": p.codigo, "nombre": p.nombre} for p in db.scalars(
             select(Puerto).where(Puerto.codigo.in_(distintos(sub.c.puerto_despacho))))],
         "marcas": marcas,
-        "liberaciones": [{"codigo": k, "nombre": v} for k, v in LIBERACION_TXT.items()],
-        "comerciales": [{"codigo": k, "nombre": v} for k, v in COMERCIAL_TXT.items()],
+        "liberaciones": [{"codigo": x.codigo, "nombre": x.nombre, "libera": x.libera} for x in lib.logistica.lista],
+        "comerciales": [{"codigo": x.codigo, "nombre": x.nombre, "libera": x.libera} for x in lib.comercial.lista],
     }
 
 
-def _cabecera_oc(oc: OrdenCompra) -> dict:
+def _cabecera_oc(oc: OrdenCompra, lib: liberaciones.Liberaciones) -> dict:
     return {
         "id": oc.id,
         "numero": oc.numero,
@@ -291,8 +257,10 @@ def _cabecera_oc(oc: OrdenCompra) -> dict:
         "liberacion_logistica": oc.liberacion_logistica,
         "fecha_lib_comercial": oc.fecha_lib_comercial,
         "fecha_lib_logistica": oc.fecha_lib_logistica,
-        "liberacion_txt": LIBERACION_TXT.get(oc.liberacion_logistica),
-        "comercial_txt": COMERCIAL_TXT.get(oc.liberacion_comercial),
+        "liberacion_txt": lib.logistica.nombre(oc.liberacion_logistica),
+        "comercial_txt": lib.comercial.nombre(oc.liberacion_comercial),
+        # Liberación dada, pero la OC cambió después (para avisarlo en pantalla)
+        "con_cambios": bool((x := lib.logistica.get(oc.liberacion_logistica)) and x.con_cambios),
         "liberada": oc.liberada,
     }
 
@@ -351,7 +319,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
     prov = db.get(Proveedor, oc.proveedor_id)
     destino = db.scalar(select(Centro).where(Centro.codigo == oc.centro_destino))
     from .leadtimes import tiendas_estimadas
-    return {"oc": {**_cabecera_oc(oc), "proveedor": prov.nombre, **tiendas_estimadas(db, [oc]).get(oc.id, {}),
+    return {"oc": {**_cabecera_oc(oc, liberaciones.de(db)), "proveedor": prov.nombre, **tiendas_estimadas(db, [oc]).get(oc.id, {}),
                    "centro_destino_nombre": destino.nombre if destino else None,
                    "pais_destino": destino.pais if destino else None},
             "posiciones": posiciones}
@@ -383,10 +351,8 @@ def empaque_posicion(db: Session, user: Usuario, oc_id: int, posicion_id: int, c
 def estado_posicion(oc, p, facturado: int, facturas: list[dict]):
     """Devuelve (estado, motivo, factura a la que queda restringido el saldo)."""
     disponible = p.cantidad - facturado
-    if oc.liberacion_comercial != "C":
-        return "NO_DISPONIBLE", "No commercial release (P): logistics cannot release yet.", None
     if not oc.liberada:
-        return "NO_DISPONIBLE", "No logistics release (304).", None
+        return "NO_DISPONIBLE", "The PO is not released yet: it cannot be invoiced.", None
     if p.bloqueada:
         return "NO_DISPONIBLE", p.motivo_bloqueo or "Line blocked.", None
     if disponible <= 0:
@@ -512,32 +478,11 @@ def _fecha(valor: str) -> date | None:
     return leer_fecha(valor)
 
 
-def _logistica(valor: str | None):
-    """Liberación logística del archivo: acepta el código (300, 301, 304) o la
-    palabra; None si no viene, False si no se reconoce."""
-    v = re.sub(r"[^A-Z0-9]", "", (valor or "").strip().upper())
-    if not v:
-        return None
-    if v in ("300", "RELEASED", "LIBERADA", "LIBERADO", "YES", "SI", "Y", "S", "1", "TRUE", "OK"):
-        return "300"
-    if v in ("301", "CHANGED", "RELEASEDCHANGED", "RELEASEDWITHCHANGES", "MODIFICADA", "CAMBIADA", "LIBERADACONCAMBIOS"):
-        return "301"
-    if v in ("304", "NOTRELEASED", "NOLIBERADA", "PENDING", "PENDIENTE", "NO", "N", "0", "FALSE", "BLOQUEADA"):
-        return "304"
-    return False
-
-
-def _comercial(valor: str) -> str:
-    v = (valor or "").strip().upper()
-    if v in ("P", "PENDIENTE", "PENDING", "NOT RELEASED", "NO", "N", "0", "FALSE", "BLOQUEADA"):
-        return "P"
-    return "C"  # C, vacío o "sí": liberación comercial completa
-
-
 class Maestros:
     """Catálogos precargados para validar un archivo completo sin consultas por fila."""
 
     def __init__(self, db: Session):
+        self.lib = liberaciones.de(db)
         self.proveedores = {p.codigo: p for p in db.scalars(select(Proveedor))}
         self.sociedades = {s.codigo: s for s in db.scalars(select(Sociedad))}
         self.centros = {c.codigo: c for c in db.scalars(select(Centro))}
@@ -566,7 +511,7 @@ class Maestros:
 PAIS_TXT = {"pais_origen": "country of origin", "pais_procedencia": "country of shipment"}
 
 
-def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[str]]:
+def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
     """Convierte los textos de una fila en valores tipados y la valida contra
     los datos maestros. Los códigos se mantienen como texto."""
     errores = []
@@ -587,17 +532,22 @@ def _normalizar(registro: dict, m: Maestros | None = None) -> tuple[dict, list[s
         "puerto_despacho": (r.get("puerto_despacho") or "").upper() or None,
         "pais_origen": (r.get("pais_origen") or "").upper() or None,
         "pais_procedencia": (r.get("pais_procedencia") or r.get("pais_origen") or "").upper() or None,
-        "liberacion_comercial": _comercial(r.get("liberacion_comercial", "")),
+        "liberacion_comercial": (r.get("liberacion_comercial") or "").strip() or None,
         "liberacion_logistica_archivo": (r.get("liberacion_logistica") or "").strip() or None,
         "codigo_sap": r.get("codigo_sap", ""),
     }
-    log = _logistica(d["liberacion_logistica_archivo"])
+    com = m.lib.comercial.leer(d["liberacion_comercial"])
+    if com is False:
+        errores.append(f"Invalid commercial release {d['liberacion_comercial']} (use {m.lib.comercial.ayuda()}).")
+        com = None
+    d["liberacion_comercial"] = com or m.lib.comercial.predeterminado()
+    log = m.lib.logistica.leer(d["liberacion_logistica_archivo"])
     d["liberacion_logistica_archivo"] = log
     if log is False:
-        errores.append(f"Invalid logistics release {r.get('liberacion_logistica')} (use Released, Changed or Not released).")
+        errores.append(f"Invalid logistics release {r.get('liberacion_logistica')} (use {m.lib.logistica.ayuda()}).")
         log = d["liberacion_logistica_archivo"] = None
-    elif log in ("300", "301") and d["liberacion_comercial"] != "C":
-        errores.append(f"Logistics cannot release ({log}) without commercial release: the PO is in P.")
+    elif log and m.lib.logistica.libera(log) and not m.lib.comercial.libera(d["liberacion_comercial"]):
+        errores.append(f"Logistics cannot release ({log}) without commercial release.")
     if d["oc"] and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}", d["oc"]):
         errores.append(f"PO {d['oc']}: letters and numbers (also . - _ /), up to 40 characters.")
     if d["posicion"] and not re.fullmatch(r"[A-Za-z0-9]{1,10}", d["posicion"]):
@@ -862,7 +812,7 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
     ocs_tocadas: dict[int, dict] = {}
     for c in clasificadas:
         if c["estado"] == "conflicto":
-            d, _ = _normalizar(c["datos"])
+            d, _ = _normalizar(c["datos"], m)
             prov = m.proveedores.get(d["proveedor"])
             db.add(Alerta(proveedor_id=prov.id if prov else None, tipo="conflicto_oc",
                           mensaje=f"{c['clave']}: " + " ".join(c["mensajes"]),
@@ -874,7 +824,8 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
         oc = db.scalar(select(OrdenCompra).where(OrdenCompra.proveedor_id == prov.id, OrdenCompra.numero == d["oc"]))
         nueva = oc is None
         if nueva:
-            oc = OrdenCompra(proveedor_id=prov.id, numero=d["oc"])
+            # Sin liberación logística hasta decidirla al final (abajo)
+            oc = OrdenCompra(proveedor_id=prov.id, numero=d["oc"], liberacion_logistica=m.lib.logistica.sin_liberar() or "")
             db.add(oc)
         info = ocs_tocadas.setdefault(id(oc), {
             "oc": oc, "cambios": False, "explicita": d["liberacion_logistica_archivo"],
@@ -897,10 +848,10 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
         aplicadas += 1
     for info in ocs_tocadas.values():
         oc = info["oc"]
-        oc.liberacion_logistica = liberacion_logistica(oc.liberacion_comercial, info["explicita"], info["actual"],
-                                                       info["cambios"])
-        oc.liberada = esta_liberada(oc.liberacion_comercial, oc.liberacion_logistica)
-        fechar_liberaciones(oc)
+        oc.liberacion_logistica = m.lib.logistica_final(oc.liberacion_comercial, info["explicita"], info["actual"],
+                                                        info["cambios"])
+        oc.liberada = m.lib.liberada(oc.liberacion_comercial, oc.liberacion_logistica)
+        m.lib.fechar(oc)
     resultado = {"resumen": _resumen(clasificadas), "aplicadas": aplicadas}
     imp.estado = "APLICADA"
     imp.resultado = resultado
@@ -962,7 +913,7 @@ def crear_oc(db: Session, user: Usuario, datos: dict) -> dict:
 INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"]
 
 
-def plantilla_oc(user: Usuario) -> bytes:
+def plantilla_oc(db: Session, user: Usuario) -> bytes:
     """Plantilla de carga de OC en Excel, con las fechas de ejemplo en el
     formato del usuario (el mismo con el que se leerán)."""
     from datetime import timedelta
@@ -979,8 +930,12 @@ def plantilla_oc(user: Usuario) -> bytes:
               "sociedad": "Company (bill to). Optional; needed to invoice.", "moneda": "Needed if there is a price.",
               "precio": "Optional; needed to invoice.", "casepack": "Solids: exact quantity per carton (optional).",
               "inner_pack": "Usually defined later in the packing list.",
-              "liberacion_comercial": "C = released, P = pending (or the words).",
-              "liberacion_logistica": "300 released, 301 released with changes, 304 not released (or the words)."}
+              "liberacion_comercial": "",
+              "liberacion_logistica": ""}
+    # Códigos de liberación de la empresa (Datos maestros → Estados de liberación)
+    lib = liberaciones.de(db)
+    ayudas["liberacion_comercial"] = f"{lib.comercial.ayuda()} (or the words)."
+    ayudas["liberacion_logistica"] = f"{lib.logistica.ayuda()} (or the words)."
     formato = actual()["formato_fecha"]
     columnas = []
     for campo, alias in ALIAS.items():
@@ -989,7 +944,8 @@ def plantilla_oc(user: Usuario) -> bytes:
             ayuda = (ayuda + " " if ayuda else "") + f"Date as {formato} (your profile setting) or YYYY-MM-DD."
         columnas.append({"nombre": alias[0], "req": campo in REQUERIDOS, "ayuda": ayuda})
     base = {"proveedor": "SUPPLIER", "oc": "PO-0001", "sociedad": "", "moneda": "USD", "incoterm": "FOB",
-            "liberacion_comercial": "C", "liberacion_logistica": "300", "unidad": "", "precio": 10.5, "casepack": 12}
+            "liberacion_comercial": lib.comercial.predeterminado() or "",
+            "liberacion_logistica": next((x.codigo for x in lib.logistica.lista if x.libera and not x.con_cambios), ""), "unidad": "", "precio": 10.5, "casepack": 12}
     ejemplos = []
     for linea, cant in ((10, 48), (20, 36)):
         fila = {**base, "posicion": linea, "codigo_sap": "ITEM-CODE", "cantidad": cant,
@@ -1009,7 +965,10 @@ def opciones_formulario(db: Session, user: Usuario) -> dict:
                                                *([Proveedor.id == user.proveedor_id] if user.proveedor_id else []))
                        .order_by(Proveedor.nombre)).all()
     op = lambda xs, f=lambda x: x.nombre: [{"valor": x.codigo, "texto": f"{x.codigo} · {f(x)}"} for x in xs]  # noqa: E731
-    monedas = sorted({m for (m,) in db.execute(select(OrdenCompra.moneda).distinct()) if m} | {"USD", "EUR"})
+    from ..empresa import configuracion_actual
+
+    base = (configuracion_actual().get("preferencias") or {}).get("moneda") or "USD"  # moneda base de la empresa
+    monedas = sorted({m for (m,) in db.execute(select(OrdenCompra.moneda).distinct()) if m} | {base})
     return {
         # Cada proveedor lleva sus sociedades: el formulario solo ofrece esas
         "proveedores": [{**o, "sociedades": [x.codigo for x in p.sociedades]} for o, p in zip(op(provs), provs)],

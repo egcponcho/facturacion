@@ -56,9 +56,11 @@ from .common import (
 ETIQUETAS = {
     "sociedad": "companies",
     "moneda": "currencies",
-    "centro": "destination centers",
+    "centro": "plants",
     "incoterm": "incoterms",
-    "centro_destino": "destination countries",
+    "centro_destino": "destination plants",
+    "puerto_despacho": "ports of loading",
+    "pais_origen": "countries of origin",
 }
 
 
@@ -138,14 +140,16 @@ def _preparar_posiciones(
 
     errores: list[dict] = []
     advertencias: list[str] = []
-    for campo in settings.COMPATIBILIDAD_BLOQUEANTE + settings.COMPATIBILIDAD_ADVERTENCIA:
+    # Campos de la OC que no se mezclan en una factura (Configuración → Empresa)
+    bloquean, avisan = list(regla("COMPATIBILIDAD_BLOQUEANTE")), list(regla("COMPATIBILIDAD_ADVERTENCIA"))
+    for campo in [c for c in bloquean + avisan if c in ETIQUETAS]:
         valores = {getattr(oc, campo) for oc in ocs.values()}
         if factura:
             valores.add(getattr(factura, campo))
         valores.discard(None)
         if len(valores) > 1:
             texto = f"You are mixing different {ETIQUETAS[campo]}: {', '.join(sorted(map(str, valores)))}."
-            if campo in settings.COMPATIBILIDAD_BLOQUEANTE:
+            if campo in bloquean:
                 errores.append({"mensaje": texto + " Split them into separate invoices."})
             else:
                 advertencias.append(texto)

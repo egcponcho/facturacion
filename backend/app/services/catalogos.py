@@ -15,6 +15,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..models import (
+    CategoriaArticulo,
+    EstadoLiberacion,
     AcuerdoComercial,
     Almacen,
     Articulo,
@@ -56,7 +58,6 @@ from .productos import (
 from .unidades import opciones as _opciones_unidad
 
 UNIDADES = _opciones_unidad()
-CATEGORIAS = [["CALZADO", "Footwear"], ["ROPA", "Apparel"], ["ACCESORIO", "Accessories"]]
 
 
 def c(nombre, etiqueta, tipo="texto", obligatorio=False, **extra):
@@ -282,7 +283,7 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True),
-            c("categoria", "Category", "opcion", opciones=CATEGORIAS + [["OTRO", "Other"]], filtro=True),
+            c("categoria", "Category", "codigo", catalogo="categorias", filtro=True),
             c("regla", "Size code rule", "opcion", obligatorio=True, filtro=True, opciones=[
                 ["MULTIPLICAR", "Size × factor (7.5 × 10 → 075)"], ["CONSECUTIVO", "Consecutive (001, 002…)"],
                 ["TALLA", "Same as the size (S, M, XL)"]]),
@@ -294,6 +295,35 @@ CATALOGOS = {
         ],
         "buscar": ["codigo", "nombre", "tallas"],
     },
+    "categorias": {
+        "modelo": CategoriaArticulo, "titulo": "Item categories", "singular": "category",
+        "ayuda": "Your company's product lines (footwear, apparel, accessories…). Item groups and size scales use them.",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=10, mayus=True),
+            c("nombre", "Name", obligatorio=True),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre"],
+    },
+    "liberaciones": {
+        "modelo": EstadoLiberacion, "titulo": "Release statuses", "singular": "release status",
+        "ayuda": "The codes your ERP sends for the commercial and logistics release of a PO (e.g. SAP: C/P and "
+                 "300/301/304). A PO can be invoiced only when both releases are given.",
+        "campos": [
+            c("tipo", "Release", "opcion", obligatorio=True, filtro=True,
+              opciones=[["COMERCIAL", "Commercial"], ["LOGISTICA", "Logistics"]]),
+            c("codigo", "Code", obligatorio=True, max=10, mayus=True, ayuda="As it comes from your ERP."),
+            c("nombre", "Name", obligatorio=True),
+            c("libera", "Released", "bool", ayuda="With this status the release is given."),
+            c("con_cambios", "Released with later changes", "bool",
+              ayuda="Logistics: status a released PO moves to when it changes afterwards."),
+            c("predeterminado", "Default", "bool", ayuda="Used when the file does not bring this release."),
+            c("alias", "Other words", max=300, ayuda="Other words the importer accepts, separated by commas."),
+            c("orden", "Order", "entero", minimo=0),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre", "alias"],
+    },
     "grupos": {
         "modelo": GrupoArticulo, "titulo": "Item groups", "singular": "group",
         "ayuda": "Each item belongs to a single group. The category sets the packing rule; it does not define the "
@@ -301,7 +331,7 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=15, mayus=True),
             c("nombre", "Name", obligatorio=True, formato="nombre"),
-            c("categoria", "Category", "opcion", obligatorio=True, opciones=CATEGORIAS, filtro=True),
+            c("categoria", "Category", "codigo", catalogo="categorias", obligatorio=True, filtro=True),
             c("dias_extra", "Extra days after arrival", "numero", minimo=0,
               ayuda="Handling this product type needs after the port (inspection, labeling, permits). "
                     "It is added to the in-store estimate; empty = none."),
@@ -786,6 +816,19 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                             "those companies cannot be removed."})
     if cat["modelo"] is ReglaLeadTime:
         errores += _validar_regla_lt(db, final, actual, limpio)
+    if cat["modelo"] is EstadoLiberacion:
+        otros = [x for x in db.scalars(select(EstadoLiberacion).where(EstadoLiberacion.tipo == final.get("tipo")))
+                 if not actual or x.id != actual.id]
+        if final.get("predeterminado") and any(x.predeterminado for x in otros):
+            errores.append({"campo": "predeterminado", "mensaje": "There is already a default status for this release."})
+        if final.get("con_cambios") and (final.get("tipo") != "LOGISTICA" or not final.get("libera")):
+            errores.append({"campo": "con_cambios", "mensaje": "Only a released logistics status can be the one with later changes."})
+        if final.get("con_cambios") and any(x.con_cambios for x in otros):
+            errores.append({"campo": "con_cambios", "mensaje": "There is already a status for released POs with later changes."})
+        if actual and "codigo" in limpio and limpio["codigo"] != actual.codigo:
+            col = OrdenCompra.liberacion_comercial if actual.tipo == "COMERCIAL" else OrdenCompra.liberacion_logistica
+            if db.scalar(select(OrdenCompra.id).where(col == actual.codigo).limit(1)):
+                errores.append({"campo": "codigo", "mensaje": "Purchase orders use this code: it cannot change."})
     if cat["modelo"] is EscalaTalla and final.get("tallas"):
         from .tallas import validar as validar_escala
 

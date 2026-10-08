@@ -56,7 +56,7 @@ const opciones = ref({})
 const params = computed(() => Object.fromEntries(FILTROS.filter((k) => filtros[k]).map((k) => [k, filtros[k]])))
 const paramsExportar = computed(() => ({ ...params.value, proveedor_id: sesion.proveedorId || undefined }))
 const ESTADOS_EMB = [['PLANIFICADO', t('Planned')], ['EN_TRANSITO', t('In transit')], ['ARRIBADO', t('Arrived')], ['ENTREGADO', t('Delivered')], ['RECIBIDO', t('Received')]]
-const ESTADOS_OC = [['SIN_COMERCIAL', t('No commercial release (P)')], ['SIN_LOGISTICA', t('No logistics release (304)')],
+const ESTADOS_OC = [['SIN_COMERCIAL', t('No commercial release')], ['SIN_LOGISTICA', t('No logistics release')],
   ['POR_FACTURAR', t('Released, not invoiced')], ['PARCIAL', t('Partly invoiced')], ['FACTURADA', t('Invoiced, in process')],
   ['EN_CAMINO', t('On the way')], ['RECIBIDA', t('Received')]]
 const ETAPAS = [['PEND_LIBERACION', t('Pending release')], ['POR_FACTURAR', t('To invoice')], ['FACTURADO', t('Invoiced, no PL')],

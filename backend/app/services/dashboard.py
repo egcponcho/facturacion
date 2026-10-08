@@ -74,7 +74,9 @@ def _saldo_ocs(db: Session, prov: int | None) -> dict:
 
 def _moneda_principal(valor: dict[str, float]) -> tuple[str, float]:
     if not valor:
-        return "USD", 0.0
+        from ..empresa import configuracion_actual
+
+        return (configuracion_actual().get("preferencias") or {}).get("moneda") or "USD", 0.0
     moneda = max(valor, key=valor.get)
     return moneda, round(valor[moneda], 2)
 
@@ -491,8 +493,8 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None, desde
     if pendientes_lib:
         tareas.insert(0, {"prioridad": 1, "tipo": "liberacion",
                           "titulo": f"{len(pendientes_lib)} POs not released",
-                          "detalle": "No commercial release (P) or logistics at 304: they cannot be invoiced.",
-                          "ruta": "/ordenes?liberacion=304&solo_disponible=0", "accion": "View"})
+                          "detalle": "Commercial or logistics release pending: they cannot be invoiced.",
+                          "ruta": "/ordenes?liberada=0&solo_disponible=0", "accion": "View"})
     resumen = _resumen_periodo(db, facturas, moneda, desde, hasta, prov, filtro_marcas, interno)
     return {
         "rol": user.rol,

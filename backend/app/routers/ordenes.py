@@ -22,12 +22,13 @@ def listar(
     orden: str | None = None,
     almacen: str | None = None,
     comercial: str | None = None,
+    liberada: bool | None = None,
     solo_disponible: bool = True,
     page: int = Query(1, ge=1),
     size: int = Query(25, ge=1, le=200),
 ):
     return svc.listar_ordenes(db, user, proveedor_id, q, centro, solo_disponible, page, size,
-                              sociedad, marca, liberacion, destino, puerto, orden, almacen, comercial)
+                              sociedad, marca, liberacion, destino, puerto, orden, almacen, comercial, liberada)
 
 
 @router.get("/ordenes/filtros")
@@ -57,10 +58,10 @@ class OrdenNueva(BaseModel):
 
 
 @router.get("/ordenes/plantilla")
-def plantilla_oc(user: User):
+def plantilla_oc(db: Db, user: User):
     from fastapi import Response
 
-    contenido = svc.plantilla_oc(user)
+    contenido = svc.plantilla_oc(db, user)
     return Response(contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": 'attachment; filename="purchase_orders_template.xlsx"'})
 

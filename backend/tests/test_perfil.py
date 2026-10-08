@@ -11,7 +11,8 @@ from app.services import preferencias
 
 def test_perfil_y_preferencias(interno):
     p = interno.get("/perfil").json()
-    assert p["preferencias"]["idioma"] == "en" and p["preferencias"]["formato_fecha"] == "MM/DD/YYYY"
+    # Sin elección propia, el idioma es el predeterminado de la empresa (la demo: español)
+    assert p["preferencias"]["idioma"] == "es" and p["preferencias"]["formato_fecha"] == "MM/DD/YYYY"
     assert "DD/MM/YYYY" in p["opciones"]["formatos_fecha"]
     assert interno.get("/auth/me").json()["preferencias"]["formato_hora"] == "12"
     # Opciones inválidas no se guardan

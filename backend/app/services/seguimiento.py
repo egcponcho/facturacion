@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
+from . import liberaciones
 from .cantidades import facturado_por_posicion, nombre_factura
 from .common import proveedor_filtro
 from .leadtimes import Estandares, _riesgo, arribo_estimado, entre, limite_puerto
@@ -367,8 +368,8 @@ def explosion_unidad(db: Session, user: Usuario, unidad_id: int, proveedor_id: i
 
 # ---- Tablero de órdenes de compra -------------------------------------------
 ESTADOS_OC = [
-    ("SIN_COMERCIAL", "No commercial release (P)"),
-    ("SIN_LOGISTICA", "No logistics release (304)"),
+    ("SIN_COMERCIAL", "No commercial release"),
+    ("SIN_LOGISTICA", "No logistics release"),
     ("POR_FACTURAR", "Released, not invoiced"),
     ("PARCIAL", "Partly invoiced"),
     ("FACTURADA", "Invoiced, in progress"),
@@ -382,10 +383,10 @@ ORDEN_OCS = {"oc", "proveedor", "estado", "fecha_xf", "fecha_tienda", "tienda_es
              "holgura", "centro"}
 
 
-def _estado_oc(o: dict) -> str:
-    if o["liberacion_comercial"] != "C":
+def _estado_oc(o: dict, lib) -> str:
+    if not lib.comercial.libera(o["liberacion_comercial"]):
         return "SIN_COMERCIAL"
-    if o["liberacion_logistica"] not in ("300", "301"):
+    if not lib.logistica.libera(o["liberacion_logistica"]):
         return "SIN_LOGISTICA"
     c = o["cantidades"]
     if c["recibido"] == o["total"]:
@@ -428,8 +429,13 @@ def ordenes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros
         if f["tienda_estimada"] and f["etapa"] != "RECIBIDO":
             o["tiendas"].append(f["tienda_estimada"])
     items = []
+    lib = liberaciones.de(db)
     for o in por_oc.values():
-        o["estado"] = _estado_oc(o)
+        o["estado"] = _estado_oc(o, lib)
+        o["comercial_txt"] = lib.comercial.nombre(o["liberacion_comercial"])
+        o["liberacion_txt"] = lib.logistica.nombre(o["liberacion_logistica"])
+        o["comercial_ok"] = lib.comercial.libera(o["liberacion_comercial"])
+        o["logistica_ok"] = lib.logistica.libera(o["liberacion_logistica"])
         o["por_facturar"] = o["cantidades"]["por_facturar"]
         o["avance"] = round((o["total"] - o["por_facturar"]) * 100 / o["total"], 1) if o["total"] else 0
         o["holgura"] = min(o.pop("holguras")) if o["holguras"] else None

@@ -63,7 +63,8 @@ class Settings:
     # Tamaño máximo de una petición (archivos que se suben), en MB
     MAX_SUBIDA_MB: int = int(os.getenv("MAX_SUBIDA_MB", "25"))
     # Clasificación arancelaria: país cuyo código nacional completa la partida sugerida
-    PAIS_BASE_CLASIF: str = os.getenv("PAIS_BASE_CLASIF", "SV").upper()
+    # (valor de fábrica; cada empresa lo elige en Configuración → Empresa)
+    PAIS_BASE_CLASIF: str = os.getenv("PAIS_BASE_CLASIF", "").upper()
     # Opinión del especialista con Claude (opcional): sin clave, la opción no aparece
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     CLAUDE_MODELO: str = os.getenv("CLAUDE_MODELO", "claude-opus-5-5")
@@ -105,11 +106,11 @@ class Settings:
 
     # Campos de la OC que no se pueden mezclar en una factura (bloquean)
     # y campos que solo generan advertencia.
-    COMPATIBILIDAD_BLOQUEANTE: tuple[str, ...] = ("sociedad", "moneda", "centro")
+    COMPATIBILIDAD_BLOQUEANTE: list[str] = ["sociedad", "moneda", "centro"]
     # Holgura mínima (días) frente a la fecha en tienda para considerarse "en tiempo";
     # con menos queda "en riesgo" y con holgura negativa, "atrasado"
     DIAS_MARGEN_RIESGO: int = 7
-    COMPATIBILIDAD_ADVERTENCIA: tuple[str, ...] = ("incoterm", "centro_destino")
+    COMPATIBILIDAD_ADVERTENCIA: list[str] = ["incoterm", "centro_destino"]
 
 
     def validar(self) -> None:

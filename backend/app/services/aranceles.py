@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from ..models import IncisoNacional, NodoArancel, NotaSAC, PaisArancel, Usuario, ahora
 from . import overrides
 from . import documentos, exportar
+from ..empresa import regla
 from .common import ErrorNegocio, exigir, registrar
 from .meta import cond_texto, opciones_cond, valor_opcion
 from .plantillas import leer, norm, plantilla, si_no
@@ -631,7 +632,7 @@ def plantilla_incisos(db: Session, pais: str | None = None) -> bytes:
         else:
             cols.append({"nombre": d["label"], "opciones": list(d["ops"].values()),
                          "ayuda": ayuda + " Several values separated by commas."})
-    iso = (pais or "SV").upper()
+    iso = (pais or regla("PAIS_BASE_CLASIF") or next(iter(ps), "")).upper()  # el país base de la empresa
     n = ps[iso].digitos if iso in ps else 10
     ej = [[iso, "6404.19.90" + "0" * max(0, n - 8), "Los demás", "15", 0, "", "Adult"] + [""] * (len(cols) - 7)]
     return plantilla("National tariff codes", cols, ej, [

@@ -24,7 +24,11 @@ REGLAS = {
     "DIAS_ALERTA_BORRADOR": "Days before warning about drafts that still reserve quantities",
     "DIAS_MARGEN_RIESGO": "Minimum margin (days) before the required date to be on time",
     "PAIS_BASE_CLASIF": "Country whose national code completes the suggested HS code",
+    "COMPATIBILIDAD_BLOQUEANTE": "PO data that cannot be mixed in one invoice",
+    "COMPATIBILIDAD_ADVERTENCIA": "PO data that only warns when mixed in one invoice",
 }
+# Datos de la OC que pueden ser parte de las reglas de compatibilidad
+CAMPOS_COMPATIBILIDAD = ("sociedad", "centro", "centro_destino", "moneda", "incoterm", "puerto_despacho", "pais_origen")
 
 
 def usar_configuracion(config: dict | None) -> None:

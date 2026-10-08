@@ -68,3 +68,19 @@ def test_migracion_vuelve_a_una_empresa():
         except sqlite3.IntegrityError:
             duplicado = True
         assert duplicado, "el código de proveedor vuelve a ser único"
+
+
+def test_reglas_de_compatibilidad_configurables(admin):
+    reglas = {r["clave"]: r["valor"] for r in admin.get("/organizacion").json()["reglas"]}
+    assert set(reglas["COMPATIBILIDAD_BLOQUEANTE"]) == {"sociedad", "moneda", "centro"}
+    assert admin.put("/organizacion", {"reglas": {"COMPATIBILIDAD_BLOQUEANTE": ["no_existe"]}}).status_code == 422
+    # Un dato no puede bloquear y solo avisar a la vez
+    assert admin.put("/organizacion", {"reglas": {"COMPATIBILIDAD_BLOQUEANTE": ["incoterm"]}}).status_code == 422
+    r = admin.put("/organizacion", {"reglas": {"COMPATIBILIDAD_BLOQUEANTE": ["moneda", "sociedad"],
+                                               "COMPATIBILIDAD_ADVERTENCIA": ["incoterm", "centro"]}})
+    assert r.status_code == 200, r.text
+    reglas = {x["clave"]: x["valor"] for x in r.json()["reglas"]}
+    assert reglas["COMPATIBILIDAD_BLOQUEANTE"] == ["sociedad", "moneda"] and "centro" in reglas["COMPATIBILIDAD_ADVERTENCIA"]
+    assert {c["clave"] for c in r.json()["campos_compatibilidad"]} >= {"sociedad", "centro", "moneda", "incoterm"}
+    admin.put("/organizacion", {"reglas": {"COMPATIBILIDAD_BLOQUEANTE": ["sociedad", "centro", "moneda"],
+                                           "COMPATIBILIDAD_ADVERTENCIA": ["incoterm", "centro_destino"]}})

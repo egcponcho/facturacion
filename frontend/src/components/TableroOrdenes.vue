@@ -8,7 +8,7 @@ import { esInterno, sesion, ve } from '../stores/sesion'
 import { useColumnas } from '../composables/useColumnas'
 import SelectorColumnas from './SelectorColumnas.vue'
 import { errorApi } from '../stores/ui'
-import { COMERCIAL, LIBERACION, TIEMPO, cantTxt, diasTxt, fmtFecha, fmtNum } from '../utils'
+import { TIEMPO, cantTxt, diasTxt, fmtFecha, fmtNum } from '../utils'
 import ExplosionPrepack from './ExplosionPrepack.vue'
 import GraficoColumnas from './GraficoColumnas.vue'
 import Icono from './Icono.vue'
@@ -166,8 +166,8 @@ onMounted(cargar)
           <td v-if="cols.ver('sociedad')" class="codigo">{{ tx(o.sociedad) }} · {{ tx(o.centro) }}<span class="sub">{{ t('destination {0}', [o.centro_destino || '—']) }}</span></td>
           <td v-if="cols.ver('liberaciones')">
             <span class="insignias columna" style="margin-top: 0">
-              <span class="etiqueta" :class="COMERCIAL[o.liberacion_comercial]?.[1]" :title="tx(COMERCIAL[o.liberacion_comercial]?.[2])">{{ tx(COMERCIAL[o.liberacion_comercial]?.[0]) }}</span>
-              <span class="etiqueta" :class="LIBERACION[o.liberacion_logistica]?.[1]" :title="tx(LIBERACION[o.liberacion_logistica]?.[2])">{{ tx(LIBERACION[o.liberacion_logistica]?.[0]) }}</span>
+              <span class="etiqueta" :class="o.comercial_ok ? 'ok' : 'aviso'" :title="o.liberacion_comercial">{{ tx(o.comercial_txt) }}</span>
+              <span class="etiqueta" :class="o.logistica_ok ? 'ok' : 'aviso'" :title="o.liberacion_logistica">{{ tx(o.liberacion_txt) }}</span>
             </span>
           </td>
           <td v-if="cols.ver('estado')" class="ajustar"><span class="etiqueta" :class="TONO[o.estado]" style="margin-inline-start: 0; white-space: normal">{{ tx(nombreEstado[o.estado]) }}</span></td>

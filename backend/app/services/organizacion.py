@@ -10,7 +10,7 @@ import re
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..empresa import REGLAS
+from ..empresa import CAMPOS_COMPATIBILIDAD, REGLAS
 from ..models import Organizacion, Usuario
 from .common import ErrorNegocio, permisos_de, registrar
 
@@ -49,7 +49,13 @@ def _dict(o: Organizacion) -> dict:
         "pais": o.pais, "logo": o.logo,
         "preferencias": {**PREFERENCIAS, **conf.get("preferencias", {})},
         "reglas": [{"clave": k, "texto": t, "valor": v} for (k, t), v in zip(REGLAS.items(), _reglas_de(o).values())],
+        # Datos de la OC que pueden entrar en las reglas de compatibilidad
+        "campos_compatibilidad": [{"clave": k, "texto": NOMBRES_CAMPO[k]} for k in CAMPOS_COMPATIBILIDAD],
     }
+
+
+NOMBRES_CAMPO = {"sociedad": "Company", "centro": "Plant", "centro_destino": "Destination plant", "moneda": "Currency",
+                 "incoterm": "Incoterm", "puerto_despacho": "Port of loading", "pais_origen": "Country of origin"}
 
 
 def actual(db: Session) -> Organizacion:
@@ -68,7 +74,13 @@ def _validar_regla(clave: str, valor):
     elif isinstance(base, int):
         if not isinstance(valor, int) or isinstance(valor, bool) or not 0 <= valor <= 365:
             raise ErrorNegocio("Enter a whole number of days between 0 and 365.", 422, "validacion")
+    elif isinstance(base, list):
+        if not isinstance(valor, list) or any(v not in CAMPOS_COMPATIBILIDAD for v in valor):
+            raise ErrorNegocio("Choose PO data from the list.", 422, "validacion")
+        valor = [v for v in CAMPOS_COMPATIBILIDAD if v in valor]
     elif clave == "PAIS_BASE_CLASIF":
+        if valor in (None, ""):
+            return ""
         if not isinstance(valor, str) or not re.fullmatch(r"[A-Za-z]{2}", valor):
             raise ErrorNegocio("Enter the two-letter country code.", 422, "validacion")
         valor = valor.upper()
@@ -99,6 +111,10 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
             if clave not in REGLAS:
                 raise ErrorNegocio("Unknown rule.", 422, "validacion")
             reglas[clave] = _validar_regla(clave, valor)
+        efectiva = {k: reglas.get(k, getattr(settings, k)) for k in ("COMPATIBILIDAD_BLOQUEANTE", "COMPATIBILIDAD_ADVERTENCIA")}
+        dobles = set(efectiva["COMPATIBILIDAD_BLOQUEANTE"]) & set(efectiva["COMPATIBILIDAD_ADVERTENCIA"])
+        if dobles:
+            raise ErrorNegocio("The same PO data cannot block and only warn.", 422, "validacion")
         conf["reglas"] = reglas
     o.configuracion = conf
     registrar(db, user, "organizacion", o.id, "editar_organizacion",
