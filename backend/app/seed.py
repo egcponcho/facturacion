@@ -579,7 +579,7 @@ def seed(db: Session) -> None:
         return
     from .services.organizacion import asegurar_principal
 
-    asegurar_principal(db, "Distribuidora de Marcas")
+    asegurar_principal(db).nombre = "Distribuidora de Marcas"
     tnf = Proveedor(codigo="TNF", nombre="The North Face", razon_social="VF Outdoor Asia Sourcing Ltd.",
                     id_fiscal="HK-51902231", pais="VN", direccion="Lot C-5, Tan Thuan EPZ, Ho Chi Minh, Vietnam",
                     contacto="Linh Nguyen", correos="export.tnf@vf.demo", telefono="+84 28 3770 1234")
@@ -689,10 +689,30 @@ def seed(db: Session) -> None:
     db.commit()
 
 
-if __name__ == "__main__":
-    from .db import Base, SessionLocal, engine
+def reiniciar_demo() -> None:
+    """Borra la base de la demostración y la vuelve a crear con sus datos.
+    Solo con SEED_DEMO=1: nunca toca una base de producción."""
+    from sqlalchemy import inspect, text
 
-    Base.metadata.create_all(engine)
+    from . import migraciones
+    from .config import settings
+    from .db import SessionLocal, engine
+
+    if not settings.SEED_DEMO:
+        raise SystemExit("Solo se reinicia una base de demostración (SEED_DEMO=1).")
+    with engine.begin() as con:
+        if engine.dialect.name == "postgresql":
+            con.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
+        else:
+            con.execute(text("PRAGMA foreign_keys=OFF"))
+            for t in inspect(engine).get_table_names():
+                con.execute(text(f'DROP TABLE IF EXISTS "{t}"'))
+            con.execute(text("PRAGMA foreign_keys=ON"))
+    migraciones.actualizar()
     with SessionLocal() as s:
         seed(s)
-    print("Demo data loaded.")
+
+
+if __name__ == "__main__":
+    # python -m app.seed  → reinicia la demostración (SEED_DEMO=1)
+    reiniciar_demo()

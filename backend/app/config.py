@@ -1,9 +1,17 @@
-"""Configuración general y reglas de negocio.
+"""Configuración de la instalación (variables de entorno).
 
-Las reglas que todavía pueden cambiar en el negocio se controlan aquí,
-para no tener que tocar el modelo de datos cuando cambien.
+Aquí solo va lo que depende del servidor: base de datos, claves, acceso
+seguro, SMS y archivos. Todo lo que es del negocio (reglas, preferencias,
+catálogos, roles…) se guarda en la base de datos y se cambia desde la
+aplicación; los valores de «Reglas de negocio» de abajo solo son los de
+fábrica para una instalación nueva.
+
+La lista completa de lo que hay que definir en producción está en
+docs/PRODUCCION.md y en backend/.env.example.
 """
+import logging
 import os
+import secrets
 
 
 def _bool(nombre: str, defecto: bool) -> bool:
@@ -24,7 +32,10 @@ def _url_bd(url: str) -> str:
 
 class Settings:
     DATABASE_URL: str = _url_bd(os.getenv("DATABASE_URL", "sqlite:///./facturas_pl.db"))
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "cambia-esta-clave-en-produccion-con-32-caracteres-o-mas")
+    # Firma las sesiones y los códigos de verificación. Obligatoria: sin ella
+    # (o con menos de 32 caracteres) el servidor no arranca. Solo la
+    # demostración, si no se define, usa una clave al azar por arranque.
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
 
     # ---- Acceso seguro -----------------------------------------------------
     # La sesión vive en una cookie httpOnly (el navegador no la expone a
@@ -32,7 +43,9 @@ class Settings:
     # SESION_HORAS desde que se inició.
     SESION_HORAS: int = int(os.getenv("SESION_HORAS", "12"))
     SESION_INACTIVIDAD_MIN: int = int(os.getenv("SESION_INACTIVIDAD_MIN", "30"))
-    COOKIE_SEGURA: bool = _bool("COOKIE_SEGURA", False)  # True detrás de https (producción)
+    # La cookie de sesión solo viaja por https. Apagarla solo en desarrollo
+    # local sin https (COOKIE_SEGURA=0).
+    COOKIE_SEGURA: bool = _bool("COOKIE_SEGURA", True)
     # Bloqueo tras intentos fallidos de contraseña
     INTENTOS_MAX: int = int(os.getenv("INTENTOS_MAX", "5"))
     BLOQUEO_MIN: int = int(os.getenv("BLOQUEO_MIN", "15"))
@@ -47,21 +60,31 @@ class Settings:
     TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")
     TWILIO_FROM: str = os.getenv("TWILIO_FROM", "")
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./archivos")
+    # Tamaño máximo de una petición (archivos que se suben), en MB
+    MAX_SUBIDA_MB: int = int(os.getenv("MAX_SUBIDA_MB", "25"))
     # Clasificación arancelaria: país cuyo código nacional completa la partida sugerida
     PAIS_BASE_CLASIF: str = os.getenv("PAIS_BASE_CLASIF", "SV").upper()
     # Opinión del especialista con Claude (opcional): sin clave, la opción no aparece
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     CLAUDE_MODELO: str = os.getenv("CLAUDE_MODELO", "claude-opus-5-5")
     FRONTEND_DIST: str = os.getenv("FRONTEND_DIST", "../frontend/dist")
-    SEED_DEMO: bool = _bool("SEED_DEMO", True)
-    # Versión del esquema de datos. En modo demo (SEED_DEMO=1), si la base
-    # tiene otra versión se borra y se vuelve a crear con los datos de prueba.
-    ESQUEMA_VERSION: str = "58"
+    # Demostración: carga datos de ejemplo (empresa, proveedores, órdenes,
+    # facturas…) en una base vacía. Es lo único que cambia: el esquema, las
+    # migraciones y la seguridad son los mismos que en producción.
+    SEED_DEMO: bool = _bool("SEED_DEMO", False)
+    # Instalación nueva (sin usuarios): nombre de la empresa y primer
+    # administrador. La contraseña es temporal: se cambia al primer ingreso.
+    EMPRESA_NOMBRE: str = os.getenv("EMPRESA_NOMBRE", "")
+    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "")
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
+    ADMIN_TELEFONO: str = os.getenv("ADMIN_TELEFONO", "")
     CORS_ORIGINS: list[str] = [
         o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
     ]
 
-    # ---- Reglas de negocio -------------------------------------------------
+    # ---- Reglas de negocio (valores de fábrica) ------------------------------
+    # Cada empresa las cambia en Configuración → Empresa; estos valores solo
+    # se usan mientras no lo haya hecho.
     # False: una posición de OC solo puede estar en UNA factura activa.
     #        La factura puede tomar una parte; el saldo solo se agrega a esa
     #        misma factura (o a otra si se quita de la primera).
@@ -88,6 +111,25 @@ class Settings:
     DIAS_MARGEN_RIESGO: int = 7
     COMPATIBILIDAD_ADVERTENCIA: tuple[str, ...] = ("incoterm", "centro_destino")
 
+
+    def validar(self) -> None:
+        """Revisa la configuración al arrancar: sin una clave secreta propia el
+        servidor no arranca (salvo la demostración, que usa una al azar)."""
+        log = logging.getLogger("configuracion")
+        if not self.SECRET_KEY:
+            if not self.SEED_DEMO:
+                raise RuntimeError("Falta SECRET_KEY: defina una clave al azar de 32 caracteres o más "
+                                   "(ver docs/PRODUCCION.md).")
+            self.SECRET_KEY = secrets.token_urlsafe(48)
+            log.warning("Demostración sin SECRET_KEY: se usa una clave al azar; las sesiones se cierran al reiniciar.")
+        if len(self.SECRET_KEY) < 32:
+            raise RuntimeError("SECRET_KEY es muy corta: use 32 caracteres o más.")
+        if not self.SEED_DEMO:
+            if not self.COOKIE_SEGURA:
+                log.warning("COOKIE_SEGURA=0: la sesión puede viajar sin https. Úselo solo en desarrollo local.")
+            if self.DOS_PASOS and self.SMS_PROVEEDOR == "consola":
+                log.warning("SMS_PROVEEDOR=consola: los códigos de verificación solo quedan en el registro del "
+                            "servidor. Configure twilio para enviarlos por SMS.")
 
 
 settings = Settings()

@@ -5,62 +5,40 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
 from .config import settings
-from .db import Base, SessionLocal, engine
-from .models import Meta
+from .db import SessionLocal
 from .routers import aranceles, auth_admin, catalogos, conocimiento, facturas, ordenes, packing, productos, transporte, varios
 from .services.common import ErrorNegocio
 
 
-def _preparar_esquema() -> None:
-    """Crea las tablas. En modo demo, si la base viene de una versión anterior
-    del esquema, la reinicia completa (los datos de prueba se vuelven a cargar).
-    Con datos reales (SEED_DEMO=0) nunca borra nada: usa migraciones."""
-    tablas = set(inspect(engine).get_table_names())
-    version = None
-    if "meta" in tablas:
-        with engine.connect() as con:
-            version = con.execute(text("SELECT valor FROM meta WHERE clave = 'esquema'")).scalar()
-    if settings.SEED_DEMO and tablas and version != settings.ESQUEMA_VERSION:
-        with engine.begin() as con:
-            if engine.dialect.name == "postgresql":
-                con.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
-            else:
-                con.execute(text("PRAGMA foreign_keys=OFF"))
-                for t in tablas:
-                    con.execute(text(f'DROP TABLE IF EXISTS "{t}"'))
-                con.execute(text("PRAGMA foreign_keys=ON"))
-    from . import migraciones
-
-    if not settings.SEED_DEMO:
-        migraciones.actualizar()  # datos reales: migraciones, nunca create_all
-    else:
-        Base.metadata.create_all(engine)
-        if not inspect(engine).has_table("alembic_version"):
-            migraciones.marcar_actual()
-    with SessionLocal() as db:
-        if not db.get(Meta, "esquema"):
-            db.add(Meta(clave="esquema", valor=settings.ESQUEMA_VERSION))
-            db.commit()
-
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Demo: create_all; datos reales: migraciones de Alembic (app/migraciones.py)
-    _preparar_esquema()
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    if settings.SEED_DEMO:
-        from .seed import seed
+    """Arranque: revisa la configuración, aplica las migraciones pendientes y
+    deja lista la instalación. Demostración y producción siguen el mismo
+    camino; la demostración solo agrega sus datos de ejemplo a una base vacía."""
+    settings.validar()
+    from . import migraciones
+    from .inicial import preparar_instalacion
 
-        with SessionLocal() as db:
+    migraciones.actualizar()
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    with SessionLocal() as db:
+        if settings.SEED_DEMO:
+            from .seed import seed
+
             seed(db)
+        preparar_instalacion(db)
     yield
 
 
-app = FastAPI(title="Supplier workspace: invoices, packing lists and transport", lifespan=lifespan)
+# La documentación interactiva de la API solo en la demostración: en
+# producción no se publica el mapa de rutas.
+_docs = settings.SEED_DEMO
+app = FastAPI(title="Supplier workspace: invoices, packing lists and transport", lifespan=lifespan,
+              docs_url="/docs" if _docs else None, redoc_url="/redoc" if _docs else None,
+              openapi_url="/openapi.json" if _docs else None)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -68,6 +46,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _limite_tamano(request: Request, call_next):
+    """Rechaza peticiones más grandes que MAX_SUBIDA_MB antes de leerlas."""
+    largo = request.headers.get("content-length")
+    if largo and largo.isdigit() and int(largo) > settings.MAX_SUBIDA_MB * 1024 * 1024:
+        return JSONResponse(status_code=413, content={
+            "mensaje": f"The file is too large (maximum {settings.MAX_SUBIDA_MB} MB).", "codigo": "muy_grande", "detalle": None})
+    return await call_next(request)
 
 
 @app.middleware("http")

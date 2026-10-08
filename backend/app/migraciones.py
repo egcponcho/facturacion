@@ -1,9 +1,8 @@
 """Migraciones con Alembic.
 
-- Datos reales (SEED_DEMO=0): al arrancar se aplican las migraciones
-  pendientes. Una base creada antes de Alembic (con create_all) se marca en la
-  migración base 0001 y desde ahí se actualiza; nunca se borra nada.
-- Demo: las tablas se crean del modelo y se marcan en la última migración.
+Al arrancar (demostración y producción por igual) se aplican las migraciones
+pendientes. Una base creada antes de Alembic (con create_all) se marca en la
+migración base 0001 y desde ahí se actualiza; nunca se borra nada.
 """
 from contextlib import contextmanager
 from pathlib import Path
@@ -47,7 +46,7 @@ def sin_claves_foraneas(con):
 
 
 def actualizar() -> None:
-    """Aplica las migraciones pendientes (producción)."""
+    """Aplica las migraciones pendientes y pone al día los datos incluidos."""
     cfg = _config()
     tablas = set(inspect(engine).get_table_names())
     with engine.connect() as con, sin_claves_foraneas(con):
@@ -64,11 +63,3 @@ def actualizar() -> None:
     with SessionLocal() as db:
         cargar_base(db)
         db.commit()
-
-
-def marcar_actual() -> None:
-    """La base se creó del modelo vigente: queda en la última migración."""
-    cfg = _config()
-    with engine.begin() as con:
-        cfg.attributes["connection"] = con
-        command.stamp(cfg, "head")

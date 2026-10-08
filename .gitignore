@@ -5,3 +5,6 @@ __pycache__/
 backend/archivos/
 frontend/node_modules/
 frontend/dist/
+*.db-shm
+*.db-wal
+.env

@@ -170,7 +170,7 @@ There is **a single classification engine**, in Python (`backend/app/services/mo
 
 A code from a chapter that is not enabled cannot be approved.
 
-The database schema is managed with Alembic (`backend/alembic`). With real data (`SEED_DEMO=0`) pending migrations run at start-up. A test checks that the migrations match the models.
+The database schema is managed with Alembic (`backend/alembic`). Pending migrations run at start-up (demo and production alike). A test checks that the migrations match the models.
 
 ## Bulk uploads and exports
 
@@ -321,7 +321,7 @@ Environment variables (see `backend/app/config.py`):
 
 Other variables: `DATABASE_URL`, `SECRET_KEY` (change it in production), `SEED_DEMO`, `UPLOAD_DIR`, `CORS_ORIGINS`.
 
-**Database reset:** in demo mode (`SEED_DEMO=1`) the database is wiped and re-seeded when the schema version changes (`ESQUEMA_VERSION` in `config.py`). In production (`SEED_DEMO=0`) nothing is ever deleted.
+**Database:** demo and production run the same Alembic migrations at start-up and nothing is ever deleted. `SEED_DEMO=1` only adds sample data to an empty database; `SEED_DEMO=1 python -m app.seed` resets the demo. Production checklist: `docs/PRODUCCION.md`.
 
 ## Responsive layout
 
@@ -383,6 +383,4 @@ frontend/src/
 
 ## Before going to production
 
-- Use **Alembic** migrations instead of `create_all` and set `SEED_DEMO=0`.
-- Change `SECRET_KEY`, set `COOKIE_SEGURA=1` and configure a real SMS provider.
-- Serve attachments from object storage instead of local disk.
+See **[docs/PRODUCCION.md](docs/PRODUCCION.md)**: required variables (`SECRET_KEY`, `DATABASE_URL`, SMS, first administrator), what is configured inside the app, first start, updates and backups.

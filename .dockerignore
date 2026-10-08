@@ -1,0 +1,11 @@
+.git
+**/__pycache__
+**/*.pyc
+**/*.db
+**/*.db-*
+backend/archivos
+backend/.env
+frontend/node_modules
+frontend/dist
+NOTAS_SA2006.pdf
+docs

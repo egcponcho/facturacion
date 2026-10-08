@@ -29,7 +29,7 @@ print(json.dumps({"versiones": n(VersionDataset), "nodos": n(NodoArancel), "atri
 
 
 def _arrancar(tmp: str) -> dict:
-    env = {**os.environ, "DATABASE_URL": f"sqlite:///{tmp}/real.db", "SEED_DEMO": "0", "UPLOAD_DIR": tmp, "PYTHONPATH": str(RAIZ)}
+    env = {**os.environ, "DATABASE_URL": f"sqlite:///{tmp}/real.db", "SEED_DEMO": "0", "SECRET_KEY": "x" * 40, "UPLOAD_DIR": tmp, "PYTHONPATH": str(RAIZ)}
     r = subprocess.run([sys.executable, "-c", PROGRAMA], cwd=RAIZ, env=env, capture_output=True, text=True, timeout=600)
     assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-4000:]
     return json.loads(r.stdout.strip().splitlines()[-1])

@@ -1,5 +1,12 @@
 # Blueprint de Render: https://render.com/docs/blueprint-spec
 # Crea la base PostgreSQL y el servicio web (API + frontend compilado) desde el Dockerfile.
+#
+# Este blueprint levanta la DEMOSTRACIÓN (SEED_DEMO=1: datos de ejemplo y el
+# código de verificación en pantalla). Para producción: SEED_DEMO=0,
+# SMS_PROVEEDOR=twilio con sus credenciales y el primer administrador
+# (EMPRESA_NOMBRE, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_TELEFONO). Lista completa
+# en docs/PRODUCCION.md. Las reglas de negocio ya no van aquí: se configuran en
+# la aplicación (Configuración → Empresa).
 databases:
   - name: facturacion-db
     plan: free
@@ -22,11 +29,11 @@ services:
         generateValue: true
       - key: SEED_DEMO
         value: "1"
-      # Acceso seguro: cookie solo por https y verificación en dos pasos por SMS.
-      # Con SMS_PROVEEDOR=consola (demo) el código se muestra en pantalla; para
-      # enviar SMS reales usa twilio y completa las tres credenciales.
       - key: COOKIE_SEGURA
         value: "1"
+      # Render atiende detrás de su propio proxy: la IP real del usuario llega en X-Forwarded-For
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
       - key: DOS_PASOS
         value: "1"
       - key: SMS_PROVEEDOR
@@ -37,11 +44,11 @@ services:
         sync: false
       - key: TWILIO_FROM
         sync: false
-      - key: POSICION_EN_VARIAS_FACTURAS
-        value: "0"
-      - key: FACTURA_EN_UNA_SOLA_UNIDAD
-        value: "0"
-      - key: PROVEEDOR_PUEDE_FINALIZAR
-        value: "1"
-      - key: REQUERIR_DATOS_ADUANA
-        value: "1"
+      - key: EMPRESA_NOMBRE
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_TELEFONO
+        sync: false
