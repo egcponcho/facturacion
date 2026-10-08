@@ -8,8 +8,8 @@ from openpyxl import load_workbook
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from ..tenencia import regla
 from .preferencias import leer_fecha
-from ..config import settings
 from ..models import cant as cant_norm
 from ..models import (
     Alerta,
@@ -392,7 +392,7 @@ def estado_posicion(oc, p, facturado: int, facturas: list[dict]):
     if disponible <= 0:
         return "FACTURADA", None, None
     if facturado > 0:
-        if not settings.POSICION_EN_VARIAS_FACTURAS and facturas:
+        if not regla("POSICION_EN_VARIAS_FACTURAS") and facturas:
             f = facturas[0]
             return "PARCIAL", f"The balance can only be added to {f['nombre']}.", f["id"]
         return "PARCIAL", None, None

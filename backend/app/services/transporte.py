@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, object_session
 
-from ..config import settings
+from ..tenencia import regla
 from ..models import (
     Centro,
     Embarque,
@@ -642,7 +642,7 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
         if not _listo(pl):
             errores.append({"pl_id": pl.id, "mensaje":
                 f"{ref}: only finalized invoices and packing lists go on a shipment."})
-        if settings.FACTURA_EN_UNA_SOLA_UNIDAD:
+        if regla("FACTURA_EN_UNA_SOLA_UNIDAD"):
             otras = {x.unidad_carga_id for x in pl.factura.packing_lists
                      if x.id not in ids and x.unidad_carga_id and x.estado != "CANCELADO"}
             otras.discard(u.id)

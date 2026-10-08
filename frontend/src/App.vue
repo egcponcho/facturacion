@@ -10,11 +10,23 @@ import SelectorIdioma from './components/SelectorIdioma.vue'
 import SelectorTema from './components/SelectorTema.vue'
 import Toasts from './components/Toasts.vue'
 import { carrito } from './stores/carrito'
-import { cerrarSesion, elegirProveedor, esInterno, puede, sesion } from './stores/sesion'
-import { ui } from './stores/ui'
+import { api } from './api'
+import { cargarSesion, cerrarSesion, elegirProveedor, esInterno, puede, sesion } from './stores/sesion'
+import { errorApi, ui } from './stores/ui'
 
 const route = useRoute()
 const router = useRouter()
+// Empresa en la que trabaja (la propia o, para la plataforma, la elegida)
+const empresa = computed(() => sesion.usuario?.organizacion)
+async function volverAMiEmpresa() {
+  try {
+    await api.post(`/organizaciones/${sesion.usuario.organizacion_propia_id}/entrar`)
+    await cargarSesion(true)
+    router.push('/')
+  } catch (e) {
+    errorApi(e)
+  }
+}
 const menuAbierto = ref(false)
 // Selector de proveedor (usuarios internos): busca por código, nombre, razón social, país o marcas
 const opcionesProveedor = computed(() => sesion.proveedores.map((p) => ({
@@ -38,7 +50,9 @@ const navegacion = computed(() => {
 // Configuración agrupada por tema; solo aparece lo que el rol puede abrir
 const ajustes = computed(() => {
   const items = []
+  if (puede('admin')) items.push({ grupo: t('Organization'), to: '/empresa', texto: t('Company'), detalle: t('Name, logo, preferences and rules'), icono: 'base' })
   if (puede('admin')) items.push({ grupo: t('Organization'), to: '/admin', texto: t('Users and access'), detalle: t('Roles, suppliers, sessions'), icono: 'usuarios' })
+  if (sesion.usuario?.plataforma) items.push({ grupo: t('Organization'), to: '/empresas', texto: t('Companies'), detalle: t('Companies in this installation'), icono: 'globo' })
   if (puede('catalogos.ver')) items.push({ grupo: t('Master data'), to: '/mantenimiento', texto: t('Master data'), detalle: t('Items, brands, suppliers, plants'), icono: 'base' })
   if (puede('plantilla.editar')) items.push({ grupo: t('Master data'), to: '/plantillas', texto: t('Packing templates'), detalle: t('Reusable carton layouts'), icono: 'capas' })
   if (puede('catalogos.ver')) items.push({ grupo: t('Logistics'), to: '/leadtimes', texto: t('Lead times'), detalle: t('Steps, rules by region, country and port'), icono: 'reloj' })
@@ -102,9 +116,10 @@ async function salir() {
     <div class="progreso-ruta" :class="{ activo: ui.navegando }" aria-hidden="true"></div>
     <aside class="lateral" :class="{ abierta: menuAbierto }" :aria-label="t('Main')">
       <div class="lateral-cabeza">
-        <router-link to="/" class="marca" :title="t('Workspace')">
-          <span class="marca-logo"><Icono nombre="caja" :tam="18" /></span>
-          <span class="marca-texto">{{ t('Workspace') }}<span>{{ t('Suppliers') }}</span></span>
+        <router-link to="/" class="marca" :title="tx(empresa?.nombre || t('Workspace'))">
+          <img v-if="empresa?.logo" :src="empresa.logo" alt="" class="marca-logo marca-imagen" />
+          <span v-else class="marca-logo"><Icono nombre="caja" :tam="18" /></span>
+          <span class="marca-texto">{{ tx(empresa?.nombre || t('Workspace')) }}<span>{{ t('Workspace') }}</span></span>
         </router-link>
         <button type="button" class="btn-icono lateral-cerrar" :aria-label="t('Close')" @click="menuAbierto = false"><Icono nombre="cerrar" :tam="20" /></button>
       </div>
@@ -167,6 +182,11 @@ async function salir() {
         </div>
       </header>
       <main class="contenido">
+        <div v-if="empresa && !empresa.propia" class="aviso-empresa" role="status">
+          <Icono nombre="globo" :tam="16" />
+          <span>{{ t('You are working in {0}. Everything you see and do belongs to that company.', [empresa.nombre]) }}</span>
+          <button type="button" class="btn btn-chico separar" @click="volverAMiEmpresa">{{ t('Back to my company') }}</button>
+        </div>
         <!-- Cada página entra con un fundido corto (sin esperar a la anterior) -->
         <div :key="route.path" class="pagina-entra"><router-view /></div>
       </main>

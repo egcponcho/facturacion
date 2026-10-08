@@ -29,9 +29,10 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
+from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship, validates
 
 from .db import Base
+from .tenencia import org_por_defecto
 
 
 def cant(v):
@@ -59,6 +60,35 @@ class Cantidad(TypeDecorator):
 
 def ahora() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+class Organizacion(Base):
+    """Una empresa que usa el sistema. Varias comparten la instalación sin ver
+    los datos de las otras. `configuracion` guarda sus preferencias y reglas
+    de negocio (las que antes eran variables de entorno)."""
+
+    __tablename__ = "organizaciones"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    nombre: Mapped[str] = mapped_column(String(200))
+    razon_social: Mapped[str | None] = mapped_column(String(200))
+    id_fiscal: Mapped[str | None] = mapped_column(String(40))
+    pais: Mapped[str | None] = mapped_column(String(2))
+    logo: Mapped[str | None] = mapped_column(Text)  # imagen pequeña (data URL)
+    configuracion: Mapped[dict] = mapped_column(JSON, default=dict)
+    activa: Mapped[bool] = mapped_column(Boolean, default=True)
+    creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
+class DeOrganizacion:
+    """Registro que pertenece a una empresa. Toma la empresa de la petición al
+    crearse y las consultas solo ven los de la empresa de la petición."""
+
+    @declared_attr
+    def organizacion_id(cls) -> Mapped[int]:
+        tabla = getattr(cls, "__tablename__", None)  # el filtro de empresa también lo lee en el mixin
+        return mapped_column(ForeignKey("organizaciones.id", name=f"fk_{tabla}_organizacion" if tabla else None),
+                             index=True, default=org_por_defecto)
 
 
 # --------------------------------------------------------------------------
@@ -95,13 +125,14 @@ centro_puertos = Table(
 # --------------------------------------------------------------------------
 # Usuarios y proveedores
 # --------------------------------------------------------------------------
-class Proveedor(Base):
+class Proveedor(DeOrganizacion, Base):
     """Proveedor (exportador). Maneja sus propias marcas y artículos y solo
     trabaja con las sociedades que tiene asignadas."""
 
     __tablename__ = "proveedores"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_proveedores_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(30), unique=True)
+    codigo: Mapped[str] = mapped_column(String(30))
     nombre: Mapped[str] = mapped_column(String(200))
     razon_social: Mapped[str | None] = mapped_column(String(200))
     id_fiscal: Mapped[str | None] = mapped_column(String(40))
@@ -116,13 +147,14 @@ class Proveedor(Base):
     sociedades: Mapped[list["Sociedad"]] = relationship(secondary=proveedor_sociedades, order_by="Sociedad.codigo")
 
 
-class Transportista(Base):
+class Transportista(DeOrganizacion, Base):
     """Naviera, aerolínea o empresa de transporte terrestre registrada, con
     las sociedades para las que puede trabajar."""
 
     __tablename__ = "transportistas"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_transportistas_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(150))
     tipo: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE | MULTIMODAL
     codigo_internacional: Mapped[str | None] = mapped_column(String(10))  # SCAC o prefijo IATA
@@ -136,13 +168,14 @@ class Transportista(Base):
     sociedades: Mapped[list["Sociedad"]] = relationship(secondary=transportista_sociedades, order_by="Sociedad.codigo")
 
 
-class TipoUnidad(Base):
+class TipoUnidad(DeOrganizacion, Base):
     """Tipo de unidad de carga por modo de transporte (contenedores, LCL,
     guía aérea, camión…) con su capacidad nominal."""
 
     __tablename__ = "tipos_unidad"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_tipos_unidad_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(100))
     modo: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE
     modalidad: Mapped[str] = mapped_column(String(10))  # FCL | LCL | AEREO | FTL | LTL
@@ -152,13 +185,14 @@ class TipoUnidad(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Rol(Base):
+class Rol(DeOrganizacion, Base):
     """Rol con sus permisos: el tipo dice qué datos ve el usuario (el
     proveedor solo lo suyo) y los permisos, a qué módulos y acciones entra."""
 
     __tablename__ = "roles"
+    __table_args__ = (UniqueConstraint("organizacion_id", "nombre", name="uq_roles_org_nombre"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    nombre: Mapped[str] = mapped_column(String(80), unique=True)
+    nombre: Mapped[str] = mapped_column(String(80))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     tipo: Mapped[str] = mapped_column(String(20))  # admin | interno | proveedor
     permisos: Mapped[list] = mapped_column(JSON, default=list)
@@ -166,7 +200,7 @@ class Rol(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Usuario(Base):
+class Usuario(DeOrganizacion, Base):
     __tablename__ = "usuarios"
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(200), unique=True)
@@ -191,6 +225,8 @@ class Usuario(Base):
     cargo: Mapped[str | None] = mapped_column(String(120))
     area: Mapped[str | None] = mapped_column(String(120))
     empresa: Mapped[str | None] = mapped_column(String(200))
+    # Administra la plataforma: crea empresas y puede entrar a cualquiera
+    plataforma: Mapped[bool] = mapped_column(Boolean, default=False)
     # Contraseña temporal (creada o restablecida por la administración): hasta
     # cambiarla, el usuario solo puede completar el asistente inicial
     clave_temporal: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -213,6 +249,8 @@ class SesionUsuario(Base):
     ip: Mapped[str | None] = mapped_column(String(64))
     agente: Mapped[str | None] = mapped_column(String(300))
     revocada: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Empresa en la que trabaja esta sesión (solo cambia quien administra la plataforma)
+    organizacion_id: Mapped[int | None] = mapped_column(ForeignKey("organizaciones.id", name="fk_sesiones_organizacion"))
 
     usuario: Mapped[Usuario] = relationship()
 
@@ -237,12 +275,13 @@ class DesafioDosPasos(Base):
 # --------------------------------------------------------------------------
 # Órdenes de compra
 # --------------------------------------------------------------------------
-class Sociedad(Base):
+class Sociedad(DeOrganizacion, Base):
     """Sociedad legal (compañía de SAP). Sus centros son bodegas fiscales."""
 
     __tablename__ = "sociedades"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_sociedades_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(120))
     razon_social: Mapped[str | None] = mapped_column(String(200))
     id_fiscal: Mapped[str | None] = mapped_column(String(30))  # NIT / RUC
@@ -255,14 +294,15 @@ class Sociedad(Base):
     centros: Mapped[list["Centro"]] = relationship(back_populates="sociedad", order_by="Centro.codigo")
 
 
-class Centro(Base):
+class Centro(DeOrganizacion, Base):
     """Centro de SAP asignado a una sociedad. Es la bodega fiscal a la que
     llega la mercancía (notify party) y, como centro de destino de la OC,
     indica el país final. Su puerto es el de llegada de los embarques."""
 
     __tablename__ = "centros"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_centros_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     sociedad_id: Mapped[int] = mapped_column(ForeignKey("sociedades.id"), index=True)
     nombre: Mapped[str] = mapped_column(String(120))
     tipo: Mapped[str] = mapped_column(String(20), default="BODEGA_FISCAL")
@@ -278,7 +318,7 @@ class Centro(Base):
     puertos: Mapped[list["Puerto"]] = relationship(secondary=centro_puertos, order_by="Puerto.codigo")
 
 
-class Contacto(Base):
+class Contacto(DeOrganizacion, Base):
     """Persona de contacto de una sociedad (facturación) o de un centro
     (notify party, recepción)."""
 
@@ -294,13 +334,14 @@ class Contacto(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Almacen(Base):
+class Almacen(DeOrganizacion, Base):
     """Separación lógica del inventario en el sistema (virtual, detalle,
     mayoreo…); no es un lugar físico. Cada posición de la OC elige el suyo."""
 
     __tablename__ = "almacenes"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_almacenes_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     sociedad_id: Mapped[int] = mapped_column(ForeignKey("sociedades.id"), index=True)
     nombre: Mapped[str] = mapped_column(String(120))
     tipo: Mapped[str] = mapped_column(String(10))  # VIRTUAL | DETALLE | MAYOREO
@@ -318,34 +359,36 @@ class Pais(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class RegionLeadTime(Base):
+class RegionLeadTime(DeOrganizacion, Base):
     """Región de origen (Asia, Centroamérica…): agrupa países para filtrar,
     comparar y para que un plan de lead time aplique a toda la región."""
 
     __tablename__ = "regiones_leadtime"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_regiones_leadtime_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(100))
     predeterminada: Mapped[bool] = mapped_column(Boolean, default=False)  # para orígenes sin región
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class PasoLeadTime(Base):
+class PasoLeadTime(DeOrganizacion, Base):
     """Catálogo de pasos de lead time (Booking, Liberación, XF, ETD, ETA,
     Aduana…). Cada empresa crea los suyos. `hito` enlaza el paso con una fecha
     que el sistema mide (liberación logística, XF, salida, arribo, entrega,
     ingreso, tienda); un paso sin hito es solo de planificación."""
 
     __tablename__ = "pasos_leadtime"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_pasos_leadtime_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(100))
     hito: Mapped[str | None] = mapped_column(String(15))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class ReglaLeadTime(Base):
+class ReglaLeadTime(DeOrganizacion, Base):
     """Configuración de lead time de un nivel geográfico: GLOBAL, REGION, PAIS
     o PUERTO. Hereda la del nivel superior (Puerto > País > Región > Global) y
     define solo lo que cambia: pasos que agrega, sobrescribe o quita, y si
@@ -390,22 +433,24 @@ class Puerto(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Marca(Base):
+class Marca(DeOrganizacion, Base):
     __tablename__ = "marcas"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_marcas_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(100))
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class EscalaTalla(Base):
+class EscalaTalla(DeOrganizacion, Base):
     """Escala de tallas reutilizable (calzado, ropa, accesorios u otra): sus
     tallas en orden y cómo se forma el código de cada talla. Los genéricos
     parten de una escala; el código se genera con la regla o se escribe."""
 
     __tablename__ = "escalas_talla"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_escalas_talla_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(120))
     categoria: Mapped[str | None] = mapped_column(String(20))
     # MULTIPLICAR: talla numérica × factor (7.5 × 10 → 075); CONSECUTIVO: 001, 002…;
@@ -417,13 +462,14 @@ class EscalaTalla(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class GrupoArticulo(Base):
+class GrupoArticulo(DeOrganizacion, Base):
     """Grupo de artículos. La categoría decide la regla de empaque:
     calzado (casepack exacto, sin mezclar tallas) o ropa y accesorios."""
 
     __tablename__ = "grupos_articulos"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_grupos_articulos_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(15), unique=True)
+    codigo: Mapped[str] = mapped_column(String(15))
     nombre: Mapped[str] = mapped_column(String(100))
     categoria: Mapped[str] = mapped_column(String(10))  # CALZADO | ROPA | ACCESORIO
     # Días que este tipo de producto necesita además de los de su región después
@@ -432,12 +478,12 @@ class GrupoArticulo(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Prepack(Base):
+class Prepack(DeOrganizacion, Base):
     """Curva de un estilo-color. Su prepack ID (p. ej. AB12) es la "talla"
     del artículo prepack y se arma con sólidos del mismo estilo y color."""
 
     __tablename__ = "prepacks"
-    __table_args__ = (UniqueConstraint("estilo", "color", "codigo"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "estilo", "color", "codigo", name="uq_prepacks_org_estilo_color_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(10))
     estilo: Mapped[str] = mapped_column(String(40))
@@ -454,13 +500,14 @@ class Prepack(Base):
         return sum(c.cantidad for c in self.componentes)
 
 
-class Producto(Base):
+class Producto(DeOrganizacion, Base):
     """Ficha técnica de un estilo-color de un proveedor. La comparten todas sus
     tallas (artículos) y sus prepacks; aquí vive su clasificación arancelaria:
     la partida SAC aprobada y el código nacional de cada país destino."""
 
     __tablename__ = "productos"
-    __table_args__ = (UniqueConstraint("proveedor_id", "estilo", "color"),)
+    __table_args__ = (UniqueConstraint("proveedor_id", "estilo", "color"),
+                      UniqueConstraint("organizacion_id", "codigo_generico", name="uq_productos_org_codigo_generico"))
     id: Mapped[int] = mapped_column(primary_key=True)
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
     estilo: Mapped[str] = mapped_column(String(40))
@@ -469,7 +516,7 @@ class Producto(Base):
     grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"))
     # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
     # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
-    codigo_generico: Mapped[str | None] = mapped_column(String(40), unique=True, index=True)
+    codigo_generico: Mapped[str | None] = mapped_column(String(40), index=True)
     unidad: Mapped[str | None] = mapped_column(String(5))  # unidad de sus tallas sólidas: PAR | UN
     nombre: Mapped[str | None] = mapped_column(String(200))  # nombre comercial del estilo
     # Ficha técnica: tipo de producto del clasificador, atributos, composición
@@ -537,7 +584,7 @@ class Producto(Base):
         return self.estado in ("aprobado", "corregido") and bool(self.codigo)
 
 
-class PartidaPais(Base):
+class PartidaPais(DeOrganizacion, Base):
     """Código arancelario nacional del producto en un país destino."""
 
     __tablename__ = "partidas_pais"
@@ -565,7 +612,7 @@ class PartidaPais(Base):
     producto: Mapped[Producto] = relationship(back_populates="partidas")
 
 
-class ProductoFoto(Base):
+class ProductoFoto(DeOrganizacion, Base):
     __tablename__ = "producto_fotos"
     id: Mapped[int] = mapped_column(primary_key=True)
     producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
@@ -579,7 +626,7 @@ class ProductoFoto(Base):
     producto: Mapped[Producto] = relationship(back_populates="fotos")
 
 
-class ProductoDocumento(Base):
+class ProductoDocumento(DeOrganizacion, Base):
     """Ficha técnica del proveedor o del laboratorio (SDS, TDS, COA): evidencia
     técnica del producto (capa de la empresa). Sus datos (CAS, composición,
     estado físico, densidad, pH…) son hechos para la ficha; nunca una fuente
@@ -603,7 +650,7 @@ class ProductoDocumento(Base):
     producto: Mapped[Producto] = relationship(back_populates="documentos")
 
 
-class ProductoVersion(Base):
+class ProductoVersion(DeOrganizacion, Base):
     """Versión cerrada de la ficha técnica, con su vigencia y la partida que tenía."""
 
     __tablename__ = "producto_versiones"
@@ -957,7 +1004,7 @@ class NotaSAC(Base):
     vigente_hasta: Mapped[date | None] = mapped_column(Date)
 
 
-class OverrideArancel(Base):
+class OverrideArancel(DeOrganizacion, Base):
     """Capa CUSTOM encima del dato oficial: nunca se toca el oficial. Guarda el
     valor propio (descripción interna, nota, texto de una nota, activa o no)
     con su motivo, quién, cuándo y vigencia. Un cambio nuevo del mismo campo
@@ -1259,7 +1306,7 @@ class SinonimoMaterial(Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
 
-class HistorialClasificacion(Base):
+class HistorialClasificacion(DeOrganizacion, Base):
     """Conocimiento de la empresa (capa COMPANY KNOWLEDGE): un código que la
     empresa usó, con los datos del producto que lo eligieron. Viene de
     clasificaciones aprobadas, correcciones de un especialista, lo que se
@@ -1283,15 +1330,16 @@ class HistorialClasificacion(Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
 
-class Articulo(Base):
+class Articulo(DeOrganizacion, Base):
     """Dato maestro del artículo (SKU). Un sólido es un estilo-color-talla;
     un prepack es una caja con una curva de sólidos."""
 
     __tablename__ = "articulos"
+    __table_args__ = (UniqueConstraint("organizacion_id", "sku", name="uq_articulos_org_sku"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     # Código de artículo de la empresa (numérico o alfanumérico, el formato lo
     # define cada empresa); distinto del SKU del proveedor
-    sku: Mapped[str] = mapped_column(String(40), unique=True)  # texto: conserva ceros
+    sku: Mapped[str] = mapped_column(String(40))  # texto: conserva ceros
     # Genérico: agrupa las tallas y prepacks de un estilo-color, que comparten ficha
     generico: Mapped[str | None] = mapped_column(String(40), index=True)
     sku_proveedor: Mapped[str | None] = mapped_column(String(60), index=True)
@@ -1319,7 +1367,7 @@ class Articulo(Base):
     producto: Mapped[Producto | None] = relationship(back_populates="articulos")
 
 
-class PrepackComponente(Base):
+class PrepackComponente(DeOrganizacion, Base):
     __tablename__ = "prepack_componentes"
     __table_args__ = (UniqueConstraint("prepack_id", "articulo_id"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -1331,7 +1379,7 @@ class PrepackComponente(Base):
     articulo: Mapped[Articulo] = relationship()
 
 
-class OrdenCompra(Base):
+class OrdenCompra(DeOrganizacion, Base):
     __tablename__ = "ordenes_compra"
     __table_args__ = (UniqueConstraint("proveedor_id", "numero"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -1365,7 +1413,7 @@ class OrdenCompra(Base):
     )
 
 
-class PosicionOC(Base):
+class PosicionOC(DeOrganizacion, Base):
     __tablename__ = "posiciones_oc"
     __table_args__ = (UniqueConstraint("oc_id", "posicion"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -1409,7 +1457,7 @@ class PosicionOC(Base):
 # --------------------------------------------------------------------------
 # Facturas
 # --------------------------------------------------------------------------
-class Factura(Base):
+class Factura(DeOrganizacion, Base):
     __tablename__ = "facturas"
     __table_args__ = (
         # Número único por proveedor (se ignora en facturas canceladas)
@@ -1449,7 +1497,7 @@ class Factura(Base):
     )
 
 
-class FacturaLinea(Base):
+class FacturaLinea(DeOrganizacion, Base):
     __tablename__ = "factura_lineas"
     __table_args__ = (UniqueConstraint("factura_id", "posicion_oc_id"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -1491,7 +1539,7 @@ class FacturaLinea(Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class Archivo(Base):
+class Archivo(DeOrganizacion, Base):
     __tablename__ = "archivos"
     id: Mapped[int] = mapped_column(primary_key=True)
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
@@ -1506,7 +1554,7 @@ class Archivo(Base):
 # --------------------------------------------------------------------------
 # Packing lists y cajas
 # --------------------------------------------------------------------------
-class PackingList(Base):
+class PackingList(DeOrganizacion, Base):
     __tablename__ = "packing_lists"
     id: Mapped[int] = mapped_column(primary_key=True)
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
@@ -1530,7 +1578,7 @@ class PackingList(Base):
     unidad: Mapped["UnidadCarga | None"] = relationship(back_populates="packing_lists")
 
 
-class PLLinea(Base):
+class PLLinea(DeOrganizacion, Base):
     """Parte de una línea de factura dentro de un PL. Puede haber varias
     partes de la misma línea (resultado de dividir)."""
 
@@ -1552,7 +1600,7 @@ class PLLinea(Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class GrupoCajas(Base):
+class GrupoCajas(DeOrganizacion, Base):
     """Nodo del árbol físico de empaque: N unidades iguales de un tipo de
     empaque (caja, inner pack, pallet…). `num_cajas` es el total de esas
     unidades en el PL; si tiene padre, se reparten por igual entre las
@@ -1593,7 +1641,7 @@ class GrupoCajas(Base):
     )
 
 
-class GrupoCajasItem(Base):
+class GrupoCajasItem(DeOrganizacion, Base):
     __tablename__ = "grupo_cajas_items"
     id: Mapped[int] = mapped_column(primary_key=True)
     grupo_id: Mapped[int] = mapped_column(ForeignKey("grupos_cajas.id"), index=True)
@@ -1608,15 +1656,16 @@ class GrupoCajasItem(Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class TipoEmpaque(Base):
+class TipoEmpaque(DeOrganizacion, Base):
     """Unidad logística configurable (inner pack, caja, pallet, bolsa, tambor…).
     Nada está fijo en el código: cada empresa define sus tipos, qué puede
     contener cada uno, su tara, medidas y límites. Un PL se arma como un árbol
     de empaques dentro de empaques con el producto en las hojas."""
 
     __tablename__ = "tipos_empaque"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_tipos_empaque_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(100))
     nivel: Mapped[int] = mapped_column(Integer, default=1)  # 1 = el más interno
     prefijo: Mapped[str | None] = mapped_column(String(6))  # etiqueta de cada unidad: C1, PK1, P1
@@ -1643,7 +1692,7 @@ class TipoEmpaque(Base):
         secondaryjoin=lambda: TipoEmpaque.id == tipo_empaque_contiene.c.hijo_id, order_by="TipoEmpaque.nivel")
 
 
-class PlantillaCaja(Base):
+class PlantillaCaja(DeOrganizacion, Base):
     __tablename__ = "plantillas_caja"
     __table_args__ = (UniqueConstraint("proveedor_id", "nombre"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -1666,7 +1715,7 @@ class PlantillaCaja(Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class RecepcionLinea(Base):
+class RecepcionLinea(DeOrganizacion, Base):
     __tablename__ = "recepciones"
     id: Mapped[int] = mapped_column(primary_key=True)
     pl_linea_id: Mapped[int] = mapped_column(ForeignKey("pl_lineas.id"), unique=True)
@@ -1686,12 +1735,13 @@ class RecepcionLinea(Base):
 # --------------------------------------------------------------------------
 # Transporte
 # --------------------------------------------------------------------------
-class Embarque(Base):
+class Embarque(DeOrganizacion, Base):
     """Existe desde la planificación (booking), antes de tener BL/AWB."""
 
     __tablename__ = "embarques"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_embarques_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     tipo_transporte: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE
     documento_numero: Mapped[str | None] = mapped_column(String(50))  # BL / AWB / CP
     transportista_id: Mapped[int | None] = mapped_column(ForeignKey("transportistas.id"))
@@ -1715,7 +1765,7 @@ class Embarque(Base):
     )
 
 
-class UnidadCarga(Base):
+class UnidadCarga(DeOrganizacion, Base):
     __tablename__ = "unidades_carga"
     id: Mapped[int] = mapped_column(primary_key=True)
     embarque_id: Mapped[int] = mapped_column(ForeignKey("embarques.id"), index=True)
@@ -1730,7 +1780,7 @@ class UnidadCarga(Base):
     packing_lists: Mapped[list[PackingList]] = relationship(back_populates="unidad")
 
 
-class EventoEmbarque(Base):
+class EventoEmbarque(DeOrganizacion, Base):
     __tablename__ = "eventos_embarque"
     id: Mapped[int] = mapped_column(primary_key=True)
     embarque_id: Mapped[int] = mapped_column(ForeignKey("embarques.id"), index=True)
@@ -1747,7 +1797,7 @@ class EventoEmbarque(Base):
 # --------------------------------------------------------------------------
 # Soporte: historial, alertas, idempotencia, importaciones
 # --------------------------------------------------------------------------
-class Historial(Base):
+class Historial(DeOrganizacion, Base):
     __tablename__ = "historial"
     id: Mapped[int] = mapped_column(primary_key=True)
     entidad: Mapped[str] = mapped_column(String(30))
@@ -1762,7 +1812,7 @@ class Historial(Base):
     usuario: Mapped[Usuario | None] = relationship()
 
 
-class Alerta(Base):
+class Alerta(DeOrganizacion, Base):
     __tablename__ = "alertas"
     id: Mapped[int] = mapped_column(primary_key=True)
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
@@ -1844,7 +1894,7 @@ class FilaLoteOficial(Base):
     lote: Mapped[LoteOficial] = relationship(back_populates="filas")
 
 
-class ImportacionOC(Base):
+class ImportacionOC(DeOrganizacion, Base):
     __tablename__ = "importaciones_oc"
     id: Mapped[int] = mapped_column(primary_key=True)
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))

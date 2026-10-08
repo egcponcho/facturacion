@@ -2,11 +2,12 @@ from fastapi import APIRouter, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import object_session
 
+from ..tenencia import org_actual, regla
 from ..config import settings
-from ..models import Usuario
+from ..models import Organizacion, Usuario
 from ..deps import COOKIE
 from ..schemas import DesafioIn, FotoIn, LoginIn, PasswordIn, PerfilIn, ProveedorIn, ProveedorPatch, RolIn, RolPatch, UsuarioIn, UsuarioPatch, VerificarIn
-from ..services import acceso, flujo, preferencias
+from ..services import acceso, flujo, organizacion, preferencias
 from ..services.limites import limitar
 from ..services import varios
 from ..services.common import catalogo_permisos, permisos_de
@@ -33,13 +34,24 @@ def _yo(u: Usuario) -> dict:
         "dos_pasos": bool(settings.DOS_PASOS and u.dos_pasos),
         "sesion_inactividad_min": settings.SESION_INACTIVIDAD_MIN,
         "config": {
-            "posicion_en_varias_facturas": settings.POSICION_EN_VARIAS_FACTURAS,
-            "factura_en_una_sola_unidad": settings.FACTURA_EN_UNA_SOLA_UNIDAD,
-            "requerir_datos_aduana": settings.REQUERIR_DATOS_ADUANA,
-            "dias_alerta_borrador": settings.DIAS_ALERTA_BORRADOR,
+            "posicion_en_varias_facturas": regla("POSICION_EN_VARIAS_FACTURAS"),
+            "factura_en_una_sola_unidad": regla("FACTURA_EN_UNA_SOLA_UNIDAD"),
+            "requerir_datos_aduana": regla("REQUERIR_DATOS_ADUANA"),
+            "dias_alerta_borrador": regla("DIAS_ALERTA_BORRADOR"),
         },
         "flujo": flujo.valores(object_session(u)) if object_session(u) else dict(flujo.DEFECTOS),
+        "plataforma": bool(u.plataforma),
+        "organizacion": _empresa(u),
+        "organizacion_propia_id": u.organizacion_id,
     }
+
+
+def _empresa(u: Usuario) -> dict | None:
+    """Empresa en la que trabaja (la elegida en la sesión o la suya)."""
+    db = object_session(u)
+    o = db.get(Organizacion, org_actual() or u.organizacion_id) if db else None
+    return {"id": o.id, "codigo": o.codigo, "nombre": o.nombre, "logo": o.logo,
+            "propia": o.id == u.organizacion_id} if o else None
 
 
 def _cookie(resp: Response, token: str) -> None:
@@ -192,3 +204,32 @@ def guardar_flujo_clasificacion(datos: dict[str, bool], db: Db, user: User, clav
 @router.delete("/roles/{rol_id}")
 def borrar_rol(rol_id: int, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: varios.borrar_rol(db, user, rol_id) or {"ok": True})
+
+
+# ---- Empresa (organización) -----------------------------------------------------
+@router.get("/organizacion")
+def ver_organizacion(db: Db, user: User):
+    return organizacion.detalle(db, user)
+
+
+@router.put("/organizacion")
+def guardar_organizacion(datos: dict, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: organizacion.actualizar(db, user, datos))
+
+
+@router.get("/organizaciones")
+def listar_organizaciones(db: Db, user: User):
+    return organizacion.listar(db, user)
+
+
+@router.post("/organizaciones")
+def crear_organizacion(datos: dict, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: organizacion.crear(db, user, datos))
+
+
+@router.post("/organizaciones/{organizacion_id}/entrar")
+def entrar_organizacion(organizacion_id: int, request: Request, db: Db, user: User):
+    r = organizacion.entrar(db, user, acceso._hash(request.state.token), organizacion_id)
+    db.commit()
+    return r
+

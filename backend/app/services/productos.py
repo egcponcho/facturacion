@@ -18,6 +18,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from ..tenencia import regla
 from ..config import settings
 from ..models import (
     ProductoDocumento,
@@ -513,7 +514,7 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
     capítulos, notas legales de apoyo y acuerdos comerciales."""
     exigir(user, "producto.ver")
     return {
-        "destinos": destinos(db), "pais_base": settings.PAIS_BASE_CLASIF,
+        "destinos": destinos(db), "pais_base": regla("PAIS_BASE_CLASIF"),
         "notas_sac": notas_contexto(db), "acuerdos": acuerdos_contexto(db),
         "puede_aprobar": tiene(user, "producto.clasificar"),
         "dominios": dominios_ficha(db),

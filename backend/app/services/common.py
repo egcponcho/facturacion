@@ -5,7 +5,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.sql import operators
 from sqlalchemy.orm import Session
 
-from ..config import settings
+from ..tenencia import regla
 from ..db import ES_SQLITE, plano
 from ..models import Historial, Idempotencia, Usuario, ahora
 
@@ -96,7 +96,7 @@ PERMISOS = {k: (et, roles, prov) for _, ps in MODULOS for k, et, roles, prov in 
 
 
 def _matriz() -> dict[str, set[str]]:
-    finalizan = INTERNOS | ({"proveedor"} if settings.PROVEEDOR_PUEDE_FINALIZAR else set())
+    finalizan = INTERNOS | ({"proveedor"} if regla("PROVEEDOR_PUEDE_FINALIZAR") else set())
     return {k: finalizan if roles == "finalizan" else roles for k, (_, roles, _) in PERMISOS.items()}
 
 

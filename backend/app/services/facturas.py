@@ -5,6 +5,7 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..tenencia import regla
 from ..config import settings
 from ..models import cant as cant_norm
 from ..models import (
@@ -162,7 +163,7 @@ def _preparar_posiciones(
         if p.bloqueada:
             errores.append({"posicion_id": p.id, "mensaje": f"{ref}: {p.motivo_bloqueo or 'line blocked'}."})
             continue
-        if not settings.POSICION_EN_VARIAS_FACTURAS:
+        if not regla("POSICION_EN_VARIAS_FACTURAS"):
             otras = [a for a in activas.get(p.id, []) if not factura or a["id"] != factura.id]
             if otras:
                 errores.append(
@@ -554,7 +555,7 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: the reason for the price change is missing."})
         if not (l.descripcion_comercial or "").strip():
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: the commercial description of the goods is missing."})
-        if settings.REQUERIR_DATOS_ADUANA:
+        if regla("REQUERIR_DATOS_ADUANA"):
             if not l.pais_origen:
                 errores.append({"linea_id": l.id, "mensaje": f"{ref}: the country of origin is missing."})
             if not l.partida_arancelaria:
@@ -730,7 +731,7 @@ def listar_facturas(
             select(PackingList.factura_id).where(PackingList.estado == "FINALIZADO",
                                                  PackingList.unidad_carga_id.is_(None))))
     elif vista == "borradores_antiguos":
-        limite = ahora() - timedelta(days=settings.DIAS_ALERTA_BORRADOR)
+        limite = ahora() - timedelta(days=regla("DIAS_ALERTA_BORRADOR"))
         consulta = consulta.where(Factura.estado == "BORRADOR", Factura.creado_en < limite)
     elif vista == "lista_transporte":
         consulta = consulta.where(Factura.estado == "FINALIZADA")

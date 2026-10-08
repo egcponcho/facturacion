@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..config import settings
+from ..tenencia import regla
 from ..models import (
     Embarque,
     Factura,
@@ -238,7 +238,7 @@ def _envios(db: Session, prov: int | None) -> list[dict]:
 def _tareas(db: Session, user: Usuario, facturas: list[Factura], distribucion: dict, prov: int | None = None) -> list[dict]:
     """Próximos pasos concretos, ordenados por lo que destraba más trabajo."""
     tareas = []
-    limite = ahora() - timedelta(days=settings.DIAS_ALERTA_BORRADOR)
+    limite = ahora() - timedelta(days=regla("DIAS_ALERTA_BORRADOR"))
     for f in facturas:
         nombre = nombre_factura(f)
         r = distribucion[f.id]

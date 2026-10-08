@@ -1158,3 +1158,9 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .selector-catalogos .pestanas-pildora { margin-bottom: 0; }
 .selector-otros { min-width: 200px; }
 .selector-otros.activo .sb-boton { border-color: var(--acento-medio); color: var(--acento-texto); background: var(--acento-claro); }
+
+/* Empresa: logo en el menú y aviso al trabajar dentro de otra empresa */
+.marca-imagen { object-fit: contain; background: #fff; padding: 3px; }
+.aviso-empresa { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 16px; border-radius: var(--radio-panel);
+  background: var(--info-fondo); border: 1px solid color-mix(in srgb, var(--info) 35%, transparent); font-size: 0.9rem; }
+.aviso-empresa > svg { color: var(--info); flex: none; }

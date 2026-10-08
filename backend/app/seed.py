@@ -577,6 +577,9 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
 def seed(db: Session) -> None:
     if db.scalar(select(func.count(Usuario.id))):
         return
+    from .services.organizacion import asegurar_principal
+
+    asegurar_principal(db, "Distribuidora de Marcas")
     tnf = Proveedor(codigo="TNF", nombre="The North Face", razon_social="VF Outdoor Asia Sourcing Ltd.",
                     id_fiscal="HK-51902231", pais="VN", direccion="Lot C-5, Tan Thuan EPZ, Ho Chi Minh, Vietnam",
                     contacto="Linh Nguyen", correos="export.tnf@vf.demo", telefono="+84 28 3770 1234")
@@ -599,7 +602,7 @@ def seed(db: Session) -> None:
                      proveedor_id=vans.id, password_hash=pw, telefono="+867552660001",
                      cargo="Shipping specialist", area="Export operations", empresa="Vans (VF China)")
     db.add_all([
-        Usuario(email="admin@demo.com", nombre="Administrator", rol="admin", rol_id=roles["admin"].id, password_hash=pw,
+        Usuario(email="admin@demo.com", nombre="Administrator", rol="admin", rol_id=roles["admin"].id, password_hash=pw, plataforma=True,
                 telefono="+50370000001", cargo="Systems administrator", area="IT", empresa="Distribuidora de Marcas"),
         Usuario(email="interno@demo.com", nombre="Import team", rol="interno", rol_id=roles["interno"].id, password_hash=pw,
                 telefono="+50370000002", cargo="Imports analyst", area="Imports and customs", empresa="Distribuidora de Marcas"),
@@ -683,6 +686,29 @@ def seed(db: Session) -> None:
     trans = {t.nombre: t.id for t in db.scalars(select(Transportista))}
     for emb in db.scalars(select(Embarque)):
         emb.transportista_id = trans.get(emb.transportista)
+    db.commit()
+    _otra_empresa(db, pw)
+
+
+def _otra_empresa(db: Session, pw: str) -> None:
+    """Segunda empresa de demostración: comparte la instalación pero no ve
+    nada de la primera (ni la primera de ella)."""
+    from .models import Organizacion
+    from .services.varios import crear_roles_fabrica
+    from .tenencia import en_organizacion
+
+    o = Organizacion(codigo="ANDES", nombre="Andes Coffee Exports", razon_social="Andes Coffee Exports S.A.", pais="CO",
+                     configuracion={"reglas": {"PROVEEDOR_PUEDE_FINALIZAR": False}})
+    db.add(o)
+    db.flush()
+    with en_organizacion(o.id):
+        roles = crear_roles_fabrica(db)
+        # Mismo código que un proveedor de la otra empresa: los códigos son únicos por empresa
+        prov = Proveedor(codigo="TNF", nombre="Tolima Natural Farms", pais="CO")
+        db.add(prov)
+        db.add(Usuario(email="andes@demo.com", nombre="Andes administrator", rol="admin", rol_id=roles["admin"].id,
+                       password_hash=pw, telefono="+5716000001", cargo="Operations manager", empresa="Andes Coffee Exports"))
+        db.flush()
     db.commit()
 
 

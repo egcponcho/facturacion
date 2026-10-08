@@ -488,3 +488,22 @@ erDiagram
 - **Accesos por bodega**: el alcance de un usuario puede limitarse a una o
   varias bodegas. Así el personal de cada bodega ve y mueve solo su
   inventario (sección 3.2).
+
+---
+
+## 14. Avance
+
+| Etapa | Estado | Notas |
+|---|---|---|
+| E1a. Edición exclusiva | **Hecha** | Tabla `ediciones`; verificación central al guardar (documento y sus partes); aviso y modo lectura en factura, PL, embarque y producto; vence a los 2 min sin conexión y a los 10 min sin uso; un administrador puede liberarla |
+| E1b. Varias empresas | **Hecha** | Tabla `organizaciones`; `organizacion_id` en 43 tablas de negocio; filtro central en todas las consultas; códigos únicos por empresa; reglas y preferencias por empresa (pantalla *Company*); quien administra la plataforma crea empresas y entra a cualquiera (pantalla *Companies*) |
+
+**Datos compartidos entre empresas** (no llevan `organizacion_id`): el arancel
+oficial (fuentes, versiones, árbol, notas, códigos nacionales, impuestos), el
+catálogo del motor de clasificación, países y puertos. Son datos de
+referencia de la plataforma. Lo que cada empresa decide sobre ellos
+(clasificaciones, ajustes propios) sí es de la empresa.
+
+**Pendiente para E2**: un usuario en varias empresas con su propio rol en
+cada una (membresías y selector de empresa), junto con el rol, el alcance, el
+líder y las columnas por rol.

@@ -19,6 +19,7 @@ from statistics import mean
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..tenencia import regla
 from ..models import (
     Embarque,
     Factura,
@@ -34,7 +35,6 @@ from ..models import (
     UnidadCarga,
     Usuario,
 )
-from ..config import settings
 from . import reglas_lt as rlt
 from .common import proveedor_filtro
 
@@ -265,7 +265,7 @@ def _riesgo(holgura: int | None) -> str | None:
     """En tiempo, en riesgo (holgura menor al margen) o atrasado (holgura negativa)."""
     if holgura is None:
         return None
-    return "ATRASO" if holgura < 0 else "JUSTO" if holgura < settings.DIAS_MARGEN_RIESGO else "A_TIEMPO"
+    return "ATRASO" if holgura < 0 else "JUSTO" if holgura < regla("DIAS_MARGEN_RIESGO") else "A_TIEMPO"
 
 
 def estado_tiempo(tienda_estimada: date | None, fecha_tienda: date | None) -> dict:
