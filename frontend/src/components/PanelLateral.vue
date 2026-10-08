@@ -39,5 +39,5 @@ onBeforeUnmount(() => document.removeEventListener('keydown', tecla))
 .pl-cabeza { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 16px 18px 10px; border-bottom: 1px solid var(--linea-suave); }
 .pl-titulos { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .pl-titulos h2 { margin: 0; font-size: 1.15rem; overflow-wrap: anywhere; }
-.pl-cuerpo { padding: 14px 18px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.pl-cuerpo { flex: 1; min-height: 0; padding: 14px 18px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
 </style>

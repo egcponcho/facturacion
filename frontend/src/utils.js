@@ -167,3 +167,25 @@ export function reducirImagen(archivo, lado = 256) {
     img.src = URL.createObjectURL(archivo)
   })
 }
+
+// Eventos de un embarque, en el orden en que suelen ocurrir
+export const EVENTOS_EMBARQUE = [
+  ['RECOLECCION', t('Pickup')],
+  ['SALIDA', t('Departure')],
+  ['TRANSITO', t('In transit')],
+  ['ARRIBO', t('Arrival')],
+  ['LIBERACION', t('Customs release')],
+  ['ENTREGA', t('Delivery')],
+  ['RECEPCION', t('Warehouse receipt')],
+  ['OTRO', t('Other')],
+]
+
+// Cuánto del viaje lleva un embarque (0–100), entre la salida y la llegada
+export function avanceViaje(e) {
+  if (['ARRIBADO', 'ENTREGADO', 'RECIBIDO'].includes(e.estado)) return 100
+  const salida = e.salida_real || e.etd
+  if (e.estado !== 'EN_TRANSITO' || !salida || !e.eta) return e.estado === 'PLANIFICADO' ? 0 : 50
+  const ini = new Date(salida).getTime()
+  const fin = new Date(e.eta).getTime()
+  return Math.max(4, Math.min(96, ((Date.now() - ini) * 100) / Math.max(1, fin - ini)))
+}

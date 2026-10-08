@@ -1067,6 +1067,51 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .resumen-lista li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tabla tbody tr.fila-activa { background: var(--acento-claro); }
 .pl-cuerpo .linea-tiempo li { grid-template-columns: 1fr; gap: 2px; }
+/* Panel lateral con información completa: cifras, avance, tablas y tarjetas */
+.pl-cuerpo > * { flex-shrink: 0; }
+.pl-subtitulo { gap: 8px; align-items: center; }
+.pl-acciones { display: flex; gap: 6px; flex-wrap: wrap; margin-top: -4px; }
+.pl-cifras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--linea); border: 1px solid var(--linea); border-radius: var(--radio); overflow: hidden; }
+.pl-cifra { background: var(--superficie); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pl-cifra > span { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 600; }
+.pl-cifra > b { font-size: 1.05rem; font-weight: 680; color: var(--tinta); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pl-cifra > small { color: var(--tinta-3); font-size: 0.75rem; }
+.pl-cifra.principal { grid-column: 1 / -1; background: var(--superficie-2); }
+.pl-cifra.principal > b { font-size: 1.6rem; letter-spacing: -0.01em; }
+.pl-cifras:has(.principal) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pl-pasos { margin: 0; }
+.pl-pasos .paso-titulo { font-size: 0.82rem; }
+.pl-seccion { display: flex; flex-direction: column; gap: 8px; }
+.pl-seccion .resumen-titulo { margin: 0; }
+.pl-seccion-cabeza { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pl-avances { display: grid; grid-template-columns: max-content 1fr; gap: 8px 14px; align-items: center; font-size: 0.85rem; color: var(--tinta-2); }
+.pl-tabla { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.pl-tabla th { text-align: start; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--linea); }
+.pl-tabla td { padding: 8px; border-bottom: 1px solid var(--linea-suave); vertical-align: top; }
+.pl-tabla tr:last-child td { border-bottom: 0; }
+.pl-tabla th:first-child, .pl-tabla td:first-child { padding-inline-start: 0; }
+.pl-tabla th:last-child, .pl-tabla td:last-child { padding-inline-end: 0; }
+.pl-tabla .num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pl-tabla .etiqueta, .pl-tabla .estado { margin-top: 4px; }
+.pl-tarjeta { border: 1px solid var(--linea); border-radius: var(--radio); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.pl-hitos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; padding-top: 10px; border-top: 1px solid var(--linea-suave); }
+.pl-hitos dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 600; }
+.pl-hitos dd { margin: 2px 0 0; font-size: 0.85rem; }
+.pl-partes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 0.88rem; }
+.pl-partes .resumen-titulo { margin-bottom: 6px; }
+.pl-eventos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pl-eventos li { position: relative; display: flex; flex-direction: column; gap: 2px; padding-bottom: 12px; padding-inline-start: 20px; font-size: 0.88rem; }
+.pl-eventos li::before { content: ''; position: absolute; inset-inline-start: 4px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--acento); }
+.pl-eventos li::after { content: ''; position: absolute; inset-inline-start: 7px; top: 16px; bottom: 0; width: 2px; background: var(--linea); }
+.pl-eventos li:first-child::before { box-shadow: 0 0 0 3px var(--acento-claro); }
+.pl-eventos li:last-child::after { display: none; }
+.pl-eventos li:not(:first-child)::before { background: var(--tinta-3); }
+.pl-alertas { list-style: none; margin: 0; padding: 0; color: var(--aviso); font-size: 0.85rem; }
+.pl-alertas li { display: flex; gap: 6px; align-items: center; }
+@media (max-width: 560px) {
+  .pl-cifras, .pl-cifras:has(.principal) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pl-hitos, .pl-partes { grid-template-columns: 1fr; }
+}
 
 /* Barra lateral: preferencias sobre fondo oscuro */
 .lateral .idioma { background: rgba(255, 255, 255, 0.06) !important; border-color: var(--lateral-linea) !important; color: var(--lateral-texto) !important; }

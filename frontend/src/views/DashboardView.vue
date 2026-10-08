@@ -14,7 +14,7 @@ import TableroEsqueleto from '../components/TableroEsqueleto.vue'
 import Kpi from '../components/Kpi.vue'
 import { elegirProveedor, esInterno, nombreProveedor, sesion } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
-import { fmtFecha, fmtFechaHora, fmtMoneda, fmtNum, plural } from '../utils'
+import { avanceViaje, fmtFecha, fmtFechaHora, fmtMoneda, fmtNum, plural } from '../utils'
 
 const router = useRouter()
 const d = ref(null)
@@ -48,17 +48,11 @@ const GRANO = { dia: t('per day'), semana: t('per week'), mes: t('per month') }
 const RUTAS_PERIODO = { facturado: '/facturas', pls: '/facturas', llegadas: '/seguimiento', clasificados: '/productos' }
 
 // Avance del viaje entre salida (ETD) y llegada (ETA)
-function viaje(e) {
-  if (e.estado === 'ARRIBADO') return 100
-  if (e.estado !== 'EN_TRANSITO' || !e.etd || !e.eta) return e.estado === 'PLANIFICADO' ? 0 : 50
-  const ini = new Date(e.etd).getTime()
-  const fin = new Date(e.eta).getTime()
-  return Math.max(4, Math.min(96, ((Date.now() - ini) * 100) / Math.max(1, fin - ini)))
-}
+const viaje = avanceViaje
 function diasPara(fecha) {
   if (!fecha) return ''
   const dias = Math.round((new Date(fecha).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000)
-  if (dias === 0) return 'today'
+  if (dias === 0) return t('today')
   return dias > 0 ? t('in {0}', [plural(dias, t('day'), t('days'))]) : t('{0} ago', [plural(-dias, t('day'), t('days'))])
 }
 function abrirEnvio(e) {

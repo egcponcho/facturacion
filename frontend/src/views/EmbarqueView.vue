@@ -18,7 +18,7 @@ import { MODOS, useRutas } from '../composables/useRutas'
 import { useTabla } from '../composables/useTabla'
 import { sesion } from '../stores/sesion'
 import { avisar, errorApi, guardando } from '../stores/ui'
-import { ACCIONES, diasTxt, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '../utils'
+import { ACCIONES, diasTxt, EVENTOS_EMBARQUE, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '../utils'
 
 // El embarque es el espacio de trabajo de logística: sus datos, sus
 // contenedores (cada uno con su carga) y el seguimiento, en una sola vista.
@@ -38,16 +38,7 @@ const cajon = ref(false)
 const ocupado = ref(false)
 const verHistorial = ref(false)
 
-const EVENTOS = [
-  ['RECOLECCION', t('Pickup')],
-  ['SALIDA', t('Departure')],
-  ['TRANSITO', t('In transit')],
-  ['ARRIBO', t('Arrival')],
-  ['LIBERACION', t('Customs release')],
-  ['ENTREGA', t('Delivery')],
-  ['RECEPCION', t('Warehouse receipt')],
-  ['OTRO', t('Other')],
-]
+const EVENTOS = EVENTOS_EMBARQUE
 const nombreEvento = (t) => EVENTOS.find((x) => x[0] === t)?.[1] || t
 const HITOS = [['PLANIFICADO', t('Planned')], ['EN_TRANSITO', t('In transit')], ['ARRIBADO', t('Arrived')], ['ENTREGADO', t('Delivered')], ['RECIBIDO', t('Received')]]
 const SIGUIENTE = { PLANIFICADO: 'SALIDA', EN_TRANSITO: 'ARRIBO', ARRIBADO: 'ENTREGA', ENTREGADO: 'RECEPCION' }
