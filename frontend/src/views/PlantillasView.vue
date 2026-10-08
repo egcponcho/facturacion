@@ -41,9 +41,9 @@ async function cargar() {
   }
 }
 
-const guardarCampo = (t, campo) => async (valor) => {
+const guardarCampo = (plantilla, campo) => async (valor) => {
   try {
-    await guardando(api.patch(`/plantillas/${t.id}`, { [campo]: valor }))
+    await guardando(api.patch(`/plantillas/${plantilla.id}`, { [campo]: valor }))
     await cargar()
   } catch (e) {
     errorApi(e)
@@ -51,10 +51,10 @@ const guardarCampo = (t, campo) => async (valor) => {
   }
 }
 
-async function alternarActiva(t) {
+async function alternarActiva(plantilla) {
   try {
-    await api.patch(`/plantillas/${t.id}`, { activa: !t.activa })
-    avisar(t.activa ? t('Template deactivated; it will no longer appear when packing.') : t('Template activated.'))
+    await api.patch(`/plantillas/${plantilla.id}`, { activa: !plantilla.activa })
+    avisar(plantilla.activa ? t('Template deactivated; it will no longer appear when packing.') : t('Template activated.'))
     cargar()
   } catch (e) {
     errorApi(e)

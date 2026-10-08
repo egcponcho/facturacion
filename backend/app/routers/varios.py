@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from ..schemas import PlantillaIn, PlantillaPatch
 from ..services import buscar as buscador
 from ..services import dashboard as tablero
+from ..services import edicion
 from ..services import reportes
 from ..services import leadtimes
 from ..services import seguimiento as seg
@@ -13,6 +14,26 @@ from ..services import varios as svc
 from .base import Clave, Db, Formato, User, descarga, ejecutar
 
 router = APIRouter()
+
+
+# Edición exclusiva: una persona edita el documento y las demás lo leen
+@router.get("/edicion/{entidad}/{entidad_id}")
+def estado_edicion(entidad: str, entidad_id: int, db: Db, user: User):
+    return edicion.estado(db, user, entidad, entidad_id)
+
+
+@router.post("/edicion/{entidad}/{entidad_id}")
+def tomar_edicion(entidad: str, entidad_id: int, db: Db, user: User):
+    r = edicion.tomar(db, user, entidad, entidad_id)
+    db.commit()
+    return r
+
+
+@router.delete("/edicion/{entidad}/{entidad_id}")
+def liberar_edicion(entidad: str, entidad_id: int, db: Db, user: User, forzar: bool = False):
+    r = edicion.liberar(db, user, entidad, entidad_id, forzar)
+    db.commit()
+    return r
 
 
 @router.get("/dashboard")

@@ -21,7 +21,7 @@ export function useRutas() {
   async function cargarRutas() {
     if (puertos.value.length) return
     try {
-      const [p, c, t] = await Promise.all([
+      const [p, c, tr] = await Promise.all([
         api.get('/catalogos/puertos', { size: 200, activo: true }),
         api.get('/catalogos/centros', { size: 200 }),
         api.get('/catalogos/transportistas', { size: 200, activo: true }),
@@ -31,7 +31,7 @@ export function useRutas() {
         valor: x.codigo, texto: `${x.codigo} · ${x.nombre}`, sub: t('{0} · arrives via {1}', [x.sociedad_id_txt || '', [x.puerto, x.puertos_txt].filter(Boolean).join(', ') || '—']),
         sociedad_id: x.sociedad_id, puertos: [x.puerto, ...(x.puertos_txt || '').split(', ')].filter(Boolean),
       }))
-      transportistas.value = t.items.map((x) => ({
+      transportistas.value = tr.items.map((x) => ({
         valor: x.id, texto: `${x.codigo} · ${x.nombre}`, sub: `${MODOS[x.tipo]?.nombre || t('Multimodal')} · ${x.sociedades_txt || ''}`,
         tipo: x.tipo, sociedades: x.sociedades || [],
       }))

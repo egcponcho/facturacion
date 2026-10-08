@@ -17,6 +17,7 @@ from ..models import (
     Usuario,
 )
 from .cantidades import nombre_factura, totales_pl
+from .edicion import ajeno as ajeno_edicion
 from .common import ErrorNegocio, exigir, registrar, requerir_motivo, filtro_texto
 from .leadtimes import Estandares, _riesgo, entre, limite_puerto
 from .partes import partes
@@ -360,6 +361,7 @@ def detalle_embarque(db: Session, user: Usuario, embarque_id: int) -> dict:
             select(Centro).where(Centro.codigo == e.centro))) else [],
         "notify": partes(db, None, e.centro)["notify"] if e.centro else None,
         "cerrado": _salio(e),
+        "edicion": ajeno_edicion(db, user, "embarque", e.id),
         "eventos_permitidos": sorted(EVENTOS_PERMITIDOS[e.estado]),
     }
 

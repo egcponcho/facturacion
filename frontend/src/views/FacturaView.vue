@@ -9,6 +9,8 @@ import BarraSeleccion from '../components/BarraSeleccion.vue'
 import CeldaEditable from '../components/CeldaEditable.vue'
 import Requisitos from '../components/Requisitos.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import AvisoEdicion from '../components/AvisoEdicion.vue'
+import { useEdicion } from '../composables/useEdicion'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import TarjetaParte from '../components/TarjetaParte.vue'
@@ -373,11 +375,15 @@ onMounted(async () => {
 })
 // Unidades o pares por caja: el casepack de la OC o la curva del prepack
 const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.casepack || null)
+
+// Edición exclusiva: una persona edita y las demás ven en solo lectura
+const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable: !!f.value?.puede.editar, edicion: f.value?.edicion }), cargar)
 </script>
 
 <template>
   <template v-if="f">
     <router-link to="/facturas" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Invoices') }}</router-link>
+    <AvisoEdicion :edicion="f.edicion" :pausado="edicion.pausado.value" entidad="factura" :id="Number(props.id)" @liberado="cargar" @continuar="edicion.continuar" />
     <section class="doc-cabeza">
       <div class="doc-fila">
         <span class="doc-numero">{{ tx(f.nombre) }}</span>

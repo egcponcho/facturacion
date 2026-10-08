@@ -9,6 +9,8 @@ import BarraSeleccion from '../components/BarraSeleccion.vue'
 import CeldaEditable from '../components/CeldaEditable.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
 import EstadoTiempo from '../components/EstadoTiempo.vue'
+import AvisoEdicion from '../components/AvisoEdicion.vue'
+import { useEdicion } from '../composables/useEdicion'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import SelectBusqueda from '../components/SelectBusqueda.vue'
@@ -52,8 +54,11 @@ const CAMPOS = [
 // Al registrar la salida la carga queda cerrada: no se agregan, quitan ni
 // mueven PL o contenedores, y los datos del viaje quedan fijos.
 const cerrado = computed(() => !!e.value?.cerrado)
+// Mientras otra persona lo edita, se ve en solo lectura
+const soloLectura = computed(() => !!e.value?.edicion)
+const bloqueado = computed(() => cerrado.value || soloLectura.value)
 const FIJOS_SALIDA = ['documento_numero', 'transportista_id', 'puerto_origen', 'etd', 'centro']
-const fijo = (campo) => cerrado.value && (FIJOS_SALIDA.includes(campo) || (e.value.arribo_real && ['eta', 'puerto_destino'].includes(campo)))
+const fijo = (campo) => soloLectura.value || (cerrado.value && (FIJOS_SALIDA.includes(campo) || (e.value.arribo_real && ['eta', 'puerto_destino'].includes(campo))))
 const eventosPermitidos = computed(() => EVENTOS.filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)))
 const ultimoEvento = computed(() => (e.value?.eventos || []).reduce((a, ev) => (!a || ev.fecha > a ? ev.fecha : a), null))
 const exigeSello = computed(() => !!u.value?.requiere_sello)
@@ -281,11 +286,15 @@ onMounted(() => {
   cargarRutas()
 })
 watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
+
+// Edición exclusiva: una persona edita y las demás ven en solo lectura
+const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable: !!e.value, edicion: e.value?.edicion }), cargar)
 </script>
 
 <template>
   <template v-if="e">
     <router-link to="/transporte" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Shipments') }}</router-link>
+    <AvisoEdicion :edicion="e.edicion" :pausado="edicion.pausado.value" entidad="embarque" :id="Number(props.id)" @liberado="cargar" @continuar="edicion.continuar" />
     <section class="doc-cabeza">
       <div class="doc-fila">
         <Icono :nombre="icono" :tam="26" />
@@ -295,13 +304,13 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
         <span class="doc-sub">{{ tx(modo.nombre) }}</span>
         <span v-if="e.modalidad" class="etiqueta acento" :title="tx(e.modalidad === 'MIXTO' ? t('Combines units of different modalities (e.g. FCL and LCL)') : '')">{{ tx(e.modalidad) }}</span>
         <div class="doc-acciones">
-          <button class="btn" @click="abrirEvento('OTRO')"><Icono nombre="ubicacion" />{{ t('Record event') }}</button>
-          <button v-if="SIGUIENTE[e.estado]" class="btn btn-primario" :disabled="e.estado === 'PLANIFICADO' && (totales.tentativas > 0 || !totales.pls)"
+          <button v-if="!soloLectura" class="btn" @click="abrirEvento('OTRO')"><Icono nombre="ubicacion" />{{ t('Record event') }}</button>
+          <button v-if="SIGUIENTE[e.estado] && !soloLectura" class="btn btn-primario" :disabled="e.estado === 'PLANIFICADO' && (totales.tentativas > 0 || !totales.pls)"
                   :title="tx(e.estado === 'PLANIFICADO' && totales.tentativas ? t('Confirm or remove the tentative PLs first') : '')" @click="abrirEvento()">
             <Icono nombre="flecha" />{{ t('Record {0}', [nombreEvento(SIGUIENTE[e.estado]).toLowerCase()]) }}
           </button>
           <!-- Un botón deshabilitado siempre dice por qué y qué hacer -->
-          <span v-if="SIGUIENTE[e.estado] && e.estado === 'PLANIFICADO' && (totales.tentativas > 0 || !totales.pls)" class="ayuda bloqueo-motivo">
+          <span v-if="SIGUIENTE[e.estado] && !soloLectura && e.estado === 'PLANIFICADO' && (totales.tentativas > 0 || !totales.pls)" class="ayuda bloqueo-motivo">
             <Icono nombre="info" :tam="14" />{{ tx(totales.tentativas > 0 ? t('Confirm or remove the {0} tentative PLs in the load units below first.', [totales.tentativas])
               : t('Assign at least one finalized packing list to a load unit below first.')) }}
           </span>
@@ -328,7 +337,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
                           @change="(v) => cambiarRuta('transportista_id', v)" />
         </div>
         <div class="dato"><span class="req">{{ t('Receiving plant') }}</span>
-          <b v-if="cerrado">{{ tx(e.centro || '—') }} <Icono nombre="candado" :tam="12" /></b>
+          <b v-if="bloqueado">{{ tx(e.centro || '—') }} <Icono nombre="candado" :tam="12" /></b>
           <SelectBusqueda v-else :model-value="e.centro || ''" :opciones="centros" :vacio="t('Set by the first cargo')" :etiqueta="t('Plant')"
                           @change="(v) => cambiarRuta('centro', v)" />
         </div>
@@ -366,7 +375,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <EstadoTiempo v-if="x.estado_tiempo" :estado="x.estado_tiempo" :holgura="x.holgura_dias" />
           <span v-for="a in x.alertas" :key="a" class="etiqueta error">{{ tx(a) }}</span>
         </button>
-        <button v-if="!cerrado" class="unidad-pestana agregar" @click="abrirNuevaUnidad"><Icono nombre="mas" :tam="20" />{{ t('Add {0}', [unidadTxt[0].toLowerCase()]) }}</button>
+        <button v-if="!bloqueado" class="unidad-pestana agregar" @click="abrirNuevaUnidad"><Icono nombre="mas" :tam="20" />{{ t('Add {0}', [unidadTxt[0].toLowerCase()]) }}</button>
       </div>
 
       <template v-if="u">
@@ -374,11 +383,11 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <div>
             <div class="rejilla-campos">
               <label class="dato"><span class="req">{{ t('{0} number', [unidadTxt[0]]) }}</span>
-                <b v-if="cerrado">{{ tx(u.numero || '—') }}</b>
+                <b v-if="bloqueado">{{ tx(u.numero || '—') }}</b>
                 <CeldaEditable v-else :valor="u.numero" :guardar="guardarUnidad('numero')" :etiqueta="t('Number')" :vacia-texto="t('Required')" />
               </label>
               <label class="dato"><span :class="{ req: exigeSello }">{{ t('Seal') }}</span>
-                <b v-if="cerrado">{{ tx(u.sello || '—') }}</b>
+                <b v-if="bloqueado">{{ tx(u.sello || '—') }}</b>
                 <CeldaEditable v-else :valor="u.sello" :guardar="guardarUnidad('sello')" :etiqueta="t('Seal')" :vacia-texto="tx(exigeSello ? t('Required') : '')" />
               </label>
               <div class="dato"><span>{{ t('First in-store date') }}</span><b>{{ fmtFecha(u.fecha_tienda) }}</b></div>
@@ -405,7 +414,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <h3>{{ t('Cargo of {0}', [u.nombre]) }}</h3>
           <span class="ayuda">{{ t('{0} · {1} · {2} of {3} picked up', [plural(u.facturas, t('invoice'), t('invoices')), plural(u.cajas, t('carton'), t('cartons')), u.recolectados, u.packing_lists]) }}</span>
           <span class="separar"></span>
-          <template v-if="!cerrado">
+          <template v-if="!bloqueado">
             <button v-if="!u.packing_lists" class="btn btn-fantasma btn-peligro" @click="eliminarUnidad"><Icono nombre="basura" :tam="15" />{{ t('Delete {0}', [unidadTxt[0].toLowerCase()]) }}</button>
             <button class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />{{ t('Assign cargo') }}</button>
           </template>
@@ -414,7 +423,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
           <table class="tabla" v-tarjetas>
             <thead>
               <tr>
-                <th v-if="!cerrado" class="chk"><input type="checkbox" :aria-label="t('Select all assigned')" :checked="selA.todos(u.asignados.map((p) => p.id))" @change="selA.alternarTodos(u.asignados.map((p) => p.id))" /></th>
+                <th v-if="!bloqueado" class="chk"><input type="checkbox" :aria-label="t('Select all assigned')" :checked="selA.todos(u.asignados.map((p) => p.id))" @change="selA.alternarTodos(u.asignados.map((p) => p.id))" /></th>
                 <ThOrden campo="factura" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Invoice') }}</ThOrden>
                 <ThOrden campo="numero" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Packing list') }}</ThOrden>
                 <ThOrden campo="proveedor" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Supplier · brands') }}</ThOrden>
@@ -430,7 +439,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
             </thead>
             <tbody>
               <tr v-for="p in tablaA.filas.value" :key="p.id" :class="{ seleccionada: selA.tiene(p.id) }">
-                <td v-if="!cerrado" class="chk"><input type="checkbox" :aria-label="t('Select {0} {1}', [p.factura, p.numero])" :checked="selA.tiene(p.id)" @change="selA.alternar(p.id)" /></td>
+                <td v-if="!bloqueado" class="chk"><input type="checkbox" :aria-label="t('Select {0} {1}', [p.factura, p.numero])" :checked="selA.tiene(p.id)" @change="selA.alternar(p.id)" /></td>
                 <td><router-link :to="`/facturas/${p.factura_id}`" class="fuerte">{{ tx(p.factura) }}</router-link><span class="sub codigo">{{ tx(p.ocs?.join(', ')) }}</span></td>
                 <td><router-link :to="`/packing-lists/${p.id}`" class="cajas-rango">{{ tx(p.numero) }}</router-link> <EstadoBadge :estado="p.estado" /></td>
                 <td>{{ tx(p.proveedor) }}<span v-if="p.marcas?.length" class="sub">{{ tx(p.marcas.join(' · ')) }}</span></td>
@@ -456,7 +465,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
                 <td colspan="12" class="vacio">
                   <Icono nombre="contenedor" :tam="28" />
                   <p>{{ t('The load unit is empty.') }}</p>
-                  <button v-if="!cerrado" class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />{{ t('Assign cargo') }}</button>
+                  <button v-if="!bloqueado" class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />{{ t('Assign cargo') }}</button>
                 </td>
               </tr>
             </tbody>
@@ -473,7 +482,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
       <div v-else class="vacio">
         <Icono nombre="contenedor" :tam="28" />
         <p>{{ t('This shipment has no load units yet. Add a {0}.', [unidadTxt[0].toLowerCase()]) }}</p>
-        <button class="btn btn-primario" @click="abrirNuevaUnidad"><Icono nombre="mas" />{{ t('Add {0}', [unidadTxt[0].toLowerCase()]) }}</button>
+        <button v-if="!bloqueado" class="btn btn-primario" @click="abrirNuevaUnidad"><Icono nombre="mas" />{{ t('Add {0}', [unidadTxt[0].toLowerCase()]) }}</button>
       </div>
     </section>
 
@@ -485,7 +494,7 @@ watch(() => sesion.proveedorId, () => cajon.value && cargarDisponibles())
       <section class="panel">
         <div class="panel-cabeza">
           <div><h2>{{ t('Tracking') }}</h2><p>{{ t('Departure, arrival, delivery and receipt events change the shipment status.') }}</p></div>
-          <button class="btn btn-chico" @click="abrirEvento('OTRO')"><Icono nombre="mas" :tam="14" />{{ t('Event') }}</button>
+          <button v-if="!soloLectura" class="btn btn-chico" @click="abrirEvento('OTRO')"><Icono nombre="mas" :tam="14" />{{ t('Event') }}</button>
         </div>
         <ul class="linea-tiempo">
           <li v-for="ev in [...e.eventos].reverse()" :key="ev.id">

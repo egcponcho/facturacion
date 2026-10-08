@@ -31,6 +31,7 @@ from .cantidades import (
 from . import empaques
 from .partes import partes
 from .unidades import error_cantidad
+from .edicion import ajeno as ajeno_edicion
 from .common import (
     EDITABLE_PL,
     ESTADO_TXT,
@@ -1207,8 +1208,10 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
         })
 
     saldo = _saldo_factura(db, f)
-    editable = pl.estado in EDITABLE_PL
+    edicion = ajeno_edicion(db, user, "packing_list", pl.id)
+    editable = pl.estado in EDITABLE_PL and not edicion
     return {
+        "edicion": edicion,
         "id": pl.id,
         "numero": pl.numero,
         "estado": pl.estado,

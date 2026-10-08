@@ -44,6 +44,7 @@ from . import flujo
 from .acuerdos import acuerdos_contexto
 from .indice_arbol import dominios_ficha
 from .categorias import categorias as categorias_config
+from .edicion import ajeno as ajeno_edicion
 from .common import (
     filtro_texto,
     ErrorNegocio,
@@ -494,6 +495,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
         "historial": _historial(db, p),
         "puede_aprobar": tiene(user, "producto.clasificar"),
         "enviado_por_mi": flujo.quien_envio(db, p.id) == user.id,
+        "edicion": ajeno_edicion(db, user, "producto", p.id),
     })
     if not flujo.ve_sugerencia(db, user) and not p.aprobado:
         flujo.ocultar_resumen(r)

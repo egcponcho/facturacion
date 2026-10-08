@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import Usuario
-from .services import preferencias
+from .services import edicion, preferencias
 from .services.acceso import usuario_de_sesion
 from .services.common import ErrorNegocio
 
@@ -48,6 +48,7 @@ async def usuario_con_preferencias(request: Request, user: Usuario = Depends(usu
     etc.) en el contexto de la petición. Es asíncrona a propósito: así el valor
     se fija en el contexto de la petición y lo ven las rutas que corren en hilos."""
     preferencias.usar(user)
+    edicion.usar_usuario(user.id)
     if user.clave_temporal and not request.url.path.startswith(PERMITIDO_TEMPORAL):
         raise ErrorNegocio("Change your temporary password to continue.", 403, "clave_temporal")
     return user

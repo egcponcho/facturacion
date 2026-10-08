@@ -33,6 +33,7 @@ from .cantidades import (
 )
 from .partes import partes
 from .productos import partida_para, producto_de, sin_marca
+from .edicion import ajeno as ajeno_edicion
 from .common import (
     filtro_texto,
     EDITABLE_FACTURA,
@@ -866,10 +867,12 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
         })
 
     r = resumen_distribucion(db, [f.id])[f.id]
-    editable = f.estado in EDITABLE_FACTURA
+    edicion = ajeno_edicion(db, user, "factura", f.id)
+    editable = f.estado in EDITABLE_FACTURA and not edicion
     permisos = permisos_de(user)
     permisos_finalizar = "factura.finalizar" in permisos
     return {
+        "edicion": edicion,
         "id": f.id,
         "nombre": nombre_factura(f),
         "numero": f.numero,

@@ -9,6 +9,8 @@ import AcuerdosOrigen from '../components/ficha/AcuerdosOrigen.vue'
 import FichaTecnica from '../components/ficha/FichaTecnica.vue'
 import DocumentosTecnicos from '../components/ficha/DocumentosTecnicos.vue'
 import GenericoModal from '../components/GenericoModal.vue'
+import AvisoEdicion from '../components/AvisoEdicion.vue'
+import { useEdicion } from '../composables/useEdicion'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import Pasos from '../components/Pasos.vue'
@@ -47,9 +49,9 @@ const cargas = ref(0) // vuelve a montar el formulario tras guardar
 const aprobado = computed(() => ['aprobado', 'corregido'].includes(p.value?.estado))
 const enRevision = computed(() => p.value?.estado === 'revision')
 // En borrador la edita cualquiera con permiso; enviada a revisión, solo quien revisa
-const puedeEditar = computed(() => !!p.value && !aprobado.value && puede('producto.ficha') && (!enRevision.value || !!p.value.puede_aprobar))
+const puedeEditar = computed(() => !!p.value && !p.value.edicion && !aprobado.value && puede('producto.ficha') && (!enRevision.value || !!p.value.puede_aprobar))
 const puedeEnviar = computed(() => !!p.value && ['borrador', 'sugerida', 'observado'].includes(p.value.estado) && puede('producto.ficha'))
-const puedeAprobar = computed(() => !!p.value?.puede_aprobar)
+const puedeAprobar = computed(() => !!p.value?.puede_aprobar && !p.value?.edicion)
 // Flujo de clasificación configurado por el administrador
 const flujo = computed(() => sesionUsuario.usuario?.flujo || {})
 const oculta = computed(() => !!(p.value?.sugerencia_oculta || r.value?.sugerencia_oculta))
@@ -582,11 +584,15 @@ onMounted(() => {
   window.addEventListener('beforeunload', antesDeSalir)
 })
 onBeforeUnmount(() => window.removeEventListener('beforeunload', antesDeSalir))
+
+// Edición exclusiva: una persona edita y las demás ven en solo lectura
+const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable: puedeEditar.value, edicion: p.value?.edicion }), cargar)
 </script>
 
 <template>
   <div v-if="p && ctx">
     <router-link to="/productos" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Products') }}</router-link>
+    <AvisoEdicion :edicion="p.edicion" :pausado="edicion.pausado.value" entidad="producto" :id="Number(props.id)" @liberado="cargar" @continuar="edicion.continuar" />
 
     <section class="doc-cabeza">
       <div class="doc-fila">

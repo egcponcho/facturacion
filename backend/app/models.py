@@ -1789,6 +1789,22 @@ class Idempotencia(Base):
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
 
+class Edicion(Base):
+    """Quién está editando un documento. Mientras el permiso esté vigente,
+    los demás lo ven en solo lectura y el servidor rechaza sus cambios. La
+    pantalla lo renueva mientras está abierta; si se cierra o pierde conexión,
+    vence solo."""
+    __tablename__ = "ediciones"
+    __table_args__ = (UniqueConstraint("entidad", "entidad_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entidad: Mapped[str] = mapped_column(String(30))  # factura | packing_list | embarque | producto | orden
+    entidad_id: Mapped[int] = mapped_column(Integer)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), index=True)
+    desde: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    vence: Mapped[datetime] = mapped_column(DateTime)
+    usuario: Mapped[Usuario] = relationship()
+
+
 class LoteOficial(Base):
     """Carga de un paquete oficial por etapas: se sube a una previa (staging),
     se revisan las diferencias contra lo vigente (nuevo, cambio, sin cambio,

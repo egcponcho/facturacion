@@ -22,6 +22,8 @@ export function textoDetalle(d) {
 }
 
 export function errorApi(e) {
+  // Otra persona tomó el documento: la pantalla abierta pasa a solo lectura
+  if (e?.codigo === 'en_edicion') window.dispatchEvent(new CustomEvent('edicion-ocupada', { detail: e.detalle }))
   const detalle = Array.isArray(e?.detalle) ? e.detalle.map(textoDetalle).filter(Boolean).map(tx) : null
   avisar(tx(e?.message) || t('An unexpected error occurred.'), 'error', detalle?.length ? detalle.slice(0, 8) : null,
     detalle?.length ? 12000 : 7000)

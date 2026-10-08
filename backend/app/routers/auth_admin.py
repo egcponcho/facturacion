@@ -81,7 +81,11 @@ def reenviar(datos: DesafioIn, request: Request, db: Db):
 
 @router.post("/auth/logout")
 def logout(request: Request, response: Response, db: Db):
-    acceso.cerrar_sesion(db, request.cookies.get(COOKIE))
+    token = request.cookies.get(COOKIE)
+    if token and (u := acceso.usuario_de_sesion(db, token)):
+        from ..services.edicion import liberar_de_usuario
+        liberar_de_usuario(db, u.id)  # sus documentos quedan libres para los demás
+    acceso.cerrar_sesion(db, token)
     response.delete_cookie(COOKIE, path="/")
     return {"ok": True}
 

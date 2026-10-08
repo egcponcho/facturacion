@@ -12,6 +12,8 @@ import ArbolEmpaque from '../components/ArbolEmpaque.vue'
 import CeldaEditable from '../components/CeldaEditable.vue'
 import CargaMasiva from '../components/CargaMasiva.vue'
 import EstadoBadge from '../components/EstadoBadge.vue'
+import AvisoEdicion from '../components/AvisoEdicion.vue'
+import { useEdicion } from '../composables/useEdicion'
 import Icono from '../components/Icono.vue'
 import Modal from '../components/Modal.vue'
 import TarjetaParte from '../components/TarjetaParte.vue'
@@ -442,11 +444,15 @@ function irA(accionRevision) {
 }
 
 onMounted(cargar)
+
+// Edición exclusiva: una persona edita y las demás ven en solo lectura
+const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ editable: !!pl.value?.puede.editar, edicion: pl.value?.edicion }), cargar)
 </script>
 
 <template>
   <template v-if="pl">
     <router-link :to="`/facturas/${pl.factura.id}?tab=pl`" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Invoice {0}', [pl.factura.nombre]) }}</router-link>
+    <AvisoEdicion :edicion="pl.edicion" :pausado="edicion.pausado.value" entidad="packing_list" :id="Number(props.id)" @liberado="cargar" @continuar="edicion.continuar" />
     <section class="doc-cabeza">
       <div class="doc-fila">
         <span v-if="!editable" class="doc-numero">{{ tx(pl.numero) }}</span>
