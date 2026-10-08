@@ -45,8 +45,12 @@ const NOMBRES = {
 const FILTROS = ['q', ...Object.keys(NOMBRES)]
 const filtros = reactive(Object.fromEntries(FILTROS.map((k) => [k, ''])))
 for (const k of FILTROS) if (route.query[k]) filtros[k] = String(route.query[k])
-const masFiltros = ref(['talla', 'sku', 'almacen', 'embarque_id', 'riesgo', 'eta_desde', 'eta_hasta', 'fecha_xf_desde',
-  'fecha_xf_hasta', 'fecha_tienda_desde', 'fecha_tienda_hasta', 'sociedad', 'centro', 'proveedor'].some((k) => filtros[k]))
+// Filtros secundarios: van plegados en «Más filtros», con cuántos hay activos
+const AVANZADOS = ['grupo', 'estilo', 'color', 'contenedor', 'documento', 'liberacion_comercial', 'liberacion_logistica', 'talla', 'sku',
+  'almacen', 'embarque_id', 'riesgo', 'xf_vencida', 'eta_desde', 'eta_hasta', 'fecha_xf_desde', 'fecha_xf_hasta', 'fecha_tienda_desde',
+  'fecha_tienda_hasta', 'sociedad', 'centro', 'proveedor']
+const masFiltros = ref(AVANZADOS.some((k) => filtros[k]))
+const avanzadosActivos = computed(() => AVANZADOS.filter((k) => filtros[k]).length)
 const opciones = ref({})
 // Filtros activos que se mandan a los tableros
 const params = computed(() => Object.fromEntries(FILTROS.filter((k) => filtros[k]).map((k) => [k, filtros[k]])))
@@ -94,7 +98,7 @@ async function aplicarVista(q) {
     await nextTick()
   }
   for (const k of FILTROS) filtros[k] = q[k] || ''
-  masFiltros.value = masFiltros.value || Object.keys(q).some((k) => !['vista', 'q', 'estado', 'modo', 'etapa'].includes(k))
+  masFiltros.value = masFiltros.value || Object.keys(q).some((k) => AVANZADOS.includes(k))
   aplicar()
 }
 function quitar(k) {
@@ -148,6 +152,22 @@ function buscar() {
       <Seleccion v-model="filtros.estado" :aria-label="t('PO status')" @change="aplicar">
         <option value="">{{ t('PO status: all') }}</option><option v-for="[v, txt] in ESTADOS_OC" :key="v" :value="v">{{ t('PO status: {0}', [txt]) }}</option>
       </Seleccion>
+    </template>
+    <Seleccion v-model="filtros.etapa" :aria-label="t('Goods stage')" @change="aplicar">
+      <option value="">{{ t('Stage: all') }}</option><option v-for="[v, txt] in ETAPAS" :key="v" :value="v">{{ t('Stage: {0}', [txt]) }}</option>
+    </Seleccion>
+    <SelectBusqueda multiple :model-value="lst(filtros.marca)" @update:model-value="(v) => (filtros.marca = v.join(','))" :opciones="opciones.marcas || []" :vacio="t('Brand: all')" :etiqueta="t('Brand')" @change="aplicar" />
+    <button type="button" class="btn btn-fantasma mas-filtros-toggle" :aria-expanded="masFiltros" @click="masFiltros = !masFiltros">
+      <Icono nombre="filtro" :tam="15" />{{ tx(masFiltros ? t('Fewer filters') : t('More filters')) }}<span v-if="avanzadosActivos" class="cuenta">{{ avanzadosActivos }}</span>
+    </button>
+  </div>
+  <div v-if="masFiltros" class="filtros filtros-avanzados" v-filtros>
+    <SelectBusqueda multiple :model-value="lst(filtros.grupo)" @update:model-value="(v) => (filtros.grupo = v.join(','))" :opciones="opciones.grupos || []" :vacio="t('Group: all')" :etiqueta="t('Item group')" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.estilo)" @update:model-value="(v) => (filtros.estilo = v.join(','))" :opciones="opciones.estilos || []" :vacio="t('Style: all')" :etiqueta="t('Style')" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.color)" @update:model-value="(v) => (filtros.color = v.join(','))" :opciones="opciones.colores || []" :vacio="t('Color: all')" :etiqueta="t('Color')" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.contenedor)" @update:model-value="(v) => (filtros.contenedor = v.join(','))" :opciones="opciones.contenedores || []" :vacio="t('Load unit: all')" :etiqueta="t('Container, air waybill or truck')" @change="aplicar" />
+    <SelectBusqueda multiple :model-value="lst(filtros.documento)" @update:model-value="(v) => (filtros.documento = v.join(','))" :opciones="opciones.documentos || []" :vacio="t('B/L / AWB: all')" :etiqueta="t('Transport document')" @change="aplicar" />
+    <template v-if="vista === 'ordenes'">
       <Seleccion v-model="filtros.liberacion_comercial" :aria-label="t('Commercial release')" @change="aplicar">
         <option value="">{{ t('Commercial rel.: all') }}</option><option value="C">{{ t('Commercial rel.: Released') }}</option><option value="P">{{ t('Commercial rel.: Pending') }}</option>
       </Seleccion>
@@ -155,20 +175,6 @@ function buscar() {
         <option value="">{{ t('Logistics rel.: all') }}</option><option value="300">{{ t('Logistics rel.: Released') }}</option><option value="301">{{ t('Logistics rel.: Released, changed') }}</option><option value="304">{{ t('Logistics rel.: Not released') }}</option>
       </Seleccion>
     </template>
-    <Seleccion v-model="filtros.etapa" :aria-label="t('Goods stage')" @change="aplicar">
-      <option value="">{{ t('Stage: all') }}</option><option v-for="[v, txt] in ETAPAS" :key="v" :value="v">{{ t('Stage: {0}', [txt]) }}</option>
-    </Seleccion>
-    <SelectBusqueda multiple :model-value="lst(filtros.marca)" @update:model-value="(v) => (filtros.marca = v.join(','))" :opciones="opciones.marcas || []" :vacio="t('Brand: all')" :etiqueta="t('Brand')" @change="aplicar" />
-    <SelectBusqueda multiple :model-value="lst(filtros.grupo)" @update:model-value="(v) => (filtros.grupo = v.join(','))" :opciones="opciones.grupos || []" :vacio="t('Group: all')" :etiqueta="t('Item group')" @change="aplicar" />
-    <SelectBusqueda multiple :model-value="lst(filtros.estilo)" @update:model-value="(v) => (filtros.estilo = v.join(','))" :opciones="opciones.estilos || []" :vacio="t('Style: all')" :etiqueta="t('Style')" @change="aplicar" />
-    <SelectBusqueda multiple :model-value="lst(filtros.color)" @update:model-value="(v) => (filtros.color = v.join(','))" :opciones="opciones.colores || []" :vacio="t('Color: all')" :etiqueta="t('Color')" @change="aplicar" />
-    <SelectBusqueda multiple :model-value="lst(filtros.contenedor)" @update:model-value="(v) => (filtros.contenedor = v.join(','))" :opciones="opciones.contenedores || []" :vacio="t('Load unit: all')" :etiqueta="t('Container, air waybill or truck')" @change="aplicar" />
-    <SelectBusqueda multiple :model-value="lst(filtros.documento)" @update:model-value="(v) => (filtros.documento = v.join(','))" :opciones="opciones.documentos || []" :vacio="t('B/L / AWB: all')" :etiqueta="t('Transport document')" @change="aplicar" />
-    <button type="button" class="btn btn-fantasma btn-chico" :aria-expanded="masFiltros" @click="masFiltros = !masFiltros">
-      <Icono nombre="filtro" :tam="14" />{{ tx(masFiltros ? t('Fewer filters') : t('More filters')) }}
-    </button>
-  </div>
-  <div v-if="masFiltros" class="filtros filtros-extra" v-filtros>
     <SelectBusqueda multiple :model-value="lst(filtros.talla)" @update:model-value="(v) => (filtros.talla = v.join(','))" :opciones="opciones.tallas || []" :vacio="t('Size: all')" :etiqueta="t('Size')" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.sku)" @update:model-value="(v) => (filtros.sku = v.join(','))" :opciones="opciones.skus || []" :vacio="t('SKU: all')" :etiqueta="t('Item code')" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.almacen)" @update:model-value="(v) => (filtros.almacen = v.join(','))" :opciones="opciones.almacenes || []" :vacio="t('Warehouse: all')" :etiqueta="t('Warehouse')" @change="aplicar" />

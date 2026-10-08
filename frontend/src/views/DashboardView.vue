@@ -22,11 +22,7 @@ const cargando = ref(true)
 // Periodo de las gráficas y del resumen: por defecto, el mes en curso
 const periodo = ref(periodoInicial())
 const marcas = ref([])
-// El resumen estadístico queda plegado: primero lo que pide atención (se recuerda)
-const resumenAbierto = ref((() => { try { return localStorage.getItem('home-resumen') === '1' } catch { return false } })())
-watch(resumenAbierto, (v) => { try { localStorage.setItem('home-resumen', v ? '1' : '0') } catch { /* sin almacenamiento */ } })
 
-const ICONOS_KPI = { por_facturar: 'moneda', en_proceso: 'factura', pl_abiertos: 'caja', listas: 'check', tentativas: 'reloj', en_camino: 'barco', riesgo: 'alerta' }
 const ICONOS_TAREA = { clasificar: 'etiqueta', empacar: 'caja', pl: 'caja', datos: 'editar', correccion: 'alerta', finalizar: 'check', antiguo: 'reloj', embarcar: 'barco', liberacion: 'candado' }
 
 async function cargar() {
@@ -49,7 +45,6 @@ const hoy = new Intl.DateTimeFormat(actual.locale, { weekday: 'long', day: 'nume
 const serie = computed(() => (d.value?.periodo?.facturado.serie || []).map((x) => ({ etiqueta: x.etiqueta, valor: x.importe, detalle: plural(x.facturas, t('invoice'), t('invoices')) })))
 const totalPeriodo = computed(() => serie.value.reduce((a, m) => a + m.valor, 0))
 const GRANO = { dia: t('per day'), semana: t('per week'), mes: t('per month') }
-const ICONOS_PERIODO = { facturado: 'moneda', pls: 'caja', llegadas: 'barco', clasificados: 'etiqueta' }
 const RUTAS_PERIODO = { facturado: '/facturas', pls: '/facturas', llegadas: '/seguimiento', clasificados: '/productos' }
 
 // Avance del viaje entre salida (ETD) y llegada (ETA)
@@ -86,67 +81,70 @@ watch(periodo, cargar, { deep: true })
 </script>
 
 <template>
-  <div class="saludo">
+  <header class="pagina-cabeza tablero-cabeza">
     <div>
       <div class="eyebrow">{{ tx(hoy) }}</div>
       <h1>{{ tx(saludo) }}</h1>
-      <p v-if="esInterno()">{{ tx(sesion.proveedorId ? t('Showing only {0}.', [nombreProveedor(sesion.proveedorId)]) : t('Summary of all suppliers.')) }}</p>
-      <p v-else>{{ t('This is what needs your attention today.') }}</p>
+      <p>{{ tx(esInterno() ? (sesion.proveedorId ? t('Showing only {0}.', [nombreProveedor(sesion.proveedorId)]) : t('Summary of all suppliers.')) : t('This is what needs your attention today.')) }}</p>
     </div>
-    <div class="fila-flex">
+    <div class="acciones">
       <router-link v-if="esInterno()" class="btn" to="/transporte"><Icono nombre="barco" />{{ t('Shipments') }}</router-link>
       <router-link class="btn btn-primario" to="/ordenes"><Icono nombre="mas" />{{ t('Invoice from POs') }}</router-link>
     </div>
-  </div>
+  </header>
 
   <TableroEsqueleto v-if="cargando && !d" />
   <template v-if="d">
-    <section class="panel atencion" :aria-label="t('Needs your attention')">
-      <div class="panel-cabeza">
-        <div><h2>{{ t('Needs your attention') }}</h2><p>{{ t('What blocks the next step comes first. Open any item to see the records already filtered.') }}</p></div>
-      </div>
-      <ul v-if="d.atencion.length" class="atencion-lista">
-        <li v-for="a in d.atencion" :key="a.clave">
-          <router-link class="atencion-item" :class="`tono-${a.tono}`" :to="{ path: a.ruta, query: a.query }">
-            <span class="atencion-valor">{{ fmtNum(a.valor) }}</span>
-            <span class="atencion-texto"><b>{{ tx(a.titulo) }}</b><small>{{ tx(a.detalle) }}</small></span>
-            <Icono nombre="derecha" :tam="16" class="atencion-ir" />
-          </router-link>
-        </li>
-      </ul>
-      <div v-else class="todo-listo">
-        <span class="icono-ok"><Icono nombre="check" :tam="22" /></span>
-        <div><b>{{ t('Nothing needs your attention') }}</b><p class="ayuda">{{ t('No blocked products, documents to finish, XF dates or arrivals this week.') }}</p></div>
-      </div>
+    <!-- 1. Indicadores operativos: una franja; el primero es la cifra principal -->
+    <section class="kpis kpis-heroe" :aria-label="t('Indicators')">
+      <Kpi v-for="k in d.kpis" :key="k.clave" :titulo="tx(k.titulo)" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
+           :detalle="tx(k.detalle)" :tono="k.tono" @abrir="router.push({ path: k.ruta, query: k.query })" />
     </section>
 
+    <!-- 2. Trabajo del día: lo que necesita atención y los próximos pasos | embarques -->
     <div class="tablero">
       <div class="col">
-        <section class="panel">
+        <section class="panel" :aria-label="t('Needs your attention')">
           <div class="panel-cabeza">
-            <div><h2>{{ t('Next steps') }}</h2><p>{{ t('Ordered by what unblocks the most work.') }}</p></div>
-            <span v-if="d.tareas.length" class="etiqueta acento">{{ tx(d.tareas.length) }}</span>
+            <div><h2>{{ t('Needs your attention') }}</h2><p>{{ t('What blocks the next step comes first.') }}</p></div>
+            <span v-if="d.atencion.length" class="etiqueta">{{ tx(d.atencion.length) }}</span>
           </div>
-          <ul v-if="d.tareas.length" class="tareas">
-            <li v-for="(txt, i) in d.tareas" :key="i" class="tarea">
-              <span class="tarea-icono" :class="txt.tipo"><Icono :nombre="ICONOS_TAREA[txt.tipo] || 'flecha'" :tam="17" /></span>
-              <div>
-                <div class="tarea-titulo">{{ tx(txt.titulo) }}</div>
-                <div class="tarea-detalle">{{ tx(txt.detalle) }}</div>
-              </div>
-              <router-link class="btn btn-chico" :to="txt.ruta">{{ tx(txt.accion) }}<Icono nombre="derecha" :tam="14" /></router-link>
+          <ul v-if="d.atencion.length" class="lista-accion">
+            <li v-for="a in d.atencion" :key="a.clave">
+              <router-link class="lista-accion-fila" :to="{ path: a.ruta, query: a.query }">
+                <span class="cifra-tono" :class="`tono-${a.tono}`">{{ fmtNum(a.valor) }}</span>
+                <span class="lista-accion-texto"><b>{{ tx(a.titulo) }}</b><small>{{ tx(a.detalle) }}</small></span>
+                <Icono nombre="derecha" :tam="16" class="lista-accion-ir" />
+              </router-link>
             </li>
           </ul>
           <div v-else class="todo-listo">
-            <span class="icono-ok"><Icono nombre="check" :tam="22" /></span>
-            <div>
-              <b>{{ t('All up to date') }}</b>
-              <p class="ayuda">{{ t('No pending invoices or packing lists. When you have POs with a balance, start from “Invoice from POs”.') }}</p>
-            </div>
+            <span class="icono-ok"><Icono nombre="check" :tam="20" /></span>
+            <div><b>{{ t('Nothing needs your attention') }}</b><p class="ayuda">{{ t('No blocked products, documents to finish, XF dates or arrivals this week.') }}</p></div>
           </div>
         </section>
 
+        <section class="panel">
+          <div class="panel-cabeza">
+            <div><h2>{{ t('Next steps') }}</h2><p>{{ t('Ordered by what unblocks the most work.') }}</p></div>
+            <span v-if="d.tareas.length" class="etiqueta">{{ tx(d.tareas.length) }}</span>
+          </div>
+          <ul v-if="d.tareas.length" class="lista-accion">
+            <li v-for="(txt, i) in d.tareas" :key="i">
+              <router-link class="lista-accion-fila" :to="txt.ruta">
+                <span class="tarea-icono" :class="txt.tipo"><Icono :nombre="ICONOS_TAREA[txt.tipo] || 'flecha'" :tam="16" /></span>
+                <span class="lista-accion-texto"><b>{{ tx(txt.titulo) }}</b><small>{{ tx(txt.detalle) }}</small></span>
+                <span class="lista-accion-boton">{{ tx(txt.accion) }}<Icono nombre="derecha" :tam="14" /></span>
+              </router-link>
+            </li>
+          </ul>
+          <div v-else class="todo-listo">
+            <span class="icono-ok"><Icono nombre="check" :tam="20" /></span>
+            <div><b>{{ t('All up to date') }}</b><p class="ayuda">{{ t('No pending invoices or packing lists. When you have POs with a balance, start from “Invoice from POs”.') }}</p></div>
+          </div>
+        </section>
       </div>
+
       <div class="col">
         <section class="panel">
           <div class="panel-cabeza">
@@ -154,35 +152,49 @@ watch(periodo, cargar, { deep: true })
             <router-link v-if="esInterno()" class="btn btn-chico btn-fantasma" to="/transporte">{{ t('See all') }}<Icono nombre="derecha" :tam="14" /></router-link>
           </div>
           <ul v-if="d.envios.length" class="envios">
-            <li v-for="e in d.envios" :key="e.id" class="envio">
-              <div class="envio-cabeza">
-                <Icono :nombre="e.tipo_transporte === 'AEREO' ? 'avion' : e.tipo_transporte === 'TERRESTRE' ? 'camion' : 'barco'" />
-                <button class="btn-texto envio-codigo" style="padding: 0; text-decoration: none; color: inherit" @click="abrirEnvio(e)">{{ tx(e.codigo) }}</button>
-                <EstadoBadge :estado="e.estado" />
-                <span class="ayuda separar">{{ plural(e.packing_lists, 'PL', t('PLs')) }} · {{ plural(e.cajas, t('carton'), t('cartons')) }}</span>
-              </div>
-              <div class="ruta">
-                <span><b>{{ tx(e.origen || t('Origin')) }}</b><br />{{ tx(e.etd ? t('ETD {0}', [fmtFecha(e.etd)]) : t('No ETD')) }}</span>
-                <div class="ruta-riel" aria-hidden="true">
-                  <div class="ruta-avance" :style="{ width: `${viaje(e)}%` }"></div>
-                  <div v-if="e.estado !== 'PLANIFICADO'" class="ruta-punto" :style="{ left: `${viaje(e)}%` }"></div>
-                </div>
-                <span class="texto-derecha"><b>{{ tx(e.destino || t('Destination')) }}</b><br />{{ tx(e.eta ? t('ETA {0}', [fmtFecha(e.eta)]) : t('No ETA')) }}</span>
-              </div>
-              <div class="ayuda">
-                <template v-if="e.eta && e.estado !== 'ARRIBADO'">{{ t('Arrives {0}.', [diasPara(e.eta)]) }} </template>
-                <template v-if="e.tentativos">{{ t('{0} to confirm.', [plural(e.tentativos, t('tentative PL'), t('tentative PLs'))]) }} </template>
-                {{ tx(e.facturas.slice(0, 3).join(', ')) }}<template v-if="e.facturas.length > 3"> {{ t('and {0} more', [e.facturas.length - 3]) }}</template>
-              </div>
+            <li v-for="e in d.envios" :key="e.id">
+              <button type="button" class="envio" @click="abrirEnvio(e)">
+                <span class="envio-cabeza">
+                  <span class="envio-modo"><Icono :nombre="e.tipo_transporte === 'AEREO' ? 'avion' : e.tipo_transporte === 'TERRESTRE' ? 'camion' : 'barco'" :tam="16" /></span>
+                  <b class="envio-codigo">{{ tx(e.codigo) }}</b>
+                  <EstadoBadge :estado="e.estado" />
+                  <span class="ayuda separar">{{ plural(e.cajas, t('carton'), t('cartons')) }}</span>
+                </span>
+                <span class="ruta">
+                  <span><b>{{ tx(e.origen || t('Origin')) }}</b><small>{{ tx(e.etd ? fmtFecha(e.etd) : t('No ETD')) }}</small></span>
+                  <span class="ruta-riel" aria-hidden="true">
+                    <span class="ruta-avance" :style="{ width: `${viaje(e)}%` }"></span>
+                    <span v-if="e.estado !== 'PLANIFICADO'" class="ruta-punto" :style="{ left: `${viaje(e)}%` }"></span>
+                  </span>
+                  <span class="texto-derecha"><b>{{ tx(e.destino || t('Destination')) }}</b><small>{{ tx(e.eta ? fmtFecha(e.eta) : t('No ETA')) }}</small></span>
+                </span>
+                <span class="ayuda envio-pie">
+                  <template v-if="e.eta && e.estado !== 'ARRIBADO'">{{ t('Arrives {0}.', [diasPara(e.eta)]) }} </template>
+                  <template v-if="e.tentativos">{{ t('{0} to confirm.', [plural(e.tentativos, t('tentative PL'), t('tentative PLs'))]) }} </template>
+                  {{ tx(e.facturas.slice(0, 2).join(', ')) }}<template v-if="e.facturas.length > 2"> {{ t('and {0} more', [e.facturas.length - 2]) }}</template>
+                </span>
+              </button>
             </li>
           </ul>
           <p v-else class="ayuda">{{ t('No shipments in progress.') }}</p>
         </section>
 
-        <section v-if="esInterno()" class="panel">
+        <section v-if="d.contenedores.length" class="panel">
+          <div class="panel-cabeza"><div><h2>{{ t('Load units being planned') }}</h2><p>{{ t('Fill rate by volume.') }}</p></div></div>
+          <ul class="lista-accion">
+            <li v-for="u in d.contenedores" :key="u.id">
+              <router-link class="lista-accion-fila" :to="`/transporte/embarques/${u.embarque_id}?unidad=${u.id}`">
+                <span class="lista-accion-texto"><b>{{ tx(u.nombre) }} <span class="etiqueta">{{ tx(u.tipo) }}</span></b>
+                  <small>{{ tx(u.embarque) }}{{ tx(u.etd ? t(' · departs {0}', [fmtFecha(u.etd)]) : '') }} · {{ fmtNum(u.cbm, 1) }} m³</small></span>
+                <span class="lista-accion-medidor"><Avance v-if="u.capacidad_cbm" :porcentaje="u.pct_cbm || 0" /></span>
+              </router-link>
+            </li>
+          </ul>
+        </section>
+
+        <section v-if="esInterno() && d.alertas.length" class="panel">
           <div class="panel-cabeza"><div><h2>{{ t('Import alerts') }}</h2><p>{{ t('Conflicts found when loading purchase orders.') }}</p></div></div>
-          <p v-if="!d.alertas.length" class="ayuda">{{ t('No open conflicts.') }}</p>
-          <ul v-else class="linea-tiempo">
+          <ul class="linea-tiempo">
             <li v-for="a in d.alertas" :key="a.id">
               <span class="ayuda">{{ fmtFechaHora(a.creada_en) }}</span>
               <span class="fila-flex">{{ tx(a.mensaje) }}<button class="btn btn-chico separar" @click="resolver(a)">{{ t('Mark resolved') }}</button></span>
@@ -192,90 +204,59 @@ watch(periodo, cargar, { deep: true })
       </div>
     </div>
 
-    <h2 class="titulo-seccion">{{ t('Overview') }}</h2>
-    <section class="kpis" :aria-label="t('Indicators')">
-      <Kpi v-for="k in d.kpis" :key="k.clave" :titulo="tx(k.titulo)" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
-           :detalle="tx(k.detalle)" :tono="k.tono" :icono="ICONOS_KPI[k.clave]" @abrir="router.push({ path: k.ruta, query: k.query })" />
-    </section>
-
-
-    <details class="resumen-plegable" :open="resumenAbierto" @toggle="resumenAbierto = $event.target.open">
-      <summary>{{ t('Period summary and charts') }}<span class="ayuda">{{ t('Invoiced, packed, arrivals and classification in the selected period.') }}</span></summary>
-    <section class="panel periodo-panel" :aria-label="t('Period')">
+    <!-- 3. Desempeño del periodo: filtros arriba, indicadores, gráfica y dónde está la mercancía -->
+    <section class="panel desempeno" :aria-label="t('Period')">
       <div class="panel-cabeza">
-        <div><h2>{{ t('In the period') }}</h2><p>{{ t('What happened in the selected period; the chart below uses it too.') }}</p></div>
+        <div><h2>{{ t('Performance') }}</h2><p>{{ t('{0} – {1}', [fmtFecha(d.periodo.desde), fmtFecha(d.periodo.hasta)]) }}</p></div>
         <div class="fila-flex" style="gap: 8px">
           <FiltroMulti v-if="d.periodo.marcas.length > 1" v-model="marcas" :etiqueta="t('Brand')" :opciones="d.periodo.marcas.map((m) => ({ valor: m, texto: m }))" @change="cargar" />
           <FiltroPeriodo v-model="periodo" />
         </div>
       </div>
-      <div class="kpis kpis-periodo">
+      <div class="kpis kpis-planos">
         <Kpi v-for="k in d.periodo.resumen" :key="k.clave" :titulo="tx(k.titulo)" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
-             :detalle="tx(k.detalle)" :icono="ICONOS_PERIODO[k.clave]" @abrir="router.push(RUTAS_PERIODO[k.clave])" />
+             :detalle="tx(k.detalle)" @abrir="router.push(RUTAS_PERIODO[k.clave])" />
+      </div>
+      <div class="desempeno-cuerpo">
+        <div>
+          <h3 class="subtitulo">{{ t('Invoiced value') }} <span class="ayuda">{{ tx(GRANO[d.periodo.facturado.grano]) }} · {{ tx(d.moneda) }}</span></h3>
+          <GraficoColumnas v-if="totalPeriodo" :datos="serie" :titulo="t('Invoiced value')" :formato="(v) => fmtMoneda(v, d.moneda)" />
+          <p v-else class="ayuda vacio-grafica">{{ t('No finalized invoices in this period. Try a longer period (quarter or year).') }}</p>
+        </div>
+        <div>
+          <h3 class="subtitulo">{{ t('Where the goods are') }} <span class="ayuda">{{ t('From PO to load unit, by unit of measure.') }}</span></h3>
+          <BarraFlujo :flujo="d.flujo" />
+        </div>
       </div>
     </section>
 
-      <div class="tablero">
-        <div class="col">
-        <section class="panel">
-          <div class="panel-cabeza">
-            <div><h2>{{ t('Invoiced') }}</h2><p>{{ t('Finalized invoices {0}, {1} – {2} ({3}{4}).', [GRANO[d.periodo.facturado.grano], fmtFecha(d.periodo.desde), fmtFecha(d.periodo.hasta), d.moneda, marcas.length ? ` · ${marcas.join(', ')}` : '']) }}</p></div>
-            <b>{{ fmtMoneda(totalPeriodo, d.moneda) }}</b>
-          </div>
-          <GraficoColumnas v-if="totalPeriodo" :datos="serie" :titulo="t('Invoiced value')" :formato="(v) => fmtMoneda(v, d.moneda)" />
-          <p v-else class="ayuda">{{ t('No finalized invoices in this period. Try a longer period (quarter or year).') }}</p>
-        </section>
-
-        <section class="panel">
-          <div class="panel-cabeza">
-            <div><h2>{{ t('Where the goods are') }}</h2><p>{{ t('From PO to load unit, by unit of measure.') }}</p></div>
-          </div>
-          <BarraFlujo :flujo="d.flujo" />
-        </section>
-
-        </div>
-        <div class="col">
-        <section v-if="d.proveedores.length" class="panel">
-          <div class="panel-cabeza"><div><h2>{{ t('By supplier') }}</h2><p>{{ t('Click one to filter the whole system.') }}</p></div></div>
-          <div class="tabla-marco" style="box-shadow: none">
-            <table class="tabla" v-tarjetas>
-              <thead>
-                <tr>
-                  <th>{{ t('Supplier') }}</th>
-                  <th class="num">{{ t('To invoice') }}</th>
-                  <th class="num" :title="t('Invoices in draft or correction')">{{ t('In process') }}</th>
-                  <th class="num">{{ t('Open PLs') }}</th>
-                  <th class="num" :title="t('Invoices ready to ship')">{{ t('Ready') }}</th>
-                  <th class="num" :title="t('Packing lists in transit or arrived')">{{ t('On the way') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="p in d.proveedores" :key="p.id" class="clicable" @click="elegirProveedor(p.id)">
-                  <td class="principal-celda">{{ tx(p.nombre) }}</td>
-                  <td class="num">{{ fmtMoneda(p.por_facturar, d.moneda) }}</td>
-                  <td class="num">{{ tx(p.en_proceso || '—') }}</td>
-                  <td class="num"><span :class="{ 'etiqueta aviso': p.pl_abiertos }">{{ tx(p.pl_abiertos || '—') }}</span></td>
-                  <td class="num"><span :class="{ 'etiqueta ok': p.listas }">{{ tx(p.listas || '—') }}</span></td>
-                  <td class="num">{{ tx(p.en_camino || '—') }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <section v-if="d.contenedores.length" class="panel">
-          <div class="panel-cabeza"><div><h2>{{ t('Load units being planned') }}</h2><p>{{ t('Fill rate by volume.') }}</p></div></div>
-          <div class="contenedores">
-            <router-link v-for="u in d.contenedores" :key="u.id" class="contenedor-mini" :to="`/transporte/embarques/${u.embarque_id}?unidad=${u.id}`">
-              <span class="fila-flex"><span class="nombre">{{ tx(u.nombre) }}</span><span class="etiqueta">{{ tx(u.tipo) }}</span></span>
-              <span class="ayuda">{{ tx(u.embarque) }}{{ tx(u.etd ? t(' · departs {0}', [fmtFecha(u.etd)]) : '') }}</span>
-              <Avance v-if="u.capacidad_cbm" :porcentaje="u.pct_cbm || 0" />
-              <span class="ayuda">{{ fmtNum(u.cbm, 1) }} m³ · {{ plural(u.packing_lists, 'PL', t('PLs')) }}<template v-if="u.tentativas"> {{ t('· {0} tentative', [u.tentativas]) }}</template></span>
-            </router-link>
-          </div>
-        </section>
-
-        </div>
+    <!-- 4. Por proveedor (equipo interno) -->
+    <section v-if="d.proveedores.length" class="panel">
+      <div class="panel-cabeza"><div><h2>{{ t('By supplier') }}</h2><p>{{ t('Click one to filter the whole system.') }}</p></div></div>
+      <div class="tabla-marco tabla-interna">
+        <table class="tabla" v-tarjetas>
+          <thead>
+            <tr>
+              <th>{{ t('Supplier') }}</th>
+              <th class="num">{{ t('To invoice') }}</th>
+              <th class="num" :title="t('Invoices in draft or correction')">{{ t('In process') }}</th>
+              <th class="num">{{ t('Open PLs') }}</th>
+              <th class="num" :title="t('Invoices ready to ship')">{{ t('Ready') }}</th>
+              <th class="num" :title="t('Packing lists in transit or arrived')">{{ t('On the way') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in d.proveedores" :key="p.id" class="clicable" @click="elegirProveedor(p.id)">
+              <td class="principal-celda">{{ tx(p.nombre) }}</td>
+              <td class="num">{{ fmtMoneda(p.por_facturar, d.moneda) }}</td>
+              <td class="num">{{ tx(p.en_proceso || '—') }}</td>
+              <td class="num"><span :class="{ 'etiqueta aviso': p.pl_abiertos }">{{ tx(p.pl_abiertos || '—') }}</span></td>
+              <td class="num"><span :class="{ 'etiqueta ok': p.listas }">{{ tx(p.listas || '—') }}</span></td>
+              <td class="num">{{ tx(p.en_camino || '—') }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </details>
+    </section>
   </template>
 </template>

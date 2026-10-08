@@ -2,7 +2,6 @@
 import { tx } from '../i18n/index.js'
 import { computed } from 'vue'
 import { fmtNum } from '../utils'
-import Icono from './Icono.vue'
 
 // Indicador del tablero: título, cifra y una línea de contexto. Todo el
 // recuadro lleva a la lista ya filtrada.
@@ -28,8 +27,9 @@ const cifra = computed(() => {
 </script>
 
 <template>
+  <!-- Indicador: etiqueta, cifra y contexto; el tono se marca con un punto (nunca solo con color: el texto lo dice) -->
   <button type="button" class="kpi" :class="`tono-${props.tono}`" @click="$emit('abrir')">
-    <span class="kpi-titulo"><span class="kpi-icono"><Icono :nombre="props.icono" :tam="17" /></span>{{ tx(props.titulo) }}</span>
+    <span class="kpi-titulo" :title="tx(props.titulo)"><i v-if="props.tono !== 'normal'" class="kpi-punto" aria-hidden="true"></i><span>{{ tx(props.titulo) }}</span></span>
     <span class="kpi-valor"><small v-if="props.formato === 'moneda'">{{ tx(props.moneda) }}</small>{{ tx(cifra) }}</span>
     <span v-if="props.detalle" class="kpi-detalle">{{ tx(props.detalle) }}</span>
   </button>

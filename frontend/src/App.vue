@@ -1,7 +1,7 @@
 <script setup>
 import SelectBusqueda from './components/SelectBusqueda.vue'
 import { t, tx } from './i18n/index.js'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icono from './components/Icono.vue'
 import Avatar from './components/Avatar.vue'
@@ -80,6 +80,14 @@ watch(() => route.fullPath, () => {
 })
 // Si se entra a una página de configuración, la sección queda abierta
 watch(enAjustes, (v) => { if (v) ajustesAbierto.value = true }, { immediate: true })
+
+// La descripción de cada página va en una línea; un clic la despliega
+function desplegar(e) {
+  const p = e.target.closest?.('.pagina-cabeza p')
+  if (p) p.classList.toggle('expandida')
+}
+onMounted(() => document.addEventListener('click', desplegar))
+onBeforeUnmount(() => document.removeEventListener('click', desplegar))
 
 async function salir() {
   await cerrarSesion()

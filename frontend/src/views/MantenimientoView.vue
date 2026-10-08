@@ -53,6 +53,10 @@ function cambiarVista(v) {
 const ESTADO_FICHA = { borrador: t('Sheet in draft'), sugerida: t('Draft complete'), revision: t('In review'), observado: t('Returned') }
 
 const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
+// Catálogos de uso diario: a la vista; los de configuración, en «Más catálogos»
+const PRINCIPALES = ['articulos', 'prepacks', 'marcas', 'proveedores', 'grupos', 'centros']
+const principales = computed(() => catalogos.value.filter((c) => PRINCIPALES.includes(c.tipo)))
+const otros = computed(() => catalogos.value.filter((c) => !PRINCIPALES.includes(c.tipo)))
 const campos = computed(() => cat.value?.campos || [])
 const columnas = computed(() => campos.value.filter((c) => !['descripcion', 'direccion', 'razon_social', 'upc'].includes(c.nombre) &&
   !(c.nombre === 'correos' && tipo.value !== 'contactos')))
@@ -351,10 +355,16 @@ onMounted(async () => {
       <option v-for="c in catalogos" :key="c.tipo" :value="c.tipo">{{ tx(c.titulo) }} ({{ tx(c.total) }})</option>
     </Seleccion>
   </label>
-  <div class="pestanas-pildora solo-escritorio" role="tablist">
-    <button v-for="c in catalogos" :key="c.tipo" class="pildora" role="tab" :aria-selected="c.tipo === tipo" @click="elegir(c.tipo)">
-      {{ tx(c.titulo) }}<span class="cuenta">{{ tx(c.total) }}</span>
-    </button>
+  <!-- Los catálogos de uso diario como pestañas; el resto en una lista con búsqueda -->
+  <div class="selector-catalogos solo-escritorio">
+    <div class="pestanas-pildora" role="tablist">
+      <button v-for="c in principales" :key="c.tipo" class="pildora" role="tab" :aria-selected="c.tipo === tipo" @click="elegir(c.tipo)">
+        {{ tx(c.titulo) }}<span class="cuenta">{{ tx(c.total) }}</span>
+      </button>
+    </div>
+    <SelectBusqueda :model-value="otros.some((c) => c.tipo === tipo) ? tipo : ''" :opciones="otros.map((c) => ({ valor: c.tipo, texto: c.titulo, sub: String(c.total) }))"
+                    :vacio="t('More catalogs')" :etiqueta="t('Catalog')" :prefijo="false" :busqueda="true" class="selector-otros"
+                    :class="{ activo: otros.some((c) => c.tipo === tipo) }" @update:model-value="(v) => v && elegir(v)" />
   </div>
 
   <div v-if="cat">
