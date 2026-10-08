@@ -406,14 +406,85 @@ partes: cada pantalla nueva de E5 y E6 ya nace con pasos.
 
 ---
 
-## 11. Lo que asumo (dímelo si no es así)
+## 11. Decisiones confirmadas
 
-1. **Inventario por cantidad, sin costo**, con lote o serie opcional por
-   artículo.
-2. **Las recepciones parciales se permiten**; una recepción se cierra al
-   confirmar el último conteo.
-3. **Lo dañado** queda en inventario como "retenido" (no disponible), no se
-   descarta.
+1. **Inventario solo por cantidad**, sin costo. Lote o serie quedan para
+   después.
+2. **Recepciones parciales permitidas**, y **el contenedor es la unidad de
+   seguimiento** (sección 12).
+3. **Lo dañado queda como "retenido"** en el inventario, no se descarta.
 4. **El selector de empresa** solo aparece para quien pertenece a más de una.
-5. **El modo lectura** aplica a documentos; los catálogos (artículos, socios,
-   lugares) usan solo el control de versión, porque sus ediciones son cortas.
+5. **El modo lectura aplica a los documentos**; los catálogos usan solo el
+   control de versión.
+6. **Varias bodegas con inventario separado**, y en cada recepción **se
+   elige a qué bodega o bodega fiscal llega** la mercancía (sección 13).
+
+---
+
+## 12. El contenedor como unidad de seguimiento
+
+Un documento de transporte (B/L, AWB o carta de porte) puede traer varios
+contenedores, y cada uno puede seguir un camino distinto. Ejemplo: un B/L con
+4 contenedores en el que aduana libera 2 y retiene 2. Los 2 liberados se
+entregan; los otros esperan.
+
+**Estructura**
+
+```mermaid
+erDiagram
+  EXPEDIENTE ||--o{ DOCUMENTO_TRANSPORTE : "B/L master / house, AWB, CP"
+  DOCUMENTO_TRANSPORTE ||--o{ UNIDAD_CARGA : ampara
+  UNIDAD_CARGA ||--o{ EVENTO : "tracking propio"
+  UNIDAD_CARGA ||--o{ PACKING_LIST : lleva
+  UNIDAD_CARGA ||--o| RECEPCION : "se recibe en"
+  EXPEDIENTE ||--o{ EVENTO : "eventos generales"
+```
+
+**Reglas**
+
+- Cada **unidad de carga** (contenedor, pallet aéreo, camión) tiene su
+  propio estado, su ETA y su fecha de llegada real, su estado aduanero
+  (`PENDIENTE`, `EN_REVISION`, `RETENIDO`, `LIBERADO`), su entrega y su
+  recepción.
+- Un **evento** se registra para el expediente completo (se aplica a todas
+  sus unidades, p. ej. "Zarpó") o para **unidades específicas** (p. ej.
+  "Contenedores 3 y 4 retenidos por aduana", "Contenedor 1 entregado en
+  bodega").
+- El **estado del expediente se calcula** de sus unidades: "2 de 4
+  liberados", "1 de 4 recibido". La ETA del expediente es la más próxima de
+  sus unidades pendientes. El riesgo contra la fecha requerida se calcula
+  **por unidad** y el expediente muestra el peor caso.
+- Los **hitos configurables** (sección 2.4) se aplican por unidad; el
+  tablero de tracking puede verse por expediente o por contenedor.
+- La **recepción se hace por unidad** o por un grupo de unidades: los
+  liberados se reciben hoy y los retenidos cuando se liberen. Cada recepción
+  descuenta lo esperado solo de los PL que van en sus unidades.
+- Este mismo modelo sirve para la salida: un despacho de 3 camiones a 3
+  tiendas es un expediente con 3 unidades, cada una con su destino, su
+  tracking y su entrega.
+
+---
+
+## 13. Varias bodegas e inventario separado
+
+- Cada **lugar de tipo bodega** (bodega, bodega fiscal, CD o tienda) tiene
+  su **propio inventario**. Las existencias, el kardex, los ajustes y los
+  conteos son por lugar y opcionalmente por ubicación.
+- **Destino al recibir**: el expediente propone la bodega destino (la del
+  pedido), pero en cada recepción **se elige la bodega real**. Así cada
+  contenedor puede ir a una bodega distinta, por ejemplo 2 a la bodega
+  fiscal A y 2 a la bodega B.
+- **Bodega fiscal**: la mercancía queda con **estado aduanero "bajo control
+  aduanero"** (no nacionalizada).
+  - Para pasarla a una bodega normal se hace un **traslado de
+    nacionalización** con la referencia de la declaración aduanera.
+  - Ese traslado es una salida de la bodega fiscal y una entrada en la
+    nacional, con su documento.
+  - Una salida de exportación puede despacharse **directo desde la bodega
+    fiscal** (reexportación) sin nacionalizar.
+- **Traslados entre bodegas**: son un pedido de salida con destino propio.
+  Se usa el mismo flujo (PL opcional, unidad de carga y recepción en
+  destino) y la mercancía figura "en tránsito" mientras viaja.
+- **Accesos por bodega**: el alcance de un usuario puede limitarse a una o
+  varias bodegas. Así el personal de cada bodega ve y mueve solo su
+  inventario (sección 3.2).
