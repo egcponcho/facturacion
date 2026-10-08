@@ -22,6 +22,7 @@ from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Space
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .idioma_doc import L
 from .preferencias import fecha_hora_txt, fecha_txt
 from ..models import Pais, Proveedor, Puerto
 from .cantidades import cbm_caja, cubierto, inner_de, nombre_factura, numeracion, totales_pl
@@ -41,45 +42,8 @@ from .unidades import UNIDADES as _UNIDADES
 UNIDADES = {u[0]: u[2].capitalize() for u in _UNIDADES}
 
 
-# ---- Montos en letras (en inglés) ---------------------------------------------
-_ONES = ["", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN", "ELEVEN", "TWELVE",
-         "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN", "EIGHTEEN", "NINETEEN"]
-_TENS = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"]
-MONEDAS = {"USD": ("US DOLLAR", "US DOLLARS"), "EUR": ("EURO", "EUROS"), "GTQ": ("QUETZAL", "QUETZALES"),
-           "CRC": ("COLON", "COLONES"), "HNL": ("LEMPIRA", "LEMPIRAS"), "NIO": ("CORDOBA", "CORDOBAS"),
-           "PAB": ("BALBOA", "BALBOAS")}
-
-
-def _hundreds(n: int) -> str:
-    c, r = divmod(n, 100)
-    words = [f"{_ONES[c]} HUNDRED"] if c else []
-    if r < 20:
-        words.append(_ONES[r])
-    else:
-        d, u = divmod(r, 10)
-        words.append(_TENS[d] + (f"-{_ONES[u]}" if u else ""))
-    return " ".join(w for w in words if w)
-
-
-def numero_en_letras(n: int) -> str:
-    """Integer in English words: 4850 -> FOUR THOUSAND EIGHT HUNDRED FIFTY."""
-    if n == 0:
-        return "ZERO"
-    groups = []
-    for divisor, name in ((10**9, "BILLION"), (10**6, "MILLION"), (10**3, "THOUSAND")):
-        q, n = divmod(n, divisor)
-        if q:
-            groups.append(f"{_hundreds(q)} {name}")
-    if n:
-        groups.append(_hundreds(n))
-    return " ".join(groups)
-
-
-def monto_en_letras(valor: float, moneda: str) -> str:
-    centavos_total = int(round(valor * 100))
-    entero, centavos = divmod(centavos_total, 100)
-    sing, plur = MONEDAS.get(moneda, (moneda, moneda))
-    return f"{numero_en_letras(entero)} {sing if entero == 1 else plur} AND {centavos:02d}/100"
+# Montos y números en letras: services/letras.py (reglas de cada idioma)
+from .letras import cantidad_en_letras, monto_en_letras  # noqa: E402
 
 
 # ---- Datos comunes -------------------------------------------------------------
@@ -113,7 +77,7 @@ def _transporte(db: Session, pls: list) -> dict:
             e = pl.unidad.embarque
             embarques[e.id] = e
             u = pl.unidad
-            txt = f"{u.numero or u.etiqueta} ({u.tipo})" + (f" seal {u.sello}" if u.sello else "")
+            txt = f"{u.numero or u.etiqueta} ({u.tipo})" + (L(" seal {0}", u.sello) if u.sello else "")
             if txt not in unidades:
                 unidades.append(txt)
     if not embarques:
@@ -121,7 +85,7 @@ def _transporte(db: Session, pls: list) -> dict:
     e = next(iter(embarques.values()))
     return {
         "embarque": ", ".join(x.codigo for x in embarques.values()),
-        "modo": MODOS.get(e.tipo_transporte, e.tipo_transporte), "transportista": e.transportista,
+        "modo": L(MODOS.get(e.tipo_transporte, e.tipo_transporte)), "transportista": e.transportista,
         "documento": ", ".join(x.documento_numero for x in embarques.values() if x.documento_numero) or None,
         "puerto_origen": _puerto(db, e.puerto_origen), "puerto_destino": _puerto(db, e.puerto_destino),
         "etd": e.salida_real or e.etd, "eta": e.arribo_real or e.eta, "unidades": unidades,
@@ -155,7 +119,7 @@ def _por_unidad_txt(por_unidad: dict, campo: str | None = None) -> str:
     for u, v in por_unidad.items():
         n = v[campo] if campo else v
         if n:
-            partes_.append(f"{_num(n)} {UNIDADES.get(u, u).lower()}")
+            partes_.append(f"{_num(n)} {L(UNIDADES.get(u, u)).lower()}")
     return ", ".join(partes_) or "—"
 
 
@@ -248,7 +212,7 @@ def datos_pl(db: Session, pl) -> dict:
             # Lo que va sobre un soporte ocupa el volumen del soporte
             "cbm": round(cbm * g.num_cajas, 4) if cbm and not soporte else None,
             "pallet": empaques.rango_txt(pl, soporte, rangos) if soporte else None,
-            "etiqueta": "Standard" if et["tipo"] == "ESTANDAR" else "Consolidated",
+            "etiqueta": L("Standard") if et["tipo"] == "ESTANDAR" else L("Consolidated"),
             "ocs": et["ocs"], "centro_destino": et["centro_destino"],
             "largo": g.largo, "ancho": g.ancho, "alto": g.alto,
         })
@@ -273,7 +237,7 @@ def datos_pl(db: Session, pl) -> dict:
         "transporte": _transporte(db, [pl]), "grupos": grupos, "sin_caja": sin_caja, "pallets": pallets,
         "total_cajas": total_cajas,
         "totales_pl": {**t, "por_unidad_txt": _por_unidad_txt(t["por_unidad"], "cantidad")},
-        "total_bultos_letras": numero_en_letras(total_cajas) + (" PACKAGE" if total_cajas == 1 else " PACKAGES"),
+        "total_bultos_letras": cantidad_en_letras(total_cajas) + " " + (L("PACKAGE") if total_cajas == 1 else L("PACKAGES")),
         "destinos": destinos,
     }
 
@@ -330,14 +294,14 @@ class _Lienzo(rl_canvas.Canvas):
         self.setFont("Helvetica", 6.8)
         self.setFillColor(TENUE)
         self.drawString(14 * mm, 7.5 * mm, self._pie)
-        self.drawRightString(ancho - 14 * mm, 7.5 * mm, f"Page {self._pageNumber} of {total}")
+        self.drawRightString(ancho - 14 * mm, 7.5 * mm, L("Page {0} of {1}", self._pageNumber, total))
         if self._borrador:
             self.saveState()
             self.setFont("Helvetica-Bold", 54)
             self.setFillColor(colors.Color(0.85, 0.2, 0.2, alpha=0.08))
             self.translate(ancho / 2, alto / 2)
             self.rotate(35)
-            self.drawCentredString(0, 0, "DRAFT · NOT OFFICIAL")
+            self.drawCentredString(0, 0, L("DRAFT · NOT OFFICIAL"))
             self.restoreState()
 
 
@@ -354,7 +318,7 @@ def _cabecera(e, d: dict, ancho: float, titulo: str, subtitulo: str, datos: list
     exp = d["exportador"]
     izq = [Paragraph(_esc(exp["nombre"]), e["titulo"]),
            Paragraph(_esc(exp["direccion"]) + (f" · {_esc(exp['pais'])}" if exp.get("pais") else ""), e["chico"]),
-           Paragraph(f"Tax ID: {_esc(exp['id_fiscal'])} · {_esc(exp['correos'])} · {_esc(exp['telefono'])}",
+           Paragraph(L("Tax ID: {0} · {1} · {2}", _esc(exp['id_fiscal']), _esc(exp['correos']), _esc(exp['telefono'])),
                      e["chico"])]
     filas = [[Paragraph(titulo, ParagraphStyle("t", parent=e["negrita"], fontSize=11, leading=13, textColor=ACENTO))],
              [Paragraph(subtitulo, e["chico"])]]
@@ -377,13 +341,13 @@ def _parte(e, titulo: str, p: dict | None) -> list:
     lineas = [Paragraph(titulo, e["etiqueta"]),
               Paragraph(f"<b>{_esc(p.get('codigo'))} · {_esc(nombre)}</b>", e["base"])]
     if p.get("id_fiscal"):
-        lineas.append(Paragraph(f"Tax ID (NIT / RUC): {_esc(p['id_fiscal'])}", e["chico"]))
+        lineas.append(Paragraph(L("Tax ID (NIT / RUC): {0}", _esc(p['id_fiscal'])), e["chico"]))
     lineas.append(Paragraph(_esc(p.get("direccion")) + (f" · {_esc(p['pais'])}" if p.get("pais") else ""), e["chico"]))
     if p.get("puerto"):
-        lineas.append(Paragraph(f"Port of arrival: {_esc(p.get('puerto_nombre') or p['puerto'])}", e["chico"]))
+        lineas.append(Paragraph(L("Port of arrival: {0}", _esc(p.get('puerto_nombre') or p['puerto'])), e["chico"]))
     contacto = (p.get("contactos") or [None])[0]
     if contacto:
-        lineas.append(Paragraph(f"Contact: {_esc(contacto['nombre'])} · {_esc(contacto['correos'])}"
+        lineas.append(Paragraph(L("Contact: {0} · {1}", _esc(contacto['nombre']), _esc(contacto['correos']))
                                 + (f" · {_esc(contacto['telefono'])}" if contacto.get("telefono") else ""), e["chico"]))
     elif p.get("correos"):
         lineas.append(Paragraph(_esc(p["correos"]), e["chico"]))
@@ -396,8 +360,8 @@ def _bloque_partes(e, d: dict, ancho: float) -> Table:
                   "direccion": exp["direccion"], "pais": exp["pais"],
                   "contactos": [{"nombre": exp["contacto"], "correos": exp["correos"], "telefono": exp["telefono"]}]
                   if exp.get("contacto") else []}
-    t = Table([[_parte(e, "EXPORTER / SELLER", exportador), _parte(e, "IMPORTER / BILL TO", d["importador"]),
-                _parte(e, "CONSIGNEE / NOTIFY PARTY", d["consignatario"])]], colWidths=[ancho / 3] * 3)
+    t = Table([[_parte(e, L("EXPORTER / SELLER"), exportador), _parte(e, L("IMPORTER / BILL TO"), d["importador"]),
+                _parte(e, L("CONSIGNEE / NOTIFY PARTY"), d["consignatario"])]], colWidths=[ancho / 3] * 3)
     t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOX", (0, 0), (-1, -1), 0.5, LINEA),
                            ("INNERGRID", (0, 0), (-1, -1), 0.5, LINEA), ("LEFTPADDING", (0, 0), (-1, -1), 6),
                            ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
@@ -444,7 +408,7 @@ def _tabla(e, encabezados: list[tuple[str, float, bool]], filas: list[list], anc
 
 def _firma(e, ancho: float, texto: str) -> KeepTogether:
     t = Table([[Paragraph(texto, e["chico"]), [Spacer(1, 16), Paragraph("_" * 42, e["base"]),
-                                                Paragraph("Name, title and signature of the exporter", e["chico"])]]],
+                                                Paragraph(L("Name, title and signature of the exporter"), e["chico"])]]],
               colWidths=[ancho * 0.6, ancho * 0.4])
     t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "BOTTOM"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
     return KeepTogether([Spacer(1, 8), t])
@@ -456,18 +420,18 @@ def pdf_factura(d: dict) -> bytes:
     ancho = letter[0] - 28 * mm
     tr = d["transporte"] or {}
     h = [
-        _cabecera(e, d, ancho, "COMMERCIAL INVOICE", "Customs invoice · original", [
-            ("No.", d["numero"]), ("Date", _fecha(d["fecha"])),
-            ("Status", "Official" if d["oficial"] else "Draft")]),
+        _cabecera(e, d, ancho, L("COMMERCIAL INVOICE"), L("Customs invoice · original"), [
+            (L("No."), d["numero"]), (L("Date"), _fecha(d["fecha"])),
+            (L("Status"), L("Official") if d["oficial"] else L("Draft"))]),
         Spacer(1, 6), _bloque_partes(e, d, ancho), Spacer(1, 5),
         _rejilla(e, [
-            ("Incoterm", d["incoterm"]), ("Currency", d["moneda"]), ("Payment terms", d["condiciones"]),
-            ("Mode of transport", tr.get("modo")),
-            ("Country of origin", d["pais_origen"]), ("Country of shipment", d["pais_procedencia"]),
-            ("Country of destination", d["pais_destino"]), ("Carrier", tr.get("transportista")),
-            ("Port of loading", tr.get("puerto_origen") or d["puerto_embarque"]),
-            ("Port of discharge", tr.get("puerto_destino") or d["consignatario"].get("puerto_nombre")),
-            ("B/L / AWB / waybill", tr.get("documento")), ("Packing lists", ", ".join(d["pls"]) or "—"),
+            (L("Incoterm"), d["incoterm"]), (L("Currency"), d["moneda"]), (L("Payment terms"), d["condiciones"]),
+            (L("Mode of transport"), tr.get("modo")),
+            (L("Country of origin"), d["pais_origen"]), (L("Country of shipment"), d["pais_procedencia"]),
+            (L("Country of destination"), d["pais_destino"]), (L("Carrier"), tr.get("transportista")),
+            (L("Port of loading"), tr.get("puerto_origen") or d["puerto_embarque"]),
+            (L("Port of discharge"), tr.get("puerto_destino") or d["consignatario"].get("puerto_nombre")),
+            (L("B/L / AWB / waybill"), tr.get("documento")), (L("Packing lists"), ", ".join(d["pls"]) or "—"),
         ], ancho),
         Spacer(1, 7),
     ]
@@ -475,33 +439,33 @@ def pdf_factura(d: dict) -> bytes:
     for l in d["lineas"]:
         desc = f"<b>{_esc(l['descripcion'] or '')}</b><br/>" \
                f"<font color='#5b6475'>{_esc(l['estilo'])}{' · ' + _esc(l['color']) if l['color'] else ''}" \
-               f"{' · size ' + _esc(l['talla']) if l['talla'] else ''}</font>"
+               f"{L(' · size ') + _esc(l['talla']) if l['talla'] else ''}</font>"
         if l["prepack"]:
-            desc += f"<br/><font color='#5b3fd1'>Prepack {_esc(l['prepack'])}</font>"
+            desc += L("<br/><font color='#5b3fd1'>Prepack {0}</font>", _esc(l['prepack']))
         filas.append([f"{l['oc']}/{l['posicion']}", l["sku"], l["marca"] or "—", Paragraph(desc, e["celda"]), l["partida"], l["origen"],
                       _num(l["cantidad"]), l["unidad"], _num(l["precio"], 2), _num(l["total"], 2)])
     t = d["totales"]
-    h.append(_tabla(e, [("PO / line", 1.75, False), ("Item code", 1.45, False), ("Brand", 0.9, False), ("Customs description", 3.1, False),
-                        ("HS code (SAC)", 1.2, False), ("Origin", 0.7, False), ("Quantity", 0.9, True),
-                        ("UoM", 0.5, False), ("Unit price", 1.1, True), ("Amount", 1.3, True)],
-                    filas, ancho, pie=["", "", "", f"{len(d['lineas'])} lines", "", "", _num(sum(l['cantidad'] for l in d['lineas'])),
-                                       "", "Total", f"{d['moneda']} {_num(t['importe'], 2)}"]))
+    h.append(_tabla(e, [(L("PO / line"), 1.75, False), (L("Item code"), 1.45, False), (L("Brand"), 0.9, False), (L("Customs description"), 3.1, False),
+                        (L("HS code (SAC)"), 1.2, False), (L("Origin"), 0.7, False), (L("Quantity"), 0.9, True),
+                        (L("UoM"), 0.5, False), (L("Unit price"), 1.1, True), (L("Amount"), 1.3, True)],
+                    filas, ancho, pie=["", "", "", L("{0} lines", len(d['lineas'])), "", "", _num(sum(l['cantidad'] for l in d['lineas'])),
+                                       "", L("Total"), f"{d['moneda']} {_num(t['importe'], 2)}"]))
     resumen = _rejilla(e, [
-        ("Total quantity", _por_unidad_txt(t["por_unidad"])), ("Packages", f"{_num(t['bultos'])} cartons"
-                                                                  + (f" on {t['pallets']} pallets" if t["pallets"] else "")),
-        ("Net weight", f"{_num(t['peso_neto'], 2)} kg"), ("Gross weight", f"{_num(t['peso_bruto'], 2)} kg"),
-        ("Volume", f"{_num(t['cbm'], 3)} m³"), ("Containers / AWB", ", ".join(tr.get("unidades", [])) or "—"),
-        ("Total value " + (d["incoterm"] or ""), f"{d['moneda']} {_num(t['importe'], 2)}"),
-        ("Purchase orders", f"{len(d['ocs'])} (see lines)"),
+        (L("Total quantity"), _por_unidad_txt(t["por_unidad"])), (L("Packages"), L("{0} cartons", _num(t['bultos']))
+                                                                  + (L(" on {0} pallets", t['pallets']) if t["pallets"] else "")),
+        (L("Net weight"), L("{0} kg", _num(t['peso_neto'], 2))), (L("Gross weight"), L("{0} kg", _num(t['peso_bruto'], 2))),
+        (L("Volume"), f"{_num(t['cbm'], 3)} m³"), (L("Containers / AWB"), ", ".join(tr.get("unidades", [])) or "—"),
+        (L("Total value ") + (d["incoterm"] or ""), f"{d['moneda']} {_num(t['importe'], 2)}"),
+        (L("Purchase orders"), L("{0} (see lines)", len(d['ocs']))),
     ], ancho)
     h += [Spacer(1, 6), KeepTogether([resumen, Spacer(1, 4),
-                                      Paragraph(f"<b>SAY:</b> {_esc(d['total_letras'])}", e["base"])])]
+                                      Paragraph(L("<b>SAY:</b> {0}", _esc(d['total_letras'])), e["base"])])]
     if d.get("observaciones"):
-        h += [Spacer(1, 4), Paragraph(f"<b>Remarks:</b> {_esc(d['observaciones'])}", e["chico"])]
-    h.append(_firma(e, ancho, "We declare under oath that the information in this invoice is true and correct, that "
+        h += [Spacer(1, 4), Paragraph(L("<b>Remarks:</b> {0}", _esc(d['observaciones'])), e["chico"])]
+    h.append(_firma(e, ancho, L("We declare under oath that the information in this invoice is true and correct, that "
                                "the value is the price actually paid or payable for the goods and that the declared "
-                               "origin is correct."))
-    return _construir(h, letter, f"Commercial invoice {d['numero']} · {d['exportador']['nombre']}", not d["oficial"])
+                               "origin is correct.")))
+    return _construir(h, letter, L("Commercial invoice {0} · {1}", d['numero'], d['exportador']['nombre']), not d["oficial"])
 
 
 # ---- Packing list ----------------------------------------------------------------
@@ -512,20 +476,20 @@ def pdf_pl(d: dict) -> bytes:
     tr = d["transporte"] or {}
     tp = d["totales_pl"]
     h = [
-        _cabecera(e, d, ancho, "PACKING LIST", "Detailed carton list", [
-            ("No.", f"{d['numero']} · {d['numero_pl']}"), ("Date", _fecha(d["fecha"])),
-            ("Invoice", d["numero"]), ("Status", "Official" if d["oficial"] else "Draft")]),
+        _cabecera(e, d, ancho, L("PACKING LIST"), L("Detailed carton list"), [
+            (L("No."), f"{d['numero']} · {d['numero_pl']}"), (L("Date"), _fecha(d["fecha"])),
+            (L("Invoice"), d["numero"]), (L("Status"), L("Official") if d["oficial"] else L("Draft"))]),
         Spacer(1, 6), _bloque_partes(e, d, ancho), Spacer(1, 5),
         _rejilla(e, [
-            ("Mode of transport", tr.get("modo")),
-            ("Carrier", tr.get("transportista")), ("B/L / AWB / waybill", tr.get("documento")),
-            ("Container / AWB", ", ".join(tr.get("unidades", [])) or "—"),
-            ("Port of loading", tr.get("puerto_origen") or d["puerto_embarque"]),
-            ("Port of discharge", tr.get("puerto_destino")), ("Country of origin", d["pais_origen"]),
-            ("Country of destination", d["pais_destino"]),
+            (L("Mode of transport"), tr.get("modo")),
+            (L("Carrier"), tr.get("transportista")), (L("B/L / AWB / waybill"), tr.get("documento")),
+            (L("Container / AWB"), ", ".join(tr.get("unidades", [])) or "—"),
+            (L("Port of loading"), tr.get("puerto_origen") or d["puerto_embarque"]),
+            (L("Port of discharge"), tr.get("puerto_destino")), (L("Country of origin"), d["pais_origen"]),
+            (L("Country of destination"), d["pais_destino"]),
             # El destino final solo en la cabecera si todo el PL va a un mismo destino
-            ("Final destination", d["destinos"][0] if len(d["destinos"]) == 1 else "Per carton (see lines)"),
-            ("ETD / ETA", f"{_fecha(tr.get('etd'))} / {_fecha(tr.get('eta'))}"),
+            (L("Final destination"), d["destinos"][0] if len(d["destinos"]) == 1 else L("Per carton (see lines)")),
+            (L("ETD / ETA"), f"{_fecha(tr.get('etd'))} / {_fecha(tr.get('eta'))}"),
         ], ancho, columnas=5),
         Spacer(1, 7),
     ]
@@ -547,45 +511,43 @@ def pdf_pl(d: dict) -> bytes:
                 (g["etiqueta"] + (f" → {g['centro_destino']}" if g["centro_destino"] else "")) if primera else "",
             ])
     h.append(_tabla(e, [
-        ("Cartons", 0.75, False), ("Qty", 0.45, True), ("PO / line", 1.1, False), ("Item code", 1.15, False),
-        ("Brand", 0.7, False), ("Customs description · style", 2.0, False), ("Size", 0.45, False),
-        ("Inner packs / ctn", 0.6, True), ("Per inner pack", 0.6, True), ("Total / ctn", 0.6, True), ("Total", 0.65, True),
-        ("UoM", 0.45, False), ("Dimensions cm", 1.05, False), ("Net/ctn", 0.75, True), ("Gross/ctn", 0.85, True),
-        ("Net total", 0.75, True), ("Gross total", 0.8, True), ("m³", 0.6, True), ("Pallet", 0.5, False),
-        ("Label → dest.", 1.0, False)],
-        filas, ancho, pie=["Total", _num(d["total_cajas"]), "", "", "", "", "", "", "", "", "", "", "", "", "",
+        (L("Cartons"), 0.75, False), (L("Qty"), 0.45, True), (L("PO / line"), 1.1, False), (L("Item code"), 1.15, False),
+        (L("Brand"), 0.7, False), (L("Customs description · style"), 2.0, False), (L("Size"), 0.45, False),
+        (L("Inner packs / ctn"), 0.6, True), (L("Per inner pack"), 0.6, True), (L("Total / ctn"), 0.6, True), (L("Total"), 0.65, True),
+        (L("UoM"), 0.45, False), (L("Dimensions cm"), 1.05, False), (L("Net/ctn"), 0.75, True), (L("Gross/ctn"), 0.85, True),
+        (L("Net total"), 0.75, True), (L("Gross total"), 0.8, True), ("m³", 0.6, True), (L("Pallet"), 0.5, False),
+        (L("Label → dest."), 1.0, False)],
+        filas, ancho, pie=[L("Total"), _num(d["total_cajas"]), "", "", "", "", "", "", "", "", "", "", "", "", "",
                            _num(tp["peso_neto"], 2), _num(tp["peso_bruto"], 2), _num(tp["cbm"], 3), "", ""]))
     if d["pallets"]:
-        h += [Spacer(1, 6), Paragraph("PALLETS", e["etiqueta"]),
-              _tabla(e, [("Pallet", 1, False), ("Cartons", 1, True), ("Dimensions cm", 2, False), ("Tare kg", 1, True),
-                         ("Gross kg", 1, True), ("m³", 1, True)],
+        h += [Spacer(1, 6), Paragraph(L("PALLETS"), e["etiqueta"]),
+              _tabla(e, [(L("Pallet"), 1, False), (L("Cartons"), 1, True), (L("Dimensions cm"), 2, False), (L("Tare kg"), 1, True),
+                         (L("Gross kg"), 1, True), ("m³", 1, True)],
                      [[p["numero"], _num(p["cajas"]), p["medidas"], _num(p["tara"], 1), _num(p["bruto"], 2),
                        _num(p["cbm"], 3) if p["cbm"] else "—"] for p in d["pallets"]], ancho * 0.6)]
     if d["sin_caja"]:
-        h += [Spacer(1, 6), Paragraph("NOT YET PACKED", e["etiqueta"]),
-              _tabla(e, [("PO", 1, False), ("Item code", 1.4, False), ("Style", 1.4, False), ("Size", 0.6, False),
-                         ("Quantity", 0.8, True), ("UoM", 0.5, False)],
+        h += [Spacer(1, 6), Paragraph(L("NOT YET PACKED"), e["etiqueta"]),
+              _tabla(e, [(L("PO"), 1, False), (L("Item code"), 1.4, False), (L("Style"), 1.4, False), (L("Size"), 0.6, False),
+                         (L("Quantity"), 0.8, True), (L("UoM"), 0.5, False)],
                      [[x["oc"], x["sku"], x["estilo"], x["talla"], _num(x["cantidad"]), x["unidad"]] for x in d["sin_caja"]],
                      ancho * 0.6)]
     consig = d["consignatario"]
-    marcas = (f"<b>{_esc(consig.get('nombre'))}</b><br/>{_esc(consig.get('direccion'))}<br/>"
-              f"Invoice {_esc(d['numero'])} · PO per carton label<br/>Carton no. __ of {d['total_cajas']} · "
-              f"Made in {_esc(d['pais_origen'])}")
+    marcas = (L("<b>{0}</b><br/>{1}<br/>Invoice {2} · PO per carton label<br/>Carton no. __ of {3} · Made in {4}", _esc(consig.get('nombre')), _esc(consig.get('direccion')), _esc(d['numero']), d['total_cajas'], _esc(d['pais_origen'])))
     resumen = _rejilla(e, [
-        ("Total packages", f"{_num(d['total_cajas'])} cartons" + (f" on {_num(tp['pallets'])} pallets" if tp["pallets"] else "")),
-        ("Quantity", tp["por_unidad_txt"]), ("Net weight", f"{_num(tp['peso_neto'], 2)} kg"),
-        ("Gross weight", f"{_num(tp['peso_bruto'], 2)} kg"), ("Volume", f"{_num(tp['cbm'], 3)} m³"),
+        (L("Total packages"), L("{0} cartons", _num(d['total_cajas'])) + (L(" on {0} pallets", _num(tp['pallets'])) if tp["pallets"] else "")),
+        (L("Quantity"), tp["por_unidad_txt"]), (L("Net weight"), L("{0} kg", _num(tp['peso_neto'], 2))),
+        (L("Gross weight"), L("{0} kg", _num(tp['peso_bruto'], 2))), (L("Volume"), f"{_num(tp['cbm'], 3)} m³"),
     ], ancho, columnas=5)
-    marca_t = Table([[Paragraph("SHIPPING MARKS", e["etiqueta"])], [Paragraph(marcas, e["base"])]],
+    marca_t = Table([[Paragraph(L("SHIPPING MARKS"), e["etiqueta"])], [Paragraph(marcas, e["base"])]],
                     colWidths=[ancho * 0.5], hAlign="LEFT")
     marca_t.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.8, TINTA), ("LEFTPADDING", (0, 0), (-1, -1), 7)]))
     h += [Spacer(1, 7), KeepTogether([resumen, Spacer(1, 4),
-                                      Paragraph(f"<b>TOTAL PACKAGES:</b> {_esc(d['total_bultos_letras'])}", e["base"]),
+                                      Paragraph(L("<b>TOTAL PACKAGES:</b> {0}", _esc(d['total_bultos_letras'])), e["base"]),
                                       Spacer(1, 6), marca_t])]
-    h.append(_firma(e, ancho, "We declare that the contents, numbering, dimensions and weights of the packages "
+    h.append(_firma(e, ancho, L("We declare that the contents, numbering, dimensions and weights of the packages "
                                "correspond to the goods shipped. Every unit or pair carries its individual label; "
-                               "inner packs carry an inner pack label with the product and the quantity inside."))
-    return _construir(h, tam, f"Packing list {d['numero']} {d['numero_pl']} · {d['exportador']['nombre']}",
+                               "inner packs carry an inner pack label with the product and the quantity inside.")))
+    return _construir(h, tam, L("Packing list {0} {1} · {2}", d['numero'], d['numero_pl'], d['exportador']['nombre']),
                       not d["oficial"])
 
 
@@ -595,11 +557,14 @@ def pdf_reporte(titulo: str, subtitulo: str, filtros: str, indicadores: list[tup
     from . import visibilidad
 
     indicadores, columnas, filas, _ = visibilidad.reporte(indicadores, columnas, filas)
+    from . import idioma_doc
+
+    titulo, subtitulo, indicadores, columnas, filas, _ = idioma_doc.reporte(titulo, subtitulo, indicadores, columnas, filas)
     e = _estilos()
     tam = landscape(letter)
     ancho = tam[0] - 28 * mm
     cab = Table([[[Paragraph(titulo, e["titulo"]), Paragraph(subtitulo, e["chico"])],
-                  Paragraph(f"Generated {fecha_hora_txt(datetime.now())}<br/>{_esc(filtros) if filtros else 'No filters'}",
+                  Paragraph(L("Generated {0}", fecha_hora_txt(datetime.now())) + f"<br/>{_esc(filtros) if filtros else L('No filters')}",
                             ParagraphStyle("f", parent=e["chico"], alignment=TA_RIGHT))]],
                 colWidths=[ancho * 0.6, ancho * 0.4])
     cab.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, 0), 1.2, ACENTO),
@@ -627,7 +592,7 @@ def _valor_ficha(v, k: str = "", et: dict | None = None) -> str:
     if isinstance(v, list):
         return ", ".join(str(ops.get(x, x)) for x in v)
     if isinstance(v, bool):
-        return "Yes" if v else "No"
+        return L("Yes") if v else L("No")
     return str(ops.get(v, v))
 
 
@@ -643,9 +608,9 @@ def secciones_ficha(d: dict) -> dict:
     vista de versiones anteriores)."""
     estado = d.get("estado_txt") or d.get("estado")
     codigo = d.get("codigo") or d.get("sugerido")
-    clasif = [("HS code (SAC)", codigo or "Not classified"), ("Status", estado or "—"),
-              ("Confidence", d.get("confianza") or "—"),
-              ("Reviewed by", f"{d.get('revisado_por') or '—'}" + (f" · {_fecha(d['revisado_en'])}" if d.get("revisado_en") else ""))]
+    clasif = [(L("HS code (SAC)"), codigo or L("Not classified")), (L("Status"), estado or "—"),
+              (L("Confidence"), d.get("confianza") or "—"),
+              (L("Reviewed by"), f"{d.get('revisado_por') or '—'}" + (f" · {_fecha(d['revisado_en'])}" if d.get("revisado_en") else ""))]
     et = d.get("etiquetas") or {}
     orden_paises = et.get("paises") or []
     partidas = []
@@ -653,14 +618,14 @@ def secciones_ficha(d: dict) -> dict:
                           key=lambda kv: (orden_paises.index(kv[0]) if kv[0] in orden_paises else 999, kv[0])):
         x = x if isinstance(x, dict) else {"codigo": x}
         partidas.append([pais, _fmt_partida(x.get("codigo")), f"{x['dai']}%" if x.get("dai") not in (None, "") else "—",
-                         ESTADO_PARTIDA.get(x.get("estado"), x.get("estado") or "—"),
-                         "By hand" if x.get("manual") else (x.get("fuente") or "—").capitalize()])
+                         L(ESTADO_PARTIDA.get(x.get("estado"), x.get("estado") or "—")),
+                         L("By hand") if x.get("manual") else (x.get("fuente") or "—").capitalize()])
     f = d.get("ficha") or {}
     an = d.get("analisis") or {}
-    datos = [("Product type", an.get("tipo_txt") or (et.get("tipos") or {}).get(d.get("tipo"), d.get("tipo")) or "—"),
-             ("Country of origin", d.get("pais_origen") or "—"),
-             ("Generic code", d.get("codigo_generico") or "—"), ("Group", d.get("grupo") or "—")]
-    for k, lbl in (("uso", "Use"), ("tallas", "Sizes")):
+    datos = [(L("Product type"), an.get("tipo_txt") or (et.get("tipos") or {}).get(d.get("tipo"), d.get("tipo")) or "—"),
+             (L("Country of origin"), d.get("pais_origen") or "—"),
+             (L("Generic code"), d.get("codigo_generico") or "—"), (L("Group"), d.get("grupo") or "—")]
+    for k, lbl in (("uso", L("Use")), ("tallas", L("Sizes"))):
         if f.get(k):
             datos.append((lbl, str(f[k])))
     if an.get("atributos"):
@@ -689,11 +654,11 @@ def pdf_ficha_producto(d: dict) -> bytes:
     cab = Table([[[Paragraph(_esc(f"{d['estilo']} · {d['color']}"), e["titulo"]),
                    Paragraph(_esc(d.get("nombre")), e["base"]),
                    Paragraph(f"{_esc(d.get('proveedor'))} · {_esc(d.get('marca_nombre') or d.get('marca'))}", e["chico"])],
-                  [Paragraph("TECHNICAL SHEET", ParagraphStyle("t", parent=e["negrita"], fontSize=11, leading=13,
+                  [Paragraph(L("TECHNICAL SHEET"), ParagraphStyle("t", parent=e["negrita"], fontSize=11, leading=13,
                                                                textColor=ACENTO, alignment=TA_RIGHT)),
-                   Paragraph(f"Version {d.get('version_ficha') or 1} · {_esc(estado)}",
+                   Paragraph(L("Version {0} · {1}", d.get('version_ficha') or 1, _esc(estado)),
                              ParagraphStyle("s", parent=e["base"], alignment=TA_RIGHT)),
-                   Paragraph(f"Generated {fecha_hora_txt(datetime.now())}",
+                   Paragraph(L("Generated {0}", fecha_hora_txt(datetime.now())),
                              ParagraphStyle("f", parent=e["chico"], alignment=TA_RIGHT))]]],
                 colWidths=[ancho * 0.62, ancho * 0.38])
     cab.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, 0), 1.2, ACENTO),
@@ -702,25 +667,25 @@ def pdf_ficha_producto(d: dict) -> bytes:
     h = [cab, Spacer(1, 8)]
 
     x = secciones_ficha(d)
-    h += [Paragraph("CLASSIFICATION", e["etiqueta"]), Spacer(1, 2), _rejilla(e, x["clasificacion"], ancho), Spacer(1, 4)]
+    h += [Paragraph(L("CLASSIFICATION"), e["etiqueta"]), Spacer(1, 2), _rejilla(e, x["clasificacion"], ancho), Spacer(1, 4)]
     if x["descripcion"]:
-        h += [Paragraph(f"<b>Customs description:</b> {_esc(x['descripcion'])}", e["base"]), Spacer(1, 4)]
+        h += [Paragraph(L("<b>Customs description:</b> {0}", _esc(x['descripcion'])), e["base"]), Spacer(1, 4)]
     for r in x["razones"]:
         h.append(Paragraph(f"• {_esc(r)}", e["chico"]))
     if d.get("observaciones"):
-        h += [Spacer(1, 3), Paragraph(f"<b>Notes to the supplier:</b> {_esc(d['observaciones'])}", e["base"])]
+        h += [Spacer(1, 3), Paragraph(L("<b>Notes to the supplier:</b> {0}", _esc(d['observaciones'])), e["base"])]
     h.append(Spacer(1, 8))
     if x["partidas"]:
-        h += [Paragraph("NATIONAL TARIFF CODES BY DESTINATION", e["etiqueta"]), Spacer(1, 2),
-              _tabla(e, [("Country", 0.8, False), ("Code", 1.6, False), ("Duty (DAI)", 0.8, True),
-                         ("Status", 0.8, False), ("Source", 0.8, False)], x["partidas"], ancho), Spacer(1, 8)]
-    h += [Paragraph("PRODUCT DATA", e["etiqueta"]), Spacer(1, 2), _rejilla(e, x["datos"], ancho), Spacer(1, 8)]
+        h += [Paragraph(L("NATIONAL TARIFF CODES BY DESTINATION"), e["etiqueta"]), Spacer(1, 2),
+              _tabla(e, [(L("Country"), 0.8, False), (L("Code"), 1.6, False), (L("Duty (DAI)"), 0.8, True),
+                         (L("Status"), 0.8, False), (L("Source"), 0.8, False)], x["partidas"], ancho), Spacer(1, 8)]
+    h += [Paragraph(L("PRODUCT DATA"), e["etiqueta"]), Spacer(1, 2), _rejilla(e, x["datos"], ancho), Spacer(1, 8)]
     if x["composicion"]:
-        h += [Paragraph("COMPOSITION", e["etiqueta"]), Spacer(1, 2),
-              _tabla(e, [("Part", 1, False), ("Materials", 3, False)], x["composicion"], ancho), Spacer(1, 8)]
+        h += [Paragraph(L("COMPOSITION"), e["etiqueta"]), Spacer(1, 2),
+              _tabla(e, [(L("Part"), 1, False), (L("Materials"), 3, False)], x["composicion"], ancho), Spacer(1, 8)]
     if x["tallas"]:
-        h += [Paragraph("SIZES", e["etiqueta"]), Spacer(1, 2),
-              _tabla(e, [("SKU", 1.4, False), ("UPC", 1.4, False), ("Size", 0.7, False), ("Unit", 0.6, False),
-                         ("Description", 2.4, False)], x["tallas"], ancho)]
-    return _construir(h, tam, f"Technical sheet {d['estilo']} {d['color']} · {d.get('proveedor') or ''}",
+        h += [Paragraph(L("SIZES"), e["etiqueta"]), Spacer(1, 2),
+              _tabla(e, [(L("SKU"), 1.4, False), (L("UPC"), 1.4, False), (L("Size"), 0.7, False), (L("Unit"), 0.6, False),
+                         (L("Description"), 2.4, False)], x["tallas"], ancho)]
+    return _construir(h, tam, L("Technical sheet {0} {1} · {2}", d['estilo'], d['color'], d.get('proveedor') or ''),
                       d.get("estado") not in ("aprobado", "corregido"))

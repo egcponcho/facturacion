@@ -83,3 +83,13 @@ def test_glosario(idioma):
                 if _como_etiqueta(term["en"], k) and malo.lower() in v.lower():
                     errores.append(f"{k!r}: usa «{malo}» para {term['en']!r}")
     assert not errores, f"{idioma}:\n" + "\n".join(errores[:20])
+
+
+def test_traduccion_de_documentos_al_dia():
+    """backend/app/i18n_es.json (la traducción de los PDF y Excel) es la de
+    es.json para los textos del servidor: node scripts/i18n-extraer.mjs la regenera."""
+    es = _leer("es.json")
+    servidor = json.loads((I18N.parents[2] / "backend" / "app" / "i18n_es.json").read_text(encoding="utf-8"))
+    claves = json.loads((I18N.parents[2] / "backend" / "app" / "i18n_claves.json").read_text(encoding="utf-8"))
+    esperado = {k: es[k] for k in claves if k in es}
+    assert servidor == esperado, "Ejecuta node scripts/i18n-extraer.mjs"

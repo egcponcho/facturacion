@@ -15,7 +15,7 @@ import { fmtFechaHora, reducirImagen } from '../utils'
 // Nombre, foto y preferencias los cambia el usuario; correo, cargo, área,
 // empresa, rol, proveedor y celular los administra la administración.
 const perfil = ref(null)
-const datos = reactive({ nombre: '', idioma: 'en', formato_fecha: 'MM/DD/YYYY', formato_hora: '12', formato_numero: '1,234.56', tema: 'sistema', filas: 25, inicio: '/' })
+const datos = reactive({ nombre: '', idioma: 'es', idioma_documentos: '', formato_fecha: 'MM/DD/YYYY', formato_hora: '12', formato_numero: '1,234.56', tema: 'sistema', filas: 25, inicio: '/' })
 const clave = reactive({ actual: '', nueva: '', valida: false, error: '' })
 const ocupado = ref(false)
 const archivo = ref(null)
@@ -25,6 +25,7 @@ async function cargar() {
   try {
     perfil.value = await api.get('/perfil')
     Object.assign(datos, perfil.value.preferencias, { nombre: perfil.value.nombre })
+    datos.idioma_documentos = perfil.value.preferencias.idioma_documentos || ''
   } catch (e) {
     errorApi(e)
   }
@@ -72,7 +73,7 @@ async function quitarFoto() {
 async function guardar() {
   ocupado.value = true
   try {
-    const r = await guardarPerfil({ ...datos, filas: Number(datos.filas) })
+    const r = await guardarPerfil({ ...datos, filas: Number(datos.filas), idioma_documentos: datos.idioma_documentos || null })
     perfil.value.nombre = r.nombre
     avisar(t('Profile saved.'))
   } catch (e) {
@@ -158,6 +159,12 @@ async function cambiarClave() {
         <label class="campo"><span>{{ t('Language') }}</span>
           <Seleccion v-model="datos.idioma" class="entrada"><option v-for="x in IDIOMAS" :key="x.codigo" :value="x.codigo">{{ x.nombre }}</option></Seleccion>
           <small class="ayuda">{{ t('Changing it reloads the page.') }}</small></label>
+        <label class="campo"><span>{{ t('Language of documents') }}</span>
+          <Seleccion v-model="datos.idioma_documentos" class="entrada">
+            <option value="">{{ t('Same as the screen') }}</option>
+            <option v-for="x in IDIOMAS" :key="x.codigo" :value="x.codigo">{{ x.nombre }}</option>
+          </Seleccion>
+          <small class="ayuda">{{ t('Invoices, packing lists, technical sheets and reports you download (PDF and Excel).') }}</small></label>
         <label class="campo"><span>{{ t('Date format') }}</span>
           <Seleccion v-model="datos.formato_fecha" class="entrada">
             <option v-for="f in perfil.opciones.formatos_fecha" :key="f" :value="f">{{ f }} — {{ fechaTexto(isoHoy, f) }}</option>

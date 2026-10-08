@@ -50,6 +50,7 @@ class FotoIn(BaseModel):
 class PerfilIn(BaseModel):
     nombre: str | None = Field(default=None, max_length=200)
     idioma: str | None = None
+    idioma_documentos: str | None = None  # PDF y Excel; vacío = el de la pantalla
     formato_fecha: str | None = None
     formato_hora: str | None = None
     formato_numero: str | None = None

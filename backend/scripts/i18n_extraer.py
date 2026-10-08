@@ -66,6 +66,11 @@ def extraer() -> list[str]:
     claves = set()
     for ruta in RAIZ.rglob("*.py"):
         if ruta.name in OMITIR:
+            # De los documentos (PDF/Excel), solo los textos que pasan por L()
+            for n in ast.walk(ast.parse(ruta.read_text(encoding="utf-8"))):
+                if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "L" and n.args \
+                        and isinstance(n.args[0], ast.Constant) and isinstance(n.args[0].value, str):
+                    claves.add(n.args[0].value)
             continue
         arbol = ast.parse(ruta.read_text(encoding="utf-8"))
         docs = docstrings(arbol)

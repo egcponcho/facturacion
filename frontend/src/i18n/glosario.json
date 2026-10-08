@@ -393,7 +393,14 @@
    "manual",
    "prepack",
    "prepacks",
-   "unisex"
+   "unisex",
+   "ETD / ETA",
+   "PALLETS",
+   "SKU",
+   "UM",
+   "UPC",
+   " · prepack {0}",
+   "<br/><font color='#5b3fd1'>Prepack {0}</font>"
   ]
  }
 }

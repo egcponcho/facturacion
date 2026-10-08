@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import Usuario
-from .services import edicion, preferencias, visibilidad
+from .services import edicion, idioma_doc, preferencias, visibilidad
 from .empresa import usar_configuracion
 from .services.acceso import usuario_de_sesion
 from .services.common import ErrorNegocio
@@ -54,6 +54,9 @@ async def usuario_con_preferencias(request: Request, user: Usuario = Depends(usu
     se fija en el contexto de la petición y lo ven las rutas que corren en hilos."""
     usar_configuracion(request.state.config_empresa)  # antes de las preferencias: dan el idioma por defecto
     preferencias.usar(user)
+    # Idioma de los documentos que se descargan: ?idioma= o el del perfil (o el de la pantalla)
+    pref = preferencias.actual()
+    idioma_doc.usar(request.query_params.get("idioma") or pref.get("idioma_documentos") or pref.get("idioma"))
     edicion.usar_usuario(user.id)
     # Datos que su rol no ve: solo en las pantallas de trabajo (no en la configuración)
     visibilidad.usar(user if request.url.path.startswith(visibilidad.RUTAS) else None)

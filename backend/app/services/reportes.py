@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from .preferencias import fecha_txt
 from ..models import Usuario
 from . import documentos, exportar, liberaciones
+from .idioma_doc import L
 from . import seguimiento as seg
 
 TODO = 100_000
@@ -37,14 +38,14 @@ def _filtros_txt(filtros: dict) -> str:
             v = ETAPAS.get(v) or ETAPAS_DOC.get(v) or v
         elif k.endswith(("_desde", "_hasta")) and hasattr(v, "strftime"):
             v = fecha_txt(v)
-        partes.append(f"{NOMBRES_FILTRO.get(k, k)}: {'yes' if v is True else v}")
-    return "Filters: " + " · ".join(partes) if partes else "No filters"
+        partes.append(f"{L(NOMBRES_FILTRO.get(k, k))}: {L('yes') if v is True else L(v) if isinstance(v, str) else v}")
+    return L("Filters: {0}", " · ".join(partes)) if partes else L("No filters")
 
 
 def _holgura(h) -> str:
     if h is None:
         return "—"
-    return f"{-h} d late" if h < 0 else f"{h} d margin"
+    return L("{0} d late", -h) if h < 0 else L("{0} d margin", h)
 
 
 def _cant(por_unidad: dict) -> str:

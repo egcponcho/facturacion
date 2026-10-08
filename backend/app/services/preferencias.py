@@ -31,7 +31,7 @@ TEMAS = ("sistema", "claro", "oscuro")
 FILAS = (10, 25, 50, 100)
 INICIOS = ("/", "/ordenes", "/facturas", "/transporte", "/productos", "/seguimiento")
 
-DEFECTO = {"idioma": "en", "formato_fecha": "MM/DD/YYYY", "formato_hora": "12", "formato_numero": "1,234.56",
+DEFECTO = {"idioma": "en", "idioma_documentos": None, "formato_fecha": "MM/DD/YYYY", "formato_hora": "12", "formato_numero": "1,234.56",
            "tema": "sistema", "filas": 25, "inicio": "/"}
 
 _actual: ContextVar[dict] = ContextVar("preferencias", default=DEFECTO)
@@ -139,7 +139,7 @@ def guardar(db: Session, user: Usuario, datos) -> dict:
             errores.append({"campo": "nombre", "mensaje": "Enter your name."})
         else:
             user.nombre = nombre
-    validos = {"idioma": IDIOMAS, "formato_fecha": tuple(FORMATOS_FECHA), "formato_numero": tuple(FORMATOS_NUMERO),
+    validos = {"idioma": IDIOMAS, "idioma_documentos": IDIOMAS, "formato_fecha": tuple(FORMATOS_FECHA), "formato_numero": tuple(FORMATOS_NUMERO),
                "formato_hora": FORMATOS_HORA, "tema": TEMAS, "filas": FILAS, "inicio": INICIOS}
     # Se guarda lo que la persona eligió; None vuelve al valor de la empresa o de fábrica
     propias = dict(user.preferencias or {})

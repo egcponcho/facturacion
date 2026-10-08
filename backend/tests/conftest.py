@@ -57,6 +57,8 @@ class Api:
         self.yo = self.c.get("/api/auth/me", headers=self.h).json()
 
     def get(self, url, **kw):
+        # Las pruebas leen los documentos (PDF/Excel) en inglés, salvo que pidan otro idioma
+        kw["params"] = {"idioma": "en", **(kw.get("params") or {})}
         return self.c.get("/api" + url, headers=self.h, **kw)
 
     def post(self, url, json=None, clave=None, **kw):
