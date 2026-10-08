@@ -8,7 +8,7 @@ from openpyxl import load_workbook
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from ..tenencia import regla
+from ..empresa import regla
 from .preferencias import leer_fecha
 from ..models import cant as cant_norm
 from ..models import (

@@ -5,7 +5,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.sql import operators
 from sqlalchemy.orm import Session
 
-from ..tenencia import regla
+from ..empresa import regla
 from ..db import ES_SQLITE, plano
 from ..models import Historial, Idempotencia, Usuario, ahora
 

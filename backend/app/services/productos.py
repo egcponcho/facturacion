@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..tenencia import regla
+from ..empresa import regla
 from ..config import settings
 from ..models import (
     ProductoDocumento,

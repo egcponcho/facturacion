@@ -5,7 +5,7 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..tenencia import regla
+from ..empresa import regla
 from ..config import settings
 from ..models import cant as cant_norm
 from ..models import (

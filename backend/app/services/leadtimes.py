@@ -19,7 +19,7 @@ from statistics import mean
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..tenencia import regla
+from ..empresa import regla
 from ..models import (
     Embarque,
     Factura,

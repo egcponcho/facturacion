@@ -1,57 +1,40 @@
-"""Empresas (organizaciones): aislamiento de datos y configuración.
+"""Empresa de la instalación: datos generales, preferencias y reglas.
 
-- Filtro central: toda consulta del ORM (incluidas las cargas de relaciones y
-  los UPDATE/DELETE masivos) se limita a la empresa de la petición. Así ningún
-  listado, búsqueda, tablero ni exporte ve datos de otra empresa, aunque la
-  ruta no lo pida.
-- Configuración por empresa: datos generales, preferencias (idioma, moneda…)
-  y reglas de negocio (antes variables de entorno), con su valor de fábrica.
-- Quien administra la plataforma crea empresas y entra a cualquiera; los demás
-  trabajan siempre en la suya.
+Cada instalación sirve a una sola empresa (registro 1 de `organizaciones`).
+Sus preferencias (idioma, moneda, zona horaria…) y reglas de negocio se
+guardan en la base de datos y se cambian en Configuración → Empresa; los
+valores de `settings` solo son los de fábrica para una instalación nueva.
 """
 import re
 
-from sqlalchemy import event, func, select
-from sqlalchemy.orm import Session, with_loader_criteria
+from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..models import DeOrganizacion, Organizacion, SesionUsuario, Usuario
-from ..tenencia import REGLAS, en_organizacion, org_actual
+from ..empresa import REGLAS
+from ..models import Organizacion, Usuario
 from .common import ErrorNegocio, permisos_de, registrar
 
-
-@event.listens_for(Session, "do_orm_execute")
-def _solo_la_empresa(estado) -> None:
-    org = org_actual()
-    if org is None or estado.is_column_load or estado.execution_options.get("sin_filtro_empresa"):
-        return
-    if estado.is_select or estado.is_update or estado.is_delete:
-        estado.statement = estado.statement.options(
-            with_loader_criteria(DeOrganizacion, lambda cls: cls.organizacion_id == org, include_aliases=True))
+ID_EMPRESA = 1
 
 
-def empresa_de(db: Session, user: Usuario, token_hash: str | None = None) -> int:
-    """Empresa en la que trabaja la petición: la elegida en la sesión (solo
-    quien administra la plataforma) o la del usuario."""
-    if user.plataforma and token_hash:
-        org = db.scalar(select(SesionUsuario.organizacion_id).where(SesionUsuario.token_hash == token_hash))
-        if org:
-            return org
-    return user.organizacion_id
-
-
-def asegurar_principal(db: Session, nombre: str = "Main company") -> Organizacion:
-    """La empresa 1 existe siempre (instalación nueva o demostración)."""
-    o = db.get(Organizacion, 1)
+def asegurar_principal(db: Session, nombre: str = "My company") -> Organizacion:
+    """La empresa existe siempre (instalación nueva o demostración)."""
+    o = db.get(Organizacion, ID_EMPRESA)
     if not o:
-        o = Organizacion(id=1, codigo="MAIN", nombre=nombre, configuracion={})
+        o = Organizacion(id=ID_EMPRESA, codigo="MAIN", nombre=nombre, configuracion={})
         db.add(o)
         db.flush()
     return o
 
 
+def configuracion(db: Session) -> dict:
+    """Configuración guardada de la empresa (vacía si aún no existe)."""
+    o = db.get(Organizacion, ID_EMPRESA)
+    return dict(o.configuracion or {}) if o else {}
+
+
 # ---- Configuración ------------------------------------------------------------
-PREFERENCIAS = {"idioma": "en", "moneda": "USD", "zona_horaria": "America/El_Salvador", "formato_fecha": "MM/DD/YYYY"}
+PREFERENCIAS = {"idioma": "en", "moneda": "USD", "zona_horaria": "UTC", "formato_fecha": "MM/DD/YYYY"}
 
 
 def _reglas_de(o: Organizacion) -> dict:
@@ -62,18 +45,15 @@ def _reglas_de(o: Organizacion) -> dict:
 def _dict(o: Organizacion) -> dict:
     conf = o.configuracion or {}
     return {
-        "id": o.id, "codigo": o.codigo, "nombre": o.nombre, "razon_social": o.razon_social, "id_fiscal": o.id_fiscal,
-        "pais": o.pais, "logo": o.logo, "activa": o.activa,
+        "codigo": o.codigo, "nombre": o.nombre, "razon_social": o.razon_social, "id_fiscal": o.id_fiscal,
+        "pais": o.pais, "logo": o.logo,
         "preferencias": {**PREFERENCIAS, **conf.get("preferencias", {})},
         "reglas": [{"clave": k, "texto": t, "valor": v} for (k, t), v in zip(REGLAS.items(), _reglas_de(o).values())],
     }
 
 
 def actual(db: Session) -> Organizacion:
-    o = db.get(Organizacion, org_actual() or 1)
-    if not o:
-        raise ErrorNegocio("The company does not exist.", 404, "no_encontrado")
-    return o
+    return asegurar_principal(db)
 
 
 def detalle(db: Session, user: Usuario) -> dict:
@@ -125,65 +105,3 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
               detalle={"antes": {k: antes[k] for k in ("nombre", "preferencias")}, "reglas": conf.get("reglas", {})})
     db.flush()
     return _dict(o)
-
-
-# ---- Plataforma: varias empresas ------------------------------------------------
-def _exigir_plataforma(user: Usuario) -> None:
-    if not user.plataforma:
-        raise ErrorNegocio("Only the platform administrator can manage companies.", 403, "sin_permiso")
-
-
-def listar(db: Session, user: Usuario) -> list[dict]:
-    _exigir_plataforma(user)
-    usuarios = dict(db.execute(select(Usuario.organizacion_id, func.count(Usuario.id))
-                               .execution_options(sin_filtro_empresa=True).group_by(Usuario.organizacion_id)).all())
-    return [{**_dict(o), "usuarios": usuarios.get(o.id, 0)}
-            for o in db.scalars(select(Organizacion).order_by(Organizacion.nombre))]
-
-
-def crear(db: Session, user: Usuario, datos: dict) -> dict:
-    """Empresa nueva con su administrador inicial y sus roles de fábrica."""
-    _exigir_plataforma(user)
-    codigo = (datos.get("codigo") or "").strip().upper()
-    nombre = (datos.get("nombre") or "").strip()
-    email = (datos.get("admin_email") or "").strip().lower()
-    if not re.fullmatch(r"[A-Z0-9_-]{2,20}", codigo):
-        raise ErrorNegocio("The code has 2 to 20 letters, numbers, - or _.", 422, "validacion")
-    if not nombre:
-        raise ErrorNegocio("The company needs a name.", 422, "validacion")
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-        raise ErrorNegocio("Enter the email of the company administrator.", 422, "validacion")
-    if db.scalar(select(Organizacion).where(Organizacion.codigo == codigo)):
-        raise ErrorNegocio(f"A company with code {codigo} already exists.", 409, "duplicado")
-    if db.scalar(select(Usuario).where(func.lower(Usuario.email) == email).execution_options(sin_filtro_empresa=True)):
-        raise ErrorNegocio("That email already has a user.", 409, "duplicado")
-    o = Organizacion(codigo=codigo, nombre=nombre, razon_social=datos.get("razon_social") or None,
-                     pais=(datos.get("pais") or "").upper() or None, configuracion={})
-    db.add(o)
-    db.flush()
-    from ..security import hash_password
-    from .acceso import password_temporal
-    from .varios import crear_roles_fabrica
-
-    clave = password_temporal()
-    with en_organizacion(o.id):
-        roles = crear_roles_fabrica(db)
-        db.add(Usuario(email=email, nombre=datos.get("admin_nombre") or "Administrator", rol="admin",
-                       rol_id=roles["admin"].id, password_hash=hash_password(clave), clave_temporal=True,
-                       dos_pasos=False, empresa=nombre))
-        db.flush()
-    registrar(db, user, "organizacion", o.id, "crear_organizacion", detalle={"codigo": codigo, "admin": email})
-    db.flush()
-    return {**_dict(o), "admin_email": email, "clave_temporal": clave}
-
-
-def entrar(db: Session, user: Usuario, token_hash: str, organizacion_id: int) -> dict:
-    """Quien administra la plataforma trabaja en otra empresa (esta sesión)."""
-    _exigir_plataforma(user)
-    o = db.get(Organizacion, organizacion_id)
-    if not o or not o.activa:
-        raise ErrorNegocio("The company does not exist or is inactive.", 404, "no_encontrado")
-    s = db.scalar(select(SesionUsuario).where(SesionUsuario.token_hash == token_hash))
-    s.organizacion_id = None if o.id == user.organizacion_id else o.id
-    db.flush()
-    return {"id": o.id, "nombre": o.nombre}

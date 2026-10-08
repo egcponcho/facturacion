@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, object_session
 
-from ..tenencia import regla
+from ..empresa import regla
 from ..models import (
     Centro,
     Embarque,

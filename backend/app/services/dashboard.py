@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..tenencia import regla
+from ..empresa import regla
 from ..models import (
     Embarque,
     Factura,

@@ -4,17 +4,21 @@ import { onMounted, ref } from 'vue'
 import { api } from '../api'
 import Icono from '../components/Icono.vue'
 import Interruptor from '../components/Interruptor.vue'
+import SelectBusqueda from '../components/SelectBusqueda.vue'
 import Seleccion from '../components/Seleccion.vue'
 import { cargarSesion } from '../stores/sesion'
 import { avisar, errorApi, guardando } from '../stores/ui'
 import { reducirImagen } from '../utils'
 
-// Empresa: datos generales, logo, preferencias y reglas de negocio. Cada
-// empresa de la instalación tiene los suyos; solo la administración los cambia.
+// Empresa de la instalación: datos generales, logo, preferencias y reglas de
+// negocio. Solo la administración los cambia.
 const o = ref(null)
 const datos = ref(null)
 const ocupado = ref(false)
-const MONEDAS = ['USD', 'EUR', 'MXN', 'GTQ', 'HNL', 'NIO', 'CRC', 'PAB', 'COP', 'PEN', 'CLP', 'CNY', 'INR']
+// Monedas y zonas horarias: las listas ISO del navegador; países: el catálogo de países
+const MONEDAS = Intl.supportedValuesOf ? Intl.supportedValuesOf('currency') : ['USD', 'EUR']
+const ZONAS = Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : ['UTC']
+const paises = ref([])
 const FORMATOS = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD']
 // Textos de las reglas (el servidor manda la clave; aquí, cómo se lee)
 const REGLAS = {
@@ -43,7 +47,10 @@ async function cargar() {
     errorApi(e)
   }
 }
-onMounted(cargar)
+onMounted(() => {
+  cargar()
+  api.get('/catalogos/paises/opciones').then((r) => { paises.value = r.map((p) => ({ valor: p.codigo, texto: p.texto, sub: p.codigo })) }).catch(() => {})
+})
 
 async function subirLogo(ev) {
   try {
@@ -75,7 +82,7 @@ async function guardar() {
     <div>
       <p class="eyebrow">{{ t('Settings') }}</p>
       <h1>{{ t('Company') }}</h1>
-      <p>{{ t('Name, logo, preferences and business rules of your company. Other companies in this installation have their own and never see your data.') }}</p>
+      <p>{{ t('Name, logo, preferences and business rules of your company.') }}</p>
     </div>
     <div class="fila-flex">
       <button class="btn btn-primario" :disabled="ocupado || !datos" @click="guardar"><Icono nombre="check" />{{ t('Save changes') }}</button>
@@ -96,7 +103,7 @@ async function guardar() {
           <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="datos.nombre" class="entrada" maxlength="200" required /></label>
           <label class="campo"><span>{{ t('Legal name') }}</span><input v-model="datos.razon_social" class="entrada" maxlength="200" /></label>
           <label class="campo"><span>{{ t('Tax ID') }}</span><input v-model="datos.id_fiscal" class="entrada" maxlength="40" /></label>
-          <label class="campo"><span>{{ t('Country') }}</span><input v-model="datos.pais" class="entrada" maxlength="2" :placeholder="t('E.g. SV')" style="text-transform: uppercase" /></label>
+          <div class="campo"><span>{{ t('Country') }}</span><SelectBusqueda v-model="datos.pais" :opciones="paises" :vacio="t('None')" :prefijo="false" /></div>
           <div class="campo"><span>{{ t('Company code') }}</span><div class="valor-fijo">{{ tx(o.codigo) }}</div></div>
         </div>
       </div>
@@ -107,11 +114,10 @@ async function guardar() {
       <div class="rejilla-campos">
         <label class="campo"><span>{{ t('Default language') }}</span>
           <Seleccion v-model="datos.preferencias.idioma" class="entrada"><option v-for="x in IDIOMAS" :key="x.codigo" :value="x.codigo">{{ x.nombre }}</option></Seleccion></label>
-        <label class="campo"><span>{{ t('Base currency') }}</span>
-          <Seleccion v-model="datos.preferencias.moneda" class="entrada"><option v-for="m in MONEDAS" :key="m" :value="m">{{ m }}</option></Seleccion></label>
+        <div class="campo"><span>{{ t('Base currency') }}</span><SelectBusqueda v-model="datos.preferencias.moneda" :opciones="MONEDAS" :prefijo="false" /></div>
         <label class="campo"><span>{{ t('Date format') }}</span>
           <Seleccion v-model="datos.preferencias.formato_fecha" class="entrada"><option v-for="f in FORMATOS" :key="f" :value="f">{{ f }}</option></Seleccion></label>
-        <label class="campo"><span>{{ t('Time zone') }}</span><input v-model="datos.preferencias.zona_horaria" class="entrada" maxlength="60" /></label>
+        <div class="campo"><span>{{ t('Time zone') }}</span><SelectBusqueda v-model="datos.preferencias.zona_horaria" :opciones="ZONAS" :prefijo="false" /></div>
       </div>
     </section>
 
@@ -123,8 +129,7 @@ async function guardar() {
           <Interruptor v-if="typeof r.valor === 'boolean'" v-model="datos.reglas[r.clave]" :etiqueta="tx(REGLAS[r.clave] || r.texto)" />
           <input v-else-if="typeof r.valor === 'number'" v-model.number="datos.reglas[r.clave]" type="number" min="0" max="365" class="entrada regla-numero"
                  :aria-label="tx(REGLAS[r.clave] || r.texto)" />
-          <input v-else v-model="datos.reglas[r.clave]" class="entrada regla-numero" maxlength="2" style="text-transform: uppercase"
-                 :aria-label="tx(REGLAS[r.clave] || r.texto)" />
+          <SelectBusqueda v-else v-model="datos.reglas[r.clave]" class="regla-pais" :opciones="paises" :prefijo="false" :etiqueta="tx(REGLAS[r.clave] || r.texto)" />
         </li>
       </ul>
     </section>
@@ -142,4 +147,5 @@ async function guardar() {
 .lista-reglas li:last-child { border-bottom: 0; }
 .regla-numero { width: 90px; flex: none; }
 @media (max-width: 720px) { .empresa-general { grid-template-columns: 1fr; } }
+.regla-pais { min-width: 220px; }
 </style>

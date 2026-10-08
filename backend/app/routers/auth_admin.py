@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import object_session
 
-from ..tenencia import org_actual, regla
+from ..empresa import regla
 from ..config import settings
 from ..models import Organizacion, Usuario
 from ..deps import COOKIE
@@ -40,18 +40,15 @@ def _yo(u: Usuario) -> dict:
             "dias_alerta_borrador": regla("DIAS_ALERTA_BORRADOR"),
         },
         "flujo": flujo.valores(object_session(u)) if object_session(u) else dict(flujo.DEFECTOS),
-        "plataforma": bool(u.plataforma),
         "organizacion": _empresa(u),
-        "organizacion_propia_id": u.organizacion_id,
     }
 
 
 def _empresa(u: Usuario) -> dict | None:
-    """Empresa en la que trabaja (la elegida en la sesión o la suya)."""
+    """Nombre y logo de la empresa para el menú."""
     db = object_session(u)
-    o = db.get(Organizacion, org_actual() or u.organizacion_id) if db else None
-    return {"id": o.id, "codigo": o.codigo, "nombre": o.nombre, "logo": o.logo,
-            "propia": o.id == u.organizacion_id} if o else None
+    o = db.get(Organizacion, organizacion.ID_EMPRESA) if db else None
+    return {"nombre": o.nombre, "logo": o.logo} if o else None
 
 
 def _cookie(resp: Response, token: str) -> None:
@@ -216,20 +213,4 @@ def ver_organizacion(db: Db, user: User):
 def guardar_organizacion(datos: dict, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: organizacion.actualizar(db, user, datos))
 
-
-@router.get("/organizaciones")
-def listar_organizaciones(db: Db, user: User):
-    return organizacion.listar(db, user)
-
-
-@router.post("/organizaciones")
-def crear_organizacion(datos: dict, db: Db, user: User, clave: Clave = None):
-    return ejecutar(db, user, clave, lambda: organizacion.crear(db, user, datos))
-
-
-@router.post("/organizaciones/{organizacion_id}/entrar")
-def entrar_organizacion(organizacion_id: int, request: Request, db: Db, user: User):
-    r = organizacion.entrar(db, user, acceso._hash(request.state.token), organizacion_id)
-    db.commit()
-    return r
 

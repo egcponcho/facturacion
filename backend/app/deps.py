@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from .db import get_db
 from .models import Usuario
 from .services import edicion, preferencias
-from .tenencia import usar_organizacion
-from .services.acceso import _hash as _hash_token, usuario_de_sesion
+from .empresa import usar_configuracion
+from .services.acceso import usuario_de_sesion
 from .services.common import ErrorNegocio
 
 COOKIE = "sesion"
@@ -37,12 +37,10 @@ def usuario_actual(
     if not user:
         raise ErrorNegocio("Your session expired. Sign in again.", 401, "no_autenticado")
     request.state.token = token
-    # Empresa en la que trabaja la petición y su configuración
-    from .models import Organizacion
-    from .services.organizacion import empresa_de
+    # Configuración de la empresa (reglas de negocio) para esta petición
+    from .services.organizacion import configuracion
 
-    org = empresa_de(db, user, _hash_token(token))
-    request.state.organizacion = (org, (db.get(Organizacion, org).configuracion or {}) if org else {})
+    request.state.config_empresa = configuracion(db)
     return user
 
 
@@ -56,7 +54,7 @@ async def usuario_con_preferencias(request: Request, user: Usuario = Depends(usu
     se fija en el contexto de la petición y lo ven las rutas que corren en hilos."""
     preferencias.usar(user)
     edicion.usar_usuario(user.id)
-    usar_organizacion(*request.state.organizacion)
+    usar_configuracion(request.state.config_empresa)
     if user.clave_temporal and not request.url.path.startswith(PERMITIDO_TEMPORAL):
         raise ErrorNegocio("Change your temporary password to continue.", 403, "clave_temporal")
     return user

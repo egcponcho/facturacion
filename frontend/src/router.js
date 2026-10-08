@@ -27,7 +27,6 @@ const routes = [
   { path: '/bienvenida', name: 'bienvenida', component: () => import('./views/BienvenidaView.vue'), meta: { sinMarco: true } },
   { path: '/admin', component: () => import('./views/AdminView.vue'), meta: { permiso: 'admin' } },
   { path: '/empresa', component: () => import('./views/EmpresaView.vue'), meta: { permiso: 'admin' } },
-  { path: '/empresas', component: () => import('./views/EmpresasView.vue'), meta: { plataforma: true } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
@@ -55,7 +54,7 @@ export function precargarPaginas() {
   const pedir = () => {
     for (const r of router.getRoutes()) {
       const c = r.components?.default
-      if (typeof c === 'function' && (!r.meta.permiso || puede(r.meta.permiso)) && (!r.meta.plataforma || sesion.usuario?.plataforma)) c().catch(() => {})
+      if (typeof c === 'function' && (!r.meta.permiso || puede(r.meta.permiso))) c().catch(() => {})
     }
   }
   if ('requestIdleCallback' in window) window.requestIdleCallback(pedir, { timeout: 4000 })
@@ -69,7 +68,7 @@ router.beforeEach(async (to) => {
   // Con la contraseña temporal de la administración, primero el asistente inicial
   if (sesion.usuario.clave_temporal && to.name !== 'bienvenida') return { name: 'bienvenida' }
   if (!sesion.usuario.clave_temporal && to.name === 'bienvenida') return '/'
-  if ((to.meta.permiso && !puede(to.meta.permiso)) || (to.meta.plataforma && !sesion.usuario.plataforma)) {
+  if (to.meta.permiso && !puede(to.meta.permiso)) {
     avisar(t('You do not have access to that page.'), 'error')
     return '/'
   }
