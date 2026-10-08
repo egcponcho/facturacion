@@ -1,386 +1,462 @@
-# Supplier workspace: PO → invoice → packing list → cartons → transport
+# Espacio del proveedor: OC → factura → lista de empaque → cajas → transporte
 
-A system where each supplier (and the internal team) builds its invoices from purchase orders, distributes them into packing lists and cartons, and the imports team assigns them to load units and tracks the shipment to the warehouse.
+Un sistema donde cada proveedor (y el equipo interno) arma sus facturas a partir de las órdenes de compra, las reparte en listas de empaque y cajas, y el equipo de importaciones las asigna a unidades de carga y da seguimiento al embarque hasta la bodega.
 
-- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, PostgreSQL (SQLite for quick development).
-- **Frontend:** Vue 3 + Vite, no component or chart libraries (own SVG icons and charts).
-- **Language:** the whole interface, messages, documents (PDF/Excel) and upload templates are in English. Code identifiers and comments are in Spanish.
-- **Tested:** 26 end-to-end tests on PostgreSQL (25 on SQLite, the row-locking test needs PostgreSQL).
+- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL (SQLite para desarrollo rápido).
+- **Frontend:** Vue 3 + Vite, sin librerías de componentes ni de gráficas (íconos y gráficas SVG propios).
+- **Una empresa por instalación:** cada instalación sirve a una sola empresa (la plataforma de varias empresas se retiró en la migración 0037). Su ficha (nombre, logo, país, idioma, moneda, zona horaria, formato de fecha) y sus reglas de negocio se guardan en la base de datos y se editan en *Configuración → Empresa*.
+- **Idiomas:** la interfaz, los mensajes y los documentos (PDF/Excel) están en español e inglés. Los identificadores y comentarios del código están en español.
+- **Pruebas:** 392 pruebas automatizadas (`backend/tests`); en SQLite se omite la de bloqueo de filas, que necesita PostgreSQL.
 
-## Getting started
+## Cómo empezar
 
-### Quick option (SQLite, no database to install)
+### Opción rápida (SQLite, sin instalar base de datos)
+
+Para desarrollo local se usa la demostración (`SEED_DEMO=1`) y la cookie sin `Secure` (`COOKIE_SEGURA=0`), porque `http://localhost` no tiene https. Con `SEED_DEMO=1` y sin `SECRET_KEY`, el servidor usa una clave al azar en cada arranque (las sesiones se cierran al reiniciar).
 
 ```bash
-# Terminal 1: API at http://localhost:8000 (docs at /docs)
+# Terminal 1: API en http://localhost:8000 (documentación en /docs)
 cd backend
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-uvicorn app.main:app --reload
+SEED_DEMO=1 COOKIE_SEGURA=0 uvicorn app.main:app --reload
+# Windows (PowerShell): $env:SEED_DEMO="1"; $env:COOKIE_SEGURA="0"; uvicorn app.main:app --reload
 
-# Terminal 2: UI at http://localhost:5173
+# Terminal 2: interfaz en http://localhost:5173 (Vite redirige /api al puerto 8000)
 cd frontend
 npm install
 npm run dev
 ```
 
-On first start demo data is created (TNF and Vans, POs with sizes, templates and a shipment with a 40HC).
+Al arrancar se aplican las migraciones y, como la base está vacía, se cargan los datos de ejemplo (la empresa *Distribuidora de Marcas*, los proveedores TNF y Vans, OCs con tallas, plantillas y un embarque con un 40HC).
 
-### Docker and PostgreSQL
+Para reiniciar la demostración con sus datos de ejemplo: `SEED_DEMO=1 python -m app.seed` (desde `backend`; se niega a correr sin `SEED_DEMO=1`).
+
+### Docker y PostgreSQL
 
 ```bash
+# Demostración (usa backend/.env.demo)
 docker compose up --build
+
+# Producción: copie backend/.env.example como backend/.env y complételo
+ENV_FILE=backend/.env docker compose up -d
 ```
 
-Everything runs at http://localhost:8000 (the API also serves the built frontend).
+Todo corre en http://localhost:8000 (la API también sirve el frontend compilado). `backend/.env.demo` activa `SEED_DEMO=1` y `COOKIE_SEGURA=0` y no define `SECRET_KEY` (clave al azar por arranque); nunca debe usarse en producción.
 
-### In the cloud (Render, free)
+### En la nube (Render, gratis)
 
-The repository includes `render.yaml`, which creates the PostgreSQL database and the web service from the `Dockerfile`.
+El repositorio incluye `render.yaml`, que crea la base PostgreSQL y el servicio web desde el `Dockerfile`.
 
-1. Go to https://dashboard.render.com/blueprints and click **New Blueprint Instance**.
-2. Connect GitHub and choose this repository (branch `main`).
-3. Click **Apply**. In a few minutes it is live at `https://facturacion-XXXX.onrender.com`.
+1. Entre a https://dashboard.render.com/blueprints y haga clic en **New Blueprint Instance**.
+2. Conecte GitHub y elija este repositorio (rama `main`).
+3. Haga clic en **Apply**. En unos minutos queda en línea en `https://facturacion-XXXX.onrender.com`.
 
-`SECRET_KEY` is generated automatically and demo data loads on first start (`SEED_DEMO=1`; set it to `0` for real data). `COOKIE_SEGURA=1` is already set because Render serves over HTTPS.
-Free plan limits: the service sleeps after 15 minutes idle (first request takes ~1 minute), the free database expires after 30 days and attachments live on temporary disk.
+El blueprint levanta la **demostración**: `SECRET_KEY` se genera automáticamente y los datos de ejemplo se cargan en el primer arranque (`SEED_DEMO=1`). `COOKIE_SEGURA=1` ya está definido porque Render atiende por HTTPS, y `FORWARDED_ALLOW_IPS=*` porque atiende detrás de su propio proxy. Para datos reales: `SEED_DEMO=0`, `SMS_PROVEEDOR=twilio` con sus credenciales y el primer administrador (`EMPRESA_NOMBRE`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_TELEFONO`); vea `docs/PRODUCCION.md`.
+Límites del plan gratuito: el servicio se duerme tras 15 minutos sin uso (la primera petición tarda ~1 minuto), la base gratuita vence a los 30 días y los adjuntos viven en un disco temporal.
 
-The same image runs on Railway, Fly.io or Google Cloud Run: set `DATABASE_URL` (`postgres://` and `postgresql://` are accepted) and `SECRET_KEY`; the port comes from `PORT`.
+La misma imagen corre en Railway, Fly.io o Google Cloud Run: defina `DATABASE_URL` (se aceptan `postgres://` y `postgresql://`) y `SECRET_KEY`; el puerto viene de `PORT`.
 
-### Demo users (password `Supplier2026`)
+### Usuarios de la demostración (contraseña `Supplier2026`)
 
-| Email | Role | Registered mobile |
+| Correo | Rol | Celular registrado |
 |---|---|---|
-| tnf@demo.com | Supplier The North Face | +84 28 3770 001 |
-| vans@demo.com | Supplier Vans | +86 755 2660 001 |
-| interno@demo.com | Imports team | +503 7000 0002 |
-| admin@demo.com | Administrator | +503 7000 0001 |
+| tnf@demo.com | Proveedor The North Face | +84 28 3770 001 |
+| vans@demo.com | Proveedor Vans | +86 755 2660 001 |
+| interno@demo.com | Equipo de importaciones | +503 7000 0002 |
+| admin@demo.com | Administrador | +503 7000 0001 |
 
-The demo does not send real SMS: the sign-in screen shows the verification code (see *Secure access*).
+La demostración no envía SMS reales: la pantalla de ingreso muestra el código de verificación (vea *Acceso seguro*).
 
-## Secure access
+## Acceso seguro
 
-- **Two-step sign-in:** email and password, then a **6-digit code sent by SMS to the user's registered mobile**. The code expires in 5 minutes, allows 5 attempts, can be resent after 30 seconds (up to 5 sends) and is stored only as a keyed hash.
-- **Server-side sessions** in an `httpOnly`, `SameSite=Strict` cookie (`Secure` behind HTTPS). They expire after 12 hours or 30 minutes of inactivity, and are revoked on sign-out, password change, mobile change, deactivation or when two-step verification is turned off. The browser never sees a token.
-- **Lockout:** 5 wrong passwords lock the account for 15 minutes; the same message is returned for an unknown email or a wrong password. Requests are rate limited per network.
-- **Passwords:** at least 10 characters with letters and numbers, not containing the user name; users change their own from the top bar. An administrator resetting a password also unlocks the account.
-- **Restricted routes:** every API route requires a session and checks the role's permissions (suppliers only see their own documents and get 404 for anyone else's). The UI hides and blocks the pages a role cannot use. Changes with the cookie require the `X-Requested-With` header (CSRF protection).
-- **Security headers:** CSP, `X-Frame-Options: DENY`, `nosniff`, strict referrer policy and HSTS behind HTTPS.
-- **Users** (*Users and access*, administrator): each user has a role, a registered mobile in international format (`+50370001234`) and two-step verification on or off.
-- **Roles and access:** roles are free: the administrator creates each one with a **name, a description and the permissions** ticked module by module (see, create, edit, delete and each module's own actions: import POs, finalize or reopen invoices and packing lists, classify and approve sheets, manage shipments, see tracking, edit the tariff schedule, master data, administration…), edits them at any time and assigns them to users. There are no fixed role types: three starter roles (Administrator, Internal team, Supplier) are created as a starting point and can be edited or deleted like any other. **What data a user sees depends on the user, not the role:** a user with a supplier assigned only sees that supplier's documents, and the role's permissions over global data or administration do not apply to them (the role form marks them *Internal users only*). Changes apply at once; the menu and the buttons follow the permissions and the server enforces them. A role with users cannot be deleted, and the system never lets the last active administrator lose the administration permission.
+- **Ingreso en dos pasos:** correo y contraseña, y luego un **código de 6 dígitos enviado por SMS al celular registrado del usuario**. El código vence en 5 minutos, admite 5 intentos, se puede reenviar después de 30 segundos (hasta 5 envíos) y solo se guarda como hash con clave.
+- **Sesiones del lado del servidor** en una cookie `httpOnly` y `SameSite=Strict` (`Secure` con `COOKIE_SEGURA=1`, el valor por defecto). Vencen a las 12 horas o tras 30 minutos de inactividad, y se revocan al cerrar sesión, al cambiar la contraseña o el celular, al desactivar al usuario o al apagar su verificación en dos pasos. El navegador nunca ve un token.
+- **Bloqueo:** 5 contraseñas incorrectas bloquean la cuenta 15 minutos; se devuelve el mismo mensaje para un correo desconocido o una contraseña incorrecta. Las peticiones tienen límite por red.
+- **Contraseñas:** al menos 10 caracteres, con mayúscula, minúscula, número y símbolo, sin contener el nombre de usuario del correo; cada usuario cambia la suya desde la barra superior. Una contraseña puesta o generada por el administrador es temporal (se pide cambiarla al entrar) y además desbloquea la cuenta.
+- **Rutas restringidas:** cada ruta de la API exige sesión y revisa los permisos del rol (los proveedores solo ven sus propios documentos y reciben 404 para los de otros). La interfaz oculta y bloquea las páginas que un rol no puede usar. Los cambios con la cookie exigen el encabezado `X-Requested-With` (protección CSRF).
+- **Encabezados de seguridad:** CSP, `X-Frame-Options: DENY`, `nosniff`, política de referrer estricta y HSTS con `COOKIE_SEGURA=1`. Peticiones mayores que `MAX_SUBIDA_MB` (25 MB por defecto) se rechazan. La documentación interactiva de la API (`/docs`) solo se publica en la demostración.
+- **Usuarios y accesos** (administrador) se organiza en pestañas: **Usuarios**, **Roles y accesos**, **Proveedores** y **Flujo de clasificación**. Cada usuario tiene un rol, un celular registrado en formato internacional (`+50370001234`) y la verificación en dos pasos encendida o apagada.
+- **Roles y accesos:** los roles son libres: el administrador crea cada uno con **nombre, descripción y los permisos** marcados módulo por módulo (ver, crear, editar, eliminar y las acciones propias de cada módulo: importar OCs, finalizar o reabrir facturas y listas de empaque, clasificar y aprobar fichas, gestionar embarques, ver seguimiento, editar el arancel, datos maestros, administración…), los edita en cualquier momento y los asigna a usuarios. No hay tipos de rol fijos: se crean tres roles iniciales (Administrador, Equipo interno, Proveedor) como punto de partida y se pueden editar o eliminar como cualquier otro. **Qué documentos ve un usuario depende del usuario, no del rol:** un usuario con un proveedor asignado solo ve los documentos de ese proveedor, y los permisos del rol sobre datos globales o administración no le aplican (el formulario del rol los marca *Solo usuarios internos*). Los cambios aplican de inmediato; el menú y los botones siguen los permisos y el servidor los hace cumplir. Un rol con usuarios no se puede eliminar, y el sistema nunca deja que el último administrador activo pierda el permiso de administración.
+- **Flujo de clasificación:** interruptores que reparten el trabajo de la ficha técnica sin tocar los roles: *Quién llena la ficha técnica* (el proveedor, el equipo interno, si el proveedor ve la partida sugerida) y *Cómo se aprueba una ficha* (revisión antes de aprobar, cuatro ojos, aprobación por lote).
 
-To send real SMS set `SMS_PROVEEDOR=twilio` with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM`. With the default `consola` provider the message goes to the server log, and only in demo mode (`SEED_DEMO=1`) is the code also shown on screen.
+Para enviar SMS reales defina `SMS_PROVEEDOR=twilio` con `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` y `TWILIO_FROM`. Con el proveedor `consola` (el valor por defecto) el mensaje va al registro del servidor, y solo en modo demostración (`SEED_DEMO=1`) el código también se muestra en pantalla.
 
-## 5-minute tour
+## Datos visibles por rol
 
-The demo data already has history: invoices from past months, a received container, another in transit and an invoice ready to ship.
+Además de los permisos, cada rol puede ocultar grupos de datos en *Usuarios y accesos → Rol → «Datos que ve este rol»*. Los grupos están definidos en `backend/app/services/visibilidad.py`:
 
-1. Sign in as **tnf@demo.com** (one click on “The North Face”, then enter the code shown). **Home** shows what is left to invoice, pack and finalize, where the goods are and the shipments on the way.
-2. In *Purchase orders*, on PO 4400003845 click **Invoice** (or open it and change “To invoice” to take only part; several POs can be combined). Review and click **Create invoice**.
-3. In the invoice, the steps at the top say what is missing. Click **Pack pending**: it creates the packing list with everything and opens it.
-4. In *To pack*, click **Auto-pack**. Lines with a casepack are packed with that exact quantity per carton, lines with an inner pack in whole inner packs, and the rest with the suggested template. The remainder that does not fill a carton goes to a partial carton with estimated weight (or stays unpacked).
-5. In *Review*, check the contents **by destination** and the **suggested load units**, **Confirm estimates** and **Finalize packing list**. Back in the invoice, enter number and date and click **Finalize**.
-6. Sign in as **interno@demo.com**, open *Shipments* → EMB-0003, choose 40HC #1 and click **Assign cargo**: the panel suggests the load units for the selected volume and weight. Only finalized invoices and packing lists are offered. Then **Record departure**.
-7. Open **Products** (as interno@demo.com). *Ready to approve* has the Vans Authentic White: the classification panel shows the suggested HS code 6404.19, why, and the national code for each destination country. Click **Approve**. From then on its PO lines show 6404.19.90.00 (El Salvador) and invoices take it automatically. As tnf@demo.com, the *Summit blue* jacket was returned with notes: fill in the outer fabric composition and save it; it goes back to review.
-8. *Tracking* shows each PO (and, when opened, each SKU by stage), and each shipment with its units, with the margin against the in-store date. Everything downloads as PDF or Excel. *Master data* holds all catalogs.
-
-## Item data vs. PO line data
-
-| Item (master data, *Master data → Items*) | PO line (purchase data, comes in the PO file) |
+| Grupo | Qué oculta |
 |---|---|
-| SKU, style, color, size / prepack ID, description | PO number and line, company, plant, storage location |
-| Brand, group (category → packing rule), supplier | Destination center (country), port of loading, countries of origin and shipment |
-| Type (solid or prepack), unit of measure (PAR, UN, CJ) | Quantity, unit price, currency, incoterm |
-| Item code (free alphanumeric) and supplier SKU | XF dates, in-store date, commercial and logistics release |
+| `precios` | Precios unitarios, valor de la OC, importes de factura y valor facturado |
+| `codigos_internos` | Códigos de sociedad, centro, centro de destino y almacén |
+| `fechas_internas` | Fecha requerida en tienda, llegada estimada a tienda, holgura y riesgo de atraso |
+| `liberaciones` | Códigos y fechas de las liberaciones comercial y logística (el usuario sigue viendo si una OC se puede facturar) |
+| `impuestos` | Arancel (DAI), impuestos y regulaciones de importación de cada país de destino |
+| `contactos` | Nombres, correos y teléfonos de las personas de la empresa en cada centro y sociedad |
+
+- Ocultar no es solo de la pantalla: el servidor quita esos campos de las respuestas de las pantallas de trabajo (órdenes, facturas, listas de empaque, embarques, seguimiento, productos, tablero, búsqueda) y las columnas de los reportes en Excel/PDF. Los documentos oficiales (factura comercial y lista de empaque) siempre salen completos porque son documentos legales.
+- El rol de fábrica de proveedor oculta por defecto `fechas_internas`, `liberaciones` e `impuestos` (se puede cambiar). Los administradores siempre ven todo.
+- Además, cada persona elige qué columnas ver con el botón **Columnas** en *Órdenes*, *Seguimiento* y las líneas de la factura; la elección se guarda en su perfil. Solo se ofrecen las columnas que su rol permite.
+
+## Recorrido de 5 minutos
+
+Los datos de la demostración ya tienen historia: facturas de meses anteriores, un contenedor recibido, otro en tránsito y una factura lista para embarcar.
+
+1. Inicie sesión como **tnf@demo.com** (un clic en “The North Face” y luego ingrese el código que se muestra). **Inicio** muestra lo que falta por facturar, empacar y finalizar, dónde está la mercancía y los embarques en camino.
+2. En *Órdenes*, en la OC 4400003845 haga clic en **Factura** (o ábrala y cambie “Por facturar” para tomar solo una parte; se pueden combinar varias OCs con **Facturar juntas**). Revise y haga clic en **Crear factura**.
+3. En la factura, los pasos de arriba dicen qué falta. Haga clic en **Empacar pendientes**: crea la lista de empaque con todo y la abre.
+4. En *Por empacar*, haga clic en **Empaque automático**. Las líneas con casepack se empacan con esa cantidad exacta por caja, las líneas con inner pack en inner packs completos y el resto con la plantilla sugerida. El sobrante que no llena una caja va a una caja parcial con peso estimado (o queda sin empacar).
+5. En *Revisar*, verifique el contenido **por destino** y las **unidades de carga sugeridas**, haga clic en **Confirmar estimaciones** y **Finalizar lista de empaque**. De vuelta en la factura, ingrese número y fecha y haga clic en **Finalizar**.
+6. Inicie sesión como **interno@demo.com**, abra *Embarques* → EMB-0003, elija 40HC #1 y haga clic en **Asignar carga**: el panel sugiere las unidades de carga para el volumen y el peso seleccionados. Solo se ofrecen facturas y listas de empaque finalizadas. Luego registre la **Salida** con **Registrar evento**.
+7. Abra **Productos** (como interno@demo.com). *Lista para aprobar* tiene el Vans Authentic White: el panel de clasificación muestra la partida sugerida 6404.19, el porqué y el código nacional de cada país de destino. Haga clic en **Aprobar**. Desde ese momento sus líneas de OC muestran 6404.19.90.00 (El Salvador) y las facturas la toman automáticamente. Como tnf@demo.com, la chaqueta *Summit blue* fue devuelta con observaciones: complete la composición de la tela exterior y guárdela; vuelve a revisión.
+8. *Seguimiento* muestra cada OC (y, al abrirla, cada SKU por etapa) y cada embarque con sus unidades, con la holgura frente a la fecha en tienda. Todo se descarga en PDF o Excel. *Datos maestros* reúne todos los catálogos.
+
+## Datos del artículo vs. datos de la línea de OC
+
+| Artículo (dato maestro, *Datos maestros → Artículos*) | Línea de OC (dato de compra, viene en el archivo de la OC) |
+|---|---|
+| SKU, estilo, color, talla / ID del prepack, descripción | Número de OC y línea, sociedad, centro, almacén |
+| Marca, grupo (categoría → regla de empaque), proveedor | Centro de destino (país), puerto de carga, países de origen y de procedencia |
+| Tipo (sólido o prepack), unidad de medida (PAR, UN, CJ) | Cantidad, precio unitario, moneda, incoterm |
+| Código de artículo (alfanumérico libre) y SKU del proveedor | Fechas XF, fecha en tienda, liberación comercial y logística |
 | UPC | |
-| Prepack breakdown (size run per master carton) | **Casepack** for solids (optional; the inner pack is usually defined later, in the packing list) |
+| Desglose del prepack (curva de tallas por caja master) | **Casepack** para sólidos (opcional; el inner pack normalmente se define después, en la lista de empaque) |
 
-The item has no casepack: it is set on each PO line, because the same item can be bought in different packs. In *Purchase orders* the line table groups the columns as “Item · master data” and “PO line · purchase data”, and the internal team can edit a line's casepack and inner pack while it is not invoiced.
+El artículo no tiene casepack: se define en cada línea de OC, porque el mismo artículo se puede comprar en empaques distintos. En *Órdenes* la tabla de líneas agrupa las columnas como “Artículo · datos maestros” y “Línea de OC · datos de compra”, y el equipo interno puede editar el casepack y el inner pack de una línea mientras no esté facturada.
 
-The HS code, the country of origin, the product type and the description are not typed on the item: they come from the **product's technical sheet** (next section), shared by all its sizes. The item group sets the packing rule; it does not define the product type.
+La partida arancelaria, el país de origen, el tipo de producto y la descripción no se escriben en el artículo: vienen de la **ficha técnica del producto** (siguiente sección), compartida por todas sus tallas. El grupo del artículo define la regla de empaque; no define el tipo de producto. Las categorías de los grupos (y de las escalas de tallas) son un catálogo: *Datos maestros → Categorías de artículo* (de fábrica: calzado, ropa, accesorios y otro).
 
-## Products: technical sheet and tariff classification
+## Productos: ficha técnica y clasificación arancelaria
 
-The **item code** is free: any numeric or alphanumeric code of up to 40 characters (letters, digits, `.`, `_`, `-`, `/`), with no fixed length or prefix. Each item belongs to a **generic** (the style-color, up to 40 characters); when the file or form does not bring it, it is derived as `STYLE-COLOR`. A **product** is a generic: its sizes and prepacks share one technical sheet and one classification. A generic is created once with its master data (*Master data → Items → New generic*) and then only sizes are added, each with its own item code (typed in full, or generic + size code), UPC and supplier SKU. Sizes can be entered as ranges with gaps (e.g. `7-10, 12, 14`). *Master data → Items* shows one row per generic by default (**Compact**), expandable to its sizes and prepacks; **List** shows one row per item code. A prepack has its own code and keeps the generic of its solids.
+El **código de artículo** es libre: cualquier código numérico o alfanumérico de hasta 40 caracteres (letras, dígitos, `.`, `_`, `-`, `/`), sin largo ni prefijo fijo. Cada artículo pertenece a un **genérico** (el estilo-color, hasta 40 caracteres); cuando el archivo o el formulario no lo trae, se deriva como `STYLE-COLOR`. Un **producto** es un genérico: sus tallas y prepacks comparten una ficha técnica y una clasificación. Un genérico se crea una vez con sus datos maestros (*Datos maestros → Artículos → Nuevo genérico*) y después solo se agregan tallas, cada una con su propio código de artículo (escrito completo, o genérico + código de talla), UPC y SKU del proveedor. Las tallas se pueden ingresar como rangos con saltos (p. ej. `7-10, 12, 14`). *Datos maestros → Artículos* muestra por defecto una fila por genérico (**Compacta**), expandible a sus tallas y prepacks; **Lista** muestra una fila por código de artículo. Un prepack tiene su propio código y conserva el genérico de sus sólidos.
 
-- **Technical sheet**: product type, gender, who it is for, use, size range, country of origin, composition by part (outer fabric, lining, upper, sole…), the features that change the code (only those are asked), photos and the customs description in Spanish (built from the sheet, or written by hand): complete — what the product is, its parts (upper and sole), height, fabric, fill, use and who it is for — but with each material said only by its category: **CUERO, TEXTIL or SINTÉTICO** (rubber, plastics and artificial leather), without percentages or fibers and without the brand (it has its own field), e.g. *TENIS CON CORTE DE TEXTIL Y SUELA DE SINTÉTICO, SIN CUBRIR EL TOBILLO, PARA DEPORTE O ENTRENAMIENTO, UNISEX*.
-- **Classification engine**: runs in the browser while the sheet is edited. It applies the Harmonized System 2022 rules (GRI, section and chapter notes) for clothing, footwear, bags and accessories, learns from what was already approved and returns the 6-digit SAC subheading, its confidence, the reasoning, alternatives and inconsistencies to check.
-- **National codes by destination**: only lines published by an official source exist (with source, version and validity); the company never creates them. GT, SV and HN apply the regional SAC at 10 digits, so their lines are the official ACI lines. NI, CR and PA show *Official national tariff data not available* until their national tariff is loaded with its source and version. The company's past classifications (`historial_clasificacion`) only help choose among official lines (*preferred by your company history*). When a country splits the subheading further, the sheet asks only for that data. The internal team types the national code directly in the *By destination* table (it applies when leaving the field, checking the digits and the subheading), can go back to the automatic code and **remember** it for similar products. Similar products show their generic. The sheet no longer asks for the size range: it comes from the generic's sizes. Each material typed in the composition shows how it counts for the tariff (leather, textile, rubber or plastics, synthetic): trade names such as synthetic suede, PU leather, leatherette, cowhide, nubuk, phylon, flyknit or corduroy are recognized, and unknown words can be taught. The classification panel shows the 6-digit SAC subheading and the **SAC legal notes** that apply (general rules, section, chapter and subheading notes); they are edited in *Tariff schedule → SAC legal notes* and the specialist opinion reads them too. The base is the **official text of the SAC** taken from SIECA's Arancel Centroamericano de Importación (VII Amendment, version 6, August 2025): 518 notes (the six General Rules, section notes, chapter notes, subheading notes and the Central American complementary notes of every chapter). The panel lists first the notes cited by the engine and those that touch the sheet (baby, unisex, coated, leather, sport…). Notes can be edited, loaded from Excel and exported. When a national code is added or edited, the form shows only the conditions that split its subheading: the ones that country already uses there, the ones other countries use and the ones that open national codes in its chapter, plus how that country splits the subheading today (all of them can still be shown). Guatemala, El Salvador and Honduras (10 digits) come with the official tariff lines of the ACI (SIECA, VII Amendment, version 6) for the chapters the engine classifies, with their DAI; the conditions the classifier deduces from their text (metal toe cap, covering the ankle or the knee, overshoe, for men/women/babies, hats) are engine rules, never part of the official line. The full list of SAC headings and subheadings (6,607) is loaded with its official text. Nicaragua, Costa Rica (12 digits) and Panama (own tariff) have no national lines until their official tariffs are loaded with *Upload codes* (source and version required). See `docs/arquitectura_clasificacion.md` for the three layers (official data, classification engine, company knowledge). `backend/scripts/sieca` rebuilds these files from a new ACI version.
-- **Any product**: chemicals, raw materials or anything else uses the same sheet with the generic categories (*Chemical*, *Raw material*, *Other*) or any category created in the configuration. Candidates come from the official tariff text of the enabled chapters, and the result stays a suggestion that a specialist confirms.
-- **Legal basis**: each destination country has its legal basis (the Central American Import Tariff for the MCCA countries, with the 12-digit national openings of Nicaragua and Costa Rica; Panama's National Import Tariff). It is edited in *Tariff schedule → Countries* and shown under the national codes of each sheet.
-- **Explanatory notes**: the notes panel also lists the explanatory notes of the heading. It comes with short summaries of our own for the headings of chapters 42, 61, 62, 64 and 65, marked as such; the official text of the WCO Explanatory Notes is copyrighted and not included, but it can be loaded (kind *Explanatory note (HS)*, heading code) with *Upload notes*.
-- **Trade agreements by origin**: the *Trade agreements* tab of each product shows, for every destination country and according to its country of origin, whether a trade agreement covers that origin and which proof of origin (certificate of origin, EUR.1, FAUCA…) must be presented to get the preference; without one, the full DAI applies. It comes with a reference base of the agreements in force for Central America and Panama (MCCA, DR-CAFTA, EU and UK association agreements, Mexico, Korea, China–Costa Rica, China–Nicaragua, Taiwan–Guatemala, Colombia, Chile, Peru, Canada, Singapore, Dominican Republic, EFTA, Israel–Panama), maintained in *Master data → Trade agreements* (origin and destination ISO codes, proof of origin, notes). Check it against the official sources before relying on it.
-- **Flow**: a sheet is a **draft** that anyone with access (the supplier or the internal team) can edit and save as many times as needed. When it is complete, it is **sent to review** (one by one or in bulk from the list); from then on the supplier cannot change it unless it takes it back to draft. The internal team **approves** it (or chooses another code) or **returns** it with notes, and it goes back to draft. Approved sheets are locked; a change opens a **new version**, and the previous ones stay in the *Versions* tab, where each can be viewed as it was (data, composition, customs description, HS code and national codes) and downloaded as PDF or Excel.
-- **Where it is used**: each PO line shows the code for its destination country; invoice lines take the code, origin and customs description from the approved sheet (they are not typed on the invoice). An invoice cannot be finalized while a product is not classified; the message links to its sheet.
-- **Specialist opinion (optional)**: with `ANTHROPIC_API_KEY`, the internal team can ask Claude for a second opinion with the sheet and up to two photos. It never approves anything.
-- **Two descriptions**, both built from the sheet and editable: the customs one in Spanish, and a simple commercial one — product type and brand, e.g. *CALZADO VANS* or *CHAQUETA THE NORTH FACE* — used on the invoice and the packing list.
-- **Prepacks are not classified**: they are built from solids and take the product and HS code of their solids.
-- The sheet downloads as **PDF or Excel** (the Excel adds a sheet for the composition, the national codes and the sizes). The product list report downloads as Excel or PDF with the composition, the customs description and the saved national code for each destination country; the Excel also has one row per part of the composition and one per country code.
+- **Ficha técnica**: tipo de producto, género, para quién es, uso, rango de tallas, país de origen, composición por parte (tela exterior, forro, corte, suela…), las características que cambian el código (solo se preguntan esas), fotos y la descripción aduanal en español (armada desde la ficha o escrita a mano): completa —qué es el producto, sus partes (corte y suela), altura, tela, relleno, uso y para quién es— pero con cada material dicho solo por su categoría: **CUERO, TEXTIL o SINTÉTICO** (caucho, plásticos y cuero artificial), sin porcentajes ni fibras y sin la marca (tiene su propio campo), p. ej. *TENIS CON CORTE DE TEXTIL Y SUELA DE SINTÉTICO, SIN CUBRIR EL TOBILLO, PARA DEPORTE O ENTRENAMIENTO, UNISEX*.
+- **Motor de clasificación**: corre en el servidor (vea *Un solo motor de clasificación*) mientras se edita la ficha. Aplica las reglas del Sistema Armonizado 2022 (RGI, notas de sección y de capítulo) para ropa, calzado, bolsos y accesorios, aprende de lo ya aprobado y devuelve la subpartida SAC de 6 dígitos, su confianza, el razonamiento, alternativas e inconsistencias por revisar.
+- **Códigos nacionales por destino**: solo existen líneas publicadas por una fuente oficial (con fuente, versión y vigencia); la empresa nunca las crea. GT, SV y HN aplican el SAC regional a 10 dígitos, así que sus líneas son las líneas oficiales del ACI. NI, CR y PA muestran *Datos arancelarios nacionales oficiales no disponibles* hasta que se cargue su arancel nacional con su fuente y versión. Las clasificaciones anteriores de la empresa (`historial_clasificacion`) solo ayudan a elegir entre líneas oficiales (*preferida por el historial de su empresa*). Cuando un país abre más la subpartida, la ficha pide solo ese dato. El equipo interno escribe el código nacional directamente en la tabla *Por destino* (se aplica al salir del campo, revisando los dígitos y la subpartida), puede volver al código automático y **recordarlo** para productos similares. Los productos similares muestran su genérico. La ficha ya no pide el rango de tallas: sale de las tallas del genérico. Cada material escrito en la composición muestra cómo cuenta para el arancel (cuero, textil, caucho o plástico, sintético): se reconocen nombres comerciales como synthetic suede, PU leather, leatherette, cowhide, nubuk, phylon, flyknit o corduroy, y se pueden enseñar palabras desconocidas. El panel de clasificación muestra la subpartida SAC de 6 dígitos y las **notas legales del SAC** que aplican (reglas generales, notas de sección, de capítulo y de subpartida); se editan en *Arancel → Notas legales* y la opinión del especialista también las lee. La base es el **texto oficial del SAC** tomado del Arancel Centroamericano de Importación de la SIECA (VII Enmienda, versión 6, agosto de 2025): 518 notas (las seis Reglas Generales, notas de sección, notas de capítulo, notas de subpartida y las notas complementarias centroamericanas de cada capítulo). El panel lista primero las notas que cita el motor y las que tocan la ficha (bebé, unisex, recubierto, cuero, deporte…). Las notas se pueden editar, cargar desde Excel y exportar. Al agregar o editar un código nacional, el formulario muestra solo las condiciones que abren su subpartida: las que ese país ya usa ahí, las que usan otros países y las que abren códigos nacionales en su capítulo, además de cómo divide ese país la subpartida hoy (todas se pueden mostrar igual). Guatemala, El Salvador y Honduras (10 dígitos) vienen con las líneas arancelarias oficiales del ACI (SIECA, VII Enmienda, versión 6) para los capítulos que clasifica el motor, con su DAI; las condiciones que el clasificador deduce de su texto (puntera metálica, que cubre el tobillo o la rodilla, cubrecalzado, para hombre/mujer/bebé, sombreros) son reglas del motor, nunca parte de la línea oficial. La lista completa de partidas y subpartidas del SAC (6,607) se carga con su texto oficial. Nicaragua, Costa Rica (12 dígitos) y Panamá (arancel propio) no tienen líneas nacionales hasta que se carguen sus aranceles oficiales con *Cargar códigos* (fuente y versión obligatorias). Vea `docs/arquitectura_clasificacion.md` para las tres capas (datos oficiales, motor de clasificación, conocimiento de la empresa). `backend/scripts/sieca` reconstruye estos archivos desde una nueva versión del ACI.
+- **Cualquier producto**: químicos, materias primas o cualquier otra cosa usan la misma ficha con las categorías genéricas (*Químico*, *Materia prima*, *Otro*) o cualquier categoría creada en la configuración. Los candidatos salen del texto arancelario oficial de los capítulos habilitados, y el resultado sigue siendo una sugerencia que confirma un especialista.
+- **Base legal**: cada país de destino tiene su base legal (el Arancel Centroamericano de Importación para los países del MCCA, con las aperturas nacionales a 12 dígitos de Nicaragua y Costa Rica; el Arancel Nacional de Importación de Panamá). Se edita en *Arancel → Países* y se muestra bajo los códigos nacionales de cada ficha.
+- **Notas explicativas**: el panel de notas también lista las notas explicativas de la partida. Trae resúmenes propios y cortos para las partidas de los capítulos 42, 61, 62, 64 y 65, marcados como tales; el texto oficial de las Notas Explicativas de la OMA tiene derechos de autor y no se incluye, pero se puede cargar (tipo *Nota explicativa (SA)*, código de partida) desde la carga de notas.
+- **Acuerdos comerciales por origen**: la pestaña *Acuerdos comerciales* de cada producto muestra, para cada país de destino y según su país de origen, si un acuerdo comercial cubre ese origen y qué prueba de origen (certificado de origen, EUR.1, FAUCA…) hay que presentar para obtener la preferencia; sin ella aplica el DAI completo. Trae una base de referencia de los acuerdos vigentes para Centroamérica y Panamá (MCCA, DR-CAFTA, acuerdos de asociación con la UE y el Reino Unido, México, Corea, China–Costa Rica, China–Nicaragua, Taiwán–Guatemala, Colombia, Chile, Perú, Canadá, Singapur, República Dominicana, AELC, Israel–Panamá), mantenida en *Datos maestros → Acuerdos comerciales* (códigos ISO de origen y destino, prueba de origen, notas). Contrástela con las fuentes oficiales antes de confiar en ella.
+- **Flujo**: una ficha es un **borrador** que cualquiera con acceso (el proveedor o el equipo interno) puede editar y guardar cuantas veces haga falta. Cuando está completa, se **envía a revisión** (una por una o en bloque desde la lista); desde ese momento el proveedor no puede cambiarla salvo que la regrese a borrador. El equipo interno la **aprueba** (o elige otro código) o la **devuelve** con observaciones, y vuelve a borrador. Las fichas aprobadas quedan bloqueadas; un cambio abre una **nueva versión**, y las anteriores quedan en la pestaña *Versiones*, donde cada una se puede ver tal como estaba (datos, composición, descripción aduanal, partida y códigos nacionales) y descargar en PDF o Excel. Quién llena y cómo se aprueba se ajusta en *Usuarios y accesos → Flujo de clasificación*.
+- **Dónde se usa**: cada línea de OC muestra el código de su país de destino; las líneas de factura toman el código, el origen y la descripción aduanal de la ficha aprobada (no se escriben en la factura). Una factura no se puede finalizar mientras un producto no esté clasificado; el mensaje enlaza a su ficha.
+- **Opinión del especialista (opcional)**: con `ANTHROPIC_API_KEY`, el equipo interno puede pedirle a Claude una segunda opinión con la ficha y hasta dos fotos. Nunca aprueba nada.
+- **Dos descripciones**, ambas armadas desde la ficha y editables: la aduanal en español y una comercial sencilla —tipo de producto y marca, p. ej. *CALZADO VANS* o *CHAQUETA THE NORTH FACE*— que se usa en la factura y la lista de empaque.
+- **Los prepacks no se clasifican**: se arman con sólidos y toman el producto y la partida de sus sólidos.
+- La ficha se descarga en **PDF o Excel** (el Excel agrega una hoja para la composición, los códigos nacionales y las tallas). El reporte de la lista de productos se descarga en Excel o PDF con la composición, la descripción aduanal y el código nacional guardado para cada país de destino; el Excel además tiene una fila por parte de la composición y una por código de país.
 
-**Classification support.** The product page has a *Classification support* panel tied to the sheet's subheading and the destination national codes: **Legal notes** (SAC rules and notes that apply), **Explanatory notes** and **Legal basis** (the national tariff lines with their conditions). It is reference material for the classification and the review, not an automatic adaptation of the sheet to the whole SAC.
+**Soporte de clasificación.** La página del producto tiene un panel *Soporte de clasificación* ligado a la subpartida de la ficha y a los códigos nacionales de destino: **Notas legales** (reglas y notas del SAC que aplican), **notas explicativas** y **Base legal** (las líneas arancelarias nacionales con sus condiciones). Es material de referencia para la clasificación y la revisión, no una adaptación automática de la ficha a todo el SAC.
 
-## Tariff schedule
+## Arancel y familias de producto
 
-*Products → Tariff schedule* (internal team) has a side menu in four groups. Official data, the engine's configuration and each country's requirements are kept apart:
+*Arancel* (en *Productos* o en *Configuración → Comercio y cumplimiento*) tiene un menú lateral que separa los datos oficiales de lo que sabe la empresa; la configuración del motor está aparte, en *Familias de producto*. Las tres capas (vea `docs/arquitectura_clasificacion.md`) no se mezclan:
 
-**Tariff**
-- **Three layers** (see `docs/arquitectura_clasificacion.md`): *Tariff schedule* is split into **Official data** (sources and versions, tariff tree, countries, national codes, legal notes, taxes, regulations, data import, *Tariff data integrity*), **Classification engine** (domains and categories, chapters, attributes with options and scopes, rules — configuration, not official data, also under `/api/clasificacion/configuracion/…`) and **Company knowledge** (classification history, manual decisions and corrections, learned keywords and synonyms, under `/api/conocimiento/…`). The engine returns `legal_confidence` (rules and official text only) and `historical_confidence` (company history only); history only orders the candidates official data allows.
-- **One engine for every domain**: `POST /api/clasificacion/sesion` classifies footwear, apparel, chemicals and raw materials alike (texto, dominio, categoria, ficha, respuestas, paises, version). Footwear, apparel, accessories, chemicals and raw materials are written from the HS Explanatory Notes in `data/motor/familias/*.json` (generated by `scripts/familias/construir.py`, which checks every rule and test case against the official tree): categories, questions with the note that justifies them, `R-NE-*` rules and test cases. Products can attach **SDS / TDS / COA** documents (*Technical documents* tab): their data (CAS, composition, physical state, density, pH…) fill empty facts of the sheet and are never a tariff source.
-- **Tariff tree**: the official SAC 2025 v6 (99 chapters, 1,012 headings, 5,595 subheadings, 7,517 tariff lines with their DAI; the 519 lines whose DAI the ACI sends to Part II, which differs by country, keep no single rate), versioned with source and checksum. Search by code or words; each node shows its legal notes and, per country, the national codes, taxes and regulations.
-- **Chapters**: which chapters the classifier uses (active, enabled, automatic candidate, manual only, archived), in bulk.
-- **National codes** of every country with their duty, version, source and validity. The code length is configurable per country (8 to 14 digits when no schema is set).
-- **SAC headings and subheadings** and **Legal notes**, editable.
+**Datos oficiales** (*Arancel*)
+- **Fuentes y versiones** de cada conjunto de datos.
+- **Árbol arancelario**: el SAC 2025 v6 oficial (99 capítulos, 1,012 partidas, 5,595 subpartidas, 7,517 líneas arancelarias con su DAI; las 519 líneas cuyo DAI el ACI envía a la Parte II, que difiere por país, no guardan una tasa única), versionado con fuente y checksum. Búsqueda por código o por palabras; cada nodo muestra sus notas legales y, por país, los códigos nacionales, impuestos y regulaciones.
+- **Países**: el esquema de códigos y la fuente de cada tipo de dato.
+- **Incisos nacionales** de cada país con su arancel, versión, fuente y vigencia. El largo del código se configura por país (8 a 14 dígitos cuando no hay esquema definido).
+- **Partidas y subpartidas del SAC** y **Notas legales**, editables.
+- **Impuestos**: IVA/ITBMS/ISV, selectivos… con tasa, base, umbrales y base legal. Gana el patrón más específico de cada tipo.
+- **Regulaciones**: permisos, licencias, registros, etiquetado… para un código o un patrón (p. ej. `3304`).
+- **Capítulos**: qué capítulos usa el clasificador (activo, habilitado, candidato automático, solo manual, archivado), en bloque.
+- **Importación de datos**: los tres paquetes oficiales (01 catálogos, 02 motor dinámico, 03 códigos nacionales, regulaciones e impuestos) se cargan por etapas:
+  1. Suba el archivo a una vista previa. Se valida el archivo y se muestra cada registro nuevo, cambiado o reemplazado (antes → después), los errores y las advertencias.
+  2. Publique para aplicarlo, o descártelo. Si los datos cambiaron desde la vista previa, se le pide revisarla de nuevo.
 
-**Requirements by country**
-- **Regulations**: permits, licenses, registrations, labeling… for a code or a pattern (e.g. `3304`).
-- **Taxes**: VAT/ITBMS/ISV, excise… with rate, basis, thresholds and legal basis. The most specific pattern of each type wins.
-- **Countries**: the code schema and the source of each kind of data.
+  Las cargas nunca borran lo publicado.
+- **Integridad de los datos arancelarios**.
 
-**Classification engine**
-- **Domains** (chemicals, raw materials, footwear, apparel, accessories) and their chapters. A domain only orders questions and candidates; it never forces or excludes a chapter.
-- **Attributes**: what the product sheet asks, with its options (synonyms, order, active) and where (system, domain, chapter, heading, subheading or product category; ask, required or do not ask). The sheet takes labels, disabled options and switched-off questions from here.
-- **Classification rules**: the system rules (only enabled chapters, legal notes over text similarity, ask only what distinguishes, specialist review when ambiguous…) and the national selection rules. These are the product conditions that pick each national code, kept apart from the official code.
+**Conocimiento de la empresa** (*Arancel → Historial, decisiones y palabras clave*, bajo `/api/conocimiento/…`): historial de clasificación, decisiones manuales y correcciones, palabras clave y sinónimos aprendidos. El motor devuelve `legal_confidence` (solo reglas y texto oficial) y `historical_confidence` (solo historial de la empresa); el historial solo ordena los candidatos que permiten los datos oficiales.
 
-**Data**
-- **Sources and versions** of every dataset.
-- **Data import**: the three official packages (01 catalogs, 02 dynamic engine, 03 national codes, regulations and taxes) are loaded by stages:
-  1. Upload the file to a preview. It validates the file and shows each new, changed or replaced record (before → after), the errors and the warnings.
-  2. Publish to apply it, or discard it. If the data changed since the preview, you are asked to review it again.
+**Motor de clasificación** (*Familias de producto*; configuración, no dato oficial, también bajo `/api/clasificacion/configuracion/…`), en este orden:
+- **1 · Familias y categorías**: dominios (químicos, materias primas, calzado, ropa, accesorios) y sus capítulos. Un dominio solo ordena preguntas y candidatos; nunca fuerza ni excluye un capítulo.
+- **2 · Preguntas**: los atributos que pide la ficha del producto, con sus opciones (sinónimos, orden, activo) y dónde aplican (sistema, dominio, capítulo, partida, subpartida o categoría de producto; preguntar, obligatorio o no preguntar). La ficha toma de aquí las etiquetas, las opciones desactivadas y las preguntas apagadas.
+- **3 · Reglas**: las reglas del sistema (solo capítulos habilitados, notas legales por encima de la similitud de texto, preguntar solo lo que distingue, revisión de especialista cuando hay ambigüedad…) y las reglas de selección nacional, que son las condiciones del producto que eligen cada código nacional, separadas del código oficial.
+- **Listas de referencia**: clases de material, vocabulario de búsqueda y traducciones.
 
-  Loads never delete what is published.
+**Un motor para todos los dominios**: `POST /api/clasificacion/sesion` clasifica calzado, ropa, químicos y materias primas por igual (texto, dominio, categoria, ficha, respuestas, paises, version). Calzado, ropa, accesorios, químicos y materias primas están escritos a partir de las Notas Explicativas del SA en `backend/app/data/motor/familias/*.json` (generados por `backend/scripts/familias/construir.py`, que comprueba cada regla y caso de prueba contra el árbol oficial): categorías, preguntas con la nota que las justifica, reglas `R-NE-*` y casos de prueba. Los productos pueden adjuntar documentos **SDS / TDS / COA** (pestaña *Documentos técnicos*): sus datos (CAS, composición, estado físico, densidad, pH…) completan hechos vacíos de la ficha y nunca son fuente arancelaria.
 
-### One classification engine (server)
+### Un solo motor de clasificación (servidor)
 
-There is **a single classification engine**, in Python (`backend/app/services/motor_clasificacion.py`). The product sheet, saving, bulk classification, uploads, approval and the specialist opinion all call it; the browser only shows and edits (it has no classification logic).
+Hay **un solo motor de clasificación**, en Python (`backend/app/services/motor_clasificacion.py`). La ficha del producto, el guardado, la clasificación en bloque, las cargas, la aprobación y la opinión del especialista lo llaman; el navegador solo muestra y edita (no tiene lógica de clasificación).
 
-- **Natural sheet → facts.** The UI sends the sheet as typed (category, composition by part, gender, age, use…). The server normalizes it (`ficha.py`): reads compositions (`composicion.py`), derives facts (predominant fiber, upper/sole material…), applies implications and option blocks, detects what the name and use say, and keeps what the person chose.
-- **Every category works the same way**, footwear and apparel included. Categories (`CategoriaProducto`), attributes, options, dependencies and scopes are data. Create a domain, a category, its attributes, options, scopes, rules and national codes in *Tariff schedule*, and its products are classified without code changes.
-- **Scopes (SHOW / REQUIRE / HIDE).** The most specific scope wins: category > domain > subheading > heading > chapter > system. Ties go to priority, then HIDE > REQUIRE > SHOW, then the newest.
-- **Rules.** A higher number means higher precedence. There are three layers: legal (legal notes, national tariff), system and company. A company rule never breaks a legal restriction (`blocked_by_legal`). A rule that collides with a higher one is `overridden_by`.
-  - RESTRICT and EXCLUDE narrow the allowed codes.
-  - BOOST only raises allowed codes.
-  - ASK asks for data.
-  - REVIEW and WARN send the product to review.
+- **Ficha natural → hechos.** La interfaz envía la ficha tal como se escribió (categoría, composición por parte, género, edad, uso…). El servidor la normaliza (`ficha.py`): lee las composiciones (`composicion.py`), deriva hechos (fibra predominante, material del corte y de la suela…), aplica implicaciones y bloqueos de opciones, detecta lo que dicen el nombre y el uso, y conserva lo que eligió la persona.
+- **Todas las categorías funcionan igual**, calzado y ropa incluidos. Las categorías (`CategoriaProducto`), atributos, opciones, dependencias y ámbitos son datos. Cree un dominio, una categoría, sus atributos, opciones, ámbitos, reglas y códigos nacionales en *Familias de producto* y *Arancel*, y sus productos se clasifican sin cambios de código.
+- **Ámbitos (SHOW / REQUIRE / HIDE).** Gana el ámbito más específico: categoría > dominio > subpartida > partida > capítulo > sistema. Los empates se resuelven por prioridad, luego HIDE > REQUIRE > SHOW, luego el más reciente.
+- **Reglas.** Un número mayor significa mayor precedencia. Hay tres capas: legal (notas legales, arancel nacional), sistema y empresa. Una regla de la empresa nunca rompe una restricción legal (`blocked_by_legal`). Una regla que choca con otra superior queda `overridden_by`.
+  - RESTRICT y EXCLUDE reducen los códigos permitidos.
+  - BOOST solo sube códigos permitidos.
+  - ASK pide datos.
+  - REVIEW y WARN envían el producto a revisión.
 
-  Every rule has a revision number and a signature. A legal rule must reference its legal note, and the UI shows *Legal evidence* apart from *System rule* and *Company rule*. Rule codes are checked against the tree of the version in force.
-- **Versions.** The version in force is resolved by date and scope (regional or per country). The same entry with the same date reproduces a past classification. National lines come only from the country's version in force and within their own validity; official lines are never edited, and company changes are overrides with a reason.
-- **National codes.** Each country has its valid lengths (`10, 12`…). A code is validated against them and never truncated. A company code is accepted only with a valid length and inside the subheading.
-- **Evidence.** Each answer carries the version, inputs, derived facts, rules (evaluated, applied, overridden), legal notes, HS6, SAC, national codes, confidence, alternatives, review reasons and overrides. Approval stores it in the product and in each version.
-- **History** only boosts codes the rules allow.
+  Cada regla tiene un número de revisión y una firma. Una regla legal debe citar su nota legal, y la interfaz muestra *Evidencia legal* aparte de *Regla del sistema* y *Regla de la empresa*. Los códigos de las reglas se revisan contra el árbol de la versión vigente.
+- **Versiones.** La versión vigente se resuelve por fecha y ámbito (regional o por país). La misma entrada con la misma fecha reproduce una clasificación pasada. Las líneas nacionales solo salen de la versión vigente del país y dentro de su propia vigencia; las líneas oficiales nunca se editan, y los cambios de la empresa son sobrescrituras con motivo.
+- **Códigos nacionales.** Cada país tiene sus largos válidos (`10, 12`…). Un código se valida contra ellos y nunca se trunca. Un código de la empresa solo se acepta con un largo válido y dentro de la subpartida.
+- **Evidencia.** Cada respuesta lleva la versión, las entradas, los hechos derivados, las reglas (evaluadas, aplicadas, sobrescritas), las notas legales, el SA6, el SAC, los códigos nacionales, la confianza, las alternativas, los motivos de revisión y las sobrescrituras. La aprobación la guarda en el producto y en cada versión.
+- **El historial** solo impulsa códigos que las reglas permiten.
 
-A code from a chapter that is not enabled cannot be approved.
+Un código de un capítulo no habilitado no se puede aprobar.
 
-The database schema is managed with Alembic (`backend/alembic`). Pending migrations run at start-up (demo and production alike). A test checks that the migrations match the models.
+El esquema de la base de datos se maneja con Alembic (`backend/alembic`). Las migraciones pendientes se aplican al arrancar (igual en demostración y en producción). Una prueba revisa que las migraciones coincidan con los modelos.
 
-## Bulk uploads and exports
+## Cargas masivas y exportaciones
 
-- **Items by generic, with their technical sheet** (*Master data → Items* or *Products*): an Excel template with two sheets. *Generics*: one row per generic with its master data (style, color, brand, group, supplier, unit) and the sheet columns (category, gender, age, use, sizes, origin, composition by part and the features that change the code). *Sizes*: one row per size with its size code (or the next free one), UPC and supplier SKU. After the upload, the engine completes each generic and suggests its HS code automatically. A single sheet with one row per item code is also accepted. Every upload window has a **Preview** of the template (sheets, columns, required ones, example rows and what goes in each column) besides the Excel download.
-- **Every master-data catalog** (brands, groups, suppliers, companies, plants, contacts, warehouses, carriers, unit types, countries, ports) has its own Excel template, upload (creates or updates by code) and Excel/PDF export with the filters of the screen.
-- **Reports** follow the filters selected on screen; the dimension filters accept one or several values.
+- **Artículos por genérico, con su ficha técnica** (*Datos maestros → Artículos* o *Productos*): una plantilla de Excel con dos hojas. *Genéricos*: una fila por genérico con sus datos maestros (estilo, color, marca, grupo, proveedor, unidad) y las columnas de la ficha (categoría, género, edad, uso, tallas, origen, composición por parte y las características que cambian el código). *Tallas*: una fila por talla con su código de talla (o el siguiente libre), UPC y SKU del proveedor. Después de la carga, el motor completa cada genérico y sugiere su partida automáticamente. También se acepta una sola hoja con una fila por código de artículo. Cada ventana de carga tiene una **Vista previa** de la plantilla (hojas, columnas, obligatorias, filas de ejemplo y qué va en cada columna) además de la descarga en Excel.
+- **Cada catálogo de datos maestros** (marcas, grupos, categorías de artículo, estados de liberación, proveedores, sociedades, centros, contactos, almacenes, transportistas, tipos de unidad, países, puertos…) tiene su propia plantilla de Excel, carga (crea o actualiza por código) y exportación a Excel/PDF con los filtros de la pantalla.
+- **Los reportes** siguen los filtros elegidos en pantalla; los filtros de dimensión aceptan uno o varios valores. No incluyen las columnas que el rol tiene ocultas (vea *Datos visibles por rol*).
 
-## Dashboard periods
+## Periodos del tablero
 
-The dashboard shows *In the period* (invoiced value, packing lists finalized, shipments arriving, products classified) and the invoiced chart for the selected period — this month by default — with quick choices (this week, this month, last month, this quarter, this year, 12 months, custom). The chart groups by day, week or month depending on the length, and it can be filtered by brand.
+El panel *Desempeño* del tablero muestra lo que pasó en el periodo (valor facturado, listas de empaque finalizadas, embarques que llegan, productos clasificados) y la gráfica del valor facturado para el periodo elegido —el mes en curso por defecto— con opciones rápidas (esta semana, este mes, el mes pasado, este trimestre, este año, 12 meses, personalizado). La gráfica agrupa por día, semana o mes según el largo del periodo, y se puede filtrar por marca.
 
-## Packing rules
+## Reglas de empaque
 
-Every packing option the supplier needs is available and enforced on the server:
+Todas las opciones de empaque que necesita el proveedor están disponibles y el servidor las hace cumplir:
 
-- **Solid with casepack:** each carton carries exactly the casepack, same style, color and size; sizes are never mixed. Only the last carton may be partial, and it is flagged to confirm with the Commercial Brand Manager.
-- **Prepack:** one assortment per master carton, fixed size distribution; the prepack is already a defined carton, so it takes neither casepack nor inner pack.
-- **Solid without casepack (apparel, accessories):** the quantity per carton comes from a template or is entered freely, and cartons can be mixed.
-- **Inner packs:** when the PO line has an inner pack, all its inner packs hold the same quantity of units or pairs, and every quantity (PO line, invoice line, packing list move, carton contents, templates used by auto-pack) must be a whole number of inner packs. With a casepack, the casepack must be a multiple of the inner pack (e.g. casepack 20 = 4 inner packs of 5); without a casepack, cartons are packed in multiples of the inner pack. Each inner pack carries a label identifying the product and the total quantity inside, and each unit or pair inside keeps its individual label; the packing list shows the inner packs per carton.
-- **By destination country:** a carton never mixes goods for different destination centers. The packing list shows what goes to each destination (quantities and cartons) so the supplier packs and labels each one separately; the document shows the final destination, or “per carton” when there are several.
-- **Label:** *standard* if the carton holds a single PO, style, color and size; *consolidated* otherwise.
-- **Pallets:** cartons can be palletized (pallet dimensions and tare); volume uses the pallet dimensions and gross weight adds the tare.
+- **Sólido con casepack:** cada caja lleva exactamente el casepack, mismo estilo, color y talla; las tallas nunca se mezclan. Solo la última caja puede ser parcial, y se marca para confirmarla con el Commercial Brand Manager.
+- **Prepack:** un surtido por caja master, con distribución de tallas fija; el prepack ya es una caja definida, así que no lleva casepack ni inner pack.
+- **Sólido sin casepack (ropa, accesorios):** la cantidad por caja viene de una plantilla o se ingresa libremente, y las cajas se pueden mezclar.
+- **Inner packs:** cuando la línea de OC tiene inner pack, todos sus inner packs llevan la misma cantidad de unidades o pares, y toda cantidad (línea de OC, línea de factura, movimiento de la lista de empaque, contenido de la caja, plantillas que usa el empaque automático) debe ser un número entero de inner packs. Con casepack, el casepack debe ser múltiplo del inner pack (p. ej. casepack 20 = 4 inner packs de 5); sin casepack, las cajas se empacan en múltiplos del inner pack. Cada inner pack lleva una etiqueta que identifica el producto y la cantidad total que contiene, y cada unidad o par dentro conserva su etiqueta individual; la lista de empaque muestra los inner packs por caja.
+- **Por país de destino:** una caja nunca mezcla mercancía para centros de destino distintos. La lista de empaque muestra qué va a cada destino (cantidades y cajas) para que el proveedor empaque y etiquete cada uno por separado; el documento muestra el destino final, o “según caja” cuando hay varios.
+- **Etiqueta:** *estándar* si la caja lleva una sola OC, estilo, color y talla; *consolidada* en otro caso.
+- **Pallets:** las cajas se pueden paletizar (medidas del pallet y tara); el volumen usa las medidas del pallet y el peso bruto suma la tara.
 
-### Load unit suggestions
+### Sugerencia de unidades de carga
 
-From the packing list volume (m³) and gross weight the system suggests load units using the *Unit types* catalog:
+A partir del volumen (m³) y el peso bruto de la lista de empaque, el sistema sugiere unidades de carga con el catálogo *Tipos de unidad*:
 
-- **Ocean:** full containers at about 85 % usable volume (cartons never fill 100 %), LCL when the volume does not justify a container, or full containers plus a smaller one or LCL for the remainder.
-- **Air:** one air waybill by chargeable weight (the greater of actual weight and 167 kg per m³).
-- **Road:** full trucks (FTL) or partial load (LTL).
+- **Marítimo:** contenedores completos a cerca del 85 % del volumen útil (las cajas nunca llenan el 100 %), LCL cuando el volumen no justifica un contenedor, o contenedores completos más uno más pequeño o LCL para el resto.
+- **Aéreo:** una guía aérea por peso cobrable (el mayor entre el peso real y 167 kg por m³).
+- **Terrestre:** camiones completos (FTL) o carga parcial (LTL).
 
-The recommended option (fewest full units, then least spare capacity) is shown in the packing list and when assigning cargo to a shipment.
+La opción recomendada (menos unidades completas, luego menos capacidad sobrante) se muestra en la lista de empaque y al asignar carga a un embarque.
 
-## Master data
+## Datos maestros
 
-One place with create, edit, delete and searchable filters for: **companies**, their **plants**, **contacts**, **storage locations**, **countries**, **ports**, **brands**, **item groups**, **suppliers**, **items**, **prepacks**, **carriers** and **unit types**. Records in use cannot be deleted.
+Un solo lugar con crear, editar, eliminar y filtros con búsqueda para: **sociedades**, sus **centros**, **contactos**, **almacenes**, **países**, **puertos**, **marcas**, **grupos de artículos**, **categorías de artículo**, **escalas de tallas**, **proveedores**, **artículos**, **prepacks**, **tipos de empaque**, **transportistas**, **tipos de unidad**, **estados de liberación**, **acuerdos comerciales**, **regiones**, **pasos de lead time** y **reglas de lead time**. Los registros en uso no se pueden eliminar.
 
-- **Suppliers:** code, name, legal name, tax ID, country, address and contact (they appear as exporter on the invoice and packing list). Each supplier has **its brands**, **the companies it works with** and its own **items**; an item's brand must be one of its supplier's.
-- **Carriers:** code (SCAC or IATA), name, type (ocean, air, road or multimodal) and the companies they work with.
-- **Unit types:** mode, **service** (FCL, LCL, air, FTL, LTL), capacity in m³ and kg and whether a seal is required.
-- **Ports:** sea port, airport or land border. A **plant** has a main arrival port and other arrival ports.
-- **Companies and plants:** the PO company is **billed**; its plant is the **notify party** with its country and arrival port. The PO **destination center** (e.g. 2220) says which country the goods finally reach.
-- **Items:** item code (numeric or alphanumeric), generic (optional), style, color and size (optional), brand, group and **unit of measure**. Solids are created here, manually or with `plantilla_articulos.csv`.
-- **Prepacks:** an item with its own product code, a **prepack ID** (its size, e.g. `AB12`) and a fixed **breakdown** built only from solids of the same style and color. The breakdown can be viewed everywhere but never changed. Bulk load with `plantilla_prepacks.csv`.
+- **Proveedores:** código, nombre, razón social, NIT, país, dirección y contacto (aparecen como exportador en la factura y la lista de empaque). Cada proveedor tiene **sus marcas**, **las sociedades con las que trabaja** y sus propios **artículos**; la marca de un artículo debe ser una de las de su proveedor.
+- **Transportistas:** código (SCAC o IATA), nombre, tipo (marítimo, aéreo, terrestre o multimodal) y las sociedades con las que trabajan.
+- **Tipos de unidad:** modo, **servicio** (FCL, LCL, aéreo, FTL, LTL), capacidad en m³ y kg y si exige marchamo.
+- **Puertos:** puerto marítimo, aeropuerto o frontera terrestre. Un **centro** tiene un puerto principal de llegada y otros puertos de llegada.
+- **Sociedades y centros:** la sociedad de la OC es la **facturada**; su centro es el **notify party** con su país y puerto de llegada. El **centro de destino** de la OC (p. ej. 2220) dice a qué país llega finalmente la mercancía.
+- **Artículos:** código de artículo (numérico o alfanumérico), genérico (opcional), estilo, color y talla (opcional), marca, grupo y **unidad de medida**. Los sólidos se crean aquí, a mano o con `plantilla_articulos.csv`.
+- **Prepacks:** un artículo con su propio código de producto, un **ID del prepack** (su talla, p. ej. `AB12`) y un **desglose** fijo armado solo con sólidos del mismo estilo y color. El desglose se puede ver en todas partes pero nunca cambiar. Carga masiva con `plantilla_prepacks.csv`.
+- **Categorías de artículo:** el catálogo de categorías de los grupos de artículos y de las escalas de tallas (de fábrica: `CALZADO`, `ROPA`, `ACCESORIO`, `OTRO`).
+- **Estados de liberación:** los códigos que manda el ERP de la empresa para la liberación comercial y la logística (vea *Órdenes de compra*).
 
-## Purchase orders
+## Órdenes de compra
 
-- Free PO number (up to 40 characters) and free line number (alphanumeric, up to 10).
-- **Required vs optional:** only supplier, PO number, line, item and quantity are required. Company (bill to), currency and price can be completed later; they are required **to invoice**, and value calculations show them as pending meanwhile. A price requires a currency; a quantity must be greater than 0.
-- **Packing on the PO:** a prepack brings its size run; a solid may bring its casepack. The inner pack is usually defined later in the packing list (*Per inner pack* column, editable while the line has no cartons and the PO did not define it).
-- Each line's **SKU** must exist in the item master, belong to the PO supplier, and the supplier must work with the PO company.
-- **Storage location per line:** the same PO can send each line to a different storage location of the same company.
-- **Releases (two teams):** **commercial** is `P` (pending) or `C` (released; empty means C). **Logistics** is **304** not released, **300** released or **301** released with later changes. Only **C and 300/301** can be invoiced.
-- **Release dates:** each release keeps its date (from the file's `commercial_release_date` / `logistics_release_date`, or the day it became released) to measure lead times. Logistics must release a PO a number of days **before its XF**: 21 for Asia and 15 for other origins by default (*Master data → Lead time targets*).
+- Número de OC libre (hasta 40 caracteres) y número de línea libre (alfanumérico, hasta 10).
+- **Obligatorio vs. opcional:** solo proveedor, número de OC, línea, artículo y cantidad son obligatorios. Sociedad (facturar a), moneda y precio se pueden completar después; son obligatorios **para facturar**, y mientras tanto los cálculos de valor los muestran como pendientes. Un precio exige moneda; una cantidad debe ser mayor que 0.
+- **Empaque en la OC:** un prepack trae su curva de tallas; un sólido puede traer su casepack. El inner pack normalmente se define después en la lista de empaque (columna *Por inner pack*, editable mientras la línea no tenga cajas y la OC no lo haya definido).
+- El **SKU** de cada línea debe existir en el maestro de artículos y pertenecer al proveedor de la OC, y el proveedor debe trabajar con la sociedad de la OC.
+- **Almacén por línea:** la misma OC puede enviar cada línea a un almacén distinto de la misma sociedad.
+- **Liberaciones (dos equipos):** cada OC tiene una liberación **comercial** y una **logística**. Sus estados son datos, no código: se definen en *Datos maestros → Estados de liberación* con los códigos que manda el ERP de la empresa, cada uno con su nombre y sus marcas: `libera` (con este estado la liberación está dada), `con_cambios` (estado logístico de una OC liberada que cambió después), `predeterminado` (el que se usa cuando el archivo no trae el dato) y `alias` (otras palabras que acepta el importador). Los estados de fábrica son los de SAP (comercial `C` liberada / `P` pendiente; logística `300` liberada, `301` liberada con cambios posteriores, `304` no liberada), pero cada empresa los cambia por los suyos. Las reglas del flujo son las mismas para cualquier empresa: solo se factura con las dos liberaciones dadas, sin liberación comercial no hay liberación logística y una OC con liberación logística dada que cambia pasa al estado «con cambios».
+- **Fechas de liberación:** cada liberación guarda su fecha (de `commercial_release_date` / `logistics_release_date` del archivo, o el día en que quedó liberada) para medir los lead times. Logística debe liberar una OC cierto número de días **antes de su XF**, según las reglas de lead time de su origen (vea *Lead times*; en la demostración, 21 días para Asia y 15 en general).
 
-### Creating and importing POs
+### Crear e importar OCs
 
-*Load purchase orders* has two modes with the **same structure and validations**: **Form** (header plus line cards; the item list is filtered by supplier and the unit adapts to the item) and **File**. In *Import POs* (internal team) upload the SAP Excel or CSV. A preview shows what is new, changed, unchanged, conflicts and errors; nothing is saved until confirmed. Conflicts (e.g. a quantity below what is invoiced, or a casepack/inner pack change on an invoiced line) are not applied and appear as alerts.
+*Cargar órdenes de compra* tiene dos modos con la **misma estructura y validaciones**: **formulario** (encabezado más tarjetas de línea; la lista de artículos se filtra por proveedor y la unidad se adapta al artículo) y **archivo**. En *Importar OCs* (equipo interno) suba el Excel o CSV exportado del ERP. Una vista previa muestra lo nuevo, lo cambiado, lo que no cambia, los conflictos y los errores; nada se guarda hasta confirmar. Los conflictos (p. ej. una cantidad menor que lo facturado, o un cambio de casepack/inner pack en una línea facturada) no se aplican y aparecen como alertas.
 
-Required columns: `supplier, po, po_line, sku, quantity`. Optional: `unit_price, currency, company, plant, destination, storage_location, incoterm, po_date, port_of_loading, country_of_origin, country_of_shipment, xf_date_original, xf_date, in_store_date, commercial_release, logistics_release, commercial_release_date, logistics_release_date, uom, casepack, inner_pack`. The previous Spanish column names and common aliases (`vendor`, `material`, `qty`…) are still accepted. **Sample template** downloads an Excel template generated for the user, with its sample dates in the user's date format.
+Columnas obligatorias: `supplier, po, po_line, sku, quantity`. Opcionales: `unit_price, currency, company, plant, destination, storage_location, incoterm, po_date, port_of_loading, country_of_origin, country_of_shipment, xf_date_original, xf_date, in_store_date, commercial_release, logistics_release, commercial_release_date, logistics_release_date, delivery_date, uom, casepack, inner_pack`. Se siguen aceptando los nombres de columna anteriores en español y alias comunes (`vendor`, `material`, `qty`…). Las liberaciones se leen por código, nombre o alias del estado. **Plantilla de ejemplo** descarga una plantilla de Excel generada para el usuario, con sus fechas de ejemplo en el formato de fecha del usuario.
 
-Codes are kept as text to preserve leading zeros; format those columns as text in Excel before exporting.
+Los códigos se guardan como texto para conservar los ceros a la izquierda; dé formato de texto a esas columnas en Excel antes de exportar.
 
-## Data consistency
+## Consistencia de los datos
 
-Master data and documents stay chained, both in the PO file and in the PO form:
+Los datos maestros y los documentos quedan encadenados, tanto en el archivo de OC como en el formulario de OC:
 
-- A supplier only works with **its companies** (*Master data → Suppliers*): a PO for another company is rejected, and the form only offers those companies and, from them, their plants, storage locations and destination centers. Without a company, the PO takes the one of its plant, storage location or destination center.
-- Plant, storage location and destination center must belong to the PO company; the item must belong to the PO supplier and its brand must be one of the supplier's brands; inactive suppliers and items are rejected.
-- An item's brand must be one of its supplier's brands; an item on POs cannot change supplier; a supplier cannot lose a company or a brand it already uses; a plant or storage location used on POs cannot change company; a contact's plant must belong to its company.
-- An invoice only takes lines of one supplier (and of compatible POs); a shipment arrives at one plant and its carrier must work with that company.
+- Un proveedor solo trabaja con **sus sociedades** (*Datos maestros → Proveedores*): una OC para otra sociedad se rechaza, y el formulario solo ofrece esas sociedades y, de ellas, sus centros, almacenes y centros de destino. Sin sociedad, la OC toma la de su centro, almacén o centro de destino.
+- Centro, almacén y centro de destino deben pertenecer a la sociedad de la OC; el artículo debe pertenecer al proveedor de la OC y su marca debe ser una de las marcas del proveedor; se rechazan proveedores y artículos inactivos.
+- La marca de un artículo debe ser una de las marcas de su proveedor; un artículo en OCs no puede cambiar de proveedor; un proveedor no puede perder una sociedad o una marca que ya usa; un centro o almacén usado en OCs no puede cambiar de sociedad; el centro de un contacto debe pertenecer a su sociedad.
+- Una factura solo toma líneas de un proveedor y de OCs compatibles según las reglas de compatibilidad de la empresa (vea *Reglas configurables*); un embarque llega a un solo centro y su transportista debe trabajar con esa sociedad.
 
-## Packing list number
+## Número de la lista de empaque
 
-Each packing list gets `PL-001`, `PL-002`… by default, and the supplier can type **its own number** (up to 40 characters: letters, numbers and `. _ - / #`) in the packing list header while it is in draft or under correction. It must be unique among the supplier's active packing lists.
+Cada lista de empaque recibe `PL-001`, `PL-002`… por defecto, y el proveedor puede escribir **su propio número** (hasta 40 caracteres: letras, números y `. _ - / #`) en el encabezado de la lista de empaque mientras esté en borrador o en corrección. Debe ser único entre las listas de empaque activas del proveedor.
 
-## Shipments
+## Embarques
 
-**Status against the in-store date.** Each load unit and shipment estimates its in-store date from the actual arrival, or the ETA, or the departure (actual or ETD) plus the transit time, plus the post-arrival lead times of the destination and the extra days of the product group (*Master data → Item groups → Extra days*, e.g. for products that need labeling or inspection). It is compared with the earliest in-store date of its POs: **On time**, **At risk** (slack below `DIAS_MARGEN_RIESGO`, 7 days by default) or **Late**. A shipment takes the worst status of its units.
+**Estado frente a la fecha en tienda.** Cada unidad de carga y cada embarque estiman su fecha en tienda a partir del arribo real, o la ETA, o la salida (real o ETD) más el tránsito, más los pasos posteriores al arribo del lead time de su origen y los días extra del grupo de producto (*Datos maestros → Grupos de artículos → Días extra después del arribo*, p. ej. para productos que necesitan etiquetado o inspección). Se compara con la fecha en tienda más temprana de sus OCs: **A tiempo**, **En riesgo** (holgura menor que la regla *Holgura mínima (días) antes de la fecha requerida para estar en tiempo* de *Configuración → Empresa*, 7 días de fábrica) o **Atrasado**. Un embarque toma el peor estado de sus unidades.
 
-- **Everything follows the mode:** an ocean shipment only offers sea ports, shipping lines and containers; air, airports, airlines and air waybills; road, borders, road carriers and trucks. The **service belongs to each unit**, so an ocean shipment can be FCL, LCL or mixed.
-- **Only finalized documents travel:** a load unit only accepts packing lists that are finalized and whose invoice is finalized; the assignment panel lists only those. Reopening an invoice or a packing list that is on a planned unit takes it off the unit (it is added again once finalized); after departure they can no longer be reopened.
-- While **planned**, units and cargo can be added, moved or removed. At **departure** the load is closed.
-- Events follow the status order (pickup → departure → transit → arrival → release → delivery → receipt); no future dates or dates before the last event.
-- Cargo cannot exceed a unit's nominal capacity. Each shipment arrives at a single plant.
+- **Todo sigue el modo:** un embarque marítimo solo ofrece puertos marítimos, navieras y contenedores; aéreo, aeropuertos, aerolíneas y guías aéreas; terrestre, fronteras, transportistas terrestres y camiones. El **servicio es de cada unidad**, así que un embarque marítimo puede ser FCL, LCL o mixto.
+- **Solo viajan documentos finalizados:** una unidad de carga solo acepta listas de empaque finalizadas cuya factura esté finalizada; el panel de asignación lista solo esas. Reabrir una factura o una lista de empaque que está en una unidad planificada la quita de la unidad (se vuelve a agregar al finalizarla); después de la salida ya no se pueden reabrir.
+- Mientras está **planificado**, se pueden agregar, mover o quitar unidades y carga. A la **salida** se cierra la carga.
+- Los eventos siguen el orden de estados (recolección → salida → tránsito → arribo → liberación → entrega → recepción); sin fechas futuras ni anteriores al último evento.
+- La carga no puede superar la capacidad nominal de una unidad. Cada embarque llega a un solo centro.
 
-## Tracking
+## Lead times
 
-For the internal team: the supplier role does not include it (it can be granted in its role).
+Los lead times son reglas configurables con herencia por nivel geográfico (`backend/app/services/reglas_lt.py`):
 
-Four boards. The first two share filters (brand, group, style, color, size, SKU, storage location, stage, load unit, BL/AWB, shipment, supplier, company, plant, late-arrival risk and ETA, XF and in-store date ranges), each downloadable as **PDF or Excel**:
+- **Pasos de lead time** (*Datos maestros*): el catálogo de pasos que puede usar un lead time (booking, liberación, XF, ETD, ETA, aduana, bodega, ingreso, tienda…). Un paso se puede ligar a una fecha que el sistema mide para comparar el plan con lo real.
+- **Reglas de lead time** (*Datos maestros*): Global → Región → País → Puerto. Cada regla define solo lo que cambia (pasos que agrega, sobrescribe o quita, y el orden): cada paso es su paso de referencia más N días (naturales o hábiles), opcionalmente solo para un modo de transporte; lo demás se hereda del nivel superior. Las **regiones** agrupan países de origen, y a cada país se le asigna su región en *Países*.
+- *Configuración → Logística → Lead times* muestra el **lead time efectivo** de una región, país o puerto después de la herencia, con el nivel del que viene cada paso.
 
-- **Purchase orders:** releases, status, progress, XF overdue and margin against the port deadline; each PO opens into its **detail by SKU**.
-- **Shipments and load units:** one row per shipment and transport document, opening into units and what each unit carries per PO.
-- **Invoicing and packing lists:** which step each document is at and what is missing.
-- **Estimated in-store date:** each PO, tracking row and lead-time row shows when the goods would be in store with the lead times of its origin: the actual arrival, the ETA or, without a shipment, the XF (or today, if it passed) plus the standard transit; then the port-to-warehouse, warehouse-entry and re-export days of its region. Next to it, how many days early or late it is against the requested in-store date. For a PO it is the date of the last goods still to arrive.
-- **Lead times:** average days of each stage **by country of origin** (PO created → commercial release → logistics release → production and pickup → departure → transit to the destination port → port to warehouse → warehouse entry), the share of logistics releases on time against their target before the XF, pickup against XF and the slack at port. Each PO opens into its **milestones**, each with its target, its actual or estimated date and how many days early or late it is. Filters: period (POs created; last 12 months by default), origin, region and supplier.
+## Seguimiento
 
-**Early or late.** The in-store date is not compared with the port arrival: after the port the goods still have to reach the warehouse, be entered and be re-exported to the store. So each PO has a **port deadline** = in-store date − (port to warehouse + warehouse entry + re-export) days of its origin region, and the arrival (actual, the shipment ETA, or without shipment the XF plus the standard transit) is compared with it: late if after it, tight if less than 7 days to spare. Re-export is not recorded in the system yet; only its days are reserved. The targets per region (release before XF, XF to port arrival, port to warehouse, entry, re-export) are edited in *Master data → Lead time targets*, and each country is assigned a region in *Countries*.
+Para el equipo interno: el rol de proveedor no lo incluye (se puede otorgar en su rol).
 
-## Commercial invoice and packing list (PDF and Excel)
+Cuatro tableros. Los dos primeros comparten filtros (marca, grupo, estilo, color, talla, SKU, almacén, etapa, unidad de carga, BL/AWB, embarque, proveedor, sociedad, centro, riesgo de llegada tardía y rangos de ETA, XF y fecha en tienda), cada uno descargable en **PDF o Excel**:
 
-Each invoice and packing list downloads as **PDF** (ready to print and sign) or **Excel**, following Central American customs requirements (CAUCA/RECAUCA and DUCA):
+- **Órdenes de compra:** liberaciones, estado, avance, XF vencida y holgura frente a la fecha límite en puerto; cada OC se abre en su **detalle por SKU**.
+- **Embarques y unidades de carga:** una fila por embarque y documento de transporte, que se abre en unidades y en lo que lleva cada unidad por OC.
+- **Facturación y listas de empaque:** en qué paso está cada documento y qué falta.
+- **Lead times:** promedio de días de cada etapa **por país de origen** (OC creada → liberación comercial → liberación logística → producción y recolección → salida → tránsito al puerto de destino → puerto a bodega → ingreso a bodega), el porcentaje de liberaciones logísticas a tiempo frente a su meta antes de la XF, la recolección frente a la XF y la holgura en puerto. Cada OC se abre en sus **hitos**, cada uno con su meta, su fecha real o estimada y cuántos días de adelanto o atraso tiene. Filtros: periodo (OCs creadas; últimos 12 meses por defecto), origen, región y proveedor.
 
-- **Parties:** exporter/seller, importer/bill to (company with tax ID) and consignee/notify party.
-- **Terms:** number and date, incoterm, currency, payment terms, countries of origin and shipment, transport, ports, carrier and BL/AWB, containers and seals. Headers do not list purchase orders or destination centers (they would grow too long); **each line shows its PO and line**.
-- **Detail:** PO and line, code and UPC, commercial description, **HS code (SAC)**, origin, quantity, unit, price and total. In the packing list, per carton group: range and number of cartons, contents per carton, **inner packs**, dimensions, net and gross weights, m³, pallet and label type.
-- **Totals:** quantity per unit, packages, weights, volume, value, **amount in words** (“SAY: FOUR THOUSAND … US DOLLARS AND 00/100”), shipping marks and the signed exporter declaration.
-- Until finalized, the PDF carries a **DRAFT · NOT OFFICIAL** watermark; every page shows “Page X of Y”.
+**Fecha estimada en tienda.** Cada OC, fila de seguimiento y fila de lead time muestra cuándo estaría la mercancía en tienda con el lead time de su origen: el arribo real, la ETA o, sin embarque, la XF (u hoy, si ya pasó) más el tránsito estándar; luego los pasos de puerto a bodega, ingreso y reexportación. Al lado, cuántos días de adelanto o atraso tiene frente a la fecha en tienda solicitada. Para una OC es la fecha de la última mercancía que falta por llegar.
 
-## Main rules
+**Adelanto o atraso.** La fecha en tienda no se compara con el arribo al puerto: después del puerto la mercancía todavía tiene que llegar a la bodega, ingresar y reexportarse a la tienda. Por eso cada OC tiene una **fecha límite en puerto** = fecha en tienda − los días de puerto a bodega, ingreso y reexportación de su lead time (más los días extra del grupo de producto), y el arribo (real, la ETA del embarque o, sin embarque, la XF más el tránsito estándar) se compara con ella: atrasado si es posterior, justo si quedan menos de 7 días de holgura. La reexportación aún no se registra en el sistema; solo se reserva su tiempo.
 
-**Everything is managed by quantities, with the same formula at each level:** available = quantity of the level above − what is assigned in active documents.
+## Factura comercial y lista de empaque (PDF y Excel)
 
-| Level | Assigned | Released by |
+Cada factura y lista de empaque se descarga en **PDF** (lista para imprimir y firmar) o **Excel**, siguiendo los requisitos aduaneros centroamericanos (CAUCA/RECAUCA y DUCA):
+
+- **Partes:** exportador/vendedor, importador/facturar a (sociedad con NIT) y consignatario/notify party.
+- **Condiciones:** número y fecha, incoterm, moneda, condiciones de pago, países de origen y procedencia, transporte, puertos, transportista y BL/AWB, contenedores y marchamos. Los encabezados no listan órdenes de compra ni centros de destino (serían demasiado largos); **cada línea muestra su OC y línea**.
+- **Detalle:** OC y línea, código y UPC, descripción comercial, **partida arancelaria (SAC)**, origen, cantidad, unidad, precio y total. En la lista de empaque, por grupo de cajas: rango y número de cajas, contenido por caja, **inner packs**, medidas, pesos neto y bruto, m³, pallet y tipo de etiqueta.
+- **Totales:** cantidad por unidad, bultos, pesos, volumen, valor, **monto en letras** (“SAY: FOUR THOUSAND … US DOLLARS AND 00/100” en inglés, “SON: …” en español), marcas de embarque y la declaración firmada del exportador.
+- Hasta que se finaliza, el PDF lleva la marca de agua **BORRADOR · NO OFICIAL** (*DRAFT · NOT OFFICIAL* en inglés); cada página muestra “Página X de Y”.
+- Salen completos aunque el rol del usuario oculte datos: son documentos legales.
+- El idioma del documento es el que la persona eligió en su perfil (vea *Idiomas*).
+
+## Reglas principales
+
+**Todo se maneja por cantidades, con la misma fórmula en cada nivel:** disponible = cantidad del nivel superior − lo asignado en documentos activos.
+
+| Nivel | Se asigna | Se libera al |
 |---|---|---|
-| PO line → invoice | partial or full quantity | removing the line, reducing the quantity or cancelling the invoice |
-| Invoice line → packing list | partial or full, in one or several PLs | removing from the PL, reducing on the invoice or cancelling the PL |
-| PL row → cartons | full, partial or mixed cartons | unpacking |
+| Línea de OC → factura | cantidad parcial o total | quitar la línea, reducir la cantidad o anular la factura |
+| Línea de factura → lista de empaque | parcial o total, en una o varias listas | quitarla de la lista, reducirla en la factura o anular la lista |
+| Fila de la lista → cajas | cajas completas, parciales o mixtas | desempacar |
 
-- **Reducing on the invoice** something already in a PL: the system shows which PLs hold it and releases what is not in cartons. Packed goods are never touched automatically.
-- **Auto-pack:** one step for the whole PL, each row with its own template, following the casepack and inner pack rules.
-- **Templates** only fill in data; each carton keeps its own values.
-- **Partial cartons:** template dimensions, proportional net weight and gross = net + tare, flagged as estimated until confirmed.
-- **Bulk changes** are all or nothing: if one row fails, none is applied and the failing row is explained.
-- **Statuses:** Draft → Finalized; reopening moves to “Under correction” and asks for a reason.
-- **Concurrency:** row locking when taking balance, a version per document (a stale edit is rejected), idempotency keys, and a history of every change with user, before/after and reason.
+- **Reducir en la factura** algo que ya está en una lista de empaque: el sistema muestra qué listas lo tienen y libera lo que no está en cajas. Lo empacado nunca se toca automáticamente.
+- **Empaque automático:** un paso para toda la lista, cada fila con su propia plantilla, siguiendo las reglas de casepack e inner pack.
+- **Las plantillas** solo llenan datos; cada caja conserva sus propios valores.
+- **Cajas parciales:** medidas de la plantilla, peso neto proporcional y bruto = neto + tara, marcadas como estimadas hasta confirmarlas.
+- **Los cambios en bloque** son todo o nada: si una fila falla, no se aplica ninguna y se explica la fila que falló.
+- **Estados:** Borrador → Finalizada; reabrir la pasa a “En corrección” y pide un motivo.
+- **Concurrencia:** bloqueo de filas al tomar saldo, una versión por documento (una edición desactualizada se rechaza), claves de idempotencia y un historial de cada cambio con usuario, antes/después y motivo.
 
-## Configurable rules
+## Reglas configurables
 
-Environment variables (see `backend/app/config.py`):
+Las reglas de negocio se configuran **en la aplicación**, en *Configuración → Empresa → Reglas de negocio* (solo administradores), y se guardan en la base de datos. La lista está en `REGLAS` de `backend/app/empresa.py` y se validan y guardan en `backend/app/services/organizacion.py`. Las variables de entorno del mismo nombre (`backend/app/config.py`) solo son los **valores de fábrica** de una instalación nueva, mientras la empresa no los cambie en pantalla.
 
-| Variable | Default | What it does |
+| Regla | De fábrica | Qué hace |
 |---|---|---|
-| `POSICION_EN_VARIAS_FACTURAS` | `0` | With `0`, a PO line lives in **one active invoice**; with `1` the balance can go to another invoice. |
-| `FACTURA_EN_UNA_SOLA_UNIDAD` | `0` | With `1`, all PLs of an invoice must go on the same load unit. |
-| `PROVEEDOR_PUEDE_FINALIZAR` | `1` | Whether suppliers can finalize their invoices and PLs. Reopening is always internal. |
-| `REQUERIR_DATOS_ADUANA` | `1` | Requires country of origin and HS code per line to finalize. |
-| `DIAS_ALERTA_BORRADOR` | `7` | Days after which a draft shows as an alert. |
-| `DOS_PASOS` | `1` | Two-step verification by SMS for users that have it on. |
-| `SESION_HORAS` / `SESION_INACTIVIDAD_MIN` | `12` / `30` | Session lifetime and inactivity timeout. |
-| `INTENTOS_MAX` / `BLOQUEO_MIN` | `5` / `15` | Failed attempts before lockout and lockout minutes. |
-| `CODIGO_VALIDEZ_MIN` / `CODIGO_REENVIO_SEG` | `5` / `30` | Code validity and wait before resending. |
-| `SMS_PROVEEDOR` | `consola` | `consola` (server log) or `twilio` (with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`). |
-| `COOKIE_SEGURA` | `0` | Set to `1` behind HTTPS (Secure cookie and HSTS). |
-| `PAIS_BASE_CLASIF` | `SV` | Country whose national code completes the suggested HS code. |
-| `ANTHROPIC_API_KEY` / `CLAUDE_MODELO` | — | Enables the optional specialist opinion in *Products*. |
+| `PROVEEDOR_PUEDE_FINALIZAR` | sí | Los proveedores pueden finalizar sus facturas y listas de empaque. Reabrir siempre es interno. |
+| `POSICION_EN_VARIAS_FACTURAS` | no | No: una línea de OC vive en **una sola factura activa** (el saldo solo se agrega a esa factura); sí: el saldo puede ir a otra factura. |
+| `FACTURA_EN_UNA_SOLA_UNIDAD` | no | Todas las listas de empaque de una factura deben ir en la misma unidad de carga. |
+| `REQUERIR_DATOS_ADUANA` | sí | Para finalizar se exigen país de origen y partida arancelaria por línea. |
+| `DIAS_ALERTA_BORRADOR` | `7` | Días después de los cuales un borrador que sigue reservando cantidades aparece como alerta. |
+| `DIAS_MARGEN_RIESGO` | `7` | Holgura mínima (días) frente a la fecha en tienda para estar a tiempo; con menos queda en riesgo. |
+| `PAIS_BASE_CLASIF` | vacío | País (código de dos letras) cuyo código nacional completa la partida sugerida. La demostración usa `SV`. |
+| `COMPATIBILIDAD_BLOQUEANTE` | sociedad, moneda, centro | Datos de la OC que **no se pueden mezclar** en una factura (bloquean). |
+| `COMPATIBILIDAD_ADVERTENCIA` | incoterm, centro de destino | Datos de la OC que **solo avisan** si se mezclan en una factura. |
 
-Other variables: `DATABASE_URL`, `SECRET_KEY` (change it in production), `SEED_DEMO`, `UPLOAD_DIR`, `CORS_ORIGINS`.
+Las reglas de compatibilidad se eligen entre sociedad, centro, centro de destino, moneda, incoterm, puerto de carga y país de origen; un mismo dato no puede bloquear y solo avisar a la vez. En la misma pantalla se editan la ficha de la empresa (nombre, razón social, NIT, país, logo) y sus preferencias (idioma predeterminado, moneda base, zona horaria y formato de fecha).
 
-**Database:** demo and production run the same Alembic migrations at start-up and nothing is ever deleted. `SEED_DEMO=1` only adds sample data to an empty database; `SEED_DEMO=1 python -m app.seed` resets the demo. Production checklist: `docs/PRODUCCION.md`.
+### Variables de entorno
 
-## Responsive layout
+Solo lo que depende del servidor (vea `backend/app/config.py` y `backend/.env.example`):
 
-The interface adapts to large monitors, laptops, tablets and phones instead of only shrinking:
+| Variable | Por defecto | Qué hace |
+|---|---|---|
+| `DATABASE_URL` | `sqlite:///./facturas_pl.db` | Base de datos. En producción, PostgreSQL (se aceptan `postgres://`, `postgresql://` y `postgresql+psycopg://`). |
+| `SECRET_KEY` | — | **Obligatoria**: clave al azar de 32 caracteres o más. Sin ella (o más corta) el servidor no arranca; solo la demostración genera una al azar por arranque. |
+| `SEED_DEMO` | `0` | Con `1`, carga los datos de ejemplo en una base vacía, muestra el código de verificación en pantalla y publica `/docs`. Nunca en producción. |
+| `COOKIE_SEGURA` | `1` | La cookie de sesión solo viaja por https (y se envía HSTS). `0` solo en desarrollo local sin https. |
+| `CORS_ORIGINS` | `http://localhost:5173` | Orígenes que pueden llamar a la API con la sesión, separados por coma. |
+| `DOS_PASOS` | `1` | Verificación en dos pasos por SMS para los usuarios que la tienen encendida. |
+| `SESION_HORAS` / `SESION_INACTIVIDAD_MIN` | `12` / `30` | Duración de la sesión y cierre por inactividad. |
+| `INTENTOS_MAX` / `BLOQUEO_MIN` | `5` / `15` | Intentos fallidos antes del bloqueo y minutos de bloqueo. |
+| `CODIGO_VALIDEZ_MIN` / `CODIGO_REENVIO_SEG` | `5` / `30` | Validez del código y espera antes de reenviarlo. |
+| `SMS_PROVEEDOR` | `consola` | `consola` (registro del servidor) o `twilio` (con `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`). |
+| `EMPRESA_NOMBRE`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_TELEFONO` | — | Instalación nueva: nombre de la empresa y primer administrador (solo si la base no tiene usuarios; la contraseña es temporal). |
+| `UPLOAD_DIR` | `./archivos` (`/data/archivos` en Docker) | Carpeta de adjuntos; en producción, un disco persistente con respaldo. |
+| `MAX_SUBIDA_MB` | `25` | Tamaño máximo de una petición (archivos que se suben), en MB. |
+| `ANTHROPIC_API_KEY` / `CLAUDE_MODELO` | — | Activa la opinión opcional del especialista en *Productos*. |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Del `Dockerfile`: `*` cuando el contenedor solo es accesible por el proxy de la plataforma, para que el bloqueo por intentos use la IP real. |
+| `PORT` | `8000` | Puerto del contenedor (lo define la plataforma en la nube). |
 
-- **Filters:** on phones the search stays visible and the other filters and secondary actions open from a **Filters** button that shows how many are active (`v-filtros`).
-- **Tables:** on tablets, columns marked secondary (`<th class="col-sec">`) are hidden; on phones each row becomes a **card** with the column name next to each value (`v-tarjetas`).
-- **Header:** on phones the language, theme, password and sign-out move into the menu.
-- **More options:** on phones, secondary actions (PDF and Excel downloads, uploads, reopen, cancel…) go into a **More options** menu, leaving the main action visible. *Master data* replaces its 16 tabs with a catalog selector.
-- **Contextual:** filters with a single possible value (one company, one brand…) are not shown.
+`POSICION_EN_VARIAS_FACTURAS`, `FACTURA_EN_UNA_SOLA_UNIDAD`, `PROVEEDOR_PUEDE_FINALIZAR`, `REQUERIR_DATOS_ADUANA`, `DIAS_ALERTA_BORRADOR` y `PAIS_BASE_CLASIF` también se pueden definir como variables, pero solo como valores de fábrica (vea arriba).
 
-## My profile and preferences
+**Base de datos:** demostración y producción aplican las mismas migraciones de Alembic al arrancar y nunca se borra nada. `SEED_DEMO=1` solo agrega datos de ejemplo a una base vacía; `SEED_DEMO=1 python -m app.seed` reinicia la demostración. `python -m app.inicial correo celular` (desde `backend`) crea o restablece un administrador y escribe en pantalla una contraseña temporal.
 
-Each user opens *My profile* from their name in the header (or the menu on phones) to:
+## Diseño adaptable
 
-- **Basic data:** edit their name; see their email, role, supplier and registered mobile (the administrator changes the mobile).
-- **Password:** change it (their other sessions are closed).
-- **Preferences**, saved in the profile and applied on every device:
-  - **Language** (default English).
-  - **Date format** (default **MM/DD/YYYY**; also DD/MM/YYYY, YYYY-MM-DD, DD-MMM-YYYY, MMM DD, YYYY). It is used **everywhere**: lists and documents on screen, the **date fields** (typed in that format or chosen in the calendar), the **PDF and Excel** files the server generates for the user, the **PO upload template** (its sample dates come in that format) and the **reading of uploaded files** (a date like 05/10/2026 is read with the user's day/month order; ISO dates and Excel date cells are always accepted).
-  - **Time format** (12 or 24 hours) and **number format** (1,234.56 · 1.234,56 · 1 234,56 · 1'234.56).
-  - **Theme** (light, dark or system), **rows per page** in the tables and **start page** after signing in.
+La interfaz se adapta a monitores grandes, laptops, tabletas y teléfonos en lugar de solo encogerse:
 
-## Languages
+- **Filtros:** en el teléfono la búsqueda queda visible y los demás filtros y acciones secundarias se abren desde un botón **Filtros** que muestra cuántos están activos (`v-filtros`).
+- **Tablas:** en tabletas se ocultan las columnas marcadas como secundarias (`<th class="col-sec">`); en el teléfono cada fila se vuelve una **tarjeta** con el nombre de la columna junto a cada valor (`v-tarjetas`).
+- **Encabezado:** en el teléfono el idioma, el tema, la contraseña y el cierre de sesión pasan al menú.
+- **Más opciones:** en el teléfono las acciones secundarias (descargas PDF y Excel, cargas, reabrir, anular…) van en un menú **Más opciones**, dejando visible la acción principal. *Datos maestros* muestra en el escritorio los catálogos de uso diario como pestañas y el resto en **Más catálogos**; en el teléfono, un selector de catálogo.
+- **Contextual:** no se muestran los filtros con un solo valor posible (una sociedad, una marca…).
 
-The interface is available in English, Spanish, Simplified Chinese, Hindi and Arabic (right-to-left). **English is the default for everyone**; each user picks a language in *My profile* (or with the globe selector in the header) and it is kept in their profile, so it follows them to any device.
+## Mi perfil y preferencias
 
-- English text is the key; each language has its own dictionary in `frontend/src/i18n/` (`es.json`, `zh.json`, `hi.json`, `ar.json`). Translations are adapted to the business, not literal: `glosario.json` fixes the approved term for each concept (e.g. *Type* → *Tipo*, never *Chico*) and lists the literal translations that are not accepted.
-- `backend/tests/test_i18n.py` checks every language: all texts present, the same `{0}` placeholders, written in the language's own script, glossary terms respected, and `claves.json` up to date with the code.
-- After changing interface texts run `node frontend/scripts/i18n-extraer.mjs` (and `python backend/scripts/i18n_extraer.py` for server messages), then add the new translations.
-- Official texts stay as published: SAC descriptions and the customs description are in Spanish, and trade documents (invoice, packing list) are in English.
+Cada usuario abre *Mi perfil* desde su nombre en el encabezado (o el menú en el teléfono) para:
 
-## Tests
+- **Datos básicos:** editar su nombre; ver su correo, rol, proveedor y celular registrado (el celular lo cambia el administrador).
+- **Contraseña:** cambiarla (sus otras sesiones se cierran).
+- **Preferencias**, guardadas en el perfil y aplicadas en cada dispositivo:
+  - **Idioma** de la pantalla (por defecto, el idioma predeterminado de la empresa).
+  - **Idioma de los documentos** (PDF y Excel que descarga: facturas, listas de empaque, fichas técnicas y reportes): *Igual que la pantalla*, español o inglés.
+  - **Formato de fecha** (por defecto, el de la empresa; de fábrica **MM/DD/YYYY**; también DD/MM/YYYY, YYYY-MM-DD, DD-MMM-YYYY, MMM DD, YYYY). Se usa **en todas partes**: listas y documentos en pantalla, los **campos de fecha** (escritos en ese formato o elegidos en el calendario), los archivos **PDF y Excel** que el servidor genera para el usuario, la **plantilla de carga de OCs** (sus fechas de ejemplo vienen en ese formato) y la **lectura de los archivos que sube** (una fecha como 05/10/2026 se lee con el orden día/mes del usuario; las fechas ISO y las celdas de fecha de Excel siempre se aceptan).
+  - **Formato de hora** (12 o 24 horas) y **formato de números** (1,234.56 · 1.234,56 · 1 234,56 · 1'234.56).
+  - **Tema** (claro, oscuro o el del sistema), **filas por página** en las tablas y **página de inicio** después de iniciar sesión.
+  - Las **columnas** elegidas en *Órdenes*, *Seguimiento* y las líneas de la factura.
+
+## Idiomas
+
+La interfaz está en **español e inglés**. El idioma por defecto es el predeterminado de la empresa (*Configuración → Empresa*); antes de iniciar sesión se usa el del navegador. Cada usuario elige su idioma en *Mi perfil* (o con el selector del encabezado) y queda en su perfil, así que lo sigue en cualquier dispositivo.
+
+- El texto en inglés es la clave; la traducción al español está en `frontend/src/i18n/es.json`. Las traducciones están adaptadas al negocio, no son literales: `frontend/src/i18n/glosario.json` fija el término aprobado para cada concepto (p. ej. *Type* → *Tipo*, nunca *Chico*) y lista las traducciones literales que no se aceptan.
+- `backend/tests/test_i18n.py` revisa el español: todos los textos presentes, los mismos marcadores `{0}`, sin textos sin traducir, los términos del glosario respetados, y `claves.json` y `backend/app/i18n_es.json` al día con el código.
+- Después de cambiar textos, extraiga las claves: primero los mensajes del servidor con `python scripts/i18n_extraer.py` (desde `backend`, escribe `app/i18n_claves.json`) y luego los de la interfaz con `node scripts/i18n-extraer.mjs` (desde `frontend`, escribe `src/i18n/claves.json` y `backend/app/i18n_es.json`); después agregue las traducciones nuevas en `es.json`.
+- **Documentos (PDF/Excel):** cada persona elige en su perfil el idioma de sus documentos; una descarga también puede forzarlo con `?idioma=es|en`. Los documentos usan `backend/app/services/idioma_doc.py` y la traducción de `backend/app/i18n_es.json`. Los montos en letras siguen las reglas de cada idioma (`backend/app/services/letras.py`), no una traducción.
+- Los textos oficiales quedan como se publicaron: las descripciones del SAC y la descripción aduanal están en español.
+
+## Pruebas
 
 ```bash
 cd backend
 pytest                                   # SQLite
-TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost/tests pytest   # PostgreSQL (includes concurrency)
+TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost/tests pytest   # PostgreSQL (incluye concurrencia)
 ```
 
-## Structure
+Las pruebas usan la demostración (`SEED_DEMO=1`, `COOKIE_SEGURA=0`) en una base temporal; con `TEST_DATABASE_URL` la base PostgreSQL de pruebas se vacía al empezar.
+
+## Estructura
 
 ```
 backend/app/
-  config.py          configurable rules and security settings
-  models.py          data model
-  services/          business logic (quantities, invoices, packing, transport, import, access, SMS, suggestions,
-                     products and classification, specialist opinion)
-  data/              base of national tariff codes, SAC texts and the seed catalog of the engine (categories, attributes, sheet rules)
-  routers/           REST endpoints under /api
-backend/tests/       full flow, classification engine (end to end, parity fixtures in tests/paridad), packing rules, secure access and concurrency
+  config.py          variables de entorno (servidor, seguridad, SMS, archivos) y valores de fábrica de las reglas
+  empresa.py         reglas de negocio de la empresa (REGLAS) y su lectura en cada petición
+  inicial.py         preparación de una instalación nueva y del primer administrador
+  seed.py            datos de la demostración (SEED_DEMO=1)
+  models.py          modelo de datos
+  services/          lógica de negocio (cantidades, facturas, empaque, transporte, importación, acceso, SMS, sugerencias,
+                     productos y clasificación, opinión del especialista, empresa, visibilidad por rol, liberaciones,
+                     lead times, idioma de los documentos)
+  data/              datos oficiales del arancel, motor de clasificación (familias) y datos de la demostración
+  routers/           endpoints REST bajo /api
+backend/alembic/     migraciones de la base de datos
+backend/tests/       flujo completo, motor de clasificación (de punta a punta, fixtures de paridad en tests/paridad), reglas de empaque,
+                     acceso seguro, visibilidad por rol, idiomas, producción y concurrencia
 frontend/src/
-  views/             Home, Orders, Invoices, Invoice, Packing list, Shipments, Shipment, Products, Product, Tracking,
-                     and under Settings: Master data, Templates, Import, Users
-  clasificacion/     calls to the classification engine (/clasificacion/sesion) and code formatting (no classification logic)
-  components/        icons, steps, SVG charts, bulk action bar, modals, statuses, destinations and load units
-  stores/            session, invoicing selection, notices
+  views/             Inicio, Órdenes, Facturas, Factura, Lista de empaque, Embarques, Embarque, Productos, Producto, Seguimiento,
+                     Mi perfil y, en Configuración: Empresa, Usuarios y accesos, Datos maestros, Plantillas de empaque,
+                     Lead times, Familias de producto, Arancel, Cargar órdenes de compra
+  clasificacion/     llamadas al motor de clasificación (/clasificacion/sesion) y formato de códigos (sin lógica de clasificación)
+  components/        íconos, pasos, gráficas SVG, barra de acciones en bloque, modales, estados, destinos y unidades de carga, selector de columnas
+  composables/       tablas, columnas por usuario, edición
+  stores/            sesión, selección para facturar, preferencias, tema, avisos
+  i18n/              es.json, glosario.json y claves.json
 ```
 
-## Before going to production
+## Antes de pasar a producción
 
-See **[docs/PRODUCCION.md](docs/PRODUCCION.md)**: required variables (`SECRET_KEY`, `DATABASE_URL`, SMS, first administrator), what is configured inside the app, first start, updates and backups.
+Vea **[docs/PRODUCCION.md](docs/PRODUCCION.md)**: variables obligatorias (`DATABASE_URL`, `SECRET_KEY`, `SEED_DEMO=0`, SMS con Twilio, `CORS_ORIGINS` y el primer administrador con `EMPRESA_NOMBRE`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_TELEFONO`), lo que se configura dentro de la aplicación, el primer arranque, actualizaciones y respaldos. La plantilla con todas las variables comentadas es `backend/.env.example`.

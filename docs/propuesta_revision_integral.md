@@ -193,5 +193,8 @@ se implementan una por una, con migración, pruebas y sin quitar funciones.
 | 1c | Hecha | Componente `Requisitos` (finalizar factura con acciones), motivos visibles en embarque y aprobación de producto; componente `EstadoVacio` en facturas, embarques y productos |
 | 1d | Hecha | `PanelLateral` con resumen de factura y de embarque; vistas guardadas por usuario en Seguimiento y Órdenes (`/perfil/vistas/{pantalla}`); *Settings* agrupado por secciones |
 | Pendiente de la Etapa 1 | — | Selector de columnas (Operativa / Comercial / Logística / Completa) en Órdenes; vistas compartidas (necesitan tabla, Etapa 2) |
-| 2 y 3 | Por aprobar | Cambian el modelo de datos; se implementan una por una con migración |
+| 2a (parcial) | Hecha | Ficha de la empresa en la base de datos (una empresa por instalación): datos, logo, preferencias y reglas de negocio (antes variables de entorno) en *Configuración → Empresa*; reglas de compatibilidad de la factura configurables |
+| 2b (parcial) | Hecha | Estados de liberación como datos (*Datos maestros → Estados de liberación*: códigos del ERP, si liberan, «con cambios», predeterminado y alias); categorías de artículo como catálogo; sin códigos SAP en el código ni en pantalla |
+| 2c (parcial) | Hecha | Datos visibles por rol (precios, códigos internos, fechas en tienda, liberaciones, impuestos, contactos): el servidor los quita de las respuestas y reportes; columnas por usuario en Órdenes, Seguimiento y líneas de factura |
+| Pendiente de 2 y 3 | Por aprobar | Alcance de datos por sociedad/país/marca, documento universal, actividad transversal, política de empaque, importador con mapeo, campos personalizados, workflow, automatizaciones |
 
