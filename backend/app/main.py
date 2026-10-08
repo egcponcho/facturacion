@@ -10,7 +10,16 @@ from sqlalchemy.exc import IntegrityError
 from .config import settings
 from .db import SessionLocal
 from .routers import aranceles, auth_admin, catalogos, conocimiento, facturas, ordenes, packing, productos, transporte, varios
+from .services import visibilidad
 from .services.common import ErrorNegocio
+
+
+class RespuestaJSON(JSONResponse):
+    """Respuesta de la API: quita los datos que el rol del usuario no ve
+    (services/visibilidad.py) antes de enviarlos."""
+
+    def render(self, content) -> bytes:
+        return super().render(visibilidad.quitar(content))
 
 
 @asynccontextmanager
@@ -38,7 +47,7 @@ async def lifespan(_: FastAPI):
 _docs = settings.SEED_DEMO
 app = FastAPI(title="Supplier workspace: invoices, packing lists and transport", lifespan=lifespan,
               docs_url="/docs" if _docs else None, redoc_url="/redoc" if _docs else None,
-              openapi_url="/openapi.json" if _docs else None)
+              openapi_url="/openapi.json" if _docs else None, default_response_class=RespuestaJSON)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,

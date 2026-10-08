@@ -7,7 +7,7 @@ from ..config import settings
 from ..models import Organizacion, Usuario
 from ..deps import COOKIE
 from ..schemas import DesafioIn, FotoIn, LoginIn, PasswordIn, PerfilIn, ProveedorIn, ProveedorPatch, RolIn, RolPatch, UsuarioIn, UsuarioPatch, VerificarIn
-from ..services import acceso, flujo, organizacion, preferencias
+from ..services import acceso, flujo, organizacion, preferencias, visibilidad
 from ..services.limites import limitar
 from ..services import varios
 from ..services.common import catalogo_permisos, permisos_de
@@ -41,6 +41,7 @@ def _yo(u: Usuario) -> dict:
         },
         "flujo": flujo.valores(object_session(u)) if object_session(u) else dict(flujo.DEFECTOS),
         "organizacion": _empresa(u),
+        "datos_ocultos": visibilidad.ocultos_de(u),
     }
 
 
@@ -135,6 +136,12 @@ def foto_perfil(datos: FotoIn, db: Db, user: User, clave: Clave = None):
 @router.patch("/perfil")
 def editar_perfil(datos: PerfilIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: preferencias.guardar(db, user, datos))
+
+
+@router.put("/perfil/columnas/{tabla}")
+def guardar_columnas(tabla: str, datos: dict, db: Db, user: User, clave: Clave = None):
+    """Columnas visibles de una tabla del propio usuario ({"columnas": [...]} o null para la vista inicial)."""
+    return ejecutar(db, user, clave, lambda: preferencias.guardar_columnas(db, user, tabla, datos.get("columnas")))
 
 
 @router.put("/perfil/vistas/{pantalla}")

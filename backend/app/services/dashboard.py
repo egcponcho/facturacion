@@ -27,6 +27,7 @@ from .common import EDITABLE_FACTURA, EDITABLE_PL, es_interno, proveedor_filtro
 from .facturas import _lista_para_transporte, resumen_distribucion, validar_factura
 from .packing import validar_pl
 from .transporte import resumen_unidad
+from . import visibilidad
 from .varios import listar_alertas
 
 ETAPAS = ("por_facturar", "sin_pl", "sin_caja", "empacado", "embarcado")
@@ -158,6 +159,14 @@ def _serie_facturado(facturas: list[Factura], moneda: str, desde: date, hasta: d
     for x in serie:
         x["importe"] = round(x["importe"], 2)
     return {"grano": grano, "serie": serie}
+
+
+def _visibles(indicadores: list[dict]) -> list[dict]:
+    """Sin los indicadores de datos que el rol no ve (importes, riesgo frente a
+    la fecha en tienda)."""
+    return [k for k in indicadores
+            if not (k.get("formato") == "moneda" and visibilidad.oculto("precios"))
+            and not (k.get("clave") == "riesgo" and visibilidad.oculto("fechas_internas"))]
 
 
 def _resumen_periodo(db: Session, facturas: list[Factura], moneda: str, desde: date, hasta: date,
@@ -397,7 +406,7 @@ def _contenedores(db: Session) -> list[dict]:
 
 
 def _por_proveedor(db: Session, facturas: list[Factura], distribucion: dict, saldo: dict) -> list[dict]:
-    filas = {p.id: {"id": p.id, "nombre": p.nombre, "por_facturar": round(saldo["por_proveedor"].get(p.id, 0), 2),
+    filas = {p.id: {"id": p.id, "nombre": p.nombre, "por_facturar": None if visibilidad.oculto("precios") else round(saldo["por_proveedor"].get(p.id, 0), 2),
                     "en_proceso": 0, "pl_abiertos": 0, "listas": 0, "en_camino": 0}
              for p in db.scalars(select(Proveedor).where(Proveedor.activo.is_(True)).order_by(Proveedor.nombre))}
     for f in facturas:
@@ -484,16 +493,17 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None, desde
                           "titulo": f"{len(pendientes_lib)} POs not released",
                           "detalle": "No commercial release (P) or logistics at 304: they cannot be invoiced.",
                           "ruta": "/ordenes?liberacion=304&solo_disponible=0", "accion": "View"})
+    resumen = _resumen_periodo(db, facturas, moneda, desde, hasta, prov, filtro_marcas, interno)
     return {
         "rol": user.rol,
         "moneda": moneda,
-        "kpis": kpis,
-        "atencion": atencion,
+        "kpis": _visibles(kpis),
+        "atencion": _visibles(atencion),
         "tareas": tareas[:12],
         "flujo": _flujo(db, facturas, saldo),
         "facturado_mes": _facturado_por_mes(facturas, moneda),
         "periodo": {"desde": desde, "hasta": hasta,
-                    "resumen": _resumen_periodo(db, facturas, moneda, desde, hasta, prov, filtro_marcas, interno),
+                    "resumen": _visibles(resumen),
                     "facturado": _serie_facturado(facturas, moneda, desde, hasta, filtro_marcas),
                     "marcas": sorted({l.marca for f in facturas for l in f.lineas if l.marca})},
         "envios": envios,

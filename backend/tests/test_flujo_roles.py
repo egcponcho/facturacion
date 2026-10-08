@@ -217,9 +217,11 @@ def test_traducciones_del_catalogo(interno, tnf):
     assert interno.get("/i18n/catalogo/xx").json() == {}
     lista = interno.get("/familias/traducciones/es", params={"pendientes": True}).json()
     assert lista["total"] > 600 and all(not x["traduccion"] for x in lista["items"])
-    assert interno.put("/familias/traducciones/zh", {"texto": "Sneaker", "traduccion": "运动鞋"}).json()["traduccion"] == "运动鞋"
-    assert interno.get("/i18n/catalogo/zh").json()["Sneaker"] == "运动鞋"
-    assert interno.put("/familias/traducciones/zh", {"texto": "Sneaker", "traduccion": ""}).json()["traduccion"] is None
-    assert "Sneaker" not in interno.get("/i18n/catalogo/zh").json()
-    assert interno.put("/familias/traducciones/fr", {"texto": "Sneaker", "traduccion": "x"}).status_code == 422
+    # Se corrige una traducción y se puede volver a la de fábrica dejándola vacía
+    assert interno.put("/familias/traducciones/es", {"texto": "Sneaker", "traduccion": "Zapatilla"}).json()["traduccion"] == "Zapatilla"
+    assert interno.get("/i18n/catalogo/es").json()["Sneaker"] == "Zapatilla"
+    assert interno.put("/familias/traducciones/es", {"texto": "Sneaker", "traduccion": ""}).json()["traduccion"] is None
+    assert "Sneaker" not in interno.get("/i18n/catalogo/es").json()
+    # Solo español (el catálogo se escribe en inglés)
+    assert interno.put("/familias/traducciones/zh", {"texto": "Sneaker", "traduccion": "x"}).status_code == 422
     assert tnf.put("/familias/traducciones/es", {"texto": "Sneaker", "traduccion": "x"}).status_code == 403

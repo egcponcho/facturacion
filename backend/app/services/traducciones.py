@@ -23,7 +23,7 @@ from ..models import (
 )
 from .common import ErrorNegocio, exigir, registrar
 
-IDIOMAS = ("es", "zh", "hi", "ar")
+IDIOMAS = ("es",)  # el catálogo se escribe en inglés y se traduce al español
 ARCHIVO = "traducciones_catalogo.json"
 
 

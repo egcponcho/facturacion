@@ -12,7 +12,7 @@ import GraficoColumnas from '../components/GraficoColumnas.vue'
 import Icono from '../components/Icono.vue'
 import TableroEsqueleto from '../components/TableroEsqueleto.vue'
 import Kpi from '../components/Kpi.vue'
-import { elegirProveedor, esInterno, nombreProveedor, sesion } from '../stores/sesion'
+import { elegirProveedor, esInterno, nombreProveedor, sesion, ve } from '../stores/sesion'
 import { avisar, errorApi } from '../stores/ui'
 import { avanceViaje, fmtFecha, fmtFechaHora, fmtMoneda, fmtNum, plural } from '../utils'
 
@@ -212,7 +212,7 @@ watch(periodo, cargar, { deep: true })
              :detalle="tx(k.detalle)" @abrir="router.push(RUTAS_PERIODO[k.clave])" />
       </div>
       <div class="desempeno-cuerpo">
-        <div>
+        <div v-if="ve('precios')">
           <h3 class="subtitulo">{{ t('Invoiced value') }} <span class="ayuda">{{ tx(GRANO[d.periodo.facturado.grano]) }} · {{ tx(d.moneda) }}</span></h3>
           <GraficoColumnas v-if="totalPeriodo" :datos="serie" :titulo="t('Invoiced value')" :formato="(v) => fmtMoneda(v, d.moneda)" />
           <p v-else class="ayuda vacio-grafica">{{ t('No finalized invoices in this period. Try a longer period (quarter or year).') }}</p>
@@ -242,7 +242,7 @@ watch(periodo, cargar, { deep: true })
           <tbody>
             <tr v-for="p in d.proveedores" :key="p.id" class="clicable" @click="elegirProveedor(p.id)">
               <td class="principal-celda">{{ tx(p.nombre) }}</td>
-              <td class="num">{{ fmtMoneda(p.por_facturar, d.moneda) }}</td>
+              <td class="num">{{ p.por_facturar === null ? '—' : fmtMoneda(p.por_facturar, d.moneda) }}</td>
               <td class="num">{{ tx(p.en_proceso || '—') }}</td>
               <td class="num"><span :class="{ 'etiqueta aviso': p.pl_abiertos }">{{ tx(p.pl_abiertos || '—') }}</span></td>
               <td class="num"><span :class="{ 'etiqueta ok': p.listas }">{{ tx(p.listas || '—') }}</span></td>

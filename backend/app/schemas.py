@@ -62,6 +62,7 @@ class RolIn(BaseModel):
     nombre: str = Field(max_length=80)
     descripcion: str | None = Field(default=None, max_length=300)
     permisos: list[str] = []
+    datos_ocultos: list[str] = []
     activo: bool = True
 
 
@@ -69,6 +70,7 @@ class RolPatch(BaseModel):
     nombre: str | None = Field(default=None, max_length=80)
     descripcion: str | None = Field(default=None, max_length=300)
     permisos: list[str] | None = None
+    datos_ocultos: list[str] | None = None
     activo: bool | None = None
 
 

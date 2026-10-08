@@ -182,6 +182,9 @@ class Rol(Base):
     descripcion: Mapped[str | None] = mapped_column(String(300))
     tipo: Mapped[str] = mapped_column(String(20))  # admin | interno | proveedor
     permisos: Mapped[list] = mapped_column(JSON, default=list)
+    # Grupos de datos que este rol no ve (services/visibilidad.py): precios,
+    # códigos internos, fechas internas… El servidor los quita de las respuestas.
+    datos_ocultos: Mapped[list] = mapped_column(JSON, default=list)
     sistema: Mapped[bool] = mapped_column(Boolean, default=False)  # los de fábrica no se borran
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 

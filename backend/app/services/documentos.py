@@ -592,6 +592,9 @@ def pdf_pl(d: dict) -> bytes:
 # ---- Reportes ----------------------------------------------------------------------
 def pdf_reporte(titulo: str, subtitulo: str, filtros: str, indicadores: list[tuple[str, str]],
                 columnas: list[tuple[str, float, bool]], filas: list[list]) -> bytes:
+    from . import visibilidad
+
+    indicadores, columnas, filas, _ = visibilidad.reporte(indicadores, columnas, filas)
     e = _estilos()
     tam = landscape(letter)
     ancho = tam[0] - 28 * mm

@@ -1,4 +1,5 @@
 <script setup>
+import { ve } from '../stores/sesion'
 import { t, tx } from '../i18n/index.js'
 import { computed, ref, watch } from 'vue'
 import { api } from '../api'
@@ -82,7 +83,7 @@ const descargar = (formato) => api.descargar(`/facturas/${props.id}/exportar?for
       </div>
 
       <div class="pl-cifras">
-        <div class="pl-cifra principal"><span>{{ t('Amount') }}</span><b>{{ fmtMoneda(f.totales.importe, f.moneda) }}</b>
+        <div v-if="ve('precios')" class="pl-cifra principal"><span>{{ t('Amount') }}</span><b>{{ fmtMoneda(f.totales.importe, f.moneda) }}</b>
           <small>{{ tx(f.incoterm || '—') }} · {{ plural(f.lineas.length, t('line'), t('lines')) }}</small></div>
         <div class="pl-cifra"><span>{{ t('Quantity') }}</span><b>{{ porUnidadTxt(f.totales.por_unidad, 'facturado') }}</b></div>
         <div class="pl-cifra"><span>{{ t('Cartons') }}</span><b>{{ fmtNum(bultos.cajas) }}</b></div>
@@ -136,12 +137,12 @@ const descargar = (formato) => api.descargar(`/facturas/${props.id}/exportar?for
           <router-link v-if="f.lineas.length > LINEAS" class="ayuda" :to="`/facturas/${props.id}`">{{ t('See all {0}', [f.lineas.length]) }}</router-link>
         </div>
         <table class="pl-tabla">
-          <thead><tr><th>{{ t('Item') }}</th><th class="num">{{ t('Qty.') }}</th><th class="num">{{ t('Total') }}</th></tr></thead>
+          <thead><tr><th>{{ t('Item') }}</th><th class="num">{{ t('Qty.') }}</th><th v-if="ve('precios')" class="num">{{ t('Total') }}</th></tr></thead>
           <tbody>
             <tr v-for="l in f.lineas.slice(0, LINEAS)" :key="l.id">
               <td><b>{{ tx(l.estilo) }}</b> · {{ tx(l.color) }} · {{ tx(l.talla) }}<div class="ayuda">{{ t('PO') }} {{ tx(l.oc_numero) }} · {{ tx(l.partida_arancelaria || t('No HS code')) }}</div></td>
               <td class="num">{{ fmtNum(l.cantidad) }} {{ unidadTxt(l.unidad, l.cantidad) }}</td>
-              <td class="num">{{ fmtMoneda(l.total, f.moneda) }}</td>
+              <td v-if="ve('precios')" class="num">{{ fmtMoneda(l.importe, f.moneda) }}</td>
             </tr>
           </tbody>
         </table>

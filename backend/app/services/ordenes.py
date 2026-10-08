@@ -335,7 +335,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "cantidad": p.cantidad,
                 "unidad": p.unidad,
                 "precio": p.precio,
-                "total": round(p.cantidad * p.precio, 2) if p.precio is not None else None,
+                "importe": round(p.cantidad * p.precio, 2) if p.precio is not None else None,
                 "fecha_entrega": p.fecha_entrega,
                 "pais_origen": p.pais_origen,
                 "partida_arancelaria": partida_para(prod),  # 6 dígitos: el destino es solo proyectado

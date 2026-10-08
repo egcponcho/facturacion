@@ -4,7 +4,9 @@ import FechaTienda from './FechaTienda.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '../api'
 import { siguienteOrden } from '../composables/useTabla'
-import { esInterno, sesion } from '../stores/sesion'
+import { esInterno, sesion, ve } from '../stores/sesion'
+import { useColumnas } from '../composables/useColumnas'
+import SelectorColumnas from './SelectorColumnas.vue'
 import { errorApi } from '../stores/ui'
 import { COMERCIAL, LIBERACION, TIEMPO, cantTxt, diasTxt, fmtFecha, fmtNum } from '../utils'
 import ExplosionPrepack from './ExplosionPrepack.vue'
@@ -40,6 +42,23 @@ const ETAPAS = {
   FACTURADO: [t('Invoiced, no PL'), 'info'], EN_PL: [t('In packing list'), 'acento'], CONTENEDOR: [t('In load unit'), 'acento'],
   EN_TRANSITO: [t('In transit'), 'info'], ARRIBADO: [t('Arrived'), 'info'], ENTREGADO: [t('Delivered'), 'ok'], RECIBIDO: [t('Received'), 'ok'],
 }
+// Columnas: lo esencial a la vista; el resto en «Columnas» (y sin los datos que el rol no ve)
+const cols = useColumnas('seguimiento', [
+  { clave: 'oc', texto: t('Purchase order'), fija: true },
+  { clave: 'sociedad', texto: t('Company · plant'), grupo: 'codigos_internos', inicial: false },
+  { clave: 'liberaciones', texto: t('Releases'), grupo: 'liberaciones', inicial: false },
+  { clave: 'estado', texto: t('Status') },
+  { clave: 'avance', texto: t('Progress') },
+  { clave: 'por_facturar', texto: t('To invoice') },
+  { clave: 'xf', texto: 'XF' },
+  { clave: 'tienda', texto: t('In store'), grupo: 'fechas_internas', inicial: false },
+  { clave: 'tienda_estimada', texto: t('Est. in store'), grupo: 'fechas_internas' },
+  { clave: 'holgura', texto: t('Vs. port deadline'), grupo: 'fechas_internas' },
+  { clave: 'embarques', texto: t('Shipments') },
+])
+const ncols = computed(() => cols.cuantas.value + 1)
+// La gráfica por estado queda plegada: los estados ya están como pastillas
+const verGrafica = ref(false)
 const detalles = reactive({})
 const explosion = ref(null)
 async function alternar(o) {
@@ -84,20 +103,26 @@ onMounted(cargar)
 <template>
   <section class="kpis" style="margin-bottom: 16px">
     <Kpi :titulo="t('Purchase orders')" :valor="datos.kpis.ocs" icono="ordenes" :detalle="t('{0}% invoiced', [fmtNum(datos.kpis.avance || 0, 1)])" @abrir="emit('filtrar', {})" />
-    <Kpi :titulo="t('Released')" :valor="datos.kpis.liberadas" icono="check" tono="exito" :detalle="t('commercial C and logistics 300/301')" @abrir="emit('filtrar', {})" />
+    <Kpi :titulo="t('Released')" :valor="datos.kpis.liberadas" icono="check" tono="exito" :detalle="t('can be invoiced')" @abrir="emit('filtrar', {})" />
     <Kpi :titulo="t('Not released')" :valor="datos.kpis.sin_liberar" icono="candado" :tono="datos.kpis.sin_liberar ? 'alerta' : 'exito'"
-         :detalle="t('commercial P or logistics 304')" @abrir="emit('filtrar', { estado: 'SIN_COMERCIAL' })" />
+         :detalle="t('cannot be invoiced yet')" @abrir="emit('filtrar', { estado: 'SIN_COMERCIAL' })" />
     <Kpi :titulo="t('XF overdue, not invoiced')" :valor="datos.kpis.xf_vencida" icono="reloj" :tono="datos.kpis.xf_vencida ? 'alerta' : 'exito'"
          :detalle="t('the XF date has passed')" @abrir="emit('filtrar', { xf_vencida: '1' })" />
-    <Kpi :titulo="t('Late for the port deadline')" :valor="datos.kpis.atraso" icono="alerta" :tono="datos.kpis.atraso ? 'alerta' : 'exito'"
+    <Kpi v-if="ve('fechas_internas')" :titulo="t('Late for the port deadline')" :valor="datos.kpis.atraso" icono="alerta" :tono="datos.kpis.atraso ? 'alerta' : 'exito'"
          :detalle="t('port arrival after the port deadline')" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
   </section>
 
   <section class="panel" style="margin-bottom: 16px">
     <div class="panel-cabeza">
       <div><h2>{{ t('POs by status') }}</h2><p>{{ t('From release to receipt. Click a status to filter the table.') }}</p></div>
+      <div class="fila-flex">
+        <button type="button" class="btn btn-fantasma btn-chico" :aria-expanded="verGrafica" @click="verGrafica = !verGrafica">
+          <Icono nombre="grafica" :tam="15" />{{ verGrafica ? t('Hide chart') : t('Show chart') }}
+        </button>
+        <SelectorColumnas :columnas="cols" />
+      </div>
     </div>
-    <GraficoColumnas :datos="grafica" :titulo="t('Purchase orders by status')" />
+    <GraficoColumnas v-if="verGrafica" :datos="grafica" :titulo="t('Purchase orders by status')" />
     <div class="chips" style="margin: 10px 0 0">
       <button v-for="e in datos.estados" :key="e.clave" type="button" class="pildora" :aria-pressed="filtros.estado === e.clave"
               @click="emit('filtrar', { estado: filtros.estado === e.clave ? '' : e.clave })">
@@ -112,21 +137,21 @@ onMounted(cargar)
         <tr>
           <th><span class="oculto-visual">{{ t('Open') }}</span></th>
           <ThOrden campo="oc" :orden="tabla.orden" @ordenar="ordenar">{{ t('Purchase order') }}</ThOrden>
-          <ThOrden campo="centro" :orden="tabla.orden" @ordenar="ordenar">{{ t('Company · plant') }}</ThOrden>
-          <th>{{ t('Releases') }}</th>
-          <ThOrden campo="estado" :orden="tabla.orden" @ordenar="ordenar">{{ t('Status') }}</ThOrden>
-          <ThOrden campo="avance" :orden="tabla.orden" @ordenar="ordenar">{{ t('Progress') }}</ThOrden>
-          <ThOrden campo="por_facturar" :orden="tabla.orden" num @ordenar="ordenar">{{ t('To invoice') }}</ThOrden>
-          <ThOrden campo="fecha_xf" :orden="tabla.orden" @ordenar="ordenar">XF</ThOrden>
-          <ThOrden campo="fecha_tienda" :orden="tabla.orden" @ordenar="ordenar">{{ t('In store') }}</ThOrden>
-          <ThOrden campo="tienda_estimada" :orden="tabla.orden" @ordenar="ordenar" :title="t('Estimated with the lead times of its origin')">{{ t('Est. in store') }}</ThOrden>
-          <ThOrden campo="holgura" :orden="tabla.orden" :title="t('Port arrival against the port deadline: the in-store date minus the days to the warehouse, the warehouse entry and the re-export of its origin')" @ordenar="ordenar">{{ t('Vs. port deadline') }}</ThOrden>
-          <th>{{ t('Shipments') }}</th>
+          <ThOrden v-if="cols.ver('sociedad')" campo="centro" :orden="tabla.orden" @ordenar="ordenar">{{ t('Company · plant') }}</ThOrden>
+          <th v-if="cols.ver('liberaciones')">{{ t('Releases') }}</th>
+          <ThOrden v-if="cols.ver('estado')" campo="estado" :orden="tabla.orden" @ordenar="ordenar">{{ t('Status') }}</ThOrden>
+          <ThOrden v-if="cols.ver('avance')" campo="avance" :orden="tabla.orden" @ordenar="ordenar">{{ t('Progress') }}</ThOrden>
+          <ThOrden v-if="cols.ver('por_facturar')" campo="por_facturar" :orden="tabla.orden" num @ordenar="ordenar">{{ t('To invoice') }}</ThOrden>
+          <ThOrden v-if="cols.ver('xf')" campo="fecha_xf" :orden="tabla.orden" @ordenar="ordenar">XF</ThOrden>
+          <ThOrden v-if="cols.ver('tienda')" campo="fecha_tienda" :orden="tabla.orden" @ordenar="ordenar">{{ t('In store') }}</ThOrden>
+          <ThOrden v-if="cols.ver('tienda_estimada')" campo="tienda_estimada" :orden="tabla.orden" @ordenar="ordenar" :title="t('Estimated with the lead times of its origin')">{{ t('Est. in store') }}</ThOrden>
+          <ThOrden v-if="cols.ver('holgura')" campo="holgura" :orden="tabla.orden" :title="t('Port arrival against the port deadline: the in-store date minus the days to the warehouse, the warehouse entry and the re-export of its origin')" @ordenar="ordenar">{{ t('Vs. port deadline') }}</ThOrden>
+          <th v-if="cols.ver('embarques')">{{ t('Shipments') }}</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-if="cargando && !datos.items.length"><td colspan="12" class="vacio">{{ t('Loading…') }}</td></tr>
-        <tr v-else-if="!datos.items.length"><td colspan="12" class="vacio">{{ t('No purchase orders match these filters.') }}</td></tr>
+        <tr v-if="cargando && !datos.items.length"><td :colspan="ncols" class="vacio">{{ t('Loading…') }}</td></tr>
+        <tr v-else-if="!datos.items.length"><td :colspan="ncols" class="vacio">{{ t('No purchase orders match these filters.') }}</td></tr>
         <template v-for="o in datos.items" :key="o.oc_id">
         <tr class="clicable" @click="alternar(o)">
           <td>
@@ -138,39 +163,39 @@ onMounted(cargar)
             <router-link :to="{ path: '/ordenes', query: { q: o.oc, solo_disponible: '0' } }" class="codigo fuerte" @click.stop>{{ tx(o.oc) }}</router-link>
             <span class="sub">{{ tx(o.proveedor) }}<template v-if="o.marcas.length"> · {{ tx(o.marcas.join(', ')) }}</template></span>
           </td>
-          <td class="codigo">{{ tx(o.sociedad) }} · {{ tx(o.centro) }}<span class="sub">{{ t('destination {0}', [o.centro_destino || '—']) }}</span></td>
-          <td>
+          <td v-if="cols.ver('sociedad')" class="codigo">{{ tx(o.sociedad) }} · {{ tx(o.centro) }}<span class="sub">{{ t('destination {0}', [o.centro_destino || '—']) }}</span></td>
+          <td v-if="cols.ver('liberaciones')">
             <span class="insignias columna" style="margin-top: 0">
               <span class="etiqueta" :class="COMERCIAL[o.liberacion_comercial]?.[1]" :title="tx(COMERCIAL[o.liberacion_comercial]?.[2])">{{ tx(COMERCIAL[o.liberacion_comercial]?.[0]) }}</span>
               <span class="etiqueta" :class="LIBERACION[o.liberacion_logistica]?.[1]" :title="tx(LIBERACION[o.liberacion_logistica]?.[2])">{{ tx(LIBERACION[o.liberacion_logistica]?.[0]) }}</span>
             </span>
           </td>
-          <td class="ajustar"><span class="etiqueta" :class="TONO[o.estado]" style="margin-inline-start: 0; white-space: normal">{{ tx(nombreEstado[o.estado]) }}</span></td>
-          <td style="min-width: 150px">
+          <td v-if="cols.ver('estado')" class="ajustar"><span class="etiqueta" :class="TONO[o.estado]" style="margin-inline-start: 0; white-space: normal">{{ tx(nombreEstado[o.estado]) }}</span></td>
+          <td v-if="cols.ver('avance')" style="min-width: 150px">
             <div class="apilada" role="img" :aria-label="tx(TRAMOS.map(([k, t]) => `${t}: ${o.cantidades[k]}`).join(', '))">
               <span v-for="[k, txt, c] in TRAMOS.filter(([k]) => o.cantidades[k])" :key="k"
                     :style="{ width: `${(o.cantidades[k] * 100) / o.total}%`, background: c }" :title="`${tx(txt)}: ${fmtNum(o.cantidades[k])}`"></span>
             </div>
             <span class="sub">{{ t('{0}% invoiced · {1} {2}', [fmtNum(o.avance, 0), fmtNum(o.total), o.unidades.join('/')]) }}</span>
           </td>
-          <td class="num">{{ fmtNum(o.por_facturar) }}</td>
-          <td>{{ fmtFecha(o.fecha_xf) }}<span v-if="o.xf_vencida" class="sub" style="color: var(--error)">overdue</span></td>
-          <td>{{ fmtFecha(o.fecha_tienda) }}<span class="sub">{{ diasTxt(o.dias_tienda) }}</span></td>
-          <td><FechaTienda :fecha="o.tienda_estimada" :dias="o.dias_vs_tienda" /></td>
-          <td>
+          <td v-if="cols.ver('por_facturar')" class="num">{{ fmtNum(o.por_facturar) }}</td>
+          <td v-if="cols.ver('xf')">{{ fmtFecha(o.fecha_xf) }}<span v-if="o.xf_vencida" class="sub" style="color: var(--error)">overdue</span></td>
+          <td v-if="cols.ver('tienda')">{{ fmtFecha(o.fecha_tienda) }}<span class="sub">{{ diasTxt(o.dias_tienda) }}</span></td>
+          <td v-if="cols.ver('tienda_estimada')"><FechaTienda :fecha="o.tienda_estimada" :dias="o.dias_vs_tienda" /></td>
+          <td v-if="cols.ver('holgura')">
             <span v-if="o.riesgo" class="etiqueta" :class="RIESGOS[o.riesgo][1]" style="margin-inline-start: 0">{{ tx(RIESGOS[o.riesgo][0]) }}</span>
             <span v-if="o.holgura !== null" class="sub">{{ tx(o.holgura < 0 ? t('{0} d late', [-o.holgura]) : t('{0} d margin', [o.holgura])) }}</span>
           </td>
-          <td class="codigo">{{ tx(o.embarques.join(', ') || '—') }}</td>
+          <td v-if="cols.ver('embarques')" class="codigo">{{ tx(o.embarques.join(', ') || '—') }}</td>
         </tr>
         <tr v-if="detalles[o.oc_id]" class="fila-hija">
-          <td colspan="12">
+          <td :colspan="ncols">
             <div class="subtabla">
               <div class="tabla-marco">
                 <table class="tabla" v-tarjetas>
                   <thead>
-                    <tr><th>{{ t('Line') }}</th><th>SKU</th><th>{{ t('Brand · style · color') }}</th><th>{{ t('Size') }}</th><th>{{ t('Warehouse') }}</th><th class="num">{{ t('Quantity') }}</th>
-                      <th>{{ t('Stage') }}</th><th>{{ t('Invoice / PL') }}</th><th>{{ t('Shipment · unit') }}</th><th>{{ t('Arrival') }}</th><th :title="t('Port arrival against the port deadline (in-store date minus warehouse, entry and re-export days)')">{{ t('Vs. port deadline') }}</th></tr>
+                    <tr><th>{{ t('Line') }}</th><th>SKU</th><th>{{ t('Brand · style · color') }}</th><th>{{ t('Size') }}</th><th v-if="ve('codigos_internos')">{{ t('Warehouse') }}</th><th class="num">{{ t('Quantity') }}</th>
+                      <th>{{ t('Stage') }}</th><th>{{ t('Invoice / PL') }}</th><th>{{ t('Shipment · unit') }}</th><th>{{ t('Arrival') }}</th><th v-if="ve('fechas_internas')" :title="t('Port arrival against the port deadline (in-store date minus warehouse, entry and re-export days)')">{{ t('Vs. port deadline') }}</th></tr>
                   </thead>
                   <tbody>
                     <tr v-if="!detalles[o.oc_id].length"><td colspan="12" class="vacio">{{ t('No lines match these filters.') }}</td></tr>
@@ -183,7 +208,7 @@ onMounted(cargar)
                         <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the prepack breakdown')"
                                 @click="explosion = { sku: l.sku, cajas: l.cantidad }">{{ t('Prepack') }} <Icono nombre="lupa" :tam="12" /></button>
                       </td>
-                      <td>{{ tx(l.almacen || '—') }}</td>
+                      <td v-if="ve('codigos_internos')">{{ tx(l.almacen || '—') }}</td>
                       <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
                       <td><span class="etiqueta" :class="ETAPAS[l.etapa]?.[1]" style="margin-inline-start: 0">{{ tx(ETAPAS[l.etapa]?.[0] || l.etapa) }}</span></td>
                       <td>
@@ -200,7 +225,7 @@ onMounted(cargar)
                         <span v-else class="ayuda">—</span>
                       </td>
                       <td>{{ fmtFecha(l.arribo_real || l.eta) }}<span v-if="l.arribo_real" class="sub">{{ t('actual') }}</span></td>
-                      <td>
+                      <td v-if="ve('fechas_internas')">
                         <span v-if="l.riesgo" class="etiqueta" :class="RIESGOS[l.riesgo][1]" style="margin-inline-start: 0">{{ tx(l.holgura < 0 ? t('{0} d late', [-l.holgura]) : `${l.holgura} d`) }}</span>
                         <span v-else class="ayuda">—</span>
                       </td>

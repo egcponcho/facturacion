@@ -1161,3 +1161,6 @@ th.num .orden-btn { flex-direction: row-reverse; }
 
 /* Empresa: logo en el menú */
 .marca-imagen { object-fit: contain; background: #fff; padding: 3px; }
+
+/* Texto de aviso dentro de una celda (p. ej. datos que un rol no ve) */
+.aviso-texto { color: var(--aviso); display: inline-flex; align-items: center; gap: 4px; }

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..models import Usuario
 from .common import ErrorNegocio, registrar
 
-IDIOMAS = ("en", "es", "zh", "hi", "ar")
+IDIOMAS = ("es", "en")
 # Formato visible -> strftime
 FORMATOS_FECHA = {
     "MM/DD/YYYY": "%m/%d/%Y",
@@ -38,7 +38,15 @@ _actual: ContextVar[dict] = ContextVar("preferencias", default=DEFECTO)
 
 
 def de(u: Usuario | None) -> dict:
-    return {**DEFECTO, **((u.preferencias or {}) if u else {})}
+    """Preferencias de la persona: las suyas, si no las de la empresa
+    (Configuración → Empresa) y si no las de fábrica."""
+    from ..empresa import configuracion_actual
+
+    empresa = {k: v for k, v in (configuracion_actual().get("preferencias") or {}).items() if k in ("idioma", "formato_fecha")}
+    pref = {**DEFECTO, **empresa, **((u.preferencias or {}) if u else {})}
+    if pref.get("idioma") not in IDIOMAS:
+        pref["idioma"] = DEFECTO["idioma"]
+    return pref
 
 
 def usar(u: Usuario | None) -> None:
@@ -133,18 +141,18 @@ def guardar(db: Session, user: Usuario, datos) -> dict:
             user.nombre = nombre
     validos = {"idioma": IDIOMAS, "formato_fecha": tuple(FORMATOS_FECHA), "formato_numero": tuple(FORMATOS_NUMERO),
                "formato_hora": FORMATOS_HORA, "tema": TEMAS, "filas": FILAS, "inicio": INICIOS}
-    pref = de(user)
+    # Se guarda lo que la persona eligió; None vuelve al valor de la empresa o de fábrica
+    propias = dict(user.preferencias or {})
     for k, v in campos.items():
         if v is None:
-            pref[k] = DEFECTO[k]
+            propias.pop(k, None)
         elif v not in validos[k]:
             errores.append({"campo": k, "mensaje": "Choose one of the options."})
         else:
-            pref[k] = v
+            propias[k] = v
     if errores:
         raise ErrorNegocio("Check the data.", 422, "validacion", errores)
-    # Se guarda solo lo que difiere del valor por defecto
-    user.preferencias = {k: v for k, v in pref.items() if DEFECTO.get(k) != v}
+    user.preferencias = propias
     usar(user)
     registrar(db, user, "usuario", user.id, "perfil", {"preferencias": user.preferencias})
     return {"nombre": user.nombre, "preferencias": de(user)}
@@ -180,3 +188,23 @@ def guardar_vistas(db: Session, user: Usuario, pantalla: str, vistas: list) -> d
     usar(user)
     return {"vistas": pref["vistas"]}
 
+
+# ---- Columnas de cada tabla ------------------------------------------------------
+# Qué columnas ve la persona en cada tabla (dentro de lo que su rol permite).
+# Sin preferencia, la tabla muestra su vista inicial corta.
+TABLAS = ("ordenes", "seguimiento", "facturas", "productos", "embarques", "factura_lineas", "pl_cajas")
+
+
+def guardar_columnas(db: Session, user: Usuario, tabla: str, columnas: list | None) -> dict:
+    if tabla not in TABLAS:
+        raise ErrorNegocio("This table has no column settings.", 404, "no_encontrado")
+    pref = dict(user.preferencias or {})
+    todas = dict(pref.get("columnas") or {})
+    if columnas is None:
+        todas.pop(tabla, None)  # vuelve a la vista inicial
+    else:
+        todas[tabla] = [re.sub(r"[^a-z0-9_]", "", str(c).lower())[:40] for c in columnas[:60] if c]
+    pref["columnas"] = todas
+    user.preferencias = pref
+    usar(user)
+    return {"columnas": todas}

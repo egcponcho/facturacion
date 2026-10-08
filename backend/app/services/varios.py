@@ -10,6 +10,7 @@ from ..models import (
 )
 from ..security import hash_password
 from .acceso import exigir_politica, password_temporal, revocar_sesiones, validar_telefono
+from . import visibilidad
 from .normalizar import nombre as nombre_fmt
 from .normalizar import texto as texto_fmt
 from .common import (
@@ -182,7 +183,8 @@ def crear_roles_fabrica(db: Session) -> dict[str, Rol]:
     for nombre, tipo, desc in ROLES_FABRICA:
         r = db.scalar(select(Rol).where(Rol.sistema.is_(True), Rol.tipo == tipo))
         if not r:
-            r = Rol(nombre=nombre, tipo=tipo, descripcion=desc, permisos=permisos_fabrica(tipo), sistema=True)
+            r = Rol(nombre=nombre, tipo=tipo, descripcion=desc, permisos=permisos_fabrica(tipo), sistema=True,
+                    datos_ocultos=list(visibilidad.DEFECTO_POR_TIPO.get(tipo, [])))
             db.add(r)
             db.flush()
         res[tipo] = r
@@ -191,7 +193,8 @@ def crear_roles_fabrica(db: Session) -> dict[str, Rol]:
 
 def _rol_dict(r: Rol, usuarios: int) -> dict:
     return {"id": r.id, "nombre": r.nombre, "descripcion": r.descripcion, "activo": r.activo,
-            "permisos": permisos_validos(r.permisos), "usuarios": usuarios}
+            "permisos": permisos_validos(r.permisos), "usuarios": usuarios,
+            "datos_ocultos": visibilidad.validos(r.datos_ocultos)}
 
 
 def _admins_activos(db: Session) -> int:
@@ -217,7 +220,8 @@ def listar_roles(db: Session, user: Usuario) -> dict:
     crear_roles_fabrica(db)
     cuenta = dict(db.execute(select(Usuario.rol_id, func.count()).group_by(Usuario.rol_id)).all())
     roles = db.scalars(select(Rol).order_by(Rol.nombre)).all()
-    return {"roles": [_rol_dict(r, cuenta.get(r.id, 0)) for r in roles], "catalogo": catalogo_permisos()}
+    return {"roles": [_rol_dict(r, cuenta.get(r.id, 0)) for r in roles], "catalogo": catalogo_permisos(),
+            "datos": visibilidad.catalogo()}
 
 
 def guardar_rol(db: Session, user: Usuario, datos, rol_id: int | None = None) -> dict:
@@ -237,6 +241,10 @@ def guardar_rol(db: Session, user: Usuario, datos, rol_id: int | None = None) ->
         campos["descripcion"] = (campos["descripcion"] or "").strip() or None
     if "permisos" in campos:
         campos["permisos"] = permisos_validos(campos["permisos"])
+    if "datos_ocultos" in campos:
+        if r.tipo == "admin" and campos["datos_ocultos"]:
+            raise ErrorNegocio("The administrator role always sees all data.", 422, "validacion")
+        campos["datos_ocultos"] = visibilidad.validos(campos["datos_ocultos"])
     for k, v in campos.items():
         setattr(r, k, v)
     if not r.nombre:
@@ -246,7 +254,8 @@ def guardar_rol(db: Session, user: Usuario, datos, rol_id: int | None = None) ->
     db.flush()
     _recalcular_alcance(db, r)
     _sin_administrador(db)
-    registrar(db, user, "rol", r.id, "guardado", {"nombre": r.nombre, "permisos": r.permisos})
+    registrar(db, user, "rol", r.id, "guardado", {"nombre": r.nombre, "permisos": r.permisos,
+                                                   "datos_ocultos": r.datos_ocultos})
     return _rol_dict(r, db.scalar(select(func.count()).where(Usuario.rol_id == r.id)) or 0)
 
 

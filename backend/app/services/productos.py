@@ -1182,8 +1182,8 @@ def ver_version(db: Session, user: Usuario, producto_id: int, version: int) -> d
 
 def exportar_ficha(db: Session, user: Usuario, producto_id: int, formato: str = "pdf",
                    version: int | None = None) -> tuple[bytes, str]:
-    from . import documentos, exportar
-    d = ficha_de_version(db, user, producto_id, version)
+    from . import documentos, exportar, visibilidad
+    d = visibilidad.quitar(ficha_de_version(db, user, producto_id, version))  # sin lo que el rol no ve
     nombre = f"ficha_{d['estilo']}_{digitos(d['color'])[:6] or d['id']}" + (f"_v{d['version_ficha']}" if version else "")
     if formato == "xlsx":
         return exportar.exportar_ficha(d, documentos.secciones_ficha(d)), nombre

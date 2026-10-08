@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 I18N = Path(__file__).resolve().parents[2] / "frontend" / "src" / "i18n"
-IDIOMAS = ["es", "zh", "hi", "ar"]
-ESCRITURA = {"zh": r"[一-鿿]", "hi": r"[ऀ-ॿ]", "ar": r"[؀-ۿ]"}
+IDIOMAS = ["es"]  # el inglés es la clave
+ESCRITURA: dict[str, str] = {}
 
 
 def _leer(nombre):

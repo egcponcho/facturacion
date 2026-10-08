@@ -34,7 +34,7 @@ def configuracion(db: Session) -> dict:
 
 
 # ---- Configuración ------------------------------------------------------------
-PREFERENCIAS = {"idioma": "en", "moneda": "USD", "zona_horaria": "UTC", "formato_fecha": "MM/DD/YYYY"}
+PREFERENCIAS = {"idioma": "es", "moneda": "USD", "zona_horaria": "UTC", "formato_fecha": "MM/DD/YYYY"}
 
 
 def _reglas_de(o: Organizacion) -> dict:

@@ -1,25 +1,25 @@
-// Idiomas de la interfaz. El texto en inglés es la clave; cada idioma tiene su
-// diccionario (es.json, zh.json, hi.json, ar.json) con traducciones adaptadas,
-// no literales, revisadas contra el glosario (glosario.json) por las pruebas.
+// Idiomas de la interfaz: español e inglés. El texto en inglés es la clave y
+// es.json tiene su traducción adaptada (no literal), revisada contra el
+// glosario (glosario.json) por las pruebas.
 // Las partes que cambian van como {0}, {1}… para que cada idioma ordene la
 // frase a su manera. Al cambiar de idioma la página se vuelve a cargar, así
 // las listas y etiquetas armadas al iniciar también salen en el idioma nuevo.
 
 export const IDIOMAS = [
   // locale: fechas y números con dígitos latinos (los códigos y cantidades se leen igual en todos)
-  { codigo: 'en', nombre: 'English', locale: 'en-GB', dir: 'ltr' },
   { codigo: 'es', nombre: 'Español', locale: 'es-419', dir: 'ltr' },
-  { codigo: 'zh', nombre: '中文（简体）', locale: 'zh-CN', dir: 'ltr' },
-  { codigo: 'hi', nombre: 'हिन्दी', locale: 'hi-IN-u-nu-latn', dir: 'ltr' },
-  { codigo: 'ar', nombre: 'العربية', locale: 'ar-u-nu-latn', dir: 'rtl' },
+  { codigo: 'en', nombre: 'English', locale: 'en-GB', dir: 'ltr' },
 ]
 const CLAVE = 'idioma'
 
 function inicial() {
   let guardado = null
   try { guardado = localStorage.getItem(CLAVE) } catch { /* sin almacenamiento */ }
-  // Por defecto, inglés para todos; cada usuario elige el suyo en su perfil
-  return IDIOMAS.some((x) => x.codigo === guardado) ? guardado : 'en'
+  // Lo elegido antes; si no, el idioma del navegador. Al iniciar sesión manda
+  // el del perfil (o el predeterminado de la empresa).
+  if (IDIOMAS.some((x) => x.codigo === guardado)) return guardado
+  const nav = typeof navigator !== 'undefined' ? (navigator.language || '') : ''
+  return nav.toLowerCase().startsWith('en') ? 'en' : 'es'
 }
 
 import SERVIDOR from './servidor.json' with { type: 'json' }
@@ -30,7 +30,7 @@ let dic = {}
 let patrones = [] // claves con {0}… para traducir textos ya armados (mensajes del servidor)
 
 // Vite reemplaza import.meta.glob al compilar; fuera de Vite (pruebas con Node) no existe import.meta.env
-const ARCHIVOS = import.meta.env ? import.meta.glob(['./es.json', './zh.json', './hi.json', './ar.json']) : {}
+const ARCHIVOS = import.meta.env ? import.meta.glob(['./es.json']) : {}
 
 export async function cargarIdioma() {
   if (idioma !== 'en') {

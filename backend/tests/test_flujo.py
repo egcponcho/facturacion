@@ -879,7 +879,7 @@ def test_crear_oc_desde_formulario(interno, vans):
     assert oc["numero"] == "PO-FORM-1" and oc["lineas"] == 1
     det = interno.get(f"/ordenes/{oc['oc_id']}/posiciones").json()
     assert det["posiciones"][0]["posicion"] == "10" and det["posiciones"][0]["casepack"] == 6
-    assert det["posiciones"][0]["total"] is None  # sin precio: el valor queda pendiente
+    assert det["posiciones"][0]["importe"] is None  # sin precio: el valor queda pendiente
     # El mismo número no se repite para el proveedor
     assert interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 1}]}).status_code == 409
     # Sin precio, moneda ni empresa no se puede facturar: se dice qué falta

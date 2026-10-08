@@ -856,7 +856,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "precio_unitario": l.precio_unitario,
             "precio_oc": l.precio_oc,
             "motivo_precio": l.motivo_precio,
-            "total": total,
+            "importe": total,
             "pais_origen": l.pais_origen,
             "partida_arancelaria": l.partida_arancelaria,
             "producto_id": (producto_de(l.posicion_oc.articulo).id if producto_de(l.posicion_oc.articulo) else None),

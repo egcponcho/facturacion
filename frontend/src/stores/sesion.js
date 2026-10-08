@@ -14,6 +14,9 @@ export const sesion = reactive({
 
 export const puede = (permiso) => !!sesion.usuario?.permisos?.includes(permiso)
 export const esInterno = () => ['admin', 'interno'].includes(sesion.usuario?.rol)
+// Grupos de datos que el rol ve (Usuarios y accesos → Rol → Datos visibles).
+// El servidor ya no los envía; la pantalla quita sus columnas y filtros.
+export const ve = (grupo) => !(sesion.usuario?.datos_ocultos || []).includes(grupo)
 
 // Paso 1: correo y contraseña. Devuelve el desafío si hay verificación en dos pasos.
 export async function iniciarSesion(email, password) {

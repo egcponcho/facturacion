@@ -21,6 +21,8 @@ const modal = ref(null)
 const ALCANCE = { admin: t('Administrator'), interno: t('Internal team'), proveedor: t('Supplier user') }
 const roles = ref([])
 const catalogo = ref([])
+// Grupos de datos que se pueden ocultar a un rol (precios, códigos internos…)
+const gruposDatos = ref([])
 const rolesActivos = computed(() => roles.value.filter((r) => r.activo))
 const rolDe = (id) => roles.value.find((r) => r.id === Number(id))
 // Permisos del rol que no aplican a un usuario de proveedor (datos globales o administración)
@@ -37,6 +39,7 @@ async function cargar() {
     ;[proveedores.value, usuarios.value, r] = await Promise.all([api.get('/proveedores'), api.get('/usuarios'), api.get('/roles')])
     roles.value = r.roles
     catalogo.value = r.catalogo
+    gruposDatos.value = r.datos || []
     sesion.proveedores = proveedores.value
   } catch (e) {
     errorApi(e)
@@ -98,7 +101,8 @@ async function actualizar(ruta, datos, mensaje) {
 // ---- Roles: qué módulos y acciones tiene cada uno ------------------------------
 function abrirRol(r) {
   modal.value = { tipo: 'rol', id: r?.id || null, nombre: r?.nombre || '', descripcion: r?.descripcion || '',
-    activo: r ? r.activo : true, permisos: new Set(r?.permisos || []) }
+    activo: r ? r.activo : true, permisos: new Set(r?.permisos || []), ocultos: new Set(r?.datos_ocultos || []),
+    esAdmin: (r?.permisos || []).includes('admin') }
 }
 const marcado = (p) => modal.value.permisos.has(p.clave)
 function alternarPermiso(p) {
@@ -112,7 +116,8 @@ function alternarModulo(m) {
 const nMarcados = computed(() => (modal.value?.tipo === 'rol' ? catalogo.value.flatMap((m) => m.permisos).filter(marcado).length : 0))
 async function guardarRol() {
   const m = modal.value
-  const cuerpo = { nombre: m.nombre, descripcion: m.descripcion || null, activo: m.activo, permisos: [...m.permisos] }
+  const cuerpo = { nombre: m.nombre, descripcion: m.descripcion || null, activo: m.activo, permisos: [...m.permisos],
+    datos_ocultos: m.permisos.has('admin') ? [] : [...m.ocultos] }
   try {
     if (m.id) await api.patch(`/roles/${m.id}`, cuerpo)
     else await api.post('/roles', cuerpo)
@@ -181,6 +186,7 @@ onMounted(cargar)
             <td class="envolver">
               <span class="fuerte">{{ t('{0} of {1}', [r.permisos.length, totalPermisos]) }}</span>
               <span class="sub">{{ catalogo.filter((m) => m.permisos.some((p) => r.permisos.includes(p.clave))).map((m) => tx(m.modulo)).join(' · ') || t('No access') }}</span>
+              <span v-if="r.datos_ocultos?.length" class="sub aviso-texto"><Icono nombre="ojo" :tam="13" /> {{ t('Does not see: {0}', [gruposDatos.filter((g) => r.datos_ocultos.includes(g.clave)).map((g) => tx(g.etiqueta)).join(' · ')]) }}</span>
             </td>
             <td class="num">{{ tx(r.usuarios) }}</td>
             <td><span class="etiqueta" :class="r.activo ? 'ok' : ''" style="margin-inline-start: 0">{{ tx(r.activo ? t('Active') : t('Inactive')) }}</span></td>
@@ -292,6 +298,15 @@ onMounted(cargar)
           </label>
         </fieldset>
       </div>
+      <div class="lbl-permisos"><span>{{ t('Data this role sees') }}</span>
+        <span class="sub">{{ t('Hidden data never reaches the user: it is not in the tables, filters, exports or the API.') }}</span></div>
+      <p v-if="modal.permisos.has('admin')" class="ayuda">{{ t('Administrators always see all data.') }}</p>
+      <div v-else class="datos-rol">
+        <label v-for="g in gruposDatos" :key="g.clave" class="check permiso">
+          <input type="checkbox" :checked="!modal.ocultos.has(g.clave)" @change="modal.ocultos.has(g.clave) ? modal.ocultos.delete(g.clave) : modal.ocultos.add(g.clave)" />
+          <span>{{ tx(g.etiqueta) }}<small class="sub">{{ tx(g.descripcion) }}</small></span>
+        </label>
+      </div>
       <label class="check mt-chico"><input v-model="modal.activo" type="checkbox" /> {{ t('Active') }}</label>
     </form>
     <template #pie>
@@ -361,6 +376,7 @@ onMounted(cargar)
 <style scoped>
 .sub-panel { margin: 2px 0 0; font-size: 0.84rem; color: var(--tinta-3); }
 .rol-form { display: flex; flex-direction: column; gap: 12px; }
+.datos-rol { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 4px 16px; }
 .lbl-permisos { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.86rem; font-weight: 620; }
 .modulos { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
 .modulo { margin: 0; padding: 8px 12px 10px; border: 1px solid var(--linea); border-radius: 8px; min-width: 0; }

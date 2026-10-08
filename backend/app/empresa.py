@@ -32,6 +32,10 @@ def usar_configuracion(config: dict | None) -> None:
     _config.set(config or {})
 
 
+def configuracion_actual() -> dict:
+    return _config.get() or {}
+
+
 def regla(nombre: str):
     valor = (_config.get() or {}).get("reglas", {}).get(nombre)
     return getattr(settings, nombre) if valor is None else valor

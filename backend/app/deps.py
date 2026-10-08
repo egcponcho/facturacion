@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import Usuario
-from .services import edicion, preferencias
+from .services import edicion, preferencias, visibilidad
 from .empresa import usar_configuracion
 from .services.acceso import usuario_de_sesion
 from .services.common import ErrorNegocio
@@ -52,9 +52,11 @@ async def usuario_con_preferencias(request: Request, user: Usuario = Depends(usu
     """El usuario de la sesión, dejando sus preferencias (formato de fecha,
     etc.) en el contexto de la petición. Es asíncrona a propósito: así el valor
     se fija en el contexto de la petición y lo ven las rutas que corren en hilos."""
+    usar_configuracion(request.state.config_empresa)  # antes de las preferencias: dan el idioma por defecto
     preferencias.usar(user)
     edicion.usar_usuario(user.id)
-    usar_configuracion(request.state.config_empresa)
+    # Datos que su rol no ve: solo en las pantallas de trabajo (no en la configuración)
+    visibilidad.usar(user if request.url.path.startswith(visibilidad.RUTAS) else None)
     if user.clave_temporal and not request.url.path.startswith(PERMITIDO_TEMPORAL):
         raise ErrorNegocio("Change your temporary password to continue.", 403, "clave_temporal")
     return user

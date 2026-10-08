@@ -13,7 +13,7 @@ import FilasEsqueleto from '../components/FilasEsqueleto.vue'
 import Paginacion from '../components/Paginacion.vue'
 import ThOrden from '../components/ThOrden.vue'
 import { siguienteOrden } from '../composables/useTabla'
-import { esInterno, sesion } from '../stores/sesion'
+import { esInterno, sesion, ve } from '../stores/sesion'
 import { errorApi } from '../stores/ui'
 import { fmtFecha, fmtMoneda } from '../utils'
 import { filasDefecto } from '../stores/preferencias'
@@ -112,7 +112,7 @@ watch(() => sesion.proveedorId, recargar)
           <ThOrden campo="nombre" :orden="filtros.orden" @ordenar="ordenar">{{ t('Invoice') }}</ThOrden>
           <ThOrden v-if="!sesion.proveedorId" campo="proveedor" :orden="filtros.orden" @ordenar="ordenar">{{ t('Supplier') }}</ThOrden>
           <ThOrden campo="estado" :orden="filtros.orden" @ordenar="ordenar">{{ t('Status') }}</ThOrden>
-          <th class="num">{{ t('Amount') }}</th>
+          <th v-if="ve('precios')" class="num">{{ t('Amount') }}</th>
           <th class="col-sec">{{ t('In packing lists') }}</th>
           <th class="col-sec">{{ t('Packing') }}</th>
           <th>{{ t('Transport') }}</th>
@@ -123,11 +123,11 @@ watch(() => sesion.proveedorId, recargar)
         <tr v-for="f in datos.items" :key="f.id" class="clicable" :class="{ 'fila-activa': resumenId === f.id }" @click="resumenId = f.id">
           <td>
             <router-link :to="`/facturas/${f.id}`" class="cajas-rango" @click.stop>{{ tx(f.nombre) }}</router-link>
-            <span class="sub">{{ t('{0} · {1} · {2} lines', [fmtFecha(f.fecha), f.centro, f.lineas]) }}</span>
+            <span class="sub">{{ ve('codigos_internos') ? t('{0} · {1} · {2} lines', [fmtFecha(f.fecha), f.centro, f.lineas]) : t('{0} · {1} lines', [fmtFecha(f.fecha), f.lineas]) }}</span>
           </td>
           <td v-if="!sesion.proveedorId">{{ tx(f.proveedor) }}</td>
           <td><EstadoBadge :estado="f.estado" /></td>
-          <td class="num fuerte">{{ fmtMoneda(f.importe, f.moneda) }}</td>
+          <td v-if="ve('precios')" class="num fuerte">{{ fmtMoneda(f.importe, f.moneda) }}</td>
           <td style="min-width: 130px"><Avance :valor="f.asignado" :total="f.facturado" /></td>
           <td>
             <template v-if="f.pls">{{ t('{0} of {1} PL finalized', [f.pls_finalizados, f.pls]) }}</template>

@@ -9,6 +9,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from .documentos import _fecha, _por_unidad_txt
+from . import visibilidad
 from .preferencias import fecha_hora_txt
 
 ACENTO = "5B3FD1"
@@ -358,7 +359,8 @@ def exportar_reporte(titulo: str, subtitulo: str, filtros: str, indicadores: lis
                      columnas: list[tuple[str, float, bool]], filas: list[list], hojas: list[dict] | None = None) -> bytes:
     """Reporte tabular: título, filtros aplicados, indicadores y detalle con
     filtros de Excel. `hojas` agrega hojas de detalle adicionales con
-    {"titulo", "columnas", "filas"}."""
+    {"titulo", "columnas", "filas"}. Sin las columnas que el rol no ve."""
+    indicadores, columnas, filas, hojas = visibilidad.reporte(indicadores, columnas, filas, hojas)
     wb = Workbook()
     ws = wb.active
     ws.title = _hoja_titulo(titulo)
