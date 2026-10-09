@@ -161,7 +161,7 @@ def guardar(db: Session, user: Usuario, datos) -> dict:
 # Cada pantalla con filtros (seguimiento, órdenes…) guarda vistas con nombre:
 # los filtros, la pestaña y el orden que la persona usa a menudo. Son
 # preferencias suyas (no se comparten todavía).
-PANTALLAS_VISTA = ("seguimiento", "ordenes", "facturas", "productos", "embarques")
+PANTALLAS_VISTA = ("seguimiento", "ordenes", "facturas", "productos", "embarques", "oc_lineas")
 MAX_VISTAS = 20
 
 
@@ -192,6 +192,40 @@ def guardar_vistas(db: Session, user: Usuario, pantalla: str, vistas: list) -> d
 # Qué columnas ve la persona en cada tabla (dentro de lo que su rol permite).
 # Sin preferencia, la tabla muestra su vista inicial corta.
 TABLAS = ("ordenes", "seguimiento", "facturas", "productos", "embarques", "factura_lineas", "pl_cajas")
+
+
+DENSIDADES = ("compacta", "normal", "amplia")
+MAX_TABLAS = 60
+
+
+def guardar_tabla(db: Session, user: Usuario, tabla: str, datos: dict | None) -> dict:
+    """Configuración de una tabla de la persona (componente TablaDatos): columnas
+    visibles en su orden, anchos y densidad. null vuelve a la vista inicial."""
+    if not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", tabla or ""):
+        raise ErrorNegocio("Unknown table.", 404, "no_encontrado")
+    pref = dict(user.preferencias or {})
+    tablas = dict(pref.get("tablas") or {})
+    if datos is None:
+        tablas.pop(tabla, None)
+    else:
+        if not isinstance(datos, dict):
+            raise ErrorNegocio("Invalid table settings.", 422, "validacion")
+        conf = {}
+        if isinstance(datos.get("columnas"), list):
+            conf["columnas"] = [re.sub(r"[^a-z0-9_.]", "", str(c).lower())[:40] for c in datos["columnas"][:60] if c]
+        anchos = datos.get("anchos")
+        if isinstance(anchos, dict):
+            conf["anchos"] = {re.sub(r"[^a-z0-9_.]", "", str(k).lower())[:40]: max(48, min(int(v), 900))
+                              for k, v in list(anchos.items())[:60] if isinstance(v, (int, float)) and not isinstance(v, bool)}
+        if datos.get("densidad") in DENSIDADES:
+            conf["densidad"] = datos["densidad"]
+        if tabla not in tablas and len(tablas) >= MAX_TABLAS:
+            raise ErrorNegocio("Too many saved tables.", 422, "validacion")
+        tablas[tabla] = conf
+    pref["tablas"] = tablas
+    user.preferencias = pref
+    usar(user)
+    return {"tablas": tablas}
 
 
 def guardar_columnas(db: Session, user: Usuario, tabla: str, columnas: list | None) -> dict:

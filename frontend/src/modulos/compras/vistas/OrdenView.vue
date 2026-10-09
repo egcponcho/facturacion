@@ -11,6 +11,8 @@ import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import EstadoVacio from '@/componentes/EstadoVacio.vue'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
+import { estado as estadoTxt } from '@/nucleo/estados.js'
 import { confirmar } from '@/stores/confirmar'
 
 // Detalle de la orden de compra (solo lectura): su estado, lo acordado, las
@@ -64,6 +66,19 @@ const facturas = computed(() => {
   return [...vistas.values()]
 })
 const avance = computed(() => d.value?.avance)
+// Líneas en la tabla común (ordena, filtra por columna, columnas y densidad por persona)
+const ESTADOS_LINEA = ['DISPONIBLE', 'PARCIAL', 'FACTURADA', 'NO_DISPONIBLE'].map((c) => [c, estadoTxt(c)[0]])
+const columnasLineas = [
+  { clave: 'posicion', texto: t('Line'), prioridad: 1, num: true },
+  { clave: 'codigo_sap', texto: t('Item'), fija: true, prioridad: 1, filtro: 'texto', valor: (p) => `${p.codigo_sap} ${p.estilo || ''} ${p.color || ''} ${p.talla || ''} ${p.descripcion || ''}` },
+  { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 1 },
+  { clave: 'precio', texto: t('Unit price'), num: true, grupo: 'precios', prioridad: 3 },
+  { clave: 'importe', texto: t('Amount'), num: true, grupo: 'precios', prioridad: 2 },
+  { clave: 'facturado', texto: t('Invoiced'), num: true, prioridad: 3 },
+  { clave: 'disponible', texto: t('Available'), num: true, prioridad: 2 },
+  { clave: 'fecha_entrega', texto: t('Delivery'), prioridad: 3, inicial: false },
+  { clave: 'estado', texto: t('Status'), prioridad: 2, filtro: 'opcion', opciones: ESTADOS_LINEA },
+]
 const enCurso = computed(() => ['APROBADA', 'CERRADA'].includes(oc.value?.estado))
 
 // Qué pide cada acción antes de hacerse
@@ -234,32 +249,23 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
 
     <!-- Líneas -->
     <section v-if="tab === 'lineas'" class="panel">
-      <template v-if="d.posiciones.length">
-        <div class="tabla-marco">
-          <table class="tabla" v-tarjetas>
-            <thead><tr>
-              <th>{{ t('Line') }}</th><th>{{ t('Item') }}</th><th class="num">{{ t('Quantity') }}</th>
-              <th v-if="ve('precios')" class="num">{{ t('Unit price') }}</th><th v-if="ve('precios')" class="num">{{ t('Amount') }}</th>
-              <th class="num">{{ t('Invoiced') }}</th><th class="num">{{ t('Available') }}</th><th>{{ t('Delivery') }}</th><th>{{ t('Status') }}</th>
-            </tr></thead>
-            <tbody>
-              <tr v-for="p in d.posiciones" :key="p.id">
-                <td class="codigo" :data-etiqueta="t('Line')">{{ tx(p.posicion) }}</td>
-                <td :data-etiqueta="t('Item')"><span class="codigo">{{ tx(p.codigo_sap) }}</span> {{ tx([p.estilo, p.color, p.talla].filter(Boolean).join(' · ')) }}
-                  <span class="sub">{{ tx(p.descripcion || '') }}<template v-if="p.almacen"> · {{ t('Warehouse {0}', [p.almacen]) }}</template></span></td>
-                <td class="num" :data-etiqueta="t('Quantity')">{{ cantTxt(p.cantidad, p.unidad) }}</td>
-                <td v-if="ve('precios')" class="num" :data-etiqueta="t('Unit price')">{{ p.precio == null ? '—' : fmtNum(p.precio) }}</td>
-                <td v-if="ve('precios')" class="num" :data-etiqueta="t('Amount')">{{ p.importe == null ? '—' : fmtMoneda(p.importe, oc.moneda) }}</td>
-                <td class="num" :data-etiqueta="t('Invoiced')">{{ fmtNum(p.facturado) }}</td>
-                <td class="num" :data-etiqueta="t('Available')">{{ fmtNum(p.disponible) }}</td>
-                <td :data-etiqueta="t('Delivery')">{{ fmtFecha(p.fecha_entrega) }}</td>
-                <td :data-etiqueta="t('Status')"><EstadoBadge :estado="p.estado" :title="tx(p.motivo || '')" /></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </template>
-      <template v-else-if="lineasBorrador.length">
+      <TablaDatos v-if="d.posiciones.length" tabla="oc_lineas" :columnas="columnasLineas" :filas="d.posiciones" :etiqueta="t('Lines')">
+        <template #celda-codigo_sap="{ fila: p }"><span class="codigo">{{ tx(p.codigo_sap) }}</span> {{ tx([p.estilo, p.color, p.talla].filter(Boolean).join(' · ')) }}
+          <span class="sub">{{ tx(p.descripcion || '') }}<template v-if="p.almacen"> · {{ t('Warehouse {0}', [p.almacen]) }}</template></span></template>
+        <template #celda-cantidad="{ fila: p }">{{ cantTxt(p.cantidad, p.unidad) }}</template>
+        <template #celda-precio="{ fila: p }">{{ p.precio == null ? '—' : fmtNum(p.precio) }}</template>
+        <template #celda-importe="{ fila: p }">{{ p.importe == null ? '—' : fmtMoneda(p.importe, oc.moneda) }}</template>
+        <template #celda-facturado="{ fila: p }">{{ fmtNum(p.facturado) }}</template>
+        <template #celda-disponible="{ fila: p }">{{ fmtNum(p.disponible) }}</template>
+        <template #celda-fecha_entrega="{ fila: p }">{{ fmtFecha(p.fecha_entrega) }}</template>
+        <template #celda-estado="{ fila: p }"><EstadoBadge :estado="p.estado" :title="tx(p.motivo || '')" /></template>
+        <template #detalle="{ fila: p }">
+          <p v-if="p.facturas.length" class="ayuda">{{ t('Invoices') }}:
+            <template v-for="(f, i) in p.facturas" :key="f.id"><template v-if="i">, </template><router-link :to="`/facturas/${f.id}`">{{ tx(f.nombre) }}</router-link> ({{ fmtNum(f.cantidad) }})</template></p>
+          <p v-else class="ayuda">{{ t('Not invoiced yet.') }}</p>
+        </template>
+      </TablaDatos>
+      <template v-if="!d.posiciones.length && lineasBorrador.length">
         <p class="ayuda">{{ t('Lines of the draft: they become PO lines when it is sent.') }}</p>
         <div class="tabla-marco">
           <table class="tabla">
@@ -273,7 +279,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
           </table>
         </div>
       </template>
-      <EstadoVacio v-else icono="lista" :titulo="t('No lines yet')" :texto="t('Add the items in the assistant.')" />
+      <EstadoVacio v-if="!d.posiciones.length && !lineasBorrador.length" icono="lista" :titulo="t('No lines yet')" :texto="t('Add the items in the assistant.')" />
     </section>
 
     <!-- Avance logístico (separado del estado de la OC) -->

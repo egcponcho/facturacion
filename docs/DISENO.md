@@ -68,5 +68,31 @@ es breve y cierra primero. Esc cierra solo la capa de más arriba
 
 ## Tablas y filtros
 
-Ver S6 en el informe (`docs/INFORME.md`): tabla común con columnas
-configurables, densidad, filtros por columna y paginación.
+`TablaDatos` es la tabla común (hoy en Facturas, Embarques y las líneas de la
+OC; las demás pantallas se migran a ella de a una):
+
+- **Barra:** filtros propios de la pantalla (ranura `barra`), vistas guardadas,
+  chips de los filtros activos con su cuenta y «Limpiar filtros», total de
+  registros, densidad y menú de columnas.
+- **Encabezados:** ordenan con un clic (asc → desc → sin orden) y tienen su
+  filtro (texto que contiene u opción de una lista).
+- **Columnas:** se muestran, se ocultan, se reordenan (menú «Columnas») y se
+  ensanchan arrastrando el borde del encabezado (o con las flechas). Las que el
+  rol no ve (`grupo`) no aparecen. Todo se guarda por persona y por tabla
+  (`PUT /perfil/tablas/{tabla}`), junto con la densidad (compacta, normal o
+  amplia).
+- **Celular («prioridad +»):** cada columna tiene prioridad 1, 2 o 3. Bajo
+  720 px quedan las de prioridad 1 y bajo 900 px las de 1 y 2. El resto se ve
+  al expandir la fila.
+- **Datos:** `modo="local"` ordena, filtra y pagina en el navegador (listas
+  acotadas). `modo="servidor"` emite `consulta` (orden, filtros, página y
+  tamaño) para que la pantalla pida al servidor: es el modo para listas que
+  crecen. Siempre se pagina (25 filas por defecto, hasta 100), así que ninguna
+  pantalla dibuja miles de filas.
+- **Detalle:** `expandible` y la ranura `detalle` para el maestro-detalle.
+
+Filtros de una pantalla: arriba, las vistas predefinidas de un clic
+(`.segmentos`) y la búsqueda. Los filtros por dato van en la columna. Las
+listas grandes de un selector buscan en el servidor (`SelectBusqueda` con
+`buscar`). Una lista sin resultados dice por qué y ofrece «Limpiar filtros»;
+una lista vacía de verdad usa `EstadoVacio` con lo que hace falta para empezar.

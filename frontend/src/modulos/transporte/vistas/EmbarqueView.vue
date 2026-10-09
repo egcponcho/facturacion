@@ -19,6 +19,7 @@ import TarjetaParte from '@/componentes/TarjetaParte.vue'
 import ThOrden from '@/componentes/ThOrden.vue'
 import { datosModo, iconoUnidad, useRutas } from '@/composables/useRutas'
 import { useTabla } from '@/composables/useTabla'
+import Paginacion from '@/componentes/Paginacion.vue'
 import { sesion } from '@/stores/sesion'
 import { avisar, errorApi, guardando } from '@/stores/ui'
 import { ACCIONES, eventosEmbarque, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
@@ -477,6 +478,9 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
             </tbody>
           </table>
         </div>
+        <!-- Una unidad puede llevar más de 50 listas de empaque: ninguna queda fuera de la vista -->
+        <Paginacion v-if="tablaA.total.value > tablaA.estado.porPagina" :page="tablaA.estado.pagina" :size="tablaA.estado.porPagina" :total="tablaA.total.value"
+                    @cambiar="(p) => (tablaA.estado.pagina = p)" @tamano="(n) => (tablaA.estado.porPagina = n)" />
         <BarraSeleccion :cantidad="selA.ids.size" :singular="t('PL selected')" :plural="t('PLs selected')" @limpiar="selA.limpiar()">
           <template #resumen>{{ t('{0} cartons · {1} m³', [fmtNum(totSelA.cajas), fmtNum(totSelA.cbm, 2)]) }}</template>
           <button class="btn" :disabled="ocupado || selAsignados.some((p) => p.estado !== 'FINALIZADO')" :title="t('Finalized packing lists only')" @click="abrirRecoleccion"><Icono nombre="camion" :tam="15" />{{ t('Mark picked up') }}</button>

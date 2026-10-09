@@ -12,11 +12,9 @@ import EstadoVacio from '@/componentes/EstadoVacio.vue'
 import ResumenEmbarque from '@/modulos/transporte/componentes/ResumenEmbarque.vue'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
-import Paginacion from '@/componentes/Paginacion.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
-import ThOrden from '@/componentes/ThOrden.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import { datosModo, modoInicial, modosTransporte, useRutas } from '@/composables/useRutas'
-import { useTabla } from '@/composables/useTabla'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFecha, fmtNum } from '@/nucleo/utils'
 
@@ -36,9 +34,18 @@ const cuenta = computed(() => {
   for (const e of todos.value) r[e.estado] = (r[e.estado] || 0) + 1
   return r
 })
-const tabla = useTabla(lista, {
-  valores: { etd: (e) => e.salida_real || e.etd, eta: (e) => e.arribo_real || e.eta, estado: (e) => ESTADOS.findIndex(([k]) => k === e.estado), ruta: (e) => e.puerto_origen },
-})
+// Tabla común: ordena y filtra aquí (la lista ya viene filtrada por estado y búsqueda)
+const columnas = [
+  { clave: 'codigo', texto: t('Shipment'), fija: true, prioridad: 1, filtro: 'texto', valor: (e) => `${e.codigo} ${e.documento_numero || ''} ${e.transportista || ''}` },
+  { clave: 'ruta', texto: t('Route'), prioridad: 2, filtro: 'texto', valor: (e) => `${e.puerto_origen || ''} ${e.puerto_destino || ''} ${e.centro || ''}` },
+  { clave: 'etd', texto: 'ETD', prioridad: 2, valor: (e) => e.salida_real || e.etd },
+  { clave: 'eta', texto: 'ETA', prioridad: 1, valor: (e) => e.arribo_real || e.eta },
+  { clave: 'estado', texto: t('Status'), prioridad: 1, valor: (e) => ESTADOS.findIndex(([k]) => k === e.estado) },
+  { clave: 'holgura_dias', texto: t('Vs. in-store date'), prioridad: 2 },
+  { clave: 'unidades', texto: t('Load units'), ordenable: false, prioridad: 3 },
+  { clave: 'packing_lists', texto: 'PL', num: true, prioridad: 3 },
+  { clave: 'proveedores', texto: t('Suppliers'), prioridad: 3, filtro: 'texto', valor: (e) => e.proveedores.join(', ') },
+]
 
 async function cargar() {
   try {
@@ -123,58 +130,36 @@ onMounted(() => {
     </label>
   </div>
 
-  <div class="tabla-marco tabla-fija">
-    <table class="tabla" v-tarjetas>
-      <thead>
-        <tr>
-          <ThOrden campo="codigo" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Shipment') }}</ThOrden>
-          <ThOrden campo="ruta" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Route') }}</ThOrden>
-          <ThOrden campo="etd" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">ETD</ThOrden>
-          <ThOrden campo="eta" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">ETA</ThOrden>
-          <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Status') }}</ThOrden>
-          <ThOrden campo="holgura_dias" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Vs. in-store date') }}</ThOrden>
-          <th class="col-sec">{{ t('Load units') }}</th>
-          <ThOrden campo="packing_lists" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">PL</ThOrden>
-          <th class="col-sec">{{ t('Suppliers') }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="e in tabla.filas.value" :key="e.id" class="clicable" :class="{ 'fila-activa': resumenId === e.id }" @click="resumenId = e.id">
-          <td>
-            <span class="fila-flex" style="flex-wrap: nowrap"><Icono :nombre="datosModo(e.tipo_transporte).icono" />
-              <router-link :to="`/transporte/embarques/${e.id}`" class="cajas-rango" @click.stop>{{ tx(e.codigo) }}</router-link></span>
-            <span class="sub">{{ tx(e.documento_numero ? `${datosModo(e.tipo_transporte).doc} ${e.documento_numero}` : t('{0} pending', [datosModo(e.tipo_transporte).doc])) }}{{ tx(e.transportista ? ` · ${e.transportista}` : '') }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span>
-          </td>
-          <td>{{ tx(e.puerto_origen || '—') }} <Icono nombre="flecha" :tam="13" /> {{ tx(e.puerto_destino || '—') }}<span class="sub">{{ tx(e.centro ? t('plant {0}', [e.centro]) : t('Plant to be defined')) }}</span></td>
-          <td>{{ fmtFecha(e.salida_real || e.etd) }}<span class="sub">{{ e.salida_real ? t('actual') : t('estimated') }}</span></td>
-          <td>{{ fmtFecha(e.arribo_real || e.eta) }}<span class="sub">{{ e.arribo_real ? t('actual') : t('estimated') }}</span></td>
-          <td><EstadoBadge :estado="e.estado" tipo="embarque" /></td>
-          <td><EstadoTiempo :estado="e.estado_tiempo" :holgura="e.holgura_dias" /></td>
-          <td>
-            <div v-if="e.ocupacion.length" class="mini-ocupacion">
-              <div v-for="o in e.ocupacion" :key="o.id"><span>{{ tx(o.nombre) }}</span><Avance v-if="o.pct_cbm !== null" :porcentaje="o.pct_cbm" /><span v-else>{{ fmtNum(o.cbm, 1) }} m³</span></div>
-            </div>
-            <span v-else class="apagado">{{ t('No units') }}</span>
-          </td>
-          <td class="num">{{ tx(e.packing_lists) }}</td>
-          <td class="envolver" style="min-width: 140px">{{ tx(e.proveedores.join(', ') || '—') }}</td>
-        </tr>
-        <tr v-if="!lista.length && todos.length"><td colspan="9" class="vacio">{{ t('No shipments match these filters.') }}</td></tr>
-        <tr v-else-if="!lista.length">
-          <td colspan="9">
-            <EstadoVacio icono="barco" :titulo="t('There are no shipments yet.')"
-                         :texto="t('A shipment groups the load units (containers, air waybills or trucks) that carry goods ready to ship.')"
-                         :titulo-requisitos="t('To fill one you need:')"
-                         :requisitos="[t('A finalized invoice'), t('A finalized packing list')]">
-              <button class="btn btn-primario" @click="nuevo"><Icono nombre="mas" />{{ t('New shipment') }}</button>
-            </EstadoVacio>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <Paginacion :page="tabla.estado.pagina" :size="tabla.estado.porPagina" :total="tabla.total.value"
-              @cambiar="(p) => (tabla.estado.pagina = p)" @tamano="(t) => (tabla.estado.porPagina = t)" />
+  <TablaDatos tabla="embarques" :columnas="columnas" :filas="lista" fila-clicable :fila-activa="resumenId" :etiqueta="t('Shipments')"
+              vistas-guardadas :externos="{ estado: filtros.estado, q: filtros.q }"
+              @fila="(e) => (resumenId = e.id)" @vista="(q) => { filtros.estado = q.estado || ''; filtros.q = q.q || ''; cargar() }">
+    <template #celda-codigo="{ fila: e }">
+      <span class="fila-flex" style="flex-wrap: nowrap"><Icono :nombre="datosModo(e.tipo_transporte).icono" />
+        <router-link :to="`/transporte/embarques/${e.id}`" class="cajas-rango" @click.stop>{{ tx(e.codigo) }}</router-link></span>
+      <span class="sub">{{ tx(e.documento_numero ? `${datosModo(e.tipo_transporte).doc} ${e.documento_numero}` : t('{0} pending', [datosModo(e.tipo_transporte).doc])) }}{{ tx(e.transportista ? ` · ${e.transportista}` : '') }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span>
+    </template>
+    <template #celda-ruta="{ fila: e }">{{ tx(e.puerto_origen || '—') }} <Icono nombre="flecha" :tam="13" /> {{ tx(e.puerto_destino || '—') }}<span class="sub">{{ tx(e.centro ? t('plant {0}', [e.centro]) : t('Plant to be defined')) }}</span></template>
+    <template #celda-etd="{ fila: e }">{{ fmtFecha(e.salida_real || e.etd) }}<span class="sub">{{ e.salida_real ? t('actual') : t('estimated') }}</span></template>
+    <template #celda-eta="{ fila: e }">{{ fmtFecha(e.arribo_real || e.eta) }}<span class="sub">{{ e.arribo_real ? t('actual') : t('estimated') }}</span></template>
+    <template #celda-estado="{ fila: e }"><EstadoBadge :estado="e.estado" tipo="embarque" /></template>
+    <template #celda-holgura_dias="{ fila: e }"><EstadoTiempo :estado="e.estado_tiempo" :holgura="e.holgura_dias" /></template>
+    <template #celda-unidades="{ fila: e }">
+      <div v-if="e.ocupacion.length" class="mini-ocupacion">
+        <div v-for="o in e.ocupacion" :key="o.id"><span>{{ tx(o.nombre) }}</span><Avance v-if="o.pct_cbm !== null" :porcentaje="o.pct_cbm" /><span v-else>{{ fmtNum(o.cbm, 1) }} m³</span></div>
+      </div>
+      <span v-else class="apagado">{{ t('No units') }}</span>
+    </template>
+    <template #celda-proveedores="{ fila: e }"><span class="envolver">{{ tx(e.proveedores.join(', ') || '—') }}</span></template>
+    <template #vacio>
+      <span v-if="todos.length">{{ t('No shipments match these filters.') }}</span>
+      <EstadoVacio v-else icono="barco" :titulo="t('There are no shipments yet.')"
+                   :texto="t('A shipment groups the load units (containers, air waybills or trucks) that carry goods ready to ship.')"
+                   :titulo-requisitos="t('To fill one you need:')"
+                   :requisitos="[t('A finalized invoice'), t('A finalized packing list')]">
+        <button class="btn btn-primario" @click="nuevo"><Icono nombre="mas" />{{ t('New shipment') }}</button>
+      </EstadoVacio>
+    </template>
+  </TablaDatos>
 
   <Modal v-if="modal" :titulo="t('New shipment')" ancho="660px" @cerrar="modal = null">
     <div class="rejilla-campos">

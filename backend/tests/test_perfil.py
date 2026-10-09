@@ -144,3 +144,18 @@ def test_escalas_de_tallas(interno):
     assert r.status_code == 200, r.text
     skus = sorted(t["sku"] for t in interno.get("/catalogos/genericos/ESC-TEST").json()["tallas"])
     assert skus == ["ESC-TEST004", "ESC-TEST005"]
+
+
+def test_configuracion_de_tablas_por_persona(tnf):
+    """Columnas en su orden, anchos y densidad de cada tabla (TablaDatos)."""
+    r = tnf.put("/perfil/tablas/facturas", {"columnas": ["estado", "nombre", "X-mal"], "anchos": {"nombre": 2000, "estado": 10, "pls": "a"},
+                                            "densidad": "compacta"})
+    assert r.status_code == 200, r.text
+    conf = r.json()["tablas"]["facturas"]
+    assert conf["columnas"] == ["estado", "nombre", "x-mal".replace("-", "")]
+    assert conf["anchos"] == {"nombre": 900, "estado": 48} and conf["densidad"] == "compacta"
+    assert tnf.get("/auth/me").json()["preferencias"]["tablas"]["facturas"]["densidad"] == "compacta"
+    # Una densidad desconocida no se guarda; null vuelve a la vista inicial
+    assert "densidad" not in tnf.put("/perfil/tablas/facturas", {"densidad": "gigante"}).json()["tablas"]["facturas"]
+    assert "facturas" not in tnf.put("/perfil/tablas/facturas", None).json()["tablas"]
+    assert tnf.put("/perfil/tablas/Mal Nombre", {"densidad": "normal"}).status_code == 404

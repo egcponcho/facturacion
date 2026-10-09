@@ -1,6 +1,6 @@
 """Rutas de acceso: inicio de sesión, perfil, proveedores, usuarios y roles.
 """
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Body, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import object_session
 
@@ -165,6 +165,12 @@ def foto_perfil(datos: FotoIn, db: Db, user: User, clave: Clave = None):
 @router.patch("/perfil")
 def editar_perfil(datos: PerfilIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: preferencias.guardar(db, user, datos))
+
+
+@router.put("/perfil/tablas/{tabla}")
+def guardar_tabla(tabla: str, db: Db, user: User, datos: dict | None = Body(None), clave: Clave = None):
+    """Columnas (en su orden), anchos y densidad de una tabla del propio usuario; null vuelve a la vista inicial."""
+    return ejecutar(db, user, clave, lambda: preferencias.guardar_tabla(db, user, tabla, datos))
 
 
 @router.put("/perfil/columnas/{tabla}")
