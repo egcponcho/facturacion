@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app.core.errores import ErrorNegocio
 from app.modelos import Articulo, GrupoArticulo, Marca, Pais, Producto, Proveedor, Usuario
-from app.modulos.acceso.permisos import exigir, exigir_compartido
+from app.modulos.acceso.permisos import exigir, exigir_compartido, tiene
 from app.modulos.clasificacion.meta import categoria_de, valor_opcion
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.normalizar import Referencias
@@ -23,6 +23,7 @@ from app.modulos.comun.normalizar import texto as texto_fmt
 from app.modulos.documentos import documentos, exportar
 from app.modulos.documentos.plantillas import hojas, leer, norm, plantilla, plantilla_hojas, si_no
 from app.modulos.maestros import catalogos as cat_svc
+from app.modulos.maestros import gobierno
 from app.modulos.maestros.unidades import de_articulo, normalizar
 from app.modulos.productos.productos import (
     APROBADOS,
@@ -48,6 +49,9 @@ ALIAS_BASE = {
     "generic_code": "codigo_generico", "proposed_hs_code": "partida", "hs_code": "partida", "partida_arancelaria": "partida",
 }
 
+
+# Una carga crea con el permiso de crear; lo que ya existe solo lo cambia quien puede editar
+SIN_EDITAR = "It already exists and your role cannot edit master data: the row was not applied."
 
 def _vocab(db: Session) -> dict:
     """Partes de la composición y atributos de la ficha que van en la carga
@@ -139,6 +143,7 @@ def plantilla_articulos(db: Session) -> bytes:
 
 def importar_articulos(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
     exigir(user, "catalogos.crear")
+    gobierno.exigir_responsable(db, user, "articulos")
     if "Generics" in hojas(nombre, contenido) or "Sizes" in hojas(nombre, contenido):
         return importar_por_generico(db, user, nombre, contenido)
     return _importar_por_articulo(db, user, nombre, contenido)
@@ -155,6 +160,7 @@ def _paises(db: Session) -> dict:
 def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
     """Hoja Generics: datos maestros y ficha de cada genérico. Hoja Sizes:
     las tallas de cada genérico con su código, UPC y SKU del proveedor."""
+    edita = tiene(user, "catalogos.editar")
     from app.modulos.maestros.genericos import _articulos, siguiente_sufijo
     from app.modulos.productos.productos import MSG_CODIGO, codigo_valido
 
@@ -190,6 +196,9 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
             errores.append({"fila": f"Generics {f['_fila']}", "mensaje": "; ".join(faltan) + "."})
             continue
         p = producto_por_generico(db, gen)
+        if p and not edita:
+            errores.append({"fila": f"Generics {f['_fila']}", "mensaje": SIN_EDITAR})
+            continue
         if p and db.scalar(_articulos(db, gen).limit(1)) and (p.estilo != estilo or (p.color or "") != color or p.proveedor_id != ids["proveedor"]):
             errores.append({"fila": f"Generics {f['_fila']}", "mensaje": f"Generic {gen} already exists as {p.estilo} {p.color}."})
             continue
@@ -240,6 +249,9 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
             datos["peso_unitario"] = f["peso_unitario"].replace(",", ".").strip()
         if f.get("activo"):
             datos["activo"] = si_no(f["activo"]) is not False
+        if existente and not edita:
+            errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": SIN_EDITAR})
+            continue
         try:
             with db.begin_nested():
                 if existente:
@@ -269,6 +281,7 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
 
 def _importar_por_articulo(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
     """Formato de una sola hoja: una fila por artículo (talla) con su ficha."""
+    edita = tiene(user, "catalogos.editar")
     voc = _vocab(db)
     filas = leer(nombre, contenido, voc["alias"])
     cods = {
@@ -307,6 +320,9 @@ def _importar_por_articulo(db: Session, user: Usuario, nombre: str, contenido: b
             errores.append({"fila": f["_fila"], "mensaje": "; ".join(faltan) + "."})
             continue
         existente = db.scalar(select(Articulo).where(Articulo.sku == (datos.get("sku") or "").strip().upper()))
+        if existente and not edita:
+            errores.append({"fila": f["_fila"], "mensaje": SIN_EDITAR})
+            continue
         try:
             with db.begin_nested():
                 if existente:
@@ -434,8 +450,10 @@ def plantilla_catalogo(db: Session, user: Usuario, tipo: str) -> bytes:
 
 
 def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, contenido: bytes) -> dict:
+    edita = tiene(user, "catalogos.editar")
     exigir(user, "catalogos.crear")
     exigir_compartido(user, tipo)
+    gobierno.exigir_responsable(db, user, tipo)
     if tipo == "articulos":
         return importar_articulos(db, user, nombre, contenido)
     if tipo == "prepacks":
@@ -484,6 +502,9 @@ def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, conten
             actual = existentes.buscar(datos[clave])
             if actual:
                 datos[clave] = actual.codigo
+        if actual and not edita:
+            errores.append({"fila": f["_fila"], "mensaje": SIN_EDITAR})
+            continue
         try:
             with db.begin_nested():
                 if actual:

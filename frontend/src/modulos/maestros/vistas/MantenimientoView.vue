@@ -1,6 +1,5 @@
 <script setup>
 import { t, tr, tx } from '@/i18n/index.js'
-import { puede } from '@/stores/sesion'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -21,6 +20,7 @@ import ThOrden from '@/componentes/ThOrden.vue'
 import { siguienteOrden } from '@/composables/useTabla'
 import { avisar, errorApi } from '@/stores/ui'
 import { filasDefecto } from '@/stores/preferencias'
+import { ACCIONES, fmtFechaHora } from '@/nucleo/utils'
 
 // Un solo lugar para todos los datos maestros. Cada catálogo llega descrito
 // desde el servidor (campos, tipos, obligatorios, filtros) y esta vista dibuja
@@ -52,6 +52,9 @@ function cambiarVista(v) {
 const ESTADO_FICHA = { borrador: t('Sheet in draft'), sugerida: t('Draft complete'), revision: t('In review'), observado: t('Returned') }
 
 const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
+// Lo que el usuario puede hacer en este catálogo: sus permisos y, si el
+// catálogo tiene responsables, que su rol sea uno de ellos (lo decide el servidor)
+const acciones = computed(() => cat.value?.puede || {})
 // Catálogos de uso diario: a la vista; los de configuración, en «Más catálogos»
 const PRINCIPALES = ['articulos', 'prepacks', 'marcas', 'proveedores', 'grupos', 'centros']
 const principales = computed(() => catalogos.value.filter((c) => PRINCIPALES.includes(c.tipo)))
@@ -93,6 +96,66 @@ watch(() => campos.value.filter((c) => c.depende).map((c) => form.value?.[c.depe
   }
 })
 const conFiltro = computed(() => campos.value.filter((c) => c.filtro && !(compacta.value && ['tipo', 'activo'].includes(c.nombre))))
+
+// ---- Secciones: primero lo común; lo propio de la empresa, al final
+const SECCIONES = [['general', t('General data')], ['comercial', t('Commercial')], ['logistica', t('Logistics')],
+  ['contacto', t('Contact')], ['estado', t('Status')], ['propios', t('Own fields')]]
+const porSeccion = (lista) => SECCIONES.map(([clave, titulo]) => ({ clave, titulo, campos: lista.filter((c) => (c.seccion || 'general') === clave) }))
+  .filter((x) => x.campos.length)
+const seccionesForm = computed(() => porSeccion(camposVisibles.value))
+const etiquetaCampo = (n) => campos.value.find((c) => c.nombre === n)?.etiqueta || n
+
+// ---- Ver un registro (solo lectura, con su historial); «Editar» abre el formulario
+const viendo = ref(null) // { fila, historial }
+const camposVista = computed(() => porSeccion(campos.value.filter((c) => !c.mostrar_si || c.mostrar_si.valores.includes(viendo.value?.fila?.[c.mostrar_si.campo]))))
+async function ver(fila) {
+  viendo.value = { fila, historial: null }
+  try {
+    const h = await api.get(`/catalogos/${tipo.value}/${fila.id}/historial`)
+    if (viendo.value?.fila === fila) viendo.value.historial = h
+  } catch (e) {
+    errorApi(e)
+    if (viendo.value) viendo.value.historial = []
+  }
+}
+function editarDesdeVista() {
+  const fila = viendo.value.fila
+  viendo.value = null
+  editar(fila)
+}
+const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : Array.isArray(v) ? v.join(', ') || '—'
+  : typeof v === 'boolean' ? (v ? t('Yes') : t('No')) : String(v))
+function cambiosTxt(h) {
+  const d = h.detalle
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return ''
+  return Object.entries(d).map(([k, v]) => (Array.isArray(v) && v.length === 2
+    ? `${tx(etiquetaCampo(k))}: ${valorTxt(v[0])} → ${valorTxt(v[1])}` : `${tx(etiquetaCampo(k))}: ${valorTxt(v)}`)).join(' · ')
+}
+
+// ---- Gobierno del catálogo: responsables y datos que la empresa exige (administración)
+const roles = ref([])
+const gob = ref(null) // { responsables: [rol_id], obligatorios: [campo] }
+async function abrirGobierno() {
+  try {
+    if (!roles.value.length) roles.value = (await api.get('/roles')).roles.filter((r) => r.activo).map((r) => ({ valor: r.id, texto: r.nombre }))
+    gob.value = { responsables: cat.value.gobierno.responsables.map((r) => r.id), obligatorios: [...cat.value.gobierno.obligatorios] }
+  } catch (e) {
+    errorApi(e)
+  }
+}
+async function guardarGobierno() {
+  ocupado.value = true
+  try {
+    await api.put(`/catalogos/${tipo.value}/gobierno`, gob.value)
+    gob.value = null
+    avisar(t('Catalog governance saved.'))
+    await cargarMeta()
+  } catch (e) {
+    errorApi(e)
+  } finally {
+    ocupado.value = false
+  }
+}
 
 function vacio() {
   const f = {}
@@ -348,10 +411,10 @@ onMounted(async () => {
         <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="{ q: filtros.q, orden: filtros.orden, ...filtros.extra }" />
         <router-link v-if="tipo === 'leadtimes' || tipo === 'pasos_lt'" class="btn" to="/leadtimes"><Icono nombre="reloj" :tam="15" />{{ t('Effective lead time') }}</router-link>
         <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />{{ t('Template') }}</a>
-        <button v-if="cat && puede('catalogos.crear')" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload items and sheets') : tipo === 'prepacks' ? t('Upload size runs') : t('Upload Excel')) }}</button>
+        <button v-if="cat && acciones.crear" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload items and sheets') : tipo === 'prepacks' ? t('Upload size runs') : t('Upload Excel')) }}</button>
       </MasOpciones>
-      <button v-if="tipo === 'articulos' && puede('catalogos.crear')" class="btn btn-primario" :title="t('Generic (style-color) with its sizes')" @click="genericoNuevo = true"><Icono nombre="mas" />{{ t('New generic') }}</button>
-      <button v-else-if="cat && tipo !== 'articulos' && puede('catalogos.crear')" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />{{ tr('New {0}', [cat.singular]) }}</button>
+      <button v-if="tipo === 'articulos' && acciones.crear" class="btn btn-primario" :title="t('Generic (style-color) with its sizes')" @click="genericoNuevo = true"><Icono nombre="mas" />{{ t('New generic') }}</button>
+      <button v-else-if="cat && tipo !== 'articulos' && acciones.crear" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />{{ tr('New {0}', [cat.singular]) }}</button>
     </div>
   </div>
 
@@ -375,6 +438,13 @@ onMounted(async () => {
   </div>
 
   <div v-if="cat">
+    <div v-if="cat.gobierno?.gobernable && (cat.gobierno.responsables.length || cat.gobierno.obligatorios.length || acciones.gobernar)" class="gobierno" role="note">
+      <Icono nombre="candado" :tam="15" />
+      <span v-if="cat.gobierno.responsables.length">{{ t('Maintained by: {0}', [cat.gobierno.responsables.map((r) => tx(r.nombre)).join(', ')]) }}</span>
+      <span v-else>{{ t('Maintained by every role with master data permissions.') }}</span>
+      <span v-if="cat.gobierno.obligatorios.length">{{ t('Your company also requires: {0}', [cat.gobierno.obligatorios.map((n) => tx(etiquetaCampo(n))).join(', ')]) }}</span>
+      <button v-if="acciones.gobernar" type="button" class="btn btn-chico btn-fantasma" @click="abrirGobierno"><Icono nombre="engrane" :tam="14" />{{ t('Governance') }}</button>
+    </div>
 
     <section>
       <div class="filtros" v-filtros>
@@ -396,7 +466,7 @@ onMounted(async () => {
           </Seleccion>
         </template>
       </div>
-      <ArticulosGenericos v-if="compacta" :q="filtros.q" :extra="filtros.extra" :recarga="recarga"
+      <ArticulosGenericos v-if="compacta" :acciones="acciones" :q="filtros.q" :extra="filtros.extra" :recarga="recarga"
                           @editar-articulo="editar" @eliminar-articulo="(fila) => (modal = { tipo: 'eliminar', fila })" @desglose="(a) => (explosion = { sku: a.sku })" @cambio="cargarMeta" />
       <template v-else>
       <div class="tabla-marco tabla-fija">
@@ -414,7 +484,7 @@ onMounted(async () => {
           <tbody>
             <tr v-for="fila in datos.items" :key="fila.id" :class="{ seleccionada: editando === fila.id }">
               <td v-for="c in columnas" :key="c.nombre" :class="{ num: c.tipo === 'entero' }">
-                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :disabled="!puede('catalogos.editar')" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="t('Change {0}', [c.etiqueta.toLowerCase()])" @click="alternarActivo(fila, c.nombre)">
+                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :disabled="!acciones.editar" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="t('Change {0}', [c.etiqueta.toLowerCase()])" @click="alternarActivo(fila, c.nombre)">
                   {{ tx(fila[c.nombre] ? t('Yes') : t('No')) }}
                 </button>
                 <span v-else :class="{ codigo: ['codigo', 'sku'].includes(c.nombre), fuerte: c.nombre === 'codigo' || c.nombre === 'sku' }">{{ tx(valorCelda(c, fila)) }}</span>
@@ -438,8 +508,9 @@ onMounted(async () => {
               <td class="num" style="white-space: nowrap">
                 <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" :title="t('See the breakdown (it never changes)')"
                         @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />{{ t('Breakdown') }}</button>
-                <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="tr('Edit {0}', [cat.singular])" :title="t('Edit')" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
-                <button v-if="puede('catalogos.eliminar')" class="btn-icono" style="color: var(--error)" :aria-label="tr('Delete {0}', [cat.singular])" :title="t('Delete')" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
+                <button class="btn-icono" :aria-label="tr('See {0}', [cat.singular])" :title="t('See details and history')" @click="ver(fila)"><Icono nombre="ojo" :tam="16" /></button>
+                <button v-if="acciones.editar" class="btn-icono" :aria-label="tr('Edit {0}', [cat.singular])" :title="t('Edit')" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
+                <button v-if="acciones.eliminar" class="btn-icono" style="color: var(--error)" :aria-label="tr('Delete {0}', [cat.singular])" :title="t('Delete')" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
               </td>
             </tr>
             <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : tipo === 'articulos' ? 3 : 2)" class="vacio">{{ t('No records match these filters.') }}</td></tr>
@@ -493,18 +564,20 @@ onMounted(async () => {
         <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />{{ t('Create prepack') }}</button>
       </form>
       <form v-else class="form-catalogo" @submit.prevent="guardar">
-        <component :is="c.tipo === 'regla_lt' ? 'div' : 'label'" v-for="c in camposVisibles" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
+        <template v-for="sec in seccionesForm" :key="sec.clave">
+        <h3 v-if="seccionesForm.length > 1" class="seccion-form">{{ tx(sec.titulo) }}</h3>
+        <component :is="c.tipo === 'regla_lt' ? 'div' : 'label'" v-for="c in sec.campos" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
           <template v-if="c.tipo === 'bool'">
             <input v-model="form[c.nombre]" type="checkbox" /> {{ tx(c.etiqueta) }}
           </template>
           <template v-else>
-            <span :class="{ req: c.obligatorio }">{{ tx(c.etiqueta) }}</span>
+            <span :class="{ req: c.obligatorio }" :title="tx(c.obligatorio_empresa ? t('Required by your company') : '')">{{ tx(c.etiqueta) }}</span>
             <Seleccion v-if="c.tipo === 'opcion'" v-model="form[c.nombre]" :required="c.obligatorio" :disabled="bloqueado(c)">
               <option value="">{{ t('Choose…') }}</option>
               <option v-for="[v, txt] in opcionesCampo(c)" :key="v" :value="v">{{ tx(txt) }}</option>
             </Seleccion>
             <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)"
-                            :vacio="tx(c.obligatorio ? '' : t('None'))" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" :deshabilitado="bloqueado(c)" />
+                            :vacio="tx(c.obligatorio ? '' : t('None'))" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" :prefijo="false" :deshabilitado="bloqueado(c)" />
             <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)" multiple
                             :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
             <SelectBusqueda v-else-if="c.tipo === 'opciones'" v-model="form[c.nombre]" :opciones="c.opciones.map(([valor, texto]) => ({ valor, texto: tx(texto) }))" multiple
@@ -518,12 +591,55 @@ onMounted(async () => {
             <small v-else-if="c.ayuda" class="ayuda">{{ tx(c.ayuda) }}</small>
           </template>
         </component>
+        </template>
         <p class="leyenda-req">{{ t('Required') }}</p>
         <div class="fila-flex">
           <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ editando ? t('Save changes') : tr('Create {0}', [cat.singular]) }}</button>
           <button class="btn btn-fantasma" type="button" @click="cerrarForm">{{ t('Cancel') }}</button>
         </div>
       </form>
+  </Modal>
+
+  <Modal v-if="viendo && cat" :titulo="tx(viendo.fila.codigo || viendo.fila.sku || viendo.fila.nombre || cap(cat.singular))" ancho="680px" @cerrar="viendo = null">
+    <section v-for="sec in camposVista" :key="sec.clave" class="vista-seccion">
+      <h3 v-if="camposVista.length > 1">{{ tx(sec.titulo) }}</h3>
+      <dl class="datos">
+        <template v-for="c in sec.campos" :key="c.nombre">
+          <dt>{{ tx(c.etiqueta) }}</dt>
+          <dd>{{ c.tipo === 'bool' ? tx(viendo.fila[c.nombre] ? t('Yes') : t('No')) : tx(valorCelda(c, viendo.fila)) }}</dd>
+        </template>
+      </dl>
+    </section>
+    <section class="vista-seccion">
+      <h3>{{ t('History') }}</h3>
+      <p v-if="!viendo.historial" class="ayuda">{{ t('Loading…') }}</p>
+      <ul v-else class="linea-tiempo">
+        <li v-for="h in viendo.historial" :key="h.id">
+          <span class="ayuda">{{ fmtFechaHora(h.fecha) }}<br />{{ tx(h.usuario || t('System')) }}</span>
+          <div><b>{{ tx(ACCIONES[h.accion] || h.accion) }}</b><div v-if="cambiosTxt(h)" class="ayuda">{{ tx(cambiosTxt(h)) }}</div></div>
+        </li>
+        <li v-if="!viendo.historial.length"><span></span><span class="ayuda">{{ t('No changes recorded.') }}</span></li>
+      </ul>
+    </section>
+    <template #pie>
+      <button type="button" class="btn" @click="viendo = null">{{ t('Close') }}</button>
+      <button v-if="acciones.editar" type="button" class="btn btn-primario" @click="editarDesdeVista"><Icono nombre="editar" :tam="15" />{{ t('Edit') }}</button>
+    </template>
+  </Modal>
+
+  <Modal v-if="gob && cat" :titulo="t('Governance of {0}', [tx(cat.titulo)])" ancho="620px" @cerrar="gob = null">
+    <p class="ayuda">{{ t('Who maintains this catalog and which of its data your company requires besides the ones the system always asks for. Without owners, every role with master data permissions maintains it. Every change is recorded in the activity log.') }}</p>
+    <div class="campo"><span>{{ t('Owners (roles)') }}</span>
+      <SelectBusqueda v-model="gob.responsables" :opciones="roles" multiple :placeholder="t('Every role with permissions')" :etiqueta="t('Owners (roles)')" :prefijo="false" /></div>
+    <div class="campo mt-chico"><span>{{ t('Also required') }}</span>
+      <div class="lista-checks">
+        <label v-for="o in cat.gobierno.obligables" :key="o.nombre" class="check"><input v-model="gob.obligatorios" type="checkbox" :value="o.nombre" />{{ tx(o.etiqueta) }}</label>
+      </div>
+    </div>
+    <template #pie>
+      <button type="button" class="btn" @click="gob = null">{{ t('Cancel') }}</button>
+      <button type="button" class="btn btn-primario" :disabled="ocupado" @click="guardarGobierno"><Icono nombre="check" :tam="15" />{{ t('Save') }}</button>
+    </template>
   </Modal>
 
   <Modal v-if="modal?.tipo === 'eliminar'" :titulo="tr('Delete {0}', [cat.singular])" @cerrar="modal = null">
@@ -558,3 +674,17 @@ onMounted(async () => {
   <GenericoModal v-if="genericoNuevo" @cerrar="genericoNuevo = false" @listo="genericoNuevo = false; cargarMeta(); cargar()" />
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" @cerrar="explosion = null" />
 </template>
+
+<style scoped>
+.gobierno { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 12px; padding: 8px 12px; border: 1px solid var(--linea);
+  border-radius: var(--radio); background: var(--superficie-2); color: var(--tinta-2); font-size: 0.86rem; }
+.gobierno .btn { margin-inline-start: auto; }
+.seccion-form { grid-column: 1 / -1; margin: 6px 0 -4px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tinta-3); }
+.seccion-form:first-child { margin-top: 0; }
+.vista-seccion + .vista-seccion { margin-top: 16px; }
+.vista-seccion h3 { margin: 0 0 8px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tinta-3); }
+.datos { display: grid; grid-template-columns: minmax(140px, auto) 1fr; gap: 6px 16px; margin: 0; font-size: 0.9rem; }
+.datos dt { color: var(--tinta-2); }
+.datos dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.lista-checks { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+</style>

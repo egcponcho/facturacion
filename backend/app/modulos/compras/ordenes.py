@@ -693,6 +693,11 @@ def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
         errores.append(f"Destination center {d['centro_destino']} does not belong to company {d['sociedad']}.")
     if d["puerto_despacho"] and d["puerto_despacho"] not in m.puertos:
         errores.append(f"Port {d['puerto_despacho']} is not registered.")
+    # Moneda e incoterm: de las listas de la empresa (Datos maestros → Listas de valores)
+    if d["moneda"] and d["moneda"] not in listas.codigos("moneda"):
+        errores.append(f"Currency {d['moneda']} is not in the list of currencies.")
+    if d["incoterm"] and d["incoterm"] not in listas.codigos("incoterm"):
+        errores.append(f"Incoterm {d['incoterm']} is not in the list of Incoterms.")
     for campo in ("pais_origen", "pais_procedencia"):
         if d[campo] and d[campo] not in m.paises:
             errores.append(f"Country {d[campo]} ({PAIS_TXT[campo]}) is not registered.")

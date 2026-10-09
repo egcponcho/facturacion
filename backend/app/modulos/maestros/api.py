@@ -117,3 +117,15 @@ def actualizar(tipo: str, obj_id: int, db: Db, user: User, datos: dict = Body(..
 @router.delete("/{tipo}/{obj_id}")
 def eliminar(tipo: str, obj_id: int, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.eliminar(db, user, tipo, obj_id))
+
+
+@router.get("/{tipo}/{obj_id}/historial")
+def historial(tipo: str, obj_id: int, db: Db, user: User):
+    """Quién cambió el registro, cuándo y qué."""
+    return svc.historial(db, user, tipo, obj_id)
+
+
+@router.put("/{tipo}/gobierno")
+def gobierno(tipo: str, db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
+    """Responsables del catálogo y datos que la empresa vuelve obligatorios."""
+    return ejecutar(db, user, clave, lambda: svc.guardar_gobierno(db, user, tipo, datos))

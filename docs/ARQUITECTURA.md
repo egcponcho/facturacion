@@ -100,6 +100,34 @@ para consultas de plataforma sobre todas: `organizacion.todas(db)`.
 | Alcance de datos por usuario (proveedores, sociedades, transportistas) | Usuarios y accesos → Usuario | `acceso/permisos.proveedor_filtro`, `sociedad_filtro`, `transportistas_de` |
 | Datos visibles por rol | Usuarios y accesos → Roles | `acceso/visibilidad.py` |
 | Perfiles de importación de OCs | Órdenes de compra → Importar | `compras/perfiles.py` |
+| Reglas de aprobación y datos obligatorios de la OC | Configuración → Empresa | `empresa/organizacion.py` (`aprobaciones_oc`, `obligatorios`), `compras/flujo_oc.py` |
+| Responsables y datos obligatorios de cada catálogo | Datos maestros → (catálogo) → Gobierno | `maestros/gobierno.py`; configuración `maestros` de la organización |
+
+### Datos maestros y su gobierno
+
+Cada dato maestro se mantiene en un solo lugar: Datos maestros
+(`maestros/catalogos.py`). El catálogo se describe una vez (campos, tipos,
+obligatorios, sección del formulario) y de esa descripción salen la tabla, los
+filtros, el formulario, la carga desde Excel y la exportación. Otras pantallas
+solo los consultan (p. ej. Usuarios y accesos muestra los proveedores para dar
+acceso, pero no los edita).
+
+- **Responsables:** cada catálogo puede tener los roles que lo mantienen. Sin
+  responsables, lo mantiene cualquier rol con los permisos `catalogos.*`. El
+  servidor lo exige al crear, editar, eliminar y cargar (`gobierno.exigir_responsable`);
+  la pantalla recibe `puede` por catálogo y muestra solo lo permitido.
+- **Obligatorios de la empresa:** además de los que el sistema exige, la
+  administración elige qué datos de cada catálogo son obligatorios; valen en el
+  formulario y en la carga masiva (`catalogos._limpiar`).
+- **Historial por registro:** cada alta y cambio queda en `historial` (quién,
+  cuándo, antes → después) y se ve en la ficha de solo lectura del registro.
+- **Borrado:** un registro que otros registros usan por llave foránea, o cuyo
+  código guardan los documentos (`gobierno.USOS_CODIGO`, `USOS_LISTA`), no se
+  borra: se desactiva.
+- **Cargas:** crean con `catalogos.crear`; una fila que cambia un registro que
+  ya existe requiere `catalogos.editar`.
+- **Compartidos:** países y acuerdos comerciales son comunes a todas las
+  organizaciones; solo la plataforma los cambia.
 
 ### Base de datos y migraciones
 

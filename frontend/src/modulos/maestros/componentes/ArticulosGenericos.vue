@@ -1,6 +1,5 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { puede } from '@/stores/sesion'
 import { reactive, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import { plural } from '@/nucleo/utils'
@@ -16,7 +15,10 @@ import { filasDefecto } from '@/stores/preferencias'
 // Vista compacta de artículos: un renglón por genérico (estilo-color) con sus
 // datos maestros; al desplegarlo se ven sus tallas y prepacks, como las líneas
 // de una orden. La vista de listado (un renglón por artículo) sigue en Master data.
-const props = defineProps({ q: { type: String, default: '' }, extra: { type: Object, default: () => ({}) }, recarga: { type: Number, default: 0 } })
+// acciones: lo que el usuario puede hacer en el catálogo de artículos (permisos y responsables)
+const props = defineProps({ q: { type: String, default: '' }, extra: { type: Object, default: () => ({}) }, recarga: { type: Number, default: 0 },
+  acciones: { type: Object, default: () => ({}) } })
+const puede = (p) => !!props.acciones[p.replace('catalogos.', '')]
 const emit = defineEmits(['editar-articulo', 'eliminar-articulo', 'desglose', 'cambio'])
 const datos = ref({ items: [], total: 0 })
 const f = reactive({ orden: '', page: 1, size: filasDefecto() })

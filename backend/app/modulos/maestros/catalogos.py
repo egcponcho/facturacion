@@ -52,6 +52,7 @@ from app.modulos.comun.normalizar import Referencias
 from app.modulos.comun.normalizar import nombre as nombre_fmt
 from app.modulos.comun.normalizar import texto as texto_fmt
 from app.modulos.comun.texto import filtro_texto
+from app.modulos.maestros import gobierno
 from app.modulos.productos.productos import (
     asegurar_producto,
     codigo_valido,
@@ -517,11 +518,36 @@ def campos_propios(cat: dict) -> list[dict]:
             for x in campos_propios_def(_tipo_de(cat))]
 
 
+# Sección de cada dato en el formulario (primero lo común, al final lo propio
+# de la empresa). Un dato que no está aquí va en «general».
+SECCION_CAMPO = {
+    **dict.fromkeys(("marca_id", "grupo_id", "proveedor_id", "marcas", "sociedades", "sociedad_id", "centro_id", "moneda",
+                     "unidad"), "comercial"),
+    **dict.fromkeys(("pais", "puerto", "puertos", "region", "peso_unitario"), "logistica"),
+    **dict.fromkeys(("direccion", "contacto", "correos", "telefono", "cargo", "rol"), "contacto"),
+    **dict.fromkeys(("activo", "activa", "predeterminada", "predeterminado"), "estado"),
+}
+
+
+def _obligatorio(cat: dict, campo: dict) -> bool:
+    """Obligatorio por el sistema o porque la empresa lo pide (gobierno)."""
+    return campo["obligatorio"] or campo["nombre"] in gobierno.obligatorios(_tipo_de(cat))
+
+
 def campos_con_opciones(cat: dict) -> list[dict]:
-    """Campos del catálogo con las opciones de las listas de la empresa y los
-    campos propios."""
-    return [{**x, "opciones": _opciones(x)} if x["tipo"] in ("opcion", "opciones") else x
-            for x in cat["campos"]] + campos_propios(cat)
+    """Campos del catálogo con las opciones de las listas de la empresa, su
+    sección, si la empresa los volvió obligatorios y los campos propios."""
+    extra = gobierno.obligatorios(_tipo_de(cat))
+    campos = []
+    for x in cat["campos"]:
+        y = {**x, "seccion": x.get("seccion") or SECCION_CAMPO.get(x["nombre"], "general")}
+        if x["tipo"] in ("opcion", "opciones"):
+            y["opciones"] = _opciones(x)
+        if x["nombre"] in extra:
+            y["obligatorio"] = True
+            y["obligatorio_empresa"] = True
+        campos.append(y)
+    return campos + [{**x, "seccion": "propios"} for x in campos_propios(cat)]
 
 
 def meta(db: Session, user: Usuario) -> list[dict]:
@@ -529,8 +555,35 @@ def meta(db: Session, user: Usuario) -> list[dict]:
     return [{"tipo": t, "titulo": CATALOGOS[t]["titulo"], "singular": CATALOGOS[t]["singular"],
              "ayuda": CATALOGOS[t].get("ayuda"), "campos": campos_con_opciones(CATALOGOS[t]),
              "extras": CATALOGOS[t].get("extras", []),
-             "total": db.scalar(select(func.count()).select_from(CATALOGOS[t]["modelo"])) or 0}
+             "total": db.scalar(select(func.count()).select_from(CATALOGOS[t]["modelo"])) or 0,
+             "puede": gobierno.puede(user, t),
+             "gobierno": gobierno.resumen(db, t, CATALOGOS[t]["campos"])}
             for t in ORDEN_CATALOGOS]
+
+
+def guardar_gobierno(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
+    """Responsables y datos obligatorios del catálogo (administración)."""
+    cat = _cat(tipo)
+    return gobierno.guardar(db, user, tipo, cat["campos"], datos)
+
+
+def historial(db: Session, user: Usuario, tipo: str, obj_id: int) -> list[dict]:
+    """Cambios de un registro: quién, cuándo y qué cambió (gobierno del dato)."""
+    from app.modelos import Historial
+
+    exigir(user, "catalogos.ver")
+    cat = _cat(tipo)
+    if not db.get(cat["modelo"], obj_id):
+        raise ErrorNegocio(f"The {cat['singular']} does not exist.", 404, "no_encontrado")
+    filas = db.scalars(select(Historial).where(Historial.entidad == tipo, Historial.entidad_id == obj_id)
+                       .order_by(Historial.fecha.desc(), Historial.id.desc()).limit(200)).all()
+    res = []
+    for h in filas:
+        if h.accion == "eliminar":  # lo anterior es de un registro borrado que tuvo el mismo id
+            break
+        res.append({"id": h.id, "fecha": h.fecha, "accion": h.accion, "detalle": h.detalle, "motivo": h.motivo,
+                    "usuario": h.usuario.nombre if h.usuario else None})
+    return res
 
 
 def _fila(cat: dict, obj, refs: dict) -> dict:
@@ -723,8 +776,9 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
     limpio = {}
     for campo in cat["campos"]:
         n = campo["nombre"]
+        obligatorio = _obligatorio(cat, campo)
         if n not in datos:
-            if not parcial and campo["obligatorio"]:
+            if not parcial and obligatorio:
                 errores.append({"campo": n, "mensaje": f"{campo['etiqueta']} is required."})
             continue
         v = datos[n]
@@ -739,16 +793,16 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             v = nombre_fmt(v) if campo.get("formato") == "nombre" else texto_fmt(v)
             if campo.get("mayus"):
                 v = v.upper()
-        if v in ("", None) or (campo["tipo"] == "multi" and v == [] and not campo["obligatorio"]):
+        if v in ("", None) or (campo["tipo"] == "multi" and v == [] and not obligatorio):
             if campo["tipo"] == "multi":
-                if campo["obligatorio"]:
+                if obligatorio:
                     errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: choose at least one."})
                 else:
                     limpio[n] = []
                 continue
             v = None
         if v is None:
-            if campo["obligatorio"]:
+            if obligatorio:
                 errores.append({"campo": n, "mensaje": f"{campo['etiqueta']} is required."})
             limpio[n] = False if campo["tipo"] == "bool" else None
             continue
@@ -790,7 +844,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                 objs = list(db.scalars(select(modelo).where(modelo.id.in_([int(x) for x in ids])))) if ids else []
                 if len(objs) != len(set(int(x) for x in ids)):
                     raise ValueError
-                if campo["obligatorio"] and not objs:
+                if obligatorio and not objs:
                     errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: choose at least one."})
                     continue
                 v = objs
@@ -935,6 +989,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
 def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
     exigir(user, "catalogos.crear")
     exigir_compartido(user, tipo)
+    gobierno.exigir_responsable(db, user, tipo)
     if tipo == "prepacks":
         return crear_prepack(db, user, datos)
     cat = _cat(tipo)
@@ -958,6 +1013,7 @@ def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
 def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) -> dict:
     exigir(user, "catalogos.editar")
     exigir_compartido(user, tipo)
+    gobierno.exigir_responsable(db, user, tipo)
     cat = _cat(tipo)
     obj = db.get(cat["modelo"], obj_id)
     if not obj:
@@ -1010,10 +1066,12 @@ def _validar_regla_lt(db: Session, final: dict, actual, limpio: dict) -> list[di
 def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
     exigir(user, "catalogos.eliminar")
     exigir_compartido(user, tipo)
+    gobierno.exigir_responsable(db, user, tipo)
     cat = _cat(tipo)
     obj = db.get(cat["modelo"], obj_id)
     if not obj:
         raise ErrorNegocio(f"The {cat['singular']} does not exist.", 404, "no_encontrado")
+    gobierno.exigir_sin_uso(db, tipo, obj)
     if isinstance(obj, ValorLista) and obj.codigo in listas.LISTAS.get(obj.lista, {}).get("sistema", []):
         raise ErrorNegocio("The system relies on this value: it can be renamed but not deleted.", 409, "en_uso")
     if isinstance(obj, PasoLeadTime):

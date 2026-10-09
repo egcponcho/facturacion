@@ -11,7 +11,7 @@ import Avatar from '@/componentes/Avatar.vue'
 import MenuAcciones from '@/componentes/MenuAcciones.vue'
 import PanelFlujo from '@/modulos/acceso/componentes/PanelFlujo.vue'
 import PanelBitacora from '@/modulos/acceso/componentes/PanelBitacora.vue'
-import { sesion } from '@/stores/sesion'
+import { puede, sesion } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFechaHora } from '@/nucleo/utils'
 
@@ -19,7 +19,6 @@ const route = useRoute()
 const router = useRouter()
 const proveedores = ref([])
 const usuarios = ref([])
-const nuevoProv = reactive({ codigo: '', nombre: '' })
 const vacioUsr = () => ({ nombre: '', email: '', rol_id: '', proveedor_id: '', password: '', telefono: '', dos_pasos: true, cargo: '', area: '', empresa: '' })
 const nuevoUsr = reactive(vacioUsr())
 // 'proveedor' | 'usuario' | { tipo: 'clave', usuario, clave } | { tipo: 'telefono', usuario, telefono, dos_pasos }
@@ -56,18 +55,6 @@ async function cargar() {
     gruposDatos.value = r.datos || []
     panelesInicio.value = r.paneles || []
     sesion.proveedores = proveedores.value
-  } catch (e) {
-    errorApi(e)
-  }
-}
-
-async function crearProveedor() {
-  try {
-    await api.post('/proveedores', nuevoProv)
-    avisar(t('Supplier {0} created.', [nuevoProv.nombre]))
-    Object.assign(nuevoProv, { codigo: '', nombre: '' })
-    modal.value = null
-    cargar()
   } catch (e) {
     errorApi(e)
   }
@@ -190,16 +177,19 @@ onMounted(cargar)
   </div>
 
   <section v-if="pestana === 'proveedores'" class="panel">
-    <div class="panel-cabeza"><h2>{{ t('Suppliers') }}</h2><button class="btn btn-primario" @click="modal = 'proveedor'"><Icono nombre="mas" />{{ t('New supplier') }}</button></div>
+    <div class="panel-cabeza">
+      <div><h2>{{ t('Suppliers') }}</h2><p class="sub-panel">{{ t('Suppliers are maintained in one place, Master data → Suppliers, with their validation, owners and history. Here you see them to give users access.') }}</p></div>
+      <router-link v-if="puede('catalogos.ver')" to="/mantenimiento?catalogo=proveedores" class="btn"><Icono nombre="base" />{{ t('Open in master data') }}</router-link>
+    </div>
     <div class="tabla-marco">
       <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Name') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
+        <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Name') }}</th><th>{{ t('Status') }}</th><th>{{ t('Users') }}</th></tr></thead>
         <tbody>
           <tr v-for="p in proveedores" :key="p.id">
             <td class="codigo">{{ tx(p.codigo) }}</td>
             <td>{{ tx(p.nombre) }}</td>
             <td><span class="etiqueta" :class="p.activo ? 'ok' : ''">{{ tx(p.activo ? t('Active') : t('Inactive')) }}</span></td>
-            <td><button class="btn btn-chico" @click="actualizar(`/proveedores/${p.id}`, { activo: !p.activo }, t('Supplier updated.'))">{{ tx(p.activo ? t('Deactivate') : t('Activate')) }}</button></td>
+            <td>{{ tx(usuarios.filter((u) => u.proveedor_id === p.id).length) }}</td>
           </tr>
         </tbody>
       </table>
@@ -276,16 +266,6 @@ onMounted(cargar)
     </div>
   </section>
 
-  <Modal v-if="modal === 'proveedor'" :titulo="t('New supplier')" @cerrar="modal = null">
-    <form id="form-proveedor" class="rejilla-campos" @submit.prevent="crearProveedor">
-      <label class="campo"><span class="req">{{ t('Code (as in SAP)') }}</span><input v-model="nuevoProv.codigo" required /></label>
-      <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="nuevoProv.nombre" required /></label>
-    </form>
-    <template #pie>
-      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
-      <button class="btn btn-primario" type="submit" form="form-proveedor">{{ t('Create supplier') }}</button>
-    </template>
-  </Modal>
   <Modal v-if="modal === 'usuario'" :titulo="t('New user')" ancho="620px" @cerrar="modal = null">
     <form id="form-usuario" class="rejilla-campos" @submit.prevent="crearUsuario">
       <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="nuevoUsr.nombre" required /></label>

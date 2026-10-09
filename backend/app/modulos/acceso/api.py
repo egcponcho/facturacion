@@ -12,8 +12,6 @@ from app.esquemas import (
     LoginIn,
     PasswordIn,
     PerfilIn,
-    ProveedorIn,
-    ProveedorPatch,
     RolIn,
     RolPatch,
     UsuarioIn,
@@ -183,17 +181,9 @@ def guardar_vistas(pantalla: str, datos: list[dict], db: Db, user: User, clave: 
 
 @router.get("/proveedores")
 def proveedores(db: Db, user: User):
+    """Proveedores del alcance del usuario (para elegir con cuál trabajar). Se
+    mantienen en un solo lugar: Datos maestros → Proveedores (/catalogos/proveedores)."""
     return servicio_proveedores.listar_proveedores(db, user)
-
-
-@router.post("/proveedores")
-def crear_proveedor(datos: ProveedorIn, db: Db, user: User, clave: Clave = None):
-    return ejecutar(db, user, clave, lambda: servicio_proveedores.crear_proveedor(db, user, datos))
-
-
-@router.patch("/proveedores/{proveedor_id}")
-def actualizar_proveedor(proveedor_id: int, datos: ProveedorPatch, db: Db, user: User, clave: Clave = None):
-    return ejecutar(db, user, clave, lambda: servicio_proveedores.actualizar_proveedor(db, user, proveedor_id, datos))
 
 
 @router.get("/usuarios")

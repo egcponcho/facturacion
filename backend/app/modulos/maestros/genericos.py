@@ -20,6 +20,7 @@ from app.modulos.acceso.permisos import exigir
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.maestros import catalogos as cat_svc
+from app.modulos.maestros import gobierno
 from app.modulos.maestros import tallas as tallas_svc
 from app.modulos.maestros.unidades import de_articulo, normalizar
 from app.modulos.productos.productos import (
@@ -76,6 +77,7 @@ def detalle(db: Session, user: Usuario, gen: str) -> dict:
 def crear(db: Session, user: Usuario, datos) -> dict:
     """Genérico nuevo con sus datos maestros y, si vienen, sus tallas."""
     exigir(user, "catalogos.crear")
+    gobierno.exigir_responsable(db, user, "articulos")
     gen = (datos.generico or "").strip().upper()
     errores = []
     if not codigo_valido(gen):
@@ -113,6 +115,7 @@ def crear(db: Session, user: Usuario, datos) -> dict:
 def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list, escala_id: int | None = None) -> list[int]:
     """Tallas nuevas de un genérico: heredan sus datos maestros."""
     exigir(user, "catalogos.crear")
+    gobierno.exigir_responsable(db, user, "articulos")
     p = producto_por_generico(db, gen)
     if not p:
         raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
@@ -216,6 +219,7 @@ def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: i
 def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
     """Cambia los datos maestros del genérico y los pasa a todas sus tallas."""
     exigir(user, "catalogos.editar")
+    gobierno.exigir_responsable(db, user, "articulos")
     p = producto_por_generico(db, gen)
     if not p:
         raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")

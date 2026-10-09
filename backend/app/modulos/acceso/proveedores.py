@@ -1,12 +1,11 @@
-"""Proveedores con acceso al sistema (administración).
-"""
+"""Proveedores del alcance de cada usuario. El maestro de proveedores se
+mantiene solo en Datos maestros (maestros/catalogos.py), con su validación,
+sus responsables y su historial."""
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.errores import ErrorNegocio
 from app.modelos import Proveedor, Usuario
-from app.modulos.acceso.permisos import exigir, proveedores_de
-from app.modulos.comun.historial import registrar
+from app.modulos.acceso.permisos import proveedores_de
 
 
 def listar_proveedores(db: Session, user: Usuario) -> list[dict]:
@@ -17,29 +16,3 @@ def listar_proveedores(db: Session, user: Usuario) -> list[dict]:
     return [{"id": p.id, "codigo": p.codigo, "nombre": p.nombre, "activo": p.activo, "pais": p.pais,
              "razon_social": p.razon_social, "marcas": [m.nombre for m in getattr(p, "marcas", [])]}
             for p in db.scalars(consulta).all()]
-
-
-def crear_proveedor(db: Session, user: Usuario, datos) -> dict:
-    exigir(user, "admin")
-    codigo = datos.codigo.strip().upper()
-    if db.scalar(select(Proveedor.id).where(Proveedor.codigo == codigo)):
-        raise ErrorNegocio(f"Supplier {codigo} already exists.", 409, "duplicado")
-    p = Proveedor(codigo=codigo, nombre=datos.nombre.strip(), activo=datos.activo)
-    db.add(p)
-    db.flush()
-    registrar(db, user, "proveedores", p.id, "crear", {"codigo": p.codigo, "nombre": p.nombre})
-    return {"id": p.id}
-
-
-def actualizar_proveedor(db: Session, user: Usuario, proveedor_id: int, datos) -> dict:
-    exigir(user, "admin")
-    p = db.get(Proveedor, proveedor_id)
-    if not p:
-        raise ErrorNegocio("The supplier does not exist.", 404, "no_encontrado")
-    cambios = {k: {"antes": getattr(p, k), "despues": v} for k, v in datos.model_dump(exclude_unset=True).items()
-               if getattr(p, k) != v}
-    for k, v in cambios.items():
-        setattr(p, k, v["despues"])
-    if cambios:
-        registrar(db, user, "proveedores", p.id, "editar", cambios)
-    return {"ok": True}
