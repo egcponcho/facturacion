@@ -20,7 +20,7 @@ import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import ThOrden from '@/componentes/ThOrden.vue'
 import { siguienteOrden } from '@/composables/useTabla'
 import { agregarPosiciones, carrito, quitarOC, quitarPosicion, vaciarCarrito } from '@/stores/carrito'
-import { esInterno, nombreProveedor, puede, sesion, ve } from '@/stores/sesion'
+import { camposPropios, esInterno, nombreProveedor, puede, sesion, valorPropio, ve } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
 import { pasoCantidad } from '@/nucleo/unidades.js'
@@ -473,6 +473,9 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
           </tr>
           <tr v-if="abiertas.has(oc.id) && detalles[oc.id]" class="fila-hija">
             <td :colspan="columnas">
+              <p v-if="camposPropios('ordenes').some((c) => detalles[oc.id].oc.extra?.[c.clave] != null)" class="ayuda propios">
+                <span v-for="c in camposPropios('ordenes').filter((c) => detalles[oc.id].oc.extra?.[c.clave] != null)" :key="c.clave">{{ c.etiqueta }}: <b>{{ valorPropio(c, detalles[oc.id].oc.extra[c.clave]) }}</b></span>
+              </p>
               <div class="subtabla">
                 <div class="tabla-marco">
                   <table class="tabla" v-tarjetas>
@@ -695,3 +698,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
     </template>
   </Modal>
 </template>
+
+<style scoped>
+.propios { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; }
+</style>

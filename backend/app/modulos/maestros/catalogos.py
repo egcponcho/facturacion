@@ -15,6 +15,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import listas
+from app.core.campos_propios import definiciones as campos_propios_def
+from app.core.campos_propios import limpiar as limpiar_propios
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     AcuerdoComercial,
@@ -501,9 +503,25 @@ def _opciones(campo: dict) -> list[list[str]]:
     return campo.get("opciones", [])
 
 
+def _tipo_de(cat: dict) -> str:
+    return next(k for k, v in CATALOGOS.items() if v is cat)
+
+
+def campos_propios(cat: dict) -> list[dict]:
+    """Campos propios de la empresa para este catálogo (core/campos_propios.py),
+    como campos «extra.<clave>» que se guardan en la columna extra."""
+    if not hasattr(cat["modelo"], "extra"):
+        return []
+    return [c(f"extra.{x['clave']}", x["etiqueta"], x["tipo"], x["obligatorio"], propio=True,
+              **({"opciones": [[o, o] for o in x["opciones"]]} if x["tipo"] == "opcion" else {}))
+            for x in campos_propios_def(_tipo_de(cat))]
+
+
 def campos_con_opciones(cat: dict) -> list[dict]:
-    """Campos del catálogo con las opciones de las listas de la empresa."""
-    return [{**x, "opciones": _opciones(x)} if x["tipo"] in ("opcion", "opciones") else x for x in cat["campos"]]
+    """Campos del catálogo con las opciones de las listas de la empresa y los
+    campos propios."""
+    return [{**x, "opciones": _opciones(x)} if x["tipo"] in ("opcion", "opciones") else x
+            for x in cat["campos"]] + campos_propios(cat)
 
 
 def meta(db: Session, user: Usuario) -> list[dict]:
@@ -517,6 +535,8 @@ def meta(db: Session, user: Usuario) -> list[dict]:
 
 def _fila(cat: dict, obj, refs: dict) -> dict:
     fila = {"id": obj.id}
+    for x in campos_propios(cat):
+        fila[x["nombre"]] = (obj.extra or {}).get(x["nombre"][6:])
     for campo in cat["campos"]:
         v = getattr(obj, campo["nombre"])
         if campo["tipo"] == "opciones":
@@ -794,6 +814,13 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             continue
         limpio[n] = v
 
+    # Campos propios: se validan con su tipo y se guardan juntos en extra
+    propios = {k[6:]: v for k, v in datos.items() if k.startswith("extra.")}
+    if hasattr(cat["modelo"], "extra") and (propios or not parcial):
+        try:
+            limpio["extra"] = limpiar_propios(_tipo_de(cat), propios, actual.extra if actual else None, parcial)
+        except ErrorNegocio as e:
+            errores += e.detalle or []
     final = {**({c["nombre"]: getattr(actual, c["nombre"]) for c in cat["campos"]} if actual else {}), **limpio}
     # Reglas propias de los artículos: el prepack se enlaza por estilo, color
     # y prepack ID (la talla); debe existir su curva

@@ -34,6 +34,20 @@ TENUE = colors.HexColor("#5b6475")
 ACENTO_FABRICA = "#5b3fd1"
 
 
+def _propios(entidad: str, extra: dict | None) -> list[tuple[str, str]]:
+    """Campos propios con valor, como (etiqueta, texto) para los documentos."""
+    from app.core.campos_propios import definiciones
+
+    res = []
+    for c in definiciones(entidad):
+        v = (extra or {}).get(c["clave"])
+        if v in (None, ""):
+            continue
+        res.append((c["etiqueta"], (L("Yes") if v else L("No")) if c["tipo"] == "bool"
+                    else _fecha(date.fromisoformat(v)) if c["tipo"] == "fecha" else _num(v, 2) if c["tipo"] == "numero" else str(v)))
+    return res
+
+
 def _empresa(seccion: str) -> dict:
     """Marca o documentos de la empresa (Configuración → Empresa)."""
     from app.core.empresa import configuracion_actual
@@ -187,6 +201,7 @@ def datos_factura(db: Session, f) -> dict:
         "tipo": "factura", "numero": nombre_factura(f), "fecha": f.fecha, "oficial": f.estado == "FINALIZADA",
         "estado": f.estado, "moneda": f.moneda, "incoterm": f.incoterm, "condiciones": f.condiciones,
         "observaciones": f.observaciones, "exportador": _exportador(db, f.proveedor),
+        "propios": _propios("facturas", f.extra),
         "importador": p["facturar_a"], "consignatario": p["notify"], "destino": p["destino"],
         "ocs": [o.numero for o in ocs],
         "pais_origen": ", ".join(sorted({x for x in (_pais(db, l.pais_origen) for l in f.lineas) if x})) or "—",
@@ -465,6 +480,7 @@ def pdf_factura(d: dict) -> bytes:
             (L("Port of loading"), tr.get("puerto_origen") or d["puerto_embarque"]),
             (L("Port of discharge"), tr.get("puerto_destino") or d["consignatario"].get("puerto_nombre")),
             (L("B/L / AWB / waybill"), tr.get("documento")), (L("Packing lists"), ", ".join(d["pls"]) or "—"),
+            *d.get("propios", []),
         ], ancho),
         Spacer(1, 7),
     ]

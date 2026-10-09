@@ -19,7 +19,7 @@ import Paginacion from '@/componentes/Paginacion.vue'
 import Pasos from '@/componentes/Pasos.vue'
 import ThOrden from '@/componentes/ThOrden.vue'
 import { useTabla } from '@/composables/useTabla'
-import { elegirProveedor, esInterno, ve } from '@/stores/sesion'
+import { camposPropios, elegirProveedor, esInterno, valorPropio, ve } from '@/stores/sesion'
 import { useColumnas } from '@/composables/useColumnas'
 import SelectorColumnas from '@/componentes/SelectorColumnas.vue'
 import { avisar, errorApi, guardando, textoDetalle } from '@/stores/ui'
@@ -169,6 +169,17 @@ function trasError(e) {
 const guardarCabecera = (campo) => async (valor) => {
   try {
     await guardando(api.patch(`/facturas/${props.id}`, { version: f.value.version, [campo]: valor === '' ? null : valor }))
+    await cargar()
+  } catch (e) {
+    trasError(e)
+    throw e
+  }
+}
+
+// Campos propios de la factura (Configuración → Empresa → Campos propios)
+const guardarPropio = (clave) => async (valor) => {
+  try {
+    await guardando(api.patch(`/facturas/${props.id}`, { version: f.value.version, extra: { [clave]: valor === '' ? null : valor } }))
     await cargar()
   } catch (e) {
     trasError(e)
@@ -441,6 +452,11 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         <label class="dato"><span>{{ t('Payment terms') }}</span>
           <CeldaEditable v-if="editable" :valor="f.condiciones" :guardar="guardarCabecera('condiciones')" :etiqueta="t('Payment terms')" />
           <b v-else>{{ tx(f.condiciones || '—') }}</b>
+        </label>
+        <label v-for="c in camposPropios('facturas')" :key="c.clave" class="dato"><span :class="{ req: c.obligatorio }">{{ c.etiqueta }}</span>
+          <CeldaEditable v-if="editable" :valor="f.extra?.[c.clave] ?? ''" :guardar="guardarPropio(c.clave)" :etiqueta="c.etiqueta"
+                         :vacia-texto="c.tipo === 'opcion' ? c.opciones.join(' / ') : c.tipo === 'fecha' ? 'YYYY-MM-DD' : ''" />
+          <b v-else>{{ valorPropio(c, f.extra?.[c.clave]) }}</b>
         </label>
         <label class="dato" style="grid-column: span 2"><span>{{ t('Remarks') }}</span>
           <CeldaEditable v-if="editable" :valor="f.observaciones" :guardar="guardarCabecera('observaciones')" :etiqueta="t('Remarks')" />

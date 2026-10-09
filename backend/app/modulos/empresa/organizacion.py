@@ -9,11 +9,12 @@ import re
 
 from sqlalchemy.orm import Session
 
+from app.core import campos_propios
 from app.core.config import settings
 from app.core.empresa import CAMPOS_COMPATIBILIDAD, REGLAS
 from app.core.errores import ErrorNegocio
 from app.modelos import Organizacion, Usuario
-from app.modulos.acceso.permisos import permisos_de
+from app.modulos.acceso.permisos import MODULOS_ACTIVABLES, permisos_de
 from app.modulos.comun.historial import registrar
 
 ID_EMPRESA = 1
@@ -67,6 +68,11 @@ def _dict(o: Organizacion) -> dict:
         "marca": {**MARCA, **conf.get("marca", {})},
         "documentos": {**DOCUMENTOS, **conf.get("documentos", {})},
         "textos": _textos_de(conf),
+        "campos_propios": {e: (conf.get("campos_propios") or {}).get(e, []) for e in campos_propios.ENTIDADES},
+        "entidades_campos": [{"clave": k, "texto": v} for k, v in campos_propios.ENTIDADES.items()],
+        "tipos_campos": [{"clave": k, "texto": v} for k, v in campos_propios.TIPOS.items()],
+        "modulos": [{"clave": k, "texto": texto, "activo": activo} for (k, (texto, _)), activo
+                    in zip(MODULOS_ACTIVABLES.items(), _modulos_de(conf).values())],
         "reglas": [{"clave": k, "texto": t, "valor": v} for (k, t), v in zip(REGLAS.items(), _reglas_de(o).values())],
         # Datos de la OC que pueden entrar en las reglas de compatibilidad
         "campos_compatibilidad": [{"clave": k, "texto": NOMBRES_CAMPO[k]} for k in CAMPOS_COMPATIBILIDAD],
@@ -104,6 +110,10 @@ def _validar_regla(clave: str, valor):
             raise ErrorNegocio("Enter the two-letter country code.", 422, "validacion")
         valor = valor.upper()
     return valor
+
+
+def _modulos_de(conf: dict) -> dict[str, bool]:
+    return {k: (conf.get("modulos") or {}).get(k, True) is not False for k in MODULOS_ACTIVABLES}
 
 
 def _textos_de(conf: dict) -> dict:
@@ -190,6 +200,14 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
         conf["documentos"] = _validar_seccion(DOCUMENTOS, {**conf.get("documentos", {}), **(datos["documentos"] or {})})
     if "textos" in datos:
         conf["textos"] = _validar_textos(datos["textos"] or {})
+    if "campos_propios" in datos:
+        conf["campos_propios"] = campos_propios.validar_definiciones(datos["campos_propios"] or {})
+    if "modulos" in datos:
+        modulos = datos["modulos"] or {}
+        if not isinstance(modulos, dict) or set(modulos) - set(MODULOS_ACTIVABLES) \
+                or any(not isinstance(v, bool) for v in modulos.values()):
+            raise ErrorNegocio("Choose the modules to turn on or off.", 422, "validacion")
+        conf["modulos"] = {**_modulos_de(conf), **modulos}
     if "reglas" in datos:
         reglas = dict(conf.get("reglas", {}))
         for clave, valor in datos["reglas"].items():

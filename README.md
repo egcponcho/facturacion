@@ -82,6 +82,11 @@ La demostración no envía SMS reales: la pantalla de ingreso muestra el código
 
 Para enviar SMS reales defina `SMS_PROVEEDOR=twilio` con `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` y `TWILIO_FROM`. Con el proveedor `consola` (el valor por defecto) el mensaje va al registro del servidor, y solo en modo demostración (`SEED_DEMO=1`) el código también se muestra en pantalla.
 
+## Módulos y campos propios
+
+- **Módulos** (*Configuración → Empresa → Módulos*): la empresa apaga lo que no usa — embarques y recepción, clasificación arancelaria (arancel y familias de producto), seguimiento y lead times. Sus permisos dejan de darse a todos, así desaparecen las pantallas y el servidor rechaza sus rutas; al encenderlo vuelve todo, sin perder datos.
+- **Campos propios** (*Configuración → Empresa → Campos propios*): datos que la empresa agrega a artículos, proveedores, sociedades, centros, marcas, transportistas, órdenes de compra y facturas, de tipo texto, número, fecha, sí/no u opción, opcionales u obligatorios. En los datos maestros aparecen en el formulario, la tabla y la carga por Excel; las OC los leen del archivo de carga por su nombre (o con un perfil de importación); en la factura se editan en la cabecera, salen en el PDF y el Excel y, si son obligatorios, se piden para finalizar. Se guardan en la columna `extra` de cada registro (`backend/app/core/campos_propios.py`).
+
 ## Página de inicio por rol
 
 Cada rol elige qué paneles ve en su página de inicio (*Usuarios y accesos → Rol → Página de inicio*): indicadores, lo que necesita atención, próximos pasos, embarques, unidades de carga en planificación, alertas de importación, desempeño y por proveedor.

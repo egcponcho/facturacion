@@ -32,6 +32,7 @@ class FacturaCabecera(BaseModel):
     incoterm: str | None = None
     condiciones: str | None = None
     observaciones: str | None = None
+    extra: dict | None = None  # campos propios de las facturas (Configuración → Empresa)
 
 
 class CambioLinea(BaseModel):

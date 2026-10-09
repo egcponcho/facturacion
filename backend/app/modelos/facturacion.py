@@ -6,6 +6,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     Date,
     DateTime,
     Float,
@@ -42,6 +43,8 @@ class Factura(Base):
         ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Campos propios de la empresa (core/campos_propios.py)
+    extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
     numero: Mapped[str | None] = mapped_column(String(50))
     fecha: Mapped[date | None] = mapped_column(Date)

@@ -35,10 +35,14 @@ SIN_DEFECTO = {"proveedor", "oc", "posicion", "codigo_sap", "cantidad"}
 
 def campos() -> list[dict]:
     """Datos que un perfil puede mapear, con los nombres que el sistema ya reconoce."""
+    from app.core.campos_propios import definiciones
     from app.modulos.compras.ordenes import ALIAS, REQUERIDOS
 
     return [{"campo": c, "etiqueta": ETIQUETAS[c], "requerido": c in REQUERIDOS, "reconocidos": ALIAS[c],
-             "fecha": c.startswith("fecha"), "admite_defecto": c not in SIN_DEFECTO} for c in ALIAS]
+             "fecha": c.startswith("fecha"), "admite_defecto": c not in SIN_DEFECTO} for c in ALIAS] + [
+        # Campos propios de las OCs (Configuración → Empresa → Campos propios)
+        {"campo": f"extra.{c['clave']}", "etiqueta": c["etiqueta"], "requerido": False, "reconocidos": [c["clave"]],
+         "fecha": c["tipo"] == "fecha", "admite_defecto": True} for c in definiciones("ordenes")]
 
 
 def _dict(p: PerfilImportacion) -> dict:

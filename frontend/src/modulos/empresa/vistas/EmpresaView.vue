@@ -36,6 +36,10 @@ const REGLAS = {
   COMPATIBILIDAD_ADVERTENCIA: t('PO data that only warns when mixed in one invoice'),
 }
 
+// Campos propios: datos que la empresa agrega a cada entidad
+const entidadCampos = ref('articulos')
+const nuevoCampo = () => datos.value.campos_propios[entidadCampos.value].push({ clave: '', etiqueta: '', tipo: 'texto', opciones: '', obligatorio: false })
+
 // Terminología propia: una fila por texto del sistema (en inglés, como clave)
 // con su reemplazo en cada idioma
 const terminos = ref([])
@@ -58,6 +62,8 @@ function copiar(x) {
   datos.value = {
     nombre: x.nombre, razon_social: x.razon_social || '', id_fiscal: x.id_fiscal || '', pais: x.pais || '', logo: x.logo,
     preferencias: { ...x.preferencias }, marca: { ...x.marca }, documentos: { ...x.documentos },
+    modulos: Object.fromEntries(x.modulos.map((m) => [m.clave, m.activo])),
+    campos_propios: Object.fromEntries(Object.entries(x.campos_propios).map(([e, cs]) => [e, cs.map((c) => ({ ...c, opciones: (c.opciones || []).join(', ') }))])),
     reglas: Object.fromEntries(x.reglas.map((r) => [r.clave, Array.isArray(r.valor) ? [...r.valor] : r.valor])),
   }
   terminos.value = aFilas(x.textos)
@@ -89,7 +95,9 @@ async function subirLogo(ev) {
 async function guardar() {
   ocupado.value = true
   try {
-    o.value = await guardando(api.put('/organizacion', { ...datos.value, textos: aTextos(terminos.value) }))
+    const campos = Object.fromEntries(Object.entries(datos.value.campos_propios).map(([e, cs]) => [e, cs.map((c) => ({
+      ...c, opciones: c.tipo === 'opcion' ? c.opciones.split(',').map((x) => x.trim()).filter(Boolean) : [] }))]))
+    o.value = await guardando(api.put('/organizacion', { ...datos.value, textos: aTextos(terminos.value), campos_propios: campos }))
     copiar(o.value)
     await cargarSesion(true) // nombre, logo y color en el menú; reglas en toda la app
     avisar(t('Company settings saved.'))
@@ -169,6 +177,37 @@ async function guardar() {
           :placeholder="t('We declare under oath that the information in this invoice is true and correct, that the value is the price actually paid or payable for the goods and that the declared origin is correct.')" /></label>
         <label class="campo ancho"><span>{{ t('Packing list statement') }}</span><textarea v-model="datos.documentos.declaracion_packing" class="entrada" rows="3" maxlength="1000"
           :placeholder="t('We declare that the contents, numbering, dimensions and weights of the packages correspond to the goods shipped. Every unit or pair carries its individual label; inner packs carry an inner pack label with the product and the quantity inside.')" /></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-cabeza"><div><h2>{{ t('Modules') }}</h2><p>{{ t('Turn off what your company does not use: its screens and permissions disappear for everyone. Turning it on again restores them; no data is lost.') }}</p></div></div>
+      <ul class="lista-reglas">
+        <li v-for="m in o.modulos" :key="m.clave"><span>{{ tx(m.texto) }}</span><Interruptor v-model="datos.modulos[m.clave]" :etiqueta="tx(m.texto)" /></li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <div class="panel-cabeza"><div><h2>{{ t('Own fields') }}</h2><p>{{ t('Data your company adds to its records: they appear in the forms, the tables and, for invoices, in the documents. Purchase orders read them from the upload file by their name.') }}</p></div>
+        <button type="button" class="btn btn-chico" @click="nuevoCampo"><Icono nombre="mas" :tam="14" />{{ t('Add field') }}</button></div>
+      <div class="pestanas-pildora" role="tablist">
+        <button v-for="e in o.entidades_campos" :key="e.clave" type="button" role="tab" class="pildora" :aria-selected="entidadCampos === e.clave" @click="entidadCampos = e.clave">
+          {{ tx(e.texto) }}<span v-if="datos.campos_propios[e.clave]?.length" class="cuenta">{{ datos.campos_propios[e.clave].length }}</span></button>
+      </div>
+      <p v-if="!datos.campos_propios[entidadCampos]?.length" class="ayuda">{{ t('No own fields for this entity.') }}</p>
+      <div v-else class="tabla-marco">
+        <table class="tabla">
+          <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Type') }}</th><th>{{ t('Options (comma-separated)') }}</th><th>{{ t('Required') }}</th><th /></tr></thead>
+          <tbody>
+            <tr v-for="(c, i) in datos.campos_propios[entidadCampos]" :key="i">
+              <td><input v-model="c.etiqueta" class="entrada" maxlength="60" :aria-label="t('Name')" /></td>
+              <td><Seleccion v-model="c.tipo" class="entrada" :aria-label="t('Type')"><option v-for="x in o.tipos_campos" :key="x.clave" :value="x.clave">{{ tx(x.texto) }}</option></Seleccion></td>
+              <td><input v-if="c.tipo === 'opcion'" v-model="c.opciones" class="entrada" :aria-label="t('Options (comma-separated)')" /></td>
+              <td><input v-model="c.obligatorio" type="checkbox" :aria-label="t('Required')" /></td>
+              <td><button type="button" class="btn-icono" :aria-label="t('Remove')" @click="datos.campos_propios[entidadCampos].splice(i, 1)"><Icono nombre="basura" :tam="16" /></button></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 

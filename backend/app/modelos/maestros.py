@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     Float,
@@ -16,6 +17,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -53,6 +55,8 @@ class Proveedor(Base):
 
     __tablename__ = "proveedores"
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Campos propios de la empresa (core/campos_propios.py)
+    extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     codigo: Mapped[str] = mapped_column(String(30), unique=True)
     nombre: Mapped[str] = mapped_column(String(200))
     razon_social: Mapped[str | None] = mapped_column(String(200))
@@ -73,6 +77,8 @@ class Sociedad(Base):
 
     __tablename__ = "sociedades"
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Campos propios de la empresa (core/campos_propios.py)
+    extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     codigo: Mapped[str] = mapped_column(String(10), unique=True)
     nombre: Mapped[str] = mapped_column(String(120))
     razon_social: Mapped[str | None] = mapped_column(String(200))
@@ -93,6 +99,8 @@ class Centro(Base):
 
     __tablename__ = "centros"
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Campos propios de la empresa (core/campos_propios.py)
+    extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     codigo: Mapped[str] = mapped_column(String(10), unique=True)
     sociedad_id: Mapped[int] = mapped_column(ForeignKey("sociedades.id"), index=True)
     nombre: Mapped[str] = mapped_column(String(120))
@@ -168,6 +176,8 @@ class AcuerdoComercial(Base):
 class Marca(Base):
     __tablename__ = "marcas"
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Campos propios de la empresa (core/campos_propios.py)
+    extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     codigo: Mapped[str] = mapped_column(String(10), unique=True)
     nombre: Mapped[str] = mapped_column(String(100))
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -302,6 +312,8 @@ class Articulo(Base):
 
     __tablename__ = "articulos"
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Campos propios de la empresa (core/campos_propios.py)
+    extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     # Código de artículo de la empresa (numérico o alfanumérico, el formato lo
     # define cada empresa); distinto del SKU del proveedor
     sku: Mapped[str] = mapped_column(String(40), unique=True)  # texto: conserva ceros

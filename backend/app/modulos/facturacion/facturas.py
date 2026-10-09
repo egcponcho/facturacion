@@ -5,6 +5,7 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core import campos_propios
 from app.core.archivos import exigir_tamano
 from app.core.config import settings
 from app.core.empresa import regla
@@ -523,6 +524,8 @@ def actualizar_cabecera(db: Session, user: Usuario, factura_id: int, datos: Fact
     if "numero" in campos:
         campos["numero"] = (campos["numero"] or "").strip() or None
         _validar_numero(db, f.proveedor_id, campos["numero"], f.id)
+    if "extra" in campos:
+        campos["extra"] = campos_propios.limpiar("facturas", campos["extra"], f.extra)
     cambios = {}
     for k, v in campos.items():
         if isinstance(v, str):
@@ -539,6 +542,9 @@ def actualizar_cabecera(db: Session, user: Usuario, factura_id: int, datos: Fact
 # ---- Estados ----------------------------------------------------------------
 def validar_factura(db: Session, f: Factura) -> list[dict]:
     errores = []
+    for c in campos_propios.definiciones("facturas"):
+        if c["obligatorio"] and (f.extra or {}).get(c["clave"]) in (None, ""):
+            errores.append({"campo": f"extra.{c['clave']}", "mensaje": f"{c['etiqueta']} is missing."})
     if not f.numero:
         errores.append({"campo": "numero", "mensaje": "The invoice number is missing."})
     if not f.fecha:
@@ -892,6 +898,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
         **partes(db, f.sociedad, f.centro, f.centro_destino),
         "condiciones": f.condiciones,
         "observaciones": f.observaciones,
+        "extra": f.extra or {},
         "creado_en": f.creado_en,
         "actualizado_en": f.actualizado_en,
         "finalizado_en": f.finalizado_en,

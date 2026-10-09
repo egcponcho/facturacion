@@ -2,7 +2,7 @@ import { reactive } from 'vue'
 import { api, manejarNoAutorizado } from '@/nucleo/api'
 import { cargarListas } from '@/nucleo/listas.js'
 import { usarMarca } from '@/nucleo/marca.js'
-import { cambiarIdioma, idioma, sumarCatalogo } from '@/i18n/index.js'
+import { cambiarIdioma, idioma, sumarCatalogo, t } from '@/i18n/index.js'
 import { aplicarPreferencias, pref } from './preferencias'
 import { tema } from './tema'
 
@@ -22,7 +22,13 @@ export const eligeProveedor = () => esInterno() || sesion.proveedores.length > 1
 // El servidor ya no los envía; la pantalla quita sus columnas y filtros.
 export const ve = (grupo) => !(sesion.usuario?.datos_ocultos || []).includes(grupo)
 // Paneles de la página de inicio que su rol muestra (Usuarios y accesos → Rol)
+// y que pertenecen a un módulo encendido (Configuración → Empresa → Módulos)
+const MODULO_DEL_PANEL = { envios: 'transporte', contenedores: 'transporte' }
+// Campos propios de una entidad (Configuración → Empresa → Campos propios) y su valor en texto
+export const camposPropios = (entidad) => sesion.usuario?.organizacion?.campos_propios?.[entidad] || []
+export const valorPropio = (c, v) => (v === null || v === undefined || v === '' ? '—' : c.tipo === 'bool' ? (v ? t('Yes') : t('No')) : String(v))
 export const vePanel = (panel) => !(sesion.usuario?.inicio_oculto || []).includes(panel)
+  && sesion.usuario?.config?.modulos?.[MODULO_DEL_PANEL[panel]] !== false
 
 // Paso 1: correo y contraseña. Devuelve el desafío si hay verificación en dos pasos.
 export async function iniciarSesion(email, password) {

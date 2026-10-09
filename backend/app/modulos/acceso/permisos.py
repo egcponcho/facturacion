@@ -66,6 +66,27 @@ MODULOS = [
 
 PERMISOS = {k: (et, roles, prov) for _, ps in MODULOS for k, et, roles, prov in ps}
 
+# Módulos que la empresa puede apagar (Configuración → Empresa → Módulos): sus
+# permisos dejan de darse a todos, así el servidor y las pantallas los ocultan.
+MODULOS_ACTIVABLES = {
+    "transporte": ("Shipments and warehouse receipts", ["transporte.gestionar", "recepcion.registrar"]),
+    "clasificacion": ("Tariff classification: tariff schedule and product families",
+                      ["aranceles.ver", "aranceles.editar", "clasificacion.ver", "clasificacion.configurar"]),
+    "seguimiento": ("Tracking and lead times", ["seguimiento.ver"]),
+}
+
+
+def modulos_activos() -> dict[str, bool]:
+    from app.core.empresa import configuracion_actual
+
+    propios = configuracion_actual().get("modulos") or {}
+    return {k: propios.get(k, True) is not False for k in MODULOS_ACTIVABLES}
+
+
+def _sin_modulos_apagados(permisos: list[str]) -> list[str]:
+    apagados = {p for k, activo in modulos_activos().items() if not activo for p in MODULOS_ACTIVABLES[k][1]}
+    return [p for p in permisos if p not in apagados]
+
 
 def _matriz() -> dict[str, set[str]]:
     finalizan = INTERNOS | ({"proveedor"} if regla("PROVEEDOR_PUEDE_FINALIZAR") else set())
@@ -103,7 +124,7 @@ def permisos_de(user: Usuario) -> list[str]:
     else:
         # Usuarios sin rol asignado (datos anteriores): permisos de fábrica de su tipo
         permisos = permisos_fabrica(user.rol)
-    return _segun_flujo(user, permisos)
+    return _segun_flujo(user, _sin_modulos_apagados(permisos))
 
 
 def _segun_flujo(user: Usuario, permisos: list[str]) -> list[str]:

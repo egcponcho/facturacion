@@ -15,6 +15,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
@@ -29,6 +30,8 @@ class OrdenCompra(Base):
     __tablename__ = "ordenes_compra"
     __table_args__ = (UniqueConstraint("proveedor_id", "numero"),)
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Campos propios de la empresa (core/campos_propios.py)
+    extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
     numero: Mapped[str] = mapped_column(String(40))  # formato de cada empresa
     # Empresa que factura, moneda y precio: opcionales al cargar la OC, se exigen al facturar

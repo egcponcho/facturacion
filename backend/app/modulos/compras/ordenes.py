@@ -8,7 +8,7 @@ from openpyxl import load_workbook
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core import listas
+from app.core import campos_propios, listas
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.modelos import (
@@ -270,6 +270,7 @@ def _cabecera_oc(oc: OrdenCompra, lib: liberaciones.Liberaciones) -> dict:
         "liberacion_logistica": oc.liberacion_logistica,
         "fecha_lib_comercial": oc.fecha_lib_comercial,
         "fecha_lib_logistica": oc.fecha_lib_logistica,
+        "extra": oc.extra or {},
         "liberacion_txt": lib.logistica.nombre(oc.liberacion_logistica),
         "comercial_txt": lib.comercial.nombre(oc.liberacion_comercial),
         # Liberación dada, pero la OC cambió después (para avisarlo en pantalla)
@@ -470,8 +471,10 @@ def _leer_archivo(nombre: str, contenido: bytes, perfil=None) -> list[dict]:
 
     propios = {c: [_norm(x) for x in str(v).split(",") if x.strip()] for c, v in ((perfil.columnas or {}) if perfil else {}).items()}
     normalizados = [_norm(h) for h in encabezados]
+    # Campos propios de las OCs: se reconocen por su nombre o su clave
+    extra = {f"extra.{c['clave']}": [_norm(c["etiqueta"]), _norm(c["clave"])] for c in campos_propios.definiciones("ordenes")}
     mapa = {}
-    for fuente in (propios, ALIAS):  # primero los nombres del perfil
+    for fuente in (propios, ALIAS, extra):  # primero los nombres del perfil
         for campo, nombres in fuente.items():
             i = next((i for i, n in enumerate(normalizados) if n in nombres), None)
             if campo not in mapa and i is not None:
@@ -627,6 +630,11 @@ def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
     d["sociedad"] = d["sociedad"] or None
     d["fecha_xf_original"] = d["fecha_xf_original"] or d["fecha_xf"]
     d["fecha_xf"] = d["fecha_xf"] or d["fecha_xf_original"]
+    try:
+        d["extra"] = campos_propios.limpiar("ordenes", {k[6:]: v for k, v in r.items() if k.startswith("extra.")})
+    except ErrorNegocio as e:
+        errores += [x["mensaje"] for x in e.detalle or []]
+        d["extra"] = {}
 
     if m is None:
         return d, errores
@@ -755,7 +763,7 @@ def _clasificar(db: Session, filas: list[dict]) -> list[dict]:
         if k in vistos:
             salida["mensajes"].append("Line repeated within the file.")
         vistos.add(k)
-        cab = {c: d.get(c) for c in CAMPOS_CABECERA}
+        cab = {c: d.get(c) for c in CAMPOS_CABECERA} | {"extra": d.get("extra") or {}}
         previa = cabeceras.setdefault((d["proveedor"], d["oc"]), cab)
         if previa != cab:
             salida["mensajes"].append("The header data does not match other rows of the same PO.")
@@ -776,6 +784,9 @@ def _clasificar(db: Session, filas: list[dict]) -> list[dict]:
             anterior = getattr(oc, c)
             if anterior != d.get(c):
                 cambios[c] = {"antes": anterior, "despues": d.get(c)}
+        for k, v in (d.get("extra") or {}).items():
+            if (oc.extra or {}).get(k) != v:
+                cambios[f"extra.{k}"] = {"antes": (oc.extra or {}).get(k), "despues": v}
         for c, nuevo in _valores_posicion(d).items():
             if c == "articulo_id":
                 continue
@@ -863,6 +874,8 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
         info["cambios"] = info["cambios"] or (c["estado"] == "cambio")
         for campo in CAMPOS_CABECERA:
             setattr(oc, campo, d.get(campo))
+        if d.get("extra"):
+            oc.extra = {**(oc.extra or {}), **d["extra"]}
         # Fechas de liberación: las del archivo si vienen; si no, el día en que se liberó
         for campo in ("fecha_lib_comercial", "fecha_lib_logistica"):
             if d.get(campo):

@@ -252,6 +252,7 @@ def exportar_factura(d: dict) -> bytes:
         (L("Port of loading"), tr.get("puerto_origen") or d["puerto_embarque"]),
         (L("Port of discharge"), tr.get("puerto_destino") or d["consignatario"].get("puerto_nombre")),
         (L("B/L / AWB / waybill"), tr.get("documento")), (L("Packing lists"), ", ".join(d["pls"]) or "—"),
+        *d.get("propios", []),
     ])
     t = d["totales"]
     filas = [[l["oc"], l["posicion"], l["sku"], l["upc"], l["marca"], l["estilo"], l["talla"],

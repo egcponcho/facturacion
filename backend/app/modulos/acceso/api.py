@@ -27,7 +27,7 @@ from app.modulos.acceso import proveedores as servicio_proveedores
 from app.modulos.acceso import roles as servicio_roles
 from app.modulos.acceso import usuarios as servicio_usuarios
 from app.modulos.acceso.limites import limitar
-from app.modulos.acceso.permisos import catalogo_permisos, permisos_de
+from app.modulos.acceso.permisos import catalogo_permisos, modulos_activos, permisos_de
 from app.modulos.empresa import organizacion
 from app.modulos.productos import flujo
 from app.web.dependencias import COOKIE
@@ -62,6 +62,7 @@ def _yo(u: Usuario) -> dict:
             "requerir_datos_aduana": regla("REQUERIR_DATOS_ADUANA"),
             "dias_alerta_borrador": regla("DIAS_ALERTA_BORRADOR"),
             "dias_aviso_tienda": regla("DIAS_AVISO_TIENDA"),
+            "modulos": modulos_activos(),
         },
         "max_subida_mb": settings.MAX_SUBIDA_MB,
         "flujo": flujo.valores(object_session(u)) if object_session(u) else dict(flujo.DEFECTOS),
@@ -76,7 +77,9 @@ def _empresa(u: Usuario) -> dict | None:
     o = db.get(Organizacion, organizacion.ID_EMPRESA) if db else None
     return {"nombre": o.nombre, "logo": o.logo,
             "marca": {**organizacion.MARCA, **(o.configuracion or {}).get("marca", {})},
-            "textos": organizacion._textos_de(o.configuracion or {})} if o else None
+            "textos": organizacion._textos_de(o.configuracion or {}),
+            # Campos propios de cada entidad, para mostrarlos y editarlos
+            "campos_propios": (o.configuracion or {}).get("campos_propios") or {}} if o else None
 
 
 def _cookie(resp: Response, token: str) -> None:

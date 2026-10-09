@@ -7,6 +7,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     Date,
@@ -16,6 +17,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,6 +42,8 @@ class Transportista(Base):
 
     __tablename__ = "transportistas"
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Campos propios de la empresa (core/campos_propios.py)
+    extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     codigo: Mapped[str] = mapped_column(String(20), unique=True)
     nombre: Mapped[str] = mapped_column(String(150))
     tipo: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE | MULTIMODAL

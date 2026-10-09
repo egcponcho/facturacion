@@ -97,7 +97,7 @@ const conFiltro = computed(() => campos.value.filter((c) => c.filtro && !(compac
 
 function vacio() {
   const f = {}
-  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? true : ['multi', 'opciones'].includes(c.tipo) ? [] : c.tipo === 'regla_lt' ? { pasos: [], orden: null } : ''
+  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? !c.propio : ['multi', 'opciones'].includes(c.tipo) ? [] : c.tipo === 'regla_lt' ? { pasos: [], orden: null } : ''
   return f
 }
 
@@ -514,7 +514,7 @@ onMounted(async () => {
             <EditorReglaLT v-else-if="c.tipo === 'regla_lt'" v-model="form[c.nombre]" :form="form" :regla-id="editando" />
             <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
                       :placeholder="t('name@company.com, other@company.com')"></textarea>
-            <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : 'text'"
+            <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : c.tipo === 'fecha' ? 'date' : 'text'"
                    :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="tx(bloqueado(c) ? t('Cannot change: it is part of the prepack') : '')" />
             <small v-if="erroresForm[c.nombre]" class="nota error" style="padding: 4px 8px">{{ tx(erroresForm[c.nombre]) }}</small>
             <small v-else-if="c.ayuda" class="ayuda">{{ tx(c.ayuda) }}</small>
