@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
+from app.core.estados import PL
 from app.modelos import (
     Factura,
     FacturaLinea,
@@ -995,8 +996,7 @@ def reabrir_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> di
     exigir(user, "pl.reabrir")
     motivo = requerir_motivo(motivo, "reopen the packing list")
     pl = cargar_pl(db, user, pl_id)
-    if pl.estado != "FINALIZADO":
-        raise ErrorNegocio("Only finalized packing lists can be reopened.", 409, "no_editable")
+    PL.exigir("reabrir", pl.estado, "no_editable")
     if pl.unidad and pl.unidad.embarque.estado != "PLANIFICADO":
         raise ErrorNegocio(f"{pl.numero} is already traveling on {pl.unidad.embarque.codigo}; it cannot be reopened.", 409,
                            "embarque_cerrado")
@@ -1015,8 +1015,7 @@ def reabrir_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> di
 def cancelar_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> dict:
     exigir(user, "pl.cancelar")
     pl = cargar_pl(db, user, pl_id)
-    if pl.estado == "CANCELADO":
-        raise ErrorNegocio("The packing list is already cancelled.", 409, "no_editable")
+    PL.exigir("cancelar", pl.estado, "no_editable")
     if user.rol == "proveedor" and pl.estado != "BORRADOR":
         raise ErrorNegocio("You can only cancel draft packing lists.", 403, "sin_permiso")
     if pl.asignacion == "CONFIRMADA":

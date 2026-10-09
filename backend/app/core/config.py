@@ -113,6 +113,11 @@ class Settings:
     # Días antes de la fecha en tienda a partir de los que una OC se resalta
     DIAS_AVISO_TIENDA: int = 30
     COMPATIBILIDAD_ADVERTENCIA: list[str] = ["incoterm", "centro_destino"]
+    # Aprobación de OCs: quien creó o envió una OC no puede aprobarla él mismo
+    APROBACION_CUATRO_OJOS: bool = True
+    # Las OCs que llegan del ERP ya vienen aprobadas; con esta regla pasan
+    # además por las reglas de aprobación de la plataforma
+    APROBAR_OC_IMPORTADAS: bool = False
 
 
     def validar(self) -> None:

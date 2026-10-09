@@ -17,6 +17,7 @@ from app.modulos.acceso import visibilidad
 from app.modulos.clasificacion import api as clasificacion_api
 from app.modulos.clasificacion import api_conocimiento as clasificacion_api_conocimiento
 from app.modulos.compras import api as compras_api
+from app.modulos.compras import api_flujo as compras_api_flujo
 from app.modulos.comun import api as comun_api
 from app.modulos.empaque import api as empaque_api
 from app.modulos.empaque import api_plantillas as empaque_api_plantillas
@@ -150,7 +151,7 @@ async def _error_validacion(_: Request, exc: RequestValidationError):
 # (p. ej. /seguimiento/exportar) va antes que una con parámetro del mismo prefijo.
 RUTAS = (
     clasificacion_api, acceso_api, productos_api_flujo, empresa_api, maestros_api, clasificacion_api_conocimiento,
-    compras_api, facturacion_api, empaque_api, productos_api, transporte_api, comun_api, seguimiento_api,
+    compras_api, compras_api_flujo, facturacion_api, empaque_api, productos_api, transporte_api, comun_api, seguimiento_api,
     transporte_api_leadtimes, empaque_api_plantillas, maestros_api_listas, plataforma_api,
 )
 for modulo in RUTAS:

@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     text,
 )
@@ -56,11 +57,47 @@ class OrdenCompra(DeOrganizacion, Base):
     fecha_lib_logistica: Mapped[date | None] = mapped_column(Date)
     liberada: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    # Estado del documento (core/estados.py → OC): BORRADOR, EN_APROBACION,
+    # RECHAZADA, APROBADA, CERRADA o CANCELADA. El avance de la mercancía
+    # (facturada, embarcada, recibida) no se guarda: se calcula de las cantidades.
+    estado: Mapped[str] = mapped_column(String(20), default="APROBADA", server_default="APROBADA", index=True)
+    origen: Mapped[str] = mapped_column(String(12), default="ERP", server_default="ERP")  # ERP | PLATAFORMA
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    condicion_pago: Mapped[str | None] = mapped_column(String(20))  # lista condicion_pago
+    notas: Mapped[str | None] = mapped_column(Text)
+    # Mientras es borrador: lo que lleva el asistente (cabecera y líneas), sin validar
+    borrador: Mapped[dict | None] = mapped_column(JSON)
+    creada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    enviada_en: Mapped[datetime | None] = mapped_column(DateTime)
+    aprobada_en: Mapped[datetime | None] = mapped_column(DateTime)
+    cerrada_en: Mapped[datetime | None] = mapped_column(DateTime)
+    motivo_estado: Mapped[str | None] = mapped_column(String(500))  # del último rechazo, cierre o cancelación
 
     proveedor: Mapped[Proveedor] = relationship()
     posiciones: Mapped[list["PosicionOC"]] = relationship(
         back_populates="oc", order_by="PosicionOC.id", cascade="all, delete-orphan"
     )
+    aprobaciones: Mapped[list["AprobacionOC"]] = relationship(
+        back_populates="oc", order_by="AprobacionOC.paso", cascade="all, delete-orphan"
+    )
+
+
+class AprobacionOC(DeOrganizacion, Base):
+    """Un paso de aprobación de una OC: lo crea su envío según las reglas de
+    aprobación de la empresa (monto, moneda, sociedad → rol que aprueba)."""
+
+    __tablename__ = "aprobaciones_oc"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    oc_id: Mapped[int] = mapped_column(ForeignKey("ordenes_compra.id", ondelete="CASCADE"), index=True)
+    paso: Mapped[int] = mapped_column(Integer)
+    regla: Mapped[str] = mapped_column(String(80))
+    rol_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"))
+    estado: Mapped[str] = mapped_column(String(12), default="PENDIENTE")  # PENDIENTE | APROBADA | RECHAZADA
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    fecha: Mapped[datetime | None] = mapped_column(DateTime)
+    comentario: Mapped[str | None] = mapped_column(String(500))
+
+    oc: Mapped[OrdenCompra] = relationship(back_populates="aprobaciones")
 
 
 class PosicionOC(DeOrganizacion, Base):

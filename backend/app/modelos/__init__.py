@@ -39,7 +39,7 @@ from app.modelos.clasificacion import (
     TraduccionCatalogo,
     VersionDataset,
 )
-from app.modelos.compras import ImportacionOC, OrdenCompra, PerfilImportacion, PosicionOC
+from app.modelos.compras import AprobacionOC, ImportacionOC, OrdenCompra, PerfilImportacion, PosicionOC
 from app.modelos.empaque import (
     GrupoCajas,
     GrupoCajasItem,
@@ -89,6 +89,7 @@ from app.modelos.transporte import (
 )
 
 __all__ = [
+    "AprobacionOC",
     "AcuerdoComercial",
     "ahora",
     "Alerta",

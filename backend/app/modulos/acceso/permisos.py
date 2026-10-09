@@ -15,6 +15,9 @@ INTERNOS = {"admin", "interno"}
 MODULOS = [
     ("Orders", [
         ("oc.ver", "See purchase orders", TODOS, True),
+        ("oc.editar", "Create purchase orders and edit their drafts", INTERNOS, False),
+        ("oc.aprobar", "Approve, reject and reopen purchase orders", INTERNOS, False),
+        ("oc.cancelar", "Cancel and close purchase orders", INTERNOS, False),
         ("oc.importar", "Import POs from the ERP", INTERNOS, False),
         ("oc.empaque", "Edit casepack and inner pack of a PO line", INTERNOS, False),
     ]),

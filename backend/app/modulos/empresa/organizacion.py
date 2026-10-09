@@ -82,7 +82,46 @@ def _dict(o: Organizacion) -> dict:
         "reglas": [{"clave": k, "texto": t, "valor": v} for (k, t), v in zip(REGLAS.items(), _reglas_de(o).values(), strict=False)],
         # Datos de la OC que pueden entrar en las reglas de compatibilidad
         "campos_compatibilidad": [{"clave": k, "texto": NOMBRES_CAMPO[k]} for k in CAMPOS_COMPATIBILIDAD],
+        "aprobaciones_oc": conf.get("aprobaciones_oc") or [],
+        "obligatorios": {"orden": (conf.get("obligatorios") or {}).get("orden") or []},
+        "campos_obligables": [{"clave": k, "texto": v} for k, v in CAMPOS_OBLIGABLES_OC.items()],
     }
+
+
+# Datos de la OC que la empresa puede volver obligatorios (además de los que
+# el flujo siempre exige: proveedor, número, sociedad, artículos, cantidades,
+# moneda, precios y fecha de despacho)
+CAMPOS_OBLIGABLES_OC = {"fecha": "PO date", "incoterm": "Incoterm", "condicion_pago": "Payment terms",
+                        "centro": "Receiving plant", "centro_destino": "Destination plant",
+                        "puerto_despacho": "Port of loading", "pais_origen": "Country of origin",
+                        "fecha_tienda": "In-store date"}
+MAX_REGLAS_APROBACION = 20
+
+
+def _validar_aprobaciones(db: Session, reglas) -> list[dict]:
+    """Reglas de aprobación de OCs: desde qué monto, en qué moneda (y
+    sociedad, opcional) aprueba qué rol."""
+    from app.core import listas
+    from app.modelos import Rol
+
+    if not isinstance(reglas, list) or len(reglas) > MAX_REGLAS_APROBACION:
+        raise ErrorNegocio(f"Up to {MAX_REGLAS_APROBACION} approval rules.", 422, "validacion")
+    limpias = []
+    for i, r in enumerate(reglas, start=1):
+        r = r if isinstance(r, dict) else {}
+        nombre = str(r.get("nombre") or "").strip()[:80]
+        moneda = str(r.get("moneda") or "").strip().upper()
+        try:
+            monto = float(r.get("monto_minimo") or 0)
+        except (TypeError, ValueError):
+            monto = -1
+        rol = db.get(Rol, int(r["rol_id"])) if str(r.get("rol_id") or "").isdigit() else None
+        if not nombre or monto < 0 or moneda not in listas.codigos("moneda") or not rol or not rol.activo:
+            raise ErrorNegocio(f"Approval rule {i}: it needs a name, a minimum amount (0 or more), a currency of the list "
+                               "and an active role that approves.", 422, "validacion")
+        limpias.append({"nombre": nombre, "monto_minimo": monto, "moneda": moneda,
+                        "sociedad": str(r.get("sociedad") or "").strip().upper()[:10] or None, "rol_id": rol.id})
+    return sorted(limpias, key=lambda r: r["monto_minimo"])
 
 
 NOMBRES_CAMPO = {"sociedad": "Company", "centro": "Plant", "centro_destino": "Destination plant", "moneda": "Currency",
@@ -215,6 +254,13 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
                 or any(not isinstance(v, bool) for v in modulos.values()):
             raise ErrorNegocio("Choose the modules to turn on or off.", 422, "validacion")
         conf["modulos"] = {**_modulos_de(conf), **modulos}
+    if "aprobaciones_oc" in datos:
+        conf["aprobaciones_oc"] = _validar_aprobaciones(db, datos["aprobaciones_oc"] or [])
+    if "obligatorios" in datos:
+        orden = (datos["obligatorios"] or {}).get("orden") or []
+        if not isinstance(orden, list) or set(orden) - set(CAMPOS_OBLIGABLES_OC):
+            raise ErrorNegocio("Choose the PO data that becomes required.", 422, "validacion")
+        conf["obligatorios"] = {"orden": [c for c in CAMPOS_OBLIGABLES_OC if c in orden]}
     if "reglas" in datos:
         reglas = dict(conf.get("reglas", {}))
         for clave, valor in datos["reglas"].items():
@@ -228,7 +274,8 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
         conf["reglas"] = reglas
     o.configuracion = conf
     registrar(db, user, "organizacion", o.id, "editar_organizacion",
-              detalle={"antes": {k: antes[k] for k in ("nombre", "preferencias", "marca", "documentos")},
+              detalle={"antes": {k: antes[k] for k in ("nombre", "preferencias", "marca", "documentos", "aprobaciones_oc",
+                                                       "obligatorios")},
                        "reglas": conf.get("reglas", {})})
     db.flush()
     return _dict(o)

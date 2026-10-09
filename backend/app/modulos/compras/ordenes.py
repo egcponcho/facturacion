@@ -7,10 +7,11 @@ from datetime import date, datetime
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core import campos_propios, listas
+from app.core import campos_propios, empresa, listas
 from app.core.archivos import abrir_libro
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
+from app.core.estados import OC
 from app.modelos import (
     Alerta,
     Almacen,
@@ -32,6 +33,7 @@ from app.modelos import cant as cant_norm
 from app.modulos.acceso.permisos import (
     asegurar_proveedor,
     exigir,
+    exigir_alguno,
     proveedor_filtro,
     proveedores_de,
     sociedad_filtro,
@@ -73,6 +75,7 @@ def listar_ordenes(
     almacen: str | None = None,
     comercial: str | None = None,
     liberada: bool | None = None,
+    estado: str | None = None,
 ) -> dict:
     exigir(user, "oc.ver")
     lib = liberaciones.de(db)
@@ -105,9 +108,11 @@ def listar_ordenes(
     consulta = (
         select(OrdenCompra, Proveedor.nombre, tot.c.importe, tot.c.n, importe_fact)
         .join(Proveedor, Proveedor.id == OrdenCompra.proveedor_id)
-        .join(tot, tot.c.oc_id == OrdenCompra.id)
+        .outerjoin(tot, tot.c.oc_id == OrdenCompra.id)
         .outerjoin(fac, fac.c.oc_id == OrdenCompra.id)
     )
+    if estado:
+        consulta = consulta.where(OrdenCompra.estado.in_(estado.split(",")))
     if prov:
         consulta = consulta.where(OrdenCompra.proveedor_id.in_(prov))
     consulta = consulta.where(*sociedad_filtro(user, OrdenCompra.sociedad))
@@ -136,7 +141,7 @@ def listar_ordenes(
     if almacen:
         consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.almacen == almacen)))
     if solo_disponible:
-        consulta = consulta.where(tot.c.cantidad - facturado > 0)
+        consulta = consulta.where(OrdenCompra.estado == "APROBADA", func.coalesce(tot.c.cantidad, 0) - facturado > 0)
 
     col, _, direccion = (orden or "").partition(":")
     expr = {
@@ -196,7 +201,7 @@ def listar_ordenes(
             {
                 **_cabecera_oc(oc, lib),
                 "proveedor": prov_nombre,
-                "posiciones": n,
+                "posiciones": n or 0,
                 "marcas": sorted(marcas[oc.id]),
                 # Una OC puede repartir sus posiciones entre varios almacenes
                 "almacenes": sorted(almacenes[oc.id]),
@@ -276,6 +281,12 @@ def _cabecera_oc(oc: OrdenCompra, lib: liberaciones.Liberaciones) -> dict:
         # Liberación dada, pero la OC cambió después (para avisarlo en pantalla)
         "con_cambios": bool((x := lib.logistica.get(oc.liberacion_logistica)) and x.con_cambios),
         "liberada": oc.liberada,
+        "estado": oc.estado,
+        "estado_txt": OC.texto(oc.estado),
+        "origen": oc.origen,
+        "condicion_pago": oc.condicion_pago,
+        "condicion_pago_txt": listas.nombre("condicion_pago", oc.condicion_pago) if oc.condicion_pago else None,
+        "version": oc.version,
     }
 
 
@@ -365,6 +376,8 @@ def empaque_posicion(db: Session, user: Usuario, oc_id: int, posicion_id: int, c
 def estado_posicion(oc, p, facturado: int, facturas: list[dict]):
     """Devuelve (estado, motivo, factura a la que queda restringido el saldo)."""
     disponible = p.cantidad - facturado
+    if not OC.puede("facturar", oc.estado):
+        return "NO_DISPONIBLE", f"The PO is {OC.texto(oc.estado)}: it cannot be invoiced.", None
     if not oc.liberada:
         return "NO_DISPONIBLE", "The PO is not released yet: it cannot be invoiced.", None
     if p.bloqueada:
@@ -735,7 +748,9 @@ def _valores_posicion(d: dict) -> dict:
     return v
 
 
-def _clasificar(db: Session, filas: list[dict]) -> list[dict]:
+def _clasificar(db: Session, filas: list[dict], propia: int | None = None) -> list[dict]:
+    """Clasifica cada fila (nuevo, cambio, sin cambio, conflicto, error).
+    `propia`: la OC que el asistente está enviando (su borrador sí se aplica)."""
     m = Maestros(db)
     vistos: set = set()
     cabeceras: dict = {}
@@ -773,6 +788,11 @@ def _clasificar(db: Session, filas: list[dict]) -> list[dict]:
             continue
 
         oc = ocs_existentes.get((d["proveedor"], d["oc"]))
+        if oc and oc.id != propia and not OC.puede("importar", oc.estado):
+            salida["estado"] = "conflicto"
+            salida["mensajes"].append(f"The PO is {OC.texto(oc.estado)} in the platform: a file cannot change it.")
+            resultado.append(salida)
+            continue
         pos = next((p for p in oc.posiciones if p.posicion == d["posicion"]), None) if oc else None
         if not pos:
             salida["estado"] = "nuevo"
@@ -844,10 +864,20 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
     imp = db.get(ImportacionOC, importacion_id)
     if not imp:
         raise ErrorNegocio("The import does not exist.", 404, "no_encontrado")
+    return aplicar_importacion(db, user, imp)
+
+
+def aplicar_importacion(db: Session, user: Usuario, imp: ImportacionOC, propia: int | None = None,
+                        formulario: bool = False) -> dict:
+    """Aplica las filas de una carga (archivo, formulario o asistente). Las OCs
+    nuevas entran aprobadas (vienen del ERP) salvo que la empresa pida aprobarlas
+    también aquí; cada OC creada o cambiada deja sus cambios en su historial."""
+    from app.modulos.compras import flujo_oc
+
     if imp.estado == "APLICADA":
         return {"ya_aplicada": True, **(imp.resultado or {})}
     # Se vuelve a clasificar: los datos pudieron cambiar desde la vista previa
-    clasificadas = _clasificar(db, imp.filas)
+    clasificadas = _clasificar(db, imp.filas, propia)
     m = Maestros(db)
     aplicadas = 0
     ocs_tocadas: dict[int, dict] = {}
@@ -866,12 +896,17 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
         nueva = oc is None
         if nueva:
             # Sin liberación logística hasta decidirla al final (abajo)
-            oc = OrdenCompra(proveedor_id=prov.id, numero=d["oc"], liberacion_logistica=m.lib.logistica.sin_liberar() or "")
+            oc = OrdenCompra(proveedor_id=prov.id, numero=d["oc"], liberacion_logistica=m.lib.logistica.sin_liberar() or "",
+                             estado="APROBADA", origen="ERP", creada_por=user.id if user else None)
             db.add(oc)
         info = ocs_tocadas.setdefault(id(oc), {
             "oc": oc, "cambios": False, "explicita": d["liberacion_logistica_archivo"],
-            "actual": None if nueva else oc.liberacion_logistica})
+            "actual": None if nueva else oc.liberacion_logistica, "nueva": nueva, "lineas": 0, "detalle": {}})
         info["cambios"] = info["cambios"] or (c["estado"] == "cambio")
+        info["lineas"] += 1
+        for campo, cambio in (c.get("cambios") or {}).items():
+            info["detalle"].setdefault(f"{d['posicion']}.{campo}" if campo in CAMPOS_POSICION + ["cantidad", "precio", "unidad"]
+                                       else campo, cambio)
         for campo in CAMPOS_CABECERA:
             setattr(oc, campo, d.get(campo))
         if d.get("extra"):
@@ -895,6 +930,15 @@ def importar_aplicar(db: Session, user: Usuario, importacion_id: int) -> dict:
                                                         info["cambios"])
         oc.liberada = m.lib.liberada(oc.liberacion_comercial, oc.liberacion_logistica)
         m.lib.fechar(oc)
+        if oc.id == propia or formulario:
+            continue  # el asistente o el formulario deciden su estado y su historial
+        db.flush()
+        if info["nueva"] and regla("APROBAR_OC_IMPORTADAS"):
+            flujo_oc.iniciar_aprobacion(db, user, oc)
+        detalle = {"archivo": imp.nombre_archivo, "lineas": info["lineas"]}
+        if not info["nueva"] and info["detalle"]:
+            detalle["cambios"] = dict(list(info["detalle"].items())[:60])
+        registrar(db, user, "orden", oc.id, "importada" if info["nueva"] else "actualizada", detalle)
     resultado = {"resumen": _resumen(clasificadas), "aplicadas": aplicadas}
     imp.estado = "APLICADA"
     imp.resultado = resultado
@@ -913,9 +957,12 @@ CAMPOS_FORM_LINEA = ("posicion", "codigo_sap", "cantidad", "precio", "unidad", "
 
 
 def crear_oc(db: Session, user: Usuario, datos: dict) -> dict:
-    """Orden de compra creada en la plataforma: misma estructura y mismas
-    validaciones que la carga masiva."""
-    exigir(user, "oc.importar")
+    """Orden de compra creada en la plataforma de una sola vez (sin borrador):
+    misma estructura y mismas validaciones que la carga masiva, y pasa por las
+    reglas de aprobación como la del asistente."""
+    from app.modulos.compras import flujo_oc
+
+    exigir(user, "oc.editar")
     cab = {k: _texto(v) for k, v in (datos.get("cabecera") or {}).items() if k in CAMPOS_FORM_CAB}
     permitidos = proveedores_de(user)
     if permitidos is not None:  # solo OCs de los proveedores de su alcance
@@ -951,10 +998,13 @@ def crear_oc(db: Session, user: Usuario, datos: dict) -> dict:
     imp = ImportacionOC(usuario_id=user.id, nombre_archivo="(form)", filas=filas)
     db.add(imp)
     db.flush()
-    resultado = importar_aplicar(db, user, imp.id)
+    resultado = aplicar_importacion(db, user, imp, formulario=True)
     oc = db.scalar(select(OrdenCompra).where(OrdenCompra.proveedor_id == m.proveedores[cab["proveedor"].upper()].id,
                                              OrdenCompra.numero == cab["oc"]))
-    registrar(db, user, "orden", oc.id, "creada", {"numero": oc.numero, "lineas": resultado["aplicadas"], "origen": "formulario"})
+    oc.origen = "PLATAFORMA"
+    flujo_oc.iniciar_aprobacion(db, user, oc)
+    registrar(db, user, "orden", oc.id, "enviada", {"numero": oc.numero, "lineas": resultado["aplicadas"], "origen": "formulario",
+                                                     "estado": oc.estado})
     return {"oc_id": oc.id, "numero": oc.numero, "lineas": resultado["aplicadas"]}
 
 
@@ -1012,8 +1062,8 @@ def plantilla_oc(db: Session, user: Usuario) -> bytes:
 
 
 def opciones_formulario(db: Session, user: Usuario) -> dict:
-    """Listas para el formulario de OC (códigos, como en el archivo de carga)."""
-    exigir(user, "oc.importar")
+    """Listas para el formulario y el asistente de OC (códigos, como en el archivo de carga)."""
+    exigir_alguno(user, "oc.editar", "oc.importar")
     provs = db.scalars(select(Proveedor).where(Proveedor.activo.is_(True),
                                                *([Proveedor.id.in_(proveedores_de(user))] if proveedores_de(user) is not None else []))
                        .order_by(Proveedor.nombre)).all()
@@ -1034,13 +1084,16 @@ def opciones_formulario(db: Session, user: Usuario) -> dict:
         "monedas": [{"valor": m, "texto": f"{m} · {listas.nombre('moneda', m)}" if listas.valor("moneda", m) else m}
                     for m in monedas],
         "incoterms": [{"valor": x["codigo"], "texto": f"{x['codigo']} · {x['nombre']}"} for x in listas.valores("incoterm")],
+        "condiciones_pago": [{"valor": x["codigo"], "texto": x["nombre"]} for x in listas.valores("condicion_pago")],
+        "unidades": [{"valor": x["codigo"], "texto": x["nombre"]} for x in listas.valores("unidad")],
         "moneda_base": moneda_base(),
+        "obligatorios": sorted((empresa.configuracion_actual().get("obligatorios") or {}).get("orden") or []),
     }
 
 
 def articulos_formulario(db: Session, user: Usuario, proveedor: str, q: str = "") -> list[dict]:
     """Artículos activos del proveedor para las líneas de la OC."""
-    exigir(user, "oc.importar")
+    exigir_alguno(user, "oc.editar", "oc.importar")
     prov = db.scalar(select(Proveedor).where(Proveedor.codigo == (proveedor or "").upper()))
     if not prov or (proveedores_de(user) is not None and prov.id not in proveedores_de(user)):
         return []
@@ -1049,4 +1102,5 @@ def articulos_formulario(db: Session, user: Usuario, proveedor: str, q: str = ""
         consulta = consulta.where(filtro_texto(q, lambda t: [Articulo.sku.ilike(t), Articulo.estilo.ilike(t), Articulo.color.ilike(t),
                                                              Articulo.sku_proveedor.ilike(t), Articulo.upc.ilike(t)]))
     return [{"valor": a.sku, "texto": f"{a.sku} · {a.estilo} {a.color or ''} {a.talla or ''}".strip(), "unidad": a.unidad,
-             "tipo": a.tipo} for a in db.scalars(consulta.order_by(Articulo.estilo, Articulo.color, Articulo.sku).limit(300))]
+             "tipo": a.tipo, "sub": " · ".join(x for x in (a.descripcion, a.marca.nombre if a.marca else None) if x),
+             "pais_origen": a.pais_origen} for a in db.scalars(consulta.order_by(Articulo.estilo, Articulo.color, Articulo.sku).limit(300))]

@@ -62,6 +62,9 @@ LISTAS: dict[str, dict] = {
     "tipo_contacto": {"etiqueta": "Contact types", "ayuda": "", "atributos": [], "sistema": []},
     "tipo_impuesto": {"etiqueta": "Tax types", "ayuda": "Taxes of the national tariff rules.", "atributos": [],
                       "sistema": []},
+    "condicion_pago": {"etiqueta": "Payment terms",
+                       "ayuda": "Commercial payment terms of purchase orders and invoices (cash in advance, net 30…).",
+                       "atributos": ["alias"], "sistema": []},
     "tipo_documento": {"etiqueta": "Technical document types",
                        "ayuda": "Technical evidence attached to a product (safety and technical data sheets, "
                                 "certificates…).", "atributos": [], "sistema": []},
@@ -164,6 +167,12 @@ FABRICA: dict[str, list[dict]] = {
     "tipo_impuesto": [_v(c, c) for c in ("DAI", "IVA", "ITBMS", "ISV", "ISC", "SELECTIVO")] + [_v("OTRO", "Other")],
     "tipo_documento": [_v("SDS", "SDS · safety data sheet"), _v("TDS", "TDS · technical data sheet"),
                        _v("COA", "COA · certificate of analysis")],
+    "condicion_pago": [_v("ANTICIPO", "Cash in advance", alias="PREPAID,CIA,CONTADO,ANTICIPADO"),
+                       _v("NETO30", "Net 30 days", alias="NET30,N30,30 DIAS,30 DAYS"),
+                       _v("NETO60", "Net 60 days", alias="NET60,N60,60 DIAS,60 DAYS"),
+                       _v("NETO90", "Net 90 days", alias="NET90,N90,90 DIAS,90 DAYS"),
+                       _v("CARTA_CREDITO", "Letter of credit", alias="LC,L/C,CARTA DE CREDITO"),
+                       _v("CAD", "Cash against documents", alias="CONTRA DOCUMENTOS,D/P")],
 }
 
 _actual: ContextVar[dict | None] = ContextVar("listas", default=None)

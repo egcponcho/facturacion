@@ -10,6 +10,7 @@ from app.core.archivos import DOCUMENTOS, exigir_tamano, tipo_de
 from app.core.config import settings
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
+from app.core.estados import FACTURA, OC
 from app.esquemas import FacturaCabecera, FacturaCrear, PosicionCantidad
 from app.modelos import (
     Archivo,
@@ -160,6 +161,9 @@ def _preparar_posiciones(
         oc = ocs[p.oc_id]
         ref = f"PO {oc.numero} line {p.posicion}"
         cantidad = pedidas[p.id]
+        if not OC.puede("facturar", oc.estado):
+            errores.append({"posicion_id": p.id, "mensaje": f"{ref}: the PO is {OC.texto(oc.estado)}: it cannot be invoiced."})
+            continue
         if not oc.liberada:
             errores.append({"posicion_id": p.id, "mensaje": f"{ref}: the PO is not released."})
             continue
@@ -588,8 +592,7 @@ def finalizar(db: Session, user: Usuario, factura_id: int, version: int, incluir
 
     exigir(user, "factura.finalizar")
     f = cargar_factura(db, user, factura_id, bloquear=True)
-    if f.estado not in EDITABLE_FACTURA:
-        raise ErrorNegocio(f"The invoice is already {ESTADO_TXT[f.estado]}.", 409, "no_editable")
+    FACTURA.exigir("finalizar", f.estado, "no_editable")
     verificar_version(f, version, "invoice")
     completar_aduana(db, f)
     errores = validar_factura(db, f)
@@ -622,8 +625,7 @@ def reabrir(db: Session, user: Usuario, factura_id: int, motivo: str | None) -> 
     exigir(user, "factura.reabrir")
     motivo = requerir_motivo(motivo, "reopen the invoice")
     f = cargar_factura(db, user, factura_id, bloquear=True)
-    if f.estado != "FINALIZADA":
-        raise ErrorNegocio("Only finalized invoices can be reopened.", 409, "no_editable")
+    FACTURA.exigir("reabrir", f.estado, "no_editable")
     viajando = [pl.numero for pl in f.packing_lists if pl.unidad and pl.unidad.embarque.estado != "PLANIFICADO"]
     if viajando:
         raise ErrorNegocio(f"Its packing lists are already traveling: {', '.join(viajando)}. It cannot be reopened.",
@@ -644,8 +646,7 @@ def reabrir(db: Session, user: Usuario, factura_id: int, motivo: str | None) -> 
 def cancelar(db: Session, user: Usuario, factura_id: int, motivo: str | None) -> dict:
     exigir(user, "factura.cancelar")
     f = cargar_factura(db, user, factura_id, bloquear=True)
-    if f.estado == "CANCELADA":
-        raise ErrorNegocio("The invoice is already cancelled.", 409, "no_editable")
+    FACTURA.exigir("cancelar", f.estado, "no_editable")
     if user.rol == "proveedor" and f.estado != "BORRADOR":
         raise ErrorNegocio("You can only cancel draft invoices. Ask the internal team to cancel it.",
                            403, "sin_permiso")
