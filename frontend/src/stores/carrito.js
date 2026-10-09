@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.js'
+import { t } from '@/i18n/index.js'
 import { reactive, watch } from 'vue'
 
 // Order lines selected for invoicing. Kept while you navigate

@@ -1,6 +1,6 @@
-import { t } from '../i18n/index.js'
+import { t } from '@/i18n/index.js'
 import { computed, reactive, watch } from 'vue'
-import { filasDefecto } from '../stores/preferencias'
+import { filasDefecto } from '@/stores/preferencias'
 
 // Orden y paginación en el navegador para tablas con todos los datos a mano.
 // `fuente` es un ref/computed con las filas; `valores` permite ordenar por un

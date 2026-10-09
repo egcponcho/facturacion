@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
-import { api, manejarNoAutorizado } from '../api'
-import { cambiarIdioma, idioma, sumarCatalogo } from '../i18n/index.js'
+import { api, manejarNoAutorizado } from '@/nucleo/api'
+import { cambiarIdioma, idioma, sumarCatalogo } from '@/i18n/index.js'
 import { aplicarPreferencias, pref } from './preferencias'
 import { tema } from './tema'
 

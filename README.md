@@ -460,14 +460,25 @@ backend/alembic/     migraciones de la base de datos
 backend/tests/       flujo completo, motor de clasificación (de punta a punta, fixtures de paridad en tests/paridad), reglas de empaque,
                      acceso seguro, visibilidad por rol, idiomas, producción y concurrencia
 frontend/src/
-  views/             Inicio, Órdenes, Facturas, Factura, Lista de empaque, Embarques, Embarque, Productos, Producto, Seguimiento,
-                     Mi perfil y, en Configuración: Empresa, Usuarios y accesos, Datos maestros, Plantillas de empaque,
-                     Lead times, Familias de producto, Arancel, Cargar órdenes de compra
-  clasificacion/     llamadas al motor de clasificación (/clasificacion/sesion) y formato de códigos (sin lógica de clasificación)
-  components/        íconos, pasos, gráficas SVG, barra de acciones en bloque, modales, estados, destinos y unidades de carga, selector de columnas
-  composables/       tablas, columnas por usuario, edición
+  main.js, App.vue, router.js, styles.css   arranque, marco de la aplicación, rutas y estilos
+  nucleo/            cliente de la API (api.js), formatos (utils.js), búsqueda, unidades de medida, directivas
+  componentes/       interfaz compartida: íconos, modales, tablas (paginación, orden, columnas), filtros, selectores,
+                     estados, gráficas SVG, barra de acciones en bloque, cargas de archivos, búsqueda global
+  composables/       tablas, columnas por usuario, edición exclusiva, rutas
   stores/            sesión, selección para facturar, preferencias, tema, avisos
   i18n/              es.json, glosario.json y claves.json
+  modulos/<dominio>/ vistas/ (pantallas) y componentes/ propios de cada dominio:
+    acceso/          ingreso, bienvenida, Mi perfil, Usuarios y accesos
+    empresa/         Configuración → Empresa
+    inicio/          tablero de inicio
+    compras/         órdenes de compra y su carga
+    facturacion/     facturas
+    empaque/         listas de empaque y plantillas de empaque
+    transporte/      embarques y lead times
+    seguimiento/     seguimiento de mercancía
+    productos/       productos y ficha técnica
+    clasificacion/   arancel, familias de producto y llamadas al motor (sin lógica de clasificación)
+    maestros/        datos maestros, genéricos y reglas de lead time
 ```
 
 ## Antes de pasar a producción

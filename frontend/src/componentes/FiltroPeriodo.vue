@@ -1,0 +1,70 @@
+<script setup>
+import { t, tx } from '@/i18n/index.js'
+import { fmtFecha } from '@/nucleo/utils'
+import { computed, ref } from 'vue'
+
+// Periodo rápido: semana, mes, trimestre, año, últimos 12 meses o rango propio.
+// v-model: { clave, desde, hasta } con fechas ISO (YYYY-MM-DD).
+const props = defineProps({ modelValue: { type: Object, required: true } })
+const emit = defineEmits(['update:modelValue'])
+
+const OPCIONES = [['semana', t('This week')], ['mes', t('This month')], ['mes_ant', t('Last month')], ['trimestre', t('This quarter')], ['anio', t('This year')], ['12m', t('12 months')]]
+const propio = ref(props.modelValue.clave === 'propio')
+const texto = computed(() => {
+  return `${fmtFecha(props.modelValue.desde)} – ${fmtFecha(props.modelValue.hasta)}`
+})
+
+function elegir(clave) {
+  propio.value = false
+  const [a, b] = rango(clave)
+  emit('update:modelValue', { clave, desde: iso(a), hasta: iso(b) })
+}
+function rangoPropio(campo, v) {
+  if (!v) return
+  emit('update:modelValue', { ...props.modelValue, clave: 'propio', [campo]: v })
+}
+</script>
+
+<script>
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+export function rango(clave) {
+  const h = new Date()
+  h.setHours(0, 0, 0, 0)
+  const y = h.getFullYear()
+  const m = h.getMonth()
+  switch (clave) {
+    case 'semana': { const d = new Date(h); d.setDate(h.getDate() - ((h.getDay() + 6) % 7)); return [d, h] }
+    case 'mes_ant': return [new Date(y, m - 1, 1), new Date(y, m, 0)]
+    case 'trimestre': return [new Date(y, Math.floor(m / 3) * 3, 1), h]
+    case 'anio': return [new Date(y, 0, 1), h]
+    case '12m': return [new Date(y, m - 11, 1), h]
+    default: return [new Date(y, m, 1), h]
+  }
+}
+// Periodo inicial para quien usa el componente (por defecto, el mes en curso)
+export function periodoInicial(clave = 'mes') {
+  const [a, b] = rango(clave)
+  return { clave, desde: iso(a), hasta: iso(b) }
+}
+</script>
+
+<template>
+  <div class="periodo">
+    <div class="segmentos" role="group" :aria-label="t('Period')">
+      <button v-for="[k, txt] in OPCIONES" :key="k" type="button" class="segmento" :aria-pressed="props.modelValue.clave === k" @click="elegir(k)">{{ tx(txt) }}</button>
+      <button type="button" class="segmento" :aria-pressed="props.modelValue.clave === 'propio'" @click="propio = true">{{ t('Custom') }}</button>
+    </div>
+    <span v-if="propio || props.modelValue.clave === 'propio'" class="rango-propio">
+      <CampoFecha :model-value="props.modelValue.desde" :aria-label="t('From')" @change="(v) => rangoPropio('desde', v)" />
+      <span class="ayuda">to</span>
+      <CampoFecha :model-value="props.modelValue.hasta" :aria-label="t('To')" @change="(v) => rangoPropio('hasta', v)" />
+    </span>
+    <span v-else class="ayuda">{{ tx(texto) }}</span>
+  </div>
+</template>
+
+<style scoped>
+.periodo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.rango-propio { display: inline-flex; align-items: center; gap: 6px; }
+.rango-propio .campo-fecha { width: 10.5em; }
+</style>

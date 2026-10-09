@@ -1,7 +1,7 @@
-import { t } from '../i18n/index.js'
+import { t } from '@/i18n/index.js'
 import { ref } from 'vue'
-import { api } from '../api'
-import { errorApi } from '../stores/ui'
+import { api } from '@/nucleo/api'
+import { errorApi } from '@/stores/ui'
 
 // Catálogos para la ruta de un embarque, coherentes con su modo:
 //  - puertos del tipo del embarque (puerto marítimo, aeropuerto o aduana terrestre);

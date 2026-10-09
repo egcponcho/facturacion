@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { api } from '../api'
+import { api } from '@/nucleo/api'
 
 // Edición exclusiva: mientras esta pantalla puede editar el documento, toma el
 // permiso de edición y lo renueva; si otra persona lo tiene, el detalle llega

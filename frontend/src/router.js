@@ -1,32 +1,32 @@
-import { t } from './i18n/index.js'
+import { t } from '@/i18n/index.js'
 import { createRouter, createWebHistory } from 'vue-router'
-import { cargarSesion, puede, sesion } from './stores/sesion'
-import { avisar, ui } from './stores/ui'
+import { cargarSesion, puede, sesion } from '@/stores/sesion'
+import { avisar, ui } from '@/stores/ui'
 
 const routes = [
-  { path: '/login', name: 'login', component: () => import('./views/LoginView.vue'), meta: { publica: true } },
-  { path: '/', component: () => import('./views/DashboardView.vue') },
-  { path: '/ordenes', component: () => import('./views/OrdenesView.vue'), meta: { permiso: 'oc.ver' } },
-  { path: '/facturas', component: () => import('./views/FacturasView.vue'), meta: { permiso: 'oc.ver' } },
-  { path: '/facturas/:id', component: () => import('./views/FacturaView.vue'), props: true },
-  { path: '/packing-lists/:id', component: () => import('./views/PackingListView.vue'), props: true },
-  { path: '/productos', component: () => import('./views/ProductosView.vue'), meta: { permiso: 'producto.ver' } },
-  { path: '/aranceles', component: () => import('./views/ArancelesView.vue'), meta: { permiso: 'aranceles.ver' } },
-  { path: '/familias', component: () => import('./views/FamiliasView.vue'), meta: { permiso: 'clasificacion.ver' } },
-  { path: '/productos/:id', component: () => import('./views/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
-  { path: '/plantillas', component: () => import('./views/PlantillasView.vue'), meta: { permiso: 'plantilla.editar' } },
+  { path: '/login', name: 'login', component: () => import('@/modulos/acceso/vistas/LoginView.vue'), meta: { publica: true } },
+  { path: '/', component: () => import('@/modulos/inicio/vistas/DashboardView.vue') },
+  { path: '/ordenes', component: () => import('@/modulos/compras/vistas/OrdenesView.vue'), meta: { permiso: 'oc.ver' } },
+  { path: '/facturas', component: () => import('@/modulos/facturacion/vistas/FacturasView.vue'), meta: { permiso: 'oc.ver' } },
+  { path: '/facturas/:id', component: () => import('@/modulos/facturacion/vistas/FacturaView.vue'), props: true },
+  { path: '/packing-lists/:id', component: () => import('@/modulos/empaque/vistas/PackingListView.vue'), props: true },
+  { path: '/productos', component: () => import('@/modulos/productos/vistas/ProductosView.vue'), meta: { permiso: 'producto.ver' } },
+  { path: '/aranceles', component: () => import('@/modulos/clasificacion/vistas/ArancelesView.vue'), meta: { permiso: 'aranceles.ver' } },
+  { path: '/familias', component: () => import('@/modulos/clasificacion/vistas/FamiliasView.vue'), meta: { permiso: 'clasificacion.ver' } },
+  { path: '/productos/:id', component: () => import('@/modulos/productos/vistas/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
+  { path: '/plantillas', component: () => import('@/modulos/empaque/vistas/PlantillasView.vue'), meta: { permiso: 'plantilla.editar' } },
   // Rutas restringidas: cada una exige el permiso de su rol (el servidor
   // vuelve a comprobarlo en cada petición)
-  { path: '/transporte', component: () => import('./views/EmbarquesView.vue'), meta: { permiso: 'transporte.gestionar' } },
-  { path: '/transporte/embarques/:id', component: () => import('./views/EmbarqueView.vue'), props: true, meta: { permiso: 'transporte.gestionar' } },
-  { path: '/importar', component: () => import('./views/ImportarView.vue'), meta: { permiso: 'oc.importar' } },
-  { path: '/mantenimiento', component: () => import('./views/MantenimientoView.vue'), meta: { permiso: 'catalogos.ver' } },
-  { path: '/leadtimes', component: () => import('./views/LeadTimeView.vue'), meta: { permiso: 'catalogos.ver' } },
-  { path: '/seguimiento', component: () => import('./views/SeguimientoView.vue'), meta: { permiso: 'seguimiento.ver' } },
-  { path: '/perfil', component: () => import('./views/PerfilView.vue') },
-  { path: '/bienvenida', name: 'bienvenida', component: () => import('./views/BienvenidaView.vue'), meta: { sinMarco: true } },
-  { path: '/admin', component: () => import('./views/AdminView.vue'), meta: { permiso: 'admin' } },
-  { path: '/empresa', component: () => import('./views/EmpresaView.vue'), meta: { permiso: 'admin' } },
+  { path: '/transporte', component: () => import('@/modulos/transporte/vistas/EmbarquesView.vue'), meta: { permiso: 'transporte.gestionar' } },
+  { path: '/transporte/embarques/:id', component: () => import('@/modulos/transporte/vistas/EmbarqueView.vue'), props: true, meta: { permiso: 'transporte.gestionar' } },
+  { path: '/importar', component: () => import('@/modulos/compras/vistas/ImportarView.vue'), meta: { permiso: 'oc.importar' } },
+  { path: '/mantenimiento', component: () => import('@/modulos/maestros/vistas/MantenimientoView.vue'), meta: { permiso: 'catalogos.ver' } },
+  { path: '/leadtimes', component: () => import('@/modulos/transporte/vistas/LeadTimeView.vue'), meta: { permiso: 'catalogos.ver' } },
+  { path: '/seguimiento', component: () => import('@/modulos/seguimiento/vistas/SeguimientoView.vue'), meta: { permiso: 'seguimiento.ver' } },
+  { path: '/perfil', component: () => import('@/modulos/acceso/vistas/PerfilView.vue') },
+  { path: '/bienvenida', name: 'bienvenida', component: () => import('@/modulos/acceso/vistas/BienvenidaView.vue'), meta: { sinMarco: true } },
+  { path: '/admin', component: () => import('@/modulos/acceso/vistas/AdminView.vue'), meta: { permiso: 'admin' } },
+  { path: '/empresa', component: () => import('@/modulos/empresa/vistas/EmpresaView.vue'), meta: { permiso: 'admin' } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 

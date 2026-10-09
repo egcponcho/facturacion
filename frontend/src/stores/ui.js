@@ -1,4 +1,4 @@
-import { t, tx } from '../i18n/index.js'
+import { t, tx } from '@/i18n/index.js'
 import { reactive } from 'vue'
 
 export const ui = reactive({ toasts: [], guardado: '', navegando: false })

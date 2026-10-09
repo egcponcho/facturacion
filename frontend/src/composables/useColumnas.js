@@ -1,6 +1,6 @@
 import { computed } from 'vue'
-import { api } from '../api'
-import { sesion, ve } from '../stores/sesion'
+import { api } from '@/nucleo/api'
+import { sesion, ve } from '@/stores/sesion'
 
 // Columnas de una tabla: las que el rol permite (sin los grupos de datos
 // ocultos) y, de esas, las que la persona eligió ver. Sin elección, la vista

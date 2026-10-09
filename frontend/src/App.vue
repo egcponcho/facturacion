@@ -1,17 +1,17 @@
 <script setup>
-import SelectBusqueda from './components/SelectBusqueda.vue'
-import { t, tx } from './i18n/index.js'
+import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import { t, tx } from '@/i18n/index.js'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import Icono from './components/Icono.vue'
-import Avatar from './components/Avatar.vue'
-import BusquedaGlobal from './components/BusquedaGlobal.vue'
-import SelectorIdioma from './components/SelectorIdioma.vue'
-import SelectorTema from './components/SelectorTema.vue'
-import Toasts from './components/Toasts.vue'
-import { carrito } from './stores/carrito'
-import { cerrarSesion, elegirProveedor, esInterno, puede, sesion } from './stores/sesion'
-import { ui } from './stores/ui'
+import Icono from '@/componentes/Icono.vue'
+import Avatar from '@/componentes/Avatar.vue'
+import BusquedaGlobal from '@/componentes/BusquedaGlobal.vue'
+import SelectorIdioma from '@/componentes/SelectorIdioma.vue'
+import SelectorTema from '@/componentes/SelectorTema.vue'
+import Toasts from '@/componentes/Toasts.vue'
+import { carrito } from '@/stores/carrito'
+import { cerrarSesion, elegirProveedor, esInterno, puede, sesion } from '@/stores/sesion'
+import { ui } from '@/stores/ui'
 
 const route = useRoute()
 const router = useRouter()
