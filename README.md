@@ -455,7 +455,16 @@ TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost/tests pytest   # 
 
 Las pruebas usan la demostración (`SEED_DEMO=1`, `COOKIE_SEGURA=0`) en una base temporal; con `TEST_DATABASE_URL` la base PostgreSQL de pruebas se vacía al empezar.
 
+Revisiones de calidad antes de subir cambios:
+
+```bash
+cd backend && ruff check app tests && alembic check   # estilo y errores frecuentes; modelo y migraciones al día
+cd frontend && npm run lint && npm run build          # ESLint (Vue) y compilación
+```
+
 ## Estructura
+
+Las capas, los mecanismos de configuración y cómo agregar un módulo, una lista de valores o un texto están en **[docs/ARQUITECTURA.md](docs/ARQUITECTURA.md)**.
 
 ```
 backend/app/
