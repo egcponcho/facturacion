@@ -1,3 +1,3 @@
-"""Núcleo transversal: configuración, base de datos, seguridad, dependencias de la API,
-reglas de la empresa, migraciones y errores de negocio. No depende de ningún módulo.
+"""Núcleo transversal: configuración, base de datos, seguridad, reglas de la
+empresa y errores de negocio. No depende de ningún módulo de negocio.
 """

@@ -3,8 +3,8 @@ from datetime import date
 from fastapi import APIRouter, File, Query, Request, UploadFile
 
 from app import esquemas as s
-from app.core.api import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
 from app.modulos.clasificacion import aranceles as svc
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
 
 router = APIRouter()
 XLSX = "xlsx"

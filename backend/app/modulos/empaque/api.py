@@ -1,6 +1,5 @@
 from fastapi import APIRouter, File, UploadFile
 
-from app.core.api import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
 from app.esquemas import (
     CajaManual,
     ConMotivo,
@@ -23,6 +22,7 @@ from app.esquemas import (
 )
 from app.modulos.documentos import documentos, exportar
 from app.modulos.empaque import packing as svc
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
 
 router = APIRouter(prefix="/packing-lists")
 

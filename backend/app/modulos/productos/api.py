@@ -4,9 +4,9 @@ from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from app import esquemas as s
-from app.core.api import Clave, Db, Formato, User, descarga, ejecutar
 from app.modulos.clasificacion import especialista
 from app.modulos.productos import productos as svc
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar
 
 router = APIRouter()
 

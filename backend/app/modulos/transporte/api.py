@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Query
 
-from app.core.api import Clave, Db, User, ejecutar
 from app.esquemas import AsignarPL, EmbarqueIn, EmbarquePatch, EventoIn, PLIds, Recoleccion, UnidadIn, UnidadPatch
 from app.modulos.transporte import transporte as svc
 from app.modulos.transporte.sugerencias import sugerir_unidades
+from app.web.rutas import Clave, Db, User, ejecutar
 
 router = APIRouter()
 

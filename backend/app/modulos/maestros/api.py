@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Body, File, Query, Request, UploadFile
 
 from app import esquemas as s
-from app.core.api import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
 from app.modulos.maestros import cargas, genericos
 from app.modulos.maestros import catalogos as svc
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
 
 router = APIRouter(prefix="/catalogos")
 RESERVADOS = {"q", "orden", "page", "size"}

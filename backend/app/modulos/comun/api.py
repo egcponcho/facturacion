@@ -2,8 +2,8 @@
 """
 from fastapi import APIRouter
 
-from app.core.api import Db, User
 from app.modulos.comun import edicion
+from app.web.rutas import Db, User
 
 router = APIRouter()
 

@@ -7,9 +7,9 @@ from fastapi import Depends, Header, Query, Response
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.core.dependencias import usuario_con_preferencias
 from app.modelos import Usuario
 from app.modulos.comun.historial import idempotente
+from app.web.dependencias import usuario_con_preferencias
 
 Db = Annotated[Session, Depends(get_db)]
 User = Annotated[Usuario, Depends(usuario_con_preferencias)]

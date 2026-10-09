@@ -2,7 +2,7 @@
 from alembic import context
 from app import modelos as models  # noqa: F401  (registra las tablas en Base.metadata)
 from app.core.db import Base, engine
-from app.core.migraciones import sin_claves_foraneas
+from app.instalacion.migraciones import sin_claves_foraneas
 
 target_metadata = Base.metadata
 

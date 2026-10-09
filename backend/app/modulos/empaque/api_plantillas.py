@@ -2,9 +2,9 @@
 """
 from fastapi import APIRouter
 
-from app.core.api import Clave, Db, User, ejecutar
 from app.esquemas import PlantillaIn, PlantillaPatch
 from app.modulos.empaque import plantillas_caja
+from app.web.rutas import Clave, Db, User, ejecutar
 
 router = APIRouter()
 

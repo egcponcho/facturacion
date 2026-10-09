@@ -698,9 +698,9 @@ def reiniciar_demo() -> None:
     Solo con SEED_DEMO=1: nunca toca una base de producción."""
     from sqlalchemy import inspect, text
 
-    from app.core import migraciones
     from app.core.config import settings
     from app.core.db import SessionLocal, engine
+    from app.instalacion import migraciones
 
     if not settings.SEED_DEMO:
         raise SystemExit("Solo se reinicia una base de demostración (SEED_DEMO=1).")

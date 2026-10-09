@@ -10,9 +10,9 @@ impuestos y regulaciones) sigue en /aranceles/oficial/… y /aranceles/….
 """
 from fastapi import APIRouter, Query
 
-from app.core.api import Db, User
 from app.modelos import PalabraClave, SinonimoMaterial
 from app.modulos.clasificacion import conocimiento
+from app.web.rutas import Db, User
 
 router = APIRouter(tags=["clasificacion"])
 

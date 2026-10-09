@@ -435,8 +435,8 @@ Las pruebas usan la demostración (`SEED_DEMO=1`, `COOKIE_SEGURA=0`) en una base
 backend/app/
   main.py            aplicación FastAPI: middlewares, errores y registro de las rutas de cada módulo
   core/              núcleo transversal (no depende de los módulos): config.py (variables de entorno), db.py,
-                     seguridad.py, dependencias.py (usuario de la petición), empresa.py (reglas de negocio REGLAS),
-                     api.py (piezas comunes de las rutas), errores.py, migraciones.py
+                     seguridad.py, empresa.py (reglas de negocio REGLAS), errores.py
+  web/               capa HTTP compartida: dependencias.py (usuario de la petición) y rutas.py (piezas comunes de las rutas)
   modelos/           modelo de datos (SQLAlchemy), un archivo por dominio
   esquemas/          contratos de entrada de la API (pydantic), un archivo por dominio
   modulos/           un paquete por dominio, cada uno con sus servicios y su api.py (rutas bajo /api):
@@ -452,7 +452,8 @@ backend/app/
     productos/       ficha técnica, flujo de clasificación y descripciones
     clasificacion/   arancel oficial, motor de clasificación, atributos, reglas, familias, conocimiento
     documentos/      PDF y Excel (factura, lista de empaque, plantillas), montos en letras, idioma del documento
-  instalacion/       arranque de una instalación: datos incluidos, primer administrador (inicial.py), demostración (demo.py)
+  instalacion/       arranque de una instalación: migraciones.py, datos incluidos, primer administrador (inicial.py),
+                     demostración (demo.py)
   i18n/              textos del servidor (claves.json) y su traducción al español (es.json)
   data/              datos oficiales del arancel, motor de clasificación (familias) y datos de la demostración
 backend/alembic/     migraciones de la base de datos

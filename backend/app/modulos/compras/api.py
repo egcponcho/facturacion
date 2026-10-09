@@ -1,8 +1,8 @@
 from fastapi import APIRouter, File, Query, UploadFile
 from pydantic import BaseModel, Field
 
-from app.core.api import Clave, Db, User, ejecutar
 from app.modulos.compras import ordenes as svc
+from app.web.rutas import Clave, Db, User, ejecutar
 
 router = APIRouter()
 

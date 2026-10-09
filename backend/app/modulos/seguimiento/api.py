@@ -4,7 +4,6 @@ from datetime import date
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
-from app.core.api import Clave, Db, Formato, User, descarga, ejecutar
 from app.modulos.acceso.permisos import exigir
 from app.modulos.seguimiento import alertas as servicio_alertas
 from app.modulos.seguimiento import buscar as buscador
@@ -12,6 +11,7 @@ from app.modulos.seguimiento import dashboard as tablero
 from app.modulos.seguimiento import reportes
 from app.modulos.seguimiento import seguimiento as seg
 from app.modulos.transporte import leadtimes
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar
 
 router = APIRouter()
 

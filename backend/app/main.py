@@ -42,7 +42,7 @@ async def lifespan(_: FastAPI):
     deja lista la instalación. Demostración y producción siguen el mismo
     camino; la demostración solo agrega sus datos de ejemplo a una base vacía."""
     settings.validar()
-    from app.core import migraciones
+    from app.instalacion import migraciones
     from app.instalacion.inicial import preparar_instalacion
 
     migraciones.actualizar()

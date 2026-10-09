@@ -4,9 +4,7 @@ from fastapi import APIRouter, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import object_session
 
-from app.core.api import Clave, Db, User, ejecutar
 from app.core.config import settings
-from app.core.dependencias import COOKIE
 from app.core.empresa import regla
 from app.esquemas import (
     DesafioIn,
@@ -32,6 +30,8 @@ from app.modulos.acceso.limites import limitar
 from app.modulos.acceso.permisos import catalogo_permisos, permisos_de
 from app.modulos.empresa import organizacion
 from app.modulos.productos import flujo
+from app.web.dependencias import COOKIE
+from app.web.rutas import Clave, Db, User, ejecutar
 
 router = APIRouter()
 

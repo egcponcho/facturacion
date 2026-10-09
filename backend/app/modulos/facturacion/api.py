@@ -1,7 +1,6 @@
 from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 
-from app.core.api import Clave, Db, Formato, User, descarga, ejecutar
 from app.esquemas import (
     ConMotivo,
     FacturaAgregar,
@@ -15,6 +14,7 @@ from app.esquemas import (
 from app.modulos.documentos import documentos, exportar
 from app.modulos.empaque import packing
 from app.modulos.facturacion import facturas as svc
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar
 
 router = APIRouter()
 

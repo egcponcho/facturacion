@@ -2,8 +2,8 @@
 """
 from fastapi import APIRouter
 
-from app.core.api import Clave, Db, User, ejecutar
 from app.modulos.productos import flujo
+from app.web.rutas import Clave, Db, User, ejecutar
 
 router = APIRouter()
 
