@@ -19,13 +19,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+from app.core.organizacion import DeOrganizacion
 from app.modelos.base import ahora
 
 if TYPE_CHECKING:
     from app.modelos.acceso import Usuario
 
 
-class Historial(Base):
+class Historial(DeOrganizacion, Base):
     __tablename__ = "historial"
     __table_args__ = (Index("ix_historial_entidad", "entidad", "entidad_id"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -41,7 +42,7 @@ class Historial(Base):
     usuario: Mapped[Usuario | None] = relationship()
 
 
-class Alerta(Base):
+class Alerta(DeOrganizacion, Base):
     __tablename__ = "alertas"
     id: Mapped[int] = mapped_column(primary_key=True)
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"), index=True)

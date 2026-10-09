@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app.core.errores import ErrorNegocio
 from app.modelos import Articulo, GrupoArticulo, Marca, Pais, Producto, Proveedor, Usuario
-from app.modulos.acceso.permisos import exigir
+from app.modulos.acceso.permisos import exigir, exigir_compartido
 from app.modulos.clasificacion.meta import categoria_de, valor_opcion
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.normalizar import Referencias
@@ -435,6 +435,7 @@ def plantilla_catalogo(db: Session, user: Usuario, tipo: str) -> bytes:
 
 def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, contenido: bytes) -> dict:
     exigir(user, "catalogos.crear")
+    exigir_compartido(user, tipo)
     if tipo == "articulos":
         return importar_articulos(db, user, nombre, contenido)
     if tipo == "prepacks":

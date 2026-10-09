@@ -4,9 +4,9 @@ Un sistema donde cada proveedor (y el equipo interno) arma sus facturas a partir
 
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL (SQLite para desarrollo rápido).
 - **Frontend:** Vue 3 + Vite, sin librerías de componentes ni de gráficas (íconos y gráficas SVG propios).
-- **Una empresa por instalación:** cada instalación sirve a una sola empresa (la plataforma de varias empresas se retiró en la migración 0037). Su ficha (nombre, logo, país, idioma, moneda, zona horaria, formato de fecha), su **marca** (color de las pantallas y documentos, nombre del sistema y textos de la pantalla de ingreso), sus **documentos** (papel carta o A4, declaraciones de la factura y la lista de empaque y logo en los reportes), su **terminología** (cualquier texto del sistema reemplazado por las palabras de la empresa, en español e inglés, en pantallas y documentos) y sus reglas de negocio se guardan en la base de datos y se editan en *Configuración → Empresa*. Las cuentas de ejemplo de la pantalla de ingreso solo aparecen en la demostración (`SEED_DEMO=1`).
+- **Varias organizaciones (multiempresa):** una instalación sirve a varias empresas cliente con sus datos aislados (filtro en la capa de datos y, en PostgreSQL, seguridad por fila). Cada organización tiene su ficha (nombre, logo, país, idioma, moneda, zona horaria, formato de fecha), su **marca** (color de las pantallas y documentos, nombre del sistema y textos de la pantalla de ingreso), sus **documentos** (papel carta o A4, declaraciones de la factura y la lista de empaque y logo en los reportes), su **terminología** (cualquier texto del sistema reemplazado por las palabras de la empresa, en español e inglés, en pantallas y documentos), sus usuarios, roles y reglas de negocio, que se editan en *Configuración → Empresa*. La administración de la plataforma crea organizaciones y entra a cualquiera para dar soporte (*Configuración → Plataforma*). Las cuentas de ejemplo de la pantalla de ingreso solo aparecen en la demostración (`SEED_DEMO=1`).
 - **Idiomas:** la interfaz, los mensajes y los documentos (PDF/Excel) están en español e inglés. Los identificadores y comentarios del código están en español.
-- **Pruebas:** 392 pruebas automatizadas (`backend/tests`); en SQLite se omite la de bloqueo de filas, que necesita PostgreSQL.
+- **Pruebas:** más de 440 pruebas automatizadas (`backend/tests`); en SQLite se omiten las de bloqueo de filas y seguridad por fila, que necesitan PostgreSQL.
 
 ## Cómo empezar
 
@@ -470,12 +470,14 @@ Las capas, los mecanismos de configuración y cómo agregar un módulo, una list
 backend/app/
   main.py            aplicación FastAPI: middlewares, errores y registro de las rutas de cada módulo
   core/              núcleo transversal (no depende de los módulos): config.py (variables de entorno), db.py,
-                     seguridad.py, empresa.py (reglas de negocio REGLAS), errores.py
+                     organizacion.py (aislamiento por organización), seguridad.py, empresa.py (reglas de negocio
+                     REGLAS), errores.py, archivos.py (validación de archivos subidos)
   web/               capa HTTP compartida: dependencias.py (usuario de la petición) y rutas.py (piezas comunes de las rutas)
   modelos/           modelo de datos (SQLAlchemy), un archivo por dominio
   esquemas/          contratos de entrada de la API (pydantic), un archivo por dominio
   modulos/           un paquete por dominio, cada uno con sus servicios y su api.py (rutas bajo /api):
     comun/           historial, idempotencia, búsqueda de texto, normalización, edición exclusiva
+    plataforma/      organizaciones (empresas cliente): alta, suspensión y entrada para soporte
     acceso/          inicio de sesión en dos pasos, usuarios, roles y permisos, proveedores, preferencias, datos visibles por rol
     empresa/         ficha y reglas de la empresa
     maestros/        catálogos, genéricos y tallas, unidades de medida, acuerdos comerciales, cargas masivas
@@ -503,7 +505,8 @@ frontend/src/
   stores/            sesión, selección para facturar, preferencias, tema, avisos
   i18n/              es.json, glosario.json y claves.json
   modulos/<dominio>/ vistas/ (pantallas) y componentes/ propios de cada dominio:
-    acceso/          ingreso, bienvenida, Mi perfil, Usuarios y accesos
+    plataforma/      organizaciones de la instalación
+    acceso/          ingreso, bienvenida, Mi perfil, Usuarios y accesos (con la bitácora)
     empresa/         Configuración → Empresa
     inicio/          tablero de inicio
     compras/         órdenes de compra y su carga

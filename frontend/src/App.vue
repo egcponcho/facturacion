@@ -10,8 +10,9 @@ import SelectorIdioma from '@/componentes/SelectorIdioma.vue'
 import SelectorTema from '@/componentes/SelectorTema.vue'
 import Toasts from '@/componentes/Toasts.vue'
 import { carrito } from '@/stores/carrito'
-import { cerrarSesion, elegirProveedor, eligeProveedor, puede, sesion } from '@/stores/sesion'
-import { ui } from '@/stores/ui'
+import { cargarSesion, cerrarSesion, elegirProveedor, eligeProveedor, puede, sesion } from '@/stores/sesion'
+import { errorApi, ui } from '@/stores/ui'
+import { api } from '@/nucleo/api'
 import { tituloSistema } from '@/nucleo/marca.js'
 
 const route = useRoute()
@@ -41,6 +42,7 @@ const navegacion = computed(() => {
 // Configuración agrupada por tema; solo aparece lo que el rol puede abrir
 const ajustes = computed(() => {
   const items = []
+  if (sesion.usuario?.plataforma) items.push({ grupo: t('Platform'), to: '/plataforma', texto: t('Organizations'), detalle: t('Client companies of this installation'), icono: 'capas' })
   if (puede('admin')) items.push({ grupo: t('Organization'), to: '/empresa', texto: t('Company'), detalle: t('Name, logo, preferences and rules'), icono: 'base' })
   if (puede('admin')) items.push({ grupo: t('Organization'), to: '/admin', texto: t('Users and access'), detalle: t('Roles, suppliers, sessions'), icono: 'usuarios' })
   if (puede('catalogos.ver')) items.push({ grupo: t('Master data'), to: '/mantenimiento', texto: t('Master data'), detalle: t('Items, brands, suppliers, plants'), icono: 'base' })
@@ -96,6 +98,17 @@ onBeforeUnmount(() => document.removeEventListener('click', desplegar))
 async function salir() {
   await cerrarSesion()
   router.push('/login')
+}
+
+// Soporte de la plataforma: volver a la organización propia
+async function volverAMiOrganizacion() {
+  try {
+    await api.post('/plataforma/entrar', { organizacion_id: null })
+    await cargarSesion(true)
+    router.push('/plataforma')
+  } catch (e) {
+    errorApi(e)
+  }
 }
 
 // Change own password: closes the other open sessions
@@ -172,6 +185,12 @@ async function salir() {
         </div>
       </header>
       <main class="contenido">
+        <!-- Soporte de la plataforma: deja claro en qué organización se está trabajando -->
+        <div v-if="empresa && empresa.propia === false" class="banda-soporte" role="status">
+          <Icono nombre="alerta" :tam="16" />
+          <span>{{ t('You are working in {0} as platform support. What you do is recorded in its activity log.', [empresa.nombre]) }}</span>
+          <button type="button" class="btn btn-chico" @click="volverAMiOrganizacion">{{ t('Back to my organization') }}</button>
+        </div>
         <!-- Cada página entra con un fundido corto (sin esperar a la anterior) -->
         <div :key="route.path" class="pagina-entra"><router-view /></div>
       </main>
@@ -180,3 +199,10 @@ async function salir() {
   <router-view v-else-if="route.name === 'login' || route.meta.sinMarco" />
   <Toasts />
 </template>
+
+<style scoped>
+.banda-soporte { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; padding: 10px 14px;
+  border-radius: var(--radio); background: var(--aviso-fondo); color: var(--tinta); border: 1px solid var(--aviso-borde, var(--aviso)); }
+.banda-soporte svg { color: var(--aviso); flex: none; }
+.banda-soporte span { flex: 1; min-width: 200px; }
+</style>

@@ -21,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.core.db import Base
+from app.core.organizacion import DeOrganizacion
 from app.modelos.base import Cantidad, ahora, cant
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
     from app.modelos.maestros import Proveedor
 
 
-class Factura(Base):
+class Factura(DeOrganizacion, Base):
     __tablename__ = "facturas"
     __table_args__ = (
         # Número único por proveedor (se ignora en facturas canceladas)
@@ -71,7 +72,7 @@ class Factura(Base):
     )
 
 
-class FacturaLinea(Base):
+class FacturaLinea(DeOrganizacion, Base):
     __tablename__ = "factura_lineas"
     __table_args__ = (UniqueConstraint("factura_id", "posicion_oc_id"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -113,7 +114,7 @@ class FacturaLinea(Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class Archivo(Base):
+class Archivo(DeOrganizacion, Base):
     __tablename__ = "archivos"
     id: Mapped[int] = mapped_column(primary_key=True)
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)

@@ -19,10 +19,11 @@ from datetime import timedelta
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app.core import organizacion
 from app.core.config import settings
 from app.core.errores import ErrorNegocio
 from app.core.seguridad import ITERACIONES, hash_password, necesita_rehash, verificar_password
-from app.modelos import DesafioDosPasos, SesionUsuario, Usuario
+from app.modelos import DesafioDosPasos, Organizacion, SesionUsuario, Usuario
 from app.modelos import ahora as _ahora
 from app.modulos.acceso.sms import enviar_sms
 from app.modulos.comun.historial import registrar
@@ -112,6 +113,7 @@ def iniciar(db: Session, email: str, password: str, ip: str | None, agente: str 
         # Mismo trabajo que con un usuario real: no revela si el correo existe
         verificar_password(password, _FICTICIO)
         raise error
+    organizacion.fijar(db, u.organizacion_id, u.id)  # lo que se registre queda en su organización
     correcta = verificar_password(password, u.password_hash)
     # Una cuenta bloqueada solo se anuncia a quien sabe la contraseña: para los
     # demás responde igual que un correo inexistente (no revela cuentas).
@@ -129,6 +131,9 @@ def iniciar(db: Session, email: str, password: str, ip: str | None, agente: str 
         raise error
     if necesita_rehash(u.password_hash):
         u.password_hash = hash_password(password)
+    if not _organizacion_activa(db, u):
+        raise ErrorNegocio("Your organization's access is suspended. Contact the platform administrator.", 403,
+                           "organizacion_inactiva")
     u.intentos_fallidos = 0
     u.bloqueado_hasta = None
     if settings.DOS_PASOS and u.dos_pasos:
@@ -176,6 +181,7 @@ def _desafio(db: Session, token: str) -> DesafioDosPasos:
     d = db.scalar(select(DesafioDosPasos).where(DesafioDosPasos.token_hash == _hash(token or "")))
     if not d or d.usado or not d.usuario.activo:
         raise ErrorNegocio("The verification expired. Sign in again.", 401, "desafio_invalido")
+    organizacion.fijar(db, d.usuario.organizacion_id, d.usuario_id)
     return d
 
 
@@ -212,7 +218,14 @@ def verificar(db: Session, token: str, codigo: str, ip: str | None, agente: str 
 
 
 # ---- Sesiones -----------------------------------------------------------------
+def _organizacion_activa(db: Session, u: Usuario) -> bool:
+    """Quien administra la plataforma entra siempre; los demás, si su organización está activa."""
+    o = db.get(Organizacion, u.organizacion_id)
+    return u.plataforma or bool(o and o.activa)
+
+
 def crear_sesion(db: Session, u: Usuario, ip: str | None, agente: str | None) -> str:
+    organizacion.fijar(db, u.organizacion_id, u.id)
     token = secrets.token_urlsafe(32)
     ahora = _ahora()
     db.add(SesionUsuario(token_hash=_hash(token), usuario_id=u.id, creada=ahora, ultima_actividad=ahora,
@@ -228,12 +241,16 @@ def usuario_de_sesion(db: Session, token: str) -> Usuario | None:
     ahora = _ahora()
     if (not s or s.revocada or s.expira < ahora
             or s.ultima_actividad + timedelta(minutes=settings.SESION_INACTIVIDAD_MIN) < ahora
-            or not s.usuario.activo):
+            or not s.usuario.activo or not _organizacion_activa(db, s.usuario)):
         return None
     # Renueva la inactividad sin escribir en cada petición
     if (ahora - s.ultima_actividad).total_seconds() > 60:
         s.ultima_actividad = ahora
         db.commit()
+    # Desde aquí la sesión de base de datos trabaja en una sola organización: la
+    # del usuario o, para quien administra la plataforma, la que eligió
+    organizacion.fijar(db, s.organizacion_id if s.usuario.plataforma and s.organizacion_id else s.usuario.organizacion_id,
+                      s.usuario_id)
     return s.usuario
 
 

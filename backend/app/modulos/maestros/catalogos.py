@@ -46,7 +46,7 @@ from app.modelos import (
     Usuario,
     ValorLista,
 )
-from app.modulos.acceso.permisos import exigir
+from app.modulos.acceso.permisos import exigir, exigir_compartido
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.normalizar import Referencias
 from app.modulos.comun.normalizar import nombre as nombre_fmt
@@ -934,6 +934,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
 
 def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
     exigir(user, "catalogos.crear")
+    exigir_compartido(user, tipo)
     if tipo == "prepacks":
         return crear_prepack(db, user, datos)
     cat = _cat(tipo)
@@ -956,6 +957,7 @@ def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
 
 def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) -> dict:
     exigir(user, "catalogos.editar")
+    exigir_compartido(user, tipo)
     cat = _cat(tipo)
     obj = db.get(cat["modelo"], obj_id)
     if not obj:
@@ -1007,6 +1009,7 @@ def _validar_regla_lt(db: Session, final: dict, actual, limpio: dict) -> list[di
 
 def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
     exigir(user, "catalogos.eliminar")
+    exigir_compartido(user, tipo)
     cat = _cat(tipo)
     obj = db.get(cat["modelo"], obj_id)
     if not obj:

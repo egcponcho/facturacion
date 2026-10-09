@@ -14,7 +14,7 @@ RAIZ = Path(__file__).resolve().parent.parent / "app"
 # Documentos y plantillas para aduana/ERP, datos de demostración y textos oficiales: no se traducen aquí
 # (rutas dentro de app/; una carpeta omite todo lo que contiene)
 OMITIR = ("main.py", "core/config.py", "core/db.py", "core/seguridad.py", "web/dependencias.py",
-          "instalacion/migraciones.py", "instalacion/mantenimiento.py", "modelos/", "esquemas/__init__.py", "instalacion/demo.py", "instalacion/inicial.py",
+          "instalacion/migraciones.py", "instalacion/mantenimiento.py", "instalacion/base_organizacion.py", "core/organizacion.py", "modelos/", "esquemas/__init__.py", "instalacion/demo.py", "instalacion/inicial.py",
           "modulos/documentos/documentos.py",
           "modulos/documentos/exportar.py", "modulos/documentos/plantillas.py", "modulos/acceso/sms.py",
           "modulos/clasificacion/especialista.py")

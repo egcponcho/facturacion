@@ -613,7 +613,8 @@ def seed(db: Session) -> None:
                      cargo="Shipping specialist", area="Export operations", empresa="Vans (VF China)")
     db.add_all([
         Usuario(email="admin@demo.com", nombre="Administrator", rol="admin", rol_id=roles["admin"].id, password_hash=pw,
-                telefono="+50370000001", cargo="Systems administrator", area="IT", empresa="Distribuidora de Marcas"),
+                telefono="+50370000001", cargo="Systems administrator", area="IT", empresa="Distribuidora de Marcas",
+                plataforma=True),
         Usuario(email="interno@demo.com", nombre="Import team", rol="interno", rol_id=roles["interno"].id, password_hash=pw,
                 telefono="+50370000002", cargo="Imports analyst", area="Imports and customs", empresa="Distribuidora de Marcas"),
         u_tnf,

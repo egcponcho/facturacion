@@ -1,5 +1,5 @@
-"""Una empresa por instalación: su ficha y sus reglas de negocio se guardan en
-la base de datos y solo la administración las cambia."""
+"""La ficha y las reglas de negocio de cada organización se guardan en la
+base de datos y solo su administración las cambia."""
 import json
 import sqlite3
 import subprocess
@@ -25,16 +25,18 @@ def test_configuracion_de_la_empresa(interno, admin):
     admin.put("/organizacion", {"reglas": {"DIAS_ALERTA_BORRADOR": 7}, "preferencias": {"moneda": "USD"}})
 
 
-def test_sin_plataforma_multiempresa(admin):
-    assert admin.get("/organizaciones").status_code in (404, 405)
-    assert admin.post("/organizaciones/1/entrar").status_code in (404, 405)
+def test_administracion_de_la_plataforma(admin, interno):
     yo = admin.get("/auth/me").json()
-    assert "plataforma" not in yo and yo["organizacion"]["nombre"] == "Distribuidora de Marcas"
+    assert yo["plataforma"] is True and yo["organizacion"]["nombre"] == "Distribuidora de Marcas"
+    assert yo["organizacion"]["propia"] is True
+    assert interno.get("/auth/me").json()["plataforma"] is False
+    assert interno.get("/plataforma/organizaciones").status_code == 403
 
 
-def test_migracion_vuelve_a_una_empresa():
-    """0037 quita el aislamiento por empresa de la 0036 y conserva la ficha de
-    la empresa; con datos de una segunda empresa se detiene sin cambiar nada."""
+def test_migraciones_de_empresas():
+    """0037 quitó el aislamiento por empresa de la 0036 (y se detiene si hay
+    datos de una segunda empresa); 0047 lo vuelve a poner: los datos quedan en
+    la organización 1 y los códigos pasan a ser únicos por organización."""
     from test_oficial import RAIZ
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -47,14 +49,14 @@ def test_migracion_vuelve_a_una_empresa():
                     " VALUES (2, 'B', 'Otra', '{}', 1, CURRENT_TIMESTAMP)")
         con.execute("INSERT INTO proveedores (codigo, nombre, activo, organizacion_id) VALUES ('X', 'X', 1, 2)")
         con.commit()
-        r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        r = subprocess.run(alembic + ["upgrade", "0037"], cwd=RAIZ, env=env, capture_output=True, text=True)
         assert r.returncode != 0 and "más de una empresa" in r.stderr
 
         con.execute("DELETE FROM proveedores")
         con.execute("UPDATE organizaciones SET configuracion = ? WHERE id = 1", (json.dumps({"reglas": {"DIAS_ALERTA_BORRADOR": 3}}),))
         con.commit()
         con.close()
-        r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        r = subprocess.run(alembic + ["upgrade", "0037"], cwd=RAIZ, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
         con = sqlite3.connect(f"{tmp}/m.db")
         columnas = {c[1] for c in con.execute("PRAGMA table_info(proveedores)")}
@@ -68,6 +70,23 @@ def test_migracion_vuelve_a_una_empresa():
         except sqlite3.IntegrityError:
             duplicado = True
         assert duplicado, "el código de proveedor vuelve a ser único"
+        con.commit()
+        con.close()
+
+        r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+        con = sqlite3.connect(f"{tmp}/m.db")
+        assert con.execute("SELECT organizacion_id FROM proveedores WHERE codigo = 'X'").fetchall() == [(1,)]
+        con.execute("INSERT INTO organizaciones (id, codigo, nombre, configuracion, activa, creada_en)"
+                    " VALUES (2, 'B', 'Otra', '{}', 1, CURRENT_TIMESTAMP)")
+        # El mismo código en otra organización sí; repetido en la misma, no
+        con.execute("INSERT INTO proveedores (codigo, nombre, activo, organizacion_id, extra) VALUES ('X', 'X', 1, 2, '{}')")
+        try:
+            con.execute("INSERT INTO proveedores (codigo, nombre, activo, organizacion_id, extra) VALUES ('X', 'Z', 1, 2, '{}')")
+            duplicado = False
+        except sqlite3.IntegrityError:
+            duplicado = True
+        assert duplicado, "el código de proveedor es único dentro de cada organización"
 
 
 def test_reglas_de_compatibilidad_configurables(admin):

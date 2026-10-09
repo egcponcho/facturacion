@@ -77,6 +77,27 @@ MODULOS_ACTIVABLES = {
 }
 
 
+# Datos compartidos por todas las organizaciones de la instalación: arancel
+# oficial, motor de clasificación, países y acuerdos comerciales. Con una sola
+# organización los edita quien tenga el permiso; con varias, solo quien
+# administra la plataforma (un cambio afectaría a todas).
+PERMISOS_COMPARTIDOS = {"aranceles.editar", "clasificacion.configurar"}
+CATALOGOS_COMPARTIDOS = {"paises", "acuerdos"}
+
+
+def edita_compartidos(user: Usuario) -> bool:
+    from app.core.empresa import configuracion_actual
+
+    return bool(user.plataforma) or not configuracion_actual().get("varias_organizaciones")
+
+
+def exigir_compartido(user: Usuario, tipo: str | None = None) -> None:
+    """Para cambiar datos compartidos (si `tipo` lo es)."""
+    if (tipo is None or tipo in CATALOGOS_COMPARTIDOS) and not edita_compartidos(user):
+        raise ErrorNegocio("This data is shared by every organization: only the platform administration changes it.",
+                           403, "dato_compartido")
+
+
 def modulos_activos() -> dict[str, bool]:
     from app.core.empresa import configuracion_actual
 
@@ -118,13 +139,28 @@ def catalogo_permisos() -> list[dict]:
             for m, ps in MODULOS]
 
 
+def _en_otra_organizacion(user: Usuario) -> bool:
+    """Quien administra la plataforma trabajando en una organización ajena."""
+    from sqlalchemy.orm import object_session
+
+    from app.core.organizacion import de_sesion
+
+    db = object_session(user)
+    return bool(user.plataforma and db is not None and de_sesion(db) not in (None, user.organizacion_id))
+
+
 def permisos_de(user: Usuario) -> list[str]:
+    if _en_otra_organizacion(user):
+        # Soporte de la plataforma: administra la organización a la que entró
+        return _segun_flujo(user, _sin_modulos_apagados(permisos_fabrica("admin")))
     r = user.rol_ref
     if r is not None:
         permisos = permisos_validos(r.permisos, user.proveedor_id) if r.activo else []
     else:
         # Usuarios sin rol asignado (datos anteriores): permisos de fábrica de su tipo
         permisos = permisos_fabrica(user.rol)
+    if not edita_compartidos(user):
+        permisos = [p for p in permisos if p not in PERMISOS_COMPARTIDOS]
     return _segun_flujo(user, _sin_modulos_apagados(permisos))
 
 
@@ -173,8 +209,13 @@ def es_interno(user: Usuario) -> bool:
 NADA = frozenset({-1})
 
 
+def _alcance(user: Usuario) -> dict:
+    """Alcance del usuario; en una organización ajena (soporte de la plataforma), sin límite."""
+    return {} if _en_otra_organizacion(user) else (user.alcance or {})
+
+
 def proveedores_de(user: Usuario) -> frozenset | None:
-    extra = {int(x) for x in ((user.alcance or {}).get("proveedores") or [])}
+    extra = {int(x) for x in (_alcance(user).get("proveedores") or [])}
     if user.rol == "proveedor":
         return frozenset({user.proveedor_id, *extra} - {None}) or NADA
     return frozenset(extra) or None
@@ -186,11 +227,11 @@ def un_proveedor(prov: frozenset | None) -> int | None:
 
 
 def sociedades_de(user: Usuario) -> frozenset | None:
-    return frozenset((user.alcance or {}).get("sociedades") or []) or None
+    return frozenset(_alcance(user).get("sociedades") or []) or None
 
 
 def transportistas_de(user: Usuario) -> frozenset | None:
-    return frozenset(int(x) for x in (user.alcance or {}).get("transportistas") or []) or None
+    return frozenset(int(x) for x in _alcance(user).get("transportistas") or []) or None
 
 
 def proveedor_filtro(user: Usuario, proveedor_id: int | None = None) -> frozenset | None:

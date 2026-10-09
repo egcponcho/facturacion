@@ -17,11 +17,13 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+from app.core.organizacion import DeOrganizacion
 from app.modelos.base import ahora
 
 if TYPE_CHECKING:
@@ -36,15 +38,16 @@ transportista_sociedades = Table(
 )
 
 
-class Transportista(Base):
+class Transportista(DeOrganizacion, Base):
     """Naviera, aerolínea o empresa de transporte terrestre registrada, con
     las sociedades para las que puede trabajar."""
 
     __tablename__ = "transportistas"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_transportistas_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     # Campos propios de la empresa (core/campos_propios.py)
     extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(150))
     tipo: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE | MULTIMODAL
     codigo_internacional: Mapped[str | None] = mapped_column(String(10))  # SCAC o prefijo IATA
@@ -58,13 +61,14 @@ class Transportista(Base):
     sociedades: Mapped[list["Sociedad"]] = relationship(secondary=transportista_sociedades, order_by="Sociedad.codigo")
 
 
-class TipoUnidad(Base):
+class TipoUnidad(DeOrganizacion, Base):
     """Tipo de unidad de carga por modo de transporte (contenedores, LCL,
     guía aérea, camión…) con su capacidad nominal."""
 
     __tablename__ = "tipos_unidad"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_tipos_unidad_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(100))
     modo: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE
     modalidad: Mapped[str] = mapped_column(String(10))  # FCL | LCL | AEREO | FTL | LTL
@@ -74,34 +78,36 @@ class TipoUnidad(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class RegionLeadTime(Base):
+class RegionLeadTime(DeOrganizacion, Base):
     """Región de origen (Asia, Centroamérica…): agrupa países para filtrar,
     comparar y para que un plan de lead time aplique a toda la región."""
 
     __tablename__ = "regiones_leadtime"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_regiones_leadtime_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(100))
     predeterminada: Mapped[bool] = mapped_column(Boolean, default=False)  # para orígenes sin región
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class PasoLeadTime(Base):
+class PasoLeadTime(DeOrganizacion, Base):
     """Catálogo de pasos de lead time (Booking, Liberación, XF, ETD, ETA,
     Aduana…). Cada empresa crea los suyos. `hito` enlaza el paso con una fecha
     que el sistema mide (liberación logística, XF, salida, arribo, entrega,
     ingreso, tienda); un paso sin hito es solo de planificación."""
 
     __tablename__ = "pasos_leadtime"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_pasos_leadtime_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(100))
     hito: Mapped[str | None] = mapped_column(String(15))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class ReglaLeadTime(Base):
+class ReglaLeadTime(DeOrganizacion, Base):
     """Configuración de lead time de un nivel geográfico: GLOBAL, REGION, PAIS
     o PUERTO. Hereda la del nivel superior (Puerto > País > Región > Global) y
     define solo lo que cambia: pasos que agrega, sobrescribe o quita, y si
@@ -120,22 +126,24 @@ class ReglaLeadTime(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Puerto(Base):
+class Puerto(DeOrganizacion, Base):
     __tablename__ = "puertos"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_puertos_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)  # UN/LOCODE
+    codigo: Mapped[str] = mapped_column(String(10))  # UN/LOCODE
     nombre: Mapped[str] = mapped_column(String(100))
     pais: Mapped[str] = mapped_column(String(2))
     tipo: Mapped[str] = mapped_column(String(12), default="MARITIMO")
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Embarque(Base):
+class Embarque(DeOrganizacion, Base):
     """Existe desde la planificación (booking), antes de tener BL/AWB."""
 
     __tablename__ = "embarques"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_embarques_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     tipo_transporte: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE
     documento_numero: Mapped[str | None] = mapped_column(String(50))  # BL / AWB / CP
     transportista_id: Mapped[int | None] = mapped_column(ForeignKey("transportistas.id"), index=True)
@@ -159,7 +167,7 @@ class Embarque(Base):
     )
 
 
-class UnidadCarga(Base):
+class UnidadCarga(DeOrganizacion, Base):
     __tablename__ = "unidades_carga"
     id: Mapped[int] = mapped_column(primary_key=True)
     embarque_id: Mapped[int] = mapped_column(ForeignKey("embarques.id"), index=True)
@@ -174,7 +182,7 @@ class UnidadCarga(Base):
     packing_lists: Mapped[list[PackingList]] = relationship(back_populates="unidad")
 
 
-class EventoEmbarque(Base):
+class EventoEmbarque(DeOrganizacion, Base):
     __tablename__ = "eventos_embarque"
     id: Mapped[int] = mapped_column(primary_key=True)
     embarque_id: Mapped[int] = mapped_column(ForeignKey("embarques.id"), index=True)

@@ -1,4 +1,4 @@
-"""Empresa de la instalación.
+"""Organizaciones (empresas cliente) de la instalación.
 """
 from __future__ import annotations
 
@@ -18,11 +18,13 @@ from app.modelos.base import ahora
 
 
 class Organizacion(Base):
-    """La empresa que usa esta instalación (un solo registro, id 1).
+    """Una empresa cliente. Sus datos están aislados de las demás
+    (`core/organizacion.py`); una instalación de una sola empresa usa la 1.
 
     Guarda sus datos generales (nombre, razón social, logo) y en
-    `configuracion` sus preferencias y reglas de negocio, que se cambian en
-    Configuración → Empresa sin tocar código ni variables de entorno."""
+    `configuracion` sus preferencias, marca, terminología, campos propios,
+    módulos y reglas de negocio, que se cambian en Configuración → Empresa sin
+    tocar código ni variables de entorno."""
 
     __tablename__ = "organizaciones"
     id: Mapped[int] = mapped_column(primary_key=True)

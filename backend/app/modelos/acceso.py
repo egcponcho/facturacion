@@ -13,23 +13,27 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+from app.core.organizacion import DeOrganizacion, UsuarioDeOrganizacion
 from app.modelos.base import ahora
 
 if TYPE_CHECKING:
     from app.modelos.maestros import Proveedor
 
 
-class Rol(Base):
+class Rol(DeOrganizacion, Base):
     """Rol con sus permisos: el tipo dice qué datos ve el usuario (el
     proveedor solo lo suyo) y los permisos, a qué módulos y acciones entra."""
 
     __tablename__ = "roles"
+    __table_args__ = (UniqueConstraint("organizacion_id", "nombre", name="uq_roles_org_nombre"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    nombre: Mapped[str] = mapped_column(String(80), unique=True)
+    nombre: Mapped[str] = mapped_column(String(80))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     tipo: Mapped[str] = mapped_column(String(20))  # admin | interno | proveedor
     permisos: Mapped[list] = mapped_column(JSON, default=list)
@@ -42,10 +46,13 @@ class Rol(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Usuario(Base):
+class Usuario(UsuarioDeOrganizacion, Base):
     __tablename__ = "usuarios"
     id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(200), unique=True)
+    email: Mapped[str] = mapped_column(String(200), unique=True)  # único en toda la plataforma: identifica la organización al entrar
+    # Administra la plataforma: crea organizaciones, entra a cualquiera y
+    # mantiene los datos compartidos (arancel oficial, motor de clasificación)
+    plataforma: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     nombre: Mapped[str] = mapped_column(String(200))
     rol: Mapped[str] = mapped_column(String(20))  # tipo del rol: admin | interno | proveedor
     rol_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"), index=True)
@@ -91,6 +98,9 @@ class SesionUsuario(Base):
     ip: Mapped[str | None] = mapped_column(String(64))
     agente: Mapped[str | None] = mapped_column(String(300))
     revocada: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Organización en la que trabaja la sesión (quien administra la plataforma
+    # puede entrar a otra); vacía = la del usuario
+    organizacion_id: Mapped[int | None] = mapped_column(ForeignKey("organizaciones.id"))
 
     usuario: Mapped[Usuario] = relationship()
 

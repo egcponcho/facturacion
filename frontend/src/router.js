@@ -27,6 +27,7 @@ const routes = [
   { path: '/bienvenida', name: 'bienvenida', component: () => import('@/modulos/acceso/vistas/BienvenidaView.vue'), meta: { sinMarco: true } },
   { path: '/admin', component: () => import('@/modulos/acceso/vistas/AdminView.vue'), meta: { permiso: 'admin' } },
   { path: '/empresa', component: () => import('@/modulos/empresa/vistas/EmpresaView.vue'), meta: { permiso: 'admin' } },
+  { path: '/plataforma', component: () => import('@/modulos/plataforma/vistas/OrganizacionesView.vue'), meta: { plataforma: true } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
@@ -68,7 +69,7 @@ router.beforeEach(async (to) => {
   // Con la contraseña temporal de la administración, primero el asistente inicial
   if (sesion.usuario.clave_temporal && to.name !== 'bienvenida') return { name: 'bienvenida' }
   if (!sesion.usuario.clave_temporal && to.name === 'bienvenida') return '/'
-  if (to.meta.permiso && !puede(to.meta.permiso)) {
+  if ((to.meta.permiso && !puede(to.meta.permiso)) || (to.meta.plataforma && !sesion.usuario.plataforma)) {
     avisar(t('You do not have access to that page.'), 'error')
     return '/'
   }

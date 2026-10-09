@@ -25,6 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+from app.core.organizacion import DeOrganizacion
 from app.modelos.base import ahora
 
 if TYPE_CHECKING:
@@ -368,7 +369,7 @@ class NotaSAC(Base):
     vigente_hasta: Mapped[date | None] = mapped_column(Date)
 
 
-class OverrideArancel(Base):
+class OverrideArancel(DeOrganizacion, Base):
     """Capa CUSTOM encima del dato oficial: nunca se toca el oficial. Guarda el
     valor propio (descripción interna, nota, texto de una nota, activa o no)
     con su motivo, quién, cuándo y vigencia. Un cambio nuevo del mismo campo
@@ -670,7 +671,7 @@ class SinonimoMaterial(Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
 
-class HistorialClasificacion(Base):
+class HistorialClasificacion(DeOrganizacion, Base):
     """Conocimiento de la empresa (capa COMPANY KNOWLEDGE): un código que la
     empresa usó, con los datos del producto que lo eligieron. Viene de
     clasificaciones aprobadas, correcciones de un especialista, lo que se

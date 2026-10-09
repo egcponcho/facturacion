@@ -258,6 +258,7 @@ onMounted(cargar)
               <span class="etiqueta" :class="u.activo ? 'ok' : ''" style="margin-inline-start: 0">{{ tx(u.activo ? t('Active') : t('Inactive')) }}</span>
               <span class="sub" :title="t('Last sign-in')">{{ tx(u.ultimo_acceso ? fmtFechaHora(u.ultimo_acceso) : t('Never signed in')) }}</span>
               <span v-if="u.bloqueado" class="etiqueta error" :title="t('Too many failed attempts. Resetting the password unlocks it.')">{{ t('Locked') }}</span>
+              <span v-if="u.plataforma" class="etiqueta info" :title="t('Creates organizations, enters any of them and maintains the shared reference data')">{{ t('Platform') }}</span>
             </td>
             <td class="num">
               <MenuAcciones :etiqueta="t('Actions for {0}', [u.email])">
@@ -266,6 +267,7 @@ onMounted(cargar)
                 <button type="button" role="menuitem" @click="modal = { tipo: 'datos', usuario: u, nombre: u.nombre, email: u.email, cargo: u.cargo || '', area: u.area || '', empresa: u.empresa || '' }">{{ t('Edit data') }}</button>
                 <button type="button" role="menuitem" @click="modal = { tipo: 'clave', usuario: u, clave: '' }">{{ t('Reset password') }}</button>
                 <button type="button" role="menuitem" @click="actualizar(`/usuarios/${u.id}`, { activo: !u.activo }, t('User updated.'))">{{ tx(u.activo ? t('Deactivate') : t('Activate')) }}</button>
+                <button v-if="sesion.usuario?.plataforma && !u.proveedor_id" type="button" role="menuitem" @click="actualizar(`/usuarios/${u.id}`, { plataforma: !u.plataforma }, t('User updated.'))">{{ u.plataforma ? t('Remove platform administration') : t('Make platform administrator') }}</button>
               </MenuAcciones>
             </td>
           </tr>

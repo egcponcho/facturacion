@@ -2,7 +2,7 @@
 # Respaldo de la base (pg_dump, formato propio de PostgreSQL) y de los archivos
 # subidos (UPLOAD_DIR) en una carpeta con fecha. Borra los respaldos con más
 # de RETENCION_DIAS días. Pensado para correr cada noche (cron o el
-# programador de tareas del proveedor de nube). Guía: docs/PRODUCCION.md §7.
+# programador de tareas del proveedor de nube). Guía: docs/PRODUCCION.md §8.
 #
 #   DATABASE_URL=postgresql://usuario:clave@servidor/base \
 #   UPLOAD_DIR=/data/archivos DESTINO=/respaldos ops/respaldo.sh

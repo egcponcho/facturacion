@@ -20,13 +20,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.core.db import Base
+from app.core.organizacion import DeOrganizacion
 from app.modelos.base import Cantidad, ahora, cant
 
 if TYPE_CHECKING:
     from app.modelos.maestros import Articulo, Proveedor
 
 
-class OrdenCompra(Base):
+class OrdenCompra(DeOrganizacion, Base):
     __tablename__ = "ordenes_compra"
     __table_args__ = (UniqueConstraint("proveedor_id", "numero"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -62,7 +63,7 @@ class OrdenCompra(Base):
     )
 
 
-class PosicionOC(Base):
+class PosicionOC(DeOrganizacion, Base):
     __tablename__ = "posiciones_oc"
     __table_args__ = (UniqueConstraint("oc_id", "posicion"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -103,14 +104,15 @@ class PosicionOC(Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class PerfilImportacion(Base):
+class PerfilImportacion(DeOrganizacion, Base):
     """Cómo leer el archivo de OCs que exporta el ERP de la empresa: el nombre
     de la columna de cada dato del sistema, la fila de los encabezados, el
     formato de las fechas y los valores por defecto de lo que no trae."""
 
     __tablename__ = "perfiles_importacion"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_perfiles_importacion_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(80))
     columnas: Mapped[dict] = mapped_column(JSON, default=dict)  # campo → "Columna, Otra columna"
     valores: Mapped[dict] = mapped_column(JSON, default=dict)  # campo → valor por defecto
@@ -120,7 +122,7 @@ class PerfilImportacion(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class ImportacionOC(Base):
+class ImportacionOC(DeOrganizacion, Base):
     __tablename__ = "importaciones_oc"
     id: Mapped[int] = mapped_column(primary_key=True)
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))

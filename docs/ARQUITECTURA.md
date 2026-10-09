@@ -7,10 +7,12 @@ motor de clasificación arancelaria tiene su propio documento en
 
 ## Principios
 
-- **Una instalación, una empresa.** Lo que distingue a una empresa de otra
-  (nombre, logo, colores, papel, listas de valores, terminología, campos
-  propios, módulos, reglas) se configura en la aplicación y se guarda en la
-  base. El código no conoce empresas, ERPs ni países concretos.
+- **Varias organizaciones, datos aislados.** Una instalación sirve a varias
+  empresas cliente (organizaciones). Cada una tiene sus datos, usuarios,
+  roles y configuración (nombre, logo, colores, papel, listas de valores,
+  terminología, campos propios, módulos, reglas); el aislamiento lo aplica la
+  capa de datos (ver «Organizaciones»). El código no conoce empresas, ERPs ni
+  países concretos.
 - **El servidor decide.** Permisos, alcance de los datos, validaciones,
   cálculos y el motor de clasificación viven en el servidor; la interfaz solo
   muestra y edita. Lo que un rol no ve se quita de las respuestas antes de
@@ -49,6 +51,40 @@ y entre módulos solo a través de sus servicios (nunca de su `api.py`).
    servicio. Los errores de negocio se lanzan como `ErrorNegocio(mensaje,
    status, codigo, detalle)` y se responden como `{mensaje, codigo, detalle}`.
 4. `RespuestaJSON` quita los datos que el rol no ve (`acceso/visibilidad.py`).
+
+### Organizaciones (multiempresa)
+
+`app/core/organizacion.py` y la migración 0047:
+
+1. **Tablas por organización.** Las 48 tablas de negocio, configuración,
+   usuarios y roles heredan `DeOrganizacion` (columna `organizacion_id`). Un
+   registro nuevo toma la organización de la sesión; guardar uno de otra
+   organización se rechaza.
+2. **Filtro automático.** Toda consulta del ORM (listas, `db.get`,
+   relaciones, UPDATE/DELETE masivos) se limita a la organización de la
+   sesión (`do_orm_execute` + `with_loader_criteria`). Un id ajeno «no existe».
+3. **Seguridad por fila en PostgreSQL.** Cada transacción fija
+   `app.organizacion_id` y las políticas RLS (forzadas también para el dueño
+   de las tablas) rechazan leer o escribir filas de otra organización, aun con
+   SQL escrito a mano. Sin el valor fijado (migraciones, arranque, tareas de
+   mantenimiento) no limitan.
+4. **Únicos por organización.** Los códigos (proveedor, SKU, embarque, rol,
+   valores de las listas…) son únicos dentro de cada organización; el correo
+   del usuario es único en toda la plataforma porque identifica su
+   organización al entrar.
+5. **Datos compartidos.** Países, acuerdos comerciales, arancel oficial y
+   motor de clasificación no llevan organización. Con más de una organización
+   activa solo los cambia quien administra la plataforma
+   (`permisos.edita_compartidos`).
+6. **Plataforma.** `usuarios.plataforma` crea organizaciones (con sus datos
+   de partida: `instalacion/base_organizacion.py`), las suspende y entra a
+   cualquiera para dar soporte (`sesiones.organizacion_id`); la interfaz lo
+   avisa y todo queda en la bitácora de esa organización. Cada usuario ve
+   siempre su propio registro, aunque trabaje en otra organización.
+
+La organización vive en `db.info` (una sesión de base de datos por petición).
+Para un proceso fuera de una petición: `organizacion.en_organizacion(id)`;
+para consultas de plataforma sobre todas: `organizacion.todas(db)`.
 
 ### Mecanismos de configuración
 
@@ -95,7 +131,9 @@ vuelve a revisar cada petición.
 1. `backend/app/modulos/<dominio>/` con sus servicios y `api.py`
    (`router = APIRouter()`); regístrelo en `RUTAS` de `app/main.py`.
 2. Modelos en `app/modelos/<dominio>.py` (reexportados en `__init__.py`) y la
-   migración con `alembic revision --autogenerate`.
+   migración con `alembic revision --autogenerate`. Una tabla de datos de la
+   empresa hereda `DeOrganizacion` (y en PostgreSQL su migración le agrega la
+   política RLS, como la 0047); una tabla de referencia compartida no.
 3. Permisos en `acceso/permisos.MODULOS`; si la empresa puede apagarlo,
    agréguelo a `MODULOS_ACTIVABLES`.
 4. Pantallas en `frontend/src/modulos/<dominio>/vistas/` y sus rutas en

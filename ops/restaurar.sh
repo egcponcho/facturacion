@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Restaura un respaldo hecho con ops/respaldo.sh: la base (reemplaza su
 # contenido) y los archivos subidos. Detenga la aplicación antes. Guía:
-# docs/PRODUCCION.md §7.
+# docs/PRODUCCION.md §8.
 #
 #   DATABASE_URL=postgresql://usuario:clave@servidor/base \
 #   UPLOAD_DIR=/data/archivos ops/restaurar.sh /respaldos/20261009T020000Z

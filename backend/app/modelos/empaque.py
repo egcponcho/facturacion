@@ -22,6 +22,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.core.db import Base
+from app.core.organizacion import DeOrganizacion
 from app.modelos.base import Cantidad, ahora, cant
 
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ tipo_empaque_contiene = Table(
 )
 
 
-class PackingList(Base):
+class PackingList(DeOrganizacion, Base):
     __tablename__ = "packing_lists"
     id: Mapped[int] = mapped_column(primary_key=True)
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
@@ -62,7 +63,7 @@ class PackingList(Base):
     unidad: Mapped["UnidadCarga | None"] = relationship(back_populates="packing_lists")
 
 
-class PLLinea(Base):
+class PLLinea(DeOrganizacion, Base):
     """Parte de una línea de factura dentro de un PL. Puede haber varias
     partes de la misma línea (resultado de dividir)."""
 
@@ -84,7 +85,7 @@ class PLLinea(Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class GrupoCajas(Base):
+class GrupoCajas(DeOrganizacion, Base):
     """Nodo del árbol físico de empaque: N unidades iguales de un tipo de
     empaque (caja, inner pack, pallet…). `num_cajas` es el total de esas
     unidades en el PL; si tiene padre, se reparten por igual entre las
@@ -125,7 +126,7 @@ class GrupoCajas(Base):
     )
 
 
-class GrupoCajasItem(Base):
+class GrupoCajasItem(DeOrganizacion, Base):
     __tablename__ = "grupo_cajas_items"
     id: Mapped[int] = mapped_column(primary_key=True)
     grupo_id: Mapped[int] = mapped_column(ForeignKey("grupos_cajas.id"), index=True)
@@ -140,15 +141,16 @@ class GrupoCajasItem(Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class TipoEmpaque(Base):
+class TipoEmpaque(DeOrganizacion, Base):
     """Unidad logística configurable (inner pack, caja, pallet, bolsa, tambor…).
     Nada está fijo en el código: cada empresa define sus tipos, qué puede
     contener cada uno, su tara, medidas y límites. Un PL se arma como un árbol
     de empaques dentro de empaques con el producto en las hojas."""
 
     __tablename__ = "tipos_empaque"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_tipos_empaque_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(100))
     nivel: Mapped[int] = mapped_column(Integer, default=1)  # 1 = el más interno
     prefijo: Mapped[str | None] = mapped_column(String(6))  # etiqueta de cada unidad: C1, PK1, P1
@@ -175,7 +177,7 @@ class TipoEmpaque(Base):
         secondaryjoin=lambda: TipoEmpaque.id == tipo_empaque_contiene.c.hijo_id, order_by="TipoEmpaque.nivel")
 
 
-class PlantillaCaja(Base):
+class PlantillaCaja(DeOrganizacion, Base):
     __tablename__ = "plantillas_caja"
     __table_args__ = (UniqueConstraint("proveedor_id", "nombre"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -198,7 +200,7 @@ class PlantillaCaja(Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class RecepcionLinea(Base):
+class RecepcionLinea(DeOrganizacion, Base):
     __tablename__ = "recepciones"
     id: Mapped[int] = mapped_column(primary_key=True)
     pl_linea_id: Mapped[int] = mapped_column(ForeignKey("pl_lineas.id"), unique=True)

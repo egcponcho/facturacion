@@ -80,7 +80,7 @@ python -m app.instalacion.inicial admin@miempresa.com +50370000000
 Cada nueva versión aplica sus migraciones al arrancar; nunca borra datos.
 Antes de actualizar:
 
-1. Respaldo de la base y de `UPLOAD_DIR` con `ops/respaldo.sh` (ver §7).
+1. Respaldo de la base y de `UPLOAD_DIR` con `ops/respaldo.sh` (ver §8).
 2. Despliegue la versión nueva.
 3. Revise el registro del arranque: una migración que no puede aplicarse
    detiene el arranque sin cambiar nada (por ejemplo, la 0037 se detiene si
@@ -108,7 +108,21 @@ Antes de actualizar:
 - Documentación interactiva de la API (`/docs`) apagada fuera de la demostración.
 - El contenedor corre sin privilegios de administrador.
 
-## 7. Operación
+## 7. Organizaciones (multiempresa)
+
+- La instalación arranca con una organización (la de `EMPRESA_NOMBRE`) y su
+  primer administrador, que también administra la plataforma.
+- Configuración → Plataforma → Organizaciones: crear una organización (con
+  su primer administrador y contraseña temporal), suspenderla (sus usuarios
+  dejan de entrar) o entrar a ella para dar soporte.
+- El usuario de PostgreSQL de la aplicación **no debe ser superusuario**: un
+  superusuario se salta las políticas de seguridad por fila (RLS) que aíslan
+  a las organizaciones. Basta con que sea dueño de la base.
+- Con más de una organización activa, el arancel oficial, el motor de
+  clasificación, los países y los acuerdos comerciales (datos compartidos)
+  solo los cambia la administración de la plataforma.
+
+## 8. Operación
 
 - **Salud**: `GET /api/salud` (para el monitoreo de la plataforma).
 - **Respaldo diario** de la base y de `UPLOAD_DIR` con `ops/respaldo.sh`
@@ -148,7 +162,7 @@ Antes de actualizar:
   memoria); para más carga, más contenedores detrás del balanceador.
 - **Registro**: el arranque avisa si `COOKIE_SEGURA=0` o `SMS_PROVEEDOR=consola`.
 
-## 8. Demostración
+## 9. Demostración
 
 - Render: `render.yaml` levanta la demostración (`SEED_DEMO=1`).
 - Docker local: `docker compose up` (usa `backend/.env.demo`). Para producción:

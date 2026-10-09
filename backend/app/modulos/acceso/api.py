@@ -20,7 +20,7 @@ from app.esquemas import (
     UsuarioPatch,
     VerificarIn,
 )
-from app.modelos import Organizacion, Usuario
+from app.modelos import Usuario
 from app.modulos.acceso import autenticacion as acceso
 from app.modulos.acceso import preferencias, visibilidad
 from app.modulos.acceso import proveedores as servicio_proveedores
@@ -67,15 +67,16 @@ def _yo(u: Usuario) -> dict:
         "max_subida_mb": settings.MAX_SUBIDA_MB,
         "flujo": flujo.valores(object_session(u)) if object_session(u) else dict(flujo.DEFECTOS),
         "organizacion": _empresa(u),
+        "plataforma": bool(u.plataforma),
         "datos_ocultos": visibilidad.ocultos_de(u),
     }
 
 
 def _empresa(u: Usuario) -> dict | None:
-    """Nombre, logo y marca de la empresa para el menú."""
+    """Nombre, logo y marca de la organización en la que trabaja, para el menú."""
     db = object_session(u)
-    o = db.get(Organizacion, organizacion.ID_EMPRESA) if db else None
-    return {"nombre": o.nombre, "logo": o.logo,
+    o = organizacion.actual(db) if db else None
+    return {"id": o.id, "nombre": o.nombre, "logo": o.logo, "propia": o.id == u.organizacion_id,
             "marca": {**organizacion.MARCA, **(o.configuracion or {}).get("marca", {})},
             "textos": organizacion._textos_de(o.configuracion or {}),
             # Campos propios de cada entidad, para mostrarlos y editarlos

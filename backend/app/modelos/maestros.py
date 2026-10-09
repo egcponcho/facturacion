@@ -22,6 +22,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+from app.core.organizacion import DeOrganizacion
 
 if TYPE_CHECKING:
     from app.modelos.productos import Producto
@@ -49,15 +50,16 @@ centro_puertos = Table(
 )
 
 
-class Proveedor(Base):
+class Proveedor(DeOrganizacion, Base):
     """Proveedor (exportador). Maneja sus propias marcas y artículos y solo
     trabaja con las sociedades que tiene asignadas."""
 
     __tablename__ = "proveedores"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_proveedores_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     # Campos propios de la empresa (core/campos_propios.py)
     extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
-    codigo: Mapped[str] = mapped_column(String(30), unique=True)
+    codigo: Mapped[str] = mapped_column(String(30))
     nombre: Mapped[str] = mapped_column(String(200))
     razon_social: Mapped[str | None] = mapped_column(String(200))
     id_fiscal: Mapped[str | None] = mapped_column(String(40))
@@ -72,14 +74,15 @@ class Proveedor(Base):
     sociedades: Mapped[list["Sociedad"]] = relationship(secondary=proveedor_sociedades, order_by="Sociedad.codigo")
 
 
-class Sociedad(Base):
+class Sociedad(DeOrganizacion, Base):
     """Sociedad legal (compañía de SAP). Sus centros son bodegas fiscales."""
 
     __tablename__ = "sociedades"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_sociedades_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     # Campos propios de la empresa (core/campos_propios.py)
     extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(120))
     razon_social: Mapped[str | None] = mapped_column(String(200))
     id_fiscal: Mapped[str | None] = mapped_column(String(30))  # NIT / RUC
@@ -92,16 +95,17 @@ class Sociedad(Base):
     centros: Mapped[list["Centro"]] = relationship(back_populates="sociedad", order_by="Centro.codigo")
 
 
-class Centro(Base):
+class Centro(DeOrganizacion, Base):
     """Centro de SAP asignado a una sociedad. Es la bodega fiscal a la que
     llega la mercancía (notify party) y, como centro de destino de la OC,
     indica el país final. Su puerto es el de llegada de los embarques."""
 
     __tablename__ = "centros"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_centros_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     # Campos propios de la empresa (core/campos_propios.py)
     extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     sociedad_id: Mapped[int] = mapped_column(ForeignKey("sociedades.id"), index=True)
     nombre: Mapped[str] = mapped_column(String(120))
     tipo: Mapped[str] = mapped_column(String(20), default="BODEGA_FISCAL")
@@ -117,7 +121,7 @@ class Centro(Base):
     puertos: Mapped[list["Puerto"]] = relationship(secondary=centro_puertos, order_by="Puerto.codigo")
 
 
-class Contacto(Base):
+class Contacto(DeOrganizacion, Base):
     """Persona de contacto de una sociedad (facturación) o de un centro
     (notify party, recepción)."""
 
@@ -133,13 +137,14 @@ class Contacto(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Almacen(Base):
+class Almacen(DeOrganizacion, Base):
     """Separación lógica del inventario en el sistema (virtual, detalle,
     mayoreo…); no es un lugar físico. Cada posición de la OC elige el suyo."""
 
     __tablename__ = "almacenes"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_almacenes_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     sociedad_id: Mapped[int] = mapped_column(ForeignKey("sociedades.id"), index=True)
     nombre: Mapped[str] = mapped_column(String(120))
     tipo: Mapped[str] = mapped_column(String(10))  # VIRTUAL | DETALLE | MAYOREO
@@ -173,24 +178,26 @@ class AcuerdoComercial(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Marca(Base):
+class Marca(DeOrganizacion, Base):
     __tablename__ = "marcas"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_marcas_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     # Campos propios de la empresa (core/campos_propios.py)
     extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(100))
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class EscalaTalla(Base):
+class EscalaTalla(DeOrganizacion, Base):
     """Escala de tallas reutilizable (calzado, ropa, accesorios u otra): sus
     tallas en orden y cómo se forma el código de cada talla. Los genéricos
     parten de una escala; el código se genera con la regla o se escribe."""
 
     __tablename__ = "escalas_talla"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_escalas_talla_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(120))
     categoria: Mapped[str | None] = mapped_column(String(20))
     # MULTIPLICAR: talla numérica × factor (7.5 × 10 → 075); CONSECUTIVO: 001, 002…;
@@ -202,25 +209,26 @@ class EscalaTalla(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class CategoriaArticulo(Base):
+class CategoriaArticulo(DeOrganizacion, Base):
     """Categoría de artículo (calzado, ropa, accesorios…): lista que define
     cada empresa en Datos maestros; la usan los grupos de artículos y las
     escalas de tallas."""
 
     __tablename__ = "categorias_articulo"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_categorias_articulo_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(100))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class ValorLista(Base):
+class ValorLista(DeOrganizacion, Base):
     """Valor de una lista configurable (unidad de medida, moneda, incoterm, modo
     de transporte…). Las listas y sus atributos están en core/listas.py; cada
     lista usa solo algunas de las columnas de atributos."""
 
     __tablename__ = "valores_lista"
-    __table_args__ = (UniqueConstraint("lista", "codigo", name="uq_valores_lista_lista_codigo"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "lista", "codigo", name="uq_valores_lista_org_lista_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     lista: Mapped[str] = mapped_column(String(30), index=True)
     codigo: Mapped[str] = mapped_column(String(20))
@@ -247,7 +255,7 @@ class ValorLista(Base):
     estados: Mapped[str | None] = mapped_column(String(120))  # varias opciones, separadas por coma
 
 
-class EstadoLiberacion(Base):
+class EstadoLiberacion(DeOrganizacion, Base):
     """Estado de liberación de una OC tal como lo manda el ERP de la empresa.
 
     Hay dos liberaciones (comercial y logística) y cada empresa define sus
@@ -257,7 +265,7 @@ class EstadoLiberacion(Base):
     importador acepta (separadas por coma)."""
 
     __tablename__ = "estados_liberacion"
-    __table_args__ = (UniqueConstraint("tipo", "codigo", name="uq_estados_liberacion_tipo_codigo"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "tipo", "codigo", name="uq_estados_liberacion_org_tipo_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     tipo: Mapped[str] = mapped_column(String(10))  # COMERCIAL | LOGISTICA
     codigo: Mapped[str] = mapped_column(String(10))
@@ -270,12 +278,13 @@ class EstadoLiberacion(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class GrupoArticulo(Base):
+class GrupoArticulo(DeOrganizacion, Base):
     """Grupo de artículos con su categoría (Datos maestros → Categorías)."""
 
     __tablename__ = "grupos_articulos"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_grupos_articulos_org_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(15), unique=True)
+    codigo: Mapped[str] = mapped_column(String(15))
     nombre: Mapped[str] = mapped_column(String(100))
     categoria: Mapped[str] = mapped_column(String(10))  # código de categorias_articulo
     # Días que este tipo de producto necesita además de los de su región después
@@ -284,12 +293,12 @@ class GrupoArticulo(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Prepack(Base):
+class Prepack(DeOrganizacion, Base):
     """Curva de un estilo-color. Su prepack ID (p. ej. AB12) es la "talla"
     del artículo prepack y se arma con sólidos del mismo estilo y color."""
 
     __tablename__ = "prepacks"
-    __table_args__ = (UniqueConstraint("estilo", "color", "codigo"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "estilo", "color", "codigo", name="uq_prepacks_org_estilo_color_codigo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(10))
     estilo: Mapped[str] = mapped_column(String(40))
@@ -306,17 +315,18 @@ class Prepack(Base):
         return sum(c.cantidad for c in self.componentes)
 
 
-class Articulo(Base):
+class Articulo(DeOrganizacion, Base):
     """Dato maestro del artículo (SKU). Un sólido es un estilo-color-talla;
     un prepack es una caja con una curva de sólidos."""
 
     __tablename__ = "articulos"
+    __table_args__ = (UniqueConstraint("organizacion_id", "sku", name="uq_articulos_org_sku"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     # Campos propios de la empresa (core/campos_propios.py)
     extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     # Código de artículo de la empresa (numérico o alfanumérico, el formato lo
     # define cada empresa); distinto del SKU del proveedor
-    sku: Mapped[str] = mapped_column(String(40), unique=True)  # texto: conserva ceros
+    sku: Mapped[str] = mapped_column(String(40))  # texto: conserva ceros
     # Genérico: agrupa las tallas y prepacks de un estilo-color, que comparten ficha
     generico: Mapped[str | None] = mapped_column(String(40), index=True)
     sku_proveedor: Mapped[str | None] = mapped_column(String(60), index=True)
@@ -344,7 +354,7 @@ class Articulo(Base):
     producto: Mapped[Producto | None] = relationship(back_populates="articulos")
 
 
-class PrepackComponente(Base):
+class PrepackComponente(DeOrganizacion, Base):
     __tablename__ = "prepack_componentes"
     __table_args__ = (UniqueConstraint("prepack_id", "articulo_id"),)
     id: Mapped[int] = mapped_column(primary_key=True)

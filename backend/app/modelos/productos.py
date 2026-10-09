@@ -18,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+from app.core.organizacion import DeOrganizacion
 from app.modelos.base import ahora
 
 if TYPE_CHECKING:
@@ -25,13 +26,13 @@ if TYPE_CHECKING:
     from app.modelos.maestros import Articulo, GrupoArticulo, Marca, Proveedor
 
 
-class Producto(Base):
+class Producto(DeOrganizacion, Base):
     """Ficha técnica de un estilo-color de un proveedor. La comparten todas sus
     tallas (artículos) y sus prepacks; aquí vive su clasificación arancelaria:
     la partida SAC aprobada y el código nacional de cada país destino."""
 
     __tablename__ = "productos"
-    __table_args__ = (UniqueConstraint("proveedor_id", "estilo", "color"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo_generico", name="uq_productos_org_codigo_generico"), UniqueConstraint("proveedor_id", "estilo", "color"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
     estilo: Mapped[str] = mapped_column(String(40))
@@ -40,7 +41,7 @@ class Producto(Base):
     grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"))
     # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
     # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
-    codigo_generico: Mapped[str | None] = mapped_column(String(40), unique=True, index=True)
+    codigo_generico: Mapped[str | None] = mapped_column(String(40), index=True)
     unidad: Mapped[str | None] = mapped_column(String(5))  # unidad de sus tallas sólidas: PAR | UN
     nombre: Mapped[str | None] = mapped_column(String(200))  # nombre comercial del estilo
     # Ficha técnica: tipo de producto del clasificador, atributos, composición
@@ -108,7 +109,7 @@ class Producto(Base):
         return self.estado in ("aprobado", "corregido") and bool(self.codigo)
 
 
-class PartidaPais(Base):
+class PartidaPais(DeOrganizacion, Base):
     """Código arancelario nacional del producto en un país destino."""
 
     __tablename__ = "partidas_pais"
@@ -136,7 +137,7 @@ class PartidaPais(Base):
     producto: Mapped[Producto] = relationship(back_populates="partidas")
 
 
-class ProductoFoto(Base):
+class ProductoFoto(DeOrganizacion, Base):
     __tablename__ = "producto_fotos"
     id: Mapped[int] = mapped_column(primary_key=True)
     producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
@@ -150,7 +151,7 @@ class ProductoFoto(Base):
     producto: Mapped[Producto] = relationship(back_populates="fotos")
 
 
-class ProductoDocumento(Base):
+class ProductoDocumento(DeOrganizacion, Base):
     """Ficha técnica del proveedor o del laboratorio (SDS, TDS, COA): evidencia
     técnica del producto (capa de la empresa). Sus datos (CAS, composición,
     estado físico, densidad, pH…) son hechos para la ficha; nunca una fuente
@@ -173,7 +174,7 @@ class ProductoDocumento(Base):
     producto: Mapped[Producto] = relationship(back_populates="documentos")
 
 
-class ProductoVersion(Base):
+class ProductoVersion(DeOrganizacion, Base):
     """Versión cerrada de la ficha técnica, con su vigencia y la partida que tenía."""
 
     __tablename__ = "producto_versiones"

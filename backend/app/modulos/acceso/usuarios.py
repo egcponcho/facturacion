@@ -3,6 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import organizacion
 from app.core.errores import ErrorNegocio
 from app.core.seguridad import hash_password
 from app.modelos import Proveedor, Rol, Sociedad, Transportista, Usuario
@@ -59,7 +60,19 @@ def _usuario_dict(u: Usuario) -> dict:
             "proveedor_id": u.proveedor_id, "proveedor": u.proveedor.nombre if u.proveedor else None,
             "telefono": u.telefono, "dos_pasos": u.dos_pasos, "ultimo_acceso": u.ultimo_acceso,
             "cargo": u.cargo, "area": u.area, "empresa": u.empresa, "foto": u.foto, "clave_temporal": bool(u.clave_temporal),
-            "bloqueado": bool(u.bloqueado_hasta and u.bloqueado_hasta > _ahora()), "alcance": u.alcance or {}}
+            "bloqueado": bool(u.bloqueado_hasta and u.bloqueado_hasta > _ahora()), "alcance": u.alcance or {},
+            "plataforma": bool(u.plataforma)}
+
+
+def correo_usado(db: Session, email: str) -> bool:
+    """El correo identifica al usuario en toda la plataforma, no solo en su organización."""
+    with organizacion.todas(db):
+        return bool(db.scalar(select(Usuario.id).where(Usuario.email == email)))
+
+
+def _exigir_plataforma(user: Usuario, plataforma: bool | None) -> None:
+    if plataforma and not user.plataforma:
+        raise ErrorNegocio("Only a platform administrator can give platform administration.", 403, "sin_permiso")
 
 
 def listar_usuarios(db: Session, user: Usuario) -> list[dict]:
@@ -70,8 +83,9 @@ def listar_usuarios(db: Session, user: Usuario) -> list[dict]:
 def crear_usuario(db: Session, user: Usuario, datos) -> dict:
     exigir(user, "admin")
     email = datos.email.strip().lower()
-    if db.scalar(select(Usuario.id).where(Usuario.email == email)):
+    if correo_usado(db, email):
         raise ErrorNegocio("A user with that email already exists.", 409, "duplicado")
+    _exigir_plataforma(user, datos.plataforma)
     rol = _rol_elegido(db, datos.rol_id, datos.rol)
     prov = _proveedor_elegido(db, datos.proveedor_id)
     if datos.rol == "proveedor" and not prov:
@@ -85,7 +99,7 @@ def crear_usuario(db: Session, user: Usuario, datos) -> dict:
                 proveedor_id=prov, password_hash=hash_password(clave), activo=True, clave_temporal=True,
                 telefono=validar_telefono(datos.telefono), dos_pasos=datos.dos_pasos,
                 cargo=texto_fmt(datos.cargo) or None, area=texto_fmt(datos.area) or None, empresa=texto_fmt(datos.empresa) or None,
-                alcance=_alcance_valido(db, datos.alcance))
+                alcance=_alcance_valido(db, datos.alcance), plataforma=datos.plataforma)
     db.add(u)
     db.flush()
     registrar(db, user, "usuario", u.id, "creado", {"email": u.email, "nombre": u.nombre, "rol_id": u.rol_id,
@@ -122,7 +136,7 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
     if "email" in campos:
         nuevo = (campos.pop("email") or "").strip().lower()
         if nuevo and nuevo != u.email:
-            if db.scalar(select(Usuario.id).where(Usuario.email == nuevo)):
+            if correo_usado(db, nuevo):
                 raise ErrorNegocio("A user with that email already exists.", 409, "duplicado")
             u.email = nuevo
     if "telefono" in campos:
@@ -135,6 +149,9 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
         campos["proveedor_id"] = _proveedor_elegido(db, campos["proveedor_id"])
     if "alcance" in campos:
         campos["alcance"] = _alcance_valido(db, campos["alcance"])
+    if "plataforma" in campos:
+        _exigir_plataforma(user, campos["plataforma"])
+        campos["plataforma"] = bool(campos["plataforma"])
     if campos.get("activo") is False or campos.get("dos_pasos") is False:
         revocar = True
     if revocar:

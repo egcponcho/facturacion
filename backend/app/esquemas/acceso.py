@@ -80,9 +80,9 @@ class UsuarioIn(BaseModel):
     cargo: str | None = Field(default=None, max_length=120)
     area: str | None = Field(default=None, max_length=120)
     empresa: str | None = Field(default=None, max_length=200)
-    alcance: dict | None = None
     # Alcance de los datos: {"proveedores": [ids], "sociedades": [códigos]}; vacío = sin límite
     alcance: dict | None = None
+    plataforma: bool = False  # administra la plataforma (solo lo da otro administrador de la plataforma)
 
 
 class UsuarioPatch(BaseModel):
@@ -100,3 +100,4 @@ class UsuarioPatch(BaseModel):
     area: str | None = Field(default=None, max_length=120)
     empresa: str | None = Field(default=None, max_length=200)
     alcance: dict | None = None
+    plataforma: bool | None = None

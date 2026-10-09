@@ -1,15 +1,17 @@
-"""Empresa de la instalación: datos generales, preferencias y reglas.
+"""Organización de la petición: datos generales, preferencias y reglas.
 
-Cada instalación sirve a una sola empresa (registro 1 de `organizaciones`).
-Sus preferencias (idioma, moneda, zona horaria…) y reglas de negocio se
-guardan en la base de datos y se cambian en Configuración → Empresa; los
-valores de `settings` solo son los de fábrica para una instalación nueva.
+Cada organización (empresa cliente) guarda sus preferencias (idioma, moneda,
+zona horaria…), marca, terminología, campos propios, módulos y reglas de
+negocio en la base de datos, y se cambian en Configuración → Empresa; los
+valores de `settings` solo son los de fábrica. Una instalación de una sola
+empresa usa la organización 1.
 """
 import re
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core import campos_propios
+from app.core import campos_propios, organizacion
 from app.core.archivos import imagen_data_url
 from app.core.config import settings
 from app.core.empresa import CAMPOS_COMPATIBILIDAD, REGLAS
@@ -18,24 +20,27 @@ from app.modelos import Organizacion, Usuario
 from app.modulos.acceso.permisos import MODULOS_ACTIVABLES, exigir
 from app.modulos.comun.historial import registrar
 
-ID_EMPRESA = 1
-
 
 def asegurar_principal(db: Session, nombre: str = "My company") -> Organizacion:
-    """La empresa existe siempre (instalación nueva o demostración)."""
-    o = db.get(Organizacion, ID_EMPRESA)
+    """La organización principal existe siempre (instalación nueva o demostración)."""
+    o = db.get(Organizacion, organizacion.PRINCIPAL)
     if not o:
-        o = Organizacion(id=ID_EMPRESA, codigo="MAIN", nombre=nombre, configuracion={})
+        o = Organizacion(id=organizacion.PRINCIPAL, codigo="MAIN", nombre=nombre, configuracion={})
         db.add(o)
         db.flush()
     return o
 
 
 def configuracion(db: Session) -> dict:
-    """Configuración guardada de la empresa (vacía si aún no existe)."""
-    o = db.get(Organizacion, ID_EMPRESA)
-    # Nombre y logo van también: los documentos y reportes los usan
-    return {**(o.configuracion or {}), "empresa": {"nombre": o.nombre, "logo": o.logo}} if o else {}
+    """Configuración guardada de la organización de la sesión (vacía si aún no existe)."""
+    o = db.get(Organizacion, organizacion.de_sesion(db) or organizacion.PRINCIPAL)
+    if not o:
+        return {}
+    # Nombre y logo van también: los documentos y reportes los usan. Con más de
+    # una organización activa, los datos compartidos solo los cambia la plataforma.
+    varias = (db.scalar(select(func.count()).select_from(Organizacion).where(Organizacion.activa.is_(True))) or 0) > 1
+    return {**(o.configuracion or {}), "empresa": {"id": o.id, "nombre": o.nombre, "logo": o.logo},
+            "varias_organizaciones": varias}
 
 
 # ---- Configuración ------------------------------------------------------------
@@ -85,7 +90,8 @@ NOMBRES_CAMPO = {"sociedad": "Company", "centro": "Plant", "centro_destino": "De
 
 
 def actual(db: Session) -> Organizacion:
-    return asegurar_principal(db)
+    org = organizacion.de_sesion(db)
+    return db.get(Organizacion, org) if org else asegurar_principal(db)
 
 
 def detalle(db: Session, user: Usuario) -> dict:
@@ -167,7 +173,7 @@ def _validar_seccion(base: dict, valores: dict) -> dict:
 def publico(db: Session) -> dict:
     """Lo que la pantalla de ingreso muestra antes de iniciar sesión: nombre,
     logo, marca y, solo en la demostración, las cuentas de ejemplo."""
-    o = db.get(Organizacion, ID_EMPRESA)
+    o = db.get(Organizacion, organizacion.PRINCIPAL)
     conf = (o.configuracion or {}) if o else {}
     res = {"nombre": o.nombre if o else None, "logo": o.logo if o else None, "marca": {**MARCA, **conf.get("marca", {})},
            "textos": _textos_de(conf), "demo": None}
