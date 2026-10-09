@@ -3,10 +3,17 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { cargarSesion, puede, sesion } from '@/stores/sesion'
 import { avisar, ui } from '@/stores/ui'
 
+// La misma pantalla crea la OC y la sigue editando: al guardar el primer
+// borrador la dirección cambia sin volver a abrirla (meta.vista)
+const OrdenAsistente = () => import('@/modulos/compras/vistas/OrdenAsistenteView.vue')
+
 const routes = [
   { path: '/login', name: 'login', component: () => import('@/modulos/acceso/vistas/LoginView.vue'), meta: { publica: true } },
   { path: '/', component: () => import('@/modulos/inicio/vistas/DashboardView.vue') },
   { path: '/ordenes', component: () => import('@/modulos/compras/vistas/OrdenesView.vue'), meta: { permiso: 'oc.ver' } },
+  { path: '/ordenes/nueva', component: OrdenAsistente, meta: { permiso: 'oc.editar', vista: 'orden-asistente' } },
+  { path: '/ordenes/:id(\\d+)/editar', component: OrdenAsistente, props: true, meta: { permiso: 'oc.editar', vista: 'orden-asistente' } },
+  { path: '/ordenes/:id(\\d+)', component: () => import('@/modulos/compras/vistas/OrdenView.vue'), props: true, meta: { permiso: 'oc.ver' } },
   { path: '/facturas', component: () => import('@/modulos/facturacion/vistas/FacturasView.vue'), meta: { permiso: 'factura.ver' } },
   { path: '/facturas/:id', component: () => import('@/modulos/facturacion/vistas/FacturaView.vue'), props: true, meta: { permiso: 'factura.ver' } },
   { path: '/packing-lists/:id', component: () => import('@/modulos/empaque/vistas/PackingListView.vue'), props: true, meta: { permiso: ['factura.ver', 'recepcion.registrar'] } },
@@ -19,7 +26,9 @@ const routes = [
   // vuelve a comprobarlo en cada petición)
   { path: '/transporte', component: () => import('@/modulos/transporte/vistas/EmbarquesView.vue'), meta: { permiso: 'transporte.gestionar' } },
   { path: '/transporte/embarques/:id', component: () => import('@/modulos/transporte/vistas/EmbarqueView.vue'), props: true, meta: { permiso: 'transporte.gestionar' } },
-  { path: '/importar', component: () => import('@/modulos/compras/vistas/ImportarView.vue'), meta: { permiso: 'oc.importar' } },
+  // La OC una por una se crea en el asistente (antes era un modo de esta pantalla)
+  { path: '/importar', component: () => import('@/modulos/compras/vistas/ImportarView.vue'), meta: { permiso: 'oc.importar' },
+    beforeEnter: (to) => (to.query.modo === 'formulario' ? '/ordenes/nueva' : true) },
   { path: '/mantenimiento', component: () => import('@/modulos/maestros/vistas/MantenimientoView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/leadtimes', component: () => import('@/modulos/transporte/vistas/LeadTimeView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/seguimiento', component: () => import('@/modulos/seguimiento/vistas/SeguimientoView.vue'), meta: { permiso: 'seguimiento.ver' } },

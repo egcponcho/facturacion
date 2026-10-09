@@ -6,19 +6,13 @@ import CargaArchivo from '@/componentes/CargaArchivo.vue'
 import Icono from '@/componentes/Icono.vue'
 import Paginacion from '@/componentes/Paginacion.vue'
 import ThOrden from '@/componentes/ThOrden.vue'
-import OrdenFormulario from '@/modulos/compras/componentes/OrdenFormulario.vue'
 import PerfilesImportacion from '@/modulos/compras/componentes/PerfilesImportacion.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
-import { useRoute, useRouter } from 'vue-router'
+import { puede } from '@/stores/sesion'
 import { useTabla } from '@/composables/useTabla'
 import { avisar, errorApi } from '@/stores/ui'
 import { filasDefecto } from '@/stores/preferencias'
 
-const route = useRoute()
-const router = useRouter()
-// Dos maneras de cargar OCs con la misma estructura y validaciones: archivo o formulario
-const modo = ref(route.query.modo === 'formulario' ? 'formulario' : 'archivo')
-watch(modo, (m) => router.replace({ query: { ...route.query, modo: m } }))
 const archivo = ref(null)
 const previa = ref(null)
 const filtro = ref('')
@@ -90,16 +84,11 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
     <div>
       <router-link to="/ordenes" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Purchase orders') }}</router-link>
       <h1>{{ t('Load purchase orders') }}</h1>
-      <p>{{ t('Upload a file exported from your ERP or create the PO here. Both are checked the same way against the master data; nothing is saved until you confirm.') }}</p>
+      <p>{{ t('Upload a file exported from your ERP. It is checked against the master data; nothing is saved until you confirm.') }}</p>
     </div>
-    <button v-if="modo === 'archivo'" type="button" class="btn" :title="t('Excel template with the dates in the format of your profile')" @click="api.descargar('/ordenes/plantilla', 'purchase_orders_template.xlsx')"><Icono nombre="descargar" />{{ t('Sample template') }}</button>
+    <router-link v-if="puede('oc.editar')" to="/ordenes/nueva" class="btn"><Icono nombre="mas" />{{ t('New PO') }}</router-link>
+    <button type="button" class="btn" :title="t('Excel template with the dates in the format of your profile')" @click="api.descargar('/ordenes/plantilla', 'purchase_orders_template.xlsx')"><Icono nombre="descargar" />{{ t('Sample template') }}</button>
   </div>
-  <div class="pestanas-pildora" role="tablist">
-    <button type="button" role="tab" class="pildora" :aria-selected="modo === 'archivo'" @click="modo = 'archivo'"><Icono nombre="importar" :tam="15" />{{ t('Upload file') }}</button>
-    <button type="button" role="tab" class="pildora" :aria-selected="modo === 'formulario'" @click="modo = 'formulario'"><Icono nombre="mas" :tam="15" />{{ t('Create in the platform') }}</button>
-  </div>
-  <OrdenFormulario v-if="modo === 'formulario'" />
-  <template v-else>
 
   <div class="dos-columnas" style="grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr)">
     <section class="panel">
@@ -169,7 +158,6 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
       <span class="ayuda">{{ t('Conflicts (for example, lowering the quantity below what is already invoiced) are not applied: they are kept as alerts.') }}</span>
       <button class="btn btn-primario separar" :disabled="ocupado || !aplicables" @click="aplicar"><Icono nombre="check" />{{ t('Apply {0} changes', [aplicables]) }}</button>
     </div>
-  </template>
   </template>
   <PerfilesImportacion v-if="verPerfiles" @cerrar="verPerfiles = false" @cambio="cargarPerfiles" />
 </template>

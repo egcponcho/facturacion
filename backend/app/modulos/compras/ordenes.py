@@ -5,7 +5,7 @@ import unicodedata
 from datetime import date, datetime
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core import campos_propios, empresa, listas
 from app.core.archivos import abrir_libro
@@ -1103,4 +1103,6 @@ def articulos_formulario(db: Session, user: Usuario, proveedor: str, q: str = ""
                                                              Articulo.sku_proveedor.ilike(t), Articulo.upc.ilike(t)]))
     return [{"valor": a.sku, "texto": f"{a.sku} · {a.estilo} {a.color or ''} {a.talla or ''}".strip(), "unidad": a.unidad,
              "tipo": a.tipo, "sub": " · ".join(x for x in (a.descripcion, a.marca.nombre if a.marca else None) if x),
-             "pais_origen": a.pais_origen} for a in db.scalars(consulta.order_by(Articulo.estilo, Articulo.color, Articulo.sku).limit(300))]
+             "pais_origen": a.producto.pais_origen if a.producto else None}  # el origen es del producto (ficha técnica)
+            for a in db.scalars(consulta.options(selectinload(Articulo.producto), selectinload(Articulo.marca))
+                                .order_by(Articulo.estilo, Articulo.color, Articulo.sku).limit(300))]

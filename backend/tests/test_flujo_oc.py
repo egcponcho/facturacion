@@ -7,7 +7,7 @@ from conftest import Api
 from sqlalchemy import select
 
 from app.core.db import SessionLocal
-from app.modelos import Articulo, Proveedor, Rol
+from app.modelos import Articulo, Producto, Proveedor, Rol
 
 
 def _articulos(codigo_proveedor: str, n: int = 2) -> list[str]:
@@ -95,7 +95,9 @@ def test_aprobacion_por_reglas_con_cuatro_ojos(client, admin, interno, reglas_ap
     pos = d["posiciones"][0]
     r = interno.post("/facturas", {"lineas": [{"posicion_id": pos["id"], "cantidad": 1}]})
     assert r.status_code == 422 and "pending approval" in r.text
-    # Quien la envió no la aprueba
+    # Quien la envió no la aprueba: ni se le ofrece ni está en su bandeja
+    assert not d["puede"]["aprobar"] and not d["puede"]["rechazar"]
+    assert all(x["id"] != d["oc"]["id"] for x in interno.get("/ordenes/pendientes-aprobacion").json())
     r = interno.post(f"/ordenes/{d['oc']['id']}/aprobar", {})
     assert r.status_code == 403 and r.json()["codigo"] == "cuatro_ojos"
     # Otra persona del rol aprobador sí; queda en su bandeja
@@ -104,6 +106,7 @@ def test_aprobacion_por_reglas_con_cuatro_ojos(client, admin, interno, reglas_ap
     aprobador = Api(client, "aprobador@demo.com", u["password_temporal"])
     aprobador.post("/auth/password", {"actual": u["password_temporal"], "nueva": "Aprueba#Clave2026"})
     assert any(x["id"] == d["oc"]["id"] for x in aprobador.get("/ordenes/pendientes-aprobacion").json())
+    assert aprobador.get(f"/ordenes/{d['oc']['id']}").json()["puede"]["aprobar"]
     r = aprobador.post(f"/ordenes/{d['oc']['id']}/aprobar", {"comentario": "Budget ok"})
     assert r.status_code == 200, r.text
     d = r.json()
@@ -187,3 +190,41 @@ def test_avance_en_la_lista(interno):
     assert d["avance"]["codigo"] in ("SIN_FACTURAR", "FACTURADA_PARCIAL", "FACTURADA", "EMBARCADA_PARCIAL", "EN_TRANSITO",
                                      "RECIBIDA_PARCIAL", "RECIBIDA")
     assert 0 <= d["avance"]["facturado"] <= 100
+
+
+def test_articulos_del_asistente_y_datos_de_aduana(interno):
+    """La lista de artículos del asistente (con búsqueda en el servidor) y los
+    datos de aduana, que se piden en el paso de logística y no antes."""
+    r = interno.get("/ordenes/formulario/articulos", params={"proveedor": "VANS"})
+    assert r.status_code == 200, r.text
+    arts = r.json()
+    assert arts and all({"valor", "texto", "unidad", "tipo", "pais_origen"} <= set(a) for a in arts)
+    buscado = interno.get("/ordenes/formulario/articulos", params={"proveedor": "VANS", "q": arts[0]["valor"]}).json()
+    assert arts[0]["valor"] in [a["valor"] for a in buscado]
+    # Con el país de origen en la ficha del producto no hace falta en la OC
+    with SessionLocal() as db:
+        prov = db.scalar(select(Proveedor).where(Proveedor.codigo == "VANS"))
+        art = next(a for a in db.scalars(select(Articulo).where(Articulo.proveedor_id == prov.id, Articulo.activo.is_(True))
+                                         .order_by(Articulo.id)) if a.producto and a.producto.pais_origen)
+        sku, producto_id, origen = art.sku, art.producto_id, art.producto.pais_origen
+    lineas = [{"codigo_sap": sku, "cantidad": 1}]
+    cab = {k: v for k, v in _cabecera("ADU-1").items() if k != "pais_origen"}
+
+    def errores_origen(paso: str, cabecera: dict) -> list:
+        r = interno.post("/ordenes/validar", {"paso": paso, "cabecera": cabecera, "lineas": lineas}).json()["errores"]
+        return [e for e in r if e["campo"] == "pais_origen"]
+
+    assert not errores_origen("logistica", cab)
+    # Sin él en la ficha, la OC tiene que traerlo (en logística, no en los pasos anteriores)
+    with SessionLocal() as db:
+        db.get(Producto, producto_id).pais_origen = None
+        db.commit()
+    try:
+        assert errores_origen("logistica", cab)
+        assert not errores_origen("logistica", {**cab, "pais_origen": "CN"})
+        for paso in ("general", "articulos", "condiciones"):
+            assert not errores_origen(paso, cab)
+    finally:
+        with SessionLocal() as db:
+            db.get(Producto, producto_id).pais_origen = origen
+            db.commit()

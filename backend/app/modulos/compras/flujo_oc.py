@@ -187,9 +187,10 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
     def falta(campo: str, mensaje: str) -> None:
         err.append({"paso": paso, "campo": campo, "mensaje": mensaje})
 
-    def requerido(campo: str, etiqueta: str, siempre: bool = False) -> bool:
+    def requerido(campo: str, mensaje: str, siempre: bool = False) -> bool:
+        # El mensaje va completo (no «{dato} is required.»): en español cada dato concuerda en género
         if (siempre or OBLIGABLES.get(campo) in obligatorios) and not _texto(cab.get(campo)):
-            falta(campo, f"{etiqueta} is required.")
+            falta(campo, mensaje)
             return False
         return True
 
@@ -204,12 +205,12 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
             falta(campo, f"{etiqueta} {v} does not exist.")
 
     if paso == "general":
-        if requerido("proveedor", "The supplier", siempre=True):
+        if requerido("proveedor", "The supplier is required.", siempre=True):
             prov = db.scalar(select(Proveedor).where(Proveedor.codigo == _texto(cab["proveedor"]).upper()))
             permitidos = proveedor_filtro(user)
             if not prov or not prov.activo or (permitidos is not None and prov.id not in permitidos):
                 falta("proveedor", "Choose an active supplier.")
-            elif requerido("oc", "The PO number", siempre=True):
+            elif requerido("oc", "The PO number is required.", siempre=True):
                 if not re.fullmatch(r"[\w./-]{1,40}", _texto(cab["oc"])):
                     falta("oc", "The PO number has letters, numbers, ., / and - (up to 40).")
                 elif db.scalar(select(OrdenCompra.id).where(OrdenCompra.proveedor_id == prov.id,
@@ -217,10 +218,10 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
                                                             OrdenCompra.id != (oc_id or 0))):
                     falta("oc", f"PO {_texto(cab['oc'])} already exists for this supplier.")
         else:
-            requerido("oc", "The PO number", siempre=True)
-        if requerido("sociedad", "The company (bill to)", siempre=True):
+            requerido("oc", "The PO number is required.", siempre=True)
+        if requerido("sociedad", "The company (bill to) is required.", siempre=True):
             existe("sociedad", Sociedad, "Company")
-        requerido("fecha_oc", "The PO date")
+        requerido("fecha_oc", "The PO date is required.")
         if _texto(cab.get("fecha_oc")) and not _fecha(cab.get("fecha_oc")):
             falta("fecha_oc", "Enter a valid date.")
     elif paso == "articulos":
@@ -248,11 +249,11 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
         if len(repetidos) < len([ln for ln in lineas if _texto(ln.get("codigo_sap"))]):
             falta("lineas", "An item appears twice: add the quantities in one line.")
     elif paso == "condiciones":
-        if requerido("moneda", "The currency", siempre=True):
+        if requerido("moneda", "The currency is required.", siempre=True):
             de_lista("moneda", "moneda", "Currency")
-        requerido("incoterm", "The Incoterm")
+        requerido("incoterm", "The Incoterm is required.")
         de_lista("incoterm", "incoterm", "Incoterm")
-        requerido("condicion_pago", "The payment terms")
+        requerido("condicion_pago", "The payment terms are required.")
         de_lista("condicion_pago", "condicion_pago", "Payment terms")
         for i, ln in enumerate(lineas):
             ref = f"lineas.{i}"
@@ -260,24 +261,24 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
             if precio is None or precio <= 0:
                 falta(f"{ref}.precio", f"Line {i + 1}: enter the unit price.")
     elif paso == "logistica":
-        if requerido("fecha_xf", "The ship date (XF)", siempre=True) and not _fecha(cab.get("fecha_xf")):
+        if requerido("fecha_xf", "The ship date (XF) is required.", siempre=True) and not _fecha(cab.get("fecha_xf")):
             falta("fecha_xf", "Enter a valid date.")
-        requerido("fecha_tienda", "The in-store date")
+        requerido("fecha_tienda", "The in-store date is required.")
         xf, tienda = _fecha(cab.get("fecha_xf")), _fecha(cab.get("fecha_tienda"))
         if xf and tienda and tienda < xf:
             falta("fecha_tienda", "The in-store date cannot be before the ship date.")
         for campo, modelo, etiqueta in (("centro", Centro, "Plant"), ("centro_destino", Centro, "Destination plant"),
                                         ("puerto_despacho", Puerto, "Port"), ("pais_origen", Pais, "Country"),
                                         ("pais_procedencia", Pais, "Country")):
-            texto = {"centro": "The receiving plant", "centro_destino": "The destination plant",
-                     "puerto_despacho": "The port of loading", "pais_origen": "The country of origin"}.get(campo, "")
+            texto = {"centro": "The receiving plant is required.", "centro_destino": "The destination plant is required.",
+                     "puerto_despacho": "The port of loading is required.", "pais_origen": "The country of origin is required."}.get(campo, "")
             if texto:
                 requerido(campo, texto)
             existe(campo, modelo, etiqueta)
         # Datos de aduana: se piden aquí (no antes) si la empresa los exige para facturar
         if regla("REQUERIR_DATOS_ADUANA") and "pais_origen" not in obligatorios and not _texto(cab.get("pais_origen")):
             arts = [db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_sap")))) for ln in lineas]
-            if any(a is not None and not a.pais_origen for a in arts):
+            if any(a is not None and not (a.producto and a.producto.pais_origen) for a in arts):
                 falta("pais_origen", "The country of origin is required for customs (some items do not have it).")
     elif paso == "documentacion":
         extra = cab.get("extra") or {}
@@ -541,12 +542,25 @@ def avances(db: Session, oc_ids: list[int]) -> dict[int, dict]:
 
 
 # ---- Detalle e historial ---------------------------------------------------------------------
-def puede(user: Usuario, oc: OrdenCompra) -> dict:
+def _es_aprobador(db: Session, user: Usuario, oc: OrdenCompra) -> bool:
+    """Si el usuario aprueba el paso pendiente (las mismas reglas que al aprobar),
+    para no ofrecerle un botón que el servidor le va a negar."""
+    if not (tiene(user, "oc.aprobar") and OC.puede("aprobar", oc.estado)):
+        return False
+    try:
+        _exigir_aprobador(db, user, oc)
+    except ErrorNegocio:
+        return False
+    return True
+
+
+def puede(db: Session, user: Usuario, oc: OrdenCompra) -> dict:
+    aprobador = _es_aprobador(db, user, oc)
     return {
         "editar": tiene(user, "oc.editar") and OC.puede("editar", oc.estado),
         "enviar": tiene(user, "oc.editar") and OC.puede("enviar", oc.estado),
-        "aprobar": tiene(user, "oc.aprobar") and OC.puede("aprobar", oc.estado),
-        "rechazar": tiene(user, "oc.aprobar") and OC.puede("rechazar", oc.estado),
+        "aprobar": aprobador,
+        "rechazar": aprobador,
         "cancelar": tiene(user, "oc.cancelar") and OC.puede("cancelar", oc.estado),
         "cerrar": tiene(user, "oc.cancelar") and OC.puede("cerrar", oc.estado),
         "reabrir": tiene(user, "oc.aprobar") and OC.puede("reabrir", oc.estado),
@@ -574,7 +588,7 @@ def detalle(db: Session, user: Usuario, oc_id: int) -> dict:
                           "actual": a is paso} for a in oc.aprobaciones],
         "borrador": (oc.borrador or _borrador_de(oc)) if OC.puede("editar", oc.estado) else None,
         "pasos": estado_pasos(db, user, oc) if OC.puede("editar", oc.estado) else None,
-        "puede": puede(user, oc),
+        "puede": puede(db, user, oc),
         "acciones": OC.disponibles(oc.estado),
     }
 
@@ -601,7 +615,7 @@ def pendientes_de_aprobar(db: Session, user: Usuario) -> list[dict]:
         if oc.id in vistas:
             continue
         vistas.add(oc.id)
-        if a.rol_id in (None, user.rol_id) or tiene(user, "admin"):
+        if _es_aprobador(db, user, oc):  # su rol y, con cuatro ojos, no la creó ni la envió
             res.append({"id": oc.id, "numero": oc.numero, "proveedor": oc.proveedor.nombre, "total": round(_total(oc), 2),
                         "moneda": oc.moneda, "regla": a.regla, "enviada_en": oc.enviada_en})
     return res

@@ -34,7 +34,16 @@ const REGLAS = {
   PAIS_BASE_CLASIF: t('Country whose national code completes the suggested HS code'),
   COMPATIBILIDAD_BLOQUEANTE: t('PO data that cannot be mixed in one invoice'),
   COMPATIBILIDAD_ADVERTENCIA: t('PO data that only warns when mixed in one invoice'),
+  APROBACION_CUATRO_OJOS: t('Whoever creates or sends a PO cannot approve it'),
+  APROBAR_OC_IMPORTADAS: t('POs loaded from the ERP also go through the approval rules'),
 }
+
+// Aprobación de OCs: desde qué monto (en su moneda y, si se quiere, solo para
+// una sociedad) aprueba qué rol. Las reglas que aplican se encadenan de menor a
+// mayor monto; sin reglas, la OC queda aprobada al enviarla.
+const roles = ref([])
+const sociedades = ref([])
+const nuevaRegla = () => datos.value.aprobaciones_oc.push({ nombre: '', monto_minimo: 0, moneda: datos.value.preferencias.moneda || '', sociedad: '', rol_id: '' })
 
 // Campos propios: datos que la empresa agrega a cada entidad
 const entidadCampos = ref('articulos')
@@ -65,6 +74,8 @@ function copiar(x) {
     modulos: Object.fromEntries(x.modulos.map((m) => [m.clave, m.activo])),
     campos_propios: Object.fromEntries(Object.entries(x.campos_propios).map(([e, cs]) => [e, cs.map((c) => ({ ...c, opciones: (c.opciones || []).join(', ') }))])),
     reglas: Object.fromEntries(x.reglas.map((r) => [r.clave, Array.isArray(r.valor) ? [...r.valor] : r.valor])),
+    aprobaciones_oc: (x.aprobaciones_oc || []).map((r) => ({ ...r, sociedad: r.sociedad || '' })),
+    obligatorios: { orden: [...(x.obligatorios?.orden || [])] },
   }
   terminos.value = aFilas(x.textos)
 }
@@ -80,6 +91,8 @@ async function cargar() {
 onMounted(() => {
   cargar()
   api.get('/catalogos/paises/opciones').then((r) => { paises.value = r.map((p) => ({ valor: p.codigo, texto: p.texto, sub: p.codigo })) }).catch(() => {})
+  api.get('/roles').then((r) => { roles.value = r.roles.filter((x) => x.activo).map((x) => ({ valor: x.id, texto: x.nombre })) }).catch(errorApi)
+  api.get('/catalogos/sociedades/opciones').then((r) => { sociedades.value = r.map((x) => ({ valor: x.codigo, texto: x.texto })) }).catch(() => {})
 })
 
 async function subirLogo(ev) {
@@ -231,6 +244,36 @@ async function guardar() {
     </section>
 
     <section class="panel">
+      <div class="panel-cabeza"><div><h2>{{ t('Purchase order approval') }}</h2><p>{{ t('Who approves a PO before it can be invoiced. Every rule whose minimum amount the PO reaches (in its currency and, if set, for its company) adds an approval step, from the lowest to the highest amount. With no rule, a PO is approved when it is sent.') }}</p></div>
+        <button type="button" class="btn btn-chico" @click="nuevaRegla"><Icono nombre="mas" :tam="14" />{{ t('Add rule') }}</button></div>
+      <p v-if="!datos.aprobaciones_oc.length" class="ayuda">{{ t('No approval rules: POs are approved when they are sent.') }}</p>
+      <div v-else class="tabla-marco">
+        <table class="tabla">
+          <thead><tr><th>{{ t('Name') }}</th><th class="num">{{ t('From amount') }}</th><th>{{ t('Currency') }}</th><th>{{ t('Company') }}</th><th>{{ t('Approved by role') }}</th><th /></tr></thead>
+          <tbody>
+            <tr v-for="(r, i) in datos.aprobaciones_oc" :key="i">
+              <td><input v-model="r.nombre" class="entrada" maxlength="80" :placeholder="t('e.g. Purchasing manager')" :aria-label="t('Name')" /></td>
+              <td><input v-model.number="r.monto_minimo" class="entrada regla-monto" type="number" min="0" step="any" :aria-label="t('From amount')" /></td>
+              <td><SelectBusqueda v-model="r.moneda" :opciones="MONEDAS" :prefijo="false" :etiqueta="t('Currency')" /></td>
+              <td><SelectBusqueda v-model="r.sociedad" :opciones="sociedades" :vacio="t('All')" :prefijo="false" :etiqueta="t('Company')" /></td>
+              <td><SelectBusqueda v-model="r.rol_id" :opciones="roles" :prefijo="false" :etiqueta="t('Approved by role')" /></td>
+              <td><button type="button" class="btn-icono" :aria-label="t('Remove')" @click="datos.aprobaciones_oc.splice(i, 1)"><Icono nombre="basura" :tam="16" /></button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-cabeza"><div><h2>{{ t('Required PO data') }}</h2><p>{{ t('Besides supplier, number, company, items, quantities, currency, prices and ship date, which are always required, choose what else a PO needs before it can be sent.') }}</p></div></div>
+      <div class="regla-lista obligatorios">
+        <label v-for="c in o.campos_obligables" :key="c.clave" class="check">
+          <input v-model="datos.obligatorios.orden" type="checkbox" :value="c.clave" />{{ tx(c.texto) }}
+        </label>
+      </div>
+    </section>
+
+    <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('Business rules') }}</h2><p>{{ t('How your company works. They apply to everyone in it right after saving.') }}</p></div></div>
       <ul class="lista-reglas">
         <li v-for="r in o.reglas" :key="r.clave">
@@ -266,4 +309,6 @@ async function guardar() {
 .campo.ancho { grid-column: 1 / -1; }
 input[type='color'] { width: 42px; height: 36px; padding: 2px; border: 1px solid var(--linea); border-radius: var(--radio, 8px); background: var(--superficie); }
 .regla-lista { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: flex-end; max-width: 520px; }
+.regla-lista.obligatorios { justify-content: flex-start; max-width: none; gap: 8px 20px; }
+.regla-monto { width: 120px; text-align: end; }
 </style>

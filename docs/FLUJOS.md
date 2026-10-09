@@ -79,6 +79,24 @@ perder datos.
 5. **Documentación y extras:** campos propios de la OC y notas.
 6. **Revisión:** resumen y «Enviar».
 
+En pantalla (`/ordenes/nueva` y `/ordenes/{id}/editar`, componente
+`Asistente.vue`): «Siguiente» exige el paso completo según el servidor
+(`POST /ordenes/validar`); el primer «Siguiente» crea el borrador y desde ahí
+se guarda solo, unos segundos después de cada cambio y al cambiar de paso
+(`PATCH /ordenes/{id}`). «Guardar borrador» guarda aunque falten datos. Los
+pasos se pueden recorrer en cualquier orden una vez creado el borrador; al
+volver a abrirlo sigue en el primer paso incompleto. En el celular el
+asistente ocupa toda la pantalla.
+
+La vista de la OC (`/ordenes/{id}`) es de solo lectura y distinta del
+asistente: estado y avance, lo acordado agrupado por tema, líneas, avance
+logístico, aprobaciones e historial. Los botones de cada acción los decide el
+servidor (`puede`): aprobar o rechazar solo aparecen a quien aprueba el paso
+pendiente (su rol y, con cuatro ojos, si no creó ni envió la OC). Quien
+aprueba ve en «Órdenes de compra» la bandeja de las OCs que esperan su
+aprobación. Las reglas de aprobación y los datos obligatorios se configuran en
+Configuración → Empresa.
+
 ## 2. Factura y lista de empaque
 
 ```

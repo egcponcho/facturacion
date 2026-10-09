@@ -37,7 +37,7 @@ const GRUPOS = {
 // Acciones y accesos rápidos, solo los que el rol puede usar
 const COMANDOS = computed(() => [
   { texto: t('Import purchase orders'), ruta: '/importar', icono: 'importar', permiso: 'oc.importar', clave: 'import load upload po orders' },
-  { texto: t('New purchase order'), ruta: '/importar?modo=formulario', icono: 'mas', permiso: 'oc.importar', clave: 'new create po order' },
+  { texto: t('New purchase order'), ruta: '/ordenes/nueva', icono: 'mas', permiso: 'oc.editar', clave: 'new create po order' },
   { texto: t('New shipment'), ruta: '/transporte?nuevo=1', icono: 'barco', permiso: 'transporte.gestionar', clave: 'new create shipment booking' },
   { texto: t('Go to orders'), ruta: '/ordenes', icono: 'ordenes', permiso: 'oc.ver', clave: 'orders po' },
   { texto: t('Go to invoices'), ruta: '/facturas', icono: 'factura', permiso: 'oc.ver', clave: 'invoices' },

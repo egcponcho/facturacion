@@ -25,12 +25,13 @@ import { avisar, errorApi } from '@/stores/ui'
 import { cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
 import { pasoCantidad } from '@/nucleo/unidades.js'
 import { filasDefecto } from '@/stores/preferencias'
+import { ESTADOS_OC, estado as leerEstado } from '@/nucleo/estados.js'
 
 const route = useRoute()
 const router = useRouter()
 
 // Filtros que se eligen de listas armadas con lo que realmente hay en las OCs
-const EXTRA = { sociedad: t('Company'), centro: t('Plant'), almacen: t('Warehouse'), marca: t('Brand'), comercial: t('Commercial rel.'), liberacion: t('Logistics rel.'), liberada: t('Release'), destino: t('Destination plant'), puerto: t('Port') }
+const EXTRA = { estado: t('Status'), sociedad: t('Company'), centro: t('Plant'), almacen: t('Warehouse'), marca: t('Brand'), comercial: t('Commercial rel.'), liberacion: t('Logistics rel.'), liberada: t('Release'), destino: t('Destination plant'), puerto: t('Port') }
 const filtros = reactive({
   q: route.query.q || '',
   solo_disponible: route.query.solo_disponible !== '0',
@@ -48,6 +49,7 @@ const activos = computed(() => Object.keys(EXTRA).filter((k) => filtros[k]).map(
   if (k === 'liberacion') v = opcionesFiltro.value.liberaciones.find((x) => x.codigo === v)?.nombre || v
   if (k === 'comercial') v = opcionesFiltro.value.comerciales.find((x) => x.codigo === v)?.nombre || v
   if (k === 'liberada') v = v === '0' ? t('Not released') : t('Released')
+  if (k === 'estado') v = leerEstado(v, 'oc')[0]
   return { k, texto: `${EXTRA[k]}: ${v}` }
 }))
 const datos = ref({ items: [], total: 0 })
@@ -341,9 +343,35 @@ async function facturar() {
   }
 }
 
+// Bandeja de aprobación: las OCs que esperan al rol del usuario
+const pendientes = ref([])
+async function cargarPendientes() {
+  if (!puede('oc.aprobar')) return
+  try {
+    pendientes.value = await api.get('/ordenes/pendientes-aprobacion')
+  } catch (e) {
+    errorApi(e)
+  }
+}
+// Un estado distinto de «aprobada» no tiene saldo para facturar: se muestran todas
+function elegirEstado() {
+  if (filtros.estado && filtros.estado !== 'APROBADA') filtros.solo_disponible = false
+  filtrar()
+}
+function verPendientes() {
+  filtros.estado = 'EN_APROBACION'
+  elegirEstado()
+}
+function soloConSaldo(v) {
+  filtros.solo_disponible = v
+  if (v && filtros.estado && filtros.estado !== 'APROBADA') filtros.estado = ''
+  filtrar()
+}
+
 onMounted(() => {
   cargar()
   cargarFiltros()
+  cargarPendientes()
 })
 watch(() => sesion.proveedorId, () => {
   cargarFiltros()
@@ -364,12 +392,19 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       <p>{{ t('Choose what to invoice: full POs or only some lines and quantities. You can combine several POs of the same supplier in one invoice.') }}</p>
     </div>
     <div class="acciones">
-      <router-link v-if="puede('oc.importar')" :to="{ path: '/importar', query: { modo: 'formulario' } }" class="btn"><Icono nombre="mas" />{{ t('New PO') }}</router-link>
+      <router-link v-if="puede('oc.editar')" to="/ordenes/nueva" class="btn"><Icono nombre="mas" />{{ t('New PO') }}</router-link>
       <router-link v-if="puede('oc.importar')" to="/importar" class="btn"><Icono nombre="importar" />{{ t('Import POs') }}</router-link>
       <button class="btn btn-primario" type="button" :disabled="!carrito.items.length" @click="panel = true">
         <Icono nombre="carrito" />{{ t('Review selection ({0})', [carrito.items.length]) }}
       </button>
     </div>
+  </div>
+
+  <div v-if="pendientes.length" class="nota aviso bandeja" role="status">
+    <Icono nombre="reloj" :tam="16" />
+    <span>{{ t('{0} purchase orders wait for your approval:', [pendientes.length]) }}
+      <router-link v-for="p in pendientes.slice(0, 4)" :key="p.id" :to="`/ordenes/${p.id}`" class="codigo">{{ tx(p.numero) }}</router-link></span>
+    <button type="button" class="btn btn-chico" @click="verPendientes">{{ t('See them all') }}</button>
   </div>
 
   <div class="filtros" v-filtros>
@@ -380,9 +415,12 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
     <VistasGuardadas pantalla="ordenes" :actual="filtrosVista" @aplicar="aplicarVista" />
     <SelectBusqueda v-if="opcionesFiltro.marcas.length > 1 || filtros.marca" v-model="filtros.marca" :opciones="opcionesFiltro.marcas" :vacio="t('Brand: all')" :etiqueta="t('Brand')" @change="filtrar" />
     <div class="segmentos" role="group" :aria-label="t('Show')">
-      <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="filtros.solo_disponible = true; filtros.page = 1; cargar()">{{ t('With balance to invoice') }}</button>
-      <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="filtros.solo_disponible = false; filtros.page = 1; cargar()">{{ t('All') }}</button>
+      <button class="segmento" type="button" :aria-pressed="filtros.solo_disponible" @click="soloConSaldo(true)">{{ t('With balance to invoice') }}</button>
+      <button class="segmento" type="button" :aria-pressed="!filtros.solo_disponible" @click="soloConSaldo(false)">{{ t('All') }}</button>
     </div>
+    <Seleccion v-model="filtros.estado" :aria-label="t('Status')" @change="elegirEstado">
+      <option value="">{{ t('Status: all') }}</option><option v-for="[c, texto] in ESTADOS_OC" :key="c" :value="c">{{ tx(texto) }}</option>
+    </Seleccion>
     <button type="button" class="btn btn-fantasma mas-filtros-toggle" :aria-expanded="masFiltros" @click="masFiltros = !masFiltros">
       <Icono nombre="filtro" :tam="15" />{{ masFiltros ? t('Fewer filters') : t('More filters') }}<span v-if="avanzadosActivos" class="cuenta">{{ avanzadosActivos }}</span>
     </button>
@@ -439,7 +477,8 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
               </button>
             </td>
             <td>
-              <strong class="codigo">{{ tx(oc.numero) }}</strong>
+              <router-link :to="`/ordenes/${oc.id}`" class="enlace-doc"><strong class="codigo">{{ tx(oc.numero) }}</strong></router-link>
+              <EstadoBadge v-if="oc.estado !== 'APROBADA'" :estado="oc.estado" tipo="oc" />
               <span class="sub">{{ t('{0} · {1} lines', [fmtFecha(oc.fecha), oc.posiciones]) }}<template v-if="oc.marcas.length"> · {{ tx(oc.marcas.join(', ')) }}</template></span>
               <span v-if="liberacion(oc)" class="etiqueta" :class="liberacion(oc).clase" :title="tx(liberacion(oc).motivo || '')">{{ tx(liberacion(oc).texto) }}</span>
             </td>
@@ -701,4 +740,9 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
 
 <style scoped>
 .propios { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; }
+.bandeja { margin-bottom: 12px; align-items: center; }
+.bandeja > span { flex: 1; }
+.bandeja a { margin-inline-start: 8px; color: inherit; font-weight: 650; }
+.enlace-doc { color: inherit; text-decoration: none; }
+.enlace-doc:hover .codigo { text-decoration: underline; }
 </style>

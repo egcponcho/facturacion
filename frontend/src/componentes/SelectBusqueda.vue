@@ -20,8 +20,10 @@ const props = defineProps({
   busqueda: { type: Boolean, default: null }, // null: con más de 5 opciones
   botonId: { type: String, default: undefined }, // para que el <label for> del formulario apunte al botón
   prefijo: { type: Boolean, default: true }, // en filtros: "Marca: valor"
+  // Listas grandes: busca en el servidor mientras se escribe. (texto) => Promise<opciones>
+  buscar: { type: Function, default: null },
 })
-const emit = defineEmits(['update:modelValue', 'change'])
+const emit = defineEmits(['update:modelValue', 'change', 'opcion'])
 
 const abierto = ref(false)
 const texto = ref('')
@@ -31,13 +33,21 @@ const campo = ref(null)
 const lista = ref(null)
 const pos = ref({})
 const MAX = 150
+const remotas = ref(null) // resultado de `buscar` para el texto escrito
+const buscando = ref(false)
+const ultimo = ref(null) // la última opción elegida (puede no estar en `opciones`)
 
-const items = computed(() => props.opciones.map((o) => (typeof o === 'object' && o !== null
-  ? { valor: o.valor ?? o.id ?? o.codigo, texto: o.texto ?? o.nombre ?? String(o.valor ?? o.codigo), sub: o.sub }
-  : { valor: o, texto: String(o) })))
+const normalizar = (o) => (typeof o === 'object' && o !== null
+  ? { valor: o.valor ?? o.id ?? o.codigo, texto: o.texto ?? o.nombre ?? String(o.valor ?? o.codigo), sub: o.sub, original: o }
+  : { valor: o, texto: String(o), original: o })
+const items = computed(() => (remotas.value ?? props.opciones).map(normalizar))
 const elegidos = computed(() => (props.multiple ? (props.modelValue || []).map(String) : []))
 const esElegido = (o) => (props.multiple ? elegidos.value.includes(String(o.valor)) : String(o.valor) === String(props.modelValue))
-const elegido = computed(() => (props.multiple ? null : items.value.find((o) => String(o.valor) === String(props.modelValue))))
+const elegido = computed(() => {
+  if (props.multiple) return null
+  const igual = (o) => String(o.valor) === String(props.modelValue)
+  return items.value.find(igual) || props.opciones.map(normalizar).find(igual) || (ultimo.value && igual(ultimo.value) ? ultimo.value : null)
+})
 const resumen = computed(() => {
   if (!props.multiple) return ''
   const textos = items.value.filter((o) => elegidos.value.includes(String(o.valor))).map((o) => o.texto.split(' · ')[0])
@@ -49,7 +59,7 @@ const resumen = computed(() => {
 const filtrados = computed(() => {
   const palabras = terminos(texto.value)
   let res = items.value
-  if (palabras.length) {
+  if (palabras.length && !remotas.value) { // lo del servidor ya viene filtrado
     const coincide = buscador(texto.value)
     res = res
       .filter((o) => coincide([o.valor, o.texto, o.sub]))
@@ -61,7 +71,7 @@ const filtrados = computed(() => {
   return conVacio
 })
 const visibles = computed(() => filtrados.value.slice(0, MAX))
-const conBusqueda = computed(() => (props.busqueda === null ? items.value.length > 5 : props.busqueda))
+const conBusqueda = computed(() => (props.busqueda === null ? !!props.buscar || items.value.length > 5 : props.busqueda))
 
 function colocar() {
   const r = raiz.value?.getBoundingClientRect()
@@ -88,6 +98,7 @@ async function abrir() {
 }
 function cerrar() {
   abierto.value = false
+  remotas.value = null
 }
 function elegir(o) {
   if (props.multiple) {
@@ -100,8 +111,10 @@ function elegir(o) {
     emit('change', valores)
     return
   }
+  ultimo.value = o
   emit('update:modelValue', o.valor)
   emit('change', o.valor)
+  emit('opcion', o.original)
   cerrar()
 }
 function desplazar() {
@@ -115,6 +128,25 @@ function tecla(e) {
   else if (e.key === 'Tab') cerrar()
 }
 watch(texto, () => (activo.value = 0))
+let espera = null
+let turno = 0
+watch(texto, (q) => {
+  if (!props.buscar) return
+  clearTimeout(espera)
+  if (!q.trim()) { remotas.value = null; buscando.value = false; return }
+  buscando.value = true
+  espera = setTimeout(async () => {
+    const n = ++turno
+    try {
+      const r = await props.buscar(q.trim())
+      if (n === turno) remotas.value = r || []
+    } catch {
+      if (n === turno) remotas.value = null
+    } finally {
+      if (n === turno) buscando.value = false
+    }
+  }, 250)
+})
 
 function fuera(e) {
   if (!raiz.value?.contains(e.target) && !lista.value?.contains(e.target)) cerrar()
@@ -126,6 +158,7 @@ watch(abierto, (v) => {
   window[m]('scroll', colocar, true)
 })
 onBeforeUnmount(() => {
+  clearTimeout(espera)
   document.removeEventListener('mousedown', fuera)
   window.removeEventListener('resize', colocar)
   window.removeEventListener('scroll', colocar, true)
@@ -158,7 +191,8 @@ onBeforeUnmount(() => {
             <span><Icono v-if="multiple" :nombre="esElegido(o) ? 'check' : 'mas'" :tam="13" class="sb-marca" /> {{ tx(o.texto) }}</span>
             <small v-if="o.sub">{{ tx(o.sub) }}</small>
           </li>
-          <li v-if="!visibles.length" class="sb-nada">{{ t('No results for “{0}”', [texto]) }}</li>
+          <li v-if="buscando" class="sb-nada">{{ t('Searching…') }}</li>
+          <li v-else-if="!visibles.length" class="sb-nada">{{ t('No results for “{0}”', [texto]) }}</li>
           <li v-if="filtrados.length > MAX" class="sb-nada">{{ t('Showing {0} of {1}; type to narrow it down.', [MAX, filtrados.length]) }}</li>
         </ul>
       </div>

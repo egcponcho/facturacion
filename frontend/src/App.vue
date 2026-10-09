@@ -192,7 +192,7 @@ async function volverAMiOrganizacion() {
           <button type="button" class="btn btn-chico" @click="volverAMiOrganizacion">{{ t('Back to my organization') }}</button>
         </div>
         <!-- Cada página entra con un fundido corto (sin esperar a la anterior) -->
-        <div :key="route.path" class="pagina-entra"><router-view /></div>
+        <div :key="route.meta.vista || route.path" class="pagina-entra"><router-view /></div>
       </main>
     </div>
   </div>
