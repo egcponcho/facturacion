@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
 from app.modelos import PlantillaCaja, Usuario
-from app.modulos.acceso.permisos import exigir, proveedor_filtro, proveedores_de, un_proveedor
+from app.modulos.acceso.permisos import exigir, exigir_alguno, proveedor_filtro, proveedores_de, un_proveedor
+from app.modulos.comun.historial import registrar
 
 
 def _plantilla_dict(t: PlantillaCaja) -> dict:
@@ -15,6 +16,7 @@ def _plantilla_dict(t: PlantillaCaja) -> dict:
 
 
 def listar_plantillas(db: Session, user: Usuario, proveedor_id: int | None, incluir_inactivas: bool) -> list[dict]:
+    exigir_alguno(user, "plantilla.editar", "pl.editar")
     prov = un_proveedor(proveedor_filtro(user, proveedor_id))
     if not prov:
         return []
@@ -47,6 +49,7 @@ def crear_plantilla(db: Session, user: Usuario, datos) -> dict:
     t = PlantillaCaja(**{**datos.model_dump(exclude={"proveedor_id"}), "nombre": nombre, "proveedor_id": prov, "unidad": unidad})
     db.add(t)
     db.flush()
+    registrar(db, user, "plantilla_caja", t.id, "crear", {"nombre": t.nombre, "proveedor_id": t.proveedor_id})
     return _plantilla_dict(t)
 
 
@@ -74,6 +77,9 @@ def actualizar_plantilla(db: Session, user: Usuario, plantilla_id: int, datos) -
         if otra:
             raise ErrorNegocio(f"A template named “{campos['nombre']}” already exists.", 409, "duplicado")
     _validar_tipo(db, campos.get("tipo_empaque_id"))
+    cambios = {k: {"antes": getattr(t, k), "despues": v} for k, v in campos.items() if getattr(t, k) != v}
     for k, v in campos.items():
         setattr(t, k, v)
+    if cambios:
+        registrar(db, user, "plantilla_caja", t.id, "editar", cambios)
     return _plantilla_dict(t)

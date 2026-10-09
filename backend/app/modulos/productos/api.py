@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from app import esquemas as s
 from app.modulos.clasificacion import especialista
 from app.modulos.productos import productos as svc
-from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida
 
 router = APIRouter()
 
@@ -146,7 +146,7 @@ def analizar(producto_id: int, datos: s.AnalizarIn, db: Db, user: User):
 
 @router.post("/productos/{producto_id}/fotos")
 async def subir_foto(producto_id: int, db: Db, user: User, archivo: UploadFile = File(...)):
-    r = svc.subir_foto(db, user, producto_id, archivo.filename or "photo", archivo.content_type or "", await archivo.read())
+    r = svc.subir_foto(db, user, producto_id, archivo.filename or "photo", archivo.content_type or "", await leer_subida(archivo))
     db.commit()
     return r
 
@@ -165,7 +165,7 @@ async def subir_documento(producto_id: int, db: Db, user: User, archivo: UploadF
         from app.core.errores import ErrorNegocio
 
         raise ErrorNegocio("The technical data must be a JSON object {attribute: value}.", 422, "validacion")
-    r = svc.subir_documento(db, user, producto_id, tipo, archivo.filename or "document", archivo.content_type or "", await archivo.read(),
+    r = svc.subir_documento(db, user, producto_id, tipo, archivo.filename or "document", archivo.content_type or "", await leer_subida(archivo),
                             valores, emisor, fecha)
     db.commit()
     return r

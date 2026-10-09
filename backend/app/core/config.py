@@ -133,6 +133,10 @@ class Settings:
             if self.DOS_PASOS and self.SMS_PROVEEDOR == "consola":
                 log.warning("SMS_PROVEEDOR=consola: los códigos de verificación solo quedan en el registro del "
                             "servidor. Configure twilio para enviarlos por SMS.")
+            if self.DATABASE_URL.startswith("sqlite"):
+                log.warning("Base SQLite: sirve para probar, no para producción (use PostgreSQL).")
+            if any("localhost" in o or "127.0.0.1" in o for o in self.CORS_ORIGINS):
+                log.warning("CORS_ORIGINS incluye localhost: en producción deje solo el dominio de la aplicación.")
 
 
 settings = Settings()

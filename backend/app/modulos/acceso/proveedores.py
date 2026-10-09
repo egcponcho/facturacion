@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.errores import ErrorNegocio
 from app.modelos import Proveedor, Usuario
 from app.modulos.acceso.permisos import exigir, proveedores_de
+from app.modulos.comun.historial import registrar
 
 
 def listar_proveedores(db: Session, user: Usuario) -> list[dict]:
@@ -26,6 +27,7 @@ def crear_proveedor(db: Session, user: Usuario, datos) -> dict:
     p = Proveedor(codigo=codigo, nombre=datos.nombre.strip(), activo=datos.activo)
     db.add(p)
     db.flush()
+    registrar(db, user, "proveedores", p.id, "crear", {"codigo": p.codigo, "nombre": p.nombre})
     return {"id": p.id}
 
 
@@ -34,6 +36,10 @@ def actualizar_proveedor(db: Session, user: Usuario, proveedor_id: int, datos) -
     p = db.get(Proveedor, proveedor_id)
     if not p:
         raise ErrorNegocio("The supplier does not exist.", 404, "no_encontrado")
-    for k, v in datos.model_dump(exclude_unset=True).items():
-        setattr(p, k, v)
+    cambios = {k: {"antes": getattr(p, k), "despues": v} for k, v in datos.model_dump(exclude_unset=True).items()
+               if getattr(p, k) != v}
+    for k, v in cambios.items():
+        setattr(p, k, v["despues"])
+    if cambios:
+        registrar(db, user, "proveedores", p.id, "editar", cambios)
     return {"ok": True}

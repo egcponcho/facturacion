@@ -80,7 +80,7 @@ python -m app.instalacion.inicial admin@miempresa.com +50370000000
 Cada nueva versión aplica sus migraciones al arrancar; nunca borra datos.
 Antes de actualizar:
 
-1. Respaldo de la base (`pg_dump`) y de `UPLOAD_DIR`.
+1. Respaldo de la base y de `UPLOAD_DIR` con `ops/respaldo.sh` (ver §7).
 2. Despliegue la versión nueva.
 3. Revise el registro del arranque: una migración que no puede aplicarse
    detiene el arranque sin cambiar nada (por ejemplo, la 0037 se detiene si
@@ -88,21 +88,62 @@ Antes de actualizar:
 
 ## 6. Seguridad ya incluida (no requiere cambios)
 
-- Contraseñas con hash, política de contraseñas, bloqueo por intentos y
-  verificación en dos pasos por SMS.
+- Contraseñas con PBKDF2-SHA256 (600 000 iteraciones; los hashes anteriores
+  se actualizan solos al iniciar sesión), política de contraseñas, bloqueo
+  por intentos (que no revela qué cuentas existen) y verificación en dos
+  pasos por SMS.
 - Sesión en cookie `httpOnly`, `Secure` y `SameSite=Strict`, con vencimiento
   por inactividad; protección contra peticiones de otros sitios (CSRF).
 - Encabezados de seguridad (CSP, HSTS con `COOKIE_SEGURA=1`, `X-Frame-Options`, `nosniff`).
 - Permisos por rol revisados en el servidor en cada petición; el proveedor
   solo ve lo suyo.
-- Límite de tamaño de subida; documentación interactiva de la API (`/docs`)
-  apagada fuera de la demostración.
+- Archivos subidos: límite de tamaño aunque la petición no lo declare, tipo
+  decidido por el contenido (no por la extensión), imágenes validadas y
+  Excel revisado contra bombas de descompresión antes de abrirlo.
+- Exportaciones a Excel sin fórmulas ejecutables (un dato que empieza con «=»
+  queda como texto).
+- Bitácora de los cambios críticos (documentos, aprobaciones, datos maestros,
+  usuarios, roles y configuración), consultable en Usuarios y accesos →
+  Bitácora.
+- Documentación interactiva de la API (`/docs`) apagada fuera de la demostración.
 - El contenedor corre sin privilegios de administrador.
 
 ## 7. Operación
 
 - **Salud**: `GET /api/salud` (para el monitoreo de la plataforma).
-- **Respaldo diario** de la base y de `UPLOAD_DIR`, con prueba de restauración.
+- **Respaldo diario** de la base y de `UPLOAD_DIR` con `ops/respaldo.sh`
+  (carpeta con fecha, huella SHA-256 de cada parte y borrado de los respaldos
+  de más de `RETENCION_DIAS`, 14 por defecto). Guarde la carpeta de respaldos
+  fuera del servidor (otro disco, otra región o un almacenamiento de objetos).
+
+  Necesita `pg_dump`/`pg_restore` de PostgreSQL 16 donde corra. Desde una
+  copia del repositorio en el servidor:
+
+  ```bash
+  # cron, todas las noches a las 2:00
+  0 2 * * * cd /opt/facturacion && DATABASE_URL=postgresql://... UPLOAD_DIR=/data/archivos DESTINO=/respaldos ops/respaldo.sh
+  ```
+
+  Con `docker compose`, en un contenedor de PostgreSQL unido a la red del
+  proyecto y al volumen de archivos:
+
+  ```bash
+  docker run --rm --network facturacion_default -v facturacion_archivos:/data/archivos \
+    -v /respaldos:/respaldos -v "$PWD/ops":/ops postgres:16 env \
+    DATABASE_URL=postgresql://facturas:$POSTGRES_PASSWORD@db/facturas UPLOAD_DIR=/data/archivos \
+    DESTINO=/respaldos bash /ops/respaldo.sh
+  ```
+
+- **Recuperación** con `ops/restaurar.sh <carpeta>`: verifica las huellas,
+  pide `CONFIRMAR=si`, reemplaza la base en una sola transacción y devuelve
+  los archivos. Detenga la aplicación antes y arránquela después (aplica las
+  migraciones que falten). Con un respaldo diario se pierde como máximo un
+  día de trabajo (RPO); restaurar toma minutos (RTO), según el tamaño de la
+  base. **Pruebe una restauración** en un servidor aparte al menos una vez
+  por trimestre.
+- **Limpieza automática**: cada hora el servidor borra las claves de
+  idempotencia de más de un día, las sesiones vencidas hace más de 30 días,
+  los códigos de dos pasos vencidos y los permisos de edición vencidos.
 - **Un solo proceso** por contenedor (el límite de intentos por IP está en
   memoria); para más carga, más contenedores detrás del balanceador.
 - **Registro**: el arranque avisa si `COOKIE_SEGURA=0` o `SMS_PROVEEDOR=consola`.
@@ -113,4 +154,6 @@ Antes de actualizar:
 - Docker local: `docker compose up` (usa `backend/.env.demo`). Para producción:
   `ENV_FILE=backend/.env docker compose up -d`.
 - Reiniciar la demostración con sus datos de ejemplo: `SEED_DEMO=1 python -m app.instalacion.demo`
+  (solo borra una base marcada como de demostración o vacía; una base con
+  datos reales se rechaza)
   (se niega a correr sin `SEED_DEMO=1`).

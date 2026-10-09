@@ -8,14 +8,13 @@ paquete nacional: Country_Source_Map, National_Codes, Regulations, Taxes). La ca
 idempotente: actualiza por clave natural (código de fuente, ISO, código de
 versión, capítulo, dominio) y nunca borra lo que ya existe.
 """
-import io
 import re
 from datetime import date, datetime
 
-from openpyxl import load_workbook
 from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
+from app.core.archivos import abrir_libro
 from app.core.errores import ErrorNegocio
 from app.instalacion.datos import MOTOR, OFICIAL
 from app.modelos import (
@@ -50,7 +49,9 @@ ESTADOS_VERSION = {"PUBLISHED": "PUBLICADA", "PUBLICADA": "PUBLICADA", "DYNAMIC"
 def _hojas(contenido: bytes) -> dict[str, list[dict]]:
     """Cada hoja como lista de filas {encabezado normalizado: valor}."""
     try:
-        wb = load_workbook(io.BytesIO(contenido), read_only=True, data_only=True)
+        wb = abrir_libro(contenido, read_only=True, data_only=True)
+    except ErrorNegocio:
+        raise
     except Exception:
         raise ErrorNegocio("The file could not be read. Use the Excel (.xlsx) package.", 422, "archivo_invalido") from None
     out = {}

@@ -35,12 +35,12 @@ class OrdenCompra(Base):
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
     numero: Mapped[str] = mapped_column(String(40))  # formato de cada empresa
     # Empresa que factura, moneda y precio: opcionales al cargar la OC, se exigen al facturar
-    sociedad: Mapped[str | None] = mapped_column(String(10))
+    sociedad: Mapped[str | None] = mapped_column(String(10), index=True)
     centro: Mapped[str | None] = mapped_column(String(10))
     centro_destino: Mapped[str | None] = mapped_column(String(10))  # centro del país al que va (p. ej. 2220)
     moneda: Mapped[str | None] = mapped_column(String(3))
     incoterm: Mapped[str | None] = mapped_column(String(10))
-    fecha: Mapped[date | None] = mapped_column(Date)
+    fecha: Mapped[date | None] = mapped_column(Date, index=True)
     puerto_despacho: Mapped[str | None] = mapped_column(String(10))
     pais_origen: Mapped[str | None] = mapped_column(String(2))
     pais_procedencia: Mapped[str | None] = mapped_column(String(2))
@@ -53,7 +53,7 @@ class OrdenCompra(Base):
     liberacion_logistica: Mapped[str] = mapped_column(String(10))
     fecha_lib_comercial: Mapped[date | None] = mapped_column(Date)
     fecha_lib_logistica: Mapped[date | None] = mapped_column(Date)
-    liberada: Mapped[bool] = mapped_column(Boolean, default=True)
+    liberada: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     proveedor: Mapped[Proveedor] = relationship()

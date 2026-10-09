@@ -64,6 +64,18 @@ def _unidad(db: Session, user: Usuario, unidad_id: int) -> UnidadCarga:
     return u
 
 
+def condiciones_alcance(db: Session, user: Usuario) -> list:
+    """Condiciones SQL que limitan los embarques al alcance del usuario
+    (centros de sus sociedades y sus transportistas)."""
+    cond = []
+    centros, transportistas = _centros_de(db, user), transportistas_de(user)
+    if centros is not None:
+        cond.append(Embarque.centro.in_(centros))
+    if transportistas is not None:
+        cond.append(Embarque.transportista_id.in_(transportistas))
+    return cond
+
+
 def _salio(e: Embarque) -> bool:
     return e.estado != "PLANIFICADO"
 
@@ -194,11 +206,7 @@ def tiempo_embarque(unidades: list[dict]) -> dict:
 def listar_embarques(db: Session, user: Usuario, estado: str | None = None, q: str | None = None) -> list[dict]:
     exigir(user, "transporte.gestionar")
     consulta = select(Embarque).order_by(Embarque.etd.desc().nullslast(), Embarque.id.desc())
-    centros = _centros_de(db, user)
-    if centros is not None:
-        consulta = consulta.where(Embarque.centro.in_(centros))
-    if transportistas_de(user) is not None:
-        consulta = consulta.where(Embarque.transportista_id.in_(transportistas_de(user)))
+    consulta = consulta.where(*condiciones_alcance(db, user))
     if estado:
         consulta = consulta.where(Embarque.estado == estado)
     if q:

@@ -138,4 +138,5 @@ def borrar_rol(db: Session, user: Usuario, rol_id: int) -> None:
         raise ErrorNegocio("The role does not exist.", 404, "no_encontrado")
     if db.scalar(select(func.count()).where(Usuario.rol_id == r.id)):
         raise ErrorNegocio("The role has users: assign them another role first.", 422, "en_uso")
+    registrar(db, user, "rol", r.id, "borrado", {"nombre": r.nombre, "permisos": r.permisos})
     db.delete(r)

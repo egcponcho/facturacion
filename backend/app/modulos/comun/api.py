@@ -1,7 +1,10 @@
-"""Rutas de la edición exclusiva de documentos.
+"""Rutas comunes: edición exclusiva de documentos y bitácora general.
 """
-from fastapi import APIRouter
+from datetime import date
 
+from fastapi import APIRouter, Query
+
+from app.modulos.comun import auditoria as bitacora
 from app.modulos.comun import edicion
 from app.web.rutas import Db, User
 
@@ -26,3 +29,25 @@ def liberar_edicion(entidad: str, entidad_id: int, db: Db, user: User, forzar: b
     r = edicion.liberar(db, user, entidad, entidad_id, forzar)
     db.commit()
     return r
+
+
+# Bitácora general (administración)
+@router.get("/auditoria")
+def auditoria(
+    db: Db,
+    user: User,
+    entidad: str | None = None,
+    entidad_id: int | None = None,
+    usuario_id: int | None = None,
+    accion: str | None = None,
+    desde: date | None = None,
+    hasta: date | None = None,
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
+):
+    return bitacora.consultar(db, user, entidad, entidad_id, usuario_id, accion, desde, hasta, page, size)
+
+
+@router.get("/auditoria/opciones")
+def auditoria_opciones(db: Db, user: User):
+    return bitacora.opciones(db, user)

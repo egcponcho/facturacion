@@ -4,7 +4,7 @@ from fastapi import APIRouter, File, Query, Request, UploadFile
 
 from app import esquemas as s
 from app.modulos.clasificacion import aranceles as svc
-from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida, plantilla_o_vista
 
 router = APIRouter()
 XLSX = "xlsx"
@@ -62,7 +62,7 @@ def sac_plantilla(user: User, vista: bool = False):
 
 @router.post("/aranceles/sac/importar")
 async def sac_importar(db: Db, user: User, archivo: UploadFile = File(...)):
-    r = svc.importar_sac(db, user, archivo.filename or "", await archivo.read())
+    r = svc.importar_sac(db, user, archivo.filename or "", await leer_subida(archivo))
     db.commit()
     return r
 
@@ -108,7 +108,7 @@ def notas_exportar(request: Request, db: Db, user: User, formato: Formato = "xls
 
 @router.post("/aranceles/notas/importar")
 async def notas_importar(db: Db, user: User, archivo: UploadFile = File(...)):
-    r = svc.importar_notas(db, user, archivo.filename or "", await archivo.read())
+    r = svc.importar_notas(db, user, archivo.filename or "", await leer_subida(archivo))
     db.commit()
     return r
 
@@ -151,7 +151,7 @@ def codigos_plantilla(db: Db, user: User, pais: str | None = None, vista: bool =
 async def codigos_importar(db: Db, user: User, archivo: UploadFile = File(...), pais: str | None = None,
                            reemplazar: bool = False, fuente: str | None = None, version: str | None = None,
                            vigente_desde: date | None = None):
-    r = svc.importar_incisos(db, user, archivo.filename or "", await archivo.read(), pais, reemplazar, fuente, version, vigente_desde)
+    r = svc.importar_incisos(db, user, archivo.filename or "", await leer_subida(archivo), pais, reemplazar, fuente, version, vigente_desde)
     db.commit()
     return r
 
@@ -356,7 +356,7 @@ async def oficial_importar(db: Db, user: User, archivo: UploadFile = File(...)):
 
     exigir(user, "aranceles.editar")
     # También pasa por la previa: así se validan la inmutabilidad y la diferencia exacta
-    lote = lotes.previa(db, user, await archivo.read(), archivo.filename or "")
+    lote = lotes.previa(db, user, await leer_subida(archivo), archivo.filename or "")
     db.commit()  # la previa queda guardada (y libera la escritura) antes de publicar
     if lote["filas"] or lote["errores"]:  # con errores, publicar lo rechaza (nunca se descarta en silencio)
         lotes.publicar(db, user, lote["id"])
@@ -374,7 +374,7 @@ async def oficial_previa(db: Db, user: User, archivo: UploadFile = File(...)):
     """Sube un paquete a una previa: valida y muestra qué cambiaría, sin aplicar nada."""
     from app.modulos.clasificacion import lotes
 
-    r = lotes.previa(db, user, await archivo.read(), archivo.filename or "")
+    r = lotes.previa(db, user, await leer_subida(archivo), archivo.filename or "")
     db.commit()
     return r
 

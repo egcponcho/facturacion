@@ -19,6 +19,7 @@ MODULOS = [
         ("oc.empaque", "Edit casepack and inner pack of a PO line", INTERNOS, False),
     ]),
     ("Invoices", [
+        ("factura.ver", "See invoices, packing lists and their files", TODOS, True),
         ("factura.editar", "Create and edit invoices", TODOS, True),
         ("factura.finalizar", "Finalize invoices", "finalizan", True),
         ("factura.reabrir", "Reopen finalized invoices", INTERNOS, False),
@@ -146,6 +147,11 @@ def tiene(user: Usuario, permiso: str) -> bool:
 
 def exigir(user: Usuario, permiso: str) -> None:
     if not tiene(user, permiso):
+        raise ErrorNegocio("You do not have permission for this action.", 403, "sin_permiso")
+
+
+def exigir_alguno(user: Usuario, *permisos: str) -> None:
+    if not any(tiene(user, p) for p in permisos):
         raise ErrorNegocio("You do not have permission for this action.", 403, "sin_permiso")
 
 

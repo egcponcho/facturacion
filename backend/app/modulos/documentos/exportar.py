@@ -8,6 +8,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from app.core.archivos import celda_texto
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.preferencias import fecha_hora_txt
 from app.modulos.documentos import idioma_doc
@@ -43,7 +44,7 @@ class _Hoja:
 
     def celda(self, fila, col, valor=None, negrita=False, color=None, tam=None, formato=None, fondo=None,
               alinear=None):
-        c = self.ws.cell(row=fila, column=col, value=valor)
+        c = celda_texto(self.ws.cell(row=fila, column=col, value=valor))
         c.font = Font(bold=negrita, color=color, size=tam or 9)
         if formato == _ENTERO and isinstance(valor, float) and valor != int(valor):
             formato = _DECIMAL  # una cantidad medida (kg, litros, metros) lleva sus decimales

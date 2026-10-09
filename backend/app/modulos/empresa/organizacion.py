@@ -10,11 +10,12 @@ import re
 from sqlalchemy.orm import Session
 
 from app.core import campos_propios
+from app.core.archivos import imagen_data_url
 from app.core.config import settings
 from app.core.empresa import CAMPOS_COMPATIBILIDAD, REGLAS
 from app.core.errores import ErrorNegocio
 from app.modelos import Organizacion, Usuario
-from app.modulos.acceso.permisos import MODULOS_ACTIVABLES, permisos_de
+from app.modulos.acceso.permisos import MODULOS_ACTIVABLES, exigir
 from app.modulos.comun.historial import registrar
 
 ID_EMPRESA = 1
@@ -88,6 +89,7 @@ def actual(db: Session) -> Organizacion:
 
 
 def detalle(db: Session, user: Usuario) -> dict:
+    exigir(user, "admin")
     return _dict(actual(db))
 
 
@@ -178,8 +180,7 @@ def publico(db: Session) -> dict:
 
 def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
     """Datos generales, preferencias y reglas de la empresa (administración)."""
-    if "admin" not in permisos_de(user):
-        raise ErrorNegocio("Only an administrator can change the company settings.", 403, "sin_permiso")
+    exigir(user, "admin")
     o = actual(db)
     antes = _dict(o)
     for campo in ("nombre", "razon_social", "id_fiscal", "pais", "logo"):
@@ -187,8 +188,8 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
             valor = datos[campo] or None
             if campo == "nombre" and not valor:
                 raise ErrorNegocio("The company needs a name.", 422, "validacion")
-            if campo == "logo" and valor and len(valor) > 400_000:
-                raise ErrorNegocio("The logo is too large. Use an image under 300 KB.", 422, "validacion")
+            if campo == "logo" and valor:
+                imagen_data_url(valor, 300 * 1024)
             setattr(o, campo, valor)
     conf = dict(o.configuracion or {})
     if "preferencias" in datos:

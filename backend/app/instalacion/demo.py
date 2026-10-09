@@ -21,6 +21,7 @@ from app.modelos import (
     GrupoCajas,
     GrupoCajasItem,
     Marca,
+    Meta,
     OrdenCompra,
     PackingList,
     Pais,
@@ -583,6 +584,8 @@ def seed(db: Session) -> None:
     from app.modulos.empresa.organizacion import asegurar_principal
 
     empresa = asegurar_principal(db)
+    # Marca la base como de demostración: solo una base así se puede reiniciar
+    db.merge(Meta(clave="demo", valor="1"))
     empresa.nombre, empresa.pais = "Distribuidora de Marcas", "SV"
     # La empresa de ejemplo completa sus partidas con el código nacional de El Salvador
     empresa.configuracion = {"reglas": {"PAIS_BASE_CLASIF": "SV"},
@@ -707,6 +710,13 @@ def reiniciar_demo() -> None:
 
     if not settings.SEED_DEMO:
         raise SystemExit("Solo se reinicia una base de demostración (SEED_DEMO=1).")
+    tablas = inspect(engine).get_table_names()
+    if "usuarios" in tablas:
+        with engine.connect() as con:
+            hay_datos = con.execute(text("SELECT 1 FROM usuarios LIMIT 1")).first()
+            es_demo = "meta" in tablas and con.execute(text("SELECT 1 FROM meta WHERE clave = 'demo'")).first()
+        if hay_datos and not es_demo:
+            raise SystemExit("La base tiene datos y no es de demostración: no se borra. Revise DATABASE_URL.")
     with engine.begin() as con:
         if engine.dialect.name == "postgresql":
             con.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))

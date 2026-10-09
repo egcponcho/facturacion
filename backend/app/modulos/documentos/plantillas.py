@@ -11,11 +11,12 @@ import io
 import unicodedata
 from datetime import date, datetime
 
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
+from app.core.archivos import abrir_libro, celda_texto
 from app.core.errores import ErrorNegocio
 
 ACENTO = "5B3FD0"
@@ -49,7 +50,7 @@ def _hoja_datos(ws, valores, col_val: int, columnas: list[dict], ejemplos: list[
             letra = get_column_letter(col_val)
             valores.cell(row=1, column=col_val, value=c["nombre"]).font = Font(bold=True)
             for j, o in enumerate(c["opciones"], start=2):
-                valores.cell(row=j, column=col_val, value=o)
+                celda_texto(valores.cell(row=j, column=col_val, value=o))
             valores.column_dimensions[letra].width = max(14, min(45, max(len(str(o)) for o in c["opciones"]) + 2))
             dv = DataValidation(type="list", formula1=f"=Values!${letra}$2:${letra}${len(c['opciones']) + 1}",
                                 allow_blank=True, showErrorMessage=False)
@@ -60,7 +61,7 @@ def _hoja_datos(ws, valores, col_val: int, columnas: list[dict], ejemplos: list[
     ws.freeze_panes = "A2"
     for r, fila in enumerate(ejemplos or [], start=2):
         for i, v in enumerate(fila, start=1):
-            ws.cell(row=r, column=i, value=v)
+            celda_texto(ws.cell(row=r, column=i, value=v))
     return col_val
 
 
@@ -118,7 +119,7 @@ def hojas(nombre: str, contenido: bytes) -> list[str]:
     if not (nombre or "").lower().endswith((".xlsx", ".xlsm")):
         return []
     try:
-        return load_workbook(io.BytesIO(contenido), read_only=True).sheetnames
+        return abrir_libro(contenido, read_only=True).sheetnames
     except Exception:
         return []
 
@@ -130,7 +131,7 @@ def leer(nombre: str, contenido: bytes, alias: dict[str, str], hoja: str | None 
     nombre = (nombre or "").lower()
     try:
         if nombre.endswith((".xlsx", ".xlsm")):
-            wb = load_workbook(io.BytesIO(contenido), read_only=True, data_only=True)
+            wb = abrir_libro(contenido, read_only=True, data_only=True)
             ws = wb[hoja] if hoja and hoja in wb.sheetnames else wb["Data"] if "Data" in wb.sheetnames else wb.active
             filas = [[texto(v) for v in f] for f in ws.iter_rows(values_only=True)]
         elif nombre.endswith((".csv", ".txt")):
@@ -165,7 +166,7 @@ def si_no(v) -> bool | None:
 def vista(contenido: bytes) -> dict:
     """Vista previa de una plantilla ya armada: sus hojas de datos con las
     columnas (obligatorias y ayuda) y las filas de ejemplo, y las instrucciones."""
-    wb = load_workbook(io.BytesIO(contenido), read_only=False)
+    wb = abrir_libro(contenido, read_only=False)
     ayudas, instrucciones = {}, []
     if "Instructions" in wb.sheetnames:
         en_columnas = False

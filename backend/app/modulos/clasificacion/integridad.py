@@ -14,6 +14,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.instalacion.datos import DEMO
 from app.modelos import (
     FuenteOficial,
@@ -104,7 +105,9 @@ def auditar(db: Session, user: Usuario | None = None, hoy: date | None = None) -
     inf.check("PUBLISHED_MODIFIED", "Published version modified by hand", "OFFICIAL", "WARNING")
 
     empresa = set()
-    if DEMO_EMPRESA.exists():
+    # El historial de ejemplo solo cuenta en la demostración: en producción la
+    # base de la empresa es la que ella misma importó
+    if settings.SEED_DEMO and DEMO_EMPRESA.exists():
         empresa = {(x["pais"], x["codigo"]) for x in json.loads(DEMO_EMPRESA.read_text(encoding="utf-8"))}
     empresa |= {(p, c) for p, c in db.execute(select(HistorialClasificacion.pais, HistorialClasificacion.codigo)
                                               .where(HistorialClasificacion.origen == "IMPORTADO"))}

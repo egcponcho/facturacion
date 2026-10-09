@@ -7,14 +7,14 @@ const routes = [
   { path: '/login', name: 'login', component: () => import('@/modulos/acceso/vistas/LoginView.vue'), meta: { publica: true } },
   { path: '/', component: () => import('@/modulos/inicio/vistas/DashboardView.vue') },
   { path: '/ordenes', component: () => import('@/modulos/compras/vistas/OrdenesView.vue'), meta: { permiso: 'oc.ver' } },
-  { path: '/facturas', component: () => import('@/modulos/facturacion/vistas/FacturasView.vue'), meta: { permiso: 'oc.ver' } },
-  { path: '/facturas/:id', component: () => import('@/modulos/facturacion/vistas/FacturaView.vue'), props: true },
-  { path: '/packing-lists/:id', component: () => import('@/modulos/empaque/vistas/PackingListView.vue'), props: true },
+  { path: '/facturas', component: () => import('@/modulos/facturacion/vistas/FacturasView.vue'), meta: { permiso: 'factura.ver' } },
+  { path: '/facturas/:id', component: () => import('@/modulos/facturacion/vistas/FacturaView.vue'), props: true, meta: { permiso: 'factura.ver' } },
+  { path: '/packing-lists/:id', component: () => import('@/modulos/empaque/vistas/PackingListView.vue'), props: true, meta: { permiso: ['factura.ver', 'recepcion.registrar'] } },
   { path: '/productos', component: () => import('@/modulos/productos/vistas/ProductosView.vue'), meta: { permiso: 'producto.ver' } },
   { path: '/aranceles', component: () => import('@/modulos/clasificacion/vistas/ArancelesView.vue'), meta: { permiso: 'aranceles.ver' } },
   { path: '/familias', component: () => import('@/modulos/clasificacion/vistas/FamiliasView.vue'), meta: { permiso: 'clasificacion.ver' } },
   { path: '/productos/:id', component: () => import('@/modulos/productos/vistas/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
-  { path: '/plantillas', component: () => import('@/modulos/empaque/vistas/PlantillasView.vue'), meta: { permiso: 'plantilla.editar' } },
+  { path: '/plantillas', component: () => import('@/modulos/empaque/vistas/PlantillasView.vue'), meta: { permiso: ['plantilla.editar', 'pl.editar'] } },
   // Rutas restringidas: cada una exige el permiso de su rol (el servidor
   // vuelve a comprobarlo en cada petición)
   { path: '/transporte', component: () => import('@/modulos/transporte/vistas/EmbarquesView.vue'), meta: { permiso: 'transporte.gestionar' } },

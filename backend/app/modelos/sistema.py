@@ -11,6 +11,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
 
 class Historial(Base):
     __tablename__ = "historial"
+    __table_args__ = (Index("ix_historial_entidad", "entidad", "entidad_id"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     entidad: Mapped[str] = mapped_column(String(30))
     entidad_id: Mapped[int] = mapped_column(Integer)
@@ -42,11 +44,11 @@ class Historial(Base):
 class Alerta(Base):
     __tablename__ = "alertas"
     id: Mapped[int] = mapped_column(primary_key=True)
-    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
+    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"), index=True)
     tipo: Mapped[str] = mapped_column(String(40))
     mensaje: Mapped[str] = mapped_column(String(500))
     referencia: Mapped[dict | None] = mapped_column(JSON)
-    resuelta: Mapped[bool] = mapped_column(Boolean, default=False)
+    resuelta: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
 

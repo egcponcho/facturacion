@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.errores import ErrorNegocio
-from app.core.seguridad import hash_password, verificar_password
+from app.core.seguridad import ITERACIONES, hash_password, necesita_rehash, verificar_password
 from app.modelos import DesafioDosPasos, SesionUsuario, Usuario
 from app.modelos import ahora as _ahora
 from app.modulos.acceso.sms import enviar_sms
@@ -95,6 +95,8 @@ def exigir_politica(password: str, email: str | None = None) -> None:
 
 
 # ---- Contraseña y bloqueo ---------------------------------------------------
+# Hash de una cuenta inexistente: el mismo costo que verificar una real
+_FICTICIO = f"pbkdf2_sha256${ITERACIONES}$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 def _bloqueado(u: Usuario) -> int | None:
     """Minutos que faltan para desbloquear, o None."""
     if u.bloqueado_hasta and u.bloqueado_hasta > _ahora():
@@ -108,21 +110,25 @@ def iniciar(db: Session, email: str, password: str, ip: str | None, agente: str 
     error = ErrorNegocio("Incorrect email or password.", 401, "credenciales")
     if not u or not u.activo:
         # Mismo trabajo que con un usuario real: no revela si el correo existe
-        verificar_password(password, "pbkdf2$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        verificar_password(password, _FICTICIO)
         raise error
+    correcta = verificar_password(password, u.password_hash)
+    # Una cuenta bloqueada solo se anuncia a quien sabe la contraseña: para los
+    # demás responde igual que un correo inexistente (no revela cuentas).
     if (faltan := _bloqueado(u)):
-        raise ErrorNegocio(f"Too many failed attempts. Try again in {faltan} min.", 423, "bloqueado")
-    if not verificar_password(password, u.password_hash):
+        if correcta:
+            raise ErrorNegocio(f"Too many failed attempts. Try again in {faltan} min.", 423, "bloqueado")
+        raise error
+    if not correcta:
         u.intentos_fallidos += 1
         if u.intentos_fallidos >= settings.INTENTOS_MAX:
             u.bloqueado_hasta = _ahora() + timedelta(minutes=settings.BLOQUEO_MIN)
             u.intentos_fallidos = 0
             registrar(db, u, "usuario", u.id, "bloqueo", {"ip": ip})
-            db.commit()
-            raise ErrorNegocio(f"Too many failed attempts. The account is locked for {settings.BLOQUEO_MIN} min.",
-                               423, "bloqueado")
         db.commit()
         raise error
+    if necesita_rehash(u.password_hash):
+        u.password_hash = hash_password(password)
     u.intentos_fallidos = 0
     u.bloqueado_hasta = None
     if settings.DOS_PASOS and u.dos_pasos:

@@ -69,6 +69,21 @@ DEFECTO_POR_TIPO = {"proveedor": ["fechas_internas", "liberaciones", "impuestos"
 RUTAS = ("/api/ordenes", "/api/facturas", "/api/packing-lists", "/api/seguimiento", "/api/embarques",
          "/api/unidades", "/api/dashboard", "/api/buscar", "/api/productos", "/api/alertas", "/api/recoleccion")
 
+# Configuración que administra esos datos: quien la edita la ve completa;
+# quien solo la consulta (p. ej. un proveedor que revisa los requisitos de
+# importación de su producto) recibe la respuesta filtrada.
+CONFIGURACION = {"/api/aranceles": "aranceles.editar", "/api/clasificacion": "clasificacion.configurar"}
+
+
+def aplica(ruta: str, user: Usuario) -> bool:
+    """Si la respuesta de esta ruta se filtra para el usuario."""
+    if ruta.startswith(RUTAS):
+        return True
+    from app.modulos.acceso.permisos import tiene
+
+    permiso = next((p for prefijo, p in CONFIGURACION.items() if ruta.startswith(prefijo)), None)
+    return permiso is not None and not tiene(user, permiso)
+
 # Paneles de la página de inicio que un rol puede ocultar (Usuarios y accesos → Rol)
 PANELES_INICIO = {
     "indicadores": "Indicators", "atencion": "Needs your attention", "tareas": "Next steps", "envios": "Shipments",

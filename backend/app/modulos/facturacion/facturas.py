@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core import campos_propios
-from app.core.archivos import exigir_tamano
+from app.core.archivos import DOCUMENTOS, exigir_tamano, tipo_de
 from app.core.config import settings
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
@@ -64,6 +64,7 @@ ETIQUETAS = {
 
 # ---- Carga y validaciones de estado -----------------------------------------
 def cargar_factura(db: Session, user: Usuario, factura_id: int, bloquear: bool = False) -> Factura:
+    exigir(user, "factura.ver")
     consulta = select(Factura).where(Factura.id == factura_id)
     if bloquear:
         consulta = consulta.with_for_update()
@@ -719,6 +720,7 @@ def listar_facturas(
     size: int = 25,
     orden: str | None = None,
 ) -> dict:
+    exigir(user, "factura.ver")
     prov = proveedor_filtro(user, proveedor_id)
     consulta = select(Factura).join(Proveedor, Proveedor.id == Factura.proveedor_id)
     if prov:
@@ -948,12 +950,18 @@ def historial_factura(db: Session, user: Usuario, factura_id: int) -> list[dict]
 
 
 # ---- Archivos ---------------------------------------------------------------
+TIPOS_ARCHIVO = ("FACTURA_OFICIAL", "OTRO")
+
+
 def subir_archivo(db: Session, user: Usuario, factura_id: int, nombre: str, contenido: bytes, tipo: str) -> dict:
     exigir(user, "factura.editar")
     f = cargar_factura(db, user, factura_id)
     if f.estado == "CANCELADA":
         raise ErrorNegocio("Files cannot be attached to a cancelled invoice.", 409, "no_editable")
     exigir_tamano(contenido)
+    tipo_de(nombre, contenido, DOCUMENTOS)
+    if tipo not in TIPOS_ARCHIVO:
+        raise ErrorNegocio("Choose whether the file is the official invoice or another document.", 422, "validacion")
     carpeta = os.path.join(settings.UPLOAD_DIR, str(f.id))
     os.makedirs(carpeta, exist_ok=True)
     seguro = "".join(c for c in os.path.basename(nombre) if c.isalnum() or c in "._- ") or "archivo"

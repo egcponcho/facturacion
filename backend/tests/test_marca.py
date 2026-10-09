@@ -57,10 +57,13 @@ def test_papel_y_declaraciones_de_los_documentos(admin, interno):
 
 
 def test_reporte_con_y_sin_logo(admin, interno):
-    """Con logo, el reporte lo lleva; un logo que no se puede leer no impide el reporte."""
+    """Con logo, el reporte lo lleva; un logo que no es una imagen real se rechaza al guardarlo."""
     png = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
     try:
-        for logo, con_imagen in ((png, True), ("data:image/png;base64,no-es-una-imagen", False)):
+        for logo in ("data:image/png;base64,no-es-una-imagen", "data:image/png;base64,JVBERi0xLjQ=",
+                     "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4="):
+            assert admin.put("/organizacion", {"logo": logo}).status_code == 422
+        for logo, con_imagen in ((None, False), (png, True)):
             assert admin.put("/organizacion", {"logo": logo}).status_code == 200
             r = interno.get("/seguimiento/ordenes/exportar", params={"formato": "pdf"})
             assert r.status_code == 200 and r.content[:4] == b"%PDF"

@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 from app.modulos.compras import ordenes as svc
 from app.modulos.compras import perfiles
-from app.web.rutas import Clave, Db, User, ejecutar
+from app.web.rutas import Clave, Db, User, ejecutar, leer_subida
 
 router = APIRouter()
 
@@ -84,7 +84,7 @@ def crear(datos: OrdenNueva, db: Db, user: User, clave: Clave = None):
 
 @router.post("/ordenes/importar/previa")
 async def importar_previa(db: Db, user: User, archivo: UploadFile = File(...), perfil_id: int | None = Form(None)):
-    contenido = await archivo.read()
+    contenido = await leer_subida(archivo)
     res = svc.importar_previa(db, user, archivo.filename or "archivo.csv", contenido, perfil_id)
     db.commit()
     return res

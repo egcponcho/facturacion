@@ -12,6 +12,7 @@ from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
+from app.core.archivos import imagen_data_url
 from app.core.errores import ErrorNegocio
 from app.modelos import Usuario
 from app.modulos.comun.historial import registrar
@@ -118,13 +119,10 @@ def opciones() -> dict:
             "formatos_hora": list(FORMATOS_HORA), "temas": list(TEMAS), "filas": list(FILAS), "inicios": list(INICIOS)}
 
 
-FOTO = re.compile(r"^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$")
-
-
 def guardar_foto(db: Session, user: Usuario, foto: str | None) -> dict:
     """Foto de perfil: una imagen pequeña (la pantalla la reduce antes de enviarla)."""
-    if foto and not FOTO.match(foto):
-        raise ErrorNegocio("Use a PNG, JPEG or WebP image.", 422, "validacion")
+    if foto:
+        imagen_data_url(foto, 300 * 1024)
     user.foto = foto or None
     registrar(db, user, "usuario", user.id, "foto", {"foto": bool(foto)})
     return {"foto": user.foto}

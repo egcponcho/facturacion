@@ -27,9 +27,10 @@ from app.modelos import (
     Proveedor,
     UnidadCarga,
 )
-from app.modulos.acceso.permisos import proveedor_filtro, tiene
+from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro, tiene
 from app.modulos.comun.texto import filtro_texto, terminos
 from app.modulos.facturacion.cantidades import nombre_factura
+from app.modulos.transporte.transporte import condiciones_alcance
 
 POR_GRUPO = 6
 
@@ -52,13 +53,13 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
     if tiene(user, "oc.ver"):
         # Órdenes por número; las posiciones llevan a su OC (SKU, UPC, estilo, color)
         c = filtro_texto(q, lambda p: [OrdenCompra.numero.ilike(p)])
-        cons = select(OrdenCompra).where(c).order_by(OrdenCompra.fecha.desc().nullslast())
+        cons = select(OrdenCompra).where(c, *sociedad_filtro(user, OrdenCompra.sociedad)).order_by(OrdenCompra.fecha.desc().nullslast())
         if prov:
             cons = cons.where(OrdenCompra.proveedor_id.in_(prov))
         ocs = {o.id: o for (o,) in _filas(db, cons, limite)}
         cp = filtro_texto(q, lambda p: [PosicionOC.codigo_sap.ilike(p), PosicionOC.upc.ilike(p), PosicionOC.estilo.ilike(p),
                                         PosicionOC.color.ilike(p), PosicionOC.descripcion.ilike(p)])
-        cons = select(PosicionOC).join(OrdenCompra).where(cp)
+        cons = select(PosicionOC).join(OrdenCompra).where(cp, *sociedad_filtro(user, OrdenCompra.sociedad))
         if prov:
             cons = cons.where(OrdenCompra.proveedor_id.in_(prov))
         coincidencias: dict[int, str] = {}
@@ -72,15 +73,16 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
                            "estado": "RELEASED" if o.liberada else "PENDING", "ruta": f"/ordenes?q={o.numero}"}
                           for o in list(ocs.values())[:limite]], f"/ordenes?q={q}")
 
+    if tiene(user, "factura.ver"):
         c = filtro_texto(q, lambda p: [Factura.numero.ilike(p)])
-        cons = select(Factura).where(c).order_by(Factura.creado_en.desc())
+        cons = select(Factura).where(c, *sociedad_filtro(user, Factura.sociedad)).order_by(Factura.creado_en.desc())
         if prov:
             cons = cons.where(Factura.proveedor_id.in_(prov))
         grupo("facturas", [{"id": f.id, "titulo": nombre_factura(f), "sub": f.proveedor.nombre if f.proveedor else "",
                             "estado": f.estado, "ruta": f"/facturas/{f.id}"} for (f,) in _filas(db, cons, limite)], f"/facturas?q={q}")
 
         c = filtro_texto(q, lambda p: [PackingList.numero.ilike(p)])
-        cons = select(PackingList).join(Factura).where(c).order_by(PackingList.creado_en.desc())
+        cons = select(PackingList).join(Factura).where(c, *sociedad_filtro(user, Factura.sociedad)).order_by(PackingList.creado_en.desc())
         if prov:
             cons = cons.where(Factura.proveedor_id.in_(prov))
         grupo("packing_lists", [{"id": pl.id, "titulo": pl.numero, "sub": nombre_factura(pl.factura), "estado": pl.estado,
@@ -107,12 +109,13 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
 
     if tiene(user, "transporte.gestionar"):
         c = filtro_texto(q, lambda p: [Embarque.codigo.ilike(p), Embarque.documento_numero.ilike(p)])
-        cons = select(Embarque).where(c).order_by(Embarque.etd.desc().nullslast())
+        alcance = condiciones_alcance(db, user)
+        cons = select(Embarque).where(c, *alcance).order_by(Embarque.etd.desc().nullslast())
         grupo("embarques", [{"id": e.id, "titulo": e.codigo, "sub": " · ".join(x for x in (e.documento_numero, e.puerto_origen,
                                                                                           e.puerto_destino) if x),
                              "estado": e.estado, "ruta": f"/transporte/embarques/{e.id}"} for (e,) in _filas(db, cons, limite)])
         c = filtro_texto(q, lambda p: [UnidadCarga.numero.ilike(p), UnidadCarga.etiqueta.ilike(p), UnidadCarga.sello.ilike(p)])
-        cons = select(UnidadCarga).where(c)
+        cons = select(UnidadCarga).join(Embarque, Embarque.id == UnidadCarga.embarque_id).where(c, *alcance)
         grupo("unidades", [{"id": u.id, "titulo": u.numero or u.etiqueta or f"#{u.id}",
                             "sub": " · ".join(x for x in (u.tipo, u.embarque.codigo if u.embarque else "") if x),
                             "ruta": f"/transporte/embarques/{u.embarque_id}"} for (u,) in _filas(db, cons, limite) if u.embarque_id])
@@ -126,9 +129,9 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
                          for (m,) in _filas(db, select(Marca).where(c), limite)])
 
     docs = []
-    if tiene(user, "oc.ver"):
+    if tiene(user, "factura.ver"):
         c = filtro_texto(q, lambda p: [Archivo.nombre.ilike(p), Archivo.tipo.ilike(p)])
-        cons = select(Archivo).join(Factura).where(c)
+        cons = select(Archivo).join(Factura).where(c, *sociedad_filtro(user, Factura.sociedad))
         if prov:
             cons = cons.where(Factura.proveedor_id.in_(prov))
         docs += [{"id": f"f{a.id}", "titulo": a.nombre, "sub": a.tipo or "", "ruta": f"/facturas/{a.factura_id}?tab=archivos"}

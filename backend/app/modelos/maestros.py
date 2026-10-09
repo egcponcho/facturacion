@@ -327,7 +327,7 @@ class Articulo(Base):
     descripcion: Mapped[str | None] = mapped_column(String(300))
     marca_id: Mapped[int] = mapped_column(ForeignKey("marcas.id"), index=True)
     grupo_id: Mapped[int] = mapped_column(ForeignKey("grupos_articulos.id"), index=True)
-    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
+    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"), index=True)
     unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ (prepack)
     # Peso neto de una unidad (par, pieza o, en un prepack, la curva completa), en kg.
     # El peso del empaque no va aquí: es la tara de cada nivel de empaque.

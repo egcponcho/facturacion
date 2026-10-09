@@ -50,7 +50,7 @@ class Factura(Base):
     fecha: Mapped[date | None] = mapped_column(Date)
     moneda: Mapped[str] = mapped_column(String(3))
     incoterm: Mapped[str | None] = mapped_column(String(10))
-    sociedad: Mapped[str] = mapped_column(String(10))
+    sociedad: Mapped[str] = mapped_column(String(10), index=True)
     centro: Mapped[str | None] = mapped_column(String(10))
     centro_destino: Mapped[str | None] = mapped_column(String(10))
     condiciones: Mapped[str | None] = mapped_column(String(200))
@@ -59,7 +59,7 @@ class Factura(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
-    actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
     finalizado_en: Mapped[datetime | None] = mapped_column(DateTime)
 
     proveedor: Mapped[Proveedor] = relationship()

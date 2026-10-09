@@ -3,7 +3,7 @@ from fastapi import APIRouter, Body, File, Query, Request, UploadFile
 from app import esquemas as s
 from app.modulos.maestros import cargas, genericos
 from app.modulos.maestros import catalogos as svc
-from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida, plantilla_o_vista
 
 router = APIRouter(prefix="/catalogos")
 RESERVADOS = {"q", "orden", "page", "size"}
@@ -65,7 +65,7 @@ def tallas_escala(escala_id: int, db: Db, user: User):
 @router.post("/{tipo}/importar")
 async def importar(tipo: str, db: Db, user: User, archivo: UploadFile = File(...)):
     """Artículos (con su ficha técnica), prepacks o cualquier catálogo desde Excel o CSV."""
-    res = cargas.importar_catalogo(db, user, tipo, archivo.filename or "datos.csv", await archivo.read())
+    res = cargas.importar_catalogo(db, user, tipo, archivo.filename or "datos.csv", await leer_subida(archivo))
     db.commit()
     return res
 

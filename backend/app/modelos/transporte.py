@@ -138,16 +138,16 @@ class Embarque(Base):
     codigo: Mapped[str] = mapped_column(String(20), unique=True)
     tipo_transporte: Mapped[str] = mapped_column(String(12))  # MARITIMO | AEREO | TERRESTRE
     documento_numero: Mapped[str | None] = mapped_column(String(50))  # BL / AWB / CP
-    transportista_id: Mapped[int | None] = mapped_column(ForeignKey("transportistas.id"))
+    transportista_id: Mapped[int | None] = mapped_column(ForeignKey("transportistas.id"), index=True)
     transportista: Mapped[str | None] = mapped_column(String(150))  # nombre al momento de asignarlo
     puerto_origen: Mapped[str | None] = mapped_column(String(10))  # códigos del catálogo de puertos
     puerto_destino: Mapped[str | None] = mapped_column(String(10))
-    centro: Mapped[str | None] = mapped_column(String(10))  # centro al que llega; su puerto debe coincidir
-    etd: Mapped[date | None] = mapped_column(Date)
+    centro: Mapped[str | None] = mapped_column(String(10), index=True)  # centro al que llega; su puerto debe coincidir
+    etd: Mapped[date | None] = mapped_column(Date, index=True)
     eta: Mapped[date | None] = mapped_column(Date)
     salida_real: Mapped[date | None] = mapped_column(Date)
     arribo_real: Mapped[date | None] = mapped_column(Date)
-    estado: Mapped[str] = mapped_column(String(20), default="PLANIFICADO")
+    estado: Mapped[str] = mapped_column(String(20), default="PLANIFICADO", index=True)
     observaciones: Mapped[str | None] = mapped_column(Text)
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 

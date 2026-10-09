@@ -14,7 +14,7 @@ from app.esquemas import (
 from app.modulos.documentos import documentos, exportar
 from app.modulos.empaque import packing
 from app.modulos.facturacion import facturas as svc
-from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida
 
 router = APIRouter()
 
@@ -93,7 +93,7 @@ def archivos(factura_id: int, db: Db, user: User):
 @router.post("/facturas/{factura_id}/archivos")
 async def subir(factura_id: int, db: Db, user: User, archivo: UploadFile = File(...),
                 tipo: str = Form("FACTURA_OFICIAL")):
-    contenido = await archivo.read()
+    contenido = await leer_subida(archivo)
     res = svc.subir_archivo(db, user, factura_id, archivo.filename or "archivo", contenido, tipo)
     db.commit()
     return res

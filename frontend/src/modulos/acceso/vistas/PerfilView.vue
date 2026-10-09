@@ -38,7 +38,7 @@ const ejemploHora = (f) => horaTexto(new Date(2026, 0, 1, 15, 45), f)
 const ejemploNumero = (f) => numeroTexto(1234567.89, 2, f)
 const TEMAS = { sistema: t('Same as the system'), claro: t('Light'), oscuro: t('Dark') }
 const INICIOS = computed(() => [
-  ['/', t('Home'), true], ['/ordenes', t('Purchase orders'), puede('oc.ver')], ['/facturas', t('Invoices'), puede('oc.ver')],
+  ['/', t('Home'), true], ['/ordenes', t('Purchase orders'), puede('oc.ver')], ['/facturas', t('Invoices'), puede('factura.ver')],
   ['/transporte', t('Shipments'), puede('transporte.gestionar')], ['/productos', t('Products'), puede('producto.ver')],
   ['/seguimiento', t('Tracking'), puede('seguimiento.ver')],
 ].filter(([, , ok]) => ok))

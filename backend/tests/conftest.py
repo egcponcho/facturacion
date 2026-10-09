@@ -6,6 +6,8 @@ _tmp = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", f"sqlite:///{_tmp}/test.db")
 os.environ["UPLOAD_DIR"] = f"{_tmp}/archivos"
 os.environ["SEED_DEMO"] = "1"
+# Hash de contraseñas más liviano: las pruebas crean y verifican muchas
+os.environ.setdefault("PBKDF2_ITERACIONES", "20000")
 os.environ["COOKIE_SEGURA"] = "0"
 os.environ["FRONTEND_DIST"] = f"{_tmp}/no-existe"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

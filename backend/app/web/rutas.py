@@ -3,9 +3,10 @@ idempotencia, descargas (PDF/Excel) y ejecución con confirmación.
 """
 from typing import Annotated
 
-from fastapi import Depends, Header, Query, Response
+from fastapi import Depends, Header, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 
+from app.core.archivos import limite_bytes, muy_grande
 from app.core.db import get_db
 from app.modelos import Usuario
 from app.modulos.comun.historial import idempotente
@@ -18,6 +19,18 @@ Clave = Annotated[str | None, Header(alias="Idempotency-Key")]
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 PDF = "application/pdf"
 Formato = Annotated[str, Query(pattern="^(pdf|xlsx)$")]
+
+
+async def leer_subida(archivo: UploadFile) -> bytes:
+    """Contenido de un archivo subido, leído por partes hasta el límite
+    (cubre las peticiones que no declaran su tamaño)."""
+    partes, total = [], 0
+    while parte := await archivo.read(1024 * 1024):
+        total += len(parte)
+        if total > limite_bytes():
+            raise muy_grande()
+        partes.append(parte)
+    return b"".join(partes)
 
 
 def descarga(contenido: bytes, nombre: str, formato: str) -> Response:

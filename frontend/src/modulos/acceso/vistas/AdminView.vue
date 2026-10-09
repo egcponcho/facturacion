@@ -10,6 +10,7 @@ import Modal from '@/componentes/Modal.vue'
 import Avatar from '@/componentes/Avatar.vue'
 import MenuAcciones from '@/componentes/MenuAcciones.vue'
 import PanelFlujo from '@/modulos/acceso/componentes/PanelFlujo.vue'
+import PanelBitacora from '@/modulos/acceso/componentes/PanelBitacora.vue'
 import { sesion } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFechaHora } from '@/nucleo/utils'
@@ -24,7 +25,7 @@ const nuevoUsr = reactive(vacioUsr())
 // 'proveedor' | 'usuario' | { tipo: 'clave', usuario, clave } | { tipo: 'telefono', usuario, telefono, dos_pasos }
 const modal = ref(null)
 // Pestañas: una sección a la vez (antes, todo en una página larga)
-const PESTANAS = [['usuarios', t('Users')], ['roles', t('Roles and access')], ['proveedores', t('Suppliers')], ['flujo', t('Classification workflow')]]
+const PESTANAS = [['usuarios', t('Users')], ['roles', t('Roles and access')], ['proveedores', t('Suppliers')], ['flujo', t('Classification workflow')], ['bitacora', t('Activity log')]]
 const pestana = ref(PESTANAS.some(([k]) => k === route.query.tab) ? route.query.tab : 'usuarios')
 function elegirPestana(k) {
   pestana.value = k
@@ -234,6 +235,7 @@ onMounted(cargar)
   </section>
 
   <PanelFlujo v-if="pestana === 'flujo'" />
+  <PanelBitacora v-if="pestana === 'bitacora'" />
 
   <section v-if="pestana === 'usuarios'" class="panel">
     <div class="panel-cabeza"><h2>{{ t('Users') }}</h2><button class="btn btn-primario" @click="modal = 'usuario'"><Icono nombre="mas" />{{ t('New user') }}</button></div>

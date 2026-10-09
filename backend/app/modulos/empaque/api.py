@@ -22,7 +22,7 @@ from app.esquemas import (
 )
 from app.modulos.documentos import documentos, exportar
 from app.modulos.empaque import packing as svc
-from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, plantilla_o_vista
+from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida, plantilla_o_vista
 
 router = APIRouter(prefix="/packing-lists")
 
@@ -151,6 +151,6 @@ async def importar_estructura(pl_id: int, db: Db, user: User, archivo: UploadFil
     from app.modulos.empaque import estructura_pl
 
     pl = svc._editable(db, user, pl_id, None)
-    res = estructura_pl.importar_estructura(db, user, pl, archivo.filename or "datos.csv", await archivo.read())
+    res = estructura_pl.importar_estructura(db, user, pl, archivo.filename or "datos.csv", await leer_subida(archivo))
     db.commit()
     return res

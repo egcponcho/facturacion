@@ -9,6 +9,7 @@ from app.modelos import Proveedor, Rol, Sociedad, Transportista, Usuario
 from app.modulos.acceso.autenticacion import exigir_politica, password_temporal, revocar_sesiones, validar_telefono
 from app.modulos.acceso.permisos import alcance, exigir
 from app.modulos.acceso.roles import crear_roles_fabrica, sin_administrador
+from app.modulos.comun.historial import registrar
 from app.modulos.comun.normalizar import nombre as nombre_fmt
 from app.modulos.comun.normalizar import texto as texto_fmt
 
@@ -87,6 +88,8 @@ def crear_usuario(db: Session, user: Usuario, datos) -> dict:
                 alcance=_alcance_valido(db, datos.alcance))
     db.add(u)
     db.flush()
+    registrar(db, user, "usuario", u.id, "creado", {"email": u.email, "nombre": u.nombre, "rol_id": u.rol_id,
+                                                    "proveedor_id": u.proveedor_id, "alcance": u.alcance})
     return {"id": u.id, "password_temporal": clave if temporal else None}
 
 
@@ -137,8 +140,13 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
     if revocar:
         # Contraseña, celular o acceso cambiaron: se cierran sus sesiones abiertas
         revocar_sesiones(db, u.id)
+    cambios = {k: {"antes": getattr(u, k), "despues": v} for k, v in campos.items() if getattr(u, k) != v}
     for k, v in campos.items():
         setattr(u, k, v)
+    if cambios or revocar:
+        # Sin contraseñas: solo que se cambió
+        registrar(db, user, "usuario", u.id, "actualizado",
+                  {**cambios, **({"clave": "cambiada"} if temporal or "password" in datos.model_fields_set else {})})
     db.flush()
     db.refresh(u)
     u.rol = alcance(u.rol_ref.permisos if u.rol_ref else [], u.proveedor_id)

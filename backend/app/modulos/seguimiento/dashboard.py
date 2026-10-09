@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.empresa import regla
 from app.modelos import Embarque, Factura, OrdenCompra, PosicionOC, Producto, Proveedor, UnidadCarga, Usuario, ahora
 from app.modulos.acceso import visibilidad
-from app.modulos.acceso.permisos import es_interno, proveedor_filtro, sociedad_filtro
+from app.modulos.acceso.permisos import es_interno, proveedor_filtro, sociedad_filtro, tiene
 from app.modulos.empaque.packing import validar_pl
 from app.modulos.facturacion.cantidades import cubierto_por_ids, facturado_por_posicion, nombre_factura, totales_pl
 from app.modulos.facturacion.estados import EDITABLE_FACTURA, EDITABLE_PL
@@ -505,5 +505,5 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None, desde
         "envios": envios,
         "contenedores": _contenedores(db) if interno else [],
         "proveedores": _por_proveedor(db, facturas, distribucion, saldo) if interno and not prov else [],
-        "alertas": listar_alertas(db, user, prov) if interno else [],
+        "alertas": listar_alertas(db, user, prov) if interno and tiene(user, "alertas.ver") else [],
     }

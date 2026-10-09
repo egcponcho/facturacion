@@ -14,7 +14,8 @@ export const sesion = reactive({
   expirada: false,
 })
 
-export const puede = (permiso) => !!sesion.usuario?.permisos?.includes(permiso)
+// Un permiso, o una lista de permisos de los que basta uno
+export const puede = (permiso) => Array.isArray(permiso) ? permiso.some(puede) : !!sesion.usuario?.permisos?.includes(permiso)
 export const esInterno = () => ['admin', 'interno'].includes(sesion.usuario?.rol)
 // Elige proveedor quien ve varios: el equipo interno o quien representa a varios proveedores
 export const eligeProveedor = () => esInterno() || sesion.proveedores.length > 1

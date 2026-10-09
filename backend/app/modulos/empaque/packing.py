@@ -17,7 +17,7 @@ from app.modelos import (
     Usuario,
     ahora,
 )
-from app.modulos.acceso.permisos import asegurar_proveedor, es_interno, exigir, permisos_de
+from app.modulos.acceso.permisos import asegurar_proveedor, es_interno, exigir, exigir_alguno, permisos_de
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.formato import cant_txt
 from app.modulos.comun.historial import registrar, requerir_motivo, tocar, verificar_version
@@ -128,6 +128,8 @@ def _bultos_propios(pl: PackingList, pll: PLLinea) -> list[GrupoCajas]:
 
 # ---- Carga ------------------------------------------------------------------
 def cargar_pl(db: Session, user: Usuario, pl_id: int) -> PackingList:
+    # La bodega necesita la lista para registrar la recepción aunque no vea facturas
+    exigir_alguno(user, "factura.ver", "recepcion.registrar")
     pl = db.get(PackingList, pl_id)
     if not pl:
         raise ErrorNegocio("The packing list does not exist.", 404, "no_encontrado")
@@ -879,6 +881,7 @@ def guardar_como_plantilla(db: Session, user: Usuario, pl_id: int, grupo_id: int
     )
     db.add(t)
     db.flush()
+    registrar(db, user, "plantilla_caja", t.id, "crear", {"nombre": t.nombre, "desde_pl": pl_id})
     return {"id": t.id, "nombre": t.nombre}
 
 

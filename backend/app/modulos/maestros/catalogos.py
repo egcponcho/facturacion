@@ -9,12 +9,12 @@ import csv
 import io
 import json
 
-from openpyxl import load_workbook
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import listas
+from app.core.archivos import abrir_libro
 from app.core.campos_propios import definiciones as campos_propios_def
 from app.core.campos_propios import limpiar as limpiar_propios
 from app.core.errores import ErrorNegocio
@@ -1150,7 +1150,7 @@ def _filas_archivo(nombre: str, contenido: bytes) -> list[dict]:
     from app.modulos.compras.ordenes import _norm, _texto
 
     if nombre.lower().endswith((".xlsx", ".xlsm")):
-        wb = load_workbook(io.BytesIO(contenido), read_only=True, data_only=True)
+        wb = abrir_libro(contenido, read_only=True, data_only=True)
         filas = [[_texto(v) for v in f] for f in wb.active.iter_rows(values_only=True)]
     else:
         texto = contenido.decode("utf-8-sig", errors="replace")

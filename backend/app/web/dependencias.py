@@ -66,8 +66,8 @@ async def usuario_con_preferencias(request: Request, user: Usuario = Depends(usu
     pref = preferencias.actual()
     idioma_doc.usar(request.query_params.get("idioma") or pref.get("idioma_documentos") or pref.get("idioma"))
     edicion.usar_usuario(user.id)
-    # Datos que su rol no ve: solo en las pantallas de trabajo (no en la configuración)
-    visibilidad.usar(user if request.url.path.startswith(visibilidad.RUTAS) else None)
+    # Datos que su rol no ve: en las pantallas de trabajo y en la configuración que solo consulta
+    visibilidad.usar(user if visibilidad.aplica(request.url.path, user) else None)
     if user.clave_temporal and not request.url.path.startswith(PERMITIDO_TEMPORAL):
         raise ErrorNegocio("Change your temporary password to continue.", 403, "clave_temporal")
     return user

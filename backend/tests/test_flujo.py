@@ -823,10 +823,11 @@ def test_acceso_seguro(client):
     assert r.status_code == 200
     assert client.get("/api/auth/me", headers=h1).status_code == 200
     assert client.get("/api/auth/me", headers=h2).status_code == 401
-    # Bloqueo tras 5 contraseñas incorrectas, aun con la correcta después
-    for _ in range(5):
+    # Bloqueo tras 5 contraseñas incorrectas, aun con la correcta después. Quien
+    # no sabe la contraseña ve el mismo error que con un correo inexistente.
+    for _ in range(6):
         r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "mala"})
-    assert r.status_code == 423
+    assert r.status_code == 401 and r.json()["codigo"] == "credenciales"
     r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "Otra#Clave2027"})
     assert r.status_code == 423 and r.json()["codigo"] == "bloqueado"
     assert next(u for u in admin.get("/usuarios").json() if u["id"] == nuevo_id)["bloqueado"]

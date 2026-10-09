@@ -4,11 +4,11 @@ import re
 import unicodedata
 from datetime import date, datetime
 
-from openpyxl import load_workbook
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core import campos_propios, listas
+from app.core.archivos import abrir_libro
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.modelos import (
@@ -355,7 +355,7 @@ def empaque_posicion(db: Session, user: Usuario, oc_id: int, posicion_id: int, c
         raise ErrorNegocio("This line is already invoiced: its packing can no longer change.", 409, "facturada")
     antes = {"casepack": p.casepack, "inner_pack": p.inner_pack}
     p.casepack, p.inner_pack = casepack, inner_pack
-    registrar(db, user, "oc", p.oc_id, "empaque",
+    registrar(db, user, "orden", p.oc_id, "empaque",
               {"posicion": p.posicion, **{k: [antes[k], v] for k, v in (("casepack", casepack),
                                                                            ("inner_pack", inner_pack))
                                           if antes[k] != v}})
@@ -452,7 +452,7 @@ def _leer_archivo(nombre: str, contenido: bytes, perfil=None) -> list[dict]:
     leen con su formato y lo que falta toma sus valores por defecto."""
     inicio = (perfil.fila_encabezado if perfil else 1) - 1
     if nombre.lower().endswith((".xlsx", ".xlsm")):
-        wb = load_workbook(io.BytesIO(contenido), read_only=True, data_only=True)
+        wb = abrir_libro(contenido, read_only=True, data_only=True)
         ws = wb.active
         filas = list(ws.iter_rows(values_only=True))[inicio:]
         if not filas:
@@ -954,6 +954,7 @@ def crear_oc(db: Session, user: Usuario, datos: dict) -> dict:
     resultado = importar_aplicar(db, user, imp.id)
     oc = db.scalar(select(OrdenCompra).where(OrdenCompra.proveedor_id == m.proveedores[cab["proveedor"].upper()].id,
                                              OrdenCompra.numero == cab["oc"]))
+    registrar(db, user, "orden", oc.id, "creada", {"numero": oc.numero, "lineas": resultado["aplicadas"], "origen": "formulario"})
     return {"oc_id": oc.id, "numero": oc.numero, "lineas": resultado["aplicadas"]}
 
 

@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -54,7 +56,25 @@ async def lifespan(_: FastAPI):
 
             seed(db)
         preparar_instalacion(db)
+    tarea = asyncio.create_task(_limpieza_periodica())
     yield
+    tarea.cancel()
+
+
+async def _limpieza_periodica():
+    """Purga las tablas técnicas al arrancar y luego cada hora."""
+    from app.instalacion.mantenimiento import INTERVALO_SEG, purgar
+
+    def una_vez():
+        with SessionLocal() as db:
+            purgar(db)
+
+    while True:
+        try:
+            await asyncio.to_thread(una_vez)
+        except Exception:  # la limpieza nunca debe tumbar el servidor
+            logging.getLogger("mantenimiento").exception("Falló la limpieza periódica")
+        await asyncio.sleep(INTERVALO_SEG)
 
 
 # La documentación interactiva de la API solo en la demostración: en
@@ -147,7 +167,7 @@ if os.path.isdir(_dist):
 
     @app.get("/{ruta:path}", include_in_schema=False)
     def spa(ruta: str):
-        archivo = os.path.join(_dist, ruta)
-        if ruta and os.path.isfile(archivo) and os.path.abspath(archivo).startswith(_dist):
+        archivo = os.path.abspath(os.path.join(_dist, ruta))
+        if ruta and os.path.isfile(archivo) and os.path.commonpath([archivo, _dist]) == _dist:
             return FileResponse(archivo)
         return FileResponse(os.path.join(_dist, "index.html"))

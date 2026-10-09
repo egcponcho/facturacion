@@ -32,7 +32,7 @@ const ROLES = { admin: t('Administrator'), interno: t('Imports'), proveedor: t('
 const navegacion = computed(() => {
   const items = [{ to: '/', texto: t('Home'), icono: 'tablero' }]
   if (puede('oc.ver')) items.push({ to: '/ordenes', texto: t('Orders'), icono: 'ordenes', cuenta: carrito.items.length || null })
-  if (puede('oc.ver')) items.push({ to: '/facturas', texto: t('Invoices'), icono: 'factura' })
+  if (puede('factura.ver')) items.push({ to: '/facturas', texto: t('Invoices'), icono: 'factura' })
   if (puede('transporte.gestionar')) items.push({ to: '/transporte', texto: t('Shipments'), icono: 'barco' })
   if (puede('producto.ver')) items.push({ to: '/productos', texto: t('Products'), icono: 'etiqueta' })
   if (puede('seguimiento.ver')) items.push({ to: '/seguimiento', texto: t('Tracking'), icono: 'ruta' })
