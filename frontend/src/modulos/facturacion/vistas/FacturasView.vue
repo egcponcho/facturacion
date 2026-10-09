@@ -78,7 +78,10 @@ watch(() => sesion.proveedorId, recargar)
       <h1>{{ t('Invoices and packing') }}</h1>
       <p>{{ t('Each invoice is a workspace: its lines, its packing lists with cartons and the shipment tracking.') }}</p>
     </div>
-    <router-link class="btn btn-primario" to="/ordenes"><Icono nombre="mas" />{{ t('New invoice from POs') }}</router-link>
+    <div class="acciones">
+      <router-link to="/tableros/facturacion" class="btn btn-fantasma"><Icono nombre="grafica" />{{ t('Indicators') }}</router-link>
+      <router-link class="btn btn-primario" to="/ordenes"><Icono nombre="mas" />{{ t('New invoice from POs') }}</router-link>
+    </div>
   </div>
 
   <div class="filtros" v-filtros>

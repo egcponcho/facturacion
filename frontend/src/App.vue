@@ -38,6 +38,7 @@ const navegacion = computed(() => {
   if (puede('transporte.gestionar')) items.push({ to: '/transporte', texto: t('Shipments'), icono: 'barco' })
   if (puede('producto.ver')) items.push({ to: '/productos', texto: t('Products'), icono: 'etiqueta' })
   if (puede('seguimiento.ver')) items.push({ to: '/seguimiento', texto: t('Tracking'), icono: 'ruta' })
+  if (['oc.ver', 'factura.ver', 'transporte.gestionar', 'producto.ver'].some((p) => puede(p))) items.push({ to: '/tableros', texto: t('Indicators'), icono: 'grafica' })
   return items
 })
 // Configuración agrupada por tema; solo aparece lo que el rol puede abrir

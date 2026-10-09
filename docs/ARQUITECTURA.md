@@ -102,6 +102,18 @@ para consultas de plataforma sobre todas: `organizacion.todas(db)`.
 | Perfiles de importación de OCs | Órdenes de compra → Importar | `compras/perfiles.py` |
 | Reglas de aprobación y datos obligatorios de la OC | Configuración → Empresa | `empresa/organizacion.py` (`aprobaciones_oc`, `obligatorios`), `compras/flujo_oc.py` |
 | Responsables y datos obligatorios de cada catálogo | Datos maestros → (catálogo) → Gobierno | `maestros/gobierno.py`; configuración `maestros` de la organización |
+| Indicadores de cada módulo (cuáles y en qué orden, por persona o por rol) | Indicadores → Elegir indicadores | `seguimiento/indicadores.py` (`CATALOGO`); preferencia `indicadores` de la persona y `indicadores_rol` de la organización |
+| Columnas, anchos y densidad de cada tabla | La propia tabla (menú Columnas) | `componentes/TablaDatos.vue`; preferencia `tablas` de la persona |
+
+### Indicadores
+
+Cada módulo tiene su tablero (Indicadores). Los indicadores se declaran en
+`seguimiento/indicadores.py` con su fórmula, su fuente, si son una foto de hoy
+o cuentan lo ocurrido en el período elegido (7, 30, 90 o 365 días, comparado
+con el período anterior), su formato y el permiso que piden. Se calculan en el
+servidor con el alcance de datos del usuario: un proveedor ve sus propios
+números. Agregar un indicador es agregar una entrada al catálogo con su
+función de cálculo y una prueba.
 
 ### Datos maestros y su gobierno
 

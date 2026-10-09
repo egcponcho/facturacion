@@ -392,6 +392,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       <p>{{ t('Choose what to invoice: full POs or only some lines and quantities. You can combine several POs of the same supplier in one invoice.') }}</p>
     </div>
     <div class="acciones">
+      <router-link to="/tableros/compras" class="btn btn-fantasma"><Icono nombre="grafica" />{{ t('Indicators') }}</router-link>
       <router-link v-if="puede('oc.editar')" to="/ordenes/nueva" class="btn"><Icono nombre="mas" />{{ t('New PO') }}</router-link>
       <router-link v-if="puede('oc.importar')" to="/importar" class="btn"><Icono nombre="importar" />{{ t('Import POs') }}</router-link>
       <button class="btn btn-primario" type="button" :disabled="!carrito.items.length" @click="panel = true">

@@ -443,6 +443,7 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--acento); width
 .pestanas::-webkit-scrollbar { display: none; }
 .pestana { background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer; color: var(--tinta-3); font-weight: 600; font-size: 0.9rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; margin-bottom: -1px; }
 .pestana:hover { color: var(--tinta); }
+a.pestana { text-decoration: none; }
 .pestana[aria-selected='true'] { color: var(--acento-texto); border-bottom-color: var(--acento); }
 .pestana:hover:not([aria-selected='true']) { border-bottom-color: var(--linea); }
 .pestana .cuenta { font-size: 0.72rem; font-weight: 650; background: var(--linea-suave); border-radius: 10px; padding: 0 7px; color: var(--tinta-2); }

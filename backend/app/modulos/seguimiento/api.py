@@ -2,13 +2,13 @@
 """
 from datetime import date
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from app.modulos.acceso.permisos import exigir
 from app.modulos.seguimiento import alertas as servicio_alertas
 from app.modulos.seguimiento import buscar as buscador
 from app.modulos.seguimiento import dashboard as tablero
-from app.modulos.seguimiento import reportes
+from app.modulos.seguimiento import indicadores, reportes
 from app.modulos.seguimiento import seguimiento as seg
 from app.modulos.transporte import leadtimes
 from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar
@@ -125,3 +125,28 @@ def alertas(db: Db, user: User, proveedor_id: int | None = None):
 @router.post("/alertas/{alerta_id}/resolver")
 def resolver(alerta_id: int, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: servicio_alertas.resolver_alerta(db, user, alerta_id))
+
+
+# ---- Tableros por módulo: indicadores con su fórmula, período y fuente ----------
+@router.get("/tableros")
+def tableros(user: User):
+    """Módulos con indicadores que el usuario puede ver."""
+    return indicadores.modulos(user)
+
+
+@router.get("/tableros/{modulo}")
+def tablero_modulo(modulo: str, db: Db, user: User, dias: int = 30):
+    return indicadores.tablero(db, user, modulo, dias)
+
+
+@router.put("/tableros/{modulo}/propios")
+def indicadores_propios(modulo: str, db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
+    """Los indicadores de la persona, en su orden ({"claves": [...]}, o null para volver a los de su rol)."""
+    return ejecutar(db, user, clave, lambda: indicadores.guardar_propios(db, user, modulo, datos.get("claves")))
+
+
+@router.put("/tableros/{modulo}/rol/{rol_id}")
+def indicadores_de_rol(modulo: str, rol_id: int, db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
+    """Los indicadores de un rol (administración)."""
+    return ejecutar(db, user, clave, lambda: indicadores.guardar_de_rol(db, user, modulo, rol_id, datos.get("claves")))
+

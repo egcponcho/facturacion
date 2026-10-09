@@ -109,7 +109,10 @@ onMounted(() => {
       <h1>{{ t('Shipments') }}</h1>
       <p>{{ t('Each shipment exists from planning (booking); the B/L or AWB is added when issued. Inside each one you assign the cargo to its load units: containers, air waybills or trucks.') }}</p>
     </div>
-    <button class="btn btn-primario" @click="nuevo"><Icono nombre="mas" />{{ t('New shipment') }}</button>
+    <div class="acciones">
+      <router-link to="/tableros/logistica" class="btn btn-fantasma"><Icono nombre="grafica" />{{ t('Indicators') }}</router-link>
+      <button class="btn btn-primario" @click="nuevo"><Icono nombre="mas" />{{ t('New shipment') }}</button>
+    </div>
   </div>
 
   <p v-if="listas?.total" class="nota ok" style="align-items: center; margin-bottom: 16px">
