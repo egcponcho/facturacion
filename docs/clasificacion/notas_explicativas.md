@@ -2,7 +2,7 @@
 
 Fuente: *Notas Explicativas de la Tarifa arancelaria* (DOF, 6 de marzo de 2006),
 que publica en español las Notas Explicativas del Sistema Armonizado de la OMA
-(`NOTAS_SA2006.pdf` en la raíz del repositorio). Son la interpretación oficial
+(el PDF de origen no se guarda en el repositorio: su contenido ya está en `backend/app/data/motor`). Son la interpretación oficial
 de las secciones, capítulos, partidas y subpartidas; el texto de cada código
 sale siempre del árbol oficial vigente (SAC, VII Enmienda), no de este archivo.
 

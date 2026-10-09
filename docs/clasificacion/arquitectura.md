@@ -324,7 +324,7 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
 ## Catálogo de las Notas Explicativas (N1–N8)
 
 Las familias de calzado, ropa, accesorios, químicos y materias primas se
-escribieron de nuevo con las Notas Explicativas del SA (`NOTAS_SA2006.pdf`),
+escribieron de nuevo con las Notas Explicativas del SA (publicación de la OMA; el PDF de origen no se guarda en el repositorio),
 contra el árbol vigente (SAC VII Enmienda / SA 2022: lo que la enmienda movió,
 como 6406.91/99 → 6406.90, se sigue al árbol vigente).
 
