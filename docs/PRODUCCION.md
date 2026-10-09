@@ -11,7 +11,7 @@ diferencia es `SEED_DEMO=1`, que carga datos de ejemplo en una base vacía.
 |---|---|---|
 | `DATABASE_URL` | URL de PostgreSQL (`postgresql+psycopg://usuario:clave@servidor:5432/base`) | SQLite solo sirve para pruebas locales |
 | `SECRET_KEY` | Clave al azar de 32 caracteres o más: `python -c "import secrets; print(secrets.token_urlsafe(48))"` | Firma las sesiones y los códigos SMS. **Sin ella el servidor no arranca.** Guárdela en el gestor de secretos de la plataforma, nunca en el repositorio |
-| `SEED_DEMO` | `0` (o no definirla) | Con `1` se cargan datos de ejemplo y el código de verificación aparece en pantalla |
+| `SEED_DEMO` | `0` (o no definirla) | Con `1` se cargan datos de ejemplo, el código de verificación aparece en pantalla y el ingreso ofrece las cuentas de ejemplo |
 | `SMS_PROVEEDOR` | `twilio` | Con `consola` el código de verificación solo queda en el registro del servidor |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | Credenciales de Twilio | Envío del código por SMS |
 | `CORS_ORIGINS` | URL pública de la aplicación (`https://facturacion.miempresa.com`) | Solo ese origen puede llamar a la API con la sesión |
@@ -40,6 +40,9 @@ Se configura dentro de la aplicación y se guarda en la base de datos:
 - **Empresa** (Configuración → Empresa): nombre, logo, país, idioma, moneda,
   zona horaria, formato de fecha y reglas de negocio (si el proveedor puede
   finalizar, si una posición puede ir en varias facturas, días de alerta…).
+- **Marca y documentos** (Configuración → Empresa): color, nombre del sistema,
+  textos de la pantalla de ingreso, papel de los PDF (carta o A4) y las
+  declaraciones legales de la factura y la lista de empaque.
 - **Usuarios, roles y permisos** (Usuarios y accesos), incluidos los datos
   que cada rol puede ver.
 - **Datos maestros**: proveedores, marcas, sociedades, centros, almacenes,

@@ -1,12 +1,13 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icono from '@/componentes/Icono.vue'
 import SelectorIdioma from '@/componentes/SelectorIdioma.vue'
 import SelectorTema from '@/componentes/SelectorTema.vue'
 import { iniciarSesion, reenviarCodigo, verificarCodigo } from '@/stores/sesion'
 import { pref } from '@/stores/preferencias'
+import { cargarMarcaPublica, marca, tituloSistema } from '@/nucleo/marca.js'
 
 // Two steps: password, then the one-time code sent by SMS to the user's
 // registered mobile. The session lives in an httpOnly cookie.
@@ -22,13 +23,9 @@ const espera = ref(0)
 const campoCodigo = ref(null)
 let reloj = null
 
-const DEMO_PASSWORD = t('Supplier2026')
-const DEMO = [
-  [t('tnf@demo.com'), t('Supplier'), t('The North Face')],
-  [t('vans@demo.com'), t('Supplier'), t('Vans')],
-  [t('interno@demo.com'), t('Imports'), t('Internal team')],
-  [t('admin@demo.com'), t('Administrator'), t('Full access')],
-]
+// Cuentas de ejemplo: solo las envía el servidor de la demostración (SEED_DEMO=1)
+const demoCuentas = computed(() => marca.demo?.cuentas || [])
+onMounted(cargarMarcaPublica)
 const expirada = computed(() => route.query.expirada === '1')
 
 function contar(segundos) {
@@ -102,7 +99,7 @@ function alEscribir() {
 
 function demo(correo) {
   email.value = correo
-  password.value = DEMO_PASSWORD
+  password.value = marca.demo.password
   entrar()
 }
 
@@ -113,12 +110,13 @@ onBeforeUnmount(() => clearInterval(reloj))
   <div class="login">
     <section class="login-arte">
       <div class="marca" style="padding: 0">
-        <span class="marca-logo"><Icono nombre="caja" :tam="20" /></span>
-        <span class="marca-texto">{{ t('Workspace') }}<span>{{ t('Invoicing, packing and shipments') }}</span></span>
+        <img v-if="marca.logo" :src="marca.logo" alt="" class="marca-logo marca-imagen" />
+        <span v-else class="marca-logo"><Icono nombre="caja" :tam="20" /></span>
+        <span class="marca-texto">{{ marca.nombre || tituloSistema() }}<span>{{ marca.nombre ? tituloSistema() : t('Invoicing, packing and shipments') }}</span></span>
       </div>
       <div>
-        <h1>{{ t('From purchase order to container, with no loose spreadsheets.') }}</h1>
-        <p>{{ t('Invoice from your POs, pack with templates and follow every shipment to the warehouse.') }}</p>
+        <h1>{{ marca.ingreso_titulo || t('From purchase order to container, with no loose spreadsheets.') }}</h1>
+        <p>{{ marca.ingreso_texto || t('Invoice from your POs, pack with templates and follow every shipment to the warehouse.') }}</p>
       </div>
       <ul class="login-pasos">
         <li><span><Icono nombre="factura" /></span>{{ t('Invoice full POs or in parts') }}</li>
@@ -132,7 +130,7 @@ onBeforeUnmount(() => clearInterval(reloj))
       <form v-if="!desafio" class="login-caja" @submit.prevent="entrar">
         <div>
           <div class="login-titulo">{{ t('Sign in') }}</div>
-          <p class="ayuda">{{ t('Use your supplier or import team email.') }}</p>
+          <p class="ayuda">{{ marca.ingreso_ayuda || t('Use your supplier or import team email.') }}</p>
         </div>
         <p v-if="expirada && !error" class="nota aviso" role="status"><Icono nombre="reloj" />{{ t('Your session expired due to inactivity. Sign in again.') }}</p>
         <label class="campo"><span class="req">{{ t('Email') }}</span><input v-model="email" type="email" autocomplete="username" required /></label>
@@ -140,10 +138,10 @@ onBeforeUnmount(() => clearInterval(reloj))
         <p v-if="error" class="nota error" role="alert"><Icono nombre="alerta" />{{ tx(error) }}</p>
         <button class="btn btn-primario btn-grande" type="submit" :disabled="enviando">{{ tx(enviando ? t('Checking…') : t('Continue')) }}</button>
         <p class="ayuda login-seguridad"><Icono nombre="candado" :tam="13" />{{ t('Two-step verification: we send a code to your registered mobile.') }}</p>
-        <div class="demo">
-          <span>{{ t('Demo accounts (password {0}). One click to sign in:', [DEMO_PASSWORD]) }}</span>
+        <div v-if="demoCuentas.length" class="demo">
+          <span>{{ t('Demo accounts (password {0}). One click to sign in:', [marca.demo.password]) }}</span>
           <div class="demo-cuentas">
-            <button v-for="[correo, rol, nombre] in DEMO" :key="correo" type="button" @click="demo(correo)">
+            <button v-for="[correo, rol, nombre] in demoCuentas" :key="correo" type="button" @click="demo(correo)">
               <b>{{ tx(nombre) }}</b>{{ tx(rol) }}
             </button>
           </div>

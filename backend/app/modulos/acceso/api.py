@@ -66,10 +66,11 @@ def _yo(u: Usuario) -> dict:
 
 
 def _empresa(u: Usuario) -> dict | None:
-    """Nombre y logo de la empresa para el menú."""
+    """Nombre, logo y marca de la empresa para el menú."""
     db = object_session(u)
     o = db.get(Organizacion, organizacion.ID_EMPRESA) if db else None
-    return {"nombre": o.nombre, "logo": o.logo} if o else None
+    return {"nombre": o.nombre, "logo": o.logo,
+            "marca": {**organizacion.MARCA, **(o.configuracion or {}).get("marca", {})}} if o else None
 
 
 def _cookie(resp: Response, token: str) -> None:

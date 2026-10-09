@@ -138,6 +138,9 @@ TRANSPORTISTAS = [
     ("TDS", "Transportes del Sur", "TERRESTRE", None, "SV", "operaciones@tds.demo", ["8000", "GT01", "HN01"]),
 ]
 PASSWORD_DEMO = "Supplier2026"
+# Cuentas que la pantalla de ingreso ofrece en la demostración (correo, rol, nombre)
+CUENTAS_DEMO = [["tnf@demo.com", "Supplier", "The North Face"], ["vans@demo.com", "Supplier", "Vans"],
+                ["interno@demo.com", "Imports", "Internal team"], ["admin@demo.com", "Administrator", "Full access"]]
 MARCAS = [("TNF", "The North Face"), ("VANS", "Vans"), ("MERR", "Merrell"), ("CAT", "Caterpillar"),
           ("HPU", "Hush Puppies"), ("CASA", "House brand")]
 GRUPOS = [("CALZ-OUT", "Outdoor footwear", "CALZADO"), ("CALZ-CAS", "Casual footwear", "CALZADO"),

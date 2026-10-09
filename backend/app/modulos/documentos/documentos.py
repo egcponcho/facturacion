@@ -14,7 +14,7 @@ from datetime import date, datetime
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT
-from reportlab.lib.pagesizes import landscape, letter
+from reportlab.lib.pagesizes import A4, landscape, letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas as rl_canvas
@@ -31,7 +31,40 @@ from app.modulos.productos.productos import sin_marca
 
 TINTA = colors.HexColor("#1f2430")
 TENUE = colors.HexColor("#5b6475")
-ACENTO = colors.HexColor("#5b3fd1")
+ACENTO_FABRICA = "#5b3fd1"
+
+
+def _empresa(seccion: str) -> dict:
+    """Marca o documentos de la empresa (Configuración → Empresa)."""
+    from app.core.empresa import configuracion_actual
+    from app.modulos.empresa.organizacion import DOCUMENTOS, MARCA
+
+    base = {"marca": MARCA, "documentos": DOCUMENTOS}[seccion]
+    return {**base, **(configuracion_actual().get(seccion) or {})}
+
+
+def _acento_hex() -> str:
+    return _empresa("marca")["color"] or ACENTO_FABRICA
+
+
+def _acento():
+    return colors.HexColor(_acento_hex())
+
+
+def _papel():
+    """Tamaño del papel de los PDF: carta o A4."""
+    return A4 if _empresa("documentos")["papel"] == "A4" else letter
+
+
+def declaracion(clave: str, fabrica: str) -> str:
+    """Declaración legal del documento: la de la empresa o la de fábrica (traducida)."""
+    return _empresa("documentos")[clave] or fabrica
+
+
+def _declaracion(clave: str, fabrica: str) -> str:
+    """La declaración para el PDF (la propia, escapada y con sus saltos de línea)."""
+    propia = _empresa("documentos")[clave]
+    return _esc(propia).replace(chr(10), "<br/>") if propia else fabrica
 LINEA = colors.HexColor("#d9dce3")
 FONDO = colors.HexColor("#f3f1fb")
 FONDO_2 = colors.HexColor("#f7f8fa")
@@ -249,7 +282,7 @@ def _estilos():
         "base": base,
         "chico": ParagraphStyle("chico", parent=base, fontSize=7, leading=8.6, textColor=TENUE),
         "etiqueta": ParagraphStyle("etq", parent=base, fontName="Helvetica-Bold", fontSize=6.5, leading=8,
-                                   textColor=ACENTO),
+                                   textColor=_acento()),
         "negrita": ParagraphStyle("neg", parent=base, fontName="Helvetica-Bold"),
         "titulo": ParagraphStyle("tit", parent=base, fontName="Helvetica-Bold", fontSize=15, leading=18),
         "der": ParagraphStyle("der", parent=base, alignment=TA_RIGHT),
@@ -320,12 +353,12 @@ def _cabecera(e, d: dict, ancho: float, titulo: str, subtitulo: str, datos: list
            Paragraph(_esc(exp["direccion"]) + (f" · {_esc(exp['pais'])}" if exp.get("pais") else ""), e["chico"]),
            Paragraph(L("Tax ID: {0} · {1} · {2}", _esc(exp['id_fiscal']), _esc(exp['correos']), _esc(exp['telefono'])),
                      e["chico"])]
-    filas = [[Paragraph(titulo, ParagraphStyle("t", parent=e["negrita"], fontSize=11, leading=13, textColor=ACENTO))],
+    filas = [[Paragraph(titulo, ParagraphStyle("t", parent=e["negrita"], fontSize=11, leading=13, textColor=_acento()))],
              [Paragraph(subtitulo, e["chico"])]]
     for k, v in datos:
         filas.append([Paragraph(f"<font color='#5b6475'>{k}</font>  <b>{_esc(v)}</b>", e["base"])])
     der = Table(filas, colWidths=[ancho * 0.36])
-    der.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.8, ACENTO), ("BACKGROUND", (0, 0), (-1, -1), FONDO),
+    der.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.8, _acento()), ("BACKGROUND", (0, 0), (-1, -1), FONDO),
                              ("LEFTPADDING", (0, 0), (-1, -1), 7), ("TOPPADDING", (0, 0), (-1, -1), 2),
                              ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
     t = Table([[izq, der]], colWidths=[ancho * 0.64, ancho * 0.36])
@@ -394,7 +427,7 @@ def _tabla(e, encabezados: list[tuple[str, float, bool]], filas: list[list], anc
         datos.append([Paragraph(f"<b>{_esc(v)}</b>" if v not in (None, "") else "", e["celda_der"] if der else e["celda"])
                       for v, (_, _, der) in zip(pie, encabezados)])
     t = Table(datos, colWidths=anchos, repeatRows=1)
-    estilo = [("LINEBELOW", (0, 0), (-1, 0), 0.8, ACENTO), ("BACKGROUND", (0, 0), (-1, 0), FONDO),
+    estilo = [("LINEBELOW", (0, 0), (-1, 0), 0.8, _acento()), ("BACKGROUND", (0, 0), (-1, 0), FONDO),
               ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 3),
               ("RIGHTPADDING", (0, 0), (-1, -1), 3), ("TOPPADDING", (0, 0), (-1, -1), 2.5),
               ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5), ("LINEBELOW", (0, 1), (-1, -1), 0.3, LINEA)]
@@ -417,7 +450,7 @@ def _firma(e, ancho: float, texto: str) -> KeepTogether:
 # ---- Factura comercial -----------------------------------------------------------
 def pdf_factura(d: dict) -> bytes:
     e = _estilos()
-    ancho = letter[0] - 28 * mm
+    ancho = _papel()[0] - 28 * mm
     tr = d["transporte"] or {}
     h = [
         _cabecera(e, d, ancho, L("COMMERCIAL INVOICE"), L("Customs invoice · original"), [
@@ -441,7 +474,7 @@ def pdf_factura(d: dict) -> bytes:
                f"<font color='#5b6475'>{_esc(l['estilo'])}{' · ' + _esc(l['color']) if l['color'] else ''}" \
                f"{L(' · size ') + _esc(l['talla']) if l['talla'] else ''}</font>"
         if l["prepack"]:
-            desc += L("<br/><font color='#5b3fd1'>Prepack {0}</font>", _esc(l['prepack']))
+            desc += f"<br/><font color='{_acento_hex()}'>" + L("Prepack {0}", _esc(l['prepack'])) + "</font>"
         filas.append([f"{l['oc']}/{l['posicion']}", l["sku"], l["marca"] or "—", Paragraph(desc, e["celda"]), l["partida"], l["origen"],
                       _num(l["cantidad"]), l["unidad"], _num(l["precio"], 2), _num(l["total"], 2)])
     t = d["totales"]
@@ -462,16 +495,16 @@ def pdf_factura(d: dict) -> bytes:
                                       Paragraph(L("<b>SAY:</b> {0}", _esc(d['total_letras'])), e["base"])])]
     if d.get("observaciones"):
         h += [Spacer(1, 4), Paragraph(L("<b>Remarks:</b> {0}", _esc(d['observaciones'])), e["chico"])]
-    h.append(_firma(e, ancho, L("We declare under oath that the information in this invoice is true and correct, that "
-                               "the value is the price actually paid or payable for the goods and that the declared "
-                               "origin is correct.")))
-    return _construir(h, letter, L("Commercial invoice {0} · {1}", d['numero'], d['exportador']['nombre']), not d["oficial"])
+    h.append(_firma(e, ancho, _declaracion("declaracion_factura", L(
+        "We declare under oath that the information in this invoice is true and correct, that the value is the price "
+        "actually paid or payable for the goods and that the declared origin is correct."))))
+    return _construir(h, _papel(), L("Commercial invoice {0} · {1}", d['numero'], d['exportador']['nombre']), not d["oficial"])
 
 
 # ---- Packing list ----------------------------------------------------------------
 def pdf_pl(d: dict) -> bytes:
     e = _estilos()
-    tam = landscape(letter)
+    tam = landscape(_papel())
     ancho = tam[0] - 28 * mm
     tr = d["transporte"] or {}
     tp = d["totales_pl"]
@@ -544,14 +577,36 @@ def pdf_pl(d: dict) -> bytes:
     h += [Spacer(1, 7), KeepTogether([resumen, Spacer(1, 4),
                                       Paragraph(L("<b>TOTAL PACKAGES:</b> {0}", _esc(d['total_bultos_letras'])), e["base"]),
                                       Spacer(1, 6), marca_t])]
-    h.append(_firma(e, ancho, L("We declare that the contents, numbering, dimensions and weights of the packages "
-                               "correspond to the goods shipped. Every unit or pair carries its individual label; "
-                               "inner packs carry an inner pack label with the product and the quantity inside.")))
+    h.append(_firma(e, ancho, _declaracion("declaracion_packing", L(
+        "We declare that the contents, numbering, dimensions and weights of the packages correspond to the goods "
+        "shipped. Every unit or pair carries its individual label; inner packs carry an inner pack label with the "
+        "product and the quantity inside."))))
     return _construir(h, tam, L("Packing list {0} {1} · {2}", d['numero'], d['numero_pl'], d['exportador']['nombre']),
                       not d["oficial"])
 
 
 # ---- Reportes ----------------------------------------------------------------------
+def _logo_empresa(alto: float):
+    """Logo de la empresa para los reportes (o None si no tiene o no lo quiere)."""
+    import base64
+
+    from reportlab.lib.utils import ImageReader
+    from reportlab.platypus import Image
+
+    from app.core.empresa import configuracion_actual
+
+    logo = (configuracion_actual().get("empresa") or {}).get("logo")
+    if not logo or not _empresa("documentos")["logo_en_reportes"] or "," not in logo:
+        return None
+    try:
+        datos = io.BytesIO(base64.b64decode(logo.split(",", 1)[1]))
+        ancho_px, alto_px = ImageReader(datos).getSize()
+        datos.seek(0)
+        return Image(datos, width=alto * ancho_px / alto_px, height=alto)
+    except Exception:  # una imagen que no se puede leer no impide el reporte
+        return None
+
+
 def pdf_reporte(titulo: str, subtitulo: str, filtros: str, indicadores: list[tuple[str, str]],
                 columnas: list[tuple[str, float, bool]], filas: list[list]) -> bytes:
     from app.modulos.acceso import visibilidad
@@ -561,13 +616,18 @@ def pdf_reporte(titulo: str, subtitulo: str, filtros: str, indicadores: list[tup
 
     titulo, subtitulo, indicadores, columnas, filas, _ = idioma_doc.reporte(titulo, subtitulo, indicadores, columnas, filas)
     e = _estilos()
-    tam = landscape(letter)
+    tam = landscape(_papel())
     ancho = tam[0] - 28 * mm
-    cab = Table([[[Paragraph(titulo, e["titulo"]), Paragraph(subtitulo, e["chico"])],
+    izquierda = [Paragraph(titulo, e["titulo"]), Paragraph(subtitulo, e["chico"])]
+    logo = _logo_empresa(alto=12 * mm)
+    if logo:
+        izquierda = Table([[logo, izquierda]], colWidths=[logo.drawWidth + 4 * mm, None])
+        izquierda.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
+    cab = Table([[izquierda,
                   Paragraph(L("Generated {0}", fecha_hora_txt(datetime.now())) + f"<br/>{_esc(filtros) if filtros else L('No filters')}",
                             ParagraphStyle("f", parent=e["chico"], alignment=TA_RIGHT))]],
                 colWidths=[ancho * 0.6, ancho * 0.4])
-    cab.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, 0), 1.2, ACENTO),
+    cab.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, 0), 1.2, _acento()),
                              ("BOTTOMPADDING", (0, 0), (-1, -1), 6), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
     h = [cab, Spacer(1, 6)]
     if indicadores:
@@ -648,20 +708,20 @@ def secciones_ficha(d: dict) -> dict:
 def pdf_ficha_producto(d: dict) -> bytes:
     """Ficha técnica con el veredicto de clasificación y los códigos por país."""
     e = _estilos()
-    tam = letter
+    tam = _papel()
     ancho = tam[0] - 28 * mm
     estado = d.get("estado_txt") or d.get("estado")
     cab = Table([[[Paragraph(_esc(f"{d['estilo']} · {d['color']}"), e["titulo"]),
                    Paragraph(_esc(d.get("nombre")), e["base"]),
                    Paragraph(f"{_esc(d.get('proveedor'))} · {_esc(d.get('marca_nombre') or d.get('marca'))}", e["chico"])],
                   [Paragraph(L("TECHNICAL SHEET"), ParagraphStyle("t", parent=e["negrita"], fontSize=11, leading=13,
-                                                               textColor=ACENTO, alignment=TA_RIGHT)),
+                                                               textColor=_acento(), alignment=TA_RIGHT)),
                    Paragraph(L("Version {0} · {1}", d.get('version_ficha') or 1, _esc(estado)),
                              ParagraphStyle("s", parent=e["base"], alignment=TA_RIGHT)),
                    Paragraph(L("Generated {0}", fecha_hora_txt(datetime.now())),
                              ParagraphStyle("f", parent=e["chico"], alignment=TA_RIGHT))]]],
                 colWidths=[ancho * 0.62, ancho * 0.38])
-    cab.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, 0), 1.2, ACENTO),
+    cab.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, 0), 1.2, _acento()),
                              ("BOTTOMPADDING", (0, 0), (-1, -1), 6), ("LEFTPADDING", (0, 0), (-1, -1), 0),
                              ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
     h = [cab, Spacer(1, 8)]

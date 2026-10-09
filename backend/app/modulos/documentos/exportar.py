@@ -11,15 +11,19 @@ from openpyxl.utils import get_column_letter
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.preferencias import fecha_hora_txt
 from app.modulos.documentos import idioma_doc
-from app.modulos.documentos.documentos import _fecha, _por_unidad_txt
+from app.modulos.documentos.documentos import _acento_hex, _fecha, _por_unidad_txt, declaracion
 from app.modulos.documentos.idioma_doc import L
 
-ACENTO = "5B3FD1"
+
+def _acento() -> str:
+    """Color de la empresa (o el de fábrica) en formato de Excel."""
+    return _acento_hex().lstrip("#").upper()
+
+
 TENUE = "5B6475"
 _FONDO = PatternFill("solid", fgColor="F3F1FB")
 _FONDO_2 = PatternFill("solid", fgColor="F7F8FA")
 _LINEA = Side(style="thin", color="D9DCE3")
-_FUERTE = Side(style="medium", color=ACENTO)
 _ARRIBA = Alignment(vertical="top", wrap_text=True)
 _MONEDA = "#,##0.00"
 _ENTERO = "#,##0"
@@ -77,7 +81,7 @@ class _Hoja:
         self.celda(3, 1, " · ".join(x for x in (L("Tax ID: {0}", exp['id_fiscal']) if exp.get("id_fiscal") else None,
                                                   exp.get("correos"), exp.get("telefono")) if x), color=TENUE, tam=8)
         self.unir(3, 1, corte)
-        self.celda(1, corte + 1, titulo, negrita=True, color=ACENTO, tam=13)
+        self.celda(1, corte + 1, titulo, negrita=True, color=_acento(), tam=13)
         self.unir(1, corte + 1, self.n)
         self.celda(2, corte + 1, subtitulo, color=TENUE, tam=8)
         self.unir(2, corte + 1, self.n)
@@ -87,7 +91,7 @@ class _Hoja:
             self.celda(fila, corte + 2, v, negrita=True)
             self.unir(fila, corte + 2, self.n)
             fila += 1
-        self.marco(1, fila - 1, corte + 1, self.n, _FONDO, Side(style="thin", color=ACENTO))
+        self.marco(1, fila - 1, corte + 1, self.n, _FONDO, Side(style="thin", color=_acento()))
         self.fila = fila + 1
 
     def partes(self, d: dict):
@@ -106,7 +110,7 @@ class _Hoja:
         f = self.fila
         alto = max(len(b[1]) for b in bloques)
         for (titulo, lineas), (c1, c2) in zip(bloques, rangos):
-            self.celda(f, c1, titulo, negrita=True, color=ACENTO, tam=7)
+            self.celda(f, c1, titulo, negrita=True, color=_acento(), tam=7)
             self.unir(f, c1, c2)
             for i in range(alto):
                 v = lineas[i] if i < len(lineas) else None
@@ -127,7 +131,7 @@ class _Hoja:
             for j, (k, v) in enumerate(pares[i:i + columnas]):
                 c1 = 1 + j * ancho
                 c2 = self.n if j == columnas - 1 else c1 + ancho - 1
-                self.celda(f, c1, k.upper(), negrita=True, color=ACENTO, tam=7)
+                self.celda(f, c1, k.upper(), negrita=True, color=_acento(), tam=7)
                 self.unir(f, c1, c2)
                 self.celda(f + 1, c1, v if v not in (None, "") else "—")
                 self.unir(f + 1, c1, c2)
@@ -145,7 +149,7 @@ class _Hoja:
             c = self.celda(f, i, t, negrita=True, color=TENUE, tam=8, fondo=_FONDO,
                            alinear=Alignment(wrap_text=True, vertical="center",
                                              horizontal="right" if fmt else "left"))
-            c.border = Border(bottom=_FUERTE)
+            c.border = Border(bottom=Side(style="medium", color=_acento()))
         self.ws.row_dimensions[f].height = 26
         inicio = f + 1
         for n, valores in enumerate(filas):
@@ -271,8 +275,9 @@ def exportar_factura(d: dict) -> bytes:
     h.parrafo(L("SAY: {0}", d['total_letras']), negrita=True)
     if d.get("observaciones"):
         h.parrafo(L("Remarks: {0}", d['observaciones']), color=TENUE, tam=8)
-    h.firma(L("We declare under oath that the information in this invoice is true and correct, that the value is the "
-            "price actually paid or payable for the goods and that the declared origin is correct."))
+    h.firma(declaracion("declaracion_factura", L(
+        "We declare under oath that the information in this invoice is true and correct, that the value is the price "
+        "actually paid or payable for the goods and that the declared origin is correct.")))
     h.imprimir(fila_cab, False, L("Commercial invoice {0} · {1}", d['numero'], d['exportador']['nombre']), not d["oficial"])
     ws.freeze_panes = None
     return _guardar(wb)
@@ -323,12 +328,12 @@ def exportar_pl(d: dict) -> bytes:
                     tp["peso_neto"], tp["peso_bruto"], tp["cbm"], None, None, None],
         texto={0, 2, 3, 4, 5})
     if d["pallets"]:
-        h.parrafo(L("PALLETS"), negrita=True, color=ACENTO, tam=8)
+        h.parrafo(L("PALLETS"), negrita=True, color=_acento(), tam=8)
         h.tabla([(L("Pallet"), None), (L("Cartons"), _ENTERO), (L("Dimensions cm"), None), (L("Tare kg"), "0.0"), (L("Gross kg"), "0.00"),
                  ("m³", "0.000")],
                 [[p["numero"], p["cajas"], p["medidas"], p["tara"], p["bruto"], p["cbm"]] for p in d["pallets"]])
     if d["sin_caja"]:
-        h.parrafo(L("NOT YET PACKED"), negrita=True, color=ACENTO, tam=8)
+        h.parrafo(L("NOT YET PACKED"), negrita=True, color=_acento(), tam=8)
         h.tabla([(L("PO"), None), (L("Item code"), None), (L("Style"), None), (L("Size"), None), (L("Quantity"), _ENTERO),
                  (L("UM"), None)],
                 [[x["oc"], x["sku"], x["estilo"], x["talla"], x["cantidad"], x["unidad"]] for x in d["sin_caja"]],
@@ -343,15 +348,16 @@ def exportar_pl(d: dict) -> bytes:
     h.espacio()
     mitad = h.n // 2
     inicio = h.fila
-    h.parrafo(L("SHIPPING MARKS"), negrita=True, color=ACENTO, tam=7, hasta=mitad)
+    h.parrafo(L("SHIPPING MARKS"), negrita=True, color=_acento(), tam=7, hasta=mitad)
     for i, linea in enumerate((consig.get("nombre"), consig.get("direccion"),
                                L("Invoice {0} · PO per carton label", d['numero']),
                                L("Carton no. __ of {0} · Made in {1}", d['total_cajas'], d['pais_origen']))):
         h.parrafo(linea, negrita=i == 0, hasta=mitad)
     h.marco(inicio, h.fila - 1, 1, mitad)
-    h.firma(L("We declare that the contents, numbering, dimensions and weights of the packages correspond to the goods "
-            "shipped. Every unit or pair carries its individual label; inner packs carry an inner pack label with "
-            "the product and the quantity inside."))
+    h.firma(declaracion("declaracion_packing", L(
+        "We declare that the contents, numbering, dimensions and weights of the packages correspond to the goods "
+        "shipped. Every unit or pair carries its individual label; inner packs carry an inner pack label with the "
+        "product and the quantity inside.")))
     h.imprimir(fila_cab, True, L("Packing list {0} {1} · {2}", d['numero'], d['numero_pl'], d['exportador']['nombre']),
                not d["oficial"])
     return _guardar(wb)
@@ -383,7 +389,7 @@ def _hoja_reporte(ws, titulo, subtitulo, filtros, indicadores, columnas, filas):
     h.celda(3, 1, L("Generated {0} · {1}", fecha_hora_txt(datetime.now()), filtros or L("No filters")), color=TENUE, tam=8)
     h.unir(3, 1, h.n)
     for c in range(1, h.n + 1):
-        ws.cell(row=3, column=c).border = Border(bottom=_FUERTE)
+        ws.cell(row=3, column=c).border = Border(bottom=Side(style="medium", color=_acento()))
     h.fila = 5
     if indicadores:
         h.rejilla(indicadores, columnas=min(len(indicadores), max(1, h.n), 5))

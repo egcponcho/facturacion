@@ -32,11 +32,21 @@ def asegurar_principal(db: Session, nombre: str = "My company") -> Organizacion:
 def configuracion(db: Session) -> dict:
     """Configuración guardada de la empresa (vacía si aún no existe)."""
     o = db.get(Organizacion, ID_EMPRESA)
-    return dict(o.configuracion or {}) if o else {}
+    # Nombre y logo van también: los documentos y reportes los usan
+    return {**(o.configuracion or {}), "empresa": {"nombre": o.nombre, "logo": o.logo}} if o else {}
 
 
 # ---- Configuración ------------------------------------------------------------
 PREFERENCIAS = {"idioma": "es", "moneda": "USD", "zona_horaria": "UTC", "formato_fecha": "MM/DD/YYYY"}
+# Marca: color de la interfaz y de los documentos, nombre del sistema y textos
+# de la pantalla de ingreso. Un texto vacío usa el de fábrica (traducido).
+MARCA = {"color": "", "titulo": "", "ingreso_titulo": "", "ingreso_texto": "", "ingreso_ayuda": ""}
+# Documentos (PDF): tamaño del papel, declaraciones legales de la factura y de
+# la lista de empaque y si los reportes llevan el logo de la empresa.
+DOCUMENTOS = {"papel": "LETTER", "declaracion_factura": "", "declaracion_packing": "", "logo_en_reportes": True}
+PAPELES = ("LETTER", "A4")
+LARGOS = {"titulo": 60, "ingreso_titulo": 120, "ingreso_texto": 300, "ingreso_ayuda": 160,
+          "declaracion_factura": 1000, "declaracion_packing": 1000}
 
 
 def _reglas_de(o: Organizacion) -> dict:
@@ -50,6 +60,8 @@ def _dict(o: Organizacion) -> dict:
         "codigo": o.codigo, "nombre": o.nombre, "razon_social": o.razon_social, "id_fiscal": o.id_fiscal,
         "pais": o.pais, "logo": o.logo,
         "preferencias": {**PREFERENCIAS, **conf.get("preferencias", {})},
+        "marca": {**MARCA, **conf.get("marca", {})},
+        "documentos": {**DOCUMENTOS, **conf.get("documentos", {})},
         "reglas": [{"clave": k, "texto": t, "valor": v} for (k, t), v in zip(REGLAS.items(), _reglas_de(o).values())],
         # Datos de la OC que pueden entrar en las reglas de compatibilidad
         "campos_compatibilidad": [{"clave": k, "texto": NOMBRES_CAMPO[k]} for k in CAMPOS_COMPATIBILIDAD],
@@ -89,6 +101,41 @@ def _validar_regla(clave: str, valor):
     return valor
 
 
+def _validar_seccion(base: dict, valores: dict) -> dict:
+    """Marca o documentos: solo las claves conocidas, con su tipo y largo."""
+    limpio = {}
+    for k, v in valores.items():
+        if k not in base:
+            continue
+        if isinstance(base[k], bool):
+            if not isinstance(v, bool):
+                raise ErrorNegocio("This option is yes or no.", 422, "validacion")
+        else:
+            v = str(v or "").strip()
+            if k == "color" and v and not re.fullmatch(r"#[0-9a-fA-F]{6}", v):
+                raise ErrorNegocio("Enter the color as #RRGGBB, for example #3355E0.", 422, "validacion")
+            if k == "papel" and v not in PAPELES:
+                raise ErrorNegocio(f"The paper size must be one of {', '.join(PAPELES)}.", 422, "validacion")
+            if k in LARGOS and len(v) > LARGOS[k]:
+                raise ErrorNegocio(f"The text is too long ({LARGOS[k]} characters maximum).", 422, "validacion")
+        limpio[k] = v
+    return limpio
+
+
+def publico(db: Session) -> dict:
+    """Lo que la pantalla de ingreso muestra antes de iniciar sesión: nombre,
+    logo, marca y, solo en la demostración, las cuentas de ejemplo."""
+    o = db.get(Organizacion, ID_EMPRESA)
+    conf = (o.configuracion or {}) if o else {}
+    res = {"nombre": o.nombre if o else None, "logo": o.logo if o else None, "marca": {**MARCA, **conf.get("marca", {})},
+           "demo": None}
+    if settings.SEED_DEMO:
+        from app.instalacion.demo import CUENTAS_DEMO, PASSWORD_DEMO
+
+        res["demo"] = {"password": PASSWORD_DEMO, "cuentas": CUENTAS_DEMO}
+    return res
+
+
 def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
     """Datos generales, preferencias y reglas de la empresa (administración)."""
     if "admin" not in permisos_de(user):
@@ -107,6 +154,10 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
     if "preferencias" in datos:
         conf["preferencias"] = {k: v for k, v in {**conf.get("preferencias", {}), **datos["preferencias"]}.items()
                                 if k in PREFERENCIAS}
+    if "marca" in datos:
+        conf["marca"] = _validar_seccion(MARCA, {**conf.get("marca", {}), **(datos["marca"] or {})})
+    if "documentos" in datos:
+        conf["documentos"] = _validar_seccion(DOCUMENTOS, {**conf.get("documentos", {}), **(datos["documentos"] or {})})
     if "reglas" in datos:
         reglas = dict(conf.get("reglas", {}))
         for clave, valor in datos["reglas"].items():
@@ -120,6 +171,7 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
         conf["reglas"] = reglas
     o.configuracion = conf
     registrar(db, user, "organizacion", o.id, "editar_organizacion",
-              detalle={"antes": {k: antes[k] for k in ("nombre", "preferencias")}, "reglas": conf.get("reglas", {})})
+              detalle={"antes": {k: antes[k] for k in ("nombre", "preferencias", "marca", "documentos")},
+                       "reglas": conf.get("reglas", {})})
     db.flush()
     return _dict(o)

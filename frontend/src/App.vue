@@ -12,6 +12,7 @@ import Toasts from '@/componentes/Toasts.vue'
 import { carrito } from '@/stores/carrito'
 import { cerrarSesion, elegirProveedor, esInterno, puede, sesion } from '@/stores/sesion'
 import { ui } from '@/stores/ui'
+import { tituloSistema } from '@/nucleo/marca.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -105,10 +106,10 @@ async function salir() {
     <div class="progreso-ruta" :class="{ activo: ui.navegando }" aria-hidden="true"></div>
     <aside class="lateral" :class="{ abierta: menuAbierto }" :aria-label="t('Main')">
       <div class="lateral-cabeza">
-        <router-link to="/" class="marca" :title="tx(empresa?.nombre || t('Workspace'))">
+        <router-link to="/" class="marca" :title="tx(empresa?.nombre || tituloSistema())">
           <img v-if="empresa?.logo" :src="empresa.logo" alt="" class="marca-logo marca-imagen" />
           <span v-else class="marca-logo"><Icono nombre="caja" :tam="18" /></span>
-          <span class="marca-texto">{{ tx(empresa?.nombre || t('Workspace')) }}<span>{{ t('Workspace') }}</span></span>
+          <span class="marca-texto">{{ tx(empresa?.nombre || tituloSistema()) }}<span>{{ tituloSistema() }}</span></span>
         </router-link>
         <button type="button" class="btn-icono lateral-cerrar" :aria-label="t('Close')" @click="menuAbierto = false"><Icono nombre="cerrar" :tam="20" /></button>
       </div>

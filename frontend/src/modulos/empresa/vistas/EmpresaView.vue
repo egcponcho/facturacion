@@ -16,7 +16,7 @@ import { reducirImagen } from '@/nucleo/utils'
 const o = ref(null)
 const datos = ref(null)
 const ocupado = ref(false)
-// Monedas y zonas horarias: las listas ISO del navegador; países: el catálogo de países
+// Zonas horarias: la lista ISO del navegador; países: el catálogo de países
 // Monedas de la lista de la empresa (Datos maestros → Listas de valores → Currencies)
 const MONEDAS = computed(() => opcionesLista('moneda').map(([valor, texto]) => ({ valor, texto: `${valor} · ${texto}` })))
 const ZONAS = Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : ['UTC']
@@ -38,7 +38,7 @@ const REGLAS = {
 function copiar(x) {
   datos.value = {
     nombre: x.nombre, razon_social: x.razon_social || '', id_fiscal: x.id_fiscal || '', pais: x.pais || '', logo: x.logo,
-    preferencias: { ...x.preferencias },
+    preferencias: { ...x.preferencias }, marca: { ...x.marca }, documentos: { ...x.documentos },
     reglas: Object.fromEntries(x.reglas.map((r) => [r.clave, Array.isArray(r.valor) ? [...r.valor] : r.valor])),
   }
 }
@@ -71,7 +71,7 @@ async function guardar() {
   try {
     o.value = await guardando(api.put('/organizacion', datos.value))
     copiar(o.value)
-    await cargarSesion(true) // nombre y logo en el menú, reglas en toda la app
+    await cargarSesion(true) // nombre, logo y color en el menú; reglas en toda la app
     avisar(t('Company settings saved.'))
   } catch (e) {
     errorApi(e)
@@ -126,6 +126,33 @@ async function guardar() {
     </section>
 
     <section class="panel">
+      <div class="panel-cabeza"><div><h2>{{ t('Brand') }}</h2><p>{{ t('Color of the screens and documents, name of the system and texts of the sign-in screen. Leave a text empty to use the standard one.') }}</p></div></div>
+      <div class="rejilla-campos">
+        <label class="campo"><span>{{ t('Color') }}</span>
+          <span class="fila-flex"><input type="color" :value="datos.marca.color || '#3355e0'" :aria-label="t('Color')" @input="datos.marca.color = $event.target.value" />
+            <input v-model="datos.marca.color" class="entrada" maxlength="7" placeholder="#3355E0" />
+            <button v-if="datos.marca.color" type="button" class="btn btn-chico btn-fantasma" @click="datos.marca.color = ''">{{ t('Standard') }}</button></span></label>
+        <label class="campo"><span>{{ t('Name of the system') }}</span><input v-model="datos.marca.titulo" class="entrada" maxlength="60" :placeholder="t('Workspace')" /></label>
+        <label class="campo ancho"><span>{{ t('Sign-in title') }}</span><input v-model="datos.marca.ingreso_titulo" class="entrada" maxlength="120" :placeholder="t('From purchase order to container, with no loose spreadsheets.')" /></label>
+        <label class="campo ancho"><span>{{ t('Sign-in text') }}</span><textarea v-model="datos.marca.ingreso_texto" class="entrada" rows="2" maxlength="300" :placeholder="t('Invoice from your POs, pack with templates and follow every shipment to the warehouse.')" /></label>
+        <label class="campo ancho"><span>{{ t('Sign-in help') }}</span><input v-model="datos.marca.ingreso_ayuda" class="entrada" maxlength="160" :placeholder="t('Use your supplier or import team email.')" /></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-cabeza"><div><h2>{{ t('Documents') }}</h2><p>{{ t('Paper size and legal statements of the invoice and packing list PDFs. Leave a statement empty to use the standard one, in the language of each document.') }}</p></div></div>
+      <div class="rejilla-campos">
+        <label class="campo"><span>{{ t('Paper size') }}</span>
+          <Seleccion v-model="datos.documentos.papel" class="entrada"><option value="LETTER">{{ t('Letter') }}</option><option value="A4">A4</option></Seleccion></label>
+        <div class="campo"><span>{{ t('Company logo on reports') }}</span><Interruptor v-model="datos.documentos.logo_en_reportes" :etiqueta="t('Company logo on reports')" /></div>
+        <label class="campo ancho"><span>{{ t('Invoice statement') }}</span><textarea v-model="datos.documentos.declaracion_factura" class="entrada" rows="3" maxlength="1000"
+          :placeholder="t('We declare under oath that the information in this invoice is true and correct, that the value is the price actually paid or payable for the goods and that the declared origin is correct.')" /></label>
+        <label class="campo ancho"><span>{{ t('Packing list statement') }}</span><textarea v-model="datos.documentos.declaracion_packing" class="entrada" rows="3" maxlength="1000"
+          :placeholder="t('We declare that the contents, numbering, dimensions and weights of the packages correspond to the goods shipped. Every unit or pair carries its individual label; inner packs carry an inner pack label with the product and the quantity inside.')" /></label>
+      </div>
+    </section>
+
+    <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('Business rules') }}</h2><p>{{ t('How your company works. They apply to everyone in it right after saving.') }}</p></div></div>
       <ul class="lista-reglas">
         <li v-for="r in o.reglas" :key="r.clave">
@@ -158,5 +185,7 @@ async function guardar() {
 .regla-numero { width: 90px; flex: none; }
 @media (max-width: 720px) { .empresa-general { grid-template-columns: 1fr; } }
 .regla-pais { min-width: 220px; }
+.campo.ancho { grid-column: 1 / -1; }
+input[type='color'] { width: 42px; height: 36px; padding: 2px; border: 1px solid var(--linea); border-radius: var(--radio, 8px); background: var(--superficie); }
 .regla-lista { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: flex-end; max-width: 520px; }
 </style>
