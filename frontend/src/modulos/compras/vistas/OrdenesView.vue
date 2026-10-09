@@ -556,25 +556,25 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
                           <span class="sub codigo">{{ tx(p.codigo_sap) }}<template v-if="p.grupo"> · {{ tx(p.grupo) }}</template></span>
                         </td>
                         <td><strong>{{ tx(p.talla) }}</strong></td>
-                        <td><span class="etiqueta" style="margin-inline-start: 0" :title="tx(unidadTxt(p.unidad, 2))">{{ tx(p.unidad) }}</span></td>
+                        <td><span class="etiqueta ms-0" :title="tx(unidadTxt(p.unidad, 2))">{{ tx(p.unidad) }}</span></td>
                         <td>
                           <router-link v-if="p.clasificacion?.producto_id" :to="`/productos/${p.clasificacion.producto_id}`" class="enlace"
                                        :title="tx(p.partida_arancelaria ? t('Approved 6-digit HS subheading') : t('Open the technical sheet'))">
                             <span v-if="p.partida_arancelaria" class="codigo-sac">{{ tx(p.partida_arancelaria) }}</span>
-                            <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ tx(p.clasificacion.estado === 'observado' ? t('Sheet returned') : t('Not classified')) }}</span>
+                            <span v-else class="etiqueta aviso ms-0">{{ tx(p.clasificacion.estado === 'observado' ? t('Sheet returned') : t('Not classified')) }}</span>
                           </router-link>
                           <span v-else class="apagado">—</span>
                         </td>
                         <td v-if="ve('codigos_internos')" class="codigo">{{ tx(p.almacen || '—') }}</td>
                         <td>
                           <span class="fila-flex" style="gap: 4px; flex-wrap: wrap">
-                            <button v-if="p.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" style="margin-inline-start: 0"
+                            <button v-if="p.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion ms-0"
                                     :title="t('See the prepack breakdown')" @click="explosion = { sku: p.codigo_sap, cajas: p.cantidad }">
                               {{ t('Prepack {0} · {1} per carton', [p.prepack, p.unidades_por_caja]) }} <Icono nombre="lupa" :tam="12" />
                             </button>
                             <template v-else>
-                              <span v-if="p.casepack" class="etiqueta info" style="margin-inline-start: 0" :title="t('Exact quantity per master carton')">{{ t('Casepack {0}', [p.casepack]) }}</span>
-                              <span v-if="p.inner_pack" class="etiqueta acento" style="margin-inline-start: 0"
+                              <span v-if="p.casepack" class="etiqueta info ms-0" :title="t('Exact quantity per master carton')">{{ t('Casepack {0}', [p.casepack]) }}</span>
+                              <span v-if="p.inner_pack" class="etiqueta acento ms-0"
                                     :title="t('Inner packs of {0}{1}', [p.inner_pack, p.casepack ? t('; {0} inner packs per carton', [p.casepack / p.inner_pack]) : ''])">{{ t('Inner {0}', [p.inner_pack]) }}</span>
                               <span v-if="!p.casepack && !p.inner_pack" class="ayuda">{{ t('Free') }}</span>
                             </template>
@@ -712,7 +712,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
   </aside>
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
   <Modal v-if="empaque" :titulo="t('Packing of PO {0} line {1}', [empaque.oc.numero, empaque.p.posicion])" ancho="520px" @cerrar="empaque = null">
-    <p class="ayuda" style="margin-top: 0">{{ t('{0} · {1} · size {2} · {3}', [empaque.p.estilo, empaque.p.color, empaque.p.talla, cantTxt(empaque.p.cantidad, empaque.p.unidad)]) }}</p>
+    <p class="ayuda mt-0">{{ t('{0} · {1} · size {2} · {3}', [empaque.p.estilo, empaque.p.color, empaque.p.talla, cantTxt(empaque.p.cantidad, empaque.p.unidad)]) }}</p>
     <form id="form-empaque" class="rejilla-campos" @submit.prevent="guardarEmpaque">
       <label class="campo"><span>{{ t('Casepack (per master carton)') }}</span>
         <input v-model="empaque.casepack" type="number" min="1" :placeholder="t('Free')" />

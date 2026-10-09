@@ -32,7 +32,7 @@ onMounted(async () => {
         <div><span class="ayuda">{{ t('Prepack ID (size)') }}</span><b>{{ tx(e.codigo) }}</b></div>
         <div><span class="ayuda">{{ t('Unit of measure') }}</span><b>{{ t('CJ · prepack carton') }}</b></div>
       </div>
-      <div class="tabla-marco" style="box-shadow: none">
+      <div class="tabla-marco sin-sombra">
         <table class="tabla" v-tarjetas>
           <thead>
             <tr>
@@ -44,7 +44,7 @@ onMounted(async () => {
             <tr v-for="c in e.componentes" :key="c.articulo_id">
               <td class="codigo">{{ tx(c.sku) }}</td>
               <td><b>{{ tx(c.talla) }}</b></td>
-              <td><span class="etiqueta" style="margin-inline-start: 0">{{ tx(c.unidad) }}</span></td>
+              <td><span class="etiqueta ms-0">{{ tx(c.unidad) }}</span></td>
               <td class="num">{{ fmtNum(c.cantidad) }}</td>
               <td v-if="cajas" class="num fuerte">{{ fmtNum(c.cantidad * cajas) }}</td>
             </tr>

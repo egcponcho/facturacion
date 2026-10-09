@@ -7,6 +7,7 @@ import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { fmtFecha } from '@/nucleo/utils'
 import { avisar, errorApi } from '@/stores/ui'
+import { confirmar } from '@/stores/confirmar'
 
 // Fichas técnicas del producto (SDS, TDS, COA): evidencia técnica de la empresa.
 // Sus datos (CAS, composición, estado físico, densidad, pH…) completan los
@@ -48,7 +49,7 @@ async function subir() {
   }
 }
 async function quitar(d) {
-  if (!window.confirm(t('Remove {0}?', [d.nombre]))) return
+  if (!(await confirmar(t('Remove {0}?', [d.nombre]), { boton: t('Remove'), peligro: true }))) return
   try {
     await api.del(`/productos/${props.producto.id}/documentos/${d.id}`)
     emit('cambio')

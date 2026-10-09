@@ -36,9 +36,9 @@ const conAcuerdo = computed(() => filas.value.filter((d) => d.local || d.acuerdo
           <tr v-for="d in filas" :key="d.iso">
             <td><span class="codigo apagado">{{ tx(d.iso) }}</span> <span class="fuerte">{{ tx(d.nombre) }}</span></td>
             <td>
-              <span v-if="d.local" class="etiqueta" style="margin-inline-start: 0">{{ t('Domestic product') }}</span>
-              <span v-else-if="d.acuerdos.length" class="etiqueta ok" style="margin-inline-start: 0"><Icono nombre="check" :tam="12" />{{ t('Preference') }}</span>
-              <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ t('Full DAI') }}</span>
+              <span v-if="d.local" class="etiqueta ms-0">{{ t('Domestic product') }}</span>
+              <span v-else-if="d.acuerdos.length" class="etiqueta ok ms-0"><Icono nombre="check" :tam="12" />{{ t('Preference') }}</span>
+              <span v-else class="etiqueta aviso ms-0">{{ t('Full DAI') }}</span>
             </td>
             <td>
               <template v-if="d.acuerdos.length">

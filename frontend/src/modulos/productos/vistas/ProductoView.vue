@@ -19,6 +19,7 @@ import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '@/modul
 import { puede, sesion as sesionUsuario } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFecha, fmtFechaHora } from '@/nucleo/utils'
+import { confirmar } from '@/stores/confirmar'
 
 // Ficha técnica del producto (estilo-color) y su clasificación arancelaria.
 // Cada cambio se manda al motor único del servidor (/clasificacion/sesion),
@@ -578,7 +579,8 @@ function antesDeSalir(e) {
     e.returnValue = ''
   }
 }
-onBeforeRouteLeave(() => !(sucio.value && puedeEditar.value) || window.confirm(t('The technical sheet has unsaved changes. Leave anyway?')))
+onBeforeRouteLeave(async () => !(sucio.value && puedeEditar.value)
+  || confirmar(t('The technical sheet has unsaved changes. Leave anyway?'), { boton: t('Leave without saving'), peligro: true }))
 onMounted(() => {
   cargar()
   window.addEventListener('beforeunload', antesDeSalir)
@@ -602,7 +604,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         </span>
         <div>
           <span class="doc-numero">{{ tx(p.estilo) }} · {{ tx(p.color) }}</span>
-          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento" style="margin-inline-start: 0" :title="t('Generic (style-color)')">{{ t('Generic {0}', [p.codigo_generico]) }}</span> {{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.marca_nombre || p.marca) }}<template v-if="p.proveedor && p.proveedor !== (p.marca_nombre || p.marca)"> · {{ tx(p.proveedor) }}</template></div>
+          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento ms-0" :title="t('Generic (style-color)')">{{ t('Generic {0}', [p.codigo_generico]) }}</span> {{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.marca_nombre || p.marca) }}<template v-if="p.proveedor && p.proveedor !== (p.marca_nombre || p.marca)"> · {{ tx(p.proveedor) }}</template></div>
         </div>
         <EstadoBadge :estado="p.estado" />
         <span v-if="p.version_ficha > 1" class="etiqueta">{{ t('Version {0}', [p.version_ficha]) }}</span>
@@ -871,7 +873,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
                     <datalist v-if="x.opciones?.length" :id="`ops-${x.iso}`">
                       <option v-for="o in x.opciones" :key="o.codigo" :value="fmtPais(o.codigo, x.digitos)">{{ tx(o.cond_txt || o.descripcion) }}</option>
                     </datalist>
-                    <span v-if="errPais[x.iso]" class="sub" style="color: var(--error)">{{ tx(errPais[x.iso]) }}</span>
+                    <span v-if="errPais[x.iso]" class="sub texto-error">{{ tx(errPais[x.iso]) }}</span>
                     <span v-else-if="x.manual" class="sub">{{ t('Set by hand ·') }} <button type="button" class="btn-texto" @click="quitarManual(x.iso)">{{ t('use automatic') }}</button> · <button type="button" class="btn-texto" @click="abrirEnsenar(x)">{{ t('remember for similar') }}</button></span>
                     <span v-else-if="x.estado === 'historial'" class="sub">{{ EST_PAIS.historial }} ·
                       <button type="button" class="btn-texto" @click="codigoPais(x.iso, x.codigo)">{{ t('confirm') }}</button></span>
@@ -1002,7 +1004,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .producto-principal .pestanas { margin-top: 4px; }
 .clasif { display: flex; flex-direction: column; gap: 14px; }
 .clasif .panel + .panel { margin-top: 0; }
-@media (max-width: 1080px) {
+@media (max-width: 1100px) {
   .producto-layout { grid-template-columns: minmax(0, 1fr); }
   .clasif { position: static; max-height: none; overflow: visible; }
 }
@@ -1010,7 +1012,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .ficha .panel + .panel { margin-top: 14px; }
 .ficha:disabled .segmento:not([aria-pressed='true']) { opacity: 0.55; }
 .ancho-2 { grid-column: span 2; }
-@media (max-width: 640px) { .ancho-2 { grid-column: auto; } }
+@media (max-width: 600px) { .ancho-2 { grid-column: auto; } }
 .composicion { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .reglas-ev { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; }
 .reglas-ev li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
@@ -1059,7 +1061,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .otro-codigo .entrada { flex: 1; min-width: 0; }
 .paises td { padding-top: 7px; padding-bottom: 7px; }
 .paises select { max-width: 100%; font-size: 0.84rem; }
-.entrada-pais { width: 100%; min-width: 0; font-family: var(--mono, ui-monospace, monospace); font-weight: 600; padding: 6px 8px; }
+.entrada-pais { width: 100%; min-width: 0; font-family: var(--mono); font-weight: 600; padding: 6px 8px; }
 .entrada-pais.tentativo { border-style: dashed; }
 .entrada-pais.invalida { border-color: var(--error); box-shadow: 0 0 0 3px var(--error-fondo); }
 .paises .sub .btn-texto { font-size: inherit; padding: 0; }

@@ -101,7 +101,7 @@ onMounted(cargar)
          :detalle="t('{0} at risk (little slack before the in-store date)', [datos.kpis.justo || 0])" @abrir="f.riesgo = f.riesgo === 'ATRASO' ? '' : 'ATRASO'; recargar()" />
   </section>
 
-  <section class="panel" style="margin-bottom: 16px">
+  <section class="panel mb-4">
     <div class="panel-cabeza">
       <div>
         <h2>{{ t('Average days per stage, by origin') }}</h2>
@@ -138,14 +138,14 @@ onMounted(cargar)
             <td class="num fuerte" :title="tx(o.completas ? t('{0} POs with every stage', [o.completas]) : t('No PO has every stage yet'))">{{ tx(d(o.total_prom)) }}</td>
             <td class="ajustar" style="max-width: 150px">
               <template v-if="o.lib.total">
-                <span class="etiqueta" :class="o.lib.pct >= 80 ? 'ok' : 'error'" style="margin-inline-start: 0">{{ t('{0}% on time', [o.lib.pct]) }}</span>
+                <span class="etiqueta ms-0" :class="o.lib.pct >= 80 ? 'ok' : 'error'">{{ t('{0}% on time', [o.lib.pct]) }}</span>
                 <span class="sub">{{ t('avg {0} before · target {1} d', [d(o.lib.dias_antes_xf), o.lib.meta]) }}</span>
               </template>
               <span v-else class="apagado">{{ t('Target {0} d', [o.lib.meta]) }}</span>
-              <span v-if="o.lib.vencidas" class="sub" style="color: var(--error)">{{ t('{0} overdue', [o.lib.vencidas]) }}</span>
+              <span v-if="o.lib.vencidas" class="sub texto-error">{{ t('{0} overdue', [o.lib.vencidas]) }}</span>
             </td>
             <td class="num">{{ tx(o.recoleccion_vs_xf === null ? '—' : `${o.recoleccion_vs_xf > 0 ? '+' : ''}${d(o.recoleccion_vs_xf)}`) }}</td>
-            <td class="num">{{ tx(d(o.holgura)) }}<span v-if="o.tarde" class="sub" style="color: var(--error)">{{ t('{0} late', [o.tarde]) }}</span></td>
+            <td class="num">{{ tx(d(o.holgura)) }}<span v-if="o.tarde" class="sub texto-error">{{ t('{0} late', [o.tarde]) }}</span></td>
           </tr>
         </tbody>
       </table>
@@ -194,10 +194,10 @@ onMounted(cargar)
             <td>{{ tx(o.origen_nombre || '—') }}<span class="sub" :title="t('Lead time plan')">{{ tx(o.plan_nombre || o.region_nombre) }}</span></td>
             <td>
               <template v-if="o.lib_dias_antes_xf !== null">
-                <span class="etiqueta" :class="o.lib_a_tiempo ? 'ok' : 'error'" style="margin-inline-start: 0">{{ tx(o.lib_a_tiempo ? t('On time') : t('Late')) }}</span>
+                <span class="etiqueta ms-0" :class="o.lib_a_tiempo ? 'ok' : 'error'">{{ tx(o.lib_a_tiempo ? t('On time') : t('Late')) }}</span>
                 <span class="sub">{{ t('{0} d before XF · target {1}', [o.lib_dias_antes_xf, o.dias_liberacion]) }}</span>
               </template>
-              <template v-else-if="o.lib_vencida"><span class="etiqueta error" style="margin-inline-start: 0">{{ t('Overdue') }}</span><span class="sub">{{ t('target {0} d before XF', [o.dias_liberacion]) }}</span></template>
+              <template v-else-if="o.lib_vencida"><span class="etiqueta error ms-0">{{ t('Overdue') }}</span><span class="sub">{{ t('target {0} d before XF', [o.dias_liberacion]) }}</span></template>
               <span v-else class="apagado">{{ t('Pending · target {0} d', [o.dias_liberacion]) }}</span>
             </td>
             <td>{{ fmtFecha(o.fecha_xf) }}</td>
@@ -206,7 +206,7 @@ onMounted(cargar)
             <td v-if="ve('fechas_internas')">{{ fmtFecha(o.fecha_tienda) }}</td>
             <td v-if="ve('fechas_internas')"><FechaTienda :fecha="o.tienda_estimada" :dias="o.dias_vs_tienda" /></td>
             <td v-if="ve('fechas_internas')">
-              <span v-if="o.riesgo" class="etiqueta" :class="RIESGO[o.riesgo][1]" style="margin-inline-start: 0">{{ tx(RIESGO[o.riesgo][0]) }}</span>
+              <span v-if="o.riesgo" class="etiqueta ms-0" :class="RIESGO[o.riesgo][1]">{{ tx(RIESGO[o.riesgo][0]) }}</span>
               <span class="sub">{{ tx(o.holgura == null ? '—' : o.holgura >= 0 ? t('{0} d to spare', [o.holgura]) : t('{0} d late', [-o.holgura])) }}</span>
             </td>
           </tr>
@@ -218,7 +218,7 @@ onMounted(cargar)
                     <span class="hito-nombre">{{ tx(h.nombre) }}</span>
                     <span class="hito-fecha">{{ tx(h.fecha ? fmtFecha(h.fecha) : h.estimada ? `≈ ${fmtFecha(h.estimada)}` : '—') }}</span>
                     <span class="hito-meta">{{ tx(h.meta ? t('target {0}', [fmtFecha(h.meta)]) : t('&nbsp;')) }}</span>
-                    <span class="etiqueta" :class="ESTADO[h.estado][1]" style="margin-inline-start: 0"><Icono :nombre="ESTADO[h.estado][2]" :tam="12" />{{ tx(ESTADO[h.estado][0]) }}<template v-if="difTxt(h)"> · {{ tx(difTxt(h)) }}</template></span>
+                    <span class="etiqueta ms-0" :class="ESTADO[h.estado][1]"><Icono :nombre="ESTADO[h.estado][2]" :tam="12" />{{ tx(ESTADO[h.estado][0]) }}<template v-if="difTxt(h)"> · {{ tx(difTxt(h)) }}</template></span>
                   </li>
                 </ol>
                 <p class="ayuda" style="margin: 8px 0 0">{{ t('≈ estimated from the shipment ETA or the standard days of {0}. In store is estimated after warehouse entry plus re-export (not recorded yet).', [o.plan_nombre || o.region_nombre]) }}</p>

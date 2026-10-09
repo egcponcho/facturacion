@@ -92,7 +92,7 @@ const contenidoTxt = (g) => (g.items || []).map((i) => `${cantTxt(i.cantidad_por
 .mini :deep(.celda-editable), .mini :deep(input) { width: 70px; }
 .pesos { display: flex; flex-direction: column; align-items: flex-end; font-size: 0.8rem; color: var(--tinta-2); white-space: nowrap; }
 .pesos b { color: var(--tinta); font-size: 0.86rem; }
-@media (max-width: 640px) {
+@media (max-width: 600px) {
   .nodo { grid-template-columns: calc(var(--nivel) * 12px) auto 1fr; }
   .pesos { grid-column: 3; align-items: flex-start; flex-direction: row; gap: 8px; }
   .nodo > .btn { grid-column: 3; justify-self: start; }

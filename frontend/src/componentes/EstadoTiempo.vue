@@ -12,5 +12,5 @@ const detalle = computed(() => (props.holgura == null || props.holgura === undef
 </script>
 
 <template>
-  <span class="etiqueta" :class="info[1]" style="margin-inline-start: 0" :title="detalle">{{ info[0] }}<template v-if="props.holgura != null && props.holgura !== undefined"> · {{ props.holgura < 0 ? `+${-props.holgura}` : props.holgura }} d</template></span>
+  <span class="etiqueta ms-0" :class="info[1]" :title="detalle">{{ info[0] }}<template v-if="props.holgura != null && props.holgura !== undefined"> · {{ props.holgura < 0 ? `+${-props.holgura}` : props.holgura }} d</template></span>
 </template>

@@ -12,6 +12,7 @@ import EditorRegla from './EditorRegla.vue'
 import { cargarContexto } from '@/modulos/clasificacion/useClasificacion'
 import { fmtCode } from '@/modulos/clasificacion/formato.js'
 import { avisar, errorApi } from '@/stores/ui'
+import { confirmar } from '@/stores/confirmar'
 
 const props = defineProps({ codigo: { type: String, default: '' } })
 const emit = defineEmits(['codigo', 'listo', 'cerrar'])
@@ -131,7 +132,7 @@ async function publicar() {
   }
 }
 async function despublicar() {
-  if (!confirm(t('Back to draft? The product sheet stops offering this family until you publish it again. Approved items keep their code.'))) return
+  if (!(await confirmar(t('Back to draft? The product sheet stops offering this family until you publish it again. Approved items keep their code.'), { boton: t('Back to draft') }))) return
   ocupado.value = true
   try {
     await api.post(`/familias/${fam.value.codigo}/despublicar`)
@@ -166,7 +167,7 @@ watch(() => props.codigo, cargar)
       <div>
         <h2>{{ fam ? tx(fam.nombre) : t('New family') }}</h2>
         <p class="ayuda">
-          <span v-if="fam" class="etiqueta" :class="fam.publicada ? 'ok' : 'aviso'" style="margin-inline-start: 0">{{ tx(fam.publicada ? t('Published') : t('Draft')) }}</span>
+          <span v-if="fam" class="etiqueta ms-0" :class="fam.publicada ? 'ok' : 'aviso'">{{ tx(fam.publicada ? t('Published') : t('Draft')) }}</span>
           {{ tx(fam && !fam.publicada ? t('While it is a draft the product sheet does not offer it and no real item changes.') : '') }}
         </p>
       </div>

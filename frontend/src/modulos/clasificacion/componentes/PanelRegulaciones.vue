@@ -102,13 +102,13 @@ async function activar(x, v) {
         <label class="campo"><span class="req">{{ t('Type') }}</span>
           <SelectBusqueda v-model="modal.tipo" :opciones="Object.entries(TIPO).map(([valor, texto]) => ({ valor, texto }))" :etiqueta="t('Type')" /></label>
         <label class="campo"><span>{{ t('Permit or license code') }}</span><input v-model="modal.codigo_permiso" class="entrada" maxlength="60" /></label>
-        <label class="campo" style="grid-column: 1 / -1"><span class="req">{{ t('Requirement') }}</span><input v-model="modal.nombre" class="entrada" maxlength="300" /></label>
+        <label class="campo col-completa"><span class="req">{{ t('Requirement') }}</span><input v-model="modal.nombre" class="entrada" maxlength="300" /></label>
         <label class="campo"><span>{{ t('Authority') }}</span><input v-model="modal.autoridad" class="entrada" maxlength="200" /></label>
         <label class="campo"><span>{{ t('Legal basis') }}</span><input v-model="modal.base_legal" class="entrada" maxlength="400" /></label>
         <label class="campo"><span>{{ t('Valid from') }}</span><CampoFecha v-model="modal.vigente_desde" /></label>
         <label class="campo"><span>{{ t('Valid to') }}</span><CampoFecha v-model="modal.vigente_hasta" /></label>
-        <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Official link') }}</span><input v-model="modal.url" class="entrada" maxlength="300" type="url" /></label>
-        <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Note') }}</span><input v-model="modal.nota" class="entrada" maxlength="400" /></label>
+        <label class="campo col-completa"><span>{{ t('Official link') }}</span><input v-model="modal.url" class="entrada" maxlength="300" type="url" /></label>
+        <label class="campo col-completa"><span>{{ t('Note') }}</span><input v-model="modal.nota" class="entrada" maxlength="400" /></label>
         <label class="check"><input v-model="modal.obligatorio" type="checkbox" /><span>{{ t('Mandatory') }}</span></label>
         <label class="check"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active') }}</span></label>
       </div>

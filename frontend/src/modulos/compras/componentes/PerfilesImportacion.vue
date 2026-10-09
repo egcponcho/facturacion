@@ -4,7 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Interruptor from '@/componentes/Interruptor.vue'
-import Modal from '@/componentes/Modal.vue'
+import PanelLateral from '@/componentes/PanelLateral.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { avisar, errorApi } from '@/stores/ui'
 
@@ -65,7 +65,7 @@ async function eliminar() {
 </script>
 
 <template>
-  <Modal :titulo="t('Import profiles')" ancho="980px" @cerrar="emit('cerrar')">
+  <PanelLateral :titulo="t('Import profiles')" ancho="980px" @cerrar="emit('cerrar')">
     <p class="ayuda">{{ t('How to read the PO file your ERP exports: the name of each column, the row with the headers, the date format and default values for what the file does not bring. Without a profile, the standard column names are recognized.') }}</p>
     <div class="perfiles">
       <aside>
@@ -105,7 +105,7 @@ async function eliminar() {
       </form>
       <p v-else class="ayuda">{{ t('Choose a profile or create one.') }}</p>
     </div>
-  </Modal>
+  </PanelLateral>
 </template>
 
 <style scoped>
@@ -114,5 +114,5 @@ aside { display: flex; flex-direction: column; gap: 6px; }
 .perfil { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; border: 1px solid var(--linea); border-radius: 8px; background: var(--superficie); text-align: left; cursor: pointer; }
 .perfil[aria-pressed='true'] { border-color: var(--acento); background: var(--acento-claro); }
 .tabla-marco { max-height: 46vh; overflow: auto; }
-@media (max-width: 760px) { .perfiles { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .perfiles { grid-template-columns: 1fr; } }
 </style>

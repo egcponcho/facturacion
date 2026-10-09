@@ -464,7 +464,7 @@ cd frontend && npm run lint && npm run build          # ESLint (Vue) y compilaci
 
 ## Estructura
 
-Las capas, los mecanismos de configuración y cómo agregar un módulo, una lista de valores o un texto están en **[docs/ARQUITECTURA.md](docs/ARQUITECTURA.md)**.
+Las capas, los mecanismos de configuración y cómo agregar un módulo, una lista de valores o un texto están en **[docs/ARQUITECTURA.md](docs/ARQUITECTURA.md)**. Los flujos de negocio (estados, aprobación, asistente de la OC, recepción) están en **[docs/FLUJOS.md](docs/FLUJOS.md)** y el sistema de diseño de la interfaz (tokens, controles, cuándo usar ventana, panel o asistente) en **[docs/DISENO.md](docs/DISENO.md)**.
 
 ```
 backend/app/

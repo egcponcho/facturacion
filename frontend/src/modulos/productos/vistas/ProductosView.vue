@@ -238,7 +238,7 @@ watch(() => sesion.proveedorId, recargar)
     <table class="tabla" v-tarjetas>
       <thead>
         <tr>
-          <th class="check"><input type="checkbox" :aria-label="t('Select all')" :checked="sel.todos(ids)" @change="sel.alternarTodos(ids)" /></th>
+          <th class="chk"><input type="checkbox" :aria-label="t('Select all')" :checked="sel.todos(ids)" @change="sel.alternarTodos(ids)" /></th>
           <ThOrden campo="estilo" :orden="filtros.orden" @ordenar="ordenar">{{ t('Product') }}</ThOrden>
           <th v-if="!sesion.proveedorId && interno">{{ t('Supplier') }}</th>
           <ThOrden campo="codigo" :orden="filtros.orden" @ordenar="ordenar">{{ t('HS code') }}</ThOrden>
@@ -249,7 +249,7 @@ watch(() => sesion.proveedorId, recargar)
       </thead>
       <tbody>
         <tr v-for="p in datos.items" :key="p.id" class="clicable" @click="router.push(`/productos/${p.id}`)">
-          <td class="check" @click.stop><input type="checkbox" :aria-label="t('Select {0}', [p.estilo])" :checked="sel.tiene(p.id)" @change="sel.alternar(p.id)" /></td>
+          <td class="chk" @click.stop><input type="checkbox" :aria-label="t('Select {0}', [p.estilo])" :checked="sel.tiene(p.id)" @change="sel.alternar(p.id)" /></td>
           <td>
             <div class="producto-celda">
               <span class="miniatura">

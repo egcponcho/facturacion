@@ -112,7 +112,7 @@ cargar()
                 <span v-if="g.codigo" class="codigo-sac">{{ tx(g.codigo) }}</span><EstadoBadge v-else :estado="g.estado" />
               </router-link>
             </td>
-            <td class="num" style="white-space: nowrap">
+            <td class="num nowrap">
               <button v-if="puede('catalogos.crear')" class="btn btn-chico" :title="t('Add sizes to this generic')" @click="modal = { generico: g.generico }"><Icono nombre="mas" :tam="13" />{{ t('Sizes') }}</button>
               <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="t('Edit generic {0}', [g.generico])" :title="t('Edit the generic (applies to all its sizes)')" @click="modal = { generico: g.generico, editar: true }"><Icono nombre="editar" :tam="16" /></button>
             </td>
@@ -135,10 +135,10 @@ cargar()
                         <td class="codigo">{{ tx(a.upc || '—') }}</td>
                         <td class="codigo">{{ tx(a.sku_proveedor || '—') }}</td>
                         <td><span class="etiqueta" :class="a.activo ? 'ok' : ''">{{ tx(a.activo ? t('Yes') : t('No')) }}</span></td>
-                        <td class="num" style="white-space: nowrap">
+                        <td class="num nowrap">
                           <button v-if="a.tipo === 'PREPACK'" class="btn btn-chico" :title="t('See the breakdown')" @click="emit('desglose', a)"><Icono nombre="lupa" :tam="13" />{{ t('Breakdown') }}</button>
                           <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="t('Edit item {0}', [a.sku])" :title="t('Edit')" @click="emit('editar-articulo', a)"><Icono nombre="editar" :tam="15" /></button>
-                          <button v-if="puede('catalogos.eliminar')" class="btn-icono" style="color: var(--error)" :aria-label="t('Delete item {0}', [a.sku])" :title="t('Delete')" @click="emit('eliminar-articulo', a)"><Icono nombre="basura" :tam="15" /></button>
+                          <button v-if="puede('catalogos.eliminar')" class="btn-icono texto-error" :aria-label="t('Delete item {0}', [a.sku])" :title="t('Delete')" @click="emit('eliminar-articulo', a)"><Icono nombre="basura" :tam="15" /></button>
                         </td>
                       </tr>
                       <tr v-if="detalles[g.generico] && !detalles[g.generico].length"><td colspan="8" class="vacio">{{ t('This generic has no sizes yet.') }}</td></tr>

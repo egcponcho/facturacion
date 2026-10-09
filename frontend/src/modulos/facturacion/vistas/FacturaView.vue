@@ -465,7 +465,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
       <Pasos :pasos="pasos" />
     </section>
 
-    <div v-if="f" class="partes" style="margin-bottom: 16px">
+    <div v-if="f" class="partes mb-4">
       <TarjetaParte :titulo="t('Bill to')" icono="factura" :parte="f.facturar_a" />
       <TarjetaParte :titulo="t('Notify party (receiving plant)')" icono="ubicacion" :parte="f.notify" />
       <section v-if="f.destino" class="panel tarjeta-parte">
@@ -487,7 +487,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
 
     <!-- Lines -->
     <section v-if="tab === 'lineas'">
-      <p v-if="pendLineas.length && editable" class="nota aviso bloque" style="margin-bottom: 12px">
+      <p v-if="pendLineas.length && editable" class="nota aviso bloque mb-3">
         {{ t('{0} fields are missing on the lines before you can finalize (cells marked “Missing”).', [pendLineas.length]) }}
         <button class="btn-texto" @click="modal = { tipo: 'pendientes', titulo: t('Pending data to finalize'), detalle: f.pendientes }">{{ t('See which') }}</button>
       </p>
@@ -538,7 +538,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
                 <CeldaEditable v-if="editable" tipo="number" :min="l.inner_pack || 1" :paso="String(l.inner_pack || 1)" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="t('Quantity of {0}', [l.codigo_sap])" />
                 <template v-else>{{ fmtNum(l.cantidad) }}</template>
               </td>
-              <td v-if="cols.ver('unidad')"><span class="etiqueta" style="margin-inline-start: 0">{{ tx(l.unidad) }}</span></td>
+              <td v-if="cols.ver('unidad')"><span class="etiqueta ms-0">{{ tx(l.unidad) }}</span></td>
               <td v-if="cols.ver('por_caja')" class="num">{{ porCaja(l) ? fmtNum(porCaja(l)) : '—' }}</td>
               <td v-if="cols.ver('por_inner')" class="num" :title="l.inner_pack ? '' : t('Defined in the packing list if needed')">{{ l.inner_pack ? fmtNum(l.inner_pack) : '—' }}</td>
               <td v-if="cols.ver('inners_caja')" class="num">{{ porCaja(l) && l.inner_pack && l.tipo_empaque !== 'PREPACK' ? fmtNum(porCaja(l) / l.inner_pack) : '—' }}</td>
@@ -560,7 +560,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
               <td style="width: 110px">
                 <router-link v-if="l.producto_id" :to="`/productos/${l.producto_id}`" class="enlace" :title="t('From the approved technical sheet of the product')">
                   <span v-if="l.partida_arancelaria" class="codigo-sac">{{ tx(l.partida_arancelaria) }}</span>
-                  <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ t('Not classified') }}</span>
+                  <span v-else class="etiqueta aviso ms-0">{{ t('Not classified') }}</span>
                 </router-link>
                 <span v-else class="codigo-sac">{{ tx(l.partida_arancelaria || '—') }}</span>
               </td>
@@ -672,7 +672,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         </Seleccion>
         <button class="btn btn-primario" :disabled="!subida.archivo" @click="subir"><Icono nombre="importar" />{{ t('Attach') }}</button>
       </div>
-      <div class="tabla-marco mt" style="box-shadow: none">
+      <div class="tabla-marco mt sin-sombra">
         <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('File') }}</th><th>{{ t('Type') }}</th><th class="num">{{ t('Size') }}</th><th>{{ t('Uploaded') }}</th><th></th></tr></thead>
           <tbody>

@@ -39,7 +39,7 @@ const botones = computed(() => {
     </div>
     <label class="fila-flex ayuda" style="gap: 6px">
       {{ t('Rows per page') }}
-      <Seleccion class="entrada" style="padding: 4px 8px" :value="props.size" @change="emit('tamano', Number($event)); emit('cambiar', 1)">
+      <Seleccion class="entrada relleno-chico" :value="props.size" @change="emit('tamano', Number($event)); emit('cambiar', 1)">
         <option v-for="txt in props.tamanos" :key="txt" :value="txt">{{ tx(txt) }}</option>
       </Seleccion>
     </label>

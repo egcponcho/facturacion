@@ -109,9 +109,9 @@ async function activar(x, v) {
         <label class="campo"><span>{{ t('Threshold to') }}</span><input v-model="modal.umbral_hasta" type="number" step="0.01" class="entrada" /></label>
         <label class="campo"><span>{{ t('Valid from') }}</span><CampoFecha v-model="modal.vigente_desde" /></label>
         <label class="campo"><span>{{ t('Valid to') }}</span><CampoFecha v-model="modal.vigente_hasta" /></label>
-        <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Formula or rule') }}</span><input v-model="modal.formula" class="entrada" maxlength="300" /></label>
-        <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Legal basis') }}</span><input v-model="modal.base_legal" class="entrada" maxlength="400" /></label>
-        <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Official link') }}</span><input v-model="modal.url" class="entrada" maxlength="300" type="url" /></label>
+        <label class="campo col-completa"><span>{{ t('Formula or rule') }}</span><input v-model="modal.formula" class="entrada" maxlength="300" /></label>
+        <label class="campo col-completa"><span>{{ t('Legal basis') }}</span><input v-model="modal.base_legal" class="entrada" maxlength="400" /></label>
+        <label class="campo col-completa"><span>{{ t('Official link') }}</span><input v-model="modal.url" class="entrada" maxlength="300" type="url" /></label>
         <label class="check"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active') }}</span></label>
       </div>
       <p class="ayuda">{{ t('Every tax rule needs its rate, the basis it is calculated on and the official tax source of its country or its legal basis. There are no example taxes: what is not loaded from an official source does not apply.') }}</p>

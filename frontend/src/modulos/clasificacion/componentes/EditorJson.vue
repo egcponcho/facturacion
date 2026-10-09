@@ -65,8 +65,8 @@ function usarEjemplo() {
 .editor-json { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .lbl { font-size: 0.84rem; font-weight: 600; }
-textarea { width: 100%; font-family: var(--mono, ui-monospace, monospace); font-size: 0.8rem; resize: vertical; min-height: 84px; }
-textarea.mal { border-color: var(--peligro, #c0392b); }
-.error { color: var(--peligro, #c0392b); font-size: 0.8rem; margin: 0; }
+textarea { width: 100%; font-family: var(--mono); font-size: 0.8rem; resize: vertical; min-height: 84px; }
+textarea.mal { border-color: var(--error); }
+.error { color: var(--error); font-size: 0.8rem; margin: 0; }
 .ayuda { margin: 0; }
 </style>

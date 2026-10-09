@@ -40,7 +40,7 @@ const emitir = () => emit('valida', valida.value)
     </ul>
     <label v-if="repetir" class="campo"><span class="req">{{ t('Repeat the new password') }}</span>
       <input v-model="otra" class="entrada" :type="ver ? 'text' : 'password'" autocomplete="new-password" required @input="$nextTick(emitir)" />
-      <small v-if="otra && !coinciden" class="nota error" style="padding: 4px 8px">{{ t('The new passwords do not match.') }}</small>
+      <small v-if="otra && !coinciden" class="nota error relleno-chico">{{ t('The new passwords do not match.') }}</small>
     </label>
   </div>
 </template>

@@ -80,7 +80,7 @@ const versiones = computed(() => filtrar(datos.value.versiones, q.value, (v) => 
               <span v-else class="etiqueta aviso">{{ t('Not verified') }}</span>
               <span v-if="f.verificado_por" class="sub">{{ tx(f.verificado_por) }}</span>
               <span v-if="f.documento" class="sub">{{ tx(f.documento) }}</span>
-              <span v-for="p in f.problemas" :key="p" class="sub" style="color: var(--error)">{{ tx(p) }}</span>
+              <span v-for="p in f.problemas" :key="p" class="sub texto-error">{{ tx(p) }}</span>
               <button v-if="edita" type="button" class="btn-texto" @click="modal = { id: f.id, codigo: f.codigo, documento: f.documento || '', url: f.url || '', verificado_en: '' }">{{ t('Record verification') }}</button>
             </td>
           </tr>
@@ -90,8 +90,8 @@ const versiones = computed(() => filtrar(datos.value.versiones, q.value, (v) => 
     <Modal v-if="modal" :titulo="t('Verify {0}', [modal.codigo])" @cerrar="modal = null">
       <p class="ayuda">{{ t('Record that the source was checked against its official publication. Without a verification the source does not back any official data.') }}</p>
       <div class="rejilla-campos">
-        <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Official document or dataset checked') }}</span><input v-model="modal.documento" class="entrada" maxlength="300" /></label>
-        <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Official link') }}</span><input v-model="modal.url" class="entrada" maxlength="400" type="url" /></label>
+        <label class="campo col-completa"><span>{{ t('Official document or dataset checked') }}</span><input v-model="modal.documento" class="entrada" maxlength="300" /></label>
+        <label class="campo col-completa"><span>{{ t('Official link') }}</span><input v-model="modal.url" class="entrada" maxlength="400" type="url" /></label>
         <label class="campo"><span>{{ t('Verified on') }}</span><input v-model="modal.verificado_en" class="entrada" type="date" /></label>
       </div>
       <template #pie>

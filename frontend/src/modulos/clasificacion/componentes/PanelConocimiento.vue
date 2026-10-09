@@ -7,6 +7,7 @@ import Seleccion from '@/componentes/Seleccion.vue'
 import { fmtCode } from '@/modulos/clasificacion/formato.js'
 import { fmtFecha } from '@/nucleo/utils'
 import { errorApi } from '@/stores/ui'
+import { confirmar } from '@/stores/confirmar'
 
 // COMPANY KNOWLEDGE: lo que la empresa aprendió al clasificar. Solo ordena los
 // candidatos que el dato oficial permite (historical_confidence); nunca crea
@@ -46,7 +47,7 @@ onMounted(async () => {
 watch(vista, () => { f.page = 1; cargar() })
 
 async function quitar(ruta, id) {
-  if (!window.confirm(t('Remove this entry? It stops influencing the order of candidates.'))) return
+  if (!(await confirmar(t('Remove this entry? It stops influencing the order of candidates.'), { boton: t('Remove'), peligro: true }))) return
   try {
     await api.del(`${ruta}/${id}`)
     cargar()

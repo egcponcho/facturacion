@@ -13,6 +13,7 @@ import Icono from '@/componentes/Icono.vue'
 import Interruptor from '@/componentes/Interruptor.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import { confirmar } from '@/stores/confirmar'
 
 // Asistente de la orden de compra (docs/FLUJOS.md §1): seis pasos con solo los
 // datos de cada uno. El primer «Siguiente» crea el borrador; desde ahí todo se
@@ -157,6 +158,7 @@ onMounted(async () => {
       if (op.value.proveedores.length === 1) cab.proveedor = op.value.proveedores[0].valor
       else if (route.query.proveedor) cab.proveedor = String(route.query.proveedor)
       cab.moneda = op.value.moneda_base || ''
+      await nextTick() // los valores que se completan solos (p. ej. la única sociedad) no cuentan como cambios
       guardadoComo.value = instantanea()
     }
   } catch (e) {
@@ -261,8 +263,8 @@ onBeforeRouteLeave(async (to) => {
   if (to.path.startsWith(`/ordenes/${ocId.value}/editar`)) return true
   clearTimeout(reloj)
   if (!sucio.value) return true
-  if (ocId.value) return (await guardar()) || window.confirm(t('The last changes could not be saved. Leave anyway?'))
-  return window.confirm(t('The purchase order has not been saved. Leave and discard it?'))
+  if (ocId.value) return (await guardar()) || confirmar(t('The last changes could not be saved. Leave anyway?'), { boton: t('Leave without saving'), peligro: true })
+  return confirmar(t('The purchase order has not been saved. Leave and discard it?'), { boton: t('Discard'), peligro: true })
 })
 
 // ---- Validación en el servidor, campo por campo

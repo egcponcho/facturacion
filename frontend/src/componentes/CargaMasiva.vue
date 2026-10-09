@@ -73,7 +73,7 @@ async function subir() {
       </div>
       <div class="tabla-marco">
         <table class="tabla" v-tarjetas>
-          <thead><tr><th v-for="c in vista.hojas[hoja].columnas" :key="c.nombre" :title="tx(c.ayuda)">{{ tx(c.nombre) }}<span v-if="c.req" class="req-ast">*</span></th></tr></thead>
+          <thead><tr><th v-for="c in vista.hojas[hoja].columnas" :key="c.nombre" :title="tx(c.ayuda)"><span :class="{ req: c.req }">{{ tx(c.nombre) }}</span></th></tr></thead>
           <tbody>
             <tr v-for="(f, i) in vista.hojas[hoja].filas" :key="i"><td v-for="(v, j) in f" :key="j">{{ tx(v) }}</td></tr>
             <tr v-if="!vista.hojas[hoja].filas.length"><td :colspan="vista.hojas[hoja].columnas.length" class="vacio">{{ t('No example rows.') }}</td></tr>
@@ -83,7 +83,7 @@ async function subir() {
       <details class="mt-chico">
         <summary>{{ t('What goes in each column') }}</summary>
         <dl class="guia-cols">
-          <template v-for="c in vista.hojas[hoja].columnas" :key="c.nombre"><dt>{{ tx(c.nombre) }}<span v-if="c.req" class="req-ast">*</span></dt><dd>{{ tx(c.ayuda || '—') }}</dd></template>
+          <template v-for="c in vista.hojas[hoja].columnas" :key="c.nombre"><dt><span :class="{ req: c.req }">{{ tx(c.nombre) }}</span></dt><dd>{{ tx(c.ayuda || '—') }}</dd></template>
         </dl>
       </details>
       <ul v-if="vista.instrucciones.length" class="ayuda lista-instr"><li v-for="(txt, i) in vista.instrucciones" :key="i">{{ tx(txt) }}</li></ul>
@@ -114,7 +114,6 @@ async function subir() {
 .vista-plantilla .pestanas-pildora { margin-bottom: 8px; }
 .vista-plantilla .tabla-marco { max-height: 260px; overflow: auto; }
 .vista-plantilla th, .vista-plantilla td { white-space: nowrap; font-size: 0.82rem; }
-.req-ast { color: var(--error); margin-inline-start: 2px; }
 .guia-cols { display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 4px 12px; font-size: 0.84rem; margin: 8px 0 0; max-height: 220px; overflow: auto; }
 .guia-cols dt { font-weight: 600; }
 .guia-cols dd { margin: 0; color: var(--tinta-2); }

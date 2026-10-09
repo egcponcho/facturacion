@@ -34,7 +34,7 @@ function numero(e) {
       <span v-if="c.discrimina && !c.respondida" class="etiqueta acento disc">{{ t('decides the code') }}</span></span>
   </label>
   <div v-else class="campo-f" :class="{ ancho: largo }">
-    <label :for="id" class="lbl-f">{{ tx(c.etiqueta) }}<span v-if="c.modo === 'REQUIRE'" class="req-ast">*</span>
+    <label :for="id" class="lbl-f"><span :class="{ req: c.modo === 'REQUIRE' }">{{ tx(c.etiqueta) }}</span>
       <span v-if="c.ayuda && !largo" class="opcional"> ({{ tx(c.ayuda) }})</span><span v-if="c.unidad" class="opcional"> ({{ tx(c.unidad) }})</span>
       <span v-if="c.auto && !vacio(valor)" class="auto-tag">auto</span>
       <span v-if="c.discrimina && !c.respondida" class="etiqueta acento disc">{{ t('decides the code') }}</span></label>
@@ -64,7 +64,6 @@ function numero(e) {
 .campo-f { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; min-width: 0; }
 .campo-f.ancho { grid-column: 1 / -1; }
 .lbl-f { font-size: 0.84rem; font-weight: 620; color: var(--tinta); }
-.req-ast { color: var(--error); font-weight: 700; margin-inline-start: 2px; }
 .opcional { font-weight: 400; color: var(--tinta-3); }
 .hint { font-size: 0.78rem; color: var(--tinta-3); }
 .segs { display: flex; flex-wrap: wrap; gap: 6px; }

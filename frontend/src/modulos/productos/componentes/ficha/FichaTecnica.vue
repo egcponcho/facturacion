@@ -138,7 +138,7 @@ function editarDesc() {
       <button v-for="([id, l, e, x], i) in pasos" :key="id" type="button" :class="e" @click="irA(id)">
         <b>{{ tx(i + 1) }}</b> {{ tx(l) }}{{ tx(e === 'ok' ? ' ✓' : '') }}{{ tx(x ? ` · ${x}` : '') }}
       </button>
-      <span class="req-nota"><span class="req-ast">*</span> {{ t('Required for a complete sheet') }}</span>
+      <span class="req-nota leyenda-req">{{ t('Required for a complete sheet') }}</span>
     </nav>
 
     <!-- Producto -->
@@ -146,7 +146,7 @@ function editarDesc() {
       <div class="bloque-head"><h3>{{ t('Product') }}</h3><span class="sub">{{ t('What it is and who it is for. Shared by every size and prepack.') }}</span></div>
       <div class="fila2">
         <div class="campo-f">
-          <label for="f_categoria">{{ t('Category') }}<span class="req-ast">*</span></label>
+          <label for="f_categoria" class="req">{{ t('Category') }}</label>
           <CampoCategoria id="f_categoria" :model-value="f.tipo" :categorias="props.ctx.categorias || []" :disabled="!props.editable" @update:model-value="elegirTipo" />
           <p v-if="detTexto" class="hint det" :title="tx(detTexto)">{{ tx(detTexto) }}</p>
           <p v-else-if="r?.categoria?.capitulos?.length" class="hint">{{ t('Chapter {0} · only what changes its code is asked', [r.categoria.capitulos.join(' / ')]) }}</p>
@@ -161,7 +161,7 @@ function editarDesc() {
       </div>
       <div class="fila2">
         <div class="campo-f">
-          <label for="f_origen">{{ t('Country of origin') }}<span class="req-ast">*</span></label>
+          <label for="f_origen" class="req">{{ t('Country of origin') }}</label>
           <Seleccion id="f_origen" :value="f.origen" class="entrada" :disabled="!props.editable" @change="emit('cambio', { campo: 'origen', valor: $event })">
             <option value="">{{ t('Choose…') }}</option>
             <option v-for="x in props.paises" :key="x.codigo" :value="x.codigo">{{ tx(x.nombre) }}</option>
@@ -229,7 +229,7 @@ function editarDesc() {
 
       <fieldset v-if="partes.length" id="blk-comp" class="fs">
         <legend>{{ t('Composition') }}</legend>
-        <p class="hint" style="margin-bottom: 8px">{{ t('Materials of the product and their percentage.') }}</p>
+        <p class="hint mb-2">{{ t('Materials of the product and their percentage.') }}</p>
         <div class="rejilla-partes">
           <ComposicionParte v-for="c in partes" :key="`${f.tipo}-${c.codigo}`" :campo="c" :filas="props.filas[c.codigo] || []" :editable="props.editable"
                             @cambio="(k, txt, reiniciar) => emit('cambio', { campo: k, valor: txt, reiniciar })" @ensenar="ensenarMaterial" />
@@ -238,7 +238,7 @@ function editarDesc() {
 
       <fieldset v-if="nacionales.length && props.editable" class="fs">
         <legend>{{ t('For national codes') }}</legend>
-        <p class="hint" style="margin-bottom: 8px">{{ t('Some destination countries split this subheading further.') }}</p>
+        <p class="hint mb-2">{{ t('Some destination countries split this subheading further.') }}</p>
         <div class="rejilla-attrs">
           <CampoFicha v-for="c in nacionales" :key="c.codigo" :campo="c" :valor="valor(c)" :editable="props.editable" @elegir="(v) => elegir(c, v)" />
         </div>
@@ -268,7 +268,6 @@ function editarDesc() {
 .pasos button.pend { border-color: var(--aviso-borde); color: var(--aviso); background: var(--aviso-fondo); }
 .pasos button b { font-weight: 650; }
 .req-nota { margin-inline-start: auto; font-size: 0.78rem; color: var(--tinta-3); }
-.req-ast { color: var(--error); font-weight: 700; margin-inline-start: 2px; }
 .opcional { font-weight: 400; color: var(--tinta-3); }
 .bloque { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); padding: 14px 18px 6px; margin-bottom: 14px; box-shadow: var(--sombra); scroll-margin-top: 130px; }
 .bloque-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: -2px 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--linea-suave); }

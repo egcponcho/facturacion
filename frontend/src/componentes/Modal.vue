@@ -2,19 +2,26 @@
 import { t, tx } from '@/i18n/index.js'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Icono from './Icono.vue'
+import { abrirCapa, cerrarCapa, esLaDeArriba } from '@/nucleo/capas.js'
 
 const props = defineProps({ titulo: String, ancho: { type: String, default: '560px' } })
 const emit = defineEmits(['cerrar'])
 const cuerpo = ref(null)
+let capa = null
 
+// Esc cierra solo la ventana de más arriba (p. ej. la confirmación sobre un formulario)
 function tecla(e) {
-  if (e.key === 'Escape') emit('cerrar')
+  if (e.key === 'Escape' && esLaDeArriba(capa)) emit('cerrar')
 }
 onMounted(() => {
+  capa = abrirCapa()
   document.addEventListener('keydown', tecla)
   cuerpo.value?.querySelector('input:not([type=checkbox]),select,textarea')?.focus()
 })
-onBeforeUnmount(() => document.removeEventListener('keydown', tecla))
+onBeforeUnmount(() => {
+  cerrarCapa(capa)
+  document.removeEventListener('keydown', tecla)
+})
 </script>
 
 <template>

@@ -133,8 +133,8 @@ async function salir() {
 
 <style scoped>
 .bienvenida { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background:
-  radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--acento) 18%, transparent), transparent 45%), var(--fondo, var(--superficie-2)); }
-.tarjeta { width: min(640px, 100%); background: var(--superficie); border: 1px solid var(--linea); border-radius: 16px; box-shadow: var(--sombra-alta, var(--sombra)); padding: 24px; }
+  radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--acento) 18%, transparent), transparent 45%), var(--papel); }
+.tarjeta { width: min(640px, 100%); background: var(--superficie); border: 1px solid var(--linea); border-radius: 16px; box-shadow: var(--sombra-flotante); padding: 24px; }
 .progreso { list-style: none; margin: 0 0 22px; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
 .progreso li { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--tinta-3); padding: 4px 10px 4px 4px; border-radius: 99px; background: var(--superficie-2); }
 .progreso li span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--linea); color: var(--tinta-2); font-weight: 700; font-size: 0.76rem; }

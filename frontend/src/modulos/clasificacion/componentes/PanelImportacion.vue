@@ -188,5 +188,5 @@ ins { color: var(--ok); text-decoration: none; font-weight: 600; }
 .titulo-hist { margin: 0 0 8px; font-size: 1rem; }
 .historial { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .historial li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.88rem; }
-@media (max-width: 640px) { .paquete { grid-template-columns: auto 1fr; } .acciones { grid-column: 1 / -1; justify-content: flex-start; } }
+@media (max-width: 600px) { .paquete { grid-template-columns: auto 1fr; } .acciones { grid-column: 1 / -1; justify-content: flex-start; } }
 </style>

@@ -171,7 +171,7 @@ function agregar(d) {
           <SelectBusqueda v-model="cat.dominio" :opciones="dominios.map((d) => ({ valor: d.codigo, texto: d.nombre }))" :vacio="t('Outside a family')" :deshabilitado="!edita" :etiqueta="t('Product family')" /></label>
         <label class="campo"><span>{{ t('Compatible chapters') }}</span><input v-model="cat.capitulosTxt" class="entrada" :disabled="!edita" :placeholder="t('e.g. 69, 70')" /></label>
         <label class="campo"><span>{{ t('Other names (aliases)') }}</span><input v-model="cat.alias" class="entrada" maxlength="400" :disabled="!edita" /></label>
-        <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Words of the official text (only order candidates)') }}</span><input v-model="cat.terminos" class="entrada" maxlength="400" :disabled="!edita" /></label>
+        <label class="campo col-completa"><span>{{ t('Words of the official text (only order candidates)') }}</span><input v-model="cat.terminos" class="entrada" maxlength="400" :disabled="!edita" /></label>
         <label class="check"><input v-model="cat.activo" type="checkbox" :disabled="!edita" /><span>{{ t('Active') }}</span></label>
       </div>
       <CampoComportamiento v-model="cat.patrones" tipo="patrones" :atributos="atributos" :etiqueta="t('How it is recognized in the product name')" :ejemplo="EJ_PATRONES"
@@ -187,7 +187,7 @@ function agregar(d) {
       <div class="rejilla-campos">
         <label class="campo"><span class="req">{{ t('Code') }}</span><input v-model="modal.codigo" class="entrada" maxlength="30" :disabled="!!modal.id" placeholder="ELECTRONICS" /></label>
         <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="modal.nombre" class="entrada" maxlength="100" /></label>
-        <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Description') }}</span><input v-model="modal.descripcion" class="entrada" maxlength="400" /></label>
+        <label class="campo col-completa"><span>{{ t('Description') }}</span><input v-model="modal.descripcion" class="entrada" maxlength="400" /></label>
         <label class="campo"><span>{{ t('Mode') }}</span><select v-model="modal.modo" class="entrada"><option value="AUTO">{{ t('Automatic') }}</option><option value="MANUAL">{{ t('Manual') }}</option></select></label>
         <label class="check"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active') }}</span></label>
       </div>

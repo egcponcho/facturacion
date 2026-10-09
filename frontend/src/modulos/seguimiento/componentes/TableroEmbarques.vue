@@ -80,7 +80,7 @@ onMounted(cargar)
 </script>
 
 <template>
-  <section class="kpis" style="margin-bottom: 16px">
+  <section class="kpis mb-4">
     <Kpi :titulo="t('Shipments')" :valor="datos.kpis.embarques" icono="ruta" :detalle="tx(porModo)" @abrir="emit('filtrar', {})" />
     <Kpi :titulo="t('Load units')" :valor="datos.kpis.unidades" icono="contenedor" :detalle="t('containers, air waybills and trucks')" @abrir="emit('filtrar', {})" />
     <Kpi :titulo="t('In transit')" :valor="datos.kpis.en_camino" icono="barco" :detalle="t('already departed')" @abrir="emit('filtrar', { estado: 'EN_TRANSITO' })" />
@@ -89,7 +89,7 @@ onMounted(cargar)
          :detalle="t('ETA after the in-store date')" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
   </section>
 
-  <div class="dos-columnas" style="margin-bottom: 16px">
+  <div class="dos-columnas mb-4">
     <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('Arrivals per week') }}</h2><p>{{ t('Shipments not yet arrived, by week of their ETA.') }}</p></div></div>
       <GraficoColumnas :datos="llegadas" :titulo="t('Shipments by arrival week')" />
@@ -141,7 +141,7 @@ onMounted(cargar)
             <td>{{ fmtFecha(e.etd) }}</td>
             <td>{{ fmtFecha(e.eta) }}<span class="sub">{{ tx(e.arribado ? t('arrived') : e.dias_eta === null ? '' : e.dias_eta >= 0 ? t('in {0} d', [e.dias_eta]) : t('ETA overdue {0} d', [-e.dias_eta])) }}</span></td>
             <td v-if="ve('fechas_internas')">
-              <span v-if="e.riesgo" class="etiqueta" :class="RIESGOS[e.riesgo][1]" style="margin-inline-start: 0">{{ tx(RIESGOS[e.riesgo][0]) }}</span>
+              <span v-if="e.riesgo" class="etiqueta ms-0" :class="RIESGOS[e.riesgo][1]">{{ tx(RIESGOS[e.riesgo][0]) }}</span>
               <span v-if="e.holgura != null" class="sub">{{ tx(e.holgura < 0 ? t('{0} d late', [-e.holgura]) : t('{0} d margin', [e.holgura])) }}</span>
             </td>
             <td class="num">{{ tx(e.unidades) }}</td>
@@ -155,7 +155,7 @@ onMounted(cargar)
                   <button type="button" class="explosion-oc-cabeza enlace-bloque" :aria-expanded="!!explosiones[u.unidad_id]" @click="alternarUnidad(u)">
                     <Icono :nombre="explosiones[u.unidad_id] ? 'abajo' : 'derecha'" :tam="14" />
                     <b class="codigo">{{ datosModo(e.modo).unidad }} {{ tx(u.contenedor) }}</b>
-                    <span class="etiqueta" style="margin-inline-start: 0">{{ tx(u.tipo_nombre) }}</span>
+                    <span class="etiqueta ms-0">{{ tx(u.tipo_nombre) }}</span>
                     <span v-if="u.modalidad" class="etiqueta acento">{{ tx(u.modalidad) }}</span>
                     <span class="ayuda">{{ t('{0} · {1} PO · {2}', [u.sello ? t('seal {0}', [u.sello]) : t('no seal'), u.ocs, u.facturas.join(', ') || t('no invoice')]) }}</span>
                     <span v-if="u.riesgo" class="etiqueta" :class="RIESGOS[u.riesgo][1]">{{ tx(RIESGOS[u.riesgo][0]) }}</span>
@@ -169,7 +169,7 @@ onMounted(cargar)
                         <span v-if="o.riesgo" class="etiqueta" :class="RIESGOS[o.riesgo][1]">{{ tx(RIESGOS[o.riesgo][0]) }}</span>
                         <span class="separar fuerte">{{ porUnidadTxt(o.por_unidad, null) }}</span>
                       </div>
-                      <div class="tabla-marco" style="box-shadow: none">
+                      <div class="tabla-marco sin-sombra">
                         <table class="tabla" v-tarjetas>
                           <thead><tr><th>{{ t('Line') }}</th><th>SKU</th><th>{{ t('Brand · group') }}</th><th>{{ t('Style · color') }}</th><th>{{ t('Size') }}</th><th>{{ t('Warehouse') }}</th><th>{{ t('UoM') }}</th><th class="num">{{ t('Quantity') }}</th><th>{{ t('Invoice / PL') }}</th></tr></thead>
                           <tbody>
@@ -184,7 +184,7 @@ onMounted(cargar)
                                         @click="explosion = { sku: l.sku, cajas: l.cantidad }">{{ t('Prepack') }} <Icono nombre="lupa" :tam="12" /></button>
                               </td>
                               <td>{{ tx(l.almacen || '—') }}</td>
-                              <td><span class="etiqueta" style="margin-inline-start: 0">{{ tx(l.unidad) }}</span></td>
+                              <td><span class="etiqueta ms-0">{{ tx(l.unidad) }}</span></td>
                               <td class="num">{{ fmtNum(l.cantidad) }}</td>
                               <td>
                                 <router-link v-if="l.factura_id" :to="`/facturas/${l.factura_id}`">{{ tx(l.factura) }}</router-link>

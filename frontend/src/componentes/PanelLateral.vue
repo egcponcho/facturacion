@@ -2,15 +2,25 @@
 import { t, tx } from '@/i18n/index.js'
 import { onBeforeUnmount, onMounted } from 'vue'
 import Icono from './Icono.vue'
+import { abrirCapa, cerrarCapa, esLaDeArriba } from '@/nucleo/capas.js'
 
-// Panel lateral (drawer) para consultar un registro sin salir de la lista: se
-// conservan filtros, página y orden. «Abrir detalle completo» lleva a su
-// página. Esc o clic fuera lo cierran.
+// Panel lateral (drawer): para consultar un registro sin salir de la lista (se
+// conservan filtros, página y orden) y para los procesos largos que no caben
+// en una ventana (editor de roles, empaque automático, perfiles de
+// importación). «Abrir detalle completo» lleva a su página. Esc o clic fuera
+// lo cierran; los botones de la acción van en el pie (#pie), siempre visibles.
 const props = defineProps({ titulo: { type: String, default: '' }, detalle: { type: String, default: '' }, ancho: { type: String, default: '460px' } })
 const emit = defineEmits(['cerrar'])
-const tecla = (e) => e.key === 'Escape' && emit('cerrar')
-onMounted(() => document.addEventListener('keydown', tecla))
-onBeforeUnmount(() => document.removeEventListener('keydown', tecla))
+let capa = null
+const tecla = (e) => e.key === 'Escape' && esLaDeArriba(capa) && emit('cerrar')
+onMounted(() => {
+  capa = abrirCapa()
+  document.addEventListener('keydown', tecla)
+})
+onBeforeUnmount(() => {
+  cerrarCapa(capa)
+  document.removeEventListener('keydown', tecla)
+})
 </script>
 
 <template>
@@ -25,6 +35,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', tecla))
           </div>
         </header>
         <div class="pl-cuerpo"><slot /></div>
+        <footer v-if="$slots.pie" class="pl-pie"><slot name="pie" /></footer>
       </aside>
     </div>
   </Teleport>
@@ -40,4 +51,5 @@ onBeforeUnmount(() => document.removeEventListener('keydown', tecla))
 .pl-titulos { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .pl-titulos h2 { margin: 0; font-size: 1.15rem; overflow-wrap: anywhere; }
 .pl-cuerpo { flex: 1; min-height: 0; padding: 14px 18px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.pl-pie { display: flex; justify-content: flex-end; gap: var(--e-2); flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--linea-suave); background: var(--superficie); }
 </style>

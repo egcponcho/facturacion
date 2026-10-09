@@ -505,12 +505,12 @@ onMounted(async () => {
               </td>
               <td v-if="tipo === 'prepacks'" class="codigo fuerte">{{ tx(fila.sku || '—') }}</td>
               <td v-if="tipo === 'prepacks'" class="num">{{ tx(fila.total) }} <span class="sub">{{ t('{0} sizes', [fila.componentes]) }}</span></td>
-              <td class="num" style="white-space: nowrap">
+              <td class="num nowrap">
                 <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" :title="t('See the breakdown (it never changes)')"
                         @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />{{ t('Breakdown') }}</button>
                 <button class="btn-icono" :aria-label="tr('See {0}', [cat.singular])" :title="t('See details and history')" @click="ver(fila)"><Icono nombre="ojo" :tam="16" /></button>
                 <button v-if="acciones.editar" class="btn-icono" :aria-label="tr('Edit {0}', [cat.singular])" :title="t('Edit')" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
-                <button v-if="acciones.eliminar" class="btn-icono" style="color: var(--error)" :aria-label="tr('Delete {0}', [cat.singular])" :title="t('Delete')" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
+                <button v-if="acciones.eliminar" class="btn-icono texto-error" :aria-label="tr('Delete {0}', [cat.singular])" :title="t('Delete')" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
               </td>
             </tr>
             <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : tipo === 'articulos' ? 3 : 2)" class="vacio">{{ t('No records match these filters.') }}</td></tr>
@@ -523,11 +523,11 @@ onMounted(async () => {
   </div>
 
   <Modal v-if="formAbierto && cat" :titulo="editando ? tr('Edit {0}', [cat.singular]) : tr('New {0}', [cat.singular])" ancho="640px" @cerrar="cerrarForm">
-    <p v-if="cat.ayuda" class="ayuda" style="margin-top: 0">{{ tx(cat.ayuda) }}</p>
+    <p v-if="cat.ayuda" class="ayuda mt-0">{{ tx(cat.ayuda) }}</p>
       <form v-if="tipo === 'prepacks' && !editando" class="form-catalogo" @submit.prevent="crearPrepack">
         <label class="campo"><span class="req">{{ t('Item code') }}</span>
           <input v-model="nuevoPP.sku" maxlength="40" :placeholder="t('Your item code for the prepack')" required />
-          <small v-if="erroresPP.sku" class="nota error" style="padding: 4px 8px">{{ tx(erroresPP.sku) }}</small>
+          <small v-if="erroresPP.sku" class="nota error relleno-chico">{{ tx(erroresPP.sku) }}</small>
           <small v-else class="ayuda">{{ t('Any code in your format. The prepack takes the generic of its solids; a code is proposed when you choose style and color.') }}</small>
         </label>
         <label class="campo"><span class="req">{{ t('Style') }}</span>
@@ -538,13 +538,13 @@ onMounted(async () => {
         </label>
         <label class="campo"><span class="req">{{ t('Prepack ID (size)') }}</span>
           <input v-model="nuevoPP.codigo" maxlength="10" placeholder="AB12" style="text-transform: uppercase" required />
-          <small v-if="erroresPP.codigo" class="nota error" style="padding: 4px 8px">{{ tx(erroresPP.codigo) }}</small>
+          <small v-if="erroresPP.codigo" class="nota error relleno-chico">{{ tx(erroresPP.codigo) }}</small>
           <small v-else class="ayuda">{{ t('Usually 2 letters and 2 digits. It is the size of the prepack item.') }}</small>
         </label>
         <label class="campo"><span>{{ t('Description') }}</span><input v-model="nuevoPP.descripcion" /></label>
         <div v-if="nuevoPP.estilo && nuevoPP.color" class="campo">
           <span class="req">{{ t('Breakdown per master carton') }}<template v-if="tallasPP.length"> ({{ tx(tallasPP[0].unidad) }})</template></span>
-          <div class="tabla-marco" style="box-shadow: none">
+          <div class="tabla-marco sin-sombra">
             <table class="tabla" v-tarjetas>
               <thead><tr><th>{{ t('Size') }}</th><th>SKU</th><th class="num">{{ t('Qty') }}</th></tr></thead>
               <tbody>
@@ -557,7 +557,7 @@ onMounted(async () => {
               <tfoot><tr><td colspan="2">{{ t('Total per carton') }}</td><td class="num">{{ tx(totalPP) }}</td></tr></tfoot>
             </table>
           </div>
-          <small v-if="erroresPP.componentes" class="nota error" style="padding: 4px 8px">{{ tx(erroresPP.componentes) }}</small>
+          <small v-if="erroresPP.componentes" class="nota error relleno-chico">{{ tx(erroresPP.componentes) }}</small>
           <small v-else class="ayuda">{{ t('Only solids of {0} {1}. Leave at 0 the sizes it does not carry. Once created it never changes.', [nuevoPP.estilo, nuevoPP.color]) }}</small>
         </div>
         <p class="leyenda-req">{{ t('Required') }}</p>
@@ -587,7 +587,7 @@ onMounted(async () => {
                       :placeholder="t('name@company.com, other@company.com')"></textarea>
             <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : c.tipo === 'fecha' ? 'date' : 'text'"
                    :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="tx(bloqueado(c) ? t('Cannot change: it is part of the prepack') : '')" />
-            <small v-if="erroresForm[c.nombre]" class="nota error" style="padding: 4px 8px">{{ tx(erroresForm[c.nombre]) }}</small>
+            <small v-if="erroresForm[c.nombre]" class="nota error relleno-chico">{{ tx(erroresForm[c.nombre]) }}</small>
             <small v-else-if="c.ayuda" class="ayuda">{{ tx(c.ayuda) }}</small>
           </template>
         </component>

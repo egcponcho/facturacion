@@ -16,6 +16,7 @@ import AvisoEdicion from '@/componentes/AvisoEdicion.vue'
 import { useEdicion } from '@/composables/useEdicion'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
+import PanelLateral from '@/componentes/PanelLateral.vue'
 import TarjetaParte from '@/componentes/TarjetaParte.vue'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
 import Paginacion from '@/componentes/Paginacion.vue'
@@ -487,7 +488,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       <Pasos :pasos="pasos" />
     </section>
 
-    <div v-if="pl.partes" class="partes" style="margin-bottom: 16px">
+    <div v-if="pl.partes" class="partes mb-4">
       <TarjetaParte :titulo="t('Bill to')" icono="factura" :parte="pl.partes.facturar_a" />
       <TarjetaParte :titulo="t('Notify party (receiving plant)')" icono="ubicacion" :parte="pl.partes.notify" />
       <section v-if="pl.partes.destino" class="panel tarjeta-parte">
@@ -594,9 +595,9 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
                 <td><strong>{{ tx(l.talla) }}</strong></td>
                 <td class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}<span v-if="l.centro_destino || l.almacen" class="sub">{{ tx([l.almacen && t('warehouse {0}', [l.almacen]), l.centro_destino && t('destination {0}', [l.centro_destino])].filter(Boolean).join(' · ')) }}</span></td>
                 <td>
-                  <button v-if="l.regla === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" style="margin-inline-start: 0"
+                  <button v-if="l.regla === 'PREPACK'" type="button" class="etiqueta acento btn-explosion ms-0"
                           :title="t('See the prepack breakdown')" @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ tx(reglaTxt(l)) }} <Icono nombre="lupa" :tam="12" /></button>
-                  <span v-else class="etiqueta" :class="REGLAS[l.regla]?.[1]" style="margin-inline-start: 0">{{ tx(reglaTxt(l)) }}</span>
+                  <span v-else class="etiqueta ms-0" :class="REGLAS[l.regla]?.[1]">{{ tx(reglaTxt(l)) }}</span>
                 </td>
                 <td class="num">{{ porCajaLinea(l) ? cantTxt(porCajaLinea(l), l.regla === 'PREPACK' ? l.unidad_componentes || 'UN' : l.unidad) : '—' }}</td>
                 <td class="num" style="width: 96px">
@@ -648,7 +649,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
           <p>{{ t('Packaging inside packaging. Net = products (unit weight of each item); gross adds the tare of every level. The volume is the outer size of the top level.') }}</p></div></div>
         <ArbolEmpaque :grupos="pl.grupos" :editable="editable" :ocupado="ocupado" :guardar="celdaPallet" @deshacer="(g) => despaletizar([], g.id)" />
       </section>
-      <p v-if="pl.avisos?.length" class="nota aviso bloque" style="margin-bottom: 12px">
+      <p v-if="pl.avisos?.length" class="nota aviso bloque mb-3">
         <Icono nombre="alerta" />
         <span><b>{{ t('Check with the Commercial Brand Manager:') }}</b> <template v-for="a in pl.avisos" :key="a.grupo_id">{{ tx(a.mensaje) }} </template></span>
       </p>
@@ -684,7 +685,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
                   <div v-for="it in g.contenido" :key="it.pl_linea_id">{{ tx(it.estilo) }} <b>{{ tx(it.talla) }}</b></div>
                 </div>
                 <div v-if="g.etiqueta" class="fila-flex" style="gap: 4px; margin-top: 4px">
-                  <span class="etiqueta" :class="g.etiqueta.tipo === 'ESTANDAR' ? 'ok' : 'acento'" style="margin-inline-start: 0"
+                  <span class="etiqueta ms-0" :class="g.etiqueta.tipo === 'ESTANDAR' ? 'ok' : 'acento'"
                         :title="tx(g.etiqueta.tipo === 'ESTANDAR' ? t('A single PO, style, color and size') : t('Several POs, styles, colors or sizes'))">
                     {{ t('{0} label', [g.etiqueta.tipo === 'ESTANDAR' ? t('Standard') : t('Consolidated')]) }}
                   </span>
@@ -819,7 +820,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <div><h2>{{ t('Warehouse receipt') }}</h2><p>{{ t('Record what was received and damaged per row; differences are kept in the history.') }}</p></div>
         <button class="btn btn-primario" :disabled="ocupado" @click="guardarRecepcion">{{ t('Save receipt') }}</button>
       </div>
-      <div class="tabla-marco" style="box-shadow: none">
+      <div class="tabla-marco sin-sombra">
         <table class="tabla" v-tarjetas>
           <thead>
             <tr><th>{{ t('Row') }}</th><th class="num">{{ t('Per PL') }}</th><th class="num">{{ t('Received') }}</th><th class="num">{{ t('Damaged') }}</th><th class="num">{{ t('Difference') }}</th><th>{{ t('Remark') }}</th></tr>
@@ -845,7 +846,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
   <CargaMasiva v-if="modal?.tipo === 'estructura'" :titulo="t('Upload the physical structure')" :ruta="url('/estructura/importar')"
                :plantilla="url('/estructura/plantilla')" :ayuda="t('The columns are your packaging types. Leave empty the levels you do not use.')"
                @cerrar="modal = null" @cargado="modal = null; cargar(); tab = 'cajas'" />
-  <Modal v-if="modal?.tipo === 'auto'" :titulo="t('Auto-pack')" ancho="1000px" @cerrar="modal = null">
+  <PanelLateral v-if="modal?.tipo === 'auto'" :titulo="t('Auto-pack')" ancho="1000px" @cerrar="modal = null">
     <p class="ayuda">{{ t('Each row is packed into full cartons. If the PO line has a') }} <b>casepack</b>{{ t(', every carton carries exactly that quantity (no mixed sizes); a') }} <b>prepack</b> {{ t('goes one size run per master carton. Without a casepack, the template sets the quantity per carton. With an') }} <b>{{ t('inner pack') }}</b>{{ t(', cartons always carry whole inner packs. The template also adds dimensions and weights.') }}</p>
     <div class="fila-flex">
       <label v-for="u in unidadesAuto" :key="u" class="campo" style="min-width: 240px">
@@ -862,7 +863,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <tbody>
           <tr v-for="(f, i) in calculoAuto.filas" :key="f.pl_linea_id">
             <td>{{ tx(f.ref) }}</td>
-            <td><span class="etiqueta" :class="REGLAS[f.regla]?.[1]" style="margin-inline-start: 0">{{ tx(f.regla_txt) }}</span></td>
+            <td><span class="etiqueta ms-0" :class="REGLAS[f.regla]?.[1]">{{ tx(f.regla_txt) }}</span></td>
             <td class="num">{{ cantTxt(f.sin_caja, f.unidad) }}</td>
             <td>
               <Seleccion v-model="modal.filas[i].plantilla_id" class="entrada" style="max-width: 210px" :aria-label="t('Template for {0}', [f.ref])">
@@ -894,7 +895,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" :disabled="ocupado || !calculoAuto.validas" @click="empacarAuto"><Icono nombre="varita" :tam="15" />{{ t('Pack') }}</button>
     </template>
-  </Modal>
+  </PanelLateral>
 
   <Modal v-if="modal?.tipo === 'caja'" :titulo="tx(modal.items.length > 1 ? t('Mixed carton') : t('Manual carton'))" ancho="700px" @cerrar="modal = null">
     <div class="rejilla-campos">
@@ -912,7 +913,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         </Seleccion>
       </label>
     </div>
-    <div class="tabla-marco" style="box-shadow: none">
+    <div class="tabla-marco sin-sombra">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Row') }}</th><th class="num">{{ t('Not packed') }}</th><th class="num"><span class="req">{{ t('Per carton') }}</span></th><th class="num">{{ t('Total') }}</th></tr></thead>
         <tbody>
@@ -993,7 +994,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       <label v-if="modal.manual" class="campo"><span>{{ t('Net weight per carton kg') }}</span><input v-model="modal.valores.peso_neto_caja" type="number" min="0" step="any" />
         <small class="ayuda">{{ t('Only for cartons with items without unit weight.') }}</small></label>
       <label class="campo"><span>{{ t('Cartons per group') }}</span><input v-model="modal.valores.num_cajas" type="number" min="1" /></label>
-      <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Remark') }}</span><input v-model="modal.valores.observacion" /></label>
+      <label class="campo col-completa"><span>{{ t('Remark') }}</span><input v-model="modal.valores.observacion" /></label>
     </div>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
@@ -1008,7 +1009,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <option value="">{{ t('A new packing list') }}</option>
       </Seleccion>
     </label>
-    <div class="tabla-marco" style="box-shadow: none">
+    <div class="tabla-marco sin-sombra">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Cartons') }}</th><th class="num">{{ t('Available') }}</th><th class="num">{{ t('Move') }}</th></tr></thead>
         <tbody>

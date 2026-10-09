@@ -366,7 +366,7 @@ async function sincronizar() {
 .titulo h3 { margin: 4px 0 0; font-size: 1.3rem; }
 .titulo p { margin: 2px 0 0; }
 .sw { display: inline-flex; gap: 8px; align-items: center; font-size: 0.86rem; }
-.aviso { background: var(--aviso-claro, var(--superficie-2)); padding: 8px 10px; border-radius: var(--radio); font-size: 0.86rem; }
+.aviso { background: var(--aviso-fondo); padding: 8px 10px; border-radius: var(--radio); font-size: 0.86rem; }
 .campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 12px 0; align-items: end; }
 .campo { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; }
 .campo.ancho { grid-column: 1 / -1; }

@@ -106,7 +106,7 @@ const resumen = (d) => {
 .sin-corte { white-space: nowrap; }
 .fila-detalle td { background: var(--superficie-2); }
 .lista-cambios { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
-.lista-cambios dt { color: var(--tinta-3); font-family: var(--mono, ui-monospace, monospace); font-size: 0.82rem; }
+.lista-cambios dt { color: var(--tinta-3); font-family: var(--mono); font-size: 0.82rem; }
 .lista-cambios dd { margin: 0; word-break: break-word; }
 .lista-cambios s { color: var(--tinta-3); }
 </style>

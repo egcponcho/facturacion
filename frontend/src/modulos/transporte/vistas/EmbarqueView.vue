@@ -425,7 +425,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
             <button class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />{{ t('Assign cargo') }}</button>
           </template>
         </div>
-        <div class="tabla-marco mt-chico" style="box-shadow: none">
+        <div class="tabla-marco mt-chico sin-sombra">
           <table class="tabla" v-tarjetas>
             <thead>
               <tr>
@@ -457,9 +457,9 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
                 <td>
                   <template v-if="p.recolectado_en">
                     {{ fmtFecha(p.recolectado_en) }}
-                    <span v-if="p.fecha_xf && p.recolectado_en > p.fecha_xf" class="sub" style="color: var(--error)">{{ t('after the XF') }}</span>
+                    <span v-if="p.fecha_xf && p.recolectado_en > p.fecha_xf" class="sub texto-error">{{ t('after the XF') }}</span>
                   </template>
-                  <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ t('Pending') }}</span>
+                  <span v-else class="etiqueta aviso ms-0">{{ t('Pending') }}</span>
                 </td>
                 <td>{{ fmtFecha(p.fecha_tienda) }}</td>
                 <td>{{ porUnidadTxt(p.por_unidad, 'cantidad') }}</td>
@@ -547,7 +547,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
           <input v-model="filtros.q" type="search" :placeholder="t('Search invoice number')" :aria-label="t('Search invoice')" @input="buscar" />
         </label>
       </div>
-      <div class="tabla-marco" style="box-shadow: none">
+      <div class="tabla-marco sin-sombra">
         <table class="tabla" v-tarjetas>
           <thead>
             <tr>

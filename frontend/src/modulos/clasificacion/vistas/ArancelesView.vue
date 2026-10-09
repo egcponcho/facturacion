@@ -28,6 +28,7 @@ import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtNum, useSeleccion } from '@/nucleo/utils'
 import { filasDefecto } from '@/stores/preferencias'
+import { confirmar } from '@/stores/confirmar'
 
 // Arancel: países destino (con sus dígitos), subpartidas SAC y códigos
 // nacionales con las condiciones que los eligen. Todo editable, con carga
@@ -161,7 +162,7 @@ async function guardarCodigo() {
   }
 }
 async function borrarSeleccion() {
-  if (!window.confirm(t('Delete {0} national codes? Products already approved keep their codes.', [sel.ids.size]))) return
+  if (!(await confirmar(t('Delete {0} national codes? Products already approved keep their codes.', [sel.ids.size]), { boton: t('Delete'), peligro: true }))) return
   try {
     const r = await api.post('/aranceles/codigos/borrar', { ids: sel.lista() })
     avisar(t('{0} codes deleted.', [r.borrados]))
@@ -221,7 +222,8 @@ async function guardarNota() {
   }
 }
 async function borrarNota(n) {
-  if (!confirm(n.oficial ? t('Deactivate official note {0} {1}? It stays in the official tariff.', [n.codigo, n.numero]) : t('Delete note {0} {1}?', [n.codigo, n.numero]))) return
+  if (!(await confirmar(n.oficial ? t('Deactivate official note {0} {1}? It stays in the official tariff.', [n.codigo, n.numero]) : t('Delete note {0} {1}?', [n.codigo, n.numero]),
+    { boton: n.oficial ? t('Deactivate') : t('Delete'), peligro: true }))) return
   try {
     await api.del(`/aranceles/notas/${n.id}`)
     cargarNotas()
@@ -249,7 +251,7 @@ async function guardarSac() {
   }
 }
 async function borrarSac(x) {
-  if (!window.confirm(t('Remove the custom text of {0} and go back to the official one?', [x.codigo_txt]))) return
+  if (!(await confirmar(t('Remove the custom text of {0} and go back to the official one?', [x.codigo_txt]), { boton: t('Use the official text') }))) return
   try {
     await api.del(`/aranceles/sac/${x.id}`)
     cargarSac()
@@ -285,7 +287,7 @@ async function guardarPais() {
   }
 }
 async function borrarPais(p) {
-  if (!window.confirm(t('Delete {0}?', [p.nombre]))) return
+  if (!(await confirmar(t('Delete {0}?', [p.nombre]), { boton: t('Delete'), peligro: true }))) return
   try {
     await api.del(`/aranceles/paises/${p.id}`)
     cargarBase()
@@ -409,7 +411,7 @@ watch(() => fs.size, recargarS)
       <table class="tabla" v-tarjetas>
         <thead>
           <tr>
-            <th v-if="edita" class="check"><input type="checkbox" :aria-label="t('Select all')" :checked="sel.todos(codigos.items.map((x) => x.id))" @change="sel.alternarTodos(codigos.items.map((x) => x.id))" /></th>
+            <th v-if="edita" class="chk"><input type="checkbox" :aria-label="t('Select all')" :checked="sel.todos(codigos.items.map((x) => x.id))" @change="sel.alternarTodos(codigos.items.map((x) => x.id))" /></th>
             <ThOrden campo="pais" :orden="fc.orden" @ordenar="(c) => { fc.orden = siguienteOrden(fc.orden, c); recargarC() }">{{ t('Country') }}</ThOrden>
             <ThOrden campo="codigo" :orden="fc.orden" @ordenar="(c) => { fc.orden = siguienteOrden(fc.orden, c); recargarC() }">{{ t('National code') }}</ThOrden>
             <th>{{ t('Description') }}</th>
@@ -421,7 +423,7 @@ watch(() => fs.size, recargarS)
         </thead>
         <tbody>
           <tr v-for="x in codigos.items" :key="x.id" :class="{ seleccionada: sel.tiene(x.id), apagada: !x.activo }">
-            <td v-if="edita" class="check"><input type="checkbox" :aria-label="t('Select {0}', [x.codigo_txt])" :checked="sel.tiene(x.id)" @change="sel.alternar(x.id)" /></td>
+            <td v-if="edita" class="chk"><input type="checkbox" :aria-label="t('Select {0}', [x.codigo_txt])" :checked="sel.tiene(x.id)" @change="sel.alternar(x.id)" /></td>
             <td class="fuerte">{{ tx(x.pais) }}</td>
             <td><span class="codigo-sac">{{ fmtPais(x.codigo, digitosDe(x.pais)) }}</span><span class="sub" :title="tx(x.sac)">{{ tx(x.sac ? x.sac.slice(0, 70) + (x.sac.length > 70 ? '…' : '') : '') }}</span></td>
             <td style="min-width: 220px">
@@ -470,7 +472,7 @@ watch(() => fs.size, recargarS)
               <details v-if="x.custom" class="oficial-txt"><summary>{{ t('Official text') }}</summary>{{ tx(x.descripcion_oficial) }}</details></td>
             <td class="num"><button v-if="x.nacionales" type="button" class="enlace" @click="verCodigosDe(x)">{{ tx(x.nacionales) }}</button><span v-else class="apagado">—</span></td>
             <td><span class="etiqueta" :class="x.custom ? 'acento' : 'ok'">{{ tx(x.custom ? t('Custom over official') : t('Official')) }}</span></td>
-            <td v-if="edita" class="num" style="white-space: nowrap">
+            <td v-if="edita" class="num nowrap">
               <button class="btn-icono" :aria-label="t('Edit {0}', [x.codigo_txt])" @click="modal = { tipo: 'sac', ...x, motivo: '' }"><Icono nombre="editar" :tam="16" /></button>
               <button v-if="x.custom" class="btn-icono" :title="t('Back to the official text')" :aria-label="t('Back to the official text')" @click="borrarSac(x)"><Icono nombre="historial" :tam="16" /></button>
             </td>
@@ -489,7 +491,7 @@ watch(() => fs.size, recargarS)
         <div><h2>{{ tx(p.iso) }} · {{ tx(p.nombre) }}</h2><p>{{ t('{0}-digit national codes{1}', [(p.longitudes?.length ? p.longitudes : [p.digitos]).join(' / '), p.mcca ? t(' · Central American Common Market') : '']) }}</p></div>
         <span v-if="!p.activo" class="etiqueta">{{ t('Inactive') }}</span>
       </div>
-      <div class="doc-meta" style="margin-top: 0">
+      <div class="doc-meta mt-0">
         <span>{{ t('Codes loaded') }} <b>{{ fmtNum(p.codigos) }}</b></span>
         <span v-if="p.impuesto">{{ t('Tax') }} <b>{{ tx(p.impuesto) }}</b></span>
       </div>
@@ -502,7 +504,7 @@ watch(() => fs.size, recargarS)
         <template v-if="edita">
           <button class="btn btn-chico" @click="cargarPais(p)"><Icono nombre="importar" :tam="14" />{{ t('Upload codes') }}</button>
           <button class="btn btn-chico btn-fantasma" @click="modal = { tipo: 'pais', ...p, longitudes_txt: (p.longitudes || []).join(', ') }"><Icono nombre="editar" :tam="14" />{{ t('Edit') }}</button>
-          <button v-if="!p.codigos" class="btn btn-chico btn-fantasma" style="color: var(--error)" @click="borrarPais(p)"><Icono nombre="basura" :tam="14" />{{ t('Delete') }}</button>
+          <button v-if="!p.codigos" class="btn btn-chico btn-fantasma texto-error" @click="borrarPais(p)"><Icono nombre="basura" :tam="14" />{{ t('Delete') }}</button>
         </template>
       </div>
     </article>
@@ -516,8 +518,8 @@ watch(() => fs.size, recargarS)
       <label class="campo"><span class="req">{{ t('Code ({0} digits)', [longitudesDe(modal.pais).join(' / ')]) }}</span><input v-model="modal.codigo" class="entrada" :disabled="modal.oficial" :placeholder="tx('0'.repeat(digitosDe(modal.pais)))" /></label>
       <label class="campo"><span>{{ t('Duty (DAI %)') }}</span><input v-model="modal.dai" class="entrada" :disabled="modal.oficial" /></label>
       <label class="campo"><span>{{ t('Priority') }}</span><input v-model="modal.prio" type="number" min="0" max="99" class="entrada" /></label>
-      <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Description') }}</span><input v-model="modal.descripcion" class="entrada" maxlength="300" /></label>
-      <label v-if="!modal.id" class="campo" style="grid-column: 1 / -1"><span class="req">{{ t('Official version it comes from') }}</span>
+      <label class="campo col-completa"><span>{{ t('Description') }}</span><input v-model="modal.descripcion" class="entrada" maxlength="300" /></label>
+      <label v-if="!modal.id" class="campo col-completa"><span class="req">{{ t('Official version it comes from') }}</span>
         <Seleccion v-model="modal.version" class="entrada"><option value="">{{ t('Choose…') }}</option>
           <option v-for="v in versionesDe(modal.pais)" :key="v.codigo" :value="v.codigo">{{ tx(v.texto) }}{{ v.fuente ? ` · ${v.fuente}` : '' }}</option></Seleccion>
         <small class="ayuda">{{ t('National lines are official data: they are created only from a published source and version. Your own preferences go to the company history.') }}</small></label>
@@ -557,7 +559,7 @@ watch(() => fs.size, recargarS)
   </Modal>
 
   <section v-if="vista === 'notas'">
-    <p class="ayuda" style="margin-top: 0">{{ t('General rules of interpretation and the section, chapter and subheading notes of the SAC (HS 2022) for the chapters used by the classification: exclusions, definitions and priority rules. The classification panel shows the ones that apply to the suggested code, starting with the ones that concern the product, and the specialist opinion reads them. Load the official text in force with') }} <b>{{ t('Upload official text') }}</b>.</p>
+    <p class="ayuda mt-0">{{ t('General rules of interpretation and the section, chapter and subheading notes of the SAC (HS 2022) for the chapters used by the classification: exclusions, definitions and priority rules. The classification panel shows the ones that apply to the suggested code, starting with the ones that concern the product, and the specialist opinion reads them. Load the official text in force with') }} <b>{{ t('Upload official text') }}</b>.</p>
     <div class="filtros" v-filtros>
       <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fn.q" type="search" :placeholder="t('Text, chapter or number')" :aria-label="t('Search notes')" @input="buscarN" /></label>
       <FiltroMulti v-model="fn.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="cargarNotas" />
@@ -580,9 +582,9 @@ watch(() => fs.size, recargarS)
             <td class="envolver" style="min-width: 420px; line-height: 1.45">{{ tx(n.texto) }}
               <details v-if="n.texto_oficial" class="oficial-txt"><summary>{{ t('Official text') }}</summary>{{ tx(n.texto_oficial) }}</details></td>
             <td>{{ tx(n.capitulos.length ? n.capitulos.join(', ') : t('All')) }}</td>
-            <td v-if="edita" class="num" style="white-space: nowrap">
+            <td v-if="edita" class="num nowrap">
               <button class="btn-icono" :aria-label="t('Edit note {0} {1}', [n.codigo, n.numero])" @click="modal = { tipo: 'nota', ...n, capitulos_txt: n.capitulos.join(', ') }"><Icono nombre="editar" :tam="16" /></button>
-              <button class="btn-icono" style="color: var(--error)" :aria-label="t('Delete note {0} {1}', [n.codigo, n.numero])" @click="borrarNota(n)"><Icono nombre="basura" :tam="16" /></button>
+              <button class="btn-icono texto-error" :aria-label="t('Delete note {0} {1}', [n.codigo, n.numero])" @click="borrarNota(n)"><Icono nombre="basura" :tam="16" /></button>
             </td>
           </tr>
           <tr v-if="!notas.items.length"><td colspan="4" class="vacio">{{ t('No notes match these filters.') }}</td></tr>
@@ -598,11 +600,11 @@ watch(() => fs.size, recargarS)
       <label class="campo"><span class="req">{{ t('Section or chapter') }}</span><input v-model="modal.codigo" class="entrada" maxlength="10" :placeholder="t('64, XI or RGI')" /></label>
       <label class="campo"><span>{{ t('Note number') }}</span><input v-model="modal.numero" class="entrada" maxlength="20" placeholder="4" /></label>
       <label class="campo"><span>{{ t('Applies to chapters') }}</span><input v-model="modal.capitulos_txt" class="entrada" :placeholder="t('64 (empty = all)')" /></label>
-      <label class="campo" style="grid-column: 1 / -1"><span class="req">{{ t('Text') }}</span><textarea v-model="modal.texto" class="entrada" rows="6" maxlength="4000"></textarea></label>
-      <label class="check" style="grid-column: 1 / -1"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active: used by the classification') }}</span></label>
+      <label class="campo col-completa"><span class="req">{{ t('Text') }}</span><textarea v-model="modal.texto" class="entrada" rows="6" maxlength="4000"></textarea></label>
+      <label class="check col-completa"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active: used by the classification') }}</span></label>
       <template v-if="modal.oficial">
-        <p class="ayuda" style="grid-column: 1 / -1">{{ t('This is an official note: its text is never replaced. Your change is saved as a custom layer with its reason, and you can go back to the official text.') }}</p>
-        <label class="campo" style="grid-column: 1 / -1"><span class="req">{{ t('Reason') }}</span><input v-model="modal.motivo" class="entrada" maxlength="300" /></label>
+        <p class="ayuda col-completa">{{ t('This is an official note: its text is never replaced. Your change is saved as a custom layer with its reason, and you can go back to the official text.') }}</p>
+        <label class="campo col-completa"><span class="req">{{ t('Reason') }}</span><input v-model="modal.motivo" class="entrada" maxlength="300" /></label>
       </template>
     </div>
     <template #pie>
@@ -638,8 +640,8 @@ watch(() => fs.size, recargarS)
       <label class="campo"><span>{{ t('Context') }}</span><input v-model="modal.contexto" class="entrada" maxlength="120" /></label>
       <label class="campo"><span>{{ t('Official source') }}</span>
         <Seleccion v-model="modal.fuente" class="entrada"><option value="">—</option><option v-for="f in meta.fuentes_oficiales || []" :key="f.codigo" :value="f.codigo">{{ tx(f.texto) }}</option></Seleccion></label>
-      <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Legal basis') }}</span><input v-model="modal.base_legal" class="entrada" maxlength="300" :placeholder="t('Tariff and rule that puts it in force')" /></label>
-      <label class="campo" style="grid-column: 1 / -1"><span>{{ t('Note') }}</span><input v-model="modal.nota" class="entrada" maxlength="300" /></label>
+      <label class="campo col-completa"><span>{{ t('Legal basis') }}</span><input v-model="modal.base_legal" class="entrada" maxlength="300" :placeholder="t('Tariff and rule that puts it in force')" /></label>
+      <label class="campo col-completa"><span>{{ t('Note') }}</span><input v-model="modal.nota" class="entrada" maxlength="300" /></label>
     </div>
     <label class="check mt-chico"><input v-model="modal.mcca" type="checkbox" /><span>{{ t('Central American Common Market (shares the SAC codes up to 8–10 digits)') }}</span></label>
     <label class="check mt-chico"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active: technical sheets ask for its national code') }}</span></label>

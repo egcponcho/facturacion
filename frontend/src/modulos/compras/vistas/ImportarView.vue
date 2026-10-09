@@ -120,7 +120,7 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
 
   <template v-if="previa">
     <h2 class="mt">{{ t('2. Review the result') }}</h2>
-    <p class="ayuda" style="margin-bottom: 12px">{{ t('{0} · {1} rows. Click a group to filter.', [previa.archivo, previa.resumen.total]) }}</p>
+    <p class="ayuda mb-3">{{ t('{0} · {1} rows. Click a group to filter.', [previa.archivo, previa.resumen.total]) }}</p>
     <div class="etapas">
       <button v-for="(info, clave) in ESTADOS" :key="clave" type="button" class="etapa" :aria-pressed="filtro === clave" @click="filtro = filtro === clave ? '' : clave">
         <span class="fila-flex"><span class="estado" :class="`estado-${info[1]}`"><span class="estado-marca"></span>{{ tx(info[0]) }}</span></span>

@@ -185,7 +185,7 @@ const disponibles = computed(() => catalogo.value.filter((p) => !filas.value.lis
 .quitados .etiqueta { cursor: pointer; border: 0; text-decoration: line-through; }
 .agregar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .agregar :deep(.sb) { min-width: 240px; }
-@media (max-width: 560px) {
+@media (max-width: 600px) {
   .paso { grid-template-columns: auto 1fr; }
   .acciones { grid-column: 1 / -1; }
 }

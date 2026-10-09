@@ -9,6 +9,7 @@ import BusquedaGlobal from '@/componentes/BusquedaGlobal.vue'
 import SelectorIdioma from '@/componentes/SelectorIdioma.vue'
 import SelectorTema from '@/componentes/SelectorTema.vue'
 import Toasts from '@/componentes/Toasts.vue'
+import Confirmacion from '@/componentes/Confirmacion.vue'
 import { carrito } from '@/stores/carrito'
 import { cargarSesion, cerrarSesion, elegirProveedor, eligeProveedor, puede, sesion } from '@/stores/sesion'
 import { errorApi, ui } from '@/stores/ui'
@@ -198,6 +199,7 @@ async function volverAMiOrganizacion() {
   </div>
   <router-view v-else-if="route.name === 'login' || route.meta.sinMarco" />
   <Toasts />
+  <Confirmacion />
 </template>
 
 <style scoped>

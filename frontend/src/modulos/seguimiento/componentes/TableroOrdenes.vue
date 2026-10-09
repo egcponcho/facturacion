@@ -101,7 +101,7 @@ onMounted(cargar)
 </script>
 
 <template>
-  <section class="kpis" style="margin-bottom: 16px">
+  <section class="kpis mb-4">
     <Kpi :titulo="t('Purchase orders')" :valor="datos.kpis.ocs" icono="ordenes" :detalle="t('{0}% invoiced', [fmtNum(datos.kpis.avance || 0, 1)])" @abrir="emit('filtrar', {})" />
     <Kpi :titulo="t('Released')" :valor="datos.kpis.liberadas" icono="check" tono="exito" :detalle="t('can be invoiced')" @abrir="emit('filtrar', {})" />
     <Kpi :titulo="t('Not released')" :valor="datos.kpis.sin_liberar" icono="candado" :tono="datos.kpis.sin_liberar ? 'alerta' : 'exito'"
@@ -112,7 +112,7 @@ onMounted(cargar)
          :detalle="t('port arrival after the port deadline')" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
   </section>
 
-  <section class="panel" style="margin-bottom: 16px">
+  <section class="panel mb-4">
     <div class="panel-cabeza">
       <div><h2>{{ t('POs by status') }}</h2><p>{{ t('From release to receipt. Click a status to filter the table.') }}</p></div>
       <div class="fila-flex">
@@ -165,7 +165,7 @@ onMounted(cargar)
           </td>
           <td v-if="cols.ver('sociedad')" class="codigo">{{ tx(o.sociedad) }} · {{ tx(o.centro) }}<span class="sub">{{ t('destination {0}', [o.centro_destino || '—']) }}</span></td>
           <td v-if="cols.ver('liberaciones')">
-            <span class="insignias columna" style="margin-top: 0">
+            <span class="insignias columna mt-0">
               <span class="etiqueta" :class="o.comercial_ok ? 'ok' : 'aviso'" :title="o.liberacion_comercial">{{ tx(o.comercial_txt) }}</span>
               <span class="etiqueta" :class="o.logistica_ok ? 'ok' : 'aviso'" :title="o.liberacion_logistica">{{ tx(o.liberacion_txt) }}</span>
             </span>
@@ -179,11 +179,11 @@ onMounted(cargar)
             <span class="sub">{{ t('{0}% invoiced · {1} {2}', [fmtNum(o.avance, 0), fmtNum(o.total), o.unidades.join('/')]) }}</span>
           </td>
           <td v-if="cols.ver('por_facturar')" class="num">{{ fmtNum(o.por_facturar) }}</td>
-          <td v-if="cols.ver('xf')">{{ fmtFecha(o.fecha_xf) }}<span v-if="o.xf_vencida" class="sub" style="color: var(--error)">overdue</span></td>
+          <td v-if="cols.ver('xf')">{{ fmtFecha(o.fecha_xf) }}<span v-if="o.xf_vencida" class="sub texto-error">overdue</span></td>
           <td v-if="cols.ver('tienda')">{{ fmtFecha(o.fecha_tienda) }}<span class="sub">{{ diasTxt(o.dias_tienda) }}</span></td>
           <td v-if="cols.ver('tienda_estimada')"><FechaTienda :fecha="o.tienda_estimada" :dias="o.dias_vs_tienda" /></td>
           <td v-if="cols.ver('holgura')">
-            <span v-if="o.riesgo" class="etiqueta" :class="RIESGOS[o.riesgo][1]" style="margin-inline-start: 0">{{ tx(RIESGOS[o.riesgo][0]) }}</span>
+            <span v-if="o.riesgo" class="etiqueta ms-0" :class="RIESGOS[o.riesgo][1]">{{ tx(RIESGOS[o.riesgo][0]) }}</span>
             <span v-if="o.holgura != null" class="sub">{{ tx(o.holgura < 0 ? t('{0} d late', [-o.holgura]) : t('{0} d margin', [o.holgura])) }}</span>
           </td>
           <td v-if="cols.ver('embarques')" class="codigo">{{ tx(o.embarques.join(', ') || '—') }}</td>
@@ -210,7 +210,7 @@ onMounted(cargar)
                       </td>
                       <td v-if="ve('codigos_internos')">{{ tx(l.almacen || '—') }}</td>
                       <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
-                      <td><span class="etiqueta" :class="ETAPAS[l.etapa]?.[1]" style="margin-inline-start: 0">{{ tx(ETAPAS[l.etapa]?.[0] || l.etapa) }}</span></td>
+                      <td><span class="etiqueta ms-0" :class="ETAPAS[l.etapa]?.[1]">{{ tx(ETAPAS[l.etapa]?.[0] || l.etapa) }}</span></td>
                       <td>
                         <router-link v-if="l.factura_id" :to="`/facturas/${l.factura_id}`">{{ tx(l.factura) }}</router-link>
                         <span v-else class="ayuda">—</span>
@@ -226,7 +226,7 @@ onMounted(cargar)
                       </td>
                       <td>{{ fmtFecha(l.arribo_real || l.eta) }}<span v-if="l.arribo_real" class="sub">{{ t('actual') }}</span></td>
                       <td v-if="ve('fechas_internas')">
-                        <span v-if="l.riesgo" class="etiqueta" :class="RIESGOS[l.riesgo][1]" style="margin-inline-start: 0">{{ tx(l.holgura < 0 ? t('{0} d late', [-l.holgura]) : `${l.holgura} d`) }}</span>
+                        <span v-if="l.riesgo" class="etiqueta ms-0" :class="RIESGOS[l.riesgo][1]">{{ tx(l.holgura < 0 ? t('{0} d late', [-l.holgura]) : `${l.holgura} d`) }}</span>
                         <span v-else class="ayuda">—</span>
                       </td>
                     </tr>

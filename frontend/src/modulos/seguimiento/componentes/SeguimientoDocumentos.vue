@@ -103,7 +103,7 @@ onMounted(cargar)
     <BotonesExportar class="separar" ruta="/seguimiento/documentos/exportar" :params="paramsExportar" />
   </div>
 
-  <section class="kpis" style="margin-bottom: 16px">
+  <section class="kpis mb-4">
     <Kpi :titulo="t('Invoices')" :valor="datos.kpis.facturas" icono="factura" :detalle="tx(importeTxt)" @abrir="filtrar({})" />
     <Kpi :titulo="t('Open invoices')" :valor="datos.kpis.facturas_abiertas" icono="editar" :tono="datos.kpis.facturas_abiertas ? 'alerta' : 'exito'"
          :detalle="t('draft or in correction')" @abrir="filtrar({ estado_factura: 'BORRADOR' })" />
@@ -112,7 +112,7 @@ onMounted(cargar)
     <Kpi :titulo="t('With pending data')" :valor="datos.kpis.con_pendientes" icono="alerta" :tono="datos.kpis.con_pendientes ? 'alerta' : 'exito'"
          :detalle="t('needed to finalize')" @abrir="filtrar({ con_pendientes: true })" />
   </section>
-  <div class="dos-columnas" style="margin-bottom: 16px">
+  <div class="dos-columnas mb-4">
     <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('Documents by step') }}</h2><p>{{ t('From open invoice to received.') }}</p></div></div>
       <GraficoColumnas :datos="grafica" :titulo="t('Packing lists and invoices by step')" />
@@ -171,7 +171,7 @@ onMounted(cargar)
           <td style="min-width: 100px"><Avance v-if="f.pl_id" :porcentaje="f.avance" /><span v-else class="ayuda">—</span></td>
           <td class="num">{{ fmtNum(f.cajas) }}<template v-if="f.pallets"> {{ t('· {0} pallets', [f.pallets]) }}</template><span class="sub">{{ t('{0} kg · {1} m³', [fmtNum(f.peso_bruto, 1), fmtNum(f.cbm, 2)]) }}</span></td>
           <td class="num"><span v-if="f.pendientes" class="etiqueta aviso">{{ tx(f.pendientes) }}</span><span v-else class="ayuda">0</span></td>
-          <td><span class="etiqueta" :class="TONO[f.etapa]" style="margin-inline-start: 0">{{ tx(nombreEtapa[f.etapa] || f.etapa) }}</span></td>
+          <td><span class="etiqueta ms-0" :class="TONO[f.etapa]">{{ tx(nombreEtapa[f.etapa] || f.etapa) }}</span></td>
           <td class="ajustar">
             <template v-if="f.embarque_id">
               <span class="codigo">{{ tx(f.contenedor) }}</span>

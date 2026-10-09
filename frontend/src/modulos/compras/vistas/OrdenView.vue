@@ -11,6 +11,7 @@ import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import EstadoVacio from '@/componentes/EstadoVacio.vue'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
+import { confirmar } from '@/stores/confirmar'
 
 // Detalle de la orden de compra (solo lectura): su estado, lo acordado, las
 // líneas, el avance logístico, las aprobaciones y el historial. Se edita en el
@@ -81,7 +82,7 @@ const ACCION = {
 function abrir(accion) {
   modal.value = { accion, motivo: '' }
 }
-async function confirmar() {
+async function ejecutarAccion() {
   const { accion, motivo } = modal.value
   ocupado.value = true
   try {
@@ -100,7 +101,7 @@ async function confirmar() {
   }
 }
 async function eliminar() {
-  if (!window.confirm(t('Delete draft PO {0}? This cannot be undone.', [oc.value.numero]))) return
+  if (!(await confirmar(t('Delete draft PO {0}? This cannot be undone.', [oc.value.numero]), { boton: t('Delete draft'), peligro: true }))) return
   ocupado.value = true
   try {
     await api.del(`/ordenes/${props.id}`)
@@ -327,7 +328,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
       <textarea v-model="modal.motivo" class="entrada" rows="3" maxlength="500"></textarea></label>
     <template #pie>
       <button type="button" class="btn" @click="modal = null">{{ t('Back') }}</button>
-      <button type="button" class="btn" :class="ACCION[modal.accion].clase" :disabled="ocupado || (ACCION[modal.accion].motivo && !modal.motivo.trim())" @click="confirmar">
+      <button type="button" class="btn" :class="ACCION[modal.accion].clase" :disabled="ocupado || (ACCION[modal.accion].motivo && !modal.motivo.trim())" @click="ejecutarAccion">
         {{ tx(ACCION[modal.accion].boton) }}</button>
     </template>
   </Modal>

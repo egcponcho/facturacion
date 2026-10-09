@@ -7,6 +7,7 @@ import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import FiltroMulti from '@/componentes/FiltroMulti.vue'
 import Modal from '@/componentes/Modal.vue'
+import PanelLateral from '@/componentes/PanelLateral.vue'
 import Avatar from '@/componentes/Avatar.vue'
 import MenuAcciones from '@/componentes/MenuAcciones.vue'
 import PanelFlujo from '@/modulos/acceso/componentes/PanelFlujo.vue'
@@ -213,10 +214,10 @@ onMounted(cargar)
               <span v-if="r.datos_ocultos?.length" class="sub aviso-texto"><Icono nombre="ojo" :tam="13" /> {{ t('Does not see: {0}', [gruposDatos.filter((g) => r.datos_ocultos.includes(g.clave)).map((g) => tx(g.etiqueta)).join(' · ')]) }}</span>
             </td>
             <td class="num">{{ tx(r.usuarios) }}</td>
-            <td><span class="etiqueta" :class="r.activo ? 'ok' : ''" style="margin-inline-start: 0">{{ tx(r.activo ? t('Active') : t('Inactive')) }}</span></td>
+            <td><span class="etiqueta ms-0" :class="r.activo ? 'ok' : ''">{{ tx(r.activo ? t('Active') : t('Inactive')) }}</span></td>
             <td class="fila-flex">
               <button class="btn btn-chico" @click="abrirRol(r)"><Icono nombre="editar" :tam="14" />{{ t('Edit') }}</button>
-              <button class="btn-icono" style="color: var(--error)" :disabled="r.usuarios > 0" :title="tx(r.usuarios ? t('Assign its users another role first') : t('Delete role'))" :aria-label="t('Delete role {0}', [r.nombre])" @click="borrarRol(r)"><Icono nombre="basura" :tam="15" /></button>
+              <button class="btn-icono texto-error" :disabled="r.usuarios > 0" :title="tx(r.usuarios ? t('Assign its users another role first') : t('Delete role'))" :aria-label="t('Delete role {0}', [r.nombre])" @click="borrarRol(r)"><Icono nombre="basura" :tam="15" /></button>
             </td>
           </tr>
         </tbody>
@@ -235,17 +236,17 @@ onMounted(cargar)
         <tbody>
           <tr v-for="u in usuarios" :key="u.id">
             <td><span class="usuario-fila"><Avatar :nombre="u.nombre" :foto="u.foto" :tam="30" /><span>{{ tx(u.nombre) }}<span class="sub">{{ tx([u.cargo, u.area].filter(Boolean).join(' · ')) }}</span>
-              <span v-if="u.clave_temporal" class="etiqueta aviso" style="margin-inline-start: 0">{{ t('Temporary password') }}</span></span></span></td>
+              <span v-if="u.clave_temporal" class="etiqueta aviso ms-0">{{ t('Temporary password') }}</span></span></span></td>
             <td>{{ tx(u.email) }}</td>
             <td>{{ tx(u.rol_nombre || '—') }}<span v-if="tx(u.rol_nombre) !== tx(ALCANCE[u.rol])" class="sub">{{ tx(ALCANCE[u.rol]) }}</span></td>
             <td>{{ tx(u.proveedor || t('Internal')) }}</td>
             <td>
               <span v-if="u.telefono" class="codigo">{{ tx(u.telefono) }}</span>
-              <span v-else class="etiqueta aviso" style="margin-inline-start: 0">{{ t('Not registered') }}</span>
+              <span v-else class="etiqueta aviso ms-0">{{ t('Not registered') }}</span>
               <span class="sub">{{ tx(u.dos_pasos ? t('With SMS code') : t('Password only')) }}</span>
             </td>
             <td>
-              <span class="etiqueta" :class="u.activo ? 'ok' : ''" style="margin-inline-start: 0">{{ tx(u.activo ? t('Active') : t('Inactive')) }}</span>
+              <span class="etiqueta ms-0" :class="u.activo ? 'ok' : ''">{{ tx(u.activo ? t('Active') : t('Inactive')) }}</span>
               <span class="sub" :title="t('Last sign-in')">{{ tx(u.ultimo_acceso ? fmtFechaHora(u.ultimo_acceso) : t('Never signed in')) }}</span>
               <span v-if="u.bloqueado" class="etiqueta error" :title="t('Too many failed attempts. Resetting the password unlocks it.')">{{ t('Locked') }}</span>
               <span v-if="u.plataforma" class="etiqueta info" :title="t('Creates organizations, enters any of them and maintains the shared reference data')">{{ t('Platform') }}</span>
@@ -298,7 +299,7 @@ onMounted(cargar)
       <button class="btn btn-primario" type="submit" form="form-usuario">{{ t('Create user') }}</button>
     </template>
   </Modal>
-  <Modal v-if="modal?.tipo === 'rol'" :titulo="tx(modal.id ? t('Role: {0}', [modal.nombre]) : t('New role'))" ancho="860px" @cerrar="modal = null">
+  <PanelLateral v-if="modal?.tipo === 'rol'" :titulo="tx(modal.id ? t('Role: {0}', [modal.nombre]) : t('New role'))" ancho="860px" @cerrar="modal = null">
     <form id="form-rol" class="rol-form" @submit.prevent="guardarRol">
       <div class="rejilla-campos">
         <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="modal.nombre" required maxlength="80" /></label>
@@ -340,7 +341,7 @@ onMounted(cargar)
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" type="submit" form="form-rol">{{ t('Save role') }}</button>
     </template>
-  </Modal>
+  </PanelLateral>
   <Modal v-if="modal?.tipo === 'rol-usuario'" :titulo="t('Role for {0}', [modal.usuario.email])" @cerrar="modal = null">
     <form id="form-rol-usuario" class="rejilla-campos" @submit.prevent="guardarRolUsuario">
       <label class="campo"><span class="req">{{ t('Role') }}</span>

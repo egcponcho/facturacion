@@ -5,6 +5,7 @@ import { puede } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
 import { fmtFechaHora } from '@/nucleo/utils'
 import Icono from './Icono.vue'
+import { confirmar } from '@/stores/confirmar'
 
 // Aviso de edición exclusiva: quién edita el documento (los demás lo ven en
 // solo lectura) o que la edición propia se pausó por inactividad.
@@ -17,7 +18,7 @@ const props = defineProps({
 const emit = defineEmits(['liberado', 'continuar'])
 
 async function liberar() {
-  if (!window.confirm(t('{0} will lose any changes they have not saved. Release it?', [props.edicion.usuario]))) return
+  if (!(await confirmar(t('{0} will lose any changes they have not saved. Release it?', [props.edicion.usuario]), { boton: t('Release'), peligro: true }))) return
   try {
     await api.del(`/edicion/${props.entidad}/${props.id}?forzar=true`)
     emit('liberado')

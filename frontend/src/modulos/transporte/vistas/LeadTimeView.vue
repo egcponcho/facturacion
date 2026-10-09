@@ -207,7 +207,7 @@ const totalDias = computed(() => linea.value.max - linea.value.min)
 .hist s { color: var(--tinta-3); }
 .dia { font-variant-numeric: tabular-nums; font-size: 0.85rem; color: var(--tinta-2); white-space: nowrap; }
 .origen { font-size: 0.75rem; font-weight: 650; color: var(--c); padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--c) 12%, transparent); white-space: nowrap; }
-@media (max-width: 640px) {
+@media (max-width: 600px) {
   .pasos li { grid-template-columns: auto 1fr; }
   .dia, .origen { grid-column: 2; justify-self: start; }
   .linea { margin-inline: 30px; }

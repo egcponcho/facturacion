@@ -181,7 +181,7 @@ onMounted(cargar)
 .avisos li span { flex: 1; }
 .acciones-resumen { display: flex; justify-content: flex-end; margin: -6px 0 12px; }
 .vacio-panel { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 18px; border: 1px dashed var(--linea); border-radius: var(--radio); }
-@media (max-width: 520px) {
+@media (max-width: 600px) {
   .cifras { grid-template-columns: repeat(2, 1fr); }
 }
 </style>

@@ -109,18 +109,18 @@ async function cambiarClave() {
         <div class="portada-texto">
           <h1>{{ tx(perfil.nombre) }}</h1>
           <p v-if="subtitulo" class="portada-sub">{{ tx(subtitulo) }}</p>
-          <div class="chips">
-            <span class="chip"><Icono nombre="candado" :tam="13" />{{ tx(perfil.rol_nombre || '—') }}</span>
-            <span class="chip"><Icono nombre="usuarios" :tam="13" />{{ tx(perfil.proveedor || ALCANCE[perfil.rol]) }}</span>
-            <span class="chip" :class="perfil.dos_pasos ? 'ok' : ''"><Icono nombre="check" :tam="13" />{{ tx(perfil.dos_pasos ? t('Two-step verification on') : t('Password only')) }}</span>
+          <div class="fila-flex perfil-etiquetas">
+            <span class="etiqueta ms-0"><Icono nombre="candado" :tam="13" />{{ tx(perfil.rol_nombre || '—') }}</span>
+            <span class="etiqueta ms-0"><Icono nombre="usuarios" :tam="13" />{{ tx(perfil.proveedor || ALCANCE[perfil.rol]) }}</span>
+            <span class="etiqueta ms-0" :class="perfil.dos_pasos ? 'ok' : ''"><Icono nombre="check" :tam="13" />{{ tx(perfil.dos_pasos ? t('Two-step verification on') : t('Password only')) }}</span>
           </div>
         </div>
         <div class="portada-acciones">
           <button v-if="perfil.foto" type="button" class="btn btn-chico" @click="quitarFoto">{{ t('Remove photo') }}</button>
         </div>
       </div>
-      <nav class="perfil-tabs" :aria-label="t('Profile sections')">
-        <button v-for="[k, txt, ic] in SECCIONES" :key="k" type="button" :aria-pressed="seccion === k" @click="seccion = k"><Icono :nombre="ic" :tam="15" />{{ tx(txt) }}</button>
+      <nav class="pestanas perfil-pestanas" role="tablist" :aria-label="t('Profile sections')">
+        <button v-for="[k, txt, ic] in SECCIONES" :key="k" type="button" class="pestana" role="tab" :aria-selected="seccion === k" @click="seccion = k"><Icono :nombre="ic" :tam="15" />{{ tx(txt) }}</button>
       </nav>
     </section>
 
@@ -212,14 +212,9 @@ async function cambiarClave() {
 .portada-texto { flex: 1; min-width: 220px; margin-top: 62px; }
 .portada-texto h1 { margin: 0; font-size: 1.6rem; }
 .portada-sub { margin: 2px 0 8px; color: var(--tinta-2); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px; background: var(--superficie-2); border: 1px solid var(--linea-suave); font-size: 0.8rem; color: var(--tinta-2); }
-.chip.ok { color: var(--ok); }
+.perfil-etiquetas { gap: 6px; }
 .portada-acciones { margin-top: 62px; }
-.perfil-tabs { display: flex; gap: 4px; padding: 0 16px; border-top: 1px solid var(--linea-suave); overflow-x: auto; }
-.perfil-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 12px 12px; border: 0; border-bottom: 2px solid transparent; background: none;
-  color: var(--tinta-2); font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.perfil-tabs button[aria-pressed='true'] { color: var(--acento-texto); border-bottom-color: var(--acento); }
+.perfil-pestanas { margin: 0; padding: 0 16px; border-bottom: 0; border-top: 1px solid var(--linea-suave); }
 .dato-fijo span { display: inline-flex; align-items: center; gap: 4px; }
 .valor-fijo { padding: 9px 12px; border: 1px dashed var(--linea); border-radius: var(--radio); background: var(--superficie-2); color: var(--tinta-2); min-height: 40px; overflow-wrap: anywhere; }
 .campo-ancho { grid-column: 1 / -1; }

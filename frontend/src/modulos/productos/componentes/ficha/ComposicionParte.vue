@@ -101,7 +101,7 @@ function pegar() {
 <template>
   <div ref="caja" class="cparte">
     <div class="chead">
-      <span class="lbl">{{ tx(props.campo.etiqueta) }}<span v-if="props.campo.modo === 'REQUIRE'" class="req-ast" aria-hidden="true">*</span><span v-else class="opcional"> {{ t('(optional)') }}</span></span>
+      <span class="lbl"><span :class="{ req: props.campo.modo === 'REQUIRE' }">{{ tx(props.campo.etiqueta) }}</span><span v-if="props.campo.modo !== 'REQUIRE'" class="opcional"> {{ t('(optional)') }}</span></span>
       <span v-if="props.filas.length && Math.abs(resto) < 0.05" class="est ok">{{ t('Total 100%') }}</span>
       <span v-else-if="props.filas.length && resto > 0" class="est pend">{{ t('Total {0}% · {1}% missing', [total, resto]) }}</span>
       <span v-else-if="props.filas.length" class="est mal">{{ t('Total {0}% · {1}% over', [total, -resto]) }}</span>
@@ -161,7 +161,6 @@ function pegar() {
 .cparte { border: 1px solid var(--linea); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; background: var(--superficie); }
 .chead { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
 .lbl { font-size: 0.86rem; font-weight: 620; }
-.req-ast { color: var(--error); font-weight: 700; margin-inline-start: 2px; }
 .opcional { font-weight: 400; color: var(--tinta-3); }
 .cmat { position: relative; display: block; min-width: 0; }
 .cmat input { width: 100%; padding-inline-end: 150px; }
