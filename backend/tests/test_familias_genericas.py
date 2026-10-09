@@ -3,11 +3,11 @@ familia nueva (vajilla) armada solo con un paquete Excel, sin tocar código."""
 import json
 
 from sqlalchemy import select
-
-from app.db import SessionLocal
-from app.models import ReglaClasificacion
 from test_oficial import _cargar
 from test_vocabulario import ATTRS, CONDS, REGLAS
+
+from app.core.db import SessionLocal
+from app.modelos import ReglaClasificacion
 
 
 def _sesion(api, **e):
@@ -17,8 +17,8 @@ def _sesion(api, **e):
 
 
 def test_family_rules_point_to_codes_of_the_tariff_in_force(interno):
-    from app.services.motor_clasificacion import codigos_invalidos
-    from app.services.semilla_familias import semilla
+    from app.modulos.clasificacion.motor_clasificacion import codigos_invalidos
+    from app.modulos.clasificacion.semilla_familias import semilla
 
     reglas = semilla()["reglas"]
     with SessionLocal() as db:

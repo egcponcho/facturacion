@@ -1,9 +1,9 @@
 """Cantidades con decimales: lo que se mide (kg, litros, metros) admite hasta 3
 decimales de punta a punta (OC → factura → packing list); lo que se cuenta
 (pares, unidades) sigue en enteros."""
-from app.db import SessionLocal
-from app.models import Factura, FacturaLinea, Historial, PackingList, PLLinea, PosicionOC, cant
-from app.services.unidades import error_cantidad
+from app.core.db import SessionLocal
+from app.modelos import Factura, FacturaLinea, Historial, PackingList, PLLinea, PosicionOC, cant
+from app.modulos.maestros.unidades import error_cantidad
 
 
 def test_reglas_por_unidad():

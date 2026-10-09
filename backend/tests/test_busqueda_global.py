@@ -30,8 +30,8 @@ def test_vacio_y_corto(interno):
 def test_proveedor_solo_ve_lo_suyo(interno, vans):
     from sqlalchemy import select
 
-    from app.db import SessionLocal
-    from app.models import OrdenCompra, Usuario
+    from app.core.db import SessionLocal
+    from app.modelos import OrdenCompra, Usuario
 
     with SessionLocal() as db:
         prov = db.scalar(select(Usuario.proveedor_id).where(Usuario.rol == "proveedor", Usuario.proveedor_id.is_not(None),

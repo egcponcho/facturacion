@@ -4,8 +4,8 @@ from datetime import date
 
 from sqlalchemy import select
 
-from app.db import SessionLocal
-from app.models import IncisoNacional, NotaSAC, ReglaImpuesto, Usuario, VersionDataset
+from app.core.db import SessionLocal
+from app.modelos import IncisoNacional, NotaSAC, ReglaImpuesto, Usuario, VersionDataset
 
 
 def _checks(api):

@@ -1,4 +1,4 @@
-"""Paridad de la lectura de composiciones: app/services/composicion.py frente a
+"""Paridad de la lectura de composiciones: app/modulos/clasificacion/composicion.py frente a
 lo que devolvía el antiguo clasificador del navegador (tests/paridad/composicion.json,
 casos fijados al retirarlo: son la referencia de regresión)."""
 import json
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.composicion import Lector
+from app.modulos.clasificacion.composicion import Lector
 
 DATOS = json.loads((Path(__file__).parent / "paridad/composicion.json").read_text(encoding="utf-8"))
 L = Lector(DATOS["sinonimos"])

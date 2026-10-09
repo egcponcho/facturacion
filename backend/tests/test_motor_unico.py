@@ -6,9 +6,9 @@ from datetime import date
 
 from sqlalchemy import select
 
-from app.db import SessionLocal
-from app.models import AtributoDef, ControlCapitulo, IncisoNacional, NodoArancel, PaisArancel, VersionDataset
-from app.services import motor_clasificacion as MC
+from app.core.db import SessionLocal
+from app.modelos import AtributoDef, ControlCapitulo, IncisoNacional, NodoArancel, PaisArancel, VersionDataset
+from app.modulos.clasificacion import motor_clasificacion as MC
 
 CALZADO = {"categoria": "calzado", "estilo": "Old Skool", "ficha": {"edad": "adulto", "genero": "U", "estilo_calzado": "tenis", "uso_deportivo": "no",
                                                                    "comp": {"corte": "100% canvas", "suela": "100% rubber"}}, "paises": True}
@@ -314,8 +314,8 @@ def test_especialista_recibe_la_ficha_del_motor(interno):
     """La opinión del especialista se arma en el servidor con el motor único
     (sin texto armado por el navegador): ficha legible, sugerencia, razones y
     los campos que puede corregir con sus valores válidos."""
-    from app.models import Producto
-    from app.services import especialista
+    from app.modelos import Producto
+    from app.modulos.clasificacion import especialista
 
     with SessionLocal() as db:
         p = db.scalar(select(Producto).where(Producto.estilo == "VN000EE3"))

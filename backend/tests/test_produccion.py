@@ -15,8 +15,8 @@ from fastapi.testclient import TestClient
 with TestClient(app := __import__("app.main", fromlist=["app"]).app) as c:
     r = c.post("/api/auth/login", json={"email": "jefa@empresa.com", "password": "Inicial#2026x"})
 from sqlalchemy import select
-from app.db import SessionLocal
-from app.models import Organizacion, Rol, Usuario
+from app.core.db import SessionLocal
+from app.modelos import Organizacion, Rol, Usuario
 db = SessionLocal()
 u = db.scalar(select(Usuario))
 print(json.dumps({"empresa": db.get(Organizacion, 1).nombre, "roles": sorted(r.nombre for r in db.scalars(select(Rol))),

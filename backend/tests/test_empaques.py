@@ -1,5 +1,5 @@
 """Estructura física del PL: pesos acumulados, volumen exterior y validaciones."""
-from app.models import (
+from app.modelos import (
     Articulo,
     FacturaLinea,
     GrupoCajas,
@@ -9,7 +9,7 @@ from app.models import (
     PosicionOC,
     TipoEmpaque,
 )
-from app.services import empaques
+from app.modulos.empaque import empaques
 
 
 def _linea(peso, talla="8", estilo="X1", oc="OC1"):
@@ -104,7 +104,7 @@ def test_sin_peso_del_articulo_el_neto_se_escribe():
 
 
 def test_prepack_pesa_lo_que_sus_solidos():
-    from app.models import Prepack, PrepackComponente
+    from app.modelos import Prepack, PrepackComponente
 
     s7 = Articulo(sku="S7", peso_unitario=0.8)
     s8 = Articulo(sku="S8", peso_unitario=0.9)

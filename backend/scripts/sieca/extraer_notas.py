@@ -1,4 +1,5 @@
-import json, re
+import json
+import re
 
 ROMANOS = "I II III IV V VI VII VIII IX X XI XII XIII XIV XV XVI XVII XVIII XIX XX XXI".split()
 lineas = open('sac.txt', encoding='utf-8').read().split('\n')
@@ -98,5 +99,6 @@ for ambito, codigo, clase, ls in bloques:
 json.dump(notas, open('notas_oficiales.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 json.dump(caps_seccion, open('caps_seccion.json', 'w'), indent=0)
 from collections import Counter
+
 print(len(notas), Counter(n['ambito'] for n in notas))
 print(len(bloques), 'bloques')

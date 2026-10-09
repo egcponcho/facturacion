@@ -2,8 +2,8 @@
 que usa la pantalla: crear el producto → abrir la ficha → el motor pregunta →
 se responde → sugiere → se guarda → se envía a revisión → se aprueba → el
 producto guarda HS6, línea SAC, código de cada país y la evidencia completa."""
-from app.db import SessionLocal
-from app.models import Producto
+from app.core.db import SessionLocal
+from app.modelos import Producto
 
 
 def _producto_nuevo(api):

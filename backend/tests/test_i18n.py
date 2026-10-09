@@ -86,10 +86,10 @@ def test_glosario(idioma):
 
 
 def test_traduccion_de_documentos_al_dia():
-    """backend/app/i18n_es.json (la traducción de los PDF y Excel) es la de
+    """backend/app/i18n/es.json (la traducción de los PDF y Excel) es la de
     es.json para los textos del servidor: node scripts/i18n-extraer.mjs la regenera."""
     es = _leer("es.json")
-    servidor = json.loads((I18N.parents[2] / "backend" / "app" / "i18n_es.json").read_text(encoding="utf-8"))
-    claves = json.loads((I18N.parents[2] / "backend" / "app" / "i18n_claves.json").read_text(encoding="utf-8"))
+    servidor = json.loads((I18N.parents[2] / "backend" / "app" / "i18n" / "es.json").read_text(encoding="utf-8"))
+    claves = json.loads((I18N.parents[2] / "backend" / "app" / "i18n" / "claves.json").read_text(encoding="utf-8"))
     esperado = {k: es[k] for k in claves if k in es}
     assert servidor == esperado, "Ejecuta node scripts/i18n-extraer.mjs"

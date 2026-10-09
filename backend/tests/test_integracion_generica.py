@@ -7,7 +7,7 @@ from test_oficial import RAIZ
 
 
 def test_units_are_one_list_in_server_and_screens():
-    from app.services.unidades import CODIGOS, DE_ARTICULO, normalizar
+    from app.modulos.maestros.unidades import CODIGOS, DE_ARTICULO, normalizar
 
     js = (RAIZ.parent / "frontend" / "src" / "unidades.js").read_text(encoding="utf-8")
     bloque = js[js.index("export const UNIDADES = {"):js.index("}\n", js.index("export const UNIDADES = {"))]
@@ -29,7 +29,7 @@ def test_items_accept_units_of_any_family(interno):
 
 
 def test_sheet_documents_use_catalog_labels():
-    from app.services.documentos import secciones_ficha
+    from app.modulos.documentos.documentos import secciones_ficha
 
     d = {"ficha": {"comp": {"cuerpo": "100% porcelain"}, "foo_attr": "a", "flag_x": True}, "tipo": "taza",
          "etiquetas": {"partes": {"cuerpo": "Body"}, "campos": {"foo_attr": "Foo", "flag_x": "Has a lid"},

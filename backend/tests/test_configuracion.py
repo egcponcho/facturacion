@@ -67,8 +67,8 @@ def test_categories_and_rules_are_validated(interno):
 def test_material_classes_are_configurable(interno):
     """Una clase de material nueva (cerámica) se reconoce en la composición, deriva
     la opción de un atributo y va con su palabra en la descripción aduanera."""
-    from app.db import SessionLocal
-    from app.services.ficha import Catalogo
+    from app.core.db import SessionLocal
+    from app.modulos.productos.ficha import Catalogo
 
     _rechazo(interno.post("/aranceles/materiales", {"nombre": "Ceramic", "palabras": "ceramica (porcelana"}), "is not valid")
     _rechazo(interno.post("/aranceles/materiales", {"nombre": "Cork 2", "palabras": "vidrio_x madera"}), "is not a word")
@@ -90,7 +90,8 @@ def test_material_classes_are_configurable(interno):
     ("Attributes", ["cfg_pkg_flag2", "Flag", "boolean", None, "No", "Yes", "CORE", None, None, '[{"re": "(x"}]'], "is not valid"),
 ])
 def test_package_behavior_columns_are_validated(interno, hoja, fila, mensaje):
-    from test_vocabulario import ATTRS, _rechazo as rechazo_paquete
+    from test_vocabulario import ATTRS
+    from test_vocabulario import _rechazo as rechazo_paquete
 
     errores = rechazo_paquete(interno, {"Attributes": [ATTRS + ["Patterns JSON"], fila]})
     assert any(mensaje in e for e in errores), errores
@@ -99,8 +100,8 @@ def test_package_behavior_columns_are_validated(interno, hoja, fila, mensaje):
 def test_integrity_audit_reports_broken_configuration(interno):
     """Lo guardado antes (o tocado fuera de la pantalla) pasa por la misma
     validación en el auditor: una referencia rota se reporta, no rompe una ficha."""
-    from app.db import SessionLocal
-    from app.models import AtributoDef
+    from app.core.db import SessionLocal
+    from app.modelos import AtributoDef
 
     limpio = interno.get("/aranceles/oficial/integridad").json()
     assert next(c for c in limpio["checks"] if c["codigo"] == "CONFIG_INVALID")["total"] == 0

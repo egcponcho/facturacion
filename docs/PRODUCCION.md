@@ -66,7 +66,7 @@ Crear o restablecer un administrador en cualquier momento (escribe una
 contraseña temporal en pantalla):
 
 ```bash
-python -m app.inicial admin@miempresa.com +50370000000
+python -m app.instalacion.inicial admin@miempresa.com +50370000000
 ```
 
 ## 5. Actualizaciones
@@ -106,5 +106,5 @@ Antes de actualizar:
 - Render: `render.yaml` levanta la demostración (`SEED_DEMO=1`).
 - Docker local: `docker compose up` (usa `backend/.env.demo`). Para producción:
   `ENV_FILE=backend/.env docker compose up -d`.
-- Reiniciar la demostración con sus datos de ejemplo: `SEED_DEMO=1 python -m app.seed`
+- Reiniciar la demostración con sus datos de ejemplo: `SEED_DEMO=1 python -m app.instalacion.demo`
   (se niega a correr sin `SEED_DEMO=1`).

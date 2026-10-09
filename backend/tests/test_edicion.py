@@ -4,8 +4,8 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from app.db import SessionLocal
-from app.models import Edicion, FacturaLinea, OrdenCompra, PosicionOC, Proveedor, ahora
+from app.core.db import SessionLocal
+from app.modelos import Edicion, FacturaLinea, OrdenCompra, PosicionOC, Proveedor, ahora
 
 
 def _factura_borrador(vans) -> int:

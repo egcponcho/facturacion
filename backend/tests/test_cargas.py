@@ -16,8 +16,8 @@ from sqlalchemy import func, select, text
 from app.main import app
 with TestClient(app):
     pass
-from app.db import SessionLocal
-from app.models import (AcuerdoComercial, AtributoDef, HistorialClasificacion, IncisoNacional, NodoArancel, PalabraClave,
+from app.core.db import SessionLocal
+from app.modelos import (AcuerdoComercial, AtributoDef, HistorialClasificacion, IncisoNacional, NodoArancel, PalabraClave,
                         PaisArancel, Producto, Usuario, VersionDataset)
 db = SessionLocal()
 n = lambda m: db.scalar(select(func.count()).select_from(m))

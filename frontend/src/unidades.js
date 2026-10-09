@@ -1,7 +1,7 @@
 import { t } from './i18n/index.js'
 
 // Unidades de medida de los artículos: la misma lista que
-// backend/app/services/unidades.py (una prueba verifica que coincidan).
+// backend/app/modulos/maestros/unidades.py (una prueba verifica que coincidan).
 // código → [singular, plural]
 export const UNIDADES = {
   PAR: [t('pair'), t('pairs')],

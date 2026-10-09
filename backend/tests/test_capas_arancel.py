@@ -3,8 +3,8 @@ legales, DAI, impuestos y regulaciones existen. El motor interpreta y la empresa
 aporta historial, pero ninguno de los dos crea ni modifica datos oficiales."""
 from sqlalchemy import func, select
 
-from app.db import SessionLocal
-from app.models import HistorialClasificacion, IncisoNacional, NotaSAC, ReglaClasificacion, ReglaImpuesto, Regulacion
+from app.core.db import SessionLocal
+from app.modelos import HistorialClasificacion, IncisoNacional, NotaSAC, ReglaClasificacion, ReglaImpuesto, Regulacion
 
 
 def test_official_tariff_contains_only_official_sources(interno):
@@ -17,7 +17,7 @@ def test_official_tariff_contains_only_official_sources(interno):
 
 
 def test_every_official_line_has_version_and_source(interno):
-    from app.models import FuenteOficial, VersionDataset
+    from app.modelos import FuenteOficial, VersionDataset
 
     with SessionLocal() as db:
         for x in db.scalars(select(IncisoNacional)):
@@ -46,7 +46,7 @@ def test_company_history_cannot_create_national_tariff_lines(interno):
 
 
 def test_company_conditions_never_marked_as_official(interno):
-    from app.services.motor_clasificacion import CAPA
+    from app.modulos.clasificacion.motor_clasificacion import CAPA
 
     with SessionLocal() as db:
         reglas = db.scalars(select(ReglaClasificacion).where(ReglaClasificacion.inciso_id.is_not(None))).all()
@@ -71,7 +71,7 @@ def test_company_conditions_never_marked_as_official(interno):
 def test_official_tax_requires_source_or_legal_basis(interno):
     base = {"pais": "SV", "patron": "6404", "tipo": "SELECTIVO", "tasa": 5, "base_calculo": "CIF", "vigente_desde": "2026-01-01"}
     with SessionLocal() as db:
-        from app.models import PaisArancel
+        from app.modelos import PaisArancel
 
         sv = db.scalar(select(PaisArancel).where(PaisArancel.iso == "SV"))
         tiene_fuente = bool(sv.fuente_impuestos_id)
@@ -181,7 +181,7 @@ def test_same_engine_classifies_footwear_chemical_and_raw_material(interno):
 
 
 def test_domain_does_not_define_tariff_code_directly(interno):
-    from app.services.motor_clasificacion import codigo_existe
+    from app.modulos.clasificacion.motor_clasificacion import codigo_existe
 
     cats = interno.get("/aranceles/categorias").json()
     # Una categoría no trae códigos: sus capítulos solo sirven para avisar si un código no le corresponde
@@ -315,7 +315,7 @@ def test_official_source_requires_document_version_validity_and_verification(int
 
 def test_history_never_creates_candidates(interno, monkeypatch):
     """El historial solo refuerza candidatos que ya salieron del árbol oficial y de las reglas."""
-    from app.services import motor_clasificacion as mc
+    from app.modulos.clasificacion import motor_clasificacion as mc
 
     entrada = {"categoria": "calzado", "ficha": {"comp": {"corte": "100% leather", "suela": "100% rubber"}, "estilo_calzado": "tenis",
                                                  "altura": "bajo", "genero": "U", "edad": "adulto", "uso_deportivo": "no"}}
@@ -337,7 +337,7 @@ def test_history_never_creates_candidates(interno, monkeypatch):
 
 
 def test_uncertain_cases_are_never_approved_automatically(interno, monkeypatch):
-    from app.services import motor_clasificacion as mc
+    from app.modulos.clasificacion import motor_clasificacion as mc
 
     pend = [p for p in interno.get("/productos", params={"estado": "pendientes", "size": 100}).json()["items"]
             if p["estado"] == "sugerida" and p["ficha_completa"]]
@@ -404,8 +404,8 @@ def test_old_engine_routes_are_gone(interno):
 def test_documents_use_six_digits_never_the_projected_destination(interno):
     """El destino de la OC es solo una proyección: la OC y la factura llevan la
     subpartida de 6 dígitos aprobada, nunca la línea nacional del país ni el SAC."""
-    from app.services.productos import partida_para
-    from app.models import FacturaLinea, Producto
+    from app.modelos import FacturaLinea, Producto
+    from app.modulos.productos.productos import partida_para
 
     with SessionLocal() as db:
         p = next(x for x in db.scalars(select(Producto)) if x.aprobado and x.partidas)

@@ -1,4 +1,6 @@
-import json, re
+import json
+import re
+
 DATA = str(__import__('pathlib').Path(__file__).resolve().parents[2] / 'app' / 'data' / 'oficial') + '/'
 MOTOR = str(__import__('pathlib').Path(__file__).resolve().parents[2] / 'app' / 'data' / 'motor') + '/'
 cod = json.load(open('codigos_aci.json', encoding='utf-8'))

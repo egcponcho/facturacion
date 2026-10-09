@@ -3,14 +3,14 @@ cada caso de cada familia pasa por el motor de clasificación completo (ficha,
 composición, reglas y árbol oficial) y debe dar su subpartida."""
 import pytest
 
-from app.services.semilla_familias import semilla
+from app.modulos.clasificacion.semilla_familias import semilla
 
 CASOS = semilla()["casos"]
 
 
 @pytest.fixture(scope="module")
 def db(client):
-    from app.db import SessionLocal
+    from app.core.db import SessionLocal
 
     s = SessionLocal()
     yield s
@@ -29,7 +29,7 @@ def _entrada(hechos: dict) -> dict:
 
 @pytest.mark.parametrize("caso", CASOS, ids=[f"{c['hechos']['categoria']}-{c['codigo']}-{i}" for i, c in enumerate(CASOS)])
 def test_caso_de_las_notas(db, caso):
-    from app.services.motor_clasificacion import clasificar_producto
+    from app.modulos.clasificacion.motor_clasificacion import clasificar_producto
 
     r = clasificar_producto(db, _entrada(caso["hechos"]), paises=False)
     esperado = caso["codigo"]
@@ -39,7 +39,7 @@ def test_caso_de_las_notas(db, caso):
 def test_familias_cargadas(client, db):
     from sqlalchemy import select
 
-    from app.models import CategoriaProducto, DominioClasificacion, ReglaClasificacion
+    from app.modelos import CategoriaProducto, DominioClasificacion, ReglaClasificacion
 
     doms = {d.codigo: d for d in db.scalars(select(DominioClasificacion))}
     base = {"FOOTWEAR", "APPAREL", "ACCESSORIES", "CHEMICALS", "RAW_MATERIALS"}

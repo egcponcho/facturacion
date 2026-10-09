@@ -1,4 +1,6 @@
-import json, re
+import json
+import re
+
 lineas = open('sac.txt', encoding='utf-8').read().split('\n')
 RE_COD = re.compile(r'(\d{2}\.\d{2}|\d{4}\.\d{1,2}|\d{4}\.\d{2}\.\d{2}\.\d{2})')
 RE_OTRO = re.compile(r'\d{4}\.\d{2}\.\d{2}(\.\d{1,3})?')
@@ -53,6 +55,7 @@ for c in codigos:
 codigos = [c for c in codigos if not c["suprimida"]]
 json.dump(codigos, open('codigos_aci.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
 from collections import Counter
+
 print(len(codigos), Counter(len(c['codigo']) for c in codigos))
 print([c for c in codigos if c['codigo'].startswith('6404')])
 sin = [c['codigo'] for c in codigos if len(c['codigo']) == 13 and c['dai'] is None]

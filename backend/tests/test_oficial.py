@@ -7,8 +7,8 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
-from app.db import SessionLocal
-from app.models import IncisoNacional
+from app.core.db import SessionLocal
+from app.modelos import IncisoNacional
 
 RAIZ = Path(__file__).resolve().parent.parent
 
@@ -106,7 +106,7 @@ def test_arbol_arancelario_completo(interno):
 def test_atributos_en_base_de_datos(interno):
     """Atributos del paquete 02 del motor (los generales) y de las familias, con
     opciones y ámbitos: todos son configuración del motor, ninguno es dato oficial."""
-    from app.services.semilla_familias import semilla
+    from app.modulos.clasificacion.semilla_familias import semilla
 
     r = interno.get("/aranceles/atributos").json()
     assert "OFICIAL" not in r["por_origen"] and r["por_origen"]["PAQUETE"] >= 8 and r["por_origen"]["MOTOR"] == len(semilla()["atributos"])

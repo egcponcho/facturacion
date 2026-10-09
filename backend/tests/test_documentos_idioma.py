@@ -4,7 +4,7 @@ import io
 
 from openpyxl import load_workbook
 
-from app.services import idioma_doc, letras
+from app.modulos.documentos import idioma_doc, letras
 
 
 def _textos(contenido: bytes) -> str:

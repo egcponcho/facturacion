@@ -50,7 +50,7 @@ adjuntas al producto): alimentan hechos, nunca códigos.
 
 ## Auditor de integridad
 
-`services/integridad.py` (`GET /aranceles/oficial/integridad`, pantalla
+`modulos/clasificacion/integridad.py` (`GET /aranceles/oficial/integridad`, pantalla
 *Tariff schedule → Tariff data integrity*) revisa sin corregir nada:
 
 | Nivel | Qué detecta |
@@ -105,7 +105,7 @@ historial eligió una de ellas, con su propia `historical_confidence`.
 
 ## Carga por capa y endurecimientos
 
-**Archivos** (`app/datos.py`):
+**Archivos** (`app/instalacion/datos.py`):
 
 | Carpeta | Capa | Contenido |
 |---|---|---|
@@ -113,7 +113,7 @@ historial eligió una de ellas, con su propia `historical_confidence`.
 | `data/motor` | Motor | Paquete 02, atributos, reglas, categorías técnicas, guía del clasificador, `interpretacion_aci.json` (lo que el clasificador lee del texto oficial) |
 | `data/demo` | Demostración | Historial y palabras clave de la empresa de ejemplo, acuerdos comerciales de referencia (sin fuente oficial) |
 
-**Arranque** (`app/cargas.py`): `cargar_base` carga el motor y, solo en una base
+**Arranque** (`app/instalacion/cargas.py`): `cargar_base` carga el motor y, solo en una base
 sin datos oficiales, lo oficial incluido; `cargar_demo` (solo `SEED_DEMO=1`)
 configura los países de ejemplo (GT/SV/HN como SAC10), sus líneas regionales,
 el historial, las palabras clave y los acuerdos. Con datos reales no entra nada
@@ -191,7 +191,7 @@ El motor (`motor_clasificacion.py`), la ficha (`ficha.py`) y las descripciones
 
 Todo lo que define una familia se configura en Aranceles → Motor de
 clasificación, o en un paquete Excel, y se valida antes de guardarse
-(`services/validacion_config.py`): una referencia a un atributo, opción,
+(`modulos/clasificacion/validacion_config.py`): una referencia a un atributo, opción,
 parte de la composición, categoría o dominio que no existe, un patrón que no
 compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
 
@@ -233,7 +233,7 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
   historial prefiere queda pendiente y una persona la confirma después, país
   por país (`GET/POST /productos/{id}/partidas/{país}`); solo lo confirmado se
   guarda como decisión de la empresa.
-- Unidades de medida en un solo módulo (`services/unidades.py` y
+- Unidades de medida en un solo módulo (`modulos/maestros/unidades.py` y
   `frontend/src/unidades.js`, verificados por una prueba): pares, unidades,
   docenas, juegos, kg, g, L, ml, m, m², m³ y rollos, con sus alias.
 - La ficha en PDF y Excel y el reporte de productos usan las etiquetas del
@@ -271,7 +271,7 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
   `clasificacion.configurar` (cambiarla). La migración 0029 los da a quien ya
   tenía aranceles y crea los roles sugeridos *Classification specialist* y
   *Buyer* (editables como cualquier rol).
-- Interruptores del flujo (`services/flujo.py`, en *Administración → Flujo de
+- Interruptores del flujo (`modulos/productos/flujo.py`, en *Administración → Flujo de
   clasificación*, guardados en `Meta` como `flujo.*`): el proveedor captura,
   el equipo interno captura, el proveedor ve la sugerencia, revisión
   obligatoria, cuatro ojos (quien envía no aprueba) y aprobación por lote. Los
@@ -295,7 +295,7 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
 - U5 Reglas conectadas con los artículos: *Convertir esta decisión en regla*
   arma un borrador desde un artículo aprobado, y *Ver impacto* dice qué
   artículos del ámbito cambiarían de subpartida antes de guardar
-  (`services/impacto.py`, nada queda guardado).
+  (`modulos/clasificacion/impacto.py`, nada queda guardado).
 - U6 Asistente de familia nueva: la familia nace en **borrador** (no aparece
   en la ficha ni clasifica artículos reales), se prueba con un artículo de
   ejemplo y se **publica** cuando tiene capítulos y categorías.
@@ -308,7 +308,7 @@ compila o un dato de otro tipo se rechaza con un mensaje que dice qué y dónde.
 - I2 Motor por etapas: caso → universo → decisión → candidatos, cada una una
   función pequeña de `motor_clasificacion.py`; la evidencia guarda la versión
   de la configuración con que se decidió.
-- I3 Versión de la configuración (`services/version_config.py`): sube en
+- I3 Versión de la configuración (`modulos/clasificacion/version_config.py`): sube en
   cada cambio de un modelo del motor; el catálogo en memoria se comparte por
   proceso y se reconstruye solo cuando la versión cambia. Un solo formato de
   condición (`{campo, operador, valor}`; la migración 0030 convierte lo viejo).
@@ -346,7 +346,7 @@ como 6406.91/99 → 6406.90, se sigue al árbol vigente).
   que piden algunos aranceles nacionales (manga, largo, peto, mezclilla,
   cuello, capucha, suela espumosa, uso previsto, valor CIF), con ámbito solo en
   las categorías donde tienen sentido.
-- **Semilla** `services/semilla_familias.py`: junta los archivos; atributos,
+- **Semilla** `modulos/clasificacion/semilla_familias.py`: junta los archivos; atributos,
   categorías, reglas, clases de material y dominios se siembran desde ahí y
   nunca pisan lo editado. Las familias de base nacen publicadas.
 - **Migración 0034**: borra la configuración anterior del motor (reglas

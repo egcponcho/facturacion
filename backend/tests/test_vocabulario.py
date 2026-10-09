@@ -2,10 +2,10 @@
 existe con otro código lo declara «Same as» y se reutiliza (alias), nunca se
 duplica; las condiciones solo nombran atributos o campos del producto."""
 from sqlalchemy import select
-
-from app.db import SessionLocal
-from app.models import AtributoDef, ReglaClasificacion
 from test_oficial import _cargar, _libro
+
+from app.core.db import SessionLocal
+from app.modelos import AtributoDef, ReglaClasificacion
 
 ATTRS = ["Attribute code", "Label", "Data type", "Default unit", "Multi-select", "Used by classification", "Domain hint", "Description", "Same as"]
 REGLAS = ["Rule ID", "Scope type", "Scope code", "Rule type", "Priority", "Source type", "Rule family", "Rationale / effect", "Active", "Requires review"]
@@ -128,13 +128,13 @@ def test_engine_code_names_no_family():
 
     from test_oficial import RAIZ
 
-    from app.services.semilla_familias import semilla
+    from app.modulos.clasificacion.semilla_familias import semilla
 
     d = semilla()
     codigos = {c["codigo"] for c in d["categorias"]} | {a["codigo"] for a in d["atributos"]}
     codigos |= {o["codigo"] for a in d["atributos"] for o in a.get("opciones") or []}
     del_motor = {"aluminio", "corrugado", "metal", "paja", "fibra", "producto", "etiqueta", "completa", "otra", "composition", "none", "material", "no"}
-    for f in ("ficha.py", "motor_clasificacion.py", "descripciones.py"):
-        fuente = (RAIZ / "app" / "services" / f).read_text(encoding="utf-8")
+    for f in ("productos/ficha.py", "clasificacion/motor_clasificacion.py", "productos/descripciones.py"):
+        fuente = (RAIZ / "app" / "modulos" / f).read_text(encoding="utf-8")
         nombrados = set(re.findall(r'"([A-Za-z_.]+)"', fuente)) & codigos - del_motor
         assert not nombrados, (f, sorted(nombrados))

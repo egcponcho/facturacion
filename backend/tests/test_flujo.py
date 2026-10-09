@@ -620,7 +620,7 @@ def test_documentos_y_reportes(tnf, interno):
 
     from openpyxl import load_workbook
 
-    from app.services.documentos import monto_en_letras
+    from app.modulos.documentos.documentos import monto_en_letras
 
     assert monto_en_letras(4850, "USD") == "FOUR THOUSAND EIGHT HUNDRED FIFTY US DOLLARS AND 00/100"
     assert monto_en_letras(1_021_001.5, "USD") == "ONE MILLION TWENTY-ONE THOUSAND ONE US DOLLARS AND 50/100"
@@ -754,8 +754,9 @@ def test_plantillas_de_carga_en_ingles(interno):
 def test_acceso_seguro(client):
     """Dos pasos por SMS, cookie httpOnly, CSRF, bloqueo por intentos,
     política de contraseñas y cierre de sesiones."""
-    from app.services.limites import reiniciar
     from conftest import PASSWORD, Api, iniciar_sesion
+
+    from app.modulos.acceso.limites import reiniciar
 
     reiniciar()
     # Paso 1: la contraseña correcta solo abre el desafío; no hay sesión todavía

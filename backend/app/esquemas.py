@@ -1,0 +1,781 @@
+"""Cuerpos de las peticiones. Las respuestas se arman como dicts en los servicios."""
+from datetime import date, datetime
+from typing import Annotated, Any, Literal
+
+from pydantic import AfterValidator, BaseModel, Field
+
+from app.modelos import cant
+
+Cant = Field(gt=0)
+# Cantidad de un artículo: entera para lo que se cuenta, hasta 3 decimales para
+# lo que se mide (el servicio valida contra la unidad de la posición)
+Cantidad = Annotated[float, Field(gt=0), AfterValidator(cant)]
+CantidadCero = Annotated[float, Field(ge=0), AfterValidator(cant)]
+
+
+# ---- Auth / admin -----------------------------------------------------------
+class LoginIn(BaseModel):
+    email: str = Field(max_length=200)
+    password: str = Field(max_length=200)
+
+
+class DesafioIn(BaseModel):
+    desafio: str = Field(max_length=100)
+
+
+class VerificarIn(DesafioIn):
+    codigo: str = Field(max_length=10)
+
+
+class PasswordIn(BaseModel):
+    actual: str = Field(max_length=200)
+    nueva: str = Field(max_length=200)
+
+
+class ProveedorIn(BaseModel):
+    codigo: str = Field(min_length=1, max_length=30)
+    nombre: str = Field(min_length=1, max_length=200)
+    activo: bool = True
+
+
+class ProveedorPatch(BaseModel):
+    nombre: str | None = None
+    activo: bool | None = None
+
+
+class FotoIn(BaseModel):
+    foto: str | None = Field(default=None, max_length=400_000)  # data URL de una imagen reducida; vacío la quita
+
+
+class PerfilIn(BaseModel):
+    nombre: str | None = Field(default=None, max_length=200)
+    idioma: str | None = None
+    idioma_documentos: str | None = None  # PDF y Excel; vacío = el de la pantalla
+    formato_fecha: str | None = None
+    formato_hora: str | None = None
+    formato_numero: str | None = None
+    tema: str | None = None
+    filas: int | None = None
+    inicio: str | None = None
+
+
+class RolIn(BaseModel):
+    nombre: str = Field(max_length=80)
+    descripcion: str | None = Field(default=None, max_length=300)
+    permisos: list[str] = []
+    datos_ocultos: list[str] = []
+    activo: bool = True
+
+
+class RolPatch(BaseModel):
+    nombre: str | None = Field(default=None, max_length=80)
+    descripcion: str | None = Field(default=None, max_length=300)
+    permisos: list[str] | None = None
+    datos_ocultos: list[str] | None = None
+    activo: bool | None = None
+
+
+class UsuarioIn(BaseModel):
+    email: str
+    nombre: str
+    rol: Literal["admin", "interno", "proveedor"] | None = None
+    rol_id: int | None = None
+    proveedor_id: int | None = None
+    password: str | None = Field(default=None, max_length=200)  # vacío: se genera una temporal
+    telefono: str | None = None
+    dos_pasos: bool = True
+    cargo: str | None = Field(default=None, max_length=120)
+    area: str | None = Field(default=None, max_length=120)
+    empresa: str | None = Field(default=None, max_length=200)
+
+
+class UsuarioPatch(BaseModel):
+    nombre: str | None = None
+    rol: Literal["admin", "interno", "proveedor"] | None = None
+    rol_id: int | None = None
+    proveedor_id: int | None = None
+    password: str | None = Field(default=None, max_length=200)
+    generar_clave: bool | None = None  # restablecer con una contraseña temporal generada
+    activo: bool | None = None
+    telefono: str | None = None
+    dos_pasos: bool | None = None
+    email: str | None = Field(default=None, max_length=200)
+    cargo: str | None = Field(default=None, max_length=120)
+    area: str | None = Field(default=None, max_length=120)
+    empresa: str | None = Field(default=None, max_length=200)
+
+
+# ---- Facturas ---------------------------------------------------------------
+class PosicionCantidad(BaseModel):
+    posicion_id: int
+    cantidad: Cantidad
+
+
+class FacturaCrear(BaseModel):
+    proveedor_id: int | None = None
+    lineas: list[PosicionCantidad] = Field(min_length=1)
+    numero: str | None = None
+    fecha: date | None = None
+
+
+class FacturaAgregar(BaseModel):
+    version: int
+    lineas: list[PosicionCantidad] = Field(min_length=1)
+
+
+class FacturaCabecera(BaseModel):
+    version: int
+    numero: str | None = None
+    fecha: date | None = None
+    incoterm: str | None = None
+    condiciones: str | None = None
+    observaciones: str | None = None
+
+
+class CambioLinea(BaseModel):
+    linea_id: int
+    cantidad: Cantidad | None = None
+    precio_unitario: float | None = Field(default=None, ge=0)
+    motivo_precio: str | None = None
+    pais_origen: str | None = None
+    partida_arancelaria: str | None = None
+    descripcion_comercial: str | None = None
+
+
+class FacturaEditarLineas(BaseModel):
+    version: int
+    cambios: list[CambioLinea] = Field(min_length=1)
+    # error: si una reducción choca con lo asignado a PL, se pregunta
+    # automatico: libera la cantidad sin caja de los PL (del más nuevo al más viejo)
+    ajuste_pl: Literal["error", "automatico"] = "error"
+
+
+class FacturaEliminarLineas(BaseModel):
+    version: int
+    linea_ids: list[int] = Field(min_length=1)
+    confirmar_cascada: bool = False
+
+
+class ConMotivo(BaseModel):
+    version: int | None = None
+    motivo: str | None = None
+
+
+class Finalizar(BaseModel):
+    version: int
+    incluir_packing_lists: bool = False
+
+
+# ---- Packing lists ----------------------------------------------------------
+class LineaFacturaCantidad(BaseModel):
+    factura_linea_id: int
+    cantidad: Cantidad
+
+
+class PLCrear(BaseModel):
+    lineas: list[LineaFacturaCantidad] | None = None  # None = todos los pendientes
+
+
+class PLAgregar(BaseModel):
+    version: int
+    lineas: list[LineaFacturaCantidad] | None = None
+
+
+class MovCantidad(BaseModel):
+    pl_linea_id: int
+    cantidad: Cantidad
+
+
+class PLMover(BaseModel):
+    version: int
+    movimientos: list[MovCantidad] = Field(min_length=1)
+    destino_pl_id: int | None = None  # None = nuevo PL
+
+
+class PLQuitar(BaseModel):
+    version: int
+    movimientos: list[MovCantidad] = Field(min_length=1)
+
+
+class MovCajas(BaseModel):
+    grupo_id: int
+    num_cajas: int = Cant
+
+
+class PLMoverCajas(BaseModel):
+    version: int
+    grupos: list[MovCajas] = Field(min_length=1)
+    destino_pl_id: int | None = None
+
+
+class FilaEmpaque(BaseModel):
+    pl_linea_id: int
+    # Opcional si la fila tiene casepack o es prepack: la cantidad por caja la
+    # da el artículo y la plantilla solo aporta medidas y pesos.
+    plantilla_id: int | None = None
+
+
+class EmpaquePrevia(BaseModel):
+    """Empaque automático: cada fila con su propia plantilla."""
+    filas: list[FilaEmpaque] = Field(min_length=1)
+    reemplazar: bool = False
+
+
+class EmpaqueAplicar(EmpaquePrevia):
+    version: int
+    sobrante: Literal["caja_parcial", "sin_caja"] = "caja_parcial"
+
+
+class ValoresCaja(BaseModel):
+    largo: float | None = Field(default=None, ge=0)
+    ancho: float | None = Field(default=None, ge=0)
+    alto: float | None = Field(default=None, ge=0)
+    tara: float | None = Field(default=None, ge=0)  # kg de una unidad de empaque vacía
+    # Neto por unidad escrito a mano: solo se usa si falta el peso de algún artículo
+    peso_neto_caja: float | None = Field(default=None, ge=0)
+    tipo_empaque_id: int | None = None
+    observacion: str | None = None
+
+
+class ItemCaja(BaseModel):
+    pl_linea_id: int
+    cantidad_por_caja: Cantidad
+
+
+class CajaManual(ValoresCaja):
+    version: int
+    items: list[ItemCaja] = Field(min_length=1)
+    num_cajas: int = Cant
+    plantilla_id: int | None = None
+
+
+class EditarCajas(ValoresCaja):
+    version: int
+    grupo_ids: list[int] = Field(min_length=1)
+    num_cajas: int | None = Field(default=None, gt=0)
+    desde_plantilla_id: int | None = None
+    confirmar_pesos: bool = False
+
+
+class PLNumeroIn(BaseModel):
+    version: int | None = None
+    numero: str = Field(min_length=1, max_length=40)
+
+
+class InnerPackIn(BaseModel):
+    version: int | None = None
+    inner_pack: int | None = Field(None, ge=1, le=100000)  # vacío: sin inner pack
+
+
+class EliminarCajas(BaseModel):
+    version: int
+    grupo_ids: list[int] = Field(min_length=1)
+
+
+class GuardarPlantilla(BaseModel):
+    nombre: str = Field(min_length=1, max_length=100)
+
+
+class RecepcionItem(BaseModel):
+    pl_linea_id: int
+    cantidad_recibida: CantidadCero
+    cantidad_danada: CantidadCero = 0
+    observacion: str | None = None
+
+
+class RecepcionIn(BaseModel):
+    lineas: list[RecepcionItem] = Field(min_length=1)
+
+
+# ---- Plantillas -------------------------------------------------------------
+class PlantillaIn(BaseModel):
+    proveedor_id: int | None = None
+    nombre: str = Field(min_length=1, max_length=100)
+    cantidad_por_caja: Cantidad
+    unidad: str = Field("PAR", max_length=5)  # una de modulos/maestros/unidades.py (se valida al guardar)
+    largo: float | None = Field(default=None, ge=0)
+    ancho: float | None = Field(default=None, ge=0)
+    alto: float | None = Field(default=None, ge=0)
+    tara: float | None = Field(default=None, ge=0)  # solo el empaque: el neto sale del peso de los artículos
+    tipo_empaque_id: int | None = None
+
+
+class PlantillaPatch(BaseModel):
+    nombre: str | None = None
+    cantidad_por_caja: Cantidad | None = None
+    unidad: str | None = Field(None, max_length=5)
+    largo: float | None = Field(default=None, ge=0)
+    ancho: float | None = Field(default=None, ge=0)
+    alto: float | None = Field(default=None, ge=0)
+    tara: float | None = Field(default=None, ge=0)
+    tipo_empaque_id: int | None = None
+    activa: bool | None = None
+
+
+# ---- Transporte -------------------------------------------------------------
+class EmbarqueIn(BaseModel):
+    tipo_transporte: Literal["MARITIMO", "AEREO", "TERRESTRE"] = "MARITIMO"
+    documento_numero: str | None = None
+    transportista_id: int | None = None
+    puerto_origen: str | None = None
+    puerto_destino: str | None = None
+    centro: str | None = None
+    etd: date | None = None
+    eta: date | None = None
+    observaciones: str | None = None
+
+
+class EmbarquePatch(BaseModel):
+    tipo_transporte: Literal["MARITIMO", "AEREO", "TERRESTRE"] | None = None
+    documento_numero: str | None = None
+    transportista_id: int | None = None
+    puerto_origen: str | None = None
+    puerto_destino: str | None = None
+    centro: str | None = None
+    etd: date | None = None
+    eta: date | None = None
+    observaciones: str | None = None
+    motivo: str | None = None
+
+
+class Paletizar(BaseModel):
+    version: int
+    grupo_ids: list[int] = Field(min_length=1)
+    pallet_id: int | None = None  # None = contenedor nuevo con estas medidas
+    tipo_empaque_id: int | None = None  # tipo del contenedor nuevo (por defecto el de soporte, p. ej. pallet)
+    num: int | None = Field(default=None, gt=0)  # unidades del contenedor nuevo
+    largo: float | None = None
+    ancho: float | None = None
+    alto: float | None = None
+    peso_tara: float | None = None
+
+
+class Despaletizar(BaseModel):
+    version: int
+    grupo_ids: list[int] = []
+    pallet_id: int | None = None
+
+
+class PalletPatch(BaseModel):
+    version: int
+    largo: float | None = None
+    ancho: float | None = None
+    alto: float | None = None
+    peso_tara: float | None = None
+
+
+class UnidadIn(BaseModel):
+    tipo: str
+    numero: str | None = None
+    sello: str | None = None
+
+
+class UnidadPatch(BaseModel):
+    tipo: str | None = None
+    numero: str | None = None
+    sello: str | None = None
+
+
+class AsignarPL(BaseModel):
+    pl_ids: list[int] = Field(min_length=1)
+    # AUTO: confirma los que ya están listos (factura y PL finalizados) y deja
+    # tentativos los demás
+    modo: Literal["TENTATIVA", "CONFIRMADA", "AUTO"] = "TENTATIVA"
+    motivo: str | None = None
+
+
+class Recoleccion(BaseModel):
+    pl_ids: list[int] = Field(min_length=1)
+    fecha: date | None = None  # None = quitar la marca
+
+
+class PLIds(BaseModel):
+    pl_ids: list[int] = Field(min_length=1)
+    motivo: str | None = None
+
+
+class EventoIn(BaseModel):
+    tipo: Literal[
+        "RECOLECCION", "SALIDA", "TRANSITO", "ARRIBO", "LIBERACION", "ENTREGA", "RECEPCION", "OTRO"
+    ]
+    fecha: datetime
+    ubicacion: str | None = None
+    observacion: str | None = None
+
+
+# ---- Productos y clasificación arancelaria -------------------------------------
+class FichaIn(BaseModel):
+    version: int
+    tipo: str | None = Field(None, max_length=30)
+    ficha: dict = Field(default_factory=dict)
+    nombre: str | None = Field(None, max_length=200)
+    codigo_generico: str | None = Field(None, max_length=20)
+    pais_origen: str | None = Field(None, max_length=2)
+    pais_procedencia: str | None = Field(None, max_length=2)
+    descripcion_aduana: str | None = Field(None, max_length=400)
+    descripcion_comercial: str | None = Field(None, max_length=300)
+    notas: str | None = Field(None, max_length=1000)
+    alertas_ok: list[str] = Field(default_factory=list, max_length=100)
+    tocados: list[str] = Field(default_factory=list, max_length=200)  # lo que eligió la persona (la detección no lo pisa)
+    partidas: dict = Field(default_factory=dict)  # {iso: {codigo, manual}}: códigos nacionales escritos a mano
+
+
+class ClasificarLote(BaseModel):
+    """Clasificación masiva: el mismo motor del servidor, producto por producto."""
+    ids: list[int] = Field(min_length=1, max_length=2000)
+
+
+class AprobarIn(BaseModel):
+    version: int
+    codigo: str | None = Field(None, max_length=20)
+    partidas: dict | None = None
+    forzar: bool = False
+
+
+class AprobarLote(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=200)
+
+
+class ObservarIn(BaseModel):
+    version: int
+    observaciones: str | None = Field(None, max_length=2000)
+    resolucion: str | None = Field(None, max_length=200)
+    devolver: bool = False
+
+
+class NuevaVersionIn(BaseModel):
+    version: int
+    desde: date | None = None
+    motivo: str | None = Field(None, max_length=300)
+
+
+class IncisoIn(BaseModel):
+    pais: str = Field(max_length=2)
+    codigo: str = Field(max_length=20)
+    cond: dict = Field(default_factory=dict)
+    dai: str | None = Field(None, max_length=10)
+    nota: str | None = Field(None, max_length=300)
+
+
+class PalabraIn(BaseModel):
+    frase: str = Field(max_length=100)
+    tipo: str = Field(max_length=30)
+    marca: str | None = Field(None, max_length=100)
+    atributos: dict = Field(default_factory=dict)
+
+
+class SinonimoIn(BaseModel):
+    palabra: str = Field(max_length=60)
+    equivale: str = Field(max_length=30)
+
+
+class AnalizarIn(BaseModel):
+    """Opinión del especialista: el servidor arma la ficha con el motor único."""
+
+    con_fotos: bool = True
+
+
+class PaisArancelIn(BaseModel):
+    iso: str = Field(max_length=2)
+    nombre: str = Field(min_length=2, max_length=80)
+    digitos: int = Field(ge=6, le=14)
+    mcca: bool = False
+    impuesto: str | None = Field(None, max_length=60)
+    nota: str | None = Field(None, max_length=300)
+    base_legal: str | None = Field(None, max_length=300)
+    activo: bool = True
+    # Esquema del arancel nacional: longitudes admitidas (p. ej. "10,12"), de qué nivel
+    # cuelga la precisión nacional, modelo, contexto y fuente oficial
+    longitudes: list[int] | None = None
+    nivel_base: Literal["HS6", "SAC8", "SAC10"] | None = None
+    modelo_arancel: str | None = Field(None, max_length=120)
+    contexto: str | None = Field(None, max_length=120)
+    fuente: str | None = Field(None, max_length=40)  # código de la fuente oficial
+
+
+class PartidaSACIn(BaseModel):
+    codigo: str = Field(max_length=10)
+    descripcion: str = Field(max_length=400)
+    nota: str | None = Field(None, max_length=300)
+    activo: bool = True
+    motivo: str | None = Field(None, max_length=300)  # por qué se reemplaza el texto oficial
+
+
+class NotaSACIn(BaseModel):
+    ambito: str = Field(max_length=16)
+    codigo: str = Field(max_length=10)
+    numero: str | None = Field(None, max_length=20)
+    texto: str = Field(max_length=4000)
+    capitulos: list[str] = Field(default_factory=list, max_length=100)
+    activo: bool = True
+    motivo: str | None = Field(None, max_length=300)
+
+
+class IncisoEditIn(BaseModel):
+    pais: str = Field(max_length=2)
+    codigo: str = Field(max_length=20)
+    descripcion: str | None = Field(None, max_length=300)
+    dai: str | None = Field(None, max_length=10)
+    cond: dict = Field(default_factory=dict)
+    prio: int = Field(0, ge=0, le=99)
+    nota: str | None = Field(None, max_length=300)
+    activo: bool = True
+    motivo: str | None = Field(None, max_length=300)  # por qué se personaliza una línea oficial
+    # Línea nueva: es dato oficial, viene de una publicación (fuente y versión obligatorias)
+    fuente: str | None = Field(None, max_length=30)
+    version: str | None = Field(None, max_length=30)
+    vigente_desde: date | None = None  # si la versión no trae su vigencia (p. ej. una versión dinámica)
+
+
+class IncisoOverrideIn(BaseModel):
+    descripcion: str | None = Field(None, max_length=300)
+    nota: str | None = Field(None, max_length=300)
+    activo: bool | None = None
+    motivo: str = Field(min_length=3, max_length=300)
+    vigente_desde: date | None = None
+    vigente_hasta: date | None = None
+
+
+class IdsIn(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=5000)
+
+
+class TallaIn(BaseModel):
+    talla: str = Field(max_length=20)
+    sufijo: str | None = Field(None, max_length=20)  # código de talla tras el genérico; vacío = el siguiente libre
+    sku: str | None = Field(None, max_length=40)  # código de artículo completo, si la empresa usa otro formato
+    upc: str | None = Field(None, max_length=40)
+    sku_proveedor: str | None = Field(None, max_length=60)
+    peso_unitario: float | None = Field(None, ge=0)  # kg netos de una unidad de esta talla
+
+
+class CambioFichaIn(BaseModel):
+    campo: str = Field(max_length=60)
+    valor: Any = None
+
+
+class SesionClasificacionIn(BaseModel):
+    """Entrada del motor único: la ficha natural del producto (o texto libre y
+    respuestas para la sesión de clasificación)."""
+    texto: str = Field("", max_length=2000)
+    dominio: str | None = Field(None, max_length=30)
+    categoria: str | None = Field(None, max_length=40)
+    respuestas: dict = Field(default_factory=dict)  # atajo: respuestas sueltas (se suman a la ficha)
+    ficha: dict | None = None
+    estilo: str | None = Field(None, max_length=200)
+    nombre: str | None = Field(None, max_length=200)
+    uso: str | None = Field(None, max_length=200)
+    tallas: str | None = Field(None, max_length=200)
+    marca: str | None = Field(None, max_length=120)
+    proveedor: str | None = Field(None, max_length=200)
+    origen: str | None = Field(None, max_length=2)
+    generico: str | None = Field(None, max_length=40)
+    tocados: list[str] = Field(default_factory=list)
+    autos: list[str] = Field(default_factory=list)
+    cambio: CambioFichaIn | None = None
+    detectar: bool | None = None
+    producto_id: int | None = None
+    codigo_final: str | None = Field(None, max_length=14)
+    partidas: dict = Field(default_factory=dict)
+    alertas_ok: list[str] = Field(default_factory=list)
+    fecha: date | None = None
+    paises: bool = True
+
+
+class GenericoIn(BaseModel):
+    generico: str = Field(max_length=40)
+    estilo: str = Field(max_length=40)
+    color: str = Field(max_length=60)
+    marca_id: int
+    grupo_id: int
+    proveedor_id: int
+    unidad: str = Field(max_length=5)
+    nombre: str | None = Field(None, max_length=200)
+    tallas: list[TallaIn] = Field(default_factory=list, max_length=200)
+    escala_id: int | None = None  # escala de tallas de la que parten los códigos
+
+
+class TallasIn(BaseModel):
+    tallas: list[TallaIn] = Field(min_length=1, max_length=200)
+    escala_id: int | None = None
+
+
+class GenericoEditIn(BaseModel):
+    estilo: str = Field(max_length=40)
+    color: str = Field(max_length=60)
+    marca_id: int
+    grupo_id: int
+    proveedor_id: int
+    unidad: str = Field(max_length=5)
+
+
+# ---- Capa oficial del arancel -------------------------------------------------
+class CapitulosPatch(BaseModel):
+    ids: list[int] = Field(min_length=1)
+    activo: bool | None = None
+    clasificacion: bool | None = None
+    candidato_auto: bool | None = None
+    solo_manual: bool | None = None
+    archivado: bool | None = None
+
+
+class AtributoIn(BaseModel):
+    # Una parte de la composición es comp.<parte>
+    codigo: str | None = Field(None, max_length=40, pattern=r"^(comp\.)?[A-Za-z][A-Za-z0-9_]*$")
+    etiqueta: str | None = Field(None, max_length=200)
+    tipo_dato: str | None = None
+    unidad: str | None = Field(None, max_length=10)
+    dominio: str | None = Field(None, max_length=30)
+    descripcion: str | None = Field(None, max_length=400)
+    activo: bool | None = None
+    usado_clasificacion: bool | None = None
+    orden: int | None = None
+    # Comportamiento (validado en el servidor: ver modulos/clasificacion/validacion_config.py)
+    seccion: str | None = None
+    informativo: bool | None = None
+    valor_defecto: str | None = Field(None, max_length=60)
+    control: str | None = Field(None, max_length=12)
+    alias: list[str] | None = None
+    derivacion: dict | None = None
+    bloqueo: list | None = None
+    patrones: list | None = None
+    patrones_falso: list | None = None
+    texto_aduana: dict | list | None = None
+
+
+class SinonimoBusquedaIn(BaseModel):
+    palabra: str | None = Field(None, max_length=60)
+    equivale: str | None = Field(None, max_length=300)
+    activo: bool | None = None
+
+
+class ConfirmarPartidaIn(BaseModel):
+    codigo: str = Field(max_length=20)
+
+
+class ClaseMaterialIn(BaseModel):
+    codigo: str | None = Field(None, max_length=30)
+    nombre: str | None = Field(None, max_length=80)
+    palabras: str | None = Field(None, max_length=1000)  # palabras o patrones simples, separadas por espacio o coma
+    texto_aduana: str | None = Field(None, max_length=60)
+    activo: bool | None = None
+
+
+class AtributoOpcionIn(BaseModel):
+    codigo: str | None = Field(None, max_length=60)
+    etiqueta: str | None = Field(None, max_length=300)
+    alias: str | None = Field(None, max_length=400)
+    terminos: str | None = Field(None, max_length=400)  # palabras del texto oficial (solo ordenan candidatos)
+    orden: int | None = None
+    activo: bool | None = None
+    bloqueo: list | None = None  # [{condiciones, mensaje}]: cuándo no se puede elegir
+    implica: dict | None = None  # {atributo: valor}: lo que completa al elegirla
+    patrones: list | None = None  # cómo se reconoce en el nombre, el uso o la composición
+    texto_aduana: dict | list | None = None  # frase, nombre o nombre comercial en la descripción aduanera
+
+
+class AtributoAmbitoIn(BaseModel):
+    condicion: list | None = None  # [{campo, operador, valor, grupo}] — dependencia: solo se pregunta si se cumple
+    tipo_ambito: str | None = None
+    codigo_ambito: str | None = Field(None, max_length=40)
+    modo: str | None = None
+    prioridad: int | None = Field(None, ge=0, le=10000)
+    nota: str | None = Field(None, max_length=300)
+    activo: bool | None = None
+    quitar: bool = False
+
+
+class RegulacionIn(BaseModel):
+    codigo: str | None = Field(None, max_length=40)
+    pais: str | None = Field(None, max_length=2)
+    patron: str | None = Field(None, max_length=40)
+    tipo: str | None = Field(None, max_length=30)
+    nombre: str | None = Field(None, max_length=300)
+    autoridad: str | None = Field(None, max_length=200)
+    codigo_permiso: str | None = Field(None, max_length=60)
+    obligatorio: bool | None = None
+    base_legal: str | None = Field(None, max_length=400)
+    activo: bool | None = None
+    url: str | None = Field(None, max_length=300)
+    nota: str | None = Field(None, max_length=400)
+    vigente_desde: date | None = None
+    vigente_hasta: date | None = None
+
+
+class ImpuestoIn(BaseModel):
+    codigo: str | None = Field(None, max_length=40)
+    pais: str | None = Field(None, max_length=2)
+    patron: str | None = Field(None, max_length=40)
+    tipo: str | None = Field(None, max_length=20)
+    tasa: float | None = Field(None, ge=0, le=1000)
+    base_calculo: str | None = Field(None, max_length=80)
+    umbral_desde: float | None = None
+    umbral_hasta: float | None = None
+    formula: str | None = Field(None, max_length=300)
+    base_legal: str | None = Field(None, max_length=400)
+    activo: bool | None = None
+    url: str | None = Field(None, max_length=300)
+    vigente_desde: date | None = None
+    vigente_hasta: date | None = None
+
+
+class CondicionIn(BaseModel):
+    grupo: int = Field(1, ge=1, le=20)
+    campo: str = Field(max_length=60)
+    operador: str = "EQUAL"
+    valor: str | int | float | bool | list | None = None
+    valor_hasta: str | int | float | None = None
+    negado: bool = False
+
+
+class ReglaIn(BaseModel):
+    tipo_ambito: str | None = Field(None, max_length=14)
+    codigo_ambito: str | None = Field(None, max_length=40)
+    tipo_regla: str | None = Field(None, max_length=20)
+    familia: str | None = Field(None, max_length=30)
+    accion: dict | None = None
+    prioridad: int | None = Field(None, ge=0, le=10000)
+    efecto: str | None = Field(None, max_length=500)
+    activo: bool | None = None
+    requiere_revision: bool | None = None
+    condiciones: list[CondicionIn] | None = None
+    tipo_fuente: str | None = Field(None, pattern="^(MANUAL|LEGAL_NOTE)$")
+    nota_id: int | None = None
+
+
+class DominioIn(BaseModel):
+    codigo: str | None = Field(None, max_length=30)
+    nombre: str | None = Field(None, max_length=100)
+    descripcion: str | None = Field(None, max_length=400)
+    modo: str | None = Field(None, max_length=10)
+    activo: bool | None = None
+    orden: int | None = None
+
+
+class CategoriaIn(BaseModel):
+    codigo: str | None = Field(None, max_length=40)
+    nombre: str | None = Field(None, max_length=120)
+    grupo: str | None = Field(None, max_length=80)
+    dominio: str | None = Field(None, max_length=30)
+    alias: str | None = Field(None, max_length=400)
+    orden: int | None = None
+    activo: bool | None = None
+    familia: str | None = Field(None, max_length=30)
+    nombre_corto: str | None = Field(None, max_length=80)
+    nombre_aduana: str | None = Field(None, max_length=120)
+    patrones: list[dict] | None = None  # [{re, prioridad}] para reconocerla en el nombre
+    capitulos: list[str] | None = None  # capítulos compatibles
+    plantilla_aduana: dict | None = None
+    terminos: str | None = Field(None, max_length=400)  # palabras del texto oficial (solo ordenan candidatos)
+
+
+class DominioCapituloIn(BaseModel):
+    relevancia: str | None = None
+    habilitado: bool | None = None
+    quitar: bool = False
+
+
+class VerificarFuenteIn(BaseModel):
+    documento: str | None = Field(None, max_length=300)  # documento o dataset oficial exacto que se revisó
+    url: str | None = Field(None, max_length=400)
+    verificado_en: date | None = None

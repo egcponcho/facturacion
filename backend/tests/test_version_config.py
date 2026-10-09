@@ -1,10 +1,10 @@
 """Versión de la configuración: cada cambio del motor la sube en la misma
 transacción; el catálogo se comparte en el proceso mientras no cambie y una
 transacción deshecha no deja nada compartido."""
-from app.db import SessionLocal
-from app.models import SinonimoBusqueda
-from app.services import version_config
-from app.services.ficha import catalogo
+from app.core.db import SessionLocal
+from app.modelos import SinonimoBusqueda
+from app.modulos.clasificacion import version_config
+from app.modulos.productos.ficha import catalogo
 
 
 def test_catalogo_compartido_hasta_que_cambia_la_configuracion(interno):

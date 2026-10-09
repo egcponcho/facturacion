@@ -6,7 +6,7 @@ from datetime import date
 
 from openpyxl import load_workbook
 
-from app.services import preferencias
+from app.modulos.acceso import preferencias
 
 
 def test_perfil_y_preferencias(interno):

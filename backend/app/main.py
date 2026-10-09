@@ -7,16 +7,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.exc import IntegrityError
 
-from .config import settings
-from .db import SessionLocal
-from .routers import aranceles, auth_admin, catalogos, conocimiento, facturas, ordenes, packing, productos, transporte, varios
-from .services import visibilidad
-from .services.common import ErrorNegocio
+from app.core.config import settings
+from app.core.db import SessionLocal
+from app.core.errores import ErrorNegocio
+from app.modulos.acceso import api as acceso_api
+from app.modulos.acceso import visibilidad
+from app.modulos.clasificacion import api as clasificacion_api
+from app.modulos.clasificacion import api_conocimiento as clasificacion_api_conocimiento
+from app.modulos.compras import api as compras_api
+from app.modulos.comun import api as comun_api
+from app.modulos.empaque import api as empaque_api
+from app.modulos.empaque import api_plantillas as empaque_api_plantillas
+from app.modulos.empresa import api as empresa_api
+from app.modulos.facturacion import api as facturacion_api
+from app.modulos.maestros import api as maestros_api
+from app.modulos.productos import api as productos_api
+from app.modulos.productos import api_flujo as productos_api_flujo
+from app.modulos.seguimiento import api as seguimiento_api
+from app.modulos.transporte import api as transporte_api
+from app.modulos.transporte import api_leadtimes as transporte_api_leadtimes
 
 
 class RespuestaJSON(JSONResponse):
     """Respuesta de la API: quita los datos que el rol del usuario no ve
-    (services/visibilidad.py) antes de enviarlos."""
+    (modulos/acceso/visibilidad.py) antes de enviarlos."""
 
     def render(self, content) -> bytes:
         return super().render(visibilidad.quitar(content))
@@ -28,14 +42,14 @@ async def lifespan(_: FastAPI):
     deja lista la instalación. Demostración y producción siguen el mismo
     camino; la demostración solo agrega sus datos de ejemplo a una base vacía."""
     settings.validar()
-    from . import migraciones
-    from .inicial import preparar_instalacion
+    from app.core import migraciones
+    from app.instalacion.inicial import preparar_instalacion
 
     migraciones.actualizar()
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     with SessionLocal() as db:
         if settings.SEED_DEMO:
-            from .seed import seed
+            from app.instalacion.demo import seed
 
             seed(db)
         preparar_instalacion(db)
@@ -110,8 +124,15 @@ async def _error_validacion(_: Request, exc: RequestValidationError):
         "mensaje": "Check the data you sent.", "codigo": "datos_invalidos", "detalle": detalle})
 
 
-for r in (aranceles, auth_admin, catalogos, conocimiento, ordenes, facturas, packing, productos, transporte, varios):
-    app.include_router(r.router, prefix="/api")
+# Rutas de cada módulo, todas bajo /api. El orden se conserva: una ruta fija
+# (p. ej. /seguimiento/exportar) va antes que una con parámetro del mismo prefijo.
+RUTAS = (
+    clasificacion_api, acceso_api, productos_api_flujo, empresa_api, maestros_api, clasificacion_api_conocimiento,
+    compras_api, facturacion_api, empaque_api, productos_api, transporte_api, comun_api, seguimiento_api,
+    transporte_api_leadtimes, empaque_api_plantillas,
+)
+for modulo in RUTAS:
+    app.include_router(modulo.router, prefix="/api")
 
 
 @app.get("/api/salud")

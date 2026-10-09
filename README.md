@@ -30,7 +30,7 @@ npm run dev
 
 Al arrancar se aplican las migraciones y, como la base está vacía, se cargan los datos de ejemplo (la empresa *Distribuidora de Marcas*, los proveedores TNF y Vans, OCs con tallas, plantillas y un embarque con un 40HC).
 
-Para reiniciar la demostración con sus datos de ejemplo: `SEED_DEMO=1 python -m app.seed` (desde `backend`; se niega a correr sin `SEED_DEMO=1`).
+Para reiniciar la demostración con sus datos de ejemplo: `SEED_DEMO=1 python -m app.instalacion.demo` (desde `backend`; se niega a correr sin `SEED_DEMO=1`).
 
 ### Docker y PostgreSQL
 
@@ -84,7 +84,7 @@ Para enviar SMS reales defina `SMS_PROVEEDOR=twilio` con `TWILIO_ACCOUNT_SID`, `
 
 ## Datos visibles por rol
 
-Además de los permisos, cada rol puede ocultar grupos de datos en *Usuarios y accesos → Rol → «Datos que ve este rol»*. Los grupos están definidos en `backend/app/services/visibilidad.py`:
+Además de los permisos, cada rol puede ocultar grupos de datos en *Usuarios y accesos → Rol → «Datos que ve este rol»*. Los grupos están definidos en `backend/app/modulos/acceso/visibilidad.py`:
 
 | Grupo | Qué oculta |
 |---|---|
@@ -179,7 +179,7 @@ El **código de artículo** es libre: cualquier código numérico o alfanuméric
 
 ### Un solo motor de clasificación (servidor)
 
-Hay **un solo motor de clasificación**, en Python (`backend/app/services/motor_clasificacion.py`). La ficha del producto, el guardado, la clasificación en bloque, las cargas, la aprobación y la opinión del especialista lo llaman; el navegador solo muestra y edita (no tiene lógica de clasificación).
+Hay **un solo motor de clasificación**, en Python (`backend/app/modulos/clasificacion/motor_clasificacion.py`). La ficha del producto, el guardado, la clasificación en bloque, las cargas, la aprobación y la opinión del especialista lo llaman; el navegador solo muestra y edita (no tiene lógica de clasificación).
 
 - **Ficha natural → hechos.** La interfaz envía la ficha tal como se escribió (categoría, composición por parte, género, edad, uso…). El servidor la normaliza (`ficha.py`): lee las composiciones (`composicion.py`), deriva hechos (fibra predominante, material del corte y de la suela…), aplica implicaciones y bloqueos de opciones, detecta lo que dicen el nombre y el uso, y conserva lo que eligió la persona.
 - **Todas las categorías funcionan igual**, calzado y ropa incluidos. Las categorías (`CategoriaProducto`), atributos, opciones, dependencias y ámbitos son datos. Cree un dominio, una categoría, sus atributos, opciones, ámbitos, reglas y códigos nacionales en *Familias de producto* y *Arancel*, y sus productos se clasifican sin cambios de código.
@@ -289,7 +289,7 @@ Cada lista de empaque recibe `PL-001`, `PL-002`… por defecto, y el proveedor p
 
 ## Lead times
 
-Los lead times son reglas configurables con herencia por nivel geográfico (`backend/app/services/reglas_lt.py`):
+Los lead times son reglas configurables con herencia por nivel geográfico (`backend/app/modulos/transporte/reglas_lt.py`):
 
 - **Pasos de lead time** (*Datos maestros*): el catálogo de pasos que puede usar un lead time (booking, liberación, XF, ETD, ETA, aduana, bodega, ingreso, tienda…). Un paso se puede ligar a una fecha que el sistema mide para comparar el plan con lo real.
 - **Reglas de lead time** (*Datos maestros*): Global → Región → País → Puerto. Cada regla define solo lo que cambia (pasos que agrega, sobrescribe o quita, y el orden): cada paso es su paso de referencia más N días (naturales o hábiles), opcionalmente solo para un modo de transporte; lo demás se hereda del nivel superior. Las **regiones** agrupan países de origen, y a cada país se le asigna su región en *Países*.
@@ -342,7 +342,7 @@ Cada factura y lista de empaque se descarga en **PDF** (lista para imprimir y fi
 
 ## Reglas configurables
 
-Las reglas de negocio se configuran **en la aplicación**, en *Configuración → Empresa → Reglas de negocio* (solo administradores), y se guardan en la base de datos. La lista está en `REGLAS` de `backend/app/empresa.py` y se validan y guardan en `backend/app/services/organizacion.py`. Las variables de entorno del mismo nombre (`backend/app/config.py`) solo son los **valores de fábrica** de una instalación nueva, mientras la empresa no los cambie en pantalla.
+Las reglas de negocio se configuran **en la aplicación**, en *Configuración → Empresa → Reglas de negocio* (solo administradores), y se guardan en la base de datos. La lista está en `REGLAS` de `backend/app/core/empresa.py` y se validan y guardan en `backend/app/modulos/empresa/organizacion.py`. Las variables de entorno del mismo nombre (`backend/app/core/config.py`) solo son los **valores de fábrica** de una instalación nueva, mientras la empresa no los cambie en pantalla.
 
 | Regla | De fábrica | Qué hace |
 |---|---|---|
@@ -360,7 +360,7 @@ Las reglas de compatibilidad se eligen entre sociedad, centro, centro de destino
 
 ### Variables de entorno
 
-Solo lo que depende del servidor (vea `backend/app/config.py` y `backend/.env.example`):
+Solo lo que depende del servidor (vea `backend/app/core/config.py` y `backend/.env.example`):
 
 | Variable | Por defecto | Qué hace |
 |---|---|---|
@@ -383,7 +383,7 @@ Solo lo que depende del servidor (vea `backend/app/config.py` y `backend/.env.ex
 
 `POSICION_EN_VARIAS_FACTURAS`, `FACTURA_EN_UNA_SOLA_UNIDAD`, `PROVEEDOR_PUEDE_FINALIZAR`, `REQUERIR_DATOS_ADUANA`, `DIAS_ALERTA_BORRADOR` y `PAIS_BASE_CLASIF` también se pueden definir como variables, pero solo como valores de fábrica (vea arriba).
 
-**Base de datos:** demostración y producción aplican las mismas migraciones de Alembic al arrancar y nunca se borra nada. `SEED_DEMO=1` solo agrega datos de ejemplo a una base vacía; `SEED_DEMO=1 python -m app.seed` reinicia la demostración. `python -m app.inicial correo celular` (desde `backend`) crea o restablece un administrador y escribe en pantalla una contraseña temporal.
+**Base de datos:** demostración y producción aplican las mismas migraciones de Alembic al arrancar y nunca se borra nada. `SEED_DEMO=1` solo agrega datos de ejemplo a una base vacía; `SEED_DEMO=1 python -m app.instalacion.demo` reinicia la demostración. `python -m app.instalacion.inicial correo celular` (desde `backend`) crea o restablece un administrador y escribe en pantalla una contraseña temporal.
 
 ## Diseño adaptable
 
@@ -414,9 +414,9 @@ Cada usuario abre *Mi perfil* desde su nombre en el encabezado (o el menú en el
 La interfaz está en **español e inglés**. El idioma por defecto es el predeterminado de la empresa (*Configuración → Empresa*); antes de iniciar sesión se usa el del navegador. Cada usuario elige su idioma en *Mi perfil* (o con el selector del encabezado) y queda en su perfil, así que lo sigue en cualquier dispositivo.
 
 - El texto en inglés es la clave; la traducción al español está en `frontend/src/i18n/es.json`. Las traducciones están adaptadas al negocio, no son literales: `frontend/src/i18n/glosario.json` fija el término aprobado para cada concepto (p. ej. *Type* → *Tipo*, nunca *Chico*) y lista las traducciones literales que no se aceptan.
-- `backend/tests/test_i18n.py` revisa el español: todos los textos presentes, los mismos marcadores `{0}`, sin textos sin traducir, los términos del glosario respetados, y `claves.json` y `backend/app/i18n_es.json` al día con el código.
-- Después de cambiar textos, extraiga las claves: primero los mensajes del servidor con `python scripts/i18n_extraer.py` (desde `backend`, escribe `app/i18n_claves.json`) y luego los de la interfaz con `node scripts/i18n-extraer.mjs` (desde `frontend`, escribe `src/i18n/claves.json` y `backend/app/i18n_es.json`); después agregue las traducciones nuevas en `es.json`.
-- **Documentos (PDF/Excel):** cada persona elige en su perfil el idioma de sus documentos; una descarga también puede forzarlo con `?idioma=es|en`. Los documentos usan `backend/app/services/idioma_doc.py` y la traducción de `backend/app/i18n_es.json`. Los montos en letras siguen las reglas de cada idioma (`backend/app/services/letras.py`), no una traducción.
+- `backend/tests/test_i18n.py` revisa el español: todos los textos presentes, los mismos marcadores `{0}`, sin textos sin traducir, los términos del glosario respetados, y `claves.json` y `backend/app/i18n/es.json` al día con el código.
+- Después de cambiar textos, extraiga las claves: primero los mensajes del servidor con `python scripts/i18n_extraer.py` (desde `backend`, escribe `app/i18n/claves.json`) y luego los de la interfaz con `node scripts/i18n-extraer.mjs` (desde `frontend`, escribe `src/i18n/claves.json` y `backend/app/i18n/es.json`); después agregue las traducciones nuevas en `es.json`.
+- **Documentos (PDF/Excel):** cada persona elige en su perfil el idioma de sus documentos; una descarga también puede forzarlo con `?idioma=es|en`. Los documentos usan `backend/app/modulos/documentos/idioma_doc.py` y la traducción de `backend/app/i18n/es.json`. Los montos en letras siguen las reglas de cada idioma (`backend/app/modulos/documentos/letras.py`), no una traducción.
 - Los textos oficiales quedan como se publicaron: las descripciones del SAC y la descripción aduanal están en español.
 
 ## Pruebas
@@ -433,16 +433,28 @@ Las pruebas usan la demostración (`SEED_DEMO=1`, `COOKIE_SEGURA=0`) en una base
 
 ```
 backend/app/
-  config.py          variables de entorno (servidor, seguridad, SMS, archivos) y valores de fábrica de las reglas
-  empresa.py         reglas de negocio de la empresa (REGLAS) y su lectura en cada petición
-  inicial.py         preparación de una instalación nueva y del primer administrador
-  seed.py            datos de la demostración (SEED_DEMO=1)
-  models.py          modelo de datos
-  services/          lógica de negocio (cantidades, facturas, empaque, transporte, importación, acceso, SMS, sugerencias,
-                     productos y clasificación, opinión del especialista, empresa, visibilidad por rol, liberaciones,
-                     lead times, idioma de los documentos)
+  main.py            aplicación FastAPI: middlewares, errores y registro de las rutas de cada módulo
+  core/              núcleo transversal (no depende de los módulos): config.py (variables de entorno), db.py,
+                     seguridad.py, dependencias.py (usuario de la petición), empresa.py (reglas de negocio REGLAS),
+                     api.py (piezas comunes de las rutas), errores.py, migraciones.py
+  modelos/           modelo de datos (SQLAlchemy)
+  esquemas.py        contratos de entrada de la API (pydantic)
+  modulos/           un paquete por dominio, cada uno con sus servicios y su api.py (rutas bajo /api):
+    comun/           historial, idempotencia, búsqueda de texto, normalización, edición exclusiva
+    acceso/          inicio de sesión en dos pasos, usuarios, roles y permisos, proveedores, preferencias, datos visibles por rol
+    empresa/         ficha y reglas de la empresa
+    maestros/        catálogos, genéricos y tallas, unidades de medida, acuerdos comerciales, cargas masivas
+    compras/         órdenes de compra y liberaciones
+    facturacion/     facturas y cantidades por nivel
+    empaque/         listas de empaque, estructura física, plantillas de caja
+    transporte/      embarques, unidades de carga, recolección, lead times
+    seguimiento/     tablero, búsqueda global, seguimiento, alertas y reportes
+    productos/       ficha técnica, flujo de clasificación y descripciones
+    clasificacion/   arancel oficial, motor de clasificación, atributos, reglas, familias, conocimiento
+    documentos/      PDF y Excel (factura, lista de empaque, plantillas), montos en letras, idioma del documento
+  instalacion/       arranque de una instalación: datos incluidos, primer administrador (inicial.py), demostración (demo.py)
+  i18n/              textos del servidor (claves.json) y su traducción al español (es.json)
   data/              datos oficiales del arancel, motor de clasificación (familias) y datos de la demostración
-  routers/           endpoints REST bajo /api
 backend/alembic/     migraciones de la base de datos
 backend/tests/       flujo completo, motor de clasificación (de punta a punta, fixtures de paridad en tests/paridad), reglas de empaque,
                      acceso seguro, visibilidad por rol, idiomas, producción y concurrencia
