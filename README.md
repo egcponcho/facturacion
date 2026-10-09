@@ -437,8 +437,8 @@ backend/app/
   core/              núcleo transversal (no depende de los módulos): config.py (variables de entorno), db.py,
                      seguridad.py, dependencias.py (usuario de la petición), empresa.py (reglas de negocio REGLAS),
                      api.py (piezas comunes de las rutas), errores.py, migraciones.py
-  modelos/           modelo de datos (SQLAlchemy)
-  esquemas.py        contratos de entrada de la API (pydantic)
+  modelos/           modelo de datos (SQLAlchemy), un archivo por dominio
+  esquemas/          contratos de entrada de la API (pydantic), un archivo por dominio
   modulos/           un paquete por dominio, cada uno con sus servicios y su api.py (rutas bajo /api):
     comun/           historial, idempotencia, búsqueda de texto, normalización, edición exclusiva
     acceso/          inicio de sesión en dos pasos, usuarios, roles y permisos, proveedores, preferencias, datos visibles por rol
