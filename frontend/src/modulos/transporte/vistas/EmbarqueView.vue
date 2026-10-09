@@ -20,7 +20,7 @@ import { datosModo, iconoUnidad, useRutas } from '@/composables/useRutas'
 import { useTabla } from '@/composables/useTabla'
 import { sesion } from '@/stores/sesion'
 import { avisar, errorApi, guardando } from '@/stores/ui'
-import { ACCIONES, diasTxt, EVENTOS_EMBARQUE, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
+import { ACCIONES, diasTxt, eventosEmbarque, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
 
 // El embarque es el espacio de trabajo de logística: sus datos, sus
 // contenedores (cada uno con su carga) y el seguimiento, en una sola vista.
@@ -40,8 +40,7 @@ const cajon = ref(false)
 const ocupado = ref(false)
 const verHistorial = ref(false)
 
-const EVENTOS = EVENTOS_EMBARQUE
-const nombreEvento = (t) => EVENTOS.find((x) => x[0] === t)?.[1] || t
+const nombreEvento = (t) => eventosEmbarque().find((x) => x[0] === t)?.[1] || t
 const HITOS = [['PLANIFICADO', t('Planned')], ['EN_TRANSITO', t('In transit')], ['ARRIBADO', t('Arrived')], ['ENTREGADO', t('Delivered')], ['RECIBIDO', t('Received')]]
 const SIGUIENTE = { PLANIFICADO: 'SALIDA', EN_TRANSITO: 'ARRIBO', ARRIBADO: 'ENTREGA', ENTREGADO: 'RECEPCION' }
 // El cuarto valor marca lo que exige el documento de transporte (BL, AWB o
@@ -59,7 +58,7 @@ const soloLectura = computed(() => !!e.value?.edicion)
 const bloqueado = computed(() => cerrado.value || soloLectura.value)
 const FIJOS_SALIDA = ['documento_numero', 'transportista_id', 'puerto_origen', 'etd', 'centro']
 const fijo = (campo) => soloLectura.value || (cerrado.value && (FIJOS_SALIDA.includes(campo) || (e.value.arribo_real && ['eta', 'puerto_destino'].includes(campo))))
-const eventosPermitidos = computed(() => EVENTOS.filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)))
+const eventosPermitidos = computed(() => eventosEmbarque().filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)))
 const ultimoEvento = computed(() => (e.value?.eventos || []).reduce((a, ev) => (!a || ev.fecha > a ? ev.fecha : a), null))
 const exigeSello = computed(() => !!u.value?.requiere_sello)
 const modo = computed(() => datosModo(e.value?.tipo_transporte))

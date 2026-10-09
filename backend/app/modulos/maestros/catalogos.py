@@ -71,7 +71,8 @@ def c(nombre, etiqueta, tipo="texto", obligatorio=False, **extra):
 # contiene, si es una lista). Ej.: la marca de un artículo depende del
 # proveedor (la marca trae la lista de proveedores que la manejan). El
 # formulario filtra las opciones y el servidor lo valida al guardar.
-# tipo: texto | entero | numero | bool | opcion (opciones) | ref (catalogo: guarda el id)
+# tipo: texto | entero | numero | bool | opcion (opciones) | opciones (varias, separadas por coma)
+#       | ref (catalogo: guarda el id)
 #       | codigo (catalogo: guarda el código, p. ej. país ISO) | correos
 #       | multi (catalogo: varios registros, p. ej. las marcas de un proveedor)
 # Las opciones de un campo con `lista` salen de las listas de valores de la
@@ -336,7 +337,8 @@ CATALOGOS = {
             *[c(a, listas.ATRIBUTOS[a][0], "opcion" if listas.ATRIBUTOS[a][1].startswith("lista") else listas.ATRIBUTOS[a][1],
                 mostrar_si={"campo": "lista", "valores": [k for k, v in listas.LISTAS.items() if a in v["atributos"]]},
                 **({"lista": listas.ATRIBUTOS[a][1].split(":")[1]} if listas.ATRIBUTOS[a][1].startswith("lista") else {}),
-                **({"opciones": listas.CALCULOS} if a == "calculo" else {"opciones": listas.ICONOS} if a == "icono" else {}),
+                **({"opciones": listas.CALCULOS} if a == "calculo" else {"opciones": listas.ICONOS} if a == "icono"
+                   else {"opciones": listas.ESTADOS_EMBARQUE} if a == "estados" else {}),
                 **({"minimo": 0} if listas.ATRIBUTOS[a][1] in ("entero", "numero") else {}),
                 **({"max": listas.ATRIBUTOS[a][2]} if listas.ATRIBUTOS[a][1] == "texto" else {}))
               for a in listas.ATRIBUTOS],
@@ -501,7 +503,7 @@ def _opciones(campo: dict) -> list[list[str]]:
 
 def campos_con_opciones(cat: dict) -> list[dict]:
     """Campos del catálogo con las opciones de las listas de la empresa."""
-    return [{**x, "opciones": _opciones(x)} if x["tipo"] == "opcion" else x for x in cat["campos"]]
+    return [{**x, "opciones": _opciones(x)} if x["tipo"] in ("opcion", "opciones") else x for x in cat["campos"]]
 
 
 def meta(db: Session, user: Usuario) -> list[dict]:
@@ -517,6 +519,9 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
     fila = {"id": obj.id}
     for campo in cat["campos"]:
         v = getattr(obj, campo["nombre"])
+        if campo["tipo"] == "opciones":
+            fila[campo["nombre"]] = [x for x in (v or "").split(",") if x]
+            continue
         if campo["tipo"] == "multi":
             fila[campo["nombre"]] = [x.id for x in v]
             fila[campo["nombre"] + "_txt"] = ", ".join(x.codigo for x in v) or None
@@ -750,6 +755,12 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                     errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: {v} is not in the catalog."})
                     continue
                 v = obj.codigo
+            elif t == "opciones":
+                elegidas = v if isinstance(v, list) else [x.strip() for x in str(v).split(",") if x.strip()]
+                validas = [o[0] for o in _opciones(campo)]
+                if any(x not in validas for x in elegidas):
+                    raise ValueError
+                v = ",".join(x for x in validas if x in elegidas) or None
             elif t == "opcion" and v not in [o[0] for o in _opciones(campo)] \
                     and not (actual and v == getattr(actual, n)):  # un valor ya guardado que se desactivó
                 raise ValueError

@@ -82,6 +82,10 @@ La demostración no envía SMS reales: la pantalla de ingreso muestra el código
 
 Para enviar SMS reales defina `SMS_PROVEEDOR=twilio` con `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` y `TWILIO_FROM`. Con el proveedor `consola` (el valor por defecto) el mensaje va al registro del servidor, y solo en modo demostración (`SEED_DEMO=1`) el código también se muestra en pantalla.
 
+## Página de inicio por rol
+
+Cada rol elige qué paneles ve en su página de inicio (*Usuarios y accesos → Rol → Página de inicio*): indicadores, lo que necesita atención, próximos pasos, embarques, unidades de carga en planificación, alertas de importación, desempeño y por proveedor.
+
 ## Alcance de los datos por usuario
 
 Además del rol, cada usuario tiene un **alcance** (*Usuarios y accesos → Usuario → Rol y alcance de los datos*). Vacío = sin límite:
@@ -300,6 +304,8 @@ Cada lista de empaque recibe `PL-001`, `PL-002`… por defecto, y el proveedor p
 - Mientras está **planificado**, se pueden agregar, mover o quitar unidades y carga. A la **salida** se cierra la carga.
 - Los eventos siguen el orden de estados (recolección → salida → tránsito → arribo → liberación → entrega → recepción); sin fechas futuras ni anteriores al último evento.
 - La carga no puede superar la capacidad nominal de una unidad. Cada embarque llega a un solo centro.
+
+**Hitos del embarque.** Los eventos que se registran en un embarque están en *Datos maestros → Listas de valores → Hitos del embarque*. Los de sistema (recolección, salida, tránsito, arribo, liberación aduanal, entrega, recepción y otro) hacen avanzar el embarque y conservan sus reglas: se pueden renombrar, pero no cambiar sus estados ni borrar. La empresa agrega sus propios hitos (p. ej. inspección en puerto) y elige en qué estados del embarque se registran; un hito propio no cambia el estado.
 
 ## Lead times
 

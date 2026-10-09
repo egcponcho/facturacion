@@ -21,6 +21,8 @@ export const eligeProveedor = () => esInterno() || sesion.proveedores.length > 1
 // Grupos de datos que el rol ve (Usuarios y accesos → Rol → Datos visibles).
 // El servidor ya no los envía; la pantalla quita sus columnas y filtros.
 export const ve = (grupo) => !(sesion.usuario?.datos_ocultos || []).includes(grupo)
+// Paneles de la página de inicio que su rol muestra (Usuarios y accesos → Rol)
+export const vePanel = (panel) => !(sesion.usuario?.inicio_oculto || []).includes(panel)
 
 // Paso 1: correo y contraseña. Devuelve el desafío si hay verificación en dos pasos.
 export async function iniciarSesion(email, password) {

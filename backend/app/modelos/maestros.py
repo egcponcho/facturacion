@@ -234,6 +234,7 @@ class ValorLista(Base):
     etiqueta_unidad: Mapped[str | None] = mapped_column(String(80))
     padre: Mapped[str | None] = mapped_column(String(20))
     consolidado: Mapped[bool | None] = mapped_column(Boolean)
+    estados: Mapped[str | None] = mapped_column(String(120))  # varias opciones, separadas por coma
 
 
 class EstadoLiberacion(Base):

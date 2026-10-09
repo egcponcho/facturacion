@@ -62,7 +62,8 @@ def crear_roles_fabrica(db: Session) -> dict[str, Rol]:
 def _rol_dict(r: Rol, usuarios: int) -> dict:
     return {"id": r.id, "nombre": r.nombre, "descripcion": r.descripcion, "activo": r.activo,
             "permisos": permisos_validos(r.permisos), "usuarios": usuarios,
-            "datos_ocultos": visibilidad.validos(r.datos_ocultos)}
+            "datos_ocultos": visibilidad.validos(r.datos_ocultos),
+            "inicio_oculto": visibilidad.paneles_validos(r.inicio_oculto)}
 
 
 def _admins_activos(db: Session) -> int:
@@ -89,7 +90,8 @@ def listar_roles(db: Session, user: Usuario) -> dict:
     cuenta = dict(db.execute(select(Usuario.rol_id, func.count()).group_by(Usuario.rol_id)).all())
     roles = db.scalars(select(Rol).order_by(Rol.nombre)).all()
     return {"roles": [_rol_dict(r, cuenta.get(r.id, 0)) for r in roles], "catalogo": catalogo_permisos(),
-            "datos": visibilidad.catalogo()}
+            "datos": visibilidad.catalogo(),
+            "paneles": [{"clave": k, "etiqueta": v} for k, v in visibilidad.PANELES_INICIO.items()]}
 
 
 def guardar_rol(db: Session, user: Usuario, datos, rol_id: int | None = None) -> dict:
@@ -113,6 +115,8 @@ def guardar_rol(db: Session, user: Usuario, datos, rol_id: int | None = None) ->
         if r.tipo == "admin" and campos["datos_ocultos"]:
             raise ErrorNegocio("The administrator role always sees all data.", 422, "validacion")
         campos["datos_ocultos"] = visibilidad.validos(campos["datos_ocultos"])
+    if "inicio_oculto" in campos:
+        campos["inicio_oculto"] = visibilidad.paneles_validos(campos["inicio_oculto"])
     for k, v in campos.items():
         setattr(r, k, v)
     if not r.nombre:

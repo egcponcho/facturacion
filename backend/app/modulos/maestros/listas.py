@@ -43,6 +43,13 @@ def validar(db: Session, final: dict, actual: ValorLista | None, limpio: dict) -
                 errores.append({"campo": "codigo", "mensaje": "The system relies on this value: its code cannot change."})
             if final.get("activo") is False:
                 errores.append({"campo": "activo", "mensaje": "The system relies on this value: it cannot be deactivated."})
+    if lista == "evento_embarque":
+        fabrica = {v["codigo"]: v["estados"] for v in listas.FABRICA["evento_embarque"]}
+        codigo = actual.codigo if actual else final.get("codigo")
+        if codigo in fabrica and (final.get("estados") or "") != fabrica[codigo]:
+            errores.append({"campo": "estados", "mensaje": "A system milestone keeps its statuses: they drive the shipment."})
+        elif not final.get("estados"):
+            errores.append({"campo": "estados", "mensaje": "Choose the statuses where the milestone can be recorded."})
     if lista == "moneda" and final.get("decimales") is not None and final["decimales"] > 4:
         errores.append({"campo": "decimales", "mensaje": "At most 4 decimals."})
     for a in ("letras_en", "letras_es", "etiqueta_unidad"):

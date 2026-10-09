@@ -35,6 +35,7 @@ const roles = ref([])
 const catalogo = ref([])
 // Grupos de datos que se pueden ocultar a un rol (precios, códigos internos…)
 const gruposDatos = ref([])
+const panelesInicio = ref([])
 const rolesActivos = computed(() => roles.value.filter((r) => r.activo))
 const rolDe = (id) => roles.value.find((r) => r.id === Number(id))
 // Permisos del rol que no aplican a un usuario de proveedor (datos globales o administración)
@@ -52,6 +53,7 @@ async function cargar() {
     roles.value = r.roles
     catalogo.value = r.catalogo
     gruposDatos.value = r.datos || []
+    panelesInicio.value = r.paneles || []
     sesion.proveedores = proveedores.value
   } catch (e) {
     errorApi(e)
@@ -113,7 +115,7 @@ async function actualizar(ruta, datos, mensaje) {
 // ---- Roles: qué módulos y acciones tiene cada uno ------------------------------
 function abrirRol(r) {
   modal.value = { tipo: 'rol', id: r?.id || null, nombre: r?.nombre || '', descripcion: r?.descripcion || '',
-    activo: r ? r.activo : true, permisos: new Set(r?.permisos || []), ocultos: new Set(r?.datos_ocultos || []),
+    activo: r ? r.activo : true, permisos: new Set(r?.permisos || []), ocultos: new Set(r?.datos_ocultos || []), inicio: new Set(r?.inicio_oculto || []),
     esAdmin: (r?.permisos || []).includes('admin') }
 }
 const marcado = (p) => modal.value.permisos.has(p.clave)
@@ -129,7 +131,7 @@ const nMarcados = computed(() => (modal.value?.tipo === 'rol' ? catalogo.value.f
 async function guardarRol() {
   const m = modal.value
   const cuerpo = { nombre: m.nombre, descripcion: m.descripcion || null, activo: m.activo, permisos: [...m.permisos],
-    datos_ocultos: m.permisos.has('admin') ? [] : [...m.ocultos] }
+    datos_ocultos: m.permisos.has('admin') ? [] : [...m.ocultos], inicio_oculto: [...m.inicio] }
   try {
     if (m.id) await api.patch(`/roles/${m.id}`, cuerpo)
     else await api.post('/roles', cuerpo)
@@ -338,6 +340,14 @@ onMounted(cargar)
         <label v-for="g in gruposDatos" :key="g.clave" class="check permiso">
           <input type="checkbox" :checked="!modal.ocultos.has(g.clave)" @change="modal.ocultos.has(g.clave) ? modal.ocultos.delete(g.clave) : modal.ocultos.add(g.clave)" />
           <span>{{ tx(g.etiqueta) }}<small class="sub">{{ tx(g.descripcion) }}</small></span>
+        </label>
+      </div>
+      <div class="lbl-permisos"><span>{{ t('Home page') }}</span>
+        <span class="sub">{{ t('Panels this role sees on its home page.') }}</span></div>
+      <div class="datos-rol">
+        <label v-for="p in panelesInicio" :key="p.clave" class="check permiso">
+          <input type="checkbox" :checked="!modal.inicio.has(p.clave)" @change="modal.inicio.has(p.clave) ? modal.inicio.delete(p.clave) : modal.inicio.add(p.clave)" />
+          <span>{{ tx(p.etiqueta) }}</span>
         </label>
       </div>
       <label class="check mt-chico"><input v-model="modal.activo" type="checkbox" /> {{ t('Active') }}</label>

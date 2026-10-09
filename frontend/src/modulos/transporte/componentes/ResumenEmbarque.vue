@@ -4,7 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import { datosModo } from '@/composables/useRutas'
 import { errorApi } from '@/stores/ui'
-import { ACCIONES, EVENTOS_EMBARQUE, avanceViaje, diasTxt, fmtFecha, fmtFechaHora, fmtNum, plural } from '@/nucleo/utils'
+import { ACCIONES, avanceViaje, eventosEmbarque, diasTxt, fmtFecha, fmtFechaHora, fmtNum, plural } from '@/nucleo/utils'
 import Avance from '@/componentes/Avance.vue'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import EstadoTiempo from '@/componentes/EstadoTiempo.vue'
@@ -32,7 +32,7 @@ const total = (campo) => (e.value?.unidades || []).reduce((a, u) => a + (u[campo
 const dias = (fecha) => (fecha ? Math.round((new Date(fecha).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000) : null)
 const limite = computed(() => (e.value?.unidades || []).map((u) => u.limite_puerto).filter(Boolean).sort()[0] || null)
 const proveedores = computed(() => [...new Set((e.value?.unidades || []).flatMap((u) => u.proveedores || []))])
-const nombreEvento = (k) => EVENTOS_EMBARQUE.find((x) => x[0] === k)?.[1] || k
+const nombreEvento = (k) => eventosEmbarque().find((x) => x[0] === k)?.[1] || k
 const icono = computed(() => datosModo(e.value?.tipo_transporte).icono)
 const llegada = computed(() => {
   const d = e.value

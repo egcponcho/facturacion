@@ -36,6 +36,8 @@ class Rol(Base):
     # Grupos de datos que este rol no ve (modulos/acceso/visibilidad.py): precios,
     # códigos internos, fechas internas… El servidor los quita de las respuestas.
     datos_ocultos: Mapped[list] = mapped_column(JSON, default=list)
+    # Paneles de la página de inicio que este rol no ve (visibilidad.PANELES_INICIO)
+    inicio_oculto: Mapped[list] = mapped_column(JSON, default=list)
     sistema: Mapped[bool] = mapped_column(Boolean, default=False)  # los de fábrica no se borran
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 

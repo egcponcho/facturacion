@@ -69,6 +69,18 @@ DEFECTO_POR_TIPO = {"proveedor": ["fechas_internas", "liberaciones", "impuestos"
 RUTAS = ("/api/ordenes", "/api/facturas", "/api/packing-lists", "/api/seguimiento", "/api/embarques",
          "/api/unidades", "/api/dashboard", "/api/buscar", "/api/productos", "/api/alertas", "/api/recoleccion")
 
+# Paneles de la página de inicio que un rol puede ocultar (Usuarios y accesos → Rol)
+PANELES_INICIO = {
+    "indicadores": "Indicators", "atencion": "Needs your attention", "tareas": "Next steps", "envios": "Shipments",
+    "contenedores": "Load units being planned", "alertas": "Import alerts", "periodo": "Performance",
+    "proveedores": "By supplier",
+}
+
+
+def paneles_validos(paneles) -> list[str]:
+    return [p for p in PANELES_INICIO if p in set(paneles or [])]
+
+
 _ocultos: ContextVar[frozenset] = ContextVar("datos_ocultos", default=frozenset())
 
 

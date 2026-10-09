@@ -13,7 +13,7 @@ import GraficoColumnas from '@/componentes/GraficoColumnas.vue'
 import Icono from '@/componentes/Icono.vue'
 import TableroEsqueleto from '@/modulos/inicio/componentes/TableroEsqueleto.vue'
 import Kpi from '@/componentes/Kpi.vue'
-import { elegirProveedor, esInterno, nombreProveedor, sesion, ve } from '@/stores/sesion'
+import { elegirProveedor, esInterno, nombreProveedor, sesion, ve, vePanel } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { avanceViaje, fmtFecha, fmtFechaHora, fmtMoneda, fmtNum, plural } from '@/nucleo/utils'
 
@@ -91,7 +91,7 @@ watch(periodo, cargar, { deep: true })
   <TableroEsqueleto v-if="cargando && !d" />
   <template v-if="d">
     <!-- 1. Indicadores operativos: una franja; el primero es la cifra principal -->
-    <section class="kpis kpis-heroe" :aria-label="t('Indicators')">
+    <section v-if="vePanel('indicadores')" class="kpis kpis-heroe" :aria-label="t('Indicators')">
       <Kpi v-for="k in d.kpis" :key="k.clave" :titulo="tx(k.titulo)" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
            :detalle="tx(k.detalle)" :tono="k.tono" @abrir="router.push({ path: k.ruta, query: k.query })" />
     </section>
@@ -99,7 +99,7 @@ watch(periodo, cargar, { deep: true })
     <!-- 2. Trabajo del día: lo que necesita atención y los próximos pasos | embarques -->
     <div class="tablero">
       <div class="col">
-        <section class="panel" :aria-label="t('Needs your attention')">
+        <section v-if="vePanel('atencion')" class="panel" :aria-label="t('Needs your attention')">
           <div class="panel-cabeza">
             <div><h2>{{ t('Needs your attention') }}</h2><p>{{ t('What blocks the next step comes first.') }}</p></div>
             <span v-if="d.atencion.length" class="etiqueta">{{ tx(d.atencion.length) }}</span>
@@ -119,7 +119,7 @@ watch(periodo, cargar, { deep: true })
           </div>
         </section>
 
-        <section class="panel">
+        <section v-if="vePanel('tareas')" class="panel">
           <div class="panel-cabeza">
             <div><h2>{{ t('Next steps') }}</h2><p>{{ t('Ordered by what unblocks the most work.') }}</p></div>
             <span v-if="d.tareas.length" class="etiqueta">{{ tx(d.tareas.length) }}</span>
@@ -141,7 +141,7 @@ watch(periodo, cargar, { deep: true })
       </div>
 
       <div class="col">
-        <section class="panel">
+        <section v-if="vePanel('envios')" class="panel">
           <div class="panel-cabeza">
             <div><h2>{{ t('Shipments') }}</h2><p>{{ tx(esInterno() ? t('Planned and in-transit shipments.') : t('Shipments carrying your goods.')) }}</p></div>
             <router-link v-if="esInterno()" class="btn btn-chico btn-fantasma" to="/transporte">{{ t('See all') }}<Icono nombre="derecha" :tam="14" /></router-link>
@@ -174,7 +174,7 @@ watch(periodo, cargar, { deep: true })
           <p v-else class="ayuda">{{ t('No shipments in progress.') }}</p>
         </section>
 
-        <section v-if="d.contenedores.length" class="panel">
+        <section v-if="vePanel('contenedores') && d.contenedores.length" class="panel">
           <div class="panel-cabeza"><div><h2>{{ t('Load units being planned') }}</h2><p>{{ t('Fill rate by volume.') }}</p></div></div>
           <ul class="lista-accion">
             <li v-for="u in d.contenedores" :key="u.id">
@@ -187,7 +187,7 @@ watch(periodo, cargar, { deep: true })
           </ul>
         </section>
 
-        <section v-if="esInterno() && d.alertas.length" class="panel">
+        <section v-if="vePanel('alertas') && esInterno() && d.alertas.length" class="panel">
           <div class="panel-cabeza"><div><h2>{{ t('Import alerts') }}</h2><p>{{ t('Conflicts found when loading purchase orders.') }}</p></div></div>
           <ul class="linea-tiempo">
             <li v-for="a in d.alertas" :key="a.id">
@@ -200,7 +200,7 @@ watch(periodo, cargar, { deep: true })
     </div>
 
     <!-- 3. Desempeño del periodo: filtros arriba, indicadores, gráfica y dónde está la mercancía -->
-    <section class="panel desempeno" :aria-label="t('Period')">
+    <section v-if="vePanel('periodo')" class="panel desempeno" :aria-label="t('Period')">
       <div class="panel-cabeza">
         <div><h2>{{ t('Performance') }}</h2><p>{{ t('{0} – {1}', [fmtFecha(d.periodo.desde), fmtFecha(d.periodo.hasta)]) }}</p></div>
         <div class="fila-flex" style="gap: 8px">
@@ -226,7 +226,7 @@ watch(periodo, cargar, { deep: true })
     </section>
 
     <!-- 4. Por proveedor (equipo interno) -->
-    <section v-if="d.proveedores.length" class="panel">
+    <section v-if="vePanel('proveedores') && d.proveedores.length" class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('By supplier') }}</h2><p>{{ t('Click one to filter the whole system.') }}</p></div></div>
       <div class="tabla-marco tabla-interna">
         <table class="tabla" v-tarjetas>

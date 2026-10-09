@@ -64,7 +64,7 @@ const aplica = (c) => {
   if (!c.mostrar_si) return true
   const elegido = filtros.extra[c.mostrar_si.campo]
   if (elegido) return c.mostrar_si.valores.includes(elegido)
-  return datos.value.items.some((f) => f[c.nombre] !== null && f[c.nombre] !== undefined && f[c.nombre] !== '')
+  return datos.value.items.some((f) => ![null, undefined, ''].includes(f[c.nombre]) && !(Array.isArray(f[c.nombre]) && !f[c.nombre].length))
 }
 const columnas = computed(() => campos.value.filter((c) => !['descripcion', 'direccion', 'razon_social', 'upc'].includes(c.nombre) &&
   !(c.nombre === 'correos' && tipo.value !== 'contactos') && aplica(c)))
@@ -97,7 +97,7 @@ const conFiltro = computed(() => campos.value.filter((c) => c.filtro && !(compac
 
 function vacio() {
   const f = {}
-  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? true : c.tipo === 'multi' ? [] : c.tipo === 'regla_lt' ? { pasos: [], orden: null } : ''
+  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? true : ['multi', 'opciones'].includes(c.tipo) ? [] : c.tipo === 'regla_lt' ? { pasos: [], orden: null } : ''
   return f
 }
 
@@ -172,7 +172,7 @@ function editar(fila) {
   filaEditada.value = fila
   erroresForm.value = {}
   const f = vacio()
-  for (const c of campos.value) f[c.nombre] = c.tipo === 'multi' ? [...(fila[c.nombre] || [])] : c.tipo === 'regla_lt' ? JSON.parse(JSON.stringify(fila[c.nombre] || { pasos: [], orden: null })) : fila[c.nombre] ?? (c.tipo === 'bool' ? false : '')
+  for (const c of campos.value) f[c.nombre] = ['multi', 'opciones'].includes(c.tipo) ? [...(fila[c.nombre] || [])] : c.tipo === 'regla_lt' ? JSON.parse(JSON.stringify(fila[c.nombre] || { pasos: [], orden: null })) : fila[c.nombre] ?? (c.tipo === 'bool' ? false : '')
   form.value = f
 }
 function nuevo() {
@@ -237,6 +237,7 @@ function valorCelda(c, fila) {
   if (c.tipo === 'multi') return fila[`${c.nombre}_txt`] || '—'
   if (c.tipo === 'regla_lt') return fila[`${c.nombre}_txt`] || '—'
   if (c.tipo === 'opcion') return c.opciones.find((o) => o[0] === v)?.[1] || v
+  if (c.tipo === 'opciones') return v.map((k) => tx(c.opciones.find((o) => o[0] === k)?.[1] || k)).join(', ') || '—'
   if (c.tipo === 'codigo') return opciones[c.catalogo]?.find((o) => o.codigo === v)?.texto || v
   return v
 }
@@ -507,6 +508,8 @@ onMounted(async () => {
             <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)"
                             :vacio="tx(c.obligatorio ? '' : t('None'))" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" :deshabilitado="bloqueado(c)" />
             <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)" multiple
+                            :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
+            <SelectBusqueda v-else-if="c.tipo === 'opciones'" v-model="form[c.nombre]" :opciones="c.opciones.map(([valor, texto]) => ({ valor, texto: tx(texto) }))" multiple
                             :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
             <EditorReglaLT v-else-if="c.tipo === 'regla_lt'" v-model="form[c.nombre]" :form="form" :regla-id="editando" />
             <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"

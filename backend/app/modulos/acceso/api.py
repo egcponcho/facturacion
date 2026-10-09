@@ -46,6 +46,8 @@ def _yo(u: Usuario) -> dict:
         "proveedor_id": u.proveedor_id,
         "proveedor": u.proveedor.nombre if u.proveedor else None,
         "alcance": u.alcance or {},
+        # Paneles del inicio que su rol no ve
+        "inicio_oculto": visibilidad.paneles_validos(u.rol_ref.inicio_oculto) if u.rol_ref else [],
         "permisos": permisos_de(u),
         "preferencias": preferencias.de(u),
         "foto": u.foto, "cargo": u.cargo, "area": u.area, "empresa": u.empresa,

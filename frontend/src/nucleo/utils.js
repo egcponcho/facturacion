@@ -1,7 +1,7 @@
-import { t } from '@/i18n/index.js'
+import { t, tx } from '@/i18n/index.js'
 import { fechaTexto, horaTexto, numeroTexto, pref } from '@/stores/preferencias'
 import { reactive } from 'vue'
-import { valor } from './listas.js'
+import { valor, valores } from './listas.js'
 import { nombresUnidad } from './unidades.js'
 
 // Números, fechas y horas siguen las preferencias del perfil (separadores,
@@ -159,16 +159,8 @@ export function reducirImagen(archivo, lado = 256) {
 }
 
 // Eventos de un embarque, en el orden en que suelen ocurrir
-export const EVENTOS_EMBARQUE = [
-  ['RECOLECCION', t('Pickup')],
-  ['SALIDA', t('Departure')],
-  ['TRANSITO', t('In transit')],
-  ['ARRIBO', t('Arrival')],
-  ['LIBERACION', t('Customs release')],
-  ['ENTREGA', t('Delivery')],
-  ['RECEPCION', t('Warehouse receipt')],
-  ['OTRO', t('Other')],
-]
+// Hitos del embarque: la lista de la empresa (Datos maestros → Listas de valores)
+export const eventosEmbarque = () => valores('evento_embarque').map((v) => [v.codigo, tx(v.nombre)])
 
 // Cuánto del viaje lleva un embarque (0–100), entre la salida y la llegada
 export function avanceViaje(e) {

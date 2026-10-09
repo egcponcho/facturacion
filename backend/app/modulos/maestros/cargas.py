@@ -404,6 +404,8 @@ def _cols_catalogo(db: Session, tipo: str) -> list[dict]:
         col = {"campo": x, "nombre": x["etiqueta"], "req": x["obligatorio"], "ayuda": x.get("ayuda") or ""}
         if x["tipo"] == "opcion":
             col["opciones"] = [t for _, t in x["opciones"]]
+        elif x["tipo"] == "opciones":
+            col["ayuda"] = (col["ayuda"] + " " if col["ayuda"] else "") + "Separated by commas: " + ", ".join(k for k, _ in x["opciones"])
         elif x["tipo"] == "bool":
             col["opciones"] = ["Yes", "No"]
         elif x["tipo"] in ("ref", "codigo", "multi"):
@@ -520,6 +522,8 @@ def exportar_catalogo(db: Session, user: Usuario, tipo: str, q: str | None, filt
             return "Yes" if fila.get(n) else "No"
         if x["tipo"] == "opcion":
             return dict(x["opciones"]).get(fila.get(n), fila.get(n)) or "—"
+        if x["tipo"] == "opciones":
+            return ", ".join(dict(x["opciones"]).get(k, k) for k in fila.get(n) or []) or "—"
         v = fila.get(n)
         return v if v not in (None, "") else "—"
 

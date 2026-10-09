@@ -75,14 +75,13 @@ def _exigir_planificado(e: Embarque, accion: str) -> None:
                            409, "embarque_cerrado")
 
 
-# Qué evento se puede registrar en cada estado, en orden
-EVENTOS_PERMITIDOS = {
-    "PLANIFICADO": {"RECOLECCION", "SALIDA", "OTRO"},
-    "EN_TRANSITO": {"TRANSITO", "ARRIBO", "OTRO"},
-    "ARRIBADO": {"LIBERACION", "ENTREGA", "OTRO"},
-    "ENTREGADO": {"RECEPCION", "OTRO"},
-    "RECIBIDO": {"OTRO"},
-}
+def eventos_permitidos(estado: str) -> set[str]:
+    """Hitos que se pueden registrar con el embarque en ese estado (Datos
+    maestros → Listas de valores → Shipment milestones). Los de sistema siguen
+    sus reglas de fábrica: son los que hacen avanzar el embarque."""
+    fabrica = {v["codigo"]: v["estados"] for v in listas.FABRICA["evento_embarque"]}
+    return {v["codigo"] for v in listas.valores("evento_embarque")
+            if estado in (fabrica.get(v["codigo"]) or v.get("estados") or "").split(",")}
 
 
 
@@ -389,7 +388,7 @@ def detalle_embarque(db: Session, user: Usuario, embarque_id: int) -> dict:
         "notify": partes(db, None, e.centro)["notify"] if e.centro else None,
         "cerrado": _salio(e),
         "edicion": ajeno_edicion(db, user, "embarque", e.id),
-        "eventos_permitidos": sorted(EVENTOS_PERMITIDOS[e.estado]),
+        "eventos_permitidos": sorted(eventos_permitidos(e.estado)),
     }
 
 
@@ -418,10 +417,9 @@ def _documentos_salida(e: Embarque, pls: list[PackingList]) -> list[str]:
 
 def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
     e = _embarque(db, user, embarque_id)
-    nombres = {"RECOLECCION": "pickup", "SALIDA": "departure", "TRANSITO": "transit", "ARRIBO": "arrival",
-               "LIBERACION": "release", "ENTREGA": "delivery", "RECEPCION": "receipt", "OTRO": "event"}
-    if datos.tipo not in EVENTOS_PERMITIDOS[e.estado]:
-        raise ErrorNegocio(f"{nombres[datos.tipo].capitalize()} cannot be recorded with the shipment in status "
+    if datos.tipo not in eventos_permitidos(e.estado):
+        nombre = listas.nombre("evento_embarque", datos.tipo) or datos.tipo
+        raise ErrorNegocio(f"{nombre} cannot be recorded with the shipment in status "
                            f"{e.estado.replace('_', ' ').lower()}. Follow the order: pickup, departure, arrival, "
                            "delivery and receipt.", 409, "orden_eventos")
     ultimo = max((ev.fecha for ev in e.eventos), default=None)

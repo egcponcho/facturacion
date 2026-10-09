@@ -88,9 +88,7 @@ class PLIds(BaseModel):
 
 
 class EventoIn(BaseModel):
-    tipo: Literal[
-        "RECOLECCION", "SALIDA", "TRANSITO", "ARRIBO", "LIBERACION", "ENTREGA", "RECEPCION", "OTRO"
-    ]
+    tipo: str = Field(max_length=20)  # un hito de la lista evento_embarque (se valida contra su estado)
     fecha: datetime
     ubicacion: str | None = None
     observacion: str | None = None

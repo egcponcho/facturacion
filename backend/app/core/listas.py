@@ -49,6 +49,14 @@ LISTAS: dict[str, dict] = {
         "atributos": ["padre", "consolidado"],
         "sistema": [],
     },
+    "evento_embarque": {
+        "etiqueta": "Shipment milestones",
+        "ayuda": "Events recorded on a shipment and the statuses where each one can be recorded. The system milestones "
+                 "(pickup, departure, arrival, delivery, receipt…) move the shipment forward and keep their rules; add "
+                 "your own milestones (e.g. port inspection) for the statuses you need.",
+        "atributos": ["estados"],
+        "sistema": ["RECOLECCION", "SALIDA", "TRANSITO", "ARRIBO", "LIBERACION", "ENTREGA", "RECEPCION", "OTRO"],
+    },
     "tipo_centro": {"etiqueta": "Plant types", "ayuda": "", "atributos": [], "sistema": []},
     "tipo_almacen": {"etiqueta": "Storage location types", "ayuda": "", "atributos": [], "sistema": []},
     "tipo_contacto": {"etiqueta": "Contact types", "ayuda": "", "atributos": [], "sistema": []},
@@ -75,10 +83,14 @@ ATRIBUTOS = {
     "etiqueta_transportista": ("Name of its carriers (e.g. Airline)", "texto", 40),
     "etiqueta_unidad": ("Name of its load units (singular|plural)", "texto", 80),
     "padre": ("Transport mode", "lista:modo_transporte"),
+    "estados": ("Shipment statuses where it can be recorded", "opciones"),
     "consolidado": ("Consolidated", "bool"),
 }
 CALCULOS = [["VOLUMEN", "By volume (full and consolidated units)"],
             ["PESO_COBRABLE", "By chargeable weight (air)"]]
+# Estados del embarque (los fija el sistema: los hitos de sistema lo hacen avanzar)
+ESTADOS_EMBARQUE = [["PLANIFICADO", "Planned"], ["EN_TRANSITO", "In transit"], ["ARRIBADO", "Arrived"],
+                    ["ENTREGADO", "Delivered"], ["RECIBIDO", "Received"]]
 ICONOS = [["barco", "Ship"], ["avion", "Plane"], ["camion", "Truck"], ["tren", "Train"], ["caja", "Box"]]
 
 
@@ -134,6 +146,16 @@ FABRICA: dict[str, list[dict]] = {
         _v("AEREO", "Air cargo", padre="AEREO", consolidado=False),
         _v("FTL", "FTL · full truck", padre="TERRESTRE", consolidado=False),
         _v("LTL", "LTL · partial load", padre="TERRESTRE", consolidado=True),
+    ],
+    "evento_embarque": [
+        _v("RECOLECCION", "Pickup", estados="PLANIFICADO"),
+        _v("SALIDA", "Departure", estados="PLANIFICADO"),
+        _v("TRANSITO", "In transit", estados="EN_TRANSITO"),
+        _v("ARRIBO", "Arrival", estados="EN_TRANSITO"),
+        _v("LIBERACION", "Customs release", estados="ARRIBADO"),
+        _v("ENTREGA", "Delivery", estados="ARRIBADO"),
+        _v("RECEPCION", "Warehouse receipt", estados="ENTREGADO"),
+        _v("OTRO", "Other", estados="PLANIFICADO,EN_TRANSITO,ARRIBADO,ENTREGADO,RECIBIDO"),
     ],
     "tipo_centro": [_v("BODEGA_FISCAL", "Bonded warehouse"), _v("ZONA_FRANCA", "Free trade zone"),
                     _v("LOCAL", "Local warehouse"), _v("TIENDA", "Store / DC")],
