@@ -158,8 +158,6 @@ def _nueva_version(db, ambito, codigo, desde, copiar_de=None, sin=()):
             db.add(m)
             db.flush()
             ids[n.id] = m.id
-        for n in db.scalars(select(ControlCapitulo)):
-            pass
     return v
 
 

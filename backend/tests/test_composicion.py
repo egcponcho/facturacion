@@ -16,7 +16,7 @@ def _igual(a, b):
     if isinstance(a, dict) and isinstance(b, dict):
         return a.keys() == b.keys() and all(_igual(a[k], b[k]) for k in a)
     if isinstance(a, list) and isinstance(b, list):
-        return len(a) == len(b) and all(_igual(x, y) for x, y in zip(a, b))
+        return len(a) == len(b) and all(_igual(x, y) for x, y in zip(a, b, strict=False))
     if isinstance(a, (int, float)) and isinstance(b, (int, float)) and not isinstance(a, bool):
         return abs(a - b) < 1e-9
     return a == b

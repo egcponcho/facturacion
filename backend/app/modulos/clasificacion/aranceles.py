@@ -435,7 +435,7 @@ def _cond_limpia(db: Session, cond: dict | None) -> dict:
             try:
                 out[k] = float(v)
             except (TypeError, ValueError):
-                raise ErrorNegocio(f"{d['label']}: write a number.", 422, "validacion")
+                raise ErrorNegocio(f"{d['label']}: write a number.", 422, "validacion") from None
         elif d["tipo"] == "sino":
             out[k] = bool(v) if isinstance(v, bool) else bool(si_no(v))
         else:
@@ -625,7 +625,7 @@ def plantilla_incisos(db: Session, pais: str | None = None) -> bytes:
         {"nombre": "Priority", "ayuda": "Higher wins when several codes fit the same product (0 by default).", "ancho": 10},
         {"nombre": "Note", "ancho": 30},
     ]
-    for k, d in _columnas_cond(db):
+    for _k, d in _columnas_cond(db):
         ayuda = "Condition that selects this code. Leave empty if it does not matter."
         if d["tipo"] == "sino":
             cols.append({"nombre": d["label"], "opciones": ["Yes", "No"], "ayuda": ayuda})

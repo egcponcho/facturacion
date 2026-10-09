@@ -132,7 +132,7 @@ def reporte(indicadores: list, columnas: list, filas: list[list], hojas: list[di
     """Reporte (Excel o PDF) sin las columnas ni los indicadores ocultos."""
     columnas, filas = tabla(columnas, filas)
     indicadores = [i for i in indicadores if tabla([i], [])[0]]
-    hojas = [{**h, **dict(zip(("columnas", "filas"), tabla(h["columnas"], h["filas"])))} for h in hojas or []]
+    hojas = [{**h, **dict(zip(("columnas", "filas"), tabla(h["columnas"], h["filas"]), strict=False))} for h in hojas or []]
     return indicadores, columnas, filas, hojas
 
 

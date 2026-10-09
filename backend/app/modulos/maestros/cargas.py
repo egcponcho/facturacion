@@ -83,7 +83,7 @@ def _cols_ficha(db: Session) -> list[dict]:
         {"nombre": "What it is for", "ayuda": "Short phrase, e.g. casual everyday sneaker.", "ancho": 26},
         {"nombre": "Country of origin", "ayuda": "ISO code or name (e.g. VN or Vietnam).", "ancho": 14},
     ]
-    for k, l in v["partes"]:
+    for _k, l in v["partes"]:
         cols.append({"nombre": l, "ayuda": f"Composition ({l}) with percentages, e.g. 60% cotton, 40% polyester.", "ancho": 22})
     for a, l in v["attrs"]:
         if a.booleano:

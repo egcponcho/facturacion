@@ -440,7 +440,7 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
 
     textos = textos_sac(db, list({digitos(p.codigo or p.sugerido)[:6] for p in filas if p.codigo or p.sugerido}))
     cats = catalogo(db).categorias
-    for x, p in zip(items, filas):
+    for x, p in zip(items, filas, strict=False):
         x["codigo_desc"] = textos.get(digitos(p.codigo or p.sugerido or "")[:6])
         c = cats.get(p.tipo or "")
         x["tipo_txt"] = (c.nombre_corto or c.nombre) if c else p.tipo

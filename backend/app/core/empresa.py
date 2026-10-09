@@ -13,7 +13,7 @@ from contextvars import ContextVar
 
 from app.core.config import settings
 
-_config: ContextVar[dict] = ContextVar("config_empresa", default={})
+_config: ContextVar[dict | None] = ContextVar("config_empresa", default=None)
 
 # Reglas configurables (nombre en settings → descripción para la pantalla)
 REGLAS = {

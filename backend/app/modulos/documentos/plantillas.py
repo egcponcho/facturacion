@@ -85,7 +85,7 @@ def plantilla_hojas(titulo: str, hojas: list[tuple[str, list[dict], list[list] |
     valores = wb.create_sheet("Values")
     guia = wb.create_sheet("Instructions")
     col_val = 1
-    for ws, (_, columnas, ejemplos) in zip(hojas_ws, hojas):
+    for ws, (_, columnas, ejemplos) in zip(hojas_ws, hojas, strict=False):
         col_val = _hoja_datos(ws, valores, col_val, columnas, ejemplos)
     guia.column_dimensions["A"].width = 30
     guia.column_dimensions["B"].width = 100
@@ -142,7 +142,7 @@ def leer(nombre: str, contenido: bytes, alias: dict[str, str], hoja: str | None 
     except ErrorNegocio:
         raise
     except Exception:
-        raise ErrorNegocio("The file could not be read. Use the template.", 422, "formato")
+        raise ErrorNegocio("The file could not be read. Use the template.", 422, "formato") from None
     filas = [f for f in filas if any(v for v in f)]
     if len(filas) < 2 and vacio_ok:
         return []

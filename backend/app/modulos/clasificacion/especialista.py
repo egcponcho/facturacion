@@ -140,12 +140,12 @@ def analizar(db: Session, user: Usuario, producto_id: int, d) -> dict:
             fallbacks="default",
         )
     except anthropic.RateLimitError:
-        raise ErrorNegocio("The specialist is busy right now. Try again in a minute.", 429, "limite")
+        raise ErrorNegocio("The specialist is busy right now. Try again in a minute.", 429, "limite") from None
     except anthropic.APIConnectionError:
-        raise ErrorNegocio("Could not reach the specialist service. Try again.", 502, "sin_conexion")
+        raise ErrorNegocio("Could not reach the specialist service. Try again.", 502, "sin_conexion") from None
     except anthropic.APIStatusError as e:
         log.warning("Claude: %s %s", e.status_code, getattr(e, "message", ""))
-        raise ErrorNegocio("The specialist could not answer this time.", 502, "error_especialista")
+        raise ErrorNegocio("The specialist could not answer this time.", 502, "error_especialista") from None
     if r.stop_reason == "refusal":
         raise ErrorNegocio("The specialist declined this request.", 422, "rechazado")
     if r.stop_reason == "max_tokens":
@@ -154,7 +154,7 @@ def analizar(db: Session, user: Usuario, producto_id: int, d) -> dict:
     try:
         op = json.loads(texto)
     except ValueError:
-        raise ErrorNegocio("The specialist answer could not be read.", 502, "respuesta_invalida")
+        raise ErrorNegocio("The specialist answer could not be read.", 502, "respuesta_invalida") from None
     op["codigo"] = productos.digitos(op.get("codigo"))[:6]
     op["con_fotos"] = sum(1 for b in contenido if b["type"] == "image")
     op["fecha"] = productos.ahora().isoformat()

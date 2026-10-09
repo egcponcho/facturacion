@@ -437,10 +437,10 @@ def _tabla(e, encabezados: list[tuple[str, float, bool]], filas: list[list], anc
     datos = [[Paragraph(t, e["cab_der"] if der else e["cab"]) for t, _, der in encabezados]]
     for f in filas:
         datos.append([Paragraph(_esc(v) if not isinstance(v, Paragraph) else v, e["celda_der"] if der else e["celda"])
-                      if not isinstance(v, Paragraph) else v for v, (_, _, der) in zip(f, encabezados)])
+                      if not isinstance(v, Paragraph) else v for v, (_, _, der) in zip(f, encabezados, strict=False)])
     if pie:
         datos.append([Paragraph(f"<b>{_esc(v)}</b>" if v not in (None, "") else "", e["celda_der"] if der else e["celda"])
-                      for v, (_, _, der) in zip(pie, encabezados)])
+                      for v, (_, _, der) in zip(pie, encabezados, strict=False)])
     t = Table(datos, colWidths=anchos, repeatRows=1)
     estilo = [("LINEBELOW", (0, 0), (-1, 0), 0.8, _acento()), ("BACKGROUND", (0, 0), (-1, 0), FONDO),
               ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 3),

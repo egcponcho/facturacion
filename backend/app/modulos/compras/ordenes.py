@@ -1022,7 +1022,7 @@ def opciones_formulario(db: Session, user: Usuario) -> dict:
     monedas = listas.codigos("moneda") + sorted(usadas - set(listas.codigos("moneda")))
     return {
         # Cada proveedor lleva sus sociedades: el formulario solo ofrece esas
-        "proveedores": [{**o, "sociedades": [x.codigo for x in p.sociedades]} for o, p in zip(op(provs), provs)],
+        "proveedores": [{**o, "sociedades": [x.codigo for x in p.sociedades]} for o, p in zip(op(provs), provs, strict=False)],
         "sociedades": op(db.scalars(select(Sociedad).order_by(Sociedad.codigo))),
         "centros": [{"valor": c.codigo, "texto": f"{c.codigo} · {c.nombre}", "sociedad": c.sociedad.codigo if c.sociedad else None}
                     for c in db.scalars(select(Centro).order_by(Centro.codigo))],

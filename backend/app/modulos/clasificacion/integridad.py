@@ -169,7 +169,7 @@ def auditar(db: Session, user: Usuario | None = None, hoy: date | None = None) -
             por_ambito.setdefault((v.ambito or "REGIONAL").upper(), []).append(v)
     for ambito, vs in por_ambito.items():
         pub = sorted((v for v in vs if v.estado == "PUBLICADA"), key=lambda v: v.vigente_desde or date.min)
-        for a, b in zip(pub, pub[1:]):
+        for a, b in zip(pub, pub[1:], strict=False):
             if not a.vigente_hasta or (b.vigente_desde and a.vigente_hasta >= b.vigente_desde):
                 inf.hallazgo("VERSION_OVERLAP", "version", f"{a.codigo} / {b.codigo}", f"Both in force at once for {ambito}.", b.id)
         if all(v.vigente_hasta and v.vigente_hasta < hoy for v in vs):

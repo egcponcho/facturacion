@@ -92,7 +92,7 @@ def importar_estructura(db: Session, user: Usuario, pl, nombre: str, contenido: 
         if not ruta or not sku or cant <= 0:
             errores.append({"fila": ref, "mensaje": "Enter at least one packaging identifier, the item code and a quantity."})
             continue
-        malos = [f"{a.nombre} → {b.nombre}" for (a, _), (b, _) in zip(ruta, ruta[1:]) if b not in a.contiene]
+        malos = [f"{a.nombre} → {b.nombre}" for (a, _), (b, _) in zip(ruta, ruta[1:], strict=False) if b not in a.contiene]
         if malos:
             errores.append({"fila": ref, "mensaje": f"Not allowed by the packaging types: {', '.join(malos)}."})
             continue

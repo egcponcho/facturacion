@@ -72,8 +72,8 @@ def _dict(o: Organizacion) -> dict:
         "entidades_campos": [{"clave": k, "texto": v} for k, v in campos_propios.ENTIDADES.items()],
         "tipos_campos": [{"clave": k, "texto": v} for k, v in campos_propios.TIPOS.items()],
         "modulos": [{"clave": k, "texto": texto, "activo": activo} for (k, (texto, _)), activo
-                    in zip(MODULOS_ACTIVABLES.items(), _modulos_de(conf).values())],
-        "reglas": [{"clave": k, "texto": t, "valor": v} for (k, t), v in zip(REGLAS.items(), _reglas_de(o).values())],
+                    in zip(MODULOS_ACTIVABLES.items(), _modulos_de(conf).values(), strict=False)],
+        "reglas": [{"clave": k, "texto": t, "valor": v} for (k, t), v in zip(REGLAS.items(), _reglas_de(o).values(), strict=False)],
         # Datos de la OC que pueden entrar en las reglas de compatibilidad
         "campos_compatibilidad": [{"clave": k, "texto": NOMBRES_CAMPO[k]} for k in CAMPOS_COMPATIBILIDAD],
     }

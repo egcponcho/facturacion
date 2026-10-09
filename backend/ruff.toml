@@ -7,8 +7,9 @@ extend-exclude = ["app/data", "alembic/versions"]
 # F: errores (nombres sin definir, imports sin usar); E9: sintaxis; I: orden de imports;
 # B: errores frecuentes (argumentos mutables por defecto, excepciones mal encadenadas)
 select = ["F", "E9", "I", "B"]
-# B008: FastAPI declara dependencias con Depends()/Query() en los argumentos
-ignore = ["B008"]
+# B008: FastAPI declara dependencias con Depends()/Query()/File() en los argumentos.
+# B023: las funciones que usan la variable del ciclo se llaman en la misma vuelta.
+ignore = ["B008", "B023"]
 
 [lint.isort]
 known-first-party = ["app"]

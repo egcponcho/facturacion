@@ -109,7 +109,7 @@ class _Hoja:
         rangos = [(1, tercio), (tercio + 1, 2 * tercio), (2 * tercio + 1, self.n)]
         f = self.fila
         alto = max(len(b[1]) for b in bloques)
-        for (titulo, lineas), (c1, c2) in zip(bloques, rangos):
+        for (titulo, lineas), (c1, c2) in zip(bloques, rangos, strict=False):
             self.celda(f, c1, titulo, negrita=True, color=_acento(), tam=7)
             self.unir(f, c1, c2)
             for i in range(alto):
@@ -154,13 +154,13 @@ class _Hoja:
         inicio = f + 1
         for n, valores in enumerate(filas):
             r = inicio + n
-            for i, (v, (_, fmt)) in enumerate(zip(valores, encabezados), start=1):
+            for i, (v, (_, fmt)) in enumerate(zip(valores, encabezados, strict=False), start=1):
                 c = self.celda(r, i, v, formato=fmt if fmt else ("@" if (i - 1) in texto else None),
                                fondo=_FONDO_2 if n % 2 else None)
                 c.border = Border(bottom=_LINEA)
         r = inicio + len(filas)
         if pie:
-            for i, (v, (_, fmt)) in enumerate(zip(pie, encabezados), start=1):
+            for i, (v, (_, fmt)) in enumerate(zip(pie, encabezados, strict=False), start=1):
                 c = self.celda(r, i, v, negrita=True, formato=fmt, fondo=_FONDO)
                 c.border = Border(top=Side(style="medium", color="1F2430"))
             r += 1

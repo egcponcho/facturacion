@@ -152,7 +152,7 @@ class Estandares:
             cad = self.cadena(cod_region, pais, puerto)
             nodos = rlt.de_modo(cad["pasos"], modo)
             hitos = {}
-            for c, p in nodos.items():
+            for c, _p in nodos.items():
                 h = self.catalogo.get(c, {}).get("hito")
                 if h and h not in hitos:
                     hitos[h] = c
