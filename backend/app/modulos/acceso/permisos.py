@@ -132,16 +132,61 @@ def es_interno(user: Usuario) -> bool:
     return user.rol in INTERNOS
 
 
-# ---- Separación por proveedor -----------------------------------------------
-def proveedor_filtro(user: Usuario, proveedor_id: int | None = None) -> int | None:
-    """El proveedor siempre queda limitado a sus datos; el interno puede
-    elegir uno o ver todos (None)."""
+# ---- Alcance de los datos ---------------------------------------------------
+# Qué datos ve cada usuario (Usuarios y accesos → Usuario → Alcance):
+# - Un proveedor ve lo suyo y lo de los demás proveedores que representa
+#   (p. ej. un agente con varios proveedores).
+# - Un interno ve todo, o solo los proveedores que se le asignen.
+# - Cualquiera puede quedar limitado a algunas sociedades (empresas que se
+#   facturan), p. ej. el equipo de un país.
+# - Un agente de carga o transportista (un rol con solo los permisos de
+#   transporte) ve únicamente los embarques de sus transportistas.
+# Los filtros devuelven un conjunto (o None: sin límite); un conjunto que no
+# coincide con nada se representa con {-1} para no confundirse con «todos».
+NADA = frozenset({-1})
+
+
+def proveedores_de(user: Usuario) -> frozenset | None:
+    extra = {int(x) for x in ((user.alcance or {}).get("proveedores") or [])}
     if user.rol == "proveedor":
-        return user.proveedor_id
-    return proveedor_id
+        return frozenset({user.proveedor_id, *extra} - {None}) or NADA
+    return frozenset(extra) or None
 
 
-def asegurar_proveedor(user: Usuario, proveedor_id: int) -> None:
-    if user.rol == "proveedor" and user.proveedor_id != proveedor_id:
-        # 404 para no revelar que el documento existe
+def un_proveedor(prov: frozenset | None) -> int | None:
+    """El proveedor si el filtro es de uno solo (p. ej. para crear algo suyo)."""
+    return next(iter(prov)) if prov and len(prov) == 1 and prov != NADA else None
+
+
+def sociedades_de(user: Usuario) -> frozenset | None:
+    return frozenset((user.alcance or {}).get("sociedades") or []) or None
+
+
+def transportistas_de(user: Usuario) -> frozenset | None:
+    return frozenset(int(x) for x in (user.alcance or {}).get("transportistas") or []) or None
+
+
+def proveedor_filtro(user: Usuario, proveedor_id: int | None = None) -> frozenset | None:
+    """Proveedores cuyos datos se muestran: el elegido (si está en el alcance
+    del usuario) o todos los de su alcance (None: todos)."""
+    if isinstance(proveedor_id, frozenset):  # ya filtrado (p. ej. por el tablero)
+        return proveedor_id
+    permitidos = proveedores_de(user)
+    elegido = frozenset({int(proveedor_id)}) if proveedor_id else None
+    if elegido and (permitidos is None or elegido <= permitidos):
+        return elegido
+    return permitidos
+
+
+def sociedad_filtro(user: Usuario, col) -> list:
+    """Condición SQL para limitar a las sociedades del usuario (vacía si no tiene límite)."""
+    soc = sociedades_de(user)
+    return [col.in_(soc)] if soc else []
+
+
+def asegurar_proveedor(user: Usuario, proveedor_id: int, sociedad: str | None = None) -> None:
+    """Un documento fuera del alcance del usuario no existe para él (404, para
+    no revelar que existe)."""
+    permitidos, soc = proveedores_de(user), sociedades_de(user)
+    if (permitidos is not None and proveedor_id not in permitidos) or (soc and sociedad not in soc):
         raise ErrorNegocio("Document not found.", 404, "no_encontrado")

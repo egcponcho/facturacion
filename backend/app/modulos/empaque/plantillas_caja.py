@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
 from app.modelos import PlantillaCaja, Usuario
-from app.modulos.acceso.permisos import exigir, proveedor_filtro
+from app.modulos.acceso.permisos import exigir, proveedor_filtro, proveedores_de, un_proveedor
 
 
 def _plantilla_dict(t: PlantillaCaja) -> dict:
@@ -15,7 +15,7 @@ def _plantilla_dict(t: PlantillaCaja) -> dict:
 
 
 def listar_plantillas(db: Session, user: Usuario, proveedor_id: int | None, incluir_inactivas: bool) -> list[dict]:
-    prov = proveedor_filtro(user, proveedor_id)
+    prov = un_proveedor(proveedor_filtro(user, proveedor_id))
     if not prov:
         return []
     consulta = select(PlantillaCaja).where(PlantillaCaja.proveedor_id == prov).order_by(PlantillaCaja.nombre)
@@ -33,7 +33,7 @@ def _validar_tipo(db: Session, tipo_id):
 
 def crear_plantilla(db: Session, user: Usuario, datos) -> dict:
     exigir(user, "plantilla.editar")
-    prov = proveedor_filtro(user, datos.proveedor_id)
+    prov = un_proveedor(proveedor_filtro(user, datos.proveedor_id))
     if not prov:
         raise ErrorNegocio("Choose the template's supplier.", 422, "validacion")
     _validar_tipo(db, datos.tipo_empaque_id)
@@ -54,7 +54,8 @@ def actualizar_plantilla(db: Session, user: Usuario, plantilla_id: int, datos) -
     """Editar una plantilla no cambia las cajas ya creadas: cada caja guarda sus valores."""
     exigir(user, "plantilla.editar")
     t = db.get(PlantillaCaja, plantilla_id)
-    if not t or (user.rol == "proveedor" and t.proveedor_id != user.proveedor_id):
+    permitidos = proveedores_de(user)
+    if not t or (permitidos is not None and t.proveedor_id not in permitidos):
         raise ErrorNegocio("The template does not exist.", 404, "no_encontrado")
     campos = datos.model_dump(exclude_unset=True)
     from app.modulos.maestros.unidades import exigir_cantidad, validar

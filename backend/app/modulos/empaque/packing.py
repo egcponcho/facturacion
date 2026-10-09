@@ -131,7 +131,7 @@ def cargar_pl(db: Session, user: Usuario, pl_id: int) -> PackingList:
     pl = db.get(PackingList, pl_id)
     if not pl:
         raise ErrorNegocio("The packing list does not exist.", 404, "no_encontrado")
-    asegurar_proveedor(user, pl.factura.proveedor_id)
+    asegurar_proveedor(user, pl.factura.proveedor_id, pl.factura.sociedad)
     return pl
 
 

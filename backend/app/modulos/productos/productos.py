@@ -109,7 +109,7 @@ def producto_de(a: Articulo | None) -> Producto | None:
     return a.producto
 
 
-def ids_bloquean_facturas(db: Session, prov: int | None = None) -> set[int]:
+def ids_bloquean_facturas(db: Session, prov: frozenset | None = None) -> set[int]:
     """Productos sin clasificación aprobada que dejan una factura en curso sin
     partida (no se puede finalizar hasta aprobarlos)."""
     from app.modelos import Factura, FacturaLinea, PosicionOC
@@ -120,7 +120,7 @@ def ids_bloquean_facturas(db: Session, prov: int | None = None) -> set[int]:
                                                              FacturaLinea.partida_arancelaria == ""))
                 .options(selectinload(FacturaLinea.posicion_oc).selectinload(PosicionOC.articulo)))
     if prov:
-        consulta = consulta.where(Factura.proveedor_id == prov)
+        consulta = consulta.where(Factura.proveedor_id.in_(prov))
     ids = set()
     for linea in db.scalars(consulta):
         prod = producto_de(linea.posicion_oc.articulo if linea.posicion_oc else None)
@@ -383,7 +383,7 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     prov = proveedor_filtro(user, filtros.get("proveedor_id"))
     base = select(Producto)
     if prov:
-        base = base.where(Producto.proveedor_id == prov)
+        base = base.where(Producto.proveedor_id.in_(prov))
     if filtros.get("marca_id"):
         ids = [int(x) for x in str(filtros["marca_id"]).split(",") if x.strip().isdigit()]
         base = base.where(Producto.marca_id.in_(ids))
@@ -1120,7 +1120,7 @@ def opciones(db: Session, user: Usuario) -> dict:
     prov = proveedor_filtro(user)
     provs = db.scalars(select(Proveedor).where(Proveedor.activo.is_(True)).order_by(Proveedor.nombre)).all()
     return {
-        "proveedores": [{"id": x.id, "nombre": x.nombre} for x in provs if not prov or x.id == prov],
+        "proveedores": [{"id": x.id, "nombre": x.nombre} for x in provs if not prov or x.id in prov],
         "marcas": [{"id": m.id, "codigo": m.codigo, "nombre": m.nombre} for m in db.scalars(select(Marca).order_by(Marca.codigo))],
         "grupos": [{"id": g.id, "codigo": g.codigo, "nombre": g.nombre} for g in db.scalars(select(GrupoArticulo).order_by(GrupoArticulo.codigo))],
         "estados": ESTADOS,

@@ -48,6 +48,8 @@ class Usuario(Base):
     rol: Mapped[str] = mapped_column(String(20))  # tipo del rol: admin | interno | proveedor
     rol_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"))
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
+    # Alcance de los datos (modulos/acceso/permisos.py): {"proveedores": [ids], "sociedades": [códigos]}
+    alcance: Mapped[dict] = mapped_column(JSON, default=dict)
     password_hash: Mapped[str] = mapped_column(String(300))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     # Seguridad del acceso: celular registrado para la verificación en dos

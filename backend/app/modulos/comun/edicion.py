@@ -114,7 +114,7 @@ def _verificar_acceso(db: Session, user: Usuario, entidad: str, entidad_id: int)
         oc = db.get(OrdenCompra, entidad_id)
         if not oc:
             raise ErrorNegocio("The purchase order does not exist.", 404, "no_encontrado")
-        asegurar_proveedor(user, oc.proveedor_id)
+        asegurar_proveedor(user, oc.proveedor_id, oc.sociedad)
     else:
         raise ErrorNegocio("Unknown document type.", 404, "no_encontrado")
 

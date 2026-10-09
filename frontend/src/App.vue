@@ -10,7 +10,7 @@ import SelectorIdioma from '@/componentes/SelectorIdioma.vue'
 import SelectorTema from '@/componentes/SelectorTema.vue'
 import Toasts from '@/componentes/Toasts.vue'
 import { carrito } from '@/stores/carrito'
-import { cerrarSesion, elegirProveedor, esInterno, puede, sesion } from '@/stores/sesion'
+import { cerrarSesion, elegirProveedor, eligeProveedor, puede, sesion } from '@/stores/sesion'
 import { ui } from '@/stores/ui'
 import { tituloSistema } from '@/nucleo/marca.js'
 
@@ -155,7 +155,7 @@ async function salir() {
           <router-link v-if="carrito.items.length" to="/ordenes?seleccion=1" class="chip-seleccion" :title="t('Order lines ready to invoice')">
             <Icono nombre="carrito" :tam="15" /><b>{{ tx(carrito.items.length) }}</b>
           </router-link>
-          <div v-if="esInterno()" class="selector-proveedor">
+          <div v-if="eligeProveedor()" class="selector-proveedor">
             <SelectBusqueda :model-value="sesion.proveedorId || ''" :opciones="opcionesProveedor" :vacio="t('All suppliers')" :busqueda="true"
                             :etiqueta="t('Supplier')" :prefijo="false" @update:model-value="elegirProveedor(Number($event) || null)" />
           </div>

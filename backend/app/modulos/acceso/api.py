@@ -45,6 +45,7 @@ def _yo(u: Usuario) -> dict:
         "rol_nombre": u.rol_ref.nombre if u.rol_ref else None,
         "proveedor_id": u.proveedor_id,
         "proveedor": u.proveedor.nombre if u.proveedor else None,
+        "alcance": u.alcance or {},
         "permisos": permisos_de(u),
         "preferencias": preferencias.de(u),
         "foto": u.foto, "cargo": u.cargo, "area": u.area, "empresa": u.empresa,

@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
+import FiltroMulti from '@/componentes/FiltroMulti.vue'
 import Modal from '@/componentes/Modal.vue'
 import Avatar from '@/componentes/Avatar.vue'
 import MenuAcciones from '@/componentes/MenuAcciones.vue'
@@ -148,12 +149,25 @@ async function borrarRol(r) {
     errorApi(e)
   }
 }
-function abrirRolUsuario(u) {
-  modal.value = { tipo: 'rol-usuario', usuario: u, rol_id: u.rol_id || '', proveedor_id: u.proveedor_id || '' }
+// Alcance de los datos: proveedores que representa o atiende, sociedades y
+// transportistas (agentes de carga). Vacío = sin límite.
+const opcionesAlcance = ref({ sociedades: [], transportistas: [] })
+async function abrirRolUsuario(u) {
+  const a = u.alcance || {}
+  modal.value = { tipo: 'rol-usuario', usuario: u, rol_id: u.rol_id || '', proveedor_id: u.proveedor_id || '',
+                  proveedores: [...(a.proveedores || [])], sociedades: [...(a.sociedades || [])], transportistas: [...(a.transportistas || [])] }
+  try {
+    const [s, tr] = await Promise.all([api.get('/catalogos/sociedades/opciones'), api.get('/catalogos/transportistas/opciones')])
+    opcionesAlcance.value = { sociedades: s.map((x) => ({ valor: x.codigo, texto: x.texto })), transportistas: tr.map((x) => ({ valor: x.id, texto: x.texto })) }
+  } catch (e) {
+    errorApi(e)
+  }
 }
 function guardarRolUsuario() {
   const m = modal.value
-  actualizar(`/usuarios/${m.usuario.id}`, { rol_id: Number(m.rol_id), proveedor_id: Number(m.proveedor_id) || null }, t('Role updated.'))
+  actualizar(`/usuarios/${m.usuario.id}`, { rol_id: Number(m.rol_id), proveedor_id: Number(m.proveedor_id) || null,
+                                            alcance: { proveedores: m.proveedores.map(Number), sociedades: m.sociedades, transportistas: m.transportistas.map(Number) } },
+             t('Role updated.'))
 }
 onMounted(cargar)
 </script>
@@ -243,7 +257,7 @@ onMounted(cargar)
             </td>
             <td class="num">
               <MenuAcciones :etiqueta="t('Actions for {0}', [u.email])">
-                <button type="button" role="menuitem" @click="abrirRolUsuario(u)">{{ t('Role and supplier') }}</button>
+                <button type="button" role="menuitem" @click="abrirRolUsuario(u)">{{ t('Role and data scope') }}</button>
                 <button type="button" role="menuitem" @click="modal = { tipo: 'telefono', usuario: u, telefono: u.telefono || '', dos_pasos: u.dos_pasos }">{{ t('Mobile') }}</button>
                 <button type="button" role="menuitem" @click="modal = { tipo: 'datos', usuario: u, nombre: u.nombre, email: u.email, cargo: u.cargo || '', area: u.area || '', empresa: u.empresa || '' }">{{ t('Edit data') }}</button>
                 <button type="button" role="menuitem" @click="modal = { tipo: 'clave', usuario: u, clave: '' }">{{ t('Reset password') }}</button>
@@ -347,6 +361,16 @@ onMounted(cargar)
         <small class="ayuda">{{ t('A supplier user only sees that supplier’s data.') }}</small>
       </label>
       <p v-if="modal.proveedor_id && noAplicanProveedor(modal.rol_id).length" class="nota aviso bloque campo-ancho">{{ t('For a supplier user these permissions of the role do not apply: {0}.', [noAplicanProveedor(modal.rol_id).map((p) => tx(p.etiqueta)).join(', ')]) }}</p>
+      <div class="campo-ancho">
+        <h3 class="subtitulo">{{ t('Data scope') }}</h3>
+        <p class="ayuda">{{ t('Limit what this user sees. Empty = no limit (a supplier user always sees their own supplier).') }}</p>
+      </div>
+      <div class="campo"><span>{{ modal.proveedor_id ? t('Other suppliers they represent') : t('Suppliers') }}</span>
+        <FiltroMulti v-model="modal.proveedores" :opciones="proveedores.filter((x) => x.id !== Number(modal.proveedor_id)).map((x) => ({ valor: x.id, texto: x.nombre }))" :etiqueta="t('Suppliers')" :vacio="modal.proveedor_id ? t('none') : t('all')" /></div>
+      <div class="campo"><span>{{ t('Companies') }}</span>
+        <FiltroMulti v-model="modal.sociedades" :opciones="opcionesAlcance.sociedades" :etiqueta="t('Companies')" /></div>
+      <div class="campo"><span>{{ t('Carriers (freight agents)') }}</span>
+        <FiltroMulti v-model="modal.transportistas" :opciones="opcionesAlcance.transportistas" :etiqueta="t('Carriers')" /></div>
     </form>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>

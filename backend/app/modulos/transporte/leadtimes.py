@@ -35,7 +35,7 @@ from app.modelos import (
     UnidadCarga,
     Usuario,
 )
-from app.modulos.acceso.permisos import proveedor_filtro
+from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro
 from app.modulos.transporte import reglas_lt as rlt
 
 # Etapas medidas del lead time, en orden: de un hito al siguiente
@@ -363,7 +363,8 @@ def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     q = select(OrdenCompra)
     prov = proveedor_filtro(user, proveedor_id)
     if prov:
-        q = q.where(OrdenCompra.proveedor_id == prov)
+        q = q.where(OrdenCompra.proveedor_id.in_(prov))
+    q = q.where(*sociedad_filtro(user, OrdenCompra.sociedad))
     if filtros.get("desde"):
         q = q.where(OrdenCompra.fecha >= date.fromisoformat(filtros["desde"]))
     if filtros.get("hasta"):

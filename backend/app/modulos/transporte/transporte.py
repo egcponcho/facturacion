@@ -13,12 +13,13 @@ from app.modelos import (
     Factura,
     PackingList,
     Puerto,
+    Sociedad,
     TipoUnidad,
     Transportista,
     UnidadCarga,
     Usuario,
 )
-from app.modulos.acceso.permisos import exigir
+from app.modulos.acceso.permisos import exigir, sociedades_de, transportistas_de
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.historial import registrar, requerir_motivo
 from app.modulos.comun.texto import filtro_texto
@@ -34,10 +35,21 @@ ESTADO_POR_EVENTO = {
 }
 
 
+def _centros_de(db: Session, user: Usuario) -> set[str] | None:
+    """Centros de las sociedades del usuario (None: sin límite)."""
+    soc = sociedades_de(user)
+    if not soc:
+        return None
+    return {c for (c,) in db.execute(select(Centro.codigo).join(Sociedad, Sociedad.id == Centro.sociedad_id)
+                                     .where(Sociedad.codigo.in_(soc)))}
+
+
 def _embarque(db: Session, user: Usuario, embarque_id: int) -> Embarque:
     exigir(user, "transporte.gestionar")
     e = db.get(Embarque, embarque_id)
-    if not e:
+    centros, transportistas = _centros_de(db, user), transportistas_de(user)
+    if not e or (centros is not None and e.centro not in centros) \
+            or (transportistas is not None and e.transportista_id not in transportistas):
         raise ErrorNegocio("The shipment does not exist.", 404, "no_encontrado")
     return e
 
@@ -47,6 +59,8 @@ def _unidad(db: Session, user: Usuario, unidad_id: int) -> UnidadCarga:
     u = db.get(UnidadCarga, unidad_id)
     if not u:
         raise ErrorNegocio("The load unit does not exist.", 404, "no_encontrado")
+    if sociedades_de(user) or transportistas_de(user):  # la unidad sigue el alcance de su embarque
+        _embarque(db, user, u.embarque_id)
     return u
 
 
@@ -181,6 +195,11 @@ def tiempo_embarque(unidades: list[dict]) -> dict:
 def listar_embarques(db: Session, user: Usuario, estado: str | None = None, q: str | None = None) -> list[dict]:
     exigir(user, "transporte.gestionar")
     consulta = select(Embarque).order_by(Embarque.etd.desc().nullslast(), Embarque.id.desc())
+    centros = _centros_de(db, user)
+    if centros is not None:
+        consulta = consulta.where(Embarque.centro.in_(centros))
+    if transportistas_de(user) is not None:
+        consulta = consulta.where(Embarque.transportista_id.in_(transportistas_de(user)))
     if estado:
         consulta = consulta.where(Embarque.estado == estado)
     if q:

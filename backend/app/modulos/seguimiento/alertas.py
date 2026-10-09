@@ -5,14 +5,15 @@ from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
 from app.modelos import Alerta, Usuario
-from app.modulos.acceso.permisos import exigir
+from app.modulos.acceso.permisos import exigir, proveedor_filtro
 
 
 def listar_alertas(db: Session, user: Usuario, proveedor_id: int | None = None) -> list[dict]:
     exigir(user, "alertas.ver")
     consulta = select(Alerta).where(Alerta.resuelta.is_(False)).order_by(Alerta.creada_en.desc()).limit(50)
-    if proveedor_id:
-        consulta = consulta.where(Alerta.proveedor_id == proveedor_id)
+    prov = proveedor_filtro(user, proveedor_id)
+    if prov:
+        consulta = consulta.where(Alerta.proveedor_id.in_(prov))
     return [{"id": a.id, "tipo": a.tipo, "mensaje": a.mensaje, "creada_en": a.creada_en}
             for a in db.scalars(consulta).all()]
 

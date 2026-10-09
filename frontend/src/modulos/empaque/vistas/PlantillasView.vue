@@ -10,7 +10,7 @@ import Modal from '@/componentes/Modal.vue'
 import Paginacion from '@/componentes/Paginacion.vue'
 import ThOrden from '@/componentes/ThOrden.vue'
 import { useTabla } from '@/composables/useTabla'
-import { esInterno, nombreProveedor, sesion } from '@/stores/sesion'
+import { eligeProveedor, esInterno, nombreProveedor, sesion } from '@/stores/sesion'
 import { avisar, errorApi, guardando } from '@/stores/ui'
 
 const lista = ref([])
@@ -88,7 +88,7 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
     </div>
   </div>
 
-  <p v-if="esInterno() && !sesion.proveedorId" class="nota">{{ t('Choose a supplier above to see and edit its templates.') }}</p>
+  <p v-if="eligeProveedor() && !sesion.proveedorId" class="nota">{{ t('Choose a supplier above to see and edit its templates.') }}</p>
 
   <template v-else>
 

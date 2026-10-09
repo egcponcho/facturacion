@@ -24,7 +24,14 @@ from app.modelos import (
     ahora,
 )
 from app.modelos import cant as cant_norm
-from app.modulos.acceso.permisos import asegurar_proveedor, es_interno, exigir, permisos_de, proveedor_filtro
+from app.modulos.acceso.permisos import (
+    asegurar_proveedor,
+    es_interno,
+    exigir,
+    permisos_de,
+    proveedor_filtro,
+    sociedad_filtro,
+)
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.formato import cant_txt
 from app.modulos.comun.historial import registrar, requerir_motivo, tocar, verificar_version
@@ -62,7 +69,7 @@ def cargar_factura(db: Session, user: Usuario, factura_id: int, bloquear: bool =
     f = db.scalar(consulta)
     if not f:
         raise ErrorNegocio("The invoice does not exist.", 404, "no_encontrado")
-    asegurar_proveedor(user, f.proveedor_id)
+    asegurar_proveedor(user, f.proveedor_id, f.sociedad)
     return f
 
 
@@ -101,7 +108,7 @@ def _preparar_posiciones(
     db: Session,
     user: Usuario,
     solicitudes: list[PosicionCantidad],
-    proveedor_id: int | None = None,
+    proveedor_id: frozenset | None = None,
     factura: Factura | None = None,
 ):
     pedidas: dict[int, int] = {}
@@ -124,9 +131,9 @@ def _preparar_posiciones(
     if len(proveedores) > 1:
         raise ErrorNegocio("An invoice can only have PO lines from one supplier.", 422, "proveedor_mixto")
     prov = next(iter(proveedores))
-    if proveedor_id and prov != proveedor_id:
+    if proveedor_id and prov not in proveedor_id:  # el proveedor elegido (o los del alcance)
         raise ErrorNegocio("The PO lines do not belong to the selected supplier.", 422, "proveedor_mixto")
-    asegurar_proveedor(user, prov)
+    asegurar_proveedor(user, prov, next(iter(ocs.values())).sociedad)
 
     errores: list[dict] = []
     advertencias: list[str] = []
@@ -709,7 +716,8 @@ def listar_facturas(
     prov = proveedor_filtro(user, proveedor_id)
     consulta = select(Factura).join(Proveedor, Proveedor.id == Factura.proveedor_id)
     if prov:
-        consulta = consulta.where(Factura.proveedor_id == prov)
+        consulta = consulta.where(Factura.proveedor_id.in_(prov))
+    consulta = consulta.where(*sociedad_filtro(user, Factura.sociedad))
     if estado:
         consulta = consulta.where(Factura.estado == estado)
     if q:

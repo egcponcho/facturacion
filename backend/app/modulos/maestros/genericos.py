@@ -178,7 +178,7 @@ def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: i
     q = select(Producto).where(Producto.codigo_generico.is_not(None))
     prov = proveedor_filtro(user, filtros.get("proveedor_id"))
     if prov:
-        q = q.where(Producto.proveedor_id == int(prov))
+        q = q.where(Producto.proveedor_id.in_(prov))
     for campo in ("marca_id", "grupo_id"):
         if filtros.get(campo):
             q = q.where(getattr(Producto, campo).in_([int(x) for x in str(filtros[campo]).split(",") if x.strip().isdigit()]))

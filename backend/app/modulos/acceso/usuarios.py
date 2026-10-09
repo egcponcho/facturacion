@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
 from app.core.seguridad import hash_password
-from app.modelos import Proveedor, Rol, Usuario
+from app.modelos import Proveedor, Rol, Sociedad, Transportista, Usuario
 from app.modulos.acceso.autenticacion import exigir_politica, password_temporal, revocar_sesiones, validar_telefono
 from app.modulos.acceso.permisos import alcance, exigir
 from app.modulos.acceso.roles import crear_roles_fabrica, sin_administrador
@@ -33,6 +33,23 @@ def _proveedor_elegido(db: Session, proveedor_id: int | None) -> int | None:
     return p.id
 
 
+def _alcance_valido(db: Session, alcance: dict | None) -> dict:
+    """Proveedores y transportistas (ids) y sociedades (códigos) que existen; vacío = sin límite."""
+    alcance = alcance or {}
+    if not isinstance(alcance, dict) or set(alcance) - {"proveedores", "sociedades", "transportistas"}:
+        raise ErrorNegocio("The data scope has suppliers, companies and carriers only.", 422, "validacion")
+    provs = sorted({int(x) for x in alcance.get("proveedores") or []})
+    trans = sorted({int(x) for x in alcance.get("transportistas") or []})
+    if trans and len(db.scalars(select(Transportista.id).where(Transportista.id.in_(trans))).all()) != len(trans):
+        raise ErrorNegocio("A carrier of the data scope does not exist.", 422, "validacion")
+    socs = sorted({str(x).strip().upper() for x in alcance.get("sociedades") or [] if str(x).strip()})
+    if provs and len(db.scalars(select(Proveedor.id).where(Proveedor.id.in_(provs))).all()) != len(provs):
+        raise ErrorNegocio("A supplier of the data scope does not exist.", 422, "validacion")
+    if socs and len(db.scalars(select(Sociedad.codigo).where(Sociedad.codigo.in_(socs))).all()) != len(socs):
+        raise ErrorNegocio("A company of the data scope does not exist.", 422, "validacion")
+    return {k: v for k, v in (("proveedores", provs), ("sociedades", socs), ("transportistas", trans)) if v}
+
+
 def _usuario_dict(u: Usuario) -> dict:
     from app.modulos.acceso.autenticacion import _ahora
 
@@ -41,7 +58,7 @@ def _usuario_dict(u: Usuario) -> dict:
             "proveedor_id": u.proveedor_id, "proveedor": u.proveedor.nombre if u.proveedor else None,
             "telefono": u.telefono, "dos_pasos": u.dos_pasos, "ultimo_acceso": u.ultimo_acceso,
             "cargo": u.cargo, "area": u.area, "empresa": u.empresa, "foto": u.foto, "clave_temporal": bool(u.clave_temporal),
-            "bloqueado": bool(u.bloqueado_hasta and u.bloqueado_hasta > _ahora())}
+            "bloqueado": bool(u.bloqueado_hasta and u.bloqueado_hasta > _ahora()), "alcance": u.alcance or {}}
 
 
 def listar_usuarios(db: Session, user: Usuario) -> list[dict]:
@@ -66,7 +83,8 @@ def crear_usuario(db: Session, user: Usuario, datos) -> dict:
     u = Usuario(email=email, nombre=nombre_fmt(datos.nombre), rol=alcance(rol.permisos, prov), rol_id=rol.id,
                 proveedor_id=prov, password_hash=hash_password(clave), activo=True, clave_temporal=True,
                 telefono=validar_telefono(datos.telefono), dos_pasos=datos.dos_pasos,
-                cargo=texto_fmt(datos.cargo) or None, area=texto_fmt(datos.area) or None, empresa=texto_fmt(datos.empresa) or None)
+                cargo=texto_fmt(datos.cargo) or None, area=texto_fmt(datos.area) or None, empresa=texto_fmt(datos.empresa) or None,
+                alcance=_alcance_valido(db, datos.alcance))
     db.add(u)
     db.flush()
     return {"id": u.id, "password_temporal": clave if temporal else None}
@@ -112,6 +130,8 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
         campos["rol_id"] = rol.id
     if "proveedor_id" in campos:
         campos["proveedor_id"] = _proveedor_elegido(db, campos["proveedor_id"])
+    if "alcance" in campos:
+        campos["alcance"] = _alcance_valido(db, campos["alcance"])
     if campos.get("activo") is False or campos.get("dos_pasos") is False:
         revocar = True
     if revocar:

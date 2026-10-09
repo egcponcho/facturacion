@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.empresa import regla
 from app.modelos import Embarque, Factura, OrdenCompra, PosicionOC, Producto, Proveedor, UnidadCarga, Usuario, ahora
 from app.modulos.acceso import visibilidad
-from app.modulos.acceso.permisos import es_interno, proveedor_filtro
+from app.modulos.acceso.permisos import es_interno, proveedor_filtro, sociedad_filtro
 from app.modulos.empaque.packing import validar_pl
 from app.modulos.facturacion.cantidades import cubierto_por_ids, facturado_por_posicion, nombre_factura, totales_pl
 from app.modulos.facturacion.estados import EDITABLE_FACTURA, EDITABLE_PL
@@ -34,7 +34,7 @@ def _meses(n: int) -> list[str]:
     return list(reversed(res))
 
 
-def _saldo_ocs(db: Session, prov: int | None) -> dict:
+def _saldo_ocs(db: Session, prov: frozenset | None, user: Usuario | None = None) -> dict:
     """Saldo por facturar de las OCs liberadas: cantidades por unidad de
     medida (nunca se suman pares con unidades) y valor por moneda."""
     consulta = (
@@ -44,7 +44,9 @@ def _saldo_ocs(db: Session, prov: int | None) -> dict:
         .where(OrdenCompra.liberada.is_(True), PosicionOC.bloqueada.is_(False))
     )
     if prov:
-        consulta = consulta.where(OrdenCompra.proveedor_id == prov)
+        consulta = consulta.where(OrdenCompra.proveedor_id.in_(prov))
+    if user:
+        consulta = consulta.where(*sociedad_filtro(user, OrdenCompra.sociedad))
     filas = db.execute(consulta).all()
     facturado = facturado_por_posicion(db, [f[0] for f in filas])
     por_unidad: dict[str, int] = defaultdict(int)
@@ -163,7 +165,7 @@ def _visibles(indicadores: list[dict]) -> list[dict]:
 
 
 def _resumen_periodo(db: Session, facturas: list[Factura], moneda: str, desde: date, hasta: date,
-                     prov: int | None, marcas: set | None, interno: bool) -> list[dict]:
+                     prov: frozenset | None, marcas: set | None, interno: bool) -> list[dict]:
     """Lo que pasó en el periodo elegido (por defecto, el mes en curso)."""
     fin = [f for f in facturas if f.estado == "FINALIZADA" and (_fecha_factura(f) or date.min) >= desde
            and (_fecha_factura(f) or date.max) <= hasta]
@@ -173,7 +175,7 @@ def _resumen_periodo(db: Session, facturas: list[Factura], moneda: str, desde: d
            and desde <= pl.actualizado_en.date() <= hasta]
     llegadas = db.scalars(select(Embarque).where(Embarque.eta >= desde, Embarque.eta <= hasta)).all()
     if prov:
-        llegadas = [e for e in llegadas if any(pl.factura.proveedor_id == prov for u in e.unidades for pl in u.packing_lists)]
+        llegadas = [e for e in llegadas if any(pl.factura.proveedor_id in prov for u in e.unidades for pl in u.packing_lists)]
     out = [
         {"clave": "facturado", "titulo": "Invoiced", "valor": round(importe, 2), "formato": "moneda", "moneda": moneda,
          "detalle": f"{len(fin)} finalized invoices"},
@@ -184,7 +186,7 @@ def _resumen_periodo(db: Session, facturas: list[Factura], moneda: str, desde: d
     ]
     q = select(Producto).where(Producto.revisado_en.is_not(None))
     if prov:
-        q = q.where(Producto.proveedor_id == prov)
+        q = q.where(Producto.proveedor_id.in_(prov))
     aprobados = [p for p in db.scalars(q) if desde <= p.revisado_en.date() <= hasta]
     out.append({"clave": "clasificados", "titulo": "Products classified", "valor": len(aprobados),
                 "detalle": "HS codes approved" if interno else "technical sheets approved"})
@@ -207,12 +209,12 @@ def _facturado_por_mes(facturas: list[Factura], moneda: str) -> list[dict]:
     return list(res.values())
 
 
-def _envios(db: Session, prov: int | None) -> list[dict]:
+def _envios(db: Session, prov: frozenset | None) -> list[dict]:
     consulta = select(Embarque).where(Embarque.estado.in_(ESTADOS_EN_CAMINO))
     res = []
     for e in db.scalars(consulta).all():
         pls = [pl for u in e.unidades for pl in u.packing_lists
-               if pl.estado != "CANCELADO" and (not prov or pl.factura.proveedor_id == prov)]
+               if pl.estado != "CANCELADO" and (not prov or pl.factura.proveedor_id in prov)]
         if prov and not pls:
             continue
         res.append({
@@ -237,7 +239,7 @@ def _envios(db: Session, prov: int | None) -> list[dict]:
     return res[:8]
 
 
-def _tareas(db: Session, user: Usuario, facturas: list[Factura], distribucion: dict, prov: int | None = None) -> list[dict]:
+def _tareas(db: Session, user: Usuario, facturas: list[Factura], distribucion: dict, prov: frozenset | None = None) -> list[dict]:
     """Próximos pasos concretos, ordenados por lo que destraba más trabajo."""
     tareas = []
     limite = ahora() - timedelta(days=regla("DIAS_ALERTA_BORRADOR"))
@@ -296,11 +298,11 @@ def _tareas(db: Session, user: Usuario, facturas: list[Factura], distribucion: d
     return tareas[:12]
 
 
-def _tareas_productos(db: Session, user: Usuario, prov: int | None) -> list[dict]:
+def _tareas_productos(db: Session, user: Usuario, prov: frozenset | None) -> list[dict]:
     """Fichas técnicas: el equipo interno aprueba; el proveedor completa y corrige."""
     q = select(Producto.estado, func.count()).group_by(Producto.estado)
     if prov:
-        q = q.where(Producto.proveedor_id == prov)
+        q = q.where(Producto.proveedor_id.in_(prov))
     n = dict(db.execute(q).all())
     out = []
     if es_interno(user):
@@ -324,7 +326,7 @@ def _tareas_productos(db: Session, user: Usuario, prov: int | None) -> list[dict
     return out
 
 
-def _atencion(db: Session, user: Usuario, prov: int | None, seg: list[dict], en_proceso: list, pls_abiertos: list,
+def _atencion(db: Session, user: Usuario, prov: frozenset | None, seg: list[dict], en_proceso: list, pls_abiertos: list,
               sin_unidad: list, atrasadas: set) -> list[dict]:
     """«¿Qué necesita mi atención hoy?»: cada indicador abre la lista ya
     filtrada. Primero lo que bloquea el siguiente paso, luego lo que vence o
@@ -345,7 +347,7 @@ def _atencion(db: Session, user: Usuario, prov: int | None, seg: list[dict], en_
     if tiene(user, "producto.ver"):
         item("bloquean", "Products blocking invoices", len(ids_bloquean_facturas(db, prov)),
              "Without an approved HS code, their invoices cannot be finalized.", "/productos", {"estado": "bloquean"}, "error")
-        estados = dict(db.execute(select(Producto.estado, func.count()).where(*([Producto.proveedor_id == prov] if prov else []))
+        estados = dict(db.execute(select(Producto.estado, func.count()).where(*([Producto.proveedor_id.in_(prov)] if prov else []))
                                   .group_by(Producto.estado)).all())
         if interno:
             item("clasificar", "Products to classify", estados.get("revision", 0), "Sent to review with a suggested HS code.",
@@ -429,10 +431,11 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None, desde
 
     consulta = select(Factura).where(Factura.estado != "CANCELADA").order_by(Factura.actualizado_en.desc())
     if prov:
-        consulta = consulta.where(Factura.proveedor_id == prov)
+        consulta = consulta.where(Factura.proveedor_id.in_(prov))
+    consulta = consulta.where(*sociedad_filtro(user, Factura.sociedad))
     facturas = list(db.scalars(consulta).all())
     distribucion = resumen_distribucion(db, [f.id for f in facturas])
-    saldo = _saldo_ocs(db, prov)
+    saldo = _saldo_ocs(db, prov, user)
     moneda, por_facturar = _moneda_principal(saldo["valor"])
     envios = _envios(db, prov)
 

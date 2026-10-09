@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core import listas
 from app.modelos import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
-from app.modulos.acceso.permisos import proveedor_filtro
+from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro
 from app.modulos.compras import liberaciones
 from app.modulos.facturacion.cantidades import facturado_por_posicion, nombre_factura
 from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, limite_puerto
@@ -70,7 +70,8 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     hoy = date.today()
     consulta = select(PosicionOC).join(OrdenCompra)
     if prov:
-        consulta = consulta.where(OrdenCompra.proveedor_id == prov)
+        consulta = consulta.where(OrdenCompra.proveedor_id.in_(prov))
+    consulta = consulta.where(*sociedad_filtro(user, OrdenCompra.sociedad))
     posiciones = list(db.scalars(consulta).all())
     ests = Estandares(db)
 
@@ -96,7 +97,8 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
 
     consulta = select(FacturaLinea).join(Factura).where(Factura.estado != "CANCELADA")
     if prov:
-        consulta = consulta.where(Factura.proveedor_id == prov)
+        consulta = consulta.where(Factura.proveedor_id.in_(prov))
+    consulta = consulta.where(*sociedad_filtro(user, Factura.sociedad))
     for fl in db.scalars(consulta).all():
         p = fl.posicion_oc
         oc = p.oc
@@ -516,7 +518,8 @@ def seguimiento_documentos(db: Session, user: Usuario, proveedor_id: int | None 
     prov = proveedor_filtro(user, proveedor_id)
     consulta = select(Factura).where(Factura.estado != "CANCELADA").order_by(Factura.id)
     if prov:
-        consulta = consulta.where(Factura.proveedor_id == prov)
+        consulta = consulta.where(Factura.proveedor_id.in_(prov))
+    consulta = consulta.where(*sociedad_filtro(user, Factura.sociedad))
     hoy = date.today()
     filas = []
     for f in db.scalars(consulta).all():

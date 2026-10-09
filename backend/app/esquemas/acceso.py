@@ -78,6 +78,9 @@ class UsuarioIn(BaseModel):
     cargo: str | None = Field(default=None, max_length=120)
     area: str | None = Field(default=None, max_length=120)
     empresa: str | None = Field(default=None, max_length=200)
+    alcance: dict | None = None
+    # Alcance de los datos: {"proveedores": [ids], "sociedades": [códigos]}; vacío = sin límite
+    alcance: dict | None = None
 
 
 class UsuarioPatch(BaseModel):
@@ -94,3 +97,4 @@ class UsuarioPatch(BaseModel):
     cargo: str | None = Field(default=None, max_length=120)
     area: str | None = Field(default=None, max_length=120)
     empresa: str | None = Field(default=None, max_length=200)
+    alcance: dict | None = None

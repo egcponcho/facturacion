@@ -16,6 +16,8 @@ export const sesion = reactive({
 
 export const puede = (permiso) => !!sesion.usuario?.permisos?.includes(permiso)
 export const esInterno = () => ['admin', 'interno'].includes(sesion.usuario?.rol)
+// Elige proveedor quien ve varios: el equipo interno o quien representa a varios proveedores
+export const eligeProveedor = () => esInterno() || sesion.proveedores.length > 1
 // Grupos de datos que el rol ve (Usuarios y accesos → Rol → Datos visibles).
 // El servidor ya no los envía; la pantalla quita sus columnas y filtros.
 export const ve = (grupo) => !(sesion.usuario?.datos_ocultos || []).includes(grupo)
@@ -46,7 +48,7 @@ export async function cargarSesion(forzar = false) {
     if (idioma !== 'en') sumarCatalogo(await api.get(`/i18n/catalogo/${idioma}`).catch(() => ({})))
     // Con contraseña temporal solo se usa el asistente inicial
     sesion.proveedores = sesion.usuario.clave_temporal ? [] : await api.get('/proveedores')
-    if (!esInterno()) sesion.proveedorId = sesion.usuario.proveedor_id
+    if (!esInterno() && sesion.proveedores.length <= 1) sesion.proveedorId = sesion.usuario.proveedor_id
     sesion.expirada = false
     usarPreferencias(sesion.usuario.preferencias)
   } catch {

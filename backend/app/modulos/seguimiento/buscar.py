@@ -54,13 +54,13 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
         c = filtro_texto(q, lambda p: [OrdenCompra.numero.ilike(p)])
         cons = select(OrdenCompra).where(c).order_by(OrdenCompra.fecha.desc().nullslast())
         if prov:
-            cons = cons.where(OrdenCompra.proveedor_id == prov)
+            cons = cons.where(OrdenCompra.proveedor_id.in_(prov))
         ocs = {o.id: o for (o,) in _filas(db, cons, limite)}
         cp = filtro_texto(q, lambda p: [PosicionOC.codigo_sap.ilike(p), PosicionOC.upc.ilike(p), PosicionOC.estilo.ilike(p),
                                         PosicionOC.color.ilike(p), PosicionOC.descripcion.ilike(p)])
         cons = select(PosicionOC).join(OrdenCompra).where(cp)
         if prov:
-            cons = cons.where(OrdenCompra.proveedor_id == prov)
+            cons = cons.where(OrdenCompra.proveedor_id.in_(prov))
         coincidencias: dict[int, str] = {}
         for (p,) in _filas(db, cons, limite * 4):
             if len(ocs) >= limite and p.oc_id not in ocs:
@@ -75,14 +75,14 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
         c = filtro_texto(q, lambda p: [Factura.numero.ilike(p)])
         cons = select(Factura).where(c).order_by(Factura.creado_en.desc())
         if prov:
-            cons = cons.where(Factura.proveedor_id == prov)
+            cons = cons.where(Factura.proveedor_id.in_(prov))
         grupo("facturas", [{"id": f.id, "titulo": nombre_factura(f), "sub": f.proveedor.nombre if f.proveedor else "",
                             "estado": f.estado, "ruta": f"/facturas/{f.id}"} for (f,) in _filas(db, cons, limite)], f"/facturas?q={q}")
 
         c = filtro_texto(q, lambda p: [PackingList.numero.ilike(p)])
         cons = select(PackingList).join(Factura).where(c).order_by(PackingList.creado_en.desc())
         if prov:
-            cons = cons.where(Factura.proveedor_id == prov)
+            cons = cons.where(Factura.proveedor_id.in_(prov))
         grupo("packing_lists", [{"id": pl.id, "titulo": pl.numero, "sub": nombre_factura(pl.factura), "estado": pl.estado,
                                  "ruta": f"/packing-lists/{pl.id}"} for (pl,) in _filas(db, cons, limite)])
 
@@ -91,13 +91,13 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
                                        Producto.codigo_generico.ilike(p), Producto.codigo.ilike(p)])
         cons = select(Producto).where(c).order_by(Producto.actualizado_en.desc().nullslast())
         if prov:
-            cons = cons.where(Producto.proveedor_id == prov)
+            cons = cons.where(Producto.proveedor_id.in_(prov))
         productos = {p.id: p for (p,) in _filas(db, cons, limite)}
         # Un SKU o UPC de un artículo lleva a su producto
         c = filtro_texto(q, lambda p: [Articulo.sku.ilike(p), Articulo.upc.ilike(p), Articulo.sku_proveedor.ilike(p)])
         cons = select(Articulo).where(c, Articulo.producto_id.is_not(None))
         if prov:
-            cons = cons.where(Articulo.proveedor_id == prov)
+            cons = cons.where(Articulo.proveedor_id.in_(prov))
         for (a,) in _filas(db, cons, limite):
             if len(productos) < limite:
                 productos.setdefault(a.producto_id, a.producto)
@@ -130,14 +130,14 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
         c = filtro_texto(q, lambda p: [Archivo.nombre.ilike(p), Archivo.tipo.ilike(p)])
         cons = select(Archivo).join(Factura).where(c)
         if prov:
-            cons = cons.where(Factura.proveedor_id == prov)
+            cons = cons.where(Factura.proveedor_id.in_(prov))
         docs += [{"id": f"f{a.id}", "titulo": a.nombre, "sub": a.tipo or "", "ruta": f"/facturas/{a.factura_id}?tab=archivos"}
                  for (a,) in _filas(db, cons, limite)]
     if tiene(user, "producto.ver"):
         c = filtro_texto(q, lambda p: [ProductoDocumento.nombre.ilike(p), ProductoDocumento.tipo.ilike(p)])
         cons = select(ProductoDocumento).join(Producto).where(c)
         if prov:
-            cons = cons.where(Producto.proveedor_id == prov)
+            cons = cons.where(Producto.proveedor_id.in_(prov))
         docs += [{"id": f"p{d.id}", "titulo": d.nombre, "sub": d.tipo or "", "ruta": f"/productos/{d.producto_id}"}
                  for (d,) in _filas(db, cons, limite)]
     grupo("documentos", docs[:limite])

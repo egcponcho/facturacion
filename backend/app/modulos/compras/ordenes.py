@@ -29,7 +29,14 @@ from app.modelos import (
     ahora,
 )
 from app.modelos import cant as cant_norm
-from app.modulos.acceso.permisos import asegurar_proveedor, exigir, proveedor_filtro
+from app.modulos.acceso.permisos import (
+    asegurar_proveedor,
+    exigir,
+    proveedor_filtro,
+    proveedores_de,
+    sociedad_filtro,
+    un_proveedor,
+)
 from app.modulos.acceso.preferencias import leer_fecha
 from app.modulos.compras import liberaciones, perfiles
 from app.modulos.comun.historial import registrar
@@ -102,7 +109,8 @@ def listar_ordenes(
         .outerjoin(fac, fac.c.oc_id == OrdenCompra.id)
     )
     if prov:
-        consulta = consulta.where(OrdenCompra.proveedor_id == prov)
+        consulta = consulta.where(OrdenCompra.proveedor_id.in_(prov))
+    consulta = consulta.where(*sociedad_filtro(user, OrdenCompra.sociedad))
     if q:
         consulta = consulta.where(filtro_texto(q, lambda p: [
             OrdenCompra.numero.ilike(p),
@@ -214,7 +222,8 @@ def filtros_ordenes(db: Session, user: Usuario, proveedor_id: int | None = None)
     prov = proveedor_filtro(user, proveedor_id)
     base = select(OrdenCompra)
     if prov:
-        base = base.where(OrdenCompra.proveedor_id == prov)
+        base = base.where(OrdenCompra.proveedor_id.in_(prov))
+    base = base.where(*sociedad_filtro(user, OrdenCompra.sociedad))
     sub = base.subquery()
 
     def distintos(col):
@@ -274,7 +283,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
     oc = db.get(OrdenCompra, oc_id)
     if not oc:
         raise ErrorNegocio("The purchase order does not exist.", 404, "no_encontrado")
-    asegurar_proveedor(user, oc.proveedor_id)
+    asegurar_proveedor(user, oc.proveedor_id, oc.sociedad)
     ids = [p.id for p in oc.posiciones]
     facturado = facturado_por_posicion(db, ids)
     facturas = facturas_por_posicion(db, ids)
@@ -895,8 +904,12 @@ def crear_oc(db: Session, user: Usuario, datos: dict) -> dict:
     validaciones que la carga masiva."""
     exigir(user, "oc.importar")
     cab = {k: _texto(v) for k, v in (datos.get("cabecera") or {}).items() if k in CAMPOS_FORM_CAB}
-    if user.proveedor_id:  # un proveedor solo crea OCs propias
-        prov = db.get(Proveedor, user.proveedor_id)
+    permitidos = proveedores_de(user)
+    if permitidos is not None:  # solo OCs de los proveedores de su alcance
+        prov = db.scalar(select(Proveedor).where(Proveedor.codigo == str(cab.get("proveedor") or "").upper()))
+        if not prov or prov.id not in permitidos:
+            unico = un_proveedor(permitidos)
+            prov = db.get(Proveedor, unico) if unico else None
         cab["proveedor"] = prov.codigo if prov else ""
     lineas = [x for x in (datos.get("lineas") or []) if any(_texto(v) for v in x.values())]
     if not lineas:
@@ -988,7 +1001,7 @@ def opciones_formulario(db: Session, user: Usuario) -> dict:
     """Listas para el formulario de OC (códigos, como en el archivo de carga)."""
     exigir(user, "oc.importar")
     provs = db.scalars(select(Proveedor).where(Proveedor.activo.is_(True),
-                                               *([Proveedor.id == user.proveedor_id] if user.proveedor_id else []))
+                                               *([Proveedor.id.in_(proveedores_de(user))] if proveedores_de(user) is not None else []))
                        .order_by(Proveedor.nombre)).all()
     op = lambda xs, f=lambda x: x.nombre: [{"valor": x.codigo, "texto": f"{x.codigo} · {f(x)}"} for x in xs]  # noqa: E731
     # Las monedas de la lista y las que ya traen las OCs (de antes de la lista)
@@ -1015,7 +1028,7 @@ def articulos_formulario(db: Session, user: Usuario, proveedor: str, q: str = ""
     """Artículos activos del proveedor para las líneas de la OC."""
     exigir(user, "oc.importar")
     prov = db.scalar(select(Proveedor).where(Proveedor.codigo == (proveedor or "").upper()))
-    if not prov or (user.proveedor_id and prov.id != user.proveedor_id):
+    if not prov or (proveedores_de(user) is not None and prov.id not in proveedores_de(user)):
         return []
     consulta = select(Articulo).where(Articulo.proveedor_id == prov.id, Articulo.activo.is_(True))
     if terminos(q):

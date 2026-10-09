@@ -82,6 +82,16 @@ La demostración no envía SMS reales: la pantalla de ingreso muestra el código
 
 Para enviar SMS reales defina `SMS_PROVEEDOR=twilio` con `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` y `TWILIO_FROM`. Con el proveedor `consola` (el valor por defecto) el mensaje va al registro del servidor, y solo en modo demostración (`SEED_DEMO=1`) el código también se muestra en pantalla.
 
+## Alcance de los datos por usuario
+
+Además del rol, cada usuario tiene un **alcance** (*Usuarios y accesos → Usuario → Rol y alcance de los datos*). Vacío = sin límite:
+
+- **Proveedores:** un usuario de proveedor siempre ve su proveedor y, además, los que represente (p. ej. un agente con varios proveedores; elige cuál ver en el encabezado). Un usuario interno puede quedar limitado a algunos proveedores.
+- **Sociedades:** solo las OC, facturas, listas de empaque, seguimiento y embarques (por el centro de destino) de esas sociedades; p. ej. el equipo de un país.
+- **Transportistas:** un agente de carga o transportista (con un rol que solo tenga los permisos de transporte) ve únicamente los embarques de sus transportistas.
+
+El servidor aplica el alcance en cada consulta (`backend/app/modulos/acceso/permisos.py`); un documento fuera del alcance responde como si no existiera.
+
 ## Datos visibles por rol
 
 Además de los permisos, cada rol puede ocultar grupos de datos en *Usuarios y accesos → Rol → «Datos que ve este rol»*. Los grupos están definidos en `backend/app/modulos/acceso/visibilidad.py`:
