@@ -5,6 +5,7 @@ import Seleccion from '@/componentes/Seleccion.vue'
 import { api } from '@/nucleo/api'
 import { norm } from '@/modulos/clasificacion/formato.js'
 import { avisar, errorApi } from '@/stores/ui'
+import { sesion } from '@/stores/sesion'
 import Icono from '@/componentes/Icono.vue'
 import CampoCategoria from './CampoCategoria.vue'
 import CampoFicha from './CampoFicha.vue'
@@ -253,7 +254,7 @@ function editarDesc() {
           <label v-if="props.editable && producto.fotos.length < 8" class="foto-add"><Icono nombre="mas" :tam="16" /> {{ t('Add photos') }}
             <input type="file" accept="image/jpeg,image/png,image/webp" class="oculto-visual" @change="emit('subir-foto', $event)" /></label>
         </div>
-        <p class="hint" style="margin-top: 8px">{{ t('Front, side and sole or label: they help to confirm the materials. JPG, PNG or WebP up to 8 MB.') }}</p>
+        <p class="hint" style="margin-top: 8px">{{ t('Front, side and sole or label: they help to confirm the materials. JPG, PNG or WebP up to {0} MB.', [sesion.usuario?.max_subida_mb]) }}</p>
       </fieldset>
     </section>
   </div>

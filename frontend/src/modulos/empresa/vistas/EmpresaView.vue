@@ -30,9 +30,28 @@ const REGLAS = {
   REQUERIR_DATOS_ADUANA: t('Country of origin and HS code are required per line to finalize'),
   DIAS_ALERTA_BORRADOR: t('Days before warning about drafts that still reserve quantities'),
   DIAS_MARGEN_RIESGO: t('Minimum margin (days) before the required date to be on time'),
+  DIAS_AVISO_TIENDA: t('Days before the in-store date at which a PO is highlighted'),
   PAIS_BASE_CLASIF: t('Country whose national code completes the suggested HS code'),
   COMPATIBILIDAD_BLOQUEANTE: t('PO data that cannot be mixed in one invoice'),
   COMPATIBILIDAD_ADVERTENCIA: t('PO data that only warns when mixed in one invoice'),
+}
+
+// Terminología propia: una fila por texto del sistema (en inglés, como clave)
+// con su reemplazo en cada idioma
+const terminos = ref([])
+function aFilas(textos) {
+  const originales = [...new Set([...Object.keys(textos?.es || {}), ...Object.keys(textos?.en || {})])]
+  return originales.map((o) => ({ original: o, es: textos?.es?.[o] || '', en: textos?.en?.[o] || '' }))
+}
+function aTextos(filas) {
+  const res = { es: {}, en: {} }
+  for (const f of filas) {
+    const o = f.original.trim()
+    if (!o) continue
+    if (f.es.trim()) res.es[o] = f.es.trim()
+    if (f.en.trim()) res.en[o] = f.en.trim()
+  }
+  return res
 }
 
 function copiar(x) {
@@ -41,6 +60,7 @@ function copiar(x) {
     preferencias: { ...x.preferencias }, marca: { ...x.marca }, documentos: { ...x.documentos },
     reglas: Object.fromEntries(x.reglas.map((r) => [r.clave, Array.isArray(r.valor) ? [...r.valor] : r.valor])),
   }
+  terminos.value = aFilas(x.textos)
 }
 
 async function cargar() {
@@ -69,7 +89,7 @@ async function subirLogo(ev) {
 async function guardar() {
   ocupado.value = true
   try {
-    o.value = await guardando(api.put('/organizacion', datos.value))
+    o.value = await guardando(api.put('/organizacion', { ...datos.value, textos: aTextos(terminos.value) }))
     copiar(o.value)
     await cargarSesion(true) // nombre, logo y color en el menú; reglas en toda la app
     avisar(t('Company settings saved.'))
@@ -149,6 +169,25 @@ async function guardar() {
           :placeholder="t('We declare under oath that the information in this invoice is true and correct, that the value is the price actually paid or payable for the goods and that the declared origin is correct.')" /></label>
         <label class="campo ancho"><span>{{ t('Packing list statement') }}</span><textarea v-model="datos.documentos.declaracion_packing" class="entrada" rows="3" maxlength="1000"
           :placeholder="t('We declare that the contents, numbering, dimensions and weights of the packages correspond to the goods shipped. Every unit or pair carries its individual label; inner packs carry an inner pack label with the product and the quantity inside.')" /></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-cabeza"><div><h2>{{ t('Terminology') }}</h2><p>{{ t('Replace any text of the system with the words your company uses, in each language. Write the original text as it appears in English; it applies to screens and documents (reload to see it everywhere).') }}</p></div>
+        <button type="button" class="btn btn-chico" @click="terminos.push({ original: '', es: '', en: '' })"><Icono nombre="mas" :tam="14" />{{ t('Add text') }}</button></div>
+      <p v-if="!terminos.length" class="ayuda">{{ t('No own texts: the system uses its standard terminology.') }}</p>
+      <div v-else class="tabla-marco">
+        <table class="tabla">
+          <thead><tr><th>{{ t('Original text (English)') }}</th><th>{{ t('Spanish') }}</th><th>{{ t('English') }}</th><th /></tr></thead>
+          <tbody>
+            <tr v-for="(f, i) in terminos" :key="i">
+              <td><input v-model="f.original" class="entrada" maxlength="600" :placeholder="t('e.g. Purchase order')" :aria-label="t('Original text (English)')" /></td>
+              <td><input v-model="f.es" class="entrada" maxlength="600" :placeholder="f.original ? t(f.original) : ''" :aria-label="t('Spanish')" /></td>
+              <td><input v-model="f.en" class="entrada" maxlength="600" :placeholder="f.original" :aria-label="t('English')" /></td>
+              <td><button type="button" class="btn-icono" :aria-label="t('Remove')" @click="terminos.splice(i, 1)"><Icono nombre="basura" :tam="16" /></button></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 

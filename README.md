@@ -4,7 +4,7 @@ Un sistema donde cada proveedor (y el equipo interno) arma sus facturas a partir
 
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL (SQLite para desarrollo rápido).
 - **Frontend:** Vue 3 + Vite, sin librerías de componentes ni de gráficas (íconos y gráficas SVG propios).
-- **Una empresa por instalación:** cada instalación sirve a una sola empresa (la plataforma de varias empresas se retiró en la migración 0037). Su ficha (nombre, logo, país, idioma, moneda, zona horaria, formato de fecha), su **marca** (color de las pantallas y documentos, nombre del sistema y textos de la pantalla de ingreso), sus **documentos** (papel carta o A4, declaraciones de la factura y la lista de empaque y logo en los reportes) y sus reglas de negocio se guardan en la base de datos y se editan en *Configuración → Empresa*. Las cuentas de ejemplo de la pantalla de ingreso solo aparecen en la demostración (`SEED_DEMO=1`).
+- **Una empresa por instalación:** cada instalación sirve a una sola empresa (la plataforma de varias empresas se retiró en la migración 0037). Su ficha (nombre, logo, país, idioma, moneda, zona horaria, formato de fecha), su **marca** (color de las pantallas y documentos, nombre del sistema y textos de la pantalla de ingreso), sus **documentos** (papel carta o A4, declaraciones de la factura y la lista de empaque y logo en los reportes), su **terminología** (cualquier texto del sistema reemplazado por las palabras de la empresa, en español e inglés, en pantallas y documentos) y sus reglas de negocio se guardan en la base de datos y se editan en *Configuración → Empresa*. Las cuentas de ejemplo de la pantalla de ingreso solo aparecen en la demostración (`SEED_DEMO=1`).
 - **Idiomas:** la interfaz, los mensajes y los documentos (PDF/Excel) están en español e inglés. Los identificadores y comentarios del código están en español.
 - **Pruebas:** 392 pruebas automatizadas (`backend/tests`); en SQLite se omite la de bloqueo de filas, que necesita PostgreSQL.
 
@@ -354,6 +354,7 @@ Las reglas de negocio se configuran **en la aplicación**, en *Configuración �
 | `REQUERIR_DATOS_ADUANA` | sí | Para finalizar se exigen país de origen y partida arancelaria por línea. |
 | `DIAS_ALERTA_BORRADOR` | `7` | Días después de los cuales un borrador que sigue reservando cantidades aparece como alerta. |
 | `DIAS_MARGEN_RIESGO` | `7` | Holgura mínima (días) frente a la fecha en tienda para estar a tiempo; con menos queda en riesgo. |
+| `DIAS_AVISO_TIENDA` | `30` | Días antes de la fecha en tienda a partir de los que una OC se resalta en *Órdenes*. |
 | `PAIS_BASE_CLASIF` | vacío | País (código de dos letras) cuyo código nacional completa la partida sugerida. La demostración usa `SV`. |
 | `COMPATIBILIDAD_BLOQUEANTE` | sociedad, moneda, centro | Datos de la OC que **no se pueden mezclar** en una factura (bloquean). |
 | `COMPATIBILIDAD_ADVERTENCIA` | incoterm, centro de destino | Datos de la OC que **solo avisan** si se mezclan en una factura. |

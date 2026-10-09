@@ -49,6 +49,7 @@ export async function cargarIdioma() {
     }).join('')
     return { re: new RegExp(`^${re}$`, 's'), orden, clave: k }
   }).sort((a, b) => b.clave.length - a.clave.length)
+  aplicarPropios(leerPropios())
   if (typeof document !== 'undefined') {
     document.documentElement.lang = actual.locale
     document.documentElement.dir = actual.dir
@@ -60,6 +61,31 @@ export async function cargarIdioma() {
 export function sumarCatalogo(mapa) {
   for (const [k, v] of Object.entries(mapa || {})) if (v && !(k in dic)) dic[k] = v
   cache.clear()
+}
+
+// Textos propios de la empresa (Configuración → Empresa → Terminología): su
+// terminología reemplaza a la del sistema en cada idioma. Se guardan en el
+// navegador para aplicarlos desde el arranque; un cambio se ve completo al recargar.
+const CLAVE_PROPIOS = 'textos_propios'
+function leerPropios() {
+  try { return JSON.parse(localStorage.getItem(CLAVE_PROPIOS) || '{}') } catch { return {} }
+}
+let originales = {} // lo que había antes de los textos propios, para restaurarlo
+function aplicarPropios(textos) {
+  for (const [k, v] of Object.entries(originales)) {
+    if (v === undefined) delete dic[k]
+    else dic[k] = v
+  }
+  originales = {}
+  for (const [k, v] of Object.entries((textos || {})[idioma] || {})) {
+    originales[k] = dic[k]
+    dic[k] = v
+  }
+  cache.clear()
+}
+export function usarTextosPropios(textos) {
+  try { localStorage.setItem(CLAVE_PROPIOS, JSON.stringify(textos || {})) } catch { /* sin almacenamiento */ }
+  aplicarPropios(textos)
 }
 
 function rellenar(texto, args) {
@@ -87,8 +113,9 @@ export function tr(plantilla, args) {
 // busca la frase exacta o una plantilla con {0}… que le corresponda
 const cache = new Map()
 export function tx(texto) {
-  if (idioma === 'en' || typeof texto !== 'string' || !texto) return texto
+  if (typeof texto !== 'string' || !texto) return texto
   if (dic[texto]) return dic[texto]
+  if (idioma === 'en') return texto
   if (!/[A-Za-z]{2}/.test(texto) || texto.length > 600) return texto
   if (cache.has(texto)) return cache.get(texto)
   let r = texto

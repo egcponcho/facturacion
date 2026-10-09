@@ -58,7 +58,9 @@ def _yo(u: Usuario) -> dict:
             "factura_en_una_sola_unidad": regla("FACTURA_EN_UNA_SOLA_UNIDAD"),
             "requerir_datos_aduana": regla("REQUERIR_DATOS_ADUANA"),
             "dias_alerta_borrador": regla("DIAS_ALERTA_BORRADOR"),
+            "dias_aviso_tienda": regla("DIAS_AVISO_TIENDA"),
         },
+        "max_subida_mb": settings.MAX_SUBIDA_MB,
         "flujo": flujo.valores(object_session(u)) if object_session(u) else dict(flujo.DEFECTOS),
         "organizacion": _empresa(u),
         "datos_ocultos": visibilidad.ocultos_de(u),
@@ -70,7 +72,8 @@ def _empresa(u: Usuario) -> dict | None:
     db = object_session(u)
     o = db.get(Organizacion, organizacion.ID_EMPRESA) if db else None
     return {"nombre": o.nombre, "logo": o.logo,
-            "marca": {**organizacion.MARCA, **(o.configuracion or {}).get("marca", {})}} if o else None
+            "marca": {**organizacion.MARCA, **(o.configuracion or {}).get("marca", {})},
+            "textos": organizacion._textos_de(o.configuracion or {})} if o else None
 
 
 def _cookie(resp: Response, token: str) -> None:

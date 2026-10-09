@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import { t } from '@/i18n/index.js'
+import { t, usarTextosPropios } from '@/i18n/index.js'
 import { api } from './api'
 
 // Marca de la empresa (Configuración → Empresa → Marca): nombre, logo, color
@@ -33,6 +33,7 @@ export function usarMarca(empresa) {
   if (!empresa) return
   Object.assign(marca, { nombre: empresa.nombre, logo: empresa.logo, demo: empresa.demo ?? marca.demo }, empresa.marca || {})
   aplicarColor(marca.color)
+  if (empresa.textos) usarTextosPropios(empresa.textos)
   document.title = marca.nombre ? `${marca.nombre} · ${tituloSistema()}` : tituloSistema()
 }
 

@@ -5,6 +5,7 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.archivos import exigir_tamano
 from app.core.config import settings
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
@@ -937,8 +938,7 @@ def subir_archivo(db: Session, user: Usuario, factura_id: int, nombre: str, cont
     f = cargar_factura(db, user, factura_id)
     if f.estado == "CANCELADA":
         raise ErrorNegocio("Files cannot be attached to a cancelled invoice.", 409, "no_editable")
-    if len(contenido) > 20 * 1024 * 1024:
-        raise ErrorNegocio("The file exceeds 20 MB.", 413, "archivo_grande")
+    exigir_tamano(contenido)
     carpeta = os.path.join(settings.UPLOAD_DIR, str(f.id))
     os.makedirs(carpeta, exist_ok=True)
     seguro = "".join(c for c in os.path.basename(nombre) if c.isalnum() or c in "._- ") or "archivo"

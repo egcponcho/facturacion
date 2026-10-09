@@ -23,6 +23,7 @@ REGLAS = {
     "REQUERIR_DATOS_ADUANA": "Country of origin and HS code are required per line to finalize",
     "DIAS_ALERTA_BORRADOR": "Days before warning about drafts that still reserve quantities",
     "DIAS_MARGEN_RIESGO": "Minimum margin (days) before the required date to be on time",
+    "DIAS_AVISO_TIENDA": "Days before the in-store date at which a PO is highlighted",
     "PAIS_BASE_CLASIF": "Country whose national code completes the suggested HS code",
     "COMPATIBILIDAD_BLOQUEANTE": "PO data that cannot be mixed in one invoice",
     "COMPATIBILIDAD_ADVERTENCIA": "PO data that only warns when mixed in one invoice",

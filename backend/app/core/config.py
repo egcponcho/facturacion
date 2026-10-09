@@ -110,6 +110,8 @@ class Settings:
     # Holgura mínima (días) frente a la fecha en tienda para considerarse "en tiempo";
     # con menos queda "en riesgo" y con holgura negativa, "atrasado"
     DIAS_MARGEN_RIESGO: int = 7
+    # Días antes de la fecha en tienda a partir de los que una OC se resalta
+    DIAS_AVISO_TIENDA: int = 30
     COMPATIBILIDAD_ADVERTENCIA: list[str] = ["incoterm", "centro_destino"]
 
 

@@ -160,7 +160,8 @@ function ordenar(campo) {
 }
 
 const xfCambio = (oc) => oc.fecha_xf_original && oc.fecha_xf && oc.fecha_xf_original !== oc.fecha_xf
-const tonoTienda = (d) => (d === null || d === undefined ? '' : d < 0 ? 'error' : d < 30 ? 'aviso' : '')
+// Se resalta a partir de los días de aviso de la empresa (Configuración → Empresa → Reglas)
+const tonoTienda = (d) => (d === null || d === undefined ? '' : d < 0 ? 'error' : d < (sesion.usuario?.config?.dias_aviso_tienda ?? 30) ? 'aviso' : '')
 
 let espera
 function buscar() {

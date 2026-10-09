@@ -31,12 +31,21 @@ def actual() -> str:
     return _idioma.get()
 
 
+def _propios() -> dict[str, str]:
+    """Textos propios de la empresa en el idioma del documento (Configuración → Empresa)."""
+    from app.core.empresa import configuracion_actual
+
+    return (configuracion_actual().get("textos") or {}).get(_idioma.get()) or {}
+
+
 def L(texto, *args) -> str:
     """Texto del documento en su idioma; {0}, {1}… se reemplazan por args."""
     if texto is None:
         return texto
     t = str(texto)
-    if _idioma.get() == "es":
+    if t in _propios():
+        t = _propios()[t]
+    elif _idioma.get() == "es":
         t = _cargar().get(t, t)
     if args:
         t = re.sub(r"\{(\d)\}", lambda m: "" if int(m.group(1)) >= len(args) or args[int(m.group(1))] is None
@@ -47,6 +56,8 @@ def L(texto, *args) -> str:
 def _celda(v):
     """Una celda de un reporte: se traducen los textos del sistema (estados,
     «Pending»…), no los datos (códigos en mayúsculas, descripciones)."""
+    if isinstance(v, str) and v in _propios():
+        return _propios()[v]
     if isinstance(v, str) and re.search(r"[a-z]", v) and _idioma.get() == "es" and v in _cargar():
         return _ES[v]
     return v

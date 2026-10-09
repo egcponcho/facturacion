@@ -19,6 +19,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core import listas
+from app.core.archivos import exigir_tamano
 from app.core.config import settings
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
@@ -948,8 +949,7 @@ def subir_foto(db: Session, user: Usuario, producto_id: int, nombre: str, tipo: 
     p = _producto(db, user, producto_id)
     if tipo not in TIPOS_FOTO:
         raise ErrorNegocio("Upload a JPG, PNG or WebP image.", 422, "validacion")
-    if len(contenido) > 8 * 1024 * 1024:
-        raise ErrorNegocio("The photo exceeds 8 MB.", 413, "archivo_grande")
+    exigir_tamano(contenido)
     if len(p.fotos) >= 8:
         raise ErrorNegocio("A product can have up to 8 photos.", 422, "validacion")
     carpeta = os.path.join(settings.UPLOAD_DIR, "productos", str(p.id))
@@ -1007,8 +1007,7 @@ def subir_documento(db: Session, user: Usuario, producto_id: int, tipo: str, nom
         raise ErrorNegocio(f"Choose the kind of document: {', '.join(listas.codigos('tipo_documento'))}.", 422, "validacion")
     if mime not in TIPOS_DOC:
         raise ErrorNegocio("Upload a PDF or an image of the document.", 422, "validacion")
-    if len(contenido) > 15 * 1024 * 1024:
-        raise ErrorNegocio("The document exceeds 15 MB.", 413, "archivo_grande")
+    exigir_tamano(contenido)
     datos = {str(k).strip(): v for k, v in (datos or {}).items() if v not in (None, "", [])}
     arancel = sorted(k for k in datos if k.lower() in NO_ARANCEL)
     if arancel:
