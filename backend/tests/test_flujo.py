@@ -214,7 +214,7 @@ def test_transporte_y_salida(interno, tnf):
     pl_ids = [p["id"] for p in grupo["packing_lists"]]
     r = interno.post(f"/unidades/{unidad['id']}/asignar", {"pl_ids": pl_ids})
     assert r.status_code == 200, r.text
-    assert r.json()["confirmados"] == len(pl_ids) and r.json()["tentativos"] == 0
+    assert r.json()["asignados"] == len(pl_ids)
     # Sin BL, contenedor ni sello no hay salida: son datos obligatorios del transporte
     r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": f"{HOY}T08:00:00"})
     assert r.status_code == 422 and r.json()["codigo"] == "datos_transporte"
@@ -398,7 +398,7 @@ def test_asignacion_automatica(interno, vans):
     pls = [p for g in disp if g["centro"] == centro for p in g["packing_lists"]]
     r = interno.post(f"/unidades/{nueva}/asignar", {"pl_ids": [p["id"] for p in pls]})
     assert r.status_code == 200, r.text
-    assert r.json() == {"asignados": len(pls), "confirmados": len(pls), "tentativos": 0}
+    assert r.json() == {"asignados": len(pls)}
     borrador = next((f for f in interno.get("/seguimiento/documentos", params={"size": 200}).json()["items"]
                      if f["pl_id"] and f["estado_pl"] in ("BORRADOR", "EN_CORRECCION")), None)
     assert borrador

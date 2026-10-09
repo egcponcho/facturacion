@@ -1,6 +1,16 @@
 from fastapi import APIRouter, Query
 
-from app.esquemas import AsignarPL, EmbarqueIn, EmbarquePatch, EventoIn, PLIds, Recoleccion, UnidadIn, UnidadPatch
+from app.esquemas import (
+    AsignarPL,
+    ConMotivo,
+    EmbarqueIn,
+    EmbarquePatch,
+    EventoIn,
+    PLIds,
+    Recoleccion,
+    UnidadIn,
+    UnidadPatch,
+)
 from app.modulos.transporte import transporte as svc
 from app.modulos.transporte.sugerencias import sugerir_unidades
 from app.web.rutas import Clave, Db, User, ejecutar
@@ -40,6 +50,12 @@ def evento(embarque_id: int, datos: EventoIn, db: Db, user: User, clave: Clave =
     return ejecutar(db, user, clave, lambda: svc.registrar_evento(db, user, embarque_id, datos))
 
 
+@router.post("/embarques/{embarque_id}/cancelar")
+def cancelar(embarque_id: int, datos: ConMotivo, db: Db, user: User, clave: Clave = None):
+    """Anula un embarque planificado: su carga vuelve a estar disponible."""
+    return ejecutar(db, user, clave, lambda: svc.cancelar(db, user, embarque_id, datos.motivo))
+
+
 @router.post("/embarques/{embarque_id}/unidades")
 def agregar_unidad(embarque_id: int, datos: UnidadIn, db: Db, user: User, clave: Clave = None):
     return ejecutar(db, user, clave, lambda: svc.agregar_unidad(db, user, embarque_id, datos))
@@ -71,9 +87,6 @@ def asignar(unidad_id: int, datos: AsignarPL, db: Db, user: User, clave: Clave =
     return ejecutar(db, user, clave, lambda: svc.asignar(db, user, unidad_id, datos))
 
 
-@router.post("/unidades/{unidad_id}/confirmar")
-def confirmar(unidad_id: int, datos: PLIds, db: Db, user: User, clave: Clave = None):
-    return ejecutar(db, user, clave, lambda: svc.confirmar(db, user, unidad_id, datos))
 
 
 @router.post("/unidades/{unidad_id}/desasignar")

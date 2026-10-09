@@ -152,7 +152,7 @@ watch(periodo, cargar, { deep: true })
                 <span class="envio-cabeza">
                   <span class="envio-modo"><Icono :nombre="datosModo(e.tipo_transporte).icono" :tam="16" /></span>
                   <b class="envio-codigo">{{ tx(e.codigo) }}</b>
-                  <EstadoBadge :estado="e.estado" />
+                  <EstadoBadge :estado="e.estado" tipo="embarque" />
                   <span class="ayuda separar">{{ plural(e.cajas, t('carton'), t('cartons')) }}</span>
                 </span>
                 <span class="ruta">
@@ -165,7 +165,6 @@ watch(periodo, cargar, { deep: true })
                 </span>
                 <span class="ayuda envio-pie">
                   <template v-if="e.eta && e.estado !== 'ARRIBADO'">{{ t('Arrives {0}.', [diasPara(e.eta)]) }} </template>
-                  <template v-if="e.tentativos">{{ t('{0} to confirm.', [plural(e.tentativos, t('tentative PL'), t('tentative PLs'))]) }} </template>
                   {{ tx(e.facturas.slice(0, 2).join(', ')) }}<template v-if="e.facturas.length > 2"> {{ t('and {0} more', [e.facturas.length - 2]) }}</template>
                 </span>
               </button>

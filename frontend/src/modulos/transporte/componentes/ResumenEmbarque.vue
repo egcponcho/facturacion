@@ -46,7 +46,7 @@ const llegada = computed(() => {
 <template>
   <PanelLateral :titulo="e?.codigo || t('Shipment')" :detalle="`/transporte/embarques/${props.id}`" ancho="560px" @cerrar="emit('cerrar')">
     <template #estado>
-      <span v-if="e" class="fila-flex pl-subtitulo"><EstadoBadge :estado="e.estado" /><EstadoTiempo :estado="e.estado_tiempo" :holgura="e.holgura_dias" />
+      <span v-if="e" class="fila-flex pl-subtitulo"><EstadoBadge :estado="e.estado" tipo="embarque" /><EstadoTiempo :estado="e.estado_tiempo" :holgura="e.holgura_dias" />
         <span class="ayuda">{{ datosModo(e.tipo_transporte).nombre }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span></span>
     </template>
     <p v-if="!e" class="ayuda">{{ t('Loading…') }}</p>
@@ -92,7 +92,6 @@ const llegada = computed(() => {
           </div>
           <div class="ayuda">
             {{ plural(u.packing_lists || 0, 'PL', t('PLs')) }} · {{ plural(u.cajas || 0, t('carton'), t('cartons')) }} · {{ fmtNum(u.peso_bruto, 1) }} kg · {{ fmtNum(u.cbm, 2) }} m³
-            <template v-if="u.tentativas"> · {{ plural(u.tentativas, t('tentative PL'), t('tentative PLs')) }}</template>
           </div>
           <div v-if="u.proveedores?.length" class="ayuda">{{ tx(u.proveedores.join(', ')) }}</div>
           <div v-if="u.capacidad_cbm || u.capacidad_kg" class="pl-avances">

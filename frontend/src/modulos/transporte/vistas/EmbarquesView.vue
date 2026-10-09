@@ -1,4 +1,5 @@
 <script setup>
+import { ESTADOS_EMBARQUE } from '@/nucleo/estados.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -29,7 +30,7 @@ const todos = ref([])
 const modal = ref(null)
 const listas = ref(null)
 
-const ESTADOS = [['', t('All')], ['PLANIFICADO', t('Planned')], ['EN_TRANSITO', t('In transit')], ['ARRIBADO', t('Arrived')], ['ENTREGADO', t('Delivered')], ['RECIBIDO', t('Received')]]
+const ESTADOS = [['', t('All')], ...ESTADOS_EMBARQUE]
 const cuenta = computed(() => {
   const r = { '': todos.value.length }
   for (const e of todos.value) r[e.estado] = (r[e.estado] || 0) + 1
@@ -147,7 +148,7 @@ onMounted(() => {
           <td>{{ tx(e.puerto_origen || '—') }} <Icono nombre="flecha" :tam="13" /> {{ tx(e.puerto_destino || '—') }}<span class="sub">{{ tx(e.centro ? t('plant {0}', [e.centro]) : t('Plant to be defined')) }}</span></td>
           <td>{{ fmtFecha(e.salida_real || e.etd) }}<span class="sub">{{ e.salida_real ? t('actual') : t('estimated') }}</span></td>
           <td>{{ fmtFecha(e.arribo_real || e.eta) }}<span class="sub">{{ e.arribo_real ? t('actual') : t('estimated') }}</span></td>
-          <td><EstadoBadge :estado="e.estado" /></td>
+          <td><EstadoBadge :estado="e.estado" tipo="embarque" /></td>
           <td><EstadoTiempo :estado="e.estado_tiempo" :holgura="e.holgura_dias" /></td>
           <td>
             <div v-if="e.ocupacion.length" class="mini-ocupacion">
@@ -155,7 +156,7 @@ onMounted(() => {
             </div>
             <span v-else class="apagado">{{ t('No units') }}</span>
           </td>
-          <td class="num">{{ tx(e.packing_lists) }}<span v-if="e.tentativas" class="etiqueta aviso">{{ t('{0} tentative', [e.tentativas]) }}</span></td>
+          <td class="num">{{ tx(e.packing_lists) }}</td>
           <td class="envolver" style="min-width: 140px">{{ tx(e.proveedores.join(', ') || '—') }}</td>
         </tr>
         <tr v-if="!lista.length && todos.length"><td colspan="9" class="vacio">{{ t('No shipments match these filters.') }}</td></tr>

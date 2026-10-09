@@ -33,6 +33,7 @@ from app.modelos import (
     PrepackComponente,
     Proveedor,
     Puerto,
+    RecepcionLinea,
     RegionLeadTime,
     ReglaLeadTime,
     Rol,
@@ -697,6 +698,14 @@ def seed(db: Session) -> None:
     trans = {t.nombre: t.id for t in db.scalars(select(Transportista))}
     for emb in db.scalars(select(Embarque)):
         emb.transportista_id = trans.get(emb.transportista)
+    # Un embarque recibido tiene la recepción de cada línea (sin novedad)
+    for emb in db.scalars(select(Embarque).where(Embarque.estado == "RECIBIDO")):
+        for u in emb.unidades:
+            for pl in u.packing_lists:
+                for ln in pl.lineas:
+                    if not ln.recepcion:
+                        ln.recepcion = RecepcionLinea(cantidad_recibida=ln.cantidad, cantidad_danada=0,
+                                                      observacion="Received without differences")
     db.commit()
 
 

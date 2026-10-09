@@ -136,7 +136,7 @@ onMounted(cargar)
               <span class="codigo">{{ tx(e.documento || t('Pending')) }}</span>
               <span class="sub">{{ datosModo(e.modo).doc }}<template v-if="e.transportista"> · {{ tx(e.transportista) }}</template></span>
             </td>
-            <td><EstadoBadge :estado="e.estado" /></td>
+            <td><EstadoBadge :estado="e.estado" tipo="embarque" /></td>
             <td>{{ tx(e.puerto_origen || '—') }} <Icono nombre="flecha" :tam="12" /> {{ tx(e.puerto_destino || '—') }}<span v-if="e.centro" class="sub">{{ t('plant {0}', [e.centro]) }}</span></td>
             <td>{{ fmtFecha(e.etd) }}</td>
             <td>{{ fmtFecha(e.eta) }}<span class="sub">{{ tx(e.arribado ? t('arrived') : e.dias_eta === null ? '' : e.dias_eta >= 0 ? t('in {0} d', [e.dias_eta]) : t('ETA overdue {0} d', [-e.dias_eta])) }}</span></td>

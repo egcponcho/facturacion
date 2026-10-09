@@ -786,7 +786,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
 
   <Modal v-if="modal?.tipo === 'estado'" :titulo="tx(modal.accion === 'reabrir' ? t('Reopen invoice for correction') : t('Cancel invoice'))" @cerrar="modal = null">
     <p v-if="modal.accion === 'cancelar'">{{ t('Its packing lists are cancelled too and the quantities become available again on the POs.') }}</p>
-    <p v-else>{{ t('The invoice becomes editable again. Its packing lists keep their status.') }}</p>
+    <p v-else>{{ t('The invoice becomes editable again. Its packing lists keep their status, but leave their load units: add them again once the invoice is finalized.') }}</p>
     <label class="campo"><span :class="{ req: !(modal.accion === 'cancelar' && f?.estado === 'BORRADOR') }">{{ t('Reason{0}', [modal.accion === 'cancelar' && f?.estado === 'BORRADOR' ? t(' (optional)') : '']) }}</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Back') }}</button>

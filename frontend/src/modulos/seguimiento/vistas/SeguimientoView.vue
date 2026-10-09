@@ -1,4 +1,5 @@
 <script setup>
+import { ESTADOS_EMBARQUE } from '@/nucleo/estados.js'
 import { opcionesLista } from '@/nucleo/listas.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
@@ -56,7 +57,7 @@ const opciones = ref({})
 // Filtros activos que se mandan a los tableros
 const params = computed(() => Object.fromEntries(FILTROS.filter((k) => filtros[k]).map((k) => [k, filtros[k]])))
 const paramsExportar = computed(() => ({ ...params.value, proveedor_id: sesion.proveedorId || undefined }))
-const ESTADOS_EMB = [['PLANIFICADO', t('Planned')], ['EN_TRANSITO', t('In transit')], ['ARRIBADO', t('Arrived')], ['ENTREGADO', t('Delivered')], ['RECIBIDO', t('Received')]]
+const ESTADOS_EMB = ESTADOS_EMBARQUE
 const ESTADOS_OC = [['SIN_COMERCIAL', t('No commercial release')], ['SIN_LOGISTICA', t('No logistics release')],
   ['POR_FACTURAR', t('Released, not invoiced')], ['PARCIAL', t('Partly invoiced')], ['FACTURADA', t('Invoiced, in process')],
   ['EN_CAMINO', t('On the way')], ['RECIBIDA', t('Received')]]

@@ -231,7 +231,6 @@ def _envios(db: Session, prov: frozenset | None) -> list[dict]:
             "facturas": sorted({nombre_factura(pl.factura) for pl in pls}),
             "factura_ids": sorted({pl.factura_id for pl in pls}),
             "packing_lists": len(pls),
-            "tentativos": sum(1 for pl in pls if pl.asignacion == "TENTATIVA"),
             "cajas": sum(totales_pl(pl)["cajas"] for pl in pls),
         })
     orden = {"EN_TRANSITO": 0, "ARRIBADO": 1, "PLANIFICADO": 2}

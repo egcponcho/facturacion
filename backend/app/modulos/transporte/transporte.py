@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, object_session
 from app.core import listas
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
+from app.core.estados import EMBARQUE
 from app.modelos import (
     Centro,
     Embarque,
@@ -18,6 +19,7 @@ from app.modelos import (
     Transportista,
     UnidadCarga,
     Usuario,
+    ahora,
 )
 from app.modulos.acceso.permisos import exigir, sociedades_de, transportistas_de
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
@@ -179,7 +181,6 @@ def resumen_unidad(u: UnidadCarga) -> dict:
         "facturas": len({pl.factura_id for pl in pls}),
         "proveedores": sorted({pl.factura.proveedor.nombre for pl in pls}),
         "packing_lists": len(pls),
-        "tentativas": sum(1 for pl in pls if pl.asignacion == "TENTATIVA"),
         "cajas": cajas,
         "peso_bruto": round(bruto, 2),
         "cbm": round(cbm, 3),
@@ -218,7 +219,6 @@ def listar_embarques(db: Session, user: Usuario, estado: str | None = None, q: s
             **_cabecera(e),
             "unidades": len(unidades),
             "packing_lists": sum(u["packing_lists"] for u in unidades),
-            "tentativas": sum(u["tentativas"] for u in unidades),
             "cbm": round(sum(u["cbm"] for u in unidades), 3),
             "proveedores": sorted({p for u in unidades for p in u["proveedores"]}),
             **tiempo_embarque(unidades),
@@ -439,11 +439,6 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
                            422, "fecha_evento")
     if datos.tipo == "SALIDA":
         pls = [pl for u in e.unidades for pl in u.packing_lists if pl.estado != "CANCELADO"]
-        tentativas = [pl.numero for pl in pls if pl.asignacion == "TENTATIVA"]
-        if tentativas:
-            raise ErrorNegocio(
-                f"{len(tentativas)} packing lists are assigned tentatively. Confirm or remove them before "
-                "recording the departure.", 409, "tentativas_pendientes")
         if not pls:
             raise ErrorNegocio("The shipment has no packing lists assigned.", 409, "sin_carga")
         faltan = _documentos_salida(e, pls)
@@ -457,6 +452,13 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
                 pl.recolectado_en = datos.fecha.date()
     if datos.tipo == "ARRIBO":
         e.arribo_real = datos.fecha.date()
+    if datos.tipo == "RECEPCION":
+        # La recepción sin detalle registra como recibido sin novedad lo que no
+        # se haya recibido línea por línea
+        from app.modulos.empaque.packing import recibir_sin_novedad
+
+        for pl in [pl for u in e.unidades for pl in u.packing_lists if pl.estado == "FINALIZADO"]:
+            recibir_sin_novedad(db, user, pl)
     if datos.tipo in ESTADO_POR_EVENTO:
         e.estado = ESTADO_POR_EVENTO[datos.tipo]
     ev = EventoEmbarque(embarque_id=e.id, tipo=datos.tipo, fecha=datos.fecha,
@@ -465,6 +467,34 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
     db.flush()
     registrar(db, user, "embarque", e.id, "evento", {"tipo": datos.tipo, "fecha": datos.fecha})
     return {"id": ev.id, "estado": e.estado}
+
+
+def cancelar(db: Session, user: Usuario, embarque_id: int, motivo: str | None) -> dict:
+    """Anula un embarque que no salió: su carga vuelve a estar disponible."""
+    exigir(user, "transporte.gestionar")
+    motivo = requerir_motivo(motivo, "call off the shipment")
+    e = _embarque(db, user, embarque_id)
+    EMBARQUE.exigir("cancelar", e.estado)
+    for u in e.unidades:
+        for pl in list(u.packing_lists):
+            pl.unidad_carga_id, pl.asignacion, pl.recolectado_en = None, None, None
+            registrar(db, user, "packing_list", pl.id, "quitar_unidad", {"unidad": u.numero or u.etiqueta,
+                                                                          "embarque": e.codigo}, motivo, factura_id=pl.factura_id)
+    e.estado = "CANCELADO"
+    registrar(db, user, "embarque", e.id, "cancelado", None, motivo=motivo)
+    return {"id": e.id, "estado": e.estado}
+
+
+def completar_recepcion(db: Session, user: Usuario, e: Embarque) -> bool:
+    """Con todas sus listas recibidas, el embarque pasa a recibido (y queda el hito)."""
+    pls = [pl for u in e.unidades for pl in u.packing_lists if pl.estado != "CANCELADO"]
+    if e.estado == "RECIBIDO" or not pls or not all(ln.recepcion for pl in pls for ln in pl.lineas):
+        return False
+    e.estado = "RECIBIDO"
+    db.add(EventoEmbarque(embarque_id=e.id, tipo="RECEPCION", fecha=ahora(), usuario_id=user.id,
+                          observacion="Every packing list was received."))
+    registrar(db, user, "embarque", e.id, "evento", {"tipo": "RECEPCION", "automatico": True})
+    return True
 
 
 # ---- Unidades de carga ------------------------------------------------------
@@ -698,39 +728,16 @@ def asignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
     if excesos:
         raise ErrorNegocio(f"It does not fit in {u.numero or u.etiqueta}: " + " and ".join(excesos)
                            + ". Use another container for the rest.", 422, "capacidad")
-    confirmados = 0
+    # Solo van documentos finalizados: la asignación queda confirmada
     for pl in pls:
         anterior = pl.unidad
-        modo = "CONFIRMADA"
-        confirmados += 1
         pl.unidad = u
-        pl.asignacion = modo
+        pl.asignacion = "CONFIRMADA"
         registrar(db, user, "packing_list", pl.id, "asignar_unidad", {
-            "unidad": u.numero or u.etiqueta, "embarque": u.embarque.codigo, "modo": modo,
+            "unidad": u.numero or u.etiqueta, "embarque": u.embarque.codigo,
             "anterior": (anterior.numero or anterior.etiqueta) if anterior and anterior.id != u.id else None,
         }, motivo, factura_id=pl.factura_id)
-    return {"asignados": len(pls), "confirmados": confirmados, "tentativos": len(pls) - confirmados}
-
-
-def confirmar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
-    u = _unidad(db, user, unidad_id)
-    _exigir_planificado(u.embarque, "confirm cargo")
-    pls = _cargar_pls(db, datos.pl_ids)
-    errores = []
-    for pl in pls:
-        ref = f"{nombre_factura(pl.factura)} / {pl.numero}"
-        if pl.unidad_carga_id != u.id:
-            errores.append({"pl_id": pl.id, "mensaje": f"{ref} is not on this unit."})
-        elif not _listo(pl):
-            errores.append({"pl_id": pl.id, "mensaje": f"{ref}: the invoice and the PL must be finalized."})
-    if errores:
-        raise ErrorNegocio("None were confirmed; fix these pending items.", 422, "validacion", errores)
-    for pl in pls:
-        if pl.asignacion != "CONFIRMADA":
-            pl.asignacion = "CONFIRMADA"
-            registrar(db, user, "packing_list", pl.id, "confirmar_unidad",
-                      {"unidad": u.numero or u.etiqueta}, factura_id=pl.factura_id)
-    return {"confirmados": len(pls)}
+    return {"asignados": len(pls)}
 
 
 def desasignar(db: Session, user: Usuario, unidad_id: int, datos) -> dict:

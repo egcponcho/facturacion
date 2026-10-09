@@ -1077,7 +1077,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
   </Modal>
 
   <Modal v-if="modal?.tipo === 'estado'" :titulo="tx(modal.accion === 'reabrir' ? t('Reopen packing list') : t('Cancel packing list'))" @cerrar="modal = null">
-    <p v-if="modal.accion === 'reabrir'">{{ t('It becomes editable again. If it was confirmed in a load unit, the assignment becomes tentative.') }}</p>
+    <p v-if="modal.accion === 'reabrir'">{{ t('It becomes editable again. If it is in a load unit, it leaves it: add it again once it is finalized.') }}</p>
     <p v-else>{{ t('Its quantities go back to the invoice as pending assignment.') }}</p>
     <label class="campo"><span :class="{ req: !(modal.accion === 'cancelar' && pl?.estado === 'BORRADOR') }">{{ t('Reason{0}', [modal.accion === 'cancelar' && pl?.estado === 'BORRADOR' ? t(' (optional)') : '']) }}</span><textarea v-model="modal.motivo"></textarea></label>
     <template #pie>

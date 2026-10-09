@@ -4,8 +4,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
-from app.core.estados import PL
+from app.core.estados import EMBARQUE, PL
 from app.modelos import (
+    Alerta,
     Factura,
     FacturaLinea,
     GrupoCajas,
@@ -1031,17 +1032,36 @@ def cancelar_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> d
 
 
 # ---- Recepción --------------------------------------------------------------
+def _exigir_recibible(pl: PackingList) -> None:
+    """Se recibe una lista finalizada cuyo embarque ya llegó (docs/FLUJOS.md §3)."""
+    PL.exigir("recibir", pl.estado, "no_editable")
+    if not pl.unidad:
+        raise ErrorNegocio("The packing list is not on a shipment yet: it is received when its shipment arrives.",
+                           409, "sin_embarque")
+    EMBARQUE.exigir("recibir", pl.unidad.embarque.estado, "embarque_no_llego")
+
+
+def recibir_sin_novedad(db: Session, user: Usuario, pl: PackingList) -> None:
+    """Las líneas aún sin recepción quedan recibidas completas y sin daños."""
+    for pll in pl.lineas:
+        if not pll.recepcion:
+            pll.recepcion = RecepcionLinea(cantidad_recibida=pll.cantidad, cantidad_danada=0, usuario_id=user.id,
+                                           observacion="Received without differences")
+
+
 def registrar_recepcion(db: Session, user: Usuario, pl_id: int, datos) -> dict:
+    from app.modulos.transporte.transporte import completar_recepcion
+
     exigir(user, "recepcion.registrar")
     pl = cargar_pl(db, user, pl_id)
-    if pl.estado != "FINALIZADO":
-        raise ErrorNegocio("Receipt is only recorded for finalized packing lists.", 409, "no_editable")
+    _exigir_recibible(pl)
     diferencias = []
     for item in datos.lineas:
         pll = _linea(pl, item.pl_linea_id)
         rec = pll.recepcion
         if not rec:
-            rec = RecepcionLinea(pl_linea=pll, cantidad_recibida=0)
+            # Desde el padre: en SQLAlchemy 2 asignar el padre en el hijo no lo agrega a la sesión
+            rec = pll.recepcion = RecepcionLinea(cantidad_recibida=0)
         for valor in (item.cantidad_recibida, item.cantidad_danada):
             if valor and (msg := error_cantidad(valor, pll.factura_linea.unidad)):
                 raise ErrorNegocio(f"{_ref(pll)}: {msg}", 422, "validacion")
@@ -1054,7 +1074,14 @@ def registrar_recepcion(db: Session, user: Usuario, pl_id: int, datos) -> dict:
             diferencias.append({"fila": _ref(pll), "esperado": pll.cantidad,
                                 "recibido": item.cantidad_recibida, "danado": item.cantidad_danada})
     registrar(db, user, "packing_list", pl.id, "recepcion", {"diferencias": diferencias}, factura_id=pl.factura_id)
-    return {"diferencias": diferencias}
+    if diferencias:
+        # Faltantes o daños: el equipo interno lo ve en sus alertas para reclamarlo
+        db.add(Alerta(proveedor_id=pl.factura.proveedor_id, tipo="recepcion_diferencia",
+                      mensaje=f"{pl.numero} ({nombre_factura(pl.factura)}): {len(diferencias)} lines received with differences.",
+                      referencia={"pl_id": pl.id, "diferencias": diferencias[:20]}))
+    db.flush()
+    recibido = completar_recepcion(db, user, pl.unidad.embarque)
+    return {"diferencias": diferencias, "embarque_recibido": recibido}
 
 
 # ---- Consulta ---------------------------------------------------------------
@@ -1240,7 +1267,9 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "finalizar": editable and "pl.finalizar" in permisos,
             "reabrir": pl.estado == "FINALIZADO" and "pl.reabrir" in permisos,
             "cancelar": pl.estado != "CANCELADO" and "pl.cancelar" in permisos and (es_interno(user) or pl.estado == "BORRADOR"),
-            "recepcion": pl.estado == "FINALIZADO" and "recepcion.registrar" in permisos,
+            # Se recibe cuando el embarque ya llegó (docs/FLUJOS.md §3)
+            "recepcion": "recepcion.registrar" in permisos and PL.puede("recibir", pl.estado) and bool(pl.unidad)
+                         and EMBARQUE.puede("recibir", pl.unidad.embarque.estado),
         },
     }
 

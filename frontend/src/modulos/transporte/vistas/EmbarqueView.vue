@@ -1,4 +1,5 @@
 <script setup>
+import { ESTADOS_EMBARQUE } from '@/nucleo/estados.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -41,7 +42,8 @@ const ocupado = ref(false)
 const verHistorial = ref(false)
 
 const nombreEvento = (t) => eventosEmbarque().find((x) => x[0] === t)?.[1] || t
-const HITOS = [['PLANIFICADO', t('Planned')], ['EN_TRANSITO', t('In transit')], ['ARRIBADO', t('Arrived')], ['ENTREGADO', t('Delivered')], ['RECIBIDO', t('Received')]]
+// La línea de hitos muestra el camino normal (un embarque anulado no lo recorre)
+const HITOS = ESTADOS_EMBARQUE.filter(([c]) => c !== 'CANCELADO')
 const SIGUIENTE = { PLANIFICADO: 'SALIDA', EN_TRANSITO: 'ARRIBO', ARRIBADO: 'ENTREGA', ENTREGADO: 'RECEPCION' }
 // El cuarto valor marca lo que exige el documento de transporte (BL, AWB o
 // carta de porte): sin eso no se registra la salida.
@@ -66,8 +68,8 @@ const unidadTxt = computed(() => [modo.value.unidad, modo.value.unidades])
 const indiceEstado = computed(() => HITOS.findIndex(([k]) => k === e.value?.estado))
 const icono = computed(() => modo.value.icono)
 const totales = computed(() => (e.value?.unidades || []).reduce((a, x) => ({
-  pls: a.pls + x.packing_lists, cajas: a.cajas + x.cajas, cbm: a.cbm + x.cbm, kg: a.kg + x.peso_bruto, tentativas: a.tentativas + x.tentativas,
-}), { pls: 0, cajas: 0, cbm: 0, kg: 0, tentativas: 0 }))
+  pls: a.pls + x.packing_lists, cajas: a.cajas + x.cajas, cbm: a.cbm + x.cbm, kg: a.kg + x.peso_bruto,
+}), { pls: 0, cajas: 0, cbm: 0, kg: 0 }))
 
 // Ruta coherente con el modo: puertos del tipo del embarque, destino entre los
 // puertos del centro (el principal sugerido) y transportistas del modo que
@@ -265,6 +267,14 @@ function buscar() {
 }
 
 // ---- Seguimiento -----------------------------------------------------------
+// Anular un embarque que no salió: su carga vuelve a estar disponible
+function cancelarEmbarque() {
+  modal.value = { tipo: 'cancelar', motivo: '' }
+}
+function confirmarCancelacion() {
+  ejecutar(() => api.post(`/embarques/${props.id}/cancelar`, { motivo: modal.value.motivo }), t('Shipment called off: its packing lists are available again.'))
+}
+
 function abrirEvento(tipo = SIGUIENTE[e.value.estado] || 'OTRO') {
   if (!(e.value.eventos_permitidos || []).includes(tipo)) tipo = e.value.eventos_permitidos?.[0] || 'OTRO'
   const ahora = new Date()
@@ -297,20 +307,19 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
       <div class="doc-fila">
         <Icono :nombre="icono" :tam="26" />
         <span class="doc-numero">{{ tx(e.codigo) }}</span>
-        <EstadoBadge :estado="e.estado" />
+        <EstadoBadge :estado="e.estado" tipo="embarque" />
         <EstadoTiempo :estado="e.estado_tiempo" :holgura="e.holgura_dias" />
         <span class="doc-sub">{{ tx(modo.nombre) }}</span>
         <span v-if="e.modalidad" class="etiqueta acento" :title="tx(e.modalidad === 'MIXTO' ? t('Combines units of different modalities (e.g. FCL and LCL)') : '')">{{ tx(e.modalidad) }}</span>
         <div class="doc-acciones">
           <button v-if="!soloLectura" class="btn" @click="abrirEvento('OTRO')"><Icono nombre="ubicacion" />{{ t('Record event') }}</button>
-          <button v-if="SIGUIENTE[e.estado] && !soloLectura" class="btn btn-primario" :disabled="e.estado === 'PLANIFICADO' && (totales.tentativas > 0 || !totales.pls)"
-                  :title="tx(e.estado === 'PLANIFICADO' && totales.tentativas ? t('Confirm or remove the tentative PLs first') : '')" @click="abrirEvento()">
+          <button v-if="SIGUIENTE[e.estado] && !soloLectura" class="btn btn-primario" :disabled="e.estado === 'PLANIFICADO' && !totales.pls" @click="abrirEvento()">
             <Icono nombre="flecha" />{{ t('Record {0}', [nombreEvento(SIGUIENTE[e.estado]).toLowerCase()]) }}
           </button>
+          <button v-if="e.estado === 'PLANIFICADO' && !soloLectura" class="btn btn-fantasma" @click="cancelarEmbarque"><Icono nombre="cerrar" />{{ t('Call off shipment') }}</button>
           <!-- Un botón deshabilitado siempre dice por qué y qué hacer -->
-          <span v-if="SIGUIENTE[e.estado] && !soloLectura && e.estado === 'PLANIFICADO' && (totales.tentativas > 0 || !totales.pls)" class="ayuda bloqueo-motivo">
-            <Icono nombre="info" :tam="14" />{{ tx(totales.tentativas > 0 ? t('Confirm or remove the {0} tentative PLs in the load units below first.', [totales.tentativas])
-              : t('Assign at least one finalized packing list to a load unit below first.')) }}
+          <span v-if="SIGUIENTE[e.estado] && !soloLectura && e.estado === 'PLANIFICADO' && !totales.pls" class="ayuda bloqueo-motivo">
+            <Icono nombre="info" :tam="14" />{{ t('Assign at least one finalized packing list to a load unit below first.') }}
           </span>
         </div>
       </div>
@@ -322,7 +331,6 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
       <p v-if="cerrado" class="bloqueo mt"><Icono nombre="candado" />
         <span><b>{{ t('Cargo closed.') }}</b> {{ t('The shipment departed') }}<template v-if="e.salida_real"> {{ t('on {0}', [fmtFecha(e.salida_real)]) }}</template>{{ t(': packing lists and load units can no longer be added, removed or moved, and the voyage data is fixed. Only the next tracking events can be recorded.') }}</span>
       </p>
-      <p v-if="e.estado === 'PLANIFICADO' && totales.tentativas" class="nota aviso mt"><Icono nombre="alerta" />{{ t('Tentative packing lists: {0}. Confirm or remove them before recording departure.', [totales.tentativas]) }}</p>
       <div class="doc-datos">
         <label v-for="[campo, texto, tipo, obligatorio] in CAMPOS" :key="campo" class="dato">
           <span :class="{ req: obligatorio }">{{ tx(campo === 'documento_numero' ? modo.doc : texto) }}</span>
@@ -368,7 +376,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
         <button v-for="x in e.unidades" :key="x.id" class="unidad-pestana" role="tab" :aria-selected="x.id === unidadId" @click="unidadId = x.id">
           <span class="fila-flex"><Icono :nombre="iconoUnidad(e.tipo_transporte)" /><span class="unidad-nombre">{{ tx(x.nombre) }}</span><span class="etiqueta" :title="tx(x.tipo_nombre)">{{ tx(x.tipo) }}</span><span v-if="x.modalidad" class="etiqueta acento">{{ tx(x.modalidad) }}</span></span>
           <Avance v-if="x.capacidad_cbm" :porcentaje="x.pct_cbm || 0" />
-          <span class="ayuda">{{ plural(x.packing_lists, 'PL', t('PLs')) }} · {{ fmtNum(x.cbm, 1) }} m³<template v-if="x.tentativas"> · <span class="etiqueta aviso">{{ t('{0} tentative', [x.tentativas]) }}</span></template></span>
+          <span class="ayuda">{{ plural(x.packing_lists, 'PL', t('PLs')) }} · {{ fmtNum(x.cbm, 1) }} m³</span>
           <span v-if="x.marcas?.length" class="ayuda">{{ tx(x.marcas.join(' · ')) }}</span>
           <EstadoTiempo v-if="x.estado_tiempo" :estado="x.estado_tiempo" :holgura="x.holgura_dias" />
           <span v-for="a in x.alertas" :key="a" class="etiqueta error">{{ tx(a) }}</span>
@@ -632,6 +640,15 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" :disabled="ocupado || !modal.fecha" @click="registrarEvento">{{ t('Record') }}</button>
+    </template>
+  </Modal>
+
+  <Modal v-if="modal?.tipo === 'cancelar'" :titulo="t('Call off shipment')" @cerrar="modal = null">
+    <p>{{ t('The shipment is called off and its packing lists leave their load units, available for another shipment. This cannot be undone.') }}</p>
+    <label class="campo"><span class="req">{{ t('Reason') }}</span><textarea v-model="modal.motivo"></textarea></label>
+    <template #pie>
+      <button class="btn" @click="modal = null">{{ t('Back') }}</button>
+      <button class="btn btn-peligro" :disabled="ocupado || !modal.motivo.trim()" @click="confirmarCancelacion">{{ t('Call off shipment') }}</button>
     </template>
   </Modal>
 

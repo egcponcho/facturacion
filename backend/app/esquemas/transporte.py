@@ -71,10 +71,7 @@ class UnidadPatch(BaseModel):
 
 class AsignarPL(BaseModel):
     pl_ids: list[int] = Field(min_length=1)
-    # AUTO: confirma los que ya están listos (factura y PL finalizados) y deja
-    # tentativos los demás
-    modo: Literal["TENTATIVA", "CONFIRMADA", "AUTO"] = "TENTATIVA"
-    motivo: str | None = None
+    motivo: str | None = None  # para mover una lista de otra unidad
 
 
 class Recoleccion(BaseModel):
