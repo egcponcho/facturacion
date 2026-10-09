@@ -17,7 +17,7 @@ import ThOrden from '@/componentes/ThOrden.vue'
 import { datosModo, modoInicial, modosTransporte, useRutas } from '@/composables/useRutas'
 import { useTabla } from '@/composables/useTabla'
 import { avisar, errorApi } from '@/stores/ui'
-import { fmtFecha, fmtNum, plural } from '@/nucleo/utils'
+import { fmtFecha, fmtNum } from '@/nucleo/utils'
 
 const route = useRoute()
 const router = useRouter()

@@ -20,7 +20,6 @@ import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import ThOrden from '@/componentes/ThOrden.vue'
 import { siguienteOrden } from '@/composables/useTabla'
 import { avisar, errorApi } from '@/stores/ui'
-import { fmtNum } from '@/nucleo/utils'
 import { filasDefecto } from '@/stores/preferencias'
 
 // Un solo lugar para todos los datos maestros. Cada catálogo llega descrito
@@ -241,7 +240,6 @@ function valorCelda(c, fila) {
   if (c.tipo === 'codigo') return opciones[c.catalogo]?.find((o) => o.codigo === v)?.texto || v
   return v
 }
-const campoActivo = computed(() => campos.value.find((c) => c.tipo === 'bool' && ['activo', 'activa'].includes(c.nombre))?.nombre || campos.value.find((c) => c.tipo === 'bool')?.nombre)
 
 // ---- Carga masiva -----------------------------------------------------------
 function abrirCarga() {

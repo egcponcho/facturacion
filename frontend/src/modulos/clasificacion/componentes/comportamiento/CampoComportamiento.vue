@@ -11,7 +11,7 @@ import TextosAduana from './TextosAduana.vue'
 
 // Un campo del comportamiento de una pregunta u opción, con su editor visual.
 // «Editar como JSON» queda solo para casos avanzados; el servidor valida igual.
-const props = defineProps({
+defineProps({
   tipo: { type: String, required: true }, // derivacion | patrones | patrones_falso | texto_aduana | bloqueo | implica | plantilla
   modelValue: { type: [Object, Array, null], default: null },
   atributos: { type: Array, default: () => [] },

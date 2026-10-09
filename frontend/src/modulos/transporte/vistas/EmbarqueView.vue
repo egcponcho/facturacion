@@ -20,7 +20,7 @@ import { datosModo, iconoUnidad, useRutas } from '@/composables/useRutas'
 import { useTabla } from '@/composables/useTabla'
 import { sesion } from '@/stores/sesion'
 import { avisar, errorApi, guardando } from '@/stores/ui'
-import { ACCIONES, diasTxt, eventosEmbarque, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
+import { ACCIONES, eventosEmbarque, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
 
 // El embarque es el espacio de trabajo de logística: sus datos, sus
 // contenedores (cada uno con su carga) y el seguimiento, en una sola vista.

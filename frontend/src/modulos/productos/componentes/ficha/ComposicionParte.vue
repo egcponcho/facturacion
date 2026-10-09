@@ -1,4 +1,6 @@
 <script setup>
+// Las filas son el arreglo reactivo de la ficha: se editan en su lugar a propósito.
+/* eslint-disable vue/no-mutating-props */
 import { t, tx } from '@/i18n/index.js'
 import { computed, nextTick, ref } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'

@@ -2,7 +2,7 @@
 // Traducciones del catálogo: cada pregunta, opción, categoría y familia se
 // configura en inglés y aquí se traduce a los idiomas de la interfaz. Así la
 // ficha sale en el idioma de cada proveedor o comprador.
-import { t, tx, IDIOMAS } from '@/i18n/index.js'
+import { t, IDIOMAS } from '@/i18n/index.js'
 import { onMounted, reactive, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Seleccion from '@/componentes/Seleccion.vue'

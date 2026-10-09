@@ -45,7 +45,6 @@ const ocupado = ref(false)
 
 const editable = computed(() => !!f.value?.puede.editar)
 const plsActivos = computed(() => (f.value?.packing_lists || []).filter((p) => p.estado !== 'CANCELADO'))
-const conUnidad = computed(() => plsActivos.value.filter((p) => p.transporte).length)
 const confirmados = computed(() => plsActivos.value.filter((p) => p.transporte?.asignacion === 'CONFIRMADA').length)
 const plEditables = computed(() => plsActivos.value.some((p) => ['BORRADOR', 'EN_CORRECCION'].includes(p.estado)))
 

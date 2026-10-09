@@ -50,7 +50,6 @@ const opcionesPais = computed(() => paises.value.map((p) => ({ valor: p.iso, tex
 // (las publicadas no cambian: solo borrador o dinámica)
 const versionesDe = (iso) => (meta.value.versiones_oficiales || []).filter((v) => v.fuente && [iso, 'REGIONAL'].includes(v.ambito)
   && ['BORRADOR', 'DINAMICA'].includes(v.estado))
-const opcionesFuente = computed(() => Object.entries(meta.value.fuentes).map(([v, t]) => ({ valor: v, texto: t })))
 const CAPITULOS = [['42', t('42 · Leather goods, bags')], ['61', t('61 · Knitted apparel')], ['62', t('62 · Woven apparel')], ['63', t('63 · Other textile articles')],
   ['64', t('64 · Footwear')], ['65', t('65 · Headwear')], ['39', t('39 · Plastics')], ['40', t('40 · Rubber')], ['48', t('48 · Paper')], ['66', t('66 · Umbrellas')],
   ['71', t('71 · Jewelry')], ['73', t('73 · Iron or steel')], ['76', t('76 · Aluminum')], ['90', t('90 · Optics')], ['91', t('91 · Watches')], ['94', t('94 · Furniture, bedding')],

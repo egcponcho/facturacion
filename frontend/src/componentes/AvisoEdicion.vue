@@ -1,5 +1,5 @@
 <script setup>
-import { t, tx } from '@/i18n/index.js'
+import { t } from '@/i18n/index.js'
 import { api } from '@/nucleo/api'
 import { puede } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'

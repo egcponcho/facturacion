@@ -1,4 +1,3 @@
-import { t } from '@/i18n/index.js'
 import { computed, reactive, watch } from 'vue'
 import { filasDefecto } from '@/stores/preferencias'
 
