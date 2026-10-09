@@ -14,7 +14,7 @@ import Modal from '@/componentes/Modal.vue'
 import Paginacion from '@/componentes/Paginacion.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import ThOrden from '@/componentes/ThOrden.vue'
-import { MODOS, useRutas } from '@/composables/useRutas'
+import { datosModo, modoInicial, modosTransporte, useRutas } from '@/composables/useRutas'
 import { useTabla } from '@/composables/useTabla'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFecha, fmtNum, plural } from '@/nucleo/utils'
@@ -38,7 +38,6 @@ const cuenta = computed(() => {
 const tabla = useTabla(lista, {
   valores: { etd: (e) => e.salida_real || e.etd, eta: (e) => e.arribo_real || e.eta, estado: (e) => ESTADOS.findIndex(([k]) => k === e.estado), ruta: (e) => e.puerto_origen },
 })
-const ICONO = { MARITIMO: 'barco', AEREO: 'avion', TERRESTRE: 'camion' }
 
 async function cargar() {
   try {
@@ -57,11 +56,11 @@ const { cargarRutas, centros, puertosDe, destinosDe, transportistasDe } = useRut
 function nuevo() {
   cargarRutas()
   modal.value = {
-    tipo_transporte: 'MARITIMO', documento_numero: '', transportista_id: '', centro: '',
+    tipo_transporte: modoInicial(), documento_numero: '', transportista_id: '', centro: '',
     puerto_origen: '', puerto_destino: '', etd: '', eta: '', observaciones: '',
   }
 }
-const modo = computed(() => MODOS[modal.value?.tipo_transporte] || MODOS.MARITIMO)
+const modo = computed(() => datosModo(modal.value?.tipo_transporte))
 const destinos = computed(() => (modal.value ? destinosDe(modal.value.tipo_transporte, modal.value.centro) : []))
 const opcionesTransportista = computed(() => (modal.value ? transportistasDe(modal.value.tipo_transporte, modal.value.centro) : []))
 // Al cambiar el modo o el centro se limpia lo que ya no aplica y se sugiere el destino principal del centro
@@ -141,9 +140,9 @@ onMounted(() => {
       <tbody>
         <tr v-for="e in tabla.filas.value" :key="e.id" class="clicable" :class="{ 'fila-activa': resumenId === e.id }" @click="resumenId = e.id">
           <td>
-            <span class="fila-flex" style="flex-wrap: nowrap"><Icono :nombre="ICONO[e.tipo_transporte]" />
+            <span class="fila-flex" style="flex-wrap: nowrap"><Icono :nombre="datosModo(e.tipo_transporte).icono" />
               <router-link :to="`/transporte/embarques/${e.id}`" class="cajas-rango" @click.stop>{{ tx(e.codigo) }}</router-link></span>
-            <span class="sub">{{ tx(e.documento_numero ? `${MODOS[e.tipo_transporte]?.doc} ${e.documento_numero}` : t('{0} pending', [MODOS[e.tipo_transporte]?.doc])) }}{{ tx(e.transportista ? ` · ${e.transportista}` : '') }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span>
+            <span class="sub">{{ tx(e.documento_numero ? `${datosModo(e.tipo_transporte).doc} ${e.documento_numero}` : t('{0} pending', [datosModo(e.tipo_transporte).doc])) }}{{ tx(e.transportista ? ` · ${e.transportista}` : '') }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span>
           </td>
           <td>{{ tx(e.puerto_origen || '—') }} <Icono nombre="flecha" :tam="13" /> {{ tx(e.puerto_destino || '—') }}<span class="sub">{{ tx(e.centro ? t('plant {0}', [e.centro]) : t('Plant to be defined')) }}</span></td>
           <td>{{ fmtFecha(e.salida_real || e.etd) }}<span class="sub">{{ e.salida_real ? t('actual') : t('estimated') }}</span></td>
@@ -180,7 +179,7 @@ onMounted(() => {
     <div class="rejilla-campos">
       <label class="campo"><span class="req">{{ t('Mode of transport') }}</span>
         <Seleccion v-model="modal.tipo_transporte" @change="ajustarRuta">
-          <option value="MARITIMO">{{ t('Ocean') }}</option><option value="AEREO">{{ t('Air') }}</option><option value="TERRESTRE">{{ t('Road') }}</option>
+          <option v-for="m in modosTransporte()" :key="m.codigo" :value="m.codigo">{{ m.nombre }}</option>
         </Seleccion>
         <small class="ayuda">{{ t('It sets the ports, carriers and load units offered. The modality (FCL, LCL…) belongs to each unit; a shipment can combine them.') }}</small>
       </label>

@@ -157,10 +157,9 @@ class ProductoDocumento(Base):
     arancelaria: no dan códigos, DAI, impuestos ni regulaciones."""
 
     __tablename__ = "producto_documentos"
-    TIPOS = {"SDS": "Safety data sheet", "TDS": "Technical data sheet", "COA": "Certificate of analysis"}
     id: Mapped[int] = mapped_column(primary_key=True)
     producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
-    tipo: Mapped[str] = mapped_column(String(4))  # SDS | TDS | COA
+    tipo: Mapped[str] = mapped_column(String(20))  # lista tipo_documento (SDS, TDS, COA…)
     nombre: Mapped[str] = mapped_column(String(300))
     ruta: Mapped[str] = mapped_column(String(500))
     tipo_mime: Mapped[str] = mapped_column(String(60))

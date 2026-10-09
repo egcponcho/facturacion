@@ -226,25 +226,27 @@ Todas las opciones de empaque que necesita el proveedor están disponibles y el 
 
 A partir del volumen (m³) y el peso bruto de la lista de empaque, el sistema sugiere unidades de carga con el catálogo *Tipos de unidad*:
 
-- **Marítimo:** contenedores completos a cerca del 85 % del volumen útil (las cajas nunca llenan el 100 %), LCL cuando el volumen no justifica un contenedor, o contenedores completos más uno más pequeño o LCL para el resto.
-- **Aéreo:** una guía aérea por peso cobrable (el mayor entre el peso real y 167 kg por m³).
-- **Terrestre:** camiones completos (FTL) o carga parcial (LTL).
+Cada modo de transporte (*Listas de valores*) dice cómo se calcula:
+
+- **Por volumen** (de fábrica: marítimo y terrestre): unidades completas a cerca del 85 % del volumen útil (las cajas nunca llenan el 100 %), consolidado (LCL, LTL) cuando el volumen no justifica una unidad completa, o unidades completas más una más pequeña o un consolidado para el resto.
+- **Por peso cobrable** (de fábrica: aéreo): una guía por el mayor entre el peso real y el volumen por el factor del modo (167 kg por m³).
 
 La opción recomendada (menos unidades completas, luego menos capacidad sobrante) se muestra en la lista de empaque y al asignar carga a un embarque.
 
 ## Datos maestros
 
-Un solo lugar con crear, editar, eliminar y filtros con búsqueda para: **sociedades**, sus **centros**, **contactos**, **almacenes**, **países**, **puertos**, **marcas**, **grupos de artículos**, **categorías de artículo**, **escalas de tallas**, **proveedores**, **artículos**, **prepacks**, **tipos de empaque**, **transportistas**, **tipos de unidad**, **estados de liberación**, **acuerdos comerciales**, **regiones**, **pasos de lead time** y **reglas de lead time**. Los registros en uso no se pueden eliminar.
+Un solo lugar con crear, editar, eliminar y filtros con búsqueda para: **sociedades**, sus **centros**, **contactos**, **almacenes**, **países**, **puertos**, **marcas**, **grupos de artículos**, **categorías de artículo**, **escalas de tallas**, **proveedores**, **artículos**, **prepacks**, **tipos de empaque**, **transportistas**, **tipos de unidad**, **estados de liberación**, **acuerdos comerciales**, **regiones**, **pasos de lead time**, **reglas de lead time** y **listas de valores**. Los registros en uso no se pueden eliminar.
 
 - **Proveedores:** código, nombre, razón social, NIT, país, dirección y contacto (aparecen como exportador en la factura y la lista de empaque). Cada proveedor tiene **sus marcas**, **las sociedades con las que trabaja** y sus propios **artículos**; la marca de un artículo debe ser una de las de su proveedor.
-- **Transportistas:** código (SCAC o IATA), nombre, tipo (marítimo, aéreo, terrestre o multimodal) y las sociedades con las que trabajan.
-- **Tipos de unidad:** modo, **servicio** (FCL, LCL, aéreo, FTL, LTL), capacidad en m³ y kg y si exige marchamo.
+- **Transportistas:** código (SCAC o IATA), nombre, tipo (un modo de transporte o multimodal) y las sociedades con las que trabajan.
+- **Tipos de unidad:** modo, **servicio** (una modalidad de ese modo: FCL, LCL, aéreo, FTL, LTL…), capacidad en m³ y kg y si exige marchamo.
 - **Puertos:** puerto marítimo, aeropuerto o frontera terrestre. Un **centro** tiene un puerto principal de llegada y otros puertos de llegada.
 - **Sociedades y centros:** la sociedad de la OC es la **facturada**; su centro es el **notify party** con su país y puerto de llegada. El **centro de destino** de la OC (p. ej. 2220) dice a qué país llega finalmente la mercancía.
 - **Artículos:** código de artículo (numérico o alfanumérico), genérico (opcional), estilo, color y talla (opcional), marca, grupo y **unidad de medida**. Los sólidos se crean aquí, a mano o con `plantilla_articulos.csv`.
 - **Prepacks:** un artículo con su propio código de producto, un **ID del prepack** (su talla, p. ej. `AB12`) y un **desglose** fijo armado solo con sólidos del mismo estilo y color. El desglose se puede ver en todas partes pero nunca cambiar. Carga masiva con `plantilla_prepacks.csv`.
 - **Categorías de artículo:** el catálogo de categorías de los grupos de artículos y de las escalas de tallas (de fábrica: `CALZADO`, `ROPA`, `ACCESORIO`, `OTRO`).
 - **Estados de liberación:** los códigos que manda el ERP de la empresa para la liberación comercial y la logística (vea *Órdenes de compra*).
+- **Listas de valores:** los valores que ofrecen los formularios y que se aceptan en los archivos, sin nada fijo en el código: **unidades de medida** (nombre, plural, otros nombres en los archivos y si se cuentan en enteros), **monedas** (símbolo, decimales y monto en letras en inglés y español), **incoterms**, **modos de transporte** (cómo se sugieren sus unidades de carga: por volumen o por peso cobrable con su factor; ícono y cómo se llaman su documento, sus puertos, sus transportistas y sus unidades), **modalidades de transporte** (de qué modo son y si son consolidadas, como LCL y LTL) y los tipos de **centro**, **almacén**, **contacto**, **impuesto** y **documento técnico**. Los valores de fábrica son los de una instalación nueva; los de sistema (la caja de prepack `CJ`) se pueden renombrar, pero no borrar ni desactivar. Definición: `backend/app/core/listas.py`.
 
 ## Órdenes de compra
 

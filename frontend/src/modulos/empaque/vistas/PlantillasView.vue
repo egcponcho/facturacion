@@ -1,5 +1,5 @@
 <script setup>
-import { UNIDADES, etiquetaUnidad, pasoCantidad } from '@/nucleo/unidades.js'
+import { codigosUnidad, etiquetaUnidad, pasoCantidad } from '@/nucleo/unidades.js'
 import { t, tx } from '@/i18n/index.js'
 import { onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -117,7 +117,7 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
             <td class="num" style="width: 90px"><CeldaEditable tipo="number" :min="1" paso="1" :valor="txt.cantidad_por_caja" :guardar="guardarCampo(txt, 'cantidad_por_caja')" :etiqueta="t('Quantity per carton')" /></td>
             <td>
               <Seleccion class="celda" :value="txt.unidad" :aria-label="t('Unit')" @change="guardarCampo(txt, 'unidad')($event).catch(() => {})">
-                <option v-for="(_, u) in UNIDADES" :key="u" :value="u">{{ etiquetaUnidad(u) }}</option>
+                <option v-for="u in codigosUnidad()" :key="u" :value="u">{{ etiquetaUnidad(u) }}</option>
               </Seleccion>
             </td>
             <td v-for="c in ['largo', 'ancho', 'alto']" :key="c" class="num" style="width: 88px">
@@ -144,7 +144,7 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
         <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="nueva.nombre" required /></label>
         <label class="campo"><span class="req">{{ t('Quantity per carton') }}</span><input v-model="nueva.cantidad_por_caja" type="number" :min="pasoCantidad(nueva.unidad)" :step="pasoCantidad(nueva.unidad)" required /></label>
         <label class="campo"><span class="req">{{ t('Unit') }}</span>
-          <Seleccion v-model="nueva.unidad"><option v-for="(_, u) in UNIDADES" :key="u" :value="u">{{ etiquetaUnidad(u) }}</option></Seleccion>
+          <Seleccion v-model="nueva.unidad"><option v-for="u in codigosUnidad()" :key="u" :value="u">{{ etiquetaUnidad(u) }}</option></Seleccion>
         </label>
         <label class="campo"><span>{{ t('Packaging type') }}</span>
           <Seleccion :model-value="nueva.tipo_empaque_id" @update:model-value="elegirTipo"><option value="">{{ t('Default') }}</option>

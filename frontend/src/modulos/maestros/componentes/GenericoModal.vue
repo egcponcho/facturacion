@@ -1,5 +1,5 @@
 <script setup>
-import { UNIDADES_ARTICULO, etiquetaUnidad } from '@/nucleo/unidades.js'
+import { etiquetaUnidad, unidadesArticulo } from '@/nucleo/unidades.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -156,7 +156,7 @@ async function guardar() {
       <div class="campo"><span class="req">{{ t('Brand') }}</span><SelectBusqueda v-model="g.marca_id" :opciones="opc(marcasProveedor)" :etiqueta="t('Brand')" :deshabilitado="!g.proveedor_id"
             :placeholder="tx(g.proveedor_id ? t('Choose…') : t('Choose the supplier first'))" /></div>
       <div class="campo"><span class="req">{{ t('Item group') }}</span><SelectBusqueda v-model="g.grupo_id" :opciones="opc(op.grupos)" :etiqueta="t('Item group')" /></div>
-      <label class="campo"><span class="req">{{ t('Unit of its sizes') }}</span><Seleccion v-model="g.unidad" class="entrada"><option v-for="u in UNIDADES_ARTICULO" :key="u" :value="u">{{ etiquetaUnidad(u) }}</option></Seleccion></label>
+      <label class="campo"><span class="req">{{ t('Unit of its sizes') }}</span><Seleccion v-model="g.unidad" class="entrada"><option v-for="u in unidadesArticulo()" :key="u" :value="u">{{ etiquetaUnidad(u) }}</option></Seleccion></label>
     </div>
     <p v-if="props.editar" class="ayuda mt-chico">{{ t('Changes apply to every size of the generic. Sizes, UPC and supplier SKU are edited per item in the list view.') }}</p>
 

@@ -1,6 +1,7 @@
 <script setup>
+import { opcionesLista } from '@/nucleo/listas.js'
 import { t, tx, IDIOMAS } from '@/i18n/index.js'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Interruptor from '@/componentes/Interruptor.vue'
@@ -16,7 +17,8 @@ const o = ref(null)
 const datos = ref(null)
 const ocupado = ref(false)
 // Monedas y zonas horarias: las listas ISO del navegador; países: el catálogo de países
-const MONEDAS = Intl.supportedValuesOf ? Intl.supportedValuesOf('currency') : ['USD', 'EUR']
+// Monedas de la lista de la empresa (Datos maestros → Listas de valores → Currencies)
+const MONEDAS = computed(() => opcionesLista('moneda').map(([valor, texto]) => ({ valor, texto: `${valor} · ${texto}` })))
 const ZONAS = Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : ['UTC']
 const paises = ref([])
 const FORMATOS = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD']

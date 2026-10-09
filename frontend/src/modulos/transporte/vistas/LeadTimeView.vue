@@ -1,4 +1,5 @@
 <script setup>
+import { opcionesLista } from '@/nucleo/listas.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -17,7 +18,7 @@ const router = useRouter()
 const amb = ref({ regiones: [], paises: [], puertos: [], pasos: [] })
 const sel = reactive({ region: route.query.region || '', pais: route.query.pais || '', puerto: route.query.puerto || '', modo: route.query.modo || '' })
 const datos = ref(null)
-const MODOS = [{ valor: '', texto: t('All modes (general)') }, { valor: 'MARITIMO', texto: t('Ocean') }, { valor: 'AEREO', texto: t('Air') }, { valor: 'TERRESTRE', texto: t('Road') }]
+const MODOS = computed(() => [{ valor: '', texto: t('All modes (general)') }, ...opcionesLista('modo_transporte').map(([valor, texto]) => ({ valor, texto }))])
 const NIVEL = { GLOBAL: t('Global'), REGION: t('Region'), PAIS: t('Country'), PUERTO: t('Port') }
 
 const paises = computed(() => amb.value.paises.filter((p) => !sel.region || p.region === sel.region))
@@ -157,7 +158,7 @@ const totalDias = computed(() => linea.value.max - linea.value.min)
           <div class="cuerpo">
             <div class="titulo"><b>{{ tx(p.nombre) }}</b>
               <span v-if="p.hito" class="etiqueta" :title="tx(hitoTxt(p.hito))"><Icono nombre="reloj" :tam="11" />{{ t('Measured') }}</span>
-              <span v-if="p.modo" class="etiqueta acento">{{ tx(MODOS.find((m) => m.valor === p.modo)?.texto) }}</span></div>
+              <span v-if="p.modo" class="etiqueta acento">{{ tx(MODOS.value.find((m) => m.valor === p.modo)?.texto) }}</span></div>
             <div class="sub">{{ tx(relTxt(p)) }}</div>
             <div v-if="p.historial?.length" class="sobre"><Icono nombre="historial" :tam="13" />
               <span v-for="h in p.historial" :key="h.origen.nivel" class="hist" :class="`n-${h.origen.nivel}`"><s>{{ tx(h.origen.nombre) }}: {{ tx(cortoTxt(h)) }}</s> →</span>

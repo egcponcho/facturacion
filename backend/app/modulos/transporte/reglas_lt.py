@@ -25,6 +25,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import listas
 from app.modelos import Pais, PasoLeadTime, Puerto, RegionLeadTime, ReglaLeadTime
 
 NIVELES = [("GLOBAL", "Global"), ("REGION", "Region"), ("PAIS", "Country"), ("PUERTO", "Port")]
@@ -36,7 +37,6 @@ HITOS = [
     ("tienda", "In store"),
 ]
 ORDEN_HITOS = [h for h, _ in HITOS]
-MODOS = ["MARITIMO", "AEREO", "TERRESTRE"]
 
 
 # ---- Lectura y validación de una regla ---------------------------------------
@@ -61,7 +61,7 @@ def validar(db: Session, v) -> tuple[dict, list[str]]:
         if paso not in catalogo:
             errores.append(f"Step {i}: {paso or '(empty)'} is not in the lead time steps catalog.")
             continue
-        if modo and modo not in MODOS:
+        if modo and modo not in listas.codigos("modo_transporte"):
             errores.append(f"Step {i} ({paso}): invalid transport mode.")
             continue
         if (paso, modo) in vistos:

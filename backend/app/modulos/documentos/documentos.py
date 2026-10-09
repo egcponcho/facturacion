@@ -36,17 +36,14 @@ LINEA = colors.HexColor("#d9dce3")
 FONDO = colors.HexColor("#f3f1fb")
 FONDO_2 = colors.HexColor("#f7f8fa")
 
-MODOS = {"MARITIMO": "Ocean", "AEREO": "Air", "TERRESTRE": "Road"}
-from app.modulos.maestros.unidades import UNIDADES as _UNIDADES
-
-UNIDADES = {u[0]: u[2].capitalize() for u in _UNIDADES}
-
+from app.core import listas
 
 # Montos y números en letras: modulos/documentos/letras.py (reglas de cada idioma)
 from app.modulos.documentos.letras import (
     cantidad_en_letras,
     monto_en_letras,  # noqa: E402
 )
+from app.modulos.maestros.unidades import texto as unidad_txt
 
 
 # ---- Datos comunes -------------------------------------------------------------
@@ -88,7 +85,7 @@ def _transporte(db: Session, pls: list) -> dict:
     e = next(iter(embarques.values()))
     return {
         "embarque": ", ".join(x.codigo for x in embarques.values()),
-        "modo": L(MODOS.get(e.tipo_transporte, e.tipo_transporte)), "transportista": e.transportista,
+        "modo": L(listas.nombre("modo_transporte", e.tipo_transporte)), "transportista": e.transportista,
         "documento": ", ".join(x.documento_numero for x in embarques.values() if x.documento_numero) or None,
         "puerto_origen": _puerto(db, e.puerto_origen), "puerto_destino": _puerto(db, e.puerto_destino),
         "etd": e.salida_real or e.etd, "eta": e.arribo_real or e.eta, "unidades": unidades,
@@ -122,7 +119,7 @@ def _por_unidad_txt(por_unidad: dict, campo: str | None = None) -> str:
     for u, v in por_unidad.items():
         n = v[campo] if campo else v
         if n:
-            partes_.append(f"{_num(n)} {L(UNIDADES.get(u, u)).lower()}")
+            partes_.append(f"{_num(n)} {L(unidad_txt(u, 2)).lower()}")
     return ", ".join(partes_) or "—"
 
 

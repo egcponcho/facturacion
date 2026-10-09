@@ -3,6 +3,7 @@ tablero en pantalla: órdenes de compra (con el detalle por SKU), embarques
 (con sus unidades de carga) y facturación/packing lists."""
 from sqlalchemy.orm import Session
 
+from app.core import listas
 from app.modelos import Usuario
 from app.modulos.acceso.preferencias import fecha_txt
 from app.modulos.compras import liberaciones
@@ -110,7 +111,7 @@ def reporte_embarques(db: Session, user: Usuario, proveedor_id, filtros: dict, o
                 ("Service", 0.85, False), ("Carrier", 1.3, False), ("Route", 1.3, False),
                 ("Status", 0.9, False), ("Departure", 0.9, False), ("Arrival", 0.9, False), ("Vs. store", 1.1, False),
                 ("Units", 0.7, True), ("POs", 0.5, True), ("Contents", 1.5, False)]
-    filas = [[e["embarque"], e["documento"] or "Pending", seg.MODOS.get(e["modo"], e["modo"]), e["modalidad"] or "—",
+    filas = [[e["embarque"], e["documento"] or "Pending", listas.nombre("modo_transporte", e["modo"]), e["modalidad"] or "—",
               e["transportista"] or "—", f"{e['puerto_origen'] or '—'} → {e['puerto_destino'] or '—'}",
               ESTADOS_EMB.get(e["estado"], e["estado"]), _fecha(e["etd"]), _fecha(e["eta"]), _holgura(e["holgura"]),
               e["unidades"], e["ocs"], _cant(e["por_unidad"])] for e in r["items"]]

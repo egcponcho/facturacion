@@ -1,4 +1,5 @@
 <script setup>
+import { opcionesLista } from '@/nucleo/listas.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -62,13 +63,13 @@ const ESTADOS_OC = [['SIN_COMERCIAL', t('No commercial release')], ['SIN_LOGISTI
 const ETAPAS = [['PEND_LIBERACION', t('Pending release')], ['POR_FACTURAR', t('To invoice')], ['FACTURADO', t('Invoiced, no PL')],
   ['EN_PL', t('In packing list')], ['CONTENEDOR', t('Assigned to a unit')], ['EN_TRANSITO', t('In transit')], ['ARRIBADO', t('Arrived')],
   ['ENTREGADO', t('Delivered')], ['RECIBIDO', t('Received')]]
-const MODOS = [['MARITIMO', t('Ocean')], ['AEREO', t('Air')], ['TERRESTRE', t('Road')]]
+const MODOS = computed(() => opcionesLista('modo_transporte'))
 const RIESGOS = Object.fromEntries(Object.entries(TIEMPO).map(([k, v]) => [k, v[0]]))
 
 const activos = computed(() => FILTROS.filter((k) => k !== 'q' && filtros[k]).map((k) => {
   let texto = filtros[k]
   if (k === 'etapa') texto = ETAPAS.find(([v]) => v === filtros[k])?.[1] || texto
-  if (k === 'modo') texto = MODOS.find(([v]) => v === filtros[k])?.[1] || texto
+  if (k === 'modo') texto = MODOS.value.find(([v]) => v === filtros[k])?.[1] || texto
   if (k === 'riesgo') texto = RIESGOS[filtros[k]] || texto
   if (k === 'estado') texto = [...ESTADOS_EMB, ...ESTADOS_OC].find(([v]) => v === filtros[k])?.[1] || texto
   if (k === 'xf_vencida') texto = 'yes'

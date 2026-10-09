@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, object_session
 
+from app.core import listas
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.modelos import (
@@ -70,7 +71,11 @@ EVENTOS_PERMITIDOS = {
 }
 
 
-MODO_TXT = {"MARITIMO": "ocean", "AEREO": "air", "TERRESTRE": "road"}
+
+
+def modo_txt(modo: str | None) -> str:
+    """Nombre del modo de transporte para los mensajes («ocean», «air»…)."""
+    return (listas.nombre("modo_transporte", modo) or "").lower()
 
 
 def _tipo(db: Session, codigo: str) -> TipoUnidad | None:
@@ -229,7 +234,7 @@ def _ruta(db: Session, campos: dict, actual: Embarque | None = None) -> dict:
         if isinstance(campos.get(k), str):
             campos[k] = campos[k].strip().upper() or None
     valor = lambda k: campos[k] if k in campos else (getattr(actual, k) if actual else None)  # noqa: E731
-    modo = valor("tipo_transporte") or "MARITIMO"
+    modo = valor("tipo_transporte") or next(iter(listas.codigos("modo_transporte")), None)
     errores = []
     for k, texto in (("puerto_origen", "The origin port"), ("puerto_destino", "The destination port")):
         if k in campos and campos[k]:
@@ -237,8 +242,8 @@ def _ruta(db: Session, campos: dict, actual: Embarque | None = None) -> dict:
             if not pto:
                 errores.append({"campo": k, "mensaje": f"{texto} {campos[k]} is not in the port catalog."})
             elif pto.tipo != modo:
-                errores.append({"campo": k, "mensaje": f"{texto} {pto.codigo} is {MODO_TXT.get(pto.tipo, pto.tipo)}; "
-                                                       f"the shipment is {MODO_TXT[modo]}."})
+                errores.append({"campo": k, "mensaje": f"{texto} {pto.codigo} is {modo_txt(pto.tipo)}; "
+                                                       f"the shipment is {modo_txt(modo)}."})
     centro = valor("centro")
     c = db.scalar(select(Centro).where(Centro.codigo == centro)) if centro else None
     if centro and not c:
@@ -259,7 +264,7 @@ def _ruta(db: Session, campos: dict, actual: Embarque | None = None) -> dict:
         elif t:
             if t.tipo not in (modo, "MULTIMODAL"):
                 errores.append({"campo": "transportista_id", "mensaje":
-                                f"{t.nombre} is {MODO_TXT.get(t.tipo, t.tipo)}; the shipment is {MODO_TXT[modo]}."})
+                                f"{t.nombre} is {modo_txt(t.tipo)}; the shipment is {modo_txt(modo)}."})
             if c and t.sociedades and c.sociedad_id not in {x.id for x in t.sociedades}:
                 errores.append({"campo": "transportista_id", "mensaje":
                                 f"{t.nombre} does not work with company {c.sociedad.codigo}."})
@@ -443,8 +448,8 @@ def _validar_tipo(db: Session, e: Embarque, codigo: str) -> TipoUnidad:
     if not t or not t.activo:
         raise ErrorNegocio(f"Unit type {codigo} does not exist or is inactive.", 422, "validacion")
     if t.modo != e.tipo_transporte:
-        raise ErrorNegocio(f"{t.nombre} is {MODO_TXT[t.modo]} transport; the shipment is "
-                           f"{MODO_TXT[e.tipo_transporte]}.", 422, "validacion")
+        raise ErrorNegocio(f"{t.nombre} is {modo_txt(t.modo)} transport; the shipment is "
+                           f"{modo_txt(e.tipo_transporte)}.", 422, "validacion")
     return t
 
 

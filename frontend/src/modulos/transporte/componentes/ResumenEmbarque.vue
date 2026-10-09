@@ -2,7 +2,7 @@
 import { t, tx } from '@/i18n/index.js'
 import { computed, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
-import { MODOS } from '@/composables/useRutas'
+import { datosModo } from '@/composables/useRutas'
 import { errorApi } from '@/stores/ui'
 import { ACCIONES, EVENTOS_EMBARQUE, avanceViaje, diasTxt, fmtFecha, fmtFechaHora, fmtNum, plural } from '@/nucleo/utils'
 import Avance from '@/componentes/Avance.vue'
@@ -33,7 +33,7 @@ const dias = (fecha) => (fecha ? Math.round((new Date(fecha).getTime() - new Dat
 const limite = computed(() => (e.value?.unidades || []).map((u) => u.limite_puerto).filter(Boolean).sort()[0] || null)
 const proveedores = computed(() => [...new Set((e.value?.unidades || []).flatMap((u) => u.proveedores || []))])
 const nombreEvento = (k) => EVENTOS_EMBARQUE.find((x) => x[0] === k)?.[1] || k
-const icono = computed(() => ({ AEREO: 'avion', TERRESTRE: 'camion' }[e.value?.tipo_transporte] || 'barco'))
+const icono = computed(() => datosModo(e.value?.tipo_transporte).icono)
 const llegada = computed(() => {
   const d = e.value
   if (!d) return ''
@@ -47,7 +47,7 @@ const llegada = computed(() => {
   <PanelLateral :titulo="e?.codigo || t('Shipment')" :detalle="`/transporte/embarques/${props.id}`" ancho="560px" @cerrar="emit('cerrar')">
     <template #estado>
       <span v-if="e" class="fila-flex pl-subtitulo"><EstadoBadge :estado="e.estado" /><EstadoTiempo :estado="e.estado_tiempo" :holgura="e.holgura_dias" />
-        <span class="ayuda">{{ tx(MODOS[e.tipo_transporte]?.nombre || e.tipo_transporte) }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span></span>
+        <span class="ayuda">{{ datosModo(e.tipo_transporte).nombre }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span></span>
     </template>
     <p v-if="!e" class="ayuda">{{ t('Loading…') }}</p>
     <template v-else>

@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("/sugerencia-unidades")
 def sugerencia_unidades(db: Db, user: User, cbm: float = Query(0, ge=0), kg: float = Query(0, ge=0),
-                        modo: str | None = Query(None, pattern="^(MARITIMO|AEREO|TERRESTRE)$")):
+                        modo: str | None = Query(None, max_length=20)):
     """Qué unidades de carga convienen para ese volumen y peso."""
     return sugerir_unidades(db, cbm, kg, modo)
 

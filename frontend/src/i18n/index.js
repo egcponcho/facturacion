@@ -74,6 +74,15 @@ export function t(texto, args) {
   return rellenar(dic[k] ?? k, args)
 }
 
+// Plantilla con un nombre que llega en inglés (p. ej. el singular de un catálogo):
+// la frase exacta traducida concuerda en género («New brand» → «Nueva marca»);
+// si no existe, la plantilla traducida con el nombre traducido.
+export function tr(plantilla, args) {
+  const en = rellenar(String(plantilla), args)
+  if (idioma === 'en') return en
+  return dic[en] ?? rellenar(dic[plantilla] ?? plantilla, (args || []).map((a) => tx(a)))
+}
+
 // Traduce un texto que llega ya armado (p. ej. un mensaje del servidor):
 // busca la frase exacta o una plantilla con {0}… que le corresponda
 const cache = new Map()

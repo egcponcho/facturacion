@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { api, manejarNoAutorizado } from '@/nucleo/api'
+import { cargarListas } from '@/nucleo/listas.js'
 import { cambiarIdioma, idioma, sumarCatalogo } from '@/i18n/index.js'
 import { aplicarPreferencias, pref } from './preferencias'
 import { tema } from './tema'
@@ -38,6 +39,7 @@ export async function cargarSesion(forzar = false) {
   if (sesion.cargada && !forzar) return !!sesion.usuario
   try {
     sesion.usuario = await api.get('/auth/me')
+    await cargarListas()
     // El catálogo configurado (preguntas, opciones, categorías) en el idioma del usuario
     if (idioma !== 'en') sumarCatalogo(await api.get(`/i18n/catalogo/${idioma}`).catch(() => ({})))
     // Con contraseña temporal solo se usa el asistente inicial

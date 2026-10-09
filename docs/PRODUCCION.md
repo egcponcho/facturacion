@@ -43,7 +43,8 @@ Se configura dentro de la aplicación y se guarda en la base de datos:
 - **Usuarios, roles y permisos** (Usuarios y accesos), incluidos los datos
   que cada rol puede ver.
 - **Datos maestros**: proveedores, marcas, sociedades, centros, almacenes,
-  puertos, países, tipos de empaque, transportistas, lead times.
+  puertos, países, tipos de empaque, transportistas, lead times y las listas de
+  valores (unidades de medida, monedas, incoterms, modos de transporte, tipos…).
 - **Clasificación arancelaria**: arancel, países, familias de producto y reglas.
 
 Las variables `POSICION_EN_VARIAS_FACTURAS`, `PROVEEDOR_PUEDE_FINALIZAR`, etc.

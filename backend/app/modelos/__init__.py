@@ -68,6 +68,7 @@ from app.modelos.maestros import (
     PrepackComponente,
     Proveedor,
     Sociedad,
+    ValorLista,
     centro_puertos,
     proveedor_marcas,
     proveedor_sociedades,
@@ -172,6 +173,7 @@ __all__ = [
     "Transportista",
     "transportista_sociedades",
     "UnidadCarga",
+    "ValorLista",
     "Usuario",
     "VersionDataset",
 ]

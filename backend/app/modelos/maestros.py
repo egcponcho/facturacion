@@ -204,6 +204,38 @@ class CategoriaArticulo(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class ValorLista(Base):
+    """Valor de una lista configurable (unidad de medida, moneda, incoterm, modo
+    de transporte…). Las listas y sus atributos están en core/listas.py; cada
+    lista usa solo algunas de las columnas de atributos."""
+
+    __tablename__ = "valores_lista"
+    __table_args__ = (UniqueConstraint("lista", "codigo", name="uq_valores_lista_lista_codigo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lista: Mapped[str] = mapped_column(String(30), index=True)
+    codigo: Mapped[str] = mapped_column(String(20))
+    nombre: Mapped[str] = mapped_column(String(120))
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Atributos (según la lista)
+    nombre_plural: Mapped[str | None] = mapped_column(String(120))
+    alias: Mapped[str | None] = mapped_column(String(300))
+    contable: Mapped[bool | None] = mapped_column(Boolean)
+    simbolo: Mapped[str | None] = mapped_column(String(5))
+    decimales: Mapped[int | None] = mapped_column(Integer)
+    letras_en: Mapped[str | None] = mapped_column(String(120))
+    letras_es: Mapped[str | None] = mapped_column(String(120))
+    calculo: Mapped[str | None] = mapped_column(String(20))
+    factor: Mapped[float | None] = mapped_column(Float)
+    icono: Mapped[str | None] = mapped_column(String(20))
+    documento: Mapped[str | None] = mapped_column(String(40))
+    etiqueta_puerto: Mapped[str | None] = mapped_column(String(40))
+    etiqueta_transportista: Mapped[str | None] = mapped_column(String(40))
+    etiqueta_unidad: Mapped[str | None] = mapped_column(String(80))
+    padre: Mapped[str | None] = mapped_column(String(20))
+    consolidado: Mapped[bool | None] = mapped_column(Boolean)
+
+
 class EstadoLiberacion(Base):
     """Estado de liberación de una OC tal como lo manda el ERP de la empresa.
 

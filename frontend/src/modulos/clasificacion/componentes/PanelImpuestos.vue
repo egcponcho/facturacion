@@ -37,7 +37,7 @@ onMounted(cargar)
 const patronTxt = (p) => (p === '*' ? t('All codes') : p.length > 4 ? `${p.slice(0, 4)}.${p.slice(4).match(/.{1,2}/g).join('.')}` : p)
 
 function abrir(x = null) {
-  modal.value = x ? { ...x } : { id: null, pais: f.pais || props.paises[0]?.iso, patron: '*', tipo: 'IVA', tasa: null, base_calculo: 'CIF + DAI',
+  modal.value = x ? { ...x } : { id: null, pais: f.pais || props.paises[0]?.iso, patron: '*', tipo: datos.value.tipos[0] || '', tasa: null, base_calculo: '',
     umbral_desde: null, umbral_hasta: null, formula: '', base_legal: '', url: '', activo: true, vigente_desde: null, vigente_hasta: null }
 }
 const num = (v) => (v === '' || v === null || v === undefined ? null : Number(v))

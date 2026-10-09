@@ -5,54 +5,55 @@ docenas, juegos, kilos, litros, metros… Las cajas de prepack (CJ) solo existen
 para los prepacks. Cada unidad tiene sus alias, para leer archivos de clientes
 y proveedores (PR, PCS, KGS, LTS…).
 """
+from app.core import listas
 from app.core.errores import ErrorNegocio
 
-# código, singular, plural, alias
-UNIDADES = [
-    ("PAR", "pair", "pairs", ("PR", "PRS", "PARES", "PAIR", "PAIRS")),
-    ("UN", "unit", "units", ("U", "UND", "UNID", "UNIDAD", "UNIDADES", "EA", "PC", "PCS", "PZA", "PIEZA", "PIEZAS", "UNIT", "UNITS")),
-    ("DOC", "dozen", "dozens", ("DOCENA", "DOCENAS", "DZ", "DOZ", "DOZEN")),
-    ("JGO", "set", "sets", ("JUEGO", "JUEGOS", "SET", "SETS", "KIT", "KITS")),
-    ("KG", "kg", "kg", ("KGS", "KILO", "KILOS", "KILOGRAMO", "KILOGRAMOS")),
-    ("G", "g", "g", ("GR", "GRS", "GRAMO", "GRAMOS")),
-    ("L", "liter", "liters", ("LT", "LTS", "LITRO", "LITROS", "LITER", "LITERS", "LITRE")),
-    ("ML", "ml", "ml", ("MILILITRO", "MILILITROS")),
-    ("M", "meter", "meters", ("MT", "MTS", "METRO", "METROS", "METER", "METERS")),
-    ("M2", "m²", "m²", ("MT2", "MTS2", "METRO2", "SQM")),
-    ("M3", "m³", "m³", ("MT3", "METRO3", "CBM")),
-    ("ROL", "roll", "rolls", ("ROLLO", "ROLLOS", "ROLL", "ROLLS")),
-    ("CJ", "prepack carton", "prepack cartons", ("CAJA", "CAJAS", "CS", "CTN")),
-]
-CODIGOS = [u[0] for u in UNIDADES]
-DE_ARTICULO = [c for c in CODIGOS if c != "CJ"]  # la caja de prepack no es la unidad de un artículo sólido
-_ALIAS = {a: u[0] for u in UNIDADES for a in (u[0], *u[3])}
-_TEXTO = {u[0]: (u[1], u[2]) for u in UNIDADES}
+# La caja de prepack: unidad de sistema, solo para prepacks (no para un sólido)
+PREPACK = "CJ"
+
+
+def codigos() -> list[str]:
+    return listas.codigos("unidad")
+
+
+def de_articulo() -> list[str]:
+    """Unidades de un artículo sólido."""
+    return [c for c in codigos() if c != PREPACK]
+
+
+def _alias() -> dict[str, str]:
+    return {a.strip().upper(): u["codigo"] for u in listas.valores("unidad")
+            for a in (u["codigo"], *(u.get("alias") or "").split(",")) if a.strip()}
 
 
 def normalizar(v) -> str | None:
     """El código de la unidad escrita (o None si no es una unidad conocida)."""
-    return _ALIAS.get(str(v or "").strip().upper().rstrip("."))
+    return _alias().get(str(v or "").strip().upper().rstrip("."))
 
 
 def validar(v, articulo: bool = False) -> str:
     u = normalizar(v)
-    validas = DE_ARTICULO if articulo else CODIGOS
+    validas = de_articulo() if articulo else codigos()
     if u not in validas:
         raise ErrorNegocio(f"The unit {v or '(empty)'} is not valid ({', '.join(validas)}).", 422, "validacion")
     return u
 
 
 def texto(unidad: str, cantidad=None) -> str:
-    s, p = _TEXTO.get(unidad, ("unit", "units"))
-    return s if cantidad == 1 else p
+    u = listas.valor("unidad", unidad)
+    if not u:
+        return "unit" if cantidad == 1 else "units"
+    return u["nombre"] if cantidad == 1 else (u.get("nombre_plural") or u["nombre"])
 
 
 def opciones(articulo: bool = False) -> list[list[str]]:
-    return [[c, f"{_TEXTO[c][1].capitalize()} ({c})"] for c in (DE_ARTICULO if articulo else CODIGOS)]
+    return [[c, f"{texto(c, 2).capitalize()} ({c})"] for c in (de_articulo() if articulo else codigos())]
 
 
-# Lo que se cuenta va en enteros; lo que se mide admite hasta 3 decimales
-CONTABLES = {"PAR", "UN", "DOC", "JGO", "ROL", "CJ"}
+def contable(unidad: str | None) -> bool:
+    """Lo que se cuenta va en enteros; lo que se mide admite hasta 3 decimales."""
+    u = listas.valor("unidad", unidad or "UN")
+    return bool(u.get("contable")) if u else True
 
 
 def error_cantidad(cantidad, unidad: str | None) -> str | None:
@@ -61,7 +62,7 @@ def error_cantidad(cantidad, unidad: str | None) -> str | None:
         return None
     if float(cantidad) <= 0:
         return "The quantity must be greater than zero."
-    if (unidad or "UN") in CONTABLES and float(cantidad) != int(float(cantidad)):
+    if contable(unidad) and float(cantidad) != int(float(cantidad)):
         return f"{texto(unidad or 'UN', 2).capitalize()} are counted in whole numbers: {cantidad} is not valid."
     if round(float(cantidad), 3) != float(cantidad):
         return f"At most 3 decimals: {cantidad}."

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.empresa import usar_configuracion
 from app.core.errores import ErrorNegocio
+from app.core.listas import usar_listas
 from app.modelos import Usuario
 from app.modulos.acceso import preferencias, visibilidad
 from app.modulos.acceso.autenticacion import usuario_de_sesion
@@ -43,6 +44,10 @@ def usuario_actual(
     from app.modulos.empresa.organizacion import configuracion
 
     request.state.config_empresa = configuracion(db)
+    # Listas de valores de la empresa (unidades, monedas, modos de transporte…)
+    from app.modulos.maestros.listas import cargar as cargar_listas
+
+    request.state.listas = cargar_listas(db)
     return user
 
 
@@ -55,6 +60,7 @@ async def usuario_con_preferencias(request: Request, user: Usuario = Depends(usu
     etc.) en el contexto de la petición. Es asíncrona a propósito: así el valor
     se fija en el contexto de la petición y lo ven las rutas que corren en hilos."""
     usar_configuracion(request.state.config_empresa)  # antes de las preferencias: dan el idioma por defecto
+    usar_listas(request.state.listas)
     preferencias.usar(user)
     # Idioma de los documentos que se descargan: ?idioma= o el del perfil (o el de la pantalla)
     pref = preferencias.actual()

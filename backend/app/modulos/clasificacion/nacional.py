@@ -16,6 +16,7 @@ from datetime import date
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core import listas
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     FuenteOficial,
@@ -34,7 +35,6 @@ from app.modulos.comun.texto import filtro_texto
 
 TIPOS_REGULACION = ("PERMIT", "LICENSE", "REGISTRATION", "CERTIFICATE", "LABELING", "SANITARY", "PHYTOSANITARY", "TECHNICAL",
                     "QUOTA", "PROHIBITION", "OTHER")
-TIPOS_IMPUESTO = ("DAI", "IVA", "ITBMS", "ISV", "ISC", "SELECTIVO", "OTRO")
 AMBITOS = ("NATIONAL_CODE", "SUBHEADING", "HEADING", "CHAPTER", "PATTERN")
 
 
@@ -243,8 +243,8 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
             continue
         tipo = (_txt(f.get("tax_type")) or "").upper()
         patron = patron_norm(f.get("code_pattern")) or ("*" if not _txt(f.get("code_pattern")) else None)
-        if tipo not in TIPOS_IMPUESTO or not patron:
-            error("Taxes", f["_fila"], f"Tax type ({', '.join(TIPOS_IMPUESTO)}) and a valid code pattern are required.")
+        if tipo not in listas.codigos("tipo_impuesto") or not patron:
+            error("Taxes", f["_fila"], f"Tax type ({', '.join(listas.codigos('tipo_impuesto'))}) and a valid code pattern are required.")
             continue
         base_legal = _txt(f.get("legal_basis_notes"))
         if not trazable("Taxes", f, c, base_legal):
@@ -314,7 +314,7 @@ def impuestos(db: Session, user: Usuario, q: str | None = None, pais: str | None
         c = c.where(filtro_texto(q, lambda p: [ReglaImpuesto.codigo.ilike(p), ReglaImpuesto.tipo.ilike(p), ReglaImpuesto.patron.ilike(p),
                                                ReglaImpuesto.base_legal.ilike(p), ReglaImpuesto.base_calculo.ilike(p)]))
     return {"items": [_imp_dict(db, x) for x in db.scalars(c.order_by(ReglaImpuesto.pais, ReglaImpuesto.tipo, ReglaImpuesto.patron))],
-            "tipos": TIPOS_IMPUESTO}
+            "tipos": listas.codigos("tipo_impuesto")}
 
 
 def _vigente(x, hoy: date) -> bool:
@@ -372,8 +372,8 @@ def guardar_impuesto(db: Session, user: Usuario, imp_id: int | None, datos: dict
             raise ErrorNegocio("That tax rule ID is already in use.", 422, "validacion")
     _aplicar(db, x, datos, ("tipo", "tasa", "base_calculo", "umbral_desde", "umbral_hasta", "formula", "base_legal", "activo", "url",
                             "vigente_desde", "vigente_hasta"))
-    if x.tipo not in TIPOS_IMPUESTO:
-        raise ErrorNegocio(f"Tax type must be one of {', '.join(TIPOS_IMPUESTO)}.", 422, "validacion")
+    if x.tipo not in listas.codigos("tipo_impuesto"):
+        raise ErrorNegocio(f"Tax type must be one of {', '.join(listas.codigos('tipo_impuesto'))}.", 422, "validacion")
     if not x.fuente_id and not (x.base_legal or "").strip():
         raise ErrorNegocio("Every tax rule needs an official source or its legal basis.", 422, "validacion")
     if x.tasa is None or not (x.base_calculo or "").strip():

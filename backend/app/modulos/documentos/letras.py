@@ -4,6 +4,7 @@ Son reglas de cada idioma, no textos traducibles: el inglés agrupa por miles
 con «HUNDRED», y el español tiene formas propias (quinientos, veintiún,
 millones) y acorta «uno» a «un» antes de mil, millón o el nombre de la moneda.
 """
+from app.core import listas
 from app.modulos.documentos.idioma_doc import actual as idioma_actual
 
 # ---- Inglés -------------------------------------------------------------------
@@ -96,22 +97,22 @@ def cantidad_en_letras(n: int) -> str:
     return _apocope(_es(n)) if idioma_actual() == "es" else _en(n)
 
 
-# Nombre de cada moneda (singular, plural) por idioma; otra moneda se escribe con su código
-MONEDAS = {
-    "en": {"USD": ("US DOLLAR", "US DOLLARS"), "EUR": ("EURO", "EUROS"), "GTQ": ("QUETZAL", "QUETZALES"),
-           "CRC": ("COLON", "COLONES"), "HNL": ("LEMPIRA", "LEMPIRAS"), "NIO": ("CORDOBA", "CORDOBAS"),
-           "PAB": ("BALBOA", "BALBOAS"), "MXN": ("MEXICAN PESO", "MEXICAN PESOS")},
-    "es": {"USD": ("DÓLAR", "DÓLARES"), "EUR": ("EURO", "EUROS"), "GTQ": ("QUETZAL", "QUETZALES"),
-           "CRC": ("COLÓN", "COLONES"), "HNL": ("LEMPIRA", "LEMPIRAS"), "NIO": ("CÓRDOBA", "CÓRDOBAS"),
-           "PAB": ("BALBOA", "BALBOAS"), "MXN": ("PESO MEXICANO", "PESOS MEXICANOS")},
-}
+def _nombre_moneda(moneda: str | None, idioma: str) -> tuple[str, str]:
+    """(singular, plural) de la moneda en el idioma del documento, según la
+    lista de monedas de la empresa; otra moneda se escribe con su código."""
+    v = listas.valor("moneda", (moneda or "").upper()) or {}
+    texto = v.get(f"letras_{idioma}") or v.get("letras_en")
+    if texto and "|" in texto:
+        sing, plur = texto.split("|", 1)
+        return sing.strip(), plur.strip()
+    return moneda, moneda
 
 
 def monto_en_letras(valor: float, moneda: str) -> str:
     """4850.00 USD → «FOUR THOUSAND … US DOLLARS AND 00/100» o «CUATRO MIL … DÓLARES CON 00/100»."""
     idioma = idioma_actual()
     entero, centavos = divmod(int(round(valor * 100)), 100)
-    sing, plur = MONEDAS.get(idioma, MONEDAS["en"]).get((moneda or "").upper(), (moneda, moneda))
+    sing, plur = _nombre_moneda(moneda, idioma)
     nombre = sing if entero == 1 else plur
     letras = cantidad_en_letras(entero)
     if idioma == "es":

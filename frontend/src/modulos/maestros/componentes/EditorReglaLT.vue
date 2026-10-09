@@ -1,4 +1,5 @@
 <script setup>
+import { opcionesLista } from '@/nucleo/listas.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
@@ -17,7 +18,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 
-const MODOS = [['', t('All modes')], ['MARITIMO', t('Ocean')], ['AEREO', t('Air')], ['TERRESTRE', t('Road')]]
+const MODOS = computed(() => [['', t('All modes')], ...opcionesLista('modo_transporte')])
 const catalogo = ref([])
 const base = ref({ pasos: [], orden: [], niveles: [] }) // lo heredado
 const cargando = ref(false)
@@ -119,7 +120,7 @@ const disponibles = computed(() => catalogo.value.filter((p) => !filas.value.lis
         <div class="cuerpo">
           <div class="titulo">
             <b>{{ tx(f.nombre || nombre(f.paso)) }}</b>
-            <span v-if="f.modo" class="etiqueta">{{ tx(MODOS.find((m) => m[0] === f.modo)?.[1]) }}</span>
+            <span v-if="f.modo" class="etiqueta">{{ tx(MODOS.value.find((m) => m[0] === f.modo)?.[1]) }}</span>
             <span class="origen" :class="f.propio ? 'propio' : ''">{{ tx(f.propio ? (f.heredado ? t('Overridden here') : t('Added here')) : t('From {0}', [f.origen?.nombre])) }}</span>
           </div>
           <div v-if="!f.propio" class="sub">{{ tx(diasTxt(f)) }}</div>

@@ -16,7 +16,7 @@ import Modal from '@/componentes/Modal.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import TarjetaParte from '@/componentes/TarjetaParte.vue'
 import ThOrden from '@/componentes/ThOrden.vue'
-import { MODOS, useRutas } from '@/composables/useRutas'
+import { datosModo, iconoUnidad, useRutas } from '@/composables/useRutas'
 import { useTabla } from '@/composables/useTabla'
 import { sesion } from '@/stores/sesion'
 import { avisar, errorApi, guardando } from '@/stores/ui'
@@ -62,11 +62,10 @@ const fijo = (campo) => soloLectura.value || (cerrado.value && (FIJOS_SALIDA.inc
 const eventosPermitidos = computed(() => EVENTOS.filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)))
 const ultimoEvento = computed(() => (e.value?.eventos || []).reduce((a, ev) => (!a || ev.fecha > a ? ev.fecha : a), null))
 const exigeSello = computed(() => !!u.value?.requiere_sello)
-const modo = computed(() => MODOS[e.value?.tipo_transporte] || MODOS.MARITIMO)
-const UNIDADES_TXT = { MARITIMO: [t('Container'), t('Containers')], AEREO: [t('Air waybill'), t('Air waybills')], TERRESTRE: [t('Truck'), t('Trucks')] }
-const unidadTxt = computed(() => UNIDADES_TXT[e.value?.tipo_transporte] || UNIDADES_TXT.MARITIMO)
+const modo = computed(() => datosModo(e.value?.tipo_transporte))
+const unidadTxt = computed(() => [modo.value.unidad, modo.value.unidades])
 const indiceEstado = computed(() => HITOS.findIndex(([k]) => k === e.value?.estado))
-const icono = computed(() => ({ AEREO: 'avion', TERRESTRE: 'camion' })[e.value?.tipo_transporte] || 'barco')
+const icono = computed(() => modo.value.icono)
 const totales = computed(() => (e.value?.unidades || []).reduce((a, x) => ({
   pls: a.pls + x.packing_lists, cajas: a.cajas + x.cajas, cbm: a.cbm + x.cbm, kg: a.kg + x.peso_bruto, tentativas: a.tentativas + x.tentativas,
 }), { pls: 0, cajas: 0, cbm: 0, kg: 0, tentativas: 0 }))
@@ -368,7 +367,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
       <div class="panel-cabeza"><div><h2>{{ tx(unidadTxt[1]) }}</h2><p>{{ t('Choose a unit to see and assign its cargo. Only {0} unit types are offered.', [modo.nombre.toLowerCase()]) }}</p></div></div>
       <div class="unidades-pestanas" role="tablist">
         <button v-for="x in e.unidades" :key="x.id" class="unidad-pestana" role="tab" :aria-selected="x.id === unidadId" @click="unidadId = x.id">
-          <span class="fila-flex"><Icono :nombre="e.tipo_transporte === 'MARITIMO' ? 'contenedor' : modo.icono" /><span class="unidad-nombre">{{ tx(x.nombre) }}</span><span class="etiqueta" :title="tx(x.tipo_nombre)">{{ tx(x.tipo) }}</span><span v-if="x.modalidad" class="etiqueta acento">{{ tx(x.modalidad) }}</span></span>
+          <span class="fila-flex"><Icono :nombre="iconoUnidad(e.tipo_transporte)" /><span class="unidad-nombre">{{ tx(x.nombre) }}</span><span class="etiqueta" :title="tx(x.tipo_nombre)">{{ tx(x.tipo) }}</span><span v-if="x.modalidad" class="etiqueta acento">{{ tx(x.modalidad) }}</span></span>
           <Avance v-if="x.capacidad_cbm" :porcentaje="x.pct_cbm || 0" />
           <span class="ayuda">{{ plural(x.packing_lists, 'PL', t('PLs')) }} · {{ fmtNum(x.cbm, 1) }} m³<template v-if="x.tentativas"> · <span class="etiqueta aviso">{{ t('{0} tentative', [x.tentativas]) }}</span></template></span>
           <span v-if="x.marcas?.length" class="ayuda">{{ tx(x.marcas.join(' · ')) }}</span>
@@ -610,7 +609,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
       <label class="campo"><span class="req">{{ t('Type') }}</span>
         <Seleccion v-model="modal.unidad"><option v-for="txt in e.tipos_unidad" :key="txt.codigo" :value="txt.codigo">{{ tx(tipoTxt(txt)) }}</option></Seleccion>
       </label>
-      <label class="campo"><span>{{ t('Number (optional)') }}</span><input v-model="modal.numero" :placeholder="tx({ MARITIMO: 'MSKU 123456-7', AEREO: '045-12345675', TERRESTRE: t('Plate C-123456') }[e.tipo_transporte])" /></label>
+      <label class="campo"><span>{{ t('Number (optional)') }}</span><input v-model="modal.numero" /></label>
       <label v-if="tipoElegido?.requiere_sello" class="campo"><span>{{ t('Seal (optional)') }}</span><input v-model="modal.sello" /></label>
     </div>
     <p class="ayuda">{{ t('The number') }}<template v-if="tipoElegido?.requiere_sello"> {{ t('and the seal') }}</template> {{ t('can be entered later, when the carrier assigns them;') }} <template v-if="tipoElegido?.requiere_sello">{{ t('they are required') }}</template><template v-else>{{ t('the number is required') }}</template> {{ t('to record departure.') }}</p>

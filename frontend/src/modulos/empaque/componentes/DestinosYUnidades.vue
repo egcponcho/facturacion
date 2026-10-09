@@ -1,7 +1,7 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
 import { computed } from 'vue'
-import { MODOS } from '@/composables/useRutas'
+import { datosModo } from '@/composables/useRutas'
 import { fmtNum, plural, porUnidadTxt } from '@/nucleo/utils'
 import Icono from '@/componentes/Icono.vue'
 
@@ -31,7 +31,7 @@ const modos = computed(() => Object.entries(props.pl.sugerencia_unidades?.modos 
       <p class="ayuda">{{ t('For {0} m³ and {1} kg, using about 85% of each unit\'s volume.', [fmtNum(pl.sugerencia_unidades.cbm, 2), fmtNum(pl.sugerencia_unidades.kg, 0)]) }}</p>
       <ul class="lista-destinos">
         <li v-for="[modo, ops] in modos" :key="modo">
-          <b><Icono :nombre="MODOS[modo]?.icono || 'caja'" :tam="14" /> {{ tx(MODOS[modo]?.nombre || modo) }}</b>
+          <b><Icono :nombre="datosModo(modo).icono" :tam="14" /> {{ datosModo(modo).nombre }}</b>
           <span>
             <span class="etiqueta ok" style="margin-inline-start: 0">{{ tx(ops[0].texto) }}</span>
             <template v-if="ops[0].pct_cbm"> {{ t('{0}% of the volume', [fmtNum(ops[0].pct_cbm, 0)]) }}</template>

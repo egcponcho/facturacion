@@ -1,4 +1,5 @@
 <script setup>
+import { datosModo } from '@/composables/useRutas'
 import { actual, t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -149,7 +150,7 @@ watch(periodo, cargar, { deep: true })
             <li v-for="e in d.envios" :key="e.id">
               <button type="button" class="envio" @click="abrirEnvio(e)">
                 <span class="envio-cabeza">
-                  <span class="envio-modo"><Icono :nombre="e.tipo_transporte === 'AEREO' ? 'avion' : e.tipo_transporte === 'TERRESTRE' ? 'camion' : 'barco'" :tam="16" /></span>
+                  <span class="envio-modo"><Icono :nombre="datosModo(e.tipo_transporte).icono" :tam="16" /></span>
                   <b class="envio-codigo">{{ tx(e.codigo) }}</b>
                   <EstadoBadge :estado="e.estado" />
                   <span class="ayuda separar">{{ plural(e.cajas, t('carton'), t('cartons')) }}</span>

@@ -21,7 +21,7 @@ from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.maestros import catalogos as cat_svc
 from app.modulos.maestros import tallas as tallas_svc
-from app.modulos.maestros.unidades import DE_ARTICULO, normalizar
+from app.modulos.maestros.unidades import de_articulo, normalizar
 from app.modulos.productos.productos import (
     MSG_CODIGO,
     asegurar_producto,
@@ -85,8 +85,8 @@ def crear(db: Session, user: Usuario, datos) -> dict:
     estilo, color = (datos.estilo or "").strip().upper(), (datos.color or "").strip()
     if not estilo or not color:
         errores.append({"campo": "estilo", "mensaje": "Style and color are required."})
-    if normalizar(datos.unidad) not in DE_ARTICULO:
-        errores.append({"campo": "unidad", "mensaje": f"The unit of a solid is one of {', '.join(DE_ARTICULO)}."})
+    if normalizar(datos.unidad) not in de_articulo():
+        errores.append({"campo": "unidad", "mensaje": f"The unit of a solid is one of {', '.join(de_articulo())}."})
     marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
     if not marca or not grupo or not prov:
         errores.append({"campo": "marca_id", "mensaje": "Choose the brand, the item group and the supplier."})
@@ -224,8 +224,8 @@ def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
     errores = []
     if (estilo != p.estilo or color != (p.color or "")) and any(a.tipo == "PREPACK" for a in arts):
         errores.append({"campo": "estilo", "mensaje": "The generic has prepacks: its style and color cannot change."})
-    if normalizar(datos.unidad) not in DE_ARTICULO:
-        errores.append({"campo": "unidad", "mensaje": f"The unit is one of {', '.join(DE_ARTICULO)}."})
+    if normalizar(datos.unidad) not in de_articulo():
+        errores.append({"campo": "unidad", "mensaje": f"The unit is one of {', '.join(de_articulo())}."})
     marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
     if not marca or not grupo or not prov:
         errores.append({"campo": "marca_id", "mensaje": "Choose the brand, the item group and the supplier."})

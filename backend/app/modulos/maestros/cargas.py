@@ -23,7 +23,7 @@ from app.modulos.comun.normalizar import texto as texto_fmt
 from app.modulos.documentos import documentos, exportar
 from app.modulos.documentos.plantillas import hojas, leer, norm, plantilla, plantilla_hojas, si_no
 from app.modulos.maestros import catalogos as cat_svc
-from app.modulos.maestros.unidades import DE_ARTICULO, normalizar
+from app.modulos.maestros.unidades import de_articulo, normalizar
 from app.modulos.productos.productos import (
     APROBADOS,
     asegurar_producto,
@@ -106,7 +106,7 @@ def plantilla_articulos(db: Session) -> bytes:
         {"nombre": "Brand", "req": True, "opciones": marcas, "ayuda": "Brand code.", "ancho": 10},
         {"nombre": "Item group", "req": True, "opciones": grupos, "ayuda": "Group code (packing rule).", "ancho": 12},
         {"nombre": "Supplier", "req": True, "opciones": provs, "ayuda": "Supplier code.", "ancho": 10},
-        {"nombre": "Unit", "req": True, "opciones": DE_ARTICULO, "ayuda": f"Unit of its sizes: {', '.join(DE_ARTICULO)}.", "ancho": 8},
+        {"nombre": "Unit", "req": True, "opciones": de_articulo(), "ayuda": f"Unit of its sizes: {', '.join(de_articulo())}.", "ancho": 8},
     ] + _cols_ficha(db)
     tallas_cols = [
         {"nombre": "Generic code", "req": True, "ayuda": "The generic of the sheet Generics (or one already loaded).", "ancho": 13},
@@ -122,7 +122,7 @@ def plantilla_articulos(db: Session) -> bytes:
     # Ejemplo: los datos maestros y la primera categoría; la ficha se llena con lo que tenga cada familia
     cats = [c for c in _cols_ficha(db)[0].get("opciones") or []]
     ej_gen = ["30095129", "STYLE01", "Black", marcas[-1] if marcas else "", grupos[0] if grupos else "",
-              provs[-1] if provs else "", DE_ARTICULO[0], cats[0] if cats else "", "Short description of its use", "CN"]
+              provs[-1] if provs else "", de_articulo()[0], cats[0] if cats else "", "Short description of its use", "CN"]
     ej_tallas = [["30095129", t, "", f"{int(t) * 10:03d}", 0.8, f"01960129{i:04d}", f"VN0A5KRFBLK-{t}", "Yes"]
                  for i, t in enumerate(["8", "9", "10"], 1)]
     return plantilla_hojas("Items by generic, with technical sheet",
@@ -181,8 +181,8 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
                 faltan.append(f"{lbl} {cod or '(empty)'} does not exist")
             ids[campo] = obj.id if obj else None
         unidad = normalizar(f.get("unidad")) or (f.get("unidad") or "").strip().upper()
-        if unidad not in DE_ARTICULO:
-            faltan.append(f"Unit must be one of {', '.join(DE_ARTICULO)}")
+        if unidad not in de_articulo():
+            faltan.append(f"Unit must be one of {', '.join(de_articulo())}")
         estilo, color = (f.get("estilo") or "").strip().upper(), (f.get("color") or "").strip()
         if not estilo or not color:
             faltan.append("Style and color are required")
@@ -400,7 +400,7 @@ def _ficha_desde_fila(p, f: dict, paises: dict, voc: dict) -> str | None:
 def _cols_catalogo(db: Session, tipo: str) -> list[dict]:
     c = cat_svc._cat(tipo)
     cols = []
-    for x in c["campos"]:
+    for x in cat_svc.campos_con_opciones(c):
         col = {"campo": x, "nombre": x["etiqueta"], "req": x["obligatorio"], "ayuda": x.get("ayuda") or ""}
         if x["tipo"] == "opcion":
             col["opciones"] = [t for _, t in x["opciones"]]
@@ -453,7 +453,7 @@ def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, conten
     existentes = Referencias(db, modelo, ("codigo",)) if clave else None
     for f in filas:
         datos, mal = {}, None
-        for x in c["campos"]:
+        for x in cat_svc.campos_con_opciones(c):
             n = x["nombre"]
             if n not in f or f[n] == "":
                 continue
@@ -507,7 +507,7 @@ def exportar_catalogo(db: Session, user: Usuario, tipo: str, q: str | None, filt
                       formato: str) -> bytes:
     c = cat_svc._cat(tipo)
     r = cat_svc.listar(db, user, tipo, q, filtros, orden, 1, 100_000)
-    campos = c["campos"]
+    campos = cat_svc.campos_con_opciones(c)
     extra = [("descripcion", "Description"), ("partida_txt", "HS code")] if tipo == "articulos" else []
     columnas = [(x["etiqueta"], 1.2 if x["tipo"] not in ("correos",) else 2, x["tipo"] in ("entero", "numero"))
                 for x in campos] + [(t, 1.8, False) for _, t in extra]

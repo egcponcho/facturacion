@@ -1,4 +1,5 @@
-import { t } from '@/i18n/index.js'
+import { t, tx } from '@/i18n/index.js'
+import { singularPlural, valor, valores } from '@/nucleo/listas.js'
 import { ref } from 'vue'
 import { api } from '@/nucleo/api'
 import { errorApi } from '@/stores/ui'
@@ -7,11 +8,23 @@ import { errorApi } from '@/stores/ui'
 //  - puertos del tipo del embarque (puerto marítimo, aeropuerto o aduana terrestre);
 //  - el destino es uno de los puertos de llegada del centro (el principal primero);
 //  - transportistas del modo (o multimodales) que trabajan con la sociedad del centro.
-export const MODOS = {
-  MARITIMO: { nombre: t('Ocean'), icono: 'barco', puerto: t('Port'), unidad: 'container', doc: 'B/L', transportista: t('Shipping line') },
-  AEREO: { nombre: t('Air'), icono: 'avion', puerto: t('Airport'), unidad: t('air waybill'), doc: 'AWB', transportista: t('Airline') },
-  TERRESTRE: { nombre: t('Road'), icono: 'camion', puerto: t('Customs post'), unidad: 'truck', doc: t('Waybill'), transportista: t('Carrier') },
+
+// Datos de un modo de transporte según la lista de la empresa (Datos maestros →
+// Listas de valores → Transport modes): nombre, ícono y cómo se llaman su
+// documento, sus puertos, sus transportistas y sus unidades de carga.
+export function datosModo(codigo) {
+  const m = valor('modo_transporte', codigo) || {}
+  const [unidad, unidades] = singularPlural(m.etiqueta_unidad, `${t('Load unit')}|${t('Load units')}`)
+  return {
+    codigo, nombre: tx(m.nombre || codigo || ''), icono: m.icono || 'caja', unidad, unidades,
+    puerto: tx(m.etiqueta_puerto || t('Port')), doc: tx(m.documento || t('Transport document')),
+    transportista: tx(m.etiqueta_transportista || t('Carrier')),
+  }
 }
+// Ícono de las unidades de carga del modo (el barco lleva contenedores)
+export const iconoUnidad = (codigo) => (datosModo(codigo).icono === 'barco' ? 'contenedor' : datosModo(codigo).icono)
+export const modosTransporte = () => valores('modo_transporte').map((m) => datosModo(m.codigo))
+export const modoInicial = () => valores('modo_transporte')[0]?.codigo || ''
 
 export function useRutas() {
   const puertos = ref([])
@@ -32,7 +45,7 @@ export function useRutas() {
         sociedad_id: x.sociedad_id, puertos: [x.puerto, ...(x.puertos_txt || '').split(', ')].filter(Boolean),
       }))
       transportistas.value = tr.items.map((x) => ({
-        valor: x.id, texto: `${x.codigo} · ${x.nombre}`, sub: `${MODOS[x.tipo]?.nombre || t('Multimodal')} · ${x.sociedades_txt || ''}`,
+        valor: x.id, texto: `${x.codigo} · ${x.nombre}`, sub: `${valor('modo_transporte', x.tipo) ? datosModo(x.tipo).nombre : t('Multimodal')} · ${x.sociedades_txt || ''}`,
         tipo: x.tipo, sociedades: x.sociedades || [],
       }))
     } catch (e) {

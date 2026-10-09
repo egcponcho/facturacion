@@ -12,6 +12,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import listas
 from app.modelos import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
 from app.modulos.acceso.permisos import proveedor_filtro
 from app.modulos.compras import liberaciones
@@ -265,7 +266,6 @@ def _ordenar(items: list[dict], orden: str | None, permitidos: set) -> list[dict
 ESTADOS_EMB = [("PLANIFICADO", "Planned"), ("EN_TRANSITO", "In transit"), ("ARRIBADO", "Arrived"),
                ("ENTREGADO", "Delivered"), ("RECIBIDO", "Received")]
 ORDEN_EMB = {"embarque", "documento", "estado", "etd", "eta", "holgura", "ocs", "unidades", "modo"}
-MODOS = {"MARITIMO": "Ocean", "AEREO": "Air", "TERRESTRE": "Road"}
 
 
 def embarques(db: Session, user: Usuario, proveedor_id: int | None = None, filtros: dict | None = None,
@@ -330,7 +330,7 @@ def embarques(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
         "llegan_7_dias": sum(1 for it in items if not it["arribado"] and it["dias_eta"] is not None
                              and 0 <= it["dias_eta"] <= 7),
         "atrasados": sum(1 for it in items if it["riesgo"] == "ATRASO"),
-        "por_modo": {m: sum(1 for it in items if it["modo"] == m) for m in MODOS},
+        "por_modo": {m: sum(1 for it in items if it["modo"] == m) for m in listas.codigos("modo_transporte")},
         "por_unidad": _por_unidad(filas),
     }
     items = _ordenar(sorted(items, key=lambda x: (x["eta"] is None, x["eta"] or hoy)), orden, ORDEN_EMB)

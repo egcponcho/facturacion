@@ -1,19 +1,6 @@
 """Integración genérica con artículos y documentos: unidades de cualquier
 familia, documentos con las etiquetas del catálogo y aprobación que no exige
 líneas nacionales (los documentos usan la subpartida de 6 dígitos)."""
-import re
-
-from test_oficial import RAIZ
-
-
-def test_units_are_one_list_in_server_and_screens():
-    from app.modulos.maestros.unidades import CODIGOS, DE_ARTICULO, normalizar
-
-    js = (RAIZ.parent / "frontend" / "src" / "unidades.js").read_text(encoding="utf-8")
-    bloque = js[js.index("export const UNIDADES = {"):js.index("}\n", js.index("export const UNIDADES = {"))]
-    assert re.findall(r"^\s+(\w+):", bloque, re.M) == CODIGOS
-    assert "CJ" not in DE_ARTICULO and {"KG", "L", "M", "DOC"} <= set(DE_ARTICULO)
-    assert normalizar("pcs") == "UN" and normalizar("Kgs") == "KG" and normalizar("LTS") == "L" and normalizar("xyz") is None
 
 
 def test_items_accept_units_of_any_family(interno):

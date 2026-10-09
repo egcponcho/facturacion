@@ -1,7 +1,8 @@
 import { t } from '@/i18n/index.js'
 import { fechaTexto, horaTexto, numeroTexto, pref } from '@/stores/preferencias'
 import { reactive } from 'vue'
-import { UNIDADES } from './unidades.js'
+import { valor } from './listas.js'
+import { nombresUnidad } from './unidades.js'
 
 // Números, fechas y horas siguen las preferencias del perfil (separadores,
 // formato de fecha MM/DD/YYYY por defecto y reloj de 12 o 24 horas)
@@ -10,9 +11,10 @@ export function fmtNum(n, decimales = 0) {
   return numeroTexto(n, decimales)
 }
 
-export function fmtMoneda(n, moneda = 'USD') {
+// Monto con el código de su moneda y sus decimales (lista de monedas de la empresa)
+export function fmtMoneda(n, moneda = '') {
   if (n === null || n === undefined) return '—'
-  return `${moneda} ${fmtNum(n, 2)}`
+  return `${moneda} ${fmtNum(n, valor('moneda', moneda)?.decimales ?? 2)}`.trim()
 }
 
 export function fmtFecha(valor) {
@@ -50,8 +52,8 @@ export function fmtFechaHoraLocal(valor) {
 }
 
 export function unidadTxt(unidad, n) {
-  const u = UNIDADES[unidad] || UNIDADES.UN
-  return n === 1 ? u[0] : u[1]
+  const [s, p] = nombresUnidad(unidad || 'UN')
+  return n === 1 ? s : p
 }
 
 // Frente a la fecha requerida en tienda (la holgura mínima se configura en el servidor)

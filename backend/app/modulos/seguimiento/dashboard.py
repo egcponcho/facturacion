@@ -65,9 +65,9 @@ def _saldo_ocs(db: Session, prov: int | None) -> dict:
 
 def _moneda_principal(valor: dict[str, float]) -> tuple[str, float]:
     if not valor:
-        from app.core.empresa import configuracion_actual
+        from app.modulos.compras.ordenes import moneda_base
 
-        return (configuracion_actual().get("preferencias") or {}).get("moneda") or "USD", 0.0
+        return moneda_base() or "", 0.0
     moneda = max(valor, key=valor.get)
     return moneda, round(valor[moneda], 2)
 

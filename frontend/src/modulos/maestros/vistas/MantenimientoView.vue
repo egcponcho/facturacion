@@ -1,5 +1,5 @@
 <script setup>
-import { t, tx } from '@/i18n/index.js'
+import { t, tr, tx } from '@/i18n/index.js'
 import { puede } from '@/stores/sesion'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -58,8 +58,16 @@ const PRINCIPALES = ['articulos', 'prepacks', 'marcas', 'proveedores', 'grupos',
 const principales = computed(() => catalogos.value.filter((c) => PRINCIPALES.includes(c.tipo)))
 const otros = computed(() => catalogos.value.filter((c) => !PRINCIPALES.includes(c.tipo)))
 const campos = computed(() => cat.value?.campos || [])
+// Un campo que solo aplica a algunos registros (mostrar_si) es columna si aplica
+// al filtro elegido o, sin filtro, si algún registro de la página lo tiene
+const aplica = (c) => {
+  if (!c.mostrar_si) return true
+  const elegido = filtros.extra[c.mostrar_si.campo]
+  if (elegido) return c.mostrar_si.valores.includes(elegido)
+  return datos.value.items.some((f) => f[c.nombre] !== null && f[c.nombre] !== undefined && f[c.nombre] !== '')
+}
 const columnas = computed(() => campos.value.filter((c) => !['descripcion', 'direccion', 'razon_social', 'upc'].includes(c.nombre) &&
-  !(c.nombre === 'correos' && tipo.value !== 'contactos')))
+  !(c.nombre === 'correos' && tipo.value !== 'contactos') && aplica(c)))
 const extras = computed(() => cat.value?.extras || [])
 // Campos que dependen de otro para mostrarse (p. ej. el país solo en una regla de nivel país)
 const camposVisibles = computed(() => campos.value.filter((c) => !c.mostrar_si || c.mostrar_si.valores.includes(form.value?.[c.mostrar_si.campo])))
@@ -179,10 +187,10 @@ async function guardar() {
     const cuerpo = Object.fromEntries(Object.entries(form.value).map(([k, v]) => [k, v === '' ? null : v]))
     if (editando.value) {
       await api.patch(`/catalogos/${tipo.value}/${editando.value}`, cuerpo)
-      avisar(t('{0} updated.', [cap(cat.value.singular)]))
+      avisar(tr('{0} updated.', [cap(cat.value.singular)]))
     } else {
       await api.post(`/catalogos/${tipo.value}`, cuerpo)
-      avisar(t('{0} created.', [cap(cat.value.singular)]))
+      avisar(tr('{0} created.', [cap(cat.value.singular)]))
       cat.value.total++
     }
     cerrarForm()
@@ -200,7 +208,7 @@ async function eliminar() {
   ocupado.value = true
   try {
     await api.del(`/catalogos/${tipo.value}/${fila.id}`)
-    avisar(t('{0} deleted.', [cap(cat.value.singular)]))
+    avisar(tr('{0} deleted.', [cap(cat.value.singular)]))
     cat.value.total--
     modal.value = null
     if (editando.value === fila.id) nuevo()
@@ -344,7 +352,7 @@ onMounted(async () => {
         <button v-if="cat && puede('catalogos.crear')" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload items and sheets') : tipo === 'prepacks' ? t('Upload size runs') : t('Upload Excel')) }}</button>
       </MasOpciones>
       <button v-if="tipo === 'articulos' && puede('catalogos.crear')" class="btn btn-primario" :title="t('Generic (style-color) with its sizes')" @click="genericoNuevo = true"><Icono nombre="mas" />{{ t('New generic') }}</button>
-      <button v-else-if="cat && tipo !== 'articulos' && puede('catalogos.crear')" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />{{ t('New {0}', [cat.singular]) }}</button>
+      <button v-else-if="cat && tipo !== 'articulos' && puede('catalogos.crear')" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />{{ tr('New {0}', [cat.singular]) }}</button>
     </div>
   </div>
 
@@ -373,7 +381,7 @@ onMounted(async () => {
       <div class="filtros" v-filtros>
         <label class="buscador">
           <Icono nombre="buscar" :tam="16" />
-          <input v-model="filtros.q" type="search" :placeholder="tx(compacta ? t('Search generic, style, color, item code, UPC or supplier SKU') : t('Search {0}', [cat.titulo.toLowerCase()]))" :aria-label="t('Search')" @input="buscar" />
+          <input v-model="filtros.q" type="search" :placeholder="compacta ? t('Search generic, style, color, item code, UPC or supplier SKU') : t('Search {0}', [tx(cat.titulo).toLowerCase()])" :aria-label="t('Search')" @input="buscar" />
         </label>
         <div v-if="tipo === 'articulos'" class="segmentos" role="group" :aria-label="t('Items view')">
           <button type="button" class="segmento" :aria-pressed="vista === 'compacta'" :title="t('One row per generic; expand it to see its sizes')" @click="cambiarVista('compacta')">{{ t('Compact') }}</button>
@@ -431,8 +439,8 @@ onMounted(async () => {
               <td class="num" style="white-space: nowrap">
                 <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" :title="t('See the breakdown (it never changes)')"
                         @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />{{ t('Breakdown') }}</button>
-                <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="t('Edit {0}', [cat.singular])" :title="t('Edit')" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
-                <button v-if="puede('catalogos.eliminar')" class="btn-icono" style="color: var(--error)" :aria-label="t('Delete {0}', [cat.singular])" :title="t('Delete')" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
+                <button v-if="puede('catalogos.editar')" class="btn-icono" :aria-label="tr('Edit {0}', [cat.singular])" :title="t('Edit')" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
+                <button v-if="puede('catalogos.eliminar')" class="btn-icono" style="color: var(--error)" :aria-label="tr('Delete {0}', [cat.singular])" :title="t('Delete')" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
               </td>
             </tr>
             <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : tipo === 'articulos' ? 3 : 2)" class="vacio">{{ t('No records match these filters.') }}</td></tr>
@@ -444,7 +452,7 @@ onMounted(async () => {
     </section>
   </div>
 
-  <Modal v-if="formAbierto && cat" :titulo="tx(editando ? t('Edit {0}', [cat.singular]) : t('New {0}', [cat.singular]))" ancho="640px" @cerrar="cerrarForm">
+  <Modal v-if="formAbierto && cat" :titulo="editando ? tr('Edit {0}', [cat.singular]) : tr('New {0}', [cat.singular])" ancho="640px" @cerrar="cerrarForm">
     <p v-if="cat.ayuda" class="ayuda" style="margin-top: 0">{{ tx(cat.ayuda) }}</p>
       <form v-if="tipo === 'prepacks' && !editando" class="form-catalogo" @submit.prevent="crearPrepack">
         <label class="campo"><span class="req">{{ t('Item code') }}</span>
@@ -511,13 +519,13 @@ onMounted(async () => {
         </component>
         <p class="leyenda-req">{{ t('Required') }}</p>
         <div class="fila-flex">
-          <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ tx(editando ? t('Save changes') : t('Create {0}', [cat.singular])) }}</button>
+          <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ editando ? t('Save changes') : tr('Create {0}', [cat.singular]) }}</button>
           <button class="btn btn-fantasma" type="button" @click="cerrarForm">{{ t('Cancel') }}</button>
         </div>
       </form>
   </Modal>
 
-  <Modal v-if="modal?.tipo === 'eliminar'" :titulo="t('Delete {0}', [cat.singular])" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'eliminar'" :titulo="tr('Delete {0}', [cat.singular])" @cerrar="modal = null">
     <p>{{ t('Delete') }} <b>{{ tx(modal.fila.codigo || modal.fila.sku) }}</b>{{ t('? If other records already use it, it cannot be deleted; deactivate it instead.') }}</p>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>

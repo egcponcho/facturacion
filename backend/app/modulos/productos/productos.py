@@ -18,6 +18,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core import listas
 from app.core.config import settings
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
@@ -988,7 +989,7 @@ def obtener_foto(db: Session, user: Usuario, foto_id: int) -> ProductoFoto:
 
 # ---- Fichas técnicas (SDS, TDS, COA): evidencia técnica, no fuente arancelaria ----------
 def _doc_dict(d: ProductoDocumento) -> dict:
-    return {"id": d.id, "tipo": d.tipo, "tipo_txt": ProductoDocumento.TIPOS.get(d.tipo, d.tipo), "nombre": d.nombre, "emisor": d.emisor,
+    return {"id": d.id, "tipo": d.tipo, "tipo_txt": listas.nombre("tipo_documento", d.tipo), "nombre": d.nombre, "emisor": d.emisor,
             "fecha_documento": d.fecha_documento, "datos": d.datos or {}, "subido_en": d.subido_en}
 
 
@@ -1002,8 +1003,8 @@ def subir_documento(db: Session, user: Usuario, producto_id: int, tipo: str, nom
     exigir(user, "producto.ficha")
     p = _producto(db, user, producto_id)
     tipo = (tipo or "").upper()
-    if tipo not in ProductoDocumento.TIPOS:
-        raise ErrorNegocio("Choose the kind of document: SDS, TDS or COA.", 422, "validacion")
+    if tipo not in listas.codigos("tipo_documento"):
+        raise ErrorNegocio(f"Choose the kind of document: {', '.join(listas.codigos('tipo_documento'))}.", 422, "validacion")
     if mime not in TIPOS_DOC:
         raise ErrorNegocio("Upload a PDF or an image of the document.", 422, "validacion")
     if len(contenido) > 15 * 1024 * 1024:

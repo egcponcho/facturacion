@@ -1,4 +1,5 @@
 <script setup>
+import { opcionesLista, valores } from '@/nucleo/listas.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, reactive, ref } from 'vue'
 import { api } from '@/nucleo/api'
@@ -18,8 +19,9 @@ const props = defineProps({
 })
 const emit = defineEmits(['cambio'])
 
-const TIPOS = { SDS: t('Safety data sheet (SDS)'), TDS: t('Technical data sheet (TDS)'), COA: t('Certificate of analysis (COA)') }
-const nuevo = reactive({ tipo: 'SDS', emisor: '', fecha: '', archivo: null, filas: [{ k: '', v: '' }] })
+// Tipos de documento técnico de la empresa (Datos maestros → Listas de valores)
+const TIPOS = computed(() => opcionesLista('tipo_documento'))
+const nuevo = reactive({ tipo: valores('tipo_documento')[0]?.codigo || '', emisor: '', fecha: '', archivo: null, filas: [{ k: '', v: '' }] })
 const ocupado = ref(false)
 const opcionesCampo = computed(() => props.campos.filter((c) => c.tipo_dato !== 'composition' && c.tipo_dato !== 'country'))
 const etiqueta = (k) => props.campos.find((c) => c.codigo === k)?.etiqueta || k
@@ -78,7 +80,7 @@ async function quitar(d) {
       <h3 class="mt">{{ t('Attach a document') }}</h3>
       <div class="rejilla-campos">
         <label class="campo"><span class="req">{{ t('Kind') }}</span>
-          <Seleccion v-model="nuevo.tipo" class="entrada"><option v-for="(txt, k) in TIPOS" :key="k" :value="k">{{ txt }}</option></Seleccion></label>
+          <Seleccion v-model="nuevo.tipo" class="entrada"><option v-for="[k, txt] in TIPOS" :key="k" :value="k">{{ txt }}</option></Seleccion></label>
         <label class="campo"><span>{{ t('Issued by') }}</span><input v-model="nuevo.emisor" class="entrada" maxlength="200" :placeholder="t('Supplier or laboratory')" /></label>
         <label class="campo"><span>{{ t('Document date') }}</span><input v-model="nuevo.fecha" type="date" class="entrada" /></label>
         <label class="campo"><span class="req">{{ t('File (PDF or image)') }}</span>

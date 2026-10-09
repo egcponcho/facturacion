@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core import listas
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     AcuerdoComercial,
@@ -41,6 +42,7 @@ from app.modelos import (
     TipoUnidad,
     Transportista,
     Usuario,
+    ValorLista,
 )
 from app.modulos.acceso.permisos import exigir
 from app.modulos.comun.historial import registrar
@@ -48,7 +50,6 @@ from app.modulos.comun.normalizar import Referencias
 from app.modulos.comun.normalizar import nombre as nombre_fmt
 from app.modulos.comun.normalizar import texto as texto_fmt
 from app.modulos.comun.texto import filtro_texto
-from app.modulos.maestros.unidades import opciones as _opciones_unidad
 from app.modulos.productos.productos import (
     asegurar_producto,
     codigo_valido,
@@ -58,8 +59,6 @@ from app.modulos.productos.productos import (
     producto_por_generico,
 )
 from app.modulos.transporte import reglas_lt as rlt
-
-UNIDADES = _opciones_unidad()
 
 
 def c(nombre, etiqueta, tipo="texto", obligatorio=False, **extra):
@@ -75,7 +74,8 @@ def c(nombre, etiqueta, tipo="texto", obligatorio=False, **extra):
 # tipo: texto | entero | numero | bool | opcion (opciones) | ref (catalogo: guarda el id)
 #       | codigo (catalogo: guarda el código, p. ej. país ISO) | correos
 #       | multi (catalogo: varios registros, p. ej. las marcas de un proveedor)
-MODOS = [["MARITIMO", "Ocean"], ["AEREO", "Air"], ["TERRESTRE", "Road"]]
+# Las opciones de un campo con `lista` salen de las listas de valores de la
+# empresa (core/listas.py), no del código.
 CATALOGOS = {
     "sociedades": {
         "modelo": Sociedad, "titulo": "Companies", "singular": "company",
@@ -105,9 +105,7 @@ CATALOGOS = {
             c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("pais", "Country", "codigo", obligatorio=True, catalogo="paises", filtro=True),
             c("puerto", "Arrival port", "codigo", catalogo="puertos", filtro=True, depende={"campo": "pais", "clave": "pais"}),
-            c("tipo", "Type", "opcion", obligatorio=True,
-              opciones=[["BODEGA_FISCAL", "Bonded warehouse"], ["ZONA_FRANCA", "Free trade zone"], ["LOCAL", "Local warehouse"],
-                        ["TIENDA", "Store / DC"]]),
+            c("tipo", "Type", "opcion", obligatorio=True, lista="tipo_centro"),
             c("puertos", "Other arrival ports", "multi", catalogo="puertos", depende={"campo": "pais", "clave": "pais"},
               ayuda="Besides the main one. The shipment suggests the main port and lets you switch between these."),
             c("direccion", "Address"),
@@ -126,7 +124,7 @@ CATALOGOS = {
             c("sociedad_id", "Company", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
             c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
-              opciones=[["VIRTUAL", "Virtual"], ["DETALLE", "Retail"], ["MAYOREO", "Wholesale"]]),
+              lista="tipo_almacen"),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
@@ -139,7 +137,7 @@ CATALOGOS = {
             c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("cargo", "Job title", formato="nombre"),
             c("rol", "Role", "opcion", obligatorio=True, filtro=True,
-              opciones=[["FACTURACION", "Billing"], ["NOTIFY", "Notify party"], ["LOGISTICA", "Logistics"]]),
+              lista="tipo_contacto"),
             c("sociedad_id", "Company", "ref", catalogo="sociedades", filtro=True),
             c("centro_id", "Plant", "ref", catalogo="centros", filtro=True, depende={"campo": "sociedad_id", "clave": "sociedad_id"}),
             c("correos", "Emails", "correos", ayuda="One or more, separated by commas."),
@@ -230,8 +228,7 @@ CATALOGOS = {
             c("codigo", "Code", obligatorio=True, max=10, mayus=True),
             c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("pais", "Country", "codigo", obligatorio=True, catalogo="paises", filtro=True),
-            c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
-              opciones=[["MARITIMO", "Ocean"], ["AEREO", "Air"], ["TERRESTRE", "Road"]]),
+            c("tipo", "Type", "opcion", obligatorio=True, filtro=True, lista="modo_transporte"),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
@@ -326,6 +323,28 @@ CATALOGOS = {
         ],
         "buscar": ["codigo", "nombre", "alias"],
     },
+    "listas": {
+        "modelo": ValorLista, "titulo": "Lists of values", "singular": "value",
+        "ayuda": "Values offered in forms and files: units of measure, currencies, incoterms, transport modes and "
+                 "modalities, and the types of plants, storage locations, contacts, taxes and technical documents. "
+                 "Values the system relies on can be renamed but not deleted or deactivated.",
+        "campos": [
+            c("lista", "List", "opcion", obligatorio=True, filtro=True,
+              opciones=[[k, v["etiqueta"]] for k, v in listas.LISTAS.items()]),
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Name", obligatorio=True, max=120),
+            *[c(a, listas.ATRIBUTOS[a][0], "opcion" if listas.ATRIBUTOS[a][1].startswith("lista") else listas.ATRIBUTOS[a][1],
+                mostrar_si={"campo": "lista", "valores": [k for k, v in listas.LISTAS.items() if a in v["atributos"]]},
+                **({"lista": listas.ATRIBUTOS[a][1].split(":")[1]} if listas.ATRIBUTOS[a][1].startswith("lista") else {}),
+                **({"opciones": listas.CALCULOS} if a == "calculo" else {"opciones": listas.ICONOS} if a == "icono" else {}),
+                **({"minimo": 0} if listas.ATRIBUTOS[a][1] in ("entero", "numero") else {}),
+                **({"max": listas.ATRIBUTOS[a][2]} if listas.ATRIBUTOS[a][1] == "texto" else {}))
+              for a in listas.ATRIBUTOS],
+            c("orden", "Order", "entero", minimo=0),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre", "alias"],
+    },
     "grupos": {
         "modelo": GrupoArticulo, "titulo": "Item groups", "singular": "group",
         "ayuda": "Each item belongs to a single group. The category sets the packing rule; it does not define the "
@@ -368,7 +387,8 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True),
-            c("tipo", "Type", "opcion", obligatorio=True, filtro=True, opciones=MODOS + [["MULTIMODAL", "Multimodal"]]),
+            c("tipo", "Type", "opcion", obligatorio=True, filtro=True, lista="modo_transporte",
+              opciones_extra=[["MULTIMODAL", "Multimodal"]]),
             c("codigo_internacional", "SCAC / IATA", max=10, mayus=True,
               ayuda="Shipping line SCAC or airline IATA prefix."),
             c("id_fiscal", "Tax ID"),
@@ -389,10 +409,8 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=10, mayus=True),
             c("nombre", "Name", obligatorio=True),
-            c("modo", "Transport mode", "opcion", obligatorio=True, filtro=True, opciones=MODOS),
-            c("modalidad", "Service", "opcion", obligatorio=True, filtro=True,
-              opciones=[["FCL", "FCL · full container"], ["LCL", "LCL · consolidated cargo"],
-                        ["AEREO", "Air cargo"], ["FTL", "FTL · full truck"], ["LTL", "LTL · partial load"]]),
+            c("modo", "Transport mode", "opcion", obligatorio=True, filtro=True, lista="modo_transporte"),
+            c("modalidad", "Service", "opcion", obligatorio=True, filtro=True, lista="modalidad_transporte"),
             c("capacidad_cbm", "Max volume (m³)", "numero", minimo=0),
             c("capacidad_kg", "Max weight (kg)", "numero", minimo=0),
             c("requiere_sello", "Requires seal", "bool"),
@@ -424,7 +442,7 @@ CATALOGOS = {
               ayuda="Each supplier handles its items; the brand must be one of theirs."),
             c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
               opciones=[["SOLIDO", "Solid"], ["PREPACK", "Prepack"]]),
-            c("unidad", "Unit", "opcion", obligatorio=True, opciones=UNIDADES, filtro=True),
+            c("unidad", "Unit", "opcion", obligatorio=True, lista="unidad", filtro=True),
             c("peso_unitario", "Unit weight (kg)", "numero", minimo=0,
               ayuda="Net weight of one unit (pair, piece or, for a prepack, the whole size run). The packaging "
                     "weight is not included: each packaging level adds its own tare. Empty in a prepack = sum of its solids."),
@@ -450,7 +468,8 @@ CATALOGOS = {
     },
 }
 ORDEN_CATALOGOS = ["articulos", "prepacks", "escalas", "tipos_empaque", "marcas", "grupos", "proveedores", "sociedades", "centros",
-                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "pasos_lt", "leadtimes", "acuerdos"]
+                   "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "pasos_lt", "leadtimes", "acuerdos",
+                   "liberaciones", "categorias", "listas"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
 
@@ -473,10 +492,22 @@ def _mostrar(obj) -> str:
     return str(obj.id)
 
 
+def _opciones(campo: dict) -> list[list[str]]:
+    """Opciones de un campo: las de su lista de valores o las fijas."""
+    if campo.get("lista"):
+        return listas.opciones(campo["lista"]) + campo.get("opciones_extra", [])
+    return campo.get("opciones", [])
+
+
+def campos_con_opciones(cat: dict) -> list[dict]:
+    """Campos del catálogo con las opciones de las listas de la empresa."""
+    return [{**x, "opciones": _opciones(x)} if x["tipo"] == "opcion" else x for x in cat["campos"]]
+
+
 def meta(db: Session, user: Usuario) -> list[dict]:
     exigir(user, "catalogos.ver")
     return [{"tipo": t, "titulo": CATALOGOS[t]["titulo"], "singular": CATALOGOS[t]["singular"],
-             "ayuda": CATALOGOS[t].get("ayuda"), "campos": CATALOGOS[t]["campos"],
+             "ayuda": CATALOGOS[t].get("ayuda"), "campos": campos_con_opciones(CATALOGOS[t]),
              "extras": CATALOGOS[t].get("extras", []),
              "total": db.scalar(select(func.count()).select_from(CATALOGOS[t]["modelo"])) or 0}
             for t in ORDEN_CATALOGOS]
@@ -719,7 +750,8 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                     errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: {v} is not in the catalog."})
                     continue
                 v = obj.codigo
-            elif t == "opcion" and v not in [o[0] for o in campo["opciones"]]:
+            elif t == "opcion" and v not in [o[0] for o in _opciones(campo)] \
+                    and not (actual and v == getattr(actual, n)):  # un valor ya guardado que se desactivó
                 raise ValueError
             elif t == "multi":
                 ids = v if isinstance(v, list) else [x for x in str(v).split(",") if x.strip()]
@@ -831,6 +863,10 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             col = OrdenCompra.liberacion_comercial if actual.tipo == "COMERCIAL" else OrdenCompra.liberacion_logistica
             if db.scalar(select(OrdenCompra.id).where(col == actual.codigo).limit(1)):
                 errores.append({"campo": "codigo", "mensaje": "Purchase orders use this code: it cannot change."})
+    if cat["modelo"] is ValorLista:
+        from app.modulos.maestros.listas import validar as validar_valor
+
+        errores += validar_valor(db, final, actual, limpio)
     if cat["modelo"] is EscalaTalla and final.get("tallas"):
         from app.modulos.maestros.tallas import validar as validar_escala
 
@@ -937,6 +973,8 @@ def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
     obj = db.get(cat["modelo"], obj_id)
     if not obj:
         raise ErrorNegocio(f"The {cat['singular']} does not exist.", 404, "no_encontrado")
+    if isinstance(obj, ValorLista) and obj.codigo in listas.LISTAS.get(obj.lista, {}).get("sistema", []):
+        raise ErrorNegocio("The system relies on this value: it can be renamed but not deleted.", 409, "en_uso")
     if isinstance(obj, PasoLeadTime):
         usan = [r.nombre for r in db.scalars(select(ReglaLeadTime)) if any(
             e["paso"] == obj.codigo or e.get("ref") == obj.codigo for e in rlt.cargar(r.pasos)["pasos"])]

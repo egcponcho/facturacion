@@ -8,6 +8,7 @@ from openpyxl import load_workbook
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core import listas
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.modelos import (
@@ -34,8 +35,8 @@ from app.modulos.compras import liberaciones
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto, terminos
 from app.modulos.facturacion.cantidades import facturado_por_posicion, facturas_por_posicion
-from app.modulos.maestros.unidades import _ALIAS as UNIDADES  # alias de cada unidad → su código
 from app.modulos.maestros.unidades import error_cantidad
+from app.modulos.maestros.unidades import normalizar as unidad_de
 from app.modulos.productos.productos import clasificacion_txt, partida_para, producto_de
 
 # Dos liberaciones de dos equipos distintos (comercial y logística). Sus
@@ -579,7 +580,7 @@ def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
         except ValueError:
             errores.append(f"Invalid {texto.lower()}: {r.get(campo)}.")
             d[campo] = None
-    unidad = UNIDADES.get((r.get("unidad") or "").upper())
+    unidad = unidad_de(r.get("unidad"))
     if r.get("unidad") and not unidad:
         errores.append(f"Unknown unit: {r.get('unidad')} (use PAR, UN or CJ).")
     d["unidad"] = unidad
@@ -913,7 +914,11 @@ def crear_oc(db: Session, user: Usuario, datos: dict) -> dict:
     return {"oc_id": oc.id, "numero": oc.numero, "lineas": resultado["aplicadas"]}
 
 
-INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"]
+def moneda_base() -> str | None:
+    """Moneda de la empresa (Configuración → Empresa) o la primera de la lista."""
+    from app.core.empresa import configuracion_actual
+
+    return (configuracion_actual().get("preferencias") or {}).get("moneda") or next(iter(listas.codigos("moneda")), None)
 
 
 def plantilla_oc(db: Session, user: Usuario) -> bytes:
@@ -946,7 +951,8 @@ def plantilla_oc(db: Session, user: Usuario) -> bytes:
         if campo.startswith("fecha"):
             ayuda = (ayuda + " " if ayuda else "") + f"Date as {formato} (your profile setting) or YYYY-MM-DD."
         columnas.append({"nombre": alias[0], "req": campo in REQUERIDOS, "ayuda": ayuda})
-    base = {"proveedor": "SUPPLIER", "oc": "PO-0001", "sociedad": "", "moneda": "USD", "incoterm": "FOB",
+    base = {"proveedor": "SUPPLIER", "oc": "PO-0001", "sociedad": "",
+            "moneda": moneda_base() or "", "incoterm": next(iter(listas.codigos("incoterm")), ""),
             "liberacion_comercial": lib.comercial.predeterminado() or "",
             "liberacion_logistica": next((x.codigo for x in lib.logistica.lista if x.libera and not x.con_cambios), ""), "unidad": "", "precio": 10.5, "casepack": 12}
     ejemplos = []
@@ -968,10 +974,9 @@ def opciones_formulario(db: Session, user: Usuario) -> dict:
                                                *([Proveedor.id == user.proveedor_id] if user.proveedor_id else []))
                        .order_by(Proveedor.nombre)).all()
     op = lambda xs, f=lambda x: x.nombre: [{"valor": x.codigo, "texto": f"{x.codigo} · {f(x)}"} for x in xs]  # noqa: E731
-    from app.core.empresa import configuracion_actual
-
-    base = (configuracion_actual().get("preferencias") or {}).get("moneda") or "USD"  # moneda base de la empresa
-    monedas = sorted({m for (m,) in db.execute(select(OrdenCompra.moneda).distinct()) if m} | {base})
+    # Las monedas de la lista y las que ya traen las OCs (de antes de la lista)
+    usadas = {m for (m,) in db.execute(select(OrdenCompra.moneda).distinct()) if m}
+    monedas = listas.codigos("moneda") + sorted(usadas - set(listas.codigos("moneda")))
     return {
         # Cada proveedor lleva sus sociedades: el formulario solo ofrece esas
         "proveedores": [{**o, "sociedades": [x.codigo for x in p.sociedades]} for o, p in zip(op(provs), provs)],
@@ -982,8 +987,10 @@ def opciones_formulario(db: Session, user: Usuario) -> dict:
                       for a in db.scalars(select(Almacen).order_by(Almacen.codigo))],
         "puertos": op(db.scalars(select(Puerto).order_by(Puerto.codigo))),
         "paises": op(db.scalars(select(Pais).order_by(Pais.nombre))),
-        "monedas": [{"valor": m, "texto": m} for m in monedas],
-        "incoterms": [{"valor": x, "texto": x} for x in INCOTERMS],
+        "monedas": [{"valor": m, "texto": f"{m} · {listas.nombre('moneda', m)}" if listas.valor("moneda", m) else m}
+                    for m in monedas],
+        "incoterms": [{"valor": x["codigo"], "texto": f"{x['codigo']} · {x['nombre']}"} for x in listas.valores("incoterm")],
+        "moneda_base": moneda_base(),
     }
 
 
