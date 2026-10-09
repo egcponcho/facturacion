@@ -856,8 +856,13 @@ def _historial(db: Session, entrada: dict, categoria, perfil: str) -> dict:
     q = select(Producto.id, Producto.estilo, Producto.color, Producto.codigo_generico, Producto.codigo, Producto.perfil, Producto.tipo,
                Producto.nombre, Producto.descripcion_aduana, Producto.sac_codigo).where(
         Producto.estado.in_(APROBADOS), Producto.codigo.is_not(None))
-    for x in db.execute(q.where(or_(Producto.perfil == perfil, Producto.estilo == (entrada.get("estilo") or "\0"),
-                                    Producto.codigo_generico == (entrada.get("generico") or "\0")))):
+    # Mismo perfil, o el mismo estilo o genérico si la entrada los trae
+    cond = [Producto.perfil == perfil]
+    if entrada.get("estilo"):
+        cond.append(Producto.estilo == entrada["estilo"])
+    if entrada.get("generico"):
+        cond.append(Producto.codigo_generico == entrada["generico"])
+    for x in db.execute(q.where(or_(*cond))):
         if x.id == pid:
             continue
         cod = x.codigo[:6]

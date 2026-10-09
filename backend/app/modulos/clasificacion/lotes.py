@@ -88,11 +88,26 @@ def _diferencias(db: Session, contenido: bytes, nombre: str) -> tuple[dict, list
         res = oficial.importar(previa, contenido, None, nombre)
         previa.flush()
         publicadas = {v.id: v.codigo for v in previa.scalars(select(VersionDataset).where(VersionDataset.estado == "PUBLICADA"))}
+        # Los registros nuevos reciben ids que se descartan con la previa (y en
+        # PostgreSQL la secuencia no retrocede): se nombran por su clave natural
+        nuevos = {(c["o"].__tablename__, c["o"].id): _clave(c["o"]) for c in cambios.values() if c["accion"] == "NUEVO"}
+
+        def natural(o, datos):
+            if not datos:
+                return datos
+            datos = dict(datos)
+            for a in inspect(o).mapper.column_attrs:
+                for fk in a.columns[0].foreign_keys:
+                    ref = (fk.column.table.name, datos.get(a.key))
+                    if ref in nuevos:
+                        datos[a.key] = f"{ref[0]}: {nuevos[ref]}"
+            return datos
+
         filas = []
         for c in cambios.values():
             o = c["o"]
             tabla = o.__tablename__
-            despues = c.get("despues", _columnas(o)) if c["accion"] != "ELIMINADO" else None
+            despues = natural(o, c.get("despues", _columnas(o))) if c["accion"] != "ELIMINADO" else None
             if c["accion"] == "CAMBIO":
                 despues = {k: despues.get(k) for k in c["antes"]}
             aviso = None
@@ -198,5 +213,6 @@ def descartar(db: Session, user: Usuario, lote_id: int) -> dict:
     if not x or x.estado != "PREVIA":
         raise ErrorNegocio("Only a load in preview can be discarded.", 422, "validacion")
     x.estado = "DESCARTADA"
+    registrar(db, user, "aranceles", x.id, "descartar_oficial", {"archivo": x.archivo})
     return _dict(x)
 

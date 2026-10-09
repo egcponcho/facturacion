@@ -90,7 +90,7 @@ def test_solo_quien_ve_el_documento_lo_toma(vans, tnf):
 
 
 def test_cerrar_sesion_libera(client, vans, interno):
-    from tests.conftest import iniciar_sesion
+    from conftest import iniciar_sesion
 
     fid = _factura_borrador(vans)
     try:

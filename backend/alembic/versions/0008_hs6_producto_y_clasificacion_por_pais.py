@@ -45,7 +45,7 @@ def upgrade() -> None:
     op.execute("UPDATE productos SET codigo = substr(codigo, 1, 6) WHERE length(codigo) > 6")
     op.execute("UPDATE productos SET sugerido = substr(sugerido, 1, 6) WHERE length(sugerido) > 6")
     op.execute("UPDATE productos SET propuesta = substr(propuesta, 1, 6) WHERE length(propuesta) > 6")
-    op.execute("UPDATE partidas_pais SET sugerido = codigo WHERE manual = 0")
+    op.execute("UPDATE partidas_pais SET sugerido = codigo WHERE NOT manual")
     # ### end Alembic commands ###
 
 

@@ -41,7 +41,7 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_overrides_arancel_objetivo'), ['objetivo'], unique=False)
 
     op.execute("""INSERT INTO overrides_arancel (tipo, objetivo, campo, valor, valor_oficial, motivo, creado_en, activo)
-        SELECT 'NODO', p.codigo, 'descripcion', p.descripcion, n.descripcion, 'Migrated from a manual edit of the SAC text', CURRENT_TIMESTAMP, 1
+        SELECT 'NODO', p.codigo, 'descripcion', p.descripcion, n.descripcion, 'Migrated from a manual edit of the SAC text', CURRENT_TIMESTAMP, TRUE
         FROM partidas_sac p JOIN nodos_arancel n ON n.codigo_norm = p.codigo AND n.pais IS NULL
         WHERE p.fuente IN ('manual', 'archivo') AND p.descripcion <> n.descripcion""")
     op.drop_table('partidas_sac')
