@@ -1,7 +1,8 @@
-from fastapi import APIRouter, File, Query, UploadFile
+from fastapi import APIRouter, File, Form, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.modulos.compras import ordenes as svc
+from app.modulos.compras import perfiles
 from app.web.rutas import Clave, Db, User, ejecutar
 
 router = APIRouter()
@@ -82,11 +83,32 @@ def crear(datos: OrdenNueva, db: Db, user: User, clave: Clave = None):
 
 
 @router.post("/ordenes/importar/previa")
-async def importar_previa(db: Db, user: User, archivo: UploadFile = File(...)):
+async def importar_previa(db: Db, user: User, archivo: UploadFile = File(...), perfil_id: int | None = Form(None)):
     contenido = await archivo.read()
-    res = svc.importar_previa(db, user, archivo.filename or "archivo.csv", contenido)
+    res = svc.importar_previa(db, user, archivo.filename or "archivo.csv", contenido, perfil_id)
     db.commit()
     return res
+
+
+# Perfiles de importación: cómo leer el archivo que exporta el ERP de la empresa
+@router.get("/ordenes/importar/perfiles")
+def perfiles_importacion(db: Db, user: User):
+    return perfiles.listar(db, user)
+
+
+@router.post("/ordenes/importar/perfiles")
+def crear_perfil(datos: dict, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: perfiles.crear(db, user, datos))
+
+
+@router.patch("/ordenes/importar/perfiles/{perfil_id}")
+def actualizar_perfil(perfil_id: int, datos: dict, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: perfiles.actualizar(db, user, perfil_id, datos))
+
+
+@router.delete("/ordenes/importar/perfiles/{perfil_id}")
+def eliminar_perfil(perfil_id: int, db: Db, user: User, clave: Clave = None):
+    return ejecutar(db, user, clave, lambda: perfiles.eliminar(db, user, perfil_id))
 
 
 @router.post("/ordenes/importar/{importacion_id}/aplicar")

@@ -39,7 +39,7 @@ from app.modelos.clasificacion import (
     TraduccionCatalogo,
     VersionDataset,
 )
-from app.modelos.compras import ImportacionOC, OrdenCompra, PosicionOC
+from app.modelos.compras import ImportacionOC, OrdenCompra, PerfilImportacion, PosicionOC
 from app.modelos.empaque import (
     GrupoCajas,
     GrupoCajasItem,
@@ -141,6 +141,7 @@ __all__ = [
     "PaisArancel",
     "PalabraClave",
     "PartidaPais",
+    "PerfilImportacion",
     "PasoLeadTime",
     "PlantillaCaja",
     "PLLinea",

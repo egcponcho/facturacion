@@ -1,12 +1,14 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import CargaArchivo from '@/componentes/CargaArchivo.vue'
 import Icono from '@/componentes/Icono.vue'
 import Paginacion from '@/componentes/Paginacion.vue'
 import ThOrden from '@/componentes/ThOrden.vue'
 import OrdenFormulario from '@/modulos/compras/componentes/OrdenFormulario.vue'
+import PerfilesImportacion from '@/modulos/compras/componentes/PerfilesImportacion.vue'
+import Seleccion from '@/componentes/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTabla } from '@/composables/useTabla'
 import { avisar, errorApi } from '@/stores/ui'
@@ -21,6 +23,19 @@ const archivo = ref(null)
 const previa = ref(null)
 const filtro = ref('')
 const ocupado = ref(false)
+// Perfil de importación (cómo leer el archivo del ERP); de entrada, el predeterminado
+const perfiles = ref([])
+const perfilId = ref('')
+const verPerfiles = ref(false)
+async function cargarPerfiles() {
+  try {
+    perfiles.value = (await api.get('/ordenes/importar/perfiles')).perfiles.filter((p) => p.activo)
+    if (!perfiles.value.some((p) => String(p.id) === String(perfilId.value))) perfilId.value = perfiles.value.find((p) => p.predeterminado)?.id || ''
+  } catch (e) {
+    errorApi(e)
+  }
+}
+onMounted(cargarPerfiles)
 
 const ESTADOS = {
   nuevo: [t('New'), 'ok', t('Will be created')],
@@ -39,6 +54,7 @@ async function revisar() {
   if (!archivo.value) return
   const datos = new FormData()
   datos.append('archivo', archivo.value)
+  if (perfilId.value) datos.append('perfil_id', perfilId.value)
   ocupado.value = true
   try {
     previa.value = await api.post('/ordenes/importar/previa', datos)
@@ -88,6 +104,11 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
   <div class="dos-columnas" style="grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr)">
     <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('1. Choose the file') }}</h2><p>{{ t('One row per PO line.') }}</p></div></div>
+      <div class="fila-flex" style="margin-bottom: 10px">
+        <label class="campo" style="flex: 1"><span>{{ t('Import profile') }}</span>
+          <Seleccion v-model="perfilId" class="entrada" @change="previa = null"><option value="">{{ t('Standard column names') }}</option><option v-for="p in perfiles" :key="p.id" :value="p.id">{{ tx(p.nombre) }}</option></Seleccion></label>
+        <button type="button" class="btn" style="align-self: flex-end" @click="verPerfiles = true"><Icono nombre="engrane" :tam="15" />{{ t('Profiles') }}</button>
+      </div>
       <CargaArchivo v-model="archivo" :texto="t('Drag the PO file here or choose it')" :ayuda="t('Excel (.xlsx) or CSV, exported from your ERP')" />
       <div class="fila-flex mt">
         <button class="btn btn-primario" :disabled="!archivo || ocupado" @click="revisar"><Icono nombre="lupa" :tam="16" />{{ tx(ocupado ? t('Checking…') : t('Check file')) }}</button>
@@ -150,4 +171,5 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
     </div>
   </template>
   </template>
+  <PerfilesImportacion v-if="verPerfiles" @cerrar="verPerfiles = false" @cambio="cargarPerfiles" />
 </template>

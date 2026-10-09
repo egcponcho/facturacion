@@ -264,6 +264,8 @@ Un solo lugar con crear, editar, eliminar y filtros con búsqueda para: **socied
 
 Columnas obligatorias: `supplier, po, po_line, sku, quantity`. Opcionales: `unit_price, currency, company, plant, destination, storage_location, incoterm, po_date, port_of_loading, country_of_origin, country_of_shipment, xf_date_original, xf_date, in_store_date, commercial_release, logistics_release, commercial_release_date, logistics_release_date, delivery_date, uom, casepack, inner_pack`. Se siguen aceptando los nombres de columna anteriores en español y alias comunes (`vendor`, `material`, `qty`…). Las liberaciones se leen por código, nombre o alias del estado. **Plantilla de ejemplo** descarga una plantilla de Excel generada para el usuario, con sus fechas de ejemplo en el formato de fecha del usuario.
 
+**Perfiles de importación.** Si el ERP de la empresa exporta sus columnas con otros nombres, en otra fila o con otro formato de fecha, un perfil (*Cargar órdenes de compra → Perfiles*) dice cómo leer ese archivo: el nombre de la columna de cada dato (varios separados por coma; tienen prioridad sobre los nombres estándar), la fila de los encabezados, el formato de las fechas y valores por defecto para lo que el archivo no trae (p. ej. la moneda o el incoterm). Al cargar se elige el perfil; el perfil predeterminado se usa sin elegirlo. Los nombres propios de un ERP no están en el código: una instalación que ya tenía OCs al actualizar recibe un perfil *Previous column names* con los nombres que se aceptaban antes (`sap_code`, `codigo_sap`, `sap`).
+
 Los códigos se guardan como texto para conservar los ceros a la izquierda; dé formato de texto a esas columnas en Excel antes de exportar.
 
 ## Consistencia de los datos

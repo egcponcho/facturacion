@@ -100,6 +100,23 @@ class PosicionOC(Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
+class PerfilImportacion(Base):
+    """Cómo leer el archivo de OCs que exporta el ERP de la empresa: el nombre
+    de la columna de cada dato del sistema, la fila de los encabezados, el
+    formato de las fechas y los valores por defecto de lo que no trae."""
+
+    __tablename__ = "perfiles_importacion"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    columnas: Mapped[dict] = mapped_column(JSON, default=dict)  # campo → "Columna, Otra columna"
+    valores: Mapped[dict] = mapped_column(JSON, default=dict)  # campo → valor por defecto
+    fila_encabezado: Mapped[int] = mapped_column(Integer, default=1)
+    formato_fecha: Mapped[str | None] = mapped_column(String(12))  # MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD…
+    predeterminado: Mapped[bool] = mapped_column(Boolean, default=False)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class ImportacionOC(Base):
     __tablename__ = "importaciones_oc"
     id: Mapped[int] = mapped_column(primary_key=True)

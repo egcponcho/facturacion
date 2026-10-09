@@ -31,7 +31,7 @@ from app.modelos import (
 from app.modelos import cant as cant_norm
 from app.modulos.acceso.permisos import asegurar_proveedor, exigir, proveedor_filtro
 from app.modulos.acceso.preferencias import leer_fecha
-from app.modulos.compras import liberaciones
+from app.modulos.compras import liberaciones, perfiles
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto, terminos
 from app.modulos.facturacion.cantidades import facturado_por_posicion, facturas_por_posicion
@@ -370,7 +370,9 @@ def estado_posicion(oc, p, facturado: int, facturas: list[dict]):
 
 
 # ---- Importación ------------------------------------------------------------
-# El primer alias de cada campo es el nombre de la columna en la plantilla (inglés).
+# Nombres de columna que el sistema reconoce sin perfil (genéricos, en inglés y
+# español). El primero es el de la plantilla. Los nombres propios del ERP de la
+# empresa van en un perfil de importación (perfiles.py).
 ALIAS = {
     "proveedor": ["supplier", "vendor", "supplier_code", "proveedor", "codigo_proveedor", "proveedor_codigo"],
     "oc": ["po", "po_number", "purchase_order", "oc", "orden", "orden_compra", "numero_oc"],
@@ -394,7 +396,7 @@ ALIAS = {
     "liberacion_logistica": ["logistics_release", "liberacion_logistica", "lib_logistica"],
     "fecha_lib_comercial": ["commercial_release_date", "fecha_liberacion_comercial", "fecha_lib_comercial"],
     "fecha_lib_logistica": ["logistics_release_date", "fecha_liberacion_logistica", "fecha_lib_logistica"],
-    "codigo_sap": ["sku", "sap_code", "material", "item_code", "codigo_sap", "sap", "codigo"],
+    "codigo_sap": ["sku", "item_code", "material", "codigo", "codigo_articulo", "articulo"],
     "cantidad": ["quantity", "qty", "cantidad"],
     "unidad": ["uom", "unit", "um", "unidad"],
     "precio": ["unit_price", "price", "precio", "precio_unitario"],
@@ -434,11 +436,15 @@ def _texto(v) -> str:
     return str(v).strip()
 
 
-def _leer_archivo(nombre: str, contenido: bytes) -> list[dict]:
+def _leer_archivo(nombre: str, contenido: bytes, perfil=None) -> list[dict]:
+    """Filas del archivo como {campo: texto}. Con un perfil de importación, sus
+    nombres de columna mandan, los encabezados van en su fila, las fechas se
+    leen con su formato y lo que falta toma sus valores por defecto."""
+    inicio = (perfil.fila_encabezado if perfil else 1) - 1
     if nombre.lower().endswith((".xlsx", ".xlsm")):
         wb = load_workbook(io.BytesIO(contenido), read_only=True, data_only=True)
         ws = wb.active
-        filas = list(ws.iter_rows(values_only=True))
+        filas = list(ws.iter_rows(values_only=True))[inicio:]
         if not filas:
             return []
         encabezados = [_texto(h) for h in filas[0]]
@@ -447,31 +453,42 @@ def _leer_archivo(nombre: str, contenido: bytes) -> list[dict]:
         texto = contenido.decode("utf-8-sig", errors="replace")
         muestra = texto[:2000]
         delimitador = ";" if muestra.count(";") > muestra.count(",") else ","
-        lector = list(csv.reader(io.StringIO(texto), delimiter=delimitador))
+        lector = list(csv.reader(io.StringIO(texto), delimiter=delimitador))[inicio:]
         if not lector:
             return []
         encabezados = lector[0]
         datos = [[v.strip() for v in fila] for fila in lector[1:]]
 
+    propios = {c: [_norm(x) for x in str(v).split(",") if x.strip()] for c, v in ((perfil.columnas or {}) if perfil else {}).items()}
+    normalizados = [_norm(h) for h in encabezados]
     mapa = {}
-    for i, h in enumerate(encabezados):
-        n = _norm(h)
-        for campo, alias in ALIAS.items():
-            if n in alias and campo not in mapa:
+    for fuente in (propios, ALIAS):  # primero los nombres del perfil
+        for campo, nombres in fuente.items():
+            i = next((i for i, n in enumerate(normalizados) if n in nombres), None)
+            if campo not in mapa and i is not None:
                 mapa[campo] = i
+    defectos = (perfil.valores or {}) if perfil else {}
     faltan = [c for c in REQUERIDOS if c not in mapa]
     if faltan:
+        nombres = [((perfil.columnas or {}).get(c) if perfil else None) or ALIAS[c][0] for c in faltan]
         raise ErrorNegocio(
-            "The file is missing required columns: " + ", ".join(ALIAS[c][0] for c in faltan) + ".",
+            "The file is missing required columns: " + ", ".join(nombres) + ".",
             422,
             "columnas_faltantes",
             {"faltan": faltan, "encontradas": encabezados},
         )
     filas_dict = []
-    for n_fila, fila in enumerate(datos, start=2):
+    for n_fila, fila in enumerate(datos, start=inicio + 2):
         if not any(fila):
             continue
         registro = {campo: (fila[i] if i < len(fila) else "") for campo, i in mapa.items()}
+        for campo, valor in defectos.items():
+            if not registro.get(campo):
+                registro[campo] = valor
+        if perfil and perfil.formato_fecha:
+            for campo in registro:
+                if campo.startswith("fecha") and registro[campo]:
+                    registro[campo] = perfiles.fecha_iso(registro[campo], perfil.formato_fecha)
         registro["_fila"] = n_fila
         filas_dict.append(registro)
     return filas_dict
@@ -785,9 +802,9 @@ def _resumen(clasificadas: list[dict]) -> dict:
     return res
 
 
-def importar_previa(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
+def importar_previa(db: Session, user: Usuario, nombre: str, contenido: bytes, perfil_id: int | None = None) -> dict:
     exigir(user, "oc.importar")
-    filas = _leer_archivo(nombre, contenido)
+    filas = _leer_archivo(nombre, contenido, perfiles.elegido(db, perfil_id))
     if not filas:
         raise ErrorNegocio("The file has no rows with data.", 422, "archivo_vacio")
     clasificadas = _clasificar(db, filas)
