@@ -23,6 +23,7 @@ if os.environ.get("TEST_DATABASE_URL"):
         _c.execute(text("CREATE SCHEMA public"))
     _motor.dispose()
 
+import httpx  # noqa: E402
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -59,9 +60,15 @@ class Api:
         self.yo = self.c.get("/api/auth/me", headers=self.h).json()
 
     def get(self, url, **kw):
-        # Las pruebas leen los documentos (PDF/Excel) en inglés, salvo que pidan otro idioma
-        kw["params"] = {"idioma": "en", **(kw.get("params") or {})}
-        return self.c.get("/api" + url, headers=self.h, **kw)
+        # Las pruebas leen los documentos (PDF/Excel) en inglés, salvo que pidan otro idioma.
+        # Los parámetros escritos en la ruta se suman a `params` (httpx 0.28 reemplaza
+        # la consulta de la URL cuando recibe `params`, y los filtros se perdían).
+        ruta, _, consulta = url.partition("?")
+        pares = list(httpx.QueryParams(consulta).multi_items()) + list(httpx.QueryParams(kw.get("params") or {}).multi_items())
+        if not any(k == "idioma" for k, _ in pares):
+            pares.insert(0, ("idioma", "en"))
+        kw["params"] = pares
+        return self.c.get("/api" + ruta, headers=self.h, **kw)
 
     def post(self, url, json=None, clave=None, **kw):
         h = dict(self.h)
