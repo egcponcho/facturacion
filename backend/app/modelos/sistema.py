@@ -83,3 +83,23 @@ class Edicion(Base):
     desde: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     vence: Mapped[datetime] = mapped_column(DateTime)
     usuario: Mapped[Usuario] = relationship()
+
+
+class Reporte(DeOrganizacion, Base):
+    """Reporte guardado del generador: su definición (fuente, columnas,
+    filtros, agrupación y medidas) y quién lo ve. Se vuelve a calcular cada vez
+    con los datos y el alcance de quien lo abre."""
+
+    __tablename__ = "reportes"
+    __table_args__ = (UniqueConstraint("organizacion_id", "creado_por", "nombre", name="uq_reportes_org_autor_nombre"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(120))
+    descripcion: Mapped[str | None] = mapped_column(String(300))
+    tipo: Mapped[str] = mapped_column(String(12), default="operativo")  # operativo | analitico (con agrupación)
+    definicion: Mapped[dict] = mapped_column(JSON)
+    compartido: Mapped[bool] = mapped_column(Boolean, default=False)  # lo ven todos los que pueden ver su fuente
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, onupdate=ahora)
+
+    autor: Mapped[Usuario | None] = relationship(foreign_keys=[creado_por])

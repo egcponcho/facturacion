@@ -67,7 +67,8 @@ DEFECTO_POR_TIPO = {"proveedor": ["fechas_internas", "liberaciones", "impuestos"
 # Pantallas de trabajo cuyas respuestas se filtran. La configuración
 # (catálogos, arancel, usuarios) no: ahí se administran esos datos.
 RUTAS = ("/api/ordenes", "/api/facturas", "/api/packing-lists", "/api/seguimiento", "/api/embarques",
-         "/api/unidades", "/api/dashboard", "/api/buscar", "/api/productos", "/api/alertas", "/api/recoleccion")
+         "/api/unidades", "/api/dashboard", "/api/buscar", "/api/productos", "/api/alertas", "/api/recoleccion",
+         "/api/tableros", "/api/reportes")
 
 # Configuración que administra esos datos: quien la edita la ve completa;
 # quien solo la consulta (p. ej. un proveedor que revisa los requisitos de

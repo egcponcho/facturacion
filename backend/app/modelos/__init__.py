@@ -74,7 +74,7 @@ from app.modelos.maestros import (
     proveedor_sociedades,
 )
 from app.modelos.productos import PartidaPais, Producto, ProductoDocumento, ProductoFoto, ProductoVersion
-from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta
+from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte
 from app.modelos.transporte import (
     Embarque,
     EventoEmbarque,
@@ -132,6 +132,7 @@ __all__ = [
     "LoteOficial",
     "Marca",
     "Meta",
+    "Reporte",
     "NodoArancel",
     "NotaSAC",
     "OrdenCompra",

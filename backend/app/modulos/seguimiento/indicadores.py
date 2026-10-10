@@ -53,6 +53,7 @@ class Indicador:
     calcular: Callable
     ruta: str | None = None  # la lista que lo explica
     mejor: str = ""  # "alto" | "bajo": qué dirección es buena (para leer la variación)
+    grupo: str | None = None  # dato reservado (acceso/visibilidad.py): un rol que no lo ve no ve el indicador
 
 
 # ---- Alcance de datos -------------------------------------------------------------------
@@ -230,13 +231,14 @@ CATALOGO = [
     Indicador("dias_aprobacion", "compras", "Days to approve", "Average days between sending a PO and its final approval, for the POs approved in the period.",
               "Purchase orders (sent and approval dates)", PERIODO, "dias", "oc.ver", dias_aprobacion, None, "bajo"),
     Indicador("saldo_por_facturar", "compras", "Balance to invoice", "Sum of (ordered − invoiced quantity) × unit price of the lines of approved POs in the base currency; cancelled invoices do not count.",
-              "Purchase order lines and invoice lines", HOY, "moneda", "oc.ver", saldo_por_facturar, "/ordenes", ""),
+              "Purchase order lines and invoice lines", HOY, "moneda", "oc.ver", saldo_por_facturar, "/ordenes", "", "precios"),
     Indicador("oc_atrasadas", "compras", "POs past their ship date", "Count of approved POs whose ship date (XF) has passed and that still have quantity to invoice.",
               "Purchase orders and invoice lines", HOY, "numero", "oc.ver", oc_atrasadas, "/seguimiento", "bajo"),
     Indicador("facturas_finalizadas", "facturacion", "Invoices finalized", "Count of invoices finalized in the period (cancelled ones excluded).",
               "Invoices (finalization date)", PERIODO, "numero", "factura.ver", facturas_finalizadas, "/facturas?estado=FINALIZADA", "alto"),
     Indicador("importe_facturado", "facturacion", "Amount invoiced", "Sum of quantity × invoice unit price of the invoices finalized in the period, in the base currency.",
-              "Invoice lines (finalization date)", PERIODO, "moneda", "factura.ver", importe_facturado, "/facturas?estado=FINALIZADA", "alto"),
+              "Invoice lines (finalization date)", PERIODO, "moneda", "factura.ver", importe_facturado, "/facturas?estado=FINALIZADA", "alto",
+              "precios"),
     Indicador("facturas_abiertas", "facturacion", "Invoices in progress", "Count of invoices in draft or under correction.",
               "Invoices", HOY, "numero", "factura.ver", facturas_abiertas, "/facturas?vista=editables", ""),
     Indicador("pls_pendientes", "facturacion", "Packing lists in progress", "Count of packing lists in draft or under correction of invoices that are not cancelled.",
@@ -265,7 +267,9 @@ POR_CLAVE = {i.clave: i for i in CATALOGO}
 
 # ---- Qué ve cada persona -------------------------------------------------------------------------
 def _del_modulo(user: Usuario, modulo: str) -> list[Indicador]:
-    return [i for i in CATALOGO if i.modulo == modulo and tiene(user, i.permiso)]
+    from app.modulos.acceso import visibilidad
+
+    return [i for i in CATALOGO if i.modulo == modulo and tiene(user, i.permiso) and not (i.grupo and visibilidad.oculto(i.grupo))]
 
 
 def modulos(user: Usuario) -> list[dict]:

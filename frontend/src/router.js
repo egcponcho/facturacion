@@ -31,6 +31,7 @@ const routes = [
     beforeEnter: (to) => (to.query.modo === 'formulario' ? '/ordenes/nueva' : true) },
   { path: '/mantenimiento', component: () => import('@/modulos/maestros/vistas/MantenimientoView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/leadtimes', component: () => import('@/modulos/transporte/vistas/LeadTimeView.vue'), meta: { permiso: 'catalogos.ver' } },
+  { path: '/reportes', component: () => import('@/modulos/seguimiento/vistas/ReportesView.vue') },
   { path: '/tableros/:modulo?', component: () => import('@/modulos/seguimiento/vistas/TableroView.vue'), props: true },
   { path: '/seguimiento', component: () => import('@/modulos/seguimiento/vistas/SeguimientoView.vue'), meta: { permiso: 'seguimiento.ver' } },
   { path: '/perfil', component: () => import('@/modulos/acceso/vistas/PerfilView.vue') },

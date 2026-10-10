@@ -28,6 +28,7 @@ from app.modulos.maestros import api_listas as maestros_api_listas
 from app.modulos.plataforma import api as plataforma_api
 from app.modulos.productos import api as productos_api
 from app.modulos.productos import api_flujo as productos_api_flujo
+from app.modulos.reportes import api as reportes_api
 from app.modulos.seguimiento import api as seguimiento_api
 from app.modulos.transporte import api as transporte_api
 from app.modulos.transporte import api_leadtimes as transporte_api_leadtimes
@@ -152,7 +153,7 @@ async def _error_validacion(_: Request, exc: RequestValidationError):
 RUTAS = (
     clasificacion_api, acceso_api, productos_api_flujo, empresa_api, maestros_api, clasificacion_api_conocimiento,
     compras_api, compras_api_flujo, facturacion_api, empaque_api, productos_api, transporte_api, comun_api, seguimiento_api,
-    transporte_api_leadtimes, empaque_api_plantillas, maestros_api_listas, plataforma_api,
+    transporte_api_leadtimes, empaque_api_plantillas, maestros_api_listas, plataforma_api, reportes_api,
 )
 for modulo in RUTAS:
     app.include_router(modulo.router, prefix="/api")

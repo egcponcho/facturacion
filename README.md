@@ -224,6 +224,7 @@ El esquema de la base de datos se maneja con Alembic (`backend/alembic`). Las mi
 - **Artículos por genérico, con su ficha técnica** (*Datos maestros → Artículos* o *Productos*): una plantilla de Excel con dos hojas. *Genéricos*: una fila por genérico con sus datos maestros (estilo, color, marca, grupo, proveedor, unidad) y las columnas de la ficha (categoría, género, edad, uso, tallas, origen, composición por parte y las características que cambian el código). *Tallas*: una fila por talla con su código de talla (o el siguiente libre), UPC y SKU del proveedor. Después de la carga, el motor completa cada genérico y sugiere su partida automáticamente. También se acepta una sola hoja con una fila por código de artículo. Cada ventana de carga tiene una **Vista previa** de la plantilla (hojas, columnas, obligatorias, filas de ejemplo y qué va en cada columna) además de la descarga en Excel.
 - **Cada catálogo de datos maestros** (marcas, grupos, categorías de artículo, estados de liberación, proveedores, sociedades, centros, contactos, almacenes, transportistas, tipos de unidad, países, puertos…) tiene su propia plantilla de Excel, carga (crea o actualiza por código) y exportación a Excel/PDF con los filtros de la pantalla.
 - **Los reportes** siguen los filtros elegidos en pantalla; los filtros de dimensión aceptan uno o varios valores. No incluyen las columnas que el rol tiene ocultas (vea *Datos visibles por rol*).
+- **Generador de reportes** (*Reportes*): cada persona arma sus propios reportes sobre órdenes, líneas de OC, facturas, embarques o productos. Los **operativos** listan registros (columnas, filtros por campo y orden); los **analíticos** totalizan por grupo (conteo, suma, promedio, mínimo, máximo). Se ve una vista previa mientras se arma, se guarda la definición (no los datos) y se descarga en CSV, Excel o PDF. El equipo interno puede compartir un reporte con su organización; cada quien lo ve con su propio alcance de datos y sin los campos que su rol tiene ocultos.
 
 ## Periodos del tablero
 
@@ -485,7 +486,8 @@ backend/app/
     facturacion/     facturas y cantidades por nivel
     empaque/         listas de empaque, estructura física, plantillas de caja
     transporte/      embarques, unidades de carga, recolección, lead times
-    seguimiento/     tablero, búsqueda global, seguimiento, alertas y reportes
+    seguimiento/     tablero, indicadores, búsqueda global, seguimiento, alertas y reportes fijos
+    reportes/        generador de reportes: fuentes permitidas, ejecución, exportación y reportes guardados
     productos/       ficha técnica, flujo de clasificación y descripciones
     clasificacion/   arancel oficial, motor de clasificación, atributos, reglas, familias, conocimiento
     documentos/      PDF y Excel (factura, lista de empaque, plantillas), montos en letras, idioma del documento

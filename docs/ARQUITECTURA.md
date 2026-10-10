@@ -104,6 +104,7 @@ para consultas de plataforma sobre todas: `organizacion.todas(db)`.
 | Responsables y datos obligatorios de cada catálogo | Datos maestros → (catálogo) → Gobierno | `maestros/gobierno.py`; configuración `maestros` de la organización |
 | Indicadores de cada módulo (cuáles y en qué orden, por persona o por rol) | Indicadores → Elegir indicadores | `seguimiento/indicadores.py` (`CATALOGO`); preferencia `indicadores` de la persona y `indicadores_rol` de la organización |
 | Columnas, anchos y densidad de cada tabla | La propia tabla (menú Columnas) | `componentes/TablaDatos.vue`; preferencia `tablas` de la persona |
+| Reportes guardados (operativos y analíticos, propios o compartidos) | Reportes | `reportes/guardados.py`; tabla `reportes` |
 
 ### Indicadores
 
@@ -114,6 +115,29 @@ con el período anterior), su formato y el permiso que piden. Se calculan en el
 servidor con el alcance de datos del usuario: un proveedor ve sus propios
 números. Agregar un indicador es agregar una entrada al catálogo con su
 función de cálculo y una prueba.
+
+### Reportes
+
+Reportes separa dos usos: los **operativos** listan registros para el trabajo
+del día y los **analíticos** totalizan por grupo (conteo, suma, promedio,
+mínimo y máximo). El usuario arma el reporte en la propia pantalla, pero sólo
+con lo que el servidor ofrece:
+
+- `reportes/fuentes.py` declara cada fuente (órdenes, líneas de OC, facturas,
+  embarques, productos) con sus campos, su tipo, los operadores que admite y
+  el grupo de datos visibles al que pertenece. Un campo de un grupo oculto
+  para el rol (por ejemplo, precios) no se ofrece ni se acepta.
+- `reportes/generador.py` valida la definición, la convierte en una consulta
+  con el alcance de datos del usuario (proveedores, sociedades y la
+  organización) y la exporta a CSV, Excel o PDF. La vista previa trae hasta
+  500 filas y una exportación hasta 10 000.
+- `reportes/guardados.py` guarda la definición (nunca resultados) en la tabla
+  `reportes`, con RLS. Cada persona guarda los suyos; el equipo interno puede
+  compartirlos con la organización. Al abrir un reporte compartido se vuelve a
+  ejecutar con el alcance de quien lo abre.
+
+Agregar una fuente o un campo es agregar su entrada en `FUENTES`; no hace
+falta tocar la interfaz.
 
 ### Datos maestros y su gobierno
 

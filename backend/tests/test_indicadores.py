@@ -96,3 +96,16 @@ def test_cada_persona_y_cada_rol_eligen_sus_indicadores(admin, interno):
     assert t["origen"] == "rol" and t["elegidos"] == ["oc_aprobadas", "saldo_por_facturar"]
     admin.put(f"/tableros/compras/rol/{rol}", {"claves": None})
     assert interno.get("/tableros/compras").json()["origen"] == "sistema"
+
+
+def test_un_rol_sin_precios_no_ve_los_montos(client, admin):
+    rol = admin.post("/roles", {"nombre": "KPI reader", "permisos": ["oc.ver", "factura.ver"], "datos_ocultos": ["precios"]}).json()
+    u = admin.post("/usuarios", {"email": "kpi@demo.com", "nombre": "KPI reader", "rol_id": rol["id"],
+                                 "telefono": "+50370000152", "dos_pasos": True}).json()
+    from conftest import Api
+
+    api = Api(client, "kpi@demo.com", u["password_temporal"])
+    api.post("/auth/password", {"actual": u["password_temporal"], "nueva": "Ver#Indicadores2026"})
+    claves = {c["clave"] for c in api.get("/tableros/compras").json()["catalogo"]}
+    assert "saldo_por_facturar" not in claves and "oc_aprobadas" in claves
+    assert "importe_facturado" not in {c["clave"] for c in api.get("/tableros/facturacion").json()["catalogo"]}

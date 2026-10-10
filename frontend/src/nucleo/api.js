@@ -62,9 +62,13 @@ export const api = {
   patch: (url, cuerpo, opciones) => pedir('PATCH', url, cuerpo ?? {}, opciones),
   put: (url, cuerpo, opciones) => pedir('PUT', url, cuerpo ?? {}, opciones),
   del: (url) => pedir('DELETE', url),
-  async descargar(url, nombre, params) {
+  // Descarga un archivo (GET); con `cuerpo`, lo pide por POST (p. ej. un reporte armado en pantalla)
+  async descargar(url, nombre, params, cuerpo) {
     const q = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : ''
-    const r = await fetch(BASE + url + (q ? `?${q}` : ''), { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+    const r = await fetch(BASE + url + (q ? `?${q}` : ''), cuerpo === undefined
+      ? { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } }
+      : { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
+          headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/json', 'Idempotency-Key': nuevaClave() } })
     if (!r.ok) {
       const datos = await r.json().catch(() => null)
       throw new ApiError(r.status, datos)
