@@ -474,6 +474,11 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
                 x.regla.tipo_fuente = "MANUAL"  # la empresa cambió cómo se elige: regla propia
         db.flush()
         return {"id": x.id}
+    if x:
+        # Línea sin fuente oficial (de una versión anterior del sistema): no se
+        # edita ni se duplica; se reemplaza cargando la publicación oficial
+        raise ErrorNegocio("This national code has no official source; load it from an official publication instead.",
+                           409, "sin_fuente")
     # Una línea nueva es un dato oficial: se escribe desde una publicación, con su
     # fuente y su versión (no hay líneas «propias» de la empresa)
     fuente, version = _procedencia(db, getattr(datos, "fuente", None), getattr(datos, "version", None), pais)

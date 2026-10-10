@@ -255,6 +255,15 @@ def _titulo(c: dict) -> str:
     return f"{L(c['titulo'])}: {L(c['titulo_campo'])}" if c.get("titulo_campo") else L(c["titulo"])
 
 
+def _csv_seguro(v):
+    """Un texto que empieza con «=», «+», «-», «@», tabulador o retorno va con un
+    apóstrofo delante: Excel no lo ejecuta como fórmula al abrir el CSV
+    (inyección de fórmulas). Los números no cambian."""
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + v
+    return v
+
+
 def exportar(db: Session, user: Usuario, definicion: dict, formato: str, titulo: str | None = None) -> tuple[bytes, str]:
     """El reporte como archivo: CSV, Excel o PDF (hasta 10 000 filas)."""
     from app.modulos.documentos import documentos
@@ -272,8 +281,8 @@ def exportar(db: Session, user: Usuario, definicion: dict, formato: str, titulo:
     if formato == "csv":
         salida = io.StringIO()
         escritor = csv.writer(salida)
-        escritor.writerow([_titulo(c) for c in r["columnas"]])
-        escritor.writerows([["" if v is None else v for v in fila] for fila in filas])
+        escritor.writerow([_csv_seguro(_titulo(c)) for c in r["columnas"]])
+        escritor.writerows([["" if v is None else _csv_seguro(v) for v in fila] for fila in filas])
         return ("﻿" + salida.getvalue()).encode("utf-8"), titulo
     columnas = [(_titulo(c), 1.0, c["tipo"] in ("numero", "moneda")) for c in r["columnas"]]
     subtitulo = L("Analytical report: totals by group.") if r["tipo"] == "analitico" else L("Operational report: one row per record.")

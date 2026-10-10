@@ -415,3 +415,23 @@ def test_documents_use_six_digits_never_the_projected_destination(interno):
             assert partida_para(no_aprobado) is None
         for l in db.scalars(select(FacturaLinea).where(FacturaLinea.partida_arancelaria.is_not(None))):
             assert len(l.partida_arancelaria.replace(".", "")) == 6, l.partida_arancelaria
+
+
+def test_una_linea_nacional_sin_fuente_no_se_edita_ni_se_duplica(interno):
+    """Una línea sin fuente oficial (de una versión anterior) no se edita: antes
+    se creaba otra línea «oficial» al lado en vez de cambiarla."""
+    with SessionLocal() as db:
+        x = IncisoNacional(pais="GT", codigo="6404199098", sub6="640419", fuente="empresa", descripcion="Antigua", activo=True)
+        db.add(x)
+        db.commit()
+        iid = x.id
+    try:
+        r = interno.put(f"/aranceles/codigos/{iid}", {"pais": "GT", "codigo": "6404.19.90.98", "descripcion": "Cambio", "cond": {}, "prio": 0})
+        assert r.status_code == 409 and r.json()["codigo"] == "sin_fuente", r.text
+        with SessionLocal() as db:
+            assert db.scalar(select(func.count()).select_from(IncisoNacional)
+                             .where(IncisoNacional.pais == "GT", IncisoNacional.codigo == "6404199098")) == 1
+    finally:
+        with SessionLocal() as db:
+            db.delete(db.get(IncisoNacional, iid))
+            db.commit()

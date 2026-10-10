@@ -125,3 +125,23 @@ def test_reportes_guardados(interno, admin, tnf):
     assert interno.delete_(f"/reportes/{op['id']}").status_code == 200
     assert interno.delete_(f"/reportes/{an['id']}").status_code == 200
     assert interno.get(f"/reportes/{op['id']}").status_code == 404
+
+
+def test_el_csv_no_ejecuta_formulas(interno):
+    """Un dato que empieza con «=» (o +, -, @) sale como texto en el CSV."""
+    with SessionLocal() as db:
+        oc = db.scalars(select(OrdenCompra).order_by(OrdenCompra.id)).first()
+        antes, oc.incoterm = oc.incoterm, "=1+2"  # cabe en el incoterm (10 caracteres en PostgreSQL)
+        db.commit()
+        oc_id, numero = oc.id, oc.numero
+    try:
+        d = {"fuente": "ordenes", "columnas": ["numero", "incoterm"], "filtros": [{"campo": "numero", "op": "igual", "valor": numero}]}
+        r = interno.post("/reportes/exportar?formato=csv", {"definicion": d})
+        assert r.status_code == 200, r.text
+        filas = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
+        assert filas[1][1] == "'=1+2"
+    finally:
+        with SessionLocal() as db:
+            db.get(OrdenCompra, oc_id).incoterm = antes
+            db.commit()
+
