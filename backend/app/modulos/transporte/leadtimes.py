@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from statistics import mean
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.empresa import regla
 from app.modelos import (
@@ -223,7 +223,9 @@ def _hitos_por_oc(db: Session, oc_ids: list[int]) -> dict[int, dict]:
         .where(PosicionOC.oc_id.in_(oc_ids), Factura.estado != "CANCELADA")
     ).all()
     emb_ids = {e for *_, e in filas if e}
-    embarques = {e.id: e for e in db.scalars(select(Embarque).where(Embarque.id.in_(emb_ids)))} if emb_ids else {}
+    # Los embarques con sus eventos en dos consultas (no una por embarque)
+    embarques = ({e.id: e for e in db.scalars(select(Embarque).where(Embarque.id.in_(emb_ids))
+                                              .options(selectinload(Embarque.eventos)))} if emb_ids else {})
     for oc_id, f_fecha, recolectado, emb_id in filas:
         h = out.setdefault(oc_id, {"facturada": None, "recoleccion": None, "salida": None, "arribo": None,
                                    "entrega": None, "ingreso": None, "etd": None, "eta": None, "embarques": set()})
@@ -347,9 +349,14 @@ def tiendas_estimadas(db: Session, ocs: list[OrdenCompra]) -> dict[int, dict]:
     hoy = date.today()
     ests = Estandares(db)
     hitos = _hitos_por_oc(db, [o.id for o in ocs])
+    # Los grupos de artículo de todas las OCs en una consulta (no una por OC)
+    grupos: dict[int, list] = {o.id: [] for o in ocs}
+    if grupos:
+        for oc_id, grupo in db.execute(select(PosicionOC.oc_id, PosicionOC.grupo).where(PosicionOC.oc_id.in_(grupos))):
+            grupos[oc_id].append(grupo)
     out = {}
     for o in ocs:
-        a = analizar_oc(o, hitos.get(o.id), ests.de_oc(o, [x.grupo for x in o.posiciones]), hoy)
+        a = analizar_oc(o, hitos.get(o.id), ests.de_oc(o, grupos[o.id]), hoy)
         out[o.id] = {"tienda_estimada": a["tienda_estimada"], "dias_vs_tienda": a["dias_vs_tienda"],
                      "arribo_estimado": a["arribo"], "riesgo": a["riesgo"]}
     return out

@@ -420,7 +420,10 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     col, _, direccion = (orden or "actualizado:desc").partition(":")
     campo = ORDEN.get(col, Producto.actualizado_en)
     base = base.order_by(campo.desc() if direccion == "desc" else campo.asc(), Producto.id)
-    filas = db.scalars(base.options(selectinload(Producto.partidas), selectinload(Producto.fotos))
+    # Proveedor, marca y grupo de toda la página en una consulta cada uno (no uno por producto)
+    filas = db.scalars(base.options(selectinload(Producto.partidas), selectinload(Producto.fotos),
+                                    selectinload(Producto.proveedor), selectinload(Producto.marca),
+                                    selectinload(Producto.grupo))
                        .offset((page - 1) * size).limit(size)).all()
     tallas = _tallas(db, [p.id for p in filas])
     kpis = {
