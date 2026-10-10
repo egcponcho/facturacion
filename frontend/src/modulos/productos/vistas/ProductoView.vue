@@ -108,7 +108,7 @@ function pedir(cambio = null, ms = 250) {
   clearTimeout(espera)
   espera = setTimeout(evaluar, ms)
 }
-async function evaluar() {
+async function evaluar(alCargar = false) {
   if (!p.value) return
   const n = ++turno
   const cambio = cambioPend
@@ -129,6 +129,8 @@ async function evaluar() {
       if (!filas[c.codigo] || reiniciar.has(c.codigo)) filas[c.codigo] = (c.composicion?.filas || []).map(({ m, pct }) => ({ m, pct }))
       reiniciar.delete(c.codigo)
     }
+    // Lo que el motor normaliza al abrir la ficha no es un cambio de la persona
+    if (alCargar) base.value = instantanea()
   } catch (e) {
     if (n === turno) errorApi(e)
   } finally {
@@ -213,7 +215,7 @@ function tomar(det) {
   codOficial.value = ''
   cargas.value++
   base.value = instantanea()
-  evaluar()
+  evaluar(true)
 }
 function instantanea() {
   return JSON.stringify([f.tipo, f.ficha, f.nombre, f.origen, f.alertasOk, f.partidas])
