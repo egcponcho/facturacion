@@ -1,8 +1,12 @@
 """Recorre el flujo completo OC -> factura -> PL -> cajas -> unidad de carga -> salida."""
 import os
-from datetime import date
+from datetime import date, datetime, timedelta
 
 HOY = date.today().isoformat()
+# La salida va una hora antes de ahora (no a una hora fija del día): así los
+# hitos que otras pruebas registran «ahora» (arribo, recepción) quedan después
+# a cualquier hora en que corran las pruebas.
+SALIDA = (datetime.now() - timedelta(hours=1)).replace(microsecond=0).isoformat()
 
 
 def _oc(api, numero):
@@ -216,12 +220,12 @@ def test_transporte_y_salida(interno, tnf):
     assert r.status_code == 200, r.text
     assert r.json()["asignados"] == len(pl_ids)
     # Sin BL, contenedor ni sello no hay salida: son datos obligatorios del transporte
-    r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": f"{HOY}T08:00:00"})
+    r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": SALIDA})
     assert r.status_code == 422 and r.json()["codigo"] == "datos_transporte"
     assert len(r.json()["detalle"]) == 3
     assert interno.patch(f"/embarques/{e['id']}", {"documento_numero": "MAEU 123"}).status_code == 200
     assert interno.patch(f"/unidades/{unidad['id']}", {"numero": "MSKU 1234567", "sello": "S-1"}).status_code == 200
-    r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": f"{HOY}T08:00:00"})
+    r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": SALIDA})
     assert r.status_code == 200 and r.json()["estado"] == "EN_TRANSITO"
     # El proveedor ve el seguimiento desde su factura
     f = tnf.get(f"/facturas/{estado['fid']}").json()

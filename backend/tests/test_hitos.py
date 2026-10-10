@@ -1,7 +1,7 @@
 """Hitos del embarque configurables (Datos maestros → Listas de valores →
 Shipment milestones): los de sistema mantienen sus reglas; la empresa agrega
 los suyos con los estados en que se registran."""
-from datetime import date
+from datetime import datetime, timedelta
 
 
 def _id_valor(api, codigo):
@@ -38,9 +38,11 @@ def test_hito_propio(interno):
         emb = next(e for e in interno.get("/embarques").json() if e["estado"] == "PLANIFICADO")
         det = interno.get(f"/embarques/{emb['id']}").json()
         assert "INSPECCION" in det["eventos_permitidos"]
-        r = interno.post(f"/embarques/{emb['id']}/eventos", {"tipo": "INSPECCION", "fecha": f"{date.today()}T08:00:00"})
+        # Horas relativas a ahora (no fijas): a cualquier hora quedan en el pasado y en orden
+        hace = lambda h: (datetime.now() - timedelta(hours=h)).replace(microsecond=0).isoformat()  # noqa: E731
+        r = interno.post(f"/embarques/{emb['id']}/eventos", {"tipo": "INSPECCION", "fecha": hace(2)})
         assert r.status_code == 200 and r.json()["estado"] == "PLANIFICADO"  # un hito propio no cambia el estado
-        r = interno.post(f"/embarques/{emb['id']}/eventos", {"tipo": "ENTREGA", "fecha": f"{date.today()}T09:00:00"})
+        r = interno.post(f"/embarques/{emb['id']}/eventos", {"tipo": "ENTREGA", "fecha": hace(1)})
         assert r.status_code == 409
     finally:
         interno.patch(f"/catalogos/listas/{hito}", {"activo": False})
