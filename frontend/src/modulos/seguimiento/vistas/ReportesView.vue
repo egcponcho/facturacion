@@ -226,7 +226,7 @@ const nombreFuente = (clave) => fuentes.value.find((f) => f.clave === clave)?.ti
     <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ tab === 'operativos' ? t('Saved operational reports') : t('Saved analytical reports') }}</h2></div></div>
       <div v-if="(tab === 'operativos' ? lista.operativos : lista.analiticos).length" class="tabla-marco sin-sombra">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Source') }}</th><th>{{ t('Shared') }}</th><th>{{ t('Updated') }}</th><th class="num"><span class="oculto-visual">{{ t('Actions') }}</span></th></tr></thead>
           <tbody>
             <tr v-for="r in (tab === 'operativos' ? lista.operativos : lista.analiticos)" :key="r.id">
@@ -319,7 +319,7 @@ const nombreFuente = (clave) => fuentes.value.find((f) => f.clave === clave)?.ti
 
     <div v-if="errores.length" class="nota error bloque" role="alert"><ul class="lista-mensajes"><li v-for="(m, i) in errores" :key="i">{{ tx(m) }}</li></ul></div>
     <div v-else-if="resultado" class="tabla-marco tabla-fija resultado">
-      <table class="tabla" :aria-busy="cargando">
+      <table class="tabla" v-tarjetas :aria-busy="cargando">
         <thead><tr><th v-for="c in resultado.columnas" :key="c.clave" :class="{ num: ['numero', 'moneda'].includes(c.tipo) }">{{ tx(c.titulo) }}<template v-if="c.titulo_campo">: {{ tx(c.titulo_campo) }}</template></th></tr></thead>
         <tbody>
           <tr v-for="(fila, i) in resultado.filas" :key="i">

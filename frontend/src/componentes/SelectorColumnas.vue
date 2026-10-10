@@ -59,14 +59,3 @@ function cambiar(clave) {
     </div>
   </div>
 </template>
-
-<style scoped>
-.sel-columnas { position: relative; }
-.cuenta { margin-inline-start: 4px; font-size: 0.78rem; color: var(--tinta-3); font-weight: 600; }
-.sel-columnas-menu { position: absolute; z-index: 30; inset-inline-end: 0; top: calc(100% + 6px); min-width: 260px; max-height: 420px; overflow: auto;
-  background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; box-shadow: var(--sombra-flotante); padding: 8px; }
-.sel-columnas-ayuda { margin: 2px 6px 8px; font-size: 0.8rem; color: var(--tinta-3); }
-.sel-columnas-op { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
-.sel-columnas-op:hover { background: var(--superficie-2); }
-.sel-columnas-menu .btn { margin-top: 6px; width: 100%; justify-content: center; }
-</style>

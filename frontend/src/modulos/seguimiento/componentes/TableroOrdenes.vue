@@ -160,7 +160,7 @@ onMounted(cargar)
             </button>
           </td>
           <td>
-            <router-link :to="{ path: '/ordenes', query: { q: o.oc, solo_disponible: '0' } }" class="codigo fuerte" @click.stop>{{ tx(o.oc) }}</router-link>
+            <router-link :to="{ path: '/ordenes', query: { q: o.oc, solo_disponible: '0' } }" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(o.oc) }}</strong></router-link>
             <span class="sub">{{ tx(o.proveedor) }}<template v-if="o.marcas.length"> · {{ tx(o.marcas.join(', ')) }}</template></span>
           </td>
           <td v-if="cols.ver('sociedad')" class="codigo">{{ tx(o.sociedad) }} · {{ tx(o.centro) }}<span class="sub">{{ t('destination {0}', [o.centro_destino || '—']) }}</span></td>
@@ -212,13 +212,13 @@ onMounted(cargar)
                       <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
                       <td><span class="etiqueta ms-0" :class="ETAPAS[l.etapa]?.[1]">{{ tx(ETAPAS[l.etapa]?.[0] || l.etapa) }}</span></td>
                       <td>
-                        <router-link v-if="l.factura_id" :to="`/facturas/${l.factura_id}`">{{ tx(l.factura) }}</router-link>
+                        <router-link v-if="l.factura_id" :to="`/facturas/${l.factura_id}`" class="enlace codigo">{{ tx(l.factura) }}</router-link>
                         <span v-else class="ayuda">—</span>
-                        <router-link v-if="l.pl_id" :to="`/packing-lists/${l.pl_id}`" class="sub">{{ t('PL {0}', [l.pl]) }}</router-link>
+                        <router-link v-if="l.pl_id" :to="`/packing-lists/${l.pl_id}`" class="sub enlace">{{ t('PL {0}', [l.pl]) }}</router-link>
                       </td>
                       <td>
                         <template v-if="l.embarque_id">
-                          <router-link v-if="esInterno()" :to="`/transporte/embarques/${l.embarque_id}`" class="codigo">{{ tx(l.embarque) }}</router-link>
+                          <router-link v-if="esInterno()" :to="`/transporte/embarques/${l.embarque_id}`" class="enlace codigo">{{ tx(l.embarque) }}</router-link>
                           <span v-else class="codigo">{{ tx(l.embarque) }}</span>
                           <span class="sub codigo">{{ tx(l.contenedor) }}<template v-if="l.documento"> · {{ tx(l.documento) }}</template></span>
                         </template>

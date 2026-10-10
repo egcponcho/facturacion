@@ -156,7 +156,7 @@ onMounted(cargar)
         <tr v-else-if="!datos.items.length"><td colspan="11" class="vacio">{{ t('No documents match these filters.') }}</td></tr>
         <tr v-for="f in datos.items" :key="`${f.factura_id}-${f.pl_id}`">
           <td>
-            <router-link :to="`/facturas/${f.factura_id}`" class="fuerte">{{ tx(f.factura) }}</router-link>
+            <router-link :to="`/facturas/${f.factura_id}`" class="enlace-doc"><strong class="codigo">{{ tx(f.factura) }}</strong></router-link>
             <span class="sub codigo">{{ tx(f.ocs.join(', ')) }}</span>
           </td>
           <td v-if="!sesion.proveedorId">{{ tx(f.proveedor) }}</td>
@@ -164,7 +164,7 @@ onMounted(cargar)
           <td><EstadoBadge :estado="f.estado_factura" /><span v-if="f.pendientes_factura" class="sub">{{ t('{0} fields to complete', [f.pendientes_factura]) }}</span></td>
           <td>
             <template v-if="f.pl_id">
-              <router-link :to="`/packing-lists/${f.pl_id}`" class="cajas-rango">{{ tx(f.pl) }}</router-link> <EstadoBadge :estado="f.estado_pl" />
+              <router-link :to="`/packing-lists/${f.pl_id}`" class="enlace codigo">{{ tx(f.pl) }}</router-link> <EstadoBadge :estado="f.estado_pl" />
             </template>
             <span v-else class="ayuda">{{ t('No packing list') }}</span>
           </td>
@@ -176,7 +176,7 @@ onMounted(cargar)
             <template v-if="f.embarque_id">
               <span class="codigo">{{ tx(f.contenedor) }}</span>
               <span class="sub">
-                <router-link v-if="esInterno()" :to="`/transporte/embarques/${f.embarque_id}`">{{ tx(f.embarque) }}</router-link><template v-else>{{ tx(f.embarque) }}</template>
+                <router-link v-if="esInterno()" :to="`/transporte/embarques/${f.embarque_id}`" class="enlace codigo">{{ tx(f.embarque) }}</router-link><template v-else>{{ tx(f.embarque) }}</template>
                 {{ t('· ETA {0}', [fmtFecha(f.eta)]) }}
               </span>
             </template>

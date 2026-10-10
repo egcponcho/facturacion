@@ -744,6 +744,4 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
 .bandeja { margin-bottom: 12px; align-items: center; }
 .bandeja > span { flex: 1; }
 .bandeja a { margin-inline-start: 8px; color: inherit; font-weight: 650; }
-.enlace-doc { color: inherit; text-decoration: none; }
-.enlace-doc:hover .codigo { text-decoration: underline; }
 </style>

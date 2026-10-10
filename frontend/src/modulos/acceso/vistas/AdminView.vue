@@ -12,6 +12,8 @@ import Avatar from '@/componentes/Avatar.vue'
 import MenuAcciones from '@/componentes/MenuAcciones.vue'
 import PanelFlujo from '@/modulos/acceso/componentes/PanelFlujo.vue'
 import PanelBitacora from '@/modulos/acceso/componentes/PanelBitacora.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
+import { buscador } from '@/nucleo/busqueda.js'
 import { puede, sesion } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFechaHora } from '@/nucleo/utils'
@@ -29,6 +31,7 @@ const PESTANAS = [['usuarios', t('Users')], ['roles', t('Roles and access')], ['
 const pestana = ref(PESTANAS.some(([k]) => k === route.query.tab) ? route.query.tab : 'usuarios')
 function elegirPestana(k) {
   pestana.value = k
+  q.value = ''
   router.replace({ query: { ...route.query, tab: k } })
 }
 const ALCANCE = { admin: t('Administrator'), interno: t('Internal team'), proveedor: t('Supplier user') }
@@ -38,6 +41,45 @@ const catalogo = ref([])
 const gruposDatos = ref([])
 const panelesInicio = ref([])
 const rolesActivos = computed(() => roles.value.filter((r) => r.activo))
+
+// Tablas con el aspecto de órdenes de compra (TablaDatos en modo local): el
+// buscador de la pestaña filtra antes de pasar las filas
+const q = ref('')
+const filtrar = (lista, campos) => {
+  const coincide = buscador(q.value)
+  return lista.filter((x) => coincide(campos(x)))
+}
+const ESTADOS_ACTIVO = [[true, t('Active')], [false, t('Inactive')]]
+const usuariosVista = computed(() => filtrar(usuarios.value, (u) => [u.nombre, u.email, u.cargo, u.area, u.rol_nombre, u.proveedor, u.telefono]))
+const rolesVista = computed(() => filtrar(roles.value, (r) => [r.nombre, r.descripcion]))
+const proveedoresVista = computed(() => filtrar(proveedores.value, (p) => [p.codigo, p.nombre]))
+const colUsuarios = computed(() => [
+  { clave: 'nombre', texto: t('Name'), fija: true, prioridad: 1, filtro: 'texto' },
+  { clave: 'email', texto: t('Email'), prioridad: 2, filtro: 'texto' },
+  { clave: 'rol', texto: t('Role'), prioridad: 2, filtro: 'opcion', valor: (u) => u.rol_nombre || '', opciones: roles.value.map((r) => [r.nombre, r.nombre]) },
+  { clave: 'proveedor', texto: t('Supplier'), prioridad: 3, filtro: 'opcion', valor: (u) => u.proveedor || t('Internal'),
+    opciones: [[t('Internal'), t('Internal')], ...proveedores.value.map((p) => [p.nombre, p.nombre])] },
+  { clave: 'telefono', texto: t('Registered mobile'), prioridad: 3 },
+  { clave: 'activo', texto: t('Status'), prioridad: 2, filtro: 'opcion', valor: (u) => u.activo, opciones: ESTADOS_ACTIVO },
+])
+const colRoles = [
+  { clave: 'nombre', texto: t('Role'), fija: true, prioridad: 1, filtro: 'texto' },
+  { clave: 'acceso', texto: t('Access'), prioridad: 2, valor: (r) => r.permisos.length },
+  { clave: 'usuarios', texto: t('Users'), num: true, prioridad: 2 },
+  { clave: 'activo', texto: t('Status'), prioridad: 2, filtro: 'opcion', opciones: ESTADOS_ACTIVO },
+]
+const colProveedores = [
+  { clave: 'codigo', texto: t('Code'), fija: true, prioridad: 1 },
+  { clave: 'nombre', texto: t('Name'), prioridad: 1, filtro: 'texto' },
+  { clave: 'activo', texto: t('Status'), prioridad: 2, filtro: 'opcion', opciones: ESTADOS_ACTIVO },
+  { clave: 'usuarios', texto: t('Users'), num: true, prioridad: 2, valor: (p) => usuarios.value.filter((u) => u.proveedor_id === p.id).length },
+]
+const AYUDA_PESTANA = {
+  usuarios: t('Each supplier user only sees their own supplier\'s POs, invoices and packing lists. Every user signs in with two-step verification: a code sent by SMS to their registered mobile.'),
+  roles: t('Create each role with a name, a description and the permissions you choose, then assign it to users. What data a user sees depends on the user: with a supplier assigned, only that supplier’s data.'),
+  proveedores: t('Suppliers are maintained in one place, Master data → Suppliers, with their validation, owners and history. Here you see them to give users access.'),
+  bitacora: t('Who changed what and when: documents, approvals, master data, users, roles and company settings.'),
+}
 const rolDe = (id) => roles.value.find((r) => r.id === Number(id))
 // Permisos del rol que no aplican a un usuario de proveedor (datos globales o administración)
 const noAplicanProveedor = (id) => {
@@ -167,7 +209,12 @@ onMounted(cargar)
   <div class="pagina-cabeza">
     <div>
       <h1>{{ t('Users and access') }}</h1>
-      <p>{{ t('Each supplier user only sees their own supplier\'s POs, invoices and packing lists. Every user signs in with two-step verification: a code sent by SMS to their registered mobile.') }}</p>
+      <p>{{ tx(AYUDA_PESTANA[pestana] || AYUDA_PESTANA.usuarios) }}</p>
+    </div>
+    <div class="acciones">
+      <button v-if="pestana === 'usuarios'" class="btn btn-primario" type="button" @click="modal = 'usuario'"><Icono nombre="mas" />{{ t('New user') }}</button>
+      <button v-if="pestana === 'roles'" class="btn btn-primario" type="button" @click="abrirRol(null)"><Icono nombre="mas" />{{ t('New role') }}</button>
+      <router-link v-if="pestana === 'proveedores' && puede('catalogos.ver')" to="/mantenimiento?catalogo=proveedores" class="btn"><Icono nombre="base" />{{ t('Open in master data') }}</router-link>
     </div>
   </div>
   <div class="pestanas-pildora" role="tablist">
@@ -177,95 +224,74 @@ onMounted(cargar)
     </button>
   </div>
 
-  <section v-if="pestana === 'proveedores'" class="panel">
-    <div class="panel-cabeza">
-      <div><h2>{{ t('Suppliers') }}</h2><p class="sub-panel">{{ t('Suppliers are maintained in one place, Master data → Suppliers, with their validation, owners and history. Here you see them to give users access.') }}</p></div>
-      <router-link v-if="puede('catalogos.ver')" to="/mantenimiento?catalogo=proveedores" class="btn"><Icono nombre="base" />{{ t('Open in master data') }}</router-link>
-    </div>
-    <div class="tabla-marco">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Name') }}</th><th>{{ t('Status') }}</th><th>{{ t('Users') }}</th></tr></thead>
-        <tbody>
-          <tr v-for="p in proveedores" :key="p.id">
-            <td class="codigo">{{ tx(p.codigo) }}</td>
-            <td>{{ tx(p.nombre) }}</td>
-            <td><span class="etiqueta" :class="p.activo ? 'ok' : ''">{{ tx(p.activo ? t('Active') : t('Inactive')) }}</span></td>
-            <td>{{ tx(usuarios.filter((u) => u.proveedor_id === p.id).length) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <TablaDatos v-if="pestana === 'proveedores'" tabla="acceso_proveedores" :columnas="colProveedores" :filas="proveedoresVista" orden-inicial="nombre:asc" :etiqueta="t('Suppliers')">
+    <template #barra>
+      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="q" type="search" :placeholder="t('Search code or name')" :aria-label="t('Search')" /></label>
+    </template>
+    <template #celda-codigo="{ fila: p }"><strong class="codigo">{{ tx(p.codigo) }}</strong></template>
+    <template #celda-activo="{ fila: p }"><span class="etiqueta ms-0" :class="p.activo ? 'ok' : ''">{{ tx(p.activo ? t('Active') : t('Inactive')) }}</span></template>
+    <template #celda-usuarios="{ fila: p }">{{ tx(usuarios.filter((u) => u.proveedor_id === p.id).length) }}</template>
+    <template #vacio>{{ q ? t('No records match these filters.') : t('No records yet.') }}</template>
+  </TablaDatos>
 
-  <section v-if="pestana === 'roles'" class="panel">
-    <div class="panel-cabeza">
-      <div><h2>{{ t('Roles and access') }}</h2><p class="sub-panel">{{ t('Create each role with a name, a description and the permissions you choose, then assign it to users. What data a user sees depends on the user: with a supplier assigned, only that supplier’s data.') }}</p></div>
-      <button class="btn btn-primario" @click="abrirRol(null)"><Icono nombre="mas" />{{ t('New role') }}</button>
-    </div>
-    <div class="tabla-marco">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Role') }}</th><th>{{ t('Access') }}</th><th>{{ t('Users') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
-        <tbody>
-          <tr v-for="r in roles" :key="r.id">
-            <td><strong>{{ tx(r.nombre) }}</strong><span class="sub">{{ tx(r.descripcion || '—') }}</span></td>
-            <td class="envolver">
-              <span class="fuerte">{{ t('{0} of {1}', [r.permisos.length, totalPermisos]) }}</span>
-              <span class="sub">{{ catalogo.filter((m) => m.permisos.some((p) => r.permisos.includes(p.clave))).map((m) => tx(m.modulo)).join(' · ') || t('No access') }}</span>
-              <span v-if="r.datos_ocultos?.length" class="sub aviso-texto"><Icono nombre="ojo" :tam="13" /> {{ t('Does not see: {0}', [gruposDatos.filter((g) => r.datos_ocultos.includes(g.clave)).map((g) => tx(g.etiqueta)).join(' · ')]) }}</span>
-            </td>
-            <td class="num">{{ tx(r.usuarios) }}</td>
-            <td><span class="etiqueta ms-0" :class="r.activo ? 'ok' : ''">{{ tx(r.activo ? t('Active') : t('Inactive')) }}</span></td>
-            <td class="fila-flex">
-              <button class="btn btn-chico" @click="abrirRol(r)"><Icono nombre="editar" :tam="14" />{{ t('Edit') }}</button>
-              <button class="btn-icono texto-error" :disabled="r.usuarios > 0" :title="tx(r.usuarios ? t('Assign its users another role first') : t('Delete role'))" :aria-label="t('Delete role {0}', [r.nombre])" @click="borrarRol(r)"><Icono nombre="basura" :tam="15" /></button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <TablaDatos v-if="pestana === 'roles'" tabla="acceso_roles" :columnas="colRoles" :filas="rolesVista" :etiqueta="t('Roles and access')">
+    <template #barra>
+      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="q" type="search" :placeholder="t('Search role')" :aria-label="t('Search')" /></label>
+    </template>
+    <template #celda-nombre="{ fila: r }"><strong>{{ tx(r.nombre) }}</strong><span class="sub">{{ tx(r.descripcion || '—') }}</span></template>
+    <template #celda-acceso="{ fila: r }">
+      <div class="envolver">
+        <span class="fuerte">{{ t('{0} of {1}', [r.permisos.length, totalPermisos]) }}</span>
+        <span class="sub">{{ catalogo.filter((m) => m.permisos.some((p) => r.permisos.includes(p.clave))).map((m) => tx(m.modulo)).join(' · ') || t('No access') }}</span>
+        <span v-if="r.datos_ocultos?.length" class="sub aviso-texto"><Icono nombre="ojo" :tam="13" /> {{ t('Does not see: {0}', [gruposDatos.filter((g) => r.datos_ocultos.includes(g.clave)).map((g) => tx(g.etiqueta)).join(' · ')]) }}</span>
+      </div>
+    </template>
+    <template #celda-activo="{ fila: r }"><span class="etiqueta ms-0" :class="r.activo ? 'ok' : ''">{{ tx(r.activo ? t('Active') : t('Inactive')) }}</span></template>
+    <template #acciones="{ fila: r }">
+      <div class="acciones-apiladas">
+        <button class="btn btn-chico" type="button" @click="abrirRol(r)"><Icono nombre="editar" :tam="14" />{{ t('Edit') }}</button>
+        <button class="btn btn-chico btn-fantasma texto-error" type="button" :disabled="r.usuarios > 0" :title="tx(r.usuarios ? t('Assign its users another role first') : t('Delete role'))"
+                :aria-label="t('Delete role {0}', [r.nombre])" @click="borrarRol(r)"><Icono nombre="basura" :tam="14" />{{ t('Delete') }}</button>
+      </div>
+    </template>
+  </TablaDatos>
 
   <PanelFlujo v-if="pestana === 'flujo'" />
   <PanelBitacora v-if="pestana === 'bitacora'" />
 
-  <section v-if="pestana === 'usuarios'" class="panel">
-    <div class="panel-cabeza"><h2>{{ t('Users') }}</h2><button class="btn btn-primario" @click="modal = 'usuario'"><Icono nombre="mas" />{{ t('New user') }}</button></div>
-    <div class="tabla-marco">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Email') }}</th><th>{{ t('Role') }}</th><th>{{ t('Supplier') }}</th><th>{{ t('Registered mobile') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
-        <tbody>
-          <tr v-for="u in usuarios" :key="u.id">
-            <td><span class="usuario-fila"><Avatar :nombre="u.nombre" :foto="u.foto" :tam="30" /><span>{{ tx(u.nombre) }}<span class="sub">{{ tx([u.cargo, u.area].filter(Boolean).join(' · ')) }}</span>
-              <span v-if="u.clave_temporal" class="etiqueta aviso ms-0">{{ t('Temporary password') }}</span></span></span></td>
-            <td>{{ tx(u.email) }}</td>
-            <td>{{ tx(u.rol_nombre || '—') }}<span v-if="tx(u.rol_nombre) !== tx(ALCANCE[u.rol])" class="sub">{{ tx(ALCANCE[u.rol]) }}</span></td>
-            <td>{{ tx(u.proveedor || t('Internal')) }}</td>
-            <td>
-              <span v-if="u.telefono" class="codigo">{{ tx(u.telefono) }}</span>
-              <span v-else class="etiqueta aviso ms-0">{{ t('Not registered') }}</span>
-              <span class="sub">{{ tx(u.dos_pasos ? t('With SMS code') : t('Password only')) }}</span>
-            </td>
-            <td>
-              <span class="etiqueta ms-0" :class="u.activo ? 'ok' : ''">{{ tx(u.activo ? t('Active') : t('Inactive')) }}</span>
-              <span class="sub" :title="t('Last sign-in')">{{ tx(u.ultimo_acceso ? fmtFechaHora(u.ultimo_acceso) : t('Never signed in')) }}</span>
-              <span v-if="u.bloqueado" class="etiqueta error" :title="t('Too many failed attempts. Resetting the password unlocks it.')">{{ t('Locked') }}</span>
-              <span v-if="u.plataforma" class="etiqueta info" :title="t('Creates organizations, enters any of them and maintains the shared reference data')">{{ t('Platform') }}</span>
-            </td>
-            <td class="num">
-              <MenuAcciones :etiqueta="t('Actions for {0}', [u.email])">
-                <button type="button" role="menuitem" @click="abrirRolUsuario(u)">{{ t('Role and data scope') }}</button>
-                <button type="button" role="menuitem" @click="modal = { tipo: 'telefono', usuario: u, telefono: u.telefono || '', dos_pasos: u.dos_pasos }">{{ t('Mobile') }}</button>
-                <button type="button" role="menuitem" @click="modal = { tipo: 'datos', usuario: u, nombre: u.nombre, email: u.email, cargo: u.cargo || '', area: u.area || '', empresa: u.empresa || '' }">{{ t('Edit data') }}</button>
-                <button type="button" role="menuitem" @click="modal = { tipo: 'clave', usuario: u, clave: '' }">{{ t('Reset password') }}</button>
-                <button type="button" role="menuitem" @click="actualizar(`/usuarios/${u.id}`, { activo: !u.activo }, t('User updated.'))">{{ tx(u.activo ? t('Deactivate') : t('Activate')) }}</button>
-                <button v-if="sesion.usuario?.plataforma && !u.proveedor_id" type="button" role="menuitem" @click="actualizar(`/usuarios/${u.id}`, { plataforma: !u.plataforma }, t('User updated.'))">{{ u.plataforma ? t('Remove platform administration') : t('Make platform administrator') }}</button>
-              </MenuAcciones>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <TablaDatos v-if="pestana === 'usuarios'" tabla="acceso_usuarios" :columnas="colUsuarios" :filas="usuariosVista" orden-inicial="nombre:asc" :etiqueta="t('Users')">
+    <template #barra>
+      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="q" type="search" :placeholder="t('Search name, email or mobile')" :aria-label="t('Search')" /></label>
+    </template>
+    <template #celda-nombre="{ fila: u }">
+      <span class="usuario-fila"><Avatar :nombre="u.nombre" :foto="u.foto" :tam="30" /><span><strong>{{ tx(u.nombre) }}</strong><span class="sub">{{ tx([u.cargo, u.area].filter(Boolean).join(' · ')) }}</span>
+        <span v-if="u.clave_temporal" class="etiqueta aviso ms-0">{{ t('Temporary password') }}</span></span></span>
+    </template>
+    <template #celda-rol="{ fila: u }">{{ tx(u.rol_nombre || '—') }}<span v-if="tx(u.rol_nombre) !== tx(ALCANCE[u.rol])" class="sub">{{ tx(ALCANCE[u.rol]) }}</span></template>
+    <template #celda-proveedor="{ fila: u }">{{ tx(u.proveedor || t('Internal')) }}</template>
+    <template #celda-telefono="{ fila: u }">
+      <span v-if="u.telefono" class="codigo">{{ tx(u.telefono) }}</span>
+      <span v-else class="etiqueta aviso ms-0">{{ t('Not registered') }}</span>
+      <span class="sub">{{ tx(u.dos_pasos ? t('With SMS code') : t('Password only')) }}</span>
+    </template>
+    <template #celda-activo="{ fila: u }">
+      <span class="etiqueta ms-0" :class="u.activo ? 'ok' : ''">{{ tx(u.activo ? t('Active') : t('Inactive')) }}</span>
+      <span class="sub" :title="t('Last sign-in')">{{ tx(u.ultimo_acceso ? fmtFechaHora(u.ultimo_acceso) : t('Never signed in')) }}</span>
+      <span v-if="u.bloqueado" class="etiqueta error" :title="t('Too many failed attempts. Resetting the password unlocks it.')">{{ t('Locked') }}</span>
+      <span v-if="u.plataforma" class="etiqueta info" :title="t('Creates organizations, enters any of them and maintains the shared reference data')">{{ t('Platform') }}</span>
+    </template>
+    <template #acciones="{ fila: u }">
+      <MenuAcciones :etiqueta="t('Actions for {0}', [u.email])">
+        <button type="button" role="menuitem" @click="abrirRolUsuario(u)">{{ t('Role and data scope') }}</button>
+        <button type="button" role="menuitem" @click="modal = { tipo: 'telefono', usuario: u, telefono: u.telefono || '', dos_pasos: u.dos_pasos }">{{ t('Mobile') }}</button>
+        <button type="button" role="menuitem" @click="modal = { tipo: 'datos', usuario: u, nombre: u.nombre, email: u.email, cargo: u.cargo || '', area: u.area || '', empresa: u.empresa || '' }">{{ t('Edit data') }}</button>
+        <button type="button" role="menuitem" @click="modal = { tipo: 'clave', usuario: u, clave: '' }">{{ t('Reset password') }}</button>
+        <button type="button" role="menuitem" @click="actualizar(`/usuarios/${u.id}`, { activo: !u.activo }, t('User updated.'))">{{ tx(u.activo ? t('Deactivate') : t('Activate')) }}</button>
+        <button v-if="sesion.usuario?.plataforma && !u.proveedor_id" type="button" role="menuitem" @click="actualizar(`/usuarios/${u.id}`, { plataforma: !u.plataforma }, t('User updated.'))">{{ u.plataforma ? t('Remove platform administration') : t('Make platform administrator') }}</button>
+      </MenuAcciones>
+    </template>
+    <template #vacio>{{ q ? t('No records match these filters.') : t('No records yet.') }}</template>
+  </TablaDatos>
 
   <Modal v-if="modal === 'usuario'" :titulo="t('New user')" ancho="620px" @cerrar="modal = null">
     <form id="form-usuario" class="rejilla-campos" @submit.prevent="crearUsuario">

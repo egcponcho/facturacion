@@ -68,19 +68,52 @@ es breve y cierra primero. Esc cierra solo la capa de más arriba
 
 ## Tablas y filtros
 
-`TablaDatos` es la tabla común (hoy en Facturas, Embarques y las líneas de la
-OC; las demás pantallas se migran a ella de a una):
+Todas las tablas siguen el modelo de la tabla de **órdenes de compra**:
 
-- **Barra:** filtros propios de la pantalla (ranura `barra`), vistas guardadas,
-  chips de los filtros activos con su cuenta y «Limpiar filtros», total de
-  registros, densidad y menú de columnas.
+- **Barra de filtros** (`.filtros` con `v-filtros`), en este orden: el
+  buscador (`.buscador`), las vistas guardadas, los demás filtros (segmentos
+  de estado o vista, selectores), «Más filtros» si hay muchos y el botón
+  «Columnas» con la cuenta de las visibles (`6/9`). En el celular solo queda el
+  buscador y el resto se abre con «Filtros».
+- **Chips** de los filtros activos debajo de la barra, cada uno con su ✕, y
+  «Limpiar filtros».
+- **Tabla** en `.tabla-marco.tabla-fija` (encabezado fijo al bajar) con
+  `table.tabla` y `v-tarjetas` (en el celular cada fila es una tarjeta con el
+  nombre de cada columna). La primera columna es el documento:
+  `router-link.enlace-doc > strong.codigo` (negrita, sin subrayar, se subraya
+  al pasar), su estado (`EstadoBadge`) y debajo una línea gris (`.sub`) con
+  fecha, cantidad de líneas o marca. Las referencias a otros documentos dentro
+  de la fila son `.enlace` (azul, sin subrayar). Montos y cantidades a la
+  derecha (`.num`). Las acciones de la fila al final, apiladas
+  (`.acciones-apiladas`), con la principal en `btn-primario`.
+- **Maestro-detalle:** una columna con la flecha (`btn-icono`) que abre una
+  fila hija (`.fila-hija`) con la subtabla (`.subtabla`).
+- **Pie:** `Paginacion` pegada a la tabla, con «1–25 de 80 registros», las
+  páginas y las filas por página.
+- **Carga y vacío:** `FilasEsqueleto` mientras carga; sin resultados, el motivo
+  y «Limpiar filtros»; vacía de verdad, `EstadoVacio` con lo que hace falta
+  para empezar.
+- La acción principal de la pantalla («Nueva OC», «Nuevo usuario») va en la
+  cabecera de la página, no en un panel encima de la tabla. Una tabla de lista
+  no va dentro de otra tarjeta.
+- Las listas grandes de un selector buscan en el servidor (`SelectBusqueda`
+  con `buscar`).
+
+`TablaDatos` arma todo eso de una vez y es la forma preferida para una lista
+nueva (hoy en Facturas, Embarques, las líneas de la OC, Usuarios, Roles,
+Proveedores y Organizaciones):
+
+- **Ranuras de la barra:** `barra` (el buscador, va primero) y `filtros` (los
+  demás, después de las vistas guardadas). `sin-barra` la quita para una tabla
+  dentro de un documento.
 - **Encabezados:** ordenan con un clic (asc → desc → sin orden) y tienen su
-  filtro (texto que contiene u opción de una lista).
-- **Columnas:** se muestran, se ocultan, se reordenan (menú «Columnas») y se
-  ensanchan arrastrando el borde del encabezado (o con las flechas). Las que el
-  rol no ve (`grupo`) no aparecen. Todo se guarda por persona y por tabla
-  (`PUT /perfil/tablas/{tabla}`), junto con la densidad (compacta, normal o
-  amplia).
+  filtro (texto que contiene u opción de una lista); el embudo aparece al pasar
+  por el encabezado o cuando el filtro está puesto.
+- **Columnas:** se muestran, se ocultan, se reordenan (menú «Columnas», que
+  también tiene la densidad: compacta, normal o amplia) y se ensanchan
+  arrastrando el borde del encabezado (o con las flechas). Las que el rol no ve
+  (`grupo`) no aparecen. Todo se guarda por persona y por tabla
+  (`PUT /perfil/tablas/{tabla}`).
 - **Celular («prioridad +»):** cada columna tiene prioridad 1, 2 o 3. Bajo
   720 px quedan las de prioridad 1 y bajo 900 px las de 1 y 2. El resto se ve
   al expandir la fila.
@@ -91,8 +124,3 @@ OC; las demás pantallas se migran a ella de a una):
   pantalla dibuja miles de filas.
 - **Detalle:** `expandible` y la ranura `detalle` para el maestro-detalle.
 
-Filtros de una pantalla: arriba, las vistas predefinidas de un clic
-(`.segmentos`) y la búsqueda. Los filtros por dato van en la columna. Las
-listas grandes de un selector buscan en el servidor (`SelectBusqueda` con
-`buscar`). Una lista sin resultados dice por qué y ofrece «Limpiar filtros»;
-una lista vacía de verdad usa `EstadoVacio` con lo que hace falta para empezar.

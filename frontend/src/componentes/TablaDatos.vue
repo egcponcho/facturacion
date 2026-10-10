@@ -5,14 +5,15 @@ import { api } from '@/nucleo/api'
 import { buscador } from '@/nucleo/busqueda.js'
 import { sesion, ve } from '@/stores/sesion'
 import { filasDefecto } from '@/stores/preferencias'
-import { plural } from '@/nucleo/utils'
 import FilasEsqueleto from './FilasEsqueleto.vue'
 import Icono from './Icono.vue'
 import Paginacion from './Paginacion.vue'
 import VistasGuardadas from './VistasGuardadas.vue'
 
-// Tabla de datos común (docs/DISENO.md). Barra con los filtros activos, la
-// densidad y las columnas; encabezados que ordenan; filtro por columna;
+// Tabla de datos común (docs/DISENO.md), con el aspecto de la tabla de órdenes
+// de compra: barra de filtros de la pantalla, vistas guardadas y «Columnas»
+// (con la densidad); chips de los filtros activos; encabezados que ordenan;
+// filtro por columna (el embudo aparece al pasar por el encabezado);
 // columnas que se muestran, se ocultan, se reordenan y se ensanchan (se guardan
 // por persona); tres densidades; «prioridad +» en el celular (las columnas
 // secundarias pasan al detalle de la fila); paginación y fila expandible.
@@ -27,7 +28,8 @@ import VistasGuardadas from './VistasGuardadas.vue'
 //   fija (no se oculta), inicial (false: empieza oculta), grupo (dato que el rol
 //   puede no ver), ancho (px) }]
 // Ranuras: celda-<clave> ({ fila, valor }), acciones ({ fila }),
-//   detalle ({ fila }), barra (filtros propios de la pantalla), vacio.
+//   detalle ({ fila }), barra (el buscador, va primero), filtros (los demás
+//   filtros de la pantalla, después de las vistas guardadas), vacio.
 const props = defineProps({
   tabla: { type: String, required: true },
   columnas: { type: Array, required: true },
@@ -48,6 +50,8 @@ const props = defineProps({
   // se guardan; al elegir una vista se devuelven en el evento `vista`.
   vistasGuardadas: Boolean,
   externos: { type: Object, default: () => ({}) },
+  // Tabla dentro de un documento (líneas, cajas): sin barra ni paginación si cabe en una página
+  sinBarra: Boolean,
 })
 const emit = defineEmits(['consulta', 'fila', 'vista'])
 
@@ -283,31 +287,27 @@ onMounted(() => document.addEventListener('mousedown', fuera))
 onBeforeUnmount(() => document.removeEventListener('mousedown', fuera))
 const DENSIDADES = [['compacta', t('Compact')], ['normal', t('Normal')], ['amplia', t('Comfortable')]]
 const filtrada = (c) => filtros[c.clave] !== undefined && filtros[c.clave] !== ''
+const ocultas = computed(() => listaColumnas.value.filter((c) => !c.visible).length)
+// Como en órdenes de compra: el pie con el total y las filas por página siempre
+// que haya filas (una tabla dentro de un documento solo si no cabe en una página)
+const conPaginacion = computed(() => (props.sinBarra ? totalFilas.value > tamano.value || pagina.value > 1 : totalFilas.value > 0 || pagina.value > 1))
 const vFoco = { mounted: (el) => el.focus() }
 </script>
 
 <template>
   <div ref="raiz" class="td" :class="`td-${conf.densidad}`">
-    <div class="td-barra">
+    <div v-if="!sinBarra" class="filtros" v-filtros>
       <slot name="barra" />
       <VistasGuardadas v-if="vistasGuardadas" :pantalla="tabla" :actual="consultaActual" @aplicar="aplicarVista" />
-      <div v-if="activos.length" class="td-activos">
-        <span v-for="a in activos" :key="a[0]" class="chip">{{ textoActivo(a) }}
-          <button type="button" :aria-label="t('Remove {0}', [textoActivo(a)])" @click="quitarFiltro(a[0])"><Icono nombre="cerrar" :tam="13" /></button></span>
-        <button type="button" class="btn btn-fantasma btn-chico" @click="limpiar">{{ t('Clear filters') }} ({{ tx(activos.length) }})</button>
-      </div>
-      <span class="td-total ayuda">{{ plural(totalFilas, t('record'), t('records')) }}</span>
-      <div class="segmentos td-densidad" role="group" :aria-label="t('Density')">
-        <button v-for="[d, txt] in DENSIDADES" :key="d" type="button" class="segmento" :aria-pressed="conf.densidad === d" :title="tx(txt)" @click="cambiarDensidad(d)">
-          <span class="td-icono-densidad" :class="d" aria-hidden="true"></span><span class="oculto-visual">{{ tx(txt) }}</span>
+      <slot name="filtros" />
+      <div class="sel-columnas" @keydown.esc="menuColumnas = false">
+        <button type="button" class="btn btn-fantasma" :aria-expanded="menuColumnas" aria-haspopup="true" @click="menuColumnas = !menuColumnas">
+          <Icono nombre="columnas" :tam="16" />{{ t('Columns') }}<span v-if="ocultas" class="cuenta">{{ listaColumnas.length - ocultas }}/{{ listaColumnas.length }}</span>
         </button>
-      </div>
-      <div class="td-menu-ancla">
-        <button type="button" class="btn btn-chico" :aria-expanded="menuColumnas" @click="menuColumnas = !menuColumnas"><Icono nombre="columnas" :tam="15" />{{ t('Columns') }}</button>
-        <div v-if="menuColumnas" class="td-menu" role="dialog" :aria-label="t('Columns')">
-          <p class="ayuda">{{ t('Show, hide and order the columns. Drag the edge of a header to make it wider.') }}</p>
+        <div v-if="menuColumnas" class="sel-columnas-menu td-menu" role="dialog" :aria-label="t('Columns')">
+          <p class="sel-columnas-ayuda">{{ t('Show, hide and order the columns. Drag the edge of a header to make it wider.') }}</p>
           <ul>
-            <li v-for="(c, i) in listaColumnas" :key="c.clave">
+            <li v-for="(c, i) in listaColumnas" :key="c.clave" class="sel-columnas-op">
               <label class="check"><input type="checkbox" :checked="c.visible" :disabled="c.fija" @change="alternarColumna(c.clave)" />{{ tx(c.texto) }}</label>
               <span class="td-mover">
                 <button type="button" class="btn-icono" :disabled="i === 0" :aria-label="t('Move {0} up', [tx(c.texto)])" @click="moverColumna(c.clave, -1)"><Icono nombre="arriba" :tam="14" /></button>
@@ -315,12 +315,23 @@ const vFoco = { mounted: (el) => el.focus() }
               </span>
             </li>
           </ul>
-          <button type="button" class="btn btn-fantasma btn-chico" @click="restaurar">{{ t('Restore default view') }}</button>
+          <div class="td-densidad">
+            <span class="sel-columnas-ayuda">{{ t('Density') }}</span>
+            <div class="segmentos" role="group" :aria-label="t('Density')">
+              <button v-for="[d, txt] in DENSIDADES" :key="d" type="button" class="segmento" :aria-pressed="conf.densidad === d" @click="cambiarDensidad(d)">{{ tx(txt) }}</button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-chico btn-fantasma" @click="restaurar">{{ t('Back to the initial view') }}</button>
         </div>
       </div>
     </div>
+    <div v-if="activos.length" class="chips">
+      <span v-for="a in activos" :key="a[0]" class="chip">{{ textoActivo(a) }}
+        <button type="button" :aria-label="t('Remove {0}', [textoActivo(a)])" @click="quitarFiltro(a[0])"><Icono nombre="cerrar" :tam="13" /></button></span>
+      <button type="button" class="btn btn-fantasma btn-chico" @click="limpiar">{{ t('Clear filters') }}</button>
+    </div>
 
-    <div class="tabla-marco">
+    <div class="tabla-marco" :class="{ 'tabla-fija': conPaginacion }">
       <table class="tabla" :aria-label="tx(etiqueta) || undefined" :aria-busy="cargando">
         <thead>
           <tr>
@@ -356,7 +367,7 @@ const vFoco = { mounted: (el) => el.focus() }
             <tr :class="{ clicable: filaClicable, 'fila-activa': filaActiva !== null && filaActiva === clave(fila) }" @click="filaClicable && emit('fila', fila)">
               <td v-if="conDetalle" class="td-exp">
                 <button type="button" class="btn-icono" :aria-expanded="abiertas.has(clave(fila))" :aria-label="t('Show detail')" @click.stop="alternar(fila)">
-                  <Icono :nombre="abiertas.has(clave(fila)) ? 'abajo' : 'derecha'" :tam="15" /></button>
+                  <Icono :nombre="abiertas.has(clave(fila)) ? 'abajo' : 'derecha'" :tam="16" /></button>
               </td>
               <td v-for="c in enPantalla" :key="c.clave" :class="{ num: c.num }" :style="estiloColumna(c)">
                 <slot :name="`celda-${c.clave}`" :fila="fila" :valor="fila[c.clave]">{{ tx(fila[c.clave] ?? '—') }}</slot>
@@ -388,33 +399,26 @@ const vFoco = { mounted: (el) => el.focus() }
         </tbody>
       </table>
     </div>
-    <Paginacion v-if="totalFilas > tamano || pagina > 1" :page="pagina" :size="tamano" :total="totalFilas"
+    <Paginacion v-if="conPaginacion" :page="pagina" :size="tamano" :total="totalFilas"
                 @cambiar="(p) => (pagina = p)" @tamano="(n) => { tamano = n; pagina = 1 }" />
   </div>
 </template>
 
 <style scoped>
-.td-barra { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e-2); margin-bottom: var(--e-3); }
-.td-activos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.td-total { margin-inline-start: auto; }
-.td-menu-ancla { position: relative; }
-.td-menu { position: absolute; inset-inline-end: 0; top: calc(100% + 6px); z-index: 30; width: 300px; max-height: 420px; overflow: auto; padding: 12px;
-  background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); box-shadow: var(--sombra-flotante); }
-.td-menu ul { list-style: none; margin: 8px 0; padding: 0; }
-.td-menu li { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 2px 0; }
+.td-menu { width: 300px; }
+.td-menu ul { list-style: none; margin: 0; padding: 0; }
+.td-menu li { justify-content: space-between; gap: 6px; padding: 2px 6px; }
 .td-mover { display: inline-flex; }
-.td-icono-densidad { display: inline-block; width: 14px; height: 12px; background:
-  linear-gradient(currentColor, currentColor) 0 0 / 100% 2px no-repeat,
-  linear-gradient(currentColor, currentColor) 0 50% / 100% 2px no-repeat,
-  linear-gradient(currentColor, currentColor) 0 100% / 100% 2px no-repeat; }
-.td-icono-densidad.compacta { height: 8px; }
-.td-icono-densidad.amplia { height: 15px; }
+.td-densidad { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--linea-suave); }
+.td-densidad .sel-columnas-ayuda { margin: 0 6px; }
 .td-th { display: flex; align-items: center; gap: 2px; }
 th.num .td-th { justify-content: flex-end; }
 .td-flecha { opacity: 0.35; }
 .td-flecha.activa { opacity: 1; color: var(--acento); }
-.td-filtrar { padding: 3px; opacity: 0.5; }
-.td-filtrar.activo, th:hover .td-filtrar { opacity: 1; }
+/* El embudo no recarga el encabezado: aparece al pasar o con el filtro puesto */
+.td-filtrar { padding: 3px; opacity: 0; transition: opacity 0.12s; }
+.td-filtrar.activo, .td-filtrar[aria-expanded='true'], .td-filtrar:focus-visible, th:hover .td-filtrar { opacity: 1; }
+@media (hover: none) { .td-filtrar { opacity: 0.5; } }
 .td-filtrar.activo { color: var(--acento); }
 th { position: relative; }
 .td-filtrada { background: var(--acento-claro); }
@@ -434,8 +438,4 @@ th { position: relative; }
 /* Densidad: alto de las filas */
 .td-compacta :deep(.tabla td), .td-compacta :deep(.tabla th) { padding-top: 4px; padding-bottom: 4px; font-size: 0.84rem; }
 .td-amplia :deep(.tabla td) { padding-top: 14px; padding-bottom: 14px; }
-@media (max-width: 720px) {
-  .td-densidad { display: none; }
-  .td-total { margin-inline-start: 0; }
-}
 </style>

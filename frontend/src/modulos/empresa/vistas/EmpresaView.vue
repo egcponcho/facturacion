@@ -209,7 +209,7 @@ async function guardar() {
       </div>
       <p v-if="!datos.campos_propios[entidadCampos]?.length" class="ayuda">{{ t('No own fields for this entity.') }}</p>
       <div v-else class="tabla-marco">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Type') }}</th><th>{{ t('Options (comma-separated)') }}</th><th>{{ t('Required') }}</th><th /></tr></thead>
           <tbody>
             <tr v-for="(c, i) in datos.campos_propios[entidadCampos]" :key="i">
@@ -229,7 +229,7 @@ async function guardar() {
         <button type="button" class="btn btn-chico" @click="terminos.push({ original: '', es: '', en: '' })"><Icono nombre="mas" :tam="14" />{{ t('Add text') }}</button></div>
       <p v-if="!terminos.length" class="ayuda">{{ t('No own texts: the system uses its standard terminology.') }}</p>
       <div v-else class="tabla-marco">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Original text (English)') }}</th><th>{{ t('Spanish') }}</th><th>{{ t('English') }}</th><th /></tr></thead>
           <tbody>
             <tr v-for="(f, i) in terminos" :key="i">
@@ -248,7 +248,7 @@ async function guardar() {
         <button type="button" class="btn btn-chico" @click="nuevaRegla"><Icono nombre="mas" :tam="14" />{{ t('Add rule') }}</button></div>
       <p v-if="!datos.aprobaciones_oc.length" class="ayuda">{{ t('No approval rules: POs are approved when they are sent.') }}</p>
       <div v-else class="tabla-marco">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Name') }}</th><th class="num">{{ t('From amount') }}</th><th>{{ t('Currency') }}</th><th>{{ t('Company') }}</th><th>{{ t('Approved by role') }}</th><th /></tr></thead>
           <tbody>
             <tr v-for="(r, i) in datos.aprobaciones_oc" :key="i">

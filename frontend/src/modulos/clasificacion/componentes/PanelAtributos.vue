@@ -252,7 +252,7 @@ async function sincronizar() {
           <h4>{{ t('Options') }} <span class="cuenta">{{ tx(det.opciones.length) }}</span></h4>
           <p v-if="!det.opciones.length" class="ayuda">{{ t('No options yet: add the values the product sheet can choose.') }}</p>
           <div class="tabla-marco">
-            <table class="tabla">
+            <table class="tabla" v-tarjetas>
               <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Label') }}</th><th>{{ t('Synonyms') }}</th><th>{{ t('Order') }}</th><th>{{ t('Active') }}</th><th>{{ t('Behavior') }}</th></tr></thead>
               <tbody>
                 <tr v-for="o in det.opciones" :key="o.id" :class="{ apagada: !o.activo }">
@@ -277,7 +277,7 @@ async function sincronizar() {
 
         <h4>{{ t('Where it is asked') }} <span class="cuenta">{{ tx(det.ambitos.length) }}</span></h4>
         <div class="tabla-marco ambitos">
-          <table class="tabla">
+          <table class="tabla" v-tarjetas>
             <thead><tr><th>{{ t('Asked in') }}</th><th>{{ t('Mode') }}</th><th>{{ t('Priority') }}</th><th>{{ t('When') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="x in det.ambitos" :key="x.id" :class="{ apagada: !x.activo }">

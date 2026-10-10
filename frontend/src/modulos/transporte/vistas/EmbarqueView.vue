@@ -447,8 +447,8 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
             <tbody>
               <tr v-for="p in tablaA.filas.value" :key="p.id" :class="{ seleccionada: selA.tiene(p.id) }">
                 <td v-if="!bloqueado" class="chk"><input type="checkbox" :aria-label="t('Select {0} {1}', [p.factura, p.numero])" :checked="selA.tiene(p.id)" @change="selA.alternar(p.id)" /></td>
-                <td><router-link :to="`/facturas/${p.factura_id}`" class="fuerte">{{ tx(p.factura) }}</router-link><span class="sub codigo">{{ tx(p.ocs?.join(', ')) }}</span></td>
-                <td><router-link :to="`/packing-lists/${p.id}`" class="cajas-rango">{{ tx(p.numero) }}</router-link> <EstadoBadge :estado="p.estado" /></td>
+                <td><router-link :to="`/facturas/${p.factura_id}`" class="enlace-doc"><strong class="codigo">{{ tx(p.factura) }}</strong></router-link><span class="sub codigo">{{ tx(p.ocs?.join(', ')) }}</span></td>
+                <td><router-link :to="`/packing-lists/${p.id}`" class="enlace codigo">{{ tx(p.numero) }}</router-link> <EstadoBadge :estado="p.estado" /></td>
                 <td>{{ tx(p.proveedor) }}<span v-if="p.marcas?.length" class="sub">{{ tx(p.marcas.join(' · ')) }}</span></td>
                 <td>
                   <EstadoBadge :estado="p.asignacion" />

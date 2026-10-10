@@ -131,7 +131,7 @@ const valor = (v) => (v === null || v === undefined || v === '' ? '—' : typeof
       </div>
       <p v-if="!lote.filas.length && !lote.errores.length" class="ayuda">{{ t('The file matches what is in force: nothing would change.') }}</p>
       <div v-if="filas.length" class="tabla-marco diffs">
-        <table class="tabla">
+        <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Data') }}</th><th>{{ t('Key') }}</th><th>{{ t('Change') }}</th><th>{{ t('Before → after') }}</th></tr></thead>
           <tbody>
             <tr v-for="f in filas.slice(0, 300)" :key="f.id">

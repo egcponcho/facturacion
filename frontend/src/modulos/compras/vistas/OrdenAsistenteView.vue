@@ -490,7 +490,7 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
         <div class="panel-cabeza"><div><h2>{{ t('Prices') }}</h2><p>{{ t('Unit price of each line, in the currency of the PO.') }}</p></div>
           <span class="etiqueta acento">{{ t('Total') }} {{ fmtMoneda(total, cab.moneda) }}</span></div>
         <div class="tabla-marco">
-          <table class="tabla">
+          <table class="tabla" v-tarjetas>
             <thead><tr><th>#</th><th>{{ t('Item') }}</th><th class="num">{{ t('Quantity') }}</th><th class="num">{{ t('Unit price') }}</th><th class="num">{{ t('Amount') }}</th></tr></thead>
             <tbody>
               <tr v-for="(l, i) in lineas" :key="i" :class="{ 'con-error': msjsLinea(i, 'precio').length }">
@@ -611,7 +611,7 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
         <div class="panel-cabeza"><h2>{{ t('Lines ({0})', [lineas.filter((l) => l.codigo_sap).length]) }}</h2>
           <button type="button" class="btn btn-chico btn-fantasma" @click="ir(1)"><Icono nombre="editar" :tam="14" />{{ t('Edit') }}</button></div>
         <div class="tabla-marco">
-          <table class="tabla">
+          <table class="tabla" v-tarjetas>
             <thead><tr><th>#</th><th>{{ t('Item') }}</th><th class="num">{{ t('Quantity') }}</th><th class="num">{{ t('Unit price') }}</th><th class="num">{{ t('Amount') }}</th><th>{{ t('Warehouse') }}</th></tr></thead>
             <tbody>
               <tr v-for="(l, i) in lineas" :key="i">

@@ -159,7 +159,7 @@ async function guardarModal() {
       <SelectBusqueda :model-value="f.pais" :opciones="paises.map((p) => ({ valor: p.iso, texto: `${p.iso} · ${p.nombre}` }))" :vacio="t('All countries')" :etiqueta="t('Country')" @update:model-value="filtrar('pais', $event)" />
       <button v-if="edita" class="btn btn-primario separar" @click="editor = { regla: null }"><Icono nombre="mas" />{{ t('New rule') }}</button>
     </div>
-    <div class="tabla-marco">
+    <div class="tabla-marco tabla-fija">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Rule') }}</th><th>{{ t('Type') }}</th><th>{{ t('Applies to') }}</th><th>{{ t('Conditions') }}</th><th class="num">{{ t('Priority') }}</th><th>{{ t('Active') }}</th><th></th></tr></thead>
         <tbody>

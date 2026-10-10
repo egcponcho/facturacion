@@ -268,7 +268,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
       <template v-if="!d.posiciones.length && lineasBorrador.length">
         <p class="ayuda">{{ t('Lines of the draft: they become PO lines when it is sent.') }}</p>
         <div class="tabla-marco">
-          <table class="tabla">
+          <table class="tabla" v-tarjetas>
             <thead><tr><th>#</th><th>{{ t('Item') }}</th><th class="num">{{ t('Quantity') }}</th><th class="num">{{ t('Unit price') }}</th></tr></thead>
             <tbody>
               <tr v-for="(l, i) in lineasBorrador" :key="i">

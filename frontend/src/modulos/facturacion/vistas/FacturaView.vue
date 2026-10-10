@@ -622,7 +622,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
           </thead>
           <tbody>
             <tr v-for="p in f.packing_lists" :key="p.id" class="clicable" :class="{ apagado: p.estado === 'CANCELADO' }" @click="router.push(`/packing-lists/${p.id}`)">
-              <td><router-link :to="`/packing-lists/${p.id}`" class="cajas-rango" @click.stop>{{ tx(p.numero) }}</router-link></td>
+              <td><router-link :to="`/packing-lists/${p.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(p.numero) }}</strong></router-link></td>
               <td><EstadoBadge :estado="p.estado" /></td>
               <td>{{ porUnidadTxt(p.totales.por_unidad, 'cantidad') }}<span class="sub">{{ plural(p.totales.cajas, t('carton'), t('cartons')) }}</span></td>
               <td style="min-width: 140px">
@@ -638,7 +638,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
               </td>
               <td>
                 <template v-if="p.transporte">
-                  <router-link v-if="esInterno()" :to="`/transporte/embarques/${p.transporte.embarque_id}`" @click.stop>{{ tx(p.transporte.embarque) }}</router-link>
+                  <router-link v-if="esInterno()" :to="`/transporte/embarques/${p.transporte.embarque_id}`" class="enlace codigo" @click.stop>{{ tx(p.transporte.embarque) }}</router-link>
                   <template v-else>{{ tx(p.transporte.embarque) }}</template>
                   <EstadoBadge :estado="p.transporte.estado" />
                   <span class="sub">{{ tx(p.transporte.documento ? t('B/L / AWB {0}', [p.transporte.documento]) : t('B/L / AWB pending')) }}<template v-if="p.transporte.ultimo_evento"> · {{ tx(p.transporte.ultimo_evento.tipo.toLowerCase()) }} {{ fmtFechaHoraLocal(p.transporte.ultimo_evento.fecha) }}</template></span>

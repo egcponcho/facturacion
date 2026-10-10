@@ -55,7 +55,7 @@ onMounted(cargar)
       <span class="ayuda separar">{{ t('{0} of {1} translated', [datos.total - datos.faltan, datos.total]) }}</span>
     </div>
     <div class="tabla-marco tabla-fija">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Text (English)') }}</th><th>{{ t('Translation') }}</th></tr></thead>
         <tbody>
           <tr v-for="x in datos.items" :key="x.texto">

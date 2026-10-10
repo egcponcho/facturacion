@@ -50,7 +50,7 @@ async function agregar() {
     <p class="ayuda">{{ t('The official tariff text is in Spanish. Here a word in English or a commercial term says which words of the official text it means (drill → taladro). It only helps find candidates; it never confirms a code.') }}</p>
     <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="q" type="search" :placeholder="t('Search')" :aria-label="t('Search')" /></label>
     <div class="tabla-marco">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Word') }}</th><th>{{ t('Words of the official text') }}</th><th>{{ t('Active') }}</th></tr></thead>
         <tbody>
           <tr v-if="edita" class="nueva">

@@ -128,7 +128,7 @@ onMounted(cargar)
               </button>
             </td>
             <td>
-              <router-link v-if="esInterno()" :to="`/transporte/embarques/${e.embarque_id}`" class="codigo fuerte" @click.stop>{{ tx(e.embarque) }}</router-link>
+              <router-link v-if="esInterno()" :to="`/transporte/embarques/${e.embarque_id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(e.embarque) }}</strong></router-link>
               <b v-else class="codigo">{{ tx(e.embarque) }}</b>
               <span class="sub"><Icono :nombre="datosModo(e.modo).icono" :tam="12" /> {{ datosModo(e.modo).nombre }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span>
             </td>
@@ -187,8 +187,8 @@ onMounted(cargar)
                               <td><span class="etiqueta ms-0">{{ tx(l.unidad) }}</span></td>
                               <td class="num">{{ fmtNum(l.cantidad) }}</td>
                               <td>
-                                <router-link v-if="l.factura_id" :to="`/facturas/${l.factura_id}`">{{ tx(l.factura) }}</router-link>
-                                <router-link v-if="l.pl_id" :to="`/packing-lists/${l.pl_id}`" class="sub">{{ t('PL {0}', [l.pl]) }}</router-link>
+                                <router-link v-if="l.factura_id" :to="`/facturas/${l.factura_id}`" class="enlace codigo">{{ tx(l.factura) }}</router-link>
+                                <router-link v-if="l.pl_id" :to="`/packing-lists/${l.pl_id}`" class="sub enlace">{{ t('PL {0}', [l.pl]) }}</router-link>
                               </td>
                             </tr>
                           </tbody>

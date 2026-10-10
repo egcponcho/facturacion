@@ -86,7 +86,7 @@ async function eliminar() {
           <div class="campo"><span>{{ t('Active') }}</span><Interruptor v-model="editando.activo" :etiqueta="t('Active')" /></div>
         </div>
         <div class="tabla-marco mt">
-          <table class="tabla">
+          <table class="tabla" v-tarjetas>
             <thead><tr><th>{{ t('Data') }}</th><th>{{ t('Column in your file') }}</th><th>{{ t('Default value') }}</th></tr></thead>
             <tbody>
               <tr v-for="c in camposVisibles" :key="c.campo">

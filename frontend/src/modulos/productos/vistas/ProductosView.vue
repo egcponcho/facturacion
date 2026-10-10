@@ -219,19 +219,16 @@ watch(() => sesion.proveedorId, recargar)
   </div>
 
   <div class="filtros" v-filtros>
-    <div class="segmentos" role="group" :aria-label="t('View')">
-      <button v-for="[v, txt, n] in VISTAS" :key="v" class="segmento" type="button" :aria-pressed="filtros.estado === v"
-              @click="filtros.estado = v; recargar()">{{ tx(txt) }}<span v-if="n !== undefined" class="cuenta">{{ tx(n) }}</span></button>
-    </div>
-  </div>
-  <div class="filtros" v-filtros>
     <label class="buscador">
       <Icono nombre="buscar" :tam="16" />
       <input v-model="filtros.q" type="search" :placeholder="t('Generic, style, color, name, item code, UPC or HS code')" :aria-label="t('Search')" @input="buscar" />
     </label>
+    <div class="segmentos" role="group" :aria-label="t('View')">
+      <button v-for="[v, txt, n] in VISTAS" :key="v" class="segmento" type="button" :aria-pressed="filtros.estado === v"
+              @click="filtros.estado = v; recargar()">{{ tx(txt) }}<span v-if="n !== undefined" class="cuenta">{{ tx(n) }}</span></button>
+    </div>
     <FiltroMulti v-if="opciones.marcas.length > 1 || filtros.marcas.length" v-model="filtros.marcas" :etiqueta="t('Brand')" :opciones="opciones.marcas.map((m) => ({ valor: String(m.id), texto: m.nombre }))" @change="recargar" />
     <FiltroMulti v-model="filtros.tipos" :etiqueta="t('Category')" :opciones="categorias" @change="recargar" />
-    <span class="ayuda separar">{{ t('{0} products', [datos.total]) }}</span>
   </div>
 
   <div class="tabla-marco tabla-fija">
@@ -257,7 +254,7 @@ watch(() => sesion.proveedorId, recargar)
                 <Icono v-else nombre="caja" :tam="18" />
               </span>
               <span>
-                <router-link :to="`/productos/${p.id}`" class="fuerte" @click.stop><span v-if="p.codigo_generico" class="codigo-sac">{{ tx(p.codigo_generico) }}</span> {{ tx(p.estilo) }} · {{ tx(p.color) }}</router-link>
+                <router-link :to="`/productos/${p.id}`" class="enlace-doc" @click.stop><strong><span v-if="p.codigo_generico" class="codigo">{{ tx(p.codigo_generico) }}</span> {{ tx(p.estilo) }} · {{ tx(p.color) }}</strong></router-link>
                 <span class="sub">{{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.rango_tallas || t('no sizes')) }}<template v-if="p.tipo"> · {{ tx(p.tipo_txt || p.tipo) }}</template></span>
               </span>
             </div>

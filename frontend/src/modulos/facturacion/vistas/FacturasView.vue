@@ -84,12 +84,6 @@ watch(() => sesion.proveedorId, recargar)
     </div>
   </div>
 
-  <div class="filtros" v-filtros>
-    <div class="segmentos" role="group" :aria-label="t('View')">
-      <button v-for="[v, txt] in VISTAS" :key="v" class="segmento" type="button" :aria-pressed="filtros.vista === v" @click="filtros.vista = v; recargar()">{{ tx(txt) }}</button>
-    </div>
-  </div>
-
   <TablaDatos ref="tabla" tabla="facturas" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
               :filtros-iniciales="route.query.estado ? { estado: route.query.estado } : {}" fila-clicable :fila-activa="resumenId" :etiqueta="t('Invoices')"
               vistas-guardadas :externos="{ vista: filtros.vista, q: filtros.q }"
@@ -100,8 +94,13 @@ watch(() => sesion.proveedorId, recargar)
         <input v-model="filtros.q" type="search" :placeholder="t('Search invoice or PO number')" :aria-label="t('Search')" @input="buscar" />
       </label>
     </template>
+    <template #filtros>
+      <div class="segmentos" role="group" :aria-label="t('View')">
+        <button v-for="[v, txt] in VISTAS" :key="v" class="segmento" type="button" :aria-pressed="filtros.vista === v" @click="filtros.vista = v; recargar()">{{ tx(txt) }}</button>
+      </div>
+    </template>
     <template #celda-nombre="{ fila: f }">
-      <router-link :to="`/facturas/${f.id}`" class="cajas-rango" @click.stop>{{ tx(f.nombre) }}</router-link>
+      <router-link :to="`/facturas/${f.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(f.nombre) }}</strong></router-link>
       <span class="sub">{{ ve('codigos_internos') ? t('{0} · {1} · {2} lines', [fmtFecha(f.fecha), f.centro, f.lineas]) : t('{0} · {1} lines', [fmtFecha(f.fecha), f.lineas]) }}</span>
     </template>
     <template #celda-estado="{ fila: f }"><EstadoBadge :estado="f.estado" /></template>

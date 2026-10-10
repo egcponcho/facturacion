@@ -1,4 +1,5 @@
 <script setup>
+import Icono from '@/componentes/Icono.vue'
 import { t, tx } from '@/i18n/index.js'
 import { onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -50,11 +51,12 @@ const resumen = (d) => {
 </script>
 
 <template>
-  <section class="panel">
-    <div class="panel-cabeza">
-      <div><h2>{{ t('Activity log') }}</h2><p class="sub-panel">{{ t('Who changed what and when: documents, approvals, master data, users, roles and company settings.') }}</p></div>
-    </div>
+  <div>
     <div class="filtros" v-filtros>
+      <label class="buscador">
+        <Icono nombre="buscar" :tam="16" />
+        <input v-model.lazy="f.accion" type="search" :placeholder="t('Action or reason')" :aria-label="t('Action or reason')" />
+      </label>
       <Seleccion v-model="f.entidad" :etiqueta="t('Record')">
         <option value="">{{ t('Record: all') }}</option>
         <option v-for="e in opciones.entidades" :key="e.valor" :value="e.valor">{{ tx(e.texto) }}</option>
@@ -63,19 +65,23 @@ const resumen = (d) => {
         <option value="">{{ t('User: all') }}</option>
         <option v-for="u in opciones.usuarios" :key="u.valor" :value="u.valor">{{ tx(u.texto) }}</option>
       </Seleccion>
-      <input v-model.lazy="f.accion" type="search" :placeholder="t('Action or reason')" :aria-label="t('Action or reason')" />
       <CampoFecha v-model="f.desde" :aria-label="t('From')" :title="t('From')" />
       <CampoFecha v-model="f.hasta" :min="f.desde || undefined" :aria-label="t('To')" :title="t('To')" />
       <button v-if="activos()" type="button" class="btn btn-fantasma" @click="limpiar">{{ t('Clear filters') }}</button>
     </div>
-    <div class="tabla-marco">
+    <div class="tabla-marco tabla-fija">
       <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Date') }}</th><th>{{ t('User') }}</th><th>{{ t('Record') }}</th><th>{{ t('Action') }}</th><th>{{ t('Detail') }}</th></tr></thead>
+        <thead><tr><th><span class="oculto-visual">{{ t('Detail') }}</span></th><th>{{ t('Date') }}</th><th>{{ t('User') }}</th><th>{{ t('Record') }}</th><th>{{ t('Action') }}</th><th>{{ t('Detail') }}</th></tr></thead>
         <tbody>
-          <FilasEsqueleto v-if="cargando && !datos.items.length" :columnas="5" />
-          <tr v-else-if="!datos.items.length"><td colspan="5" class="vacio">{{ activos() ? t('Nothing matches these filters. Try other criteria or clear them.') : t('No activity recorded yet.') }}</td></tr>
+          <FilasEsqueleto v-if="cargando && !datos.items.length" :columnas="6" />
+          <tr v-else-if="!datos.items.length"><td colspan="6" class="vacio">{{ activos() ? t('Nothing matches these filters. Try other criteria or clear them.') : t('No activity recorded yet.') }}</td></tr>
           <template v-for="h in datos.items" :key="h.id">
             <tr class="clicable" @click="abierta = abierta === h.id ? null : h.id">
+              <td class="chk">
+                <button class="btn-icono" type="button" :aria-expanded="abierta === h.id" :aria-label="t('Show detail')" @click.stop="abierta = abierta === h.id ? null : h.id">
+                  <Icono :nombre="abierta === h.id ? 'abajo' : 'derecha'" :tam="16" />
+                </button>
+              </td>
               <td class="sin-corte">{{ fmtFechaHora(h.fecha) }}</td>
               <td>{{ tx(h.usuario || t('System')) }}</td>
               <td>{{ tx(h.entidad_txt) }} <span class="sub">#{{ h.entidad_id }}</span></td>
@@ -83,7 +89,7 @@ const resumen = (d) => {
               <td class="envolver">{{ tx(resumen(h.detalle)) }}<span v-if="h.motivo" class="sub">{{ t('Reason: {0}', [h.motivo]) }}</span></td>
             </tr>
             <tr v-if="abierta === h.id" class="fila-detalle">
-              <td colspan="5">
+              <td colspan="6">
                 <dl v-if="h.detalle && typeof h.detalle === 'object'" class="lista-cambios">
                   <template v-for="(v, k) in h.detalle" :key="k">
                     <dt>{{ tx(k) }}</dt>
@@ -99,7 +105,7 @@ const resumen = (d) => {
       </table>
     </div>
     <Paginacion :page="pag.page" :size="pag.size" :total="datos.total" @cambiar="(p) => { pag.page = p; cargar() }" @tamano="(s) => { pag.size = s; pag.page = 1; cargar() }" />
-  </section>
+  </div>
 </template>
 
 <style scoped>

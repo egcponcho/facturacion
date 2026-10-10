@@ -49,7 +49,7 @@ async function agregar() {
     <h3><Icono nombre="capas" :tam="16" />{{ t('Material classes') }}</h3>
     <p class="ayuda">{{ t('The composition recognizes these classes of material. Add a class for a new family (e.g. ceramic: ceramica porcelain gres) or more words for an existing one; separate the words with spaces, and use ? for an optional letter (porcelanas?).') }}</p>
     <div class="tabla-marco">
-      <table class="tabla">
+      <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Name') }}</th><th>{{ t('Extra words') }}</th><th>{{ t('In the customs description') }}</th><th>{{ t('Active') }}</th></tr></thead>
         <tbody>
           <tr v-for="c in clases" :key="c.id" :class="{ apagada: !c.activo }">

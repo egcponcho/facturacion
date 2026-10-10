@@ -121,24 +121,25 @@ onMounted(() => {
     <router-link class="btn btn-chico separar" :to="{ path: '/facturas', query: { vista: 'lista_transporte' } }">{{ t('See which') }}</router-link>
   </p>
 
-  <div class="filtros" v-filtros>
-    <div class="segmentos" role="group" :aria-label="t('Status')">
-      <button v-for="[v, txt] in ESTADOS" :key="v" class="segmento" :aria-pressed="filtros.estado === v" @click="filtros.estado = v; cargar()">
-        {{ tx(txt) }}<span v-if="cuenta[v]" class="cuenta">{{ tx(cuenta[v]) }}</span>
-      </button>
-    </div>
-    <label class="buscador separar">
-      <Icono nombre="buscar" :tam="16" />
-      <input v-model="filtros.q" type="search" :placeholder="t('Search shipment or B/L / AWB')" :aria-label="t('Search')" @input="buscar" />
-    </label>
-  </div>
-
   <TablaDatos tabla="embarques" :columnas="columnas" :filas="lista" fila-clicable :fila-activa="resumenId" :etiqueta="t('Shipments')"
               vistas-guardadas :externos="{ estado: filtros.estado, q: filtros.q }"
               @fila="(e) => (resumenId = e.id)" @vista="(q) => { filtros.estado = q.estado || ''; filtros.q = q.q || ''; cargar() }">
+    <template #barra>
+      <label class="buscador">
+        <Icono nombre="buscar" :tam="16" />
+        <input v-model="filtros.q" type="search" :placeholder="t('Search shipment or B/L / AWB')" :aria-label="t('Search')" @input="buscar" />
+      </label>
+    </template>
+    <template #filtros>
+      <div class="segmentos" role="group" :aria-label="t('Status')">
+        <button v-for="[v, txt] in ESTADOS" :key="v" class="segmento" type="button" :aria-pressed="filtros.estado === v" @click="filtros.estado = v; cargar()">
+          {{ tx(txt) }}<span v-if="cuenta[v]" class="cuenta">{{ tx(cuenta[v]) }}</span>
+        </button>
+      </div>
+    </template>
     <template #celda-codigo="{ fila: e }">
       <span class="fila-flex" style="flex-wrap: nowrap"><Icono :nombre="datosModo(e.tipo_transporte).icono" />
-        <router-link :to="`/transporte/embarques/${e.id}`" class="cajas-rango" @click.stop>{{ tx(e.codigo) }}</router-link></span>
+        <router-link :to="`/transporte/embarques/${e.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(e.codigo) }}</strong></router-link></span>
       <span class="sub">{{ tx(e.documento_numero ? `${datosModo(e.tipo_transporte).doc} ${e.documento_numero}` : t('{0} pending', [datosModo(e.tipo_transporte).doc])) }}{{ tx(e.transportista ? ` · ${e.transportista}` : '') }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span>
     </template>
     <template #celda-ruta="{ fila: e }">{{ tx(e.puerto_origen || '—') }} <Icono nombre="flecha" :tam="13" /> {{ tx(e.puerto_destino || '—') }}<span class="sub">{{ tx(e.centro ? t('plant {0}', [e.centro]) : t('Plant to be defined')) }}</span></template>

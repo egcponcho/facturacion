@@ -1,9 +1,10 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
-import FilasEsqueleto from '@/componentes/FilasEsqueleto.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
+import { buscador } from '@/nucleo/busqueda.js'
 import { api } from '@/nucleo/api'
 import { fmtFecha } from '@/nucleo/utils'
 import { cargarSesion, sesion } from '@/stores/sesion'
@@ -21,6 +22,19 @@ const nueva = reactive(vacia())
 const modal = ref(null) // 'nueva' | { creada }
 const errores = ref({})
 const guardando = ref(false)
+const q = ref('')
+const vista = computed(() => {
+  const coincide = buscador(q.value)
+  return lista.value.filter((o) => coincide([o.codigo, o.nombre, o.pais]))
+})
+const columnas = [
+  { clave: 'codigo', texto: t('Code'), fija: true, prioridad: 1 },
+  { clave: 'nombre', texto: t('Name'), prioridad: 1, filtro: 'texto' },
+  { clave: 'pais', texto: t('Country'), prioridad: 3 },
+  { clave: 'usuarios', texto: t('Users'), num: true, prioridad: 2 },
+  { clave: 'creada_en', texto: t('Created'), prioridad: 3 },
+  { clave: 'activa', texto: t('Status'), prioridad: 2, filtro: 'opcion', opciones: [[true, t('Active')], [false, t('Suspended')]] },
+]
 
 async function cargar() {
   try {
@@ -77,31 +91,25 @@ async function entrar(o) {
       <h1>{{ t('Organizations') }}</h1>
       <p>{{ t('Each organization only sees its own data. Shared reference data (official tariff schedule, classification engine, countries and trade agreements) is maintained here by the platform.') }}</p>
     </div>
-    <button class="btn btn-primario" @click="modal = 'nueva'"><Icono nombre="mas" />{{ t('New organization') }}</button>
+    <div class="acciones"><button class="btn btn-primario" type="button" @click="modal = 'nueva'"><Icono nombre="mas" />{{ t('New organization') }}</button></div>
   </div>
 
-  <section class="panel">
-    <div class="tabla-marco">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Name') }}</th><th>{{ t('Country') }}</th><th class="num">{{ t('Users') }}</th><th>{{ t('Created') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
-        <tbody>
-          <FilasEsqueleto v-if="cargando" :columnas="7" :filas="3" />
-          <tr v-for="o in lista" :key="o.id">
-            <td class="codigo">{{ tx(o.codigo) }}</td>
-            <td><strong>{{ tx(o.nombre) }}</strong><span v-if="o.id === sesion.usuario?.organizacion?.id" class="sub">{{ t('You are working here') }}</span></td>
-            <td>{{ tx(o.pais || '—') }}</td>
-            <td class="num">{{ tx(o.usuarios) }}</td>
-            <td>{{ fmtFecha(o.creada_en) }}</td>
-            <td><span class="etiqueta" :class="o.activa ? 'ok' : ''">{{ o.activa ? t('Active') : t('Suspended') }}</span></td>
-            <td class="fila-flex">
-              <button v-if="o.activa && o.id !== sesion.usuario?.organizacion?.id" class="btn btn-chico" @click="entrar(o)">{{ t('Enter') }}</button>
-              <button class="btn btn-chico btn-fantasma" @click="cambiarEstado(o)">{{ o.activa ? t('Suspend') : t('Reactivate') }}</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <TablaDatos tabla="organizaciones" :columnas="columnas" :filas="vista" :cargando="cargando" orden-inicial="nombre:asc" :etiqueta="t('Organizations')">
+    <template #barra>
+      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="q" type="search" :placeholder="t('Search code or name')" :aria-label="t('Search')" /></label>
+    </template>
+    <template #celda-codigo="{ fila: o }"><strong class="codigo">{{ tx(o.codigo) }}</strong></template>
+    <template #celda-nombre="{ fila: o }"><strong>{{ tx(o.nombre) }}</strong><span v-if="o.id === sesion.usuario?.organizacion?.id" class="sub">{{ t('You are working here') }}</span></template>
+    <template #celda-creada_en="{ fila: o }">{{ fmtFecha(o.creada_en) }}</template>
+    <template #celda-activa="{ fila: o }"><span class="etiqueta ms-0" :class="o.activa ? 'ok' : ''">{{ o.activa ? t('Active') : t('Suspended') }}</span></template>
+    <template #acciones="{ fila: o }">
+      <div class="acciones-apiladas">
+        <button v-if="o.activa && o.id !== sesion.usuario?.organizacion?.id" class="btn btn-chico btn-primario" type="button" @click="entrar(o)">{{ t('Enter') }}</button>
+        <button class="btn btn-chico" type="button" @click="cambiarEstado(o)">{{ o.activa ? t('Suspend') : t('Reactivate') }}</button>
+      </div>
+    </template>
+    <template #vacio>{{ q ? t('No records match these filters.') : t('No records yet.') }}</template>
+  </TablaDatos>
 
   <Modal v-if="modal === 'nueva'" :titulo="t('New organization')" ancho="560px" @cerrar="modal = null">
     <form id="form-org" class="rejilla-campos" @submit.prevent="crear">
