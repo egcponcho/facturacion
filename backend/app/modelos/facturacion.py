@@ -89,7 +89,7 @@ class FacturaLinea(DeOrganizacion, Base):
     codigo_sap: Mapped[str] = mapped_column(String(40))
     upc: Mapped[str | None] = mapped_column(String(40))
     estilo: Mapped[str | None] = mapped_column(String(40))
-    color: Mapped[str | None] = mapped_column(String(40))
+    color: Mapped[str | None] = mapped_column(String(60))
     talla: Mapped[str | None] = mapped_column(String(20))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     unidad: Mapped[str] = mapped_column(String(5))
