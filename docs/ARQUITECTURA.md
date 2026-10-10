@@ -216,8 +216,17 @@ respetando `glosario.json`. `test_i18n.py` falla si falta alguno.
 
 ```bash
 cd backend && ruff check app tests && pytest && alembic check
+TEST_DATABASE_URL=postgresql+psycopg://usuario:clave@localhost/pruebas pytest   # la misma suite en PostgreSQL (RLS incluida)
 cd frontend && npm run lint && npm run build
+npm run e2e   # con la demostración corriendo: recorre todas las pantallas en el navegador
 ```
 
 - `backend/ruff.toml`: errores, sintaxis, orden de imports y errores frecuentes (bugbear).
 - `frontend/eslint.config.js`: reglas esenciales de Vue, variables sin uso o sin definir.
+- `tests/test_api_docs.py`: cada ruta con docstring, etiqueta de su módulo y resumen (docs/API.md).
+- `tests/test_rendimiento.py`: las listas principales no hacen una consulta por fila (se comparan
+  con 1 y con 25 filas).
+- `frontend/e2e/recorrido.mjs` (`npm run e2e`): entra con cada usuario de la demostración, abre
+  todas las pantallas y un documento de cada tipo en escritorio y en celular, y falla con un error
+  de JavaScript, de consola (incluido un aviso de «cambios sin guardar» sin edición) o una
+  respuesta 4xx/5xx de la API. Usa el Chromium de Playwright o el de `E2E_CHROMIUM`.
