@@ -465,7 +465,7 @@ cd frontend && npm run lint && npm run build          # ESLint (Vue) y compilaci
 
 ## Estructura
 
-Las capas, los mecanismos de configuración y cómo agregar un módulo, una lista de valores o un texto están en **[docs/ARQUITECTURA.md](docs/ARQUITECTURA.md)**. Los flujos de negocio (estados, aprobación, asistente de la OC, recepción) están en **[docs/FLUJOS.md](docs/FLUJOS.md)** el sistema de diseño de la interfaz (tokens, controles, tablas, cuándo usar ventana, panel o asistente) en **[docs/DISENO.md](docs/DISENO.md)** y las convenciones de la API (sesión, encabezados, errores, paginación; documentación interactiva en `/docs`) en **[docs/API.md](docs/API.md)**.
+Las capas, los mecanismos de configuración y cómo agregar un módulo, una lista de valores o un texto están en **[docs/ARQUITECTURA.md](docs/ARQUITECTURA.md)**. Los flujos de negocio (estados, aprobación, asistente de la OC, recepción) están en **[docs/FLUJOS.md](docs/FLUJOS.md)** el sistema de diseño de la interfaz (tokens, controles, tablas, cuándo usar ventana, panel o asistente) en **[docs/DISENO.md](docs/DISENO.md)** y las convenciones de la API (sesión, encabezados, errores, paginación; documentación interactiva en `/docs`) en **[docs/API.md](docs/API.md)**. El diagnóstico de partida está en **[docs/DIAGNOSTICO.md](docs/DIAGNOSTICO.md)** y el informe final de la etapa (qué se cambió, cómo se verificó y qué falta para producción) en **[docs/INFORME.md](docs/INFORME.md)**.
 
 ```
 backend/app/
