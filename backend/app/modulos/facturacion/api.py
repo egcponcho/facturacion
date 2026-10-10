@@ -11,6 +11,7 @@ from app.esquemas import (
     Finalizar,
     PLCrear,
 )
+from app.modulos.comun import tabla
 from app.modulos.documentos import documentos, exportar
 from app.modulos.empaque import packing
 from app.modulos.facturacion import facturas as svc
@@ -30,9 +31,17 @@ def listar(
     page: int = Query(1, ge=1),
     size: int = Query(25, ge=1, le=200),
     orden: str | None = None,
+    f: str | None = None,
 ):
-    """Facturas visibles, paginadas y filtrables (estado, texto, vista), con su avance en listas de empaque."""
-    return svc.listar_facturas(db, user, proveedor_id, estado, q, vista, page, size, orden)
+    """Facturas visibles, paginadas y filtrables (estado, texto, vista y `f` por columna), con su avance en listas de empaque."""
+    return svc.listar_facturas(db, user, proveedor_id, estado, q, vista, page, size, orden, tabla.leer(f))
+
+
+@router.get("/facturas/valores")
+def valores_columna(db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None,
+                    proveedor_id: int | None = None, estado: str | None = None, q: str | None = None, vista: str | None = None):
+    """Valores únicos de una columna de la tabla de facturas (con cuántas tienen cada uno) bajo los demás filtros."""
+    return svc.valores_facturas(db, user, columna, buscar, tabla.leer(f), proveedor_id, estado, q, vista)
 
 
 @router.post("/facturas")

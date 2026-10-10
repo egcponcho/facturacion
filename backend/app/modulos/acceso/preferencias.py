@@ -161,12 +161,12 @@ def guardar(db: Session, user: Usuario, datos) -> dict:
 # Cada pantalla con filtros (seguimiento, órdenes…) guarda vistas con nombre:
 # los filtros, la pestaña y el orden que la persona usa a menudo. Son
 # preferencias suyas (no se comparten todavía).
-PANTALLAS_VISTA = ("seguimiento", "ordenes", "facturas", "productos", "embarques", "oc_lineas")
 MAX_VISTAS = 20
 
 
 def guardar_vistas(db: Session, user: Usuario, pantalla: str, vistas: list) -> dict:
-    if pantalla not in PANTALLAS_VISTA:
+    # Cualquier tabla (TablaDatos) guarda sus vistas; el nombre es una clave simple
+    if not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", pantalla or ""):
         raise ErrorNegocio("This screen does not keep saved views.", 404, "no_encontrado")
     limpias, nombres = [], set()
     for v in (vistas or [])[:MAX_VISTAS]:
@@ -177,10 +177,13 @@ def guardar_vistas(db: Session, user: Usuario, pantalla: str, vistas: list) -> d
         if nombre.lower() in nombres:
             raise ErrorNegocio(f"There is already a view called {nombre}.", 422, "validacion")
         nombres.add(nombre.lower())
-        limpias.append({"nombre": nombre, "query": {str(k)[:40]: str(x)[:300] for k, x in list(query.items())[:40]
+        # Un filtro de columna con varios valores viaja como lista en JSON: hasta 2000 caracteres
+        limpias.append({"nombre": nombre, "query": {str(k)[:60]: str(x)[:2000] for k, x in list(query.items())[:60]
                                                        if x not in (None, "")}})
     pref = dict(user.preferencias or {})
     todas = dict(pref.get("vistas") or {})
+    if pantalla not in todas and len(todas) >= MAX_TABLAS:
+        raise ErrorNegocio("Too many screens with saved views.", 422, "validacion")
     todas[pantalla] = limpias
     pref["vistas"] = {k: x for k, x in todas.items() if x}
     user.preferencias = pref

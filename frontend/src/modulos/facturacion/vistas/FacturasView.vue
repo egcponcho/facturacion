@@ -31,16 +31,23 @@ const VISTAS = [
 ]
 if (esInterno()) VISTAS.push(['lista_transporte', t('Ready to ship')], ['pl_sin_unidad', t('PL without load unit')])
 const ESTADOS = [['BORRADOR', t('Draft')], ['EN_CORRECCION', t('In correction')], ['FINALIZADA', t('Finalized')], ['CANCELADA', t('Cancelled')]]
+// Cada columna con datos guardados filtra por sus valores (el servidor da los
+// valores únicos); las calculadas (importe, avance, transporte) no
 const columnas = computed(() => [
   { clave: 'nombre', texto: t('Invoice'), fija: true, prioridad: 1 },
-  ...(sesion.proveedorId ? [] : [{ clave: 'proveedor', texto: t('Supplier'), prioridad: 2, filtro: 'opcion',
-    opciones: (sesion.proveedores || []).map((p) => [p.id, p.nombre]) }]),
-  { clave: 'estado', texto: t('Status'), prioridad: 1, filtro: 'opcion', opciones: ESTADOS },
-  { clave: 'importe', texto: t('Amount'), num: true, grupo: 'precios', ordenable: false, prioridad: 2 },
-  { clave: 'asignado', texto: t('In packing lists'), ordenable: false, prioridad: 3 },
-  { clave: 'pls', texto: t('Packing'), ordenable: false, prioridad: 3 },
-  { clave: 'transporte', texto: t('Transport'), ordenable: false, prioridad: 2 },
+  ...(sesion.proveedorId ? [] : [{ clave: 'proveedor', texto: t('Supplier'), prioridad: 2 }]),
+  { clave: 'fecha', texto: t('Date'), prioridad: 3, inicial: false, textoValor: (v) => fmtFecha(v) },
+  { clave: 'estado', texto: t('Status'), prioridad: 1, opciones: ESTADOS },
+  { clave: 'importe', texto: t('Amount'), num: true, grupo: 'precios', ordenable: false, filtro: false, prioridad: 2 },
+  { clave: 'moneda', texto: t('Currency'), prioridad: 3, inicial: false },
+  ...(ve('codigos_internos') ? [{ clave: 'sociedad', texto: t('Company'), prioridad: 3, inicial: false },
+    { clave: 'centro', texto: t('Plant'), prioridad: 3, inicial: false }] : []),
+  { clave: 'asignado', texto: t('In packing lists'), ordenable: false, filtro: false, prioridad: 3 },
+  { clave: 'pls', texto: t('Packing'), ordenable: false, filtro: false, prioridad: 3 },
+  { clave: 'transporte', texto: t('Transport'), ordenable: false, filtro: false, prioridad: 2 },
 ])
+const externosApi = () => ({ q: filtros.q, vista: filtros.vista, proveedor_id: sesion.proveedorId || undefined })
+const valores = (columna, buscar, otros) => api.get('/facturas/valores', { columna, buscar, f: JSON.stringify(otros), ...externosApi() })
 
 let ultima = null
 async function consultar(c = ultima) {
@@ -49,10 +56,10 @@ async function consultar(c = ultima) {
   cargando.value = true
   try {
     datos.value = await api.get('/facturas', {
-      q: filtros.q, vista: filtros.vista, estado: c.filtros.estado, orden: c.orden, page: c.page, size: c.size,
-      proveedor_id: sesion.proveedorId || c.filtros.proveedor,
+      ...externosApi(), orden: c.orden, page: c.page, size: c.size, f: Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined,
     })
-    router.replace({ query: { ...(c.filtros.estado && { estado: c.filtros.estado }), ...(filtros.vista && { vista: filtros.vista }), ...(filtros.q && { q: filtros.q }) } })
+    const estado = c.filtros.estado?.length === 1 ? c.filtros.estado[0] : null
+    router.replace({ query: { ...(estado && { estado }), ...(filtros.vista && { vista: filtros.vista }), ...(filtros.q && { q: filtros.q }) } })
   } catch (e) {
     errorApi(e)
   } finally {
@@ -86,7 +93,7 @@ watch(() => sesion.proveedorId, recargar)
 
   <TablaDatos ref="tabla" tabla="facturas" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
               :filtros-iniciales="route.query.estado ? { estado: route.query.estado } : {}" fila-clicable :fila-activa="resumenId" :etiqueta="t('Invoices')"
-              vistas-guardadas :externos="{ vista: filtros.vista, q: filtros.q }"
+              :valores="valores" :externos="{ vista: filtros.vista, q: filtros.q }"
               @consulta="consultar" @fila="(f) => (resumenId = f.id)" @vista="(q) => { filtros.vista = q.vista || ''; filtros.q = q.q || ''; recargar() }">
     <template #barra>
       <label class="buscador">
@@ -103,6 +110,7 @@ watch(() => sesion.proveedorId, recargar)
       <router-link :to="`/facturas/${f.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(f.nombre) }}</strong></router-link>
       <span class="sub">{{ ve('codigos_internos') ? t('{0} · {1} · {2} lines', [fmtFecha(f.fecha), f.centro, f.lineas]) : t('{0} · {1} lines', [fmtFecha(f.fecha), f.lineas]) }}</span>
     </template>
+    <template #celda-fecha="{ fila: f }">{{ fmtFecha(f.fecha) }}</template>
     <template #celda-estado="{ fila: f }"><EstadoBadge :estado="f.estado" /></template>
     <template #celda-importe="{ fila: f }"><span class="fuerte">{{ fmtMoneda(f.importe, f.moneda) }}</span></template>
     <template #celda-asignado="{ fila: f }"><Avance :valor="f.asignado" :total="f.facturado" /></template>

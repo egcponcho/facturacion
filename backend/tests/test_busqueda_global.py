@@ -68,5 +68,7 @@ def test_vistas_guardadas(interno):
     assert r.json()["vistas"]["seguimiento"] == [{"nombre": "Riesgo VANS", "query": {"riesgo": "ATRASO", "vista": "ordenes"}}]
     assert interno.get("/auth/me").json()["preferencias"]["vistas"]["seguimiento"][0]["nombre"] == "Riesgo VANS"
     assert interno.put("/perfil/vistas/seguimiento", [{"nombre": "A", "query": {}}, {"nombre": "a", "query": {}}]).status_code == 422
-    assert interno.put("/perfil/vistas/otra", []).status_code == 404
+    # Cualquier tabla guarda sus vistas; un nombre que no es una clave simple no
+    assert interno.put("/perfil/vistas/aranceles_reglas", []).status_code == 200
+    assert interno.put("/perfil/vistas/Otra-Pantalla", []).status_code == 404
     assert interno.put("/perfil/vistas/seguimiento", []).json()["vistas"] == {}

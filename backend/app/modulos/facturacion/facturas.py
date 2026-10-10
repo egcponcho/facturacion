@@ -34,6 +34,7 @@ from app.modulos.acceso.permisos import (
     proveedor_filtro,
     sociedad_filtro,
 )
+from app.modulos.comun import tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.formato import cant_txt
 from app.modulos.comun.historial import registrar, requerir_motivo, tocar, verificar_version
@@ -710,17 +711,16 @@ def _lista_para_transporte(f: Factura, r: dict) -> bool:
     )
 
 
-def listar_facturas(
-    db: Session,
-    user: Usuario,
-    proveedor_id: int | None = None,
-    estado: str | None = None,
-    q: str | None = None,
-    vista: str | None = None,
-    page: int = 1,
-    size: int = 25,
-    orden: str | None = None,
-) -> dict:
+# Columnas de la tabla de facturas que se filtran por sus valores (app/web/tabla.py)
+COLUMNAS_FACTURAS = {
+    "nombre": Factura.numero, "proveedor": Proveedor.nombre, "estado": Factura.estado, "fecha": Factura.fecha,
+    "moneda": Factura.moneda, "sociedad": Factura.sociedad, "centro": Factura.centro,
+}
+
+
+def _consulta_facturas(db: Session, user: Usuario, proveedor_id, estado, q, vista):
+    """Facturas visibles para el usuario con la búsqueda, el estado y la vista
+    elegidos (sin los filtros por columna)."""
     exigir(user, "factura.ver")
     prov = proveedor_filtro(user, proveedor_id)
     consulta = select(Factura).join(Proveedor, Proveedor.id == Factura.proveedor_id)
@@ -746,6 +746,30 @@ def listar_facturas(
         consulta = consulta.where(Factura.estado == "BORRADOR", Factura.creado_en < limite)
     elif vista == "lista_transporte":
         consulta = consulta.where(Factura.estado == "FINALIZADA")
+    return consulta
+
+
+def valores_facturas(db: Session, user: Usuario, columna: str, q: str | None, filtros: dict,
+                     proveedor_id=None, estado=None, busqueda=None, vista=None) -> list[dict]:
+    """Valores únicos de una columna de la tabla de facturas bajo los demás filtros."""
+    expr = tabla.columna_valida(COLUMNAS_FACTURAS, columna)
+    consulta = tabla.aplicar(_consulta_facturas(db, user, proveedor_id, estado, busqueda, vista), COLUMNAS_FACTURAS, filtros, excepto=columna)
+    return tabla.valores(db, consulta, expr, q, contar=Factura.id)
+
+
+def listar_facturas(
+    db: Session,
+    user: Usuario,
+    proveedor_id: int | None = None,
+    estado: str | None = None,
+    q: str | None = None,
+    vista: str | None = None,
+    page: int = 1,
+    size: int = 25,
+    orden: str | None = None,
+    filtros: dict | None = None,
+) -> dict:
+    consulta = tabla.aplicar(_consulta_facturas(db, user, proveedor_id, estado, q, vista), COLUMNAS_FACTURAS, filtros or {})
     col, _, direccion = (orden or "").partition(":")
     expr = {"nombre": Factura.numero, "fecha": Factura.fecha, "estado": Factura.estado,
             "proveedor": Proveedor.nombre, "actualizado": Factura.actualizado_en}.get(col)
