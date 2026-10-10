@@ -27,26 +27,31 @@ def sugerencia_unidades(db: Db, user: User, cbm: float = Query(0, ge=0), kg: flo
 
 @router.get("/embarques")
 def listar(db: Db, user: User, estado: str | None = None, q: str | None = None):
+    """Embarques del alcance del usuario, filtrables por estado y texto, con su carga y riesgo de atraso."""
     return svc.listar_embarques(db, user, estado, q)
 
 
 @router.post("/embarques")
 def crear(datos: EmbarqueIn, db: Db, user: User, clave: Clave = None):
+    """Crea un embarque planificado con su modo, ruta, transportista y fechas estimadas (ETD/ETA)."""
     return ejecutar(db, user, clave, lambda: svc.crear_embarque(db, user, datos))
 
 
 @router.get("/embarques/{embarque_id}")
 def detalle(embarque_id: int, db: Db, user: User):
+    """Detalle del embarque: unidades de carga, hitos, historial y los hitos que se pueden registrar ahora."""
     return svc.detalle_embarque(db, user, embarque_id)
 
 
 @router.patch("/embarques/{embarque_id}")
 def actualizar(embarque_id: int, datos: EmbarquePatch, db: Db, user: User, clave: Clave = None):
+    """Modifica los datos del embarque; los que fijan la salida y el arribo ya no cambian después."""
     return ejecutar(db, user, clave, lambda: svc.actualizar_embarque(db, user, embarque_id, datos))
 
 
 @router.post("/embarques/{embarque_id}/eventos")
 def evento(embarque_id: int, datos: EventoIn, db: Db, user: User, clave: Clave = None):
+    """Registra un hito (salida, arribo, recepción…) respetando el orden; según el hito, avanza el embarque."""
     return ejecutar(db, user, clave, lambda: svc.registrar_evento(db, user, embarque_id, datos))
 
 
@@ -58,32 +63,38 @@ def cancelar(embarque_id: int, datos: ConMotivo, db: Db, user: User, clave: Clav
 
 @router.post("/embarques/{embarque_id}/unidades")
 def agregar_unidad(embarque_id: int, datos: UnidadIn, db: Db, user: User, clave: Clave = None):
+    """Agrega una unidad de carga del modo del embarque mientras este no haya salido."""
     return ejecutar(db, user, clave, lambda: svc.agregar_unidad(db, user, embarque_id, datos))
 
 
 @router.get("/unidades/{unidad_id}")
 def unidad(unidad_id: int, db: Db, user: User):
+    """Detalle de una unidad de carga: ocupación, fechas límite y listas de empaque asignadas."""
     return svc.detalle_unidad(db, user, unidad_id)
 
 
 @router.patch("/unidades/{unidad_id}")
 def actualizar_unidad(unidad_id: int, datos: UnidadPatch, db: Db, user: User, clave: Clave = None):
+    """Cambia el tipo, número o sello de una unidad de carga mientras el embarque no haya salido."""
     return ejecutar(db, user, clave, lambda: svc.actualizar_unidad(db, user, unidad_id, datos))
 
 
 @router.delete("/unidades/{unidad_id}")
 def eliminar_unidad(unidad_id: int, db: Db, user: User, clave: Clave = None):
+    """Quita una unidad de carga vacía (sin listas de empaque) de un embarque que no ha salido."""
     return ejecutar(db, user, clave, lambda: svc.eliminar_unidad(db, user, unidad_id))
 
 
 @router.get("/unidades/{unidad_id}/disponibles")
 def disponibles(unidad_id: int, db: Db, user: User, proveedor_id: int | None = None,
                 q: str | None = None, solo_listos: bool = False):
+    """PL finalizados sin unidad de carga, agrupados por factura, que se pueden asignar a esta unidad."""
     return svc.disponibles(db, user, unidad_id, proveedor_id, q, solo_listos)
 
 
 @router.post("/unidades/{unidad_id}/asignar")
 def asignar(unidad_id: int, datos: AsignarPL, db: Db, user: User, clave: Clave = None):
+    """Asigna PL finalizados a la unidad si caben y el embarque no salió; la asignación queda confirmada."""
     return ejecutar(db, user, clave, lambda: svc.asignar(db, user, unidad_id, datos))
 
 
@@ -91,9 +102,11 @@ def asignar(unidad_id: int, datos: AsignarPL, db: Db, user: User, clave: Clave =
 
 @router.post("/unidades/{unidad_id}/desasignar")
 def desasignar(unidad_id: int, datos: PLIds, db: Db, user: User, clave: Clave = None):
+    """Quita listas de empaque de la unidad antes de la salida; si estaban confirmadas, exige motivo."""
     return ejecutar(db, user, clave, lambda: svc.desasignar(db, user, unidad_id, datos))
 
 
 @router.post("/recoleccion")
 def recoleccion(datos: Recoleccion, db: Db, user: User, clave: Clave = None):
+    """Marca o desmarca PL finalizados como recolectados en la bodega del proveedor, antes de la salida."""
     return ejecutar(db, user, clave, lambda: svc.recoleccion(db, user, datos))

@@ -34,6 +34,7 @@ def vista_previa(db: Db, user: User, definicion: dict = Body(..., embed=True)):
 @router.post("/reportes/exportar")
 def exportar_definicion(db: Db, user: User, formato: FormatoReporte, definicion: dict = Body(..., embed=True),
                         titulo: str | None = Body(None, embed=True)):
+    """Descarga una definición sin guardarla, en CSV, Excel o PDF (hasta 10 000 filas)."""
     contenido, nombre = generador.exportar(db, user, definicion, formato, titulo)
     return _archivo(contenido, nombre, formato)
 
@@ -46,27 +47,32 @@ def listar(db: Db, user: User):
 
 @router.post("/reportes")
 def crear(db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
+    """Guarda un reporte operativo o analítico; solo los usuarios internos pueden compartirlo."""
     return ejecutar(db, user, clave, lambda: guardados.crear(db, user, datos))
 
 
 @router.get("/reportes/{reporte_id}")
 def detalle(reporte_id: int, db: Db, user: User):
+    """Reporte guardado con su definición y el resultado de ejecutarlo (hasta 500 filas)."""
     r = guardados.cargar(db, user, reporte_id)
     return {**guardados._dict(user, r), "resultado": generador.ejecutar(db, user, r.definicion)}
 
 
 @router.patch("/reportes/{reporte_id}")
 def actualizar(reporte_id: int, db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
+    """Cambia nombre, descripción, definición o si se comparte un reporte; solo su autor o administración."""
     return ejecutar(db, user, clave, lambda: guardados.actualizar(db, user, reporte_id, datos))
 
 
 @router.delete("/reportes/{reporte_id}")
 def eliminar(reporte_id: int, db: Db, user: User, clave: Clave = None):
+    """Elimina un reporte guardado; solo su autor o la administración."""
     return ejecutar(db, user, clave, lambda: guardados.eliminar(db, user, reporte_id))
 
 
 @router.get("/reportes/{reporte_id}/exportar")
 def exportar_guardado(reporte_id: int, db: Db, user: User, formato: FormatoReporte):
+    """Descarga un reporte guardado en CSV, Excel o PDF (hasta 10 000 filas)."""
     r = guardados.cargar(db, user, reporte_id)
     contenido, nombre = generador.exportar(db, user, r.definicion, formato, r.nombre)
     return _archivo(contenido, nombre, formato)

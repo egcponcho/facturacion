@@ -28,16 +28,19 @@ class Entrar(BaseModel):
 
 @router.get("/plataforma/organizaciones")
 def listar(db: Db, user: User):
+    """Organizaciones de la plataforma con su número de usuarios. Solo administración de plataforma."""
     return svc.listar(db, user)
 
 
 @router.post("/plataforma/organizaciones")
 def crear(datos: OrganizacionIn, db: Db, user: User, clave: Clave = None):
+    """Crea una organización con sus datos de partida y su primer administrador, con clave temporal."""
     return ejecutar(db, user, clave, lambda: svc.crear(db, user, datos))
 
 
 @router.patch("/plataforma/organizaciones/{organizacion_id}")
 def actualizar(organizacion_id: int, datos: OrganizacionPatch, db: Db, user: User, clave: Clave = None):
+    """Renombra, suspende o reactiva una organización. Solo administración de plataforma."""
     return ejecutar(db, user, clave, lambda: svc.actualizar(db, user, organizacion_id, datos))
 
 

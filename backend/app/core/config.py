@@ -73,6 +73,11 @@ class Settings:
     # facturas…) en una base vacía. Es lo único que cambia: el esquema, las
     # migraciones y la seguridad son los mismos que en producción.
     SEED_DEMO: bool = _bool("SEED_DEMO", False)
+    # Documentación interactiva de la API (/docs, /redoc) y su esquema
+    # (/openapi.json). Encendida en la demostración; en producción solo si se
+    # pide con API_DOCS=1 (publica el mapa de rutas, no datos: cada ruta sigue
+    # pidiendo sesión y permisos). docs/API.md explica las convenciones.
+    API_DOCS: bool = _bool("API_DOCS", _bool("SEED_DEMO", False))
     # Instalación nueva (sin usuarios): nombre de la empresa y primer
     # administrador. La contraseña es temporal: se cambia al primer ingreso.
     EMPRESA_NOMBRE: str = os.getenv("EMPRESA_NOMBRE", "")

@@ -49,6 +49,7 @@ def _filtros_de(request: Request) -> dict:
 @router.get("/seguimiento")
 def seguimiento(request: Request, db: Db, user: User, proveedor_id: int | None = None, orden: str | None = None,
                 page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    """Mercancía por SKU y etapa, de la OC a la bodega, con holgura y resumen por etapa y marca."""
     exigir(user, "seguimiento.ver")
     return seg.seguimiento(db, user, proveedor_id, _filtros_de(request), orden, page, size)
 
@@ -56,12 +57,14 @@ def seguimiento(request: Request, db: Db, user: User, proveedor_id: int | None =
 @router.get("/seguimiento/embarques")
 def seguimiento_embarques(request: Request, db: Db, user: User, proveedor_id: int | None = None,
                           orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    """Embarques con sus unidades de carga, ETA, holgura y riesgo, más indicadores y llegadas por semana."""
     exigir(user, "seguimiento.ver")
     return seg.embarques(db, user, proveedor_id, _filtros_de(request), orden, page, size)
 
 
 @router.get("/seguimiento/unidades/{unidad_id}/explosion")
 def seguimiento_explosion(unidad_id: int, request: Request, db: Db, user: User, proveedor_id: int | None = None):
+    """Todo lo que viaja en una unidad de carga, agrupado por orden de compra."""
     exigir(user, "seguimiento.ver")
     return seg.explosion_unidad(db, user, unidad_id, proveedor_id, _filtros_de(request))
 
@@ -78,6 +81,7 @@ def seguimiento_leadtimes(request: Request, db: Db, user: User, proveedor_id: in
 @router.get("/seguimiento/ordenes")
 def seguimiento_ordenes(request: Request, db: Db, user: User, proveedor_id: int | None = None,
                         orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    """OCs con sus liberaciones y cuánto está por facturar, en contenedor, en camino y recibido."""
     exigir(user, "seguimiento.ver")
     return seg.ordenes(db, user, proveedor_id, _filtros_de(request), orden, page, size)
 
@@ -88,6 +92,7 @@ def seguimiento_documentos(db: Db, user: User, proveedor_id: int | None = None, 
                            sociedad: str | None = None, centro: str | None = None, embarque_id: int | None = None,
                            proveedor: str | None = None, con_pendientes: bool = False, orden: str | None = None,
                            page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    """Facturas y packing lists por etapa, con sus pendientes, contenedor e indicadores."""
     exigir(user, "seguimiento.ver")
     filtros = {k: v for k, v in locals().items()
                if k not in ("db", "user", "proveedor_id", "orden", "page", "size")}
@@ -119,11 +124,13 @@ def seguimiento_exportar(vista: str, request: Request, db: Db, user: User, prove
 
 @router.get("/alertas")
 def alertas(db: Db, user: User, proveedor_id: int | None = None):
+    """Últimas 50 alertas sin resolver, dentro del alcance de proveedores del usuario."""
     return servicio_alertas.listar_alertas(db, user, proveedor_id)
 
 
 @router.post("/alertas/{alerta_id}/resolver")
 def resolver(alerta_id: int, db: Db, user: User, clave: Clave = None):
+    """Marca una alerta como resuelta; queda en la bitácora."""
     return ejecutar(db, user, clave, lambda: servicio_alertas.resolver_alerta(db, user, alerta_id))
 
 
@@ -136,6 +143,7 @@ def tableros(user: User):
 
 @router.get("/tableros/{modulo}")
 def tablero_modulo(modulo: str, db: Db, user: User, dias: int = 30):
+    """Indicadores del módulo para los últimos 7, 30, 90 o 365 días, con el alcance del usuario."""
     return indicadores.tablero(db, user, modulo, dias)
 
 

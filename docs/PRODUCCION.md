@@ -105,7 +105,8 @@ Antes de actualizar:
 - Bitácora de los cambios críticos (documentos, aprobaciones, datos maestros,
   usuarios, roles y configuración), consultable en Usuarios y accesos →
   Bitácora.
-- Documentación interactiva de la API (`/docs`) apagada fuera de la demostración.
+- Documentación interactiva de la API (`/docs`, `/redoc`, `/openapi.json`) apagada fuera de la
+  demostración; se enciende con `API_DOCS=1` (docs/API.md).
 - El contenedor corre sin privilegios de administrador.
 
 ## 7. Organizaciones (multiempresa)

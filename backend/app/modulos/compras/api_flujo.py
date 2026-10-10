@@ -59,6 +59,7 @@ def validar(datos: Validar, db: Db, user: User, oc_id: int | None = None):
 
 @router.get("/ordenes/{oc_id}")
 def detalle(oc_id: int, db: Db, user: User):
+    """Detalle de la OC: posiciones, avance, pasos de aprobación y acciones que el usuario puede hacer."""
     return svc.detalle(db, user, oc_id)
 
 
@@ -70,6 +71,7 @@ def guardar(oc_id: int, datos: Guardar, db: Db, user: User, clave: Clave = None)
 
 @router.delete("/ordenes/{oc_id}")
 def eliminar(oc_id: int, db: Db, user: User):
+    """Elimina un borrador de OC que nunca se envió."""
     svc.eliminar(db, user, oc_id)
     db.commit()
     return {"ok": True}
@@ -77,34 +79,41 @@ def eliminar(oc_id: int, db: Db, user: User):
 
 @router.get("/ordenes/{oc_id}/historial")
 def historial(oc_id: int, db: Db, user: User):
+    """Historial de cambios de la OC, del más reciente al más antiguo."""
     return svc.historial(db, user, oc_id)
 
 
 @router.post("/ordenes/{oc_id}/enviar")
 def enviar(oc_id: int, datos: Version, db: Db, user: User, clave: Clave = None):
+    """Envía el borrador (o la OC rechazada) a aprobación; si ninguna regla aplica, queda aprobada."""
     return ejecutar(db, user, clave, lambda: svc.enviar(db, user, oc_id, datos.version))
 
 
 @router.post("/ordenes/{oc_id}/aprobar")
 def aprobar(oc_id: int, datos: Comentario, db: Db, user: User, clave: Clave = None):
+    """Aprueba el paso pendiente según el rol; con el último paso la OC queda aprobada y liberada."""
     return ejecutar(db, user, clave, lambda: svc.aprobar(db, user, oc_id, datos.comentario))
 
 
 @router.post("/ordenes/{oc_id}/rechazar")
 def rechazar(oc_id: int, datos: Motivo, db: Db, user: User, clave: Clave = None):
+    """Rechaza el paso pendiente con motivo; la OC queda rechazada y se puede corregir y reenviar."""
     return ejecutar(db, user, clave, lambda: svc.rechazar(db, user, oc_id, datos.motivo))
 
 
 @router.post("/ordenes/{oc_id}/cancelar")
 def cancelar(oc_id: int, datos: Motivo, db: Db, user: User, clave: Clave = None):
+    """Cancela la OC con motivo; si está en facturas activas, hay que cancelarlas antes o cerrar la OC."""
     return ejecutar(db, user, clave, lambda: svc.cancelar(db, user, oc_id, datos.motivo))
 
 
 @router.post("/ordenes/{oc_id}/cerrar")
 def cerrar(oc_id: int, datos: Motivo, db: Db, user: User, clave: Clave = None):
+    """Cierra una OC aprobada con motivo: lo que falta por facturar deja de estar disponible."""
     return ejecutar(db, user, clave, lambda: svc.cerrar(db, user, oc_id, datos.motivo))
 
 
 @router.post("/ordenes/{oc_id}/reabrir")
 def reabrir(oc_id: int, datos: Motivo, db: Db, user: User, clave: Clave = None):
+    """Reabre una OC cerrada con motivo: vuelve a quedar aprobada."""
     return ejecutar(db, user, clave, lambda: svc.reabrir(db, user, oc_id, datos.motivo))

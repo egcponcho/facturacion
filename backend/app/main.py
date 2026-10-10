@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -7,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.routing import APIRoute
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
@@ -80,10 +82,38 @@ async def _limpieza_periodica():
         await asyncio.sleep(INTERVALO_SEG)
 
 
-# La documentación interactiva de la API solo en la demostración: en
-# producción no se publica el mapa de rutas.
-_docs = settings.SEED_DEMO
+# Documentación de la API (docs/API.md): una etiqueta por módulo de dominio.
+# Se publica en la demostración o con API_DOCS=1.
+ETIQUETAS = [
+    {"name": "Acceso", "description": "Ingreso en dos pasos, sesión, perfil y preferencias, usuarios, roles y permisos."},
+    {"name": "Plataforma", "description": "Organizaciones (empresas cliente) de la instalación; solo la administración "
+                                          "de la plataforma."},
+    {"name": "Empresa", "description": "Ficha, marca, documentos y reglas de la organización."},
+    {"name": "Datos maestros", "description": "Catálogos, listas de valores, genéricos y tallas, cargas masivas y su "
+                                              "gobierno (responsables, obligatorios, historial)."},
+    {"name": "Órdenes de compra", "description": "Órdenes de compra: importación, asistente, aprobación, liberaciones y "
+                                                 "líneas disponibles para facturar."},
+    {"name": "Facturas", "description": "Facturas comerciales armadas desde las líneas de las OCs, su revisión y sus "
+                                        "documentos."},
+    {"name": "Listas de empaque", "description": "Listas de empaque con su estructura de cajas, inner packs y "
+                                                 "prepacks, y plantillas de caja."},
+    {"name": "Transporte", "description": "Embarques, unidades de carga, hitos, recolección, recepción y lead times."},
+    {"name": "Productos", "description": "Fichas técnicas de producto, su flujo de revisión y aprobación y sus "
+                                         "partidas por país."},
+    {"name": "Clasificación arancelaria", "description": "Arancel oficial, motor de clasificación (familias, "
+                                                         "atributos, reglas) y conocimiento de la empresa."},
+    {"name": "Seguimiento e indicadores", "description": "Inicio, búsqueda global, seguimiento, alertas, tableros "
+                                                         "e indicadores por módulo."},
+    {"name": "Reportes", "description": "Generador de reportes: fuentes permitidas, vista previa, exportación y "
+                                        "reportes guardados."},
+    {"name": "Común", "description": "Edición exclusiva de un registro y bitácora de auditoría."},
+    {"name": "Sistema", "description": "Estado del servidor."},
+]
+_docs = settings.API_DOCS
 app = FastAPI(title="Supplier workspace: invoices, packing lists and transport", lifespan=lifespan,
+              description="API del espacio de trabajo con proveedores. Convenciones (sesión, encabezados, errores, "
+                          "paginación, idioma) en docs/API.md.",
+              openapi_tags=ETIQUETAS,
               docs_url="/docs" if _docs else None, redoc_url="/redoc" if _docs else None,
               openapi_url="/openapi.json" if _docs else None, default_response_class=RespuestaJSON)
 app.add_middleware(
@@ -155,11 +185,50 @@ RUTAS = (
     compras_api, compras_api_flujo, facturacion_api, empaque_api, productos_api, transporte_api, comun_api, seguimiento_api,
     transporte_api_leadtimes, empaque_api_plantillas, maestros_api_listas, plataforma_api, reportes_api,
 )
+ETIQUETA_DE = {
+    acceso_api: "Acceso", plataforma_api: "Plataforma", empresa_api: "Empresa",
+    maestros_api: "Datos maestros", maestros_api_listas: "Datos maestros",
+    compras_api: "Órdenes de compra", compras_api_flujo: "Órdenes de compra", facturacion_api: "Facturas",
+    empaque_api: "Listas de empaque", empaque_api_plantillas: "Listas de empaque",
+    transporte_api: "Transporte", transporte_api_leadtimes: "Transporte",
+    productos_api: "Productos", productos_api_flujo: "Productos",
+    clasificacion_api: "Clasificación arancelaria", clasificacion_api_conocimiento: "Clasificación arancelaria",
+    seguimiento_api: "Seguimiento e indicadores", reportes_api: "Reportes", comun_api: "Común",
+}
+
+
+def _resumir(router):
+    """La primera oración del docstring de cada ruta es su resumen en la
+    documentación (el docstring completo queda como descripción)."""
+    for ruta in router.routes:
+        doc = inspect.cleandoc(getattr(ruta, "endpoint", None).__doc__ or "") if isinstance(ruta, APIRoute) else ""
+        if doc and not ruta.summary:
+            ruta.summary = " ".join(doc.partition("\n\n")[0].split()).partition(". ")[0].rstrip(".")
+
+
 for modulo in RUTAS:
-    app.include_router(modulo.router, prefix="/api")
+    _resumir(modulo.router)
+    app.include_router(modulo.router, prefix="/api", tags=[ETIQUETA_DE[modulo]])
 
 
-@app.get("/api/salud")
+_openapi_base = app.openapi
+
+
+def _openapi():
+    """Esquema OpenAPI sin repetir como descripción el resumen de una ruta
+    cuyo docstring es una sola oración."""
+    if app.openapi_schema is None:
+        for operaciones in _openapi_base()["paths"].values():
+            for op in operaciones.values():
+                if " ".join(op.get("description", "").split()).rstrip(".") == op.get("summary"):
+                    op.pop("description", None)
+    return app.openapi_schema
+
+
+app.openapi = _openapi
+
+
+@app.get("/api/salud", tags=["Sistema"], summary="Estado del servidor")
 def salud():
     return {"ok": True}
 

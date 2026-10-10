@@ -14,7 +14,7 @@ from app.modelos import PalabraClave, SinonimoMaterial
 from app.modulos.clasificacion import conocimiento
 from app.web.rutas import Db, User
 
-router = APIRouter(tags=["clasificacion"])
+router = APIRouter()
 
 
 # ---- CLASSIFICATION ENGINE ---------------------------------------------------------
@@ -31,6 +31,7 @@ def configuracion(db: Db, user: User):
 
 @router.get("/clasificacion/configuracion/dominios")
 def config_dominios(db: Db, user: User):
+    """Dominios del motor de clasificación con sus capítulos."""
     from app.modulos.clasificacion import oficial
 
     return oficial.dominios(db, user)
@@ -38,6 +39,7 @@ def config_dominios(db: Db, user: User):
 
 @router.get("/clasificacion/configuracion/categorias")
 def config_categorias(db: Db, user: User, todas: bool = False, dominio: str | None = None):
+    """Categorías del motor; sin `todas`, solo las activas, y con `dominio`, solo las de ese dominio."""
     from app.modulos.acceso.permisos import exigir
     from app.modulos.clasificacion import categorias
 
@@ -47,6 +49,7 @@ def config_categorias(db: Db, user: User, todas: bool = False, dominio: str | No
 
 @router.get("/clasificacion/configuracion/atributos")
 def config_atributos(db: Db, user: User, q: str | None = None, dominio: str | None = None):
+    """Atributos del motor de clasificación, filtrados por texto y dominio."""
     from app.modulos.clasificacion import atributos
 
     return atributos.listar(db, user, q, dominio, None)
@@ -55,6 +58,7 @@ def config_atributos(db: Db, user: User, q: str | None = None, dominio: str | No
 @router.get("/clasificacion/configuracion/reglas")
 def config_reglas(db: Db, user: User, q: str | None = None, tipo: str | None = None, page: int = Query(1, ge=1),
                   size: int = Query(50, ge=1, le=200)):
+    """Reglas del motor de clasificación, paginadas y filtradas por texto y tipo."""
     from app.modulos.clasificacion import reglas
 
     return reglas.listar(db, user, q, tipo, None, page, size, None)
@@ -63,17 +67,20 @@ def config_reglas(db: Db, user: User, q: str | None = None, tipo: str | None = N
 # ---- COMPANY KNOWLEDGE ---------------------------------------------------------------
 @router.get("/conocimiento")
 def conocimiento_resumen(db: Db, user: User):
+    """Conocimiento de la empresa en números: historial por origen, palabras clave y sinónimos."""
     return conocimiento.resumen(db, user)
 
 
 @router.get("/conocimiento/historial")
 def historial(db: Db, user: User, pais: str | None = None, q: str | None = None, origen: str | None = None,
               page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200)):
+    """Historial de clasificaciones de la empresa, paginado y filtrado por país, código y origen."""
     return conocimiento.listar(db, user, pais, q, page, size, origen)
 
 
 @router.delete("/conocimiento/historial/{hid}")
 def historial_borrar(hid: int, db: Db, user: User):
+    """Quita una entrada del historial: deja de influir en el orden de candidatos."""
     conocimiento.borrar(db, user, hid)
     db.commit()
     return {"ok": True}
@@ -81,11 +88,13 @@ def historial_borrar(hid: int, db: Db, user: User):
 
 @router.get("/conocimiento/palabras")
 def palabras(db: Db, user: User):
+    """Palabras clave aprendidas del nombre del estilo, con su tipo, marca y atributos."""
     return conocimiento.palabras(db, user)
 
 
 @router.delete("/conocimiento/palabras/{pid}")
 def palabra_borrar(pid: int, db: Db, user: User):
+    """Borra una palabra clave aprendida."""
     conocimiento.borrar_palabra(db, user, PalabraClave, pid)
     db.commit()
     return {"ok": True}
@@ -93,11 +102,13 @@ def palabra_borrar(pid: int, db: Db, user: User):
 
 @router.get("/conocimiento/sinonimos")
 def sinonimos(db: Db, user: User):
+    """Sinónimos de material aprendidos (palabra de composición → material)."""
     return conocimiento.sinonimos(db, user)
 
 
 @router.delete("/conocimiento/sinonimos/{sid}")
 def sinonimo_borrar(sid: int, db: Db, user: User):
+    """Borra un sinónimo de material aprendido."""
     conocimiento.borrar_palabra(db, user, SinonimoMaterial, sid)
     db.commit()
     return {"ok": True}

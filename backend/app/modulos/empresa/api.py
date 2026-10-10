@@ -17,9 +17,11 @@ def empresa_publica(db: Db):
 
 @router.get("/organizacion")
 def ver_organizacion(db: Db, user: User):
+    """Ficha de la empresa: datos, marca, preferencias, módulos y reglas. Requiere administración."""
     return organizacion.detalle(db, user)
 
 
 @router.put("/organizacion")
 def guardar_organizacion(datos: dict, db: Db, user: User, clave: Clave = None):
+    """Guarda datos, marca, preferencias, módulos y reglas de la empresa. Requiere administración."""
     return ejecutar(db, user, clave, lambda: organizacion.actualizar(db, user, datos))
