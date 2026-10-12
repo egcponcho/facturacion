@@ -79,3 +79,23 @@ def test_ordenes_filtran_por_columna_y_dan_sus_valores(interno):
 def test_ordenes_valores_respetan_el_alcance_del_proveedor(vans):
     provs = vans.get("/ordenes/valores", params={"columna": "proveedor", "solo_disponible": "false"}).json()
     assert [v["valor"] for v in provs] == ["Vans"]
+
+
+# ---- Reglas de clasificación (incluye una columna en tabla hija: sus condiciones) ---------
+
+def test_reglas_filtran_por_tipo_activo_y_atributo_de_sus_condiciones(interno):
+    total = interno.get("/aranceles/reglas", params={"size": 1}).json()["total"]
+    tipos = interno.get("/aranceles/reglas/valores", params={"columna": "tipo"}).json()
+    assert sum(v["n"] for v in tipos) == total
+    # Sí / no: activas
+    act = {v["valor"]: v["n"] for v in interno.get("/aranceles/reglas/valores", params={"columna": "activo"}).json()}
+    assert True in act and interno.get("/aranceles/reglas", params={"size": 1, **_f(activo=["true"])}).json()["total"] == act[True]
+    # Atributo de las condiciones: cuenta reglas (no condiciones) y filtra las que lo usan
+    conds = interno.get("/aranceles/reglas/valores", params={"columna": "condiciones"}).json()
+    uno = next(v for v in conds if v["valor"])
+    r = interno.get("/aranceles/reglas", params={"size": 200, **_f(condiciones=[uno["valor"]])}).json()
+    assert r["total"] == uno["n"]
+    assert all(any(c["campo"] == uno["valor"] for c in x["condiciones"]) for x in r["items"])
+    # Orden por columna
+    r = interno.get("/aranceles/reglas", params={"size": 20, "orden": "prioridad:asc"}).json()["items"]
+    assert [x["prioridad"] for x in r] == sorted(x["prioridad"] for x in r)

@@ -7,7 +7,7 @@ import FiltroMulti from '@/componentes/FiltroMulti.vue'
 import Icono from '@/componentes/Icono.vue'
 import Interruptor from '@/componentes/Interruptor.vue'
 import Modal from '@/componentes/Modal.vue'
-import Paginacion from '@/componentes/Paginacion.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import EditorRegla from './EditorRegla.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
@@ -24,7 +24,21 @@ const props = defineProps({ paises: { type: Array, default: () => [] }, condicio
 const edita = puede('clasificacion.configurar')
 const datos = ref({ items: [], total: 0, por_tipo: {} })
 const route = useRoute()
-const f = reactive({ q: '', tipo: '', pais: '', page: 1, size: 50 })
+const f = reactive({ q: '', tipo: '', pais: '' })
+const tabla = ref(null)
+const cargando = ref(false)
+// Columnas: cada una filtra por sus valores únicos (el servidor los da con los demás filtros)
+const columnas = computed(() => [
+  { clave: 'regla', texto: t('Rule'), fija: true, prioridad: 1 },
+  { clave: 'tipo', texto: t('Type'), prioridad: 1, opciones: Object.entries(TIPO) },
+  { clave: 'fuente', texto: t('Source'), prioridad: 3, inicial: false, opciones: Object.entries(FUENTE) },
+  { clave: 'ambito', texto: t('Applies to'), prioridad: 2 },
+  { clave: 'pais', texto: t('Country'), prioridad: 3, inicial: false },
+  { clave: 'condiciones', texto: t('Conditions'), prioridad: 2, ordenable: false, textoValor: (v) => campoTxt({ campo: v }) },
+  { clave: 'prioridad', texto: t('Priority'), num: true, prioridad: 2 },
+  { clave: 'activo', texto: t('Active'), prioridad: 1, opciones: [[true, t('Yes')], [false, t('No')]] },
+  { clave: 'revision', texto: t('Needs review'), prioridad: 3, inicial: false, opciones: [[true, t('Yes')], [false, t('No')]] },
+])
 const modal = ref(null)
 const ocupado = ref(false)
 
@@ -35,23 +49,38 @@ const PESTANAS = [['', t('All')], ['NATIONAL_SELECT', t('National selection')], 
   ['QUESTION_GATE', t('Questions')], ['REVIEW_GATE', t('Review')], ['SOFT_SIGNAL', t('Prefer codes')]]
 
 let temporizador = null
-async function cargar() {
+// Filtros de la pantalla: las reglas de la ficha (por categoría) van en su propia pestaña
+const filtrosPantalla = () => ({
+  q: f.q || undefined, tipo: f.tipo && f.tipo !== 'SHEET_RULES' ? f.tipo : undefined,
+  fuente: f.tipo === 'SHEET_RULES' ? 'SHEET_RULES' : f.tipo ? '-SHEET_RULES' : undefined, pais: f.pais || undefined,
+})
+const valoresColumna = (columna, buscar, otros) => api.get('/aranceles/reglas/valores', { columna, buscar, f: JSON.stringify(otros), ...filtrosPantalla() })
+let ultima = null
+async function consultar(c = ultima) {
+  if (!c) return
+  ultima = c
+  cargando.value = true
   try {
-    // Las reglas de la ficha (por categoría) van en su propia pestaña
-    const fuente = f.tipo === 'SHEET_RULES' ? 'SHEET_RULES' : f.tipo ? '-SHEET_RULES' : undefined
-    datos.value = await api.get('/aranceles/reglas', { q: f.q || undefined, tipo: f.tipo && f.tipo !== 'SHEET_RULES' ? f.tipo : undefined, fuente,
-      pais: f.pais || undefined, page: f.page, size: f.size })
+    datos.value = await api.get('/aranceles/reglas', { ...filtrosPantalla(), page: c.page, size: c.size, orden: c.orden || undefined,
+      f: Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined })
   } catch (e) {
     errorApi(e)
+  } finally {
+    cargando.value = false
   }
 }
+// Un filtro de la pantalla vuelve a la primera página
+function recargar() {
+  if (tabla.value && tabla.value.pagina !== 1) tabla.value.pagina = 1
+  else consultar()
+}
+const cargar = () => consultar()
 function buscar() {
   clearTimeout(temporizador)
-  temporizador = setTimeout(() => { f.page = 1; cargar() }, 250)
+  temporizador = setTimeout(recargar, 250)
 }
-const filtrar = (k, v) => { f[k] = v; f.page = 1; cargar() }
+const filtrar = (k, v) => { f[k] = v; recargar() }
 onMounted(async () => {
-  cargar()
   cargarCatalogo()
   // Desde un artículo: regla nueva ya llena con la decisión de aduanas
   if (route.query.desde && edita) {
@@ -150,43 +179,46 @@ async function guardarModal() {
 <template>
   <section>
     <p class="ayuda">{{ t('How the engine decides, as data. System rules come from the dynamic engine package; national selection rules are the product conditions that pick each national code within its subheading, kept apart from the official code.') }}</p>
-    <div class="pestanas-pildora">
-      <button v-for="[k, l] in PESTANAS" :key="k" class="pildora" :aria-pressed="f.tipo === k" @click="filtrar('tipo', k)">
-        {{ tx(l) }} <span class="cuenta">{{ fmtNum(k ? datos.por_tipo[k] || 0 : total) }}</span></button>
-    </div>
-    <div class="filtros" v-filtros>
-      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="f.q" type="search" :placeholder="t('Rule, family, attribute or national code')" :aria-label="t('Search')" @input="buscar" /></label>
-      <SelectBusqueda :model-value="f.pais" :opciones="paises.map((p) => ({ valor: p.iso, texto: `${p.iso} · ${p.nombre}` }))" :vacio="t('All countries')" :etiqueta="t('Country')" @update:model-value="filtrar('pais', $event)" />
-      <button v-if="edita" class="btn btn-primario separar" @click="editor = { regla: null }"><Icono nombre="mas" />{{ t('New rule') }}</button>
-    </div>
-    <div class="tabla-marco tabla-fija">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Rule') }}</th><th>{{ t('Type') }}</th><th>{{ t('Applies to') }}</th><th>{{ t('Conditions') }}</th><th class="num">{{ t('Priority') }}</th><th>{{ t('Active') }}</th><th></th></tr></thead>
-        <tbody>
-          <tr v-if="!datos.items.length"><td colspan="7" class="vacio">{{ t('No results.') }}</td></tr>
-          <tr v-for="r in datos.items" :key="r.id" :class="{ apagada: !r.activo }">
-            <td :data-label="t('Rule')" class="regla envolver">
-              <template v-if="r.inciso"><span class="codigo-sac">{{ tx(r.pais) }} {{ tx(r.inciso.codigo) }}</span><span class="sub">{{ tx(r.inciso.descripcion || '') }}</span></template>
-              <template v-else><b class="codigo">{{ tx(r.codigo) }}</b><span class="sub envolver">{{ tx(r.efecto || r.familia) }}</span></template>
-            </td>
-            <td :data-label="t('Type')"><span class="etiqueta" :class="{ acento: r.tipo_regla === 'HARD_CONSTRAINT' }">{{ tx(TIPO[r.tipo_regla] || r.tipo_regla) }}</span>
-              <span class="sub">{{ tx(FUENTE[r.tipo_fuente] || r.tipo_fuente) }}<template v-if="r.requiere_revision"> · {{ t('needs review') }}</template></span></td>
-            <td :data-label="t('Applies to')" class="codigo">{{ tx(r.tipo_ambito === 'NATIONAL_CODE' ? r.codigo_ambito : `${r.tipo_ambito} · ${r.codigo_ambito}`) }}</td>
-            <td :data-label="t('Conditions')" class="envolver condiciones">
-              <span v-if="!r.condiciones.length" class="ayuda">{{ t('Always') }}</span>
-              <span v-if="r.accion?.mapa" class="cond accion">→ {{ tx(r.accion.tipo) }} {{ t('by {0}', [campoTxt({ campo: r.accion.por })]) }}:
-                {{ tx(Object.entries(r.accion.mapa).map(([k, v]) => `${k ? valorTxt({ campo: r.accion.por, valor: k }) : t('(no value)')} ${v}`).join(' · ')) }}</span>
-              <span v-else-if="r.accion?.tipo" class="cond accion">→ {{ tx(r.accion.tipo) }} {{ tx((r.accion.codigos || r.accion.atributos || []).join(', ')) }}</span>
-              <span v-for="c in r.condiciones" :key="c.id" class="cond"><b>{{ tx(campoTxt(c)) }}</b> {{ tx(c.negado ? t('not') + ' ' : '') }}{{ tx(OPERADOR[c.operador] || c.operador) }} {{ tx(valorTxt(c)) }}</span>
-            </td>
-            <td :data-label="t('Priority')" class="num">{{ fmtNum(r.prioridad) }}</td>
-            <td :data-label="t('Active')"><Interruptor :model-value="r.activo" :deshabilitado="!edita" :etiqueta="t('Active')" @update:model-value="guardar(r, { activo: $event })" /></td>
-            <td><button v-if="edita" type="button" class="btn-icono" :aria-label="t('Edit')" @click="abrir(r)"><Icono nombre="editar" :tam="15" /></button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <Paginacion :page="f.page" :size="f.size" :total="datos.total" @cambiar="(p) => { f.page = p; cargar() }" @tamano="(n) => { f.size = n; f.page = 1; cargar() }" />
+    <TablaDatos ref="tabla" tabla="familias_reglas" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
+                :valores="valoresColumna" :externos="{ q: f.q, tipo: f.tipo, pais: f.pais }" :por-pagina="50" :clase-fila="(r) => ({ apagada: !r.activo })"
+                :etiqueta="t('Rules')" @consulta="consultar" @vista="(x) => { f.q = x.q || ''; f.tipo = x.tipo || ''; f.pais = x.pais || ''; recargar() }">
+      <template #barra>
+        <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="f.q" type="search" :placeholder="t('Rule, family, attribute or national code')" :aria-label="t('Search')" @input="buscar" /></label>
+      </template>
+      <template #filtros>
+        <div class="segmentos" role="group" :aria-label="t('Rule type')">
+          <button v-for="[k, l] in PESTANAS" :key="k" type="button" class="segmento" :aria-pressed="f.tipo === k" @click="filtrar('tipo', k)">
+            {{ tx(l) }}<span class="cuenta">{{ fmtNum(k ? datos.por_tipo?.[k] || 0 : total) }}</span></button>
+        </div>
+        <SelectBusqueda :model-value="f.pais" :opciones="paises.map((p) => ({ valor: p.iso, texto: `${p.iso} · ${p.nombre}` }))" :vacio="t('All countries')" :etiqueta="t('Country')" @update:model-value="filtrar('pais', $event)" />
+        <button v-if="edita" type="button" class="btn btn-primario separar" @click="editor = { regla: null }"><Icono nombre="mas" />{{ t('New rule') }}</button>
+      </template>
+      <template #celda-regla="{ fila: r }">
+        <div class="regla">
+          <template v-if="r.inciso"><span class="codigo-sac">{{ tx(r.pais) }} {{ tx(r.inciso.codigo) }}</span><span class="sub">{{ tx(r.inciso.descripcion || '') }}</span></template>
+          <template v-else><b class="codigo">{{ tx(r.codigo) }}</b><span class="sub envolver">{{ tx(r.efecto || r.familia) }}</span></template>
+        </div>
+      </template>
+      <template #celda-tipo="{ fila: r }"><span class="etiqueta ms-0" :class="{ acento: r.tipo_regla === 'HARD_CONSTRAINT' }">{{ tx(TIPO[r.tipo_regla] || r.tipo_regla) }}</span>
+        <span class="sub">{{ tx(FUENTE[r.tipo_fuente] || r.tipo_fuente) }}<template v-if="r.requiere_revision"> · {{ t('needs review') }}</template></span></template>
+      <template #celda-fuente="{ fila: r }">{{ tx(FUENTE[r.tipo_fuente] || r.tipo_fuente) }}</template>
+      <template #celda-ambito="{ fila: r }"><span class="codigo">{{ tx(r.tipo_ambito === 'NATIONAL_CODE' ? r.codigo_ambito : `${r.tipo_ambito} · ${r.codigo_ambito}`) }}</span></template>
+      <template #celda-pais="{ fila: r }">{{ tx(r.pais || '—') }}</template>
+      <template #celda-condiciones="{ fila: r }">
+        <div class="envolver condiciones">
+          <span v-if="!r.condiciones.length" class="ayuda">{{ t('Always') }}</span>
+          <span v-if="r.accion?.mapa" class="cond accion">→ {{ tx(r.accion.tipo) }} {{ t('by {0}', [campoTxt({ campo: r.accion.por })]) }}:
+            {{ tx(Object.entries(r.accion.mapa).map(([k, v]) => `${k ? valorTxt({ campo: r.accion.por, valor: k }) : t('(no value)')} ${v}`).join(' · ')) }}</span>
+          <span v-else-if="r.accion?.tipo" class="cond accion">→ {{ tx(r.accion.tipo) }} {{ tx((r.accion.codigos || r.accion.atributos || []).join(', ')) }}</span>
+          <span v-for="c in r.condiciones" :key="c.id" class="cond"><b>{{ tx(campoTxt(c)) }}</b> {{ tx(c.negado ? t('not') + ' ' : '') }}{{ tx(OPERADOR[c.operador] || c.operador) }} {{ tx(valorTxt(c)) }}</span>
+        </div>
+      </template>
+      <template #celda-prioridad="{ fila: r }">{{ fmtNum(r.prioridad) }}</template>
+      <template #celda-activo="{ fila: r }"><Interruptor :model-value="r.activo" :deshabilitado="!edita" :etiqueta="t('Active')" @update:model-value="guardar(r, { activo: $event })" /></template>
+      <template #celda-revision="{ fila: r }">{{ r.requiere_revision ? t('Yes') : t('No') }}</template>
+      <template #acciones="{ fila: r }"><button v-if="edita" type="button" class="btn-icono" :aria-label="t('Edit')" @click="abrir(r)"><Icono nombre="editar" :tam="15" /></button></template>
+      <template #vacio>{{ t('No results.') }}</template>
+    </TablaDatos>
 
     <EditorRegla v-if="editor" :regla="editor.regla" :borrador="editor.borrador" @cerrar="editor = null" @guardada="editor = null; cargar()" />
     <Modal v-if="modal" :titulo="modal.r.inciso ? t('Selection rule for {0} {1}', [modal.r.pais, modal.r.inciso.codigo]) : t('Rule {0}', [modal.r.codigo])" ancho="640px" @cerrar="modal = null">
@@ -224,12 +256,11 @@ async function guardarModal() {
 </template>
 
 <style scoped>
-.pestanas-pildora { margin: 10px 0; }
-.regla { min-width: 220px; max-width: 420px; }
+.regla { min-width: 200px; max-width: 320px; white-space: normal; }
 .regla .sub { display: block; }
-.condiciones { min-width: 200px; max-width: 360px; }
+.condiciones { min-width: 200px; max-width: 340px; }
 .cond { display: inline-block; margin: 0 6px 3px 0; padding: 2px 7px; border-radius: 8px; background: var(--superficie-2); font-size: 0.82rem; }
-tr.apagada td { opacity: 0.55; }
+:deep(tr.apagada > td) { opacity: 0.55; }
 .cond.accion { background: var(--acento-claro); color: var(--acento-texto); font-weight: 600; }
 .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
 .campo.ancho { grid-column: 1 / -1; }

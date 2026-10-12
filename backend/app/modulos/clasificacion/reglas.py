@@ -26,6 +26,7 @@ from app.modelos import CondicionRegla, DominioClasificacion, IncisoNacional, Re
 from app.modulos.acceso.permisos import exigir
 from app.modulos.clasificacion.meta import cond_texto
 from app.modulos.clasificacion.oficial import _si, _txt
+from app.modulos.comun import tabla
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto
 
@@ -169,10 +170,21 @@ def _firma_completa(r: ReglaClasificacion) -> str:
     return firma_regla({**foto_regla(r), "revision": 0, "activo": r.activo})
 
 
-def listar(db: Session, user: Usuario, q: str | None = None, tipo: str | None = None, pais: str | None = None,
-           page: int = 1, size: int = 50, fuente: str | None = None) -> dict:
+# Columnas de la tabla de reglas que se filtran por sus valores (app/modulos/comun/tabla.py)
+COLUMNAS = {
+    "regla": ReglaClasificacion.codigo, "tipo": ReglaClasificacion.tipo_regla, "fuente": ReglaClasificacion.tipo_fuente,
+    "ambito": ReglaClasificacion.codigo_ambito, "tipo_ambito": ReglaClasificacion.tipo_ambito, "pais": ReglaClasificacion.pais,
+    "familia": ReglaClasificacion.familia, "prioridad": ReglaClasificacion.prioridad, "activo": ReglaClasificacion.activo,
+    "revision": ReglaClasificacion.requiere_revision,
+    # Una regla pasa si alguna de sus condiciones pregunta por ese atributo
+    "condiciones": tabla.Relacion(CondicionRegla.campo, CondicionRegla.regla_id, ReglaClasificacion.id),
+}
+
+
+def _consulta(user: Usuario, q, tipo, pais, fuente):
+    """Reglas con los filtros de la pantalla (sin los de columna)."""
     exigir(user, "clasificacion.ver")
-    consulta = select(ReglaClasificacion).options(selectinload(ReglaClasificacion.inciso))
+    consulta = select(ReglaClasificacion)
     if tipo:
         consulta = consulta.where(ReglaClasificacion.tipo_regla == tipo)
     if pais:
@@ -187,10 +199,30 @@ def listar(db: Session, user: Usuario, q: str | None = None, tipo: str | None = 
                                        ReglaClasificacion.efecto.ilike(p), ReglaClasificacion.codigo_ambito.ilike(p),
                                        ReglaClasificacion.condiciones.any(CondicionRegla.campo.ilike(p))]),
             *([ReglaClasificacion.inciso.has(IncisoNacional.codigo.startswith(digitos))] if len(digitos) >= 4 else [])))
+    return consulta
+
+
+def valores(db: Session, user: Usuario, columna: str, buscar: str | None, filtros: dict, q=None, tipo=None, pais=None,
+            fuente=None) -> list[dict]:
+    """Valores únicos de una columna de la tabla de reglas bajo los demás filtros."""
+    expr = tabla.columna_valida(COLUMNAS, columna)
+    consulta = tabla.aplicar(_consulta(user, q, tipo, pais, fuente), COLUMNAS, filtros, excepto=columna)
+    return tabla.valores(db, consulta, expr, buscar, contar=ReglaClasificacion.id)
+
+
+def listar(db: Session, user: Usuario, q: str | None = None, tipo: str | None = None, pais: str | None = None,
+           page: int = 1, size: int = 50, fuente: str | None = None, filtros: dict | None = None,
+           orden: str | None = None) -> dict:
+    consulta = tabla.aplicar(_consulta(user, q, tipo, pais, fuente), COLUMNAS, filtros or {})
     total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
-    filas = db.scalars(consulta.order_by(ReglaClasificacion.tipo_regla != "HARD_CONSTRAINT", -ReglaClasificacion.prioridad,
-                                         ReglaClasificacion.pais, ReglaClasificacion.codigo_ambito, ReglaClasificacion.codigo)
-                       .offset((page - 1) * size).limit(size)).all()
+    col, _, direccion = (orden or "").partition(":")
+    expr = COLUMNAS.get(col)
+    if expr is not None and not isinstance(expr, tabla.Relacion):
+        consulta = consulta.order_by(expr.desc() if direccion == "desc" else expr.asc(), ReglaClasificacion.codigo)
+    else:
+        consulta = consulta.order_by(ReglaClasificacion.tipo_regla != "HARD_CONSTRAINT", -ReglaClasificacion.prioridad,
+                                     ReglaClasificacion.pais, ReglaClasificacion.codigo_ambito, ReglaClasificacion.codigo)
+    filas = db.scalars(consulta.options(selectinload(ReglaClasificacion.inciso)).offset((page - 1) * size).limit(size)).all()
     por_tipo = dict(db.execute(select(ReglaClasificacion.tipo_regla, func.count()).where(ReglaClasificacion.tipo_fuente != "SHEET_RULES")
                                .group_by(ReglaClasificacion.tipo_regla)).all())
     por_tipo["SHEET_RULES"] = db.scalar(select(func.count()).select_from(ReglaClasificacion).where(ReglaClasificacion.tipo_fuente == "SHEET_RULES")) or 0

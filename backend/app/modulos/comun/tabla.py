@@ -11,8 +11,10 @@ con cuántas filas tienen cada uno, bajo los demás filtros (como el filtro de
 Excel): así el filtro de la tabla muestra solo lo que tiene sentido elegir.
 """
 import json
+from dataclasses import dataclass
+from typing import Any
 
-from sqlalchemy import Boolean, String, cast, func, or_
+from sqlalchemy import Boolean, String, cast, func, or_, select
 
 from app.core.db import plano
 from app.core.errores import ErrorNegocio
@@ -20,6 +22,17 @@ from app.modulos.comun.texto import plano_sql
 
 VACIO = "__vacio__"
 MAX_VALORES = 201  # uno más que lo que muestra el filtro: así sabe que hay más
+
+
+@dataclass
+class Relacion:
+    """Columna cuyo dato vive en una tabla hija (una regla tiene varias
+    condiciones, una OC varias marcas): la fila pasa si ALGUNO de sus hijos
+    tiene uno de los valores. `expr` es el dato en la tabla hija, `hijo_id` la
+    columna de la hija que apunta al padre y `padre_id` la llave del padre."""
+    expr: Any
+    hijo_id: Any
+    padre_id: Any
 
 
 def leer(f: str | None) -> dict[str, list[str]]:
@@ -68,7 +81,11 @@ def aplicar(consulta, columnas: dict, filtros: dict[str, list[str]], excepto: st
     for k, vals in filtros.items():
         if k == excepto or k not in columnas:
             continue
-        consulta = consulta.where(condicion(columnas[k], vals))
+        col = columnas[k]
+        if isinstance(col, Relacion):
+            consulta = consulta.where(col.padre_id.in_(select(col.hijo_id).where(condicion(col.expr, vals))))
+        else:
+            consulta = consulta.where(condicion(col, vals))
     return consulta
 
 
@@ -76,8 +93,14 @@ def valores(db, consulta, expr, q: str | None = None, contar=None) -> list[dict]
     """Valores únicos de `expr` en la consulta, con cuántas filas tienen cada uno.
     `contar` es lo que se cuenta (por defecto, las filas); `q` busca dentro de
     los valores sin acentos ni mayúsculas."""
-    n = func.count(func.distinct(contar)) if contar is not None else func.count()
-    c = consulta.order_by(None).with_only_columns(expr, n).group_by(expr)
+    if isinstance(expr, Relacion):
+        # Valores de la tabla hija, contando cada fila padre una vez
+        padres = consulta.order_by(None).with_only_columns(expr.padre_id).scalar_subquery()
+        c = select(expr.expr, func.count(func.distinct(expr.hijo_id))).where(expr.hijo_id.in_(padres)).group_by(expr.expr)
+        expr = expr.expr
+    else:
+        n = func.count(func.distinct(contar)) if contar is not None else func.count()
+        c = consulta.order_by(None).with_only_columns(expr, n).group_by(expr)
     if q and q.strip():
         c = c.where(plano_sql(_texto(expr)).like(f"%{plano(q.strip())}%"))
     c = c.order_by(expr.is_(None).desc(), expr.asc()).limit(MAX_VALORES)

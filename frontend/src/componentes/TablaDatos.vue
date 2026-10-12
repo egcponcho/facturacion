@@ -284,7 +284,7 @@ function limpiar() {
 }
 function textoChip([k, vals]) {
   const c = props.columnas.find((x) => x.clave === k)
-  const textos = vals.map((v) => textoElegido(c || { clave: k }, v))
+  const textos = vals.map((v) => tx(textoElegido(c || { clave: k }, v)))
   const ver = textos.slice(0, 2).join(', ') + (textos.length > 2 ? ` ${t('(+{0})', [textos.length - 2])}` : '')
   return `${tx(c?.texto || k)}: ${ver}`
 }

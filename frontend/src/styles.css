@@ -592,7 +592,7 @@ a.cajas-rango { color: var(--tinta); }
 .barra-seleccion .btn-texto { color: var(--flotante-2); }
 
 /* ---- Modal ------------------------------------------------------------ */
-.modal-fondo { position: fixed; inset: 0; background: var(--velo); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px; z-index: 50; overflow-y: auto; animation: aparecer 0.12s ease-out; }
+.modal-fondo { position: fixed; inset: 0; background: var(--velo); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px; z-index: 57; overflow-y: auto; animation: aparecer 0.12s ease-out; }
 @keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
 .modal { background: var(--superficie); border-radius: 14px; width: 100%; box-shadow: var(--sombra-flotante); }
 .modal-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px 8px; }

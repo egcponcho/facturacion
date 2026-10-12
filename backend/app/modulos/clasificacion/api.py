@@ -568,11 +568,23 @@ def atributos_ambito(atributo_id: int, datos: s.AtributoAmbitoIn, db: Db, user: 
 # ---- Reglas de clasificación ------------------------------------------------------------
 @router.get("/aranceles/reglas")
 def reglas_lista(db: Db, user: User, q: str | None = None, tipo: str | None = None, pais: str | None = None,
-                 fuente: str | None = None, page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200)):
-    """Reglas de clasificación paginadas; filtra por texto, tipo, país y fuente, con conteo por tipo."""
+                 fuente: str | None = None, page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200),
+                 f: str | None = None, orden: str | None = None):
+    """Reglas de clasificación paginadas; filtra por texto, tipo, país, fuente y `f` por columna, con conteo por tipo."""
     from app.modulos.clasificacion import reglas
+    from app.modulos.comun import tabla
 
-    return reglas.listar(db, user, q, tipo, pais, page, size, fuente)
+    return reglas.listar(db, user, q, tipo, pais, page, size, fuente, tabla.leer(f), orden)
+
+
+@router.get("/aranceles/reglas/valores")
+def reglas_valores(db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None, q: str | None = None,
+                   tipo: str | None = None, pais: str | None = None, fuente: str | None = None):
+    """Valores únicos de una columna de la tabla de reglas (con cuántas tienen cada uno) bajo los demás filtros."""
+    from app.modulos.clasificacion import reglas
+    from app.modulos.comun import tabla
+
+    return reglas.valores(db, user, columna, buscar, tabla.leer(f), q, tipo, pais, fuente)
 
 
 @router.post("/aranceles/reglas")

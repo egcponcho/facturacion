@@ -7,6 +7,8 @@ import { filtrar } from '@/nucleo/busqueda.js'
 import Icono from '@/componentes/Icono.vue'
 import Interruptor from '@/componentes/Interruptor.vue'
 import Modal from '@/componentes/Modal.vue'
+import PanelLateral from '@/componentes/PanelLateral.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import EditorCondiciones from './EditorCondiciones.vue'
 import CampoComportamiento from '@/modulos/clasificacion/componentes/comportamiento/CampoComportamiento.vue'
@@ -81,13 +83,27 @@ async function guardarComportamiento() {
 const aliasTexto = (d) => (d.alias || []).join(', ')
 const guardarAlias = (v) => campo('alias', v.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean))
 
+const cargando = ref(true)
 async function cargar() {
   try {
     datos.value = await api.get('/aranceles/atributos')
   } catch (e) {
     errorApi(e)
+  } finally {
+    cargando.value = false
   }
 }
+// Tabla de preguntas: cada columna filtra por sus valores; el clic en la fila abre su detalle
+const columnas = computed(() => [
+  { clave: 'etiqueta', texto: t('Question'), fija: true, prioridad: 1 },
+  { clave: 'codigo', texto: t('Code'), prioridad: 2 },
+  { clave: 'tipo_dato', texto: t('Type'), prioridad: 2, opciones: Object.entries(TIPO) },
+  { clave: 'dominio', texto: t('Domain'), prioridad: 2, textoValor: (v) => tx(nombreDominio(v)) },
+  { clave: 'origen', texto: t('Origin'), prioridad: 3, opciones: Object.entries(ORIGEN) },
+  { clave: 'n_opciones', texto: t('Options'), num: true, prioridad: 3 },
+  { clave: 'n_ambitos', texto: t('Places asked'), num: true, prioridad: 3, inicial: false },
+  { clave: 'activo', texto: t('Status'), prioridad: 2, opciones: [[true, t('Active')], [false, t('Inactive')]] },
+])
 onMounted(async () => {
   cargar()
   dominios.value = await api.get('/aranceles/oficial/dominios').catch(() => [])
@@ -192,38 +208,39 @@ async function sincronizar() {
 
 <template>
   <div class="atributos">
-    <section class="panel lista">
-      <div class="cabeza">
-        <h3><Icono nombre="lista" :tam="16" />{{ t('Questions') }} <span class="cuenta">{{ fmtNum(datos.total) }}</span></h3>
-        <div v-if="edita" class="acciones">
-          <button class="btn btn-chico" :title="t('Add the product sheet attributes that are not in the database yet')" @click="sincronizar"><Icono nombre="varita" :tam="14" /></button>
-          <button class="btn btn-chico btn-primario" @click="abrirNuevo"><Icono nombre="mas" :tam="14" />{{ t('New') }}</button>
-        </div>
-      </div>
-      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="f.q" type="search" :placeholder="t('Code, label or domain')" :aria-label="t('Search')" /></label>
-      <div class="filtros-mini">
+    <TablaDatos tabla="familias_preguntas" :columnas="columnas" :filas="lista" :cargando="cargando" fila-clicable :fila-activa="elegido"
+                :clase-fila="(a) => ({ apagada: !a.activo })" :externos="{ q: f.q, origen: f.origen, dominio: f.dominio }" :etiqueta="t('Questions')"
+                @fila="elegir" @vista="(x) => Object.assign(f, { q: x.q || '', origen: x.origen || '', dominio: x.dominio || '' })">
+      <template #barra>
+        <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="f.q" type="search" :placeholder="t('Code, label or domain')" :aria-label="t('Search')" /></label>
+      </template>
+      <template #filtros>
         <SelectBusqueda v-model="f.origen" :opciones="Object.entries(ORIGEN).map(([k, v]) => ({ valor: k, texto: v, sub: fmtNum(datos.por_origen[k] || 0) }))" :vacio="t('All origins')" :etiqueta="t('Origin')" />
         <SelectBusqueda v-model="f.dominio" :opciones="opcionesDominio" :vacio="t('All domains')" :etiqueta="t('Domain')" />
-      </div>
-      <ul class="items" role="list">
-        <li v-if="!lista.length" class="ayuda">{{ t('No results.') }}</li>
-        <li v-for="a in lista" :key="a.id">
-          <button type="button" class="item" :class="{ elegido: elegido === a.id, off: !a.activo }" @click="elegir(a)">
-            <span class="txt"><b>{{ tx(a.etiqueta) }}</b><small class="codigo">{{ tx(a.codigo) }}</small></span>
-            <span class="meta"><span class="etiqueta">{{ tx(TIPO[a.tipo_dato] || a.tipo_dato) }}</span><small>{{ tx(nombreDominio(a.dominio)) }}</small></span>
-          </button>
-        </li>
-      </ul>
-    </section>
+        <template v-if="edita">
+          <button class="btn separar" type="button" :title="t('Add the product sheet attributes that are not in the database yet')" @click="sincronizar"><Icono nombre="varita" :tam="15" />{{ t('Sync with the sheet') }}</button>
+          <button class="btn btn-primario" type="button" @click="abrirNuevo"><Icono nombre="mas" :tam="15" />{{ t('New question') }}</button>
+        </template>
+      </template>
+      <template #celda-etiqueta="{ fila: a }"><div class="pregunta"><strong>{{ tx(a.etiqueta) }}</strong><span v-if="a.descripcion" class="desc" :title="tx(a.descripcion)">{{ tx(a.descripcion) }}</span></div></template>
+      <template #celda-codigo="{ fila: a }"><span class="codigo">{{ tx(a.codigo) }}</span></template>
+      <template #celda-tipo_dato="{ fila: a }"><span class="etiqueta ms-0">{{ tx(TIPO[a.tipo_dato] || a.tipo_dato) }}</span></template>
+      <template #celda-dominio="{ fila: a }">{{ tx(nombreDominio(a.dominio)) }}</template>
+      <template #celda-origen="{ fila: a }">{{ tx(ORIGEN[a.origen] || a.origen) }}</template>
+      <template #celda-n_opciones="{ fila: a }">{{ a.n_opciones ? fmtNum(a.n_opciones) : '—' }}</template>
+      <template #celda-n_ambitos="{ fila: a }">{{ fmtNum(a.n_ambitos) }}</template>
+      <template #celda-activo="{ fila: a }"><span class="etiqueta ms-0" :class="a.activo ? 'ok' : ''">{{ a.activo ? t('Active') : t('Inactive') }}</span></template>
+      <template #acciones><Icono nombre="derecha" :tam="16" /></template>
+      <template #vacio>{{ t('No results.') }}</template>
+    </TablaDatos>
 
-    <section class="panel detalle">
-      <template v-if="det">
+    <PanelLateral v-if="det" :titulo="det.etiqueta" ancho="820px" @cerrar="det = null; elegido = null">
+      <template #estado>
+        <span class="etiqueta acento">{{ tx(ORIGEN[det.origen] || det.origen) }}</span>
+        <span class="ayuda codigo">{{ [det.codigo, TIPO[det.tipo_dato] || det.tipo_dato, det.unidad].filter(Boolean).map((x) => tx(x)).join(' · ') }}</span>
+      </template>
+      <div class="detalle">
         <div class="titulo">
-          <div>
-            <span class="etiqueta acento">{{ tx(ORIGEN[det.origen] || det.origen) }}</span>
-            <h3>{{ tx(det.etiqueta) }}</h3>
-            <p class="ayuda codigo">{{ tx(det.codigo) }} · {{ tx(TIPO[det.tipo_dato] || det.tipo_dato) }}<template v-if="det.unidad"> · {{ tx(det.unidad) }}</template></p>
-          </div>
           <label class="sw"><Interruptor :model-value="det.activo" :deshabilitado="!edita" :etiqueta="t('Active')" @update:model-value="campo('activo', $event)" />{{ t('Active') }}</label>
         </div>
         <p v-if="det.origen === 'MOTOR' && !det.activo" class="aviso">{{ t('The product sheet stops asking this question. Codes that depend on it may stay unresolved.') }}</p>
@@ -304,9 +321,8 @@ async function sincronizar() {
           <select v-model="nuevoAmb.modo" class="celda" :aria-label="t('Mode')"><option v-for="(l, k) in MODO" :key="k" :value="k">{{ tx(l) }}</option></select>
           <button class="btn btn-chico" :disabled="!nuevoAmb.codigo_ambito" @click="agregarAmbito"><Icono nombre="mas" :tam="14" />{{ t('Ask it here too') }}</button>
         </div>
-      </template>
-      <p v-else class="ayuda vacio-det"><Icono nombre="info" :tam="18" />{{ t('Choose an attribute to see its options and where the product sheet asks it.') }}</p>
-    </section>
+      </div>
+    </PanelLateral>
 
     <Modal v-if="dep" :titulo="t('When to ask {0}', [det?.etiqueta])" ancho="760px" @cerrar="dep = null">
       <p class="ayuda">{{ t('The question appears only when these conditions are met by the answers already given. Without conditions it is asked whenever its scope applies.') }}</p>
@@ -347,24 +363,14 @@ async function sincronizar() {
 </template>
 
 <style scoped>
-.atributos { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 14px; align-items: start; }
-.cabeza { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
-.cabeza h3 { margin: 0; font-size: 1rem; display: flex; gap: 6px; align-items: center; }
-.acciones { display: flex; gap: 6px; }
-.lista .buscador { width: 100%; max-width: none; }
-.filtros-mini { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
-.items { list-style: none; margin: 0; padding: 0; max-height: 62vh; overflow-y: auto; }
-.item { display: flex; justify-content: space-between; gap: 8px; width: 100%; text-align: start; border: 0; background: none; padding: 7px 8px; border-radius: 8px; cursor: pointer; color: inherit; font: inherit; font-size: 0.86rem; }
-.item:hover { background: var(--superficie-2); }
-.item.elegido { background: var(--acento-claro); color: var(--acento-texto); }
-.item.off { opacity: 0.55; }
-.item .txt { display: flex; flex-direction: column; min-width: 0; }
-.item .txt small { color: var(--tinta-3); }
-.item .meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
-.item .meta small { color: var(--tinta-3); font-size: 0.74rem; }
-.titulo { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-.titulo h3 { margin: 4px 0 0; font-size: 1.3rem; }
-.titulo p { margin: 2px 0 0; }
+.atributos { display: block; }
+/* La pregunta y su explicación en dos líneas como máximo: la tabla se lee de un vistazo */
+.pregunta { display: flex; flex-direction: column; gap: 2px; min-width: 240px; max-width: 520px; white-space: normal; }
+.pregunta .desc { color: var(--tinta-3); font-size: 0.82rem; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+:global(.td-compacta) .pregunta .desc { -webkit-line-clamp: 1; line-clamp: 1; }
+:deep(tr.apagada > td) { opacity: 0.55; }
+.titulo { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
+.detalle tr.apagada td { opacity: 0.55; }
 .sw { display: inline-flex; gap: 8px; align-items: center; font-size: 0.86rem; }
 .aviso { background: var(--aviso-fondo); padding: 8px 10px; border-radius: var(--radio); font-size: 0.86rem; }
 .campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 12px 0; align-items: end; }
@@ -376,12 +382,9 @@ h4 { margin: 16px 0 6px; font-size: 0.92rem; display: flex; gap: 6px; align-item
 .nueva .celda, .agregar .celda { border-color: var(--linea); background: var(--superficie); }
 .agregar select.celda { font-size: 0.86rem; padding: 6px 8px; }
 .celda.num { width: 80px; min-width: 0; }
-tr.apagada td { opacity: 0.55; }
 .ambitos { max-height: 340px; overflow-y: auto; }
 .agregar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
 .agregar .celda { width: auto; }
 .agregar :deep(.sb) { min-width: 220px; }
 .punto { width: 7px; height: 7px; border-radius: 50%; background: var(--acento); display: inline-block; margin-inline-start: 4px; }
-.vacio-det { display: flex; gap: 8px; align-items: center; justify-content: center; min-height: 260px; }
-@media (max-width: 900px) { .atributos { grid-template-columns: 1fr; } }
 </style>
