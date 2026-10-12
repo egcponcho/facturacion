@@ -55,3 +55,27 @@ def test_columnas_y_filtros_invalidos(interno):
 def test_el_proveedor_solo_ve_sus_valores(tnf):
     vals = tnf.get("/facturas/valores", params={"columna": "proveedor"}).json()
     assert [v["valor"] for v in vals] == ["The North Face"]
+
+
+# ---- Órdenes de compra -------------------------------------------------------------
+
+def test_ordenes_filtran_por_columna_y_dan_sus_valores(interno):
+    base = {"solo_disponible": "false", "size": 200}
+    total = interno.get("/ordenes", params=base).json()["total"]
+    provs = interno.get("/ordenes/valores", params={"columna": "proveedor", "solo_disponible": "false"}).json()
+    assert sum(v["n"] for v in provs) == total and len(provs) >= 2
+    uno = provs[0]["valor"]
+    r = interno.get("/ordenes", params={**base, **_f(proveedor=[uno])}).json()
+    assert r["total"] == provs[0]["n"] and {x["proveedor"] for x in r["items"]} == {uno}
+    # El avance se filtra en % entero; las XF por fecha
+    av = interno.get("/ordenes/valores", params={"columna": "avance", "solo_disponible": "false"}).json()
+    assert all(isinstance(v["valor"], int) for v in av)
+    xf = interno.get("/ordenes/valores", params={"columna": "xf", "solo_disponible": "false"}).json()
+    dia = next(v for v in xf if v["valor"])
+    r = interno.get("/ordenes", params={**base, **_f(xf=[dia["valor"]])}).json()
+    assert r["total"] == dia["n"] and all(x["fecha_xf"] == dia["valor"] for x in r["items"])
+
+
+def test_ordenes_valores_respetan_el_alcance_del_proveedor(vans):
+    provs = vans.get("/ordenes/valores", params={"columna": "proveedor", "solo_disponible": "false"}).json()
+    assert [v["valor"] for v in provs] == ["Vans"]

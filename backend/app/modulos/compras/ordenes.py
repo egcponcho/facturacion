@@ -4,7 +4,7 @@ import re
 import unicodedata
 from datetime import date, datetime
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import Integer, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core import campos_propios, empresa, listas
@@ -41,6 +41,7 @@ from app.modulos.acceso.permisos import (
 )
 from app.modulos.acceso.preferencias import leer_fecha
 from app.modulos.compras import liberaciones, perfiles
+from app.modulos.comun import tabla as tabla_datos
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto, terminos
 from app.modulos.facturacion.cantidades import facturado_por_posicion, facturas_por_posicion
@@ -57,28 +58,13 @@ from app.modulos.productos.productos import clasificacion_txt, partida_para, pro
 ORDEN_OC = {"numero", "fecha", "fecha_xf", "fecha_tienda", "importe", "avance", "proveedor"}
 
 
-def listar_ordenes(
-    db: Session,
-    user: Usuario,
-    proveedor_id: int | None = None,
-    q: str | None = None,
-    centro: str | None = None,
-    solo_disponible: bool = True,
-    page: int = 1,
-    size: int = 25,
-    sociedad: str | None = None,
-    marca: str | None = None,
-    liberacion: str | None = None,
-    destino: str | None = None,
-    puerto: str | None = None,
-    orden: str | None = None,
-    almacen: str | None = None,
-    comercial: str | None = None,
-    liberada: bool | None = None,
-    estado: str | None = None,
-) -> dict:
+def _consulta_ordenes(db: Session, user: Usuario, proveedor_id=None, q=None, centro=None, solo_disponible=True,
+                      sociedad=None, marca=None, liberacion=None, destino=None, puerto=None, almacen=None,
+                      comercial=None, liberada=None, estado=None):
+    """OCs visibles para el usuario con los filtros de la pantalla (sin los de
+    columna), con sus totales; devuelve la consulta y las columnas que se
+    filtran por valor (app/modulos/comun/tabla.py)."""
     exigir(user, "oc.ver")
-    lib = liberaciones.de(db)
     prov = proveedor_filtro(user, proveedor_id)
 
     tot = (
@@ -142,6 +128,51 @@ def listar_ordenes(
         consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.almacen == almacen)))
     if solo_disponible:
         consulta = consulta.where(OrdenCompra.estado == "APROBADA", func.coalesce(tot.c.cantidad, 0) - facturado > 0)
+    columnas = {
+        "oc": OrdenCompra.numero, "estado": OrdenCompra.estado, "proveedor": Proveedor.nombre, "fecha": OrdenCompra.fecha,
+        "sociedad": OrdenCompra.sociedad, "centro": OrdenCompra.centro, "destino": OrdenCompra.centro_destino,
+        "puerto": OrdenCompra.puerto_despacho, "xf": OrdenCompra.fecha_xf, "tienda": OrdenCompra.fecha_tienda,
+        "moneda": OrdenCompra.moneda,
+        # Facturado en % entero del valor de la OC
+        "avance": cast(func.coalesce(func.round(importe_fact * 100.0 / func.nullif(tot.c.importe, 0)), 0), Integer),
+    }
+    return consulta, columnas, tot, importe_fact
+
+
+def valores_ordenes(db: Session, user: Usuario, columna: str, buscar: str | None, filtros: dict, **pantalla) -> list[dict]:
+    """Valores únicos de una columna de la tabla de OCs bajo los demás filtros."""
+    consulta, columnas, *_ = _consulta_ordenes(db, user, **pantalla)
+    expr = tabla_datos.columna_valida(columnas, columna)
+    return tabla_datos.valores(db, tabla_datos.aplicar(consulta, columnas, filtros, excepto=columna), expr, buscar,
+                               contar=OrdenCompra.id)
+
+
+def listar_ordenes(
+    db: Session,
+    user: Usuario,
+    proveedor_id: int | None = None,
+    q: str | None = None,
+    centro: str | None = None,
+    solo_disponible: bool = True,
+    page: int = 1,
+    size: int = 25,
+    sociedad: str | None = None,
+    marca: str | None = None,
+    liberacion: str | None = None,
+    destino: str | None = None,
+    puerto: str | None = None,
+    orden: str | None = None,
+    almacen: str | None = None,
+    comercial: str | None = None,
+    liberada: bool | None = None,
+    estado: str | None = None,
+    filtros: dict | None = None,
+) -> dict:
+    lib = liberaciones.de(db)
+    consulta, columnas, tot, importe_fact = _consulta_ordenes(
+        db, user, proveedor_id, q, centro, solo_disponible, sociedad, marca, liberacion, destino, puerto, almacen,
+        comercial, liberada, estado)
+    consulta = tabla_datos.aplicar(consulta, columnas, filtros or {})
 
     col, _, direccion = (orden or "").partition(":")
     expr = {

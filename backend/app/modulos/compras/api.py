@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from app.modulos.compras import ordenes as svc
 from app.modulos.compras import perfiles
+from app.modulos.comun import tabla
 from app.web.rutas import Clave, Db, User, ejecutar, leer_subida
 
 router = APIRouter()
@@ -28,10 +29,26 @@ def listar(
     solo_disponible: bool = True,
     page: int = Query(1, ge=1),
     size: int = Query(25, ge=1, le=200),
+    f: str | None = None,
 ):
-    """OCs visibles, paginadas y filtrables; por defecto solo las aprobadas con saldo por facturar."""
+    """OCs visibles, paginadas y filtrables (filtros de la pantalla y `f` por columna); por defecto solo las aprobadas con saldo por facturar."""
     return svc.listar_ordenes(db, user, proveedor_id, q, centro, solo_disponible, page, size,
-                              sociedad, marca, liberacion, destino, puerto, orden, almacen, comercial, liberada, estado)
+                              sociedad, marca, liberacion, destino, puerto, orden, almacen, comercial, liberada, estado,
+                              tabla.leer(f))
+
+
+@router.get("/ordenes/valores")
+def valores_columna(db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None,
+                    proveedor_id: int | None = None, q: str | None = None, centro: str | None = None,
+                    sociedad: str | None = None, marca: str | None = None, liberacion: str | None = None,
+                    destino: str | None = None, puerto: str | None = None, almacen: str | None = None,
+                    comercial: str | None = None, liberada: bool | None = None, estado: str | None = None,
+                    solo_disponible: bool = True):
+    """Valores únicos de una columna de la tabla de OCs (con cuántas tienen cada uno) bajo los demás filtros."""
+    return svc.valores_ordenes(db, user, columna, buscar, tabla.leer(f), proveedor_id=proveedor_id, q=q, centro=centro,
+                               solo_disponible=solo_disponible, sociedad=sociedad, marca=marca, liberacion=liberacion,
+                               destino=destino, puerto=puerto, almacen=almacen, comercial=comercial, liberada=liberada,
+                               estado=estado)
 
 
 @router.get("/ordenes/filtros")

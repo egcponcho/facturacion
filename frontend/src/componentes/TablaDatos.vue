@@ -38,7 +38,8 @@ import VistasGuardadas from './VistasGuardadas.vue'
 //   fija (no se oculta), inicial (false: empieza oculta), grupo (dato que el
 //   rol puede no ver), ancho (px) }]
 // Ranuras: celda-<clave> ({ fila, valor }), acciones ({ fila }), detalle
-//   ({ fila }), barra, filtros, mas-filtros, vacio y pie-<clave> (fila de
+//   ({ fila }; al abrir la fila llega el evento `expandir`), barra, filtros,
+//   mas-filtros, vacio y pie-<clave> (fila de
 //   totales al final: una ranura por columna, con { filas } ya filtradas).
 //   `pie-inicio` va en la primera celda (p. ej. «Total»).
 const props = defineProps({
@@ -73,7 +74,7 @@ const props = defineProps({
   // Clase de cada fila (p. ej. resaltar una con error): (fila) => string | objeto
   claseFila: { type: Function, default: null },
 })
-const emit = defineEmits(['consulta', 'fila', 'vista', 'update:seleccion', 'quitar-externo', 'limpiar-externos'])
+const emit = defineEmits(['consulta', 'fila', 'vista', 'update:seleccion', 'quitar-externo', 'limpiar-externos', 'expandir'])
 const slots = useSlots()
 
 // ---- Configuración guardada de la persona ------------------------------------
@@ -387,12 +388,19 @@ function alternarTodas() {
     : [...props.seleccion, ...seleccionables.value.filter((k) => !elegidas.value.has(k))])
 }
 const abiertas = reactive(new Set())
-const alternar = (fila) => (abiertas.has(clave(fila)) ? abiertas.delete(clave(fila)) : abiertas.add(clave(fila)))
+// Al abrir una fila se avisa (`expandir`) para que la pantalla cargue su detalle si hace falta
+function alternar(fila) {
+  if (abiertas.has(clave(fila))) abiertas.delete(clave(fila))
+  else {
+    abiertas.add(clave(fila))
+    emit('expandir', fila)
+  }
+}
 const nColumnas = computed(() => enPantalla.value.length + (conDetalle.value ? 1 : 0) + (props.seleccionable ? 1 : 0) + 1)
 
 // ---- Menú de columnas y «Más filtros» --------------------------------------------------------
 const menuColumnas = ref(false)
-const masFiltros = ref(false)
+const masFiltros = ref(props.masFiltrosActivos > 0) // abierto si ya hay un filtro secundario puesto
 const raiz = ref(null)
 function fuera(e) {
   if (!raiz.value?.querySelector('.sel-columnas')?.contains(e.target)) menuColumnas.value = false
