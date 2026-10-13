@@ -124,6 +124,9 @@ class Settings:
     DIAS_TOLERANCIA_ARRIBO: int = 0
     DIAS_TOLERANCIA_XF: int = 0
     META_LIBERACION_A_TIEMPO: int = 80
+    # Etiquetado: quien diseña una versión no la aprueba (si se exige) y tope de etiquetas por lote
+    ETIQUETAS_CUATRO_OJOS: bool = False
+    ETIQUETAS_MAXIMO_LOTE: int = 5000
     COMPATIBILIDAD_ADVERTENCIA: list[str] = ["incoterm", "centro_destino"]
     # Aprobación de OCs: quien creó o envió una OC no puede aprobarla él mismo
     APROBACION_CUATRO_OJOS: bool = True

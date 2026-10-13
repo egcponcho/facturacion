@@ -35,6 +35,14 @@ MODULOS = [
         ("pl.cancelar", "Cancel packing lists", TODOS, True),
         ("plantilla.editar", "Create and edit packing templates", TODOS, True),
     ]),
+    ("Labels", [
+        ("etiquetas.ver", "See label designs, their versions and the labels generated", TODOS, True),
+        ("etiquetas.generar", "Generate and download labels (a supplier, of its own POs)", TODOS, True),
+        ("etiquetas.disenar", "Create and edit label designs and send them to approval", INTERNOS, False),
+        ("etiquetas.aprobar", "Approve, reject and archive label design versions", {"admin"}, False),
+        ("etiquetas.asignar", "Assign label designs to families, products, items and POs", INTERNOS, False),
+        ("etiquetas.familias", "Manage labeling families and the family of each item", INTERNOS, False),
+    ]),
     ("Shipments", [
         ("transporte.gestionar", "See and manage shipments and load units", INTERNOS, False),
         ("recepcion.registrar", "Register warehouse receipts", INTERNOS, False),
@@ -77,6 +85,9 @@ MODULOS_ACTIVABLES = {
     "clasificacion": ("Tariff classification: tariff schedule and product families",
                       ["aranceles.ver", "aranceles.editar", "clasificacion.ver", "clasificacion.configurar"]),
     "seguimiento": ("Tracking and lead times", ["seguimiento.ver"]),
+    "etiquetado": ("Labels: label designs, versions and label generation",
+                   ["etiquetas.ver", "etiquetas.generar", "etiquetas.disenar", "etiquetas.aprobar", "etiquetas.asignar",
+                    "etiquetas.familias"]),
 }
 
 

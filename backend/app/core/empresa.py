@@ -27,6 +27,7 @@ REGLAS = {
     "DIAS_TOLERANCIA_ARRIBO": "Days after the committed ETA that still count as an on-time arrival",
     "DIAS_TOLERANCIA_XF": "Days after the original XF that still count as an on-time pickup",
     "META_LIBERACION_A_TIEMPO": "Target (%) of logistics releases on time",
+    "ETIQUETAS_CUATRO_OJOS": "A label design version must be approved by someone other than its author",
     "PAIS_BASE_CLASIF": "Country whose national code completes the suggested HS code",
     "COMPATIBILIDAD_BLOQUEANTE": "PO data that cannot be mixed in one invoice",
     "COMPATIBILIDAD_ADVERTENCIA": "PO data that only warns when mixed in one invoice",

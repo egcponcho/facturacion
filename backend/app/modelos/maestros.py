@@ -465,6 +465,9 @@ class Articulo(DeOrganizacion, Base):
     prepack_id: Mapped[int | None] = mapped_column(ForeignKey("prepacks.id"), index=True)
     # La ficha técnica y la clasificación son del estilo-color (producto)
     producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
+    # Familia de etiquetado (modelos/etiquetado.py): qué etiquetas le corresponden; no es su clasificación arancelaria
+    familia_etiquetado_id: Mapped[int | None] = mapped_column(
+        ForeignKey("familias_etiquetado.id", name="fk_articulos_familia_etiquetado_id"), index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     marca: Mapped[Marca] = relationship()
