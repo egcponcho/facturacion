@@ -52,16 +52,6 @@ const POR_TIPO = {
     RECIBIDA_PARCIAL: [t('Partly received'), 'aviso'],
     RECIBIDA: [t('Fully received'), 'ok'],
   },
-  // Documentos comerciales, su cobro y los pagos
-  documento: { BORRADOR: [t('Draft'), 'neutro'], EMITIDO: [t('Issued'), 'ok'], ANULADO: [t('Voided'), 'error'] },
-  cobro: {
-    PENDIENTE: [t('Unpaid'), 'aviso'],
-    PARCIAL: [t('Partly paid'), 'info'],
-    PAGADO: [t('Paid'), 'ok'],
-    VENCIDO: [t('Overdue'), 'error'],
-    APLICADA: [t('Fully applied'), 'ok'],
-  },
-  pago: { REGISTRADO: [t('Registered'), 'ok'], ANULADO: [t('Voided'), 'error'] },
 }
 
 // Cómo viene de fábrica
@@ -89,5 +79,3 @@ export const estadosEmbarque = () => opciones('embarque', CODIGOS.embarque)
 // Los hitos del embarque siguen su orden natural (salida, arribo, entrega…)
 export const pasosEmbarque = () => CODIGOS.embarque.map((c) => [c, estado(c, 'embarque')[0]])
 export const avancesOC = () => opciones('avance', Object.keys(POR_TIPO.avance))
-export const estadosDocumento = () => opciones('documento', Object.keys(POR_TIPO.documento))
-export const estadosCobro = () => opciones('cobro', Object.keys(POR_TIPO.cobro))
