@@ -90,7 +90,7 @@ const columnasLineas = computed(() => [
   { clave: 'disponible', texto: t('Available'), num: true, prioridad: 2 },
   { clave: 'a_facturar', texto: t('To invoice'), num: true, filtro: false, ordenable: false, prioridad: 1 },
   { clave: 'precio', texto: t('Price'), num: true, grupo: 'precios', prioridad: 3 },
-  { clave: 'importe', texto: t('Total'), num: true, grupo: 'precios', prioridad: 3 },
+  { clave: 'importe', texto: t('Total'), num: true, grupo: 'precios', prioridad: 2 },
   { clave: 'estado', texto: t('Status'), prioridad: 2, textoValor: (v) => tx(leerEstado(v, 'oc')[0]) },
 ])
 // Liberación en una sola insignia: solo si no se puede facturar o si cambió
@@ -468,7 +468,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
     <template #celda-sociedad="{ fila: oc }"><span class="codigo">{{ tx(oc.sociedad) }} · {{ tx(oc.centro || '—') }}</span><span class="sub" :title="tx(oc.almacenes.length > 1 ? t('Lines go to different warehouses') : '')">{{ tx(oc.almacenes.join(' · ') || t('No warehouse')) }}</span></template>
     <template #celda-destino="{ fila: oc }">
       <span class="codigo" :title="tx(oc.destino_nombre || '')">{{ tx(oc.centro_destino || '—') }}<template v-if="oc.pais_destino"> · {{ tx(oc.pais_destino) }}</template></span>
-      <span class="sub">{{ tx(oc.puerto_despacho || t('No port')) }}<template v-if="oc.pais_origen"> {{ t('· origin {0}', [oc.pais_origen]) }}</template></span>
+      <span class="sub">{{ tx(oc.puerto_despacho || t('No port')) }}<template v-if="oc.pais_origen">&nbsp;{{ t('· origin {0}', [oc.pais_origen]) }}</template></span>
     </template>
     <template #celda-xf="{ fila: oc }">
       {{ fmtFecha(oc.fecha_xf) }}
@@ -489,7 +489,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
     <template #celda-avance="{ fila: oc }"><div class="celda-avance"><Avance :porcentaje="oc.avance" /></div></template>
     <template #acciones="{ fila: oc }">
       <div class="acciones-apiladas">
-        <button class="btn btn-chico" type="button" :disabled="!tieneSaldo(oc)" :title="t('Add the whole balance to the selection')" @click="agregarOCs([oc.id])"><Icono nombre="mas" :tam="14" />{{ t('Add') }}</button>
+        <button class="btn btn-chico btn-cuadrado" type="button" :disabled="!tieneSaldo(oc)" :title="t('Add the whole balance to the selection')" :aria-label="t('Add the whole balance to the selection')" @click="agregarOCs([oc.id])"><Icono nombre="mas" :tam="15" /></button>
         <button class="btn btn-chico btn-primario" type="button" :disabled="!tieneSaldo(oc)" :title="t('Add the whole balance and review the invoice')" @click="agregarOCs([oc.id], true)">{{ t('Invoice') }}</button>
       </div>
     </template>
@@ -500,6 +500,12 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
           <p v-if="camposPropios('ordenes').some((c) => detalles[oc.id].oc.extra?.[c.clave] != null)" class="ayuda propios">
             <span v-for="c in camposPropios('ordenes').filter((c) => detalles[oc.id].oc.extra?.[c.clave] != null)" :key="c.clave">{{ c.etiqueta }}: <b>{{ valorPropio(c, detalles[oc.id].oc.extra[c.clave]) }}</b></span>
           </p>
+          <div class="fila-flex mb-chico barra-detalle">
+            <button class="btn btn-primario btn-chico" type="button" :disabled="!seleccionadas(oc.id)" @click="agregarSeleccionadas(oc.id)">
+              <Icono nombre="mas" :tam="14" />{{ t('Add {0} selected', [seleccionadas(oc.id) || '']) }}
+            </button>
+            <span class="ayuda">{{ t('Change “To invoice” to take only part; the rest stays available on the PO. With an inner pack it goes in whole inner packs.') }}</span>
+          </div>
           <TablaDatos tabla="ordenes_lineas" :columnas="columnasLineas" :filas="detalles[oc.id].posiciones" :vistas-guardadas="false"
                       seleccionable :seleccion="lineasElegidas(oc.id)" :puede-seleccionar="lineaSeleccionable"
                       :etiqueta="t('Lines of PO {0}', [oc.numero])" @update:seleccion="(ids) => elegirLineas(oc.id, ids)">
@@ -556,12 +562,6 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
               </div>
             </template>
           </TablaDatos>
-          <div class="fila-flex mt">
-            <button class="btn btn-primario btn-chico" type="button" :disabled="!seleccionadas(oc.id)" @click="agregarSeleccionadas(oc.id)">
-              <Icono nombre="mas" :tam="14" />{{ t('Add {0} selected', [seleccionadas(oc.id) || '']) }}
-            </button>
-            <span class="ayuda">{{ t('Change “To invoice” to take only part; the rest stays available on the PO. With an inner pack it goes in whole inner packs.') }}</span>
-          </div>
         </template>
       </div>
     </template>
@@ -607,7 +607,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             <div>
               <span class="codigo">{{ tx(i.posicion) }}</span> {{ tx(i.estilo) }} {{ tx(i.color) }} <b>{{ tx(i.talla) }}</b>
               <div class="ayuda">
-                {{ t('{0} available', [cantTxt(i.disponible, i.unidad)]) }}<template v-if="i.inner_pack"> {{ t('· inner packs of {0}', [i.inner_pack]) }}</template><template v-if="i.aviso">. {{ tx(i.aviso) }}</template>
+                {{ t('{0} available', [cantTxt(i.disponible, i.unidad)]) }}<template v-if="i.inner_pack">&nbsp;{{ t('· inner packs of {0}', [i.inner_pack]) }}</template><template v-if="i.aviso">. {{ tx(i.aviso) }}</template>
               </div>
             </div>
             <input v-model.number="i.cantidad" type="number" :min="pasoCantidad(i.unidad, i.inner_pack)" :step="pasoCantidad(i.unidad, i.inner_pack)" :max="i.disponible" :aria-label="t('Quantity to invoice on {0}', [i.posicion])" />

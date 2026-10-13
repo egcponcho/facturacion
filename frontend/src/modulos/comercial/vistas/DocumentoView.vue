@@ -12,7 +12,7 @@ import NavComercial from '@/modulos/comercial/componentes/NavComercial.vue'
 import { opcionesLista } from '@/nucleo/listas.js'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { fmtFecha, fmtMoneda, fmtNum } from '@/nucleo/utils'
+import { enfocarUltimo, fmtFecha, fmtMoneda, fmtNum } from '@/nucleo/utils'
 import Seleccion from '@/componentes/Seleccion.vue'
 
 // Un documento comercial: en borrador se edita (cabecera y líneas con sus
@@ -260,8 +260,9 @@ const titulo = computed(() => (nuevo.value ? t('New document') : d.value ? (d.va
     <!-- Líneas: editor del borrador -->
     <section v-if="editable" class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('Lines') }}</h2>
-        <p>{{ t('Totals and taxes are calculated when you save, with the rate in force on the document date.') }}</p></div></div>
-      <div class="tabla-marco tabla-captura">
+        <p>{{ t('Totals and taxes are calculated when you save, with the rate in force on the document date.') }}</p></div>
+        <button type="button" class="btn btn-chico" @click="form.lineas.push(lineaVacia()); enfocarUltimo('.lineas-documento tbody tr')"><Icono nombre="mas" :tam="14" />{{ t('Add line') }}</button></div>
+      <div class="tabla-marco tabla-captura lineas-documento">
         <table class="tabla" v-tarjetas>
           <thead><tr>
             <th>{{ t('Description') }}</th><th class="num">{{ t('Quantity') }}</th><th>{{ t('Unit') }}</th>
@@ -285,7 +286,6 @@ const titulo = computed(() => (nuevo.value ? t('New document') : d.value ? (d.va
         </table>
       </div>
       <p v-for="e in errores.filter((x) => String(x.campo || '').startsWith('lineas'))" :key="e.campo" class="texto-error">{{ tx(e.mensaje) }}</p>
-      <button type="button" class="btn mt" @click="form.lineas.push(lineaVacia())"><Icono nombre="mas" />{{ t('Add line') }}</button>
     </section>
 
     <!-- Documento guardado: líneas, impuestos y totales -->

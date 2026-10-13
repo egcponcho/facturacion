@@ -176,7 +176,7 @@ watch(periodo, cargar, { deep: true })
                 </span>
                 <span class="ayuda envio-pie">
                   <template v-if="e.eta && e.estado !== 'ARRIBADO'">{{ t('Arrives {0}.', [diasPara(e.eta)]) }} </template>
-                  {{ tx(e.facturas.slice(0, 2).join(', ')) }}<template v-if="e.facturas.length > 2"> {{ t('and {0} more', [e.facturas.length - 2]) }}</template>
+                  {{ tx(e.facturas.slice(0, 2).join(', ')) }}<template v-if="e.facturas.length > 2">&nbsp;{{ t('and {0} more', [e.facturas.length - 2]) }}</template>
                 </span>
               </button>
             </li>

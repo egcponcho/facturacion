@@ -778,7 +778,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
             </TablaDatos>
           </div>
           <div v-for="x in p.prepacks" :key="x.id" class="panel mt">
-            <div class="panel-cabeza"><div><h2>{{ t('Prepack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per carton', [x.descripcion, x.total]) }}<template v-if="x.sku"> {{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
+            <div class="panel-cabeza"><div><h2>{{ t('Prepack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per carton', [x.descripcion, x.total]) }}<template v-if="x.sku">&nbsp;{{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
             <div class="chips"><span v-for="c in x.componentes" :key="c.sku" class="etiqueta">{{ tx(c.talla) }} × {{ tx(c.cantidad) }}</span></div>
           </div>
         </div>

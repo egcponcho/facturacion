@@ -443,7 +443,8 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
                            f"{e.estado.replace('_', ' ').lower()}. Follow the order: pickup, departure, arrival, "
                            "delivery and receipt.", 409, "orden_eventos")
     ultimo = max((ev.fecha for ev in e.eventos), default=None)
-    if ultimo and datos.fecha < ultimo and datos.tipo != "OTRO":
+    # Otro y la revisión de documentos corren en paralelo al viaje: se pueden registrar después
+    if ultimo and datos.fecha < ultimo and datos.tipo not in ("OTRO", "DOCUMENTOS"):
         raise ErrorNegocio(f"The date cannot be before the last event ({ultimo:%m/%d/%Y %H:%M}).",
                            422, "fecha_evento")
     if datos.fecha.date() > date.today() + timedelta(days=1):

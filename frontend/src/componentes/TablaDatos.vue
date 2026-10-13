@@ -1,6 +1,6 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, useSlots, watch } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, useSlots, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import { buscador } from '@/nucleo/busqueda.js'
 import { sesion, ve } from '@/stores/sesion'
@@ -37,7 +37,8 @@ import VistasGuardadas from './VistasGuardadas.vue'
 //   modo local; puede ser una lista), textoValor (valor, fila) => cómo se ve
 //   en el filtro, prioridad (1 siempre · 2 desde tableta · 3 escritorio),
 //   fija (no se oculta), inicial (false: empieza oculta), grupo (dato que el
-//   rol puede no ver), ancho (px) }]
+//   rol puede no ver), ancho (px), corto (encabezado breve; el nombre completo
+//   queda en el título) }]
 // Ranuras: celda-<clave> ({ fila, valor }), acciones ({ fila }), detalle
 //   ({ fila }; al abrir la fila llega el evento `expandir`), barra, filtros,
 //   mas-filtros, vacio y pie-<clave> (fila de
@@ -158,7 +159,36 @@ const medir = () => { ancho.value = window.innerWidth }
 onMounted(() => window.addEventListener('resize', medir))
 onBeforeUnmount(() => { window.removeEventListener('resize', medir); clearTimeout(reloj) })
 const limite = computed(() => (ancho.value <= 720 ? 1 : ancho.value <= 900 ? 2 : 3))
-const enPantalla = computed(() => visibles.value.filter((c) => c.fija || (c.prioridad ?? 2) <= limite.value))
+// Si aun así la tabla no cabe en su marco, las columnas menos importantes
+// (prioridad 3 y luego 2, de la última a la primera) pasan al detalle de la
+// fila en vez de obligar a desplazarse de lado; vuelven cuando hay espacio.
+const marco = ref(null)
+const recortadas = ref([])
+let anchoAlRecortar = 0
+const enPantalla = computed(() => visibles.value.filter((c) => c.fija || ((c.prioridad ?? 2) <= limite.value && !recortadas.value.includes(c.clave))))
+async function ajustar() {
+  await nextTick()
+  const el = marco.value
+  if (!el || !el.clientWidth) return
+  if (recortadas.value.length && el.clientWidth > anchoAlRecortar + 40) {
+    recortadas.value = []
+    await nextTick()
+  }
+  if (el.scrollWidth - el.clientWidth <= 2) return
+  const candidata = [...enPantalla.value].reverse().filter((c) => !c.fija && (c.prioridad ?? 2) > 1)
+    .sort((a, b) => (b.prioridad ?? 2) - (a.prioridad ?? 2))[0]
+  if (!candidata) return
+  anchoAlRecortar = el.clientWidth
+  recortadas.value = [...recortadas.value, candidata.clave]
+  ajustar()
+}
+let obsMarco
+onMounted(() => {
+  if (typeof ResizeObserver === 'undefined') return
+  obsMarco = new ResizeObserver(() => ajustar())
+  if (marco.value) obsMarco.observe(marco.value)
+})
+onBeforeUnmount(() => obsMarco?.disconnect())
 const ocultasPorEspacio = computed(() => visibles.value.filter((c) => !enPantalla.value.includes(c)))
 const conDetalle = computed(() => props.expandible || ocultasPorEspacio.value.length > 0)
 
@@ -386,6 +416,8 @@ watch(() => props.filas, () => {
   if (props.modo === 'local' && (pagina.value - 1) * tamano.value >= procesadas.value.length) pagina.value = 1
 })
 const conPaginacion = computed(() => (anidada ? totalFilas.value > tamano.value : totalFilas.value > 0) || pagina.value > 1)
+// Al cambiar las filas o las columnas, el ancho del contenido cambia
+watch(() => [filasPagina.value, visibles.value], ajustar)
 
 // ---- Selección y filas expandidas ---------------------------------------------------------
 const clave = (fila) => (typeof props.claveFila === 'function' ? props.claveFila(fila) : fila[props.claveFila])
@@ -469,7 +501,7 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
       <button type="button" class="btn btn-fantasma btn-chico" @click="limpiar">{{ t('Clear filters') }}</button>
     </div>
 
-    <div class="tabla-marco" :class="{ 'tabla-fija': conPaginacion }">
+    <div ref="marco" class="tabla-marco" :class="{ 'tabla-fija': conPaginacion }">
       <table class="tabla" :aria-label="tx(etiqueta) || undefined" :aria-busy="cargando">
         <thead>
           <tr>
@@ -477,13 +509,13 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
               <input type="checkbox" :aria-label="t('Select all on this page')" :checked="todasElegidas" :disabled="!seleccionables.length" @change="alternarTodas" />
             </th>
             <th v-if="conDetalle" class="td-exp"><span class="oculto-visual">{{ t('Detail') }}</span></th>
-            <th v-for="c in enPantalla" :key="c.clave" :class="{ num: c.num, 'td-filtrada': filtrada(c) }" :style="estiloColumna(c)"
+            <th v-for="c in enPantalla" :key="c.clave" :class="{ num: c.num, 'td-filtrada': filtrada(c) }" :style="estiloColumna(c)" :title="c.corto ? tx(c.texto) : undefined"
                 :aria-sort="dirOrden(c) === 'asc' ? 'ascending' : dirOrden(c) === 'desc' ? 'descending' : undefined">
               <div class="td-th">
                 <button v-if="c.ordenable !== false" type="button" class="orden-btn" :class="{ activo: dirOrden(c) }" @click="ordenar(c)">
-                  {{ tx(c.texto) }}<Icono :nombre="dirOrden(c) === 'asc' ? 'arriba' : dirOrden(c) === 'desc' ? 'abajo' : 'arribaabajo'" :tam="12" class="td-flecha" :class="{ activa: dirOrden(c) }" />
+                  {{ tx(c.corto || c.texto) }}<Icono :nombre="dirOrden(c) === 'asc' ? 'arriba' : dirOrden(c) === 'desc' ? 'abajo' : 'arribaabajo'" :tam="12" class="td-flecha" :class="{ activa: dirOrden(c) }" />
                 </button>
-                <span v-else>{{ tx(c.texto) }}</span>
+                <span v-else>{{ tx(c.corto || c.texto) }}</span>
                 <button v-if="filtrable(c)" type="button" class="btn-icono td-filtrar" :class="{ activo: filtrada(c) }" :aria-expanded="abierto?.c.clave === c.clave"
                         :aria-label="t('Filter by {0}', [tx(c.texto)])" :title="t('Filter by {0}', [tx(c.texto)])" @click="abrirFiltro(c, $event)">
                   <Icono nombre="filtro" :tam="13" /><span v-if="filtrada(c)" class="td-n">{{ filtros[c.clave].length }}</span>

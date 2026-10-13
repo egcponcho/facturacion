@@ -253,6 +253,8 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True),
+            c("documento", "Document", "opcion", filtro=True, opciones=[[d, n] for d, n in rlt.DOCUMENTOS],
+              ayuda="The document that must fulfill this step (purchase order, invoice, packing list or shipment)."),
             c("hito", "Measured date", "opcion", filtro=True, opciones=[[h, n] for h, n in rlt.HITOS],
               ayuda="Optional. The date the system records for this step (to compare plan and reality)."),
             c("descripcion", "Description"),
@@ -1214,6 +1216,14 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         except ErrorNegocio as e:
             errores += e.detalle or []
     final = {**({c["nombre"]: getattr(actual, c["nombre"]) for c in cat["campos"]} if actual else {}), **limpio}
+    if cat["modelo"] is PasoLeadTime:
+        # Un paso con fecha medida pertenece al documento que la registra
+        propio = rlt.DOCUMENTO_HITO.get(final.get("hito") or "")
+        if propio and not final.get("documento"):
+            limpio["documento"] = final["documento"] = propio
+        elif propio and final.get("documento") != propio:
+            errores.append({"campo": "documento", "mensaje": "That measured date is recorded on another document: "
+                            f"{dict(rlt.DOCUMENTOS)[propio].lower()}."})
     # Reglas propias de los artículos: el prepack se enlaza por estilo, color
     # y prepack ID (la talla); debe existir su curva
     if cat["modelo"] is Articulo:

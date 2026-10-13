@@ -33,10 +33,15 @@ CAMPO_NIVEL = {"REGION": "region", "PAIS": "pais", "PUERTO": "puerto"}
 # Fechas que el sistema mide; un paso del catálogo puede representar una de ellas
 HITOS = [
     ("lib_logistica", "Logistics release"), ("xf", "XF (ex-factory / pickup)"), ("salida", "Departure (ETD)"),
-    ("arribo", "Port arrival (ETA)"), ("entrega", "Warehouse delivery"), ("ingreso", "Warehouse entry"),
-    ("tienda", "In store"),
+    ("documentos", "Document review and delivery"), ("arribo", "Port arrival (ETA)"), ("entrega", "Warehouse delivery"),
+    ("ingreso", "Warehouse entry"), ("tienda", "In store"),
 ]
 ORDEN_HITOS = [h for h, _ in HITOS]
+# Documento que cumple cada paso: la OC (liberación, XF, tienda), la lista de
+# empaque (recogida) o el embarque (salida, documentos, arribo, entrega, ingreso)
+DOCUMENTOS = [("OC", "Purchase order"), ("FACTURA", "Invoice"), ("PL", "Packing list"), ("EMBARQUE", "Shipment")]
+DOCUMENTO_HITO = {"lib_logistica": "OC", "xf": "OC", "salida": "EMBARQUE", "documentos": "EMBARQUE",
+                  "arribo": "EMBARQUE", "entrega": "EMBARQUE", "ingreso": "EMBARQUE", "tienda": "OC"}
 
 
 # ---- Lectura y validación de una regla ---------------------------------------
@@ -136,7 +141,8 @@ def combinar(niveles: list[tuple[str, str | None, str | None, dict]], catalogo: 
                       # Todos los valores anteriores, del nivel más general al que sobrescribió
                       "historial": ((previo or {}).get("historial") or []) + ([antes] if antes else []),
                       "nombre": catalogo.get(e["paso"], {}).get("nombre", e["paso"]),
-                      "hito": catalogo.get(e["paso"], {}).get("hito")}
+                      "hito": catalogo.get(e["paso"], {}).get("hito"),
+                      "documento": catalogo.get(e["paso"], {}).get("documento")}
             if e["paso"] not in orden:
                 orden.append(e["paso"])
         if regla.get("orden"):
@@ -147,8 +153,8 @@ def combinar(niveles: list[tuple[str, str | None, str | None, dict]], catalogo: 
 
 
 def catalogo(db: Session) -> dict:
-    return {p.codigo: {"codigo": p.codigo, "nombre": p.nombre, "hito": p.hito, "activo": p.activo,
-                       "descripcion": p.descripcion}
+    return {p.codigo: {"codigo": p.codigo, "nombre": p.nombre, "hito": p.hito, "documento": p.documento,
+                       "activo": p.activo, "descripcion": p.descripcion}
             for p in db.scalars(select(PasoLeadTime).order_by(PasoLeadTime.codigo))}
 
 

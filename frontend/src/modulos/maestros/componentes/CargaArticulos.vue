@@ -37,9 +37,9 @@ async function alCargar(r) {
                :ayuda="t('Sheet Generics: one row per generic (style-color) with its data and technical sheet. Sheet Sizes: one row per size with your item code, or leave it empty to use the generic plus a size code. After the upload the engine completes the sheet and suggests the HS code.')"
                @cerrar="emit('cerrar')" @cargado="alCargar">
     <template #resultado="{ resultado }">
-      <template v-if="resultado.productos_total"> {{ t('{0} products (style-color).', [resultado.productos_total]) }}</template>
-      <template v-if="avance"> {{ t('Classifying {0} of {1}…', [avance.n, avance.total]) }}</template>
-      <template v-else-if="clasificados !== null"> {{ t('{0} classified as drafts; send them to review from', [clasificados]) }} <router-link to="/productos?estado=sugerida">{{ t('Products') }}</router-link>.</template>
+      <template v-if="resultado.productos_total">&nbsp;{{ t('{0} products (style-color).', [resultado.productos_total]) }}</template>
+      <template v-if="avance">&nbsp;{{ t('Classifying {0} of {1}…', [avance.n, avance.total]) }}</template>
+      <template v-else-if="clasificados !== null">&nbsp;{{ t('{0} classified as drafts; send them to review from', [clasificados]) }} <router-link to="/productos?estado=sugerida">{{ t('Products') }}</router-link>.</template>
     </template>
   </CargaMasiva>
 </template>

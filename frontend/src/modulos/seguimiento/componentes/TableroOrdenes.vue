@@ -7,10 +7,10 @@ import { esInterno, sesion, ve } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
 import { TIEMPO, cantTxt, diasTxt, fmtFecha, fmtNum } from '@/nucleo/utils'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
-import GraficoColumnas from '@/componentes/GraficoColumnas.vue'
 import Icono from '@/componentes/Icono.vue'
 import Kpi from '@/componentes/Kpi.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
+import BarrasEtapas from '@/componentes/BarrasEtapas.vue'
 
 // Tablero de órdenes de compra: liberaciones (comercial y logística), cuánto
 // falta por facturar, qué va en contenedor, en camino y recibido. Cada OC se
@@ -68,7 +68,6 @@ const columnasLineas = computed(() => [
   { clave: 'riesgo', texto: t('Vs. port deadline'), grupo: 'fechas_internas', prioridad: 3, opciones: Object.entries(RIESGOS).map(([k, [txt]]) => [k, txt]) },
 ])
 // La gráfica por estado queda plegada: los estados ya están como pastillas
-const verGrafica = ref(false)
 const detalles = reactive({})
 const explosion = ref(null)
 async function abrirDetalle(o) {
@@ -80,7 +79,6 @@ async function abrirDetalle(o) {
     errorApi(e)
   }
 }
-const grafica = computed(() => datos.value.estados.map((e) => ({ etiqueta: e.nombre.split(' (')[0].replace('No commercial release', t('No comm. rel.')).replace('No logistics release', t('No log. rel.')), valor: e.total, detalle: e.nombre })))
 
 const base = () => ({ ...props.filtros, proveedor_id: sesion.proveedorId || undefined })
 let ultima = null
@@ -119,21 +117,8 @@ watch(() => [props.filtros, sesion.proveedorId], () => {
   </section>
 
   <section class="panel mb-4">
-    <div class="panel-cabeza">
-      <div><h2>{{ t('POs by status') }}</h2><p>{{ t('From release to receipt. Click a status to filter the table.') }}</p></div>
-      <div class="fila-flex">
-        <button type="button" class="btn btn-fantasma btn-chico" :aria-expanded="verGrafica" @click="verGrafica = !verGrafica">
-          <Icono nombre="grafica" :tam="15" />{{ verGrafica ? t('Hide chart') : t('Show chart') }}
-        </button>
-      </div>
-    </div>
-    <GraficoColumnas v-if="verGrafica" :datos="grafica" :titulo="t('Purchase orders by status')" />
-    <div class="chips mt-chico">
-      <button v-for="e in datos.estados" :key="e.clave" type="button" class="pildora" :aria-pressed="filtros.estado === e.clave"
-              @click="emit('filtrar', { estado: filtros.estado === e.clave ? '' : e.clave })">
-        {{ tx(e.nombre) }}<span class="cuenta">{{ tx(e.total) }}</span>
-      </button>
-    </div>
+    <div class="panel-cabeza"><h2>{{ t('POs by status') }}</h2></div>
+    <BarrasEtapas :etapas="datos.estados" :activa="filtros.estado" :etiqueta="t('Purchase orders by status')" @elegir="(c) => emit('filtrar', { estado: c })" />
   </section>
 
   <TablaDatos ref="tablaOC" tabla="seguimiento_ordenes" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
@@ -213,5 +198,7 @@ watch(() => [props.filtros, sesion.proveedorId], () => {
 </template>
 
 <style scoped>
+/* La leyenda explica la barra de avance, que en celular no se muestra */
+@media (max-width: 720px) { .leyenda-etapas { display: none; } }
 .avance-oc { min-width: 150px; }
 </style>

@@ -95,22 +95,30 @@ Todas las tablas siguen el modelo de la tabla de **órdenes de compra**:
   al pasar), su estado (`EstadoBadge`) y debajo una línea gris (`.sub`) con
   fecha, cantidad de líneas o marca. Las referencias a otros documentos dentro
   de la fila son `.enlace` (azul, sin subrayar). Montos y cantidades a la
-  derecha (`.num`). Las acciones de la fila al final, apiladas
-  (`.acciones-apiladas`), con la principal en `btn-primario`.
+  derecha (`.num`). Las acciones de la fila al final, en línea
+  (`.acciones-apiladas`; solo se apilan bajo 900 px), con la principal en
+  `btn-primario`; una acción secundaria puede ser solo ícono
+  (`.btn-cuadrado`, con `title` y `aria-label`).
 - **Maestro-detalle:** `TablaDatos expandible` con la ranura `detalle`. La
   tabla pone la flecha y envuelve el detalle en `DetalleAnidado` (sangría,
   guía a la izquierda y fondo propio): la pantalla no agrega contenedores ni
   márgenes. Una `TablaDatos` dentro del detalle se dibuja sola como tabla
   anidada (compacta, sin vistas guardadas ni densidad, «Columnas» discreto y
-  paginación solo si hace falta). Un segundo nivel dentro del detalle usa
-  también `DetalleAnidado`.
+  paginación solo si hace falta) y acotada en alto (440 px, se desplaza
+  adentro con el encabezado fijo). El detalle ocupa el ancho **visible** de la
+  tabla aunque esta se desplace de lado: lo de adentro nunca se desborda. Un
+  segundo nivel dentro del detalle usa también `DetalleAnidado`.
 - **Pie:** `Paginacion` pegada a la tabla, con «1–25 de 80 registros», las
   páginas y las filas por página.
 - **Carga y vacío:** `FilasEsqueleto` mientras carga; sin resultados, el motivo
   y «Limpiar filtros»; vacía de verdad, `EstadoVacio` con lo que hace falta
   para empezar.
-- La acción principal de la pantalla («Nueva OC», «Nuevo usuario») va en la
-  cabecera de la página, no en un panel encima de la tabla. Una tabla de lista
+- **Lo importante arriba:** la acción principal de la pantalla («Nueva OC»,
+  «Nuevo usuario») va en la cabecera de la página, no en un panel encima de la
+  tabla; «Agregar línea / fila / paso» va en la cabecera de su sección, sobre
+  la tabla (el renglón nuevo se agrega al final y `enfocarUltimo` lo trae a la
+  vista con el cursor en su primer campo), y «Agregar seleccionados» sobre las
+  líneas que se eligen. Una tabla de lista
   no va dentro de otra tarjeta.
 - Las listas grandes de un selector buscan en el servidor (`SelectBusqueda`
   con `buscar`).
@@ -139,8 +147,12 @@ muestre registros (Facturas es la referencia):
 - **Vistas guardadas:** guardan filtros de la pantalla (`externos`), filtros de
   cada columna, orden, columnas visibles y densidad con un nombre, por persona.
 - **Celular («prioridad +»):** cada columna tiene prioridad 1, 2 o 3. Bajo
-  720 px quedan las de prioridad 1 y bajo 900 px las de 1 y 2. El resto se ve
-  al expandir la fila.
+  720 px quedan las de prioridad 1 y bajo 900 px las de 1 y 2. Si aun así la
+  tabla no cabe en su marco, las de prioridad 3 y luego 2 (de la última a la
+  primera) pasan solas al detalle de la fila y vuelven cuando hay espacio: los
+  totales y montos llevan prioridad 2 o 1 para quedarse a la vista.
+- **Encabezado corto:** `corto` muestra un rótulo breve (p. ej. el número de
+  una etapa) y deja el nombre completo en el título del encabezado.
 - **Datos:** `modo="local"` ordena, filtra y pagina en el navegador (listas
   acotadas que llegan completas). `modo="servidor"` emite `consulta` (orden,
   filtros de columna, página y tamaño) y pide los valores de cada columna con
@@ -162,3 +174,26 @@ crear un prepack, asistentes de empaque, códigos por destino de la ficha); el
 **árbol arancelario**, que es un árbol (su búsqueda sí pagina); y las tarjetas
 de configuración (familias de producto, países, indicadores).
 
+## Indicadores, gráficas y segmentos
+
+- **Indicadores (`Kpi` en `.kpis`):** pocos y que lleven a una acción; en el
+  celular son una franja que se desliza de lado. Inicio muestra cinco; la
+  pestaña Resumen de Indicadores, los que dicen cómo va la operación de punta
+  a punta, cada uno con su variación frente al período anterior y su
+  tendencia (`Tendencia`: una columna por período, la actual resaltada).
+- **Etapas de un proceso (`BarrasEtapas`):** barras horizontales numeradas en
+  el orden del proceso, con su cuenta; cada barra filtra la tabla. No se usan
+  chips sueltos para contar etapas.
+- **Pasos y líneas de tiempo:** los pasos se numeran y el número es lo que se
+  dibuja en la gráfica; el nombre va en la lista o en el título. Los pasos del
+  lead time se agrupan por el documento que los cumple (OC, embarque…).
+- **Cifras de un panel (`dl.cifras`):** rótulo pequeño arriba y la cifra
+  grande, en rejilla.
+- **Segmentos (`Segmentos`):** opciones excluyentes (vista, estado, período).
+  En escritorio son botones; en tableta y celular (≤ 900 px) se pliegan en una
+  sola lista para que la barra de filtros no ocupe varios renglones. Las
+  pestañas de una página quedan en una línea que se desliza.
+- **Textos:** la descripción de la página es una línea; lo que explica un
+  cálculo va en un `details` («Cómo se calcula…») o en el título. En una
+  plantilla, un espacio al inicio de `<template v-if>` se pierde: se escribe
+  `&nbsp;` o el texto completo en una sola traducción.

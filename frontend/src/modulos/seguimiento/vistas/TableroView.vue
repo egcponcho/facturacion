@@ -10,6 +10,8 @@ import EstadoVacio from '@/componentes/EstadoVacio.vue'
 import Icono from '@/componentes/Icono.vue'
 import PanelLateral from '@/componentes/PanelLateral.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import Tendencia from '@/componentes/Tendencia.vue'
+import Segmentos from '@/componentes/Segmentos.vue'
 
 // Tablero de un módulo: los indicadores que la persona eligió (o los de su
 // rol), cada uno con su fórmula, su período y su fuente. Los números los
@@ -52,8 +54,7 @@ watch(dias, (v) => {
 })
 
 const def = (clave) => d.value?.catalogo.find((c) => c.clave === clave) || {}
-function cifra(i) {
-  const v = i.valor
+function cifra(i, v = i.valor) {
   if (v === null || v === undefined) return '—'
   const f = def(i.clave).formato
   if (f === 'moneda') return fmtMoneda(v, d.value.moneda_base)
@@ -71,6 +72,8 @@ function variacion(i) {
   const texto = !dif ? t('No change') : pct === null ? `${dif > 0 ? '+' : ''}${fmtNum(dif)}` : `${dif > 0 ? '▲' : '▼'} ${fmtNum(Math.abs(pct))}%`
   return { texto, tono }
 }
+const serie = (i) => i.serie.map((s) => ({ etiqueta: `${fmtFecha(s.desde)} – ${fmtFecha(s.hasta)}`, valor: s.valor }))
+const ultimo = (i) => [...(i.serie || [])].reverse().find((s) => s.valor !== null && s.valor !== undefined)
 function alternarExplicacion(clave) {
   const s = new Set(abiertos.value)
   if (s.has(clave)) s.delete(clave)
@@ -80,7 +83,7 @@ function alternarExplicacion(clave) {
 const periodoTxt = (i) => (def(i.clave).momento === 'hoy' ? t('Current state, today')
   : t('From {0} to {1}; compared with {2} to {3}', [fmtFecha(d.value.periodo.desde), fmtFecha(d.value.periodo.hasta),
     fmtFecha(d.value.periodo.anterior_desde), fmtFecha(d.value.periodo.anterior_hasta)]))
-const ORIGEN = { usuario: t('Your selection'), rol: t('Selection of your role'), sistema: t('All the indicators of your role') }
+const ORIGEN = { usuario: t('Your selection'), rol: t('Selection of your role'), sistema: t('Default selection') }
 
 // ---- Elegir y ordenar los indicadores ---------------------------------------------
 const panel = ref(null) // { elegidos: [...], rol: '' }
@@ -133,12 +136,10 @@ async function guardar(destino) {
   <div class="pagina-cabeza">
     <div>
       <h1>{{ t('Indicators') }}</h1>
-      <p>{{ t('The key figures of each module, with how they are calculated, the period they cover and where the data comes from. Each person chooses which ones to see.') }}</p>
+      <p>{{ t('How the operation is doing: each figure against the previous period, with its trend.') }}</p>
     </div>
     <div class="acciones">
-      <div class="segmentos" role="group" :aria-label="t('Period')">
-        <button v-for="[v, txt] in PERIODOS" :key="v" type="button" class="segmento" :aria-pressed="dias === v" @click="dias = v">{{ tx(txt) }}</button>
-      </div>
+      <Segmentos v-model="dias" :opciones="PERIODOS" :etiqueta="t('Period')" />
       <button v-if="d" type="button" class="btn" @click="abrirPanel"><Icono nombre="engrane" :tam="15" />{{ t('Choose indicators') }}</button>
     </div>
   </div>
@@ -152,7 +153,6 @@ async function guardar(destino) {
                :texto="t('Indicators appear for the modules your role can see (orders, invoices, shipments, products).')" />
 
   <template v-if="d">
-    <p class="ayuda">{{ t('Showing: {0}.', [ORIGEN[d.origen]]) }}</p>
     <div v-if="d.indicadores.length" class="rejilla-indicadores">
       <article v-for="i in d.indicadores" :key="i.clave" class="panel kpi-tarjeta">
         <header class="kpi-cabeza">
@@ -160,9 +160,14 @@ async function guardar(destino) {
           <button type="button" class="btn-icono" :aria-expanded="abiertos.has(i.clave)" :aria-label="t('How is it calculated?')" :title="t('How is it calculated?')"
                   @click="alternarExplicacion(i.clave)"><Icono nombre="info" :tam="16" /></button>
         </header>
-        <div class="kpi-valor">{{ cifra(i) }}</div>
+        <div class="kpi-cifra">
+          <span class="kpi-valor">{{ cifra(i) }}</span>
+          <span v-if="variacion(i)" class="etiqueta ms-0" :class="variacion(i).tono" :title="t('Previous period: {0}', [cifra(i, i.anterior)])">{{ tx(variacion(i).texto) }}</span>
+        </div>
+        <p v-if="i.valor === null && ultimo(i)" class="kpi-ultimo">{{ t('No data in this period · last: {0} ({1})', [cifra(i, ultimo(i).valor), fmtFecha(ultimo(i).hasta)]) }}</p>
+        <Tendencia v-if="i.serie" :serie="serie(i)" :formato="(v) => cifra(i, v)" :tono="variacion(i)?.tono" />
+        <div v-else class="kpi-hoy"><Icono nombre="reloj" :tam="13" />{{ t('Current state, today') }}</div>
         <div class="kpi-pie">
-          <span v-if="variacion(i)" class="etiqueta ms-0" :class="variacion(i).tono">{{ tx(variacion(i).texto) }}</span>
           <span class="ayuda">{{ tx(def(i.clave).momento === 'hoy' ? t('Today') : t('Last {0} days', [d.periodo.dias])) }}</span>
           <router-link v-if="i.ruta" :to="i.ruta" class="separar enlace-kpi">{{ t('See detail') }}<Icono nombre="derecha" :tam="13" /></router-link>
         </div>
@@ -180,7 +185,7 @@ async function guardar(destino) {
   </template>
 
   <PanelLateral v-if="panel" :titulo="t('Choose indicators')" ancho="560px" @cerrar="panel = null">
-    <p class="ayuda">{{ t('Check the indicators you want to see and order them with the arrows. Your choice is only for you.') }}</p>
+    <p class="ayuda">{{ t('Showing: {0}.', [ORIGEN[d.origen]]) }} {{ t('Check the indicators you want to see and order them with the arrows. Your choice is only for you.') }}</p>
     <ul class="lista-kpis">
       <li v-for="c in ordenados" :key="c.clave">
         <label class="check"><input type="checkbox" :checked="c.elegido" @change="alternar(c.clave)" />
@@ -208,11 +213,14 @@ async function guardar(destino) {
 </template>
 
 <style scoped>
-.rejilla-indicadores { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--e-4); margin-top: var(--e-3); align-items: start; }
-.kpi-tarjeta { margin: 0; display: flex; flex-direction: column; gap: var(--e-2); }
+.rejilla-indicadores { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--e-4); margin-top: var(--e-3); align-items: start; }
+.kpi-tarjeta { margin: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
+.kpi-cifra { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.kpi-ultimo { margin: -6px 0 0; font-size: 0.78rem; color: var(--tinta-3); }
+.kpi-hoy { height: 44px; display: flex; align-items: flex-end; gap: 6px; padding-bottom: 6px; font-size: 0.8rem; color: var(--tinta-3); border-bottom: 1px dashed var(--linea); }
 .kpi-cabeza { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--e-2); }
 .kpi-cabeza h2 { margin: 0; font-size: var(--t-sm); font-weight: 650; color: var(--tinta-2); }
-.kpi-valor { font-size: var(--t-2xl); font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kpi-valor { font-size: var(--t-xl); font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .kpi-pie { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
 .enlace-kpi { display: inline-flex; align-items: center; gap: 2px; font-size: var(--t-sm); }
 .kpi-explicacion { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: var(--e-2) 0 0; padding-top: var(--e-2);

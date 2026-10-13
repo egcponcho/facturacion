@@ -15,6 +15,7 @@ import { fmtCode } from '@/modulos/clasificacion/formato.js'
 import { estado as leerEstado } from '@/nucleo/estados.js'
 import { esInterno, puede, sesion } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
+import Segmentos from '@/componentes/Segmentos.vue'
 
 // Un producto es un estilo-color de un proveedor: su ficha técnica y su
 // clasificación arancelaria valen para todas sus tallas (SKU) y prepacks.
@@ -276,10 +277,7 @@ watch(() => sesion.proveedorId, recargar)
       </label>
     </template>
     <template #filtros>
-      <div class="segmentos" role="group" :aria-label="t('View')">
-        <button v-for="[v, txt, n] in VISTAS" :key="v" class="segmento" type="button" :aria-pressed="filtros.estado === v"
-                @click="elegirVista(v)">{{ tx(txt) }}<span v-if="n !== undefined" class="cuenta">{{ tx(n) }}</span></button>
-      </div>
+      <Segmentos :model-value="filtros.estado" :opciones="VISTAS" :etiqueta="t('View')" @change="elegirVista" />
     </template>
     <template v-if="opciones.marcas.length > 1 || filtros.marcas.length" #mas-filtros>
       <FiltroMulti v-model="filtros.marcas" :etiqueta="t('Brand')" :opciones="opcionesMarca" @change="recargar" />

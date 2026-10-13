@@ -114,6 +114,11 @@ const disponibles = computed(() => catalogo.value.filter((p) => !filas.value.lis
   <div class="editor-lt">
     <p v-if="base.niveles?.length > 1" class="ayuda">{{ t('Inherits from: {0}.', [base.niveles.slice(0, -1).map((n) => n.nombre).join(' › ')]) }}</p>
     <p v-if="cargando" class="ayuda">{{ t('Loading…') }}</p>
+    <div class="agregar">
+      <SelectBusqueda v-model="nuevo" :opciones="disponibles" :placeholder="t('Add a step from the catalog…')" :etiqueta="t('Step')" />
+      <button type="button" class="btn btn-chico" :disabled="!nuevo" @click="agregar"><Icono nombre="mas" :tam="14" />{{ t('Add step') }}</button>
+      <router-link to="/mantenimiento?catalogo=pasos_lt" class="enlace ayuda">{{ t('Manage the steps catalog') }}</router-link>
+    </div>
     <ol class="lista">
       <li v-for="(f, i) in filas.lista" :key="`${f.paso}|${f.modo}`" class="paso" :class="{ heredado: !f.propio, cambio: f.propio && f.heredado }">
         <span class="num">{{ i + 1 }}</span>
@@ -157,11 +162,6 @@ const disponibles = computed(() => catalogo.value.filter((p) => !filas.value.lis
       <span class="ayuda">{{ t('Removed at this level:') }}</span>
       <button v-for="q in filas.quitados" :key="`${q.paso}|${q.modo}`" type="button" class="etiqueta" :title="t('Restore')" @click="restaurar(q)">{{ tx(q.nombre || nombre(q.paso)) }} ↺</button>
     </div>
-    <div class="agregar">
-      <SelectBusqueda v-model="nuevo" :opciones="disponibles" :placeholder="t('Add a step from the catalog…')" :etiqueta="t('Step')" />
-      <button type="button" class="btn btn-chico" :disabled="!nuevo" @click="agregar"><Icono nombre="mas" :tam="14" />{{ t('Add step') }}</button>
-      <router-link to="/mantenimiento?catalogo=pasos_lt" class="enlace ayuda">{{ t('Manage the steps catalog') }}</router-link>
-    </div>
   </div>
 </template>
 
@@ -183,7 +183,7 @@ const disponibles = computed(() => catalogo.value.filter((p) => !filas.value.lis
 .acciones { display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
 .quitados { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .quitados .etiqueta { cursor: pointer; border: 0; text-decoration: line-through; }
-.agregar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.agregar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
 .agregar :deep(.sb) { min-width: 240px; }
 @media (max-width: 600px) {
   .paso { grid-template-columns: auto 1fr; }

@@ -12,6 +12,7 @@ import { estadosCobro, estadosDocumento } from '@/nucleo/estados.js'
 import { puede } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
 import { fmtFecha, fmtMoneda } from '@/nucleo/utils'
+import Segmentos from '@/componentes/Segmentos.vue'
 
 const ESTADOS_COBRO = estadosCobro()
 const ESTADOS_DOCUMENTO = estadosDocumento()
@@ -92,12 +93,8 @@ function buscar() {
       </label>
     </template>
     <template #filtros>
-      <div class="segmentos" role="group" :aria-label="t('Direction')">
-        <button v-for="[v, txt] in DIRECCIONES" :key="v" class="segmento" type="button" :aria-pressed="filtros.direccion === v" @click="filtros.direccion = v; recargar()">{{ tx(txt) }}</button>
-      </div>
-      <div class="segmentos" role="group" :aria-label="t('Payment status')">
-        <button v-for="[v, txt] in COBROS" :key="v" class="segmento" type="button" :aria-pressed="filtros.cobro === v" @click="filtros.cobro = v; recargar()">{{ tx(txt) }}</button>
-      </div>
+      <Segmentos v-model="filtros.direccion" :opciones="DIRECCIONES" :etiqueta="t('Direction')" @change="recargar()" />
+      <Segmentos v-model="filtros.cobro" :opciones="COBROS" :etiqueta="t('Payment status')" @change="recargar()" />
     </template>
     <template #celda-nombre="{ fila: d }">
       <router-link :to="`/comercial/documentos/${d.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(d.estado === 'BORRADOR' && !d.numero && !d.referencia_externa ? t('Draft') : d.nombre) }}</strong></router-link>

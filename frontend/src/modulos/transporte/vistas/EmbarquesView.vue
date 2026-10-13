@@ -17,6 +17,7 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import { datosModo, modoInicial, modosTransporte, useRutas } from '@/composables/useRutas'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFecha, fmtNum } from '@/nucleo/utils'
+import Segmentos from '@/componentes/Segmentos.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -131,11 +132,7 @@ onMounted(() => {
       </label>
     </template>
     <template #filtros>
-      <div class="segmentos" role="group" :aria-label="t('Status')">
-        <button v-for="[v, txt] in ESTADOS" :key="v" class="segmento" type="button" :aria-pressed="filtros.estado === v" @click="filtros.estado = v; cargar()">
-          {{ tx(txt) }}<span v-if="cuenta[v]" class="cuenta">{{ tx(cuenta[v]) }}</span>
-        </button>
-      </div>
+      <Segmentos v-model="filtros.estado" :opciones="ESTADOS.map(([v, txt]) => [v, txt, cuenta[v]])" :etiqueta="t('Status')" @change="cargar()" />
     </template>
     <template #celda-codigo="{ fila: e }">
       <span class="fila-flex sin-envolver"><Icono :nombre="datosModo(e.tipo_transporte).icono" />

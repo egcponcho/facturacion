@@ -50,9 +50,13 @@ ETAPAS = [
 ]
 HITOS = [
     ("creada", "PO created"), ("lib_comercial", "Commercial release"), ("lib_logistica", "Logistics release"),
-    ("recoleccion", "Pickup"), ("salida", "Departure"), ("arribo", "Port arrival"),
+    ("recoleccion", "Pickup"), ("salida", "Departure"), ("documentos", "Documents delivered"), ("arribo", "Port arrival"),
     ("entrega", "At warehouse"), ("ingreso", "Warehouse entry"), ("tienda", "In store"),
 ]
+# Documento que cumple cada hito de la OC
+DOCUMENTO_HITO = {"creada": "OC", "lib_comercial": "OC", "lib_logistica": "OC", "recoleccion": "PL",
+                  "salida": "EMBARQUE", "documentos": "EMBARQUE", "arribo": "EMBARQUE", "entrega": "EMBARQUE",
+                  "ingreso": "EMBARQUE", "tienda": "OC"}
 
 CAMPOS_DIAS = {"dias_liberacion": ("lib_logistica", "xf"), "dias_transito": ("salida", "arribo"),
                "dias_puerto_bodega": ("arribo", "entrega"), "dias_ingreso": ("entrega", "ingreso"),
@@ -227,8 +231,9 @@ def _hitos_por_oc(db: Session, oc_ids: list[int]) -> dict[int, dict]:
     embarques = ({e.id: e for e in db.scalars(select(Embarque).where(Embarque.id.in_(emb_ids))
                                               .options(selectinload(Embarque.eventos)))} if emb_ids else {})
     for oc_id, f_fecha, recolectado, emb_id in filas:
-        h = out.setdefault(oc_id, {"facturada": None, "recoleccion": None, "salida": None, "arribo": None,
-                                   "entrega": None, "ingreso": None, "etd": None, "eta": None, "embarques": set()})
+        h = out.setdefault(oc_id, {"facturada": None, "recoleccion": None, "salida": None, "documentos": None,
+                                   "arribo": None, "entrega": None, "ingreso": None, "etd": None, "eta": None,
+                                   "embarques": set()})
         h["facturada"] = _min(h["facturada"], f_fecha)
         h["recoleccion"] = _min(h["recoleccion"], recolectado)
         e = embarques.get(emb_id)
@@ -240,6 +245,7 @@ def _hitos_por_oc(db: Session, oc_ids: list[int]) -> dict[int, dict]:
             ev.setdefault(x.tipo, _dia(x.fecha))
         h["recoleccion"] = _min(h["recoleccion"], ev.get("RECOLECCION"))
         h["salida"] = _min(h["salida"], e.salida_real or ev.get("SALIDA"))
+        h["documentos"] = _min(h["documentos"], ev.get("DOCUMENTOS"))
         h["arribo"] = _min(h["arribo"], e.arribo_real or ev.get("ARRIBO"))
         h["entrega"] = _min(h["entrega"], ev.get("ENTREGA"))
         h["ingreso"] = _min(h["ingreso"], ev.get("RECEPCION"))
@@ -285,12 +291,15 @@ def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
     xf, tienda = oc.fecha_xf, oc.fecha_tienda
     lim_arribo = limite_puerto(tienda, est)
     real = {"creada": oc.fecha, "lib_comercial": oc.fecha_lib_comercial, "lib_logistica": oc.fecha_lib_logistica,
-            "recoleccion": h.get("recoleccion"), "salida": h.get("salida"), "arribo": h.get("arribo"),
+            "recoleccion": h.get("recoleccion"), "salida": h.get("salida"), "documentos": h.get("documentos"),
+            "arribo": h.get("arribo"),
             "entrega": h.get("entrega"), "ingreso": h.get("ingreso"), "tienda": None}
     meta = {
         "lib_logistica": entre(xf, est, "xf", "lib_logistica"),
         "recoleccion": xf,
         "salida": entre(lim_arribo, est, "arribo", "salida"),
+        # Solo con un paso de documentos en su lead time (si no, no tiene meta propia)
+        "documentos": entre(lim_arribo, est, "arribo", "documentos") if est["hitos"].get("documentos") else None,
         "arribo": lim_arribo,
         "entrega": entre(lim_arribo, est, "arribo", "entrega"),
         "ingreso": entre(lim_arribo, est, "arribo", "ingreso"),
@@ -316,8 +325,8 @@ def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
     for clave, nombre in HITOS:
         estimada = est_fecha.get(clave)
         dif, estado = _estado(real[clave], meta.get(clave), estimada, hoy)
-        hitos.append({"clave": clave, "nombre": nombre, "meta": meta.get(clave), "fecha": real[clave],
-                      "estimada": estimada, "dif": dif, "estado": estado})
+        hitos.append({"clave": clave, "nombre": nombre, "documento": DOCUMENTO_HITO[clave], "meta": meta.get(clave),
+                      "fecha": real[clave], "estimada": estimada, "dif": dif, "estado": estado})
     holgura = (lim_arribo - arribo).days if lim_arribo and arribo else None
     lib = real["lib_logistica"]
     tienda_est = est_fecha["tienda"]

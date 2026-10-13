@@ -8,6 +8,7 @@ import { avisar, errorApi } from '@/stores/ui'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import { enfocarUltimo } from '@/nucleo/utils'
 
 // Genérico: los 8 primeros dígitos del código de artículo (estilo-color). Se
 // crea una vez con sus datos maestros; después solo se agregan tallas (los 3
@@ -170,6 +171,7 @@ async function guardar() {
     <div class="fila-flex gap-2" style="margin: 6px 0 4px">
       <input v-model="rapido" class="entrada max-xl" :placeholder="t('Quick: 7-10, 12 · 6.5-9.5 · S-XL')" @keydown.enter.prevent="aplicarRapido" />
       <button type="button" class="btn btn-chico" @click="aplicarRapido">{{ t('Add these sizes') }}</button>
+      <button type="button" class="btn btn-chico" @click="filas.push(nuevaFila()); enfocarUltimo('.tallas tbody tr')"><Icono nombre="mas" :tam="14" />{{ t('Add row') }}</button>
       <input v-model="pesoTodas" class="entrada max-xs empuja-fin" type="number" min="0" step="any" :placeholder="t('Unit weight kg')" :aria-label="t('Unit weight for all sizes')" />
       <button type="button" class="btn btn-chico" :disabled="pesoTodas === ''" @click="pesoParaTodas">{{ t('Same weight for all') }}</button>
     </div>
@@ -190,7 +192,6 @@ async function guardar() {
         </tbody>
       </table>
     </div>
-    <button type="button" class="btn btn-chico mt-chico" @click="filas.push(nuevaFila())"><Icono nombre="mas" :tam="14" />{{ t('Add row') }}</button>
     </template>
     <div v-if="errores.length" class="nota error bloque mt-chico"><ul class="lista-mensajes"><li v-for="(e, i) in errores" :key="i">{{ tx(e) }}</li></ul></div>
     <template #pie>

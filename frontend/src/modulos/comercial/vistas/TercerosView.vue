@@ -12,6 +12,7 @@ import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtMoneda } from '@/nucleo/utils'
 import Seleccion from '@/componentes/Seleccion.vue'
+import Segmentos from '@/componentes/Segmentos.vue'
 
 // Terceros: una identidad fiscal por persona o empresa con sus roles (cliente,
 // proveedor, transportista, agente), direcciones y medios de contacto. Los
@@ -140,10 +141,7 @@ const alternarRol = (r) => {
       </label>
     </template>
     <template #filtros>
-      <div class="segmentos" role="group" :aria-label="t('Role')">
-        <button class="segmento" type="button" :aria-pressed="!filtros.rol" @click="filtros.rol = ''; recargar()">{{ t('All') }}</button>
-        <button v-for="[v, txt] in ROLES" :key="v" class="segmento" type="button" :aria-pressed="filtros.rol === v" @click="filtros.rol = v; recargar()">{{ tx(txt) }}</button>
-      </div>
+      <Segmentos v-model="filtros.rol" :opciones="[['', t('All')], ...ROLES]" :etiqueta="t('Role')" @change="recargar()" />
     </template>
     <template #celda-nombre="{ fila: x }"><strong>{{ tx(x.nombre) }}</strong><span v-if="x.direccion" class="sub">{{ tx(x.direccion) }}</span></template>
     <template #celda-codigo="{ fila: x }"><span class="codigo">{{ tx(x.codigo) }}</span></template>
@@ -207,7 +205,7 @@ const alternarRol = (r) => {
     <p>
       <b>{{ t('Balance') }}:</b>
       <template v-for="(v, m) in cuenta.saldo" :key="m"> {{ fmtMoneda(v, m) }}</template>
-      <template v-if="!Object.keys(cuenta.saldo).length"> {{ t('nothing pending') }}</template>
+      <template v-if="!Object.keys(cuenta.saldo).length">&nbsp;{{ t('nothing pending') }}</template>
     </p>
     <div v-if="cuenta.documentos.length" class="tabla-marco tabla-captura">
       <table class="tabla" v-tarjetas>

@@ -4,7 +4,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { api } from '@/nucleo/api'
 import { pasoCantidad } from '@/nucleo/unidades.js'
-import { cantTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, unidadTxt } from '@/nucleo/utils'
+import { cantTxt, enfocarUltimo, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, unidadTxt } from '@/nucleo/utils'
 import { horaTexto } from '@/stores/preferencias'
 import { camposPropios, valorPropio } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
@@ -459,7 +459,10 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
     <section v-else-if="paso.clave === 'articulos'" class="panel">
       <div class="panel-cabeza">
         <div><h2>{{ t('What is ordered') }}</h2><p>{{ t('Items of the supplier from the item master. Solids may bring their casepack (exact quantity per carton); a prepack brings its size run.') }}</p></div>
-        <span v-if="Object.keys(cantidades).length" class="etiqueta">{{ porUnidadTxt(cantidades, 'cantidad') }}</span>
+        <div class="fila-flex">
+          <span v-if="Object.keys(cantidades).length" class="etiqueta">{{ porUnidadTxt(cantidades, 'cantidad') }}</span>
+          <button type="button" class="btn btn-chico" @click="lineas.push(nuevaLinea()); enfocarUltimo('.lineas-oc .linea-oc')"><Icono nombre="mas" :tam="14" />{{ t('Add line') }}</button>
+        </div>
       </div>
       <p v-for="m in msjs('lineas')" :key="m" class="nota error">{{ tx(m) }}</p>
       <div class="lineas-oc">
@@ -479,7 +482,6 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
           <ul v-if="msjsLinea(i, 'codigo_articulo', 'cantidad', 'unidad').length" class="lista-mensajes error-linea">
             <li v-for="(m, j) in msjsLinea(i, 'codigo_articulo', 'cantidad', 'unidad')" :key="j">{{ tx(m) }}</li></ul>
         </div>
-        <button type="button" class="btn btn-chico" @click="lineas.push(nuevaLinea())"><Icono nombre="mas" :tam="14" />{{ t('Add line') }}</button>
       </div>
     </section>
 

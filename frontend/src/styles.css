@@ -401,6 +401,8 @@ svg { flex: none; }
 .btn-peligro { color: var(--error); }
 .btn-peligro:hover:not(:disabled) { border-color: var(--error); background: var(--error-fondo); }
 .btn-chico { padding: 4px 10px; min-height: 30px; font-size: 0.84rem; }
+.btn-cuadrado { padding: 0; width: 32px; min-width: 32px; justify-content: center; }
+.btn-chico.btn-cuadrado { width: 30px; min-width: 30px; }
 .btn-grande { padding: 10px 18px; font-size: 0.98rem; }
 .btn-fantasma { background: transparent; border-color: transparent; box-shadow: none; color: var(--tinta-2); }
 .btn-fantasma:hover:not(:disabled) { background: var(--linea-suave); border-color: transparent; color: var(--tinta); }
@@ -515,8 +517,10 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); l
   padding: var(--td-py) var(--td-px); border-bottom: 1px solid var(--linea); background: var(--superficie-2); position: sticky; top: 0; white-space: normal; line-height: 1.3; vertical-align: bottom; z-index: 1;
 }
 .tabla td { padding: var(--td-py) var(--td-px); border-bottom: 1px solid var(--linea-suave); vertical-align: middle; white-space: nowrap; }
-.acciones-apiladas { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
-.acciones-apiladas .btn { justify-content: center; }
+/* Acciones de una fila: en línea cuando hay espacio; apiladas solo en pantallas angostas */
+.acciones-apiladas { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.acciones-apiladas .btn { justify-content: center; white-space: nowrap; }
+@media (max-width: 900px) { .acciones-apiladas { flex-direction: column; align-items: stretch; gap: 4px; } }
 .insignias.columna { flex-direction: column; align-items: flex-start; }
 .tabla td.ajustar { white-space: normal; min-width: 120px; max-width: 190px; }
 .insignias { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
@@ -563,7 +567,10 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); l
    ve como tabla anidada (compacta, con su borde, sin sombra ni barra repetida). */
 .fila-hija > td { background: var(--superficie-2); padding: 0; white-space: normal; border-bottom: 1px solid var(--linea); }
 .fila-hija:hover > td { background: var(--superficie-2) !important; }
-.detalle-anidado { position: relative; padding: 12px 20px 16px 56px; font-size: var(--t-sm); }
+/* El detalle ocupa el ancho visible de la tabla (no el de sus columnas) y se
+   queda fijo al desplazar la tabla de lado: lo de adentro nunca se desborda */
+.tabla-marco { container-type: inline-size; }
+.detalle-anidado { position: sticky; inset-inline-start: 0; width: 100cqw; box-sizing: border-box; padding: 12px 20px 16px 56px; font-size: var(--t-sm); }
 .detalle-anidado::before { content: ''; position: absolute; inset-block: 0 14px; inset-inline-start: 29px; width: 2px; border-radius: 2px; background: var(--acento-medio); }
 .detalle-anidado > :first-child { margin-top: 0; }
 .detalle-anidado > :last-child { margin-bottom: 0; }
@@ -571,7 +578,10 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); l
 .detalle-anidado .detalle-anidado::before { inset-inline-start: 22px; }
 .td-anidada > .tabla-marco { box-shadow: none; border-radius: var(--radio); }
 .td-anidada > .tabla-marco.tabla-fija { border-end-start-radius: 0; border-end-end-radius: 0; }
-.td-anidada .tabla th { position: static; background: color-mix(in srgb, var(--superficie-2) 60%, var(--superficie)); }
+/* Tabla anidada acotada: con muchos registros se desplaza adentro (encabezado
+   fijo) y la fila de arriba no se estira hasta perderse */
+.td-anidada > .tabla-marco { max-height: 440px; overflow: auto; }
+.td-anidada .tabla th { position: sticky; top: 0; z-index: 1; background: color-mix(in srgb, var(--superficie-2) 60%, var(--superficie)); }
 .td-anidada > .paginacion { padding: 6px 10px; border-radius: 0 0 var(--radio) var(--radio); }
 .td-anidada > .filtros { margin-bottom: 6px; }
 .td-barra-anidada { justify-content: flex-start; }
@@ -691,6 +701,22 @@ a.cajas-rango { color: var(--tinta); }
 .kpi-detalle { font-size: 0.8rem; color: var(--tinta-3); }
 .kpis.kpis-heroe .kpi:first-child { flex-basis: 200px; flex-grow: 1.4; }
 .kpis.kpis-heroe .kpi:first-child .kpi-valor { font-size: 2.1rem; }
+/* Celular: los indicadores en una franja que se desliza de lado (no una
+   rejilla que ocupa la pantalla) y las pestañas en una sola línea */
+@media (max-width: 600px) {
+  .kpis { flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .kpis::-webkit-scrollbar { display: none; }
+  .kpis > .kpi { flex: 0 0 44%; scroll-snap-align: start; padding: 12px 14px; }
+  .kpis.kpis-heroe .kpi:first-child { flex: 0 0 62%; }
+  .kpi-titulo { min-height: 0; }
+  .kpi-valor, .kpis.kpis-heroe .kpi:first-child .kpi-valor { font-size: 1.35rem; margin-top: 4px; }
+  .kpi-detalle { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+}
+@media (max-width: 720px) {
+  .pestanas-pildora { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; display: flex; }
+  .pestanas-pildora::-webkit-scrollbar { display: none; }
+  .pestanas-pildora > * { flex: none; }
+}
 
 .tablero { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: start; }
 .tablero > .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -869,6 +895,7 @@ a.cajas-rango { color: var(--tinta); }
 .separar { margin-inline-start: auto; }
 .mt { margin-top: 16px; }
 .mt-chico { margin-top: 8px; }
+.mb-chico { margin-bottom: 8px; }
 /* Utilidades (en lugar de estilos en línea) */
 .mt-0 { margin-top: 0; }
 .mb-0 { margin-bottom: 0; }
@@ -899,6 +926,10 @@ a.cajas-rango { color: var(--tinta); }
 .celda.con-borde { border-color: var(--linea); }
 .dos-columnas { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
 .dos-columnas .panel + .panel { margin-top: 0; }
+/* Cifras de un panel: rótulo pequeño arriba y la cifra grande */
+.cifras { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px 20px; margin: 0; }
+.cifras dt { font-size: 0.76rem; color: var(--tinta-3); font-weight: 600; }
+.cifras dd { margin: 2px 0 0; font-size: var(--t-xl); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .texto-derecha { text-align: end; }
 .fuerte { font-weight: 650; }
 .linea-avance { display: flex; flex-direction: column; gap: 4px; }
@@ -974,6 +1005,13 @@ th.num .orden-btn { flex-direction: row-reverse; }
 /* Control segmentado: un solo estilo para elegir una vista o un filtro
    (.segmentos/.segmento con aria-pressed) y para las pestañas de segundo nivel
    (.pestanas-pildora/.pildora con aria-selected). Las de primer nivel son .pestanas. */
+/* Segmentos que se pliegan en una lista en tableta y celular (Segmentos.vue) */
+.segmentos-resp { display: inline-flex; min-width: 0; max-width: 100%; }
+.segmentos-resp > .seg-lista { display: none; }
+@media (max-width: 900px) {
+  .segmentos-resp.plegable > .segmentos { display: none; }
+  .segmentos-resp.plegable > .seg-lista { display: block; min-width: 180px; }
+}
 .segmentos, .pestanas-pildora { display: inline-flex; gap: 2px; flex-wrap: wrap; padding: 3px; background: var(--linea-suave); border-radius: 10px; max-width: 100%; }
 .pestanas-pildora { margin-bottom: var(--e-4); }
 .segmento, .pildora { border: 0; background: none; color: var(--tinta-2); border-radius: 7px; padding: 6px 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-sm); text-decoration: none; white-space: nowrap; transition: background 0.12s, color 0.12s; }
