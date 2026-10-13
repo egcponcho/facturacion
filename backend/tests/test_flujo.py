@@ -420,7 +420,7 @@ def test_asignacion_automatica(interno, vans):
 def test_dashboard(interno, tnf):
     d = interno.get("/dashboard").json()
     claves = {k["clave"] for k in d["kpis"]}
-    assert {"por_facturar", "listas", "sin_contenedor", "en_camino"} <= claves
+    assert {"por_facturar", "en_proceso", "listas", "en_camino"} <= claves
     assert d["proveedores"] and {p["nombre"] for p in d["proveedores"]} >= {"The North Face", "Vans"}
     assert len(d["facturado_mes"]) == 6 and d["contenedores"] is not None
     # El proveedor solo ve lo suyo y no recibe datos internos

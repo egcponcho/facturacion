@@ -12,6 +12,7 @@ import Icono from '@/componentes/Icono.vue'
 import { esInterno, sesion, ve } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
 import { fmtFecha, fmtMoneda } from '@/nucleo/utils'
+import Segmentos from '@/componentes/Segmentos.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -102,9 +103,7 @@ watch(() => sesion.proveedorId, recargar)
       </label>
     </template>
     <template #filtros>
-      <div class="segmentos" role="group" :aria-label="t('View')">
-        <button v-for="[v, txt] in VISTAS" :key="v" class="segmento" type="button" :aria-pressed="filtros.vista === v" @click="filtros.vista = v; recargar()">{{ tx(txt) }}</button>
-      </div>
+      <Segmentos v-model="filtros.vista" :opciones="VISTAS" :etiqueta="t('View')" @change="recargar" />
     </template>
     <template #celda-nombre="{ fila: f }">
       <router-link :to="`/facturas/${f.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(f.nombre) }}</strong></router-link>

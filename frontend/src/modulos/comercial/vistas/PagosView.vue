@@ -13,6 +13,7 @@ import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFecha, fmtMoneda } from '@/nucleo/utils'
 import Seleccion from '@/componentes/Seleccion.vue'
+import Segmentos from '@/componentes/Segmentos.vue'
 
 // Cobros (de clientes) y pagos (a proveedores). Un pago se reparte entre los
 // documentos con saldo del tercero; lo que no se aplica queda a su favor.
@@ -159,9 +160,7 @@ async function anular() {
       </label>
     </template>
     <template #filtros>
-      <div class="segmentos" role="group" :aria-label="t('Kind')">
-        <button v-for="[v, txt] in DIRECCIONES" :key="v" class="segmento" type="button" :aria-pressed="filtros.direccion === v" @click="filtros.direccion = v; recargar()">{{ tx(txt) }}</button>
-      </div>
+      <Segmentos v-model="filtros.direccion" :opciones="DIRECCIONES" :etiqueta="t('Kind')" @change="recargar()" />
     </template>
     <template #celda-fecha="{ fila: p }">{{ fmtFecha(p.fecha) }}</template>
     <template #celda-direccion="{ fila: p }"><span class="etiqueta ms-0" :class="p.direccion === 'COBRO' ? 'ok' : 'info'">{{ tx(p.direccion === 'COBRO' ? t('Collection') : t('Payment')) }}</span></template>

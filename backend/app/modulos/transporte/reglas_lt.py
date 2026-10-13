@@ -141,7 +141,8 @@ def combinar(niveles: list[tuple[str, str | None, str | None, dict]], catalogo: 
                       # Todos los valores anteriores, del nivel más general al que sobrescribió
                       "historial": ((previo or {}).get("historial") or []) + ([antes] if antes else []),
                       "nombre": catalogo.get(e["paso"], {}).get("nombre", e["paso"]),
-                      "hito": catalogo.get(e["paso"], {}).get("hito")}
+                      "hito": catalogo.get(e["paso"], {}).get("hito"),
+                      "documento": catalogo.get(e["paso"], {}).get("documento")}
             if e["paso"] not in orden:
                 orden.append(e["paso"])
         if regla.get("orden"):
@@ -152,8 +153,8 @@ def combinar(niveles: list[tuple[str, str | None, str | None, dict]], catalogo: 
 
 
 def catalogo(db: Session) -> dict:
-    return {p.codigo: {"codigo": p.codigo, "nombre": p.nombre, "hito": p.hito, "activo": p.activo,
-                       "descripcion": p.descripcion}
+    return {p.codigo: {"codigo": p.codigo, "nombre": p.nombre, "hito": p.hito, "documento": p.documento,
+                       "activo": p.activo, "descripcion": p.descripcion}
             for p in db.scalars(select(PasoLeadTime).order_by(PasoLeadTime.codigo))}
 
 

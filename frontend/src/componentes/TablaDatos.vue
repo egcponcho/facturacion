@@ -37,7 +37,8 @@ import VistasGuardadas from './VistasGuardadas.vue'
 //   modo local; puede ser una lista), textoValor (valor, fila) => cómo se ve
 //   en el filtro, prioridad (1 siempre · 2 desde tableta · 3 escritorio),
 //   fija (no se oculta), inicial (false: empieza oculta), grupo (dato que el
-//   rol puede no ver), ancho (px) }]
+//   rol puede no ver), ancho (px), corto (encabezado breve; el nombre completo
+//   queda en el título) }]
 // Ranuras: celda-<clave> ({ fila, valor }), acciones ({ fila }), detalle
 //   ({ fila }; al abrir la fila llega el evento `expandir`), barra, filtros,
 //   mas-filtros, vacio y pie-<clave> (fila de
@@ -477,13 +478,13 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
               <input type="checkbox" :aria-label="t('Select all on this page')" :checked="todasElegidas" :disabled="!seleccionables.length" @change="alternarTodas" />
             </th>
             <th v-if="conDetalle" class="td-exp"><span class="oculto-visual">{{ t('Detail') }}</span></th>
-            <th v-for="c in enPantalla" :key="c.clave" :class="{ num: c.num, 'td-filtrada': filtrada(c) }" :style="estiloColumna(c)"
+            <th v-for="c in enPantalla" :key="c.clave" :class="{ num: c.num, 'td-filtrada': filtrada(c) }" :style="estiloColumna(c)" :title="c.corto ? tx(c.texto) : undefined"
                 :aria-sort="dirOrden(c) === 'asc' ? 'ascending' : dirOrden(c) === 'desc' ? 'descending' : undefined">
               <div class="td-th">
                 <button v-if="c.ordenable !== false" type="button" class="orden-btn" :class="{ activo: dirOrden(c) }" @click="ordenar(c)">
-                  {{ tx(c.texto) }}<Icono :nombre="dirOrden(c) === 'asc' ? 'arriba' : dirOrden(c) === 'desc' ? 'abajo' : 'arribaabajo'" :tam="12" class="td-flecha" :class="{ activa: dirOrden(c) }" />
+                  {{ tx(c.corto || c.texto) }}<Icono :nombre="dirOrden(c) === 'asc' ? 'arriba' : dirOrden(c) === 'desc' ? 'abajo' : 'arribaabajo'" :tam="12" class="td-flecha" :class="{ activa: dirOrden(c) }" />
                 </button>
-                <span v-else>{{ tx(c.texto) }}</span>
+                <span v-else>{{ tx(c.corto || c.texto) }}</span>
                 <button v-if="filtrable(c)" type="button" class="btn-icono td-filtrar" :class="{ activo: filtrada(c) }" :aria-expanded="abierto?.c.clave === c.clave"
                         :aria-label="t('Filter by {0}', [tx(c.texto)])" :title="t('Filter by {0}', [tx(c.texto)])" @click="abrirFiltro(c, $event)">
                   <Icono nombre="filtro" :tam="13" /><span v-if="filtrada(c)" class="td-n">{{ filtros[c.clave].length }}</span>

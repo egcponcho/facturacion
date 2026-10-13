@@ -26,6 +26,7 @@ def leadtimes_ambitos(db: Db, user: User):
                     for p in db.scalars(select(Puerto).order_by(Puerto.nombre))],
         "pasos": list(reglas_lt.catalogo(db).values()),
         "hitos": [{"valor": h, "texto": t} for h, t in reglas_lt.HITOS],
+        "documentos": [{"valor": d, "texto": t} for d, t in reglas_lt.DOCUMENTOS],
     }
 
 

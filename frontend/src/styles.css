@@ -563,7 +563,10 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); l
    ve como tabla anidada (compacta, con su borde, sin sombra ni barra repetida). */
 .fila-hija > td { background: var(--superficie-2); padding: 0; white-space: normal; border-bottom: 1px solid var(--linea); }
 .fila-hija:hover > td { background: var(--superficie-2) !important; }
-.detalle-anidado { position: relative; padding: 12px 20px 16px 56px; font-size: var(--t-sm); }
+/* El detalle ocupa el ancho visible de la tabla (no el de sus columnas) y se
+   queda fijo al desplazar la tabla de lado: lo de adentro nunca se desborda */
+.tabla-marco { container-type: inline-size; }
+.detalle-anidado { position: sticky; inset-inline-start: 0; width: 100cqw; box-sizing: border-box; padding: 12px 20px 16px 56px; font-size: var(--t-sm); }
 .detalle-anidado::before { content: ''; position: absolute; inset-block: 0 14px; inset-inline-start: 29px; width: 2px; border-radius: 2px; background: var(--acento-medio); }
 .detalle-anidado > :first-child { margin-top: 0; }
 .detalle-anidado > :last-child { margin-bottom: 0; }
@@ -974,6 +977,13 @@ th.num .orden-btn { flex-direction: row-reverse; }
 /* Control segmentado: un solo estilo para elegir una vista o un filtro
    (.segmentos/.segmento con aria-pressed) y para las pestañas de segundo nivel
    (.pestanas-pildora/.pildora con aria-selected). Las de primer nivel son .pestanas. */
+/* Segmentos que se pliegan en una lista en tableta y celular (Segmentos.vue) */
+.segmentos-resp { display: inline-flex; min-width: 0; max-width: 100%; }
+.segmentos-resp > .seg-lista { display: none; }
+@media (max-width: 900px) {
+  .segmentos-resp.plegable > .segmentos { display: none; }
+  .segmentos-resp.plegable > .seg-lista { display: block; min-width: 180px; }
+}
 .segmentos, .pestanas-pildora { display: inline-flex; gap: 2px; flex-wrap: wrap; padding: 3px; background: var(--linea-suave); border-radius: 10px; max-width: 100%; }
 .pestanas-pildora { margin-bottom: var(--e-4); }
 .segmento, .pildora { border: 0; background: none; color: var(--tinta-2); border-radius: 7px; padding: 6px 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-sm); text-decoration: none; white-space: nowrap; transition: background 0.12s, color 0.12s; }

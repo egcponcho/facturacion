@@ -2,6 +2,7 @@
 import { t, tx } from '@/i18n/index.js'
 import { fmtFecha } from '@/nucleo/utils'
 import { computed, ref } from 'vue'
+import Segmentos from '@/componentes/Segmentos.vue'
 
 // Periodo rápido: semana, mes, trimestre, año, últimos 12 meses o rango propio.
 // v-model: { clave, desde, hasta } con fechas ISO (YYYY-MM-DD).
@@ -50,13 +51,11 @@ export function periodoInicial(clave = 'mes') {
 
 <template>
   <div class="periodo">
-    <div class="segmentos" role="group" :aria-label="t('Period')">
-      <button v-for="[k, txt] in OPCIONES" :key="k" type="button" class="segmento" :aria-pressed="props.modelValue.clave === k" @click="elegir(k)">{{ tx(txt) }}</button>
-      <button type="button" class="segmento" :aria-pressed="props.modelValue.clave === 'propio'" @click="propio = true">{{ t('Custom') }}</button>
-    </div>
+    <Segmentos :model-value="propio ? 'propio' : props.modelValue.clave" :opciones="[...OPCIONES, ['propio', t('Custom')]]" :etiqueta="t('Period')"
+               @change="(k) => (k === 'propio' ? (propio = true) : elegir(k))" />
     <span v-if="propio || props.modelValue.clave === 'propio'" class="rango-propio">
       <CampoFecha :model-value="props.modelValue.desde" :aria-label="t('From')" @change="(v) => rangoPropio('desde', v)" />
-      <span class="ayuda">to</span>
+      <span class="ayuda">–</span>
       <CampoFecha :model-value="props.modelValue.hasta" :aria-label="t('To')" @change="(v) => rangoPropio('hasta', v)" />
     </span>
     <span v-else class="ayuda">{{ tx(texto) }}</span>

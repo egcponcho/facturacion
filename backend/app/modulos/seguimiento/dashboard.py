@@ -184,12 +184,6 @@ def _resumen_periodo(db: Session, facturas: list[Factura], moneda: str, desde: d
         {"clave": "llegadas", "titulo": "Shipments arriving", "valor": len(llegadas),
          "detalle": f"{sum(1 for e in llegadas if e.estado in ('ARRIBADO', 'ENTREGADO', 'RECIBIDO'))} already arrived"},
     ]
-    q = select(Producto).where(Producto.revisado_en.is_not(None))
-    if prov:
-        q = q.where(Producto.proveedor_id.in_(prov))
-    aprobados = [p for p in db.scalars(q) if desde <= p.revisado_en.date() <= hasta]
-    out.append({"clave": "clasificados", "titulo": "Products classified", "valor": len(aprobados),
-                "detalle": "HS codes approved" if interno else "technical sheets approved"})
     return out
 
 
@@ -449,24 +443,16 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None, desde
     kpis = [
         {"clave": "por_facturar", "titulo": "To invoice", "valor": por_facturar, "formato": "moneda",
          "moneda": moneda, "detalle": f"on {saldo['ocs']} POs", "ruta": "/ordenes", "tono": "normal"},
-        {"clave": "en_proceso", "titulo": "Invoices in progress", "valor": len(en_proceso),
-         "detalle": f"{sum(1 for f in en_proceso if f.estado == 'EN_CORRECCION')} under correction",
-         "ruta": "/facturas", "query": {"vista": "editables"}, "tono": "normal"},
-        {"clave": "pl_abiertos", "titulo": "Open packing lists", "valor": len(pls_abiertos),
-         "detalle": "to pack or finalize", "ruta": "/facturas", "query": {"vista": "pl_incompletos"},
-         "tono": "alerta" if pls_abiertos else "normal"},
+        {"clave": "en_proceso", "titulo": "Documents in progress", "valor": len(en_proceso) + len(pls_abiertos),
+         "detalle": f"{len(en_proceso)} invoices · {len(pls_abiertos)} packing lists",
+         "ruta": "/facturas", "query": {"vista": "editables"}, "tono": "alerta" if pls_abiertos else "normal"},
     ]
     if interno:
         sin_unidad = [pl for f in facturas for pl in f.packing_lists
                       if pl.estado == "FINALIZADO" and not pl.unidad_carga_id]
-        kpis += [
-            {"clave": "listas", "titulo": "Ready to ship", "valor": len(listas),
-             "detalle": f"{len(sin_unidad)} PLs without container", "ruta": "/facturas",
-             "query": {"vista": "lista_transporte"}, "tono": "exito" if listas else "normal"},
-            {"clave": "sin_contenedor", "titulo": "Finalized without container", "valor": len(sin_unidad),
-             "detalle": "packing lists to load", "ruta": "/transporte", "query": {"estado": "PLANIFICADO"},
-             "tono": "alerta" if sin_unidad else "normal"},
-        ]
+        kpis.append({"clave": "listas", "titulo": "Ready to ship", "valor": len(listas),
+                     "detalle": f"{len(sin_unidad)} PLs without container", "ruta": "/facturas",
+                     "query": {"vista": "lista_transporte"}, "tono": "alerta" if sin_unidad else "normal"})
     kpis.append({"clave": "en_camino", "titulo": "Shipments on the way", "valor": len(en_camino),
                  "formato": "numero", "detalle": f"next arrival {proximo:%b %d}" if proximo else "no upcoming arrivals",
                  "fecha": proximo, "ruta": "/transporte" if interno else "/facturas",

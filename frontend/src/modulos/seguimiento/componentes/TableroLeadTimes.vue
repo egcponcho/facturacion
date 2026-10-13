@@ -12,6 +12,7 @@ import FiltroPeriodo, { rango } from '@/componentes/FiltroPeriodo.vue'
 import Icono from '@/componentes/Icono.vue'
 import Kpi from '@/componentes/Kpi.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
+import Segmentos from '@/componentes/Segmentos.vue'
 
 // Lead times por origen: cuánto tarda en promedio cada etapa (de la OC al
 // ingreso en bodega), si logística libera a tiempo antes de la XF (Asia 21
@@ -76,7 +77,7 @@ const columnasOrigen = computed(() => [
   { clave: 'nombre', texto: t('Origin'), fija: true, prioridad: 1 },
   { clave: 'ocs', texto: t('POs'), num: true, prioridad: 1 },
   { clave: 'barra', texto: t('Lead time'), prioridad: 2, filtro: false, ordenable: false },
-  ...datos.value.etapas.map((e) => ({ clave: `e_${e.clave}`, texto: e.nombre, num: true, prioridad: 3, valor: (o) => o.etapas[e.clave]?.prom ?? null, textoValor: (v) => d(v) })),
+  ...datos.value.etapas.map((e, i) => ({ clave: `e_${e.clave}`, texto: e.nombre, corto: String(i + 1), num: true, prioridad: 3, valor: (o) => o.etapas[e.clave]?.prom ?? null, textoValor: (v) => d(v) })),
   { clave: 'total_prom', texto: t('Total'), num: true, prioridad: 1, textoValor: (v) => d(v) },
   { clave: 'lib', texto: t('Release vs XF'), prioridad: 2, valor: (o) => (o.lib.total ? o.lib.pct : null), textoValor: (v) => `${v}%` },
   { clave: 'recoleccion_vs_xf', texto: t('Pickup vs XF'), num: true, prioridad: 3, textoValor: (v) => d(v) },
@@ -92,6 +93,18 @@ const difTxt = (h) => {
   if (h.dif === 0) return t('on the day')
   if (h.estado === 'vencido') return t('{0} d overdue', [h.dif])
   return h.dif > 0 ? t('{0} d late', [h.dif]) : t('{0} d early', [-h.dif])
+}
+// Hitos de una OC en orden, agrupados por el documento que los cumple (la OC,
+// la lista de empaque, el embarque…) cuando van seguidos
+const DOCUMENTO = { OC: t('Purchase order'), FACTURA: t('Invoice'), PL: t('Packing list'), EMBARQUE: t('Shipment') }
+function grupos(hitos) {
+  const out = []
+  hitos.forEach((h, i) => {
+    const ultimo = out[out.length - 1]
+    if (ultimo && ultimo.doc === h.documento) ultimo.hitos.push({ ...h, n: i + 1 })
+    else out.push({ doc: h.documento, hitos: [{ ...h, n: i + 1 }] })
+  })
+  return out
 }
 const reglas = computed(() => datos.value.regiones.map((r) => `${r.nombre} ${r.dias_liberacion} d`).join(' · '))
 
@@ -109,20 +122,19 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
 
   <section class="kpis">
     <Kpi :titulo="t('Logistics release on time (%)')" :valor="datos.kpis.lib_pct ?? 0" icono="check" :tono="(datos.kpis.lib_pct ?? 100) >= 80 ? 'exito' : 'alerta'"
-         :detalle="t('{0} released · target {1} before XF', [datos.kpis.lib_total || 0, reglas || '—'])" @abrir="f.lib = f.lib === 'tarde' ? '' : 'tarde'; recargar()" />
+         :detalle="t('{0} released', [datos.kpis.lib_total || 0])" :title="t('Target before XF: {0}', [reglas || '—'])" @abrir="f.lib = f.lib === 'tarde' ? '' : 'tarde'; recargar()" />
     <Kpi :titulo="t('Release overdue')" :valor="datos.kpis.lib_vencidas ?? 0" icono="reloj" :tono="datos.kpis.lib_vencidas ? 'alerta' : 'exito'"
          :detalle="t('not released and the target date passed')" @abrir="f.lib = f.lib === 'vencida' ? '' : 'vencida'; recargar()" />
     <Kpi :titulo="t('Average lead time (days)')" :valor="datos.kpis.total_prom ?? 0" icono="grafica"
          :detalle="t('PO created to warehouse entry · transit {0}', [d(datos.kpis.transito_prom)])" />
     <Kpi v-if="ve('fechas_internas')" :titulo="t('Late for the port deadline')" :valor="datos.kpis.tarde ?? 0" icono="alerta" :tono="datos.kpis.tarde ? 'alerta' : 'exito'"
-         :detalle="t('{0} at risk (little slack before the in-store date)', [datos.kpis.justo || 0])" @abrir="f.riesgo = f.riesgo === 'ATRASO' ? '' : 'ATRASO'; recargar()" />
+         :detalle="t('{0} at risk', [datos.kpis.justo || 0])" @abrir="f.riesgo = f.riesgo === 'ATRASO' ? '' : 'ATRASO'; recargar()" />
   </section>
 
   <section class="panel mb-4">
     <div class="panel-cabeza">
       <div>
         <h2>{{ t('Average days per stage, by origin') }}</h2>
-        <p>{{ t('Each stage goes from one milestone to the next. Only POs that already reached both milestones count.') }}</p>
       </div>
     </div>
     <TablaDatos tabla="leadtimes_origenes" :columnas="columnasOrigen" :filas="datos.origenes" clave-fila="origen" :cargando="cargando" :vistas-guardadas="false"
@@ -132,7 +144,7 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
         <div class="lt-barra">
           <div v-if="segmentos(o).length" class="apilada" :style="{ width: `${Math.max(12, (segmentos(o).reduce((a, s) => a + s.prom, 0) * 100) / maxTotal)}%` }"
                role="img" :aria-label="tx(segmentos(o).map((s) => `${s.nombre}: ${d(s.prom)}`).join(', '))">
-            <span v-for="s in segmentos(o)" :key="s.clave" :style="{ flex: s.prom, background: COLOR(s.i) }" :title="t('{0}: {1} ({2} POs)', [s.nombre, d(s.prom), s.n])"></span>
+            <span v-for="s in segmentos(o)" :key="s.clave" :style="{ flex: s.prom, background: COLOR(s.i) }" :title="t('{0}: {1} ({2} POs)', [`${s.i + 1}. ${s.nombre}`, d(s.prom), s.n])">{{ s.prom / segmentos(o).reduce((a, x) => a + x.prom, 0) >= 0.09 ? s.i + 1 : '' }}</span>
           </div>
           <span v-else class="apagado">{{ t('No stage completed yet') }}</span>
         </div>
@@ -154,13 +166,14 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
       <template #vacio>{{ t('No purchase orders in this period.') }}</template>
     </TablaDatos>
     <div class="leyenda-etapas">
-      <span v-for="(e, i) in datos.etapas" :key="e.clave"><i class="punto" :style="{ background: COLOR(i) }"></i>{{ tx(e.nombre) }}</span>
+      <span v-for="(e, i) in datos.etapas" :key="e.clave"><b class="num-etapa" :style="{ background: COLOR(i) }">{{ i + 1 }}</b>{{ tx(e.nombre) }}</span>
     </div>
-    <p class="ayuda mt-chico">
+    <details class="ayuda mt-chico">
+      <summary>{{ t('How the port deadline is calculated') }}</summary>
       {{ t('Port deadline = in-store date minus the steps after the port arrival in the effective lead time of each PO (Port > Country > Region > Global)') }}
       <template v-for="(r, i) in datos.regiones" :key="r.codigo">{{ tx(tx(i ? ' · ' : ' (')) }}{{ tx(r.nombre) }} {{ tx(r.dias_puerto_bodega) }}+{{ tx(r.dias_ingreso) }}+{{ tx(r.dias_reexportacion) }} d{{ tx(tx(i === datos.regiones.length - 1 ? ')' : '')) }}</template>.
-      {{ t('Re-export is not recorded yet: its days are reserved.') }} <router-link v-if="esInterno()" to="/leadtimes" class="enlace">{{ t('See the effective lead time') }}</router-link>
-    </p>
+      <router-link v-if="esInterno()" to="/leadtimes" class="enlace">{{ t('See the effective lead time') }}</router-link>
+    </details>
   </section>
 
   <TablaDatos ref="tablaLT" tabla="leadtimes_ocs" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
@@ -168,10 +181,7 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
               @consulta="cargar" @vista="(x) => { Object.assign(f, { riesgo: x.riesgo || '', lib: x.lib || '' }); recargar() }"
               @limpiar-externos="Object.assign(f, { riesgo: '', lib: '' }); recargar()">
     <template #filtros>
-      <div class="segmentos" role="group" :aria-label="t('Arrival')">
-        <button v-for="[v, txt] in [['', t('All')], ['ATRASO', t('Late')], ['JUSTO', t('At risk')], ['A_TIEMPO', t('On time')]]" :key="v" type="button" class="segmento"
-                :aria-pressed="f.riesgo === v" @click="f.riesgo = v; recargar()">{{ tx(txt) }}</button>
-      </div>
+      <Segmentos v-model="f.riesgo" :opciones="[['', t('All')], ['ATRASO', t('Late')], ['JUSTO', t('At risk')], ['A_TIEMPO', t('On time')]]" :etiqueta="t('Arrival')" @change="recargar()" />
       <Seleccion v-model="f.lib" :aria-label="t('Logistics release')" @change="recargar">
         <option value="">{{ t('Logistics release: all') }}</option><option value="tarde">{{ t('Released late') }}</option><option value="vencida">{{ t('Overdue, not released') }}</option>
       </Seleccion>
@@ -196,15 +206,21 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
       <span class="sub">{{ tx(o.holgura == null ? '—' : o.holgura >= 0 ? t('{0} d to spare', [o.holgura]) : t('{0} d late', [-o.holgura])) }}</span>
     </template>
     <template #detalle="{ fila: o }">
-      <ol class="lt-hitos" :aria-label="t('Milestones of {0}', [o.oc])">
-        <li v-for="h in o.hitos" :key="h.clave" :class="`hito-${ESTADO[h.estado][1]}`">
-          <span class="hito-nombre">{{ tx(h.nombre) }}</span>
-          <span class="hito-fecha">{{ tx(h.fecha ? fmtFecha(h.fecha) : h.estimada ? `≈ ${fmtFecha(h.estimada)}` : '—') }}</span>
-          <span class="hito-meta">{{ tx(h.meta ? t('target {0}', [fmtFecha(h.meta)]) : t('&nbsp;')) }}</span>
-          <span class="etiqueta ms-0" :class="ESTADO[h.estado][1]"><Icono :nombre="ESTADO[h.estado][2]" :tam="12" />{{ tx(ESTADO[h.estado][0]) }}<template v-if="difTxt(h)"> · {{ tx(difTxt(h)) }}</template></span>
-        </li>
-      </ol>
-      <p class="ayuda mt-chico">{{ t('≈ estimated from the shipment ETA or the standard days of {0}. In store is estimated after warehouse entry plus re-export (not recorded yet).', [o.plan_nombre || o.region_nombre]) }}</p>
+      <div class="lt-grupos" :aria-label="t('Milestones of {0}', [o.oc])">
+        <section v-for="(g, gi) in grupos(o.hitos)" :key="gi" class="lt-grupo" :style="{ flexGrow: g.hitos.length }">
+          <h4>{{ tx(DOCUMENTO[g.doc] || g.doc) }}</h4>
+          <ol :style="{ '--n': g.hitos.length }">
+            <li v-for="h in g.hitos" :key="h.clave" :class="`hito-${ESTADO[h.estado][1]}`"
+                :title="tx([h.nombre, h.meta ? t('target {0}', [fmtFecha(h.meta)]) : '', ESTADO[h.estado][0], difTxt(h)].filter(Boolean).join(' · '))">
+              <span class="h-num">{{ h.n }}</span>
+              <span class="h-nombre">{{ tx(h.nombre) }}</span>
+              <span class="h-fecha">{{ tx(h.fecha ? fmtFecha(h.fecha) : h.estimada ? `≈ ${fmtFecha(h.estimada)}` : '—') }}</span>
+              <span class="h-estado"><Icono :nombre="ESTADO[h.estado][2]" :tam="11" />{{ tx(difTxt(h) || ESTADO[h.estado][0]) }}</span>
+            </li>
+          </ol>
+        </section>
+      </div>
+      <p class="ayuda mt-chico">{{ t('≈ estimated · plan {0}', [o.plan_nombre || o.region_nombre]) }}</p>
     </template>
     <template #vacio>{{ t('No purchase orders match these filters.') }}</template>
   </TablaDatos>
@@ -217,14 +233,39 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
 @media (max-width: 1360px) { .col-etapa { display: none; } }
 .lt-origenes th { white-space: normal; vertical-align: bottom; min-width: 64px; line-height: 1.25; font-size: 0.7rem; }
 .lt-origenes th .punto { margin-inline-end: 2px; }
-.lt-hitos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.lt-hitos li { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: var(--radio); background: var(--superficie); border: 1px solid var(--linea); border-top: 3px solid var(--linea); }
-.lt-hitos li.hito-ok { border-top-color: var(--ok); }
-.lt-hitos li.hito-error { border-top-color: var(--error); }
-.lt-hitos li.hito-aviso { border-top-color: var(--aviso); }
-.lt-hitos li.hito-info { border-top-color: var(--azul); }
-.hito-nombre { font-size: 0.78rem; color: var(--tinta-2); font-weight: 600; }
-.hito-fecha { font-weight: 700; }
-.hito-meta { font-size: 0.78rem; color: var(--tinta-3); }
-.lt-hitos .etiqueta { align-self: flex-start; font-size: 0.72rem; }
+.lt-barra .apilada { height: 16px; border-radius: 8px; line-height: 1; }
+.apilada > span { display: grid; place-items: center; color: #fff; font-size: 0.65rem; font-weight: 700; overflow: hidden; }
+.num-etapa { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; color: #fff; font-size: 0.66rem; margin-inline-end: 5px; }
+details.ayuda summary { cursor: pointer; color: var(--tinta-2); font-weight: 600; }
+details.ayuda[open] summary { margin-bottom: 4px; }
+/* Hitos de la OC: una barra de pasos numerados que cabe en el ancho del
+   detalle, agrupada por el documento que cumple cada paso */
+.lt-grupos { display: flex; gap: 10px; min-width: 0; }
+.lt-grupo { flex: 1 1 0; min-width: 0; }
+.lt-grupo h4 { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 700;
+  padding-bottom: 4px; margin-bottom: 8px; border-bottom: 2px solid var(--linea); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lt-grupo ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 4px; }
+.lt-grupo li { --c: var(--tinta-3); position: relative; display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 0.78rem; }
+.lt-grupo li.hito-ok { --c: var(--ok); }
+.lt-grupo li.hito-error { --c: var(--error); }
+.lt-grupo li.hito-aviso { --c: var(--aviso); }
+.lt-grupo li.hito-info { --c: var(--azul); }
+.lt-grupo li::before { content: ''; position: absolute; top: 10px; inset-inline: 22px -4px; height: 2px; background: var(--linea); }
+.lt-grupo li:last-child::before { display: none; }
+.h-num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 0.7rem; font-weight: 700; color: #fff; background: var(--c); margin-bottom: 3px; position: relative; }
+.hito-neutro .h-num { background: var(--superficie); color: var(--tinta-2); box-shadow: inset 0 0 0 2px var(--linea); }
+.h-nombre { color: var(--tinta-2); font-weight: 600; font-size: 0.74rem; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.5em; }
+.h-fecha { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-estado { display: inline-flex; align-items: center; gap: 3px; color: var(--c); font-size: 0.7rem; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hito-neutro .h-estado { color: var(--tinta-3); }
+@media (max-width: 900px) {
+  .lt-grupos { flex-direction: column; gap: 8px; }
+  .lt-grupo ol { grid-template-columns: 1fr; gap: 6px; }
+  .lt-grupo li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; }
+  .lt-grupo li::before { display: none; }
+  .h-num { margin: 0; grid-row: span 2; }
+  .h-nombre { min-height: 0; -webkit-line-clamp: 1; }
+  .h-fecha { grid-column: 3; grid-row: 1; text-align: end; }
+  .h-estado { grid-column: 2 / 4; }
+}
 </style>

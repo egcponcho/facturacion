@@ -36,9 +36,11 @@ from app.modelos import (
 from app.modulos.acceso.permisos import exigir, proveedor_filtro, sociedad_filtro, tiene
 from app.modulos.comun.historial import registrar
 
-MODULOS = {"compras": "Purchasing", "facturacion": "Invoicing and packing", "logistica": "Logistics",
+MODULOS = {"resumen": "Summary", "compras": "Purchasing", "facturacion": "Invoicing and packing", "logistica": "Logistics",
            "productos": "Products and classification"}
 PERIODOS = (7, 30, 90, 365)
+# Cuántos períodos iguales y seguidos se grafican para ver la tendencia
+TRAMOS = {7: 8, 30: 6, 90: 4, 365: 3}
 
 
 @dataclass(frozen=True)
@@ -202,6 +204,38 @@ def recepcion_con_diferencias(db, user, desde, hasta):
     return round(100 * sum(1 for esp, rec, dan in filas if abs(float(esp) - float(rec)) > 1e-9 or float(dan or 0) > 0) / len(filas), 1)
 
 
+# ---- Lead times (analizados una vez por petición) ------------------------------------------------
+def _lead_times(db: Session, user: Usuario) -> list[dict]:
+    """Análisis de lead time de cada OC del alcance del usuario; se calcula una
+    sola vez por petición aunque varios indicadores y tramos lo usen."""
+    from app.modulos.transporte.leadtimes import ETAPAS, leadtimes
+
+    cache = db.info.setdefault("indicadores_lt", {})
+    if user.id not in cache:
+        items = leadtimes(db, user, size=1_000_000)["items"]
+        for i in items:
+            h = {x["clave"]: x["fecha"] for x in i["hitos"]}
+            i["_ingreso"] = h.get("ingreso") if len(i["duraciones"]) == len(ETAPAS) else None
+            i["_lib"] = h.get("lib_logistica")
+        cache[user.id] = items
+    return cache[user.id]
+
+
+def lead_time_prom(db, user, desde, hasta):
+    return _promedio([sum(i["duraciones"].values()) for i in _lead_times(db, user)
+                      if i["_ingreso"] and desde <= i["_ingreso"] <= hasta])
+
+
+def lib_a_tiempo(db, user, desde, hasta):
+    lib = [i["lib_a_tiempo"] for i in _lead_times(db, user)
+           if i["_lib"] and desde <= i["_lib"] <= hasta and i["lib_a_tiempo"] is not None]
+    return round(100 * sum(1 for x in lib if x) / len(lib), 1) if lib else None
+
+
+def oc_en_riesgo(db, user, desde, hasta):
+    return sum(1 for i in _lead_times(db, user) if i["riesgo"] == "ATRASO" and not i["_ingreso"])
+
+
 # ---- Productos y clasificación --------------------------------------------------------------------
 def fichas_en_revision(db, user, desde, hasta):
     return db.scalar(select(func.count()).select_from(Producto).where(Producto.estado == "revision", *_prod(user)))
@@ -254,6 +288,12 @@ CATALOGO = [
               "Shipments (actual departure and arrival)", PERIODO, "dias", "transporte.gestionar", dias_transito, "/seguimiento?vista=leadtimes", "bajo"),
     Indicador("recepcion_con_diferencias", "logistica", "Receipts with differences", "Packing list lines received in the period with a quantity different from the packed one or with damaged units ÷ lines received × 100.",
               "Warehouse receipts and packing list lines", PERIODO, "porcentaje", "transporte.gestionar", recepcion_con_diferencias, None, "bajo"),
+    Indicador("lead_time_prom", "logistica", "Average lead time", "Average days from PO creation to warehouse entry, for the POs that entered the warehouse in the period with every milestone recorded.",
+              "Purchase orders and shipment events (lead time milestones)", PERIODO, "dias", "seguimiento.ver", lead_time_prom, "/seguimiento?vista=leadtimes", "bajo"),
+    Indicador("lib_a_tiempo", "logistica", "Logistics release on time", "POs released by logistics on or before their target date ÷ POs released in the period × 100. The target comes from the lead time of each PO.",
+              "Purchase orders (logistics release) and lead time rules", PERIODO, "porcentaje", "seguimiento.ver", lib_a_tiempo, "/seguimiento?vista=leadtimes", "alto"),
+    Indicador("oc_en_riesgo", "logistica", "POs at risk of arriving late", "Count of POs not yet in the warehouse whose estimated port arrival is after the port deadline of their in-store date.",
+              "Purchase orders, shipments and lead time rules", HOY, "numero", "seguimiento.ver", oc_en_riesgo, "/seguimiento?vista=leadtimes", "bajo"),
     Indicador("fichas_en_revision", "productos", "Sheets in review", "Count of technical sheets waiting for review.",
               "Products (technical sheet)", HOY, "numero", "producto.ver", fichas_en_revision, "/productos?estado=revision", "bajo"),
     Indicador("fichas_devueltas", "productos", "Sheets returned", "Count of technical sheets returned to be corrected.",
@@ -264,13 +304,20 @@ CATALOGO = [
               "Products (technical sheet)", HOY, "numero", "producto.ver", sin_clasificar, "/productos?estado=borrador", "bajo"),
 ]
 POR_CLAVE = {i.clave: i for i in CATALOGO}
+# Resumen: los indicadores que dicen cómo va la operación de punta a punta
+# (dinero, puntualidad, tiempo de ciclo y calidad). El resto queda para elegir.
+PRINCIPALES = ["importe_facturado", "saldo_por_facturar", "lead_time_prom", "puntualidad", "lib_a_tiempo",
+               "oc_en_riesgo", "recepcion_con_diferencias", "dias_aprobacion"]
 
 
 # ---- Qué ve cada persona -------------------------------------------------------------------------
 def _del_modulo(user: Usuario, modulo: str) -> list[Indicador]:
     from app.modulos.acceso import visibilidad
 
-    return [i for i in CATALOGO if i.modulo == modulo and tiene(user, i.permiso) and not (i.grupo and visibilidad.oculto(i.grupo))]
+    visibles = [i for i in CATALOGO if tiene(user, i.permiso) and not (i.grupo and visibilidad.oculto(i.grupo))]
+    if modulo == "resumen":
+        return sorted(visibles, key=lambda i: PRINCIPALES.index(i.clave) if i.clave in PRINCIPALES else len(PRINCIPALES))
+    return [i for i in visibles if i.modulo == modulo]
 
 
 def modulos(user: Usuario) -> list[dict]:
@@ -289,6 +336,8 @@ def elegidos(user: Usuario, modulo: str) -> tuple[list[str], str]:
     del_rol = _de_rol(user.rol_id, modulo)
     if del_rol is not None:
         return [c for c in del_rol if c in posibles], "rol"
+    if modulo == "resumen":
+        return [c for c in posibles if c in PRINCIPALES], "sistema"
     return posibles, "sistema"
 
 
@@ -297,7 +346,7 @@ def _limpiar(user: Usuario, modulo: str, claves) -> list[str]:
         raise ErrorNegocio("Unknown module.", 404, "no_encontrado")
     if not isinstance(claves, list):
         raise ErrorNegocio("Choose the indicators.", 422, "validacion")
-    validas = {i.clave for i in CATALOGO if i.modulo == modulo}
+    validas = {i.clave for i in CATALOGO if i.modulo == modulo or modulo == "resumen"}
     if set(claves) - validas:
         raise ErrorNegocio("Unknown indicator.", 422, "validacion")
     return list(dict.fromkeys(claves))
@@ -354,12 +403,19 @@ def tablero(db: Session, user: Usuario, modulo: str, dias: int = 30) -> dict:
     antes_hasta = desde - timedelta(days=1)
     antes_desde = antes_hasta - timedelta(days=dias - 1)
     claves, origen = elegidos(user, modulo)
+    # Tramos iguales y seguidos que terminan hoy: el último es el período
+    # elegido y el penúltimo, el anterior con el que se compara
+    tramos = [(hasta - timedelta(days=dias * (k + 1) - 1), hasta - timedelta(days=dias * k))
+              for k in reversed(range(TRAMOS[dias]))]
     res = []
     for clave in claves:
         i = POR_CLAVE[clave]
-        valor = i.calcular(db, user, desde, hasta)
-        anterior = i.calcular(db, user, antes_desde, antes_hasta) if i.momento == PERIODO else None
-        res.append({"clave": i.clave, "valor": valor, "anterior": anterior, "ruta": i.ruta})
+        if i.momento == PERIODO:
+            serie = [{"desde": a, "hasta": b, "valor": i.calcular(db, user, a, b)} for a, b in tramos]
+            valor, anterior = serie[-1]["valor"], serie[-2]["valor"]
+        else:
+            serie, valor, anterior = None, i.calcular(db, user, desde, hasta), None
+        res.append({"clave": i.clave, "valor": valor, "anterior": anterior, "serie": serie, "ruta": i.ruta})
     return {
         "modulo": modulo, "titulo": MODULOS[modulo], "modulos": modulos(user),
         "periodo": {"dias": dias, "desde": desde, "hasta": hasta, "anterior_desde": antes_desde, "anterior_hasta": antes_hasta},

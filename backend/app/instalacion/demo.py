@@ -245,7 +245,7 @@ def _p(paso, ref="", dias=0, habiles=False, modo=""):
 REGLAS_LT = [
     ("GLOBAL", None, "Global standard", [
         _p("BOOKING", "XF", -20), _p("LIB", "XF", -15), _p("PROD", "XF", -5), _p("CARGA", "XF", -2), _p("XF"),
-        _p("ETD", "XF", 3), _p("ETA", "ETD", 14), _p("DOCS", "ETA", -3), _p("ADUANA", "ETA", 2, True), _p("BODEGA", "ADUANA", 1),
+        _p("ETD", "XF", 3), _p("DOCS", "ETA", -3), _p("ETA", "ETD", 14), _p("ADUANA", "ETA", 2, True), _p("BODEGA", "ADUANA", 1),
         _p("INGRESO", "BODEGA", 2, True), _p("TIENDA", "INGRESO", 4)]),
     ("REGION", "ASIA", "Asia", [
         _p("LIB", "XF", -21), _p("ETA", "ETD", 35), _p("ETA", "ETD", 5, modo="AEREO"), _p("TIENDA", "INGRESO", 5)]),
