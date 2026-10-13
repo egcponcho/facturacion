@@ -31,6 +31,8 @@ class SerieDocumental(DeOrganizacion, Base):
     nombre: Mapped[str] = mapped_column(String(120))
     # Qué numera: «embarque», o el código de un tipo de documento comercial
     objeto: Mapped[str] = mapped_column(String(30), index=True)
+    tipo_documento_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tipos_documento.id", name="fk_series_documentales_tipo_documento_id"), index=True)
     sociedad_id: Mapped[int | None] = mapped_column(ForeignKey("sociedades.id"), index=True)
     prefijo: Mapped[str] = mapped_column(String(20), default="")
     digitos: Mapped[int] = mapped_column(Integer, default=4)

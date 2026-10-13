@@ -51,6 +51,16 @@ const POR_TIPO = {
     RECIBIDA_PARCIAL: [t('Partly received'), 'aviso'],
     RECIBIDA: [t('Fully received'), 'ok'],
   },
+  // Documentos comerciales, su cobro y los pagos
+  documento: { BORRADOR: [t('Draft'), 'neutro'], EMITIDO: [t('Issued'), 'ok'], ANULADO: [t('Voided'), 'error'] },
+  cobro: {
+    PENDIENTE: [t('Unpaid'), 'aviso'],
+    PARCIAL: [t('Partly paid'), 'info'],
+    PAGADO: [t('Paid'), 'ok'],
+    VENCIDO: [t('Overdue'), 'error'],
+    APLICADA: [t('Fully applied'), 'ok'],
+  },
+  pago: { REGISTRADO: [t('Registered'), 'ok'], ANULADO: [t('Voided'), 'error'] },
 }
 
 export const estado = (codigo, tipo) => POR_TIPO[tipo]?.[codigo] || ESTADOS[codigo] || [codigo, 'neutro']
@@ -61,3 +71,5 @@ export const ESTADOS_OC = ['BORRADOR', 'EN_APROBACION', 'RECHAZADA', 'APROBADA',
 export const ESTADOS_EMBARQUE = ['PLANIFICADO', 'EN_TRANSITO', 'ARRIBADO', 'ENTREGADO', 'RECIBIDO', 'CANCELADO']
   .map((c) => [c, estado(c, 'embarque')[0]])
 export const AVANCES_OC = Object.keys(POR_TIPO.avance).map((c) => [c, estado(c, 'avance')[0]])
+export const ESTADOS_DOCUMENTO = Object.keys(POR_TIPO.documento).map((c) => [c, estado(c, 'documento')[0]])
+export const ESTADOS_COBRO = Object.keys(POR_TIPO.cobro).map((c) => [c, estado(c, 'cobro')[0]])

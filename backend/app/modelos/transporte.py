@@ -43,8 +43,10 @@ class Transportista(DeOrganizacion, Base):
     las sociedades para las que puede trabajar."""
 
     __tablename__ = "transportistas"
-    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_transportistas_org_codigo"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_transportistas_org_codigo"),
+                      UniqueConstraint("tercero_id", name="uq_transportistas_tercero"))
     id: Mapped[int] = mapped_column(primary_key=True)
+    tercero_id: Mapped[int | None] = mapped_column(ForeignKey("terceros.id", name="fk_transportistas_tercero_id"))
     # Campos propios de la empresa (core/campos_propios.py)
     extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     codigo: Mapped[str] = mapped_column(String(20))

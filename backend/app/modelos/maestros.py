@@ -56,8 +56,11 @@ class Proveedor(DeOrganizacion, Base):
     trabaja con las sociedades que tiene asignadas."""
 
     __tablename__ = "proveedores"
-    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_proveedores_org_codigo"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_proveedores_org_codigo"),
+                      UniqueConstraint("tercero_id", name="uq_proveedores_tercero"))
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Identidad fiscal compartida con sus otros roles (cliente, transportista): modelos/comercial.py
+    tercero_id: Mapped[int | None] = mapped_column(ForeignKey("terceros.id", name="fk_proveedores_tercero_id"))
     # Campos propios de la empresa (core/campos_propios.py)
     extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     codigo: Mapped[str] = mapped_column(String(30))

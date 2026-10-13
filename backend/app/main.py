@@ -18,6 +18,7 @@ from app.modulos.acceso import api as acceso_api
 from app.modulos.acceso import visibilidad
 from app.modulos.clasificacion import api as clasificacion_api
 from app.modulos.clasificacion import api_conocimiento as clasificacion_api_conocimiento
+from app.modulos.comercial import api as comercial_api
 from app.modulos.compras import api as compras_api
 from app.modulos.compras import api_flujo as compras_api_flujo
 from app.modulos.comun import api as comun_api
@@ -106,6 +107,9 @@ ETIQUETAS = [
                                                          "e indicadores por módulo."},
     {"name": "Reportes", "description": "Generador de reportes: fuentes permitidas, vista previa, exportación y "
                                         "reportes guardados."},
+    {"name": "Facturación y pagos", "description": "Terceros (clientes, proveedores, transportistas), documentos "
+                                                   "comerciales emitidos y recibidos, notas de crédito y débito, "
+                                                   "cobros, pagos, saldos y facturación recurrente."},
     {"name": "Común", "description": "Edición exclusiva de un registro y bitácora de auditoría."},
     {"name": "Sistema", "description": "Estado del servidor."},
 ]
@@ -183,7 +187,7 @@ async def _error_validacion(_: Request, exc: RequestValidationError):
 RUTAS = (
     clasificacion_api, acceso_api, productos_api_flujo, empresa_api, maestros_api, clasificacion_api_conocimiento,
     compras_api, compras_api_flujo, facturacion_api, empaque_api, productos_api, transporte_api, comun_api, seguimiento_api,
-    transporte_api_leadtimes, empaque_api_plantillas, maestros_api_listas, plataforma_api, reportes_api,
+    transporte_api_leadtimes, empaque_api_plantillas, maestros_api_listas, plataforma_api, reportes_api, comercial_api,
 )
 ETIQUETA_DE = {
     acceso_api: "Acceso", plataforma_api: "Plataforma", empresa_api: "Empresa",
@@ -194,6 +198,7 @@ ETIQUETA_DE = {
     productos_api: "Productos", productos_api_flujo: "Productos",
     clasificacion_api: "Clasificación arancelaria", clasificacion_api_conocimiento: "Clasificación arancelaria",
     seguimiento_api: "Seguimiento e indicadores", reportes_api: "Reportes", comun_api: "Común",
+    comercial_api: "Facturación y pagos",
 }
 
 

@@ -5,7 +5,7 @@ vuelven, sin perder datos."""
 
 def test_modulos_activables(admin, interno):
     org = admin.get("/organizacion").json()
-    assert {m["clave"] for m in org["modulos"]} == {"transporte", "clasificacion", "seguimiento"}
+    assert {m["clave"] for m in org["modulos"]} == {"transporte", "clasificacion", "seguimiento", "comercial"}
     assert all(m["activo"] for m in org["modulos"])
     assert admin.put("/organizacion", {"modulos": {"contabilidad": False}}).status_code == 422
     assert admin.put("/organizacion", {"modulos": {"transporte": "no"}}).status_code == 422
@@ -13,7 +13,7 @@ def test_modulos_activables(admin, interno):
     try:
         assert admin.put("/organizacion", {"modulos": {"transporte": False, "clasificacion": False}}).status_code == 200
         yo = interno.get("/auth/me").json()
-        assert yo["config"]["modulos"] == {"transporte": False, "clasificacion": False, "seguimiento": True}
+        assert yo["config"]["modulos"] == {"transporte": False, "clasificacion": False, "seguimiento": True, "comercial": True}
         assert not {"transporte.gestionar", "aranceles.ver", "clasificacion.ver"} & set(yo["permisos"])
         assert "seguimiento.ver" in yo["permisos"]
         assert interno.get("/embarques").status_code == 403

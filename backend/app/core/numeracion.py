@@ -25,16 +25,16 @@ def formato(serie: SerieDocumental, n: int, fecha: date) -> str:
     return f"{prefijo}{n:0{serie.digitos}d}"
 
 
-def serie_de(db: Session, objeto: str, *, sociedad_id: int | None = None,
+def serie_de(db: Session, objeto: str, *, sociedad_id: int | None = None, tipo_documento_id: int | None = None,
              fecha: date | None = None) -> SerieDocumental | None:
-    """La serie activa y vigente de ese objeto: primero la de la sociedad,
-    luego la general; entre varias, la predeterminada."""
+    """La serie activa y vigente de ese objeto (y tipo de documento): primero
+    la de la sociedad, luego la general; entre varias, la predeterminada."""
     fecha = fecha or date.today()
     candidatas = [s for s in db.scalars(select(SerieDocumental).where(
         SerieDocumental.objeto == objeto, SerieDocumental.activo.is_(True)).order_by(SerieDocumental.id))
         if (s.vigente_desde is None or s.vigente_desde <= fecha) and (s.vigente_hasta is None or s.vigente_hasta >= fecha)
-        and s.sociedad_id in (None, sociedad_id)]
-    candidatas.sort(key=lambda s: (s.sociedad_id is None, not s.predeterminada, s.id))
+        and s.sociedad_id in (None, sociedad_id) and s.tipo_documento_id in (None, tipo_documento_id)]
+    candidatas.sort(key=lambda s: (s.tipo_documento_id is None, s.sociedad_id is None, not s.predeterminada, s.id))
     return candidatas[0] if candidatas else None
 
 
