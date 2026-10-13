@@ -109,7 +109,14 @@ from app.modelos.maestros import (
     proveedor_sociedades,
 )
 from app.modelos.numeracion import ContadorSerie, SerieDocumental
-from app.modelos.productos import PartidaPais, Producto, ProductoDocumento, ProductoFoto, ProductoVersion
+from app.modelos.productos import (
+    ClasificacionProducto,
+    PartidaPais,
+    Producto,
+    ProductoDocumento,
+    ProductoFoto,
+    ProductoVersion,
+)
 from app.modelos.referencias import aplicar as _aplicar_referencias
 from app.modelos.restricciones import aplicar as _aplicar_restricciones
 from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte
@@ -130,6 +137,7 @@ _aplicar_restricciones(_Base.metadata)
 _aplicar_referencias(_Base.metadata)
 
 __all__ = [
+    "ClasificacionProducto",
     "Adjunto",
     "Aplicacion",
     "ConfiguracionFiscal",

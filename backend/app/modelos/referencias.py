@@ -70,6 +70,7 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
     "documento_relaciones": [("origen_id", "documentos"), ("destino_id", "documentos")],
     "pagos": [("tercero_id", "terceros")],
     "aplicaciones": [("documento_id", "documentos"), ("pago_id", "pagos"), ("credito_id", "documentos")],
+    "clasificaciones_producto": [("producto_id", "productos")],
 }
 PADRES = sorted({p for lista in COHERENCIA.values() for _, p in lista})
 

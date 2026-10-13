@@ -23,6 +23,7 @@ from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
+    ClasificacionProducto,
     ControlCapitulo,
     GrupoArticulo,
     Historial,
@@ -458,7 +459,9 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     sub = base.subquery()
     conteo = {e: n for e, n in db.execute(select(sub.c.estado, func.count()).group_by(sub.c.estado)).all()}
     # Baja confianza legal: lo que el especialista debe mirar primero (no aplica si el proveedor no ve la sugerencia)
-    baja = (db.scalar(select(func.count()).where(sub.c.estado.in_(PENDIENTES), sub.c.confianza == "low"))
+    baja = (db.scalar(select(func.count()).select_from(sub)
+                      .join(ClasificacionProducto, ClasificacionProducto.producto_id == sub.c.id)
+                      .where(sub.c.estado.in_(PENDIENTES), ClasificacionProducto.confianza == "low"))
             if flujo.ve_sugerencia(db, user) else None)
     bloquean = ids_bloquean_facturas(db, prov)
     base = _vista_estado(db, user, base, filtros.get("estado"), prov, bloquean)
@@ -978,7 +981,7 @@ def nueva_version(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     p.vigente_desde = desde
     p.estado = "borrador"
     p.codigo = None
-    p.revisado_por = None
+    p.revisado_por_id = None
     p.revisado_en = None
     p.partidas.clear()
     tocar(p)
