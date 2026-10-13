@@ -68,7 +68,7 @@ const columnasLineas = [
   { clave: 'por_inner', texto: t('Per inner pack'), num: true, prioridad: 3, inicial: false, valor: (l) => l.inner_pack || null },
   { clave: 'inners_caja', texto: t('Inner packs per carton'), num: true, prioridad: 3, inicial: false, valor: innersCaja },
   { clave: 'precio', texto: req(t('Unit price')), num: true, grupo: 'precios', fija: true, prioridad: 2, valor: (l) => l.precio_unitario },
-  { clave: 'importe', texto: t('Total'), num: true, grupo: 'precios', prioridad: 3 },
+  { clave: 'importe', texto: t('Total'), num: true, grupo: 'precios', prioridad: 2 },
   { clave: 'en_pl', texto: t('In packing list'), num: true, prioridad: 3 },
   { clave: 'pais_origen', texto: req(t('Country of origin')), prioridad: 2 },
   { clave: 'partida', texto: req(t('HS code')), prioridad: 3, valor: (l) => l.partida_arancelaria || null },

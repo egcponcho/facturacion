@@ -401,6 +401,8 @@ svg { flex: none; }
 .btn-peligro { color: var(--error); }
 .btn-peligro:hover:not(:disabled) { border-color: var(--error); background: var(--error-fondo); }
 .btn-chico { padding: 4px 10px; min-height: 30px; font-size: 0.84rem; }
+.btn-cuadrado { padding: 0; width: 32px; min-width: 32px; justify-content: center; }
+.btn-chico.btn-cuadrado { width: 30px; min-width: 30px; }
 .btn-grande { padding: 10px 18px; font-size: 0.98rem; }
 .btn-fantasma { background: transparent; border-color: transparent; box-shadow: none; color: var(--tinta-2); }
 .btn-fantasma:hover:not(:disabled) { background: var(--linea-suave); border-color: transparent; color: var(--tinta); }

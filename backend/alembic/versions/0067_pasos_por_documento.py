@@ -2,7 +2,9 @@
 
 - pasos_leadtime.documento: qué documento debe cumplir el paso (OC, factura,
   lista de empaque o embarque). Los pasos con fecha medida toman el documento
-  que la registra; los de planificación quedan en la OC (se pueden cambiar).
+  que la registra; los demás, el del paso medido que los precede en la regla
+  global (aduana tras el arribo → embarque) o la OC si van primero. Se pueden
+  cambiar en el catálogo.
 - Hito y evento nuevo del embarque: revisión y entrega de documentos
   (DOCUMENTOS), que se registra en tránsito o al arribo.
 
@@ -10,9 +12,11 @@ Revision ID: 0067
 Revises: 0066
 Create Date: 2026-10-13 00:00:00
 """
-from alembic import op
+import json
+
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = '0067'
 down_revision = '0066'
@@ -29,6 +33,23 @@ def upgrade() -> None:
         b.add_column(sa.Column('documento', sa.String(length=10), nullable=True))
     for hito, doc in DOCUMENTO_HITO.items():
         con.execute(sa.text("UPDATE pasos_leadtime SET documento = :d WHERE hito = :h"), {"d": doc, "h": hito})
+    # Pasos sin fecha medida: el documento del paso medido anterior en la regla global
+    for (org,) in con.execute(sa.text("SELECT id FROM organizaciones")).all():
+        pasos = {c: (h, d) for c, h, d in con.execute(sa.text(
+            "SELECT codigo, hito, documento FROM pasos_leadtime WHERE organizacion_id = :o"), {"o": org}).all()}
+        for (datos,) in con.execute(sa.text("SELECT pasos FROM reglas_leadtime WHERE organizacion_id = :o "
+                                            "AND nivel = 'GLOBAL' ORDER BY id"), {"o": org}).all():
+            datos = json.loads(datos) if isinstance(datos, str) else (datos or {})
+            orden = datos.get("orden") or [x.get("paso") for x in datos.get("pasos") or []]
+            doc = "OC"
+            for codigo in orden:
+                hito, actual = pasos.get(codigo, (None, None))
+                if hito in DOCUMENTO_HITO:
+                    doc = DOCUMENTO_HITO[hito]
+                elif codigo in pasos and actual is None:
+                    con.execute(sa.text("UPDATE pasos_leadtime SET documento = :d WHERE organizacion_id = :o "
+                                        "AND codigo = :c"), {"d": doc, "o": org, "c": codigo})
+                    pasos[codigo] = (hito, doc)
     con.execute(sa.text("UPDATE pasos_leadtime SET documento = 'OC' WHERE documento IS NULL"))
     with op.batch_alter_table('pasos_leadtime', schema=None) as b:
         b.create_check_constraint('ck_pasos_leadtime_documento',
@@ -55,7 +76,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DELETE FROM valores_lista WHERE lista = 'evento_embarque' AND codigo = 'DOCUMENTOS'")
+    con = op.get_bind()
+    for org, orden in con.execute(sa.text("SELECT organizacion_id, orden FROM valores_lista WHERE lista = 'evento_embarque' "
+                                          "AND codigo = 'DOCUMENTOS'")).all():
+        con.execute(sa.text("DELETE FROM valores_lista WHERE organizacion_id = :o AND lista = 'evento_embarque' "
+                            "AND codigo = 'DOCUMENTOS'"), {"o": org})
+        con.execute(sa.text("UPDATE valores_lista SET orden = orden - 1 WHERE organizacion_id = :o "
+                            "AND lista = 'evento_embarque' AND orden > :n"), {"o": org, "n": orden})
     with op.batch_alter_table('pasos_leadtime', schema=None) as b:
         b.drop_constraint('ck_pasos_leadtime_documento', type_='check')
         b.drop_column('documento')

@@ -393,7 +393,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
         </li>
       </ol>
       <p v-if="cerrado" class="bloqueo mt"><Icono nombre="candado" />
-        <span><b>{{ t('Cargo closed.') }}</b> {{ t('The shipment departed') }}<template v-if="e.salida_real"> {{ t('on {0}', [fmtFecha(e.salida_real)]) }}</template>{{ t(': packing lists and load units can no longer be added, removed or moved, and the voyage data is fixed. Only the next tracking events can be recorded.') }}</span>
+        <span><b>{{ t('Cargo closed.') }}</b> {{ e.salida_real ? t('The shipment departed on {0}', [fmtFecha(e.salida_real)]) : t('The shipment departed') }}{{ t(': packing lists and load units can no longer be added, removed or moved, and the voyage data is fixed. Only the next tracking events can be recorded.') }}</span>
       </p>
       <div class="doc-datos">
         <label v-for="[campo, texto, tipo, obligatorio] in CAMPOS" :key="campo" class="dato">
@@ -533,10 +533,6 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
       </div>
     </section>
 
-    <div v-if="e.notify" class="partes mt">
-      <TarjetaParte :titulo="t('Notify party')" icono="ubicacion" :parte="e.notify" />
-    </div>
-
     <div class="dos-columnas mt">
       <section class="panel">
         <div class="panel-cabeza">
@@ -568,6 +564,10 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
           <li v-if="!e.historial.length"><span></span><span class="ayuda">{{ t('No changes.') }}</span></li>
         </ul>
       </section>
+    </div>
+
+    <div v-if="e.notify" class="partes mt">
+      <TarjetaParte :titulo="t('Notify party')" icono="ubicacion" :parte="e.notify" />
     </div>
   </template>
 
@@ -620,9 +620,9 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
       <p v-if="sugerencia?.length" class="nota info sugerencia-unidades">
         <Icono nombre="contenedor" />
         <span>{{ t('For {0} m³ and {1} kg the suggested load is', [fmtNum(totSelD.cbm, 2), fmtNum(totSelD.kg, 0)]) }} <b>{{ tx(sugerencia[0].texto) }}</b>
-          <template v-if="sugerencia[0].pct_cbm"> {{ t('({0}% of the volume)', [fmtNum(sugerencia[0].pct_cbm, 0)]) }}</template>.
-          <template v-if="sugerencia[0].nota"> {{ tx(sugerencia[0].nota) }}</template>
-          <template v-if="sugerencia.length > 1"> {{ t('Other options: {0}.', [sugerencia.slice(1).map((o) => o.texto).join(' · ')]) }}</template>
+          <template v-if="sugerencia[0].pct_cbm">&nbsp;{{ t('({0}% of the volume)', [fmtNum(sugerencia[0].pct_cbm, 0)]) }}</template>.
+          <template v-if="sugerencia[0].nota">&nbsp;{{ tx(sugerencia[0].nota) }}</template>
+          <template v-if="sugerencia.length > 1">&nbsp;{{ t('Other options: {0}.', [sugerencia.slice(1).map((o) => o.texto).join(' · ')]) }}</template>
         </span>
       </p>
       <p class="ayuda">{{ t('Only finalized invoices and packing lists are listed: a document goes on a shipment once it is final.') }}</p>
@@ -641,7 +641,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
       <label class="campo"><span>{{ t('Number (optional)') }}</span><input v-model="modal.numero" /></label>
       <label v-if="tipoElegido?.requiere_sello" class="campo"><span>{{ t('Seal (optional)') }}</span><input v-model="modal.sello" /></label>
     </div>
-    <p class="ayuda">{{ t('The number') }}<template v-if="tipoElegido?.requiere_sello"> {{ t('and the seal') }}</template> {{ t('can be entered later, when the carrier assigns them;') }} <template v-if="tipoElegido?.requiere_sello">{{ t('they are required') }}</template><template v-else>{{ t('the number is required') }}</template> {{ t('to record departure.') }}</p>
+    <p class="ayuda">{{ t('The number') }}<template v-if="tipoElegido?.requiere_sello">&nbsp;{{ t('and the seal') }}</template> {{ t('can be entered later, when the carrier assigns them;') }} <template v-if="tipoElegido?.requiere_sello">{{ t('they are required') }}</template><template v-else>{{ t('the number is required') }}</template> {{ t('to record departure.') }}</p>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" :disabled="ocupado" @click="agregarUnidad">{{ t('Add') }}</button>

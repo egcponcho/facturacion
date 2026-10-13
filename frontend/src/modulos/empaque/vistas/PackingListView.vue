@@ -792,7 +792,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
             <span class="marca"><Icono :nombre="r.faltan.length ? 'alerta' : 'check'" :tam="14" /></span>
             <span>
               {{ tx(r.titulo) }}
-              <span v-if="r.faltan.length" class="sub ayuda">{{ tx(r.faltan.slice(0, 3).map((e) => e.mensaje).join(' ')) }}<template v-if="r.faltan.length > 3"> {{ t('And {0} more.', [r.faltan.length - 3]) }}</template></span>
+              <span v-if="r.faltan.length" class="sub ayuda">{{ tx(r.faltan.slice(0, 3).map((e) => e.mensaje).join(' ')) }}<template v-if="r.faltan.length > 3">&nbsp;{{ t('And {0} more.', [r.faltan.length - 3]) }}</template></span>
             </span>
             <button v-if="r.faltan.length" class="btn btn-chico" :disabled="ocupado" @click="irA(r.accion)">
               {{ tx({ empacar: t('Pack'), cajas: t('Go to cartons'), confirmar: t('Confirm estimates') }[r.accion]) }}

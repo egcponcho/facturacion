@@ -34,7 +34,7 @@ const modos = computed(() => Object.entries(props.pl.sugerencia_unidades?.modos 
           <b><Icono :nombre="datosModo(modo).icono" :tam="14" /> {{ datosModo(modo).nombre }}</b>
           <span>
             <span class="etiqueta ok ms-0">{{ tx(ops[0].texto) }}</span>
-            <template v-if="ops[0].pct_cbm"> {{ t('{0}% of the volume', [fmtNum(ops[0].pct_cbm, 0)]) }}</template>
+            <template v-if="ops[0].pct_cbm">&nbsp;{{ t('{0}% of the volume', [fmtNum(ops[0].pct_cbm, 0)]) }}</template>
           </span>
           <span v-if="ops[0].nota" class="sub">{{ tx(ops[0].nota) }}</span>
           <span v-if="ops.length > 1" class="sub">{{ t('Other options: {0}', [ops.slice(1).map((o) => o.texto).join(' · ')]) }}</span>

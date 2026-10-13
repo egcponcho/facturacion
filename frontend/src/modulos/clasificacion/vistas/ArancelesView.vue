@@ -576,12 +576,12 @@ onMounted(async () => {
     </div>
     <h3 class="mt">{{ t('When it applies') }}</h3>
     <p class="ayuda">{{ t('Leave empty what does not matter. The engine picks the code whose conditions match the technical sheet.') }}
-      <template v-if="aplicables?.subpartida && !verTodas"> {{ t('Only the data that splits {0} is shown: what {1} already uses, what the other countries use and what opens national codes in chapter {2}.', [aplicables.subpartida.codigo, modal.pais, aplicables.subpartida.codigo.slice(0, 2)]) }}</template>
-      <template v-else-if="digits(modal.codigo || '').length < 6"> {{ t('Type the code to see only the conditions that apply to its subheading.') }}</template>
+      <template v-if="aplicables?.subpartida && !verTodas">&nbsp;{{ t('Only the data that splits {0} is shown: what {1} already uses, what the other countries use and what opens national codes in chapter {2}.', [aplicables.subpartida.codigo, modal.pais, aplicables.subpartida.codigo.slice(0, 2)]) }}</template>
+      <template v-else-if="digits(modal.codigo || '').length < 6">&nbsp;{{ t('Type the code to see only the conditions that apply to its subheading.') }}</template>
       <button v-if="aplicables?.subpartida" type="button" class="btn-texto" @click="verTodas = !verTodas">{{ tx(verTodas ? t('Show only the ones that apply') : t('Show all conditions')) }}</button></p>
     <div v-if="aplicables?.hermanos?.length" class="hermanos">
       <b>{{ t('How {0} splits {1} today', [modal.pais, aplicables.subpartida.codigo]) }}</b>
-      <ul><li v-for="h in aplicables.hermanos" :key="h.codigo" :class="{ actual: digits(h.codigo) === digits(modal.codigo || '') }"><span class="codigo-sac">{{ tx(h.codigo_txt) }}</span> {{ tx(h.cond_txt) }}<template v-if="h.dai !== null && h.dai !== ''"> {{ t('· DAI {0}%', [h.dai]) }}</template></li></ul>
+      <ul><li v-for="h in aplicables.hermanos" :key="h.codigo" :class="{ actual: digits(h.codigo) === digits(modal.codigo || '') }"><span class="codigo-sac">{{ tx(h.codigo_txt) }}</span> {{ tx(h.cond_txt) }}<template v-if="h.dai !== null && h.dai !== ''">&nbsp;{{ t('· DAI {0}%', [h.dai]) }}</template></li></ul>
     </div>
     <div class="conds">
       <div v-for="[k, d] in condActivas" :key="k" class="campo">

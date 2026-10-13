@@ -205,7 +205,7 @@ const alternarRol = (r) => {
     <p>
       <b>{{ t('Balance') }}:</b>
       <template v-for="(v, m) in cuenta.saldo" :key="m"> {{ fmtMoneda(v, m) }}</template>
-      <template v-if="!Object.keys(cuenta.saldo).length"> {{ t('nothing pending') }}</template>
+      <template v-if="!Object.keys(cuenta.saldo).length">&nbsp;{{ t('nothing pending') }}</template>
     </p>
     <div v-if="cuenta.documentos.length" class="tabla-marco tabla-captura">
       <table class="tabla" v-tarjetas>

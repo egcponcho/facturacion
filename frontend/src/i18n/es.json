@@ -4043,6 +4043,7 @@
 "The ship date (XF) is required.": "La fecha de despacho (XF) es obligatoria.",
 "The shipment already carries cargo for center {0}.": "El embarque ya lleva carga para el centro {0}.",
 "The shipment departed": "El embarque salió",
+"The shipment departed on {0}": "El embarque salió el {0}",
 "The shipment does not exist.": "El embarque no existe.",
 "The shipment has no packing lists assigned.": "El embarque no tiene listas de empaque asignadas.",
 "The shipment is called off and its packing lists leave their load units, available for another shipment. This cannot be undone.": "El embarque se anula y sus listas de empaque salen de sus unidades de carga, disponibles para otro embarque. No se puede deshacer.",

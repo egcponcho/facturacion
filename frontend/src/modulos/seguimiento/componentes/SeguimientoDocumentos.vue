@@ -159,7 +159,7 @@ watch(() => sesion.proveedorId, aplicar)
       <span v-else class="ayuda">{{ t('No packing list') }}</span>
     </template>
     <template #celda-avance="{ fila: f }"><div class="avance-doc"><Avance v-if="f.pl_id" :porcentaje="f.avance" /><span v-else class="ayuda">—</span></div></template>
-    <template #celda-cajas="{ fila: f }">{{ fmtNum(f.cajas) }}<template v-if="f.pallets"> {{ t('· {0} pallets', [f.pallets]) }}</template><span class="sub">{{ t('{0} kg · {1} m³', [fmtNum(f.peso_bruto, 1), fmtNum(f.cbm, 2)]) }}</span></template>
+    <template #celda-cajas="{ fila: f }">{{ fmtNum(f.cajas) }}<template v-if="f.pallets">&nbsp;{{ t('· {0} pallets', [f.pallets]) }}</template><span class="sub">{{ t('{0} kg · {1} m³', [fmtNum(f.peso_bruto, 1), fmtNum(f.cbm, 2)]) }}</span></template>
     <template #celda-pendientes="{ fila: f }"><span v-if="f.pendientes" class="etiqueta aviso">{{ tx(f.pendientes) }}</span><span v-else class="ayuda">0</span></template>
     <template #celda-etapa="{ fila: f }"><span class="etiqueta ms-0" :class="TONO[f.etapa]">{{ tx(nombreEtapa[f.etapa] || f.etapa) }}</span></template>
     <template #celda-embarque="{ fila: f }">
