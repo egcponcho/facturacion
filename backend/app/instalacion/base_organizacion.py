@@ -37,9 +37,6 @@ def sembrar(db: Session) -> None:
     from app.modulos.maestros.listas import sembrar as sembrar_listas
 
     sembrar_listas(db)
-    from app.modulos.comercial.documentos import sembrar as sembrar_comercial
-
-    sembrar_comercial(db)
     if not db.scalar(select(EstadoLiberacion.id).limit(1)):
         for t, c, n, li, cc, p, a, o in LIBERACIONES:
             db.add(EstadoLiberacion(tipo=t, codigo=c, nombre=n, libera=li, con_cambios=cc, predeterminado=p, alias=a,

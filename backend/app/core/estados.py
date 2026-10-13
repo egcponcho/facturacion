@@ -108,9 +108,6 @@ PERSONALIZABLES: dict[str, tuple[str, tuple[str, ...]]] = {
     "pl": ("Packing lists", tuple(PL.estados)),
     "embarque": ("Shipments", tuple(EMBARQUE.estados)),
     "producto": ("Products", ("borrador", "sugerida", "revision", "observado", "aprobado", "corregido")),
-    "documento": ("Billing documents", ("BORRADOR", "EMITIDO", "ANULADO")),
-    "cobro": ("Document balance", ("PENDIENTE", "PARCIAL", "PAGADO", "VENCIDO", "APLICADA")),
-    "pago": ("Payments", ("REGISTRADO", "ANULADO")),
 }
 
 

@@ -13,8 +13,8 @@ from app.core.organizacion import DeOrganizacion
 
 class SerieDocumental(DeOrganizacion, Base):
     """Cómo se numera una clase de documento: prefijo, dígitos, si el
-    contador vuelve a 1 cada año y, opcionalmente, la sociedad o el tipo de
-    documento comercial a los que pertenece. El número se asigna al emitir,
+    contador vuelve a 1 cada año y, opcionalmente, la sociedad a la que
+    pertenece. El número se asigna al emitir,
     dentro de la misma transacción y con el contador bloqueado
     (core/numeracion.py): dos usuarios a la vez nunca reciben el mismo."""
 
@@ -29,10 +29,8 @@ class SerieDocumental(DeOrganizacion, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(120))
-    # Qué numera: «embarque», o el código de un tipo de documento comercial
+    # Qué numera: «embarque»
     objeto: Mapped[str] = mapped_column(String(30), index=True)
-    tipo_documento_id: Mapped[int | None] = mapped_column(
-        ForeignKey("tipos_documento.id", name="fk_series_documentales_tipo_documento_id"), index=True)
     sociedad_id: Mapped[int | None] = mapped_column(ForeignKey("sociedades.id"), index=True)
     prefijo: Mapped[str] = mapped_column(String(20), default="")
     digitos: Mapped[int] = mapped_column(Integer, default=4)

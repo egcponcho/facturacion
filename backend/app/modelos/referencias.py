@@ -63,13 +63,6 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
     "unidades_carga": [("embarque_id", "embarques")],
     "eventos_embarque": [("embarque_id", "embarques")],
     "tercero_roles": [("tercero_id", "terceros")],
-    "documentos": [("tercero_id", "terceros")],
-    "documento_lineas": [("documento_id", "documentos")],
-    "linea_impuestos": [("linea_id", "documento_lineas")],
-    "documento_vencimientos": [("documento_id", "documentos")],
-    "documento_relaciones": [("origen_id", "documentos"), ("destino_id", "documentos")],
-    "pagos": [("tercero_id", "terceros")],
-    "aplicaciones": [("documento_id", "documentos"), ("pago_id", "pagos"), ("credito_id", "documentos")],
     "clasificaciones_producto": [("producto_id", "productos")],
     "articulo_atributos": [("articulo_id", "articulos"), ("atributo_id", "atributos_variante")],
 }

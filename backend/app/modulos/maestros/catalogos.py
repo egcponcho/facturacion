@@ -26,23 +26,18 @@ from app.modelos import (
     CategoriaArticulo,
     Centro,
     CondicionPago,
-    ConfiguracionFiscal,
     Contacto,
-    CuotaCondicionPago,
     DominioClasificacion,
     EscalaTalla,
     EstadoLiberacion,
     GrupoArticulo,
-    Impuesto,
     Incoterm,
     Marca,
-    MetodoPago,
     ModoTransporte,
     Moneda,
     OrdenCompra,
     Pais,
     PasoLeadTime,
-    PlantillaDocumento,
     PosicionOC,
     Prepack,
     PrepackComponente,
@@ -52,8 +47,6 @@ from app.modelos import (
     ReglaLeadTime,
     SerieDocumental,
     Sociedad,
-    TipoCambio,
-    TipoDocumento,
     TipoEmpaque,
     TipoUnidad,
     Transportista,
@@ -128,9 +121,6 @@ def _catalogo_lista(lista: str, modelo, singular: str, max_codigo: int, obligato
 
 
 SIMPLES = [k for k in listas.LISTAS if k not in listas.TABLA]
-_CLASES_DOC = [["FACTURA", "Invoice"], ["NOTA_CREDITO", "Credit note"], ["NOTA_DEBITO", "Debit note"],
-               ["PROFORMA", "Proforma"]]
-_DIRECCIONES_DOC = [["EMITIDO", "Issued (sales)"], ["RECIBIDO", "Received (purchases)"]]
 CATALOGOS = {
     "sociedades": {
         "modelo": Sociedad, "titulo": "Companies", "singular": "company",
@@ -423,34 +413,15 @@ CATALOGOS = {
         "buscar": ["codigo", "nombre"],
     },
     "monedas": _catalogo_lista("moneda", Moneda, "currency", 3, obligatorios=("decimales",)),
-    # ---- Facturación y pagos ----
-    "tipos_documento": {
-        "modelo": TipoDocumento, "titulo": "Document types", "singular": "document type",
-        "ayuda": "Commercial documents and how they behave: issued or received, sign (a credit note subtracts), whether "
-                 "they change the partner's balance and whether they need the document they correct.",
-        "campos": [
-            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
-            c("nombre", "Name", obligatorio=True, max=120),
-            c("clase", "Class", "opcion", obligatorio=True, filtro=True, opciones=_CLASES_DOC),
-            c("direccion", "Direction", "opcion", obligatorio=True, filtro=True, opciones=_DIRECCIONES_DOC),
-            c("signo", "Sign", "opcion", obligatorio=True, opciones=[[1, "+ adds"], [-1, "− subtracts"]]),
-            c("afecta_saldo", "Changes the balance", "bool"),
-            c("requiere_origen", "Needs the corrected document", "bool", defecto=False),
-            c("orden", "Order", "entero", minimo=0),
-            c("activo", "Active", "bool", filtro=True),
-        ],
-        "buscar": ["codigo", "nombre"],
-    },
+    # ---- Numeración ----
     "series": {
         "modelo": SerieDocumental, "titulo": "Numbering series", "singular": "numbering series",
-        "ayuda": "How each document is numbered: prefix ({año} is replaced by the year), digits and whether it restarts "
-                 "every year. The number is assigned when the document is issued, with the counter locked.",
+        "ayuda": "How shipments are numbered: prefix ({año} is replaced by the year), digits and whether it restarts "
+                 "every year. The number is assigned with the counter locked: two users never get the same one.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True, max=120),
-            c("objeto", "Numbers", "opcion", obligatorio=True, filtro=True,
-              opciones=[["documento", "Commercial documents"], ["embarque", "Shipments"]]),
-            c("tipo_documento_id", "Document type", "ref", catalogo="tipos_documento", filtro=True),
+            c("objeto", "Numbers", "opcion", obligatorio=True, filtro=True, opciones=[["embarque", "Shipments"]]),
             c("sociedad_id", "Company", "ref", catalogo="sociedades", filtro=True),
             c("prefijo", "Prefix", max=20),
             c("digitos", "Digits", "entero", obligatorio=True, minimo=1),
@@ -461,87 +432,6 @@ CATALOGOS = {
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre", "prefijo"],
-    },
-    "impuestos": {
-        "modelo": Impuesto, "titulo": "Taxes", "singular": "tax",
-        "ayuda": "Taxes and withholdings of commercial documents, by jurisdiction and validity. A document copies the "
-                 "rate in force on its date: a later change does not alter past documents.",
-        "campos": [
-            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
-            c("nombre", "Name", obligatorio=True, max=120),
-            c("tipo", "Calculation", "opcion", obligatorio=True,
-              opciones=[["PORCENTAJE", "Percentage of the base"], ["FIJO", "Fixed amount per unit"]]),
-            c("tasa", "Rate", "numero", obligatorio=True, minimo=0),
-            c("pais", "Jurisdiction (country)", "codigo", catalogo="paises", filtro=True),
-            c("es_retencion", "Withholding (subtracts)", "bool", defecto=False),
-            c("vigente_desde", "Valid from", "fecha"),
-            c("vigente_hasta", "Valid until", "fecha"),
-            c("activo", "Active", "bool", filtro=True),
-        ],
-        "buscar": ["codigo", "nombre"],
-    },
-    "cuotas_pago": {
-        "modelo": CuotaCondicionPago, "titulo": "Payment term installments", "singular": "installment",
-        "ayuda": "Payment terms in parts (e.g. 30 % in advance, 70 % at 60 days). Their percentages add up to 100.",
-        "campos": [
-            c("condicion_id", "Payment term", "ref", obligatorio=True, catalogo="condiciones_pago", filtro=True),
-            c("numero", "Number", "entero", obligatorio=True, minimo=1),
-            c("porcentaje", "Percentage", "numero", obligatorio=True, minimo=0),
-            c("dias", "Days", "entero", obligatorio=True, minimo=0),
-        ],
-        "buscar": [],
-    },
-    "metodos_pago": {
-        "modelo": MetodoPago, "titulo": "Payment methods", "singular": "payment method",
-        "campos": [
-            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
-            c("nombre", "Name", obligatorio=True, max=120),
-            c("orden", "Order", "entero", minimo=0),
-            c("activo", "Active", "bool", filtro=True),
-        ],
-        "buscar": ["codigo", "nombre"],
-    },
-    "tipos_cambio": {
-        "modelo": TipoCambio, "titulo": "Exchange rates", "singular": "exchange rate",
-        "ayuda": "1 unit of the source currency = rate units of the target currency, on a date. A document keeps the "
-                 "rate of its issue.",
-        "campos": [
-            c("moneda_origen", "From", "opcion", obligatorio=True, filtro=True, lista="moneda"),
-            c("moneda_destino", "To", "opcion", obligatorio=True, filtro=True, lista="moneda"),
-            c("fecha", "Date", "fecha", obligatorio=True),
-            c("tasa", "Rate", "numero", obligatorio=True, minimo=0),
-            c("fuente", "Source", max=80),
-        ],
-        "buscar": ["moneda_origen", "moneda_destino", "fuente"],
-    },
-    "configuracion_fiscal": {
-        "modelo": ConfiguracionFiscal, "titulo": "Tax settings", "singular": "tax setting",
-        "ayuda": "How each company invoices: rounding by line or by document, default taxes, whether legal numbering "
-                 "must have no gaps and its e-invoicing provider.",
-        "campos": [
-            c("sociedad_id", "Company", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
-            c("pais", "Country", "codigo", catalogo="paises"),
-            c("regimen", "Tax regime", max=80),
-            c("redondeo", "Rounding", "opcion", obligatorio=True,
-              opciones=[["LINEA", "Each line"], ["DOCUMENTO", "Document total"]]),
-            c("sin_huecos", "Numbering without gaps", "bool", defecto=False),
-            c("impuestos_defecto", "Default taxes (codes, comma-separated)", max=200, mayus=True),
-            c("proveedor_electronico", "E-invoicing provider", max=60),
-        ],
-        "buscar": ["regimen", "proveedor_electronico"],
-    },
-    "plantillas_documento": {
-        "modelo": PlantillaDocumento, "titulo": "Document templates", "singular": "document template",
-        "ayuda": "Printed texts of each document type and language (title, header and footer).",
-        "campos": [
-            c("tipo_documento_id", "Document type", "ref", obligatorio=True, catalogo="tipos_documento", filtro=True),
-            c("idioma", "Language", "opcion", obligatorio=True, opciones=[["es", "Spanish"], ["en", "English"]]),
-            c("titulo", "Title", max=120),
-            c("encabezado", "Header"),
-            c("pie", "Footer"),
-            c("activo", "Active", "bool", filtro=True),
-        ],
-        "buscar": ["titulo"],
     },
     "unidades": _catalogo_lista("unidad", UnidadMedida, "unit of measure", 10),
     "modos_transporte": _catalogo_lista("modo_transporte", ModoTransporte, "transport mode", 20, obligatorios=("calculo",)),
@@ -673,8 +563,7 @@ CATALOGOS = {
 ORDEN_CATALOGOS = ["articulos", "prepacks", "atributos_variante", "escalas", "tipos_empaque", "marcas", "grupos", "proveedores", "sociedades", "centros",
                    "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "pasos_lt", "leadtimes", "acuerdos",
                    "liberaciones", "categorias", "monedas", "unidades", "incoterms", "condiciones_pago",
-                   "modos_transporte", "listas", "tipos_documento", "series", "impuestos", "cuotas_pago", "metodos_pago",
-                   "tipos_cambio", "configuracion_fiscal", "plantillas_documento"]
+                   "modos_transporte", "listas", "series"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
 
@@ -1303,27 +1192,6 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             col = OrdenCompra.liberacion_comercial if actual.tipo == "COMERCIAL" else OrdenCompra.liberacion_logistica
             if db.scalar(select(OrdenCompra.id).where(col == actual.codigo).limit(1)):
                 errores.append({"campo": "codigo", "mensaje": "Purchase orders use this code: it cannot change."})
-    if cat["modelo"] is CuotaCondicionPago and final.get("condicion_id") and final.get("porcentaje") is not None:
-        otras = db.scalars(select(CuotaCondicionPago).where(CuotaCondicionPago.condicion_id == final["condicion_id"]))
-        suma = sum(float(x.porcentaje) for x in otras if not actual or x.id != actual.id) + float(final["porcentaje"])
-        if suma > 100.0001:
-            errores.append({"campo": "porcentaje", "mensaje": f"The installments would add up to {suma:g} %: at most 100."})
-    if cat["modelo"] is TipoCambio and final.get("moneda_origen") and final.get("moneda_origen") == final.get("moneda_destino"):
-        errores.append({"campo": "moneda_destino", "mensaje": "Choose two different currencies."})
-    if cat["modelo"] is SerieDocumental and final.get("objeto") == "embarque" and final.get("tipo_documento_id"):
-        errores.append({"campo": "tipo_documento_id", "mensaje": "A shipment series has no document type."})
-    if cat["modelo"] is ConfiguracionFiscal and final.get("impuestos_defecto"):
-        codigos = [x.strip() for x in final["impuestos_defecto"].split(",") if x.strip()]
-        conocidos = set(db.scalars(select(Impuesto.codigo).where(Impuesto.codigo.in_(codigos))))
-        if set(codigos) - conocidos:
-            errores.append({"campo": "impuestos_defecto", "mensaje": f"Unknown taxes: {', '.join(sorted(set(codigos) - conocidos))}."})
-        else:
-            limpio["impuestos_defecto"] = final["impuestos_defecto"] = ",".join(dict.fromkeys(codigos))
-    if cat["modelo"] is TipoDocumento and actual and "codigo" in limpio and limpio["codigo"] != actual.codigo:
-        from app.modulos.comercial.documentos import TIPOS_FABRICA
-
-        if actual.codigo in {t[0] for t in TIPOS_FABRICA}:
-            errores.append({"campo": "codigo", "mensaje": "The system relies on this document type: its code cannot change."})
     if cat["modelo"] is ValorLista or cat.get("lista"):
         from app.modulos.maestros.listas import validar as validar_valor
 
@@ -1383,7 +1251,7 @@ def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
 
 def _asegurar_tercero(db: Session, obj) -> None:
     """Un proveedor o transportista tiene su tercero (identidad fiscal, direcciones y contacto)."""
-    from app.modulos.comercial.terceros import asegurar
+    from app.modulos.maestros.terceros import asegurar
 
     if isinstance(obj, Proveedor):
         asegurar(db, obj, "PROVEEDOR")

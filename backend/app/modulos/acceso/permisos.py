@@ -35,12 +35,6 @@ MODULOS = [
         ("pl.cancelar", "Cancel packing lists", TODOS, True),
         ("plantilla.editar", "Create and edit packing templates", TODOS, True),
     ]),
-    ("Billing and payments", [
-        ("comercial.ver", "See business partners, commercial documents, payments and balances", INTERNOS, False),
-        ("comercial.editar", "Create business partners and draft documents", INTERNOS, False),
-        ("comercial.emitir", "Issue and void documents (invoices, credit and debit notes)", INTERNOS, False),
-        ("comercial.pagos", "Register, apply and void collections and payments", INTERNOS, False),
-    ]),
     ("Shipments", [
         ("transporte.gestionar", "See and manage shipments and load units", INTERNOS, False),
         ("recepcion.registrar", "Register warehouse receipts", INTERNOS, False),
@@ -83,8 +77,6 @@ MODULOS_ACTIVABLES = {
     "clasificacion": ("Tariff classification: tariff schedule and product families",
                       ["aranceles.ver", "aranceles.editar", "clasificacion.ver", "clasificacion.configurar"]),
     "seguimiento": ("Tracking and lead times", ["seguimiento.ver"]),
-    "comercial": ("Billing and payments: customers, invoices, credit notes, collections and payables",
-                  ["comercial.ver", "comercial.editar", "comercial.emitir", "comercial.pagos"]),
 }
 
 
