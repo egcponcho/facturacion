@@ -6,6 +6,7 @@ import { errorApi } from '@/stores/ui'
 import { fmtNum, unidadTxt } from '@/nucleo/utils'
 import Icono from './Icono.vue'
 import Modal from './Modal.vue'
+import TablaDatos from './TablaDatos.vue'
 
 // Explosión de un artículo prepack: qué sólidos y cuántos trae cada caja.
 // Es de solo lectura: la explosión de un prepack nunca se modifica.
@@ -13,6 +14,13 @@ const props = defineProps({ sku: { type: String, required: true }, cajas: { type
 defineEmits(['cerrar'])
 const e = ref(null)
 const totalCajas = computed(() => (props.cajas || 0) * (e.value?.total || 0))
+const columnas = computed(() => [
+  { clave: 'sku', texto: t('Solid SKU'), fija: true, prioridad: 1 },
+  { clave: 'talla', texto: t('Size'), prioridad: 1 },
+  { clave: 'unidad', texto: t('UoM'), prioridad: 3 },
+  { clave: 'cantidad', texto: t('Per carton'), num: true, prioridad: 1 },
+  ...(props.cajas ? [{ clave: 'total', texto: t('Total in {0} cartons', [fmtNum(props.cajas)]), num: true, prioridad: 2, valor: (c) => c.cantidad * props.cajas }] : []),
+])
 
 onMounted(async () => {
   try {
@@ -32,32 +40,16 @@ onMounted(async () => {
         <div><span class="ayuda">{{ t('Prepack ID (size)') }}</span><b>{{ tx(e.codigo) }}</b></div>
         <div><span class="ayuda">{{ t('Unit of measure') }}</span><b>{{ t('CJ · prepack carton') }}</b></div>
       </div>
-      <div class="tabla-marco sin-sombra">
-        <table class="tabla" v-tarjetas>
-          <thead>
-            <tr>
-              <th>{{ t('Solid SKU') }}</th><th>{{ t('Size') }}</th><th>{{ t('UoM') }}</th><th class="num">{{ t('Per carton') }}</th>
-              <th v-if="cajas" class="num">{{ t('Total in {0} cartons', [fmtNum(cajas)]) }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="c in e.componentes" :key="c.articulo_id">
-              <td class="codigo">{{ tx(c.sku) }}</td>
-              <td><b>{{ tx(c.talla) }}</b></td>
-              <td><span class="etiqueta ms-0">{{ tx(c.unidad) }}</span></td>
-              <td class="num">{{ fmtNum(c.cantidad) }}</td>
-              <td v-if="cajas" class="num fuerte">{{ fmtNum(c.cantidad * cajas) }}</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="3">{{ t('Total') }}</td>
-              <td class="num">{{ fmtNum(e.total) }} {{ tx(unidadTxt(e.unidad_componentes, e.total)) }}</td>
-              <td v-if="cajas" class="num">{{ fmtNum(totalCajas) }} {{ tx(unidadTxt(e.unidad_componentes, totalCajas)) }}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      <TablaDatos tabla="prepack_explosion" :columnas="columnas" :filas="e.componentes" clave-fila="articulo_id" :vistas-guardadas="false" :etiqueta="t('Prepack breakdown')">
+        <template #celda-sku="{ fila: c }"><span class="codigo">{{ tx(c.sku) }}</span></template>
+        <template #celda-talla="{ fila: c }"><b>{{ tx(c.talla) }}</b></template>
+        <template #celda-unidad="{ fila: c }"><span class="etiqueta ms-0">{{ tx(c.unidad) }}</span></template>
+        <template #celda-cantidad="{ fila: c }">{{ fmtNum(c.cantidad) }}</template>
+        <template #celda-total="{ fila: c }"><span class="fuerte">{{ fmtNum(c.cantidad * cajas) }}</span></template>
+        <template #pie-inicio>{{ t('Total') }}</template>
+        <template #pie-cantidad>{{ fmtNum(e.total) }} {{ tx(unidadTxt(e.unidad_componentes, e.total)) }}</template>
+        <template v-if="cajas" #pie-total>{{ fmtNum(totalCajas) }} {{ tx(unidadTxt(e.unidad_componentes, totalCajas)) }}</template>
+      </TablaDatos>
       <p class="ayuda"><Icono nombre="candado" :tam="13" /> {{ t('The breakdown is fixed: for another size run, create a new prepack with another code.') }}</p>
     </template>
     <p v-else class="ayuda">{{ t('Loading…') }}</p>

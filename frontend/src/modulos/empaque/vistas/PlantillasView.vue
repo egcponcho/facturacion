@@ -1,21 +1,31 @@
 <script setup>
 import { codigosUnidad, etiquetaUnidad, pasoCantidad } from '@/nucleo/unidades.js'
 import { t, tx } from '@/i18n/index.js'
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { api } from '@/nucleo/api'
 import CeldaEditable from '@/componentes/CeldaEditable.vue'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
-import Paginacion from '@/componentes/Paginacion.vue'
-import ThOrden from '@/componentes/ThOrden.vue'
-import { useTabla } from '@/composables/useTabla'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import { eligeProveedor, esInterno, nombreProveedor, sesion } from '@/stores/sesion'
 import { avisar, errorApi, guardando } from '@/stores/ui'
 
 const lista = ref([])
 const incluirInactivas = ref(false)
-const tabla = useTabla(lista, { orden: 'nombre:asc' })
+const cargando = ref(false)
+// Cada plantilla es una fila editable; las columnas filtran por sus valores como el resto de tablas
+const columnas = computed(() => [
+  { clave: 'nombre', texto: t('Name'), fija: true, prioridad: 1 },
+  { clave: 'cantidad_por_caja', texto: t('Per carton'), num: true, prioridad: 1 },
+  { clave: 'unidad', texto: t('Unit'), prioridad: 2, textoValor: (v) => etiquetaUnidad(v) },
+  { clave: 'largo', texto: t('Length'), num: true, prioridad: 3 },
+  { clave: 'ancho', texto: t('Width'), num: true, prioridad: 3 },
+  { clave: 'alto', texto: t('Height'), num: true, prioridad: 3 },
+  { clave: 'tipo_empaque_id', texto: t('Packaging type'), prioridad: 3, textoValor: (v) => tx(tipos.value.find((x) => x.id === Number(v))?.nombre || t('Default')) },
+  { clave: 'tara', texto: t('Tare kg'), num: true, prioridad: 3 },
+  { clave: 'activa', texto: t('Status'), prioridad: 2, opciones: [[true, t('Active')], [false, t('Inactive')]] },
+])
 const vacia = () => ({ nombre: '', cantidad_por_caja: '', unidad: 'PAR', tipo_empaque_id: '', largo: '', ancho: '', alto: '', tara: '' })
 const nueva = reactive(vacia())
 const formAbierto = ref(false) // alta en ventana emergente
@@ -34,10 +44,13 @@ async function cargar() {
     lista.value = []
     return
   }
+  cargando.value = true
   try {
     lista.value = await api.get('/plantillas', { proveedor_id: sesion.proveedorId, incluir_inactivas: incluirInactivas.value })
   } catch (e) {
     errorApi(e)
+  } finally {
+    cargando.value = false
   }
 }
 
@@ -92,52 +105,33 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
 
   <template v-else>
 
-    <div class="filtros" v-filtros>
-      <label class="check"><input v-model="incluirInactivas" type="checkbox" /> {{ t('Show inactive') }}</label>
-      <button class="btn btn-primario separar" @click="formAbierto = true"><Icono nombre="mas" />{{ t('New template') }}</button>
-    </div>
-    <div class="tabla-marco tabla-fija">
-      <table class="tabla" v-tarjetas>
-        <thead>
-          <tr>
-            <ThOrden campo="nombre" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Name') }}</ThOrden>
-            <ThOrden campo="cantidad_por_caja" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">{{ t('Per carton') }}</ThOrden>
-            <ThOrden campo="unidad" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Unit') }}</ThOrden>
-            <th class="num">{{ t('Length') }}</th>
-            <th class="num">{{ t('Width') }}</th>
-            <th class="num">{{ t('Height') }}</th>
-            <th>{{ t('Packaging type') }}</th>
-            <th class="num">{{ t('Tare kg') }}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="txt in tabla.filas.value" :key="txt.id" :class="{ apagado: !txt.activa }">
-            <td style="min-width: 200px"><CeldaEditable :valor="txt.nombre" :guardar="guardarCampo(txt, 'nombre')" :etiqueta="t('Name')" /></td>
-            <td class="num" style="width: 90px"><CeldaEditable tipo="number" :min="1" paso="1" :valor="txt.cantidad_por_caja" :guardar="guardarCampo(txt, 'cantidad_por_caja')" :etiqueta="t('Quantity per carton')" /></td>
-            <td>
-              <Seleccion class="celda" :value="txt.unidad" :aria-label="t('Unit')" @change="guardarCampo(txt, 'unidad')($event).catch(() => {})">
-                <option v-for="u in codigosUnidad()" :key="u" :value="u">{{ etiquetaUnidad(u) }}</option>
-              </Seleccion>
-            </td>
-            <td v-for="c in ['largo', 'ancho', 'alto']" :key="c" class="num" style="width: 88px">
-              <CeldaEditable tipo="number" :min="0" :valor="txt[c]" :guardar="guardarCampo(txt, c)" :etiqueta="tx(c)" />
-            </td>
-            <td style="min-width: 150px">
-              <Seleccion class="celda" :value="txt.tipo_empaque_id || ''" :aria-label="t('Packaging type')" @change="guardarCampo(txt, 'tipo_empaque_id')($event || null).catch(() => {})">
-                <option value="">{{ t('Default') }}</option>
-                <option v-for="x in tipos" :key="x.id" :value="x.id">{{ tx(x.nombre) }}</option>
-              </Seleccion>
-            </td>
-            <td class="num" style="width: 88px"><CeldaEditable tipo="number" :min="0" :valor="txt.tara" :guardar="guardarCampo(txt, 'tara')" :etiqueta="t('Tare kg')" /></td>
-            <td><button class="btn btn-chico" @click="alternarActiva(txt)">{{ tx(txt.activa ? t('Deactivate') : t('Activate')) }}</button></td>
-          </tr>
-          <tr v-if="!lista.length"><td colspan="9" class="vacio">{{ t('No templates. Create the first one above or save one from a carton in a packing list.') }}</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <Paginacion :page="tabla.estado.pagina" :size="tabla.estado.porPagina" :total="tabla.total.value"
-                @cambiar="(p) => (tabla.estado.pagina = p)" @tamano="(t) => (tabla.estado.porPagina = t)" />
+    <TablaDatos tabla="plantillas_empaque" :columnas="columnas" :filas="lista" :cargando="cargando" orden-inicial="nombre:asc"
+                :clase-fila="(x) => ({ apagada: !x.activa })" :externos="{ inactivas: incluirInactivas ? '1' : '' }" :etiqueta="t('Carton templates')"
+                @vista="(x) => (incluirInactivas = x.inactivas === '1')">
+      <template #filtros>
+        <label class="check"><input v-model="incluirInactivas" type="checkbox" /> {{ t('Show inactive') }}</label>
+        <button type="button" class="btn btn-primario separar" @click="formAbierto = true"><Icono nombre="mas" />{{ t('New template') }}</button>
+      </template>
+      <template #celda-nombre="{ fila: x }"><div class="col-nombre"><CeldaEditable :valor="x.nombre" :guardar="guardarCampo(x, 'nombre')" :etiqueta="t('Name')" /></div></template>
+      <template #celda-cantidad_por_caja="{ fila: x }"><div class="col-num"><CeldaEditable tipo="number" :min="1" paso="1" :valor="x.cantidad_por_caja" :guardar="guardarCampo(x, 'cantidad_por_caja')" :etiqueta="t('Quantity per carton')" /></div></template>
+      <template #celda-unidad="{ fila: x }">
+        <Seleccion class="celda" :value="x.unidad" :aria-label="t('Unit')" @change="guardarCampo(x, 'unidad')($event).catch(() => {})">
+          <option v-for="u in codigosUnidad()" :key="u" :value="u">{{ etiquetaUnidad(u) }}</option>
+        </Seleccion>
+      </template>
+      <template v-for="c in ['largo', 'ancho', 'alto', 'tara']" :key="c" #[`celda-${c}`]="{ fila: x }">
+        <div class="col-num"><CeldaEditable tipo="number" :min="0" :valor="x[c]" :guardar="guardarCampo(x, c)" :etiqueta="c === 'tara' ? t('Tare kg') : tx(c)" /></div>
+      </template>
+      <template #celda-tipo_empaque_id="{ fila: x }">
+        <Seleccion class="celda col-tipo" :value="x.tipo_empaque_id || ''" :aria-label="t('Packaging type')" @change="guardarCampo(x, 'tipo_empaque_id')($event || null).catch(() => {})">
+          <option value="">{{ t('Default') }}</option>
+          <option v-for="y in tipos" :key="y.id" :value="y.id">{{ tx(y.nombre) }}</option>
+        </Seleccion>
+      </template>
+      <template #celda-activa="{ fila: x }"><span class="etiqueta ms-0" :class="x.activa ? 'ok' : ''">{{ x.activa ? t('Active') : t('Inactive') }}</span></template>
+      <template #acciones="{ fila: x }"><button type="button" class="btn btn-chico" @click="alternarActiva(x)">{{ tx(x.activa ? t('Deactivate') : t('Activate')) }}</button></template>
+      <template #vacio>{{ t('No templates. Create the first one above or save one from a carton in a packing list.') }}</template>
+    </TablaDatos>
   </template>
   <Modal v-if="formAbierto" :titulo="t('New template{0}', [esInterno() ? t(' for {0}', [nombreProveedor(sesion.proveedorId)]) : ''])" ancho="680px" @cerrar="formAbierto = false">
       <form id="form-plantilla" class="rejilla-campos" @submit.prevent="crear">
@@ -162,3 +156,10 @@ watch([() => sesion.proveedorId, incluirInactivas], cargar)
     </template>
   </Modal>
 </template>
+
+<style scoped>
+.col-nombre { min-width: 200px; }
+.col-num { width: 90px; }
+.col-tipo { min-width: 150px; }
+:deep(tr.apagada > td) { opacity: 0.6; }
+</style>

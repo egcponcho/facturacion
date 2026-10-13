@@ -4,14 +4,11 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import CargaArchivo from '@/componentes/CargaArchivo.vue'
 import Icono from '@/componentes/Icono.vue'
-import Paginacion from '@/componentes/Paginacion.vue'
-import ThOrden from '@/componentes/ThOrden.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import PerfilesImportacion from '@/modulos/compras/componentes/PerfilesImportacion.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { puede } from '@/stores/sesion'
-import { useTabla } from '@/composables/useTabla'
 import { avisar, errorApi } from '@/stores/ui'
-import { filasDefecto } from '@/stores/preferencias'
 
 const archivo = ref(null)
 const previa = ref(null)
@@ -39,10 +36,15 @@ const ESTADOS = {
   error: [t('With errors'), 'error', t('Not applied')],
 }
 const filasFiltradas = computed(() => (previa.value?.filas || []).filter((f) => !filtro.value || f.estado === filtro.value))
-const tabla = useTabla(filasFiltradas, { porPagina: filasDefecto(), orden: 'fila:asc' })
+// Filas del archivo en la tabla común: cada columna filtra por sus valores
+const columnas = computed(() => [
+  { clave: 'fila', texto: t('Row'), num: true, fija: true, prioridad: 1 },
+  { clave: 'clave', texto: t('PO line'), prioridad: 1 },
+  { clave: 'estado', texto: t('Result'), prioridad: 1, opciones: Object.entries(ESTADOS).map(([k, [txt]]) => [k, txt]) },
+  { clave: 'detalle', texto: t('Detail'), prioridad: 2, filtro: false, ordenable: false },
+])
 const aplicables = computed(() => (previa.value?.resumen.nuevo || 0) + (previa.value?.resumen.cambio || 0))
 watch(archivo, () => (previa.value = null))
-watch(filtro, () => (tabla.estado.pagina = 1))
 
 async function revisar() {
   if (!archivo.value) return
@@ -128,32 +130,18 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
         <span>{{ tx(info[2]) }}</span>
       </button>
     </div>
-    <div class="tabla-marco tabla-fija">
-      <table class="tabla" v-tarjetas>
-        <thead>
-          <tr>
-            <ThOrden campo="fila" :orden="tabla.estado.orden" num @ordenar="tabla.ordenar">{{ t('Row') }}</ThOrden>
-            <ThOrden campo="clave" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('PO line') }}</ThOrden>
-            <ThOrden campo="estado" :orden="tabla.estado.orden" @ordenar="tabla.ordenar">{{ t('Result') }}</ThOrden>
-            <th>{{ t('Detail') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="f in tabla.filas.value" :key="f.fila">
-            <td class="num">{{ tx(f.fila) }}</td>
-            <td class="codigo">{{ tx(f.clave) }}</td>
-            <td><span class="estado" :class="`estado-${ESTADOS[f.estado][1]}`"><span class="estado-marca"></span>{{ tx(ESTADOS[f.estado][0]) }}</span></td>
-            <td class="envolver">
-              <div v-for="m in f.mensajes" :key="m">{{ tx(m) }}</div>
-              <div v-for="(c, campo) in f.cambios" :key="campo" class="ayuda">{{ tx(campo.replaceAll('_', ' ')) }}: {{ tx(valorTxt(c.antes)) }} → {{ tx(valorTxt(c.despues)) }}</div>
-            </td>
-          </tr>
-          <tr v-if="!tabla.total.value"><td colspan="4" class="vacio">{{ t('No rows in this group.') }}</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <Paginacion :page="tabla.estado.pagina" :size="tabla.estado.porPagina" :total="tabla.total.value"
-                @cambiar="(p) => (tabla.estado.pagina = p)" @tamano="(t) => (tabla.estado.porPagina = t)" />
+    <TablaDatos :key="previa.archivo" tabla="importar_previa" :columnas="columnas" :filas="filasFiltradas" clave-fila="fila" orden-inicial="fila:asc"
+                :vistas-guardadas="false" :etiqueta="t('2. Review the result')">
+      <template #celda-clave="{ fila: f }"><span class="codigo">{{ tx(f.clave) }}</span></template>
+      <template #celda-estado="{ fila: f }"><span class="estado" :class="`estado-${ESTADOS[f.estado][1]}`"><span class="estado-marca"></span>{{ tx(ESTADOS[f.estado][0]) }}</span></template>
+      <template #celda-detalle="{ fila: f }">
+        <div class="detalle-fila">
+          <div v-for="m in f.mensajes" :key="m">{{ tx(m) }}</div>
+          <div v-for="(c, campo) in f.cambios" :key="campo" class="ayuda">{{ tx(campo.replaceAll('_', ' ')) }}: {{ tx(valorTxt(c.antes)) }} → {{ tx(valorTxt(c.despues)) }}</div>
+        </div>
+      </template>
+      <template #vacio>{{ t('No rows in this group.') }}</template>
+    </TablaDatos>
     <div class="fila-flex mt">
       <span class="ayuda">{{ t('Conflicts (for example, lowering the quantity below what is already invoiced) are not applied: they are kept as alerts.') }}</span>
       <button class="btn btn-primario separar" :disabled="ocupado || !aplicables" @click="aplicar"><Icono nombre="check" />{{ t('Apply {0} changes', [aplicables]) }}</button>
@@ -161,3 +149,7 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
   </template>
   <PerfilesImportacion v-if="verPerfiles" @cerrar="verPerfiles = false" @cambio="cargarPerfiles" />
 </template>
+
+<style scoped>
+.detalle-fila { min-width: 280px; max-width: 640px; white-space: normal; }
+</style>
