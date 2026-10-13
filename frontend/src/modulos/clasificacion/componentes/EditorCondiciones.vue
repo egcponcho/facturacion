@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import FiltroMulti from '@/componentes/FiltroMulti.vue'
 import Icono from '@/componentes/Icono.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 // Condiciones en grupos: dentro de un grupo se cumplen TODAS (Y); entre
 // grupos basta UNO (O). Se usa en las reglas y en las dependencias de los
@@ -60,19 +61,19 @@ const numerico = (c) => ['GT', 'GTE', 'LT', 'LTE', 'BETWEEN'].includes(c.operado
         <div v-for="(c, ci) in conds" :key="c.i" class="fila">
           <span class="y">{{ ci ? t('AND') : t('IF') }}</span>
           <SelectBusqueda :model-value="c.campo" :opciones="campos" :placeholder="t('Field…')" :etiqueta="t('Field')" class="campo" @update:model-value="cambiar(c.i, 'campo', $event)" />
-          <select :value="c.operador" class="entrada op" :aria-label="t('Operator')" @change="cambiar(c.i, 'operador', $event.target.value)">
+          <Seleccion :value="c.operador" class="entrada op" :aria-label="t('Operator')" @change="cambiar(c.i, 'operador', String($event ?? ''))">
             <option v-for="[v, l] in OPERADORES" :key="v" :value="v">{{ tx(l) }}</option>
-          </select>
+          </Seleccion>
           <template v-if="c.operador !== 'EXISTS'">
             <FiltroMulti v-if="c.operador === 'IN' && opciones(c.campo).length" :model-value="c.valor || []" :etiqueta="t('Values')" vacio="—"
                          :opciones="[...opciones(c.campo), { valor: '', texto: t('(no value)') }]" @update:model-value="cambiar(c.i, 'valor', $event)" />
             <input v-else-if="c.operador === 'IN'" class="entrada val" :value="(c.valor || []).join(', ')" :placeholder="t('values separated by commas')"
                    @change="cambiar(c.i, 'valor', $event.target.value.split(',').map((x) => x.trim()).filter(Boolean))" />
-            <select v-else-if="!numerico(c) && opciones(c.campo).length" class="entrada val" :value="String(c.valor ?? '')" :aria-label="t('Value')"
-                    @change="cambiar(c.i, 'valor', opciones(c.campo).find((o) => String(o.valor) === $event.target.value)?.valor ?? $event.target.value)">
+            <Seleccion v-else-if="!numerico(c) && opciones(c.campo).length" class="entrada val" :value="String(c.valor ?? '')" :aria-label="t('Value')"
+                    @change="cambiar(c.i, 'valor', opciones(c.campo).find((o) => String(o.valor) === String($event ?? ''))?.valor ?? String($event ?? ''))">
               <option value="">{{ t('Choose…') }}</option>
               <option v-for="o in opciones(c.campo)" :key="String(o.valor)" :value="String(o.valor)">{{ tx(o.texto) }}</option>
-            </select>
+            </Seleccion>
             <input v-else class="entrada val" :type="numerico(c) ? 'number' : 'text'" step="any" :value="c.valor ?? ''" :aria-label="t('Value')"
                    @change="cambiar(c.i, 'valor', numerico(c) && $event.target.value !== '' ? Number($event.target.value) : $event.target.value)" />
             <input v-if="c.operador === 'BETWEEN'" class="entrada val" type="number" step="any" :value="c.valor_hasta ?? ''" :aria-label="t('Up to')"

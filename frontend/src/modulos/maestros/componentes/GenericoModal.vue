@@ -168,9 +168,9 @@ async function guardar() {
         <small class="ayuda">{{ t('Loads its sizes in order with their size codes; remove the ones this generic does not have. Codes can be changed.') }}</small></div>
     </div>
     <div class="fila-flex" style="gap: 6px; margin: 6px 0 4px">
-      <input v-model="rapido" class="entrada" style="max-width: 300px" :placeholder="t('Quick: 7-10, 12 · 6.5-9.5 · S-XL')" @keydown.enter.prevent="aplicarRapido" />
+      <input v-model="rapido" class="entrada max-xl" :placeholder="t('Quick: 7-10, 12 · 6.5-9.5 · S-XL')" @keydown.enter.prevent="aplicarRapido" />
       <button type="button" class="btn btn-chico" @click="aplicarRapido">{{ t('Add these sizes') }}</button>
-      <input v-model="pesoTodas" class="entrada" type="number" min="0" step="any" style="max-width: 150px; margin-inline-start: auto" :placeholder="t('Unit weight kg')" :aria-label="t('Unit weight for all sizes')" />
+      <input v-model="pesoTodas" class="entrada max-xs" type="number" min="0" step="any" style="margin-inline-start: auto" :placeholder="t('Unit weight kg')" :aria-label="t('Unit weight for all sizes')" />
       <button type="button" class="btn btn-chico" :disabled="pesoTodas === ''" @click="pesoParaTodas">{{ t('Same weight for all') }}</button>
     </div>
     <p class="ayuda" style="margin: 0 0 8px">{{ t('Combine ranges and single sizes for gaps (e.g. 7-10, 12, 14). Item code: type your own, or leave it empty to use the generic plus a size code.') }}</p>
@@ -181,7 +181,7 @@ async function guardar() {
           <td><input v-model="f.talla" class="entrada" maxlength="20" :aria-label="t('Size {0}', [i + 1])" /></td>
           <td><input v-model="f.sufijo" class="entrada" maxlength="20" :placeholder="t('Auto')" :aria-label="t('Size code {0}', [i + 1])" :disabled="!!f.sku" /></td>
           <td><input v-model="f.sku" class="entrada" maxlength="40" :placeholder="codigos[i]" :aria-label="t('Item code {0}', [i + 1])" /></td>
-          <td><input v-model="f.peso" class="entrada" type="number" min="0" step="any" style="width: 90px" :aria-label="t('Unit weight {0}', [i + 1])" /></td>
+          <td><input v-model="f.peso" class="entrada ancho-s" type="number" min="0" step="any" :aria-label="t('Unit weight {0}', [i + 1])" /></td>
           <td><input v-model="f.upc" class="entrada" maxlength="40" :aria-label="tx(t('UPC {0}', [i + 1]))" /></td>
           <td><input v-model="f.sku_proveedor" class="entrada" maxlength="60" :aria-label="t('Supplier SKU {0}', [i + 1])" /></td>
           <td><button type="button" class="btn-icono" :aria-label="t('Remove row {0}', [i + 1])" @click="filas.splice(i, 1)"><Icono nombre="cerrar" :tam="15" /></button></td>

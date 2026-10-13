@@ -10,6 +10,7 @@ import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { cargarContexto } from '@/modulos/clasificacion/useClasificacion'
 import CampoComportamiento from '@/modulos/clasificacion/componentes/comportamiento/CampoComportamiento.vue'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 // Dominios de clasificación (químicos, materias primas, calzado, ropa,
 // accesorios…) y los capítulos con que se relacionan. PRIMARY genera
@@ -139,7 +140,7 @@ function agregar(d) {
                 :title="t('Open the category')" @click="abrirCategoria(c)">
           {{ tx(c.nombre) }}</button>
         <form v-if="edita" class="cat-nueva" @submit.prevent="agregarCategoria(d)">
-          <input v-model="nuevaCat[d.id]" class="entrada" maxlength="120" :placeholder="t('New category…')" :aria-label="t('New category')" />
+          <input v-model="nuevaCat[d.id]" class="entrada chica" maxlength="120" :placeholder="t('New category…')" :aria-label="t('New category')" />
         </form>
       </div>
       <div class="caps">
@@ -188,7 +189,7 @@ function agregar(d) {
         <label class="campo"><span class="req">{{ t('Code') }}</span><input v-model="modal.codigo" class="entrada" maxlength="30" :disabled="!!modal.id" placeholder="ELECTRONICS" /></label>
         <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="modal.nombre" class="entrada" maxlength="100" /></label>
         <label class="campo col-completa"><span>{{ t('Description') }}</span><input v-model="modal.descripcion" class="entrada" maxlength="400" /></label>
-        <label class="campo"><span>{{ t('Mode') }}</span><select v-model="modal.modo" class="entrada"><option value="AUTO">{{ t('Automatic') }}</option><option value="MANUAL">{{ t('Manual') }}</option></select></label>
+        <label class="campo"><span>{{ t('Mode') }}</span><Seleccion v-model="modal.modo" class="entrada"><option value="AUTO">{{ t('Automatic') }}</option><option value="MANUAL">{{ t('Manual') }}</option></Seleccion></label>
         <label class="check"><input v-model="modal.activo" type="checkbox" /><span>{{ t('Active') }}</span></label>
       </div>
       <p class="ayuda">{{ t('Next: add its chapters and categories here, then its questions and its rules. The product sheet offers it right away.') }}</p>
@@ -220,7 +221,7 @@ function agregar(d) {
 .cat-chip { border: 1px solid var(--linea); background: var(--superficie); border-radius: 99px; padding: 3px 10px; font: inherit; font-size: 0.8rem; cursor: pointer; color: inherit; }
 .cat-chip small { color: var(--tinta-3); }
 .cat-chip.off { opacity: 0.5; text-decoration: line-through; }
-.cat-nueva .entrada { width: 180px; padding: 3px 8px; font-size: 0.82rem; }
+.cat-nueva .entrada { width: 180px; }
 .agregar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .agregar :deep(.sb) { min-width: 260px; }
 .leyenda { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

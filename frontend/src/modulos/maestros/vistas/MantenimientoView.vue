@@ -633,7 +633,7 @@ onMounted(async () => {
           <small v-else class="ayuda">{{ t('Any code in your format. The prepack takes the generic of its solids; a code is proposed when you choose style and color.') }}</small>
         </label>
         <label v-if="nuevoPP.tipo === 'KIT'" class="campo"><span class="req">{{ t('Kit style') }}</span>
-          <input v-model="nuevoPP.estilo" maxlength="40" style="text-transform: uppercase" required />
+          <input class="mayus" v-model="nuevoPP.estilo" maxlength="40" required />
         </label>
         <template v-else>
           <label class="campo"><span class="req">{{ t('Style') }}</span>
@@ -644,7 +644,7 @@ onMounted(async () => {
           </label>
         </template>
         <label class="campo"><span class="req">{{ t('Prepack ID (size)') }}</span>
-          <input v-model="nuevoPP.codigo" maxlength="10" placeholder="AB12" style="text-transform: uppercase" required />
+          <input class="mayus" v-model="nuevoPP.codigo" maxlength="10" placeholder="AB12" required />
           <small v-if="erroresPP.codigo" class="nota error relleno-chico">{{ tx(erroresPP.codigo) }}</small>
           <small v-else class="ayuda">{{ t('Usually 2 letters and 2 digits. It is the size of the prepack item.') }}</small>
         </label>
@@ -659,7 +659,7 @@ onMounted(async () => {
                 <tr v-for="(k, i) in kitItems" :key="k.articulo_id">
                   <td class="codigo">{{ tx(k.sku) }}</td>
                   <td>{{ tx(k.texto) }}</td>
-                  <td class="num"><input v-model.number="k.cantidad" class="celda num" type="number" min="1" style="width: 64px; border-color: var(--linea)" :aria-label="t('Quantity')" /></td>
+                  <td class="num"><input v-model.number="k.cantidad" class="celda num ancho-xs con-borde" type="number" min="1" :aria-label="t('Quantity')" /></td>
                   <td><button type="button" class="btn-icono" :aria-label="t('Remove')" @click="kitItems.splice(i, 1)"><Icono nombre="basura" :tam="16" /></button></td>
                 </tr>
               </tbody>
@@ -677,7 +677,7 @@ onMounted(async () => {
                 <tr v-for="a in tallasPP" :key="a.id">
                   <td><b>{{ tx(a.talla) }}</b></td>
                   <td class="codigo">{{ tx(a.sku) }}</td>
-                  <td class="num"><input v-model.number="nuevoPP.cantidades[a.id]" class="celda num" type="number" min="0" style="width: 64px; border-color: var(--linea)" :aria-label="t('Quantity size {0}', [a.talla])" /></td>
+                  <td class="num"><input v-model.number="nuevoPP.cantidades[a.id]" class="celda num ancho-xs con-borde" type="number" min="0" :aria-label="t('Quantity size {0}', [a.talla])" /></td>
                 </tr>
               </tbody>
               <tfoot><tr><td colspan="2">{{ t('Total per carton') }}</td><td class="num">{{ tx(totalPP) }}</td></tr></tfoot>

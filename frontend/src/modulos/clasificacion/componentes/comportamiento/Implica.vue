@@ -3,6 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed } from 'vue'
 import Icono from '@/componentes/Icono.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 // Lo que elegir esta opción completa en otras preguntas (si están vacías).
 const props = defineProps({
@@ -34,11 +35,11 @@ const agregar = () => emit('update:modelValue', { ...(props.modelValue || {}), '
     <div v-for="([k, v], i) in filas" :key="i" class="cfila linea">
       <SelectBusqueda :model-value="k" :opciones="elegibles" :etiqueta="t('Question')" :placeholder="t('Question…')" :deshabilitado="deshabilitado" class="crece" @update:model-value="cambiarCampo(i, $event)" />
       <span class="ayuda">=</span>
-      <select class="entrada" :value="String(v ?? '')" :disabled="deshabilitado || !k" :aria-label="t('Value')"
-              @change="cambiarValor(i, opciones(k).find((o) => String(o.valor) === $event.target.value)?.valor ?? null)">
+      <Seleccion class="entrada" :value="String(v ?? '')" :disabled="deshabilitado || !k" :aria-label="t('Value')"
+              @change="cambiarValor(i, opciones(k).find((o) => String(o.valor) === String($event ?? ''))?.valor ?? null)">
         <option value="">{{ t('Choose…') }}</option>
         <option v-for="o in opciones(k)" :key="String(o.valor)" :value="String(o.valor)">{{ tx(o.texto) }}</option>
-      </select>
+      </Seleccion>
       <button v-if="!deshabilitado" type="button" class="btn-icono" :aria-label="t('Remove')" @click="quitar(i)"><Icono nombre="basura" :tam="15" /></button>
     </div>
     <button v-if="!deshabilitado" type="button" class="btn btn-chico" @click="agregar"><Icono nombre="mas" :tam="14" />{{ t('Add answer it fills in') }}</button>

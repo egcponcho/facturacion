@@ -20,6 +20,7 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import { camposPropios, elegirProveedor, esInterno, valorPropio, ve } from '@/stores/sesion'
 import { avisar, errorApi, guardando, textoDetalle } from '@/stores/ui'
 import { estado as leerEstado } from '@/nucleo/estados.js'
+import CargaArchivo from '@/componentes/CargaArchivo.vue'
 import {
   ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtMoneda, fmtNum, pct, plural, porUnidadTxt, useSeleccion,
 } from '@/nucleo/utils'
@@ -667,7 +668,8 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
     <section v-if="tab === 'archivos'" class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('Files') }}</h2><p>{{ t('Attach the supplier\'s official invoice (PDF) and other supporting documents.') }}</p></div></div>
       <div v-if="f.estado !== 'CANCELADA'" class="fila-flex">
-        <input type="file" :aria-label="t('File')" @change="subida.archivo = $event.target.files[0]" />
+        <CargaArchivo v-model="subida.archivo" compacta class="campo-archivo" :etiqueta="t('File')"
+                      acepta=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.docx,.doc,.csv,.txt" />
         <Seleccion v-model="subida.tipo" class="entrada" :aria-label="t('File type')">
           <option value="FACTURA_OFICIAL">{{ t('Official invoice') }}</option>
           <option value="OTRO">{{ t('Other document') }}</option>

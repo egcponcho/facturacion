@@ -441,10 +441,7 @@ async function ensenar() {
 }
 
 // ---- Fotos -----------------------------------------------------------------
-async function subirFoto(e) {
-  const a = e.target.files?.[0]
-  e.target.value = ''
-  if (!a) return
+async function subirFoto(a) {
   const datos = new FormData()
   datos.append('archivo', a)
   ocupado.value = true
@@ -1060,7 +1057,6 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .atributo-nombre { font-weight: 580; font-size: 0.86rem; color: var(--tinta-2); }
 .atributo.definido { flex-direction: row; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 0.88rem; padding: 8px 10px; background: var(--superficie-2); border-radius: var(--radio); }
 .atributo.check { flex-direction: row; align-items: flex-start; gap: 8px; font-size: 0.9rem; }
-.atributo select { max-width: 420px; }
 .foto-cabeza { width: 52px; height: 52px; border-radius: 10px; border: 1px solid var(--linea); background: var(--superficie-2); display: grid; place-items: center; overflow: hidden; color: var(--tinta-3); flex: none; }
 .foto-cabeza img { width: 100%; height: 100%; object-fit: cover; }
 .fotos { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -1096,7 +1092,6 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .alternativas { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 0.86rem; }
 .otro-codigo { gap: 6px; flex-wrap: nowrap; }
 .otro-codigo .entrada { flex: 1; min-width: 0; }
-.paises select { max-width: 100%; font-size: 0.84rem; }
 .entrada-pais { width: 100%; min-width: 0; font-family: var(--mono); font-weight: 600; padding: 6px 8px; }
 .entrada-pais.tentativo { border-style: dashed; }
 .entrada-pais.invalida { border-color: var(--error); box-shadow: 0 0 0 3px var(--error-fondo); }

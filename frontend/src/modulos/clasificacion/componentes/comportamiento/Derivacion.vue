@@ -3,6 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed } from 'vue'
 import Icono from '@/componentes/Icono.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 // El valor que fijan los datos solos: uno fijo, el de otra pregunta (con un
 // mapa) o lo que se lee de una parte de la composición (fibra, material o
@@ -49,16 +50,16 @@ const valorDe = (txt) => valores.value.find((o) => String(o.valor) === txt)?.val
   <div class="cfilas">
     <div class="linea">
       <label class="ccampo ancho"><span>{{ t('How its value is set') }}</span>
-        <select class="entrada" :value="d.modo || ''" :disabled="deshabilitado" @change="modo($event.target.value)">
+        <Seleccion class="entrada" :value="d.modo || ''" :disabled="deshabilitado" @change="modo(String($event ?? ''))">
           <option v-for="[v, l] in MODOS" :key="v" :value="v">{{ tx(l) }}</option>
-        </select></label>
+        </Seleccion></label>
     </div>
     <div v-if="d.modo === 'constante'" class="linea">
       <label class="ccampo"><span>{{ t('Value') }}</span>
-        <select v-if="valores.length" class="entrada" :value="String(d.valor ?? '')" :disabled="deshabilitado" @change="poner('valor', valorDe($event.target.value))">
+        <Seleccion v-if="valores.length" class="entrada" :value="String(d.valor ?? '')" :disabled="deshabilitado" @change="poner('valor', valorDe(String($event ?? '')))">
           <option value="">{{ t('Choose…') }}</option>
           <option v-for="o in valores" :key="String(o.valor)" :value="String(o.valor)">{{ tx(o.texto) }}</option>
-        </select>
+        </Seleccion>
         <input v-else class="entrada" :value="d.valor ?? ''" :disabled="deshabilitado" @change="poner('valor', $event.target.value)" /></label>
     </div>
     <div v-else-if="d.modo === 'valor'" class="linea">
@@ -67,24 +68,24 @@ const valorDe = (txt) => valores.value.find((o) => String(o.valor) === txt)?.val
     </div>
     <div v-else-if="d.modo" class="linea">
       <label class="ccampo"><span>{{ t('Composition part') }}</span>
-        <select class="entrada" :value="d.parte || ''" :disabled="deshabilitado" @change="poner('parte', $event.target.value)">
+        <Seleccion class="entrada" :value="d.parte || ''" :disabled="deshabilitado" @change="poner('parte', String($event ?? ''))">
           <option value="">{{ t('Choose…') }}</option>
           <option v-for="p in partes" :key="p.valor" :value="p.valor">{{ tx(p.texto) }}</option>
-        </select></label>
+        </Seleccion></label>
       <label class="ccampo"><span>{{ t('Read') }}</span>
-        <select class="entrada" :value="d.lectura || ''" :disabled="deshabilitado" @change="poner('lectura', $event.target.value)">
+        <Seleccion class="entrada" :value="d.lectura || ''" :disabled="deshabilitado" @change="poner('lectura', String($event ?? ''))">
           <option value="">{{ t('The outer surface') }}</option>
           <option value="contacto">{{ t('What touches the ground or the skin') }}</option>
-        </select></label>
+        </Seleccion></label>
     </div>
     <template v-if="d.modo && d.modo !== 'constante'">
       <p class="ayuda">{{ t('Map: what is read → the answer it gives. Use * for anything else.') }}</p>
       <div v-for="([de, a], i) in mapa" :key="i" class="cfila linea">
         <input class="entrada" :value="de" :disabled="deshabilitado" :placeholder="t('e.g. leather, or *')" :aria-label="t('Read value')" @change="cambiarMapa(i, 'de', $event.target.value.trim())" />
         <Icono nombre="derecha" :tam="14" />
-        <select v-if="valores.length" class="entrada" :value="String(a ?? '')" :disabled="deshabilitado" :aria-label="t('Answer')" @change="cambiarMapa(i, 'a', valorDe($event.target.value))">
+        <Seleccion v-if="valores.length" class="entrada" :value="String(a ?? '')" :disabled="deshabilitado" :aria-label="t('Answer')" @change="cambiarMapa(i, 'a', valorDe(String($event ?? '')))">
           <option v-for="o in valores" :key="String(o.valor)" :value="String(o.valor)">{{ tx(o.texto) }}</option>
-        </select>
+        </Seleccion>
         <input v-else class="entrada" :value="a ?? ''" :disabled="deshabilitado" :aria-label="t('Answer')" @change="cambiarMapa(i, 'a', $event.target.value)" />
         <button v-if="!deshabilitado" type="button" class="btn-icono" :aria-label="t('Remove')" @click="quitarMapa(i)"><Icono nombre="basura" :tam="15" /></button>
       </div>

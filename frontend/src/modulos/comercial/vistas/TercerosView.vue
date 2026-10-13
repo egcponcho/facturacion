@@ -11,6 +11,7 @@ import { opcionesLista } from '@/nucleo/listas.js'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtMoneda } from '@/nucleo/utils'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 // Terceros: una identidad fiscal por persona o empresa con sus roles (cliente,
 // proveedor, transportista, agente), direcciones y medios de contacto. Los
@@ -160,16 +161,16 @@ const alternarRol = (r) => {
       <label class="campo"><span>{{ t('Code') }}</span><input v-model="form.codigo" class="entrada" maxlength="30" :placeholder="t('Automatic')" /></label>
       <label class="campo"><span>{{ t('Legal name') }}</span><input v-model="form.razon_social" class="entrada" maxlength="200" /></label>
       <label class="campo"><span>{{ t('Person type') }}</span>
-        <select v-model="form.tipo_persona" class="entrada"><option value="JURIDICA">{{ t('Legal entity') }}</option><option value="NATURAL">{{ t('Natural person') }}</option></select>
+        <Seleccion v-model="form.tipo_persona" class="entrada"><option value="JURIDICA">{{ t('Legal entity') }}</option><option value="NATURAL">{{ t('Natural person') }}</option></Seleccion>
       </label>
       <label class="campo"><span>{{ t('ID type') }}</span><input v-model="form.tipo_identificacion" class="entrada" maxlength="20" :placeholder="t('e.g. NIT, RUC, VAT')" /></label>
       <label class="campo"><span>{{ t('Tax ID') }}</span><input v-model="form.id_fiscal" class="entrada" maxlength="40" /></label>
       <label class="campo"><span>{{ t('Country') }}</span><input v-model="form.pais" class="entrada" maxlength="2" :placeholder="t('ISO, e.g. SV')" @input="form.pais = form.pais.toUpperCase()" /></label>
       <label class="campo"><span>{{ t('Default currency') }}</span>
-        <select v-model="form.moneda" class="entrada"><option value="">—</option><option v-for="[c] in opcionesLista('moneda')" :key="c" :value="c">{{ c }}</option></select>
+        <Seleccion v-model="form.moneda" class="entrada"><option value="">—</option><option v-for="[c] in opcionesLista('moneda')" :key="c" :value="c">{{ c }}</option></Seleccion>
       </label>
       <label class="campo"><span>{{ t('Payment terms') }}</span>
-        <select v-model="form.condicion_pago" class="entrada"><option value="">—</option><option v-for="[c, n] in opcionesLista('condicion_pago')" :key="c" :value="c">{{ tx(n) }}</option></select>
+        <Seleccion v-model="form.condicion_pago" class="entrada"><option value="">—</option><option v-for="[c, n] in opcionesLista('condicion_pago')" :key="c" :value="c">{{ tx(n) }}</option></Seleccion>
       </label>
     </div>
     <fieldset class="mt"><legend>{{ t('Roles') }}</legend>
@@ -177,19 +178,19 @@ const alternarRol = (r) => {
     </fieldset>
     <fieldset class="mt"><legend>{{ t('Addresses') }}</legend>
       <div v-for="(d, i) in form.direcciones" :key="i" class="fila-flex mt">
-        <select v-model="d.tipo" class="entrada" :aria-label="t('Type')"><option v-for="[v, txt] in TIPOS_DIRECCION" :key="v" :value="v">{{ tx(txt) }}</option></select>
+        <Seleccion v-model="d.tipo" class="entrada" :aria-label="t('Type')"><option v-for="[v, txt] in TIPOS_DIRECCION" :key="v" :value="v">{{ tx(txt) }}</option></Seleccion>
         <input v-model="d.linea1" class="entrada" maxlength="300" :placeholder="t('Address')" :aria-label="t('Address')" />
         <input v-model="d.ciudad" class="entrada" maxlength="100" :placeholder="t('City')" :aria-label="t('City')" />
-        <input v-model="d.pais" class="entrada" maxlength="2" style="width: 64px" :placeholder="t('Country')" :aria-label="t('Country')" @input="d.pais = (d.pais || '').toUpperCase()" />
+        <input v-model="d.pais" class="entrada ancho-xs" maxlength="2" :placeholder="t('Country')" :aria-label="t('Country')" @input="d.pais = (d.pais || '').toUpperCase()" />
         <button type="button" class="btn-icono" :aria-label="t('Remove')" @click="form.direcciones.splice(i, 1)"><Icono nombre="basura" :tam="15" /></button>
       </div>
       <button type="button" class="btn btn-chico mt" @click="form.direcciones.push({ tipo: 'FISCAL', linea1: '', ciudad: '', pais: form.pais, principal: !form.direcciones.length })"><Icono nombre="mas" :tam="14" />{{ t('Add address') }}</button>
     </fieldset>
     <fieldset class="mt"><legend>{{ t('Contact channels') }}</legend>
       <div v-for="(m, i) in form.medios" :key="i" class="fila-flex mt">
-        <select v-model="m.tipo" class="entrada" :aria-label="t('Type')"><option v-for="[v, txt] in TIPOS_MEDIO" :key="v" :value="v">{{ tx(txt) }}</option></select>
+        <Seleccion v-model="m.tipo" class="entrada" :aria-label="t('Type')"><option v-for="[v, txt] in TIPOS_MEDIO" :key="v" :value="v">{{ tx(txt) }}</option></Seleccion>
         <input v-model="m.valor" class="entrada" maxlength="200" :aria-label="t('Value')" />
-        <select v-model="m.uso" class="entrada" :aria-label="t('Use')"><option :value="null">{{ t('General') }}</option><option v-for="[c, n] in opcionesLista('tipo_contacto')" :key="c" :value="c">{{ tx(n) }}</option></select>
+        <Seleccion v-model="m.uso" class="entrada" :aria-label="t('Use')"><option :value="null">{{ t('General') }}</option><option v-for="[c, n] in opcionesLista('tipo_contacto')" :key="c" :value="c">{{ tx(n) }}</option></Seleccion>
         <label class="casilla"><input v-model="m.principal" type="checkbox" />{{ t('Main') }}</label>
         <button type="button" class="btn-icono" :aria-label="t('Remove')" @click="form.medios.splice(i, 1)"><Icono nombre="basura" :tam="15" /></button>
       </div>

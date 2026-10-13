@@ -412,22 +412,23 @@ svg { flex: none; }
 .campo > span { font-weight: 580; }
 /* Estilo base de todo campo (también los que no están en un .campo ni en una barra
    de filtros): sin especificidad, así cualquier clase propia lo ajusta */
-:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden'], [type='submit'], [type='button']), select, textarea) {
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden'], [type='submit'], [type='button']), select, textarea),
+.entrada, .campo input:not([type='checkbox']):not([type='radio']):not([type='file']), .campo select, .campo textarea, .filtros input, .filtros select {
   border: 1px solid var(--linea); border-radius: var(--radio); padding: 7px 10px; min-height: 36px; background: var(--superficie); color: var(--tinta); min-width: 0;
-  transition: border-color 0.12s, box-shadow 0.12s;
+  font: inherit; font-size: 0.9rem; transition: border-color 0.12s, box-shadow 0.12s;
 }
-:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden']), select, textarea):focus {
-  border-color: var(--acento); outline: none; box-shadow: 0 0 0 3px var(--foco);
-}
-:where(textarea) { resize: vertical; }
-.entrada, .campo input:not([type='checkbox']):not([type='radio']), .campo select, .campo textarea, .filtros input, .filtros select {
-  border: 1px solid var(--linea); border-radius: var(--radio); padding: 7px 10px; min-height: 36px; background: var(--superficie); color: var(--tinta); min-width: 0;
-  transition: border-color 0.12s, box-shadow 0.12s;
-}
-.campo textarea { min-height: 72px; resize: vertical; }
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden']), select, textarea):focus,
 .entrada:focus, .campo input:focus, .campo select:focus, .campo textarea:focus, .filtros input:focus, .filtros select:focus {
   border-color: var(--acento); outline: none; box-shadow: 0 0 0 3px var(--foco);
 }
+:where(textarea), .campo textarea { resize: vertical; }
+.campo textarea { min-height: 72px; }
+:is(input, textarea)::placeholder { color: var(--tinta-3); opacity: 1; }
+:is(input, select, textarea):disabled { background: var(--superficie-2); color: var(--tinta-2); cursor: not-allowed; }
+/* Campo chico (en una barra o fila de edición): mismo aspecto, menos alto */
+.entrada.chica, .entrada-chica { min-height: 30px; padding: 4px 8px; font-size: 0.84rem; }
+/* Un archivo en una fila de controles ocupa el espacio que sobra */
+.fila-flex > .archivo-campo, .filtros > .archivo-campo { flex: 1 1 280px; max-width: 520px; }
 .rejilla-campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px 16px; }
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.92rem; }
 input[type='checkbox'], input[type='radio'] { accent-color: var(--acento); width: 16px; height: 16px; }
@@ -534,7 +535,7 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); l
 .tabla td .etiqueta { font-size: var(--td-etq); }
 .tabla td :is(.btn-chico, .btn) { min-height: var(--td-ctrl); padding-block: 0; font-size: var(--td-sub); }
 .tabla td .btn-icono { min-width: var(--td-ctrl); min-height: var(--td-ctrl); }
-.tabla td :is(.celda, .entrada, select, input:not([type='checkbox']):not([type='radio'])) { min-height: var(--td-ctrl); font-size: var(--td-fs); padding-block: 2px; }
+.tabla td :is(.celda, .entrada, select, .sb-boton, .archivo-campo, input:not([type='checkbox']):not([type='radio'])) { min-height: var(--td-ctrl); font-size: var(--td-fs); padding-block: 2px; }
 .td-compacta .tabla td .sub { display: inline; margin-inline-start: 6px; }
 /* Tablas con el aspecto de órdenes de compra: el documento de la fila va en
    negrita sin subrayar (enlace-doc + strong.codigo) y los demás enlaces de las
@@ -875,6 +876,12 @@ a.cajas-rango { color: var(--tinta); }
 .sin-sombra { box-shadow: none; }
 .nowrap { white-space: nowrap; }
 .mono { font-family: var(--mono); }
+.mayus { text-transform: uppercase; }
+/* Anchos fijos de campos en filas de edición (cantidades, precios, códigos) */
+.ancho-xs { width: 64px; } .ancho-s { width: 90px; } .ancho-m { width: 120px; } .ancho-l { width: 210px; } .ancho-xl { width: 300px; }
+.max-xs { max-width: 150px; } .max-l { max-width: 240px; } .max-xl { max-width: 300px; }
+/* Celda editable con su borde siempre a la vista (cuadrículas de captura) */
+.celda.con-borde { border-color: var(--linea); }
 .dos-columnas { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
 .dos-columnas .panel + .panel { margin-top: 0; }
 .texto-derecha { text-align: end; }
@@ -928,6 +935,19 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .archivo-icono { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--superficie); color: var(--acento-texto); }
 .archivo-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .archivo-datos b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Archivo en una línea (CargaArchivo compacta): se ve como un campo más */
+.archivo-campo { display: flex; align-items: center; gap: 8px; min-height: 36px; min-width: 0; padding: 3px 4px 3px 10px; border: 1px solid var(--linea);
+  border-radius: var(--radio); background: var(--superficie); transition: border-color 0.12s, box-shadow 0.12s; }
+.archivo-campo:focus-within { border-color: var(--acento); box-shadow: 0 0 0 3px var(--foco); }
+.archivo-campo.encima { border-color: var(--acento); background: var(--acento-claro); border-style: dashed; }
+.archivo-campo.elegido { border-color: var(--acento-medio); }
+.archivo-campo.deshabilitado { opacity: 0.55; }
+.archivo-campo-icono { color: var(--tinta-3); flex: none; }
+.archivo-campo-nombre { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem; }
+.archivo-campo .btn { flex: none; box-shadow: none; }
+.boton-archivo { cursor: pointer; }
+.boton-archivo:focus-within { outline: 2px solid var(--acento); outline-offset: 2px; }
+.boton-archivo[aria-disabled='true'] { opacity: 0.5; pointer-events: none; }
 
 /* ---- Filtros activos (chips) ------------------------------------------- */
 .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }

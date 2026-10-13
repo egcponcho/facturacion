@@ -12,6 +12,7 @@ import { opcionesLista } from '@/nucleo/listas.js'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFecha, fmtMoneda } from '@/nucleo/utils'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 // Cobros (de clientes) y pagos (a proveedores). Un pago se reparte entre los
 // documentos con saldo del tercero; lo que no se aplica queda a su favor.
@@ -182,15 +183,15 @@ async function anular() {
         <SelectBusqueda v-model="modal.tercero_id" :buscar="buscarTerceros" :prefijo="false" :etiqueta="t('Business partner')" @change="alElegirTercero" />
       </label>
       <label class="campo"><span class="req">{{ t('Company') }}</span>
-        <select v-model="modal.sociedad" class="entrada"><option v-for="s in op.sociedades" :key="s.codigo" :value="s.codigo">{{ s.codigo }} · {{ tx(s.nombre) }}</option></select>
+        <Seleccion v-model="modal.sociedad" class="entrada"><option v-for="s in op.sociedades" :key="s.codigo" :value="s.codigo">{{ s.codigo }} · {{ tx(s.nombre) }}</option></Seleccion>
       </label>
       <label class="campo"><span class="req">{{ t('Currency') }}</span>
-        <select v-model="modal.moneda" class="entrada"><option v-for="[c] in opcionesLista('moneda')" :key="c" :value="c">{{ c }}</option></select>
+        <Seleccion v-model="modal.moneda" class="entrada"><option v-for="[c] in opcionesLista('moneda')" :key="c" :value="c">{{ c }}</option></Seleccion>
       </label>
       <label class="campo"><span class="req">{{ t('Amount') }}</span><input v-model="modal.importe" type="number" min="0.01" step="any" class="entrada" /></label>
-      <label class="campo"><span class="req">{{ t('Date') }}</span><input v-model="modal.fecha" type="date" class="entrada" /></label>
+      <label class="campo"><span class="req">{{ t('Date') }}</span><CampoFecha v-model="modal.fecha" /></label>
       <label class="campo"><span>{{ t('Payment method') }}</span>
-        <select v-model="modal.metodo_pago" class="entrada"><option v-for="m in op.metodos_pago" :key="m.codigo" :value="m.codigo">{{ tx(m.nombre) }}</option></select>
+        <Seleccion v-model="modal.metodo_pago" class="entrada"><option v-for="m in op.metodos_pago" :key="m.codigo" :value="m.codigo">{{ tx(m.nombre) }}</option></Seleccion>
       </label>
       <label class="campo"><span>{{ t('Reference') }}</span><input v-model="modal.referencia" class="entrada" maxlength="80" /></label>
     </div>
@@ -205,7 +206,7 @@ async function anular() {
             <td>{{ tx(x.nombre) }} <span class="sub">{{ tx(x.tipo_nombre) }}</span></td>
             <td>{{ fmtFecha(x.fecha_vencimiento) }} <EstadoBadge v-if="x.estado_cobro === 'VENCIDO'" estado="VENCIDO" tipo="cobro" /></td>
             <td class="num">{{ fmtMoneda(x.saldo, x.moneda) }}</td>
-            <td class="num"><input v-model="modal.aplicar[x.id]" type="number" min="0" :max="x.saldo" step="any" class="entrada num" style="width: 120px" :aria-label="t('Apply')" /></td>
+            <td class="num"><input v-model="modal.aplicar[x.id]" type="number" min="0" :max="x.saldo" step="any" class="entrada num ancho-m" :aria-label="t('Apply')" /></td>
           </tr>
         </tbody>
       </table>

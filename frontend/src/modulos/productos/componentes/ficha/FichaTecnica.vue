@@ -10,6 +10,7 @@ import Icono from '@/componentes/Icono.vue'
 import CampoCategoria from './CampoCategoria.vue'
 import CampoFicha from './CampoFicha.vue'
 import ComposicionParte from './ComposicionParte.vue'
+import BotonArchivo from '@/componentes/BotonArchivo.vue'
 
 // Formulario de la ficha técnica para cualquier categoría (también las creadas
 // en la configuración): los datos que aplican, en qué orden, cuáles son
@@ -194,7 +195,7 @@ function editarDesc() {
         <b>{{ t('Teach the system.') }}</b>
         {{ t('{0} and you chose “{1}”. Save a keyword so it is recognized next time.', [tipoDetectado ? t('From the name it looked like “{0}”', [etiquetaCat(tipoDetectado)]) : t('The category was not recognized from the name'), etiquetaCat(f.tipo)]) }}
         <div class="fila-flex mt-chico">
-          <input v-model="frase" class="entrada" type="text" :aria-label="t('Keyword')" style="max-width: 240px" />
+          <input v-model="frase" class="entrada max-l" type="text" :aria-label="t('Keyword')" />
           <label v-if="producto.marca_nombre" class="check"><input v-model="soloMarca" type="checkbox" /><span>{{ t('Only for {0}', [producto.marca_nombre]) }}</span></label>
           <button type="button" class="btn btn-chico" @click="ensenarPalabra">{{ t('Save keyword') }}</button>
           <button type="button" class="btn btn-chico btn-fantasma" @click="ensenarCerrado = true">{{ t('Not now') }}</button>
@@ -251,8 +252,8 @@ function editarDesc() {
             <a :href="`/api/productos/fotos/${x.id}`" target="_blank" rel="noopener"><img :src="`/api/productos/fotos/${x.id}`" :alt="tx(x.nombre)" loading="lazy" /></a>
             <button v-if="props.editable" type="button" :aria-label="t('Remove {0}', [x.nombre])" @click="emit('borrar-foto', x)">{{ t('Remove') }}</button>
           </figure>
-          <label v-if="props.editable && producto.fotos.length < 8" class="foto-add"><Icono nombre="mas" :tam="16" /> {{ t('Add photos') }}
-            <input type="file" accept="image/jpeg,image/png,image/webp" class="oculto-visual" @change="emit('subir-foto', $event)" /></label>
+          <BotonArchivo v-if="props.editable && producto.fotos.length < 8" class="foto-add" acepta="image/jpeg,image/png,image/webp"
+                        @elegir="(a) => emit('subir-foto', a)"><Icono nombre="mas" :tam="16" /> {{ t('Add photos') }}</BotonArchivo>
         </div>
         <p class="hint" style="margin-top: 8px">{{ t('Front, side and sole or label: they help to confirm the materials. JPG, PNG or WebP up to {0} MB.', [sesion.usuario?.max_subida_mb]) }}</p>
       </fieldset>

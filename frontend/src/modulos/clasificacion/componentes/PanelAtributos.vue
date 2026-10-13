@@ -15,6 +15,7 @@ import CampoComportamiento from '@/modulos/clasificacion/componentes/comportamie
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtNum } from '@/nucleo/utils'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 // Atributos de la ficha técnica en base de datos: qué se pregunta, con qué
 // opciones y dónde (sistema, dominio, capítulo/partida/subpartida o categoría
@@ -269,9 +270,9 @@ async function sincronizar() {
           <label class="campo"><span>{{ t('Other codes (aliases)') }}</span>
             <input :value="aliasTexto(det)" :disabled="!edita" :placeholder="t('separated by commas')" @change="guardarAlias($event.target.value)" /></label>
           <label v-if="det.tipo_dato === 'boolean'" class="campo"><span>{{ t('Default answer') }}</span>
-            <select :value="det.valor_defecto || ''" :disabled="!edita" class="celda" :aria-label="t('Default answer')" @change="campo('valor_defecto', $event.target.value)">
+            <Seleccion :value="det.valor_defecto || ''" :disabled="!edita" class="celda" :aria-label="t('Default answer')" @change="campo('valor_defecto', String($event ?? ''))">
               <option value="">{{ t('None (must be answered)') }}</option><option value="true">{{ t('Yes') }}</option><option value="false">{{ t('No') }}</option>
-            </select></label>
+            </Seleccion></label>
           <label class="sw"><Interruptor :model-value="det.usado_clasificacion" :deshabilitado="!edita" :etiqueta="t('Used to classify')" @update:model-value="campo('usado_clasificacion', $event)" />{{ t('Used to classify') }}</label>
           <label class="sw"><Interruptor :model-value="det.informativo" :deshabilitado="!edita" :etiqueta="t('Descriptive only')" @update:model-value="campo('informativo', $event)" />{{ t('Descriptive only') }}</label>
           <span v-if="det.de_composicion" class="ayuda">{{ t('Deduced from the composition when possible.') }}</span>
@@ -307,9 +308,9 @@ async function sincronizar() {
                     :clase-fila="(x) => ({ apagada: !x.activo })" :etiqueta="t('Where it is asked')">
           <template #celda-ambito="{ fila: x }"><small class="ayuda">{{ tx(AMBITO[x.tipo_ambito]) }}</small><br />{{ tx(codigoAmbito(x)) }}</template>
           <template #celda-modo="{ fila: x }">
-            <select :value="x.modo" :disabled="!edita" class="celda" :aria-label="t('Mode')" @change="ambito(x, { modo: $event.target.value })">
+            <Seleccion :value="x.modo" :disabled="!edita" class="celda" :aria-label="t('Mode')" @change="ambito(x, { modo: String($event ?? '') })">
               <option v-for="(l, k) in MODO" :key="k" :value="k">{{ tx(l) }}</option>
-            </select>
+            </Seleccion>
           </template>
           <template #celda-prioridad="{ fila: x }"><input class="celda num" type="number" :value="x.prioridad" :disabled="!edita" :aria-label="t('Priority')" @change="ambito(x, { prioridad: +$event.target.value })" /></template>
           <template #celda-condicion="{ fila: x }">
@@ -319,12 +320,12 @@ async function sincronizar() {
           <template v-if="edita" #acciones="{ fila: x }"><button type="button" class="btn-icono" :aria-label="t('Remove')" @click="ambito(x, { quitar: true })"><Icono nombre="basura" :tam="15" /></button></template>
         </TablaDatos>
         <div v-if="edita" class="agregar">
-          <select v-model="nuevoAmb.tipo_ambito" class="celda" :aria-label="t('Asked in')" @change="nuevoAmb.codigo_ambito = ''">
+          <Seleccion v-model="nuevoAmb.tipo_ambito" class="celda" :aria-label="t('Asked in')" @change="nuevoAmb.codigo_ambito = ''">
             <option v-for="(l, k) in AMBITO" :key="k" :value="k">{{ tx(l) }}</option>
-          </select>
+          </Seleccion>
           <SelectBusqueda v-if="opcionesCodigoAmbito" v-model="nuevoAmb.codigo_ambito" :opciones="opcionesCodigoAmbito" :etiqueta="t('Asked in')" :placeholder="t('Choose…')" />
           <input v-else v-model="nuevoAmb.codigo_ambito" class="celda" :placeholder="t('Code, e.g. 28 or 2915')" :aria-label="t('Code')" maxlength="10" inputmode="numeric" />
-          <select v-model="nuevoAmb.modo" class="celda" :aria-label="t('Mode')"><option v-for="(l, k) in MODO" :key="k" :value="k">{{ tx(l) }}</option></select>
+          <Seleccion v-model="nuevoAmb.modo" class="celda" :aria-label="t('Mode')"><option v-for="(l, k) in MODO" :key="k" :value="k">{{ tx(l) }}</option></Seleccion>
           <button class="btn btn-chico" :disabled="!nuevoAmb.codigo_ambito" @click="agregarAmbito"><Icono nombre="mas" :tam="14" />{{ t('Ask it here too') }}</button>
         </div>
       </div>
@@ -380,13 +381,11 @@ async function sincronizar() {
 .sw { display: inline-flex; gap: 8px; align-items: center; font-size: 0.86rem; }
 .aviso { background: var(--aviso-fondo); padding: 8px 10px; border-radius: var(--radio); font-size: 0.86rem; }
 .campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 12px 0; align-items: end; }
-.campo { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; }
 .campo.ancho { grid-column: 1 / -1; }
 h4 { margin: 16px 0 6px; font-size: 0.92rem; display: flex; gap: 6px; align-items: center; }
 .celda { width: 100%; min-width: 70px; }
 .celda::placeholder { color: var(--tinta-3); }
 .nueva .celda, .agregar .celda { border-color: var(--linea); background: var(--superficie); }
-.agregar select.celda { font-size: 0.86rem; padding: 6px 8px; }
 .celda.num { width: 80px; min-width: 0; }
 .cuando { min-width: 180px; max-width: 320px; white-space: normal; }
 .detalle :deep(tr.apagada > td) { opacity: 0.55; }

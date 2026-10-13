@@ -13,6 +13,7 @@ import { opcionesLista } from '@/nucleo/listas.js'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFecha, fmtMoneda, fmtNum } from '@/nucleo/utils'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 // Un documento comercial: en borrador se edita (cabecera y líneas con sus
 // impuestos; el servidor calcula los totales); emitido es de solo lectura y
@@ -210,15 +211,15 @@ const titulo = computed(() => (nuevo.value ? t('New document') : d.value ? (d.va
       <!-- Cabecera -->
       <div class="doc-datos">
         <label class="dato"><span class="req">{{ t('Document type') }}</span>
-          <select v-if="nuevo" v-model="form.tipo" class="entrada">
+          <Seleccion v-if="nuevo" v-model="form.tipo" class="entrada">
             <option v-for="x in op.tipos" :key="x.codigo" :value="x.codigo">{{ tx(x.nombre) }}</option>
-          </select>
+          </Seleccion>
           <b v-else>{{ tx(d.tipo_nombre) }}</b>
         </label>
         <label class="dato"><span class="req">{{ t('Company') }}</span>
-          <select v-if="nuevo" v-model="form.sociedad" class="entrada">
+          <Seleccion v-if="nuevo" v-model="form.sociedad" class="entrada">
             <option v-for="s in op.sociedades" :key="s.codigo" :value="s.codigo">{{ s.codigo }} · {{ tx(s.nombre) }}</option>
-          </select>
+          </Seleccion>
           <b v-else>{{ tx(d.sociedad) }}</b>
         </label>
         <label class="dato" style="grid-column: span 2"><span class="req">{{ recibido ? t('Supplier') : t('Customer') }}</span>
@@ -228,21 +229,21 @@ const titulo = computed(() => (nuevo.value ? t('New document') : d.value ? (d.va
           <small v-if="errorDe('tercero_id')" class="texto-error">{{ tx(errorDe('tercero_id')) }}</small>
         </label>
         <label class="dato"><span>{{ t('Date') }}</span>
-          <input v-if="editable" v-model="form.fecha" type="date" class="entrada" />
+          <CampoFecha v-if="editable" v-model="form.fecha" />
           <b v-else>{{ fmtFecha(d.fecha) }}</b>
         </label>
         <label class="dato"><span>{{ t('Currency') }}</span>
-          <select v-if="editable" v-model="form.moneda" class="entrada">
+          <Seleccion v-if="editable" v-model="form.moneda" class="entrada">
             <option value="">{{ t('Of the company') }}</option>
             <option v-for="[c, n] in opcionesLista('moneda')" :key="c" :value="c">{{ c }} · {{ tx(n) }}</option>
-          </select>
+          </Seleccion>
           <b v-else>{{ tx(d.moneda) }}<template v-if="d.tipo_cambio !== 1"> · {{ fmtNum(d.tipo_cambio, 4) }}</template></b>
         </label>
         <label class="dato"><span>{{ t('Payment terms') }}</span>
-          <select v-if="editable" v-model="form.condicion_pago" class="entrada">
+          <Seleccion v-if="editable" v-model="form.condicion_pago" class="entrada">
             <option value="">{{ t('Cash (due on its date)') }}</option>
             <option v-for="c in op.condiciones_pago" :key="c.codigo" :value="c.codigo">{{ tx(c.nombre) }}</option>
-          </select>
+          </Seleccion>
           <b v-else>{{ tx(op.condiciones_pago.find((c) => c.codigo === d.condicion_pago)?.nombre || d.condicion_pago || '—') }}</b>
         </label>
         <label v-if="recibido" class="dato"><span class="req">{{ t("Supplier's number") }}</span>
@@ -269,11 +270,11 @@ const titulo = computed(() => (nuevo.value ? t('New document') : d.value ? (d.va
           <tbody>
             <tr v-for="(l, i) in form.lineas" :key="i">
               <td><input v-model="l.descripcion" class="entrada" maxlength="300" :aria-label="t('Description')" /></td>
-              <td class="num"><input v-model="l.cantidad" type="number" min="0.001" step="any" class="entrada num" style="width: 90px" :aria-label="t('Quantity')" /></td>
-              <td><select v-model="l.unidad" class="entrada" :aria-label="t('Unit')"><option value="">—</option>
-                <option v-for="[c] in opcionesLista('unidad')" :key="c" :value="c">{{ c }}</option></select></td>
-              <td class="num"><input v-model="l.precio_unitario" type="number" min="0" step="any" class="entrada num" style="width: 120px" :aria-label="t('Unit price')" /></td>
-              <td class="num"><input v-model="l.descuento_pct" type="number" min="0" max="100" step="any" class="entrada num" style="width: 80px" :aria-label="t('Discount %')" /></td>
+              <td class="num"><input v-model="l.cantidad" type="number" min="0.001" step="any" class="entrada num ancho-s" :aria-label="t('Quantity')" /></td>
+              <td><Seleccion v-model="l.unidad" class="entrada" :aria-label="t('Unit')"><option value="">—</option>
+                <option v-for="[c] in opcionesLista('unidad')" :key="c" :value="c">{{ c }}</option></Seleccion></td>
+              <td class="num"><input v-model="l.precio_unitario" type="number" min="0" step="any" class="entrada num ancho-m" :aria-label="t('Unit price')" /></td>
+              <td class="num"><input v-model="l.descuento_pct" type="number" min="0" max="100" step="any" class="entrada num ancho-s" :aria-label="t('Discount %')" /></td>
               <td style="min-width: 200px">
                 <SelectBusqueda :model-value="l.impuestos ?? (recibido ? [] : defectoImpuestos)" multiple :opciones="opcionesImpuestos" :prefijo="false"
                                 :placeholder="t('No taxes')" :etiqueta="t('Taxes')" @update:model-value="(v) => (l.impuestos = v)" />
@@ -361,9 +362,9 @@ const titulo = computed(() => (nuevo.value ? t('New document') : d.value ? (d.va
   <Modal v-if="modal?.tipo === 'pago'" :titulo="d.direccion === 'EMITIDO' ? t('Register collection') : t('Register payment')" @cerrar="modal = null">
     <div class="rejilla-formulario">
       <label class="campo"><span class="req">{{ t('Amount') }}</span><input v-model="modal.importe" type="number" min="0.01" step="any" class="entrada" /></label>
-      <label class="campo"><span class="req">{{ t('Date') }}</span><input v-model="modal.fecha" type="date" class="entrada" /></label>
+      <label class="campo"><span class="req">{{ t('Date') }}</span><CampoFecha v-model="modal.fecha" /></label>
       <label class="campo"><span>{{ t('Payment method') }}</span>
-        <select v-model="modal.metodo_pago" class="entrada"><option v-for="m in op.metodos_pago" :key="m.codigo" :value="m.codigo">{{ tx(m.nombre) }}</option></select>
+        <Seleccion v-model="modal.metodo_pago" class="entrada"><option v-for="m in op.metodos_pago" :key="m.codigo" :value="m.codigo">{{ tx(m.nombre) }}</option></Seleccion>
       </label>
       <label class="campo"><span>{{ t('Reference') }}</span><input v-model="modal.referencia" class="entrada" maxlength="80" /></label>
     </div>

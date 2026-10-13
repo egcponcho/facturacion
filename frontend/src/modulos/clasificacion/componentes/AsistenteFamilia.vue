@@ -13,6 +13,7 @@ import { cargarContexto } from '@/modulos/clasificacion/useClasificacion'
 import { fmtCode } from '@/modulos/clasificacion/formato.js'
 import { avisar, errorApi } from '@/stores/ui'
 import { confirmar } from '@/stores/confirmar'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 const props = defineProps({ codigo: { type: String, default: '' } })
 const emit = defineEmits(['codigo', 'listo', 'cerrar'])
@@ -190,7 +191,7 @@ watch(() => props.codigo, cargar)
         <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="forma.nombre" class="entrada" maxlength="100" /></label>
         <label class="campo ancho"><span>{{ t('Description') }}</span><input v-model="forma.descripcion" class="entrada" maxlength="400" /></label>
         <label class="campo"><span>{{ t('How it is classified') }}</span>
-          <select v-model="forma.modo" class="entrada"><option value="AUTO">{{ t('The engine suggests the code') }}</option><option value="MANUAL">{{ t('Always by hand') }}</option></select></label>
+          <Seleccion v-model="forma.modo" class="entrada"><option value="AUTO">{{ t('The engine suggests the code') }}</option><option value="MANUAL">{{ t('Always by hand') }}</option></Seleccion></label>
       </div>
       <div class="pie"><button class="btn btn-primario" :disabled="ocupado || !forma.nombre || !forma.codigo" @click="guardarFamilia">{{ t('Save and continue') }}<Icono nombre="derecha" :tam="15" /></button></div>
     </div>
@@ -203,8 +204,8 @@ watch(() => props.codigo, cargar)
       <ul class="lista-filas">
         <li v-for="c in fam.capitulos" :key="c.capitulo">
           <b>{{ tx(c.capitulo) }}</b><span class="crece">{{ tx(c.titulo) }}<small v-if="!c.automatico" class="aviso-txt"> · {{ t('by hand only') }}</small></span>
-          <select class="entrada corto" :value="c.relevancia" :aria-label="t('Relevance')" @change="capitulo(c.capitulo, { relevancia: $event.target.value, habilitado: true })">
-            <option value="PRIMARY">{{ t('Main') }}</option><option value="SECONDARY">{{ t('Secondary') }}</option></select>
+          <Seleccion class="entrada corto" :value="c.relevancia" :aria-label="t('Relevance')" @change="capitulo(c.capitulo, { relevancia: String($event ?? ''), habilitado: true })">
+            <option value="PRIMARY">{{ t('Main') }}</option><option value="SECONDARY">{{ t('Secondary') }}</option></Seleccion>
           <button type="button" class="btn-icono" :aria-label="t('Remove')" @click="capitulo(c.capitulo, { quitar: true })"><Icono nombre="basura" :tam="15" /></button>
         </li>
         <li v-if="!fam.capitulos.length" class="vacio-fila">{{ t('No chapters yet.') }}</li>
@@ -237,8 +238,8 @@ watch(() => props.codigo, cargar)
       <ul class="lista-filas">
         <li v-for="q in fam.preguntas" :key="q.ambito_id">
           <b class="crece">{{ tx(q.etiqueta) }} <small class="ayuda">{{ tx(q.tipo_ambito === 'CATEGORY' ? t('only in {0}', [q.codigo_ambito]) : '') }}</small></b>
-          <select class="entrada corto" :value="q.modo" :aria-label="t('Mode')" @change="preguntar(q.atributo_id, { modo: $event.target.value }, q.ambito_id)">
-            <option v-for="(l, k) in MODO" :key="k" :value="k">{{ tx(l) }}</option></select>
+          <Seleccion class="entrada corto" :value="q.modo" :aria-label="t('Mode')" @change="preguntar(q.atributo_id, { modo: String($event ?? '') }, q.ambito_id)">
+            <option v-for="(l, k) in MODO" :key="k" :value="k">{{ tx(l) }}</option></Seleccion>
           <button type="button" class="btn-icono" :aria-label="t('Remove')" @click="preguntar(q.atributo_id, { quitar: true }, q.ambito_id)"><Icono nombre="basura" :tam="15" /></button>
         </li>
         <li v-if="!fam.preguntas.length" class="vacio-fila">{{ t('No questions yet.') }}</li>
@@ -274,10 +275,10 @@ watch(() => props.codigo, cargar)
       <p class="ayuda">{{ t('Write an example item as a supplier would and answer the questions: you see the code the engine would suggest and why. Nothing is saved.') }}</p>
       <form class="agregar" @submit.prevent="probar()">
         <input v-model="prueba.nombre" class="entrada crece" :placeholder="t('Item name, e.g. Ceramic coffee mug 350 ml')" :aria-label="t('Item name')" />
-        <select v-model="prueba.categoria" class="entrada" :aria-label="t('Category')">
+        <Seleccion v-model="prueba.categoria" class="entrada" :aria-label="t('Category')">
           <option value="">{{ t('Detect the category') }}</option>
           <option v-for="c in fam.categorias" :key="c.codigo" :value="c.codigo">{{ tx(c.nombre) }}</option>
-        </select>
+        </Seleccion>
         <button class="btn" type="submit" :disabled="ocupado || (!prueba.nombre && !prueba.categoria)"><Icono nombre="varita" :tam="14" />{{ t('Test') }}</button>
       </form>
       <div v-if="resultado" class="resultado">
@@ -287,10 +288,10 @@ watch(() => props.codigo, cargar)
         </div>
         <div v-if="preguntasPrueba.length" class="preguntas">
           <label v-for="c in preguntasPrueba" :key="c.codigo" class="campo"><span>{{ tx(c.etiqueta) }}<b v-if="c.estado === 'preguntar'" class="aviso-txt"> *</b></span>
-            <select class="entrada" :value="String(c.valor ?? '')" @change="probar({ campo: c.codigo, valor: $event.target.value || null })">
+            <Seleccion class="entrada" :value="String(c.valor ?? '')" @change="probar({ campo: c.codigo, valor: String($event ?? '') || null })">
               <option value="">—</option>
               <option v-for="o in c.opciones" :key="o.codigo" :value="o.codigo" :disabled="o.bloqueada">{{ tx(o.etiqueta) }}</option>
-            </select></label>
+            </Seleccion></label>
         </div>
         <ul class="razones"><li v-for="(x, i) in (resultado.razones || []).slice(0, 5)" :key="i">{{ tx(x) }}</li></ul>
         <ul v-if="resultado.revision_por?.length" class="razones aviso-txt"><li v-for="(x, i) in resultado.revision_por.slice(0, 3)" :key="i">{{ tx(x) }}</li></ul>

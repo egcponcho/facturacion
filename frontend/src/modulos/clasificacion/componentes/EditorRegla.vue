@@ -8,6 +8,7 @@ import Modal from '@/componentes/Modal.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import { cargarContexto } from '@/modulos/clasificacion/useClasificacion'
 import { avisar, errorApi } from '@/stores/ui'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 // Regla propia del motor: DÓNDE aplica (ámbito), CUÁNDO (condiciones en
 // grupos Y / O) y QUÉ hace (restringir, excluir o subir códigos, preguntar
@@ -110,7 +111,7 @@ async function guardar() {
     <h3 class="paso">2 · {{ t('Where it applies') }}</h3>
     <div class="rejilla-campos">
       <label class="campo"><span>{{ t('Applies to') }}</span>
-        <select v-model="m.tipo_ambito" class="entrada" @change="m.codigo_ambito = ''"><option v-for="[v, l] in AMBITOS" :key="v" :value="v">{{ tx(l) }}</option></select></label>
+        <Seleccion v-model="m.tipo_ambito" class="entrada" @change="m.codigo_ambito = ''"><option v-for="[v, l] in AMBITOS" :key="v" :value="v">{{ tx(l) }}</option></Seleccion></label>
       <label v-if="m.tipo_ambito === 'DOMAIN'" class="campo"><span>{{ t('Domain') }}</span>
         <SelectBusqueda v-model="m.codigo_ambito" :opciones="dominios.map((d) => ({ valor: d.codigo, texto: d.nombre }))" :etiqueta="t('Domain')" /></label>
       <label v-else-if="m.tipo_ambito === 'CATEGORY'" class="campo"><span>{{ t('Product category') }}</span>
@@ -126,7 +127,7 @@ async function guardar() {
     <h3 class="paso">4 · {{ t('Then') }}</h3>
     <div class="rejilla-campos">
       <label class="campo"><span>{{ t('Action') }}</span>
-        <select v-model="m.accion.tipo" class="entrada"><option v-for="[v, l] in ACCIONES[m.tipo_regla]" :key="v" :value="v">{{ tx(l) }}</option></select></label>
+        <Seleccion v-model="m.accion.tipo" class="entrada"><option v-for="[v, l] in ACCIONES[m.tipo_regla]" :key="v" :value="v">{{ tx(l) }}</option></Seleccion></label>
       <div v-if="necesitaCodigos && m.por" class="campo ancho"><span>{{ t('Code by {0}', [m.por === 'fibra' ? t('predominant fiber') : m.por]) }}</span>
         <div class="mapa">
           <label v-for="(fila, i) in m.mapa" :key="i" class="mapa-fila"><span>{{ fila[0] ? tx(fila[0]) : t('(no value)') }}</span>

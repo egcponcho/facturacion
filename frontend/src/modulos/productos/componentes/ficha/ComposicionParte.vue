@@ -193,7 +193,6 @@ function pegar() {
 .chip-l { font-size: 0.78rem; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--linea); color: var(--tinta-2); }
 .chip-l.main { border-color: var(--acento); color: var(--acento-texto); font-weight: 600; }
 .teach { display: inline-flex; gap: 6px; align-items: center; font-size: 0.8rem; border: 1px solid var(--aviso-borde); border-radius: 8px; padding: 3px 6px; background: var(--aviso-fondo); color: var(--aviso); }
-.teach select { width: auto; padding: 2px 6px; font-size: 0.8rem; }
 .ctexto { margin-top: 8px; }
 .ctexto .resumen { border: 1px solid var(--linea); border-radius: 7px; background: var(--superficie-2); font-size: 0.78rem; font-weight: 600; padding: 3px 10px; cursor: pointer; color: var(--tinta-2); font-family: inherit; }
 .ctexto .resumen:hover { border-color: var(--acento); }

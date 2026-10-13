@@ -11,6 +11,7 @@ import { cargarSesion } from '@/stores/sesion'
 import { avisar, errorApi, guardando } from '@/stores/ui'
 import { reducirImagen } from '@/nucleo/utils'
 import { estadoFabrica } from '@/nucleo/estados.js'
+import BotonArchivo from '@/componentes/BotonArchivo.vue'
 
 // Empresa de la instalación: datos generales, logo, preferencias y reglas de
 // negocio. Solo la administración los cambia.
@@ -110,13 +111,11 @@ onMounted(() => {
   api.get('/catalogos/sociedades/opciones').then((r) => { sociedades.value = r.map((x) => ({ valor: x.codigo, texto: x.texto })) }).catch(() => {})
 })
 
-async function subirLogo(ev) {
+async function subirLogo(archivo) {
   try {
-    datos.value.logo = await reducirImagen(ev.target.files[0], 320)
+    datos.value.logo = await reducirImagen(archivo, 320)
   } catch (e) {
     errorApi(e)
-  } finally {
-    ev.target.value = ''
   }
 }
 
@@ -157,7 +156,7 @@ async function guardar() {
         <div class="empresa-logo">
           <img v-if="datos.logo" :src="datos.logo" :alt="t('Company logo')" />
           <span v-else class="empresa-logo-vacio"><Icono nombre="caja" :tam="28" /></span>
-          <label class="btn btn-chico"><Icono nombre="importar" :tam="14" />{{ t('Upload logo') }}<input type="file" accept="image/png,image/jpeg,image/webp" hidden @change="subirLogo" /></label>
+          <BotonArchivo acepta="image/png,image/jpeg,image/webp" @elegir="subirLogo"><Icono nombre="importar" :tam="14" />{{ t('Upload logo') }}</BotonArchivo>
           <button v-if="datos.logo" type="button" class="btn btn-chico btn-fantasma" @click="datos.logo = null">{{ t('Remove') }}</button>
         </div>
         <div class="rejilla-campos">

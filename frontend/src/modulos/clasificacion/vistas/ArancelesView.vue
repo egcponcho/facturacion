@@ -572,7 +572,7 @@ onMounted(async () => {
           <option v-for="v in versionesDe(modal.pais)" :key="v.codigo" :value="v.codigo">{{ tx(v.texto) }}{{ v.fuente ? ` · ${v.fuente}` : '' }}</option></Seleccion>
         <small class="ayuda">{{ t('National lines are official data: they are created only from a published source and version. Your own preferences go to the company history.') }}</small></label>
       <label v-if="!modal.id && modal.version && !versionesDe(modal.pais).find((v) => v.codigo === modal.version)?.vigente_desde" class="campo">
-        <span class="req">{{ t('Valid from (as published)') }}</span><input v-model="modal.vigente_desde" type="date" class="entrada" /></label>
+        <span class="req">{{ t('Valid from (as published)') }}</span><CampoFecha v-model="modal.vigente_desde" /></label>
     </div>
     <h3 class="mt">{{ t('When it applies') }}</h3>
     <p class="ayuda">{{ t('Leave empty what does not matter. The engine picks the code whose conditions match the technical sheet.') }}
@@ -714,7 +714,7 @@ onMounted(async () => {
         <Seleccion v-model="modal.version" class="entrada"><option value="">{{ t('Choose…') }}</option>
           <option v-for="v in versionesDe(modal.pais)" :key="v.codigo" :value="v.codigo">{{ tx(v.texto) }}{{ v.fuente ? ` · ${v.fuente}` : '' }}</option></Seleccion></label>
       <label v-if="modal.version && !versionesDe(modal.pais).find((v) => v.codigo === modal.version)?.vigente_desde" class="campo">
-        <span class="req">{{ t('Valid from (as published)') }}</span><input v-model="modal.vigente_desde" type="date" class="entrada" /></label>
+        <span class="req">{{ t('Valid from (as published)') }}</span><CampoFecha v-model="modal.vigente_desde" /></label>
     </div>
     <label v-if="modal.pais" class="check" style="margin-bottom: 10px"><input v-model="modal.reemplazar" type="checkbox" /><span>{{ t('Replace every code of {0} with this file (for a new tariff version)', [modal.pais]) }}</span></label>
   </CargaMasiva>

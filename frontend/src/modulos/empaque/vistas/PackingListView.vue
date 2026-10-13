@@ -843,12 +843,12 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       <TablaDatos tabla="pl_doc_recepcion" :columnas="columnasRecepcion" :filas="pl.lineas" :vistas-guardadas="false" :etiqueta="t('Warehouse receipt')">
         <template #celda-fila="{ fila: l }">{{ tx(l.estilo) }} <b>{{ tx(l.talla) }}</b><span class="sub codigo">{{ tx(l.codigo_articulo) }}</span></template>
         <template #celda-cantidad="{ fila: l }">{{ cantTxt(l.cantidad, l.unidad) }}</template>
-        <template #celda-recibida="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 90px; border-color: var(--linea)" :aria-label="t('Received {0}', [ref_(l)])" /></template>
-        <template #celda-danada="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 80px; border-color: var(--linea)" :aria-label="t('Damaged {0}', [ref_(l)])" /></template>
+        <template #celda-recibida="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num ancho-s con-borde" type="number" min="0" :step="pasoCantidad(l.unidad)" :aria-label="t('Received {0}', [ref_(l)])" /></template>
+        <template #celda-danada="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num ancho-s con-borde" type="number" min="0" :step="pasoCantidad(l.unidad)" :aria-label="t('Damaged {0}', [ref_(l)])" /></template>
         <template #celda-diferencia="{ fila: l }">
           <span :class="{ 'etiqueta error': recepcion[l.id].cantidad_recibida !== l.cantidad }">{{ fmtNum(recepcion[l.id].cantidad_recibida - l.cantidad) }}</span>
         </template>
-        <template #celda-observacion="{ fila: l }"><input v-model="recepcion[l.id].observacion" class="celda" style="border-color: var(--linea)" :aria-label="t('Remark {0}', [ref_(l)])" /></template>
+        <template #celda-observacion="{ fila: l }"><input v-model="recepcion[l.id].observacion" class="celda con-borde" :aria-label="t('Remark {0}', [ref_(l)])" /></template>
       </TablaDatos>
     </section>
   </template>
@@ -877,7 +877,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
             <td><span class="etiqueta ms-0" :class="REGLAS[f.regla]?.[1]">{{ tx(f.regla_txt) }}</span></td>
             <td class="num">{{ cantTxt(f.sin_caja, f.unidad) }}</td>
             <td>
-              <Seleccion v-model="modal.filas[i].plantilla_id" class="entrada" style="max-width: 210px" :aria-label="t('Template for {0}', [f.ref])">
+              <Seleccion v-model="modal.filas[i].plantilla_id" class="entrada max-l" :aria-label="t('Template for {0}', [f.ref])">
                 <option value="omitir">{{ t('Do not pack this row') }}</option>
                 <option v-if="f.regla !== 'LIBRE'" value="">{{ t('No template (dimensions later)') }}</option>
                 <option v-else value="" disabled>{{ t('Choose a template…') }}</option>
@@ -931,7 +931,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
           <tr v-for="i in modal.items" :key="i.pl_linea_id">
             <td>{{ tx(i.ref) }}<span v-if="i.inner" class="sub">{{ t('inner packs of {0}{1}', [i.inner, i.cantidad_por_caja ? innerTxt(i.cantidad_por_caja, i.inner) : '']) }}</span></td>
             <td class="num">{{ cantTxt(i.sin_caja, i.unidad) }}</td>
-            <td class="num"><input v-model.number="i.cantidad_por_caja" class="celda num" type="number" :min="pasoCantidad(i.unidad, i.inner)" :step="pasoCantidad(i.unidad, i.inner)" style="width: 90px; border-color: var(--linea)" :aria-label="t('Per carton {0}', [i.ref])" /></td>
+            <td class="num"><input v-model.number="i.cantidad_por_caja" class="celda num ancho-s con-borde" type="number" :min="pasoCantidad(i.unidad, i.inner)" :step="pasoCantidad(i.unidad, i.inner)" :aria-label="t('Per carton {0}', [i.ref])" /></td>
             <td class="num"><span :class="{ 'etiqueta error': i.cantidad_por_caja * modal.num_cajas > i.sin_caja }">{{ fmtNum((i.cantidad_por_caja || 0) * modal.num_cajas) }}</span></td>
           </tr>
         </tbody>
@@ -969,7 +969,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
           <tr v-for="fm in modal.filas" :key="fm.pl_linea_id">
             <td>{{ tx(fm.ref) }}</td>
             <td class="num">{{ cantTxt(fm.sin_caja, fm.unidad) }}</td>
-            <td class="num"><input v-model.number="fm.cantidad" class="celda num" type="number" min="0" :step="pasoCantidad(fm.unidad, fm.inner)" :max="fm.sin_caja" style="width: 90px; border-color: var(--linea)" :aria-label="t('Quantity {0}', [fm.ref])" /></td>
+            <td class="num"><input v-model.number="fm.cantidad" class="celda num ancho-s con-borde" type="number" min="0" :step="pasoCantidad(fm.unidad, fm.inner)" :max="fm.sin_caja" :aria-label="t('Quantity {0}', [fm.ref])" /></td>
           </tr>
         </tbody>
       </table>
@@ -1027,7 +1027,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
           <tr v-for="gm in modal.grupos" :key="gm.grupo_id">
             <td class="cajas-rango">{{ tx(gm.rango) }}</td>
             <td class="num">{{ tx(gm.max) }}</td>
-            <td class="num"><input v-model.number="gm.num_cajas" class="celda num" type="number" min="1" :max="gm.max" style="width: 80px; border-color: var(--linea)" :aria-label="t('Cartons to move from {0}', [gm.rango])" /></td>
+            <td class="num"><input v-model.number="gm.num_cajas" class="celda num ancho-s con-borde" type="number" min="1" :max="gm.max" :aria-label="t('Cartons to move from {0}', [gm.rango])" /></td>
           </tr>
         </tbody>
       </table>
