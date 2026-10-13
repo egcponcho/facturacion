@@ -130,3 +130,19 @@ def test_partidas_sac_por_columna(interno):
     assert r["total"] == niveles["PARTIDA"] and all(len(x["codigo"]) == 4 for x in r["items"])
     fuentes = {v["valor"]: v["n"] for v in interno.get("/aranceles/sac/valores", params={"columna": "fuente"}).json()}
     assert sum(fuentes.values()) == total and "oficial" in fuentes
+
+
+# ---- Conocimiento de la empresa: historial paginado con filtros por columna ---------------
+
+def test_historial_de_clasificacion_por_columna(interno):
+    total = interno.get("/conocimiento/historial", params={"size": 1}).json()["total"]
+    paises = interno.get("/conocimiento/historial/valores", params={"columna": "pais"}).json()
+    assert total > 50 and sum(v["n"] for v in paises) == total
+    uno = next(v for v in paises if v["valor"])
+    r = interno.get("/conocimiento/historial", params={"size": 200, **_f(pais=[uno["valor"]])}).json()
+    assert r["total"] == uno["n"] and {x["pais"] for x in r["items"]} == {uno["valor"]}
+    # Se llega a la segunda página (antes la pantalla solo mostraba las primeras 50)
+    p2 = interno.get("/conocimiento/historial", params={"size": 50, "page": 2}).json()["items"]
+    assert p2 and not {x["id"] for x in p2} & {x["id"] for x in interno.get("/conocimiento/historial", params={"size": 50}).json()["items"]}
+    r = interno.get("/conocimiento/historial", params={"size": 30, "orden": "codigo:asc"}).json()["items"]
+    assert [x["codigo"] for x in r] == sorted(x["codigo"] for x in r)

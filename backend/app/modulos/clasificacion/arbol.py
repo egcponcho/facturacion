@@ -172,7 +172,7 @@ def _ancestros(db: Session, n: NodoArancel) -> list[NodoArancel]:
     return list(reversed(out))
 
 
-def buscar(db: Session, user: Usuario, q: str, version: str | None = None, limite: int = 60) -> dict:
+def buscar(db: Session, user: Usuario, q: str, version: str | None = None, limite: int = 60, page: int = 1) -> dict:
     """Búsqueda inteligente: por código (con o sin puntos; varios códigos
     pegados) o por palabras del texto oficial en cualquier orden."""
     exigir(user, "producto.ver")
@@ -187,7 +187,8 @@ def buscar(db: Session, user: Usuario, q: str, version: str | None = None, limit
     else:
         consulta = consulta.where(filtro_texto(q, lambda p: [NodoArancel.descripcion.ilike(p), NodoArancel.codigo.ilike(p)]))
     total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
-    nodos = list(db.scalars(consulta.order_by(func.length(NodoArancel.codigo_norm), NodoArancel.codigo_norm).limit(limite)))
+    nodos = list(db.scalars(consulta.order_by(func.length(NodoArancel.codigo_norm), NodoArancel.codigo_norm)
+                            .offset((max(page, 1) - 1) * limite).limit(limite)))
     caps = {c.capitulo: c for c in db.scalars(select(ControlCapitulo))}
     return {"total": total, "items": [{**_fila(n, caps), "ruta": [a.codigo for a in _ancestros(db, n)]} for n in nodos]}
 

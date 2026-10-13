@@ -3,6 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import { puede } from '@/stores/sesion'
 import { fechaTexto } from '@/stores/preferencias'
 import { avisar, errorApi } from '@/stores/ui'
@@ -88,6 +89,20 @@ const filas = computed(() => (lote.value?.filas || []).filter((f) => !filtro.val
 const cuenta = (a) => (lote.value?.filas || []).filter((f) => (a === 'aviso' ? f.advertencia : f.accion === a)).length
 const campos = (f) => Object.keys(f.accion === 'NUEVO' ? f.despues || {} : f.antes || {}).filter((k) => !k.endsWith('_id') || f.accion !== 'NUEVO')
 const valor = (v) => (v === null || v === undefined || v === '' ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v))
+// Todas las filas de la previa en una tabla paginada (antes se veían solo las primeras 300)
+const columnasD = computed(() => [
+  { clave: 'tabla_txt', texto: t('Data'), prioridad: 1 },
+  { clave: 'clave', texto: t('Key'), fija: true, prioridad: 1 },
+  { clave: 'accion', texto: t('Change'), prioridad: 1, opciones: Object.entries(ACCION).map(([k, [, txt]]) => [k, txt]) },
+  { clave: 'cambio', texto: t('Before → after'), prioridad: 2, filtro: false, ordenable: false },
+])
+const columnasH = computed(() => [
+  { clave: 'archivo', texto: t('File'), fija: true, prioridad: 1 },
+  { clave: 'estado', texto: t('Status'), prioridad: 1, opciones: Object.entries(ESTADO).map(([k, [, txt]]) => [k, txt]) },
+  { clave: 'creado_en', texto: t('Uploaded'), prioridad: 2, valor: (x) => (x.creado_en || '').slice(0, 10), textoValor: (v) => (v ? fechaTexto(v) : '—') },
+  { clave: 'publicado_en', texto: t('Published'), prioridad: 3, valor: (x) => (x.publicado_en || '').slice(0, 10), textoValor: (v) => (v ? fechaTexto(v) : '—') },
+  { clave: 'n_errores', texto: t('Errors'), num: true, prioridad: 3, valor: (x) => x.errores.length },
+])
 </script>
 
 <template>
@@ -127,42 +142,37 @@ const valor = (v) => (v === null || v === undefined || v === '' ? '—' : typeof
       </div>
       <div v-if="lote.errores.length" class="errores">
         <b>{{ t('{0} rows with errors: the load cannot be published until the file is fixed and uploaded again', [lote.errores.length]) }}</b>
-        <ul><li v-for="(e, i) in lote.errores.slice(0, 30)" :key="i"><span class="codigo">{{ tx(e.fila) }}</span> {{ tx(e.mensaje) }}</li></ul>
+        <ul><li v-for="(e, i) in lote.errores" :key="i"><span class="codigo">{{ tx(e.fila) }}</span> {{ tx(e.mensaje) }}</li></ul>
       </div>
       <p v-if="!lote.filas.length && !lote.errores.length" class="ayuda">{{ t('The file matches what is in force: nothing would change.') }}</p>
-      <div v-if="filas.length" class="tabla-marco diffs">
-        <table class="tabla" v-tarjetas>
-          <thead><tr><th>{{ t('Data') }}</th><th>{{ t('Key') }}</th><th>{{ t('Change') }}</th><th>{{ t('Before → after') }}</th></tr></thead>
-          <tbody>
-            <tr v-for="f in filas.slice(0, 300)" :key="f.id">
-              <td>{{ tx(f.tabla_txt) }}</td>
-              <td class="codigo fuerte">{{ tx(f.clave) }}</td>
-              <td><span class="etiqueta" :class="ACCION[f.accion]?.[0]">{{ tx(ACCION[f.accion]?.[1] || f.accion) }}</span></td>
-              <td class="envolver">
-                <div v-for="k in campos(f).slice(0, 8)" :key="k" class="campo-diff">
-                  <span class="k">{{ tx(k) }}</span>
-                  <template v-if="f.accion === 'CAMBIO'"><del>{{ tx(valor(f.antes[k])) }}</del> → <ins>{{ tx(valor(f.despues[k])) }}</ins></template>
-                  <template v-else-if="f.accion === 'NUEVO'"><ins>{{ tx(valor(f.despues[k])) }}</ins></template>
-                  <template v-else><del>{{ tx(valor(f.antes[k])) }}</del></template>
-                </div>
-                <p v-if="f.advertencia" class="aviso"><Icono nombre="alerta" :tam="13" />{{ tx(f.advertencia) }}</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p v-if="filas.length > 300" class="ayuda">{{ t('Showing {0} of {1}.', [300, fmtNum(filas.length)]) }}</p>
+      <TablaDatos v-if="lote.filas.length" :key="lote.id" tabla="aranceles_carga_previa" :columnas="columnasD" :filas="filas" :vistas-guardadas="false" :etiqueta="t('Changes in the load')">
+        <template #celda-tabla_txt="{ fila: f }">{{ tx(f.tabla_txt) }}</template>
+        <template #celda-clave="{ fila: f }"><span class="codigo fuerte">{{ tx(f.clave) }}</span></template>
+        <template #celda-accion="{ fila: f }"><span class="etiqueta ms-0" :class="ACCION[f.accion]?.[0]">{{ tx(ACCION[f.accion]?.[1] || f.accion) }}</span></template>
+        <template #celda-cambio="{ fila: f }">
+          <div class="diff">
+            <div v-for="k in campos(f).slice(0, 8)" :key="k" class="campo-diff">
+              <span class="k">{{ tx(k) }}</span>
+              <template v-if="f.accion === 'CAMBIO'"><del>{{ tx(valor(f.antes[k])) }}</del> → <ins>{{ tx(valor(f.despues[k])) }}</ins></template>
+              <template v-else-if="f.accion === 'NUEVO'"><ins>{{ tx(valor(f.despues[k])) }}</ins></template>
+              <template v-else><del>{{ tx(valor(f.antes[k])) }}</del></template>
+            </div>
+            <p v-if="f.advertencia" class="aviso"><Icono nombre="alerta" :tam="13" />{{ tx(f.advertencia) }}</p>
+          </div>
+        </template>
+        <template #vacio>{{ t('No results.') }}</template>
+      </TablaDatos>
     </article>
 
     <article v-if="historial.length" class="panel">
       <h3 class="titulo-hist">{{ t('Load history') }}</h3>
-      <ul class="historial">
-        <li v-for="x in historial" :key="x.id">
-          <button type="button" class="enlace" @click="abrir(x)">{{ tx(x.archivo) }}</button>
-          <span class="etiqueta" :class="ESTADO[x.estado]?.[0]">{{ tx(ESTADO[x.estado]?.[1] || x.estado) }}</span>
-          <span class="ayuda">{{ fechaTexto(x.creado_en) }}<template v-if="x.publicado_en"> · {{ t('published {0}', [fechaTexto(x.publicado_en)]) }}</template> · {{ t('{0} errors', [x.errores.length]) }}</span>
-        </li>
-      </ul>
+      <TablaDatos tabla="aranceles_cargas" :columnas="columnasH" :filas="historial" fila-clicable :fila-activa="lote?.id ?? null" :etiqueta="t('Load history')" @fila="abrir">
+        <template #celda-archivo="{ fila: x }"><span class="enlace">{{ tx(x.archivo) }}</span></template>
+        <template #celda-estado="{ fila: x }"><span class="etiqueta ms-0" :class="ESTADO[x.estado]?.[0]">{{ tx(ESTADO[x.estado]?.[1] || x.estado) }}</span></template>
+        <template #celda-creado_en="{ fila: x }">{{ fechaTexto(x.creado_en) }}</template>
+        <template #celda-publicado_en="{ fila: x }">{{ x.publicado_en ? fechaTexto(x.publicado_en) : '—' }}</template>
+        <template #celda-n_errores="{ fila: x }">{{ fmtNum(x.errores.length) }}</template>
+      </TablaDatos>
     </article>
   </section>
 </template>
@@ -179,14 +189,12 @@ const valor = (v) => (v === null || v === undefined || v === '' ? '—' : typeof
 .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0; }
 .errores { border: 1px solid var(--error); background: var(--error-fondo); border-radius: var(--radio); padding: 8px 12px; margin-bottom: 10px; font-size: 0.86rem; }
 .errores ul { margin: 6px 0 0; padding-inline-start: 18px; max-height: 200px; overflow: auto; }
-.diffs { max-height: 60vh; overflow: auto; }
+.diff { min-width: 280px; max-width: 560px; white-space: normal; }
 .campo-diff { font-size: 0.82rem; }
 .campo-diff .k { color: var(--tinta-3); margin-inline-end: 6px; }
 del { color: var(--error); }
 ins { color: var(--ok); text-decoration: none; font-weight: 600; }
 .aviso { display: flex; gap: 5px; align-items: center; margin: 4px 0 0; font-size: 0.8rem; color: var(--aviso, var(--tinta-2)); }
 .titulo-hist { margin: 0 0 8px; font-size: 1rem; }
-.historial { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.historial li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.88rem; }
 @media (max-width: 600px) { .paquete { grid-template-columns: auto 1fr; } .acciones { grid-column: 1 / -1; justify-content: flex-start; } }
 </style>

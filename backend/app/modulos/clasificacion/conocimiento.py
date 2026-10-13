@@ -18,6 +18,7 @@ from app.core.errores import ErrorNegocio
 from app.instalacion.datos import DEMO as DIR_DEMO
 from app.modelos import HistorialClasificacion, IncisoNacional, PaisArancel, PalabraClave, SinonimoMaterial, Usuario
 from app.modulos.acceso.permisos import exigir
+from app.modulos.comun import tabla as tabla_datos
 from app.modulos.comun.historial import registrar
 
 DEMO = DIR_DEMO / "historial_empresa_demo.json"
@@ -67,9 +68,12 @@ def ensenar(db: Session, user: Usuario, pais: str, codigo: str, cond: dict | Non
     return {"id": x.id}
 
 
-def listar(db: Session, user: Usuario, pais: str | None = None, q: str | None = None, page: int = 1, size: int = 50,
-           origen: str | None = None) -> dict:
-    exigir(user, "producto.ver")
+# Columnas de la tabla del historial que se filtran por sus valores (TablaDatos)
+COLUMNAS = {"pais": HistorialClasificacion.pais, "codigo": HistorialClasificacion.codigo, "categoria": HistorialClasificacion.categoria,
+            "origen": HistorialClasificacion.origen, "conteo": HistorialClasificacion.conteo}
+
+
+def _consulta(pais: str | None, q: str | None, origen: str | None):
     consulta = select(HistorialClasificacion)
     if origen:
         consulta = consulta.where(HistorialClasificacion.origen.in_([o.strip().upper() for o in origen.split(",") if o.strip()]))
@@ -77,8 +81,26 @@ def listar(db: Session, user: Usuario, pais: str | None = None, q: str | None = 
         consulta = consulta.where(HistorialClasificacion.pais == pais.upper())
     if q:
         consulta = consulta.where(HistorialClasificacion.codigo.startswith(_dig(q) or q))
+    return consulta
+
+
+def valores(db: Session, user: Usuario, columna: str, buscar: str | None, filtros: dict, pais: str | None = None,
+            q: str | None = None, origen: str | None = None) -> list[dict]:
+    """Valores únicos de una columna del historial con cuántas entradas tiene cada uno, bajo los demás filtros."""
+    exigir(user, "producto.ver")
+    expr = tabla_datos.columna_valida(COLUMNAS, columna)
+    return tabla_datos.valores(db, tabla_datos.aplicar(_consulta(pais, q, origen), COLUMNAS, filtros, excepto=columna), expr, buscar)
+
+
+def listar(db: Session, user: Usuario, pais: str | None = None, q: str | None = None, page: int = 1, size: int = 50,
+           origen: str | None = None, filtros: dict | None = None, orden: str | None = None) -> dict:
+    exigir(user, "producto.ver")
+    consulta = tabla_datos.aplicar(_consulta(pais, q, origen), COLUMNAS, filtros or {})
     total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
-    filas = db.scalars(consulta.order_by(HistorialClasificacion.conteo.desc(), HistorialClasificacion.id).offset((page - 1) * size).limit(size))
+    col, _, dirn = (orden or "").partition(":")
+    campo = COLUMNAS.get(col)
+    primero = (campo.desc() if dirn == "desc" else campo.asc()) if campo is not None else HistorialClasificacion.conteo.desc()
+    filas = db.scalars(consulta.order_by(primero, HistorialClasificacion.id).offset((page - 1) * size).limit(size))
     oficiales = {(i, c) for i, c in db.execute(select(IncisoNacional.pais, IncisoNacional.codigo).where(IncisoNacional.fuente == "oficial"))}
     return {"total": total, "items": [{"id": x.id, "pais": x.pais, "codigo": x.codigo, "categoria": x.categoria, "condiciones": x.condiciones,
                                        "origen": x.origen, "conteo": x.conteo, "nota": x.nota, "producto_id": x.producto_id,

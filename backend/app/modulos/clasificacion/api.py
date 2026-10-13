@@ -681,12 +681,13 @@ def requisitos(db: Db, user: User, pais: str, codigo: str):
 
 # ---- Árbol arancelario oficial ---------------------------------------------------
 @router.get("/aranceles/arbol")
-def arbol_hijos(db: Db, user: User, padre_id: int | None = None, version: str | None = None, q: str | None = None):
-    """Sin `q`: hijos de un nodo (o los capítulos). Con `q`: búsqueda por código o texto."""
+def arbol_hijos(db: Db, user: User, padre_id: int | None = None, version: str | None = None, q: str | None = None,
+                page: int = Query(1, ge=1), size: int = Query(60, ge=1, le=200)):
+    """Sin `q`: hijos de un nodo (o los capítulos). Con `q`: búsqueda por código o texto, paginada."""
     from app.modulos.clasificacion import arbol
 
     if q:
-        return arbol.buscar(db, user, q, version)
+        return arbol.buscar(db, user, q, version, size, page)
     return arbol.hijos(db, user, padre_id, version)
 
 

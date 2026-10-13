@@ -1,12 +1,13 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import CampoFecha from '@/componentes/CampoFecha.vue'
 import Icono from '@/componentes/Icono.vue'
 import Interruptor from '@/componentes/Interruptor.vue'
 import Modal from '@/componentes/Modal.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import { puede } from '@/stores/sesion'
 import { fechaTexto } from '@/stores/preferencias'
 import { avisar, errorApi } from '@/stores/ui'
@@ -24,13 +25,26 @@ const TIPO = { PERMIT: t('Permit'), LICENSE: t('License'), REGISTRATION: t('Regi
   SANITARY: t('Sanitary'), PHYTOSANITARY: t('Phytosanitary'), TECHNICAL: t('Technical regulation'), QUOTA: t('Quota'), PROHIBITION: t('Prohibition'), OTHER: t('Other') }
 
 let temporizador = null
+const cargando = ref(true)
 async function cargar() {
   try {
     datos.value = await api.get('/aranceles/regulaciones', { q: f.q || undefined, pais: f.pais || undefined })
   } catch (e) {
     errorApi(e)
+  } finally {
+    cargando.value = false
   }
 }
+const columnas = computed(() => [
+  { clave: 'pais', texto: t('Country'), prioridad: 1 },
+  { clave: 'patron', texto: t('Codes'), prioridad: 1, textoValor: (v) => patronTxt(v) },
+  { clave: 'nombre', texto: t('Requirement'), fija: true, prioridad: 1 },
+  { clave: 'tipo', texto: t('Type'), prioridad: 2, opciones: Object.entries(TIPO) },
+  { clave: 'autoridad', texto: t('Authority'), prioridad: 2, textoValor: (v) => v || '—' },
+  { clave: 'obligatorio', texto: t('Mandatory'), prioridad: 3, inicial: false, opciones: [[true, t('Yes')], [false, t('No')]] },
+  { clave: 'vigente_desde', texto: t('Validity'), prioridad: 3, textoValor: (v) => (v ? fechaTexto(v) : '—') },
+  { clave: 'activo', texto: t('Active'), prioridad: 2, opciones: [[true, t('Yes')], [false, t('No')]] },
+])
 const buscar = () => { clearTimeout(temporizador); temporizador = setTimeout(cargar, 250) }
 onMounted(cargar)
 const patronTxt = (p) => (p === '*' ? t('All codes') : p.length > 4 ? `${p.slice(0, 4)}.${p.slice(4).match(/.{1,2}/g).join('.')}` : p)
@@ -69,30 +83,31 @@ async function activar(x, v) {
 <template>
   <section>
     <p class="ayuda">{{ t('Non-tariff requirements per country: permits, licenses, registrations, labeling… for a national code or a pattern (e.g. 3304 applies to every code of heading 33.04). They are loaded with package 03 or added here; what is published is deactivated, never deleted.') }}</p>
-    <div class="filtros" v-filtros>
-      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="f.q" type="search" :placeholder="t('Requirement, authority, type or code')" :aria-label="t('Search')" @input="buscar" /></label>
-      <SelectBusqueda :model-value="f.pais" :opciones="paises.map((p) => ({ valor: p.iso, texto: `${p.iso} · ${p.nombre}` }))" :vacio="t('All countries')" :etiqueta="t('Country')" @update:model-value="(v) => { f.pais = v; cargar() }" />
-      <button v-if="edita" class="btn btn-primario separar" @click="abrir()"><Icono nombre="mas" />{{ t('New regulation') }}</button>
-    </div>
-    <div class="tabla-marco">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Country') }}</th><th>{{ t('Codes') }}</th><th>{{ t('Requirement') }}</th><th>{{ t('Type') }}</th><th>{{ t('Authority') }}</th><th>{{ t('Validity') }}</th><th>{{ t('Active') }}</th><th></th></tr></thead>
-        <tbody>
-          <tr v-if="!datos.items.length"><td colspan="8" class="vacio">{{ t('No regulations loaded. Load package 03 in Data import or add one.') }}</td></tr>
-          <tr v-for="x in datos.items" :key="x.id" :class="{ apagada: !x.activo }">
-            <td class="fuerte">{{ tx(x.pais) }}</td>
-            <td class="codigo">{{ tx(patronTxt(x.patron)) }}</td>
-            <td class="envolver"><b>{{ tx(x.nombre) }}</b><span class="sub">{{ tx(x.codigo) }}<template v-if="x.codigo_permiso"> · {{ tx(x.codigo_permiso) }}</template><template v-if="!x.obligatorio"> · {{ t('optional') }}</template></span>
-              <span v-if="x.base_legal" class="sub">{{ tx(x.base_legal) }}</span></td>
-            <td><span class="etiqueta">{{ tx(TIPO[x.tipo] || x.tipo) }}</span></td>
-            <td class="envolver">{{ tx(x.autoridad || '—') }}<span v-if="x.fuente" class="sub codigo">{{ tx(x.fuente) }}</span></td>
-            <td>{{ x.vigente_desde ? fechaTexto(x.vigente_desde) : '—' }}<span v-if="x.vigente_hasta" class="sub">{{ t('until {0}', [fechaTexto(x.vigente_hasta)]) }}</span></td>
-            <td><Interruptor :model-value="x.activo" :deshabilitado="!edita" :etiqueta="t('Active')" @update:model-value="activar(x, $event)" /></td>
-            <td><button v-if="edita" type="button" class="btn-icono" :aria-label="t('Edit')" @click="abrir(x)"><Icono nombre="editar" :tam="15" /></button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TablaDatos tabla="aranceles_regulaciones" :columnas="columnas" :filas="datos.items" :cargando="cargando" :clase-fila="(x) => ({ apagada: !x.activo })"
+                :externos="{ q: f.q, pais: f.pais }" :etiqueta="t('Regulations')"
+                @vista="(x) => { Object.assign(f, { q: x.q || '', pais: x.pais || '' }); cargar() }"
+                @limpiar-externos="Object.assign(f, { q: '', pais: '' }); cargar()">
+      <template #barra>
+        <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="f.q" type="search" :placeholder="t('Requirement, authority, type or code')" :aria-label="t('Search')" @input="buscar" /></label>
+      </template>
+      <template #filtros>
+        <SelectBusqueda :model-value="f.pais" :opciones="paises.map((p) => ({ valor: p.iso, texto: `${p.iso} · ${p.nombre}` }))" :vacio="t('All countries')" :etiqueta="t('Country')" @update:model-value="(v) => { f.pais = v; cargar() }" />
+        <button v-if="edita" type="button" class="btn btn-primario separar" @click="abrir()"><Icono nombre="mas" />{{ t('New regulation') }}</button>
+      </template>
+      <template #celda-pais="{ fila: x }"><span class="fuerte">{{ tx(x.pais) }}</span></template>
+      <template #celda-patron="{ fila: x }"><span class="codigo">{{ tx(patronTxt(x.patron)) }}</span></template>
+      <template #celda-nombre="{ fila: x }">
+        <div class="requisito"><b>{{ tx(x.nombre) }}</b><span class="sub">{{ tx(x.codigo) }}<template v-if="x.codigo_permiso"> · {{ tx(x.codigo_permiso) }}</template><template v-if="!x.obligatorio"> · {{ t('optional') }}</template></span>
+          <span v-if="x.base_legal" class="sub">{{ tx(x.base_legal) }}</span></div>
+      </template>
+      <template #celda-tipo="{ fila: x }"><span class="etiqueta ms-0">{{ tx(TIPO[x.tipo] || x.tipo) }}</span></template>
+      <template #celda-autoridad="{ fila: x }"><div class="autoridad">{{ tx(x.autoridad || '—') }}<span v-if="x.fuente" class="sub codigo">{{ tx(x.fuente) }}</span></div></template>
+      <template #celda-obligatorio="{ fila: x }">{{ x.obligatorio ? t('Yes') : t('No') }}</template>
+      <template #celda-vigente_desde="{ fila: x }">{{ x.vigente_desde ? fechaTexto(x.vigente_desde) : '—' }}<span v-if="x.vigente_hasta" class="sub">{{ t('until {0}', [fechaTexto(x.vigente_hasta)]) }}</span></template>
+      <template #celda-activo="{ fila: x }"><Interruptor :model-value="x.activo" :deshabilitado="!edita" :etiqueta="t('Active')" @update:model-value="activar(x, $event)" /></template>
+      <template v-if="edita" #acciones="{ fila: x }"><button type="button" class="btn-icono" :aria-label="t('Edit')" @click="abrir(x)"><Icono nombre="editar" :tam="15" /></button></template>
+      <template #vacio>{{ t('No regulations loaded. Load package 03 in Data import or add one.') }}</template>
+    </TablaDatos>
 
     <Modal v-if="modal" :titulo="modal.id ? t('Regulation {0}', [modal.codigo]) : t('New regulation')" ancho="680px" @cerrar="modal = null">
       <div class="rejilla-campos">
@@ -121,6 +136,8 @@ async function activar(x, v) {
 </template>
 
 <style scoped>
-tr.apagada td { opacity: 0.55; }
+:deep(tr.apagada > td) { opacity: 0.55; }
 .sub { display: block; }
+.requisito { min-width: 240px; max-width: 460px; white-space: normal; }
+.autoridad { min-width: 160px; max-width: 300px; white-space: normal; }
 </style>

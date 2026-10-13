@@ -3,6 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
+import Paginacion from '@/componentes/Paginacion.vue'
 import { errorApi } from '@/stores/ui'
 import { fmtNum } from '@/nucleo/utils'
 
@@ -51,16 +52,20 @@ async function elegir(n) {
   }
 }
 let temporizador = null
+// Resultados de la búsqueda, paginados en el servidor
+const pr = reactive({ page: 1, size: 50 })
+async function pedirResultados() {
+  try {
+    resultados.value = await api.get('/aranceles/arbol', { q: q.value, page: pr.page, size: pr.size })
+  } catch (e) {
+    errorApi(e)
+  }
+}
 function buscar() {
   clearTimeout(temporizador)
   if (!q.value.trim()) return (resultados.value = null)
-  temporizador = setTimeout(async () => {
-    try {
-      resultados.value = await api.get('/aranceles/arbol', { q: q.value })
-    } catch (e) {
-      errorApi(e)
-    }
-  }, 280)
+  pr.page = 1
+  temporizador = setTimeout(pedirResultados, 280)
 }
 // Filas visibles del árbol (aplanadas con su profundidad)
 const filas = computed(() => {
@@ -95,8 +100,9 @@ const NIVEL = { CAPITULO: t('Chapter'), PARTIDA: t('Heading'), SUBPARTIDA: t('Su
             <span class="cod">{{ tx(n.codigo) }}</span><span class="txt">{{ tx(n.texto) }}<small v-if="n.ruta.length">{{ tx(n.ruta.join(' › ')) }}</small></span>
           </button>
         </li>
-        <li v-if="resultados.total > resultados.items.length" class="ayuda">{{ t('Showing {0} of {1}. Refine the search.', [resultados.items.length, fmtNum(resultados.total)]) }}</li>
       </ul>
+      <Paginacion v-if="resultados && resultados.total > 0" :page="pr.page" :size="pr.size" :total="resultados.total" :tamanos="[25, 50, 100, 200]"
+                  @cambiar="(p) => { pr.page = p; pedirResultados() }" @tamano="(n) => { pr.size = n; pr.page = 1; pedirResultados() }" />
       <ul v-else class="lista-arbol" role="tree">
         <li v-for="{ n, nivel } in filas" :key="n.id" role="treeitem" :aria-expanded="n.hijos ? !!abiertos[n.id] : undefined" :style="{ '--nivel': nivel }">
           <button type="button" class="nodo" :class="{ elegido: elegido === n.id, off: n.capitulo_habilitado === false }" @click="alternar(n); if (n.hijos) elegir(n)">

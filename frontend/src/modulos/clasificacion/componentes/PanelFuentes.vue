@@ -8,17 +8,23 @@ import { fechaTexto } from '@/stores/preferencias'
 import { avisar, errorApi } from '@/stores/ui'
 import { puede } from '@/stores/sesion'
 import Modal from '@/componentes/Modal.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
+import CampoFecha from '@/componentes/CampoFecha.vue'
 
 // Fuentes oficiales y versiones de los datos: de dónde sale cada dato, si la
 // versión está publicada (no se sobrescribe) o es dinámica (se toma una
 // instantánea en cada carga) y su vigencia.
 const datos = ref({ fuentes: [], versiones: [] })
 const q = ref('')
+const qv = ref('')
+const cargando = ref(true)
 onMounted(async () => {
   try {
     datos.value = await api.get('/aranceles/oficial/fuentes')
   } catch (e) {
     errorApi(e)
+  } finally {
+    cargando.value = false
   }
 })
 const edita = puede('aranceles.editar')
@@ -38,61 +44,76 @@ async function verificar() {
 }
 const ESTADO = { PUBLICADA: ['ok', t('Published')], DINAMICA: ['acento', t('Dynamic')], BORRADOR: ['', t('Draft')], ARCHIVADA: ['', t('Archived')] }
 const fuentes = computed(() => filtrar(datos.value.fuentes, q.value, (f) => [f.codigo, f.ambito, f.autoridad, f.dataset, f.uso]))
-const versiones = computed(() => filtrar(datos.value.versiones, q.value, (v) => [v.codigo, v.dataset, v.etiqueta, v.fuente]))
+const versiones = computed(() => filtrar(datos.value.versiones, qv.value, (v) => [v.codigo, v.dataset, v.etiqueta, v.fuente]))
+const fecha = (v) => (v ? fechaTexto(v) : '—')
+const columnasV = computed(() => [
+  { clave: 'codigo', texto: t('Version'), fija: true, prioridad: 1 },
+  { clave: 'dataset', texto: t('Dataset'), prioridad: 1 },
+  { clave: 'estado', texto: t('Status'), prioridad: 2, opciones: Object.entries(ESTADO).map(([k, [, txt]]) => [k, txt]) },
+  { clave: 'vigente_desde', texto: t('Valid from'), prioridad: 3, textoValor: fecha },
+  { clave: 'vigente_hasta', texto: t('Valid to'), prioridad: 3, textoValor: fecha },
+  { clave: 'fuente', texto: t('Source'), prioridad: 2, textoValor: (v) => v || '—' },
+  { clave: 'nota', texto: t('Notes'), prioridad: 3, filtro: false, ordenable: false },
+])
+const columnasF = computed(() => [
+  { clave: 'codigo', texto: t('Source'), fija: true, prioridad: 1 },
+  { clave: 'ambito', texto: t('Scope'), prioridad: 2 },
+  { clave: 'autoridad', texto: t('Authority · dataset'), prioridad: 1 },
+  { clave: 'acceso', texto: t('Access'), prioridad: 3, textoValor: (v) => v || '—' },
+  { clave: 'nota_version', texto: t('Version / status'), prioridad: 3, filtro: false, ordenable: false },
+  { clave: 'verificada', texto: t('Verification'), prioridad: 2, opciones: [[true, t('Verified')], [false, t('Not verified')]], valor: (f) => !!f.verificado_en },
+])
 </script>
 
 <template>
   <section>
-    <div class="filtros" v-filtros>
-      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="q" type="search" :placeholder="t('Source, authority, country or dataset')" :aria-label="t('Search')" /></label>
-    </div>
     <h3 class="titulo-seccion">{{ t('Dataset versions') }}</h3>
-    <div class="tabla-marco">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Version') }}</th><th>{{ t('Dataset') }}</th><th>{{ t('Status') }}</th><th>{{ t('Valid from') }}</th><th>{{ t('Valid to') }}</th><th>{{ t('Source') }}</th><th>{{ t('Notes') }}</th></tr></thead>
-        <tbody>
-          <tr v-for="v in versiones" :key="v.id">
-            <td class="codigo fuerte">{{ tx(v.codigo) }}</td>
-            <td>{{ tx(v.dataset) }}<span class="sub">{{ tx(v.etiqueta) }}</span></td>
-            <td><span class="etiqueta" :class="ESTADO[v.estado]?.[0]">{{ tx(ESTADO[v.estado]?.[1] || v.estado) }}</span></td>
-            <td>{{ v.vigente_desde ? fechaTexto(v.vigente_desde) : '—' }}</td>
-            <td>{{ v.vigente_hasta ? fechaTexto(v.vigente_hasta) : '—' }}</td>
-            <td class="codigo">{{ tx(v.fuente || '—') }}</td>
-            <td class="envolver ayuda">{{ tx(v.nota) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TablaDatos tabla="aranceles_versiones" :columnas="columnasV" :filas="versiones" :cargando="cargando" :externos="{ q: qv }" :etiqueta="t('Dataset versions')"
+                @vista="(x) => (qv = x.q || '')" @limpiar-externos="qv = ''">
+      <template #barra>
+        <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="qv" type="search" :placeholder="t('Version, dataset or source')" :aria-label="t('Search versions')" /></label>
+      </template>
+      <template #celda-codigo="{ fila: v }"><span class="codigo fuerte">{{ tx(v.codigo) }}</span></template>
+      <template #celda-dataset="{ fila: v }">{{ tx(v.dataset) }}<span class="sub">{{ tx(v.etiqueta) }}</span></template>
+      <template #celda-estado="{ fila: v }"><span class="etiqueta ms-0" :class="ESTADO[v.estado]?.[0]">{{ tx(ESTADO[v.estado]?.[1] || v.estado) }}</span></template>
+      <template #celda-vigente_desde="{ fila: v }">{{ fecha(v.vigente_desde) }}</template>
+      <template #celda-vigente_hasta="{ fila: v }">{{ fecha(v.vigente_hasta) }}</template>
+      <template #celda-fuente="{ fila: v }"><span class="codigo">{{ tx(v.fuente || '—') }}</span></template>
+      <template #celda-nota="{ fila: v }"><div class="nota ayuda">{{ tx(v.nota) }}</div></template>
+      <template #vacio>{{ t('No results.') }}</template>
+    </TablaDatos>
     <h3 class="titulo-seccion">{{ t('Official sources') }}</h3>
-    <div class="tabla-marco">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Source') }}</th><th>{{ t('Scope') }}</th><th>{{ t('Authority · dataset') }}</th><th>{{ t('Access') }}</th><th>{{ t('Version / status') }}</th><th>{{ t('Verification') }}</th></tr></thead>
-        <tbody>
-          <tr v-for="f in fuentes" :key="f.id">
-            <td class="codigo fuerte">{{ tx(f.codigo) }}</td>
-            <td><span class="etiqueta">{{ tx(f.ambito) }}</span></td>
-            <td class="envolver">{{ tx(f.autoridad) }}<span class="sub">{{ tx(f.dataset) }}</span>
-              <a v-if="f.url" :href="f.url" target="_blank" rel="noopener" class="enlace sub">{{ tx(f.url.replace(/^https?:\/\//, '').slice(0, 60)) }}</a></td>
-            <td>{{ tx(f.acceso || '—') }}<span v-if="f.autenticacion && f.autenticacion !== 'No'" class="sub">{{ t('Authentication: {0}', [f.autenticacion]) }}</span></td>
-            <td class="envolver ayuda">{{ tx(f.nota_version) }}</td>
-            <td class="ayuda">
-              <span v-if="f.verificado_en" class="etiqueta ok">{{ t('Verified {0}', [fechaTexto(f.verificado_en)]) }}</span>
-              <span v-else class="etiqueta aviso">{{ t('Not verified') }}</span>
-              <span v-if="f.verificado_por" class="sub">{{ tx(f.verificado_por) }}</span>
-              <span v-if="f.documento" class="sub">{{ tx(f.documento) }}</span>
-              <span v-for="p in f.problemas" :key="p" class="sub texto-error">{{ tx(p) }}</span>
-              <button v-if="edita" type="button" class="btn-texto" @click="modal = { id: f.id, codigo: f.codigo, documento: f.documento || '', url: f.url || '', verificado_en: '' }">{{ t('Record verification') }}</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TablaDatos tabla="aranceles_fuentes" :columnas="columnasF" :filas="fuentes" :cargando="cargando" :externos="{ q }" :etiqueta="t('Official sources')"
+                @vista="(x) => (q = x.q || '')" @limpiar-externos="q = ''">
+      <template #barra>
+        <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="q" type="search" :placeholder="t('Source, authority, country or dataset')" :aria-label="t('Search')" /></label>
+      </template>
+      <template #celda-codigo="{ fila: f }"><span class="codigo fuerte">{{ tx(f.codigo) }}</span></template>
+      <template #celda-ambito="{ fila: f }"><span class="etiqueta ms-0">{{ tx(f.ambito) }}</span></template>
+      <template #celda-autoridad="{ fila: f }">
+        <div class="nota">{{ tx(f.autoridad) }}<span class="sub">{{ tx(f.dataset) }}</span>
+          <a v-if="f.url" :href="f.url" target="_blank" rel="noopener" class="enlace sub">{{ tx(f.url.replace(/^https?:\/\//, '').slice(0, 60)) }}</a></div>
+      </template>
+      <template #celda-acceso="{ fila: f }">{{ tx(f.acceso || '—') }}<span v-if="f.autenticacion && f.autenticacion !== 'No'" class="sub">{{ t('Authentication: {0}', [f.autenticacion]) }}</span></template>
+      <template #celda-nota_version="{ fila: f }"><div class="nota ayuda">{{ tx(f.nota_version) }}</div></template>
+      <template #celda-verificada="{ fila: f }">
+        <div class="ayuda">
+          <span v-if="f.verificado_en" class="etiqueta ok ms-0">{{ t('Verified {0}', [fechaTexto(f.verificado_en)]) }}</span>
+          <span v-else class="etiqueta aviso ms-0">{{ t('Not verified') }}</span>
+          <span v-if="f.verificado_por" class="sub">{{ tx(f.verificado_por) }}</span>
+          <span v-if="f.documento" class="sub">{{ tx(f.documento) }}</span>
+          <span v-for="p in f.problemas" :key="p" class="sub texto-error">{{ tx(p) }}</span>
+          <button v-if="edita" type="button" class="btn-texto" @click="modal = { id: f.id, codigo: f.codigo, documento: f.documento || '', url: f.url || '', verificado_en: '' }">{{ t('Record verification') }}</button>
+        </div>
+      </template>
+      <template #vacio>{{ t('No results.') }}</template>
+    </TablaDatos>
     <Modal v-if="modal" :titulo="t('Verify {0}', [modal.codigo])" @cerrar="modal = null">
       <p class="ayuda">{{ t('Record that the source was checked against its official publication. Without a verification the source does not back any official data.') }}</p>
       <div class="rejilla-campos">
         <label class="campo col-completa"><span>{{ t('Official document or dataset checked') }}</span><input v-model="modal.documento" class="entrada" maxlength="300" /></label>
         <label class="campo col-completa"><span>{{ t('Official link') }}</span><input v-model="modal.url" class="entrada" maxlength="400" type="url" /></label>
-        <label class="campo"><span>{{ t('Verified on') }}</span><input v-model="modal.verificado_en" class="entrada" type="date" /></label>
+        <label class="campo"><span>{{ t('Verified on') }}</span><CampoFecha v-model="modal.verificado_en" /></label>
       </div>
       <template #pie>
         <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
@@ -105,4 +126,5 @@ const versiones = computed(() => filtrar(datos.value.versiones, q.value, (v) => 
 <style scoped>
 .titulo-seccion { font-size: 1rem; margin: 14px 0 8px; }
 .sub.enlace { display: block; }
+.nota { min-width: 200px; max-width: 420px; white-space: normal; }
 </style>

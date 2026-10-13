@@ -12,6 +12,7 @@ from fastapi import APIRouter, Query
 
 from app.modelos import PalabraClave, SinonimoMaterial
 from app.modulos.clasificacion import conocimiento
+from app.modulos.comun import tabla as tabla_datos
 from app.web.rutas import Db, User
 
 router = APIRouter()
@@ -73,9 +74,17 @@ def conocimiento_resumen(db: Db, user: User):
 
 @router.get("/conocimiento/historial")
 def historial(db: Db, user: User, pais: str | None = None, q: str | None = None, origen: str | None = None,
-              page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200)):
-    """Historial de clasificaciones de la empresa, paginado y filtrado por país, código y origen."""
-    return conocimiento.listar(db, user, pais, q, page, size, origen)
+              page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200), f: str | None = None, orden: str | None = None):
+    """Historial de clasificaciones de la empresa, paginado, ordenado y filtrado por país, código, origen y
+    los valores de cada columna (`f`)."""
+    return conocimiento.listar(db, user, pais, q, page, size, origen, tabla_datos.leer(f), orden)
+
+
+@router.get("/conocimiento/historial/valores")
+def historial_valores(db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None,
+                      pais: str | None = None, q: str | None = None, origen: str | None = None):
+    """Valores únicos de una columna del historial con cuántas entradas tiene cada uno, bajo los demás filtros."""
+    return conocimiento.valores(db, user, columna, buscar, tabla_datos.leer(f), pais, q, origen)
 
 
 @router.delete("/conocimiento/historial/{hid}")
