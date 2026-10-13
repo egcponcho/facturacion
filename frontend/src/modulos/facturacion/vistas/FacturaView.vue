@@ -511,7 +511,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
                          :vacia-texto="c.tipo === 'opcion' ? c.opciones.join(' / ') : c.tipo === 'fecha' ? 'YYYY-MM-DD' : ''" />
           <b v-else>{{ valorPropio(c, f.extra?.[c.clave]) }}</b>
         </label>
-        <label class="dato" style="grid-column: span 2"><span>{{ t('Remarks') }}</span>
+        <label class="dato col-2"><span>{{ t('Remarks') }}</span>
           <CeldaEditable v-if="editable" :valor="f.observaciones" :guardar="guardarCabecera('observaciones')" :etiqueta="t('Remarks')" />
           <b v-else>{{ tx(f.observaciones || '—') }}</b>
         </label>
@@ -623,7 +623,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
 
     <!-- Packing lists and transport -->
     <section v-if="tab === 'pl'">
-      <div class="fila-flex" style="margin-bottom: 14px">
+      <div class="fila-flex mb-4">
         <button v-if="f.puede.crear_pl" class="btn btn-primario" :disabled="ocupado" @click="empacar"><Icono nombre="caja" />{{ t('Pack {0} pending', [porUnidadTxt(pendientePorUnidad, null)]) }}</button>
         <span v-else-if="f.lineas.length" class="nota ok" style="padding: 6px 12px"><Icono nombre="check" />{{ t('All goods are already in packing lists.') }}</span>
         <span class="ayuda">{{ t('One packing list per invoice is usually enough. To split the shipment use “Move” inside the PL.') }}</span>

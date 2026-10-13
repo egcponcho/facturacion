@@ -95,8 +95,8 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
   <div class="dos-columnas" style="grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr)">
     <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('1. Choose the file') }}</h2><p>{{ t('One row per PO line.') }}</p></div></div>
-      <div class="fila-flex" style="margin-bottom: 10px">
-        <label class="campo" style="flex: 1"><span>{{ t('Import profile') }}</span>
+      <div class="fila-flex mb-3">
+        <label class="campo crece"><span>{{ t('Import profile') }}</span>
           <Seleccion v-model="perfilId" class="entrada" @change="previa = null"><option value="">{{ t('Standard column names') }}</option><option v-for="p in perfiles" :key="p.id" :value="p.id">{{ tx(p.nombre) }}</option></Seleccion></label>
         <button type="button" class="btn" style="align-self: flex-end" @click="verPerfiles = true"><Icono nombre="engrane" :tam="15" />{{ t('Profiles') }}</button>
       </div>

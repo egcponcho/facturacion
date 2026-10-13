@@ -58,7 +58,7 @@ const llegada = computed(() => {
     <p v-if="!e" class="ayuda">{{ t('Loading…') }}</p>
     <template v-else>
       <div class="pl-tarjeta">
-        <div class="fila-flex" style="gap: 8px">
+        <div class="fila-flex gap-2">
           <span class="envio-modo"><Icono :nombre="icono" :tam="16" /></span>
           <b>{{ tx(e.documento_numero || t('No transport document')) }}</b>
           <span class="ayuda separar">{{ tx(e.transportista || t('No carrier')) }}</span>
@@ -91,7 +91,7 @@ const llegada = computed(() => {
         <h3 class="resumen-titulo">{{ t('Load units') }}</h3>
         <p v-if="!e.unidades.length" class="ayuda">{{ t('No load units yet.') }}</p>
         <div v-for="u in unidadesPagina" :key="u.id" class="pl-tarjeta">
-          <div class="fila-flex" style="gap: 8px">
+          <div class="fila-flex gap-2">
             <b>{{ tx(u.numero || u.etiqueta) }}</b><span class="etiqueta">{{ tx(u.tipo) }}</span>
             <span v-if="u.sello" class="ayuda">{{ t('Seal {0}', [u.sello]) }}</span>
             <span class="separar"><EstadoTiempo :estado="u.estado_tiempo" :holgura="u.holgura_dias" /></span>

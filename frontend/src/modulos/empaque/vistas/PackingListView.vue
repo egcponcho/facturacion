@@ -608,9 +608,9 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
     <!-- To pack -->
     <section v-if="tab === 'empacar' && editable">
       <div v-if="!pendientes.length && pl.lineas.length" class="panel vacio">
-        <div class="todo-listo" style="justify-content: center">
+        <div class="todo-listo centrar">
           <span class="icono-ok"><Icono nombre="check" :tam="22" /></span>
-          <div style="text-align: start"><b>{{ t('Everything is in cartons') }}</b><p class="ayuda">{{ t('Check dimensions and weights and finalize the packing list.') }}</p></div>
+          <div class="texto-inicio"><b>{{ t('Everything is in cartons') }}</b><p class="ayuda">{{ t('Check dimensions and weights and finalize the packing list.') }}</p></div>
           <button class="btn btn-primario" @click="tab = 'revision'">{{ t('Go to review') }}<Icono nombre="flecha" :tam="16" /></button>
         </div>
       </div>
@@ -698,7 +698,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
 
     <!-- Cartons -->
     <section v-if="tab === 'cajas'">
-      <p v-if="editable && estimadas.length" class="nota aviso" style="align-items: center; margin-bottom: 12px">
+      <p v-if="editable && estimadas.length" class="nota aviso mb-3" style="align-items: center">
         <Icono nombre="escala" />
         <span>{{ t('Carton groups with an estimated weight (partial cartons): {0}. Weigh and correct them, or confirm the estimate.', [fmtNum(estimadas.length)]) }}</span>
         <button class="btn btn-chico separar" :disabled="ocupado" @click="confirmarPesos(estimadas)">{{ t('Confirm all estimates') }}</button>
@@ -721,7 +721,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
             <div class="caja-items">
               <div v-for="it in g.contenido" :key="it.pl_linea_id">{{ tx(it.estilo) }} <b>{{ tx(it.talla) }}</b></div>
             </div>
-            <div v-if="g.etiqueta" class="fila-flex" style="gap: 4px; margin-top: 4px">
+            <div v-if="g.etiqueta" class="fila-flex gap-1" style="margin-top: 4px">
               <span class="etiqueta ms-0" :class="g.etiqueta.tipo === 'ESTANDAR' ? 'ok' : 'acento'"
                     :title="tx(g.etiqueta.tipo === 'ESTANDAR' ? t('A single PO, style, color and size') : t('Several POs, styles, colors or sizes'))">
                 {{ t('{0} label', [g.etiqueta.tipo === 'ESTANDAR' ? t('Standard') : t('Consolidated')]) }}
@@ -806,7 +806,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       </div>
       <div class="panel">
         <div class="panel-cabeza"><div><h2>{{ t('Packing list summary') }}</h2><p>{{ t('This is how it will appear on the PDF and Excel.') }}</p></div></div>
-        <div class="doc-datos" style="margin-top: 0; padding-top: 0; border-top: 0">
+        <div class="doc-datos mt-0" style="padding-top: 0; border-top: 0">
           <div class="dato"><span>{{ t('Contents') }}</span><b>{{ porUnidadTxt(pl.totales.por_unidad, 'cantidad') }}</b></div>
           <div class="dato"><span>{{ t('Cartons') }}</span><b>{{ fmtNum(pl.totales.cajas) }}</b></div>
           <div class="dato"><span>{{ t('Net weight') }}</span><b>{{ t('{0} kg', [fmtNum(pl.totales.peso_neto, 2)]) }}</b></div>
@@ -868,7 +868,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         </Seleccion>
       </label>
     </div>
-    <div class="tabla-marco" style="max-height: 320px; overflow-y: auto; box-shadow: none">
+    <div class="tabla-marco tabla-captura alto-limitado">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Row') }}</th><th>{{ t('Rule') }}</th><th class="num">{{ t('Not packed') }}</th><th>{{ t('Template') }}</th><th class="num">{{ t('Cartons') }}</th><th class="num">{{ t('Leftover') }}</th></tr></thead>
         <tbody>
@@ -902,7 +902,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="sin_caja" /> {{ t('Leave it unpacked to build mixed cartons by hand') }}</label>
     </div>
     <template #pie>
-      <router-link class="btn btn-fantasma" to="/plantillas" style="margin-inline-end: auto">{{ t('Manage templates') }}</router-link>
+      <router-link class="btn btn-fantasma empuja-inicio" to="/plantillas">{{ t('Manage templates') }}</router-link>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" :disabled="ocupado || !calculoAuto.validas" @click="empacarAuto"><Icono nombre="varita" :tam="15" />{{ t('Pack') }}</button>
     </template>
@@ -924,7 +924,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         </Seleccion>
       </label>
     </div>
-    <div class="tabla-marco sin-sombra">
+    <div class="tabla-marco tabla-captura">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Row') }}</th><th class="num">{{ t('Not packed') }}</th><th class="num"><span class="req">{{ t('Per carton') }}</span></th><th class="num">{{ t('Total') }}</th></tr></thead>
         <tbody>
@@ -962,7 +962,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       </Seleccion>
     </label>
     <p v-else class="ayuda">{{ t('The quantity goes back to the invoice as pending assignment to a packing list.') }}</p>
-    <div class="tabla-marco" style="max-height: 300px; overflow-y: auto; box-shadow: none">
+    <div class="tabla-marco tabla-captura alto-limitado">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Row') }}</th><th class="num">{{ t('Not packed') }}</th><th class="num">{{ tx(modal.tipo === 'mover' ? t('Move') : t('Remove')) }}</th></tr></thead>
         <tbody>
@@ -1020,7 +1020,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <option value="">{{ t('A new packing list') }}</option>
       </Seleccion>
     </label>
-    <div class="tabla-marco sin-sombra">
+    <div class="tabla-marco tabla-captura">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Cartons') }}</th><th class="num">{{ t('Available') }}</th><th class="num">{{ t('Move') }}</th></tr></thead>
         <tbody>

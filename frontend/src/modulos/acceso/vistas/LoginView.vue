@@ -109,7 +109,7 @@ onBeforeUnmount(() => clearInterval(reloj))
 <template>
   <div class="login">
     <section class="login-arte">
-      <div class="marca" style="padding: 0">
+      <div class="marca p-0">
         <img v-if="marca.logo" :src="marca.logo" alt="" class="marca-logo marca-imagen" />
         <span v-else class="marca-logo"><Icono nombre="caja" :tam="20" /></span>
         <span class="marca-texto">{{ marca.nombre || tituloSistema() }}<span>{{ marca.nombre ? tituloSistema() : t('Invoicing, packing and shipments') }}</span></span>
@@ -160,7 +160,7 @@ onBeforeUnmount(() => clearInterval(reloj))
         <p v-if="desafio.codigo_demo" id="ayuda-codigo" class="nota info"><Icono nombre="info" /><span>{{ t('Demo without real SMS: your code is') }} <b class="codigo">{{ tx(desafio.codigo_demo) }}</b></span></p>
         <p v-if="error" class="nota error" role="alert"><Icono nombre="alerta" />{{ tx(error) }}</p>
         <button class="btn btn-primario btn-grande" type="submit" :disabled="enviando || codigo.length !== 6">{{ tx(enviando ? t('Verifying…') : t('Verify and sign in')) }}</button>
-        <div class="fila-flex" style="justify-content: space-between">
+        <div class="fila-flex entre">
           <button type="button" class="btn btn-fantasma btn-chico" @click="volver"><Icono nombre="atras" :tam="14" />{{ t('Use another account') }}</button>
           <button type="button" class="btn btn-fantasma btn-chico" :disabled="espera > 0" @click="reenviar">
             {{ tx(espera > 0 ? t('Resend code in {0} s', [espera]) : t('Resend code')) }}

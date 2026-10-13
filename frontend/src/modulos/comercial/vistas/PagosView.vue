@@ -179,7 +179,7 @@ async function anular() {
 
   <Modal v-if="modal" :titulo="modal.direccion === 'COBRO' ? t('Register collection') : t('Register payment')" ancho="760px" @cerrar="modal = null">
     <div class="rejilla-formulario">
-      <label class="campo" style="grid-column: span 2"><span class="req">{{ modal.direccion === 'COBRO' ? t('Customer') : t('Supplier') }}</span>
+      <label class="campo col-2"><span class="req">{{ modal.direccion === 'COBRO' ? t('Customer') : t('Supplier') }}</span>
         <SelectBusqueda v-model="modal.tercero_id" :buscar="buscarTerceros" :prefijo="false" :etiqueta="t('Business partner')" @change="alElegirTercero" />
       </label>
       <label class="campo"><span class="req">{{ t('Company') }}</span>
@@ -199,17 +199,19 @@ async function anular() {
       <div class="fila-flex"><b>{{ t('Documents with balance') }}</b>
         <button type="button" class="btn btn-chico" :disabled="!abiertosMoneda.length || !modal.importe" @click="repartir">{{ t('Apply oldest first') }}</button>
       </div>
-      <table v-if="abiertosMoneda.length" class="tabla mt">
-        <thead><tr><th>{{ t('Document') }}</th><th>{{ t('Due date') }}</th><th class="num">{{ t('Balance') }}</th><th class="num">{{ t('Apply') }}</th></tr></thead>
-        <tbody>
-          <tr v-for="x in abiertosMoneda" :key="x.id">
-            <td>{{ tx(x.nombre) }} <span class="sub">{{ tx(x.tipo_nombre) }}</span></td>
-            <td>{{ fmtFecha(x.fecha_vencimiento) }} <EstadoBadge v-if="x.estado_cobro === 'VENCIDO'" estado="VENCIDO" tipo="cobro" /></td>
-            <td class="num">{{ fmtMoneda(x.saldo, x.moneda) }}</td>
-            <td class="num"><input v-model="modal.aplicar[x.id]" type="number" min="0" :max="x.saldo" step="any" class="entrada num ancho-m" :aria-label="t('Apply')" /></td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-if="abiertosMoneda.length" class="tabla-marco tabla-captura mt">
+        <table class="tabla" v-tarjetas>
+          <thead><tr><th>{{ t('Document') }}</th><th>{{ t('Due date') }}</th><th class="num">{{ t('Balance') }}</th><th class="num">{{ t('Apply') }}</th></tr></thead>
+          <tbody>
+            <tr v-for="x in abiertosMoneda" :key="x.id">
+              <td>{{ tx(x.nombre) }} <span class="sub">{{ tx(x.tipo_nombre) }}</span></td>
+              <td>{{ fmtFecha(x.fecha_vencimiento) }} <EstadoBadge v-if="x.estado_cobro === 'VENCIDO'" estado="VENCIDO" tipo="cobro" /></td>
+              <td class="num">{{ fmtMoneda(x.saldo, x.moneda) }}</td>
+              <td class="num"><input v-model="modal.aplicar[x.id]" type="number" min="0" :max="x.saldo" step="any" class="entrada num ancho-m" :aria-label="t('Apply')" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p v-else class="ayuda">{{ t('This business partner has no documents with balance in this company and currency: the amount stays in its favor.') }}</p>
       <p class="ayuda">{{ t('Applied {0} of {1}; the rest stays in favor of the business partner.', [fmtMoneda(aplicado, modal.moneda), fmtMoneda(Number(modal.importe) || 0, modal.moneda)]) }}</p>
     </div>

@@ -71,7 +71,7 @@ async function subir() {
       <div v-if="vista.hojas.length > 1" class="pestanas-pildora" role="tablist">
         <button v-for="(h, i) in vista.hojas" :key="h.nombre" type="button" class="pildora" role="tab" :aria-selected="hoja === i" @click="hoja = i">{{ t('Sheet {0}', [h.nombre]) }}</button>
       </div>
-      <div class="tabla-marco">
+      <div class="tabla-marco tabla-captura">
         <table class="tabla" v-tarjetas>
           <thead><tr><th v-for="c in vista.hojas[hoja].columnas" :key="c.nombre" :title="tx(c.ayuda)"><span :class="{ req: c.req }">{{ tx(c.nombre) }}</span></th></tr></thead>
           <tbody>

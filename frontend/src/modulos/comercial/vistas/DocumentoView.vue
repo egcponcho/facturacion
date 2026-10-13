@@ -222,7 +222,7 @@ const titulo = computed(() => (nuevo.value ? t('New document') : d.value ? (d.va
           </Seleccion>
           <b v-else>{{ tx(d.sociedad) }}</b>
         </label>
-        <label class="dato" style="grid-column: span 2"><span class="req">{{ recibido ? t('Supplier') : t('Customer') }}</span>
+        <label class="dato col-2"><span class="req">{{ recibido ? t('Supplier') : t('Customer') }}</span>
           <SelectBusqueda v-if="nuevo" v-model="form.tercero_id" :buscar="buscarTerceros" :opciones="terceroInicial ? [terceroInicial] : []"
                           :etiqueta="recibido ? t('Supplier') : t('Customer')" :prefijo="false" @opcion="alElegirTercero" />
           <b v-else>{{ tx(d.tercero) }}</b>
@@ -250,7 +250,7 @@ const titulo = computed(() => (nuevo.value ? t('New document') : d.value ? (d.va
           <input v-if="editable" v-model="form.referencia_externa" class="entrada" maxlength="60" />
           <b v-else>{{ tx(d.referencia_externa || '—') }}</b>
         </label>
-        <label class="dato" style="grid-column: span 2"><span>{{ t('Notes') }}</span>
+        <label class="dato col-2"><span>{{ t('Notes') }}</span>
           <input v-if="editable" v-model="form.notas" class="entrada" maxlength="4000" />
           <b v-else>{{ tx(d.notas || '—') }}</b>
         </label>
@@ -261,8 +261,8 @@ const titulo = computed(() => (nuevo.value ? t('New document') : d.value ? (d.va
     <section v-if="editable" class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('Lines') }}</h2>
         <p>{{ t('Totals and taxes are calculated when you save, with the rate in force on the document date.') }}</p></div></div>
-      <div class="tabla-marco">
-        <table class="tabla">
+      <div class="tabla-marco tabla-captura">
+        <table class="tabla" v-tarjetas>
           <thead><tr>
             <th>{{ t('Description') }}</th><th class="num">{{ t('Quantity') }}</th><th>{{ t('Unit') }}</th>
             <th class="num">{{ t('Unit price') }}</th><th class="num">{{ t('Discount %') }}</th><th>{{ t('Taxes') }}</th><th></th>

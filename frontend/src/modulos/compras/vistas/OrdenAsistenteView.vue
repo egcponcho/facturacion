@@ -502,7 +502,7 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
       <section class="panel">
         <div class="panel-cabeza"><div><h2>{{ t('Prices') }}</h2><p>{{ t('Unit price of each line, in the currency of the PO.') }}</p></div>
           <span class="etiqueta acento">{{ t('Total') }} {{ fmtMoneda(total, cab.moneda) }}</span></div>
-        <div class="tabla-marco">
+        <div class="tabla-marco tabla-captura">
           <table class="tabla" v-tarjetas>
             <thead><tr><th>#</th><th>{{ t('Item') }}</th><th class="num">{{ t('Quantity') }}</th><th class="num">{{ t('Unit price') }}</th><th class="num">{{ t('Amount') }}</th></tr></thead>
             <tbody>

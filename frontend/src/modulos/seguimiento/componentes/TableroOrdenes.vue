@@ -128,7 +128,7 @@ watch(() => [props.filtros, sesion.proveedorId], () => {
       </div>
     </div>
     <GraficoColumnas v-if="verGrafica" :datos="grafica" :titulo="t('Purchase orders by status')" />
-    <div class="chips" style="margin: 10px 0 0">
+    <div class="chips mt-chico">
       <button v-for="e in datos.estados" :key="e.clave" type="button" class="pildora" :aria-pressed="filtros.estado === e.clave"
               @click="emit('filtrar', { estado: filtros.estado === e.clave ? '' : e.clave })">
         {{ tx(e.nombre) }}<span class="cuenta">{{ tx(e.total) }}</span>

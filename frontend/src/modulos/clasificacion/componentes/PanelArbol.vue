@@ -165,7 +165,7 @@ const NIVEL = { CAPITULO: t('Chapter'), PARTIDA: t('Heading'), SUBPARTIDA: t('Su
           </details>
         </template>
       </template>
-      <p v-else class="ayuda vacio-det"><Icono nombre="info" :tam="18" />{{ t('Choose a node of the tree to see its official text, duty, legal notes and national codes.') }}</p>
+      <p v-else class="vacio vacio-det"><Icono nombre="info" :tam="18" />{{ t('Choose a node of the tree to see its official text, duty, legal notes and national codes.') }}</p>
     </section>
   </div>
 </template>
@@ -209,6 +209,6 @@ h4 { margin: 16px 0 6px; font-size: 0.9rem; }
 .pais .codigo-sac { font-size: 0.8rem; padding: 2px 6px; }
 .nota-legal { border: 1px solid var(--linea); border-radius: var(--radio); padding: 6px 10px; margin-bottom: 6px; font-size: 0.86rem; }
 .nota-legal summary { cursor: pointer; font-weight: 600; }
-.vacio-det { display: flex; gap: 8px; align-items: center; justify-content: center; min-height: 260px; }
+.vacio-det { display: flex; gap: 8px; align-items: center; justify-content: center; min-height: 260px; padding-block: 0; }
 @media (max-width: 900px) { .arbol-arancel { grid-template-columns: 1fr; } }
 </style>

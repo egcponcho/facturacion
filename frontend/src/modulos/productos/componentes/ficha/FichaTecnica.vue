@@ -255,7 +255,7 @@ function editarDesc() {
           <BotonArchivo v-if="props.editable && producto.fotos.length < 8" class="foto-add" acepta="image/jpeg,image/png,image/webp"
                         @elegir="(a) => emit('subir-foto', a)"><Icono nombre="mas" :tam="16" /> {{ t('Add photos') }}</BotonArchivo>
         </div>
-        <p class="hint" style="margin-top: 8px">{{ t('Front, side and sole or label: they help to confirm the materials. JPG, PNG or WebP up to {0} MB.', [sesion.usuario?.max_subida_mb]) }}</p>
+        <p class="hint mt-chico">{{ t('Front, side and sole or label: they help to confirm the materials. JPG, PNG or WebP up to {0} MB.', [sesion.usuario?.max_subida_mb]) }}</p>
       </fieldset>
     </section>
   </div>

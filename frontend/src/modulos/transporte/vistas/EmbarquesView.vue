@@ -138,7 +138,7 @@ onMounted(() => {
       </div>
     </template>
     <template #celda-codigo="{ fila: e }">
-      <span class="fila-flex" style="flex-wrap: nowrap"><Icono :nombre="datosModo(e.tipo_transporte).icono" />
+      <span class="fila-flex sin-envolver"><Icono :nombre="datosModo(e.tipo_transporte).icono" />
         <router-link :to="`/transporte/embarques/${e.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(e.codigo) }}</strong></router-link></span>
       <span class="sub">{{ tx(e.documento_numero ? `${datosModo(e.tipo_transporte).doc} ${e.documento_numero}` : t('{0} pending', [datosModo(e.tipo_transporte).doc])) }}{{ tx(e.transportista ? ` · ${e.transportista}` : '') }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span>
     </template>

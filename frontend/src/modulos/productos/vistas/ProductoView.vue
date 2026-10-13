@@ -741,7 +741,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           </TablaDatos>
           <p v-if="!p.versiones.length" class="ayuda mt-chico">{{ t('There are no previous versions yet. Approved sheets are changed by opening a new version; the previous one stays here as it was.') }}</p>
           <div v-if="versionVista" class="version-vista mt">
-            <div class="fila-flex" style="justify-content: space-between">
+            <div class="fila-flex entre">
               <h3>{{ t('Version {0} · {1}', [versionVista.version, versionVista.estado_txt]) }}<span v-if="versionVista.vigencia" class="apagado"> · {{ fmtFecha(versionVista.vigencia.desde) }} – {{ fmtFecha(versionVista.vigencia.hasta) }}</span></h3>
               <button class="btn-icono" :aria-label="t('Close version')" @click="versionVista = null"><Icono nombre="cerrar" :tam="16" /></button>
             </div>
@@ -765,7 +765,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 
         <!-- Tallas y prepacks -->
         <div v-else-if="pestana === 'tallas'">
-          <div class="fila-flex mt-chico" style="justify-content: space-between">
+          <div class="fila-flex mt-chico entre">
             <p class="ayuda">{{ t('Every size of generic') }} <b>{{ tx(p.codigo_generico || '—') }}</b> {{ t('(style-color) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.') }}</p>
             <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />{{ t('Add sizes') }}</button>
           </div>
@@ -891,7 +891,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <div class="panel-cabeza"><div><h2>{{ t('By destination') }}</h2><p>{{ t('{0} of {1} national codes complete', [paisesOk, paises.length]) }}</p></div></div>
           <!-- Editor de los códigos nacionales (se escribe en cada fila): queda como tabla
                con el estilo del sistema, no como TablaDatos (ver docs/DISENO.md) -->
-          <div class="tabla-marco">
+          <div class="tabla-marco tabla-captura">
           <table class="tabla paises" :aria-label="t('By destination')" v-tarjetas>
             <tbody>
               <tr v-for="x in paises" :key="x.iso">

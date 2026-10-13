@@ -652,7 +652,7 @@ onMounted(async () => {
         <div v-if="nuevoPP.tipo === 'KIT'" class="campo">
           <span class="req">{{ t('Kit contents') }}</span>
           <SelectBusqueda v-model="kitElegido" :opciones="opcionesKit" :etiqueta="t('Add item')" :placeholder="t('Add item')" />
-          <div v-if="kitItems.length" class="tabla-marco sin-sombra">
+          <div v-if="kitItems.length" class="tabla-marco tabla-captura">
             <table class="tabla" v-tarjetas>
               <thead><tr><th>SKU</th><th>{{ t('Item') }}</th><th class="num">{{ t('Qty') }}</th><th /></tr></thead>
               <tbody>
@@ -670,7 +670,7 @@ onMounted(async () => {
         </div>
         <div v-else-if="nuevoPP.estilo && nuevoPP.color" class="campo">
           <span class="req">{{ t('Breakdown per master carton') }}<template v-if="tallasPP.length"> ({{ tx(tallasPP[0].unidad) }})</template></span>
-          <div class="tabla-marco sin-sombra">
+          <div class="tabla-marco tabla-captura">
             <table class="tabla" v-tarjetas>
               <thead><tr><th>{{ t('Size') }}</th><th>SKU</th><th class="num">{{ t('Qty') }}</th></tr></thead>
               <tbody>
@@ -784,7 +784,7 @@ onMounted(async () => {
     <CargaArchivo v-model="modal.archivo" />
     <template v-if="modal.resultado">
       <div class="nota ok"><Icono nombre="check" />{{ t('{0} created and {1} updated.', [modal.resultado.creados, modal.resultado.actualizados]) }}</div>
-      <div v-if="modal.resultado.errores.length" class="tabla-marco" style="max-height: 240px; overflow: auto; box-shadow: none">
+      <div v-if="modal.resultado.errores.length" class="tabla-marco tabla-captura alto-limitado">
         <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Row') }}</th><th>{{ t('Error') }}</th></tr></thead>
           <tbody><tr v-for="(er, i) in modal.resultado.errores" :key="i"><td>{{ tx(er.fila) }}</td><td class="envolver">{{ tx(er.mensaje) }}</td></tr></tbody>

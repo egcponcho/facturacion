@@ -156,7 +156,7 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
     <div class="leyenda-etapas">
       <span v-for="(e, i) in datos.etapas" :key="e.clave"><i class="punto" :style="{ background: COLOR(i) }"></i>{{ tx(e.nombre) }}</span>
     </div>
-    <p class="ayuda" style="margin: 10px 0 0">
+    <p class="ayuda mt-chico">
       {{ t('Port deadline = in-store date minus the steps after the port arrival in the effective lead time of each PO (Port > Country > Region > Global)') }}
       <template v-for="(r, i) in datos.regiones" :key="r.codigo">{{ tx(tx(i ? ' · ' : ' (')) }}{{ tx(r.nombre) }} {{ tx(r.dias_puerto_bodega) }}+{{ tx(r.dias_ingreso) }}+{{ tx(r.dias_reexportacion) }} d{{ tx(tx(i === datos.regiones.length - 1 ? ')' : '')) }}</template>.
       {{ t('Re-export is not recorded yet: its days are reserved.') }} <router-link v-if="esInterno()" to="/leadtimes" class="enlace">{{ t('See the effective lead time') }}</router-link>
@@ -204,7 +204,7 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
           <span class="etiqueta ms-0" :class="ESTADO[h.estado][1]"><Icono :nombre="ESTADO[h.estado][2]" :tam="12" />{{ tx(ESTADO[h.estado][0]) }}<template v-if="difTxt(h)"> · {{ tx(difTxt(h)) }}</template></span>
         </li>
       </ol>
-      <p class="ayuda" style="margin: 8px 0 0">{{ t('≈ estimated from the shipment ETA or the standard days of {0}. In store is estimated after warehouse entry plus re-export (not recorded yet).', [o.plan_nombre || o.region_nombre]) }}</p>
+      <p class="ayuda mt-chico">{{ t('≈ estimated from the shipment ETA or the standard days of {0}. In store is estimated after warehouse entry plus re-export (not recorded yet).', [o.plan_nombre || o.region_nombre]) }}</p>
     </template>
     <template #vacio>{{ t('No purchase orders match these filters.') }}</template>
   </TablaDatos>

@@ -223,7 +223,7 @@ async function guardar() {
           {{ tx(e.texto) }}<span v-if="datos.campos_propios[e.clave]?.length" class="cuenta">{{ datos.campos_propios[e.clave].length }}</span></button>
       </div>
       <p v-if="!datos.campos_propios[entidadCampos]?.length" class="ayuda">{{ t('No own fields for this entity.') }}</p>
-      <div v-else class="tabla-marco">
+      <div v-else class="tabla-marco tabla-captura">
         <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Type') }}</th><th>{{ t('Options (comma-separated)') }}</th><th>{{ t('Required') }}</th><th :title="t('Speeds up filters and reports on this field')">{{ t('Indexed') }}</th><th /></tr></thead>
           <tbody>
@@ -245,7 +245,7 @@ async function guardar() {
       <div class="pestanas-pildora" role="tablist">
         <button v-for="d in o.documentos_estados" :key="d.clave" type="button" role="tab" class="pildora" :aria-selected="documentoEstados === d.clave" @click="documentoEstados = d.clave">{{ tx(d.texto) }}</button>
       </div>
-      <div class="tabla-marco">
+      <div class="tabla-marco tabla-captura">
         <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Standard name') }}</th><th>{{ t('Your name') }}</th><th>{{ t('Color') }}</th><th>{{ t('Preview') }}</th><th>{{ t('Order') }}</th></tr></thead>
           <tbody>
@@ -269,7 +269,7 @@ async function guardar() {
       <div class="panel-cabeza"><div><h2>{{ t('Terminology') }}</h2><p>{{ t('Replace any text of the system with the words your company uses, in each language. Write the original text as it appears in English; it applies to screens and documents (reload to see it everywhere).') }}</p></div>
         <button type="button" class="btn btn-chico" @click="terminos.push({ original: '', es: '', en: '' })"><Icono nombre="mas" :tam="14" />{{ t('Add text') }}</button></div>
       <p v-if="!terminos.length" class="ayuda">{{ t('No own texts: the system uses its standard terminology.') }}</p>
-      <div v-else class="tabla-marco">
+      <div v-else class="tabla-marco tabla-captura">
         <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Original text (English)') }}</th><th>{{ t('Spanish') }}</th><th>{{ t('English') }}</th><th /></tr></thead>
           <tbody>
@@ -288,7 +288,7 @@ async function guardar() {
       <div class="panel-cabeza"><div><h2>{{ t('Purchase order approval') }}</h2><p>{{ t('Who approves a PO before it can be invoiced. Every rule whose minimum amount the PO reaches (in its currency and, if set, for its company) adds an approval step, from the lowest to the highest amount. With no rule, a PO is approved when it is sent.') }}</p></div>
         <button type="button" class="btn btn-chico" @click="nuevaRegla"><Icono nombre="mas" :tam="14" />{{ t('Add rule') }}</button></div>
       <p v-if="!datos.aprobaciones_oc.length" class="ayuda">{{ t('No approval rules: POs are approved when they are sent.') }}</p>
-      <div v-else class="tabla-marco">
+      <div v-else class="tabla-marco tabla-captura">
         <table class="tabla" v-tarjetas>
           <thead><tr><th>{{ t('Name') }}</th><th class="num">{{ t('From amount') }}</th><th>{{ t('Currency') }}</th><th>{{ t('Company') }}</th><th>{{ t('Approved by role') }}</th><th /></tr></thead>
           <tbody>

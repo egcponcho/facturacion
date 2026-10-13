@@ -209,15 +209,17 @@ const alternarRol = (r) => {
       <template v-for="(v, m) in cuenta.saldo" :key="m"> {{ fmtMoneda(v, m) }}</template>
       <template v-if="!Object.keys(cuenta.saldo).length"> {{ t('nothing pending') }}</template>
     </p>
-    <table v-if="cuenta.documentos.length" class="tabla">
-      <thead><tr><th>{{ t('Document') }}</th><th>{{ t('Due date') }}</th><th class="num">{{ t('Balance') }}</th></tr></thead>
-      <tbody>
-        <tr v-for="x in cuenta.documentos" :key="x.id" class="clicable" @click="router.push(`/comercial/documentos/${x.id}`)">
-          <td>{{ tx(x.nombre) }} <span class="sub">{{ tx(x.tipo_nombre) }}</span></td><td>{{ x.fecha_vencimiento }}</td>
-          <td class="num">{{ fmtMoneda(x.signo < 0 ? -x.saldo : x.saldo, x.moneda) }}</td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-if="cuenta.documentos.length" class="tabla-marco tabla-captura">
+      <table class="tabla" v-tarjetas>
+        <thead><tr><th>{{ t('Document') }}</th><th>{{ t('Due date') }}</th><th class="num">{{ t('Balance') }}</th></tr></thead>
+        <tbody>
+          <tr v-for="x in cuenta.documentos" :key="x.id" class="clicable" @click="router.push(`/comercial/documentos/${x.id}`)">
+            <td>{{ tx(x.nombre) }} <span class="sub">{{ tx(x.tipo_nombre) }}</span></td><td>{{ x.fecha_vencimiento }}</td>
+            <td class="num">{{ fmtMoneda(x.signo < 0 ? -x.saldo : x.saldo, x.moneda) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <p v-if="cuenta.pagos_sin_aplicar.length" class="ayuda">{{ t('{0} payments with an amount not applied.', [cuenta.pagos_sin_aplicar.length]) }}</p>
   </Modal>
 </template>

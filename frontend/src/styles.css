@@ -505,6 +505,10 @@ a.pestana { text-decoration: none; }
 }
 .tabla-marco { overflow-x: auto; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); box-shadow: var(--sombra); }
 .tabla-marco + .tabla-marco, .panel + .tabla-marco { margin-top: 16px; }
+/* Cuadrícula de captura dentro de un formulario, un panel o una ventana (líneas,
+   cuotas, componentes…): marco con borde y sin sombra; alto-limitado la desplaza */
+.tabla-captura { box-shadow: none; border-radius: var(--radio); }
+.tabla-captura.alto-limitado { max-height: 300px; overflow-y: auto; }
 table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); line-height: var(--td-lh); font-variant-numeric: tabular-nums; }
 .tabla th {
   text-align: start; font-weight: 620; color: var(--tinta-3); font-size: var(--td-th-fs); letter-spacing: 0.03em; text-transform: uppercase;
@@ -867,6 +871,17 @@ a.cajas-rango { color: var(--tinta); }
 .mt-chico { margin-top: 8px; }
 /* Utilidades (en lugar de estilos en línea) */
 .mt-0 { margin-top: 0; }
+.mb-0 { margin-bottom: 0; }
+.gap-1 { gap: var(--e-1); } .gap-2 { gap: var(--e-2); }
+.entre { justify-content: space-between; }
+.centrar { justify-content: center; }
+.sin-envolver { flex-wrap: nowrap; }
+.empuja-fin { margin-inline-start: auto; }
+.empuja-inicio { margin-inline-end: auto; }
+.col-2 { grid-column: span 2; }
+.crece { flex: 1; }
+.texto-inicio { text-align: start; }
+.p-0 { padding: 0; }
 .mb-2 { margin-bottom: var(--e-2); }
 .mb-3 { margin-bottom: var(--e-3); }
 .mb-4 { margin-bottom: var(--e-4); }
@@ -1265,7 +1280,6 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .desempeno-cuerpo { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; margin-top: 22px; }
 .subtitulo { font-size: 0.88rem; font-weight: 650; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
 .subtitulo .ayuda { font-weight: 450; font-size: 0.8rem; }
-.vacio-grafica { padding: 40px 0; text-align: center; }
 .tabla-interna { box-shadow: none; }
 .panel > .tabla-interna { margin: 0 -22px -20px; border: 0; border-top: 1px solid var(--linea); border-radius: 0 0 var(--radio-panel) var(--radio-panel); }
 .tablero + .panel, .tablero + section { margin-top: 16px; }

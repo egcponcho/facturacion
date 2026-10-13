@@ -32,8 +32,9 @@ calculado, un color de una serie).
 | Estado de un documento | `EstadoBadge` (`nucleo/estados.js`) | Textos y tonos de los estados en un solo lugar. |
 | Etiqueta informativa | `.etiqueta` (`.ok`, `.aviso`, `.error`, `.info`, `.acento`) | No confundir con los chips. |
 | Filtro activo (se puede quitar) | `.chips` + `.chip` con su botón × | Junto con «Limpiar filtros». |
-| Lista con búsqueda | `SelectBusqueda` (con `buscar` para listas grandes: busca en el servidor) | Reemplaza a `<select>` con más de 5 opciones. |
-| Fecha | `CampoFecha` | Formato del perfil; el valor siempre es `YYYY-MM-DD`. |
+| Lista de opciones | `Seleccion` (escrita como un `<select>` con sus `<option>`) o `SelectBusqueda` (con `buscar` para listas grandes: busca en el servidor) | No se usa `<select>` nativo: se vería distinto. `@change` recibe el valor, no el evento. |
+| Fecha | `CampoFecha` | Formato del perfil; el valor siempre es `YYYY-MM-DD`. No se usa `type="date"`. |
+| Archivo | `CargaArchivo` (zona grande para cargas; `compacta` en formularios y barras) o `BotonArchivo` (un botón que abre el selector: logo, fotos, paquetes) | No se usa `<input type="file">` a la vista. |
 | Sí / no | `Interruptor` | |
 | Avance | `Avance` (barra), `Pasos` (etapas de un documento) | |
 | Estado vacío | `EstadoVacio` | Dice qué es, qué falta y cómo empezar. |
@@ -51,6 +52,16 @@ calculado, un color de una serie).
   marca igual y lo valida el servidor.
 - **Errores.** Se muestran junto al dato (los devuelve el servidor por campo),
   no solo en un aviso flotante.
+- **Campos.** Un solo estilo para todos (`styles.css`, «Botones y campos»):
+  mismo alto, borde, letra y foco que las listas. `.entrada.chica` para una
+  barra o fila de edición. Los anchos fijos van con clases (`.ancho-xs` …
+  `.ancho-xl`, `.max-*`), no con `style`; el espaciado con las utilidades
+  (`.mt`, `.mb-*`, `.gap-*`, `.empuja-fin`…). Una pantalla no redefine
+  `.campo`, `.entrada` ni el tamaño de un `select`.
+- **Cuadrículas de captura** (líneas de un documento, cuotas, componentes de
+  un kit): `.tabla-marco.tabla-captura` con `table.tabla` y `v-tarjetas`;
+  `.alto-limitado` si puede crecer mucho. Celdas editables `.celda`
+  (`.con-borde` si siempre se ven como campo).
 
 ## Ventanas, paneles y asistentes
 
@@ -86,8 +97,13 @@ Todas las tablas siguen el modelo de la tabla de **órdenes de compra**:
   de la fila son `.enlace` (azul, sin subrayar). Montos y cantidades a la
   derecha (`.num`). Las acciones de la fila al final, apiladas
   (`.acciones-apiladas`), con la principal en `btn-primario`.
-- **Maestro-detalle:** una columna con la flecha (`btn-icono`) que abre una
-  fila hija (`.fila-hija`) con la subtabla (`.subtabla`).
+- **Maestro-detalle:** `TablaDatos expandible` con la ranura `detalle`. La
+  tabla pone la flecha y envuelve el detalle en `DetalleAnidado` (sangría,
+  guía a la izquierda y fondo propio): la pantalla no agrega contenedores ni
+  márgenes. Una `TablaDatos` dentro del detalle se dibuja sola como tabla
+  anidada (compacta, sin vistas guardadas ni densidad, «Columnas» discreto y
+  paginación solo si hace falta). Un segundo nivel dentro del detalle usa
+  también `DetalleAnidado`.
 - **Pie:** `Paginacion` pegada a la tabla, con «1–25 de 80 registros», las
   páginas y las filas por página.
 - **Carga y vacío:** `FilasEsqueleto` mientras carga; sin resultados, el motivo
