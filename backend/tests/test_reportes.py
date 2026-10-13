@@ -5,10 +5,10 @@ import csv
 import io
 
 from conftest import Api
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from app.core.db import SessionLocal
-from app.modelos import OrdenCompra, Proveedor
+from app.modelos import Incoterm, OrdenCompra, Proveedor
 
 
 def _vista(api, definicion):
@@ -131,6 +131,9 @@ def test_el_csv_no_ejecuta_formulas(interno):
     """Un dato que empieza con «=» (o +, -, @) sale como texto en el CSV."""
     with SessionLocal() as db:
         oc = db.scalars(select(OrdenCompra).order_by(OrdenCompra.id)).first()
+        # El incoterm es una llave al catálogo: el valor peligroso existe primero en el catálogo
+        db.add(Incoterm(codigo="=1+2", nombre="Formula", orden=99, activo=True, organizacion_id=oc.organizacion_id))
+        db.flush()
         antes, oc.incoterm = oc.incoterm, "=1+2"  # cabe en el incoterm (10 caracteres en PostgreSQL)
         db.commit()
         oc_id, numero = oc.id, oc.numero
@@ -143,5 +146,7 @@ def test_el_csv_no_ejecuta_formulas(interno):
     finally:
         with SessionLocal() as db:
             db.get(OrdenCompra, oc_id).incoterm = antes
+            db.flush()
+            db.execute(delete(Incoterm).where(Incoterm.codigo == "=1+2"))
             db.commit()
 

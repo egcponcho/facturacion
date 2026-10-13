@@ -38,6 +38,7 @@ from app.modelos import (
     Proveedor,
     Puerto,
     RecepcionLinea,
+    ReglaAprobacionOC,
     Rol,
     Sociedad,
     UnidadCarga,
@@ -303,11 +304,12 @@ def _total(oc: OrdenCompra) -> float:
     return dinero.numero(dinero.total([(p.cantidad, p.precio) for p in oc.posiciones if p.precio is not None], oc.moneda))
 
 
-def reglas_que_aplican(oc: OrdenCompra) -> list[dict]:
-    total = _total(oc)
-    return [r for r in (configuracion_actual().get("aprobaciones_oc") or [])
-            if r["moneda"] == (oc.moneda or "") and total >= float(r["monto_minimo"])
-            and (not r.get("sociedad") or r["sociedad"] == oc.sociedad)]
+def reglas_que_aplican(db: Session, oc: OrdenCompra) -> list[ReglaAprobacionOC]:
+    total = dinero.decimal(_total(oc))
+    return [r for r in db.scalars(select(ReglaAprobacionOC).where(ReglaAprobacionOC.activo.is_(True))
+                                  .order_by(ReglaAprobacionOC.monto_minimo, ReglaAprobacionOC.orden, ReglaAprobacionOC.id))
+            if r.moneda == (oc.moneda or "") and total >= dinero.decimal(r.monto_minimo)
+            and (not r.sociedad or r.sociedad == oc.sociedad)]
 
 
 def _liberar(db: Session, oc: OrdenCompra) -> None:
@@ -326,7 +328,7 @@ def iniciar_aprobacion(db: Session, user: Usuario | None, oc: OrdenCompra) -> No
     for a in list(oc.aprobaciones):
         db.delete(a)
     db.flush()
-    reglas = reglas_que_aplican(oc)
+    reglas = reglas_que_aplican(db, oc)
     oc.enviada_en = ahora()
     if not reglas:
         oc.estado, oc.aprobada_en = "APROBADA", ahora()
@@ -335,7 +337,7 @@ def iniciar_aprobacion(db: Session, user: Usuario | None, oc: OrdenCompra) -> No
         return
     oc.estado, oc.liberada = "EN_APROBACION", False
     for i, r in enumerate(reglas, start=1):
-        oc.aprobaciones.append(AprobacionOC(paso=i, regla=r["nombre"], rol_id=r["rol_id"], estado="PENDIENTE"))
+        oc.aprobaciones.append(AprobacionOC(paso=i, regla=r.nombre, regla_id=r.id, rol_id=r.rol_id, estado="PENDIENTE"))
     db.flush()
 
 

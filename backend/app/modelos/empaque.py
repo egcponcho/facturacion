@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 tipo_empaque_contiene = Table(
     "tipo_empaque_contiene", Base.metadata,
     Column("padre_id", ForeignKey("tipos_empaque.id", ondelete="CASCADE"), primary_key=True),
-    Column("hijo_id", ForeignKey("tipos_empaque.id", ondelete="CASCADE"), primary_key=True),
+    Column("hijo_id", ForeignKey("tipos_empaque.id", ondelete="CASCADE"), primary_key=True, index=True),
 )
 
 
@@ -69,6 +69,8 @@ class PLLinea(DeOrganizacion, Base):
     partes de la misma línea (resultado de dividir)."""
 
     __tablename__ = "pl_lineas"
+    # Cada línea de factura una sola vez por PL: lo que se agrega se suma a su fila
+    __table_args__ = (UniqueConstraint("pl_id", "factura_linea_id", name="uq_pl_lineas_pl_factura_linea"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     pl_id: Mapped[int] = mapped_column(ForeignKey("packing_lists.id"), index=True)
     factura_linea_id: Mapped[int] = mapped_column(ForeignKey("factura_lineas.id"), index=True)
@@ -108,12 +110,12 @@ class GrupoCajas(DeOrganizacion, Base):
     alto: Mapped[float | None] = mapped_column(Float)
     peso_neto_caja: Mapped[float | None] = mapped_column(Float)  # kg
     peso_bruto_caja: Mapped[float | None] = mapped_column(Float)
-    plantilla_id: Mapped[int | None] = mapped_column(ForeignKey("plantillas_caja.id"))
+    plantilla_id: Mapped[int | None] = mapped_column(ForeignKey("plantillas_caja.id"), index=True)
     plantilla_nombre: Mapped[str | None] = mapped_column(String(100))
     es_parcial: Mapped[bool] = mapped_column(Boolean, default=False)
     peso_estimado: Mapped[bool] = mapped_column(Boolean, default=False)
     observacion: Mapped[str | None] = mapped_column(String(300))
-    tipo_empaque_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_empaque.id"))
+    tipo_empaque_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_empaque.id"), index=True)
     padre_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_cajas.id", ondelete="SET NULL"), index=True)
     tara: Mapped[float | None] = mapped_column(Float)  # kg de una unidad de este empaque vacía
     neto_manual: Mapped[float | None] = mapped_column(Float)  # neto por unidad si falta el peso de algún artículo
@@ -191,7 +193,7 @@ class PlantillaCaja(DeOrganizacion, Base):
     alto: Mapped[float | None] = mapped_column(Float)
     # Solo la tara del empaque: el peso neto sale del peso de cada artículo
     tara: Mapped[float | None] = mapped_column(Float)
-    tipo_empaque_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_empaque.id"))
+    tipo_empaque_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_empaque.id"), index=True)
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
 
     tipo_empaque: Mapped["TipoEmpaque | None"] = relationship()

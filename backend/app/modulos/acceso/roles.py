@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
-from app.modelos import Rol, Usuario
+from app.modelos import AprobacionOC, ReglaAprobacionOC, Rol, Usuario
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import (
     alcance,
@@ -138,5 +138,11 @@ def borrar_rol(db: Session, user: Usuario, rol_id: int) -> None:
         raise ErrorNegocio("The role does not exist.", 404, "no_encontrado")
     if db.scalar(select(func.count()).where(Usuario.rol_id == r.id)):
         raise ErrorNegocio("The role has users: assign them another role first.", 422, "en_uso")
+    reglas = db.scalars(select(ReglaAprobacionOC.nombre).where(ReglaAprobacionOC.rol_id == r.id)).all()
+    if reglas:
+        raise ErrorNegocio(f"The role approves purchase orders ({', '.join(reglas)}): change those approval rules first.",
+                           422, "en_uso")
+    if db.scalar(select(func.count()).where(AprobacionOC.rol_id == r.id, AprobacionOC.estado == "PENDIENTE")):
+        raise ErrorNegocio("The role has purchase orders waiting for its approval.", 422, "en_uso")
     registrar(db, user, "rol", r.id, "borrado", {"nombre": r.nombre, "permisos": r.permisos})
     db.delete(r)

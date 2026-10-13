@@ -62,6 +62,7 @@ PAISES = [
     ("VN", "Vietnam"), ("CN", "China"), ("ID", "Indonesia"), ("KH", "Cambodia"), ("BD", "Bangladesh"),
     ("IN", "India"), ("SV", "El Salvador"), ("PA", "Panama"), ("GT", "Guatemala"), ("HN", "Honduras"),
     ("CR", "Costa Rica"), ("NI", "Nicaragua"), ("US", "United States"), ("MX", "Mexico"), ("BR", "Brazil"),
+    ("HK", "Hong Kong"), ("CO", "Colombia"), ("DK", "Denmark"), ("FR", "France"),
 ]
 REGION_PAIS = {**dict.fromkeys(["VN", "CN", "ID", "KH", "BD", "IN"], "ASIA"),
                **dict.fromkeys(["SV", "PA", "GT", "HN", "CR", "NI"], "CAM")}
@@ -266,10 +267,20 @@ def _catalogos(db: Session) -> dict:
         RegionLeadTime(codigo="OTROS", nombre="Other origins", predeterminada=True),
     ])
     db.add_all([PasoLeadTime(codigo=c, nombre=n, hito=h) for c, n, h in PASOS_LT])
+    # Los países vienen de la lista ISO de la plataforma; la demo les da su región de lead time
+    existentes = {p.codigo: p for p in db.scalars(select(Pais))}
+    for c, n in PAISES:
+        p = existentes.get(c) or Pais(codigo=c, nombre=n, activo=True)
+        p.region = REGION_PAIS.get(c)
+        db.add(p)
+    # Los catálogos antes que lo que guarda sus códigos (llaves foráneas por código)
+    puertos = {c: Puerto(codigo=c, nombre=n, pais=p, tipo="MARITIMO") for c, n, p in PUERTOS}
+    puertos.update({c: Puerto(codigo=c, nombre=n, pais=p, tipo=t) for c, n, p, t in PUERTOS_OTROS})
+    db.add_all(puertos.values())
+    db.flush()
     db.add_all([ReglaLeadTime(nivel=nv, nombre=nm, pasos=json.dumps({"pasos": ps, "orden": None}),
                               **({rlt.CAMPO_NIVEL[nv]: amb} if nv in rlt.CAMPO_NIVEL else {}))
                 for nv, amb, nm, ps in REGLAS_LT])
-    db.add_all([Pais(codigo=c, nombre=n, region=REGION_PAIS.get(c)) for c, n in PAISES])
     socs = {c: Sociedad(codigo=c, nombre=n, razon_social=r, id_fiscal=nit, pais=pais, moneda="USD", direccion=dir_,
                         correos=correos)
             for c, n, r, nit, pais, dir_, correos in SOCIEDADES}
@@ -292,9 +303,6 @@ def _catalogos(db: Session) -> dict:
         db.add(Contacto(nombre=nombre, cargo=cargo, rol=rol, correos=correos, telefono=tel,
                         sociedad_id=socs[codigo].id if tipo == "sociedad" else None,
                         centro_id=centros[codigo].id if tipo == "centro" else None))
-    puertos = {c: Puerto(codigo=c, nombre=n, pais=p, tipo="MARITIMO") for c, n, p in PUERTOS}
-    puertos.update({c: Puerto(codigo=c, nombre=n, pais=p, tipo=t) for c, n, p, t in PUERTOS_OTROS})
-    db.add_all(puertos.values())
     for c, lista in PUERTOS_CENTRO.items():
         centros[c].puertos = [puertos[x] for x in lista]
     db.add_all([TipoUnidad(codigo=c, nombre=n, modo=m, modalidad=md, capacidad_cbm=cbm, capacidad_kg=kg,

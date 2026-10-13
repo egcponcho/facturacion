@@ -9,14 +9,14 @@ empresa usa la organización 1.
 import re
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core import campos_propios, organizacion
 from app.core.archivos import imagen_data_url
 from app.core.config import settings
 from app.core.empresa import CAMPOS_COMPATIBILIDAD, REGLAS
 from app.core.errores import ErrorNegocio
-from app.modelos import Organizacion, Usuario
+from app.modelos import Organizacion, ReglaAprobacionOC, Sociedad, Usuario
 from app.modulos.acceso.permisos import MODULOS_ACTIVABLES, exigir
 from app.modulos.comun.historial import registrar
 
@@ -82,7 +82,7 @@ def _dict(o: Organizacion) -> dict:
         "reglas": [{"clave": k, "texto": t, "valor": v} for (k, t), v in zip(REGLAS.items(), _reglas_de(o).values(), strict=False)],
         # Datos de la OC que pueden entrar en las reglas de compatibilidad
         "campos_compatibilidad": [{"clave": k, "texto": NOMBRES_CAMPO[k]} for k in CAMPOS_COMPATIBILIDAD],
-        "aprobaciones_oc": conf.get("aprobaciones_oc") or [],
+        "aprobaciones_oc": reglas_aprobacion(object_session(o)),
         "obligatorios": {"orden": (conf.get("obligatorios") or {}).get("orden") or []},
         "campos_obligables": [{"clave": k, "texto": v} for k, v in CAMPOS_OBLIGABLES_OC.items()],
     }
@@ -119,9 +119,31 @@ def _validar_aprobaciones(db: Session, reglas) -> list[dict]:
         if not nombre or monto < 0 or moneda not in listas.codigos("moneda") or not rol or not rol.activo:
             raise ErrorNegocio(f"Approval rule {i}: it needs a name, a minimum amount (0 or more), a currency of the list "
                                "and an active role that approves.", 422, "validacion")
-        limpias.append({"nombre": nombre, "monto_minimo": monto, "moneda": moneda,
-                        "sociedad": str(r.get("sociedad") or "").strip().upper()[:10] or None, "rol_id": rol.id})
+        sociedad = str(r.get("sociedad") or "").strip().upper()[:10] or None
+        if sociedad and not db.scalar(select(Sociedad.id).where(Sociedad.codigo == sociedad)):
+            raise ErrorNegocio(f"Approval rule {i}: the company {sociedad} does not exist.", 422, "validacion")
+        limpias.append({"nombre": nombre, "monto_minimo": monto, "moneda": moneda, "sociedad": sociedad, "rol_id": rol.id})
     return sorted(limpias, key=lambda r: r["monto_minimo"])
+
+
+def reglas_aprobacion(db: Session | None) -> list[dict]:
+    """Reglas de aprobación de OCs de la organización, de menor a mayor monto."""
+    if db is None:
+        return []
+    return [{"id": r.id, "nombre": r.nombre, "monto_minimo": r.monto_minimo, "moneda": r.moneda, "sociedad": r.sociedad,
+             "rol_id": r.rol_id}
+            for r in db.scalars(select(ReglaAprobacionOC).where(ReglaAprobacionOC.activo.is_(True))
+                                .order_by(ReglaAprobacionOC.orden, ReglaAprobacionOC.id))]
+
+
+def _guardar_aprobaciones(db: Session, reglas: list[dict]) -> None:
+    """Reemplaza las reglas; los pasos de OCs ya enviadas conservan el nombre de su regla."""
+    for r in db.scalars(select(ReglaAprobacionOC)):
+        db.delete(r)
+    db.flush()
+    for i, r in enumerate(reglas, start=1):
+        db.add(ReglaAprobacionOC(orden=i, activo=True, **r))
+    db.flush()
 
 
 NOMBRES_CAMPO = {"sociedad": "Company", "centro": "Plant", "centro_destino": "Destination plant", "moneda": "Currency",
@@ -255,7 +277,7 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
             raise ErrorNegocio("Choose the modules to turn on or off.", 422, "validacion")
         conf["modulos"] = {**_modulos_de(conf), **modulos}
     if "aprobaciones_oc" in datos:
-        conf["aprobaciones_oc"] = _validar_aprobaciones(db, datos["aprobaciones_oc"] or [])
+        _guardar_aprobaciones(db, _validar_aprobaciones(db, datos["aprobaciones_oc"] or []))
     if "obligatorios" in datos:
         orden = (datos["obligatorios"] or {}).get("orden") or []
         if not isinstance(orden, list) or set(orden) - set(CAMPOS_OBLIGABLES_OC):

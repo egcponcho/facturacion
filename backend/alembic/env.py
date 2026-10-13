@@ -7,6 +7,12 @@ from app.instalacion.migraciones import sin_claves_foraneas
 target_metadata = Base.metadata
 
 
+def incluir(objeto, nombre, tipo, reflejado, _comparado) -> bool:
+    """Las llaves de coherencia de organización (…_org) viven solo en la base
+    (app/modelos/referencias.py): no se comparan con los modelos."""
+    return not (tipo == "foreign_key_constraint" and reflejado and (nombre or "").endswith("_org"))
+
+
 def run_migrations_offline() -> None:
     context.configure(url=str(engine.url), target_metadata=target_metadata, literal_binds=True,
                       render_as_batch=engine.dialect.name == "sqlite")
@@ -26,7 +32,7 @@ def run_migrations_online() -> None:
 def _correr(con) -> None:
     # SQLite no altera columnas en el lugar: "batch" recrea la tabla
     context.configure(connection=con, target_metadata=target_metadata, render_as_batch=con.dialect.name == "sqlite",
-                      compare_type=True)
+                      compare_type=True, include_object=incluir)
     with context.begin_transaction():
         context.run_migrations()
     if con.in_transaction():

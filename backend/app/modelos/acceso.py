@@ -56,7 +56,7 @@ class Usuario(UsuarioDeOrganizacion, Base):
     nombre: Mapped[str] = mapped_column(String(200))
     rol: Mapped[str] = mapped_column(String(20))  # tipo del rol: admin | interno | proveedor
     rol_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"), index=True)
-    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
+    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"), index=True)
     # Alcance de los datos (modulos/acceso/permisos.py): {"proveedores": [ids], "sociedades": [códigos]}
     alcance: Mapped[dict] = mapped_column(JSON, default=dict)
     password_hash: Mapped[str] = mapped_column(String(300))

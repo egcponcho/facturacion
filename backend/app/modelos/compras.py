@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -21,7 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
-from app.modelos.base import Cantidad, Precio, ahora, cant
+from app.modelos.base import Cantidad, Importe, Precio, ahora, cant
 
 if TYPE_CHECKING:
     from app.modelos.maestros import Articulo, Proveedor
@@ -81,18 +82,38 @@ class OrdenCompra(DeOrganizacion, Base):
     )
 
 
+class ReglaAprobacionOC(DeOrganizacion, Base):
+    """Regla de aprobación de OCs: desde qué monto, en qué moneda (y,
+    opcionalmente, para qué sociedad) aprueba qué rol. Un rol que aprueba no
+    se puede borrar mientras una regla lo use (llave foránea)."""
+
+    __tablename__ = "reglas_aprobacion_oc"
+    __table_args__ = (CheckConstraint("monto_minimo >= 0", name="ck_reglas_aprobacion_oc_monto_minimo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    monto_minimo: Mapped[float] = mapped_column(Importe)
+    moneda: Mapped[str] = mapped_column(String(3))
+    sociedad: Mapped[str | None] = mapped_column(String(10))
+    rol_id: Mapped[int] = mapped_column(ForeignKey("roles.id"), index=True)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class AprobacionOC(DeOrganizacion, Base):
     """Un paso de aprobación de una OC: lo crea su envío según las reglas de
     aprobación de la empresa (monto, moneda, sociedad → rol que aprueba)."""
 
     __tablename__ = "aprobaciones_oc"
+    __table_args__ = (UniqueConstraint("oc_id", "paso", name="uq_aprobaciones_oc_oc_paso"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     oc_id: Mapped[int] = mapped_column(ForeignKey("ordenes_compra.id", ondelete="CASCADE"), index=True)
     paso: Mapped[int] = mapped_column(Integer)
-    regla: Mapped[str] = mapped_column(String(80))
-    rol_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"))
+    regla: Mapped[str] = mapped_column(String(80))  # nombre de la regla al enviarse (foto)
+    regla_id: Mapped[int | None] = mapped_column(
+        ForeignKey("reglas_aprobacion_oc.id", ondelete="SET NULL", name="fk_aprobaciones_oc_regla_id"), index=True)
+    rol_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"), index=True)
     estado: Mapped[str] = mapped_column(String(12), default="PENDIENTE")  # PENDIENTE | APROBADA | RECHAZADA
-    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), index=True)
     fecha: Mapped[datetime | None] = mapped_column(DateTime)
     comentario: Mapped[str | None] = mapped_column(String(500))
 

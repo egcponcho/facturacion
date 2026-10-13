@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Column,
     Float,
     ForeignKey,
@@ -32,21 +33,21 @@ if TYPE_CHECKING:
 proveedor_marcas = Table(
     "proveedor_marcas", Base.metadata,
     Column("proveedor_id", ForeignKey("proveedores.id", ondelete="CASCADE"), primary_key=True),
-    Column("marca_id", ForeignKey("marcas.id", ondelete="CASCADE"), primary_key=True),
+    Column("marca_id", ForeignKey("marcas.id", ondelete="CASCADE"), primary_key=True, index=True),
 )
 
 
 proveedor_sociedades = Table(
     "proveedor_sociedades", Base.metadata,
     Column("proveedor_id", ForeignKey("proveedores.id", ondelete="CASCADE"), primary_key=True),
-    Column("sociedad_id", ForeignKey("sociedades.id", ondelete="CASCADE"), primary_key=True),
+    Column("sociedad_id", ForeignKey("sociedades.id", ondelete="CASCADE"), primary_key=True, index=True),
 )
 
 
 centro_puertos = Table(
     "centro_puertos", Base.metadata,
     Column("centro_id", ForeignKey("centros.id", ondelete="CASCADE"), primary_key=True),
-    Column("puerto_id", ForeignKey("puertos.id", ondelete="CASCADE"), primary_key=True),
+    Column("puerto_id", ForeignKey("puertos.id", ondelete="CASCADE"), primary_key=True, index=True),
 )
 
 
@@ -223,9 +224,10 @@ class CategoriaArticulo(DeOrganizacion, Base):
 
 
 class ValorLista(DeOrganizacion, Base):
-    """Valor de una lista configurable (unidad de medida, moneda, incoterm, modo
-    de transporte…). Las listas y sus atributos están en core/listas.py; cada
-    lista usa solo algunas de las columnas de atributos."""
+    """Valor de una lista simple (tipos de centro, almacén, contacto, impuesto
+    y documento técnico; modalidades e hitos del transporte). Las listas que
+    tienen reglas propias y que los documentos referencian (monedas, unidades,
+    modos de transporte, incoterms y condiciones de pago) tienen su tabla."""
 
     __tablename__ = "valores_lista"
     __table_args__ = (UniqueConstraint("organizacion_id", "lista", "codigo", name="uq_valores_lista_org_lista_codigo"),)
@@ -235,24 +237,92 @@ class ValorLista(DeOrganizacion, Base):
     nombre: Mapped[str] = mapped_column(String(120))
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
-    # Atributos (según la lista)
-    nombre_plural: Mapped[str | None] = mapped_column(String(120))
-    alias: Mapped[str | None] = mapped_column(String(300))
-    contable: Mapped[bool | None] = mapped_column(Boolean)
-    simbolo: Mapped[str | None] = mapped_column(String(5))
-    decimales: Mapped[int | None] = mapped_column(Integer)
-    letras_en: Mapped[str | None] = mapped_column(String(120))
-    letras_es: Mapped[str | None] = mapped_column(String(120))
-    calculo: Mapped[str | None] = mapped_column(String(20))
-    factor: Mapped[float | None] = mapped_column(Float)
-    icono: Mapped[str | None] = mapped_column(String(20))
-    documento: Mapped[str | None] = mapped_column(String(40))
-    etiqueta_puerto: Mapped[str | None] = mapped_column(String(40))
-    etiqueta_transportista: Mapped[str | None] = mapped_column(String(40))
-    etiqueta_unidad: Mapped[str | None] = mapped_column(String(80))
+    # Atributos de algunas listas: modo de transporte de una modalidad, si es
+    # consolidada, y estados del embarque en los que se registra un hito
     padre: Mapped[str | None] = mapped_column(String(20))
     consolidado: Mapped[bool | None] = mapped_column(Boolean)
     estados: Mapped[str | None] = mapped_column(String(120))  # varias opciones, separadas por coma
+
+
+class Moneda(DeOrganizacion, Base):
+    """Moneda de OCs, facturas y documentos: decimales con los que se redondean
+    sus importes (core/dinero.py) y cómo se escribe el total en letras."""
+
+    __tablename__ = "monedas"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_monedas_org_codigo"),
+                      CheckConstraint("decimales BETWEEN 0 AND 4", name="ck_monedas_decimales"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(3))  # ISO 4217
+    nombre: Mapped[str] = mapped_column(String(120))
+    simbolo: Mapped[str | None] = mapped_column(String(5))
+    decimales: Mapped[int] = mapped_column(Integer, default=2)
+    letras_en: Mapped[str | None] = mapped_column(String(120))  # singular|plural
+    letras_es: Mapped[str | None] = mapped_column(String(120))
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class UnidadMedida(DeOrganizacion, Base):
+    """Unidad en que se cuenta o mide un artículo: lo contable va en enteros."""
+
+    __tablename__ = "unidades_medida"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_unidades_medida_org_codigo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(10))
+    nombre: Mapped[str] = mapped_column(String(120))
+    nombre_plural: Mapped[str | None] = mapped_column(String(120))
+    alias: Mapped[str | None] = mapped_column(String(300))  # otros nombres en archivos, separados por coma
+    contable: Mapped[bool] = mapped_column(Boolean, default=True)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class ModoTransporte(DeOrganizacion, Base):
+    """Cómo viaja la mercancía (marítimo, aéreo, terrestre…) y cómo se
+    sugieren sus unidades de carga."""
+
+    __tablename__ = "modos_transporte"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_modos_transporte_org_codigo"),
+                      CheckConstraint("calculo IN ('VOLUMEN', 'PESO_COBRABLE')", name="ck_modos_transporte_calculo"),
+                      CheckConstraint("factor IS NULL OR factor > 0", name="ck_modos_transporte_factor"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(20))
+    nombre: Mapped[str] = mapped_column(String(120))
+    calculo: Mapped[str] = mapped_column(String(20), default="VOLUMEN")
+    factor: Mapped[float | None] = mapped_column(Float)  # kg por m³ (peso cobrable)
+    icono: Mapped[str | None] = mapped_column(String(20))
+    documento: Mapped[str | None] = mapped_column(String(40))  # B/L, AWB…
+    etiqueta_puerto: Mapped[str | None] = mapped_column(String(40))
+    etiqueta_transportista: Mapped[str | None] = mapped_column(String(40))
+    etiqueta_unidad: Mapped[str | None] = mapped_column(String(80))  # singular|plural
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Incoterm(DeOrganizacion, Base):
+    __tablename__ = "incoterms"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_incoterms_org_codigo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(10))
+    nombre: Mapped[str] = mapped_column(String(120))
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class CondicionPago(DeOrganizacion, Base):
+    """Condición comercial de pago (anticipo, neto 30…). `dias` es el plazo
+    del vencimiento único; las condiciones en cuotas las detallan sus cuotas."""
+
+    __tablename__ = "condiciones_pago"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_condiciones_pago_org_codigo"),
+                      CheckConstraint("dias IS NULL OR dias >= 0", name="ck_condiciones_pago_dias"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(20))
+    nombre: Mapped[str] = mapped_column(String(120))
+    alias: Mapped[str | None] = mapped_column(String(300))
+    dias: Mapped[int | None] = mapped_column(Integer)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class EstadoLiberacion(DeOrganizacion, Base):
@@ -343,7 +413,7 @@ class Articulo(DeOrganizacion, Base):
     # El peso del empaque no va aquí: es la tara de cada nivel de empaque.
     peso_unitario: Mapped[float | None] = mapped_column(Float)
     tipo: Mapped[str] = mapped_column(String(10), default="SOLIDO")  # SOLIDO | PREPACK
-    prepack_id: Mapped[int | None] = mapped_column(ForeignKey("prepacks.id"))
+    prepack_id: Mapped[int | None] = mapped_column(ForeignKey("prepacks.id"), index=True)
     # La ficha técnica y la clasificación son del estilo-color (producto)
     producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -359,7 +429,7 @@ class PrepackComponente(DeOrganizacion, Base):
     __table_args__ = (UniqueConstraint("prepack_id", "articulo_id"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     prepack_id: Mapped[int] = mapped_column(ForeignKey("prepacks.id"), index=True)
-    articulo_id: Mapped[int] = mapped_column(ForeignKey("articulos.id"))
+    articulo_id: Mapped[int] = mapped_column(ForeignKey("articulos.id"), index=True)
     cantidad: Mapped[int] = mapped_column(Integer)
 
     prepack: Mapped[Prepack] = relationship(back_populates="componentes")

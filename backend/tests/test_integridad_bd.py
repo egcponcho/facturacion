@@ -11,6 +11,8 @@ from app.core import dinero, numeracion
 from app.core.db import ES_SQLITE, SessionLocal, engine
 from app.core.organizacion import en_organizacion
 from app.modelos import Embarque, PosicionOC
+from app.modelos.referencias import COHERENCIA, PADRES, REFERENCIAS, nombre_coherencia
+from app.modelos.referencias import nombre as nombre_fk
 from app.modelos.restricciones import RESTRICCIONES, nombre
 from app.modulos.transporte.transporte import codigo_embarque
 
@@ -126,3 +128,87 @@ def test_siguiente_numero_de_pl_no_repite():
     assert _siguiente_numero([N(numero="PL-001"), N(numero="PL-002")]) == "PL-003"
     assert _siguiente_numero([N(numero="PL-002")]) == "PL-003"
     assert _siguiente_numero([N(numero="MIO-7")]) == "PL-001"
+
+
+# ---- Integridad referencial (prioridad alta) ------------------------------------------
+
+
+def test_la_base_tiene_todas_las_llaves(client):
+    insp = inspect(engine)
+    for tabla in set(REFERENCIAS) | set(COHERENCIA):
+        en_base = {f["name"] for f in insp.get_foreign_keys(tabla)}
+        esperadas = {nombre_fk(tabla, c) for c, _ in REFERENCIAS.get(tabla, [])} | \
+                    {nombre_coherencia(tabla, c) for c, _ in COHERENCIA.get(tabla, [])}
+        assert not esperadas - en_base, f"{tabla}: faltan {esperadas - en_base}"
+    for padre in PADRES:
+        assert f"uq_{padre}_id_org" in {u["name"] for u in insp.get_unique_constraints(padre)}
+
+
+@pytest.mark.parametrize("sql", [
+    "UPDATE ordenes_compra SET moneda = 'ZZZ' WHERE id = (SELECT min(id) FROM ordenes_compra)",
+    "UPDATE ordenes_compra SET sociedad = 'NOEXISTE' WHERE id = (SELECT min(id) FROM ordenes_compra)",
+    "UPDATE facturas SET centro = 'NOEXISTE' WHERE id = (SELECT min(id) FROM facturas)",
+    "UPDATE posiciones_oc SET unidad = 'ZZ' WHERE id = (SELECT min(id) FROM posiciones_oc)",
+    "UPDATE posiciones_oc SET marca = 'NOEXISTE' WHERE id = (SELECT min(id) FROM posiciones_oc)",
+    "UPDATE embarques SET puerto_destino = 'NOEXISTE' WHERE id = (SELECT min(id) FROM embarques)",
+    "UPDATE proveedores SET pais = 'ZZ' WHERE id = (SELECT min(id) FROM proveedores)",
+    # Un código de otra organización tampoco sirve: la llave incluye la organización
+    "UPDATE ordenes_compra SET organizacion_id = 999 WHERE id = (SELECT min(id) FROM ordenes_compra)",
+])
+def test_la_base_rechaza_codigos_que_no_existen(client, sql):
+    with engine.connect() as con:
+        with pytest.raises(IntegrityError):
+            con.execute(text(sql))
+        con.rollback()
+
+
+def test_un_hijo_no_cambia_de_organizacion(client):
+    with engine.connect() as con:
+        if not con.execute(text("SELECT id FROM organizaciones WHERE id = 2")).first():
+            con.execute(text("INSERT INTO organizaciones (id, codigo, nombre, configuracion, activa, creada_en) "
+                             "VALUES (2, 'OTRA-IBD', 'Otra', '{}', :si, CURRENT_TIMESTAMP)"), {"si": True})
+        with pytest.raises(IntegrityError):  # la línea quedaría en otra organización que su factura
+            con.execute(text("UPDATE factura_lineas SET organizacion_id = 2 WHERE id = (SELECT min(id) FROM factura_lineas)"))
+        con.rollback()
+
+
+def test_reglas_de_aprobacion_en_tabla_con_su_rol(admin):
+    rol = admin.post("/roles", {"nombre": "Approver IBD", "permisos": ["oc.ver"]})
+    assert rol.status_code == 200, rol.text
+    rol_id = rol.json()["id"]
+    try:
+        r = admin.put("/organizacion", {"aprobaciones_oc": [
+            {"nombre": "Over 5000", "monto_minimo": 5000, "moneda": "USD", "rol_id": rol_id}]})
+        assert r.status_code == 200, r.text
+        assert [x["nombre"] for x in r.json()["aprobaciones_oc"]] == ["Over 5000"]
+        assert "aprobaciones_oc" not in (_configuracion() or {})  # ya no vive en el JSON
+        # El rol que aprueba no se borra mientras una regla lo use
+        borrar = admin.delete_(f"/roles/{rol_id}")
+        assert borrar.status_code == 422 and "approval rules" in borrar.text
+        with engine.connect() as con, pytest.raises(IntegrityError):
+            con.execute(text("DELETE FROM roles WHERE id = :i"), {"i": rol_id})
+        r = admin.put("/organizacion", {"aprobaciones_oc": [
+            {"nombre": "Wrong company", "monto_minimo": 1, "moneda": "USD", "sociedad": "NOEXISTE", "rol_id": rol_id}]})
+        assert r.status_code == 422
+    finally:
+        admin.put("/organizacion", {"aprobaciones_oc": []})
+        assert admin.delete_(f"/roles/{rol_id}").status_code == 200
+
+
+def _configuracion():
+    import json
+
+    with engine.connect() as con:
+        conf = con.execute(text("SELECT configuracion FROM organizaciones WHERE id = 1")).scalar()
+    return json.loads(conf) if isinstance(conf, str) else conf
+
+
+def test_listas_tipadas_en_su_tabla(interno):
+    listas = interno.get("/listas").json()
+    assert {m["codigo"] for m in listas["moneda"]} >= {"USD", "EUR"}
+    assert next(c for c in listas["condicion_pago"] if c["codigo"] == "NETO30")["dias"] == 30
+    with engine.connect() as con:
+        assert con.execute(text("SELECT count(*) FROM valores_lista WHERE lista IN "
+                                "('moneda', 'unidad', 'incoterm', 'modo_transporte', 'condicion_pago')")).scalar() == 0
+        columnas = {c["name"] for c in inspect(con).get_columns("valores_lista")}
+    assert not columnas & {"simbolo", "decimales", "factor", "letras_en", "contable", "calculo"}

@@ -12,8 +12,7 @@ Se siembra en la organización con la que trabaja la sesión
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.listas import FABRICA
-from app.modelos import CategoriaArticulo, EstadoLiberacion, ValorLista
+from app.modelos import CategoriaArticulo, EstadoLiberacion
 
 # Estados de liberación de fábrica: (tipo, código, nombre, libera, con cambios,
 # predeterminado, alias en archivos, orden)
@@ -34,10 +33,9 @@ def sembrar(db: Session) -> None:
 
     crear_roles_fabrica(db)
     crear_roles_sugeridos(db)
-    if not db.scalar(select(ValorLista.id).limit(1)):
-        for lista, valores in FABRICA.items():
-            for orden, v in enumerate(valores, start=1):
-                db.add(ValorLista(lista=lista, orden=orden, activo=True, **v))
+    from app.modulos.maestros.listas import sembrar as sembrar_listas
+
+    sembrar_listas(db)
     if not db.scalar(select(EstadoLiberacion.id).limit(1)):
         for t, c, n, li, cc, p, a, o in LIBERACIONES:
             db.add(EstadoLiberacion(tipo=t, codigo=c, nombre=n, libera=li, con_cambios=cc, predeterminado=p, alias=a,

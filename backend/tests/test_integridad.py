@@ -2,6 +2,7 @@
 y cada contaminación o dato oficial incompleto se detecta."""
 from datetime import date
 
+import pytest
 from sqlalchemy import select
 
 from app.core.db import SessionLocal
@@ -30,7 +31,6 @@ def test_detecta_contaminacion_y_datos_incompletos(interno):
         user = db.scalar(select(Usuario).where(Usuario.email == "interno@demo.com"))
         filas = [
             IncisoNacional(pais="NI", codigo="640299900000", sub6="640299", fuente="base"),  # base de artículos de la empresa
-            IncisoNacional(pais="SV", codigo="6404199000", sub6="640419", fuente="oficial", version_id=sac.id, fuente_id=sac.fuente_id),  # duplicada
             IncisoNacional(pais="SV", codigo="9999990000", sub6="999999", fuente="oficial", version_id=sac.id, fuente_id=sac.fuente_id),  # sin padre
             IncisoNacional(pais="GT", codigo="64041999", sub6="640419", fuente="oficial", version_id=sac.id, fuente_id=sac.fuente_id,
                            creado_por=user.id),  # largo inválido, fuera del SAC y escrita a mano en una versión publicada
@@ -49,7 +49,6 @@ def test_detecta_contaminacion_y_datos_incompletos(interno):
         assert d["estado"] == "CONTAMINATION"
         assert "NI 6402.99.90.00.00" in refs("LINE_NOT_OFFICIAL") and "NI 6402.99.90.00.00" in refs("LINE_SOURCE")
         assert "NI 6402.99.90.00.00" in refs("LINE_COMPANY_BASE")
-        assert "SV 6404.19.90.00" in refs("LINE_DUPLICATE")
         assert "SV 9999.99.00.00" in refs("LINE_PARENT")
         assert "GT 6404.19.99" in refs("LINE_LENGTH") and "GT 6404.19.99" in refs("LINE_BASE_NOMENCLATURE")
         assert "GT 6404.19.99" in refs("PUBLISHED_MODIFIED")
@@ -73,3 +72,16 @@ def test_detecta_contaminacion_y_datos_incompletos(interno):
 
 def test_proveedor_no_audita(vans):
     assert vans.get("/aranceles/oficial/integridad").status_code == 403
+
+
+def test_la_base_no_admite_un_codigo_nacional_repetido(client):
+    """Un código nacional existe una sola vez por versión del dato oficial (antes lo detectaba el chequeo LINE_DUPLICATE)."""
+    from sqlalchemy.exc import IntegrityError
+
+    with SessionLocal() as db:
+        sac = db.scalar(select(VersionDataset).where(VersionDataset.codigo == "SAC-2025-V6"))
+        db.add(IncisoNacional(pais="SV", codigo="6404199000", sub6="640419", fuente="oficial", version_id=sac.id,
+                              fuente_id=sac.fuente_id))
+        with pytest.raises(IntegrityError):
+            db.flush()
+        db.rollback()

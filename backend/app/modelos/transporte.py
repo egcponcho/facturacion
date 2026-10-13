@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 transportista_sociedades = Table(
     "transportista_sociedades", Base.metadata,
     Column("transportista_id", ForeignKey("transportistas.id", ondelete="CASCADE"), primary_key=True),
-    Column("sociedad_id", ForeignKey("sociedades.id", ondelete="CASCADE"), primary_key=True),
+    Column("sociedad_id", ForeignKey("sociedades.id", ondelete="CASCADE"), primary_key=True, index=True),
 )
 
 

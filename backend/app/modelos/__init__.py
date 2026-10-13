@@ -9,6 +9,7 @@ Todo se maneja por cantidades:
 Cada dominio en su archivo; aquí se reexportan todos los modelos para importar
 con `from app.modelos import X`.
 """
+from app.core.db import Base as _Base
 from app.modelos.acceso import DesafioDosPasos, Rol, SesionUsuario, Usuario
 from app.modelos.base import Cantidad, ahora, cant
 from app.modelos.clasificacion import (
@@ -39,7 +40,14 @@ from app.modelos.clasificacion import (
     TraduccionCatalogo,
     VersionDataset,
 )
-from app.modelos.compras import AprobacionOC, ImportacionOC, OrdenCompra, PerfilImportacion, PosicionOC
+from app.modelos.compras import (
+    AprobacionOC,
+    ImportacionOC,
+    OrdenCompra,
+    PerfilImportacion,
+    PosicionOC,
+    ReglaAprobacionOC,
+)
 from app.modelos.empaque import (
     GrupoCajas,
     GrupoCajasItem,
@@ -58,16 +66,21 @@ from app.modelos.maestros import (
     Articulo,
     CategoriaArticulo,
     Centro,
+    CondicionPago,
     Contacto,
     EscalaTalla,
     EstadoLiberacion,
     GrupoArticulo,
+    Incoterm,
     Marca,
+    ModoTransporte,
+    Moneda,
     Pais,
     Prepack,
     PrepackComponente,
     Proveedor,
     Sociedad,
+    UnidadMedida,
     ValorLista,
     centro_puertos,
     proveedor_marcas,
@@ -75,6 +88,8 @@ from app.modelos.maestros import (
 )
 from app.modelos.numeracion import ContadorSerie, SerieDocumental
 from app.modelos.productos import PartidaPais, Producto, ProductoDocumento, ProductoFoto, ProductoVersion
+from app.modelos.referencias import aplicar as _aplicar_referencias
+from app.modelos.restricciones import aplicar as _aplicar_restricciones
 from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte
 from app.modelos.transporte import (
     Embarque,
@@ -88,10 +103,9 @@ from app.modelos.transporte import (
     UnidadCarga,
     transportista_sociedades,
 )
-from app.core.db import Base as _Base
-from app.modelos.restricciones import aplicar as _aplicar_restricciones
 
 _aplicar_restricciones(_Base.metadata)
+_aplicar_referencias(_Base.metadata)
 
 __all__ = [
     "AprobacionOC",
@@ -166,6 +180,7 @@ __all__ = [
     "Puerto",
     "RecepcionLinea",
     "RegionLeadTime",
+    "ReglaAprobacionOC",
     "ReglaClasificacion",
     "ReglaImpuesto",
     "ReglaLeadTime",
@@ -184,6 +199,11 @@ __all__ = [
     "transportista_sociedades",
     "UnidadCarga",
     "ValorLista",
+    "CondicionPago",
+    "Incoterm",
+    "ModoTransporte",
+    "Moneda",
+    "UnidadMedida",
     "Usuario",
     "VersionDataset",
 ]

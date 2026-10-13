@@ -38,7 +38,7 @@ class Producto(DeOrganizacion, Base):
     estilo: Mapped[str] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))
     marca_id: Mapped[int | None] = mapped_column(ForeignKey("marcas.id"), index=True)
-    grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"))
+    grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"), index=True)
     # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
     # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
     codigo_generico: Mapped[str | None] = mapped_column(String(40), index=True)
@@ -125,7 +125,7 @@ class PartidaPais(DeOrganizacion, Base):
     # Clasificación nacional con evidencia: la línea oficial elegida (no un
     # código recortado), su versión y fuente, lo sugerido frente a lo final,
     # el motivo si se cambió y lo que aplicaba al aprobar (regla, impuestos, regulaciones)
-    inciso_id: Mapped[int | None] = mapped_column(ForeignKey("incisos_nacionales.id", ondelete="SET NULL", name="fk_partidas_inciso"))
+    inciso_id: Mapped[int | None] = mapped_column(ForeignKey("incisos_nacionales.id", ondelete="SET NULL", name="fk_partidas_inciso"), index=True)
     version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id", name="fk_partidas_version"))
     fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id", name="fk_partidas_fuente"))
     sugerido: Mapped[str | None] = mapped_column(String(14))

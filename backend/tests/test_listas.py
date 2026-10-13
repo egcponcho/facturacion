@@ -1,6 +1,7 @@
-"""Listas de valores configurables (Datos maestros → Listas de valores):
-unidades, monedas, incoterms, modos y modalidades de transporte y tipos. Ni el
-servidor ni las pantallas tienen esos valores fijos en el código."""
+"""Listas de valores configurables (Datos maestros): monedas, unidades,
+incoterms, modos de transporte y condiciones de pago en su propio catálogo; las
+modalidades, hitos y tipos en Listas de valores. Ni el servidor ni las
+pantallas tienen esos valores fijos en el código."""
 import re
 
 from test_oficial import RAIZ
@@ -12,8 +13,14 @@ def _valores(api, lista):
     return {v["codigo"]: v for v in api.get("/listas").json()[lista]}
 
 
+def _catalogo(lista):
+    """Catálogo de Datos maestros que mantiene la lista."""
+    return listas.TABLA.get(lista, "listas")
+
+
 def _id_valor(api, lista, codigo):
-    items = api.get("/catalogos/listas", params={"lista": lista, "size": 200}).json()["items"]
+    params = {"size": 200} if lista in listas.TABLA else {"lista": lista, "size": 200}
+    items = api.get(f"/catalogos/{_catalogo(lista)}", params=params).json()["items"]
     return next(x["id"] for x in items if x["codigo"] == codigo)
 
 
@@ -48,7 +55,7 @@ def test_pantallas_sin_listas_fijas():
 
 
 def test_una_unidad_nueva_se_usa_en_todo(interno):
-    r = interno.post("/catalogos/listas", {"lista": "unidad", "codigo": "BOT", "nombre": "bottle", "nombre_plural": "bottles",
+    r = interno.post("/catalogos/unidades", {"codigo": "BOT", "nombre": "bottle", "nombre_plural": "bottles",
                                            "alias": "BOTELLA, BOTELLAS", "contable": True, "orden": 50})
     assert r.status_code == 200, r.text
     try:
@@ -57,47 +64,60 @@ def test_una_unidad_nueva_se_usa_en_todo(interno):
         meta = {c["tipo"]: c for c in interno.get("/catalogos").json()}
         unidad = next(c for c in meta["articulos"]["campos"] if c["nombre"] == "unidad")
         assert ["BOT", "bottle"] in unidad["opciones"]
-        assert "listas" in meta and "liberaciones" in meta and "categorias" in meta
+        assert {"listas", "liberaciones", "categorias", "monedas", "unidades", "incoterms", "condiciones_pago",
+                "modos_transporte"} <= set(meta)
+        # Listas de valores ya no ofrece las listas con tabla propia
+        lista = next(c for c in meta["listas"]["campos"] if c["nombre"] == "lista")
+        assert "unidad" not in [o[0] for o in lista["opciones"]] and "evento_embarque" in [o[0] for o in lista["opciones"]]
     finally:
-        assert interno.delete_(f"/catalogos/listas/{r.json()['id']}").status_code == 200
+        assert interno.delete_(f"/catalogos/unidades/{r.json()['id']}").status_code == 200
     assert "BOT" not in _valores(interno, "unidad")
 
 
 def test_valores_de_sistema(interno):
     cj = _id_valor(interno, "unidad", "CJ")
-    assert interno.delete_(f"/catalogos/listas/{cj}").status_code == 409
-    r = interno.patch(f"/catalogos/listas/{cj}", {"activo": False})
+    assert interno.delete_(f"/catalogos/unidades/{cj}").status_code == 409
+    r = interno.patch(f"/catalogos/unidades/{cj}", {"activo": False})
     assert r.status_code == 422 and "cannot be deactivated" in r.text
-    r = interno.patch(f"/catalogos/listas/{cj}", {"codigo": "CTN"})
-    assert r.status_code == 422 and "code cannot change" in r.text
+    r = interno.patch(f"/catalogos/unidades/{cj}", {"codigo": "CTN"})
+    assert r.status_code in (409, 422) and "code cannot change" in r.text
     # Renombrarlo sí se puede
-    assert interno.patch(f"/catalogos/listas/{cj}", {"nombre": "carton"}).status_code == 200
-    assert interno.patch(f"/catalogos/listas/{cj}", {"nombre": "prepack carton"}).status_code == 200
+    assert interno.patch(f"/catalogos/unidades/{cj}", {"nombre": "carton"}).status_code == 200
+    assert interno.patch(f"/catalogos/unidades/{cj}", {"nombre": "prepack carton"}).status_code == 200
 
 
 def test_validaciones_de_las_listas(interno):
-    def rechazo(datos, texto):
-        r = interno.post("/catalogos/listas", datos)
+    def rechazo(catalogo, datos, texto):
+        r = interno.post(f"/catalogos/{catalogo}", datos)
         assert r.status_code == 422 and texto in r.text, r.text
 
-    rechazo({"lista": "modo_transporte", "codigo": "DRON", "nombre": "Drone", "calculo": "PESO_COBRABLE"}, "volumetric factor")
-    rechazo({"lista": "moneda", "codigo": "BTC", "nombre": "Bitcoin", "letras_en": "BITCOIN"}, "separated by |")
-    rechazo({"lista": "moneda", "codigo": "BTC", "nombre": "Bitcoin", "decimales": 8}, "At most 4 decimals")
-    rechazo({"lista": "modalidad_transporte", "codigo": "PAQ", "nombre": "Parcel"}, "transport mode of this modality")
-    rechazo({"lista": "no_existe", "codigo": "X", "nombre": "X"}, "invalid value")
-    usd = _id_valor(interno, "moneda", "USD")
-    r = interno.patch(f"/catalogos/listas/{usd}", {"lista": "incoterm"})
+    rechazo("modos_transporte", {"codigo": "DRON", "nombre": "Drone", "calculo": "PESO_COBRABLE"}, "volumetric factor")
+    rechazo("monedas", {"codigo": "BTC", "nombre": "Bitcoin", "decimales": 2, "letras_en": "BITCOIN"}, "separated by |")
+    rechazo("monedas", {"codigo": "BTC", "nombre": "Bitcoin", "decimales": 8}, "At most 4 decimals")
+    rechazo("monedas", {"codigo": "BTCX", "nombre": "Bitcoin", "decimales": 2}, "")  # ISO: 3 letras
+    rechazo("listas", {"lista": "modalidad_transporte", "codigo": "PAQ", "nombre": "Parcel"}, "transport mode of this modality")
+    rechazo("listas", {"lista": "no_existe", "codigo": "X", "nombre": "X"}, "invalid value")
+    rechazo("listas", {"lista": "moneda", "codigo": "BTC", "nombre": "Bitcoin"}, "invalid value")  # tiene su catálogo
+    pie = _id_valor(interno, "tipo_centro", "TIENDA")
+    r = interno.patch(f"/catalogos/listas/{pie}", {"lista": "tipo_almacen"})
     assert r.status_code == 422 and "another list" in r.text
 
 
 def test_atributos_ajenos_no_se_guardan(interno):
-    r = interno.post("/catalogos/listas", {"lista": "incoterm", "codigo": "XYZ", "nombre": "Test term", "simbolo": "$",
-                                           "factor": 3})
+    r = interno.post("/catalogos/listas", {"lista": "tipo_centro", "codigo": "XYZ", "nombre": "Test type",
+                                           "estados": "PLANIFICADO", "padre": "AEREO"})
     assert r.status_code == 200, r.text
     try:
-        assert r.json()["simbolo"] is None and r.json()["factor"] is None
+        assert not r.json()["estados"] and r.json()["padre"] is None
     finally:
         interno.delete_(f"/catalogos/listas/{r.json()['id']}")
+
+
+def test_un_codigo_de_lista_en_uso_no_cambia_ni_se_borra(interno):
+    usd = _id_valor(interno, "moneda", "USD")
+    r = interno.patch(f"/catalogos/monedas/{usd}", {"codigo": "USX"})
+    assert r.status_code == 409 and "in use" in r.text.lower() or "code cannot change" in r.text
+    assert interno.delete_(f"/catalogos/monedas/{usd}").status_code == 409
 
 
 def test_monto_en_letras_y_modos_segun_la_lista():

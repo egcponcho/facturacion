@@ -22,8 +22,8 @@ import json
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.instalacion.datos import DEMO, MOTOR, OFICIAL
-from app.modelos import AcuerdoComercial, PaisArancel, VersionDataset
+from app.instalacion.datos import DEMO, MOTOR, OFICIAL, REFERENCIA
+from app.modelos import AcuerdoComercial, Pais, PaisArancel, VersionDataset
 
 
 def cargar_motor_paquete(db: Session) -> None:
@@ -62,8 +62,21 @@ def cargar_motor(db: Session) -> None:
     db.flush()
 
 
+def cargar_paises(db: Session) -> None:
+    """Países ISO 3166-1 (dato compartido de la plataforma): las columnas de
+    país de toda la base tienen llave foránea a este catálogo. Solo agrega los
+    que faltan; nunca cambia el nombre ni desactiva uno que la plataforma editó."""
+    existentes = set(db.scalars(select(Pais.codigo)))
+    datos = json.loads((REFERENCIA / "paises_iso.json").read_text(encoding="utf-8"))["paises"]
+    for p in datos:
+        if p["codigo"] not in existentes:
+            db.add(Pais(codigo=p["codigo"], nombre=p["nombre"], activo=True))
+    db.flush()
+
+
 def cargar_base(db: Session) -> None:
-    """Motor y datos oficiales incluidos, en orden. Nunca carga la demostración."""
+    """Países, motor y datos oficiales incluidos, en orden. Nunca carga la demostración."""
+    cargar_paises(db)
     cargar_motor_paquete(db)
     cargar_oficial(db)
     cargar_motor(db)

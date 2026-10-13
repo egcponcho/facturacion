@@ -7,6 +7,8 @@
   clasificador hace del texto oficial). Nunca es dato oficial.
 - data/demo: la empresa de demostración (historial, palabras clave, acuerdos
   de referencia). Solo se carga con SEED_DEMO=1.
+- data/referencia: datos de referencia de la plataforma (países ISO 3166-1),
+  los que las llaves foráneas necesitan en cualquier instalación.
 """
 from pathlib import Path
 
@@ -14,3 +16,4 @@ DATA = Path(__file__).resolve().parents[1] / "data"
 OFICIAL = DATA / "oficial"
 MOTOR = DATA / "motor"
 DEMO = DATA / "demo"
+REFERENCIA = DATA / "referencia"

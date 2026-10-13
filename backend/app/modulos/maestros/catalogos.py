@@ -24,11 +24,15 @@ from app.modelos import (
     Articulo,
     CategoriaArticulo,
     Centro,
+    CondicionPago,
     Contacto,
     EscalaTalla,
     EstadoLiberacion,
     GrupoArticulo,
+    Incoterm,
     Marca,
+    ModoTransporte,
+    Moneda,
     OrdenCompra,
     Pais,
     PasoLeadTime,
@@ -43,6 +47,7 @@ from app.modelos import (
     TipoEmpaque,
     TipoUnidad,
     Transportista,
+    UnidadMedida,
     Usuario,
     ValorLista,
 )
@@ -81,6 +86,38 @@ def c(nombre, etiqueta, tipo="texto", obligatorio=False, **extra):
 #       | multi (catalogo: varios registros, p. ej. las marcas de un proveedor)
 # Las opciones de un campo con `lista` salen de las listas de valores de la
 # empresa (core/listas.py), no del código.
+
+
+def _atributo(a: str, **extra) -> dict:
+    """Campo de formulario de un atributo de lista (core/listas.ATRIBUTOS)."""
+    etiqueta, tipo = listas.ATRIBUTOS[a][0], listas.ATRIBUTOS[a][1]
+    return c(a, etiqueta, "opcion" if tipo.startswith("lista") else tipo,
+             **({"lista": tipo.split(":")[1]} if tipo.startswith("lista") else {}),
+             **({"opciones": listas.CALCULOS} if a == "calculo" else {"opciones": listas.ICONOS} if a == "icono"
+                else {"opciones": listas.ESTADOS_EMBARQUE} if a == "estados" else {}),
+             **({"minimo": 0} if tipo in ("entero", "numero") else {}),
+             **({"max": listas.ATRIBUTOS[a][2]} if tipo == "texto" else {}), **extra)
+
+
+def _catalogo_lista(lista: str, modelo, singular: str, max_codigo: int, obligatorios=()) -> dict:
+    """Catálogo de una lista con tabla propia (monedas, unidades…)."""
+    d = listas.LISTAS[lista]
+    return {
+        "modelo": modelo, "titulo": d["etiqueta"], "singular": singular, "lista": lista,
+        "ayuda": d["ayuda"] + (" Values the system relies on can be renamed but not deleted or deactivated."
+                               if d["sistema"] else ""),
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=max_codigo, mayus=True),
+            c("nombre", "Name", obligatorio=True, max=120),
+            *[_atributo(a, obligatorio=a in obligatorios) for a in d["atributos"]],
+            c("orden", "Order", "entero", minimo=0),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre", *(["alias"] if "alias" in d["atributos"] else [])],
+    }
+
+
+SIMPLES = [k for k in listas.LISTAS if k not in listas.TABLA]
 CATALOGOS = {
     "sociedades": {
         "modelo": Sociedad, "titulo": "Companies", "singular": "company",
@@ -330,27 +367,27 @@ CATALOGOS = {
     },
     "listas": {
         "modelo": ValorLista, "titulo": "Lists of values", "singular": "value",
-        "ayuda": "Values offered in forms and files: units of measure, currencies, incoterms, transport modes and "
-                 "modalities, and the types of plants, storage locations, contacts, taxes and technical documents. "
+        "ayuda": "Values offered in forms and files: transport modalities and shipment milestones, and the types of "
+                 "plants, storage locations, contacts, taxes and technical documents. Currencies, units of measure, "
+                 "transport modes, incoterms and payment terms have their own catalogs. "
                  "Values the system relies on can be renamed but not deleted or deactivated.",
         "campos": [
             c("lista", "List", "opcion", obligatorio=True, filtro=True,
-              opciones=[[k, v["etiqueta"]] for k, v in listas.LISTAS.items()]),
+              opciones=[[k, listas.LISTAS[k]["etiqueta"]] for k in SIMPLES]),
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True, max=120),
-            *[c(a, listas.ATRIBUTOS[a][0], "opcion" if listas.ATRIBUTOS[a][1].startswith("lista") else listas.ATRIBUTOS[a][1],
-                mostrar_si={"campo": "lista", "valores": [k for k, v in listas.LISTAS.items() if a in v["atributos"]]},
-                **({"lista": listas.ATRIBUTOS[a][1].split(":")[1]} if listas.ATRIBUTOS[a][1].startswith("lista") else {}),
-                **({"opciones": listas.CALCULOS} if a == "calculo" else {"opciones": listas.ICONOS} if a == "icono"
-                   else {"opciones": listas.ESTADOS_EMBARQUE} if a == "estados" else {}),
-                **({"minimo": 0} if listas.ATRIBUTOS[a][1] in ("entero", "numero") else {}),
-                **({"max": listas.ATRIBUTOS[a][2]} if listas.ATRIBUTOS[a][1] == "texto" else {}))
-              for a in listas.ATRIBUTOS],
+            *[_atributo(a, mostrar_si={"campo": "lista", "valores": [k for k in SIMPLES if a in listas.LISTAS[k]["atributos"]]})
+              for a in ("padre", "consolidado", "estados")],
             c("orden", "Order", "entero", minimo=0),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["codigo", "nombre", "alias"],
+        "buscar": ["codigo", "nombre"],
     },
+    "monedas": _catalogo_lista("moneda", Moneda, "currency", 3, obligatorios=("decimales",)),
+    "unidades": _catalogo_lista("unidad", UnidadMedida, "unit of measure", 10),
+    "modos_transporte": _catalogo_lista("modo_transporte", ModoTransporte, "transport mode", 20, obligatorios=("calculo",)),
+    "incoterms": _catalogo_lista("incoterm", Incoterm, "incoterm", 10),
+    "condiciones_pago": _catalogo_lista("condicion_pago", CondicionPago, "payment term", 20),
     "grupos": {
         "modelo": GrupoArticulo, "titulo": "Item groups", "singular": "group",
         "ayuda": "Each item belongs to a single group. The category sets the packing rule; it does not define the "
@@ -475,7 +512,8 @@ CATALOGOS = {
 }
 ORDEN_CATALOGOS = ["articulos", "prepacks", "escalas", "tipos_empaque", "marcas", "grupos", "proveedores", "sociedades", "centros",
                    "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "pasos_lt", "leadtimes", "acuerdos",
-                   "liberaciones", "categorias", "listas"]
+                   "liberaciones", "categorias", "monedas", "unidades", "incoterms", "condiciones_pago",
+                   "modos_transporte", "listas"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
 
@@ -1007,10 +1045,10 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             col = OrdenCompra.liberacion_comercial if actual.tipo == "COMERCIAL" else OrdenCompra.liberacion_logistica
             if db.scalar(select(OrdenCompra.id).where(col == actual.codigo).limit(1)):
                 errores.append({"campo": "codigo", "mensaje": "Purchase orders use this code: it cannot change."})
-    if cat["modelo"] is ValorLista:
+    if cat["modelo"] is ValorLista or cat.get("lista"):
         from app.modulos.maestros.listas import validar as validar_valor
 
-        errores += validar_valor(db, final, actual, limpio)
+        errores += validar_valor(db, final, actual, limpio, cat.get("lista"))
     if cat["modelo"] is EscalaTalla and final.get("tallas"):
         from app.modulos.maestros.tallas import validar as validar_escala
 
@@ -1071,6 +1109,9 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
     if not obj:
         raise ErrorNegocio(f"The {cat['singular']} does not exist.", 404, "no_encontrado")
     limpio = _limpiar(db, cat, datos, parcial=True, actual=obj)
+    if "codigo" in limpio and limpio["codigo"] != getattr(obj, "codigo", None) and gobierno.en_uso(db, tipo, obj.codigo):
+        raise ErrorNegocio(f"{obj.codigo} is used in documents or other records: its code cannot change.", 409, "en_uso",
+                           [{"campo": "codigo", "mensaje": "It is in use: its code cannot change."}])
     cambios = {}
     for k, v in limpio.items():
         if getattr(obj, k) != v:
@@ -1124,7 +1165,9 @@ def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
     if not obj:
         raise ErrorNegocio(f"The {cat['singular']} does not exist.", 404, "no_encontrado")
     gobierno.exigir_sin_uso(db, tipo, obj)
-    if isinstance(obj, ValorLista) and obj.codigo in listas.LISTAS.get(obj.lista, {}).get("sistema", []):
+    from app.modulos.maestros.listas import lista_de
+
+    if obj.codigo in listas.LISTAS.get(lista_de(obj) or "", {}).get("sistema", []):
         raise ErrorNegocio("The system relies on this value: it can be renamed but not deleted.", 409, "en_uso")
     if isinstance(obj, PasoLeadTime):
         usan = [r.nombre for r in db.scalars(select(ReglaLeadTime)) if any(
