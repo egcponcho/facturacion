@@ -5,19 +5,21 @@
   los contenedores y cada proveedor.
 """
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core import dinero
 from app.core.empresa import regla
-from app.modelos import Embarque, Factura, OrdenCompra, PosicionOC, Producto, Proveedor, UnidadCarga, Usuario, ahora
+from app.modelos import Embarque, Factura, PackingList, Producto, Proveedor, UnidadCarga, Usuario, ahora
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import es_interno, proveedor_filtro, sociedad_filtro, tiene
 from app.modulos.empaque.packing import validar_pl
-from app.modulos.facturacion.cantidades import cubierto_por_ids, facturado_por_posicion, nombre_factura, totales_pl
+from app.modulos.facturacion.cantidades import cubierto_por_ids, nombre_factura, totales_pl
 from app.modulos.facturacion.estados import EDITABLE_FACTURA, EDITABLE_PL
 from app.modulos.facturacion.facturas import _lista_para_transporte, resumen_distribucion, validar_factura
+from app.modulos.seguimiento import metricas
 from app.modulos.seguimiento.alertas import listar_alertas
 from app.modulos.transporte.transporte import resumen_unidad
 
@@ -32,46 +34,6 @@ def _meses(n: int) -> list[str]:
         res.append(hoy.strftime("%Y-%m"))
         hoy = (hoy - timedelta(days=1)).replace(day=1)
     return list(reversed(res))
-
-
-def _saldo_ocs(db: Session, prov: frozenset | None, user: Usuario | None = None) -> dict:
-    """Saldo por facturar de las OCs liberadas: cantidades por unidad de
-    medida (nunca se suman pares con unidades) y valor por moneda."""
-    consulta = (
-        select(PosicionOC.id, PosicionOC.unidad, PosicionOC.cantidad, PosicionOC.precio,
-               OrdenCompra.moneda, OrdenCompra.proveedor_id, OrdenCompra.id)
-        .join(OrdenCompra, OrdenCompra.id == PosicionOC.oc_id)
-        .where(OrdenCompra.liberada.is_(True), PosicionOC.bloqueada.is_(False))
-    )
-    if prov:
-        consulta = consulta.where(OrdenCompra.proveedor_id.in_(prov))
-    if user:
-        consulta = consulta.where(*sociedad_filtro(user, OrdenCompra.sociedad))
-    filas = db.execute(consulta).all()
-    facturado = facturado_por_posicion(db, [f[0] for f in filas])
-    por_unidad: dict[str, int] = defaultdict(int)
-    valor: dict[str, float] = defaultdict(float)
-    por_proveedor: dict[int, float] = defaultdict(float)
-    ocs = set()
-    for pid, unidad, cantidad, precio, moneda, prov_id, oc_id in filas:
-        saldo = max(cantidad - facturado.get(pid, 0), 0)
-        if saldo:
-            por_unidad[unidad] += saldo
-            if precio is not None and moneda:  # sin precio el valor queda pendiente
-                valor[moneda] += saldo * precio
-                por_proveedor[prov_id] += saldo * precio
-            ocs.add(oc_id)
-    return {"por_unidad": dict(por_unidad), "valor": dict(valor), "ocs": len(ocs),
-            "por_proveedor": dict(por_proveedor)}
-
-
-def _moneda_principal(valor: dict[str, float]) -> tuple[str, float]:
-    if not valor:
-        from app.modulos.compras.ordenes import moneda_base
-
-        return moneda_base() or "", 0.0
-    moneda = max(valor, key=valor.get)
-    return moneda, round(valor[moneda], 2)
 
 
 def _flujo(db: Session, facturas: list[Factura], saldo: dict) -> dict:
@@ -92,7 +54,7 @@ def _flujo(db: Session, facturas: list[Factura], saldo: dict) -> dict:
         en_pl[pll.factura_linea_id] += pll.cantidad
         unidad = pll.factura_linea.unidad
         u = pll.pl.unidad
-        if u and pll.pl.asignacion == "CONFIRMADA" and u.embarque.estado != "PLANIFICADO":
+        if u and pll.pl.asignacion == "CONFIRMADA" and u.embarque.estado not in ("PLANIFICADO", "CANCELADO"):
             etapa(unidad)["embarcado"] += pll.cantidad
         else:
             c = cubierto.get(pll.id, 0)
@@ -134,26 +96,22 @@ def _fecha_factura(f: Factura) -> date | None:
     return f.fecha or (f.finalizado_en.date() if f.finalizado_en else None)
 
 
-def _serie_facturado(facturas: list[Factura], moneda: str, desde: date, hasta: date, marcas: set | None) -> dict:
-    """Valor facturado (facturas finalizadas) en el periodo, agrupado según su largo."""
+def _serie_facturado(fact: dict, moneda: str | None, desde: date, hasta: date) -> dict:
+    """Valor facturado (facturas finalizadas) en la moneda principal, agrupado
+    según el largo del periodo; los montos en otras monedas van aparte."""
     grano, cubetas = _cubetas(desde, hasta)
-    serie = [{"etiqueta": e, "desde": a, "hasta": b, "importe": 0.0, "facturas": 0} for a, b, e in cubetas]
-    for f in facturas:
-        if f.estado != "FINALIZADA" or f.moneda != moneda:
+    serie = [{"etiqueta": e, "desde": a, "hasta": b, "importe": dinero.CERO, "facturas": 0} for a, b, e in cubetas]
+    for f in fact["detalle"]:
+        if f["moneda"] != moneda or not f["fecha"]:
             continue
-        fecha = _fecha_factura(f)
-        if not fecha or fecha < desde or fecha > hasta:
-            continue
-        lineas = [l for l in f.lineas if not marcas or (l.marca or "") in marcas]
-        if not lineas:
-            continue
-        c = next((x for x in serie if x["desde"] <= fecha <= x["hasta"]), None)
+        c = next((x for x in serie if x["desde"] <= f["fecha"] <= x["hasta"]), None)
         if c:
-            c["importe"] += sum(l.cantidad * l.precio_unitario for l in lineas)
+            c["importe"] += f["importe"]
             c["facturas"] += 1
     for x in serie:
-        x["importe"] = round(x["importe"], 2)
-    return {"grano": grano, "serie": serie}
+        x["importe"] = dinero.numero(dinero.redondear(x["importe"], moneda))
+    return {"grano": grano, "moneda": moneda, "serie": serie,
+            "otras": metricas.otras_monedas(fact["por_moneda"], moneda)}
 
 
 def _visibles(indicadores: list[dict]) -> list[dict]:
@@ -164,47 +122,31 @@ def _visibles(indicadores: list[dict]) -> list[dict]:
             and not (k.get("clave") == "riesgo" and visibilidad.oculto("fechas_internas"))]
 
 
-def _resumen_periodo(db: Session, facturas: list[Factura], moneda: str, desde: date, hasta: date,
-                     prov: frozenset | None, marcas: set | None, interno: bool) -> list[dict]:
+def _resumen_periodo(db: Session, user: Usuario, prov, fact: dict, moneda: str | None, desde: date, hasta: date) -> list[dict]:
     """Lo que pasó en el periodo elegido (por defecto, el mes en curso)."""
-    fin = [f for f in facturas if f.estado == "FINALIZADA" and (_fecha_factura(f) or date.min) >= desde
-           and (_fecha_factura(f) or date.max) <= hasta]
-    importe = sum(l.cantidad * l.precio_unitario for f in fin if f.moneda == moneda for l in f.lineas
-                  if not marcas or (l.marca or "") in marcas)
-    pls = [pl for f in facturas for pl in f.packing_lists if pl.estado == "FINALIZADO" and pl.actualizado_en
-           and desde <= pl.actualizado_en.date() <= hasta]
-    llegadas = db.scalars(select(Embarque).where(Embarque.eta >= desde, Embarque.eta <= hasta)).all()
-    if prov:
-        llegadas = [e for e in llegadas if any(pl.factura.proveedor_id in prov for u in e.unidades for pl in u.packing_lists)]
-    out = [
-        {"clave": "facturado", "titulo": "Invoiced", "valor": round(importe, 2), "formato": "moneda", "moneda": moneda,
-         "detalle": f"{len(fin)} finalized invoices"},
+    pls = db.execute(
+        select(PackingList).join(Factura, Factura.id == PackingList.factura_id)
+        .where(PackingList.estado == "FINALIZADO", PackingList.finalizado_en >= datetime.combine(desde, time.min),
+               PackingList.finalizado_en < datetime.combine(hasta + timedelta(days=1), time.min),
+               *sociedad_filtro(user, Factura.sociedad), *([Factura.proveedor_id.in_(prov)] if prov else []))
+    ).scalars().all()
+    arribos = metricas.arribos(db, user, prov, desde, hasta)["n"]
+    previstas = metricas.llegadas_previstas(db, user, prov, max(desde, date.today()), hasta) if hasta >= date.today() else 0
+    valor = fact["por_moneda"].get(moneda, dinero.CERO)
+    return [
+        {"clave": "facturado", "titulo": "Invoiced", "valor": dinero.numero(dinero.redondear(valor, moneda)),
+         "formato": "moneda", "moneda": moneda, "otras": metricas.otras_monedas(fact["por_moneda"], moneda),
+         "detalle": f"{fact['facturas']} finalized invoices"},
         {"clave": "pls", "titulo": "Packing lists finalized", "valor": len(pls),
          "detalle": f"{sum(totales_pl(pl)['cajas'] for pl in pls):,} cartons"},
-        {"clave": "llegadas", "titulo": "Shipments arriving", "valor": len(llegadas),
-         "detalle": f"{sum(1 for e in llegadas if e.estado in ('ARRIBADO', 'ENTREGADO', 'RECIBIDO'))} already arrived"},
+        {"clave": "arribos", "titulo": "Shipments arrived", "valor": arribos,
+         "detalle": f"{previstas} more expected in the period" if previstas else "actual arrival in the period"},
     ]
-    return out
 
 
-def _facturado_por_mes(facturas: list[Factura], moneda: str) -> list[dict]:
-    meses = _meses(6)
-    res = {m: {"mes": m, "importe": 0.0, "facturas": 0} for m in meses}
-    for f in facturas:
-        if f.estado != "FINALIZADA" or f.moneda != moneda:
-            continue
-        fecha = f.fecha or (f.finalizado_en.date() if f.finalizado_en else None)
-        clave = fecha.strftime("%Y-%m") if fecha else None
-        if clave in res:
-            res[clave]["importe"] += sum(l.cantidad * l.precio_unitario for l in f.lineas)
-            res[clave]["facturas"] += 1
-    for r in res.values():
-        r["importe"] = round(r["importe"], 2)
-    return list(res.values())
-
-
-def _envios(db: Session, prov: frozenset | None) -> list[dict]:
-    consulta = select(Embarque).where(Embarque.estado.in_(ESTADOS_EN_CAMINO))
+def _envios(db: Session, user: Usuario, prov: frozenset | None) -> list[dict]:
+    """Los próximos embarques (hasta 8) dentro del alcance del usuario."""
+    consulta = metricas.embarques(db, user, prov, Embarque.estado.in_(ESTADOS_EN_CAMINO))
     res = []
     for e in db.scalars(consulta).all():
         pls = [pl for u in e.unidades for pl in u.packing_lists
@@ -319,21 +261,21 @@ def _tareas_productos(db: Session, user: Usuario, prov: frozenset | None) -> lis
     return out
 
 
-def _atencion(db: Session, user: Usuario, prov: frozenset | None, seg: list[dict], en_proceso: list, pls_abiertos: list,
-              sin_unidad: list, atrasadas: set) -> list[dict]:
+def _atencion(db: Session, user: Usuario, prov: frozenset | None, seg: list[dict], tarde: set, sin_unidad: list,
+              franja: set) -> list[dict]:
     """«¿Qué necesita mi atención hoy?»: cada indicador abre la lista ya
     filtrada. Primero lo que bloquea el siguiente paso, luego lo que vence o
-    llega pronto. Solo aparece lo que tiene algo pendiente."""
+    llega pronto. Solo aparece lo que tiene algo pendiente y lo que no está ya
+    en la franja de indicadores (`franja`)."""
     from app.modulos.acceso.permisos import tiene
     from app.modulos.productos.productos import ids_bloquean_facturas
 
-    hoy = date.today()
-    semana = hoy + timedelta(days=7)
+    hoy, semana = metricas.semana()
     interno = es_interno(user)
     out = []
 
     def item(clave, titulo, valor, detalle, ruta, query=None, tono="alerta"):
-        if valor:
+        if valor and clave not in franja:
             out.append({"clave": clave, "titulo": titulo, "valor": valor, "detalle": detalle, "ruta": ruta,
                         "query": query or {}, "tono": tono})
 
@@ -348,30 +290,23 @@ def _atencion(db: Session, user: Usuario, prov: frozenset | None, seg: list[dict
         else:
             item("devueltos", "Technical sheets returned", estados.get("observado", 0), "Customs returned them with notes.",
                  "/productos", {"estado": "observado"}, "error")
-    item("facturas", "Invoices to finalize", len(en_proceso), "Drafts and invoices under correction.", "/facturas",
-         {"vista": "editables"}, "info")
-    pesos = sum(1 for pl in pls_abiertos if any(e.get("codigo") in ("sin_peso", "peso_estimado") for e in validar_pl(pl)))
-    item("pl_incompletos", "Packing lists incomplete", len(pls_abiertos),
-         f"{pesos} with weights to confirm." if pesos else "Cartons to pack or finalize.", "/facturas", {"vista": "pl_incompletos"})
-    xf_semana = {f["oc"] for f in seg if f["etapa"] == "POR_FACTURAR" and f["fecha_xf"] and hoy <= f["fecha_xf"] <= semana}
+    xf_semana = metricas.oc_xf_en_rango(seg, hoy, semana)
     item("xf_proxima", "POs with XF this week", len(xf_semana), "With quantities still to invoice.", "/seguimiento",
-         {"vista": "ordenes", "etapa": "POR_FACTURAR", "fecha_xf_desde": hoy.isoformat(), "fecha_xf_hasta": semana.isoformat()})
-    xf_vencida = {f["oc"] for f in seg if f["etapa"] == "POR_FACTURAR" and f["fecha_xf"] and f["fecha_xf"] < hoy}
+         {"vista": "ordenes", "fecha_xf_desde": hoy.isoformat(), "fecha_xf_hasta": semana.isoformat(),
+          "etapa": "POR_FACTURAR,PEND_LIBERACION"})
+    xf_vencida = metricas.oc_xf_en_rango(seg, None, hoy - timedelta(days=1))
     item("xf_vencida", "POs past XF", len(xf_vencida), "The XF date passed and there is quantity to invoice.", "/seguimiento",
          {"vista": "ordenes", "xf_vencida": "1"}, "error")
     if interno or tiene(user, "transporte.gestionar"):
         item("sin_contenedor", "Packing lists without load unit", len(sin_unidad), "Finalized and waiting for a container.",
              "/transporte", {"estado": "PLANIFICADO"})
-        salen = db.scalar(select(func.count()).select_from(Embarque).where(Embarque.estado == "PLANIFICADO", Embarque.etd >= hoy,
-                                                                           Embarque.etd <= semana)) or 0
-        item("salen", "Shipments departing this week", salen, "Planned with ETD in the next 7 days.", "/transporte",
-             {"estado": "PLANIFICADO"}, "info")
-    item("riesgo", "POs at risk of arriving late", len(atrasadas), "They arrive after the in-store date.", "/seguimiento",
+        item("salen", "Shipments departing this week", metricas.embarques_que_salen(db, user, prov, hoy, semana),
+             "Planned with ETD in the next 7 days.", "/transporte", {"estado": "PLANIFICADO"}, "info")
+    item("llegan", "Arrivals this week", metricas.llegadas_previstas(db, user, prov, hoy, semana),
+         "In transit with ETA in the next 7 days.", "/seguimiento",
+         {"vista": "embarques", "estado": "EN_TRANSITO", "eta_desde": hoy.isoformat(), "eta_hasta": semana.isoformat()}, "info")
+    item("riesgo", "POs arriving late", len(tarde), "Port arrival after the port deadline.", "/seguimiento",
          {"riesgo": "ATRASO"}, "error")
-    llegan = {f["embarque"] for f in seg if f.get("embarque") and f.get("eta") and f["etapa"] in ("CONTENEDOR", "EN_TRANSITO")
-              and hoy <= f["eta"] <= semana}
-    item("llegan", "Arrivals this week", len(llegan), "Shipments with ETA in the next 7 days.", "/seguimiento",
-         {"vista": "embarques", "eta_desde": hoy.isoformat(), "eta_hasta": semana.isoformat()}, "info")
     # Solo lo que el rol puede abrir
     permiso = {"/productos": "producto.ver", "/facturas": "oc.ver", "/seguimiento": "seguimiento.ver", "/transporte": "transporte.gestionar"}
     out = [x for x in out if tiene(user, permiso[x["ruta"]])]
@@ -379,14 +314,18 @@ def _atencion(db: Session, user: Usuario, prov: frozenset | None, seg: list[dict
     return sorted(out, key=lambda x: orden[x["tono"]])
 
 
-def _contenedores(db: Session) -> list[dict]:
+def _contenedores(db: Session, user: Usuario) -> list[dict]:
+    """Unidades de carga de embarques planificados (las primeras 8), dentro del
+    alcance del usuario; el llenado es el mayor entre volumen y peso."""
+    planificados = metricas.embarques(db, user, None, Embarque.estado == "PLANIFICADO").with_only_columns(Embarque.id)
     unidades = db.scalars(
-        select(UnidadCarga).join(Embarque).where(Embarque.estado == "PLANIFICADO")
-        .order_by(Embarque.etd.nullslast(), UnidadCarga.id)
+        select(UnidadCarga).join(Embarque).where(Embarque.id.in_(planificados))
+        .order_by(Embarque.etd.nullslast(), UnidadCarga.id).limit(8)
     ).all()
     res = []
-    for u in unidades[:8]:
+    for u in unidades:
         r = resumen_unidad(u)
+        r["pct"] = max(x for x in (r.get("pct_cbm"), r.get("pct_kg"), 0) if x is not None)
         r["embarque"] = u.embarque.codigo
         r["etd"] = u.embarque.etd
         res.append(r)
@@ -394,7 +333,17 @@ def _contenedores(db: Session) -> list[dict]:
 
 
 def _por_proveedor(db: Session, facturas: list[Factura], distribucion: dict, saldo: dict) -> list[dict]:
-    filas = {p.id: {"id": p.id, "nombre": p.nombre, "por_facturar": None if visibilidad.oculto("precios") else round(saldo["por_proveedor"].get(p.id, 0), 2),
+    """Una fila por proveedor activo: saldo por facturar por moneda (nunca
+    sumado entre monedas) y sus documentos en curso."""
+    oculto = visibilidad.oculto("precios")
+    principal = metricas.moneda_principal({m: v for d in saldo["por_proveedor"].values() for m, v in d.items()})
+
+    def montos(prov_id):
+        por_moneda = saldo["por_proveedor"].get(prov_id, {})
+        return [{"moneda": m, "valor": dinero.numero(dinero.redondear(v, m))}
+                for m, v in sorted(por_moneda.items(), key=lambda x: (x[0] != principal, x[0])) if v]
+
+    filas = {p.id: {"id": p.id, "nombre": p.nombre, "por_facturar": None if oculto else montos(p.id),
                     "en_proceso": 0, "pl_abiertos": 0, "listas": 0, "en_camino": 0}
              for p in db.scalars(select(Proveedor).where(Proveedor.activo.is_(True)).order_by(Proveedor.nombre))}
     for f in facturas:
@@ -422,73 +371,82 @@ def dashboard(db: Session, user: Usuario, proveedor_id: int | None = None, desde
     filtro_marcas = {m.strip() for m in (marcas or "").split(",") if m.strip()} or None
     interno = es_interno(user)
 
-    consulta = select(Factura).where(Factura.estado != "CANCELADA").order_by(Factura.actualizado_en.desc())
+    # Solo el trabajo en curso: sin canceladas ni las ya recibidas por completo
+    # (la historia completa no crece la carga de esta pantalla)
+    consulta = (select(Factura).where(Factura.estado != "CANCELADA", ~metricas.facturas_terminadas())
+                .order_by(Factura.actualizado_en.desc()))
     if prov:
         consulta = consulta.where(Factura.proveedor_id.in_(prov))
     consulta = consulta.where(*sociedad_filtro(user, Factura.sociedad))
     facturas = list(db.scalars(consulta).all())
     distribucion = resumen_distribucion(db, [f.id for f in facturas])
-    saldo = _saldo_ocs(db, prov, user)
-    moneda, por_facturar = _moneda_principal(saldo["valor"])
-    envios = _envios(db, prov)
+    saldo = metricas.saldo_por_facturar(db, user, prov)
+    moneda = metricas.moneda_principal(saldo["valor"])
+    envios = _envios(db, user, prov)
+    transito = metricas.embarques_en_transito(db, user, prov)
 
     en_proceso = [f for f in facturas if f.estado in EDITABLE_FACTURA]
     pls_abiertos = [pl for f in facturas for pl in f.packing_lists if pl.estado in EDITABLE_PL]
-    en_camino = [e for e in envios if e["estado"] in ("EN_TRANSITO", "ARRIBADO")]
-    proximo = min((e["eta"] for e in en_camino if e["eta"]), default=None)
-
+    sin_unidad = [pl for f in facturas for pl in f.packing_lists if pl.estado == "FINALIZADO" and not pl.unidad_carga_id]
     listas = [f for f in facturas if _lista_para_transporte(f, distribucion[f.id])
               and distribucion[f.id]["pls_confirmados"] < distribucion[f.id]["pls"]]
 
+    sin_precio = saldo["lineas_sin_precio"]
     kpis = [
-        {"clave": "por_facturar", "titulo": "To invoice", "valor": por_facturar, "formato": "moneda",
-         "moneda": moneda, "detalle": f"on {saldo['ocs']} POs", "ruta": "/ordenes", "tono": "normal"},
+        {"clave": "por_facturar", "titulo": "To invoice", "formato": "moneda", "moneda": moneda,
+         "valor": dinero.numero(dinero.redondear(saldo["valor"].get(moneda, dinero.CERO), moneda)),
+         "otras": metricas.otras_monedas(saldo["valor"], moneda),
+         "detalle": f"on {saldo['ocs']} POs" + (f" · {sin_precio} lines without price" if sin_precio else ""),
+         "ruta": "/ordenes", "tono": "normal"},
         {"clave": "en_proceso", "titulo": "Documents in progress", "valor": len(en_proceso) + len(pls_abiertos),
          "detalle": f"{len(en_proceso)} invoices · {len(pls_abiertos)} packing lists",
          "ruta": "/facturas", "query": {"vista": "editables"}, "tono": "alerta" if pls_abiertos else "normal"},
     ]
     if interno:
-        sin_unidad = [pl for f in facturas for pl in f.packing_lists
-                      if pl.estado == "FINALIZADO" and not pl.unidad_carga_id]
-        kpis.append({"clave": "listas", "titulo": "Ready to ship", "valor": len(listas),
+        kpis.append({"clave": "listas", "titulo": "Invoices ready to ship", "valor": len(listas),
                      "detalle": f"{len(sin_unidad)} PLs without container", "ruta": "/facturas",
                      "query": {"vista": "lista_transporte"}, "tono": "alerta" if sin_unidad else "normal"})
-    kpis.append({"clave": "en_camino", "titulo": "Shipments on the way", "valor": len(en_camino),
+    proximo = transito["proxima"]
+    kpis.append({"clave": "en_camino", "titulo": "Shipments in transit", "valor": transito["n"],
                  "formato": "numero", "detalle": f"next arrival {proximo:%b %d}" if proximo else "no upcoming arrivals",
-                 "fecha": proximo, "ruta": "/transporte" if interno else "/facturas",
-                 "query": {"estado": "EN_TRANSITO"} if interno else {}, "tono": "normal"})
+                 "fecha": proximo, "ruta": "/transporte" if interno else "/seguimiento",
+                 "query": {"estado": "EN_TRANSITO"} if interno else {"vista": "embarques", "estado": "EN_TRANSITO"},
+                 "tono": "normal"})
 
     from app.modulos.seguimiento.seguimiento import filas_seguimiento
 
     seg = filas_seguimiento(db, user, prov)
-    atrasadas = {f["oc"] for f in seg if f["riesgo"] == "ATRASO"}
-    pendientes_lib = {f["oc"] for f in seg if f["etapa"] == "PEND_LIBERACION"}
-    kpis.append({"clave": "riesgo", "titulo": "POs at risk of delay", "valor": len(atrasadas),
-                 "detalle": "arrive after the in-store date", "ruta": "/seguimiento",
-                 "query": {"riesgo": "ATRASO"}, "tono": "alerta" if atrasadas else "exito"})
-    sin_unidad = [pl for f in facturas for pl in f.packing_lists if pl.estado == "FINALIZADO" and not pl.unidad_carga_id]
-    atencion = _atencion(db, user, prov, seg, en_proceso, pls_abiertos, sin_unidad, atrasadas)
+    tarde = metricas.oc_llegada_tarde(seg)
+    pendientes_lib = {f["oc_id"] for f in seg if f["etapa"] == "PEND_LIBERACION"}
+    kpis.append({"clave": "riesgo", "titulo": "POs arriving late", "valor": len(tarde),
+                 "detalle": "port arrival after the port deadline", "ruta": "/seguimiento",
+                 "query": {"riesgo": "ATRASO"}, "tono": "alerta" if tarde else "exito"})
+    franja = {k["clave"] for k in _visibles(kpis)}
+    # Lo que ya está en la franja no se repite en «Necesita su atención»
+    franja_atencion = {"riesgo"} & franja | ({"sin_contenedor"} if "listas" in franja else set())
+    atencion = _atencion(db, user, prov, seg, tarde, sin_unidad, franja_atencion)
     tareas = _tareas(db, user, facturas, distribucion, prov)
     if pendientes_lib:
         tareas.insert(0, {"prioridad": 1, "tipo": "liberacion",
                           "titulo": f"{len(pendientes_lib)} POs not released",
                           "detalle": "Commercial or logistics release pending: they cannot be invoiced.",
                           "ruta": "/ordenes?liberada=0&solo_disponible=0", "accion": "View"})
-    resumen = _resumen_periodo(db, facturas, moneda, desde, hasta, prov, filtro_marcas, interno)
+    fact = metricas.facturado(db, user, prov, desde, hasta, filtro_marcas)
+    moneda_fact = metricas.moneda_principal(fact["por_moneda"]) if fact["por_moneda"] else moneda
     return {
         "rol": user.rol,
         "moneda": moneda,
         "kpis": _visibles(kpis),
         "atencion": _visibles(atencion),
         "tareas": tareas[:12],
+        "tareas_total": len(tareas),
         "flujo": _flujo(db, facturas, saldo),
-        "facturado_mes": _facturado_por_mes(facturas, moneda),
         "periodo": {"desde": desde, "hasta": hasta,
-                    "resumen": _visibles(resumen),
-                    "facturado": _serie_facturado(facturas, moneda, desde, hasta, filtro_marcas),
-                    "marcas": sorted({l.marca for f in facturas for l in f.lineas if l.marca})},
+                    "resumen": _visibles(_resumen_periodo(db, user, prov, fact, moneda_fact, desde, hasta)),
+                    "facturado": _serie_facturado(fact, moneda_fact, desde, hasta),
+                    "marcas": metricas.marcas_facturadas(db, user, prov, desde, hasta)},
         "envios": envios,
-        "contenedores": _contenedores(db) if interno else [],
+        "contenedores": _contenedores(db, user) if interno else [],
         "proveedores": _por_proveedor(db, facturas, distribucion, saldo) if interno and not prov else [],
         "alertas": listar_alertas(db, user, prov) if interno and tiene(user, "alertas.ver") else [],
     }

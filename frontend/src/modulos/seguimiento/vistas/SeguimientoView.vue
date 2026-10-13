@@ -69,10 +69,11 @@ const RIESGOS = Object.fromEntries(Object.entries(TIEMPO).map(([k, v]) => [k, v[
 
 const activos = computed(() => FILTROS.filter((k) => k !== 'q' && filtros[k]).map((k) => {
   let texto = filtros[k]
-  if (k === 'etapa') texto = ETAPAS.find(([v]) => v === filtros[k])?.[1] || texto
+  const nombres = (lista) => lst(filtros[k]).map((c) => lista.find(([v]) => v === c)?.[1] || c).join(', ')
+  if (k === 'etapa') texto = nombres(ETAPAS)
   if (k === 'modo') texto = MODOS.value.find(([v]) => v === filtros[k])?.[1] || texto
   if (k === 'riesgo') texto = RIESGOS[filtros[k]] || texto
-  if (k === 'estado') texto = [...ESTADOS_EMB, ...ESTADOS_OC].find(([v]) => v === filtros[k])?.[1] || texto
+  if (k === 'estado') texto = nombres([...ESTADOS_EMB, ...ESTADOS_OC])
   if (k === 'xf_vencida') texto = 'yes'
   if (k === 'embarque_id') texto = lst(filtros[k]).map((id) => opciones.value.embarques?.find((e) => String(e.id) === id)?.codigo || id).join(', ')
   else if (!k.endsWith('_desde') && !k.endsWith('_hasta')) texto = String(texto).split(',').join(', ')

@@ -422,7 +422,7 @@ def test_dashboard(interno, tnf):
     claves = {k["clave"] for k in d["kpis"]}
     assert {"por_facturar", "en_proceso", "listas", "en_camino"} <= claves
     assert d["proveedores"] and {p["nombre"] for p in d["proveedores"]} >= {"The North Face", "Vans"}
-    assert len(d["facturado_mes"]) == 6 and d["contenedores"] is not None
+    assert d["contenedores"] is not None and d["periodo"]["facturado"]["moneda"]
     # El proveedor solo ve lo suyo y no recibe datos internos
     p = tnf.get("/dashboard").json()
     assert "listas" not in {k["clave"] for k in p["kpis"]}

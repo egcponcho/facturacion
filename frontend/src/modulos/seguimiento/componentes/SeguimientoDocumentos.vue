@@ -93,9 +93,9 @@ watch(() => sesion.proveedorId, aplicar)
   <section class="kpis mb-4">
     <Kpi :titulo="t('Invoices')" :valor="datos.kpis.facturas" icono="factura" :detalle="tx(importeTxt)" @abrir="filtrar({})" />
     <Kpi :titulo="t('Open invoices')" :valor="datos.kpis.facturas_abiertas" icono="editar" :tono="datos.kpis.facturas_abiertas ? 'alerta' : 'exito'"
-         :detalle="t('draft or in correction')" @abrir="filtrar({ estado_factura: 'BORRADOR' })" />
-    <Kpi :titulo="t('Packing')" :valor="datos.kpis.empacando" icono="caja" :detalle="t('PL not finalized')" @abrir="filtrar({ etapa: 'EMPACANDO' })" />
-    <Kpi :titulo="t('Ready to ship')" :valor="datos.kpis.listos" icono="check" tono="exito" :detalle="t('invoice and PL finalized')" @abrir="filtrar({ etapa: 'LISTO_EMBARQUE' })" />
+         :detalle="t('draft or in correction')" @abrir="filtrar({ estado_factura: 'BORRADOR,EN_CORRECCION' })" />
+    <Kpi :titulo="t('Packing')" :valor="datos.kpis.empacando" icono="caja" :detalle="t('PL not finalized')" @abrir="filtrar({ etapa: 'EMPACANDO,POR_FINALIZAR_PL' })" />
+    <Kpi :titulo="t('Packing lists ready to ship')" :valor="datos.kpis.listos" icono="check" :detalle="t('invoice and PL finalized')" @abrir="filtrar({ etapa: 'LISTO_EMBARQUE' })" />
     <Kpi :titulo="t('With pending data')" :valor="datos.kpis.con_pendientes" icono="alerta" :tono="datos.kpis.con_pendientes ? 'alerta' : 'exito'"
          :detalle="t('needed to finalize')" @abrir="filtrar({ con_pendientes: true })" />
   </section>

@@ -3,7 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/nucleo/api'
-import { fmtFecha, fmtFechaHora, fmtNum } from '@/nucleo/utils'
+import { fmtFecha, fmtFechaHora, fmtMoneda, fmtNum } from '@/nucleo/utils'
 import { esInterno } from '@/stores/sesion'
 import { confirmar } from '@/stores/confirmar'
 import { avisar, errorApi } from '@/stores/ui'
@@ -160,13 +160,15 @@ const columnasGuardados = computed(() => [
 const filasResultado = computed(() => (resultado.value?.filas || []).map((fila, i) => ({ _i: i, ...Object.fromEntries(fila.map((v, j) => [`c${j}`, v])) })))
 const columnasResultado = computed(() => (resultado.value?.columnas || []).map((c, j) => ({
   clave: `c${j}`, texto: c.titulo_campo ? `${c.titulo}: ${c.titulo_campo}` : c.titulo, num: ['numero', 'moneda'].includes(c.tipo),
-  prioridad: j < 2 ? 1 : j < 4 ? 2 : 3, textoValor: (v) => celda(c, v),
+  prioridad: j < 2 ? 1 : j < 4 ? 2 : 3, textoValor: (v, fila) => celda(c, v, fila),
 })))
-function celda(col, v) {
+// Columna de la moneda en el resultado: cada importe se muestra con su código
+const colMoneda = computed(() => (resultado.value?.columnas || []).findIndex((c) => c.clave === 'moneda'))
+function celda(col, v, fila) {
   if (v === null || v === undefined || v === '') return '—'
   const nombres = resultado.value?.opciones?.[col.clave]
   if (nombres) return nombres[v] || v
-  if (col.tipo === 'moneda') return fmtNum(v, 2)
+  if (col.tipo === 'moneda') return colMoneda.value >= 0 && fila ? fmtMoneda(v, fila[`c${colMoneda.value}`]) : fmtNum(v, 2)
   if (col.tipo === 'numero') return fmtNum(v)
   if (col.tipo === 'fecha') return fmtFecha(v)
   return v
@@ -330,7 +332,7 @@ const nombreFuente = (clave) => fuentes.value.find((f) => f.clave === clave)?.ti
     <div v-else-if="resultado" class="resultado">
       <TablaDatos :key="columnasResultado.map((c) => c.texto).join('|')" tabla="reportes_resultado" :columnas="columnasResultado" :filas="filasResultado"
                   clave-fila="_i" :cargando="cargando" :vistas-guardadas="false" :etiqueta="t('Report preview')">
-        <template v-for="(c, j) in resultado.columnas" :key="j" #[`celda-c${j}`]="{ fila }">{{ tx(celda(c, fila[`c${j}`])) }}</template>
+        <template v-for="(c, j) in resultado.columnas" :key="j" #[`celda-c${j}`]="{ fila }">{{ tx(celda(c, fila[`c${j}`], fila)) }}</template>
         <template #vacio>{{ t('No records match these filters.') }}</template>
       </TablaDatos>
     </div>

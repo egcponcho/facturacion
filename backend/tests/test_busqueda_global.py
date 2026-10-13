@@ -51,7 +51,11 @@ def test_proveedor_solo_ve_lo_suyo(interno, vans):
 def test_home_necesita_atencion(interno, vans):
     """Cada indicador del Home abre la lista ya filtrada y solo aparece lo que tiene algo pendiente."""
     d = interno.get("/dashboard").json()
-    assert d["atencion"] and all(x["valor"] and x["ruta"].startswith("/") for x in d["atencion"])
+    assert all(x["valor"] and x["ruta"].startswith("/") for x in d["atencion"])
+    # Lo que ya está en la franja de indicadores no se repite en la lista
+    franja = {k["clave"] for k in d["kpis"]}
+    assert not franja & {x["clave"] for x in d["atencion"]}
+    assert {"en_proceso", "riesgo"} <= franja
     tonos = [x["tono"] for x in d["atencion"]]
     assert tonos == sorted(tonos, key=["error", "alerta", "info"].index)  # lo que bloquea, primero
     # El proveedor no ve lo que no puede abrir (embarques)

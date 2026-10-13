@@ -191,6 +191,12 @@ def tablero_modulo(modulo: str, db: Db, user: User, dias: int = 30):
     return indicadores.tablero(db, user, modulo, dias)
 
 
+@router.put("/tableros/metas")
+def metas_indicadores(db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
+    """Metas de la empresa por indicador ({"clave": número | null}); solo administración."""
+    return ejecutar(db, user, clave, lambda: indicadores.guardar_metas(db, user, datos))
+
+
 @router.put("/tableros/{modulo}/propios")
 def indicadores_propios(modulo: str, db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
     """Los indicadores de la persona, en su orden ({"claves": [...]}, o null para volver a los de su rol)."""

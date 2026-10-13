@@ -29,7 +29,8 @@ if TYPE_CHECKING:
 class Historial(DeOrganizacion, Base):
     __tablename__ = "historial"
     __table_args__ = (Index("ix_historial_entidad", "entidad", "entidad_id"),
-                      Index("ix_historial_raiz", "raiz_tipo", "raiz_id"))
+                      Index("ix_historial_raiz", "raiz_tipo", "raiz_id"),
+                      Index("ix_historial_entidad_accion_fecha", "entidad", "accion", "fecha"))
     id: Mapped[int] = mapped_column(primary_key=True)
     entidad: Mapped[str] = mapped_column(String(30))
     entidad_id: Mapped[int] = mapped_column(Integer)

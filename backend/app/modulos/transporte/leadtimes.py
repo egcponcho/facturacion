@@ -342,6 +342,7 @@ def analizar_oc(oc: OrdenCompra, h: dict | None, est: dict, hoy: date) -> dict:
         "duraciones": {k: (real[b] - real[a]).days for k, _, a, b in ETAPAS
                        if real[a] and real[b] and (real[b] - real[a]).days >= 0},
         "embarques": sorted(h.get("embarques", [])),
+        "ingresada": bool(real["ingreso"]),
     }
 
 
@@ -376,7 +377,8 @@ def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     filtros = {k: v for k, v in (filtros or {}).items() if v not in (None, "")}
     hoy = date.today()
     ests = Estandares(db)
-    q = select(OrdenCompra)
+    # Solo OC vigentes: aprobadas (y cerradas, por lo que ya se facturó)
+    q = select(OrdenCompra).where(OrdenCompra.estado.in_(("APROBADA", "CERRADA")))
     prov = proveedor_filtro(user, proveedor_id)
     if prov:
         q = q.where(OrdenCompra.proveedor_id.in_(prov))
@@ -435,17 +437,19 @@ def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     completas = [sum(i["duraciones"].values()) for i in items if len(i["duraciones"]) == len(ETAPAS)]
     kpis = {
         "ocs": len(items),
-        "lib_pct": round(sum(1 for i in con_lib if i["lib_a_tiempo"]) * 100 / len(con_lib)) if con_lib else None,
+        "lib_pct": round(sum(1 for i in con_lib if i["lib_a_tiempo"]) * 100 / len(con_lib), 1) if con_lib else None,
         "lib_total": len(con_lib),
         "lib_vencidas": sum(1 for i in items if i["lib_vencida"]),
         "total_prom": _prom(completas),
         "transito_prom": _prom([i["duraciones"]["transito"] for i in items if "transito" in i["duraciones"]]),
-        "tarde": sum(1 for i in items if i["riesgo"] == "ATRASO"),
-        "justo": sum(1 for i in items if i["riesgo"] == "JUSTO"),
+        # Lo que ya ingresó a bodega no está en riesgo (misma regla que Inicio e Indicadores)
+        "tarde": sum(1 for i in items if i["riesgo"] == "ATRASO" and not i["ingresada"]),
+        "justo": sum(1 for i in items if i["riesgo"] == "JUSTO" and not i["ingresada"]),
+        "lib_a_tiempo": sum(1 for i in con_lib if i["lib_a_tiempo"]),
     }
     # Filtros sobre el resultado de cada OC
     if filtros.get("riesgo"):
-        items = [i for i in items if i["riesgo"] in _lista(filtros["riesgo"])]
+        items = [i for i in items if i["riesgo"] in _lista(filtros["riesgo"]) and not i["ingresada"]]
     if filtros.get("lib") == "vencida":
         items = [i for i in items if i["lib_vencida"]]
     elif filtros.get("lib") == "tarde":

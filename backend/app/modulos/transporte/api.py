@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Query
 
 from app.esquemas import (
@@ -26,9 +28,17 @@ def sugerencia_unidades(db: Db, user: User, cbm: float = Query(0, ge=0), kg: flo
 
 
 @router.get("/embarques")
-def listar(db: Db, user: User, estado: str | None = None, q: str | None = None):
-    """Embarques del alcance del usuario, filtrables por estado y texto, con su carga y riesgo de atraso."""
-    return svc.listar_embarques(db, user, estado, q)
+def listar(db: Db, user: User, estado: str | None = None, q: str | None = None,
+           arribo_desde: date | None = None, arribo_hasta: date | None = None):
+    """Embarques del alcance del usuario, filtrables por estado (uno o varios), texto y
+    fecha de arribo, con su carga y riesgo de atraso."""
+    return svc.listar_embarques(db, user, estado, q, arribo_desde, arribo_hasta)
+
+
+@router.get("/embarques/conteos")
+def conteos(db: Db, user: User, q: str | None = None, arribo_desde: date | None = None, arribo_hasta: date | None = None):
+    """Cuántos embarques hay en cada estado con la misma búsqueda (para los segmentos)."""
+    return svc.contar_embarques(db, user, q, arribo_desde, arribo_hasta)
 
 
 @router.post("/embarques")

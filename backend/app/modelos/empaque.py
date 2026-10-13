@@ -51,6 +51,7 @@ class PackingList(DeOrganizacion, Base):
     asignacion: Mapped[str | None] = mapped_column(String(12))  # TENTATIVA | CONFIRMADA
     observaciones: Mapped[str | None] = mapped_column(Text)
     recolectado_en: Mapped[date | None] = mapped_column(Date)  # retiro en bodega del proveedor
+    finalizado_en: Mapped[datetime | None] = mapped_column(DateTime, index=True)  # la última vez que se finalizó
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
@@ -211,7 +212,7 @@ class RecepcionLinea(DeOrganizacion, Base):
     cantidad_danada: Mapped[float] = mapped_column(Cantidad, default=0)
     observacion: Mapped[str | None] = mapped_column(String(300))
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-    fecha: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    fecha: Mapped[datetime] = mapped_column(DateTime, index=True, default=ahora)
 
     pl_linea: Mapped[PLLinea] = relationship(back_populates="recepcion")
 

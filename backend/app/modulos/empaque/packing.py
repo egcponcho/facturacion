@@ -997,7 +997,7 @@ def finalizar_pl(db: Session, user: Usuario, pl_id: int, version: int) -> dict:
     errores = validar_pl(pl)
     if errores:
         raise ErrorNegocio("Some data is missing before finalizing.", 422, "pendientes", errores)
-    pl.estado = "FINALIZADO"
+    pl.estado, pl.finalizado_en = "FINALIZADO", ahora()
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "finalizar", None, factura_id=pl.factura_id)
     return {"estado": pl.estado, "version": pl.version}
@@ -1016,7 +1016,7 @@ def reabrir_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> di
         # Solo lo finalizado va en un embarque: al reabrirlo sale de la unidad de carga
         nota = f"Removed from {pl.unidad.numero or pl.unidad.etiqueta}. Add it again once finalized."
         pl.unidad_carga_id, pl.asignacion, pl.recolectado_en = None, None, None
-    pl.estado = "EN_CORRECCION"
+    pl.estado, pl.finalizado_en = "EN_CORRECCION", None
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "reabrir", {"nota": nota} if nota else None, motivo,
               factura_id=pl.factura_id)

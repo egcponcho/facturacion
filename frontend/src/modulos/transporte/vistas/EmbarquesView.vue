@@ -18,23 +18,30 @@ import { datosModo, modoInicial, modosTransporte, useRutas } from '@/composables
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFecha, fmtNum } from '@/nucleo/utils'
 import Segmentos from '@/componentes/Segmentos.vue'
+import { sesion } from '@/stores/sesion'
 
 const route = useRoute()
 const router = useRouter()
-const filtros = reactive({ estado: route.query.estado || '', q: '' })
+const filtros = reactive({ estado: route.query.estado || '', q: '', arribo_desde: route.query.arribo_desde || '', arribo_hasta: route.query.arribo_hasta || '' })
 const lista = ref([])
 // Clic en la fila: resumen en el panel lateral; el código abre la página
 const resumenId = ref(null)
-const todos = ref([])
+const conteos = ref({})
 const modal = ref(null)
 const listas = ref(null)
 
 const ESTADOS = [['', t('All')], ...estadosEmbarque()]
-const cuenta = computed(() => {
-  const r = { '': todos.value.length }
-  for (const e of todos.value) r[e.estado] = (r[e.estado] || 0) + 1
-  return r
-})
+// Cuántos hay en cada estado con la misma búsqueda (los cuenta el servidor)
+const cuenta = computed(() => ({ '': Object.values(conteos.value).reduce((a, n) => a + n, 0), ...conteos.value }))
+const params = () => Object.fromEntries(Object.entries(filtros).filter(([, v]) => v))
+// Período de arribo que llega desde un indicador: un chip que se puede quitar
+const chipsArribo = computed(() => (filtros.arribo_desde || filtros.arribo_hasta
+  ? [{ clave: 'arribo', texto: t('Arrived: {0} – {1}', [fmtFecha(filtros.arribo_desde), fmtFecha(filtros.arribo_hasta)]) }] : []))
+function quitarArribo() {
+  filtros.arribo_desde = ''
+  filtros.arribo_hasta = ''
+  cargar()
+}
 // Tabla común: ordena y filtra aquí (la lista ya viene filtrada por estado y búsqueda)
 const columnas = [
   { clave: 'codigo', texto: t('Shipment'), fija: true, prioridad: 1, filtro: 'texto', valor: (e) => `${e.codigo} ${e.documento_numero || ''} ${e.transportista || ''}` },
@@ -42,7 +49,7 @@ const columnas = [
   { clave: 'etd', texto: 'ETD', prioridad: 2, valor: (e) => e.salida_real || e.etd },
   { clave: 'eta', texto: 'ETA', prioridad: 1, valor: (e) => e.arribo_real || e.eta },
   { clave: 'estado', texto: t('Status'), prioridad: 1, valor: (e) => ESTADOS.findIndex(([k]) => k === e.estado) },
-  { clave: 'holgura_dias', texto: t('Vs. in-store date'), prioridad: 2 },
+  { clave: 'holgura_dias', texto: t('Margin to port deadline'), prioridad: 2 },
   { clave: 'unidades', texto: t('Load units'), ordenable: false, prioridad: 3 },
   { clave: 'packing_lists', texto: 'PL', num: true, prioridad: 3 },
   { clave: 'proveedores', texto: t('Suppliers'), prioridad: 3, filtro: 'texto', valor: (e) => e.proveedores.join(', ') },
@@ -50,10 +57,11 @@ const columnas = [
 
 async function cargar() {
   try {
-    ;[lista.value, todos.value, listas.value] = await Promise.all([
-      api.get('/embarques', filtros),
-      api.get('/embarques'),
-      api.get('/facturas', { vista: 'lista_transporte', size: 1 }),
+    const { estado, ...sinEstado } = params()
+    ;[lista.value, conteos.value, listas.value] = await Promise.all([
+      api.get('/embarques', { estado, ...sinEstado }),
+      api.get('/embarques/conteos', sinEstado),
+      api.get('/facturas', { vista: 'lista_transporte', size: 1, proveedor_id: sesion.proveedorId || undefined }),
     ])
   } catch (e) {
     errorApi(e)
@@ -123,7 +131,8 @@ onMounted(() => {
   </p>
 
   <TablaDatos tabla="embarques" :columnas="columnas" :filas="lista" fila-clicable :fila-activa="resumenId" :etiqueta="t('Shipments')"
-              vistas-guardadas :externos="{ estado: filtros.estado, q: filtros.q }"
+              vistas-guardadas :externos="{ estado: filtros.estado, q: filtros.q }" :chips-externos="chipsArribo"
+              @quitar-externo="quitarArribo" @limpiar-externos="quitarArribo"
               @fila="(e) => (resumenId = e.id)" @vista="(q) => { filtros.estado = q.estado || ''; filtros.q = q.q || ''; cargar() }">
     <template #barra>
       <label class="buscador">
@@ -152,7 +161,7 @@ onMounted(() => {
     </template>
     <template #celda-proveedores="{ fila: e }"><span class="envolver">{{ tx(e.proveedores.join(', ') || '—') }}</span></template>
     <template #vacio>
-      <span v-if="todos.length">{{ t('No shipments match these filters.') }}</span>
+      <span v-if="cuenta['']">{{ t('No shipments match these filters.') }}</span>
       <EstadoVacio v-else icono="barco" :titulo="t('There are no shipments yet.')"
                    :texto="t('A shipment groups the load units (containers, air waybills or trucks) that carry goods ready to ship.')"
                    :titulo-requisitos="t('To fill one you need:')"
