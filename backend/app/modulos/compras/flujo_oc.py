@@ -17,7 +17,7 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core import campos_propios, listas
+from app.core import campos_propios, dinero, listas
 from app.core.empresa import configuracion_actual, regla
 from app.core.errores import ErrorNegocio
 from app.core.estados import OC
@@ -38,6 +38,7 @@ from app.modelos import (
     Proveedor,
     Puerto,
     RecepcionLinea,
+    ReglaAprobacionOC,
     Rol,
     Sociedad,
     UnidadCarga,
@@ -59,7 +60,7 @@ PASOS = [
 ]
 CABECERA = ("proveedor", "oc", "sociedad", "fecha_oc", "moneda", "incoterm", "condicion_pago", "centro", "centro_destino",
             "puerto_despacho", "pais_origen", "pais_procedencia", "fecha_xf", "fecha_tienda", "notas")
-LINEA = ("codigo_sap", "cantidad", "unidad", "precio", "casepack", "inner_pack", "almacen", "fecha_entrega")
+LINEA = ("codigo_articulo", "cantidad", "unidad", "precio", "casepack", "inner_pack", "almacen", "fecha_entrega")
 # Datos del asistente → nombre del dato en la configuración de obligatorios
 OBLIGABLES = {"fecha_oc": "fecha", "incoterm": "incoterm", "condicion_pago": "condicion_pago", "centro": "centro",
               "centro_destino": "centro_destino", "puerto_despacho": "puerto_despacho", "pais_origen": "pais_origen",
@@ -165,7 +166,7 @@ def _borrador_de(oc: OrdenCompra) -> dict:
            "centro_destino": oc.centro_destino, "puerto_despacho": oc.puerto_despacho, "pais_origen": oc.pais_origen,
            "pais_procedencia": oc.pais_procedencia, "fecha_xf": oc.fecha_xf, "fecha_tienda": oc.fecha_tienda,
            "notas": oc.notas, "extra": oc.extra or {}}
-    lineas = [{"codigo_sap": p.codigo_sap, "cantidad": p.cantidad, "unidad": p.unidad, "precio": p.precio,
+    lineas = [{"codigo_articulo": p.codigo_articulo, "cantidad": p.cantidad, "unidad": p.unidad, "precio": p.precio,
                "casepack": p.casepack, "inner_pack": p.inner_pack, "almacen": p.almacen, "fecha_entrega": p.fecha_entrega}
               for p in oc.posiciones]
     return {"cabecera": {k: (v.isoformat() if isinstance(v, date) else v) for k, v in cab.items()}, "lineas": lineas}
@@ -230,13 +231,13 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
         prov = db.scalar(select(Proveedor).where(Proveedor.codigo == _texto(cab.get("proveedor")).upper()))
         for i, ln in enumerate(lineas):
             ref = f"lineas.{i}"
-            art = db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_sap")))) if _texto(ln.get("codigo_sap")) else None
+            art = db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_articulo")))) if _texto(ln.get("codigo_articulo")) else None
             if not art:
-                falta(f"{ref}.codigo_sap", f"Line {i + 1}: choose an item from the item master.")
+                falta(f"{ref}.codigo_articulo", f"Line {i + 1}: choose an item from the item master.")
             elif prov and art.proveedor_id not in (None, prov.id):
-                falta(f"{ref}.codigo_sap", f"Line {i + 1}: the item belongs to another supplier.")
+                falta(f"{ref}.codigo_articulo", f"Line {i + 1}: the item belongs to another supplier.")
             elif not art.activo:
-                falta(f"{ref}.codigo_sap", f"Line {i + 1}: the item is inactive.")
+                falta(f"{ref}.codigo_articulo", f"Line {i + 1}: the item is inactive.")
             cant = _numero(ln.get("cantidad"))
             if cant is None or cant <= 0:
                 falta(f"{ref}.cantidad", f"Line {i + 1}: enter a quantity greater than zero.")
@@ -245,8 +246,8 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
                 falta(f"{ref}.unidad", f"Line {i + 1}: unit {unidad} is not in the list.")
             elif cant and unidad and (listas.valor("unidad", unidad) or {}).get("contable") and cant != int(cant):
                 falta(f"{ref}.cantidad", f"Line {i + 1}: {unidad} is counted in whole numbers.")
-        repetidos = {x for x in (_texto(ln.get("codigo_sap")) for ln in lineas) if x}
-        if len(repetidos) < len([ln for ln in lineas if _texto(ln.get("codigo_sap"))]):
+        repetidos = {x for x in (_texto(ln.get("codigo_articulo")) for ln in lineas) if x}
+        if len(repetidos) < len([ln for ln in lineas if _texto(ln.get("codigo_articulo"))]):
             falta("lineas", "An item appears twice: add the quantities in one line.")
     elif paso == "condiciones":
         if requerido("moneda", "The currency is required.", siempre=True):
@@ -277,7 +278,7 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
             existe(campo, modelo, etiqueta)
         # Datos de aduana: se piden aquí (no antes) si la empresa los exige para facturar
         if regla("REQUERIR_DATOS_ADUANA") and "pais_origen" not in obligatorios and not _texto(cab.get("pais_origen")):
-            arts = [db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_sap")))) for ln in lineas]
+            arts = [db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_articulo")))) for ln in lineas]
             if any(a is not None and not (a.producto and a.producto.pais_origen) for a in arts):
                 falta("pais_origen", "The country of origin is required for customs (some items do not have it).")
     elif paso == "documentacion":
@@ -300,14 +301,15 @@ def estado_pasos(db: Session, user: Usuario, oc: OrdenCompra) -> list[dict]:
 
 # ---- Envío y aprobación ------------------------------------------------------------------
 def _total(oc: OrdenCompra) -> float:
-    return sum((p.cantidad or 0) * (p.precio or 0) for p in oc.posiciones)
+    return dinero.numero(dinero.total([(p.cantidad, p.precio) for p in oc.posiciones if p.precio is not None], oc.moneda))
 
 
-def reglas_que_aplican(oc: OrdenCompra) -> list[dict]:
-    total = _total(oc)
-    return [r for r in (configuracion_actual().get("aprobaciones_oc") or [])
-            if r["moneda"] == (oc.moneda or "") and total >= float(r["monto_minimo"])
-            and (not r.get("sociedad") or r["sociedad"] == oc.sociedad)]
+def reglas_que_aplican(db: Session, oc: OrdenCompra) -> list[ReglaAprobacionOC]:
+    total = dinero.decimal(_total(oc))
+    return [r for r in db.scalars(select(ReglaAprobacionOC).where(ReglaAprobacionOC.activo.is_(True))
+                                  .order_by(ReglaAprobacionOC.monto_minimo, ReglaAprobacionOC.orden, ReglaAprobacionOC.id))
+            if r.moneda == (oc.moneda or "") and total >= dinero.decimal(r.monto_minimo)
+            and (not r.sociedad or r.sociedad == oc.sociedad)]
 
 
 def _liberar(db: Session, oc: OrdenCompra) -> None:
@@ -326,7 +328,7 @@ def iniciar_aprobacion(db: Session, user: Usuario | None, oc: OrdenCompra) -> No
     for a in list(oc.aprobaciones):
         db.delete(a)
     db.flush()
-    reglas = reglas_que_aplican(oc)
+    reglas = reglas_que_aplican(db, oc)
     oc.enviada_en = ahora()
     if not reglas:
         oc.estado, oc.aprobada_en = "APROBADA", ahora()
@@ -335,7 +337,7 @@ def iniciar_aprobacion(db: Session, user: Usuario | None, oc: OrdenCompra) -> No
         return
     oc.estado, oc.liberada = "EN_APROBACION", False
     for i, r in enumerate(reglas, start=1):
-        oc.aprobaciones.append(AprobacionOC(paso=i, regla=r["nombre"], rol_id=r["rol_id"], estado="PENDIENTE"))
+        oc.aprobaciones.append(AprobacionOC(paso=i, regla=r.nombre, regla_id=r.id, rol_id=r.rol_id, estado="PENDIENTE"))
     db.flush()
 
 

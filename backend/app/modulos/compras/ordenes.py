@@ -7,7 +7,7 @@ from datetime import date, datetime
 from sqlalchemy import Integer, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core import campos_propios, empresa, listas
+from app.core import campos_propios, dinero, empresa, listas
 from app.core.archivos import abrir_libro
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
@@ -71,7 +71,7 @@ def _consulta_ordenes(db: Session, user: Usuario, proveedor_id=None, q=None, cen
         select(
             PosicionOC.oc_id.label("oc_id"),
             func.sum(PosicionOC.cantidad).label("cantidad"),
-            func.sum(PosicionOC.cantidad * PosicionOC.precio).label("importe"),
+            func.sum(dinero.importe_sql(PosicionOC.cantidad, PosicionOC.precio)).label("importe"),
             func.count(PosicionOC.id).label("n"),
         )
         .group_by(PosicionOC.oc_id)
@@ -81,7 +81,7 @@ def _consulta_ordenes(db: Session, user: Usuario, proveedor_id=None, q=None, cen
         select(
             PosicionOC.oc_id.label("oc_id"),
             func.sum(FacturaLinea.cantidad).label("facturado"),
-            func.sum(FacturaLinea.cantidad * PosicionOC.precio).label("importe_facturado"),
+            func.sum(dinero.importe_sql(FacturaLinea.cantidad, PosicionOC.precio)).label("importe_facturado"),
         )
         .join(FacturaLinea, FacturaLinea.posicion_oc_id == PosicionOC.id)
         .join(Factura, Factura.id == FacturaLinea.factura_id)
@@ -106,7 +106,7 @@ def _consulta_ordenes(db: Session, user: Usuario, proveedor_id=None, q=None, cen
         consulta = consulta.where(filtro_texto(q, lambda p: [
             OrdenCompra.numero.ilike(p),
             OrdenCompra.id.in_(select(PosicionOC.oc_id).where(or_(
-                PosicionOC.estilo.ilike(p), PosicionOC.codigo_sap.ilike(p), PosicionOC.upc.ilike(p), PosicionOC.color.ilike(p)))),
+                PosicionOC.estilo.ilike(p), PosicionOC.codigo_articulo.ilike(p), PosicionOC.upc.ilike(p), PosicionOC.color.ilike(p)))),
         ]))
     if centro:
         consulta = consulta.where(OrdenCompra.centro == centro)
@@ -227,7 +227,8 @@ def listar_ordenes(
     items = []
     for oc, prov_nombre, importe, n, importe_f in filas:
         destino = centros.get(oc.centro_destino)
-        importe = float(importe or 0)
+        importe = dinero.decimal(importe)
+        importe_f = dinero.decimal(importe_f)
         items.append(
             {
                 **_cabecera_oc(oc, lib),
@@ -237,10 +238,10 @@ def listar_ordenes(
                 # Una OC puede repartir sus posiciones entre varios almacenes
                 "almacenes": sorted(almacenes[oc.id]),
                 "por_unidad": por_unidad[oc.id],
-                "importe": round(importe, 2),
-                "importe_facturado": round(float(importe_f or 0), 2),
+                "importe": dinero.numero(dinero.redondear(importe, oc.moneda)),
+                "importe_facturado": dinero.numero(dinero.redondear(importe_f, oc.moneda)),
                 # Avance por valor: es comparable aunque la OC mezcle pares y unidades
-                "avance": round(float(importe_f or 0) * 100 / importe, 1) if importe else 0,
+                "avance": float(round(importe_f * 100 / importe, 1)) if importe else 0,
                 "dias_tienda": (oc.fecha_tienda - hoy).days if oc.fecha_tienda else None,
                 # Con los lead times de su origen: cuándo estaría en tienda
                 **est_tienda.get(oc.id, {}),
@@ -342,7 +343,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "id": p.id,
                 "posicion": p.posicion,
                 "almacen": p.almacen,
-                "codigo_sap": p.codigo_sap,
+                "codigo_articulo": p.codigo_articulo,
                 "upc": p.upc,
                 "estilo": p.estilo,
                 "color": p.color,
@@ -359,7 +360,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "cantidad": p.cantidad,
                 "unidad": p.unidad,
                 "precio": p.precio,
-                "importe": round(p.cantidad * p.precio, 2) if p.precio is not None else None,
+                "importe": dinero.numero(dinero.importe(p.cantidad, p.precio, oc.moneda)) if p.precio is not None else None,
                 "fecha_entrega": p.fecha_entrega,
                 "pais_origen": p.pais_origen,
                 "partida_arancelaria": partida_para(prod),  # 6 dígitos: el destino es solo proyectado
@@ -450,7 +451,7 @@ ALIAS = {
     "liberacion_logistica": ["logistics_release", "liberacion_logistica", "lib_logistica"],
     "fecha_lib_comercial": ["commercial_release_date", "fecha_liberacion_comercial", "fecha_lib_comercial"],
     "fecha_lib_logistica": ["logistics_release_date", "fecha_liberacion_logistica", "fecha_lib_logistica"],
-    "codigo_sap": ["sku", "item_code", "material", "codigo", "codigo_articulo", "articulo"],
+    "codigo_articulo": ["sku", "item_code", "material", "codigo", "codigo_sap", "articulo"],
     "cantidad": ["quantity", "qty", "cantidad"],
     "unidad": ["uom", "unit", "um", "unidad"],
     "precio": ["unit_price", "price", "precio", "precio_unitario"],
@@ -460,14 +461,14 @@ ALIAS = {
 }
 # Lo mínimo para registrar una OC; el resto es opcional y lo que falte para
 # facturar (empresa, moneda, precio) se pide al facturar
-REQUERIDOS = ["proveedor", "oc", "posicion", "codigo_sap", "cantidad"]
-NOMBRE_CAMPO = {"proveedor": "supplier", "oc": "PO number", "posicion": "PO line", "codigo_sap": "item code",
+REQUERIDOS = ["proveedor", "oc", "posicion", "codigo_articulo", "cantidad"]
+NOMBRE_CAMPO = {"proveedor": "supplier", "oc": "PO number", "posicion": "PO line", "codigo_articulo": "item code",
                 "cantidad": "quantity"}
 CAMPOS_CABECERA = ["sociedad", "centro", "centro_destino", "moneda", "incoterm", "fecha", "puerto_despacho",
                    "pais_origen", "pais_procedencia", "fecha_xf_original", "fecha_xf", "fecha_tienda",
                    "liberacion_comercial"]
 CAMPOS_POSICION = [
-    "almacen", "articulo_id", "codigo_sap", "upc", "estilo", "color", "talla", "descripcion", "marca", "grupo", "categoria",
+    "almacen", "articulo_id", "codigo_articulo", "upc", "estilo", "color", "talla", "descripcion", "marca", "grupo", "categoria",
     "tipo_empaque", "casepack", "inner_pack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
     "pais_origen",
 ]
@@ -611,7 +612,7 @@ def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
         "pais_procedencia": (r.get("pais_procedencia") or r.get("pais_origen") or "").upper() or None,
         "liberacion_comercial": (r.get("liberacion_comercial") or "").strip() or None,
         "liberacion_logistica_archivo": (r.get("liberacion_logistica") or "").strip() or None,
-        "codigo_sap": r.get("codigo_sap", ""),
+        "codigo_articulo": r.get("codigo_articulo", ""),
     }
     com = m.lib.comercial.leer(d["liberacion_comercial"])
     if com is False:
@@ -732,9 +733,9 @@ def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
     for campo in ("pais_origen", "pais_procedencia"):
         if d[campo] and d[campo] not in m.paises:
             errores.append(f"Country {d[campo]} ({PAIS_TXT[campo]}) is not registered.")
-    art = m.articulo(d["codigo_sap"]) if d["codigo_sap"] else None
-    if d["codigo_sap"] and not art:
-        errores.append(f"SKU {d['codigo_sap']} does not exist in the item master. Load it first.")
+    art = m.articulo(d["codigo_articulo"]) if d["codigo_articulo"] else None
+    if d["codigo_articulo"] and not art:
+        errores.append(f"SKU {d['codigo_articulo']} does not exist in the item master. Load it first.")
     elif art:
         prov = m.proveedores.get(d["proveedor"])
         if prov and art.proveedor_id and art.proveedor_id != prov.id:
@@ -857,7 +858,7 @@ def _clasificar(db: Session, filas: list[dict], propia: int | None = None) -> li
         elif fact and d["cantidad"] is not None and d["cantidad"] < fact:
             salida["estado"] = "conflicto"
             salida["mensajes"].append(f"The new quantity ({d['cantidad']}) is less than what is already invoiced ({fact}).")
-        elif fact and any(c in cambios for c in ("sociedad", "moneda", "centro", "unidad", "codigo_sap")):
+        elif fact and any(c in cambios for c in ("sociedad", "moneda", "centro", "unidad", "codigo_articulo")):
             salida["estado"] = "conflicto"
             salida["mensajes"].append(
                 "Key data (company, currency, plant, SKU or unit) changes on an already invoiced line.")
@@ -988,7 +989,7 @@ def aplicar_importacion(db: Session, user: Usuario, imp: ImportacionOC, propia: 
 CAMPOS_FORM_CAB = ("proveedor", "oc", "sociedad", "centro", "centro_destino", "moneda", "incoterm", "fecha_oc",
                    "puerto_despacho", "pais_origen", "pais_procedencia", "fecha_xf", "fecha_tienda",
                    "liberacion_comercial", "liberacion_logistica")
-CAMPOS_FORM_LINEA = ("posicion", "codigo_sap", "cantidad", "precio", "unidad", "casepack", "inner_pack", "almacen",
+CAMPOS_FORM_LINEA = ("posicion", "codigo_articulo", "cantidad", "precio", "unidad", "casepack", "inner_pack", "almacen",
                      "fecha_entrega")
 
 
@@ -1064,7 +1065,7 @@ def plantilla_oc(db: Session, user: Usuario) -> bytes:
               "fecha_tienda": hoy + timedelta(days=100), "fecha_lib_comercial": None, "fecha_lib_logistica": None,
               "fecha_entrega": None}
     ayudas = {"proveedor": "Supplier code.", "oc": "PO number (letters and numbers, up to 40).", "posicion": "Line number.",
-              "codigo_sap": "Item code from the item master.", "cantidad": "Quantity in the item unit.",
+              "codigo_articulo": "Item code from the item master.", "cantidad": "Quantity in the item unit.",
               "sociedad": "Company (bill to). Optional; needed to invoice.", "moneda": "Needed if there is a price.",
               "precio": "Optional; needed to invoice.", "casepack": "Solids: exact quantity per carton (optional).",
               "inner_pack": "Usually defined later in the packing list.",
@@ -1087,7 +1088,7 @@ def plantilla_oc(db: Session, user: Usuario) -> bytes:
             "liberacion_logistica": next((x.codigo for x in lib.logistica.lista if x.libera and not x.con_cambios), ""), "unidad": "", "precio": 10.5, "casepack": 12}
     ejemplos = []
     for linea, cant in ((10, 48), (20, 36)):
-        fila = {**base, "posicion": linea, "codigo_sap": "ITEM-CODE", "cantidad": cant,
+        fila = {**base, "posicion": linea, "codigo_articulo": "ITEM-CODE", "cantidad": cant,
                 **{k: fecha_txt(v) for k, v in fechas.items() if v}}
         ejemplos.append([fila.get(c, "") for c in ALIAS])
     return plantilla("Purchase orders", columnas, ejemplos, [

@@ -10,9 +10,9 @@ Sin responsables, lo mantiene cualquier rol con los permisos de datos
 maestros. Los catálogos compartidos entre organizaciones (países, acuerdos)
 los gobierna la plataforma y no se configuran aquí.
 
-También vive aquí qué documentos usan el código de un registro (no tienen
-llave foránea: guardan el código como foto del documento), para no borrar un
-registro que todavía se usa.
+También vive aquí qué documentos usan el código de un registro, para avisar
+con un mensaje claro antes de borrarlo o cambiarle el código (la base lo
+impide de todos modos: esas columnas tienen llave foránea al catálogo).
 """
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,17 +20,25 @@ from sqlalchemy.orm import Session
 from app.core.empresa import configuracion_actual
 from app.core.errores import ErrorNegocio
 from app.modelos import (
+    Articulo,
     Centro,
     Embarque,
+    EscalaTalla,
     Factura,
     FacturaLinea,
     GrupoArticulo,
     OrdenCompra,
     Pais,
+    PaisArancel,
+    PlantillaCaja,
     PosicionOC,
+    Proveedor,
+    Puerto,
     ReglaLeadTime,
     Rol,
     Sociedad,
+    TipoUnidad,
+    Transportista,
     Usuario,
 )
 from app.modulos.acceso.permisos import CATALOGOS_COMPARTIDOS, edita_compartidos, exigir, tiene
@@ -138,23 +146,25 @@ USOS_CODIGO = {
     "puertos": [OrdenCompra.puerto_despacho, Embarque.puerto_origen, Embarque.puerto_destino, Centro.puerto,
                 ReglaLeadTime.puerto],
     "regiones": [Pais.region, ReglaLeadTime.region],
-    "categorias": [GrupoArticulo.categoria],
+    "categorias": [GrupoArticulo.categoria, EscalaTalla.categoria, PosicionOC.categoria],
+    "paises": [OrdenCompra.pais_origen, OrdenCompra.pais_procedencia, PosicionOC.pais_origen, FacturaLinea.pais_origen,
+               Sociedad.pais, Centro.pais, Puerto.pais, Proveedor.pais, Transportista.pais, PaisArancel.iso],
+    "monedas": [OrdenCompra.moneda, Factura.moneda, Sociedad.moneda],
+    "incoterms": [OrdenCompra.incoterm, Factura.incoterm],
+    "condiciones_pago": [OrdenCompra.condicion_pago],
+    "unidades": [PosicionOC.unidad, Articulo.unidad, PlantillaCaja.unidad],
+    "modos_transporte": [Puerto.tipo, TipoUnidad.modo],
 }
-# Valores de las listas que se guardan como código en los documentos
-USOS_LISTA = {
-    "moneda": [OrdenCompra.moneda, Factura.moneda, Sociedad.moneda],
-    "incoterm": [OrdenCompra.incoterm, Factura.incoterm],
-    "condicion_pago": [OrdenCompra.condicion_pago],
-}
+
+
+def en_uso(db: Session, tipo: str, codigo: str | None) -> bool:
+    return bool(codigo) and any(db.scalar(select(col).where(col == codigo).limit(1)) is not None
+                                for col in USOS_CODIGO.get(tipo, []))
 
 
 def exigir_sin_uso(db: Session, tipo: str, obj) -> None:
     """Un registro cuyo código usan los documentos no se borra: se desactiva."""
-    columnas = USOS_LISTA.get(obj.lista, []) if tipo == "listas" else USOS_CODIGO.get(tipo, [])
     codigo = getattr(obj, "codigo", None)
-    if not codigo:
-        return
-    for col in columnas:
-        if db.scalar(select(col).where(col == codigo).limit(1)) is not None:
-            raise ErrorNegocio(f"It cannot be deleted: {codigo} is used in documents or other records. Deactivate it instead.",
-                               409, "en_uso")
+    if en_uso(db, tipo, codigo):
+        raise ErrorNegocio(f"It cannot be deleted: {codigo} is used in documents or other records. Deactivate it instead.",
+                           409, "en_uso")

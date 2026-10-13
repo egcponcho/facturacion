@@ -25,8 +25,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
 from app.modelos.base import ahora
+from app.modelos.comercial import ExtensionDeTercero
 
 if TYPE_CHECKING:
+    from app.modelos.comercial import Tercero
     from app.modelos.empaque import PackingList
     from app.modelos.maestros import Sociedad
 
@@ -34,17 +36,19 @@ if TYPE_CHECKING:
 transportista_sociedades = Table(
     "transportista_sociedades", Base.metadata,
     Column("transportista_id", ForeignKey("transportistas.id", ondelete="CASCADE"), primary_key=True),
-    Column("sociedad_id", ForeignKey("sociedades.id", ondelete="CASCADE"), primary_key=True),
+    Column("sociedad_id", ForeignKey("sociedades.id", ondelete="CASCADE"), primary_key=True, index=True),
 )
 
 
-class Transportista(DeOrganizacion, Base):
+class Transportista(ExtensionDeTercero, DeOrganizacion, Base):
     """Naviera, aerolínea o empresa de transporte terrestre registrada, con
     las sociedades para las que puede trabajar."""
 
     __tablename__ = "transportistas"
-    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_transportistas_org_codigo"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_transportistas_org_codigo"),
+                      UniqueConstraint("tercero_id", name="uq_transportistas_tercero"))
     id: Mapped[int] = mapped_column(primary_key=True)
+    tercero_id: Mapped[int | None] = mapped_column(ForeignKey("terceros.id", name="fk_transportistas_tercero_id"))
     # Campos propios de la empresa (core/campos_propios.py)
     extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     codigo: Mapped[str] = mapped_column(String(20))
@@ -53,9 +57,9 @@ class Transportista(DeOrganizacion, Base):
     codigo_internacional: Mapped[str | None] = mapped_column(String(10))  # SCAC o prefijo IATA
     id_fiscal: Mapped[str | None] = mapped_column(String(40))
     pais: Mapped[str | None] = mapped_column(String(2))
-    contacto: Mapped[str | None] = mapped_column(String(120))
-    correos: Mapped[str | None] = mapped_column(String(500))
-    telefono: Mapped[str | None] = mapped_column(String(40))
+    # Contacto, correos y teléfono viven en su tercero (ExtensionDeTercero)
+    _rol_tercero = "TRANSPORTISTA"
+    tercero: Mapped["Tercero | None"] = relationship()
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     sociedades: Mapped[list["Sociedad"]] = relationship(secondary=transportista_sociedades, order_by="Sociedad.codigo")
@@ -122,7 +126,7 @@ class ReglaLeadTime(DeOrganizacion, Base):
     pais: Mapped[str | None] = mapped_column(String(2))
     puerto: Mapped[str | None] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(100))
-    pasos: Mapped[str] = mapped_column(Text, default="{}")
+    pasos: Mapped[dict] = mapped_column(JSON, default=dict)  # {"pasos": [...], "orden": ...}
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

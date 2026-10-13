@@ -11,6 +11,7 @@ import { cargarSesion, cerrarSesion, guardarPerfil, sesion } from '@/stores/sesi
 import { fechaTexto, pref } from '@/stores/preferencias'
 import { errorApi } from '@/stores/ui'
 import { reducirImagen } from '@/nucleo/utils'
+import BotonArchivo from '@/componentes/BotonArchivo.vue'
 
 // Asistente del primer ingreso: mientras el usuario tenga la contraseña
 // temporal que le dio la administración, entra aquí. Revisa sus datos, puede
@@ -20,17 +21,13 @@ const paso = ref(0)
 const PASOS = [t('Welcome'), t('Photo'), t('Preferences'), t('Password')]
 const prefs = reactive({ idioma, formato_fecha: pref.formato_fecha })
 const clave = reactive({ actual: '', nueva: '', valida: false, error: '' })
-const archivo = ref(null)
 const ocupado = ref(false)
 const u = computed(() => sesion.usuario || {})
 const hoy = new Date()
 const isoHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
 const FORMATOS = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MMM-YYYY', 'MMM DD, YYYY']
 
-async function foto(e) {
-  const f = e.target.files?.[0]
-  e.target.value = ''
-  if (!f) return
+async function foto(f) {
   try {
     const r = await api.put('/perfil/foto', { foto: await reducirImagen(f) })
     sesion.usuario.foto = r.foto
@@ -96,11 +93,10 @@ async function salir() {
       <section v-else-if="paso === 1" class="paso">
         <h1>{{ t('Your photo') }}</h1>
         <p>{{ t('Optional. It helps your team recognize you.') }}</p>
-        <button type="button" class="foto-grande" :aria-label="t('Choose a photo')" @click="archivo.click()">
+        <BotonArchivo class="foto-grande" :etiqueta="t('Choose a photo')" acepta="image/png,image/jpeg,image/webp" @elegir="foto">
           <Avatar :nombre="u.nombre" :foto="u.foto" :tam="120" />
           <span class="camara"><Icono nombre="camara" :tam="18" /></span>
-        </button>
-        <input ref="archivo" type="file" accept="image/png,image/jpeg,image/webp" hidden @change="foto" />
+        </BotonArchivo>
         <div class="acciones"><button class="btn" type="button" @click="paso = 0">{{ t('Back') }}</button><button class="btn btn-primario" type="button" @click="paso = 2">{{ tx(u.foto ? t('Next') : t('Skip')) }}<Icono nombre="derecha" :tam="15" /></button></div>
       </section>
 

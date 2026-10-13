@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core import dinero
 from app.core.empresa import configuracion_actual
 from app.core.errores import ErrorNegocio
 from app.modelos import (
@@ -123,12 +124,12 @@ def _facturado_por_posicion():
 def saldo_por_facturar(db, user, desde, hasta):
     base = _moneda_base()
     fac = _facturado_por_posicion()
-    pendiente = (PosicionOC.cantidad - func.coalesce(fac.c.cant, 0)) * PosicionOC.precio
+    pendiente = dinero.importe_sql(PosicionOC.cantidad - func.coalesce(fac.c.cant, 0), PosicionOC.precio)
     total = db.scalar(select(func.sum(pendiente)).select_from(PosicionOC)
                       .join(OrdenCompra, OrdenCompra.id == PosicionOC.oc_id).outerjoin(fac, fac.c.pid == PosicionOC.id)
                       .where(OrdenCompra.estado == "APROBADA", OrdenCompra.moneda == base, PosicionOC.precio.is_not(None),
                              PosicionOC.cantidad > func.coalesce(fac.c.cant, 0), *_oc(user)))
-    return round(float(total or 0), 2)
+    return dinero.numero(dinero.redondear(total, base))
 
 
 def oc_atrasadas(db, user, desde, hasta):
@@ -153,11 +154,11 @@ def facturas_abiertas(db, user, desde, hasta):
 
 def importe_facturado(db, user, desde, hasta):
     a, b = _rango(desde, hasta)
-    total = db.scalar(select(func.sum(FacturaLinea.cantidad * FacturaLinea.precio_unitario))
+    total = db.scalar(select(func.sum(dinero.importe_sql(FacturaLinea.cantidad, FacturaLinea.precio_unitario)))
                       .join(Factura, Factura.id == FacturaLinea.factura_id)
                       .where(Factura.finalizado_en >= a, Factura.finalizado_en < b, Factura.estado != "CANCELADA",
                              Factura.moneda == _moneda_base(), *_fact(user)))
-    return round(float(total or 0), 2)
+    return dinero.numero(dinero.redondear(total, _moneda_base()))
 
 
 def pls_pendientes(db, user, desde, hasta):

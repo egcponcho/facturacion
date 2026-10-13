@@ -43,7 +43,7 @@ const explosion = ref(null)
 const url = (s = '') => `/packing-lists/${props.id}${s}`
 const editable = computed(() => !!pl.value?.puede.editar)
 const plantillas = computed(() => pl.value?.plantillas || [])
-const ref_ = (l) => `${l.estilo || l.codigo_sap}${l.color ? ` ${l.color}` : ''}${l.talla ? t(' · size {0}', [l.talla]) : ''}`
+const ref_ = (l) => `${l.estilo || l.codigo_articulo}${l.color ? ` ${l.color}` : ''}${l.talla ? t(' · size {0}', [l.talla]) : ''}`
 
 async function cargar() {
   try {
@@ -140,7 +140,7 @@ const partes = computed(() => {
 const lineasFiltradas = computed(() => {
   const coincide = buscador(filtro.texto)
   return (pl.value?.lineas || []).filter((l) =>
-    (!filtro.solo_pendiente || l.sin_caja > 0) && coincide([l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion]))
+    (!filtro.solo_pendiente || l.sin_caja > 0) && coincide([l.codigo_articulo, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion]))
 })
 // La tabla de cajas muestra los bultos (y lo suelto que no va dentro de otro empaque);
 // los inner packs y los pallets se ven en la estructura física
@@ -172,7 +172,7 @@ async function guardarInner(l, valor) {
   const r = await api.put(`/packing-lists/${props.id}/lineas/${l.id}/inner`, { version: pl.value.version, inner_pack: n })
   pl.value.version = r.version
   await cargar()
-  avisar(n ? t('Inner pack of {0} set for {1}.', [n, l.codigo_sap]) : t('Inner pack removed for {0}.', [l.codigo_sap]))
+  avisar(n ? t('Inner pack of {0} set for {1}.', [n, l.codigo_articulo]) : t('Inner pack removed for {0}.', [l.codigo_articulo]))
 }
 const innerTxt = (cant, inner) => (inner ? t(' · {0} inner pack{1} of {2}', [fmtNum(cant / inner), cant / inner === 1 ? '' : 's', inner]) : '')
 const porCajaRegla = (l) => (l.regla === 'PREPACK' ? 1 : l.regla === 'CASEPACK' ? l.casepack : null)
@@ -542,7 +542,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <span v-if="!editable" class="doc-numero">{{ tx(pl.numero) }}</span>
         <CeldaEditable v-else class="doc-numero numero-editable" :valor="pl.numero" :guardar="guardarNumero"
                        :etiqueta="t('Packing list number')" :title="t('Your own packing list number; you can change it while it is not finalized')" />
-        <EstadoBadge :estado="pl.estado" />
+        <EstadoBadge :estado="pl.estado" tipo="pl" />
         <span class="doc-sub">{{ tx(pl.factura.nombre) }} · {{ tx(pl.factura.proveedor) }}</span>
         <div class="doc-acciones">
           <MasOpciones>
@@ -608,9 +608,9 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
     <!-- To pack -->
     <section v-if="tab === 'empacar' && editable">
       <div v-if="!pendientes.length && pl.lineas.length" class="panel vacio">
-        <div class="todo-listo" style="justify-content: center">
+        <div class="todo-listo centrar">
           <span class="icono-ok"><Icono nombre="check" :tam="22" /></span>
-          <div style="text-align: start"><b>{{ t('Everything is in cartons') }}</b><p class="ayuda">{{ t('Check dimensions and weights and finalize the packing list.') }}</p></div>
+          <div class="texto-inicio"><b>{{ t('Everything is in cartons') }}</b><p class="ayuda">{{ t('Check dimensions and weights and finalize the packing list.') }}</p></div>
           <button class="btn btn-primario" @click="tab = 'revision'">{{ t('Go to review') }}<Icono nombre="flecha" :tam="16" /></button>
         </div>
       </div>
@@ -655,13 +655,13 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
           </template>
           <template #celda-articulo="{ fila: l }"><span v-if="l.marca" class="fuerte">{{ tx(l.marca) }}</span> {{ tx(l.estilo) }} · {{ tx(l.color) }}
             <span v-if="partes.cuenta[l.factura_linea_id] > 1" class="etiqueta">{{ t('part {0}', [partes.indice[l.id]]) }}</span>
-            <span class="sub codigo">{{ tx(l.codigo_sap) }}</span>
+            <span class="sub codigo">{{ tx(l.codigo_articulo) }}</span>
           </template>
           <template #celda-talla="{ fila: l }"><strong>{{ tx(l.talla) }}</strong></template>
           <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}</span><span v-if="l.centro_destino || l.almacen" class="sub">{{ tx([l.almacen && t('warehouse {0}', [l.almacen]), l.centro_destino && t('destination {0}', [l.centro_destino])].filter(Boolean).join(' · ')) }}</span></template>
           <template #celda-regla="{ fila: l }">
             <button v-if="l.regla === 'PREPACK'" type="button" class="etiqueta acento btn-explosion ms-0"
-                    :title="t('See the prepack breakdown')" @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ tx(reglaTxt(l)) }} <Icono nombre="lupa" :tam="12" /></button>
+                    :title="t('See the prepack breakdown')" @click="explosion = { sku: l.codigo_articulo, cajas: l.cantidad }">{{ tx(reglaTxt(l)) }} <Icono nombre="lupa" :tam="12" /></button>
             <span v-else class="etiqueta ms-0" :class="REGLAS[l.regla]?.[1]">{{ tx(reglaTxt(l)) }}</span>
           </template>
           <template #celda-por_caja="{ fila: l }"><span :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ porCajaLinea(l) ? cantTxt(porCajaLinea(l), l.regla === 'PREPACK' ? l.unidad_componentes || 'UN' : l.unidad) : '—' }}</span></template>
@@ -698,7 +698,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
 
     <!-- Cartons -->
     <section v-if="tab === 'cajas'">
-      <p v-if="editable && estimadas.length" class="nota aviso" style="align-items: center; margin-bottom: 12px">
+      <p v-if="editable && estimadas.length" class="nota aviso mb-3" style="align-items: center">
         <Icono nombre="escala" />
         <span>{{ t('Carton groups with an estimated weight (partial cartons): {0}. Weigh and correct them, or confirm the estimate.', [fmtNum(estimadas.length)]) }}</span>
         <button class="btn btn-chico separar" :disabled="ocupado" @click="confirmarPesos(estimadas)">{{ t('Confirm all estimates') }}</button>
@@ -721,7 +721,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
             <div class="caja-items">
               <div v-for="it in g.contenido" :key="it.pl_linea_id">{{ tx(it.estilo) }} <b>{{ tx(it.talla) }}</b></div>
             </div>
-            <div v-if="g.etiqueta" class="fila-flex" style="gap: 4px; margin-top: 4px">
+            <div v-if="g.etiqueta" class="fila-flex gap-1" style="margin-top: 4px">
               <span class="etiqueta ms-0" :class="g.etiqueta.tipo === 'ESTANDAR' ? 'ok' : 'acento'"
                     :title="tx(g.etiqueta.tipo === 'ESTANDAR' ? t('A single PO, style, color and size') : t('Several POs, styles, colors or sizes'))">
                 {{ t('{0} label', [g.etiqueta.tipo === 'ESTANDAR' ? t('Standard') : t('Consolidated')]) }}
@@ -806,7 +806,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       </div>
       <div class="panel">
         <div class="panel-cabeza"><div><h2>{{ t('Packing list summary') }}</h2><p>{{ t('This is how it will appear on the PDF and Excel.') }}</p></div></div>
-        <div class="doc-datos" style="margin-top: 0; padding-top: 0; border-top: 0">
+        <div class="doc-datos mt-0" style="padding-top: 0; border-top: 0">
           <div class="dato"><span>{{ t('Contents') }}</span><b>{{ porUnidadTxt(pl.totales.por_unidad, 'cantidad') }}</b></div>
           <div class="dato"><span>{{ t('Cartons') }}</span><b>{{ fmtNum(pl.totales.cajas) }}</b></div>
           <div class="dato"><span>{{ t('Net weight') }}</span><b>{{ t('{0} kg', [fmtNum(pl.totales.peso_neto, 2)]) }}</b></div>
@@ -824,7 +824,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
     <!-- Contents (read only) -->
     <section v-if="tab === 'contenido'">
       <TablaDatos tabla="pl_doc_contenido" :columnas="columnasContenido" :filas="pl.lineas" :vistas-guardadas="false" :etiqueta="t('Contents')">
-        <template #celda-articulo="{ fila: l }">{{ tx(l.estilo) }} · {{ tx(l.color) }}<span class="sub codigo">{{ tx(l.codigo_sap) }}</span></template>
+        <template #celda-articulo="{ fila: l }">{{ tx(l.estilo) }} · {{ tx(l.color) }}<span class="sub codigo">{{ tx(l.codigo_articulo) }}</span></template>
         <template #celda-talla="{ fila: l }"><strong>{{ tx(l.talla) }}</strong></template>
         <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}</span><span v-if="l.almacen" class="sub">{{ t('warehouse {0}', [l.almacen]) }}</span></template>
         <template #celda-cantidad="{ fila: l }">{{ cantTxt(l.cantidad, l.unidad) }}</template>
@@ -841,14 +841,14 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <button class="btn btn-primario" :disabled="ocupado" @click="guardarRecepcion">{{ t('Save receipt') }}</button>
       </div>
       <TablaDatos tabla="pl_doc_recepcion" :columnas="columnasRecepcion" :filas="pl.lineas" :vistas-guardadas="false" :etiqueta="t('Warehouse receipt')">
-        <template #celda-fila="{ fila: l }">{{ tx(l.estilo) }} <b>{{ tx(l.talla) }}</b><span class="sub codigo">{{ tx(l.codigo_sap) }}</span></template>
+        <template #celda-fila="{ fila: l }">{{ tx(l.estilo) }} <b>{{ tx(l.talla) }}</b><span class="sub codigo">{{ tx(l.codigo_articulo) }}</span></template>
         <template #celda-cantidad="{ fila: l }">{{ cantTxt(l.cantidad, l.unidad) }}</template>
-        <template #celda-recibida="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 90px; border-color: var(--linea)" :aria-label="t('Received {0}', [ref_(l)])" /></template>
-        <template #celda-danada="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 80px; border-color: var(--linea)" :aria-label="t('Damaged {0}', [ref_(l)])" /></template>
+        <template #celda-recibida="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num ancho-s con-borde" type="number" min="0" :step="pasoCantidad(l.unidad)" :aria-label="t('Received {0}', [ref_(l)])" /></template>
+        <template #celda-danada="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num ancho-s con-borde" type="number" min="0" :step="pasoCantidad(l.unidad)" :aria-label="t('Damaged {0}', [ref_(l)])" /></template>
         <template #celda-diferencia="{ fila: l }">
           <span :class="{ 'etiqueta error': recepcion[l.id].cantidad_recibida !== l.cantidad }">{{ fmtNum(recepcion[l.id].cantidad_recibida - l.cantidad) }}</span>
         </template>
-        <template #celda-observacion="{ fila: l }"><input v-model="recepcion[l.id].observacion" class="celda" style="border-color: var(--linea)" :aria-label="t('Remark {0}', [ref_(l)])" /></template>
+        <template #celda-observacion="{ fila: l }"><input v-model="recepcion[l.id].observacion" class="celda con-borde" :aria-label="t('Remark {0}', [ref_(l)])" /></template>
       </TablaDatos>
     </section>
   </template>
@@ -868,7 +868,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         </Seleccion>
       </label>
     </div>
-    <div class="tabla-marco" style="max-height: 320px; overflow-y: auto; box-shadow: none">
+    <div class="tabla-marco tabla-captura alto-limitado">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Row') }}</th><th>{{ t('Rule') }}</th><th class="num">{{ t('Not packed') }}</th><th>{{ t('Template') }}</th><th class="num">{{ t('Cartons') }}</th><th class="num">{{ t('Leftover') }}</th></tr></thead>
         <tbody>
@@ -877,7 +877,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
             <td><span class="etiqueta ms-0" :class="REGLAS[f.regla]?.[1]">{{ tx(f.regla_txt) }}</span></td>
             <td class="num">{{ cantTxt(f.sin_caja, f.unidad) }}</td>
             <td>
-              <Seleccion v-model="modal.filas[i].plantilla_id" class="entrada" style="max-width: 210px" :aria-label="t('Template for {0}', [f.ref])">
+              <Seleccion v-model="modal.filas[i].plantilla_id" class="entrada max-l" :aria-label="t('Template for {0}', [f.ref])">
                 <option value="omitir">{{ t('Do not pack this row') }}</option>
                 <option v-if="f.regla !== 'LIBRE'" value="">{{ t('No template (dimensions later)') }}</option>
                 <option v-else value="" disabled>{{ t('Choose a template…') }}</option>
@@ -902,7 +902,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="sin_caja" /> {{ t('Leave it unpacked to build mixed cartons by hand') }}</label>
     </div>
     <template #pie>
-      <router-link class="btn btn-fantasma" to="/plantillas" style="margin-inline-end: auto">{{ t('Manage templates') }}</router-link>
+      <router-link class="btn btn-fantasma empuja-inicio" to="/plantillas">{{ t('Manage templates') }}</router-link>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" :disabled="ocupado || !calculoAuto.validas" @click="empacarAuto"><Icono nombre="varita" :tam="15" />{{ t('Pack') }}</button>
     </template>
@@ -924,14 +924,14 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         </Seleccion>
       </label>
     </div>
-    <div class="tabla-marco sin-sombra">
+    <div class="tabla-marco tabla-captura">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Row') }}</th><th class="num">{{ t('Not packed') }}</th><th class="num"><span class="req">{{ t('Per carton') }}</span></th><th class="num">{{ t('Total') }}</th></tr></thead>
         <tbody>
           <tr v-for="i in modal.items" :key="i.pl_linea_id">
             <td>{{ tx(i.ref) }}<span v-if="i.inner" class="sub">{{ t('inner packs of {0}{1}', [i.inner, i.cantidad_por_caja ? innerTxt(i.cantidad_por_caja, i.inner) : '']) }}</span></td>
             <td class="num">{{ cantTxt(i.sin_caja, i.unidad) }}</td>
-            <td class="num"><input v-model.number="i.cantidad_por_caja" class="celda num" type="number" :min="pasoCantidad(i.unidad, i.inner)" :step="pasoCantidad(i.unidad, i.inner)" style="width: 90px; border-color: var(--linea)" :aria-label="t('Per carton {0}', [i.ref])" /></td>
+            <td class="num"><input v-model.number="i.cantidad_por_caja" class="celda num ancho-s con-borde" type="number" :min="pasoCantidad(i.unidad, i.inner)" :step="pasoCantidad(i.unidad, i.inner)" :aria-label="t('Per carton {0}', [i.ref])" /></td>
             <td class="num"><span :class="{ 'etiqueta error': i.cantidad_por_caja * modal.num_cajas > i.sin_caja }">{{ fmtNum((i.cantidad_por_caja || 0) * modal.num_cajas) }}</span></td>
           </tr>
         </tbody>
@@ -962,14 +962,14 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       </Seleccion>
     </label>
     <p v-else class="ayuda">{{ t('The quantity goes back to the invoice as pending assignment to a packing list.') }}</p>
-    <div class="tabla-marco" style="max-height: 300px; overflow-y: auto; box-shadow: none">
+    <div class="tabla-marco tabla-captura alto-limitado">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Row') }}</th><th class="num">{{ t('Not packed') }}</th><th class="num">{{ tx(modal.tipo === 'mover' ? t('Move') : t('Remove')) }}</th></tr></thead>
         <tbody>
           <tr v-for="fm in modal.filas" :key="fm.pl_linea_id">
             <td>{{ tx(fm.ref) }}</td>
             <td class="num">{{ cantTxt(fm.sin_caja, fm.unidad) }}</td>
-            <td class="num"><input v-model.number="fm.cantidad" class="celda num" type="number" min="0" :step="pasoCantidad(fm.unidad, fm.inner)" :max="fm.sin_caja" style="width: 90px; border-color: var(--linea)" :aria-label="t('Quantity {0}', [fm.ref])" /></td>
+            <td class="num"><input v-model.number="fm.cantidad" class="celda num ancho-s con-borde" type="number" min="0" :step="pasoCantidad(fm.unidad, fm.inner)" :max="fm.sin_caja" :aria-label="t('Quantity {0}', [fm.ref])" /></td>
           </tr>
         </tbody>
       </table>
@@ -1020,14 +1020,14 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <option value="">{{ t('A new packing list') }}</option>
       </Seleccion>
     </label>
-    <div class="tabla-marco sin-sombra">
+    <div class="tabla-marco tabla-captura">
       <table class="tabla" v-tarjetas>
         <thead><tr><th>{{ t('Cartons') }}</th><th class="num">{{ t('Available') }}</th><th class="num">{{ t('Move') }}</th></tr></thead>
         <tbody>
           <tr v-for="gm in modal.grupos" :key="gm.grupo_id">
             <td class="cajas-rango">{{ tx(gm.rango) }}</td>
             <td class="num">{{ tx(gm.max) }}</td>
-            <td class="num"><input v-model.number="gm.num_cajas" class="celda num" type="number" min="1" :max="gm.max" style="width: 80px; border-color: var(--linea)" :aria-label="t('Cartons to move from {0}', [gm.rango])" /></td>
+            <td class="num"><input v-model.number="gm.num_cajas" class="celda num ancho-s con-borde" type="number" min="1" :max="gm.max" :aria-label="t('Cartons to move from {0}', [gm.rango])" /></td>
           </tr>
         </tbody>
       </table>

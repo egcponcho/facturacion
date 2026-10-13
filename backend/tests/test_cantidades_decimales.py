@@ -29,7 +29,7 @@ def test_factura_y_pl_con_kilos(interno):
             for f in db.query(Factura).filter(Factura.lineas.any(FacturaLinea.posicion_oc_id == pid)).all():
                 for pl in db.query(PackingList).filter(PackingList.factura_id == f.id).all():
                     db.delete(pl)
-                db.query(Historial).filter(Historial.factura_id == f.id).delete()
+                db.query(Historial).filter(Historial.raiz_tipo == "factura", Historial.raiz_id == f.id).delete()
                 db.delete(f)
             p = db.get(PosicionOC, pid)
             p.unidad, p.cantidad, p.casepack = antes

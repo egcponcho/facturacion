@@ -14,7 +14,7 @@ RAIZ = Path(__file__).resolve().parent.parent / "app"
 # Documentos y plantillas para aduana/ERP, datos de demostración y textos oficiales: no se traducen aquí
 # (rutas dentro de app/; una carpeta omite todo lo que contiene)
 OMITIR = ("main.py", "core/config.py", "core/db.py", "core/seguridad.py", "web/dependencias.py",
-          "instalacion/migraciones.py", "instalacion/mantenimiento.py", "instalacion/base_organizacion.py", "core/organizacion.py", "modelos/", "esquemas/__init__.py", "instalacion/demo.py", "instalacion/inicial.py",
+          "instalacion/migraciones.py", "instalacion/esquema.py", "instalacion/mantenimiento.py", "instalacion/base_organizacion.py", "core/organizacion.py", "modelos/", "esquemas/__init__.py", "instalacion/demo.py", "instalacion/inicial.py",
           "modulos/documentos/documentos.py",
           "modulos/documentos/exportar.py", "modulos/documentos/plantillas.py", "modulos/acceso/sms.py",
           "modulos/clasificacion/especialista.py")
@@ -34,6 +34,8 @@ def es_texto(s: str) -> bool:
         return False
     if re.fullmatch(r"[a-z]+[A-Z]\w*", t):
         return False
+    if not re.search(r"\s", t) and "." in t and "{" in t:  # identificador de campo (lineas.{0}.unidad)
+        return False
     if t.startswith("^") or t.startswith("attachment;") or t.startswith("\\b") or t.endswith("%") or "|\\(" in t:  # patrones
         return False
     if ESPANOL.search(t):
@@ -41,6 +43,8 @@ def es_texto(s: str) -> bool:
     if re.fullmatch(r"\w+\.\w+", t) or t in MODELOS or "max-age" in t or "self'" in t:
         return False
     if re.search(r"\b(select|where|join)\b", t) and "(" in t:
+        return False
+    if re.match(r"^(CREATE|DROP|ALTER) (INDEX|TABLE)", t):  # SQL
         return False
     return True
 

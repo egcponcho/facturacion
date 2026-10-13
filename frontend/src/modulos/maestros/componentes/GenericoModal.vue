@@ -144,7 +144,7 @@ async function guardar() {
 <template>
   <Modal :titulo="tx(props.editar ? t('Edit generic {0}', [props.generico]) : agregar ? t('Add sizes to generic {0}', [props.generico]) : t('New generic'))" ancho="820px" @cerrar="emit('cerrar')">
     <p class="ayuda">{{ t('The generic groups the sizes of one style and color: they share the technical sheet and the HS code. Codes follow your company\'s own format.') }}</p>
-    <div v-if="agregar && info" class="doc-meta" style="margin-top: 6px">
+    <div v-if="agregar && info" class="doc-meta mt-chico">
       <span>{{ t('Style') }} <b>{{ tx(info.estilo) }}</b></span><span>{{ t('Color') }} <b>{{ tx(info.color) }}</b></span><span>{{ t('Unit') }} <b>{{ tx(info.unidad) }}</b></span>
       <span>{{ t('Sizes') }} <b>{{ tx(info.tallas.filter((t) => t.tipo === 'SOLIDO').map((t) => t.talla).join(', ') || '—') }}</b></span>
     </div>
@@ -162,32 +162,34 @@ async function guardar() {
 
     <template v-if="!props.editar">
     <h3 class="mt">{{ t('Sizes') }}</h3>
-    <div class="rejilla-campos" style="margin: 6px 0">
+    <div class="rejilla-campos mt-chico mb-2">
       <div class="campo"><span>{{ t('Size scale') }}</span>
         <SelectBusqueda v-model="escalaId" :opciones="escalasValidas.map((e) => ({ valor: e.id, texto: e.texto, sub: e.sub }))" :vacio="t('No scale (type the sizes)')" :etiqueta="t('Size scale')" />
         <small class="ayuda">{{ t('Loads its sizes in order with their size codes; remove the ones this generic does not have. Codes can be changed.') }}</small></div>
     </div>
-    <div class="fila-flex" style="gap: 6px; margin: 6px 0 4px">
-      <input v-model="rapido" class="entrada" style="max-width: 300px" :placeholder="t('Quick: 7-10, 12 · 6.5-9.5 · S-XL')" @keydown.enter.prevent="aplicarRapido" />
+    <div class="fila-flex gap-2" style="margin: 6px 0 4px">
+      <input v-model="rapido" class="entrada max-xl" :placeholder="t('Quick: 7-10, 12 · 6.5-9.5 · S-XL')" @keydown.enter.prevent="aplicarRapido" />
       <button type="button" class="btn btn-chico" @click="aplicarRapido">{{ t('Add these sizes') }}</button>
-      <input v-model="pesoTodas" class="entrada" type="number" min="0" step="any" style="max-width: 150px; margin-inline-start: auto" :placeholder="t('Unit weight kg')" :aria-label="t('Unit weight for all sizes')" />
+      <input v-model="pesoTodas" class="entrada max-xs empuja-fin" type="number" min="0" step="any" :placeholder="t('Unit weight kg')" :aria-label="t('Unit weight for all sizes')" />
       <button type="button" class="btn btn-chico" :disabled="pesoTodas === ''" @click="pesoParaTodas">{{ t('Same weight for all') }}</button>
     </div>
-    <p class="ayuda" style="margin: 0 0 8px">{{ t('Combine ranges and single sizes for gaps (e.g. 7-10, 12, 14). Item code: type your own, or leave it empty to use the generic plus a size code.') }}</p>
-    <table class="tabla tallas" v-tarjetas>
-      <thead><tr><th>{{ t('Size *') }}</th><th>{{ t('Size code') }}</th><th>{{ t('Item code') }}</th><th>{{ t('Unit weight kg') }}</th><th>UPC</th><th>{{ t('Supplier SKU') }}</th><th></th></tr></thead>
-      <tbody>
-        <tr v-for="(f, i) in filas" :key="i">
-          <td><input v-model="f.talla" class="entrada" maxlength="20" :aria-label="t('Size {0}', [i + 1])" /></td>
-          <td><input v-model="f.sufijo" class="entrada" maxlength="20" :placeholder="t('Auto')" :aria-label="t('Size code {0}', [i + 1])" :disabled="!!f.sku" /></td>
-          <td><input v-model="f.sku" class="entrada" maxlength="40" :placeholder="codigos[i]" :aria-label="t('Item code {0}', [i + 1])" /></td>
-          <td><input v-model="f.peso" class="entrada" type="number" min="0" step="any" style="width: 90px" :aria-label="t('Unit weight {0}', [i + 1])" /></td>
-          <td><input v-model="f.upc" class="entrada" maxlength="40" :aria-label="tx(t('UPC {0}', [i + 1]))" /></td>
-          <td><input v-model="f.sku_proveedor" class="entrada" maxlength="60" :aria-label="t('Supplier SKU {0}', [i + 1])" /></td>
-          <td><button type="button" class="btn-icono" :aria-label="t('Remove row {0}', [i + 1])" @click="filas.splice(i, 1)"><Icono nombre="cerrar" :tam="15" /></button></td>
-        </tr>
-      </tbody>
-    </table>
+    <p class="ayuda mt-0 mb-2">{{ t('Combine ranges and single sizes for gaps (e.g. 7-10, 12, 14). Item code: type your own, or leave it empty to use the generic plus a size code.') }}</p>
+    <div class="tabla-marco tabla-captura">
+      <table class="tabla tallas" v-tarjetas>
+        <thead><tr><th>{{ t('Size *') }}</th><th>{{ t('Size code') }}</th><th>{{ t('Item code') }}</th><th>{{ t('Unit weight kg') }}</th><th>UPC</th><th>{{ t('Supplier SKU') }}</th><th></th></tr></thead>
+        <tbody>
+          <tr v-for="(f, i) in filas" :key="i">
+            <td><input v-model="f.talla" class="entrada" maxlength="20" :aria-label="t('Size {0}', [i + 1])" /></td>
+            <td><input v-model="f.sufijo" class="entrada" maxlength="20" :placeholder="t('Auto')" :aria-label="t('Size code {0}', [i + 1])" :disabled="!!f.sku" /></td>
+            <td><input v-model="f.sku" class="entrada" maxlength="40" :placeholder="codigos[i]" :aria-label="t('Item code {0}', [i + 1])" /></td>
+            <td><input v-model="f.peso" class="entrada ancho-s" type="number" min="0" step="any" :aria-label="t('Unit weight {0}', [i + 1])" /></td>
+            <td><input v-model="f.upc" class="entrada" maxlength="40" :aria-label="tx(t('UPC {0}', [i + 1]))" /></td>
+            <td><input v-model="f.sku_proveedor" class="entrada" maxlength="60" :aria-label="t('Supplier SKU {0}', [i + 1])" /></td>
+            <td><button type="button" class="btn-icono" :aria-label="t('Remove row {0}', [i + 1])" @click="filas.splice(i, 1)"><Icono nombre="cerrar" :tam="15" /></button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <button type="button" class="btn btn-chico mt-chico" @click="filas.push(nuevaFila())"><Icono nombre="mas" :tam="14" />{{ t('Add row') }}</button>
     </template>
     <div v-if="errores.length" class="nota error bloque mt-chico"><ul class="lista-mensajes"><li v-for="(e, i) in errores" :key="i">{{ tx(e) }}</li></ul></div>

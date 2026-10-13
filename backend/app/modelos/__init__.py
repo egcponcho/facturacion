@@ -9,6 +9,7 @@ Todo se maneja por cantidades:
 Cada dominio en su archivo; aquí se reexportan todos los modelos para importar
 con `from app.modelos import X`.
 """
+from app.core.db import Base as _Base
 from app.modelos.acceso import DesafioDosPasos, Rol, SesionUsuario, Usuario
 from app.modelos.base import Cantidad, ahora, cant
 from app.modelos.clasificacion import (
@@ -39,7 +40,36 @@ from app.modelos.clasificacion import (
     TraduccionCatalogo,
     VersionDataset,
 )
-from app.modelos.compras import AprobacionOC, ImportacionOC, OrdenCompra, PerfilImportacion, PosicionOC
+from app.modelos.comercial import (
+    Aplicacion,
+    ConfiguracionFiscal,
+    CuotaCondicionPago,
+    Direccion,
+    Documento,
+    DocumentoLinea,
+    EnvioDocumento,
+    FacturacionRecurrente,
+    Impuesto,
+    LineaImpuesto,
+    MedioContacto,
+    MetodoPago,
+    Pago,
+    PlantillaDocumento,
+    RelacionDocumento,
+    Tercero,
+    TerceroRol,
+    TipoCambio,
+    TipoDocumento,
+    Vencimiento,
+)
+from app.modelos.compras import (
+    AprobacionOC,
+    ImportacionOC,
+    OrdenCompra,
+    PerfilImportacion,
+    PosicionOC,
+    ReglaAprobacionOC,
+)
 from app.modelos.empaque import (
     GrupoCajas,
     GrupoCajasItem,
@@ -50,30 +80,47 @@ from app.modelos.empaque import (
     TipoEmpaque,
     tipo_empaque_contiene,
 )
-from app.modelos.empresa import Organizacion
+from app.modelos.empresa import Adjunto, DefinicionCampo, EstadoDocumento, Organizacion
 from app.modelos.facturacion import Archivo, Factura, FacturaLinea
 from app.modelos.maestros import (
     AcuerdoComercial,
     Almacen,
     Articulo,
+    ArticuloAtributo,
+    AtributoVariante,
     CategoriaArticulo,
     Centro,
+    CondicionPago,
     Contacto,
     EscalaTalla,
     EstadoLiberacion,
     GrupoArticulo,
+    Incoterm,
     Marca,
+    ModoTransporte,
+    Moneda,
     Pais,
     Prepack,
     PrepackComponente,
     Proveedor,
     Sociedad,
+    UnidadMedida,
     ValorLista,
     centro_puertos,
     proveedor_marcas,
     proveedor_sociedades,
 )
-from app.modelos.productos import PartidaPais, Producto, ProductoDocumento, ProductoFoto, ProductoVersion
+from app.modelos.numeracion import ContadorSerie, SerieDocumental
+from app.modelos.productos import (
+    ClasificacionProducto,
+    PartidaPais,
+    Producto,
+    ProductoDocumento,
+    ProductoFoto,
+    ProductoVersion,
+)
+from app.modelos.referencias import aplicar as _aplicar_referencias
+from app.modelos.restricciones import aplicar as _aplicar_restricciones
 from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte
 from app.modelos.transporte import (
     Embarque,
@@ -88,7 +135,34 @@ from app.modelos.transporte import (
     transportista_sociedades,
 )
 
+_aplicar_restricciones(_Base.metadata)
+_aplicar_referencias(_Base.metadata)
+
 __all__ = [
+    "ArticuloAtributo",
+    "AtributoVariante",
+    "ClasificacionProducto",
+    "Adjunto",
+    "Aplicacion",
+    "ConfiguracionFiscal",
+    "CuotaCondicionPago",
+    "Direccion",
+    "Documento",
+    "DocumentoLinea",
+    "EnvioDocumento",
+    "FacturacionRecurrente",
+    "Impuesto",
+    "LineaImpuesto",
+    "MedioContacto",
+    "MetodoPago",
+    "Pago",
+    "PlantillaDocumento",
+    "RelacionDocumento",
+    "Tercero",
+    "TerceroRol",
+    "TipoCambio",
+    "TipoDocumento",
+    "Vencimiento",
     "AprobacionOC",
     "AcuerdoComercial",
     "ahora",
@@ -108,6 +182,9 @@ __all__ = [
     "ClaseMaterial",
     "CondicionRegla",
     "Contacto",
+    "DefinicionCampo",
+    "EstadoDocumento",
+    "ContadorSerie",
     "ControlCapitulo",
     "DesafioDosPasos",
     "DominioCapitulo",
@@ -160,6 +237,7 @@ __all__ = [
     "Puerto",
     "RecepcionLinea",
     "RegionLeadTime",
+    "ReglaAprobacionOC",
     "ReglaClasificacion",
     "ReglaImpuesto",
     "ReglaLeadTime",
@@ -168,6 +246,7 @@ __all__ = [
     "SesionUsuario",
     "SinonimoBusqueda",
     "SinonimoMaterial",
+    "SerieDocumental",
     "Sociedad",
     "tipo_empaque_contiene",
     "TipoEmpaque",
@@ -177,6 +256,11 @@ __all__ = [
     "transportista_sociedades",
     "UnidadCarga",
     "ValorLista",
+    "CondicionPago",
+    "Incoterm",
+    "ModoTransporte",
+    "Moneda",
+    "UnidadMedida",
     "Usuario",
     "VersionDataset",
 ]

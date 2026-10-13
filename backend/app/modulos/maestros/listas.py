@@ -1,20 +1,40 @@
-"""Listas de valores de la empresa (tabla valores_lista).
+"""Listas de valores de la empresa.
 
-`cargar` arma, para cada petición, los valores activos de todas las listas;
-`validar` revisa un valor que se crea o cambia en Datos maestros → Listas de
-valores. La definición de las listas está en core/listas.py.
+Las listas con reglas propias tienen su tabla (monedas, unidades_medida,
+modos_transporte, incoterms, condiciones_pago) y los documentos las
+referencian con llave foránea; las demás viven en `valores_lista`.
+
+`cargar` arma, para cada petición, los valores activos de todas las listas
+con la misma forma para todas ({código, nombre, atributos}); `validar` revisa
+un valor que se crea o cambia en Datos maestros. La definición de las listas
+está en core/listas.py.
 """
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core import listas
-from app.modelos import ValorLista
+from app.modelos import CondicionPago, Incoterm, ModoTransporte, Moneda, UnidadMedida, ValorLista
 
-_COLUMNAS = ("codigo", "nombre", *listas.ATRIBUTOS)
+# lista → modelo de su tabla propia
+MODELOS = {"unidad": UnidadMedida, "moneda": Moneda, "modo_transporte": ModoTransporte, "incoterm": Incoterm,
+           "condicion_pago": CondicionPago}
 
 
-def _dict(v: ValorLista) -> dict:
-    return {c: getattr(v, c) for c in _COLUMNAS if c in ("codigo", "nombre") or getattr(v, c) is not None}
+def modelo(lista: str):
+    return MODELOS.get(lista, ValorLista)
+
+
+def lista_de(obj) -> str | None:
+    """Lista a la que pertenece un registro de cualquiera de las tablas."""
+    if isinstance(obj, ValorLista):
+        return obj.lista
+    return next((k for k, m in MODELOS.items() if isinstance(obj, m)), None)
+
+
+def _dict(lista: str, v) -> dict:
+    atributos = listas.LISTAS.get(lista, {}).get("atributos", [])
+    return {"codigo": v.codigo, "nombre": v.nombre,
+            **{a: getattr(v, a) for a in atributos if getattr(v, a, None) is not None}}
 
 
 def cargar(db: Session) -> dict:
@@ -22,21 +42,37 @@ def cargar(db: Session) -> dict:
     res = {k: [] for k in listas.LISTAS}
     for v in db.scalars(select(ValorLista).where(ValorLista.activo.is_(True))
                         .order_by(ValorLista.lista, ValorLista.orden, ValorLista.codigo)):
-        res.setdefault(v.lista, []).append(_dict(v))
+        res.setdefault(v.lista, []).append(_dict(v.lista, v))
+    for lista, m in MODELOS.items():
+        res[lista] = [_dict(lista, v) for v in db.scalars(select(m).where(m.activo.is_(True)).order_by(m.orden, m.codigo))]
     return res
 
 
-def validar(db: Session, final: dict, actual: ValorLista | None, limpio: dict) -> list[dict]:
+def sembrar(db: Session) -> None:
+    """Valores de fábrica en una organización que aún no tiene ninguno."""
+    if not db.scalar(select(ValorLista.id).limit(1)):
+        for lista, valores in listas.FABRICA.items():
+            if lista not in MODELOS:
+                for orden, v in enumerate(valores, start=1):
+                    db.add(ValorLista(lista=lista, orden=orden, activo=True, **v))
+    for lista, m in MODELOS.items():
+        if not db.scalar(select(m.id).limit(1)):
+            for orden, v in enumerate(listas.FABRICA[lista], start=1):
+                db.add(m(orden=orden, activo=True, **v))
+
+
+def validar(db: Session, final: dict, actual, limpio: dict, lista: str | None = None) -> list[dict]:
     """Reglas de un valor: los atributos de su lista y los valores de sistema."""
     errores = []
-    lista = final.get("lista")
+    lista = lista or final.get("lista")
     definicion = listas.LISTAS.get(lista, {})
-    # Los atributos que no son de la lista no se guardan
-    for a in listas.ATRIBUTOS:
-        if a not in definicion.get("atributos", []):
-            final[a] = limpio[a] = None
+    if lista not in MODELOS:
+        # Los atributos que no son de la lista no se guardan
+        for a in ("padre", "consolidado", "estados"):
+            if a not in definicion.get("atributos", []):
+                final[a] = limpio[a] = None
     if actual:
-        if "lista" in limpio and limpio["lista"] != actual.lista:
+        if isinstance(actual, ValorLista) and "lista" in limpio and limpio["lista"] != actual.lista:
             errores.append({"campo": "lista", "mensaje": "A value cannot move to another list."})
         if actual.codigo in definicion.get("sistema", []):
             if "codigo" in limpio and limpio["codigo"] != actual.codigo:

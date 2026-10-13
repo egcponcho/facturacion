@@ -25,12 +25,12 @@ ETIQUETAS = {
     "pais_procedencia": "Country of shipment", "fecha_xf_original": "Original XF date",
     "fecha_xf": "XF date", "fecha_tienda": "In-store date", "liberacion_comercial": "Commercial release",
     "liberacion_logistica": "Logistics release", "fecha_lib_comercial": "Commercial release date",
-    "fecha_lib_logistica": "Logistics release date", "codigo_sap": "Item code", "cantidad": "Quantity",
+    "fecha_lib_logistica": "Logistics release date", "codigo_articulo": "Item code", "cantidad": "Quantity",
     "unidad": "Unit", "precio": "Unit price", "casepack": "Casepack", "inner_pack": "Inner pack",
     "fecha_entrega": "Delivery date",
 }
 # Lo que identifica una línea no puede tener un valor por defecto
-SIN_DEFECTO = {"proveedor", "oc", "posicion", "codigo_sap", "cantidad"}
+SIN_DEFECTO = {"proveedor", "oc", "posicion", "codigo_articulo", "cantidad"}
 
 
 def campos() -> list[dict]:

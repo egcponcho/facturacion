@@ -108,7 +108,7 @@ FUENTES: dict[str, Fuente] = {f.clave: f for f in [
             Campo("posicion", "Line", "texto", lambda: PosicionOC.posicion),
             Campo("proveedor", "Supplier", "texto", lambda: Proveedor.nombre),
             Campo("estado_oc", "PO status", "estado", lambda: OrdenCompra.estado, opciones=ESTADOS_OC),
-            Campo("codigo_sap", "Item code", "texto", lambda: PosicionOC.codigo_sap),
+            Campo("codigo_articulo", "Item code", "texto", lambda: PosicionOC.codigo_articulo),
             Campo("estilo", "Style", "texto", lambda: PosicionOC.estilo),
             Campo("color", "Color", "texto", lambda: PosicionOC.color),
             Campo("talla", "Size", "texto", lambda: PosicionOC.talla),

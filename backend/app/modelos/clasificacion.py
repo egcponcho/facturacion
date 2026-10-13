@@ -12,21 +12,20 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
-    Float,
     ForeignKey,
     Index,
     Integer,
-    LargeBinary,
     String,
     Text,
     UniqueConstraint,
     event,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
-from app.modelos.base import ahora
+from app.modelos.base import Importe, Tasa, ahora
 
 if TYPE_CHECKING:
     from app.modelos.acceso import Usuario
@@ -39,7 +38,8 @@ class PaisArancel(Base):
 
     __tablename__ = "paises_arancel"
     id: Mapped[int] = mapped_column(primary_key=True)
-    iso: Mapped[str] = mapped_column(String(2), unique=True)
+    # Extensión 1:1 del país (catálogo ISO compartido)
+    iso: Mapped[str] = mapped_column(ForeignKey("paises.codigo", name="fk_paises_arancel_iso", onupdate="CASCADE"), unique=True)
     nombre: Mapped[str] = mapped_column(String(80))
     digitos: Mapped[int] = mapped_column(Integer, default=10)  # longitud habitual (sugerencia, no regla fija)
     # Esquema del código nacional: longitudes admitidas (p. ej. "8,10,12"); vacío = 8 a 14 dígitos
@@ -139,7 +139,7 @@ class ControlCapitulo(Base):
     solo_manual: Mapped[bool] = mapped_column(Boolean, default=False)
     archivado: Mapped[bool] = mapped_column(Boolean, default=False)
     alcance: Mapped[str | None] = mapped_column(String(200))  # dominios iniciales (texto de referencia)
-    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"), index=True)
     fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id"))
     nota: Mapped[str | None] = mapped_column(String(300))
 
@@ -175,7 +175,9 @@ class CategoriaProducto(Base):
     codigo: Mapped[str] = mapped_column(String(40), unique=True)
     nombre: Mapped[str] = mapped_column(String(120))
     grupo: Mapped[str | None] = mapped_column(String(80))  # encabezado en la lista
-    dominio: Mapped[str | None] = mapped_column(String(30), index=True)  # código de DominioClasificacion
+    dominio: Mapped[str | None] = mapped_column(
+        ForeignKey("dominios_clasificacion.codigo", name="fk_categorias_producto_dominio", onupdate="CASCADE"),
+        index=True)  # código de DominioClasificacion
     alias: Mapped[str | None] = mapped_column(String(400))  # palabras para buscarla, separadas por ;
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -226,10 +228,13 @@ class NodoArancel(Base):
     nivel: Mapped[str] = mapped_column(String(12))  # CAPITULO | PARTIDA | SUBPARTIDA | INCISO
     codigo: Mapped[str] = mapped_column(String(20))  # como se muestra: 6404.19.90.00
     codigo_norm: Mapped[str] = mapped_column(String(16), index=True)  # solo dígitos
-    padre_id: Mapped[int | None] = mapped_column(ForeignKey("nodos_arancel.id"))
+    padre_id: Mapped[int | None] = mapped_column(ForeignKey("nodos_arancel.id"), index=True)
     descripcion: Mapped[str] = mapped_column(Text)  # texto oficial completo
     texto_propio: Mapped[str | None] = mapped_column(String(400))  # solo el renglón de este nivel
-    dai: Mapped[str | None] = mapped_column(String(12))
+    # DAI (%) del texto regional; si el texto no da un número («Parte II»: lo
+    # fija cada país) queda vacío y el texto va en dai_nota
+    dai: Mapped[float | None] = mapped_column(Tasa)
+    dai_nota: Mapped[str | None] = mapped_column(String(20))
     hojas: Mapped[int] = mapped_column(Integer, default=0)  # hijos directos (para el árbol)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     estado: Mapped[str] = mapped_column(String(12), default="PUBLICADO")
@@ -262,7 +267,7 @@ class AtributoDef(Base):
     informativo: Mapped[bool] = mapped_column(Boolean, default=False)  # no cambia el código, solo describe
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
-    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"), index=True)
     # Comportamiento en la ficha, como datos (app/modulos/productos/ficha.py):
     # sección (producto | caracteristicas | composicion | nacional | derivado),
     # valor por defecto, derivación (lo que fija la composición, una constante
@@ -340,6 +345,12 @@ class NotaSAC(Base):
     capítulos aplica (vacío: a todos) y `claves` qué datos de la ficha toca."""
 
     __tablename__ = "notas_sac"
+    __table_args__ = (
+        # Una sola vez por versión del dato oficial (y una sola sin versión)
+        Index("ux_notas_sac_version", "ambito", "codigo", "numero", "version_id", unique=True),
+        Index("ux_notas_sac_sin_version", "ambito", "codigo", "numero", unique=True,
+              sqlite_where=text("version_id IS NULL"), postgresql_where=text("version_id IS NULL")),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     ambito: Mapped[str] = mapped_column(String(16))  # reglas | seccion | capitulo | subpartida | complementaria
     codigo: Mapped[str] = mapped_column(String(10))  # RGI, XI, 64…
@@ -400,11 +411,17 @@ class IncisoNacional(Base):
     condiciones que la eligen son reglas del motor (NATIONAL_SELECT)."""
 
     __tablename__ = "incisos_nacionales"
+    __table_args__ = (
+        # Una sola vez por versión del dato oficial (y una sola sin versión)
+        Index("ux_incisos_nacionales_version", "pais", "codigo", "version_id", unique=True),
+        Index("ux_incisos_nacionales_sin_version", "pais", "codigo", unique=True,
+              sqlite_where=text("version_id IS NULL"), postgresql_where=text("version_id IS NULL")),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     pais: Mapped[str] = mapped_column(String(2), index=True)
     codigo: Mapped[str] = mapped_column(String(14))
     sub6: Mapped[str] = mapped_column(String(6), index=True)
-    dai: Mapped[str | None] = mapped_column(String(10))
+    dai: Mapped[float | None] = mapped_column(Tasa)  # derecho arancelario a la importación, %
     descripcion: Mapped[str | None] = mapped_column(String(300))
     nota: Mapped[str | None] = mapped_column(String(300))
     fuente: Mapped[str] = mapped_column(String(12), default="oficial")  # solo oficial: tiene fuente y versión
@@ -465,7 +482,7 @@ class Regulacion(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(40), unique=True)  # Regulation ID
     pais: Mapped[str] = mapped_column(String(2), index=True)
-    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"), index=True)
     tipo_ambito: Mapped[str] = mapped_column(String(14), default="PATTERN")  # NATIONAL_CODE | SUBHEADING | HEADING | CHAPTER | PATTERN
     patron: Mapped[str] = mapped_column(String(40))  # código o prefijo, * = todos
     tipo: Mapped[str] = mapped_column(String(30))  # PERMIT | LICENSE | REGISTRATION | CERTIFICATE | LABELING | SANITARY | PHYTOSANITARY | OTHER
@@ -493,13 +510,13 @@ class ReglaImpuesto(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(40), unique=True)  # Tax rule ID
     pais: Mapped[str] = mapped_column(String(2), index=True)
-    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"), index=True)
     patron: Mapped[str] = mapped_column(String(40), default="*")
     tipo: Mapped[str] = mapped_column(String(20))  # DAI | IVA | ITBMS | ISV | ISC | SELECTIVO | OTRO
-    tasa: Mapped[float | None] = mapped_column(Float)
+    tasa: Mapped[float | None] = mapped_column(Tasa)
     base_calculo: Mapped[str | None] = mapped_column(String(80))  # CIF, CIF + DAI…
-    umbral_desde: Mapped[float | None] = mapped_column(Float)
-    umbral_hasta: Mapped[float | None] = mapped_column(Float)
+    umbral_desde: Mapped[float | None] = mapped_column(Importe)
+    umbral_hasta: Mapped[float | None] = mapped_column(Importe)
     formula: Mapped[str | None] = mapped_column(String(300))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     vigente_desde: Mapped[date | None] = mapped_column(Date)
@@ -537,7 +554,7 @@ class ReglaClasificacion(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     requiere_revision: Mapped[bool] = mapped_column(Boolean, default=False)
     inciso_id: Mapped[int | None] = mapped_column(ForeignKey("incisos_nacionales.id", ondelete="CASCADE"), unique=True)
-    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"), index=True)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, onupdate=ahora)
     # Revisión: sube con cada cambio; la evidencia de una clasificación guarda
     # la revisión y una foto de la regla tal como era al aplicarse
@@ -681,7 +698,11 @@ class HistorialClasificacion(DeOrganizacion, Base):
     para poder usarse."""
 
     __tablename__ = "historial_clasificacion"
+    __table_args__ = (UniqueConstraint("organizacion_id", "huella", name="uq_historial_clasificacion_org_huella"),)
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Huella de la clave natural (país, código, origen, categoría, producto y
+    # condiciones): el mismo conocimiento no se guarda dos veces
+    huella: Mapped[str] = mapped_column(String(64))
     pais: Mapped[str | None] = mapped_column(String(2), index=True)  # vacío = HS6/SAC regional
     codigo: Mapped[str] = mapped_column(String(14), index=True)
     sub6: Mapped[str] = mapped_column(String(6), index=True)
@@ -689,10 +710,25 @@ class HistorialClasificacion(DeOrganizacion, Base):
     condiciones: Mapped[dict] = mapped_column(JSON, default=dict)  # hechos del producto que llevaron a este código
     origen: Mapped[str] = mapped_column(String(12))  # APROBACION | CORRECCION | ENSENADO | IMPORTADO
     conteo: Mapped[int] = mapped_column(Integer, default=1)  # productos o artículos que lo respaldan
-    producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id", ondelete="SET NULL"))
+    producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id", ondelete="SET NULL"), index=True)
     nota: Mapped[str | None] = mapped_column(String(300))
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+
+def huella_historial(pais, codigo, origen, categoria, producto_id, condiciones) -> str:
+    import hashlib
+    import json
+
+    clave = json.dumps([pais or "", codigo, origen, categoria or "", producto_id or 0, condiciones or {}],
+                       sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(clave.encode()).hexdigest()
+
+
+@event.listens_for(HistorialClasificacion, "before_insert")
+@event.listens_for(HistorialClasificacion, "before_update")
+def _huella(_mapper, _con, x: HistorialClasificacion) -> None:
+    x.huella = huella_historial(x.pais, x.codigo, x.origen, x.categoria, x.producto_id, x.condiciones)
 
 
 class LoteOficial(Base):
@@ -704,7 +740,8 @@ class LoteOficial(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     archivo: Mapped[str] = mapped_column(String(300))
     checksum: Mapped[str] = mapped_column(String(64))
-    contenido: Mapped[bytes] = mapped_column(LargeBinary)
+    # El archivo cargado vive en el almacén (core/almacen.py), no en la base
+    clave_archivo: Mapped[str] = mapped_column(String(500))
     estado: Mapped[str] = mapped_column(String(12), default="PREVIA")  # PREVIA | PUBLICADA | DESCARTADA
     resumen: Mapped[dict] = mapped_column(JSON, default=dict)  # por hoja: nuevos, cambios, sin_cambio, errores
     errores: Mapped[list] = mapped_column(JSON, default=list)
@@ -715,6 +752,12 @@ class LoteOficial(Base):
 
     filas: Mapped[list["FilaLoteOficial"]] = relationship(back_populates="lote", cascade="all, delete-orphan",
                                                           order_by="FilaLoteOficial.id")
+
+    @property
+    def contenido(self) -> bytes:
+        from app.core.almacen import leer
+
+        return leer(self.clave_archivo)
 
 
 class FilaLoteOficial(Base):

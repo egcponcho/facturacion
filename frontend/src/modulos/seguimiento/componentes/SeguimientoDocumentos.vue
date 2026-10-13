@@ -111,14 +111,14 @@ watch(() => sesion.proveedorId, aplicar)
     </section>
     <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('Packed cargo') }}</h2><p>{{ t('According to the filters.') }}</p></div></div>
-      <div class="doc-datos" style="margin-top: 0; padding-top: 0; border-top: 0">
+      <div class="doc-datos mt-0" style="padding-top: 0; border-top: 0">
         <div class="dato"><span>{{ t('Packing lists') }}</span><b>{{ fmtNum(datos.kpis.pls) }}</b></div>
         <div class="dato"><span>{{ t('Cartons') }}</span><b>{{ fmtNum(datos.kpis.cajas) }}</b></div>
         <div class="dato"><span>{{ t('Pallets') }}</span><b>{{ fmtNum(datos.kpis.pallets) }}</b></div>
         <div class="dato"><span>{{ t('Gross weight') }}</span><b>{{ t('{0} kg', [fmtNum(datos.kpis.peso_bruto, 1)]) }}</b></div>
         <div class="dato"><span>{{ t('Volume') }}</span><b>{{ fmtNum(datos.kpis.cbm, 2) }} m³</b></div>
       </div>
-      <div class="chips" style="margin: 12px 0 0">
+      <div class="chips mt-chico">
         <button v-for="e in datos.etapas" :key="e.clave" type="button" class="pildora" :aria-pressed="filtros.etapa === e.clave"
                 @click="filtros.etapa = filtros.etapa === e.clave ? '' : e.clave; aplicar()">{{ tx(e.nombre) }}<span class="cuenta">{{ tx(e.total) }}</span></button>
       </div>

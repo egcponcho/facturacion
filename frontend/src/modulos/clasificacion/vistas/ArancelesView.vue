@@ -547,7 +547,7 @@ onMounted(async () => {
       <p v-if="p.modelo_arancel" class="ayuda mt-chico"><b>{{ t('Tariff model:') }}</b> {{ tx(p.modelo_arancel) }}<template v-if="p.fuente"> · {{ t('Primary source {0}', [p.fuente]) }}</template></p>
       <p v-if="p.base_legal" class="ayuda mt-chico"><b>{{ t('Legal basis:') }}</b> {{ tx(p.base_legal) }}</p>
       <p v-if="p.nota" class="ayuda mt-chico">{{ tx(p.nota) }}</p>
-      <div class="fila-flex mt-chico" style="gap: 6px">
+      <div class="fila-flex mt-chico gap-2">
         <button class="btn btn-chico" @click="fc.pais = [p.iso]; cambiarVista('codigos')"><Icono nombre="lista" :tam="14" />{{ t('See codes') }}</button>
         <template v-if="edita">
           <button class="btn btn-chico" @click="cargarPais(p)"><Icono nombre="importar" :tam="14" />{{ t('Upload codes') }}</button>
@@ -572,7 +572,7 @@ onMounted(async () => {
           <option v-for="v in versionesDe(modal.pais)" :key="v.codigo" :value="v.codigo">{{ tx(v.texto) }}{{ v.fuente ? ` · ${v.fuente}` : '' }}</option></Seleccion>
         <small class="ayuda">{{ t('National lines are official data: they are created only from a published source and version. Your own preferences go to the company history.') }}</small></label>
       <label v-if="!modal.id && modal.version && !versionesDe(modal.pais).find((v) => v.codigo === modal.version)?.vigente_desde" class="campo">
-        <span class="req">{{ t('Valid from (as published)') }}</span><input v-model="modal.vigente_desde" type="date" class="entrada" /></label>
+        <span class="req">{{ t('Valid from (as published)') }}</span><CampoFecha v-model="modal.vigente_desde" /></label>
     </div>
     <h3 class="mt">{{ t('When it applies') }}</h3>
     <p class="ayuda">{{ t('Leave empty what does not matter. The engine picks the code whose conditions match the technical sheet.') }}
@@ -707,16 +707,16 @@ onMounted(async () => {
                           vigente_desde: modal.vigente_desde }"
                @cerrar="modal = null" @cargado="alCargar"
                :ayuda="t('One row per official national line with its country, code and duty, from the published tariff of that version. Optional columns hold the conditions the engine uses to choose it.')">
-    <div class="rejilla-campos mt-chico" style="margin-bottom: 10px">
+    <div class="rejilla-campos mt-chico mb-3">
       <label class="campo"><span>{{ t('Country') }}</span>
         <Seleccion v-model="modal.pais" class="entrada"><option value="">{{ t('The one in the Country column') }}</option><option v-for="p in paises" :key="p.iso" :value="p.iso">{{ tx(p.iso) }} · {{ tx(p.nombre) }}</option></Seleccion></label>
       <label class="campo"><span class="req">{{ t('Official version it comes from') }}</span>
         <Seleccion v-model="modal.version" class="entrada"><option value="">{{ t('Choose…') }}</option>
           <option v-for="v in versionesDe(modal.pais)" :key="v.codigo" :value="v.codigo">{{ tx(v.texto) }}{{ v.fuente ? ` · ${v.fuente}` : '' }}</option></Seleccion></label>
       <label v-if="modal.version && !versionesDe(modal.pais).find((v) => v.codigo === modal.version)?.vigente_desde" class="campo">
-        <span class="req">{{ t('Valid from (as published)') }}</span><input v-model="modal.vigente_desde" type="date" class="entrada" /></label>
+        <span class="req">{{ t('Valid from (as published)') }}</span><CampoFecha v-model="modal.vigente_desde" /></label>
     </div>
-    <label v-if="modal.pais" class="check" style="margin-bottom: 10px"><input v-model="modal.reemplazar" type="checkbox" /><span>{{ t('Replace every code of {0} with this file (for a new tariff version)', [modal.pais]) }}</span></label>
+    <label v-if="modal.pais" class="check mb-3"><input v-model="modal.reemplazar" type="checkbox" /><span>{{ t('Replace every code of {0} with this file (for a new tariff version)', [modal.pais]) }}</span></label>
   </CargaMasiva>
   <CargaMasiva v-if="modal?.tipo === 'carga-notas'" :titulo="t('Upload SAC legal notes')" ruta="/aranceles/notas/importar" plantilla="/aranceles/notas/plantilla"
                @cerrar="modal = null" @cargado="cargarNotas(); cargarContexto(true)"

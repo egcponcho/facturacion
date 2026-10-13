@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
 from app.core.estados import EMBARQUE, PL
+from app.core.numeracion import mayor_sufijo
 from app.modelos import (
     Alerta,
     Factura,
@@ -165,7 +166,7 @@ def _linea(pl: PackingList, pl_linea_id: int) -> PLLinea:
 
 def _ref(pll: PLLinea) -> str:
     fl = pll.factura_linea
-    return f"{fl.codigo_sap}{' size ' + fl.talla if fl.talla else ''}"
+    return f"{fl.codigo_articulo}{' size ' + fl.talla if fl.talla else ''}"
 
 
 def regla_empaque(fl) -> tuple[str, int | None]:
@@ -199,7 +200,13 @@ def _plantilla(db: Session, pl: PackingList, plantilla_id: int) -> PlantillaCaja
 
 
 def _siguiente_numero(pl_existentes: list[PackingList]) -> str:
-    return f"PL-{len(pl_existentes) + 1:03d}"
+    """PL-001, PL-002…: uno más que el mayor de la factura (contarlos repetía
+    un número tras cancelar o renombrar uno) y nunca uno que ya exista."""
+    usados = {(x.numero or "").upper() for x in pl_existentes}
+    n = mayor_sufijo([x.numero for x in pl_existentes], "PL-") + 1
+    while f"PL-{n:03d}" in usados:
+        n += 1
+    return f"PL-{n:03d}"
 
 
 def _saldo_factura(db: Session, factura) -> dict[int, int]:
@@ -219,6 +226,9 @@ def _agregar_cantidad(pl: PackingList, factura_linea_id: int, cantidad: int) -> 
 
 
 def _nuevo_pl(db: Session, factura) -> PackingList:
+    # La factura bloqueada: dos PL creados a la vez no toman el mismo número
+    db.execute(select(Factura.id).where(Factura.id == factura.id).with_for_update())
+    db.refresh(factura, ["packing_lists"])
     pl = PackingList(factura_id=factura.id, numero=_siguiente_numero(factura.packing_lists),
                      estado="BORRADOR", version=1)
     factura.packing_lists.append(pl)
@@ -551,7 +561,7 @@ def definir_inner(db: Session, user: Usuario, pl_id: int, pl_linea_id: int, dato
                                "all inner packs carry the same quantity.", 422, "validacion")
     fl.inner_pack = n
     tocar(pl)
-    registrar(db, user, "packing_list", pl.id, "inner_pack", {"linea": fl.codigo_sap, "inner_pack": n})
+    registrar(db, user, "packing_list", pl.id, "inner_pack", {"linea": fl.codigo_articulo, "inner_pack": n})
     return {"version": pl.version}
 
 
@@ -937,7 +947,7 @@ def validar_pl(pl: PackingList) -> list[dict]:
             if faltan:
                 errores.append({"grupo_id": g.id, "mensaje": f"{etiqueta}: dimensions missing ({', '.join(MEDIDA_TXT[x] for x in faltan)})."})
         if g.items and not g.peso_neto_caja:
-            sin = sorted({it.pl_linea.factura_linea.codigo_sap for it in g.items
+            sin = sorted({it.pl_linea.factura_linea.codigo_articulo for it in g.items
                           if empaques.peso_linea(it.pl_linea.factura_linea) is None})
             errores.append({"grupo_id": g.id, "codigo": "sin_peso", "mensaje":
                             f"{etiqueta}: net weight missing. Set the unit weight of item {', '.join(sin)} "
@@ -970,7 +980,7 @@ def avisos_pl(pl: PackingList) -> list[dict]:
             avisos.append({"grupo_id": g.id, "mensaje":
                 f"Carton {empaques.rango_txt(pl, g, rangos)}: partial ({n:g} of {por_caja} of the casepack). "
                 "Confirm it with the Commercial Brand Manager."})
-    sin_peso = sorted({pll.factura_linea.codigo_sap for pll in pl.lineas if empaques.peso_linea(pll.factura_linea) is None})
+    sin_peso = sorted({pll.factura_linea.codigo_articulo for pll in pl.lineas if empaques.peso_linea(pll.factura_linea) is None})
     if sin_peso:
         lista = ", ".join(sin_peso[:8]) + ("…" if len(sin_peso) > 8 else "")
         avisos.append({"codigo": "sin_peso_articulo",
@@ -1136,7 +1146,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "oc_numero": fl.oc_numero,
             "almacen": fl.almacen,
             "posicion": fl.posicion,
-            "codigo_sap": fl.codigo_sap,
+            "codigo_articulo": fl.codigo_articulo,
             "upc": fl.upc,
             "estilo": fl.estilo,
             "color": fl.color,
@@ -1178,7 +1188,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
         def item(pll, n, g=g):
             fl = pll.factura_linea
             return {
-                "pl_linea_id": pll.id, "codigo_sap": fl.codigo_sap, "estilo": fl.estilo, "color": fl.color,
+                "pl_linea_id": pll.id, "codigo_articulo": fl.codigo_articulo, "estilo": fl.estilo, "color": fl.color,
                 "talla": fl.talla, "unidad": fl.unidad, "cantidad_por_caja": n, "cantidad_total": n * g.num_cajas,
                 "peso_unitario": empaques.peso_linea(fl), "inner_pack": inner_de(fl),
                 "inner_packs_por_caja": (n // inner_de(fl) if inner_de(fl) else None),

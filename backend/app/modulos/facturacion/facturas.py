@@ -1,13 +1,11 @@
 import os
-import uuid
 from datetime import timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core import campos_propios
-from app.core.archivos import DOCUMENTOS, exigir_tamano, tipo_de
-from app.core.config import settings
+from app.core import campos_propios, dinero
+from app.core.archivos import DOCUMENTOS, MIME_DOCUMENTO, exigir_tamano, tipo_de
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.core.estados import FACTURA, OC
@@ -26,6 +24,7 @@ from app.modelos import (
     ahora,
 )
 from app.modelos import cant as cant_norm
+from app.modelos.base import exacto
 from app.modulos.acceso.permisos import (
     asegurar_proveedor,
     es_interno,
@@ -34,7 +33,7 @@ from app.modulos.acceso.permisos import (
     proveedor_filtro,
     sociedad_filtro,
 )
-from app.modulos.comun import tabla
+from app.modulos.comun import adjuntos, tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.formato import cant_txt
 from app.modulos.comun.historial import registrar, requerir_motivo, tocar, verificar_version
@@ -88,7 +87,7 @@ def exigir_editable(f: Factura) -> None:
 
 
 def _ref_linea(l: FacturaLinea) -> str:
-    return f"PO {l.oc_numero} line {l.posicion} ({l.codigo_sap}{' size ' + l.talla if l.talla else ''})"
+    return f"PO {l.oc_numero} line {l.posicion} ({l.codigo_articulo}{' size ' + l.talla if l.talla else ''})"
 
 
 def _validar_numero(db: Session, proveedor_id: int, numero: str | None, excluir_id: int | None) -> None:
@@ -215,7 +214,7 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
         oc_numero=oc.numero,
         posicion=p.posicion,
         almacen=p.almacen,
-        codigo_sap=p.codigo_sap,
+        codigo_articulo=p.codigo_articulo,
         upc=p.upc,
         estilo=p.estilo,
         color=p.color,
@@ -402,16 +401,16 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
             l.cantidad = nueva
 
         if "precio_unitario" in campos and c.precio_unitario is not None:
-            nuevo = round(c.precio_unitario, 4)
+            nuevo = dinero.numero(exacto(c.precio_unitario, 6))
             motivo = (campos.get("motivo_precio") or l.motivo_precio or "").strip()
-            if abs(nuevo - l.precio_oc) > 1e-9 and not motivo:
+            if not dinero.iguales(nuevo, l.precio_oc) and not motivo:
                 errores.append({"linea_id": l.id, "codigo": "motivo_precio", "mensaje":
                     f"{ref}: enter the reason for the price change (PO price {l.precio_oc})."})
                 continue
-            if abs(nuevo - l.precio_unitario) > 1e-9:
+            if not dinero.iguales(nuevo, l.precio_unitario):
                 cambios_linea["precio_unitario"] = [l.precio_unitario, nuevo]
             l.precio_unitario = nuevo
-            l.motivo_precio = motivo if abs(nuevo - l.precio_oc) > 1e-9 else None
+            l.motivo_precio = motivo if not dinero.iguales(nuevo, l.precio_oc) else None
         elif "motivo_precio" in campos:
             l.motivo_precio = (campos["motivo_precio"] or "").strip() or None
 
@@ -564,7 +563,7 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
         ref = _ref_linea(l)
         if l.precio_unitario <= 0:
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: the price must be greater than zero."})
-        if abs(l.precio_unitario - l.precio_oc) > 1e-9 and not l.motivo_precio:
+        if not dinero.iguales(l.precio_unitario, l.precio_oc) and not l.motivo_precio:
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: the reason for the price change is missing."})
         if not (l.descripcion_comercial or "").strip():
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: the commercial description of the goods is missing."})
@@ -614,6 +613,11 @@ def finalizar(db: Session, user: Usuario, factura_id: int, version: int, incluir
     f.estado = "FINALIZADA"
     f.finalizado_en = ahora()
     tocar(f)
+    db.flush()
+    # Queda registrada como documento recibido (cuentas por pagar) con su total
+    from app.modulos.comercial import proveedores as cxp
+
+    cxp.registrar(db, user, f)
     registrar(db, user, "factura", f.id, "finalizar", {"con_pl": [pl.numero for pl in pls]}, factura_id=f.id)
     for pl in pls:
         pl.estado = "FINALIZADO"
@@ -637,6 +641,9 @@ def reabrir(db: Session, user: Usuario, factura_id: int, motivo: str | None) -> 
         if pl.unidad_carga_id and pl.estado != "CANCELADO":
             quitados.append(f"{pl.numero} ({pl.unidad.numero or pl.unidad.etiqueta})")
             pl.unidad_carga_id, pl.asignacion, pl.recolectado_en = None, None, None
+    from app.modulos.comercial import proveedores as cxp
+
+    cxp.reabrir(db, f)  # su documento recibido vuelve a borrador (si no tiene pagos)
     f.estado = "EN_CORRECCION"
     tocar(f)
     nota = f"Removed from their load unit: {', '.join(quitados)}. Add them again once finalized." if quitados else None
@@ -665,6 +672,9 @@ def cancelar(db: Session, user: Usuario, factura_id: int, motivo: str | None) ->
             pl.unidad_carga_id = None
             pl.asignacion = None
             tocar(pl)
+    from app.modulos.comercial import proveedores as cxp
+
+    cxp.anular(db, user, f, motivo or "Invoice cancelled")
     f.estado = "CANCELADA"
     tocar(f)
     registrar(db, user, "factura", f.id, "cancelar", None, motivo, factura_id=f.id)
@@ -677,13 +687,20 @@ def resumen_distribucion(db: Session, factura_ids) -> dict[int, dict]:
     if not ids:
         return {}
     res = {i: {"facturado": 0, "asignado": 0, "pls": 0, "pls_finalizados": 0, "pls_confirmados": 0,
-               "importe": 0.0, "lineas": 0} for i in ids}
-    for fid, cant, imp, n in db.execute(
-        select(FacturaLinea.factura_id, func.sum(FacturaLinea.cantidad),
-               func.sum(FacturaLinea.cantidad * FacturaLinea.precio_unitario), func.count(FacturaLinea.id))
+               "importe": 0, "lineas": 0} for i in ids}
+    for fid, cant, n in db.execute(
+        select(FacturaLinea.factura_id, func.sum(FacturaLinea.cantidad), func.count(FacturaLinea.id))
         .where(FacturaLinea.factura_id.in_(ids)).group_by(FacturaLinea.factura_id)
     ).all():
-        res[fid].update(facturado=cant_norm(cant or 0), importe=round(float(imp or 0), 2), lineas=n)
+        res[fid].update(facturado=cant_norm(cant or 0), lineas=n)
+    # Importe: suma de las líneas redondeadas a la moneda (igual que el detalle y el PDF)
+    importes: dict[int, list] = {}
+    monedas = dict(db.execute(select(Factura.id, Factura.moneda).where(Factura.id.in_(ids))).all())
+    for fid, c, p in db.execute(select(FacturaLinea.factura_id, FacturaLinea.cantidad, FacturaLinea.precio_unitario)
+                                .where(FacturaLinea.factura_id.in_(ids))).all():
+        importes.setdefault(fid, []).append((c, p))
+    for fid, ls in importes.items():
+        res[fid]["importe"] = dinero.numero(dinero.total(ls, monedas.get(fid)))
     for fid, cant in db.execute(
         select(PackingList.factura_id, func.sum(PLLinea.cantidad))
         .join(PLLinea, PLLinea.pl_id == PackingList.id)
@@ -857,11 +874,11 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
 
     lineas = []
     por_unidad: dict[str, dict] = {}
-    importe = 0.0
+    importe = dinero.CERO
     for l in f.lineas:
         a = en_pl.get(l.id, 0)
         e = empacado.get(l.id, 0)
-        total = round(l.cantidad * l.precio_unitario, 2)
+        total = dinero.importe(l.cantidad, l.precio_unitario, f.moneda)
         importe += total
         u = por_unidad.setdefault(l.unidad, {"facturado": 0, "en_pl": 0, "empacado": 0})
         u["facturado"] += l.cantidad
@@ -873,7 +890,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "oc_numero": l.oc_numero,
             "almacen": l.almacen,
             "posicion": l.posicion,
-            "codigo_sap": l.codigo_sap,
+            "codigo_articulo": l.codigo_articulo,
             "upc": l.upc,
             "estilo": l.estilo,
             "color": l.color,
@@ -891,7 +908,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "precio_unitario": l.precio_unitario,
             "precio_oc": l.precio_oc,
             "motivo_precio": l.motivo_precio,
-            "importe": total,
+            "importe": dinero.numero(total),
             "pais_origen": l.pais_origen,
             "partida_arancelaria": l.partida_arancelaria,
             "producto_id": (producto_de(l.posicion_oc.articulo).id if producto_de(l.posicion_oc.articulo) else None),
@@ -930,7 +947,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
         "actualizado_en": f.actualizado_en,
         "finalizado_en": f.finalizado_en,
         "lineas": lineas,
-        "totales": {"importe": round(importe, 2), "por_unidad": por_unidad},
+        "totales": {"importe": dinero.numero(importe), "por_unidad": por_unidad},
         "lista_transporte": _lista_para_transporte(f, r),
         "pendientes": validar_factura(db, f) if editable else [],
         "packing_lists": [
@@ -957,7 +974,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
 def historial_factura(db: Session, user: Usuario, factura_id: int) -> list[dict]:
     cargar_factura(db, user, factura_id)
     filas = db.scalars(
-        select(Historial).where(Historial.factura_id == factura_id).order_by(Historial.fecha.desc(), Historial.id.desc())
+        select(Historial).where(Historial.raiz_tipo == "factura", Historial.raiz_id == factura_id).order_by(Historial.fecha.desc(), Historial.id.desc())
     ).all()
     return [
         {
@@ -984,16 +1001,13 @@ def subir_archivo(db: Session, user: Usuario, factura_id: int, nombre: str, cont
     if f.estado == "CANCELADA":
         raise ErrorNegocio("Files cannot be attached to a cancelled invoice.", 409, "no_editable")
     exigir_tamano(contenido)
-    tipo_de(nombre, contenido, DOCUMENTOS)
+    clase = tipo_de(nombre, contenido, DOCUMENTOS)
     if tipo not in TIPOS_ARCHIVO:
         raise ErrorNegocio("Choose whether the file is the official invoice or another document.", 422, "validacion")
-    carpeta = os.path.join(settings.UPLOAD_DIR, str(f.id))
-    os.makedirs(carpeta, exist_ok=True)
-    seguro = "".join(c for c in os.path.basename(nombre) if c.isalnum() or c in "._- ") or "archivo"
-    ruta = os.path.join(carpeta, f"{uuid.uuid4().hex}_{seguro}")
-    with open(ruta, "wb") as fh:
-        fh.write(contenido)
-    a = Archivo(factura_id=f.id, tipo=tipo, nombre=seguro, ruta=ruta, tamano=len(contenido), subido_por=user.id)
+    seguro = adjuntos.nombre_seguro(nombre, "archivo")
+    adj = adjuntos.crear(db, user, seguro, contenido, os.path.join("facturas", str(f.id)), os.path.splitext(seguro)[1].lower(),
+                         MIME_DOCUMENTO.get(clase, "application/octet-stream"))
+    a = Archivo(factura_id=f.id, tipo=tipo, adjunto=adj)
     db.add(a)
     db.flush()
     registrar(db, user, "factura", f.id, "adjuntar_archivo", {"archivo": seguro, "tipo": tipo}, factura_id=f.id)

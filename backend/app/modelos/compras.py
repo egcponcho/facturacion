@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
     String,
@@ -22,7 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
-from app.modelos.base import Cantidad, ahora, cant
+from app.modelos.base import Cantidad, Importe, Precio, ahora, cant
 
 if TYPE_CHECKING:
     from app.modelos.maestros import Articulo, Proveedor
@@ -82,18 +82,38 @@ class OrdenCompra(DeOrganizacion, Base):
     )
 
 
+class ReglaAprobacionOC(DeOrganizacion, Base):
+    """Regla de aprobación de OCs: desde qué monto, en qué moneda (y,
+    opcionalmente, para qué sociedad) aprueba qué rol. Un rol que aprueba no
+    se puede borrar mientras una regla lo use (llave foránea)."""
+
+    __tablename__ = "reglas_aprobacion_oc"
+    __table_args__ = (CheckConstraint("monto_minimo >= 0", name="ck_reglas_aprobacion_oc_monto_minimo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    monto_minimo: Mapped[float] = mapped_column(Importe)
+    moneda: Mapped[str] = mapped_column(String(3))
+    sociedad: Mapped[str | None] = mapped_column(String(10))
+    rol_id: Mapped[int] = mapped_column(ForeignKey("roles.id"), index=True)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class AprobacionOC(DeOrganizacion, Base):
     """Un paso de aprobación de una OC: lo crea su envío según las reglas de
     aprobación de la empresa (monto, moneda, sociedad → rol que aprueba)."""
 
     __tablename__ = "aprobaciones_oc"
+    __table_args__ = (UniqueConstraint("oc_id", "paso", name="uq_aprobaciones_oc_oc_paso"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     oc_id: Mapped[int] = mapped_column(ForeignKey("ordenes_compra.id", ondelete="CASCADE"), index=True)
     paso: Mapped[int] = mapped_column(Integer)
-    regla: Mapped[str] = mapped_column(String(80))
-    rol_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"))
+    regla: Mapped[str] = mapped_column(String(80))  # nombre de la regla al enviarse (foto)
+    regla_id: Mapped[int | None] = mapped_column(
+        ForeignKey("reglas_aprobacion_oc.id", ondelete="SET NULL", name="fk_aprobaciones_oc_regla_id"), index=True)
+    rol_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"), index=True)
     estado: Mapped[str] = mapped_column(String(12), default="PENDIENTE")  # PENDIENTE | APROBADA | RECHAZADA
-    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), index=True)
     fecha: Mapped[datetime | None] = mapped_column(DateTime)
     comentario: Mapped[str | None] = mapped_column(String(500))
 
@@ -108,7 +128,7 @@ class PosicionOC(DeOrganizacion, Base):
     posicion: Mapped[str] = mapped_column(String(10))  # 10, 20, 30…
     almacen: Mapped[str | None] = mapped_column(String(10))  # cada posición va a su almacén
     articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
-    codigo_sap: Mapped[str] = mapped_column(String(40))  # SKU; texto: conserva ceros iniciales
+    codigo_articulo: Mapped[str] = mapped_column(String(40))  # SKU; texto: conserva ceros iniciales
     upc: Mapped[str | None] = mapped_column(String(40))
     estilo: Mapped[str | None] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))
@@ -127,7 +147,7 @@ class PosicionOC(DeOrganizacion, Base):
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total de la curva
     cantidad: Mapped[float] = mapped_column(Cantidad)
     unidad: Mapped[str] = mapped_column(String(5))  # modulos/maestros/unidades.py: PAR, UN, KG, L, M…
-    precio: Mapped[float | None] = mapped_column(Float)
+    precio: Mapped[float | None] = mapped_column(Precio)
     fecha_entrega: Mapped[date | None] = mapped_column(Date)
     pais_origen: Mapped[str | None] = mapped_column(String(3))
     bloqueada: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -165,6 +185,21 @@ class ImportacionOC(DeOrganizacion, Base):
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     nombre_archivo: Mapped[str] = mapped_column(String(300))
     estado: Mapped[str] = mapped_column(String(12), default="PREVIA")  # PREVIA | APLICADA
-    filas: Mapped[list] = mapped_column(JSON)
+    # Las filas leídas del archivo (la previa) viven en el almacén, no en la base
+    clave_filas: Mapped[str | None] = mapped_column(String(500))
     resultado: Mapped[dict | None] = mapped_column(JSON)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    @property
+    def filas(self) -> list:
+        from app.core.almacen import leer_json
+
+        return leer_json(self.clave_filas, [])
+
+    @filas.setter
+    def filas(self, valor: list) -> None:
+        from app.core.almacen import borrar, guardar_json
+
+        anterior = self.clave_filas
+        self.clave_filas = guardar_json(valor, "importaciones")
+        borrar(anterior)

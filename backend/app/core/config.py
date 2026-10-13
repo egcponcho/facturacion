@@ -43,6 +43,9 @@ class Settings:
     # SESION_HORAS desde que se inició.
     SESION_HORAS: int = int(os.getenv("SESION_HORAS", "12"))
     SESION_INACTIVIDAD_MIN: int = int(os.getenv("SESION_INACTIVIDAD_MIN", "30"))
+    # Años que se conserva el historial (bitácora) de cada empresa; 0 = siempre.
+    # Lo más antiguo se borra en la limpieza periódica (instalacion/mantenimiento.py).
+    HISTORIAL_ANOS: int = int(os.getenv("HISTORIAL_ANOS", "0"))
     # La cookie de sesión solo viaja por https. Apagarla solo en desarrollo
     # local sin https (COOKIE_SEGURA=0).
     COOKIE_SEGURA: bool = _bool("COOKIE_SEGURA", True)

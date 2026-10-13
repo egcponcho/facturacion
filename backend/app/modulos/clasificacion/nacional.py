@@ -181,7 +181,7 @@ def importar_hojas(db: Session, hojas: dict, cuenta, error) -> None:
         x.vigente_desde, x.vigente_hasta = c["desde"], c["hasta"]
         x.descripcion = (_txt(f.get("official_description")) or x.descripcion or "")[:300] or None
         if dai is not None:
-            x.dai = f"{dai:g}"
+            x.dai = dai
         x.url, x.nota = _txt(f.get("source_url")), _txt(f.get("internal_note")) or x.nota
         estado = (_txt(f.get("status")) or "").upper()
         x.activo = _si(f.get("active")) if f.get("active") is not None else estado not in ("ARCHIVED", "INACTIVE")

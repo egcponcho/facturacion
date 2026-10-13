@@ -22,7 +22,7 @@ const route = useRoute()
 const router = useRouter()
 const proveedores = ref([])
 const usuarios = ref([])
-const vacioUsr = () => ({ nombre: '', email: '', rol_id: '', proveedor_id: '', password: '', telefono: '', dos_pasos: true, cargo: '', area: '', empresa: '' })
+const vacioUsr = () => ({ nombre: '', email: '', rol_id: '', proveedor_id: '', password: '', telefono: '', dos_pasos: true, cargo: '', area: '' })
 const nuevoUsr = reactive(vacioUsr())
 // 'proveedor' | 'usuario' | { tipo: 'clave', usuario, clave } | { tipo: 'telefono', usuario, telefono, dos_pasos }
 const modal = ref(null)
@@ -284,7 +284,7 @@ onMounted(cargar)
       <MenuAcciones :etiqueta="t('Actions for {0}', [u.email])">
         <button type="button" role="menuitem" @click="abrirRolUsuario(u)">{{ t('Role and data scope') }}</button>
         <button type="button" role="menuitem" @click="modal = { tipo: 'telefono', usuario: u, telefono: u.telefono || '', dos_pasos: u.dos_pasos }">{{ t('Mobile') }}</button>
-        <button type="button" role="menuitem" @click="modal = { tipo: 'datos', usuario: u, nombre: u.nombre, email: u.email, cargo: u.cargo || '', area: u.area || '', empresa: u.empresa || '' }">{{ t('Edit data') }}</button>
+        <button type="button" role="menuitem" @click="modal = { tipo: 'datos', usuario: u, nombre: u.nombre, email: u.email, cargo: u.cargo || '', area: u.area || '' }">{{ t('Edit data') }}</button>
         <button type="button" role="menuitem" @click="modal = { tipo: 'clave', usuario: u, clave: '' }">{{ t('Reset password') }}</button>
         <button type="button" role="menuitem" @click="actualizar(`/usuarios/${u.id}`, { activo: !u.activo }, t('User updated.'))">{{ tx(u.activo ? t('Deactivate') : t('Activate')) }}</button>
         <button v-if="sesion.usuario?.plataforma && !u.proveedor_id" type="button" role="menuitem" @click="actualizar(`/usuarios/${u.id}`, { plataforma: !u.plataforma }, t('User updated.'))">{{ u.plataforma ? t('Remove platform administration') : t('Make platform administrator') }}</button>
@@ -315,7 +315,6 @@ onMounted(cargar)
       </label>
       <label class="campo"><span>{{ t('Job title') }}</span><input v-model="nuevoUsr.cargo" maxlength="120" /></label>
       <label class="campo"><span>{{ t('Area') }}</span><input v-model="nuevoUsr.area" maxlength="120" /></label>
-      <label class="campo"><span>{{ t('Company') }}</span><input v-model="nuevoUsr.empresa" maxlength="200" /></label>
       <label class="campo"><span>{{ t('Initial password') }}</span><input v-model="nuevoUsr.password" type="password" autocomplete="new-password" :placeholder="t('Empty: a temporary one is generated')" />
         <small class="ayuda">{{ t('The user changes it the first time they sign in, in a short guided setup.') }}</small></label>
       <label class="check"><input v-model="nuevoUsr.dos_pasos" type="checkbox" /> {{ t('Require two-step verification (recommended)') }}</label>
@@ -411,12 +410,11 @@ onMounted(cargar)
     <template #pie><button class="btn btn-primario" @click="modal = null">{{ t('Done') }}</button></template>
   </Modal>
   <Modal v-if="modal?.tipo === 'datos'" :titulo="t('Data of {0}', [modal.usuario.email])" @cerrar="modal = null">
-    <form id="form-datos" class="rejilla-campos" @submit.prevent="actualizar(`/usuarios/${modal.usuario.id}`, { nombre: modal.nombre, email: modal.email, cargo: modal.cargo || null, area: modal.area || null, empresa: modal.empresa || null }, t('User updated.'))">
+    <form id="form-datos" class="rejilla-campos" @submit.prevent="actualizar(`/usuarios/${modal.usuario.id}`, { nombre: modal.nombre, email: modal.email, cargo: modal.cargo || null, area: modal.area || null }, t('User updated.'))">
       <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="modal.nombre" required maxlength="200" /></label>
       <label class="campo"><span class="req">{{ t('Email') }}</span><input v-model="modal.email" type="email" required /></label>
       <label class="campo"><span>{{ t('Job title') }}</span><input v-model="modal.cargo" maxlength="120" /></label>
       <label class="campo"><span>{{ t('Area') }}</span><input v-model="modal.area" maxlength="120" /></label>
-      <label class="campo"><span>{{ t('Company') }}</span><input v-model="modal.empresa" maxlength="200" /></label>
     </form>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>

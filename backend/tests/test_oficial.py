@@ -281,7 +281,7 @@ def test_paquete_nacional_codigos_regulaciones_impuestos(interno):
     assert not r["errores"]
     # El código oficial queda con versión, fuente, vigencia y código base
     cod = interno.get("/aranceles/codigos", params={"pais": "CR", "q": "330499000010"}).json()["items"][0]
-    assert cod["dai"] == "14" and cod["descripcion"] == "Cremas de belleza"
+    assert cod["dai"] == 14 and cod["descripcion"] == "Cremas de belleza"
     # Requisitos de ese código en Costa Rica: IVA general + selectivo + registro sanitario
     req = interno.get("/aranceles/requisitos", params={"pais": "CR", "codigo": "3304.99.00.00.10"}).json()
     tipos = {i["tipo"]: i for i in req["impuestos"]}

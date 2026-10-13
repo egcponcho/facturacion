@@ -111,7 +111,7 @@ watch(() => sesion.proveedorId, recargar)
       <span class="sub">{{ ve('codigos_internos') ? t('{0} · {1} · {2} lines', [fmtFecha(f.fecha), f.centro, f.lineas]) : t('{0} · {1} lines', [fmtFecha(f.fecha), f.lineas]) }}</span>
     </template>
     <template #celda-fecha="{ fila: f }">{{ fmtFecha(f.fecha) }}</template>
-    <template #celda-estado="{ fila: f }"><EstadoBadge :estado="f.estado" /></template>
+    <template #celda-estado="{ fila: f }"><EstadoBadge :estado="f.estado" tipo="factura" /></template>
     <template #celda-importe="{ fila: f }"><span class="fuerte">{{ fmtMoneda(f.importe, f.moneda) }}</span></template>
     <template #celda-asignado="{ fila: f }"><Avance :valor="f.asignado" :total="f.facturado" /></template>
     <template #celda-pls="{ fila: f }">

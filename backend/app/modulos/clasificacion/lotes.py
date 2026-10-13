@@ -13,6 +13,7 @@ from datetime import date, datetime
 from sqlalchemy import event, inspect, select
 from sqlalchemy.orm import Session
 
+from app.core import almacen
 from app.core.errores import ErrorNegocio
 from app.modelos import FilaLoteOficial, LoteOficial, Usuario, VersionDataset, ahora
 from app.modulos.acceso.permisos import exigir
@@ -150,7 +151,8 @@ def previa(db: Session, user: Usuario, contenido: bytes, nombre: str) -> dict:
         r = resumen.setdefault(NOMBRE.get(f["tabla"], f["tabla"]), {"NUEVO": 0, "CAMBIO": 0, "ELIMINADO": 0, "advertencias": 0})
         r[f["accion"]] += 1
         r["advertencias"] += 1 if f["advertencia"] else 0
-    lote = LoteOficial(archivo=nombre[:300] or "package.xlsx", checksum=hashlib.sha256(contenido).hexdigest(), contenido=contenido,
+    lote = LoteOficial(archivo=nombre[:300] or "package.xlsx", checksum=hashlib.sha256(contenido).hexdigest(),
+                       clave_archivo=almacen.guardar(contenido, "oficial", ".xlsx"),
                        usuario_id=user.id, resumen={"tablas": resumen, "hojas": res["hojas"], "sin_cambio": sum(
                            h["actualizados"] for h in res["hojas"].values()) - sum(r["CAMBIO"] for r in resumen.values())},
                        errores=res["errores"][:500])

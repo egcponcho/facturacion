@@ -72,7 +72,7 @@ const pasos = computed(() => {
 // es un resumen dentro del panel)
 const columnasPls = [
   { clave: 'numero', texto: 'PL', fija: true, prioridad: 1, valor: (pl) => pl.numero },
-  { clave: 'estado', texto: t('Status'), prioridad: 3, inicial: false, textoValor: (v) => tx(leerEstado(v)[0]) },
+  { clave: 'estado', texto: t('Status'), prioridad: 3, inicial: false, textoValor: (v) => tx(leerEstado(v, 'pl')[0]) },
   { clave: 'cajas', texto: t('Cartons'), num: true, prioridad: 2, valor: (pl) => pl.totales?.cajas || 0 },
   { clave: 'kg', texto: 'kg', num: true, prioridad: 3, valor: (pl) => pl.totales?.peso_bruto || 0, textoValor: (v) => fmtNum(v, 1) },
   { clave: 'cbm', texto: 'm³', num: true, prioridad: 3, valor: (pl) => pl.totales?.cbm || 0, textoValor: (v) => fmtNum(v, 2) },
@@ -92,7 +92,7 @@ const descargar = (formato) => api.descargar(`/facturas/${props.id}/exportar?for
 <template>
   <PanelLateral :titulo="f?.nombre || t('Invoice')" :detalle="`/facturas/${props.id}`" ancho="560px" @cerrar="emit('cerrar')">
     <template #estado>
-      <span v-if="f" class="fila-flex pl-subtitulo"><EstadoBadge :estado="f.estado" /><span class="ayuda">{{ tx(f.proveedor) }} · {{ fmtFecha(f.fecha) || '—' }}</span></span>
+      <span v-if="f" class="fila-flex pl-subtitulo"><EstadoBadge :estado="f.estado" tipo="factura" /><span class="ayuda">{{ tx(f.proveedor) }} · {{ fmtFecha(f.fecha) || '—' }}</span></span>
     </template>
     <p v-if="!f" class="ayuda">{{ t('Loading…') }}</p>
     <template v-else>
@@ -131,8 +131,8 @@ const descargar = (formato) => api.descargar(`/facturas/${props.id}/exportar?for
         <h3 class="resumen-titulo">{{ t('Packing lists') }}</h3>
         <p v-if="!pls.length" class="ayuda">{{ t('No packing list') }}</p>
         <TablaDatos v-else tabla="factura_resumen_pls" :columnas="columnasPls" :filas="pls" :vistas-guardadas="false" :etiqueta="t('Packing lists')">
-          <template #celda-numero="{ fila: pl }"><router-link :to="`/packing-lists/${pl.id}`">{{ tx(pl.numero) }}</router-link><div><EstadoBadge :estado="pl.estado" /></div></template>
-          <template #celda-estado="{ fila: pl }"><EstadoBadge :estado="pl.estado" /></template>
+          <template #celda-numero="{ fila: pl }"><router-link :to="`/packing-lists/${pl.id}`">{{ tx(pl.numero) }}</router-link><div><EstadoBadge :estado="pl.estado" tipo="pl" /></div></template>
+          <template #celda-estado="{ fila: pl }"><EstadoBadge :estado="pl.estado" tipo="pl" /></template>
           <template #celda-cajas="{ fila: pl }">{{ fmtNum(pl.totales?.cajas || 0) }}</template>
           <template #celda-kg="{ fila: pl }">{{ fmtNum(pl.totales?.peso_bruto || 0, 1) }}</template>
           <template #celda-cbm="{ fila: pl }">{{ fmtNum(pl.totales?.cbm || 0, 2) }}</template>

@@ -3,6 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { ref } from 'vue'
 import Icono from '@/componentes/Icono.vue'
 import EditorCondiciones from '@/modulos/clasificacion/componentes/EditorCondiciones.vue'
+import Seleccion from '@/componentes/Seleccion.vue'
 
 // Cómo se reconoce en el texto del producto: una fila por patrón (palabras o
 // expresión, dónde buscar, prioridad, palabras que lo anulan y condiciones).
@@ -36,10 +37,10 @@ const lista = (txt) => txt.split(',').map((x) => x.trim()).filter(Boolean)
         <label class="ccampo ancho"><span>{{ t('Words or pattern') }}</span>
           <input class="entrada" :value="p.re || ''" :disabled="deshabilitado" :placeholder="t('e.g. lid|tapa')" @change="cambiar(i, 're', $event.target.value.trim())" /></label>
         <label class="ccampo"><span>{{ t('Look in') }}</span>
-          <select class="entrada" :value="p.en || 'todo'" :disabled="deshabilitado" @change="cambiar(i, 'en', $event.target.value)">
+          <Seleccion class="entrada" :value="p.en || 'todo'" :disabled="deshabilitado" @change="cambiar(i, 'en', String($event ?? ''))">
             <option v-for="[v, l] in DONDE" :key="v" :value="v">{{ tx(l) }}</option>
             <option v-for="a in partes()" :key="a.codigo" :value="a.codigo">{{ t('Composition: {0}', [a.etiqueta]) }}</option>
-          </select></label>
+          </Seleccion></label>
         <label class="ccampo corto"><span>{{ t('Priority') }}</span>
           <input class="entrada" type="number" step="1" :value="p.prioridad ?? ''" :disabled="deshabilitado" @change="cambiar(i, 'prioridad', $event.target.value === '' ? null : parseInt($event.target.value, 10))" /></label>
         <button v-if="!deshabilitado" type="button" class="btn-icono" :aria-label="t('Remove')" @click="quitar(i)"><Icono nombre="basura" :tam="15" /></button>

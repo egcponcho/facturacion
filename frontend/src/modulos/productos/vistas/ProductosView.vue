@@ -86,7 +86,7 @@ const categorias = ref([])
 cargarContexto().then((c) => (categorias.value = (c.categorias || []).map((x) => [x.codigo, x.nombre_corto || x.nombre]))).catch(() => {})
 const nombresPais = computed(() => Object.fromEntries((opciones.value.paises || []).map((x) => [x.codigo, x.nombre])))
 const ESTADOS_PRODUCTO = ['borrador', 'sugerida', 'observado', 'revision', 'aprobado', 'corregido']
-  .map((c) => [c, c === 'corregido' ? t('Corrected') : leerEstado(c)[0]])
+  .map((c) => [c, c === 'corregido' ? t('Corrected') : leerEstado(c, 'producto')[0]])
 // Columnas (TablaDatos en modo servidor): cada una filtra por sus valores únicos
 // (los da el servidor); la de países se calcula al vuelo y no se filtra
 const columnas = computed(() => [
@@ -319,7 +319,7 @@ watch(() => sesion.proveedorId, recargar)
       <span v-else class="apagado">—</span>
     </template>
     <template #celda-estado="{ fila: p }">
-      <EstadoBadge :estado="p.estado" />
+      <EstadoBadge :estado="p.estado" tipo="producto" />
       <span v-if="siguiente(p)" class="sub recortar siguiente" :class="{ accion: siguiente(p).accion }" :title="tx(p.faltan.join(', '))">
         <Icono v-if="siguiente(p).accion" nombre="derecha" :tam="12" />{{ tx(siguiente(p).texto) }}</span>
     </template>

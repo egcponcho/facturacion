@@ -9,7 +9,6 @@ from sqlalchemy import (
     JSON,
     Date,
     DateTime,
-    Float,
     ForeignKey,
     Index,
     Integer,
@@ -22,7 +21,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
-from app.modelos.base import Cantidad, ahora, cant
+from app.modelos.base import Cantidad, Precio, ahora, cant
+from app.modelos.empresa import ConAdjunto
 
 if TYPE_CHECKING:
     from app.modelos.compras import PosicionOC
@@ -79,14 +79,14 @@ class FacturaLinea(DeOrganizacion, Base):
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
     posicion_oc_id: Mapped[int] = mapped_column(ForeignKey("posiciones_oc.id"), index=True)
     cantidad: Mapped[float] = mapped_column(Cantidad)
-    precio_unitario: Mapped[float] = mapped_column(Float)
-    precio_oc: Mapped[float] = mapped_column(Float)
+    precio_unitario: Mapped[float] = mapped_column(Precio)
+    precio_oc: Mapped[float] = mapped_column(Precio)
     motivo_precio: Mapped[str | None] = mapped_column(String(300))
     # Copia de los datos de la OC al momento de facturar (trazabilidad)
     oc_numero: Mapped[str] = mapped_column(String(30))
     almacen: Mapped[str | None] = mapped_column(String(10))
     posicion: Mapped[str] = mapped_column(String(10))
-    codigo_sap: Mapped[str] = mapped_column(String(40))
+    codigo_articulo: Mapped[str] = mapped_column(String(40))
     upc: Mapped[str | None] = mapped_column(String(40))
     estilo: Mapped[str | None] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))
@@ -114,13 +114,10 @@ class FacturaLinea(DeOrganizacion, Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class Archivo(DeOrganizacion, Base):
+class Archivo(ConAdjunto, DeOrganizacion, Base):
+    """Archivo adjunto a una factura (la oficial del proveedor u otro)."""
+
     __tablename__ = "archivos"
     id: Mapped[int] = mapped_column(primary_key=True)
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
     tipo: Mapped[str] = mapped_column(String(30))  # FACTURA_OFICIAL | OTRO
-    nombre: Mapped[str] = mapped_column(String(300))
-    ruta: Mapped[str] = mapped_column(String(500))
-    tamano: Mapped[int] = mapped_column(Integer)
-    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-    subido_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)

@@ -42,7 +42,7 @@ def plantilla_estructura(db: Session, pl) -> bytes:
         for j in (1, 2):
             fila = [f"{t.prefijo or t.codigo[:2]}{(i if t.cuenta_como == 'SOPORTE' else (i - 1) * 2 + j):03d}"
                     if t.cuenta_como != "INTERIOR" else "" for t in tipos]
-            ejemplos.append(fila + [fl.codigo_sap, "", fl.casepack or 12])
+            ejemplos.append(fila + [fl.codigo_articulo, "", fl.casepack or 12])
     return plantilla("Packing list physical structure", cols, ejemplos, [
         "One row per item inside its innermost packaging, with the identifier of every level it is in.",
         "The columns are your packaging types (Master data › Packaging types). Leave empty the levels you do not use.",
@@ -99,7 +99,7 @@ def importar_estructura(db: Session, user: Usuario, pl, nombre: str, contenido: 
         if not ruta[-1][0].contiene_productos:
             errores.append({"fila": ref, "mensaje": f"A {ruta[-1][0].nombre.lower()} does not hold products directly."})
             continue
-        candidatas = [pll for pll in pl.lineas if pll.factura_linea.codigo_sap.upper() == sku
+        candidatas = [pll for pll in pl.lineas if pll.factura_linea.codigo_articulo.upper() == sku
                       and (not oc or pll.factura_linea.oc_numero == oc)]
         if not candidatas:
             errores.append({"fila": ref, "mensaje": f"Item {sku} of PO {oc} is not in this packing list." if oc

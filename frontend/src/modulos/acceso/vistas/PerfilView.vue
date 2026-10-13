@@ -10,6 +10,7 @@ import { guardarPerfil, puede, sesion } from '@/stores/sesion'
 import { fechaTexto, horaTexto, numeroTexto } from '@/stores/preferencias'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFechaHora, reducirImagen } from '@/nucleo/utils'
+import BotonArchivo from '@/componentes/BotonArchivo.vue'
 
 // Perfil: foto, datos del usuario, lo que puede hacer y sus preferencias.
 // Nombre, foto y preferencias los cambia el usuario; correo, cargo, área,
@@ -18,7 +19,6 @@ const perfil = ref(null)
 const datos = reactive({ nombre: '', idioma: 'es', idioma_documentos: '', formato_fecha: 'MM/DD/YYYY', formato_hora: '12', formato_numero: '1,234.56', tema: 'sistema', filas: 25, inicio: '/' })
 const clave = reactive({ actual: '', nueva: '', valida: false, error: '' })
 const ocupado = ref(false)
-const archivo = ref(null)
 const seccion = ref('datos')
 
 async function cargar() {
@@ -48,10 +48,7 @@ const SECCIONES = [['datos', t('Personal information'), 'usuario'], ['acceso', t
   ['preferencias', t('Preferences'), 'engrane'], ['seguridad', t('Security'), 'alerta']]
 const FIJOS = [['email', t('Email')], ['cargo', t('Job title')], ['area', t('Area')], ['empresa', t('Company')], ['telefono', t('Registered mobile')]]
 
-async function cambiarFoto(e) {
-  const f = e.target.files?.[0]
-  e.target.value = ''
-  if (!f) return
+async function cambiarFoto(f) {
   try {
     const foto = await reducirImagen(f)
     const r = await api.put('/perfil/foto', { foto })
@@ -103,8 +100,7 @@ async function cambiarClave() {
       <div class="portada-cuerpo">
         <div class="foto-marco">
           <Avatar :nombre="perfil.nombre" :foto="perfil.foto" :tam="104" />
-          <button type="button" class="foto-boton" :title="t('Change photo')" :aria-label="t('Change photo')" @click="archivo.click()"><Icono nombre="camara" :tam="16" /></button>
-          <input ref="archivo" type="file" accept="image/png,image/jpeg,image/webp" hidden @change="cambiarFoto" />
+          <BotonArchivo class="foto-boton" :title="t('Change photo')" :etiqueta="t('Change photo')" acepta="image/png,image/jpeg,image/webp" @elegir="cambiarFoto"><Icono nombre="camara" :tam="16" /></BotonArchivo>
         </div>
         <div class="portada-texto">
           <h1>{{ tx(perfil.nombre) }}</h1>

@@ -2,8 +2,10 @@
 modos y modalidades de transporte, tipos de centro, almacén, contacto,
 impuesto y documento técnico).
 
-La empresa las mantiene en Datos maestros → Listas de valores y se guardan en
-`valores_lista`. En cada petición, `web.dependencias` las carga una sola vez
+La empresa las mantiene en Datos maestros. Las que tienen reglas propias y
+que los documentos referencian con llave foránea tienen su tabla (monedas,
+unidades_medida, modos_transporte, incoterms, condiciones_pago; ver `TABLA`);
+las demás se guardan en `valores_lista`. En cada petición, `web.dependencias` las carga una sola vez
 con `usar_listas`; fuera de una petición (arranque, semilla, pruebas de
 servicios) se usan los valores de fábrica de este archivo, que son los mismos
 que la migración 0040 deja en una instalación nueva.
@@ -69,6 +71,10 @@ LISTAS: dict[str, dict] = {
                        "ayuda": "Technical evidence attached to a product (safety and technical data sheets, "
                                 "certificates…).", "atributos": [], "sistema": []},
 }
+# Listas con tabla propia → catálogo de Datos maestros que las mantiene
+TABLA = {"unidad": "unidades", "moneda": "monedas", "modo_transporte": "modos_transporte", "incoterm": "incoterms",
+         "condicion_pago": "condiciones_pago"}
+LISTAS["condicion_pago"]["atributos"] = ["alias", "dias"]
 # Atributos de cada valor (columnas de valores_lista): etiqueta, tipo y largo máximo de los textos
 ATRIBUTOS = {
     "nombre_plural": ("Plural name", "texto", 120),
@@ -88,6 +94,7 @@ ATRIBUTOS = {
     "padre": ("Transport mode", "lista:modo_transporte"),
     "estados": ("Shipment statuses where it can be recorded", "opciones"),
     "consolidado": ("Consolidated", "bool"),
+    "dias": ("Days to pay (single due date)", "entero"),
 }
 CALCULOS = [["VOLUMEN", "By volume (full and consolidated units)"],
             ["PESO_COBRABLE", "By chargeable weight (air)"]]
@@ -167,10 +174,10 @@ FABRICA: dict[str, list[dict]] = {
     "tipo_impuesto": [_v(c, c) for c in ("DAI", "IVA", "ITBMS", "ISV", "ISC", "SELECTIVO")] + [_v("OTRO", "Other")],
     "tipo_documento": [_v("SDS", "SDS · safety data sheet"), _v("TDS", "TDS · technical data sheet"),
                        _v("COA", "COA · certificate of analysis")],
-    "condicion_pago": [_v("ANTICIPO", "Cash in advance", alias="PREPAID,CIA,CONTADO,ANTICIPADO"),
-                       _v("NETO30", "Net 30 days", alias="NET30,N30,30 DIAS,30 DAYS"),
-                       _v("NETO60", "Net 60 days", alias="NET60,N60,60 DIAS,60 DAYS"),
-                       _v("NETO90", "Net 90 days", alias="NET90,N90,90 DIAS,90 DAYS"),
+    "condicion_pago": [_v("ANTICIPO", "Cash in advance", alias="PREPAID,CIA,CONTADO,ANTICIPADO", dias=0),
+                       _v("NETO30", "Net 30 days", alias="NET30,N30,30 DIAS,30 DAYS", dias=30),
+                       _v("NETO60", "Net 60 days", alias="NET60,N60,60 DIAS,60 DAYS", dias=60),
+                       _v("NETO90", "Net 90 days", alias="NET90,N90,90 DIAS,90 DAYS", dias=90),
                        _v("CARTA_CREDITO", "Letter of credit", alias="LC,L/C,CARTA DE CREDITO"),
                        _v("CAD", "Cash against documents", alias="CONTRA DOCUMENTOS,D/P")],
 }

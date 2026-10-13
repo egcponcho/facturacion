@@ -441,10 +441,7 @@ async function ensenar() {
 }
 
 // ---- Fotos -----------------------------------------------------------------
-async function subirFoto(e) {
-  const a = e.target.files?.[0]
-  e.target.value = ''
-  if (!a) return
+async function subirFoto(a) {
   const datos = new FormData()
   datos.append('archivo', a)
   ocupado.value = true
@@ -555,7 +552,7 @@ async function verVersion(v) {
 // ---- Tablas de la ficha (TablaDatos en modo local) -------------------------------
 // Versiones: la vigente primero y luego las anteriores; cada columna filtra por sus valores
 const ESTADOS_PRODUCTO = ['borrador', 'sugerida', 'observado', 'revision', 'aprobado', 'corregido']
-  .map((c) => [c, c === 'corregido' ? t('Corrected') : leerEstado(c)[0]])
+  .map((c) => [c, c === 'corregido' ? t('Corrected') : leerEstado(c, 'producto')[0]])
 const filasVersiones = computed(() => (p.value ? [
   { version: p.value.version_ficha, actual: true, desde: p.value.vigente_desde, hasta: null, estado: p.value.estado,
     codigo: p.value.codigo || p.value.sugerido || null, motivo: null },
@@ -652,7 +649,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <span class="doc-numero">{{ tx(p.estilo) }} · {{ tx(p.color) }}</span>
           <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento ms-0" :title="t('Generic (style-color)')">{{ t('Generic {0}', [p.codigo_generico]) }}</span> {{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.marca_nombre || p.marca) }}<template v-if="p.proveedor && p.proveedor !== (p.marca_nombre || p.marca)"> · {{ tx(p.proveedor) }}</template></div>
         </div>
-        <EstadoBadge :estado="p.estado" />
+        <EstadoBadge :estado="p.estado" tipo="producto" />
         <span v-if="p.version_ficha > 1" class="etiqueta">{{ t('Version {0}', [p.version_ficha]) }}</span>
         <div class="doc-acciones">
           <MasOpciones>
@@ -744,7 +741,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           </TablaDatos>
           <p v-if="!p.versiones.length" class="ayuda mt-chico">{{ t('There are no previous versions yet. Approved sheets are changed by opening a new version; the previous one stays here as it was.') }}</p>
           <div v-if="versionVista" class="version-vista mt">
-            <div class="fila-flex" style="justify-content: space-between">
+            <div class="fila-flex entre">
               <h3>{{ t('Version {0} · {1}', [versionVista.version, versionVista.estado_txt]) }}<span v-if="versionVista.vigencia" class="apagado"> · {{ fmtFecha(versionVista.vigencia.desde) }} – {{ fmtFecha(versionVista.vigencia.hasta) }}</span></h3>
               <button class="btn-icono" :aria-label="t('Close version')" @click="versionVista = null"><Icono nombre="cerrar" :tam="16" /></button>
             </div>
@@ -768,7 +765,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 
         <!-- Tallas y prepacks -->
         <div v-else-if="pestana === 'tallas'">
-          <div class="fila-flex mt-chico" style="justify-content: space-between">
+          <div class="fila-flex mt-chico entre">
             <p class="ayuda">{{ t('Every size of generic') }} <b>{{ tx(p.codigo_generico || '—') }}</b> {{ t('(style-color) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.') }}</p>
             <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />{{ t('Add sizes') }}</button>
           </div>
@@ -894,7 +891,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <div class="panel-cabeza"><div><h2>{{ t('By destination') }}</h2><p>{{ t('{0} of {1} national codes complete', [paisesOk, paises.length]) }}</p></div></div>
           <!-- Editor de los códigos nacionales (se escribe en cada fila): queda como tabla
                con el estilo del sistema, no como TablaDatos (ver docs/DISENO.md) -->
-          <div class="tabla-marco">
+          <div class="tabla-marco tabla-captura">
           <table class="tabla paises" :aria-label="t('By destination')" v-tarjetas>
             <tbody>
               <tr v-for="x in paises" :key="x.iso">
@@ -1060,7 +1057,6 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .atributo-nombre { font-weight: 580; font-size: 0.86rem; color: var(--tinta-2); }
 .atributo.definido { flex-direction: row; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 0.88rem; padding: 8px 10px; background: var(--superficie-2); border-radius: var(--radio); }
 .atributo.check { flex-direction: row; align-items: flex-start; gap: 8px; font-size: 0.9rem; }
-.atributo select { max-width: 420px; }
 .foto-cabeza { width: 52px; height: 52px; border-radius: 10px; border: 1px solid var(--linea); background: var(--superficie-2); display: grid; place-items: center; overflow: hidden; color: var(--tinta-3); flex: none; }
 .foto-cabeza img { width: 100%; height: 100%; object-fit: cover; }
 .fotos { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -1096,7 +1092,6 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .alternativas { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 0.86rem; }
 .otro-codigo { gap: 6px; flex-wrap: nowrap; }
 .otro-codigo .entrada { flex: 1; min-width: 0; }
-.paises select { max-width: 100%; font-size: 0.84rem; }
 .entrada-pais { width: 100%; min-width: 0; font-family: var(--mono); font-weight: 600; padding: 6px 8px; }
 .entrada-pais.tentativo { border-style: dashed; }
 .entrada-pais.invalida { border-color: var(--error); box-shadow: 0 0 0 3px var(--error-fondo); }

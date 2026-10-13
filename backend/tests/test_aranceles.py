@@ -188,7 +188,7 @@ def test_base_oficial_sieca(interno):
     assert any(x["codigo"] == "640419" and x["fuente"] in ("oficial", "manual") for x in sac)
     gt = interno.get("/aranceles/codigos", params={"pais": "GT", "q": "640419", "size": 20}).json()["items"]
     cods = {x["codigo"]: x for x in gt}
-    assert "6404191000" in cods and cods["6404191000"]["dai"] in ("0", "0.0") and "Cubrecalzado" in cods["6404191000"]["descripcion"]
+    assert "6404191000" in cods and cods["6404191000"]["dai"] == 0 and "Cubrecalzado" in cods["6404191000"]["descripcion"]
     notas = interno.get("/aranceles/notas", params={"capitulo": "61"}).json()["items"]
     assert any(n["ambito"] == "capitulo" and n["numero"] == "9" and "izquierda sobre derecha" in n["texto"] for n in notas)
     assert len(interno.get("/aranceles/notas").json()["items"]) > 400
@@ -204,9 +204,17 @@ def test_acuerdos_por_origen(interno, vans):
     assert "CAFTA-DR" in cubre("US", "SV") and not cubre("US", "PA")
     assert "UE-CA" in cubre("DE", "PA")
     # Se mantienen en Master data → Trade agreements
-    assert vans.post("/catalogos/acuerdos", {"codigo": "VN-XX", "nombre": "x", "origenes": "VN", "destinos": "GT"}).status_code == 403
-    assert interno.post("/catalogos/acuerdos", {"codigo": "VN-XX", "nombre": "x", "origenes": "vn", "destinos": "gt, sv"}).status_code in (200, 201)
-    assert interno.post("/catalogos/acuerdos", {"codigo": "BAD", "nombre": "x", "origenes": "VNM", "destinos": "GT"}).status_code == 422
+    # Los países se eligen del catálogo (llave foránea), no se escriben
+    pais = {p["codigo"]: p["id"] for p in interno.get("/catalogos/paises/opciones").json()}
+    assert vans.post("/catalogos/acuerdos", {"codigo": "VN-XX", "nombre": "x", "origenes": [pais["VN"]],
+                                             "destinos": [pais["GT"]]}).status_code == 403
+    r = interno.post("/catalogos/acuerdos", {"codigo": "VN-XX", "nombre": "x", "origenes": [pais["VN"]],
+                                             "destinos": [pais["GT"], pais["SV"]]})
+    assert r.status_code in (200, 201) and r.json()["destinos_txt"] == "GT, SV"
+    assert interno.post("/catalogos/acuerdos", {"codigo": "BAD", "nombre": "x", "origenes": [999999],
+                                                "destinos": [pais["GT"]]}).status_code == 422
+    assert interno.post("/catalogos/acuerdos", {"codigo": "BAD", "nombre": "x", "origenes": [],
+                                                "destinos": [pais["GT"]]}).status_code == 422
     ac = interno.get("/clasificacion/contexto").json()["acuerdos"]
     assert any(a["codigo"] == "VN-XX" and a["destinos"] == ["GT", "SV"] for a in ac)
 

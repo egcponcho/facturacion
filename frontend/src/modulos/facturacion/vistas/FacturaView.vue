@@ -20,6 +20,7 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import { camposPropios, elegirProveedor, esInterno, valorPropio, ve } from '@/stores/sesion'
 import { avisar, errorApi, guardando, textoDetalle } from '@/stores/ui'
 import { estado as leerEstado } from '@/nucleo/estados.js'
+import CargaArchivo from '@/componentes/CargaArchivo.vue'
 import {
   ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtMoneda, fmtNum, pct, plural, porUnidadTxt, useSeleccion,
 } from '@/nucleo/utils'
@@ -46,7 +47,7 @@ const plEditables = computed(() => plsActivos.value.some((p) => ['BORRADOR', 'EN
 
 const lineasFiltradas = computed(() => {
   if (!f.value) return []
-  return filtrar(f.value.lineas, filtro.value, (l) => [l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion])
+  return filtrar(f.value.lineas, filtro.value, (l) => [l.codigo_articulo, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion])
 })
 // Unidades o pares por caja: el casepack de la OC o la curva del prepack
 const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.casepack || null)
@@ -421,7 +422,7 @@ onMounted(async () => {
 // Packing lists y archivos de la factura en la tabla común
 const columnasPls = [
   { clave: 'numero', texto: t('Packing list'), fija: true, prioridad: 1 },
-  { clave: 'estado', texto: t('Status'), prioridad: 1, textoValor: (v) => tx(leerEstado(v)[0]) },
+  { clave: 'estado', texto: t('Status'), prioridad: 1, textoValor: (v) => tx(leerEstado(v, 'pl')[0]) },
   { clave: 'contenido', texto: t('Contents'), prioridad: 2, valor: (p) => porUnidadTxt(p.totales.por_unidad, 'cantidad') },
   { clave: 'empaque', texto: t('Packing'), prioridad: 2, valor: (p) => (sinEmpacar(p) ? t('{0} not packed', [porUnidadTxt(p.totales.por_unidad, 'sin_caja')]) : p.totales.cajas ? t('All in cartons') : null) },
   { clave: 'peso', texto: t('Gross weight'), num: true, prioridad: 3, valor: (p) => p.totales.peso_bruto, textoValor: (v) => t('{0} kg', [fmtNum(v, 1)]) },
@@ -465,7 +466,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
     <section class="doc-cabeza">
       <div class="doc-fila">
         <span class="doc-numero">{{ tx(f.nombre) }}</span>
-        <EstadoBadge :estado="f.estado" />
+        <EstadoBadge :estado="f.estado" tipo="factura" />
         <span v-if="f.lista_transporte && confirmados < plsActivos.length" class="etiqueta ok"><Icono nombre="check" :tam="12" />{{ t('Ready to ship') }}</span>
         <div class="doc-acciones">
           <MasOpciones>
@@ -510,7 +511,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
                          :vacia-texto="c.tipo === 'opcion' ? c.opciones.join(' / ') : c.tipo === 'fecha' ? 'YYYY-MM-DD' : ''" />
           <b v-else>{{ valorPropio(c, f.extra?.[c.clave]) }}</b>
         </label>
-        <label class="dato" style="grid-column: span 2"><span>{{ t('Remarks') }}</span>
+        <label class="dato col-2"><span>{{ t('Remarks') }}</span>
           <CeldaEditable v-if="editable" :valor="f.observaciones" :guardar="guardarCabecera('observaciones')" :etiqueta="t('Remarks')" />
           <b v-else>{{ tx(f.observaciones || '—') }}</b>
         </label>
@@ -561,12 +562,12 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         <template #celda-articulo="{ fila: l }">
           {{ tx(l.estilo) }}<template v-if="l.color"> · {{ tx(l.color) }}</template>
           <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the prepack breakdown')"
-                  @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ t('Prepack {0}', [l.prepack]) }} <Icono nombre="lupa" :tam="12" /></button>
-          <span class="sub codigo">{{ tx(l.codigo_sap) }}</span>
+                  @click="explosion = { sku: l.codigo_articulo, cajas: l.cantidad }">{{ t('Prepack {0}', [l.prepack]) }} <Icono nombre="lupa" :tam="12" /></button>
+          <span class="sub codigo">{{ tx(l.codigo_articulo) }}</span>
         </template>
         <template #celda-talla="{ fila: l }"><strong>{{ tx(l.talla) }}</strong></template>
         <template #celda-cantidad="{ fila: l }">
-          <CeldaEditable v-if="editable" tipo="number" :min="l.inner_pack || 1" :paso="String(l.inner_pack || 1)" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="t('Quantity of {0}', [l.codigo_sap])" ancho="100px" />
+          <CeldaEditable v-if="editable" tipo="number" :min="l.inner_pack || 1" :paso="String(l.inner_pack || 1)" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="t('Quantity of {0}', [l.codigo_articulo])" ancho="100px" />
           <template v-else>{{ fmtNum(l.cantidad) }}</template>
         </template>
         <template #celda-unidad="{ fila: l }"><span class="etiqueta ms-0">{{ tx(l.unidad) }}</span></template>
@@ -574,7 +575,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         <template #celda-por_inner="{ fila: l }"><span :title="l.inner_pack ? '' : t('Defined in the packing list if needed')">{{ l.inner_pack ? fmtNum(l.inner_pack) : '—' }}</span></template>
         <template #celda-inners_caja="{ fila: l }">{{ innersCaja(l) ? fmtNum(innersCaja(l)) : '—' }}</template>
         <template #celda-precio="{ fila: l }">
-          <CeldaEditable v-if="editable" tipo="number" :min="0" paso="0.0001" :valor="l.precio_unitario" :guardar="celda(l, 'precio_unitario')" :etiqueta="t('Price of {0}', [l.codigo_sap])" ancho="130px" />
+          <CeldaEditable v-if="editable" tipo="number" :min="0" paso="0.0001" :valor="l.precio_unitario" :guardar="celda(l, 'precio_unitario')" :etiqueta="t('Price of {0}', [l.codigo_articulo])" ancho="130px" />
           <template v-else>{{ fmtNum(l.precio_unitario, 2) }}</template>
           <span v-if="Math.abs(l.precio_unitario - l.precio_oc) > 1e-9" class="etiqueta aviso" :title="t('PO price {0}. Reason: {1}', [l.precio_oc, l.motivo_precio || t('not given')])">{{ t('Differs from PO') }}</span>
         </template>
@@ -585,7 +586,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
           <span class="sub">{{ t('{0} in cartons', [fmtNum(l.empacado)]) }}</span>
         </template>
         <template #celda-pais_origen="{ fila: l }">
-          <CeldaEditable v-if="editable" :valor="l.pais_origen" :guardar="celda(l, 'pais_origen')" :vacia-texto="t('Missing')" :etiqueta="t('Country of origin of {0}', [l.codigo_sap])" ancho="84px" />
+          <CeldaEditable v-if="editable" :valor="l.pais_origen" :guardar="celda(l, 'pais_origen')" :vacia-texto="t('Missing')" :etiqueta="t('Country of origin of {0}', [l.codigo_articulo])" ancho="84px" />
           <template v-else>{{ tx(l.pais_origen) }}</template>
         </template>
         <template #celda-partida="{ fila: l }">
@@ -597,7 +598,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         </template>
         <template #celda-descripcion="{ fila: l }">
           <span class="envolver" :title="t('Customs description of the item, without the brand (it has its own column)')">
-            <CeldaEditable v-if="editable" :valor="l.descripcion_comercial" :guardar="celda(l, 'descripcion_comercial')" :vacia-texto="t('Missing')" :etiqueta="t('Description of {0}', [l.codigo_sap])" />
+            <CeldaEditable v-if="editable" :valor="l.descripcion_comercial" :guardar="celda(l, 'descripcion_comercial')" :vacia-texto="t('Missing')" :etiqueta="t('Description of {0}', [l.codigo_articulo])" />
             <template v-else>{{ tx(l.descripcion_comercial) }}</template>
           </span>
         </template>
@@ -622,7 +623,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
 
     <!-- Packing lists and transport -->
     <section v-if="tab === 'pl'">
-      <div class="fila-flex" style="margin-bottom: 14px">
+      <div class="fila-flex mb-4">
         <button v-if="f.puede.crear_pl" class="btn btn-primario" :disabled="ocupado" @click="empacar"><Icono nombre="caja" />{{ t('Pack {0} pending', [porUnidadTxt(pendientePorUnidad, null)]) }}</button>
         <span v-else-if="f.lineas.length" class="nota ok" style="padding: 6px 12px"><Icono nombre="check" />{{ t('All goods are already in packing lists.') }}</span>
         <span class="ayuda">{{ t('One packing list per invoice is usually enough. To split the shipment use “Move” inside the PL.') }}</span>
@@ -630,7 +631,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
       <TablaDatos tabla="factura_doc_pls" :columnas="columnasPls" :filas="f.packing_lists" :vistas-guardadas="false" fila-clicable
                   :clase-fila="(p) => ({ apagado: p.estado === 'CANCELADO' })" :etiqueta="t('Packing lists')" @fila="(p) => router.push(`/packing-lists/${p.id}`)">
         <template #celda-numero="{ fila: p }"><router-link :to="`/packing-lists/${p.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(p.numero) }}</strong></router-link></template>
-        <template #celda-estado="{ fila: p }"><EstadoBadge :estado="p.estado" /></template>
+        <template #celda-estado="{ fila: p }"><EstadoBadge :estado="p.estado" tipo="pl" /></template>
         <template #celda-contenido="{ fila: p }">{{ porUnidadTxt(p.totales.por_unidad, 'cantidad') }}<span class="sub">{{ plural(p.totales.cajas, t('carton'), t('cartons')) }}</span></template>
         <template #celda-empaque="{ fila: p }">
           <span v-if="sinEmpacar(p)" class="etiqueta error">{{ t('{0} not packed', [porUnidadTxt(p.totales.por_unidad, 'sin_caja')]) }}</span>
@@ -647,7 +648,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
           <template v-if="p.transporte">
             <router-link v-if="esInterno()" :to="`/transporte/embarques/${p.transporte.embarque_id}`" class="enlace codigo" @click.stop>{{ tx(p.transporte.embarque) }}</router-link>
             <template v-else>{{ tx(p.transporte.embarque) }}</template>
-            <EstadoBadge :estado="p.transporte.estado" />
+            <EstadoBadge :estado="p.transporte.estado" tipo="embarque" />
             <span class="sub">{{ tx(p.transporte.documento ? t('B/L / AWB {0}', [p.transporte.documento]) : t('B/L / AWB pending')) }}<template v-if="p.transporte.ultimo_evento"> · {{ tx(p.transporte.ultimo_evento.tipo.toLowerCase()) }} {{ fmtFechaHoraLocal(p.transporte.ultimo_evento.fecha) }}</template></span>
           </template>
           <span v-else class="apagado">—</span>
@@ -667,7 +668,8 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
     <section v-if="tab === 'archivos'" class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('Files') }}</h2><p>{{ t('Attach the supplier\'s official invoice (PDF) and other supporting documents.') }}</p></div></div>
       <div v-if="f.estado !== 'CANCELADA'" class="fila-flex">
-        <input type="file" :aria-label="t('File')" @change="subida.archivo = $event.target.files[0]" />
+        <CargaArchivo v-model="subida.archivo" compacta class="campo-archivo" :etiqueta="t('File')"
+                      acepta=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.docx,.doc,.csv,.txt" />
         <Seleccion v-model="subida.tipo" class="entrada" :aria-label="t('File type')">
           <option value="FACTURA_OFICIAL">{{ t('Official invoice') }}</option>
           <option value="OTRO">{{ t('Other document') }}</option>

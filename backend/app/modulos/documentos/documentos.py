@@ -22,6 +22,7 @@ from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Space
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import dinero
 from app.modelos import Pais, Proveedor, Puerto
 from app.modulos.acceso.preferencias import fecha_hora_txt, fecha_txt
 from app.modulos.documentos.idioma_doc import L
@@ -161,6 +162,14 @@ def _num(v, d: int = 0) -> str:
     return f"{v:,.{d}f}"
 
 
+def _precio(v) -> str:
+    """Precio unitario: al menos 2 decimales y los que tenga (hasta 6), sin redondear."""
+    if v is None or v == "":
+        return "—"
+    t = f"{v:,.6f}".rstrip("0")
+    return t if len(t.split(".")[1]) >= 2 else f"{v:,.2f}"
+
+
 def _por_unidad_txt(por_unidad: dict, campo: str | None = None) -> str:
     partes_ = []
     for u, v in por_unidad.items():
@@ -175,17 +184,17 @@ def datos_factura(db: Session, f) -> dict:
     pls = [pl for pl in f.packing_lists if pl.estado != "CANCELADO"]
     ocs = sorted({l.posicion_oc.oc for l in f.lineas}, key=lambda o: o.numero)
     lineas = []
-    importe = 0.0
+    importe = dinero.CERO
     por_unidad: dict[str, int] = {}
     for l in f.lineas:
-        total = round(l.cantidad * l.precio_unitario, 2)
+        total = dinero.importe(l.cantidad, l.precio_unitario, f.moneda)
         importe += total
         por_unidad[l.unidad] = por_unidad.get(l.unidad, 0) + l.cantidad
         lineas.append({
-            "oc": l.oc_numero, "posicion": l.posicion, "sku": l.codigo_sap, "upc": l.upc, "marca": l.marca, "estilo": l.estilo,
+            "oc": l.oc_numero, "posicion": l.posicion, "sku": l.codigo_articulo, "upc": l.upc, "marca": l.marca, "estilo": l.estilo,
             "color": l.color, "talla": l.talla, "descripcion": sin_marca(l.descripcion_comercial or l.descripcion, l.marca),
             "partida": l.partida_arancelaria, "origen": l.pais_origen, "cantidad": l.cantidad, "unidad": l.unidad,
-            "precio": l.precio_unitario, "total": total, "motivo_precio": l.motivo_precio, "prepack": l.prepack if l.tipo_empaque == "PREPACK" else None,
+            "precio": l.precio_unitario, "total": dinero.numero(total), "motivo_precio": l.motivo_precio, "prepack": l.prepack if l.tipo_empaque == "PREPACK" else None,
         })
     bultos = neto = bruto = cbm = 0
     pallets = 0
@@ -196,7 +205,7 @@ def datos_factura(db: Session, f) -> dict:
         bruto += t["peso_bruto"]
         cbm += t["cbm"]
         pallets += t["pallets"]
-    importe = round(importe, 2)
+    importe = dinero.numero(importe)
     return {
         "tipo": "factura", "numero": nombre_factura(f), "fecha": f.fecha, "oficial": f.estado == "FINALIZADA",
         "estado": f.estado, "moneda": f.moneda, "incoterm": f.incoterm, "condiciones": f.condiciones,
@@ -240,7 +249,7 @@ def datos_pl(db: Session, pl) -> dict:
         items = []
         for pll, n in empaques.contenido(pl, g):
             fl = pll.factura_linea
-            items.append({"oc": fl.oc_numero, "posicion": fl.posicion, "sku": fl.codigo_sap, "upc": fl.upc,
+            items.append({"oc": fl.oc_numero, "posicion": fl.posicion, "sku": fl.codigo_articulo, "upc": fl.upc,
                           "marca": fl.marca, "descripcion": sin_marca(fl.descripcion_comercial or fl.descripcion, fl.marca),
                           "estilo": fl.estilo, "color": fl.color, "talla": fl.talla, "unidad": fl.unidad,
                           "por_caja": n, "total": n * g.num_cajas,
@@ -264,7 +273,7 @@ def datos_pl(db: Session, pl) -> dict:
             "ocs": et["ocs"], "centro_destino": et["centro_destino"],
             "largo": g.largo, "ancho": g.ancho, "alto": g.alto,
         })
-    sin_caja = [{"oc": pll.factura_linea.oc_numero, "sku": pll.factura_linea.codigo_sap,
+    sin_caja = [{"oc": pll.factura_linea.oc_numero, "sku": pll.factura_linea.codigo_articulo,
                  "estilo": pll.factura_linea.estilo, "talla": pll.factura_linea.talla,
                  "cantidad": pll.cantidad - cubierto(pll), "unidad": pll.factura_linea.unidad}
                 for pll in pl.lineas if pll.cantidad - cubierto(pll) > 0]
@@ -492,7 +501,7 @@ def pdf_factura(d: dict) -> bytes:
         if l["prepack"]:
             desc += f"<br/><font color='{_acento_hex()}'>" + L("Prepack {0}", _esc(l['prepack'])) + "</font>"
         filas.append([f"{l['oc']}/{l['posicion']}", l["sku"], l["marca"] or "—", Paragraph(desc, e["celda"]), l["partida"], l["origen"],
-                      _num(l["cantidad"]), l["unidad"], _num(l["precio"], 2), _num(l["total"], 2)])
+                      _num(l["cantidad"]), l["unidad"], _precio(l["precio"]), _num(l["total"], 2)])
     t = d["totales"]
     h.append(_tabla(e, [(L("PO / line"), 1.75, False), (L("Item code"), 1.45, False), (L("Brand"), 0.9, False), (L("Customs description"), 3.1, False),
                         (L("HS code (SAC)"), 1.2, False), (L("Origin"), 0.7, False), (L("Quantity"), 0.9, True),

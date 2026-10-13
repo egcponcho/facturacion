@@ -412,22 +412,23 @@ svg { flex: none; }
 .campo > span { font-weight: 580; }
 /* Estilo base de todo campo (también los que no están en un .campo ni en una barra
    de filtros): sin especificidad, así cualquier clase propia lo ajusta */
-:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden'], [type='submit'], [type='button']), select, textarea) {
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden'], [type='submit'], [type='button']), select, textarea),
+.entrada, .campo input:not([type='checkbox']):not([type='radio']):not([type='file']), .campo select, .campo textarea, .filtros input, .filtros select {
   border: 1px solid var(--linea); border-radius: var(--radio); padding: 7px 10px; min-height: 36px; background: var(--superficie); color: var(--tinta); min-width: 0;
-  transition: border-color 0.12s, box-shadow 0.12s;
+  font: inherit; font-size: 0.9rem; transition: border-color 0.12s, box-shadow 0.12s;
 }
-:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden']), select, textarea):focus {
-  border-color: var(--acento); outline: none; box-shadow: 0 0 0 3px var(--foco);
-}
-:where(textarea) { resize: vertical; }
-.entrada, .campo input:not([type='checkbox']):not([type='radio']), .campo select, .campo textarea, .filtros input, .filtros select {
-  border: 1px solid var(--linea); border-radius: var(--radio); padding: 7px 10px; min-height: 36px; background: var(--superficie); color: var(--tinta); min-width: 0;
-  transition: border-color 0.12s, box-shadow 0.12s;
-}
-.campo textarea { min-height: 72px; resize: vertical; }
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden']), select, textarea):focus,
 .entrada:focus, .campo input:focus, .campo select:focus, .campo textarea:focus, .filtros input:focus, .filtros select:focus {
   border-color: var(--acento); outline: none; box-shadow: 0 0 0 3px var(--foco);
 }
+:where(textarea), .campo textarea { resize: vertical; }
+.campo textarea { min-height: 72px; }
+:is(input, textarea)::placeholder { color: var(--tinta-3); opacity: 1; }
+:is(input, select, textarea):disabled { background: var(--superficie-2); color: var(--tinta-2); cursor: not-allowed; }
+/* Campo chico (en una barra o fila de edición): mismo aspecto, menos alto */
+.entrada.chica, .entrada-chica { min-height: 30px; padding: 4px 8px; font-size: 0.84rem; }
+/* Un archivo en una fila de controles ocupa el espacio que sobra */
+.fila-flex > .archivo-campo, .filtros > .archivo-campo { flex: 1 1 280px; max-width: 520px; }
 .rejilla-campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px 16px; }
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.92rem; }
 input[type='checkbox'], input[type='radio'] { accent-color: var(--acento); width: 16px; height: 16px; }
@@ -504,6 +505,10 @@ a.pestana { text-decoration: none; }
 }
 .tabla-marco { overflow-x: auto; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); box-shadow: var(--sombra); }
 .tabla-marco + .tabla-marco, .panel + .tabla-marco { margin-top: 16px; }
+/* Cuadrícula de captura dentro de un formulario, un panel o una ventana (líneas,
+   cuotas, componentes…): marco con borde y sin sombra; alto-limitado la desplaza */
+.tabla-captura { box-shadow: none; border-radius: var(--radio); }
+.tabla-captura.alto-limitado { max-height: 300px; overflow-y: auto; }
 table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); line-height: var(--td-lh); font-variant-numeric: tabular-nums; }
 .tabla th {
   text-align: start; font-weight: 620; color: var(--tinta-3); font-size: var(--td-th-fs); letter-spacing: 0.03em; text-transform: uppercase;
@@ -534,7 +539,7 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); l
 .tabla td .etiqueta { font-size: var(--td-etq); }
 .tabla td :is(.btn-chico, .btn) { min-height: var(--td-ctrl); padding-block: 0; font-size: var(--td-sub); }
 .tabla td .btn-icono { min-width: var(--td-ctrl); min-height: var(--td-ctrl); }
-.tabla td :is(.celda, .entrada, select, input:not([type='checkbox']):not([type='radio'])) { min-height: var(--td-ctrl); font-size: var(--td-fs); padding-block: 2px; }
+.tabla td :is(.celda, .entrada, select, .sb-boton, .archivo-campo, input:not([type='checkbox']):not([type='radio'])) { min-height: var(--td-ctrl); font-size: var(--td-fs); padding-block: 2px; }
 .td-compacta .tabla td .sub { display: inline; margin-inline-start: 6px; }
 /* Tablas con el aspecto de órdenes de compra: el documento de la fila va en
    negrita sin subrayar (enlace-doc + strong.codigo) y los demás enlaces de las
@@ -552,10 +557,24 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); l
 .sel-columnas-op { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
 .sel-columnas-op:hover { background: var(--superficie-2); }
 .sel-columnas-menu > .btn { margin-top: 6px; width: 100%; justify-content: center; }
-.fila-hija > td { background: var(--superficie-2); padding: 0; }
+/* Detalle desplegable de una fila (TablaDatos → DetalleAnidado): un solo
+   aspecto en todo el sistema. Va con sangría y una guía a la izquierda que sale
+   de la flecha de la fila, sobre un fondo apenas más oscuro; una tabla dentro se
+   ve como tabla anidada (compacta, con su borde, sin sombra ni barra repetida). */
+.fila-hija > td { background: var(--superficie-2); padding: 0; white-space: normal; border-bottom: 1px solid var(--linea); }
 .fila-hija:hover > td { background: var(--superficie-2) !important; }
-.subtabla { padding: 12px 16px 16px 48px; }
-.subtabla .tabla-marco { border-radius: var(--radio); box-shadow: none; }
+.detalle-anidado { position: relative; padding: 12px 20px 16px 56px; font-size: var(--t-sm); }
+.detalle-anidado::before { content: ''; position: absolute; inset-block: 0 14px; inset-inline-start: 29px; width: 2px; border-radius: 2px; background: var(--acento-medio); }
+.detalle-anidado > :first-child { margin-top: 0; }
+.detalle-anidado > :last-child { margin-bottom: 0; }
+.detalle-anidado .detalle-anidado { padding-inline-start: 44px; }
+.detalle-anidado .detalle-anidado::before { inset-inline-start: 22px; }
+.td-anidada > .tabla-marco { box-shadow: none; border-radius: var(--radio); }
+.td-anidada > .tabla-marco.tabla-fija { border-end-start-radius: 0; border-end-end-radius: 0; }
+.td-anidada .tabla th { position: static; background: color-mix(in srgb, var(--superficie-2) 60%, var(--superficie)); }
+.td-anidada > .paginacion { padding: 6px 10px; border-radius: 0 0 var(--radio) var(--radio); }
+.td-anidada > .filtros { margin-bottom: 6px; }
+.td-barra-anidada { justify-content: flex-start; }
 .vacio { padding: 32px 20px; text-align: center; color: var(--tinta-2); }
 .vacio .btn { margin-top: 12px; }
 .cajas-rango { font-stretch: 118%; font-weight: 700; white-space: nowrap; }
@@ -852,6 +871,17 @@ a.cajas-rango { color: var(--tinta); }
 .mt-chico { margin-top: 8px; }
 /* Utilidades (en lugar de estilos en línea) */
 .mt-0 { margin-top: 0; }
+.mb-0 { margin-bottom: 0; }
+.gap-1 { gap: var(--e-1); } .gap-2 { gap: var(--e-2); }
+.entre { justify-content: space-between; }
+.centrar { justify-content: center; }
+.sin-envolver { flex-wrap: nowrap; }
+.empuja-fin { margin-inline-start: auto; }
+.empuja-inicio { margin-inline-end: auto; }
+.col-2 { grid-column: span 2; }
+.crece { flex: 1; }
+.texto-inicio { text-align: start; }
+.p-0 { padding: 0; }
 .mb-2 { margin-bottom: var(--e-2); }
 .mb-3 { margin-bottom: var(--e-3); }
 .mb-4 { margin-bottom: var(--e-4); }
@@ -861,6 +891,12 @@ a.cajas-rango { color: var(--tinta); }
 .sin-sombra { box-shadow: none; }
 .nowrap { white-space: nowrap; }
 .mono { font-family: var(--mono); }
+.mayus { text-transform: uppercase; }
+/* Anchos fijos de campos en filas de edición (cantidades, precios, códigos) */
+.ancho-xs { width: 64px; } .ancho-s { width: 90px; } .ancho-m { width: 120px; } .ancho-l { width: 210px; } .ancho-xl { width: 300px; }
+.max-xs { max-width: 150px; } .max-l { max-width: 240px; } .max-xl { max-width: 300px; }
+/* Celda editable con su borde siempre a la vista (cuadrículas de captura) */
+.celda.con-borde { border-color: var(--linea); }
 .dos-columnas { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
 .dos-columnas .panel + .panel { margin-top: 0; }
 .texto-derecha { text-align: end; }
@@ -914,6 +950,19 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .archivo-icono { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--superficie); color: var(--acento-texto); }
 .archivo-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .archivo-datos b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Archivo en una línea (CargaArchivo compacta): se ve como un campo más */
+.archivo-campo { display: flex; align-items: center; gap: 8px; min-height: 36px; min-width: 0; padding: 3px 4px 3px 10px; border: 1px solid var(--linea);
+  border-radius: var(--radio); background: var(--superficie); transition: border-color 0.12s, box-shadow 0.12s; }
+.archivo-campo:focus-within { border-color: var(--acento); box-shadow: 0 0 0 3px var(--foco); }
+.archivo-campo.encima { border-color: var(--acento); background: var(--acento-claro); border-style: dashed; }
+.archivo-campo.elegido { border-color: var(--acento-medio); }
+.archivo-campo.deshabilitado { opacity: 0.55; }
+.archivo-campo-icono { color: var(--tinta-3); flex: none; }
+.archivo-campo-nombre { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem; }
+.archivo-campo .btn { flex: none; box-shadow: none; }
+.boton-archivo { cursor: pointer; }
+.boton-archivo:focus-within { outline: 2px solid var(--acento); outline-offset: 2px; }
+.boton-archivo[aria-disabled='true'] { opacity: 0.5; pointer-events: none; }
 
 /* ---- Filtros activos (chips) ------------------------------------------- */
 .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
@@ -1014,7 +1063,7 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .explosion-oc-cabeza { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
 .enlace-bloque { width: 100%; background: var(--superficie-2); border: 1px solid var(--linea); border-radius: var(--radio); padding: 8px 10px; color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .enlace-bloque:hover { border-color: var(--acento); }
-.explosion-sub { margin: 10px 0 0 22px; }
+.explosion-sub + .explosion-sub { margin-top: 12px; }
 /* Formularios de alta y edición en ventana emergente: dos columnas */
 .modal .form-catalogo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; max-height: none; overflow: visible; }
 .modal .form-catalogo > .campo:has(textarea), .modal .form-catalogo > div.campo, .modal .form-catalogo > .check,
@@ -1077,7 +1126,8 @@ th.num .orden-btn { flex-direction: row-reverse; }
   .tabla.tarjetas > * > tr.fila-completa { padding: 0; }
   .tabla.tarjetas > * > tr.fila-completa > td { display: block; text-align: start; padding: 0; }
   .tabla.tarjetas > * > tr.fila-completa > td::before { content: none; }
-  .tabla.tarjetas .subtabla { padding: 10px; }
+  .tabla.tarjetas .detalle-anidado { padding: 10px 10px 12px 18px; }
+  .tabla.tarjetas .detalle-anidado::before { inset-inline-start: 6px; }
   .tabla.tarjetas td.chk { width: auto; }
 }
 @media (max-width: 900px) {
@@ -1230,7 +1280,6 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .desempeno-cuerpo { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; margin-top: 22px; }
 .subtitulo { font-size: 0.88rem; font-weight: 650; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
 .subtitulo .ayuda { font-weight: 450; font-size: 0.8rem; }
-.vacio-grafica { padding: 40px 0; text-align: center; }
 .tabla-interna { box-shadow: none; }
 .panel > .tabla-interna { margin: 0 -22px -20px; border: 0; border-top: 1px solid var(--linea); border-radius: 0 0 var(--radio-panel) var(--radio-panel); }
 .tablero + .panel, .tablero + section { margin-top: 16px; }

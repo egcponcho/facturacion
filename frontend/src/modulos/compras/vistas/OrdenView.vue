@@ -63,7 +63,7 @@ const pasosCompletos = computed(() => (d.value?.pasos || []).filter((p) => p.cla
 const lineasBorrador = computed(() => (d.value?.posiciones.length ? [] : d.value?.borrador?.lineas || []).map((l, i) => ({ ...l, n: i + 1 })))
 const columnasBorrador = [
   { clave: 'n', texto: '#', num: true, fija: true, prioridad: 1 },
-  { clave: 'codigo_sap', texto: t('Item'), prioridad: 1, valor: (l) => l.codigo_sap || null },
+  { clave: 'codigo_articulo', texto: t('Item'), prioridad: 1, valor: (l) => l.codigo_articulo || null },
   { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 1, valor: (l) => (l.cantidad ? Number(l.cantidad) : null) },
   { clave: 'precio', texto: t('Unit price'), num: true, grupo: 'precios', prioridad: 2, valor: (l) => (l.precio ? Number(l.precio) : null) },
 ]
@@ -77,7 +77,7 @@ const avance = computed(() => d.value?.avance)
 const ESTADOS_LINEA = ['DISPONIBLE', 'PARCIAL', 'FACTURADA', 'NO_DISPONIBLE'].map((c) => [c, estadoTxt(c)[0]])
 const columnasLineas = [
   { clave: 'posicion', texto: t('Line'), prioridad: 1, num: true },
-  { clave: 'codigo_sap', texto: t('Item'), fija: true, prioridad: 1, filtro: 'texto', valor: (p) => `${p.codigo_sap} ${p.estilo || ''} ${p.color || ''} ${p.talla || ''} ${p.descripcion || ''}` },
+  { clave: 'codigo_articulo', texto: t('Item'), fija: true, prioridad: 1, filtro: 'texto', valor: (p) => `${p.codigo_articulo} ${p.estilo || ''} ${p.color || ''} ${p.talla || ''} ${p.descripcion || ''}` },
   { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 1 },
   { clave: 'precio', texto: t('Unit price'), num: true, grupo: 'precios', prioridad: 3 },
   { clave: 'importe', texto: t('Amount'), num: true, grupo: 'precios', prioridad: 2 },
@@ -257,7 +257,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
     <!-- Líneas -->
     <section v-if="tab === 'lineas'" class="panel">
       <TablaDatos v-if="d.posiciones.length" tabla="oc_lineas" :columnas="columnasLineas" :filas="d.posiciones" :etiqueta="t('Lines')">
-        <template #celda-codigo_sap="{ fila: p }"><span class="codigo">{{ tx(p.codigo_sap) }}</span> {{ tx([p.estilo, p.color, p.talla].filter(Boolean).join(' · ')) }}
+        <template #celda-codigo_articulo="{ fila: p }"><span class="codigo">{{ tx(p.codigo_articulo) }}</span> {{ tx([p.estilo, p.color, p.talla].filter(Boolean).join(' · ')) }}
           <span class="sub">{{ tx(p.descripcion || '') }}<template v-if="p.almacen"> · {{ t('Warehouse {0}', [p.almacen]) }}</template></span></template>
         <template #celda-cantidad="{ fila: p }">{{ cantTxt(p.cantidad, p.unidad) }}</template>
         <template #celda-precio="{ fila: p }">{{ p.precio == null ? '—' : fmtNum(p.precio) }}</template>
@@ -276,7 +276,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
         <p class="ayuda">{{ t('Lines of the draft: they become PO lines when it is sent.') }}</p>
         <TablaDatos tabla="oc_borrador_lineas" :columnas="columnasBorrador" :filas="lineasBorrador" clave-fila="n" :vistas-guardadas="false" :etiqueta="t('Lines')">
           <template #celda-n="{ fila: l }">{{ tx(l.n) }}</template>
-          <template #celda-codigo_sap="{ fila: l }"><span class="codigo">{{ tx(l.codigo_sap || '—') }}</span></template>
+          <template #celda-codigo_articulo="{ fila: l }"><span class="codigo">{{ tx(l.codigo_articulo || '—') }}</span></template>
           <template #celda-cantidad="{ fila: l }">{{ l.cantidad ? cantTxt(l.cantidad, l.unidad) : '—' }}</template>
           <template #celda-precio="{ fila: l }">{{ l.precio ? fmtNum(l.precio) : '—' }}</template>
         </TablaDatos>

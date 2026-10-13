@@ -20,7 +20,7 @@ def test_estados_de_liberacion_configurables(interno):
     pos10, cab = oc["posiciones"][0], oc["oc"]
     enc = ("proveedor,oc,posicion,sociedad,centro,almacen,centro_destino,moneda,incoterm,sku,cantidad,precio,"
            "puerto,pais_origen,fecha_xf_original,fecha_tienda,liberacion_comercial,liberacion_logistica\n")
-    fila = (f"VANS,4400009970,10,8000,8020,BF20,2220,USD,FOB,{pos10['codigo_sap']},12,25.5,VNSGN,VN,"
+    fila = (f"VANS,4400009970,10,8000,8020,BF20,2220,USD,FOB,{pos10['codigo_articulo']},12,25.5,VNSGN,VN,"
             f"{cab['fecha_xf_original']},{cab['fecha_tienda']},C,Liberado por ERP\n")
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h,
                        files={"archivo": ("ocs.csv", (enc + fila).encode(), "text/csv")})

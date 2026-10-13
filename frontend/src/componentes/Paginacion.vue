@@ -37,7 +37,7 @@ const botones = computed(() => {
       </template>
       <button type="button" class="pag-btn" :disabled="props.page >= paginas" :aria-label="t('Next page')" @click="emit('cambiar', props.page + 1)"><Icono nombre="flecha" :tam="14" /></button>
     </div>
-    <label class="fila-flex ayuda" style="gap: 6px">
+    <label class="fila-flex ayuda gap-2">
       {{ t('Rows per page') }}
       <Seleccion class="entrada relleno-chico" :value="props.size" @change="emit('tamano', Number($event)); emit('cambiar', 1)">
         <option v-for="txt in props.tamanos" :key="txt" :value="txt">{{ tx(txt) }}</option>

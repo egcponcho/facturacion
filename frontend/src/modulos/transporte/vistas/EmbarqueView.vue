@@ -1,5 +1,5 @@
 <script setup>
-import { ESTADOS_EMBARQUE } from '@/nucleo/estados.js'
+import { pasosEmbarque } from '@/nucleo/estados.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -42,7 +42,7 @@ const verHistorial = ref(false)
 
 const nombreEvento = (t) => eventosEmbarque().find((x) => x[0] === t)?.[1] || t
 // La línea de hitos muestra el camino normal (un embarque anulado no lo recorre)
-const HITOS = ESTADOS_EMBARQUE.filter(([c]) => c !== 'CANCELADO')
+const HITOS = pasosEmbarque().filter(([c]) => c !== 'CANCELADO')
 const SIGUIENTE = { PLANIFICADO: 'SALIDA', EN_TRANSITO: 'ARRIBO', ARRIBADO: 'ENTREGA', ENTREGADO: 'RECEPCION' }
 // El cuarto valor marca lo que exige el documento de transporte (BL, AWB o
 // carta de porte): sin eso no se registra la salida.
@@ -195,12 +195,12 @@ function eliminarUnidad() {
 const todosDisponibles = computed(() => disponibles.value.flatMap((g) => g.packing_lists))
 const suma = (pls) => pls.reduce((a, p) => ({ cajas: a.cajas + p.cajas, cbm: a.cbm + p.cbm, kg: a.kg + p.peso_bruto }), { cajas: 0, cbm: 0, kg: 0 })
 // Carga de la unidad y lo disponible para asignar, en la tabla común (modo local)
-const textoEstado = (v) => tx(leerEstado(v)[0])
+const textoEstado = (tipo) => (v) => tx(leerEstado(v, tipo)[0])
 const columnasCarga = [
   { clave: 'factura', texto: t('Invoice'), fija: true, prioridad: 1 },
   { clave: 'numero', texto: t('Packing list'), prioridad: 1 },
   { clave: 'proveedor', texto: t('Supplier · brands'), prioridad: 2 },
-  { clave: 'asignacion', texto: t('Assignment'), prioridad: 2, textoValor: textoEstado },
+  { clave: 'asignacion', texto: t('Assignment'), prioridad: 2, textoValor: textoEstado() },
   { clave: 'fecha_xf', texto: 'XF', prioridad: 3, textoValor: (v) => fmtFecha(v) },
   { clave: 'recolectado_en', texto: t('Pickup'), prioridad: 3, valor: (p) => p.recolectado_en?.slice(0, 10) || null, textoValor: (v) => fmtFecha(v) },
   { clave: 'fecha_tienda', texto: t('In store'), prioridad: 3, textoValor: (v) => fmtFecha(v) },
@@ -216,14 +216,14 @@ const idsCarga = computed(() => pasanColumnas(u.value?.asignados || [], columnas
 const columnasDisponibles = [
   { clave: 'factura', texto: t('Invoice'), fija: true, prioridad: 1 },
   { clave: 'proveedor', texto: t('Supplier'), prioridad: 2 },
-  { clave: 'factura_estado', texto: t('Status'), prioridad: 3, inicial: false, textoValor: textoEstado },
+  { clave: 'factura_estado', texto: t('Status'), prioridad: 3, inicial: false, textoValor: textoEstado('factura') },
   { clave: 'pls', texto: t('Packing lists'), prioridad: 2, valor: (g) => g.packing_lists.length, textoValor: (v) => plural(v, 'PL', t('PLs')) },
   { clave: 'cajas', texto: t('Cartons'), num: true, prioridad: 2 },
   { clave: 'cbm', texto: 'm³', num: true, prioridad: 2, textoValor: (v) => fmtNum(v, 2) },
 ]
 const columnasPlsDisponibles = [
   { clave: 'numero', texto: t('Packing list'), fija: true, prioridad: 1 },
-  { clave: 'estado', texto: t('Status'), prioridad: 2, textoValor: textoEstado },
+  { clave: 'estado', texto: t('Status'), prioridad: 2, textoValor: textoEstado('pl') },
   { clave: 'contenido', texto: t('Contents'), prioridad: 2, valor: (p) => porUnidadTxt(p.por_unidad, 'cantidad') },
   { clave: 'cajas', texto: t('Cartons'), num: true, prioridad: 2 },
   { clave: 'cbm', texto: 'm³', num: true, prioridad: 2, textoValor: (v) => fmtNum(v, 2) },
@@ -492,7 +492,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
         <TablaDatos ref="tablaCarga" class="mt-chico" tabla="embarque_doc_carga" :columnas="columnasCarga" :filas="u.asignados" :vistas-guardadas="false" :por-pagina="50"
                     :seleccionable="!bloqueado" :seleccion="[...selA.ids]" :etiqueta="t('Cargo of {0}', [u.nombre])" @update:seleccion="(ids) => elegir(selA, ids)">
           <template #celda-factura="{ fila: p }"><router-link :to="`/facturas/${p.factura_id}`" class="enlace-doc"><strong class="codigo">{{ tx(p.factura) }}</strong></router-link><span class="sub codigo">{{ tx(p.ocs?.join(', ')) }}</span></template>
-          <template #celda-numero="{ fila: p }"><router-link :to="`/packing-lists/${p.id}`" class="enlace codigo">{{ tx(p.numero) }}</router-link> <EstadoBadge :estado="p.estado" /></template>
+          <template #celda-numero="{ fila: p }"><router-link :to="`/packing-lists/${p.id}`" class="enlace codigo">{{ tx(p.numero) }}</router-link> <EstadoBadge :estado="p.estado" tipo="pl" /></template>
           <template #celda-proveedor="{ fila: p }">{{ tx(p.proveedor) }}<span v-if="p.marcas?.length" class="sub">{{ tx(p.marcas.join(' · ')) }}</span></template>
           <template #celda-asignacion="{ fila: p }">
             <EstadoBadge :estado="p.asignacion" />
@@ -590,13 +590,13 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
             <input v-model="filtros.q" type="search" :placeholder="t('Search invoice number')" :aria-label="t('Search invoice')" @input="buscar" />
           </label>
         </template>
-        <template #celda-factura="{ fila: g }"><b>{{ tx(g.factura) }}</b> <EstadoBadge :estado="g.factura_estado" /></template>
-        <template #celda-factura_estado="{ fila: g }"><EstadoBadge :estado="g.factura_estado" /></template>
+        <template #celda-factura="{ fila: g }"><b>{{ tx(g.factura) }}</b> <EstadoBadge :estado="g.factura_estado" tipo="factura" /></template>
+        <template #celda-factura_estado="{ fila: g }"><EstadoBadge :estado="g.factura_estado" tipo="factura" /></template>
         <template #celda-pls="{ fila: g }">{{ plural(g.packing_lists.length, 'PL', t('PLs')) }}</template>
         <template #celda-cajas="{ fila: g }">{{ fmtNum(g.cajas) }}</template>
         <template #celda-cbm="{ fila: g }">{{ fmtNum(g.cbm, 2) }}</template>
         <template #detalle="{ fila: g }">
-          <div class="subtabla">
+          <div>
             <TablaDatos tabla="embarque_doc_disponibles_pls" :columnas="columnasPlsDisponibles" :filas="g.packing_lists" :vistas-guardadas="false"
                         seleccionable :seleccion="idsPls(g).filter((id) => selD.tiene(id))" :etiqueta="t('See the PLs of {0}', [g.factura])"
                         @update:seleccion="(ids) => elegirPls(g, ids)">

@@ -213,7 +213,7 @@ watch(periodo, cargar, { deep: true })
     <section v-if="vePanel('periodo')" class="panel desempeno" :aria-label="t('Period')">
       <div class="panel-cabeza">
         <div><h2>{{ t('Performance') }}</h2><p>{{ t('{0} – {1}', [fmtFecha(d.periodo.desde), fmtFecha(d.periodo.hasta)]) }}</p></div>
-        <div class="fila-flex" style="gap: 8px">
+        <div class="fila-flex gap-2">
           <FiltroMulti v-if="d.periodo.marcas.length > 1" v-model="marcas" :etiqueta="t('Brand')" :opciones="d.periodo.marcas.map((m) => ({ valor: m, texto: m }))" @change="cargar" />
           <FiltroPeriodo v-model="periodo" />
         </div>
@@ -226,7 +226,7 @@ watch(periodo, cargar, { deep: true })
         <div v-if="ve('precios')">
           <h3 class="subtitulo">{{ t('Invoiced value') }} <span class="ayuda">{{ tx(GRANO[d.periodo.facturado.grano]) }} · {{ tx(d.moneda) }}</span></h3>
           <GraficoColumnas v-if="totalPeriodo" :datos="serie" :titulo="t('Invoiced value')" :formato="(v) => fmtMoneda(v, d.moneda)" />
-          <p v-else class="ayuda vacio-grafica">{{ t('No finalized invoices in this period. Try a longer period (quarter or year).') }}</p>
+          <p v-else class="vacio">{{ t('No finalized invoices in this period. Try a longer period (quarter or year).') }}</p>
         </div>
         <div>
           <h3 class="subtitulo">{{ t('Where the goods are') }} <span class="ayuda">{{ t('From PO to load unit, by unit of measure.') }}</span></h3>

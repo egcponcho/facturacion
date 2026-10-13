@@ -9,6 +9,7 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import { fmtFecha } from '@/nucleo/utils'
 import { avisar, errorApi } from '@/stores/ui'
 import { confirmar } from '@/stores/confirmar'
+import CargaArchivo from '@/componentes/CargaArchivo.vue'
 
 // Fichas técnicas del producto (SDS, TDS, COA): evidencia técnica de la empresa.
 // Sus datos (CAS, composición, estado físico, densidad, pH…) completan los
@@ -95,9 +96,9 @@ async function quitar(d) {
         <label class="campo"><span class="req">{{ t('Kind') }}</span>
           <Seleccion v-model="nuevo.tipo" class="entrada"><option v-for="[k, txt] in TIPOS" :key="k" :value="k">{{ txt }}</option></Seleccion></label>
         <label class="campo"><span>{{ t('Issued by') }}</span><input v-model="nuevo.emisor" class="entrada" maxlength="200" :placeholder="t('Supplier or laboratory')" /></label>
-        <label class="campo"><span>{{ t('Document date') }}</span><input v-model="nuevo.fecha" type="date" class="entrada" /></label>
+        <label class="campo"><span>{{ t('Document date') }}</span><CampoFecha v-model="nuevo.fecha" /></label>
         <label class="campo"><span class="req">{{ t('File (PDF or image)') }}</span>
-          <input type="file" accept="application/pdf,image/png,image/jpeg" class="entrada" @change="nuevo.archivo = $event.target.files?.[0] || null" /></label>
+          <CargaArchivo v-model="nuevo.archivo" compacta acepta="application/pdf,image/png,image/jpeg" :etiqueta="t('File (PDF or image)')" /></label>
       </div>
       <p class="ayuda">{{ t('Technical data read from the document (optional):') }}</p>
       <div v-for="(f, i) in nuevo.filas" :key="i" class="fila-flex dato-doc">

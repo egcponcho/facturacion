@@ -16,6 +16,7 @@ import AsistenteFamilia from '@/modulos/clasificacion/componentes/AsistenteFamil
 import PanelTraducciones from '@/modulos/clasificacion/componentes/PanelTraducciones.vue'
 import { puede } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
+import EstadoVacio from '@/componentes/EstadoVacio.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -108,10 +109,10 @@ onMounted(cargar)
         <div v-if="edita" class="acciones-resumen">
           <button class="btn btn-primario" @click="abrirAsistente()"><Icono nombre="mas" />{{ t('New family') }}</button>
         </div>
-        <p v-if="familias && !familias.length" class="vacio-panel">
-          {{ t('There are no product families yet. Create the first one to start classifying.') }}
+        <EstadoVacio v-if="familias && !familias.length" icono="caja" :titulo="t('No product families yet')"
+                     :texto="t('There are no product families yet. Create the first one to start classifying.')">
           <button v-if="edita" class="btn btn-primario" @click="abrirAsistente()"><Icono nombre="mas" />{{ t('New family') }}</button>
-        </p>
+        </EstadoVacio>
         <div class="familias">
           <article v-for="f in familias || []" :key="f.codigo" class="panel familia" :class="{ apagada: !f.activo }">
             <header>
@@ -180,7 +181,6 @@ onMounted(cargar)
 .avisos li { display: flex; gap: 6px; align-items: flex-start; font-size: 0.84rem; color: var(--aviso); background: var(--aviso-suave); border: 1px solid var(--aviso-borde); border-radius: 8px; padding: 6px 8px; }
 .avisos li span { flex: 1; }
 .acciones-resumen { display: flex; justify-content: flex-end; margin: -6px 0 12px; }
-.vacio-panel { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 18px; border: 1px dashed var(--linea); border-radius: var(--radio); }
 @media (max-width: 600px) {
   .cifras { grid-template-columns: repeat(2, 1fr); }
 }

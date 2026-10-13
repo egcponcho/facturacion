@@ -3,8 +3,9 @@ código (Configuración → Empresa → Campos propios).
 
 Cada entidad (artículos, proveedores, OCs, facturas…) puede tener campos de
 tipo texto, número, fecha, sí/no u opción. Las definiciones se guardan en la
-configuración de la empresa y los valores en la columna `extra` (JSON) del
-registro, con la clave de cada campo.
+tabla definiciones_campo (la configuración de la petición las trae ya
+cargadas) y los valores en la columna `extra` (JSON) del registro, con la
+clave de cada campo.
 """
 import re
 from datetime import date
@@ -51,7 +52,7 @@ def validar_definiciones(datos) -> dict:
                 raise ErrorNegocio(f"{etiqueta}: an option field needs its options.", 422, "validacion")
             vistas.add(clave)
             lista.append({"clave": clave, "etiqueta": etiqueta, "tipo": tipo, "obligatorio": bool(c.get("obligatorio")),
-                          **({"opciones": opciones} if tipo == "opcion" else {})})
+                          "indexado": bool(c.get("indexado")), **({"opciones": opciones} if tipo == "opcion" else {})})
         limpio[entidad] = lista
     return limpio
 
@@ -94,3 +95,62 @@ def limpiar(entidad: str, valores: dict | None, actuales: dict | None = None, pa
     if errores:
         raise ErrorNegocio("Check the data.", 422, "validacion", errores)
     return {k: v for k, v in resultado.items() if v is not None}
+
+
+# ---- Guardadas en la tabla definiciones_campo ----------------------------------------------
+TABLAS = {"articulos": "articulos", "proveedores": "proveedores", "sociedades": "sociedades", "centros": "centros",
+          "marcas": "marcas", "transportistas": "transportistas", "ordenes": "ordenes_compra", "facturas": "facturas"}
+
+
+def cargar(db) -> dict:
+    """{entidad: [definiciones en su orden]} de la organización de la sesión."""
+    from sqlalchemy import select
+
+    from app.modelos import DefinicionCampo
+
+    res: dict[str, list] = {}
+    for d in db.scalars(select(DefinicionCampo).order_by(DefinicionCampo.entidad, DefinicionCampo.orden, DefinicionCampo.id)):
+        res.setdefault(d.entidad, []).append(
+            {"clave": d.clave, "etiqueta": d.etiqueta, "tipo": d.tipo, "obligatorio": d.obligatorio, "indexado": d.indexado,
+             **({"opciones": list(d.opciones or [])} if d.tipo == "opcion" else {})})
+    return res
+
+
+def _indice(db, entidad: str, clave: str, crear: bool) -> None:
+    """PostgreSQL: índice sobre el valor de un campo propio (extra->>'clave')."""
+    con = db.connection()
+    if con.dialect.name != "postgresql" or not re.fullmatch(r"[a-z][a-z0-9_]{0,29}", clave):
+        return
+    tabla = TABLAS[entidad]
+    nombre = f"ix_{tabla}_extra_{clave}"[:63]
+    if crear:
+        con.exec_driver_sql(f"CREATE INDEX IF NOT EXISTS {nombre} ON {tabla} ((extra->>'{clave}'))")
+    else:
+        con.exec_driver_sql(f"DROP INDEX IF EXISTS {nombre}")
+
+
+def guardar(db, definiciones: dict) -> None:
+    """Reemplaza todas las definiciones (ya validadas; una entidad ausente
+    queda sin campos): conserva las que siguen, agrega las nuevas y quita las
+    que ya no están (sus valores en `extra` se conservan, solo dejan de
+    mostrarse)."""
+    from sqlalchemy import select
+
+    from app.modelos import DefinicionCampo
+
+    for entidad in ENTIDADES:
+        campos = definiciones.get(entidad, [])
+        actuales = {d.clave: d for d in db.scalars(select(DefinicionCampo).where(DefinicionCampo.entidad == entidad))}
+        for i, c in enumerate(campos, start=1):
+            d = actuales.pop(c["clave"], None) or DefinicionCampo(entidad=entidad, clave=c["clave"])
+            antes = bool(d.indexado)
+            d.etiqueta, d.tipo, d.obligatorio, d.orden = c["etiqueta"], c["tipo"], c["obligatorio"], i
+            d.opciones, d.indexado = c.get("opciones") or [], bool(c.get("indexado"))
+            db.add(d)
+            if d.indexado != antes:
+                _indice(db, entidad, c["clave"], d.indexado)
+        for d in actuales.values():
+            if d.indexado:
+                _indice(db, entidad, d.clave, False)
+            db.delete(d)
+    db.flush()

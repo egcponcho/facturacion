@@ -7,7 +7,6 @@ tablas, así que agregar un campo aquí lo agrega en pantalla.
 """
 import csv
 import io
-import json
 
 from sqlalchemy import String, cast, func, select
 from sqlalchemy.exc import IntegrityError
@@ -22,16 +21,28 @@ from app.modelos import (
     AcuerdoComercial,
     Almacen,
     Articulo,
+    ArticuloAtributo,
+    AtributoVariante,
     CategoriaArticulo,
     Centro,
+    CondicionPago,
+    ConfiguracionFiscal,
     Contacto,
+    CuotaCondicionPago,
+    DominioClasificacion,
     EscalaTalla,
     EstadoLiberacion,
     GrupoArticulo,
+    Impuesto,
+    Incoterm,
     Marca,
+    MetodoPago,
+    ModoTransporte,
+    Moneda,
     OrdenCompra,
     Pais,
     PasoLeadTime,
+    PlantillaDocumento,
     PosicionOC,
     Prepack,
     PrepackComponente,
@@ -39,10 +50,14 @@ from app.modelos import (
     Puerto,
     RegionLeadTime,
     ReglaLeadTime,
+    SerieDocumental,
     Sociedad,
+    TipoCambio,
+    TipoDocumento,
     TipoEmpaque,
     TipoUnidad,
     Transportista,
+    UnidadMedida,
     Usuario,
     ValorLista,
 )
@@ -81,6 +96,41 @@ def c(nombre, etiqueta, tipo="texto", obligatorio=False, **extra):
 #       | multi (catalogo: varios registros, p. ej. las marcas de un proveedor)
 # Las opciones de un campo con `lista` salen de las listas de valores de la
 # empresa (core/listas.py), no del código.
+
+
+def _atributo(a: str, **extra) -> dict:
+    """Campo de formulario de un atributo de lista (core/listas.ATRIBUTOS)."""
+    etiqueta, tipo = listas.ATRIBUTOS[a][0], listas.ATRIBUTOS[a][1]
+    return c(a, etiqueta, "opcion" if tipo.startswith("lista") else tipo,
+             **({"lista": tipo.split(":")[1]} if tipo.startswith("lista") else {}),
+             **({"opciones": listas.CALCULOS} if a == "calculo" else {"opciones": listas.ICONOS} if a == "icono"
+                else {"opciones": listas.ESTADOS_EMBARQUE} if a == "estados" else {}),
+             **({"minimo": 0} if tipo in ("entero", "numero") else {}),
+             **({"max": listas.ATRIBUTOS[a][2]} if tipo == "texto" else {}), **extra)
+
+
+def _catalogo_lista(lista: str, modelo, singular: str, max_codigo: int, obligatorios=()) -> dict:
+    """Catálogo de una lista con tabla propia (monedas, unidades…)."""
+    d = listas.LISTAS[lista]
+    return {
+        "modelo": modelo, "titulo": d["etiqueta"], "singular": singular, "lista": lista,
+        "ayuda": d["ayuda"] + (" Values the system relies on can be renamed but not deleted or deactivated."
+                               if d["sistema"] else ""),
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=max_codigo, mayus=True),
+            c("nombre", "Name", obligatorio=True, max=120),
+            *[_atributo(a, obligatorio=a in obligatorios) for a in d["atributos"]],
+            c("orden", "Order", "entero", minimo=0),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre", *(["alias"] if "alias" in d["atributos"] else [])],
+    }
+
+
+SIMPLES = [k for k in listas.LISTAS if k not in listas.TABLA]
+_CLASES_DOC = [["FACTURA", "Invoice"], ["NOTA_CREDITO", "Credit note"], ["NOTA_DEBITO", "Debit note"],
+               ["PROFORMA", "Proforma"]]
+_DIRECCIONES_DOC = [["EMITIDO", "Issued (sales)"], ["RECIBIDO", "Received (purchases)"]]
 CATALOGOS = {
     "sociedades": {
         "modelo": Sociedad, "titulo": "Companies", "singular": "company",
@@ -149,7 +199,9 @@ CATALOGOS = {
             c("telefono", "Phone"),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["nombre", "cargo", "correos"],
+        "buscar": ["nombre", "cargo"],
+        # Las personas de contacto de proveedores y transportistas viven en su tercero
+        "donde": lambda: Contacto.tercero_id.is_(None),
     },
     "paises": {
         "modelo": Pais, "titulo": "Countries", "singular": "country",
@@ -172,15 +224,14 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True),
-            c("origenes", "Origin countries (ISO)", obligatorio=True, mayus=True, patron=r"^[A-Z]{2}(\s*,\s*[A-Z]{2})*$",
-              mensaje_patron="ISO codes separated by commas, e.g. US, DO.", ayuda="ISO codes separated by commas."),
-            c("destinos", "Destination countries (ISO)", obligatorio=True, mayus=True, patron=r"^[A-Z]{2}(\s*,\s*[A-Z]{2})*$",
-              mensaje_patron="ISO codes separated by commas, e.g. GT, SV.", ayuda="Destination countries where it applies."),
+            c("origenes", "Origin countries", "multi", obligatorio=True, catalogo="paises", filtro=True),
+            c("destinos", "Destination countries", "multi", obligatorio=True, catalogo="paises", filtro=True,
+              ayuda="Destination countries where it applies."),
             c("prueba", "Proof of origin"),
             c("nota", "Note"),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["codigo", "nombre", "origenes", "destinos"],
+        "buscar": ["codigo", "nombre"],
     },
     "regiones": {
         "modelo": RegionLeadTime, "titulo": "Regions", "singular": "region",
@@ -280,6 +331,19 @@ CATALOGOS = {
         ],
         "buscar": ["codigo", "nombre"],
     },
+    "atributos_variante": {
+        "modelo": AtributoVariante, "titulo": "Variant attributes", "singular": "variant attribute",
+        "ayuda": "What tells the variants of an item apart. Size and color are built in; add your own (material, "
+                 "capacity, voltage…) and each item records its value in the item form.",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True, patron=r"^[A-Z][A-Z0-9_]{0,19}$",
+              mensaje_patron="Letters, numbers and _, starting with a letter."),
+            c("nombre", "Name", obligatorio=True, max=60),
+            c("orden", "Order", "entero", minimo=0),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre"],
+    },
     "escalas": {
         "modelo": EscalaTalla, "titulo": "Size scales", "singular": "size scale",
         "ayuda": "Reusable size structures for any product (footwear, apparel, accessories…). A generic starts from a "
@@ -297,7 +361,7 @@ CATALOGOS = {
               ayuda="In order, separated by commas. Ranges allowed (6-10, 6.5-9.5). A fixed code with = (7=070)."),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["codigo", "nombre", "tallas"],
+        "buscar": ["codigo", "nombre"],
     },
     "categorias": {
         "modelo": CategoriaArticulo, "titulo": "Item categories", "singular": "category",
@@ -305,8 +369,18 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=10, mayus=True),
             c("nombre", "Name", obligatorio=True),
+            c("dominio", "Classification domain", "codigo", catalogo="dominios", filtro=True,
+              ayuda="The product sheet offers the product categories of this domain first."),
             c("activo", "Active", "bool", filtro=True),
         ],
+        "buscar": ["codigo", "nombre"],
+    },
+    # Dominios de clasificación (compartidos, se configuran en Clasificación):
+    # solo para elegirlos desde otros catálogos
+    "dominios": {
+        "modelo": DominioClasificacion, "titulo": "Classification domains", "singular": "classification domain",
+        "solo_lectura": True,
+        "campos": [c("codigo", "Code"), c("nombre", "Name"), c("activo", "Active", "bool")],
         "buscar": ["codigo", "nombre"],
     },
     "liberaciones": {
@@ -330,27 +404,147 @@ CATALOGOS = {
     },
     "listas": {
         "modelo": ValorLista, "titulo": "Lists of values", "singular": "value",
-        "ayuda": "Values offered in forms and files: units of measure, currencies, incoterms, transport modes and "
-                 "modalities, and the types of plants, storage locations, contacts, taxes and technical documents. "
+        "ayuda": "Values offered in forms and files: transport modalities and shipment milestones, and the types of "
+                 "plants, storage locations, contacts, taxes and technical documents. Currencies, units of measure, "
+                 "transport modes, incoterms and payment terms have their own catalogs. "
                  "Values the system relies on can be renamed but not deleted or deactivated.",
         "campos": [
             c("lista", "List", "opcion", obligatorio=True, filtro=True,
-              opciones=[[k, v["etiqueta"]] for k, v in listas.LISTAS.items()]),
+              opciones=[[k, listas.LISTAS[k]["etiqueta"]] for k in SIMPLES]),
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True, max=120),
-            *[c(a, listas.ATRIBUTOS[a][0], "opcion" if listas.ATRIBUTOS[a][1].startswith("lista") else listas.ATRIBUTOS[a][1],
-                mostrar_si={"campo": "lista", "valores": [k for k, v in listas.LISTAS.items() if a in v["atributos"]]},
-                **({"lista": listas.ATRIBUTOS[a][1].split(":")[1]} if listas.ATRIBUTOS[a][1].startswith("lista") else {}),
-                **({"opciones": listas.CALCULOS} if a == "calculo" else {"opciones": listas.ICONOS} if a == "icono"
-                   else {"opciones": listas.ESTADOS_EMBARQUE} if a == "estados" else {}),
-                **({"minimo": 0} if listas.ATRIBUTOS[a][1] in ("entero", "numero") else {}),
-                **({"max": listas.ATRIBUTOS[a][2]} if listas.ATRIBUTOS[a][1] == "texto" else {}))
-              for a in listas.ATRIBUTOS],
+            *[_atributo(a, mostrar_si={"campo": "lista", "valores": [k for k in SIMPLES if a in listas.LISTAS[k]["atributos"]]})
+              for a in ("padre", "consolidado", "estados")],
             c("orden", "Order", "entero", minimo=0),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["codigo", "nombre", "alias"],
+        "buscar": ["codigo", "nombre"],
     },
+    "monedas": _catalogo_lista("moneda", Moneda, "currency", 3, obligatorios=("decimales",)),
+    # ---- Facturación y pagos ----
+    "tipos_documento": {
+        "modelo": TipoDocumento, "titulo": "Document types", "singular": "document type",
+        "ayuda": "Commercial documents and how they behave: issued or received, sign (a credit note subtracts), whether "
+                 "they change the partner's balance and whether they need the document they correct.",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Name", obligatorio=True, max=120),
+            c("clase", "Class", "opcion", obligatorio=True, filtro=True, opciones=_CLASES_DOC),
+            c("direccion", "Direction", "opcion", obligatorio=True, filtro=True, opciones=_DIRECCIONES_DOC),
+            c("signo", "Sign", "opcion", obligatorio=True, opciones=[[1, "+ adds"], [-1, "− subtracts"]]),
+            c("afecta_saldo", "Changes the balance", "bool"),
+            c("requiere_origen", "Needs the corrected document", "bool", defecto=False),
+            c("orden", "Order", "entero", minimo=0),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre"],
+    },
+    "series": {
+        "modelo": SerieDocumental, "titulo": "Numbering series", "singular": "numbering series",
+        "ayuda": "How each document is numbered: prefix ({año} is replaced by the year), digits and whether it restarts "
+                 "every year. The number is assigned when the document is issued, with the counter locked.",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Name", obligatorio=True, max=120),
+            c("objeto", "Numbers", "opcion", obligatorio=True, filtro=True,
+              opciones=[["documento", "Commercial documents"], ["embarque", "Shipments"]]),
+            c("tipo_documento_id", "Document type", "ref", catalogo="tipos_documento", filtro=True),
+            c("sociedad_id", "Company", "ref", catalogo="sociedades", filtro=True),
+            c("prefijo", "Prefix", max=20),
+            c("digitos", "Digits", "entero", obligatorio=True, minimo=1),
+            c("reinicio", "Restart", "opcion", obligatorio=True, opciones=[["NUNCA", "Never"], ["ANUAL", "Every year"]]),
+            c("predeterminada", "Default", "bool"),
+            c("vigente_desde", "Valid from", "fecha"),
+            c("vigente_hasta", "Valid until", "fecha"),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre", "prefijo"],
+    },
+    "impuestos": {
+        "modelo": Impuesto, "titulo": "Taxes", "singular": "tax",
+        "ayuda": "Taxes and withholdings of commercial documents, by jurisdiction and validity. A document copies the "
+                 "rate in force on its date: a later change does not alter past documents.",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Name", obligatorio=True, max=120),
+            c("tipo", "Calculation", "opcion", obligatorio=True,
+              opciones=[["PORCENTAJE", "Percentage of the base"], ["FIJO", "Fixed amount per unit"]]),
+            c("tasa", "Rate", "numero", obligatorio=True, minimo=0),
+            c("pais", "Jurisdiction (country)", "codigo", catalogo="paises", filtro=True),
+            c("es_retencion", "Withholding (subtracts)", "bool", defecto=False),
+            c("vigente_desde", "Valid from", "fecha"),
+            c("vigente_hasta", "Valid until", "fecha"),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre"],
+    },
+    "cuotas_pago": {
+        "modelo": CuotaCondicionPago, "titulo": "Payment term installments", "singular": "installment",
+        "ayuda": "Payment terms in parts (e.g. 30 % in advance, 70 % at 60 days). Their percentages add up to 100.",
+        "campos": [
+            c("condicion_id", "Payment term", "ref", obligatorio=True, catalogo="condiciones_pago", filtro=True),
+            c("numero", "Number", "entero", obligatorio=True, minimo=1),
+            c("porcentaje", "Percentage", "numero", obligatorio=True, minimo=0),
+            c("dias", "Days", "entero", obligatorio=True, minimo=0),
+        ],
+        "buscar": [],
+    },
+    "metodos_pago": {
+        "modelo": MetodoPago, "titulo": "Payment methods", "singular": "payment method",
+        "campos": [
+            c("codigo", "Code", obligatorio=True, max=20, mayus=True),
+            c("nombre", "Name", obligatorio=True, max=120),
+            c("orden", "Order", "entero", minimo=0),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["codigo", "nombre"],
+    },
+    "tipos_cambio": {
+        "modelo": TipoCambio, "titulo": "Exchange rates", "singular": "exchange rate",
+        "ayuda": "1 unit of the source currency = rate units of the target currency, on a date. A document keeps the "
+                 "rate of its issue.",
+        "campos": [
+            c("moneda_origen", "From", "opcion", obligatorio=True, filtro=True, lista="moneda"),
+            c("moneda_destino", "To", "opcion", obligatorio=True, filtro=True, lista="moneda"),
+            c("fecha", "Date", "fecha", obligatorio=True),
+            c("tasa", "Rate", "numero", obligatorio=True, minimo=0),
+            c("fuente", "Source", max=80),
+        ],
+        "buscar": ["moneda_origen", "moneda_destino", "fuente"],
+    },
+    "configuracion_fiscal": {
+        "modelo": ConfiguracionFiscal, "titulo": "Tax settings", "singular": "tax setting",
+        "ayuda": "How each company invoices: rounding by line or by document, default taxes, whether legal numbering "
+                 "must have no gaps and its e-invoicing provider.",
+        "campos": [
+            c("sociedad_id", "Company", "ref", obligatorio=True, catalogo="sociedades", filtro=True),
+            c("pais", "Country", "codigo", catalogo="paises"),
+            c("regimen", "Tax regime", max=80),
+            c("redondeo", "Rounding", "opcion", obligatorio=True,
+              opciones=[["LINEA", "Each line"], ["DOCUMENTO", "Document total"]]),
+            c("sin_huecos", "Numbering without gaps", "bool", defecto=False),
+            c("impuestos_defecto", "Default taxes (codes, comma-separated)", max=200, mayus=True),
+            c("proveedor_electronico", "E-invoicing provider", max=60),
+        ],
+        "buscar": ["regimen", "proveedor_electronico"],
+    },
+    "plantillas_documento": {
+        "modelo": PlantillaDocumento, "titulo": "Document templates", "singular": "document template",
+        "ayuda": "Printed texts of each document type and language (title, header and footer).",
+        "campos": [
+            c("tipo_documento_id", "Document type", "ref", obligatorio=True, catalogo="tipos_documento", filtro=True),
+            c("idioma", "Language", "opcion", obligatorio=True, opciones=[["es", "Spanish"], ["en", "English"]]),
+            c("titulo", "Title", max=120),
+            c("encabezado", "Header"),
+            c("pie", "Footer"),
+            c("activo", "Active", "bool", filtro=True),
+        ],
+        "buscar": ["titulo"],
+    },
+    "unidades": _catalogo_lista("unidad", UnidadMedida, "unit of measure", 10),
+    "modos_transporte": _catalogo_lista("modo_transporte", ModoTransporte, "transport mode", 20, obligatorios=("calculo",)),
+    "incoterms": _catalogo_lista("incoterm", Incoterm, "incoterm", 10),
+    "condiciones_pago": _catalogo_lista("condicion_pago", CondicionPago, "payment term", 20),
     "grupos": {
         "modelo": GrupoArticulo, "titulo": "Item groups", "singular": "group",
         "ayuda": "Each item belongs to a single group. The category sets the packing rule; it does not define the "
@@ -463,19 +657,22 @@ CATALOGOS = {
                  "sizes and quantities per master carton with solids of the same style and color, and its prepack ID "
                  "(usually 2 letters and 2 digits, e.g. AB12) is its size. The breakdown can be viewed but not changed.",
         "campos": [
+            c("tipo", "Kind", "opcion", filtro=True, opciones=[["CURVA", "Size assortment"], ["KIT", "Kit"]]),
             c("codigo", "Prepack ID", obligatorio=True, max=10, mayus=True, patron=r"^[A-Z0-9]{2,10}$",
               mensaje_patron="Letters and numbers only, e.g. AB12."),
             c("estilo", "Style", obligatorio=True, mayus=True, filtro=True),
-            c("color", "Color", obligatorio=True),
+            c("color", "Color"),
             c("descripcion", "Description"),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "estilo", "color", "descripcion"],
     },
 }
-ORDEN_CATALOGOS = ["articulos", "prepacks", "escalas", "tipos_empaque", "marcas", "grupos", "proveedores", "sociedades", "centros",
+ORDEN_CATALOGOS = ["articulos", "prepacks", "atributos_variante", "escalas", "tipos_empaque", "marcas", "grupos", "proveedores", "sociedades", "centros",
                    "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "pasos_lt", "leadtimes", "acuerdos",
-                   "liberaciones", "categorias", "listas"]
+                   "liberaciones", "categorias", "monedas", "unidades", "incoterms", "condiciones_pago",
+                   "modos_transporte", "listas", "tipos_documento", "series", "impuestos", "cuotas_pago", "metodos_pago",
+                   "tipos_cambio", "configuracion_fiscal", "plantillas_documento"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
 
@@ -483,6 +680,12 @@ def _cat(tipo: str) -> dict:
     if tipo not in CATALOGOS:
         raise ErrorNegocio("The catalog does not exist.", 404, "no_encontrado")
     return CATALOGOS[tipo]
+
+
+def exigir_editable(tipo: str) -> None:
+    """Un catálogo de solo consulta (se mantiene en otro módulo) no se cambia aquí."""
+    if _cat(tipo).get("solo_lectura"):
+        raise ErrorNegocio("This catalog is maintained in its own module.", 409, "solo_lectura")
 
 
 def _mostrar(obj) -> str:
@@ -507,6 +710,17 @@ def _opciones(campo: dict) -> list[list[str]]:
 
 def _tipo_de(cat: dict) -> str:
     return next(k for k, v in CATALOGOS.items() if v is cat)
+
+
+def campos_variante(cat: dict) -> list[dict]:
+    """Atributos de variante propios de la empresa (material, voltaje…) como
+    campos «atr.<código>» del artículo; se guardan en articulo_atributos."""
+    from app.core.empresa import configuracion_actual
+
+    if cat["modelo"] is not Articulo:
+        return []
+    return [c(f"atr.{x['codigo']}", x["nombre"], max=60, propio=True, seccion="variante", filtro=True)
+            for x in configuracion_actual().get("atributos_variante") or []]
 
 
 def campos_propios(cat: dict) -> list[dict]:
@@ -548,7 +762,7 @@ def campos_con_opciones(cat: dict) -> list[dict]:
             y["obligatorio"] = True
             y["obligatorio_empresa"] = True
         campos.append(y)
-    return campos + [{**x, "seccion": "propios"} for x in campos_propios(cat)]
+    return campos + campos_variante(cat) + [{**x, "seccion": "propios"} for x in campos_propios(cat)]
 
 
 def meta(db: Session, user: Usuario) -> list[dict]:
@@ -591,6 +805,10 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
     fila = {"id": obj.id}
     for x in campos_propios(cat):
         fila[x["nombre"]] = (obj.extra or {}).get(x["nombre"][6:])
+    if campos_variante(cat):
+        variantes = obj.variantes
+        for x in campos_variante(cat):
+            fila[x["nombre"]] = variantes.get(x["nombre"][4:])
     for campo in cat["campos"]:
         v = getattr(obj, campo["nombre"])
         if campo["tipo"] == "opciones":
@@ -656,6 +874,37 @@ def _refs(db: Session, cat: dict, objs: list) -> dict:
     return refs
 
 
+def es_virtual(modelo, nombre: str) -> bool:
+    """Un dato que no es columna sino propiedad del modelo (correos, teléfono,
+    dirección y contacto viven en medios_contacto, direcciones y contactos)."""
+    import inspect as _inspect
+
+    return isinstance(_inspect.getattr_static(modelo, nombre, None), property)
+
+
+def _columna_virtual(modelo, nombre: str):
+    """Filtro por columna de un dato virtual: la fila pasa si alguno de sus registros tiene el valor."""
+    from app.modelos import Contacto, Direccion, MedioContacto
+
+    if hasattr(modelo, "_rol_tercero"):  # proveedor o transportista: en su tercero
+        dueno_medio, dueno_dir, padre = MedioContacto.tercero_id, Direccion.tercero_id, modelo.tercero_id
+    else:
+        clave = {"sociedades": "sociedad_id", "centros": "centro_id", "contactos": "contacto_id"}.get(modelo.__tablename__)
+        if clave is None:  # otro dato calculado (p. ej. las tallas de una escala): no se filtra por columna
+            return None
+        dueno_medio, padre = getattr(MedioContacto, clave), modelo.id
+        dueno_dir = getattr(Direccion, clave) if hasattr(Direccion, clave) else None
+    if nombre == "correos":
+        return tabla.Relacion(MedioContacto.valor, dueno_medio, padre, MedioContacto.tipo == "CORREO")
+    if nombre == "telefono":
+        return tabla.Relacion(MedioContacto.valor, dueno_medio, padre, MedioContacto.tipo.in_(("TELEFONO", "MOVIL")))
+    if nombre == "direccion" and dueno_dir is not None:
+        return tabla.Relacion(Direccion.linea1, dueno_dir, padre)
+    if nombre == "contacto":
+        return tabla.Relacion(Contacto.nombre, Contacto.tercero_id, padre)
+    return None
+
+
 def columnas_tabla(cat: dict) -> dict:
     """Expresión SQL de cada columna de la tabla del catálogo para el filtro por
     columna (app/modulos/comun/tabla.py). Un campo con varios registros (multi)
@@ -668,6 +917,10 @@ def columnas_tabla(cat: dict) -> dict:
         n = x["nombre"]
         if x["tipo"] == "regla_lt":
             continue
+        if es_virtual(modelo, n):
+            if (col := _columna_virtual(modelo, n)) is not None:
+                res[n] = col
+            continue
         if x["tipo"] == "multi":
             rel = getattr(modelo, n).property
             res[n] = tabla.Relacion(rel.secondary_synchronize_pairs[0][1], rel.synchronize_pairs[0][1], modelo.id)
@@ -677,6 +930,10 @@ def columnas_tabla(cat: dict) -> dict:
             res[n] = getattr(modelo, n)
     for x in campos_propios(cat):
         res[x["nombre"]] = modelo.extra[x["nombre"][6:]].as_string()
+    for x in campos_variante(cat):
+        atributo = select(AtributoVariante.id).where(AtributoVariante.codigo == x["nombre"][4:]).scalar_subquery()
+        res[x["nombre"]] = tabla.Relacion(ArticuloAtributo.valor, ArticuloAtributo.articulo_id, Articulo.id,
+                                          donde=ArticuloAtributo.atributo_id == atributo)
     if modelo is Prepack:
         # Código de artículo del prepack (el artículo que apunta a él)
         res["sku"] = tabla.Relacion(Articulo.sku, Articulo.prepack_id, Prepack.id)
@@ -702,7 +959,7 @@ def listar(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dict, 
     consulta = tabla.aplicar(consulta, cols, filtros_columna or {})
     nombres = {x["nombre"]: x for x in cat["campos"]}
     col, _, direccion = (orden or "").partition(":")
-    if col in nombres and nombres[col]["tipo"] not in ("multi", "regla_lt"):
+    if col in nombres and nombres[col]["tipo"] not in ("multi", "regla_lt") and not es_virtual(modelo, col):
         expr = getattr(modelo, col)
         consulta = consulta.order_by(expr.desc() if direccion == "desc" else expr.asc(), modelo.id)
     elif col.startswith("extra.") and col in cols:
@@ -722,11 +979,14 @@ def _consulta(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dic
     cat = _cat(tipo)
     modelo = cat["modelo"]
     consulta = select(modelo)
+    if cat.get("donde"):
+        consulta = consulta.where(cat["donde"]())
     if q:
-        consulta = consulta.where(filtro_texto(q, lambda p: [getattr(modelo, b).ilike(p) for b in cat["buscar"]]))
+        consulta = consulta.where(filtro_texto(q, lambda p: [getattr(modelo, b).ilike(p) for b in cat["buscar"]
+                                                             if not es_virtual(modelo, b)]))
     nombres = {x["nombre"]: x for x in cat["campos"]}
     for k, v in filtros.items():
-        if k not in nombres or v in (None, ""):
+        if k not in nombres or v in (None, "") or es_virtual(modelo, k):
             continue
         campo = nombres[k]
         if campo["tipo"] == "multi":
@@ -839,7 +1099,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             if errs:
                 errores.extend({"campo": n, "mensaje": e} for e in errs)
             else:
-                limpio[n] = json.dumps(regla, ensure_ascii=False)
+                limpio[n] = regla
             continue
         if isinstance(v, str):
             v = nombre_fmt(v) if campo.get("formato") == "nombre" else texto_fmt(v)
@@ -866,6 +1126,12 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
                     raise ValueError
             elif t == "numero":
                 v = float(v)
+                if campo.get("minimo") is not None and v < campo["minimo"]:
+                    raise ValueError
+            elif t == "fecha":
+                from datetime import date as _fecha
+
+                v = v if isinstance(v, _fecha) else _fecha.fromisoformat(str(v)[:10])
             elif t == "bool":
                 v = v if isinstance(v, bool) else str(v).lower() in ("1", "true", "si", "sí")
             elif t == "ref":
@@ -919,6 +1185,26 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             errores.append({"campo": n, "mensaje": f"{campo['etiqueta']}: {campo.get('mensaje_patron', 'invalid format')}"})
             continue
         limpio[n] = v
+
+    if isinstance(actual, Prepack) and "tipo" in limpio and limpio["tipo"] != actual.tipo:
+        errores.append({"campo": "tipo", "mensaje": "A prepack's kind cannot change: create a new one."})
+    if isinstance(actual, AtributoVariante) and actual.columna:
+        fijos = [k for k in ("codigo", "activo") if k in limpio and limpio[k] != getattr(actual, k)]
+        if fijos:
+            errores.append({"campo": fijos[0], "mensaje": "Size and color are built in: only their name and order change."})
+    elif isinstance(actual, AtributoVariante) and "codigo" in limpio and limpio["codigo"] != actual.codigo \
+            and db.scalar(select(ArticuloAtributo.id).where(ArticuloAtributo.atributo_id == actual.id).limit(1)):
+        errores.append({"campo": "codigo", "mensaje": "Items already use this attribute: its code cannot change."})
+
+    # Atributos de variante propios: texto corto, uno por atributo
+    if cat["modelo"] is Articulo:
+        validos = {x["nombre"][4:] for x in campos_variante(cat)}
+        atr = {k[4:]: str(v).strip()[:60] if v is not None else "" for k, v in datos.items() if k.startswith("atr.")}
+        desconocidos = sorted(set(atr) - validos)
+        if desconocidos:
+            errores.append({"campo": f"atr.{desconocidos[0]}", "mensaje": f"{desconocidos[0]} is not a variant attribute."})
+        elif atr:
+            limpio["variantes"] = {**(actual.variantes if actual else {}), **atr}
 
     # Campos propios: se validan con su tipo y se guardan juntos en extra
     propios = {k[6:]: v for k, v in datos.items() if k.startswith("extra.")}
@@ -1007,10 +1293,31 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             col = OrdenCompra.liberacion_comercial if actual.tipo == "COMERCIAL" else OrdenCompra.liberacion_logistica
             if db.scalar(select(OrdenCompra.id).where(col == actual.codigo).limit(1)):
                 errores.append({"campo": "codigo", "mensaje": "Purchase orders use this code: it cannot change."})
-    if cat["modelo"] is ValorLista:
+    if cat["modelo"] is CuotaCondicionPago and final.get("condicion_id") and final.get("porcentaje") is not None:
+        otras = db.scalars(select(CuotaCondicionPago).where(CuotaCondicionPago.condicion_id == final["condicion_id"]))
+        suma = sum(float(x.porcentaje) for x in otras if not actual or x.id != actual.id) + float(final["porcentaje"])
+        if suma > 100.0001:
+            errores.append({"campo": "porcentaje", "mensaje": f"The installments would add up to {suma:g} %: at most 100."})
+    if cat["modelo"] is TipoCambio and final.get("moneda_origen") and final.get("moneda_origen") == final.get("moneda_destino"):
+        errores.append({"campo": "moneda_destino", "mensaje": "Choose two different currencies."})
+    if cat["modelo"] is SerieDocumental and final.get("objeto") == "embarque" and final.get("tipo_documento_id"):
+        errores.append({"campo": "tipo_documento_id", "mensaje": "A shipment series has no document type."})
+    if cat["modelo"] is ConfiguracionFiscal and final.get("impuestos_defecto"):
+        codigos = [x.strip() for x in final["impuestos_defecto"].split(",") if x.strip()]
+        conocidos = set(db.scalars(select(Impuesto.codigo).where(Impuesto.codigo.in_(codigos))))
+        if set(codigos) - conocidos:
+            errores.append({"campo": "impuestos_defecto", "mensaje": f"Unknown taxes: {', '.join(sorted(set(codigos) - conocidos))}."})
+        else:
+            limpio["impuestos_defecto"] = final["impuestos_defecto"] = ",".join(dict.fromkeys(codigos))
+    if cat["modelo"] is TipoDocumento and actual and "codigo" in limpio and limpio["codigo"] != actual.codigo:
+        from app.modulos.comercial.documentos import TIPOS_FABRICA
+
+        if actual.codigo in {t[0] for t in TIPOS_FABRICA}:
+            errores.append({"campo": "codigo", "mensaje": "The system relies on this document type: its code cannot change."})
+    if cat["modelo"] is ValorLista or cat.get("lista"):
         from app.modulos.maestros.listas import validar as validar_valor
 
-        errores += validar_valor(db, final, actual, limpio)
+        errores += validar_valor(db, final, actual, limpio, cat.get("lista"))
     if cat["modelo"] is EscalaTalla and final.get("tallas"):
         from app.modulos.maestros.tallas import validar as validar_escala
 
@@ -1040,6 +1347,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
 
 def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
     exigir(user, "catalogos.crear")
+    exigir_editable(tipo)
     exigir_compartido(user, tipo)
     gobierno.exigir_responsable(db, user, tipo)
     if tipo == "prepacks":
@@ -1048,7 +1356,7 @@ def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
     limpio = _limpiar(db, cat, datos, parcial=False)
     for campo in cat["campos"]:
         if campo["tipo"] == "bool" and campo["nombre"] not in datos:
-            limpio[campo["nombre"]] = True
+            limpio[campo["nombre"]] = campo.get("defecto", True)
     obj = cat["modelo"](**limpio)
     try:
         with db.begin_nested():
@@ -1058,12 +1366,24 @@ def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
         raise ErrorNegocio(f"A {cat['singular']} with that code already exists.", 409, "duplicado") from None
     if isinstance(obj, Articulo):
         asegurar_producto(db, obj)
+    _asegurar_tercero(db, obj)
     registrar(db, user, tipo, obj.id, "crear", {"codigo": _mostrar(obj)})
     return _fila(cat, obj, _refs(db, cat, [obj]))
 
 
+def _asegurar_tercero(db: Session, obj) -> None:
+    """Un proveedor o transportista tiene su tercero (identidad fiscal, direcciones y contacto)."""
+    from app.modulos.comercial.terceros import asegurar
+
+    if isinstance(obj, Proveedor):
+        asegurar(db, obj, "PROVEEDOR")
+    elif isinstance(obj, Transportista):
+        asegurar(db, obj, "TRANSPORTISTA")
+
+
 def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) -> dict:
     exigir(user, "catalogos.editar")
+    exigir_editable(tipo)
     exigir_compartido(user, tipo)
     gobierno.exigir_responsable(db, user, tipo)
     cat = _cat(tipo)
@@ -1071,6 +1391,9 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
     if not obj:
         raise ErrorNegocio(f"The {cat['singular']} does not exist.", 404, "no_encontrado")
     limpio = _limpiar(db, cat, datos, parcial=True, actual=obj)
+    if "codigo" in limpio and limpio["codigo"] != getattr(obj, "codigo", None) and gobierno.en_uso(db, tipo, obj.codigo):
+        raise ErrorNegocio(f"{obj.codigo} is used in documents or other records: its code cannot change.", 409, "en_uso",
+                           [{"campo": "codigo", "mensaje": "It is in use: its code cannot change."}])
     cambios = {}
     for k, v in limpio.items():
         if getattr(obj, k) != v:
@@ -1087,6 +1410,8 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
         raise ErrorNegocio(f"A {cat['singular']} with that code already exists.", 409, "duplicado") from None
     if isinstance(obj, Articulo) and {"estilo", "color", "proveedor_id"} & set(cambios):
         asegurar_producto(db, obj)
+    if {"nombre", "razon_social", "id_fiscal", "pais"} & set(cambios):
+        _asegurar_tercero(db, obj)
     if cambios:
         registrar(db, user, tipo, obj.id, "editar", cambios)
     return _fila(cat, obj, _refs(db, cat, [obj]))
@@ -1117,6 +1442,7 @@ def _validar_regla_lt(db: Session, final: dict, actual, limpio: dict) -> list[di
 
 def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
     exigir(user, "catalogos.eliminar")
+    exigir_editable(tipo)
     exigir_compartido(user, tipo)
     gobierno.exigir_responsable(db, user, tipo)
     cat = _cat(tipo)
@@ -1124,8 +1450,12 @@ def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
     if not obj:
         raise ErrorNegocio(f"The {cat['singular']} does not exist.", 404, "no_encontrado")
     gobierno.exigir_sin_uso(db, tipo, obj)
-    if isinstance(obj, ValorLista) and obj.codigo in listas.LISTAS.get(obj.lista, {}).get("sistema", []):
+    from app.modulos.maestros.listas import lista_de
+
+    if obj.codigo in listas.LISTAS.get(lista_de(obj) or "", {}).get("sistema", []):
         raise ErrorNegocio("The system relies on this value: it can be renamed but not deleted.", 409, "en_uso")
+    if isinstance(obj, AtributoVariante) and obj.columna:
+        raise ErrorNegocio("Size and color are built in: they can be renamed but not deleted.", 409, "en_uso")
     if isinstance(obj, PasoLeadTime):
         usan = [r.nombre for r in db.scalars(select(ReglaLeadTime)) if any(
             e["paso"] == obj.codigo or e.get("ref") == obj.codigo for e in rlt.cargar(r.pasos)["pasos"])]
@@ -1162,9 +1492,10 @@ def componentes(db: Session, user: Usuario, prepack_id: int, validar: bool = Tru
     }
 
 
-def _validar_curva(db: Session, estilo: str, color: str, items: list[dict]) -> tuple[list, list]:
-    """Solo sólidos del mismo estilo y color del prepack, con cantidad, sin
-    repetir artículo y sin mezclar pares con unidades."""
+def _validar_curva(db: Session, estilo: str, color: str, items: list[dict], kit: bool = False) -> tuple[list, list]:
+    """Solo sólidos con cantidad y sin repetir artículo. Una curva lleva
+    sólidos del mismo estilo y color y no mezcla pares con unidades; un kit
+    junta artículos de cualquier estilo."""
     errores = []
     arts = []
     for it in items:
@@ -1185,12 +1516,12 @@ def _validar_curva(db: Session, estilo: str, color: str, items: list[dict]) -> t
         errores.append({"mensaje": "The breakdown needs at least one solid item."})
     if len({a.id for a, _ in arts}) != len(arts):
         errores.append({"mensaje": "An item appears twice in the breakdown."})
-    otros = [a for a, _ in arts if (a.estilo, a.color) != (estilo, color)]
+    otros = [] if kit else [a for a, _ in arts if (a.estilo, a.color) != (estilo, color)]
     if otros:
         errores.append({"mensaje": f"The prepack is {estilo} {color}: "
                                    + ", ".join(f"{a.sku} ({a.estilo} {a.color})" for a in otros)
                                    + " is not the same style and color."})
-    if len({a.unidad for a, _ in arts}) > 1:
+    if not kit and len({a.unidad for a, _ in arts}) > 1:
         errores.append({"mensaje": "Pairs and units cannot be mixed in a breakdown."})
     return arts, errores
 
@@ -1205,30 +1536,38 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
     codigo = str(datos.get("codigo") or "").strip().upper()
     estilo = str(datos.get("estilo") or "").strip().upper()
     color = str(datos.get("color") or "").strip()
+    tipo = str(datos.get("tipo") or "CURVA").upper()
+    kit = tipo == "KIT"
     errores = []
+    if tipo not in ("CURVA", "KIT"):
+        errores.append({"campo": "tipo", "mensaje": "Choose a size assortment or a kit."})
     if not codigo_valido(sku):
         errores.append({"campo": "sku", "mensaje": "Item code: letters and numbers (also . - _ /), up to 40 characters."})
     elif db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
         errores.append({"campo": "sku", "mensaje": f"Code {sku} already exists in the item master."})
     if not re.fullmatch(r"[A-Z0-9]{2,10}", codigo):
         errores.append({"campo": "codigo", "mensaje": "Prepack ID: letters and numbers, for example AB12."})
-    if not estilo or not color:
-        errores.append({"campo": "estilo", "mensaje": "Enter the prepack's style and color."})
+    if not estilo or (not color and not kit):
+        errores.append({"campo": "estilo", "mensaje": "Enter the kit's style." if kit else "Enter the prepack's style and color."})
     elif db.scalar(select(Prepack.id).where(Prepack.estilo == estilo, Prepack.color == color, Prepack.codigo == codigo)):
         errores.append({"campo": "codigo", "mensaje": f"Prepack {codigo} already exists for {estilo} {color}."})
-    arts, err_curva = _validar_curva(db, estilo, color, datos.get("componentes") or [])
+    arts, err_curva = _validar_curva(db, estilo, color, datos.get("componentes") or [], kit=kit)
     errores += err_curva
     if errores:
         raise ErrorNegocio("The prepack is not valid.", 422, "validacion", errores)
     base = arts[0][0]
-    p = Prepack(codigo=codigo, estilo=estilo, color=color, activo=True,
+    p = Prepack(tipo=tipo, codigo=codigo, estilo=estilo, color=color or None, activo=True,
                 descripcion=(datos.get("descripcion") or "").strip()
-                or f"{estilo} {color} prepack {codigo} ({sum(c for _, c in arts)} {base.unidad.lower()})")
+                or (f"{estilo} kit {codigo} ({sum(c for _, c in arts)} pieces)" if kit else
+                    f"{estilo} {color} prepack {codigo} ({sum(c for _, c in arts)} {base.unidad.lower()})"))
     for a, cant in arts:
         p.componentes.append(PrepackComponente(articulo_id=a.id, cantidad=cant))
     db.add(p)
     db.flush()
-    art = Articulo(sku=sku.upper(), generico=base.generico or generico_de(base), upc=(datos.get("upc") or "").strip() or None, estilo=estilo, color=color, talla=codigo,
+    # Un kit es su propio estilo (su propia ficha); una curva comparte la de sus sólidos
+    generico = sku.upper() if kit else base.generico or generico_de(base)
+    art = Articulo(sku=sku.upper(), generico=generico, upc=(datos.get("upc") or "").strip() or None, estilo=estilo,
+                   color=color or None, talla=codigo,
                    descripcion=p.descripcion, marca_id=base.marca_id, grupo_id=base.grupo_id,
                    proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK", prepack_id=p.id,
                    activo=True)
@@ -1236,7 +1575,8 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
     db.flush()
     asegurar_producto(db, art)
     registrar(db, user, "prepacks", p.id, "crear",
-              {"sku": sku, "prepack": codigo, "explosion": {a.talla: c for a, c in arts}})
+              {"sku": sku, "prepack": codigo, "tipo": tipo,
+               "explosion": {(a.sku if kit else a.talla): c for a, c in arts}})
     return componentes(db, user, p.id)
 
 

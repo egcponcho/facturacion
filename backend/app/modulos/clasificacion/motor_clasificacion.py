@@ -43,6 +43,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.modelos import (
     CategoriaProducto,
+    ClasificacionProducto,
     ControlCapitulo,
     DominioClasificacion,
     HistorialClasificacion,
@@ -853,11 +854,12 @@ def _historial(db: Session, entrada: dict, categoria, perfil: str) -> dict:
     if not categoria:
         return out
     pid = entrada.get("producto_id")
-    q = select(Producto.id, Producto.estilo, Producto.color, Producto.codigo_generico, Producto.codigo, Producto.perfil, Producto.tipo,
-               Producto.nombre, Producto.descripcion_aduana, Producto.sac_codigo).where(
-        Producto.estado.in_(APROBADOS), Producto.codigo.is_not(None))
+    q = select(Producto.id, Producto.estilo, Producto.color, Producto.codigo_generico, Producto.codigo,
+               ClasificacionProducto.perfil, Producto.tipo, Producto.nombre, Producto.descripcion_aduana, Producto.sac_codigo) \
+        .outerjoin(ClasificacionProducto, ClasificacionProducto.producto_id == Producto.id) \
+        .where(Producto.estado.in_(APROBADOS), Producto.codigo.is_not(None))
     # Mismo perfil, o el mismo estilo o genérico si la entrada los trae
-    cond = [Producto.perfil == perfil]
+    cond = [ClasificacionProducto.perfil == perfil]
     if entrada.get("estilo"):
         cond.append(Producto.estilo == entrada["estilo"])
     if entrada.get("generico"):

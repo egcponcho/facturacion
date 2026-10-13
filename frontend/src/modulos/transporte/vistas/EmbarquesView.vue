@@ -1,5 +1,5 @@
 <script setup>
-import { ESTADOS_EMBARQUE } from '@/nucleo/estados.js'
+import { estadosEmbarque } from '@/nucleo/estados.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -28,7 +28,7 @@ const todos = ref([])
 const modal = ref(null)
 const listas = ref(null)
 
-const ESTADOS = [['', t('All')], ...ESTADOS_EMBARQUE]
+const ESTADOS = [['', t('All')], ...estadosEmbarque()]
 const cuenta = computed(() => {
   const r = { '': todos.value.length }
   for (const e of todos.value) r[e.estado] = (r[e.estado] || 0) + 1
@@ -138,7 +138,7 @@ onMounted(() => {
       </div>
     </template>
     <template #celda-codigo="{ fila: e }">
-      <span class="fila-flex" style="flex-wrap: nowrap"><Icono :nombre="datosModo(e.tipo_transporte).icono" />
+      <span class="fila-flex sin-envolver"><Icono :nombre="datosModo(e.tipo_transporte).icono" />
         <router-link :to="`/transporte/embarques/${e.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(e.codigo) }}</strong></router-link></span>
       <span class="sub">{{ tx(e.documento_numero ? `${datosModo(e.tipo_transporte).doc} ${e.documento_numero}` : t('{0} pending', [datosModo(e.tipo_transporte).doc])) }}{{ tx(e.transportista ? ` · ${e.transportista}` : '') }}<template v-if="e.modalidad"> · {{ tx(e.modalidad) }}</template></span>
     </template>

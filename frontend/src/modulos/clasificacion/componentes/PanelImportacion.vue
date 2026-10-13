@@ -8,6 +8,7 @@ import { puede } from '@/stores/sesion'
 import { fechaTexto } from '@/stores/preferencias'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtNum } from '@/nucleo/utils'
+import BotonArchivo from '@/componentes/BotonArchivo.vue'
 
 // Paquetes de carga oficiales, por etapas: el archivo sube a una previa
 // (staging) que valida y muestra qué cambiaría contra lo vigente; nada se
@@ -26,7 +27,6 @@ const lote = ref(null)
 const historial = ref([])
 const filtro = ref('')
 const ocupado = ref(false)
-const archivo = ref(null)
 
 async function cargarHistorial() {
   try {
@@ -43,10 +43,7 @@ async function bajar(p) {
     errorApi(e)
   }
 }
-async function subir(e) {
-  const a = e.target.files?.[0]
-  e.target.value = ''
-  if (!a) return
+async function subir(a) {
   const datos = new FormData()
   datos.append('archivo', a)
   ocupado.value = true
@@ -108,7 +105,6 @@ const columnasH = computed(() => [
 <template>
   <section class="paquetes">
     <p class="ayuda">{{ t('Official data is loaded by stages: the file goes to a preview that validates it and shows what would change against what is in force; nothing is applied until you publish. Each load updates by natural key and never deletes what is published.') }}</p>
-    <input ref="archivo" type="file" accept=".xlsx" hidden @change="subir" />
     <article v-for="p in PAQUETES" :key="p.n" class="panel paquete">
       <span class="num">{{ String(p.n).padStart(2, '0') }}</span>
       <div class="cuerpo">
@@ -118,7 +114,7 @@ const columnasH = computed(() => [
       </div>
       <div class="acciones">
         <button class="btn" @click="bajar(p)"><Icono nombre="descargar" :tam="15" />{{ t('Download package') }}</button>
-        <button v-if="edita" class="btn btn-primario" :disabled="ocupado" @click="archivo.click()"><Icono nombre="importar" :tam="15" />{{ t('Upload to preview') }}</button>
+        <BotonArchivo v-if="edita" class="btn btn-primario" acepta=".xlsx" :deshabilitado="ocupado" @elegir="subir"><Icono nombre="importar" :tam="15" />{{ t('Upload to preview') }}</BotonArchivo>
       </div>
     </article>
 

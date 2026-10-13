@@ -31,7 +31,7 @@ onBeforeUnmount(() => {
       <aside class="pl-panel" role="dialog" aria-modal="true" :aria-label="tx(props.titulo)" :style="{ maxWidth: props.ancho }">
         <header class="pl-cabeza">
           <div class="pl-titulos"><h2>{{ tx(props.titulo) }}</h2><slot name="estado" /></div>
-          <div class="fila-flex" style="gap: 6px; flex-wrap: nowrap">
+          <div class="fila-flex gap-2 sin-envolver">
             <router-link v-if="props.detalle" class="btn btn-chico" :to="props.detalle">{{ t('Open full detail') }}<Icono nombre="derecha" :tam="13" /></router-link>
             <button class="btn-icono" type="button" :aria-label="t('Close')" @click="emit('cerrar')"><Icono nombre="cerrar" :tam="20" /></button>
           </div>

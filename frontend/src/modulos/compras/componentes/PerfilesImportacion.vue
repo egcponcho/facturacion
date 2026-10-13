@@ -85,7 +85,7 @@ async function eliminar() {
           <div class="campo"><span>{{ t('Default profile') }}</span><Interruptor v-model="editando.predeterminado" :etiqueta="t('Default profile')" /></div>
           <div class="campo"><span>{{ t('Active') }}</span><Interruptor v-model="editando.activo" :etiqueta="t('Active')" /></div>
         </div>
-        <div class="tabla-marco mt">
+        <div class="tabla-marco tabla-captura mt">
           <table class="tabla" v-tarjetas>
             <thead><tr><th>{{ t('Data') }}</th><th>{{ t('Column in your file') }}</th><th>{{ t('Default value') }}</th></tr></thead>
             <tbody>

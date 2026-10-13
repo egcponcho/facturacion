@@ -15,11 +15,13 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
-from app.modelos.base import ahora
+from app.modelos.base import Tasa, ahora
+from app.modelos.empresa import ConAdjunto
 
 if TYPE_CHECKING:
     from app.modelos.acceso import Usuario
@@ -38,7 +40,7 @@ class Producto(DeOrganizacion, Base):
     estilo: Mapped[str] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))
     marca_id: Mapped[int | None] = mapped_column(ForeignKey("marcas.id"), index=True)
-    grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"))
+    grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"), index=True)
     # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
     # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
     codigo_generico: Mapped[str | None] = mapped_column(String(40), index=True)
@@ -61,27 +63,14 @@ class Producto(DeOrganizacion, Base):
     vigente_desde: Mapped[date | None] = mapped_column(Date)
     # borrador | sugerida (borrador completo) | revision (enviada) | aprobado | corregido | observado
     estado: Mapped[str] = mapped_column(String(12), default="borrador", index=True)
-    # Clasificación genérica del producto: el HS6 (estable, internacional). La
-    # línea regional SAC va aparte y cada país tiene su propia clasificación
-    # (PartidaPais); un código nacional nunca se guarda como código del producto.
-    sugerido: Mapped[str | None] = mapped_column(String(14))  # HS6 del motor
-    propuesta: Mapped[str | None] = mapped_column(String(14))  # HS6 traído de un archivo o del proveedor
+    # Clasificación genérica aprobada: el HS6 (estable, internacional) y la
+    # línea regional SAC. Cada país tiene su propia clasificación (PartidaPais);
+    # un código nacional nunca se guarda como código del producto. El trabajo
+    # de clasificar (sugerencias, evidencia, análisis, revisión) vive aparte,
+    # en ClasificacionProducto.
     codigo: Mapped[str | None] = mapped_column(String(14))  # HS6 aprobado
-    sac_sugerido: Mapped[str | None] = mapped_column(String(10))  # línea SAC regional sugerida (8-10)
     sac_codigo: Mapped[str | None] = mapped_column(String(10))  # línea SAC regional aprobada
-    version_arancel_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id", name="fk_productos_version"))
-    evidencia: Mapped[dict | None] = mapped_column(JSON)  # versión, reglas, candidatos y razones al aprobar
-    confianza: Mapped[str | None] = mapped_column(String(10))
-    fuente: Mapped[str | None] = mapped_column(String(12))  # regla | historial | criterio
-    perfil: Mapped[str | None] = mapped_column(String(200))
-    analisis: Mapped[dict | None] = mapped_column(JSON)  # razones, fundamento, alternativas, alertas
-    alertas_ok: Mapped[list] = mapped_column(JSON, default=list)
-    observaciones: Mapped[str | None] = mapped_column(String(2000))  # del especialista
-    resolucion: Mapped[str | None] = mapped_column(String(200))  # resolución anticipada o criterio DGA
     notas: Mapped[str | None] = mapped_column(String(1000))
-    opinion_ia: Mapped[dict | None] = mapped_column(JSON)
-    revisado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-    revisado_en: Mapped[datetime | None] = mapped_column(DateTime)
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)  # control de concurrencia
@@ -89,7 +78,8 @@ class Producto(DeOrganizacion, Base):
     proveedor: Mapped["Proveedor"] = relationship()
     marca: Mapped["Marca | None"] = relationship()
     grupo: Mapped["GrupoArticulo | None"] = relationship()
-    revisado_por: Mapped["Usuario | None"] = relationship()
+    clasificacion: Mapped["ClasificacionProducto | None"] = relationship(
+        back_populates="producto", cascade="all, delete-orphan", uselist=False, lazy="joined")
     articulos: Mapped[list["Articulo"]] = relationship(back_populates="producto", order_by="Articulo.id")
     partidas: Mapped[list["PartidaPais"]] = relationship(
         back_populates="producto", cascade="all, delete-orphan", order_by="PartidaPais.pais"
@@ -108,6 +98,73 @@ class Producto(DeOrganizacion, Base):
     def aprobado(self) -> bool:
         return self.estado in ("aprobado", "corregido") and bool(self.codigo)
 
+    @property
+    def revisado_por(self) -> "Usuario | None":
+        return self.clasificacion.revisado_por if self.clasificacion else None
+
+
+class ClasificacionProducto(DeOrganizacion, Base):
+    """Trabajo de clasificación de un producto (1:1): lo que sugirió el motor
+    o trajo el proveedor, la evidencia y el análisis, y quién lo revisó. El
+    resultado aprobado (HS6 y línea SAC) queda en el producto."""
+
+    __tablename__ = "clasificaciones_producto"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    producto_id: Mapped[int] = mapped_column(
+        ForeignKey("productos.id", ondelete="CASCADE", name="fk_clasificaciones_producto_producto_id"), unique=True, index=True)
+    sugerido: Mapped[str | None] = mapped_column(String(14))  # HS6 del motor
+    propuesta: Mapped[str | None] = mapped_column(String(14))  # HS6 traído de un archivo o del proveedor
+    sac_sugerido: Mapped[str | None] = mapped_column(String(10))  # línea SAC regional sugerida (8-10)
+    version_arancel_id: Mapped[int | None] = mapped_column(
+        ForeignKey("versiones_dataset.id", name="fk_clasificaciones_producto_version"), index=True)
+    evidencia: Mapped[dict | None] = mapped_column(JSON)  # versión, reglas, candidatos y razones al aprobar
+    confianza: Mapped[str | None] = mapped_column(String(10))
+    fuente: Mapped[str | None] = mapped_column(String(12))  # regla | historial | criterio
+    perfil: Mapped[str | None] = mapped_column(String(200), index=True)
+    analisis: Mapped[dict | None] = mapped_column(JSON)  # razones, fundamento, alternativas, alertas
+    alertas_ok: Mapped[list] = mapped_column(JSON, default=list)
+    observaciones: Mapped[str | None] = mapped_column(String(2000))  # del especialista
+    resolucion: Mapped[str | None] = mapped_column(String(200))  # resolución anticipada o criterio DGA
+    opinion_ia: Mapped[dict | None] = mapped_column(JSON)
+    revisado_por_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuarios.id", name="fk_clasificaciones_producto_revisado_por"), index=True)
+    revisado_en: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+
+    producto: Mapped[Producto] = relationship(back_populates="clasificacion")
+    revisado_por: Mapped["Usuario | None"] = relationship()
+
+
+def _de_clasificacion(campo: str, vacio=None):
+    """Dato del trabajo de clasificación leído y escrito desde el producto
+    (la fila se crea al escribir). En consultas es el valor de su fila."""
+
+    def leer(self):
+        c = self.clasificacion
+        v = getattr(c, campo) if c is not None else None
+        return vacio() if v is None and vacio else v
+
+    def escribir(self, valor):
+        if self.clasificacion is None:
+            if valor is None:
+                return
+            self.clasificacion = ClasificacionProducto()
+        setattr(self.clasificacion, campo, valor)
+
+    def expresion(cls):
+        from sqlalchemy import select
+
+        return (select(getattr(ClasificacionProducto, campo)).where(ClasificacionProducto.producto_id == cls.id)
+                .correlate_except(ClasificacionProducto).scalar_subquery())
+
+    return hybrid_property(leer, escribir, expr=expresion)
+
+
+CAMPOS_CLASIFICACION = ("sugerido", "propuesta", "sac_sugerido", "version_arancel_id", "evidencia", "confianza", "fuente",
+                        "perfil", "analisis", "alertas_ok", "observaciones", "resolucion", "opinion_ia", "revisado_por_id",
+                        "revisado_en")
+for _campo in CAMPOS_CLASIFICACION:
+    setattr(Producto, _campo, _de_clasificacion(_campo, list if _campo == "alertas_ok" else None))
+
 
 class PartidaPais(DeOrganizacion, Base):
     """Código arancelario nacional del producto en un país destino."""
@@ -118,14 +175,14 @@ class PartidaPais(DeOrganizacion, Base):
     producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
     pais: Mapped[str] = mapped_column(String(2))
     codigo: Mapped[str] = mapped_column(String(14))
-    dai: Mapped[str | None] = mapped_column(String(10))  # derecho arancelario a la importación, %
+    dai: Mapped[float | None] = mapped_column(Tasa)  # derecho arancelario a la importación, %
     estado: Mapped[str] = mapped_column(String(12))  # ok | auto | sac | nuevo | sinarancel | elegir
     fuente: Mapped[str | None] = mapped_column(String(12))  # base | aprendido | manual | arancel
     manual: Mapped[bool] = mapped_column(Boolean, default=False)
     # Clasificación nacional con evidencia: la línea oficial elegida (no un
     # código recortado), su versión y fuente, lo sugerido frente a lo final,
     # el motivo si se cambió y lo que aplicaba al aprobar (regla, impuestos, regulaciones)
-    inciso_id: Mapped[int | None] = mapped_column(ForeignKey("incisos_nacionales.id", ondelete="SET NULL", name="fk_partidas_inciso"))
+    inciso_id: Mapped[int | None] = mapped_column(ForeignKey("incisos_nacionales.id", ondelete="SET NULL", name="fk_partidas_inciso"), index=True)
     version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id", name="fk_partidas_version"))
     fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id", name="fk_partidas_fuente"))
     sugerido: Mapped[str | None] = mapped_column(String(14))
@@ -137,21 +194,15 @@ class PartidaPais(DeOrganizacion, Base):
     producto: Mapped[Producto] = relationship(back_populates="partidas")
 
 
-class ProductoFoto(DeOrganizacion, Base):
+class ProductoFoto(ConAdjunto, DeOrganizacion, Base):
     __tablename__ = "producto_fotos"
     id: Mapped[int] = mapped_column(primary_key=True)
     producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
-    nombre: Mapped[str] = mapped_column(String(300))
-    ruta: Mapped[str] = mapped_column(String(500))
-    tipo_mime: Mapped[str] = mapped_column(String(60))
-    tamano: Mapped[int] = mapped_column(Integer)
-    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-    subido_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     producto: Mapped[Producto] = relationship(back_populates="fotos")
 
 
-class ProductoDocumento(DeOrganizacion, Base):
+class ProductoDocumento(ConAdjunto, DeOrganizacion, Base):
     """Ficha técnica del proveedor o del laboratorio (SDS, TDS, COA): evidencia
     técnica del producto (capa de la empresa). Sus datos (CAS, composición,
     estado físico, densidad, pH…) son hechos para la ficha; nunca una fuente
@@ -161,15 +212,9 @@ class ProductoDocumento(DeOrganizacion, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
     tipo: Mapped[str] = mapped_column(String(20))  # lista tipo_documento (SDS, TDS, COA…)
-    nombre: Mapped[str] = mapped_column(String(300))
-    ruta: Mapped[str] = mapped_column(String(500))
-    tipo_mime: Mapped[str] = mapped_column(String(60))
-    tamano: Mapped[int] = mapped_column(Integer)
     emisor: Mapped[str | None] = mapped_column(String(200))  # proveedor o laboratorio
     fecha_documento: Mapped[date | None] = mapped_column(Date)
     datos: Mapped[dict] = mapped_column(JSON, default=dict)  # {atributo técnico: valor} leídos del documento
-    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-    subido_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     producto: Mapped[Producto] = relationship(back_populates="documentos")
 

@@ -18,7 +18,9 @@ import { camposPropios, nombreProveedor, puede, sesion, valorPropio, ve } from '
 import { avisar, errorApi } from '@/stores/ui'
 import { cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
 import { pasoCantidad } from '@/nucleo/unidades.js'
-import { ESTADOS_OC, estado as leerEstado } from '@/nucleo/estados.js'
+import { estadosOC, estado as leerEstado } from '@/nucleo/estados.js'
+
+const ESTADOS_OC = estadosOC()
 
 const route = useRoute()
 const router = useRouter()
@@ -89,7 +91,7 @@ const columnasLineas = computed(() => [
   { clave: 'a_facturar', texto: t('To invoice'), num: true, filtro: false, ordenable: false, prioridad: 1 },
   { clave: 'precio', texto: t('Price'), num: true, grupo: 'precios', prioridad: 3 },
   { clave: 'importe', texto: t('Total'), num: true, grupo: 'precios', prioridad: 3 },
-  { clave: 'estado', texto: t('Status'), prioridad: 2, textoValor: (v) => tx(leerEstado(v)[0]) },
+  { clave: 'estado', texto: t('Status'), prioridad: 2, textoValor: (v) => tx(leerEstado(v, 'oc')[0]) },
 ])
 // Liberación en una sola insignia: solo si no se puede facturar o si cambió
 // después de liberada (los nombres son los de la empresa)
@@ -492,7 +494,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       </div>
     </template>
     <template #detalle="{ fila: oc }">
-      <div class="subtabla">
+      <div>
         <p v-if="!detalles[oc.id]" class="ayuda">{{ t('Loading the lines…') }}</p>
         <template v-else>
           <p v-if="camposPropios('ordenes').some((c) => detalles[oc.id].oc.extra?.[c.clave] != null)" class="ayuda propios">
@@ -504,7 +506,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             <template #celda-posicion="{ fila: p }"><span class="codigo">{{ tx(p.posicion) }}</span></template>
             <template #celda-articulo="{ fila: p }">
               <span v-if="p.marca" class="fuerte">{{ tx(p.marca) }}</span> {{ tx(p.estilo) }} · {{ tx(p.color) }}
-              <span class="sub codigo">{{ tx(p.codigo_sap) }}<template v-if="p.grupo"> · {{ tx(p.grupo) }}</template></span>
+              <span class="sub codigo">{{ tx(p.codigo_articulo) }}<template v-if="p.grupo"> · {{ tx(p.grupo) }}</template></span>
             </template>
             <template #celda-talla="{ fila: p }"><strong>{{ tx(p.talla) }}</strong></template>
             <template #celda-unidad="{ fila: p }"><span class="etiqueta ms-0" :title="tx(unidadTxt(p.unidad, 2))">{{ tx(p.unidad) }}</span></template>
@@ -520,7 +522,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             <template #celda-empaque="{ fila: p }">
               <span class="fila-flex empaque-celda">
                 <button v-if="p.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion ms-0"
-                        :title="t('See the prepack breakdown')" @click="explosion = { sku: p.codigo_sap, cajas: p.cantidad }">
+                        :title="t('See the prepack breakdown')" @click="explosion = { sku: p.codigo_articulo, cajas: p.cantidad }">
                   {{ t('Prepack {0} · {1} per carton', [p.prepack, p.unidades_por_caja]) }} <Icono nombre="lupa" :tam="12" />
                 </button>
                 <template v-else>

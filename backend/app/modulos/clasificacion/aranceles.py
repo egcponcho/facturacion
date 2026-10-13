@@ -7,9 +7,10 @@ import re
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core import dinero
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
-from app.modelos import FuenteOficial, IncisoNacional, NodoArancel, NotaSAC, PaisArancel, Usuario, ahora
+from app.modelos import FuenteOficial, IncisoNacional, NodoArancel, NotaSAC, Pais, PaisArancel, Usuario, ahora
 from app.modulos.acceso.permisos import exigir
 from app.modulos.clasificacion import overrides
 from app.modulos.clasificacion.meta import cond_texto, opciones_cond, valor_opcion
@@ -20,6 +21,14 @@ from app.modulos.documentos.plantillas import leer, norm, plantilla, si_no
 
 # Origen de un dato de la consulta: el publicado o el ajuste propio de la empresa encima
 FUENTES = {"oficial": "Official (published source)", "custom": "Company override over the official"}
+
+
+def _dai(v):
+    """DAI escrito (15, «15 %», «7,5») como número; un texto que no lo es se rechaza."""
+    try:
+        return dinero.porcentaje(v)
+    except ValueError:
+        raise ErrorNegocio("The duty (DAI) is a percentage, e.g. 15.", 422, "validacion") from None
 
 
 def _dig(s) -> str:
@@ -73,6 +82,8 @@ def guardar_pais(db: Session, user: Usuario, datos, pais_id: int | None = None) 
         raise ErrorNegocio("The country code has 2 letters (ISO), e.g. DO.", 422, "validacion")
     if not 6 <= datos.digitos <= 14:
         raise ErrorNegocio("National codes have between 6 and 14 digits.", 422, "validacion")
+    if not db.scalar(select(Pais.id).where(Pais.codigo == iso)):
+        raise ErrorNegocio(f"{iso} is not in the country catalog.", 422, "validacion")
     otro = db.scalar(select(PaisArancel).where(PaisArancel.iso == iso))
     x = db.get(PaisArancel, pais_id) if pais_id else None
     if pais_id and not x:
@@ -489,7 +500,7 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
     if x and _es_oficial(x):
         # El dato oficial no se edita: lo propio va en la capa custom (override con
         # motivo) y en la regla de selección (condiciones y prioridad)
-        if pais != x.pais or cod != x.codigo or (datos.dai or "").replace("%", "").strip() not in ("", x.dai or ""):
+        if pais != x.pais or cod != x.codigo or _dai(datos.dai) not in (None, dinero.porcentaje(x.dai)):
             raise ErrorNegocio("Official national codes cannot change their country, code or duty; load a new version instead.", 422, "oficial")
         cambios = {"descripcion": (datos.descripcion or "").strip()[:300] or None, "nota": (datos.nota or "")[:300] or None, "activo": datos.activo}
         guardar_override_inciso(db, user, x, cambios, datos.motivo)
@@ -520,7 +531,7 @@ def guardar_inciso(db: Session, user: Usuario, datos, inciso_id: int | None = No
                        vigente_desde=desde, vigente_hasta=hasta, url=fuente.url, creado_por=user.id)
     db.add(x)
     x.descripcion = (datos.descripcion or "").strip()[:300] or None
-    x.dai = (datos.dai or "").replace("%", "").strip()[:10] or None
+    x.dai = _dai(datos.dai)
     x.cond = _cond_limpia(db, datos.cond)
     if x.regla:
         x.regla.tipo_fuente = "MANUAL"  # condiciones puestas por la empresa: capa propia, nunca legal
@@ -729,6 +740,10 @@ def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, 
                     mal = f"{d['label']}: “{v}” is not a valid value."
                 else:
                     cond[k] = vals if len(vals) > 1 else vals[0]
+        try:
+            f["dai"] = dinero.porcentaje(f.get("dai"))
+        except ValueError:
+            mal = f"DAI: “{f.get('dai')}” is not a percentage."
         if mal:
             errores.append({"fila": f["_fila"], "mensaje": mal})
             continue
@@ -762,8 +777,8 @@ def importar_incisos(db: Session, user: Usuario, nombre: str, contenido: bytes, 
             creados += 1
         if f.get("descripcion"):
             x.descripcion = f["descripcion"][:300]
-        if f.get("dai"):
-            x.dai = f["dai"].replace("%", "").strip()[:10]
+        if f.get("dai") is not None:
+            x.dai = f["dai"]
         if f.get("nota"):
             x.nota = f["nota"][:300]
         x.cond = cond
@@ -894,7 +909,7 @@ def exportar_incisos(db: Session, user: Usuario, filtros: dict, orden: str | Non
     columnas = [("Country", 0.6, False), ("Code", 1.2, False), ("SAC subheading", 2.4, False), ("Description", 2.2, False),
                 ("Duty %", 0.6, True), ("Conditions", 2.4, False), ("Priority", 0.6, True), ("Source", 0.8, False),
                 ("Active", 0.6, False)]
-    filas = [[x["pais"], x["codigo_txt"], x["sac"] or "—", x["descripcion"] or "—", x["dai"] or "—", x["cond_txt"],
+    filas = [[x["pais"], x["codigo_txt"], x["sac"] or "—", x["descripcion"] or "—", "—" if x["dai"] is None else x["dai"], x["cond_txt"],
               x["prio"], " · ".join(v for v in (x["fuente_oficial"], x["version"]) if v) or "—", "Yes" if x["activo"] else "No"] for x in r["items"]]
     ind = [("Codes", f"{r['total']:,}")] + [(k, f"{v:,}") for k, v in sorted(r["por_pais"].items())][:5]
     texto = _filtros_txt(filtros, {"pais": "Country", "q": "Search", "capitulo": "Chapter", "fuente": "Source"})

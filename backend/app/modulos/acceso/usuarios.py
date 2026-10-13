@@ -8,7 +8,7 @@ from app.core.errores import ErrorNegocio
 from app.core.seguridad import hash_password
 from app.modelos import Proveedor, Rol, Sociedad, Transportista, Usuario
 from app.modulos.acceso.autenticacion import exigir_politica, password_temporal, revocar_sesiones, validar_telefono
-from app.modulos.acceso.permisos import alcance, exigir
+from app.modulos.acceso.permisos import exigir
 from app.modulos.acceso.roles import crear_roles_fabrica, sin_administrador
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.normalizar import nombre as nombre_fmt
@@ -95,10 +95,10 @@ def crear_usuario(db: Session, user: Usuario, datos) -> dict:
     clave = password_temporal() if temporal else datos.password
     if not temporal:
         exigir_politica(clave, email)
-    u = Usuario(email=email, nombre=nombre_fmt(datos.nombre), rol=alcance(rol.permisos, prov), rol_id=rol.id,
+    u = Usuario(email=email, nombre=nombre_fmt(datos.nombre), rol_id=rol.id,
                 proveedor_id=prov, password_hash=hash_password(clave), activo=True, clave_temporal=True,
                 telefono=validar_telefono(datos.telefono), dos_pasos=datos.dos_pasos,
-                cargo=texto_fmt(datos.cargo) or None, area=texto_fmt(datos.area) or None, empresa=texto_fmt(datos.empresa) or None,
+                cargo=texto_fmt(datos.cargo) or None, area=texto_fmt(datos.area) or None,
                 alcance=_alcance_valido(db, datos.alcance), plataforma=datos.plataforma)
     db.add(u)
     db.flush()
@@ -166,6 +166,5 @@ def actualizar_usuario(db: Session, user: Usuario, usuario_id: int, datos) -> di
                   {**cambios, **({"clave": "cambiada"} if temporal or "password" in datos.model_fields_set else {})})
     db.flush()
     db.refresh(u)
-    u.rol = alcance(u.rol_ref.permisos if u.rol_ref else [], u.proveedor_id)
     sin_administrador(db)
     return {"ok": True, "password_temporal": temporal}

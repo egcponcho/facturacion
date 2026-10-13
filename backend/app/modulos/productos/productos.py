@@ -12,19 +12,18 @@ ficha la puede completar el proveedor.
 """
 import os
 import re
-import uuid
 from datetime import date, timedelta
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core import listas
+from app.core import dinero, listas
 from app.core.archivos import MIME, TIPOS, exigir_tamano, tipo_imagen
-from app.core.config import settings
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
+    ClasificacionProducto,
     ControlCapitulo,
     GrupoArticulo,
     Historial,
@@ -47,7 +46,7 @@ from app.modelos import (
 from app.modulos.acceso.permisos import asegurar_proveedor, exigir, proveedor_filtro, tiene
 from app.modulos.clasificacion.categorias import categorias as categorias_config
 from app.modulos.clasificacion.indice_arbol import dominios_ficha
-from app.modulos.comun import tabla
+from app.modulos.comun import adjuntos, tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.historial import registrar, tocar, verificar_version
 from app.modulos.comun.texto import filtro_texto
@@ -266,7 +265,7 @@ def _guardar_partidas(p: Producto, partidas: dict | None) -> None:
             continue
         fila = previas.get(iso) or PartidaPais(pais=iso)
         fila.codigo = _codigo_fila(x.get("codigo"))
-        fila.dai = str(x.get("dai") or "")[:10] or None
+        fila.dai = dinero.porcentaje_o_nota(x.get("dai"))[0]
         fila.estado = str(x.get("estado") or "ok")[:12]
         fila.fuente = (x.get("fuente") or None) and str(x.get("fuente"))[:12]
         fila.manual = bool(x.get("manual"))
@@ -460,7 +459,9 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     sub = base.subquery()
     conteo = {e: n for e, n in db.execute(select(sub.c.estado, func.count()).group_by(sub.c.estado)).all()}
     # Baja confianza legal: lo que el especialista debe mirar primero (no aplica si el proveedor no ve la sugerencia)
-    baja = (db.scalar(select(func.count()).where(sub.c.estado.in_(PENDIENTES), sub.c.confianza == "low"))
+    baja = (db.scalar(select(func.count()).select_from(sub)
+                      .join(ClasificacionProducto, ClasificacionProducto.producto_id == sub.c.id)
+                      .where(sub.c.estado.in_(PENDIENTES), ClasificacionProducto.confianza == "low"))
             if flujo.ve_sugerencia(db, user) else None)
     bloquean = ids_bloquean_facturas(db, prov)
     base = _vista_estado(db, user, base, filtros.get("estado"), prov, bloquean)
@@ -524,7 +525,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
         "revisado_por": p.revisado_por.nombre if p.revisado_por else None, "revisado_en": p.revisado_en,
         "vigente_desde": p.vigente_desde, "creado_en": p.creado_en,
         "evidencia": p.evidencia,
-        "partidas": {x.pais: {"codigo": x.codigo, "dai": x.dai or "", "estado": x.estado, "fuente": x.fuente,
+        "partidas": {x.pais: {"codigo": x.codigo, "dai": "" if x.dai is None else x.dai, "estado": x.estado, "fuente": x.fuente,
                               "sugerido": x.sugerido, "motivo": x.motivo, "inciso_id": x.inciso_id, "evidencia": x.evidencia,
                               "aprobado_en": x.aprobado_en,
                               "manual": x.manual, "digitos": dig.get(x.pais, 10)} for x in p.partidas},
@@ -552,7 +553,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
 
 def _inciso_ctx(x: IncisoNacional) -> dict:
     return {"id": x.id, "pais": x.pais, "codigo": x.codigo, "cond": x.cond or {}, "prio": x.prio,
-            "dai": x.dai or "", "descripcion": x.descripcion, "nota": x.nota, "fuente": x.fuente}
+            "dai": "" if x.dai is None else x.dai, "descripcion": x.descripcion, "nota": x.nota, "fuente": x.fuente}
 
 
 def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dict:
@@ -840,7 +841,7 @@ def confirmar_partida(db: Session, user: Usuario, producto_id: int, pais: str, c
         fila = PartidaPais(pais=pais)
         p.partidas.append(fila)
     fila.sugerido = fila.sugerido or x.get("sugerido") or fila.codigo
-    fila.codigo, fila.dai, fila.estado, fila.fuente, fila.manual = _codigo_fila(x["codigo"]), str(x.get("dai") or "")[:10] or None, "ok", \
+    fila.codigo, fila.dai, fila.estado, fila.fuente, fila.manual = _codigo_fila(x["codigo"]), dinero.porcentaje_o_nota(x.get("dai"))[0], "ok", \
         (x.get("fuente") or None) and str(x["fuente"])[:12], True
     inc = db.get(IncisoNacional, x["inciso_id"])
     fila.inciso_id, fila.version_id = x["inciso_id"], (x.get("version") or {}).get("id")
@@ -980,7 +981,7 @@ def nueva_version(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     p.vigente_desde = desde
     p.estado = "borrador"
     p.codigo = None
-    p.revisado_por = None
+    p.revisado_por_id = None
     p.revisado_en = None
     p.partidas.clear()
     tocar(p)
@@ -1005,13 +1006,9 @@ def subir_foto(db: Session, user: Usuario, producto_id: int, nombre: str, tipo: 
         raise ErrorNegocio("Upload a JPG, PNG or WebP image.", 422, "validacion")
     if len(p.fotos) >= 8:
         raise ErrorNegocio("A product can have up to 8 photos.", 422, "validacion")
-    carpeta = os.path.join(settings.UPLOAD_DIR, "productos", str(p.id))
-    os.makedirs(carpeta, exist_ok=True)
-    ruta = os.path.join(carpeta, uuid.uuid4().hex + TIPOS_FOTO[tipo])
-    with open(ruta, "wb") as fh:
-        fh.write(contenido)
-    seguro = "".join(c for c in os.path.basename(nombre or "photo") if c.isalnum() or c in "._- ")[:200] or "photo"
-    f = ProductoFoto(nombre=seguro, ruta=ruta, tipo_mime=tipo, tamano=len(contenido), subido_por=user.id)
+    seguro = adjuntos.nombre_seguro(nombre, "photo")
+    adj = adjuntos.crear(db, user, seguro, contenido, os.path.join("productos", str(p.id)), TIPOS_FOTO[tipo], tipo)
+    f = ProductoFoto(adjunto=adj)
     p.fotos.append(f)
     db.flush()
     registrar(db, user, "producto", p.id, "foto_agregada", {"foto": seguro})
@@ -1024,12 +1021,10 @@ def borrar_foto(db: Session, user: Usuario, producto_id: int, foto_id: int) -> N
     f = next((x for x in p.fotos if x.id == foto_id), None)
     if not f:
         raise ErrorNegocio("The photo does not exist.", 404, "no_encontrado")
+    nombre = f.nombre
     p.fotos.remove(f)
-    try:
-        os.remove(f.ruta)
-    except OSError:
-        pass
-    registrar(db, user, "producto", p.id, "foto_quitada", {"foto": f.nombre})
+    adjuntos.quitar(db, f)
+    registrar(db, user, "producto", p.id, "foto_quitada", {"foto": nombre})
 
 
 def obtener_foto(db: Session, user: Usuario, foto_id: int) -> ProductoFoto:
@@ -1072,14 +1067,10 @@ def subir_documento(db: Session, user: Usuario, producto_id: int, tipo: str, nom
     desconocidos = sorted(k for k in datos if k not in cat.por_codigo)
     if desconocidos:
         raise ErrorNegocio(f"These are not attributes of the technical sheet: {', '.join(desconocidos)}.", 422, "validacion")
-    carpeta = os.path.join(settings.UPLOAD_DIR, "productos", str(p.id), "documentos")
-    os.makedirs(carpeta, exist_ok=True)
-    ruta = os.path.join(carpeta, uuid.uuid4().hex + TIPOS_DOC[mime])
-    with open(ruta, "wb") as fh:
-        fh.write(contenido)
-    seguro = "".join(c for c in os.path.basename(nombre or "document") if c.isalnum() or c in "._- ")[:200] or "document"
-    d = ProductoDocumento(tipo=tipo, nombre=seguro, ruta=ruta, tipo_mime=mime, tamano=len(contenido), datos=datos,
-                          emisor=(emisor or "").strip()[:200] or None, fecha_documento=fecha, subido_por=user.id)
+    seguro = adjuntos.nombre_seguro(nombre, "document")
+    adj = adjuntos.crear(db, user, seguro, contenido, os.path.join("productos", str(p.id), "documentos"), TIPOS_DOC[mime], mime)
+    d = ProductoDocumento(tipo=tipo, adjunto=adj, datos=datos, emisor=(emisor or "").strip()[:200] or None,
+                          fecha_documento=fecha)
     p.documentos.append(d)
     db.flush()
     registrar(db, user, "producto", p.id, "documento_agregado", {"tipo": tipo, "documento": seguro, "datos": sorted(datos)})
@@ -1092,12 +1083,10 @@ def borrar_documento(db: Session, user: Usuario, producto_id: int, doc_id: int) 
     d = next((x for x in p.documentos if x.id == doc_id), None)
     if not d:
         raise ErrorNegocio("The document does not exist.", 404, "no_encontrado")
+    tipo, nombre = d.tipo, d.nombre
     p.documentos.remove(d)
-    try:
-        os.remove(d.ruta)
-    except OSError:
-        pass
-    registrar(db, user, "producto", p.id, "documento_quitado", {"tipo": d.tipo, "documento": d.nombre})
+    adjuntos.quitar(db, d)
+    registrar(db, user, "producto", p.id, "documento_quitado", {"tipo": tipo, "documento": nombre})
 
 
 def obtener_documento(db: Session, user: Usuario, doc_id: int) -> ProductoDocumento:

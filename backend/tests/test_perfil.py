@@ -23,7 +23,7 @@ def test_perfil_y_preferencias(interno):
     assert r.json()["nombre"] == "Import team" and r.json()["preferencias"]["filas"] == 50
     # El formato del usuario rige la lectura de fechas de la carga de OC: 05/10 es el 5 de octubre
     oc = interno.get("/ordenes", params={"q": "4400003901", "solo_disponible": False}).json()["items"][0]
-    sku = interno.get(f"/ordenes/{oc['id']}/posiciones").json()["posiciones"][0]["codigo_sap"]
+    sku = interno.get(f"/ordenes/{oc['id']}/posiciones").json()["posiciones"][0]["codigo_articulo"]
     csv = ("supplier,po,po_line,company,sku,quantity,xf_date,in_store_date\n"
            f"VANS,PO-FECHA-1,10,8000,{sku},12,05/10/2026,20/12/2026\n")
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("f.csv", csv.encode(), "text/csv")})
@@ -99,7 +99,7 @@ def test_normalizacion_en_cargas(interno):
     """Valores escritos de otra forma se enlazan con lo que ya existe y los
     nombres en MAYÚSCULAS o minúsculas se ordenan; los códigos no cambian."""
     oc = interno.get("/ordenes", params={"q": "4400003901", "solo_disponible": False}).json()["items"][0]
-    sku = interno.get(f"/ordenes/{oc['id']}/posiciones").json()["posiciones"][0]["codigo_sap"]
+    sku = interno.get(f"/ordenes/{oc['id']}/posiciones").json()["posiciones"][0]["codigo_articulo"]
     csv = ("supplier,po,po_line,company,destination,sku,quantity\n"
            f"  vans ,PO-NORM-1,10, 8000 ,el salvador distribution center,{sku},6\n")
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("n.csv", csv.encode(), "text/csv")})

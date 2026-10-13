@@ -5,6 +5,7 @@ import { api } from '@/nucleo/api'
 import { buscador } from '@/nucleo/busqueda.js'
 import { sesion, ve } from '@/stores/sesion'
 import { filasDefecto } from '@/stores/preferencias'
+import DetalleAnidado from './DetalleAnidado.vue'
 import FilasEsqueleto from './FilasEsqueleto.vue'
 import FiltroColumna from './FiltroColumna.vue'
 import Icono from './Icono.vue'
@@ -202,6 +203,10 @@ const orden = ref(props.ordenInicial)
 const filtros = reactive(normalizar(props.filtrosIniciales))
 const pagina = ref(1)
 const previa = computed(() => props.vistaPrevia ?? inject('vistaPrevia', false))
+// Tabla dentro del detalle de otra fila: compacta, sin vistas ni densidad
+// propias y con «Columnas» discreto; la paginación solo si hace falta
+const anidada = inject('tablaAnidada', false)
+const densidad = computed(() => (anidada ? 'compacta' : conf.densidad))
 const tamano = ref(props.porPagina || (previa.value ? 5 : filasDefecto()))
 const activos = computed(() => Object.entries(filtros).filter(([, v]) => v?.length))
 const filtrable = (c) => !previa.value && c.filtro !== false && (props.modo === 'local' || !!props.valores || !!c.opciones)
@@ -380,7 +385,7 @@ const filasPagina = computed(() => (props.modo === 'servidor' ? props.filas
 watch(() => props.filas, () => {
   if (props.modo === 'local' && (pagina.value - 1) * tamano.value >= procesadas.value.length) pagina.value = 1
 })
-const conPaginacion = computed(() => totalFilas.value > 0 || pagina.value > 1)
+const conPaginacion = computed(() => (anidada ? totalFilas.value > tamano.value : totalFilas.value > 0) || pagina.value > 1)
 
 // ---- Selección y filas expandidas ---------------------------------------------------------
 const clave = (fila) => (typeof props.claveFila === 'function' ? props.claveFila(fila) : fila[props.claveFila])
@@ -421,22 +426,22 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
 </script>
 
 <template>
-  <div ref="raiz" class="td" :class="[`td-${conf.densidad}`, { 'td-previa': previa }]">
-    <div v-if="!previa || slots.barra || slots.filtros" class="filtros" v-filtros>
+  <div ref="raiz" class="td" :class="[`td-${densidad}`, { 'td-previa': previa, 'td-anidada': anidada }]">
+    <div v-if="!previa || slots.barra || slots.filtros" class="filtros" :class="{ 'td-barra-anidada': anidada }" v-filtros>
       <slot name="barra" />
-      <VistasGuardadas v-if="vistasGuardadas && !previa" :pantalla="tabla" :actual="consultaActual" @aplicar="aplicarVista" />
+      <VistasGuardadas v-if="vistasGuardadas && !previa && !anidada" :pantalla="tabla" :actual="consultaActual" @aplicar="aplicarVista" />
       <slot name="filtros" />
       <button v-if="slots['mas-filtros']" type="button" class="btn btn-fantasma mas-filtros-toggle" :aria-expanded="masFiltros" @click="masFiltros = !masFiltros">
         <Icono nombre="filtro" :tam="15" />{{ masFiltros ? t('Fewer filters') : t('More filters') }}<span v-if="masFiltrosActivos" class="cuenta">{{ masFiltrosActivos }}</span>
       </button>
       <template v-if="!previa">
-      <div class="segmentos td-densidad" role="group" :aria-label="t('Density')">
+      <div v-if="!anidada" class="segmentos td-densidad" role="group" :aria-label="t('Density')">
         <button v-for="[d, txt] in DENSIDADES" :key="d" type="button" class="segmento" :aria-pressed="conf.densidad === d" :title="tx(txt)" @click="cambiarDensidad(d)">
           <span class="td-icono-densidad" :class="d" aria-hidden="true"></span><span class="oculto-visual">{{ tx(txt) }}</span>
         </button>
       </div>
       <div class="sel-columnas" @keydown.esc="menuColumnas = false">
-        <button type="button" class="btn btn-fantasma" :aria-expanded="menuColumnas" aria-haspopup="true" @click="menuColumnas = !menuColumnas">
+        <button type="button" class="btn btn-fantasma" :class="{ 'btn-chico': anidada }" :aria-expanded="menuColumnas" aria-haspopup="true" @click="menuColumnas = !menuColumnas">
           <Icono nombre="columnas" :tam="16" />{{ t('Columns') }}<span v-if="ocultas" class="cuenta">{{ listaColumnas.length - ocultas }}/{{ listaColumnas.length }}</span>
         </button>
         <div v-if="menuColumnas" v-flotante="'fin'" class="sel-columnas-menu td-menu" role="dialog" :aria-label="t('Columns')">
@@ -509,13 +514,15 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
             </tr>
             <tr v-if="conDetalle && abiertas.has(clave(fila))" class="fila-hija">
               <td :colspan="nColumnas">
-                <dl v-if="ocultasPorEspacio.length" class="td-datos">
-                  <template v-for="c in ocultasPorEspacio" :key="c.clave">
-                    <dt>{{ tx(c.texto) }}</dt>
-                    <dd><slot :name="`celda-${c.clave}`" :fila="fila" :valor="fila[c.clave]">{{ tx(fila[c.clave] ?? '—') }}</slot></dd>
-                  </template>
-                </dl>
-                <slot name="detalle" :fila="fila" />
+                <DetalleAnidado>
+                  <dl v-if="ocultasPorEspacio.length" class="td-datos">
+                    <template v-for="c in ocultasPorEspacio" :key="c.clave">
+                      <dt>{{ tx(c.texto) }}</dt>
+                      <dd><slot :name="`celda-${c.clave}`" :fila="fila" :valor="fila[c.clave]">{{ tx(fila[c.clave] ?? '—') }}</slot></dd>
+                    </template>
+                  </dl>
+                  <slot name="detalle" :fila="fila" />
+                </DetalleAnidado>
               </td>
             </tr>
           </template>
@@ -577,7 +584,7 @@ th { position: relative; }
 .td-redim:hover, .td-redim:focus-visible { background: var(--acento-medio); outline: none; }
 .td-exp { width: 36px; }
 .td-acciones { width: 1%; white-space: nowrap; text-align: end; }
-.td-datos { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 4px 14px; margin: 0 0 8px; font-size: var(--t-sm); padding: 10px 16px 0; }
+.td-datos { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 4px 14px; margin: 0 0 8px; font-size: var(--t-sm); }
 .td-datos dt { color: var(--tinta-3); }
 .td-datos dd { margin: 0; min-width: 0; }
 /* Densidad: la definen las variables --td-* de styles.css (Tablas) */

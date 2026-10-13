@@ -1,6 +1,5 @@
 """Datos de demostración. Se cargan solo si la base está vacía.
 Uso manual: python -m app.instalacion.demo"""
-import json
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import func, select
@@ -62,6 +61,7 @@ PAISES = [
     ("VN", "Vietnam"), ("CN", "China"), ("ID", "Indonesia"), ("KH", "Cambodia"), ("BD", "Bangladesh"),
     ("IN", "India"), ("SV", "El Salvador"), ("PA", "Panama"), ("GT", "Guatemala"), ("HN", "Honduras"),
     ("CR", "Costa Rica"), ("NI", "Nicaragua"), ("US", "United States"), ("MX", "Mexico"), ("BR", "Brazil"),
+    ("HK", "Hong Kong"), ("CO", "Colombia"), ("DK", "Denmark"), ("FR", "France"),
 ]
 REGION_PAIS = {**dict.fromkeys(["VN", "CN", "ID", "KH", "BD", "IN"], "ASIA"),
                **dict.fromkeys(["SV", "PA", "GT", "HN", "CR", "NI"], "CAM")}
@@ -266,10 +266,20 @@ def _catalogos(db: Session) -> dict:
         RegionLeadTime(codigo="OTROS", nombre="Other origins", predeterminada=True),
     ])
     db.add_all([PasoLeadTime(codigo=c, nombre=n, hito=h) for c, n, h in PASOS_LT])
-    db.add_all([ReglaLeadTime(nivel=nv, nombre=nm, pasos=json.dumps({"pasos": ps, "orden": None}),
+    # Los países vienen de la lista ISO de la plataforma; la demo les da su región de lead time
+    existentes = {p.codigo: p for p in db.scalars(select(Pais))}
+    for c, n in PAISES:
+        p = existentes.get(c) or Pais(codigo=c, nombre=n, activo=True)
+        p.region = REGION_PAIS.get(c)
+        db.add(p)
+    # Los catálogos antes que lo que guarda sus códigos (llaves foráneas por código)
+    puertos = {c: Puerto(codigo=c, nombre=n, pais=p, tipo="MARITIMO") for c, n, p in PUERTOS}
+    puertos.update({c: Puerto(codigo=c, nombre=n, pais=p, tipo=t) for c, n, p, t in PUERTOS_OTROS})
+    db.add_all(puertos.values())
+    db.flush()
+    db.add_all([ReglaLeadTime(nivel=nv, nombre=nm, pasos={"pasos": ps, "orden": None},
                               **({rlt.CAMPO_NIVEL[nv]: amb} if nv in rlt.CAMPO_NIVEL else {}))
                 for nv, amb, nm, ps in REGLAS_LT])
-    db.add_all([Pais(codigo=c, nombre=n, region=REGION_PAIS.get(c)) for c, n in PAISES])
     socs = {c: Sociedad(codigo=c, nombre=n, razon_social=r, id_fiscal=nit, pais=pais, moneda="USD", direccion=dir_,
                         correos=correos)
             for c, n, r, nit, pais, dir_, correos in SOCIEDADES}
@@ -292,9 +302,6 @@ def _catalogos(db: Session) -> dict:
         db.add(Contacto(nombre=nombre, cargo=cargo, rol=rol, correos=correos, telefono=tel,
                         sociedad_id=socs[codigo].id if tipo == "sociedad" else None,
                         centro_id=centros[codigo].id if tipo == "centro" else None))
-    puertos = {c: Puerto(codigo=c, nombre=n, pais=p, tipo="MARITIMO") for c, n, p in PUERTOS}
-    puertos.update({c: Puerto(codigo=c, nombre=n, pais=p, tipo=t) for c, n, p, t in PUERTOS_OTROS})
-    db.add_all(puertos.values())
     for c, lista in PUERTOS_CENTRO.items():
         centros[c].puertos = [puertos[x] for x in lista]
     db.add_all([TipoUnidad(codigo=c, nombre=n, modo=m, modalidad=md, capacidad_cbm=cbm, capacidad_kg=kg,
@@ -411,7 +418,7 @@ def _productos(db, arts) -> None:
     """Cada estilo-color es un producto con su ficha técnica y su clasificación."""
     from app.modelos import Usuario as U
 
-    interno = db.scalar(select(U).where(U.rol == "interno"))
+    interno = db.scalar(select(U).where(U.email == "interno@demo.com"))
     for a in arts.values():
         asegurar_producto(db, a)
     db.flush()
@@ -458,7 +465,7 @@ def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", a
         for talla, cantidad in tallas:
             a = arts[(estilo, color, talla)]
             oc.posiciones.append(PosicionOC(
-                posicion=str(pos), almacen=alm[0] if alm else almacen, articulo_id=a.id, codigo_sap=a.sku, upc=a.upc, estilo=a.estilo, color=a.color,
+                posicion=str(pos), almacen=alm[0] if alm else almacen, articulo_id=a.id, codigo_articulo=a.sku, upc=a.upc, estilo=a.estilo, color=a.color,
                 talla=a.talla, descripcion=a.descripcion, marca=a.marca.codigo, grupo=a.grupo.codigo,
                 categoria=a.grupo.categoria, tipo_empaque=a.tipo, casepack=a.empaque_demo[0], inner_pack=a.empaque_demo[1],
                 prepack=a.prepack.codigo if a.prepack else None,
@@ -483,7 +490,7 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
     f.packing_lists.append(pl)
     for p in oc.posiciones:
         linea = FacturaLinea(posicion_oc=p, cantidad=p.cantidad, precio_unitario=p.precio, precio_oc=p.precio,
-                             oc_numero=oc.numero, almacen=p.almacen, posicion=p.posicion, codigo_sap=p.codigo_sap, upc=p.upc,
+                             oc_numero=oc.numero, almacen=p.almacen, posicion=p.posicion, codigo_articulo=p.codigo_articulo, upc=p.upc,
                              estilo=p.estilo, color=p.color, talla=p.talla, descripcion=p.descripcion,
                              unidad=p.unidad, marca=p.marca, categoria=p.categoria, tipo_empaque=p.tipo_empaque,
                              casepack=p.casepack, inner_pack=p.inner_pack, centro_destino=oc.centro_destino, pais_origen=p.pais_origen,
@@ -608,16 +615,16 @@ def seed(db: Session) -> None:
     pw = hash_password(PASSWORD_DEMO)
     u_tnf = Usuario(email="tnf@demo.com", nombre="TNF supplier", rol="proveedor", rol_id=roles["proveedor"].id,
                     proveedor_id=tnf.id, password_hash=pw, telefono="+84283770001",
-                    cargo="Export coordinator", area="Logistics", empresa="The North Face (VF Asia)")
+                    cargo="Export coordinator", area="Logistics")
     u_vans = Usuario(email="vans@demo.com", nombre="Vans supplier", rol="proveedor", rol_id=roles["proveedor"].id,
                      proveedor_id=vans.id, password_hash=pw, telefono="+867552660001",
-                     cargo="Shipping specialist", area="Export operations", empresa="Vans (VF China)")
+                     cargo="Shipping specialist", area="Export operations")
     db.add_all([
         Usuario(email="admin@demo.com", nombre="Administrator", rol="admin", rol_id=roles["admin"].id, password_hash=pw,
-                telefono="+50370000001", cargo="Systems administrator", area="IT", empresa="Distribuidora de Marcas",
+                telefono="+50370000001", cargo="Systems administrator", area="IT",
                 plataforma=True),
         Usuario(email="interno@demo.com", nombre="Import team", rol="interno", rol_id=roles["interno"].id, password_hash=pw,
-                telefono="+50370000002", cargo="Imports analyst", area="Imports and customs", empresa="Distribuidora de Marcas"),
+                telefono="+50370000002", cargo="Imports analyst", area="Imports and customs"),
         u_tnf,
         u_vans,
     ])
@@ -706,7 +713,48 @@ def seed(db: Session) -> None:
                     if not ln.recepcion:
                         ln.recepcion = RecepcionLinea(cantidad_recibida=ln.cantidad, cantidad_danada=0,
                                                       observacion="Received without differences")
+    _comercial_demo(db, hoy)
     db.commit()
+
+
+def _comercial_demo(db: Session, hoy: date) -> None:
+    """Facturación y pagos: terceros de proveedores y transportistas, las
+    facturas finalizadas como cuentas por pagar, un IVA, un cliente con una
+    factura emitida y un cobro parcial."""
+    from app.esquemas.comercial import DocumentoIn, LineaIn, PagoIn, TerceroIn
+    from app.modelos import ConfiguracionFiscal, Factura, Impuesto, Sociedad
+    from app.modulos.comercial import documentos as docs
+    from app.modulos.comercial import pagos, terceros
+    from app.modulos.comercial import proveedores as cxp
+
+    interno = db.scalar(select(Usuario).where(Usuario.email == "interno@demo.com"))
+    docs.sembrar(db)
+    for p in db.scalars(select(Proveedor)):
+        terceros.asegurar(db, p, "PROVEEDOR")
+    for t in db.scalars(select(Transportista)):
+        terceros.asegurar(db, t, "TRANSPORTISTA")
+    for f in db.scalars(select(Factura).where(Factura.estado == "FINALIZADA").order_by(Factura.id)):
+        cxp.registrar(db, interno, f)
+    db.add(Impuesto(codigo="IVA", nombre="VAT 13 %", tipo="PORCENTAJE", tasa=13, pais="SV", es_retencion=False, activo=True))
+    db.flush()
+    soc = db.scalar(select(Sociedad).where(Sociedad.codigo == "8000"))
+    db.add(ConfiguracionFiscal(sociedad_id=soc.id, pais="SV", redondeo="LINEA", impuestos_defecto="IVA", sin_huecos=True))
+    db.flush()
+    cliente = terceros.crear(db, interno, TerceroIn(
+        codigo="CLI-TIENDAS", nombre="Tiendas del Norte", razon_social="Tiendas del Norte, S.A. de C.V.",
+        tipo_identificacion="NIT", id_fiscal="0614-150390-102-3", pais="SV", moneda="USD", condicion_pago="NETO30",
+        roles=["CLIENTE"], direcciones=[{"tipo": "FISCAL", "linea1": "Calle La Mascota 450", "ciudad": "San Salvador",
+                                         "pais": "SV"}],
+        medios=[{"tipo": "CORREO", "valor": "cuentas@tiendasnorte.demo", "uso": "FACTURACION", "principal": True}]))
+    factura = docs.crear(db, interno, DocumentoIn(
+        tipo="FACTURA", sociedad="8000", tercero_id=cliente["id"], fecha=hoy - timedelta(days=10), lineas=[
+            LineaIn(descripcion="Backpacks wholesale lot", cantidad=40, unidad="UN", precio_unitario="38.50"),
+            LineaIn(descripcion="Delivery to store", cantidad=1, precio_unitario=45)]))
+    factura = docs.emitir(db, interno, factura["id"], interno=True)
+    pagos.registrar_pago(db, interno, PagoIn(
+        direccion="COBRO", tercero_id=cliente["id"], sociedad="8000", fecha=hoy - timedelta(days=2), moneda="USD",
+        importe=1000, metodo_pago="TRANSFERENCIA", referencia="TRF-58821",
+        aplicaciones=[{"documento_id": factura["id"], "importe": 1000}]))
 
 
 def reiniciar_demo() -> None:

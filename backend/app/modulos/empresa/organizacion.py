@@ -9,14 +9,14 @@ empresa usa la organización 1.
 import re
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
-from app.core import campos_propios, organizacion
+from app.core import campos_propios, estados, organizacion
 from app.core.archivos import imagen_data_url
 from app.core.config import settings
 from app.core.empresa import CAMPOS_COMPATIBILIDAD, REGLAS
 from app.core.errores import ErrorNegocio
-from app.modelos import Organizacion, Usuario
+from app.modelos import Organizacion, ReglaAprobacionOC, Sociedad, Usuario
 from app.modulos.acceso.permisos import MODULOS_ACTIVABLES, exigir
 from app.modulos.comun.historial import registrar
 
@@ -40,7 +40,8 @@ def configuracion(db: Session) -> dict:
     # una organización activa, los datos compartidos solo los cambia la plataforma.
     varias = (db.scalar(select(func.count()).select_from(Organizacion).where(Organizacion.activa.is_(True))) or 0) > 1
     return {**(o.configuracion or {}), "empresa": {"id": o.id, "nombre": o.nombre, "logo": o.logo},
-            "varias_organizaciones": varias}
+            "varias_organizaciones": varias, "campos_propios": campos_propios.cargar(db),
+            "atributos_variante": atributos_variante(db)}
 
 
 # ---- Configuración ------------------------------------------------------------
@@ -65,6 +66,20 @@ def _reglas_de(o: Organizacion) -> dict:
     return {k: propias.get(k, getattr(settings, k)) for k in REGLAS}
 
 
+def atributos_variante(db: Session) -> list[dict]:
+    """Atributos de variante propios y activos (los de sistema son columnas del artículo)."""
+    from app.modelos import AtributoVariante
+
+    return [{"codigo": a.codigo, "nombre": a.nombre} for a in db.scalars(
+        select(AtributoVariante).where(AtributoVariante.columna.is_(None), AtributoVariante.activo.is_(True))
+        .order_by(AtributoVariante.orden, AtributoVariante.codigo))]
+
+
+def _definiciones(o: Organizacion) -> dict:
+    db = object_session(o)
+    return campos_propios.cargar(db) if db is not None else {}
+
+
 def _dict(o: Organizacion) -> dict:
     conf = o.configuracion or {}
     return {
@@ -74,15 +89,19 @@ def _dict(o: Organizacion) -> dict:
         "marca": {**MARCA, **conf.get("marca", {})},
         "documentos": {**DOCUMENTOS, **conf.get("documentos", {})},
         "textos": _textos_de(conf),
-        "campos_propios": {e: (conf.get("campos_propios") or {}).get(e, []) for e in campos_propios.ENTIDADES},
+        "campos_propios": {e: _definiciones(o).get(e, []) for e in campos_propios.ENTIDADES},
         "entidades_campos": [{"clave": k, "texto": v} for k, v in campos_propios.ENTIDADES.items()],
         "tipos_campos": [{"clave": k, "texto": v} for k, v in campos_propios.TIPOS.items()],
+        # Estados de cada documento: códigos fijos, etiqueta, color y orden propios
+        "estados": estados.personalizados(object_session(o)) if object_session(o) is not None else {},
+        "documentos_estados": [{"clave": k, "texto": v[0], "codigos": list(v[1])} for k, v in estados.PERSONALIZABLES.items()],
+        "tonos": list(estados.TONOS),
         "modulos": [{"clave": k, "texto": texto, "activo": activo} for (k, (texto, _)), activo
                     in zip(MODULOS_ACTIVABLES.items(), _modulos_de(conf).values(), strict=False)],
         "reglas": [{"clave": k, "texto": t, "valor": v} for (k, t), v in zip(REGLAS.items(), _reglas_de(o).values(), strict=False)],
         # Datos de la OC que pueden entrar en las reglas de compatibilidad
         "campos_compatibilidad": [{"clave": k, "texto": NOMBRES_CAMPO[k]} for k in CAMPOS_COMPATIBILIDAD],
-        "aprobaciones_oc": conf.get("aprobaciones_oc") or [],
+        "aprobaciones_oc": reglas_aprobacion(object_session(o)),
         "obligatorios": {"orden": (conf.get("obligatorios") or {}).get("orden") or []},
         "campos_obligables": [{"clave": k, "texto": v} for k, v in CAMPOS_OBLIGABLES_OC.items()],
     }
@@ -119,9 +138,31 @@ def _validar_aprobaciones(db: Session, reglas) -> list[dict]:
         if not nombre or monto < 0 or moneda not in listas.codigos("moneda") or not rol or not rol.activo:
             raise ErrorNegocio(f"Approval rule {i}: it needs a name, a minimum amount (0 or more), a currency of the list "
                                "and an active role that approves.", 422, "validacion")
-        limpias.append({"nombre": nombre, "monto_minimo": monto, "moneda": moneda,
-                        "sociedad": str(r.get("sociedad") or "").strip().upper()[:10] or None, "rol_id": rol.id})
+        sociedad = str(r.get("sociedad") or "").strip().upper()[:10] or None
+        if sociedad and not db.scalar(select(Sociedad.id).where(Sociedad.codigo == sociedad)):
+            raise ErrorNegocio(f"Approval rule {i}: the company {sociedad} does not exist.", 422, "validacion")
+        limpias.append({"nombre": nombre, "monto_minimo": monto, "moneda": moneda, "sociedad": sociedad, "rol_id": rol.id})
     return sorted(limpias, key=lambda r: r["monto_minimo"])
+
+
+def reglas_aprobacion(db: Session | None) -> list[dict]:
+    """Reglas de aprobación de OCs de la organización, de menor a mayor monto."""
+    if db is None:
+        return []
+    return [{"id": r.id, "nombre": r.nombre, "monto_minimo": r.monto_minimo, "moneda": r.moneda, "sociedad": r.sociedad,
+             "rol_id": r.rol_id}
+            for r in db.scalars(select(ReglaAprobacionOC).where(ReglaAprobacionOC.activo.is_(True))
+                                .order_by(ReglaAprobacionOC.orden, ReglaAprobacionOC.id))]
+
+
+def _guardar_aprobaciones(db: Session, reglas: list[dict]) -> None:
+    """Reemplaza las reglas; los pasos de OCs ya enviadas conservan el nombre de su regla."""
+    for r in db.scalars(select(ReglaAprobacionOC)):
+        db.delete(r)
+    db.flush()
+    for i, r in enumerate(reglas, start=1):
+        db.add(ReglaAprobacionOC(orden=i, activo=True, **r))
+    db.flush()
 
 
 NOMBRES_CAMPO = {"sociedad": "Company", "centro": "Plant", "centro_destino": "Destination plant", "moneda": "Currency",
@@ -237,6 +278,7 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
                 imagen_data_url(valor, 300 * 1024)
             setattr(o, campo, valor)
     conf = dict(o.configuracion or {})
+    conf.pop("campos_propios", None)  # viven en la tabla definiciones_campo
     if "preferencias" in datos:
         conf["preferencias"] = {k: v for k, v in {**conf.get("preferencias", {}), **datos["preferencias"]}.items()
                                 if k in PREFERENCIAS}
@@ -247,7 +289,9 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
     if "textos" in datos:
         conf["textos"] = _validar_textos(datos["textos"] or {})
     if "campos_propios" in datos:
-        conf["campos_propios"] = campos_propios.validar_definiciones(datos["campos_propios"] or {})
+        campos_propios.guardar(db, campos_propios.validar_definiciones(datos["campos_propios"] or {}))
+    if "estados" in datos:
+        estados.guardar_personalizados(db, datos["estados"] or {})
     if "modulos" in datos:
         modulos = datos["modulos"] or {}
         if not isinstance(modulos, dict) or set(modulos) - set(MODULOS_ACTIVABLES) \
@@ -255,7 +299,7 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
             raise ErrorNegocio("Choose the modules to turn on or off.", 422, "validacion")
         conf["modulos"] = {**_modulos_de(conf), **modulos}
     if "aprobaciones_oc" in datos:
-        conf["aprobaciones_oc"] = _validar_aprobaciones(db, datos["aprobaciones_oc"] or [])
+        _guardar_aprobaciones(db, _validar_aprobaciones(db, datos["aprobaciones_oc"] or []))
     if "obligatorios" in datos:
         orden = (datos["obligatorios"] or {}).get("orden") or []
         if not isinstance(orden, list) or set(orden) - set(CAMPOS_OBLIGABLES_OC):
