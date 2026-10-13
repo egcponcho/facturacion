@@ -86,6 +86,26 @@ Las listas que crecen se paginan en el servidor:
   para buscar texto…).
 - La respuesta tiene la forma `{"items": [...], "total": 120, "page": 1, "size": 25}`.
 
+**Filtro por los valores de cada columna** (el filtro tipo Excel de las tablas):
+
+- `f` es un JSON con `{columna: [valores]}`. Cada columna filtra por «es alguno
+  de estos valores» (`__vacio__` es el dato vacío) y las columnas se combinan con
+  «y». Una columna que la lista no declara se ignora; un `f` mal formado da 422.
+  Ejemplo: `GET /facturas?f={"estado":["BORRADOR","EN_CORRECCION"],"moneda":["USD"]}`.
+- `GET <lista>/valores?columna=<c>&buscar=<texto>&f=<...>` (con los mismos
+  filtros de la lista) devuelve los valores únicos de la columna con cuántos
+  registros tiene cada uno: `[{"valor": "USD", "n": 42}, …]` (hasta 201; el
+  filtro de la propia columna no se aplica, como en Excel). Una columna que no
+  se puede filtrar da 422. Respeta el alcance de cada usuario: un proveedor solo
+  ve sus valores.
+- Listas con `f` y `/valores`: `/facturas`, `/ordenes`, `/productos`,
+  `/catalogos/{tipo}`, `/catalogos/genericos`, `/aranceles/reglas`,
+  `/aranceles/codigos`, `/aranceles/sac`, `/conocimiento/historial`,
+  `/auditoria`, `/seguimiento/ordenes`, `/seguimiento/embarques`,
+  `/seguimiento/documentos` y `/seguimiento/leadtimes`. Las exportaciones de
+  catálogos, productos, códigos nacionales, partidas SAC y seguimiento aceptan
+  el mismo `f` (se exporta lo que se ve).
+
 Los selectores con listas grandes (proveedores, artículos, puertos) buscan en
 el servidor con `q` y devuelven pocas opciones.
 

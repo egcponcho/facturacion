@@ -99,28 +99,50 @@ Todas las tablas siguen el modelo de la tabla de **órdenes de compra**:
 - Las listas grandes de un selector buscan en el servidor (`SelectBusqueda`
   con `buscar`).
 
-`TablaDatos` arma todo eso de una vez y es la forma preferida para una lista
-nueva (hoy en Facturas, Embarques, las líneas de la OC, Usuarios, Roles,
-Proveedores y Organizaciones):
+`TablaDatos` arma todo eso de una vez y es la forma de toda lista o tabla que
+muestre registros (Facturas es la referencia):
 
-- **Ranuras de la barra:** `barra` (el buscador, va primero) y `filtros` (los
-  demás, después de las vistas guardadas). `sin-barra` la quita para una tabla
-  dentro de un documento.
-- **Encabezados:** ordenan con un clic (asc → desc → sin orden) y tienen su
-  filtro (texto que contiene u opción de una lista); el embudo aparece al pasar
-  por el encabezado o cuando el filtro está puesto.
-- **Columnas:** se muestran, se ocultan, se reordenan (menú «Columnas», que
-  también tiene la densidad: compacta, normal o amplia) y se ensanchan
-  arrastrando el borde del encabezado (o con las flechas). Las que el rol no ve
-  (`grupo`) no aparecen. Todo se guarda por persona y por tabla
-  (`PUT /perfil/tablas/{tabla}`).
+- **Ranuras de la barra:** `barra` (el buscador, va primero), `filtros` (los
+  filtros principales, a la vista, después de las vistas guardadas) y
+  `mas-filtros` (los secundarios, plegados en «Más filtros»; `masFiltrosActivos`
+  pone la cuenta en el botón y lo abre si hay alguno puesto). Los filtros de la
+  pantalla que se quitan desde los chips llegan con `chipsExternos` y los
+  eventos `quitar-externo` / `limpiar-externos`.
+- **Filtro de cada columna, como en Excel:** el embudo del encabezado abre la
+  lista de los **valores únicos** de la columna con cuántas filas tiene cada
+  uno, con buscador, «(Seleccionar todo)» y «(Vacío)»; se marcan uno o varios.
+  Los valores se calculan bajo los demás filtros (el de la propia columna no
+  limita su lista). Una columna con códigos usa `opciones` para mostrar su
+  nombre; `textoValor` da formato (fechas, montos); `filtro: false` la deja sin
+  filtro (columnas calculadas: barras, montos sumados al vuelo, acciones).
+- **Encabezados:** ordenan con un clic (asc → desc → sin orden).
+- **Densidad a la vista:** compacta, normal o amplia en la barra (tres íconos).
+- **Columnas:** se muestran, se ocultan, se reordenan (menú «Columnas») y se
+  ensanchan arrastrando el borde del encabezado. Las que el rol no ve (`grupo`)
+  no aparecen. Todo se guarda por persona y por tabla (`PUT /perfil/tablas/{tabla}`).
+- **Vistas guardadas:** guardan filtros de la pantalla (`externos`), filtros de
+  cada columna, orden, columnas visibles y densidad con un nombre, por persona.
 - **Celular («prioridad +»):** cada columna tiene prioridad 1, 2 o 3. Bajo
   720 px quedan las de prioridad 1 y bajo 900 px las de 1 y 2. El resto se ve
   al expandir la fila.
 - **Datos:** `modo="local"` ordena, filtra y pagina en el navegador (listas
-  acotadas). `modo="servidor"` emite `consulta` (orden, filtros, página y
-  tamaño) para que la pantalla pida al servidor: es el modo para listas que
-  crecen. Siempre se pagina (25 filas por defecto, hasta 100), así que ninguna
-  pantalla dibuja miles de filas.
-- **Detalle:** `expandible` y la ranura `detalle` para el maestro-detalle.
+  acotadas que llegan completas). `modo="servidor"` emite `consulta` (orden,
+  filtros de columna, página y tamaño) y pide los valores de cada columna con
+  `valores(columna, buscar, otros filtros)`: la pantalla los pide al servidor
+  (`f` y `/valores`, ver docs/API.md). Siempre se pagina (25 filas por defecto),
+  así que ninguna pantalla dibuja miles de filas.
+- **Detalle:** `expandible` y la ranura `detalle` (puede llevar otra
+  `TablaDatos` con `:vistas-guardadas="false"`); `fila-clicable` + evento `fila`
+  para abrir un `PanelLateral`.
+- **Celdas editables:** una lista de registros con celdas que se editan (clases
+  de material, plantillas de cartón) también es `TablaDatos`: la celda lleva su
+  `input.celda`, que se ve como campo (borde suave) mientras se puede editar.
+
+**Excepciones** (no son `TablaDatos`, pero llevan `.tabla-marco` + `table.tabla`
+y campos con estilo): los **editores** donde se escribe en casi todas las celdas
+y se guarda todo junto (campos propios, terminología y aprobaciones de la
+empresa, mapeo de un perfil de importación, tallas de un genérico, desglose al
+crear un prepack, asistentes de empaque, códigos por destino de la ficha); el
+**árbol arancelario**, que es un árbol (su búsqueda sí pagina); y las tarjetas
+de configuración (familias de producto, países, indicadores).
 
