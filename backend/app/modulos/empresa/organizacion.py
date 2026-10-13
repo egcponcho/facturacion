@@ -40,7 +40,8 @@ def configuracion(db: Session) -> dict:
     # una organización activa, los datos compartidos solo los cambia la plataforma.
     varias = (db.scalar(select(func.count()).select_from(Organizacion).where(Organizacion.activa.is_(True))) or 0) > 1
     return {**(o.configuracion or {}), "empresa": {"id": o.id, "nombre": o.nombre, "logo": o.logo},
-            "varias_organizaciones": varias, "campos_propios": campos_propios.cargar(db)}
+            "varias_organizaciones": varias, "campos_propios": campos_propios.cargar(db),
+            "atributos_variante": atributos_variante(db)}
 
 
 # ---- Configuración ------------------------------------------------------------
@@ -63,6 +64,15 @@ LARGOS = {"titulo": 60, "ingreso_titulo": 120, "ingreso_texto": 300, "ingreso_ay
 def _reglas_de(o: Organizacion) -> dict:
     propias = (o.configuracion or {}).get("reglas", {})
     return {k: propias.get(k, getattr(settings, k)) for k in REGLAS}
+
+
+def atributos_variante(db: Session) -> list[dict]:
+    """Atributos de variante propios y activos (los de sistema son columnas del artículo)."""
+    from app.modelos import AtributoVariante
+
+    return [{"codigo": a.codigo, "nombre": a.nombre} for a in db.scalars(
+        select(AtributoVariante).where(AtributoVariante.columna.is_(None), AtributoVariante.activo.is_(True))
+        .order_by(AtributoVariante.orden, AtributoVariante.codigo))]
 
 
 def _definiciones(o: Organizacion) -> dict:

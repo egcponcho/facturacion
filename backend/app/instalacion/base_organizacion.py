@@ -12,7 +12,7 @@ Se siembra en la organización con la que trabaja la sesión
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modelos import CategoriaArticulo, DominioClasificacion, EstadoLiberacion
+from app.modelos import AtributoVariante, CategoriaArticulo, DominioClasificacion, EstadoLiberacion
 
 # Estados de liberación de fábrica: (tipo, código, nombre, libera, con cambios,
 # predeterminado, alias en archivos, orden)
@@ -44,6 +44,9 @@ def sembrar(db: Session) -> None:
         for t, c, n, li, cc, p, a, o in LIBERACIONES:
             db.add(EstadoLiberacion(tipo=t, codigo=c, nombre=n, libera=li, con_cambios=cc, predeterminado=p, alias=a,
                                     orden=o, activo=True))
+    if not db.scalar(select(AtributoVariante.id).limit(1)):
+        db.add_all([AtributoVariante(codigo="TALLA", nombre="Size", columna="talla", orden=1, activo=True),
+                    AtributoVariante(codigo="COLOR", nombre="Color", columna="color", orden=2, activo=True)])
     if not db.scalar(select(CategoriaArticulo.id).limit(1)):
         dominios = set(db.scalars(select(DominioClasificacion.codigo)))
         for c, n, d in CATEGORIAS:

@@ -18,9 +18,11 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    event,
+    select,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, Session, mapped_column, object_session, relationship
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
@@ -383,12 +385,15 @@ class GrupoArticulo(DeOrganizacion, Base):
 
 
 class Prepack(DeOrganizacion, Base):
-    """Curva de un estilo-color. Su prepack ID (p. ej. AB12) es la "talla"
-    del artículo prepack y se arma con sólidos del mismo estilo y color."""
+    """Artículo compuesto. Una CURVA (prepack) reparte tallas de un mismo
+    estilo-color y su prepack ID (p. ej. AB12) es la "talla" del artículo; un
+    KIT junta artículos de cualquier estilo (un juego, un set de regalo)."""
 
     __tablename__ = "prepacks"
-    __table_args__ = (UniqueConstraint("organizacion_id", "estilo", "color", "codigo", name="uq_prepacks_org_estilo_color_codigo"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "estilo", "color", "codigo", name="uq_prepacks_org_estilo_color_codigo"),
+                      CheckConstraint("tipo IN ('CURVA', 'KIT')", name="ck_prepacks_tipo"))
     id: Mapped[int] = mapped_column(primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(10), default="CURVA", server_default="CURVA")
     codigo: Mapped[str] = mapped_column(String(10))
     estilo: Mapped[str] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))
@@ -441,6 +446,79 @@ class Articulo(DeOrganizacion, Base):
     grupo: Mapped[GrupoArticulo] = relationship()
     prepack: Mapped[Prepack | None] = relationship()
     producto: Mapped[Producto | None] = relationship(back_populates="articulos")
+    # Valores de los atributos de variante propios de la empresa (material,
+    # voltaje, sabor…); talla y color son columnas
+    atributos: Mapped[list["ArticuloAtributo"]] = relationship(
+        back_populates="articulo", cascade="all, delete-orphan", lazy="selectin", order_by="ArticuloAtributo.id")
+
+    @property
+    def variantes(self) -> dict:
+        """{código del atributo: valor} de los atributos propios."""
+        pendiente = getattr(self, "_variantes_pendientes", None)
+        if pendiente is not None:
+            return dict(pendiente)
+        return {x.atributo.codigo: x.valor for x in self.atributos}
+
+    @variantes.setter
+    def variantes(self, valores: dict) -> None:
+        # Se aplica al guardar (hook _aplicar_variantes): ahí se conocen los atributos
+        self._variantes_pendientes = {k: v for k, v in (valores or {}).items() if v not in (None, "")}
+        db = object_session(self)
+        if db is not None:
+            db.info.setdefault("variantes_pendientes", set()).add(self)
+
+
+class AtributoVariante(DeOrganizacion, Base):
+    """Dimensión que distingue las variantes de un artículo. Talla y color
+    son de sistema (viven en columnas del artículo); la empresa agrega las
+    suyas (material, capacidad, voltaje…) y les da nombre y orden."""
+
+    __tablename__ = "atributos_variante"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_atributos_variante_org_codigo"),
+                      CheckConstraint("columna IS NULL OR columna IN ('talla', 'color')", name="ck_atributos_variante_columna"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(20))
+    nombre: Mapped[str] = mapped_column(String(60))
+    columna: Mapped[str | None] = mapped_column(String(10))  # talla | color: atributo de sistema
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class ArticuloAtributo(DeOrganizacion, Base):
+    """Valor de un atributo de variante propio en un artículo (uno por atributo)."""
+
+    __tablename__ = "articulo_atributos"
+    __table_args__ = (UniqueConstraint("articulo_id", "atributo_id", name="uq_articulo_atributos_articulo_atributo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    articulo_id: Mapped[int] = mapped_column(ForeignKey("articulos.id", ondelete="CASCADE"), index=True)
+    atributo_id: Mapped[int] = mapped_column(ForeignKey("atributos_variante.id"), index=True)
+    valor: Mapped[str] = mapped_column(String(60))
+
+    articulo: Mapped[Articulo] = relationship(back_populates="atributos")
+    atributo: Mapped[AtributoVariante] = relationship(lazy="joined")
+
+
+@event.listens_for(Session, "before_flush")
+def _aplicar_variantes(db, _contexto, _instancias) -> None:
+    """Pasa los valores pendientes de los atributos propios a sus filas."""
+    for a in [x for x in {*db.new, *db.dirty, *db.info.pop("variantes_pendientes", set())} if isinstance(x, Articulo)]:
+        pendiente = a.__dict__.pop("_variantes_pendientes", None)
+        if pendiente is None:
+            continue
+        por_codigo = {x.codigo: x for x in db.scalars(select(AtributoVariante).where(AtributoVariante.columna.is_(None)))}
+        actuales = {x.atributo.codigo: x for x in a.atributos}
+        for codigo, x in list(actuales.items()):
+            if codigo not in pendiente:
+                a.atributos.remove(x)
+        for codigo, valor in pendiente.items():
+            if codigo not in por_codigo:
+                continue
+            if codigo in actuales:
+                actuales[codigo].valor = str(valor)[:60]
+            else:
+                # Misma organización que el artículo (este hook puede correr después del que la asigna)
+                a.atributos.append(ArticuloAtributo(atributo=por_codigo[codigo], valor=str(valor)[:60],
+                                                    organizacion_id=a.organizacion_id))
 
 
 class PrepackComponente(DeOrganizacion, Base):

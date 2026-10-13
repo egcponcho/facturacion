@@ -86,6 +86,8 @@ from app.modelos.maestros import (
     AcuerdoComercial,
     Almacen,
     Articulo,
+    ArticuloAtributo,
+    AtributoVariante,
     CategoriaArticulo,
     Centro,
     CondicionPago,
@@ -137,6 +139,8 @@ _aplicar_restricciones(_Base.metadata)
 _aplicar_referencias(_Base.metadata)
 
 __all__ = [
+    "ArticuloAtributo",
+    "AtributoVariante",
     "ClasificacionProducto",
     "Adjunto",
     "Aplicacion",
