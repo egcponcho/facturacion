@@ -8,10 +8,13 @@ import EstadoVacio from '@/componentes/EstadoVacio.vue'
 import Icono from '@/componentes/Icono.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import NavComercial from '@/modulos/comercial/componentes/NavComercial.vue'
-import { ESTADOS_COBRO, ESTADOS_DOCUMENTO } from '@/nucleo/estados.js'
+import { estadosCobro, estadosDocumento } from '@/nucleo/estados.js'
 import { puede } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
 import { fmtFecha, fmtMoneda } from '@/nucleo/utils'
+
+const ESTADOS_COBRO = estadosCobro()
+const ESTADOS_DOCUMENTO = estadosDocumento()
 
 // Documentos comerciales: ventas (emitidos) y compras (recibidos, incluidas las
 // facturas de proveedor finalizadas), con su saldo y su estado de cobro

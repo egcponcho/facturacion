@@ -71,3 +71,28 @@ def test_campos_propios_en_oc_y_factura(interno, campos):
     assert interno.get(f"/facturas/{f['id']}").json()["extra"] == {"letter_of_credit": "LC-2026-77"}
     assert "LC-2026-77" in _textos(interno.get(f"/facturas/{f['id']}/exportar").content)
     assert "Letter of credit is missing." not in [e["mensaje"] for e in interno.get(f"/facturas/{f['id']}").json()["pendientes"]]
+
+
+def test_definiciones_en_tabla(admin):
+    """Las definiciones viven en definiciones_campo (clave única por entidad),
+    no en el JSON de configuración de la empresa."""
+    from sqlalchemy import select
+
+    from app.core.db import SessionLocal
+    from app.modelos import DefinicionCampo, Organizacion
+
+    r = admin.put("/organizacion", {"campos_propios": {"proveedores": [
+        {"etiqueta": "Rating", "tipo": "numero", "indexado": True}, {"etiqueta": "Tier", "tipo": "opcion", "opciones": ["A", "B"]}]}})
+    assert r.status_code == 200, r.text
+    assert [c["clave"] for c in r.json()["campos_propios"]["proveedores"]] == ["rating", "tier"]
+    with SessionLocal() as db:
+        filas = db.scalars(select(DefinicionCampo).where(DefinicionCampo.entidad == "proveedores").order_by(DefinicionCampo.orden)).all()
+        assert [(d.clave, d.tipo, d.indexado, d.orden) for d in filas] == [("rating", "numero", True, 1), ("tier", "opcion", False, 2)]
+        assert all("campos_propios" not in (o.configuracion or {}) for o in db.scalars(select(Organizacion)))
+    # Quitar un campo borra su definición; el resto se conserva con su id
+    r = admin.put("/organizacion", {"campos_propios": {"proveedores": [{"clave": "tier", "etiqueta": "Level", "tipo": "opcion",
+                                                                        "opciones": ["A", "B", "C"]}]}})
+    assert r.json()["campos_propios"]["proveedores"][0]["etiqueta"] == "Level"
+    with SessionLocal() as db:
+        assert db.scalars(select(DefinicionCampo.clave).where(DefinicionCampo.entidad == "proveedores")).all() == ["tier"]
+    admin.put("/organizacion", {"campos_propios": {"proveedores": []}})

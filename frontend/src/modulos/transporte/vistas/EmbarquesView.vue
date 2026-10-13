@@ -1,5 +1,5 @@
 <script setup>
-import { ESTADOS_EMBARQUE } from '@/nucleo/estados.js'
+import { estadosEmbarque } from '@/nucleo/estados.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -28,7 +28,7 @@ const todos = ref([])
 const modal = ref(null)
 const listas = ref(null)
 
-const ESTADOS = [['', t('All')], ...ESTADOS_EMBARQUE]
+const ESTADOS = [['', t('All')], ...estadosEmbarque()]
 const cuenta = computed(() => {
   const r = { '': todos.value.length }
   for (const e of todos.value) r[e.estado] = (r[e.estado] || 0) + 1

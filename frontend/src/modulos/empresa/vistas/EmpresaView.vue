@@ -10,6 +10,7 @@ import Seleccion from '@/componentes/Seleccion.vue'
 import { cargarSesion } from '@/stores/sesion'
 import { avisar, errorApi, guardando } from '@/stores/ui'
 import { reducirImagen } from '@/nucleo/utils'
+import { estadoFabrica } from '@/nucleo/estados.js'
 
 // Empresa de la instalación: datos generales, logo, preferencias y reglas de
 // negocio. Solo la administración los cambia.
@@ -47,7 +48,20 @@ const nuevaRegla = () => datos.value.aprobaciones_oc.push({ nombre: '', monto_mi
 
 // Campos propios: datos que la empresa agrega a cada entidad
 const entidadCampos = ref('articulos')
-const nuevoCampo = () => datos.value.campos_propios[entidadCampos.value].push({ clave: '', etiqueta: '', tipo: 'texto', opciones: '', obligatorio: false })
+const nuevoCampo = () => datos.value.campos_propios[entidadCampos.value].push({ clave: '', etiqueta: '', tipo: 'texto', opciones: '', obligatorio: false, indexado: false })
+
+// Estados: los códigos son fijos; la empresa elige cómo se leen, su color y su
+// orden en filtros y listas
+const documentoEstados = ref('oc')
+const TONOS = { neutro: t('Gray'), info: t('Blue'), ok: t('Green'), aviso: t('Amber'), error: t('Red') }
+const moverEstado = (i, d) => {
+  const lista = datos.value.estados[documentoEstados.value]
+  if (i + d < 0 || i + d >= lista.length) return
+  lista.splice(i + d, 0, lista.splice(i, 1)[0])
+}
+const estadosDe = (x) => Object.fromEntries((x.documentos_estados || []).map((d) => [d.clave, d.codigos
+  .map((c, i) => { const p = x.estados?.[d.clave]?.[c] || {}; return { codigo: c, etiqueta: p.etiqueta || '', tono: p.tono || '', orden: p.orden ?? i + 1 } })
+  .sort((a, b) => a.orden - b.orden)]))
 
 // Terminología propia: una fila por texto del sistema (en inglés, como clave)
 // con su reemplazo en cada idioma
@@ -76,6 +90,7 @@ function copiar(x) {
     reglas: Object.fromEntries(x.reglas.map((r) => [r.clave, Array.isArray(r.valor) ? [...r.valor] : r.valor])),
     aprobaciones_oc: (x.aprobaciones_oc || []).map((r) => ({ ...r, sociedad: r.sociedad || '' })),
     obligatorios: { orden: [...(x.obligatorios?.orden || [])] },
+    estados: estadosDe(x),
   }
   terminos.value = aFilas(x.textos)
 }
@@ -110,7 +125,8 @@ async function guardar() {
   try {
     const campos = Object.fromEntries(Object.entries(datos.value.campos_propios).map(([e, cs]) => [e, cs.map((c) => ({
       ...c, opciones: c.tipo === 'opcion' ? c.opciones.split(',').map((x) => x.trim()).filter(Boolean) : [] }))]))
-    o.value = await guardando(api.put('/organizacion', { ...datos.value, textos: aTextos(terminos.value), campos_propios: campos }))
+    const estados = Object.fromEntries(Object.entries(datos.value.estados).map(([d, es]) => [d, es.map(({ codigo, etiqueta, tono }) => ({ codigo, etiqueta, tono }))]))
+    o.value = await guardando(api.put('/organizacion', { ...datos.value, textos: aTextos(terminos.value), campos_propios: campos, estados }))
     copiar(o.value)
     await cargarSesion(true) // nombre, logo y color en el menú; reglas en toda la app
     avisar(t('Company settings saved.'))
@@ -210,14 +226,40 @@ async function guardar() {
       <p v-if="!datos.campos_propios[entidadCampos]?.length" class="ayuda">{{ t('No own fields for this entity.') }}</p>
       <div v-else class="tabla-marco">
         <table class="tabla" v-tarjetas>
-          <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Type') }}</th><th>{{ t('Options (comma-separated)') }}</th><th>{{ t('Required') }}</th><th /></tr></thead>
+          <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Type') }}</th><th>{{ t('Options (comma-separated)') }}</th><th>{{ t('Required') }}</th><th :title="t('Speeds up filters and reports on this field')">{{ t('Indexed') }}</th><th /></tr></thead>
           <tbody>
             <tr v-for="(c, i) in datos.campos_propios[entidadCampos]" :key="i">
               <td><input v-model="c.etiqueta" class="entrada" maxlength="60" :aria-label="t('Name')" /></td>
               <td><Seleccion v-model="c.tipo" class="entrada" :aria-label="t('Type')"><option v-for="x in o.tipos_campos" :key="x.clave" :value="x.clave">{{ tx(x.texto) }}</option></Seleccion></td>
               <td><input v-if="c.tipo === 'opcion'" v-model="c.opciones" class="entrada" :aria-label="t('Options (comma-separated)')" /></td>
               <td><input v-model="c.obligatorio" type="checkbox" :aria-label="t('Required')" /></td>
+              <td><input v-model="c.indexado" type="checkbox" :aria-label="t('Indexed')" :title="t('Speeds up filters and reports on this field')" /></td>
               <td><button type="button" class="btn-icono" :aria-label="t('Remove')" @click="datos.campos_propios[entidadCampos].splice(i, 1)"><Icono nombre="basura" :tam="16" /></button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-cabeza"><div><h2>{{ t('Statuses') }}</h2><p>{{ t('How each status of your documents reads, its color and its place in filters. The system keeps deciding with the fixed code.') }}</p></div></div>
+      <div class="pestanas-pildora" role="tablist">
+        <button v-for="d in o.documentos_estados" :key="d.clave" type="button" role="tab" class="pildora" :aria-selected="documentoEstados === d.clave" @click="documentoEstados = d.clave">{{ tx(d.texto) }}</button>
+      </div>
+      <div class="tabla-marco">
+        <table class="tabla" v-tarjetas>
+          <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Standard name') }}</th><th>{{ t('Your name') }}</th><th>{{ t('Color') }}</th><th>{{ t('Preview') }}</th><th>{{ t('Order') }}</th></tr></thead>
+          <tbody>
+            <tr v-for="(e, i) in datos.estados[documentoEstados]" :key="e.codigo">
+              <td class="codigo">{{ e.codigo }}</td>
+              <td>{{ estadoFabrica(e.codigo, documentoEstados)[0] }}</td>
+              <td><input v-model="e.etiqueta" class="entrada" maxlength="60" :placeholder="estadoFabrica(e.codigo, documentoEstados)[0]" :aria-label="t('Your name')" /></td>
+              <td><Seleccion v-model="e.tono" class="entrada" :aria-label="t('Color')"><option value="">{{ t('Standard') }}</option><option v-for="x in o.tonos" :key="x" :value="x">{{ TONOS[x] }}</option></Seleccion></td>
+              <td><span class="estado" :class="`estado-${e.tono || estadoFabrica(e.codigo, documentoEstados)[1]}`"><span class="estado-marca" aria-hidden="true"></span>{{ tx(e.etiqueta || estadoFabrica(e.codigo, documentoEstados)[0]) }}</span></td>
+              <td class="fila-flex">
+                <button type="button" class="btn-icono" :aria-label="t('Move up')" :disabled="i === 0" @click="moverEstado(i, -1)"><Icono nombre="arriba" :tam="16" /></button>
+                <button type="button" class="btn-icono" :aria-label="t('Move down')" :disabled="i === datos.estados[documentoEstados].length - 1" @click="moverEstado(i, 1)"><Icono nombre="abajo" :tam="16" /></button>
+              </td>
             </tr>
           </tbody>
         </table>

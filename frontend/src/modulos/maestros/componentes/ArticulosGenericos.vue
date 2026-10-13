@@ -27,7 +27,7 @@ const tabla = ref(null)
 const detalles = reactive({})
 const modal = ref(null) // { generico, editar }
 
-const ESTADOS = ['borrador', 'sugerida', 'revision', 'observado', 'aprobado'].map((c) => [c, leerEstado(c)[0]])
+const ESTADOS = ['borrador', 'sugerida', 'revision', 'observado', 'aprobado'].map((c) => [c, leerEstado(c, 'producto')[0]])
 const columnas = computed(() => [
   { clave: 'generico', texto: t('Generic'), fija: true, prioridad: 1 },
   { clave: 'estilo', texto: t('Style'), prioridad: 1 },
@@ -107,10 +107,10 @@ watch(() => props.recarga, () => {
     <template #celda-descripcion_comercial="{ fila: g }">
       <span>{{ tx(g.descripcion_comercial || '—') }}</span>
       <router-link :to="`/productos/${g.producto_id}`" class="sub enlace" :title="t('Technical sheet of {0}', [g.generico])">
-        <span v-if="g.codigo" class="codigo-sac">{{ tx(g.codigo) }}</span><EstadoBadge v-else :estado="g.estado" />
+        <span v-if="g.codigo" class="codigo-sac">{{ tx(g.codigo) }}</span><EstadoBadge v-else :estado="g.estado" tipo="producto" />
       </router-link>
     </template>
-    <template #celda-estado="{ fila: g }"><EstadoBadge :estado="g.estado" /></template>
+    <template #celda-estado="{ fila: g }"><EstadoBadge :estado="g.estado" tipo="producto" /></template>
     <template #acciones="{ fila: g }">
       <span class="nowrap">
         <button v-if="puede('catalogos.crear')" type="button" class="btn btn-chico" :title="t('Add sizes to this generic')" @click="modal = { generico: g.generico }"><Icono nombre="mas" :tam="13" />{{ t('Sizes') }}</button>

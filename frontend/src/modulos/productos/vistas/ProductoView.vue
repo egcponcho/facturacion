@@ -555,7 +555,7 @@ async function verVersion(v) {
 // ---- Tablas de la ficha (TablaDatos en modo local) -------------------------------
 // Versiones: la vigente primero y luego las anteriores; cada columna filtra por sus valores
 const ESTADOS_PRODUCTO = ['borrador', 'sugerida', 'observado', 'revision', 'aprobado', 'corregido']
-  .map((c) => [c, c === 'corregido' ? t('Corrected') : leerEstado(c)[0]])
+  .map((c) => [c, c === 'corregido' ? t('Corrected') : leerEstado(c, 'producto')[0]])
 const filasVersiones = computed(() => (p.value ? [
   { version: p.value.version_ficha, actual: true, desde: p.value.vigente_desde, hasta: null, estado: p.value.estado,
     codigo: p.value.codigo || p.value.sugerido || null, motivo: null },
@@ -652,7 +652,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <span class="doc-numero">{{ tx(p.estilo) }} · {{ tx(p.color) }}</span>
           <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento ms-0" :title="t('Generic (style-color)')">{{ t('Generic {0}', [p.codigo_generico]) }}</span> {{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.marca_nombre || p.marca) }}<template v-if="p.proveedor && p.proveedor !== (p.marca_nombre || p.marca)"> · {{ tx(p.proveedor) }}</template></div>
         </div>
-        <EstadoBadge :estado="p.estado" />
+        <EstadoBadge :estado="p.estado" tipo="producto" />
         <span v-if="p.version_ficha > 1" class="etiqueta">{{ t('Version {0}', [p.version_ficha]) }}</span>
         <div class="doc-acciones">
           <MasOpciones>

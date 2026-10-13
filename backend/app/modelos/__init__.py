@@ -80,7 +80,7 @@ from app.modelos.empaque import (
     TipoEmpaque,
     tipo_empaque_contiene,
 )
-from app.modelos.empresa import Organizacion
+from app.modelos.empresa import DefinicionCampo, EstadoDocumento, Organizacion
 from app.modelos.facturacion import Archivo, Factura, FacturaLinea
 from app.modelos.maestros import (
     AcuerdoComercial,
@@ -169,6 +169,8 @@ __all__ = [
     "ClaseMaterial",
     "CondicionRegla",
     "Contacto",
+    "DefinicionCampo",
+    "EstadoDocumento",
     "ContadorSerie",
     "ControlCapitulo",
     "DesafioDosPasos",

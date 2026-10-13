@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import object_session
 
+from app.core import campos_propios, estados
 from app.core.config import settings
 from app.core.empresa import regla
 from app.esquemas import (
@@ -78,7 +79,9 @@ def _empresa(u: Usuario) -> dict | None:
             "marca": {**organizacion.MARCA, **(o.configuracion or {}).get("marca", {})},
             "textos": organizacion._textos_de(o.configuracion or {}),
             # Campos propios de cada entidad, para mostrarlos y editarlos
-            "campos_propios": (o.configuracion or {}).get("campos_propios") or {}} if o else None
+            "campos_propios": campos_propios.cargar(db),
+            # Etiqueta, color y orden propios de los estados de cada documento
+            "estados": estados.personalizados(db)} if o else None
 
 
 def _cookie(resp: Response, token: str) -> None:

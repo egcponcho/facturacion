@@ -11,7 +11,7 @@ import re
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, object_session
 
-from app.core import campos_propios, organizacion
+from app.core import campos_propios, estados, organizacion
 from app.core.archivos import imagen_data_url
 from app.core.config import settings
 from app.core.empresa import CAMPOS_COMPATIBILIDAD, REGLAS
@@ -40,7 +40,7 @@ def configuracion(db: Session) -> dict:
     # una organización activa, los datos compartidos solo los cambia la plataforma.
     varias = (db.scalar(select(func.count()).select_from(Organizacion).where(Organizacion.activa.is_(True))) or 0) > 1
     return {**(o.configuracion or {}), "empresa": {"id": o.id, "nombre": o.nombre, "logo": o.logo},
-            "varias_organizaciones": varias}
+            "varias_organizaciones": varias, "campos_propios": campos_propios.cargar(db)}
 
 
 # ---- Configuración ------------------------------------------------------------
@@ -65,6 +65,11 @@ def _reglas_de(o: Organizacion) -> dict:
     return {k: propias.get(k, getattr(settings, k)) for k in REGLAS}
 
 
+def _definiciones(o: Organizacion) -> dict:
+    db = object_session(o)
+    return campos_propios.cargar(db) if db is not None else {}
+
+
 def _dict(o: Organizacion) -> dict:
     conf = o.configuracion or {}
     return {
@@ -74,9 +79,13 @@ def _dict(o: Organizacion) -> dict:
         "marca": {**MARCA, **conf.get("marca", {})},
         "documentos": {**DOCUMENTOS, **conf.get("documentos", {})},
         "textos": _textos_de(conf),
-        "campos_propios": {e: (conf.get("campos_propios") or {}).get(e, []) for e in campos_propios.ENTIDADES},
+        "campos_propios": {e: _definiciones(o).get(e, []) for e in campos_propios.ENTIDADES},
         "entidades_campos": [{"clave": k, "texto": v} for k, v in campos_propios.ENTIDADES.items()],
         "tipos_campos": [{"clave": k, "texto": v} for k, v in campos_propios.TIPOS.items()],
+        # Estados de cada documento: códigos fijos, etiqueta, color y orden propios
+        "estados": estados.personalizados(object_session(o)) if object_session(o) is not None else {},
+        "documentos_estados": [{"clave": k, "texto": v[0], "codigos": list(v[1])} for k, v in estados.PERSONALIZABLES.items()],
+        "tonos": list(estados.TONOS),
         "modulos": [{"clave": k, "texto": texto, "activo": activo} for (k, (texto, _)), activo
                     in zip(MODULOS_ACTIVABLES.items(), _modulos_de(conf).values(), strict=False)],
         "reglas": [{"clave": k, "texto": t, "valor": v} for (k, t), v in zip(REGLAS.items(), _reglas_de(o).values(), strict=False)],
@@ -259,6 +268,7 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
                 imagen_data_url(valor, 300 * 1024)
             setattr(o, campo, valor)
     conf = dict(o.configuracion or {})
+    conf.pop("campos_propios", None)  # viven en la tabla definiciones_campo
     if "preferencias" in datos:
         conf["preferencias"] = {k: v for k, v in {**conf.get("preferencias", {}), **datos["preferencias"]}.items()
                                 if k in PREFERENCIAS}
@@ -269,7 +279,9 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
     if "textos" in datos:
         conf["textos"] = _validar_textos(datos["textos"] or {})
     if "campos_propios" in datos:
-        conf["campos_propios"] = campos_propios.validar_definiciones(datos["campos_propios"] or {})
+        campos_propios.guardar(db, campos_propios.validar_definiciones(datos["campos_propios"] or {}))
+    if "estados" in datos:
+        estados.guardar_personalizados(db, datos["estados"] or {})
     if "modulos" in datos:
         modulos = datos["modulos"] or {}
         if not isinstance(modulos, dict) or set(modulos) - set(MODULOS_ACTIVABLES) \

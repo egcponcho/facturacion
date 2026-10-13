@@ -93,3 +93,68 @@ EMBARQUE = Maquina(
         "recibir": (("ARRIBADO", "ENTREGADO", "RECIBIDO"), None),
     },
 )
+
+
+# ---- Estados que la empresa puede personalizar --------------------------------------------
+# Los códigos son fijos (el sistema decide con ellos); la empresa elige cómo se
+# leen (etiqueta), su color y el orden en filtros y listas (tabla
+# estados_documento). Documento → (nombre, códigos en su orden de fábrica).
+TONOS = ("neutro", "info", "ok", "aviso", "error")
+PERSONALIZABLES: dict[str, tuple[str, tuple[str, ...]]] = {
+    "oc": ("Purchase orders", tuple(OC.estados)),
+    "avance": ("Purchase order progress", ("SIN_FACTURAR", "FACTURADA_PARCIAL", "FACTURADA", "EMBARCADA_PARCIAL",
+                                           "EN_TRANSITO", "RECIBIDA_PARCIAL", "RECIBIDA")),
+    "factura": ("Invoices", tuple(FACTURA.estados)),
+    "pl": ("Packing lists", tuple(PL.estados)),
+    "embarque": ("Shipments", tuple(EMBARQUE.estados)),
+    "producto": ("Products", ("borrador", "sugerida", "revision", "observado", "aprobado", "corregido")),
+    "documento": ("Billing documents", ("BORRADOR", "EMITIDO", "ANULADO")),
+    "cobro": ("Document balance", ("PENDIENTE", "PARCIAL", "PAGADO", "VENCIDO", "APLICADA")),
+    "pago": ("Payments", ("REGISTRADO", "ANULADO")),
+}
+
+
+def personalizados(db) -> dict:
+    """{documento: {código: {etiqueta, tono, orden}}} de la organización de la sesión."""
+    from sqlalchemy import select
+
+    from app.modelos import EstadoDocumento
+
+    res: dict[str, dict] = {}
+    for e in db.scalars(select(EstadoDocumento)):
+        res.setdefault(e.documento, {})[e.codigo] = {"etiqueta": e.etiqueta, "tono": e.tono, "orden": e.orden}
+    return res
+
+
+def guardar_personalizados(db, datos) -> None:
+    """Reemplaza la personalización de los documentos indicados:
+    {documento: [{codigo, etiqueta?, tono?}] en el orden deseado}. Un estado
+    sin etiqueta ni tono propio y en su lugar de fábrica no guarda fila."""
+    from sqlalchemy import delete
+
+    from app.modelos import EstadoDocumento
+
+    if not isinstance(datos, dict) or set(datos) - set(PERSONALIZABLES):
+        raise ErrorNegocio("Statuses go by document.", 422, "validacion")
+    for documento, filas in datos.items():
+        codigos = PERSONALIZABLES[documento][1]
+        if not isinstance(filas, list) or any(not isinstance(f, dict) for f in filas):
+            raise ErrorNegocio("Send the statuses of each document in a list.", 422, "validacion")
+        vistos = [f.get("codigo") for f in filas]
+        if set(vistos) - set(codigos) or len(vistos) != len(set(vistos)):
+            raise ErrorNegocio(f"The statuses of {documento} are fixed: {', '.join(codigos)}.", 422, "validacion")
+        # Los que no vinieron conservan su lugar después de los enviados
+        orden = vistos + [c for c in codigos if c not in vistos]
+        por_codigo = {f["codigo"]: f for f in filas}
+        db.execute(delete(EstadoDocumento).where(EstadoDocumento.documento == documento))
+        for i, codigo in enumerate(orden, start=1):
+            f = por_codigo.get(codigo, {})
+            etiqueta = str(f.get("etiqueta") or "").strip()[:60] or None
+            tono = f.get("tono") or None
+            if tono is not None and tono not in TONOS:
+                raise ErrorNegocio(f"The color must be one of {', '.join(TONOS)}.", 422, "validacion")
+            propio_orden = orden != list(codigos)
+            if etiqueta or tono or propio_orden:
+                db.add(EstadoDocumento(documento=documento, codigo=codigo, etiqueta=etiqueta, tono=tono,
+                                       orden=i if propio_orden else None))
+    db.flush()

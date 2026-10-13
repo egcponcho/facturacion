@@ -421,7 +421,7 @@ onMounted(async () => {
 // Packing lists y archivos de la factura en la tabla común
 const columnasPls = [
   { clave: 'numero', texto: t('Packing list'), fija: true, prioridad: 1 },
-  { clave: 'estado', texto: t('Status'), prioridad: 1, textoValor: (v) => tx(leerEstado(v)[0]) },
+  { clave: 'estado', texto: t('Status'), prioridad: 1, textoValor: (v) => tx(leerEstado(v, 'pl')[0]) },
   { clave: 'contenido', texto: t('Contents'), prioridad: 2, valor: (p) => porUnidadTxt(p.totales.por_unidad, 'cantidad') },
   { clave: 'empaque', texto: t('Packing'), prioridad: 2, valor: (p) => (sinEmpacar(p) ? t('{0} not packed', [porUnidadTxt(p.totales.por_unidad, 'sin_caja')]) : p.totales.cajas ? t('All in cartons') : null) },
   { clave: 'peso', texto: t('Gross weight'), num: true, prioridad: 3, valor: (p) => p.totales.peso_bruto, textoValor: (v) => t('{0} kg', [fmtNum(v, 1)]) },
@@ -465,7 +465,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
     <section class="doc-cabeza">
       <div class="doc-fila">
         <span class="doc-numero">{{ tx(f.nombre) }}</span>
-        <EstadoBadge :estado="f.estado" />
+        <EstadoBadge :estado="f.estado" tipo="factura" />
         <span v-if="f.lista_transporte && confirmados < plsActivos.length" class="etiqueta ok"><Icono nombre="check" :tam="12" />{{ t('Ready to ship') }}</span>
         <div class="doc-acciones">
           <MasOpciones>
@@ -630,7 +630,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
       <TablaDatos tabla="factura_doc_pls" :columnas="columnasPls" :filas="f.packing_lists" :vistas-guardadas="false" fila-clicable
                   :clase-fila="(p) => ({ apagado: p.estado === 'CANCELADO' })" :etiqueta="t('Packing lists')" @fila="(p) => router.push(`/packing-lists/${p.id}`)">
         <template #celda-numero="{ fila: p }"><router-link :to="`/packing-lists/${p.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(p.numero) }}</strong></router-link></template>
-        <template #celda-estado="{ fila: p }"><EstadoBadge :estado="p.estado" /></template>
+        <template #celda-estado="{ fila: p }"><EstadoBadge :estado="p.estado" tipo="pl" /></template>
         <template #celda-contenido="{ fila: p }">{{ porUnidadTxt(p.totales.por_unidad, 'cantidad') }}<span class="sub">{{ plural(p.totales.cajas, t('carton'), t('cartons')) }}</span></template>
         <template #celda-empaque="{ fila: p }">
           <span v-if="sinEmpacar(p)" class="etiqueta error">{{ t('{0} not packed', [porUnidadTxt(p.totales.por_unidad, 'sin_caja')]) }}</span>
@@ -647,7 +647,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
           <template v-if="p.transporte">
             <router-link v-if="esInterno()" :to="`/transporte/embarques/${p.transporte.embarque_id}`" class="enlace codigo" @click.stop>{{ tx(p.transporte.embarque) }}</router-link>
             <template v-else>{{ tx(p.transporte.embarque) }}</template>
-            <EstadoBadge :estado="p.transporte.estado" />
+            <EstadoBadge :estado="p.transporte.estado" tipo="embarque" />
             <span class="sub">{{ tx(p.transporte.documento ? t('B/L / AWB {0}', [p.transporte.documento]) : t('B/L / AWB pending')) }}<template v-if="p.transporte.ultimo_evento"> · {{ tx(p.transporte.ultimo_evento.tipo.toLowerCase()) }} {{ fmtFechaHoraLocal(p.transporte.ultimo_evento.fecha) }}</template></span>
           </template>
           <span v-else class="apagado">—</span>

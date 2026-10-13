@@ -542,7 +542,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <span v-if="!editable" class="doc-numero">{{ tx(pl.numero) }}</span>
         <CeldaEditable v-else class="doc-numero numero-editable" :valor="pl.numero" :guardar="guardarNumero"
                        :etiqueta="t('Packing list number')" :title="t('Your own packing list number; you can change it while it is not finalized')" />
-        <EstadoBadge :estado="pl.estado" />
+        <EstadoBadge :estado="pl.estado" tipo="pl" />
         <span class="doc-sub">{{ tx(pl.factura.nombre) }} · {{ tx(pl.factura.proveedor) }}</span>
         <div class="doc-acciones">
           <MasOpciones>

@@ -18,7 +18,9 @@ import { camposPropios, nombreProveedor, puede, sesion, valorPropio, ve } from '
 import { avisar, errorApi } from '@/stores/ui'
 import { cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
 import { pasoCantidad } from '@/nucleo/unidades.js'
-import { ESTADOS_OC, estado as leerEstado } from '@/nucleo/estados.js'
+import { estadosOC, estado as leerEstado } from '@/nucleo/estados.js'
+
+const ESTADOS_OC = estadosOC()
 
 const route = useRoute()
 const router = useRouter()
@@ -89,7 +91,7 @@ const columnasLineas = computed(() => [
   { clave: 'a_facturar', texto: t('To invoice'), num: true, filtro: false, ordenable: false, prioridad: 1 },
   { clave: 'precio', texto: t('Price'), num: true, grupo: 'precios', prioridad: 3 },
   { clave: 'importe', texto: t('Total'), num: true, grupo: 'precios', prioridad: 3 },
-  { clave: 'estado', texto: t('Status'), prioridad: 2, textoValor: (v) => tx(leerEstado(v)[0]) },
+  { clave: 'estado', texto: t('Status'), prioridad: 2, textoValor: (v) => tx(leerEstado(v, 'oc')[0]) },
 ])
 // Liberación en una sola insignia: solo si no se puede facturar o si cambió
 // después de liberada (los nombres son los de la empresa)

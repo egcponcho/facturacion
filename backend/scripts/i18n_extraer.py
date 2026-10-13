@@ -44,6 +44,8 @@ def es_texto(s: str) -> bool:
         return False
     if re.search(r"\b(select|where|join)\b", t) and "(" in t:
         return False
+    if re.match(r"^(CREATE|DROP|ALTER) (INDEX|TABLE)", t):  # SQL
+        return False
     return True
 
 

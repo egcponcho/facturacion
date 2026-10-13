@@ -3,6 +3,7 @@
 // Un mismo código puede leerse distinto según el documento (p. ej. un embarque
 // anulado frente a una factura cancelada): va en POR_TIPO.
 import { t } from '@/i18n/index.js'
+import { sesion } from '@/stores/sesion.js'
 
 export const ESTADOS = {
   BORRADOR: [t('Draft'), 'neutro'],
@@ -63,13 +64,30 @@ const POR_TIPO = {
   pago: { REGISTRADO: [t('Registered'), 'ok'], ANULADO: [t('Voided'), 'error'] },
 }
 
-export const estado = (codigo, tipo) => POR_TIPO[tipo]?.[codigo] || ESTADOS[codigo] || [codigo, 'neutro']
+// Cómo viene de fábrica
+export const estadoFabrica = (codigo, tipo) => POR_TIPO[tipo]?.[codigo] || ESTADOS[codigo] || [codigo, 'neutro']
 
-// Opciones para filtros y pasos, en su orden
-export const ESTADOS_OC = ['BORRADOR', 'EN_APROBACION', 'RECHAZADA', 'APROBADA', 'CERRADA', 'CANCELADA']
-  .map((c) => [c, estado(c, 'oc')[0]])
-export const ESTADOS_EMBARQUE = ['PLANIFICADO', 'EN_TRANSITO', 'ARRIBADO', 'ENTREGADO', 'RECIBIDO', 'CANCELADO']
-  .map((c) => [c, estado(c, 'embarque')[0]])
-export const AVANCES_OC = Object.keys(POR_TIPO.avance).map((c) => [c, estado(c, 'avance')[0]])
-export const ESTADOS_DOCUMENTO = Object.keys(POR_TIPO.documento).map((c) => [c, estado(c, 'documento')[0]])
-export const ESTADOS_COBRO = Object.keys(POR_TIPO.cobro).map((c) => [c, estado(c, 'cobro')[0]])
+// Etiqueta y color que eligió la empresa (Configuración → Empresa → Estados)
+const propio = (codigo, tipo) => (tipo && sesion.usuario?.organizacion?.estados?.[tipo]?.[codigo]) || null
+
+export const estado = (codigo, tipo) => {
+  const base = estadoFabrica(codigo, tipo)
+  const p = propio(codigo, tipo)
+  return p ? [p.etiqueta || base[0], p.tono || base[1]] : base
+}
+
+// Opciones para filtros, en el orden que eligió la empresa (o el de fábrica)
+const opciones = (tipo, codigos) => codigos
+  .map((c, i) => [c, estado(c, tipo)[0], propio(c, tipo)?.orden ?? i + 1])
+  .sort((a, b) => a[2] - b[2]).map(([c, texto]) => [c, texto])
+const CODIGOS = {
+  oc: ['BORRADOR', 'EN_APROBACION', 'RECHAZADA', 'APROBADA', 'CERRADA', 'CANCELADA'],
+  embarque: ['PLANIFICADO', 'EN_TRANSITO', 'ARRIBADO', 'ENTREGADO', 'RECIBIDO', 'CANCELADO'],
+}
+export const estadosOC = () => opciones('oc', CODIGOS.oc)
+export const estadosEmbarque = () => opciones('embarque', CODIGOS.embarque)
+// Los hitos del embarque siguen su orden natural (salida, arribo, entrega…)
+export const pasosEmbarque = () => CODIGOS.embarque.map((c) => [c, estado(c, 'embarque')[0]])
+export const avancesOC = () => opciones('avance', Object.keys(POR_TIPO.avance))
+export const estadosDocumento = () => opciones('documento', Object.keys(POR_TIPO.documento))
+export const estadosCobro = () => opciones('cobro', Object.keys(POR_TIPO.cobro))
