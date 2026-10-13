@@ -474,6 +474,7 @@ class Articulo(DeOrganizacion, Base):
     grupo: Mapped[GrupoArticulo] = relationship()
     prepack: Mapped[Prepack | None] = relationship()
     producto: Mapped[Producto | None] = relationship(back_populates="articulos")
+    familia_etiquetado: Mapped["FamiliaEtiquetado | None"] = relationship()  # noqa: F821
     # Valores de los atributos de variante propios de la empresa (material,
     # voltaje, sabor…); talla y color son columnas
     atributos: Mapped[list["ArticuloAtributo"]] = relationship(

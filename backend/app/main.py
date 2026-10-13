@@ -24,6 +24,7 @@ from app.modulos.comun import api as comun_api
 from app.modulos.empaque import api as empaque_api
 from app.modulos.empaque import api_plantillas as empaque_api_plantillas
 from app.modulos.empresa import api as empresa_api
+from app.modulos.etiquetado import api as etiquetado_api
 from app.modulos.facturacion import api as facturacion_api
 from app.modulos.maestros import api as maestros_api
 from app.modulos.maestros import api_listas as maestros_api_listas
@@ -106,6 +107,8 @@ ETIQUETAS = [
                                                          "e indicadores por módulo."},
     {"name": "Reportes", "description": "Generador de reportes: fuentes permitidas, vista previa, exportación y "
                                         "reportes guardados."},
+    {"name": "Etiquetado", "description": "Familias de etiquetado, diseños de etiqueta con versiones y aprobación, "
+                                          "asignaciones, generación desde OC y artículos, descargas e historial."},
     {"name": "Común", "description": "Edición exclusiva de un registro y bitácora de auditoría."},
     {"name": "Sistema", "description": "Estado del servidor."},
 ]
@@ -184,6 +187,7 @@ RUTAS = (
     clasificacion_api, acceso_api, productos_api_flujo, empresa_api, maestros_api, clasificacion_api_conocimiento,
     compras_api, compras_api_flujo, facturacion_api, empaque_api, productos_api, transporte_api, comun_api, seguimiento_api,
     transporte_api_leadtimes, empaque_api_plantillas, maestros_api_listas, plataforma_api, reportes_api,
+    etiquetado_api,
 )
 ETIQUETA_DE = {
     acceso_api: "Acceso", plataforma_api: "Plataforma", empresa_api: "Empresa",
@@ -193,7 +197,7 @@ ETIQUETA_DE = {
     transporte_api: "Transporte", transporte_api_leadtimes: "Transporte",
     productos_api: "Productos", productos_api_flujo: "Productos",
     clasificacion_api: "Clasificación arancelaria", clasificacion_api_conocimiento: "Clasificación arancelaria",
-    seguimiento_api: "Seguimiento e indicadores", reportes_api: "Reportes", comun_api: "Común",
+    seguimiento_api: "Seguimiento e indicadores", reportes_api: "Reportes", comun_api: "Común", etiquetado_api: "Etiquetado",
 }
 
 
