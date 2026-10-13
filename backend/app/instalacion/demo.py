@@ -1,6 +1,5 @@
 """Datos de demostración. Se cargan solo si la base está vacía.
 Uso manual: python -m app.instalacion.demo"""
-import json
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import func, select
@@ -278,7 +277,7 @@ def _catalogos(db: Session) -> dict:
     puertos.update({c: Puerto(codigo=c, nombre=n, pais=p, tipo=t) for c, n, p, t in PUERTOS_OTROS})
     db.add_all(puertos.values())
     db.flush()
-    db.add_all([ReglaLeadTime(nivel=nv, nombre=nm, pasos=json.dumps({"pasos": ps, "orden": None}),
+    db.add_all([ReglaLeadTime(nivel=nv, nombre=nm, pasos={"pasos": ps, "orden": None},
                               **({rlt.CAMPO_NIVEL[nv]: amb} if nv in rlt.CAMPO_NIVEL else {}))
                 for nv, amb, nm, ps in REGLAS_LT])
     socs = {c: Sociedad(codigo=c, nombre=n, razon_social=r, id_fiscal=nit, pais=pais, moneda="USD", direccion=dir_,

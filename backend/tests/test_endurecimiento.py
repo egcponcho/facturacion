@@ -162,6 +162,21 @@ def test_limpieza_de_tablas_tecnicas():
         db.commit()
         assert purgar(db)["idempotencia"] >= 1
         assert db.get(Idempotencia, "vieja:1") is None and db.get(Idempotencia, "nueva:1") is not None
+    # El historial se conserva siempre, salvo que la instalación fije años de retención
+    from app.core.config import settings
+    from app.modelos import Historial
+
+    with SessionLocal() as db:
+        db.add(Historial(organizacion_id=1, entidad="prueba", entidad_id=1, accion="antigua",
+                         fecha=ahora() - timedelta(days=365 * 3)))
+        db.commit()
+        assert "historial" not in purgar(db)
+        anterior, settings.HISTORIAL_ANOS = settings.HISTORIAL_ANOS, 2
+        try:
+            assert purgar(db)["historial"] >= 1
+        finally:
+            settings.HISTORIAL_ANOS = anterior
+        assert not db.query(Historial).filter(Historial.accion == "antigua").count()
 
 
 def test_bitacora_general(admin, interno):

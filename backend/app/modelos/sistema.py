@@ -66,11 +66,15 @@ class Meta(Base):
 
 
 class Idempotencia(Base):
+    """Respuesta guardada de una operación con clave de idempotencia (un
+    reintento recibe la misma respuesta). Se purga al día."""
+
     __tablename__ = "idempotencia"
     clave: Mapped[str] = mapped_column(String(160), primary_key=True)
-    usuario_id: Mapped[int] = mapped_column(Integer)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", name="fk_idempotencia_usuario_id", ondelete="CASCADE"),
+                                            index=True)
     respuesta: Mapped[dict | list | None] = mapped_column(JSON)
-    creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
 
 
 class Edicion(Base):
@@ -85,7 +89,7 @@ class Edicion(Base):
     entidad_id: Mapped[int] = mapped_column(Integer)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), index=True)
     desde: Mapped[datetime] = mapped_column(DateTime, default=ahora)
-    vence: Mapped[datetime] = mapped_column(DateTime)
+    vence: Mapped[datetime] = mapped_column(DateTime, index=True)
     usuario: Mapped[Usuario] = relationship()
 
 

@@ -13,12 +13,9 @@ from sqlalchemy.orm import Session
 from app.modelos import AcuerdoComercial
 
 
-def _lista(txt: str | None) -> list[str]:
-    return [x.strip().upper() for x in (txt or "").split(",") if x.strip()]
-
-
 def acuerdos_contexto(db: Session) -> list[dict]:
-    return [{"codigo": x.codigo, "nombre": x.nombre, "origenes": _lista(x.origenes), "destinos": _lista(x.destinos),
+    return [{"codigo": x.codigo, "nombre": x.nombre, "origenes": [p.codigo for p in x.origenes],
+             "destinos": [p.codigo for p in x.destinos],
              "prueba": x.prueba, "nota": x.nota}
             for x in db.scalars(select(AcuerdoComercial).where(AcuerdoComercial.activo.is_(True))
                                 .order_by(AcuerdoComercial.codigo))]

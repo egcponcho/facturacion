@@ -16,7 +16,6 @@ from sqlalchemy import (
     Integer,
     String,
     Table,
-    Text,
     UniqueConstraint,
     event,
     select,
@@ -179,6 +178,18 @@ class Pais(Base):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+acuerdo_origenes = Table(
+    "acuerdo_origenes", Base.metadata,
+    Column("acuerdo_id", ForeignKey("acuerdos_comerciales.id", ondelete="CASCADE"), primary_key=True),
+    Column("pais_id", ForeignKey("paises.id"), primary_key=True, index=True),
+)
+acuerdo_destinos = Table(
+    "acuerdo_destinos", Base.metadata,
+    Column("acuerdo_id", ForeignKey("acuerdos_comerciales.id", ondelete="CASCADE"), primary_key=True),
+    Column("pais_id", ForeignKey("paises.id"), primary_key=True, index=True),
+)
+
+
 class AcuerdoComercial(Base):
     """Tratado o acuerdo comercial vigente: mercancías originarias de sus países
     de origen entran con preferencia arancelaria a sus países destino si se
@@ -188,11 +199,13 @@ class AcuerdoComercial(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(20), unique=True)
     nombre: Mapped[str] = mapped_column(String(200))
-    origenes: Mapped[str] = mapped_column(String(400))  # ISO separados por coma (US,DO)
-    destinos: Mapped[str] = mapped_column(String(100))  # ISO de los países destino (GT,SV,HN…)
     prueba: Mapped[str | None] = mapped_column(String(200))  # certificado o declaración de origen
     nota: Mapped[str | None] = mapped_column(String(300))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Países de origen cuyas mercancías tienen la preferencia y países destino donde aplica
+    origenes: Mapped[list[Pais]] = relationship(secondary=acuerdo_origenes, order_by="Pais.codigo")
+    destinos: Mapped[list[Pais]] = relationship(secondary=acuerdo_destinos, order_by="Pais.codigo")
 
 
 class Marca(DeOrganizacion, Base):
@@ -222,8 +235,20 @@ class EscalaTalla(DeOrganizacion, Base):
     regla: Mapped[str] = mapped_column(String(15), default="CONSECUTIVO")
     factor: Mapped[int | None] = mapped_column(Integer, default=10)
     longitud: Mapped[int | None] = mapped_column(Integer, default=3)
-    tallas: Mapped[str] = mapped_column(Text)  # "6, 6.5, 7=070, 8-10" o "S, M, L"
+    # Tallas en orden, cada una con su código escrito (o null): [{"talla": "7", "codigo": "070"}]
+    lista_tallas: Mapped[list] = mapped_column("tallas", JSON, default=list)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    @property
+    def tallas(self) -> str:
+        """Las tallas como se escriben en el formulario ("6, 6.5, 7=070")."""
+        return ", ".join(f"{x['talla']}={x['codigo']}" if x.get("codigo") else x["talla"] for x in self.lista_tallas or [])
+
+    @tallas.setter
+    def tallas(self, texto: str) -> None:
+        from app.modulos.maestros.tallas import tallas_de
+
+        self.lista_tallas = [{"talla": t, "codigo": c} for t, c in tallas_de(texto)]
 
 
 class CategoriaArticulo(DeOrganizacion, Base):

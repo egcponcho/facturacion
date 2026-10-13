@@ -107,8 +107,11 @@ def cargar_demo(db: Session) -> None:
     db.flush()
     oficial.cargar_lineas_regionales(db)  # las líneas oficiales del ACI para los países SAC10 de la demo
     if not db.scalar(select(func.count()).select_from(AcuerdoComercial)):
+        paises = {p.codigo: p for p in db.scalars(select(Pais))}
         for x in json.loads((DEMO / "acuerdos_demo.json").read_text(encoding="utf-8"))["acuerdos"]:
-            db.add(AcuerdoComercial(**x))
+            iso = lambda campo: [paises[c.strip()] for c in x.pop(campo).split(",") if c.strip() in paises]  # noqa: E731
+            origenes, destinos = iso("origenes"), iso("destinos")
+            db.add(AcuerdoComercial(**x, origenes=origenes, destinos=destinos))
     conocimiento.cargar_historial_demo(db)
     conocimiento.cargar_palabras_demo(db)
     db.flush()

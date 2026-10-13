@@ -126,7 +126,7 @@ class ReglaLeadTime(DeOrganizacion, Base):
     pais: Mapped[str | None] = mapped_column(String(2))
     puerto: Mapped[str | None] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(100))
-    pasos: Mapped[str] = mapped_column(Text, default="{}")
+    pasos: Mapped[dict] = mapped_column(JSON, default=dict)  # {"pasos": [...], "orden": ...}
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

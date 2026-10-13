@@ -29,6 +29,7 @@ Plantilla con todas las variables comentadas: `backend/.env.example`.
 | `UPLOAD_DIR` | `/data/archivos` en Docker | Debe ser un **disco persistente con respaldo**: todo archivo vive aquí y la base guarda solo su clave y huella (facturas, fichas técnicas, fotos, paquetes oficiales, previas de importación) |
 | `MAX_SUBIDA_MB` | `25` | Tamaño máximo de cualquier archivo que se sube (facturas, fotos, fichas técnicas, cargas) |
 | `SESION_HORAS` / `SESION_INACTIVIDAD_MIN` | `12` / `30` | Política de sesiones de la empresa |
+| `HISTORIAL_ANOS` | `0` (siempre) | Años que se conserva el historial; lo más antiguo se borra en la limpieza horaria |
 | `INTENTOS_MAX` / `BLOQUEO_MIN` | `5` / `15` | Política de bloqueo por contraseña |
 | `DOS_PASOS` | `1` | Déjela activa |
 | `ANTHROPIC_API_KEY` | vacía | Opcional: opinión del especialista con Claude en la clasificación |

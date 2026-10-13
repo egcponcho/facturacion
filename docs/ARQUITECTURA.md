@@ -171,7 +171,58 @@ acceso, pero no los edita).
   solas al arrancar (`instalacion/migraciones.py`). Todo cambio de modelo
   lleva su migración; `alembic check` debe responder sin cambios.
 - SQLite para desarrollo y pruebas; PostgreSQL en producción (las pruebas de
-  concurrencia corren con `TEST_DATABASE_URL`).
+  concurrencia corren con `TEST_DATABASE_URL`). Las migraciones tienen ida y
+  vuelta (`downgrade`) y `tests/test_oficial.py` las recorre completas.
+
+### Modelo de datos: reglas de integridad
+
+- **Dinero y tasas exactos:** `Precio` NUMERIC(18,6), `Importe` (18,4) y
+  `Tasa` (12,6) (`modelos/base.py`); las cuentas se hacen en Decimal con
+  `core/dinero.py` (redondeo por moneda). El DAI (%) también es numérico; lo
+  que el arancel no da como número («Parte II») va en `nodos_arancel.dai_nota`.
+- **Numeración:** `series_documentales` + `contadores_serie` con contador
+  bloqueado (`core/numeracion.py`): sin huecos ni duplicados en concurrencia.
+- **Reglas en la base:** los CHECK viven en `modelos/restricciones.py`; las
+  llaves por código (`(organizacion_id, codigo)` → catálogo, ISO → `paises`)
+  en `modelos/referencias.py` (`REFERENCIAS`), y la coherencia de
+  organización entre padre e hijo (`COHERENCIA`, llaves `…_org`, solo en la
+  base). `tests/test_integridad_bd.py` verifica que existan.
+- **Contacto normalizado:** terceros, `direcciones` y `medios_contacto` (un
+  correo o teléfono por fila); proveedores y transportistas son extensiones
+  de su tercero.
+- **Núcleo de facturación genérico** (`modelos/comercial.py`): tipos de
+  documento, series, impuestos, condiciones de pago con cuotas, documentos
+  con líneas e impuestos por línea, vencimientos, relaciones (NC/ND), pagos y
+  aplicaciones. Una factura de proveedor finalizada se registra como
+  documento recibido.
+- **Configuración en tablas, no en JSON:** campos propios
+  (`definiciones_campo`, con índice opcional en PostgreSQL sobre
+  `extra->>'clave'`), estados por documento (`estados_documento`: etiqueta,
+  color y orden; los códigos son fijos en `core/estados.py`), reglas de
+  aprobación de OC, alcance de usuarios (tablas de asociación).
+- **Taxonomía:** línea comercial (`categorias_articulo.dominio`) → dominio de
+  clasificación → categoría de producto. `paises_arancel` es extensión 1:1 del
+  país ISO.
+- **Producto:** la ficha y el resultado aprobado en `productos`; el trabajo de
+  clasificar en `clasificaciones_producto` (1:1). `Producto` expone esos datos
+  como propiedades híbridas.
+- **Variantes y kits:** talla y color son columnas del artículo; los demás
+  atributos (`atributos_variante`) guardan su valor en `articulo_atributos`.
+  Un prepack es CURVA (tallas de un estilo-color) o KIT (cualquier artículo).
+- **Archivos fuera de la base:** `adjuntos` guarda nombre, clave, tipo,
+  tamaño y SHA-256; el contenido vive en `UPLOAD_DIR` (`core/almacen.py`),
+  también el de los paquetes oficiales y las previas de importación.
+- **Listas estructuradas:** pasos de lead time y tallas de una escala son
+  JSON; los países de un acuerdo comercial, tablas de asociación con `paises`.
+  Los sinónimos de búsqueda (`sinonimos_busqueda`, texto oficial) y de
+  material (`clasif_sinonimos`, a un material) siguen separados: significan
+  cosas distintas.
+- **Tablas que crecen:** la limpieza horaria (`instalacion/mantenimiento.py`)
+  borra por fecha indexada sesiones, desafíos, idempotencia y permisos de
+  edición; el historial se conserva salvo que `HISTORIAL_ANOS` fije una
+  retención. Con mucho volumen en PostgreSQL, el historial se puede
+  particionar por rango de `fecha` (la tabla no tiene llaves que lo impidan:
+  nadie la referencia).
 
 ## Interfaz (`frontend/src`)
 

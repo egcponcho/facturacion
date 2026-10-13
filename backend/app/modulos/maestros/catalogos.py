@@ -7,7 +7,6 @@ tablas, así que agregar un campo aquí lo agrega en pantalla.
 """
 import csv
 import io
-import json
 
 from sqlalchemy import String, cast, func, select
 from sqlalchemy.exc import IntegrityError
@@ -225,15 +224,14 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True),
-            c("origenes", "Origin countries (ISO)", obligatorio=True, mayus=True, patron=r"^[A-Z]{2}(\s*,\s*[A-Z]{2})*$",
-              mensaje_patron="ISO codes separated by commas, e.g. US, DO.", ayuda="ISO codes separated by commas."),
-            c("destinos", "Destination countries (ISO)", obligatorio=True, mayus=True, patron=r"^[A-Z]{2}(\s*,\s*[A-Z]{2})*$",
-              mensaje_patron="ISO codes separated by commas, e.g. GT, SV.", ayuda="Destination countries where it applies."),
+            c("origenes", "Origin countries", "multi", obligatorio=True, catalogo="paises", filtro=True),
+            c("destinos", "Destination countries", "multi", obligatorio=True, catalogo="paises", filtro=True,
+              ayuda="Destination countries where it applies."),
             c("prueba", "Proof of origin"),
             c("nota", "Note"),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["codigo", "nombre", "origenes", "destinos"],
+        "buscar": ["codigo", "nombre"],
     },
     "regiones": {
         "modelo": RegionLeadTime, "titulo": "Regions", "singular": "region",
@@ -363,7 +361,7 @@ CATALOGOS = {
               ayuda="In order, separated by commas. Ranges allowed (6-10, 6.5-9.5). A fixed code with = (7=070)."),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["codigo", "nombre", "tallas"],
+        "buscar": ["codigo", "nombre"],
     },
     "categorias": {
         "modelo": CategoriaArticulo, "titulo": "Item categories", "singular": "category",
@@ -1099,7 +1097,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             if errs:
                 errores.extend({"campo": n, "mensaje": e} for e in errs)
             else:
-                limpio[n] = json.dumps(regla, ensure_ascii=False)
+                limpio[n] = regla
             continue
         if isinstance(v, str):
             v = nombre_fmt(v) if campo.get("formato") == "nombre" else texto_fmt(v)
