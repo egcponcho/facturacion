@@ -55,7 +55,7 @@ const actual = ref(0)
 const CABECERA_VACIA = { proveedor: '', oc: '', sociedad: '', fecha_oc: '', moneda: '', incoterm: '', condicion_pago: '', centro: '', centro_destino: '',
   puerto_despacho: '', pais_origen: '', pais_procedencia: '', fecha_xf: '', fecha_tienda: '', notas: '' }
 const cab = reactive({ ...CABECERA_VACIA, extra: {} })
-const nuevaLinea = () => ({ codigo_sap: '', cantidad: '', unidad: '', precio: '', casepack: '', almacen: '', fecha_entrega: '' })
+const nuevaLinea = () => ({ codigo_articulo: '', cantidad: '', unidad: '', precio: '', casepack: '', almacen: '', fecha_entrega: '' })
 const lineas = ref([nuevaLinea()])
 const errores = ref([])
 const conErrores = reactive({}) // paso → cuántos errores tiene según el servidor
@@ -78,8 +78,8 @@ const permitida = (soc) => !soc || (cab.sociedad ? soc === cab.sociedad : (prove
 const centros = computed(() => (op.value?.centros || []).filter((c) => permitida(c.sociedad)))
 const almacenes = computed(() => (op.value?.almacenes || []).filter((a) => permitida(a.sociedad)))
 const opcionesArt = computed(() => Object.values(infoArt))
-const esPrepack = (l) => infoArt[l.codigo_sap]?.tipo === 'PREPACK'
-const unidadDe = (l) => l.unidad || infoArt[l.codigo_sap]?.unidad || ''
+const esPrepack = (l) => infoArt[l.codigo_articulo]?.tipo === 'PREPACK'
+const unidadDe = (l) => l.unidad || infoArt[l.codigo_articulo]?.unidad || ''
 const textoDe = (lista, v) => (v ? (op.value?.[lista] || []).find((o) => o.valor === v)?.texto || v : '—')
 
 watch(() => cab.proveedor, async (p, antes) => {
@@ -97,7 +97,7 @@ async function cargarArticulos(prov) {
   try {
     for (const a of await api.get('/ordenes/formulario/articulos', { proveedor: prov })) infoArt[a.valor] = a
     // Los artículos de las líneas que no vinieron en la primera página
-    const faltan = [...new Set(lineas.value.map((l) => l.codigo_sap).filter((s) => s && !infoArt[s]))].slice(0, 40)
+    const faltan = [...new Set(lineas.value.map((l) => l.codigo_articulo).filter((s) => s && !infoArt[s]))].slice(0, 40)
     for (const sku of faltan) {
       for (const a of await api.get('/ordenes/formulario/articulos', { proveedor: prov, q: sku })) infoArt[a.valor] = a
     }
@@ -294,7 +294,7 @@ function colocado(c) {
   const p = paso.value.clave
   if ((CAMPOS_PASO[p] || []).includes(c)) return true
   const m = /^lineas\.\d+\.(\w+)$/.exec(c || '')
-  if (m) return (p === 'articulos' && ['codigo_sap', 'cantidad', 'unidad'].includes(m[1])) || (p === 'condiciones' && m[1] === 'precio')
+  if (m) return (p === 'articulos' && ['codigo_articulo', 'cantidad', 'unidad'].includes(m[1])) || (p === 'condiciones' && m[1] === 'precio')
   if (String(c).startsWith('extra.')) return p === 'documentacion' && propios.value.some((x) => `extra.${x.clave}` === c)
   return false
 }
@@ -397,7 +397,7 @@ const importe = (l) => (l.cantidad !== '' && l.precio !== '' ? Number(l.cantidad
 const total = computed(() => lineas.value.reduce((a, l) => a + (importe(l) || 0), 0))
 const cantidades = computed(() => {
   const r = {}
-  for (const l of lineas.value) if (l.codigo_sap && l.cantidad !== '') {
+  for (const l of lineas.value) if (l.codigo_articulo && l.cantidad !== '') {
     const u = unidadDe(l) || 'UN'
     r[u] = { cantidad: (r[u]?.cantidad || 0) + Number(l.cantidad) }
   }
@@ -406,7 +406,7 @@ const cantidades = computed(() => {
 const documento = computed(() => (oc.value?.numero ? t('PO {0}', [oc.value.numero]) : t('New purchase order')))
 // Revisión: las líneas en la tabla común (solo lectura). Los pasos de
 // artículos y precios siguen siendo editores (se escribe en cada fila).
-const textoArt = (l) => infoArt[l.codigo_sap]?.texto || l.codigo_sap || null
+const textoArt = (l) => infoArt[l.codigo_articulo]?.texto || l.codigo_articulo || null
 const lineasRevision = computed(() => lineas.value.map((l, i) => ({ ...l, i, n: i + 1 })))
 const columnasRevision = [
   { clave: 'n', texto: '#', num: true, fija: true, prioridad: 1 },
@@ -463,21 +463,21 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
       </div>
       <p v-for="m in msjs('lineas')" :key="m" class="nota error">{{ tx(m) }}</p>
       <div class="lineas-oc">
-        <div v-for="(l, i) in lineas" :key="i" class="linea-oc" :class="{ invalida: msjsLinea(i, 'codigo_sap', 'cantidad', 'unidad').length }">
+        <div v-for="(l, i) in lineas" :key="i" class="linea-oc" :class="{ invalida: msjsLinea(i, 'codigo_articulo', 'cantidad', 'unidad').length }">
           <span class="linea-num">{{ tx(i + 1) }}</span>
-          <div class="campo campo-ancho" :class="{ 'con-error': msjsLinea(i, 'codigo_sap').length }"><span class="req">{{ t('Item') }}</span>
-            <SelectBusqueda v-model="l.codigo_sap" :opciones="opcionesArt" :buscar="buscarArticulos" :etiqueta="t('Item')" :prefijo="false" @opcion="elegirArticulo(l, $event)" /></div>
+          <div class="campo campo-ancho" :class="{ 'con-error': msjsLinea(i, 'codigo_articulo').length }"><span class="req">{{ t('Item') }}</span>
+            <SelectBusqueda v-model="l.codigo_articulo" :opciones="opcionesArt" :buscar="buscarArticulos" :etiqueta="t('Item')" :prefijo="false" @opcion="elegirArticulo(l, $event)" /></div>
           <label class="campo" :class="{ 'con-error': msjsLinea(i, 'cantidad').length }"><span class="req">{{ t('Quantity') }}</span>
             <span class="con-unidad"><input v-model="l.cantidad" class="entrada" type="number" :min="pasoCantidad(unidadDe(l))" :step="pasoCantidad(unidadDe(l))" />
-              <small>{{ tx(l.codigo_sap ? unidadTxt(unidadDe(l), 2) : '') }}</small></span></label>
+              <small>{{ tx(l.codigo_articulo ? unidadTxt(unidadDe(l), 2) : '') }}</small></span></label>
           <label v-if="!esPrepack(l)" class="campo"><span>{{ t('Casepack') }}</span><input v-model="l.casepack" class="entrada" type="number" min="1" step="1" :placeholder="t('Optional')" /></label>
           <div v-else class="campo"><span>{{ t('Packing') }}</span><span class="sub">{{ t('Size run of the prepack') }}</span></div>
           <div v-if="almacenes.length" class="campo"><span>{{ t('Warehouse') }}</span>
             <SelectBusqueda v-model="l.almacen" :opciones="almacenes" :vacio="t('Not defined')" :etiqueta="t('Warehouse')" :prefijo="false" /></div>
           <label class="campo"><span>{{ t('Delivery date') }}</span><CampoFecha v-model="l.fecha_entrega" /></label>
           <button type="button" class="btn-icono quitar" :aria-label="t('Remove line {0}', [i + 1])" @click="quitarLinea(i)"><Icono nombre="basura" :tam="16" /></button>
-          <ul v-if="msjsLinea(i, 'codigo_sap', 'cantidad', 'unidad').length" class="lista-mensajes error-linea">
-            <li v-for="(m, j) in msjsLinea(i, 'codigo_sap', 'cantidad', 'unidad')" :key="j">{{ tx(m) }}</li></ul>
+          <ul v-if="msjsLinea(i, 'codigo_articulo', 'cantidad', 'unidad').length" class="lista-mensajes error-linea">
+            <li v-for="(m, j) in msjsLinea(i, 'codigo_articulo', 'cantidad', 'unidad')" :key="j">{{ tx(m) }}</li></ul>
         </div>
         <button type="button" class="btn btn-chico" @click="lineas.push(nuevaLinea())"><Icono nombre="mas" :tam="14" />{{ t('Add line') }}</button>
       </div>
@@ -508,7 +508,7 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
             <tbody>
               <tr v-for="(l, i) in lineas" :key="i" :class="{ 'con-error': msjsLinea(i, 'precio').length }">
                 <td>{{ tx(i + 1) }}</td>
-                <td>{{ tx(infoArt[l.codigo_sap]?.texto || l.codigo_sap || '—') }}<small v-for="m in msjsLinea(i, 'precio')" :key="m" class="campo-error">{{ tx(m) }}</small></td>
+                <td>{{ tx(infoArt[l.codigo_articulo]?.texto || l.codigo_articulo || '—') }}<small v-for="m in msjsLinea(i, 'precio')" :key="m" class="campo-error">{{ tx(m) }}</small></td>
                 <td class="num">{{ l.cantidad !== '' ? cantTxt(l.cantidad, unidadDe(l)) : '—' }}</td>
                 <td class="num"><input v-model="l.precio" class="entrada precio" type="number" min="0" step="any" :aria-label="t('Unit price of line {0}', [i + 1])" /></td>
                 <td class="num">{{ importe(l) === null ? '—' : fmtMoneda(importe(l), cab.moneda) }}</td>
@@ -621,7 +621,7 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
         </section>
       </div>
       <section class="panel">
-        <div class="panel-cabeza"><h2>{{ t('Lines ({0})', [lineas.filter((l) => l.codigo_sap).length]) }}</h2>
+        <div class="panel-cabeza"><h2>{{ t('Lines ({0})', [lineas.filter((l) => l.codigo_articulo).length]) }}</h2>
           <button type="button" class="btn btn-chico btn-fantasma" @click="ir(1)"><Icono nombre="editar" :tam="14" />{{ t('Edit') }}</button></div>
         <TablaDatos tabla="oc_asistente_lineas" :columnas="columnasRevision" :filas="lineasRevision" clave-fila="n" :vistas-guardadas="false" :etiqueta="t('Lines')">
           <template #celda-n="{ fila: l }">{{ tx(l.n) }}</template>

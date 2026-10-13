@@ -43,7 +43,7 @@ const explosion = ref(null)
 const url = (s = '') => `/packing-lists/${props.id}${s}`
 const editable = computed(() => !!pl.value?.puede.editar)
 const plantillas = computed(() => pl.value?.plantillas || [])
-const ref_ = (l) => `${l.estilo || l.codigo_sap}${l.color ? ` ${l.color}` : ''}${l.talla ? t(' · size {0}', [l.talla]) : ''}`
+const ref_ = (l) => `${l.estilo || l.codigo_articulo}${l.color ? ` ${l.color}` : ''}${l.talla ? t(' · size {0}', [l.talla]) : ''}`
 
 async function cargar() {
   try {
@@ -140,7 +140,7 @@ const partes = computed(() => {
 const lineasFiltradas = computed(() => {
   const coincide = buscador(filtro.texto)
   return (pl.value?.lineas || []).filter((l) =>
-    (!filtro.solo_pendiente || l.sin_caja > 0) && coincide([l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion]))
+    (!filtro.solo_pendiente || l.sin_caja > 0) && coincide([l.codigo_articulo, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion]))
 })
 // La tabla de cajas muestra los bultos (y lo suelto que no va dentro de otro empaque);
 // los inner packs y los pallets se ven en la estructura física
@@ -172,7 +172,7 @@ async function guardarInner(l, valor) {
   const r = await api.put(`/packing-lists/${props.id}/lineas/${l.id}/inner`, { version: pl.value.version, inner_pack: n })
   pl.value.version = r.version
   await cargar()
-  avisar(n ? t('Inner pack of {0} set for {1}.', [n, l.codigo_sap]) : t('Inner pack removed for {0}.', [l.codigo_sap]))
+  avisar(n ? t('Inner pack of {0} set for {1}.', [n, l.codigo_articulo]) : t('Inner pack removed for {0}.', [l.codigo_articulo]))
 }
 const innerTxt = (cant, inner) => (inner ? t(' · {0} inner pack{1} of {2}', [fmtNum(cant / inner), cant / inner === 1 ? '' : 's', inner]) : '')
 const porCajaRegla = (l) => (l.regla === 'PREPACK' ? 1 : l.regla === 'CASEPACK' ? l.casepack : null)
@@ -655,13 +655,13 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
           </template>
           <template #celda-articulo="{ fila: l }"><span v-if="l.marca" class="fuerte">{{ tx(l.marca) }}</span> {{ tx(l.estilo) }} · {{ tx(l.color) }}
             <span v-if="partes.cuenta[l.factura_linea_id] > 1" class="etiqueta">{{ t('part {0}', [partes.indice[l.id]]) }}</span>
-            <span class="sub codigo">{{ tx(l.codigo_sap) }}</span>
+            <span class="sub codigo">{{ tx(l.codigo_articulo) }}</span>
           </template>
           <template #celda-talla="{ fila: l }"><strong>{{ tx(l.talla) }}</strong></template>
           <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}</span><span v-if="l.centro_destino || l.almacen" class="sub">{{ tx([l.almacen && t('warehouse {0}', [l.almacen]), l.centro_destino && t('destination {0}', [l.centro_destino])].filter(Boolean).join(' · ')) }}</span></template>
           <template #celda-regla="{ fila: l }">
             <button v-if="l.regla === 'PREPACK'" type="button" class="etiqueta acento btn-explosion ms-0"
-                    :title="t('See the prepack breakdown')" @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ tx(reglaTxt(l)) }} <Icono nombre="lupa" :tam="12" /></button>
+                    :title="t('See the prepack breakdown')" @click="explosion = { sku: l.codigo_articulo, cajas: l.cantidad }">{{ tx(reglaTxt(l)) }} <Icono nombre="lupa" :tam="12" /></button>
             <span v-else class="etiqueta ms-0" :class="REGLAS[l.regla]?.[1]">{{ tx(reglaTxt(l)) }}</span>
           </template>
           <template #celda-por_caja="{ fila: l }"><span :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ porCajaLinea(l) ? cantTxt(porCajaLinea(l), l.regla === 'PREPACK' ? l.unidad_componentes || 'UN' : l.unidad) : '—' }}</span></template>
@@ -824,7 +824,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
     <!-- Contents (read only) -->
     <section v-if="tab === 'contenido'">
       <TablaDatos tabla="pl_doc_contenido" :columnas="columnasContenido" :filas="pl.lineas" :vistas-guardadas="false" :etiqueta="t('Contents')">
-        <template #celda-articulo="{ fila: l }">{{ tx(l.estilo) }} · {{ tx(l.color) }}<span class="sub codigo">{{ tx(l.codigo_sap) }}</span></template>
+        <template #celda-articulo="{ fila: l }">{{ tx(l.estilo) }} · {{ tx(l.color) }}<span class="sub codigo">{{ tx(l.codigo_articulo) }}</span></template>
         <template #celda-talla="{ fila: l }"><strong>{{ tx(l.talla) }}</strong></template>
         <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}</span><span v-if="l.almacen" class="sub">{{ t('warehouse {0}', [l.almacen]) }}</span></template>
         <template #celda-cantidad="{ fila: l }">{{ cantTxt(l.cantidad, l.unidad) }}</template>
@@ -841,7 +841,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <button class="btn btn-primario" :disabled="ocupado" @click="guardarRecepcion">{{ t('Save receipt') }}</button>
       </div>
       <TablaDatos tabla="pl_doc_recepcion" :columnas="columnasRecepcion" :filas="pl.lineas" :vistas-guardadas="false" :etiqueta="t('Warehouse receipt')">
-        <template #celda-fila="{ fila: l }">{{ tx(l.estilo) }} <b>{{ tx(l.talla) }}</b><span class="sub codigo">{{ tx(l.codigo_sap) }}</span></template>
+        <template #celda-fila="{ fila: l }">{{ tx(l.estilo) }} <b>{{ tx(l.talla) }}</b><span class="sub codigo">{{ tx(l.codigo_articulo) }}</span></template>
         <template #celda-cantidad="{ fila: l }">{{ cantTxt(l.cantidad, l.unidad) }}</template>
         <template #celda-recibida="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 90px; border-color: var(--linea)" :aria-label="t('Received {0}', [ref_(l)])" /></template>
         <template #celda-danada="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 80px; border-color: var(--linea)" :aria-label="t('Damaged {0}', [ref_(l)])" /></template>

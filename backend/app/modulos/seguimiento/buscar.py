@@ -57,7 +57,7 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
         if prov:
             cons = cons.where(OrdenCompra.proveedor_id.in_(prov))
         ocs = {o.id: o for (o,) in _filas(db, cons, limite)}
-        cp = filtro_texto(q, lambda p: [PosicionOC.codigo_sap.ilike(p), PosicionOC.upc.ilike(p), PosicionOC.estilo.ilike(p),
+        cp = filtro_texto(q, lambda p: [PosicionOC.codigo_articulo.ilike(p), PosicionOC.upc.ilike(p), PosicionOC.estilo.ilike(p),
                                         PosicionOC.color.ilike(p), PosicionOC.descripcion.ilike(p)])
         cons = select(PosicionOC).join(OrdenCompra).where(cp, *sociedad_filtro(user, OrdenCompra.sociedad))
         if prov:
@@ -67,7 +67,7 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
             if len(ocs) >= limite and p.oc_id not in ocs:
                 continue
             ocs.setdefault(p.oc_id, p.oc)
-            coincidencias.setdefault(p.oc_id, " · ".join(x for x in (p.codigo_sap, p.estilo, p.color) if x))
+            coincidencias.setdefault(p.oc_id, " · ".join(x for x in (p.codigo_articulo, p.estilo, p.color) if x))
         grupo("ordenes", [{"id": o.id, "titulo": o.numero, "sub": " · ".join(x for x in (o.proveedor.nombre if o.proveedor else "",
                                                                                          coincidencias.get(o.id, "")) if x),
                            "estado": "RELEASED" if o.liberada else "PENDING", "ruta": f"/ordenes?q={o.numero}"}

@@ -60,7 +60,7 @@ PASOS = [
 ]
 CABECERA = ("proveedor", "oc", "sociedad", "fecha_oc", "moneda", "incoterm", "condicion_pago", "centro", "centro_destino",
             "puerto_despacho", "pais_origen", "pais_procedencia", "fecha_xf", "fecha_tienda", "notas")
-LINEA = ("codigo_sap", "cantidad", "unidad", "precio", "casepack", "inner_pack", "almacen", "fecha_entrega")
+LINEA = ("codigo_articulo", "cantidad", "unidad", "precio", "casepack", "inner_pack", "almacen", "fecha_entrega")
 # Datos del asistente → nombre del dato en la configuración de obligatorios
 OBLIGABLES = {"fecha_oc": "fecha", "incoterm": "incoterm", "condicion_pago": "condicion_pago", "centro": "centro",
               "centro_destino": "centro_destino", "puerto_despacho": "puerto_despacho", "pais_origen": "pais_origen",
@@ -166,7 +166,7 @@ def _borrador_de(oc: OrdenCompra) -> dict:
            "centro_destino": oc.centro_destino, "puerto_despacho": oc.puerto_despacho, "pais_origen": oc.pais_origen,
            "pais_procedencia": oc.pais_procedencia, "fecha_xf": oc.fecha_xf, "fecha_tienda": oc.fecha_tienda,
            "notas": oc.notas, "extra": oc.extra or {}}
-    lineas = [{"codigo_sap": p.codigo_sap, "cantidad": p.cantidad, "unidad": p.unidad, "precio": p.precio,
+    lineas = [{"codigo_articulo": p.codigo_articulo, "cantidad": p.cantidad, "unidad": p.unidad, "precio": p.precio,
                "casepack": p.casepack, "inner_pack": p.inner_pack, "almacen": p.almacen, "fecha_entrega": p.fecha_entrega}
               for p in oc.posiciones]
     return {"cabecera": {k: (v.isoformat() if isinstance(v, date) else v) for k, v in cab.items()}, "lineas": lineas}
@@ -231,13 +231,13 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
         prov = db.scalar(select(Proveedor).where(Proveedor.codigo == _texto(cab.get("proveedor")).upper()))
         for i, ln in enumerate(lineas):
             ref = f"lineas.{i}"
-            art = db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_sap")))) if _texto(ln.get("codigo_sap")) else None
+            art = db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_articulo")))) if _texto(ln.get("codigo_articulo")) else None
             if not art:
-                falta(f"{ref}.codigo_sap", f"Line {i + 1}: choose an item from the item master.")
+                falta(f"{ref}.codigo_articulo", f"Line {i + 1}: choose an item from the item master.")
             elif prov and art.proveedor_id not in (None, prov.id):
-                falta(f"{ref}.codigo_sap", f"Line {i + 1}: the item belongs to another supplier.")
+                falta(f"{ref}.codigo_articulo", f"Line {i + 1}: the item belongs to another supplier.")
             elif not art.activo:
-                falta(f"{ref}.codigo_sap", f"Line {i + 1}: the item is inactive.")
+                falta(f"{ref}.codigo_articulo", f"Line {i + 1}: the item is inactive.")
             cant = _numero(ln.get("cantidad"))
             if cant is None or cant <= 0:
                 falta(f"{ref}.cantidad", f"Line {i + 1}: enter a quantity greater than zero.")
@@ -246,8 +246,8 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
                 falta(f"{ref}.unidad", f"Line {i + 1}: unit {unidad} is not in the list.")
             elif cant and unidad and (listas.valor("unidad", unidad) or {}).get("contable") and cant != int(cant):
                 falta(f"{ref}.cantidad", f"Line {i + 1}: {unidad} is counted in whole numbers.")
-        repetidos = {x for x in (_texto(ln.get("codigo_sap")) for ln in lineas) if x}
-        if len(repetidos) < len([ln for ln in lineas if _texto(ln.get("codigo_sap"))]):
+        repetidos = {x for x in (_texto(ln.get("codigo_articulo")) for ln in lineas) if x}
+        if len(repetidos) < len([ln for ln in lineas if _texto(ln.get("codigo_articulo"))]):
             falta("lineas", "An item appears twice: add the quantities in one line.")
     elif paso == "condiciones":
         if requerido("moneda", "The currency is required.", siempre=True):
@@ -278,7 +278,7 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
             existe(campo, modelo, etiqueta)
         # Datos de aduana: se piden aquí (no antes) si la empresa los exige para facturar
         if regla("REQUERIR_DATOS_ADUANA") and "pais_origen" not in obligatorios and not _texto(cab.get("pais_origen")):
-            arts = [db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_sap")))) for ln in lineas]
+            arts = [db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_articulo")))) for ln in lineas]
             if any(a is not None and not (a.producto and a.producto.pais_origen) for a in arts):
                 falta("pais_origen", "The country of origin is required for customs (some items do not have it).")
     elif paso == "documentacion":

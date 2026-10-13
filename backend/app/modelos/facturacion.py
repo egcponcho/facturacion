@@ -85,7 +85,7 @@ class FacturaLinea(DeOrganizacion, Base):
     oc_numero: Mapped[str] = mapped_column(String(30))
     almacen: Mapped[str | None] = mapped_column(String(10))
     posicion: Mapped[str] = mapped_column(String(10))
-    codigo_sap: Mapped[str] = mapped_column(String(40))
+    codigo_articulo: Mapped[str] = mapped_column(String(40))
     upc: Mapped[str | None] = mapped_column(String(40))
     estilo: Mapped[str | None] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))

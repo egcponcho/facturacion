@@ -295,8 +295,8 @@ def test_importacion_oc(interno):
     fila = lambda oc_n, pos, sku, cant, lib="C", alm="BF20": (  # noqa: E731
         f"VANS,{oc_n},{pos},8000,8020,{alm},2220,USD,FOB,{sku},{cant},25.5,VNSGN,VN,{cab['fecha_xf_original']},"
         f"{cab['fecha_tienda']},{lib}\n")
-    csv = (enc + fila("4400009999", "10", pos10["codigo_sap"], 24, "P")
-           + fila("4400003901", "10", pos10["codigo_sap"], 10)
+    csv = (enc + fila("4400009999", "10", pos10["codigo_articulo"], 24, "P")
+           + fila("4400003901", "10", pos10["codigo_articulo"], 10)
            + "XXX,1,1,8000,PA10,,2220,USD,FOB,1,1,1,,,,,\n")
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h,
                        files={"archivo": ("ocs.csv", csv.encode(), "text/csv")})
@@ -310,7 +310,7 @@ def test_importacion_oc(interno):
     # Liberación comercial pendiente: logística 304 y no se puede facturar
     assert ocs[0]["liberacion_comercial"] == "P" and ocs[0]["liberacion_logistica"] == "304"
     det = interno.get(f"/ordenes/{ocs[0]['id']}/posiciones").json()
-    assert det["posiciones"][0]["codigo_sap"] == pos10["codigo_sap"] and det["posiciones"][0]["estado"] == "NO_DISPONIBLE"
+    assert det["posiciones"][0]["codigo_articulo"] == pos10["codigo_articulo"] and det["posiciones"][0]["estado"] == "NO_DISPONIBLE"
     # La OC ya liberada que cambia después queda como 301
     assert _oc(interno, "4400003901")["oc"]["liberacion_logistica"] == "301"
     # Un SKU que no está en el maestro no entra
@@ -323,7 +323,7 @@ def test_importacion_oc(interno):
     assert r.json()["resumen"]["error"] == 1 and "another supplier" in " ".join(r.json()["filas"][0]["mensajes"])
     # Dos liberaciones: sin comercial (P) no puede haber logística 300/301; nueva sin código logístico = 304
     enc_log = enc.strip() + ",liberacion_logistica\n"
-    fila_log = lambda oc_n, lib, log: fila(oc_n, "10", pos10["codigo_sap"], 12, lib).strip() + f",{log}\n"  # noqa: E731
+    fila_log = lambda oc_n, lib, log: fila(oc_n, "10", pos10["codigo_articulo"], 12, lib).strip() + f",{log}\n"  # noqa: E731
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("l.csv", (
         enc_log + fila_log("4400009990", "P", "300") + fila_log("4400009991", "", "") + fila_log("4400009992", "C", "300")
     ).encode(), "text/csv")})
@@ -335,9 +335,9 @@ def test_importacion_oc(interno):
     assert not ocs["4400009991"]["liberada"] and ocs["4400009992"]["liberada"]
     # Misma sociedad y centro, cada posición en su almacén; un almacén de otra sociedad no entra
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("a.csv", (
-        enc + fila("4400009997", "10", pos10["codigo_sap"], 12, alm="BF19")
-        + fila("4400009997", "20", pos10["codigo_sap"], 12, alm="BF20")
-        + fila("4400009996", "10", pos10["codigo_sap"], 12, alm="BF01")).encode(), "text/csv")})
+        enc + fila("4400009997", "10", pos10["codigo_articulo"], 12, alm="BF19")
+        + fila("4400009997", "20", pos10["codigo_articulo"], 12, alm="BF20")
+        + fila("4400009996", "10", pos10["codigo_articulo"], 12, alm="BF01")).encode(), "text/csv")})
     res = r.json()
     assert res["resumen"]["nuevo"] == 2 and res["resumen"]["error"] == 1, res
     assert "does not belong to company" in res["filas"][-1]["mensajes"][0]
@@ -871,15 +871,15 @@ def test_crear_oc_desde_formulario(interno, vans):
     """La OC se puede crear en la plataforma con la misma estructura y
     validaciones que la carga masiva; precio, moneda y empresa son opcionales
     al crearla, pero se exigen al facturar."""
-    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_articulo"]
     cab = {"proveedor": "VANS", "oc": "PO-FORM-1", "centro_destino": "2220", "liberacion_comercial": "C",
            "liberacion_logistica": "Released"}
     # Lo mínimo: proveedor, número, artículo y cantidad
-    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku}]})
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_articulo": sku}]})
     assert r.status_code == 422 and any("quantity" in d["mensaje"] for d in r.json()["detalle"])
-    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": "NOEXISTE", "cantidad": 5}]})
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_articulo": "NOEXISTE", "cantidad": 5}]})
     assert r.status_code == 422 and "item master" in r.json()["detalle"][0]["mensaje"]
-    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 12, "casepack": 6}]})
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_articulo": sku, "cantidad": 12, "casepack": 6}]})
     assert r.status_code == 200, r.text
     oc = r.json()
     assert oc["numero"] == "PO-FORM-1" and oc["lineas"] == 1
@@ -887,40 +887,40 @@ def test_crear_oc_desde_formulario(interno, vans):
     assert det["posiciones"][0]["posicion"] == "10" and det["posiciones"][0]["casepack"] == 6
     assert det["posiciones"][0]["importe"] is None  # sin precio: el valor queda pendiente
     # El mismo número no se repite para el proveedor
-    assert interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 1}]}).status_code == 409
+    assert interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_articulo": sku, "cantidad": 1}]}).status_code == 409
     # Sin precio, moneda ni empresa no se puede facturar: se dice qué falta
     r = vans.post("/facturas", {"lineas": [{"posicion_id": det["posiciones"][0]["id"], "cantidad": 6}]})
     assert r.status_code == 422 and "missing currency, price" in r.json()["detalle"][0]["mensaje"]
     # La sociedad se toma del centro destino: el proveedor solo trabaja con las suyas
     assert det["oc"]["sociedad"] == "8000"
     r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-3", "centro_destino": "3200"},
-                                  "lineas": [{"codigo_sap": sku, "cantidad": 2}]})
+                                  "lineas": [{"codigo_articulo": sku, "cantidad": 2}]})
     assert r.status_code == 422 and "does not work with company GT01" in str(r.json()["detalle"])
     r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-3", "sociedad": "8000", "centro_destino": "PA20"},
-                                  "lineas": [{"codigo_sap": sku, "cantidad": 2}]})
+                                  "lineas": [{"codigo_articulo": sku, "cantidad": 2}]})
     assert r.status_code == 422 and "does not belong to company 8000" in str(r.json()["detalle"])
     r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-3", "sociedad": "8000", "centro": "PA10"},
-                                  "lineas": [{"codigo_sap": sku, "cantidad": 2}]})
+                                  "lineas": [{"codigo_articulo": sku, "cantidad": 2}]})
     assert r.status_code == 422 and "does not belong to company 8000" in str(r.json()["detalle"])
     # Un artículo de otro proveedor no entra en la OC
-    otro = _oc(interno, "4400003850")["posiciones"][0]["codigo_sap"]
-    r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-3"}, "lineas": [{"codigo_sap": otro, "cantidad": 2}]})
+    otro = _oc(interno, "4400003850")["posiciones"][0]["codigo_articulo"]
+    r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-3"}, "lineas": [{"codigo_articulo": otro, "cantidad": 2}]})
     assert r.status_code == 422 and "another supplier" in str(r.json()["detalle"])
     # Las opciones del formulario dicen con qué sociedades trabaja cada proveedor
     op = interno.get("/ordenes/formulario").json()
     assert next(p for p in op["proveedores"] if p["valor"] == "VANS")["sociedades"] == ["8000", "PA01"]
     # Precio sin moneda no es válido
-    r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-2"}, "lineas": [{"codigo_sap": sku, "cantidad": 2, "precio": 10}]})
+    r = interno.post("/ordenes", {"cabecera": {**cab, "oc": "PO-FORM-2"}, "lineas": [{"codigo_articulo": sku, "cantidad": 2, "precio": 10}]})
     assert r.status_code == 422 and "currency" in r.json()["detalle"][0]["mensaje"]
 
 
 def test_inner_pack_en_el_packing_list(interno, vans):
     """La OC trae el casepack (sólidos) o la curva (prepacks); el inner pack se
     define al armar el packing list, mientras la línea no tenga cajas."""
-    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_articulo"]
     cab = {"proveedor": "VANS", "oc": "PO-INNER-1", "sociedad": "8000", "moneda": "USD", "centro_destino": "2220",
            "liberacion_comercial": "C", "liberacion_logistica": "300"}
-    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 24, "precio": 10, "casepack": 12}]})
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_articulo": sku, "cantidad": 24, "precio": 10, "casepack": 12}]})
     assert r.status_code == 200, r.text
     pos = interno.get(f"/ordenes/{r.json()['oc_id']}/posiciones").json()["posiciones"][0]
     assert pos["inner_pack"] is None
@@ -984,10 +984,10 @@ def test_consistencia_de_maestros(interno):
 
 
 def test_numero_propio_del_pl(interno, vans):
-    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_articulo"]
     cab = {"proveedor": "VANS", "oc": "PO-PLNUM-1", "sociedad": "8000", "moneda": "USD", "centro_destino": "2220",
            "liberacion_comercial": "C", "liberacion_logistica": "300"}
-    oc = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 24, "precio": 10}]}).json()
+    oc = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_articulo": sku, "cantidad": 24, "precio": 10}]}).json()
     pos = interno.get(f"/ordenes/{oc['oc_id']}/posiciones").json()["posiciones"][0]
     fid = vans.post("/facturas", {"lineas": [{"posicion_id": pos["id"], "cantidad": 24}]}).json()["id"]
     pl_id = vans.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
@@ -1010,10 +1010,10 @@ def test_estructura_fisica_por_carga(interno, vans):
 
     from openpyxl import Workbook, load_workbook
 
-    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_articulo"]
     cab = {"proveedor": "VANS", "oc": "PO-ESTR-1", "sociedad": "8000", "moneda": "USD", "centro_destino": "2220",
            "liberacion_comercial": "C", "liberacion_logistica": "300"}
-    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 24, "precio": 10}]})
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_articulo": sku, "cantidad": 24, "precio": 10}]})
     pos = interno.get(f"/ordenes/{r.json()['oc_id']}/posiciones").json()["posiciones"][0]
     fid = vans.post("/facturas", {"lineas": [{"posicion_id": pos["id"], "cantidad": 24}]}).json()["id"]
     pl_id = vans.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]

@@ -49,7 +49,7 @@ def test_campos_propios_en_oc_y_factura(interno, campos):
     pos10 = interno.get(f"/ordenes/{base['id']}/posiciones").json()["posiciones"][0]
     csv = ("supplier,po_number,line,company,plant,storage_location,destination,currency,incoterm,item_code,quantity,unit_price,"
            "commercial_release,logistics_release,Buyer,Budget\n"
-           f"VANS,4400009803,10,8000,8020,BF20,2220,USD,FOB,{pos10['codigo_sap']},6,25.5,C,300,Ana López,12500\n")
+           f"VANS,4400009803,10,8000,8020,BF20,2220,USD,FOB,{pos10['codigo_articulo']},6,25.5,C,300,Ana López,12500\n")
     r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h, files={"archivo": ("o.csv", csv.encode(), "text/csv")})
     assert r.status_code == 200 and r.json()["resumen"]["nuevo"] == 1, r.text
     assert interno.post(f"/ordenes/importar/{r.json()['importacion_id']}/aplicar").status_code == 200

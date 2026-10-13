@@ -89,7 +89,7 @@ def exigir_editable(f: Factura) -> None:
 
 
 def _ref_linea(l: FacturaLinea) -> str:
-    return f"PO {l.oc_numero} line {l.posicion} ({l.codigo_sap}{' size ' + l.talla if l.talla else ''})"
+    return f"PO {l.oc_numero} line {l.posicion} ({l.codigo_articulo}{' size ' + l.talla if l.talla else ''})"
 
 
 def _validar_numero(db: Session, proveedor_id: int, numero: str | None, excluir_id: int | None) -> None:
@@ -216,7 +216,7 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
         oc_numero=oc.numero,
         posicion=p.posicion,
         almacen=p.almacen,
-        codigo_sap=p.codigo_sap,
+        codigo_articulo=p.codigo_articulo,
         upc=p.upc,
         estilo=p.estilo,
         color=p.color,
@@ -892,7 +892,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "oc_numero": l.oc_numero,
             "almacen": l.almacen,
             "posicion": l.posicion,
-            "codigo_sap": l.codigo_sap,
+            "codigo_articulo": l.codigo_articulo,
             "upc": l.upc,
             "estilo": l.estilo,
             "color": l.color,
@@ -976,7 +976,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
 def historial_factura(db: Session, user: Usuario, factura_id: int) -> list[dict]:
     cargar_factura(db, user, factura_id)
     filas = db.scalars(
-        select(Historial).where(Historial.factura_id == factura_id).order_by(Historial.fecha.desc(), Historial.id.desc())
+        select(Historial).where(Historial.raiz_tipo == "factura", Historial.raiz_id == factura_id).order_by(Historial.fecha.desc(), Historial.id.desc())
     ).all()
     return [
         {

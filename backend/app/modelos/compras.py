@@ -128,7 +128,7 @@ class PosicionOC(DeOrganizacion, Base):
     posicion: Mapped[str] = mapped_column(String(10))  # 10, 20, 30…
     almacen: Mapped[str | None] = mapped_column(String(10))  # cada posición va a su almacén
     articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
-    codigo_sap: Mapped[str] = mapped_column(String(40))  # SKU; texto: conserva ceros iniciales
+    codigo_articulo: Mapped[str] = mapped_column(String(40))  # SKU; texto: conserva ceros iniciales
     upc: Mapped[str | None] = mapped_column(String(40))
     estilo: Mapped[str | None] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))

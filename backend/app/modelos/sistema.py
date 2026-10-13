@@ -28,11 +28,15 @@ if TYPE_CHECKING:
 
 class Historial(DeOrganizacion, Base):
     __tablename__ = "historial"
-    __table_args__ = (Index("ix_historial_entidad", "entidad", "entidad_id"),)
+    __table_args__ = (Index("ix_historial_entidad", "entidad", "entidad_id"),
+                      Index("ix_historial_raiz", "raiz_tipo", "raiz_id"))
     id: Mapped[int] = mapped_column(primary_key=True)
     entidad: Mapped[str] = mapped_column(String(30))
     entidad_id: Mapped[int] = mapped_column(Integer)
-    factura_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    # Documento raíz al que pertenece el registro (p. ej. la factura de un
+    # packing list): su historial reúne lo de sus documentos hijos
+    raiz_tipo: Mapped[str | None] = mapped_column(String(30))
+    raiz_id: Mapped[int | None] = mapped_column(Integer)
     accion: Mapped[str] = mapped_column(String(60))
     detalle: Mapped[dict | list | None] = mapped_column(JSON)
     motivo: Mapped[str | None] = mapped_column(String(500))

@@ -351,7 +351,7 @@ def _lineas(db: Session, d: Documento, lineas) -> None:
             else _impuestos_defecto(db, d)
         d.lineas.append(DocumentoLinea(
             orden=i, articulo_id=art.id if art else None, posicion_oc_id=pos.id if pos else None,
-            codigo=(ln.codigo or (art.sku if art else None) or (pos.codigo_sap if pos else None)),
+            codigo=(ln.codigo or (art.sku if art else None) or (pos.codigo_articulo if pos else None)),
             descripcion=descripcion[:300], cantidad=ln.cantidad, unidad=unidad, precio_unitario=ln.precio_unitario,
             descuento_pct=ln.descuento_pct, impuestos_codigos=codigos or None))
     if errores:

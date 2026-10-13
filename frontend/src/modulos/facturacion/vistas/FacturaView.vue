@@ -46,7 +46,7 @@ const plEditables = computed(() => plsActivos.value.some((p) => ['BORRADOR', 'EN
 
 const lineasFiltradas = computed(() => {
   if (!f.value) return []
-  return filtrar(f.value.lineas, filtro.value, (l) => [l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion])
+  return filtrar(f.value.lineas, filtro.value, (l) => [l.codigo_articulo, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion])
 })
 // Unidades o pares por caja: el casepack de la OC o la curva del prepack
 const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.casepack || null)
@@ -561,12 +561,12 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         <template #celda-articulo="{ fila: l }">
           {{ tx(l.estilo) }}<template v-if="l.color"> · {{ tx(l.color) }}</template>
           <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the prepack breakdown')"
-                  @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ t('Prepack {0}', [l.prepack]) }} <Icono nombre="lupa" :tam="12" /></button>
-          <span class="sub codigo">{{ tx(l.codigo_sap) }}</span>
+                  @click="explosion = { sku: l.codigo_articulo, cajas: l.cantidad }">{{ t('Prepack {0}', [l.prepack]) }} <Icono nombre="lupa" :tam="12" /></button>
+          <span class="sub codigo">{{ tx(l.codigo_articulo) }}</span>
         </template>
         <template #celda-talla="{ fila: l }"><strong>{{ tx(l.talla) }}</strong></template>
         <template #celda-cantidad="{ fila: l }">
-          <CeldaEditable v-if="editable" tipo="number" :min="l.inner_pack || 1" :paso="String(l.inner_pack || 1)" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="t('Quantity of {0}', [l.codigo_sap])" ancho="100px" />
+          <CeldaEditable v-if="editable" tipo="number" :min="l.inner_pack || 1" :paso="String(l.inner_pack || 1)" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="t('Quantity of {0}', [l.codigo_articulo])" ancho="100px" />
           <template v-else>{{ fmtNum(l.cantidad) }}</template>
         </template>
         <template #celda-unidad="{ fila: l }"><span class="etiqueta ms-0">{{ tx(l.unidad) }}</span></template>
@@ -574,7 +574,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         <template #celda-por_inner="{ fila: l }"><span :title="l.inner_pack ? '' : t('Defined in the packing list if needed')">{{ l.inner_pack ? fmtNum(l.inner_pack) : '—' }}</span></template>
         <template #celda-inners_caja="{ fila: l }">{{ innersCaja(l) ? fmtNum(innersCaja(l)) : '—' }}</template>
         <template #celda-precio="{ fila: l }">
-          <CeldaEditable v-if="editable" tipo="number" :min="0" paso="0.0001" :valor="l.precio_unitario" :guardar="celda(l, 'precio_unitario')" :etiqueta="t('Price of {0}', [l.codigo_sap])" ancho="130px" />
+          <CeldaEditable v-if="editable" tipo="number" :min="0" paso="0.0001" :valor="l.precio_unitario" :guardar="celda(l, 'precio_unitario')" :etiqueta="t('Price of {0}', [l.codigo_articulo])" ancho="130px" />
           <template v-else>{{ fmtNum(l.precio_unitario, 2) }}</template>
           <span v-if="Math.abs(l.precio_unitario - l.precio_oc) > 1e-9" class="etiqueta aviso" :title="t('PO price {0}. Reason: {1}', [l.precio_oc, l.motivo_precio || t('not given')])">{{ t('Differs from PO') }}</span>
         </template>
@@ -585,7 +585,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
           <span class="sub">{{ t('{0} in cartons', [fmtNum(l.empacado)]) }}</span>
         </template>
         <template #celda-pais_origen="{ fila: l }">
-          <CeldaEditable v-if="editable" :valor="l.pais_origen" :guardar="celda(l, 'pais_origen')" :vacia-texto="t('Missing')" :etiqueta="t('Country of origin of {0}', [l.codigo_sap])" ancho="84px" />
+          <CeldaEditable v-if="editable" :valor="l.pais_origen" :guardar="celda(l, 'pais_origen')" :vacia-texto="t('Missing')" :etiqueta="t('Country of origin of {0}', [l.codigo_articulo])" ancho="84px" />
           <template v-else>{{ tx(l.pais_origen) }}</template>
         </template>
         <template #celda-partida="{ fila: l }">
@@ -597,7 +597,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         </template>
         <template #celda-descripcion="{ fila: l }">
           <span class="envolver" :title="t('Customs description of the item, without the brand (it has its own column)')">
-            <CeldaEditable v-if="editable" :valor="l.descripcion_comercial" :guardar="celda(l, 'descripcion_comercial')" :vacia-texto="t('Missing')" :etiqueta="t('Description of {0}', [l.codigo_sap])" />
+            <CeldaEditable v-if="editable" :valor="l.descripcion_comercial" :guardar="celda(l, 'descripcion_comercial')" :vacia-texto="t('Missing')" :etiqueta="t('Description of {0}', [l.codigo_articulo])" />
             <template v-else>{{ tx(l.descripcion_comercial) }}</template>
           </span>
         </template>

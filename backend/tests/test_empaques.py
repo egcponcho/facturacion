@@ -15,7 +15,7 @@ from app.modulos.empaque import empaques
 def _linea(peso, talla="8", estilo="X1", oc="OC1"):
     art = Articulo(sku=f"A{talla}", estilo=estilo, talla=talla, unidad="PAR", tipo="SOLIDO", peso_unitario=peso)
     fl = FacturaLinea(posicion_oc=PosicionOC(articulo=art), cantidad=0, estilo=estilo, talla=talla, oc_numero=oc,
-                      codigo_sap=f"A{talla}", unidad="PAR", color="BLK")
+                      codigo_articulo=f"A{talla}", unidad="PAR", color="BLK")
     return PLLinea(factura_linea=fl, cantidad=0)
 
 

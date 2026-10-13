@@ -24,7 +24,7 @@ def _aprobar_oc(api, numero: str) -> dict:
            "fecha_tienda": "2027-01-10", "pais_origen": "CN"}
     oc = api.post("/ordenes/borrador", {"cabecera": cab}).json()
     oc = api.patch(f"/ordenes/{oc['oc']['id']}", {"version": oc["oc"]["version"],
-                                                  "lineas": [{"codigo_sap": sku, "cantidad": 10, "precio": 5}]}).json()
+                                                  "lineas": [{"codigo_articulo": sku, "cantidad": 10, "precio": 5}]}).json()
     r = api.post(f"/ordenes/{oc['oc']['id']}/enviar", {"version": oc["oc"]["version"]})
     assert r.status_code == 200, r.text
     return r.json()

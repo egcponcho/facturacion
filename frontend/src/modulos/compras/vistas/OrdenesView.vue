@@ -504,7 +504,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             <template #celda-posicion="{ fila: p }"><span class="codigo">{{ tx(p.posicion) }}</span></template>
             <template #celda-articulo="{ fila: p }">
               <span v-if="p.marca" class="fuerte">{{ tx(p.marca) }}</span> {{ tx(p.estilo) }} · {{ tx(p.color) }}
-              <span class="sub codigo">{{ tx(p.codigo_sap) }}<template v-if="p.grupo"> · {{ tx(p.grupo) }}</template></span>
+              <span class="sub codigo">{{ tx(p.codigo_articulo) }}<template v-if="p.grupo"> · {{ tx(p.grupo) }}</template></span>
             </template>
             <template #celda-talla="{ fila: p }"><strong>{{ tx(p.talla) }}</strong></template>
             <template #celda-unidad="{ fila: p }"><span class="etiqueta ms-0" :title="tx(unidadTxt(p.unidad, 2))">{{ tx(p.unidad) }}</span></template>
@@ -520,7 +520,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
             <template #celda-empaque="{ fila: p }">
               <span class="fila-flex empaque-celda">
                 <button v-if="p.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion ms-0"
-                        :title="t('See the prepack breakdown')" @click="explosion = { sku: p.codigo_sap, cajas: p.cantidad }">
+                        :title="t('See the prepack breakdown')" @click="explosion = { sku: p.codigo_articulo, cajas: p.cantidad }">
                   {{ t('Prepack {0} · {1} per carton', [p.prepack, p.unidades_por_caja]) }} <Icono nombre="lupa" :tam="12" />
                 </button>
                 <template v-else>

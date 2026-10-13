@@ -191,7 +191,7 @@ def datos_factura(db: Session, f) -> dict:
         importe += total
         por_unidad[l.unidad] = por_unidad.get(l.unidad, 0) + l.cantidad
         lineas.append({
-            "oc": l.oc_numero, "posicion": l.posicion, "sku": l.codigo_sap, "upc": l.upc, "marca": l.marca, "estilo": l.estilo,
+            "oc": l.oc_numero, "posicion": l.posicion, "sku": l.codigo_articulo, "upc": l.upc, "marca": l.marca, "estilo": l.estilo,
             "color": l.color, "talla": l.talla, "descripcion": sin_marca(l.descripcion_comercial or l.descripcion, l.marca),
             "partida": l.partida_arancelaria, "origen": l.pais_origen, "cantidad": l.cantidad, "unidad": l.unidad,
             "precio": l.precio_unitario, "total": dinero.numero(total), "motivo_precio": l.motivo_precio, "prepack": l.prepack if l.tipo_empaque == "PREPACK" else None,
@@ -249,7 +249,7 @@ def datos_pl(db: Session, pl) -> dict:
         items = []
         for pll, n in empaques.contenido(pl, g):
             fl = pll.factura_linea
-            items.append({"oc": fl.oc_numero, "posicion": fl.posicion, "sku": fl.codigo_sap, "upc": fl.upc,
+            items.append({"oc": fl.oc_numero, "posicion": fl.posicion, "sku": fl.codigo_articulo, "upc": fl.upc,
                           "marca": fl.marca, "descripcion": sin_marca(fl.descripcion_comercial or fl.descripcion, fl.marca),
                           "estilo": fl.estilo, "color": fl.color, "talla": fl.talla, "unidad": fl.unidad,
                           "por_caja": n, "total": n * g.num_cajas,
@@ -273,7 +273,7 @@ def datos_pl(db: Session, pl) -> dict:
             "ocs": et["ocs"], "centro_destino": et["centro_destino"],
             "largo": g.largo, "ancho": g.ancho, "alto": g.alto,
         })
-    sin_caja = [{"oc": pll.factura_linea.oc_numero, "sku": pll.factura_linea.codigo_sap,
+    sin_caja = [{"oc": pll.factura_linea.oc_numero, "sku": pll.factura_linea.codigo_articulo,
                  "estilo": pll.factura_linea.estilo, "talla": pll.factura_linea.talla,
                  "cantidad": pll.cantidad - cubierto(pll), "unidad": pll.factura_linea.unidad}
                 for pll in pl.lineas if pll.cantidad - cubierto(pll) > 0]

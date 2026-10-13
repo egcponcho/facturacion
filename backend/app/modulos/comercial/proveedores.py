@@ -46,8 +46,8 @@ def registrar(db: Session, user: Usuario, f) -> Documento:
     for i, x in enumerate(f.lineas, start=1):
         d.lineas.append(DocumentoLinea(
             orden=i, posicion_oc_id=x.posicion_oc_id, factura_linea_id=x.id,
-            articulo_id=x.posicion_oc.articulo_id if x.posicion_oc else None, codigo=x.codigo_sap,
-            descripcion=(x.descripcion_comercial or x.descripcion or x.codigo_sap)[:300], cantidad=x.cantidad,
+            articulo_id=x.posicion_oc.articulo_id if x.posicion_oc else None, codigo=x.codigo_articulo,
+            descripcion=(x.descripcion_comercial or x.descripcion or x.codigo_articulo)[:300], cantidad=x.cantidad,
             unidad=x.unidad if x.unidad in unidades else None, precio_unitario=x.precio_unitario, descuento_pct=0))
     db.flush()
     docs.emitir(db, user, d.id, interno=True)

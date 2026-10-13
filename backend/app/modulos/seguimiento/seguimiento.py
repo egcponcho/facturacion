@@ -111,7 +111,7 @@ def valores_columna(filas: list[dict], columnas: dict, columna: str, q: str | No
 def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) -> dict:
     return {
         "limite_puerto": limite_puerto(oc.fecha_tienda, est) if est else None,
-        "marca": p.marca, "estilo": p.estilo, "color": p.color, "talla": p.talla, "sku": p.codigo_sap,
+        "marca": p.marca, "estilo": p.estilo, "color": p.color, "talla": p.talla, "sku": p.codigo_articulo,
         "oc_id": oc.id, "oc": oc.numero, "posicion": p.posicion, "almacen": p.almacen, "grupo": p.grupo,
         "proveedor": oc.proveedor.nombre, "documento": None, "sociedad": oc.sociedad, "centro": oc.centro,
         "liberacion_comercial": oc.liberacion_comercial, "liberacion_logistica": oc.liberacion_logistica,

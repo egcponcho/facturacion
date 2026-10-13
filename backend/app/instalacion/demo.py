@@ -466,7 +466,7 @@ def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", a
         for talla, cantidad in tallas:
             a = arts[(estilo, color, talla)]
             oc.posiciones.append(PosicionOC(
-                posicion=str(pos), almacen=alm[0] if alm else almacen, articulo_id=a.id, codigo_sap=a.sku, upc=a.upc, estilo=a.estilo, color=a.color,
+                posicion=str(pos), almacen=alm[0] if alm else almacen, articulo_id=a.id, codigo_articulo=a.sku, upc=a.upc, estilo=a.estilo, color=a.color,
                 talla=a.talla, descripcion=a.descripcion, marca=a.marca.codigo, grupo=a.grupo.codigo,
                 categoria=a.grupo.categoria, tipo_empaque=a.tipo, casepack=a.empaque_demo[0], inner_pack=a.empaque_demo[1],
                 prepack=a.prepack.codigo if a.prepack else None,
@@ -491,7 +491,7 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
     f.packing_lists.append(pl)
     for p in oc.posiciones:
         linea = FacturaLinea(posicion_oc=p, cantidad=p.cantidad, precio_unitario=p.precio, precio_oc=p.precio,
-                             oc_numero=oc.numero, almacen=p.almacen, posicion=p.posicion, codigo_sap=p.codigo_sap, upc=p.upc,
+                             oc_numero=oc.numero, almacen=p.almacen, posicion=p.posicion, codigo_articulo=p.codigo_articulo, upc=p.upc,
                              estilo=p.estilo, color=p.color, talla=p.talla, descripcion=p.descripcion,
                              unidad=p.unidad, marca=p.marca, categoria=p.categoria, tipo_empaque=p.tipo_empaque,
                              casepack=p.casepack, inner_pack=p.inner_pack, centro_destino=oc.centro_destino, pais_origen=p.pais_origen,

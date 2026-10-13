@@ -34,7 +34,12 @@ def registrar(
     detalle=None,
     motivo: str | None = None,
     factura_id: int | None = None,
+    raiz: tuple[str, int] | None = None,
 ) -> None:
+    """Agrega un registro a la bitácora. `raiz` (o `factura_id`, su forma
+    corta para una factura) es el documento raíz que reúne este registro."""
+    if raiz is None and factura_id is not None:
+        raiz = ("factura", factura_id)
     db.add(
         Historial(
             entidad=entidad,
@@ -42,7 +47,8 @@ def registrar(
             accion=accion,
             detalle=jsonable_encoder(detalle) if detalle is not None else None,
             motivo=motivo,
-            factura_id=factura_id,
+            raiz_tipo=raiz[0] if raiz else None,
+            raiz_id=raiz[1] if raiz else None,
             usuario_id=user.id if user else None,
         )
     )

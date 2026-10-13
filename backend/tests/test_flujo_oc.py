@@ -27,7 +27,7 @@ def _borrador_completo(api, numero: str, precio: float = 10.0) -> dict:
     oc = api.post("/ordenes/borrador", {"cabecera": _cabecera(numero)})
     assert oc.status_code == 200, oc.text
     oc = oc.json()
-    lineas = [{"codigo_sap": sku, "cantidad": 12, "precio": precio} for sku in _articulos("VANS")]
+    lineas = [{"codigo_articulo": sku, "cantidad": 12, "precio": precio} for sku in _articulos("VANS")]
     r = api.patch(f"/ordenes/{oc['oc']['id']}", {"version": oc["oc"]["version"], "lineas": lineas})
     assert r.status_code == 200, r.text
     return r.json()
@@ -49,8 +49,8 @@ def test_asistente_valida_por_paso_y_guarda_borrador(interno):
     campos = {e["campo"] for e in r["errores"]}
     assert {"proveedor", "sociedad"} <= campos
     r = interno.post("/ordenes/validar", {"paso": "articulos", "cabecera": {"proveedor": "VANS"},
-                                          "lineas": [{"codigo_sap": "NOEXISTE", "cantidad": 0}]}).json()
-    assert {"lineas.0.codigo_sap", "lineas.0.cantidad"} <= {e["campo"] for e in r["errores"]}
+                                          "lineas": [{"codigo_articulo": "NOEXISTE", "cantidad": 0}]}).json()
+    assert {"lineas.0.codigo_articulo", "lineas.0.cantidad"} <= {e["campo"] for e in r["errores"]}
     r = interno.post("/ordenes/validar", {"paso": "logistica", "cabecera": {"fecha_xf": "2026-12-01", "fecha_tienda": "2026-11-01"}}).json()
     assert any(e["campo"] == "fecha_tienda" for e in r["errores"])
     # El borrador se guarda aunque falten datos; cada paso dice qué le falta
@@ -207,7 +207,7 @@ def test_articulos_del_asistente_y_datos_de_aduana(interno):
         art = next(a for a in db.scalars(select(Articulo).where(Articulo.proveedor_id == prov.id, Articulo.activo.is_(True))
                                          .order_by(Articulo.id)) if a.producto and a.producto.pais_origen)
         sku, producto_id, origen = art.sku, art.producto_id, art.producto.pais_origen
-    lineas = [{"codigo_sap": sku, "cantidad": 1}]
+    lineas = [{"codigo_articulo": sku, "cantidad": 1}]
     cab = {k: v for k, v in _cabecera("ADU-1").items() if k != "pais_origen"}
 
     def errores_origen(paso: str, cabecera: dict) -> list:

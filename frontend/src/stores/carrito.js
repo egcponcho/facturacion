@@ -28,7 +28,7 @@ export function agregarPosiciones(oc, posiciones) {
       centro: oc.centro,
       moneda: oc.moneda,
       posicion: p.posicion,
-      codigo_sap: p.codigo_sap,
+      codigo_articulo: p.codigo_articulo,
       estilo: p.estilo,
       color: p.color,
       talla: p.talla,
