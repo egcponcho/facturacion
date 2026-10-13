@@ -12,6 +12,7 @@ import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 
 // Reportes: los operativos (una fila por registro, para el trabajo del día) y
 // los analíticos (totales por grupo) se listan aparte. El editor arma la
@@ -148,6 +149,19 @@ const ordenCampo = computed({
   set: (v) => { def.orden = v ? { campo: v, dir: def.orden?.dir || 'asc' } : null },
 })
 
+// Reportes guardados y vista previa del resultado en la tabla común (filtro por columna, orden y paginación)
+const guardados = computed(() => (tab.value === 'operativos' ? lista.value.operativos : lista.value.analiticos))
+const columnasGuardados = computed(() => [
+  { clave: 'nombre', texto: t('Name'), fija: true, prioridad: 1 },
+  { clave: 'fuente', texto: t('Source'), prioridad: 2, textoValor: (v) => nombreFuente(v) },
+  { clave: 'compartido', texto: t('Shared'), prioridad: 3, valor: (r) => (r.compartido ? (r.propio ? t('Yes') : t('By {0}', [r.autor])) : t('No')) },
+  { clave: 'actualizado_en', texto: t('Updated'), prioridad: 3, valor: (r) => (r.actualizado_en || '').slice(0, 10), textoValor: (v) => fmtFecha(v) },
+])
+const filasResultado = computed(() => (resultado.value?.filas || []).map((fila, i) => ({ _i: i, ...Object.fromEntries(fila.map((v, j) => [`c${j}`, v])) })))
+const columnasResultado = computed(() => (resultado.value?.columnas || []).map((c, j) => ({
+  clave: `c${j}`, texto: c.titulo_campo ? `${c.titulo}: ${c.titulo_campo}` : c.titulo, num: ['numero', 'moneda'].includes(c.tipo),
+  prioridad: j < 2 ? 1 : j < 4 ? 2 : 3, textoValor: (v) => celda(c, v),
+})))
 function celda(col, v) {
   if (v === null || v === undefined || v === '') return '—'
   const nombres = resultado.value?.opciones?.[col.clave]
@@ -225,25 +239,20 @@ const nombreFuente = (clave) => fuentes.value.find((f) => f.clave === clave)?.ti
     </section>
     <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ tab === 'operativos' ? t('Saved operational reports') : t('Saved analytical reports') }}</h2></div></div>
-      <div v-if="(tab === 'operativos' ? lista.operativos : lista.analiticos).length" class="tabla-marco sin-sombra">
-        <table class="tabla" v-tarjetas>
-          <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Source') }}</th><th>{{ t('Shared') }}</th><th>{{ t('Updated') }}</th><th class="num"><span class="oculto-visual">{{ t('Actions') }}</span></th></tr></thead>
-          <tbody>
-            <tr v-for="r in (tab === 'operativos' ? lista.operativos : lista.analiticos)" :key="r.id">
-              <td><button type="button" class="enlace fuerte" @click="abrir(r.id)">{{ tx(r.nombre) }}</button><span v-if="r.descripcion" class="sub">{{ tx(r.descripcion) }}</span></td>
-              <td>{{ tx(nombreFuente(r.fuente)) }}</td>
-              <td>{{ tx(r.compartido ? (r.propio ? t('Yes') : t('By {0}', [r.autor])) : t('No')) }}</td>
-              <td>{{ fmtFechaHora(r.actualizado_en) }}</td>
-              <td class="num nowrap">
-                <button type="button" class="btn btn-chico" @click="exportar('csv', r.id)">CSV</button>
-                <button type="button" class="btn btn-chico" @click="exportar('xlsx', r.id)">{{ t('Excel') }}</button>
-                <button type="button" class="btn btn-chico" @click="exportar('pdf', r.id)">PDF</button>
-                <button v-if="r.puede_editar" type="button" class="btn-icono texto-error" :aria-label="t('Delete {0}', [r.nombre])" @click="borrar(r)"><Icono nombre="basura" :tam="16" /></button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TablaDatos v-if="guardados.length" :key="tab" :tabla="`reportes_${tab}`" :columnas="columnasGuardados" :filas="guardados" fila-clicable
+                  :etiqueta="tab === 'operativos' ? t('Saved operational reports') : t('Saved analytical reports')" @fila="(r) => abrir(r.id)">
+        <template #celda-nombre="{ fila: r }"><span class="enlace fuerte">{{ tx(r.nombre) }}</span><span v-if="r.descripcion" class="sub">{{ tx(r.descripcion) }}</span></template>
+        <template #celda-fuente="{ fila: r }">{{ tx(nombreFuente(r.fuente)) }}</template>
+        <template #celda-actualizado_en="{ fila: r }">{{ fmtFechaHora(r.actualizado_en) }}</template>
+        <template #acciones="{ fila: r }">
+          <span class="nowrap">
+            <button type="button" class="btn btn-chico" @click="exportar('csv', r.id)">CSV</button>
+            <button type="button" class="btn btn-chico" @click="exportar('xlsx', r.id)">{{ t('Excel') }}</button>
+            <button type="button" class="btn btn-chico" @click="exportar('pdf', r.id)">PDF</button>
+            <button v-if="r.puede_editar" type="button" class="btn-icono texto-error" :aria-label="t('Delete {0}', [r.nombre])" @click="borrar(r)"><Icono nombre="basura" :tam="16" /></button>
+          </span>
+        </template>
+      </TablaDatos>
       <EstadoVacio v-else :icono="tab === 'operativos' ? 'lista' : 'grafica'" :titulo="t('No saved reports yet')"
                    :texto="tab === 'operativos' ? t('Build a list with the columns and filters you use every day and save it.') : t('Group by supplier, status or month and add counts and totals.')">
         <button type="button" class="btn btn-primario" @click="nuevo">{{ t('New report') }}</button>
@@ -318,16 +327,12 @@ const nombreFuente = (clave) => fuentes.value.find((f) => f.clave === clave)?.ti
     </section>
 
     <div v-if="errores.length" class="nota error bloque" role="alert"><ul class="lista-mensajes"><li v-for="(m, i) in errores" :key="i">{{ tx(m) }}</li></ul></div>
-    <div v-else-if="resultado" class="tabla-marco tabla-fija resultado">
-      <table class="tabla" v-tarjetas :aria-busy="cargando">
-        <thead><tr><th v-for="c in resultado.columnas" :key="c.clave" :class="{ num: ['numero', 'moneda'].includes(c.tipo) }">{{ tx(c.titulo) }}<template v-if="c.titulo_campo">: {{ tx(c.titulo_campo) }}</template></th></tr></thead>
-        <tbody>
-          <tr v-for="(fila, i) in resultado.filas" :key="i">
-            <td v-for="(c, j) in resultado.columnas" :key="c.clave" :class="{ num: ['numero', 'moneda'].includes(c.tipo) }">{{ tx(celda(c, fila[j])) }}</td>
-          </tr>
-          <tr v-if="!resultado.filas.length"><td :colspan="resultado.columnas.length" class="vacio">{{ t('No records match these filters.') }}</td></tr>
-        </tbody>
-      </table>
+    <div v-else-if="resultado" class="resultado">
+      <TablaDatos :key="columnasResultado.map((c) => c.texto).join('|')" tabla="reportes_resultado" :columnas="columnasResultado" :filas="filasResultado"
+                  clave-fila="_i" :cargando="cargando" :vistas-guardadas="false" :etiqueta="t('Report preview')">
+        <template v-for="(c, j) in resultado.columnas" :key="j" #[`celda-c${j}`]="{ fila }">{{ tx(celda(c, fila[`c${j}`])) }}</template>
+        <template #vacio>{{ t('No records match these filters.') }}</template>
+      </TablaDatos>
     </div>
   </template>
 
@@ -356,7 +361,7 @@ const nombreFuente = (clave) => fuentes.value.find((f) => f.clave === clave)?.ti
 .filtro-valor { width: 160px; flex: 0 0 auto; }
 .filtro-fila .campo-fecha { width: 170px; flex: 0 0 auto; }
 .acciones-editor { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--linea-suave); }
-.resultado { margin-top: 16px; max-height: 60vh; overflow: auto; }
+.resultado { margin-top: 16px; }
 .enlace { border: 0; background: none; padding: 0; color: var(--acento-texto); cursor: pointer; font: inherit; text-align: start; }
 .enlace:hover { text-decoration: underline; }
 @media (max-width: 720px) { .editor { grid-template-columns: 1fr; } }
