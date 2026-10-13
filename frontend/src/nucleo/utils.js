@@ -1,6 +1,6 @@
 import { t, tx } from '@/i18n/index.js'
 import { fechaTexto, horaTexto, numeroTexto, pref } from '@/stores/preferencias'
-import { reactive } from 'vue'
+import { nextTick, reactive } from 'vue'
 import { valor, valores } from './listas.js'
 import { nombresUnidad } from './unidades.js'
 
@@ -170,4 +170,15 @@ export function avanceViaje(e) {
   const ini = new Date(salida).getTime()
   const fin = new Date(e.eta).getTime()
   return Math.max(4, Math.min(96, ((Date.now() - ini) * 100) / Math.max(1, fin - ini)))
+}
+
+// Tras agregar un renglón al final de una lista larga (con el botón arriba),
+// lo lleva a la vista y pone el cursor en su primer campo
+export async function enfocarUltimo(selector) {
+  await nextTick()
+  const filas = document.querySelectorAll(selector)
+  const ultima = filas[filas.length - 1]
+  if (!ultima) return
+  ultima.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  ultima.querySelector('input:not([type=checkbox]), textarea, button.sb-boton, select')?.focus({ preventScroll: true })
 }

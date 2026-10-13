@@ -3121,6 +3121,7 @@
 "Remove step": "Quitar paso",
 "Remove the company override (back to the official text)": "Quitar el ajuste propio (volver al texto oficial)",
 "Remove the custom text of {0} and go back to the official one?": "¿Quitar el texto custom de {0} y volver al oficial?",
+"Remove the filter": "Quitar el filtro",
 "Remove this entry? It stops influencing the order of candidates.": "¿Quitar esta entrada? Deja de influir en el orden de los candidatos.",
 "Remove {0}": "Quitar {0}",
 "Remove {0} lines from the invoice? Their quantities become available again on the POs.": "¿Quitar {0} líneas de la factura? Sus cantidades vuelven a estar disponibles en las OC.",

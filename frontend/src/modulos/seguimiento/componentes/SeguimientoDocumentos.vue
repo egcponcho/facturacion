@@ -9,11 +9,11 @@ import { fmtFecha, fmtMoneda, fmtNum } from '@/nucleo/utils'
 import Avance from '@/componentes/Avance.vue'
 import BotonesExportar from '@/componentes/BotonesExportar.vue'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
-import GraficoColumnas from '@/componentes/GraficoColumnas.vue'
 import Kpi from '@/componentes/Kpi.vue'
 import Icono from '@/componentes/Icono.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
+import BarrasEtapas from '@/componentes/BarrasEtapas.vue'
 
 // Filtros de varios valores: se guardan como texto separado por comas
 const lst = (v) => (v ? String(v).split(',').filter(Boolean) : [])
@@ -31,11 +31,6 @@ const TONO = {
   FACTURA_ABIERTA: 'aviso', EMPACANDO: 'aviso', POR_FINALIZAR_PL: 'info', POR_FINALIZAR_FACTURA: 'info',
   LISTO_EMBARQUE: 'ok', TENTATIVO: 'aviso', EN_CONTENEDOR: 'acento', EN_CAMINO: 'info', RECIBIDO: 'ok',
 }
-const CORTO = {
-  FACTURA_ABIERTA: t('No PL'), EMPACANDO: t('Packing'), POR_FINALIZAR_PL: t('PL to final.'), POR_FINALIZAR_FACTURA: t('Inv. open'),
-  LISTO_EMBARQUE: t('Ready'), TENTATIVO: t('Tentative'), EN_CONTENEDOR: t('Confirmed'), EN_CAMINO: t('On the way'), RECIBIDO: t('Received'),
-}
-const grafica = computed(() => datos.value.etapas.map((e) => ({ etiqueta: CORTO[e.clave] || e.nombre, valor: e.total, detalle: e.nombre })))
 const importeTxt = computed(() => Object.entries(datos.value.kpis.importe || {}).map(([m, v]) => fmtMoneda(v, m)).join(' · ') || '—')
 function filtrar(obj) {
   Object.assign(filtros, { etapa: '', estado_factura: '', con_pendientes: false }, obj)
@@ -106,22 +101,18 @@ watch(() => sesion.proveedorId, aplicar)
   </section>
   <div class="dos-columnas mb-4">
     <section class="panel">
-      <div class="panel-cabeza"><div><h2>{{ t('Documents by step') }}</h2><p>{{ t('From open invoice to received.') }}</p></div></div>
-      <GraficoColumnas :datos="grafica" :titulo="t('Packing lists and invoices by step')" />
+      <div class="panel-cabeza"><h2>{{ t('Documents by step') }}</h2></div>
+      <BarrasEtapas :etapas="datos.etapas" :activa="filtros.etapa" :etiqueta="t('Packing lists and invoices by step')" @elegir="(c) => { filtros.etapa = c; aplicar() }" />
     </section>
     <section class="panel">
-      <div class="panel-cabeza"><div><h2>{{ t('Packed cargo') }}</h2><p>{{ t('According to the filters.') }}</p></div></div>
-      <div class="doc-datos mt-0" style="padding-top: 0; border-top: 0">
-        <div class="dato"><span>{{ t('Packing lists') }}</span><b>{{ fmtNum(datos.kpis.pls) }}</b></div>
-        <div class="dato"><span>{{ t('Cartons') }}</span><b>{{ fmtNum(datos.kpis.cajas) }}</b></div>
-        <div class="dato"><span>{{ t('Pallets') }}</span><b>{{ fmtNum(datos.kpis.pallets) }}</b></div>
-        <div class="dato"><span>{{ t('Gross weight') }}</span><b>{{ t('{0} kg', [fmtNum(datos.kpis.peso_bruto, 1)]) }}</b></div>
-        <div class="dato"><span>{{ t('Volume') }}</span><b>{{ fmtNum(datos.kpis.cbm, 2) }} m³</b></div>
-      </div>
-      <div class="chips mt-chico">
-        <button v-for="e in datos.etapas" :key="e.clave" type="button" class="pildora" :aria-pressed="filtros.etapa === e.clave"
-                @click="filtros.etapa = filtros.etapa === e.clave ? '' : e.clave; aplicar()">{{ tx(e.nombre) }}<span class="cuenta">{{ tx(e.total) }}</span></button>
-      </div>
+      <div class="panel-cabeza"><h2>{{ t('Packed cargo') }}</h2></div>
+      <dl class="cifras">
+        <div><dt>{{ t('Packing lists') }}</dt><dd>{{ fmtNum(datos.kpis.pls) }}</dd></div>
+        <div><dt>{{ t('Cartons') }}</dt><dd>{{ fmtNum(datos.kpis.cajas) }}</dd></div>
+        <div><dt>{{ t('Pallets') }}</dt><dd>{{ fmtNum(datos.kpis.pallets) }}</dd></div>
+        <div><dt>{{ t('Gross weight') }}</dt><dd>{{ t('{0} kg', [fmtNum(datos.kpis.peso_bruto, 1)]) }}</dd></div>
+        <div><dt>{{ t('Volume') }}</dt><dd>{{ fmtNum(datos.kpis.cbm, 2) }} m³</dd></div>
+      </dl>
     </section>
   </div>
 

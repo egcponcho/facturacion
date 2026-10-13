@@ -500,6 +500,12 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
           <p v-if="camposPropios('ordenes').some((c) => detalles[oc.id].oc.extra?.[c.clave] != null)" class="ayuda propios">
             <span v-for="c in camposPropios('ordenes').filter((c) => detalles[oc.id].oc.extra?.[c.clave] != null)" :key="c.clave">{{ c.etiqueta }}: <b>{{ valorPropio(c, detalles[oc.id].oc.extra[c.clave]) }}</b></span>
           </p>
+          <div class="fila-flex mb-chico barra-detalle">
+            <button class="btn btn-primario btn-chico" type="button" :disabled="!seleccionadas(oc.id)" @click="agregarSeleccionadas(oc.id)">
+              <Icono nombre="mas" :tam="14" />{{ t('Add {0} selected', [seleccionadas(oc.id) || '']) }}
+            </button>
+            <span class="ayuda">{{ t('Change “To invoice” to take only part; the rest stays available on the PO. With an inner pack it goes in whole inner packs.') }}</span>
+          </div>
           <TablaDatos tabla="ordenes_lineas" :columnas="columnasLineas" :filas="detalles[oc.id].posiciones" :vistas-guardadas="false"
                       seleccionable :seleccion="lineasElegidas(oc.id)" :puede-seleccionar="lineaSeleccionable"
                       :etiqueta="t('Lines of PO {0}', [oc.numero])" @update:seleccion="(ids) => elegirLineas(oc.id, ids)">
@@ -556,12 +562,6 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
               </div>
             </template>
           </TablaDatos>
-          <div class="fila-flex mt">
-            <button class="btn btn-primario btn-chico" type="button" :disabled="!seleccionadas(oc.id)" @click="agregarSeleccionadas(oc.id)">
-              <Icono nombre="mas" :tam="14" />{{ t('Add {0} selected', [seleccionadas(oc.id) || '']) }}
-            </button>
-            <span class="ayuda">{{ t('Change “To invoice” to take only part; the rest stays available on the PO. With an inner pack it goes in whole inner packs.') }}</span>
-          </div>
         </template>
       </div>
     </template>
