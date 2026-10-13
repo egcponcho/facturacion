@@ -57,7 +57,8 @@ LISTAS: dict[str, dict] = {
                  "(pickup, departure, arrival, delivery, receipt…) move the shipment forward and keep their rules; add "
                  "your own milestones (e.g. port inspection) for the statuses you need.",
         "atributos": ["estados"],
-        "sistema": ["RECOLECCION", "SALIDA", "TRANSITO", "ARRIBO", "LIBERACION", "ENTREGA", "RECEPCION", "OTRO"],
+        "sistema": ["RECOLECCION", "SALIDA", "TRANSITO", "DOCUMENTOS", "ARRIBO", "LIBERACION", "ENTREGA", "RECEPCION",
+                    "OTRO"],
     },
     "tipo_centro": {"etiqueta": "Plant types", "ayuda": "", "atributos": [], "sistema": []},
     "tipo_almacen": {"etiqueta": "Storage location types", "ayuda": "", "atributos": [], "sistema": []},
@@ -161,6 +162,7 @@ FABRICA: dict[str, list[dict]] = {
         _v("RECOLECCION", "Pickup", estados="PLANIFICADO"),
         _v("SALIDA", "Departure", estados="PLANIFICADO"),
         _v("TRANSITO", "In transit", estados="EN_TRANSITO"),
+        _v("DOCUMENTOS", "Document review and delivery", estados="EN_TRANSITO,ARRIBADO"),
         _v("ARRIBO", "Arrival", estados="EN_TRANSITO"),
         _v("LIBERACION", "Customs release", estados="ARRIBADO"),
         _v("ENTREGA", "Delivery", estados="ARRIBADO"),

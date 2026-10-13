@@ -33,10 +33,15 @@ CAMPO_NIVEL = {"REGION": "region", "PAIS": "pais", "PUERTO": "puerto"}
 # Fechas que el sistema mide; un paso del catálogo puede representar una de ellas
 HITOS = [
     ("lib_logistica", "Logistics release"), ("xf", "XF (ex-factory / pickup)"), ("salida", "Departure (ETD)"),
-    ("arribo", "Port arrival (ETA)"), ("entrega", "Warehouse delivery"), ("ingreso", "Warehouse entry"),
-    ("tienda", "In store"),
+    ("documentos", "Document review and delivery"), ("arribo", "Port arrival (ETA)"), ("entrega", "Warehouse delivery"),
+    ("ingreso", "Warehouse entry"), ("tienda", "In store"),
 ]
 ORDEN_HITOS = [h for h, _ in HITOS]
+# Documento que cumple cada paso: la OC (liberación, XF, tienda), la lista de
+# empaque (recogida) o el embarque (salida, documentos, arribo, entrega, ingreso)
+DOCUMENTOS = [("OC", "Purchase order"), ("FACTURA", "Invoice"), ("PL", "Packing list"), ("EMBARQUE", "Shipment")]
+DOCUMENTO_HITO = {"lib_logistica": "OC", "xf": "OC", "salida": "EMBARQUE", "documentos": "EMBARQUE",
+                  "arribo": "EMBARQUE", "entrega": "EMBARQUE", "ingreso": "EMBARQUE", "tienda": "OC"}
 
 
 # ---- Lectura y validación de una regla ---------------------------------------

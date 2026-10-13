@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Column,
     Date,
     DateTime,
@@ -98,15 +99,20 @@ class RegionLeadTime(DeOrganizacion, Base):
 class PasoLeadTime(DeOrganizacion, Base):
     """Catálogo de pasos de lead time (Booking, Liberación, XF, ETD, ETA,
     Aduana…). Cada empresa crea los suyos. `hito` enlaza el paso con una fecha
-    que el sistema mide (liberación logística, XF, salida, arribo, entrega,
-    ingreso, tienda); un paso sin hito es solo de planificación."""
+    que el sistema mide (liberación logística, XF, salida, revisión de
+    documentos, arribo, entrega, ingreso, tienda); un paso sin hito es solo de
+    planificación. `documento` dice qué documento debe cumplir el paso (la OC,
+    la factura, la lista de empaque o el embarque)."""
 
     __tablename__ = "pasos_leadtime"
-    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_pasos_leadtime_org_codigo"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_pasos_leadtime_org_codigo"),
+                      CheckConstraint("documento IS NULL OR documento IN ('OC', 'FACTURA', 'PL', 'EMBARQUE')",
+                                      name="ck_pasos_leadtime_documento"))
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(100))
     hito: Mapped[str | None] = mapped_column(String(15))
+    documento: Mapped[str | None] = mapped_column(String(10))
     descripcion: Mapped[str | None] = mapped_column(String(300))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 

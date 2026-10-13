@@ -224,7 +224,8 @@ PREPACKS = [
 PASOS_LT = [
     ("BOOKING", "Booking", None), ("LIB", "Logistics release", "lib_logistica"),
     ("PROD", "Production finished", None), ("CARGA", "Cargo ready", None), ("XF", "XF (ex-factory)", "xf"),
-    ("ETD", "ETD (departure)", "salida"), ("ETA", "ETA (port arrival)", "arribo"), ("ADUANA", "Customs clearance", None),
+    ("ETD", "ETD (departure)", "salida"), ("DOCS", "Document review and delivery", "documentos"),
+    ("ETA", "ETA (port arrival)", "arribo"), ("ADUANA", "Customs clearance", None),
     ("BODEGA", "Warehouse delivery", "entrega"), ("INGRESO", "Warehouse entry", "ingreso"),
     ("TIENDA", "Available in store", "tienda"),
 ]
@@ -244,7 +245,7 @@ def _p(paso, ref="", dias=0, habiles=False, modo=""):
 REGLAS_LT = [
     ("GLOBAL", None, "Global standard", [
         _p("BOOKING", "XF", -20), _p("LIB", "XF", -15), _p("PROD", "XF", -5), _p("CARGA", "XF", -2), _p("XF"),
-        _p("ETD", "XF", 3), _p("ETA", "ETD", 14), _p("ADUANA", "ETA", 2, True), _p("BODEGA", "ADUANA", 1),
+        _p("ETD", "XF", 3), _p("ETA", "ETD", 14), _p("DOCS", "ETA", -3), _p("ADUANA", "ETA", 2, True), _p("BODEGA", "ADUANA", 1),
         _p("INGRESO", "BODEGA", 2, True), _p("TIENDA", "INGRESO", 4)]),
     ("REGION", "ASIA", "Asia", [
         _p("LIB", "XF", -21), _p("ETA", "ETD", 35), _p("ETA", "ETD", 5, modo="AEREO"), _p("TIENDA", "INGRESO", 5)]),
@@ -265,7 +266,9 @@ def _catalogos(db: Session) -> dict:
         RegionLeadTime(codigo="CAM", nombre="Central America"),
         RegionLeadTime(codigo="OTROS", nombre="Other origins", predeterminada=True),
     ])
-    db.add_all([PasoLeadTime(codigo=c, nombre=n, hito=h) for c, n, h in PASOS_LT])
+    # Cada paso dice qué documento lo cumple: el de su fecha medida, o la OC si es de planificación
+    db.add_all([PasoLeadTime(codigo=c, nombre=n, hito=h, documento=rlt.DOCUMENTO_HITO.get(h or "")
+                             or ("EMBARQUE" if c == "ADUANA" else "OC")) for c, n, h in PASOS_LT])
     # Los países vienen de la lista ISO de la plataforma; la demo les da su región de lead time
     existentes = {p.codigo: p for p in db.scalars(select(Pais))}
     for c, n in PAISES:
@@ -540,7 +543,7 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
     c1 = UnidadCarga(tipo="40HC", etiqueta="40HC #1", numero="MSKU 481220-7", sello="ML-99812")
     recibido.unidades.append(c1)
     for tipo, dias, lugar in (("RECOLECCION", 90, "Supplier warehouse"), ("SALIDA", 87, "Cai Mep (VN)"),
-                              ("ARRIBO", 57, "Acajutla (SV)"), ("ENTREGA", 55, "Bonded warehouse 8010"),
+                              ("DOCUMENTOS", 62, "Customs broker, San Salvador"), ("ARRIBO", 57, "Acajutla (SV)"), ("ENTREGA", 55, "Bonded warehouse 8010"),
                               ("RECEPCION", 54, "Bonded warehouse 8010")):
         recibido.eventos.append(EventoEmbarque(tipo=tipo, fecha=_momento(hoy - timedelta(days=dias), 9), ubicacion=lugar))
     transito = Embarque(codigo="EMB-0002", tipo_transporte="MARITIMO", transportista="COSCO Shipping",
