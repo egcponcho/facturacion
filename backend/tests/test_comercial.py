@@ -241,3 +241,11 @@ def test_listas_filtran_por_columna(interno, config):
     with SessionLocal() as db:
         assert db.scalar(select(Documento.id).where(Documento.estado == "EMITIDO", Documento.numero.is_(None),
                                                     Documento.referencia_externa.is_(None))) is None
+
+
+def test_busqueda_por_texto(interno, config):
+    assert [x["codigo"] for x in interno.get("/terceros", params={"q": "acme retail"}).json()["items"]] == ["CLI-ACME"]
+    assert interno.get("/terceros", params={"q": "0614-999999"}).json()["total"] == 1
+    docs = interno.get("/documentos", params={"q": "acme", "direccion": ""}).json()["items"]
+    assert docs and all(d["tercero"] == "Acme Retail" for d in docs)
+    assert interno.get("/pagos", params={"q": "acme"}).json()["total"] >= 1

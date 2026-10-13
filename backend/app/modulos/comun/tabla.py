@@ -33,6 +33,7 @@ class Relacion:
     expr: Any
     hijo_id: Any
     padre_id: Any
+    donde: Any = None  # condición extra sobre la tabla hija (p. ej. solo los correos)
 
 
 def leer(f: str | None) -> dict[str, list[str]]:
@@ -83,7 +84,10 @@ def aplicar(consulta, columnas: dict, filtros: dict[str, list[str]], excepto: st
             continue
         col = columnas[k]
         if isinstance(col, Relacion):
-            consulta = consulta.where(col.padre_id.in_(select(col.hijo_id).where(condicion(col.expr, vals))))
+            hijos = select(col.hijo_id).where(condicion(col.expr, vals))
+            if col.donde is not None:
+                hijos = hijos.where(col.donde)
+            consulta = consulta.where(col.padre_id.in_(hijos))
         else:
             consulta = consulta.where(condicion(col, vals))
     return consulta
@@ -97,6 +101,8 @@ def valores(db, consulta, expr, q: str | None = None, contar=None) -> list[dict]
         # Valores de la tabla hija, contando cada fila padre una vez
         padres = consulta.order_by(None).with_only_columns(expr.padre_id).scalar_subquery()
         c = select(expr.expr, func.count(func.distinct(expr.hijo_id))).where(expr.hijo_id.in_(padres)).group_by(expr.expr)
+        if expr.donde is not None:
+            c = c.where(expr.donde)
         expr = expr.expr
     else:
         n = func.count(func.distinct(contar)) if contar is not None else func.count()

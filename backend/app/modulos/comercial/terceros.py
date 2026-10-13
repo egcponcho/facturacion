@@ -59,7 +59,7 @@ def _consulta(user: Usuario, q: str | None, rol: str | None):
     if rol:
         c = c.where(Tercero.id.in_(select(TerceroRol.tercero_id).where(TerceroRol.rol == rol.upper())))
     if q and q.strip():
-        c = c.where(filtro_texto(q, Tercero.codigo, Tercero.nombre, Tercero.razon_social, Tercero.id_fiscal))
+        c = c.where(filtro_texto(q, lambda p: [x.ilike(p) for x in (Tercero.codigo, Tercero.nombre, Tercero.razon_social, Tercero.id_fiscal)]))
     return c
 
 

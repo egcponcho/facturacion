@@ -67,7 +67,7 @@ def _consulta(user: Usuario, direccion=None, estado=None, q=None, tercero_id=Non
     if tercero_id:
         c = c.where(Pago.tercero_id == tercero_id)
     if q and q.strip():
-        c = c.where(filtro_texto(q, Pago.referencia, Tercero.nombre, Tercero.codigo))
+        c = c.where(filtro_texto(q, lambda p: [x.ilike(p) for x in (Pago.referencia, Tercero.nombre, Tercero.codigo)]))
     permitidas = sociedades_de(user)
     if permitidas:
         c = c.where(Sociedad.codigo.in_(permitidas))

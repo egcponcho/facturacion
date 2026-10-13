@@ -224,7 +224,7 @@ def _consulta(user: Usuario, direccion=None, estado=None, q=None, tercero_id=Non
     if hasta:
         c = c.where(Documento.fecha <= hasta)
     if q and q.strip():
-        c = c.where(filtro_texto(q, Documento.numero, Documento.referencia_externa, Tercero.nombre, Tercero.codigo))
+        c = c.where(filtro_texto(q, lambda p: [x.ilike(p) for x in (Documento.numero, Documento.referencia_externa, Tercero.nombre, Tercero.codigo)]))
     permitidas = sociedades_de(user)
     if permitidas:
         c = c.where(Sociedad.codigo.in_(permitidas))

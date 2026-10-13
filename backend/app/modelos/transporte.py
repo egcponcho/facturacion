@@ -25,8 +25,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
 from app.modelos.base import ahora
+from app.modelos.comercial import ExtensionDeTercero
 
 if TYPE_CHECKING:
+    from app.modelos.comercial import Tercero
     from app.modelos.empaque import PackingList
     from app.modelos.maestros import Sociedad
 
@@ -38,7 +40,7 @@ transportista_sociedades = Table(
 )
 
 
-class Transportista(DeOrganizacion, Base):
+class Transportista(ExtensionDeTercero, DeOrganizacion, Base):
     """Naviera, aerolínea o empresa de transporte terrestre registrada, con
     las sociedades para las que puede trabajar."""
 
@@ -55,9 +57,9 @@ class Transportista(DeOrganizacion, Base):
     codigo_internacional: Mapped[str | None] = mapped_column(String(10))  # SCAC o prefijo IATA
     id_fiscal: Mapped[str | None] = mapped_column(String(40))
     pais: Mapped[str | None] = mapped_column(String(2))
-    contacto: Mapped[str | None] = mapped_column(String(120))
-    correos: Mapped[str | None] = mapped_column(String(500))
-    telefono: Mapped[str | None] = mapped_column(String(40))
+    # Contacto, correos y teléfono viven en su tercero (ExtensionDeTercero)
+    _rol_tercero = "TRANSPORTISTA"
+    tercero: Mapped["Tercero | None"] = relationship()
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     sociedades: Mapped[list["Sociedad"]] = relationship(secondary=transportista_sociedades, order_by="Sociedad.codigo")

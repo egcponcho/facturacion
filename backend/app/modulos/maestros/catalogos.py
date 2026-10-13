@@ -197,7 +197,9 @@ CATALOGOS = {
             c("telefono", "Phone"),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["nombre", "cargo", "correos"],
+        "buscar": ["nombre", "cargo"],
+        # Las personas de contacto de proveedores y transportistas viven en su tercero
+        "donde": lambda: Contacto.tercero_id.is_(None),
     },
     "paises": {
         "modelo": Pais, "titulo": "Countries", "singular": "country",
@@ -826,6 +828,35 @@ def _refs(db: Session, cat: dict, objs: list) -> dict:
     return refs
 
 
+def es_virtual(modelo, nombre: str) -> bool:
+    """Un dato que no es columna sino propiedad del modelo (correos, teléfono,
+    dirección y contacto viven en medios_contacto, direcciones y contactos)."""
+    import inspect as _inspect
+
+    return isinstance(_inspect.getattr_static(modelo, nombre, None), property)
+
+
+def _columna_virtual(modelo, nombre: str):
+    """Filtro por columna de un dato virtual: la fila pasa si alguno de sus registros tiene el valor."""
+    from app.modelos import Contacto, Direccion, MedioContacto
+
+    if hasattr(modelo, "_rol_tercero"):  # proveedor o transportista: en su tercero
+        dueno_medio, dueno_dir, padre = MedioContacto.tercero_id, Direccion.tercero_id, modelo.tercero_id
+    else:
+        clave = {"sociedades": "sociedad_id", "centros": "centro_id", "contactos": "contacto_id"}[modelo.__tablename__]
+        dueno_medio, padre = getattr(MedioContacto, clave), modelo.id
+        dueno_dir = getattr(Direccion, clave) if hasattr(Direccion, clave) else None
+    if nombre == "correos":
+        return tabla.Relacion(MedioContacto.valor, dueno_medio, padre, MedioContacto.tipo == "CORREO")
+    if nombre == "telefono":
+        return tabla.Relacion(MedioContacto.valor, dueno_medio, padre, MedioContacto.tipo.in_(("TELEFONO", "MOVIL")))
+    if nombre == "direccion" and dueno_dir is not None:
+        return tabla.Relacion(Direccion.linea1, dueno_dir, padre)
+    if nombre == "contacto":
+        return tabla.Relacion(Contacto.nombre, Contacto.tercero_id, padre)
+    return None
+
+
 def columnas_tabla(cat: dict) -> dict:
     """Expresión SQL de cada columna de la tabla del catálogo para el filtro por
     columna (app/modulos/comun/tabla.py). Un campo con varios registros (multi)
@@ -837,6 +868,10 @@ def columnas_tabla(cat: dict) -> dict:
     for x in cat["campos"]:
         n = x["nombre"]
         if x["tipo"] == "regla_lt":
+            continue
+        if es_virtual(modelo, n):
+            if (col := _columna_virtual(modelo, n)) is not None:
+                res[n] = col
             continue
         if x["tipo"] == "multi":
             rel = getattr(modelo, n).property
@@ -872,7 +907,7 @@ def listar(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dict, 
     consulta = tabla.aplicar(consulta, cols, filtros_columna or {})
     nombres = {x["nombre"]: x for x in cat["campos"]}
     col, _, direccion = (orden or "").partition(":")
-    if col in nombres and nombres[col]["tipo"] not in ("multi", "regla_lt"):
+    if col in nombres and nombres[col]["tipo"] not in ("multi", "regla_lt") and not es_virtual(modelo, col):
         expr = getattr(modelo, col)
         consulta = consulta.order_by(expr.desc() if direccion == "desc" else expr.asc(), modelo.id)
     elif col.startswith("extra.") and col in cols:
@@ -892,11 +927,14 @@ def _consulta(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dic
     cat = _cat(tipo)
     modelo = cat["modelo"]
     consulta = select(modelo)
+    if cat.get("donde"):
+        consulta = consulta.where(cat["donde"]())
     if q:
-        consulta = consulta.where(filtro_texto(q, lambda p: [getattr(modelo, b).ilike(p) for b in cat["buscar"]]))
+        consulta = consulta.where(filtro_texto(q, lambda p: [getattr(modelo, b).ilike(p) for b in cat["buscar"]
+                                                             if not es_virtual(modelo, b)]))
     nombres = {x["nombre"]: x for x in cat["campos"]}
     for k, v in filtros.items():
-        if k not in nombres or v in (None, ""):
+        if k not in nombres or v in (None, "") or es_virtual(modelo, k):
             continue
         campo = nombres[k]
         if campo["tipo"] == "multi":
