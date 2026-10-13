@@ -118,8 +118,10 @@ class VersionPlantilla(DeOrganizacion, Base):
     actualizada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     enviada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     enviada_en: Mapped[datetime | None] = mapped_column(DateTime)
-    revisada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    revisada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))  # última revisión (aprobó o rechazó)
     revisada_en: Mapped[datetime | None] = mapped_column(DateTime)
+    aprobada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    aprobada_en: Mapped[datetime | None] = mapped_column(DateTime)
     comentario: Mapped[str | None] = mapped_column(String(1000))  # de la revisión (rechazo o aprobación)
     version: Mapped[int] = mapped_column(Integer, default=1)  # control de concurrencia del borrador
 

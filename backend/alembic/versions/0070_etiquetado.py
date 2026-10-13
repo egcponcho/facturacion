@@ -186,6 +186,8 @@ def upgrade() -> None:
     sa.Column('enviada_en', sa.DateTime(), nullable=True),
     sa.Column('revisada_por', sa.Integer(), nullable=True),
     sa.Column('revisada_en', sa.DateTime(), nullable=True),
+    sa.Column('aprobada_por', sa.Integer(), nullable=True),
+    sa.Column('aprobada_en', sa.DateTime(), nullable=True),
     sa.Column('comentario', sa.String(length=1000), nullable=True),
     sa.Column('version', sa.Integer(), nullable=False),
     sa.Column('organizacion_id', sa.Integer(), nullable=False),
@@ -197,6 +199,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['organizacion_id'], ['organizaciones.id'], ),
     sa.ForeignKeyConstraint(['plantilla_id'], ['plantillas_etiqueta.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['revisada_por'], ['usuarios.id'], ),
+    sa.ForeignKeyConstraint(['aprobada_por'], ['usuarios.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('id', 'organizacion_id', name='uq_versiones_plantilla_id_org'),
     sa.UniqueConstraint('plantilla_id', 'numero', name='uq_versiones_plantilla_plantilla_numero')
