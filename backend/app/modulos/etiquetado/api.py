@@ -1,12 +1,13 @@
 """Etiquetado: familias, campos disponibles, plantillas y sus versiones,
 asignaciones, generación y descargas (docs/ETIQUETADO.md)."""
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Body, Query, Response, UploadFile
 
 from app.core.errores import ErrorNegocio
 from app.modulos.acceso.permisos import exigir_alguno
-from app.modulos.etiquetado import asignaciones, campos, familias, plantillas, previa
+from app.modulos.etiquetado import asignaciones, campos, familias, generacion, plantillas, previa
 from app.web.rutas import Clave, Db, User, ejecutar, leer_subida
 
 router = APIRouter()
@@ -221,3 +222,48 @@ def fuente(archivo: str, user: User):
     if not archivo.endswith(".ttf") or "/" in archivo or not ruta.is_file():
         raise ErrorNegocio("The font does not exist.", 404, "no_encontrado")
     return Response(ruta.read_bytes(), media_type="font/ttf", headers={"Cache-Control": "public, max-age=604800"})
+
+
+# ---- Generación e historial -----------------------------------------------------------------
+@router.get("/etiquetas/oc/{oc_id}")
+def resumen_oc(oc_id: int, db: Db, user: User):
+    """Líneas de la OC con su artículo, familia y el diseño que se usaría; bultos y etiquetas ya generadas."""
+    return generacion.resumen_oc(db, user, oc_id)
+
+
+@router.post("/etiquetas/plan")
+def plan(db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Qué se generaría: grupos con su plantilla y versión, cantidad de etiquetas y problemas (sin generar nada).
+    modalidad, unidad (ORDEN, LINEA, UNIDAD, BULTO, MANUAL), oc_id, posiciones, cantidades, articulos, elegidas, prueba."""
+    return generacion._publico(generacion.plan(db, user, datos))
+
+
+@router.post("/etiquetas/generaciones")
+def generar(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
+    """Genera el lote (formato PDF, PNG, SVG o ZIP): se detiene ante errores y pide aceptar_advertencias."""
+    return ejecutar(db, user, clave, lambda: generacion.generar(db, user, datos))
+
+
+@router.get("/etiquetas/generaciones")
+def historial(db: Db, user: User, desde: date | None = None, hasta: date | None = None, usuario_id: int | None = None,
+              oc_id: int | None = None, articulo_id: int | None = None, familia_id: int | None = None,
+              plantilla_id: int | None = None, version_id: int | None = None, estado: str | None = None,
+              page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+    """Lotes generados con filtros por fecha, usuario, OC, artículo, familia, plantilla, versión y estado."""
+    return generacion.listar(db, user, desde, hasta, usuario_id, oc_id, articulo_id, familia_id, plantilla_id, version_id,
+                             estado, page, size)
+
+
+@router.get("/etiquetas/generaciones/{generacion_id}")
+def ver_generacion(generacion_id: int, db: Db, user: User):
+    """Un lote con sus grupos, versiones exactas y los valores usados."""
+    return generacion.dict_generacion(db, generacion.cargar(db, user, generacion_id), completo=True)
+
+
+@router.get("/etiquetas/generaciones/{generacion_id}/archivo")
+def archivo_generacion(generacion_id: int, db: Db, user: User, formato: str | None = Query(None, pattern="^(PDF|PNG|SVG|ZIP)$")):
+    """El archivo del lote, dibujado de nuevo con la versión y los valores originales (X-Identico: si coincide con el original)."""
+    contenido, nombre, mime, identico = generacion.archivo(db, user, generacion_id, formato)
+    db.commit()
+    return Response(contenido, media_type=mime, headers={"Content-Disposition": f'attachment; filename="{nombre}"',
+                                                         "X-Identico": "1" if identico else "0"})

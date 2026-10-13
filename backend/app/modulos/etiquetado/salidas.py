@@ -110,7 +110,7 @@ def pdf(lienzos: list[Lienzo], hoja: dict | None = None, titulo: str = "Labels")
     W, H = lienzos[0].ancho, lienzos[0].alto
     en_hoja = hoja and hoja.get("modo") == "hoja"
     tam = (hoja["papel_ancho"] * MM_PT, hoja["papel_alto"] * MM_PT) if en_hoja else (W * MM_PT, H * MM_PT)
-    c = Canvas(buf, pagesize=tam, pageCompression=1)
+    c = Canvas(buf, pagesize=tam, pageCompression=1, invariant=1)  # sin fecha ni id al azar: el mismo lote da el mismo archivo
     c.setTitle(titulo)
     c.setCreator("Labels")
     c.setViewerPreference("PrintScaling", "None")  # imprimir al 100 %: el visor no cambia la escala
