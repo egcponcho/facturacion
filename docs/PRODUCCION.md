@@ -26,7 +26,7 @@ Plantilla con todas las variables comentadas: `backend/.env.example`.
 |---|---|---|
 | `COOKIE_SEGURA` | `1` | Déjela en `1`: la sesión solo viaja por https. `0` solo en desarrollo local sin https |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | `*` cuando el contenedor solo es accesible a través del proxy de la plataforma (Render, Cloud Run, un balanceador). Así el bloqueo por intentos usa la IP real del usuario |
-| `UPLOAD_DIR` | `/data/archivos` en Docker | Debe ser un **disco persistente con respaldo** (facturas, fichas técnicas, fotos) |
+| `UPLOAD_DIR` | `/data/archivos` en Docker | Debe ser un **disco persistente con respaldo**: todo archivo vive aquí y la base guarda solo su clave y huella (facturas, fichas técnicas, fotos, paquetes oficiales, previas de importación) |
 | `MAX_SUBIDA_MB` | `25` | Tamaño máximo de cualquier archivo que se sube (facturas, fotos, fichas técnicas, cargas) |
 | `SESION_HORAS` / `SESION_INACTIVIDAD_MIN` | `12` / `30` | Política de sesiones de la empresa |
 | `INTENTOS_MAX` / `BLOQUEO_MIN` | `5` / `15` | Política de bloqueo por contraseña |

@@ -20,6 +20,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
 from app.modelos.base import ahora
+from app.modelos.empresa import ConAdjunto
 
 if TYPE_CHECKING:
     from app.modelos.acceso import Usuario
@@ -137,21 +138,15 @@ class PartidaPais(DeOrganizacion, Base):
     producto: Mapped[Producto] = relationship(back_populates="partidas")
 
 
-class ProductoFoto(DeOrganizacion, Base):
+class ProductoFoto(ConAdjunto, DeOrganizacion, Base):
     __tablename__ = "producto_fotos"
     id: Mapped[int] = mapped_column(primary_key=True)
     producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
-    nombre: Mapped[str] = mapped_column(String(300))
-    ruta: Mapped[str] = mapped_column(String(500))
-    tipo_mime: Mapped[str] = mapped_column(String(60))
-    tamano: Mapped[int] = mapped_column(Integer)
-    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-    subido_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     producto: Mapped[Producto] = relationship(back_populates="fotos")
 
 
-class ProductoDocumento(DeOrganizacion, Base):
+class ProductoDocumento(ConAdjunto, DeOrganizacion, Base):
     """Ficha técnica del proveedor o del laboratorio (SDS, TDS, COA): evidencia
     técnica del producto (capa de la empresa). Sus datos (CAS, composición,
     estado físico, densidad, pH…) son hechos para la ficha; nunca una fuente
@@ -161,15 +156,9 @@ class ProductoDocumento(DeOrganizacion, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
     tipo: Mapped[str] = mapped_column(String(20))  # lista tipo_documento (SDS, TDS, COA…)
-    nombre: Mapped[str] = mapped_column(String(300))
-    ruta: Mapped[str] = mapped_column(String(500))
-    tipo_mime: Mapped[str] = mapped_column(String(60))
-    tamano: Mapped[int] = mapped_column(Integer)
     emisor: Mapped[str | None] = mapped_column(String(200))  # proveedor o laboratorio
     fecha_documento: Mapped[date | None] = mapped_column(Date)
     datos: Mapped[dict] = mapped_column(JSON, default=dict)  # {atributo técnico: valor} leídos del documento
-    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-    subido_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     producto: Mapped[Producto] = relationship(back_populates="documentos")
 

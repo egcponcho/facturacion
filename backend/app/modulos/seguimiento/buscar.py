@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modelos import (
+    Adjunto,
     Archivo,
     Articulo,
     Embarque,
@@ -130,15 +131,16 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
 
     docs = []
     if tiene(user, "factura.ver"):
-        c = filtro_texto(q, lambda p: [Archivo.nombre.ilike(p), Archivo.tipo.ilike(p)])
-        cons = select(Archivo).join(Factura).where(c, *sociedad_filtro(user, Factura.sociedad))
+        c = filtro_texto(q, lambda p: [Adjunto.nombre.ilike(p), Archivo.tipo.ilike(p)])
+        cons = select(Archivo).join(Factura).join(Adjunto, Adjunto.id == Archivo.adjunto_id) \
+            .where(c, *sociedad_filtro(user, Factura.sociedad))
         if prov:
             cons = cons.where(Factura.proveedor_id.in_(prov))
         docs += [{"id": f"f{a.id}", "titulo": a.nombre, "sub": a.tipo or "", "ruta": f"/facturas/{a.factura_id}?tab=archivos"}
                  for (a,) in _filas(db, cons, limite)]
     if tiene(user, "producto.ver"):
-        c = filtro_texto(q, lambda p: [ProductoDocumento.nombre.ilike(p), ProductoDocumento.tipo.ilike(p)])
-        cons = select(ProductoDocumento).join(Producto).where(c)
+        c = filtro_texto(q, lambda p: [Adjunto.nombre.ilike(p), ProductoDocumento.tipo.ilike(p)])
+        cons = select(ProductoDocumento).join(Producto).join(Adjunto, Adjunto.id == ProductoDocumento.adjunto_id).where(c)
         if prov:
             cons = cons.where(Producto.proveedor_id.in_(prov))
         docs += [{"id": f"p{d.id}", "titulo": d.nombre, "sub": d.tipo or "", "ruta": f"/productos/{d.producto_id}"}

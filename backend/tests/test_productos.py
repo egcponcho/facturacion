@@ -154,7 +154,22 @@ def test_fotos(vans, interno):
     assert vans.c.post(f"/api/productos/{p['id']}/fotos", headers=vans.h,
                        files={"archivo": ("x.txt", io.BytesIO(b"hola"), "text/plain")}).status_code == 422
     assert _producto(vans, "VN000EE3", "BLK Black")["foto_id"] == foto
+    # El archivo vive en el almacén; la base guarda su adjunto con tamaño y huella
+    import hashlib
+    import os
+
+    from app.core import almacen
+    from app.core.db import SessionLocal
+    from app.modelos import Adjunto, ProductoFoto
+    with SessionLocal() as db:
+        f = db.get(ProductoFoto, foto)
+        adj = f.adjunto
+        assert adj.tamano == len(PNG) and adj.sha256 == hashlib.sha256(PNG).hexdigest() and adj.tipo_mime == "image/png"
+        assert not os.path.isabs(adj.clave) and os.path.exists(almacen.ruta(adj.clave))
+        adj_id, ruta = adj.id, almacen.ruta(adj.clave)
     assert vans.delete_(f"/productos/{p['id']}/fotos/{foto}").status_code == 200
+    with SessionLocal() as db:
+        assert db.get(Adjunto, adj_id) is None and not os.path.exists(ruta)
     # El especialista con Claude solo existe si hay clave configurada
     assert interno.get("/productos/opciones").json()["especialista"] is False
 

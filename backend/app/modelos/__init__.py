@@ -80,7 +80,7 @@ from app.modelos.empaque import (
     TipoEmpaque,
     tipo_empaque_contiene,
 )
-from app.modelos.empresa import DefinicionCampo, EstadoDocumento, Organizacion
+from app.modelos.empresa import Adjunto, DefinicionCampo, EstadoDocumento, Organizacion
 from app.modelos.facturacion import Archivo, Factura, FacturaLinea
 from app.modelos.maestros import (
     AcuerdoComercial,
@@ -130,6 +130,7 @@ _aplicar_restricciones(_Base.metadata)
 _aplicar_referencias(_Base.metadata)
 
 __all__ = [
+    "Adjunto",
     "Aplicacion",
     "ConfiguracionFiscal",
     "CuotaCondicionPago",

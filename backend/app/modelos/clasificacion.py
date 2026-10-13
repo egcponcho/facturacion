@@ -15,7 +15,6 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -738,7 +737,8 @@ class LoteOficial(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     archivo: Mapped[str] = mapped_column(String(300))
     checksum: Mapped[str] = mapped_column(String(64))
-    contenido: Mapped[bytes] = mapped_column(LargeBinary)
+    # El archivo cargado vive en el almacén (core/almacen.py), no en la base
+    clave_archivo: Mapped[str] = mapped_column(String(500))
     estado: Mapped[str] = mapped_column(String(12), default="PREVIA")  # PREVIA | PUBLICADA | DESCARTADA
     resumen: Mapped[dict] = mapped_column(JSON, default=dict)  # por hoja: nuevos, cambios, sin_cambio, errores
     errores: Mapped[list] = mapped_column(JSON, default=list)
@@ -749,6 +749,12 @@ class LoteOficial(Base):
 
     filas: Mapped[list["FilaLoteOficial"]] = relationship(back_populates="lote", cascade="all, delete-orphan",
                                                           order_by="FilaLoteOficial.id")
+
+    @property
+    def contenido(self) -> bytes:
+        from app.core.almacen import leer
+
+        return leer(self.clave_archivo)
 
 
 class FilaLoteOficial(Base):

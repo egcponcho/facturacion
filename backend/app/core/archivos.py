@@ -33,6 +33,9 @@ TIPOS = {
     "txt": ((".txt",), lambda b: _es_texto(b)),
 }
 MIME = {"pdf": "application/pdf", "png": "image/png", "jpeg": "image/jpeg", "webp": "image/webp"}
+MIME_DOCUMENTO = {**MIME, "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                  "xls": "application/vnd.ms-excel", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                  "doc": "application/msword", "csv": "text/csv", "txt": "text/plain"}
 IMAGENES = {"png", "jpeg", "webp"}
 DOCUMENTOS = {"pdf", "png", "jpeg", "webp", "xlsx", "xls", "docx", "doc", "csv", "txt"}
 HOJAS = {"xlsx", "csv"}

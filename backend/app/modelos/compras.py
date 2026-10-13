@@ -185,6 +185,21 @@ class ImportacionOC(DeOrganizacion, Base):
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     nombre_archivo: Mapped[str] = mapped_column(String(300))
     estado: Mapped[str] = mapped_column(String(12), default="PREVIA")  # PREVIA | APLICADA
-    filas: Mapped[list] = mapped_column(JSON)
+    # Las filas leídas del archivo (la previa) viven en el almacén, no en la base
+    clave_filas: Mapped[str | None] = mapped_column(String(500))
     resultado: Mapped[dict | None] = mapped_column(JSON)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    @property
+    def filas(self) -> list:
+        from app.core.almacen import leer_json
+
+        return leer_json(self.clave_filas, [])
+
+    @filas.setter
+    def filas(self, valor: list) -> None:
+        from app.core.almacen import borrar, guardar_json
+
+        anterior = self.clave_filas
+        self.clave_filas = guardar_json(valor, "importaciones")
+        borrar(anterior)

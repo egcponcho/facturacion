@@ -22,6 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
 from app.modelos.base import Cantidad, Precio, ahora, cant
+from app.modelos.empresa import ConAdjunto
 
 if TYPE_CHECKING:
     from app.modelos.compras import PosicionOC
@@ -113,13 +114,10 @@ class FacturaLinea(DeOrganizacion, Base):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
 
 
-class Archivo(DeOrganizacion, Base):
+class Archivo(ConAdjunto, DeOrganizacion, Base):
+    """Archivo adjunto a una factura (la oficial del proveedor u otro)."""
+
     __tablename__ = "archivos"
     id: Mapped[int] = mapped_column(primary_key=True)
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
     tipo: Mapped[str] = mapped_column(String(30))  # FACTURA_OFICIAL | OTRO
-    nombre: Mapped[str] = mapped_column(String(300))
-    ruta: Mapped[str] = mapped_column(String(500))
-    tamano: Mapped[int] = mapped_column(Integer)
-    subido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-    subido_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)

@@ -1,13 +1,11 @@
 import os
-import uuid
 from datetime import timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core import campos_propios, dinero
-from app.core.archivos import DOCUMENTOS, exigir_tamano, tipo_de
-from app.core.config import settings
+from app.core.archivos import DOCUMENTOS, MIME_DOCUMENTO, exigir_tamano, tipo_de
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.core.estados import FACTURA, OC
@@ -35,7 +33,7 @@ from app.modulos.acceso.permisos import (
     proveedor_filtro,
     sociedad_filtro,
 )
-from app.modulos.comun import tabla
+from app.modulos.comun import adjuntos, tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.formato import cant_txt
 from app.modulos.comun.historial import registrar, requerir_motivo, tocar, verificar_version
@@ -1003,16 +1001,13 @@ def subir_archivo(db: Session, user: Usuario, factura_id: int, nombre: str, cont
     if f.estado == "CANCELADA":
         raise ErrorNegocio("Files cannot be attached to a cancelled invoice.", 409, "no_editable")
     exigir_tamano(contenido)
-    tipo_de(nombre, contenido, DOCUMENTOS)
+    clase = tipo_de(nombre, contenido, DOCUMENTOS)
     if tipo not in TIPOS_ARCHIVO:
         raise ErrorNegocio("Choose whether the file is the official invoice or another document.", 422, "validacion")
-    carpeta = os.path.join(settings.UPLOAD_DIR, str(f.id))
-    os.makedirs(carpeta, exist_ok=True)
-    seguro = "".join(c for c in os.path.basename(nombre) if c.isalnum() or c in "._- ") or "archivo"
-    ruta = os.path.join(carpeta, f"{uuid.uuid4().hex}_{seguro}")
-    with open(ruta, "wb") as fh:
-        fh.write(contenido)
-    a = Archivo(factura_id=f.id, tipo=tipo, nombre=seguro, ruta=ruta, tamano=len(contenido), subido_por=user.id)
+    seguro = adjuntos.nombre_seguro(nombre, "archivo")
+    adj = adjuntos.crear(db, user, seguro, contenido, os.path.join("facturas", str(f.id)), os.path.splitext(seguro)[1].lower(),
+                         MIME_DOCUMENTO.get(clase, "application/octet-stream"))
+    a = Archivo(factura_id=f.id, tipo=tipo, adjunto=adj)
     db.add(a)
     db.flush()
     registrar(db, user, "factura", f.id, "adjuntar_archivo", {"archivo": seguro, "tipo": tipo}, factura_id=f.id)

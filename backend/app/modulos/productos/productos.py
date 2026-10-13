@@ -12,7 +12,6 @@ ficha la puede completar el proveedor.
 """
 import os
 import re
-import uuid
 from datetime import date, timedelta
 
 from sqlalchemy import func, or_, select
@@ -20,7 +19,6 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core import listas
 from app.core.archivos import MIME, TIPOS, exigir_tamano, tipo_imagen
-from app.core.config import settings
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.modelos import (
@@ -47,7 +45,7 @@ from app.modelos import (
 from app.modulos.acceso.permisos import asegurar_proveedor, exigir, proveedor_filtro, tiene
 from app.modulos.clasificacion.categorias import categorias as categorias_config
 from app.modulos.clasificacion.indice_arbol import dominios_ficha
-from app.modulos.comun import tabla
+from app.modulos.comun import adjuntos, tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.historial import registrar, tocar, verificar_version
 from app.modulos.comun.texto import filtro_texto
@@ -1005,13 +1003,9 @@ def subir_foto(db: Session, user: Usuario, producto_id: int, nombre: str, tipo: 
         raise ErrorNegocio("Upload a JPG, PNG or WebP image.", 422, "validacion")
     if len(p.fotos) >= 8:
         raise ErrorNegocio("A product can have up to 8 photos.", 422, "validacion")
-    carpeta = os.path.join(settings.UPLOAD_DIR, "productos", str(p.id))
-    os.makedirs(carpeta, exist_ok=True)
-    ruta = os.path.join(carpeta, uuid.uuid4().hex + TIPOS_FOTO[tipo])
-    with open(ruta, "wb") as fh:
-        fh.write(contenido)
-    seguro = "".join(c for c in os.path.basename(nombre or "photo") if c.isalnum() or c in "._- ")[:200] or "photo"
-    f = ProductoFoto(nombre=seguro, ruta=ruta, tipo_mime=tipo, tamano=len(contenido), subido_por=user.id)
+    seguro = adjuntos.nombre_seguro(nombre, "photo")
+    adj = adjuntos.crear(db, user, seguro, contenido, os.path.join("productos", str(p.id)), TIPOS_FOTO[tipo], tipo)
+    f = ProductoFoto(adjunto=adj)
     p.fotos.append(f)
     db.flush()
     registrar(db, user, "producto", p.id, "foto_agregada", {"foto": seguro})
@@ -1024,12 +1018,10 @@ def borrar_foto(db: Session, user: Usuario, producto_id: int, foto_id: int) -> N
     f = next((x for x in p.fotos if x.id == foto_id), None)
     if not f:
         raise ErrorNegocio("The photo does not exist.", 404, "no_encontrado")
+    nombre = f.nombre
     p.fotos.remove(f)
-    try:
-        os.remove(f.ruta)
-    except OSError:
-        pass
-    registrar(db, user, "producto", p.id, "foto_quitada", {"foto": f.nombre})
+    adjuntos.quitar(db, f)
+    registrar(db, user, "producto", p.id, "foto_quitada", {"foto": nombre})
 
 
 def obtener_foto(db: Session, user: Usuario, foto_id: int) -> ProductoFoto:
@@ -1072,14 +1064,10 @@ def subir_documento(db: Session, user: Usuario, producto_id: int, tipo: str, nom
     desconocidos = sorted(k for k in datos if k not in cat.por_codigo)
     if desconocidos:
         raise ErrorNegocio(f"These are not attributes of the technical sheet: {', '.join(desconocidos)}.", 422, "validacion")
-    carpeta = os.path.join(settings.UPLOAD_DIR, "productos", str(p.id), "documentos")
-    os.makedirs(carpeta, exist_ok=True)
-    ruta = os.path.join(carpeta, uuid.uuid4().hex + TIPOS_DOC[mime])
-    with open(ruta, "wb") as fh:
-        fh.write(contenido)
-    seguro = "".join(c for c in os.path.basename(nombre or "document") if c.isalnum() or c in "._- ")[:200] or "document"
-    d = ProductoDocumento(tipo=tipo, nombre=seguro, ruta=ruta, tipo_mime=mime, tamano=len(contenido), datos=datos,
-                          emisor=(emisor or "").strip()[:200] or None, fecha_documento=fecha, subido_por=user.id)
+    seguro = adjuntos.nombre_seguro(nombre, "document")
+    adj = adjuntos.crear(db, user, seguro, contenido, os.path.join("productos", str(p.id), "documentos"), TIPOS_DOC[mime], mime)
+    d = ProductoDocumento(tipo=tipo, adjunto=adj, datos=datos, emisor=(emisor or "").strip()[:200] or None,
+                          fecha_documento=fecha)
     p.documentos.append(d)
     db.flush()
     registrar(db, user, "producto", p.id, "documento_agregado", {"tipo": tipo, "documento": seguro, "datos": sorted(datos)})
@@ -1092,12 +1080,10 @@ def borrar_documento(db: Session, user: Usuario, producto_id: int, doc_id: int) 
     d = next((x for x in p.documentos if x.id == doc_id), None)
     if not d:
         raise ErrorNegocio("The document does not exist.", 404, "no_encontrado")
+    tipo, nombre = d.tipo, d.nombre
     p.documentos.remove(d)
-    try:
-        os.remove(d.ruta)
-    except OSError:
-        pass
-    registrar(db, user, "producto", p.id, "documento_quitado", {"tipo": d.tipo, "documento": d.nombre})
+    adjuntos.quitar(db, d)
+    registrar(db, user, "producto", p.id, "documento_quitado", {"tipo": tipo, "documento": nombre})
 
 
 def obtener_documento(db: Session, user: Usuario, doc_id: int) -> ProductoDocumento:
