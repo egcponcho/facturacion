@@ -43,8 +43,8 @@ def test_filtros_orden_y_agrupacion(interno):
     assert cantidades == sorted(cantidades, reverse=True)
     # Analítico: totales por proveedor que cuadran con el total
     a = _vista(interno, {"fuente": "ordenes", "agrupar": ["proveedor"],
-                         "medidas": [{"campo": "*", "funcion": "contar"}, {"campo": "cantidad", "funcion": "suma"}]}).json()
-    assert a["tipo"] == "analitico" and [c["clave"] for c in a["columnas"]] == ["proveedor", "contar_todo", "suma_cantidad"]
+                         "medidas": [{"campo": "*", "funcion": "contar"}, {"campo": "lineas", "funcion": "suma"}]}).json()
+    assert a["tipo"] == "analitico" and [c["clave"] for c in a["columnas"]] == ["proveedor", "contar_todo", "suma_lineas"]
     with SessionLocal() as db:
         assert sum(f[1] for f in a["filas"]) == db.scalar(select(func.count()).select_from(OrdenCompra))
     # Texto con comodines: se buscan tal cual, sin romper la consulta
@@ -150,3 +150,14 @@ def test_el_csv_no_ejecuta_formulas(interno):
             db.execute(delete(Incoterm).where(Incoterm.codigo == "=1+2"))
             db.commit()
 
+
+
+def test_no_suma_monedas_ni_unidades(interno):
+    """Sumar importes agrupa por moneda solo; sumar cantidades de líneas, por
+    unidad de medida; la cantidad de una OC (mezcla unidades) no se suma."""
+    a = _vista(interno, {"fuente": "ordenes", "agrupar": ["proveedor"], "medidas": [{"campo": "valor", "funcion": "suma"}]}).json()
+    assert [c["clave"] for c in a["columnas"]][:2] == ["moneda", "proveedor"]
+    b = _vista(interno, {"fuente": "lineas_oc", "agrupar": [], "medidas": [{"campo": "pendiente", "funcion": "suma"}]}).json()
+    assert [c["clave"] for c in b["columnas"]][0] == "unidad" and all(f[1] >= 0 for f in b["filas"])
+    r = _vista(interno, {"fuente": "ordenes", "agrupar": ["proveedor"], "medidas": [{"campo": "cantidad", "funcion": "suma"}]})
+    assert r.status_code == 422 and "units of measure" in r.text

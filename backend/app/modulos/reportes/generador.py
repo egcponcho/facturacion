@@ -125,6 +125,13 @@ def validar(user: Usuario, d) -> dict:
         c = _campo(f, campo, "medidas")
         if c.tipo not in ("numero", "moneda") and not (funcion in ("minimo", "maximo") and c.tipo == "fecha"):
             raise _error(f"{c.titulo}: only quantities and amounts can be added or averaged.", "medidas")
+        if funcion in ("suma", "promedio") and not c.sumable:
+            raise _error(f"{c.titulo}: it adds different units of measure; use the lines of the document instead.", "medidas")
+        if funcion in ("suma", "promedio") and c.por and c.por not in agrupar:
+            # Nunca se suman monedas o unidades distintas: se agrupa por ellas
+            if len(agrupar) >= MAX_GRUPOS:
+                raise _error(f"{c.titulo}: group by {f.campo(c.por).titulo.lower()} to add it.", "agrupar")
+            agrupar.insert(0, c.por)
         medidas.append({"campo": c.clave, "funcion": funcion})
     if len(medidas) > MAX_MEDIDAS:
         raise _error(f"Up to {MAX_MEDIDAS} measures.", "medidas")

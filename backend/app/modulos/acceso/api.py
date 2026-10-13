@@ -61,6 +61,7 @@ def _yo(u: Usuario) -> dict:
             "requerir_datos_aduana": regla("REQUERIR_DATOS_ADUANA"),
             "dias_alerta_borrador": regla("DIAS_ALERTA_BORRADOR"),
             "dias_aviso_tienda": regla("DIAS_AVISO_TIENDA"),
+            "meta_liberacion": regla("META_LIBERACION_A_TIEMPO"),
             "modulos": modulos_activos(),
         },
         "max_subida_mb": settings.MAX_SUBIDA_MB,

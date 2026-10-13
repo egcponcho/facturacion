@@ -19,6 +19,7 @@ from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro
 from app.modulos.compras import liberaciones
 from app.modulos.comun import tabla
 from app.modulos.facturacion.cantidades import facturado_por_posicion, nombre_factura
+from app.modulos.seguimiento import metricas
 from app.modulos.transporte import leadtimes as lt
 from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, limite_puerto
 
@@ -112,7 +113,7 @@ def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) ->
     return {
         "limite_puerto": limite_puerto(oc.fecha_tienda, est) if est else None,
         "marca": p.marca, "estilo": p.estilo, "color": p.color, "talla": p.talla, "sku": p.codigo_articulo,
-        "oc_id": oc.id, "oc": oc.numero, "posicion": p.posicion, "almacen": p.almacen, "grupo": p.grupo,
+        "oc_id": oc.id, "oc": oc.numero, "estado_oc": oc.estado, "posicion": p.posicion, "precio": p.precio, "moneda": oc.moneda, "almacen": p.almacen, "grupo": p.grupo,
         "proveedor": oc.proveedor.nombre, "documento": None, "sociedad": oc.sociedad, "centro": oc.centro,
         "liberacion_comercial": oc.liberacion_comercial, "liberacion_logistica": oc.liberacion_logistica,
         "transportista": None, "puerto_origen": None, "puerto_destino": None,
@@ -138,9 +139,12 @@ def _en_tienda(fila: dict, llegada: date | None, est: dict) -> None:
 
 
 def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = None) -> list[dict]:
+    """Una fila por saldo de línea de OC, por línea de lista de empaque y por
+    lo facturado sin lista. Solo OC vigentes (metricas.OC_EN_SEGUIMIENTO): las
+    cerradas siguen por lo ya facturado, pero su saldo deja de estar pendiente."""
     prov = proveedor_filtro(user, proveedor_id)
     hoy = date.today()
-    consulta = select(PosicionOC).join(OrdenCompra)
+    consulta = select(PosicionOC).join(OrdenCompra).where(OrdenCompra.estado.in_(metricas.OC_EN_SEGUIMIENTO))
     if prov:
         consulta = consulta.where(OrdenCompra.proveedor_id.in_(prov))
     consulta = consulta.where(*sociedad_filtro(user, OrdenCompra.sociedad))
@@ -161,22 +165,29 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     filas = []
     for p in posiciones:
         saldo = p.cantidad - facturado.get(p.id, 0)
-        if saldo > 0:
+        if saldo > 0 and p.oc.estado in metricas.OC_CON_SALDO:
             fila = {**_base(p, p.oc, hoy, ests.de_oc(p.oc, p.grupo)), "cantidad": saldo,
                     "etapa": "POR_FACTURAR" if p.oc.liberada else "PEND_LIBERACION"}
             sin_embarque(fila, p.oc, p.grupo)
             filas.append(fila)
 
-    consulta = select(FacturaLinea).join(Factura).where(Factura.estado != "CANCELADA")
+    cond = [Factura.estado != "CANCELADA", OrdenCompra.estado.in_(metricas.OC_EN_SEGUIMIENTO),
+            *sociedad_filtro(user, Factura.sociedad)]
     if prov:
-        consulta = consulta.where(Factura.proveedor_id.in_(prov))
-    consulta = consulta.where(*sociedad_filtro(user, Factura.sociedad))
+        cond.append(Factura.proveedor_id.in_(prov))
+    consulta = (select(FacturaLinea).join(Factura).join(PosicionOC, PosicionOC.id == FacturaLinea.posicion_oc_id)
+                .join(OrdenCompra, OrdenCompra.id == PosicionOC.oc_id).where(*cond))
+    lineas_pl: dict[int, list] = {}
+    for pll in db.scalars(select(PLLinea).join(FacturaLinea, FacturaLinea.id == PLLinea.factura_linea_id)
+                          .join(Factura).join(PosicionOC, PosicionOC.id == FacturaLinea.posicion_oc_id)
+                          .join(OrdenCompra, OrdenCompra.id == PosicionOC.oc_id).where(*cond)).all():
+        lineas_pl.setdefault(pll.factura_linea_id, []).append(pll)
     for fl in db.scalars(consulta).all():
         p = fl.posicion_oc
         oc = p.oc
         f = fl.factura
         en_pl = 0
-        for pll in db.scalars(select(PLLinea).where(PLLinea.factura_linea_id == fl.id)).all():
+        for pll in lineas_pl.get(fl.id, []):
             pl = pll.pl
             if pl.estado == "CANCELADO":
                 continue
@@ -261,6 +272,9 @@ def _filtrar(todas: list[dict], filtros: dict) -> list[dict]:
         if campo in filtros:
             valor = filtros[campo]
             filas = [f for f in filas if _en(f[campo], valor)]
+    if filtros.get("riesgo"):
+        # El riesgo es de lo que aún no llega a bodega: lo recibido ya no está en riesgo
+        filas = [f for f in filas if f["etapa"] != "RECIBIDO"]
     for campo in RANGOS:
         desde, hasta = filtros.get(f"{campo}_desde"), filtros.get(f"{campo}_hasta")
         if desde:
@@ -368,10 +382,11 @@ def embarques(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     kpis = {
         "embarques": len(items),
         "unidades": sum(it["unidades"] for it in items),
+        # Mismas definiciones que Inicio e Indicadores (metricas.py)
         "en_camino": sum(1 for it in items if it["estado"] == "EN_TRANSITO"),
-        "llegan_7_dias": sum(1 for it in items if not it["arribado"] and it["dias_eta"] is not None
+        "llegan_7_dias": sum(1 for it in items if it["estado"] == "EN_TRANSITO" and it["dias_eta"] is not None
                              and 0 <= it["dias_eta"] <= 7),
-        "atrasados": sum(1 for it in items if it["riesgo"] == "ATRASO"),
+        "atrasados": sum(1 for it in items if it["riesgo"] == "ATRASO" and it["estado"] != "RECIBIDO"),
         "por_modo": {m: sum(1 for it in items if it["modo"] == m) for m in listas.codigos("modo_transporte")},
         "por_unidad": _por_unidad(filas),
     }
@@ -399,7 +414,10 @@ def _items_embarques(db: Session, user: Usuario, proveedor_id: int | None, filtr
 
     filtros = {k: v for k, v in (filtros or {}).items() if v not in (None, "")}
     todas = filas_seguimiento(db, user, proveedor_id)
-    filas = [f for f in _filtrar(todas, filtros) if f["embarque_id"]]
+    # Alcance de transporte (centros de sus sociedades y transportistas), como en Embarques
+    prov = proveedor_filtro(user, proveedor_id)
+    en_alcance = {e.id: e for e in db.scalars(metricas.embarques(db, user, prov, Embarque.estado != "CANCELADO"))}
+    filas = [f for f in _filtrar(todas, filtros) if f["embarque_id"] in en_alcance]
     if filtros.get("estado"):
         filas = [f for f in filas if _en(f["estado_embarque"], filtros["estado"])]
     if filtros.get("modo"):
@@ -407,10 +425,17 @@ def _items_embarques(db: Session, user: Usuario, proveedor_id: int | None, filtr
     por_emb: dict[int, list] = {}
     for f in filas:
         por_emb.setdefault(f["embarque_id"], []).append(f)
+    # Sin filtros de mercancía, también los embarques que aún no llevan carga
+    de_mercancia = set(filtros) - {"estado", "modo"}
+    if not de_mercancia and not prov:
+        for e in en_alcance.values():
+            if (not filtros.get("estado") or _en(e.estado, filtros["estado"])) and \
+                    (not filtros.get("modo") or _en(e.tipo_transporte, filtros["modo"])):
+                por_emb.setdefault(e.id, [])
     hoy = date.today()
     items = []
     for emb_id, fs in por_emb.items():
-        e = db.get(Embarque, emb_id)
+        e = en_alcance[emb_id]
         llegada = e.arribo_real or e.eta
         holguras = [f["holgura"] for f in fs if f["holgura"] is not None]
         unidades = []
@@ -505,7 +530,7 @@ def _estado_oc(o: dict, lib) -> str:
 COLUMNAS_OCS = {
     "oc": "oc", "proveedor": "proveedor", "centro": lambda o: f"{o['sociedad']} · {o['centro']}",
     "liberaciones": lambda o: f"{o['comercial_txt'] or '—'} · {o['liberacion_txt'] or '—'}",
-    "estado": "estado", "avance": lambda o: round(o["avance"]), "por_facturar": "por_facturar",
+    "estado": "estado", "avance": lambda o: None if o["avance"] is None else round(o["avance"]), "por_facturar": "por_facturar",
     "fecha_xf": "fecha_xf", "fecha_tienda": "fecha_tienda", "tienda_estimada": "tienda_estimada",
     "holgura": "riesgo", "embarques": "embarques",
 }
@@ -526,8 +551,9 @@ def ordenes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros
         "liberadas": sum(1 for o in items if o["estado"] not in ("SIN_COMERCIAL", "SIN_LOGISTICA")),
         "sin_liberar": sum(1 for o in items if o["estado"] in ("SIN_COMERCIAL", "SIN_LOGISTICA")),
         "xf_vencida": sum(1 for o in items if o["xf_vencida"]),
-        "atraso": sum(1 for o in items if o["riesgo"] == "ATRASO"),
-        "avance": round(sum(o["total"] - o["por_facturar"] for o in items) * 100 / (sum(o["total"] for o in items) or 1), 1),
+        "atraso": sum(1 for o in items if o["llega_tarde"]),
+        # Promedio del % facturado de cada OC (por valor): no suma monedas ni unidades
+        "avance": round(sum(con) / len(con), 1) if (con := [o["avance"] for o in items if o["avance"] is not None]) else None,
     }
     items = filtrar_columnas(items, COLUMNAS_OCS, columnas)
     items = _ordenar(sorted(items, key=lambda x: x["oc"]), orden or "fecha_xf:asc", ORDEN_OCS)
@@ -546,6 +572,20 @@ def valores_ordenes(db: Session, user: Usuario, columna: str, q: str | None, col
     return valores_columna(items, COLUMNAS_OCS, columna, q, columnas)
 
 
+def _avance_oc(o: dict) -> tuple[float | None, dict]:
+    """% facturado de una OC y el peso de cada tramo de la barra. Por valor (una
+    OC tiene una sola moneda); sin precios, por cantidad solo si toda la OC usa
+    la misma unidad de medida (nunca se suman pares con unidades)."""
+    if o["con_precio"] and o["valor"]:
+        base, partes = o["valor"], o["valores"]
+    elif len(o["por_unidad"]) == 1 and o["total"]:
+        base, partes = o["total"], o["cantidades"]
+    else:
+        return None, {}
+    tramos = {k: round(v * 100 / base, 2) for k, v in partes.items()}
+    return round(100 - tramos["por_facturar"], 1), tramos
+
+
 def _items_ordenes(db: Session, user: Usuario, proveedor_id: int | None, filtros: dict | None) -> tuple[list, list]:
     """Una fila por OC con los filtros de la pantalla: (OCs, todas las filas de mercancía)."""
     filtros = {k: v for k, v in (filtros or {}).items() if v not in (None, "")}
@@ -559,10 +599,23 @@ def _items_ordenes(db: Session, user: Usuario, proveedor_id: int | None, filtros
             "centro": f["centro"], "centro_destino": f["centro_destino"],
             "liberacion_comercial": f["liberacion_comercial"], "liberacion_logistica": f["liberacion_logistica"],
             "fecha_xf": f["fecha_xf"], "fecha_tienda": f["fecha_tienda"], "dias_tienda": f["dias_tienda"],
-            "marcas": set(), "unidades": set(), "embarques": set(), "total": 0, "holguras": [], "tiendas": [],
-            "cantidades": {"por_facturar": 0, "facturado": 0, "en_contenedor": 0, "en_camino": 0, "recibido": 0}})
+            "moneda": f["moneda"], "marcas": set(), "unidades": set(), "embarques": set(), "total": 0, "holguras": [],
+            "tiendas": [], "por_unidad": {}, "valor": 0.0, "con_precio": True,
+            "cantidades": {"por_facturar": 0, "facturado": 0, "en_contenedor": 0, "en_camino": 0, "recibido": 0},
+            "valores": {"por_facturar": 0.0, "facturado": 0.0, "en_contenedor": 0.0, "en_camino": 0.0, "recibido": 0.0}})
+        grupo = GRUPO_ETAPA[f["etapa"]]
         o["total"] += f["cantidad"]
-        o["cantidades"][GRUPO_ETAPA[f["etapa"]]] += f["cantidad"]
+        o["cantidades"][grupo] += f["cantidad"]
+        u = o["por_unidad"].setdefault(f["unidad"], {"cantidad": 0, "por_facturar": 0})
+        u["cantidad"] += f["cantidad"]
+        if grupo == "por_facturar":
+            u["por_facturar"] += f["cantidad"]
+        if f["precio"] is None:
+            o["con_precio"] = False
+        else:
+            v = float(f["cantidad"]) * float(f["precio"])
+            o["valor"] += v
+            o["valores"][grupo] += v
         if f["marca"]:
             o["marcas"].add(f["marca"])
         o["unidades"].add(f["unidad"])
@@ -574,6 +627,7 @@ def _items_ordenes(db: Session, user: Usuario, proveedor_id: int | None, filtros
             o["tiendas"].append(f["tienda_estimada"])
     items = []
     lib = liberaciones.de(db)
+    tarde = metricas.oc_llegada_tarde(filas)
     for o in por_oc.values():
         o["estado"] = _estado_oc(o, lib)
         o["comercial_txt"] = lib.comercial.nombre(o["liberacion_comercial"])
@@ -581,12 +635,13 @@ def _items_ordenes(db: Session, user: Usuario, proveedor_id: int | None, filtros
         o["comercial_ok"] = lib.comercial.libera(o["liberacion_comercial"])
         o["logistica_ok"] = lib.logistica.libera(o["liberacion_logistica"])
         o["por_facturar"] = o["cantidades"]["por_facturar"]
-        o["avance"] = round((o["total"] - o["por_facturar"]) * 100 / o["total"], 1) if o["total"] else 0
+        o["avance"], o["tramos"] = _avance_oc(o)
         o["holgura"] = min(o.pop("holguras")) if o["holguras"] else None
         tiendas = o.pop("tiendas")
         o["tienda_estimada"] = max(tiendas) if tiendas else None  # cuando llega lo último que falta
         o["dias_vs_tienda"] = (o["tienda_estimada"] - o["fecha_tienda"]).days if o["tienda_estimada"] and o["fecha_tienda"] else None
         o["riesgo"] = _riesgo(o["holgura"])
+        o["llega_tarde"] = o["oc_id"] in tarde
         o["xf_vencida"] = bool(o["fecha_xf"] and o["fecha_xf"] < hoy and o["por_facturar"] > 0)
         o["marcas"] = sorted(o["marcas"])
         o["unidades"] = sorted(o["unidades"])

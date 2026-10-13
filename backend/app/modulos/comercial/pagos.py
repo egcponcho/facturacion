@@ -117,6 +117,10 @@ def _aplicar(db: Session, user: Usuario, p: Pago, aplicaciones) -> None:
                             f"{'collection' if p.direccion == 'COBRO' else 'payment'} only settles issued "
                             f"{'sales' if p.direccion == 'COBRO' else 'received'} invoices and debit notes."})
             continue
+        if d.sociedad_id != p.sociedad_id:
+            errores.append({"campo": f"aplicaciones.{i}", "mensaje": f"{d.numero or d.referencia_externa}: "
+                            "it belongs to another company."})
+            continue
         if d.tercero_id != p.tercero_id or d.moneda != p.moneda:
             errores.append({"campo": f"aplicaciones.{i}", "mensaje": f"{d.numero or d.referencia_externa}: "
                             "it is of another business partner or currency."})
@@ -133,7 +137,8 @@ def _aplicar(db: Session, user: Usuario, p: Pago, aplicaciones) -> None:
                                                                            Vencimiento.documento_id == d.id)):
             errores.append({"campo": f"aplicaciones.{i}", "mensaje": "The installment is not of that document."})
             continue
-        db.add(Aplicacion(pago_id=p.id, documento_id=d.id, vencimiento_id=a.vencimiento_id, importe=importe, activa=True))
+        db.add(Aplicacion(pago_id=p.id, documento_id=d.id, vencimiento_id=a.vencimiento_id, importe=importe, activa=True,
+                           fecha=p.fecha))
         db.flush()
         disponible -= importe
     if errores:

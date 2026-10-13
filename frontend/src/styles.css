@@ -699,6 +699,7 @@ a.cajas-rango { color: var(--tinta); }
 .kpi-valor { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; line-height: 1.15; color: var(--tinta); font-variant-numeric: tabular-nums; }
 .kpi-valor small { font-size: 0.85rem; font-weight: 600; color: var(--tinta-3); margin-inline-end: 4px; }
 .kpi-detalle { font-size: 0.8rem; color: var(--tinta-3); }
+.kpi-otras { font-size: 0.8rem; font-weight: 600; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
 .kpis.kpis-heroe .kpi:first-child { flex-basis: 200px; flex-grow: 1.4; }
 .kpis.kpis-heroe .kpi:first-child .kpi-valor { font-size: 2.1rem; }
 /* Celular: los indicadores en una franja que se desliza de lado (no una

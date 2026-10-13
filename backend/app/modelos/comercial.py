@@ -665,6 +665,7 @@ class Aplicacion(DeOrganizacion, Base):
     vencimiento_id: Mapped[int | None] = mapped_column(ForeignKey("documento_vencimientos.id"), index=True)
     importe: Mapped[float] = mapped_column(Importe)
     activa: Mapped[bool] = mapped_column(Boolean, default=True)  # se desactiva al anular el pago o la nota
+    fecha: Mapped[date | None] = mapped_column(Date, index=True)  # fecha de negocio de la aplicación
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     pago: Mapped[Pago | None] = relationship(back_populates="aplicaciones", foreign_keys=[pago_id])

@@ -5,7 +5,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import { esInterno, sesion, ve } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
-import { TIEMPO, cantTxt, diasTxt, fmtFecha, fmtNum } from '@/nucleo/utils'
+import { TIEMPO, cantTxt, diasTxt, fmtFecha, fmtNum, porUnidadTxt } from '@/nucleo/utils'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
 import Icono from '@/componentes/Icono.vue'
 import Kpi from '@/componentes/Kpi.vue'
@@ -106,14 +106,14 @@ watch(() => [props.filtros, sesion.proveedorId], () => {
 
 <template>
   <section class="kpis mb-4">
-    <Kpi :titulo="t('Purchase orders')" :valor="datos.kpis.ocs" icono="ordenes" :detalle="t('{0}% invoiced', [fmtNum(datos.kpis.avance || 0, 1)])" @abrir="emit('filtrar', {})" />
-    <Kpi :titulo="t('Released')" :valor="datos.kpis.liberadas" icono="check" tono="exito" :detalle="t('can be invoiced')" @abrir="emit('filtrar', {})" />
+    <Kpi :titulo="t('Purchase orders')" :valor="datos.kpis.ocs" icono="ordenes"
+         :detalle="datos.kpis.avance == null ? t('approved or closed') : t('{0}% invoiced on average (by value)', [fmtNum(datos.kpis.avance, 1)])" @abrir="emit('filtrar', {})" />
     <Kpi :titulo="t('Not released')" :valor="datos.kpis.sin_liberar" icono="candado" :tono="datos.kpis.sin_liberar ? 'alerta' : 'exito'"
-         :detalle="t('cannot be invoiced yet')" @abrir="emit('filtrar', { estado: 'SIN_COMERCIAL' })" />
+         :detalle="t('cannot be invoiced yet')" @abrir="emit('filtrar', { estado: 'SIN_COMERCIAL,SIN_LOGISTICA' })" />
     <Kpi :titulo="t('XF overdue, not invoiced')" :valor="datos.kpis.xf_vencida" icono="reloj" :tono="datos.kpis.xf_vencida ? 'alerta' : 'exito'"
          :detalle="t('the XF date has passed')" @abrir="emit('filtrar', { xf_vencida: '1' })" />
     <Kpi v-if="ve('fechas_internas')" :titulo="t('Late for the port deadline')" :valor="datos.kpis.atraso" icono="alerta" :tono="datos.kpis.atraso ? 'alerta' : 'exito'"
-         :detalle="t('port arrival after the port deadline')" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
+         :detalle="t('not yet received · port arrival after the port deadline')" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
   </section>
 
   <section class="panel mb-4">
@@ -137,14 +137,15 @@ watch(() => [props.filtros, sesion.proveedorId], () => {
     <template #celda-estado="{ fila: o }"><span class="etiqueta" :class="TONO[o.estado]" style="margin-inline-start: 0; white-space: normal">{{ tx(nombreEstado[o.estado]) }}</span></template>
     <template #celda-avance="{ fila: o }">
       <div class="avance-oc">
-        <div class="apilada" role="img" :aria-label="tx(TRAMOS.map(([k, t]) => `${t}: ${o.cantidades[k]}`).join(', '))">
-          <span v-for="[k, txt, c] in TRAMOS.filter(([k]) => o.cantidades[k])" :key="k"
-                :style="{ width: `${(o.cantidades[k] * 100) / o.total}%`, background: c }" :title="`${tx(txt)}: ${fmtNum(o.cantidades[k])}`"></span>
+        <!-- Tramos por valor (o por cantidad si toda la OC usa una sola unidad); nunca suma pares con unidades -->
+        <div class="apilada" role="img" :aria-label="tx(TRAMOS.map(([k, txt]) => `${txt}: ${fmtNum(o.tramos?.[k] || 0, 1)}%`).join(', '))">
+          <span v-for="[k, txt, c] in TRAMOS.filter(([k]) => o.tramos?.[k])" :key="k"
+                :style="{ width: `${o.tramos[k]}%`, background: c }" :title="`${tx(txt)}: ${fmtNum(o.tramos[k], 1)}%`"></span>
         </div>
-        <span class="sub">{{ t('{0}% invoiced · {1} {2}', [fmtNum(o.avance, 0), fmtNum(o.total), o.unidades.join('/')]) }}</span>
+        <span class="sub">{{ tx(o.avance == null ? porUnidadTxt(o.por_unidad) : t('{0}% invoiced · {1}', [fmtNum(o.avance, 0), porUnidadTxt(o.por_unidad)])) }}</span>
       </div>
     </template>
-    <template #celda-por_facturar="{ fila: o }">{{ fmtNum(o.por_facturar) }}</template>
+    <template #celda-por_facturar="{ fila: o }">{{ tx(porUnidadTxt(o.por_unidad, 'por_facturar')) }}</template>
     <template #celda-fecha_xf="{ fila: o }">{{ fmtFecha(o.fecha_xf) }}<span v-if="o.xf_vencida" class="sub texto-error">{{ t('overdue') }}</span></template>
     <template #celda-fecha_tienda="{ fila: o }">{{ fmtFecha(o.fecha_tienda) }}<span class="sub">{{ diasTxt(o.dias_tienda) }}</span></template>
     <template #celda-tienda_estimada="{ fila: o }"><FechaTienda :fecha="o.tienda_estimada" :dias="o.dias_vs_tienda" /></template>

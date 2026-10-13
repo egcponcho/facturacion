@@ -69,7 +69,7 @@ class OrdenCompra(DeOrganizacion, Base):
     borrador: Mapped[dict | None] = mapped_column(JSON)
     creada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     enviada_en: Mapped[datetime | None] = mapped_column(DateTime)
-    aprobada_en: Mapped[datetime | None] = mapped_column(DateTime)
+    aprobada_en: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     cerrada_en: Mapped[datetime | None] = mapped_column(DateTime)
     motivo_estado: Mapped[str | None] = mapped_column(String(500))  # del último rechazo, cierre o cancelación
 

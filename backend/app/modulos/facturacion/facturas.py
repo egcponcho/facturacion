@@ -1,5 +1,5 @@
 import os
-from datetime import timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -620,7 +620,7 @@ def finalizar(db: Session, user: Usuario, factura_id: int, version: int, incluir
     cxp.registrar(db, user, f)
     registrar(db, user, "factura", f.id, "finalizar", {"con_pl": [pl.numero for pl in pls]}, factura_id=f.id)
     for pl in pls:
-        pl.estado = "FINALIZADO"
+        pl.estado, pl.finalizado_en = "FINALIZADO", ahora()
         tocar(pl)
         registrar(db, user, "packing_list", pl.id, "finalizar", None, factura_id=f.id)
     return {"estado": f.estado, "version": f.version}
@@ -785,8 +785,15 @@ def listar_facturas(
     size: int = 25,
     orden: str | None = None,
     filtros: dict | None = None,
+    desde: date | None = None,
+    hasta: date | None = None,
 ) -> dict:
     consulta = tabla.aplicar(_consulta_facturas(db, user, proveedor_id, estado, q, vista), COLUMNAS_FACTURAS, filtros or {})
+    if desde or hasta:
+        # Período por fecha de devengo: la misma que usan Inicio e Indicadores
+        from app.modulos.seguimiento.metricas import fecha_devengo
+
+        consulta = consulta.where(*([fecha_devengo() >= desde] if desde else []), *([fecha_devengo() <= hasta] if hasta else []))
     col, _, direccion = (orden or "").partition(":")
     expr = {"nombre": Factura.numero, "fecha": Factura.fecha, "estado": Factura.estado,
             "proveedor": Proveedor.nombre, "actualizado": Factura.actualizado_en}.get(col)

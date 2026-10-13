@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, object_session
 
 from app.core import listas, numeracion
@@ -204,14 +204,31 @@ def tiempo_embarque(unidades: list[dict]) -> dict:
             "fecha_tienda": min(tiendas) if tiendas else None}
 
 
-def listar_embarques(db: Session, user: Usuario, estado: str | None = None, q: str | None = None) -> list[dict]:
-    exigir(user, "transporte.gestionar")
-    consulta = select(Embarque).order_by(Embarque.etd.desc().nullslast(), Embarque.id.desc())
-    consulta = consulta.where(*condiciones_alcance(db, user))
-    if estado:
-        consulta = consulta.where(Embarque.estado == estado)
+def _consulta_embarques(db: Session, user: Usuario, q: str | None = None, arribo_desde=None, arribo_hasta=None):
+    consulta = select(Embarque).where(*condiciones_alcance(db, user))
     if q:
         consulta = consulta.where(filtro_texto(q, lambda p: [Embarque.codigo.ilike(p), Embarque.documento_numero.ilike(p)]))
+    if arribo_desde:
+        consulta = consulta.where(Embarque.arribo_real >= arribo_desde)
+    if arribo_hasta:
+        consulta = consulta.where(Embarque.arribo_real <= arribo_hasta)
+    return consulta
+
+
+def contar_embarques(db: Session, user: Usuario, q: str | None = None, arribo_desde=None, arribo_hasta=None) -> dict:
+    """Cuántos embarques hay en cada estado con la misma búsqueda de la lista."""
+    exigir(user, "transporte.gestionar")
+    sub = _consulta_embarques(db, user, q, arribo_desde, arribo_hasta).subquery()
+    return dict(db.execute(select(sub.c.estado, func.count()).group_by(sub.c.estado)).all())
+
+
+def listar_embarques(db: Session, user: Usuario, estado: str | None = None, q: str | None = None,
+                     arribo_desde=None, arribo_hasta=None) -> list[dict]:
+    exigir(user, "transporte.gestionar")
+    consulta = _consulta_embarques(db, user, q, arribo_desde, arribo_hasta).order_by(
+        Embarque.etd.desc().nullslast(), Embarque.id.desc())
+    if estado:
+        consulta = consulta.where(Embarque.estado.in_([x.strip() for x in estado.split(",") if x.strip()]))
     res = []
     for e in db.scalars(consulta).all():
         unidades = [resumen_unidad(u) for u in e.unidades]
@@ -459,6 +476,8 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
             raise ErrorNegocio("Required transport data is missing to record the departure.", 422,
                                "datos_transporte", [{"mensaje": m} for m in faltan])
         e.salida_real = datos.fecha.date()
+        if not e.eta_comprometida:
+            e.eta_comprometida = e.eta
         # Lo que zarpó ya fue recolectado: se completa la fecha si faltaba
         for pl in pls:
             if not pl.recolectado_en:

@@ -15,6 +15,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     String,
     Table,
     Text,
@@ -162,9 +163,12 @@ class Embarque(DeOrganizacion, Base):
     puerto_destino: Mapped[str | None] = mapped_column(String(10))
     centro: Mapped[str | None] = mapped_column(String(10), index=True)  # centro al que llega; su puerto debe coincidir
     etd: Mapped[date | None] = mapped_column(Date, index=True)
-    eta: Mapped[date | None] = mapped_column(Date)
+    eta: Mapped[date | None] = mapped_column(Date, index=True)
+    # ETA vigente al registrar la salida: la puntualidad se mide contra ella
+    # aunque luego se actualice la ETA en ruta
+    eta_comprometida: Mapped[date | None] = mapped_column(Date)
     salida_real: Mapped[date | None] = mapped_column(Date)
-    arribo_real: Mapped[date | None] = mapped_column(Date)
+    arribo_real: Mapped[date | None] = mapped_column(Date, index=True)
     estado: Mapped[str] = mapped_column(String(20), default="PLANIFICADO", index=True)
     observaciones: Mapped[str | None] = mapped_column(Text)
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
@@ -194,6 +198,7 @@ class UnidadCarga(DeOrganizacion, Base):
 
 class EventoEmbarque(DeOrganizacion, Base):
     __tablename__ = "eventos_embarque"
+    __table_args__ = (Index("ix_eventos_embarque_fecha_tipo", "fecha", "tipo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     embarque_id: Mapped[int] = mapped_column(ForeignKey("embarques.id"), index=True)
     tipo: Mapped[str] = mapped_column(String(20))

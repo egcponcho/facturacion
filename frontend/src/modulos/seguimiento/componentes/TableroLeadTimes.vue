@@ -34,6 +34,8 @@ const ESTADO = {
   pendiente: [t('Pending'), 'neutro', 'reloj'],
 }
 const RIESGO = TIEMPO
+// Meta de liberación a tiempo de la empresa (Configuración → Empresa → Reglas)
+const meta = computed(() => sesion.usuario?.config?.meta_liberacion ?? 80)
 
 const base = () => ({
   desde: periodo.value.desde, hasta: periodo.value.hasta, origen: f.origen.join(','), region: f.region.join(','),
@@ -121,11 +123,12 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
   </div>
 
   <section class="kpis">
-    <Kpi :titulo="t('Logistics release on time (%)')" :valor="datos.kpis.lib_pct ?? 0" icono="check" :tono="(datos.kpis.lib_pct ?? 100) >= 80 ? 'exito' : 'alerta'"
-         :detalle="t('{0} released', [datos.kpis.lib_total || 0])" :title="t('Target before XF: {0}', [reglas || '—'])" @abrir="f.lib = f.lib === 'tarde' ? '' : 'tarde'; recargar()" />
+    <Kpi :titulo="t('Logistics release on time')" :valor="datos.kpis.lib_pct" formato="porcentaje" icono="check"
+         :tono="datos.kpis.lib_pct == null ? 'normal' : datos.kpis.lib_pct >= meta ? 'exito' : 'alerta'"
+         :detalle="t('{0} of {1} released on time · target {2}%', [datos.kpis.lib_a_tiempo || 0, datos.kpis.lib_total || 0, meta])" :title="t('Target before XF: {0}', [reglas || '—'])" @abrir="f.lib = f.lib === 'tarde' ? '' : 'tarde'; recargar()" />
     <Kpi :titulo="t('Release overdue')" :valor="datos.kpis.lib_vencidas ?? 0" icono="reloj" :tono="datos.kpis.lib_vencidas ? 'alerta' : 'exito'"
          :detalle="t('not released and the target date passed')" @abrir="f.lib = f.lib === 'vencida' ? '' : 'vencida'; recargar()" />
-    <Kpi :titulo="t('Average lead time (days)')" :valor="datos.kpis.total_prom ?? 0" icono="grafica"
+    <Kpi :titulo="t('Average lead time')" :valor="datos.kpis.total_prom" formato="dias" icono="grafica"
          :detalle="t('PO created to warehouse entry · transit {0}', [d(datos.kpis.transito_prom)])" />
     <Kpi v-if="ve('fechas_internas')" :titulo="t('Late for the port deadline')" :valor="datos.kpis.tarde ?? 0" icono="alerta" :tono="datos.kpis.tarde ? 'alerta' : 'exito'"
          :detalle="t('{0} at risk', [datos.kpis.justo || 0])" @abrir="f.riesgo = f.riesgo === 'ATRASO' ? '' : 'ATRASO'; recargar()" />
@@ -155,7 +158,7 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
       <template #celda-total_prom="{ fila: o }"><span class="fuerte" :title="tx(o.completas ? t('{0} POs with every stage', [o.completas]) : t('No PO has every stage yet'))">{{ tx(d(o.total_prom)) }}</span></template>
       <template #celda-lib="{ fila: o }">
         <template v-if="o.lib.total">
-          <span class="etiqueta ms-0" :class="o.lib.pct >= 80 ? 'ok' : 'error'">{{ t('{0}% on time', [o.lib.pct]) }}</span>
+          <span class="etiqueta ms-0" :class="o.lib.pct >= meta ? 'ok' : 'error'">{{ t('{0}% on time', [o.lib.pct]) }}</span>
           <span class="sub">{{ t('avg {0} before · target {1} d', [d(o.lib.dias_antes_xf), o.lib.meta]) }}</span>
         </template>
         <span v-else class="apagado">{{ t('Target {0} d', [o.lib.meta]) }}</span>

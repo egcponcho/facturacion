@@ -10,7 +10,7 @@ venga de afuera.
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.modelos import (
@@ -38,6 +38,10 @@ class Campo:
     expr: Callable  # () -> expresión SQL
     grupo: str | None = None  # grupo de visibilidad (acceso/visibilidad.py)
     opciones: tuple = ()  # (código, texto) de un campo de estado
+    # Al sumar o promediar: el campo por el que hay que agrupar para no
+    # mezclar monedas ("moneda") o unidades de medida ("unidad")
+    por: str | None = None
+    sumable: bool = True  # False: mezcla unidades dentro de un documento
 
 
 @dataclass(frozen=True)
@@ -93,9 +97,9 @@ FUENTES: dict[str, Fuente] = {f.clave: f for f in [
             Campo("lineas", "Lines", "numero", lambda: select(func.count(PosicionOC.id))
                   .where(PosicionOC.oc_id == OrdenCompra.id).scalar_subquery()),
             Campo("cantidad", "Quantity", "numero", lambda: select(func.coalesce(func.sum(PosicionOC.cantidad), 0))
-                  .where(PosicionOC.oc_id == OrdenCompra.id).scalar_subquery()),
+                  .where(PosicionOC.oc_id == OrdenCompra.id).scalar_subquery(), sumable=False),
             Campo("valor", "PO value", "moneda", lambda: select(func.coalesce(func.sum(PosicionOC.cantidad * PosicionOC.precio), 0))
-                  .where(PosicionOC.oc_id == OrdenCompra.id).scalar_subquery(), "precios"),
+                  .where(PosicionOC.oc_id == OrdenCompra.id).scalar_subquery(), "precios", por="moneda"),
         ],
     ),
     Fuente(
@@ -116,12 +120,14 @@ FUENTES: dict[str, Fuente] = {f.clave: f for f in [
             Campo("grupo", "Item group", "texto", lambda: PosicionOC.grupo),
             Campo("almacen", "Warehouse", "texto", lambda: PosicionOC.almacen, "codigos_internos"),
             Campo("unidad", "UoM", "texto", lambda: PosicionOC.unidad),
+            Campo("moneda", "Currency", "texto", lambda: OrdenCompra.moneda),
             Campo("fecha_xf", "XF date", "fecha", lambda: OrdenCompra.fecha_xf),
-            Campo("cantidad", "Quantity", "numero", lambda: PosicionOC.cantidad),
-            Campo("facturado", "Invoiced", "numero", _facturado_linea),
-            Campo("pendiente", "To invoice", "numero", lambda: PosicionOC.cantidad - _facturado_linea()),
-            Campo("precio", "Unit price", "moneda", lambda: PosicionOC.precio, "precios"),
-            Campo("importe", "Amount", "moneda", lambda: PosicionOC.cantidad * PosicionOC.precio, "precios"),
+            Campo("cantidad", "Quantity", "numero", lambda: PosicionOC.cantidad, por="unidad"),
+            Campo("facturado", "Invoiced", "numero", _facturado_linea, por="unidad"),
+            Campo("pendiente", "To invoice", "numero", lambda: case((PosicionOC.cantidad - _facturado_linea() < 0, 0),
+                                                                    else_=PosicionOC.cantidad - _facturado_linea()), por="unidad"),
+            Campo("precio", "Unit price", "moneda", lambda: PosicionOC.precio, "precios", por="moneda"),
+            Campo("importe", "Amount", "moneda", lambda: PosicionOC.cantidad * PosicionOC.precio, "precios", por="moneda"),
         ],
     ),
     Fuente(
@@ -140,9 +146,9 @@ FUENTES: dict[str, Fuente] = {f.clave: f for f in [
             Campo("lineas", "Lines", "numero", lambda: select(func.count(FacturaLinea.id))
                   .where(FacturaLinea.factura_id == Factura.id).scalar_subquery()),
             Campo("cantidad", "Quantity", "numero", lambda: select(func.coalesce(func.sum(FacturaLinea.cantidad), 0))
-                  .where(FacturaLinea.factura_id == Factura.id).scalar_subquery()),
+                  .where(FacturaLinea.factura_id == Factura.id).scalar_subquery(), sumable=False),
             Campo("importe", "Amount", "moneda", lambda: select(func.coalesce(func.sum(FacturaLinea.cantidad * FacturaLinea.precio_unitario), 0))
-                  .where(FacturaLinea.factura_id == Factura.id).scalar_subquery(), "precios"),
+                  .where(FacturaLinea.factura_id == Factura.id).scalar_subquery(), "precios", por="moneda"),
         ],
     ),
     Fuente(

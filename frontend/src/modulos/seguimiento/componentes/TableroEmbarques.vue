@@ -95,6 +95,14 @@ watch(() => [props.filtros, sesion.proveedorId], () => {
   if (tablaE.value && tablaE.value.pagina !== 1) tablaE.value.pagina = 1
   else cargar()
 }, { deep: true })
+// «Llegan en 7 días»: en tránsito con ETA entre hoy y dentro de 7 días
+function proximos7() {
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const hoy = new Date()
+  const fin = new Date()
+  fin.setDate(hoy.getDate() + 7)
+  return { estado: 'EN_TRANSITO', eta_desde: iso(hoy), eta_hasta: iso(fin) }
+}
 </script>
 
 <template>
@@ -102,9 +110,9 @@ watch(() => [props.filtros, sesion.proveedorId], () => {
     <Kpi :titulo="t('Shipments')" :valor="datos.kpis.embarques" icono="ruta" :detalle="tx(porModo)" @abrir="emit('filtrar', {})" />
     <Kpi :titulo="t('Load units')" :valor="datos.kpis.unidades" icono="contenedor" :detalle="t('containers, air waybills and trucks')" @abrir="emit('filtrar', {})" />
     <Kpi :titulo="t('In transit')" :valor="datos.kpis.en_camino" icono="barco" :detalle="t('already departed')" @abrir="emit('filtrar', { estado: 'EN_TRANSITO' })" />
-    <Kpi :titulo="t('Arriving in 7 days')" :valor="datos.kpis.llegan_7_dias" icono="reloj" :detalle="t('by ETA')" @abrir="emit('filtrar', {})" />
+    <Kpi :titulo="t('Arriving in 7 days')" :valor="datos.kpis.llegan_7_dias" icono="reloj" :detalle="t('in transit, by ETA')" @abrir="emit('filtrar', proximos7())" />
     <Kpi v-if="ve('fechas_internas')" :titulo="t('Late for the port deadline')" :valor="datos.kpis.atrasados" icono="alerta" :tono="datos.kpis.atrasados ? 'alerta' : 'exito'"
-         :detalle="t('ETA after the in-store date')" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
+         :detalle="t('not yet received · port arrival after the port deadline')" @abrir="emit('filtrar', { riesgo: 'ATRASO' })" />
   </section>
 
   <div class="dos-columnas mb-4">

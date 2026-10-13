@@ -47,7 +47,15 @@ const hoy = new Intl.DateTimeFormat(actual.locale, { weekday: 'long', day: 'nume
 const serie = computed(() => (d.value?.periodo?.facturado.serie || []).map((x) => ({ etiqueta: x.etiqueta, valor: x.importe, detalle: plural(x.facturas, t('invoice'), t('invoices')) })))
 const totalPeriodo = computed(() => serie.value.reduce((a, m) => a + m.valor, 0))
 const GRANO = { dia: t('per day'), semana: t('per week'), mes: t('per month') }
-const RUTAS_PERIODO = { facturado: '/facturas', pls: '/facturas', llegadas: '/seguimiento', clasificados: '/productos' }
+// Cada cifra del período abre su lista con el mismo período
+function rutaPeriodo(clave) {
+  const { desde, hasta } = periodo.value
+  if (clave === 'facturado') return { path: '/facturas', query: { estado: 'FINALIZADA', desde, hasta } }
+  if (clave === 'pls') return { path: '/seguimiento', query: { vista: 'documentos', estado_pl: 'FINALIZADO' } }
+  return { path: '/transporte', query: { estado: 'RECIBIDO,ENTREGADO,ARRIBADO', arribo_desde: desde, arribo_hasta: hasta } }
+}
+
+const montosTxt = (m) => (m === null || m === undefined ? '—' : m.length ? m.map((x) => fmtMoneda(x.valor, x.moneda)).join(' · ') : '—')
 
 // Avance del viaje entre salida (ETD) y llegada (ETA)
 const viaje = avanceViaje
@@ -74,7 +82,9 @@ async function resolver(a) {
 // «Por proveedor» en la tabla común (modo local): un clic en la fila filtra todo el sistema
 const columnasProveedores = [
   { clave: 'nombre', texto: t('Supplier'), fija: true, prioridad: 1 },
-  { clave: 'por_facturar', texto: t('To invoice'), num: true, prioridad: 2, textoValor: (v) => fmtMoneda(v, d.value?.moneda) },
+  // Un monto por moneda (nunca sumados); para ordenar y filtrar, el de la moneda principal
+  { clave: 'por_facturar', texto: t('To invoice'), num: true, prioridad: 2, valor: (p) => (p.por_facturar ? p.por_facturar[0]?.valor ?? 0 : null),
+    textoValor: (v, p) => montosTxt(p?.por_facturar) },
   { clave: 'en_proceso', texto: t('In process'), num: true, prioridad: 2 },
   { clave: 'pl_abiertos', texto: t('Open PLs'), num: true, prioridad: 2 },
   { clave: 'listas', texto: t('Ready'), num: true, prioridad: 3 },
@@ -104,7 +114,7 @@ watch(periodo, cargar, { deep: true })
     <!-- 1. Indicadores operativos: una franja; el primero es la cifra principal -->
     <section v-if="vePanel('indicadores')" class="kpis kpis-heroe" :aria-label="t('Indicators')">
       <Kpi v-for="k in d.kpis" :key="k.clave" :titulo="tx(k.titulo)" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
-           :detalle="tx(k.detalle)" :tono="k.tono" @abrir="router.push({ path: k.ruta, query: k.query })" />
+           :otras="k.otras || []" :detalle="tx(k.detalle)" :tono="k.tono" @abrir="router.push({ path: k.ruta, query: k.query })" />
     </section>
 
     <!-- 2. Trabajo del día: lo que necesita atención y los próximos pasos | embarques -->
@@ -126,14 +136,14 @@ watch(periodo, cargar, { deep: true })
           </ul>
           <div v-else class="todo-listo">
             <span class="icono-ok"><Icono nombre="check" :tam="20" /></span>
-            <div><b>{{ t('Nothing needs your attention') }}</b><p class="ayuda">{{ t('No blocked products, documents to finish, XF dates or arrivals this week.') }}</p></div>
+            <div><b>{{ t('Nothing needs your attention') }}</b><p class="ayuda">{{ t('No blocked products, XF dates or arrivals this week. Documents in progress are counted above.') }}</p></div>
           </div>
         </section>
 
         <section v-if="vePanel('tareas')" class="panel">
           <div class="panel-cabeza">
             <div><h2>{{ t('Next steps') }}</h2><p>{{ t('Ordered by what unblocks the most work.') }}</p></div>
-            <span v-if="d.tareas.length" class="etiqueta">{{ tx(d.tareas.length) }}</span>
+            <span v-if="d.tareas.length" class="etiqueta">{{ tx(d.tareas_total > d.tareas.length ? t('{0} of {1}', [d.tareas.length, d.tareas_total]) : d.tareas.length) }}</span>
           </div>
           <ul v-if="d.tareas.length" class="lista-accion">
             <li v-for="(txt, i) in d.tareas" :key="i">
@@ -191,7 +201,7 @@ watch(periodo, cargar, { deep: true })
               <router-link class="lista-accion-fila" :to="`/transporte/embarques/${u.embarque_id}?unidad=${u.id}`">
                 <span class="lista-accion-texto"><b>{{ tx(u.nombre) }} <span class="etiqueta">{{ tx(u.tipo) }}</span></b>
                   <small>{{ tx(u.embarque) }}{{ tx(u.etd ? t(' · departs {0}', [fmtFecha(u.etd)]) : '') }} · {{ fmtNum(u.cbm, 1) }} m³</small></span>
-                <span class="lista-accion-medidor"><Avance v-if="u.capacidad_cbm" :porcentaje="u.pct_cbm || 0" /></span>
+                <span class="lista-accion-medidor" :title="t('Volume {0}% · weight {1}%', [fmtNum(u.pct_cbm ?? 0), fmtNum(u.pct_kg ?? 0)])"><Avance v-if="u.capacidad_cbm || u.capacidad_kg" :porcentaje="u.pct || 0" /></span>
               </router-link>
             </li>
           </ul>
@@ -220,13 +230,14 @@ watch(periodo, cargar, { deep: true })
       </div>
       <div class="kpis kpis-planos">
         <Kpi v-for="k in d.periodo.resumen" :key="k.clave" :titulo="tx(k.titulo)" :valor="k.valor" :formato="k.formato" :moneda="k.moneda"
-             :detalle="tx(k.detalle)" @abrir="router.push(RUTAS_PERIODO[k.clave])" />
+             :otras="k.otras || []" :detalle="tx(k.detalle)" @abrir="router.push(rutaPeriodo(k.clave))" />
       </div>
       <div class="desempeno-cuerpo">
         <div v-if="ve('precios')">
-          <h3 class="subtitulo">{{ t('Invoiced value') }} <span class="ayuda">{{ tx(GRANO[d.periodo.facturado.grano]) }} · {{ tx(d.moneda) }}</span></h3>
-          <GraficoColumnas v-if="totalPeriodo" :datos="serie" :titulo="t('Invoiced value')" :formato="(v) => fmtMoneda(v, d.moneda)" />
-          <p v-else class="vacio">{{ t('No finalized invoices in this period. Try a longer period (quarter or year).') }}</p>
+          <h3 class="subtitulo">{{ t('Invoiced value') }} <span class="ayuda">{{ tx(GRANO[d.periodo.facturado.grano]) }} · {{ tx(d.periodo.facturado.moneda) }}</span></h3>
+          <GraficoColumnas v-if="totalPeriodo" :datos="serie" :titulo="t('Invoiced value')" :formato="(v) => fmtMoneda(v, d.periodo.facturado.moneda)" />
+          <p v-else-if="!d.periodo.facturado.otras.length" class="vacio">{{ t('No finalized invoices in this period. Try a longer period (quarter or year).') }}</p>
+          <p v-if="d.periodo.facturado.otras.length" class="ayuda">{{ t('Also invoiced in other currencies (not in the chart): {0}', [d.periodo.facturado.otras.map((o) => fmtMoneda(o.valor, o.moneda)).join(' · ')]) }}</p>
         </div>
         <div>
           <h3 class="subtitulo">{{ t('Where the goods are') }} <span class="ayuda">{{ t('From PO to load unit, by unit of measure.') }}</span></h3>
@@ -241,7 +252,7 @@ watch(periodo, cargar, { deep: true })
       <TablaDatos tabla="inicio_proveedores" :columnas="columnasProveedores" :filas="d.proveedores" :vistas-guardadas="false" fila-clicable
                   orden-inicial="nombre:asc" :etiqueta="t('By supplier')" @fila="(p) => elegirProveedor(p.id)">
         <template #celda-nombre="{ fila: p }"><span class="principal-celda">{{ tx(p.nombre) }}</span></template>
-        <template #celda-por_facturar="{ fila: p }">{{ p.por_facturar === null ? '—' : fmtMoneda(p.por_facturar, d.moneda) }}</template>
+        <template #celda-por_facturar="{ fila: p }">{{ tx(montosTxt(p.por_facturar)) }}</template>
         <template #celda-en_proceso="{ fila: p }"><span :title="t('Invoices in draft or correction')">{{ tx(p.en_proceso || '—') }}</span></template>
         <template #celda-pl_abiertos="{ fila: p }"><span :class="{ 'etiqueta aviso': p.pl_abiertos }">{{ tx(p.pl_abiertos || '—') }}</span></template>
         <template #celda-listas="{ fila: p }"><span :class="{ 'etiqueta ok': p.listas }" :title="t('Invoices ready to ship')">{{ tx(p.listas || '—') }}</span></template>

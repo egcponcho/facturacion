@@ -20,7 +20,7 @@ const router = useRouter()
 const resumenId = ref(null)
 const tabla = ref(null)
 // Vistas predefinidas (filtros de un clic) y búsqueda; el resto de los filtros va en cada columna
-const filtros = reactive({ vista: route.query.vista || '', q: route.query.q || '' })
+const filtros = reactive({ vista: route.query.vista || '', q: route.query.q || '', desde: route.query.desde || '', hasta: route.query.hasta || '' })
 const datos = ref({ items: [], total: 0 })
 const cargando = ref(false)
 
@@ -47,7 +47,16 @@ const columnas = computed(() => [
   { clave: 'pls', texto: t('Packing'), ordenable: false, filtro: false, prioridad: 3 },
   { clave: 'transporte', texto: t('Transport'), ordenable: false, filtro: false, prioridad: 2 },
 ])
-const externosApi = () => ({ q: filtros.q, vista: filtros.vista, proveedor_id: sesion.proveedorId || undefined })
+const externosApi = () => ({ q: filtros.q, vista: filtros.vista, proveedor_id: sesion.proveedorId || undefined,
+  desde: filtros.desde || undefined, hasta: filtros.hasta || undefined })
+// Período que llega desde un indicador (Inicio): un chip que se puede quitar
+const chipsPeriodo = computed(() => (filtros.desde || filtros.hasta
+  ? [{ clave: 'periodo', texto: t('Period: {0} – {1}', [fmtFecha(filtros.desde), fmtFecha(filtros.hasta)]) }] : []))
+function quitarPeriodo() {
+  filtros.desde = ''
+  filtros.hasta = ''
+  recargar()
+}
 const valores = (columna, buscar, otros) => api.get('/facturas/valores', { columna, buscar, f: JSON.stringify(otros), ...externosApi() })
 
 let ultima = null
@@ -94,7 +103,8 @@ watch(() => sesion.proveedorId, recargar)
 
   <TablaDatos ref="tabla" tabla="facturas" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
               :filtros-iniciales="route.query.estado ? { estado: route.query.estado } : {}" fila-clicable :fila-activa="resumenId" :etiqueta="t('Invoices')"
-              :valores="valores" :externos="{ vista: filtros.vista, q: filtros.q }"
+              :valores="valores" :externos="{ vista: filtros.vista, q: filtros.q }" :chips-externos="chipsPeriodo"
+              @quitar-externo="quitarPeriodo" @limpiar-externos="quitarPeriodo"
               @consulta="consultar" @fila="(f) => (resumenId = f.id)" @vista="(q) => { filtros.vista = q.vista || ''; filtros.q = q.q || ''; recargar() }">
     <template #barra>
       <label class="buscador">

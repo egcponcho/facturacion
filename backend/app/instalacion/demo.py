@@ -488,7 +488,7 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
                 sociedad=oc.sociedad, centro=oc.centro, centro_destino=oc.centro_destino, estado="FINALIZADA",
                 version=1, creado_por=usuario.id, creado_en=ts - timedelta(days=2), actualizado_en=ts,
                 finalizado_en=ts)
-    pl = PackingList(numero="PL-001", estado="FINALIZADO", version=1, creado_en=ts, actualizado_en=ts,
+    pl = PackingList(numero="PL-001", estado="FINALIZADO", version=1, creado_en=ts, actualizado_en=ts, finalizado_en=ts,
                      unidad=unidad, asignacion="CONFIRMADA" if unidad else None, recolectado_en=recolectado)
     f.packing_lists.append(pl)
     for p in oc.posiciones:
@@ -539,7 +539,8 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
     recibido = Embarque(codigo="EMB-0001", tipo_transporte="MARITIMO", transportista="Maersk",
                         documento_numero="MAEU 221877310", puerto_origen="VNCMT", puerto_destino="SVAQJ", centro="8010",
                         etd=hoy - timedelta(days=88), eta=hoy - timedelta(days=58),
-                        salida_real=hoy - timedelta(days=87), arribo_real=hoy - timedelta(days=57), estado="RECIBIDO")
+                        salida_real=hoy - timedelta(days=87), arribo_real=hoy - timedelta(days=57), estado="RECIBIDO",
+                        eta_comprometida=hoy - timedelta(days=58))
     c1 = UnidadCarga(tipo="40HC", etiqueta="40HC #1", numero="MSKU 481220-7", sello="ML-99812")
     recibido.unidades.append(c1)
     for tipo, dias, lugar in (("RECOLECCION", 90, "Supplier warehouse"), ("SALIDA", 87, "Cai Mep (VN)"),
@@ -549,7 +550,8 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
     transito = Embarque(codigo="EMB-0002", tipo_transporte="MARITIMO", transportista="COSCO Shipping",
                         documento_numero="COSU 640018225", puerto_origen="CNYTN", puerto_destino="SVAQJ", centro="8010",
                         etd=hoy - timedelta(days=19), eta=hoy + timedelta(days=9),
-                        salida_real=hoy - timedelta(days=18), estado="EN_TRANSITO")
+                        salida_real=hoy - timedelta(days=18), estado="EN_TRANSITO",
+                        eta_comprometida=hoy + timedelta(days=7))  # la ETA se movió 2 días en ruta
     c2 = UnidadCarga(tipo="40GP", etiqueta="40GP #1", numero="TGHU 772104-3", sello="CS-10442")
     transito.unidades.append(c2)
     transito.eventos.append(EventoEmbarque(tipo="RECOLECCION", fecha=_momento(hoy - timedelta(days=21), 8),

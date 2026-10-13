@@ -48,7 +48,7 @@ class Factura(DeOrganizacion, Base):
     extra: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
     numero: Mapped[str | None] = mapped_column(String(50))
-    fecha: Mapped[date | None] = mapped_column(Date)
+    fecha: Mapped[date | None] = mapped_column(Date, index=True)
     moneda: Mapped[str] = mapped_column(String(3))
     incoterm: Mapped[str | None] = mapped_column(String(10))
     sociedad: Mapped[str] = mapped_column(String(10), index=True)
@@ -61,7 +61,7 @@ class Factura(DeOrganizacion, Base):
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
-    finalizado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    finalizado_en: Mapped[datetime | None] = mapped_column(DateTime, index=True)
 
     proveedor: Mapped[Proveedor] = relationship()
     lineas: Mapped[list["FacturaLinea"]] = relationship(

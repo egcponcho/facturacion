@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 
@@ -32,9 +34,11 @@ def listar(
     size: int = Query(25, ge=1, le=200),
     orden: str | None = None,
     f: str | None = None,
+    desde: date | None = None,
+    hasta: date | None = None,
 ):
     """Facturas visibles, paginadas y filtrables (estado, texto, vista y `f` por columna), con su avance en listas de empaque."""
-    return svc.listar_facturas(db, user, proveedor_id, estado, q, vista, page, size, orden, tabla.leer(f))
+    return svc.listar_facturas(db, user, proveedor_id, estado, q, vista, page, size, orden, tabla.leer(f), desde, hasta)
 
 
 @router.get("/facturas/valores")

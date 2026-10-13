@@ -565,7 +565,8 @@ def emitir(db: Session, user: Usuario, documento_id: int, version: int | None = 
     if destino is not None and d.tipo.signo < 0 and d.tipo.afecta_saldo:
         disponible = min(dinero.decimal(d.total), saldo(db, destino))
         if disponible > 0:
-            db.add(Aplicacion(credito_id=d.id, documento_id=destino.id, importe=disponible, activa=True))
+            db.add(Aplicacion(credito_id=d.id, documento_id=destino.id, importe=disponible, activa=True,
+                                   fecha=d.fecha))
     db.flush()
     registrar(db, user, "documento", d.id, "emitir", {"numero": d.numero or d.referencia_externa,
                                                       "total": dinero.numero(dinero.decimal(d.total))})
@@ -640,9 +641,13 @@ def estado_cuenta(db: Session, user: Usuario, tercero_id: int, direccion: str = 
                                   .where(Documento.estado == "EMITIDO").order_by(Documento.fecha, Documento.id))]
     from app.modelos import Pago
 
-    pagos = [p for p in db.scalars(select(Pago).where(Pago.tercero_id == t.id, Pago.estado == "REGISTRADO",
-                                                      Pago.direccion == ("COBRO" if direccion == "EMITIDO" else "PAGO")))
-             if sin_aplicar(db, p) > 0]
+    consulta = select(Pago).where(Pago.tercero_id == t.id, Pago.estado == "REGISTRADO",
+                                  Pago.direccion == ("COBRO" if direccion == "EMITIDO" else "PAGO"))
+    permitidas = sociedades_de(user)
+    if permitidas:
+        # Solo los pagos de las sociedades del usuario, como los documentos
+        consulta = consulta.join(Sociedad, Sociedad.id == Pago.sociedad_id).where(Sociedad.codigo.in_(permitidas))
+    pagos = [p for p in db.scalars(consulta) if sin_aplicar(db, p) > 0]
     por_moneda: dict[str, Decimal] = {}
     abiertos = []
     for d in docs:
