@@ -13,6 +13,8 @@ Revises: 0064
 Create Date: 2026-10-13 00:00:00
 """
 import json
+import re
+from pathlib import Path
 
 from alembic import op
 import sqlalchemy as sa
@@ -22,6 +24,8 @@ revision = '0065'
 down_revision = '0064'
 branch_labels = None
 depends_on = None
+
+ISO = Path(__file__).resolve().parents[2] / "app" / "data" / "referencia" / "paises_iso.json"
 
 
 def _tallas(texto: str) -> list[dict]:
@@ -61,16 +65,29 @@ def upgrade() -> None:
         )
         with op.batch_alter_table(f'acuerdo_{rol}', schema=None) as batch_op:
             batch_op.create_index(batch_op.f(f'ix_acuerdo_{rol}_pais_id'), ['pais_id'], unique=False)
+    # Un país que el acuerdo cita y la base todavía no tiene (una base anterior
+    # al catálogo ISO completo) se agrega con su nombre ISO; lo que no es un
+    # código de país se deja escrito en la nota del acuerdo, sin detener el arranque.
+    iso = {p["codigo"]: p["nombre"] for p in json.loads(ISO.read_text(encoding="utf-8"))["paises"]}
     paises = dict(con.execute(sa.text("SELECT codigo, id FROM paises")).all())
-    for acuerdo_id, origenes, destinos in con.execute(sa.text("SELECT id, origenes, destinos FROM acuerdos_comerciales")).all():
+    for acuerdo_id, origenes, destinos, nota in con.execute(sa.text(
+            "SELECT id, origenes, destinos, nota FROM acuerdos_comerciales")).all():
+        sin_reconocer = []
         for rol, texto in (('origenes', origenes), ('destinos', destinos)):
             codigos = {c.strip().upper() for c in (texto or "").split(",") if c.strip()}
-            faltan = sorted(codigos - set(paises))
-            if faltan:
-                raise RuntimeError(f"Acuerdo {acuerdo_id}: los países {faltan} no están en el catálogo; agréguelos primero.")
             for c in sorted(codigos):
+                if c not in paises:
+                    if not re.fullmatch(r"[A-Z]{2}", c):
+                        sin_reconocer.append(c)
+                        continue
+                    con.execute(sa.text("INSERT INTO paises (codigo, nombre, activo) VALUES (:c, :n, :a)"),
+                                {"c": c, "n": iso.get(c, c), "a": True})
+                    paises[c] = con.execute(sa.text("SELECT id FROM paises WHERE codigo = :c"), {"c": c}).scalar()
                 con.execute(sa.text(f"INSERT INTO acuerdo_{rol} (acuerdo_id, pais_id) VALUES (:a, :p)"),
                             {"a": acuerdo_id, "p": paises[c]})
+        if sin_reconocer:
+            texto = f"{nota + ' · ' if nota else ''}Not recognized as countries: {', '.join(sorted(set(sin_reconocer)))}"
+            con.execute(sa.text("UPDATE acuerdos_comerciales SET nota = :n WHERE id = :a"), {"n": texto[:300], "a": acuerdo_id})
     with op.batch_alter_table('acuerdos_comerciales', schema=None) as batch_op:
         batch_op.drop_column('destinos')
         batch_op.drop_column('origenes')

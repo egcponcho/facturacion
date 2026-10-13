@@ -24,6 +24,33 @@ def test_migraciones_al_dia_con_los_modelos():
             assert r.returncode == 0, r.stdout + r.stderr
 
 
+def test_acuerdos_de_una_base_anterior_suben_sin_detenerse():
+    """Una base creada antes del catálogo ISO completo puede tener acuerdos que
+    citan países que su tabla de países no tiene: la migración los agrega (y
+    anota lo que no es un código de país) en vez de impedir el arranque."""
+    import sqlite3
+
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {"DATABASE_URL": f"sqlite:///{tmp}/m.db", "PATH": "/usr/bin:/bin", "UPLOAD_DIR": f"{tmp}/archivos"}
+        alembic = [sys.executable, "-m", "alembic"]
+        r = subprocess.run(alembic + ["upgrade", "0064"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        assert r.returncode == 0, r.stdout + r.stderr
+        con = sqlite3.connect(f"{tmp}/m.db")
+        con.execute("DELETE FROM paises WHERE codigo IN ('DO', 'US')")
+        con.execute("INSERT INTO acuerdos_comerciales (codigo, nombre, origenes, destinos, activo) "
+                    "VALUES ('CAFTA-DR', 'x', 'US,DO,EUR', 'GT', 1)")
+        con.execute("INSERT OR IGNORE INTO paises (codigo, nombre, activo) VALUES ('GT', 'Guatemala', 1)")
+        con.commit()
+        con.close()
+        r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        assert r.returncode == 0, r.stdout + r.stderr
+        con = sqlite3.connect(f"{tmp}/m.db")
+        origenes = {c for (c,) in con.execute("SELECT p.codigo FROM acuerdo_origenes o JOIN paises p ON p.id = o.pais_id")}
+        assert origenes == {"US", "DO"}
+        assert con.execute("SELECT nombre FROM paises WHERE codigo = 'DO'").fetchone()[0] == "Dominican Republic"
+        assert "EUR" in con.execute("SELECT nota FROM acuerdos_comerciales WHERE codigo = 'CAFTA-DR'").fetchone()[0]
+
+
 def test_paquete_oficial_cargado(interno):
     caps = interno.get("/aranceles/oficial/capitulos").json()
     assert caps["total"] == 99 and caps["habilitados"] > 60
