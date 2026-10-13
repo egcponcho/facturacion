@@ -889,7 +889,9 @@ def _columna_virtual(modelo, nombre: str):
     if hasattr(modelo, "_rol_tercero"):  # proveedor o transportista: en su tercero
         dueno_medio, dueno_dir, padre = MedioContacto.tercero_id, Direccion.tercero_id, modelo.tercero_id
     else:
-        clave = {"sociedades": "sociedad_id", "centros": "centro_id", "contactos": "contacto_id"}[modelo.__tablename__]
+        clave = {"sociedades": "sociedad_id", "centros": "centro_id", "contactos": "contacto_id"}.get(modelo.__tablename__)
+        if clave is None:  # otro dato calculado (p. ej. las tallas de una escala): no se filtra por columna
+            return None
         dueno_medio, padre = getattr(MedioContacto, clave), modelo.id
         dueno_dir = getattr(Direccion, clave) if hasattr(Direccion, clave) else None
     if nombre == "correos":

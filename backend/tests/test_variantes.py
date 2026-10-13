@@ -68,3 +68,19 @@ def test_kit_con_articulos_de_varios_estilos(interno):
     assert interno.get("/catalogos/explosion/KIT0000001").json()["total"] == 3
     # El tipo no cambia después
     assert interno.patch(f"/catalogos/prepacks/{kit['id']}", {"tipo": "CURVA"}).status_code == 422
+
+
+def test_escala_de_tallas_en_json(interno):
+    """Las tallas de una escala se guardan como lista JSON ya expandida y el
+    formulario las sigue leyendo y escribiendo como texto."""
+    from app.modelos import EscalaTalla
+
+    escalas = {e["codigo"]: e for e in _cat(interno, "escalas")}
+    assert escalas["US-CALZ-ENT"]["tallas"] == "6, 7, 8, 9, 10, 11, 12, 13"
+    r = interno.post("/catalogos/escalas", {"codigo": "PRUEBA", "nombre": "Prueba", "regla": "TALLA", "tallas": "S, M=MED, 1-3"})
+    assert r.status_code == 200, r.text
+    assert r.json()["tallas"] == "S, M=MED, 1, 2, 3"
+    with SessionLocal() as db:
+        e = db.scalar(select(EscalaTalla).where(EscalaTalla.codigo == "PRUEBA"))
+        assert e.lista_tallas[1] == {"talla": "M", "codigo": "MED"} and len(e.lista_tallas) == 5
+    interno.delete_(f"/catalogos/escalas/{r.json()['id']}")
