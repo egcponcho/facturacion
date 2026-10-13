@@ -494,7 +494,7 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
       </div>
     </template>
     <template #detalle="{ fila: oc }">
-      <div class="subtabla">
+      <div>
         <p v-if="!detalles[oc.id]" class="ayuda">{{ t('Loading the lines…') }}</p>
         <template v-else>
           <p v-if="camposPropios('ordenes').some((c) => detalles[oc.id].oc.extra?.[c.clave] != null)" class="ayuda propios">

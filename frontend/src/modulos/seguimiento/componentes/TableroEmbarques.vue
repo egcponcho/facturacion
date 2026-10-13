@@ -6,6 +6,7 @@ import { api } from '@/nucleo/api'
 import { esInterno, sesion, ve } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
 import { TIEMPO, fmtDiaMes, fmtFecha, fmtNum, porUnidadTxt } from '@/nucleo/utils'
+import DetalleAnidado from '@/componentes/DetalleAnidado.vue'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
 import GraficoColumnas from '@/componentes/GraficoColumnas.vue'
@@ -150,7 +151,7 @@ watch(() => [props.filtros, sesion.proveedorId], () => {
           <span v-if="u.riesgo" class="etiqueta" :class="RIESGOS[u.riesgo][1]">{{ tx(RIESGOS[u.riesgo][0]) }}</span>
           <span class="separar fuerte">{{ porUnidadTxt(u.por_unidad, null) }}</span>
         </button>
-        <template v-if="explosiones[u.unidad_id]">
+        <DetalleAnidado v-if="explosiones[u.unidad_id]">
           <div v-for="o in explosiones[u.unidad_id].ocs" :key="o.oc_id" class="explosion-sub">
             <div class="explosion-oc-cabeza">
               <b class="codigo">{{ t('PO {0}', [o.oc]) }}</b>
@@ -177,7 +178,7 @@ watch(() => [props.filtros, sesion.proveedorId], () => {
               </template>
             </TablaDatos>
           </div>
-        </template>
+        </DetalleAnidado>
       </div>
     </template>
     <template #vacio>{{ t('No shipments with goods for these filters.') }}</template>

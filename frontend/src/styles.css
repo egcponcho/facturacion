@@ -552,10 +552,24 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); l
 .sel-columnas-op { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
 .sel-columnas-op:hover { background: var(--superficie-2); }
 .sel-columnas-menu > .btn { margin-top: 6px; width: 100%; justify-content: center; }
-.fila-hija > td { background: var(--superficie-2); padding: 0; }
+/* Detalle desplegable de una fila (TablaDatos → DetalleAnidado): un solo
+   aspecto en todo el sistema. Va con sangría y una guía a la izquierda que sale
+   de la flecha de la fila, sobre un fondo apenas más oscuro; una tabla dentro se
+   ve como tabla anidada (compacta, con su borde, sin sombra ni barra repetida). */
+.fila-hija > td { background: var(--superficie-2); padding: 0; white-space: normal; border-bottom: 1px solid var(--linea); }
 .fila-hija:hover > td { background: var(--superficie-2) !important; }
-.subtabla { padding: 12px 16px 16px 48px; }
-.subtabla .tabla-marco { border-radius: var(--radio); box-shadow: none; }
+.detalle-anidado { position: relative; padding: 12px 20px 16px 56px; font-size: var(--t-sm); }
+.detalle-anidado::before { content: ''; position: absolute; inset-block: 0 14px; inset-inline-start: 29px; width: 2px; border-radius: 2px; background: var(--acento-medio); }
+.detalle-anidado > :first-child { margin-top: 0; }
+.detalle-anidado > :last-child { margin-bottom: 0; }
+.detalle-anidado .detalle-anidado { padding-inline-start: 44px; }
+.detalle-anidado .detalle-anidado::before { inset-inline-start: 22px; }
+.td-anidada > .tabla-marco { box-shadow: none; border-radius: var(--radio); }
+.td-anidada > .tabla-marco.tabla-fija { border-end-start-radius: 0; border-end-end-radius: 0; }
+.td-anidada .tabla th { position: static; background: color-mix(in srgb, var(--superficie-2) 60%, var(--superficie)); }
+.td-anidada > .paginacion { padding: 6px 10px; border-radius: 0 0 var(--radio) var(--radio); }
+.td-anidada > .filtros { margin-bottom: 6px; }
+.td-barra-anidada { justify-content: flex-start; }
 .vacio { padding: 32px 20px; text-align: center; color: var(--tinta-2); }
 .vacio .btn { margin-top: 12px; }
 .cajas-rango { font-stretch: 118%; font-weight: 700; white-space: nowrap; }
@@ -1014,7 +1028,7 @@ th.num .orden-btn { flex-direction: row-reverse; }
 .explosion-oc-cabeza { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
 .enlace-bloque { width: 100%; background: var(--superficie-2); border: 1px solid var(--linea); border-radius: var(--radio); padding: 8px 10px; color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .enlace-bloque:hover { border-color: var(--acento); }
-.explosion-sub { margin: 10px 0 0 22px; }
+.explosion-sub + .explosion-sub { margin-top: 12px; }
 /* Formularios de alta y edición en ventana emergente: dos columnas */
 .modal .form-catalogo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; max-height: none; overflow: visible; }
 .modal .form-catalogo > .campo:has(textarea), .modal .form-catalogo > div.campo, .modal .form-catalogo > .check,
@@ -1077,7 +1091,8 @@ th.num .orden-btn { flex-direction: row-reverse; }
   .tabla.tarjetas > * > tr.fila-completa { padding: 0; }
   .tabla.tarjetas > * > tr.fila-completa > td { display: block; text-align: start; padding: 0; }
   .tabla.tarjetas > * > tr.fila-completa > td::before { content: none; }
-  .tabla.tarjetas .subtabla { padding: 10px; }
+  .tabla.tarjetas .detalle-anidado { padding: 10px 10px 12px 18px; }
+  .tabla.tarjetas .detalle-anidado::before { inset-inline-start: 6px; }
   .tabla.tarjetas td.chk { width: auto; }
 }
 @media (max-width: 900px) {

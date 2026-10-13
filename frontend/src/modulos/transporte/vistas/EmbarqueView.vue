@@ -596,7 +596,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
         <template #celda-cajas="{ fila: g }">{{ fmtNum(g.cajas) }}</template>
         <template #celda-cbm="{ fila: g }">{{ fmtNum(g.cbm, 2) }}</template>
         <template #detalle="{ fila: g }">
-          <div class="subtabla">
+          <div>
             <TablaDatos tabla="embarque_doc_disponibles_pls" :columnas="columnasPlsDisponibles" :filas="g.packing_lists" :vistas-guardadas="false"
                         seleccionable :seleccion="idsPls(g).filter((id) => selD.tiene(id))" :etiqueta="t('See the PLs of {0}', [g.factura])"
                         @update:seleccion="(ids) => elegirPls(g, ids)">
