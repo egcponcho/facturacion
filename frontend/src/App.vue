@@ -36,6 +36,7 @@ const navegacion = computed(() => {
   if (puede('oc.ver')) items.push({ to: '/ordenes', texto: t('Orders'), icono: 'ordenes', cuenta: carrito.items.length || null })
   if (puede('factura.ver')) items.push({ to: '/facturas', texto: t('Invoices'), icono: 'factura' })
   if (puede('transporte.gestionar')) items.push({ to: '/transporte', texto: t('Shipments'), icono: 'barco' })
+  if (puede('inventario.ver') || puede('recepcion.registrar')) items.push({ to: '/inventario', texto: t('Stock'), icono: 'caja' })
   if (puede('comercial.ver')) items.push({ to: '/comercial/documentos', texto: t('Billing'), icono: 'moneda' })
   if (puede('producto.ver')) items.push({ to: '/productos', texto: t('Products'), icono: 'etiqueta' })
   if (puede('seguimiento.ver')) items.push({ to: '/seguimiento', texto: t('Tracking'), icono: 'ruta' })

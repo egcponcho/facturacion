@@ -32,6 +32,7 @@ REGLAS = {
     "COMPATIBILIDAD_ADVERTENCIA": "PO data that only warns when mixed in one invoice",
     "APROBACION_CUATRO_OJOS": "Whoever creates or sends a PO cannot approve it",
     "APROBAR_OC_IMPORTADAS": "POs loaded from the ERP also go through the approval rules",
+    "EXIGIR_LIBERACION_ANTES_ENTREGA": "A load unit is delivered to the warehouse only after its customs release",
 }
 # Datos de la OC que pueden ser parte de las reglas de compatibilidad
 CAMPOS_COMPATIBILIDAD = ("sociedad", "centro", "centro_destino", "moneda", "incoterm", "puerto_despacho", "pais_origen")

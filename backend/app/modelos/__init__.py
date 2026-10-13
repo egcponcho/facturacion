@@ -77,6 +77,8 @@ from app.modelos.empaque import (
     PlantillaCaja,
     PLLinea,
     RecepcionLinea,
+    RecepcionMovimiento,
+    RecepcionRegistro,
     TipoEmpaque,
     tipo_empaque_contiene,
 )
@@ -236,6 +238,8 @@ __all__ = [
     "proveedor_sociedades",
     "Puerto",
     "RecepcionLinea",
+    "RecepcionMovimiento",
+    "RecepcionRegistro",
     "RegionLeadTime",
     "ReglaAprobacionOC",
     "ReglaClasificacion",

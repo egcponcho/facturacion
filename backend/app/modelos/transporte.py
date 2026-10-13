@@ -191,6 +191,13 @@ class UnidadCarga(DeOrganizacion, Base):
     sello: Mapped[str | None] = mapped_column(String(30))
     capacidad_cbm: Mapped[float | None] = mapped_column(Float)
     capacidad_kg: Mapped[float | None] = mapped_column(Float)
+    # Cada contenedor puede liberarse, entregarse y recibirse por separado, y
+    # llegar a otra bodega o bodega fiscal que la del embarque
+    centro: Mapped[str | None] = mapped_column(String(10))
+    liberada_en: Mapped[date | None] = mapped_column(Date)
+    entregada_en: Mapped[date | None] = mapped_column(Date)
+    recepcion_estado: Mapped[str] = mapped_column(String(12), default="PENDIENTE", server_default="PENDIENTE")
+    recibida_en: Mapped[date | None] = mapped_column(Date)
 
     embarque: Mapped[Embarque] = relationship(back_populates="unidades")
     packing_lists: Mapped[list[PackingList]] = relationship(back_populates="unidad")
@@ -201,6 +208,8 @@ class EventoEmbarque(DeOrganizacion, Base):
     __table_args__ = (Index("ix_eventos_embarque_fecha_tipo", "fecha", "tipo"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     embarque_id: Mapped[int] = mapped_column(ForeignKey("embarques.id"), index=True)
+    # Un hito de un solo contenedor (liberación, entrega); vacío: todo el embarque
+    unidad_carga_id: Mapped[int | None] = mapped_column(ForeignKey("unidades_carga.id"), index=True)
     tipo: Mapped[str] = mapped_column(String(20))
     fecha: Mapped[datetime] = mapped_column(DateTime)
     ubicacion: Mapped[str | None] = mapped_column(String(150))

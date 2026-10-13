@@ -67,6 +67,7 @@ class UnidadPatch(BaseModel):
     tipo: str | None = None
     numero: str | None = None
     sello: str | None = None
+    centro: str | None = Field(None, max_length=10)  # bodega o bodega fiscal a la que llega
 
 
 class AsignarPL(BaseModel):
@@ -89,3 +90,30 @@ class EventoIn(BaseModel):
     fecha: datetime
     ubicacion: str | None = None
     observacion: str | None = None
+    # Liberación o entrega de un solo contenedor (vacío: todo el embarque)
+    unidad_carga_id: int | None = None
+
+
+class MovimientoRecepcionIn(BaseModel):
+    pl_linea_id: int
+    cantidad: float = 0  # recibido en este conteo (en un ajuste puede ser negativo)
+    danada: float = 0
+    observacion: str | None = Field(None, max_length=300)
+
+
+class RecepcionUnidadIn(BaseModel):
+    tipo: str = Field("CONTEO", pattern="^(CONTEO|AJUSTE)$")
+    centro: str | None = Field(None, max_length=10)  # bodega o bodega fiscal (vacía: la de la unidad o el embarque)
+    fecha: date  # fecha en que se recibió (no la de captura)
+    observacion: str | None = Field(None, max_length=500)
+    lineas: list[MovimientoRecepcionIn] = Field(min_length=1, max_length=2000)
+
+
+class RecepcionSinConteoIn(BaseModel):
+    centro: str | None = Field(None, max_length=10)
+    fecha: date
+    observacion: str | None = Field(None, max_length=500)
+
+
+class CierreRecepcionIn(BaseModel):
+    motivo: str | None = Field(None, max_length=500)

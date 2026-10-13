@@ -205,6 +205,10 @@ class PlantillaCaja(DeOrganizacion, Base):
 
 
 class RecepcionLinea(DeOrganizacion, Base):
+    """Lo recibido de una línea del PL: la suma de sus movimientos de
+    recepción (conteos parciales, ajustes, confirmación sin conteo). La fecha
+    es la operativa del último movimiento; lo dañado es parte de lo recibido."""
+
     __tablename__ = "recepciones"
     id: Mapped[int] = mapped_column(primary_key=True)
     pl_linea_id: Mapped[int] = mapped_column(ForeignKey("pl_lineas.id"), unique=True)
@@ -219,3 +223,46 @@ class RecepcionLinea(DeOrganizacion, Base):
     @validates("cantidad_recibida", "cantidad_danada")
     def _cantidad(self, _k, v):
         return cant(v)  # sin residuos de coma flotante al sumar y restar
+
+
+class RecepcionRegistro(DeOrganizacion, Base):
+    """Una recepción en bodega de una unidad de carga (contenedor, guía,
+    camión): en qué bodega o bodega fiscal, en qué fecha (la del hecho, no la
+    de captura), quién y qué tipo de registro es. Una unidad se puede recibir
+    en varias partes (conteos parciales); una corrección es un ajuste con
+    motivo. Sus líneas son los movimientos."""
+
+    __tablename__ = "recepcion_registros"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    unidad_carga_id: Mapped[int] = mapped_column(ForeignKey("unidades_carga.id"), index=True)
+    centro: Mapped[str] = mapped_column(String(10), index=True)  # bodega o bodega fiscal que recibe
+    fecha: Mapped[date] = mapped_column(Date, index=True)
+    tipo: Mapped[str] = mapped_column(String(12))  # CONTEO | AJUSTE | SIN_CONTEO
+    observacion: Mapped[str | None] = mapped_column(String(500))
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    unidad: Mapped["UnidadCarga"] = relationship()
+    movimientos: Mapped[list["RecepcionMovimiento"]] = relationship(
+        back_populates="registro", cascade="all, delete-orphan", order_by="RecepcionMovimiento.id"
+    )
+
+
+class RecepcionMovimiento(DeOrganizacion, Base):
+    """Cantidad recibida y dañada de una línea del PL en un registro. En un
+    ajuste puede ser negativa (corrige un conteo anterior)."""
+
+    __tablename__ = "recepcion_movimientos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    registro_id: Mapped[int] = mapped_column(ForeignKey("recepcion_registros.id", ondelete="CASCADE"), index=True)
+    pl_linea_id: Mapped[int] = mapped_column(ForeignKey("pl_lineas.id"), index=True)
+    cantidad: Mapped[float] = mapped_column(Cantidad, default=0)
+    danada: Mapped[float] = mapped_column(Cantidad, default=0)
+    observacion: Mapped[str | None] = mapped_column(String(300))
+
+    registro: Mapped[RecepcionRegistro] = relationship(back_populates="movimientos")
+    pl_linea: Mapped[PLLinea] = relationship()
+
+    @validates("cantidad", "danada")
+    def _cantidad(self, _k, v):
+        return cant(v)

@@ -31,6 +31,7 @@ from app.modulos.maestros import api_listas as maestros_api_listas
 from app.modulos.plataforma import api as plataforma_api
 from app.modulos.productos import api as productos_api
 from app.modulos.productos import api_flujo as productos_api_flujo
+from app.modulos.recepcion import api as recepcion_api
 from app.modulos.reportes import api as reportes_api
 from app.modulos.seguimiento import api as seguimiento_api
 from app.modulos.transporte import api as transporte_api
@@ -98,7 +99,9 @@ ETIQUETAS = [
                                         "documentos."},
     {"name": "Listas de empaque", "description": "Listas de empaque con su estructura de cajas, inner packs y "
                                                  "prepacks, y plantillas de caja."},
-    {"name": "Transporte", "description": "Embarques, unidades de carga, hitos, recolección, recepción y lead times."},
+    {"name": "Transporte", "description": "Embarques, unidades de carga, hitos, recolección, costos logísticos y lead times."},
+    {"name": "Recepción e inventario", "description": "Recepción en bodega por contenedor (conteos, ajustes, cierre) y "
+                                                     "existencias por bodega."},
     {"name": "Productos", "description": "Fichas técnicas de producto, su flujo de revisión y aprobación y sus "
                                          "partidas por país."},
     {"name": "Clasificación arancelaria", "description": "Arancel oficial, motor de clasificación (familias, "
@@ -186,7 +189,8 @@ async def _error_validacion(_: Request, exc: RequestValidationError):
 # (p. ej. /seguimiento/exportar) va antes que una con parámetro del mismo prefijo.
 RUTAS = (
     clasificacion_api, acceso_api, productos_api_flujo, empresa_api, maestros_api, clasificacion_api_conocimiento,
-    compras_api, compras_api_flujo, facturacion_api, empaque_api, productos_api, transporte_api, comun_api, seguimiento_api,
+    compras_api, compras_api_flujo, facturacion_api, empaque_api, productos_api, transporte_api, recepcion_api, comun_api,
+    seguimiento_api,
     transporte_api_leadtimes, empaque_api_plantillas, maestros_api_listas, plataforma_api, reportes_api, comercial_api,
 )
 ETIQUETA_DE = {
@@ -194,7 +198,7 @@ ETIQUETA_DE = {
     maestros_api: "Datos maestros", maestros_api_listas: "Datos maestros",
     compras_api: "Órdenes de compra", compras_api_flujo: "Órdenes de compra", facturacion_api: "Facturas",
     empaque_api: "Listas de empaque", empaque_api_plantillas: "Listas de empaque",
-    transporte_api: "Transporte", transporte_api_leadtimes: "Transporte",
+    transporte_api: "Transporte", transporte_api_leadtimes: "Transporte", recepcion_api: "Recepción e inventario",
     productos_api: "Productos", productos_api_flujo: "Productos",
     clasificacion_api: "Clasificación arancelaria", clasificacion_api_conocimiento: "Clasificación arancelaria",
     seguimiento_api: "Seguimiento e indicadores", reportes_api: "Reportes", comun_api: "Común",

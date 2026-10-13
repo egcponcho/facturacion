@@ -39,7 +39,10 @@ RESTRICCIONES: dict[str, list[tuple[str, str]]] = {
     "grupo_cajas_items": _no_negativo("cantidad_por_caja"),
     "plantillas_caja": _no_negativo("cantidad_por_caja", "largo", "ancho", "alto", "tara"),
     "tipos_empaque": _no_negativo("largo", "ancho", "alto", "tara", "peso_max", "max_unidades", "max_contenido"),
-    "recepciones": _no_negativo("cantidad_recibida", "cantidad_danada"),
+    "recepciones": _no_negativo("cantidad_recibida", "cantidad_danada") + [
+        ("danada_hasta_recibida", "cantidad_danada IS NULL OR cantidad_danada <= cantidad_recibida")],
+    "recepcion_registros": [("tipo", _en("tipo", ("CONTEO", "AJUSTE", "SIN_CONTEO")))],
+    "unidades_carga": [("recepcion_estado", _en("recepcion_estado", ("PENDIENTE", "EN_RECEPCION", "RECIBIDA")))],
     "embarques": [("estado", _en("estado", estados.EMBARQUE.estados))],
     "reglas_impuesto": _no_negativo("tasa") + [_vigencia(), _vigencia("umbral_desde", "umbral_hasta")],
     "incisos_nacionales": [_vigencia()],

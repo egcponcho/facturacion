@@ -62,6 +62,8 @@ const POR_TIPO = {
     APLICADA: [t('Fully applied'), 'ok'],
   },
   pago: { REGISTRADO: [t('Registered'), 'ok'], ANULADO: [t('Voided'), 'error'] },
+  // Recepción en bodega de cada contenedor
+  recepcion: { PENDIENTE: [t('Not received'), 'neutro'], EN_RECEPCION: [t('Being received'), 'aviso'], RECIBIDA: [t('Received'), 'ok'] },
 }
 
 // Cómo viene de fábrica

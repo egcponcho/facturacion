@@ -37,7 +37,6 @@ const selG = useSeleccion()
 const filtro = reactive({ texto: '', solo_pendiente: true })
 const modal = ref(null)
 const ocupado = ref(false)
-const recepcion = reactive({})
 const explosion = ref(null)
 
 const url = (s = '') => `/packing-lists/${props.id}${s}`
@@ -50,13 +49,6 @@ async function cargar() {
     pl.value = await api.get(url())
     selL.podar(pl.value.lineas.map((l) => l.id))
     selG.podar(pl.value.grupos.map((g) => g.id))
-    for (const l of pl.value.lineas) {
-      recepcion[l.id] = {
-        cantidad_recibida: l.recepcion?.cantidad_recibida ?? l.cantidad,
-        cantidad_danada: l.recepcion?.cantidad_danada ?? 0,
-        observacion: l.recepcion?.observacion ?? '',
-      }
-    }
     if (!tab.value || (!editable.value && ['empacar', 'revision'].includes(tab.value))) {
       tab.value = editable.value && pendientes.value.length ? 'empacar' : editable.value ? 'revision' : 'cajas'
     }
@@ -245,14 +237,16 @@ const columnasContenido = [
   { clave: 'en_cajas', texto: t('In cartons'), num: true, prioridad: 2 },
   colEstadoEmpaque,
 ]
+// La recepción es del contenedor en el que viaja el PL: aquí solo se consulta
 const columnasRecepcion = [
   { clave: 'fila', texto: t('Row'), fija: true, prioridad: 1, valor: (l) => `${l.estilo} ${l.talla}` },
   { clave: 'cantidad', texto: t('Per PL'), num: true, prioridad: 2 },
-  { clave: 'recibida', texto: t('Received'), num: true, prioridad: 1, filtro: false, ordenable: false },
-  { clave: 'danada', texto: t('Damaged'), num: true, prioridad: 1, filtro: false, ordenable: false },
-  { clave: 'diferencia', texto: t('Difference'), num: true, prioridad: 2, filtro: false, ordenable: false },
+  { clave: 'recibida', texto: t('Received'), num: true, prioridad: 1, valor: (l) => l.recepcion?.cantidad_recibida ?? 0 },
+  { clave: 'danada', texto: t('Damaged'), num: true, prioridad: 1, valor: (l) => l.recepcion?.cantidad_danada ?? 0 },
+  { clave: 'diferencia', texto: t('Difference'), num: true, prioridad: 2, valor: (l) => (l.recepcion?.cantidad_recibida ?? 0) - l.cantidad },
   { clave: 'observacion', texto: t('Remark'), prioridad: 3, filtro: false, ordenable: false },
 ]
+const rec = computed(() => pl.value?.recepcion_unidad)
 // La selección de TablaDatos es una lista de claves; aquí vive en un Set (useSeleccion)
 const elegir = (s) => (ids) => {
   s.limpiar()
@@ -515,11 +509,6 @@ function cambiarEstado() {
   accion(() => api.post(url(`/${a}`), { motivo }), (r) => (a === 'reabrir'
     ? t('Packing list reopened.{0}', [r.nota ? ` ${r.nota}` : '']) : t('Packing list cancelled; its quantities went back to the invoice.')))
 }
-function guardarRecepcion() {
-  accion(() => api.post(url('/recepcion'), {
-    lineas: pl.value.lineas.map((l) => ({ pl_linea_id: l.id, ...recepcion[l.id], cantidad_recibida: Number(recepcion[l.id].cantidad_recibida), cantidad_danada: Number(recepcion[l.id].cantidad_danada) })),
-  }), (r) => (r.diferencias.length ? t('Receipt saved with {0}.', [plural(r.diferencias.length, t('difference'), t('differences'))]) : t('Receipt saved with no differences.')))
-}
 const descargar = (formato) => api.descargar(url('/exportar'), t('packing_list.{0}', [formato]), { formato }).catch(errorApi)
 
 function irA(accionRevision) {
@@ -548,8 +537,10 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
           <MasOpciones>
             <button class="btn btn-fantasma" :title="t('Packing list as PDF, ready to print and sign')" @click="descargar('pdf')"><Icono nombre="descargar" />PDF</button>
             <button class="btn btn-fantasma" :title="t('Packing list as Excel')" @click="descargar('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
-            <button v-if="pl.puede.reabrir" class="btn" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">{{ t('Reopen to correct') }}</button>
-            <button v-if="pl.puede.cancelar" class="btn btn-peligro" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">{{ t('Cancel PL') }}</button>
+            <button v-if="pl.puede.reabrir" class="btn" :disabled="!!pl.bloqueos.reabrir" :title="tx(pl.bloqueos.reabrir || '')" @click="modal = { tipo: 'estado', accion: 'reabrir', motivo: '' }">{{ t('Reopen to correct') }}</button>
+            <span v-if="pl.puede.reabrir && pl.bloqueos.reabrir" class="ayuda bloqueo-motivo"><Icono nombre="info" :tam="14" />{{ tx(pl.bloqueos.reabrir) }}</span>
+            <button v-if="pl.puede.cancelar" class="btn btn-peligro" :disabled="!!pl.bloqueos.cancelar" :title="tx(pl.bloqueos.cancelar || '')" @click="modal = { tipo: 'estado', accion: 'cancelar', motivo: '' }">{{ t('Cancel PL') }}</button>
+            <span v-if="pl.puede.cancelar && pl.bloqueos.cancelar && pl.bloqueos.cancelar !== pl.bloqueos.reabrir" class="ayuda bloqueo-motivo"><Icono nombre="info" :tam="14" />{{ tx(pl.bloqueos.cancelar) }}</span>
           </MasOpciones>
           <button v-if="pl.puede.finalizar" class="btn" :class="{ 'btn-primario': listoParaFinalizar }" :disabled="ocupado" @click="listoParaFinalizar ? finalizar() : (tab = 'revision')">
             <Icono nombre="check" />{{ tx(listoParaFinalizar ? t('Finalize packing list') : t('Finalize ({0} pending)', [pl.validaciones.length])) }}
@@ -602,7 +593,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       <button v-if="!editable" class="pestana" role="tab" :aria-selected="tab === 'contenido'" @click="tab = 'contenido'">
         <Icono nombre="lista" :tam="16" />{{ t('Contents') }}<span class="cuenta">{{ tx(pl.lineas.length) }}</span>
       </button>
-      <button v-if="pl.puede.recepcion" class="pestana" role="tab" :aria-selected="tab === 'recepcion'" @click="tab = 'recepcion'"><Icono nombre="importar" :tam="16" />{{ t('Receipt') }}</button>
+      <button v-if="rec && rec.recepcion_estado !== 'PENDIENTE'" class="pestana" role="tab" :aria-selected="tab === 'recepcion'" @click="tab = 'recepcion'"><Icono nombre="importar" :tam="16" />{{ t('Receipt') }}</button>
     </div>
 
     <!-- To pack -->
@@ -837,18 +828,19 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
     <!-- Receipt -->
     <section v-if="tab === 'recepcion'" class="panel">
       <div class="panel-cabeza">
-        <div><h2>{{ t('Warehouse receipt') }}</h2><p>{{ t('Record what was received and damaged per row; differences are kept in the history.') }}</p></div>
-        <button class="btn btn-primario" :disabled="ocupado" @click="guardarRecepcion">{{ t('Save receipt') }}</button>
+        <div><h2>{{ t('Warehouse receipt') }}</h2><p>{{ t('It is recorded per load unit: {0} ({1}), at warehouse {2}.', [rec.unidad, rec.embarque, rec.centro || '—']) }}</p></div>
+        <EstadoBadge :estado="rec.recepcion_estado" tipo="recepcion" />
+        <router-link :to="`/transporte/unidades/${rec.unidad_id}/recepcion`" class="btn btn-primario"><Icono nombre="lista" />{{ rec.puede_registrar ? t('Receive the load unit') : t('See the receipt') }}</router-link>
       </div>
       <TablaDatos tabla="pl_doc_recepcion" :columnas="columnasRecepcion" :filas="pl.lineas" :vistas-guardadas="false" :etiqueta="t('Warehouse receipt')">
         <template #celda-fila="{ fila: l }">{{ tx(l.estilo) }} <b>{{ tx(l.talla) }}</b><span class="sub codigo">{{ tx(l.codigo_articulo) }}</span></template>
         <template #celda-cantidad="{ fila: l }">{{ cantTxt(l.cantidad, l.unidad) }}</template>
-        <template #celda-recibida="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num ancho-s con-borde" type="number" min="0" :step="pasoCantidad(l.unidad)" :aria-label="t('Received {0}', [ref_(l)])" /></template>
-        <template #celda-danada="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num ancho-s con-borde" type="number" min="0" :step="pasoCantidad(l.unidad)" :aria-label="t('Damaged {0}', [ref_(l)])" /></template>
+        <template #celda-recibida="{ fila: l }">{{ cantTxt(l.recepcion?.cantidad_recibida ?? 0, l.unidad) }}</template>
+        <template #celda-danada="{ fila: l }">{{ cantTxt(l.recepcion?.cantidad_danada ?? 0, l.unidad) }}</template>
         <template #celda-diferencia="{ fila: l }">
-          <span :class="{ 'etiqueta error': recepcion[l.id].cantidad_recibida !== l.cantidad }">{{ fmtNum(recepcion[l.id].cantidad_recibida - l.cantidad) }}</span>
+          <span :class="{ 'etiqueta error': (l.recepcion?.cantidad_recibida ?? 0) !== l.cantidad }">{{ fmtNum((l.recepcion?.cantidad_recibida ?? 0) - l.cantidad) }}</span>
         </template>
-        <template #celda-observacion="{ fila: l }"><input v-model="recepcion[l.id].observacion" class="celda con-borde" :aria-label="t('Remark {0}', [ref_(l)])" /></template>
+        <template #celda-observacion="{ fila: l }">{{ tx(l.recepcion?.observacion || '') }}</template>
       </TablaDatos>
     </section>
   </template>

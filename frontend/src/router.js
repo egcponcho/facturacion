@@ -32,6 +32,8 @@ const routes = [
   // vuelve a comprobarlo en cada petición)
   { path: '/transporte', component: () => import('@/modulos/transporte/vistas/EmbarquesView.vue'), meta: { permiso: 'transporte.gestionar' } },
   { path: '/transporte/embarques/:id', component: () => import('@/modulos/transporte/vistas/EmbarqueView.vue'), props: true, meta: { permiso: 'transporte.gestionar' } },
+  { path: '/transporte/unidades/:id(\\d+)/recepcion', component: () => import('@/modulos/transporte/vistas/RecepcionView.vue'), props: true, meta: { permiso: ['recepcion.registrar', 'transporte.gestionar', 'inventario.ver'] } },
+  { path: '/inventario', component: () => import('@/modulos/transporte/vistas/ExistenciasView.vue'), meta: { permiso: ['inventario.ver', 'recepcion.registrar'] } },
   // La OC una por una se crea en el asistente (antes era un modo de esta pantalla)
   { path: '/importar', component: () => import('@/modulos/compras/vistas/ImportarView.vue'), meta: { permiso: 'oc.importar' },
     beforeEnter: (to) => (to.query.modo === 'formulario' ? '/ordenes/nueva' : true) },
@@ -51,7 +53,8 @@ const routes = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior: () => ({ top: 0 }),
+  // Un enlace con #ancla lleva a esa parte de la página (p. ej. las alertas del inicio)
+  scrollBehavior: (to) => (to.hash ? { el: to.hash, top: 16, behavior: 'smooth' } : { top: 0 }),
 })
 
 // Barra de progreso fina mientras carga la página siguiente

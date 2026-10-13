@@ -4,10 +4,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
-from app.core.estados import EMBARQUE, PL
+from app.core.estados import PL
 from app.core.numeracion import mayor_sufijo
 from app.modelos import (
-    Alerta,
     Factura,
     FacturaLinea,
     GrupoCajas,
@@ -15,7 +14,6 @@ from app.modelos import (
     PackingList,
     PlantillaCaja,
     PLLinea,
-    RecepcionLinea,
     TipoEmpaque,
     Usuario,
     ahora,
@@ -40,6 +38,7 @@ from app.modulos.facturacion.cantidades import (
 from app.modulos.facturacion.estados import EDITABLE_PL, ESTADO_TXT
 from app.modulos.facturacion.facturas import cargar_factura
 from app.modulos.maestros.unidades import error_cantidad
+from app.modulos.recepcion.recepcion import de_pl as recepcion_de_pl
 from app.modulos.transporte.sugerencias import sugerir_unidades
 
 CAMPOS_VALOR = ("largo", "ancho", "alto", "tara")
@@ -1003,14 +1002,33 @@ def finalizar_pl(db: Session, user: Usuario, pl_id: int, version: int) -> dict:
     return {"estado": pl.estado, "version": pl.version}
 
 
+def bloqueo_reabrir(pl: PackingList) -> str | None:
+    """Por qué el PL no se puede reabrir (None: se puede). La pantalla lo
+    muestra junto al botón y la acción usa la misma regla."""
+    if not PL.puede("reabrir", pl.estado):
+        return None if pl.estado == "CANCELADO" else "Only a finalized packing list is reopened."
+    if pl.unidad and pl.unidad.embarque.estado != "PLANIFICADO":
+        return f"{pl.numero} is already traveling on {pl.unidad.embarque.codigo}; it cannot be reopened."
+    return None
+
+
+def bloqueo_cancelar(pl: PackingList, user: Usuario) -> str | None:
+    if not PL.puede("cancelar", pl.estado):
+        return "The packing list is already cancelled."
+    if user.rol == "proveedor" and pl.estado != "BORRADOR":
+        return "You can only cancel draft packing lists."
+    if pl.asignacion == "CONFIRMADA":
+        return "First remove the PL from its load unit."
+    return None
+
+
 def reabrir_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> dict:
     exigir(user, "pl.reabrir")
     motivo = requerir_motivo(motivo, "reopen the packing list")
     pl = cargar_pl(db, user, pl_id)
     PL.exigir("reabrir", pl.estado, "no_editable")
-    if pl.unidad and pl.unidad.embarque.estado != "PLANIFICADO":
-        raise ErrorNegocio(f"{pl.numero} is already traveling on {pl.unidad.embarque.codigo}; it cannot be reopened.", 409,
-                           "embarque_cerrado")
+    if (bloqueo := bloqueo_reabrir(pl)):
+        raise ErrorNegocio(bloqueo, 409, "embarque_cerrado")
     nota = None
     if pl.unidad:
         # Solo lo finalizado va en un embarque: al reabrirlo sale de la unidad de carga
@@ -1027,10 +1045,9 @@ def cancelar_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> d
     exigir(user, "pl.cancelar")
     pl = cargar_pl(db, user, pl_id)
     PL.exigir("cancelar", pl.estado, "no_editable")
-    if user.rol == "proveedor" and pl.estado != "BORRADOR":
-        raise ErrorNegocio("You can only cancel draft packing lists.", 403, "sin_permiso")
-    if pl.asignacion == "CONFIRMADA":
-        raise ErrorNegocio("First remove the PL from its load unit.", 409, "pl_en_transporte")
+    if (bloqueo := bloqueo_cancelar(pl, user)):
+        raise ErrorNegocio(bloqueo, 403 if "draft" in bloqueo else 409,
+                           "sin_permiso" if "draft" in bloqueo else "pl_en_transporte")
     if pl.estado != "BORRADOR":
         motivo = requerir_motivo(motivo, "cancel the packing list")
     pl.estado = "CANCELADO"
@@ -1039,59 +1056,6 @@ def cancelar_pl(db: Session, user: Usuario, pl_id: int, motivo: str | None) -> d
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "cancelar", None, motivo, factura_id=pl.factura_id)
     return {"estado": pl.estado}
-
-
-# ---- Recepción --------------------------------------------------------------
-def _exigir_recibible(pl: PackingList) -> None:
-    """Se recibe una lista finalizada cuyo embarque ya llegó (docs/FLUJOS.md §3)."""
-    PL.exigir("recibir", pl.estado, "no_editable")
-    if not pl.unidad:
-        raise ErrorNegocio("The packing list is not on a shipment yet: it is received when its shipment arrives.",
-                           409, "sin_embarque")
-    EMBARQUE.exigir("recibir", pl.unidad.embarque.estado, "embarque_no_llego")
-
-
-def recibir_sin_novedad(db: Session, user: Usuario, pl: PackingList) -> None:
-    """Las líneas aún sin recepción quedan recibidas completas y sin daños."""
-    for pll in pl.lineas:
-        if not pll.recepcion:
-            pll.recepcion = RecepcionLinea(cantidad_recibida=pll.cantidad, cantidad_danada=0, usuario_id=user.id,
-                                           observacion="Received without differences")
-
-
-def registrar_recepcion(db: Session, user: Usuario, pl_id: int, datos) -> dict:
-    from app.modulos.transporte.transporte import completar_recepcion
-
-    exigir(user, "recepcion.registrar")
-    pl = cargar_pl(db, user, pl_id)
-    _exigir_recibible(pl)
-    diferencias = []
-    for item in datos.lineas:
-        pll = _linea(pl, item.pl_linea_id)
-        rec = pll.recepcion
-        if not rec:
-            # Desde el padre: en SQLAlchemy 2 asignar el padre en el hijo no lo agrega a la sesión
-            rec = pll.recepcion = RecepcionLinea(cantidad_recibida=0)
-        for valor in (item.cantidad_recibida, item.cantidad_danada):
-            if valor and (msg := error_cantidad(valor, pll.factura_linea.unidad)):
-                raise ErrorNegocio(f"{_ref(pll)}: {msg}", 422, "validacion")
-        rec.cantidad_recibida = item.cantidad_recibida
-        rec.cantidad_danada = item.cantidad_danada
-        rec.observacion = (item.observacion or "").strip() or None
-        rec.usuario_id = user.id
-        rec.fecha = ahora()
-        if item.cantidad_recibida != pll.cantidad or item.cantidad_danada:
-            diferencias.append({"fila": _ref(pll), "esperado": pll.cantidad,
-                                "recibido": item.cantidad_recibida, "danado": item.cantidad_danada})
-    registrar(db, user, "packing_list", pl.id, "recepcion", {"diferencias": diferencias}, factura_id=pl.factura_id)
-    if diferencias:
-        # Faltantes o daños: el equipo interno lo ve en sus alertas para reclamarlo
-        db.add(Alerta(proveedor_id=pl.factura.proveedor_id, tipo="recepcion_diferencia",
-                      mensaje=f"{pl.numero} ({nombre_factura(pl.factura)}): {len(diferencias)} lines received with differences.",
-                      referencia={"pl_id": pl.id, "diferencias": diferencias[:20]}))
-    db.flush()
-    recibido = completar_recepcion(db, user, pl.unidad.embarque)
-    return {"diferencias": diferencias, "embarque_recibido": recibido}
 
 
 # ---- Consulta ---------------------------------------------------------------
@@ -1275,12 +1239,13 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
         "puede": {
             "editar": editable,
             "finalizar": editable and "pl.finalizar" in permisos,
+            # Visible con permiso; si la regla lo impide, el motivo va en `bloqueos`
             "reabrir": pl.estado == "FINALIZADO" and "pl.reabrir" in permisos,
             "cancelar": pl.estado != "CANCELADO" and "pl.cancelar" in permisos and (es_interno(user) or pl.estado == "BORRADOR"),
-            # Se recibe cuando el embarque ya llegó (docs/FLUJOS.md §3)
-            "recepcion": "recepcion.registrar" in permisos and PL.puede("recibir", pl.estado) and bool(pl.unidad)
-                         and EMBARQUE.puede("recibir", pl.unidad.embarque.estado),
         },
+        "bloqueos": {"reabrir": bloqueo_reabrir(pl), "cancelar": bloqueo_cancelar(pl, user)},
+        # La recepción es del contenedor en el que viaja (docs/FLUJOS.md §3)
+        "recepcion_unidad": recepcion_de_pl(db, user, pl),
     }
 
 

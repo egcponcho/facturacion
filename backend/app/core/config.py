@@ -130,6 +130,8 @@ class Settings:
     # Las OCs que llegan del ERP ya vienen aprobadas; con esta regla pasan
     # además por las reglas de aprobación de la plataforma
     APROBAR_OC_IMPORTADAS: bool = False
+    # Un contenedor solo se entrega en bodega después de su liberación aduanera
+    EXIGIR_LIBERACION_ANTES_ENTREGA: bool = False
 
 
     def validar(self) -> None:

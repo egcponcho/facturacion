@@ -19,9 +19,9 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import TarjetaParte from '@/componentes/TarjetaParte.vue'
 import { datosModo, iconoUnidad, useRutas } from '@/composables/useRutas'
 import { estado as leerEstado } from '@/nucleo/estados.js'
-import { sesion } from '@/stores/sesion'
+import { puede, sesion } from '@/stores/sesion'
 import { avisar, errorApi, guardando } from '@/stores/ui'
-import { ACCIONES, eventosEmbarque, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
+import { ACCIONES, eventosEmbarque, fmtCant, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
 
 // El embarque es el espacio de trabajo de logística: sus datos, sus
 // contenedores (cada uno con su carga) y el seguimiento, en una sola vista.
@@ -59,7 +59,16 @@ const soloLectura = computed(() => !!e.value?.edicion)
 const bloqueado = computed(() => cerrado.value || soloLectura.value)
 const FIJOS_SALIDA = ['documento_numero', 'transportista_id', 'puerto_origen', 'etd', 'centro']
 const fijo = (campo) => soloLectura.value || (cerrado.value && (FIJOS_SALIDA.includes(campo) || (e.value.arribo_real && ['eta', 'puerto_destino'].includes(campo))))
-const eventosPermitidos = computed(() => eventosEmbarque().filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)))
+// La recepción sin conteo exige el permiso de recepción (el servidor lo vuelve a revisar)
+const eventosPermitidos = computed(() => eventosEmbarque().filter(([k]) => (e.value?.eventos_permitidos || []).includes(k)
+  && (k !== 'RECEPCION' || puede('recepcion.registrar'))))
+// Liberación, entrega y otros hitos pueden ser de un solo contenedor
+const conCarga = computed(() => (e.value?.unidades || []).filter((x) => x.packing_lists))
+const porUnidad = computed(() => modal.value?.tipo === 'evento' && (e.value?.por_unidad || []).includes(modal.value.evento) && conCarga.value.length > 0)
+const opcionesUnidad = computed(() => [{ valor: '', texto: t('Whole shipment') }, ...conCarga.value.map((x) => ({ valor: x.id, texto: x.nombre }))])
+const bodegas = computed(() => (e.value?.bodegas || []).map((b) => ({ valor: b.codigo, texto: `${b.codigo} · ${b.nombre}` })))
+const llego = computed(() => ['ARRIBADO', 'ENTREGADO', 'RECIBIDO'].includes(e.value?.estado))
+const recibidas = computed(() => conCarga.value.filter((x) => x.recepcion_estado === 'RECIBIDA').length)
 const ultimoEvento = computed(() => (e.value?.eventos || []).reduce((a, ev) => (!a || ev.fecha > a ? ev.fecha : a), null))
 const exigeSello = computed(() => !!u.value?.requiere_sello)
 const modo = computed(() => datosModo(e.value?.tipo_transporte))
@@ -339,16 +348,18 @@ function confirmarCancelacion() {
   ejecutar(() => api.post(`/embarques/${props.id}/cancelar`, { motivo: modal.value.motivo }), t('Shipment called off: its packing lists are available again.'))
 }
 
-function abrirEvento(tipo = SIGUIENTE[e.value.estado] || 'OTRO') {
-  if (!(e.value.eventos_permitidos || []).includes(tipo)) tipo = e.value.eventos_permitidos?.[0] || 'OTRO'
+function abrirEvento(tipo = SIGUIENTE[e.value.estado] || 'OTRO', unidad = '') {
+  const permitidos = eventosPermitidos.value.map(([k]) => k)
+  if (!permitidos.includes(tipo)) tipo = permitidos[0] || 'OTRO'
   const ahora = new Date()
   const local = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-  modal.value = { tipo: 'evento', evento: tipo, fecha: local, ubicacion: '', observacion: '' }
+  modal.value = { tipo: 'evento', evento: tipo, fecha: local, ubicacion: '', observacion: '', unidad }
 }
 function registrarEvento() {
   const m = modal.value
   ejecutar(() => api.post(`/embarques/${props.id}/eventos`, {
     tipo: m.evento, fecha: m.fecha, ubicacion: m.ubicacion || null, observacion: m.observacion || null,
+    unidad_carga_id: porUnidad.value && m.unidad ? Number(m.unidad) : null,
   }), (r) => (r.estado === e.value.estado ? t('Event recorded.') : t('Event recorded; the shipment is now {0}.', [HITOS.find(([k]) => k === r.estado)?.[1].toLowerCase()])))
 }
 const detalleHistorial = (h) => (h.detalle ? Object.entries(h.detalle).map(([k, v]) => `${k.replaceAll('_', ' ')}: ${Array.isArray(v) ? t('{0} to {1}', [v[0] ?? '—', v[1] ?? '—']) : v}`).join(', ') : '')
@@ -377,7 +388,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
         <span v-if="e.modalidad" class="etiqueta acento" :title="tx(e.modalidad === 'MIXTO' ? t('Combines units of different modalities (e.g. FCL and LCL)') : '')">{{ tx(e.modalidad) }}</span>
         <div class="doc-acciones">
           <button v-if="!soloLectura" class="btn" @click="abrirEvento('OTRO')"><Icono nombre="ubicacion" />{{ t('Record event') }}</button>
-          <button v-if="SIGUIENTE[e.estado] && !soloLectura" class="btn btn-primario" :disabled="e.estado === 'PLANIFICADO' && !totales.pls" @click="abrirEvento()">
+          <button v-if="SIGUIENTE[e.estado] && !soloLectura && (SIGUIENTE[e.estado] !== 'RECEPCION' || puede('recepcion.registrar'))" class="btn btn-primario" :disabled="e.estado === 'PLANIFICADO' && !totales.pls" @click="abrirEvento()">
             <Icono nombre="flecha" />{{ t('Record {0}', [nombreEvento(SIGUIENTE[e.estado]).toLowerCase()]) }}
           </button>
           <button v-if="e.estado === 'PLANIFICADO' && !soloLectura" class="btn btn-fantasma" @click="cancelarEmbarque"><Icono nombre="cerrar" />{{ t('Call off shipment') }}</button>
@@ -431,6 +442,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
         <div class="cifra"><span>{{ t('Cartons') }}</span><b>{{ fmtNum(totales.cajas) }}</b></div>
         <div class="cifra"><span>{{ t('Volume') }}</span><b>{{ fmtNum(totales.cbm, 2) }} m³</b></div>
         <div class="cifra"><span>{{ t('Gross weight') }}</span><b>{{ t('{0} kg', [fmtNum(totales.kg, 0)]) }}</b></div>
+        <div v-if="llego" class="cifra"><span>{{ t('Received units') }}</span><b>{{ t('{0} of {1}', [recibidas, conCarga.length]) }}</b></div>
       </div>
     </section>
 
@@ -443,6 +455,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
           <span class="ayuda">{{ plural(x.packing_lists, 'PL', t('PLs')) }} · {{ fmtNum(x.cbm, 1) }} m³</span>
           <span v-if="x.marcas?.length" class="ayuda">{{ tx(x.marcas.join(' · ')) }}</span>
           <EstadoTiempo v-if="x.estado_tiempo" :estado="x.estado_tiempo" :holgura="x.holgura_dias" />
+          <EstadoBadge v-if="llego && x.packing_lists" :estado="x.recepcion_estado" tipo="recepcion" />
           <span v-for="a in x.alertas" :key="a" class="etiqueta error">{{ tx(a) }}</span>
         </button>
         <button v-if="!bloqueado" class="unidad-pestana agregar" @click="abrirNuevaUnidad"><Icono nombre="mas" :tam="20" />{{ t('Add {0}', [unidadTxt[0].toLowerCase()]) }}</button>
@@ -464,6 +477,13 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
               <div class="dato"><span>{{ t('Arrival vs. store') }}</span>
                 <b><EstadoTiempo :estado="u.estado_tiempo" :holgura="u.holgura_dias" /></b>
               </div>
+              <div class="dato"><span>{{ t('Arrival warehouse') }}</span>
+                <b v-if="soloLectura || u.recepcion_estado === 'RECIBIDA'">{{ tx(u.centro || e.centro || '—') }}</b>
+                <SelectBusqueda v-else :model-value="u.centro || ''" :opciones="bodegas" :vacio="t('Same as the shipment ({0})', [e.centro || '—'])" :etiqueta="t('Arrival warehouse')"
+                                @change="(v) => guardarUnidad('centro')(v)" />
+              </div>
+              <div v-if="llego" class="dato"><span>{{ t('Customs release') }}</span><b>{{ fmtFecha(u.liberada_en) }}</b></div>
+              <div v-if="llego" class="dato"><span>{{ t('Delivered to the warehouse') }}</span><b>{{ fmtFecha(u.entregada_en) }}</b></div>
             </div>
           </div>
           <div>
@@ -480,6 +500,19 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
           </div>
         </div>
 
+        <div v-if="llego && u.packing_lists" class="nota info mt-chico recepcion-unidad">
+          <Icono nombre="caja" />
+          <span>
+            <b>{{ t('Warehouse receipt') }}:</b> <EstadoBadge :estado="u.recepcion_estado" tipo="recepcion" />
+            {{ t('{0} of {1} received', [fmtCant(u.recepcion.recibido), fmtCant(u.recepcion.enviado)]) }}<template v-if="u.recepcion.danado"> · {{ t('damaged {0}', [fmtCant(u.recepcion.danado)]) }}</template><template v-if="u.recibida_en"> · {{ fmtFecha(u.recibida_en) }}</template>
+          </span>
+          <span class="separar"></span>
+          <button v-if="!soloLectura && !u.liberada_en && eventosPermitidos.some(([k]) => k === 'LIBERACION')" class="btn btn-chico" @click="abrirEvento('LIBERACION', u.id)">{{ t('Record customs release') }}</button>
+          <button v-if="!soloLectura && !u.entregada_en && eventosPermitidos.some(([k]) => k === 'ENTREGA')" class="btn btn-chico" @click="abrirEvento('ENTREGA', u.id)">{{ t('Record delivery') }}</button>
+          <router-link :to="`/transporte/unidades/${u.id}/recepcion`" class="btn btn-chico btn-primario">
+            <Icono nombre="lista" :tam="14" />{{ u.recepcion_estado === 'RECIBIDA' || !puede('recepcion.registrar') ? t('See receipt') : t('Receive') }}
+          </router-link>
+        </div>
         <div class="fila-flex mt">
           <h3>{{ t('Cargo of {0}', [u.nombre]) }}</h3>
           <span class="ayuda">{{ t('{0} · {1} · {2} of {3} picked up', [plural(u.facturas, t('invoice'), t('invoices')), plural(u.cajas, t('carton'), t('cartons')), u.recolectados, u.packing_lists]) }}</span>
@@ -542,7 +575,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
         <ul class="linea-tiempo">
           <li v-for="ev in [...e.eventos].reverse()" :key="ev.id">
             <span class="ayuda">{{ fmtFechaHoraLocal(ev.fecha) }}</span>
-            <span><b>{{ tx(nombreEvento(ev.tipo)) }}</b>{{ tx(ev.ubicacion ? ` · ${ev.ubicacion}` : '') }}<span v-if="ev.observacion" class="sub">{{ tx(ev.observacion) }}</span></span>
+            <span><b>{{ tx(nombreEvento(ev.tipo)) }}</b><template v-if="ev.unidad"> · {{ tx(ev.unidad) }}</template>{{ tx(ev.ubicacion ? ` · ${ev.ubicacion}` : '') }}<span v-if="ev.observacion" class="sub">{{ tx(ev.observacion) }}</span></span>
           </li>
           <li v-if="!e.eventos.length"><span></span><span class="ayuda">{{ t('No events yet.') }}</span></li>
         </ul>
@@ -653,11 +686,15 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
       <label class="campo"><span class="req">{{ t('Event') }}</span>
         <Seleccion v-model="modal.evento"><option v-for="[v, txt] in eventosPermitidos" :key="v" :value="v">{{ tx(txt) }}</option></Seleccion>
       </label>
-      <label class="campo"><span class="req">{{ t('Date and time') }}</span><input v-model="modal.fecha" type="datetime-local" required :min="ultimoEvento?.slice(0, 16)" /></label>
+      <div v-if="porUnidad" class="campo"><span>{{ tx(unidadTxt[0]) }}</span>
+        <SelectBusqueda v-model="modal.unidad" :opciones="opcionesUnidad" :etiqueta="tx(unidadTxt[0])" />
+      </div>
+      <label class="campo"><span class="req">{{ t('Date and time') }}</span><input v-model="modal.fecha" type="datetime-local" required :min="porUnidad && modal.unidad ? undefined : ultimoEvento?.slice(0, 16)" /></label>
       <label class="campo"><span>{{ t('Location') }}</span><input v-model="modal.ubicacion" /></label>
       <label class="campo"><span>{{ t('Remark') }}</span><input v-model="modal.observacion" /></label>
     </div>
     <p class="ayuda">{{ t('Events go in order: only those following the current status appear, and the date cannot be in the future or before the last event.') }}</p>
+    <p v-if="modal.evento === 'RECEPCION'" class="nota aviso">{{ t('Everything still pending in each load unit is recorded as received complete and without damage, under your name. To count, use the receipt of each load unit.') }}</p>
     <p v-if="modal.evento === 'SALIDA'" class="nota aviso">{{ t('To record departure every packing list must be confirmed. Once recorded, the shipment cargo is closed and PLs without pickup are marked picked up on this date.') }}</p>
     <template #pie>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>

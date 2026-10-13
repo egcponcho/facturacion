@@ -15,8 +15,20 @@ def listar_alertas(db: Session, user: Usuario, proveedor_id: int | None = None) 
     prov = proveedor_filtro(user, proveedor_id)
     if prov:
         consulta = consulta.where(Alerta.proveedor_id.in_(prov))
-    return [{"id": a.id, "tipo": a.tipo, "mensaje": a.mensaje, "creada_en": a.creada_en}
+    return [{"id": a.id, "tipo": a.tipo, "mensaje": a.mensaje, "creada_en": a.creada_en, "enlace": _enlace(a)}
             for a in db.scalars(consulta).all()]
+
+
+def _enlace(a: Alerta) -> str | None:
+    """Dónde se atiende la alerta: la recepción del contenedor (o el PL, en las
+    alertas anteriores a la recepción por contenedor)."""
+    ref = a.referencia or {}
+    if a.tipo == "recepcion_diferencia":
+        if ref.get("unidad_id"):
+            return f"/transporte/unidades/{ref['unidad_id']}/recepcion"
+        if ref.get("pl_id"):
+            return f"/packing-lists/{ref['pl_id']}"
+    return None
 
 
 def resolver_alerta(db: Session, user: Usuario, alerta_id: int) -> dict:
