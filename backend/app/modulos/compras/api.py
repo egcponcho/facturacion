@@ -1,0 +1,148 @@
+from fastapi import APIRouter, File, Form, Query, UploadFile
+from pydantic import BaseModel, Field
+
+from app.modulos.compras import ordenes as svc
+from app.modulos.compras import perfiles
+from app.modulos.comun import tabla
+from app.web.rutas import Clave, Db, User, ejecutar, leer_subida
+
+router = APIRouter()
+
+
+@router.get("/ordenes")
+def listar(
+    db: Db,
+    user: User,
+    proveedor_id: int | None = None,
+    q: str | None = None,
+    centro: str | None = None,
+    sociedad: str | None = None,
+    marca: str | None = None,
+    liberacion: str | None = None,
+    destino: str | None = None,
+    puerto: str | None = None,
+    orden: str | None = None,
+    almacen: str | None = None,
+    comercial: str | None = None,
+    liberada: bool | None = None,
+    estado: str | None = None,
+    solo_disponible: bool = True,
+    page: int = Query(1, ge=1),
+    size: int = Query(25, ge=1, le=200),
+    f: str | None = None,
+):
+    """OCs visibles, paginadas y filtrables (filtros de la pantalla y `f` por columna); por defecto solo las aprobadas con saldo por facturar."""
+    return svc.listar_ordenes(db, user, proveedor_id, q, centro, solo_disponible, page, size,
+                              sociedad, marca, liberacion, destino, puerto, orden, almacen, comercial, liberada, estado,
+                              tabla.leer(f))
+
+
+@router.get("/ordenes/valores")
+def valores_columna(db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None,
+                    proveedor_id: int | None = None, q: str | None = None, centro: str | None = None,
+                    sociedad: str | None = None, marca: str | None = None, liberacion: str | None = None,
+                    destino: str | None = None, puerto: str | None = None, almacen: str | None = None,
+                    comercial: str | None = None, liberada: bool | None = None, estado: str | None = None,
+                    solo_disponible: bool = True):
+    """Valores únicos de una columna de la tabla de OCs (con cuántas tienen cada uno) bajo los demás filtros."""
+    return svc.valores_ordenes(db, user, columna, buscar, tabla.leer(f), proveedor_id=proveedor_id, q=q, centro=centro,
+                               solo_disponible=solo_disponible, sociedad=sociedad, marca=marca, liberacion=liberacion,
+                               destino=destino, puerto=puerto, almacen=almacen, comercial=comercial, liberada=liberada,
+                               estado=estado)
+
+
+@router.get("/ordenes/filtros")
+def filtros(db: Db, user: User, proveedor_id: int | None = None):
+    """Valores presentes en las OCs visibles (sociedades, centros, marcas, liberaciones…) para los filtros."""
+    return svc.filtros_ordenes(db, user, proveedor_id)
+
+
+@router.get("/ordenes/{oc_id}/posiciones")
+def posiciones(oc_id: int, db: Db, user: User):
+    """Cabecera de la OC y sus posiciones con lo facturado, el saldo y si se pueden facturar."""
+    return svc.posiciones_oc(db, user, oc_id)
+
+
+class EmpaqueIn(BaseModel):
+    casepack: int | None = Field(None, ge=1)
+    inner_pack: int | None = Field(None, ge=1)
+
+
+@router.put("/ordenes/{oc_id}/posiciones/{posicion_id}/empaque")
+def empaque(oc_id: int, posicion_id: int, datos: EmpaqueIn, db: Db, user: User, clave: Clave = None):
+    """Cambia el casepack y el inner pack de una posición sin nada facturado; queda en el historial."""
+    return ejecutar(db, user, clave, lambda: svc.empaque_posicion(db, user, oc_id, posicion_id, datos.casepack,
+                                                                    datos.inner_pack))
+
+
+class OrdenNueva(BaseModel):
+    cabecera: dict = Field(default_factory=dict)
+    lineas: list[dict] = Field(default_factory=list, max_length=500)
+
+
+@router.get("/ordenes/plantilla")
+def plantilla_oc(db: Db, user: User):
+    """Plantilla Excel para cargar OCs, con las fechas de ejemplo en el formato del usuario."""
+    from fastapi import Response
+
+    contenido = svc.plantilla_oc(db, user)
+    return Response(contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="purchase_orders_template.xlsx"'})
+
+
+@router.get("/ordenes/formulario")
+def formulario(db: Db, user: User):
+    """Listas para el formulario y el asistente de OC (proveedores, sociedades, centros, monedas…)."""
+    return svc.opciones_formulario(db, user)
+
+
+@router.get("/ordenes/formulario/articulos")
+def formulario_articulos(db: Db, user: User, proveedor: str = "", q: str = ""):
+    """Artículos activos del proveedor (por su código) para las líneas de la OC, buscando por `q`."""
+    return svc.articulos_formulario(db, user, proveedor, q)
+
+
+@router.post("/ordenes")
+def crear(datos: OrdenNueva, db: Db, user: User, clave: Clave = None):
+    """Crea una OC completa desde el formulario (sin borrador) y la pasa por las reglas de aprobación."""
+    return ejecutar(db, user, clave, lambda: svc.crear_oc(db, user, datos.model_dump()))
+
+
+@router.post("/ordenes/importar/previa")
+async def importar_previa(db: Db, user: User, archivo: UploadFile = File(...), perfil_id: int | None = Form(None)):
+    """Vista previa de una carga de OCs (Excel o CSV): clasifica cada fila sin aplicar nada."""
+    contenido = await leer_subida(archivo)
+    res = svc.importar_previa(db, user, archivo.filename or "archivo.csv", contenido, perfil_id)
+    db.commit()
+    return res
+
+
+# Perfiles de importación: cómo leer el archivo que exporta el ERP de la empresa
+@router.get("/ordenes/importar/perfiles")
+def perfiles_importacion(db: Db, user: User):
+    """Perfiles de importación de OCs, con los campos que se pueden mapear y los formatos de fecha."""
+    return perfiles.listar(db, user)
+
+
+@router.post("/ordenes/importar/perfiles")
+def crear_perfil(datos: dict, db: Db, user: User, clave: Clave = None):
+    """Crea un perfil de importación: columnas, fila de encabezados, formato de fecha y valores por defecto."""
+    return ejecutar(db, user, clave, lambda: perfiles.crear(db, user, datos))
+
+
+@router.patch("/ordenes/importar/perfiles/{perfil_id}")
+def actualizar_perfil(perfil_id: int, datos: dict, db: Db, user: User, clave: Clave = None):
+    """Modifica un perfil de importación; si queda como predeterminado, los demás dejan de serlo."""
+    return ejecutar(db, user, clave, lambda: perfiles.actualizar(db, user, perfil_id, datos))
+
+
+@router.delete("/ordenes/importar/perfiles/{perfil_id}")
+def eliminar_perfil(perfil_id: int, db: Db, user: User, clave: Clave = None):
+    """Elimina un perfil de importación."""
+    return ejecutar(db, user, clave, lambda: perfiles.eliminar(db, user, perfil_id))
+
+
+@router.post("/ordenes/importar/{importacion_id}/aplicar")
+def importar_aplicar(importacion_id: int, db: Db, user: User, clave: Clave = None):
+    """Aplica una carga previsualizada: crea o actualiza OCs y alerta conflictos; no se aplica dos veces."""
+    return ejecutar(db, user, clave, lambda: svc.importar_aplicar(db, user, importacion_id))

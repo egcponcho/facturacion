@@ -1,0 +1,65 @@
+{
+ "origen": "Classification engine: conditions the classifier reads from the official ACI line text (e.g. «para hombres»). Engine rules (CLASSIFIER), never official data.",
+ "condiciones": {
+  "6210400000": {
+   "genero": "M"
+  },
+  "6210500000": {
+   "genero": "F"
+  },
+  "6211110000": {
+   "genero": "M"
+  },
+  "6211120000": {
+   "genero": "F"
+  },
+  "6401100000": {
+   "puntera_metalica": true
+  },
+  "6401991000": {
+   "altura": "rodilla"
+  },
+  "6402911000": {
+   "puntera_metalica": true
+  },
+  "6402991000": {
+   "puntera_metalica": true
+  },
+  "6403400000": {
+   "puntera_metalica": true
+  },
+  "6403510000": {
+   "altura": "tobillo"
+  },
+  "6404191000": {
+   "estilo_calzado": "cubrecalzado"
+  },
+  "6501000000": {
+   "forma_tocado": "sombrero"
+  },
+  "6502000000": {
+   "forma_tocado": "sombrero"
+  },
+  "6504000000": {
+   "forma_tocado": "sombrero"
+  },
+  "6505002000": {
+   "forma_tocado": "sombrero"
+  },
+  "6507000000": {
+   "forma_tocado": "sombrero"
+  },
+  "6812801000": {
+   "forma_tocado": "sombrero"
+  },
+  "6812910000": {
+   "forma_tocado": "sombrero"
+  },
+  "8449000000": {
+   "forma_tocado": "sombrero"
+  },
+  "9503002200": {
+   "forma_tocado": "sombrero"
+  }
+ }
+}

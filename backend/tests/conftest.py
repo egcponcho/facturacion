@@ -6,6 +6,9 @@ _tmp = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", f"sqlite:///{_tmp}/test.db")
 os.environ["UPLOAD_DIR"] = f"{_tmp}/archivos"
 os.environ["SEED_DEMO"] = "1"
+# Hash de contraseñas más liviano: las pruebas crean y verifican muchas
+os.environ.setdefault("PBKDF2_ITERACIONES", "20000")
+os.environ["COOKIE_SEGURA"] = "0"
 os.environ["FRONTEND_DIST"] = f"{_tmp}/no-existe"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,6 +23,7 @@ if os.environ.get("TEST_DATABASE_URL"):
         _c.execute(text("CREATE SCHEMA public"))
     _motor.dispose()
 
+import httpx  # noqa: E402
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -50,13 +54,21 @@ def iniciar_sesion(client, email, password=PASSWORD) -> str:
 
 
 class Api:
-    def __init__(self, client, email):
+    def __init__(self, client, email, password=PASSWORD):
         self.c = client
-        self.h = {"Authorization": f"Bearer {iniciar_sesion(client, email)}"}
+        self.h = {"Authorization": f"Bearer {iniciar_sesion(client, email, password)}"}
         self.yo = self.c.get("/api/auth/me", headers=self.h).json()
 
     def get(self, url, **kw):
-        return self.c.get("/api" + url, headers=self.h, **kw)
+        # Las pruebas leen los documentos (PDF/Excel) en inglés, salvo que pidan otro idioma.
+        # Los parámetros escritos en la ruta se suman a `params` (httpx 0.28 reemplaza
+        # la consulta de la URL cuando recibe `params`, y los filtros se perdían).
+        ruta, _, consulta = url.partition("?")
+        pares = list(httpx.QueryParams(consulta).multi_items()) + list(httpx.QueryParams(kw.get("params") or {}).multi_items())
+        if not any(k == "idioma" for k, _ in pares):
+            pares.insert(0, ("idioma", "en"))
+        kw["params"] = pares
+        return self.c.get("/api" + ruta, headers=self.h, **kw)
 
     def post(self, url, json=None, clave=None, **kw):
         h = dict(self.h)

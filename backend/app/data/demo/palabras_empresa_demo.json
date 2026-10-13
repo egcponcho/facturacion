@@ -1,0 +1,79 @@
+[
+ {
+  "frase": "old skool",
+  "tipo": "calzado",
+  "atributos": {
+   "estiloCalz": "tenis"
+  }
+ },
+ {
+  "frase": "sk8",
+  "tipo": "calzado",
+  "atributos": {
+   "estiloCalz": "tenis"
+  }
+ },
+ {
+  "frase": "authentic",
+  "tipo": "calzado",
+  "atributos": {
+   "estiloCalz": "tenis"
+  }
+ },
+ {
+  "frase": "era",
+  "tipo": "calzado",
+  "atributos": {
+   "estiloCalz": "tenis"
+  }
+ },
+ {
+  "frase": "ultrarange",
+  "tipo": "calzado",
+  "atributos": {
+   "estiloCalz": "tenis"
+  }
+ },
+ {
+  "frase": "knu skool",
+  "tipo": "calzado",
+  "atributos": {
+   "estiloCalz": "tenis"
+  }
+ },
+ {
+  "frase": "half cab",
+  "tipo": "calzado",
+  "atributos": {
+   "estiloCalz": "tenis"
+  }
+ },
+ {
+  "frase": "vectiv",
+  "tipo": "calzado",
+  "atributos": {
+   "estiloCalz": "tenis",
+   "disenio": "entrenamiento"
+  }
+ },
+ {
+  "frase": "hedgehog",
+  "tipo": "calzado",
+  "atributos": {}
+ },
+ {
+  "frase": "chilkat",
+  "tipo": "calzado",
+  "atributos": {}
+ },
+ {
+  "frase": "moab",
+  "tipo": "calzado",
+  "atributos": {}
+ },
+ {
+  "frase": "second shift",
+  "tipo": "calzado",
+  "atributos": {}
+ }
+]

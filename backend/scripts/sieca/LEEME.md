@@ -1,6 +1,6 @@
 # Base oficial del SAC (SIECA)
 
-Genera `app/data/sac_notas.json`, `sac_oficial.json` y `aci_incisos.json` desde el
+Genera `app/data/oficial/sac_notas.json`, `sac_oficial.json` y `aci_incisos.json` (y aparte, en `app/data/motor/interpretacion_aci.json`, lo que el clasificador lee del texto) desde el
 Arancel Centroamericano de Importación publicado por SIECA
 (https://www.sieca.int/producto/arancel-centroamericano-de-importacion/,
 VII Enmienda del SAC, versión 6 de agosto de 2025).

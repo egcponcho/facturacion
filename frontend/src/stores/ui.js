@@ -1,7 +1,7 @@
-import { t, tx } from '../i18n/index.js'
+import { t, tx } from '@/i18n/index.js'
 import { reactive } from 'vue'
 
-export const ui = reactive({ toasts: [], guardado: '' })
+export const ui = reactive({ toasts: [], guardado: '', navegando: false })
 let siguiente = 0
 
 export function avisar(mensaje, tipo = 'ok', detalle = null, ms = tipo === 'error' && detalle?.length ? 0 : tipo === 'error' ? 8000 : 4500) {
@@ -22,6 +22,8 @@ export function textoDetalle(d) {
 }
 
 export function errorApi(e) {
+  // Otra persona tomó el documento: la pantalla abierta pasa a solo lectura
+  if (e?.codigo === 'en_edicion') window.dispatchEvent(new CustomEvent('edicion-ocupada', { detail: e.detalle }))
   const detalle = Array.isArray(e?.detalle) ? e.detalle.map(textoDetalle).filter(Boolean).map(tx) : null
   avisar(tx(e?.message) || t('An unexpected error occurred.'), 'error', detalle?.length ? detalle.slice(0, 8) : null,
     detalle?.length ? 12000 : 7000)

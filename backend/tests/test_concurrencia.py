@@ -7,11 +7,11 @@ import time
 import pytest
 from sqlalchemy import select
 
-from app.db import ES_SQLITE, SessionLocal
-from app.models import OrdenCompra, Usuario
-from app.schemas import FacturaCrear
-from app.services.common import ErrorNegocio
-from app.services.facturas import crear_factura
+from app.core.db import ES_SQLITE, SessionLocal
+from app.core.errores import ErrorNegocio
+from app.esquemas import FacturaCrear
+from app.modelos import OrdenCompra, Usuario
+from app.modulos.facturacion.facturas import crear_factura
 
 
 @pytest.mark.skipif(ES_SQLITE, reason="La prueba de bloqueo de filas requiere PostgreSQL")

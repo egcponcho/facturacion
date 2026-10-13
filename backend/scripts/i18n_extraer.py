@@ -1,7 +1,7 @@
 """Textos del servidor que llegan a la pantalla (mensajes de error, etiquetas
 de catálogos y permisos, tareas del tablero, estados…), como plantillas con
 {0}, {1}… en lugar de los valores. El frontend los traduce aunque lleguen ya
-armados. Escribe app/i18n_claves.json.
+armados. Escribe app/i18n/claves.json.
 
 Uso: python scripts/i18n_extraer.py
 """
@@ -12,8 +12,12 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent / "app"
 # Documentos y plantillas para aduana/ERP, datos de demostración y textos oficiales: no se traducen aquí
-OMITIR = {"seed.py", "documentos.py", "exportar.py", "plantillas.py", "sms.py", "config.py", "db.py", "security.py",
-          "especialista.py", "main.py", "deps.py", "models.py"}
+# (rutas dentro de app/; una carpeta omite todo lo que contiene)
+OMITIR = ("main.py", "core/config.py", "core/db.py", "core/seguridad.py", "web/dependencias.py",
+          "instalacion/migraciones.py", "instalacion/mantenimiento.py", "instalacion/base_organizacion.py", "core/organizacion.py", "modelos/", "esquemas/__init__.py", "instalacion/demo.py", "instalacion/inicial.py",
+          "modulos/documentos/documentos.py",
+          "modulos/documentos/exportar.py", "modulos/documentos/plantillas.py", "modulos/acceso/sms.py",
+          "modulos/clasificacion/especialista.py")
 MODELOS: set = set()
 ESPANOL = re.compile(r"[áéíóúñ¿¡]|\b(de|del|la|el|los|las|y|para|con|por|una|que)\b", re.I)
 
@@ -30,7 +34,7 @@ def es_texto(s: str) -> bool:
         return False
     if re.fullmatch(r"[a-z]+[A-Z]\w*", t):
         return False
-    if t.startswith("^") or t.startswith("attachment;"):
+    if t.startswith("^") or t.startswith("attachment;") or t.startswith("\\b") or t.endswith("%") or "|\\(" in t:  # patrones
         return False
     if ESPANOL.search(t):
         return False
@@ -65,7 +69,12 @@ def docstrings(arbol) -> set:
 def extraer() -> list[str]:
     claves = set()
     for ruta in RAIZ.rglob("*.py"):
-        if ruta.name in OMITIR:
+        if ruta.relative_to(RAIZ).as_posix().startswith(OMITIR):
+            # De los documentos (PDF/Excel), solo los textos que pasan por L()
+            for n in ast.walk(ast.parse(ruta.read_text(encoding="utf-8"))):
+                if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "L" and n.args \
+                        and isinstance(n.args[0], ast.Constant) and isinstance(n.args[0].value, str):
+                    claves.add(n.args[0].value)
             continue
         arbol = ast.parse(ruta.read_text(encoding="utf-8"))
         docs = docstrings(arbol)
@@ -79,14 +88,16 @@ def extraer() -> list[str]:
                     claves.add(t)
         for n in ast.walk(arbol):
             if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs and id(n) not in dentro_fstring:
-                if es_texto(n.value):
+                # El vocabulario del lector de composiciones (palabras en minúscula) no es texto de pantalla
+                if es_texto(n.value) and not (ruta.name == "composicion.py" and not n.value[:1].isupper()):
                     claves.add(n.value)
     # Concatenaciones "texto: " + ", ".join(...) quedan como su parte fija
     return sorted(claves)
 
 
 if __name__ == "__main__":
-    MODELOS.update(re.findall(r"^class (\w+)\(", (RAIZ / "models.py").read_text(encoding="utf-8"), re.M))
+    for ruta in [*(RAIZ / "modelos").glob("*.py"), RAIZ / "modulos" / "productos" / "ficha.py"]:
+        MODELOS.update(re.findall(r"^class (\w+)", ruta.read_text(encoding="utf-8"), re.M))
     lista = extraer()
-    (RAIZ / "i18n_claves.json").write_text(json.dumps(lista, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    (RAIZ / "i18n" / "claves.json").write_text(json.dumps(lista, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(len(lista), "textos del servidor")

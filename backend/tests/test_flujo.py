@@ -1,8 +1,12 @@
 """Recorre el flujo completo OC -> factura -> PL -> cajas -> unidad de carga -> salida."""
 import os
-from datetime import date
+from datetime import date, datetime, timedelta
 
 HOY = date.today().isoformat()
+# La salida va una hora antes de ahora (no a una hora fija del día): así los
+# hitos que otras pruebas registran «ahora» (arribo, recepción) quedan después
+# a cualquier hora en que corran las pruebas.
+SALIDA = (datetime.now() - timedelta(hours=1)).replace(microsecond=0).isoformat()
 
 
 def _oc(api, numero):
@@ -63,7 +67,7 @@ def test_factura_parcial_y_reglas(tnf):
     pa20 = _oc(tnf, "4400003850")["posiciones"][0]
     f = tnf.get(f"/facturas/{fid}").json()
     r = tnf.post(f"/facturas/{fid}/lineas", {"version": f["version"], "lineas": [{"posicion_id": pa20["id"], "cantidad": 1}]})
-    assert r.status_code == 422 and any("centers" in d["mensaje"] for d in r.json()["detalle"])
+    assert r.status_code == 422 and any("plants" in d["mensaje"] for d in r.json()["detalle"])
 
 
 def test_version_conflicto(tnf):
@@ -135,7 +139,8 @@ def test_plantilla_con_sobrante(tnf):
     grupos = [g for g in pl["grupos"] if g["items"][0]["pl_linea_id"] == xl["id"]]
     assert [(g["num_cajas"], g["items"][0]["cantidad_por_caja"], g["es_parcial"]) for g in grupos] == [(2, 10, False), (1, 7, True)]
     parcial = grupos[1]
-    assert parcial["peso_estimado"] and parcial["peso_neto_caja"] == 6.3 and parcial["peso_bruto_caja"] == 7.5
+    # El peso sale del peso unitario del artículo (0.9 kg) y la tara de la caja (1.2 kg): no es estimado
+    assert not parcial["peso_estimado"] and parcial["peso_neto_caja"] == 6.3 and parcial["peso_bruto_caja"] == 7.5
     assert next(l for l in pl["lineas"] if l["id"] == xl["id"])["sin_caja"] == 0
 
 
@@ -167,14 +172,15 @@ def test_empacar_todo_y_finalizar(tnf):
     r = _empacar(tnf, pl_id, pl["version"], filas)
     assert r.status_code == 200, r.text
     v = r.json()["version"]
-    # 36 pares / 12 = 3 cajas exactas, sin sobrante; pesos parciales pendientes de confirmar
-    r = tnf.post(f"/packing-lists/{pl_id}/finalizar", {"version": v})
-    assert r.status_code == 422 and any(e.get("codigo") == "peso_estimado" for e in r.json()["detalle"])
+    # Los pesos salen solos de la estructura: neto = artículos, bruto = neto + tara de cada nivel
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
-    estimadas = [g["id"] for g in pl["grupos"] if g["peso_estimado"]]
-    r = tnf.patch(f"/packing-lists/{pl_id}/cajas", {"version": pl["version"], "grupo_ids": estimadas, "confirmar_pesos": True})
-    assert r.status_code == 200, r.text
-    r = tnf.post(f"/packing-lists/{pl_id}/finalizar", {"version": r.json()["version"]})
+    for g in pl["grupos"]:
+        neto = sum(i["cantidad_por_caja"] * i["peso_unitario"] for i in g["contenido"])
+        assert g["peso_calculado"] and abs(g["peso_neto_caja"] - neto) < 1e-6
+        assert abs(g["peso_bruto_caja"] - neto - g["tara"]) < 1e-6
+    t = pl["totales"]
+    assert abs(t["peso_bruto"] - sum(g["peso_bruto_total"] for g in pl["grupos"] if not g["padre_id"])) < 1e-3
+    r = tnf.post(f"/packing-lists/{pl_id}/finalizar", {"version": v})
     assert r.status_code == 200, r.text
 
     # PL-002: 14 pares -> 1 caja de 12 + caja parcial de 2. La plantilla se
@@ -186,9 +192,7 @@ def test_empacar_todo_y_finalizar(tnf):
     assert r.status_code == 200 and r.json()["resumen"]["cajas_completas"] == 1, r.text
     pl2 = tnf.get(f"/packing-lists/{pl2['id']}").json()
     assert [g["num_cajas"] for g in pl2["grupos"]] == [1, 1] and pl2["grupos"][1]["es_parcial"]
-    r = tnf.patch(f"/packing-lists/{pl2['id']}/cajas", {"version": pl2["version"],
-                  "grupo_ids": [g["id"] for g in pl2["grupos"]], "confirmar_pesos": True})
-    r = tnf.post(f"/packing-lists/{pl2['id']}/finalizar", {"version": r.json()["version"]})
+    r = tnf.post(f"/packing-lists/{pl2['id']}/finalizar", {"version": pl2["version"]})
     assert r.status_code == 200, r.text
 
 
@@ -214,14 +218,14 @@ def test_transporte_y_salida(interno, tnf):
     pl_ids = [p["id"] for p in grupo["packing_lists"]]
     r = interno.post(f"/unidades/{unidad['id']}/asignar", {"pl_ids": pl_ids})
     assert r.status_code == 200, r.text
-    assert r.json()["confirmados"] == len(pl_ids) and r.json()["tentativos"] == 0
+    assert r.json()["asignados"] == len(pl_ids)
     # Sin BL, contenedor ni sello no hay salida: son datos obligatorios del transporte
-    r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": f"{HOY}T08:00:00"})
+    r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": SALIDA})
     assert r.status_code == 422 and r.json()["codigo"] == "datos_transporte"
     assert len(r.json()["detalle"]) == 3
     assert interno.patch(f"/embarques/{e['id']}", {"documento_numero": "MAEU 123"}).status_code == 200
     assert interno.patch(f"/unidades/{unidad['id']}", {"numero": "MSKU 1234567", "sello": "S-1"}).status_code == 200
-    r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": f"{HOY}T08:00:00"})
+    r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "SALIDA", "fecha": SALIDA})
     assert r.status_code == 200 and r.json()["estado"] == "EN_TRANSITO"
     # El proveedor ve el seguimiento desde su factura
     f = tnf.get(f"/facturas/{estado['fid']}").json()
@@ -239,9 +243,9 @@ def test_transporte_y_salida(interno, tnf):
     # Los eventos siguen el orden: no hay entrega antes del arribo
     r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "ENTREGA", "fecha": f"{HOY}T09:00:00"})
     assert r.status_code == 409 and r.json()["codigo"] == "orden_eventos"
-    # Todo lo que zarpó quedó marcado como recolectado
+    # Todo lo que zarpó quedó marcado como recolectado, con la fecha de la salida
     pl = interno.get(f"/packing-lists/{pl_ids[0]}").json()
-    assert pl["recolectado_en"] == HOY
+    assert pl["recolectado_en"] == SALIDA[:10]
 
 
 def test_eliminar_linea_con_cascada(vans):
@@ -398,7 +402,7 @@ def test_asignacion_automatica(interno, vans):
     pls = [p for g in disp if g["centro"] == centro for p in g["packing_lists"]]
     r = interno.post(f"/unidades/{nueva}/asignar", {"pl_ids": [p["id"] for p in pls]})
     assert r.status_code == 200, r.text
-    assert r.json() == {"asignados": len(pls), "confirmados": len(pls), "tentativos": 0}
+    assert r.json() == {"asignados": len(pls)}
     borrador = next((f for f in interno.get("/seguimiento/documentos", params={"size": 200}).json()["items"]
                      if f["pl_id"] and f["estado_pl"] in ("BORRADOR", "EN_CORRECCION")), None)
     assert borrador
@@ -478,6 +482,10 @@ def test_reglas_de_empaque(vans):
     pl = vans.get(f"/packing-lists/{pl_id}").json()
     assert len(pl["pallets"]) == 1 and pl["pallets"][0]["cajas"] == 12 and pl["totales"]["pallets"] == 1
     assert pl["totales"]["cbm"] == 1.8  # el volumen es el del pallet
+    # Bruto del pallet = bruto de sus cajas (artículos + tara de cada caja) + tara del pallet
+    cajas_bruto = sum(g["peso_bruto_total"] for g in pl["grupos"] if g["padre_id"] == pallet)
+    assert abs(pl["pallets"][0]["peso_bruto"] - (cajas_bruto + 20)) < 1e-3
+    assert abs(pl["totales"]["peso_bruto"] - pl["pallets"][0]["peso_bruto"]) < 1e-3
     # Sacar todas las cajas elimina el pallet vacío
     r = vans.post(f"/packing-lists/{pl_id}/pallets/quitar", {"version": pl["version"], "pallet_id": pallet})
     assert r.status_code == 200 and vans.get(f"/packing-lists/{pl_id}").json()["pallets"] == []
@@ -546,7 +554,7 @@ def test_catalogos(interno, tnf):
     assert [c["codigo"] for c in centros][:4] == ["PA20", "PA10", "8020", "8010"]
     assert centros[0]["sociedad_id_txt"].startswith("PA01") and centros[0]["puerto"] == "PABLB"
     soc = interno.get("/catalogos/sociedades", params={"q": "8000"}).json()["items"][0]
-    assert soc["centros_txt"] == "2220, 8010, 8020" and soc["contactos"] == 1
+    assert soc["centros_txt"] == "2220, 8010, 8020" and soc["contactos"] >= 1  # otras pruebas agregan contactos
 
 
 def _rol_proveedor(admin):
@@ -616,7 +624,7 @@ def test_documentos_y_reportes(tnf, interno):
 
     from openpyxl import load_workbook
 
-    from app.services.documentos import monto_en_letras
+    from app.modulos.documentos.documentos import monto_en_letras
 
     assert monto_en_letras(4850, "USD") == "FOUR THOUSAND EIGHT HUNDRED FIFTY US DOLLARS AND 00/100"
     assert monto_en_letras(1_021_001.5, "USD") == "ONE MILLION TWENTY-ONE THOUSAND ONE US DOLLARS AND 50/100"
@@ -698,12 +706,19 @@ def test_inner_pack_y_casepack_de_la_oc(tnf, vans, interno):
     r = _empacar(tnf, pl_id, r.json()["version"], [(lm["id"], None)])
     assert r.status_code == 200, r.text
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
-    inners = {g["items"][0]["pl_linea_id"]: (g["num_cajas"], g["items"][0]["inner_packs_por_caja"]) for g in pl["grupos"]}
+    cajas = [g for g in pl["grupos"] if g["cuenta_como"] == "BULTO"]
+    inners = {g["contenido"][0]["pl_linea_id"]: (g["num_cajas"], g["contenido"][0]["inner_packs_por_caja"]) for g in cajas}
     assert inners == {lf["id"]: (2, 3), lm["id"]: (3, 4)}
+    # Los inner packs son empaques físicos dentro de cada caja, con su tara
+    caja = next(g for g in cajas if g["contenido"][0]["pl_linea_id"] == lf["id"])
+    inner = next(g for g in pl["grupos"] if g["padre_id"] == caja["id"])
+    assert inner["num_cajas"] == 6 and inner["por_padre"] == 3 and inner["items"][0]["cantidad_por_caja"] == 5
+    assert abs(caja["peso_bruto_caja"] - (15 * 0.5 + 3 * inner["tara"] + caja["tara"])) < 1e-6
     # Por destino y sugerencia de unidades de carga
     assert [d["centro_destino"] for d in pl["destinos"]] == ["2220"] and pl["destinos"][0]["cajas"] == 5
-    # Sin medidas ni pesos todavía no hay volumen que acomodar
-    assert pl["sugerencia_unidades"] == {"cbm": 0, "kg": 0, "modos": {}}
+    # Las cajas toman las medidas del tipo de empaque y el peso sale de los artículos: ya hay volumen y peso
+    t = pl["totales"]
+    assert t["cbm"] == 5 * 0.096 and pl["sugerencia_unidades"]["kg"] == round(t["peso_bruto"], 2) > 0
 
 
 def test_sugerencia_de_unidades(interno):
@@ -727,9 +742,13 @@ def test_plantillas_de_carga_en_ingles(interno):
         with open(os.path.join(base, archivo), "rb") as f:
             return interno.c.post("/api" + ruta, headers=interno.h, files={"archivo": (archivo, f.read(), "text/csv")})
 
-    r = subir("/ordenes/importar/previa", "plantilla_oc.csv")
+    # La plantilla de OC se genera con las fechas en el formato del usuario y se lee tal cual
+    plantilla = interno.c.get("/api/ordenes/plantilla", headers=interno.h).content
+    r = interno.c.post("/api/ordenes/importar/previa", headers=interno.h,
+                       files={"archivo": ("plantilla.xlsx", plantilla, "application/octet-stream")})
     assert r.status_code == 200, r.text
-    assert r.json()["filas"] and not any("column" in m for f in r.json()["filas"] for m in f["mensajes"])
+    filas = r.json()["filas"]
+    assert filas and not any("column" in m or "date" in m for f in filas for m in f["mensajes"])
     r = subir("/catalogos/articulos/importar", "plantilla_articulos.csv")
     assert r.status_code == 200 and not r.json()["errores"] and r.json()["creados"] == 3, r.text
     r = subir("/catalogos/prepacks/importar", "plantilla_prepacks.csv")
@@ -739,8 +758,9 @@ def test_plantillas_de_carga_en_ingles(interno):
 def test_acceso_seguro(client):
     """Dos pasos por SMS, cookie httpOnly, CSRF, bloqueo por intentos,
     política de contraseñas y cierre de sesiones."""
-    from app.services.limites import reiniciar
     from conftest import PASSWORD, Api, iniciar_sesion
+
+    from app.modulos.acceso.limites import reiniciar
 
     reiniciar()
     # Paso 1: la contraseña correcta solo abre el desafío; no hay sesión todavía
@@ -783,41 +803,42 @@ def test_acceso_seguro(client):
     r = admin.post("/usuarios", {"email": "nuevo@demo.com", "nombre": "Nuevo", "rol": "interno", "password": "abc12"})
     assert r.status_code == 422 and r.json()["codigo"] == "password_debil"
     r = admin.post("/usuarios", {"email": "nuevo@demo.com", "nombre": "Nuevo", "rol": "interno",
-                                 "password": "Seguridad2026", "telefono": "7000"})
+                                 "password": "Seguridad-2026", "telefono": "7000"})
     assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "telefono"
     r = admin.post("/usuarios", {"email": "nuevo@demo.com", "nombre": "Nuevo", "rol": "interno",
-                                 "password": "Seguridad2026", "telefono": "+503 7000-1234"})
+                                 "password": "Seguridad-2026", "telefono": "+503 7000-1234"})
     assert r.status_code == 200, r.text
     nuevo_id = r.json()["id"]
     nuevo = next(u for u in admin.get("/usuarios").json() if u["id"] == nuevo_id)
     assert nuevo["telefono"] == "+50370001234" and nuevo["dos_pasos"]
     # Sin celular registrado no se puede entrar con dos pasos
     admin.patch(f"/usuarios/{nuevo_id}", {"telefono": None})
-    r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "Seguridad2026"})
+    r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "Seguridad-2026"})
     assert r.status_code == 403 and r.json()["codigo"] == "sin_telefono"
     admin.patch(f"/usuarios/{nuevo_id}", {"telefono": "+50370001234"})
     # Cambiar la contraseña propia cierra las otras sesiones
     reiniciar()
-    t1 = iniciar_sesion(client, "nuevo@demo.com", "Seguridad2026")
-    t2 = iniciar_sesion(client, "nuevo@demo.com", "Seguridad2026")
+    t1 = iniciar_sesion(client, "nuevo@demo.com", "Seguridad-2026")
+    t2 = iniciar_sesion(client, "nuevo@demo.com", "Seguridad-2026")
     h1, h2 = {"Authorization": f"Bearer {t1}"}, {"Authorization": f"Bearer {t2}"}
-    r = client.post("/api/auth/password", json={"actual": "Seguridad2026", "nueva": "corta"}, headers=h1)
+    r = client.post("/api/auth/password", json={"actual": "Seguridad-2026", "nueva": "corta"}, headers=h1)
     assert r.status_code == 422
-    r = client.post("/api/auth/password", json={"actual": "Seguridad2026", "nueva": "OtraClave2027"}, headers=h1)
+    r = client.post("/api/auth/password", json={"actual": "Seguridad-2026", "nueva": "Otra#Clave2027"}, headers=h1)
     assert r.status_code == 200
     assert client.get("/api/auth/me", headers=h1).status_code == 200
     assert client.get("/api/auth/me", headers=h2).status_code == 401
-    # Bloqueo tras 5 contraseñas incorrectas, aun con la correcta después
-    for _ in range(5):
+    # Bloqueo tras 5 contraseñas incorrectas, aun con la correcta después. Quien
+    # no sabe la contraseña ve el mismo error que con un correo inexistente.
+    for _ in range(6):
         r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "mala"})
-    assert r.status_code == 423
-    r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "OtraClave2027"})
+    assert r.status_code == 401 and r.json()["codigo"] == "credenciales"
+    r = client.post("/api/auth/login", json={"email": "nuevo@demo.com", "password": "Otra#Clave2027"})
     assert r.status_code == 423 and r.json()["codigo"] == "bloqueado"
     assert next(u for u in admin.get("/usuarios").json() if u["id"] == nuevo_id)["bloqueado"]
     # El administrador desbloquea al restablecer la contraseña
-    admin.patch(f"/usuarios/{nuevo_id}", {"password": "Restablecida2028"})
+    admin.patch(f"/usuarios/{nuevo_id}", {"password": "Restablecida-2028"})
     reiniciar()
-    assert iniciar_sesion(client, "nuevo@demo.com", "Restablecida2028")
+    assert iniciar_sesion(client, "nuevo@demo.com", "Restablecida-2028")
     # Mismo mensaje para correo inexistente y contraseña incorrecta
     a = client.post("/api/auth/login", json={"email": "nadie@demo.com", "password": "x"}).json()["mensaje"]
     b = client.post("/api/auth/login", json={"email": "admin@demo.com", "password": "x"}).json()["mensaje"]
@@ -864,7 +885,7 @@ def test_crear_oc_desde_formulario(interno, vans):
     assert oc["numero"] == "PO-FORM-1" and oc["lineas"] == 1
     det = interno.get(f"/ordenes/{oc['oc_id']}/posiciones").json()
     assert det["posiciones"][0]["posicion"] == "10" and det["posiciones"][0]["casepack"] == 6
-    assert det["posiciones"][0]["total"] is None  # sin precio: el valor queda pendiente
+    assert det["posiciones"][0]["importe"] is None  # sin precio: el valor queda pendiente
     # El mismo número no se repite para el proveedor
     assert interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 1}]}).status_code == 409
     # Sin precio, moneda ni empresa no se puede facturar: se dice qué falta
@@ -923,8 +944,8 @@ def test_inner_pack_en_el_packing_list(interno, vans):
     assert r.status_code == 200, r.text
     pl = vans.get(f"/packing-lists/{pl_id}").json()
     assert not pl["lineas"][0]["inner_editable"]
-    grupo = pl["grupos"][0]
-    assert grupo["items"][0]["inner_packs_por_caja"] == 3
+    grupo = next(g for g in pl["grupos"] if g["cuenta_como"] == "BULTO")
+    assert grupo["contenido"][0]["inner_packs_por_caja"] == 3
     assert vans.put(url, {"version": pl["version"], "inner_pack": 6}).status_code == 409
 
 
@@ -980,3 +1001,52 @@ def test_numero_propio_del_pl(interno, vans):
     if otro.status_code == 200:
         r = vans.put(f"/packing-lists/{otro.json()['id']}/numero", {"numero": "vn-pl 2026/88"})
         assert r.status_code == 409
+
+
+def test_estructura_fisica_por_carga(interno, vans):
+    """El PL se arma desde un archivo con el identificador de cada nivel:
+    unidades iguales se agrupan y los pesos salen de la estructura."""
+    import io
+
+    from openpyxl import Workbook, load_workbook
+
+    sku = _oc(interno, "4400003901")["posiciones"][0]["codigo_sap"]
+    cab = {"proveedor": "VANS", "oc": "PO-ESTR-1", "sociedad": "8000", "moneda": "USD", "centro_destino": "2220",
+           "liberacion_comercial": "C", "liberacion_logistica": "300"}
+    r = interno.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_sap": sku, "cantidad": 24, "precio": 10}]})
+    pos = interno.get(f"/ordenes/{r.json()['oc_id']}/posiciones").json()["posiciones"][0]
+    fid = vans.post("/facturas", {"lineas": [{"posicion_id": pos["id"], "cantidad": 24}]}).json()["id"]
+    pl_id = vans.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
+    plantilla = vans.c.get(f"/api/packing-lists/{pl_id}/estructura/plantilla", headers=vans.h)
+    enc = [c.value for c in load_workbook(io.BytesIO(plantilla.content))["Data"][1]]
+    assert enc[:3] == ["Pallet", "Master carton", "Inner pack"] and "Item code *" in enc
+
+    def subir(filas):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Data"
+        ws.append(["Pallet", "Master carton", "Inner pack", "Item code", "PO", "Quantity"])
+        for f in filas:
+            ws.append(f)
+        b = io.BytesIO()
+        wb.save(b)
+        return vans.c.post(f"/api/packing-lists/{pl_id}/estructura/importar", headers=vans.h,
+                           files={"archivo": ("e.xlsx", io.BytesIO(b.getvalue()), "application/octet-stream")})
+
+    # Más de lo que tiene el PL o una relación que los tipos no permiten: no cambia nada
+    r = subir([["P001", "C001", "PK001", sku, "", 30]])
+    assert r.status_code == 422 and "more than" in r.text
+    r = subir([["P001", "", "PK001", sku, "", 6]])
+    assert r.status_code == 422 and "Not allowed" in r.text
+    filas = [["P001", f"C00{c}", f"PK00{(c - 1) * 2 + k}", sku, "", 6] for c in (1, 2) for k in (1, 2)]
+    r = subir(filas)
+    assert r.status_code == 200, r.text
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    por_tipo = {g["tipo"]: g for g in pl["grupos"]}
+    pallet, caja, inner = por_tipo["Pallet"], por_tipo["Master carton"], por_tipo["Inner pack"]
+    assert (pallet["num_cajas"], caja["num_cajas"], inner["num_cajas"]) == (1, 2, 4)
+    assert caja["padre_id"] == pallet["id"] and inner["padre_id"] == caja["id"] and inner["items"][0]["cantidad_por_caja"] == 6
+    peso = inner["items"][0]["peso_unitario"]
+    assert abs(caja["peso_bruto_caja"] - (12 * peso + 2 * inner["tara"] + caja["tara"])) < 1e-6
+    assert abs(pl["totales"]["peso_bruto"] - (2 * caja["peso_bruto_caja"] + pallet["tara"])) < 1e-3
+    assert pl["lineas"][0]["sin_caja"] == 0 and pl["totales"]["cajas"] == 2 and pl["totales"]["pallets"] == 1

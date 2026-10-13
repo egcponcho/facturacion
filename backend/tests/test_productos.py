@@ -2,7 +2,6 @@
 import io
 
 from openpyxl import load_workbook
-
 from test_flujo import _oc
 
 PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
@@ -14,15 +13,6 @@ def _producto(api, estilo, color):
     return next(p for p in items if p["estilo"] == estilo and p["color"] == color)
 
 
-def _resultado(codigo, completa=True):
-    return {"sugerido": codigo, "confianza": "high", "fuente": "regla", "perfil": "calzado|tenis|textil|caucho|bajo|casual|-|-",
-            "razones": ["Footwear → chapter 64", "Sneaker: casual or lifestyle → 6404.19"], "completa": completa,
-            "faltan": [] if completa else ["Country of origin"],
-            "descripcion_aduana": "TENIS DE TEXTIL, UNISEX, MARCA VANS",
-            "partidas": {"SV": {"codigo": "6404199000", "estado": "ok", "fuente": "base"},
-                         "PA": {"codigo": "640419970000", "estado": "auto", "fuente": "base"}}}
-
-
 def test_lista_contexto_y_separacion(tnf, vans, interno):
     r = interno.get("/productos", params={"size": 100}).json()
     assert r["kpis"]["total"] >= 7 and r["kpis"]["pendientes"] >= 2 and r["kpis"]["aprobados"] >= 5
@@ -32,7 +22,8 @@ def test_lista_contexto_y_separacion(tnf, vans, interno):
     # El prepack no se clasifica: toma el producto (y la partida) de sus sólidos
     assert old["n_prepacks"] >= 1 and old["rango_tallas"] == "7–12"
     assert old["descripcion_comercial"] == "CALZADO VANS" and old["codigo_generico"] == "30095125"
-    assert old["paises_ok"] == old["paises_total"] == 6
+    # Solo GT, SV y HN tienen arancel nacional oficial cargado; NI, CR y PA no cuentan como completos
+    assert old["paises_ok"] == 3 and old["paises_total"] == 6
     # El proveedor solo ve lo suyo y recibe 404 en lo ajeno
     assert all(p["proveedor"] == "Vans" for p in vans.get("/productos", params={"size": 100}).json()["items"])
     assert vans.get(f"/productos/{_producto(interno, 'NF0A5GLL', 'JK3 TNF Black')['id']}").status_code == 404
@@ -41,7 +32,8 @@ def test_lista_contexto_y_separacion(tnf, vans, interno):
     assert {p["estado"] for p in pend} <= {"borrador", "sugerida", "observado", "revision"}
     ctx = interno.get("/clasificacion/contexto").json()
     assert len(ctx["destinos"]) == 6 and ctx["pais_base"] == "SV" and ctx["puede_aprobar"]
-    assert any(x["pais"] == "PA" and x["cond"] for x in ctx["incisos"]) and ctx["recs"]
+    # El contexto es solo para mostrar: ni historial ni códigos nacionales (los usa el motor del servidor)
+    assert "incisos" not in ctx and "recs" not in ctx and ctx["categorias"] and ctx["capitulos"]
     assert not vans.get("/clasificacion/contexto").json()["puede_aprobar"]
 
 
@@ -67,8 +59,8 @@ def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
     # El proveedor completa la ficha; aprobar es del equipo interno
     det = vans.put(f"/productos/{p['id']}/ficha", {
         "version": det["version"], "tipo": "calzado", "pais_origen": "CN",
-        "ficha": {**det["ficha"], "uso": "Casual canvas sneaker"}, "resultado": _resultado("640419")}).json()
-    assert det["estado"] == "sugerida" and det["sugerido"] == "6404.19" and det["partidas"]["PA"]["codigo"] == "640419970000"
+        "ficha": {**det["ficha"], "uso": "Casual canvas sneaker"}}).json()
+    assert det["estado"] == "sugerida" and det["sugerido"] == "6404.19" and "PA" not in det["partidas"] and det["partidas"]["SV"]["codigo"].startswith("640419")
     assert vans.post(f"/productos/{p['id']}/aprobar", {"version": det["version"]}).status_code == 403
     # Borrador → enviar a revisión: queda cerrada para el proveedor hasta que se revise o la retire
     assert vans.post("/productos/enviar", {"ids": [p["id"]]}).json()["enviados"] == 1
@@ -85,21 +77,23 @@ def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
     r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "640419",
                                                         "partidas": {"SV": {"codigo": "6402991000", "estado": "ok"}}})
     assert r.status_code == 422
+    # Un código de Panamá que ninguna fuente oficial publicó tampoco
+    r = interno.post(f"/productos/{p['id']}/aprobar", {"version": det["version"], "codigo": "6404.19",
+                                                        "partidas": {"PA": {"codigo": "640419970000", "estado": "auto"}}})
+    assert r.status_code == 422 and r.json()["codigo"] == "codigo_nacional_invalido"
     det = interno.post(f"/productos/{p['id']}/aprobar", {
-        "version": det["version"], "codigo": "6404.19",
-        "partidas": {"SV": {"codigo": "6404199000", "estado": "ok", "fuente": "base"},
-                     "PA": {"codigo": "640419970000", "estado": "auto", "fuente": "base"}}}).json()
+        "version": det["version"], "codigo": "6404.19", "partidas": {"SV": {"codigo": "6404199000", "estado": "ok"}}}).json()
     assert det["estado"] == "aprobado" and det["codigo"] == "6404.19" and det["revisado_por"]
     assert any(h["accion"] == "aprobado" for h in det["historial"]), det["historial"]
 
-    # Ahora la OC lleva el código del país destino y la factura se completa al finalizar
+    # La OC lleva la subpartida de 6 dígitos (el destino es solo proyectado) y la factura se completa al finalizar
     assert next(x for x in _oc(vans, "4400003902")["posiciones"] if x["id"] == pos["id"])["partida_arancelaria"] \
-        == "6404.19.90.00"
+        == "6404.19"
     fd = vans.get(f"/facturas/{f['id']}").json()
     r = vans.post(f"/facturas/{f['id']}/finalizar", {"version": fd["version"]})
     assert r.status_code == 200, r.text
     linea = vans.get(f"/facturas/{f['id']}").json()["lineas"][0]
-    assert linea["partida_arancelaria"] == "6404.19.90.00" and linea["pais_origen"]
+    assert linea["partida_arancelaria"] == "6404.19" and linea["pais_origen"]
 
     # Una ficha aprobada no se edita: se abre una versión nueva que vuelve a borrador
     assert vans.put(f"/productos/{p['id']}/ficha", {"version": det["version"], "ficha": {}}).status_code == 409
@@ -132,17 +126,21 @@ def test_devolver_aprobar_lote_y_aprendizaje(vans, interno):
     r = interno.post("/productos/aprobar", {"ids": [p["id"]]}).json()
     assert r["aprobados"] == 0 and r["errores"]
 
-    # Enseñar un código nacional: dígitos del país y condiciones
-    assert interno.post("/clasificacion/incisos", {"pais": "PA", "codigo": "6404199"}).status_code == 422
-    r = interno.post("/clasificacion/incisos", {"pais": "PA", "codigo": "640419990000", "cond": {"edadNac": "bebe"}})
-    assert r.status_code == 200
-    assert vans.post("/clasificacion/incisos", {"pais": "PA", "codigo": "640419990000"}).status_code == 403
+    # Enseñar un código nacional: queda en el historial de la empresa, solo sobre líneas oficiales
+    assert interno.post("/clasificacion/incisos", {"pais": "SV", "codigo": "6404199"}).status_code == 422
+    r = interno.post("/clasificacion/incisos", {"pais": "PA", "codigo": "640419990000", "cond": {"edad": "bebe"}})
+    assert r.status_code == 422 and r.json()["codigo"] == "no_es_linea_oficial"  # el historial no crea líneas
+    r = interno.post("/clasificacion/incisos", {"pais": "SV", "codigo": "6404.19.90.00", "cond": {"edad": "bebe"}})
+    assert r.status_code == 200, r.text
+    assert vans.post("/clasificacion/incisos", {"pais": "SV", "codigo": "6404199000"}).status_code == 403
     assert interno.post("/clasificacion/palabras", {"frase": "old skool", "tipo": "calzado",
-                                                    "atributos": {"estiloCalz": "tenis"}}).status_code == 200
+                                                    "atributos": {"estilo_calzado": "tenis"}}).status_code == 200
     assert vans.post("/clasificacion/sinonimos", {"palabra": "cordura", "equivale": "nylon"}).status_code == 200
-    ctx = interno.get("/clasificacion/contexto").json()
-    assert any(x["frase"] == "old skool" and x["estiloCalz"] == "tenis" for x in ctx["palabras"])
-    assert any(x["palabra"] == "cordura" for x in ctx["sinonimos"])
+    # Lo aprendido lo usa el motor: la palabra clave da categoría y estilo
+    s = interno.post("/clasificacion/sesion", {"nombre": "Old Skool", "paises": False}).json()
+    assert s["categoria"]["codigo"] == "calzado" and s["ficha"].get("estilo_calzado") == "tenis"
+    s = interno.post("/clasificacion/sesion", {"categoria": "mochila", "ficha": {"comp": {"exterior": "100% cordura"}}, "paises": False}).json()
+    assert s["hechos"].get("superficie_exterior") == "textil"
 
 
 def test_fotos(vans, interno):

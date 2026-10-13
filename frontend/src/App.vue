@@ -1,21 +1,30 @@
 <script setup>
-import { t, tx } from './i18n/index.js'
-import { computed, ref, watch } from 'vue'
-import Seleccion from './components/Seleccion.vue'
+import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import { t, tx } from '@/i18n/index.js'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import Icono from './components/Icono.vue'
-import Modal from './components/Modal.vue'
-import SelectorIdioma from './components/SelectorIdioma.vue'
-import SelectorTema from './components/SelectorTema.vue'
-import Toasts from './components/Toasts.vue'
-import { carrito } from './stores/carrito'
-import { cerrarSesion, elegirProveedor, esInterno, puede, sesion } from './stores/sesion'
-import { api } from './api'
-import { avisar, ui } from './stores/ui'
+import Icono from '@/componentes/Icono.vue'
+import Avatar from '@/componentes/Avatar.vue'
+import BusquedaGlobal from '@/componentes/BusquedaGlobal.vue'
+import SelectorIdioma from '@/componentes/SelectorIdioma.vue'
+import SelectorTema from '@/componentes/SelectorTema.vue'
+import Toasts from '@/componentes/Toasts.vue'
+import Confirmacion from '@/componentes/Confirmacion.vue'
+import { carrito } from '@/stores/carrito'
+import { cargarSesion, cerrarSesion, elegirProveedor, eligeProveedor, puede, sesion } from '@/stores/sesion'
+import { errorApi, ui } from '@/stores/ui'
+import { api } from '@/nucleo/api'
+import { tituloSistema } from '@/nucleo/marca.js'
 
 const route = useRoute()
 const router = useRouter()
+// Nombre y logo de la empresa (Configuración → Empresa)
+const empresa = computed(() => sesion.usuario?.organizacion)
 const menuAbierto = ref(false)
+// Selector de proveedor (usuarios internos): busca por código, nombre, razón social, país o marcas
+const opcionesProveedor = computed(() => sesion.proveedores.map((p) => ({
+  valor: p.id, texto: p.nombre, sub: [p.codigo, p.pais, p.razon_social, ...(p.marcas || [])].filter(Boolean).join(' · '),
+})))
 
 const ROLES = { admin: t('Administrator'), interno: t('Imports'), proveedor: t('Supplier') }
 
@@ -25,28 +34,50 @@ const ROLES = { admin: t('Administrator'), interno: t('Imports'), proveedor: t('
 const navegacion = computed(() => {
   const items = [{ to: '/', texto: t('Home'), icono: 'tablero' }]
   if (puede('oc.ver')) items.push({ to: '/ordenes', texto: t('Orders'), icono: 'ordenes', cuenta: carrito.items.length || null })
-  if (puede('oc.ver')) items.push({ to: '/facturas', texto: t('Invoices'), icono: 'factura' })
+  if (puede('factura.ver')) items.push({ to: '/facturas', texto: t('Invoices'), icono: 'factura' })
   if (puede('transporte.gestionar')) items.push({ to: '/transporte', texto: t('Shipments'), icono: 'barco' })
   if (puede('producto.ver')) items.push({ to: '/productos', texto: t('Products'), icono: 'etiqueta' })
   if (puede('seguimiento.ver')) items.push({ to: '/seguimiento', texto: t('Tracking'), icono: 'ruta' })
+  if (['oc.ver', 'factura.ver', 'transporte.gestionar', 'producto.ver'].some((p) => puede(p))) {
+    items.push({ to: '/tableros', texto: t('Indicators'), icono: 'grafica' }, { to: '/reportes', texto: t('Reports'), icono: 'archivo' })
+  }
   return items
 })
+// Configuración agrupada por tema; solo aparece lo que el rol puede abrir
 const ajustes = computed(() => {
   const items = []
-  if (puede('catalogos.ver')) items.push({ to: '/mantenimiento', texto: t('Master data'), detalle: t('Items, brands, suppliers, plants'), icono: 'base' })
-  if (puede('plantilla.editar')) items.push({ to: '/plantillas', texto: t('Packing templates'), detalle: t('Reusable carton layouts'), icono: 'capas' })
-  if (puede('aranceles.ver')) items.push({ to: '/aranceles', texto: t('Tariff schedule'), detalle: t('SAC, countries and national codes'), icono: 'etiqueta' })
-  if (puede('oc.importar')) items.push({ to: '/importar', texto: t('Load purchase orders'), detalle: t('File or form'), icono: 'importar' })
-  if (puede('admin')) items.push({ to: '/admin', texto: t('Users and access'), detalle: t('Roles, suppliers, sessions'), icono: 'usuarios' })
+  if (sesion.usuario?.plataforma) items.push({ grupo: t('Platform'), to: '/plataforma', texto: t('Organizations'), detalle: t('Client companies of this installation'), icono: 'capas' })
+  if (puede('admin')) items.push({ grupo: t('Organization'), to: '/empresa', texto: t('Company'), detalle: t('Name, logo, preferences and rules'), icono: 'base' })
+  if (puede('admin')) items.push({ grupo: t('Organization'), to: '/admin', texto: t('Users and access'), detalle: t('Roles, suppliers, sessions'), icono: 'usuarios' })
+  if (puede('catalogos.ver')) items.push({ grupo: t('Master data'), to: '/mantenimiento', texto: t('Master data'), detalle: t('Items, brands, suppliers, plants'), icono: 'base' })
+  if (puede('plantilla.editar')) items.push({ grupo: t('Master data'), to: '/plantillas', texto: t('Packing templates'), detalle: t('Reusable carton layouts'), icono: 'capas' })
+  if (puede('catalogos.ver')) items.push({ grupo: t('Logistics'), to: '/leadtimes', texto: t('Lead times'), detalle: t('Steps, rules by region, country and port'), icono: 'reloj' })
+  if (puede('clasificacion.ver')) items.push({ grupo: t('Trade and compliance'), to: '/familias', texto: t('Product families'), detalle: t('Questions and rules that classify each family'), icono: 'capas' })
+  if (puede('aranceles.ver')) items.push({ grupo: t('Trade and compliance'), to: '/aranceles', texto: t('Tariff schedule'), detalle: t('Tariff schemes, countries and national codes'), icono: 'etiqueta' })
+  if (puede('oc.importar')) items.push({ grupo: t('Data and system'), to: '/importar', texto: t('Load purchase orders'), detalle: t('File or form'), icono: 'importar' })
   return items
 })
-const ajustesAbierto = ref(false)
+const gruposAjustes = computed(() => {
+  const g = []
+  for (const i of ajustes.value) {
+    const ultimo = g[g.length - 1]
+    if (ultimo?.nombre === i.grupo) ultimo.items.push(i)
+    else g.push({ nombre: i.grupo, items: [i] })
+  }
+  return g
+})
+// Barra lateral: compacta (solo íconos) o completa; se recuerda por navegador
+const leer = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v === '1' } catch { return d } }
+const guardar = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0') } catch { /* sin almacenamiento */ } }
+const compacta = ref(leer('lateral-compacta', false))
+watch(compacta, (v) => guardar('lateral-compacta', v))
+const ajustesAbierto = ref(leer('lateral-ajustes', false))
+watch(ajustesAbierto, (v) => guardar('lateral-ajustes', v))
 const enAjustes = computed(() => ajustes.value.some((i) => route.path.startsWith(i.to)))
 
 const activo = (to) => (to === '/' ? route.path === '/' : route.path.startsWith(to) ||
-  (to === '/facturas' && route.path.startsWith('/packing-lists')) || (to === '/productos' && route.path.startsWith('/aranceles')))
+  (to === '/facturas' && route.path.startsWith('/packing-lists')) || (to === '/productos' && (route.path.startsWith('/aranceles') || route.path.startsWith('/familias'))))
 
-const iniciales = computed(() => (sesion.usuario?.nombre || '?').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase())
 
 const textoGuardado = computed(() => ({
   guardando: t('Saving…'),
@@ -56,120 +87,127 @@ const textoGuardado = computed(() => ({
 
 watch(() => route.fullPath, () => {
   menuAbierto.value = false
-  ajustesAbierto.value = false
 })
+// Si se entra a una página de configuración, la sección queda abierta
+watch(enAjustes, (v) => { if (v) ajustesAbierto.value = true }, { immediate: true })
+
+// La descripción de cada página va en una línea; un clic la despliega
+function desplegar(e) {
+  const p = e.target.closest?.('.pagina-cabeza p')
+  if (p) p.classList.toggle('expandida')
+}
+onMounted(() => document.addEventListener('click', desplegar))
+onBeforeUnmount(() => document.removeEventListener('click', desplegar))
 
 async function salir() {
   await cerrarSesion()
   router.push('/login')
 }
 
-// Change own password: closes the other open sessions
-const clave = ref(null)
-async function cambiarClave() {
-  clave.value.error = ''
-  if (clave.value.nueva !== clave.value.repetir) {
-    clave.value.error = t('The new passwords do not match.')
-    return
-  }
+// Soporte de la plataforma: volver a la organización propia
+async function volverAMiOrganizacion() {
   try {
-    await api.post('/auth/password', { actual: clave.value.actual, nueva: clave.value.nueva })
-    clave.value = null
-    avisar(t('Password changed. Your other sessions were closed.'))
+    await api.post('/plataforma/entrar', { organizacion_id: null })
+    await cargarSesion(true)
+    router.push('/plataforma')
   } catch (e) {
-    clave.value.error = [e.message, ...(e.detalle || []).map((d) => d.mensaje)].join(' ')
+    errorApi(e)
   }
 }
+
+// Change own password: closes the other open sessions
 </script>
 
 <template>
-  <div v-if="route.name !== 'login' && sesion.usuario" class="marco">
-    <header class="cabecera">
-      <div class="cabecera-fila">
-        <button type="button" class="btn-icono boton-menu" :aria-expanded="menuAbierto" :aria-label="t('Menu')" @click="menuAbierto = !menuAbierto">
-          <Icono :nombre="menuAbierto ? 'cerrar' : 'menu'" :tam="22" />
-        </button>
-        <router-link to="/" class="marca">
-          <span class="marca-logo"><Icono nombre="caja" :tam="19" /></span>
-          <span class="marca-texto">{{ t('Workspace') }}<span>{{ t('Suppliers') }}</span></span>
+  <div v-if="route.name !== 'login' && !route.meta.sinMarco && sesion.usuario" class="marco" :class="{ compacta }">
+    <div class="progreso-ruta" :class="{ activo: ui.navegando }" aria-hidden="true"></div>
+    <aside class="lateral" :class="{ abierta: menuAbierto }" :aria-label="t('Main')">
+      <div class="lateral-cabeza">
+        <router-link to="/" class="marca" :title="tx(empresa?.nombre || tituloSistema())">
+          <img v-if="empresa?.logo" :src="empresa.logo" alt="" class="marca-logo marca-imagen" />
+          <span v-else class="marca-logo"><Icono nombre="caja" :tam="18" /></span>
+          <span class="marca-texto">{{ tx(empresa?.nombre || tituloSistema()) }}<span>{{ tituloSistema() }}</span></span>
         </router-link>
+        <button type="button" class="btn-icono lateral-cerrar" :aria-label="t('Close')" @click="menuAbierto = false"><Icono nombre="cerrar" :tam="20" /></button>
+      </div>
+      <nav class="lateral-nav">
+        <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="lateral-item" :class="{ activo: activo(i.to) }"
+                     :aria-current="activo(i.to) ? 'page' : undefined" :title="compacta ? tx(i.texto) : undefined">
+          <Icono :nombre="i.icono" :tam="18" /><span class="lateral-texto">{{ tx(i.texto) }}</span>
+          <span v-if="i.cuenta" class="nav-cuenta">{{ tx(i.cuenta) }}</span>
+        </router-link>
+        <template v-if="ajustes.length">
+          <button type="button" class="lateral-seccion" :aria-expanded="ajustesAbierto" :title="compacta ? t('Settings') : undefined" @click="ajustesAbierto = !ajustesAbierto">
+            <Icono nombre="engrane" :tam="18" /><span class="lateral-texto">{{ t('Settings') }}</span>
+            <Icono :nombre="ajustesAbierto ? 'arriba' : 'abajo'" :tam="14" class="lateral-flecha" />
+          </button>
+          <div v-show="ajustesAbierto" class="lateral-ajustes">
+            <template v-for="g in gruposAjustes" :key="g.nombre">
+              <div class="lateral-grupo">{{ tx(g.nombre) }}</div>
+              <router-link v-for="i in g.items" :key="i.to" :to="i.to" class="lateral-item lateral-sub" :class="{ activo: route.path.startsWith(i.to) }"
+                           :title="compacta ? tx(i.texto) : tx(i.detalle)">
+                <Icono :nombre="i.icono" :tam="16" /><span class="lateral-texto">{{ tx(i.texto) }}</span>
+              </router-link>
+            </template>
+          </div>
+        </template>
+      </nav>
+      <div class="lateral-pie">
+        <div class="lateral-preferencias"><SelectorIdioma /><SelectorTema /></div>
+        <button type="button" class="lateral-item lateral-plegar" :title="compacta ? t('Expand menu') : t('Collapse menu')" @click="compacta = !compacta">
+          <Icono :nombre="compacta ? 'derecha' : 'atras'" :tam="16" /><span class="lateral-texto">{{ t('Collapse menu') }}</span>
+        </button>
+      </div>
+    </aside>
+    <div v-if="menuAbierto" class="lateral-velo" @click="menuAbierto = false"></div>
+
+    <div class="area">
+      <header class="cabecera">
+        <button type="button" class="btn-icono boton-menu" :aria-expanded="menuAbierto" :aria-label="t('Menu')" @click="menuAbierto = true">
+          <Icono nombre="menu" :tam="22" />
+        </button>
+        <BusquedaGlobal class="cabecera-busqueda" />
         <div class="cabecera-derecha">
           <span class="indicador-guardado" :class="ui.guardado" aria-live="polite"><Icono v-if="ui.guardado === 'guardado'" nombre="check" :tam="14" />{{ tx(textoGuardado) }}</span>
           <router-link v-if="carrito.items.length" to="/ordenes?seleccion=1" class="chip-seleccion" :title="t('Order lines ready to invoice')">
             <Icono nombre="carrito" :tam="15" /><b>{{ tx(carrito.items.length) }}</b>
           </router-link>
-          <label v-if="esInterno()" class="selector-proveedor fila-flex" style="gap: 6px; flex-wrap: nowrap">
-            <span class="ayuda">{{ t('Supplier') }}</span>
-            <Seleccion class="entrada" :value="sesion.proveedorId || ''" @change="elegirProveedor(Number($event) || null)">
-              <option value="">{{ t('All') }}</option>
-              <option v-for="p in sesion.proveedores" :key="p.id" :value="p.id">{{ tx(p.nombre) }}</option>
-            </Seleccion>
-          </label>
-          <SelectorIdioma class="solo-escritorio" />
-          <SelectorTema class="solo-escritorio" />
+          <div v-if="eligeProveedor()" class="selector-proveedor">
+            <SelectBusqueda :model-value="sesion.proveedorId || ''" :opciones="opcionesProveedor" :vacio="t('All suppliers')" :busqueda="true"
+                            :etiqueta="t('Supplier')" :prefijo="false" @update:model-value="elegirProveedor(Number($event) || null)" />
+          </div>
           <div class="usuario">
-            <span class="avatar" aria-hidden="true">{{ tx(iniciales) }}</span>
-            <div class="usuario-datos">
-              <b>{{ tx(sesion.usuario.nombre) }}</b>
-              <span>{{ tx(sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol]) }}</span>
-            </div>
-            <button type="button" class="btn-icono solo-escritorio" :aria-label="t('Change password')" :title="t('Change password')"
-                    @click="clave = { actual: '', nueva: '', repetir: '', error: '' }"><Icono nombre="candado" /></button>
-            <button type="button" class="btn-icono solo-escritorio" :aria-label="t('Sign out')" :title="t('Sign out')" @click="salir"><Icono nombre="salir" /></button>
+            <router-link to="/perfil" class="usuario-enlace" :title="t('My profile')" :aria-label="t('My profile')">
+              <Avatar :nombre="sesion.usuario.nombre" :foto="sesion.usuario.foto" :tam="32" />
+              <div class="usuario-datos">
+                <b>{{ tx(sesion.usuario.nombre) }}</b>
+                <span>{{ tx(sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol]) }}</span>
+              </div>
+            </router-link>
+            <button type="button" class="btn-icono" :aria-label="t('Sign out')" :title="t('Sign out')" @click="salir"><Icono nombre="salir" /></button>
           </div>
         </div>
-      </div>
-      <div class="cabecera-nav">
-        <nav class="nav-principal" :aria-label="t('Main')">
-          <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }"
-                       :aria-current="activo(i.to) ? 'page' : undefined">
-            <Icono :nombre="i.icono" :tam="16" />{{ tx(i.texto) }}
-            <span v-if="i.cuenta" class="nav-cuenta" :aria-label="t('{0} in the selection', [i.cuenta])">{{ tx(i.cuenta) }}</span>
-          </router-link>
-          <div class="nav-ajustes" @keydown.esc="ajustesAbierto = false">
-            <button type="button" class="nav-link" :class="{ activo: enAjustes }" :aria-expanded="ajustesAbierto" aria-haspopup="true"
-                    @click="ajustesAbierto = !ajustesAbierto"><Icono nombre="engrane" :tam="16" />{{ t('Settings') }}<Icono nombre="abajo" :tam="14" /></button>
-            <div v-if="ajustesAbierto" class="menu-ajustes" role="menu">
-              <router-link v-for="i in ajustes" :key="i.to" :to="i.to" class="menu-item" role="menuitem">
-                <span class="menu-icono"><Icono :nombre="i.icono" :tam="16" /></span>
-                <span><b>{{ tx(i.texto) }}</b><small>{{ tx(i.detalle) }}</small></span>
-              </router-link>
-            </div>
-            <div v-if="ajustesAbierto" class="menu-velo" @click="ajustesAbierto = false"></div>
-          </div>
-        </nav>
-      </div>
-      <nav class="nav-movil" :class="{ abierta: menuAbierto }" :aria-label="t('Main (mobile)')">
-        <router-link v-for="i in [...navegacion, ...ajustes]" :key="i.to" :to="i.to" class="nav-link" :class="{ activo: activo(i.to) }">
-          <Icono :nombre="i.icono" :tam="17" />{{ tx(i.texto) }}
-          <span v-if="i.cuenta" class="nav-cuenta">{{ tx(i.cuenta) }}</span>
-        </router-link>
-        <!-- En celular, las preferencias y la cuenta viven en el menú para no saturar la cabecera -->
-        <div class="nav-movil-extra">
-          <SelectorIdioma />
-          <SelectorTema />
-          <button type="button" class="nav-link" @click="clave = { actual: '', nueva: '', repetir: '', error: '' }"><Icono nombre="candado" :tam="17" />{{ t('Change password') }}</button>
-          <button type="button" class="nav-link" @click="salir"><Icono nombre="salir" :tam="17" />{{ t('Sign out') }}</button>
+      </header>
+      <main class="contenido">
+        <!-- Soporte de la plataforma: deja claro en qué organización se está trabajando -->
+        <div v-if="empresa && empresa.propia === false" class="banda-soporte" role="status">
+          <Icono nombre="alerta" :tam="16" />
+          <span>{{ t('You are working in {0} as platform support. What you do is recorded in its activity log.', [empresa.nombre]) }}</span>
+          <button type="button" class="btn btn-chico" @click="volverAMiOrganizacion">{{ t('Back to my organization') }}</button>
         </div>
-      </nav>
-    </header>
-    <main class="contenido">
-      <router-view :key="route.path" />
-    </main>
+        <!-- Cada página entra con un fundido corto (sin esperar a la anterior) -->
+        <div :key="route.meta.vista || route.path" class="pagina-entra"><router-view /></div>
+      </main>
+    </div>
   </div>
-  <router-view v-else-if="route.name === 'login'" />
-  <Modal v-if="clave" :titulo="t('Change password')" ancho="440px" @cerrar="clave = null">
-    <form id="form-clave" class="rejilla-campos" style="grid-template-columns: 1fr" @submit.prevent="cambiarClave">
-      <label class="campo"><span class="req">{{ t('Current password') }}</span><input v-model="clave.actual" type="password" autocomplete="current-password" required /></label>
-      <label class="campo"><span class="req">{{ t('New password') }}</span><input v-model="clave.nueva" type="password" autocomplete="new-password" minlength="10" required />
-        <small class="ayuda">{{ t('At least 10 characters, with letters and numbers.') }}</small></label>
-      <label class="campo"><span class="req">{{ t('Repeat the new password') }}</span><input v-model="clave.repetir" type="password" autocomplete="new-password" required /></label>
-      <p v-if="clave.error" class="nota error" role="alert"><Icono nombre="alerta" />{{ tx(clave.error) }}</p>
-    </form>
-    <template #pie>
-      <button class="btn" @click="clave = null">{{ t('Cancel') }}</button>
-      <button class="btn btn-primario" type="submit" form="form-clave">{{ t('Change password') }}</button>
-    </template>
-  </Modal>
+  <router-view v-else-if="route.name === 'login' || route.meta.sinMarco" />
   <Toasts />
+  <Confirmacion />
 </template>
+
+<style scoped>
+.banda-soporte { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; padding: 10px 14px;
+  border-radius: var(--radio); background: var(--aviso-fondo); color: var(--tinta); border: 1px solid var(--aviso-borde, var(--aviso)); }
+.banda-soporte svg { color: var(--aviso); flex: none; }
+.banda-soporte span { flex: 1; min-width: 200px; }
+</style>

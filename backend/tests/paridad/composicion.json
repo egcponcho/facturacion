@@ -1,0 +1,13596 @@
+{
+ "sinonimos": [
+  {
+   "palabra": "toquilla",
+   "equivale": "straw"
+  }
+ ],
+ "casos": [
+  {
+   "txt": "100% nylon",
+   "prep": {
+    "s": "100% nylon",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 100
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Nylon",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% polyester",
+   "prep": {
+    "s": "100% polyester",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 100
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Polyester",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "80% textile, 20% synthetic",
+   "prep": {
+    "s": "80% textile, 20% synthetic",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 80,
+     "plastico": 20
+    },
+    "pred": "textil",
+    "mixto": true,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 80,
+     "plastico": 20
+    },
+    "pred": "otro",
+    "mixto": true,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Textile",
+     "pct": "80"
+    },
+    {
+     "m": "Synthetic",
+     "pct": "20"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% rubber",
+   "prep": {
+    "s": "100% rubber",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "Rubber",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "65% canvas, 35% suede",
+   "prep": {
+    "s": "65% canvas, 35% suede",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 65,
+     "cuero": 35
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 65
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 65,
+     "cuero": 35
+    },
+    "pred": "textil",
+    "mixto": true,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 65,
+     "cuero": 35
+    },
+    "pred": "otro",
+    "mixto": true,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Canvas",
+     "pct": "65"
+    },
+    {
+     "m": "Suede",
+     "pct": "35"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% canvas",
+   "prep": {
+    "s": "100% canvas",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Canvas",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% cotton",
+   "prep": {
+    "s": "100% cotton",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 100
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "60% cotton 40% polyester",
+   "prep": {
+    "s": "60% cotton 40% polyester",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 60,
+     "sintetica": 40
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 60,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "60"
+    },
+    {
+     "m": "Polyester",
+     "pct": "40"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "50% polyester 50% viscose",
+   "prep": {
+    "s": "50% polyester 50% viscose",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 50,
+     "artificial": 50
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": true
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Polyester",
+     "pct": "50"
+    },
+    {
+     "m": "Viscose",
+     "pct": "50"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% leather",
+   "prep": {
+    "s": "100% leather",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": {
+     "grupo": "cuero",
+     "familia": "cuero",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "cuero",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "cuero",
+   "filas": [
+    {
+     "m": "Leather",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "100% polyurethane",
+   "prep": {
+    "s": "100% polyurethane",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "Polyurethane",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "100% paper",
+   "prep": {
+    "s": "100% paper",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "papel",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "papel",
+   "filas": [
+    {
+     "m": "Paper",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "papel"
+    ],
+    [
+     "materialCaja",
+     "plegadizo"
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "papel"
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "papel"
+    ],
+    [
+     "materialCaja",
+     "plegadizo"
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "papel"
+    ]
+   ]
+  },
+  {
+   "txt": "100% wood",
+   "prep": {
+    "s": "100% wood",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "madera",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "madera",
+   "filas": [
+    {
+     "m": "Wood",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     "madera"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "madera"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     "madera"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "madera"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "100% steel",
+   "prep": {
+    "s": "100% steel",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "metal",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "metal",
+   "filas": [
+    {
+     "m": "Steel",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     "acero"
+    ],
+    [
+     "materialAvio",
+     "metal"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "metal"
+    ],
+    [
+     "materialBisu",
+     "metal"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "metal"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     "acero"
+    ],
+    [
+     "materialAvio",
+     "metal"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "metal"
+    ],
+    [
+     "materialBisu",
+     "metal"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "metal"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "100% cork",
+   "prep": {
+    "s": "100% cork",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "madera",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "madera",
+   "filas": [
+    {
+     "m": "Cork",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     "madera"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "madera"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     "madera"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "madera"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "shell: 100% nylon; lining: 100% polyester; fill: 90% down 10% feather",
+   "prep": {
+    "s": "shell: 100% nylon; lining: 100% polyester; fill: 90% down 10% feather",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 100
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "shell",
+    "uso_segmento": true
+   },
+   "corte": {
+    "pesos": {
+     "textil": 200,
+     "otra": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 200,
+     "otra": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Nylon",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "Exterior: 100% poliéster, forro: 100% algodón",
+   "prep": {
+    "s": "exterior: 100% poliester, forro: 100% algodon",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 100
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "exterior",
+    "uso_segmento": true
+   },
+   "corte": {
+    "pesos": {
+     "textil": 200
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 200
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Polyester",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "60 cotton 40 polyester",
+   "prep": {
+    "s": "60% cotton 40% polyester",
+    "cambios": [
+     {
+      "pct": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 60,
+     "sintetica": 40
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 60,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "60"
+    },
+    {
+     "m": "Polyester",
+     "pct": "40"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "60/40 cotton polyester",
+   "prep": {
+    "s": "60% , 40% cotton polyester",
+    "cambios": [
+     {
+      "pct": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 60,
+     "algodon": 40
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 60
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "otra": 60,
+     "textil": 40
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otra": 60,
+     "textil": 40
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Other",
+     "pct": "60"
+    },
+    {
+     "m": "Cotton",
+     "pct": "40"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "cotton 60% polyester 40%",
+   "prep": {
+    "s": "cotton 60% polyester 40%",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 60,
+     "sintetica": 40
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 60,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "60"
+    },
+    {
+     "m": "Polyester",
+     "pct": "40"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "95% algodon 5% elastano",
+   "prep": {
+    "s": "95% algodon 5% elastano",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 95,
+     "sintetica": 5
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 95,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "95"
+    },
+    {
+     "m": "Elastane",
+     "pct": "5"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "70% poliestr 30% algodn",
+   "prep": {
+    "s": "70% poliester 30% algodon",
+    "cambios": [
+     {
+      "de": "poliestr",
+      "a": "poliester"
+     },
+     {
+      "de": "algodn",
+      "a": "algodon"
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 70,
+     "algodon": 30
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 70,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Polyester",
+     "pct": "70"
+    },
+    {
+     "m": "Cotton",
+     "pct": "30"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "synthetic leather",
+   "prep": {
+    "s": "pu",
+    "cambios": [
+     {
+      "de": "synthetic leather",
+      "a": "pu",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "PU",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "faux suede upper with mesh",
+   "prep": {
+    "s": "pu upper with mesh",
+    "cambios": [
+     {
+      "de": "faux suede",
+      "a": "pu",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {},
+    "pred": null,
+    "mixto": true,
+    "grupos": [
+     "plastico",
+     "textil"
+    ]
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "PU",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "leather and textile",
+   "prep": {
+    "s": "leather and textile",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": {
+     "grupo": "cuero",
+     "familia": "cuero",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {},
+    "pred": null,
+    "mixto": true,
+    "grupos": [
+     "cuero",
+     "textil"
+    ]
+   },
+   "suela": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "cuero",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "cuero",
+   "filas": [
+    {
+     "m": "Leather",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "PU leather 70%, mesh 30%",
+   "prep": {
+    "s": "pu 70%, mesh 30%",
+    "cambios": [
+     {
+      "de": "pu leather",
+      "a": "pu",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "plastico": 70,
+     "textil": 30
+    },
+    "pred": "plastico",
+    "mixto": true,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 70,
+     "textil": 30
+    },
+    "pred": "caucho",
+    "mixto": true,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "PU",
+     "pct": "70"
+    },
+    {
+     "m": "Mesh",
+     "pct": "30"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "full grain leather",
+   "prep": {
+    "s": "leather",
+    "cambios": [
+     {
+      "de": "full grain leather",
+      "a": "leather",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": {
+     "grupo": "cuero",
+     "familia": "cuero",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "cuero",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "cuero",
+   "filas": [
+    {
+     "m": "Leather",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "EVA",
+   "prep": {
+    "s": "eva",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "EVA",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "phylon / rubber",
+   "prep": {
+    "s": "eva , rubber",
+    "cambios": [
+     {
+      "de": "phylon",
+      "a": "eva",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "EVA",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "gum rubber outsole",
+   "prep": {
+    "s": "rubber outsole",
+    "cambios": [
+     {
+      "de": "gum rubber",
+      "a": "rubber",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "Rubber",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "vaqueta",
+   "prep": {
+    "s": "cuero",
+    "cambios": [
+     {
+      "de": "vaqueta",
+      "a": "cuero",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": {
+     "grupo": "cuero",
+     "familia": "cuero",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "cuero",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "cuero",
+   "filas": [
+    {
+     "m": "Leather",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "nobuk",
+   "prep": {
+    "s": "nubuck",
+    "cambios": [
+     {
+      "de": "nobuk",
+      "a": "nubuck",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": {
+     "grupo": "cuero",
+     "familia": "cuero",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "cuero",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "cuero",
+   "filas": [
+    {
+     "m": "Nubuck",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "microfiber",
+   "prep": {
+    "s": "microfiber",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": [
+     "microfiber"
+    ]
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": null,
+   "clase_texto": null,
+   "filas": [
+    {
+     "m": "Microfiber",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "neoprene 100%",
+   "prep": {
+    "s": "neoprene 100%",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": [
+     "neoprene"
+    ]
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": null,
+   "clase_texto": null,
+   "filas": [
+    {
+     "m": "Neoprene",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "100% neopreno",
+   "prep": {
+    "s": "100% neopreno",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": [
+     "neopreno"
+    ]
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Neoprene",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "stainless steel 18/8",
+   "prep": {
+    "s": "stainless steel 18 , 8",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "metal",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "metal",
+   "filas": [
+    {
+     "m": "Stainless steel",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     "acero"
+    ],
+    [
+     "materialAvio",
+     "metal"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "metal"
+    ],
+    [
+     "materialBisu",
+     "metal"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "metal"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     "acero"
+    ],
+    [
+     "materialAvio",
+     "metal"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "metal"
+    ],
+    [
+     "materialBisu",
+     "metal"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "metal"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "aluminum",
+   "prep": {
+    "s": "aluminum",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "metal",
+    "corrugado": false,
+    "aluminio": true
+   },
+   "clase_texto": "metal",
+   "filas": [
+    {
+     "m": "Aluminum",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     "aluminio"
+    ],
+    [
+     "materialAvio",
+     "metal"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "metal"
+    ],
+    [
+     "materialBisu",
+     "metal"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "metal"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     "aluminio"
+    ],
+    [
+     "materialAvio",
+     "metal"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "metal"
+    ],
+    [
+     "materialBisu",
+     "metal"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "metal"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "tritan plastic",
+   "prep": {
+    "s": "tritan plastic",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "Tritan",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "BPA free plastic",
+   "prep": {
+    "s": "bpa free plastic",
+    "cambios": [],
+    "desconocidas": [
+     "bpa",
+     "free"
+    ],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "Plastic",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "corrugated cardboard",
+   "prep": {
+    "s": "corrugated cardboard",
+    "cambios": [],
+    "desconocidas": [
+     "corrugated"
+    ],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "papel",
+    "corrugado": true,
+    "aluminio": false
+   },
+   "clase_texto": "papel",
+   "filas": [
+    {
+     "m": "Cardboard",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "papel"
+    ],
+    [
+     "materialCaja",
+     "corrugado"
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "papel"
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "papel"
+    ],
+    [
+     "materialCaja",
+     "corrugado"
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "papel"
+    ]
+   ]
+  },
+  {
+   "txt": "kraft paper",
+   "prep": {
+    "s": "kraft paper",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "papel",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "papel",
+   "filas": [
+    {
+     "m": "Kraft",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "papel"
+    ],
+    [
+     "materialCaja",
+     "plegadizo"
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "papel"
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "papel"
+    ],
+    [
+     "materialCaja",
+     "plegadizo"
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "papel"
+    ]
+   ]
+  },
+  {
+   "txt": "card stock",
+   "prep": {
+    "s": "card stock",
+    "cambios": [],
+    "desconocidas": [
+     "card",
+     "stock"
+    ],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {},
+    "pred": null,
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {},
+    "pred": null,
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": null,
+   "clase_texto": null,
+   "filas": [
+    {
+     "m": "card stock",
+     "pct": ""
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "straw",
+   "prep": {
+    "s": "straw",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "paja",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "paja",
+   "filas": [
+    {
+     "m": "Straw",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "paja"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "paja"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "paja toquilla",
+   "prep": {
+    "s": "paja straw",
+    "cambios": [
+     {
+      "de": "toquilla",
+      "a": "straw",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "paja",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "paja",
+   "filas": [
+    {
+     "m": "Straw",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "paja"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "paja"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "zinc alloy",
+   "prep": {
+    "s": "zinc alloy",
+    "cambios": [],
+    "desconocidas": [
+     "alloy"
+    ],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "metal",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "metal",
+   "filas": [
+    {
+     "m": "Zinc",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     "acero"
+    ],
+    [
+     "materialAvio",
+     "metal"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "metal"
+    ],
+    [
+     "materialBisu",
+     "metal"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "metal"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     "acero"
+    ],
+    [
+     "materialAvio",
+     "metal"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "metal"
+    ],
+    [
+     "materialBisu",
+     "metal"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "metal"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "brass",
+   "prep": {
+    "s": "brass",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "metal",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "metal",
+   "filas": [
+    {
+     "m": "Brass",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     "acero"
+    ],
+    [
+     "materialAvio",
+     "metal"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "metal"
+    ],
+    [
+     "materialBisu",
+     "metal"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "metal"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     "acero"
+    ],
+    [
+     "materialAvio",
+     "metal"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "metal"
+    ],
+    [
+     "materialBisu",
+     "metal"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "metal"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "silicone",
+   "prep": {
+    "s": "silicone",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "Silicone",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "wood and metal",
+   "prep": {
+    "s": "wood and metal",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "madera",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "madera",
+   "filas": [
+    {
+     "m": "Wood",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "madera"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "madera"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "metal"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     "metal"
+    ],
+    [
+     "materialMueble",
+     "madera"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     "madera"
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "glass",
+   "prep": {
+    "s": "glass",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otro": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "vidrio",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "vidrio",
+   "filas": [
+    {
+     "m": "Glass",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "otro"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "otro"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "otro"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "100% acrylic",
+   "prep": {
+    "s": "100% acrylic",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 100
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Acrylic",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "merino wool 100%",
+   "prep": {
+    "s": "merino wool 100%",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "lana": 100
+    },
+    "pred": {
+     "grupo": "lana",
+     "familia": "lana",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Wool",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% silk",
+   "prep": {
+    "s": "100% silk",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "seda": 100
+    },
+    "pred": {
+     "grupo": "seda",
+     "familia": "seda",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Silk",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "55% linen 45% cotton",
+   "prep": {
+    "s": "55% linen 45% cotton",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "vegetal": 55,
+     "algodon": 45
+    },
+    "pred": {
+     "grupo": "vegetal",
+     "familia": "vegetal",
+     "pct": 55,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Linen",
+     "pct": "55"
+    },
+    {
+     "m": "Cotton",
+     "pct": "45"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% lyocell",
+   "prep": {
+    "s": "100% viscose",
+    "cambios": [
+     {
+      "de": "lyocell",
+      "a": "viscose",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "artificial": 100
+    },
+    "pred": {
+     "grupo": "artificial",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Viscose",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "rayon 100",
+   "prep": {
+    "s": "rayon 100%",
+    "cambios": [
+     {
+      "pct": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "artificial": 100
+    },
+    "pred": {
+     "grupo": "artificial",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Rayon",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "polyamide 80% elastane 20%",
+   "prep": {
+    "s": "polyamide 80% elastane 20%",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 100
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Polyamide",
+     "pct": "80"
+    },
+    {
+     "m": "Elastane",
+     "pct": "20"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "40% wool 30% cotton 30% polyester",
+   "prep": {
+    "s": "40% wool 30% cotton 30% polyester",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "lana": 40,
+     "algodon": 30,
+     "sintetica": 30
+    },
+    "pred": {
+     "grupo": "lana",
+     "familia": "lana",
+     "pct": 40,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Wool",
+     "pct": "40"
+    },
+    {
+     "m": "Cotton",
+     "pct": "30"
+    },
+    {
+     "m": "Polyester",
+     "pct": "30"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "50% cotton 50% polyester",
+   "prep": {
+    "s": "50% cotton 50% polyester",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 50,
+     "sintetica": 50
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 50,
+     "empate": true,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "50"
+    },
+    {
+     "m": "Polyester",
+     "pct": "50"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "33% cotton 33% wool 34% acrylic",
+   "prep": {
+    "s": "33% cotton 33% wool 34% acrylic",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 33,
+     "lana": 33,
+     "sintetica": 34
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 34,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "33"
+    },
+    {
+     "m": "Wool",
+     "pct": "33"
+    },
+    {
+     "m": "Acrylic",
+     "pct": "34"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100 % algodón orgánico",
+   "prep": {
+    "s": "100 % algodon organico",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 100
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "recycled polyester",
+   "prep": {
+    "s": "polyester",
+    "cambios": [
+     {
+      "de": "recycled polyester",
+      "a": "polyester",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 100
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Polyester",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "body: 100% cotton; rib: 95% cotton 5% spandex",
+   "prep": {
+    "s": "body: 100% cotton; rib: 95% cotton 5% spandex",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 100
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "body",
+    "uso_segmento": true
+   },
+   "corte": {
+    "pesos": {
+     "textil": 200
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 200
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "upper: 100% leather; sole: rubber",
+   "prep": {
+    "s": "upper: 100% leather; sole: rubber",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": {
+     "grupo": "cuero",
+     "familia": "cuero",
+     "pct": 100
+    },
+    "segmento": "upper",
+    "uso_segmento": true
+   },
+   "corte": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "cuero",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "cuero",
+   "filas": [
+    {
+     "m": "Leather",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "100% xyzfabric",
+   "prep": {
+    "s": "100% xyzfabric",
+    "cambios": [],
+    "desconocidas": [
+     "xyzfabric"
+    ],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": null,
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": null,
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": null,
+   "clase_texto": null,
+   "filas": [
+    {
+     "m": "Other",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "50% cotton 50% unknown",
+   "prep": {
+    "s": "50% cotton 50% unknown",
+    "cambios": [],
+    "desconocidas": [
+     "unknown"
+    ],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 50,
+     "otra": 50
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 50,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 50,
+     "otra": 50
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 50,
+     "otra": 50
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "50"
+    },
+    {
+     "m": "Other",
+     "pct": "50"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "cotton",
+   "prep": {
+    "s": "cotton",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 100
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% pes",
+   "prep": {
+    "s": "100% pes",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 100
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": null,
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": null,
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": null,
+   "clase_texto": null,
+   "filas": [
+    {
+     "m": "Pes",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "co 100%",
+   "prep": {
+    "s": "co 100%",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 100
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": null,
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": null,
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": null,
+   "clase_texto": null,
+   "filas": [
+    {
+     "m": "Co",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "tela",
+   "prep": {
+    "s": "tela",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Textile",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "textil",
+   "prep": {
+    "s": "textil",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Textile",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "nylon webbing",
+   "prep": {
+    "s": "nylon webbing",
+    "cambios": [],
+    "desconocidas": [
+     "webbing"
+    ],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 100
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Nylon",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "leather strap with metal buckle",
+   "prep": {
+    "s": "leather straw with metal buckle",
+    "cambios": [
+     {
+      "de": "strap",
+      "a": "straw"
+     }
+    ],
+    "desconocidas": [
+     "buckle"
+    ],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": {
+     "grupo": "cuero",
+     "familia": "cuero",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {},
+    "pred": null,
+    "mixto": true,
+    "grupos": [
+     "cuero",
+     "otro"
+    ]
+   },
+   "suela": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "cuero",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "cuero",
+   "filas": [
+    {
+     "m": "Leather",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     "paja"
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     "paja"
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "cuero sintético",
+   "prep": {
+    "s": "pu",
+    "cambios": [
+     {
+      "de": "cuero sintetico",
+      "a": "pu",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "PU",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "piel",
+   "prep": {
+    "s": "piel",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": {
+     "grupo": "cuero",
+     "familia": "cuero",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "cuero",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "cuero",
+   "filas": [
+    {
+     "m": "Leather",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "gamuza sintética",
+   "prep": {
+    "s": "pu",
+    "cambios": [
+     {
+      "de": "gamuza sintetica",
+      "a": "pu",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "PU",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "70% cotton 30% polyester 5% elastane",
+   "prep": {
+    "s": "70% cotton 30% polyester 5% elastane",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 70,
+     "sintetica": 35
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 70,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 105
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 105
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "70"
+    },
+    {
+     "m": "Polyester",
+     "pct": "30"
+    },
+    {
+     "m": "Elastane",
+     "pct": "5"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "120% cotton",
+   "prep": {
+    "s": "120% cotton",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 120
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 120,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 120
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 120
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "120"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% cottn",
+   "prep": {
+    "s": "100% cotton",
+    "cambios": [
+     {
+      "de": "cottn",
+      "a": "cotton"
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 100
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Cotton",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% polyestre",
+   "prep": {
+    "s": "100% polyester",
+    "cambios": [
+     {
+      "de": "polyestre",
+      "a": "polyester"
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "sintetica": 100
+    },
+    "pred": {
+     "grupo": "sintetica",
+     "familia": "manmade",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Polyester",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "100% leathr",
+   "prep": {
+    "s": "100% leather",
+    "cambios": [
+     {
+      "de": "leathr",
+      "a": "leather"
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": {
+     "grupo": "cuero",
+     "familia": "cuero",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "cuero": 100
+    },
+    "pred": "cuero",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "cuero",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "cuero",
+   "filas": [
+    {
+     "m": "Leather",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     "cuero"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "cuero"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "cuero"
+    ],
+    [
+     "materialLlavero",
+     "cuero"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "cuero"
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "canvas 60 suede 40",
+   "prep": {
+    "s": "canvas 60% suede 40%",
+    "cambios": [
+     {
+      "pct": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "cuero": 60,
+     "otra": 40
+    },
+    "pred": {
+     "grupo": "cuero",
+     "familia": "cuero",
+     "pct": 60
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 60,
+     "cuero": 40
+    },
+    "pred": "textil",
+    "mixto": true,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 60,
+     "cuero": 40
+    },
+    "pred": "otro",
+    "mixto": true,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Canvas",
+     "pct": "60"
+    },
+    {
+     "m": "Suede",
+     "pct": "40"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "",
+   "prep": {
+    "s": "",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": null,
+   "suela": null,
+   "clase": null,
+   "clase_texto": null,
+   "filas": [],
+   "derivados": [
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "   ",
+   "prep": {
+    "s": " ",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": null,
+   "suela": null,
+   "clase": null,
+   "clase_texto": null,
+   "filas": [],
+   "derivados": [
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ],
+    [
+     "exterior",
+     null
+    ],
+    [
+     "materialGorra",
+     null
+    ],
+    [
+     "materialCinturon",
+     null
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     null
+    ],
+    [
+     "materialLlavero",
+     null
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     null
+    ],
+    [
+     "materialBolsa",
+     null
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     null
+    ]
+   ]
+  },
+  {
+   "txt": "PVC",
+   "prep": {
+    "s": "pvc",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "PVC",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "TPU film",
+   "prep": {
+    "s": "tpu",
+    "cambios": [
+     {
+      "de": "tpu film",
+      "a": "tpu",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "TPU",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "rubber sole",
+   "prep": {
+    "s": "rubber",
+    "cambios": [
+     {
+      "de": "rubber sole",
+      "a": "rubber",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "Rubber",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "leatherette",
+   "prep": {
+    "s": "pu",
+    "cambios": [
+     {
+      "de": "leatherette",
+      "a": "pu",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "PU",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "bonded leather",
+   "prep": {
+    "s": "pu",
+    "cambios": [
+     {
+      "de": "bonded leather",
+      "a": "pu",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "plastico",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "plastico": 100
+    },
+    "pred": "caucho",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "plastico",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "plastico",
+   "filas": [
+    {
+     "m": "PU",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ],
+    [
+     "exterior",
+     "plastico"
+    ],
+    [
+     "materialGorra",
+     "otro"
+    ],
+    [
+     "materialCinturon",
+     "plastico"
+    ],
+    [
+     "materialBotella",
+     "plastico"
+    ],
+    [
+     "materialAvio",
+     "plastico"
+    ],
+    [
+     "materialLlavero",
+     "plastico"
+    ],
+    [
+     "materialMueble",
+     "plastico"
+    ],
+    [
+     "materialBisu",
+     "otro"
+    ],
+    [
+     "materialBolsa",
+     "plastico"
+    ],
+    [
+     "materialCaja",
+     "plastico"
+    ],
+    [
+     "materialGancho",
+     "plastico"
+    ],
+    [
+     "materialEtiqueta",
+     "plastico"
+    ]
+   ]
+  },
+  {
+   "txt": "denim",
+   "prep": {
+    "s": "denim",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Denim",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "mezclilla 100%",
+   "prep": {
+    "s": "mezclilla 100%",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "otra": 100
+    },
+    "pred": {
+     "grupo": "otra",
+     "familia": "otra",
+     "pct": 100
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Mezclilla",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "fleece",
+   "prep": {
+    "s": "fleece",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Polyester",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "polar",
+   "prep": {
+    "s": "polar",
+    "cambios": [],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": null,
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Polar",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  },
+  {
+   "txt": "terry 100% cotton",
+   "prep": {
+    "s": "textile 100% cotton",
+    "cambios": [
+     {
+      "de": "terry",
+      "a": "textile",
+      "aprendido": true
+     }
+    ],
+    "desconocidas": [],
+    "ambiguas": []
+   },
+   "comp": {
+    "pesos": {
+     "algodon": 100
+    },
+    "pred": {
+     "grupo": "algodon",
+     "familia": "algodon",
+     "pct": 100,
+     "empate": false,
+     "mezclaMM": false
+    },
+    "segmento": "",
+    "uso_segmento": false
+   },
+   "corte": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "textil",
+    "mixto": false,
+    "grupos": null
+   },
+   "suela": {
+    "pesos": {
+     "textil": 100
+    },
+    "pred": "otro",
+    "mixto": false,
+    "grupos": null
+   },
+   "clase": {
+    "pred": "textil",
+    "corrugado": false,
+    "aluminio": false
+   },
+   "clase_texto": "textil",
+   "filas": [
+    {
+     "m": "Textile",
+     "pct": "100"
+    }
+   ],
+   "derivados": [
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ],
+    [
+     "exterior",
+     "textil"
+    ],
+    [
+     "materialGorra",
+     "textil"
+    ],
+    [
+     "materialCinturon",
+     "textil"
+    ],
+    [
+     "materialBotella",
+     null
+    ],
+    [
+     "materialAvio",
+     "textil"
+    ],
+    [
+     "materialLlavero",
+     "textil"
+    ],
+    [
+     "materialMueble",
+     null
+    ],
+    [
+     "materialBisu",
+     "textil"
+    ],
+    [
+     "materialBolsa",
+     "tela"
+    ],
+    [
+     "materialCaja",
+     null
+    ],
+    [
+     "materialGancho",
+     null
+    ],
+    [
+     "materialEtiqueta",
+     "tejida"
+    ]
+   ]
+  }
+ ]
+}
