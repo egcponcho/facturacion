@@ -1,9 +1,9 @@
 from datetime import date, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app.core import listas
+from app.core import listas, numeracion
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.core.estados import EMBARQUE
@@ -309,10 +309,22 @@ def puertos_centro(db: Session, c: Centro, modo: str) -> list[str]:
     return [x for x in todos if tipos.get(x) == modo]
 
 
+def codigo_embarque(db: Session) -> str:
+    """Próximo código de la serie de embarques (EMB-0001…), asignado con el
+    contador bloqueado; salta un código que ya se usó a mano."""
+    serie = numeracion.asegurar_serie(
+        db, "embarque", "EMB", "Shipments", "EMB-", 4,
+        inicial=lambda: numeracion.mayor_sufijo(db.scalars(select(Embarque.codigo)), "EMB-") + 1)
+    while True:
+        codigo = numeracion.siguiente(db, serie)
+        if not db.scalar(select(Embarque.id).where(Embarque.codigo == codigo)):
+            return codigo
+
+
 def crear_embarque(db: Session, user: Usuario, datos) -> dict:
     exigir(user, "transporte.gestionar")
-    siguiente = (db.scalar(select(func.max(Embarque.id))) or 0) + 1
-    e = Embarque(codigo=f"EMB-{siguiente:04d}", **_ruta(db, datos.model_dump()))
+    ruta = _ruta(db, datos.model_dump())
+    e = Embarque(codigo=codigo_embarque(db), **ruta)
     db.add(e)
     db.flush()
     registrar(db, user, "embarque", e.id, "crear", {"codigo": e.codigo})

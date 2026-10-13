@@ -10,7 +10,6 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
     String,
@@ -22,7 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
-from app.modelos.base import Cantidad, ahora, cant
+from app.modelos.base import Cantidad, Precio, ahora, cant
 
 if TYPE_CHECKING:
     from app.modelos.maestros import Articulo, Proveedor
@@ -127,7 +126,7 @@ class PosicionOC(DeOrganizacion, Base):
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total de la curva
     cantidad: Mapped[float] = mapped_column(Cantidad)
     unidad: Mapped[str] = mapped_column(String(5))  # modulos/maestros/unidades.py: PAR, UN, KG, L, M…
-    precio: Mapped[float | None] = mapped_column(Float)
+    precio: Mapped[float | None] = mapped_column(Precio)
     fecha_entrega: Mapped[date | None] = mapped_column(Date)
     pais_origen: Mapped[str | None] = mapped_column(String(3))
     bloqueada: Mapped[bool] = mapped_column(Boolean, default=False)

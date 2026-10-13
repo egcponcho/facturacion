@@ -111,7 +111,9 @@ def _nombre_moneda(moneda: str | None, idioma: str) -> tuple[str, str]:
 def monto_en_letras(valor: float, moneda: str) -> str:
     """4850.00 USD → «FOUR THOUSAND … US DOLLARS AND 00/100» o «CUATRO MIL … DÓLARES CON 00/100»."""
     idioma = idioma_actual()
-    entero, centavos = divmod(int(round(valor * 100)), 100)
+    from app.core import dinero
+
+    entero, centavos = divmod(int(dinero.redondear(valor, decimales_=2) * 100), 100)
     sing, plur = _nombre_moneda(moneda, idioma)
     nombre = sing if entero == 1 else plur
     letras = cantidad_en_letras(entero)

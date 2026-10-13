@@ -9,7 +9,6 @@ from sqlalchemy import (
     JSON,
     Date,
     DateTime,
-    Float,
     ForeignKey,
     Index,
     Integer,
@@ -22,7 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
-from app.modelos.base import Cantidad, ahora, cant
+from app.modelos.base import Cantidad, Precio, ahora, cant
 
 if TYPE_CHECKING:
     from app.modelos.compras import PosicionOC
@@ -79,8 +78,8 @@ class FacturaLinea(DeOrganizacion, Base):
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
     posicion_oc_id: Mapped[int] = mapped_column(ForeignKey("posiciones_oc.id"), index=True)
     cantidad: Mapped[float] = mapped_column(Cantidad)
-    precio_unitario: Mapped[float] = mapped_column(Float)
-    precio_oc: Mapped[float] = mapped_column(Float)
+    precio_unitario: Mapped[float] = mapped_column(Precio)
+    precio_oc: Mapped[float] = mapped_column(Precio)
     motivo_precio: Mapped[str | None] = mapped_column(String(300))
     # Copia de los datos de la OC al momento de facturar (trazabilidad)
     oc_numero: Mapped[str] = mapped_column(String(30))

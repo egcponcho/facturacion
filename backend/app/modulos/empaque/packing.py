@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
 from app.core.estados import EMBARQUE, PL
+from app.core.numeracion import mayor_sufijo
 from app.modelos import (
     Alerta,
     Factura,
@@ -199,7 +200,13 @@ def _plantilla(db: Session, pl: PackingList, plantilla_id: int) -> PlantillaCaja
 
 
 def _siguiente_numero(pl_existentes: list[PackingList]) -> str:
-    return f"PL-{len(pl_existentes) + 1:03d}"
+    """PL-001, PL-002…: uno más que el mayor de la factura (contarlos repetía
+    un número tras cancelar o renombrar uno) y nunca uno que ya exista."""
+    usados = {(x.numero or "").upper() for x in pl_existentes}
+    n = mayor_sufijo([x.numero for x in pl_existentes], "PL-") + 1
+    while f"PL-{n:03d}" in usados:
+        n += 1
+    return f"PL-{n:03d}"
 
 
 def _saldo_factura(db: Session, factura) -> dict[int, int]:
@@ -219,6 +226,9 @@ def _agregar_cantidad(pl: PackingList, factura_linea_id: int, cantidad: int) -> 
 
 
 def _nuevo_pl(db: Session, factura) -> PackingList:
+    # La factura bloqueada: dos PL creados a la vez no toman el mismo número
+    db.execute(select(Factura.id).where(Factura.id == factura.id).with_for_update())
+    db.refresh(factura, ["packing_lists"])
     pl = PackingList(factura_id=factura.id, numero=_siguiente_numero(factura.packing_lists),
                      estado="BORRADOR", version=1)
     factura.packing_lists.append(pl)

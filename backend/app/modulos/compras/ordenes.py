@@ -7,7 +7,7 @@ from datetime import date, datetime
 from sqlalchemy import Integer, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core import campos_propios, empresa, listas
+from app.core import campos_propios, dinero, empresa, listas
 from app.core.archivos import abrir_libro
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
@@ -71,7 +71,7 @@ def _consulta_ordenes(db: Session, user: Usuario, proveedor_id=None, q=None, cen
         select(
             PosicionOC.oc_id.label("oc_id"),
             func.sum(PosicionOC.cantidad).label("cantidad"),
-            func.sum(PosicionOC.cantidad * PosicionOC.precio).label("importe"),
+            func.sum(dinero.importe_sql(PosicionOC.cantidad, PosicionOC.precio)).label("importe"),
             func.count(PosicionOC.id).label("n"),
         )
         .group_by(PosicionOC.oc_id)
@@ -81,7 +81,7 @@ def _consulta_ordenes(db: Session, user: Usuario, proveedor_id=None, q=None, cen
         select(
             PosicionOC.oc_id.label("oc_id"),
             func.sum(FacturaLinea.cantidad).label("facturado"),
-            func.sum(FacturaLinea.cantidad * PosicionOC.precio).label("importe_facturado"),
+            func.sum(dinero.importe_sql(FacturaLinea.cantidad, PosicionOC.precio)).label("importe_facturado"),
         )
         .join(FacturaLinea, FacturaLinea.posicion_oc_id == PosicionOC.id)
         .join(Factura, Factura.id == FacturaLinea.factura_id)
@@ -227,7 +227,8 @@ def listar_ordenes(
     items = []
     for oc, prov_nombre, importe, n, importe_f in filas:
         destino = centros.get(oc.centro_destino)
-        importe = float(importe or 0)
+        importe = dinero.decimal(importe)
+        importe_f = dinero.decimal(importe_f)
         items.append(
             {
                 **_cabecera_oc(oc, lib),
@@ -237,10 +238,10 @@ def listar_ordenes(
                 # Una OC puede repartir sus posiciones entre varios almacenes
                 "almacenes": sorted(almacenes[oc.id]),
                 "por_unidad": por_unidad[oc.id],
-                "importe": round(importe, 2),
-                "importe_facturado": round(float(importe_f or 0), 2),
+                "importe": dinero.numero(dinero.redondear(importe, oc.moneda)),
+                "importe_facturado": dinero.numero(dinero.redondear(importe_f, oc.moneda)),
                 # Avance por valor: es comparable aunque la OC mezcle pares y unidades
-                "avance": round(float(importe_f or 0) * 100 / importe, 1) if importe else 0,
+                "avance": float(round(importe_f * 100 / importe, 1)) if importe else 0,
                 "dias_tienda": (oc.fecha_tienda - hoy).days if oc.fecha_tienda else None,
                 # Con los lead times de su origen: cuándo estaría en tienda
                 **est_tienda.get(oc.id, {}),
@@ -359,7 +360,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "cantidad": p.cantidad,
                 "unidad": p.unidad,
                 "precio": p.precio,
-                "importe": round(p.cantidad * p.precio, 2) if p.precio is not None else None,
+                "importe": dinero.numero(dinero.importe(p.cantidad, p.precio, oc.moneda)) if p.precio is not None else None,
                 "fecha_entrega": p.fecha_entrega,
                 "pais_origen": p.pais_origen,
                 "partida_arancelaria": partida_para(prod),  # 6 dígitos: el destino es solo proyectado

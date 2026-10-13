@@ -41,6 +41,7 @@ tipo_empaque_contiene = Table(
 
 class PackingList(DeOrganizacion, Base):
     __tablename__ = "packing_lists"
+    __table_args__ = (UniqueConstraint("factura_id", "numero", name="uq_packing_lists_factura_numero"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
     numero: Mapped[str] = mapped_column(String(40))  # PL-001 por defecto; el proveedor puede poner el suyo

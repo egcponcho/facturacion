@@ -73,6 +73,7 @@ from app.modelos.maestros import (
     proveedor_marcas,
     proveedor_sociedades,
 )
+from app.modelos.numeracion import ContadorSerie, SerieDocumental
 from app.modelos.productos import PartidaPais, Producto, ProductoDocumento, ProductoFoto, ProductoVersion
 from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte
 from app.modelos.transporte import (
@@ -87,6 +88,10 @@ from app.modelos.transporte import (
     UnidadCarga,
     transportista_sociedades,
 )
+from app.core.db import Base as _Base
+from app.modelos.restricciones import aplicar as _aplicar_restricciones
+
+_aplicar_restricciones(_Base.metadata)
 
 __all__ = [
     "AprobacionOC",
@@ -108,6 +113,7 @@ __all__ = [
     "ClaseMaterial",
     "CondicionRegla",
     "Contacto",
+    "ContadorSerie",
     "ControlCapitulo",
     "DesafioDosPasos",
     "DominioCapitulo",
@@ -168,6 +174,7 @@ __all__ = [
     "SesionUsuario",
     "SinonimoBusqueda",
     "SinonimoMaterial",
+    "SerieDocumental",
     "Sociedad",
     "tipo_empaque_contiene",
     "TipoEmpaque",

@@ -17,7 +17,7 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core import campos_propios, listas
+from app.core import campos_propios, dinero, listas
 from app.core.empresa import configuracion_actual, regla
 from app.core.errores import ErrorNegocio
 from app.core.estados import OC
@@ -300,7 +300,7 @@ def estado_pasos(db: Session, user: Usuario, oc: OrdenCompra) -> list[dict]:
 
 # ---- Envío y aprobación ------------------------------------------------------------------
 def _total(oc: OrdenCompra) -> float:
-    return sum((p.cantidad or 0) * (p.precio or 0) for p in oc.posiciones)
+    return dinero.numero(dinero.total([(p.cantidad, p.precio) for p in oc.posiciones if p.precio is not None], oc.moneda))
 
 
 def reglas_que_aplican(oc: OrdenCompra) -> list[dict]:

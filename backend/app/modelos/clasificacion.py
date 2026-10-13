@@ -12,7 +12,6 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
-    Float,
     ForeignKey,
     Index,
     Integer,
@@ -26,7 +25,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
-from app.modelos.base import ahora
+from app.modelos.base import Importe, Tasa, ahora
 
 if TYPE_CHECKING:
     from app.modelos.acceso import Usuario
@@ -496,10 +495,10 @@ class ReglaImpuesto(Base):
     version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_dataset.id"))
     patron: Mapped[str] = mapped_column(String(40), default="*")
     tipo: Mapped[str] = mapped_column(String(20))  # DAI | IVA | ITBMS | ISV | ISC | SELECTIVO | OTRO
-    tasa: Mapped[float | None] = mapped_column(Float)
+    tasa: Mapped[float | None] = mapped_column(Tasa)
     base_calculo: Mapped[str | None] = mapped_column(String(80))  # CIF, CIF + DAI…
-    umbral_desde: Mapped[float | None] = mapped_column(Float)
-    umbral_hasta: Mapped[float | None] = mapped_column(Float)
+    umbral_desde: Mapped[float | None] = mapped_column(Importe)
+    umbral_hasta: Mapped[float | None] = mapped_column(Importe)
     formula: Mapped[str | None] = mapped_column(String(300))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     vigente_desde: Mapped[date | None] = mapped_column(Date)

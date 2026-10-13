@@ -5,7 +5,7 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core import campos_propios
+from app.core import campos_propios, dinero
 from app.core.archivos import DOCUMENTOS, exigir_tamano, tipo_de
 from app.core.config import settings
 from app.core.empresa import regla
@@ -26,6 +26,7 @@ from app.modelos import (
     ahora,
 )
 from app.modelos import cant as cant_norm
+from app.modelos.base import exacto
 from app.modulos.acceso.permisos import (
     asegurar_proveedor,
     es_interno,
@@ -402,16 +403,16 @@ def editar_lineas(db: Session, user: Usuario, factura_id: int, datos) -> dict:
             l.cantidad = nueva
 
         if "precio_unitario" in campos and c.precio_unitario is not None:
-            nuevo = round(c.precio_unitario, 4)
+            nuevo = dinero.numero(exacto(c.precio_unitario, 6))
             motivo = (campos.get("motivo_precio") or l.motivo_precio or "").strip()
-            if abs(nuevo - l.precio_oc) > 1e-9 and not motivo:
+            if not dinero.iguales(nuevo, l.precio_oc) and not motivo:
                 errores.append({"linea_id": l.id, "codigo": "motivo_precio", "mensaje":
                     f"{ref}: enter the reason for the price change (PO price {l.precio_oc})."})
                 continue
-            if abs(nuevo - l.precio_unitario) > 1e-9:
+            if not dinero.iguales(nuevo, l.precio_unitario):
                 cambios_linea["precio_unitario"] = [l.precio_unitario, nuevo]
             l.precio_unitario = nuevo
-            l.motivo_precio = motivo if abs(nuevo - l.precio_oc) > 1e-9 else None
+            l.motivo_precio = motivo if not dinero.iguales(nuevo, l.precio_oc) else None
         elif "motivo_precio" in campos:
             l.motivo_precio = (campos["motivo_precio"] or "").strip() or None
 
@@ -564,7 +565,7 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
         ref = _ref_linea(l)
         if l.precio_unitario <= 0:
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: the price must be greater than zero."})
-        if abs(l.precio_unitario - l.precio_oc) > 1e-9 and not l.motivo_precio:
+        if not dinero.iguales(l.precio_unitario, l.precio_oc) and not l.motivo_precio:
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: the reason for the price change is missing."})
         if not (l.descripcion_comercial or "").strip():
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: the commercial description of the goods is missing."})
@@ -677,13 +678,20 @@ def resumen_distribucion(db: Session, factura_ids) -> dict[int, dict]:
     if not ids:
         return {}
     res = {i: {"facturado": 0, "asignado": 0, "pls": 0, "pls_finalizados": 0, "pls_confirmados": 0,
-               "importe": 0.0, "lineas": 0} for i in ids}
-    for fid, cant, imp, n in db.execute(
-        select(FacturaLinea.factura_id, func.sum(FacturaLinea.cantidad),
-               func.sum(FacturaLinea.cantidad * FacturaLinea.precio_unitario), func.count(FacturaLinea.id))
+               "importe": 0, "lineas": 0} for i in ids}
+    for fid, cant, n in db.execute(
+        select(FacturaLinea.factura_id, func.sum(FacturaLinea.cantidad), func.count(FacturaLinea.id))
         .where(FacturaLinea.factura_id.in_(ids)).group_by(FacturaLinea.factura_id)
     ).all():
-        res[fid].update(facturado=cant_norm(cant or 0), importe=round(float(imp or 0), 2), lineas=n)
+        res[fid].update(facturado=cant_norm(cant or 0), lineas=n)
+    # Importe: suma de las líneas redondeadas a la moneda (igual que el detalle y el PDF)
+    importes: dict[int, list] = {}
+    monedas = dict(db.execute(select(Factura.id, Factura.moneda).where(Factura.id.in_(ids))).all())
+    for fid, c, p in db.execute(select(FacturaLinea.factura_id, FacturaLinea.cantidad, FacturaLinea.precio_unitario)
+                                .where(FacturaLinea.factura_id.in_(ids))).all():
+        importes.setdefault(fid, []).append((c, p))
+    for fid, ls in importes.items():
+        res[fid]["importe"] = dinero.numero(dinero.total(ls, monedas.get(fid)))
     for fid, cant in db.execute(
         select(PackingList.factura_id, func.sum(PLLinea.cantidad))
         .join(PLLinea, PLLinea.pl_id == PackingList.id)
@@ -857,11 +865,11 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
 
     lineas = []
     por_unidad: dict[str, dict] = {}
-    importe = 0.0
+    importe = dinero.CERO
     for l in f.lineas:
         a = en_pl.get(l.id, 0)
         e = empacado.get(l.id, 0)
-        total = round(l.cantidad * l.precio_unitario, 2)
+        total = dinero.importe(l.cantidad, l.precio_unitario, f.moneda)
         importe += total
         u = por_unidad.setdefault(l.unidad, {"facturado": 0, "en_pl": 0, "empacado": 0})
         u["facturado"] += l.cantidad
@@ -891,7 +899,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "precio_unitario": l.precio_unitario,
             "precio_oc": l.precio_oc,
             "motivo_precio": l.motivo_precio,
-            "importe": total,
+            "importe": dinero.numero(total),
             "pais_origen": l.pais_origen,
             "partida_arancelaria": l.partida_arancelaria,
             "producto_id": (producto_de(l.posicion_oc.articulo).id if producto_de(l.posicion_oc.articulo) else None),
@@ -930,7 +938,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
         "actualizado_en": f.actualizado_en,
         "finalizado_en": f.finalizado_en,
         "lineas": lineas,
-        "totales": {"importe": round(importe, 2), "por_unidad": por_unidad},
+        "totales": {"importe": dinero.numero(importe), "por_unidad": por_unidad},
         "lista_transporte": _lista_para_transporte(f, r),
         "pendientes": validar_factura(db, f) if editable else [],
         "packing_lists": [
