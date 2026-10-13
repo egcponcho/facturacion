@@ -60,3 +60,26 @@ def test_un_medio_tiene_un_solo_dueno(client):
             con.execute(text("INSERT INTO medios_contacto (tipo, valor, principal, organizacion_id) VALUES ('CORREO', 'x@y.z', :f, 1)"),
                         {"f": False})
         con.rollback()
+
+
+def test_alcance_del_usuario_en_tablas(admin):
+    from app.modelos import Usuario
+
+    soc = admin.get("/catalogos/sociedades", params={"size": 50}).json()["items"][0]
+    r = admin.post("/usuarios", {"nombre": "Scope test", "email": "alcance.tablas@demo.com", "rol_id":
+                                 next(x["id"] for x in admin.get("/roles").json()["roles"] if x["nombre"] == "Internal team"),
+                                 "telefono": "+50370009999", "alcance": {"sociedades": [soc["codigo"]]}})
+    assert r.status_code == 200, r.text
+    uid = r.json()["id"]
+    with engine.connect() as con:
+        filas = con.execute(text("SELECT sociedad_id FROM usuario_sociedades WHERE usuario_id = :u"), {"u": uid}).scalars().all()
+        assert filas == [soc["id"]]
+        columnas = {c[1] for c in con.exec_driver_sql("SELECT * FROM usuarios LIMIT 0").cursor.description}
+    assert not {"rol", "alcance", "empresa"} & columnas
+    usuario = next(u for u in admin.get("/usuarios").json() if u["id"] == uid)
+    assert usuario["alcance"] == {"sociedades": [soc["codigo"]]} and usuario["rol"] == "interno"
+    assert usuario["empresa"]  # su organización
+    r = admin.patch(f"/usuarios/{uid}", {"alcance": {}})
+    assert r.status_code == 200, r.text
+    with SessionLocal() as db:
+        assert db.get(Usuario, uid).alcance == {}

@@ -7,7 +7,6 @@ from app.core.errores import ErrorNegocio
 from app.modelos import AprobacionOC, ReglaAprobacionOC, Rol, Usuario
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import (
-    alcance,
     catalogo_permisos,
     exigir,
     permisos_de,
@@ -80,8 +79,7 @@ def sin_administrador(db: Session) -> None:
 
 
 def _recalcular_alcance(db: Session, r: Rol) -> None:
-    for u in db.scalars(select(Usuario).where(Usuario.rol_id == r.id)).all():
-        u.rol = alcance(r.permisos, u.proveedor_id)
+    """El tipo de cada usuario se deriva de su rol (Usuario.rol): no hay nada que guardar."""
 
 
 def listar_roles(db: Session, user: Usuario) -> dict:

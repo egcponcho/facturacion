@@ -419,7 +419,7 @@ def _productos(db, arts) -> None:
     """Cada estilo-color es un producto con su ficha técnica y su clasificación."""
     from app.modelos import Usuario as U
 
-    interno = db.scalar(select(U).where(U.rol == "interno"))
+    interno = db.scalar(select(U).where(U.email == "interno@demo.com"))
     for a in arts.values():
         asegurar_producto(db, a)
     db.flush()
@@ -616,16 +616,16 @@ def seed(db: Session) -> None:
     pw = hash_password(PASSWORD_DEMO)
     u_tnf = Usuario(email="tnf@demo.com", nombre="TNF supplier", rol="proveedor", rol_id=roles["proveedor"].id,
                     proveedor_id=tnf.id, password_hash=pw, telefono="+84283770001",
-                    cargo="Export coordinator", area="Logistics", empresa="The North Face (VF Asia)")
+                    cargo="Export coordinator", area="Logistics")
     u_vans = Usuario(email="vans@demo.com", nombre="Vans supplier", rol="proveedor", rol_id=roles["proveedor"].id,
                      proveedor_id=vans.id, password_hash=pw, telefono="+867552660001",
-                     cargo="Shipping specialist", area="Export operations", empresa="Vans (VF China)")
+                     cargo="Shipping specialist", area="Export operations")
     db.add_all([
         Usuario(email="admin@demo.com", nombre="Administrator", rol="admin", rol_id=roles["admin"].id, password_hash=pw,
-                telefono="+50370000001", cargo="Systems administrator", area="IT", empresa="Distribuidora de Marcas",
+                telefono="+50370000001", cargo="Systems administrator", area="IT",
                 plataforma=True),
         Usuario(email="interno@demo.com", nombre="Import team", rol="interno", rol_id=roles["interno"].id, password_hash=pw,
-                telefono="+50370000002", cargo="Imports analyst", area="Imports and customs", empresa="Distribuidora de Marcas"),
+                telefono="+50370000002", cargo="Imports analyst", area="Imports and customs"),
         u_tnf,
         u_vans,
     ])

@@ -168,8 +168,7 @@ def permisos_de(user: Usuario) -> list[str]:
     if r is not None:
         permisos = permisos_validos(r.permisos, user.proveedor_id) if r.activo else []
     else:
-        # Usuarios sin rol asignado (datos anteriores): permisos de fábrica de su tipo
-        permisos = permisos_fabrica(user.rol)
+        permisos = []  # sin rol asignado no hay permisos (la migración 0057 asignó uno a cada usuario)
     if not edita_compartidos(user):
         permisos = [p for p in permisos if p not in PERMISOS_COMPARTIDOS]
     return _segun_flujo(user, _sin_modulos_apagados(permisos))

@@ -34,7 +34,7 @@ def test_proveedor_solo_ve_lo_suyo(interno, vans):
     from app.modelos import OrdenCompra, Usuario
 
     with SessionLocal() as db:
-        prov = db.scalar(select(Usuario.proveedor_id).where(Usuario.rol == "proveedor", Usuario.proveedor_id.is_not(None),
+        prov = db.scalar(select(Usuario.proveedor_id).where(Usuario.proveedor_id.is_not(None),
                                                             Usuario.email.ilike("%vans%")))
         ajena = db.scalar(select(OrdenCompra.numero).where(OrdenCompra.proveedor_id != prov))
         suyas = {n for (n,) in db.execute(select(OrdenCompra.numero).where(OrdenCompra.proveedor_id == prov))}
