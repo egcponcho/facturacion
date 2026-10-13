@@ -11,8 +11,7 @@ import CeldaEditable from '@/componentes/CeldaEditable.vue'
 import FiltroMulti from '@/componentes/FiltroMulti.vue'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
-import Paginacion from '@/componentes/Paginacion.vue'
-import ThOrden from '@/componentes/ThOrden.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import PanelArbol from '@/modulos/clasificacion/componentes/PanelArbol.vue'
 import PanelCapitulos from '@/modulos/clasificacion/componentes/PanelCapitulos.vue'
 import PanelRegulaciones from '@/modulos/clasificacion/componentes/PanelRegulaciones.vue'
@@ -23,11 +22,9 @@ import PanelConocimiento from '@/modulos/clasificacion/componentes/PanelConocimi
 import PanelImportacion from '@/modulos/clasificacion/componentes/PanelImportacion.vue'
 import { cargarContexto } from '@/modulos/clasificacion/useClasificacion'
 import { digits, fmtPais } from '@/modulos/clasificacion/formato.js'
-import { siguienteOrden } from '@/composables/useTabla'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { fmtNum, useSeleccion } from '@/nucleo/utils'
-import { filasDefecto } from '@/stores/preferencias'
+import { fmtNum } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 
 // Arancel: países destino (con sus dígitos), subpartidas SAC y códigos
@@ -44,7 +41,6 @@ const paises = ref([])
 const meta = ref({ condiciones: {}, fuentes: {} })
 const modal = ref(null)
 const ocupado = ref(false)
-const sel = useSeleccion()
 
 const opcionesPais = computed(() => paises.value.map((p) => ({ valor: p.iso, texto: `${p.iso} · ${p.nombre}` })))
 // Versiones oficiales a las que puede pertenecer una línea del país (la nacional o la regional del SAC)
@@ -67,18 +63,54 @@ async function cargarBase() {
 }
 
 // ---- Códigos nacionales -------------------------------------------------------
-const fc = reactive({ q: route.query.q || '', pais: route.query.pais ? String(route.query.pais).split(',') : [], capitulo: [], fuente: [], activo: '', orden: '', page: 1, size: filasDefecto() })
+const fc = reactive({ q: route.query.q || '', pais: route.query.pais ? String(route.query.pais).split(',') : [], capitulo: [], fuente: [], activo: '' })
 const codigos = ref({ items: [], total: 0, por_pais: {} })
-const paramsC = computed(() => ({ q: fc.q, pais: fc.pais.join(','), capitulo: fc.capitulo.join(','), fuente: fc.fuente.join(','), activo: fc.activo, orden: fc.orden }))
-async function cargarCodigos() {
+const cargandoC = ref(false)
+const tablaC = ref(null)
+const selC = ref([])
+const paramsC = computed(() => ({ q: fc.q, pais: fc.pais.join(','), capitulo: fc.capitulo.join(','), fuente: fc.fuente.join(','), activo: fc.activo }))
+// Cada columna filtra por sus valores en el servidor (la lista pagina allá)
+const columnasC = computed(() => [
+  { clave: 'pais', texto: t('Country'), prioridad: 1, ancho: '80px' },
+  { clave: 'codigo', texto: t('National code'), fija: true, prioridad: 1 },
+  { clave: 'descripcion', texto: t('Description'), prioridad: 2, filtro: false, ordenable: false },
+  { clave: 'dai', texto: t('Duty %'), num: true, prioridad: 2 },
+  { clave: 'cond', texto: t('When it applies'), prioridad: 3, filtro: false, ordenable: false },
+  { clave: 'fuente', texto: t('Source'), prioridad: 3, textoValor: (v) => v || t('No source') },
+  { clave: 'activo', texto: t('Status'), prioridad: 3, inicial: false, opciones: [[true, t('Active')], [false, t('Inactive')]] },
+])
+let consultaC = null
+async function cargarCodigos(c = consultaC) {
+  if (!c) return
+  consultaC = c
+  cargandoC.value = true
   try {
-    codigos.value = await api.get('/aranceles/codigos', { ...paramsC.value, page: fc.page, size: fc.size })
-    sel.podar(codigos.value.items.map((x) => x.id))
+    codigos.value = await api.get('/aranceles/codigos', { ...paramsC.value, orden: c.orden || undefined, page: c.page, size: c.size,
+      f: Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined })
+    const ids = new Set(codigos.value.items.map((x) => x.id))
+    selC.value = selC.value.filter((id) => ids.has(id))
   } catch (e) {
     errorApi(e)
+  } finally {
+    cargandoC.value = false
   }
 }
-const recargarC = () => { fc.page = 1; cargarCodigos() }
+const valoresC = (columna, buscar, otros) => api.get('/aranceles/codigos/valores', { columna, buscar, f: JSON.stringify(otros), ...paramsC.value })
+// La exportación lleva lo mismo que se ve: filtros de la pantalla, de las columnas y el orden
+const exportarC = computed(() => ({ ...paramsC.value, orden: consultaC?.orden || undefined,
+  f: consultaC && Object.keys(consultaC.filtros).length ? JSON.stringify(consultaC.filtros) : undefined }))
+// Un filtro de la pantalla vuelve a la primera página
+const recargarC = () => { if (tablaC.value && tablaC.value.pagina !== 1) tablaC.value.pagina = 1; else cargarCodigos() }
+const vistaC = computed(() => ({ q: fc.q, pais: fc.pais.join(','), capitulo: fc.capitulo.join(','), fuente: fc.fuente.join(','), activo: fc.activo }))
+function aplicarVistaC(x) {
+  Object.assign(fc, { q: x.q || '', pais: x.pais ? x.pais.split(',') : [], capitulo: x.capitulo ? x.capitulo.split(',') : [],
+    fuente: x.fuente ? x.fuente.split(',') : [], activo: x.activo || '' })
+  recargarC()
+}
+function limpiarC() {
+  Object.assign(fc, { q: '', pais: [], capitulo: [], fuente: [], activo: '' })
+  recargarC()
+}
 let espera
 const buscarC = () => { clearTimeout(espera); espera = setTimeout(recargarC, 300) }
 const digitosDe = (iso) => paises.value.find((p) => p.iso === iso)?.digitos || 10
@@ -162,11 +194,11 @@ async function guardarCodigo() {
   }
 }
 async function borrarSeleccion() {
-  if (!(await confirmar(t('Delete {0} national codes? Products already approved keep their codes.', [sel.ids.size]), { boton: t('Delete'), peligro: true }))) return
+  if (!(await confirmar(t('Delete {0} national codes? Products already approved keep their codes.', [selC.value.length]), { boton: t('Delete'), peligro: true }))) return
   try {
-    const r = await api.post('/aranceles/codigos/borrar', { ids: sel.lista() })
+    const r = await api.post('/aranceles/codigos/borrar', { ids: selC.value })
     avisar(t('{0} codes deleted.', [r.borrados]))
-    sel.limpiar()
+    selC.value = []
     cargarCodigos()
     cargarBase()
     cargarContexto(true)
@@ -176,28 +208,59 @@ async function borrarSeleccion() {
 }
 
 // ---- Subpartidas SAC ---------------------------------------------------------------
-const fs = reactive({ q: '', capitulo: [], nivel: '', fuente: [], page: 1, size: filasDefecto() })
+const fs = reactive({ q: '', capitulo: [], nivel: '', fuente: [] })
 const sac = ref({ items: [], total: 0 })
+const cargandoS = ref(false)
+const tablaS = ref(null)
 const paramsS = computed(() => ({ q: fs.q, capitulo: fs.capitulo.join(','), nivel: fs.nivel, fuente: fs.fuente.join(',') }))
-async function cargarSac() {
+const columnasS = computed(() => [
+  { clave: 'codigo', texto: t('Code'), fija: true, prioridad: 1, ordenable: false },
+  { clave: 'nivel', texto: t('Level'), prioridad: 3, ordenable: false, opciones: [['PARTIDA', t('Heading (4 digits)')], ['SUBPARTIDA', t('Subheading (6 digits)')]] },
+  { clave: 'descripcion', texto: t('Description'), prioridad: 1, filtro: false, ordenable: false },
+  { clave: 'nacionales', texto: t('National codes'), num: true, prioridad: 2, filtro: false, ordenable: false },
+  { clave: 'fuente', texto: t('Source'), prioridad: 3, ordenable: false, opciones: [['oficial', t('Official')], ['custom', t('Custom over official')]] },
+])
+let consultaS = null
+async function cargarSac(c = consultaS) {
+  if (!c) return
+  consultaS = c
+  cargandoS.value = true
   try {
-    sac.value = await api.get('/aranceles/sac', { ...paramsS.value, page: fs.page, size: fs.size })
+    sac.value = await api.get('/aranceles/sac', { ...paramsS.value, page: c.page, size: c.size, f: Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined })
   } catch (e) {
     errorApi(e)
+  } finally {
+    cargandoS.value = false
   }
 }
-const recargarS = () => { fs.page = 1; cargarSac() }
+const valoresS = (columna, buscar, otros) => api.get('/aranceles/sac/valores', { columna, buscar, f: JSON.stringify(otros), ...paramsS.value })
+const exportarS = computed(() => ({ ...paramsS.value, f: consultaS && Object.keys(consultaS.filtros).length ? JSON.stringify(consultaS.filtros) : undefined }))
+const recargarS = () => { if (tablaS.value && tablaS.value.pagina !== 1) tablaS.value.pagina = 1; else cargarSac() }
 const buscarS = () => { clearTimeout(espera); espera = setTimeout(recargarS, 300) }
 // ---- Notas legales del SAC ----------------------------------------------------
 const notas = ref({ items: [], ambitos: {} })
 const fn = reactive({ q: '', capitulo: [] })
+const cargandoN = ref(false)
 async function cargarNotas() {
+  cargandoN.value = true
   try {
     notas.value = await api.get('/aranceles/notas', { q: fn.q, capitulo: fn.capitulo.join(',') })
   } catch (e) {
     errorApi(e)
+  } finally {
+    cargandoN.value = false
   }
 }
+const tipoNota = (n) => (n.custom ? 'custom' : n.oficial ? 'oficial' : n.tipo_fuente === 'CLASSIFIER_GUIDANCE' ? 'resumen' : 'interna')
+const TIPOS_NOTA = [['oficial', t('Official text')], ['custom', t('Custom over official')], ['resumen', t('Classifier summary')], ['interna', t('Internal guidance')]]
+const columnasN = computed(() => [
+  { clave: 'nota', texto: t('Note'), fija: true, prioridad: 1, valor: (n) => `${n.codigo} · ${n.numero}` },
+  { clave: 'ambito', texto: t('Kind'), prioridad: 3, valor: (n) => n.ambito_txt },
+  { clave: 'tipo', texto: t('Source'), prioridad: 2, opciones: TIPOS_NOTA, valor: tipoNota },
+  { clave: 'texto', texto: t('Text'), prioridad: 1, filtro: false, ordenable: false },
+  { clave: 'capitulos', texto: t('Applies to chapters'), prioridad: 2, valor: (n) => (n.capitulos.length ? n.capitulos : [t('All')]), ordenable: false },
+  { clave: 'activo', texto: t('Status'), prioridad: 3, inicial: false, opciones: [[true, t('Active')], [false, t('Inactive')]] },
+])
 let esperaN
 function buscarN() {
   clearTimeout(esperaN)
@@ -325,8 +388,7 @@ function cambiarVista(v) {
   vista.value = v
   centrarMenu()
   router.replace({ query: { vista: v } })
-  if (v === 'codigos') recargarC()
-  if (v === 'sac') cargarSac()
+  // Códigos y SAC los pide su tabla al aparecer
   if (v === 'notas') cargarNotas()
 }
 function alCargar() {
@@ -339,12 +401,8 @@ function alCargar() {
 onMounted(async () => {
   centrarMenu()
   await cargarBase()
-  if (vista.value === 'sac') cargarSac()
-  else if (vista.value === 'notas') cargarNotas()
-  else if (vista.value === 'codigos') cargarCodigos()
+  if (vista.value === 'notas') cargarNotas()
 })
-watch(() => fc.size, recargarC)
-watch(() => fs.size, recargarS)
 </script>
 
 <template>
@@ -393,95 +451,85 @@ watch(() => fs.size, recargarS)
 
   <!-- Códigos nacionales -->
   <section v-if="vista === 'codigos'">
-    <div class="filtros" v-filtros>
-      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fc.q" type="search" :placeholder="t('Code or description')" :aria-label="t('Search')" @input="buscarC" /></label>
-      <FiltroMulti v-model="fc.pais" :etiqueta="t('Country')" :opciones="opcionesPais" @change="recargarC" />
-      <FiltroMulti v-model="fc.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="recargarC" />
-      <FiltroMulti v-model="fc.fuente" :etiqueta="t('Official source')" :opciones="(meta.fuentes_oficiales || []).map((f) => ({ valor: f.codigo, texto: f.texto }))" @change="recargarC" />
-      <Seleccion v-model="fc.activo" :aria-label="t('Active')" @change="recargarC"><option value="">{{ t('Active and inactive') }}</option><option value="true">{{ t('Active') }}</option><option value="false">{{ t('Inactive') }}</option></Seleccion>
-      <div class="separar fila-flex">
-        <BotonesExportar ruta="/aranceles/codigos/exportar" :params="paramsC" />
-        <template v-if="edita">
-          <button class="btn" @click="modal = { tipo: 'carga-codigos', pais: fc.pais.length === 1 ? fc.pais[0] : '', reemplazar: false }"><Icono nombre="importar" />{{ t('Upload Excel') }}</button>
-          <button class="btn btn-primario" @click="nuevoCodigo"><Icono nombre="mas" />{{ t('Add code') }}</button>
-        </template>
-      </div>
-    </div>
-    <div class="tabla-marco tabla-fija">
-      <table class="tabla" v-tarjetas>
-        <thead>
-          <tr>
-            <th v-if="edita" class="chk"><input type="checkbox" :aria-label="t('Select all')" :checked="sel.todos(codigos.items.map((x) => x.id))" @change="sel.alternarTodos(codigos.items.map((x) => x.id))" /></th>
-            <ThOrden campo="pais" :orden="fc.orden" @ordenar="(c) => { fc.orden = siguienteOrden(fc.orden, c); recargarC() }">{{ t('Country') }}</ThOrden>
-            <ThOrden campo="codigo" :orden="fc.orden" @ordenar="(c) => { fc.orden = siguienteOrden(fc.orden, c); recargarC() }">{{ t('National code') }}</ThOrden>
-            <th>{{ t('Description') }}</th>
-            <ThOrden campo="dai" :orden="fc.orden" num @ordenar="(c) => { fc.orden = siguienteOrden(fc.orden, c); recargarC() }">{{ t('Duty %') }}</ThOrden>
-            <th>{{ t('When it applies') }}</th>
-            <ThOrden campo="fuente" :orden="fc.orden" @ordenar="(c) => { fc.orden = siguienteOrden(fc.orden, c); recargarC() }">{{ t('Source') }}</ThOrden>
-            <th v-if="edita"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="x in codigos.items" :key="x.id" :class="{ seleccionada: sel.tiene(x.id), apagada: !x.activo }">
-            <td v-if="edita" class="chk"><input type="checkbox" :aria-label="t('Select {0}', [x.codigo_txt])" :checked="sel.tiene(x.id)" @change="sel.alternar(x.id)" /></td>
-            <td class="fuerte">{{ tx(x.pais) }}</td>
-            <td><span class="codigo-sac">{{ fmtPais(x.codigo, digitosDe(x.pais)) }}</span><span class="sub" :title="tx(x.sac)">{{ tx(x.sac ? x.sac.slice(0, 70) + (x.sac.length > 70 ? '…' : '') : '') }}</span></td>
-            <td style="min-width: 220px">
-              <template v-if="x.oficial">{{ tx(x.descripcion || '—') }}<span v-if="x.override" class="etiqueta acento" :title="tx(t('Official text: {0}', [x.descripcion_oficial || '—']))">{{ t('company override') }}</span></template>
-              <CeldaEditable v-else-if="edita" :valor="x.descripcion" vacia-texto="—" :etiqueta="t('Description of {0}', [x.codigo_txt])" :guardar="(v) => guardarCampo(x, 'descripcion', v)" />
-              <template v-else>{{ tx(x.descripcion || '—') }}</template>
-            </td>
-            <td class="num" style="width: 90px">
-              <CeldaEditable v-if="edita && !x.oficial" :valor="x.dai" vacia-texto="—" :etiqueta="t('Duty of {0}', [x.codigo_txt])" :guardar="(v) => guardarCampo(x, 'dai', v)" />
-              <template v-else>{{ tx(x.dai ?? '—') }}</template>
-            </td>
-            <td class="cond">{{ tx(x.cond_txt) }}<span v-if="x.prio" class="etiqueta">{{ t('priority {0}', [x.prio]) }}</span></td>
-            <td><span class="etiqueta ok" :title="tx(x.autoridad || '')">{{ tx(x.fuente_oficial || t('No source')) }}</span> <small class="apagado">{{ tx(x.version || '') }}</small><span v-if="!x.activo" class="etiqueta">{{ t('Inactive') }}</span></td>
-            <td v-if="edita" class="num"><button class="btn-icono" :aria-label="t('Edit {0}', [x.codigo_txt])" :title="t('Edit')" @click="editarCodigo(x)"><Icono nombre="editar" :tam="16" /></button></td>
-          </tr>
-          <tr v-if="!codigos.items.length"><td :colspan="edita ? 8 : 6" class="vacio">{{ t('No national codes match these filters.') }}</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <Paginacion :page="fc.page" :size="fc.size" :total="codigos.total" @cambiar="(p) => { fc.page = p; cargarCodigos() }" @tamano="(t) => (fc.size = t)" />
-    <BarraSeleccion :cantidad="sel.ids.size" singular="code" plural="codes" @limpiar="sel.limpiar()">
+    <TablaDatos ref="tablaC" tabla="aranceles_codigos" modo="servidor" :columnas="columnasC" :filas="codigos.items" :total="codigos.total" :cargando="cargandoC"
+                :valores="valoresC" :externos="vistaC" :mas-filtros-activos="fc.fuente.length + (fc.activo ? 1 : 0)"
+                :seleccionable="edita" v-model:seleccion="selC" :clase-fila="(x) => ({ apagada: !x.activo })" :etiqueta="t('National codes')"
+                @consulta="cargarCodigos" @vista="aplicarVistaC" @limpiar-externos="limpiarC">
+      <template #barra>
+        <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fc.q" type="search" :placeholder="t('Code or description')" :aria-label="t('Search')" @input="buscarC" /></label>
+      </template>
+      <template #filtros>
+        <FiltroMulti v-model="fc.pais" :etiqueta="t('Country')" :opciones="opcionesPais" @change="recargarC" />
+        <FiltroMulti v-model="fc.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="recargarC" />
+        <div class="separar fila-flex">
+          <BotonesExportar ruta="/aranceles/codigos/exportar" :params="exportarC" />
+          <template v-if="edita">
+            <button class="btn" @click="modal = { tipo: 'carga-codigos', pais: fc.pais.length === 1 ? fc.pais[0] : '', reemplazar: false }"><Icono nombre="importar" />{{ t('Upload Excel') }}</button>
+            <button class="btn btn-primario" @click="nuevoCodigo"><Icono nombre="mas" />{{ t('Add code') }}</button>
+          </template>
+        </div>
+      </template>
+      <template #mas-filtros>
+        <FiltroMulti v-model="fc.fuente" :etiqueta="t('Official source')" :opciones="(meta.fuentes_oficiales || []).map((f) => ({ valor: f.codigo, texto: f.texto }))" @change="recargarC" />
+        <Seleccion v-model="fc.activo" :aria-label="t('Active')" @change="recargarC"><option value="">{{ t('Active and inactive') }}</option><option value="true">{{ t('Active') }}</option><option value="false">{{ t('Inactive') }}</option></Seleccion>
+      </template>
+      <template #celda-pais="{ fila: x }"><span class="fuerte">{{ tx(x.pais) }}</span></template>
+      <template #celda-codigo="{ fila: x }"><span class="codigo-sac">{{ fmtPais(x.codigo, digitosDe(x.pais)) }}</span><span class="sub" :title="tx(x.sac)">{{ tx(x.sac ? x.sac.slice(0, 70) + (x.sac.length > 70 ? '…' : '') : '') }}</span></template>
+      <template #celda-descripcion="{ fila: x }">
+        <div class="desc-codigo">
+          <template v-if="x.oficial">{{ tx(x.descripcion || '—') }}<span v-if="x.override" class="etiqueta acento" :title="tx(t('Official text: {0}', [x.descripcion_oficial || '—']))">{{ t('company override') }}</span></template>
+          <CeldaEditable v-else-if="edita" :valor="x.descripcion" vacia-texto="—" :etiqueta="t('Description of {0}', [x.codigo_txt])" :guardar="(v) => guardarCampo(x, 'descripcion', v)" />
+          <template v-else>{{ tx(x.descripcion || '—') }}</template>
+        </div>
+      </template>
+      <template #celda-dai="{ fila: x }">
+        <CeldaEditable v-if="edita && !x.oficial" :valor="x.dai" vacia-texto="—" :etiqueta="t('Duty of {0}', [x.codigo_txt])" :guardar="(v) => guardarCampo(x, 'dai', v)" />
+        <template v-else>{{ tx(x.dai ?? '—') }}</template>
+      </template>
+      <template #celda-cond="{ fila: x }"><span class="cond">{{ tx(x.cond_txt) }}<span v-if="x.prio" class="etiqueta">{{ t('priority {0}', [x.prio]) }}</span></span></template>
+      <template #celda-fuente="{ fila: x }"><span class="etiqueta ok ms-0" :title="tx(x.autoridad || '')">{{ tx(x.fuente_oficial || t('No source')) }}</span> <small class="apagado">{{ tx(x.version || '') }}</small><span v-if="!x.activo" class="etiqueta">{{ t('Inactive') }}</span></template>
+      <template #celda-activo="{ fila: x }"><span class="etiqueta ms-0" :class="x.activo ? 'ok' : ''">{{ x.activo ? t('Active') : t('Inactive') }}</span></template>
+      <template v-if="edita" #acciones="{ fila: x }"><button class="btn-icono" :aria-label="t('Edit {0}', [x.codigo_txt])" :title="t('Edit')" @click="editarCodigo(x)"><Icono nombre="editar" :tam="16" /></button></template>
+      <template #vacio>{{ t('No national codes match these filters.') }}</template>
+    </TablaDatos>
+    <BarraSeleccion :cantidad="selC.length" singular="code" plural="codes" @limpiar="selC = []">
       <button class="btn btn-peligro" @click="borrarSeleccion"><Icono nombre="basura" />{{ t('Delete') }}</button>
     </BarraSeleccion>
   </section>
 
   <!-- SAC -->
   <section v-else-if="vista === 'sac'">
-    <div class="filtros" v-filtros>
-      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fs.q" type="search" :placeholder="t('Code or text')" :aria-label="t('Search')" @input="buscarS" /></label>
-      <FiltroMulti v-model="fs.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="recargarS" />
-      <Seleccion v-model="fs.nivel" :aria-label="t('Level')" @change="recargarS"><option value="">{{ t('Headings and subheadings') }}</option><option value="4">{{ t('Headings (4 digits)') }}</option><option value="6">{{ t('Subheadings (6 digits)') }}</option></Seleccion>
-      <div class="separar fila-flex">
-        <BotonesExportar ruta="/aranceles/sac/exportar" :params="paramsS" />
-        <template v-if="edita">
-          <button class="btn" @click="modal = { tipo: 'carga-sac' }"><Icono nombre="importar" />{{ t('Upload Excel') }}</button>
-        </template>
-      </div>
-    </div>
-    <div class="tabla-marco tabla-fija">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Description') }}</th><th class="num">{{ t('National codes') }}</th><th>{{ t('Source') }}</th><th v-if="edita"></th></tr></thead>
-        <tbody>
-          <tr v-for="x in sac.items" :key="x.id">
-            <td :class="x.codigo.length === 4 ? 'fuerte' : ''"><span class="codigo-sac">{{ tx(x.codigo_txt) }}</span></td>
-            <td :class="{ fuerte: x.codigo.length === 4 }">{{ tx(x.descripcion) }}<span v-if="x.nota" class="sub">{{ tx(x.nota) }}</span>
-              <details v-if="x.custom" class="oficial-txt"><summary>{{ t('Official text') }}</summary>{{ tx(x.descripcion_oficial) }}</details></td>
-            <td class="num"><button v-if="x.nacionales" type="button" class="enlace" @click="verCodigosDe(x)">{{ tx(x.nacionales) }}</button><span v-else class="apagado">—</span></td>
-            <td><span class="etiqueta" :class="x.custom ? 'acento' : 'ok'">{{ tx(x.custom ? t('Custom over official') : t('Official')) }}</span></td>
-            <td v-if="edita" class="num nowrap">
-              <button class="btn-icono" :aria-label="t('Edit {0}', [x.codigo_txt])" @click="modal = { tipo: 'sac', ...x, motivo: '' }"><Icono nombre="editar" :tam="16" /></button>
-              <button v-if="x.custom" class="btn-icono" :title="t('Back to the official text')" :aria-label="t('Back to the official text')" @click="borrarSac(x)"><Icono nombre="historial" :tam="16" /></button>
-            </td>
-          </tr>
-          <tr v-if="!sac.items.length"><td colspan="5" class="vacio">{{ t('Nothing matches these filters.') }}</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <Paginacion :page="fs.page" :size="fs.size" :total="sac.total" @cambiar="(p) => { fs.page = p; cargarSac() }" @tamano="(t) => (fs.size = t)" />
+    <TablaDatos ref="tablaS" tabla="aranceles_sac" modo="servidor" :columnas="columnasS" :filas="sac.items" :total="sac.total" :cargando="cargandoS"
+                :valores="valoresS" :externos="{ q: fs.q, capitulo: fs.capitulo.join(','), nivel: fs.nivel }" :etiqueta="t('SAC headings and subheadings')"
+                @consulta="cargarSac" @vista="(x) => { Object.assign(fs, { q: x.q || '', capitulo: x.capitulo ? x.capitulo.split(',') : [], nivel: x.nivel || '' }); recargarS() }"
+                @limpiar-externos="Object.assign(fs, { q: '', capitulo: [], nivel: '' }); recargarS()">
+      <template #barra>
+        <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fs.q" type="search" :placeholder="t('Code or text')" :aria-label="t('Search')" @input="buscarS" /></label>
+      </template>
+      <template #filtros>
+        <FiltroMulti v-model="fs.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="recargarS" />
+        <Seleccion v-model="fs.nivel" :aria-label="t('Level')" @change="recargarS"><option value="">{{ t('Headings and subheadings') }}</option><option value="4">{{ t('Headings (4 digits)') }}</option><option value="6">{{ t('Subheadings (6 digits)') }}</option></Seleccion>
+        <div class="separar fila-flex">
+          <BotonesExportar ruta="/aranceles/sac/exportar" :params="exportarS" />
+          <button v-if="edita" class="btn" @click="modal = { tipo: 'carga-sac' }"><Icono nombre="importar" />{{ t('Upload Excel') }}</button>
+        </div>
+      </template>
+      <template #celda-codigo="{ fila: x }"><span class="codigo-sac" :class="{ fuerte: x.codigo.length === 4 }">{{ tx(x.codigo_txt) }}</span></template>
+      <template #celda-nivel="{ fila: x }">{{ x.codigo.length === 4 ? t('Heading (4 digits)') : t('Subheading (6 digits)') }}</template>
+      <template #celda-descripcion="{ fila: x }">
+        <div class="desc-sac" :class="{ fuerte: x.codigo.length === 4 }">{{ tx(x.descripcion) }}<span v-if="x.nota" class="sub">{{ tx(x.nota) }}</span>
+          <details v-if="x.custom" class="oficial-txt"><summary>{{ t('Official text') }}</summary>{{ tx(x.descripcion_oficial) }}</details></div>
+      </template>
+      <template #celda-nacionales="{ fila: x }"><button v-if="x.nacionales" type="button" class="enlace" @click="verCodigosDe(x)">{{ tx(x.nacionales) }}</button><span v-else class="apagado">—</span></template>
+      <template #celda-fuente="{ fila: x }"><span class="etiqueta ms-0" :class="x.custom ? 'acento' : 'ok'">{{ tx(x.custom ? t('Custom over official') : t('Official')) }}</span></template>
+      <template v-if="edita" #acciones="{ fila: x }">
+        <span class="nowrap">
+          <button class="btn-icono" :aria-label="t('Edit {0}', [x.codigo_txt])" @click="modal = { tipo: 'sac', ...x, motivo: '' }"><Icono nombre="editar" :tam="16" /></button>
+          <button v-if="x.custom" class="btn-icono" :title="t('Back to the official text')" :aria-label="t('Back to the official text')" @click="borrarSac(x)"><Icono nombre="historial" :tam="16" /></button>
+        </span>
+      </template>
+      <template #vacio>{{ t('Nothing matches these filters.') }}</template>
+    </TablaDatos>
   </section>
 
   <!-- Países -->
@@ -560,37 +608,40 @@ watch(() => fs.size, recargarS)
 
   <section v-if="vista === 'notas'">
     <p class="ayuda mt-0">{{ t('General rules of interpretation and the section, chapter and subheading notes of the SAC (HS 2022) for the chapters used by the classification: exclusions, definitions and priority rules. The classification panel shows the ones that apply to the suggested code, starting with the ones that concern the product, and the specialist opinion reads them. Load the official text in force with') }} <b>{{ t('Upload official text') }}</b>.</p>
-    <div class="filtros" v-filtros>
-      <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fn.q" type="search" :placeholder="t('Text, chapter or number')" :aria-label="t('Search notes')" @input="buscarN" /></label>
-      <FiltroMulti v-model="fn.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="cargarNotas" />
-      <span class="ayuda">{{ t('{0} notes', [notas.items.length]) }}</span>
-      <div class="separar fila-flex">
-        <BotonesExportar ruta="/aranceles/notas/exportar" :params="{ q: fn.q, capitulo: fn.capitulo.join(',') }" />
-        <template v-if="edita">
-          <button class="btn" @click="modal = { tipo: 'carga-notas' }"><Icono nombre="importar" />{{ t('Upload official text') }}</button>
-          <button class="btn btn-primario" @click="modal = { tipo: 'nota', id: null, ambito: 'capitulo', codigo: '', numero: '', texto: '', capitulos_txt: '', activo: true }"><Icono nombre="mas" />{{ t('Add note') }}</button>
-        </template>
-      </div>
-    </div>
-    <div class="tabla-marco">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Note') }}</th><th>{{ t('Text') }}</th><th>{{ t('Applies to chapters') }}</th><th v-if="edita"></th></tr></thead>
-        <tbody>
-          <tr v-for="n in notas.items" :key="n.id" :class="{ apagado: !n.activo }">
-            <td><span class="fuerte">{{ tx(n.codigo) }} · {{ tx(n.numero) }}</span><span class="sub">{{ tx(n.ambito_txt) }}</span>
-              <span class="etiqueta" :class="n.custom ? 'acento' : n.oficial ? 'ok' : 'aviso'" :title="tx(n.tipo_txt)">{{ tx(n.custom ? t('Custom over official') : n.oficial ? t('Official text') : n.tipo_fuente === 'CLASSIFIER_GUIDANCE' ? t('Classifier summary') : t('Internal guidance')) }}</span></td>
-            <td class="envolver" style="min-width: 420px; line-height: 1.45">{{ tx(n.texto) }}
-              <details v-if="n.texto_oficial" class="oficial-txt"><summary>{{ t('Official text') }}</summary>{{ tx(n.texto_oficial) }}</details></td>
-            <td>{{ tx(n.capitulos.length ? n.capitulos.join(', ') : t('All')) }}</td>
-            <td v-if="edita" class="num nowrap">
-              <button class="btn-icono" :aria-label="t('Edit note {0} {1}', [n.codigo, n.numero])" @click="modal = { tipo: 'nota', ...n, capitulos_txt: n.capitulos.join(', ') }"><Icono nombre="editar" :tam="16" /></button>
-              <button class="btn-icono texto-error" :aria-label="t('Delete note {0} {1}', [n.codigo, n.numero])" @click="borrarNota(n)"><Icono nombre="basura" :tam="16" /></button>
-            </td>
-          </tr>
-          <tr v-if="!notas.items.length"><td colspan="4" class="vacio">{{ t('No notes match these filters.') }}</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <TablaDatos tabla="aranceles_notas" :columnas="columnasN" :filas="notas.items" :cargando="cargandoN" :clase-fila="(n) => ({ apagada: !n.activo })"
+                :externos="{ q: fn.q, capitulo: fn.capitulo.join(',') }" :etiqueta="t('Legal notes')"
+                @vista="(x) => { Object.assign(fn, { q: x.q || '', capitulo: x.capitulo ? x.capitulo.split(',') : [] }); cargarNotas() }"
+                @limpiar-externos="Object.assign(fn, { q: '', capitulo: [] }); cargarNotas()">
+      <template #barra>
+        <label class="buscador"><Icono nombre="buscar" :tam="16" /><input v-model="fn.q" type="search" :placeholder="t('Text, chapter or number')" :aria-label="t('Search notes')" @input="buscarN" /></label>
+      </template>
+      <template #filtros>
+        <FiltroMulti v-model="fn.capitulo" :etiqueta="t('Chapter')" :opciones="CAPITULOS" @change="cargarNotas" />
+        <div class="separar fila-flex">
+          <BotonesExportar ruta="/aranceles/notas/exportar" :params="{ q: fn.q, capitulo: fn.capitulo.join(',') }" />
+          <template v-if="edita">
+            <button class="btn" @click="modal = { tipo: 'carga-notas' }"><Icono nombre="importar" />{{ t('Upload official text') }}</button>
+            <button class="btn btn-primario" @click="modal = { tipo: 'nota', id: null, ambito: 'capitulo', codigo: '', numero: '', texto: '', capitulos_txt: '', activo: true }"><Icono nombre="mas" />{{ t('Add note') }}</button>
+          </template>
+        </div>
+      </template>
+      <template #celda-nota="{ fila: n }"><span class="fuerte">{{ tx(n.codigo) }} · {{ tx(n.numero) }}</span></template>
+      <template #celda-ambito="{ fila: n }">{{ tx(n.ambito_txt) }}</template>
+      <template #celda-tipo="{ fila: n }"><span class="etiqueta ms-0" :class="n.custom ? 'acento' : n.oficial ? 'ok' : 'aviso'" :title="tx(n.tipo_txt)">{{ tx(TIPOS_NOTA.find(([k]) => k === tipoNota(n))[1]) }}</span></template>
+      <template #celda-texto="{ fila: n }">
+        <div class="texto-nota">{{ tx(n.texto) }}
+          <details v-if="n.texto_oficial" class="oficial-txt"><summary>{{ t('Official text') }}</summary>{{ tx(n.texto_oficial) }}</details></div>
+      </template>
+      <template #celda-capitulos="{ fila: n }">{{ tx(n.capitulos.length ? n.capitulos.join(', ') : t('All')) }}</template>
+      <template #celda-activo="{ fila: n }"><span class="etiqueta ms-0" :class="n.activo ? 'ok' : ''">{{ n.activo ? t('Active') : t('Inactive') }}</span></template>
+      <template v-if="edita" #acciones="{ fila: n }">
+        <span class="nowrap">
+          <button class="btn-icono" :aria-label="t('Edit note {0} {1}', [n.codigo, n.numero])" @click="modal = { tipo: 'nota', ...n, capitulos_txt: n.capitulos.join(', ') }"><Icono nombre="editar" :tam="16" /></button>
+          <button class="btn-icono texto-error" :aria-label="t('Delete note {0} {1}', [n.codigo, n.numero])" @click="borrarNota(n)"><Icono nombre="basura" :tam="16" /></button>
+        </span>
+      </template>
+      <template #vacio>{{ t('No notes match these filters.') }}</template>
+    </TablaDatos>
   </section>
 
   <Modal v-if="modal?.tipo === 'nota'" :titulo="tx(modal.id ? t('Note {0} {1}', [modal.codigo, modal.numero]) : t('New SAC note'))" ancho="640px" @cerrar="modal = null">
@@ -698,8 +749,11 @@ watch(() => fs.size, recargarS)
 .pt-datos b { display: block; font-size: 0.86rem; }
 .pt-datos small { color: var(--tinta-3); font-size: 0.76rem; }
 .tabla :deep(.celda)::placeholder { color: var(--tinta-3); font-weight: 400; }
-.cond { font-size: 0.84rem; color: var(--tinta-2); min-width: 200px; }
-tr.apagada td { opacity: 0.6; }
+.cond { display: block; font-size: 0.84rem; color: var(--tinta-2); min-width: 200px; white-space: normal; }
+.desc-codigo { min-width: 220px; white-space: normal; }
+.desc-sac { min-width: 320px; max-width: 640px; white-space: normal; }
+.texto-nota { min-width: 380px; max-width: 760px; white-space: normal; line-height: 1.45; }
+:deep(tr.apagada > td) { opacity: 0.6; }
 .paises-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 @media (max-width: 720px) {
   .paises-resumen { display: grid; grid-template-columns: 1fr 1fr; }

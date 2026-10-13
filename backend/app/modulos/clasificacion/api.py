@@ -4,6 +4,7 @@ from fastapi import APIRouter, File, Query, Request, UploadFile
 
 from app import esquemas as s
 from app.modulos.clasificacion import aranceles as svc
+from app.modulos.comun import tabla as tabla_datos
 from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida, plantilla_o_vista
 
 router = APIRouter()
@@ -51,15 +52,22 @@ def borrar_pais(pais_id: int, db: Db, user: User):
 
 
 @router.get("/aranceles/sac")
-def sac(request: Request, db: Db, user: User, page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=500)):
-    """Partidas y subpartidas SAC de la versión vigente con su capa custom; paginadas y con filtros."""
-    return svc.listar_sac(db, user, _filtros(request, F_SAC), page, size)
+def sac(request: Request, db: Db, user: User, page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=500), f: str | None = None):
+    """Partidas y subpartidas SAC de la versión vigente con su capa custom; paginadas y con filtros
+    (también por los valores de cada columna en `f`)."""
+    return svc.listar_sac(db, user, _filtros(request, F_SAC), page, size, tabla_datos.leer(f))
+
+
+@router.get("/aranceles/sac/valores")
+def sac_valores(request: Request, db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None):
+    """Valores únicos de una columna de las partidas SAC con cuántas tiene cada uno, bajo los demás filtros."""
+    return svc.valores_sac(db, user, _filtros(request, F_SAC), columna, buscar, tabla_datos.leer(f))
 
 
 @router.get("/aranceles/sac/exportar")
-def sac_exportar(request: Request, db: Db, user: User, formato: Formato = "xlsx"):
+def sac_exportar(request: Request, db: Db, user: User, formato: Formato = "xlsx", f: str | None = None):
     """Exporta a Excel o PDF las partidas y subpartidas SAC con los filtros de la pantalla."""
-    return descarga(svc.exportar_sac(db, user, _filtros(request, F_SAC), formato), f"sac_{date.today():%Y%m%d}", formato)
+    return descarga(svc.exportar_sac(db, user, _filtros(request, F_SAC), formato, tabla_datos.leer(f)), f"sac_{date.today():%Y%m%d}", formato)
 
 
 @router.get("/aranceles/sac/plantilla")
@@ -150,15 +158,22 @@ def borrar_nota(nota_id: int, db: Db, user: User):
 
 @router.get("/aranceles/codigos")
 def codigos(request: Request, db: Db, user: User, orden: str | None = None, page: int = Query(1, ge=1),
-            size: int = Query(50, ge=1, le=500)):
-    """Códigos nacionales por país con su texto SAC y su capa custom; paginados, filtrados y ordenados."""
-    return svc.listar_incisos(db, user, _filtros(request, F_INC), page, size, orden)
+            size: int = Query(50, ge=1, le=500), f: str | None = None):
+    """Códigos nacionales por país con su texto SAC y su capa custom; paginados, filtrados (también por
+    los valores de cada columna en `f`) y ordenados."""
+    return svc.listar_incisos(db, user, _filtros(request, F_INC), page, size, orden, tabla_datos.leer(f))
+
+
+@router.get("/aranceles/codigos/valores")
+def codigos_valores(request: Request, db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None):
+    """Valores únicos de una columna de los códigos nacionales con cuántos tiene cada uno, bajo los demás filtros."""
+    return svc.valores_incisos(db, user, _filtros(request, F_INC), columna, buscar, tabla_datos.leer(f))
 
 
 @router.get("/aranceles/codigos/exportar")
-def codigos_exportar(request: Request, db: Db, user: User, orden: str | None = None, formato: Formato = "xlsx"):
+def codigos_exportar(request: Request, db: Db, user: User, orden: str | None = None, formato: Formato = "xlsx", f: str | None = None):
     """Exporta a Excel o PDF los códigos nacionales con los filtros y el orden de la pantalla."""
-    return descarga(svc.exportar_incisos(db, user, _filtros(request, F_INC), orden, formato),
+    return descarga(svc.exportar_incisos(db, user, _filtros(request, F_INC), orden, formato, tabla_datos.leer(f)),
                     f"national_codes_{date.today():%Y%m%d}", formato)
 
 

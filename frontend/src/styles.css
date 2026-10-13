@@ -540,7 +540,9 @@ a.cajas-rango { color: var(--tinta); }
 
 /* ---- Celda editable --------------------------------------------------- */
 .celda { width: 100%; min-width: 60px; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 4px 7px; font-variant-numeric: tabular-nums; }
-.celda:hover { border-color: var(--linea); background: var(--superficie); }
+/* Una celda que se puede editar se ve como campo (borde suave); deshabilitada se lee como texto */
+.celda:not(:disabled):not([readonly]) { border-color: var(--linea-suave); background: var(--superficie); }
+.celda:not(:disabled):not([readonly]):hover { border-color: var(--linea); }
 .celda:focus { border-color: var(--acento); background: var(--superficie); outline: none; box-shadow: 0 0 0 3px var(--foco); }
 .celda.num { text-align: end; }
 .celda.guardando { color: var(--tinta-3); }

@@ -60,7 +60,8 @@ def listar(db: Session, user: Usuario, idioma: str, q: str | None = None, pendie
         filas = [f for f in filas if b in f["texto"].lower() or b in (f["traduccion"] or "").lower()]
     if pendientes:
         filas = [f for f in filas if not f["traduccion"]]
-    return {"idioma": idioma, "total": total, "faltan": faltan, "items": filas[:500]}
+    # Todos los textos: la tabla los pagina y filtra en la pantalla (antes se cortaba en 500 sin avisar)
+    return {"idioma": idioma, "total": total, "faltan": faltan, "items": filas}
 
 
 def guardar(db: Session, user: Usuario, idioma: str, texto: str, traduccion: str | None) -> dict:

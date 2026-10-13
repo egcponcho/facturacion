@@ -217,6 +217,9 @@ def test_traducciones_del_catalogo(interno, tnf):
     assert interno.get("/i18n/catalogo/xx").json() == {}
     lista = interno.get("/familias/traducciones/es", params={"pendientes": True}).json()
     assert lista["total"] > 600 and all(not x["traduccion"] for x in lista["items"])
+    # Llegan todos los textos (la pantalla pagina); antes se cortaban en 500
+    todos = interno.get("/familias/traducciones/es").json()
+    assert len(todos["items"]) == todos["total"] > 500
     # Se corrige una traducción y se puede volver a la de fábrica dejándola vacía
     assert interno.put("/familias/traducciones/es", {"texto": "Sneaker", "traduccion": "Zapatilla"}).json()["traduccion"] == "Zapatilla"
     assert interno.get("/i18n/catalogo/es").json()["Sneaker"] == "Zapatilla"

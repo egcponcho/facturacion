@@ -74,12 +74,15 @@ function limpiar() {
   emit('aplicar', null)
 }
 
-// Posición: debajo del encabezado, sin salirse de la pantalla
+// Posición: debajo del encabezado; si no cabe abajo, encima; nunca fuera de la pantalla
 function ubicar() {
   const r = props.ancla?.getBoundingClientRect()
   if (!r) return
   const ancho = Math.min(300, window.innerWidth - 16)
-  pos.value = { top: Math.min(r.bottom + 6, window.innerHeight - 120), left: Math.max(8, Math.min(r.left, window.innerWidth - ancho - 8)), ancho }
+  const alto = raiz.value?.offsetHeight || 0
+  let top = r.bottom + 6
+  if (alto && top + alto > window.innerHeight - 8) top = r.top - 6 - alto >= 8 ? r.top - 6 - alto : Math.max(8, window.innerHeight - alto - 8)
+  pos.value = { top, left: Math.max(8, Math.min(r.left, window.innerWidth - ancho - 8)), ancho }
 }
 const capa = abrirCapa()
 function tecla(e) {
@@ -99,7 +102,8 @@ onMounted(async () => {
   document.addEventListener('mousedown', fuera)
   await pedir()
   await nextTick()
-  buscador.value?.focus()
+  ubicar()
+  buscador.value?.focus({ preventScroll: true })
 })
 onBeforeUnmount(() => {
   cerrarCapa(capa)

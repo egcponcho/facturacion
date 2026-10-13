@@ -99,3 +99,34 @@ def test_reglas_filtran_por_tipo_activo_y_atributo_de_sus_condiciones(interno):
     # Orden por columna
     r = interno.get("/aranceles/reglas", params={"size": 20, "orden": "prioridad:asc"}).json()["items"]
     assert [x["prioridad"] for x in r] == sorted(x["prioridad"] for x in r)
+
+
+# ---- Arancel: códigos nacionales y partidas SAC (paginados en el servidor) ----------------
+
+def test_codigos_nacionales_por_columna(interno):
+    total = interno.get("/aranceles/codigos", params={"size": 1}).json()["total"]
+    paises = interno.get("/aranceles/codigos/valores", params={"columna": "pais"}).json()
+    assert total and sum(v["n"] for v in paises) == total
+    uno = paises[0]
+    r = interno.get("/aranceles/codigos", params={"size": 500, **_f(pais=[uno["valor"]])}).json()
+    assert r["total"] == uno["n"] and {x["pais"] for x in r["items"]} == {uno["valor"]}
+    # La fuente oficial vive en otra tabla: filtra y cuenta códigos, no fuentes
+    fuentes = interno.get("/aranceles/codigos/valores", params={"columna": "fuente"}).json()
+    assert sum(v["n"] for v in fuentes) == total
+    f1 = fuentes[0]
+    r = interno.get("/aranceles/codigos", params={"size": 500, **_f(fuente=[f1["valor"] if f1["valor"] is not None else "__vacio__"])}).json()
+    assert r["total"] == f1["n"] and all(x["fuente_oficial"] == f1["valor"] for x in r["items"])
+    # Con el país filtrado, los valores de la fuente son solo los de ese país
+    del_pais = interno.get("/aranceles/codigos/valores", params={"columna": "fuente", **_f(pais=[uno["valor"]])}).json()
+    assert sum(v["n"] for v in del_pais) == uno["n"]
+    assert interno.get("/aranceles/codigos/valores", params={"columna": "descripcion"}).status_code == 422
+
+
+def test_partidas_sac_por_columna(interno):
+    total = interno.get("/aranceles/sac", params={"size": 1}).json()["total"]
+    niveles = {v["valor"]: v["n"] for v in interno.get("/aranceles/sac/valores", params={"columna": "nivel"}).json()}
+    assert set(niveles) <= {"PARTIDA", "SUBPARTIDA"} and sum(niveles.values()) == total
+    r = interno.get("/aranceles/sac", params={"size": 500, **_f(nivel=["PARTIDA"])}).json()
+    assert r["total"] == niveles["PARTIDA"] and all(len(x["codigo"]) == 4 for x in r["items"])
+    fuentes = {v["valor"]: v["n"] for v in interno.get("/aranceles/sac/valores", params={"columna": "fuente"}).json()}
+    assert sum(fuentes.values()) == total and "oficial" in fuentes

@@ -4,15 +4,16 @@ y los códigos nacionales de cada país con las condiciones que los distinguen.
 Todo se puede ver, editar, cargar desde Excel y exportar con los filtros."""
 import re
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
-from app.modelos import IncisoNacional, NodoArancel, NotaSAC, PaisArancel, Usuario, ahora
+from app.modelos import FuenteOficial, IncisoNacional, NodoArancel, NotaSAC, PaisArancel, Usuario, ahora
 from app.modulos.acceso.permisos import exigir
 from app.modulos.clasificacion import overrides
 from app.modulos.clasificacion.meta import cond_texto, opciones_cond, valor_opcion
+from app.modulos.comun import tabla as tabla_datos
 from app.modulos.comun.historial import registrar
 from app.modulos.documentos import documentos, exportar
 from app.modulos.documentos.plantillas import leer, norm, plantilla, si_no
@@ -169,9 +170,24 @@ def _q_sac(db: Session, filtros: dict):
     return q
 
 
-def listar_sac(db: Session, user: Usuario, filtros: dict, page: int, size: int) -> dict:
+def _columnas_sac(db: Session) -> dict:
+    """Columnas de la tabla de partidas SAC que se filtran por sus valores (TablaDatos)."""
+    con = list(overrides.vigentes(db, "NODO")) or ["-"]
+    return {"codigo": NodoArancel.codigo_norm, "nivel": NodoArancel.nivel,
+            "fuente": case((NodoArancel.codigo_norm.in_(con), "custom"), else_="oficial")}
+
+
+def valores_sac(db: Session, user: Usuario, filtros: dict, columna: str, buscar: str | None, f: dict) -> list[dict]:
+    """Valores únicos de una columna de las partidas SAC bajo los demás filtros."""
     exigir(user, "producto.ver")
-    q = _q_sac(db, filtros)
+    cols = _columnas_sac(db)
+    expr = tabla_datos.columna_valida(cols, columna)
+    return tabla_datos.valores(db, tabla_datos.aplicar(_q_sac(db, filtros), cols, f, excepto=columna), expr, buscar)
+
+
+def listar_sac(db: Session, user: Usuario, filtros: dict, page: int, size: int, f: dict | None = None) -> dict:
+    exigir(user, "producto.ver")
+    q = tabla_datos.aplicar(_q_sac(db, filtros), _columnas_sac(db), f or {})
     total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
     filas = db.scalars(q.order_by(NodoArancel.codigo_norm).offset((page - 1) * size).limit(size)).all()
     subs = [x.codigo_norm for x in filas if len(x.codigo_norm) == 6]
@@ -356,8 +372,14 @@ def borrar_nota(db: Session, user: Usuario, nota_id: int, motivo: str | None = N
 
 
 # ---- Códigos nacionales ----------------------------------------------------------------
+# La fuente oficial de cada código viene de su tabla (muchos códigos, una fuente): el
+# outer join no repite filas y deja filtrar y contar por el código de la fuente.
+COLUMNAS_INCISOS = {"pais": IncisoNacional.pais, "codigo": IncisoNacional.codigo, "dai": IncisoNacional.dai,
+                    "fuente": FuenteOficial.codigo, "activo": IncisoNacional.activo}
+
+
 def _q_incisos(filtros: dict):
-    q = select(IncisoNacional)
+    q = select(IncisoNacional).outerjoin(FuenteOficial, FuenteOficial.id == IncisoNacional.fuente_id)
     ps = [p.upper() for p in _lista(filtros.get("pais"))]
     if ps:
         q = q.where(IncisoNacional.pais.in_(ps))
@@ -371,9 +393,7 @@ def _q_incisos(filtros: dict):
         q = q.where(or_(*[IncisoNacional.sub6.startswith(_dig(c)[:2]) for c in caps]))
     fuentes = _lista(filtros.get("fuente"))  # códigos de fuente oficial
     if fuentes:
-        from app.modelos import FuenteOficial
-
-        q = q.where(IncisoNacional.fuente_id.in_(select(FuenteOficial.id).where(FuenteOficial.codigo.in_(fuentes))))
+        q = q.where(FuenteOficial.codigo.in_(fuentes))
     if filtros.get("activo") in ("true", "false"):
         q = q.where(IncisoNacional.activo.is_(filtros["activo"] == "true"))
     return q
@@ -397,13 +417,20 @@ def _procedencia_txt(db: Session, x) -> dict:
     return {"fuente_oficial": f.codigo if f else None, "autoridad": f.autoridad if f else None, "version": v.codigo if v else None}
 
 
-def listar_incisos(db: Session, user: Usuario, filtros: dict, page: int, size: int, orden: str | None) -> dict:
+def valores_incisos(db: Session, user: Usuario, filtros: dict, columna: str, buscar: str | None, f: dict) -> list[dict]:
+    """Valores únicos de una columna de los códigos nacionales bajo los demás filtros."""
     exigir(user, "producto.ver")
-    q = _q_incisos(filtros)
+    expr = tabla_datos.columna_valida(COLUMNAS_INCISOS, columna)
+    return tabla_datos.valores(db, tabla_datos.aplicar(_q_incisos(filtros), COLUMNAS_INCISOS, f, excepto=columna), expr, buscar)
+
+
+def listar_incisos(db: Session, user: Usuario, filtros: dict, page: int, size: int, orden: str | None, f: dict | None = None) -> dict:
+    exigir(user, "producto.ver")
+    q = tabla_datos.aplicar(_q_incisos(filtros), COLUMNAS_INCISOS, f or {})
     total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
     col, _, dirn = (orden or "codigo:asc").partition(":")
-    campo = {"pais": IncisoNacional.pais, "codigo": IncisoNacional.codigo, "fuente": IncisoNacional.fuente,
-             "dai": IncisoNacional.dai}.get(col, IncisoNacional.codigo)
+    campo = {"pais": IncisoNacional.pais, "codigo": IncisoNacional.codigo, "fuente": FuenteOficial.codigo,
+             "dai": IncisoNacional.dai, "activo": IncisoNacional.activo}.get(col, IncisoNacional.codigo)
     filas = db.scalars(q.order_by(campo.desc() if dirn == "desc" else campo.asc(), IncisoNacional.pais, IncisoNacional.id)
                        .offset((page - 1) * size).limit(size)).all()
     sac = textos_sac(db, {x.sub6 for x in filas}) if filas else {}
@@ -862,8 +889,8 @@ def _filtros_txt(filtros: dict, nombres: dict) -> str:
     return "Filters: " + " · ".join(partes) if partes else "No filters"
 
 
-def exportar_incisos(db: Session, user: Usuario, filtros: dict, orden: str | None, formato: str) -> bytes:
-    r = listar_incisos(db, user, filtros, 1, 200_000, orden)
+def exportar_incisos(db: Session, user: Usuario, filtros: dict, orden: str | None, formato: str, f: dict | None = None) -> bytes:
+    r = listar_incisos(db, user, filtros, 1, 200_000, orden, f)
     columnas = [("Country", 0.6, False), ("Code", 1.2, False), ("SAC subheading", 2.4, False), ("Description", 2.2, False),
                 ("Duty %", 0.6, True), ("Conditions", 2.4, False), ("Priority", 0.6, True), ("Source", 0.8, False),
                 ("Active", 0.6, False)]
@@ -877,8 +904,8 @@ def exportar_incisos(db: Session, user: Usuario, filtros: dict, orden: str | Non
     return exportar.exportar_reporte(titulo, sub, texto, ind, columnas, filas)
 
 
-def exportar_sac(db: Session, user: Usuario, filtros: dict, formato: str) -> bytes:
-    r = listar_sac(db, user, filtros, 1, 100_000)
+def exportar_sac(db: Session, user: Usuario, filtros: dict, formato: str, f: dict | None = None) -> bytes:
+    r = listar_sac(db, user, filtros, 1, 100_000, f)
     columnas = [("Code", 0.8, False), ("Description", 5, False), ("National codes", 0.9, True), ("Source", 0.7, False)]
     filas = [[x["codigo_txt"], x["descripcion"], x["nacionales"], FUENTES.get(x["fuente"], x["fuente"])] for x in r["items"]]
     texto = _filtros_txt(filtros, {"q": "Search", "capitulo": "Chapter", "nivel": "Level", "fuente": "Source"})
