@@ -12,9 +12,10 @@ Excel): así el filtro de la tabla muestra solo lo que tiene sentido elegir.
 """
 import json
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy import Boolean, String, cast, func, or_, select
+from sqlalchemy import Boolean, Float, Numeric, String, cast, func, or_, select
 
 from app.core.db import plano
 from app.core.errores import ErrorNegocio
@@ -59,6 +60,23 @@ def _texto(expr):
     return cast(expr, String)
 
 
+def _es_decimal(expr) -> bool:
+    """Columna NUMERIC (también las de dinero y tasas, que la envuelven)."""
+    tipo = getattr(expr, "type", None)
+    tipo = getattr(tipo, "impl_instance", None) or getattr(tipo, "impl", None) or tipo
+    return isinstance(tipo, Numeric) and not isinstance(tipo, Float)
+
+
+def _numeros(valores: list[str]) -> list[Decimal]:
+    res = []
+    for v in valores:
+        try:
+            res.append(Decimal(str(v).replace(",", "").strip()))
+        except InvalidOperation:
+            continue
+    return res
+
+
 def condicion(expr, valores: list[str]):
     """«La columna es alguno de estos valores» (incluido el vacío)."""
     vacio = VACIO in valores
@@ -68,6 +86,11 @@ def condicion(expr, valores: list[str]):
         verdad = {"true": True, "1": True, "false": False, "0": False}
         bools = {verdad[v.lower()] for v in otros if v.lower() in verdad}
         partes += [expr.is_(b) for b in bools]
+    elif otros and _es_decimal(expr):
+        # Un número se compara como número (15 = 15.000000), no como texto
+        numeros = _numeros(otros)
+        if numeros:
+            partes.append(expr.in_(numeros))
     elif otros:
         partes.append(_texto(expr).in_(otros))
     if vacio:

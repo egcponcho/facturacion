@@ -20,7 +20,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
-from app.modelos.base import ahora
+from app.modelos.base import Tasa, ahora
 from app.modelos.empresa import ConAdjunto
 
 if TYPE_CHECKING:
@@ -175,7 +175,7 @@ class PartidaPais(DeOrganizacion, Base):
     producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
     pais: Mapped[str] = mapped_column(String(2))
     codigo: Mapped[str] = mapped_column(String(14))
-    dai: Mapped[str | None] = mapped_column(String(10))  # derecho arancelario a la importación, %
+    dai: Mapped[float | None] = mapped_column(Tasa)  # derecho arancelario a la importación, %
     estado: Mapped[str] = mapped_column(String(12))  # ok | auto | sac | nuevo | sinarancel | elegir
     fuente: Mapped[str | None] = mapped_column(String(12))  # base | aprendido | manual | arancel
     manual: Mapped[bool] = mapped_column(Boolean, default=False)

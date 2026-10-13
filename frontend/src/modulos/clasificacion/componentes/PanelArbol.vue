@@ -124,6 +124,7 @@ const NIVEL = { CAPITULO: t('Chapter'), PARTIDA: t('Heading'), SUBPARTIDA: t('Su
           <span class="etiqueta acento">{{ tx(NIVEL[detalle.nivel] || detalle.nivel) }}</span>
           <h3>{{ tx(detalle.codigo) }}</h3>
           <span v-if="detalle.dai !== null && detalle.dai !== undefined" class="dai">{{ t('DAI {0}%', [detalle.dai]) }}</span>
+          <span v-else-if="detalle.dai_nota" class="dai">{{ t('DAI: {0}', [detalle.dai_nota]) }}</span>
         </div>
         <p class="texto">{{ tx(detalle.descripcion) }}</p>
         <div class="meta">

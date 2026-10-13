@@ -231,7 +231,10 @@ class NodoArancel(Base):
     padre_id: Mapped[int | None] = mapped_column(ForeignKey("nodos_arancel.id"), index=True)
     descripcion: Mapped[str] = mapped_column(Text)  # texto oficial completo
     texto_propio: Mapped[str | None] = mapped_column(String(400))  # solo el renglón de este nivel
-    dai: Mapped[str | None] = mapped_column(String(12))
+    # DAI (%) del texto regional; si el texto no da un número («Parte II»: lo
+    # fija cada país) queda vacío y el texto va en dai_nota
+    dai: Mapped[float | None] = mapped_column(Tasa)
+    dai_nota: Mapped[str | None] = mapped_column(String(20))
     hojas: Mapped[int] = mapped_column(Integer, default=0)  # hijos directos (para el árbol)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     estado: Mapped[str] = mapped_column(String(12), default="PUBLICADO")
@@ -418,7 +421,7 @@ class IncisoNacional(Base):
     pais: Mapped[str] = mapped_column(String(2), index=True)
     codigo: Mapped[str] = mapped_column(String(14))
     sub6: Mapped[str] = mapped_column(String(6), index=True)
-    dai: Mapped[str | None] = mapped_column(String(10))
+    dai: Mapped[float | None] = mapped_column(Tasa)  # derecho arancelario a la importación, %
     descripcion: Mapped[str | None] = mapped_column(String(300))
     nota: Mapped[str | None] = mapped_column(String(300))
     fuente: Mapped[str] = mapped_column(String(12), default="oficial")  # solo oficial: tiene fuente y versión

@@ -11,7 +11,7 @@ exporta coinciden al centavo.
 """
 from __future__ import annotations
 
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 CERO = Decimal(0)
 
@@ -71,3 +71,29 @@ def importe_sql(cantidad, precio, decimales_: int = 2):
     from sqlalchemy import Numeric, cast, func
 
     return func.round(cast(cantidad * precio, Numeric(24, 6)), decimales_)
+
+
+def porcentaje(v) -> Decimal | None:
+    """Un porcentaje escrito («15», «15 %», «7,5») como número; None si está
+    vacío. ValueError si no es un número."""
+    if v is None:
+        return None
+    if isinstance(v, (int, float, Decimal)):
+        return Decimal(str(v))
+    t = str(v).replace("%", "").replace(" ", "").strip()
+    if not t:
+        return None
+    if t.count(",") == 1 and "." not in t:
+        t = t.replace(",", ".")
+    try:
+        return Decimal(t)
+    except InvalidOperation as e:
+        raise ValueError(f"{v} is not a percentage.") from e
+
+
+def porcentaje_o_nota(v) -> tuple[Decimal | None, str | None]:
+    """El porcentaje, o el texto tal cual si no es un número (p. ej. «Parte II»)."""
+    try:
+        return porcentaje(v), None
+    except ValueError:
+        return None, str(v).strip()[:20] or None

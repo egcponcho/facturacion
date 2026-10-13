@@ -12,6 +12,7 @@ import re
 from sqlalchemy import func, insert, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.dinero import porcentaje_o_nota
 from app.core.errores import ErrorNegocio
 from app.instalacion.datos import OFICIAL
 from app.modelos import (
@@ -115,7 +116,7 @@ def cargar_sac(db: Session, version: str = VERSION_DATOS_SEED) -> int:
         p = seis.get(c[:6]) or cuatro.get(c[:4]) or dos.get(c[:2])
         filas.append({**base, "nivel": "INCISO", "codigo": formato(c), "codigo_norm": c, "padre_id": p,
                       "descripcion": x["descripcion"], "texto_propio": (x.get("propio") or x["descripcion"])[:400],
-                      "dai": x.get("dai_txt")})
+                      **dict(zip(("dai", "dai_nota"), porcentaje_o_nota(x.get("dai_txt")), strict=True))})
     db.execute(insert(NodoArancel), filas)
     total += len(filas)
     # Hijos directos de cada nodo (para mostrar el árbol sin contar en cada consulta)
@@ -144,7 +145,7 @@ def _version(db: Session, codigo: str | None) -> VersionDataset:
 
 def _fila(n: NodoArancel, caps: dict | None = None) -> dict:
     d = {"id": n.id, "nivel": n.nivel, "codigo": n.codigo, "codigo_norm": n.codigo_norm, "descripcion": n.descripcion,
-         "texto": n.texto_propio or n.descripcion, "dai": n.dai, "hijos": n.hojas, "padre_id": n.padre_id,
+         "texto": n.texto_propio or n.descripcion, "dai": n.dai, "dai_nota": n.dai_nota, "hijos": n.hojas, "padre_id": n.padre_id,
          "activo": n.activo, "estado": n.estado}
     if caps is not None:
         c = caps.get(n.codigo_norm[:2])

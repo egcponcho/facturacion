@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core import listas
+from app.core import dinero, listas
 from app.core.archivos import MIME, TIPOS, exigir_tamano, tipo_imagen
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
@@ -265,7 +265,7 @@ def _guardar_partidas(p: Producto, partidas: dict | None) -> None:
             continue
         fila = previas.get(iso) or PartidaPais(pais=iso)
         fila.codigo = _codigo_fila(x.get("codigo"))
-        fila.dai = str(x.get("dai") or "")[:10] or None
+        fila.dai = dinero.porcentaje_o_nota(x.get("dai"))[0]
         fila.estado = str(x.get("estado") or "ok")[:12]
         fila.fuente = (x.get("fuente") or None) and str(x.get("fuente"))[:12]
         fila.manual = bool(x.get("manual"))
@@ -525,7 +525,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
         "revisado_por": p.revisado_por.nombre if p.revisado_por else None, "revisado_en": p.revisado_en,
         "vigente_desde": p.vigente_desde, "creado_en": p.creado_en,
         "evidencia": p.evidencia,
-        "partidas": {x.pais: {"codigo": x.codigo, "dai": x.dai or "", "estado": x.estado, "fuente": x.fuente,
+        "partidas": {x.pais: {"codigo": x.codigo, "dai": "" if x.dai is None else x.dai, "estado": x.estado, "fuente": x.fuente,
                               "sugerido": x.sugerido, "motivo": x.motivo, "inciso_id": x.inciso_id, "evidencia": x.evidencia,
                               "aprobado_en": x.aprobado_en,
                               "manual": x.manual, "digitos": dig.get(x.pais, 10)} for x in p.partidas},
@@ -553,7 +553,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
 
 def _inciso_ctx(x: IncisoNacional) -> dict:
     return {"id": x.id, "pais": x.pais, "codigo": x.codigo, "cond": x.cond or {}, "prio": x.prio,
-            "dai": x.dai or "", "descripcion": x.descripcion, "nota": x.nota, "fuente": x.fuente}
+            "dai": "" if x.dai is None else x.dai, "descripcion": x.descripcion, "nota": x.nota, "fuente": x.fuente}
 
 
 def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dict:
@@ -841,7 +841,7 @@ def confirmar_partida(db: Session, user: Usuario, producto_id: int, pais: str, c
         fila = PartidaPais(pais=pais)
         p.partidas.append(fila)
     fila.sugerido = fila.sugerido or x.get("sugerido") or fila.codigo
-    fila.codigo, fila.dai, fila.estado, fila.fuente, fila.manual = _codigo_fila(x["codigo"]), str(x.get("dai") or "")[:10] or None, "ok", \
+    fila.codigo, fila.dai, fila.estado, fila.fuente, fila.manual = _codigo_fila(x["codigo"]), dinero.porcentaje_o_nota(x.get("dai"))[0], "ok", \
         (x.get("fuente") or None) and str(x["fuente"])[:12], True
     inc = db.get(IncisoNacional, x["inciso_id"])
     fila.inciso_id, fila.version_id = x["inciso_id"], (x.get("version") or {}).get("id")

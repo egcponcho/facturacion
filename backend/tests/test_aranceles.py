@@ -188,7 +188,7 @@ def test_base_oficial_sieca(interno):
     assert any(x["codigo"] == "640419" and x["fuente"] in ("oficial", "manual") for x in sac)
     gt = interno.get("/aranceles/codigos", params={"pais": "GT", "q": "640419", "size": 20}).json()["items"]
     cods = {x["codigo"]: x for x in gt}
-    assert "6404191000" in cods and cods["6404191000"]["dai"] in ("0", "0.0") and "Cubrecalzado" in cods["6404191000"]["descripcion"]
+    assert "6404191000" in cods and cods["6404191000"]["dai"] == 0 and "Cubrecalzado" in cods["6404191000"]["descripcion"]
     notas = interno.get("/aranceles/notas", params={"capitulo": "61"}).json()["items"]
     assert any(n["ambito"] == "capitulo" and n["numero"] == "9" and "izquierda sobre derecha" in n["texto"] for n in notas)
     assert len(interno.get("/aranceles/notas").json()["items"]) > 400

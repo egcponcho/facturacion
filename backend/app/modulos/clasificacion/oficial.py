@@ -349,7 +349,7 @@ def cargar_lineas_regionales(db: Session, version: str = "SAC-2025-V6") -> int:
     if not paises:
         return 0
     ya = {(i, c) for i, c in db.execute(select(IncisoNacional.pais, IncisoNacional.codigo).where(IncisoNacional.version_id == v.id))}
-    nodos = db.execute(select(NodoArancel.codigo_norm, NodoArancel.descripcion, NodoArancel.dai).where(
+    nodos = db.execute(select(NodoArancel.codigo_norm, NodoArancel.descripcion, NodoArancel.dai, NodoArancel.dai_nota).where(
         NodoArancel.version_id == v.id, NodoArancel.nivel == "INCISO")).all()
     # Lo que el clasificador lee del texto oficial vive en el motor, no en el archivo oficial
     interpretacion = json.loads((MOTOR / "interpretacion_aci.json").read_text(encoding="utf-8"))["condiciones"]
@@ -357,12 +357,12 @@ def cargar_lineas_regionales(db: Session, version: str = "SAC-2025-V6") -> int:
     nota = f"{fuente.dataset} — {v.etiqueta}" if fuente else v.etiqueta
     filas, con_cond = [], []
     for iso in paises:
-        for cod, desc, dai in nodos:
+        for cod, desc, dai, dai_nota in nodos:
             if (iso, cod) in ya:
                 continue
             # DAI de la Parte II: distinto por país, no está en el texto regional (queda vacío, con la nota)
-            parte2 = bool(dai) and dai.upper().startswith("PARTE II")
-            f = {"pais": iso, "codigo": cod, "sub6": cod[:6], "dai": None if parte2 else (dai or None), "descripcion": (desc or "")[:300],
+            parte2 = bool(dai_nota) and dai_nota.upper().startswith("PARTE II")
+            f = {"pais": iso, "codigo": cod, "sub6": cod[:6], "dai": None if parte2 else dai, "descripcion": (desc or "")[:300],
                  "fuente": "oficial", "fuente_id": v.fuente_id, "version_id": v.id, "vigente_desde": v.vigente_desde,
                  "vigente_hasta": v.vigente_hasta, "codigo_base": cod[:8], "url": fuente.url if fuente else None, "activo": True,
                  "nota": (f"{nota} · DAI in Part II of the ACI (country-specific)" if parte2 else nota)[:300]}

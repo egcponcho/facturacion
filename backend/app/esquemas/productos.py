@@ -55,7 +55,7 @@ class IncisoIn(BaseModel):
     pais: str = Field(max_length=2)
     codigo: str = Field(max_length=20)
     cond: dict = Field(default_factory=dict)
-    dai: str | None = Field(None, max_length=10)
+    dai: str | float | None = None
     nota: str | None = Field(None, max_length=300)
 
 
@@ -117,7 +117,7 @@ class IncisoEditIn(BaseModel):
     pais: str = Field(max_length=2)
     codigo: str = Field(max_length=20)
     descripcion: str | None = Field(None, max_length=300)
-    dai: str | None = Field(None, max_length=10)
+    dai: str | float | None = None
     cond: dict = Field(default_factory=dict)
     prio: int = Field(0, ge=0, le=99)
     nota: str | None = Field(None, max_length=300)
