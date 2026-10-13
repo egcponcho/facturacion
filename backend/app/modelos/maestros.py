@@ -234,6 +234,11 @@ class CategoriaArticulo(DeOrganizacion, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(100))
+    # Dominio de clasificación de la línea (calzado, ropa…): la ficha técnica
+    # ofrece primero sus categorías de producto (taxonomía única: línea
+    # comercial → dominio → categoría de producto)
+    dominio: Mapped[str | None] = mapped_column(
+        ForeignKey("dominios_clasificacion.codigo", name="fk_categorias_articulo_dominio", onupdate="CASCADE"), index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

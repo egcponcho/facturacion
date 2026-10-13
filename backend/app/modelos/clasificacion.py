@@ -39,7 +39,8 @@ class PaisArancel(Base):
 
     __tablename__ = "paises_arancel"
     id: Mapped[int] = mapped_column(primary_key=True)
-    iso: Mapped[str] = mapped_column(String(2), unique=True)
+    # Extensión 1:1 del país (catálogo ISO compartido)
+    iso: Mapped[str] = mapped_column(ForeignKey("paises.codigo", name="fk_paises_arancel_iso", onupdate="CASCADE"), unique=True)
     nombre: Mapped[str] = mapped_column(String(80))
     digitos: Mapped[int] = mapped_column(Integer, default=10)  # longitud habitual (sugerencia, no regla fija)
     # Esquema del código nacional: longitudes admitidas (p. ej. "8,10,12"); vacío = 8 a 14 dígitos
@@ -175,7 +176,9 @@ class CategoriaProducto(Base):
     codigo: Mapped[str] = mapped_column(String(40), unique=True)
     nombre: Mapped[str] = mapped_column(String(120))
     grupo: Mapped[str | None] = mapped_column(String(80))  # encabezado en la lista
-    dominio: Mapped[str | None] = mapped_column(String(30), index=True)  # código de DominioClasificacion
+    dominio: Mapped[str | None] = mapped_column(
+        ForeignKey("dominios_clasificacion.codigo", name="fk_categorias_producto_dominio", onupdate="CASCADE"),
+        index=True)  # código de DominioClasificacion
     alias: Mapped[str | None] = mapped_column(String(400))  # palabras para buscarla, separadas por ;
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)

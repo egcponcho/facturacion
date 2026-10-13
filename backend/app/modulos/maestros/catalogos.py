@@ -28,6 +28,7 @@ from app.modelos import (
     ConfiguracionFiscal,
     Contacto,
     CuotaCondicionPago,
+    DominioClasificacion,
     EscalaTalla,
     EstadoLiberacion,
     GrupoArticulo,
@@ -355,8 +356,18 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=10, mayus=True),
             c("nombre", "Name", obligatorio=True),
+            c("dominio", "Classification domain", "codigo", catalogo="dominios", filtro=True,
+              ayuda="The product sheet offers the product categories of this domain first."),
             c("activo", "Active", "bool", filtro=True),
         ],
+        "buscar": ["codigo", "nombre"],
+    },
+    # Dominios de clasificación (compartidos, se configuran en Clasificación):
+    # solo para elegirlos desde otros catálogos
+    "dominios": {
+        "modelo": DominioClasificacion, "titulo": "Classification domains", "singular": "classification domain",
+        "solo_lectura": True,
+        "campos": [c("codigo", "Code"), c("nombre", "Name"), c("activo", "Active", "bool")],
         "buscar": ["codigo", "nombre"],
     },
     "liberaciones": {
@@ -655,6 +666,12 @@ def _cat(tipo: str) -> dict:
     if tipo not in CATALOGOS:
         raise ErrorNegocio("The catalog does not exist.", 404, "no_encontrado")
     return CATALOGOS[tipo]
+
+
+def exigir_editable(tipo: str) -> None:
+    """Un catálogo de solo consulta (se mantiene en otro módulo) no se cambia aquí."""
+    if _cat(tipo).get("solo_lectura"):
+        raise ErrorNegocio("This catalog is maintained in its own module.", 409, "solo_lectura")
 
 
 def _mostrar(obj) -> str:
@@ -1275,6 +1292,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
 
 def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
     exigir(user, "catalogos.crear")
+    exigir_editable(tipo)
     exigir_compartido(user, tipo)
     gobierno.exigir_responsable(db, user, tipo)
     if tipo == "prepacks":
@@ -1310,6 +1328,7 @@ def _asegurar_tercero(db: Session, obj) -> None:
 
 def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) -> dict:
     exigir(user, "catalogos.editar")
+    exigir_editable(tipo)
     exigir_compartido(user, tipo)
     gobierno.exigir_responsable(db, user, tipo)
     cat = _cat(tipo)
@@ -1368,6 +1387,7 @@ def _validar_regla_lt(db: Session, final: dict, actual, limpio: dict) -> list[di
 
 def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
     exigir(user, "catalogos.eliminar")
+    exigir_editable(tipo)
     exigir_compartido(user, tipo)
     gobierno.exigir_responsable(db, user, tipo)
     cat = _cat(tipo)

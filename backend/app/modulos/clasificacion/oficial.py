@@ -22,6 +22,7 @@ from app.modelos import (
     DominioCapitulo,
     DominioClasificacion,
     FuenteOficial,
+    Pais,
     PaisArancel,
     Usuario,
     VersionDataset,
@@ -204,6 +205,9 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         iso = (_txt(f.get("iso")) or "").upper()
         if not re.fullmatch(r"[A-Z]{2}", iso):
             error("Countries", f["_fila"], "ISO must be 2 letters.")
+            continue
+        if not db.scalar(select(Pais.id).where(Pais.codigo == iso)):
+            error("Countries", f["_fila"], f"{iso} is not in the country catalog.")
             continue
         x = db.scalar(select(PaisArancel).where(PaisArancel.iso == iso))
         nuevo = x is None

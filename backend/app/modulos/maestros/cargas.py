@@ -453,6 +453,7 @@ def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, conten
     edita = tiene(user, "catalogos.editar")
     exigir(user, "catalogos.crear")
     exigir_compartido(user, tipo)
+    cat_svc.exigir_editable(tipo)
     gobierno.exigir_responsable(db, user, tipo)
     if tipo == "articulos":
         return importar_articulos(db, user, nombre, contenido)

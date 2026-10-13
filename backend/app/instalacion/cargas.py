@@ -54,6 +54,9 @@ def cargar_motor(db: Session) -> None:
     from app.modulos.clasificacion import busqueda, categorias, materiales, reglas, semilla_familias, traducciones
 
     semilla_familias.sembrar_dominios(db)  # familias y los capítulos donde se clasifican
+    from app.instalacion.base_organizacion import vincular_dominios
+
+    vincular_dominios(db)  # líneas de artículo de fábrica → su dominio
     materiales.sembrar(db)  # clases de material de base con su palabra aduanera
     busqueda.sembrar(db)  # vocabulario de búsqueda en el texto oficial (inglés → español)
     categorias.sembrar(db)

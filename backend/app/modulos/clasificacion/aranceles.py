@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
-from app.modelos import FuenteOficial, IncisoNacional, NodoArancel, NotaSAC, PaisArancel, Usuario, ahora
+from app.modelos import FuenteOficial, IncisoNacional, NodoArancel, NotaSAC, Pais, PaisArancel, Usuario, ahora
 from app.modulos.acceso.permisos import exigir
 from app.modulos.clasificacion import overrides
 from app.modulos.clasificacion.meta import cond_texto, opciones_cond, valor_opcion
@@ -73,6 +73,8 @@ def guardar_pais(db: Session, user: Usuario, datos, pais_id: int | None = None) 
         raise ErrorNegocio("The country code has 2 letters (ISO), e.g. DO.", 422, "validacion")
     if not 6 <= datos.digitos <= 14:
         raise ErrorNegocio("National codes have between 6 and 14 digits.", 422, "validacion")
+    if not db.scalar(select(Pais.id).where(Pais.codigo == iso)):
+        raise ErrorNegocio(f"{iso} is not in the country catalog.", 422, "validacion")
     otro = db.scalar(select(PaisArancel).where(PaisArancel.iso == iso))
     x = db.get(PaisArancel, pais_id) if pais_id else None
     if pais_id and not x:
