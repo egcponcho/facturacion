@@ -216,7 +216,6 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
 /* En pantallas angostas las etapas se leen en la barra (con su detalle al pasar el cursor) */
 @media (max-width: 1360px) { .col-etapa { display: none; } }
 .lt-origenes th { white-space: normal; vertical-align: bottom; min-width: 64px; line-height: 1.25; font-size: 0.7rem; }
-.lt-origenes td, .lt-origenes th { padding-inline-start: 8px; padding-inline-end: 8px; }
 .lt-origenes th .punto { margin-inline-end: 2px; }
 .lt-hitos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .lt-hitos li { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: var(--radio); background: var(--superficie); border: 1px solid var(--linea); border-top: 3px solid var(--linea); }

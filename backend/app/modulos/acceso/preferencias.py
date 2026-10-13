@@ -198,7 +198,10 @@ TABLAS = ("ordenes", "seguimiento", "facturas", "productos", "embarques", "factu
 
 
 DENSIDADES = ("compacta", "normal", "amplia")
-MAX_TABLAS = 60
+# Una entrada por tabla que la persona ajustó (columnas, anchos, densidad): son
+# pocos bytes cada una y el sistema tiene más de cien tablas (una por catálogo,
+# por reporte…); con 60 se rechazaba guardar la densidad de las siguientes.
+MAX_TABLAS = 400
 
 
 def guardar_tabla(db: Session, user: Usuario, tabla: str, datos: dict | None) -> dict:

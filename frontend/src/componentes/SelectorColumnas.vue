@@ -49,7 +49,7 @@ function cambiar(clave) {
     <button type="button" class="btn btn-fantasma" :aria-expanded="abierto" aria-haspopup="true" @click="alternar">
       <Icono nombre="columnas" :tam="16" />{{ t('Columns') }}<span v-if="ocultas" class="cuenta">{{ opciones.length - ocultas }}/{{ opciones.length }}</span>
     </button>
-    <div v-if="abierto" class="sel-columnas-menu" role="group" :aria-label="t('Columns')">
+    <div v-if="abierto" v-flotante="'fin'" class="sel-columnas-menu" role="group" :aria-label="t('Columns')">
       <p class="sel-columnas-ayuda">{{ t('Choose what you see in this table. Only you see this change.') }}</p>
       <label v-for="c in opciones" :key="c.clave" class="sel-columnas-op">
         <input type="checkbox" :checked="columnas.ver(c.clave)" :disabled="ocupado" @change="cambiar(c.clave)" />

@@ -79,6 +79,12 @@ for (const email of USUARIOS) {
       await p.goto(BASE + ruta)
       await p.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
       await p.waitForTimeout(300)
+      // Una tabla no se encoge dentro de su contenedor (p. ej. un estilo que se filtra a .td-compacta)
+      const angostas = await p.evaluate(() => [...document.querySelectorAll('.td')].filter((t) => {
+        const w = t.getBoundingClientRect().width, wp = t.parentElement?.getBoundingClientRect().width || 0
+        return wp > 300 && w < wp * 0.5
+      }).length)
+      if (angostas) problemas.push(`[${ruta}] ${angostas} tabla(s) encogida(s) dentro de su contenedor`)
       const final = new URL(p.url()).pathname
       if (final === '/' && ruta !== '/' && !ruta.startsWith('/?')) avisos.push(ruta)
     }

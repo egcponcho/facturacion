@@ -94,6 +94,20 @@ async function cargar() {
   }
 }
 // Tabla de preguntas: cada columna filtra por sus valores; el clic en la fila abre su detalle
+const columnasOpciones = computed(() => [
+  { clave: 'codigo', texto: t('Code'), fija: true, prioridad: 1 },
+  { clave: 'etiqueta', texto: t('Label'), prioridad: 1 },
+  { clave: 'alias', texto: t('Synonyms'), prioridad: 3 },
+  { clave: 'orden', texto: t('Order'), num: true, prioridad: 3 },
+  { clave: 'activo', texto: t('Active'), prioridad: 2 },
+  { clave: 'comportamiento', texto: t('Behavior'), prioridad: 3, ordenable: false },
+])
+const columnasAmbitos = computed(() => [
+  { clave: 'ambito', texto: t('Asked in'), fija: true, prioridad: 1, ordenable: false },
+  { clave: 'modo', texto: t('Mode'), prioridad: 1 },
+  { clave: 'prioridad', texto: t('Priority'), num: true, prioridad: 2 },
+  { clave: 'condicion', texto: t('When'), prioridad: 2, ordenable: false },
+])
 const columnas = computed(() => [
   { clave: 'etiqueta', texto: t('Question'), fija: true, prioridad: 1 },
   { clave: 'codigo', texto: t('Code'), prioridad: 2 },
@@ -268,50 +282,42 @@ async function sincronizar() {
         <template v-if="['select', 'multi_select'].includes(det.tipo_dato)">
           <h4>{{ t('Options') }} <span class="cuenta">{{ tx(det.opciones.length) }}</span></h4>
           <p v-if="!det.opciones.length" class="ayuda">{{ t('No options yet: add the values the product sheet can choose.') }}</p>
-          <div class="tabla-marco">
-            <table class="tabla" v-tarjetas>
-              <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Label') }}</th><th>{{ t('Synonyms') }}</th><th>{{ t('Order') }}</th><th>{{ t('Active') }}</th><th>{{ t('Behavior') }}</th></tr></thead>
-              <tbody>
-                <tr v-for="o in det.opciones" :key="o.id" :class="{ apagada: !o.activo }">
-                  <td class="codigo">{{ tx(o.codigo) }}</td>
-                  <td><input class="celda" :value="o.etiqueta" :disabled="!edita" :aria-label="t('Label')" @change="opcion(o, 'etiqueta', $event.target.value)" /></td>
-                  <td><input class="celda" :value="o.alias" :disabled="!edita" :aria-label="t('Synonyms')" :placeholder="t('separated by ;')" @change="opcion(o, 'alias', $event.target.value)" /></td>
-                  <td><input class="celda num" type="number" :value="o.orden" :disabled="!edita" :aria-label="t('Order')" @change="opcion(o, 'orden', +$event.target.value)" /></td>
-                  <td><Interruptor :model-value="o.activo" :deshabilitado="!edita" :etiqueta="t('Active')" @update:model-value="opcion(o, 'activo', $event)" /></td>
-                  <td><button type="button" class="btn-icono" :aria-label="t('Behavior')" :title="t('Detection, implications, customs text and blocks')" @click="abrirOpcion(o)">
-                    <Icono nombre="varita" :tam="15" /><span v-if="hayComportamiento(o)" class="punto" /></button></td>
-                </tr>
-                <tr v-if="edita" class="nueva">
-                  <td><input v-model="nuevaOp.codigo" class="celda" :placeholder="t('Code')" :aria-label="t('Code')" maxlength="60" /></td>
-                  <td><input v-model="nuevaOp.etiqueta" class="celda" :placeholder="t('Label')" :aria-label="t('Label')" maxlength="300" /></td>
-                  <td><input v-model="nuevaOp.alias" class="celda" :placeholder="t('separated by ;')" :aria-label="t('Synonyms')" maxlength="400" /></td>
-                  <td colspan="3"><button class="btn btn-chico" :disabled="!nuevaOp.codigo || !nuevaOp.etiqueta" @click="agregarOpcion"><Icono nombre="mas" :tam="14" />{{ t('Add') }}</button></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <TablaDatos v-if="det.opciones.length" :key="`op-${det.id}`" tabla="familias_pregunta_opciones" :columnas="columnasOpciones" :filas="det.opciones"
+                      :clase-fila="(o) => ({ apagada: !o.activo })" :etiqueta="t('Options')">
+            <template #celda-codigo="{ fila: o }"><span class="codigo">{{ tx(o.codigo) }}</span></template>
+            <template #celda-etiqueta="{ fila: o }"><input class="celda" :value="o.etiqueta" :disabled="!edita" :aria-label="t('Label')" @change="opcion(o, 'etiqueta', $event.target.value)" /></template>
+            <template #celda-alias="{ fila: o }"><input class="celda" :value="o.alias" :disabled="!edita" :aria-label="t('Synonyms')" :placeholder="t('separated by ;')" @change="opcion(o, 'alias', $event.target.value)" /></template>
+            <template #celda-orden="{ fila: o }"><input class="celda num" type="number" :value="o.orden" :disabled="!edita" :aria-label="t('Order')" @change="opcion(o, 'orden', +$event.target.value)" /></template>
+            <template #celda-activo="{ fila: o }"><Interruptor :model-value="o.activo" :deshabilitado="!edita" :etiqueta="t('Active')" @update:model-value="opcion(o, 'activo', $event)" /></template>
+            <template #celda-comportamiento="{ fila: o }">
+              <button type="button" class="btn-icono" :aria-label="t('Behavior')" :title="t('Detection, implications, customs text and blocks')" @click="abrirOpcion(o)">
+                <Icono nombre="varita" :tam="15" /><span v-if="hayComportamiento(o)" class="punto" /></button>
+            </template>
+          </TablaDatos>
+          <form v-if="edita" class="agregar" @submit.prevent="agregarOpcion">
+            <input v-model="nuevaOp.codigo" class="entrada" :placeholder="t('Code')" :aria-label="t('Code')" maxlength="60" />
+            <input v-model="nuevaOp.etiqueta" class="entrada" :placeholder="t('Label')" :aria-label="t('Label')" maxlength="300" />
+            <input v-model="nuevaOp.alias" class="entrada" :placeholder="t('separated by ;')" :aria-label="t('Synonyms')" maxlength="400" />
+            <button type="submit" class="btn btn-chico" :disabled="!nuevaOp.codigo || !nuevaOp.etiqueta"><Icono nombre="mas" :tam="14" />{{ t('Add') }}</button>
+          </form>
         </template>
 
         <h4>{{ t('Where it is asked') }} <span class="cuenta">{{ tx(det.ambitos.length) }}</span></h4>
-        <div class="tabla-marco ambitos">
-          <table class="tabla" v-tarjetas>
-            <thead><tr><th>{{ t('Asked in') }}</th><th>{{ t('Mode') }}</th><th>{{ t('Priority') }}</th><th>{{ t('When') }}</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="x in det.ambitos" :key="x.id" :class="{ apagada: !x.activo }">
-                <td><small class="ayuda">{{ tx(AMBITO[x.tipo_ambito]) }}</small><br />{{ tx(codigoAmbito(x)) }}</td>
-                <td>
-                  <select :value="x.modo" :disabled="!edita" class="celda" :aria-label="t('Mode')" @change="ambito(x, { modo: $event.target.value })">
-                    <option v-for="(l, k) in MODO" :key="k" :value="k">{{ tx(l) }}</option>
-                  </select>
-                </td>
-                <td><input class="celda num" type="number" :value="x.prioridad" :disabled="!edita" :aria-label="t('Priority')" @change="ambito(x, { prioridad: +$event.target.value })" /></td>
-                <td class="envolver ayuda">{{ tx(condTexto(x.condicion)) }}<template v-if="x.nota"><br />{{ tx(x.nota) }}</template>
-                  <button v-if="edita" type="button" class="btn-texto" @click="abrirDep(x)">{{ t('Edit dependency') }}</button></td>
-                <td><button v-if="edita" type="button" class="btn-icono" :aria-label="t('Remove')" @click="ambito(x, { quitar: true })"><Icono nombre="basura" :tam="15" /></button></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <TablaDatos v-if="det.ambitos.length" :key="`amb-${det.id}`" tabla="familias_pregunta_ambitos" :columnas="columnasAmbitos" :filas="det.ambitos"
+                    :clase-fila="(x) => ({ apagada: !x.activo })" :etiqueta="t('Where it is asked')">
+          <template #celda-ambito="{ fila: x }"><small class="ayuda">{{ tx(AMBITO[x.tipo_ambito]) }}</small><br />{{ tx(codigoAmbito(x)) }}</template>
+          <template #celda-modo="{ fila: x }">
+            <select :value="x.modo" :disabled="!edita" class="celda" :aria-label="t('Mode')" @change="ambito(x, { modo: $event.target.value })">
+              <option v-for="(l, k) in MODO" :key="k" :value="k">{{ tx(l) }}</option>
+            </select>
+          </template>
+          <template #celda-prioridad="{ fila: x }"><input class="celda num" type="number" :value="x.prioridad" :disabled="!edita" :aria-label="t('Priority')" @change="ambito(x, { prioridad: +$event.target.value })" /></template>
+          <template #celda-condicion="{ fila: x }">
+            <div class="cuando ayuda">{{ tx(condTexto(x.condicion)) }}<template v-if="x.nota"><br />{{ tx(x.nota) }}</template>
+              <button v-if="edita" type="button" class="btn-texto" @click="abrirDep(x)">{{ t('Edit dependency') }}</button></div>
+          </template>
+          <template v-if="edita" #acciones="{ fila: x }"><button type="button" class="btn-icono" :aria-label="t('Remove')" @click="ambito(x, { quitar: true })"><Icono nombre="basura" :tam="15" /></button></template>
+        </TablaDatos>
         <div v-if="edita" class="agregar">
           <select v-model="nuevoAmb.tipo_ambito" class="celda" :aria-label="t('Asked in')" @change="nuevoAmb.codigo_ambito = ''">
             <option v-for="(l, k) in AMBITO" :key="k" :value="k">{{ tx(l) }}</option>
@@ -366,8 +372,8 @@ async function sincronizar() {
 .atributos { display: block; }
 /* La pregunta y su explicación en dos líneas como máximo: la tabla se lee de un vistazo */
 .pregunta { display: flex; flex-direction: column; gap: 2px; min-width: 240px; max-width: 520px; white-space: normal; }
-.pregunta .desc { color: var(--tinta-3); font-size: 0.82rem; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-:global(.td-compacta) .pregunta .desc { -webkit-line-clamp: 1; line-clamp: 1; }
+.pregunta .desc { color: var(--tinta-3); font-size: var(--td-sub); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.td-compacta .pregunta .desc { -webkit-line-clamp: 1; line-clamp: 1; }
 :deep(tr.apagada > td) { opacity: 0.55; }
 .titulo { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
 .detalle tr.apagada td { opacity: 0.55; }
@@ -382,7 +388,8 @@ h4 { margin: 16px 0 6px; font-size: 0.92rem; display: flex; gap: 6px; align-item
 .nueva .celda, .agregar .celda { border-color: var(--linea); background: var(--superficie); }
 .agregar select.celda { font-size: 0.86rem; padding: 6px 8px; }
 .celda.num { width: 80px; min-width: 0; }
-.ambitos { max-height: 340px; overflow-y: auto; }
+.cuando { min-width: 180px; max-width: 320px; white-space: normal; }
+.detalle :deep(tr.apagada > td) { opacity: 0.55; }
 .agregar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
 .agregar .celda { width: auto; }
 .agregar :deep(.sb) { min-width: 220px; }

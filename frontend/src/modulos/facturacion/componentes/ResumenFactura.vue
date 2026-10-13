@@ -130,7 +130,7 @@ const descargar = (formato) => api.descargar(`/facturas/${props.id}/exportar?for
       <section class="pl-seccion">
         <h3 class="resumen-titulo">{{ t('Packing lists') }}</h3>
         <p v-if="!pls.length" class="ayuda">{{ t('No packing list') }}</p>
-        <TablaDatos v-else tabla="factura_resumen_pls" :columnas="columnasPls" :filas="pls" :vistas-guardadas="false" :por-pagina="10" :etiqueta="t('Packing lists')">
+        <TablaDatos v-else tabla="factura_resumen_pls" :columnas="columnasPls" :filas="pls" :vistas-guardadas="false" :etiqueta="t('Packing lists')">
           <template #celda-numero="{ fila: pl }"><router-link :to="`/packing-lists/${pl.id}`">{{ tx(pl.numero) }}</router-link><div><EstadoBadge :estado="pl.estado" /></div></template>
           <template #celda-estado="{ fila: pl }"><EstadoBadge :estado="pl.estado" /></template>
           <template #celda-cajas="{ fila: pl }">{{ fmtNum(pl.totales?.cajas || 0) }}</template>
@@ -148,7 +148,7 @@ const descargar = (formato) => api.descargar(`/facturas/${props.id}/exportar?for
 
       <section class="pl-seccion">
         <h3 class="resumen-titulo">{{ t('Lines') }}</h3>
-        <TablaDatos tabla="factura_resumen_lineas" :columnas="columnasLineas" :filas="f.lineas" :vistas-guardadas="false" :por-pagina="10" :etiqueta="t('Lines')">
+        <TablaDatos tabla="factura_resumen_lineas" :columnas="columnasLineas" :filas="f.lineas" :vistas-guardadas="false" :etiqueta="t('Lines')">
           <template #celda-articulo="{ fila: l }"><b>{{ tx(l.estilo) }}</b> · {{ tx(l.color) }} · {{ tx(l.talla) }}<div class="ayuda">{{ t('PO') }} {{ tx(l.oc_numero) }} · {{ tx(l.partida_arancelaria || t('No HS code')) }}</div></template>
           <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }}</span></template>
           <template #celda-partida="{ fila: l }"><span class="codigo-sac">{{ tx(l.partida_arancelaria || '—') }}</span></template>

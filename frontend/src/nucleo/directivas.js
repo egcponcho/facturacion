@@ -126,3 +126,55 @@ export const vTarjetas = {
   },
   unmounted: (el) => el._obsTarjetas?.disconnect(),
 }
+
+// v-flotante: un menú que se abre bajo su botón (Columnas, Vistas guardadas,
+// filtros de varias opciones) flota sobre la página con posición fija, así un
+// contenedor con scroll (la tabla, un panel lateral, una ventana) no lo recorta.
+// Se alinea con el borde de su contenedor (el elemento padre): al inicio, o al
+// final con v-flotante="'fin'"; si no cabe abajo se abre arriba y nunca se sale
+// de la pantalla. Sigue al botón al desplazarse o cambiar el tamaño.
+export const vFlotante = {
+  mounted(el, { value }) {
+    const ancla = el.parentElement
+    const ubicar = () => {
+      const r = ancla.getBoundingClientRect()
+      const margen = 8
+      el.style.position = 'fixed'
+      el.style.zIndex = '61'
+      el.style.insetInlineStart = 'auto'
+      el.style.insetInlineEnd = 'auto'
+      el.style.right = 'auto'
+      el.style.bottom = 'auto'
+      el.style.maxHeight = ''
+      const w = Math.min(el.offsetWidth, innerWidth - 2 * margen)
+      const alto = el.offsetHeight
+      let left = value === 'fin' ? r.right - w : r.left
+      left = Math.max(margen, Math.min(left, innerWidth - w - margen))
+      const abajo = innerHeight - r.bottom - margen - 4
+      const arriba = r.top - margen - 4
+      let top
+      if (alto <= abajo || abajo >= arriba) {
+        top = r.bottom + 4
+        if (alto > abajo) el.style.maxHeight = `${Math.max(160, abajo)}px`
+      } else {
+        top = Math.max(margen, r.top - 4 - Math.min(alto, arriba))
+        if (alto > arriba) el.style.maxHeight = `${arriba}px`
+      }
+      el.style.top = `${top}px`
+      el.style.left = `${left}px`
+      el.style.overflowY = 'auto'
+    }
+    el._flotante = ubicar
+    ubicar()
+    requestAnimationFrame(ubicar)
+    addEventListener('resize', ubicar)
+    addEventListener('scroll', ubicar, true)
+  },
+  updated(el) {
+    el._flotante?.()
+  },
+  unmounted(el) {
+    removeEventListener('resize', el._flotante)
+    removeEventListener('scroll', el._flotante, true)
+  },
+}

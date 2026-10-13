@@ -84,6 +84,6 @@ const columnas = computed(() => [
 .kpi-i.ok b { color: var(--ok); }
 .kpi-i.aviso b { color: var(--aviso, #b45309); }
 .kpi-i.error b { color: var(--error); }
-.hallazgos { margin: 0; padding-inline-start: 18px; display: grid; gap: 4px; font-size: 0.86rem; }
+.hallazgos { margin: 0; padding-inline-start: 18px; display: grid; gap: 4px; font-size: var(--td-sub); }
 
 </style>

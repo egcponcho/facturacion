@@ -749,7 +749,7 @@ onMounted(async () => {
 .pt-datos b { display: block; font-size: 0.86rem; }
 .pt-datos small { color: var(--tinta-3); font-size: 0.76rem; }
 .tabla :deep(.celda)::placeholder { color: var(--tinta-3); font-weight: 400; }
-.cond { display: block; font-size: 0.84rem; color: var(--tinta-2); min-width: 200px; white-space: normal; }
+.cond { display: block; font-size: var(--td-sub); color: var(--tinta-2); min-width: 200px; white-space: normal; }
 .desc-codigo { min-width: 220px; white-space: normal; }
 .desc-sac { min-width: 320px; max-width: 640px; white-space: normal; }
 .texto-nota { min-width: 380px; max-width: 760px; white-space: normal; line-height: 1.45; }

@@ -159,3 +159,13 @@ def test_configuracion_de_tablas_por_persona(tnf):
     assert "densidad" not in tnf.put("/perfil/tablas/facturas", {"densidad": "gigante"}).json()["tablas"]["facturas"]
     assert "facturas" not in tnf.put("/perfil/tablas/facturas", None).json()["tablas"]
     assert tnf.put("/perfil/tablas/Mal Nombre", {"densidad": "normal"}).status_code == 404
+
+
+def test_la_densidad_se_guarda_en_muchas_tablas(interno):
+    # El sistema tiene más de cien tablas: antes, a partir de la 60.ª la densidad no se guardaba (422)
+    for i in range(120):
+        assert interno.put(f"/perfil/tablas/tabla_{i}", {"densidad": "compacta"}).status_code == 200
+    r = interno.put("/perfil/tablas/facturas", {"densidad": "amplia"})
+    assert r.status_code == 200 and r.json()["tablas"]["facturas"]["densidad"] == "amplia"
+    for i in range(120):
+        interno.put(f"/perfil/tablas/tabla_{i}", None)

@@ -1,6 +1,6 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { computed, onBeforeUnmount, onMounted, reactive, ref, useSlots, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, useSlots, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import { buscador } from '@/nucleo/busqueda.js'
 import { sesion, ve } from '@/stores/sesion'
@@ -54,6 +54,10 @@ const props = defineProps({
   ordenInicial: { type: String, default: '' },
   filtrosIniciales: { type: Object, default: () => ({}) },
   porPagina: { type: Number, default: 0 },
+  // Vista previa (un resumen, p. ej. en un panel lateral): 5 filas por página, sin
+  // barra de herramientas ni filtros por columna. Dentro de un PanelLateral es la
+  // forma por defecto; :vista-previa="false" la desactiva.
+  vistaPrevia: { type: Boolean, default: undefined },
   filaClicable: Boolean,
   filaActiva: { type: [String, Number], default: null },
   etiqueta: { type: String, default: '' },
@@ -92,7 +96,11 @@ function guardar() {
       const r = await api.put(`/perfil/tablas/${props.tabla}`, { columnas: conf.columnas, anchos: conf.anchos, densidad: conf.densidad })
       if (sesion.usuario) sesion.usuario.preferencias = { ...(sesion.usuario.preferencias || {}), tablas: r.tablas }
     } catch {
-      /* la tabla sigue funcionando aunque no se guarde la preferencia */
+      // Si el servidor no la guarda, al menos se recuerda durante la sesión (no vuelve a «normal»)
+      if (sesion.usuario) {
+        const pref = sesion.usuario.preferencias || {}
+        sesion.usuario.preferencias = { ...pref, tablas: { ...(pref.tablas || {}), [props.tabla]: { columnas: conf.columnas, anchos: conf.anchos, densidad: conf.densidad } } }
+      }
     }
   }, 600)
 }
@@ -193,9 +201,10 @@ const normalizar = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]
 const orden = ref(props.ordenInicial)
 const filtros = reactive(normalizar(props.filtrosIniciales))
 const pagina = ref(1)
-const tamano = ref(props.porPagina || filasDefecto())
+const previa = computed(() => props.vistaPrevia ?? inject('vistaPrevia', false))
+const tamano = ref(props.porPagina || (previa.value ? 5 : filasDefecto()))
 const activos = computed(() => Object.entries(filtros).filter(([, v]) => v?.length))
-const filtrable = (c) => c.filtro !== false && (props.modo === 'local' || !!props.valores || !!c.opciones)
+const filtrable = (c) => !previa.value && c.filtro !== false && (props.modo === 'local' || !!props.valores || !!c.opciones)
 const filtrada = (c) => !!filtros[c.clave]?.length
 
 // Cómo se ve cada valor elegido (para los chips), según lo último que mostró el filtro
@@ -412,14 +421,15 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
 </script>
 
 <template>
-  <div ref="raiz" class="td" :class="`td-${conf.densidad}`">
-    <div class="filtros" v-filtros>
+  <div ref="raiz" class="td" :class="[`td-${conf.densidad}`, { 'td-previa': previa }]">
+    <div v-if="!previa || slots.barra || slots.filtros" class="filtros" v-filtros>
       <slot name="barra" />
-      <VistasGuardadas v-if="vistasGuardadas" :pantalla="tabla" :actual="consultaActual" @aplicar="aplicarVista" />
+      <VistasGuardadas v-if="vistasGuardadas && !previa" :pantalla="tabla" :actual="consultaActual" @aplicar="aplicarVista" />
       <slot name="filtros" />
       <button v-if="slots['mas-filtros']" type="button" class="btn btn-fantasma mas-filtros-toggle" :aria-expanded="masFiltros" @click="masFiltros = !masFiltros">
         <Icono nombre="filtro" :tam="15" />{{ masFiltros ? t('Fewer filters') : t('More filters') }}<span v-if="masFiltrosActivos" class="cuenta">{{ masFiltrosActivos }}</span>
       </button>
+      <template v-if="!previa">
       <div class="segmentos td-densidad" role="group" :aria-label="t('Density')">
         <button v-for="[d, txt] in DENSIDADES" :key="d" type="button" class="segmento" :aria-pressed="conf.densidad === d" :title="tx(txt)" @click="cambiarDensidad(d)">
           <span class="td-icono-densidad" :class="d" aria-hidden="true"></span><span class="oculto-visual">{{ tx(txt) }}</span>
@@ -429,7 +439,7 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
         <button type="button" class="btn btn-fantasma" :aria-expanded="menuColumnas" aria-haspopup="true" @click="menuColumnas = !menuColumnas">
           <Icono nombre="columnas" :tam="16" />{{ t('Columns') }}<span v-if="ocultas" class="cuenta">{{ listaColumnas.length - ocultas }}/{{ listaColumnas.length }}</span>
         </button>
-        <div v-if="menuColumnas" class="sel-columnas-menu td-menu" role="dialog" :aria-label="t('Columns')">
+        <div v-if="menuColumnas" v-flotante="'fin'" class="sel-columnas-menu td-menu" role="dialog" :aria-label="t('Columns')">
           <p class="sel-columnas-ayuda">{{ t('Show, hide and order the columns. Drag the edge of a header to make it wider.') }}</p>
           <ul>
             <li v-for="(c, i) in listaColumnas" :key="c.clave" class="sel-columnas-op">
@@ -443,6 +453,7 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
           <button type="button" class="btn btn-chico btn-fantasma" @click="restaurar">{{ t('Back to the initial view') }}</button>
         </div>
       </div>
+      </template>
     </div>
     <div v-if="masFiltros && slots['mas-filtros']" class="filtros filtros-avanzados"><slot name="mas-filtros" /></div>
     <div v-if="nFiltros" class="chips">
@@ -532,7 +543,7 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
         </tfoot>
       </table>
     </div>
-    <Paginacion v-if="conPaginacion" :page="pagina" :size="tamano" :total="totalFilas"
+    <Paginacion v-if="conPaginacion" :page="pagina" :size="tamano" :total="totalFilas" :tamanos="previa ? [5, 10, 25] : undefined"
                 @cambiar="(p) => (pagina = p)" @tamano="(n) => { tamano = n; pagina = 1 }" />
     <FiltroColumna v-if="abierto" :key="abierto.c.clave" :ancla="abierto.ancla" :titulo="abierto.c.texto" :elegidos="filtros[abierto.c.clave] || []"
                    :cargar="(q) => cargarValores(abierto.c, q)" @aplicar="(v) => aplicarFiltro(abierto.c, v)" @cerrar="abierto = null" />
@@ -569,10 +580,7 @@ th { position: relative; }
 .td-datos { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 4px 14px; margin: 0 0 8px; font-size: var(--t-sm); padding: 10px 16px 0; }
 .td-datos dt { color: var(--tinta-3); }
 .td-datos dd { margin: 0; min-width: 0; }
-/* Densidad: alto de las filas */
-.td-compacta :deep(.tabla td), .td-compacta :deep(.tabla th) { padding-top: 4px; padding-bottom: 4px; font-size: 0.84rem; }
-.td-compacta :deep(.tabla .sub) { display: inline; margin-inline-start: 6px; }
-.td-amplia :deep(.tabla td) { padding-top: 16px; padding-bottom: 16px; }
+/* Densidad: la definen las variables --td-* de styles.css (Tablas) */
 @media (max-width: 720px) {
   .td-densidad { display: none; }
 }

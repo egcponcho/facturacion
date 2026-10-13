@@ -10,6 +10,7 @@ import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import EstadoTiempo from '@/componentes/EstadoTiempo.vue'
 import Icono from '@/componentes/Icono.vue'
 import PanelLateral from '@/componentes/PanelLateral.vue'
+import Paginacion from '@/componentes/Paginacion.vue'
 
 // Resumen de un embarque en el panel lateral: la ruta con su avance y la
 // holgura contra el límite en puerto, las cifras de carga, cada unidad con su
@@ -18,7 +19,12 @@ const props = defineProps({ id: { type: Number, required: true } })
 const emit = defineEmits(['cerrar'])
 const e = ref(null)
 
+// Vista previa: las unidades de carga de 5 en 5 (el detalle completo está en el embarque)
+const pagU = ref(1)
+const tamU = ref(5)
+const unidadesPagina = computed(() => (e.value?.unidades || []).slice((pagU.value - 1) * tamU.value, pagU.value * tamU.value))
 watch(() => props.id, async (id) => {
+  pagU.value = 1
   e.value = null
   try {
     e.value = await api.get(`/embarques/${id}`)
@@ -84,7 +90,7 @@ const llegada = computed(() => {
       <section class="pl-seccion">
         <h3 class="resumen-titulo">{{ t('Load units') }}</h3>
         <p v-if="!e.unidades.length" class="ayuda">{{ t('No load units yet.') }}</p>
-        <div v-for="u in e.unidades" :key="u.id" class="pl-tarjeta">
+        <div v-for="u in unidadesPagina" :key="u.id" class="pl-tarjeta">
           <div class="fila-flex" style="gap: 8px">
             <b>{{ tx(u.numero || u.etiqueta) }}</b><span class="etiqueta">{{ tx(u.tipo) }}</span>
             <span v-if="u.sello" class="ayuda">{{ t('Seal {0}', [u.sello]) }}</span>
@@ -102,6 +108,8 @@ const llegada = computed(() => {
             <li v-for="(a, i) in u.alertas" :key="i"><Icono nombre="alerta" :tam="14" />{{ tx(a) }}</li>
           </ul>
         </div>
+      <Paginacion v-if="e.unidades.length > 5" :page="pagU" :size="tamU" :total="e.unidades.length" :tamanos="[5, 10, 25]"
+                    @cambiar="(p) => (pagU = p)" @tamano="(n) => { tamU = n; pagU = 1 }" />
       </section>
 
       <section class="pl-seccion pl-partes">

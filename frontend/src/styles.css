@@ -486,14 +486,30 @@ a.pestana { text-decoration: none; }
 }
 
 /* ---- Tablas ----------------------------------------------------------- */
+/* Densidad de las tablas (compacta, normal, amplia): un solo juego de medidas
+   para todas. Cada TablaDatos pone su clase (.td-compacta/.td-normal/.td-amplia)
+   y todo lo que va en la celda usa estas variables: relleno, letra, letra
+   secundaria (.sub, etiquetas), interlineado y alto de botones y campos. */
+:root, .td-normal {
+  --td-py: 10px; --td-px: 12px; --td-fs: 0.87rem; --td-th-fs: 0.74rem; --td-sub: 0.78rem;
+  --td-etq: 0.72rem; --td-lh: 1.4; --td-ctrl: 30px;
+}
+.td-compacta {
+  --td-py: 4px; --td-px: 10px; --td-fs: 0.8rem; --td-th-fs: 0.68rem; --td-sub: 0.72rem;
+  --td-etq: 0.68rem; --td-lh: 1.25; --td-ctrl: 24px;
+}
+.td-amplia {
+  --td-py: 16px; --td-px: 14px; --td-fs: 0.94rem; --td-th-fs: 0.78rem; --td-sub: 0.84rem;
+  --td-etq: 0.76rem; --td-lh: 1.5; --td-ctrl: 36px;
+}
 .tabla-marco { overflow-x: auto; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); box-shadow: var(--sombra); }
 .tabla-marco + .tabla-marco, .panel + .tabla-marco { margin-top: 16px; }
-table.tabla { width: 100%; border-collapse: collapse; font-size: 0.87rem; font-variant-numeric: tabular-nums; }
+table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); line-height: var(--td-lh); font-variant-numeric: tabular-nums; }
 .tabla th {
-  text-align: start; font-weight: 620; color: var(--tinta-3); font-size: 0.76rem; letter-spacing: 0.03em; text-transform: uppercase;
-  padding: 10px 12px; border-bottom: 1px solid var(--linea); background: var(--superficie-2); position: sticky; top: 0; white-space: normal; line-height: 1.3; vertical-align: bottom; z-index: 1;
+  text-align: start; font-weight: 620; color: var(--tinta-3); font-size: var(--td-th-fs); letter-spacing: 0.03em; text-transform: uppercase;
+  padding: var(--td-py) var(--td-px); border-bottom: 1px solid var(--linea); background: var(--superficie-2); position: sticky; top: 0; white-space: normal; line-height: 1.3; vertical-align: bottom; z-index: 1;
 }
-.tabla td { padding: 10px 12px; border-bottom: 1px solid var(--linea-suave); vertical-align: middle; white-space: nowrap; }
+.tabla td { padding: var(--td-py) var(--td-px); border-bottom: 1px solid var(--linea-suave); vertical-align: middle; white-space: nowrap; }
 .acciones-apiladas { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
 .acciones-apiladas .btn { justify-content: center; }
 .insignias.columna { flex-direction: column; align-items: flex-start; }
@@ -513,6 +529,13 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 0.87rem; font-v
 .tabla tfoot td { font-weight: 650; border-top: 1px solid var(--linea); background: var(--superficie-2); }
 .tabla .principal-celda { font-weight: 620; }
 .sub { display: block; font-size: 0.8rem; color: var(--tinta-3); font-weight: 450; }
+/* Lo que va dentro de una celda sigue la densidad de su tabla (aunque la pantalla le dé otro tamaño) */
+.tabla td :is(.sub, small, .ayuda, .apagado) { font-size: var(--td-sub); }
+.tabla td .etiqueta { font-size: var(--td-etq); }
+.tabla td :is(.btn-chico, .btn) { min-height: var(--td-ctrl); padding-block: 0; font-size: var(--td-sub); }
+.tabla td .btn-icono { min-width: var(--td-ctrl); min-height: var(--td-ctrl); }
+.tabla td :is(.celda, .entrada, select, input:not([type='checkbox']):not([type='radio'])) { min-height: var(--td-ctrl); font-size: var(--td-fs); padding-block: 2px; }
+.td-compacta .tabla td .sub { display: inline; margin-inline-start: 6px; }
 /* Tablas con el aspecto de órdenes de compra: el documento de la fila va en
    negrita sin subrayar (enlace-doc + strong.codigo) y los demás enlaces de las
    celdas solo se subrayan al pasar. */

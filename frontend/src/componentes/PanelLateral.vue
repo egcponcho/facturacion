@@ -1,6 +1,6 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, provide } from 'vue'
 import Icono from './Icono.vue'
 import { abrirCapa, cerrarCapa, esLaDeArriba } from '@/nucleo/capas.js'
 
@@ -11,6 +11,8 @@ import { abrirCapa, cerrarCapa, esLaDeArriba } from '@/nucleo/capas.js'
 // lo cierran; los botones de la acción van en el pie (#pie), siempre visibles.
 const props = defineProps({ titulo: { type: String, default: '' }, detalle: { type: String, default: '' }, ancho: { type: String, default: '460px' } })
 const emit = defineEmits(['cerrar'])
+// Las tablas de adentro se muestran como vista previa (5 filas, sin barra de herramientas)
+provide('vistaPrevia', true)
 let capa = null
 const tecla = (e) => e.key === 'Escape' && esLaDeArriba(capa) && emit('cerrar')
 onMounted(() => {

@@ -1096,7 +1096,6 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .alternativas { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 0.86rem; }
 .otro-codigo { gap: 6px; flex-wrap: nowrap; }
 .otro-codigo .entrada { flex: 1; min-width: 0; }
-.paises td { padding-top: 7px; padding-bottom: 7px; }
 .paises select { max-width: 100%; font-size: 0.84rem; }
 .entrada-pais { width: 100%; min-width: 0; font-family: var(--mono); font-weight: 600; padding: 6px 8px; }
 .entrada-pais.tentativo { border-style: dashed; }

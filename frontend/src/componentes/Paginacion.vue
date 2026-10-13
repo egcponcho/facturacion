@@ -5,7 +5,7 @@ import Seleccion from './Seleccion.vue'
 import Icono from './Icono.vue'
 
 // Pie de tabla: rango mostrado, páginas y filas por página
-const props = defineProps({ page: Number, size: Number, total: Number, tamanos: { type: Array, default: () => [10, 15, 25, 50, 100] } })
+const props = defineProps({ page: Number, size: Number, total: Number, tamanos: { type: Array, default: () => [5, 10, 15, 25, 50, 100] } })
 const emit = defineEmits(['cambiar', 'tamano'])
 const paginas = computed(() => Math.max(1, Math.ceil((props.total || 0) / props.size)))
 const desde = computed(() => (props.total ? (props.page - 1) * props.size + 1 : 0))

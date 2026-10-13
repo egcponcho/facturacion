@@ -259,7 +259,7 @@ async function guardarModal() {
 .regla { min-width: 200px; max-width: 320px; white-space: normal; }
 .regla .sub { display: block; }
 .condiciones { min-width: 200px; max-width: 340px; }
-.cond { display: inline-block; margin: 0 6px 3px 0; padding: 2px 7px; border-radius: 8px; background: var(--superficie-2); font-size: 0.82rem; }
+.cond { display: inline-block; margin: 0 6px 3px 0; padding: 2px 7px; border-radius: 8px; background: var(--superficie-2); font-size: var(--td-sub); }
 :deep(tr.apagada > td) { opacity: 0.55; }
 .cond.accion { background: var(--acento-claro); color: var(--acento-texto); font-weight: 600; }
 .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }

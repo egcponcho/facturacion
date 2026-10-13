@@ -190,7 +190,7 @@ const columnasH = computed(() => [
 .errores { border: 1px solid var(--error); background: var(--error-fondo); border-radius: var(--radio); padding: 8px 12px; margin-bottom: 10px; font-size: 0.86rem; }
 .errores ul { margin: 6px 0 0; padding-inline-start: 18px; max-height: 200px; overflow: auto; }
 .diff { min-width: 280px; max-width: 560px; white-space: normal; }
-.campo-diff { font-size: 0.82rem; }
+.campo-diff { font-size: var(--td-sub); }
 .campo-diff .k { color: var(--tinta-3); margin-inline-end: 6px; }
 del { color: var(--error); }
 ins { color: var(--ok); text-decoration: none; font-weight: 600; }

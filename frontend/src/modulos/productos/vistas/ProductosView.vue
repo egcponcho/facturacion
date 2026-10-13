@@ -351,8 +351,8 @@ watch(() => sesion.proveedorId, recargar)
 <style scoped>
 .producto-celda { display: flex; align-items: center; gap: 10px; }
 .miniatura { width: 38px; height: 38px; border-radius: 8px; background: var(--superficie-2); border: 1px solid var(--linea); display: grid; place-items: center; color: var(--tinta-3); overflow: hidden; flex: none; }
-:global(.td-compacta) .miniatura { width: 26px; height: 26px; border-radius: 6px; }
-:global(.td-amplia) .miniatura { width: 48px; height: 48px; }
+.td-compacta .miniatura { width: 26px; height: 26px; border-radius: 6px; }
+.td-amplia .miniatura { width: 48px; height: 48px; }
 .sub-mod { margin-bottom: 10px; }
 .siguiente :deep(svg) { vertical-align: -2px; margin-inline-end: 3px; }
 .siguiente.accion { color: var(--acento-texto); font-weight: 600; }

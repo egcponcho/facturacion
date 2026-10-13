@@ -72,7 +72,7 @@ function elegir(v) {
     <button type="button" class="btn" :aria-expanded="abierto" aria-haspopup="true" @click="alternar">
       <Icono nombre="lista" :tam="15" />{{ tx(activa ? activa.nombre : t('Saved views')) }}<Icono nombre="abajo" :tam="13" />
     </button>
-    <div v-if="abierto" class="vg-menu" role="menu">
+    <div v-if="abierto" v-flotante class="vg-menu" role="menu">
       <p v-if="!vistas.length" class="ayuda vg-vacio">{{ t('Save the filters you use often to come back to them in one click.') }}</p>
       <div v-for="v in vistas" :key="v.nombre" class="vg-fila" :class="{ activa: activa === v }">
         <button type="button" class="vg-elegir" role="menuitem" @click="elegir(v)">{{ tx(v.nombre) }}</button>
