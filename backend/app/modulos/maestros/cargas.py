@@ -528,9 +528,9 @@ def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, conten
 
 
 def exportar_catalogo(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dict, orden: str | None,
-                      formato: str) -> bytes:
+                      formato: str, filtros_columna: dict | None = None) -> bytes:
     c = cat_svc._cat(tipo)
-    r = cat_svc.listar(db, user, tipo, q, filtros, orden, 1, 100_000)
+    r = cat_svc.listar(db, user, tipo, q, filtros, orden, 1, 100_000, filtros_columna)
     campos = cat_svc.campos_con_opciones(c)
     extra = [("descripcion", "Description"), ("partida_txt", "HS code")] if tipo == "articulos" else []
     columnas = [(x["etiqueta"], 1.2 if x["tipo"] not in ("correos",) else 2, x["tipo"] in ("entero", "numero"))
@@ -550,8 +550,28 @@ def exportar_catalogo(db: Session, user: Usuario, tipo: str, q: str | None, filt
         return v if v not in (None, "") else "—"
 
     filas = [[val(x, f) for x in campos] + [f.get(k) or "—" for k, _ in extra] for f in r["items"]]
-    etiquetas = {x["nombre"]: x["etiqueta"] for x in c["campos"]}
+    etiquetas = {x["nombre"]: x["etiqueta"] for x in campos}
+    por_nombre = {x["nombre"]: x for x in campos}
+
+    def texto_filtro(k, v):
+        """Cómo se lee un valor elegido en el filtro de una columna (nombre, no id ni código)."""
+        x = por_nombre.get(k)
+        if v == "__vacio__":
+            return "(Empty)"
+        if not x:
+            return v
+        if x["tipo"] == "bool":
+            return "Yes" if v.lower() in ("true", "1") else "No"
+        if x["tipo"] == "opcion":
+            return dict(x["opciones"]).get(v, v)
+        if x["tipo"] in ("ref", "multi") and v.isdigit():
+            obj = db.get(cat_svc.CATALOGOS[x["catalogo"]]["modelo"], int(v))
+            return cat_svc._mostrar(obj) if obj else v
+        return v
+
     partes = ([f"Search: {q}"] if q else []) + [f"{etiquetas.get(k, k)}: {v}" for k, v in filtros.items() if v not in (None, "")]
+    partes += [f"{etiquetas.get(k, 'Item code' if k == 'sku' else k)}: {', '.join(texto_filtro(k, v) for v in vals)}"
+               for k, vals in (filtros_columna or {}).items() if k in cat_svc.columnas_tabla(c)]
     texto = "Filters: " + " · ".join(partes) if partes else "No filters"
     ind = [(c["titulo"], f"{r['total']:,}")]
     if formato == "pdf":

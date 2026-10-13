@@ -13,6 +13,7 @@ import GraficoColumnas from '@/componentes/GraficoColumnas.vue'
 import Icono from '@/componentes/Icono.vue'
 import TableroEsqueleto from '@/modulos/inicio/componentes/TableroEsqueleto.vue'
 import Kpi from '@/componentes/Kpi.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import { elegirProveedor, esInterno, nombreProveedor, sesion, ve, vePanel } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { avanceViaje, fmtFecha, fmtFechaHora, fmtMoneda, fmtNum, plural } from '@/nucleo/utils'
@@ -69,6 +70,16 @@ async function resolver(a) {
     errorApi(e)
   }
 }
+
+// «Por proveedor» en la tabla común (modo local): un clic en la fila filtra todo el sistema
+const columnasProveedores = [
+  { clave: 'nombre', texto: t('Supplier'), fija: true, prioridad: 1 },
+  { clave: 'por_facturar', texto: t('To invoice'), num: true, prioridad: 2, textoValor: (v) => fmtMoneda(v, d.value?.moneda) },
+  { clave: 'en_proceso', texto: t('In process'), num: true, prioridad: 2 },
+  { clave: 'pl_abiertos', texto: t('Open PLs'), num: true, prioridad: 2 },
+  { clave: 'listas', texto: t('Ready'), num: true, prioridad: 3 },
+  { clave: 'en_camino', texto: t('On the way'), num: true, prioridad: 3 },
+]
 
 onMounted(cargar)
 watch(() => sesion.proveedorId, cargar)
@@ -227,30 +238,15 @@ watch(periodo, cargar, { deep: true })
     <!-- 4. Por proveedor (equipo interno) -->
     <section v-if="vePanel('proveedores') && d.proveedores.length" class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('By supplier') }}</h2><p>{{ t('Click one to filter the whole system.') }}</p></div></div>
-      <div class="tabla-marco tabla-interna">
-        <table class="tabla" v-tarjetas>
-          <thead>
-            <tr>
-              <th>{{ t('Supplier') }}</th>
-              <th class="num">{{ t('To invoice') }}</th>
-              <th class="num" :title="t('Invoices in draft or correction')">{{ t('In process') }}</th>
-              <th class="num">{{ t('Open PLs') }}</th>
-              <th class="num" :title="t('Invoices ready to ship')">{{ t('Ready') }}</th>
-              <th class="num" :title="t('Packing lists in transit or arrived')">{{ t('On the way') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in d.proveedores" :key="p.id" class="clicable" @click="elegirProveedor(p.id)">
-              <td class="principal-celda">{{ tx(p.nombre) }}</td>
-              <td class="num">{{ p.por_facturar === null ? '—' : fmtMoneda(p.por_facturar, d.moneda) }}</td>
-              <td class="num">{{ tx(p.en_proceso || '—') }}</td>
-              <td class="num"><span :class="{ 'etiqueta aviso': p.pl_abiertos }">{{ tx(p.pl_abiertos || '—') }}</span></td>
-              <td class="num"><span :class="{ 'etiqueta ok': p.listas }">{{ tx(p.listas || '—') }}</span></td>
-              <td class="num">{{ tx(p.en_camino || '—') }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TablaDatos tabla="inicio_proveedores" :columnas="columnasProveedores" :filas="d.proveedores" :vistas-guardadas="false" fila-clicable
+                  orden-inicial="nombre:asc" :etiqueta="t('By supplier')" @fila="(p) => elegirProveedor(p.id)">
+        <template #celda-nombre="{ fila: p }"><span class="principal-celda">{{ tx(p.nombre) }}</span></template>
+        <template #celda-por_facturar="{ fila: p }">{{ p.por_facturar === null ? '—' : fmtMoneda(p.por_facturar, d.moneda) }}</template>
+        <template #celda-en_proceso="{ fila: p }"><span :title="t('Invoices in draft or correction')">{{ tx(p.en_proceso || '—') }}</span></template>
+        <template #celda-pl_abiertos="{ fila: p }"><span :class="{ 'etiqueta aviso': p.pl_abiertos }">{{ tx(p.pl_abiertos || '—') }}</span></template>
+        <template #celda-listas="{ fila: p }"><span :class="{ 'etiqueta ok': p.listas }" :title="t('Invoices ready to ship')">{{ tx(p.listas || '—') }}</span></template>
+        <template #celda-en_camino="{ fila: p }"><span :title="t('Packing lists in transit or arrived')">{{ tx(p.en_camino || '—') }}</span></template>
+      </TablaDatos>
     </section>
   </template>
 </template>

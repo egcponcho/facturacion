@@ -32,7 +32,7 @@ def test_varios_valores_y_el_filtro_de_la_columna_no_limita_sus_valores(interno)
 
 def test_buscar_dentro_de_los_valores(interno):
     todos = interno.get("/facturas/valores", params={"columna": "nombre"}).json()
-    parte = todos[0]["valor"][:4].lower()
+    parte = next(v["valor"] for v in todos if v["valor"])[:4].lower()
     algunos = interno.get("/facturas/valores", params={"columna": "nombre", "buscar": parte}).json()
     assert algunos and all(parte in v["valor"].lower() for v in algunos)
 

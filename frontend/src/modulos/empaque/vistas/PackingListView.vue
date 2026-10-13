@@ -19,14 +19,12 @@ import Modal from '@/componentes/Modal.vue'
 import PanelLateral from '@/componentes/PanelLateral.vue'
 import TarjetaParte from '@/componentes/TarjetaParte.vue'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
-import Paginacion from '@/componentes/Paginacion.vue'
 import Pasos from '@/componentes/Pasos.vue'
-import ThOrden from '@/componentes/ThOrden.vue'
-import { useTabla } from '@/composables/useTabla'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import { avisar, errorApi, guardando, textoDetalle } from '@/stores/ui'
 import { cantTxt, fmtNum, pct, plural, porUnidadTxt, unidadTxt, useSeleccion } from '@/nucleo/utils'
 import { pasoCantidad } from '@/nucleo/unidades.js'
-import { filasDefecto } from '@/stores/preferencias'
+import { estado as leerEstado } from '@/nucleo/estados.js'
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -144,13 +142,10 @@ const lineasFiltradas = computed(() => {
   return (pl.value?.lineas || []).filter((l) =>
     (!filtro.solo_pendiente || l.sin_caja > 0) && coincide([l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion]))
 })
-const tablaL = useTabla(lineasFiltradas, { porPagina: filasDefecto(), valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
 // La tabla de cajas muestra los bultos (y lo suelto que no va dentro de otro empaque);
 // los inner packs y los pallets se ven en la estructura física
 const cajasLista = computed(() => (pl.value?.grupos || []).filter((g) => g.cuenta_como === 'BULTO' || (!g.padre_id && g.cuenta_como !== 'SOPORTE')))
 const tiposEmpaque = computed(() => pl.value?.tipos_empaque || [])
-const tablaG = useTabla(cajasLista, { porPagina: filasDefecto(), valores: { rango: (g) => g.desde, etiqueta: (g) => g.etiqueta?.tipo } })
-const idsFiltrados = computed(() => lineasFiltradas.value.map((l) => l.id))
 
 // Packing rule of the PO line: prepack (1 size run per carton), exact casepack
 // or free; with an inner pack, cartons carry whole inner packs
@@ -189,6 +184,95 @@ const resumenSelLineas = computed(() => {
   return t('{0} not packed', [porUnidadTxt(r, null)])
 })
 const nombrePlantilla = (id) => plantillas.value.find((t) => t.id === id)?.nombre
+
+// ---- Tablas (TablaDatos, modo local) -----------------------------------------
+// Cada columna ordena y filtra por sus valores únicos; las de datos que se
+// escriben en la fila (recepción) no filtran para que la fila no desaparezca
+// mientras se edita.
+const textoEstado = (v) => tx(leerEstado(v)[0])
+const ocLinea = (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}`
+const colArticulo = { clave: 'articulo', texto: t('Item'), fija: true, prioridad: 1, valor: (l) => [l.marca, l.estilo, l.color].filter(Boolean).join(' · ') }
+const colTalla = { clave: 'talla', texto: t('Size'), prioridad: 1 }
+const colOc = { clave: 'oc', texto: t('PO / line'), prioridad: 2, valor: ocLinea, textoValor: (v, l) => `${l.oc_numero} / ${l.posicion}` }
+const colEstadoEmpaque = { clave: 'estado_empaque', texto: t('Packing'), prioridad: 2, textoValor: textoEstado }
+const columnasEmpacar = [
+  colArticulo, colTalla, colOc,
+  { clave: 'regla', texto: t('Rule'), prioridad: 3, opciones: [['PREPACK', t('Prepack')], ['CASEPACK', t('Casepack')], ['LIBRE', t('Free')]] },
+  { clave: 'por_caja', texto: t('Per carton'), num: true, prioridad: 3, valor: (l) => porCajaLinea(l) || null },
+  { clave: 'por_inner', texto: t('Per inner pack'), num: true, prioridad: 3, valor: (l) => l.inner_pack || null },
+  { clave: 'inners_caja', texto: t('Inner packs per carton'), num: true, prioridad: 3, inicial: false, valor: innersPorCaja },
+  { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 2 },
+  { clave: 'en_cajas', texto: t('In cartons'), num: true, prioridad: 3 },
+  { clave: 'sin_caja', texto: t('Not packed'), num: true, prioridad: 1 },
+  { clave: 'plantilla', texto: t('Suggested template'), prioridad: 3, valor: (l) => nombrePlantilla(sugerida(l)) || null },
+  colEstadoEmpaque,
+]
+const tablaEmpacar = ref(null)
+// La casilla del encabezado elige la página; «Select all filtered rows» toma
+// todas las que pasan el buscador y los filtros de columna
+const idsFiltrados = computed(() => pasanColumnas(lineasFiltradas.value, columnasEmpacar, tablaEmpacar.value?.filtros).map((l) => l.id))
+
+const lista = (g, campo) => g.contenido.map((it) => it[campo])
+const req = (texto) => `${texto} *`
+const columnasCajas = [
+  { clave: 'rango', texto: t('Cartons'), fija: true, prioridad: 1, valor: (g) => g.desde, textoValor: (v, g) => rango(g) },
+  { clave: 'contenido', texto: t('Contents per carton'), prioridad: 1, valor: (g) => g.contenido.map((it) => `${it.estilo} ${it.talla}`) },
+  { clave: 'etiqueta', texto: t('Label'), prioridad: 3, inicial: false, valor: (g) => g.etiqueta?.tipo || null,
+    opciones: [['ESTANDAR', t('{0} label', [t('Standard')])], ['CONSOLIDADA', t('{0} label', [t('Consolidated')])]] },
+  { clave: 'inners_caja', texto: t('Inner packs per carton'), num: true, prioridad: 3, valor: (g) => lista(g, 'inner_packs_por_caja') },
+  { clave: 'por_inner', texto: t('Per inner pack'), num: true, prioridad: 3, valor: (g) => lista(g, 'inner_pack') },
+  { clave: 'por_caja', texto: t('Total per carton'), num: true, prioridad: 3, valor: (g) => lista(g, 'cantidad_por_caja') },
+  { clave: 'num_cajas', texto: t('Cartons'), num: true, prioridad: 1 },
+  { clave: 'largo', texto: req(t('Length')), num: true, prioridad: 2 },
+  { clave: 'ancho', texto: req(t('Width')), num: true, prioridad: 2 },
+  { clave: 'alto', texto: req(t('Height cm')), num: true, prioridad: 2 },
+  { clave: 'tara', texto: t('Tare kg'), num: true, prioridad: 3 },
+  { clave: 'peso_neto_caja', texto: t('Net/ctn'), num: true, prioridad: 3 },
+  { clave: 'peso_bruto_caja', texto: t('Gross/ctn kg'), num: true, prioridad: 3 },
+  { clave: 'cbm_total', texto: 'm³', num: true, prioridad: 3 },
+  { clave: 'peso_bruto_total', texto: t('Gross total'), num: true, prioridad: 2 },
+  { clave: 'notas', texto: t('Notes'), prioridad: 3, valor: (g) => [g.mixta && t('Mixed'), g.es_parcial && t('Partial'), g.peso_estimado && t('Estimated weight'),
+    g.plantilla_nombre, g.observacion].filter(Boolean) },
+]
+const tablaCajas = ref(null)
+const idsGrupos = computed(() => pasanColumnas(cajasLista.value, columnasCajas, tablaCajas.value?.filtros).map((g) => g.id))
+// Totales del pie: los del packing list (incluyen pallets) o, con un filtro puesto, la suma de lo filtrado
+const pieCajas = (filas, campo, total) => (filas.length === cajasLista.value.length ? total : filas.reduce((a, g) => a + (g[campo] || 0), 0))
+
+const columnasContenido = [
+  { ...colArticulo, valor: (l) => [l.estilo, l.color].filter(Boolean).join(' · ') }, colTalla, colOc,
+  { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 2 },
+  { clave: 'en_cajas', texto: t('In cartons'), num: true, prioridad: 2 },
+  colEstadoEmpaque,
+]
+const columnasRecepcion = [
+  { clave: 'fila', texto: t('Row'), fija: true, prioridad: 1, valor: (l) => `${l.estilo} ${l.talla}` },
+  { clave: 'cantidad', texto: t('Per PL'), num: true, prioridad: 2 },
+  { clave: 'recibida', texto: t('Received'), num: true, prioridad: 1, filtro: false, ordenable: false },
+  { clave: 'danada', texto: t('Damaged'), num: true, prioridad: 1, filtro: false, ordenable: false },
+  { clave: 'diferencia', texto: t('Difference'), num: true, prioridad: 2, filtro: false, ordenable: false },
+  { clave: 'observacion', texto: t('Remark'), prioridad: 3, filtro: false, ordenable: false },
+]
+// La selección de TablaDatos es una lista de claves; aquí vive en un Set (useSeleccion)
+const elegir = (s) => (ids) => {
+  s.limpiar()
+  ids.forEach((id) => s.ids.add(id))
+}
+
+// Filas que dejan pasar los filtros de columna de una TablaDatos (los mismos que
+// aplica ella), para seleccionar todas las filtradas y no solo las de la página
+function pasanColumnas(filas, columnas, filtros) {
+  const activos = Object.entries(filtros || {}).filter(([, v]) => v?.length)
+  if (!activos.length) return filas
+  const clave = (x) => (x === null || x === undefined || x === '' ? '__vacio__' : String(x))
+  return filas.filter((f) => activos.every(([k, vals]) => {
+    const c = columnas.find((x) => x.clave === k)
+    if (!c) return true
+    const v = c.valor ? c.valor(f) : f[k]
+    const vs = Array.isArray(v) ? v : clave(v) === '__vacio__' ? [] : [v]
+    return vs.length ? vs.some((x) => vals.includes(clave(x))) : vals.includes('__vacio__')
+  }))
+}
 
 // La mejor plantilla para una fila: la sugerida por el historial o, si no
 // hay, la primera activa con la misma unidad.
@@ -316,7 +400,6 @@ function quitar() {
 
 // ---- Cajas -----------------------------------------------------------------
 const selGrupos = computed(() => (pl.value?.grupos || []).filter((g) => selG.tiene(g.id)))
-const idsGrupos = computed(() => cajasLista.value.map((g) => g.id))
 const cajasSel = computed(() => selGrupos.value.reduce((a, g) => a + g.num_cajas, 0))
 const rango = (g) => g.etiqueta_rango || (g.desde === g.hasta ? `${g.desde}` : `${g.desde}–${g.hasta}`)
 // Si algún artículo no tiene peso unitario, el neto se escribe a mano
@@ -556,79 +639,55 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
           </button>
         </div>
 
-        <div class="filtros mt" v-filtros>
-          <label class="buscador">
-            <Icono nombre="buscar" :tam="16" />
-            <input v-model="filtro.texto" type="search" :placeholder="t('Filter by code, style, color, size or PO')" :aria-label="t('Filter contents')" />
-          </label>
-          <div class="segmentos" role="group" :aria-label="t('Show')">
-            <button class="segmento" :aria-pressed="filtro.solo_pendiente" @click="filtro.solo_pendiente = true">{{ t('Not packed') }}<span class="cuenta">{{ tx(pendientes.length) }}</span></button>
-            <button class="segmento" :aria-pressed="!filtro.solo_pendiente" @click="filtro.solo_pendiente = false">{{ t('All') }}<span class="cuenta">{{ tx(pl.lineas.length) }}</span></button>
-          </div>
-        </div>
-        <div class="tabla-marco tabla-fija">
-          <table class="tabla" v-tarjetas>
-            <thead>
-              <tr>
-                <th class="chk"><input type="checkbox" :aria-label="t('Select all filtered rows')" :checked="selL.todos(idsFiltrados)" @change="selL.alternarTodos(idsFiltrados)" /></th>
-                <ThOrden campo="estilo" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Item') }}</ThOrden>
-                <ThOrden campo="talla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Size') }}</ThOrden>
-                <ThOrden campo="oc" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('PO / line') }}</ThOrden>
-                <ThOrden class="col-sec" campo="regla" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Rule') }}</ThOrden>
-                <th class="num" :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ t('Per carton') }}</th>
-                <th class="num" :title="t('Units or pairs per inner pack; defined here when the PO does not bring it')">{{ t('Per inner pack') }}</th>
-                <th class="num col-sec">{{ t('Inner packs per carton') }}</th>
-                <ThOrden campo="cantidad" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">{{ t('Quantity') }}</ThOrden>
-                <ThOrden campo="en_cajas" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">{{ t('In cartons') }}</ThOrden>
-                <ThOrden campo="sin_caja" :orden="tablaL.estado.orden" num @ordenar="tablaL.ordenar">{{ t('Not packed') }}</ThOrden>
-                <th class="col-sec">{{ t('Suggested template') }}</th>
-                <ThOrden campo="estado_empaque" :orden="tablaL.estado.orden" @ordenar="tablaL.ordenar">{{ t('Packing') }}</ThOrden>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="l in tablaL.filas.value" :key="l.id" :class="{ seleccionada: selL.tiene(l.id) }">
-                <td class="chk"><input type="checkbox" :aria-label="t('Select {0}', [ref_(l)])" :checked="selL.tiene(l.id)" @change="selL.alternar(l.id)" /></td>
-                <td><span v-if="l.marca" class="fuerte">{{ tx(l.marca) }}</span> {{ tx(l.estilo) }} · {{ tx(l.color) }}
-                  <span v-if="partes.cuenta[l.factura_linea_id] > 1" class="etiqueta">{{ t('part {0}', [partes.indice[l.id]]) }}</span>
-                  <span class="sub codigo">{{ tx(l.codigo_sap) }}</span>
-                </td>
-                <td><strong>{{ tx(l.talla) }}</strong></td>
-                <td class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}<span v-if="l.centro_destino || l.almacen" class="sub">{{ tx([l.almacen && t('warehouse {0}', [l.almacen]), l.centro_destino && t('destination {0}', [l.centro_destino])].filter(Boolean).join(' · ')) }}</span></td>
-                <td>
-                  <button v-if="l.regla === 'PREPACK'" type="button" class="etiqueta acento btn-explosion ms-0"
-                          :title="t('See the prepack breakdown')" @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ tx(reglaTxt(l)) }} <Icono nombre="lupa" :tam="12" /></button>
-                  <span v-else class="etiqueta ms-0" :class="REGLAS[l.regla]?.[1]">{{ tx(reglaTxt(l)) }}</span>
-                </td>
-                <td class="num">{{ porCajaLinea(l) ? cantTxt(porCajaLinea(l), l.regla === 'PREPACK' ? l.unidad_componentes || 'UN' : l.unidad) : '—' }}</td>
-                <td class="num" style="width: 96px">
-                  <CeldaEditable v-if="editable && l.inner_editable" tipo="number" :min="1" paso="1" :valor="l.inner_pack" :vacia-texto="t('Define')"
-                                 :guardar="(v) => guardarInner(l, v)" :etiqueta="t('Per inner pack')" />
-                  <template v-else>{{ l.inner_pack ? cantTxt(l.inner_pack, l.unidad) : '—' }}</template>
-                </td>
-                <td class="num">{{ innersPorCaja(l) ? fmtNum(innersPorCaja(l)) : '—' }}</td>
-                <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
-                <td class="num">{{ fmtNum(l.en_cajas) }}</td>
-                <td class="num"><strong v-if="l.sin_caja">{{ fmtNum(l.sin_caja) }}</strong><span v-else class="apagado">0</span></td>
-                <td>
-                  <span v-if="sugerida(l)">{{ tx(nombrePlantilla(sugerida(l))) }}<span v-if="l.plantilla_sugerida_id === sugerida(l)" class="etiqueta info" :title="t('The one you used last time with this item')">{{ t('used before') }}</span></span>
-                  <span v-else-if="l.regla !== 'LIBRE'" class="apagado">{{ t('Not needed (uses the casepack)') }}</span>
-                  <span v-else class="apagado">{{ t('No template for {0}', [unidadTxt(l.unidad, 2)]) }}</span>
-                </td>
-                <td>
-                  <EstadoBadge :estado="l.estado_empaque" />
-                  <span v-if="l.en_parcial" class="etiqueta aviso">{{ t('partial carton') }}</span>
-                </td>
-              </tr>
-              <tr v-if="!lineasFiltradas.length">
-                <td colspan="13" class="vacio">{{ tx(pl.lineas.length ? t('No row matches the filter.') : t('The packing list is empty.')) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <Paginacion :page="tablaL.estado.pagina" :size="tablaL.estado.porPagina" :total="tablaL.total.value"
-                    @cambiar="(p) => (tablaL.estado.pagina = p)" @tamano="(t) => (tablaL.estado.porPagina = t)" />
+        <TablaDatos ref="tablaEmpacar" class="mt" tabla="pl_doc_por_empacar" :columnas="columnasEmpacar" :filas="lineasFiltradas" :vistas-guardadas="false"
+                    seleccionable :seleccion="[...selL.ids]" :etiqueta="t('To pack')" @update:seleccion="elegir(selL)($event)">
+          <template #barra>
+            <label class="buscador">
+              <Icono nombre="buscar" :tam="16" />
+              <input v-model="filtro.texto" type="search" :placeholder="t('Filter by code, style, color, size or PO')" :aria-label="t('Filter contents')" />
+            </label>
+          </template>
+          <template #filtros>
+            <div class="segmentos" role="group" :aria-label="t('Show')">
+              <button class="segmento" :aria-pressed="filtro.solo_pendiente" @click="filtro.solo_pendiente = true">{{ t('Not packed') }}<span class="cuenta">{{ tx(pendientes.length) }}</span></button>
+              <button class="segmento" :aria-pressed="!filtro.solo_pendiente" @click="filtro.solo_pendiente = false">{{ t('All') }}<span class="cuenta">{{ tx(pl.lineas.length) }}</span></button>
+            </div>
+          </template>
+          <template #celda-articulo="{ fila: l }"><span v-if="l.marca" class="fuerte">{{ tx(l.marca) }}</span> {{ tx(l.estilo) }} · {{ tx(l.color) }}
+            <span v-if="partes.cuenta[l.factura_linea_id] > 1" class="etiqueta">{{ t('part {0}', [partes.indice[l.id]]) }}</span>
+            <span class="sub codigo">{{ tx(l.codigo_sap) }}</span>
+          </template>
+          <template #celda-talla="{ fila: l }"><strong>{{ tx(l.talla) }}</strong></template>
+          <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}</span><span v-if="l.centro_destino || l.almacen" class="sub">{{ tx([l.almacen && t('warehouse {0}', [l.almacen]), l.centro_destino && t('destination {0}', [l.centro_destino])].filter(Boolean).join(' · ')) }}</span></template>
+          <template #celda-regla="{ fila: l }">
+            <button v-if="l.regla === 'PREPACK'" type="button" class="etiqueta acento btn-explosion ms-0"
+                    :title="t('See the prepack breakdown')" @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ tx(reglaTxt(l)) }} <Icono nombre="lupa" :tam="12" /></button>
+            <span v-else class="etiqueta ms-0" :class="REGLAS[l.regla]?.[1]">{{ tx(reglaTxt(l)) }}</span>
+          </template>
+          <template #celda-por_caja="{ fila: l }"><span :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ porCajaLinea(l) ? cantTxt(porCajaLinea(l), l.regla === 'PREPACK' ? l.unidad_componentes || 'UN' : l.unidad) : '—' }}</span></template>
+          <template #celda-por_inner="{ fila: l }">
+            <CeldaEditable v-if="editable && l.inner_editable" tipo="number" :min="1" paso="1" :valor="l.inner_pack" :vacia-texto="t('Define')"
+                           :guardar="(v) => guardarInner(l, v)" :etiqueta="t('Per inner pack')" ancho="96px" />
+            <span v-else :title="t('Units or pairs per inner pack; defined here when the PO does not bring it')">{{ l.inner_pack ? cantTxt(l.inner_pack, l.unidad) : '—' }}</span>
+          </template>
+          <template #celda-inners_caja="{ fila: l }">{{ innersPorCaja(l) ? fmtNum(innersPorCaja(l)) : '—' }}</template>
+          <template #celda-cantidad="{ fila: l }">{{ cantTxt(l.cantidad, l.unidad) }}</template>
+          <template #celda-en_cajas="{ fila: l }">{{ fmtNum(l.en_cajas) }}</template>
+          <template #celda-sin_caja="{ fila: l }"><strong v-if="l.sin_caja">{{ fmtNum(l.sin_caja) }}</strong><span v-else class="apagado">0</span></template>
+          <template #celda-plantilla="{ fila: l }">
+            <span v-if="sugerida(l)">{{ tx(nombrePlantilla(sugerida(l))) }}<span v-if="l.plantilla_sugerida_id === sugerida(l)" class="etiqueta info" :title="t('The one you used last time with this item')">{{ t('used before') }}</span></span>
+            <span v-else-if="l.regla !== 'LIBRE'" class="apagado">{{ t('Not needed (uses the casepack)') }}</span>
+            <span v-else class="apagado">{{ t('No template for {0}', [unidadTxt(l.unidad, 2)]) }}</span>
+          </template>
+          <template #celda-estado_empaque="{ fila: l }">
+            <EstadoBadge :estado="l.estado_empaque" />
+            <span v-if="l.en_parcial" class="etiqueta aviso">{{ t('partial carton') }}</span>
+          </template>
+          <template #vacio>{{ tx(pl.lineas.length ? t('No row matches the filter.') : t('The packing list is empty.')) }}</template>
+        </TablaDatos>
         <BarraSeleccion :cantidad="selL.ids.size" :singular="t('row selected')" :plural="t('rows selected')" @limpiar="selL.limpiar()">
           <template #resumen>{{ tx(resumenSelLineas) }}</template>
+          <button v-if="!selL.todos(idsFiltrados)" class="btn-texto" @click="selL.alternarTodos(idsFiltrados)">{{ t('Select all filtered rows') }} ({{ fmtNum(idsFiltrados.length) }})</button>
           <button class="btn btn-primario" :disabled="!selConPendiente.length" @click="abrirAuto(true)"><Icono nombre="varita" :tam="15" />{{ t('Auto-pack') }}</button>
           <button class="btn" :disabled="!selConPendiente.length" @click="abrirCaja"><Icono nombre="caja" :tam="15" />{{ tx(selConPendiente.length > 1 ? t('Mixed carton') : t('Manual carton')) }}</button>
           <button class="btn" :disabled="!selConPendiente.length" @click="abrirMover"><Icono nombre="mover" :tam="15" />{{ t('Move to another PL') }}</button>
@@ -653,98 +712,65 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <Icono nombre="alerta" />
         <span><b>{{ t('Check with the Commercial Brand Manager:') }}</b> <template v-for="a in pl.avisos" :key="a.grupo_id">{{ tx(a.mensaje) }} </template></span>
       </p>
-      <div class="tabla-marco tabla-fija">
-        <table class="tabla" v-tarjetas>
-          <thead>
-            <tr>
-              <th class="chk"><input type="checkbox" :aria-label="t('Select all cartons')" :checked="selG.todos(idsGrupos)" @change="selG.alternarTodos(idsGrupos)" /></th>
-              <ThOrden campo="rango" :orden="tablaG.estado.orden" @ordenar="tablaG.ordenar">{{ t('Cartons') }}</ThOrden>
-              <ThOrden campo="etiqueta" :orden="tablaG.estado.orden" @ordenar="tablaG.ordenar">{{ t('Contents per carton') }}</ThOrden>
-              <th class="num">{{ t('Inner packs per carton') }}</th>
-              <th class="num">{{ t('Per inner pack') }}</th>
-              <th class="num">{{ t('Total per carton') }}</th>
-              <th class="num">{{ t('Cartons') }}</th>
-              <th class="num"><span class="req">{{ t('Length') }}</span></th>
-              <th class="num"><span class="req">{{ t('Width') }}</span></th>
-              <th class="num"><span class="req">{{ t('Height cm') }}</span></th>
-              <th class="num">{{ t('Tare kg') }}</th>
-              <th class="num">{{ t('Net/ctn') }}</th>
-              <th class="num">{{ t('Gross/ctn kg') }}</th>
-              <th class="num col-sec">m³</th>
-              <th class="num">{{ t('Gross total') }}</th>
-              <th class="col-sec">{{ t('Notes') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="g in tablaG.filas.value" :key="g.id" :class="{ seleccionada: selG.tiene(g.id) }">
-              <td class="chk"><input type="checkbox" :aria-label="t('Select cartons {0}', [rango(g)])" :checked="selG.tiene(g.id)" @change="selG.alternar(g.id)" /></td>
-              <td class="cajas-rango">{{ tx(rango(g)) }}<span v-if="g.pallet" class="etiqueta acento" :title="t('On pallet')">{{ tx(g.pallet) }}</span>
-                <span class="sub">{{ tx(g.tipo) }}</span></td>
-              <td class="envolver">
-                <div class="caja-items">
-                  <div v-for="it in g.contenido" :key="it.pl_linea_id">{{ tx(it.estilo) }} <b>{{ tx(it.talla) }}</b></div>
-                </div>
-                <div v-if="g.etiqueta" class="fila-flex" style="gap: 4px; margin-top: 4px">
-                  <span class="etiqueta ms-0" :class="g.etiqueta.tipo === 'ESTANDAR' ? 'ok' : 'acento'"
-                        :title="tx(g.etiqueta.tipo === 'ESTANDAR' ? t('A single PO, style, color and size') : t('Several POs, styles, colors or sizes'))">
-                    {{ t('{0} label', [g.etiqueta.tipo === 'ESTANDAR' ? t('Standard') : t('Consolidated')]) }}
-                  </span>
-                  <span class="ayuda codigo">{{ t('PO {0}', [g.etiqueta.ocs.join(', ')]) }}</span>
-                  <span v-if="g.etiqueta.centro_destino" class="ayuda">{{ t('· destination {0}', [g.etiqueta.centro_destino]) }}</span>
-                </div>
-              </td>
-              <td class="num"><div class="caja-items"><div v-for="it in g.contenido" :key="it.pl_linea_id">{{ it.inner_packs_por_caja ? fmtNum(it.inner_packs_por_caja) : '—' }}</div></div></td>
-              <td class="num"><div class="caja-items"><div v-for="it in g.contenido" :key="it.pl_linea_id">{{ it.inner_pack ? cantTxt(it.inner_pack, it.unidad) : '—' }}</div></div></td>
-              <td class="num"><div class="caja-items"><div v-for="it in g.contenido" :key="it.pl_linea_id">{{ cantTxt(it.cantidad_por_caja, it.unidad) }}</div></div></td>
-              <td class="num" style="width: 70px">
-                <CeldaEditable v-if="editable" tipo="number" :min="1" paso="1" :valor="g.num_cajas" :guardar="celdaGrupo(g, 'num_cajas')" :etiqueta="t('Number of cartons')" />
-                <template v-else>{{ tx(g.num_cajas) }}</template>
-              </td>
-              <td v-for="campo in ['largo', 'ancho', 'alto', 'tara']" :key="campo" class="num" style="width: 78px">
-                <CeldaEditable v-if="editable" tipo="number" :min="0" :valor="g[campo]" :guardar="celdaGrupo(g, campo)" :vacia-texto="tx(campo === 'tara' ? '0' : t('Missing'))" :etiqueta="tx(campo.replaceAll('_', ' '))" />
-                <template v-else>{{ fmtNum(g[campo], campo === 'tara' ? 2 : 0) }}</template>
-              </td>
-              <td class="num" style="width: 82px">
-                <CeldaEditable v-if="editable && !g.peso_calculado" tipo="number" :min="0" :valor="g.peso_neto_caja" :guardar="celdaGrupo(g, 'peso_neto_caja')"
-                               :vacia-texto="t('Missing')" :etiqueta="t('Net weight per carton (items without unit weight)')" />
-                <span v-else :title="t('Calculated: unit weight of each item × quantity')">{{ fmtNum(g.peso_neto_caja, 2) }}</span>
-              </td>
-              <td class="num" :title="t('Net + tare of the carton and of everything inside it')">{{ fmtNum(g.peso_bruto_caja, 2) }}</td>
-              <td class="num">{{ fmtNum(g.cbm_total, 3) }}</td>
-              <td class="num">{{ fmtNum(g.peso_bruto_total, 1) }}</td>
-              <td>
-                <span v-if="g.mixta" class="etiqueta">{{ t('Mixed') }}</span>
-                <span v-if="g.es_parcial" class="etiqueta aviso">{{ t('Partial') }}</span>
-                <span v-if="g.peso_estimado" class="etiqueta error">{{ t('Estimated weight') }}</span>
-                <span v-if="g.plantilla_nombre" class="sub">{{ tx(g.plantilla_nombre) }}</span>
-                <span v-if="g.observacion" class="sub">{{ tx(g.observacion) }}</span>
-              </td>
-            </tr>
-            <tr v-if="!pl.grupos.length">
-              <td colspan="16" class="vacio">
-                <Icono nombre="caja" :tam="28" />
-                <p>{{ t('No cartons yet.') }}</p>
-                <button v-if="editable" class="btn btn-primario" @click="tab = 'empacar'">{{ t('Start packing') }}</button>
-              </td>
-            </tr>
-          </tbody>
-          <tfoot v-if="pl.grupos.length">
-            <tr>
-              <td></td>
-              <td colspan="5">{{ t('Total') }}</td>
-              <td class="num">{{ fmtNum(pl.totales.cajas) }}</td>
-              <td colspan="6"></td>
-              <td class="num">{{ fmtNum(pl.totales.cbm, 3) }}</td>
-              <td class="num">{{ fmtNum(pl.totales.peso_bruto, 1) }}</td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      <Paginacion :page="tablaG.estado.pagina" :size="tablaG.estado.porPagina" :total="tablaG.total.value"
-                  @cambiar="(p) => (tablaG.estado.pagina = p)" @tamano="(t) => (tablaG.estado.porPagina = t)" />
+      <TablaDatos ref="tablaCajas" tabla="pl_doc_cajas" :columnas="columnasCajas" :filas="cajasLista" :vistas-guardadas="false"
+                  seleccionable :seleccion="[...selG.ids]" :etiqueta="t('Cartons')" @update:seleccion="elegir(selG)($event)">
+        <template #celda-rango="{ fila: g }"><span class="cajas-rango">{{ tx(rango(g)) }}</span><span v-if="g.pallet" class="etiqueta acento" :title="t('On pallet')">{{ tx(g.pallet) }}</span>
+          <span class="sub">{{ tx(g.tipo) }}</span></template>
+        <template #celda-contenido="{ fila: g }">
+          <div class="envolver">
+            <div class="caja-items">
+              <div v-for="it in g.contenido" :key="it.pl_linea_id">{{ tx(it.estilo) }} <b>{{ tx(it.talla) }}</b></div>
+            </div>
+            <div v-if="g.etiqueta" class="fila-flex" style="gap: 4px; margin-top: 4px">
+              <span class="etiqueta ms-0" :class="g.etiqueta.tipo === 'ESTANDAR' ? 'ok' : 'acento'"
+                    :title="tx(g.etiqueta.tipo === 'ESTANDAR' ? t('A single PO, style, color and size') : t('Several POs, styles, colors or sizes'))">
+                {{ t('{0} label', [g.etiqueta.tipo === 'ESTANDAR' ? t('Standard') : t('Consolidated')]) }}
+              </span>
+              <span class="ayuda codigo">{{ t('PO {0}', [g.etiqueta.ocs.join(', ')]) }}</span>
+              <span v-if="g.etiqueta.centro_destino" class="ayuda">{{ t('· destination {0}', [g.etiqueta.centro_destino]) }}</span>
+            </div>
+          </div>
+        </template>
+        <template #celda-etiqueta="{ fila: g }">{{ g.etiqueta ? t('{0} label', [g.etiqueta.tipo === 'ESTANDAR' ? t('Standard') : t('Consolidated')]) : '—' }}</template>
+        <template #celda-inners_caja="{ fila: g }"><div class="caja-items"><div v-for="it in g.contenido" :key="it.pl_linea_id">{{ it.inner_packs_por_caja ? fmtNum(it.inner_packs_por_caja) : '—' }}</div></div></template>
+        <template #celda-por_inner="{ fila: g }"><div class="caja-items"><div v-for="it in g.contenido" :key="it.pl_linea_id">{{ it.inner_pack ? cantTxt(it.inner_pack, it.unidad) : '—' }}</div></div></template>
+        <template #celda-por_caja="{ fila: g }"><div class="caja-items"><div v-for="it in g.contenido" :key="it.pl_linea_id">{{ cantTxt(it.cantidad_por_caja, it.unidad) }}</div></div></template>
+        <template #celda-num_cajas="{ fila: g }">
+          <CeldaEditable v-if="editable" tipo="number" :min="1" paso="1" :valor="g.num_cajas" :guardar="celdaGrupo(g, 'num_cajas')" :etiqueta="t('Number of cartons')" ancho="70px" />
+          <template v-else>{{ tx(g.num_cajas) }}</template>
+        </template>
+        <template v-for="campo in ['largo', 'ancho', 'alto', 'tara']" :key="campo" #[`celda-${campo}`]="{ fila: g }">
+          <CeldaEditable v-if="editable" tipo="number" :min="0" :valor="g[campo]" :guardar="celdaGrupo(g, campo)" :vacia-texto="tx(campo === 'tara' ? '0' : t('Missing'))" :etiqueta="tx(campo.replaceAll('_', ' '))" ancho="78px" />
+          <template v-else>{{ fmtNum(g[campo], campo === 'tara' ? 2 : 0) }}</template>
+        </template>
+        <template #celda-peso_neto_caja="{ fila: g }">
+          <CeldaEditable v-if="editable && !g.peso_calculado" tipo="number" :min="0" :valor="g.peso_neto_caja" :guardar="celdaGrupo(g, 'peso_neto_caja')"
+                         :vacia-texto="t('Missing')" :etiqueta="t('Net weight per carton (items without unit weight)')" ancho="82px" />
+          <span v-else :title="t('Calculated: unit weight of each item × quantity')">{{ fmtNum(g.peso_neto_caja, 2) }}</span>
+        </template>
+        <template #celda-peso_bruto_caja="{ fila: g }"><span :title="t('Net + tare of the carton and of everything inside it')">{{ fmtNum(g.peso_bruto_caja, 2) }}</span></template>
+        <template #celda-cbm_total="{ fila: g }">{{ fmtNum(g.cbm_total, 3) }}</template>
+        <template #celda-peso_bruto_total="{ fila: g }">{{ fmtNum(g.peso_bruto_total, 1) }}</template>
+        <template #celda-notas="{ fila: g }">
+          <span v-if="g.mixta" class="etiqueta">{{ t('Mixed') }}</span>
+          <span v-if="g.es_parcial" class="etiqueta aviso">{{ t('Partial') }}</span>
+          <span v-if="g.peso_estimado" class="etiqueta error">{{ t('Estimated weight') }}</span>
+          <span v-if="g.plantilla_nombre" class="sub">{{ tx(g.plantilla_nombre) }}</span>
+          <span v-if="g.observacion" class="sub">{{ tx(g.observacion) }}</span>
+        </template>
+        <template #pie-inicio>{{ t('Total') }}</template>
+        <template #pie-num_cajas="{ filas }">{{ fmtNum(pieCajas(filas, 'num_cajas', pl.totales.cajas)) }}</template>
+        <template #pie-cbm_total="{ filas }">{{ fmtNum(pieCajas(filas, 'cbm_total', pl.totales.cbm), 3) }}</template>
+        <template #pie-peso_bruto_total="{ filas }">{{ fmtNum(pieCajas(filas, 'peso_bruto_total', pl.totales.peso_bruto), 1) }}</template>
+        <template #vacio>
+          <Icono nombre="caja" :tam="28" />
+          <p>{{ t('No cartons yet.') }}</p>
+          <button v-if="editable" class="btn btn-primario" @click="tab = 'empacar'">{{ t('Start packing') }}</button>
+        </template>
+      </TablaDatos>
       <BarraSeleccion :cantidad="selG.ids.size" :singular="t('group selected')" :plural="t('groups selected')" @limpiar="selG.limpiar()">
         <template #resumen>{{ plural(cajasSel, t('carton'), t('cartons')) }}</template>
+        <button v-if="!selG.todos(idsGrupos)" class="btn-texto" @click="selG.alternarTodos(idsGrupos)">{{ t('Select all cartons') }} ({{ fmtNum(idsGrupos.length) }})</button>
         <template v-if="editable">
           <button class="btn btn-primario" @click="abrirEditarCajas()"><Icono nombre="editar" :tam="15" />{{ t('Dimensions and weights') }}</button>
           <button v-if="selGrupos.some((g) => g.peso_estimado)" class="btn" :disabled="ocupado" @click="confirmarPesos(selGrupos.filter((g) => g.peso_estimado))">{{ t('Confirm weights') }}</button>
@@ -797,21 +823,15 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
 
     <!-- Contents (read only) -->
     <section v-if="tab === 'contenido'">
-      <div class="tabla-marco">
-        <table class="tabla" v-tarjetas>
-          <thead><tr><th>{{ t('Item') }}</th><th>{{ t('Size') }}</th><th>{{ t('PO / line') }}</th><th class="num">{{ t('Quantity') }}</th><th class="num">{{ t('In cartons') }}</th><th>{{ t('Packing') }}</th></tr></thead>
-          <tbody>
-            <tr v-for="l in pl.lineas" :key="l.id">
-              <td>{{ tx(l.estilo) }} · {{ tx(l.color) }}<span class="sub codigo">{{ tx(l.codigo_sap) }}</span></td>
-              <td><strong>{{ tx(l.talla) }}</strong></td>
-              <td class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}<span v-if="l.almacen" class="sub">{{ t('warehouse {0}', [l.almacen]) }}</span></td>
-              <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
-              <td class="num">{{ fmtNum(l.en_cajas) }}</td>
-              <td><EstadoBadge :estado="l.estado_empaque" /></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TablaDatos tabla="pl_doc_contenido" :columnas="columnasContenido" :filas="pl.lineas" :vistas-guardadas="false" :etiqueta="t('Contents')">
+        <template #celda-articulo="{ fila: l }">{{ tx(l.estilo) }} · {{ tx(l.color) }}<span class="sub codigo">{{ tx(l.codigo_sap) }}</span></template>
+        <template #celda-talla="{ fila: l }"><strong>{{ tx(l.talla) }}</strong></template>
+        <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}</span><span v-if="l.almacen" class="sub">{{ t('warehouse {0}', [l.almacen]) }}</span></template>
+        <template #celda-cantidad="{ fila: l }">{{ cantTxt(l.cantidad, l.unidad) }}</template>
+        <template #celda-en_cajas="{ fila: l }">{{ fmtNum(l.en_cajas) }}</template>
+        <template #celda-estado_empaque="{ fila: l }"><EstadoBadge :estado="l.estado_empaque" /></template>
+        <template #vacio>{{ t('The packing list is empty.') }}</template>
+      </TablaDatos>
     </section>
 
     <!-- Receipt -->
@@ -820,25 +840,16 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <div><h2>{{ t('Warehouse receipt') }}</h2><p>{{ t('Record what was received and damaged per row; differences are kept in the history.') }}</p></div>
         <button class="btn btn-primario" :disabled="ocupado" @click="guardarRecepcion">{{ t('Save receipt') }}</button>
       </div>
-      <div class="tabla-marco sin-sombra">
-        <table class="tabla" v-tarjetas>
-          <thead>
-            <tr><th>{{ t('Row') }}</th><th class="num">{{ t('Per PL') }}</th><th class="num">{{ t('Received') }}</th><th class="num">{{ t('Damaged') }}</th><th class="num">{{ t('Difference') }}</th><th>{{ t('Remark') }}</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="l in pl.lineas" :key="l.id">
-              <td>{{ tx(l.estilo) }} <b>{{ tx(l.talla) }}</b><span class="sub codigo">{{ tx(l.codigo_sap) }}</span></td>
-              <td class="num">{{ cantTxt(l.cantidad, l.unidad) }}</td>
-              <td class="num"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 90px; border-color: var(--linea)" :aria-label="t('Received {0}', [ref_(l)])" /></td>
-              <td class="num"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 80px; border-color: var(--linea)" :aria-label="t('Damaged {0}', [ref_(l)])" /></td>
-              <td class="num">
-                <span :class="{ 'etiqueta error': recepcion[l.id].cantidad_recibida !== l.cantidad }">{{ fmtNum(recepcion[l.id].cantidad_recibida - l.cantidad) }}</span>
-              </td>
-              <td><input v-model="recepcion[l.id].observacion" class="celda" style="border-color: var(--linea)" :aria-label="t('Remark {0}', [ref_(l)])" /></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TablaDatos tabla="pl_doc_recepcion" :columnas="columnasRecepcion" :filas="pl.lineas" :vistas-guardadas="false" :etiqueta="t('Warehouse receipt')">
+        <template #celda-fila="{ fila: l }">{{ tx(l.estilo) }} <b>{{ tx(l.talla) }}</b><span class="sub codigo">{{ tx(l.codigo_sap) }}</span></template>
+        <template #celda-cantidad="{ fila: l }">{{ cantTxt(l.cantidad, l.unidad) }}</template>
+        <template #celda-recibida="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_recibida" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 90px; border-color: var(--linea)" :aria-label="t('Received {0}', [ref_(l)])" /></template>
+        <template #celda-danada="{ fila: l }"><input v-model.number="recepcion[l.id].cantidad_danada" class="celda num" type="number" min="0" :step="pasoCantidad(l.unidad)" style="width: 80px; border-color: var(--linea)" :aria-label="t('Damaged {0}', [ref_(l)])" /></template>
+        <template #celda-diferencia="{ fila: l }">
+          <span :class="{ 'etiqueta error': recepcion[l.id].cantidad_recibida !== l.cantidad }">{{ fmtNum(recepcion[l.id].cantidad_recibida - l.cantidad) }}</span>
+        </template>
+        <template #celda-observacion="{ fila: l }"><input v-model="recepcion[l.id].observacion" class="celda" style="border-color: var(--linea)" :aria-label="t('Remark {0}', [ref_(l)])" /></template>
+      </TablaDatos>
     </section>
   </template>
 

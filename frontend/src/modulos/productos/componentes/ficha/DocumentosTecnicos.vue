@@ -5,6 +5,7 @@ import { computed, reactive, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import { fmtFecha } from '@/nucleo/utils'
 import { avisar, errorApi } from '@/stores/ui'
 import { confirmar } from '@/stores/confirmar'
@@ -26,6 +27,17 @@ const nuevo = reactive({ tipo: valores('tipo_documento')[0]?.codigo || '', emiso
 const ocupado = ref(false)
 const opcionesCampo = computed(() => props.campos.filter((c) => c.tipo_dato !== 'composition' && c.tipo_dato !== 'country'))
 const etiqueta = (k) => props.campos.find((c) => c.codigo === k)?.etiqueta || k
+
+// Tabla común en modo local: cada columna filtra por sus valores (los datos
+// técnicos, uno por cada «atributo: valor» del documento)
+const datosDe = (d) => Object.entries(d.datos || {}).map(([k, v]) => `${tx(etiqueta(k))}: ${tx(String(v))}`)
+const columnas = computed(() => [
+  { clave: 'tipo', texto: t('Kind'), prioridad: 1, opciones: TIPOS.value },
+  { clave: 'nombre', texto: t('Document'), fija: true, prioridad: 1 },
+  { clave: 'fecha_documento', texto: t('Document date'), prioridad: 3, inicial: false, textoValor: (v) => fmtFecha(v) },
+  { clave: 'emisor', texto: t('Issued by'), prioridad: 2 },
+  { clave: 'datos', texto: t('Technical data'), prioridad: 2, ordenable: false, valor: datosDe },
+])
 
 async function subir() {
   if (!nuevo.archivo) return
@@ -62,21 +74,21 @@ async function quitar(d) {
 <template>
   <div class="panel mt-chico">
     <p class="nota info"><Icono nombre="info" /><span>{{ t('SDS, TDS and COA are technical evidence of the product: their data (CAS, composition, physical state, density, pH…) fill the empty facts of the sheet. They are never a tariff source: codes, duties, taxes and regulations only come from official sources.') }}</span></p>
-    <div class="tabla-marco">
-      <table class="tabla" v-tarjetas>
-        <thead><tr><th>{{ t('Document') }}</th><th>{{ t('Issued by') }}</th><th>{{ t('Technical data') }}</th><th></th></tr></thead>
-        <tbody>
-          <tr v-for="d in producto.documentos || []" :key="d.id">
-            <td><span class="etiqueta acento">{{ d.tipo }}</span> <a :href="`/api/productos/documentos/${d.id}`" target="_blank" rel="noopener">{{ tx(d.nombre) }}</a>
-              <span v-if="d.fecha_documento" class="sub">{{ fmtFecha(d.fecha_documento) }}</span></td>
-            <td>{{ tx(d.emisor || '—') }}</td>
-            <td><span v-for="(v, k) in d.datos" :key="k" class="etiqueta">{{ tx(etiqueta(k)) }}: {{ tx(String(v)) }}</span><span v-if="!Object.keys(d.datos || {}).length" class="apagado">—</span></td>
-            <td class="num"><button v-if="editable" class="btn-icono" :aria-label="t('Remove {0}', [d.nombre])" @click="quitar(d)"><Icono nombre="basura" :tam="16" /></button></td>
-          </tr>
-          <tr v-if="!(producto.documentos || []).length"><td colspan="4" class="vacio">{{ t('No technical documents attached.') }}</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <TablaDatos tabla="productos_documentos" :columnas="columnas" :filas="producto.documentos || []" :etiqueta="t('Technical documents')">
+      <template #celda-tipo="{ fila: d }"><span class="etiqueta acento ms-0">{{ tx(d.tipo) }}</span></template>
+      <template #celda-nombre="{ fila: d }">
+        <a :href="`/api/productos/documentos/${d.id}`" target="_blank" rel="noopener" @click.stop>{{ tx(d.nombre) }}</a>
+        <span v-if="d.fecha_documento" class="sub">{{ fmtFecha(d.fecha_documento) }}</span>
+      </template>
+      <template #celda-fecha_documento="{ fila: d }">{{ d.fecha_documento ? fmtFecha(d.fecha_documento) : '—' }}</template>
+      <template #celda-datos="{ fila: d }">
+        <span v-for="(v, k) in d.datos" :key="k" class="etiqueta">{{ tx(etiqueta(k)) }}: {{ tx(String(v)) }}</span><span v-if="!Object.keys(d.datos || {}).length" class="apagado">—</span>
+      </template>
+      <template #acciones="{ fila: d }">
+        <button v-if="editable" class="btn-icono" :aria-label="t('Remove {0}', [d.nombre])" @click="quitar(d)"><Icono nombre="basura" :tam="16" /></button>
+      </template>
+      <template #vacio>{{ t('No technical documents attached.') }}</template>
+    </TablaDatos>
     <template v-if="editable">
       <h3 class="mt">{{ t('Attach a document') }}</h3>
       <div class="rejilla-campos">

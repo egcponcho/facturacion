@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.core.errores import ErrorNegocio
 from app.modelos import Articulo, EscalaTalla, GrupoArticulo, Marca, Producto, Proveedor, Usuario
 from app.modulos.acceso.permisos import exigir
+from app.modulos.comun import tabla
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.maestros import catalogos as cat_svc
@@ -166,16 +167,26 @@ def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list, escala_id
     return ids
 
 
-ORDEN = {"generico": Producto.codigo_generico, "estilo": Producto.estilo, "color": Producto.color}
+ORDEN = {"generico": Producto.codigo_generico, "estilo": Producto.estilo, "color": Producto.color,
+         "marca_id": select(Marca.codigo).where(Marca.id == Producto.marca_id).scalar_subquery(),
+         "grupo_id": select(GrupoArticulo.codigo).where(GrupoArticulo.id == Producto.grupo_id).scalar_subquery(),
+         "proveedor_id": select(Proveedor.nombre).where(Proveedor.id == Producto.proveedor_id).scalar_subquery(),
+         "unidad": Producto.unidad, "descripcion_comercial": Producto.descripcion_comercial, "codigo": Producto.codigo,
+         "estado": Producto.estado}
+# Filtro por columna (app/modulos/comun/tabla.py): marca, grupo y proveedor por
+# su id (la pantalla muestra su nombre); las tallas, por las de sus artículos
+COLUMNAS = {"generico": Producto.codigo_generico, "estilo": Producto.estilo, "color": Producto.color,
+            "marca_id": Producto.marca_id, "grupo_id": Producto.grupo_id, "proveedor_id": Producto.proveedor_id,
+            "unidad": Producto.unidad, "descripcion_comercial": Producto.descripcion_comercial, "codigo": Producto.codigo,
+            "estado": Producto.estado, "tallas": tabla.Relacion(Articulo.talla, Articulo.producto_id, Producto.id)}
 
 
-def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: int, size: int) -> dict:
-    """Vista compacta de artículos: un renglón por genérico con sus datos y
-    sus tallas; se despliega para ver cada artículo."""
-    from sqlalchemy import func, or_
+def _consulta(db: Session, user: Usuario, filtros: dict):
+    """Genéricos visibles con la búsqueda y los filtros de la pantalla (sin los
+    filtros por columna ni el orden)."""
+    from sqlalchemy import or_
 
     from app.modulos.acceso.permisos import proveedor_filtro
-    from app.modulos.productos.productos import ESTADOS, fmt_codigo, rango_tallas
 
     exigir(user, "catalogos.ver")
     q = select(Producto).where(Producto.codigo_generico.is_not(None))
@@ -191,6 +202,25 @@ def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: i
         q = q.where(filtro_texto(filtros["q"], lambda t: [
             Producto.codigo_generico.ilike(t), Producto.estilo.ilike(t), Producto.color.ilike(t),
             Producto.id.in_(select(Articulo.producto_id).where(or_(Articulo.sku.ilike(t), Articulo.upc.ilike(t), Articulo.sku_proveedor.ilike(t))))]))
+    return q
+
+
+def valores(db: Session, user: Usuario, columna: str, buscar: str | None, filtros_columna: dict, filtros: dict) -> list[dict]:
+    """Valores únicos de una columna de la vista por genérico bajo los demás filtros."""
+    expr = tabla.columna_valida(COLUMNAS, columna)
+    q = tabla.aplicar(_consulta(db, user, filtros), COLUMNAS, filtros_columna, excepto=columna)
+    return tabla.valores(db, q, expr, buscar, contar=Producto.id)
+
+
+def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: int, size: int,
+           filtros_columna: dict | None = None) -> dict:
+    """Vista compacta de artículos: un renglón por genérico con sus datos y
+    sus tallas; se despliega para ver cada artículo."""
+    from sqlalchemy import func
+
+    from app.modulos.productos.productos import ESTADOS, fmt_codigo, rango_tallas
+
+    q = tabla.aplicar(_consulta(db, user, filtros), COLUMNAS, filtros_columna or {})
     total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
     col, _, d = (orden or "generico:asc").partition(":")
     c = ORDEN.get(col, Producto.codigo_generico)

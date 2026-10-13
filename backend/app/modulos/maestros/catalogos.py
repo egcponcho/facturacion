@@ -9,7 +9,7 @@ import csv
 import io
 import json
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -47,6 +47,7 @@ from app.modelos import (
     ValorLista,
 )
 from app.modulos.acceso.permisos import exigir, exigir_compartido
+from app.modulos.comun import tabla
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.normalizar import Referencias
 from app.modulos.comun.normalizar import nombre as nombre_fmt
@@ -655,8 +656,68 @@ def _refs(db: Session, cat: dict, objs: list) -> dict:
     return refs
 
 
+def columnas_tabla(cat: dict) -> dict:
+    """Expresión SQL de cada columna de la tabla del catálogo para el filtro por
+    columna (app/modulos/comun/tabla.py). Un campo con varios registros (multi)
+    filtra por los ids relacionados; los números, por su texto (así el valor
+    que se elige es el mismo en SQLite y en PostgreSQL); los campos propios,
+    por su dato en `extra`. La regla de lead time no se filtra."""
+    modelo = cat["modelo"]
+    res = {}
+    for x in cat["campos"]:
+        n = x["nombre"]
+        if x["tipo"] == "regla_lt":
+            continue
+        if x["tipo"] == "multi":
+            rel = getattr(modelo, n).property
+            res[n] = tabla.Relacion(rel.secondary_synchronize_pairs[0][1], rel.synchronize_pairs[0][1], modelo.id)
+        elif x["tipo"] == "numero":
+            res[n] = cast(getattr(modelo, n), String)
+        else:
+            res[n] = getattr(modelo, n)
+    for x in campos_propios(cat):
+        res[x["nombre"]] = modelo.extra[x["nombre"][6:]].as_string()
+    if modelo is Prepack:
+        # Código de artículo del prepack (el artículo que apunta a él)
+        res["sku"] = tabla.Relacion(Articulo.sku, Articulo.prepack_id, Prepack.id)
+    return res
+
+
+def valores(db: Session, user: Usuario, tipo: str, columna: str, buscar: str | None, filtros_columna: dict,
+            q: str | None = None, filtros: dict | None = None) -> list[dict]:
+    """Valores únicos de una columna del catálogo, con cuántos registros tienen
+    cada uno, bajo la búsqueda y los demás filtros (como el filtro de Excel)."""
+    cat, consulta = _consulta(db, user, tipo, q, filtros or {})
+    cols = columnas_tabla(cat)
+    expr = tabla.columna_valida(cols, columna)
+    consulta = tabla.aplicar(consulta, cols, filtros_columna, excepto=columna)
+    return tabla.valores(db, consulta, expr, buscar, contar=cat["modelo"].id)
+
+
 def listar(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dict, orden: str | None,
-           page: int, size: int) -> dict:
+           page: int, size: int, filtros_columna: dict | None = None) -> dict:
+    cat, consulta = _consulta(db, user, tipo, q, filtros)
+    modelo = cat["modelo"]
+    cols = columnas_tabla(cat)
+    consulta = tabla.aplicar(consulta, cols, filtros_columna or {})
+    nombres = {x["nombre"]: x for x in cat["campos"]}
+    col, _, direccion = (orden or "").partition(":")
+    if col in nombres and nombres[col]["tipo"] not in ("multi", "regla_lt"):
+        expr = getattr(modelo, col)
+        consulta = consulta.order_by(expr.desc() if direccion == "desc" else expr.asc(), modelo.id)
+    elif col.startswith("extra.") and col in cols:
+        consulta = consulta.order_by(cols[col].desc() if direccion == "desc" else cols[col].asc(), modelo.id)
+    else:
+        consulta = consulta.order_by(modelo.id)
+    total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
+    objs = list(db.scalars(consulta.offset((page - 1) * size).limit(size)).all())
+    refs = _refs(db, cat, objs)
+    return {"items": [_fila(cat, o, refs) for o in objs], "total": total, "page": page, "size": size}
+
+
+def _consulta(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dict):
+    """Registros del catálogo con la búsqueda y los filtros por campo de la
+    pantalla (sin los filtros por columna ni el orden)."""
     exigir(user, "catalogos.ver")
     cat = _cat(tipo)
     modelo = cat["modelo"]
@@ -676,16 +737,7 @@ def listar(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dict, 
         elif campo["tipo"] in ("ref", "entero"):
             v = int(v)
         consulta = consulta.where(getattr(modelo, k) == v)
-    col, _, direccion = (orden or "").partition(":")
-    if col in nombres and nombres[col]["tipo"] != "multi":
-        expr = getattr(modelo, col)
-        consulta = consulta.order_by(expr.desc() if direccion == "desc" else expr.asc(), modelo.id)
-    else:
-        consulta = consulta.order_by(modelo.id)
-    total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
-    objs = list(db.scalars(consulta.offset((page - 1) * size).limit(size)).all())
-    refs = _refs(db, cat, objs)
-    return {"items": [_fila(cat, o, refs) for o in objs], "total": total, "page": page, "size": size}
+    return cat, consulta
 
 
 def opciones(db: Session, user: Usuario, tipo: str) -> list[dict]:

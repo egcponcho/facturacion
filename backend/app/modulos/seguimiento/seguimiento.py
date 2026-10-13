@@ -13,10 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core import listas
+from app.core.db import plano
 from app.modelos import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
 from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro
 from app.modulos.compras import liberaciones
+from app.modulos.comun import tabla
 from app.modulos.facturacion.cantidades import facturado_por_posicion, nombre_factura
+from app.modulos.transporte import leadtimes as lt
 from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, limite_puerto
 
 ETAPAS = [
@@ -32,6 +35,75 @@ ETAPAS = [
 ]
 ORDEN = {"almacen", "grupo", "documento", "marca", "estilo", "color", "talla", "oc", "cantidad", "etapa", "fecha_xf", "fecha_tienda", "eta",
          "holgura", "embarque", "contenedor", "recolectado_en", "proveedor"}
+TODO = 100_000  # «todas las filas» al calcular sobre la lista completa
+
+
+# ---- Filtros por columna (TablaDatos) -------------------------------------------
+# Los tableros se calculan en memoria (no son una consulta SQL), así que no usan
+# tabla.aplicar: cada columna declara cómo se lee su dato en la fila (la clave o
+# una función; puede dar una lista) y se filtra con las mismas reglas de
+# app/modulos/comun/tabla.py: «es alguno de estos valores» (`__vacio__` es el
+# dato vacío) y las columnas se combinan con «y».
+def _clave_valor(v) -> str:
+    """El valor en texto, como lo manda la pantalla (JSON leído como texto)."""
+    if v is None or v == "":
+        return tabla.VACIO
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    if isinstance(v, date):
+        return v.isoformat()
+    return str(v)
+
+
+def _datos_columna(col, fila: dict) -> list:
+    v = col(fila) if callable(col) else fila.get(col)
+    vs = list(v) if isinstance(v, (list, tuple, set)) else [v]
+    return [x for x in vs if x is not None and x != ""]
+
+
+def _pasa(datos: list, elegidos: set) -> bool:
+    if not datos:
+        return tabla.VACIO in elegidos
+    return any(_clave_valor(x) in elegidos for x in datos)
+
+
+def filtrar_columnas(filas: list[dict], columnas: dict, filtros: dict | None, excepto: str | None = None) -> list[dict]:
+    """Las filas que pasan los filtros por columna (menos el de `excepto`); una
+    columna que la lista no declara se ignora."""
+    for k, vals in (filtros or {}).items():
+        if k == excepto or k not in columnas:
+            continue
+        elegidos = set(vals)
+        filas = [f for f in filas if _pasa(_datos_columna(columnas[k], f), elegidos)]
+    return filas
+
+
+def _es_numero(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def valores_columna(filas: list[dict], columnas: dict, columna: str, q: str | None, filtros: dict | None) -> list[dict]:
+    """Valores únicos de una columna con cuántas filas tienen cada uno, bajo los
+    demás filtros por columna (como el filtro de Excel); `q` busca dentro de los
+    valores sin acentos ni mayúsculas. El vacío va primero, luego en orden."""
+    col = tabla.columna_valida(columnas, columna)
+    cuenta: dict[str, dict] = {}
+    for f in filtrar_columnas(filas, columnas, filtros, excepto=columna):
+        unicos = {_clave_valor(v): v for v in _datos_columna(col, f)} or {tabla.VACIO: None}
+        for k, v in unicos.items():
+            if k in cuenta:
+                cuenta[k]["n"] += 1
+            else:
+                cuenta[k] = {"valor": v, "n": 1}
+    res = list(cuenta.values())
+    if q and q.strip():
+        buscado = plano(q.strip())
+        res = [x for x in res if x["valor"] is not None and buscado in plano(_clave_valor(x["valor"]))]
+    res.sort(key=lambda x: (x["valor"] is not None, not _es_numero(x["valor"]),
+                            x["valor"] if _es_numero(x["valor"]) else 0, _clave_valor(x["valor"])))
+    return res[:tabla.MAX_VALORES]
 
 
 
@@ -268,10 +340,61 @@ def _ordenar(items: list[dict], orden: str | None, permitidos: set) -> list[dict
 ESTADOS_EMB = [("PLANIFICADO", "Planned"), ("EN_TRANSITO", "In transit"), ("ARRIBADO", "Arrived"),
                ("ENTREGADO", "Delivered"), ("RECIBIDO", "Received")]
 ORDEN_EMB = {"embarque", "documento", "estado", "etd", "eta", "holgura", "ocs", "unidades", "modo"}
+# Columnas de la tabla de embarques que se filtran por sus valores (las demás
+# —el contenido por unidad de medida— se calculan al vuelo y no)
+COLUMNAS_EMB = {
+    "embarque": "embarque", "modo": "modo", "documento": "documento", "estado": "estado",
+    "ruta": lambda e: f"{e['puerto_origen'] or '—'} → {e['puerto_destino'] or '—'}",
+    "etd": "etd", "eta": "eta", "holgura": "riesgo", "unidades": "unidades", "ocs": "ocs",
+    "proveedores": "proveedores",
+}
 
 
 def embarques(db: Session, user: Usuario, proveedor_id: int | None = None, filtros: dict | None = None,
-              orden: str | None = None, page: int = 1, size: int = 25) -> dict:
+              orden: str | None = None, page: int = 1, size: int = 25, columnas: dict | None = None) -> dict:
+    """Embarques con sus unidades de carga; `columnas` son los filtros por
+    columna de la tabla (no cambian los indicadores ni las gráficas)."""
+    items, todas, filas = _items_embarques(db, user, proveedor_id, filtros)
+    hoy = date.today()
+    por_estado = {k: 0 for k, _ in ESTADOS_EMB}
+    for it in items:
+        por_estado[it["estado"]] = por_estado.get(it["estado"], 0) + 1
+    semanas = []
+    for n in range(8):
+        ini = hoy + timedelta(days=7 * n)
+        fin = ini + timedelta(days=6)
+        semanas.append({"desde": ini, "hasta": fin, "embarques": sum(
+            1 for it in items if it["eta"] and not it["arribado"] and ini <= it["eta"] <= fin)})
+    kpis = {
+        "embarques": len(items),
+        "unidades": sum(it["unidades"] for it in items),
+        "en_camino": sum(1 for it in items if it["estado"] == "EN_TRANSITO"),
+        "llegan_7_dias": sum(1 for it in items if not it["arribado"] and it["dias_eta"] is not None
+                             and 0 <= it["dias_eta"] <= 7),
+        "atrasados": sum(1 for it in items if it["riesgo"] == "ATRASO"),
+        "por_modo": {m: sum(1 for it in items if it["modo"] == m) for m in listas.codigos("modo_transporte")},
+        "por_unidad": _por_unidad(filas),
+    }
+    items = filtrar_columnas(items, COLUMNAS_EMB, columnas)
+    items = _ordenar(sorted(items, key=lambda x: (x["eta"] is None, x["eta"] or hoy)), orden, ORDEN_EMB)
+    return {
+        "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size,
+        "kpis": kpis, "por_estado": [{"clave": k, "nombre": n, "total": por_estado[k]} for k, n in ESTADOS_EMB],
+        "llegadas": semanas, "opciones": _opciones(todas),
+    }
+
+
+def valores_embarques(db: Session, user: Usuario, columna: str, q: str | None, columnas: dict,
+                      proveedor_id: int | None = None, filtros: dict | None = None) -> list[dict]:
+    """Valores únicos de una columna de la tabla de embarques (con los filtros de la pantalla)."""
+    tabla.columna_valida(COLUMNAS_EMB, columna)
+    items, _, _ = _items_embarques(db, user, proveedor_id, filtros)
+    return valores_columna(items, COLUMNAS_EMB, columna, q, columnas)
+
+
+def _items_embarques(db: Session, user: Usuario, proveedor_id: int | None, filtros: dict | None) -> tuple[list, list, list]:
+    """Un renglón por embarque con los filtros de la pantalla: (embarques, todas
+    las filas de mercancía, las filas que quedaron con los filtros)."""
     from app.modulos.transporte.transporte import _tipo, modalidad_embarque
 
     filtros = {k: v for k, v in (filtros or {}).items() if v not in (None, "")}
@@ -316,31 +439,7 @@ def embarques(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
             "proveedores": sorted({f["proveedor"] for f in fs}), "unidades": len(unidades),
             "detalle_unidades": unidades, "por_unidad": _por_unidad(fs),
         })
-    por_estado = {k: 0 for k, _ in ESTADOS_EMB}
-    for it in items:
-        por_estado[it["estado"]] = por_estado.get(it["estado"], 0) + 1
-    semanas = []
-    for n in range(8):
-        ini = hoy + timedelta(days=7 * n)
-        fin = ini + timedelta(days=6)
-        semanas.append({"desde": ini, "hasta": fin, "embarques": sum(
-            1 for it in items if it["eta"] and not it["arribado"] and ini <= it["eta"] <= fin)})
-    kpis = {
-        "embarques": len(items),
-        "unidades": sum(it["unidades"] for it in items),
-        "en_camino": sum(1 for it in items if it["estado"] == "EN_TRANSITO"),
-        "llegan_7_dias": sum(1 for it in items if not it["arribado"] and it["dias_eta"] is not None
-                             and 0 <= it["dias_eta"] <= 7),
-        "atrasados": sum(1 for it in items if it["riesgo"] == "ATRASO"),
-        "por_modo": {m: sum(1 for it in items if it["modo"] == m) for m in listas.codigos("modo_transporte")},
-        "por_unidad": _por_unidad(filas),
-    }
-    items = _ordenar(sorted(items, key=lambda x: (x["eta"] is None, x["eta"] or hoy)), orden, ORDEN_EMB)
-    return {
-        "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size,
-        "kpis": kpis, "por_estado": [{"clave": k, "nombre": n, "total": por_estado[k]} for k, n in ESTADOS_EMB],
-        "llegadas": semanas, "opciones": _opciones(todas),
-    }
+    return items, todas, filas
 
 
 def explosion_unidad(db: Session, user: Usuario, unidad_id: int, proveedor_id: int | None = None,
@@ -402,10 +501,53 @@ def _estado_oc(o: dict, lib) -> str:
     return "FACTURADA"
 
 
+# Columnas de la tabla de OCs que se filtran por sus valores (el avance, en % entero)
+COLUMNAS_OCS = {
+    "oc": "oc", "proveedor": "proveedor", "centro": lambda o: f"{o['sociedad']} · {o['centro']}",
+    "liberaciones": lambda o: f"{o['comercial_txt'] or '—'} · {o['liberacion_txt'] or '—'}",
+    "estado": "estado", "avance": lambda o: round(o["avance"]), "por_facturar": "por_facturar",
+    "fecha_xf": "fecha_xf", "fecha_tienda": "fecha_tienda", "tienda_estimada": "tienda_estimada",
+    "holgura": "riesgo", "embarques": "embarques",
+}
+
+
 def ordenes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros: dict | None = None,
-            orden: str | None = None, page: int = 1, size: int = 25) -> dict:
+            orden: str | None = None, page: int = 1, size: int = 25, columnas: dict | None = None) -> dict:
     """Seguimiento de las OCs: liberaciones, cuánto está por facturar, en
-    contenedor, en camino y recibido, con la holgura a la fecha en tienda."""
+    contenedor, en camino y recibido, con la holgura a la fecha en tienda.
+    `columnas` son los filtros por columna de la tabla (no cambian los
+    indicadores ni el resumen por estado)."""
+    items, todas = _items_ordenes(db, user, proveedor_id, filtros)
+    resumen = {k: 0 for k, _ in ESTADOS_OC}
+    for o in items:
+        resumen[o["estado"]] += 1
+    kpis = {
+        "ocs": len(items),
+        "liberadas": sum(1 for o in items if o["estado"] not in ("SIN_COMERCIAL", "SIN_LOGISTICA")),
+        "sin_liberar": sum(1 for o in items if o["estado"] in ("SIN_COMERCIAL", "SIN_LOGISTICA")),
+        "xf_vencida": sum(1 for o in items if o["xf_vencida"]),
+        "atraso": sum(1 for o in items if o["riesgo"] == "ATRASO"),
+        "avance": round(sum(o["total"] - o["por_facturar"] for o in items) * 100 / (sum(o["total"] for o in items) or 1), 1),
+    }
+    items = filtrar_columnas(items, COLUMNAS_OCS, columnas)
+    items = _ordenar(sorted(items, key=lambda x: x["oc"]), orden or "fecha_xf:asc", ORDEN_OCS)
+    return {
+        "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size,
+        "kpis": kpis, "estados": [{"clave": k, "nombre": n, "total": resumen[k]} for k, n in ESTADOS_OC],
+        "opciones": _opciones(todas),
+    }
+
+
+def valores_ordenes(db: Session, user: Usuario, columna: str, q: str | None, columnas: dict,
+                    proveedor_id: int | None = None, filtros: dict | None = None) -> list[dict]:
+    """Valores únicos de una columna de la tabla de OCs (con los filtros de la pantalla)."""
+    tabla.columna_valida(COLUMNAS_OCS, columna)
+    items, _ = _items_ordenes(db, user, proveedor_id, filtros)
+    return valores_columna(items, COLUMNAS_OCS, columna, q, columnas)
+
+
+def _items_ordenes(db: Session, user: Usuario, proveedor_id: int | None, filtros: dict | None) -> tuple[list, list]:
+    """Una fila por OC con los filtros de la pantalla: (OCs, todas las filas de mercancía)."""
     filtros = {k: v for k, v in (filtros or {}).items() if v not in (None, "")}
     todas = filas_seguimiento(db, user, proveedor_id)
     filas = _filtrar(todas, filtros)
@@ -455,23 +597,7 @@ def ordenes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros
             items = [o for o in items if _en(o[campo], filtros[campo])]
     if filtros.get("xf_vencida") in ("1", "true", True):
         items = [o for o in items if o["xf_vencida"]]
-    resumen = {k: 0 for k, _ in ESTADOS_OC}
-    for o in items:
-        resumen[o["estado"]] += 1
-    kpis = {
-        "ocs": len(items),
-        "liberadas": sum(1 for o in items if o["estado"] not in ("SIN_COMERCIAL", "SIN_LOGISTICA")),
-        "sin_liberar": sum(1 for o in items if o["estado"] in ("SIN_COMERCIAL", "SIN_LOGISTICA")),
-        "xf_vencida": sum(1 for o in items if o["xf_vencida"]),
-        "atraso": sum(1 for o in items if o["riesgo"] == "ATRASO"),
-        "avance": round(sum(o["total"] - o["por_facturar"] for o in items) * 100 / (sum(o["total"] for o in items) or 1), 1),
-    }
-    items = _ordenar(sorted(items, key=lambda x: x["oc"]), orden or "fecha_xf:asc", ORDEN_OCS)
-    return {
-        "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size,
-        "kpis": kpis, "estados": [{"clave": k, "nombre": n, "total": resumen[k]} for k, n in ESTADOS_OC],
-        "opciones": _opciones(todas),
-    }
+    return items, todas
 
 
 # ---- Seguimiento de facturación y empaque ------------------------------------
@@ -507,8 +633,61 @@ def _etapa_doc(f, pl, avance: float) -> str:
     return "LISTO_EMBARQUE" if f.estado == "FINALIZADA" else "POR_FINALIZAR_FACTURA"
 
 
+# Columnas de la tabla de documentos que se filtran por sus valores (el avance, en % entero)
+COLUMNAS_DOC = {
+    "factura": "factura", "proveedor": "proveedor", "centro": lambda f: f"{f['sociedad']} · {f['centro'] or '—'}",
+    "estado_factura": "estado_factura", "estado_pl": "estado_pl", "avance": lambda f: round(f["avance"]) if f["pl_id"] else None,
+    "cajas": "cajas", "pendientes": "pendientes", "etapa": "etapa", "embarque": "contenedor", "dias": "dias",
+}
+
+
 def seguimiento_documentos(db: Session, user: Usuario, proveedor_id: int | None = None, filtros: dict | None = None,
-                           orden: str | None = None, page: int = 1, size: int = 25) -> dict:
+                           orden: str | None = None, page: int = 1, size: int = 25, columnas: dict | None = None) -> dict:
+    """Una fila por packing list (o por factura sin PL) con su paso; `columnas`
+    son los filtros por columna de la tabla (no cambian los indicadores)."""
+    filas, opciones = _filas_documentos(db, user, proveedor_id, filtros)
+    resumen = {k: 0 for k, _ in ETAPAS_DOC}
+    for f in filas:
+        resumen[f["etapa"]] += 1
+    facturas = {f["factura_id"]: f for f in filas}.values()
+    kpis = {
+        "facturas": len(facturas),
+        "facturas_abiertas": sum(1 for f in facturas if f["estado_factura"] in ("BORRADOR", "EN_CORRECCION")),
+        "pls": sum(1 for f in filas if f["pl_id"]),
+        "empacando": resumen["EMPACANDO"] + resumen["POR_FINALIZAR_PL"],
+        "listos": resumen["LISTO_EMBARQUE"],
+        "con_pendientes": sum(1 for f in filas if f["pendientes"] or f["pendientes_factura"]),
+        "cajas": sum(f["cajas"] for f in filas), "pallets": sum(f["pallets"] for f in filas),
+        "peso_bruto": round(sum(f["peso_bruto"] for f in filas), 1), "cbm": round(sum(f["cbm"] for f in filas), 2),
+        "importe": {m: round(sum(f["importe"] for f in facturas if f["moneda"] == m), 2)
+                    for m in {f["moneda"] for f in facturas}},
+    }
+    filas = filtrar_columnas(filas, COLUMNAS_DOC, columnas)
+    col, _, direccion = (orden or "").partition(":")
+    if col in ORDEN_DOC:
+        indice = {k: i for i, (k, _) in enumerate(ETAPAS_DOC)}
+        clave = (lambda f: indice[f["etapa"]]) if col == "etapa" else (lambda f: (f[col] is None, f[col] or 0))
+        filas = sorted(filas, key=clave, reverse=direccion == "desc")
+    total = len(filas)
+    return {
+        "items": filas[(page - 1) * size: page * size],
+        "total": total, "page": page, "size": size,
+        "etapas": [{"clave": k, "nombre": n, "total": resumen[k]} for k, n in ETAPAS_DOC],
+        "kpis": kpis,
+        "opciones": {**opciones, "embarques": [{"id": i, "codigo": c} for i, c in opciones["embarques"]]},
+    }
+
+
+def valores_documentos(db: Session, user: Usuario, columna: str, q: str | None, columnas: dict,
+                       proveedor_id: int | None = None, filtros: dict | None = None) -> list[dict]:
+    """Valores únicos de una columna de la tabla de documentos (con los filtros de la pantalla)."""
+    tabla.columna_valida(COLUMNAS_DOC, columna)
+    filas, _ = _filas_documentos(db, user, proveedor_id, filtros)
+    return valores_columna(filas, COLUMNAS_DOC, columna, q, columnas)
+
+
+def _filas_documentos(db: Session, user: Usuario, proveedor_id: int | None, filtros: dict | None) -> tuple[list, dict]:
+    """Las filas de documentos con los filtros de la pantalla y las opciones de los filtros."""
     from app.modulos.empaque.packing import validar_pl
     from app.modulos.facturacion.cantidades import totales_pl
     from app.modulos.facturacion.estados import EDITABLE_PL
@@ -570,33 +749,32 @@ def seguimiento_documentos(db: Session, user: Usuario, proveedor_id: int | None 
         t = filtros["q"].strip().lower()
         filas = [f for f in filas if t in f["factura"].lower() or t in (f["pl"] or "").lower()
                  or any(t in oc for oc in f["ocs"]) or t in (f["contenedor"] or "").lower()]
-    resumen = {k: 0 for k, _ in ETAPAS_DOC}
-    for f in filas:
-        resumen[f["etapa"]] += 1
-    facturas = {f["factura_id"]: f for f in filas}.values()
-    kpis = {
-        "facturas": len(facturas),
-        "facturas_abiertas": sum(1 for f in facturas if f["estado_factura"] in ("BORRADOR", "EN_CORRECCION")),
-        "pls": sum(1 for f in filas if f["pl_id"]),
-        "empacando": resumen["EMPACANDO"] + resumen["POR_FINALIZAR_PL"],
-        "listos": resumen["LISTO_EMBARQUE"],
-        "con_pendientes": sum(1 for f in filas if f["pendientes"] or f["pendientes_factura"]),
-        "cajas": sum(f["cajas"] for f in filas), "pallets": sum(f["pallets"] for f in filas),
-        "peso_bruto": round(sum(f["peso_bruto"] for f in filas), 1), "cbm": round(sum(f["cbm"] for f in filas), 2),
-        "importe": {m: round(sum(f["importe"] for f in facturas if f["moneda"] == m), 2)
-                    for m in {f["moneda"] for f in facturas}},
-    }
+    return filas, opciones
 
-    col, _, direccion = (orden or "").partition(":")
-    if col in ORDEN_DOC:
-        indice = {k: i for i, (k, _) in enumerate(ETAPAS_DOC)}
-        clave = (lambda f: indice[f["etapa"]]) if col == "etapa" else (lambda f: (f[col] is None, f[col] or 0))
-        filas = sorted(filas, key=clave, reverse=direccion == "desc")
-    total = len(filas)
-    return {
-        "items": filas[(page - 1) * size: page * size],
-        "total": total, "page": page, "size": size,
-        "etapas": [{"clave": k, "nombre": n, "total": resumen[k]} for k, n in ETAPAS_DOC],
-        "kpis": kpis,
-        "opciones": {**opciones, "embarques": [{"id": i, "codigo": c} for i, c in opciones["embarques"]]},
-    }
+
+# ---- Lead times: la lista de OCs con filtros por columna ---------------------------
+# El cálculo es de transporte/leadtimes.py; aquí solo se filtra por columna la
+# lista de OCs (los indicadores y los promedios por origen no cambian).
+COLUMNAS_LT = {
+    "oc": "oc", "proveedor": "proveedor", "origen": "origen_nombre",
+    "lib": lambda i: (("a_tiempo" if i["lib_a_tiempo"] else "tarde") if i["lib_dias_antes_xf"] is not None
+                      else "vencida" if i["lib_vencida"] else "pendiente"),
+    "fecha_xf": "fecha_xf", "arribo": "arribo", "limite_puerto": "limite_puerto", "fecha_tienda": "fecha_tienda",
+    "tienda_estimada": "tienda_estimada", "holgura": "riesgo",
+}
+
+
+def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros: dict | None = None,
+              orden: str | None = None, page: int = 1, size: int = 25, columnas: dict | None = None) -> dict:
+    """Lead times por origen y la lista de OCs, paginada después de los filtros por columna."""
+    r = lt.leadtimes(db, user, proveedor_id, filtros, orden, 1, TODO)
+    items = filtrar_columnas(r["items"], COLUMNAS_LT, columnas)
+    return {**r, "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size}
+
+
+def valores_leadtimes(db: Session, user: Usuario, columna: str, q: str | None, columnas: dict,
+                      proveedor_id: int | None = None, filtros: dict | None = None) -> list[dict]:
+    """Valores únicos de una columna de la lista de OCs de lead times."""
+    tabla.columna_valida(COLUMNAS_LT, columna)
+    items = lt.leadtimes(db, user, proveedor_id, filtros, None, 1, TODO)["items"]
+    return valores_columna(items, COLUMNAS_LT, columna, q, columnas)

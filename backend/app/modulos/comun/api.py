@@ -5,7 +5,7 @@ from datetime import date
 from fastapi import APIRouter, Query
 
 from app.modulos.comun import auditoria as bitacora
-from app.modulos.comun import edicion
+from app.modulos.comun import edicion, tabla
 from app.web.rutas import Db, User
 
 router = APIRouter()
@@ -47,9 +47,29 @@ def auditoria(
     hasta: date | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
+    orden: str | None = None,
+    f: str | None = None,
 ):
-    """Bitácora general (quién hizo qué y cuándo) con filtros y paginación. Requiere administración."""
-    return bitacora.consultar(db, user, entidad, entidad_id, usuario_id, accion, desde, hasta, page, size)
+    """Bitácora general (quién hizo qué y cuándo) con filtros, filtros por columna, orden y paginación. Requiere administración."""
+    return bitacora.consultar(db, user, entidad, entidad_id, usuario_id, accion, desde, hasta, page, size, orden, tabla.leer(f))
+
+
+@router.get("/auditoria/valores")
+def auditoria_valores(
+    db: Db,
+    user: User,
+    columna: str,
+    buscar: str | None = None,
+    f: str | None = None,
+    entidad: str | None = None,
+    entidad_id: int | None = None,
+    usuario_id: int | None = None,
+    accion: str | None = None,
+    desde: date | None = None,
+    hasta: date | None = None,
+):
+    """Valores únicos de una columna de la bitácora (con cuántos cambios tienen cada uno) bajo los demás filtros. Requiere administración."""
+    return bitacora.valores(db, user, columna, buscar, tabla.leer(f), entidad, entidad_id, usuario_id, accion, desde, hasta)
 
 
 @router.get("/auditoria/opciones")

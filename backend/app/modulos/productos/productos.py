@@ -47,6 +47,7 @@ from app.modelos import (
 from app.modulos.acceso.permisos import asegurar_proveedor, exigir, proveedor_filtro, tiene
 from app.modulos.clasificacion.categorias import categorias as categorias_config
 from app.modulos.clasificacion.indice_arbol import dominios_ficha
+from app.modulos.comun import tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.historial import registrar, tocar, verificar_version
 from app.modulos.comun.texto import filtro_texto
@@ -375,13 +376,35 @@ def _tallas(db: Session, ids: list[int]) -> dict:
 
 
 ORDEN = {"estilo": Producto.estilo, "estado": Producto.estado, "actualizado": Producto.actualizado_en,
-         "codigo": Producto.codigo, "tipo": Producto.tipo}
+         "codigo": Producto.codigo, "tipo": Producto.tipo,
+         # Columnas de la tabla de productos (TablaDatos)
+         "producto": Producto.estilo, "proveedor": Proveedor.nombre, "generico": Producto.codigo_generico,
+         "color": Producto.color, "origen": Producto.pais_origen}
+
+# Columnas de la tabla de productos que se filtran por sus valores (app/modulos/comun/tabla.py).
+# El código es el aprobado o, mientras no lo hay, el sugerido (como se ve en la lista).
+COLUMNAS_PRODUCTOS = {
+    "producto": Producto.estilo, "generico": Producto.codigo_generico, "color": Producto.color,
+    "proveedor": Proveedor.nombre, "tipo": Producto.tipo, "codigo": func.coalesce(Producto.codigo, Producto.sugerido),
+    "estado": Producto.estado, "origen": Producto.pais_origen,
+}
 
 
-def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orden: str | None) -> dict:
+def _columnas_productos(db: Session, user: Usuario) -> dict:
+    """Columnas filtrables para el usuario: quien no ve la sugerencia del motor
+    filtra el código solo por el aprobado (sus valores no muestran la sugerencia)."""
+    if flujo.ve_sugerencia(db, user):
+        return COLUMNAS_PRODUCTOS
+    return {**COLUMNAS_PRODUCTOS, "codigo": Producto.codigo}
+
+
+def _consulta_productos(db: Session, user: Usuario, filtros: dict):
+    """Productos visibles para el usuario con la búsqueda, la marca, el grupo y
+    la categoría elegidos (sin la vista de estado ni los filtros por columna).
+    Devuelve la consulta y el alcance de proveedores."""
     exigir(user, "producto.ver")
     prov = proveedor_filtro(user, filtros.get("proveedor_id"))
-    base = select(Producto)
+    base = select(Producto).join(Proveedor, Proveedor.id == Producto.proveedor_id)
     if prov:
         base = base.where(Producto.proveedor_id.in_(prov))
     if filtros.get("marca_id"):
@@ -396,26 +419,51 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
             Producto.estilo.ilike(p), Producto.color.ilike(p), Producto.nombre.ilike(p), Producto.codigo_generico.ilike(p),
             Producto.codigo.ilike(p.replace(".", "")),
             Producto.id.in_(select(Articulo.producto_id).where(or_(Articulo.sku.ilike(p), Articulo.upc.ilike(p))))]))
+    return base, prov
+
+
+def _vista_estado(db: Session, user: Usuario, base, estado: str | None, prov, bloquean: set[int] | None = None):
+    """La consulta con la vista de estado de la bandeja: un estado o un grupo
+    (pendientes, borradores, aprobados, baja confianza, los que bloquean facturas)."""
+    if estado == "bloquean":
+        return base.where(Producto.id.in_(bloquean if bloquean is not None else ids_bloquean_facturas(db, prov)))
+    if estado == "pendientes":
+        return base.where(Producto.estado.in_(PENDIENTES))
+    if estado == "borradores":
+        return base.where(Producto.estado.in_(BORRADORES))
+    if estado == "aprobados":
+        return base.where(Producto.estado.in_(APROBADOS))
+    # Baja confianza: no aplica si el proveedor no ve la sugerencia
+    if estado == "baja_confianza" and flujo.ve_sugerencia(db, user):
+        return base.where(Producto.estado.in_(PENDIENTES), Producto.confianza == "low")
+    if estado:
+        return base.where(Producto.estado == estado)
+    return base
+
+
+def valores_productos(db: Session, user: Usuario, columna: str, q: str | None, por_columna: dict, filtros: dict) -> list[dict]:
+    """Valores únicos de una columna de la tabla de productos bajo los demás filtros."""
+    columnas = _columnas_productos(db, user)
+    expr = tabla.columna_valida(columnas, columna)
+    base, prov = _consulta_productos(db, user, filtros)
+    consulta = tabla.aplicar(_vista_estado(db, user, base, filtros.get("estado"), prov), columnas, por_columna, excepto=columna)
+    return tabla.valores(db, consulta, expr, q, contar=Producto.id)
+
+
+def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orden: str | None,
+           por_columna: dict | None = None) -> dict:
+    """Productos de la página con sus indicadores por estado; `por_columna` son
+    los filtros por columna de la tabla ({columna: [valores]})."""
+    base, prov = _consulta_productos(db, user, filtros)
+    base = tabla.aplicar(base, _columnas_productos(db, user), por_columna or {})
     # Indicadores por estado con los mismos filtros (menos el de estado)
     sub = base.subquery()
     conteo = {e: n for e, n in db.execute(select(sub.c.estado, func.count()).group_by(sub.c.estado)).all()}
     # Baja confianza legal: lo que el especialista debe mirar primero (no aplica si el proveedor no ve la sugerencia)
     baja = (db.scalar(select(func.count()).where(sub.c.estado.in_(PENDIENTES), sub.c.confianza == "low"))
             if flujo.ve_sugerencia(db, user) else None)
-    estado = filtros.get("estado")
     bloquean = ids_bloquean_facturas(db, prov)
-    if estado == "bloquean":
-        base = base.where(Producto.id.in_(bloquean))
-    elif estado == "pendientes":
-        base = base.where(Producto.estado.in_(PENDIENTES))
-    elif estado == "borradores":
-        base = base.where(Producto.estado.in_(BORRADORES))
-    elif estado == "aprobados":
-        base = base.where(Producto.estado.in_(APROBADOS))
-    elif estado == "baja_confianza" and baja is not None:
-        base = base.where(Producto.estado.in_(PENDIENTES), Producto.confianza == "low")
-    elif estado:
-        base = base.where(Producto.estado == estado)
+    base = _vista_estado(db, user, base, filtros.get("estado"), prov, bloquean)
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
     col, _, direccion = (orden or "actualizado:desc").partition(":")
     campo = ORDEN.get(col, Producto.actualizado_en)
@@ -1191,11 +1239,13 @@ def exportar_ficha(db: Session, user: Usuario, producto_id: int, formato: str = 
     return documentos.pdf_ficha_producto(d), nombre
 
 
-def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None, formato: str) -> bytes:
+def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None, formato: str,
+                   por_columna: dict | None = None) -> bytes:
     """Reporte de productos con su composición, descripción aduanal y el
-    código nacional guardado para cada país destino."""
+    código nacional guardado para cada país destino (con los filtros de la
+    lista, también los de cada columna)."""
     from app.modulos.documentos import documentos, exportar
-    r = listar(db, user, filtros, 1, 100_000, orden)
+    r = listar(db, user, filtros, 1, 100_000, orden, por_columna)
     k = r["kpis"]
     indicadores = [("Products", f"{k['total']:,}"), ("Drafts", f"{k['borradores']:,}"), ("In review", f"{k['revision']:,}"),
                    ("Returned", f"{k['observado']:,}"), ("Approved", f"{k['aprobados']:,}")]
@@ -1212,8 +1262,12 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
     def codigos(p: Producto | None) -> dict:
         return {x.pais: fmt_codigo(x.codigo) for x in (p.partidas if p else []) if x.codigo}
 
-    nombres = {"q": "Search", "estado": "Status", "tipo": "Type", "proveedor_id": "Supplier", "marca_id": "Brand"}
-    texto = " · ".join(f"{nombres.get(c, c)}: {v}" for c, v in filtros.items() if v not in (None, ""))
+    nombres = {"q": "Search", "estado": "Status", "tipo": "Type", "proveedor_id": "Supplier", "marca_id": "Brand",
+               "producto": "Style", "generico": "Generic", "color": "Color", "proveedor": "Supplier", "codigo": "HS code",
+               "origen": "Origin"}
+    de_columnas = [(c, ", ".join("—" if x == tabla.VACIO else x for x in v))
+                   for c, v in (por_columna or {}).items() if c in COLUMNAS_PRODUCTOS]
+    texto = " · ".join(f"{nombres.get(c, c)}: {v}" for c, v in [*filtros.items(), *de_columnas] if v not in (None, ""))
     texto = f"Filters: {texto}" if texto else "No filters"
     titulo, sub = "Products and tariff classification", "Technical sheets, composition, HS codes and national codes by destination"
     if formato == "pdf":

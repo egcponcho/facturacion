@@ -11,15 +11,16 @@ import Icono from '@/componentes/Icono.vue'
 import PanelLateral from '@/componentes/PanelLateral.vue'
 import Pasos from '@/componentes/Pasos.vue'
 import Requisitos from '@/componentes/Requisitos.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
+import { estado as leerEstado } from '@/nucleo/estados.js'
 
 // Resumen de una factura en el panel lateral: cifras, en qué paso va, cuánto
 // está en packing list, empacado y cargado, qué le falta, sus packing lists,
-// las primeras líneas y la actividad reciente.
+// sus líneas (tabla común, de 10 en 10) y la actividad reciente.
 const props = defineProps({ id: { type: Number, required: true } })
 const emit = defineEmits(['cerrar'])
 const f = ref(null)
 const actividad = ref([])
-const LINEAS = 5
 const EN_CAMINO = ['EN_TRANSITO', 'ARRIBADO', 'ENTREGADO', 'RECIBIDO']
 
 watch(() => props.id, async (id) => {
@@ -67,6 +68,24 @@ const pasos = computed(() => {
   ]
 })
 
+// Packing lists y líneas en la tabla común (modo local, sin vistas guardadas:
+// es un resumen dentro del panel)
+const columnasPls = [
+  { clave: 'numero', texto: 'PL', fija: true, prioridad: 1, valor: (pl) => pl.numero },
+  { clave: 'estado', texto: t('Status'), prioridad: 3, inicial: false, textoValor: (v) => tx(leerEstado(v)[0]) },
+  { clave: 'cajas', texto: t('Cartons'), num: true, prioridad: 2, valor: (pl) => pl.totales?.cajas || 0 },
+  { clave: 'kg', texto: 'kg', num: true, prioridad: 3, valor: (pl) => pl.totales?.peso_bruto || 0, textoValor: (v) => fmtNum(v, 1) },
+  { clave: 'cbm', texto: 'm³', num: true, prioridad: 3, valor: (pl) => pl.totales?.cbm || 0, textoValor: (v) => fmtNum(v, 2) },
+  { clave: 'unidad', texto: t('Load unit'), prioridad: 2, valor: (pl) => pl.transporte?.unidad || null },
+]
+const columnasLineas = [
+  { clave: 'articulo', texto: t('Item'), fija: true, prioridad: 1, valor: (l) => [l.estilo, l.color, l.talla].filter(Boolean).join(' · ') },
+  { clave: 'oc', texto: t('PO'), prioridad: 3, inicial: false, valor: (l) => l.oc_numero },
+  { clave: 'partida', texto: t('HS code'), prioridad: 3, inicial: false, valor: (l) => l.partida_arancelaria || null },
+  { clave: 'cantidad', texto: t('Qty.'), num: true, prioridad: 1 },
+  { clave: 'importe', texto: t('Total'), num: true, grupo: 'precios', prioridad: 2 },
+]
+
 const descargar = (formato) => api.descargar(`/facturas/${props.id}/exportar?formato=${formato}`, `invoice.${formato}`).catch(errorApi)
 </script>
 
@@ -111,41 +130,31 @@ const descargar = (formato) => api.descargar(`/facturas/${props.id}/exportar?for
       <section class="pl-seccion">
         <h3 class="resumen-titulo">{{ t('Packing lists') }}</h3>
         <p v-if="!pls.length" class="ayuda">{{ t('No packing list') }}</p>
-        <table v-else class="pl-tabla">
-          <thead><tr><th>PL</th><th class="num">{{ t('Cartons') }}</th><th class="num">kg</th><th class="num">m³</th><th>{{ t('Load unit') }}</th></tr></thead>
-          <tbody>
-            <tr v-for="pl in pls" :key="pl.id">
-              <td><router-link :to="`/packing-lists/${pl.id}`">{{ tx(pl.numero) }}</router-link><div><EstadoBadge :estado="pl.estado" /></div></td>
-              <td class="num">{{ fmtNum(pl.totales?.cajas || 0) }}</td>
-              <td class="num">{{ fmtNum(pl.totales?.peso_bruto || 0, 1) }}</td>
-              <td class="num">{{ fmtNum(pl.totales?.cbm || 0, 2) }}</td>
-              <td>
-                <template v-if="pl.transporte">
-                  <b>{{ tx(pl.transporte.unidad) }}</b>
-                  <div class="ayuda">{{ tx(pl.transporte.embarque) }}<template v-if="pl.transporte.eta"> · ETA {{ fmtFecha(pl.transporte.arribo_real || pl.transporte.eta) }}</template></div>
-                </template>
-                <span v-else class="ayuda">{{ t('Not assigned') }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <TablaDatos v-else tabla="factura_resumen_pls" :columnas="columnasPls" :filas="pls" :vistas-guardadas="false" :por-pagina="10" :etiqueta="t('Packing lists')">
+          <template #celda-numero="{ fila: pl }"><router-link :to="`/packing-lists/${pl.id}`">{{ tx(pl.numero) }}</router-link><div><EstadoBadge :estado="pl.estado" /></div></template>
+          <template #celda-estado="{ fila: pl }"><EstadoBadge :estado="pl.estado" /></template>
+          <template #celda-cajas="{ fila: pl }">{{ fmtNum(pl.totales?.cajas || 0) }}</template>
+          <template #celda-kg="{ fila: pl }">{{ fmtNum(pl.totales?.peso_bruto || 0, 1) }}</template>
+          <template #celda-cbm="{ fila: pl }">{{ fmtNum(pl.totales?.cbm || 0, 2) }}</template>
+          <template #celda-unidad="{ fila: pl }">
+            <template v-if="pl.transporte">
+              <b>{{ tx(pl.transporte.unidad) }}</b>
+              <div class="ayuda">{{ tx(pl.transporte.embarque) }}<template v-if="pl.transporte.eta"> · ETA {{ fmtFecha(pl.transporte.arribo_real || pl.transporte.eta) }}</template></div>
+            </template>
+            <span v-else class="ayuda">{{ t('Not assigned') }}</span>
+          </template>
+        </TablaDatos>
       </section>
 
       <section class="pl-seccion">
-        <div class="pl-seccion-cabeza">
-          <h3 class="resumen-titulo">{{ t('Lines') }}</h3>
-          <router-link v-if="f.lineas.length > LINEAS" class="ayuda" :to="`/facturas/${props.id}`">{{ t('See all {0}', [f.lineas.length]) }}</router-link>
-        </div>
-        <table class="pl-tabla">
-          <thead><tr><th>{{ t('Item') }}</th><th class="num">{{ t('Qty.') }}</th><th v-if="ve('precios')" class="num">{{ t('Total') }}</th></tr></thead>
-          <tbody>
-            <tr v-for="l in f.lineas.slice(0, LINEAS)" :key="l.id">
-              <td><b>{{ tx(l.estilo) }}</b> · {{ tx(l.color) }} · {{ tx(l.talla) }}<div class="ayuda">{{ t('PO') }} {{ tx(l.oc_numero) }} · {{ tx(l.partida_arancelaria || t('No HS code')) }}</div></td>
-              <td class="num">{{ fmtNum(l.cantidad) }} {{ unidadTxt(l.unidad, l.cantidad) }}</td>
-              <td v-if="ve('precios')" class="num">{{ fmtMoneda(l.importe, f.moneda) }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <h3 class="resumen-titulo">{{ t('Lines') }}</h3>
+        <TablaDatos tabla="factura_resumen_lineas" :columnas="columnasLineas" :filas="f.lineas" :vistas-guardadas="false" :por-pagina="10" :etiqueta="t('Lines')">
+          <template #celda-articulo="{ fila: l }"><b>{{ tx(l.estilo) }}</b> · {{ tx(l.color) }} · {{ tx(l.talla) }}<div class="ayuda">{{ t('PO') }} {{ tx(l.oc_numero) }} · {{ tx(l.partida_arancelaria || t('No HS code')) }}</div></template>
+          <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }}</span></template>
+          <template #celda-partida="{ fila: l }"><span class="codigo-sac">{{ tx(l.partida_arancelaria || '—') }}</span></template>
+          <template #celda-cantidad="{ fila: l }">{{ fmtNum(l.cantidad) }} {{ unidadTxt(l.unidad, l.cantidad) }}</template>
+          <template #celda-importe="{ fila: l }">{{ fmtMoneda(l.importe, f.moneda) }}</template>
+        </TablaDatos>
       </section>
 
       <section class="pl-seccion pl-partes">

@@ -15,11 +15,10 @@ import { useEdicion } from '@/composables/useEdicion'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import TarjetaParte from '@/componentes/TarjetaParte.vue'
-import ThOrden from '@/componentes/ThOrden.vue'
 import { datosModo, iconoUnidad, useRutas } from '@/composables/useRutas'
-import { useTabla } from '@/composables/useTabla'
-import Paginacion from '@/componentes/Paginacion.vue'
+import { estado as leerEstado } from '@/nucleo/estados.js'
 import { sesion } from '@/stores/sesion'
 import { avisar, errorApi, guardando } from '@/stores/ui'
 import { ACCIONES, eventosEmbarque, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtNum, plural, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
@@ -36,7 +35,6 @@ const disponibles = ref([])
 const filtros = reactive({ q: '' })
 const selA = useSeleccion()
 const selD = useSeleccion()
-const abiertas = reactive(new Set())
 const modal = ref(null)
 const cajon = ref(false)
 const ocupado = ref(false)
@@ -196,7 +194,76 @@ function eliminarUnidad() {
 // ---- Carga del contenedor --------------------------------------------------
 const todosDisponibles = computed(() => disponibles.value.flatMap((g) => g.packing_lists))
 const suma = (pls) => pls.reduce((a, p) => ({ cajas: a.cajas + p.cajas, cbm: a.cbm + p.cbm, kg: a.kg + p.peso_bruto }), { cajas: 0, cbm: 0, kg: 0 })
-const tablaA = useTabla(computed(() => u.value?.asignados || []), { porPagina: 50, valores: { contenido: (p) => p.cajas } })
+// Carga de la unidad y lo disponible para asignar, en la tabla común (modo local)
+const textoEstado = (v) => tx(leerEstado(v)[0])
+const columnasCarga = [
+  { clave: 'factura', texto: t('Invoice'), fija: true, prioridad: 1 },
+  { clave: 'numero', texto: t('Packing list'), prioridad: 1 },
+  { clave: 'proveedor', texto: t('Supplier · brands'), prioridad: 2 },
+  { clave: 'asignacion', texto: t('Assignment'), prioridad: 2, textoValor: textoEstado },
+  { clave: 'fecha_xf', texto: 'XF', prioridad: 3, textoValor: (v) => fmtFecha(v) },
+  { clave: 'recolectado_en', texto: t('Pickup'), prioridad: 3, valor: (p) => p.recolectado_en?.slice(0, 10) || null, textoValor: (v) => fmtFecha(v) },
+  { clave: 'fecha_tienda', texto: t('In store'), prioridad: 3, textoValor: (v) => fmtFecha(v) },
+  { clave: 'contenido', texto: t('Contents'), prioridad: 3, valor: (p) => porUnidadTxt(p.por_unidad, 'cantidad') },
+  { clave: 'cajas', texto: t('Cartons'), num: true, prioridad: 2 },
+  { clave: 'peso_bruto', texto: t('Gross kg'), num: true, prioridad: 3, textoValor: (v) => fmtNum(v, 1) },
+  { clave: 'cbm', texto: 'm³', num: true, prioridad: 2, textoValor: (v) => fmtNum(v, 2) },
+]
+const tablaCarga = ref(null)
+// La casilla del encabezado elige la página; «Select all assigned» toma todas
+// las que pasan los filtros de columna
+const idsCarga = computed(() => pasanColumnas(u.value?.asignados || [], columnasCarga, tablaCarga.value?.filtros).map((p) => p.id))
+const columnasDisponibles = [
+  { clave: 'factura', texto: t('Invoice'), fija: true, prioridad: 1 },
+  { clave: 'proveedor', texto: t('Supplier'), prioridad: 2 },
+  { clave: 'factura_estado', texto: t('Status'), prioridad: 3, inicial: false, textoValor: textoEstado },
+  { clave: 'pls', texto: t('Packing lists'), prioridad: 2, valor: (g) => g.packing_lists.length, textoValor: (v) => plural(v, 'PL', t('PLs')) },
+  { clave: 'cajas', texto: t('Cartons'), num: true, prioridad: 2 },
+  { clave: 'cbm', texto: 'm³', num: true, prioridad: 2, textoValor: (v) => fmtNum(v, 2) },
+]
+const columnasPlsDisponibles = [
+  { clave: 'numero', texto: t('Packing list'), fija: true, prioridad: 1 },
+  { clave: 'estado', texto: t('Status'), prioridad: 2, textoValor: textoEstado },
+  { clave: 'contenido', texto: t('Contents'), prioridad: 2, valor: (p) => porUnidadTxt(p.por_unidad, 'cantidad') },
+  { clave: 'cajas', texto: t('Cartons'), num: true, prioridad: 2 },
+  { clave: 'cbm', texto: 'm³', num: true, prioridad: 2, textoValor: (v) => fmtNum(v, 2) },
+]
+// La selección de TablaDatos es una lista de claves; aquí vive en un Set (useSeleccion).
+// En lo disponible, marcar una factura toma todas sus packing lists.
+function elegir(s, ids) {
+  s.limpiar()
+  ids.forEach((id) => s.ids.add(id))
+}
+const idsPls = (g) => g.packing_lists.map((p) => p.id)
+const facturasElegidas = computed(() => disponibles.value.filter((g) => selD.todos(idsPls(g))).map((g) => g.factura_id))
+function elegirFacturas(ids) {
+  const nuevas = new Set(ids)
+  for (const g of disponibles.value) {
+    if (nuevas.has(g.factura_id)) idsPls(g).forEach((id) => selD.ids.add(id))
+    else if (selD.todos(idsPls(g))) idsPls(g).forEach((id) => selD.ids.delete(id))
+  }
+}
+function elegirPls(g, ids) {
+  const nuevas = new Set(ids)
+  for (const id of idsPls(g)) {
+    if (nuevas.has(id)) selD.ids.add(id)
+    else selD.ids.delete(id)
+  }
+}
+// Filas que dejan pasar los filtros de columna de una TablaDatos (los mismos que
+// aplica ella), para seleccionar todas las filtradas y no solo las de la página
+function pasanColumnas(filas, columnas, filtros) {
+  const activos = Object.entries(filtros || {}).filter(([, v]) => v?.length)
+  if (!activos.length) return filas
+  const clave = (x) => (x === null || x === undefined || x === '' ? '__vacio__' : String(x))
+  return filas.filter((f) => activos.every(([k, vals]) => {
+    const c = columnas.find((x) => x.clave === k)
+    if (!c) return true
+    const v = c.valor ? c.valor(f) : f[k]
+    const vs = Array.isArray(v) ? v : clave(v) === '__vacio__' ? [] : [v]
+    return vs.length ? vs.some((x) => vals.includes(clave(x))) : vals.includes('__vacio__')
+  }))
+}
 const selAsignados = computed(() => (u.value?.asignados || []).filter((p) => selA.tiene(p.id)))
 const selDisponibles = computed(() => todosDisponibles.value.filter((p) => selD.tiene(p.id)))
 const totSelA = computed(() => suma(selAsignados.value))
@@ -256,10 +323,6 @@ function mover() {
   const { destino, motivo } = modal.value
   ejecutar(() => api.post(`/unidades/${destino}/asignar`, { pl_ids: selA.lista(), motivo: motivo || null }),
     t('Packing lists moved to the other load unit.'))
-}
-function alternarAbierta(id) {
-  if (abiertas.has(id)) abiertas.delete(id)
-  else abiertas.add(id)
 }
 let espera
 function buscar() {
@@ -426,63 +489,37 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
             <button class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />{{ t('Assign cargo') }}</button>
           </template>
         </div>
-        <div class="tabla-marco mt-chico sin-sombra">
-          <table class="tabla" v-tarjetas>
-            <thead>
-              <tr>
-                <th v-if="!bloqueado" class="chk"><input type="checkbox" :aria-label="t('Select all assigned')" :checked="selA.todos(u.asignados.map((p) => p.id))" @change="selA.alternarTodos(u.asignados.map((p) => p.id))" /></th>
-                <ThOrden campo="factura" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Invoice') }}</ThOrden>
-                <ThOrden campo="numero" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Packing list') }}</ThOrden>
-                <ThOrden campo="proveedor" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Supplier · brands') }}</ThOrden>
-                <ThOrden campo="asignacion" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Assignment') }}</ThOrden>
-                <ThOrden campo="fecha_xf" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">XF</ThOrden>
-                <ThOrden campo="recolectado_en" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('Pickup') }}</ThOrden>
-                <ThOrden campo="fecha_tienda" :orden="tablaA.estado.orden" @ordenar="tablaA.ordenar">{{ t('In store') }}</ThOrden>
-                <th>{{ t('Contents') }}</th>
-                <ThOrden campo="cajas" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">{{ t('Cartons') }}</ThOrden>
-                <ThOrden campo="peso_bruto" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">{{ t('Gross kg') }}</ThOrden>
-                <ThOrden campo="cbm" :orden="tablaA.estado.orden" num @ordenar="tablaA.ordenar">m³</ThOrden>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="p in tablaA.filas.value" :key="p.id" :class="{ seleccionada: selA.tiene(p.id) }">
-                <td v-if="!bloqueado" class="chk"><input type="checkbox" :aria-label="t('Select {0} {1}', [p.factura, p.numero])" :checked="selA.tiene(p.id)" @change="selA.alternar(p.id)" /></td>
-                <td><router-link :to="`/facturas/${p.factura_id}`" class="enlace-doc"><strong class="codigo">{{ tx(p.factura) }}</strong></router-link><span class="sub codigo">{{ tx(p.ocs?.join(', ')) }}</span></td>
-                <td><router-link :to="`/packing-lists/${p.id}`" class="enlace codigo">{{ tx(p.numero) }}</router-link> <EstadoBadge :estado="p.estado" /></td>
-                <td>{{ tx(p.proveedor) }}<span v-if="p.marcas?.length" class="sub">{{ tx(p.marcas.join(' · ')) }}</span></td>
-                <td>
-                  <EstadoBadge :estado="p.asignacion" />
-                  <span v-if="!p.puede_confirmar" class="sub">{{ tx(p.motivo_no_confirmable) }}</span>
-                </td>
-                <td>{{ fmtFecha(p.fecha_xf) }}</td>
-                <td>
-                  <template v-if="p.recolectado_en">
-                    {{ fmtFecha(p.recolectado_en) }}
-                    <span v-if="p.fecha_xf && p.recolectado_en > p.fecha_xf" class="sub texto-error">{{ t('after the XF') }}</span>
-                  </template>
-                  <span v-else class="etiqueta aviso ms-0">{{ t('Pending') }}</span>
-                </td>
-                <td>{{ fmtFecha(p.fecha_tienda) }}</td>
-                <td>{{ porUnidadTxt(p.por_unidad, 'cantidad') }}</td>
-                <td class="num">{{ fmtNum(p.cajas) }}</td>
-                <td class="num">{{ fmtNum(p.peso_bruto, 1) }}</td>
-                <td class="num">{{ fmtNum(p.cbm, 2) }}</td>
-              </tr>
-              <tr v-if="!u.asignados.length">
-                <td colspan="12" class="vacio">
-                  <Icono nombre="contenedor" :tam="28" />
-                  <p>{{ t('The load unit is empty.') }}</p>
-                  <button v-if="!bloqueado" class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />{{ t('Assign cargo') }}</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <!-- Una unidad puede llevar más de 50 listas de empaque: ninguna queda fuera de la vista -->
-        <Paginacion v-if="tablaA.total.value > tablaA.estado.porPagina" :page="tablaA.estado.pagina" :size="tablaA.estado.porPagina" :total="tablaA.total.value"
-                    @cambiar="(p) => (tablaA.estado.pagina = p)" @tamano="(n) => (tablaA.estado.porPagina = n)" />
+        <TablaDatos ref="tablaCarga" class="mt-chico" tabla="embarque_doc_carga" :columnas="columnasCarga" :filas="u.asignados" :vistas-guardadas="false" :por-pagina="50"
+                    :seleccionable="!bloqueado" :seleccion="[...selA.ids]" :etiqueta="t('Cargo of {0}', [u.nombre])" @update:seleccion="(ids) => elegir(selA, ids)">
+          <template #celda-factura="{ fila: p }"><router-link :to="`/facturas/${p.factura_id}`" class="enlace-doc"><strong class="codigo">{{ tx(p.factura) }}</strong></router-link><span class="sub codigo">{{ tx(p.ocs?.join(', ')) }}</span></template>
+          <template #celda-numero="{ fila: p }"><router-link :to="`/packing-lists/${p.id}`" class="enlace codigo">{{ tx(p.numero) }}</router-link> <EstadoBadge :estado="p.estado" /></template>
+          <template #celda-proveedor="{ fila: p }">{{ tx(p.proveedor) }}<span v-if="p.marcas?.length" class="sub">{{ tx(p.marcas.join(' · ')) }}</span></template>
+          <template #celda-asignacion="{ fila: p }">
+            <EstadoBadge :estado="p.asignacion" />
+            <span v-if="!p.puede_confirmar" class="sub">{{ tx(p.motivo_no_confirmable) }}</span>
+          </template>
+          <template #celda-fecha_xf="{ fila: p }">{{ fmtFecha(p.fecha_xf) }}</template>
+          <template #celda-recolectado_en="{ fila: p }">
+            <template v-if="p.recolectado_en">
+              {{ fmtFecha(p.recolectado_en) }}
+              <span v-if="p.fecha_xf && p.recolectado_en > p.fecha_xf" class="sub texto-error">{{ t('after the XF') }}</span>
+            </template>
+            <span v-else class="etiqueta aviso ms-0">{{ t('Pending') }}</span>
+          </template>
+          <template #celda-fecha_tienda="{ fila: p }">{{ fmtFecha(p.fecha_tienda) }}</template>
+          <template #celda-contenido="{ fila: p }">{{ porUnidadTxt(p.por_unidad, 'cantidad') }}</template>
+          <template #celda-cajas="{ fila: p }">{{ fmtNum(p.cajas) }}</template>
+          <template #celda-peso_bruto="{ fila: p }">{{ fmtNum(p.peso_bruto, 1) }}</template>
+          <template #celda-cbm="{ fila: p }">{{ fmtNum(p.cbm, 2) }}</template>
+          <template #vacio>
+            <Icono nombre="contenedor" :tam="28" />
+            <p>{{ t('The load unit is empty.') }}</p>
+            <button v-if="!bloqueado" class="btn btn-primario" @click="abrirCajon"><Icono nombre="mas" />{{ t('Assign cargo') }}</button>
+          </template>
+        </TablaDatos>
         <BarraSeleccion :cantidad="selA.ids.size" :singular="t('PL selected')" :plural="t('PLs selected')" @limpiar="selA.limpiar()">
           <template #resumen>{{ t('{0} cartons · {1} m³', [fmtNum(totSelA.cajas), fmtNum(totSelA.cbm, 2)]) }}</template>
+          <button v-if="!selA.todos(idsCarga)" class="btn-texto" @click="selA.alternarTodos(idsCarga)">{{ t('Select all assigned') }} ({{ fmtNum(idsCarga.length) }})</button>
           <button class="btn" :disabled="ocupado || selAsignados.some((p) => p.estado !== 'FINALIZADO')" :title="t('Finalized packing lists only')" @click="abrirRecoleccion"><Icono nombre="camion" :tam="15" />{{ t('Mark picked up') }}</button>
           <button v-if="selAsignados.some((p) => p.recolectado_en)" class="btn" :disabled="ocupado" @click="recolectar(null)">{{ t('Remove pickup') }}</button>
           <button class="btn" :disabled="!u.otras_unidades.length" @click="modal = { tipo: 'mover', destino: u.otras_unidades[0]?.id, motivo: '' }"><Icono nombre="mover" :tam="15" />{{ t('Move to another unit') }}</button>
@@ -545,53 +582,34 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
       <button class="btn-icono" type="button" :aria-label="t('Close')" @click="cajon = false"><Icono nombre="cerrar" :tam="20" /></button>
     </div>
     <div class="cajon-cuerpo">
-      <div class="filtros" v-filtros>
-        <label class="buscador">
-          <Icono nombre="buscar" :tam="16" />
-          <input v-model="filtros.q" type="search" :placeholder="t('Search invoice number')" :aria-label="t('Search invoice')" @input="buscar" />
-        </label>
-      </div>
-      <div class="tabla-marco sin-sombra">
-        <table class="tabla" v-tarjetas>
-          <thead>
-            <tr>
-              <th class="chk"><input type="checkbox" :aria-label="t('Select everything available')" :checked="selD.todos(todosDisponibles.map((p) => p.id))" @change="selD.alternarTodos(todosDisponibles.map((p) => p.id))" /></th>
-              <th><span class="oculto-visual">{{ t('See PLs') }}</span></th>
-              <th>{{ t('Invoice') }}</th>
-              <th>{{ t('Packing lists') }}</th>
-              <th class="num">{{ t('Cartons') }}</th>
-              <th class="num">m³</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="g in disponibles" :key="g.factura_id">
-              <tr :class="{ seleccionada: selD.todos(g.packing_lists.map((p) => p.id)) }">
-                <td class="chk">
-                  <input type="checkbox" :aria-label="t('Select the whole invoice {0}', [g.factura])" :checked="selD.todos(g.packing_lists.map((p) => p.id))" @change="selD.alternarTodos(g.packing_lists.map((p) => p.id))" />
-                </td>
-                <td><button class="btn-icono" :aria-expanded="abiertas.has(g.factura_id)" :aria-label="t('See the PLs of {0}', [g.factura])" @click="alternarAbierta(g.factura_id)"><Icono :nombre="abiertas.has(g.factura_id) ? 'abajo' : 'derecha'" :tam="16" /></button></td>
-                <td><b>{{ tx(g.factura) }}</b> <EstadoBadge :estado="g.factura_estado" /><span class="sub">{{ tx(g.proveedor) }}</span></td>
-                <td>
-                  {{ plural(g.packing_lists.length, 'PL', t('PLs')) }}
-                </td>
-                <td class="num">{{ fmtNum(g.cajas) }}</td>
-                <td class="num">{{ fmtNum(g.cbm, 2) }}</td>
-              </tr>
-              <template v-if="abiertas.has(g.factura_id)">
-                <tr v-for="p in g.packing_lists" :key="p.id" :class="{ seleccionada: selD.tiene(p.id) }">
-                  <td></td>
-                  <td class="chk"><input type="checkbox" :aria-label="t('Select {0}', [p.numero])" :checked="selD.tiene(p.id)" @change="selD.alternar(p.id)" /></td>
-                  <td><span class="cajas-rango">{{ tx(p.numero) }}</span> <EstadoBadge :estado="p.estado" /></td>
-                  <td>{{ porUnidadTxt(p.por_unidad, 'cantidad') }}</td>
-                  <td class="num">{{ fmtNum(p.cajas) }}</td>
-                  <td class="num">{{ fmtNum(p.cbm, 2) }}</td>
-                </tr>
-              </template>
-            </template>
-            <tr v-if="!disponibles.length"><td colspan="6" class="vacio">{{ t('No finalized packing lists without a load unit match these filters.') }}</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <TablaDatos tabla="embarque_doc_disponibles" :columnas="columnasDisponibles" :filas="disponibles" clave-fila="factura_id" :vistas-guardadas="false"
+                  expandible seleccionable :seleccion="facturasElegidas" :etiqueta="t('Assign cargo')" @update:seleccion="elegirFacturas">
+        <template #barra>
+          <label class="buscador">
+            <Icono nombre="buscar" :tam="16" />
+            <input v-model="filtros.q" type="search" :placeholder="t('Search invoice number')" :aria-label="t('Search invoice')" @input="buscar" />
+          </label>
+        </template>
+        <template #celda-factura="{ fila: g }"><b>{{ tx(g.factura) }}</b> <EstadoBadge :estado="g.factura_estado" /></template>
+        <template #celda-factura_estado="{ fila: g }"><EstadoBadge :estado="g.factura_estado" /></template>
+        <template #celda-pls="{ fila: g }">{{ plural(g.packing_lists.length, 'PL', t('PLs')) }}</template>
+        <template #celda-cajas="{ fila: g }">{{ fmtNum(g.cajas) }}</template>
+        <template #celda-cbm="{ fila: g }">{{ fmtNum(g.cbm, 2) }}</template>
+        <template #detalle="{ fila: g }">
+          <div class="subtabla">
+            <TablaDatos tabla="embarque_doc_disponibles_pls" :columnas="columnasPlsDisponibles" :filas="g.packing_lists" :vistas-guardadas="false"
+                        seleccionable :seleccion="idsPls(g).filter((id) => selD.tiene(id))" :etiqueta="t('See the PLs of {0}', [g.factura])"
+                        @update:seleccion="(ids) => elegirPls(g, ids)">
+              <template #celda-numero="{ fila: p }"><span class="cajas-rango">{{ tx(p.numero) }}</span></template>
+              <template #celda-estado="{ fila: p }"><EstadoBadge :estado="p.estado" /></template>
+              <template #celda-contenido="{ fila: p }">{{ porUnidadTxt(p.por_unidad, 'cantidad') }}</template>
+              <template #celda-cajas="{ fila: p }">{{ fmtNum(p.cajas) }}</template>
+              <template #celda-cbm="{ fila: p }">{{ fmtNum(p.cbm, 2) }}</template>
+            </TablaDatos>
+          </div>
+        </template>
+        <template #vacio>{{ t('No finalized packing lists without a load unit match these filters.') }}</template>
+      </TablaDatos>
     </div>
     <div class="cajon-pie">
       <div v-if="proyeccion && selD.ids.size" class="linea-avance">

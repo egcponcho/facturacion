@@ -15,15 +15,11 @@ import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
 import TarjetaParte from '@/componentes/TarjetaParte.vue'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
-import Paginacion from '@/componentes/Paginacion.vue'
 import Pasos from '@/componentes/Pasos.vue'
-import ThOrden from '@/componentes/ThOrden.vue'
-import { useTabla } from '@/composables/useTabla'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import { camposPropios, elegirProveedor, esInterno, valorPropio, ve } from '@/stores/sesion'
-import { useColumnas } from '@/composables/useColumnas'
-import SelectorColumnas from '@/componentes/SelectorColumnas.vue'
 import { avisar, errorApi, guardando, textoDetalle } from '@/stores/ui'
-import { filasDefecto } from '@/stores/preferencias'
+import { estado as leerEstado } from '@/nucleo/estados.js'
 import {
   ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtMoneda, fmtNum, pct, plural, porUnidadTxt, useSeleccion,
 } from '@/nucleo/utils'
@@ -52,8 +48,44 @@ const lineasFiltradas = computed(() => {
   if (!f.value) return []
   return filtrar(f.value.lineas, filtro.value, (l) => [l.codigo_sap, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion])
 })
-const tablaLineas = useTabla(lineasFiltradas, { porPagina: filasDefecto(), valores: { oc: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}` } })
-const idsFiltrados = computed(() => lineasFiltradas.value.map((l) => l.id))
+// Unidades o pares por caja: el casepack de la OC o la curva del prepack
+const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.casepack || null)
+const innersCaja = (l) => (porCaja(l) && l.inner_pack && l.tipo_empaque !== 'PREPACK' ? porCaja(l) / l.inner_pack : null)
+// Líneas en la tabla común (TablaDatos, modo local): cada columna ordena y
+// filtra por sus valores; las obligatorias en la factura comercial llevan «*»
+// (la leyenda lo explica). El detalle del empaque, en «Columnas».
+const req = (texto) => `${texto} *`
+const columnasLineas = [
+  { clave: 'oc', texto: t('PO / line'), prioridad: 2, valor: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}`,
+    textoValor: (v, l) => `${l.oc_numero} / ${l.posicion}` },
+  { clave: 'marca', texto: t('Brand'), prioridad: 3 },
+  { clave: 'articulo', texto: t('Item'), fija: true, prioridad: 1, valor: (l) => [l.estilo, l.color].filter(Boolean).join(' · ') },
+  { clave: 'talla', texto: t('Size'), prioridad: 1 },
+  { clave: 'cantidad', texto: req(t('Quantity')), num: true, prioridad: 1 },
+  { clave: 'unidad', texto: t('UoM'), prioridad: 3 },
+  { clave: 'por_caja', texto: t('Per carton'), num: true, prioridad: 3, valor: porCaja },
+  { clave: 'por_inner', texto: t('Per inner pack'), num: true, prioridad: 3, inicial: false, valor: (l) => l.inner_pack || null },
+  { clave: 'inners_caja', texto: t('Inner packs per carton'), num: true, prioridad: 3, inicial: false, valor: innersCaja },
+  { clave: 'precio', texto: req(t('Unit price')), num: true, grupo: 'precios', fija: true, prioridad: 2, valor: (l) => l.precio_unitario },
+  { clave: 'importe', texto: t('Total'), num: true, grupo: 'precios', prioridad: 3 },
+  { clave: 'en_pl', texto: t('In packing list'), num: true, prioridad: 3 },
+  { clave: 'pais_origen', texto: req(t('Country of origin')), prioridad: 2 },
+  { clave: 'partida', texto: req(t('HS code')), prioridad: 3, valor: (l) => l.partida_arancelaria || null },
+  { clave: 'descripcion', texto: req(t('Customs description')), prioridad: 3, valor: (l) => l.descripcion_comercial || null },
+]
+const tablaLineas = ref(null)
+// La casilla del encabezado elige la página; «Select all filtered lines» toma
+// todas las que pasan el buscador y los filtros de columna
+const idsFiltrados = computed(() => pasanColumnas(lineasFiltradas.value, columnasLineas, tablaLineas.value?.filtros).map((l) => l.id))
+const elegirLineas = (ids) => {
+  sel.limpiar()
+  ids.forEach((id) => sel.ids.add(id))
+}
+const totalesLineas = (filas) => {
+  const porUnidad = {}
+  for (const l of filas) porUnidad[l.unidad] = (porUnidad[l.unidad] || 0) + l.cantidad
+  return { porUnidad, importe: filas.reduce((a, l) => a + l.importe, 0) }
+}
 const seleccion = computed(() => (f.value?.lineas || []).filter((l) => sel.tiene(l.id)))
 const resumenSeleccion = computed(() => {
   const porUnidad = {}
@@ -64,19 +96,6 @@ const resumenSeleccion = computed(() => {
   }
   return ve('precios') ? `${porUnidadTxt(porUnidad, null)}, ${fmtMoneda(importe, f.value.moneda)}` : porUnidadTxt(porUnidad, null)
 })
-// Columnas de las líneas: las obligatorias siempre; el detalle del empaque, en «Columnas»
-const cols = useColumnas('factura_lineas', [
-  { clave: 'marca', texto: t('Brand') },
-  { clave: 'unidad', texto: t('UoM') },
-  { clave: 'por_caja', texto: t('Per carton') },
-  { clave: 'por_inner', texto: t('Per inner pack'), inicial: false },
-  { clave: 'inners_caja', texto: t('Inner packs per carton'), inicial: false },
-  { clave: 'precio', texto: t('Unit price'), grupo: 'precios', fija: true },
-  { clave: 'importe', texto: t('Total'), grupo: 'precios' },
-  { clave: 'en_pl', texto: t('In packing list') },
-])
-// Fijas: selección, OC/línea, artículo, talla, cantidad, origen, partida y descripción
-const nColsLineas = computed(() => 8 + cols.cuantas.value)
 const pendientePorUnidad = computed(() => {
   const r = {}
   for (const l of f.value?.lineas || []) if (l.sin_asignar > 0) r[l.unidad] = (r[l.unidad] || 0) + l.sin_asignar
@@ -398,8 +417,42 @@ onMounted(async () => {
   await cargar()
   cargarTab()
 })
-// Unidades o pares por caja: el casepack de la OC o la curva del prepack
-const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.casepack || null)
+
+// Packing lists y archivos de la factura en la tabla común
+const columnasPls = [
+  { clave: 'numero', texto: t('Packing list'), fija: true, prioridad: 1 },
+  { clave: 'estado', texto: t('Status'), prioridad: 1, textoValor: (v) => tx(leerEstado(v)[0]) },
+  { clave: 'contenido', texto: t('Contents'), prioridad: 2, valor: (p) => porUnidadTxt(p.totales.por_unidad, 'cantidad') },
+  { clave: 'empaque', texto: t('Packing'), prioridad: 2, valor: (p) => (sinEmpacar(p) ? t('{0} not packed', [porUnidadTxt(p.totales.por_unidad, 'sin_caja')]) : p.totales.cajas ? t('All in cartons') : null) },
+  { clave: 'peso', texto: t('Gross weight'), num: true, prioridad: 3, valor: (p) => p.totales.peso_bruto, textoValor: (v) => t('{0} kg', [fmtNum(v, 1)]) },
+  { clave: 'volumen', texto: t('Volume'), num: true, prioridad: 3, valor: (p) => p.totales.cbm, textoValor: (v) => `${fmtNum(v, 2)} m³` },
+  { clave: 'unidad', texto: t('Load unit'), prioridad: 3, valor: (p) => p.transporte?.unidad || null },
+  { clave: 'embarque', texto: t('Shipment'), prioridad: 2, valor: (p) => p.transporte?.embarque || null },
+  { clave: 'eta', texto: 'ETA', prioridad: 3, valor: (p) => p.transporte?.arribo_real || p.transporte?.eta || null, textoValor: (v) => fmtFecha(v) },
+]
+const sinEmpacar = (p) => Object.values(p.totales.por_unidad).some((u) => u.sin_caja)
+const TIPOS_ARCHIVO = [['FACTURA_OFICIAL', t('Official invoice')], ['OTRO', t('Other document')]]
+const columnasArchivos = [
+  { clave: 'nombre', texto: t('File'), fija: true, prioridad: 1 },
+  { clave: 'tipo', texto: t('Type'), prioridad: 2, opciones: TIPOS_ARCHIVO },
+  { clave: 'tamano', texto: t('Size'), num: true, prioridad: 3, filtro: false },
+  { clave: 'subido_en', texto: t('Uploaded'), prioridad: 2, valor: (a) => a.subido_en?.slice(0, 10) || null, textoValor: (v) => fmtFecha(v) },
+]
+
+// Filas que dejan pasar los filtros de columna de una TablaDatos (los mismos que
+// aplica ella), para seleccionar todas las filtradas y no solo las de la página
+function pasanColumnas(filas, columnas, filtros) {
+  const activos = Object.entries(filtros || {}).filter(([, v]) => v?.length)
+  if (!activos.length) return filas
+  const clave = (x) => (x === null || x === undefined || x === '' ? '__vacio__' : String(x))
+  return filas.filter((f) => activos.every(([k, vals]) => {
+    const c = columnas.find((x) => x.clave === k)
+    if (!c) return true
+    const v = c.valor ? c.valor(f) : f[k]
+    const vs = Array.isArray(v) ? v : clave(v) === '__vacio__' ? [] : [v]
+    return vs.length ? vs.some((x) => vals.includes(clave(x))) : vals.includes('__vacio__')
+  }))
+}
 
 // Edición exclusiva: una persona edita y las demás ven en solo lectura
 const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable: !!f.value?.puede.editar, edicion: f.value?.edicion }), cargar)
@@ -491,105 +544,74 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         {{ t('{0} fields are missing on the lines before you can finalize (cells marked “Missing”).', [pendLineas.length]) }}
         <button class="btn-texto" @click="modal = { tipo: 'pendientes', titulo: t('Pending data to finalize'), detalle: f.pendientes }">{{ t('See which') }}</button>
       </p>
-      <div class="filtros" v-filtros>
-        <label class="buscador">
-          <Icono nombre="buscar" :tam="16" />
-          <input v-model="filtro" type="search" :placeholder="t('Filter by code, style, color, size or PO')" :aria-label="t('Filter lines')" />
-        </label>
-        <span class="leyenda-req separar">{{ t('Required on the commercial invoice') }}</span>
-        <SelectorColumnas :columnas="cols" />
-        <button v-if="editable" class="btn" @click="agregarDesdeOC"><Icono nombre="mas" />{{ t('Add from POs') }}</button>
-      </div>
-      <div class="tabla-marco tabla-fija">
-        <table class="tabla" v-tarjetas>
-          <thead>
-            <tr>
-              <th class="chk"><input type="checkbox" :aria-label="t('Select all filtered lines')" :checked="sel.todos(idsFiltrados)" @change="sel.alternarTodos(idsFiltrados)" /></th>
-              <ThOrden campo="oc" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">{{ t('PO / line') }}</ThOrden>
-              <ThOrden v-if="cols.ver('marca')" campo="marca" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">{{ t('Brand') }}</ThOrden>
-              <ThOrden campo="estilo" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">{{ t('Item') }}</ThOrden>
-              <ThOrden campo="talla" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar">{{ t('Size') }}</ThOrden>
-              <ThOrden campo="cantidad" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar"><span class="req">{{ t('Quantity') }}</span></ThOrden>
-              <th v-if="cols.ver('unidad')">{{ t('UoM') }}</th>
-              <th v-if="cols.ver('por_caja')" class="num" :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ t('Per carton') }}</th>
-              <th v-if="cols.ver('por_inner')" class="num">{{ t('Per inner pack') }}</th>
-              <th v-if="cols.ver('inners_caja')" class="num">{{ t('Inner packs per carton') }}</th>
-              <ThOrden v-if="cols.ver('precio')" campo="precio_unitario" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar"><span class="req">{{ t('Unit price') }}</span></ThOrden>
-              <ThOrden v-if="cols.ver('importe')" campo="importe" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar">{{ t('Total') }}</ThOrden>
-              <ThOrden v-if="cols.ver('en_pl')" campo="sin_asignar" :orden="tablaLineas.estado.orden" num @ordenar="tablaLineas.ordenar">{{ t('In packing list') }}</ThOrden>
-              <ThOrden campo="pais_origen" :orden="tablaLineas.estado.orden" @ordenar="tablaLineas.ordenar"><span class="req">{{ t('Country of origin') }}</span></ThOrden>
-              <th><span class="req">{{ t('HS code') }}</span></th>
-              <th :title="t('Customs description of the item, without the brand (it has its own column)')"><span class="req">{{ t('Customs description') }}</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="l in tablaLineas.filas.value" :key="l.id" :class="{ seleccionada: sel.tiene(l.id) }">
-              <td class="chk"><input type="checkbox" :aria-label="t('Select {0} size {1}', [l.codigo_sap, l.talla])" :checked="sel.tiene(l.id)" @change="sel.alternar(l.id)" /></td>
-              <td class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}<span v-if="l.almacen" class="sub">{{ t('warehouse {0}', [l.almacen]) }}</span></td>
-              <td v-if="cols.ver('marca')" class="fuerte">{{ tx(l.marca || '—') }}</td>
-              <td>
-                {{ tx(l.estilo) }}<template v-if="l.color"> · {{ tx(l.color) }}</template>
-                <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the prepack breakdown')"
-                        @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ t('Prepack {0}', [l.prepack]) }} <Icono nombre="lupa" :tam="12" /></button>
-                <span class="sub codigo">{{ tx(l.codigo_sap) }}</span>
-              </td>
-              <td><strong>{{ tx(l.talla) }}</strong></td>
-              <td class="num" style="width: 100px">
-                <CeldaEditable v-if="editable" tipo="number" :min="l.inner_pack || 1" :paso="String(l.inner_pack || 1)" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="t('Quantity of {0}', [l.codigo_sap])" />
-                <template v-else>{{ fmtNum(l.cantidad) }}</template>
-              </td>
-              <td v-if="cols.ver('unidad')"><span class="etiqueta ms-0">{{ tx(l.unidad) }}</span></td>
-              <td v-if="cols.ver('por_caja')" class="num">{{ porCaja(l) ? fmtNum(porCaja(l)) : '—' }}</td>
-              <td v-if="cols.ver('por_inner')" class="num" :title="l.inner_pack ? '' : t('Defined in the packing list if needed')">{{ l.inner_pack ? fmtNum(l.inner_pack) : '—' }}</td>
-              <td v-if="cols.ver('inners_caja')" class="num">{{ porCaja(l) && l.inner_pack && l.tipo_empaque !== 'PREPACK' ? fmtNum(porCaja(l) / l.inner_pack) : '—' }}</td>
-              <td v-if="cols.ver('precio')" class="num" style="width: 130px">
-                <CeldaEditable v-if="editable" tipo="number" :min="0" paso="0.0001" :valor="l.precio_unitario" :guardar="celda(l, 'precio_unitario')" :etiqueta="t('Price of {0}', [l.codigo_sap])" />
-                <template v-else>{{ fmtNum(l.precio_unitario, 2) }}</template>
-                <span v-if="Math.abs(l.precio_unitario - l.precio_oc) > 1e-9" class="etiqueta aviso" :title="t('PO price {0}. Reason: {1}', [l.precio_oc, l.motivo_precio || t('not given')])">{{ t('Differs from PO') }}</span>
-              </td>
-              <td v-if="cols.ver('importe')" class="num">{{ fmtNum(l.importe, 2) }}</td>
-              <td v-if="cols.ver('en_pl')" class="num">
-                {{ fmtNum(l.en_pl) }}
-                <span v-if="l.sin_asignar > 0" class="etiqueta aviso">{{ t('{0} without PL', [fmtNum(l.sin_asignar)]) }}</span>
-                <span class="sub">{{ t('{0} in cartons', [fmtNum(l.empacado)]) }}</span>
-              </td>
-              <td style="width: 84px">
-                <CeldaEditable v-if="editable" :valor="l.pais_origen" :guardar="celda(l, 'pais_origen')" :vacia-texto="t('Missing')" :etiqueta="t('Country of origin of {0}', [l.codigo_sap])" />
-                <template v-else>{{ tx(l.pais_origen) }}</template>
-              </td>
-              <td style="width: 110px">
-                <router-link v-if="l.producto_id" :to="`/productos/${l.producto_id}`" class="enlace" :title="t('From the approved technical sheet of the product')">
-                  <span v-if="l.partida_arancelaria" class="codigo-sac">{{ tx(l.partida_arancelaria) }}</span>
-                  <span v-else class="etiqueta aviso ms-0">{{ t('Not classified') }}</span>
-                </router-link>
-                <span v-else class="codigo-sac">{{ tx(l.partida_arancelaria || '—') }}</span>
-              </td>
-              <td class="envolver">
-                <CeldaEditable v-if="editable" :valor="l.descripcion_comercial" :guardar="celda(l, 'descripcion_comercial')" :vacia-texto="t('Missing')" :etiqueta="t('Description of {0}', [l.codigo_sap])" />
-                <template v-else>{{ tx(l.descripcion_comercial) }}</template>
-              </td>
-            </tr>
-            <tr v-if="!lineasFiltradas.length">
-              <td :colspan="nColsLineas" class="vacio">
-                {{ tx(f.lineas.length ? t('No line matches the filter.') : t('The invoice has no lines.')) }}
-                <div v-if="editable && !f.lineas.length"><button class="btn" @click="agregarDesdeOC">{{ t('Add lines from POs') }}</button></div>
-              </td>
-            </tr>
-          </tbody>
-          <tfoot v-if="f.lineas.length">
-            <tr>
-              <td></td>
-              <td :colspan="3 + (cols.ver('marca') ? 1 : 0)">{{ t('{0} of {1} lines', [lineasFiltradas.length, f.lineas.length]) }}</td>
-              <td class="num">{{ porUnidadTxt(f.totales.por_unidad, 'facturado') }}</td>
-              <td :colspan="nColsLineas - 5 - (cols.ver('marca') ? 1 : 0)" class="num"><template v-if="ve('precios')">{{ fmtMoneda(f.totales.importe, f.moneda) }}</template></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      <Paginacion :page="tablaLineas.estado.pagina" :size="tablaLineas.estado.porPagina" :total="tablaLineas.total.value"
-                  @cambiar="(p) => (tablaLineas.estado.pagina = p)" @tamano="(t) => (tablaLineas.estado.porPagina = t)" />
+      <TablaDatos ref="tablaLineas" tabla="factura_doc_lineas" :columnas="columnasLineas" :filas="lineasFiltradas" :vistas-guardadas="false"
+                  seleccionable :seleccion="[...sel.ids]" :etiqueta="t('Lines')" @update:seleccion="elegirLineas">
+        <template #barra>
+          <label class="buscador">
+            <Icono nombre="buscar" :tam="16" />
+            <input v-model="filtro" type="search" :placeholder="t('Filter by code, style, color, size or PO')" :aria-label="t('Filter lines')" />
+          </label>
+        </template>
+        <template #filtros>
+          <span class="leyenda-req">{{ t('Required on the commercial invoice') }}</span>
+          <button v-if="editable" class="btn" @click="agregarDesdeOC"><Icono nombre="mas" />{{ t('Add from POs') }}</button>
+        </template>
+        <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}</span><span v-if="l.almacen" class="sub">{{ t('warehouse {0}', [l.almacen]) }}</span></template>
+        <template #celda-marca="{ fila: l }"><span class="fuerte">{{ tx(l.marca || '—') }}</span></template>
+        <template #celda-articulo="{ fila: l }">
+          {{ tx(l.estilo) }}<template v-if="l.color"> · {{ tx(l.color) }}</template>
+          <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the prepack breakdown')"
+                  @click="explosion = { sku: l.codigo_sap, cajas: l.cantidad }">{{ t('Prepack {0}', [l.prepack]) }} <Icono nombre="lupa" :tam="12" /></button>
+          <span class="sub codigo">{{ tx(l.codigo_sap) }}</span>
+        </template>
+        <template #celda-talla="{ fila: l }"><strong>{{ tx(l.talla) }}</strong></template>
+        <template #celda-cantidad="{ fila: l }">
+          <CeldaEditable v-if="editable" tipo="number" :min="l.inner_pack || 1" :paso="String(l.inner_pack || 1)" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="t('Quantity of {0}', [l.codigo_sap])" ancho="100px" />
+          <template v-else>{{ fmtNum(l.cantidad) }}</template>
+        </template>
+        <template #celda-unidad="{ fila: l }"><span class="etiqueta ms-0">{{ tx(l.unidad) }}</span></template>
+        <template #celda-por_caja="{ fila: l }"><span :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ porCaja(l) ? fmtNum(porCaja(l)) : '—' }}</span></template>
+        <template #celda-por_inner="{ fila: l }"><span :title="l.inner_pack ? '' : t('Defined in the packing list if needed')">{{ l.inner_pack ? fmtNum(l.inner_pack) : '—' }}</span></template>
+        <template #celda-inners_caja="{ fila: l }">{{ innersCaja(l) ? fmtNum(innersCaja(l)) : '—' }}</template>
+        <template #celda-precio="{ fila: l }">
+          <CeldaEditable v-if="editable" tipo="number" :min="0" paso="0.0001" :valor="l.precio_unitario" :guardar="celda(l, 'precio_unitario')" :etiqueta="t('Price of {0}', [l.codigo_sap])" ancho="130px" />
+          <template v-else>{{ fmtNum(l.precio_unitario, 2) }}</template>
+          <span v-if="Math.abs(l.precio_unitario - l.precio_oc) > 1e-9" class="etiqueta aviso" :title="t('PO price {0}. Reason: {1}', [l.precio_oc, l.motivo_precio || t('not given')])">{{ t('Differs from PO') }}</span>
+        </template>
+        <template #celda-importe="{ fila: l }">{{ fmtNum(l.importe, 2) }}</template>
+        <template #celda-en_pl="{ fila: l }">
+          {{ fmtNum(l.en_pl) }}
+          <span v-if="l.sin_asignar > 0" class="etiqueta aviso">{{ t('{0} without PL', [fmtNum(l.sin_asignar)]) }}</span>
+          <span class="sub">{{ t('{0} in cartons', [fmtNum(l.empacado)]) }}</span>
+        </template>
+        <template #celda-pais_origen="{ fila: l }">
+          <CeldaEditable v-if="editable" :valor="l.pais_origen" :guardar="celda(l, 'pais_origen')" :vacia-texto="t('Missing')" :etiqueta="t('Country of origin of {0}', [l.codigo_sap])" ancho="84px" />
+          <template v-else>{{ tx(l.pais_origen) }}</template>
+        </template>
+        <template #celda-partida="{ fila: l }">
+          <router-link v-if="l.producto_id" :to="`/productos/${l.producto_id}`" class="enlace" :title="t('From the approved technical sheet of the product')">
+            <span v-if="l.partida_arancelaria" class="codigo-sac">{{ tx(l.partida_arancelaria) }}</span>
+            <span v-else class="etiqueta aviso ms-0">{{ t('Not classified') }}</span>
+          </router-link>
+          <span v-else class="codigo-sac">{{ tx(l.partida_arancelaria || '—') }}</span>
+        </template>
+        <template #celda-descripcion="{ fila: l }">
+          <span class="envolver" :title="t('Customs description of the item, without the brand (it has its own column)')">
+            <CeldaEditable v-if="editable" :valor="l.descripcion_comercial" :guardar="celda(l, 'descripcion_comercial')" :vacia-texto="t('Missing')" :etiqueta="t('Description of {0}', [l.codigo_sap])" />
+            <template v-else>{{ tx(l.descripcion_comercial) }}</template>
+          </span>
+        </template>
+        <template #pie-inicio="{ filas }">{{ t('{0} of {1} lines', [filas.length, f.lineas.length]) }}</template>
+        <template #pie-cantidad="{ filas }">{{ porUnidadTxt(totalesLineas(filas).porUnidad, null) }}</template>
+        <template #pie-importe="{ filas }">{{ fmtMoneda(totalesLineas(filas).importe, f.moneda) }}</template>
+        <template #vacio>
+          {{ tx(f.lineas.length ? t('No line matches the filter.') : t('The invoice has no lines.')) }}
+          <div v-if="editable && !f.lineas.length"><button class="btn" @click="agregarDesdeOC">{{ t('Add lines from POs') }}</button></div>
+        </template>
+      </TablaDatos>
       <BarraSeleccion :cantidad="sel.ids.size" :singular="t('line selected')" :plural="t('lines selected')" @limpiar="sel.limpiar()">
         <template #resumen>{{ tx(resumenSeleccion) }}</template>
+        <button v-if="!sel.todos(idsFiltrados)" class="btn-texto" @click="sel.alternarTodos(idsFiltrados)">{{ t('Select all filtered lines') }} ({{ fmtNum(idsFiltrados.length) }})</button>
         <button v-if="editable" class="btn" @click="abrirMasivo"><Icono nombre="editar" :tam="15" />{{ t('Change a field') }}</button>
         <button class="btn" :disabled="ocupado || f.estado === 'CANCELADA' || !seleccion.some((l) => l.sin_asignar > 0)" :title="t('Creates a separate packing list with only these lines')" @click="crearPL(true)"><Icono nombre="caja" :tam="15" />{{ t('Separate PL with these') }}</button>
         <button v-if="editable" class="btn btn-peligro" @click="modal = { tipo: 'eliminar', mensaje: t('Remove {0} lines from the invoice? Their quantities become available again on the POs.', [sel.ids.size]) }">
@@ -605,60 +627,40 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         <span v-else-if="f.lineas.length" class="nota ok" style="padding: 6px 12px"><Icono nombre="check" />{{ t('All goods are already in packing lists.') }}</span>
         <span class="ayuda">{{ t('One packing list per invoice is usually enough. To split the shipment use “Move” inside the PL.') }}</span>
       </div>
-      <div class="tabla-marco">
-        <table class="tabla" v-tarjetas>
-          <thead>
-            <tr>
-              <th>{{ t('Packing list') }}</th>
-              <th>{{ t('Status') }}</th>
-              <th>{{ t('Contents') }}</th>
-              <th>{{ t('Packing') }}</th>
-              <th class="num">{{ t('Gross weight') }}</th>
-              <th class="num col-sec">{{ t('Volume') }}</th>
-              <th class="col-sec">{{ t('Load unit') }}</th>
-              <th>{{ t('Shipment') }}</th>
-              <th class="col-sec">ETA</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in f.packing_lists" :key="p.id" class="clicable" :class="{ apagado: p.estado === 'CANCELADO' }" @click="router.push(`/packing-lists/${p.id}`)">
-              <td><router-link :to="`/packing-lists/${p.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(p.numero) }}</strong></router-link></td>
-              <td><EstadoBadge :estado="p.estado" /></td>
-              <td>{{ porUnidadTxt(p.totales.por_unidad, 'cantidad') }}<span class="sub">{{ plural(p.totales.cajas, t('carton'), t('cartons')) }}</span></td>
-              <td style="min-width: 140px">
-                <span v-if="Object.values(p.totales.por_unidad).some((u) => u.sin_caja)" class="etiqueta error">{{ t('{0} not packed', [porUnidadTxt(p.totales.por_unidad, 'sin_caja')]) }}</span>
-                <span v-else-if="p.totales.cajas" class="etiqueta ok"><Icono nombre="check" :tam="12" />{{ t('All in cartons') }}</span>
-                <span v-else class="apagado">—</span>
-              </td>
-              <td class="num">{{ t('{0} kg', [fmtNum(p.totales.peso_bruto, 1)]) }}</td>
-              <td class="num">{{ fmtNum(p.totales.cbm, 2) }} m³</td>
-              <td>
-                <template v-if="p.transporte">{{ tx(p.transporte.unidad) }} <EstadoBadge :estado="p.transporte.asignacion" /></template>
-                <span v-else class="apagado">{{ t('Not assigned') }}</span>
-              </td>
-              <td>
-                <template v-if="p.transporte">
-                  <router-link v-if="esInterno()" :to="`/transporte/embarques/${p.transporte.embarque_id}`" class="enlace codigo" @click.stop>{{ tx(p.transporte.embarque) }}</router-link>
-                  <template v-else>{{ tx(p.transporte.embarque) }}</template>
-                  <EstadoBadge :estado="p.transporte.estado" />
-                  <span class="sub">{{ tx(p.transporte.documento ? t('B/L / AWB {0}', [p.transporte.documento]) : t('B/L / AWB pending')) }}<template v-if="p.transporte.ultimo_evento"> · {{ tx(p.transporte.ultimo_evento.tipo.toLowerCase()) }} {{ fmtFechaHoraLocal(p.transporte.ultimo_evento.fecha) }}</template></span>
-                </template>
-                <span v-else class="apagado">—</span>
-              </td>
-              <td>
-                <template v-if="p.transporte">{{ fmtFecha(p.transporte.arribo_real || p.transporte.eta) }}<span class="sub">{{ tx(p.transporte.arribo_real ? 'arrived' : 'estimated') }}</span></template>
-                <span v-else class="apagado">—</span>
-              </td>
-            </tr>
-            <tr v-if="!f.packing_lists.length">
-              <td colspan="9" class="vacio">
-                <Icono nombre="caja" :tam="28" />
-                <p>{{ t('No packing lists yet. “Pack” creates one with all the goods on the invoice.') }}</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TablaDatos tabla="factura_doc_pls" :columnas="columnasPls" :filas="f.packing_lists" :vistas-guardadas="false" fila-clicable
+                  :clase-fila="(p) => ({ apagado: p.estado === 'CANCELADO' })" :etiqueta="t('Packing lists')" @fila="(p) => router.push(`/packing-lists/${p.id}`)">
+        <template #celda-numero="{ fila: p }"><router-link :to="`/packing-lists/${p.id}`" class="enlace-doc" @click.stop><strong class="codigo">{{ tx(p.numero) }}</strong></router-link></template>
+        <template #celda-estado="{ fila: p }"><EstadoBadge :estado="p.estado" /></template>
+        <template #celda-contenido="{ fila: p }">{{ porUnidadTxt(p.totales.por_unidad, 'cantidad') }}<span class="sub">{{ plural(p.totales.cajas, t('carton'), t('cartons')) }}</span></template>
+        <template #celda-empaque="{ fila: p }">
+          <span v-if="sinEmpacar(p)" class="etiqueta error">{{ t('{0} not packed', [porUnidadTxt(p.totales.por_unidad, 'sin_caja')]) }}</span>
+          <span v-else-if="p.totales.cajas" class="etiqueta ok"><Icono nombre="check" :tam="12" />{{ t('All in cartons') }}</span>
+          <span v-else class="apagado">—</span>
+        </template>
+        <template #celda-peso="{ fila: p }">{{ t('{0} kg', [fmtNum(p.totales.peso_bruto, 1)]) }}</template>
+        <template #celda-volumen="{ fila: p }">{{ fmtNum(p.totales.cbm, 2) }} m³</template>
+        <template #celda-unidad="{ fila: p }">
+          <template v-if="p.transporte">{{ tx(p.transporte.unidad) }} <EstadoBadge :estado="p.transporte.asignacion" /></template>
+          <span v-else class="apagado">{{ t('Not assigned') }}</span>
+        </template>
+        <template #celda-embarque="{ fila: p }">
+          <template v-if="p.transporte">
+            <router-link v-if="esInterno()" :to="`/transporte/embarques/${p.transporte.embarque_id}`" class="enlace codigo" @click.stop>{{ tx(p.transporte.embarque) }}</router-link>
+            <template v-else>{{ tx(p.transporte.embarque) }}</template>
+            <EstadoBadge :estado="p.transporte.estado" />
+            <span class="sub">{{ tx(p.transporte.documento ? t('B/L / AWB {0}', [p.transporte.documento]) : t('B/L / AWB pending')) }}<template v-if="p.transporte.ultimo_evento"> · {{ tx(p.transporte.ultimo_evento.tipo.toLowerCase()) }} {{ fmtFechaHoraLocal(p.transporte.ultimo_evento.fecha) }}</template></span>
+          </template>
+          <span v-else class="apagado">—</span>
+        </template>
+        <template #celda-eta="{ fila: p }">
+          <template v-if="p.transporte">{{ fmtFecha(p.transporte.arribo_real || p.transporte.eta) }}<span class="sub">{{ tx(p.transporte.arribo_real ? 'arrived' : 'estimated') }}</span></template>
+          <span v-else class="apagado">—</span>
+        </template>
+        <template #vacio>
+          <Icono nombre="caja" :tam="28" />
+          <p>{{ t('No packing lists yet. “Pack” creates one with all the goods on the invoice.') }}</p>
+        </template>
+      </TablaDatos>
     </section>
 
     <!-- Files -->
@@ -672,21 +674,14 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         </Seleccion>
         <button class="btn btn-primario" :disabled="!subida.archivo" @click="subir"><Icono nombre="importar" />{{ t('Attach') }}</button>
       </div>
-      <div class="tabla-marco mt sin-sombra">
-        <table class="tabla" v-tarjetas>
-          <thead><tr><th>{{ t('File') }}</th><th>{{ t('Type') }}</th><th class="num">{{ t('Size') }}</th><th>{{ t('Uploaded') }}</th><th></th></tr></thead>
-          <tbody>
-            <tr v-for="a in archivos" :key="a.id">
-              <td>{{ tx(a.nombre) }}</td>
-              <td>{{ tx(a.tipo === 'FACTURA_OFICIAL' ? t('Official invoice') : t('Other document')) }}</td>
-              <td class="num">{{ t('{0} KB', [fmtNum(a.tamano / 1024, 0)]) }}</td>
-              <td>{{ fmtFechaHora(a.subido_en) }}</td>
-              <td class="num"><button class="btn btn-chico" @click="descargar(`/archivos/${a.id}`, a.nombre)"><Icono nombre="descargar" :tam="14" />{{ t('Download') }}</button></td>
-            </tr>
-            <tr v-if="!archivos.length"><td colspan="5" class="vacio">{{ t('No attached files.') }}</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <TablaDatos class="mt" tabla="factura_doc_archivos" :columnas="columnasArchivos" :filas="archivos" :vistas-guardadas="false" :etiqueta="t('Files')">
+        <template #celda-nombre="{ fila: a }">{{ tx(a.nombre) }}</template>
+        <template #celda-tipo="{ fila: a }">{{ tx(a.tipo === 'FACTURA_OFICIAL' ? t('Official invoice') : t('Other document')) }}</template>
+        <template #celda-tamano="{ fila: a }">{{ t('{0} KB', [fmtNum(a.tamano / 1024, 0)]) }}</template>
+        <template #celda-subido_en="{ fila: a }">{{ fmtFechaHora(a.subido_en) }}</template>
+        <template #acciones="{ fila: a }"><button class="btn btn-chico" @click="descargar(`/archivos/${a.id}`, a.nombre)"><Icono nombre="descargar" :tam="14" />{{ t('Download') }}</button></template>
+        <template #vacio>{{ t('No attached files.') }}</template>
+      </TablaDatos>
     </section>
 
     <!-- History -->

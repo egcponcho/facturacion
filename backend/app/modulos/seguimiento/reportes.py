@@ -22,6 +22,15 @@ NOMBRES_FILTRO = {
     "fecha_tienda_desde": "In store from", "fecha_tienda_hasta": "In store to", "estado_factura": "Invoice",
     "estado_pl": "PL", "con_pendientes": "With pending items",
 }
+# Nombre de cada columna de las tablas que se filtra por sus valores (TablaDatos)
+NOMBRES_COLUMNA = {
+    "oc": "PO", "proveedor": "Supplier", "centro": "Co. · plant", "estado": "Status", "avance": "% inv.",
+    "por_facturar": "To invoice", "fecha_xf": "XF", "fecha_tienda": "In store", "holgura": "Vs. store",
+    "embarques": "Shipments", "embarque": "Shipment", "modo": "Mode", "documento": "BL / AWB / waybill",
+    "ruta": "Route", "etd": "Departure", "eta": "Arrival", "unidades": "Units", "ocs": "POs",
+    "factura": "Invoice", "estado_factura": "Invoice status", "estado_pl": "PL status", "etapa": "Stage",
+    "cajas": "Cartons",
+}
 RIESGOS = {"ATRASO": "Late", "JUSTO": "Tight", "A_TIEMPO": "On time"}
 ETAPAS = dict(seg.ETAPAS)
 ETAPAS_DOC = dict(seg.ETAPAS_DOC)
@@ -29,7 +38,7 @@ ESTADOS_OC = dict(seg.ESTADOS_OC)
 ESTADOS_EMB = dict(seg.ESTADOS_EMB)
 
 
-def _filtros_txt(filtros: dict) -> str:
+def _filtros_txt(filtros: dict, columnas: dict | None = None) -> str:
     partes = []
     for k, v in filtros.items():
         if v in (None, "", False):
@@ -41,6 +50,10 @@ def _filtros_txt(filtros: dict) -> str:
         elif k.endswith(("_desde", "_hasta")) and hasattr(v, "strftime"):
             v = fecha_txt(v)
         partes.append(f"{L(NOMBRES_FILTRO.get(k, k))}: {L('yes') if v is True else L(v) if isinstance(v, str) else v}")
+    # Los filtros de las columnas de la tabla: los valores elegidos, tal cual
+    for k, vals in (columnas or {}).items():
+        nombre = NOMBRES_COLUMNA.get(k) or NOMBRES_FILTRO.get(k, k)
+        partes.append(f"{L(nombre)}: {', '.join('—' if x == '__vacio__' else x for x in vals)}")
     return L("Filters: {0}", " · ".join(partes)) if partes else L("No filters")
 
 
@@ -54,8 +67,8 @@ def _cant(por_unidad: dict) -> str:
     return documentos._por_unidad_txt(por_unidad)
 
 
-def _salida(formato, titulo, subtitulo, filtros, indicadores, columnas, filas, hojas=None) -> bytes:
-    texto = _filtros_txt(filtros)
+def _salida(formato, titulo, subtitulo, filtros, indicadores, columnas, filas, hojas=None, por_columna=None) -> bytes:
+    texto = _filtros_txt(filtros, por_columna)
     if formato == "pdf":
         return documentos.pdf_reporte(titulo, subtitulo, texto, indicadores, columnas,
                                       [[documentos._num(v, 0 if float(v).is_integer() else 2) if isinstance(v, (int, float)) else v for v in f]
@@ -67,8 +80,9 @@ def _fecha(v):
     return documentos._fecha(v) if v else "—"
 
 
-def reporte_ordenes(db: Session, user: Usuario, proveedor_id, filtros: dict, orden, formato: str) -> bytes:
-    r = seg.ordenes(db, user, proveedor_id, filtros, orden, 1, TODO)
+def reporte_ordenes(db: Session, user: Usuario, proveedor_id, filtros: dict, orden, formato: str,
+                    por_columna: dict | None = None) -> bytes:
+    r = seg.ordenes(db, user, proveedor_id, filtros, orden, 1, TODO, por_columna)
     lib = liberaciones.de(db)
     k = r["kpis"]
     indicadores = [("Purchase orders", f"{k['ocs']:,}"), ("Released", f"{k['liberadas']:,}"),
@@ -86,6 +100,9 @@ def reporte_ordenes(db: Session, user: Usuario, proveedor_id, filtros: dict, ord
     hojas = None
     if formato == "xlsx":
         det = seg.seguimiento(db, user, proveedor_id, filtros, "oc:asc", 1, TODO)["items"]
+        if por_columna:  # solo las OCs que quedaron con los filtros de las columnas
+            ocs = {o["oc_id"] for o in r["items"]}
+            det = [f for f in det if f["oc_id"] in ocs]
         hojas = [{"titulo": "Detail by SKU", "columnas": [
             ("PO", 1.3, False), ("Line", 0.5, False), ("SKU", 1.3, False), ("Brand", 0.8, False),
             ("Group", 0.8, False), ("Style", 1, False), ("Color", 1.2, False), ("Size", 0.5, False),
@@ -98,11 +115,12 @@ def reporte_ordenes(db: Session, user: Usuario, proveedor_id, filtros: dict, ord
                        _fecha(f["fecha_tienda"]), _holgura(f["holgura"])] for f in det]}]
     return _salida(formato, "Purchase order tracking",
                    "Releases, invoicing progress and arrival against the in-store date.",
-                   filtros, indicadores, columnas, filas, hojas)
+                   filtros, indicadores, columnas, filas, hojas, por_columna)
 
 
-def reporte_embarques(db: Session, user: Usuario, proveedor_id, filtros: dict, orden, formato: str) -> bytes:
-    r = seg.embarques(db, user, proveedor_id, filtros, orden, 1, TODO)
+def reporte_embarques(db: Session, user: Usuario, proveedor_id, filtros: dict, orden, formato: str,
+                      por_columna: dict | None = None) -> bytes:
+    r = seg.embarques(db, user, proveedor_id, filtros, orden, 1, TODO, por_columna)
     k = r["kpis"]
     indicadores = [("Shipments", f"{k['embarques']:,}"), ("Load units", f"{k['unidades']:,}"),
                    ("In transit", f"{k['en_camino']:,}"), ("Arriving in 7 days", f"{k['llegan_7_dias']:,}"),
@@ -125,11 +143,12 @@ def reporte_embarques(db: Session, user: Usuario, proveedor_id, filtros: dict, o
                        u["ocs"], ", ".join(u["marcas"]), ", ".join(u["facturas"]), _holgura(u["holgura"]),
                        _cant(u["por_unidad"])] for e in r["items"] for u in e["detalle_unidades"]]}]
     return _salida(formato, "Shipment tracking", "Transport documents, load units and arrivals.",
-                   filtros, indicadores, columnas, filas, hojas)
+                   filtros, indicadores, columnas, filas, hojas, por_columna)
 
 
-def reporte_documentos(db: Session, user: Usuario, proveedor_id, filtros: dict, orden, formato: str) -> bytes:
-    r = seg.seguimiento_documentos(db, user, proveedor_id, filtros, orden, 1, TODO)
+def reporte_documentos(db: Session, user: Usuario, proveedor_id, filtros: dict, orden, formato: str,
+                       por_columna: dict | None = None) -> bytes:
+    r = seg.seguimiento_documentos(db, user, proveedor_id, filtros, orden, 1, TODO, por_columna)
     k = r["kpis"]
     importe = " · ".join(f"{m} {v:,.2f}" for m, v in k["importe"].items()) or "—"
     indicadores = [("Invoices", f"{k['facturas']:,}"), ("Packing lists", f"{k['pls']:,}"),
@@ -146,7 +165,7 @@ def reporte_documentos(db: Session, user: Usuario, proveedor_id, filtros: dict, 
               f["importe"]] for f in r["items"]]
     return _salida(formato, "Invoicing and packing list tracking",
                    "Which step each invoice and packing list is at, what is missing and whether it has a container.",
-                   filtros, indicadores, columnas, filas)
+                   filtros, indicadores, columnas, filas, por_columna=por_columna)
 
 
 REPORTES = {"ordenes": reporte_ordenes, "embarques": reporte_embarques, "documentos": reporte_documentos}

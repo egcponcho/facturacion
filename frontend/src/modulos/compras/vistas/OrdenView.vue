@@ -59,7 +59,14 @@ const oc = computed(() => d.value?.oc)
 const puede = computed(() => d.value?.puede || {})
 const pasoActual = computed(() => d.value?.aprobaciones.find((a) => a.actual))
 const pasosCompletos = computed(() => (d.value?.pasos || []).filter((p) => p.clave !== 'revision' && p.completo).length)
-const lineasBorrador = computed(() => (d.value?.posiciones.length ? [] : d.value?.borrador?.lineas || []))
+// Líneas del borrador (aún sin posiciones): numeradas para la tabla común
+const lineasBorrador = computed(() => (d.value?.posiciones.length ? [] : d.value?.borrador?.lineas || []).map((l, i) => ({ ...l, n: i + 1 })))
+const columnasBorrador = [
+  { clave: 'n', texto: '#', num: true, fija: true, prioridad: 1 },
+  { clave: 'codigo_sap', texto: t('Item'), prioridad: 1, valor: (l) => l.codigo_sap || null },
+  { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 1, valor: (l) => (l.cantidad ? Number(l.cantidad) : null) },
+  { clave: 'precio', texto: t('Unit price'), num: true, grupo: 'precios', prioridad: 2, valor: (l) => (l.precio ? Number(l.precio) : null) },
+]
 const facturas = computed(() => {
   const vistas = new Map()
   for (const p of d.value?.posiciones || []) for (const f of p.facturas) vistas.set(f.id, f)
@@ -267,17 +274,12 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
       </TablaDatos>
       <template v-if="!d.posiciones.length && lineasBorrador.length">
         <p class="ayuda">{{ t('Lines of the draft: they become PO lines when it is sent.') }}</p>
-        <div class="tabla-marco">
-          <table class="tabla" v-tarjetas>
-            <thead><tr><th>#</th><th>{{ t('Item') }}</th><th class="num">{{ t('Quantity') }}</th><th class="num">{{ t('Unit price') }}</th></tr></thead>
-            <tbody>
-              <tr v-for="(l, i) in lineasBorrador" :key="i">
-                <td>{{ tx(i + 1) }}</td><td class="codigo">{{ tx(l.codigo_sap || '—') }}</td>
-                <td class="num">{{ l.cantidad ? cantTxt(l.cantidad, l.unidad) : '—' }}</td><td class="num">{{ l.precio ? fmtNum(l.precio) : '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <TablaDatos tabla="oc_borrador_lineas" :columnas="columnasBorrador" :filas="lineasBorrador" clave-fila="n" :vistas-guardadas="false" :etiqueta="t('Lines')">
+          <template #celda-n="{ fila: l }">{{ tx(l.n) }}</template>
+          <template #celda-codigo_sap="{ fila: l }"><span class="codigo">{{ tx(l.codigo_sap || '—') }}</span></template>
+          <template #celda-cantidad="{ fila: l }">{{ l.cantidad ? cantTxt(l.cantidad, l.unidad) : '—' }}</template>
+          <template #celda-precio="{ fila: l }">{{ l.precio ? fmtNum(l.precio) : '—' }}</template>
+        </TablaDatos>
       </template>
       <EstadoVacio v-if="!d.posiciones.length && !lineasBorrador.length" icono="lista" :titulo="t('No lines yet')" :texto="t('Add the items in the assistant.')" />
     </section>

@@ -5,12 +5,12 @@ from datetime import date
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from app.modulos.acceso.permisos import exigir
+from app.modulos.comun import tabla
 from app.modulos.seguimiento import alertas as servicio_alertas
 from app.modulos.seguimiento import buscar as buscador
 from app.modulos.seguimiento import dashboard as tablero
 from app.modulos.seguimiento import indicadores, reportes
 from app.modulos.seguimiento import seguimiento as seg
-from app.modulos.transporte import leadtimes
 from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar
 
 router = APIRouter()
@@ -54,12 +54,21 @@ def seguimiento(request: Request, db: Db, user: User, proveedor_id: int | None =
     return seg.seguimiento(db, user, proveedor_id, _filtros_de(request), orden, page, size)
 
 
+@router.get("/seguimiento/embarques/valores")
+def seguimiento_embarques_valores(request: Request, db: Db, user: User, columna: str, buscar: str | None = None,
+                                  f: str | None = None, proveedor_id: int | None = None):
+    """Valores únicos de una columna de la tabla de embarques, con cuántos hay de cada uno (filtro de la columna)."""
+    exigir(user, "seguimiento.ver")
+    return seg.valores_embarques(db, user, columna, buscar, tabla.leer(f), proveedor_id, _filtros_de(request))
+
+
 @router.get("/seguimiento/embarques")
 def seguimiento_embarques(request: Request, db: Db, user: User, proveedor_id: int | None = None,
-                          orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+                          orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200),
+                          f: str | None = None):
     """Embarques con sus unidades de carga, ETA, holgura y riesgo, más indicadores y llegadas por semana."""
     exigir(user, "seguimiento.ver")
-    return seg.embarques(db, user, proveedor_id, _filtros_de(request), orden, page, size)
+    return seg.embarques(db, user, proveedor_id, _filtros_de(request), orden, page, size, tabla.leer(f))
 
 
 @router.get("/seguimiento/unidades/{unidad_id}/explosion")
@@ -69,56 +78,91 @@ def seguimiento_explosion(unidad_id: int, request: Request, db: Db, user: User, 
     return seg.explosion_unidad(db, user, unidad_id, proveedor_id, _filtros_de(request))
 
 
+def _filtros_lt(request: Request) -> dict:
+    """Filtros de la pantalla de lead times (periodo, origen, región, proveedor, llegada y liberación)."""
+    return {k: v for k, v in request.query_params.items()
+            if k not in ("proveedor_id", "orden", "page", "size", "f", "columna", "buscar")}
+
+
+@router.get("/seguimiento/leadtimes/valores")
+def seguimiento_leadtimes_valores(request: Request, db: Db, user: User, columna: str, buscar: str | None = None,
+                                  f: str | None = None, proveedor_id: int | None = None):
+    """Valores únicos de una columna de la lista de OCs de lead times, con cuántas hay de cada uno."""
+    exigir(user, "seguimiento.ver")
+    return seg.valores_leadtimes(db, user, columna, buscar, tabla.leer(f), proveedor_id, _filtros_lt(request))
+
+
 @router.get("/seguimiento/leadtimes")
 def seguimiento_leadtimes(request: Request, db: Db, user: User, proveedor_id: int | None = None,
-                          orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+                          orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200),
+                          f: str | None = None):
     """Lead times por origen, liberación logística contra la XF y temprano/tarde por hito."""
     exigir(user, "seguimiento.ver")
-    filtros = {k: v for k, v in request.query_params.items() if k not in ("proveedor_id", "orden", "page", "size")}
-    return leadtimes.leadtimes(db, user, proveedor_id, filtros, orden, page, size)
+    return seg.leadtimes(db, user, proveedor_id, _filtros_lt(request), orden, page, size, tabla.leer(f))
+
+
+@router.get("/seguimiento/ordenes/valores")
+def seguimiento_ordenes_valores(request: Request, db: Db, user: User, columna: str, buscar: str | None = None,
+                                f: str | None = None, proveedor_id: int | None = None):
+    """Valores únicos de una columna de la tabla de OCs del seguimiento, con cuántas hay de cada uno."""
+    exigir(user, "seguimiento.ver")
+    return seg.valores_ordenes(db, user, columna, buscar, tabla.leer(f), proveedor_id, _filtros_de(request))
 
 
 @router.get("/seguimiento/ordenes")
 def seguimiento_ordenes(request: Request, db: Db, user: User, proveedor_id: int | None = None,
-                        orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
+                        orden: str | None = None, page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200),
+                        f: str | None = None):
     """OCs con sus liberaciones y cuánto está por facturar, en contenedor, en camino y recibido."""
     exigir(user, "seguimiento.ver")
-    return seg.ordenes(db, user, proveedor_id, _filtros_de(request), orden, page, size)
-
-
-@router.get("/seguimiento/documentos")
-def seguimiento_documentos(db: Db, user: User, proveedor_id: int | None = None, q: str | None = None,
-                           etapa: str | None = None, estado_factura: str | None = None, estado_pl: str | None = None,
-                           sociedad: str | None = None, centro: str | None = None, embarque_id: int | None = None,
-                           proveedor: str | None = None, con_pendientes: bool = False, orden: str | None = None,
-                           page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
-    """Facturas y packing lists por etapa, con sus pendientes, contenedor e indicadores."""
-    exigir(user, "seguimiento.ver")
-    filtros = {k: v for k, v in locals().items()
-               if k not in ("db", "user", "proveedor_id", "orden", "page", "size")}
-    return seg.seguimiento_documentos(db, user, proveedor_id, filtros, orden, page, size)
+    return seg.ordenes(db, user, proveedor_id, _filtros_de(request), orden, page, size, tabla.leer(f))
 
 
 FILTROS_DOC = ("q", "etapa", "estado_factura", "estado_pl", "sociedad", "centro", "embarque_id", "proveedor",
                "con_pendientes")
 
 
+def _filtros_doc(request: Request) -> dict:
+    """Filtros de la pantalla de facturación y packing lists."""
+    filtros = {k: v for k, v in request.query_params.items() if k in FILTROS_DOC and v != ""}
+    if "embarque_id" in filtros and "," not in filtros["embarque_id"]:
+        filtros["embarque_id"] = int(filtros["embarque_id"])
+    if filtros.get("con_pendientes") in ("1", "true"):
+        filtros["con_pendientes"] = True
+    return filtros
+
+
+@router.get("/seguimiento/documentos/valores")
+def seguimiento_documentos_valores(request: Request, db: Db, user: User, columna: str, buscar: str | None = None,
+                                   f: str | None = None, proveedor_id: int | None = None):
+    """Valores únicos de una columna de la tabla de facturas y packing lists, con cuántos hay de cada uno."""
+    exigir(user, "seguimiento.ver")
+    return seg.valores_documentos(db, user, columna, buscar, tabla.leer(f), proveedor_id, _filtros_doc(request))
+
+
+@router.get("/seguimiento/documentos")
+def seguimiento_documentos(db: Db, user: User, proveedor_id: int | None = None, q: str | None = None,
+                           etapa: str | None = None, estado_factura: str | None = None, estado_pl: str | None = None,
+                           sociedad: str | None = None, centro: str | None = None, embarque_id: str | None = None,
+                           proveedor: str | None = None, con_pendientes: bool = False, orden: str | None = None,
+                           page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200), f: str | None = None):
+    """Facturas y packing lists por etapa, con sus pendientes, contenedor e indicadores."""
+    exigir(user, "seguimiento.ver")
+    columnas = tabla.leer(f)
+    filtros = {k: v for k, v in locals().items()
+               if k not in ("db", "user", "proveedor_id", "orden", "page", "size", "f", "columnas")}
+    return seg.seguimiento_documentos(db, user, proveedor_id, filtros, orden, page, size, columnas)
+
+
 @router.get("/seguimiento/{vista}/exportar")
 def seguimiento_exportar(vista: str, request: Request, db: Db, user: User, proveedor_id: int | None = None,
-                         orden: str | None = None, formato: Formato = "xlsx"):
-    """Reporte del tablero con los filtros de la pantalla, en PDF o Excel."""
+                         orden: str | None = None, formato: Formato = "xlsx", f: str | None = None):
+    """Reporte del tablero con los filtros de la pantalla (y los de las columnas de la tabla), en PDF o Excel."""
     exigir(user, "seguimiento.ver")
     if vista not in reportes.REPORTES:
         raise HTTPException(404, "Report not found")
-    if vista == "documentos":
-        filtros = {k: v for k, v in request.query_params.items() if k in FILTROS_DOC and v != ""}
-        if "embarque_id" in filtros and "," not in filtros["embarque_id"]:
-            filtros["embarque_id"] = int(filtros["embarque_id"])
-        if filtros.get("con_pendientes") in ("1", "true"):
-            filtros["con_pendientes"] = True
-    else:
-        filtros = _filtros_de(request)
-    contenido = reportes.REPORTES[vista](db, user, proveedor_id, filtros, orden, formato)
+    filtros = _filtros_doc(request) if vista == "documentos" else _filtros_de(request)
+    contenido = reportes.REPORTES[vista](db, user, proveedor_id, filtros, orden, formato, tabla.leer(f))
     return descarga(contenido, f"seguimiento_{vista}_{date.today():%Y%m%d}", formato)
 
 

@@ -13,6 +13,7 @@ import Icono from '@/componentes/Icono.vue'
 import Interruptor from '@/componentes/Interruptor.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import { confirmar } from '@/stores/confirmar'
 
 // Asistente de la orden de compra (docs/FLUJOS.md §1): seis pasos con solo los
@@ -403,6 +404,18 @@ const cantidades = computed(() => {
   return r
 })
 const documento = computed(() => (oc.value?.numero ? t('PO {0}', [oc.value.numero]) : t('New purchase order')))
+// Revisión: las líneas en la tabla común (solo lectura). Los pasos de
+// artículos y precios siguen siendo editores (se escribe en cada fila).
+const textoArt = (l) => infoArt[l.codigo_sap]?.texto || l.codigo_sap || null
+const lineasRevision = computed(() => lineas.value.map((l, i) => ({ ...l, i, n: i + 1 })))
+const columnasRevision = [
+  { clave: 'n', texto: '#', num: true, fija: true, prioridad: 1 },
+  { clave: 'articulo', texto: t('Item'), prioridad: 1, valor: textoArt },
+  { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 1, valor: (l) => (l.cantidad !== '' ? Number(l.cantidad) : null) },
+  { clave: 'precio', texto: t('Unit price'), num: true, prioridad: 2, valor: (l) => (l.precio !== '' ? Number(l.precio) : null) },
+  { clave: 'importe', texto: t('Amount'), num: true, prioridad: 2, valor: importe },
+  { clave: 'almacen', texto: t('Warehouse'), prioridad: 3, valor: (l) => l.almacen || null },
+]
 const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
 </script>
 
@@ -610,21 +623,14 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
       <section class="panel">
         <div class="panel-cabeza"><h2>{{ t('Lines ({0})', [lineas.filter((l) => l.codigo_sap).length]) }}</h2>
           <button type="button" class="btn btn-chico btn-fantasma" @click="ir(1)"><Icono nombre="editar" :tam="14" />{{ t('Edit') }}</button></div>
-        <div class="tabla-marco">
-          <table class="tabla" v-tarjetas>
-            <thead><tr><th>#</th><th>{{ t('Item') }}</th><th class="num">{{ t('Quantity') }}</th><th class="num">{{ t('Unit price') }}</th><th class="num">{{ t('Amount') }}</th><th>{{ t('Warehouse') }}</th></tr></thead>
-            <tbody>
-              <tr v-for="(l, i) in lineas" :key="i">
-                <td>{{ tx(i + 1) }}</td>
-                <td>{{ tx(infoArt[l.codigo_sap]?.texto || l.codigo_sap || '—') }}<small v-for="m in msjsLinea(i)" :key="m" class="campo-error">{{ tx(m) }}</small></td>
-                <td class="num">{{ l.cantidad !== '' ? cantTxt(l.cantidad, unidadDe(l)) : '—' }}</td>
-                <td class="num">{{ l.precio !== '' ? fmtNum(l.precio) : '—' }}</td>
-                <td class="num">{{ importe(l) === null ? '—' : fmtMoneda(importe(l), cab.moneda) }}</td>
-                <td>{{ tx(l.almacen || '—') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <TablaDatos tabla="oc_asistente_lineas" :columnas="columnasRevision" :filas="lineasRevision" clave-fila="n" :vistas-guardadas="false" :etiqueta="t('Lines')">
+          <template #celda-n="{ fila: l }">{{ tx(l.n) }}</template>
+          <template #celda-articulo="{ fila: l }">{{ tx(textoArt(l) || '—') }}<small v-for="m in msjsLinea(l.i)" :key="m" class="campo-error">{{ tx(m) }}</small></template>
+          <template #celda-cantidad="{ fila: l }">{{ l.cantidad !== '' ? cantTxt(l.cantidad, unidadDe(l)) : '—' }}</template>
+          <template #celda-precio="{ fila: l }">{{ l.precio !== '' ? fmtNum(l.precio) : '—' }}</template>
+          <template #celda-importe="{ fila: l }">{{ importe(l) === null ? '—' : fmtMoneda(importe(l), cab.moneda) }}</template>
+          <template #celda-almacen="{ fila: l }">{{ tx(l.almacen || '—') }}</template>
+        </TablaDatos>
       </section>
     </template>
   </Asistente>

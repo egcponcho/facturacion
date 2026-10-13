@@ -1718,6 +1718,7 @@
 "Items": "Artículos",
 "Items and quantities": "Artículos y cantidades",
 "Items by generic, with technical sheet": "Artículos por genérico, con ficha técnica",
+"Items of generic {0}": "Artículos del genérico {0}",
 "Items of the supplier from the item master. Solids may bring their casepack (exact quantity per carton); a prepack brings its size run.": "Artículos del proveedor según el maestro de artículos. Los sólidos pueden traer su casepack (cantidad exacta por caja); un prepack trae su curva de tallas.",
 "Items view": "Vista de artículos",
 "Items without unit weight: {0}. Their net weight is entered by hand.": "Artículos sin peso unitario: {0}. Su peso neto se ingresa a mano.",

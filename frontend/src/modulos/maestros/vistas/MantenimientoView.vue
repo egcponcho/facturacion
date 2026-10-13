@@ -14,23 +14,30 @@ import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
 import GenericoModal from '@/modulos/maestros/componentes/GenericoModal.vue'
-import Paginacion from '@/componentes/Paginacion.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
-import ThOrden from '@/componentes/ThOrden.vue'
-import { siguienteOrden } from '@/composables/useTabla'
+import TablaDatos from '@/componentes/TablaDatos.vue'
 import { avisar, errorApi } from '@/stores/ui'
-import { filasDefecto } from '@/stores/preferencias'
-import { ACCIONES, fmtFechaHora } from '@/nucleo/utils'
+import { ACCIONES, fmtFecha, fmtFechaHora } from '@/nucleo/utils'
 
 // Un solo lugar para todos los datos maestros. Cada catálogo llega descrito
 // desde el servidor (campos, tipos, obligatorios, filtros) y esta vista dibuja
-// el formulario, los filtros y la tabla a partir de esa descripción.
+// el formulario y la tabla a partir de esa descripción. La tabla (TablaDatos
+// en modo servidor, una por catálogo) filtra cada columna por sus valores; el
+// buscador va por fuera.
 const route = useRoute()
 const router = useRouter()
 const catalogos = ref([])
 const tipo = ref(route.query.catalogo || 'articulos')
 const datos = ref({ items: [], total: 0 })
-const filtros = reactive({ q: '', orden: '', page: 1, size: filasDefecto(), extra: {} })
+const filtros = reactive({ q: '' })
+const cargando = ref(false)
+const tabla = ref(null)
+// Filtros de columna con los que se abre el catálogo (p. ej. los centros de una
+// sociedad) y la última consulta de la tabla (orden, filtros y página)
+const iniciales = ref({})
+const ultima = ref(null)
+// Cada vez que se elige un catálogo, su tabla se arma de nuevo (sus columnas y su vista)
+const montaje = ref(0)
 const opciones = reactive({})
 const form = ref({})
 const editando = ref(null)
@@ -45,9 +52,13 @@ const vista = ref(route.query.vista || leerVista() || 'compacta')
 const recarga = ref(0)
 const compacta = computed(() => tipo.value === 'articulos' && vista.value === 'compacta')
 function cambiarVista(v) {
+  if (v === vista.value) return
   vista.value = v
   try { localStorage.setItem('mant.vistaArticulos', v) } catch { /* sin almacenamiento */ }
-  cargar()
+  // La otra tabla se monta y pide sus datos; conserva los filtros de columna que comparten
+  iniciales.value = filtrosComunes(ultima.value?.filtros || iniciales.value)
+  ultima.value = null
+  datos.value = { items: [], total: 0 }
 }
 const ESTADO_FICHA = { borrador: t('Sheet in draft'), sugerida: t('Draft complete'), revision: t('In review'), observado: t('Returned') }
 
@@ -60,17 +71,70 @@ const PRINCIPALES = ['articulos', 'prepacks', 'marcas', 'proveedores', 'grupos',
 const principales = computed(() => catalogos.value.filter((c) => PRINCIPALES.includes(c.tipo)))
 const otros = computed(() => catalogos.value.filter((c) => !PRINCIPALES.includes(c.tipo)))
 const campos = computed(() => cat.value?.campos || [])
-// Un campo que solo aplica a algunos registros (mostrar_si) es columna si aplica
-// al filtro elegido o, sin filtro, si algún registro de la página lo tiene
+// Un campo que solo aplica a algunos registros (mostrar_si) empieza visible si
+// aplica a lo filtrado en su columna base o, sin filtro, si algún registro de la página lo tiene
 const aplica = (c) => {
   if (!c.mostrar_si) return true
-  const elegido = filtros.extra[c.mostrar_si.campo]
-  if (elegido) return c.mostrar_si.valores.includes(elegido)
+  const elegidos = ultima.value?.filtros?.[c.mostrar_si.campo] || []
+  if (elegidos.length) return elegidos.some((v) => c.mostrar_si.valores.includes(v))
   return datos.value.items.some((f) => ![null, undefined, ''].includes(f[c.nombre]) && !(Array.isArray(f[c.nombre]) && !f[c.nombre].length))
 }
-const columnas = computed(() => campos.value.filter((c) => !['descripcion', 'direccion', 'razon_social', 'upc'].includes(c.nombre) &&
-  !(c.nombre === 'correos' && tipo.value !== 'contactos') && aplica(c)))
 const extras = computed(() => cat.value?.extras || [])
+// Columnas de la tabla: un campo por columna (los largos, como la dirección,
+// empiezan ocultos), luego los registros relacionados y lo propio del catálogo.
+// Cada columna filtra por sus valores (el servidor da los valores únicos); las
+// calculadas (relacionados, ficha técnica, total por caja, regla de lead time) no.
+const OCULTAS = ['descripcion', 'direccion', 'razon_social', 'upc']
+const SI_NO = [[true, t('Yes')], [false, t('No')]]
+function opcionesColumna(c) {
+  if (c.tipo === 'bool') return c.propio ? undefined : SI_NO
+  if (c.tipo === 'opcion') return c.opciones
+  if (['ref', 'multi', 'codigo'].includes(c.tipo) && c.catalogo) {
+    return (opciones[c.catalogo] || []).map((o) => [c.tipo === 'codigo' ? o.codigo : o.id, o.texto])
+  }
+  return undefined
+}
+function textoValorColumna(c) {
+  // Campo propio sí/no: el servidor lo da como texto (true/1)
+  if (c.tipo === 'bool' && c.propio) return (v) => (['true', '1'].includes(String(v).toLowerCase()) ? t('Yes') : t('No'))
+  if (c.tipo === 'opciones') return (v) => String(v).split(',').filter(Boolean).map((k) => tx(c.opciones.find((o) => o[0] === k)?.[1] || k)).join(', ')
+  if (c.tipo === 'fecha') return (v) => fmtFecha(v)
+  return undefined
+}
+const columnasTabla = computed(() => [
+  ...campos.value.map((c, i) => ({
+    clave: c.nombre, texto: c.etiqueta, num: ['entero', 'numero'].includes(c.tipo), fija: i === 0,
+    prioridad: i < 2 ? 1 : i < 4 ? 2 : 3,
+    inicial: !OCULTAS.includes(c.nombre) && !(c.nombre === 'correos' && tipo.value !== 'contactos') && aplica(c),
+    ordenable: !['multi', 'regla_lt'].includes(c.tipo), filtro: c.tipo === 'regla_lt' ? false : undefined,
+    opciones: opcionesColumna(c), textoValor: textoValorColumna(c),
+  })),
+  ...extras.value.map((ex) => ({ clave: ex.nombre, texto: ex.etiqueta, ordenable: false, filtro: false, prioridad: 3 })),
+  ...(tipo.value === 'articulos' ? [{ clave: 'ficha', texto: t('HS code · description'), ordenable: false, filtro: false, prioridad: 3 }] : []),
+  ...(tipo.value === 'prepacks' ? [{ clave: 'sku', texto: t('Item code'), prioridad: 1 },
+    { clave: 'total', texto: t('Per carton'), num: true, ordenable: false, filtro: false, prioridad: 2 }] : []),
+])
+// Valores únicos de una columna (del servidor, bajo los demás filtros)
+const valoresColumna = (columna, buscar, otros) => api.get(`/catalogos/${tipo.value}/valores`, { columna, buscar, q: filtros.q || undefined, f: JSON.stringify(otros) })
+// Nombre de una referencia (marca, grupo, proveedor…) por su id, para los filtros de la vista por genérico
+function nombreRef(clave, v) {
+  const c = campos.value.find((x) => x.nombre === clave)
+  const o = c?.catalogo && (opciones[c.catalogo] || []).find((x) => String(x.id) === String(v))
+  return o ? o.texto : v
+}
+// Filtros por campo «por fuera» (en Más filtros): son los mismos filtros de su columna
+const filtroFuera = (c) => tabla.value?.filtros?.[c.nombre]?.[0] ?? ''
+function ponerFiltroFuera(c, v) {
+  if (!tabla.value) return
+  if (v === '' || v === null || v === undefined) delete tabla.value.filtros[c.nombre]
+  else tabla.value.filtros[c.nombre] = [String(v)]
+  tabla.value.pagina = 1
+}
+const fueraActivos = computed(() => conFiltro.value.filter((c) => filtroFuera(c) !== '').length)
+// Filtros de columna que la vista por genérico y el listado de artículos comparten
+const COMUNES = ['generico', 'estilo', 'color', 'marca_id', 'grupo_id', 'proveedor_id', 'unidad']
+const filtrosComunes = (fs) => Object.fromEntries(Object.entries(fs || {}).filter(([k]) => COMUNES.includes(k)))
+const conFiltro = computed(() => campos.value.filter((c) => c.filtro && ['ref', 'codigo', 'multi', 'bool', 'opcion'].includes(c.tipo)))
 // Campos que dependen de otro para mostrarse (p. ej. el país solo en una regla de nivel país)
 const camposVisibles = computed(() => campos.value.filter((c) => !c.mostrar_si || c.mostrar_si.valores.includes(form.value?.[c.mostrar_si.campo])))
 // Opciones para la lista con búsqueda: por id (ref) o por código
@@ -95,7 +159,6 @@ watch(() => campos.value.filter((c) => c.depende).map((c) => form.value?.[c.depe
     else if (!validos.has(String(v))) form.value[c.nombre] = ''
   }
 })
-const conFiltro = computed(() => campos.value.filter((c) => c.filtro && !(compacta.value && ['tipo', 'activo'].includes(c.nombre))))
 
 // ---- Secciones: primero lo común; lo propio de la empresa, al final
 const SECCIONES = [['general', t('General data')], ['comercial', t('Commercial')], ['logistica', t('Logistics')],
@@ -178,46 +241,64 @@ async function cargarOpciones() {
   }))
 }
 
-async function cargar() {
-  if (!cat.value) return
-  if (compacta.value) {
-    recarga.value++
-    return
-  }
+// La tabla pide cada vez que cambia su orden, sus filtros o su página
+async function consultar(c = ultima.value) {
+  if (!c || !cat.value) return
+  ultima.value = c
+  const t = tipo.value
+  cargando.value = true
   try {
-    datos.value = await api.get(`/catalogos/${tipo.value}`, {
-      q: filtros.q, orden: filtros.orden, page: filtros.page, size: filtros.size, ...filtros.extra,
+    const r = await api.get(`/catalogos/${t}`, {
+      q: filtros.q, orden: c.orden, page: c.page, size: c.size, f: Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined,
     })
+    if (t === tipo.value) datos.value = r // una respuesta tardía de otro catálogo no pisa la tabla
   } catch (e) {
     errorApi(e)
+  } finally {
+    cargando.value = false
   }
 }
+// Después de guardar algo: la misma página con los mismos filtros
+function cargar() {
+  if (!cat.value) return
+  if (compacta.value) recarga.value++
+  else consultar()
+}
+// La búsqueda vuelve a la primera página
+function recargar() {
+  if (compacta.value) recarga.value++
+  else if (tabla.value && tabla.value.pagina !== 1) tabla.value.pagina = 1
+  else consultar()
+}
 
+// extra: filtros de columna con los que se abre ({ sociedad_id: 3 } = los de esa sociedad)
 async function elegir(t, extra = {}, q = '') {
   if (t === 'prepacks' && !solidos.value.length) cargarSolidos()
   tipo.value = t
   router.replace({ query: { catalogo: t } })
-  Object.assign(filtros, { q, orden: '', page: 1, extra: { ...extra } })
+  filtros.q = q
+  iniciales.value = Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, [String(v)]]))
+  ultima.value = null
+  datos.value = { items: [], total: 0 }
   editando.value = null
   erroresForm.value = {}
   form.value = vacio()
   await cargarOpciones()
-  cargar()
+  montaje.value++
 }
 
 let espera
 function buscar() {
   clearTimeout(espera)
-  espera = setTimeout(() => {
-    filtros.page = 1
-    cargar()
-  }, 300)
+  espera = setTimeout(recargar, 300)
 }
-function ordenar(campo) {
-  filtros.orden = siguienteOrden(filtros.orden, campo)
-  filtros.page = 1
-  cargar()
-}
+// Exportar con lo que se ve: búsqueda, filtros de columna y orden (la vista por
+// genérico exporta sus artículos con los filtros que comparten)
+const paramsExportar = computed(() => {
+  const c = ultima.value || { orden: '', filtros: {} }
+  const fs = compacta.value ? Object.fromEntries(Object.entries(c.filtros).map(([k, v]) => [k === 'tallas' ? 'talla' : k, v])) : c.filtros
+  return { q: filtros.q, orden: c.orden || undefined, f: Object.keys(fs).length ? JSON.stringify(fs) : undefined }
+})
 
 // ---- Formulario -------------------------------------------------------------
 function abrirNuevo() {
@@ -387,11 +468,6 @@ function bloqueado(c) {
 const opcionesCampo = (c) => (c.nombre === 'tipo' && tipo.value === 'articulos' && !editando.value
   ? c.opciones.filter(([v]) => v === 'SOLIDO') : c.opciones)
 
-watch(() => filtros.size, () => {
-  filtros.page = 1
-  cargar()
-})
-
 onMounted(async () => {
   await cargarMeta()
   if (!cat.value) tipo.value = 'articulos'
@@ -408,7 +484,7 @@ onMounted(async () => {
     </div>
     <div class="acciones">
       <MasOpciones>
-        <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="{ q: filtros.q, orden: filtros.orden, ...filtros.extra }" />
+        <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="paramsExportar" />
         <router-link v-if="tipo === 'leadtimes' || tipo === 'pasos_lt'" class="btn" to="/leadtimes"><Icono nombre="reloj" :tam="15" />{{ t('Effective lead time') }}</router-link>
         <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />{{ t('Template') }}</a>
         <button v-if="cat && acciones.crear" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload items and sheets') : tipo === 'prepacks' ? t('Upload size runs') : t('Upload Excel')) }}</button>
@@ -447,78 +523,82 @@ onMounted(async () => {
     </div>
 
     <section>
-      <div class="filtros" v-filtros>
-        <label class="buscador">
-          <Icono nombre="buscar" :tam="16" />
-          <input v-model="filtros.q" type="search" :placeholder="compacta ? t('Search generic, style, color, item code, UPC or supplier SKU') : t('Search {0}', [tx(cat.titulo).toLowerCase()])" :aria-label="t('Search')" @input="buscar" />
-        </label>
-        <div v-if="tipo === 'articulos'" class="segmentos" role="group" :aria-label="t('Items view')">
-          <button type="button" class="segmento" :aria-pressed="vista === 'compacta'" :title="t('One row per generic; expand it to see its sizes')" @click="cambiarVista('compacta')">{{ t('Compact') }}</button>
-          <button type="button" class="segmento" :aria-pressed="vista === 'lista'" :title="t('One row per item code')" @click="cambiarVista('lista')">{{ t('List') }}</button>
-        </div>
-        <template v-for="c in conFiltro" :key="c.nombre">
-          <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" v-model="filtros.extra[c.nombre]" :opciones="opcionesDe(c, filtros.extra)"
-                          :vacio="t('{0}: all', [tx(c.etiqueta)])" :etiqueta="tx(c.etiqueta)" @change="filtros.page = 1; cargar()" />
-          <Seleccion v-else v-model="filtros.extra[c.nombre]" :aria-label="tx(c.etiqueta)" @change="filtros.page = 1; cargar()">
-            <option :value="undefined">{{ t('{0}: all', [tx(c.etiqueta)]) }}</option>
-            <template v-if="c.tipo === 'bool'"><option value="true">{{ t('{0}: yes', [c.etiqueta]) }}</option><option value="false">{{ t('{0}: no', [c.etiqueta]) }}</option></template>
-            <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, txt] in c.opciones" :key="v" :value="v">{{ tx(c.etiqueta) }}: {{ tx(txt) }}</option></template>
-          </Seleccion>
+      <ArticulosGenericos v-if="compacta" :key="`gen-${montaje}`" :acciones="acciones" :q="filtros.q" :iniciales="iniciales" :recarga="recarga" :nombre="nombreRef"
+                          @consulta="(c) => (ultima = c)" @editar-articulo="editar" @eliminar-articulo="(fila) => (modal = { tipo: 'eliminar', fila })"
+                          @desglose="(a) => (explosion = { sku: a.sku })" @cambio="cargarMeta">
+        <template #barra>
+          <label class="buscador">
+            <Icono nombre="buscar" :tam="16" />
+            <input v-model="filtros.q" type="search" :placeholder="t('Search generic, style, color, item code, UPC or supplier SKU')" :aria-label="t('Search')" @input="buscar" />
+          </label>
         </template>
-      </div>
-      <ArticulosGenericos v-if="compacta" :acciones="acciones" :q="filtros.q" :extra="filtros.extra" :recarga="recarga"
-                          @editar-articulo="editar" @eliminar-articulo="(fila) => (modal = { tipo: 'eliminar', fila })" @desglose="(a) => (explosion = { sku: a.sku })" @cambio="cargarMeta" />
-      <template v-else>
-      <div class="tabla-marco tabla-fija">
-        <table class="tabla" v-tarjetas>
-          <thead>
-            <tr>
-              <ThOrden v-for="c in columnas" :key="c.nombre" :campo="c.nombre" :orden="filtros.orden" :num="c.tipo === 'entero'" @ordenar="ordenar">{{ tx(c.etiqueta) }}</ThOrden>
-              <th v-for="ex in extras" :key="ex.nombre">{{ tx(ex.etiqueta) }}</th>
-              <th v-if="tipo === 'articulos'" :title="t('The technical sheet, description and HS code belong to the style and color')">{{ t('HS code · description') }}</th>
-              <th v-if="tipo === 'prepacks'">{{ t('Item code') }}</th>
-              <th v-if="tipo === 'prepacks'" class="num">{{ t('Per carton') }}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="fila in datos.items" :key="fila.id" :class="{ seleccionada: editando === fila.id }">
-              <td v-for="c in columnas" :key="c.nombre" :class="{ num: c.tipo === 'entero' }">
-                <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :disabled="!acciones.editar" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="t('Change {0}', [c.etiqueta.toLowerCase()])" @click="alternarActivo(fila, c.nombre)">
-                  {{ tx(fila[c.nombre] ? t('Yes') : t('No')) }}
-                </button>
-                <span v-else :class="{ codigo: ['codigo', 'sku'].includes(c.nombre), fuerte: c.nombre === 'codigo' || c.nombre === 'sku' }">{{ tx(valorCelda(c, fila)) }}</span>
-              </td>
-              <td v-for="ex in extras" :key="ex.nombre">
-                <button type="button" class="enlace" :title="t('See {0} of {1}', [ex.etiqueta.toLowerCase(), fila.codigo || fila.nombre])"
-                        @click="elegir(ex.catalogo, { [ex.filtro]: fila.id })">
-                  {{ tx(ex.nombre === 'centros_txt' ? (fila.centros_txt || t('Assign plants')) : `${fila[ex.nombre] || 0} ${fila[ex.nombre] === 1 ? ex.etiqueta.toLowerCase().replace(/s$/, '') : ex.etiqueta.toLowerCase()}`) }}
-                </button>
-              </td>
-              <td v-if="tipo === 'articulos'">
-                <router-link v-if="fila.producto_id" :to="`/productos/${fila.producto_id}`" class="enlace" :title="t('Technical sheet of {0} {1}', [fila.estilo, fila.color])">
-                  <span v-if="fila.partida_txt" class="codigo-sac">{{ tx(fila.partida_txt) }}</span>
-                  <template v-else>{{ tx(ESTADO_FICHA[fila.clasificacion] || t('Open sheet')) }}</template>
-                </router-link>
-                <span v-else class="apagado">—</span>
-                <span v-if="fila.descripcion" class="sub" style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis" :title="tx(fila.descripcion)">{{ tx(fila.descripcion) }}</span>
-              </td>
-              <td v-if="tipo === 'prepacks'" class="codigo fuerte">{{ tx(fila.sku || '—') }}</td>
-              <td v-if="tipo === 'prepacks'" class="num">{{ tx(fila.total) }} <span class="sub">{{ t('{0} sizes', [fila.componentes]) }}</span></td>
-              <td class="num nowrap">
-                <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" class="btn btn-chico" :title="t('See the breakdown (it never changes)')"
-                        @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />{{ t('Breakdown') }}</button>
-                <button class="btn-icono" :aria-label="tr('See {0}', [cat.singular])" :title="t('See details and history')" @click="ver(fila)"><Icono nombre="ojo" :tam="16" /></button>
-                <button v-if="acciones.editar" class="btn-icono" :aria-label="tr('Edit {0}', [cat.singular])" :title="t('Edit')" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
-                <button v-if="acciones.eliminar" class="btn-icono texto-error" :aria-label="tr('Delete {0}', [cat.singular])" :title="t('Delete')" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
-              </td>
-            </tr>
-            <tr v-if="!datos.items.length"><td :colspan="columnas.length + extras.length + (tipo === 'prepacks' ? 3 : tipo === 'articulos' ? 3 : 2)" class="vacio">{{ t('No records match these filters.') }}</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <Paginacion :page="filtros.page" :size="filtros.size" :total="datos.total" @cambiar="(p) => { filtros.page = p; cargar() }" @tamano="(t) => (filtros.size = t)" />
-      </template>
+        <template #filtros>
+          <div class="segmentos" role="group" :aria-label="t('Items view')">
+            <button type="button" class="segmento" aria-pressed="true" :title="t('One row per generic; expand it to see its sizes')">{{ t('Compact') }}</button>
+            <button type="button" class="segmento" aria-pressed="false" :title="t('One row per item code')" @click="cambiarVista('lista')">{{ t('List') }}</button>
+          </div>
+        </template>
+      </ArticulosGenericos>
+      <TablaDatos v-else ref="tabla" :key="`${tipo}-${montaje}`" :tabla="`catalogo_${tipo}`" modo="servidor" :columnas="columnasTabla" :filas="datos.items"
+                  :total="datos.total" :cargando="cargando" :valores="valoresColumna" :filtros-iniciales="iniciales" :fila-activa="editando"
+                  :externos="{ q: filtros.q }" :mas-filtros-activos="fueraActivos" :etiqueta="cat.titulo"
+                  @consulta="consultar" @vista="(x) => { filtros.q = x.q || ''; recargar() }" @limpiar-externos="filtros.q = ''; recargar()">
+        <template #barra>
+          <label class="buscador">
+            <Icono nombre="buscar" :tam="16" />
+            <input v-model="filtros.q" type="search" :placeholder="t('Search {0}', [tx(cat.titulo).toLowerCase()])" :aria-label="t('Search')" @input="buscar" />
+          </label>
+        </template>
+        <template v-if="tipo === 'articulos'" #filtros>
+          <div class="segmentos" role="group" :aria-label="t('Items view')">
+            <button type="button" class="segmento" aria-pressed="false" :title="t('One row per generic; expand it to see its sizes')" @click="cambiarVista('compacta')">{{ t('Compact') }}</button>
+            <button type="button" class="segmento" aria-pressed="true" :title="t('One row per item code')">{{ t('List') }}</button>
+          </div>
+        </template>
+        <template v-if="conFiltro.length" #mas-filtros>
+          <template v-for="c in conFiltro" :key="c.nombre">
+            <SelectBusqueda v-if="['ref', 'codigo', 'multi'].includes(c.tipo)" :model-value="filtroFuera(c)" :opciones="opcionesDe(c)"
+                            :vacio="t('{0}: all', [tx(c.etiqueta)])" :etiqueta="tx(c.etiqueta)" @update:model-value="(v) => ponerFiltroFuera(c, v)" />
+            <Seleccion v-else :model-value="filtroFuera(c)" :aria-label="tx(c.etiqueta)" @update:model-value="(v) => ponerFiltroFuera(c, v)">
+              <option value="">{{ t('{0}: all', [tx(c.etiqueta)]) }}</option>
+              <template v-if="c.tipo === 'bool'"><option value="true">{{ t('{0}: yes', [c.etiqueta]) }}</option><option value="false">{{ t('{0}: no', [c.etiqueta]) }}</option></template>
+              <template v-else-if="c.tipo === 'opcion'"><option v-for="[v, txt] in c.opciones" :key="v" :value="v">{{ tx(c.etiqueta) }}: {{ tx(txt) }}</option></template>
+            </Seleccion>
+          </template>
+        </template>
+        <template v-for="c in campos" :key="c.nombre" #[`celda-${c.nombre}`]="{ fila }">
+          <button v-if="c.tipo === 'bool'" type="button" class="etiqueta" :disabled="!acciones.editar" :class="fila[c.nombre] ? 'ok' : ''" style="border: 0; cursor: pointer" :title="t('Change {0}', [c.etiqueta.toLowerCase()])" @click.stop="alternarActivo(fila, c.nombre)">
+            {{ tx(fila[c.nombre] ? t('Yes') : t('No')) }}
+          </button>
+          <span v-else :class="{ codigo: ['codigo', 'sku'].includes(c.nombre), fuerte: c.nombre === 'codigo' || c.nombre === 'sku' }">{{ tx(valorCelda(c, fila)) }}</span>
+        </template>
+        <template v-for="ex in extras" :key="ex.nombre" #[`celda-${ex.nombre}`]="{ fila }">
+          <button type="button" class="enlace" :title="t('See {0} of {1}', [ex.etiqueta.toLowerCase(), fila.codigo || fila.nombre])"
+                  @click="elegir(ex.catalogo, { [ex.filtro]: fila.id })">
+            {{ tx(ex.nombre === 'centros_txt' ? (fila.centros_txt || t('Assign plants')) : `${fila[ex.nombre] || 0} ${fila[ex.nombre] === 1 ? ex.etiqueta.toLowerCase().replace(/s$/, '') : ex.etiqueta.toLowerCase()}`) }}
+          </button>
+        </template>
+        <template #celda-ficha="{ fila }">
+          <router-link v-if="fila.producto_id" :to="`/productos/${fila.producto_id}`" class="enlace" :title="t('Technical sheet of {0} {1}', [fila.estilo, fila.color])">
+            <span v-if="fila.partida_txt" class="codigo-sac">{{ tx(fila.partida_txt) }}</span>
+            <template v-else>{{ tx(ESTADO_FICHA[fila.clasificacion] || t('Open sheet')) }}</template>
+          </router-link>
+          <span v-else class="apagado">—</span>
+          <span v-if="fila.descripcion" class="sub desc-corta" :title="tx(fila.descripcion)">{{ tx(fila.descripcion) }}</span>
+        </template>
+        <template v-if="tipo === 'prepacks'" #celda-sku="{ fila }"><span class="codigo fuerte">{{ tx(fila.sku || '—') }}</span></template>
+        <template v-if="tipo === 'prepacks'" #celda-total="{ fila }">{{ tx(fila.total) }} <span class="sub">{{ t('{0} sizes', [fila.componentes]) }}</span></template>
+        <template #acciones="{ fila }">
+          <span class="nowrap">
+            <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" type="button" class="btn btn-chico" :title="t('See the breakdown (it never changes)')"
+                    @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />{{ t('Breakdown') }}</button>
+            <button type="button" class="btn-icono" :aria-label="tr('See {0}', [cat.singular])" :title="t('See details and history')" @click="ver(fila)"><Icono nombre="ojo" :tam="16" /></button>
+            <button v-if="acciones.editar" type="button" class="btn-icono" :aria-label="tr('Edit {0}', [cat.singular])" :title="t('Edit')" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
+            <button v-if="acciones.eliminar" type="button" class="btn-icono texto-error" :aria-label="tr('Delete {0}', [cat.singular])" :title="t('Delete')" @click="modal = { tipo: 'eliminar', fila }"><Icono nombre="basura" :tam="16" /></button>
+          </span>
+        </template>
+        <template #vacio>{{ t('No records match these filters.') }}</template>
+      </TablaDatos>
     </section>
   </div>
 
@@ -676,6 +756,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.desc-corta { max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gobierno { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 12px; padding: 8px 12px; border: 1px solid var(--linea);
   border-radius: var(--radio); background: var(--superficie-2); color: var(--tinta-2); font-size: 0.86rem; }
 .gobierno .btn { margin-inline-start: auto; }

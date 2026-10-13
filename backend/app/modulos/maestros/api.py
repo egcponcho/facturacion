@@ -1,12 +1,20 @@
 from fastapi import APIRouter, Body, File, Query, Request, UploadFile
 
 from app import esquemas as s
+from app.modulos.comun import tabla
 from app.modulos.maestros import cargas, genericos
 from app.modulos.maestros import catalogos as svc
 from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida, plantilla_o_vista
 
 router = APIRouter(prefix="/catalogos")
-RESERVADOS = {"q", "orden", "page", "size"}
+# `f` son los filtros por columna (app/modulos/comun/tabla.py); `columna` y
+# `buscar`, los de la ruta de valores de una columna
+RESERVADOS = {"q", "orden", "page", "size", "f", "columna", "buscar"}
+
+
+def _filtros(request: Request, *quitar: str) -> dict:
+    """Filtros por campo de la pantalla: los parámetros que no son de la tabla."""
+    return {k: v for k, v in request.query_params.items() if k not in RESERVADOS | set(quitar)}
 
 
 @router.get("")
@@ -23,12 +31,21 @@ def crear_generico(datos: s.GenericoIn, db: Db, user: User, clave: Clave = None)
 
 @router.get("/genericos")
 def genericos_lista(request: Request, db: Db, user: User, orden: str | None = None, page: int = Query(1, ge=1),
-                    size: int = Query(25, ge=1, le=200)):
-    """Artículos agrupados por genérico (un renglón con sus tallas), con filtros, orden y paginación."""
-    filtros = {k: v for k, v in request.query_params.items() if k not in RESERVADOS and v != ""}
+                    size: int = Query(25, ge=1, le=200), f: str | None = None):
+    """Artículos agrupados por genérico (un renglón con sus tallas), con filtros, filtros por columna, orden y paginación."""
+    filtros = {k: v for k, v in _filtros(request).items() if v != ""}
     if request.query_params.get("q"):
         filtros["q"] = request.query_params["q"]
-    return genericos.listar(db, user, filtros, orden, page, size)
+    return genericos.listar(db, user, filtros, orden, page, size, tabla.leer(f))
+
+
+@router.get("/genericos/valores")
+def genericos_valores(request: Request, db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None):
+    """Valores únicos de una columna de la vista por genérico (con cuántos genéricos tienen cada uno) bajo los demás filtros."""
+    filtros = {k: v for k, v in _filtros(request).items() if v != ""}
+    if request.query_params.get("q"):
+        filtros["q"] = request.query_params["q"]
+    return genericos.valores(db, user, columna, buscar, tabla.leer(f), filtros)
 
 
 @router.put("/genericos/{gen}")
@@ -83,10 +100,10 @@ def plantilla(tipo: str, db: Db, user: User, vista: bool = False):
 
 @router.get("/{tipo}/exportar")
 def exportar(tipo: str, request: Request, db: Db, user: User, q: str | None = None, orden: str | None = None,
-             formato: Formato = "xlsx"):
-    """Exporta un catálogo en Excel o PDF con la búsqueda, los filtros y el orden de la pantalla."""
-    filtros = {k: v for k, v in request.query_params.items() if k not in RESERVADOS | {"formato"}}
-    return descarga(cargas.exportar_catalogo(db, user, tipo, q, filtros, orden, formato), f"{tipo}", formato)
+             formato: Formato = "xlsx", f: str | None = None):
+    """Exporta un catálogo en Excel o PDF con la búsqueda, los filtros (también los de cada columna) y el orden de la pantalla."""
+    filtros = _filtros(request, "formato")
+    return descarga(cargas.exportar_catalogo(db, user, tipo, q, filtros, orden, formato, tabla.leer(f)), f"{tipo}", formato)
 
 
 @router.get("/prepacks/{prepack_id}/componentes")
@@ -101,6 +118,13 @@ def explosion(sku: str, db: Db, user: User):
     return svc.explosion(db, user, sku)
 
 
+@router.get("/{tipo}/valores")
+def valores(tipo: str, request: Request, db: Db, user: User, columna: str, buscar: str | None = None, q: str | None = None,
+            f: str | None = None):
+    """Valores únicos de una columna de un catálogo (con cuántos registros tienen cada uno) bajo los demás filtros."""
+    return svc.valores(db, user, tipo, columna, buscar, tabla.leer(f), q, _filtros(request))
+
+
 @router.get("/{tipo}/opciones")
 def opciones(tipo: str, db: Db, user: User):
     """Lista corta (id, código, texto) de un catálogo para selects y filtros."""
@@ -109,10 +133,9 @@ def opciones(tipo: str, db: Db, user: User):
 
 @router.get("/{tipo}")
 def listar(tipo: str, request: Request, db: Db, user: User, q: str | None = None, orden: str | None = None,
-           page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200)):
-    """Registros de un catálogo con búsqueda, filtros por campo, orden y paginación."""
-    filtros = {k: v for k, v in request.query_params.items() if k not in RESERVADOS}
-    return svc.listar(db, user, tipo, q, filtros, orden, page, size)
+           page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200), f: str | None = None):
+    """Registros de un catálogo con búsqueda, filtros por campo y por columna, orden y paginación."""
+    return svc.listar(db, user, tipo, q, _filtros(request), orden, page, size, tabla.leer(f))
 
 
 @router.post("/{tipo}")

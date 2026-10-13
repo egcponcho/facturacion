@@ -14,6 +14,8 @@ import { useEdicion } from '@/composables/useEdicion'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
 import Pasos from '@/componentes/Pasos.vue'
+import TablaDatos from '@/componentes/TablaDatos.vue'
+import { estado as leerEstado } from '@/nucleo/estados.js'
 import { cargarContexto, entradaDe, fichaDe, sesion } from '@/modulos/clasificacion/useClasificacion'
 import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '@/modulos/clasificacion/formato.js'
 import { puede, sesion as sesionUsuario } from '@/stores/sesion'
@@ -550,6 +552,48 @@ async function verVersion(v) {
   }
 }
 
+// ---- Tablas de la ficha (TablaDatos en modo local) -------------------------------
+// Versiones: la vigente primero y luego las anteriores; cada columna filtra por sus valores
+const ESTADOS_PRODUCTO = ['borrador', 'sugerida', 'observado', 'revision', 'aprobado', 'corregido']
+  .map((c) => [c, c === 'corregido' ? t('Corrected') : leerEstado(c)[0]])
+const filasVersiones = computed(() => (p.value ? [
+  { version: p.value.version_ficha, actual: true, desde: p.value.vigente_desde, hasta: null, estado: p.value.estado,
+    codigo: p.value.codigo || p.value.sugerido || null, motivo: null },
+  ...p.value.versiones.map((v) => ({ ...v, actual: false })),
+] : []))
+const colVersiones = [
+  { clave: 'version', texto: t('Version'), fija: true, prioridad: 1 },
+  { clave: 'desde', texto: t('Valid'), prioridad: 2, textoValor: (v) => fmtFecha(v) },
+  { clave: 'estado', texto: t('Status'), prioridad: 1, opciones: ESTADOS_PRODUCTO },
+  { clave: 'codigo', texto: t('HS code'), prioridad: 2 },
+  { clave: 'motivo', texto: t('Reason for the change'), prioridad: 3 },
+]
+const claseVersion = (v) => ({ seleccionada: v.actual || versionVista.value?.version === v.version })
+// Códigos nacionales de una versión anterior (llegan como filas [país, código, DAI, estado, fuente])
+const filasCodigosVersion = computed(() => (versionVista.value?.partidas || [])
+  .map(([pais, codigo, dai, estado, fuente]) => ({ pais, codigo, dai, estado, fuente })))
+const colCodigosVersion = [
+  { clave: 'pais', texto: t('Country'), fija: true, prioridad: 1 },
+  { clave: 'codigo', texto: t('Code'), prioridad: 1 },
+  { clave: 'dai', texto: t('Duty (DAI)'), prioridad: 2 },
+  { clave: 'estado', texto: t('Status'), prioridad: 2 },
+  { clave: 'fuente', texto: t('Source'), prioridad: 3 },
+]
+// Tallas (artículos) del genérico
+const codigoTalla = (a) => (a.sku.length === 11 ? a.sku.slice(8) : null)
+const descripcionArticulo = (a) => (p.value.descripcion_comercial
+  ? `${p.value.descripcion_comercial}, ${a.tipo === 'PREPACK' ? t('prepack') : t('size')} ${a.talla}` : a.descripcion)
+const colArticulos = [
+  { clave: 'sku', texto: t('Item code'), fija: true, prioridad: 1 },
+  { clave: 'codigo_talla', texto: t('Size code'), prioridad: 3, valor: codigoTalla },
+  { clave: 'sku_proveedor', texto: t('Supplier SKU'), prioridad: 3 },
+  { clave: 'upc', texto: 'UPC', prioridad: 3 },
+  { clave: 'talla', texto: t('Size'), prioridad: 1 },
+  { clave: 'unidad', texto: t('Unit'), prioridad: 2 },
+  { clave: 'descripcion', texto: t('Description'), prioridad: 3, valor: (a) => descripcionArticulo(a) },
+  { clave: 'activo', texto: t('Status'), prioridad: 2, opciones: [[true, t('Active')], [false, t('Inactive')]] },
+]
+
 // ---- Historial -------------------------------------------------------------
 const ACCION = {
   ficha_guardada: t('Saved the technical sheet'),
@@ -674,34 +718,30 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 
         <!-- Versiones: la vigente y las anteriores, para verlas y descargarlas -->
         <div v-else-if="pestana === 'versiones'" class="panel mt-chico">
-          <div class="tabla-marco">
-            <table class="tabla" v-tarjetas>
-              <thead><tr><th>{{ t('Version') }}</th><th>{{ t('Valid') }}</th><th>{{ t('Status') }}</th><th>{{ t('HS code') }}</th><th>{{ t('Reason for the change') }}</th><th></th></tr></thead>
-              <tbody>
-                <tr class="seleccionada">
-                  <td class="fuerte">{{ tx(p.version_ficha) }} <span class="etiqueta acento">{{ t('Current') }}</span></td>
-                  <td>{{ tx(p.vigente_desde ? t('From {0}', [fmtFecha(p.vigente_desde)]) : t('Current')) }}</td>
-                  <td><EstadoBadge :estado="p.estado" /></td>
-                  <td class="codigo-sac">{{ tx(p.codigo || p.sugerido || '—') }}</td><td class="apagado">—</td>
-                  <td class="num fila-flex" style="justify-content: flex-end">
-                    <button class="btn btn-chico" @click="pestana = 'ficha'">{{ t('Open') }}</button>
-                    <button class="btn btn-chico" @click="descargarFicha('pdf')">PDF</button>
-                    <button class="btn btn-chico" @click="descargarFicha('xlsx')">{{ t('Excel') }}</button>
-                  </td>
-                </tr>
-                <tr v-for="v in p.versiones" :key="v.version" :class="{ seleccionada: versionVista?.version === v.version }">
-                  <td class="fuerte">{{ tx(v.version) }}</td><td>{{ fmtFecha(v.desde) }} – {{ fmtFecha(v.hasta) }}</td>
-                  <td><EstadoBadge :estado="v.estado" /></td>
-                  <td class="codigo-sac">{{ tx(v.codigo || '—') }}</td><td>{{ tx(v.motivo || '—') }}</td>
-                  <td class="num fila-flex" style="justify-content: flex-end">
-                    <button class="btn btn-chico" @click="verVersion(v)"><Icono nombre="lupa" :tam="13" />{{ t('View') }}</button>
-                    <button class="btn btn-chico" @click="descargarFicha('pdf', v.version)">PDF</button>
-                    <button class="btn btn-chico" @click="descargarFicha('xlsx', v.version)">{{ t('Excel') }}</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <TablaDatos tabla="productos_versiones" :columnas="colVersiones" :filas="filasVersiones" clave-fila="version" :clase-fila="claseVersion" :etiqueta="t('Versions')">
+            <template #celda-version="{ fila: v }"><span class="fuerte">{{ tx(v.version) }}</span> <span v-if="v.actual" class="etiqueta acento">{{ t('Current') }}</span></template>
+            <template #celda-desde="{ fila: v }">
+              <template v-if="v.actual">{{ tx(v.desde ? t('From {0}', [fmtFecha(v.desde)]) : t('Current')) }}</template>
+              <template v-else>{{ fmtFecha(v.desde) }} – {{ fmtFecha(v.hasta) }}</template>
+            </template>
+            <template #celda-estado="{ fila: v }"><EstadoBadge :estado="v.estado" /></template>
+            <template #celda-codigo="{ fila: v }"><span class="codigo-sac">{{ tx(v.codigo || '—') }}</span></template>
+            <template #celda-motivo="{ fila: v }"><span :class="{ apagado: !v.motivo }">{{ tx(v.motivo || '—') }}</span></template>
+            <template #acciones="{ fila: v }">
+              <span class="fila-flex acciones-version">
+                <template v-if="v.actual">
+                  <button class="btn btn-chico" @click="pestana = 'ficha'">{{ t('Open') }}</button>
+                  <button class="btn btn-chico" @click="descargarFicha('pdf')">PDF</button>
+                  <button class="btn btn-chico" @click="descargarFicha('xlsx')">{{ t('Excel') }}</button>
+                </template>
+                <template v-else>
+                  <button class="btn btn-chico" @click="verVersion(v)"><Icono nombre="lupa" :tam="13" />{{ t('View') }}</button>
+                  <button class="btn btn-chico" @click="descargarFicha('pdf', v.version)">PDF</button>
+                  <button class="btn btn-chico" @click="descargarFicha('xlsx', v.version)">{{ t('Excel') }}</button>
+                </template>
+              </span>
+            </template>
+          </TablaDatos>
           <p v-if="!p.versiones.length" class="ayuda mt-chico">{{ t('There are no previous versions yet. Approved sheets are changed by opening a new version; the previous one stays here as it was.') }}</p>
           <div v-if="versionVista" class="version-vista mt">
             <div class="fila-flex" style="justify-content: space-between">
@@ -718,10 +758,10 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
             </template>
             <template v-if="versionVista.partidas.length">
               <h4 class="mt">{{ t('National codes by destination') }}</h4>
-              <table class="tabla mt-chico" v-tarjetas>
-                <thead><tr><th>{{ t('Country') }}</th><th>{{ t('Code') }}</th><th>{{ t('Duty (DAI)') }}</th><th>{{ t('Status') }}</th><th>{{ t('Source') }}</th></tr></thead>
-                <tbody><tr v-for="x in versionVista.partidas" :key="x[0]"><td>{{ tx(x[0]) }}</td><td class="codigo-sac">{{ tx(x[1]) }}</td><td>{{ tx(x[2]) }}</td><td>{{ tx(x[3]) }}</td><td>{{ tx(x[4]) }}</td></tr></tbody>
-              </table>
+              <TablaDatos tabla="productos_version_codigos" :columnas="colCodigosVersion" :filas="filasCodigosVersion" clave-fila="pais"
+                          :etiqueta="t('National codes by destination')">
+                <template #celda-codigo="{ fila: x }"><span class="codigo-sac">{{ tx(x.codigo) }}</span></template>
+              </TablaDatos>
             </template>
           </div>
         </div>
@@ -732,22 +772,13 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
             <p class="ayuda">{{ t('Every size of generic') }} <b>{{ tx(p.codigo_generico || '—') }}</b> {{ t('(style-color) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.') }}</p>
             <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />{{ t('Add sizes') }}</button>
           </div>
-          <div class="tabla-marco mt-chico">
-            <table class="tabla" v-tarjetas>
-              <thead><tr><th>{{ t('Item code') }}</th><th>{{ t('Size code') }}</th><th>{{ t('Supplier SKU') }}</th><th>UPC</th><th>{{ t('Size') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Description') }}</th><th>{{ t('Status') }}</th></tr></thead>
-              <tbody>
-                <tr v-for="a in p.articulos" :key="a.id">
-                  <td class="fuerte">{{ tx(a.sku) }}<span v-if="a.tipo === 'PREPACK'" class="etiqueta acento">{{ t('Prepack') }}</span></td>
-                  <td class="apagado">{{ tx(a.sku.length === 11 ? a.sku.slice(8) : '—') }}</td>
-                  <td>{{ tx(a.sku_proveedor || '—') }}</td>
-                  <td>{{ tx(a.upc || '—') }}</td>
-                  <td>{{ tx(a.talla || '—') }}</td>
-                  <td>{{ tx(a.unidad) }}</td>
-                  <td class="apagado">{{ tx(p.descripcion_comercial ? `${p.descripcion_comercial}, ${a.tipo === 'PREPACK' ? t('prepack') : t('size')} ${a.talla}` : a.descripcion) }}</td>
-                  <td><span v-if="a.activo" class="etiqueta ok">{{ t('Active') }}</span><span v-else class="etiqueta">{{ t('Inactive') }}</span></td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="mt-chico">
+            <TablaDatos tabla="productos_articulos" :columnas="colArticulos" :filas="p.articulos" :etiqueta="t('Sizes and prepacks')">
+              <template #celda-sku="{ fila: a }"><span class="fuerte">{{ tx(a.sku) }}</span><span v-if="a.tipo === 'PREPACK'" class="etiqueta acento">{{ t('Prepack') }}</span></template>
+              <template #celda-codigo_talla="{ fila: a }"><span class="apagado">{{ tx(codigoTalla(a) || '—') }}</span></template>
+              <template #celda-descripcion="{ fila: a }"><span class="apagado">{{ tx(descripcionArticulo(a)) }}</span></template>
+              <template #celda-activo="{ fila: a }"><span v-if="a.activo" class="etiqueta ok ms-0">{{ t('Active') }}</span><span v-else class="etiqueta ms-0">{{ t('Inactive') }}</span></template>
+            </TablaDatos>
           </div>
           <div v-for="x in p.prepacks" :key="x.id" class="panel mt">
             <div class="panel-cabeza"><div><h2>{{ t('Prepack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per carton', [x.descripcion, x.total]) }}<template v-if="x.sku"> {{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
@@ -861,7 +892,10 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 
         <section v-if="!oculta" class="panel">
           <div class="panel-cabeza"><div><h2>{{ t('By destination') }}</h2><p>{{ t('{0} of {1} national codes complete', [paisesOk, paises.length]) }}</p></div></div>
-          <table class="tabla paises" v-tarjetas>
+          <!-- Editor de los códigos nacionales (se escribe en cada fila): queda como tabla
+               con el estilo del sistema, no como TablaDatos (ver docs/DISENO.md) -->
+          <div class="tabla-marco">
+          <table class="tabla paises" :aria-label="t('By destination')" v-tarjetas>
             <tbody>
               <tr v-for="x in paises" :key="x.iso">
                 <td class="fuerte">{{ tx(x.iso) }}</td>
@@ -908,6 +942,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
               </tr>
             </tbody>
           </table>
+          </div>
         </section>
 
         <section v-if="!aprobado && r?.parecidos?.length" class="panel">

@@ -243,9 +243,9 @@ def test_transporte_y_salida(interno, tnf):
     # Los eventos siguen el orden: no hay entrega antes del arribo
     r = interno.post(f"/embarques/{e['id']}/eventos", {"tipo": "ENTREGA", "fecha": f"{HOY}T09:00:00"})
     assert r.status_code == 409 and r.json()["codigo"] == "orden_eventos"
-    # Todo lo que zarpó quedó marcado como recolectado
+    # Todo lo que zarpó quedó marcado como recolectado, con la fecha de la salida
     pl = interno.get(f"/packing-lists/{pl_ids[0]}").json()
-    assert pl["recolectado_en"] == HOY
+    assert pl["recolectado_en"] == SALIDA[:10]
 
 
 def test_eliminar_linea_con_cascada(vans):
