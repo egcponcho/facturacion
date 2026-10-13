@@ -37,6 +37,7 @@ const navegacion = computed(() => {
   if (puede('factura.ver')) items.push({ to: '/facturas', texto: t('Invoices'), icono: 'factura' })
   if (puede('transporte.gestionar')) items.push({ to: '/transporte', texto: t('Shipments'), icono: 'barco' })
   if (puede('producto.ver')) items.push({ to: '/productos', texto: t('Products'), icono: 'etiqueta' })
+  if (puede('etiquetas.ver')) items.push({ to: '/etiquetas', texto: t('Labels'), icono: 'etiqueta' })
   if (puede('seguimiento.ver')) items.push({ to: '/seguimiento', texto: t('Tracking'), icono: 'ruta' })
   if (['oc.ver', 'factura.ver', 'transporte.gestionar', 'producto.ver'].some((p) => puede(p))) {
     items.push({ to: '/tableros', texto: t('Indicators'), icono: 'grafica' }, { to: '/reportes', texto: t('Reports'), icono: 'archivo' })
