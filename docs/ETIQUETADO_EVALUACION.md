@@ -12,6 +12,29 @@
 > Complementa `docs/ETIQUETADO.md` (manual del módulo) y
 > `docs/ETIQUETADO_REDISENO.md` (rediseño anterior ya implementado).
 
+### Revisión 2 (qué cambió respecto de la primera versión)
+
+1. **Orden de las reglas (7.4 y 7.6).** Antes: «el contexto primero» en toda
+   la escalera, de modo que una excepción general («todo lo que va a Panamá»)
+   le ganaba al diseño propio de un SKU. Ahora: **cada excepción vive dentro
+   de su celda** y **solo la excepción de una OC concreta manda sobre todo**.
+   Es más fácil de explicar («manda lo más cercano al artículo») y no
+   sorprende.
+2. **Tipo de empaque.** Antes era contexto; ahora es un **nivel** del sujeto
+   BULTO, como la familia lo es del artículo.
+3. **Una celda, un diseño normal.** Se cambia, no se agrega; las excepciones
+   se guardan junto con la celda en una sola operación con control de
+   concurrencia.
+4. **Los campos obligatorios de la familia no se pierden.** Pasan a ser un
+   control de calidad del dato maestro (aviso), no un segundo «obligatorio»
+   del diseño.
+5. **Flujo del frontend detallado (7.9):** evidencia de lo que falla hoy,
+   mapa de navegación con redirecciones, primer uso guiado, matriz, ventana
+   de la celda, excepciones como frase, asignación desde el producto,
+   resumen previo en la OC y la lista de empaque, asistente de 3 pasos con
+   «arreglar en el lugar» y «guardar como regla», componentes Vue nuevos y
+   retirados, llamadas a la API por pantalla y guía de ayuda.
+
 ---
 
 ## 0. Reglas de trabajo para quien implemente
@@ -50,8 +73,9 @@ resueltos. Los problemas están en tres capas:
 etiqueta; la OC, la lista de empaque o la selección manual solo **aportan
 contexto** (datos adicionales y, si la empresa lo quiere, excepciones). Se
 reemplazan `modalidad` + `unidad` por **tipos de etiqueta definidos por la
-empresa**, la prioridad numérica por una **escalera de especificidad fija y
-legible**, y se permiten **varias etiquetas por registro** (una por tipo).
+empresa**, la prioridad numérica por una regla fija y legible (**manda lo
+más cercano al artículo; las excepciones viven en su celda; la OC concreta
+manda sobre todo**), y se permiten **varias etiquetas por registro** (una por tipo).
 
 ---
 
@@ -477,7 +501,10 @@ de datos actual):
 | `CENTRO_DESTINO` | `OrdenCompra.centro_destino` | "Si va al centro 2220" |
 | `PAIS_DESTINO` | país del centro destino | "Si va a Panamá" |
 | `OC` | `OrdenCompra.id` | "Solo para la OC 4500…" (excepción puntual, motivo obligatorio) |
-| `TIPO_EMPAQUE` | `TipoEmpaque` del bulto (solo sujeto BULTO) | "Si la caja es inner" |
+| `CONDICION` | condiciones libres (avanzado) | "Si `articulo.temporada` es FW26" |
+
+El tipo de empaque **no** es contexto: para el sujeto BULTO es un **nivel**
+(«Caja master», «Inner»), igual que la familia lo es para el artículo.
 
 Si el registro no tiene contexto (artículos sueltos, sin OC), las
 excepciones con contexto simplemente **no aplican** y rige el uso general.
@@ -491,29 +518,62 @@ ejemplo, el diseño imprime `oc.numero` y el origen son artículos sueltos):
 el campo queda vacío si el elemento es opcional, o bloquea si es obligatorio
 (un solo mecanismo de obligatorio, ver 7.8).
 
-### 7.4 Escalera de especificidad (reemplaza la prioridad numérica)
+### 7.4 Cómo se elige el diseño (reemplaza la prioridad numérica)
 
-Para un registro y un tipo de etiqueta se toman todos los usos activos y
-vigentes que coinciden, y gana el de **mayor especificidad**, comparando en
-este orden (lexicográfico):
+> **Corregido en la revisión 2.** La primera versión ponía "contexto primero"
+> en toda la escalera. Eso hacía que una excepción general (por ejemplo,
+> "todo lo que va a Panamá") le ganara a un SKU que tiene su propio diseño
+> por una razón física (otro tamaño de etiqueta). Es difícil de explicar y
+> de prever. Ahora **cada excepción vive dentro de su celda** y solo la
+> excepción de una OC concreta manda sobre todo.
 
-1. **Contexto:** `OC` > `CENTRO_DESTINO` > `PAIS_DESTINO` > `SOCIEDAD` >
-   `PROVEEDOR` > sin contexto.
-   (Una exigencia del destino o de una OC concreta manda sobre la regla
-   general del artículo.)
-2. **Nivel del sujeto:** `SKU` > `PRODUCTO` (estilo-color) > `FAMILIA` >
-   `GRUPO` > `GENERAL` (empresa).
-3. **Condiciones adicionales:** un uso con condiciones gana a uno igual sin
-   condiciones.
+**La regla en una frase, tal como se le explica al usuario:**
 
-Si después de esto quedan **dos usos empatados que coinciden**, es un
-**conflicto** y se impide **al guardar** el segundo (no al generar). El
-mensaje dice cuáles son y qué registros afectan.
+> *"Manda lo que está más cerca del artículo. Dentro de eso, si alguna
+> excepción coincide, se usa la excepción. Lo que se pida para una OC
+> concreta manda sobre todo."*
 
-> Alternativa considerada: escalera editable por empresa (la otra revisión
-> lo propone). Recomiendo **fija** en la primera versión: es más fácil de
-> explicar, de probar y de migrar. Si un cliente real necesita otro orden,
-> se agrega después como regla de empresa (decisión D3).
+**Orden exacto, para un registro y un tipo de etiqueta:**
+
+1. **Excepción de OC.** Si el registro viene de una OC y existe un uso con
+   `contexto_tipo = OC` para esa OC y ese tipo, gana siempre. Si hay varios
+   para la misma OC en niveles distintos (por ejemplo, uno para toda la OC y
+   otro solo para la familia Calzado dentro de esa OC), gana el del nivel más
+   específico. Requiere motivo.
+2. **Si no, se recorren los niveles del sujeto de lo más específico a lo más
+   general:** `SKU → PRODUCTO → FAMILIA → familia padre → … → GRUPO →
+   GENERAL`. Para el sujeto BULTO los niveles son `TIPO_EMPAQUE → GENERAL`.
+   Para DOCUMENTO, solo `GENERAL`.
+   En el **primer nivel que tenga algo** para ese tipo (la "celda"):
+   1. Si alguna **excepción de la celda** coincide, gana. Si coinciden varias,
+      gana la de dimensión más específica, en este orden fijo:
+      `CENTRO_DESTINO > PAIS_DESTINO > SOCIEDAD > PROVEEDOR > condición libre`.
+   2. Si ninguna excepción coincide y la celda tiene **diseño normal**, gana
+      el diseño normal.
+   3. Si la celda **solo tiene excepciones** y ninguna coincide, se sigue al
+      nivel siguiente.
+3. **Si no se encontró nada:** el registro queda "sin diseño" para ese tipo.
+   Esto bloquea si el tipo es `obligatoria` y solo avisa si no lo es.
+
+**Empates imposibles por construcción.** No se puede guardar:
+- una segunda excepción con la misma dimensión y el mismo valor en la misma
+  celda si las vigencias se superponen (409, con enlace a la existente);
+- un segundo diseño normal en la misma celda (la celda tiene uno solo; se
+  **cambia**, no se agrega).
+
+Las excepciones de "condición libre" con condiciones que se superponen se
+detectan probando las condiciones contra los registros existentes en la
+simulación. Si hay registros que cumplen ambas, se pide al usuario que
+precise una de las dos.
+
+**"Para todo lo que va a Panamá".** Si las familias tienen diseños propios, la
+excepción se crea en cada celda. La interfaz lo resuelve con una casilla:
+*"Aplicar esta excepción también a: ☑ Calzado ☑ Ropa ☐ Accesorios"*, que crea
+una excepción por celda en una sola operación (`POST /usos/lote`).
+
+> Alternativa descartada: una escalera editable por empresa. Vuelve a
+> introducir "prioridades" con otro nombre. Si un cliente real la necesita,
+> se agrega más adelante (decisión D3).
 
 ### 7.5 Modelo de datos
 
@@ -540,16 +600,18 @@ versiones_plantilla  (existente)
   + requiere          JSON   -- ["oc","linea","bulto"...] calculado al guardar el diseño
 
 productos  (existente)
-  + familia_etiquetado_id  FK familias_etiquetado  (herencia: SKU → producto → grupo)
+  + familia_etiquetado_id  FK familias_etiquetado  (herencia: SKU → producto → grupo;
+                           si el SKU no tiene producto_id, se salta ese escalón)
 
 usos_diseno  (reemplaza asignaciones_etiqueta)
   id, organizacion_id
   tipo_etiqueta_id   FK  NOT NULL
   plantilla_id       FK  NOT NULL       -- editable
-  nivel              GENERAL | GRUPO | FAMILIA | PRODUCTO | SKU
-  grupo_id / familia_id / producto_id / articulo_id   -- exactamente uno según nivel (CHECK), o ninguno en GENERAL
-  contexto_tipo      NINGUNO | PROVEEDOR | SOCIEDAD | CENTRO_DESTINO | PAIS_DESTINO | OC | TIPO_EMPAQUE
-  contexto_valor     varchar(40)        -- id o código según el tipo; NULL si NINGUNO
+  nivel              GENERAL | GRUPO | FAMILIA | PRODUCTO | SKU | TIPO_EMPAQUE
+  grupo_id / familia_id / producto_id / articulo_id / tipo_empaque_id   -- exactamente uno según nivel (CHECK), o ninguno en GENERAL
+  contexto_tipo      NINGUNO | OC | CENTRO_DESTINO | PAIS_DESTINO | SOCIEDAD | PROVEEDOR | CONDICION
+                     -- NINGUNO = «diseño normal» de la celda (único por celda); el resto = excepción
+  contexto_valores   JSON  default []   -- ids o códigos (se permiten varios: «Panamá, Costa Rica»); [] si NINGUNO o CONDICION
   condiciones        JSON  default []   -- mismas condiciones de hoy, operadores reducidos (7.8)
   vigente_desde, vigente_hasta  date
   motivo             varchar(300)       -- obligatorio si contexto_tipo = OC
@@ -558,6 +620,10 @@ usos_diseno  (reemplaza asignaciones_etiqueta)
   creado_en/por, actualizado_en/por
   version            int                -- concurrencia optimista
   INDEX (organizacion_id, tipo_etiqueta_id, nivel, contexto_tipo)
+  UNIQUE parcial: un solo uso activo con contexto NINGUNO por (tipo, nivel, sujeto)
+
+celdas_etiquetado_version
+  organizacion_id, tipo_etiqueta_id, nivel, sujeto_id, version   -- concurrencia de la ventana de la celda (PUT /usos/celda)
 
 usos_diseno_historial
   id, uso_id, version, datos JSON (foto completa), cambiado_en, cambiado_por, accion (CREAR|EDITAR|BAJA)
@@ -575,33 +641,53 @@ etiqueta imprime (por defecto: todos los tipos `obligatoria` del sujeto).
 ### 7.6 Algoritmo de resolución
 
 ```python
-def resolver(registros, tipos, hoy):
-    # 1) Cargar UNA vez todos los usos activos y vigentes de esos tipos
-    usos = cargar_usos(tipos, hoy)                      # 1 consulta
-    indice = indexar(usos)  # {(tipo, nivel, sujeto_id, contexto_tipo, contexto_valor): [usos]}
+NIVELES_ARTICULO = ("SKU", "PRODUCTO", "FAMILIA", "GRUPO", "GENERAL")   # FAMILIA se expande a la cadena de padres
+ORDEN_CONTEXTO = ("CENTRO_DESTINO", "PAIS_DESTINO", "SOCIEDAD", "PROVEEDOR", "CONDICION")
 
-    # 2) Precargar datos de los sujetos (familia efectiva, producto, grupo, contexto)
-    datos = precargar(registros)                         # consultas por lote, no por registro
+def resolver(registros, tipos, hoy):
+    usos = cargar_usos(tipos, hoy)            # 1 consulta: activos, vigentes, no dados de baja
+    por_celda = agrupar(usos)                 # {(tipo, nivel, sujeto_id): Celda(normal, excepciones[], de_oc{oc_id: [usos]})}
+    datos = precargar(registros)              # familia efectiva + cadena de padres, producto, grupo, OC, destino: por lote
 
     for r in registros:
-        for tipo in tipos_aplicables(r, tipos):          # por sujeto
-            candidatos = []
-            for ctx in contextos_de(r):                  # [("OC",id), ("CENTRO_DESTINO",c), ..., ("NINGUNO",None)]
-                for nivel, sid in escalones(r):          # [("SKU",a), ("PRODUCTO",p), ("FAMILIA",f), ("GRUPO",g), ("GENERAL",None)]
-                    for u in indice.get((tipo, nivel, sid, *ctx), []):
-                        if cumple(u.condiciones, r):
-                            candidatos.append((rango(ctx, nivel, u), u))
-            elegir(r, tipo, candidatos)                  # mayor rango; empate => conflicto (no debería pasar: se impide al guardar)
+        for tipo in tipos_del_sujeto(r.sujeto, tipos):
+            r.diseno[tipo] = elegir(r, tipo, por_celda, datos)
+
+def elegir(r, tipo, por_celda, datos):
+    escalones = escalones_de(r, datos)        # [("SKU", a), ("PRODUCTO", p), ("FAMILIA", f), ("FAMILIA", padre), ..., ("GRUPO", g), ("GENERAL", None)]
+    # 1) Excepción de OC: manda sobre todo; la del nivel más específico
+    if r.oc_id:
+        for nivel, sid in escalones:
+            celda = por_celda.get((tipo, nivel, sid))
+            if celda and (u := primera_que_cumple(celda.de_oc.get(r.oc_id, []), r)):
+                return Resultado(u, por_que=("oc", r.oc_id, nivel, sid))
+    # 2) Primera celda con algo aplicable
+    for nivel, sid in escalones:
+        celda = por_celda.get((tipo, nivel, sid))
+        if not celda:
+            continue
+        for dim in ORDEN_CONTEXTO:
+            if (u := primera_que_cumple([e for e in celda.excepciones if e.contexto_tipo == dim], r)):
+                return Resultado(u, por_que=("excepcion", dim, nivel, sid))
+        if celda.normal:
+            return Resultado(celda.normal, por_que=("normal", nivel, sid))
+        # solo excepciones y ninguna coincide: seguir bajando
+    return Resultado(None, por_que=("sin_diseno",))
 ```
 
-- Complejidad: O(registros × escalones × contextos) con búsquedas en
-  diccionario; sin consultas por registro.
-- El resultado incluye **por qué** ("Familia Calzado, excepción destino
-  Panamá, motivo: requisito aduana") en lenguaje claro y traducible.
-- **Detección de conflictos al guardar:** buscar usos con la misma clave
-  `(tipo, nivel, sujeto, contexto_tipo, contexto_valor)`, condiciones
-  equivalentes y vigencias que se superponen. Es una consulta indexada, no
-  O(n²).
+- **Complejidad:** O(registros × tipos × escalones), con búsquedas en
+  diccionario y sin consultas por registro.
+- **El resultado siempre trae el porqué**, que la interfaz muestra en
+  lenguaje claro y traducible. Por ejemplo: *"Por la familia Calzado,
+  excepción: va a Panamá (motivo: requisito de aduana)"*, o *"Por la OC
+  4500012345 (motivo: pedido especial)"*.
+- **Detección de conflictos al guardar:** se consulta por la clave
+  `(tipo, nivel, sujeto_id, contexto_tipo)` y valores que se cruzan, con vigencia que
+  se superpone. Es una consulta indexada, no una comparación O(n²).
+- **El mismo código** sirve para `resolver`, la simulación, el resumen de una
+  OC o lista de empaque y la validación del trabajo. No debe haber una
+  segunda implementación en el frontend: el cliente nunca decide qué diseño
+  toca.
 
 ### 7.7 API
 
@@ -621,6 +707,10 @@ GET    /api/etiquetas/usos/{id}/historial
 GET    /api/etiquetas/matriz?tipo=              filas = familias (y "sin familia"), columnas = tipos; celda = diseño general + n.º de excepciones
 GET    /api/etiquetas/resolver?sujeto=ARTICULO&id=123&contexto=OC:45   qué diseño(s) le tocan y por qué
 GET    /api/etiquetas/cobertura                 sujetos sin diseño para tipos obligatorios (para el tablero)
+GET    /api/etiquetas/celda?tipo=&nivel=&id=    diseño normal + excepciones + propios de una celda, con su version
+PUT    /api/etiquetas/usos/celda                guarda toda la celda en una operación (con version; 409 si cambió)
+POST   /api/etiquetas/usos/lote                 la misma excepción en varias celdas («aplicar también a»)
+GET    /api/etiquetas/resumen?origen=OC|PACKING|ARTICULOS&id=   resumen por tipo para OC, lista de empaque o producto
 ```
 
 Se retiran (fase 4, tras confirmar que nadie las usa): `POST /etiquetas/plan`,
@@ -633,8 +723,10 @@ Se retiran (fase 4, tras confirmar que nadie las usa): `POST /etiquetas/plan`,
 
 - **Obligatorio = propiedad del elemento del diseño** (el campo debe tener
   valor para imprimir). Las variables manuales son elementos con origen
-  "manual". La familia deja de tener `campos` obligatorios propios: en su
-  lugar, la validación del trabajo informa "el diseño X necesita el campo
+  "manual". Los `campos` de la familia se conservan, pero pasan a ser
+  **«datos que la familia debe tener completos»**: un control de calidad del
+  dato maestro que aparece como aviso en Familias y artículos y en el
+  resumen, no como un segundo «obligatorio» del diseño. La validación del trabajo informa "el diseño X necesita el campo
   `articulo.composicion` y estos 12 artículos no lo tienen" con enlace para
   completarlo. La política `BLOQUEAR` de campos lógicos se mantiene, pero su
   mensaje de error dice "el campo *Origen* tiene dos valores distintos
@@ -644,69 +736,435 @@ Se retiran (fase 4, tras confirmar que nadie las usa): `POST /etiquetas/plan`,
   `mayor que`, `menor que`. Los 17 actuales siguen aceptándose en la API
   para no romper reglas migradas.
 
-### 7.9 Pantallas
+### 7.9 Flujo en el frontend (rediseño completo)
 
-**Centro de etiquetado: 3 secciones** (en vez de 7 pestañas)
+> Esta sección reemplaza las 7 pestañas, el formulario de reglas
+> (`AsignacionesEtiqueta.vue`) y el asistente de 8 pasos. La página
+> **"Etiquetado: flujo propuesto"** acompaña este documento con los bocetos
+> de cada pantalla.
 
-1. **Imprimir** — trabajos recientes, botón único "Nuevo trabajo".
-2. **Diseños** — lista de diseños agrupados por tipo de etiqueta; editor.
-3. **Configuración** — subpestañas: *Tipos de etiqueta*, *Qué diseño usa
-   cada familia* (la matriz), *Excepciones*, *Familias y artículos*, *Campos*,
-   *Historial*.
+#### 7.9.1 Qué está mal hoy en el flujo (evidencia)
 
-**La matriz "Qué diseño usa cada familia"**
+| Hoy | Problema para el usuario |
+|---|---|
+| 7 pestañas: Trabajos, Diseños, Familias, Artículos, Reglas, Campos lógicos, Etiquetas generadas (`EtiquetasView.vue:21–29`) | No hay un camino. El usuario no sabe por dónde empezar ni en qué orden. "Familias", "Artículos" y "Reglas" son tres pantallas para una sola pregunta: *qué diseño lleva cada cosa*. |
+| Formulario "Nueva regla" (`AsignacionesEtiqueta.vue:261–326`): diseño, nombre, **prioridad**, "se aplica a" (6 ámbitos), condiciones campo/operador/valor con **claves técnicas**, orígenes, unidades, códigos de tipo de empaque **escritos a mano separados por comas**, vigencia, motivo, "predeterminada si varias reglas de la misma prioridad aplican" | Son 12 decisiones en una ventana. El usuario no ve el efecto hasta generar. "Prioridad" y "predeterminada" obligan a entender el motor. |
+| Asistente de 8 pasos: Origen, Registros, Empaque, Reglas y diseños, Vista previa, Errores, Generar, Descargas (`TrabajoEtiquetasView.vue:34–37`) | La mitad son pasos de "mirar". Los errores aparecen en el paso 6, lejos de donde se arreglan. Para corregir un dato maestro hay que salir del asistente. |
+| Desde la OC y la lista de empaque solo hay un botón "Labels" que abre el asistente (`OrdenView.vue:180`, `PackingListView.vue:537`) | No se ve antes cuántas etiquetas salen ni si falta algo. En la lista de empaque el botón aparece aun en borrador (ver E6). |
+| La regla se crea en Etiquetado, pero el producto se ve en Productos | Para cambiar el diseño de un producto hay que saber que existe la pestaña Reglas y el ámbito PRODUCTO. |
 
-| Familia ↓ / Tipo → | Etiqueta colgante | Sticker de precio | Caja master |
-|---|---|---|---|
-| (Toda la empresa) | — | Precio estándar | Caja GS1 4×6 |
-| Calzado | Colgante calzado (+2 excepciones) | *(hereda)* | *(hereda)* |
-| Ropa | Colgante ropa | *(hereda)* | *(hereda)* |
-| Sin familia (37 artículos) | ⚠ sin diseño | *(hereda)* | *(hereda)* |
+#### 7.9.2 Principios del nuevo flujo
 
-- Hacer clic en una celda abre una **ventana (Modal)** con: diseño
-  (buscador con miniatura), "aplicar también a…" (producto / SKU concretos),
-  y la **simulación**: "Cambia el diseño de 214 artículos; 0 quedan sin
-  diseño". Guardar solo si no hay conflictos.
-- "(+2 excepciones)" abre la lista de excepciones de esa celda.
-- Las celdas heredadas se ven en gris con el texto "hereda de Toda la
-  empresa".
+1. **Dos tareas, dos caminos:** *imprimir* (diario, cualquier operador) y
+   *configurar* (de vez en cuando, un responsable). Nunca mezclados en la
+   misma pantalla.
+2. **Una sola pregunta para configurar:** *"¿Qué diseño lleva cada familia
+   en cada tipo de etiqueta?"*. Se contesta en una tabla (la matriz). Todo
+   lo demás (excepciones, productos con diseño propio) se abre **desde la
+   celda**.
+3. **Se configura donde se trabaja:** desde el producto, la OC o la lista de
+   empaque se puede ver qué diseño toca y cambiarlo, sin ir al módulo.
+4. **Antes de guardar se ve el efecto** ("cambian 214 artículos").
+5. **Los problemas se arreglan donde aparecen.** El asistente no manda al
+   usuario a otra pantalla: completar un dato, elegir un diseño o guardar la
+   elección como regla se hace ahí mismo.
+6. **Crear y editar se hace en una ventana (`Modal`).** El panel lateral es
+   solo para ver: vista previa y resúmenes.
+7. **Lenguaje de negocio:** "diseño normal", "excepción", "hereda de", "va a
+   Panamá". Nunca `ambito`, `prioridad`, `articulo.marca_codigo` ni `manual.x`.
 
-**Excepciones:** lista legible, una por fila: *"Etiqueta colgante · Calzado ·
-si el destino es Panamá → Colgante bilingüe · hasta 31/12/2026 · motivo:
-requisito aduana"*, con editar / dar de baja / ver historial.
+#### 7.9.3 Mapa de navegación
 
-**Asignar desde cada pantalla** (sin ir al módulo):
+```text
+Etiquetado  (menú principal)
+├── Imprimir ........................ /etiquetas
+│     ├── Trabajos recientes (tabla) + botón único «Nuevo trabajo»
+│     └── Trabajo ................... /etiquetas/trabajos/:id      (3 pasos: Qué · Revisar · Generar)
+├── Diseños ......................... /etiquetas/disenos           (agrupados por tipo de etiqueta)
+│     └── Editor .................... /etiquetas/disenos/:id
+└── Configuración ................... /etiquetas/configuracion
+      ├── Qué diseño lleva cada cosa  ?vista=matriz       ← pantalla principal de reglas
+      ├── Tipos de etiqueta ......... ?vista=tipos
+      ├── Familias y artículos ...... ?vista=familias     (une Familias + Artículos + Grupos de hoy)
+      ├── Campos .................... ?vista=campos       (hoy "Campos lógicos")
+      └── Historial ................. ?vista=historial    (impresiones + cambios de reglas)
 
-- Ficha de producto (`EtiquetadoProducto.vue`): "Este producto usa: Colgante
-  calzado (por familia Calzado) · Caja GS1 (por empresa)" + "Usar otro diseño
-  para este producto" (crea un uso nivel PRODUCTO) + "Imprimir".
-- OC (`OrdenView`): resumen por tipo de etiqueta con conteos y
-  "Agregar excepción para esta OC" (motivo obligatorio) + "Imprimir".
-- Lista de empaque (`PackingListView`): igual, sujeto BULTO y ARTICULO.
+Entradas desde otros módulos (sin entrar a Etiquetado):
+  Producto (pestaña Etiquetas) · OC (botón Etiquetas) · Lista de empaque (botón Etiquetas)
+  · Listado de artículos/productos (acción masiva «Imprimir etiquetas» / «Asignar familia»)
+```
 
-**Asistente de trabajo: 3 pasos** (en vez de 8)
+Redirecciones para no romper enlaces guardados:
+`/etiquetas?vista=trabajos` → `/etiquetas`;
+`?vista=asignaciones|familias|articulos|campos|historial` →
+`/etiquetas/configuracion?vista=matriz|familias|familias|campos|historial`;
+`?vista=disenos` → `/etiquetas/disenos`. Las rutas antiguas
+`/etiquetas/generar` y `/etiquetas/masiva` siguen redirigiendo al asistente
+(ya cubierto por `e2e/etiquetado.mjs`).
 
-1. **Qué** — origen (OC / lista de empaque / artículos / familia) y
-   selección; tipos de etiqueta a imprimir (marcados los obligatorios).
-2. **Revisar** — tabla con cada registro, su diseño y por qué, cantidades
-   editables, problemas con **corrección en el lugar** (completar un dato
-   faltante, elegir diseño, ajustar cantidad) y vista previa al lado (panel
-   lateral: solo vista previa).
-3. **Generar** — formato, agrupación del ZIP (ya existe), modo prueba/real.
+**Permisos:** *Imprimir* requiere `etiquetas.generar`; *Diseños*,
+`etiquetas.disenar` (o el permiso actual de plantillas); *Configuración*,
+`etiquetas.configurar` (nuevo; hoy las reglas usan el permiso de
+plantillas). Quien solo tiene lectura ve la matriz sin botones de edición.
 
-Los pasos actuales de parámetros, validación, conflictos y variables
-manuales se integran en "Revisar". Los valores manuales se piden **solo** si
-algún diseño elegido tiene variables manuales.
+#### 7.9.4 Primer uso (empresa sin tipos de etiqueta)
 
-**Lenguaje claro:** nunca mostrar `({{ f.clave }})`
-(`AsignacionesEtiqueta.vue:291`, `CamposEtiqueta.vue:129`), `manual.clave`
-(`PanelEtiqueta.vue`) ni la "huella" sha256 (`HistorialEtiquetas.vue`) salvo
-en un detalle técnico plegado.
+Cuando `GET /etiquetas/tipos` devuelve vacío, `/etiquetas` y
+`/etiquetas/configuracion` muestran un asistente de 3 pantallas (en un
+`Modal` grande o a página completa) en lugar de tablas vacías:
 
-**Primer uso guiado:** si la empresa no tiene tipos de etiqueta, el centro
-muestra un asistente: "¿Qué etiquetas usas?" con plantillas de tipos
-(colgante, precio, caja master, contenido de OC), crea los tipos y un diseño
-de ejemplo por tipo, y lleva a la matriz.
+```text
+┌ Configura tus etiquetas · 1 de 3 ─────────────────────────────────────┐
+│ ¿Qué etiquetas imprimes?                                              │
+│ ☑ Etiqueta colgante        una por pieza o par    [artículo]          │
+│ ☑ Sticker de precio        una por pieza o par    [artículo]          │
+│ ☑ Etiqueta de caja         una por caja           [caja]              │
+│ ☐ Hoja de contenido de OC  una por OC             [documento]         │
+│ + Otra (nombre, qué se etiqueta, cuántas salen)                       │
+│                                               [Omitir] [Siguiente →]  │
+└───────────────────────────────────────────────────────────────────────┘
+2 de 3 · ¿Cómo agrupas tus artículos para etiquetar?
+   ◉ Usar mis grupos de artículos como familias (12 grupos → 12 familias)
+   ○ Crear familias a mano    ○ Todavía no: una sola etiqueta para todo
+3 de 3 · Elige un diseño para empezar (por tipo)
+   Etiqueta colgante: [Ejemplo 2×3 in ▾]  ·  Caja: [Ejemplo GS1 4×6 in ▾] ...
+   → crea los tipos, las familias y un diseño normal en «Toda la empresa» para cada tipo
+   → termina en la matriz, con un mensaje: «Listo. Cambia cualquier celda para afinar.»
+```
+
+#### 7.9.5 La matriz: «Qué diseño lleva cada cosa»
+
+Es la pantalla principal para asignar reglas. Tiene una pestaña por sujeto
+**solo si la empresa usa más de uno**: *Artículos* (tipos de sujeto
+ARTICULO), *Cajas* (BULTO) y *Documentos* (DOCUMENTO).
+
+```text
+Qué diseño lleva cada cosa                     [Buscar familia o producto…] [☐ Solo con problemas]
+Artículos | Cajas | Documentos
+
+                        │ Etiqueta colgante            │ Sticker de precio      │
+────────────────────────┼──────────────────────────────┼────────────────────────┤
+Toda la empresa         │ —                            │ ▣ Precio estándar      │
+  2 340 artículos       │                              │                        │
+Calzado                 │ ▣ Colgante calzado           │ ↳ hereda               │
+  1 210 artículos       │   2 excepciones · 3 propios  │   Precio estándar      │
+  └ Calzado técnico     │ ↳ hereda Colgante calzado    │ ↳ hereda               │
+Ropa                    │ ▣ Colgante ropa              │ ↳ hereda               │
+Accesorios              │ ⚠ sin diseño (obligatoria)   │ ↳ hereda               │
+Sin familia · 37        │ ⚠ sin diseño                 │ ↳ hereda               │
+────────────────────────┴──────────────────────────────┴────────────────────────┘
+▣ diseño normal   ↳ hereda de la fila de arriba   ⚠ falta diseño en un tipo obligatorio
+```
+
+- **Filas:** «Toda la empresa», las familias en árbol (subfamilias
+  sangradas) y «Sin familia» con su conteo. Al hacer clic en el nombre de
+  «Sin familia» se abre *Familias y artículos* filtrado.
+- **Columnas:** los tipos de etiqueta activos del sujeto, en el orden de
+  `tipos_etiqueta.orden`.
+- **Celda:** miniatura del diseño normal, o «hereda de …» en gris, o ⚠.
+  Debajo, en pequeño: «N excepciones · N propios», donde *propios* son los
+  productos o SKU de esa familia con diseño propio.
+- **Clic en cualquier celda** abre la ventana de la celda (7.9.6). Las
+  celdas heredadas también se pueden abrir: se ve de dónde heredan y se
+  puede poner un diseño propio.
+- **Arriba a la derecha:** «Cobertura: 2 303 de 2 340 artículos tienen todas
+  sus etiquetas obligatorias». Al hacer clic se filtra a lo que falta.
+- **En celular:** la matriz se convierte en una lista por familia con
+  tarjetas por tipo. Sin desplazamiento horizontal de la página.
+
+#### 7.9.6 Ventana de la celda (asignar o cambiar un diseño)
+
+Se abre en un `Modal` de unos 720 px. Es **el único formulario de reglas**
+que necesita el usuario común.
+
+```text
+┌ Calzado · Etiqueta colgante ─────────────────────────────────────────────── ✕ ┐
+│ Diseño normal                                                                 │
+│ [▾ Colgante calzado 2×3 in · v3 aprobada        ]   ┌──────────┐             │
+│   ○ Heredar de «Toda la empresa» (sin diseño)       │ miniatura│             │
+│                                                     └──────────┘             │
+│ Excepciones · se revisan de arriba hacia abajo                                │
+│  1  Si va al país  Panamá  → Colgante bilingüe   hasta 31/12/2026  ✎  🗑      │
+│     «Requisito de aduana» · creada por Ana, 02/09/2026                        │
+│  2  Si el proveedor es  Calzados del Norte  → Colgante CN    ✎  🗑            │
+│  [+ Agregar excepción]                                                        │
+│                                                                               │
+│ Productos y artículos de Calzado con diseño propio (3)              [Ver ▸]   │
+│                                                                               │
+│ ┌ Qué cambia al guardar ─────────────────────────────────────────────────┐   │
+│ │ 1 207 artículos pasan de «Colgante genérico» a «Colgante calzado».      │   │
+│ │ 3 artículos siguen con su diseño propio. 0 quedan sin diseño.            │   │
+│ │ 2 trabajos abiertos tendrán que revisarse.          [Ver artículos ▸]   │   │
+│ └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                      [Cancelar] [Guardar]     │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+Comportamiento:
+- El selector de diseño muestra solo los diseños **del tipo de la columna**,
+  con miniatura y estado de la versión. Si se elige uno sin versión
+  aprobada, avisa: «Se podrá imprimir solo en modo prueba hasta que se
+  apruebe».
+- «Qué cambia al guardar» se recalcula con `POST /usos/simular` (con una
+  espera de unos 400 ms) **cada vez que cambia algo** de la ventana. No
+  guarda nada. «Ver artículos» abre un panel lateral (de solo lectura) con
+  la lista.
+- Guardar envía **todo lo de la celda en una sola operación**
+  (`PUT /usos/celda`: diseño normal + excepciones nuevas, editadas o dadas de
+  baja), con la `version` de la celda. Si otro usuario la cambió, se
+  responde 409 y se muestra «Alguien cambió esta celda; vuelve a abrirla».
+- Quitar una excepción pide confirmación con su efecto («21 artículos
+  vuelven a Colgante calzado») y la da de baja (no la borra).
+- «Ver ▸» de los productos con diseño propio lista esos productos, cada uno
+  con «Quitar diseño propio (vuelve a heredar)».
+
+#### 7.9.7 Agregar una excepción: una frase, no un formulario
+
+Se abre **dentro de la misma ventana** como una fila editable, no en otra
+ventana encima:
+
+```text
+Si  [el país destino es ▾]  [Panamá ▾]  usar  [Colgante bilingüe ▾]
+    desde [  /  /    ]  hasta [31/12/2026]   porque [Requisito de aduana           ]
+    Aplicar también a:  ☐ Ropa  ☐ Accesorios          ✓ 21 artículos coinciden hoy
+                                                         [Cancelar] [Agregar]
+```
+
+- **Primer selector (qué se mira):** «el país destino es», «el centro
+  destino es», «la sociedad es», «el proveedor es» y, al final y plegado,
+  «Avanzado: se cumple una condición…», que abre el constructor de
+  condiciones con nombres de campos legibles y los operadores reducidos
+  (7.8).
+- **Segundo selector:** un buscador con los valores reales (países de los
+  centros destino existentes, proveedores, etc.). Nunca texto libre separado
+  por comas; sí se permiten **varios** valores («Panamá, Costa Rica»).
+- «✓ 21 artículos coinciden hoy» se calcula con la simulación. Si da **0**,
+  se avisa sin bloquear: «Ningún artículo coincide hoy; ¿es correcto?».
+- El motivo es obligatorio. La vigencia es opcional.
+- «Aplicar también a» crea la misma excepción en otras celdas de la misma
+  columna (ver 7.4).
+- **No hay "prioridad" ni "predeterminada".** El orden lo da la dimensión.
+  Si dos excepciones de la misma celda chocan, se marca en rojo al
+  agregarla: «Ya hay una excepción para Panamá en esta celda».
+
+#### 7.9.8 Asignar desde el producto (pestaña Etiquetas del producto)
+
+Reemplaza el contenido actual de `EtiquetadoProducto.vue`:
+
+```text
+Etiquetas de este producto                       Familia: Calzado  [Cambiar familia]
+┌ Etiqueta colgante ─────────────────────────┐ ┌ Sticker de precio ───────────────────┐
+│ [miniatura]  Colgante calzado              │ │ [miniatura]  Precio estándar         │
+│ Por la familia Calzado                     │ │ Por Toda la empresa                  │
+│ Excepción: si va a Panamá → bilingüe       │ │                                      │
+│ [Usar otro diseño para este producto]      │ │ [Usar otro diseño para este producto]│
+└────────────────────────────────────────────┘ └──────────────────────────────────────┘
+Tallas con diseño propio: ninguna                       [Imprimir etiquetas de este producto]
+```
+
+- «Usar otro diseño para este producto» abre un `Modal` pequeño con el
+  selector de diseño, la casilla «Solo para estas tallas: ☐ 38 ☐ 39 …»
+  (crea usos de nivel SKU en lugar de PRODUCTO) y el efecto. Si el producto
+  ya tiene diseño propio, el botón dice «Cambiar» y aparece «Volver a
+  heredar».
+- «Cambiar familia» asigna la familia **al producto**. El SKU puede tener la
+  suya; ver 6.4 y D5.
+- «Imprimir etiquetas de este producto» crea un trabajo de origen ARTICULOS
+  con sus SKU y abre el paso *Revisar*.
+
+#### 7.9.9 Desde la OC y la lista de empaque: resumen antes de imprimir
+
+El botón «Etiquetas» ya no salta directo al asistente. Abre un **panel
+lateral de resumen** (es solo para ver, así que el panel está permitido):
+
+```text
+┌ Etiquetas de la OC 4500012345 ──────────────────────────── ✕ ┐
+│ Etiqueta colgante   1 240 etiquetas · 2 diseños        [▸]    │
+│ Sticker de precio   1 240 etiquetas · 1 diseño         [▸]    │
+│ Hoja de contenido       1 etiqueta  · 1 diseño         [▸]    │
+│ ⚠ 3 artículos sin diseño de etiqueta colgante   [Resolver]    │
+│ ⚠ 12 artículos sin «Composición» (lo pide el diseño)          │
+│                                                               │
+│ Ya impresas: 0 de 2 481                                       │
+│ [Diseño especial para esta OC…]       [Imprimir etiquetas →]  │
+└───────────────────────────────────────────────────────────────┘
+```
+
+- Cada fila «▸» se despliega con: diseño → cuántas etiquetas → por qué
+  (familia, excepción, OC).
+- «Resolver» abre la ventana de la celda que corresponde (si el problema es
+  de una familia) o el `Modal` de asignar familia (si son artículos sin
+  familia).
+- «Diseño especial para esta OC…» abre un `Modal`: tipo de etiqueta,
+  diseño, «solo para la familia […]» (opcional) y **motivo obligatorio**.
+  Crea un uso con `contexto_tipo = OC`. Este es el **único** lugar donde se
+  crean excepciones de OC (no aparecen en la ventana de la celda, aunque sí
+  en su lista, marcadas «por OC»).
+- «Imprimir etiquetas →» crea el trabajo con el origen ya puesto y lo abre en
+  el paso **Revisar** (se salta el paso 1).
+- En la lista de empaque, si el estado no permite etiquetas reales (E6 y
+  D7), el botón dice «Imprimir prueba» y el panel explica por qué:
+  «La lista está en borrador; las etiquetas reales se habilitan al
+  confirmarla».
+- Usa `GET /etiquetas/resumen?origen=OC&id=…`, que lo resuelve con el mismo
+  resolvedor por lote (R4).
+
+#### 7.9.10 Asistente de trabajo: 3 pasos
+
+```text
+ ① Qué imprimir  ──  ② Revisar  ──  ③ Generar
+```
+
+**① Qué imprimir** (se salta si se entra desde la OC, la lista de empaque o
+el producto):
+
+```text
+Imprimir etiquetas de   (◉ Órdenes de compra  ○ Listas de empaque  ○ Artículos  ○ Una familia)
+[Buscar OC…]  4500012345 ✕   4500012399 ✕          Líneas: [Todas ▾]
+Qué etiquetas
+  ☑ Etiqueta colgante    1 240  una por pieza
+  ☑ Sticker de precio    1 240  una por pieza
+  ☐ Etiqueta de caja        —   (necesita una lista de empaque)
+Modo   ◉ Real   ○ Prueba (marca «PRUEBA», no cuenta como impresa)
+                                                          [Revisar →]
+```
+
+- Los tipos `obligatoria` del sujeto vienen marcados. Si un tipo no aplica al
+  origen (caja sin lista de empaque), se ve deshabilitado y con el motivo.
+- Si el origen es una lista de empaque y se marcó un tipo de caja: «Qué
+  cajas: [Master ▾] [Inner]», que reemplaza el paso «Empaque» de hoy.
+- Al pulsar «Revisar →» se valida en el servidor (asíncrono, con
+  progreso si supera `ASINCRONO_DESDE`).
+
+**② Revisar** (une los pasos de hoy Registros, Empaque, Reglas y diseños,
+Vista previa y Errores):
+
+```text
+2 481 etiquetas · 3 diseños          ⚠ 2 problemas por resolver     [Vista previa ▸]
+
+┌ Problemas ─────────────────────────────────────────────────────────────────┐
+│ ⚠ 3 artículos sin diseño de «Etiqueta colgante» (familia Accesorios)       │
+│   [Elegir diseño]  ☑ Guardarlo como diseño de Accesorios (regla)           │
+│ ⚠ 12 artículos sin «Composición», que el diseño necesita    [Completar]    │
+└────────────────────────────────────────────────────────────────────────────┘
+Datos que pide el diseño   Temporada: [FW26      ]    Lote: [         ]
+
+Etiqueta colgante (1 240) | Sticker de precio (1 240) | Hoja de contenido (1)
+┌──────────┬───────────────────┬────────────────────────────┬──────────┬──────┐
+│ Artículo │ Diseño            │ Por qué                    │ Cantidad │      │
+├──────────┼───────────────────┼────────────────────────────┼──────────┼──────┤
+│ NF0A… 38 │ Colgante calzado  │ Familia Calzado            │ [ 24 ]   │  👁  │
+│ NF0A… 39 │ Colgante bilingüe │ Calzado · va a Panamá      │ [ 36 ]   │  👁  │
+│ AC-001   │ ⚠ sin diseño      │ Accesorios no tiene diseño │   12     │      │
+└──────────┴───────────────────┴────────────────────────────┴──────────┴──────┘
+                                                [← Atrás]  [Generar →] (deshabilitado con problemas)
+```
+
+- **Arreglar en el lugar:**
+  - *Elegir diseño:* `Modal` con el selector de diseños del tipo. La casilla
+    «Guardarlo como diseño de Accesorios» viene **marcada** y crea el uso en
+    la celda (con su simulación). Si se desmarca, la elección vale solo para
+    este trabajo y se guarda en `parametros.elegidas`, como hoy.
+  - *Completar:* `Modal` con una tabla pequeña (artículo · campo · valor) que
+    guarda en el dato maestro (requiere el permiso de editar artículos; si
+    no lo tiene, el botón dice «Pedir a …» y lo deja como pendiente).
+  - *Datos que pide el diseño:* las variables manuales, solo si algún diseño
+    las tiene.
+- **Vista previa:** el ojo 👁 de cada fila abre el **panel lateral** con el
+  SVG de ese registro (`.previa-etiqueta`) y flechas anterior/siguiente.
+  «Vista previa ▸» arriba abre la primera.
+- **Cantidad editable** por fila (respeta `cantidad` del tipo; en MANUAL es
+  obligatoria).
+- **Revalidar automático:** al resolver un problema se revalida solo lo
+  afectado. El usuario no pulsa «validar».
+- «Generar →» queda deshabilitado mientras haya problemas que bloquean, y
+  dice cuántos.
+
+**③ Generar** (une Generar y Descargas):
+
+```text
+Formato  [PDF ▾]   Hoja [4×6 in, 1 por hoja ▾]   Repartir en archivos [Un PDF por diseño ▾]
+                                                          [Generar 2 481 etiquetas]
+── después ──
+✓ Generado el 14/10/2026 10:42 · 2 481 etiquetas · 3 archivos     [Descargar ZIP]
+   Colgante calzado.pdf (1 204) · Colgante bilingüe.pdf (36) · Precio estándar.pdf (1 240)
+[Marcar como impresas]  [Reimprimir algunas…]  [Nuevo trabajo igual]
+```
+
+- Las opciones de agrupación del ZIP se conservan tal como existen hoy
+  (cubiertas por `e2e/etiquetado.mjs`).
+- El historial del trabajo (quién, cuándo, qué versión de cada diseño) queda
+  en esta misma pantalla, plegado.
+
+#### 7.9.11 Diseños
+
+- La lista se agrupa por tipo de etiqueta. Cada tarjeta muestra la
+  miniatura, el estado de la versión y **«Se usa en: Calzado, Ropa · 2
+  excepciones»** (enlace a la matriz filtrada).
+- «Nuevo diseño» abre un `Modal`: tipo de etiqueta, nombre, tamaño (de
+  `tamanos_etiqueta`) y «empezar desde» (en blanco / ejemplo del tipo /
+  duplicar otro). Luego va al editor.
+- En el editor, la biblioteca de campos muestra **solo los campos que el
+  sujeto del tipo puede tener**: un diseño de caja no ofrece `articulo.sku`
+  como campo suelto, sino la tabla del contenido (ver E5).
+- Archivar un diseño que está en uso pide confirmación con el efecto:
+  «Calzado y Ropa quedarán sin diseño de etiqueta colgante».
+
+#### 7.9.12 Componentes Vue (nuevos, reutilizados y retirados)
+
+| Componente | Estado | Uso |
+|---|---|---|
+| `vistas/ImprimirView.vue` | nuevo (reemplaza la pestaña Trabajos) | trabajos recientes + «Nuevo trabajo» |
+| `vistas/ConfiguracionEtiquetadoView.vue` | nuevo | contenedor de las 5 vistas de configuración |
+| `componentes/MatrizEtiquetado.vue` | nuevo | la matriz (7.9.5) |
+| `componentes/CeldaEtiquetado.vue` | nuevo (`Modal`) | ventana de la celda (7.9.6) |
+| `componentes/ExcepcionFrase.vue` | nuevo | fila «Si … usar … porque …» (7.9.7) |
+| `componentes/EfectoCambio.vue` | nuevo | caja «Qué cambia al guardar» (reutilizable en celda, producto, OC, archivar diseño) |
+| `componentes/SelectorDiseno.vue` | nuevo | buscador de diseños con miniatura, filtrado por tipo |
+| `componentes/TiposEtiqueta.vue` | nuevo | CRUD de tipos (en `Modal`) |
+| `componentes/PrimerUsoEtiquetado.vue` | nuevo | 7.9.4 |
+| `componentes/ResumenEtiquetas.vue` | nuevo (panel) | resumen en OC, lista de empaque y producto (7.9.9) |
+| `componentes/FamiliasYArticulos.vue` | nuevo; une `FamiliasEtiquetado`, `ArticulosFamilia` y `GruposFamilia` | árbol de familias a la izquierda y productos/artículos de la familia a la derecha, con asignación masiva |
+| `vistas/TrabajoEtiquetasView.vue` | se reescribe a 3 pasos | conserva la carga del trabajo, la concurrencia por `version` y el paso Generar |
+| `componentes/EtiquetadoProducto.vue` | se reescribe | 7.9.8 |
+| `AsignacionesEtiqueta.vue` | **se retira** cuando la matriz esté completa (fase 7, con autorización) | la «prueba de reglas» pasa a `GET /etiquetas/resolver` mostrada en la ficha del producto y en el resumen |
+| `CamposEtiqueta.vue`, `HistorialEtiquetas.vue`, `ListaPlantillas.vue`, `editor/*` | se reutilizan con ajustes de lenguaje (U4) | — |
+| `etiquetas.js` | pierde MODALIDADES, UNIDADES, UNIDADES_DE, AMBITOS y TAMANOS (vienen del servidor) | conserva solo formateadores |
+
+Todas las vistas se refrescan con `alCambiar(recargar, ['/etiquetas/usos',
+'/etiquetas/tipos', '/etiquetas/plantillas'])` (`nucleo/cambios.js`).
+
+#### 7.9.13 Llamadas a la API por pantalla
+
+| Pantalla | Lee | Escribe |
+|---|---|---|
+| Matriz | `GET /etiquetas/matriz?sujeto=ARTICULO` (filas, columnas, celdas con conteos y cobertura en una sola respuesta) | — |
+| Ventana de la celda | `GET /etiquetas/celda?tipo=&nivel=&id=`; `POST /etiquetas/usos/simular` | `PUT /etiquetas/usos/celda` (con `version`) |
+| Excepción «aplicar también a» | `POST /etiquetas/usos/simular` | `POST /etiquetas/usos/lote` |
+| Producto | `GET /etiquetas/resolver?sujeto=PRODUCTO&id=` | `PUT /etiquetas/usos/celda` (nivel PRODUCTO o SKU) |
+| OC / lista de empaque | `GET /etiquetas/resumen?origen=OC&id=` | `POST /etiquetas/usos` (contexto OC) |
+| Asistente ① | `GET /etiquetas/tipos`, buscadores existentes | `POST /etiquetas/trabajos` |
+| Asistente ② | `GET /etiquetas/trabajos/:id` (registros paginados por tipo) | `PATCH /etiquetas/trabajos/:id` (cantidades, elegidas, manuales); `PUT /etiquetas/usos/celda` («guardar como regla»); `PATCH` del artículo («Completar») |
+| Asistente ③ | `GET /etiquetas/trabajos/:id/estado` | `POST /etiquetas/trabajos/:id/generar` |
+
+#### 7.9.14 Guía de usuario: cómo asignar reglas (texto para la ayuda en pantalla)
+
+1. **"Quiero que todo el calzado lleve este colgante".** Configuración →
+   Qué diseño lleva cada cosa → celda *Calzado × Etiqueta colgante* → elegir
+   el diseño → revisar «Qué cambia» → Guardar.
+2. **"Este producto lleva otro colgante".** Producto → pestaña Etiquetas →
+   *Usar otro diseño para este producto*. Si es solo una talla, se marca la
+   talla.
+3. **"Lo que va a Panamá lleva el bilingüe".** Celda *Calzado × Colgante* →
+   *Agregar excepción* → «Si el país destino es Panamá usar Colgante
+   bilingüe porque…» → si aplica a otras familias, marcarlas en «Aplicar
+   también a».
+4. **"Esta OC pide una caja especial".** OC → Etiquetas → *Diseño especial
+   para esta OC…* → tipo Caja, diseño y motivo.
+5. **"¿Por qué este artículo sale con este diseño?"** En el asistente, la
+   columna «Por qué». En el producto, debajo de cada tarjeta.
+6. **"Ya no quiero esa excepción".** Abrir la celda → 🗑 en la excepción →
+   confirmar viendo cuántos artículos vuelven al diseño normal.
 
 ### 7.10 Migración de reglas existentes
 
@@ -732,7 +1190,7 @@ de ejemplo por tipo, y lleva a la matriz.
 | `ambito` REGLA (solo condiciones) | nivel GENERAL + condiciones; si las condiciones son "familia es X" o "marca es Y", se convierte a nivel FAMILIA o contexto MARCA |
 | `prioridad` y `predeterminada` | Se descartan; si al convertir aparecen empates, el de mayor prioridad antigua queda activo y los demás **inactivos** con nota en el informe |
 | `contexto.origenes` = solo OC | contexto: requiere OC → se marca en el informe para revisión |
-| `contexto.tipos_empaque` | contexto TIPO_EMPAQUE |
+| `contexto.tipos_empaque` | nivel TIPO_EMPAQUE (sujeto BULTO); si la regla tenía además otro destino, queda inactiva con nota |
 | Dos reglas iguales para ARTICULO y OC_ARTICULO con el mismo diseño | Se fusionan en un uso |
 | Dos reglas iguales para ARTICULO y OC_ARTICULO con **diseños distintos** | El de ARTICULO queda como uso general; el de OC_ARTICULO queda **inactivo** con nota "antes se usaba otro diseño cuando venía de una OC; si es necesario, cree una excepción por destino o proveedor" |
 | Trabajos ya generados | No se tocan: guardan versión de diseño e historial; solo se agrega `tipo_etiqueta_id` calculado |
@@ -753,7 +1211,7 @@ columnas viejas hasta la fase 4; `downgrade` borra solo las tablas nuevas.
 | Etiqueta colgante del SKU 123, impresa sola | Regla ARTICULO con diseño modalidad ARTICULO | Uso "Colgante · Familia Calzado" |
 | Mismo SKU 123 dentro de la OC 4500 | Otra regla (modalidad OC_ARTICULO) y a menudo otro diseño | **El mismo uso**; el diseño puede imprimir `oc.numero` si lo trae |
 | La OC 4500 exige una etiqueta especial | Regla ámbito OC con prioridad 500 | Excepción contexto OC 4500 + motivo |
-| Todo lo que va a Panamá lleva etiqueta bilingüe | Regla REGLA con condición `oc.centro_destino en [...]` y prioridad a mano | Excepción contexto PAIS_DESTINO = PA |
+| Todo lo que va a Panamá lleva etiqueta bilingüe | Regla REGLA con condición `oc.centro_destino en [...]` y prioridad a mano | Excepción «si el país destino es Panamá» en la celda de cada familia, creada de una vez con «Aplicar también a» |
 | Caja master de la lista de empaque | Diseño unidad BULTO + regla | Uso "Caja master · Toda la empresa" |
 | Colgante + precio + caja | 3 trabajos | 1 trabajo con 3 tipos marcados |
 
@@ -917,6 +1375,12 @@ el número correcto de cajas; ejecutar la semilla dos veces no duplica nada.
 - Simulación: `POST /usos/simular` no escribe (contar filas antes/después).
 - Edición completa de un uso (cambiar diseño y destino) con `version`;
   versión vieja → 409.
+- Orden de resolución (7.4): una excepción de OC gana a un SKU con diseño
+  propio; una excepción de país en la celda de la familia **no** gana a un SKU
+  con diseño propio; una celda con solo excepciones que no coinciden deja
+  pasar al nivel siguiente; subfamilia hereda de su familia padre.
+- `PUT /usos/celda` con `version` vieja → 409; `POST /usos/lote` crea una
+  excepción por celda en una sola transacción.
 - Varias etiquetas por registro: trabajo con COLG + PREC → 2 registros por
   artículo.
 - Migración (opción A): base con reglas de cada `ambito` y modalidad →
@@ -929,7 +1393,9 @@ el número correcto de cajas; ejecutar la semilla dos veces no duplica nada.
 
 **Frontend (Playwright, `frontend/e2e/`):**
 
-- Ampliar `etiquetado.mjs`: matriz (editar celda, ver simulación, guardar),
+- Ampliar `etiquetado.mjs`: primer uso guiado con base vacía; matriz (editar celda, ver simulación, guardar),
+  resumen desde OC → «Imprimir» abre el paso Revisar; «Elegir diseño» con
+  «Guardarlo como regla» crea el uso; redirecciones de las pestañas viejas;
   excepción, asistente de 3 pasos de punta a punta desde OC, lista de empaque
   y artículos, corrección en el lugar, confirmación al dar de baja.
 - Usar `vigilarRed`/`quieto` (`e2e/quieto.mjs`), nunca `networkidle` (el
@@ -962,11 +1428,13 @@ Cada fase en su propia rama/PR, sin fusionar sin aprobación.
 | D1 | Cómo migrar las reglas existentes (A automática con informe / B convivencia / C de cero) | **A** |
 | D2 | ¿Se aceptan los tres sujetos (ARTICULO, BULTO, DOCUMENTO) y las cinco cantidades? | Sí |
 | D3 | Escalera de especificidad fija o editable por empresa | **Fija** en la primera versión |
-| D4 | Orden de la escalera: ¿el contexto (destino/OC) manda sobre el nivel del artículo? | Sí (como hoy: OC 500 > ARTICULO 400) |
+| D4 | Orden (7.4): ¿la excepción de OC manda sobre todo y las demás excepciones viven dentro de su celda? | Sí (corregido en la revisión 2: antes proponía «contexto primero» en todo) |
 | D5 | ¿La familia pasa al producto, manteniendo SKU y grupo como herencia? | Sí: SKU → producto → grupo |
 | D6 | Inner no divisible: repartir enteros (4,3,3) o bloquear | Repartir y avisar |
 | D7 | Estados de lista de empaque que permiten etiquetas reales | Solo confirmada/enviada; borrador solo en prueba |
 | D8 | ¿Se crea la entidad `bultos` con SSCC ahora o después? | Columnas en `GeneracionItem` en fase 1; tabla `bultos` + SSCC en fase 6 |
+| D10 | Permiso nuevo `etiquetas.configurar` separado de diseñar e imprimir | Sí |
+| D11 | ¿El botón «Etiquetas» de la OC y la lista de empaque abre primero el resumen (panel) en vez del asistente? | Sí |
 | D9 | ¿Se retiran las rutas sin uso (`/plan`, `/generaciones` POST, `/masivo` POST)? | Sí, con aviso de obsolescencia en fase 2 y retiro en fase 7 |
 
 ---
