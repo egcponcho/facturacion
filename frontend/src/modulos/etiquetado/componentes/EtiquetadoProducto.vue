@@ -1,133 +1,195 @@
 <script setup>
+import { alCambiar } from '@/nucleo/cambios.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
-import Segmentos from '@/componentes/Segmentos.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
+import { confirmar } from '@/stores/confirmar'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
+import EfectoCambio from '@/modulos/etiquetado/componentes/EfectoCambio.vue'
+import SelectorDiseno from '@/modulos/etiquetado/componentes/SelectorDiseno.vue'
+import { textoExcepcion, textoPorque } from '@/modulos/etiquetado/etiquetas.js'
 
-// Etiquetado de un producto, por variante (artículo): su familia de
-// etiquetado, el diseño y la versión que se usaría y por qué, la vista previa
-// con sus datos reales y el acceso a generar, a las excepciones y al historial.
+// La pestaña Etiquetas del producto: su familia de etiquetado, qué diseño
+// lleva en cada tipo de etiqueta y por qué, las excepciones que pueden
+// cambiarlo y las tallas con diseño propio. Desde aquí se le pone un diseño
+// propio (a todo el producto o a algunas tallas) y se imprimen sus etiquetas.
 const props = defineProps({ productoId: { type: Number, required: true } })
-const articulos = ref([])
-const familias = ref([])
-const elecciones = ref({})
-const modalidad = ref('OC_ARTICULO')
+const datos = ref(null)
 const cargando = ref(false)
+const configurable = computed(() => puede('etiquetas.configurar'))
 
 async function cargar() {
   cargando.value = true
   try {
-    const r = await api.get('/etiquetas/articulos', { producto_id: props.productoId, size: 200 })
-    articulos.value = r.items
-    await resolver()
+    datos.value = await api.get(`/etiquetas/productos/${props.productoId}`)
   } catch (e) {
     errorApi(e)
   } finally {
     cargando.value = false
   }
 }
-async function resolver() {
-  const pares = await Promise.all(articulos.value.map((a) => api.get('/etiquetas/resolver', { modalidad: modalidad.value, articulo_id: a.id })
-    .then((r) => [a.id, r]).catch(() => [a.id, null])))
-  elecciones.value = Object.fromEntries(pares)
-}
-watch(modalidad, resolver)
-onMounted(() => {
-  cargar()
-  if (puede('etiquetas.familias')) api.get('/etiquetas/familias', { activas: true }).then((r) => (familias.value = r)).catch(() => {})
-})
+onMounted(cargar)
+alCambiar(() => cargar(), ['/etiquetas/usos', '/etiquetas/familias', '/etiquetas/productos'])
+const miniatura = (e) => (e?.version_id ? `/api/etiquetas/versiones/${e.version_id}/miniatura.svg` : null)
+const ORIGEN = () => ({ PRODUCTO: t('of the product'), GRUPO: t('by its item group') })
 
-async function cambiarFamilia(a, id) {
+// Cambiar la familia del producto (la heredan sus tallas sin familia propia)
+const familias = ref([])
+const cambioFamilia = ref(null)
+async function abrirFamilia() {
+  if (!familias.value.length) familias.value = await api.get('/etiquetas/familias', { activas: true }).catch(() => [])
+  cambioFamilia.value = { familia_id: datos.value.familia?.origen === 'PRODUCTO' ? datos.value.familia.id : '' }
+}
+async function guardarFamilia() {
   try {
-    await api.post('/etiquetas/articulos/familia', { familia_id: id === '' || id === 'ninguna' ? null : Number(id), ids: [a.id] })
-    avisar(t('Labeling family of {0} changed.', [a.sku]))
-    await cargar()
+    await api.post('/etiquetas/productos/familia', { familia_id: cambioFamilia.value.familia_id ? Number(cambioFamilia.value.familia_id) : null, ids: [props.productoId] })
+    avisar(t('Labeling family of the product changed.'))
+    cambioFamilia.value = null
+    cargar()
   } catch (e) {
     errorApi(e)
   }
 }
-const sinFamilia = computed(() => articulos.value.filter((a) => !a.familia).length)
 
-const previa = ref(null)
-async function verPrevia(a) {
-  const e = elecciones.value[a.id]
+// Diseño propio: para todo el producto o solo para algunas tallas
+const propio = ref(null)
+function abrirPropio(x) {
+  propio.value = { tipo: x.tipo, plantilla_id: x.propio?.plantilla_id || '', tallas: [], cambia: !!x.propio }
+}
+const efecto = ref(null)
+const simulando = ref(false)
+let espera
+watch(() => propio.value && [propio.value.plantilla_id, propio.value.tallas.length], () => {
+  clearTimeout(espera)
+  efecto.value = null
+  const x = propio.value
+  if (!x?.plantilla_id || x.tallas.length) return
+  simulando.value = true
+  espera = setTimeout(async () => {
+    efecto.value = await api.post('/etiquetas/usos/simular', { tipo_etiqueta_id: x.tipo.id, nivel: 'PRODUCTO', destino_id: props.productoId,
+      normal: { plantilla_id: Number(x.plantilla_id) } }).catch(() => null)
+    simulando.value = false
+  }, 400)
+})
+async function guardarPropio() {
+  const x = propio.value
   try {
-    const r = await api.post('/etiquetas/vista-previa', { version_id: e.version_id, articulo_id: a.id })
-    previa.value = { a, e, ...r }
-  } catch (err) {
-    errorApi(err)
+    const base = { tipo_etiqueta_id: x.tipo.id, plantilla_id: Number(x.plantilla_id), contexto_tipo: 'NINGUNO', reemplazar: true }
+    if (x.tallas.length) {
+      for (const id of x.tallas) await api.post('/etiquetas/usos', { ...base, nivel: 'SKU', destino_id: id })
+    } else await api.post('/etiquetas/usos', { ...base, nivel: 'PRODUCTO', destino_id: props.productoId })
+    avisar(t('Saved. The next labels of this product use this design.'))
+    propio.value = null
+    cargar()
+  } catch (e) {
+    errorApi(e)
   }
 }
-const MODOS = computed(() => [['OC_ARTICULO', t('PO and item')], ['ARTICULO', t('Item')]])
+async function heredar(usoId, texto) {
+  if (!(await confirmar(texto, { titulo: t('Inherit again'), boton: t('Inherit again') }))) return
+  try {
+    await api.post(`/etiquetas/usos/${usoId}/baja`, { motivo: t('Back to the design of its family') })
+    cargar()
+  } catch (e) {
+    errorApi(e)
+  }
+}
+const imprimir = computed(() => ({ path: '/etiquetas/trabajos/nuevo', query: { origen: 'ARTICULOS', articulos: (datos.value?.articulos || []).map((a) => a.id).join(',') } }))
 </script>
 
 <template>
-  <div class="panel mt-chico etq-producto">
-    <div class="fila-flex entre">
-      <p class="ayuda mb-0">{{ t('Which label design each variant uses, by priority: PO exception, item, product, labeling family, general.') }}</p>
-      <Segmentos v-model="modalidad" :opciones="MODOS" :etiqueta="t('Data on the label')" />
-    </div>
-    <p v-if="sinFamilia" class="nota aviso mt-chico"><Icono nombre="alerta" :tam="16" />{{ t('{0} variants have no labeling family: they only get item, product or general designs.', [sinFamilia]) }}</p>
-    <div class="tabla-marco mt-chico etq-tabla">
-    <table class="tabla">
-      <thead><tr><th>{{ t('SKU') }}</th><th>{{ t('Color') }}</th><th>{{ t('Size') }}</th><th>{{ t('Labeling family') }}</th><th>{{ t('Design and version') }}</th><th>{{ t('Why') }}</th><th /></tr></thead>
-      <tbody>
-        <tr v-for="a in articulos" :key="a.id">
-          <td><strong class="codigo">{{ a.sku }}</strong></td>
-          <td>{{ a.color }}</td>
-          <td>{{ a.talla }}</td>
-          <td>
-            <Seleccion v-if="puede('etiquetas.familias')" :model-value="a.familia_id || ''" :aria-label="t('Labeling family')" @change="(v) => cambiarFamilia(a, v)">
-              <option value="">{{ t('Without family') }}</option>
-              <option v-for="f in familias" :key="f.id" :value="f.id">{{ tx(f.nombre) }}</option>
-            </Seleccion>
-            <span v-else-if="a.familia" class="etiqueta ms-0">{{ tx(a.familia) }}</span>
-            <span v-else class="etiqueta aviso ms-0">{{ t('Without family') }}</span>
-          </td>
-          <td>
-            <template v-if="elecciones[a.id]?.plantilla">{{ tx(elecciones[a.id].plantilla) }} <span class="etiqueta ms-0">v{{ elecciones[a.id].version }}</span></template>
-            <span v-else-if="elecciones[a.id]?.ambigua" class="texto-aviso">{{ t('Several apply: chosen when generating') }}</span>
-            <span v-else-if="elecciones[a.id]" class="texto-error">{{ t('No approved design applies') }}</span>
-          </td>
-          <td class="ayuda">{{ tx(elecciones[a.id]?.motivo || '') }}<template v-for="(x, i) in elecciones[a.id]?.avisos || []" :key="i"><br />{{ tx(x) }}</template></td>
-          <td class="num nowrap">
-            <button v-if="elecciones[a.id]?.version_id" type="button" class="btn btn-chico" @click="verPrevia(a)"><Icono nombre="ojo" :tam="15" />{{ t('See') }}</button>
-            <router-link v-if="modalidad === 'ARTICULO' && elecciones[a.id]?.version_id && puede('etiquetas.generar')" :to="{ path: '/etiquetas/trabajos/nuevo', query: { origen: 'ARTICULOS', articulos: a.id } }" class="btn btn-chico">{{ t('Generate') }}</router-link>
-          </td>
-        </tr>
-        <tr v-if="!articulos.length && !cargando"><td colspan="7" class="ayuda">{{ t('This product has no variants yet.') }}</td></tr>
-      </tbody>
-    </table>
-    </div>
-    <div class="fila-flex mt-chico">
-      <router-link v-if="puede('etiquetas.asignar')" :to="{ path: '/etiquetas', query: { vista: 'asignaciones' } }" class="btn btn-chico"><Icono nombre="ruta" :tam="15" />{{ t('Assign a design to this product or an item') }}</router-link>
-      <router-link :to="{ path: '/etiquetas', query: { vista: 'historial' } }" class="btn btn-chico btn-texto"><Icono nombre="historial" :tam="15" />{{ t('Generated labels') }}</router-link>
+  <div v-if="cargando && !datos" class="vacio">{{ t('Loading…') }}</div>
+  <div v-else-if="datos" class="ep">
+    <div class="ep-cabeza">
+      <h3>{{ t('Labels of this product') }}</h3>
+      <span class="ep-familia">{{ t('Labeling family') }}:
+        <strong v-if="datos.familia">{{ tx(datos.familia.nombre) }}</strong><span v-else class="etiqueta aviso ms-0">{{ t('Without family') }}</span>
+        <span v-if="datos.familia" class="ayuda">({{ ORIGEN()[datos.familia.origen] }})</span>
+        <button v-if="puede('etiquetas.familias')" type="button" class="btn btn-chico" @click="abrirFamilia">{{ t('Change family') }}</button></span>
     </div>
 
-    <Modal v-if="previa" :titulo="`${previa.a.sku} · ${tx(previa.e.plantilla)} v${previa.e.version}`" ancho="640px" @cerrar="previa = null">
-      <!-- eslint-disable-next-line vue/no-v-html -->
-      <div class="etq-previa previa-etiqueta" v-html="previa.svg" />
-      <p class="ayuda">{{ tx(previa.e.motivo || '') }}</p>
-      <ul v-if="previa.problemas.length" class="etq-lista">
-        <li v-for="(x, i) in previa.problemas" :key="i" :class="x.nivel"><strong v-if="x.nombre">{{ x.nombre }}: </strong>{{ tx(x.mensaje) }}</li>
-      </ul>
-    </Modal>
+    <div class="ep-tarjetas">
+      <article v-for="x in datos.tipos" :key="x.tipo.id" class="ep-tarjeta panel">
+        <h4>{{ tx(x.tipo.nombre) }}</h4>
+        <div class="ep-diseno">
+          <div class="ep-mini"><img v-if="miniatura(x.eleccion)" :src="miniatura(x.eleccion)" :alt="t('Preview of {0}', [x.eleccion.plantilla])" /></div>
+          <div>
+            <strong v-if="x.eleccion?.plantilla">{{ tx(x.eleccion.plantilla) }}</strong>
+            <span v-else class="etiqueta aviso ms-0">{{ x.tipo.obligatoria ? t('No design (required)') : t('No design') }}</span>
+            <p class="ayuda">{{ x.propio ? t('Own design of this product') : t('By: {0}', [textoPorque(x.eleccion)]) }}</p>
+            <span v-if="x.eleccion?.plantilla && !x.eleccion.aprobada" class="etiqueta aviso ms-0">{{ t('Not approved yet') }}</span>
+          </div>
+        </div>
+        <ul v-if="x.excepciones.length" class="ep-excepciones">
+          <li v-for="u in x.excepciones" :key="u.id">{{ t('Exception') }}: {{ textoExcepcion(u) }} → {{ tx(u.plantilla) }}</li>
+        </ul>
+        <p v-if="x.tallas.length" class="ayuda">{{ t('Sizes with their own design') }}:</p>
+        <ul v-if="x.tallas.length" class="ep-tallas">
+          <li v-for="s in x.tallas" :key="s.uso_id">{{ s.talla || s.sku }} → {{ tx(s.plantilla) }}
+            <button v-if="configurable" type="button" class="btn btn-chico btn-texto" @click="heredar(s.uso_id, t('Size {0} goes back to the design of the product.', [s.talla || s.sku]))">{{ t('Inherit again') }}</button></li>
+        </ul>
+        <div v-if="configurable" class="ep-acciones">
+          <button type="button" class="btn btn-chico" @click="abrirPropio(x)">{{ x.propio ? t('Change') : t('Use another design for this product') }}</button>
+          <button v-if="x.propio" type="button" class="btn btn-chico btn-texto" @click="heredar(x.propio.id, t('The product goes back to the design of its family.'))">{{ t('Inherit again') }}</button>
+        </div>
+      </article>
+    </div>
+    <p v-if="!datos.tipos.length" class="ayuda">{{ t('There are no label types for items yet.') }}
+      <router-link to="/etiquetas/configuracion?vista=tipos" class="enlace">{{ t('Set them up') }}</router-link></p>
+
+    <div class="ep-pie">
+      <router-link v-if="puede('etiquetas.generar') && datos.articulos.length" :to="imprimir" class="btn btn-primario"><Icono nombre="etiqueta" :tam="16" />{{ t('Print labels of this product') }}</router-link>
+      <router-link :to="{ path: '/etiquetas/configuracion', query: { vista: 'historial' } }" class="btn btn-chico btn-texto"><Icono nombre="historial" :tam="15" />{{ t('Generated labels') }}</router-link>
+    </div>
   </div>
+
+  <Modal v-if="cambioFamilia" :titulo="t('Labeling family of the product')" @cerrar="cambioFamilia = null">
+    <label class="campo"><span>{{ t('Family') }}</span>
+      <Seleccion v-model="cambioFamilia.familia_id">
+        <option value="">{{ t('None of its own (it uses the one of its item group)') }}</option>
+        <option v-for="f in familias" :key="f.id" :value="f.id">{{ tx(f.ruta || f.nombre) }}</option></Seleccion></label>
+    <p class="ayuda mt">{{ t('All its sizes inherit it, except the ones with a family of their own.') }}</p>
+    <template #pie>
+      <button type="button" class="btn separar" @click="cambioFamilia = null">{{ t('Cancel') }}</button>
+      <button type="button" class="btn btn-primario" @click="guardarFamilia">{{ t('Save') }}</button>
+    </template>
+  </Modal>
+
+  <Modal v-if="propio" :titulo="t('Design of “{0}” for this product', [tx(propio.tipo.nombre)])" ancho="640px" @cerrar="propio = null">
+    <div class="ep-form">
+      <SelectorDiseno v-model="propio.plantilla_id" :tipo-id="propio.tipo.id" />
+      <fieldset v-if="datos.articulos.length > 1" class="ep-solo">
+        <legend>{{ t('Only for these sizes (empty: the whole product)') }}</legend>
+        <label v-for="a in datos.articulos" :key="a.id" class="check"><input v-model="propio.tallas" type="checkbox" :value="a.id" /> {{ a.talla || a.sku }}</label>
+      </fieldset>
+      <EfectoCambio v-if="!propio.tallas.length" :efecto="efecto" :cargando="simulando" :sin-cambios="!propio.plantilla_id" />
+      <p v-else class="ayuda">{{ t('{0} sizes get this design; the rest keep the one of the product.', [propio.tallas.length]) }}</p>
+    </div>
+    <template #pie>
+      <button type="button" class="btn separar" @click="propio = null">{{ t('Cancel') }}</button>
+      <button type="button" class="btn btn-primario" :disabled="!propio.plantilla_id" @click="guardarPropio">{{ t('Save') }}</button>
+    </template>
+  </Modal>
 </template>
 
 <style scoped>
-.etq-previa { --previa-alto: 420px; padding: 14px; background: repeating-conic-gradient(#eef1f5 0 25%, #fff 0 50%) 0 0 / 14px 14px; border-radius: 8px; }
-.etq-previa :deep(svg) { box-shadow: 0 1px 3px rgba(16, 24, 40, 0.25); }
-.etq-lista { margin: 8px 0 0; padding-left: 18px; font-size: 0.82rem; }
-.etq-lista .error { color: var(--error); }
-.etq-lista .advertencia { color: var(--aviso); }
-.texto-aviso { color: var(--aviso); font-size: 0.82rem; }
-.etq-producto td :deep(.sb) { min-width: 150px; }
-.etq-tabla { overflow-x: auto; }
-.etq-tabla td.ayuda { min-width: 180px; }
+.ep { display: flex; flex-direction: column; gap: 14px; }
+.ep-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ep-cabeza h3 { margin: 0; }
+.ep-familia { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ep-tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.ep-tarjeta { display: flex; flex-direction: column; gap: 8px; }
+.ep-tarjeta h4 { margin: 0; }
+.ep-diseno { display: flex; gap: 12px; align-items: flex-start; }
+.ep-diseno p { margin: 4px 0; }
+.ep-mini { width: 96px; height: 72px; flex: none; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--linea); border-radius: 8px; padding: 4px; background: var(--superficie-2); }
+.ep-mini img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; }
+.ep-excepciones, .ep-tallas { margin: 0; padding-inline-start: 18px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 2px; }
+.ep-acciones, .ep-pie { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ep-form { display: flex; flex-direction: column; gap: 12px; }
+.ep-solo { border: 1px solid var(--linea); border-radius: 8px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
 </style>

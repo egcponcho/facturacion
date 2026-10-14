@@ -25,8 +25,11 @@ import { avisar, errorApi, guardando, textoDetalle } from '@/stores/ui'
 import { cantTxt, fmtNum, pct, plural, porUnidadTxt, unidadTxt, useSeleccion } from '@/nucleo/utils'
 import { pasoCantidad } from '@/nucleo/unidades.js'
 import { estado as leerEstado } from '@/nucleo/estados.js'
+import ResumenEtiquetas from '@/modulos/etiquetado/componentes/ResumenEtiquetas.vue'
 
 const props = defineProps({ id: String })
+// Las etiquetas de la lista: cuántas salen, con qué diseños y si ya pueden ser reales (si no, solo de prueba)
+const verEtiquetas = ref(false)
 const route = useRoute()
 const router = useRouter()
 
@@ -534,8 +537,8 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <EstadoBadge :estado="pl.estado" tipo="pl" />
         <span class="doc-sub">{{ tx(pl.factura.nombre) }} · {{ tx(pl.factura.proveedor) }}</span>
         <div class="doc-acciones">
-          <router-link v-if="tienePermiso('etiquetas.generar') && pl.estado !== 'CANCELADO'" :to="{ path: '/etiquetas/trabajos/nuevo', query: { origen: 'PACKING', pl: pl.id } }" class="btn">
-            <Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</router-link>
+          <button v-if="(tienePermiso('etiquetas.generar') || tienePermiso('etiquetas.ver')) && pl.estado !== 'CANCELADO'" type="button" class="btn" @click="verEtiquetas = true">
+            <Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
           <MasOpciones>
             <button class="btn btn-fantasma" :title="t('Packing list as PDF, ready to print and sign')" @click="descargar('pdf')"><Icono nombre="descargar" />PDF</button>
             <button class="btn btn-fantasma" :title="t('Packing list as Excel')" @click="descargar('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
@@ -1094,6 +1097,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
     </template>
   </Modal>
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
+  <ResumenEtiquetas v-if="verEtiquetas && pl" origen="PACKING" :id="pl.id" :numero="pl.numero" @cerrar="verEtiquetas = false" />
 </template>
 
 <style scoped>

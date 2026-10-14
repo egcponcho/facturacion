@@ -44,6 +44,13 @@ const agregarCondicion = () => x.condiciones.push({ campo: '', op: 'igual', valo
 const listo = computed(() => x.plantilla_id && (x.motivo || '').trim()
   && (CON_VALORES.includes(x.contexto_tipo) ? x.contexto_valores.length > 0
     : x.contexto_tipo === 'CONDICION' ? x.condiciones.some((c) => c.campo) || x.vigente_desde || x.vigente_hasta : false))
+// Al aceptar, la frase se muestra con los nombres (Panamá, el diseño), no con los códigos
+const selector = ref(null)
+function aceptar() {
+  x.contexto_nombres = x.contexto_valores.map((v) => opciones.value.find((o) => String(o.valor) === String(v))?.texto || v)
+  if (selector.value?.elegido) x.plantilla = selector.value.elegido.nombre
+  emit('aceptar')
+}
 function alternarOtra(o) {
   const clave = `${o.nivel}:${o.destino_id ?? 0}`
   x.aplicar = x.aplicar.includes(clave) ? x.aplicar.filter((k) => k !== clave) : [...x.aplicar, clave]
@@ -74,7 +81,7 @@ function alternarOtra(o) {
     </fieldset>
     <div class="frase-linea">
       <span class="frase-palabra">{{ t('use') }}</span>
-      <SelectorDiseno v-model="x.plantilla_id" :tipo-id="tipoId" :miniatura="false" class="frase-diseno" />
+      <SelectorDiseno ref="selector" v-model="x.plantilla_id" :tipo-id="tipoId" :miniatura="false" class="frase-diseno" />
     </div>
     <div class="frase-linea">
       <label class="frase-fecha"><span>{{ t('from') }}</span><CampoFecha v-model="x.vigente_desde" :aria-label="t('From')" /></label>
@@ -92,7 +99,7 @@ function alternarOtra(o) {
       <span v-else-if="coinciden != null && coinciden > 0" class="ok-txt"><Icono nombre="check" :tam="14" /> {{ t('{0} open PO lines match today', [fmtNum(coinciden)]) }}</span>
       <span v-else-if="coinciden === 0" class="aviso-txt"><Icono nombre="info" :tam="14" /> {{ t('No open PO line matches today; is it right?') }}</span>
       <button type="button" class="btn btn-chico separar" @click="emit('cancelar')">{{ t('Cancel') }}</button>
-      <button type="button" class="btn btn-chico btn-primario" :disabled="!listo || !!conflicto" @click="emit('aceptar')">{{ x.id ? t('Done') : t('Add') }}</button>
+      <button type="button" class="btn btn-chico btn-primario" :disabled="!listo || !!conflicto" @click="aceptar">{{ x.id ? t('Done') : t('Add') }}</button>
     </div>
   </div>
 </template>

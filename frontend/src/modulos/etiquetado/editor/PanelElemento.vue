@@ -1,11 +1,11 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { errorApi } from '@/stores/ui'
-import { LISTAS, NUMERICOS, OPERADORES, SIMBOLOGIAS, SIN_VALOR, TRANSFORMACIONES } from '@/modulos/etiquetado/etiquetas.js'
+import { LISTAS, NUMERICOS, OPERADORES, PATRONES_FECHA, SIN_VALOR, TRANSFORMACIONES, catalogos, fechaConPatron } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import CampoColor from './CampoColor.vue'
 import Medida from './Medida.vue'
@@ -84,7 +84,10 @@ function condicionValor(v) {
 
 // Ejemplo de campo dentro de un texto (en el script: en la plantilla cerraría la interpolación)
 const EJEMPLO = '{{articulo.sku}}'
-const simbologia = computed(() => SIMBOLOGIAS().find((s) => s[0] === e.value?.simbologia))
+// Simbologías del servidor (con su uso: GS1, matriciales…)
+const simbologias = ref([])
+onMounted(() => catalogos().then((c) => (simbologias.value = c.simbologias)).catch(() => {}))
+const simbologia = computed(() => simbologias.value.find((s) => s.codigo === e.value?.simbologia))
 
 // Imagen propia: se sube al servidor (PNG, JPEG o WebP) y el diseño guarda su número
 const subiendo = ref(false)
@@ -203,12 +206,10 @@ function fuenteImagen(v) {
           <label class="check-linea"><input type="checkbox" :checked="formato.miles !== false" :disabled="bloqueado" @change="poner('formato', 'miles', $event.target.checked)" />{{ t('Thousands separator') }}</label>
         </template>
         <label v-if="formato.tipo === 'fecha'" class="campo-mini col-2"><span>{{ t('Date pattern') }}</span>
-          <Seleccion :model-value="formato.fecha" :disabled="bloqueado" :aria-label="t('Date pattern')" @change="(v) => poner('formato', 'fecha', v)">
-            <option value="dd/mm/aaaa">31/12/2026</option>
-            <option value="aaaa-mm-dd">2026-12-31</option>
-            <option value="mm/dd/aaaa">12/31/2026</option>
-            <option value="dd-mmm-aaaa">31-DEC-2026</option>
-          </Seleccion>
+          <input :value="formato.fecha || 'dd/mm/aaaa'" :disabled="bloqueado" maxlength="30" list="patrones-fecha" :aria-label="t('Date pattern')"
+                 @change="poner('formato', 'fecha', $event.target.value.trim() || 'dd/mm/aaaa')" />
+          <datalist id="patrones-fecha"><option v-for="x in PATRONES_FECHA" :key="x" :value="x">{{ fechaConPatron(2026, 12, 31, x) }}</option></datalist>
+          <small class="ayuda">{{ t('dd, d, mm, mmm, mmmm, aa, aaaa. E.g. {0}', [fechaConPatron(2026, 12, 31, formato.fecha || 'dd/mm/aaaa')]) }}</small>
         </label>
       </div>
     </template>
@@ -227,9 +228,9 @@ function fuenteImagen(v) {
     <template v-if="e.tipo === 'codigo'">
       <h4>{{ t('Code') }}</h4>
       <Seleccion v-model="e.simbologia" :disabled="bloqueado" :aria-label="t('Symbology')">
-        <option v-for="[v, n, d] in SIMBOLOGIAS()" :key="v" :value="v">{{ n }} — {{ d }}</option>
+        <option v-for="x in simbologias" :key="x.codigo" :value="x.codigo">{{ x.nombre }} — {{ tx(x.descripcion) }}</option>
       </Seleccion>
-      <p v-if="simbologia" class="ayuda">{{ simbologia[2] }}</p>
+      <p v-if="simbologia" class="ayuda">{{ tx(simbologia.descripcion) }}</p>
       <label class="check-linea"><input type="checkbox" :checked="conPartes" :disabled="bloqueado" @change="modoPartes($event.target.checked)" />{{ t('Compose the value from parts') }}</label>
       <template v-if="!conPartes">
         <label class="campo-mini"><span>{{ t('Value to encode') }}</span><input v-model="e.valor" maxlength="1000" :disabled="bloqueado" class="mono" /></label>

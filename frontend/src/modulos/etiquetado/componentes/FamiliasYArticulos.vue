@@ -322,6 +322,7 @@ const nombreCampo = (clave) => campos.value.find((c) => c.clave === clave)?.etiq
 .fa-item:hover { background: var(--superficie-2); }
 .fa-item[aria-pressed='true'] { background: var(--acento-claro); color: var(--acento-texto); font-weight: 600; }
 .fa-item.apagada { opacity: 0.6; }
+.fa-arbol li > .fa-item { width: 100%; }
 .fa-sin { margin-top: 6px; border-top: 1px solid var(--linea-suave); border-radius: 0; }
 .fa-cuenta { color: var(--tinta-3); font-size: 0.78rem; }
 .fa-contenido { display: flex; flex-direction: column; gap: 10px; min-width: 0; }

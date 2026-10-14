@@ -8,7 +8,7 @@ import Seleccion from '@/componentes/Seleccion.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { MODALIDADES, textoModalidad } from '@/modulos/etiquetado/etiquetas.js'
+import { SUJETOS } from '@/modulos/etiquetado/etiquetas.js'
 
 // Campos lógicos: un dato de la etiqueta que puede salir de varias fuentes en
 // orden (UPC: primero el de la línea de la OC, si no el del artículo). La
@@ -40,7 +40,7 @@ const columnas = computed(() => [
   { clave: 'etiqueta', texto: t('Name'), prioridad: 1 },
   { clave: 'fuentes', texto: t('Sources, in order'), prioridad: 1, textoValor: (v) => v.join(' → ') },
   { clave: 'politica', texto: t('If they disagree'), prioridad: 2, textoValor: (v) => tx(POLITICAS()[v]) },
-  { clave: 'modalidades', texto: t('Data'), prioridad: 3, textoValor: (v) => (v.length ? v.map((m) => tx(textoModalidad(m))).join(', ') : t('All')) },
+  { clave: 'sujetos', texto: t('Labels of'), prioridad: 3, textoValor: (v) => (v?.length ? v.map((m) => SUJETOS()[m] || m).join(', ') : t('All')) },
   { clave: 'en_uso', texto: t('Designs using it'), prioridad: 3 },
   { clave: 'activo', texto: t('Active'), prioridad: 3, opciones: [[true, t('Yes')], [false, t('No')]] },
 ])
@@ -48,8 +48,8 @@ const columnas = computed(() => [
 const edicion = ref(null)
 const nuevaFuente = ref('')
 function abrir(c) {
-  edicion.value = c ? { ...c, fuentes: [...c.fuentes], modalidades: [...c.modalidades] }
-    : { clave: '', etiqueta: '', descripcion: '', tipo: 'texto', fuentes: [], politica: 'ADVERTIR', modalidades: [], activo: true }
+  edicion.value = c ? { ...c, fuentes: [...c.fuentes], sujetos: [...(c.sujetos || [])] }
+    : { clave: '', etiqueta: '', descripcion: '', tipo: 'texto', fuentes: [], politica: 'ADVERTIR', sujetos: [], activo: true }
 }
 function agregarFuente() {
   if (nuevaFuente.value && !edicion.value.fuentes.includes(nuevaFuente.value)) edicion.value.fuentes.push(nuevaFuente.value)
@@ -62,7 +62,7 @@ function mover(i, d) {
 async function guardar() {
   const e = edicion.value
   const cuerpo = { clave: e.clave, etiqueta: e.etiqueta, descripcion: e.descripcion, tipo: e.tipo, fuentes: e.fuentes, politica: e.politica,
-    modalidades: e.modalidades, activo: e.activo }
+    sujetos: e.sujetos, activo: e.activo }
   try {
     if (e.id) await api.patch(`/etiquetas/campos-logicos/${e.id}`, { ...cuerpo, version: e.version })
     else await api.post('/etiquetas/campos-logicos', cuerpo)
@@ -131,7 +131,7 @@ async function quitar(c) {
         </div>
       </fieldset>
       <fieldset class="grupo-cl"><legend>{{ t('Available in (empty: all)') }}</legend>
-        <label v-for="[m, txt] in MODALIDADES()" :key="m" class="check"><input v-model="edicion.modalidades" type="checkbox" :value="m" /> {{ tx(txt) }}</label>
+        <label v-for="(txt, m) in SUJETOS()" :key="m" class="check"><input v-model="edicion.sujetos" type="checkbox" :value="m" /> {{ txt }}</label>
       </fieldset>
       <label class="check"><input v-model="edicion.activo" type="checkbox" /> {{ t('Active') }}</label>
     </form>

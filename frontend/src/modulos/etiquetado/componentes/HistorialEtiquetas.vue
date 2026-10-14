@@ -13,7 +13,6 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import { fmtFechaHora, fmtNum } from '@/nucleo/utils'
 import { errorApi } from '@/stores/ui'
 import { puede } from '@/stores/sesion'
-import { UNIDADES, textoModalidad } from '@/modulos/etiquetado/etiquetas.js'
 import { buscarArticulos, buscarOrdenes } from '@/modulos/etiquetado/componentes/buscadores.js'
 
 // Lotes de etiquetas generados: quién, cuándo, de qué OC, con qué diseños y
@@ -88,13 +87,15 @@ alCambiar(() => consultar(), ['/etiquetas/generaciones'])
         <option value="PRUEBA">{{ t('Test (not approved)') }}</option>
       </Seleccion>
     </template>
-    <template #celda-id="{ fila: g }"><strong class="codigo">#{{ g.id }}</strong><span class="sub">{{ tx(textoModalidad(g.modalidad)) }} · {{ tx(UNIDADES()[g.unidad] || g.unidad) }}</span></template>
+    <template #celda-id="{ fila: g }"><strong class="codigo">#{{ g.id }}</strong><span class="sub">{{ (g.tipos || []).map((x) => tx(x)).join(' · ') }}</span></template>
     <template #celda-creada_en="{ fila: g }">{{ fmtFechaHora(g.creada_en) }}</template>
-    <template #celda-oc="{ fila: g }"><router-link v-if="g.oc_id" :to="`/ordenes/${g.oc_id}`" class="enlace" @click.stop>{{ g.oc }}</router-link><span v-else class="apagado">—</span></template>
+    <template #celda-oc="{ fila: g }"><router-link v-if="g.oc_id" :to="`/ordenes/${g.oc_id}`" class="enlace" @click.stop>{{ g.oc }}</router-link>
+      <router-link v-if="g.pl_id" :to="`/packing-lists/${g.pl_id}`" class="sub enlace" @click.stop>{{ g.packing_list }}</router-link>
+      <span v-if="!g.oc_id && !g.pl_id" class="apagado">—</span></template>
     <template #celda-versiones="{ fila: g }">{{ g.versiones.map((v) => `${v.plantilla} v${v.version}`).join(' · ') }}</template>
     <template #celda-total="{ fila: g }">{{ fmtNum(g.total) }}</template>
     <template #celda-estado="{ fila: g }"><EstadoBadge :estado="g.estado" tipo="lote" /></template>
-    <template #vacio>{{ t('No labels generated yet. Generate them from a purchase order.') }}</template>
+    <template #vacio>{{ t('No labels generated yet. Print them from a PO, a packing list or a product.') }}</template>
   </TablaDatos>
 
   <PanelLateral v-if="detalle" :titulo="t('Label batch #{0}', [detalle.id])" ancho="680px" @cerrar="detalle = null">
@@ -113,7 +114,7 @@ alCambiar(() => consultar(), ['/etiquetas/generaciones'])
         <tr v-for="it in detalle.items" :key="it.id">
           <td>{{ it.referencia }}<span v-if="it.familia" class="sub">{{ tx(it.familia) }}</span></td>
           <td class="num">{{ fmtNum(it.cantidad) }}</td>
-          <td>{{ tx(it.plantilla) }} <span class="etiqueta ms-0">v{{ it.version }}</span></td>
+          <td>{{ tx(it.plantilla) }} <span class="etiqueta ms-0">v{{ it.version }}</span><span v-if="it.tipo" class="sub">{{ tx(it.tipo) }}</span></td>
           <td class="ayuda">{{ tx(it.motivo || '') }}</td>
         </tr>
       </tbody>

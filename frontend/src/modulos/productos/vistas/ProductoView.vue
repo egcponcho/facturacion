@@ -2,7 +2,7 @@
 import { t, tx } from '@/i18n/index.js'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
-import { onBeforeRouteLeave, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { api } from '@/nucleo/api'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import AcuerdosOrigen from '@/modulos/productos/componentes/ficha/AcuerdosOrigen.vue'
@@ -38,7 +38,8 @@ const f = reactive({ ficha: { comp: {} }, partidas: {}, alertasOk: [] })
 const r = ref(null) // respuesta del motor
 const tocados = reactive(new Set())
 const filas = reactive({}) // filas de composición que se editan, por campo comp.*
-const pestana = ref('ficha')
+// ?vista=etiquetas abre la pestaña de etiquetas (enlaces desde el etiquetado)
+const pestana = ref(useRoute().query.vista === 'etiquetas' ? 'etiquetas' : 'ficha')
 const NIVEL_CONF = { high: t('high'), medium: t('medium'), low: t('low') }
 const ocupado = ref(false)
 const calculando = ref(false)

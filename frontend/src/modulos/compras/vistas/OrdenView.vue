@@ -14,11 +14,14 @@ import Modal from '@/componentes/Modal.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { estado as estadoTxt } from '@/nucleo/estados.js'
 import { confirmar } from '@/stores/confirmar'
+import ResumenEtiquetas from '@/modulos/etiquetado/componentes/ResumenEtiquetas.vue'
 
 // Detalle de la orden de compra (solo lectura): su estado, lo acordado, las
 // líneas, el avance logístico, las aprobaciones y el historial. Se edita en el
 // asistente; las acciones dependen del estado y del rol (las decide el servidor).
 const props = defineProps({ id: { type: String, required: true } })
+// Las etiquetas de la OC: cuántas salen de cada tipo, con qué diseños y qué falta (antes de imprimir)
+const verEtiquetas = ref(false)
 const route = useRoute()
 const router = useRouter()
 
@@ -177,7 +180,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
             <button v-if="puede.eliminar" type="button" class="btn btn-peligro" :disabled="ocupado" @click="eliminar"><Icono nombre="basura" :tam="15" />{{ t('Delete draft') }}</button>
             <button v-else-if="puede.cancelar" type="button" class="btn btn-peligro" @click="abrir('cancelar')">{{ t('Cancel PO') }}</button>
           </MasOpciones>
-          <router-link v-if="tienePermiso('etiquetas.generar') && oc.estado !== 'BORRADOR'" :to="{ path: '/etiquetas/trabajos/nuevo', query: { origen: 'OC', oc: oc.id } }" class="btn"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</router-link>
+          <button v-if="(tienePermiso('etiquetas.generar') || tienePermiso('etiquetas.ver')) && oc.estado !== 'BORRADOR'" type="button" class="btn" @click="verEtiquetas = true"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
           <router-link v-if="puede.editar" :to="`/ordenes/${oc.id}/editar`" class="btn" :class="{ 'btn-primario': !puede.enviar }"><Icono nombre="editar" :tam="16" />{{ tx(oc.estado === 'RECHAZADA' ? t('Correct') : t('Continue editing')) }}</router-link>
           <router-link v-if="puede.enviar" :to="{ path: `/ordenes/${oc.id}/editar`, query: { paso: 'revision' } }" class="btn btn-primario"><Icono nombre="enviar" :tam="16" />{{ t('Review and send') }}</router-link>
           <button v-if="puede.rechazar" type="button" class="btn" @click="abrir('rechazar')">{{ t('Reject') }}</button>
@@ -341,6 +344,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
         {{ tx(ACCION[modal.accion].boton) }}</button>
     </template>
   </Modal>
+  <ResumenEtiquetas v-if="verEtiquetas && oc" origen="OC" :id="oc.id" :numero="oc.numero" @cerrar="verEtiquetas = false" />
 </template>
 
 <style scoped>

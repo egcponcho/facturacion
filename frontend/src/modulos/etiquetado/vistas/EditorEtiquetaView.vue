@@ -11,7 +11,7 @@ import { fmtNum } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { UNIDADES, UNIDADES_DE, cargarFuentes, textoModalidad } from '@/modulos/etiquetado/etiquetas.js'
+import { CANTIDADES, SUJETOS, cargarFuentes, ponerRegional } from '@/modulos/etiquetado/etiquetas.js'
 import { crearEditor } from '@/modulos/etiquetado/editor/estado.js'
 import LienzoEtiqueta from '@/modulos/etiquetado/editor/LienzoEtiqueta.vue'
 import BibliotecaCampos from '@/modulos/etiquetado/editor/BibliotecaCampos.vue'
@@ -33,7 +33,6 @@ const est = ed.estado
 const plantilla = ref(null)
 const version = ref(null)
 const grupos = ref({})
-const familia = ref(null)
 const cargando = ref(true)
 const guardando = ref(false)
 const fuentes = ref(0)
@@ -54,7 +53,8 @@ async function cargarPlantilla() {
 async function abrirVersion(id) {
   const v = await api.get(`/etiquetas/versiones/${id}`)
   version.value = v
-  est.modalidad = plantilla.value.modalidad
+  est.sujeto = plantilla.value.sujeto
+  est.tipo_etiqueta_id = plantilla.value.tipo_etiqueta_id
   ed.cargar(v.diseno)
   est.previa = null
   pedirPrevia()
@@ -68,17 +68,13 @@ async function cargar() {
   cargando.value = true
   try {
     await cargarPlantilla()
-    const [campos, familias] = await Promise.all([
-      api.get('/etiquetas/campos', { modalidad: plantilla.value.modalidad }),
-      plantilla.value.familia_id ? api.get('/etiquetas/familias') : Promise.resolve([]),
-    ])
+    const campos = await api.get('/etiquetas/campos', { sujeto: plantilla.value.sujeto })
     grupos.value = campos.grupos
     est.campos = campos.campos
     est.colecciones = campos.colecciones || []
     est.tipos = Object.fromEntries(campos.campos.map((c) => [c.clave, c.tipo]))
     est.ejemplos = { ...Object.fromEntries(campos.campos.filter((c) => c.ejemplo != null).map((c) => [c.clave, c.ejemplo])),
       'etiqueta.numero': 1, 'etiqueta.total': 1, 'etiqueta.numero_lote': 1, 'etiqueta.total_lote': 1 }
-    familia.value = familias.find((f) => f.id === plantilla.value.familia_id) || null
     await abrirVersion(versionInicial())
   } catch (e) {
     errorApi(e)
@@ -117,13 +113,14 @@ function pedirPrevia() {
 async function previa() {
   if (!est.diseno || !version.value) return
   const f = est.fuenteDatos
-  const cuerpo = disenador.value ? { modalidad: plantilla.value.modalidad, diseno: est.diseno } : { version_id: version.value.id }
+  const cuerpo = disenador.value ? { tipo_etiqueta_id: plantilla.value.tipo_etiqueta_id, diseno: est.diseno } : { version_id: version.value.id }
   if (f.real) {
-    if (est.modalidad === 'ARTICULO' && f.articulo_id) cuerpo.articulo_id = f.articulo_id
-    if (est.modalidad !== 'ARTICULO' && f.oc_id) {
+    // Un artículo (con o sin su línea de OC), un bulto de una OC o el documento de una OC
+    if (est.sujeto === 'ARTICULO' && f.articulo_id) cuerpo.articulo_id = f.articulo_id
+    if (f.oc_id) {
       cuerpo.oc_id = f.oc_id
-      if (f.posicion_id) cuerpo.posicion_id = f.posicion_id
-      if (f.bulto) cuerpo.bulto = Number(f.bulto)
+      if (est.sujeto === 'ARTICULO' && f.posicion_id) cuerpo.posicion_id = f.posicion_id
+      if (est.sujeto === 'BULTO' && f.bulto) cuerpo.bulto = Number(f.bulto)
     }
   }
   const n = ++pedidoPrevia
@@ -141,6 +138,8 @@ async function previa() {
   }
 }
 watch(() => est.diseno, pedirPrevia, { deep: true })
+// Idioma y separadores del diseño: el lienzo formatea igual que el servidor
+watch(() => [est.diseno?.idioma, est.diseno?.separador_miles, est.diseno?.separador_decimal], () => ponerRegional(est.diseno), { immediate: true })
 watch(() => ({ ...est.fuenteDatos }), pedirPrevia, { deep: true })
 const errores = computed(() => (est.previa?.problemas || []).filter((p) => p.nivel === 'error').length)
 const avisos = computed(() => (est.previa?.problemas || []).filter((p) => p.nivel !== 'error').length)
@@ -188,19 +187,17 @@ async function nuevaVersion() {
   }
 }
 
-// ---- Datos del diseño (nombre, familia, unidad de generación) ----------------------------------
+// ---- Datos del diseño (nombre, descripción y tipo de etiqueta) ----------------------------------
 const datos = ref(null)
-const familias = ref([])
+const tipos = ref([])
 async function abrirDatos() {
   const p = plantilla.value
-  datos.value = { nombre: p.nombre, descripcion: p.descripcion || '', familia_id: p.familia_id || '', unidad: p.unidad }
-  familias.value = await api.get('/etiquetas/familias', { activas: true }).catch(() => [])
+  datos.value = { nombre: p.nombre, descripcion: p.descripcion || '', tipo_etiqueta_id: p.tipo_etiqueta_id }
+  tipos.value = (await api.get('/etiquetas/tipos').catch(() => [])).filter((x) => x.sujeto === p.sujeto)
 }
 async function guardarDatos() {
   try {
-    plantilla.value = await api.patch(`/etiquetas/plantillas/${plantilla.value.id}`, { ...datos.value, familia_id: datos.value.familia_id || null })
-    const fs = familias.value.length ? familias.value : await api.get('/etiquetas/familias')
-    familia.value = fs.find((f) => f.id === plantilla.value.familia_id) || null
+    plantilla.value = await api.patch(`/etiquetas/plantillas/${plantilla.value.id}`, { ...datos.value, tipo_etiqueta_id: Number(datos.value.tipo_etiqueta_id) })
     datos.value = null
     avisar(t('Design data saved.'))
   } catch (e) {
@@ -298,13 +295,12 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
   <div v-else-if="plantilla && version && est.diseno" class="editor-etq">
     <!-- Cabecera: diseño, versión y acciones -->
     <header class="ed-cabeza">
-      <router-link to="/etiquetas" class="btn btn-icono" :aria-label="t('Back to labels')" :title="t('Back to labels')"><Icono nombre="atras" /></router-link>
+      <router-link to="/etiquetas/disenos" class="btn btn-icono" :aria-label="t('Back to designs')" :title="t('Back to designs')"><Icono nombre="atras" /></router-link>
       <div class="ed-titulo">
         <h1>{{ tx(plantilla.nombre) }}</h1>
         <p class="ed-meta">
-          <span>{{ tx(textoModalidad(plantilla.modalidad)) }}</span> ·
-          <span>{{ tx(UNIDADES()[plantilla.unidad] || plantilla.unidad) }}</span> ·
-          <span>{{ familia ? tx(familia.nombre) : t('No family') }}</span> ·
+          <span>{{ tx(plantilla.tipo) }}</span> ·
+          <span>{{ SUJETOS()[plantilla.sujeto] }}</span> ·
           <span>{{ medida }}</span>
           <button v-if="disenador && plantilla.estado === 'ACTIVA'" type="button" class="btn btn-texto btn-chico" @click="abrirDatos">{{ t('Edit data') }}</button>
         </p>
@@ -365,7 +361,7 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
           <button type="button" role="tab" class="pildora" :aria-selected="panelIzq === 'capas'" @click="panelIzq = 'capas'">{{ t('Layers') }} ({{ ed.elementos.value.length }})</button>
         </nav>
         <div class="ed-scroll">
-          <BibliotecaCampos v-if="panelIzq === 'biblioteca'" :grupos="grupos" :familia="familia" />
+          <BibliotecaCampos v-if="panelIzq === 'biblioteca'" :grupos="grupos" />
           <CapasEtiqueta v-else />
         </div>
       </aside>
@@ -392,18 +388,12 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
     <Modal v-if="datos" :titulo="t('Design data')" @cerrar="datos = null">
       <label class="campo"><span>{{ t('Name') }}</span><input v-model="datos.nombre" maxlength="120" /></label>
       <label class="campo"><span>{{ t('Description') }}</span><textarea v-model="datos.descripcion" rows="2" maxlength="500" /></label>
-      <label class="campo"><span>{{ t('Labeling family') }}</span>
-        <Seleccion v-model="datos.familia_id" :aria-label="t('Labeling family')">
-          <option value="">{{ t('No family (any item)') }}</option>
-          <option v-for="f in familias" :key="f.id" :value="f.id">{{ tx(f.nombre) }}</option>
+      <label class="campo"><span>{{ t('Label type') }}</span>
+        <Seleccion v-model="datos.tipo_etiqueta_id" :aria-label="t('Label type')">
+          <option v-for="x in tipos" :key="x.id" :value="x.id">{{ tx(x.nombre) }} · {{ CANTIDADES()[x.cantidad] }}</option>
         </Seleccion>
       </label>
-      <label class="campo"><span>{{ t('One label for each…') }}</span>
-        <Seleccion v-model="datos.unidad" :aria-label="t('One label for each…')">
-          <option v-for="u in UNIDADES_DE[plantilla.modalidad]" :key="u" :value="u">{{ UNIDADES()[u] }}</option>
-        </Seleccion>
-      </label>
-      <p class="ayuda">{{ t('The data mode ({0}) does not change: duplicate the design to use other data.', [tx(textoModalidad(plantilla.modalidad))]) }}</p>
+      <p class="ayuda">{{ t('Only types that label the same thing ({0}); the type cannot change while the design is in use.', [SUJETOS()[plantilla.sujeto]]) }}</p>
       <template #pie>
         <button type="button" class="btn" @click="datos = null">{{ t('Cancel') }}</button>
         <button type="button" class="btn btn-primario" :disabled="!datos.nombre.trim()" @click="guardarDatos">{{ t('Save') }}</button>

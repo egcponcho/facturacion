@@ -17,7 +17,8 @@ const redondear = (v) => Math.round(v * 1000) / 1000
 export function crearEditor() {
   const ed = reactive({
     diseno: null,
-    modalidad: 'OC_ARTICULO',
+    sujeto: 'ARTICULO', // qué etiqueta el tipo del diseño (artículo, bulto, documento)
+    tipo_etiqueta_id: null,
     editable: false,
     disenador: false, // puede pedir dibujos al servidor con un diseño sin guardar
     seleccion: [],
@@ -26,7 +27,7 @@ export function crearEditor() {
     previa: null, // respuesta de la vista previa del servidor (svg, problemas, valores)
     ejemplos: {}, // valores de ejemplo por campo (para dibujar en el lienzo)
     tipos: {}, // tipo de cada campo
-    campos: [], // catálogo de campos de la modalidad
+    campos: [], // catálogo de campos del sujeto
     colecciones: [], // listas para las tablas (contenido del bulto, componentes…)
     portapapeles: null,
     // Datos de la vista previa: de ejemplo o reales (artículo, OC, línea y bulto)
@@ -286,7 +287,7 @@ export function crearEditor() {
     const elemento = { ...e, id: 'codigo', x: 0, y: 0, rot: 0, valor, condicion: null, grupo: null, bloqueado: false, visible: true }
     const diseno = { ancho: e.w, alto: e.h, margen: 0, fondo: e.relleno || ed.diseno?.fondo || '#ffffff', elementos: [elemento] }
     try {
-      const r = await servidor.post('/etiquetas/vista-previa', { modalidad: ed.modalidad, diseno })
+      const r = await servidor.post('/etiquetas/vista-previa', { tipo_etiqueta_id: ed.tipo_etiqueta_id, diseno })
       const ok = !(r.problemas || []).some((p) => p.nivel === 'error')
       codigos[clave] = ok ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(r.svg)}` : false
     } catch {
