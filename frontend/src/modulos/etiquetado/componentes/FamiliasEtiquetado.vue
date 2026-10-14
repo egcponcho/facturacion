@@ -5,6 +5,7 @@ import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import PanelLateral from '@/componentes/PanelLateral.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
+import GruposFamilia from '@/modulos/etiquetado/componentes/GruposFamilia.vue'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 
@@ -39,6 +40,7 @@ const columnas = computed(() => [
   { clave: 'nombre', texto: t('Name'), prioridad: 1 },
   { clave: 'descripcion', texto: t('Description'), prioridad: 3 },
   { clave: 'campos', texto: t('Usual fields'), prioridad: 2, filtro: false, textoValor: (v) => String((v || []).length) },
+  { clave: 'grupos', texto: t('Item groups'), num: true, prioridad: 2 },
   { clave: 'articulos', texto: t('Items'), num: true, prioridad: 2 },
   { clave: 'plantillas', texto: t('Designs'), num: true, prioridad: 2 },
   { clave: 'activa', texto: t('Status'), prioridad: 2, opciones: [[true, t('Active')], [false, t('Inactive')]] },
@@ -71,6 +73,12 @@ async function guardar() {
   } catch (e) {
     errorApi(e)
   }
+}
+// Al agregar o quitar grupos cambian los conteos de la familia abierta
+async function recontar() {
+  await cargar()
+  const f = lista.value.find((x) => x.id === panel.value?.id)
+  if (f) Object.assign(panel.value, { articulos: f.articulos, grupos: f.grupos, articulos_propios: f.articulos_propios })
 }
 async function mover(f, delta) {
   const ids = lista.value.map((x) => x.id)
@@ -138,6 +146,11 @@ const nombreCampo = (clave) => campos.value.find((c) => c.clave === clave)?.etiq
       </div>
       <label class="campo"><span>{{ t('Description') }}</span><textarea v-model="panel.descripcion" maxlength="300" rows="2"></textarea></label>
       <label class="check"><input v-model="panel.activa" type="checkbox" /> {{ t('Active') }}</label>
+      <section v-if="panel.id" class="campo">
+        <span>{{ t('Which items belong to this family') }}</span>
+        <GruposFamilia :familia="panel" :editable="editable" @cambio="recontar" />
+      </section>
+      <p v-else class="ayuda">{{ t('Save the family to add item groups and items to it.') }}</p>
       <div class="campo">
         <span>{{ t('Fields of this family') }}</span>
         <p class="ayuda">{{ t('Usual: suggested when designing. Required: labels are not generated while the item lacks it.') }}</p>
@@ -155,7 +168,7 @@ const nombreCampo = (clave) => campos.value.find((c) => c.clave === clave)?.etiq
       </div>
     </form>
     <template #pie>
-      <button v-if="panel.id && !panel.articulos && !panel.plantillas" class="btn btn-peligro" type="button" @click="eliminar(panel)">{{ t('Delete') }}</button>
+      <button v-if="panel.id && !panel.articulos && !panel.plantillas && !panel.grupos" class="btn btn-peligro" type="button" @click="eliminar(panel)">{{ t('Delete') }}</button>
       <button class="btn separar" type="button" @click="panel = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" type="submit" form="form-familia">{{ t('Save') }}</button>
     </template>

@@ -104,3 +104,45 @@ def test_campos_con_origen_y_por_modalidad(interno, tnf):
         sistema = [a.codigo for a in db.query(AtributoVariante).filter(AtributoVariante.columna.is_not(None))]
     assert all(f"articulo.atributo.{c}" in claves for c in propios)
     assert not any(f"articulo.atributo.{c}" in claves for c in sistema)
+
+
+def test_familia_por_grupos_de_articulos_y_prioridad_del_articulo(interno, tnf):
+    """Una familia toma grupos de artículos completos (varios a la vez); el
+    artículo con familia propia la conserva."""
+    textil = _familia(interno, "TEXTIL", "Textiles")
+    otra = _familia(interno, "ESPECIAL", "Special")
+    grupos = interno.get("/etiquetas/grupos-articulos").json()
+    con_articulos = sorted((g for g in grupos if g["articulos"] > 0), key=lambda g: g["con_familia_propia"] - g["articulos"])
+    assert len(con_articulos) >= 2
+    elegidos = con_articulos[:2]
+    ids = [g["id"] for g in elegidos]
+    assert tnf.post("/etiquetas/grupos-articulos/familia", {"familia_id": textil["id"], "grupo_ids": ids}).status_code == 403
+    r = interno.post("/etiquetas/grupos-articulos/familia", {"familia_id": textil["id"], "grupo_ids": ids})
+    assert r.status_code == 200 and r.json()["elegidos"] == 2, r.text
+    assert {g["id"] for g in interno.get("/etiquetas/grupos-articulos", params={"familia": textil["id"]}).json()} == set(ids)
+    # Sus artículos la heredan del grupo
+    del_grupo = interno.get("/etiquetas/articulos", params={"grupo_id": ids[0], "size": 200}).json()["items"]
+    assert del_grupo and all(a["familia_id"] == textil["id"] and a["familia_origen"] == "GRUPO" for a in del_grupo
+                             if not a["familia_propia_id"])
+    total = sum(g["articulos"] - g["con_familia_propia"] for g in elegidos)
+    en_familia = interno.get("/etiquetas/articulos", params={"familia": textil["id"], "size": 1}).json()["total"]
+    assert en_familia == total
+    # Un artículo con familia propia la conserva aunque su grupo tenga otra
+    propio = next(a for a in del_grupo if not a["familia_propia_id"])
+    interno.post("/etiquetas/articulos/familia", {"familia_id": otra["id"], "ids": [propio["id"]]})
+    a = interno.get("/etiquetas/articulos", params={"ids": str(propio["id"])}).json()["items"][0]
+    assert a["familia_id"] == otra["id"] and a["familia_origen"] == "ARTICULO"
+    assert interno.get("/etiquetas/articulos", params={"familia": textil["id"], "size": 1}).json()["total"] == en_familia - 1
+    eleccion = interno.get("/etiquetas/resolver", params={"modalidad": "ARTICULO", "articulo_id": propio["id"]}).json()
+    assert "The item has no labeling family." not in eleccion["avisos"]
+    f = next(x for x in interno.get("/etiquetas/familias").json() if x["id"] == textil["id"])
+    assert f["grupos"] == 2 and f["articulos"] == en_familia - 1
+    # Una familia con grupos está en uso: no se borra
+    assert interno.delete_(f"/etiquetas/familias/{textil['id']}").status_code == 409
+    # Quitar la familia de un grupo
+    r = interno.post("/etiquetas/grupos-articulos/familia", {"familia_id": None, "grupo_ids": [ids[1]]})
+    assert r.json()["cambiados"] == 1
+    assert next(x for x in interno.get("/etiquetas/familias").json() if x["id"] == textil["id"])["grupos"] == 1
+    # Dejar todo como estaba para las demás pruebas
+    interno.post("/etiquetas/grupos-articulos/familia", {"familia_id": None, "grupo_ids": ids})
+    interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [propio["id"]]})

@@ -42,7 +42,7 @@ ABIERTAS = ("BORRADOR", "PENDIENTE", "RECHAZADA")
 EDITABLES = ("BORRADOR", "RECHAZADA")
 # Qué representa cada etiqueta según la modalidad de datos
 UNIDADES_VALIDAS = {"ARTICULO": {"UNIDAD", "MANUAL"}, "OC": {"ORDEN", "BULTO", "MANUAL"},
-                    "OC_ARTICULO": {"LINEA", "UNIDAD", "BULTO", "MANUAL"}}
+                    "OC_ARTICULO": {"LINEA", "ARTICULO", "UNIDAD", "BULTO", "MANUAL"}}
 
 
 def _nombre_usuario(db: Session, uid: int | None) -> str | None:

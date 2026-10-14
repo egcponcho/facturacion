@@ -62,6 +62,19 @@ def articulos_familia(db: Db, user: User, q: str | None = None, familia: str | N
                               [int(x) for x in ids.split(",")][:200] if ids else None)
 
 
+@router.get("/etiquetas/grupos-articulos")
+def grupos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None):
+    """Grupos de artículos con su familia de etiquetado (familia=sin: los que no tienen) y cuántos artículos tienen."""
+    return familias.grupos(db, user, q, familia)
+
+
+@router.post("/etiquetas/grupos-articulos/familia")
+def asignar_familia_grupos(db: Db, user: User, familia_id: int | None = Body(None), grupo_ids: list[int] = Body(...)):
+    """Pone la familia a varios grupos a la vez (o se la quita con familia vacía). Sus artículos la heredan,
+    salvo los que tienen familia propia."""
+    return ejecutar(db, user, None, lambda: familias.asignar_grupos(db, user, familia_id, grupo_ids))
+
+
 @router.post("/etiquetas/articulos/familia")
 def asignar_familia(db: Db, user: User, familia_id: int | None = Body(None), ids: list[int] | None = Body(None),
                     filtro: dict[str, Any] | None = Body(None), clave: Clave = None):

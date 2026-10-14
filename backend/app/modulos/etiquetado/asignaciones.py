@@ -191,9 +191,11 @@ def resolver(db: Session, modalidad: str, articulo: Articulo | None = None, oc: 
              elegida_id: int | None = None) -> Eleccion:
     """La plantilla que corresponde (con la vigente aprobada) y por qué.
     `elegida_id`: la que eligió el usuario entre varias del mismo nivel."""
+    familia = articulo.familia_efectiva if articulo is not None else None
+    familia_id = familia.id if familia else None
     filtros = {"OC": oc.id if oc else None, "ARTICULO": articulo.id if articulo else None,
                "PRODUCTO": articulo.producto_id if articulo else None,
-               "FAMILIA": articulo.familia_etiquetado_id if articulo else None, "GENERAL": True}
+               "FAMILIA": familia_id, "GENERAL": True}
     res = Eleccion()
     for nivel in NIVELES:
         if not filtros[nivel] or modalidad not in MODALIDADES_DE[nivel]:
@@ -227,10 +229,9 @@ def resolver(db: Session, modalidad: str, articulo: Articulo | None = None, oc: 
         if not res.motivo:
             res.motivo = _motivo(db, nivel, articulo, oc, len(aprobadas) > 1)
         break
-    if res.plantilla and articulo and res.plantilla.familia_id and articulo.familia_etiquetado_id \
-            and res.plantilla.familia_id != articulo.familia_etiquetado_id:
+    if res.plantilla and articulo and res.plantilla.familia_id and familia_id and res.plantilla.familia_id != familia_id:
         res.avisos.append("The design was made for another labeling family.")
-    if articulo is not None and not articulo.familia_etiquetado_id:
+    if articulo is not None and not familia_id:
         res.avisos.append("The item has no labeling family.")
     return res
 
@@ -246,7 +247,7 @@ def _motivo(db: Session, nivel: str, articulo, oc, por_predeterminada: bool) -> 
         return (f"Assigned to the product {articulo.estilo} (all its variants), default among several." if d
                 else f"Assigned to the product {articulo.estilo} (all its variants).")
     if nivel == "FAMILIA":
-        f = db.get(FamiliaEtiquetado, articulo.familia_etiquetado_id)
+        f = articulo.familia_efectiva
         nombre = f.nombre if f else ""
         return f"Design of the labeling family {nombre}, default among several." if d else f"Design of the labeling family {nombre}."
     return "General design of the organization, default among several." if d else "General design of the organization."

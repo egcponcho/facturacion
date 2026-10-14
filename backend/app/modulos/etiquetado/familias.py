@@ -27,17 +27,31 @@ from app.modulos.etiquetado import campos as svc_campos
 MAX_CAMPOS = 60
 
 
+def familia_sql():
+    """La familia efectiva de un artículo en SQL: la suya propia o la de su grupo."""
+    del_grupo = select(GrupoArticulo.familia_etiquetado_id).where(GrupoArticulo.id == Articulo.grupo_id).scalar_subquery()
+    return func.coalesce(Articulo.familia_etiquetado_id, del_grupo)
+
+
 def _dict(f: FamiliaEtiquetado, conteos: dict | None = None) -> dict:
     c = (conteos or {}).get(f.id, {})
     return {"id": f.id, "codigo": f.codigo, "nombre": f.nombre, "descripcion": f.descripcion, "campos": f.campos or [],
-            "orden": f.orden, "activa": f.activa, "articulos": c.get("articulos", 0), "plantillas": c.get("plantillas", 0)}
+            "orden": f.orden, "activa": f.activa, "articulos": c.get("articulos", 0), "plantillas": c.get("plantillas", 0),
+            "grupos": c.get("grupos", 0), "articulos_propios": c.get("propios", 0)}
 
 
 def _conteos(db: Session) -> dict:
     res: dict[int, dict] = {}
-    for fid, n in db.execute(select(Articulo.familia_etiquetado_id, func.count()).where(Articulo.familia_etiquetado_id.is_not(None))
-                             .group_by(Articulo.familia_etiquetado_id)):
+    fam = familia_sql()
+    for fid, n in db.execute(select(fam, func.count()).where(Articulo.activo.is_(True), fam.is_not(None)).group_by(fam)):
         res.setdefault(fid, {})["articulos"] = n
+    for fid, n in db.execute(select(Articulo.familia_etiquetado_id, func.count()).where(Articulo.activo.is_(True),
+                                                                                       Articulo.familia_etiquetado_id.is_not(None))
+                             .group_by(Articulo.familia_etiquetado_id)):
+        res.setdefault(fid, {})["propios"] = n
+    for fid, n in db.execute(select(GrupoArticulo.familia_etiquetado_id, func.count())
+                             .where(GrupoArticulo.familia_etiquetado_id.is_not(None)).group_by(GrupoArticulo.familia_etiquetado_id)):
+        res.setdefault(fid, {})["grupos"] = n
     for fid, n in db.execute(select(PlantillaEtiqueta.familia_id, func.count()).where(PlantillaEtiqueta.familia_id.is_not(None))
                              .group_by(PlantillaEtiqueta.familia_id)):
         res.setdefault(fid, {})["plantillas"] = n
@@ -157,6 +171,7 @@ def eliminar(db: Session, user: Usuario, familia_id: int) -> dict:
     exigir(user, "etiquetas.familias")
     f = cargar(db, familia_id)
     en_uso = (db.scalar(select(func.count()).select_from(Articulo).where(Articulo.familia_etiquetado_id == f.id))
+              or db.scalar(select(func.count()).select_from(GrupoArticulo).where(GrupoArticulo.familia_etiquetado_id == f.id))
               or db.scalar(select(func.count()).select_from(PlantillaEtiqueta).where(PlantillaEtiqueta.familia_id == f.id))
               or db.scalar(select(func.count()).select_from(AsignacionEtiqueta).where(AsignacionEtiqueta.familia_id == f.id)))
     if en_uso:
@@ -176,9 +191,9 @@ def _consulta_articulos(user: Usuario, q=None, familia=None, marca_id=None, grup
     if prov is not None:
         c = c.where(Articulo.proveedor_id.in_(prov))
     if familia == "sin":
-        c = c.where(Articulo.familia_etiquetado_id.is_(None))
+        c = c.where(familia_sql().is_(None))
     elif familia:
-        c = c.where(Articulo.familia_etiquetado_id == int(familia))
+        c = c.where(familia_sql() == int(familia))
     if marca_id:
         c = c.where(Articulo.marca_id == marca_id)
     if grupo_id:
@@ -201,13 +216,18 @@ def articulos(db: Session, user: Usuario, q=None, familia=None, marca_id=None, g
     filas = db.scalars(c.order_by(Articulo.estilo, Articulo.color, Articulo.talla, Articulo.id)
                        .offset((page - 1) * size).limit(size)).all()
     nombres = {m.id: m.nombre for m in db.scalars(select(Marca))}
-    grupos = {g.id: g.nombre for g in db.scalars(select(GrupoArticulo))}
+    grupos = {g.id: g for g in db.scalars(select(GrupoArticulo))}
     familias = {f.id: f for f in db.scalars(select(FamiliaEtiquetado))}
-    return {"total": total, "items": [{
-        "id": a.id, "sku": a.sku, "estilo": a.estilo, "color": a.color, "talla": a.talla, "descripcion": a.descripcion,
-        "marca": nombres.get(a.marca_id), "grupo": grupos.get(a.grupo_id), "producto_id": a.producto_id,
-        "familia_id": a.familia_etiquetado_id,
-        "familia": familias[a.familia_etiquetado_id].nombre if a.familia_etiquetado_id in familias else None} for a in filas]}
+
+    def fila(a: Articulo) -> dict:
+        g = grupos.get(a.grupo_id)
+        efectiva = a.familia_etiquetado_id or (g.familia_etiquetado_id if g else None)
+        return {"id": a.id, "sku": a.sku, "estilo": a.estilo, "color": a.color, "talla": a.talla, "descripcion": a.descripcion,
+                "marca": nombres.get(a.marca_id), "grupo_id": a.grupo_id, "grupo": g.nombre if g else None,
+                "producto_id": a.producto_id, "familia_propia_id": a.familia_etiquetado_id,
+                "familia_id": efectiva, "familia": familias[efectiva].nombre if efectiva in familias else None,
+                "familia_origen": "ARTICULO" if a.familia_etiquetado_id else ("GRUPO" if efectiva else None)}
+    return {"total": total, "items": [fila(a) for a in filas]}
 
 
 def asignar_articulos(db: Session, user: Usuario, familia_id: int | None, ids: list[int] | None = None,
@@ -244,3 +264,47 @@ def faltantes(db: Session, familia: FamiliaEtiquetado | None, valores: dict) -> 
         return []
     return [c["campo"] for c in familia.campos or [] if c.get("obligatorio") and valores.get(c["campo"]) in (None, "")]
 
+
+
+# ---- Grupos de artículos de cada familia ----------------------------------------------------
+def grupos(db: Session, user: Usuario, q: str | None = None, familia: str | None = None) -> list[dict]:
+    """Los grupos de artículos con su familia de etiquetado y cuántos artículos activos tienen."""
+    exigir_alguno(user, "etiquetas.ver", "etiquetas.familias")
+    c = select(GrupoArticulo).where(GrupoArticulo.activo.is_(True)).order_by(GrupoArticulo.nombre)
+    if familia == "sin":
+        c = c.where(GrupoArticulo.familia_etiquetado_id.is_(None))
+    elif familia:
+        c = c.where(GrupoArticulo.familia_etiquetado_id == int(familia))
+    if q and q.strip():
+        c = c.where(filtro_texto(q, lambda p: [GrupoArticulo.codigo.ilike(p), GrupoArticulo.nombre.ilike(p)]))
+    cuentas = dict(db.execute(select(Articulo.grupo_id, func.count()).where(Articulo.activo.is_(True)).group_by(Articulo.grupo_id)).all())
+    propios = dict(db.execute(select(Articulo.grupo_id, func.count()).where(Articulo.activo.is_(True),
+                                                                           Articulo.familia_etiquetado_id.is_not(None))
+                              .group_by(Articulo.grupo_id)).all())
+    familias = {f.id: f.nombre for f in db.scalars(select(FamiliaEtiquetado))}
+    return [{"id": g.id, "codigo": g.codigo, "nombre": g.nombre, "categoria": g.categoria, "familia_id": g.familia_etiquetado_id,
+             "familia": familias.get(g.familia_etiquetado_id), "articulos": cuentas.get(g.id, 0),
+             "con_familia_propia": propios.get(g.id, 0)} for g in db.scalars(c)]
+
+
+def asignar_grupos(db: Session, user: Usuario, familia_id: int | None, grupo_ids: list[int]) -> dict:
+    """Pone (o quita, con familia vacía) la familia de varios grupos a la vez.
+    Un grupo pertenece a una sola familia: si tenía otra, cambia. Los artículos
+    con familia propia la conservan."""
+    exigir(user, "etiquetas.familias")
+    if not grupo_ids:
+        raise ErrorNegocio("Choose the item groups.", 422, "validacion")
+    if familia_id is not None and not cargar(db, familia_id).activa:
+        raise ErrorNegocio("The labeling family is inactive.", 422, "validacion")
+    elegidos = list(db.scalars(select(GrupoArticulo).where(GrupoArticulo.id.in_(set(grupo_ids)))))
+    if len(elegidos) != len(set(grupo_ids)):
+        raise ErrorNegocio("Some item groups do not exist.", 404, "no_encontrado")
+    cambiados = [g for g in elegidos if g.familia_etiquetado_id != familia_id]
+    movidos = [g for g in cambiados if g.familia_etiquetado_id is not None and familia_id is not None]
+    for g in cambiados:
+        g.familia_etiquetado_id = familia_id
+    db.flush()
+    if cambiados:
+        registrar(db, user, "familia_etiquetado", familia_id or 0, "asignar_grupos",
+                  {"familia_id": familia_id, "grupos": [g.codigo for g in cambiados[:100]], "movidos": len(movidos)})
+    return {"cambiados": len(cambiados), "movidos": len(movidos), "elegidos": len(elegidos)}

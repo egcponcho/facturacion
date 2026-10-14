@@ -77,7 +77,7 @@ class Grupo:
     def dict(self) -> dict:
         e = self.eleccion
         p = self.version.plantilla if self.version else (e.plantilla if e else None)
-        fam = self.articulo.familia_etiquetado if self.articulo else None
+        fam = self.articulo.familia_efectiva if self.articulo else None
         return {"clave": self.clave, "referencia": self.referencia, "cantidad": self.cantidad,
                 "articulo_id": self.articulo.id if self.articulo else None,
                 "posicion_id": self.posicion.id if self.posicion else None,
@@ -207,7 +207,7 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
         if g.posicion is not None and g.articulo is None:
             g.problema("advertencia", "sin_articulo", "The PO line is not linked to an item of the master data: only the line data is printed.")
         g.valores = datos.valores(db, modalidad, g.articulo, oc, g.posicion, g.bulto, organizacion)
-        fam = g.articulo.familia_etiquetado if g.articulo else None
+        fam = g.articulo.familia_efectiva if g.articulo else None
         for faltante in familias.faltantes(db, fam, g.valores):
             g.problema("error", "dato_obligatorio", f"The family {fam.nombre} requires {faltante}, which is empty.")
         lz = render.componer(g.version.diseno, {**g.valores, "etiqueta.numero": 1, "etiqueta.total": g.cantidad,
@@ -289,7 +289,7 @@ def generar(db: Session, user: Usuario, pedido: dict) -> dict:
     db.flush()
     for g in grupos:
         usados = svc_diseno.campos_usados(g.version.diseno) | {"etiqueta.fecha"}
-        fam = g.articulo.familia_etiquetado_id if g.articulo else None
+        fam = g.articulo.familia_efectiva.id if g.articulo and g.articulo.familia_efectiva else None
         db.add(GeneracionItem(generacion_id=g0.id, plantilla_id=g.version.plantilla_id, version_id=g.version.id,
                               articulo_id=g.articulo.id if g.articulo else None, posicion_id=g.posicion.id if g.posicion else None,
                               familia_id=fam, referencia=g.referencia[:120], cantidad=g.cantidad,
@@ -463,7 +463,7 @@ def resumen_oc(db: Session, user: Usuario, oc_id: int) -> dict:
         lineas.append({"id": p.id, "posicion": p.posicion, "codigo": p.codigo_articulo, "descripcion": p.descripcion,
                        "talla": p.talla, "color": p.color, "cantidad": float(p.cantidad or 0), "unidad": p.unidad,
                        "bloqueada": p.bloqueada, "articulo_id": a.id if a else None,
-                       "familia": a.familia_etiquetado.nombre if a and a.familia_etiquetado else None,
+                       "familia": a.familia_efectiva.nombre if a and a.familia_efectiva else None,
                        "plantilla": eleccion.dict()})
     generadas = db.scalar(select(func.count()).select_from(GeneracionEtiquetas).where(
         GeneracionEtiquetas.oc_id == oc.id, GeneracionEtiquetas.estado == "GENERADA")) or 0

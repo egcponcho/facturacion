@@ -66,6 +66,8 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
     "clasificaciones_producto": [("producto_id", "productos")],
     "articulo_atributos": [("articulo_id", "articulos"), ("atributo_id", "atributos_variante")],
     "articulos": [("familia_etiquetado_id", "familias_etiquetado")],
+    "grupos_articulos": [("familia_etiquetado_id", "familias_etiquetado")],
+    "generaciones_etiqueta": [("pl_id", "packing_lists")],
     "plantillas_etiqueta": [("familia_id", "familias_etiquetado")],
     "versiones_plantilla": [("plantilla_id", "plantillas_etiqueta")],
     "asignaciones_etiqueta": [("plantilla_id", "plantillas_etiqueta"), ("familia_id", "familias_etiquetado")],

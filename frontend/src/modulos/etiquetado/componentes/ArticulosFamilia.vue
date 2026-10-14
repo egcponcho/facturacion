@@ -1,6 +1,7 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
@@ -12,7 +13,8 @@ import { avisar, errorApi } from '@/stores/ui'
 // a los elegidos o a todos los que cumplen el filtro. No es una segunda ficha
 // del producto: solo la referencia a la familia.
 const tabla = ref(null)
-const filtros = reactive({ q: '', familia: '' })
+const route = useRoute()
+const filtros = reactive({ q: '', familia: route.query.familia ? String(route.query.familia) : '' })
 const datos = ref({ items: [], total: 0 })
 const familias = ref([])
 const cargando = ref(false)
@@ -84,7 +86,8 @@ async function asignar(todos) {
     </template>
     <template #celda-sku="{ fila: a }"><strong class="codigo">{{ a.sku }}</strong><span class="sub">{{ a.estilo }}</span></template>
     <template #celda-familia="{ fila: a }">
-      <span v-if="a.familia" class="etiqueta ms-0">{{ tx(a.familia) }}</span>
+      <span v-if="a.familia" class="etiqueta ms-0" :title="a.familia_origen === 'GRUPO' ? t('Inherited from the group {0}', [a.grupo]) : t('Assigned to the item')">{{ tx(a.familia) }}</span>
+      <span v-if="a.familia_origen === 'GRUPO'" class="sub">{{ t('by group') }}</span>
       <span v-else class="etiqueta aviso ms-0">{{ t('Without family') }}</span>
     </template>
     <template #vacio>{{ t('No items match these filters.') }}</template>

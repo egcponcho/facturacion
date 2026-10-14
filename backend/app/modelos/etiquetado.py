@@ -31,7 +31,8 @@ from app.modelos.base import ahora
 
 MODALIDADES = ("ARTICULO", "OC", "OC_ARTICULO")
 # Qué representa cada etiqueta: la orden, una línea, una unidad, un bulto…
-UNIDADES = ("ORDEN", "LINEA", "UNIDAD", "BULTO", "MANUAL")
+# ARTICULO: una por artículo distinto de la OC (aunque se repita en varias líneas)
+UNIDADES = ("ORDEN", "LINEA", "ARTICULO", "UNIDAD", "BULTO", "MANUAL")
 ESTADOS_VERSION = ("BORRADOR", "PENDIENTE", "APROBADA", "RECHAZADA", "ARCHIVADA")
 AMBITOS = ("GENERAL", "FAMILIA", "PRODUCTO", "ARTICULO", "OC")
 FORMATOS = ("PDF", "PNG", "SVG", "ZIP")
@@ -175,6 +176,9 @@ class GeneracionEtiquetas(DeOrganizacion, Base):
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     oc_id: Mapped[int | None] = mapped_column(ForeignKey("ordenes_compra.id"), index=True)
+    pl_id: Mapped[int | None] = mapped_column(ForeignKey("packing_lists.id"), index=True)  # generada desde una lista de empaque
+    # Generación masiva: los lotes hechos juntos (una OC por lote) comparten este código
+    lote: Mapped[str | None] = mapped_column(String(36), index=True)
     modalidad: Mapped[str] = mapped_column(String(12))
     unidad: Mapped[str] = mapped_column(String(10))
     formato: Mapped[str] = mapped_column(String(4))
