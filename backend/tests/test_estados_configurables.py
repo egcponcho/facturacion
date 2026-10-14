@@ -9,7 +9,7 @@ from app.modelos import EstadoDocumento
 def test_personalizar_estados(admin, interno):
     o = admin.get("/organizacion").json()
     docs = {d["clave"]: d for d in o["documentos_estados"]}
-    assert docs["oc"]["codigos"][0] == "BORRADOR" and "VENCIDO" in docs["cobro"]["codigos"]
+    assert docs["oc"]["codigos"][0] == "BORRADOR" and "cobro" not in docs
     assert set(o["tonos"]) == {"neutro", "info", "ok", "aviso", "error"}
 
     r = admin.put("/organizacion", {"estados": {"oc": [

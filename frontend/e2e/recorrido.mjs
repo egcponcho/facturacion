@@ -25,7 +25,9 @@ const PANTALLAS = [
   '/mantenimiento', '/mantenimiento?catalogo=listas', '/mantenimiento?catalogo=tipos_unidad', '/mantenimiento?catalogo=liberaciones',
   '/mantenimiento?catalogo=atributos_variante', '/mantenimiento?catalogo=prepacks', '/mantenimiento?catalogo=acuerdos',
   '/mantenimiento?catalogo=escalas', '/mantenimiento?catalogo=categorias',
-  '/comercial/documentos', '/comercial/pagos', '/comercial/terceros',
+  
+  '/etiquetas', '/etiquetas?vista=familias', '/etiquetas?vista=articulos', '/etiquetas?vista=asignaciones', '/etiquetas?vista=historial',
+  '/etiquetas/generar', '/etiquetas/masiva',
   '/leadtimes', '/aranceles', '/familias', '/plantillas', '/importar', '/empresa', '/perfil', '/plataforma',
   '/admin', '/admin?tab=roles', '/admin?tab=proveedores', '/admin?tab=flujo', '/admin?tab=bitacora',
 ]
@@ -52,9 +54,9 @@ async function documentos(ctx) {
   for (const o of (await get('/ordenes?solo_disponible=false&size=2')).items || []) rutas.push(`/ordenes/${o.id}`)
   const embarques = await get('/embarques')
   if (Array.isArray(embarques) && embarques[0]) rutas.push(`/transporte/embarques/${embarques[0].id}`)
-  for (const d of (await get('/documentos?size=1')).items || []) rutas.push(`/comercial/documentos/${d.id}`)
   const yo = await get('/auth/me')
   if (yo.permisos?.includes('oc.editar')) rutas.push('/ordenes/nueva')
+  if (yo.permisos?.includes('etiquetas.ver')) for (const x of (await get('/etiquetas/plantillas?size=2')).items || []) rutas.push(`/etiquetas/plantillas/${x.id}`)
   return rutas
 }
 

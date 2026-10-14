@@ -407,6 +407,11 @@ class GrupoArticulo(DeOrganizacion, Base):
     # del puerto (inspección, etiquetado, permisos); se suman a la fecha en tienda
     dias_extra: Mapped[int | None] = mapped_column(Integer)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Familia de etiquetado de todos los artículos del grupo (salvo los que tienen la suya propia)
+    familia_etiquetado_id: Mapped[int | None] = mapped_column(
+        ForeignKey("familias_etiquetado.id", name="fk_grupos_articulos_familia_etiquetado_id"), index=True)
+
+    familia_etiquetado: Mapped["FamiliaEtiquetado | None"] = relationship()  # noqa: F821
 
 
 class Prepack(DeOrganizacion, Base):
@@ -465,12 +470,28 @@ class Articulo(DeOrganizacion, Base):
     prepack_id: Mapped[int | None] = mapped_column(ForeignKey("prepacks.id"), index=True)
     # La ficha técnica y la clasificación son del estilo-color (producto)
     producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
+    # Familia de etiquetado (modelos/etiquetado.py): qué etiquetas le corresponden; no es su clasificación arancelaria
+    familia_etiquetado_id: Mapped[int | None] = mapped_column(
+        ForeignKey("familias_etiquetado.id", name="fk_articulos_familia_etiquetado_id"), index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     marca: Mapped[Marca] = relationship()
     grupo: Mapped[GrupoArticulo] = relationship()
     prepack: Mapped[Prepack | None] = relationship()
     producto: Mapped[Producto | None] = relationship(back_populates="articulos")
+    familia_etiquetado: Mapped["FamiliaEtiquetado | None"] = relationship()  # noqa: F821
+
+    @property
+    def familia_efectiva(self):
+        """La familia de etiquetado del artículo: la suya propia o, si no tiene, la de su grupo."""
+        return self.familia_etiquetado or (self.grupo.familia_etiquetado if self.grupo else None)
+
+    @property
+    def familia_origen(self) -> str | None:
+        """ARTICULO si la familia se asignó al artículo; GRUPO si la hereda de su grupo."""
+        if self.familia_etiquetado_id:
+            return "ARTICULO"
+        return "GRUPO" if self.grupo and self.grupo.familia_etiquetado_id else None
     # Valores de los atributos de variante propios de la empresa (material,
     # voltaje, sabor…); talla y color son columnas
     atributos: Mapped[list["ArticuloAtributo"]] = relationship(

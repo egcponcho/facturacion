@@ -36,6 +36,7 @@ const REGLAS = {
   DIAS_TOLERANCIA_ARRIBO: t('Days after the committed ETA that still count as an on-time arrival'),
   DIAS_TOLERANCIA_XF: t('Days after the original XF that still count as an on-time pickup'),
   META_LIBERACION_A_TIEMPO: t('Target (%) of logistics releases on time'),
+  ETIQUETAS_CUATRO_OJOS: t('A label design version must be approved by someone other than its author'),
   PAIS_BASE_CLASIF: t('Country whose national code completes the suggested HS code'),
   COMPATIBILIDAD_BLOQUEANTE: t('PO data that cannot be mixed in one invoice'),
   COMPATIBILIDAD_ADVERTENCIA: t('PO data that only warns when mixed in one invoice'),

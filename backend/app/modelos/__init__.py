@@ -41,26 +41,10 @@ from app.modelos.clasificacion import (
     VersionDataset,
 )
 from app.modelos.comercial import (
-    Aplicacion,
-    ConfiguracionFiscal,
-    CuotaCondicionPago,
     Direccion,
-    Documento,
-    DocumentoLinea,
-    EnvioDocumento,
-    FacturacionRecurrente,
-    Impuesto,
-    LineaImpuesto,
     MedioContacto,
-    MetodoPago,
-    Pago,
-    PlantillaDocumento,
-    RelacionDocumento,
     Tercero,
     TerceroRol,
-    TipoCambio,
-    TipoDocumento,
-    Vencimiento,
 )
 from app.modelos.compras import (
     AprobacionOC,
@@ -81,6 +65,14 @@ from app.modelos.empaque import (
     tipo_empaque_contiene,
 )
 from app.modelos.empresa import Adjunto, DefinicionCampo, EstadoDocumento, Organizacion
+from app.modelos.etiquetado import (
+    AsignacionEtiqueta,
+    FamiliaEtiquetado,
+    GeneracionEtiquetas,
+    GeneracionItem,
+    PlantillaEtiqueta,
+    VersionPlantilla,
+)
 from app.modelos.facturacion import Archivo, Factura, FacturaLinea
 from app.modelos.maestros import (
     AcuerdoComercial,
@@ -139,30 +131,20 @@ _aplicar_restricciones(_Base.metadata)
 _aplicar_referencias(_Base.metadata)
 
 __all__ = [
+    "AsignacionEtiqueta",
+    "FamiliaEtiquetado",
+    "GeneracionEtiquetas",
+    "GeneracionItem",
+    "PlantillaEtiqueta",
+    "VersionPlantilla",
     "ArticuloAtributo",
     "AtributoVariante",
     "ClasificacionProducto",
     "Adjunto",
-    "Aplicacion",
-    "ConfiguracionFiscal",
-    "CuotaCondicionPago",
     "Direccion",
-    "Documento",
-    "DocumentoLinea",
-    "EnvioDocumento",
-    "FacturacionRecurrente",
-    "Impuesto",
-    "LineaImpuesto",
     "MedioContacto",
-    "MetodoPago",
-    "Pago",
-    "PlantillaDocumento",
-    "RelacionDocumento",
     "Tercero",
     "TerceroRol",
-    "TipoCambio",
-    "TipoDocumento",
-    "Vencimiento",
     "AprobacionOC",
     "AcuerdoComercial",
     "ahora",

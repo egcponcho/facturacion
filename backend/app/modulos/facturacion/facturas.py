@@ -614,10 +614,6 @@ def finalizar(db: Session, user: Usuario, factura_id: int, version: int, incluir
     f.finalizado_en = ahora()
     tocar(f)
     db.flush()
-    # Queda registrada como documento recibido (cuentas por pagar) con su total
-    from app.modulos.comercial import proveedores as cxp
-
-    cxp.registrar(db, user, f)
     registrar(db, user, "factura", f.id, "finalizar", {"con_pl": [pl.numero for pl in pls]}, factura_id=f.id)
     for pl in pls:
         pl.estado, pl.finalizado_en = "FINALIZADO", ahora()
@@ -641,9 +637,6 @@ def reabrir(db: Session, user: Usuario, factura_id: int, motivo: str | None) -> 
         if pl.unidad_carga_id and pl.estado != "CANCELADO":
             quitados.append(f"{pl.numero} ({pl.unidad.numero or pl.unidad.etiqueta})")
             pl.unidad_carga_id, pl.asignacion, pl.recolectado_en = None, None, None
-    from app.modulos.comercial import proveedores as cxp
-
-    cxp.reabrir(db, f)  # su documento recibido vuelve a borrador (si no tiene pagos)
     f.estado = "EN_CORRECCION"
     tocar(f)
     nota = f"Removed from their load unit: {', '.join(quitados)}. Add them again once finalized." if quitados else None
@@ -672,9 +665,6 @@ def cancelar(db: Session, user: Usuario, factura_id: int, motivo: str | None) ->
             pl.unidad_carga_id = None
             pl.asignacion = None
             tocar(pl)
-    from app.modulos.comercial import proveedores as cxp
-
-    cxp.anular(db, user, f, motivo or "Invoice cancelled")
     f.estado = "CANCELADA"
     tocar(f)
     registrar(db, user, "factura", f.id, "cancelar", None, motivo, factura_id=f.id)

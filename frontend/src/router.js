@@ -21,12 +21,10 @@ const routes = [
   { path: '/aranceles', component: () => import('@/modulos/clasificacion/vistas/ArancelesView.vue'), meta: { permiso: 'aranceles.ver' } },
   { path: '/familias', component: () => import('@/modulos/clasificacion/vistas/FamiliasView.vue'), meta: { permiso: 'clasificacion.ver' } },
   { path: '/productos/:id', component: () => import('@/modulos/productos/vistas/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
-  { path: '/comercial', redirect: '/comercial/documentos' },
-  { path: '/comercial/documentos', component: () => import('@/modulos/comercial/vistas/DocumentosView.vue'), meta: { permiso: 'comercial.ver' } },
-  { path: '/comercial/documentos/nuevo', component: () => import('@/modulos/comercial/vistas/DocumentoView.vue'), props: { id: 'nuevo' }, meta: { permiso: 'comercial.editar' } },
-  { path: '/comercial/documentos/:id(\\d+)', component: () => import('@/modulos/comercial/vistas/DocumentoView.vue'), props: true, meta: { permiso: 'comercial.ver' } },
-  { path: '/comercial/pagos', component: () => import('@/modulos/comercial/vistas/PagosView.vue'), meta: { permiso: 'comercial.ver' } },
-  { path: '/comercial/terceros', component: () => import('@/modulos/comercial/vistas/TercerosView.vue'), meta: { permiso: 'comercial.ver' } },
+  { path: '/etiquetas', component: () => import('@/modulos/etiquetado/vistas/EtiquetasView.vue'), meta: { permiso: 'etiquetas.ver' } },
+  { path: '/etiquetas/plantillas/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/EditorEtiquetaView.vue'), props: true, meta: { permiso: 'etiquetas.ver', vista: 'editor-etiqueta' } },
+  { path: '/etiquetas/masiva', component: () => import('@/modulos/etiquetado/vistas/GeneracionMasivaView.vue'), meta: { permiso: 'etiquetas.generar' } },
+  { path: '/etiquetas/generar', component: () => import('@/modulos/etiquetado/vistas/GenerarEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar' } },
   { path: '/plantillas', component: () => import('@/modulos/empaque/vistas/PlantillasView.vue'), meta: { permiso: ['plantilla.editar', 'pl.editar'] } },
   // Rutas restringidas: cada una exige el permiso de su rol (el servidor
   // vuelve a comprobarlo en cada petición)

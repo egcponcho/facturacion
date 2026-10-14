@@ -718,48 +718,18 @@ def seed(db: Session) -> None:
                     if not ln.recepcion:
                         ln.recepcion = RecepcionLinea(cantidad_recibida=ln.cantidad, cantidad_danada=0,
                                                       observacion="Received without differences")
-    _comercial_demo(db, hoy)
+    _terceros_demo(db)
     db.commit()
 
 
-def _comercial_demo(db: Session, hoy: date) -> None:
-    """Facturación y pagos: terceros de proveedores y transportistas, las
-    facturas finalizadas como cuentas por pagar, un IVA, un cliente con una
-    factura emitida y un cobro parcial."""
-    from app.esquemas.comercial import DocumentoIn, LineaIn, PagoIn, TerceroIn
-    from app.modelos import ConfiguracionFiscal, Factura, Impuesto, Sociedad
-    from app.modulos.comercial import documentos as docs
-    from app.modulos.comercial import pagos, terceros
-    from app.modulos.comercial import proveedores as cxp
+def _terceros_demo(db: Session) -> None:
+    """La identidad (tercero) de cada proveedor y transportista."""
+    from app.modulos.maestros.terceros import asegurar
 
-    interno = db.scalar(select(Usuario).where(Usuario.email == "interno@demo.com"))
-    docs.sembrar(db)
     for p in db.scalars(select(Proveedor)):
-        terceros.asegurar(db, p, "PROVEEDOR")
+        asegurar(db, p, "PROVEEDOR")
     for t in db.scalars(select(Transportista)):
-        terceros.asegurar(db, t, "TRANSPORTISTA")
-    for f in db.scalars(select(Factura).where(Factura.estado == "FINALIZADA").order_by(Factura.id)):
-        cxp.registrar(db, interno, f)
-    db.add(Impuesto(codigo="IVA", nombre="VAT 13 %", tipo="PORCENTAJE", tasa=13, pais="SV", es_retencion=False, activo=True))
-    db.flush()
-    soc = db.scalar(select(Sociedad).where(Sociedad.codigo == "8000"))
-    db.add(ConfiguracionFiscal(sociedad_id=soc.id, pais="SV", redondeo="LINEA", impuestos_defecto="IVA", sin_huecos=True))
-    db.flush()
-    cliente = terceros.crear(db, interno, TerceroIn(
-        codigo="CLI-TIENDAS", nombre="Tiendas del Norte", razon_social="Tiendas del Norte, S.A. de C.V.",
-        tipo_identificacion="NIT", id_fiscal="0614-150390-102-3", pais="SV", moneda="USD", condicion_pago="NETO30",
-        roles=["CLIENTE"], direcciones=[{"tipo": "FISCAL", "linea1": "Calle La Mascota 450", "ciudad": "San Salvador",
-                                         "pais": "SV"}],
-        medios=[{"tipo": "CORREO", "valor": "cuentas@tiendasnorte.demo", "uso": "FACTURACION", "principal": True}]))
-    factura = docs.crear(db, interno, DocumentoIn(
-        tipo="FACTURA", sociedad="8000", tercero_id=cliente["id"], fecha=hoy - timedelta(days=10), lineas=[
-            LineaIn(descripcion="Backpacks wholesale lot", cantidad=40, unidad="UN", precio_unitario="38.50"),
-            LineaIn(descripcion="Delivery to store", cantidad=1, precio_unitario=45)]))
-    factura = docs.emitir(db, interno, factura["id"], interno=True)
-    pagos.registrar_pago(db, interno, PagoIn(
-        direccion="COBRO", tercero_id=cliente["id"], sociedad="8000", fecha=hoy - timedelta(days=2), moneda="USD",
-        importe=1000, metodo_pago="TRANSFERENCIA", referencia="TRF-58821",
-        aplicaciones=[{"documento_id": factura["id"], "importe": 1000}]))
+        asegurar(db, t, "TRANSPORTISTA")
 
 
 def reiniciar_demo() -> None:
