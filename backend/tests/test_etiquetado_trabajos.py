@@ -14,7 +14,12 @@ import tempfile
 import time
 import zipfile
 
+import pdfplumber
 import pytest
+
+from app.core.db import SessionLocal
+from app.core.organizacion import en_organizacion
+from app.modulos.etiquetado import trabajos
 
 ELEMENTOS = [{"id": "sku", "tipo": "campo", "campo": "articulo.sku", "x": 3, "y": 3, "w": 70, "h": 8, "estilo": {"tam": 10}},
              {"id": "bc", "tipo": "codigo", "simbologia": "code128", "x": 3, "y": 13, "w": 74, "h": 15, "margen": 1,
@@ -151,6 +156,41 @@ def test_trabajo_de_varias_oc_borrador_mezcla_parcial_y_reintento(interno, admin
     z = zipfile.ZipFile(io.BytesIO(interno.get(f"/etiquetas/trabajos/{t['id']}/archivo").content))
     assert sorted(n for n in z.namelist() if n.endswith(".svg")) == ["label-2.svg", "label-3.svg", "label-4.svg", "label.svg"]
 
+    # PDF: el usuario elige cómo se reparten las etiquetas en archivos; sin mezclar diseños salvo que lo pida
+    def pdfs(zip_):
+        r = interno.patch(f"/etiquetas/trabajos/{t['id']}", {"parametros": {"zip": zip_}})
+        assert r.status_code == 200, r.text
+        z = zipfile.ZipFile(io.BytesIO(interno.get(f"/etiquetas/trabajos/{t['id']}/archivo").content))
+        return {n: len(pdfplumber.open(io.BytesIO(z.read(n))).pages) for n in z.namelist() if n.endswith(".pdf")}
+
+    v1 = {d: f"{d}-v{por_diseno[d][0]['version']}.pdf" for d in por_diseno}
+    assert pdfs({"contenido": "PDF", "agrupar": "plantilla"}) == {v1[d]: len(por_diseno[d]) for d in por_diseno}
+    assert pdfs({"contenido": "PDF", "agrupar": "unico"}) == {f"{trabajos._seguro(t['nombre'])}.pdf": 4}
+    por_etiqueta = pdfs({"contenido": "PDF", "agrupar": "etiqueta", "carpetas": ["oc"], "nombre": "{sku}-{n}"})
+    assert len(por_etiqueta) == 4 and set(por_etiqueta.values()) == {1}
+    assert {n.split("/")[0] for n in por_etiqueta} == {o["oc"]["numero"] for o in ordenes}
+    # Por carpeta (OC): si una carpeta tiene dos diseños, un PDF por diseño dentro de ella
+    por_carpeta = pdfs({"contenido": "PDF", "agrupar": "carpeta", "carpetas": ["oc"]})
+    assert sum(por_carpeta.values()) == 4
+    for ruta in por_carpeta:
+        carpeta, archivo = ruta.split("/")
+        oc_id = next(o["oc"]["id"] for o in ordenes if o["oc"]["numero"] == carpeta)
+        disenos = {x["plantilla"] for x in v["registros"] if x["oc_id"] == oc_id}
+        assert archivo == (f"{carpeta}.pdf" if len(disenos) == 1 else next(f"{carpeta}-{v1[d]}" for d in disenos if archivo.endswith(v1[d])))
+    # Combinaciones sin sentido: 422 con el motivo
+    for malo in ({"contenido": "PNG", "agrupar": "plantilla"}, {"contenido": "PDF", "agrupar": "carpeta"},
+                 {"contenido": "PDF", "agrupar": "unico", "carpetas": ["oc"]}, {"contenido": "PDF", "agrupar": "todo"}):
+        assert interno.patch(f"/etiquetas/trabajos/{t['id']}", {"parametros": {"zip": malo}}).status_code == 422, malo
+    # Trabajos anteriores sin agrupación elegida: un PDF por plantilla y versión (antes iba todo en un PDF mezclado)
+    with SessionLocal() as db, en_organizacion(1):
+        from app.modelos import TrabajoEtiquetas
+
+        tr = db.get(TrabajoEtiquetas, t["id"])
+        tr.parametros = {**tr.parametros, "zip": {"carpetas": [], "nombre": "", "contenido": "PDF"}}
+        db.commit()
+    z = zipfile.ZipFile(io.BytesIO(interno.get(f"/etiquetas/trabajos/{t['id']}/archivo").content))
+    assert sorted(n for n in z.namelist() if n.endswith(".pdf")) == sorted(v1.values())
+
     # Generado ≠ descargado ≠ impreso: impreso solo con confirmación expresa
     e = interno.get(f"/etiquetas/trabajos/{t['id']}").json()["ejecuciones"][0]
     assert e["situacion"] == "DESCARGADA" and e["descargas"] >= 1
@@ -277,3 +317,33 @@ def test_generacion_interrumpida_se_puede_retomar(interno, ordenes, disenos):
     g = interno.post(f"/etiquetas/trabajos/{t['id']}/generar", {"aceptar_advertencias": True})
     assert g.status_code == 200, g.text
     assert g.json()["estado"] == "GENERADO"
+
+
+def _lienzo(ancho, alto):
+    from app.modulos.etiquetado import render
+
+    return render.componer({"ancho": ancho, "alto": alto, "margen": 1, "fondo": "#ffffff", "elementos": []}, {})
+
+
+def test_un_solo_pdf_no_mezcla_medidas():
+    """El PDF único se pide expresamente y exige que todas midan lo mismo."""
+    from app.core.errores import ErrorNegocio
+
+    etiquetas = [("", "a", _lienzo(80, 30), "A-v1"), ("", "b", _lienzo(50, 20), "B-v1")]
+    with pytest.raises(ErrorNegocio) as e:
+        trabajos._archivos_pdf(etiquetas, "unico", "job")
+    assert e.value.status == 422 and "50×20 mm" in e.value.detalle[0]["mensaje"]
+    assert [r for r, _ in trabajos._archivos_pdf(etiquetas, "plantilla", "job")] == ["A-v1.pdf", "B-v1.pdf"]
+
+
+def test_hoja_con_etiquetas_de_medidas_distintas():
+    """Varias por hoja: cada medida empieza su hoja (antes todas tomaban la
+    celda de la primera y se encimaban) y la que no cabe no se dibuja."""
+    from app.modulos.etiquetado import salidas
+
+    hoja = {"modo": "hoja", "papel_ancho": 200, "papel_alto": 100, "columnas": 2, "filas": 1, "margen_sup": 5, "margen_izq": 5,
+            "espacio_h": 2, "espacio_v": 2}
+    assert len(pdfplumber.open(io.BytesIO(salidas.pdf([_lienzo(80, 30), _lienzo(50, 20)], hoja))).pages) == 2
+    assert len(pdfplumber.open(io.BytesIO(salidas.pdf([_lienzo(50, 20), _lienzo(50, 20)], hoja))).pages) == 1
+    with pytest.raises(ValueError):
+        salidas.pdf([_lienzo(120, 30)], hoja)

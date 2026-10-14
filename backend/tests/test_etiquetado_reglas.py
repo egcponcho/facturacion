@@ -95,7 +95,13 @@ def test_condiciones_prioridad_vigencia_contexto_y_mezcla_de_disenos(interno, ad
     # Condiciones inválidas: campo o operador desconocido, valores mal formados (nunca código)
     malas = [{"campo": "no.existe", "op": "igual", "valor": "x"}, {"campo": "articulo.sku", "op": "eval", "valor": "1"},
              {"campo": "linea.cantidad", "op": "mayor", "valor": "mucho"}, {"campo": "articulo.sku", "op": "en", "valor": []},
-             {"campo": "articulo.sku", "op": "coincide", "valor": "("}]
+             {"campo": "articulo.sku", "op": "coincide", "valor": "("},
+             # Patrones que hacen retroceder sin fin al motor de expresiones regulares (ReDoS)
+             {"campo": "articulo.sku", "op": "coincide", "valor": "(a+)+$"},
+             {"campo": "articulo.sku", "op": "coincide", "valor": "(a|aa)*b"},
+             {"campo": "articulo.sku", "op": "coincide", "valor": "(a)\\1"},
+             {"campo": "articulo.sku", "op": "coincide", "valor": "(?=a)a"},
+             {"campo": "articulo.sku", "op": "coincide", "valor": "A" * 101}]
     for c in malas:
         r = interno.post("/etiquetas/asignaciones", {"plantilla_id": p1["id"], "ambito": "REGLA", "condiciones": [c]})
         assert r.status_code == 422, (c, r.text)
@@ -201,3 +207,26 @@ def test_subfamilias_heredan_reglas_y_campos_obligatorios(interno, admin, oc, re
         assert interno.c.delete(f"/api/etiquetas/familias/{padre['id']}", headers=interno.h).status_code == 409
     finally:
         interno.post("/etiquetas/articulos/familia", {"familia_id": familia_antes, "ids": [l1["articulo_id"]]})
+
+
+def test_patrones_seguros_y_acotados(interno):
+    """«coincide» no puede dejar al servidor calculando: se rechazan las
+    repeticiones anidadas al guardar una regla o un diseño, y un patrón
+    peligroso guardado antes (o un texto enorme) no se evalúa."""
+    import time
+
+    from app.modulos.etiquetado import reglas, render
+
+    assert reglas.validar_patron(r"^[A-Z]{3}-\d{4}$") is None and reglas.validar_patron("NIKE.*") is None
+    c = {"campo": "articulo.sku", "op": "coincide", "valor": "(a+)+$"}
+    inicio = time.perf_counter()
+    assert reglas.cumple_condicion(c, {"articulo.sku": "a" * 40 + "!"}) is False
+    assert render.cumple(c, {"articulo.sku": "a" * 40 + "!"}) is False
+    assert time.perf_counter() - inicio < 0.5
+    assert reglas.cumple_condicion({**c, "valor": "A.*"}, {"articulo.sku": "A" * 5000}) is False  # texto fuera del tope
+    assert reglas.cumple_condicion({**c, "valor": "a[0-9]+"}, {"articulo.sku": "A123"}) is True
+    # La condición de visibilidad de un elemento del diseño usa la misma validación
+    r = interno.post("/etiquetas/plantillas", {"nombre": "Unsafe pattern", "modalidad": "OC_ARTICULO", "diseno": {
+        "ancho": 50, "alto": 20, "elementos": [{"id": "t", "tipo": "texto", "contenido": "x", "x": 1, "y": 1, "w": 20, "h": 5,
+                                                "condicion": {"campo": "articulo.sku", "op": "coincide", "valor": "(\\w+\\s?)*$"}}]}})
+    assert r.status_code == 422 and "repeat" in r.text, r.text

@@ -47,6 +47,13 @@ LISTAS = {"en", "no_en"}
 CONTEXTO = {"modalidades": MODALIDADES, "origenes": ORIGENES_TRABAJO, "unidades": UNIDADES}
 MAX_CONDICIONES = 20
 MAX_VALORES = 200
+# Patrones («coincide»): cortos, sin construcciones que hacen que el motor de
+# expresiones regulares retroceda sin fin (repeticiones anidadas, alternativas
+# repetidas, referencias atrás, búsquedas hacia delante o atrás) y contra un
+# texto acotado. Así ninguna regla ni condición de un diseño puede dejar el
+# servidor calculando (ReDoS).
+MAX_PATRON = 100
+MAX_TEXTO_PATRON = 200
 
 
 # ---- Validación de una regla -----------------------------------------------------------------
@@ -98,10 +105,9 @@ def validar_condiciones(db: Session, condiciones) -> list[dict]:
                 continue
             valor = str(valor)[:200]
             if op == "coincide":
-                try:
-                    re.compile(valor)
-                except re.error:
-                    errores.append({"campo": donde, "mensaje": "The pattern is not valid."})
+                motivo = validar_patron(valor)
+                if motivo:
+                    errores.append({"campo": donde, "mensaje": motivo})
                     continue
             if op == "en_familia" and not db.scalar(select(FamiliaEtiquetado.id).where(FamiliaEtiquetado.codigo == valor.upper())):
                 errores.append({"campo": donde, "mensaje": f"There is no labeling family {valor}."})
@@ -110,6 +116,63 @@ def validar_condiciones(db: Session, condiciones) -> list[dict]:
     if errores:
         raise ErrorNegocio("Check the rule conditions.", 422, "validacion", errores)
     return limpio
+
+
+def validar_patron(patron: str) -> str | None:
+    """Por qué el patrón no se acepta (o None si es seguro)."""
+    try:
+        from re import _constants as k
+        from re import _parser as analizador
+    except ImportError:  # Python < 3.11
+        import sre_constants as k
+        import sre_parse as analizador
+    if len(patron) > MAX_PATRON:
+        return f"The pattern is too long (at most {MAX_PATRON} characters)."
+    try:
+        arbol = analizador.parse(patron)
+    except (re.error, RecursionError, OverflowError):
+        return "The pattern is not valid."
+    prohibidos = {k.GROUPREF, k.GROUPREF_EXISTS, k.ASSERT, k.ASSERT_NOT}
+    repeticiones = {k.MAX_REPEAT, k.MIN_REPEAT, getattr(k, "POSSESSIVE_REPEAT", k.MAX_REPEAT)}
+
+    def hijos(op, av):
+        if op in repeticiones:
+            return [av[2]]
+        if op == k.SUBPATTERN:
+            return [av[-1]]
+        if op == k.BRANCH:
+            return list(av[1])
+        if op == getattr(k, "ATOMIC_GROUP", None):
+            return [av]
+        return []
+
+    def revisar(sub, dentro_de_repeticion: bool) -> str | None:
+        for op, av in sub:
+            if op in prohibidos:
+                return "The pattern cannot use back-references or look-ahead/look-behind."
+            if op in repeticiones and dentro_de_repeticion:
+                return "The pattern cannot repeat a group that already repeats, like (a+)+: use a single repetition."
+            if op == k.BRANCH and dentro_de_repeticion:
+                return "The pattern cannot repeat alternatives, like (a|b)+: use a character class, like [ab]+."
+            repite = op in repeticiones and av[1] > 1
+            for h in hijos(op, av):
+                motivo = revisar(h, dentro_de_repeticion or repite)
+                if motivo:
+                    return motivo
+        return None
+
+    return revisar(arbol, False)
+
+
+def _patron_cumple(patron: str, texto: str) -> bool:
+    """«coincide» acotado: un patrón inseguro guardado antes de esta validación
+    no se evalúa, y el texto se mira solo hasta MAX_TEXTO_PATRON caracteres."""
+    if len(texto) > MAX_TEXTO_PATRON or validar_patron(patron):
+        return False
+    try:
+        return re.fullmatch(patron, texto, flags=re.IGNORECASE) is not None
+    except re.error:
+        return False
 
 
 def validar_contexto(contexto) -> dict:
@@ -198,10 +261,7 @@ def cumple_condicion(c: dict, valores: dict) -> bool:
     if op == "termina":
         return s.endswith(_texto(esperado))
     if op == "coincide":
-        try:
-            return re.fullmatch(str(esperado), "" if v is None else str(v), flags=re.IGNORECASE) is not None
-        except re.error:
-            return False
+        return _patron_cumple(str(esperado), "" if v is None else str(v))
     return False
 
 

@@ -65,6 +65,11 @@ UNIDAD_POR_DEFECTO = {"OC": ("OC_ARTICULO", "LINEA"), "ARTICULOS": ("ARTICULO", 
 CARPETAS = ("oc", "plantilla", "familia", "packing_list")
 MARCADORES = ("oc", "referencia", "sku", "n", "total", "i", "plantilla", "serie", "bulto")
 CONTENIDOS = ("PDF", "PNG", "SVG")
+# Cómo se reparten las etiquetas en archivos dentro del ZIP (lo elige el usuario):
+# una por archivo, un PDF por plantilla y versión, un PDF por carpeta (sin
+# mezclar diseños: si una carpeta tiene varios, uno por diseño) o un único PDF
+# (solo si todas miden lo mismo). PNG y SVG siempre van una por archivo.
+AGRUPACIONES = ("etiqueta", "plantilla", "carpeta", "unico")
 PARAMETROS = ("oc_ids", "posiciones", "cantidades", "articulos", "pl_id", "tipo_empaque_id", "familia_id", "modalidad",
               "unidad", "plantilla_id", "motivo_diseno", "elegidas", "manuales", "formato", "hoja", "dpi", "zip", "cantidad")
 
@@ -111,7 +116,28 @@ def _validar_zip(z) -> dict:
     contenido = (z.get("contenido") or "PDF").upper()
     if contenido not in CONTENIDOS:
         raise ErrorNegocio("Choose PDF, PNG or SVG files inside the ZIP.", 422, "validacion")
-    return {"carpetas": list(carpetas), "nombre": nombre, "contenido": contenido}
+    agrupar = _agrupar(contenido, carpetas, z.get("agrupar"))
+    return {"carpetas": list(carpetas), "nombre": nombre, "contenido": contenido, "agrupar": agrupar}
+
+
+def _agrupar(contenido: str, carpetas: list, agrupar: str | None) -> str:
+    """La agrupación pedida, validada contra el contenido y las carpetas. Sin
+    elegir (trabajos anteriores): un PDF por carpeta si hay carpetas y uno por
+    plantilla y versión si no; PNG y SVG, uno por etiqueta."""
+    if not agrupar:
+        return "etiqueta" if contenido != "PDF" else ("carpeta" if carpetas else "plantilla")
+    if agrupar not in AGRUPACIONES:
+        raise ErrorNegocio("Choose how to group the labels in files.", 422, "validacion",
+                           [{"campo": "zip.agrupar", "mensaje": ", ".join(AGRUPACIONES)}])
+    if contenido != "PDF" and agrupar != "etiqueta":
+        raise ErrorNegocio("PNG and SVG files hold one label each.", 422, "validacion", [{"campo": "zip.agrupar", "mensaje": agrupar}])
+    if agrupar == "carpeta" and not carpetas:
+        raise ErrorNegocio("Choose at least one folder level to make one PDF per folder.", 422, "validacion",
+                           [{"campo": "zip.carpetas", "mensaje": ", ".join(CARPETAS)}])
+    if agrupar in ("plantilla", "unico") and carpetas:
+        raise ErrorNegocio("Folders are used only with one file per label or one PDF per folder.", 422, "validacion",
+                           [{"campo": "zip.carpetas", "mensaje": agrupar}])
+    return agrupar
 
 
 def _limpiar(db: Session, user: Usuario, origen: str, p: dict) -> dict:
@@ -748,11 +774,13 @@ def archivo(db: Session, user: Usuario, trabajo_id: int, contenido: str | None =
     if not gens:
         raise ErrorNegocio("Nothing has been generated in this labeling job yet.", 404, "no_encontrado")
     z_conf = {**{"carpetas": [], "nombre": "", "contenido": "PDF"}, **((t.parametros or {}).get("zip") or {})}
-    if contenido:
-        z_conf["contenido"] = contenido.upper()
+    if contenido and contenido.upper() != z_conf["contenido"]:
+        z_conf["contenido"], z_conf["agrupar"] = contenido.upper(), None  # otro contenido: su agrupación por defecto
     if z_conf["contenido"] not in CONTENIDOS:
         raise ErrorNegocio("Choose PDF, PNG or SVG files inside the ZIP.", 422, "validacion")
+    z_conf["agrupar"] = _agrupar(z_conf["contenido"], z_conf["carpetas"], z_conf.get("agrupar"))
     plantillas_ = {}
+    versiones_: dict = {}
     ocs: dict = {}
     etiquetas = []  # (carpeta, nombre, lienzo)
     i = 0
@@ -767,6 +795,8 @@ def archivo(db: Session, user: Usuario, trabajo_id: int, contenido: str | None =
             i += 1
             if it.plantilla_id not in plantillas_:
                 plantillas_[it.plantilla_id] = db.get(PlantillaEtiqueta, it.plantilla_id).nombre
+            if it.version_id not in versiones_:
+                versiones_[it.version_id] = db.get(VersionPlantilla, it.version_id).numero
             oc = oc_gen
             if oc is None and it.posicion_id:
                 if it.posicion_id not in ocs:
@@ -791,7 +821,8 @@ def archivo(db: Session, user: Usuario, trabajo_id: int, contenido: str | None =
             nombre = patron
             for k, x in marcas.items():
                 nombre = nombre.replace("{" + k + "}", str(x))
-            etiquetas.append(("/".join(_seguro(x) for x in carpeta), _seguro(nombre), lz))
+            diseno_ = f"{plantillas_[it.plantilla_id]}-v{versiones_[it.version_id]}"
+            etiquetas.append(("/".join(_seguro(x) for x in carpeta), _seguro(nombre), lz, diseno_))
         generacion.marcar_descarga(g)
     buf = io.BytesIO()
     fecha = gens[0].creada_en.timetuple()[:6]
@@ -812,24 +843,50 @@ def archivo(db: Session, user: Usuario, trabajo_id: int, contenido: str | None =
         z.writestr(info, datos_)
 
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        if z_conf["contenido"] == "PDF":
-            por_carpeta: dict = {}
-            for carpeta, _nombre, lz in etiquetas:
-                por_carpeta.setdefault(carpeta, []).append(lz)
-            for carpeta, lienzos in por_carpeta.items():
-                nombre = (carpeta.rsplit("/", 1)[-1] if carpeta else _seguro(t.nombre)) + ".pdf"
-                poner(z, unico(f"{carpeta}/{nombre}" if carpeta else nombre), salidas.pdf(lienzos, {"modo": "individual"}, t.nombre))
-        else:
+        for ruta, lienzos in _archivos_pdf(etiquetas, z_conf["agrupar"], t.nombre) if z_conf["contenido"] == "PDF" else ():
+            poner(z, unico(ruta), salidas.pdf(lienzos, {"modo": "individual"}, t.nombre))
+        if z_conf["contenido"] != "PDF":
             ext = z_conf["contenido"].lower()
-            for carpeta, nombre, lz in etiquetas:
+            for carpeta, nombre, lz, _d in etiquetas:
                 datos_ = salidas.png(lz) if ext == "png" else salidas.svg(lz)
                 poner(z, unico(f"{carpeta}/{nombre}.{ext}" if carpeta else f"{nombre}.{ext}"), datos_)
         resumen = _resumen(db, t, gens)
         poner(z, unico("summary.json"), json.dumps(resumen, ensure_ascii=False, indent=1, default=str))
         poner(z, unico("summary.csv"), _csv(resumen["registros"]))
-    registrar(db, user, "trabajo_etiquetas", t.id, "descargar", {"contenido": z_conf["contenido"], "etiquetas": len(etiquetas)})
+    registrar(db, user, "trabajo_etiquetas", t.id, "descargar",
+              {"contenido": z_conf["contenido"], "agrupar": z_conf["agrupar"], "etiquetas": len(etiquetas)})
     db.flush()
     return buf.getvalue(), f"{_seguro(t.nombre).replace(' ', '_')}.zip"
+
+
+def _archivos_pdf(etiquetas: list[tuple], agrupar: str, titulo: str) -> list[tuple[str, list]]:
+    """(ruta, lienzos) de cada PDF del ZIP según la agrupación elegida. Ningún
+    PDF mezcla diseños salvo el único, que se pide expresamente y exige que
+    todas las etiquetas midan lo mismo (una impresora de etiquetas no cambia
+    de rollo a mitad del archivo)."""
+    if agrupar == "etiqueta":
+        return [(f"{c}/{n}.pdf" if c else f"{n}.pdf", [lz]) for c, n, lz, _d in etiquetas]
+    if agrupar == "unico":
+        medidas = sorted({(lz.ancho, lz.alto) for _c, _n, lz, _d in etiquetas})
+        if len(medidas) > 1:
+            raise ErrorNegocio("The labels have different sizes: a single PDF would mix them. Choose one PDF per design.", 422,
+                               "validacion", [{"campo": "zip.agrupar", "mensaje": ", ".join(f"{a:g}×{b:g} mm" for a, b in medidas)}])
+        return [(f"{_seguro(titulo)}.pdf", [lz for _c, _n, lz, _d in etiquetas])]
+    grupos: dict = {}
+    for c, _n, lz, d in etiquetas:
+        grupos.setdefault((c if agrupar == "carpeta" else "", d), []).append(lz)
+    disenos_por_carpeta: dict = {}
+    for c, d in grupos:
+        disenos_por_carpeta.setdefault(c, set()).add(d)
+    res = []
+    for (c, d), lienzos in grupos.items():
+        if agrupar == "plantilla":
+            res.append((f"{_seguro(d)}.pdf", lienzos))
+        else:
+            base = c.rsplit("/", 1)[-1]
+            nombre = base if len(disenos_por_carpeta[c]) == 1 else f"{base}-{_seguro(d)}"
+            res.append((f"{c}/{nombre}.pdf", lienzos))
+    return res
 
 
 def _resumen(db: Session, t: TrabajoEtiquetas, gens: list[GeneracionEtiquetas]) -> dict:

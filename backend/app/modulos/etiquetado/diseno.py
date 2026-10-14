@@ -71,6 +71,12 @@ class Condicion(_Base):
             raise ValueError("the value of the condition is too long")
         if isinstance(self.valor, list) and len(self.valor) > 200:
             raise ValueError("too many values in the condition")
+        if self.op == "coincide":
+            from app.modulos.etiquetado.reglas import validar_patron
+
+            motivo = validar_patron(self.valor) if isinstance(self.valor, str) else "Write the pattern."
+            if motivo:
+                raise ValueError(motivo)
         return self
 
 

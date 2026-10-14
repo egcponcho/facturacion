@@ -44,9 +44,8 @@ from app.modulos.acceso.permisos import exigir, proveedor_filtro
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import campos, datos, familias, plantillas, reglas, render, salidas
 from app.modulos.etiquetado import diseno as svc_diseno
+from app.modulos.maestros import unidades as medidas
 
-# Unidades que se miden en piezas: se puede imprimir una etiqueta por unidad
-UNIDADES_CONTABLES = {"UN", "PAR", "PZ", "PZA", "CJ", "PK", "PAQ", "JGO", "SET", "DOC", "EA", "PCS"}
 FORMATOS = {"PDF": "application/pdf", "PNG": "image/png", "SVG": "image/svg+xml", "ZIP": "application/zip"}
 
 
@@ -178,11 +177,28 @@ def _grupos(db: Session, user: Usuario, pedido: dict) -> tuple[OrdenCompra | Non
             cant = float(p.cantidad or 0)
             n = int(cant) if cant == int(cant) else math.ceil(cant)
         g = Grupo(f"p{p.id}", ref, n, articulo=p.articulo, posicion=p)
-        if unidad == "UNIDAD" and ((p.unidad or "").upper() not in UNIDADES_CONTABLES or float(p.cantidad or 0) != int(p.cantidad or 0)):
-            g.problema("error", "unidad_no_contable",
-                       f"The line is in {p.unidad} ({float(p.cantidad or 0):g}): it cannot be labeled per unit; use lines, packages or a manual quantity.")
+        motivo = _no_contable(p) if unidad == "UNIDAD" else None
+        if motivo:
+            g.problema("error", "unidad_no_contable", motivo)
         grupos.append(g)
     return oc, modalidad, unidad, grupos
+
+
+def _no_contable(p: PosicionOC) -> str | None:
+    """Por qué la línea no admite una etiqueta por unidad (o None si la admite).
+    Decide el catálogo de unidades de medida (Configuración → Listas → unidad,
+    atributo «contable»): una unidad desconocida no se adivina."""
+    cant = float(p.cantidad or 0)
+    codigo = medidas.normalizar(p.unidad)
+    if not codigo:
+        return (f"The unit {p.unidad or '(empty)'} of the line is not in the units of measure catalog: "
+                "add it (indicating whether it is counted in whole numbers) or use lines, packages or a manual quantity.")
+    if not medidas.contable(codigo):
+        return (f"The line is in {p.unidad} ({cant:g}), a unit that is measured, not counted: "
+                "it cannot be labeled per unit; use lines, packages or a manual quantity.")
+    if cant != int(cant):
+        return f"The line has a fractional quantity ({cant:g} {p.unidad}): it cannot be labeled per unit; use a manual quantity."
+    return None
 
 
 def cargar_pl(db: Session, user: Usuario, pl_id: int) -> PackingList:
@@ -434,6 +450,12 @@ def generar(db: Session, user: Usuario, pedido: dict) -> dict:
     hoja = pedido.get("hoja")
     if hoja is not None:
         hoja = svc_diseno.Hoja.model_validate(hoja).model_dump()
+        if hoja["modo"] == "hoja":
+            no_caben = sorted({f"{g.version.diseno['ancho']:g}×{g.version.diseno['alto']:g} mm" for g in grupos
+                               if not salidas.cabe(hoja, g.version.diseno["ancho"], g.version.diseno["alto"])})
+            if no_caben:
+                raise ErrorNegocio("Some labels do not fit on the sheet with these columns, rows and margins.", 422, "validacion",
+                                   [{"campo": "hoja", "mensaje": x} for x in no_caben])
     total = sum(g.cantidad for g in grupos)
     g0 = GeneracionEtiquetas(oc_id=p["oc_id"], pl_id=p.get("pl_id"), lote=pedido.get("lote"), modalidad=p["modalidad"],
                              unidad=p["unidad"], formato=formato, trabajo_id=pedido.get("_trabajo_id"),

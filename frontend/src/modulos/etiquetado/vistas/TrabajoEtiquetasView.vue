@@ -28,7 +28,7 @@ const guardado = ref('')
 const paso = ref(0)
 const p = reactive({ oc_ids: [], posiciones: [], cantidades: {}, articulos: [], pl_id: '', tipo_empaque_id: '', familia_id: '', modalidad: '',
   unidad: '', plantilla_id: '', motivo_diseno: '', elegidas: {}, manuales: {}, formato: 'PDF',
-  zip: { carpetas: [], nombre: '', contenido: 'PDF' } })
+  zip: { carpetas: [], nombre: '', contenido: 'PDF', agrupar: 'plantilla' } })
 const origen = ref('OC')
 
 const PASOS = () => [
@@ -53,7 +53,7 @@ function aplicar(tr) {
   Object.assign(p, { oc_ids: par.oc_ids || [], posiciones: par.posiciones || [], cantidades: par.cantidades || {}, articulos: par.articulos || [],
     pl_id: par.pl_id || '', tipo_empaque_id: par.tipo_empaque_id || '', familia_id: par.familia_id || '', modalidad: par.modalidad || '',
     unidad: par.unidad || '', plantilla_id: par.plantilla_id || '', motivo_diseno: par.motivo_diseno || '', elegidas: par.elegidas || {},
-    manuales: par.manuales || {}, formato: par.formato || 'PDF', zip: { carpetas: [], nombre: '', contenido: 'PDF', ...(par.zip || {}) } })
+    manuales: par.manuales || {}, formato: par.formato || 'PDF', zip: zipConDefecto(par.zip) })
   if (!p.modalidad) p.modalidad = { OC: 'OC_ARTICULO', ARTICULOS: 'ARTICULO', PACKING: 'OC_ARTICULO' }[tr.origen]
   if (!p.unidad) p.unidad = { OC: 'LINEA', ARTICULOS: 'MANUAL', PACKING: 'BULTO' }[tr.origen]
 }
@@ -280,6 +280,21 @@ const etiquetasPendientes = computed(() => pendientes.value.reduce((s, r) => s +
 const CARPETAS = () => [['oc', t('PO')], ['plantilla', t('Design')], ['familia', t('Labeling family')], ['packing_list', t('Packing list')]]
 const MARCADORES = ['oc', 'referencia', 'sku', 'n', 'total', 'i', 'plantilla', 'serie', 'bulto']
 const marcadoresTxt = MARCADORES.map((m) => `{${m}}`).join(' ')
+// Cómo se reparten las etiquetas en archivos del ZIP: lo elige el usuario (PNG y SVG, siempre una por archivo)
+const AGRUPACIONES = () => [['etiqueta', t('One file per label')], ['plantilla', t('One PDF per design and version')],
+  ['carpeta', t('One PDF per folder (one per design if a folder has several)')], ['unico', t('A single PDF (all labels the same size)')]]
+function zipConDefecto(z) {
+  const r = { carpetas: [], nombre: '', contenido: 'PDF', ...(z || {}) }
+  if (!r.agrupar) r.agrupar = r.contenido !== 'PDF' ? 'etiqueta' : r.carpetas.length ? 'carpeta' : 'plantilla'
+  return r
+}
+const conCarpetas = computed(() => ['etiqueta', 'carpeta'].includes(p.zip.agrupar))
+function cambiarContenido(v) {
+  p.zip = { ...p.zip, contenido: v, agrupar: v === 'PDF' ? (p.zip.carpetas.length ? 'carpeta' : 'plantilla') : 'etiqueta' }
+}
+function cambiarAgrupar(v) {
+  p.zip = { ...p.zip, agrupar: v, carpetas: ['etiqueta', 'carpeta'].includes(v) ? p.zip.carpetas : [] }
+}
 function alternarCarpeta(c) {
   const lista = p.zip.carpetas.includes(c) ? p.zip.carpetas.filter((x) => x !== c) : [...p.zip.carpetas, c].slice(0, 3)
   p.zip = { ...p.zip, carpetas: lista }
@@ -542,14 +557,18 @@ const NIVEL_ICONO = { error: 'alerta', advertencia: 'info', info: 'info' }
         <label class="campo"><span>{{ t('File of each run') }}</span>
           <Seleccion v-model="p.formato"><option value="PDF">PDF</option><option value="ZIP">{{ t('ZIP (PDF, PNG and SVG)') }}</option></Seleccion></label>
         <label class="campo"><span>{{ t('Files inside the job ZIP') }}</span>
-          <Seleccion v-model="p.zip.contenido"><option value="PDF">{{ t('PDF per folder') }}</option><option value="PNG">{{ t('PNG per label') }}</option>
-            <option value="SVG">{{ t('SVG per label') }}</option></Seleccion></label>
+          <Seleccion :model-value="p.zip.contenido" @update:model-value="cambiarContenido"><option value="PDF">PDF</option>
+            <option value="PNG">{{ t('PNG (one per label)') }}</option><option value="SVG">{{ t('SVG (one per label)') }}</option></Seleccion></label>
+        <label v-if="p.zip.contenido === 'PDF'" class="campo"><span>{{ t('Split into files') }}</span>
+          <Seleccion :model-value="p.zip.agrupar" @update:model-value="cambiarAgrupar">
+            <option v-for="[a, txt] in AGRUPACIONES()" :key="a" :value="a">{{ tx(txt) }}</option></Seleccion></label>
       </div>
-      <fieldset class="tj-carpetas"><legend>{{ t('Folders in the ZIP (in this order)') }}</legend>
+      <fieldset v-if="conCarpetas" class="tj-carpetas"><legend>{{ t('Folders in the ZIP (in this order)') }}</legend>
         <label v-for="[c, txt] in CARPETAS()" :key="c" class="check"><input type="checkbox" :checked="p.zip.carpetas.includes(c)" @change="alternarCarpeta(c)" />
           {{ tx(txt) }}<span v-if="p.zip.carpetas.includes(c)" class="ayuda"> ({{ p.zip.carpetas.indexOf(c) + 1 }})</span></label>
+        <small v-if="p.zip.agrupar === 'carpeta' && !p.zip.carpetas.length" class="ayuda">{{ t('Choose at least one folder level.') }}</small>
       </fieldset>
-      <label class="campo"><span>{{ t('File names') }}</span>
+      <label v-if="p.zip.agrupar === 'etiqueta'" class="campo"><span>{{ t('File names') }}</span>
         <input v-model="p.zip.nombre" maxlength="120" :placeholder="'{i}-{referencia}-{n}'" />
         <small class="ayuda">{{ t('Fields: {0}. Repeated names get -2, -3…', [marcadoresTxt]) }}</small></label>
       <label v-if="advertencias" class="check"><input v-model="opciones.aceptar" type="checkbox" /> {{ t('I reviewed the {0} records with warnings', [advertencias]) }}</label>
