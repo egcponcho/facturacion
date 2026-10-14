@@ -11,8 +11,9 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 PT_MM = 25.4 / 72
 FUENTES = Path(__file__).resolve().parents[2] / "data" / "fuentes"
-# Marca de agua de las etiquetas de prueba (versión sin aprobar)
-MARCA_PRUEBA = "TEST · NOT APPROVED"
+# Marca de agua de las etiquetas de prueba (versión sin aprobar), en el idioma de la etiqueta
+MARCA_PRUEBA = {"en": "TEST · NOT APPROVED", "es": "PRUEBA · NO APROBADA", "pt": "TESTE · NÃO APROVADA",
+                "fr": "ESSAI · NON APPROUVÉE"}
 FAMILIAS = {"sans": "LiberationSans", "serif": "LiberationSerif", "mono": "LiberationMono"}
 
 

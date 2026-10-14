@@ -10,6 +10,7 @@ una sola vez con `usar_configuracion`; fuera de una petición (arranque,
 semilla, pruebas de servicios) se usan los valores de fábrica.
 """
 from contextvars import ContextVar
+from datetime import date, datetime, timezone
 
 from app.core.config import settings
 
@@ -30,6 +31,9 @@ REGLAS = {
     "ETIQUETAS_CUATRO_OJOS": "A label design version must be approved by someone other than its author",
     "ETIQUETAS_GENERACION_PARCIAL": "A labeling job can generate its ready records and leave the ones with errors for later",
     "ETIQUETAS_ASINCRONO_DESDE": "Labels from which a labeling job is generated in the background",
+    "ETIQUETAS_MAXIMO_TRABAJO": "Most labels in one labeling job",
+    "ETIQUETAS_PL_SIN_FINALIZAR": "Real labels can be generated from packing lists that are not finalized (tests always can)",
+    "ETIQUETAS_VALIDAR_EMPAQUE": "Warn when a packing list differs from the casepack and inner pack of the PO",
     "PAIS_BASE_CLASIF": "Country whose national code completes the suggested HS code",
     "COMPATIBILIDAD_BLOQUEANTE": "PO data that cannot be mixed in one invoice",
     "COMPATIBILIDAD_ADVERTENCIA": "PO data that only warns when mixed in one invoice",
@@ -39,6 +43,21 @@ REGLAS = {
 }
 # Datos de la OC que pueden ser parte de las reglas de compatibilidad
 CAMPOS_COMPATIBILIDAD = ("sociedad", "centro", "centro_destino", "moneda", "incoterm", "puerto_despacho", "pais_origen")
+
+
+def zona_horaria() -> str:
+    return ((configuracion_actual().get("preferencias") or {}).get("zona_horaria")) or "UTC"
+
+
+def hoy() -> date:
+    """La fecha de hoy donde está la empresa (su zona horaria), no la del servidor:
+    lo que se imprime en una etiqueta y la vigencia de una regla dependen de ella."""
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        return datetime.now(ZoneInfo(zona_horaria())).date()
+    except (ZoneInfoNotFoundError, ValueError):
+        return datetime.now(timezone.utc).date()
 
 
 def usar_configuracion(config: dict | None) -> None:

@@ -37,6 +37,11 @@ def _esperados(diseno: dict, valores: dict, tipos: dict) -> list[tuple[dict, str
     return res
 
 
+def _normal(texto: str) -> str:
+    """Un dato GS1 se lee con o sin paréntesis y separadores: se comparan sin ellos."""
+    return "".join(c for c in str(texto) if c not in "()\x1d")
+
+
 def verificar(lienzo: render.Lienzo, diseno: dict, valores: dict, tipos: dict) -> list[dict]:
     """Problemas de lectura de los códigos de una etiqueta ya dibujada."""
     esperados = _esperados(diseno, valores, tipos)
@@ -49,10 +54,10 @@ def verificar(lienzo: render.Lienzo, diseno: dict, valores: dict, tipos: dict) -
     from PIL import Image
 
     with Image.open(io.BytesIO(salidas.png(lienzo, max(lienzo.dpi, 300)))) as im:
-        leidos = {x.text for x in zxingcpp.read_barcodes(im.convert("L"))}
+        leidos = {_normal(x.text) for x in zxingcpp.read_barcodes(im.convert("L"))}
     res = []
     for e, valor in esperados:
-        if valor not in leidos:
+        if _normal(valor) not in leidos:
             res.append({"nivel": "error", "codigo": "codigo_ilegible", "elemento": e.get("id"), "categoria": "codigo",
                         "nombre": e.get("nombre") or e.get("tipo"),
                         "mensaje": f"The {e['simbologia'].upper()} code «{valor}» could not be read back from the drawn label."})

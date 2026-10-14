@@ -733,6 +733,9 @@ def seed(db: Session) -> None:
             u.entregada_en = hitos.get("ENTREGA") or fecha
             u.liberada_en = hitos.get("LIBERACION")
     _terceros_demo(db)
+    from app.instalacion.demo_etiquetado import sembrar as sembrar_etiquetado
+
+    sembrar_etiquetado(db)
     db.commit()
 
 

@@ -40,7 +40,7 @@ MODULOS = [
         ("etiquetas.generar", "Generate and download labels (a supplier, of its own POs)", TODOS, True),
         ("etiquetas.disenar", "Create and edit label designs and send them to approval", INTERNOS, False),
         ("etiquetas.aprobar", "Approve, reject and archive label design versions", {"admin"}, False),
-        ("etiquetas.asignar", "Create and edit labeling rules: which design applies to which records", INTERNOS, False),
+        ("etiquetas.configurar", "Configure label types and which design each family, product or item uses", INTERNOS, False),
         ("etiquetas.familias", "Manage labeling families and the family of each item", INTERNOS, False),
         ("etiquetas.campos", "Define logical label fields and the precedence of their sources", INTERNOS, False),
     ]),
@@ -91,7 +91,7 @@ MODULOS_ACTIVABLES = {
                       ["aranceles.ver", "aranceles.editar", "clasificacion.ver", "clasificacion.configurar"]),
     "seguimiento": ("Tracking and lead times", ["seguimiento.ver"]),
     "etiquetado": ("Labels: label designs, versions and label generation",
-                   ["etiquetas.ver", "etiquetas.generar", "etiquetas.disenar", "etiquetas.aprobar", "etiquetas.asignar",
+                   ["etiquetas.ver", "etiquetas.generar", "etiquetas.disenar", "etiquetas.aprobar", "etiquetas.configurar",
                     "etiquetas.familias", "etiquetas.campos"]),
 }
 

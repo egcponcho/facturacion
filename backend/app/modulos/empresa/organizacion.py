@@ -184,6 +184,9 @@ def _validar_regla(clave: str, valor):
     if isinstance(base, bool):
         if not isinstance(valor, bool):
             raise ErrorNegocio("This rule is yes or no.", 422, "validacion")
+    elif isinstance(base, int) and clave.startswith("ETIQUETAS_"):
+        if not isinstance(valor, int) or isinstance(valor, bool) or not 1 <= valor <= 1_000_000:
+            raise ErrorNegocio("Enter a number of labels between 1 and 1,000,000.", 422, "validacion")
     elif isinstance(base, int) and clave.startswith("META_"):
         if not isinstance(valor, int) or isinstance(valor, bool) or not 0 <= valor <= 100:
             raise ErrorNegocio("Enter a percentage between 0 and 100.", 422, "validacion")

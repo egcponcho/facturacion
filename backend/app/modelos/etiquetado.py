@@ -1,5 +1,6 @@
-"""Etiquetado: familias de etiquetado, plantillas con versiones aprobables,
-dónde se aplica cada plantilla y las etiquetas generadas (docs/ETIQUETADO.md).
+"""Etiquetado: tipos de etiqueta, familias de etiquetado, plantillas con
+versiones aprobables, qué diseño usa cada cosa (usos de diseño) y las
+etiquetas generadas (docs/ETIQUETADO.md).
 
 Una etiqueta referencia el origen de sus datos (artículo, línea de OC, OC,
 bulto); no copia la ficha del producto. Lo único que se guarda de los datos es
@@ -23,6 +24,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,13 +32,23 @@ from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
 from app.modelos.base import ahora
 
-MODALIDADES = ("ARTICULO", "OC", "OC_ARTICULO")
-# Qué representa cada etiqueta: la orden, una línea, una unidad, un bulto…
-# ARTICULO: una por artículo distinto de la OC (aunque se repita en varias líneas)
-UNIDADES = ("ORDEN", "LINEA", "ARTICULO", "UNIDAD", "BULTO", "MANUAL")
+# Qué se etiqueta: un artículo (con o sin OC: la OC solo agrega datos), un
+# bulto de una lista de empaque o un documento (la OC o la lista completa)
+SUJETOS = ("ARTICULO", "BULTO", "DOCUMENTO")
+# Cuántas etiquetas salen de cada registro
+CANTIDADES = ("POR_UNIDAD", "POR_LINEA", "POR_ARTICULO", "POR_BULTO", "POR_DOCUMENTO", "MANUAL")
+CANTIDADES_DE = {"ARTICULO": ("POR_UNIDAD", "POR_LINEA", "POR_ARTICULO", "MANUAL"), "BULTO": ("POR_BULTO",),
+                 "DOCUMENTO": ("POR_DOCUMENTO", "MANUAL")}
+# Dónde se pone un diseño, de lo más específico a lo más general (reglas.py)
+NIVELES = ("SKU", "PRODUCTO", "FAMILIA", "TIPO_EMPAQUE", "GENERAL")
+NIVELES_DE = {"ARTICULO": ("SKU", "PRODUCTO", "FAMILIA", "GENERAL"), "BULTO": ("TIPO_EMPAQUE", "GENERAL"),
+              "DOCUMENTO": ("GENERAL",)}
+# Columna del destino de cada nivel
+DESTINO_DE = {"SKU": "articulo_id", "PRODUCTO": "producto_id", "FAMILIA": "familia_id", "TIPO_EMPAQUE": "tipo_empaque_id"}
+# Excepciones: NINGUNO es el diseño normal de la celda; OC manda sobre todo;
+# las demás se revisan en este orden dentro de su celda
+CONTEXTOS = ("NINGUNO", "OC", "CENTRO_DESTINO", "PAIS_DESTINO", "SOCIEDAD", "PROVEEDOR", "CONDICION")
 ESTADOS_VERSION = ("BORRADOR", "PENDIENTE", "APROBADA", "RECHAZADA", "ARCHIVADA")
-# REGLA: sin destino fijo, se aplica por sus condiciones
-AMBITOS = ("GENERAL", "FAMILIA", "PRODUCTO", "ARTICULO", "OC", "REGLA")
 FORMATOS = ("PDF", "PNG", "SVG", "ZIP")
 TIPOS_CAMPO = ("texto", "numero", "fecha")
 # Qué hacer si las fuentes de un campo lógico traen valores distintos
@@ -80,6 +92,36 @@ class FamiliaEtiquetado(DeOrganizacion, Base):
         return res
 
 
+class TipoEtiqueta(DeOrganizacion, Base):
+    """Una clase de etiqueta física que la empresa imprime (colgante, precio,
+    caja master, contenido de OC…): qué se etiqueta (sujeto) y cuántas salen
+    de cada registro. Cada diseño es de un tipo; un registro puede llevar una
+    etiqueta de cada tipo de su sujeto."""
+
+    __tablename__ = "tipos_etiqueta"
+    __table_args__ = (
+        UniqueConstraint("organizacion_id", "codigo", name="uq_tipos_etiqueta_org_codigo"),
+        UniqueConstraint("id", "organizacion_id", name="uq_tipos_etiqueta_id_org"),
+        CheckConstraint(_en("sujeto", SUJETOS), name="ck_tipos_etiqueta_sujeto"),
+        CheckConstraint(_en("cantidad", CANTIDADES), name="ck_tipos_etiqueta_cantidad"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(30))
+    nombre: Mapped[str] = mapped_column(String(120))
+    descripcion: Mapped[str | None] = mapped_column(String(300))
+    sujeto: Mapped[str] = mapped_column(String(10))
+    cantidad: Mapped[str] = mapped_column(String(14))
+    # Todo sujeto debe tener diseño de este tipo (si no, la cobertura lo marca y el trabajo lo bloquea)
+    obligatoria: Mapped[bool] = mapped_column(Boolean, default=False)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    actualizado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    actualizado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+
 class PlantillaEtiqueta(DeOrganizacion, Base):
     """Diseño con nombre estable. Lo que se dibuja vive en sus versiones; la
     vigente es la aprobada que se usa en producción (una versión nueva no la
@@ -88,16 +130,12 @@ class PlantillaEtiqueta(DeOrganizacion, Base):
     __tablename__ = "plantillas_etiqueta"
     __table_args__ = (
         UniqueConstraint("organizacion_id", "nombre", name="uq_plantillas_etiqueta_org_nombre"),
-        CheckConstraint(_en("modalidad", MODALIDADES), name="ck_plantillas_etiqueta_modalidad"),
-        CheckConstraint(_en("unidad", UNIDADES), name="ck_plantillas_etiqueta_unidad"),
         CheckConstraint("estado IN ('ACTIVA', 'ARCHIVADA')", name="ck_plantillas_etiqueta_estado"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(120))
     descripcion: Mapped[str | None] = mapped_column(String(500))
-    modalidad: Mapped[str] = mapped_column(String(12))  # de dónde salen los datos
-    unidad: Mapped[str] = mapped_column(String(10), default="LINEA")  # qué representa cada etiqueta, por defecto
-    familia_id: Mapped[int | None] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)  # para la que se diseñó
+    tipo_etiqueta_id: Mapped[int] = mapped_column(ForeignKey("tipos_etiqueta.id"), index=True)
     estado: Mapped[str] = mapped_column(String(10), default="ACTIVA", index=True)
     version_vigente_id: Mapped[int | None] = mapped_column(
         ForeignKey("versiones_plantilla.id", name="fk_plantillas_etiqueta_version_vigente_id", use_alter=True))
@@ -107,7 +145,7 @@ class PlantillaEtiqueta(DeOrganizacion, Base):
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     actualizada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
-    familia: Mapped[FamiliaEtiquetado | None] = relationship()
+    tipo: Mapped[TipoEtiqueta] = relationship()
     versiones: Mapped[list["VersionPlantilla"]] = relationship(
         back_populates="plantilla", foreign_keys="VersionPlantilla.plantilla_id", order_by="VersionPlantilla.numero")
     vigente: Mapped["VersionPlantilla | None"] = relationship(foreign_keys=[version_vigente_id], post_update=True)
@@ -149,57 +187,75 @@ class VersionPlantilla(DeOrganizacion, Base):
     plantilla: Mapped[PlantillaEtiqueta] = relationship(back_populates="versiones", foreign_keys=[plantilla_id])
 
 
-class AsignacionEtiqueta(DeOrganizacion, Base):
-    """Regla de etiquetado: qué diseño se usa para qué registros.
+class UsoDiseno(DeOrganizacion, Base):
+    """Qué diseño usa un tipo de etiqueta en un lugar (reglas.py).
 
-    Una regla tiene un destino opcional (`ambito`: toda la organización, una
-    familia y sus subfamilias, un producto, un artículo, una OC; o REGLA, sin
-    destino fijo), condiciones declarativas sobre los campos del catálogo
-    (`condiciones`, validadas en reglas.py: nunca código), un contexto (tipo
-    de trabajo, origen, unidad, tipo de empaque), una vigencia y una
-    prioridad numérica: entre las reglas que se cumplen gana la de mayor
-    prioridad. Con la misma prioridad y diseños distintos hay un conflicto:
-    nunca se elige al azar; `predeterminada` lo desempata solo si la marcó
-    alguien y es una sola."""
+    La celda es (tipo de etiqueta, nivel, destino): toda la empresa, una
+    familia (y sus subfamilias), un producto (estilo-color), un SKU o un tipo
+    de empaque. Cada celda tiene a lo sumo un diseño normal
+    (`contexto_tipo` NINGUNO, sin vigencia) y sus excepciones: por destino,
+    país, sociedad, proveedor o condiciones, con motivo y vigencia opcional.
+    Una excepción de una OC concreta (`oc_id`) manda sobre todo. Nunca se
+    borra: se da de baja (`eliminado_en`) y el historial guarda cada cambio."""
 
-    __tablename__ = "asignaciones_etiqueta"
+    __tablename__ = "usos_diseno"
     __table_args__ = (
-        CheckConstraint(_en("ambito", AMBITOS), name="ck_asignaciones_etiqueta_ambito"),
+        CheckConstraint(_en("nivel", NIVELES), name="ck_usos_diseno_nivel"),
+        CheckConstraint(_en("contexto_tipo", CONTEXTOS), name="ck_usos_diseno_contexto_tipo"),
         CheckConstraint(
-            "(ambito IN ('GENERAL', 'REGLA') AND familia_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL"
-            " AND oc_id IS NULL)"
-            " OR (ambito = 'FAMILIA' AND familia_id IS NOT NULL AND producto_id IS NULL AND articulo_id IS NULL AND oc_id IS NULL)"
-            " OR (ambito = 'PRODUCTO' AND producto_id IS NOT NULL AND familia_id IS NULL AND articulo_id IS NULL AND oc_id IS NULL)"
-            " OR (ambito = 'ARTICULO' AND articulo_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL AND oc_id IS NULL)"
-            " OR (ambito = 'OC' AND oc_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL)",
-            name="ck_asignaciones_etiqueta_destino"),
-        Index("ix_asignaciones_etiqueta_destino", "ambito", "familia_id", "producto_id", "articulo_id", "oc_id"),
+            "(nivel = 'GENERAL' AND familia_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL AND tipo_empaque_id IS NULL)"
+        " OR (nivel = 'FAMILIA' AND familia_id IS NOT NULL AND producto_id IS NULL AND articulo_id IS NULL"
+        " AND tipo_empaque_id IS NULL)"
+        " OR (nivel = 'PRODUCTO' AND producto_id IS NOT NULL AND familia_id IS NULL AND articulo_id IS NULL"
+        " AND tipo_empaque_id IS NULL)"
+        " OR (nivel = 'SKU' AND articulo_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL"
+        " AND tipo_empaque_id IS NULL)"
+        " OR (nivel = 'TIPO_EMPAQUE' AND tipo_empaque_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL"
+        " AND articulo_id IS NULL)", name="ck_usos_diseno_destino"),
+        CheckConstraint("(contexto_tipo = 'OC') = (oc_id IS NOT NULL)", name="ck_usos_diseno_oc"),
+        CheckConstraint("contexto_tipo <> 'NINGUNO' OR (vigente_desde IS NULL AND vigente_hasta IS NULL)",
+                        name="ck_usos_diseno_normal_sin_vigencia"),
+        CheckConstraint("vigente_hasta IS NULL OR vigente_desde IS NULL OR vigente_hasta >= vigente_desde",
+                        name="ck_usos_diseno_vigencia"),
+        # Un solo diseño normal vigente por celda
+        Index("uq_usos_diseno_normal", "organizacion_id", "celda", unique=True,
+              sqlite_where=text("contexto_tipo = 'NINGUNO' AND eliminado_en IS NULL"),
+              postgresql_where=text("contexto_tipo = 'NINGUNO' AND eliminado_en IS NULL")),
+        Index("ix_usos_diseno_celda", "celda"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
-    plantilla_id: Mapped[int] = mapped_column(ForeignKey("plantillas_etiqueta.id", ondelete="CASCADE"), index=True)
-    ambito: Mapped[str] = mapped_column(String(10))
+    tipo_etiqueta_id: Mapped[int] = mapped_column(ForeignKey("tipos_etiqueta.id"), index=True)
+    plantilla_id: Mapped[int] = mapped_column(ForeignKey("plantillas_etiqueta.id"), index=True)
+    nivel: Mapped[str] = mapped_column(String(12))
     familia_id: Mapped[int | None] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
     producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
     articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
+    tipo_empaque_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_empaque.id"), index=True)
+    # tipo:nivel:destino (se calcula al guardar): agrupa la celda y la hace única
+    celda: Mapped[str] = mapped_column(String(60))
+    contexto_tipo: Mapped[str] = mapped_column(String(14), default="NINGUNO")
+    contexto_valores: Mapped[list] = mapped_column(JSON, default=list)  # códigos (país, centro, sociedad) o ids (proveedor)
     oc_id: Mapped[int | None] = mapped_column(ForeignKey("ordenes_compra.id"), index=True)
-    predeterminada: Mapped[bool] = mapped_column(Boolean, default=False)
-    activa: Mapped[bool] = mapped_column(Boolean, default=True)
-    motivo: Mapped[str | None] = mapped_column(String(300))  # por qué (sobre todo en una excepción)
-    creada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-    creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
-    nombre: Mapped[str | None] = mapped_column(String(120))
-    prioridad: Mapped[int] = mapped_column(Integer, default=100, server_default="100", index=True)
-    # [{"campo": "articulo.marca_codigo", "op": "en", "valor": ["TNF", "VANS"]}]: todas deben cumplirse
+    # [{"campo": "articulo.marca_codigo", "op": "en", "valor": ["TNF"]}]: todas deben cumplirse (reglas.py)
     condiciones: Mapped[list] = mapped_column(JSON, default=list)
-    # {"modalidades": [...], "origenes": [...], "unidades": [...], "tipos_empaque": [códigos]}: vacío = todos
-    contexto: Mapped[dict] = mapped_column(JSON, default=dict)
     vigente_desde: Mapped[date | None] = mapped_column(Date)
     vigente_hasta: Mapped[date | None] = mapped_column(Date)
-    actualizada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-    actualizada_en: Mapped[datetime | None] = mapped_column(DateTime)
-    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")  # control de concurrencia
+    motivo: Mapped[str | None] = mapped_column(String(300))
+    creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    actualizado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    actualizado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    eliminado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    eliminado_en: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
 
     plantilla: Mapped[PlantillaEtiqueta] = relationship()
+    tipo: Mapped[TipoEtiqueta] = relationship()
+
+    @property
+    def destino_id(self) -> int | None:
+        col = DESTINO_DE.get(self.nivel)
+        return getattr(self, col) if col else None
 
 
 class CampoEtiqueta(DeOrganizacion, Base):
@@ -217,7 +273,7 @@ class CampoEtiqueta(DeOrganizacion, Base):
     tipo: Mapped[str] = mapped_column(String(10), default="texto")
     fuentes: Mapped[list] = mapped_column(JSON, default=list)  # claves del catálogo, en orden
     politica: Mapped[str] = mapped_column(String(10), default="PRIMERA")
-    modalidades: Mapped[list] = mapped_column(JSON, default=list)  # vacío = todas
+    sujetos: Mapped[list] = mapped_column(JSON, default=list)  # ARTICULO, BULTO, DOCUMENTO; vacío = todos
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
@@ -279,7 +335,8 @@ class TrabajoRegistro(DeOrganizacion, Base):
     pl_id: Mapped[int | None] = mapped_column(ForeignKey("packing_lists.id"), index=True)
     plantilla_id: Mapped[int | None] = mapped_column(ForeignKey("plantillas_etiqueta.id"), index=True)
     version_id: Mapped[int | None] = mapped_column(ForeignKey("versiones_plantilla.id"), index=True)
-    regla_id: Mapped[int | None] = mapped_column(ForeignKey("asignaciones_etiqueta.id", ondelete="SET NULL"), index=True)
+    tipo_etiqueta_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_etiqueta.id"), index=True)
+    uso_id: Mapped[int | None] = mapped_column(ForeignKey("usos_diseno.id", ondelete="SET NULL"), index=True)
     cantidad: Mapped[int] = mapped_column(Integer, default=0)
     estado: Mapped[str] = mapped_column(String(12), default="LISTO", index=True)
     problemas: Mapped[list] = mapped_column(JSON, default=list)
@@ -306,8 +363,6 @@ class GeneracionEtiquetas(DeOrganizacion, Base):
     pl_id: Mapped[int | None] = mapped_column(ForeignKey("packing_lists.id"), index=True)  # generada desde una lista de empaque
     # Generación masiva: los lotes hechos juntos (una OC por lote) comparten este código
     lote: Mapped[str | None] = mapped_column(String(36), index=True)
-    modalidad: Mapped[str] = mapped_column(String(12))
-    unidad: Mapped[str] = mapped_column(String(10))
     formato: Mapped[str] = mapped_column(String(4))
     estado: Mapped[str] = mapped_column(String(10), default="GENERADA", index=True)  # PRUEBA: con versiones sin aprobar
     total: Mapped[int] = mapped_column(Integer, default=0)
@@ -339,7 +394,12 @@ class GeneracionItem(DeOrganizacion, Base):
     generacion_id: Mapped[int] = mapped_column(ForeignKey("generaciones_etiqueta.id", ondelete="CASCADE"), index=True)
     plantilla_id: Mapped[int] = mapped_column(ForeignKey("plantillas_etiqueta.id"), index=True)
     version_id: Mapped[int] = mapped_column(ForeignKey("versiones_plantilla.id"), index=True)
+    tipo_etiqueta_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_etiqueta.id"), index=True)
     articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
+    # Identidad estable del bulto (lista de empaque, grupo de cajas y unidad dentro del grupo)
+    pl_id: Mapped[int | None] = mapped_column(ForeignKey("packing_lists.id"), index=True)
+    grupo_cajas_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_cajas.id", ondelete="SET NULL"), index=True)
+    bulto_indice: Mapped[int | None] = mapped_column(Integer)
     posicion_id: Mapped[int | None] = mapped_column(ForeignKey("posiciones_oc.id"), index=True)
     familia_id: Mapped[int | None] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
     referencia: Mapped[str | None] = mapped_column(String(120))  # lo que se lee en el historial (SKU, línea, bulto)

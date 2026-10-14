@@ -2,9 +2,11 @@
 descripción, orden, activa) junto con los campos habituales de la familia y
 cuáles son obligatorios. Son independientes de la clasificación arancelaria.
 
-Una familia en uso (artículos, plantillas o asignaciones) no se borra: se
-desactiva. La familia de cada artículo se asigna aquí, de uno en uno o en
-bloque, sin una segunda ficha de producto.
+Una familia en uso (artículos, productos, grupos, usos de diseño o
+subfamilias) no se borra: se desactiva. La familia se asigna al producto
+(estilo-color: la heredan todas sus tallas), al grupo de artículos o a un SKU
+concreto; la de un artículo es la suya, si no la de su producto y si no la de
+su grupo.
 """
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -12,11 +14,11 @@ from sqlalchemy.orm import Session
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
-    AsignacionEtiqueta,
     FamiliaEtiquetado,
     GrupoArticulo,
     Marca,
-    PlantillaEtiqueta,
+    Producto,
+    UsoDiseno,
     Usuario,
 )
 from app.modulos.acceso.permisos import exigir, exigir_alguno
@@ -28,9 +30,16 @@ MAX_CAMPOS = 60
 
 
 def familia_sql():
-    """La familia efectiva de un artículo en SQL: la suya propia o la de su grupo."""
+    """La familia efectiva de un artículo en SQL: la suya, la de su producto o la de su grupo."""
+    del_producto = select(Producto.familia_etiquetado_id).where(Producto.id == Articulo.producto_id).scalar_subquery()
     del_grupo = select(GrupoArticulo.familia_etiquetado_id).where(GrupoArticulo.id == Articulo.grupo_id).scalar_subquery()
-    return func.coalesce(Articulo.familia_etiquetado_id, del_grupo)
+    return func.coalesce(Articulo.familia_etiquetado_id, del_producto, del_grupo)
+
+
+def familia_producto_sql():
+    """La familia efectiva de un producto en SQL: la suya o la de su grupo."""
+    del_grupo = select(GrupoArticulo.familia_etiquetado_id).where(GrupoArticulo.id == Producto.grupo_id).scalar_subquery()
+    return func.coalesce(Producto.familia_etiquetado_id, del_grupo)
 
 
 def _dict(f: FamiliaEtiquetado, conteos: dict | None = None) -> dict:
@@ -38,8 +47,8 @@ def _dict(f: FamiliaEtiquetado, conteos: dict | None = None) -> dict:
     return {"id": f.id, "codigo": f.codigo, "nombre": f.nombre, "descripcion": f.descripcion, "campos": f.campos or [],
             "padre_id": f.padre_id, "ruta": " / ".join(x.nombre for x in f.ruta()),
             "heredados": [c for x in f.ruta()[:-1] for c in (x.campos or [])],
-            "orden": f.orden, "activa": f.activa, "articulos": c.get("articulos", 0), "plantillas": c.get("plantillas", 0),
-            "grupos": c.get("grupos", 0), "articulos_propios": c.get("propios", 0)}
+            "orden": f.orden, "activa": f.activa, "articulos": c.get("articulos", 0), "usos": c.get("usos", 0),
+            "grupos": c.get("grupos", 0), "productos": c.get("productos", 0), "articulos_propios": c.get("propios", 0)}
 
 
 def _conteos(db: Session) -> dict:
@@ -54,9 +63,13 @@ def _conteos(db: Session) -> dict:
     for fid, n in db.execute(select(GrupoArticulo.familia_etiquetado_id, func.count())
                              .where(GrupoArticulo.familia_etiquetado_id.is_not(None)).group_by(GrupoArticulo.familia_etiquetado_id)):
         res.setdefault(fid, {})["grupos"] = n
-    for fid, n in db.execute(select(PlantillaEtiqueta.familia_id, func.count()).where(PlantillaEtiqueta.familia_id.is_not(None))
-                             .group_by(PlantillaEtiqueta.familia_id)):
-        res.setdefault(fid, {})["plantillas"] = n
+    for fid, n in db.execute(select(Producto.familia_etiquetado_id, func.count())
+                             .where(Producto.familia_etiquetado_id.is_not(None)).group_by(Producto.familia_etiquetado_id)):
+        res.setdefault(fid, {})["productos"] = n
+    for fid, n in db.execute(select(UsoDiseno.familia_id, func.count()).where(UsoDiseno.familia_id.is_not(None),
+                                                                             UsoDiseno.eliminado_en.is_(None))
+                             .group_by(UsoDiseno.familia_id)):
+        res.setdefault(fid, {})["usos"] = n
     return res
 
 
@@ -183,11 +196,11 @@ def eliminar(db: Session, user: Usuario, familia_id: int) -> dict:
     f = cargar(db, familia_id)
     en_uso = (db.scalar(select(func.count()).select_from(Articulo).where(Articulo.familia_etiquetado_id == f.id))
               or db.scalar(select(func.count()).select_from(GrupoArticulo).where(GrupoArticulo.familia_etiquetado_id == f.id))
-              or db.scalar(select(func.count()).select_from(PlantillaEtiqueta).where(PlantillaEtiqueta.familia_id == f.id))
-              or db.scalar(select(func.count()).select_from(AsignacionEtiqueta).where(AsignacionEtiqueta.familia_id == f.id))
+              or db.scalar(select(func.count()).select_from(Producto).where(Producto.familia_etiquetado_id == f.id))
+              or db.scalar(select(func.count()).select_from(UsoDiseno).where(UsoDiseno.familia_id == f.id))
               or db.scalar(select(func.count()).select_from(FamiliaEtiquetado).where(FamiliaEtiquetado.padre_id == f.id)))
     if en_uso:
-        raise ErrorNegocio("The family has items, designs, rules or subfamilies: deactivate it instead.", 409, "en_uso")
+        raise ErrorNegocio("The family has items, products, designs or subfamilies: deactivate it instead.", 409, "en_uso")
     registrar(db, user, "familia_etiquetado", f.id, "eliminar", {"codigo": f.codigo})
     db.delete(f)
     db.flush()
@@ -232,15 +245,20 @@ def articulos(db: Session, user: Usuario, q=None, familia=None, marca_id=None, g
     nombres = {m.id: m.nombre for m in db.scalars(select(Marca))}
     grupos = {g.id: g for g in db.scalars(select(GrupoArticulo))}
     familias = {f.id: f for f in db.scalars(select(FamiliaEtiquetado))}
+    de_producto = dict(db.execute(select(Producto.id, Producto.familia_etiquetado_id).where(
+        Producto.id.in_({a.producto_id for a in filas if a.producto_id}))).all()) if filas else {}
 
     def fila(a: Articulo) -> dict:
         g = grupos.get(a.grupo_id)
-        efectiva = a.familia_etiquetado_id or (g.familia_etiquetado_id if g else None)
+        fp = de_producto.get(a.producto_id)
+        fg = g.familia_etiquetado_id if g else None
+        efectiva = a.familia_etiquetado_id or fp or fg
+        origen = "ARTICULO" if a.familia_etiquetado_id else ("PRODUCTO" if fp else ("GRUPO" if fg else None))
         return {"id": a.id, "sku": a.sku, "estilo": a.estilo, "color": a.color, "talla": a.talla, "descripcion": a.descripcion,
                 "marca": nombres.get(a.marca_id), "grupo_id": a.grupo_id, "grupo": g.nombre if g else None,
                 "producto_id": a.producto_id, "familia_propia_id": a.familia_etiquetado_id,
                 "familia_id": efectiva, "familia": familias[efectiva].nombre if efectiva in familias else None,
-                "familia_origen": "ARTICULO" if a.familia_etiquetado_id else ("GRUPO" if efectiva else None)}
+                "familia_origen": origen}
     return {"total": total, "items": [fila(a) for a in filas]}
 
 
@@ -328,3 +346,65 @@ def asignar_grupos(db: Session, user: Usuario, familia_id: int | None, grupo_ids
         registrar(db, user, "familia_etiquetado", familia_id or 0, "asignar_grupos",
                   {"familia_id": familia_id, "grupos": [g.codigo for g in cambiados[:100]], "movidos": len(movidos)})
     return {"cambiados": len(cambiados), "movidos": len(movidos), "elegidos": len(elegidos)}
+
+
+# ---- Familia de cada producto (estilo-color) ----------------------------------------------------
+def productos(db: Session, user: Usuario, q: str | None = None, familia: str | None = None, page: int = 1,
+              size: int = 50) -> dict:
+    """Productos con su familia de etiquetado (la propia o la de su grupo) y cuántas tallas tienen."""
+    from app.modulos.acceso.permisos import proveedor_filtro
+
+    exigir_alguno(user, "etiquetas.ver", "etiquetas.familias")
+    c = select(Producto)
+    prov = proveedor_filtro(user)
+    if prov is not None:
+        c = c.where(Producto.proveedor_id.in_(prov))
+    if familia == "sin":
+        c = c.where(familia_producto_sql().is_(None))
+    elif familia:
+        c = c.where(familia_producto_sql() == int(familia))
+    if q and q.strip():
+        c = c.where(filtro_texto(q, lambda p: [Producto.estilo.ilike(p), Producto.color.ilike(p), Producto.nombre.ilike(p),
+                                               Producto.codigo_generico.ilike(p)]))
+    total = db.scalar(select(func.count()).select_from(c.subquery())) or 0
+    filas = db.scalars(c.order_by(Producto.estilo, Producto.color, Producto.id).offset((page - 1) * size).limit(size)).all()
+    tallas = dict(db.execute(select(Articulo.producto_id, func.count()).where(
+        Articulo.producto_id.in_([p.id for p in filas]), Articulo.activo.is_(True)).group_by(Articulo.producto_id)).all()) if filas else {}
+    grupos_ = {g.id: g for g in db.scalars(select(GrupoArticulo))}
+    familias_ = {f.id: f.nombre for f in db.scalars(select(FamiliaEtiquetado))}
+    res = []
+    for p in filas:
+        fg = grupos_[p.grupo_id].familia_etiquetado_id if p.grupo_id in grupos_ else None
+        efectiva = p.familia_etiquetado_id or fg
+        res.append({"id": p.id, "estilo": p.estilo, "color": p.color, "nombre": p.nombre, "codigo_generico": p.codigo_generico,
+                    "grupo": grupos_[p.grupo_id].nombre if p.grupo_id in grupos_ else None, "tallas": tallas.get(p.id, 0),
+                    "familia_propia_id": p.familia_etiquetado_id, "familia_id": efectiva, "familia": familias_.get(efectiva),
+                    "familia_origen": "PRODUCTO" if p.familia_etiquetado_id else ("GRUPO" if fg else None)})
+    return {"total": total, "items": res}
+
+
+def asignar_productos(db: Session, user: Usuario, familia_id: int | None, ids: list[int]) -> dict:
+    """Pone (o quita, con familia vacía) la familia de varios productos: la heredan
+    sus tallas que no tienen una propia."""
+    from app.modulos.acceso.permisos import proveedor_filtro
+
+    exigir(user, "etiquetas.familias")
+    if not ids:
+        raise ErrorNegocio("Choose the products.", 422, "validacion")
+    if familia_id is not None and not cargar(db, familia_id).activa:
+        raise ErrorNegocio("The labeling family is inactive.", 422, "validacion")
+    c = select(Producto).where(Producto.id.in_(set(ids)))
+    prov = proveedor_filtro(user)
+    if prov is not None:
+        c = c.where(Producto.proveedor_id.in_(prov))
+    elegidos = list(db.scalars(c))
+    if len(elegidos) != len(set(ids)):
+        raise ErrorNegocio("Some products do not exist or are out of your scope.", 404, "no_encontrado")
+    cambiados = [p for p in elegidos if p.familia_etiquetado_id != familia_id]
+    for p in cambiados:
+        p.familia_etiquetado_id = familia_id
+    db.flush()
+    if cambiados:
+        registrar(db, user, "familia_etiquetado", familia_id or 0, "asignar_productos",
+                  {"familia_id": familia_id, "productos": [f"{p.estilo} {p.color or ''}".strip() for p in cambiados[:50]]})
+    return {"cambiados": len(cambiados), "elegidos": len(elegidos)}

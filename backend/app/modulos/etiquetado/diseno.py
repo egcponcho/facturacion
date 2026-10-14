@@ -24,7 +24,8 @@ Mm = Annotated[float, Field(ge=-1000, le=1000)]
 Positivo = Annotated[float, Field(gt=0, le=1000)]
 MAX_ELEMENTOS = 300
 CAMPO = re.compile(r"\{\{\s*([\w.]+)\s*\}\}")
-SIMBOLOGIAS = ("code128", "code39", "ean13", "ean8", "upca", "qr")
+SIMBOLOGIAS = ("code128", "code39", "ean13", "ean8", "upca", "itf14", "gs1_128", "sscc", "qr", "datamatrix", "gs1_datamatrix",
+               "pdf417")
 
 
 class _Base(BaseModel):
@@ -55,7 +56,8 @@ class Formato(_Base):
     tipo: Literal["auto", "numero", "fecha", "mayus", "minus"] = "auto"
     decimales: int = Field(0, ge=0, le=6)
     miles: bool = True
-    fecha: Literal["dd/mm/aaaa", "aaaa-mm-dd", "mm/dd/aaaa", "dd-mmm-aaaa"] = "dd/mm/aaaa"
+    # Patrón de fecha con dd, d, mm, mmm (mes corto), mmmm (mes completo), aa, aaaa y separadores
+    fecha: str = Field("dd/mm/aaaa", max_length=24, pattern=r"^(dd|d|mmmm|mmm|mm|aaaa|aa|[ /.,\-])+$")
 
 
 class Condicion(_Base):
@@ -141,7 +143,8 @@ class Elemento(_Base):
     datos: str | None = Field(None, max_length=700_000)  # data URL pequeña (logo propio de la plantilla)
     encaje: Literal["contener", "cubrir", "estirar"] = "contener"
     # código de barras o QR
-    simbologia: Literal["code128", "code39", "ean13", "ean8", "upca", "qr"] | None = None
+    simbologia: Literal["code128", "code39", "ean13", "ean8", "upca", "itf14", "gs1_128", "sscc", "qr", "datamatrix",
+                        "gs1_datamatrix", "pdf417"] | None = None
     valor: str | None = Field(None, max_length=1000)  # texto con {{campos}} (o fijo)
     legible: bool = True  # texto bajo las barras
     margen: float = Field(0, ge=0, le=30)  # zona en blanco alrededor (mm)
@@ -233,6 +236,11 @@ class Variable(_Base):
 class Diseno(_Base):
     esquema: Literal[1] = 1
     unidad: Literal["mm", "cm", "in"] = "mm"
+    # Cómo se escriben los datos en la etiqueta (no depende de quien la genera):
+    # idioma de los meses y del sí/no, separadores de miles y decimales
+    idioma: str = Field("en", pattern=r"^[a-z]{2}$")
+    separador_miles: Literal[",", ".", " ", "'", ""] = ","
+    separador_decimal: Literal[".", ","] = "."
     ancho: Positivo = 100
     alto: Positivo = 50
     margen: float = Field(2, ge=0, le=100)  # área segura de impresión (mm)

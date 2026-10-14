@@ -15,18 +15,31 @@ from __future__ import annotations
 import io
 import math
 import re
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from app.modulos.etiquetado.codigos import barras
+from app.modulos.etiquetado.codigos import MATRICIALES, barras
 from app.modulos.etiquetado.diseno import CAMPO
 from app.modulos.etiquetado.fuentes import MARCA_PRUEBA, ancho_texto, nombre_fuente
 
 MM_PT = 72 / 25.4
 PT_MM = 25.4 / 72
-MESES = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+# Meses y sí/no en el idioma de la etiqueta (propiedad del diseño); otro idioma usa el inglés
+MESES = {
+    "en": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+    "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre",
+           "diciembre"],
+    "pt": ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro",
+           "dezembro"],
+    "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre",
+           "décembre"],
+}
+SI_NO = {"en": ("Yes", "No"), "es": ("Sí", "No"), "pt": ("Sim", "Não"), "fr": ("Oui", "Non")}
+_REGIONAL: ContextVar[dict | None] = ContextVar("regional_etiqueta", default=None)
 # Ancho mínimo del módulo (la barra más fina) para leerse con un lector común, en mm
-MODULO_MINIMO = {"ean13": 0.264, "ean8": 0.264, "upca": 0.264, "code128": 0.19, "code39": 0.19, "qr": 0.25}
+MODULO_MINIMO = {"ean13": 0.264, "ean8": 0.264, "upca": 0.264, "code128": 0.19, "code39": 0.19, "qr": 0.25, "itf14": 0.495,
+                 "gs1_128": 0.495, "sscc": 0.495, "datamatrix": 0.25, "gs1_datamatrix": 0.25, "pdf417": 0.19}
 TEXTO_MINIMO_PT = 5
 CONTRASTE_MINIMO = 3.0
 
@@ -98,10 +111,29 @@ def _fecha(v):
         return None
 
 
+def fecha_con_patron(d: date, patron: str, idioma: str = "en") -> str:
+    """La fecha con un patrón de dd, d, mm, mmm, mmmm, aa y aaaa (los meses en el idioma de la etiqueta)."""
+    meses = MESES.get(idioma, MESES["en"])
+    piezas = {"aaaa": f"{d.year:04d}", "aa": f"{d.year % 100:02d}", "mmmm": meses[d.month - 1],
+              "mmm": meses[d.month - 1][:3].upper(), "mm": f"{d.month:02d}", "dd": f"{d.day:02d}", "d": str(d.day)}
+    return re.sub(r"aaaa|aa|mmmm|mmm|mm|dd|d", lambda m: piezas[m.group(0)], patron)
+
+
+def numero_con_separadores(n: float, dec: int, miles: bool = True) -> str:
+    r = _REGIONAL.get() or {}
+    txt = f"{n:,.{dec}f}" if miles else f"{n:.{dec}f}"
+    return txt.replace(",", "\0").replace(".", r.get("separador_decimal", ".")).replace("\0", r.get("separador_miles", ","))
+
+
 def formatear(v, formato: dict | None, tipo: str = "texto") -> str | None:
-    """El valor como se imprime: número con decimales y miles, fecha con su patrón, mayúsculas…"""
-    if vacio(v):
+    """El valor como se imprime: número con decimales y miles, fecha con su patrón, sí/no, mayúsculas…
+    (con el idioma y los separadores del diseño)."""
+    if v is None or (isinstance(v, str) and not v.strip()):
         return None
+    regional = _REGIONAL.get() or {}
+    if isinstance(v, bool) or tipo == "si_no":
+        si, no = SI_NO.get(regional.get("idioma", "en"), SI_NO["en"])
+        return si if v in (True, "yes", "true", 1) else no
     f = formato or {}
     t = f.get("tipo", "auto")
     if t == "numero" or (t == "auto" and (tipo == "numero" or isinstance(v, (int, float))) and not isinstance(v, bool)):
@@ -110,15 +142,12 @@ def formatear(v, formato: dict | None, tipo: str = "texto") -> str | None:
         except (TypeError, ValueError):
             return str(v)
         dec = f.get("decimales", 0) if t == "numero" else (0 if n == int(n) else 2)
-        txt = f"{n:,.{dec}f}" if f.get("miles", True) else f"{n:.{dec}f}"
-        return txt
+        return numero_con_separadores(n, dec, f.get("miles", True))
     if t == "fecha" or (t == "auto" and tipo == "fecha"):
         d = _fecha(v)
         if d is None:
             return str(v)
-        patron = f.get("fecha", "dd/mm/aaaa")
-        return {"dd/mm/aaaa": d.strftime("%d/%m/%Y"), "aaaa-mm-dd": d.isoformat(), "mm/dd/aaaa": d.strftime("%m/%d/%Y"),
-                "dd-mmm-aaaa": f"{d.day:02d}-{MESES[d.month - 1]}-{d.year}"}[patron]
+        return fecha_con_patron(d, f.get("fecha", "dd/mm/aaaa"), regional.get("idioma", "en"))
     s = str(v)
     if t == "mayus":
         return s.upper()
@@ -208,8 +237,32 @@ def validar_codigo(simbologia: str, valor: str) -> tuple[str | None, str | None]
         if len(v) > 80 or any(not 32 <= ord(c) <= 126 for c in v):
             return None, "CODE 128 takes up to 80 printable ASCII characters (no accents)."
         return v, None
-    if len(v.encode("utf-8")) > 1200:
-        return None, "The QR content is too long (up to 1,200 bytes)."
+    if simbologia == "itf14":
+        if not v.isdigit() or len(v) not in (13, 14):
+            return None, f"ITF-14 needs 13 or 14 digits (it got «{v}»)."
+        if len(v) == 14 and int(v[-1]) != _digito_gs1(v[:-1]):
+            return None, f"The check digit of «{v}» is wrong for ITF-14."
+        return v[:13] + str(_digito_gs1(v[:13])), None
+    if simbologia == "sscc":
+        digitos = re.sub(r"^\(00\)", "", v).replace(" ", "")
+        if not digitos.isdigit() or len(digitos) not in (17, 18):
+            return None, f"An SSCC has 17 digits plus its check digit (it got «{v}»)."
+        if len(digitos) == 18 and int(digitos[-1]) != _digito_gs1(digitos[:-1]):
+            return None, f"The check digit of «{v}» is wrong for SSCC."
+        return f"(00){digitos[:17]}{_digito_gs1(digitos[:17])}", None
+    if simbologia in ("gs1_128", "gs1_datamatrix"):
+        if not re.fullmatch(r"(\(\d{2,4}\)[^()]{1,90})+", v) or len(v) > 200:
+            return None, "GS1 data is written with application identifiers in brackets, like (01)09501101530003(17)261231."
+        try:
+            from app.modulos.etiquetado.codigos import barras as dibujar
+
+            dibujar(simbologia, v)
+        except Exception:  # noqa: BLE001 - el lector de GS1 dice que no es válido
+            return None, "The GS1 data is not valid (check the application identifiers and their lengths)."
+        return v, None
+    limite = {"pdf417": 800, "datamatrix": 1000}.get(simbologia, 1200)
+    if len(v.encode("utf-8")) > limite:
+        return None, f"The content is too long for this code (up to {limite} bytes)."
     return v, None
 
 
@@ -330,6 +383,14 @@ def componer(diseno: dict, valores: dict, tipos: dict | None = None, imagen_adju
 
     tipos: campo → texto | numero | fecha | imagen (para formatear).
     imagen_adjunta(adjunto_id) → bytes | None: lee una imagen subida."""
+    marca = _REGIONAL.set({k: diseno.get(k) for k in ("idioma", "separador_miles", "separador_decimal") if diseno.get(k) is not None})
+    try:
+        return _componer(diseno, valores, tipos, imagen_adjunta, prueba)
+    finally:
+        _REGIONAL.reset(marca)
+
+
+def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, prueba: bool) -> Lienzo:
     tipos = tipos or {}
     prims: list[Prim] = []
     problemas: list[dict] = []
@@ -409,7 +470,7 @@ def componer(diseno: dict, valores: dict, tipos: dict | None = None, imagen_adju
                           grosor=b["grosor"], radio=b["radio"]))
     if prueba:
         tam = max(min(W, H) / 4 * MM_PT, 6)
-        txt = MARCA_PRUEBA
+        txt = MARCA_PRUEBA.get((_REGIONAL.get() or {}).get("idioma", "en"), MARCA_PRUEBA["en"])
         nombre = nombre_fuente("sans", True, False)
         while ancho_texto(txt, nombre, tam) > math.hypot(W, H) * 0.85 and tam > 4:
             tam -= 0.5
@@ -476,18 +537,21 @@ def _codigo(e: dict, valores: dict, tipos: dict, fondo: str, prims: list, proble
         prims.append(Prim("rect", e["x"], e["y"], e["w"], e["h"], relleno=e["relleno"], **_giro(e)))
     rects, ancho_mod, alto_mod, modulos = barras(simb, valor, e.get("correccion", "M"))
     texto_legible = None
-    if simb == "qr":
-        lado = min(caja_w, caja_h)
-        modulo = lado / modulos
-        x0, y0 = e["x"] + m + (caja_w - lado) / 2, e["y"] + m + (caja_h - lado) / 2
-        alto_barras = lado
+    matricial = simb in MATRICIALES
+    if matricial:
+        # Módulos cuadrados: el código ocupa lo que permite la caja sin deformarse
+        modulo = min(caja_w / ancho_mod, caja_h / alto_mod)
+        x0 = e["x"] + m + (caja_w - ancho_mod * modulo) / 2
+        y0 = e["y"] + m + (caja_h - alto_mod * modulo) / 2
+        alto_barras = alto_mod * modulo
     else:
         modulo = caja_w / ancho_mod
         alto_texto = 0
         if e.get("legible"):
             tam = max(min(caja_h * 0.22 * MM_PT, 10), 4)
             # Los GS1 se leen con su dígito verificador
-            texto_legible = (crudo if simb in ("code128", "code39") else valor + str(_digito_gs1(valor)), tam)
+            texto_legible = (crudo if simb in ("code128", "code39") else valor if simb in ("gs1_128", "sscc", "itf14")
+                             else valor + str(_digito_gs1(valor)), tam)
             alto_texto = tam * PT_MM * 1.15
         alto_barras = caja_h - alto_texto
         x0, y0 = e["x"] + m, e["y"] + m
@@ -499,13 +563,13 @@ def _codigo(e: dict, valores: dict, tipos: dict, fondo: str, prims: list, proble
                   f"The narrowest bar is {modulo:.3f} mm; {simb.upper()} needs at least {minimo} mm: make the code larger.")
     giro = _giro(e)
     for x, y, w, h in rects:
-        if simb == "qr":
+        if matricial:
             prims.append(Prim("rect", x0 + x * modulo, y0 + (alto_mod - y - h) * modulo, w * modulo, h * modulo, relleno=e["color"], **giro))
         else:
             prims.append(Prim("rect", x0 + x * modulo, y0, w * modulo, alto_barras, relleno=e["color"], **giro))
     if texto_legible:
         txt, tam = texto_legible
-        nombre = nombre_fuente("mono" if simb in ("code128", "code39") else "sans", False, False)
+        nombre = nombre_fuente("mono" if simb in ("code128", "code39", "gs1_128", "sscc") else "sans", False, False)
         w = ancho_texto(txt, nombre, tam)
         prims.append(Prim("texto", lineas=[(txt, e["x"] + m + (caja_w - w) / 2, y0 + alto_barras + tam * PT_MM * 0.95, w)],
                           fuente=nombre, tam=tam, color=e["color"], **giro))
@@ -613,7 +677,7 @@ def _tabla(e: dict, valores: dict, tipos: dict, prims: list, problemas: list) ->
               for c in cols], y, nombre)
         y += alto_fila
     if resto:
-        fila([f"… +{resto}"] + [""] * (len(cols) - 1), y, nombre)
+        fila([f"… +{numero_con_separadores(resto, 0)}"] + [""] * (len(cols) - 1), y, nombre)
         y += alto_fila
     if hay_totales:
         textos = []

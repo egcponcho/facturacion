@@ -483,14 +483,24 @@ class Articulo(DeOrganizacion, Base):
 
     @property
     def familia_efectiva(self):
-        """La familia de etiquetado del artículo: la suya propia o, si no tiene, la de su grupo."""
-        return self.familia_etiquetado or (self.grupo.familia_etiquetado if self.grupo else None)
+        """La familia de etiquetado del artículo: la suya propia, si no la de su
+        producto (estilo-color) y si no la de su grupo."""
+        from app.modelos.etiquetado import FamiliaEtiquetado
+
+        if self.familia_etiquetado is not None:
+            return self.familia_etiquetado
+        p = self.producto
+        if p is not None and p.familia_etiquetado_id:
+            return object_session(self).get(FamiliaEtiquetado, p.familia_etiquetado_id)
+        return self.grupo.familia_etiquetado if self.grupo else None
 
     @property
     def familia_origen(self) -> str | None:
-        """ARTICULO si la familia se asignó al artículo; GRUPO si la hereda de su grupo."""
+        """De dónde sale la familia: ARTICULO (propia), PRODUCTO o GRUPO (heredada); None si no tiene."""
         if self.familia_etiquetado_id:
             return "ARTICULO"
+        if self.producto is not None and self.producto.familia_etiquetado_id:
+            return "PRODUCTO"
         return "GRUPO" if self.grupo and self.grupo.familia_etiquetado_id else None
     # Valores de los atributos de variante propios de la empresa (material,
     # voltaje, sabor…); talla y color son columnas

@@ -76,14 +76,18 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
     "trabajo_etiqueta_registros": [("trabajo_id", "trabajos_etiqueta"), ("generacion_id", "generaciones_etiqueta"),
                                    ("oc_id", "ordenes_compra"), ("posicion_id", "posiciones_oc"), ("articulo_id", "articulos"),
                                    ("pl_id", "packing_lists"), ("plantilla_id", "plantillas_etiqueta"),
-                                   ("version_id", "versiones_plantilla"), ("regla_id", "asignaciones_etiqueta")],
-    "plantillas_etiqueta": [("familia_id", "familias_etiquetado")],
+                                   ("version_id", "versiones_plantilla"), ("uso_id", "usos_diseno"),
+                                   ("tipo_etiqueta_id", "tipos_etiqueta")],
+    "plantillas_etiqueta": [("tipo_etiqueta_id", "tipos_etiqueta")],
     "versiones_plantilla": [("plantilla_id", "plantillas_etiqueta")],
-    "asignaciones_etiqueta": [("plantilla_id", "plantillas_etiqueta"), ("familia_id", "familias_etiquetado"),
-                              ("producto_id", "productos"), ("articulo_id", "articulos"), ("oc_id", "ordenes_compra")],
+    "usos_diseno": [("tipo_etiqueta_id", "tipos_etiqueta"), ("plantilla_id", "plantillas_etiqueta"),
+                    ("familia_id", "familias_etiquetado"), ("producto_id", "productos"),
+                    ("articulo_id", "articulos"), ("tipo_empaque_id", "tipos_empaque"), ("oc_id", "ordenes_compra")],
+    "productos": [("familia_etiquetado_id", "familias_etiquetado")],
     "generacion_items": [("generacion_id", "generaciones_etiqueta"), ("version_id", "versiones_plantilla"),
                          ("plantilla_id", "plantillas_etiqueta"), ("articulo_id", "articulos"), ("posicion_id", "posiciones_oc"),
-                         ("familia_id", "familias_etiquetado"), ("trabajo_registro_id", "trabajo_etiqueta_registros")],
+                         ("familia_id", "familias_etiquetado"), ("trabajo_registro_id", "trabajo_etiqueta_registros"),
+                         ("tipo_etiqueta_id", "tipos_etiqueta"), ("pl_id", "packing_lists"), ("grupo_cajas_id", "grupos_cajas")],
 }
 PADRES = sorted({p for lista in COHERENCIA.values() for _, p in lista})
 
