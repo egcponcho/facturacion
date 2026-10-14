@@ -330,6 +330,29 @@ def baja(db: Session, user: Usuario, uso_id: int, motivo: str | None) -> dict:
     return dict_uso(db, u)
 
 
+def valores_contexto(db: Session, user: Usuario, contexto: str) -> list[dict]:
+    """Los valores reales que puede tener una excepción: los países de los centros destino,
+    los centros, las sociedades o los proveedores (valor, texto y detalle para buscar)."""
+    exigir_alguno(user, "etiquetas.configurar", "etiquetas.ver")
+    contexto = (contexto or "").upper()
+    if contexto == "PAIS_DESTINO":
+        usados = {c for c in db.scalars(select(Centro.pais).where(Centro.pais.is_not(None)))}
+        paises = db.execute(select(Pais.codigo, Pais.nombre).order_by(Pais.nombre)).all()
+        # Primero los países con centros destino; después el resto (se puede preparar un destino nuevo)
+        return [{"valor": c, "texto": n, "sub": c, "con_centros": c in usados}
+                for c, n in sorted(paises, key=lambda x: (x[0] not in usados, x[1]))]
+    if contexto == "CENTRO_DESTINO":
+        return [{"valor": c.codigo, "texto": c.nombre, "sub": " · ".join(x for x in (c.codigo, c.pais) if x)}
+                for c in db.scalars(select(Centro).where(Centro.activo.is_(True)).order_by(Centro.codigo))]
+    if contexto == "SOCIEDAD":
+        return [{"valor": s.codigo, "texto": s.nombre, "sub": s.codigo}
+                for s in db.scalars(select(Sociedad).order_by(Sociedad.codigo))]
+    if contexto == "PROVEEDOR":
+        return [{"valor": str(p.id), "texto": p.nombre, "sub": " · ".join(x for x in (p.codigo, p.pais) if x)}
+                for p in db.scalars(select(Proveedor).where(Proveedor.activo.is_(True)).order_by(Proveedor.nombre))]
+    raise ErrorNegocio("This kind of exception has no list of values.", 422, "validacion", [{"campo": "contexto", "mensaje": contexto}])
+
+
 # ---- Celda (lo que se abre desde la matriz) -----------------------------------------------------
 def firma(usos: list[UsoDiseno]) -> str:
     return hashlib.sha1(",".join(f"{u.id}:{u.version}" for u in sorted(usos, key=lambda x: x.id)).encode()).hexdigest()[:16]

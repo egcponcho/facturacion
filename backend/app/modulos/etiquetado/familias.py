@@ -348,6 +348,34 @@ def asignar_grupos(db: Session, user: Usuario, familia_id: int | None, grupo_ids
     return {"cambiados": len(cambiados), "movidos": len(movidos), "elegidos": len(elegidos)}
 
 
+def desde_grupos(db: Session, user: Usuario) -> dict:
+    """Primer uso: una familia por cada grupo de artículos activo sin familia (mismo código y nombre),
+    y el grupo queda en ella. Los grupos que ya tienen familia no cambian."""
+    exigir(user, "etiquetas.familias")
+    grupos_ = list(db.scalars(select(GrupoArticulo).where(GrupoArticulo.activo.is_(True),
+                                                          GrupoArticulo.familia_etiquetado_id.is_(None)).order_by(GrupoArticulo.codigo)))
+    existentes = {c for c in db.scalars(select(FamiliaEtiquetado.codigo))}
+    orden = db.scalar(select(func.max(FamiliaEtiquetado.orden))) or 0
+    creadas = []
+    for g in grupos_:
+        codigo = "".join(ch for ch in g.codigo.upper() if ch.isalnum() or ch in "-_.")[:20] or f"G{g.id}"
+        base, n = codigo, 2
+        while codigo in existentes:
+            codigo = f"{base[:17]}-{n}"
+            n += 1
+        orden += 10
+        f = FamiliaEtiquetado(codigo=codigo, nombre=g.nombre[:100], orden=orden, activa=True, campos=[])
+        db.add(f)
+        db.flush()
+        g.familia_etiquetado_id = f.id
+        existentes.add(codigo)
+        creadas.append(f)
+    db.flush()
+    if creadas:
+        registrar(db, user, "familia_etiquetado", 0, "desde_grupos", {"familias": [f.codigo for f in creadas[:200]]})
+    return {"creadas": len(creadas), "familias": listar(db, user)}
+
+
 # ---- Familia de cada producto (estilo-color) ----------------------------------------------------
 def productos(db: Session, user: Usuario, q: str | None = None, familia: str | None = None, page: int = 1,
               size: int = 50) -> dict:

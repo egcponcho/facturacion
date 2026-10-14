@@ -60,9 +60,9 @@ def guardar_tamanos(db: Db, user: User, tamanos: list[dict[str, Any]] = Body(...
 
 # ---- Tipos de etiqueta -------------------------------------------------------------------
 @router.get("/etiquetas/tipos")
-def listar_tipos(db: Db, user: User, activos: bool | None = True):
-    """Tipos de etiqueta de la empresa (qué se etiqueta, cuántas salen, si son obligatorios)."""
-    return tipos.listar(db, user, activos)
+def listar_tipos(db: Db, user: User, todos: bool = False):
+    """Tipos de etiqueta activos de la empresa (qué se etiqueta, cuántas salen, si son obligatorios); `todos` suma los inactivos."""
+    return tipos.listar(db, user, None if todos else True)
 
 
 @router.post("/etiquetas/tipos")
@@ -113,6 +113,12 @@ def simular(db: Db, user: User, datos: dict[str, Any] = Body(...)):
 def lote_usos(db: Db, user: User, datos: dict[str, Any] = Body(...)):
     """La misma excepción en varias celdas de un tipo («aplicar también a…»)."""
     return ejecutar(db, user, None, lambda: usos.lote(db, user, datos))
+
+
+@router.get("/etiquetas/usos/valores")
+def valores_contexto(db: Db, user: User, contexto: str = Query(..., pattern="^(PAIS_DESTINO|CENTRO_DESTINO|SOCIEDAD|PROVEEDOR)$")):
+    """Los valores que puede tener una excepción (países de los centros destino, centros, sociedades, proveedores)."""
+    return usos.valores_contexto(db, user, contexto)
 
 
 @router.get("/etiquetas/usos")
@@ -201,6 +207,12 @@ def listar_familias(db: Db, user: User, activas: bool | None = None):
 def crear_familia(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
     """Nueva familia: código, nombre, descripción, orden y campos habituales u obligatorios."""
     return ejecutar(db, user, clave, lambda: familias.crear(db, user, datos))
+
+
+@router.post("/etiquetas/familias/desde-grupos")
+def familias_desde_grupos(db: Db, user: User):
+    """Primer uso: una familia por cada grupo de artículos sin familia (el grupo queda en ella)."""
+    return ejecutar(db, user, None, lambda: familias.desde_grupos(db, user))
 
 
 @router.put("/etiquetas/familias/orden")

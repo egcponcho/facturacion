@@ -1,31 +1,83 @@
-import { t } from '@/i18n/index.js'
+import { t, tx } from '@/i18n/index.js'
+import { api } from '@/nucleo/api'
 
 // Etiquetado: textos y medidas comunes a las pantallas del módulo.
 // El diseño guarda todo en milímetros y los tamaños de letra en puntos; la
 // unidad elegida (mm, cm, pulgadas) solo cambia cómo se muestran.
 
-export const MODALIDADES = () => [
-  ['ARTICULO', t('Item'), t('Item and product data: the same design works for any PO.')],
-  ['OC', t('Purchase order'), t('PO data: identifies the order or its packages.')],
-  ['OC_ARTICULO', t('PO and item'), t('The PO data shared by every label plus the data of each line and item.')],
-]
-export const textoModalidad = (m) => MODALIDADES().find((x) => x[0] === m)?.[1] || m
+// Lo que la interfaz necesita para armar sus formularios (qué se etiqueta,
+// cuántas salen, niveles, excepciones, simbologías, tamaños): lo da el servidor
+// (GET /etiquetas/catalogos), una vez por sesión.
+let catalogo = null
+export function catalogos() {
+  catalogo = catalogo || api.get('/etiquetas/catalogos').catch((e) => {
+    catalogo = null
+    throw e
+  })
+  return catalogo
+}
+export function olvidarCatalogos() {
+  catalogo = null
+}
 
-export const UNIDADES = () => ({
-  ORDEN: t('One per order'),
-  LINEA: t('One per PO line'),
-  ARTICULO: t('One per distinct item'),
-  UNIDAD: t('One per unit ordered'),
-  BULTO: t('One per package'),
-  MANUAL: t('Quantity entered by hand'),
+// Qué se etiqueta (sujeto del tipo de etiqueta)
+export const SUJETOS = () => ({ ARTICULO: t('Item'), BULTO: t('Package'), DOCUMENTO: t('Document') })
+export const SUJETOS_PLURAL = () => ({ ARTICULO: t('Items'), BULTO: t('Packages'), DOCUMENTO: t('Documents') })
+// Cuántas etiquetas salen de cada registro
+export const CANTIDADES = () => ({
+  POR_UNIDAD: t('One per unit (piece or pair)'), POR_LINEA: t('One per PO line'), POR_ARTICULO: t('One per distinct item'),
+  POR_BULTO: t('One per package'), POR_DOCUMENTO: t('One per document'), MANUAL: t('Quantity entered by hand'),
 })
-export const UNIDADES_DE = { ARTICULO: ['UNIDAD', 'MANUAL'], OC: ['ORDEN', 'BULTO', 'MANUAL'], OC_ARTICULO: ['LINEA', 'ARTICULO', 'UNIDAD', 'BULTO', 'MANUAL'] }
+// Dónde se pone un diseño (la fila de la matriz)
+export const NIVELES = () => ({ GENERAL: t('Whole company'), FAMILIA: t('Family'), PRODUCTO: t('Product'), SKU: t('Item (one size)'),
+  TIPO_EMPAQUE: t('Package type') })
+// Excepciones: la primera parte de la frase «Si … usar …»
+export const CONTEXTOS = () => ({
+  PAIS_DESTINO: t('the destination country is'), CENTRO_DESTINO: t('the destination center is'), SOCIEDAD: t('the buying company is'),
+  PROVEEDOR: t('the supplier is'), CONDICION: t('Advanced: the conditions are met'), OC: t('the purchase order is'),
+})
+// Dónde está el diseño elegido, en palabras («Por la familia Calzado»)
+export function textoDonde(nivel, destino) {
+  if (nivel === 'GENERAL') return t('Whole company')
+  const plantilla = { FAMILIA: t('Family {0}'), PRODUCTO: t('Product {0}'), SKU: t('Item {0}'), TIPO_EMPAQUE: t('Package type {0}') }[nivel]
+  return plantilla ? plantilla.replace('{0}', tx(destino || '')) : nivel
+}
+// La excepción en una frase: «Si el país destino es Panamá, Costa Rica»
+export function textoExcepcion(u) {
+  if (u.contexto_tipo === 'OC') return t('If the purchase order is {0}', [u.oc || u.oc_id])
+  if (u.contexto_tipo === 'CONDICION') {
+    const partes = []
+    if (u.condiciones?.length) partes.push(t('{0} conditions', [u.condiciones.length]))
+    if (u.vigente_desde || u.vigente_hasta) partes.push(textoVigencia(u))
+    return `${t('If')} ${partes.join(' · ') || t('the conditions are met')}`
+  }
+  const valores = (u.contexto_nombres?.length ? u.contexto_nombres : u.contexto_valores || []).map((x) => tx(String(x))).join(', ')
+  return `${t('If')} ${CONTEXTOS()[u.contexto_tipo] || u.contexto_tipo} ${valores}`
+}
+export function textoVigencia(u) {
+  const f = (v) => (v ? new Date(`${v}T00:00:00`).toLocaleDateString() : '')
+  if (u.vigente_desde && u.vigente_hasta) return t('from {0} to {1}', [f(u.vigente_desde), f(u.vigente_hasta)])
+  if (u.vigente_desde) return t('from {0}', [f(u.vigente_desde)])
+  if (u.vigente_hasta) return t('until {0}', [f(u.vigente_hasta)])
+  return ''
+}
+// Por qué un registro lleva su diseño (Eleccion.porque del servidor)
+export function textoPorque(e) {
+  const p = e?.porque || {}
+  if (!e || p.clase === 'sin_diseno') return t('No design applies')
+  if (p.clase === 'elegida') return t('Chosen for this job')
+  const donde = textoDonde(p.nivel, p.destino)
+  if (p.clase === 'oc') return t('Special design for PO {0}', [p.oc])
+  if (p.clase === 'excepcion') return `${donde} · ${textoExcepcion({ contexto_tipo: p.contexto_tipo, contexto_valores: p.contexto_valores })}`
+  return donde
+}
 
 // Trabajos de etiquetado: de dónde salen los registros
 export const ORIGENES = () => [
-  ['OC', t('Purchase orders'), t('One or several POs: their lines, items or packages.')],
+  ['OC', t('Purchase orders'), t('One or several POs: their items, their packages and a content sheet.')],
+  ['PACKING', t('Packing list'), t('The packages of a packing list and the items inside them.')],
   ['ARTICULOS', t('Items'), t('Items without a PO: item and product data.')],
-  ['PACKING', t('Packing list'), t('Each package of a level of the packing list (pallets, cartons, inner packs…).')],
+  ['FAMILIA', t('A family'), t('The items of a labeling family in the open POs.')],
 ]
 
 // Operadores de las condiciones (los mismos del servidor: reglas.OPERADORES)
@@ -45,41 +97,12 @@ export const CATEGORIAS = () => ({
   configuracion: t('Configuration'), empaque: t('Packaging'), inconsistencia: t('Inconsistencies (PO vs packing list)'),
   excepcion: t('Exceptions'), cantidad: t('Quantities'), codigo: t('Barcodes and QR'), diseno: t('Design and layout'),
 })
-
-export const AMBITOS = () => ({
-  GENERAL: t('General (whole organization)'),
-  FAMILIA: t('Labeling family'),
-  PRODUCTO: t('Product (all its variants)'),
-  ARTICULO: t('Item (one variant)'),
-  OC: t('Exception for one PO'),
-  REGLA: t('Any record that meets the conditions'),
-})
-
-// Tamaños habituales (ancho × alto en mm); el usuario puede poner cualquier otro
-export const TAMANOS = [
-  ['100 × 50 mm', 100, 50],
-  ['100 × 150 mm (4 × 6 in)', 101.6, 152.4],
-  ['102 × 76 mm (4 × 3 in)', 101.6, 76.2],
-  ['76 × 51 mm (3 × 2 in)', 76.2, 50.8],
-  ['60 × 40 mm', 60, 40],
-  ['50 × 25 mm', 50, 25],
-  ['38 × 25 mm', 38.1, 25.4],
-  ['70 × 37 mm (A4 3 × 8)', 70, 37],
-]
+// Simbologías: las da el servidor (catalogos().simbologias) con su nombre y para qué sirven
 
 const FACTOR = { mm: 1, cm: 10, in: 25.4 }
 export const aUnidad = (mm, unidad) => Math.round((Number(mm) / FACTOR[unidad || 'mm']) * 1000) / 1000
 export const aMm = (valor, unidad) => Math.round(Number(valor) * FACTOR[unidad || 'mm'] * 1000) / 1000
 export const PT_MM = 25.4 / 72
-
-export const SIMBOLOGIAS = () => [
-  ['code128', 'CODE 128', t('Internal codes, references: letters and digits')],
-  ['code39', 'CODE 39', t('Capital letters and digits')],
-  ['ean13', 'EAN-13', t('Registered GS1 retail code (13 digits with check digit)')],
-  ['upca', 'UPC-A', t('Registered GS1 retail code (12 digits)')],
-  ['ean8', 'EAN-8', t('Short GS1 retail code (8 digits)')],
-  ['qr', 'QR', t('Any text or link')],
-]
 
 // Las fuentes de las etiquetas (las mismas que usa el servidor), una sola vez por sesión
 let fuentesCargadas = null
@@ -200,11 +223,35 @@ export function elementoNuevo(tipo, x = 5, y = 5, extra = {}) {
 }
 
 // El valor como lo imprime el servidor (render.formatear): números con miles
-// y decimales, fechas con su patrón, mayúsculas o minúsculas
-const MESES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+// y decimales, fechas con su patrón, sí/no, mayúsculas o minúsculas, con el
+// idioma y los separadores del diseño (ponerRegional)
+const MESES = {
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  es: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
+  pt: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
+  fr: ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'],
+}
+const SI_NO = { en: ['Yes', 'No'], es: ['Sí', 'No'], pt: ['Sim', 'Não'], fr: ['Oui', 'Non'] }
+export const IDIOMAS_ETIQUETA = () => [['en', t('English')], ['es', t('Spanish')], ['pt', t('Portuguese')], ['fr', t('French')]]
+// Patrones de fecha sugeridos (se puede escribir cualquiera con dd, d, mm, mmm, mmmm, aa y aaaa)
+export const PATRONES_FECHA = ['dd/mm/aaaa', 'aaaa-mm-dd', 'mm/dd/aaaa', 'dd-mmm-aaaa', 'd mmmm aaaa', 'mmm aa']
+let regional = {}
+export function ponerRegional(diseno) {
+  regional = { idioma: diseno?.idioma || 'en', miles: diseno?.separador_miles ?? ',', decimal: diseno?.separador_decimal || '.' }
+}
+export function fechaConPatron(a, mes, dia, patron) {
+  const meses = MESES[regional.idioma] || MESES.en
+  const piezas = { aaaa: String(a).padStart(4, '0'), aa: String(a % 100).padStart(2, '0'), mmmm: meses[mes - 1],
+    mmm: meses[mes - 1].slice(0, 3).toUpperCase(), mm: String(mes).padStart(2, '0'), dd: String(dia).padStart(2, '0'), d: String(dia) }
+  return (patron || 'dd/mm/aaaa').replace(/aaaa|aa|mmmm|mmm|mm|dd|d/g, (m) => piezas[m])
+}
 const vacio = (v) => v == null || (typeof v === 'string' && !v.trim())
 export function formatear(v, formato, tipo = 'texto') {
   if (vacio(v)) return null
+  if (typeof v === 'boolean' || tipo === 'si_no') {
+    const [si, no] = SI_NO[regional.idioma] || SI_NO.en
+    return [true, 'yes', 'true', 1].includes(v) ? si : no
+  }
   const f = formato || {}
   const t = f.tipo || 'auto'
   if (t === 'numero' || (t === 'auto' && (tipo === 'numero' || typeof v === 'number'))) {
@@ -213,15 +260,13 @@ export function formatear(v, formato, tipo = 'texto') {
     const dec = t === 'numero' ? f.decimales || 0 : Number.isInteger(n) ? 0 : 2
     const txt = Math.abs(n).toFixed(dec)
     const [ent, frac] = txt.split('.')
-    const conMiles = f.miles === false ? ent : ent.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-    return `${n < 0 ? '-' : ''}${conMiles}${frac ? `.${frac}` : ''}`
+    const conMiles = f.miles === false ? ent : ent.replace(/\B(?=(\d{3})+(?!\d))/g, regional.miles ?? ',')
+    return `${n < 0 ? '-' : ''}${conMiles}${frac ? `${regional.decimal || '.'}${frac}` : ''}`
   }
   if (t === 'fecha' || (t === 'auto' && tipo === 'fecha')) {
     const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/)
     if (!m) return String(v)
-    const [, a, mes, d] = m
-    return { 'dd/mm/aaaa': `${d}/${mes}/${a}`, 'aaaa-mm-dd': `${a}-${mes}-${d}`, 'mm/dd/aaaa': `${mes}/${d}/${a}`,
-      'dd-mmm-aaaa': `${d}-${MESES[Number(mes) - 1]}-${a}` }[f.fecha || 'dd/mm/aaaa']
+    return fechaConPatron(Number(m[1]), Number(m[2]), Number(m[3]), f.fecha)
   }
   if (t === 'mayus') return String(v).toUpperCase()
   if (t === 'minus') return String(v).toLowerCase()
