@@ -23,7 +23,7 @@ const d = computed(() => est.diseno)
 const vb = computed(() => `${-pad.value} ${-pad.value} ${d.value.ancho + 2 * pad.value} ${d.value.alto + 2 * pad.value}`)
 const tamPx = computed(() => ({ width: `${(d.value.ancho + 2 * pad.value) * s.value}px`, height: `${(d.value.alto + 2 * pad.value) * s.value}px` }))
 const px = (n) => n / s.value // n píxeles de pantalla en mm
-const valores = computed(() => ({ ...est.ejemplos, ...(est.previa?.datos === 'reales' ? est.previa.valores : {}) }))
+const valores = computed(() => ({ ...ed.ejemplosTodos.value, ...(est.previa?.datos === 'reales' ? est.previa.valores : {}) }))
 
 // ---- Reglas -----------------------------------------------------------------------------
 const FACTOR = { mm: 1, cm: 10, in: 25.4 }

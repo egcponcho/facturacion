@@ -34,6 +34,7 @@ const ir = (v) => router.replace({ query: { ...route.query, vista: v === 'diseno
     </div>
     <div class="acciones">
       <router-link v-if="puede('etiquetas.generar')" class="btn" to="/etiquetas/generar"><Icono nombre="descargar" />{{ t('Generate labels') }}</router-link>
+      <router-link v-if="puede('etiquetas.generar')" class="btn btn-primario" to="/etiquetas/masiva"><Icono nombre="capas" />{{ t('Bulk generation') }}</router-link>
     </div>
   </div>
   <nav class="pestanas" role="tablist" :aria-label="t('Labels')">

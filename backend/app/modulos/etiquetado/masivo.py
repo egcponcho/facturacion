@@ -181,7 +181,8 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
     v = p.vigente if not pedido.get("prueba") else (p.versiones[-1] if p.versiones else None)
     return {"tipo": tipo, "plantilla": {"id": p.id, "nombre": p.nombre, "modalidad": p.modalidad,
                                         "version": v.numero if v else None, "version_id": v.id if v else None,
-                                        "ancho_mm": v.ancho_mm if v else None, "alto_mm": v.alto_mm if v else None},
+                                        "ancho_mm": v.ancho_mm if v else None, "alto_mm": v.alto_mm if v else None,
+                                        "variables": (v.diseno.get("variables") or []) if v else []},
             "partes": partes, "total": total, "errores": errores, "problemas": general,
             "con_errores": sum(1 for x in partes if x["errores"]), "advertencias": sum(x["advertencias"] for x in partes),
             "puede_generar": total > 0 and not general and (errores == 0 or len(partes) > sum(1 for x in partes if x["errores"]))}

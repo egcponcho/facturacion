@@ -27,7 +27,7 @@ const PANTALLAS = [
   '/mantenimiento?catalogo=escalas', '/mantenimiento?catalogo=categorias',
   
   '/etiquetas', '/etiquetas?vista=familias', '/etiquetas?vista=articulos', '/etiquetas?vista=asignaciones', '/etiquetas?vista=historial',
-  '/etiquetas/generar',
+  '/etiquetas/generar', '/etiquetas/masiva',
   '/leadtimes', '/aranceles', '/familias', '/plantillas', '/importar', '/empresa', '/perfil', '/plataforma',
   '/admin', '/admin?tab=roles', '/admin?tab=proveedores', '/admin?tab=flujo', '/admin?tab=bitacora',
 ]

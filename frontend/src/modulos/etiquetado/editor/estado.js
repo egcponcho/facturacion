@@ -1,5 +1,6 @@
 import { computed, inject, provide, reactive, watch } from 'vue'
 import { api as servidor } from '@/nucleo/api'
+import { t } from '@/i18n/index.js'
 import { elementoNuevo, nuevoId } from '@/modulos/etiquetado/etiquetas.js'
 
 // Estado del editor de etiquetas, compartido por el lienzo y los paneles
@@ -292,6 +293,14 @@ export function crearEditor() {
     }
   }
 
+  // Los campos del catálogo más los que se escriben al generar (variables del diseño: {{manual.clave}})
+  const manuales = computed(() => (ed.diseno?.variables || []).map((v) => ({
+    clave: `manual.${v.clave}`, etiqueta: v.etiqueta || v.clave, grupo: 'manual', tipo: 'texto',
+    origen: t('Written when generating'), ejemplo: v.defecto || `[${v.etiqueta || v.clave}]`,
+  })))
+  const camposTodos = computed(() => [...ed.campos, ...manuales.value])
+  const ejemplosTodos = computed(() => ({ ...ed.ejemplos, ...Object.fromEntries(manuales.value.map((c) => [c.clave, c.ejemplo])) }))
+
   const problemasDe = computed(() => {
     const r = {}
     for (const p of ed.previa?.problemas || []) {
@@ -305,7 +314,7 @@ export function crearEditor() {
     estado: ed, elementos, seleccionados, unico, problemasDe, porId,
     cargar, guardado, fotografiar, deshacer, rehacer, seleccionar, seleccionarTodo, ajustar,
     agregar, eliminar, duplicar, copiar, pegar, mover, alinear, distribuir, igualar, ordenar, moverCapa,
-    agrupar, desagrupar, alternar, caja, codigos, codigoServidor,
+    agrupar, desagrupar, alternar, caja, codigos, codigoServidor, camposTodos, ejemplosTodos,
   }
   provide(CLAVE, api)
   return api

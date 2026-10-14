@@ -41,7 +41,7 @@ function usarEjemplo() {
 }
 const errores = computed(() => (est.previa?.problemas || []).filter((p) => p.nivel === 'error'))
 const avisos = computed(() => (est.previa?.problemas || []).filter((p) => p.nivel !== 'error'))
-const etiquetaCampo = (c) => tx(est.campos.find((x) => x.clave === c)?.etiqueta || c)
+const etiquetaCampo = (c) => tx(ed.camposTodos.value.find((x) => x.clave === c)?.etiqueta || c)
 const fondo = ref('cuadros')
 </script>
 

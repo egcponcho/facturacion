@@ -15,6 +15,7 @@ import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import AvisoEdicion from '@/componentes/AvisoEdicion.vue'
 import { useEdicion } from '@/composables/useEdicion'
 import Icono from '@/componentes/Icono.vue'
+import { puede as tienePermiso } from '@/stores/sesion'
 import Modal from '@/componentes/Modal.vue'
 import PanelLateral from '@/componentes/PanelLateral.vue'
 import TarjetaParte from '@/componentes/TarjetaParte.vue'
@@ -545,6 +546,8 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <EstadoBadge :estado="pl.estado" tipo="pl" />
         <span class="doc-sub">{{ tx(pl.factura.nombre) }} · {{ tx(pl.factura.proveedor) }}</span>
         <div class="doc-acciones">
+          <router-link v-if="tienePermiso('etiquetas.generar') && pl.estado !== 'CANCELADO'" :to="{ path: '/etiquetas/masiva', query: { pl: pl.id } }" class="btn">
+            <Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</router-link>
           <MasOpciones>
             <button class="btn btn-fantasma" :title="t('Packing list as PDF, ready to print and sign')" @click="descargar('pdf')"><Icono nombre="descargar" />PDF</button>
             <button class="btn btn-fantasma" :title="t('Packing list as Excel')" @click="descargar('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>

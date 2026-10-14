@@ -51,6 +51,43 @@ FastAPI (backend/app/modulos/etiquetado)
 PostgreSQL (RLS por organización) / SQLite en pruebas
 ```
 
+### Familias: grupos de artículos y artículos específicos
+
+Un **grupo de artículos** (Datos maestros → Categorías) pertenece a una
+familia de etiquetado y todos sus artículos la heredan. Un **artículo**
+puede tener su familia propia, que manda sobre la del grupo. La familia
+efectiva (propia o del grupo) es la que usan la prioridad de diseños, los
+datos `articulo.familia*`, los datos obligatorios de la familia, los conteos
+y los filtros. Desde el panel de la familia se agregan varios grupos a la
+vez (búsqueda, «todos los mostrados», aviso si pasan de otra familia) y la
+pestaña Artículos asigna artículos específicos en bloque.
+
+### Generación masiva (`/etiquetas/masiva`)
+
+Asistente en cinco pasos: qué etiquetar → elegir → diseño → revisión →
+generar. Siempre con un diseño elegido por el usuario y su versión aprobada.
+
+| Origen | Qué se genera | Archivo |
+|---|---|---|
+| Órdenes de compra (las de una familia; «elegir todas las del filtro») | Un lote por OC. Diseño de OC y artículo: una etiqueta por **artículo distinto** de la familia en esa OC (un artículo repetido en varias líneas va una sola vez); diseño de OC: una por OC. | ZIP con **un PDF por OC**, una etiqueta por página con las medidas del diseño (o carpetas de PNG). |
+| Artículos (los de una familia; «elegir todos») | Un lote con N etiquetas por artículo. | **Un solo PDF**, una etiqueta por página (o las PNG en un ZIP). |
+| Lista de empaque | Una etiqueta por unidad del **nivel de empaque** elegido (tarima, caja, inner…), con tipo, código (C3, P1), empaque que la contiene, contenido (incluido lo de los empaques interiores), pesos y medidas. | Un PDF (o PNG en ZIP). |
+
+Si el diseño usa datos de la lista de empaque (`bulto.*`) y lo que se
+etiqueta no tiene lista de empaque, se avisa: el usuario puede continuar y
+esos campos salen vacíos (igual con cualquier dato que falte). Las OC con
+errores se pueden omitir para generar las demás. Accesos: botón «Generación
+masiva» en Etiquetas, «Generar etiquetas» en cada familia y «Etiquetas» en la
+lista de empaque.
+
+### Campos que se escriben al generar
+
+Además del texto libre, un diseño puede declarar campos que no están en el
+sistema (lote, temporada, destino…): nombre, valor por defecto y si es
+obligatorio. Se usan como cualquier campo o como `{{manual.clave}}` dentro de
+un texto; ambos asistentes los piden antes de generar y el valor queda en la
+instantánea del lote.
+
 ## 2. Base de datos y migraciones
 
 Migración `0070_etiquetado` (reversible; probada ida y vuelta en SQLite y
@@ -65,6 +102,12 @@ PostgreSQL con las 6 políticas RLS):
 | `asignaciones_etiqueta` | Ámbito GENERAL, FAMILIA, PRODUCTO, ARTICULO u OC (con restricción de destino), predeterminada, activa y motivo (obligatorio en la excepción de OC). |
 | `generaciones_etiqueta` | Lote: OC, modalidad, unidad, formato, estado (GENERADA o PRUEBA), total, parámetros, advertencias aceptadas, archivo y SHA-256. |
 | `generacion_items` | Por grupo: plantilla y versión exactas, artículo, línea, familia, referencia, cantidad, valores usados y motivo de la elección. |
+
+Migración `0071_etiquetado_masivo` (reversible; probada en SQLite y
+PostgreSQL): `grupos_articulos.familia_etiquetado_id` (con su llave de
+coherencia), `generaciones_etiqueta.pl_id` y `lote`, y la unidad `ARTICULO`
+en `plantillas_etiqueta`. Las variables del diseño van en el JSON de la
+versión (`variables`), sin tabla propia.
 
 Todas llevan `organizacion_id`, política RLS y llaves de coherencia
 `fk_<tabla>_<col>_org` (declaradas en `app/modelos/referencias.py`). La
@@ -115,6 +158,10 @@ diseño no tienen tabla propia: son una lista tipada dentro de la versión.
 | `GET, POST /asignaciones` · `PATCH, DELETE /asignaciones/{id}` · `GET /resolver` | Dónde se aplica y qué diseño se usaría. |
 | `POST /imagenes` · `GET /imagenes/{id}` · `GET /fuentes/{archivo}` | Logos del diseño y fuentes del editor. |
 | `GET /oc/{id}` · `POST /plan` | Resumen de la OC y plan de generación. |
+| `GET /grupos-articulos` · `POST /grupos-articulos/familia` | Grupos de artículos con su familia; asignar varios a la vez. |
+| `GET /masivo/ordenes` (familia_id, q, estado, solo_ids) | OC con artículos de la familia: líneas, artículos distintos, bultos y lotes ya generados. |
+| `GET /masivo/packing` · `GET /masivo/packing/{id}` | Listas de empaque y sus niveles de empaque con cuántas unidades tiene cada uno. |
+| `POST /masivo/plan` · `POST /masivo` · `GET /masivo/{lote}/archivo?formato=` | Plan, generación y descarga de la generación masiva. |
 | `POST, GET /generaciones` · `GET /generaciones/{id}` · `GET /generaciones/{id}/archivo?formato=` | Generar, historial y descarga reproducible (encabezado `X-Identico`). |
 
 ## 5. Reglas de prioridad
@@ -175,12 +222,22 @@ puede exigir datos obligatorios (error si faltan).
 
 ## 8. Pruebas ejecutadas
 
-Servidor (`pytest`): **609 pasan, 3 omitidas** en la suite completa; las del
-módulo son 35 en cuatro archivos más las de traducción:
+Servidor (`pytest`): **615 pasan, 3 omitidas** en la suite completa; las del
+módulo son 41 en cinco archivos más las de traducción:
 
 - `test_etiquetado_familias.py` (4): alta, cambio, orden y desactivación;
   asignación a artículos (elegidos, filtro, `ids`) sin tocar la
   clasificación; permisos y proveedor; campos con origen por modalidad.
+- `test_etiquetado_familias.py` también prueba la familia por grupos de
+  artículos (varios a la vez, el artículo con familia propia la conserva,
+  conteos, prioridad y que una familia con grupos no se borra).
+- `test_etiquetado_masivo.py` (5): OC de una familia con un artículo
+  repetido en dos líneas (una sola etiqueta), ZIP con un PDF por OC y página
+  del tamaño del diseño, PNG; artículos de una familia en un solo PDF y en
+  PNG; lista de empaque con tarima y cajas (contenido de la tarima, código
+  del contenedor, numeración por nivel); aviso de datos de empaque vacíos que
+  pide confirmar; campos que se escriben al generar (obligatorio, valor por
+  defecto, valor en el PDF).
 - `test_etiquetado_render.py` (13): validación del diseño; PDF, PNG y SVG
   con medidas, colores y fuentes reales; **lectura con zxing-cpp** de
   Code 128, EAN-13, UPC-A, EAN-8, Code 39 y QR; códigos inválidos; texto
@@ -213,8 +270,10 @@ bitácora y la generación desde una OC con descarga del PDF.
   hay plantillas del sistema compartidas entre organizaciones.
 - **Lotes síncronos** de hasta `ETIQUETAS_MAXIMO_LOTE` (5000) etiquetas por
   pedido; más grandes deben dividirse. No hay cola en segundo plano.
-- **Bultos**: solo las cajas de primer nivel de las listas de empaque no
-  canceladas; no se etiquetan cajas anidadas ni tarimas.
+- **Empaques con contenido mixto**: la etiqueta de OC y artículo toma los
+  datos del primer artículo del empaque (y lo avisa); el contenido completo
+  está en `bulto.contenido`.
+- **Generación masiva**: hasta 200 OC y 2000 artículos por vez, síncrona.
 - **Idioma**: un diseño tiene un solo juego de textos fijos; no hay
   plantillas con variantes por idioma.
 - **Editor**: en el lienzo el texto se mide con las mismas fuentes que el

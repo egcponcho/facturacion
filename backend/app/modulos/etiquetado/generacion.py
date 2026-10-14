@@ -293,7 +293,12 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
         general.append({"nivel": "error", "codigo": "lote_grande", "elemento": None,
                         "mensaje": f"{total} labels exceed the limit of {settings.ETIQUETAS_MAXIMO_LOTE} per batch: split the batch."})
     errores = sum(len(g.errores) for g in grupos) + len([p for p in general if p["nivel"] == "error"])
-    return {"oc_id": oc.id if oc else None, "oc": oc.numero if oc else None, "pl_id": pedido.get("pl_id"),
+    variables = {}
+    for g in grupos:
+        for v in (g.version.diseno.get("variables") or []) if g.version else []:
+            variables.setdefault(v["clave"], v)
+    return {"variables": list(variables.values()),
+            "oc_id": oc.id if oc else None, "oc": oc.numero if oc else None, "pl_id": pedido.get("pl_id"),
             "modalidad": modalidad, "unidad": unidad,
             "prueba": prueba, "total": total, "grupos": [g.dict() for g in grupos], "problemas": general,
             "errores": errores, "advertencias": sum(len(g.advertencias) for g in grupos),

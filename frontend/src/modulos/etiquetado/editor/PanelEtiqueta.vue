@@ -36,6 +36,8 @@ function borde(activo) {
 }
 
 // Impresión en hoja: papeles habituales y cuántas caben
+// En el script: en la plantilla cerraría la interpolación
+const EJEMPLO = '{{manual.lote}}'
 const PAPELES = [['Letter', 215.9, 279.4], ['A4', 210, 297], ['Legal', 215.9, 355.6]]
 const hoja = computed(() => d.value.hoja)
 const papel = computed(() => PAPELES.findIndex(([, w, h]) => Math.abs(w - hoja.value.papel_ancho) < 0.05 && Math.abs(h - hoja.value.papel_alto) < 0.05))
@@ -49,6 +51,30 @@ function caben() {
   const h = hoja.value
   h.columnas = Math.max(1, Math.floor((h.papel_ancho - h.margen_izq + h.espacio_h) / (d.value.ancho + h.espacio_h)))
   h.filas = Math.max(1, Math.floor((h.papel_alto - h.margen_sup + h.espacio_v) / (d.value.alto + h.espacio_v)))
+}
+// Campos que se escriben al generar: lote, temporada, destino… ({{manual.clave}})
+const variables = computed(() => d.value.variables || [])
+const claveDe = (txt) => (txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/^(\d)/, 'c$1').slice(0, 30) || 'campo'
+function agregarVariable() {
+  if (no.value) return
+  if (!d.value.variables) d.value.variables = []
+  let n = d.value.variables.length + 1
+  while (d.value.variables.some((v) => v.clave === `campo_${n}`)) n++
+  d.value.variables.push({ clave: `campo_${n}`, etiqueta: t('Field {0}', [n]), defecto: null, obligatorio: false })
+}
+function renombrar(v, etiqueta) {
+  const anterior = v.clave
+  v.etiqueta = etiqueta
+  if (usada(anterior)) return // si ya está en la etiqueta, la clave no cambia
+  let clave = claveDe(etiqueta)
+  let i = 2
+  while (variables.value.some((x) => x !== v && x.clave === clave)) clave = `${claveDe(etiqueta).slice(0, 27)}_${i++}`
+  v.clave = clave
+}
+const usada = (clave) => d.value.elementos.some((e) => [e.contenido, e.valor, e.campo, e.condicion?.campo].some((x) => (x || '').includes(`manual.${clave}`)))
+function quitarVariable(i) {
+  if (no.value) return
+  d.value.variables.splice(i, 1)
 }
 const noCabe = computed(() => {
   const h = hoja.value
@@ -106,6 +132,22 @@ const noCabe = computed(() => {
       </div>
     </div>
 
+    <h4>{{ t('Fields written when generating') }}</h4>
+    <p class="ayuda">{{ t('Information that is not in the system (lot, season, destination…): it is asked when generating. Use it like any field or as {0} in a text.', [EJEMPLO]) }}</p>
+    <div v-for="(v, i) in variables" :key="i" class="variable">
+      <div class="rejilla-2">
+        <label class="campo-mini"><span>{{ t('Name') }}</span><input :value="v.etiqueta" maxlength="60" :disabled="no" @change="renombrar(v, $event.target.value)" /></label>
+        <label class="campo-mini"><span>{{ t('Default value') }}</span><input v-model="v.defecto" maxlength="200" :disabled="no" /></label>
+      </div>
+      <div class="variable-pie">
+        <code>{{ `manual.${v.clave}` }}</code>
+        <label class="check-linea"><input v-model="v.obligatorio" type="checkbox" :disabled="no" />{{ t('Required') }}</label>
+        <span v-if="usada(v.clave)" class="etiqueta ms-0">{{ t('In use') }}</span>
+        <button v-else type="button" class="btn btn-icono btn-chico" :disabled="no" :aria-label="t('Remove')" @click="quitarVariable(i)"><Icono nombre="basura" :tam="14" /></button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-chico" :disabled="no || variables.length >= 30" @click="agregarVariable"><Icono nombre="mas" :tam="14" />{{ t('Add field to fill in') }}</button>
+
     <h4>{{ t('How it prints') }}</h4>
     <div class="segmentos" role="group" :aria-label="t('How it prints')">
       <button type="button" class="segmento" :aria-pressed="hoja.modo === 'individual'" :disabled="no" @click="hoja.modo = 'individual'">{{ t('One per page (label printer)') }}</button>
@@ -144,4 +186,7 @@ const noCabe = computed(() => {
 .ayuda { font-size: 0.74rem; margin: 0; }
 .segmentos { display: flex; flex-wrap: wrap; }
 .btn-chico { align-self: flex-start; }
+.variable { border: 1px solid var(--linea); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.variable-pie { display: flex; align-items: center; gap: 8px; }
+.variable-pie code { font-size: 0.72rem; color: var(--tinta-3); flex: 1; overflow: hidden; text-overflow: ellipsis; }
 </style>

@@ -22,10 +22,10 @@ const u = computed(() => est.diseno?.unidad || 'mm')
 const bloqueado = computed(() => !est.editable || !!e.value?.bloqueado)
 const TIPOS = computed(() => ({ texto: t('Text'), campo: t('Field'), codigo: t('Code'), imagen: t('Image'), rect: t('Rectangle'), elipse: t('Ellipse'), linea: t('Line') }))
 
-const camposTexto = computed(() => est.campos.filter((c) => c.tipo !== 'imagen'))
-const camposImagen = computed(() => est.campos.filter((c) => c.tipo === 'imagen'))
+const camposTexto = computed(() => ed.camposTodos.value.filter((c) => c.tipo !== 'imagen'))
+const camposImagen = computed(() => ed.camposTodos.value.filter((c) => c.tipo === 'imagen'))
 const textoCampo = (c) => `${tx(props.grupos[c.grupo] || c.grupo)} · ${tx(c.etiqueta)}`
-const campoActual = computed(() => est.campos.find((c) => c.clave === e.value?.campo))
+const campoActual = computed(() => ed.camposTodos.value.find((c) => c.clave === e.value?.campo))
 const insertar = ref('')
 function insertarCampo(prop, clave) {
   if (!clave || bloqueado.value) return
@@ -43,7 +43,7 @@ const alternarEstilo = (prop) => poner('estilo', prop, !estilo.value[prop])
 const formato = computed(() => e.value?.formato || { tipo: 'auto', decimales: 0, miles: true, fecha: 'dd/mm/aaaa' })
 function condicion(activa) {
   if (bloqueado.value) return
-  e.value.condicion = activa ? { campo: e.value.campo || est.campos[0]?.clave || '', op: 'existe', valor: null } : null
+  e.value.condicion = activa ? { campo: e.value.campo || ed.camposTodos.value[0]?.clave || '', op: 'existe', valor: null } : null
 }
 
 // Ejemplo de campo dentro de un texto (en el script: en la plantilla cerraría la interpolación)

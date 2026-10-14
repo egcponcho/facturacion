@@ -34,6 +34,7 @@ const p = reactive({
   plantilla_id: '',
   elegidas: {},
   formato: 'PDF',
+  manuales: {},
   prueba: false,
   aceptar: false,
 })
@@ -111,7 +112,8 @@ const estimado = computed(() => {
 
 // ---- 3. Plan ---------------------------------------------------------------------------------
 function pedido(extra = {}) {
-  const r = { modalidad: p.modalidad, unidad: p.unidad, prueba: p.prueba, elegidas: p.elegidas, plantilla_id: p.plantilla_id || null, ...extra }
+  const r = { modalidad: p.modalidad, unidad: p.unidad, prueba: p.prueba, elegidas: p.elegidas, plantilla_id: p.plantilla_id || null,
+    manuales: p.manuales, ...extra }
   if (p.origen === 'oc') {
     r.oc_id = p.oc_id
     if (p.modalidad === 'OC_ARTICULO' || p.unidad === 'BULTO') r.posiciones = p.posiciones
@@ -123,6 +125,7 @@ async function revisar() {
   cargando.value = true
   try {
     plan.value = await api.post('/etiquetas/plan', pedido())
+    for (const v of plan.value.variables || []) if (!(v.clave in p.manuales)) p.manuales[v.clave] = v.defecto || ''
     paso.value = plan.value.puede_generar ? 3 : 2
   } catch (e) {
     errorApi(e)
@@ -246,7 +249,8 @@ const irOrden = () => router.push(`/ordenes/${p.oc_id}`)
     </div>
     <template v-if="p.origen === 'oc'">
       <label class="campo gen-campo"><span>{{ t('Purchase order') }}</span>
-        <SelectBusqueda v-model="p.oc_id" :buscar="buscarOrdenes" :etiqueta="t('PO')" :vacio="t('Choose a PO')" /></label>
+        <SelectBusqueda v-model="p.oc_id" :buscar="buscarOrdenes" :etiqueta="t('PO')" :vacio="t('Choose a PO')"
+                        :opciones="resumen ? [{ valor: resumen.oc.id, texto: resumen.oc.numero, sub: resumen.oc.proveedor }] : []" /></label>
       <div v-if="resumen" class="gen-oc">
         <p><strong>{{ resumen.oc.numero }}</strong> · {{ resumen.oc.proveedor }} · <EstadoBadge :estado="resumen.oc.estado" tipo="oc" /></p>
         <p class="ayuda">{{ t('{0} lines · {1} packages in packing lists', [resumen.lineas.length, resumen.bultos]) }}
@@ -344,6 +348,14 @@ const irOrden = () => router.push(`/ordenes/${p.oc_id}`)
           <p v-if="!resumenDisenos.length" class="ayuda">—</p></div>
       </div>
       <p v-for="(x, i) in plan.problemas" :key="i" class="texto-error">{{ tx(x.mensaje) }}</p>
+      <div v-if="plan.variables?.length" class="gen-manuales">
+        <strong>{{ t('Fields written when generating') }}</strong>
+        <div class="gen-manuales-campos">
+          <label v-for="v in plan.variables" :key="v.clave" class="campo"><span :class="{ req: v.obligatorio }">{{ v.etiqueta }}</span>
+            <input v-model="p.manuales[v.clave]" maxlength="200" :placeholder="v.defecto || ''" /></label>
+        </div>
+        <button type="button" class="btn btn-chico" :disabled="cargando" @click="revisar">{{ t('Apply and review again') }}</button>
+      </div>
       <div class="gen-filtro segmentos" role="group" :aria-label="t('Show')">
         <button v-for="[v, txt] in [['todos', t('All')], ['problemas', t('With problems')], ['errores', t('With errors')]]" :key="v" type="button" class="segmento"
                 :aria-pressed="filtroPlan === v" @click="filtroPlan = v">{{ txt }}</button>
@@ -434,6 +446,8 @@ const irOrden = () => router.push(`/ordenes/${p.oc_id}`)
 .gen-cifras .aviso strong { color: var(--aviso); }
 .gen-disenos p { margin: 2px 0 0; font-size: 0.84rem; }
 .gen-filtro { align-self: flex-start; }
+.gen-manuales { border: 1px solid var(--linea); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.gen-manuales-campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .gen-problema { display: flex; gap: 5px; align-items: flex-start; margin: 0 0 3px; font-size: 0.8rem; color: var(--aviso); }
 .gen-problema.error { color: var(--error); }
 .gen-problema svg { flex: none; margin-top: 2px; }

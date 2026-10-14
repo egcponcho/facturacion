@@ -26,7 +26,7 @@ const ELEMENTOS = computed(() => [
 const normal = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const filtrados = computed(() => {
   const n = normal(q.value)
-  return est.campos.filter((c) => !n || normal(`${tx(c.etiqueta)} ${c.clave} ${c.origen}`).includes(n))
+  return ed.camposTodos.value.filter((c) => !n || normal(`${tx(c.etiqueta)} ${c.clave} ${c.origen}`).includes(n))
 })
 const porGrupo = computed(() => {
   const r = {}
@@ -35,9 +35,9 @@ const porGrupo = computed(() => {
 })
 const habituales = computed(() => {
   const lista = props.familia?.campos || []
-  return lista.map((x) => ({ ...est.campos.find((c) => c.clave === x.campo), obligatorio: x.obligatorio })).filter((c) => c.clave)
+  return lista.map((x) => ({ ...ed.camposTodos.value.find((c) => c.clave === x.campo), obligatorio: x.obligatorio })).filter((c) => c.clave)
 })
-const abiertos = ref(new Set(['articulo', 'oc', 'linea']))
+const abiertos = ref(new Set(['articulo', 'oc', 'linea', 'manual']))
 const alternarGrupo = (g) => (abiertos.value.has(g) ? abiertos.value.delete(g) : abiertos.value.add(g))
 
 // Un campo se agrega como «campo»; las imágenes, como imagen leída del campo
@@ -92,7 +92,7 @@ const textoEnSeleccion = computed(() => ed.unico.value?.tipo === 'texto')
 
       <div v-for="[g, lista] in porGrupo" :key="g" class="bib-grupo">
         <button type="button" class="bib-grupo-titulo" :aria-expanded="abiertos.has(g) || !!q" @click="alternarGrupo(g)">
-          <Icono :nombre="abiertos.has(g) || q ? 'abajo' : 'derecha'" :tam="14" />{{ tx(props.grupos[g] || g) }}<span class="cuenta">{{ lista.length }}</span>
+          <Icono :nombre="abiertos.has(g) || q ? 'abajo' : 'derecha'" :tam="14" />{{ g === 'manual' ? t('Written when generating') : tx(props.grupos[g] || g) }}<span class="cuenta">{{ lista.length }}</span>
         </button>
         <template v-if="abiertos.has(g) || q">
           <button v-for="c in lista" :key="c.clave" type="button" class="bib-campo" :disabled="!est.editable" draggable="true"
@@ -103,6 +103,7 @@ const textoEnSeleccion = computed(() => ed.unico.value?.tipo === 'texto')
         </template>
       </div>
       <p v-if="!porGrupo.length" class="ayuda">{{ t('No field matches.') }}</p>
+      <p class="ayuda mt-chico">{{ t('Need a value that is not in the system (lot, season, destination…)? Add it in Label → Fields written when generating.') }}</p>
     </section>
   </div>
 </template>

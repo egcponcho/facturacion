@@ -216,6 +216,7 @@ def test_campos_que_se_escriben_al_generar(interno, admin, familia):
     pedido = {"tipo": "articulos", "articulo_ids": ids, "plantilla_id": p["id"], "formato": "PDF", "aceptar_advertencias": True}
     plan = interno.post("/etiquetas/masivo/plan", pedido).json()
     assert plan["errores"] and any("Lot" in q["mensaje"] for q in plan["partes"][0]["problemas"])
+    assert [v["clave"] for v in plan["plantilla"]["variables"]] == ["lote", "temporada"]
     assert interno.post("/etiquetas/masivo", pedido).status_code == 422
     res = interno.post("/etiquetas/masivo", {**pedido, "manuales": {"lote": "L-77"}}).json()
     texto = _pdf(interno.get(f"/etiquetas/masivo/{res['lote']}/archivo").content)[0][2]

@@ -23,6 +23,7 @@ const routes = [
   { path: '/productos/:id', component: () => import('@/modulos/productos/vistas/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
   { path: '/etiquetas', component: () => import('@/modulos/etiquetado/vistas/EtiquetasView.vue'), meta: { permiso: 'etiquetas.ver' } },
   { path: '/etiquetas/plantillas/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/EditorEtiquetaView.vue'), props: true, meta: { permiso: 'etiquetas.ver', vista: 'editor-etiqueta' } },
+  { path: '/etiquetas/masiva', component: () => import('@/modulos/etiquetado/vistas/GeneracionMasivaView.vue'), meta: { permiso: 'etiquetas.generar' } },
   { path: '/etiquetas/generar', component: () => import('@/modulos/etiquetado/vistas/GenerarEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar' } },
   { path: '/plantillas', component: () => import('@/modulos/empaque/vistas/PlantillasView.vue'), meta: { permiso: ['plantilla.editar', 'pl.editar'] } },
   // Rutas restringidas: cada una exige el permiso de su rol (el servidor

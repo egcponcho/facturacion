@@ -134,6 +134,8 @@ const nombreCampo = (clave) => campos.value.find((c) => c.clave === clave)?.etiq
         <button type="button" class="btn-icono" :aria-label="t('Move down')" :title="t('Move down')" @click.stop="mover(f, 1)"><Icono nombre="abajo" :tam="15" /></button>
         <button type="button" class="btn btn-chico" @click.stop="alternarActiva(f)">{{ f.activa ? t('Deactivate') : t('Activate') }}</button>
       </template>
+      <router-link v-if="puede('etiquetas.generar') && f.articulos" :to="{ path: '/etiquetas/masiva', query: { familia: f.id } }" class="btn btn-chico" @click.stop>
+        <Icono nombre="descargar" :tam="14" />{{ t('Generate labels') }}</router-link>
     </template>
     <template #vacio>{{ t('No labeling families yet. Create the ones your operation needs, for example footwear, apparel or chemicals.') }}</template>
   </TablaDatos>
