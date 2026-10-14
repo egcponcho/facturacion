@@ -512,7 +512,7 @@ const NIVEL_ICONO = { error: 'alerta', advertencia: 'info', info: 'info' }
           <Seleccion :model-value="registroPrevia" @update:model-value="(id) => verPrevia(registros.find((r) => r.id === Number(id)))">
             <option v-for="r in registros.filter((x) => x.plantilla_id)" :key="r.id" :value="r.id">{{ r.referencia }} · {{ tx(r.plantilla) }}</option>
           </Seleccion></label>
-        <div v-if="previa" class="tj-svg" v-html="previa.svg"></div>
+        <div v-if="previa" class="tj-svg previa-etiqueta" v-html="previa.svg"></div>
         <p v-else class="ayuda">{{ t('Choose a record with a design.') }}</p>
       </div>
       <aside v-if="previa" class="panel">
@@ -649,8 +649,8 @@ const NIVEL_ICONO = { error: 'alerta', advertencia: 'info', info: 'info' }
 .tj-problemas .advertencia { color: var(--aviso); }
 .tj-categoria h3 { margin: 10px 0 4px; font-size: 0.95rem; }
 .tj-previa { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
-.tj-svg { margin-top: 12px; background: var(--papel); border: 1px dashed var(--linea); padding: 12px; overflow: auto; }
-.tj-svg :deep(svg) { max-width: 100%; height: auto; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15); background: #fff; }
+.tj-svg { margin-top: 12px; background: var(--papel); border: 1px dashed var(--linea); padding: 12px; --previa-alto: min(62vh, 560px); }
+.tj-svg :deep(svg) { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15); background: #fff; }
 .tj-valores { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 0.84rem; margin: 0; }
 .tj-valores dt { color: var(--tinta-3); font-family: var(--mono, monospace); }
 .tj-valores dd { margin: 0; overflow-wrap: anywhere; }

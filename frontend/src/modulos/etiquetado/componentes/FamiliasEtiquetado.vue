@@ -3,7 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
-import PanelLateral from '@/componentes/PanelLateral.vue'
+import Modal from '@/componentes/Modal.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import GruposFamilia from '@/modulos/etiquetado/componentes/GruposFamilia.vue'
@@ -142,7 +142,7 @@ const nombreCampo = (clave) => campos.value.find((c) => c.clave === clave)?.etiq
     <template #vacio>{{ t('No labeling families yet. Create the ones your operation needs, for example footwear, apparel or chemicals.') }}</template>
   </TablaDatos>
 
-  <PanelLateral v-if="panel" :titulo="panel.id ? t('Family {0}', [panel.codigo]) : t('New labeling family')" ancho="560px" @cerrar="panel = null">
+  <Modal v-if="panel" :titulo="panel.id ? t('Family {0}', [panel.codigo]) : t('New labeling family')" ancho="560px" @cerrar="panel = null">
     <form id="form-familia" class="formulario-panel" @submit.prevent="guardar">
       <div class="rejilla-campos">
         <label class="campo"><span class="req">{{ t('Code') }}</span><input v-model="panel.codigo" required maxlength="20" :placeholder="t('E.g. FOOTWEAR')" /></label>
@@ -181,7 +181,7 @@ const nombreCampo = (clave) => campos.value.find((c) => c.clave === clave)?.etiq
       <button class="btn separar" type="button" @click="panel = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" type="submit" form="form-familia">{{ t('Save') }}</button>
     </template>
-  </PanelLateral>
+  </Modal>
 </template>
 
 <style scoped>

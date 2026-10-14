@@ -8,7 +8,7 @@ import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import EstadoVacio from '@/componentes/EstadoVacio.vue'
 import Icono from '@/componentes/Icono.vue'
-import PanelLateral from '@/componentes/PanelLateral.vue'
+import Modal from '@/componentes/Modal.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import Tendencia from '@/componentes/Tendencia.vue'
 import Segmentos from '@/componentes/Segmentos.vue'
@@ -216,7 +216,7 @@ async function guardar(destino) {
     </EstadoVacio>
   </template>
 
-  <PanelLateral v-if="panel" :titulo="t('Choose indicators')" ancho="560px" @cerrar="panel = null">
+  <Modal v-if="panel" :titulo="t('Choose indicators')" ancho="560px" @cerrar="panel = null">
     <p class="ayuda">{{ t('Showing: {0}.', [ORIGEN[d.origen]]) }} {{ t('Check the indicators you want to see and order them with the arrows. Your choice is only for you.') }}</p>
     <ul class="lista-kpis">
       <li v-for="c in ordenados" :key="c.clave">
@@ -254,7 +254,7 @@ async function guardar(destino) {
       <button type="button" class="btn" @click="panel = null">{{ t('Cancel') }}</button>
       <button type="button" class="btn btn-primario" @click="guardar('propios')"><Icono nombre="check" :tam="15" />{{ t('Save for me') }}</button>
     </template>
-  </PanelLateral>
+  </Modal>
 </template>
 
 <style scoped>

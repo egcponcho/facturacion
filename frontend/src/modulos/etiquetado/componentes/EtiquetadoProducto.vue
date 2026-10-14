@@ -111,7 +111,7 @@ const MODOS = computed(() => [['OC_ARTICULO', t('PO and item')], ['ARTICULO', t(
 
     <Modal v-if="previa" :titulo="`${previa.a.sku} · ${tx(previa.e.plantilla)} v${previa.e.version}`" ancho="640px" @cerrar="previa = null">
       <!-- eslint-disable-next-line vue/no-v-html -->
-      <div class="etq-previa" v-html="previa.svg" />
+      <div class="etq-previa previa-etiqueta" v-html="previa.svg" />
       <p class="ayuda">{{ tx(previa.e.motivo || '') }}</p>
       <ul v-if="previa.problemas.length" class="etq-lista">
         <li v-for="(x, i) in previa.problemas" :key="i" :class="x.nivel"><strong v-if="x.nombre">{{ x.nombre }}: </strong>{{ tx(x.mensaje) }}</li>
@@ -121,8 +121,8 @@ const MODOS = computed(() => [['OC_ARTICULO', t('PO and item')], ['ARTICULO', t(
 </template>
 
 <style scoped>
-.etq-previa { display: flex; justify-content: center; padding: 14px; background: repeating-conic-gradient(#eef1f5 0 25%, #fff 0 50%) 0 0 / 14px 14px; border-radius: 8px; }
-.etq-previa :deep(svg) { max-width: 100%; height: auto; max-height: 420px; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.25); }
+.etq-previa { --previa-alto: 420px; padding: 14px; background: repeating-conic-gradient(#eef1f5 0 25%, #fff 0 50%) 0 0 / 14px 14px; border-radius: 8px; }
+.etq-previa :deep(svg) { box-shadow: 0 1px 3px rgba(16, 24, 40, 0.25); }
 .etq-lista { margin: 8px 0 0; padding-left: 18px; font-size: 0.82rem; }
 .etq-lista .error { color: var(--error); }
 .etq-lista .advertencia { color: var(--aviso); }

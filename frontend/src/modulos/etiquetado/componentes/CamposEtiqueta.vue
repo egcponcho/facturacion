@@ -3,7 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
-import PanelLateral from '@/componentes/PanelLateral.vue'
+import Modal from '@/componentes/Modal.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { puede } from '@/stores/sesion'
@@ -100,7 +100,7 @@ async function quitar(c) {
     <template #vacio>{{ t('No logical fields yet. Create one when a datum can come from several places (PO line, item, product…).') }}</template>
   </TablaDatos>
 
-  <PanelLateral v-if="edicion" :titulo="edicion.id ? t('Edit logical field') : t('New logical field')" ancho="560px" @cerrar="edicion = null">
+  <Modal v-if="edicion" :titulo="edicion.id ? t('Edit logical field') : t('New logical field')" ancho="560px" @cerrar="edicion = null">
     <form id="form-campo-logico" class="form-cl" @submit.prevent="guardar">
       <div class="fila-cl">
         <label class="campo"><span class="req">{{ t('Key') }}</span>
@@ -139,7 +139,7 @@ async function quitar(c) {
       <button class="btn separar" type="button" @click="edicion = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" type="submit" form="form-campo-logico" :disabled="!edicion.fuentes.length">{{ t('Save') }}</button>
     </template>
-  </PanelLateral>
+  </Modal>
 </template>
 
 <style scoped>

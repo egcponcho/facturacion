@@ -3,7 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
-import PanelLateral from '@/componentes/PanelLateral.vue'
+import Modal from '@/componentes/Modal.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
@@ -258,7 +258,7 @@ const RESULTADOS = () => ({ aplica: t('Applies'), inactiva: t('Inactive'), otra_
     </aside>
   </div>
 
-  <PanelLateral v-if="edicion" :titulo="edicion.id ? t('Edit rule') : t('New rule')" ancho="640px" @cerrar="edicion = null">
+  <Modal v-if="edicion" :titulo="edicion.id ? t('Edit rule') : t('New rule')" ancho="640px" @cerrar="edicion = null">
     <form id="form-regla" class="formulario-asig" @submit.prevent="guardar">
       <label class="campo"><span class="req">{{ t('Design') }}</span>
         <Seleccion v-model="edicion.plantilla_id" required :disabled="!!edicion.id">
@@ -323,7 +323,7 @@ const RESULTADOS = () => ({ aplica: t('Applies'), inactiva: t('Inactive'), otra_
       <button class="btn separar" type="button" @click="edicion = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" type="submit" form="form-regla">{{ t('Save') }}</button>
     </template>
-  </PanelLateral>
+  </Modal>
 </template>
 
 <style scoped>

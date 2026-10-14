@@ -276,11 +276,16 @@ function alArrastrarEncima(ev) {
 // ---- Zoom -------------------------------------------------------------------------------
 function ajustarZoom() {
   if (!marco.value || !d.value) return
-  const ancho = marco.value.clientWidth - 48
-  const alto = marco.value.clientHeight - 48
-  const z = Math.min(ancho / ((d.value.ancho + 8) * PX_MM), alto / ((d.value.alto + 8) * PX_MM))
+  // Las reglas ocupan 26 px a cada lado (pad) y se deja un respiro de 24 px
+  const ancho = marco.value.clientWidth - 2 * 26 - 24
+  const alto = marco.value.clientHeight - 2 * 26 - 24
+  const z = Math.min(ancho / (d.value.ancho * PX_MM), alto / (d.value.alto * PX_MM))
   emit('zoom', Math.max(0.1, Math.min(Math.round(z * 100) / 100, 8)))
 }
+// Otra medida (o pasar a vertical): la etiqueta vuelve a caber entera
+watch(() => d.value && `${d.value.ancho}x${d.value.alto}`, (nueva, vieja) => {
+  if (vieja && nueva !== vieja) nextTick(ajustarZoom)
+})
 function alRueda(ev) {
   if (!ev.ctrlKey && !ev.metaKey) return
   ev.preventDefault()

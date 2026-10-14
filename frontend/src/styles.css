@@ -1336,3 +1336,8 @@ th.num .orden-btn { flex-direction: row-reverse; }
 /* Texto de aviso dentro de una celda (p. ej. datos que un rol no ve) */
 .aviso-texto { color: var(--aviso); display: inline-flex; align-items: center; gap: 4px; }
 .relleno-chico { padding: 4px 8px; }
+
+/* Vista previa de una etiqueta (SVG del servidor en mm): siempre cabe en su
+   caja, de cualquier medida y orientación, sin deformarse */
+.previa-etiqueta { display: flex; justify-content: center; align-items: center; max-width: 100%; min-width: 0; overflow: hidden; }
+.previa-etiqueta > svg, .previa-etiqueta > img { display: block; flex: 0 1 auto; width: auto; height: auto; max-width: 100%; max-height: var(--previa-alto, min(60vh, 520px)); }

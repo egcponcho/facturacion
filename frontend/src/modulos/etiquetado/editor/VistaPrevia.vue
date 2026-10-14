@@ -70,7 +70,7 @@ const fondo = ref('cuadros')
     <div class="vp-lienzo" :class="[`fondo-${fondo}`, { cargando: props.cargando }]">
       <!-- SVG del propio servidor (mismo motor de la descarga) -->
       <!-- eslint-disable-next-line vue/no-v-html -->
-      <div v-if="est.previa?.svg" class="vp-svg" v-html="est.previa.svg" />
+      <div v-if="est.previa?.svg" class="vp-svg previa-etiqueta" v-html="est.previa.svg" />
       <p v-else class="ayuda">{{ t('Drawing…') }}</p>
     </div>
     <div class="vp-pie">
@@ -105,8 +105,8 @@ const fondo = ref('cuadros')
 .vp-lienzo.cargando { opacity: 0.6; }
 .fondo-cuadros { background: repeating-conic-gradient(#eef1f5 0 25%, #fff 0 50%) 0 0 / 14px 14px; }
 .fondo-liso { background: var(--superficie-2); }
-.vp-svg { width: 100%; display: flex; justify-content: center; }
-.vp-svg :deep(svg) { max-width: 100%; height: auto; max-height: 340px; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.25); }
+.vp-svg { width: 100%; --previa-alto: 340px; }
+.vp-svg :deep(svg) { box-shadow: 0 1px 3px rgba(16, 24, 40, 0.25); }
 .vp-pie { display: flex; justify-content: space-between; align-items: center; margin-top: -4px; }
 .vp-problemas { display: flex; flex-direction: column; gap: 4px; }
 .vp-problema { display: flex; gap: 8px; align-items: flex-start; text-align: left; border: 1px solid; border-radius: 8px; padding: 7px 9px; font-size: 0.8rem; cursor: pointer;

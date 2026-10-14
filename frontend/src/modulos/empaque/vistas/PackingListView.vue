@@ -17,7 +17,6 @@ import { useEdicion } from '@/composables/useEdicion'
 import Icono from '@/componentes/Icono.vue'
 import { puede as tienePermiso } from '@/stores/sesion'
 import Modal from '@/componentes/Modal.vue'
-import PanelLateral from '@/componentes/PanelLateral.vue'
 import TarjetaParte from '@/componentes/TarjetaParte.vue'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
 import Pasos from '@/componentes/Pasos.vue'
@@ -852,7 +851,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
   <CargaMasiva v-if="modal?.tipo === 'estructura'" :titulo="t('Upload the physical structure')" :ruta="url('/estructura/importar')"
                :plantilla="url('/estructura/plantilla')" :ayuda="t('The columns are your packaging types. Leave empty the levels you do not use.')"
                @cerrar="modal = null" @cargado="modal = null; cargar(); tab = 'cajas'" />
-  <PanelLateral v-if="modal?.tipo === 'auto'" :titulo="t('Auto-pack')" ancho="1000px" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'auto'" :titulo="t('Auto-pack')" ancho="1000px" @cerrar="modal = null">
     <p class="ayuda">{{ t('Each row is packed into full cartons. If the PO line has a') }} <b>casepack</b>{{ t(', every carton carries exactly that quantity (no mixed sizes); a') }} <b>prepack</b> {{ t('goes one size run per master carton. Without a casepack, the template sets the quantity per carton. With an') }} <b>{{ t('inner pack') }}</b>{{ t(', cartons always carry whole inner packs. The template also adds dimensions and weights.') }}</p>
     <div class="fila-flex">
       <label v-for="u in unidadesAuto" :key="u" class="campo" style="min-width: 240px">
@@ -901,7 +900,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" :disabled="ocupado || !calculoAuto.validas" @click="empacarAuto"><Icono nombre="varita" :tam="15" />{{ t('Pack') }}</button>
     </template>
-  </PanelLateral>
+  </Modal>
 
   <Modal v-if="modal?.tipo === 'caja'" :titulo="tx(modal.items.length > 1 ? t('Mixed carton') : t('Manual carton'))" ancho="700px" @cerrar="modal = null">
     <div class="rejilla-campos">

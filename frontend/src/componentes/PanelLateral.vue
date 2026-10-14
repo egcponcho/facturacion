@@ -4,11 +4,10 @@ import { onBeforeUnmount, onMounted, provide } from 'vue'
 import Icono from './Icono.vue'
 import { abrirCapa, cerrarCapa, esLaDeArriba } from '@/nucleo/capas.js'
 
-// Panel lateral (drawer): para consultar un registro sin salir de la lista (se
-// conservan filtros, página y orden) y para los procesos largos que no caben
-// en una ventana (editor de roles, empaque automático, perfiles de
-// importación). «Abrir detalle completo» lleva a su página. Esc o clic fuera
-// lo cierran; los botones de la acción van en el pie (#pie), siempre visibles.
+// Panel lateral (drawer): SOLO para consultar sin salir de la lista (resumen
+// de un registro, vista previa, historial); se conservan filtros, página y
+// orden. «Abrir detalle completo» lleva a su página. Crear o editar un
+// registro va en una ventana (Modal) o en su propia página, nunca aquí.
 const props = defineProps({ titulo: { type: String, default: '' }, detalle: { type: String, default: '' }, ancho: { type: String, default: '460px' } })
 const emit = defineEmits(['cerrar'])
 // Las tablas de adentro se muestran como vista previa (5 filas, sin barra de herramientas)

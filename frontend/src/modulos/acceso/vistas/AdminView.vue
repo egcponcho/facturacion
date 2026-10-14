@@ -7,7 +7,6 @@ import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import FiltroMulti from '@/componentes/FiltroMulti.vue'
 import Modal from '@/componentes/Modal.vue'
-import PanelLateral from '@/componentes/PanelLateral.vue'
 import Avatar from '@/componentes/Avatar.vue'
 import MenuAcciones from '@/componentes/MenuAcciones.vue'
 import PanelFlujo from '@/modulos/acceso/componentes/PanelFlujo.vue'
@@ -324,7 +323,7 @@ onMounted(cargar)
       <button class="btn btn-primario" type="submit" form="form-usuario">{{ t('Create user') }}</button>
     </template>
   </Modal>
-  <PanelLateral v-if="modal?.tipo === 'rol'" :titulo="tx(modal.id ? t('Role: {0}', [modal.nombre]) : t('New role'))" ancho="860px" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'rol'" :titulo="tx(modal.id ? t('Role: {0}', [modal.nombre]) : t('New role'))" ancho="860px" @cerrar="modal = null">
     <form id="form-rol" class="rol-form" @submit.prevent="guardarRol">
       <div class="rejilla-campos">
         <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="modal.nombre" required maxlength="80" /></label>
@@ -366,7 +365,7 @@ onMounted(cargar)
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" type="submit" form="form-rol">{{ t('Save role') }}</button>
     </template>
-  </PanelLateral>
+  </Modal>
   <Modal v-if="modal?.tipo === 'rol-usuario'" :titulo="t('Role for {0}', [modal.usuario.email])" @cerrar="modal = null">
     <form id="form-rol-usuario" class="rejilla-campos" @submit.prevent="guardarRolUsuario">
       <label class="campo"><span class="req">{{ t('Role') }}</span>
