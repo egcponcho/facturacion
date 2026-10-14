@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Query, Response, UploadFile
 
 from app.core.errores import ErrorNegocio
 from app.modulos.acceso.permisos import exigir_alguno
-from app.modulos.etiquetado import asignaciones, campos, familias, generacion, plantillas, previa
+from app.modulos.etiquetado import asignaciones, campos, familias, generacion, masivo, plantillas, previa
 from app.web.rutas import Clave, Db, User, ejecutar, leer_subida
 
 router = APIRouter()
@@ -56,10 +56,11 @@ def eliminar_familia(familia_id: int, db: Db, user: User):
 @router.get("/etiquetas/articulos")
 def articulos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None, marca_id: int | None = None,
                       grupo_id: int | None = None, producto_id: int | None = None, ids: str | None = Query(None, pattern=r"^\d+(,\d+)*$"),
-                      page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200)):
-    """Artículos con su familia de etiquetado (familia=sin: los que no tienen; ids=1,2,3: solo esos)."""
+                      page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200), solo_ids: bool = False):
+    """Artículos con su familia de etiquetado (familia=sin: los que no tienen; ids=1,2,3: solo esos;
+    solo_ids: los números de todos los que cumplen el filtro, para elegirlos de una vez)."""
     return familias.articulos(db, user, q, familia, marca_id, grupo_id, producto_id, page, size,
-                              [int(x) for x in ids.split(",")][:200] if ids else None)
+                              [int(x) for x in ids.split(",")][:200] if ids else None, solo_ids)
 
 
 @router.get("/etiquetas/grupos-articulos")
@@ -272,6 +273,46 @@ def historial(db: Db, user: User, desde: date | None = None, hasta: date | None 
     """Lotes generados con filtros por fecha, usuario, OC, artículo, familia, plantilla, versión y estado."""
     return generacion.listar(db, user, desde, hasta, usuario_id, oc_id, articulo_id, familia_id, plantilla_id, version_id,
                              estado, page, size)
+
+
+# ---- Generación masiva ----------------------------------------------------------------------------
+@router.get("/etiquetas/masivo/ordenes")
+def ordenes_masivo(db: Db, user: User, familia_id: int | None = None, q: str | None = None, estado: str | None = None,
+                   page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200), solo_ids: bool = False):
+    """Órdenes de compra con artículos de la familia (líneas y artículos distintos de la familia, bultos y lotes ya generados)."""
+    return masivo.ordenes_familia(db, user, familia_id, q, estado, page, size, solo_ids)
+
+
+@router.get("/etiquetas/masivo/packing")
+def buscar_packing(db: Db, user: User, q: str | None = None):
+    """Listas de empaque para generar etiquetas de sus empaques."""
+    return masivo.buscar_packing(db, user, q)
+
+
+@router.get("/etiquetas/masivo/packing/{pl_id}")
+def packing_masivo(pl_id: int, db: Db, user: User):
+    """Una lista de empaque con sus niveles de empaque (tarimas, cajas, inner…) y cuántas unidades tiene cada uno."""
+    return masivo.packing(db, user, pl_id)
+
+
+@router.post("/etiquetas/masivo/plan")
+def plan_masivo(db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Qué se generaría: un lote por OC (o uno de artículos o de la lista de empaque) con sus problemas."""
+    return masivo.ver_plan(db, user, datos)
+
+
+@router.post("/etiquetas/masivo")
+def generar_masivo(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
+    """Genera los lotes con una etiqueta por página (tipo: ordenes, articulos o packing; plantilla_id; formato PDF o PNG)."""
+    return ejecutar(db, user, clave, lambda: masivo.generar(db, user, datos))
+
+
+@router.get("/etiquetas/masivo/{lote}/archivo")
+def archivo_masivo(lote: str, db: Db, user: User, formato: str | None = Query(None, pattern="^(PDF|PNG)$")):
+    """Los archivos de la generación masiva: un PDF (o ZIP de imágenes), o un ZIP con un PDF por OC."""
+    contenido, nombre, mime = masivo.archivo(db, user, lote, formato)
+    db.commit()
+    return Response(contenido, media_type=mime, headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
 
 
 @router.get("/etiquetas/generaciones/{generacion_id}")

@@ -34,6 +34,7 @@ from app.modelos import (
     GeneracionEtiquetas,
     GeneracionItem,
     OrdenCompra,
+    PackingList,
     PlantillaEtiqueta,
     PosicionOC,
     Usuario,
@@ -58,6 +59,7 @@ class Grupo:
     articulo: Articulo | None = None
     posicion: PosicionOC | None = None
     bulto: campos.Bulto | None = None
+    oc: OrdenCompra | None = None  # la OC del grupo cuando el lote no es de una sola OC (lista de empaque)
     eleccion: asignaciones.Eleccion | None = None
     version: VersionPlantilla | None = None
     valores: dict = field(default_factory=dict)
@@ -82,6 +84,7 @@ class Grupo:
                 "articulo_id": self.articulo.id if self.articulo else None,
                 "posicion_id": self.posicion.id if self.posicion else None,
                 "bulto": self.bulto.numero if self.bulto else None, "familia": fam.nombre if fam else None,
+                "oc_id": self.oc.id if self.oc else None, "oc": self.oc.numero if self.oc else None,
                 "plantilla_id": p.id if p else None, "plantilla": p.nombre if p else None,
                 "version_id": self.version.id if self.version else None, "version": self.version.numero if self.version else None,
                 "version_estado": self.version.estado if self.version else None,
@@ -106,6 +109,8 @@ def _grupos(db: Session, user: Usuario, pedido: dict) -> tuple[OrdenCompra | Non
     if unidad not in plantillas.UNIDADES_VALIDAS[modalidad]:
         raise ErrorNegocio("That label unit does not apply to this data mode.", 422, "validacion")
     manuales = {str(k): v for k, v in (pedido.get("cantidades") or {}).items()}
+    if pedido.get("pl_id"):
+        return _grupos_pl(db, user, pedido, modalidad, unidad)
     oc = datos.cargar_oc(db, user, pedido["oc_id"]) if pedido.get("oc_id") else None
     if modalidad != "ARTICULO" and oc is None:
         raise ErrorNegocio("Choose the purchase order.", 422, "validacion")
@@ -133,8 +138,22 @@ def _grupos(db: Session, user: Usuario, pedido: dict) -> tuple[OrdenCompra | Non
         posiciones = [p for p in posiciones if p.id in elegidas]
     else:
         posiciones = [p for p in posiciones if not p.bloqueada]
+    if pedido.get("familia_id"):
+        fid = int(pedido["familia_id"])
+        posiciones = [p for p in posiciones if p.articulo and p.articulo.familia_efectiva and p.articulo.familia_efectiva.id == fid]
+        if not posiciones:
+            raise ErrorNegocio("The PO has no items of this labeling family.", 422, "sin_articulos_familia")
     if not posiciones:
         raise ErrorNegocio("Choose the PO lines to label.", 422, "validacion")
+    if unidad == "ARTICULO":
+        # Una sola etiqueta por artículo aunque se repita en varias líneas de la OC
+        vistos: dict = {}
+        for p in posiciones:
+            k = p.articulo_id or p.codigo_articulo
+            if k not in vistos:
+                vistos[k] = p
+        return oc, modalidad, unidad, [Grupo(f"a{p.articulo_id}" if p.articulo_id else f"c{p.codigo_articulo}",
+                                             p.codigo_articulo, 1, articulo=p.articulo, posicion=p) for p in vistos.values()]
     if unidad == "BULTO":
         por_posicion = {p.id: p for p in posiciones}
         for b in campos.bultos(db, oc.id):
@@ -161,6 +180,46 @@ def _grupos(db: Session, user: Usuario, pedido: dict) -> tuple[OrdenCompra | Non
     return oc, modalidad, unidad, grupos
 
 
+def cargar_pl(db: Session, user: Usuario, pl_id: int) -> PackingList:
+    from app.modulos.acceso.permisos import asegurar_proveedor
+
+    pl = db.get(PackingList, pl_id)
+    if not pl or pl.estado == "CANCELADO":
+        raise ErrorNegocio("The packing list does not exist.", 404, "no_encontrado")
+    asegurar_proveedor(user, pl.factura.proveedor_id, pl.factura.sociedad)
+    return pl
+
+
+def _grupos_pl(db: Session, user: Usuario, pedido: dict, modalidad: str, unidad: str):
+    """Una etiqueta por unidad de un nivel de empaque de la lista (cajas,
+    tarimas, inner…). Cada unidad toma la OC, la línea y el artículo de su
+    contenido; con contenido mixto, los de la primera línea (y se avisa)."""
+    if modalidad == "ARTICULO" or unidad != "BULTO":
+        raise ErrorNegocio("From a packing list, labels are one per package with PO data.", 422, "validacion")
+    pl = cargar_pl(db, user, pedido["pl_id"])
+    tipo = pedido.get("tipo_empaque_id")
+    unidades = campos.unidades_pl(pl, int(tipo) if tipo else None, superiores=not tipo)
+    if not unidades:
+        raise ErrorNegocio("The packing list has no packages of that type.", 422, "sin_bultos")
+    posiciones = {p.id: p for p in db.scalars(select(PosicionOC).where(PosicionOC.id.in_({i for u in unidades for i in u.posiciones})))}
+    grupos, ocs = [], set()
+    for u in unidades:
+        p = posiciones.get(u.posiciones[0]) if u.posiciones else None
+        oc = p.oc if p else None
+        if oc is not None:
+            ocs.add(oc.id)
+        codigo = u.valores.get("bulto.codigo") or f"{u.numero}/{u.total}"
+        g = Grupo(f"pl{pl.id}-g{u.grupo_id}-{u.numero}", f"{pl.numero} · {codigo}", 1, articulo=p.articulo if p else None,
+                  posicion=p if modalidad == "OC_ARTICULO" else None, bulto=u, oc=oc)
+        if modalidad == "OC_ARTICULO" and len(u.posiciones) > 1:
+            g.problema("advertencia", "contenido_mixto", "The package has several items: the label shows the data of the first one.")
+        if p is None:
+            g.problema("advertencia", "sin_contenido", "The package has no items: the PO and item fields stay empty.")
+        grupos.append(g)
+    unica = db.get(OrdenCompra, next(iter(ocs))) if len(ocs) == 1 else None
+    return unica, modalidad, unidad, grupos
+
+
 def _version_de(db: Session, plantilla: PlantillaEtiqueta, prueba: bool) -> VersionPlantilla | None:
     """La vigente aprobada; en una prueba, la última versión (aunque sea un borrador)."""
     if prueba:
@@ -179,6 +238,7 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
     if forzada and (forzada.modalidad != modalidad or forzada.estado != "ACTIVA"):
         raise ErrorNegocio("The chosen design is of another data mode or is archived.", 422, "validacion")
     elegidas = {str(k): v for k, v in (pedido.get("elegidas") or {}).items()}
+    escritos = {str(k): v for k, v in (pedido.get("manuales") or {}).items()}
     organizacion = campos.valores_organizacion(db)
     tipos = {c.clave: c.tipo for c in campos.catalogo(db, modalidad)}
     previas = _previas(db, oc, grupos)
@@ -189,7 +249,7 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
             g.eleccion = asignaciones.Eleccion(plantilla=forzada, nivel="ELEGIDA", motivo="Chosen by the user for this batch.")
         else:
             clave_eleccion = f"a{g.articulo.id}" if g.articulo else "oc"
-            g.eleccion = asignaciones.resolver(db, modalidad, g.articulo, oc, elegidas.get(clave_eleccion))
+            g.eleccion = asignaciones.resolver(db, modalidad, g.articulo, g.oc or oc, elegidas.get(clave_eleccion))
         e = g.eleccion
         if e.plantilla is None:
             if e.ambigua:
@@ -206,7 +266,16 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
             g.problema("advertencia", "familia", aviso)
         if g.posicion is not None and g.articulo is None:
             g.problema("advertencia", "sin_articulo", "The PO line is not linked to an item of the master data: only the line data is printed.")
-        g.valores = datos.valores(db, modalidad, g.articulo, oc, g.posicion, g.bulto, organizacion)
+        g.valores = {**datos.valores(db, modalidad, g.articulo, g.oc or oc, g.posicion, g.bulto, organizacion),
+                     **svc_diseno.valores_manuales(g.version.diseno, escritos)}
+        for falta in svc_diseno.manuales_faltantes(g.version.diseno, g.valores):
+            g.problema("error", "manual_obligatorio", f"Write the value of {falta} before generating.")
+        usados = svc_diseno.campos_usados(g.version.diseno)
+        de_empaque = sorted(c for c in usados if c.startswith("bulto."))
+        if de_empaque and g.bulto is None:
+            g.problema("advertencia", "sin_lista_empaque",
+                       f"The design uses packing list data ({', '.join(de_empaque)}) and there is no packing list here: "
+                       "those fields stay empty.")
         fam = g.articulo.familia_efectiva if g.articulo else None
         for faltante in familias.faltantes(db, fam, g.valores):
             g.problema("error", "dato_obligatorio", f"The family {fam.nombre} requires {faltante}, which is empty.")
@@ -224,7 +293,8 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
         general.append({"nivel": "error", "codigo": "lote_grande", "elemento": None,
                         "mensaje": f"{total} labels exceed the limit of {settings.ETIQUETAS_MAXIMO_LOTE} per batch: split the batch."})
     errores = sum(len(g.errores) for g in grupos) + len([p for p in general if p["nivel"] == "error"])
-    return {"oc_id": oc.id if oc else None, "oc": oc.numero if oc else None, "modalidad": modalidad, "unidad": unidad,
+    return {"oc_id": oc.id if oc else None, "oc": oc.numero if oc else None, "pl_id": pedido.get("pl_id"),
+            "modalidad": modalidad, "unidad": unidad,
             "prueba": prueba, "total": total, "grupos": [g.dict() for g in grupos], "problemas": general,
             "errores": errores, "advertencias": sum(len(g.advertencias) for g in grupos),
             "puede_generar": errores == 0 and total > 0, "_grupos": grupos}
@@ -276,12 +346,14 @@ def generar(db: Session, user: Usuario, pedido: dict) -> dict:
     hoja = pedido.get("hoja")
     if hoja is not None:
         hoja = svc_diseno.Hoja.model_validate(hoja).model_dump()
-    g0 = GeneracionEtiquetas(oc_id=p["oc_id"], modalidad=p["modalidad"], unidad=p["unidad"], formato=formato,
+    g0 = GeneracionEtiquetas(oc_id=p["oc_id"], pl_id=p.get("pl_id"), lote=pedido.get("lote"), modalidad=p["modalidad"],
+                             unidad=p["unidad"], formato=formato,
                              estado="PRUEBA" if p["prueba"] else "GENERADA", total=p["total"], creada_por=user.id,
                              advertencias=advertencias[:200],
                              parametros={"posiciones": pedido.get("posiciones"), "cantidades": pedido.get("cantidades"),
                                          "plantilla_id": pedido.get("plantilla_id"), "elegidas": pedido.get("elegidas"),
-                                         "hoja": hoja, "dpi": pedido.get("dpi")})
+                                         "hoja": hoja, "dpi": pedido.get("dpi"), "familia_id": pedido.get("familia_id"),
+                                         "tipo_empaque_id": pedido.get("tipo_empaque_id"), "manuales": pedido.get("manuales")})
     # El logo de la organización se guarda una vez por lote (si algún diseño lo usa), no en cada etiqueta
     if any("organizacion.logo" in svc_diseno.campos_usados(g.version.diseno) for g in grupos):
         g0.parametros = {**g0.parametros, "logo": campos.valores_organizacion(db).get("organizacion.logo")}
@@ -399,7 +471,9 @@ def dict_generacion(db: Session, g: GeneracionEtiquetas, completo: bool = False)
         v = db.get(VersionPlantilla, it.version_id)
         versiones[it.version_id] = {"plantilla_id": it.plantilla_id, "plantilla": v.plantilla.nombre, "version_id": v.id,
                                     "version": v.numero}
-    r = {"id": g.id, "oc_id": g.oc_id, "oc": oc.numero if oc else None, "modalidad": g.modalidad, "unidad": g.unidad,
+    pl = db.get(PackingList, g.pl_id) if g.pl_id else None
+    r = {"id": g.id, "oc_id": g.oc_id, "oc": oc.numero if oc else None, "pl_id": g.pl_id, "packing_list": pl.numero if pl else None,
+         "lote": g.lote, "modalidad": g.modalidad, "unidad": g.unidad,
          "formato": g.formato, "estado": g.estado, "total": g.total, "archivo": g.archivo, "sha256": g.sha256,
          "creada_por": (u.nombre or u.email) if u else None, "creada_en": g.creada_en, "versiones": list(versiones.values()),
          "grupos": len(g.items), "advertencias": g.advertencias or []}

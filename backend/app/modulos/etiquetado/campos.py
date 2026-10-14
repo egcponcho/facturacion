@@ -133,6 +133,9 @@ _FIJOS = [
     Campo("bulto.medidas", "Package dimensions (cm)"),
     Campo("bulto.unidades", "Units in the package", "numero"),
     Campo("bulto.contenido", "Package contents"),
+    Campo("bulto.tipo", "Package type"),
+    Campo("bulto.codigo", "Package code"),
+    Campo("bulto.contenedor", "Contained in"),
     Campo("organizacion.nombre", "Organization name"),
     Campo("organizacion.razon_social", "Organization legal name"),
     Campo("organizacion.id_fiscal", "Organization tax ID"),
@@ -266,38 +269,114 @@ def posiciones(db: Session, oc_id: int) -> list[PosicionOC]:
 
 @dataclass
 class Bulto:
-    """Una caja física de una lista de empaque de la OC (las cajas de un grupo son iguales)."""
+    """Una unidad física de empaque de una lista de empaque (caja, tarima,
+    inner…): las unidades de un mismo nodo del árbol son iguales."""
     grupo_id: int
     numero: int
     total: int
     valores: dict = field(default_factory=dict)
     posiciones: list[int] = field(default_factory=list)
+    pl_id: int | None = None
+    tipo_empaque_id: int | None = None
+
+
+def _hijos(pl: PackingList) -> dict:
+    res: dict = {}
+    for g in pl.grupos:
+        res.setdefault(g.padre_id, []).append(g)
+    for lista in res.values():
+        lista.sort(key=lambda g: g.id)
+    return res
+
+
+def _contenido(g: GrupoCajas, hijos: dict) -> list[tuple]:
+    """(línea de factura, cantidad) en UNA unidad del empaque, incluido lo que
+    llevan sus empaques interiores (40 inner en 10 cajas = 4 por caja)."""
+    res = [(it.pl_linea.factura_linea, float(it.cantidad_por_caja)) for it in g.items]
+    for h in hijos.get(g.id, []):
+        por_unidad = h.num_cajas / g.num_cajas if g.num_cajas else 0
+        res += [(fl, q * por_unidad) for fl, q in _contenido(h, hijos)]
+    return res
+
+
+def _nombre_tipo(g: GrupoCajas) -> str | None:
+    return g.tipo_empaque.nombre if g.tipo_empaque else (g.plantilla_nombre or None)
+
+
+def _unidades(pl: PackingList, nodos: list[GrupoCajas], hijos: dict, por_tipo: bool) -> list[Bulto]:
+    """Una etiqueta por unidad de cada nodo, numeradas n de N (por tipo de
+    empaque o en conjunto) con su código (C3, P1…) y el empaque que la contiene."""
+    padres = {g.id: g for g in pl.grupos}
+    clave = (lambda g: g.tipo_empaque_id) if por_tipo else (lambda g: None)
+    total: dict = {}
+    for g in nodos:
+        total[clave(g)] = total.get(clave(g), 0) + g.num_cajas
+    # Número de la primera unidad de cada nodo dentro de su tipo (para los códigos de los contenedores)
+    inicio, cuenta = {}, {}
+    for g in sorted(pl.grupos, key=lambda x: x.id):
+        cuenta[g.tipo_empaque_id] = cuenta.get(g.tipo_empaque_id, 0)
+        inicio[g.id] = cuenta[g.tipo_empaque_id]
+        cuenta[g.tipo_empaque_id] += g.num_cajas
+    emb = pl.unidad.embarque.codigo if pl.unidad and pl.unidad.embarque else None
+    res: list[Bulto] = []
+    n: dict = {}
+    for g in nodos:
+        items = _contenido(g, hijos)
+        contenido = "; ".join(f"{fl.posicion_oc.codigo_articulo} × {q:g}" for fl, q in items)
+        medidas = " × ".join(f"{x:g}" for x in (g.largo, g.ancho, g.alto) if x) or None
+        pos_ids = sorted({fl.posicion_oc_id for fl, _ in items})
+        prefijo = g.tipo_empaque.prefijo if g.tipo_empaque and g.tipo_empaque.prefijo else ""
+        padre = padres.get(g.padre_id)
+        for k in range(g.num_cajas):
+            n[clave(g)] = n.get(clave(g), 0) + 1
+            numero = n[clave(g)]
+            contenedor = None
+            if padre is not None and padre.num_cajas:
+                por_padre = max(g.num_cajas // padre.num_cajas, 1)
+                ppref = padre.tipo_empaque.prefijo if padre.tipo_empaque and padre.tipo_empaque.prefijo else ""
+                contenedor = f"{ppref}{inicio[padre.id] + min(k // por_padre, padre.num_cajas - 1) + 1}"
+            res.append(Bulto(g.id, numero, total[clave(g)], {
+                "bulto.numero": numero, "bulto.total": total[clave(g)], "bulto.packing_list": pl.numero,
+                "bulto.factura": pl.factura.numero, "bulto.embarque": emb, "bulto.peso_bruto": g.peso_bruto_caja,
+                "bulto.peso_neto": g.peso_neto_caja, "bulto.medidas": medidas, "bulto.unidades": sum(q for _, q in items),
+                "bulto.contenido": contenido, "bulto.tipo": _nombre_tipo(g),
+                "bulto.codigo": f"{prefijo}{inicio[g.id] + k + 1}" if prefijo else None, "bulto.contenedor": contenedor},
+                pos_ids, pl.id, g.tipo_empaque_id))
+    return res
 
 
 def bultos(db: Session, oc_id: int) -> list[Bulto]:
     """Cajas de las listas de empaque no canceladas con mercancía de la OC,
-    numeradas por lista de empaque (caja n de N). Solo los grupos de primer
-    nivel: una caja dentro de otra no lleva etiqueta de bulto propia."""
+    numeradas por lista de empaque (caja n de N). Solo los empaques de primer
+    nivel: lo que va dentro de otro empaque no lleva etiqueta de bulto propia."""
     de_la_oc = (select(PLLinea.pl_id).join(FacturaLinea, FacturaLinea.id == PLLinea.factura_linea_id)
                 .join(PosicionOC, PosicionOC.id == FacturaLinea.posicion_oc_id).where(PosicionOC.oc_id == oc_id))
     pls = list(db.scalars(select(PackingList).where(PackingList.id.in_(de_la_oc), PackingList.estado != "CANCELADO")
                           .order_by(PackingList.id)))
     res: list[Bulto] = []
     for pl in pls:
-        grupos = [g for g in db.scalars(select(GrupoCajas).where(GrupoCajas.pl_id == pl.id, GrupoCajas.padre_id.is_(None))
-                                        .order_by(GrupoCajas.id))]
-        total = sum(g.num_cajas for g in grupos)
-        n = 0
-        emb = pl.unidad.embarque.codigo if pl.unidad and pl.unidad.embarque else None
-        for g in grupos:
-            items = [(it.pl_linea.factura_linea, float(it.cantidad_por_caja)) for it in g.items]
-            contenido = "; ".join(f"{fl.posicion_oc.codigo_articulo} × {q:g}" for fl, q in items)
-            medidas = " × ".join(f"{x:g}" for x in (g.largo, g.ancho, g.alto) if x) or None
-            pos_ids = sorted({fl.posicion_oc_id for fl, _ in items})
-            for _ in range(g.num_cajas):
-                n += 1
-                res.append(Bulto(g.id, n, total, {
-                    "bulto.numero": n, "bulto.total": total, "bulto.packing_list": pl.numero, "bulto.factura": pl.factura.numero,
-                    "bulto.embarque": emb, "bulto.peso_bruto": g.peso_bruto_caja, "bulto.peso_neto": g.peso_neto_caja,
-                    "bulto.medidas": medidas, "bulto.unidades": sum(q for _, q in items), "bulto.contenido": contenido}, pos_ids))
+        hijos = _hijos(pl)
+        res += _unidades(pl, hijos.get(None, []), hijos, por_tipo=False)
     return res
+
+
+def niveles_pl(pl: PackingList) -> list[dict]:
+    """Los tipos de empaque de una lista de empaque con cuántas unidades tiene cada uno."""
+    res: dict = {}
+    for g in pl.grupos:
+        x = res.setdefault(g.tipo_empaque_id, {"tipo_empaque_id": g.tipo_empaque_id, "nombre": _nombre_tipo(g),
+                                               "nivel": g.tipo_empaque.nivel if g.tipo_empaque else None,
+                                               "cuenta_como": g.tipo_empaque.cuenta_como if g.tipo_empaque else "BULTO",
+                                               "unidades": 0, "superior": False})
+        x["unidades"] += g.num_cajas
+        x["superior"] = x["superior"] or g.padre_id is None
+    return sorted(res.values(), key=lambda x: (-(x["nivel"] or 0), x["nombre"] or ""))
+
+
+def unidades_pl(pl: PackingList, tipo_empaque_id: int | None = None, superiores: bool = False) -> list[Bulto]:
+    """Las unidades de un nivel de empaque de la lista (o las de primer nivel)."""
+    hijos = _hijos(pl)
+    if superiores:
+        return _unidades(pl, hijos.get(None, []), hijos, por_tipo=False)
+    nodos = sorted((g for g in pl.grupos if g.tipo_empaque_id == tipo_empaque_id), key=lambda g: g.id)
+    return _unidades(pl, nodos, hijos, por_tipo=True)

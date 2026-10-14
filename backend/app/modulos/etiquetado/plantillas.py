@@ -185,7 +185,7 @@ def _validar_meta(db: Session, datos: dict, actual: PlantillaEtiqueta | None) ->
 def validar_contenido(db: Session, user: Usuario, modalidad: str, diseno: dict) -> dict:
     """Diseño limpio cuyos campos existen en la modalidad y cuyas imágenes son de la organización."""
     limpio = svc_diseno.validar(diseno)
-    disponibles = {c.clave for c in svc_campos.catalogo(db, modalidad)}
+    disponibles = {c.clave for c in svc_campos.catalogo(db, modalidad)} | {f"manual.{v['clave']}" for v in limpio["variables"]}
     ajenos = sorted(c for c in svc_diseno.campos_usados(limpio) if c not in disponibles)
     if ajenos:
         raise ErrorNegocio("The design uses fields that this data mode does not have.", 422, "validacion",
@@ -220,6 +220,7 @@ def revisar(db: Session, modalidad: str, diseno: dict, valores: dict | None = No
         valores = {**svc_campos.ejemplos(db, modalidad), "etiqueta.numero": 1, "etiqueta.total": 1, "etiqueta.numero_lote": 1,
                    "etiqueta.total_lote": 1}
         valores.update(svc_campos.valores_organizacion(db))
+        valores.update(svc_diseno.valores_manuales(diseno, ejemplo=True))
     return render.componer(diseno, valores, tipos, imagen_adjunta(db), prueba)
 
 

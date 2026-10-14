@@ -154,6 +154,15 @@ class Hoja(_Base):
     espacio_v: float = Field(2, ge=0, le=200)
 
 
+class Variable(_Base):
+    """Un dato que se escribe al generar (lote, temporada, destino…): se usa en
+    el diseño como {{manual.clave}}; si no se escribe, va el valor por defecto."""
+    clave: str = Field(pattern=r"^[a-z][a-z0-9_]{0,29}$")
+    etiqueta: str = Field(min_length=1, max_length=60)
+    defecto: str | None = Field(None, max_length=200)
+    obligatorio: bool = False
+
+
 class Diseno(_Base):
     esquema: Literal[1] = 1
     unidad: Literal["mm", "cm", "in"] = "mm"
@@ -166,6 +175,15 @@ class Diseno(_Base):
     cuadricula: Cuadricula = Cuadricula()
     hoja: Hoja = Hoja()
     elementos: list[Elemento] = Field(default_factory=list, max_length=MAX_ELEMENTOS)
+    variables: list[Variable] = Field(default_factory=list, max_length=30)
+
+    @field_validator("variables")
+    @classmethod
+    def _variables_unicas(cls, v):
+        claves = [x.clave for x in v]
+        if len(claves) != len(set(claves)):
+            raise ValueError("each field to fill in when generating needs its own key")
+        return v
 
     @field_validator("elementos")
     @classmethod
@@ -237,3 +255,22 @@ def resumen_cambios(antes: dict | None, despues: dict) -> str | None:
     if [e["id"] for e in antes.get("elementos", []) if e["id"] in d] != [e["id"] for e in despues.get("elementos", []) if e["id"] in a]:
         cambios.append("layer order changed")
     return "; ".join(cambios) or "no changes"
+
+
+def valores_manuales(diseno: dict, escritos: dict | None = None, ejemplo: bool = False) -> dict:
+    """Los valores de los campos que se escriben al generar: lo escrito o, si no,
+    el valor por defecto (en la vista previa de ejemplo, el nombre del campo)."""
+    escritos = escritos or {}
+    res = {}
+    for v in diseno.get("variables") or []:
+        valor = escritos.get(v["clave"])
+        if valor in (None, ""):
+            valor = v.get("defecto") or (f"[{v['etiqueta']}]" if ejemplo else None)
+        res[f"manual.{v['clave']}"] = valor
+    return res
+
+
+def manuales_faltantes(diseno: dict, valores: dict) -> list[str]:
+    """Campos obligatorios que se escriben al generar y quedaron vacíos."""
+    return [v["etiqueta"] for v in diseno.get("variables") or []
+            if v.get("obligatorio") and valores.get(f"manual.{v['clave']}") in (None, "")]

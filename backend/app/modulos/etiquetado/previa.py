@@ -38,10 +38,12 @@ def vista_previa(db: Session, user: Usuario, pedido: dict) -> dict:
             if not 1 <= n <= len(lista):
                 raise ErrorNegocio("That package does not exist in the PO's packing lists.", 422, "validacion")
             bulto = lista[n - 1]
-        valores = {**datos.valores(db, modalidad, articulo, oc, posicion, bulto), **_numeracion()}
+        valores = {**datos.valores(db, modalidad, articulo, oc, posicion, bulto), **_numeracion(),
+                   **svc_diseno.valores_manuales(contenido, pedido.get("manuales"), ejemplo=True)}
     lz = plantillas.revisar(db, modalidad, contenido, valores, prueba=bool(pedido.get("prueba")))
     usados = svc_diseno.campos_usados(contenido)
-    mostrados = valores if valores is not None else {**campos.ejemplos(db, modalidad), **_numeracion()}
+    mostrados = valores if valores is not None else {**campos.ejemplos(db, modalidad), **_numeracion(),
+                                                     **svc_diseno.valores_manuales(contenido, ejemplo=True)}
     return {"svg": salidas.svg(lz), "ancho": lz.ancho, "alto": lz.alto, "problemas": lz.problemas,
             "datos": "reales" if reales else "ejemplo",
             "valores": {k: mostrados.get(k) for k in sorted(usados) if not str(k).endswith(".logo")}}
