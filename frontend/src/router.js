@@ -26,7 +26,8 @@ const routes = [
   // Asistente único de etiquetado (todas las entradas crean un trabajo); las rutas anteriores llevan a él
   { path: '/etiquetas/trabajos/nuevo', component: () => import('@/modulos/etiquetado/vistas/TrabajoEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar', vista: 'trabajo-etiquetas' } },
   { path: '/etiquetas/trabajos/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/TrabajoEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar', vista: 'trabajo-etiquetas' } },
-  { path: '/etiquetas/masiva', redirect: (to) => ({ path: '/etiquetas/trabajos/nuevo', query: to.query.pl ? { origen: 'PACKING', pl: to.query.pl } : {} }) },
+  { path: '/etiquetas/masiva', redirect: (to) => ({ path: '/etiquetas/trabajos/nuevo',
+    query: to.query.pl ? { origen: 'PACKING', pl: to.query.pl } : to.query.familia ? { origen: 'OC', familia: to.query.familia } : {} }) },
   { path: '/etiquetas/generar', redirect: (to) => ({ path: '/etiquetas/trabajos/nuevo',
     query: to.query.articulo ? { origen: 'ARTICULOS', articulos: to.query.articulo } : to.query.oc ? { origen: 'OC', oc: to.query.oc } : {} }) },
   { path: '/plantillas', component: () => import('@/modulos/empaque/vistas/PlantillasView.vue'), meta: { permiso: ['plantilla.editar', 'pl.editar'] } },

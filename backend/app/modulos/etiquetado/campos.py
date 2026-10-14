@@ -64,15 +64,18 @@ class Coleccion:
 
 
 _COL_LINEA = (("oc", "PO", "texto"), ("linea", "Line", "texto"), ("sku", "SKU", "texto"), ("upc", "UPC", "texto"),
-              ("descripcion", "Description", "texto"), ("color", "Color", "texto"), ("talla", "Size", "texto"),
-              ("cantidad", "Quantity", "numero"), ("unidad", "Unit", "texto"))
+              ("descripcion", "Description", "texto"), ("color", "Color", "texto"), ("talla", "Size", "texto"))
+# Misma clave «cantidad» (los diseños guardados la usan), pero no el mismo dato:
+# en la OC es lo pedido (plan); en el bulto, lo empacado en esa unidad (real)
+_COL_LINEA_OC = (*_COL_LINEA, ("cantidad", "Quantity ordered", "numero"), ("unidad", "Unit", "texto"))
+_COL_LINEA_BULTO = (*_COL_LINEA, ("cantidad", "Quantity packed in the package", "numero"), ("unidad", "Unit", "texto"))
 _COL_COMPONENTE = (("sku", "SKU", "texto"), ("upc", "UPC", "texto"), ("descripcion", "Description", "texto"),
                    ("color", "Color", "texto"), ("talla", "Size", "texto"), ("cantidad", "Quantity", "numero"))
 COLECCIONES = [
-    Coleccion("bulto.lineas", "Package contents (lines)", _COL_LINEA),
+    Coleccion("bulto.lineas", "Package contents (lines)", _COL_LINEA_BULTO),
     Coleccion("bulto.componentes", "Package contents by component (prepacks and kits exploded)", _COL_COMPONENTE),
     Coleccion("articulo.componentes", "Components of the prepack or kit (per pack)", _COL_COMPONENTE),
-    Coleccion("oc.lineas", "Purchase order lines", _COL_LINEA),
+    Coleccion("oc.lineas", "Purchase order lines (ordered quantities)", _COL_LINEA_OC),
 ]
 MAX_FILAS = 500  # filas por colección en una etiqueta (más es un dato equivocado, no una etiqueta)
 

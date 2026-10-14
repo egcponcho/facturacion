@@ -252,8 +252,9 @@ def generar(db: Session, user: Usuario, pedido: dict) -> dict:
 def archivo(db: Session, user: Usuario, lote: str, formato: str | None = None) -> tuple[bytes, str, str]:
     """Los archivos de una generación masiva: con un solo lote, su PDF (o su
     ZIP de imágenes); con varios, un ZIP con un PDF (o una carpeta de imágenes)
-    por OC. Se dibujan de nuevo desde las versiones e instantáneas guardadas."""
-    exigir(user, "etiquetas.ver")
+    por OC. Se dibujan de nuevo desde las versiones e instantáneas guardadas.
+    Descargar es de quien genera (ver solo deja consultar el historial)."""
+    exigir(user, "etiquetas.generar")
     gens = list(db.scalars(select(GeneracionEtiquetas).where(GeneracionEtiquetas.lote == lote, *generacion._alcance(user))
                            .order_by(GeneracionEtiquetas.id)))
     if not gens:

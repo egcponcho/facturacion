@@ -11,6 +11,7 @@ import Seleccion from '@/componentes/Seleccion.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { fmtFechaHora, fmtNum } from '@/nucleo/utils'
 import { errorApi } from '@/stores/ui'
+import { puede } from '@/stores/sesion'
 import { UNIDADES, textoModalidad } from '@/modulos/etiquetado/etiquetas.js'
 import { buscarArticulos, buscarOrdenes } from '@/modulos/etiquetado/componentes/buscadores.js'
 
@@ -116,7 +117,7 @@ async function descargar(formato) {
     </table>
     <div v-if="detalle.advertencias.length" class="nota mt"><Icono nombre="alerta" :tam="16" />
       <div>{{ t('Warnings accepted when generating:') }}<ul><li v-for="(a, i) in detalle.advertencias.slice(0, 10)" :key="i">{{ a.referencia }}: {{ tx(a.mensaje) }}</li></ul></div></div>
-    <template #pie>
+    <template v-if="puede('etiquetas.generar')" #pie>
       <button v-for="f in ['PDF', 'PNG', 'SVG', 'ZIP']" :key="f" type="button" class="btn" :class="{ 'btn-primario': f === detalle.formato }" @click="descargar(f)">
         <Icono nombre="descargar" :tam="15" />{{ f }}</button>
     </template>

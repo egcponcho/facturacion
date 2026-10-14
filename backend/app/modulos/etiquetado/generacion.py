@@ -657,7 +657,9 @@ def marcar_descarga(g: GeneracionEtiquetas) -> None:
 
 
 def archivo(db: Session, user: Usuario, generacion_id: int, formato: str | None = None) -> tuple[bytes, str, str, bool]:
-    """El archivo del lote, dibujado de nuevo desde su versión e instantánea; y si es idéntico al original."""
+    """El archivo del lote, dibujado de nuevo desde su versión e instantánea; y si es idéntico al original.
+    Descargar es de quien genera (ver solo deja consultar el historial)."""
+    exigir(user, "etiquetas.generar")
     g = cargar(db, user, generacion_id)
     formato = (formato or g.formato).upper()
     if formato not in FORMATOS:
