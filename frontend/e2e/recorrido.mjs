@@ -26,6 +26,8 @@ const PANTALLAS = [
   '/mantenimiento?catalogo=atributos_variante', '/mantenimiento?catalogo=prepacks', '/mantenimiento?catalogo=acuerdos',
   '/mantenimiento?catalogo=escalas', '/mantenimiento?catalogo=categorias',
   
+  '/etiquetas', '/etiquetas?vista=familias', '/etiquetas?vista=articulos', '/etiquetas?vista=asignaciones', '/etiquetas?vista=historial',
+  '/etiquetas/generar',
   '/leadtimes', '/aranceles', '/familias', '/plantillas', '/importar', '/empresa', '/perfil', '/plataforma',
   '/admin', '/admin?tab=roles', '/admin?tab=proveedores', '/admin?tab=flujo', '/admin?tab=bitacora',
 ]
@@ -54,6 +56,7 @@ async function documentos(ctx) {
   if (Array.isArray(embarques) && embarques[0]) rutas.push(`/transporte/embarques/${embarques[0].id}`)
   const yo = await get('/auth/me')
   if (yo.permisos?.includes('oc.editar')) rutas.push('/ordenes/nueva')
+  if (yo.permisos?.includes('etiquetas.ver')) for (const x of (await get('/etiquetas/plantillas?size=2')).items || []) rutas.push(`/etiquetas/plantillas/${x.id}`)
   return rutas
 }
 

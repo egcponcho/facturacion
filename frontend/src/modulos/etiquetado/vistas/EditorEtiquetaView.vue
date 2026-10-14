@@ -419,7 +419,12 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
 .editor-etq { display: flex; flex-direction: column; height: calc(100vh - 108px); min-height: 560px; gap: 10px; }
 .cargando-ed { align-items: center; justify-content: center; }
 .ed-cabeza { display: flex; align-items: center; gap: 12px; }
-@media (max-width: 1100px) { .ed-cabeza { flex-wrap: wrap; } }
+@media (max-width: 1100px) {
+  .ed-cabeza { flex-wrap: wrap; }
+  .ed-cabeza .ed-titulo { flex: 1 1 calc(100% - 60px); }
+  .ed-cabeza .ed-meta { flex-wrap: wrap; white-space: normal; }
+  .ed-cabeza .ed-titulo h1 { white-space: normal; }
+}
 .ed-titulo { flex: 1; min-width: 0; }
 .ed-titulo h1 { margin: 0; font-size: 1.3rem; line-height: 1.25; }
 .ed-meta { margin: 2px 0 0; font-size: 0.8rem; color: var(--tinta-3); display: flex; gap: 4px; align-items: center; white-space: nowrap; overflow: hidden; }

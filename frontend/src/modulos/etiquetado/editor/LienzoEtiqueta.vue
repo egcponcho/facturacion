@@ -336,6 +336,7 @@ const CURSORES = { '-1,-1': 'nwse', '1,1': 'nwse', '1,-1': 'nesw', '-1,1': 'nesw
 const asa = computed(() => px(8))
 const problemas = ed.problemasDe
 const cajaGrupo = computed(() => (ed.seleccionados.value.length > 1 ? ed.caja(ed.seleccionados.value) : null))
+const dibujoServidor = computed(() => (!est.disenador && est.previa?.svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(est.previa.svg)}` : null))
 const cursor = computed(() => (espacio.value ? 'grab' : 'default'))
 </script>
 
@@ -367,7 +368,9 @@ const cursor = computed(() => (espacio.value ? 'grab' : 'default'))
         </defs>
         <rect :width="d.ancho" :height="d.alto" :rx="d.borde?.radio || 0" :fill="d.fondo" class="papel" />
         <rect v-if="cuadricula" :width="d.ancho" :height="d.alto" fill="url(#cuadricula-etq)" pointer-events="none" />
-        <g clip-path="url(#recorte-etq)">
+        <!-- Quien no diseña ve el dibujo exacto del servidor (no puede pedir códigos sueltos) -->
+        <image v-if="dibujoServidor" :href="dibujoServidor" :width="d.ancho" :height="d.alto" preserveAspectRatio="none" pointer-events="none" />
+        <g v-else clip-path="url(#recorte-etq)">
           <ElementoSvg v-for="e in visibles" :key="e.id" :e="e" :valores="valores" :tipos="est.tipos" :version="props.fuentes"
                        :class="{ oculto: e.visible === false }" />
         </g>
