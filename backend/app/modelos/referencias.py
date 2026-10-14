@@ -67,15 +67,15 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
     "unidades_carga": [("embarque_id", "embarques")],
     "eventos_embarque": [("embarque_id", "embarques"), ("unidad_carga_id", "unidades_carga")],
     "tercero_roles": [("tercero_id", "terceros")],
-    "documentos": [("tercero_id", "terceros")],
-    "documento_lineas": [("documento_id", "documentos")],
-    "linea_impuestos": [("linea_id", "documento_lineas")],
-    "documento_vencimientos": [("documento_id", "documentos")],
-    "documento_relaciones": [("origen_id", "documentos"), ("destino_id", "documentos")],
-    "pagos": [("tercero_id", "terceros")],
-    "aplicaciones": [("documento_id", "documentos"), ("pago_id", "pagos"), ("credito_id", "documentos")],
     "clasificaciones_producto": [("producto_id", "productos")],
     "articulo_atributos": [("articulo_id", "articulos"), ("atributo_id", "atributos_variante")],
+    "articulos": [("familia_etiquetado_id", "familias_etiquetado")],
+    "grupos_articulos": [("familia_etiquetado_id", "familias_etiquetado")],
+    "generaciones_etiqueta": [("pl_id", "packing_lists")],
+    "plantillas_etiqueta": [("familia_id", "familias_etiquetado")],
+    "versiones_plantilla": [("plantilla_id", "plantillas_etiqueta")],
+    "asignaciones_etiqueta": [("plantilla_id", "plantillas_etiqueta"), ("familia_id", "familias_etiquetado")],
+    "generacion_items": [("generacion_id", "generaciones_etiqueta"), ("version_id", "versiones_plantilla")],
 }
 PADRES = sorted({p for lista in COHERENCIA.values() for _, p in lista})
 

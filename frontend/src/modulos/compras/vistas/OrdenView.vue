@@ -4,7 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/nucleo/api'
 import { ACCIONES, cantTxt, fmtFecha, fmtFechaHora, fmtMoneda, fmtNum } from '@/nucleo/utils'
-import { camposPropios, valorPropio, ve } from '@/stores/sesion'
+import { camposPropios, puede as tienePermiso, valorPropio, ve } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import Avance from '@/componentes/Avance.vue'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
@@ -177,6 +177,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
             <button v-if="puede.eliminar" type="button" class="btn btn-peligro" :disabled="ocupado" @click="eliminar"><Icono nombre="basura" :tam="15" />{{ t('Delete draft') }}</button>
             <button v-else-if="puede.cancelar" type="button" class="btn btn-peligro" @click="abrir('cancelar')">{{ t('Cancel PO') }}</button>
           </MasOpciones>
+          <router-link v-if="tienePermiso('etiquetas.generar') && oc.estado !== 'BORRADOR'" :to="{ path: '/etiquetas/generar', query: { oc: oc.id } }" class="btn"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</router-link>
           <router-link v-if="puede.editar" :to="`/ordenes/${oc.id}/editar`" class="btn" :class="{ 'btn-primario': !puede.enviar }"><Icono nombre="editar" :tam="16" />{{ tx(oc.estado === 'RECHAZADA' ? t('Correct') : t('Continue editing')) }}</router-link>
           <router-link v-if="puede.enviar" :to="{ path: `/ordenes/${oc.id}/editar`, query: { paso: 'revision' } }" class="btn btn-primario"><Icono nombre="enviar" :tam="16" />{{ t('Review and send') }}</router-link>
           <button v-if="puede.rechazar" type="button" class="btn" @click="abrir('rechazar')">{{ t('Reject') }}</button>

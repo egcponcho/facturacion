@@ -64,11 +64,11 @@ def test_recepcion_por_contenedor_de_principio_a_fin(admin, interno, client):
     # Quien solo gestiona transporte ve la recepción pero no la registra
     r = admin.post("/roles", {"nombre": "Solo transporte (prueba)", "permisos": ["transporte.gestionar"]})
     assert r.status_code == 200, r.text
-    r = admin.post("/usuarios", {"email": "solo.transporte@demo.com", "nombre": "Solo transporte", "rol_id": r.json()["id"],
-                                 "telefono": "+50370000140", "dos_pasos": True})
+    r = admin.post("/usuarios", {"email": "recepcion.sinpermiso@demo.com", "nombre": "Solo transporte", "rol_id": r.json()["id"],
+                                 "telefono": "+50370000141", "dos_pasos": True})
     assert r.status_code == 200, r.text
     nuevo = r.json()
-    trans = Api(client, "solo.transporte@demo.com", nuevo["password_temporal"])
+    trans = Api(client, "recepcion.sinpermiso@demo.com", nuevo["password_temporal"])
     assert trans.post("/auth/password", {"actual": nuevo["password_temporal"], "nueva": "Transporte#Clave2026"}).status_code == 200
     r = trans.get(url)
     assert r.status_code == 200, r.text

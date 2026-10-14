@@ -35,11 +35,13 @@ MODULOS = [
         ("pl.cancelar", "Cancel packing lists", TODOS, True),
         ("plantilla.editar", "Create and edit packing templates", TODOS, True),
     ]),
-    ("Billing and payments", [
-        ("comercial.ver", "See business partners, commercial documents, payments and balances", INTERNOS, False),
-        ("comercial.editar", "Create business partners and draft documents", INTERNOS, False),
-        ("comercial.emitir", "Issue and void documents (invoices, credit and debit notes)", INTERNOS, False),
-        ("comercial.pagos", "Register, apply and void collections and payments", INTERNOS, False),
+    ("Labels", [
+        ("etiquetas.ver", "See label designs, their versions and the labels generated", TODOS, True),
+        ("etiquetas.generar", "Generate and download labels (a supplier, of its own POs)", TODOS, True),
+        ("etiquetas.disenar", "Create and edit label designs and send them to approval", INTERNOS, False),
+        ("etiquetas.aprobar", "Approve, reject and archive label design versions", {"admin"}, False),
+        ("etiquetas.asignar", "Assign label designs to families, products, items and POs", INTERNOS, False),
+        ("etiquetas.familias", "Manage labeling families and the family of each item", INTERNOS, False),
     ]),
     ("Shipments", [
         ("transporte.gestionar", "See and manage shipments and load units", INTERNOS, False),
@@ -87,8 +89,9 @@ MODULOS_ACTIVABLES = {
     "clasificacion": ("Tariff classification: tariff schedule and product families",
                       ["aranceles.ver", "aranceles.editar", "clasificacion.ver", "clasificacion.configurar"]),
     "seguimiento": ("Tracking and lead times", ["seguimiento.ver"]),
-    "comercial": ("Billing and payments: customers, invoices, credit notes, collections and payables",
-                  ["comercial.ver", "comercial.editar", "comercial.emitir", "comercial.pagos"]),
+    "etiquetado": ("Labels: label designs, versions and label generation",
+                   ["etiquetas.ver", "etiquetas.generar", "etiquetas.disenar", "etiquetas.aprobar", "etiquetas.asignar",
+                    "etiquetas.familias"]),
 }
 
 

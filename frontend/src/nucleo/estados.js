@@ -43,6 +43,16 @@ export const ESTADOS = {
 
 const POR_TIPO = {
   embarque: { CANCELADO: [t('Called off'), 'error'] },
+  // Etiquetado: versiones de un diseño, el diseño y los lotes generados
+  etiqueta: {
+    BORRADOR: [t('Draft'), 'neutro'],
+    PENDIENTE: [t('Pending approval'), 'aviso'],
+    APROBADA: [t('Approved'), 'ok'],
+    RECHAZADA: [t('Rejected'), 'error'],
+    ARCHIVADA: [t('Archived'), 'neutro'],
+  },
+  plantilla: { ACTIVA: [t('Active'), 'ok'], ARCHIVADA: [t('Archived'), 'neutro'] },
+  lote: { GENERADA: [t('Generated'), 'ok'], PRUEBA: [t('Test (not approved)'), 'aviso'] },
   avance: {
     SIN_FACTURAR: [t('Not invoiced'), 'neutro'],
     FACTURADA_PARCIAL: [t('Partly invoiced'), 'aviso'],
@@ -52,16 +62,6 @@ const POR_TIPO = {
     RECIBIDA_PARCIAL: [t('Partly received'), 'aviso'],
     RECIBIDA: [t('Fully received'), 'ok'],
   },
-  // Documentos comerciales, su cobro y los pagos
-  documento: { BORRADOR: [t('Draft'), 'neutro'], EMITIDO: [t('Issued'), 'ok'], ANULADO: [t('Voided'), 'error'] },
-  cobro: {
-    PENDIENTE: [t('Unpaid'), 'aviso'],
-    PARCIAL: [t('Partly paid'), 'info'],
-    PAGADO: [t('Paid'), 'ok'],
-    VENCIDO: [t('Overdue'), 'error'],
-    APLICADA: [t('Fully applied'), 'ok'],
-  },
-  pago: { REGISTRADO: [t('Registered'), 'ok'], ANULADO: [t('Voided'), 'error'] },
   // Recepción en bodega de cada contenedor
   recepcion: { PENDIENTE: [t('Not received'), 'neutro'], EN_RECEPCION: [t('Being received'), 'aviso'], RECIBIDA: [t('Received'), 'ok'] },
 }
@@ -91,5 +91,3 @@ export const estadosEmbarque = () => opciones('embarque', CODIGOS.embarque)
 // Los hitos del embarque siguen su orden natural (salida, arribo, entrega…)
 export const pasosEmbarque = () => CODIGOS.embarque.map((c) => [c, estado(c, 'embarque')[0]])
 export const avancesOC = () => opciones('avance', Object.keys(POR_TIPO.avance))
-export const estadosDocumento = () => opciones('documento', Object.keys(POR_TIPO.documento))
-export const estadosCobro = () => opciones('cobro', Object.keys(POR_TIPO.cobro))
