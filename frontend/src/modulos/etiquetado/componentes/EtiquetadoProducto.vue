@@ -97,7 +97,7 @@ const MODOS = computed(() => [['OC_ARTICULO', t('PO and item')], ['ARTICULO', t(
           <td class="ayuda">{{ tx(elecciones[a.id]?.motivo || '') }}<template v-for="(x, i) in elecciones[a.id]?.avisos || []" :key="i"><br />{{ tx(x) }}</template></td>
           <td class="num nowrap">
             <button v-if="elecciones[a.id]?.version_id" type="button" class="btn btn-chico" @click="verPrevia(a)"><Icono nombre="ojo" :tam="15" />{{ t('See') }}</button>
-            <router-link v-if="modalidad === 'ARTICULO' && elecciones[a.id]?.version_id && puede('etiquetas.generar')" :to="{ path: '/etiquetas/generar', query: { articulo: a.id } }" class="btn btn-chico">{{ t('Generate') }}</router-link>
+            <router-link v-if="modalidad === 'ARTICULO' && elecciones[a.id]?.version_id && puede('etiquetas.generar')" :to="{ path: '/etiquetas/trabajos/nuevo', query: { origen: 'ARTICULOS', articulos: a.id } }" class="btn btn-chico">{{ t('Generate') }}</router-link>
           </td>
         </tr>
         <tr v-if="!articulos.length && !cargando"><td colspan="7" class="ayuda">{{ t('This product has no variants yet.') }}</td></tr>

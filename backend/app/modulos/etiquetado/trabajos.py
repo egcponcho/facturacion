@@ -1,0 +1,758 @@
+"""Trabajos de etiquetado: el asistente único de generación.
+
+Todas las entradas (detalle de una OC, varias OC desde su lista, artículos,
+una lista de empaque, el centro de etiquetado) crean un trabajo con este
+servicio. Cada paso del asistente se guarda como borrador (`actualizar`), así
+se puede salir y seguir después.
+
+- `validar` arma los registros con el mismo cálculo de la generación
+  (generacion.plan: reglas, campos lógicos, empaque, dibujo) y los guarda con
+  su diseño, regla y problemas clasificados; verifica leyendo los códigos de
+  una etiqueta de muestra por diseño.
+- `generar` vuelve a validar con los datos de ese momento y genera los
+  registros listos: todos o, si la empresa lo permite y se pide, solo los
+  listos (los que tienen errores quedan para después: generación parcial).
+  Cada OC (o la lista de empaque, o los artículos) es una ejecución
+  (generaciones_etiqueta.trabajo_id) con su versión e instantánea exactas.
+  Desde cierto tamaño se genera en segundo plano y el avance se lee de la base.
+- `generar` de nuevo, tras corregir, genera solo lo que falta (reintento).
+- `archivo` arma el ZIP con las carpetas y nombres configurados y un resumen.
+- Generado, descargado e impreso son estados distintos: impreso solo con una
+  confirmación expresa de quien imprimió (`confirmar_impresion`).
+"""
+from __future__ import annotations
+
+import contextvars
+import csv
+import io
+import json
+import re
+import threading
+import uuid
+import zipfile
+from datetime import datetime
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.core.empresa import regla
+from app.core.errores import ErrorNegocio
+from app.modelos import (
+    GeneracionEtiquetas,
+    OrdenCompra,
+    PlantillaEtiqueta,
+    PosicionOC,
+    TrabajoEtiquetas,
+    TrabajoRegistro,
+    Usuario,
+    VersionPlantilla,
+)
+from app.modelos.etiquetado import ORIGENES_TRABAJO
+from app.modulos.acceso.permisos import exigir, proveedor_filtro
+from app.modulos.comun.historial import registrar
+from app.modulos.etiquetado import campos, datos, generacion, plantillas, render, salidas, verificacion
+
+MAX_ORDENES = 200
+MAX_ARTICULOS = 5000
+MAX_MUESTRAS = 20  # etiquetas que se leen con el lector al validar (una por diseño, hasta este tope)
+EDITABLES = ("BORRADOR", "VALIDADO", "PARCIAL", "ERROR")
+UNIDAD_POR_DEFECTO = {"OC": ("OC_ARTICULO", "LINEA"), "ARTICULOS": ("ARTICULO", "MANUAL"), "PACKING": ("OC_ARTICULO", "BULTO")}
+CARPETAS = ("oc", "plantilla", "familia", "packing_list")
+MARCADORES = ("oc", "referencia", "sku", "n", "total", "i", "plantilla", "serie", "bulto")
+CONTENIDOS = ("PDF", "PNG", "SVG")
+PARAMETROS = ("oc_ids", "posiciones", "cantidades", "articulos", "pl_id", "tipo_empaque_id", "familia_id", "modalidad",
+              "unidad", "plantilla_id", "motivo_diseno", "elegidas", "manuales", "formato", "hoja", "dpi", "zip", "cantidad")
+
+
+# ---- Acceso -------------------------------------------------------------------------------------
+def _alcance(user: Usuario):
+    """Un proveedor ve solo los trabajos que creó; el equipo interno, todos los de la organización."""
+    return [] if proveedor_filtro(user) is None else [TrabajoEtiquetas.creado_por == user.id]
+
+
+def cargar(db: Session, user: Usuario, trabajo_id: int, bloquear: bool = False) -> TrabajoEtiquetas:
+    exigir(user, "etiquetas.generar")
+    c = select(TrabajoEtiquetas).where(TrabajoEtiquetas.id == trabajo_id, *_alcance(user))
+    if bloquear:
+        c = c.with_for_update()
+    t = db.scalar(c)
+    if not t:
+        raise ErrorNegocio("The labeling job does not exist.", 404, "no_encontrado")
+    return t
+
+
+def _version(t: TrabajoEtiquetas, datos_: dict) -> None:
+    v = datos_.get("version")
+    if v is not None and int(v) != t.version:
+        raise ErrorNegocio("Someone else changed this labeling job: reload it.", 409, "conflicto_version")
+
+
+# ---- Parámetros -------------------------------------------------------------------------------
+def _validar_zip(z) -> dict:
+    if not z:
+        return {}
+    if not isinstance(z, dict):
+        raise ErrorNegocio("Check the ZIP options.", 422, "validacion")
+    carpetas = z.get("carpetas") or []
+    if not isinstance(carpetas, list) or len(carpetas) > 3 or any(c not in CARPETAS for c in carpetas):
+        raise ErrorNegocio("Choose up to 3 folder levels.", 422, "validacion", [{"campo": "zip.carpetas", "mensaje": ", ".join(CARPETAS)}])
+    nombre = (z.get("nombre") or "").strip()
+    if len(nombre) > 120:
+        raise ErrorNegocio("The file name pattern is too long.", 422, "validacion")
+    malos = [m for m in re.findall(r"\{(\w+)\}", nombre) if m not in MARCADORES]
+    if malos:
+        raise ErrorNegocio("The file name pattern uses unknown fields.", 422, "validacion",
+                           [{"campo": "zip.nombre", "mensaje": f"Unknown: {', '.join(malos)}. Use: {', '.join(MARCADORES)}."}])
+    contenido = (z.get("contenido") or "PDF").upper()
+    if contenido not in CONTENIDOS:
+        raise ErrorNegocio("Choose PDF, PNG or SVG files inside the ZIP.", 422, "validacion")
+    return {"carpetas": list(carpetas), "nombre": nombre, "contenido": contenido}
+
+
+def _limpiar(db: Session, user: Usuario, origen: str, p: dict) -> dict:
+    """Parámetros del trabajo validados (lo que exista se comprueba dentro del alcance del usuario)."""
+    res = {k: p[k] for k in PARAMETROS if k in p}
+    if "oc_ids" in res:
+        ids = list(dict.fromkeys(int(x) for x in res["oc_ids"] or []))
+        if len(ids) > MAX_ORDENES:
+            raise ErrorNegocio(f"Up to {MAX_ORDENES} purchase orders per labeling job.", 422, "validacion")
+        for i in ids:
+            datos.cargar_oc(db, user, i)
+        res["oc_ids"] = ids
+    if "articulos" in res:
+        lista = res["articulos"] or []
+        if len(lista) > MAX_ARTICULOS:
+            raise ErrorNegocio(f"Up to {MAX_ARTICULOS} items per labeling job.", 422, "validacion")
+        limpia = []
+        for a in lista:
+            art = datos.cargar_articulo(db, user, int(a["articulo_id"]))
+            n = a.get("cantidad", res.get("cantidad") or 1)
+            limpia.append({"articulo_id": art.id, "cantidad": int(n) if str(n).lstrip("-").isdigit() else 0})
+        res["articulos"] = limpia
+    if res.get("pl_id"):
+        generacion.cargar_pl(db, user, int(res["pl_id"]))
+    if res.get("plantilla_id"):
+        pl = plantillas.cargar(db, int(res["plantilla_id"]))
+        if pl.estado != "ACTIVA":
+            raise ErrorNegocio("The design is archived.", 422, "validacion")
+        if not (res.get("motivo_diseno") or "").strip():
+            raise ErrorNegocio("Explain why the rules are not used for this job.", 422, "validacion",
+                               [{"campo": "motivo_diseno", "mensaje": "Required to force a design."}])
+    if "zip" in res:
+        res["zip"] = _validar_zip(res["zip"])
+    if "formato" in res and (res["formato"] or "PDF").upper() not in generacion.FORMATOS:
+        raise ErrorNegocio("Choose PDF, PNG, SVG or ZIP.", 422, "validacion")
+    return res
+
+
+def _partes(db: Session, t: TrabajoEtiquetas) -> list[tuple[str, dict]]:
+    """Un pedido de generación por OC (o uno de artículos o de la lista de empaque) con el prefijo de sus registros."""
+    p = t.parametros or {}
+    modalidad, unidad = (p.get("modalidad") or UNIDAD_POR_DEFECTO[t.origen][0]), (p.get("unidad") or UNIDAD_POR_DEFECTO[t.origen][1])
+    comun = {"modalidad": modalidad, "unidad": unidad, "origen": t.origen, "manuales": p.get("manuales") or {},
+             "familia_id": p.get("familia_id"), "hoja": p.get("hoja"), "dpi": p.get("dpi"), "zip": p.get("zip")}
+    if p.get("plantilla_id"):
+        comun["plantilla_id"] = p["plantilla_id"]
+    elegidas = {str(k): v for k, v in (p.get("elegidas") or {}).items()}
+
+    def elegidas_de(prefijo: str) -> dict:
+        res = {k: v for k, v in elegidas.items() if ":" not in k}
+        res.update({k.split(":", 1)[1]: v for k, v in elegidas.items() if k.startswith(prefijo + ":")})
+        return res
+
+    if t.origen == "ARTICULOS":
+        return [("art", {**comun, "articulos": p.get("articulos") or [], "elegidas": elegidas_de("art")})]
+    if t.origen == "PACKING":
+        prefijo = f"pl{p.get('pl_id')}"
+        return [(prefijo, {**comun, "pl_id": p.get("pl_id"), "tipo_empaque_id": p.get("tipo_empaque_id"),
+                           "elegidas": elegidas_de(prefijo)})]
+    elegidas_pos = set(p.get("posiciones") or [])
+    res = []
+    for oc_id in p.get("oc_ids") or []:
+        prefijo = f"oc{oc_id}"
+        pedido = {**comun, "oc_id": oc_id, "cantidades": p.get("cantidades") or {}, "elegidas": elegidas_de(prefijo)}
+        if elegidas_pos:
+            de_oc = [i for i in db.scalars(select(PosicionOC.id).where(PosicionOC.oc_id == oc_id)) if i in elegidas_pos]
+            if not de_oc:
+                continue  # ninguna línea elegida de esta OC
+            pedido["posiciones"] = de_oc
+        res.append((prefijo, pedido))
+    return res
+
+
+# ---- Alta y borradores -----------------------------------------------------------------------------
+def crear(db: Session, user: Usuario, datos_: dict) -> dict:
+    exigir(user, "etiquetas.generar")
+    origen = (datos_.get("origen") or "").upper()
+    if origen not in ORIGENES_TRABAJO:
+        raise ErrorNegocio("Choose where the labels come from: purchase orders, items or a packing list.", 422, "validacion")
+    parametros = _limpiar(db, user, origen, datos_.get("parametros") or {})
+    nombre = (datos_.get("nombre") or "").strip()[:120] or _nombre(db, origen, parametros)
+    t = TrabajoEtiquetas(nombre=nombre, origen=origen, estado="BORRADOR", paso=int(datos_.get("paso") or 0),
+                         parametros=parametros, resumen={}, creado_por=user.id, version=1)
+    db.add(t)
+    db.flush()
+    registrar(db, user, "trabajo_etiquetas", t.id, "crear", {"origen": origen, "nombre": nombre})
+    return detalle(db, user, t.id)
+
+
+def _nombre(db: Session, origen: str, p: dict) -> str:
+    fecha = f"{datetime.now():%Y-%m-%d %H:%M}"
+    if origen == "OC":
+        ids = p.get("oc_ids") or []
+        if len(ids) == 1:
+            oc = db.get(OrdenCompra, ids[0])
+            return f"PO {oc.numero} · {fecha}"
+        return f"{len(ids)} POs · {fecha}"
+    if origen == "PACKING" and p.get("pl_id"):
+        from app.modelos import PackingList
+
+        pl = db.get(PackingList, p["pl_id"])
+        return f"Packing list {pl.numero} · {fecha}"
+    return f"{len(p.get('articulos') or [])} items · {fecha}"
+
+
+def actualizar(db: Session, user: Usuario, trabajo_id: int, datos_: dict) -> dict:
+    """Guarda el borrador (parámetros y paso del asistente). Cambiar los
+    parámetros invalida la validación anterior."""
+    t = cargar(db, user, trabajo_id, bloquear=True)
+    _version(t, datos_)
+    de_descarga = {"zip", "formato"}  # cómo se descarga: se cambia aunque ya esté generado
+    if t.estado not in EDITABLES and set(datos_.get("parametros") or {}) - de_descarga:
+        raise ErrorNegocio("This labeling job can no longer be changed.", 409, "estado")
+    if "nombre" in datos_:
+        t.nombre = (datos_.get("nombre") or "").strip()[:120] or t.nombre
+    if "paso" in datos_:
+        t.paso = max(int(datos_["paso"] or 0), 0)
+    if "parametros" in datos_:
+        nuevos = {**(t.parametros or {}), **_limpiar(db, user, t.origen, datos_["parametros"] or {})}
+        for k, v in (datos_["parametros"] or {}).items():
+            if v is None:
+                nuevos.pop(k, None)
+        if nuevos != (t.parametros or {}):
+            cambia_registros = {k for k in set(nuevos) | set(t.parametros or {})
+                                if nuevos.get(k) != (t.parametros or {}).get(k)} - de_descarga
+            t.parametros = nuevos
+            if t.estado == "VALIDADO" and cambia_registros:
+                t.estado = "BORRADOR"
+    t.version += 1
+    t.actualizado_en = datetime.now()
+    db.flush()
+    return detalle(db, user, t.id)
+
+
+def cancelar(db: Session, user: Usuario, trabajo_id: int) -> dict:
+    t = cargar(db, user, trabajo_id, bloquear=True)
+    if t.estado == "EN_PROCESO":
+        raise ErrorNegocio("The labels are being generated: wait until it finishes.", 409, "estado")
+    if t.estado in ("GENERADO",):
+        raise ErrorNegocio("The labeling job was already generated.", 409, "estado")
+    t.estado = "CANCELADO"
+    t.version += 1
+    registrar(db, user, "trabajo_etiquetas", t.id, "cancelar", {})
+    db.flush()
+    return detalle(db, user, t.id)
+
+
+# ---- Consulta -------------------------------------------------------------------------------------
+def _usuario(db: Session, uid: int | None) -> str | None:
+    u = db.get(Usuario, uid) if uid else None
+    return (u.nombre or u.email) if u else None
+
+
+def dict_trabajo(db: Session, t: TrabajoEtiquetas) -> dict:
+    return {"id": t.id, "nombre": t.nombre, "origen": t.origen, "estado": t.estado, "paso": t.paso, "total": t.total,
+            "progreso": t.progreso, "error": t.error, "version": t.version, "creado_por": _usuario(db, t.creado_por),
+            "creado_en": t.creado_en, "actualizado_en": t.actualizado_en, "validado_en": t.validado_en,
+            "generado_en": t.generado_en, "conteo": (t.resumen or {}).get("conteo", {})}
+
+
+def _dict_registro(r: TrabajoRegistro, plantillas_: dict, versiones: dict) -> dict:
+    return {"id": r.id, "clave": r.clave, "referencia": r.referencia, "oc_id": r.oc_id, "posicion_id": r.posicion_id,
+            "articulo_id": r.articulo_id, "pl_id": r.pl_id, "plantilla_id": r.plantilla_id,
+            "plantilla": plantillas_.get(r.plantilla_id), "version_id": r.version_id, "version": versiones.get(r.version_id),
+            "regla_id": r.regla_id, "cantidad": r.cantidad, "estado": r.estado, "problemas": r.problemas or [],
+            "motivo": r.motivo, "generacion_id": r.generacion_id}
+
+
+def dict_ejecucion(db: Session, g: GeneracionEtiquetas) -> dict:
+    oc = db.get(OrdenCompra, g.oc_id) if g.oc_id else None
+    return {"id": g.id, "oc": oc.numero if oc else None, "total": g.total, "formato": g.formato, "estado": g.estado,
+            "sha256": g.sha256, "creada_en": g.creada_en, "creada_por": _usuario(db, g.creada_por),
+            "descargas": g.descargas or 0, "descargada_en": g.descargada_en, "impresa_en": g.impresa_en,
+            "impresa_por": _usuario(db, g.impresa_por), "impresion": g.impresion,
+            "situacion": "IMPRESA" if g.impresa_en else ("DESCARGADA" if g.descargas else "GENERADA")}
+
+
+def detalle(db: Session, user: Usuario, trabajo_id: int) -> dict:
+    t = cargar(db, user, trabajo_id)
+    ids_p = {r.plantilla_id for r in t.registros if r.plantilla_id}
+    ids_v = {r.version_id for r in t.registros if r.version_id}
+    plantillas_ = {p.id: p.nombre for p in db.scalars(select(PlantillaEtiqueta).where(PlantillaEtiqueta.id.in_(ids_p)))} if ids_p else {}
+    versiones = {v.id: v.numero for v in db.scalars(select(VersionPlantilla).where(VersionPlantilla.id.in_(ids_v)))} if ids_v else {}
+    ejecuciones = db.scalars(select(GeneracionEtiquetas).where(GeneracionEtiquetas.trabajo_id == t.id)
+                             .order_by(GeneracionEtiquetas.id))
+    return {**dict_trabajo(db, t), "parametros": t.parametros or {}, "resumen": t.resumen or {},
+            "registros": [_dict_registro(r, plantillas_, versiones) for r in t.registros],
+            "ejecuciones": [dict_ejecucion(db, g) for g in ejecuciones],
+            "permite_parcial": bool(regla("ETIQUETAS_GENERACION_PARCIAL")),
+            "asincrono_desde": int(regla("ETIQUETAS_ASINCRONO_DESDE"))}
+
+
+def estado(db: Session, user: Usuario, trabajo_id: int) -> dict:
+    """Lo que el asistente consulta mientras se genera en segundo plano."""
+    return dict_trabajo(db, cargar(db, user, trabajo_id))
+
+
+def listar(db: Session, user: Usuario, estado_: str | None = None, q: str | None = None, page: int = 1, size: int = 25) -> dict:
+    exigir(user, "etiquetas.generar")
+    c = select(TrabajoEtiquetas).where(*_alcance(user))
+    if estado_:
+        c = c.where(TrabajoEtiquetas.estado.in_([x.strip().upper() for x in estado_.split(",") if x.strip()]))
+    if q:
+        c = c.where(TrabajoEtiquetas.nombre.ilike(f"%{q.strip()}%"))
+    total = db.scalar(select(func.count()).select_from(c.subquery())) or 0
+    filas = db.scalars(c.order_by(TrabajoEtiquetas.actualizado_en.desc(), TrabajoEtiquetas.id.desc())
+                       .offset((page - 1) * size).limit(size))
+    return {"total": total, "items": [dict_trabajo(db, t) for t in filas]}
+
+
+# ---- Validación ------------------------------------------------------------------------------------
+def _estado_registro(problemas: list) -> str:
+    niveles = {p["nivel"] for p in problemas}
+    return "ERROR" if "error" in niveles else ("ADVERTENCIA" if "advertencia" in niveles else "LISTO")
+
+
+def _muestras(db: Session, modalidad: str, grupos: list, vistas: set) -> None:
+    """Lee con el lector los códigos de una etiqueta por diseño (hasta MAX_MUESTRAS en el trabajo)."""
+    tipos = campos.tipos(db, modalidad)
+    for g in grupos:
+        if len(vistas) >= MAX_MUESTRAS or g.version is None or g.version.id in vistas or g.errores:
+            continue
+        vistas.add(g.version.id)
+        valores = {**g.valores, "etiqueta.numero": 1, "etiqueta.total": g.cantidad, "etiqueta.numero_lote": 1,
+                   "etiqueta.total_lote": 1}
+        lz = render.componer(g.version.diseno, valores, tipos, plantillas.imagen_adjunta(db))
+        g.problemas += verificacion.verificar(lz, g.version.diseno, valores, tipos)
+
+
+def validar(db: Session, user: Usuario, trabajo_id: int) -> dict:
+    t = cargar(db, user, trabajo_id, bloquear=True)
+    if t.estado in ("EN_PROCESO", "CANCELADO"):
+        raise ErrorNegocio("This labeling job cannot be validated now.", 409, "estado")
+    _validar(db, user, t)
+    t.version += 1
+    db.flush()
+    registrar(db, user, "trabajo_etiquetas", t.id, "validar", {"total": t.total, "conteo": t.resumen.get("conteo")})
+    return detalle(db, user, t.id)
+
+
+def _validar(db: Session, user: Usuario, t: TrabajoEtiquetas) -> dict:
+    """Arma los registros del trabajo con su diseño, regla y problemas. Los ya
+    generados se conservan como tales (no se vuelven a generar)."""
+    anteriores = {r.clave: r for r in t.registros}
+    generales, nuevos, vistas, grupos_por_parte, variables = [], {}, set(), {}, {}
+    partes = _partes(db, t)
+    if not partes:
+        generales.append({"nivel": "error", "codigo": "sin_registros", "categoria": "configuracion",
+                          "mensaje": "Choose what to label."})
+    for prefijo, pedido in partes:
+        try:
+            r = generacion.plan(db, user, {**pedido, "_sin_limite": True})
+        except ErrorNegocio as e:
+            oc = db.get(OrdenCompra, pedido["oc_id"]) if pedido.get("oc_id") else None
+            generales.append({"nivel": "error", "codigo": e.codigo, "categoria": "configuracion", "parte": prefijo,
+                              "mensaje": f"{f'PO {oc.numero}: ' if oc else ''}{e.mensaje}"})
+            continue
+        grupos = r["_grupos"]
+        _muestras(db, pedido["modalidad"], grupos, vistas)
+        grupos_por_parte[prefijo] = grupos
+        for g in grupos:
+            generacion._clasificar(g.problemas)
+            for v in (g.version.diseno.get("variables") or []) if g.version else []:
+                variables.setdefault(v["clave"], v)
+            clave = f"{prefijo}:{g.clave}"[:80]
+            e = g.eleccion
+            referencia = f"{r['oc']} · {g.referencia}" if t.origen == "OC" and len(partes) > 1 and r.get("oc") else g.referencia
+            nuevos[clave] = {"clave": clave, "referencia": referencia[:160],
+                             "oc_id": (g.oc.id if g.oc else r["oc_id"]), "posicion_id": g.posicion.id if g.posicion else None,
+                             "articulo_id": g.articulo.id if g.articulo else None, "pl_id": pedido.get("pl_id"),
+                             "plantilla_id": e.plantilla.id if e and e.plantilla else None,
+                             "version_id": g.version.id if g.version else None,
+                             "regla_id": e.regla.id if e and e.regla else None, "cantidad": max(g.cantidad, 0),
+                             "estado": _estado_registro(g.problemas), "problemas": g.problemas[:50],
+                             "motivo": (e.motivo or "")[:300] if e else None}
+            if (t.parametros or {}).get("plantilla_id") and e and e.plantilla:
+                nuevos[clave]["problemas"] = nuevos[clave]["problemas"] + [{
+                    "nivel": "info", "codigo": "diseno_forzado", "categoria": "excepcion", "elemento": None,
+                    "mensaje": f"Design forced for this job: {(t.parametros or {}).get('motivo_diseno')}"}]
+    # Registros: se conservan los generados; los demás se reemplazan
+    for clave, r in anteriores.items():
+        if r.estado == "GENERADO":
+            nuevos.pop(clave, None)
+        elif clave not in nuevos:
+            db.delete(r)
+    db.flush()
+    orden = len(anteriores)
+    for i, (clave, x) in enumerate(nuevos.items()):
+        r = anteriores.get(clave)
+        if r is None or r.estado == "GENERADO":
+            r = TrabajoRegistro(trabajo_id=t.id, orden=orden + i, clave=clave)
+            db.add(r)
+        for k, v in x.items():
+            setattr(r, k, v)
+    db.flush()
+    db.refresh(t)
+    total = sum(r.cantidad for r in t.registros if r.estado in ("LISTO", "ADVERTENCIA"))
+    if total + sum(r.cantidad for r in t.registros if r.estado == "GENERADO") > int(regla("ETIQUETAS_MAXIMO_TRABAJO")):
+        generales.append({"nivel": "error", "codigo": "lote_grande", "categoria": "cantidad",
+                          "mensaje": f"The job has more than {regla('ETIQUETAS_MAXIMO_TRABAJO')} labels: split it."})
+    conteo = {"registros": len(t.registros)}
+    for r in t.registros:
+        conteo[r.estado] = conteo.get(r.estado, 0) + 1
+    categorias: dict = {}
+    for r in t.registros:
+        for p in r.problemas or []:
+            clave = f"{p.get('categoria', 'diseno')}:{p['nivel']}"
+            categorias[clave] = categorias.get(clave, 0) + 1
+    disenos: dict = {}
+    for r in t.registros:
+        if r.plantilla_id:
+            disenos[r.plantilla_id] = disenos.get(r.plantilla_id, 0) + r.cantidad
+    t.resumen = {"problemas": generales, "conteo": conteo, "categorias": categorias,
+                 "disenos": [{"plantilla_id": k, "plantilla": db.get(PlantillaEtiqueta, k).nombre, "etiquetas": v}
+                             for k, v in sorted(disenos.items())],
+                 "verificacion": "lector" if verificacion.disponible() else "sin_lector",
+                 "variables": list(variables.values()),
+                 "ejecuciones": (t.resumen or {}).get("ejecuciones", [])}
+    t.total = total
+    t.validado_en = datetime.now()
+    if t.estado in ("BORRADOR", "VALIDADO", "ERROR"):
+        t.estado = "VALIDADO"
+    t.error = None
+    return grupos_por_parte
+
+
+# ---- Generación -------------------------------------------------------------------------------------
+_EN_CURSO: set[int] = set()
+_CANDADO = threading.Lock()
+INTERRUMPIDO_MINUTOS = 10  # sin avance en este proceso durante este tiempo: la generación se detuvo
+
+
+def _interrumpido(t: TrabajoEtiquetas) -> bool:
+    from datetime import timedelta
+
+    with _CANDADO:
+        corriendo = t.id in _EN_CURSO
+    return not corriendo and (datetime.now() - (t.actualizado_en or t.creado_en)) > timedelta(minutes=INTERRUMPIDO_MINUTOS)
+
+
+def generar(db: Session, user: Usuario, trabajo_id: int, opciones: dict) -> dict:
+    t = cargar(db, user, trabajo_id, bloquear=True)
+    _version(t, opciones)
+    if t.estado == "EN_PROCESO" and _interrumpido(t):
+        # El proceso que generaba se detuvo (reinicio del servidor): lo generado queda y se sigue con lo pendiente
+        t.estado = "PARCIAL" if any(r.estado == "GENERADO" for r in t.registros) else "VALIDADO"
+        t.error = "The previous generation was interrupted; the pending records can be generated again."
+    if t.estado == "EN_PROCESO":
+        raise ErrorNegocio("The labels are already being generated.", 409, "estado")
+    if t.estado == "CANCELADO":
+        raise ErrorNegocio("The labeling job was cancelled.", 409, "estado")
+    _validar(db, user, t)
+    if t.resumen["problemas"]:
+        raise ErrorNegocio("The labeling job has errors: fix them first.", 422, "etiquetas_con_errores",
+                           [{"campo": "trabajo", "mensaje": p["mensaje"]} for p in t.resumen["problemas"]][:50])
+    pendientes = [r for r in t.registros if r.estado != "GENERADO"]
+    generables = [r for r in pendientes if r.estado in ("LISTO", "ADVERTENCIA") and r.cantidad > 0]
+    con_error = [r for r in pendientes if r.estado == "ERROR"]
+    if not pendientes:
+        raise ErrorNegocio("Everything in this labeling job was already generated.", 409, "ya_generado")
+    parcial = bool(opciones.get("parcial"))
+    if con_error and not (parcial and regla("ETIQUETAS_GENERACION_PARCIAL")):
+        raise ErrorNegocio("Some records have errors: fix them or generate only the ready ones." if regla("ETIQUETAS_GENERACION_PARCIAL")
+                           else "Some records have errors: fix them.", 422, "etiquetas_con_errores",
+                           [{"campo": r.referencia, "mensaje": p["mensaje"]} for r in con_error for p in r.problemas
+                            if p["nivel"] == "error"][:50])
+    if not generables:
+        raise ErrorNegocio("No record is ready to generate.", 422, "etiquetas_con_errores")
+    advertencias = [{"campo": r.referencia, "mensaje": p["mensaje"]} for r in generables for p in r.problemas
+                    if p["nivel"] == "advertencia"]
+    if advertencias and not opciones.get("aceptar_advertencias"):
+        raise ErrorNegocio("There are warnings: review them and confirm to generate anyway.", 409, "confirmar_advertencias",
+                           advertencias[:50])
+    formato = (opciones.get("formato") or (t.parametros or {}).get("formato") or "PDF").upper()
+    if formato not in generacion.FORMATOS:
+        raise ErrorNegocio("Choose PDF, PNG, SVG or ZIP.", 422, "validacion")
+    claves = [r.clave for r in generables]
+    total = sum(r.cantidad for r in generables)
+    t.resumen = {**t.resumen, "pedido": {"claves": claves, "formato": formato, "por": user.id, "token": str(uuid.uuid4()),
+                                         "aceptadas": len(advertencias), "omitidos": [r.clave for r in con_error]}}
+    t.progreso, t.error = 0, None
+    t.version += 1
+    if total >= int(regla("ETIQUETAS_ASINCRONO_DESDE")):
+        t.estado = "EN_PROCESO"
+        t.actualizado_en = datetime.now()
+        db.flush()
+        registrar(db, user, "trabajo_etiquetas", t.id, "generar", {"total": total, "segundo_plano": True})
+        return {**detalle(db, user, t.id), "asincrono": True}
+    _ejecutar(db, user, t, claves, formato, confirmar=False)
+    registrar(db, user, "trabajo_etiquetas", t.id, "generar", {"total": total, "estado": t.estado})
+    return {**detalle(db, user, t.id), "asincrono": False}
+
+
+def _ejecutar(db: Session, user: Usuario, t: TrabajoEtiquetas, claves: list[str], formato: str, confirmar: bool) -> None:
+    """Una ejecución por parte con sus registros listos; en segundo plano se
+    confirma cada parte para que el avance se vea."""
+    por_clave = {r.clave: r for r in t.registros}
+    lote = str(uuid.uuid4())
+    hechas = []
+    for prefijo, pedido in _partes(db, t):
+        mias = [c for c in claves if c.startswith(prefijo + ":")]
+        if not mias:
+            continue
+        internas = {c.split(":", 1)[1] for c in mias}
+        gen = generacion.generar(db, user, {**pedido, "formato": formato, "aceptar_advertencias": True, "lote": lote,
+                                            "_solo_claves": internas, "_trabajo_id": t.id, "_sin_limite": True})
+        for c in mias:
+            r = por_clave[c]
+            r.estado, r.generacion_id = "GENERADO", gen["id"]
+        t.progreso += gen["total"]
+        t.actualizado_en = datetime.now()
+        hechas.append({"id": gen["id"], "oc": gen["oc"], "total": gen["total"]})
+        db.flush()
+        if confirmar:
+            db.commit()
+    quedan = [r for r in t.registros if r.estado != "GENERADO"]
+    t.estado = "PARCIAL" if quedan else "GENERADO"
+    t.total = sum(r.cantidad for r in quedan if r.estado in ("LISTO", "ADVERTENCIA"))
+    conteo = {"registros": len(t.registros)}
+    for r in t.registros:
+        conteo[r.estado] = conteo.get(r.estado, 0) + 1
+    t.generado_en = datetime.now()
+    t.resumen = {**(t.resumen or {}), "conteo": conteo, "ejecuciones": (t.resumen or {}).get("ejecuciones", []) + hechas}
+    t.version += 1
+    db.flush()
+
+
+def lanzar(trabajo_id: int, usuario_id: int, organizacion_id: int) -> bool:
+    """Genera en segundo plano (después de confirmar la petición). Un trabajo
+    no se ejecuta dos veces a la vez aunque se repita la petición."""
+    with _CANDADO:
+        if trabajo_id in _EN_CURSO:
+            return False
+        _EN_CURSO.add(trabajo_id)
+    ctx = contextvars.copy_context()
+    threading.Thread(target=ctx.run, args=(_segundo_plano, trabajo_id, usuario_id, organizacion_id), daemon=True,
+                     name=f"etiquetas-{trabajo_id}").start()
+    return True
+
+
+def _segundo_plano(trabajo_id: int, usuario_id: int, organizacion_id: int) -> None:
+    from app.core.db import SessionLocal
+    from app.core.organizacion import fijar
+
+    db = SessionLocal()
+    try:
+        fijar(db, organizacion_id, usuario_id)
+        user = db.get(Usuario, usuario_id)
+        t = db.get(TrabajoEtiquetas, trabajo_id)
+        if t is None or t.estado != "EN_PROCESO":
+            return
+        pedido = (t.resumen or {}).get("pedido") or {}
+        _ejecutar(db, user, t, pedido.get("claves") or [], pedido.get("formato") or "PDF", confirmar=True)
+        db.commit()
+    except Exception as e:  # noqa: BLE001 - el error queda en el trabajo para quien lo generó
+        db.rollback()
+        t = db.get(TrabajoEtiquetas, trabajo_id)
+        if t is not None:
+            hechos = any(r.estado == "GENERADO" for r in t.registros)
+            t.estado = "PARCIAL" if hechos else "ERROR"
+            t.error = (getattr(e, "mensaje", None) or str(e) or type(e).__name__)[:2000]
+            db.commit()
+    finally:
+        db.close()
+        with _CANDADO:
+            _EN_CURSO.discard(trabajo_id)
+
+
+# ---- Archivos ----------------------------------------------------------------------------------------
+def _seguro(texto: str) -> str:
+    return "".join(c if c.isalnum() or c in "-_. " else "_" for c in str(texto or "")).strip()[:80] or "_"
+
+
+def archivo(db: Session, user: Usuario, trabajo_id: int, contenido: str | None = None) -> tuple[bytes, str]:
+    """El ZIP del trabajo: las etiquetas de todas sus ejecuciones dibujadas de
+    nuevo desde sus versiones e instantáneas, en las carpetas y con los nombres
+    configurados (sin repetir nombres) y un resumen de la ejecución."""
+    t = cargar(db, user, trabajo_id)
+    gens = list(db.scalars(select(GeneracionEtiquetas).where(GeneracionEtiquetas.trabajo_id == t.id).order_by(GeneracionEtiquetas.id)))
+    if not gens:
+        raise ErrorNegocio("Nothing has been generated in this labeling job yet.", 404, "no_encontrado")
+    z_conf = {**{"carpetas": [], "nombre": "", "contenido": "PDF"}, **((t.parametros or {}).get("zip") or {})}
+    if contenido:
+        z_conf["contenido"] = contenido.upper()
+    if z_conf["contenido"] not in CONTENIDOS:
+        raise ErrorNegocio("Choose PDF, PNG or SVG files inside the ZIP.", 422, "validacion")
+    plantillas_ = {}
+    ocs: dict = {}
+    etiquetas = []  # (carpeta, nombre, lienzo)
+    i = 0
+    for g in gens:
+        oc_gen = db.get(OrdenCompra, g.oc_id) if g.oc_id else None
+        pl = None
+        if g.pl_id:
+            from app.modelos import PackingList
+
+            pl = db.get(PackingList, g.pl_id)
+        for lz, _ref, it, n in generacion._lienzos(db, g):
+            i += 1
+            if it.plantilla_id not in plantillas_:
+                plantillas_[it.plantilla_id] = db.get(PlantillaEtiqueta, it.plantilla_id).nombre
+            oc = oc_gen
+            if oc is None and it.posicion_id:
+                if it.posicion_id not in ocs:
+                    ocs[it.posicion_id] = db.get(PosicionOC, it.posicion_id).oc
+                oc = ocs[it.posicion_id]
+            v = it.valores or {}
+            marcas = {"oc": oc.numero if oc else "", "referencia": it.referencia or "", "n": n, "total": it.cantidad, "i": i,
+                      "sku": v.get("articulo.sku") or v.get("linea.codigo_articulo") or "",
+                      "plantilla": plantillas_[it.plantilla_id], "serie": generacion.numero_serie(v, n) or "",
+                      "bulto": v.get("bulto.codigo") or v.get("bulto.numero") or ""}
+            carpeta = []
+            for c in z_conf["carpetas"]:
+                if c == "oc":
+                    carpeta.append(marcas["oc"] or "no-po")
+                elif c == "plantilla":
+                    carpeta.append(marcas["plantilla"])
+                elif c == "familia":
+                    carpeta.append(v.get("articulo.familia") or "no-family")
+                elif c == "packing_list":
+                    carpeta.append(pl.numero if pl else (v.get("bulto.packing_list") or "no-packing-list"))
+            patron = z_conf["nombre"] or "{i}-{referencia}-{n}"
+            nombre = patron
+            for k, x in marcas.items():
+                nombre = nombre.replace("{" + k + "}", str(x))
+            etiquetas.append(("/".join(_seguro(x) for x in carpeta), _seguro(nombre), lz))
+        generacion.marcar_descarga(g)
+    buf = io.BytesIO()
+    fecha = gens[0].creada_en.timetuple()[:6]
+    usados: set = set()
+
+    def unico(ruta: str) -> str:
+        base, punto, ext = ruta.rpartition(".")
+        k, res = 1, ruta
+        while res.lower() in usados:
+            k += 1
+            res = f"{base}-{k}.{ext}" if punto else f"{ruta}-{k}"
+        usados.add(res.lower())
+        return res
+
+    def poner(z, nombre: str, datos_: bytes | str):
+        info = zipfile.ZipInfo(nombre, date_time=fecha)
+        info.compress_type = zipfile.ZIP_DEFLATED
+        z.writestr(info, datos_)
+
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        if z_conf["contenido"] == "PDF":
+            por_carpeta: dict = {}
+            for carpeta, _nombre, lz in etiquetas:
+                por_carpeta.setdefault(carpeta, []).append(lz)
+            for carpeta, lienzos in por_carpeta.items():
+                nombre = (carpeta.rsplit("/", 1)[-1] if carpeta else _seguro(t.nombre)) + ".pdf"
+                poner(z, unico(f"{carpeta}/{nombre}" if carpeta else nombre), salidas.pdf(lienzos, {"modo": "individual"}, t.nombre))
+        else:
+            ext = z_conf["contenido"].lower()
+            for carpeta, nombre, lz in etiquetas:
+                datos_ = salidas.png(lz) if ext == "png" else salidas.svg(lz)
+                poner(z, unico(f"{carpeta}/{nombre}.{ext}" if carpeta else f"{nombre}.{ext}"), datos_)
+        resumen = _resumen(db, t, gens)
+        poner(z, unico("summary.json"), json.dumps(resumen, ensure_ascii=False, indent=1, default=str))
+        poner(z, unico("summary.csv"), _csv(resumen["registros"]))
+    registrar(db, user, "trabajo_etiquetas", t.id, "descargar", {"contenido": z_conf["contenido"], "etiquetas": len(etiquetas)})
+    db.flush()
+    return buf.getvalue(), f"{_seguro(t.nombre).replace(' ', '_')}.zip"
+
+
+def _resumen(db: Session, t: TrabajoEtiquetas, gens: list[GeneracionEtiquetas]) -> dict:
+    versiones = {}
+    for g in gens:
+        for it in g.items:
+            if it.version_id not in versiones:
+                v = db.get(VersionPlantilla, it.version_id)
+                versiones[it.version_id] = f"{v.plantilla.nombre} v{v.numero}"
+    return {"trabajo": {"id": t.id, "nombre": t.nombre, "origen": t.origen, "estado": t.estado, "generado_en": t.generado_en},
+            "ejecuciones": [{"id": g.id, "total": g.total, "sha256": g.sha256, "creada_en": g.creada_en} for g in gens],
+            "etiquetas": sum(g.total for g in gens),
+            "registros": [{"clave": r.clave, "referencia": r.referencia, "estado": r.estado, "cantidad": r.cantidad,
+                           "diseno": versiones.get(r.version_id) or "", "ejecucion": r.generacion_id or "",
+                           "errores": sum(1 for p in r.problemas or [] if p["nivel"] == "error"),
+                           "advertencias": sum(1 for p in r.problemas or [] if p["nivel"] == "advertencia"),
+                           "problemas": "; ".join(p["mensaje"] for p in (r.problemas or [])[:5])}
+                          for r in t.registros]}
+
+
+def _csv(filas: list[dict]) -> str:
+    out = io.StringIO()
+    if filas:
+        w = csv.DictWriter(out, fieldnames=list(filas[0].keys()))
+        w.writeheader()
+        w.writerows(filas)
+    return out.getvalue()
+
+
+# ---- Impresión ------------------------------------------------------------------------------------------
+def confirmar_impresion(db: Session, user: Usuario, generacion_id: int, datos_: dict) -> dict:
+    """Impreso solo con la confirmación expresa de quien imprimió: cuántas
+    etiquetas salieron (todas o, si no, por qué), en qué impresora. El archivo
+    tiene que haberse descargado antes."""
+    exigir(user, "etiquetas.generar")
+    g = generacion.cargar(db, user, generacion_id)
+    if not datos_.get("confirmo"):
+        raise ErrorNegocio("Confirm that the labels were printed.", 422, "validacion", [{"campo": "confirmo", "mensaje": "Required."}])
+    if not g.descargas:
+        raise ErrorNegocio("Download the labels before confirming they were printed.", 409, "sin_descarga")
+    if g.estado == "PRUEBA":
+        raise ErrorNegocio("Test labels are not printed for use.", 409, "prueba")
+    try:
+        cantidad = int(datos_.get("cantidad"))
+    except (TypeError, ValueError):
+        cantidad = -1
+    if not 1 <= cantidad <= g.total:
+        raise ErrorNegocio(f"Write how many labels were printed (1 to {g.total}).", 422, "validacion",
+                           [{"campo": "cantidad", "mensaje": f"1 to {g.total}."}])
+    observacion = (datos_.get("observacion") or "").strip()[:300] or None
+    if cantidad != g.total and not observacion:
+        raise ErrorNegocio("Explain why not all the labels were printed.", 422, "validacion",
+                           [{"campo": "observacion", "mensaje": "Required."}])
+    g.impresa_en, g.impresa_por = datetime.now(), user.id
+    g.impresion = {"cantidad": cantidad, "total": g.total, "impresora": (datos_.get("impresora") or "").strip()[:100] or None,
+                   "observacion": observacion}
+    db.flush()
+    registrar(db, user, "generacion_etiquetas", g.id, "imprimir", g.impresion, observacion)
+    return dict_ejecucion(db, g)
+
+
+def vista_previa(db: Session, user: Usuario, trabajo_id: int, registro_id: int) -> dict:
+    """Un registro del trabajo dibujado por el servidor con sus datos reales,
+    con los mismos valores, reglas y diseño que tendrá al generarse."""
+    t = cargar(db, user, trabajo_id)
+    r = next((x for x in t.registros if x.id == registro_id), None)
+    if r is None:
+        raise ErrorNegocio("The record does not exist in this labeling job.", 404, "no_encontrado")
+    prefijo, interna = r.clave.split(":", 1)
+    pedido = next((p for k, p in _partes(db, t) if k == prefijo), None)
+    if pedido is None:
+        raise ErrorNegocio("The record is no longer part of this labeling job: validate it again.", 409, "estado")
+    plan = generacion.plan(db, user, {**pedido, "_sin_limite": True})
+    g = next((x for x in plan["_grupos"] if x.clave == interna), None)
+    if g is None or g.version is None:
+        raise ErrorNegocio("This record has no design to preview.", 422, "sin_plantilla")
+    valores = {**g.valores, "etiqueta.numero": 1, "etiqueta.total": g.cantidad, "etiqueta.numero_lote": 1, "etiqueta.total_lote": 1}
+    lz = render.componer(g.version.diseno, valores, campos.tipos(db, pedido["modalidad"]), plantillas.imagen_adjunta(db),
+                         prueba=g.version.estado != "APROBADA")
+    usados = sorted(c for c in g.valores if c in generacion.svc_diseno.campos_usados(g.version.diseno))
+    return {"svg": salidas.svg(lz), "ancho": lz.ancho, "alto": lz.alto, "problemas": generacion._clasificar(g.problemas),
+            "plantilla": g.version.plantilla.nombre, "version": g.version.numero, "motivo": g.eleccion.motivo if g.eleccion else None,
+            "valores": {k: (f"[{len(g.valores[k])}]" if isinstance(g.valores[k], list) else g.valores[k]) for k in usados
+                        if k != "organizacion.logo"},
+            "procedencia": {k: v for k, v in g.procedencia.items() if v}}

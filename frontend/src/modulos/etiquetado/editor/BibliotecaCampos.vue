@@ -21,6 +21,10 @@ const ELEMENTOS = computed(() => [
   ['rect', t('Rectangle'), 'cuadro', {}],
   ['elipse', t('Ellipse'), 'circulo', {}],
   ['linea', t('Line'), 'linea', {}],
+  ...(est.colecciones.length ? [['tabla', t('Table (list of rows)'), 'cuadricula', {
+    coleccion: est.colecciones[0].clave,
+    columnas: est.colecciones[0].columnas.slice(0, 3).map((c) => ({ campo: c.clave, titulo: c.etiqueta, ancho: 1, alin: c.tipo === 'numero' ? 'der' : 'izq' })),
+  }]] : []),
 ])
 
 const normal = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()

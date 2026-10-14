@@ -86,6 +86,28 @@ def siguiente(db: Session, serie: SerieDocumental, fecha: date | None = None) ->
     return formato(serie, n, fecha)
 
 
+def reservar(db: Session, serie: SerieDocumental, cantidad: int, fecha: date | None = None) -> tuple[int, str]:
+    """Reserva `cantidad` números seguidos de la serie (identificadores de
+    etiquetas): devuelve el primero y el prefijo ya resuelto. Nadie más recibe
+    esos números aunque genere al mismo tiempo."""
+    fecha = fecha or date.today()
+    if not serie.activo:
+        raise ErrorNegocio(f"The numbering series {serie.codigo} is inactive.", 409, "serie_inactiva")
+    c = _contador(db, serie, f"{fecha.year:04d}" if serie.reinicio == "ANUAL" else "")
+    n = c.siguiente
+    c.siguiente = n + max(int(cantidad), 0)
+    db.flush()
+    return n, formato(serie, 0, fecha)[: -serie.digitos] if serie.digitos else formato(serie, 0, fecha)
+
+
+def proximo(db: Session, serie: SerieDocumental, fecha: date | None = None) -> str:
+    """El número que tocaría ahora, sin reservarlo (vista previa)."""
+    fecha = fecha or date.today()
+    periodo = f"{fecha.year:04d}" if serie.reinicio == "ANUAL" else ""
+    c = db.scalar(select(ContadorSerie).where(ContadorSerie.serie_id == serie.id, ContadorSerie.periodo == periodo))
+    return formato(serie, c.siguiente if c else 1, fecha)
+
+
 def mayor_sufijo(codigos, prefijo: str) -> int:
     """Mayor número que sigue al prefijo en una lista de códigos (EMB-0012 → 12)."""
     patron = re.compile(re.escape(prefijo) + r"(\d+)$")

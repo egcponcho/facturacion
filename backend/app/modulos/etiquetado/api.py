@@ -7,7 +7,17 @@ from fastapi import APIRouter, Body, Query, Response, UploadFile
 
 from app.core.errores import ErrorNegocio
 from app.modulos.acceso.permisos import exigir_alguno
-from app.modulos.etiquetado import asignaciones, campos, familias, generacion, masivo, plantillas, previa
+from app.modulos.etiquetado import (
+    asignaciones,
+    campos,
+    campos_logicos,
+    familias,
+    generacion,
+    masivo,
+    plantillas,
+    previa,
+    trabajos,
+)
 from app.web.rutas import Clave, Db, User, ejecutar, leer_subida
 
 router = APIRouter()
@@ -19,7 +29,33 @@ def listar_campos(db: Db, user: User, modalidad: str | None = Query(None, patter
     """Campos que se pueden poner en una etiqueta, por grupo, con su origen (tabla.columna) y un ejemplo."""
     exigir_alguno(user, "etiquetas.ver", "etiquetas.disenar")
     return {"grupos": campos.GRUPOS, "modalidades": {k: sorted(v) for k, v in campos.POR_MODALIDAD.items()},
-            "campos": [campos.dict_campo(c) for c in campos.catalogo(db, modalidad)]}
+            "campos": [campos.dict_campo(c) for c in campos.catalogo(db, modalidad)],
+            "colecciones": [campos.dict_coleccion(c) for c in campos.colecciones(modalidad)]}
+
+
+# ---- Campos lógicos (precedencia de fuentes) ----------------------------------------------
+@router.get("/etiquetas/campos-logicos")
+def listar_campos_logicos(db: Db, user: User):
+    """Campos lógicos: de qué fuentes sale cada uno, en qué orden y qué hacer si no coinciden."""
+    return campos_logicos.listar(db, user)
+
+
+@router.post("/etiquetas/campos-logicos")
+def crear_campo_logico(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
+    """clave, etiqueta, tipo, fuentes (en orden), politica (PRIMERA, ADVERTIR, BLOQUEAR) y modalidades."""
+    return ejecutar(db, user, clave, lambda: campos_logicos.crear(db, user, datos))
+
+
+@router.patch("/etiquetas/campos-logicos/{campo_id}")
+def actualizar_campo_logico(campo_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Cambia el campo lógico (con `version` para no pisar el cambio de otro)."""
+    return ejecutar(db, user, None, lambda: campos_logicos.actualizar(db, user, campo_id, datos))
+
+
+@router.delete("/etiquetas/campos-logicos/{campo_id}")
+def eliminar_campo_logico(campo_id: int, db: Db, user: User):
+    """Borra un campo lógico que ningún diseño usa (si se usa, se desactiva)."""
+    return ejecutar(db, user, None, lambda: campos_logicos.eliminar(db, user, campo_id))
 
 
 # ---- Familias de etiquetado --------------------------------------------------------------
@@ -211,6 +247,25 @@ def eliminar_asignacion(asignacion_id: int, db: Db, user: User):
     return ejecutar(db, user, None, lambda: asignaciones.eliminar(db, user, asignacion_id))
 
 
+@router.get("/etiquetas/reglas")
+def listar_reglas(db: Db, user: User, plantilla_id: int | None = None, activas: bool | None = None):
+    """Las reglas de etiquetado, de mayor a menor prioridad, con sus condiciones, contexto y vigencia."""
+    return asignaciones.listar(db, user, plantilla_id, activas=activas)
+
+
+@router.get("/etiquetas/reglas/conflictos")
+def conflictos_reglas(db: Db, user: User):
+    """Reglas con la misma prioridad y diseños distintos que pueden cumplirse para el mismo registro."""
+    return asignaciones.conflictos(db, user)
+
+
+@router.post("/etiquetas/reglas/probar")
+def probar_reglas(db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Qué diseño se elegiría y por qué, regla por regla, para un registro real (oc_id, posicion_id,
+    articulo_id, pl_id + bulto) o de muestra (valores), en una fecha y con una regla en borrador (regla)."""
+    return asignaciones.probar(db, user, datos)
+
+
 @router.get("/etiquetas/resolver")
 def resolver(db: Db, user: User, modalidad: str = Query(..., pattern="^(ARTICULO|OC|OC_ARTICULO)$"),
              articulo_id: int | None = None, oc_id: int | None = None):
@@ -313,6 +368,81 @@ def archivo_masivo(lote: str, db: Db, user: User, formato: str | None = Query(No
     contenido, nombre, mime = masivo.archivo(db, user, lote, formato)
     db.commit()
     return Response(contenido, media_type=mime, headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+# ---- Trabajos de etiquetado (asistente único) ---------------------------------------------------------
+@router.get("/etiquetas/trabajos")
+def listar_trabajos(db: Db, user: User, estado: str | None = None, q: str | None = None, page: int = Query(1, ge=1),
+                    size: int = Query(25, ge=1, le=200)):
+    """Trabajos de etiquetado (borradores para retomar, generados, parciales…)."""
+    return trabajos.listar(db, user, estado, q, page, size)
+
+
+@router.post("/etiquetas/trabajos")
+def crear_trabajo(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
+    """Nuevo trabajo: origen (OC, ARTICULOS, PACKING), parametros (oc_ids, posiciones, articulos, pl_id…), nombre y paso."""
+    return ejecutar(db, user, clave, lambda: trabajos.crear(db, user, datos))
+
+
+@router.get("/etiquetas/trabajos/{trabajo_id}")
+def ver_trabajo(trabajo_id: int, db: Db, user: User):
+    """El trabajo con sus parámetros, registros validados, ejecuciones y resumen."""
+    return trabajos.detalle(db, user, trabajo_id)
+
+
+@router.patch("/etiquetas/trabajos/{trabajo_id}")
+def guardar_trabajo(trabajo_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Guarda el borrador: nombre, paso del asistente y parámetros (con `version`)."""
+    return ejecutar(db, user, None, lambda: trabajos.actualizar(db, user, trabajo_id, datos))
+
+
+@router.post("/etiquetas/trabajos/{trabajo_id}/validar")
+def validar_trabajo(trabajo_id: int, db: Db, user: User):
+    """Arma y revisa cada registro en el servidor: diseño y regla, datos, empaque, códigos (leídos con el lector)."""
+    return ejecutar(db, user, None, lambda: trabajos.validar(db, user, trabajo_id))
+
+
+@router.get("/etiquetas/trabajos/{trabajo_id}/registros/{registro_id}/vista-previa")
+def vista_previa_registro(trabajo_id: int, registro_id: int, db: Db, user: User):
+    """Un registro dibujado por el servidor con sus datos reales, su diseño y la procedencia de sus valores."""
+    return trabajos.vista_previa(db, user, trabajo_id, registro_id)
+
+
+@router.post("/etiquetas/trabajos/{trabajo_id}/generar")
+def generar_trabajo(trabajo_id: int, db: Db, user: User, datos: dict[str, Any] = Body({}), clave: Clave = None):
+    """Genera lo pendiente (formato, aceptar_advertencias, parcial). Si es grande, en segundo plano: consultar /estado."""
+    r = ejecutar(db, user, clave, lambda: trabajos.generar(db, user, trabajo_id, datos))
+    if r.get("asincrono") and r.get("estado") == "EN_PROCESO":
+        from app.core.organizacion import de_sesion
+
+        trabajos.lanzar(trabajo_id, user.id, de_sesion(db) or user.organizacion_id)
+    return r
+
+
+@router.get("/etiquetas/trabajos/{trabajo_id}/estado")
+def estado_trabajo(trabajo_id: int, db: Db, user: User):
+    """Estado y avance (etiquetas dibujadas de cuántas) de un trabajo."""
+    return trabajos.estado(db, user, trabajo_id)
+
+
+@router.post("/etiquetas/trabajos/{trabajo_id}/cancelar")
+def cancelar_trabajo(trabajo_id: int, db: Db, user: User):
+    """Cancela un trabajo que no se está generando (lo ya generado sigue en el historial)."""
+    return ejecutar(db, user, None, lambda: trabajos.cancelar(db, user, trabajo_id))
+
+
+@router.get("/etiquetas/trabajos/{trabajo_id}/archivo")
+def archivo_trabajo(trabajo_id: int, db: Db, user: User, contenido: str | None = Query(None, pattern="^(PDF|PNG|SVG)$")):
+    """ZIP con las etiquetas de todas las ejecuciones en las carpetas y con los nombres configurados, más el resumen."""
+    datos_, nombre = trabajos.archivo(db, user, trabajo_id, contenido)
+    db.commit()
+    return Response(datos_, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+@router.post("/etiquetas/generaciones/{generacion_id}/impresion")
+def confirmar_impresion(generacion_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Confirma que las etiquetas se imprimieron (confirmo, cantidad, impresora, observacion si no fueron todas)."""
+    return ejecutar(db, user, None, lambda: trabajos.confirmar_impresion(db, user, generacion_id, datos))
 
 
 @router.get("/etiquetas/generaciones/{generacion_id}")

@@ -26,8 +26,8 @@ const PANTALLAS = [
   '/mantenimiento?catalogo=atributos_variante', '/mantenimiento?catalogo=prepacks', '/mantenimiento?catalogo=acuerdos',
   '/mantenimiento?catalogo=escalas', '/mantenimiento?catalogo=categorias',
   
-  '/etiquetas', '/etiquetas?vista=familias', '/etiquetas?vista=articulos', '/etiquetas?vista=asignaciones', '/etiquetas?vista=historial',
-  '/etiquetas/generar', '/etiquetas/masiva',
+  '/etiquetas', '/etiquetas?vista=trabajos', '/etiquetas?vista=familias', '/etiquetas?vista=articulos', '/etiquetas?vista=asignaciones',
+  '/etiquetas?vista=campos', '/etiquetas?vista=historial', '/etiquetas/trabajos/nuevo',
   '/leadtimes', '/aranceles', '/familias', '/plantillas', '/importar', '/empresa', '/perfil', '/plataforma',
   '/admin', '/admin?tab=roles', '/admin?tab=proveedores', '/admin?tab=flujo', '/admin?tab=bitacora',
 ]
@@ -57,6 +57,7 @@ async function documentos(ctx) {
   const yo = await get('/auth/me')
   if (yo.permisos?.includes('oc.editar')) rutas.push('/ordenes/nueva')
   if (yo.permisos?.includes('etiquetas.ver')) for (const x of (await get('/etiquetas/plantillas?size=2')).items || []) rutas.push(`/etiquetas/plantillas/${x.id}`)
+  if (yo.permisos?.includes('etiquetas.generar')) for (const x of (await get('/etiquetas/trabajos?estado=&size=2')).items || []) rutas.push(`/etiquetas/trabajos/${x.id}`)
   return rutas
 }
 

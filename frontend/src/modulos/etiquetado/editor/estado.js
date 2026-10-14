@@ -27,6 +27,7 @@ export function crearEditor() {
     ejemplos: {}, // valores de ejemplo por campo (para dibujar en el lienzo)
     tipos: {}, // tipo de cada campo
     campos: [], // catálogo de campos de la modalidad
+    colecciones: [], // listas para las tablas (contenido del bulto, componentes…)
     portapapeles: null,
     // Datos de la vista previa: de ejemplo o reales (artículo, OC, línea y bulto)
     fuenteDatos: { real: false, articulo_id: '', oc_id: '', posicion_id: '', bulto: '' },

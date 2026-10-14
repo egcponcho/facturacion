@@ -53,6 +53,17 @@ const POR_TIPO = {
   },
   plantilla: { ACTIVA: [t('Active'), 'ok'], ARCHIVADA: [t('Archived'), 'neutro'] },
   lote: { GENERADA: [t('Generated'), 'ok'], PRUEBA: [t('Test (not approved)'), 'aviso'] },
+  // Trabajos de etiquetado, sus registros y sus ejecuciones
+  trabajo: {
+    BORRADOR: [t('Draft'), 'neutro'], VALIDADO: [t('Checked'), 'info'], EN_PROCESO: [t('Generating'), 'aviso'],
+    GENERADO: [t('Generated'), 'ok'], PARCIAL: [t('Partly generated'), 'aviso'], ERROR: [t('Failed'), 'error'],
+    CANCELADO: [t('Cancelled'), 'neutro'],
+  },
+  registro_etiqueta: {
+    LISTO: [t('Ready'), 'ok'], ADVERTENCIA: [t('With warnings'), 'aviso'], ERROR: [t('With errors'), 'error'],
+    GENERADO: [t('Generated'), 'info'], OMITIDO: [t('Skipped'), 'neutro'],
+  },
+  ejecucion: { GENERADA: [t('Generated'), 'info'], DESCARGADA: [t('Downloaded'), 'aviso'], IMPRESA: [t('Printed'), 'ok'] },
   avance: {
     SIN_FACTURAR: [t('Not invoiced'), 'neutro'],
     FACTURADA_PARCIAL: [t('Partly invoiced'), 'aviso'],

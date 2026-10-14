@@ -414,7 +414,8 @@
    "{0} · {1}×{2}×{3} cm, {4} kg",
    "{0}: no",
    "· DAI {0}%",
-   "· {0} pallets"
+   "· {0} pallets",
+   "campos_etiqueta[{0}]: {1}"
   ]
  }
 }

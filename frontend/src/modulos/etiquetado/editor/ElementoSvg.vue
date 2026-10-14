@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { usarEditor } from './estado.js'
-import { PT_MM, TRAZOS, anchoTexto, cumple, formatear, maquetar, sustituir } from '@/modulos/etiquetado/etiquetas.js'
+import { PT_MM, TRAZOS, anchoTexto, cumple, formatear, maquetar, sustituir, valorCodigo as valorDeCodigo } from '@/modulos/etiquetado/etiquetas.js'
 
 // Un elemento del diseño dibujado en el lienzo del editor (en mm), con los
 // valores de ejemplo de cada campo. Textos, formas e imágenes se dibujan igual
@@ -61,7 +61,7 @@ const imagen = computed(() => {
 const encaje = computed(() => ({ contener: 'xMidYMid meet', cubrir: 'xMidYMid slice', estirar: 'none' })[props.e.encaje || 'contener'])
 
 // ---- Código: representación con barras deterministas o módulos de QR -------------------------
-const valorCodigo = computed(() => (props.e.tipo === 'codigo' ? sustituir(props.e.valor, props.valores, props.tipos) : ''))
+const valorCodigo = computed(() => (props.e.tipo === 'codigo' ? valorDeCodigo(props.e, props.valores, props.tipos) : ''))
 function semilla(s) {
   let h = 2166136261
   for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619)
@@ -119,6 +119,41 @@ watch(claveCodigo, (k) => {
 watch(() => (claveCodigo.value ? ed.codigos[claveCodigo.value] : undefined), (v) => {
   if (v !== null && v !== undefined) codigoReal.value = v
 }, { immediate: true })
+// ---- Tabla: encabezado, filas de la lista (ejemplo o reales) y total; el servidor decide si caben ------
+const tabla = computed(() => {
+  const e = props.e
+  if (e.tipo !== 'tabla' || !e.columnas?.length) return null
+  const filas = Array.isArray(props.valores[e.coleccion]) ? props.valores[e.coleccion]
+    : [Object.fromEntries(e.columnas.map((c) => [c.campo, `‹${c.campo}›`]))]
+  const fijas = (e.encabezado ? 1 : 0) + (e.totales?.length ? 1 : 0)
+  const cabe = Math.max(Math.floor(e.h / e.alto_fila + 1e-6) - fijas, 0)
+  const pesos = e.columnas.reduce((s, c) => s + (c.ancho || 1), 0)
+  let x = e.x
+  const xs = e.columnas.map((c) => {
+    const w = (e.w * (c.ancho || 1)) / pesos
+    const r = { x, w, alin: c.alin || 'izq' }
+    x += w
+    return r
+  })
+  const tam = (e.estilo?.tam || 7) * PT_MM
+  const celda = (texto, i, fila) => ({ texto: String(texto ?? ''), x: xs[i].alin === 'der' ? xs[i].x + xs[i].w - 0.6 : xs[i].alin === 'centro' ? xs[i].x + xs[i].w / 2 : xs[i].x + 0.6,
+    ancla: xs[i].alin === 'der' ? 'end' : xs[i].alin === 'centro' ? 'middle' : 'start', y: e.y + fila * e.alto_fila + (e.alto_fila + tam * 0.7) / 2 })
+  const lineas = []
+  let fila = 0
+  if (e.encabezado) lineas.push(...e.columnas.map((c, i) => ({ ...celda(c.titulo || c.campo, i, fila++ * 0 + 0), negrita: true })))
+  if (e.encabezado) fila = 1
+  const visibles = filas.slice(0, cabe)
+  for (const f of visibles) {
+    lineas.push(...e.columnas.map((c, i) => celda(formatear(f[c.campo], c.formato, props.tipos[`${e.coleccion}.${c.campo}`]) ?? '', i, fila)))
+    fila++
+  }
+  if (e.totales?.length) {
+    lineas.push(...e.columnas.map((c, i) => ({ ...celda(e.totales.includes(c.campo) ? (Array.isArray(props.valores[e.coleccion])
+      ? formatear(filas.reduce((s, x) => s + (Number(x[c.campo]) || 0), 0), c.formato, 'numero') : 'Σ') : '', i, fila), negrita: true })))
+    fila++
+  }
+  return { lineas, alto: fila * e.alto_fila, xs, tam, desborda: filas.length > cabe }
+})
 const trazo = (e) => (TRAZOS[e.trazo] ? TRAZOS[e.trazo](e.grosor || 0.3) : null)
 </script>
 
@@ -154,6 +189,17 @@ const trazo = (e) => (TRAZOS[e.trazo] ? TRAZOS[e.trazo](e.grosor || 0.3) : null)
           :stroke="e.borde && e.grosor ? e.borde : null" :stroke-width="e.borde ? e.grosor : null" :stroke-dasharray="trazo(e)" />
     <ellipse v-else-if="e.tipo === 'elipse'" :cx="e.x + e.w / 2" :cy="e.y + e.h / 2" :rx="e.w / 2" :ry="e.h / 2" :fill="e.relleno || 'none'"
              :stroke="e.borde && e.grosor ? e.borde : null" :stroke-width="e.borde ? e.grosor : null" :stroke-dasharray="trazo(e)" />
+    <g v-else-if="e.tipo === 'tabla' && tabla">
+      <rect v-if="e.cuadricula" :x="e.x" :y="e.y" :width="e.w" :height="tabla.alto" fill="none" :stroke="e.color" :stroke-width="e.grosor" />
+      <template v-if="e.cuadricula">
+        <line v-for="k in Math.max(Math.round(tabla.alto / e.alto_fila) - 1, 0)" :key="`h${k}`" :x1="e.x" :x2="e.x + e.w" :y1="e.y + k * e.alto_fila" :y2="e.y + k * e.alto_fila"
+              :stroke="e.color" :stroke-width="e.grosor" />
+        <line v-for="(c, k) in tabla.xs.slice(1)" :key="`v${k}`" :x1="c.x" :x2="c.x" :y1="e.y" :y2="e.y + tabla.alto" :stroke="e.color" :stroke-width="e.grosor" />
+      </template>
+      <text v-for="(l, k) in tabla.lineas" :key="k" :x="l.x" :y="l.y" :font-size="tabla.tam" :text-anchor="l.ancla" font-family="Etiqueta-sans"
+            :font-weight="l.negrita ? 700 : 400" :fill="e.estilo?.color || '#000000'">{{ l.texto }}</text>
+      <rect v-if="tabla.desborda" :x="e.x" :y="e.y" :width="e.w" :height="e.h" fill="none" stroke="#d32f2f" stroke-width="0.4" stroke-dasharray="1 0.8" />
+    </g>
     <line v-else-if="e.tipo === 'linea'" :x1="e.x" :y1="e.y" :x2="e.x + e.w" :y2="e.y + e.h" :stroke="e.color" :stroke-width="e.grosor"
           :stroke-dasharray="trazo(e)" />
   </g>

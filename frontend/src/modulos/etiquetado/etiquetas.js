@@ -14,11 +14,37 @@ export const textoModalidad = (m) => MODALIDADES().find((x) => x[0] === m)?.[1] 
 export const UNIDADES = () => ({
   ORDEN: t('One per order'),
   LINEA: t('One per PO line'),
+  ARTICULO: t('One per distinct item'),
   UNIDAD: t('One per unit ordered'),
   BULTO: t('One per package'),
   MANUAL: t('Quantity entered by hand'),
 })
-export const UNIDADES_DE = { ARTICULO: ['UNIDAD', 'MANUAL'], OC: ['ORDEN', 'BULTO', 'MANUAL'], OC_ARTICULO: ['LINEA', 'UNIDAD', 'BULTO', 'MANUAL'] }
+export const UNIDADES_DE = { ARTICULO: ['UNIDAD', 'MANUAL'], OC: ['ORDEN', 'BULTO', 'MANUAL'], OC_ARTICULO: ['LINEA', 'ARTICULO', 'UNIDAD', 'BULTO', 'MANUAL'] }
+
+// Trabajos de etiquetado: de dónde salen los registros
+export const ORIGENES = () => [
+  ['OC', t('Purchase orders'), t('One or several POs: their lines, items or packages.')],
+  ['ARTICULOS', t('Items'), t('Items without a PO: item and product data.')],
+  ['PACKING', t('Packing list'), t('Each package of a level of the packing list (pallets, cartons, inner packs…).')],
+]
+
+// Operadores de las condiciones (los mismos del servidor: reglas.OPERADORES)
+export const OPERADORES = () => ({
+  existe: t('has a value'), vacio: t('is empty'), igual: t('is'), distinto: t('is not'), en: t('is one of'), no_en: t('is none of'),
+  contiene: t('contains'), no_contiene: t('does not contain'), empieza: t('starts with'), termina: t('ends with'),
+  mayor: t('is greater than'), mayor_igual: t('is at least'), menor: t('is less than'), menor_igual: t('is at most'),
+  entre: t('is between'), en_familia: t('is in the family (or its subfamilies)'), coincide: t('matches the pattern'),
+})
+export const SIN_VALOR = ['existe', 'vacio']
+export const NUMERICOS = ['mayor', 'mayor_igual', 'menor', 'menor_igual', 'entre']
+export const LISTAS = ['en', 'no_en']
+
+// Clase de cada problema de un trabajo (generacion.CATEGORIAS)
+export const CATEGORIAS = () => ({
+  dato_obligatorio: t('Required data missing'), dato_opcional: t('Optional data empty'), conflicto: t('Conflicts'),
+  configuracion: t('Configuration'), empaque: t('Packaging'), inconsistencia: t('Inconsistencies (PO vs packing list)'),
+  excepcion: t('Exceptions'), cantidad: t('Quantities'), codigo: t('Barcodes and QR'), diseno: t('Design and layout'),
+})
 
 export const AMBITOS = () => ({
   GENERAL: t('General (whole organization)'),
@@ -26,6 +52,7 @@ export const AMBITOS = () => ({
   PRODUCTO: t('Product (all its variants)'),
   ARTICULO: t('Item (one variant)'),
   OC: t('Exception for one PO'),
+  REGLA: t('Any record that meets the conditions'),
 })
 
 // Tamaños habituales (ancho × alto en mm); el usuario puede poner cualquier otro
@@ -133,6 +160,29 @@ export function maquetar(texto, estilo, ancho, alto) {
   return { lineas, tam, desborda, interlinea: tam * (estilo.interlineado || 1.15) * PT_MM }
 }
 
+// Transformaciones de las partes de un código (render._transformar)
+export const TRANSFORMACIONES = () => ({ mayus: t('Capitals'), minus: t('Lowercase'), solo_digitos: t('Digits only'),
+  sin_espacios: t('No spaces'), alfanumerico: t('Letters and digits only') })
+function transformar(v, parte) {
+  for (const x of parte.transformar || []) {
+    if (x === 'mayus') v = v.toUpperCase()
+    else if (x === 'minus') v = v.toLowerCase()
+    else if (x === 'solo_digitos') v = v.replace(/\D/g, '')
+    else if (x === 'sin_espacios') v = v.replace(/\s/g, '')
+    else if (x === 'alfanumerico') v = v.replace(/[^\p{L}\p{N}]/gu, '')
+  }
+  if (parte.recortar) v = v.slice(0, parte.recortar)
+  if (parte.rellenar) v = v.padStart(parte.rellenar, parte.relleno || '0')
+  return v
+}
+// El texto que codifica un código: sus partes unidas por el separador o su texto con {{campos}}
+export function valorCodigo(e, valores, tipos) {
+  if (!e.partes?.length) return sustituir(e.valor, valores, tipos)
+  return e.partes.map((p) => (p.tipo === 'fijo' ? transformar(p.texto || '', p)
+    : (formatear(valores[p.campo], null, tipos[p.campo]) == null ? null : transformar(formatear(valores[p.campo], null, tipos[p.campo]), p))))
+    .filter((x) => x != null).join(e.separador || '')
+}
+
 export const nuevoId = (tipo) => `${tipo}-${Math.random().toString(36).slice(2, 8)}`
 
 export function elementoNuevo(tipo, x = 5, y = 5, extra = {}) {
@@ -144,6 +194,8 @@ export function elementoNuevo(tipo, x = 5, y = 5, extra = {}) {
   if (tipo === 'rect') return { ...base, w: 30, h: 15, relleno: null, borde: '#000000', grosor: 0.3, ...extra }
   if (tipo === 'elipse') return { ...base, w: 15, h: 15, relleno: null, borde: '#000000', grosor: 0.3, ...extra }
   if (tipo === 'linea') return { ...base, w: 40, h: 0, color: '#000000', grosor: 0.3, ...extra }
+  if (tipo === 'tabla') return { ...base, w: 80, h: 30, alto_fila: 5, encabezado: true, cuadricula: true, desborde: 'error', totales: [],
+    color: '#000000', grosor: 0.2, estilo: { tam: 7, tam_min: 5 }, coleccion: '', columnas: [], ...extra }
   return { ...base, ...extra }
 }
 
@@ -180,18 +232,44 @@ export const CAMPO = /\{\{\s*([\w.]+)\s*\}\}/g
 export const sustituir = (texto, valores, tipos) =>
   (texto || '').replace(CAMPO, (_, c) => formatear(valores[c], null, tipos[c]) ?? '')
 
-// Si el elemento se dibuja según su condición (render.cumple)
+// Si el elemento se dibuja según su condición (render.cumple → reglas.cumple_condicion)
+const txt = (v) => (v == null ? '' : String(v).trim().toLowerCase())
 export function cumple(cond, valores) {
   if (!cond?.campo) return true
   const v = valores[cond.campo]
   const op = cond.op || 'existe'
-  const esperado = (cond.valor || '').trim().toLowerCase()
+  let esperado = cond.valor
   if (op === 'existe') return !vacio(v)
   if (op === 'vacio') return vacio(v)
-  const s = v == null ? '' : String(v)
-  if (op === 'igual') return s.trim().toLowerCase() === esperado
-  if (op === 'distinto') return s.trim().toLowerCase() !== esperado
-  return s.toLowerCase().includes(esperado)
+  if (NUMERICOS.includes(op)) {
+    const n = Number(v)
+    if (v == null || v === '' || Number.isNaN(n)) return false
+    if (op === 'entre') {
+      const [a, b] = (Array.isArray(esperado) ? esperado : []).map(Number).sort((x, y) => x - y)
+      return n >= a && n <= b
+    }
+    const m = Number(esperado)
+    return { mayor: n > m, mayor_igual: n >= m, menor: n < m, menor_igual: n <= m }[op]
+  }
+  if (LISTAS.includes(op) && typeof esperado === 'string') esperado = esperado.split(',').map((x) => x.trim()).filter(Boolean)
+  const s = txt(v)
+  if (op === 'igual') return s === txt(esperado)
+  if (op === 'distinto') return s !== txt(esperado)
+  if (op === 'en') return (esperado || []).map(txt).includes(s)
+  if (op === 'no_en') return !(esperado || []).map(txt).includes(s)
+  if (op === 'contiene') return s.includes(txt(esperado))
+  if (op === 'no_contiene') return !s.includes(txt(esperado))
+  if (op === 'empieza') return s.startsWith(txt(esperado))
+  if (op === 'termina') return s.endsWith(txt(esperado))
+  if (op === 'en_familia') return String(v || '').split('/').map(txt).includes(txt(esperado))
+  if (op === 'coincide') {
+    try {
+      return new RegExp(`^(?:${esperado})$`, 'i').test(v == null ? '' : String(v))
+    } catch {
+      return false
+    }
+  }
+  return false
 }
 
 export const TRAZOS = { discontinuo: (g) => `${3 * g + 0.7} ${2 * g + 0.5}`, punteado: (g) => `${Math.max(g, 0.18)} ${2 * g + 0.35}` }

@@ -1,5 +1,8 @@
 # Módulo de etiquetado
 
+> Reglas declarativas, campos lógicos, subfamilias, tablas, códigos compuestos y
+> trabajos de etiquetado (asistente único): ver `docs/ETIQUETADO_REDISENO.md`.
+
 Diseño, versionado, aprobación y generación de etiquetas con datos reales de
 artículos, órdenes de compra y bultos. Este documento es la entrega del
 módulo: arquitectura, base de datos, componentes, endpoints, reglas,
@@ -268,12 +271,14 @@ bitácora y la generación desde una OC con descarga del PDF.
 
 - **Plantillas por organización.** Cada empresa diseña las suyas (RLS); no
   hay plantillas del sistema compartidas entre organizaciones.
-- **Lotes síncronos** de hasta `ETIQUETAS_MAXIMO_LOTE` (5000) etiquetas por
-  pedido; más grandes deben dividirse. No hay cola en segundo plano.
+- **Lotes** de hasta `ETIQUETAS_MAXIMO_LOTE` (5000) etiquetas por pedido
+  directo; los trabajos de etiquetado generan en segundo plano desde
+  `ETIQUETAS_ASINCRONO_DESDE` (ver ETIQUETADO_REDISENO.md §10.5).
 - **Empaques con contenido mixto**: la etiqueta de OC y artículo toma los
   datos del primer artículo del empaque (y lo avisa); el contenido completo
-  está en `bulto.contenido`.
-- **Generación masiva**: hasta 200 OC y 2000 artículos por vez, síncrona.
+  está en las tablas `bulto.lineas` y `bulto.componentes`.
+- **Generación masiva** (API anterior): hasta 200 OC y 2000 artículos por
+  vez, síncrona; la pantalla usa ahora el asistente de trabajos.
 - **Idioma**: un diseño tiene un solo juego de textos fijos; no hay
   plantillas con variantes por idioma.
 - **Editor**: en el lienzo el texto se mide con las mismas fuentes que el

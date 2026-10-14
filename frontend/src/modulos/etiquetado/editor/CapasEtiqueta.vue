@@ -13,7 +13,7 @@ const ICONOS = { texto: 'texto', campo: 'campo', codigo: 'barras', imagen: 'imag
 const capas = computed(() => [...ed.elementos.value].reverse())
 const campo = (c) => ed.camposTodos.value.find((x) => x.clave === c)
 const nombre = (e) => e.nombre || (e.campo ? tx(campo(e.campo)?.etiqueta || e.campo) : e.tipo === 'texto' ? (e.contenido || '').slice(0, 30) : e.tipo === 'codigo' ? (e.simbologia || '').toUpperCase() : tx(TIPOS.value[e.tipo]))
-const TIPOS = computed(() => ({ texto: t('Text'), campo: t('Field'), codigo: t('Code'), imagen: t('Image'), rect: t('Rectangle'), elipse: t('Ellipse'), linea: t('Line') }))
+const TIPOS = computed(() => ({ texto: t('Text'), campo: t('Field'), codigo: t('Code'), imagen: t('Image'), rect: t('Rectangle'), elipse: t('Ellipse'), linea: t('Line'), tabla: t('Table') }))
 const COLORES = ['#3355e0', '#1baf7a', '#eb6834', '#e87ba4', '#4a3aa7', '#eda100']
 const colorGrupo = (g) => COLORES[[...g].reduce((s, c) => s + c.charCodeAt(0), 0) % COLORES.length]
 

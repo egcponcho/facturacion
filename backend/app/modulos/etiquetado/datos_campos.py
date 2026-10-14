@@ -79,6 +79,17 @@ ORIGEN = {
     "etiqueta.numero_lote": "posición de la etiqueta en el lote",
     "etiqueta.total_lote": "total de etiquetas del lote",
     "etiqueta.fecha": "fecha de la generación",
+    "etiqueta.serie": "series_documentales (objeto etiqueta): un número reservado por etiqueta",
+    "articulo.familia_ruta": "familias_etiquetado.codigo de la familia y sus antecesoras",
+    "bulto.tipo_codigo": "tipos_empaque.codigo",
+    "bulto.parcial": "grupos_cajas.es_parcial",
+    "contexto.modalidad": "trabajo: modalidad de los datos",
+    "contexto.origen": "trabajo: origen (OC, artículos, lista de empaque)",
+    "contexto.unidad": "trabajo: qué representa cada etiqueta",
+    "bulto.lineas": "grupo_cajas_items → pl_lineas → factura_lineas → posiciones_oc",
+    "bulto.componentes": "bulto.lineas con prepacks y kits repartidos en prepack_componentes",
+    "articulo.componentes": "prepack_componentes del artículo",
+    "oc.lineas": "posiciones_oc de la OC",
 }
 
 EJEMPLO = {
@@ -156,4 +167,29 @@ EJEMPLO = {
     "etiqueta.numero_lote": 1,
     "etiqueta.total_lote": 240,
     "etiqueta.fecha": "2026-10-14",
+    "etiqueta.serie": "LBL-000123",
+    "articulo.familia_ruta": "ROPA / ROPA-EXT",
+    "bulto.tipo_codigo": "CJ",
+    "bulto.parcial": "no",
+    "contexto.modalidad": "OC_ARTICULO",
+    "contexto.origen": "OC",
+    "contexto.unidad": "BULTO",
+    "bulto.lineas": [
+        {"oc": "4500012345", "linea": "10", "sku": "NF0A7QEYJK3M", "upc": "196575123456", "descripcion": "Antora jacket",
+         "color": "TNF Black", "talla": "M", "cantidad": 12, "unidad": "UN"},
+        {"oc": "4500012345", "linea": "20", "sku": "NF0A7QEYJK3L", "upc": "196575123463", "descripcion": "Antora jacket",
+         "color": "TNF Black", "talla": "L", "cantidad": 12, "unidad": "UN"}],
+    "bulto.componentes": [
+        {"sku": "NF0A7QEYJK3M", "upc": "196575123456", "descripcion": "Antora jacket", "color": "TNF Black", "talla": "M",
+         "cantidad": 12},
+        {"sku": "NF0A7QEYJK3L", "upc": "196575123463", "descripcion": "Antora jacket", "color": "TNF Black", "talla": "L",
+         "cantidad": 12}],
+    "articulo.componentes": [
+        {"sku": "NF0A7QEYJK3S", "upc": "196575123449", "descripcion": "Antora jacket", "color": "TNF Black", "talla": "S",
+         "cantidad": 2},
+        {"sku": "NF0A7QEYJK3M", "upc": "196575123456", "descripcion": "Antora jacket", "color": "TNF Black", "talla": "M",
+         "cantidad": 4}],
+    "oc.lineas": [
+        {"oc": "4500012345", "linea": "10", "sku": "NF0A7QEYJK3M", "upc": "196575123456", "descripcion": "Antora jacket",
+         "color": "TNF Black", "talla": "M", "cantidad": 120, "unidad": "UN"}],
 }

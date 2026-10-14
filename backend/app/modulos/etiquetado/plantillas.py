@@ -185,12 +185,21 @@ def _validar_meta(db: Session, datos: dict, actual: PlantillaEtiqueta | None) ->
 def validar_contenido(db: Session, user: Usuario, modalidad: str, diseno: dict) -> dict:
     """Diseño limpio cuyos campos existen en la modalidad y cuyas imágenes son de la organización."""
     limpio = svc_diseno.validar(diseno)
-    disponibles = {c.clave for c in svc_campos.catalogo(db, modalidad)} | {f"manual.{v['clave']}" for v in limpio["variables"]}
+    colecciones = {c.clave: c for c in svc_campos.colecciones(modalidad)}
+    disponibles = ({c.clave for c in svc_campos.catalogo(db, modalidad)} | {f"manual.{v['clave']}" for v in limpio["variables"]}
+                   | set(colecciones))
     ajenos = sorted(c for c in svc_diseno.campos_usados(limpio) if c not in disponibles)
     if ajenos:
         raise ErrorNegocio("The design uses fields that this data mode does not have.", 422, "validacion",
                            [{"campo": "elementos", "mensaje": f"Not available for this data mode: {', '.join(ajenos)}."}])
     for e in limpio["elementos"]:
+        if e["tipo"] == "tabla":
+            col = colecciones[e["coleccion"]]
+            validas = {k for k, _, _ in col.columnas}
+            malas = [c["campo"] for c in e["columnas"] if c["campo"] not in validas]
+            if malas:
+                raise ErrorNegocio("A table uses columns that its list does not have.", 422, "validacion",
+                                   [{"campo": "elementos", "mensaje": f"{col.etiqueta}: {', '.join(malas)}."}])
         if e["tipo"] == "imagen" and e.get("fuente_imagen") == "adjunto" and not db.get(Adjunto, e["adjunto_id"]):
             raise ErrorNegocio("An image of the design does not exist.", 422, "validacion")
         if e["tipo"] == "imagen" and e.get("fuente_imagen") == "datos":
@@ -215,7 +224,7 @@ def imagen_adjunta(db: Session):
 
 def revisar(db: Session, modalidad: str, diseno: dict, valores: dict | None = None, prueba: bool = False) -> render.Lienzo:
     """La etiqueta con datos reales o, sin ellos, con los valores de ejemplo de cada campo."""
-    tipos = {c.clave: c.tipo for c in svc_campos.catalogo(db, modalidad)}
+    tipos = svc_campos.tipos(db, modalidad)
     if valores is None:
         valores = {**svc_campos.ejemplos(db, modalidad), "etiqueta.numero": 1, "etiqueta.total": 1, "etiqueta.numero_lote": 1,
                    "etiqueta.total_lote": 1}

@@ -74,6 +74,7 @@ async function cargar() {
     ])
     grupos.value = campos.grupos
     est.campos = campos.campos
+    est.colecciones = campos.colecciones || []
     est.tipos = Object.fromEntries(campos.campos.map((c) => [c.clave, c.tipo]))
     est.ejemplos = { ...Object.fromEntries(campos.campos.filter((c) => c.ejemplo != null).map((c) => [c.clave, c.ejemplo])),
       'etiqueta.numero': 1, 'etiqueta.total': 1, 'etiqueta.numero_lote': 1, 'etiqueta.total_lote': 1 }

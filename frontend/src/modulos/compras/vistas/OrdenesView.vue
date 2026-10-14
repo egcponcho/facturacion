@@ -569,6 +569,8 @@ watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorrad
   </TablaDatos>
 
   <BarraSeleccion :cantidad="seleccionOC.length" :singular="t('PO selected')" :plural="t('POs selected')" @limpiar="seleccionOC = []">
+    <router-link v-if="puede('etiquetas.generar')" class="btn" :to="{ path: '/etiquetas/trabajos/nuevo', query: { origen: 'OC', ocs: seleccionOC.join(',') } }">
+      <Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</router-link>
     <button class="btn" type="button" @click="agregarOCs([...seleccionOC])">{{ t('Add to the selection') }}</button>
     <button class="btn btn-primario" type="button" @click="agregarOCs([...seleccionOC], true)">{{ t('Invoice together') }}</button>
   </BarraSeleccion>

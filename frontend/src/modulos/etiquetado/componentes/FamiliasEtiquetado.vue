@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import PanelLateral from '@/componentes/PanelLateral.vue'
+import Seleccion from '@/componentes/Seleccion.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import GruposFamilia from '@/modulos/etiquetado/componentes/GruposFamilia.vue'
 import { puede } from '@/stores/sesion'
@@ -38,6 +39,7 @@ const columnas = computed(() => [
   { clave: 'orden', texto: '#', num: true, prioridad: 2, filtro: false },
   { clave: 'codigo', texto: t('Code'), fija: true, prioridad: 1 },
   { clave: 'nombre', texto: t('Name'), prioridad: 1 },
+  { clave: 'ruta', texto: t('Inside'), prioridad: 3, textoValor: (v, f) => (f?.padre_id ? v : '') },
   { clave: 'descripcion', texto: t('Description'), prioridad: 3 },
   { clave: 'campos', texto: t('Usual fields'), prioridad: 2, filtro: false, textoValor: (v) => String((v || []).length) },
   { clave: 'grupos', texto: t('Item groups'), num: true, prioridad: 2 },
@@ -63,7 +65,7 @@ function alternarCampo(clave, tipo, si) {
 }
 async function guardar() {
   const f = panel.value
-  const datos = { codigo: f.codigo, nombre: f.nombre, descripcion: f.descripcion, activa: f.activa, campos: f.campos }
+  const datos = { codigo: f.codigo, nombre: f.nombre, descripcion: f.descripcion, activa: f.activa, campos: f.campos, padre_id: f.padre_id || null }
   try {
     if (f.id) await api.patch(`/etiquetas/familias/${f.id}`, datos)
     else await api.post('/etiquetas/familias', datos)
@@ -134,7 +136,7 @@ const nombreCampo = (clave) => campos.value.find((c) => c.clave === clave)?.etiq
         <button type="button" class="btn-icono" :aria-label="t('Move down')" :title="t('Move down')" @click.stop="mover(f, 1)"><Icono nombre="abajo" :tam="15" /></button>
         <button type="button" class="btn btn-chico" @click.stop="alternarActiva(f)">{{ f.activa ? t('Deactivate') : t('Activate') }}</button>
       </template>
-      <router-link v-if="puede('etiquetas.generar') && f.articulos" :to="{ path: '/etiquetas/masiva', query: { familia: f.id } }" class="btn btn-chico" @click.stop>
+      <router-link v-if="puede('etiquetas.generar') && f.articulos" :to="{ path: '/etiquetas/trabajos/nuevo', query: { origen: 'OC', familia: f.id } }" class="btn btn-chico" @click.stop>
         <Icono nombre="descargar" :tam="14" />{{ t('Generate labels') }}</router-link>
     </template>
     <template #vacio>{{ t('No labeling families yet. Create the ones your operation needs, for example footwear, apparel or chemicals.') }}</template>
@@ -146,6 +148,11 @@ const nombreCampo = (clave) => campos.value.find((c) => c.clave === clave)?.etiq
         <label class="campo"><span class="req">{{ t('Code') }}</span><input v-model="panel.codigo" required maxlength="20" :placeholder="t('E.g. FOOTWEAR')" /></label>
         <label class="campo"><span class="req">{{ t('Name') }}</span><input v-model="panel.nombre" required maxlength="100" /></label>
       </div>
+      <label class="campo"><span>{{ t('Subfamily of') }}</span>
+        <Seleccion v-model="panel.padre_id"><option :value="null">{{ t('None (main family)') }}</option>
+          <option v-for="x in lista.filter((y) => y.id !== panel.id && !(y.ruta || '').includes(panel.nombre + ' /'))" :key="x.id" :value="x.id">{{ tx(x.ruta || x.nombre) }}</option></Seleccion>
+        <small class="ayuda">{{ t('A subfamily inherits the required fields and the rules of the families that contain it.') }}</small></label>
+      <p v-if="panel.heredados?.length" class="ayuda">{{ t('Inherited fields: {0}', [panel.heredados.map((c) => tx(nombreCampo(c.campo)) + (c.obligatorio ? ' *' : '')).join(', ')]) }}</p>
       <label class="campo"><span>{{ t('Description') }}</span><textarea v-model="panel.descripcion" maxlength="300" rows="2"></textarea></label>
       <label class="check"><input v-model="panel.activa" type="checkbox" /> {{ t('Active') }}</label>
       <section v-if="panel.id" class="campo">

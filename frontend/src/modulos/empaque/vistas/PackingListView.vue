@@ -535,7 +535,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <EstadoBadge :estado="pl.estado" tipo="pl" />
         <span class="doc-sub">{{ tx(pl.factura.nombre) }} · {{ tx(pl.factura.proveedor) }}</span>
         <div class="doc-acciones">
-          <router-link v-if="tienePermiso('etiquetas.generar') && pl.estado !== 'CANCELADO'" :to="{ path: '/etiquetas/masiva', query: { pl: pl.id } }" class="btn">
+          <router-link v-if="tienePermiso('etiquetas.generar') && pl.estado !== 'CANCELADO'" :to="{ path: '/etiquetas/trabajos/nuevo', query: { origen: 'PACKING', pl: pl.id } }" class="btn">
             <Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</router-link>
           <MasOpciones>
             <button class="btn btn-fantasma" :title="t('Packing list as PDF, ready to print and sign')" @click="descargar('pdf')"><Icono nombre="descargar" />PDF</button>

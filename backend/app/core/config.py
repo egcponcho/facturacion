@@ -127,6 +127,12 @@ class Settings:
     # Etiquetado: quien diseña una versión no la aprueba (si se exige) y tope de etiquetas por lote
     ETIQUETAS_CUATRO_OJOS: bool = False
     ETIQUETAS_MAXIMO_LOTE: int = 5000
+    # Trabajos de etiquetado: generar solo los registros listos y dejar los que
+    # tienen errores para después; desde cuántas etiquetas se generan en segundo
+    # plano; tope de etiquetas de un trabajo
+    ETIQUETAS_GENERACION_PARCIAL: bool = False
+    ETIQUETAS_ASINCRONO_DESDE: int = 2000
+    ETIQUETAS_MAXIMO_TRABAJO: int = 50000
     COMPATIBILIDAD_ADVERTENCIA: list[str] = ["incoterm", "centro_destino"]
     # Aprobación de OCs: quien creó o envió una OC no puede aprobarla él mismo
     APROBACION_CUATRO_OJOS: bool = True
