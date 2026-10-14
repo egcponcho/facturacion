@@ -53,8 +53,6 @@ from app.esquemas.empaque import (
     PLMoverCajas,
     PLNumeroIn,
     PLQuitar,
-    RecepcionIn,
-    RecepcionItem,
     ValoresCaja,
 )
 from app.esquemas.facturacion import (
@@ -94,6 +92,7 @@ from app.esquemas.productos import (
 )
 from app.esquemas.transporte import (
     AsignarPL,
+    CierreRecepcionIn,
     Despaletizar,
     EmbarqueIn,
     EmbarquePatch,
@@ -101,6 +100,8 @@ from app.esquemas.transporte import (
     Paletizar,
     PalletPatch,
     PLIds,
+    RecepcionSinConteoIn,
+    RecepcionUnidadIn,
     Recoleccion,
     UnidadIn,
     UnidadPatch,
@@ -111,6 +112,7 @@ __all__ = [
     "AprobarIn",
     "AprobarLote",
     "AsignarPL",
+    "CierreRecepcionIn",
     "AtributoAmbitoIn",
     "AtributoIn",
     "AtributoOpcionIn",
@@ -181,8 +183,8 @@ __all__ = [
     "PLNumeroIn",
     "PLQuitar",
     "PosicionCantidad",
-    "RecepcionIn",
-    "RecepcionItem",
+    "RecepcionSinConteoIn",
+    "RecepcionUnidadIn",
     "Recoleccion",
     "ReglaIn",
     "RegulacionIn",

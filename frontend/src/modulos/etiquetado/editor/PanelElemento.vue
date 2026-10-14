@@ -5,7 +5,7 @@ import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { errorApi } from '@/stores/ui'
-import { SIMBOLOGIAS } from '@/modulos/etiquetado/etiquetas.js'
+import { LISTAS, NUMERICOS, OPERADORES, SIMBOLOGIAS, SIN_VALOR, TRANSFORMACIONES } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import CampoColor from './CampoColor.vue'
 import Medida from './Medida.vue'
@@ -20,7 +20,7 @@ const est = ed.estado
 const e = computed(() => ed.unico.value)
 const u = computed(() => est.diseno?.unidad || 'mm')
 const bloqueado = computed(() => !est.editable || !!e.value?.bloqueado)
-const TIPOS = computed(() => ({ texto: t('Text'), campo: t('Field'), codigo: t('Code'), imagen: t('Image'), rect: t('Rectangle'), elipse: t('Ellipse'), linea: t('Line') }))
+const TIPOS = computed(() => ({ texto: t('Text'), campo: t('Field'), codigo: t('Code'), imagen: t('Image'), rect: t('Rectangle'), elipse: t('Ellipse'), linea: t('Line'), tabla: t('Table') }))
 
 const camposTexto = computed(() => ed.camposTodos.value.filter((c) => c.tipo !== 'imagen'))
 const camposImagen = computed(() => ed.camposTodos.value.filter((c) => c.tipo === 'imagen'))
@@ -44,6 +44,42 @@ const formato = computed(() => e.value?.formato || { tipo: 'auto', decimales: 0,
 function condicion(activa) {
   if (bloqueado.value) return
   e.value.condicion = activa ? { campo: e.value.campo || ed.camposTodos.value[0]?.clave || '', op: 'existe', valor: null } : null
+}
+
+// Código compuesto: partes (campo o texto fijo) con transformaciones y un separador
+const conPartes = computed(() => !!e.value?.partes?.length)
+function modoPartes(si) {
+  if (bloqueado.value) return
+  if (si) e.value.partes = [{ tipo: 'campo', campo: camposTexto.value[0]?.clave || '', transformar: [] }]
+  else e.value.partes = []
+  if (si) e.value.separador = e.value.separador || ''
+  else e.value.valor = e.value.valor || '{{articulo.sku}}'
+}
+const agregarParte = () => e.value.partes.push({ tipo: 'campo', campo: camposTexto.value[0]?.clave || '', transformar: [] })
+function alternarTransformacion(parte, x) {
+  const l = parte.transformar || []
+  parte.transformar = l.includes(x) ? l.filter((y) => y !== x) : [...l, x]
+}
+
+// Tabla: la lista (colección) y sus columnas
+const coleccion = computed(() => est.colecciones.find((c) => c.clave === e.value?.coleccion))
+function cambiarColeccion(clave) {
+  const c = est.colecciones.find((x) => x.clave === clave)
+  e.value.coleccion = clave
+  e.value.columnas = (c?.columnas || []).slice(0, 3).map((x) => ({ campo: x.clave, titulo: x.etiqueta, ancho: 1, alin: x.tipo === 'numero' ? 'der' : 'izq' }))
+  e.value.totales = []
+}
+const agregarColumna = () => {
+  const libre = coleccion.value?.columnas.find((x) => !e.value.columnas.some((c) => c.campo === x.clave)) || coleccion.value?.columnas[0]
+  if (libre) e.value.columnas.push({ campo: libre.clave, titulo: libre.etiqueta, ancho: 1, alin: libre.tipo === 'numero' ? 'der' : 'izq' })
+}
+function alternarTotal(campo) {
+  const l = e.value.totales || []
+  e.value.totales = l.includes(campo) ? l.filter((x) => x !== campo) : [...l, campo]
+}
+function condicionValor(v) {
+  const c = e.value.condicion
+  c.valor = LISTAS.includes(c.op) ? v.split(',').map((x) => x.trim()).filter(Boolean) : NUMERICOS.includes(c.op) && v !== '' ? Number(v) : v
 }
 
 // Ejemplo de campo dentro de un texto (en el script: en la plantilla cerraría la interpolación)
@@ -194,11 +230,37 @@ function fuenteImagen(v) {
         <option v-for="[v, n, d] in SIMBOLOGIAS()" :key="v" :value="v">{{ n }} — {{ d }}</option>
       </Seleccion>
       <p v-if="simbologia" class="ayuda">{{ simbologia[2] }}</p>
-      <label class="campo-mini"><span>{{ t('Value to encode') }}</span><input v-model="e.valor" maxlength="1000" :disabled="bloqueado" class="mono" /></label>
-      <Seleccion v-model="insertar" :disabled="bloqueado" :aria-label="t('Insert field')" @change="(v) => insertarCampo('valor', v)">
-        <option value="">{{ t('Insert field…') }}</option>
-        <option v-for="c in camposTexto" :key="c.clave" :value="c.clave">{{ textoCampo(c) }}</option>
-      </Seleccion>
+      <label class="check-linea"><input type="checkbox" :checked="conPartes" :disabled="bloqueado" @change="modoPartes($event.target.checked)" />{{ t('Compose the value from parts') }}</label>
+      <template v-if="!conPartes">
+        <label class="campo-mini"><span>{{ t('Value to encode') }}</span><input v-model="e.valor" maxlength="1000" :disabled="bloqueado" class="mono" /></label>
+        <Seleccion v-model="insertar" :disabled="bloqueado" :aria-label="t('Insert field')" @change="(v) => insertarCampo('valor', v)">
+          <option value="">{{ t('Insert field…') }}</option>
+          <option v-for="c in camposTexto" :key="c.clave" :value="c.clave">{{ textoCampo(c) }}</option>
+        </Seleccion>
+      </template>
+      <template v-else>
+        <div v-for="(parte, i) in e.partes" :key="i" class="parte-codigo">
+          <div class="rejilla-2">
+            <Seleccion v-model="parte.tipo" :disabled="bloqueado" :aria-label="t('Part')"><option value="campo">{{ t('Field') }}</option><option value="fijo">{{ t('Fixed text') }}</option></Seleccion>
+            <Seleccion v-if="parte.tipo === 'campo'" v-model="parte.campo" :disabled="bloqueado" :aria-label="t('Field')">
+              <option v-for="c in camposTexto" :key="c.clave" :value="c.clave">{{ textoCampo(c) }}</option></Seleccion>
+            <input v-else v-model="parte.texto" maxlength="80" class="mono" :disabled="bloqueado" :aria-label="t('Fixed text')" />
+          </div>
+          <div class="transformaciones">
+            <label v-for="(txt, x) in TRANSFORMACIONES()" :key="x" class="check-linea"><input type="checkbox" :checked="(parte.transformar || []).includes(x)" :disabled="bloqueado"
+                   @change="alternarTransformacion(parte, x)" />{{ tx(txt) }}</label>
+          </div>
+          <div class="rejilla-2">
+            <label class="campo-mini"><span>{{ t('Pad to length') }}</span><input v-model.number="parte.rellenar" type="number" min="1" max="40" :disabled="bloqueado" /></label>
+            <label class="campo-mini"><span>{{ t('Keep the first') }}</span><input v-model.number="parte.recortar" type="number" min="1" max="80" :disabled="bloqueado" /></label>
+          </div>
+          <button type="button" class="btn btn-chico btn-texto" :disabled="bloqueado" @click="e.partes.splice(i, 1)">{{ t('Remove part') }}</button>
+        </div>
+        <div class="rejilla-2">
+          <button type="button" class="btn btn-chico" :disabled="bloqueado || e.partes.length >= 10" @click="agregarParte"><Icono nombre="mas" :tam="14" />{{ t('Add a part') }}</button>
+          <label class="campo-mini"><span>{{ t('Separator') }}</span><input v-model="e.separador" maxlength="5" class="mono" :disabled="bloqueado" /></label>
+        </div>
+      </template>
       <div class="rejilla-2 mt-chico">
         <Medida v-model="e.margen" :etiqueta="t('Quiet zone')" :unidad="u" :min="0" :max="30" :disabled="bloqueado" />
         <label v-if="e.simbologia === 'qr'" class="campo-mini"><span>{{ t('Error correction') }}</span>
@@ -211,6 +273,40 @@ function fuenteImagen(v) {
         <CampoColor v-model="e.relleno" :etiqueta="t('Background')" ninguno :disabled="bloqueado" />
       </div>
       <p class="ayuda">{{ t('The server checks the value (length, check digit) and that the bars are wide enough to be read; problems appear in the preview.') }}</p>
+    </template>
+
+    <template v-if="e.tipo === 'tabla'">
+      <h4>{{ t('Table') }}</h4>
+      <label class="campo-mini"><span>{{ t('List') }}</span>
+        <Seleccion :model-value="e.coleccion" :disabled="bloqueado" :aria-label="t('List')" @update:model-value="cambiarColeccion">
+          <option v-for="c in est.colecciones" :key="c.clave" :value="c.clave">{{ tx(c.etiqueta) }}</option></Seleccion></label>
+      <div v-for="(c, i) in e.columnas" :key="i" class="columna-tabla">
+        <Seleccion v-model="c.campo" :disabled="bloqueado" :aria-label="t('Column')">
+          <option v-for="x in coleccion?.columnas || []" :key="x.clave" :value="x.clave">{{ tx(x.etiqueta) }}</option></Seleccion>
+        <input v-model="c.titulo" maxlength="60" :disabled="bloqueado" :aria-label="t('Header')" :placeholder="t('Header')" />
+        <input v-model.number="c.ancho" type="number" min="0.1" max="100" step="0.5" :disabled="bloqueado" :aria-label="t('Width (relative)')" :title="t('Width (relative)')" />
+        <Seleccion v-model="c.alin" :disabled="bloqueado" :aria-label="t('Alignment')"><option value="izq">⟵</option><option value="centro">↔</option><option value="der">⟶</option></Seleccion>
+        <label class="check-linea" :title="t('Total at the bottom')"><input type="checkbox" :checked="(e.totales || []).includes(c.campo)" :disabled="bloqueado" @change="alternarTotal(c.campo)" />Σ</label>
+        <button type="button" class="btn-icono" :disabled="bloqueado" :aria-label="t('Remove')" @click="e.columnas.splice(i, 1)"><Icono nombre="cerrar" :tam="13" /></button>
+      </div>
+      <button type="button" class="btn btn-chico" :disabled="bloqueado || e.columnas.length >= 12" @click="agregarColumna"><Icono nombre="mas" :tam="14" />{{ t('Add a column') }}</button>
+      <div class="rejilla-2 mt-chico">
+        <Medida v-model="e.alto_fila" :etiqueta="t('Row height')" :unidad="u" :min="2" :max="50" :disabled="bloqueado" />
+        <label class="check-linea"><input v-model="e.encabezado" type="checkbox" :disabled="bloqueado" />{{ t('Header row') }}</label>
+        <label class="check-linea"><input v-model="e.cuadricula" type="checkbox" :disabled="bloqueado" />{{ t('Grid lines') }}</label>
+        <CampoColor v-model="e.color" :etiqueta="t('Lines')" :disabled="bloqueado" />
+      </div>
+      <label class="campo-mini"><span>{{ t('If the rows do not fit') }}</span>
+        <Seleccion v-model="e.desborde" :disabled="bloqueado" :aria-label="t('If the rows do not fit')">
+          <option value="error">{{ t('Do not generate (error)') }}</option>
+          <option value="reducir">{{ t('Smaller text (error if still too many)') }}</option>
+          <option value="resumir">{{ t('Show the ones that fit and “+N more” (warning)') }}</option>
+        </Seleccion></label>
+      <label class="campo-mini"><span>{{ t('If the list is empty') }}</span>
+        <Seleccion v-model="e.si_vacio" :disabled="bloqueado" :aria-label="t('If the list is empty')">
+          <option value="advertir">{{ t('Warn') }}</option><option value="ocultar">{{ t('Hide the table') }}</option>
+          <option value="error">{{ t('Do not allow generating (required)') }}</option></Seleccion></label>
+      <p class="ayuda">{{ t('Totals add up every row, even the ones not shown. Rows are never cut silently.') }}</p>
     </template>
 
     <template v-if="e.tipo === 'imagen'">
@@ -310,15 +406,18 @@ function fuenteImagen(v) {
       </label>
       <label class="campo-mini"><span>{{ t('Condition') }}</span>
         <Seleccion v-model="e.condicion.op" :disabled="bloqueado" :aria-label="t('Condition')">
-          <option value="existe">{{ t('has a value') }}</option>
-          <option value="vacio">{{ t('is empty') }}</option>
-          <option value="igual">{{ t('is equal to') }}</option>
-          <option value="distinto">{{ t('is not') }}</option>
-          <option value="contiene">{{ t('contains') }}</option>
+          <option v-for="(txt, op) in OPERADORES()" :key="op" :value="op">{{ tx(txt) }}</option>
         </Seleccion>
       </label>
-      <label v-if="['igual', 'distinto', 'contiene'].includes(e.condicion.op)" class="campo-mini"><span>{{ t('Value') }}</span>
-        <input v-model="e.condicion.valor" maxlength="200" :disabled="bloqueado" /></label>
+      <template v-if="e.condicion.op === 'entre'">
+        <label class="campo-mini"><span>{{ t('From') }}</span><input type="number" :value="e.condicion.valor?.[0]" :disabled="bloqueado"
+               @input="e.condicion.valor = [Number($event.target.value), e.condicion.valor?.[1] ?? 0]" /></label>
+        <label class="campo-mini"><span>{{ t('To') }}</span><input type="number" :value="e.condicion.valor?.[1]" :disabled="bloqueado"
+               @input="e.condicion.valor = [e.condicion.valor?.[0] ?? 0, Number($event.target.value)]" /></label>
+      </template>
+      <label v-else-if="!SIN_VALOR.includes(e.condicion.op)" class="campo-mini"><span>{{ t('Value') }}</span>
+        <input :value="Array.isArray(e.condicion.valor) ? e.condicion.valor.join(', ') : e.condicion.valor" maxlength="200" :disabled="bloqueado"
+               :placeholder="LISTAS.includes(e.condicion.op) ? t('values separated by commas') : ''" @change="condicionValor($event.target.value)" /></label>
     </div>
   </div>
 </template>
@@ -327,6 +426,9 @@ function fuenteImagen(v) {
 .panel-prop { display: flex; flex-direction: column; gap: 6px; }
 .panel-prop h4 { margin: 12px 0 2px; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
 .prop-titulo { margin: 0; font-weight: 600; }
+.parte-codigo { border: 1px solid var(--linea); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.transformaciones { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 0.8rem; }
+.columna-tabla { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) 52px 52px auto auto; gap: 4px; align-items: center; }
 .prop-cabeza { display: flex; gap: 8px; align-items: center; }
 .prop-nombre { flex: 1; min-width: 0; font-size: 0.84rem; }
 .botonera { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }

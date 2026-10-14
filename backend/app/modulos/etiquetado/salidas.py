@@ -100,6 +100,13 @@ def dibujar_pdf(c, lienzo: Lienzo, x0: float = 0, y0: float = 0) -> None:
         c.restoreState()
 
 
+def cabe(hoja: dict, ancho: float, alto: float) -> bool:
+    """Si las columnas y filas de etiquetas de esta medida caben en el papel."""
+    a = hoja["margen_izq"] + hoja["columnas"] * ancho + (hoja["columnas"] - 1) * hoja["espacio_h"]
+    b = hoja["margen_sup"] + hoja["filas"] * alto + (hoja["filas"] - 1) * hoja["espacio_v"]
+    return a <= hoja["papel_ancho"] + 0.01 and b <= hoja["papel_alto"] + 0.01
+
+
 def pdf(lienzos: list[Lienzo], hoja: dict | None = None, titulo: str = "Labels") -> bytes:
     """Un PDF con una etiqueta por página (medida exacta) o varias por hoja."""
     from reportlab.pdfgen.canvas import Canvas
@@ -123,13 +130,20 @@ def pdf(lienzos: list[Lienzo], hoja: dict | None = None, titulo: str = "Labels")
                 W, H = lz.ancho, lz.alto
             dibujar_pdf(c, lz)
     else:
+        # Cada celda mide lo que su etiqueta: si cambia la medida, la etiqueta
+        # empieza otra hoja (las celdas de la anterior no le sirven)
         por_hoja = hoja["columnas"] * hoja["filas"]
+        k = 0
         for i, lz in enumerate(lienzos):
-            if i and i % por_hoja == 0:
-                c.showPage()
-            k = i % por_hoja
+            if not cabe(hoja, lz.ancho, lz.alto):
+                raise ValueError(f"a {lz.ancho:g}×{lz.alto:g} mm label does not fit on the sheet")
+            if (lz.ancho, lz.alto) != (W, H) or k == por_hoja:
+                if i:
+                    c.showPage()
+                W, H, k = lz.ancho, lz.alto, 0
             fila, col = divmod(k, hoja["columnas"])
             dibujar_pdf(c, lz, hoja["margen_izq"] + col * (W + hoja["espacio_h"]), hoja["margen_sup"] + fila * (H + hoja["espacio_v"]))
+            k += 1
     c.showPage()
     c.save()
     return buf.getvalue()

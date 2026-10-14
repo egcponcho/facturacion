@@ -42,11 +42,10 @@ from app.modelos import (
 )
 from app.modulos.acceso.permisos import exigir, proveedor_filtro
 from app.modulos.comun.historial import registrar
-from app.modulos.etiquetado import asignaciones, campos, datos, familias, plantillas, render, salidas
+from app.modulos.etiquetado import campos, datos, familias, plantillas, reglas, render, salidas
 from app.modulos.etiquetado import diseno as svc_diseno
+from app.modulos.maestros import unidades as medidas
 
-# Unidades que se miden en piezas: se puede imprimir una etiqueta por unidad
-UNIDADES_CONTABLES = {"UN", "PAR", "PZ", "PZA", "CJ", "PK", "PAQ", "JGO", "SET", "DOC", "EA", "PCS"}
 FORMATOS = {"PDF": "application/pdf", "PNG": "image/png", "SVG": "image/svg+xml", "ZIP": "application/zip"}
 
 
@@ -60,10 +59,12 @@ class Grupo:
     posicion: PosicionOC | None = None
     bulto: campos.Bulto | None = None
     oc: OrdenCompra | None = None  # la OC del grupo cuando el lote no es de una sola OC (lista de empaque)
-    eleccion: asignaciones.Eleccion | None = None
+    eleccion: reglas.Eleccion | None = None
     version: VersionPlantilla | None = None
     valores: dict = field(default_factory=dict)
     problemas: list = field(default_factory=list)
+    procedencia: dict = field(default_factory=dict)  # campo lógico → campo del que salió su valor
+    item: GeneracionItem | None = None  # ya generado
 
     def problema(self, nivel: str, codigo: str, mensaje: str) -> None:
         self.problemas.append({"nivel": nivel, "codigo": codigo, "mensaje": mensaje, "elemento": None})
@@ -89,7 +90,10 @@ class Grupo:
                 "version_id": self.version.id if self.version else None, "version": self.version.numero if self.version else None,
                 "version_estado": self.version.estado if self.version else None,
                 "nivel": e.nivel if e else None, "motivo": e.motivo if e else None,
+                "regla_id": e.regla.id if e and e.regla else None,
+                "regla": e.dict()["regla"] if e and e.regla else None,
                 "candidatas": [{"plantilla_id": c.id, "plantilla": c.nombre} for c in e.candidatas] if e else [],
+                "procedencia": {k: v for k, v in self.procedencia.items() if v},
                 "problemas": self.problemas}
 
 
@@ -173,11 +177,28 @@ def _grupos(db: Session, user: Usuario, pedido: dict) -> tuple[OrdenCompra | Non
             cant = float(p.cantidad or 0)
             n = int(cant) if cant == int(cant) else math.ceil(cant)
         g = Grupo(f"p{p.id}", ref, n, articulo=p.articulo, posicion=p)
-        if unidad == "UNIDAD" and ((p.unidad or "").upper() not in UNIDADES_CONTABLES or float(p.cantidad or 0) != int(p.cantidad or 0)):
-            g.problema("error", "unidad_no_contable",
-                       f"The line is in {p.unidad} ({float(p.cantidad or 0):g}): it cannot be labeled per unit; use lines, packages or a manual quantity.")
+        motivo = _no_contable(p) if unidad == "UNIDAD" else None
+        if motivo:
+            g.problema("error", "unidad_no_contable", motivo)
         grupos.append(g)
     return oc, modalidad, unidad, grupos
+
+
+def _no_contable(p: PosicionOC) -> str | None:
+    """Por qué la línea no admite una etiqueta por unidad (o None si la admite).
+    Decide el catálogo de unidades de medida (Configuración → Listas → unidad,
+    atributo «contable»): una unidad desconocida no se adivina."""
+    cant = float(p.cantidad or 0)
+    codigo = medidas.normalizar(p.unidad)
+    if not codigo:
+        return (f"The unit {p.unidad or '(empty)'} of the line is not in the units of measure catalog: "
+                "add it (indicating whether it is counted in whole numbers) or use lines, packages or a manual quantity.")
+    if not medidas.contable(codigo):
+        return (f"The line is in {p.unidad} ({cant:g}), a unit that is measured, not counted: "
+                "it cannot be labeled per unit; use lines, packages or a manual quantity.")
+    if cant != int(cant):
+        return f"The line has a fractional quantity ({cant:g} {p.unidad}): it cannot be labeled per unit; use a manual quantity."
+    return None
 
 
 def cargar_pl(db: Session, user: Usuario, pl_id: int) -> PackingList:
@@ -227,8 +248,58 @@ def _version_de(db: Session, plantilla: PlantillaEtiqueta, prueba: bool) -> Vers
     return plantilla.vigente
 
 
+# Categoría de cada problema (lo que ve quien genera para decidir qué corregir)
+CATEGORIAS = {
+    "dato_obligatorio": "dato_obligatorio", "manual_obligatorio": "dato_obligatorio", "campo_obligatorio": "dato_obligatorio",
+    "codigo_sin_valor": "dato_obligatorio", "tabla_vacia": "dato_opcional", "campo_vacio": "dato_opcional",
+    "imagen_faltante": "dato_opcional", "sin_articulo": "dato_opcional", "sin_lista_empaque": "dato_opcional",
+    "total_incompleto": "dato_opcional",
+    "elegir_plantilla": "conflicto", "fuentes_distintas": "conflicto",
+    "sin_plantilla": "configuracion", "familia": "configuracion", "sin_serie": "configuracion",
+    "contenido_mixto": "empaque", "sin_contenido": "empaque", "casepack_distinto": "inconsistencia",
+    "inner_incompleto": "inconsistencia", "prepack_sin_componentes": "inconsistencia", "unidad_no_contable": "empaque",
+    "bulto_parcial": "empaque",
+    "ya_generada": "excepcion", "diseno_forzado": "excepcion", "cantidad": "cantidad", "lote_grande": "cantidad",
+    "codigo_invalido": "codigo", "codigo_contraste": "codigo", "codigo_pequeno": "codigo", "codigo_bajo": "codigo",
+    "codigo_ilegible": "codigo",
+}
+
+
+def _clasificar(problemas: list[dict]) -> list[dict]:
+    for p in problemas:
+        p.setdefault("categoria", CATEGORIAS.get(p.get("codigo"), "diseno"))
+    return problemas
+
+
+def origen_de(pedido: dict, modalidad: str) -> str:
+    if pedido.get("origen") in ("OC", "ARTICULOS", "PACKING"):
+        return pedido["origen"]
+    return "PACKING" if pedido.get("pl_id") else ("ARTICULOS" if modalidad == "ARTICULO" else "OC")
+
+
+def valores_registro(db: Session, modalidad: str, articulo, oc, posicion, bulto, organizacion: dict, contexto: dict) -> tuple:
+    """Los valores de un registro (datos, contexto y campos lógicos), de qué fuente
+    salió cada campo lógico y los problemas de esas fuentes."""
+    from app.modulos.etiquetado import campos_logicos
+
+    v = datos.valores(db, modalidad, articulo, oc, posicion, bulto, organizacion)
+    v.update({f"contexto.{k}": x for k, x in contexto.items()})
+    logicos, procedencia, problemas = campos_logicos.resolver(db, modalidad, v)
+    v.update(logicos)
+    return v, procedencia, problemas
+
+
+def _serie_etiquetas(db: Session):
+    from app.core.numeracion import serie_de
+
+    return serie_de(db, "etiqueta")
+
+
 def plan(db: Session, user: Usuario, pedido: dict) -> dict:
     """Qué se va a generar, con qué plantilla y versión, cuántas etiquetas y qué problemas hay."""
+    from app.core.numeracion import proximo
+    from app.modulos.etiquetado import empaque_etiquetas
+
     exigir(user, "etiquetas.generar")
     prueba = bool(pedido.get("prueba"))
     if prueba:
@@ -240,20 +311,32 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
     elegidas = {str(k): v for k, v in (pedido.get("elegidas") or {}).items()}
     escritos = {str(k): v for k, v in (pedido.get("manuales") or {}).items()}
     organizacion = campos.valores_organizacion(db)
-    tipos = {c.clave: c.tipo for c in campos.catalogo(db, modalidad)}
+    tipos = campos.tipos(db, modalidad)
     previas = _previas(db, oc, grupos)
+    motor = reglas.Motor(db, modalidad)
+    contexto = {"modalidad": modalidad, "origen": origen_de(pedido, modalidad), "unidad": unidad}
+    posiciones = {g.posicion.id: g.posicion for g in grupos if g.posicion is not None}
+    faltan_pos = {pid for g in grupos if g.bulto for pid in g.bulto.por_posicion} - set(posiciones)
+    if faltan_pos:
+        posiciones.update({p.id: p for p in db.scalars(select(PosicionOC).where(PosicionOC.id.in_(faltan_pos)))})
+    serie = None
     for g in grupos:
         if g.cantidad < 1:
             g.problema("error", "cantidad", "Enter how many labels (1 or more).")
+        g.valores, g.procedencia, de_fuentes = valores_registro(db, modalidad, g.articulo, g.oc or oc, g.posicion, g.bulto,
+                                                                organizacion, contexto)
         if forzada:
-            g.eleccion = asignaciones.Eleccion(plantilla=forzada, nivel="ELEGIDA", motivo="Chosen by the user for this batch.")
+            g.eleccion = reglas.Eleccion(plantilla=forzada, nivel="ELEGIDA", motivo="Chosen by the user for this batch.")
         else:
             clave_eleccion = f"a{g.articulo.id}" if g.articulo else "oc"
-            g.eleccion = asignaciones.resolver(db, modalidad, g.articulo, g.oc or oc, elegidas.get(clave_eleccion))
+            registro = reglas.Registro(modalidad, g.articulo, g.oc or oc, g.valores, contexto["origen"], unidad,
+                                       g.bulto.valores.get("bulto.tipo_codigo") if g.bulto else None)
+            g.eleccion = motor.resolver(registro, elegidas.get(g.clave) or elegidas.get(clave_eleccion))
         e = g.eleccion
         if e.plantilla is None:
             if e.ambigua:
-                g.problema("error", "elegir_plantilla", "Several designs apply with the same priority: choose one.")
+                nombres = ", ".join(reglas.regla_nombre(r) for r in e.conflicto)
+                g.problema("error", "elegir_plantilla", f"Several designs apply with the same priority ({nombres}): choose one.")
             else:
                 pendientes = ", ".join(p.nombre for p in e.sin_aprobar)
                 g.problema("error", "sin_plantilla", f"No approved design applies{f' (pending approval: {pendientes})' if pendientes else ''}.")
@@ -264,10 +347,10 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
             continue
         for aviso in e.avisos:
             g.problema("advertencia", "familia", aviso)
+        g.problemas += de_fuentes
         if g.posicion is not None and g.articulo is None:
             g.problema("advertencia", "sin_articulo", "The PO line is not linked to an item of the master data: only the line data is printed.")
-        g.valores = {**datos.valores(db, modalidad, g.articulo, g.oc or oc, g.posicion, g.bulto, organizacion),
-                     **svc_diseno.valores_manuales(g.version.diseno, escritos)}
+        g.valores.update(svc_diseno.valores_manuales(g.version.diseno, escritos))
         for falta in svc_diseno.manuales_faltantes(g.version.diseno, g.valores):
             g.problema("error", "manual_obligatorio", f"Write the value of {falta} before generating.")
         usados = svc_diseno.campos_usados(g.version.diseno)
@@ -276,6 +359,15 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
             g.problema("advertencia", "sin_lista_empaque",
                        f"The design uses packing list data ({', '.join(de_empaque)}) and there is no packing list here: "
                        "those fields stay empty.")
+        if g.bulto is not None:
+            g.problemas += empaque_etiquetas.revisar(g.bulto, posiciones)
+        if "etiqueta.serie" in usados:
+            serie = serie or _serie_etiquetas(db)
+            if serie is None:
+                g.problema("error", "sin_serie", "The design uses the controlled label ID and there is no active numbering "
+                                                 "series for labels (Settings → Numbering, object «etiqueta»).")
+            else:
+                g.valores["etiqueta.serie"] = proximo(db, serie)
         fam = g.articulo.familia_efectiva if g.articulo else None
         for faltante in familias.faltantes(db, fam, g.valores):
             g.problema("error", "dato_obligatorio", f"The family {fam.nombre} requires {faltante}, which is empty.")
@@ -287,10 +379,12 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
             p = previas[g.clave]
             g.problema("advertencia", "ya_generada",
                        f"Labels for this were already generated on {p['fecha']:%Y-%m-%d} by {p['usuario']} ({p['cantidad']}).")
+    for g in grupos:
+        _clasificar(g.problemas)
     total = sum(g.cantidad for g in grupos if g.cantidad > 0)
     general = []
-    if total > settings.ETIQUETAS_MAXIMO_LOTE:
-        general.append({"nivel": "error", "codigo": "lote_grande", "elemento": None,
+    if total > settings.ETIQUETAS_MAXIMO_LOTE and not pedido.get("_sin_limite"):
+        general.append({"nivel": "error", "codigo": "lote_grande", "elemento": None, "categoria": "cantidad",
                         "mensaje": f"{total} labels exceed the limit of {settings.ETIQUETAS_MAXIMO_LOTE} per batch: split the batch."})
     errores = sum(len(g.errores) for g in grupos) + len([p for p in general if p["nivel"] == "error"])
     variables = {}
@@ -338,55 +432,89 @@ def generar(db: Session, user: Usuario, pedido: dict) -> dict:
     if formato not in FORMATOS:
         raise ErrorNegocio("Choose PDF, PNG, SVG or ZIP.", 422, "validacion")
     p = plan(db, user, pedido)
-    if p["errores"]:
+    grupos: list[Grupo] = p["_grupos"]
+    solo = pedido.get("_solo_claves")
+    if solo is not None:  # un trabajo genera solo los registros listos (o los que se reintentan)
+        grupos = [g for g in grupos if g.clave in solo]
+        if not grupos:
+            raise ErrorNegocio("Nothing can be generated.", 422, "etiquetas_con_errores")
+    errores = [{"campo": g.referencia, "mensaje": x["mensaje"]} for g in grupos for x in g.problemas if x["nivel"] == "error"]
+    if errores or p["problemas"]:
         raise ErrorNegocio("Some labels cannot be generated: fix the errors first.", 422, "etiquetas_con_errores",
-                           [{"campo": g["referencia"], "mensaje": x["mensaje"]} for g in p["grupos"] for x in g["problemas"]
-                            if x["nivel"] == "error"][:50] + [{"campo": "lote", "mensaje": x["mensaje"]} for x in p["problemas"]])
-    advertencias = [{"referencia": g["referencia"], "mensaje": x["mensaje"]} for g in p["grupos"] for x in g["problemas"]
+                           errores[:50] + [{"campo": "lote", "mensaje": x["mensaje"]} for x in p["problemas"]])
+    advertencias = [{"referencia": g.referencia, "mensaje": x["mensaje"]} for g in grupos for x in g.problemas
                     if x["nivel"] == "advertencia"]
     if advertencias and not pedido.get("aceptar_advertencias"):
         raise ErrorNegocio("There are warnings: review them and confirm to generate anyway.", 409, "confirmar_advertencias",
                            [{"campo": a["referencia"], "mensaje": a["mensaje"]} for a in advertencias[:50]])
-    grupos: list[Grupo] = p["_grupos"]
     hoja = pedido.get("hoja")
     if hoja is not None:
         hoja = svc_diseno.Hoja.model_validate(hoja).model_dump()
+        if hoja["modo"] == "hoja":
+            no_caben = sorted({f"{g.version.diseno['ancho']:g}×{g.version.diseno['alto']:g} mm" for g in grupos
+                               if not salidas.cabe(hoja, g.version.diseno["ancho"], g.version.diseno["alto"])})
+            if no_caben:
+                raise ErrorNegocio("Some labels do not fit on the sheet with these columns, rows and margins.", 422, "validacion",
+                                   [{"campo": "hoja", "mensaje": x} for x in no_caben])
+    total = sum(g.cantidad for g in grupos)
     g0 = GeneracionEtiquetas(oc_id=p["oc_id"], pl_id=p.get("pl_id"), lote=pedido.get("lote"), modalidad=p["modalidad"],
-                             unidad=p["unidad"], formato=formato,
-                             estado="PRUEBA" if p["prueba"] else "GENERADA", total=p["total"], creada_por=user.id,
+                             unidad=p["unidad"], formato=formato, trabajo_id=pedido.get("_trabajo_id"),
+                             estado="PRUEBA" if p["prueba"] else "GENERADA", total=total, creada_por=user.id,
                              advertencias=advertencias[:200],
                              parametros={"posiciones": pedido.get("posiciones"), "cantidades": pedido.get("cantidades"),
                                          "plantilla_id": pedido.get("plantilla_id"), "elegidas": pedido.get("elegidas"),
                                          "hoja": hoja, "dpi": pedido.get("dpi"), "familia_id": pedido.get("familia_id"),
-                                         "tipo_empaque_id": pedido.get("tipo_empaque_id"), "manuales": pedido.get("manuales")})
+                                         "tipo_empaque_id": pedido.get("tipo_empaque_id"), "manuales": pedido.get("manuales"),
+                                         "zip": pedido.get("zip")})
     # El logo de la organización se guarda una vez por lote (si algún diseño lo usa), no en cada etiqueta
     if any("organizacion.logo" in svc_diseno.campos_usados(g.version.diseno) for g in grupos):
         g0.parametros = {**g0.parametros, "logo": campos.valores_organizacion(db).get("organizacion.logo")}
     db.add(g0)
     db.flush()
+    serie = None
     for g in grupos:
         usados = svc_diseno.campos_usados(g.version.diseno) | {"etiqueta.fecha"}
         fam = g.articulo.familia_efectiva.id if g.articulo and g.articulo.familia_efectiva else None
-        db.add(GeneracionItem(generacion_id=g0.id, plantilla_id=g.version.plantilla_id, version_id=g.version.id,
-                              articulo_id=g.articulo.id if g.articulo else None, posicion_id=g.posicion.id if g.posicion else None,
-                              familia_id=fam, referencia=g.referencia[:120], cantidad=g.cantidad,
-                              valores={k: g.valores.get(k) for k in sorted(usados) if k != "organizacion.logo"
-                                       and (not k.startswith("etiqueta.") or k == "etiqueta.fecha")},
-                              motivo=(g.eleccion.motivo or "")[:200] if g.eleccion else None))
+        valores = {k: g.valores.get(k) for k in sorted(usados) if k != "organizacion.logo"
+                   and (not k.startswith("etiqueta.") or k == "etiqueta.fecha")}
+        procedencia = {k: v for k, v in g.procedencia.items() if k in usados and v}
+        if procedencia:
+            valores["_procedencia"] = procedencia
+        if "etiqueta.serie" in usados:
+            from app.core.numeracion import reservar
+
+            serie = serie or _serie_etiquetas(db)
+            inicio, prefijo = reservar(db, serie, g.cantidad)
+            valores["_serie"] = {"serie": serie.codigo, "prefijo": prefijo, "digitos": serie.digitos, "inicio": inicio}
+        it = GeneracionItem(generacion_id=g0.id, plantilla_id=g.version.plantilla_id, version_id=g.version.id,
+                            trabajo_registro_id=(pedido.get("_registros") or {}).get(g.clave),
+                            articulo_id=g.articulo.id if g.articulo else None, posicion_id=g.posicion.id if g.posicion else None,
+                            familia_id=fam, referencia=g.referencia[:120], cantidad=g.cantidad, valores=valores,
+                            motivo=(g.eleccion.motivo or "")[:200] if g.eleccion else None)
+        db.add(it)
+        g.item = it
     db.flush()
     db.refresh(g0)
     contenido, nombre, _ = _producir(db, g0, formato)
     g0.archivo, g0.sha256 = nombre, hashlib.sha256(contenido).hexdigest()
     db.flush()
     registrar(db, user, "generacion_etiquetas", g0.id, "generar",
-              {"oc": p["oc"], "total": g0.total, "formato": formato, "estado": g0.estado,
+              {"oc": p["oc"], "total": g0.total, "formato": formato, "estado": g0.estado, "trabajo": g0.trabajo_id,
                "versiones": sorted({f"{g.version.plantilla.nombre} v{g.version.numero}" for g in grupos})})
     return dict_generacion(db, g0, completo=True)
 
 
+def numero_serie(valores: dict, n: int) -> str | None:
+    """El identificador controlado de la etiqueta n del grupo (reservado al generar)."""
+    s = valores.get("_serie")
+    if not s:
+        return None
+    return f"{s['prefijo']}{s['inicio'] + n - 1:0{s['digitos']}d}"
+
+
 def _lienzos(db: Session, gen: GeneracionEtiquetas) -> list[tuple[render.Lienzo, str]]:
     """Las etiquetas del lote dibujadas desde las versiones y valores guardados."""
-    tipos = {c.clave: c.tipo for c in campos.catalogo(db, gen.modalidad)}
+    tipos = campos.tipos(db, gen.modalidad)
     imagenes = plantillas.imagen_adjunta(db)
     res = []
     n_lote = 0
@@ -397,10 +525,12 @@ def _lienzos(db: Session, gen: GeneracionEtiquetas) -> list[tuple[render.Lienzo,
             valores["organizacion.logo"] = (gen.parametros or {}).get("logo")
         for n in range(1, it.cantidad + 1):
             n_lote += 1
+            serie = numero_serie(valores, n)
             lz = render.componer(v.diseno, {**valores, "etiqueta.numero": n, "etiqueta.total": it.cantidad,
-                                            "etiqueta.numero_lote": n_lote, "etiqueta.total_lote": gen.total},
+                                            "etiqueta.numero_lote": n_lote, "etiqueta.total_lote": gen.total,
+                                            **({"etiqueta.serie": serie} if serie else {})},
                                  tipos, imagenes, prueba=gen.estado == "PRUEBA")
-            res.append((lz, f"{it.referencia or it.id}-{n}"))
+            res.append((lz, f"{it.referencia or it.id}-{n}", it, n))
     return res
 
 
@@ -414,11 +544,11 @@ def _producir(db: Session, gen: GeneracionEtiquetas, formato: str) -> tuple[byte
     hoja = (gen.parametros or {}).get("hoja")
     if hoja is None:
         v = db.get(VersionPlantilla, gen.items[0].version_id) if gen.items else None
-        mismas = len({(lz.ancho, lz.alto) for lz, _ in lienzos}) == 1
+        mismas = len({(lz.ancho, lz.alto) for lz, *_ in lienzos}) == 1
         hoja = v.diseno.get("hoja") if v and mismas else None
     dpi = (gen.parametros or {}).get("dpi")
     if formato == "PDF":
-        return salidas.pdf([lz for lz, _ in lienzos], hoja, base), f"{base}.pdf", FORMATOS["PDF"]
+        return salidas.pdf([lz for lz, *_ in lienzos], hoja, base), f"{base}.pdf", FORMATOS["PDF"]
     if formato in ("PNG", "SVG") and len(lienzos) == 1:
         lz = lienzos[0][0]
         datos_ = salidas.png(lz, dpi) if formato == "PNG" else salidas.svg(lz).encode()
@@ -433,8 +563,8 @@ def _producir(db: Session, gen: GeneracionEtiquetas, formato: str) -> tuple[byte
 
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         if formato in ("ZIP", "PDF"):
-            poner(z, f"{base}.pdf", salidas.pdf([lz for lz, _ in lienzos], hoja, base))
-        for i, (lz, nombre) in enumerate(lienzos, start=1):
+            poner(z, f"{base}.pdf", salidas.pdf([lz for lz, *_ in lienzos], hoja, base))
+        for i, (lz, nombre, *_) in enumerate(lienzos, start=1):
             archivo = f"{i:05d}-{_seguro(nombre)}"
             if formato in ("PNG", "ZIP"):
                 poner(z, f"png/{archivo}.png", salidas.png(lz, dpi))
@@ -518,14 +648,25 @@ def listar(db: Session, user: Usuario, desde: date | None = None, hasta: date | 
     return {"total": total, "items": [dict_generacion(db, g) for g in filas]}
 
 
+def marcar_descarga(g: GeneracionEtiquetas) -> None:
+    """Descargado no es impreso: solo cuenta las descargas."""
+    from datetime import datetime
+
+    g.descargas = (g.descargas or 0) + 1
+    g.descargada_en = datetime.now()
+
+
 def archivo(db: Session, user: Usuario, generacion_id: int, formato: str | None = None) -> tuple[bytes, str, str, bool]:
-    """El archivo del lote, dibujado de nuevo desde su versión e instantánea; y si es idéntico al original."""
+    """El archivo del lote, dibujado de nuevo desde su versión e instantánea; y si es idéntico al original.
+    Descargar es de quien genera (ver solo deja consultar el historial)."""
+    exigir(user, "etiquetas.generar")
     g = cargar(db, user, generacion_id)
     formato = (formato or g.formato).upper()
     if formato not in FORMATOS:
         raise ErrorNegocio("Choose PDF, PNG, SVG or ZIP.", 422, "validacion")
     contenido, nombre, mime = _producir(db, g, formato)
     identico = formato == g.formato and hashlib.sha256(contenido).hexdigest() == g.sha256
+    marcar_descarga(g)
     registrar(db, user, "generacion_etiquetas", g.id, "descargar", {"formato": formato, "identico": identico})
     return contenido, nombre, mime, identico
 
@@ -536,9 +677,13 @@ def resumen_oc(db: Session, user: Usuario, oc_id: int) -> dict:
     exigir(user, "etiquetas.generar")
     oc = datos.cargar_oc(db, user, oc_id)
     lineas = []
+    motor = reglas.Motor(db, "OC_ARTICULO")
+    organizacion = campos.valores_organizacion(db)
+    contexto = {"modalidad": "OC_ARTICULO", "origen": "OC", "unidad": "LINEA"}
     for p in campos.posiciones(db, oc.id):
         a = p.articulo
-        eleccion = asignaciones.resolver(db, "OC_ARTICULO", a, oc)
+        valores, _, _ = valores_registro(db, "OC_ARTICULO", a, oc, p, None, organizacion, contexto)
+        eleccion = motor.resolver(reglas.Registro("OC_ARTICULO", a, oc, valores, "OC", "LINEA"))
         lineas.append({"id": p.id, "posicion": p.posicion, "codigo": p.codigo_articulo, "descripcion": p.descripcion,
                        "talla": p.talla, "color": p.color, "cantidad": float(p.cantidad or 0), "unidad": p.unidad,
                        "bloqueada": p.bloqueada, "articulo_id": a.id if a else None,
@@ -548,4 +693,6 @@ def resumen_oc(db: Session, user: Usuario, oc_id: int) -> dict:
         GeneracionEtiquetas.oc_id == oc.id, GeneracionEtiquetas.estado == "GENERADA")) or 0
     return {"oc": {"id": oc.id, "numero": oc.numero, "proveedor": oc.proveedor.nombre, "estado": oc.estado},
             "lineas": lineas, "bultos": len(campos.bultos(db, oc.id)), "generaciones": generadas,
-            "plantilla_oc": asignaciones.resolver(db, "OC", None, oc).dict()}
+            "plantilla_oc": reglas.resolver(db, "OC", None, oc, valores=valores_registro(
+                db, "OC", None, oc, None, None, organizacion, {**contexto, "modalidad": "OC", "unidad": "ORDEN"})[0],
+                origen="OC", unidad="ORDEN").dict()}

@@ -1,4 +1,5 @@
 <script setup>
+import { alCambiar } from '@/nucleo/cambios.js'
 import { datosModo } from '@/composables/useRutas'
 import { actual, t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -69,6 +70,7 @@ function abrirEnvio(e) {
   router.push(esInterno() ? `/transporte/embarques/${e.id}` : `/facturas/${e.factura_ids[0]}?tab=pl`)
 }
 
+const TIPO_ALERTA = { recepcion_diferencia: t('Receipt'), conflicto_oc: t('PO import') }
 async function resolver(a) {
   try {
     await api.post(`/alertas/${a.id}/resolver`)
@@ -94,6 +96,8 @@ const columnasProveedores = [
 onMounted(cargar)
 watch(() => sesion.proveedorId, cargar)
 watch(periodo, cargar, { deep: true })
+// Datos de otros usuarios: se vuelven a pedir solo cuando cambian (nucleo/cambios.js)
+alCambiar(() => cargar(), ['/dashboard'])
 </script>
 
 <template>
@@ -127,7 +131,7 @@ watch(periodo, cargar, { deep: true })
           </div>
           <ul v-if="d.atencion.length" class="lista-accion">
             <li v-for="a in d.atencion" :key="a.clave">
-              <router-link class="lista-accion-fila" :to="{ path: a.ruta, query: a.query }">
+              <router-link class="lista-accion-fila" :to="{ path: a.ruta, query: a.query, hash: a.hash || '' }">
                 <span class="cifra-tono" :class="`tono-${a.tono}`">{{ fmtNum(a.valor) }}</span>
                 <span class="lista-accion-texto"><b>{{ tx(a.titulo) }}</b><small>{{ tx(a.detalle) }}</small></span>
                 <Icono nombre="derecha" :tam="16" class="lista-accion-ir" />
@@ -207,12 +211,17 @@ watch(periodo, cargar, { deep: true })
           </ul>
         </section>
 
-        <section v-if="vePanel('alertas') && esInterno() && d.alertas.length" class="panel">
-          <div class="panel-cabeza"><div><h2>{{ t('Import alerts') }}</h2><p>{{ t('Conflicts found when loading purchase orders.') }}</p></div></div>
+        <section v-if="vePanel('alertas') && esInterno() && d.alertas.length" id="alertas" class="panel">
+          <div class="panel-cabeza"><div><h2>{{ t('Alerts') }}</h2><p>{{ t('Receipt differences to claim and conflicts found when loading purchase orders.') }}</p></div></div>
           <ul class="linea-tiempo">
             <li v-for="a in d.alertas" :key="a.id">
-              <span class="ayuda">{{ fmtFechaHora(a.creada_en) }}</span>
-              <span class="fila-flex">{{ tx(a.mensaje) }}<button class="btn btn-chico separar" @click="resolver(a)">{{ t('Mark resolved') }}</button></span>
+              <span class="ayuda">{{ fmtFechaHora(a.creada_en) }}<br /><span class="etiqueta" :class="a.tipo === 'recepcion_diferencia' ? 'error' : 'aviso'">{{ tx(TIPO_ALERTA[a.tipo] || a.tipo) }}</span></span>
+              <span class="fila-flex">
+                {{ tx(a.mensaje) }}
+                <span class="separar"></span>
+                <router-link v-if="a.enlace" :to="a.enlace" class="btn btn-chico">{{ t('See') }}</router-link>
+                <button class="btn btn-chico" @click="resolver(a)">{{ t('Mark resolved') }}</button>
+              </span>
             </li>
           </ul>
         </section>

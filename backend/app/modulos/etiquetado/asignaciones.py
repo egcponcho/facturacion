@@ -1,12 +1,13 @@
-"""Dónde se aplica cada plantilla y cuál se elige para una etiqueta.
+"""Reglas de etiquetado: alta, cambios, prueba y conflictos.
 
-Prioridad (docs/ETIQUETADO.md): excepción de la OC → artículo → producto →
-familia del artículo → general de la organización. Solo cuentan plantillas
-activas de la modalidad pedida con una versión aprobada vigente. En el primer
-nivel con candidatas: una sola se usa; varias, la predeterminada; si no hay
-una inequívoca, el usuario elige (nunca se elige un diseño al azar).
+La tabla asignaciones_etiqueta guarda las reglas (ver reglas.py, el motor que
+elige el diseño de cada registro). Una regla tiene un destino opcional
+(organización, familia y subfamilias, producto, artículo, excepción de una OC
+o ninguno), condiciones declarativas, contexto, vigencia y prioridad. Al
+guardar se avisa de los conflictos que crea (misma prioridad, diseños
+distintos y registros que pueden cumplir ambas).
 """
-from dataclasses import dataclass, field
+from datetime import date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,14 +23,16 @@ from app.modelos import (
     Usuario,
 )
 from app.modelos.etiquetado import AMBITOS
-from app.modulos.acceso.permisos import exigir
+from app.modulos.acceso.permisos import exigir, exigir_alguno
 from app.modulos.comun.historial import registrar
-
-# Modalidades que admite cada ámbito: una OC no tiene artículo y un artículo no tiene OC
-MODALIDADES_DE = {"GENERAL": {"ARTICULO", "OC", "OC_ARTICULO"}, "FAMILIA": {"ARTICULO", "OC_ARTICULO"},
-                  "PRODUCTO": {"ARTICULO", "OC_ARTICULO"}, "ARTICULO": {"ARTICULO", "OC_ARTICULO"},
-                  "OC": {"OC", "OC_ARTICULO"}}
-DESTINO = {"FAMILIA": "familia_id", "PRODUCTO": "producto_id", "ARTICULO": "articulo_id", "OC": "oc_id"}
+from app.modulos.etiquetado import reglas
+from app.modulos.etiquetado.reglas import (  # noqa: F401 (API del módulo)
+    DESTINO,
+    MODALIDADES_DE,
+    PRIORIDAD,
+    Eleccion,
+    resolver,
+)
 
 
 def _destino_txt(db: Session, a: AsignacionEtiqueta) -> str | None:
@@ -48,18 +51,26 @@ def _destino_txt(db: Session, a: AsignacionEtiqueta) -> str | None:
     return None
 
 
-def dict_asignacion(db: Session, a: AsignacionEtiqueta) -> dict:
+def dict_asignacion(db: Session, a: AsignacionEtiqueta, avisos: list | None = None) -> dict:
     p = a.plantilla
-    return {"id": a.id, "plantilla_id": a.plantilla_id, "plantilla": p.nombre, "modalidad": p.modalidad, "ambito": a.ambito,
-            "familia_id": a.familia_id, "producto_id": a.producto_id, "articulo_id": a.articulo_id, "oc_id": a.oc_id,
-            "destino": _destino_txt(db, a), "predeterminada": a.predeterminada, "activa": a.activa, "motivo": a.motivo,
-            "creada_en": a.creada_en, "version_vigente": p.vigente.numero if p.vigente else None}
+    hoy = date.today()
+    vigente = (a.vigente_desde is None or a.vigente_desde <= hoy) and (a.vigente_hasta is None or a.vigente_hasta >= hoy)
+    r = {"id": a.id, "plantilla_id": a.plantilla_id, "plantilla": p.nombre, "modalidad": p.modalidad, "ambito": a.ambito,
+         "familia_id": a.familia_id, "producto_id": a.producto_id, "articulo_id": a.articulo_id, "oc_id": a.oc_id,
+         "destino": _destino_txt(db, a), "predeterminada": a.predeterminada, "activa": a.activa, "motivo": a.motivo,
+         "creada_en": a.creada_en, "version_vigente": p.vigente.numero if p.vigente else None,
+         "nombre": reglas.regla_nombre(a), "prioridad": a.prioridad, "condiciones": a.condiciones or [],
+         "contexto": a.contexto or {}, "vigente_desde": a.vigente_desde, "vigente_hasta": a.vigente_hasta, "vigente": vigente,
+         "version": a.version, "actualizada_en": a.actualizada_en}
+    if avisos is not None:
+        r["conflictos"] = avisos
+    return r
 
 
 def listar(db: Session, user: Usuario, plantilla_id=None, ambito=None, familia_id=None, producto_id=None, articulo_id=None,
            oc_id=None, activas: bool | None = True) -> list[dict]:
     exigir(user, "etiquetas.ver")
-    c = select(AsignacionEtiqueta).order_by(AsignacionEtiqueta.ambito, AsignacionEtiqueta.id)
+    c = select(AsignacionEtiqueta).order_by(AsignacionEtiqueta.prioridad.desc(), AsignacionEtiqueta.ambito, AsignacionEtiqueta.id)
     for col, v in (("plantilla_id", plantilla_id), ("familia_id", familia_id), ("producto_id", producto_id),
                    ("articulo_id", articulo_id), ("oc_id", oc_id)):
         if v:
@@ -79,13 +90,52 @@ def _cargar(db: Session, asignacion_id: int) -> AsignacionEtiqueta:
 
 
 def _hermanas(db: Session, a: AsignacionEtiqueta):
-    """Asignaciones activas del mismo nivel, destino y modalidad (compiten entre sí)."""
+    """Reglas activas del mismo destino, prioridad y modalidad (compiten entre sí)."""
     c = select(AsignacionEtiqueta).join(PlantillaEtiqueta).where(
         AsignacionEtiqueta.ambito == a.ambito, AsignacionEtiqueta.activa.is_(True), AsignacionEtiqueta.id != a.id,
-        PlantillaEtiqueta.modalidad == a.plantilla.modalidad)
+        AsignacionEtiqueta.prioridad == a.prioridad, PlantillaEtiqueta.modalidad == a.plantilla.modalidad)
     if a.ambito in DESTINO:
         c = c.where(getattr(AsignacionEtiqueta, DESTINO[a.ambito]) == getattr(a, DESTINO[a.ambito]))
     return db.scalars(c)
+
+
+def _fecha(v, campo: str):
+    if v in (None, ""):
+        return None
+    if isinstance(v, date):
+        return v
+    try:
+        return date.fromisoformat(str(v)[:10])
+    except ValueError:
+        raise ErrorNegocio("Check the dates of the rule.", 422, "validacion", [{"campo": campo, "mensaje": "Not a date."}]) from None
+
+
+def _datos_regla(db: Session, datos: dict, actual: AsignacionEtiqueta | None) -> dict:
+    """Nombre, prioridad, condiciones, contexto y vigencia validados."""
+    limpio = {}
+    if "nombre" in datos or actual is None:
+        limpio["nombre"] = (datos.get("nombre") or "").strip()[:120] or None
+    if "prioridad" in datos and datos["prioridad"] not in (None, ""):
+        try:
+            prioridad = int(datos["prioridad"])
+        except (TypeError, ValueError):
+            prioridad = -1
+        if not 0 <= prioridad <= 100000:
+            raise ErrorNegocio("The priority is a whole number from 0 to 100000.", 422, "validacion",
+                               [{"campo": "prioridad", "mensaje": "From 0 to 100000."}])
+        limpio["prioridad"] = prioridad
+    if "condiciones" in datos or actual is None:
+        limpio["condiciones"] = reglas.validar_condiciones(db, datos.get("condiciones"))
+    if "contexto" in datos or actual is None:
+        limpio["contexto"] = reglas.validar_contexto(datos.get("contexto"))
+    for k in ("vigente_desde", "vigente_hasta"):
+        if k in datos:
+            limpio[k] = _fecha(datos.get(k), k)
+    desde = limpio.get("vigente_desde", actual.vigente_desde if actual else None)
+    hasta = limpio.get("vigente_hasta", actual.vigente_hasta if actual else None)
+    if desde and hasta and hasta < desde:
+        raise ErrorNegocio("The rule ends before it starts.", 422, "validacion", [{"campo": "vigente_hasta", "mensaje": "Before the start."}])
+    return limpio
 
 
 def crear(db: Session, user: Usuario, datos: dict) -> dict:
@@ -109,16 +159,21 @@ def crear(db: Session, user: Usuario, datos: dict) -> dict:
         if not valor or not db.get(modelo, valor):
             raise ErrorNegocio("Choose where the design applies.", 422, "validacion", [{"campo": col, "mensaje": "It does not exist."}])
         destino[col] = valor
-    repetida = db.scalar(select(AsignacionEtiqueta.id).where(
-        AsignacionEtiqueta.plantilla_id == p.id, AsignacionEtiqueta.ambito == ambito, AsignacionEtiqueta.activa.is_(True),
-        *[getattr(AsignacionEtiqueta, k) == v for k, v in destino.items()]))
-    if repetida:
-        raise ErrorNegocio("The design is already assigned there.", 409, "repetida")
+    limpio = _datos_regla(db, datos, None)
+    if ambito == "REGLA" and not limpio["condiciones"] and not limpio["contexto"]:
+        raise ErrorNegocio("A rule without a fixed target needs at least one condition or context.", 422, "validacion",
+                           [{"campo": "condiciones", "mensaje": "Required."}])
+    limpio.setdefault("prioridad", PRIORIDAD[ambito])
+    for otra in db.scalars(select(AsignacionEtiqueta).where(
+            AsignacionEtiqueta.plantilla_id == p.id, AsignacionEtiqueta.ambito == ambito, AsignacionEtiqueta.activa.is_(True),
+            *[getattr(AsignacionEtiqueta, k) == v for k, v in destino.items()])):
+        if (otra.condiciones or []) == limpio["condiciones"] and (otra.contexto or {}) == limpio["contexto"]:
+            raise ErrorNegocio("The design is already assigned there.", 409, "repetida")
     motivo = (datos.get("motivo") or "").strip()[:300] or None
     if ambito == "OC" and not motivo:
         raise ErrorNegocio("Explain why this PO is an exception.", 422, "validacion", [{"campo": "motivo", "mensaje": "Required."}])
     a = AsignacionEtiqueta(plantilla_id=p.id, ambito=ambito, predeterminada=bool(datos.get("predeterminada")), activa=True,
-                           motivo=motivo, creada_por=user.id, **destino)
+                           motivo=motivo, creada_por=user.id, version=1, **destino, **limpio)
     db.add(a)
     db.flush()
     db.refresh(a)
@@ -126,128 +181,114 @@ def crear(db: Session, user: Usuario, datos: dict) -> dict:
         for otra in _hermanas(db, a):
             otra.predeterminada = False
     db.flush()
-    registrar(db, user, "plantilla_etiqueta", p.id, "asignar", {"ambito": ambito, **destino, "predeterminada": a.predeterminada},
-              motivo)
-    return dict_asignacion(db, a)
+    registrar(db, user, "plantilla_etiqueta", p.id, "asignar",
+              {"regla": a.id, "ambito": ambito, **destino, "prioridad": a.prioridad, "condiciones": a.condiciones,
+               "contexto": a.contexto, "predeterminada": a.predeterminada}, motivo)
+    return dict_asignacion(db, a, reglas.conflictos(db, a))
 
 
 def actualizar(db: Session, user: Usuario, asignacion_id: int, datos: dict) -> dict:
     exigir(user, "etiquetas.asignar")
     a = _cargar(db, asignacion_id)
+    if datos.get("version") is not None and int(datos["version"]) != a.version:
+        raise ErrorNegocio("Someone else changed this rule: reload it before saving.", 409, "conflicto_version")
+    antes = dict_asignacion(db, a)
+    limpio = _datos_regla(db, datos, a)
+    for k, v in limpio.items():
+        setattr(a, k, v)
     if "activa" in datos:
         a.activa = bool(datos["activa"])
     if "predeterminada" in datos:
         a.predeterminada = bool(datos["predeterminada"])
-        if a.predeterminada:
-            for otra in _hermanas(db, a):
-                otra.predeterminada = False
     if "motivo" in datos:
         a.motivo = (datos.get("motivo") or "").strip()[:300] or None
+    if a.ambito == "REGLA" and not a.condiciones and not a.contexto:
+        raise ErrorNegocio("A rule without a fixed target needs at least one condition or context.", 422, "validacion")
+    if a.predeterminada:
+        for otra in _hermanas(db, a):
+            otra.predeterminada = False
+    a.version += 1
+    a.actualizada_por, a.actualizada_en = user.id, datetime.now()
     db.flush()
-    registrar(db, user, "plantilla_etiqueta", a.plantilla_id, "editar_asignacion",
-              {"asignacion": a.id, "activa": a.activa, "predeterminada": a.predeterminada})
-    return dict_asignacion(db, a)
+    despues = dict_asignacion(db, a)
+    cambios = {k: [antes.get(k), despues.get(k)] for k in ("nombre", "prioridad", "condiciones", "contexto", "vigente_desde",
+                                                          "vigente_hasta", "activa", "predeterminada", "motivo")
+               if antes.get(k) != despues.get(k)}
+    registrar(db, user, "plantilla_etiqueta", a.plantilla_id, "editar_asignacion", {"regla": a.id, **cambios})
+    return dict_asignacion(db, a, reglas.conflictos(db, a))
 
 
 def eliminar(db: Session, user: Usuario, asignacion_id: int) -> dict:
     exigir(user, "etiquetas.asignar")
     a = _cargar(db, asignacion_id)
-    registrar(db, user, "plantilla_etiqueta", a.plantilla_id, "quitar_asignacion", {"ambito": a.ambito, "destino": _destino_txt(db, a)})
+    registrar(db, user, "plantilla_etiqueta", a.plantilla_id, "quitar_asignacion",
+              {"regla": a.id, "ambito": a.ambito, "destino": _destino_txt(db, a), "nombre": a.nombre})
     db.delete(a)
     db.flush()
     return {"ok": True}
 
 
-# ---- Resolución -------------------------------------------------------------------------
-NIVELES = ("OC", "ARTICULO", "PRODUCTO", "FAMILIA", "GENERAL")
+def conflictos(db: Session, user: Usuario) -> list[dict]:
+    exigir_alguno(user, "etiquetas.ver", "etiquetas.asignar")
+    return reglas.conflictos(db)
 
 
-@dataclass
-class Eleccion:
-    plantilla: PlantillaEtiqueta | None = None
-    nivel: str | None = None
-    motivo: str | None = None
-    candidatas: list[PlantillaEtiqueta] = field(default_factory=list)  # si hay que elegir
-    sin_aprobar: list[PlantillaEtiqueta] = field(default_factory=list)  # asignadas pero sin versión aprobada
-    avisos: list[str] = field(default_factory=list)
+def probar(db: Session, user: Usuario, datos: dict) -> dict:
+    """Qué diseño se elegiría para un registro (real o de muestra) y por qué,
+    regla por regla. Puede incluir una regla en borrador (sin guardarla) para
+    ver su efecto antes de crearla."""
+    from app.modulos.etiquetado import campos, generacion
+    from app.modulos.etiquetado import datos as svc_datos
 
-    @property
-    def ambigua(self) -> bool:
-        return self.plantilla is None and len(self.candidatas) > 1
-
-    def dict(self) -> dict:
-        p = self.plantilla
-        return {"plantilla_id": p.id if p else None, "plantilla": p.nombre if p else None,
-                "familia": p.familia.nombre if p and p.familia else None,
-                "version_id": p.version_vigente_id if p else None, "version": p.vigente.numero if p and p.vigente else None,
-                "nivel": self.nivel, "motivo": self.motivo, "ambigua": self.ambigua,
-                "candidatas": [{"plantilla_id": c.id, "plantilla": c.nombre, "version": c.vigente.numero if c.vigente else None}
-                               for c in self.candidatas],
-                "sin_aprobar": [{"plantilla_id": c.id, "plantilla": c.nombre} for c in self.sin_aprobar],
-                "avisos": self.avisos}
-
-
-def resolver(db: Session, modalidad: str, articulo: Articulo | None = None, oc: OrdenCompra | None = None,
-             elegida_id: int | None = None) -> Eleccion:
-    """La plantilla que corresponde (con la vigente aprobada) y por qué.
-    `elegida_id`: la que eligió el usuario entre varias del mismo nivel."""
-    familia = articulo.familia_efectiva if articulo is not None else None
-    familia_id = familia.id if familia else None
-    filtros = {"OC": oc.id if oc else None, "ARTICULO": articulo.id if articulo else None,
-               "PRODUCTO": articulo.producto_id if articulo else None,
-               "FAMILIA": familia_id, "GENERAL": True}
-    res = Eleccion()
-    for nivel in NIVELES:
-        if not filtros[nivel] or modalidad not in MODALIDADES_DE[nivel]:
-            continue
-        c = select(AsignacionEtiqueta).join(PlantillaEtiqueta).where(
-            AsignacionEtiqueta.ambito == nivel, AsignacionEtiqueta.activa.is_(True), PlantillaEtiqueta.estado == "ACTIVA",
-            PlantillaEtiqueta.modalidad == modalidad)
-        if nivel in DESTINO:
-            c = c.where(getattr(AsignacionEtiqueta, DESTINO[nivel]) == filtros[nivel])
-        asignadas = list(db.scalars(c.order_by(AsignacionEtiqueta.id)))
-        if not asignadas:
-            continue
-        res.sin_aprobar += [a.plantilla for a in asignadas if not a.plantilla.version_vigente_id]
-        aprobadas = [a for a in asignadas if a.plantilla.version_vigente_id]
-        if not aprobadas:
-            continue
-        res.nivel = nivel
-        if elegida_id and any(a.plantilla_id == elegida_id for a in aprobadas):
-            elegida = next(a for a in aprobadas if a.plantilla_id == elegida_id)
-            res.plantilla, res.motivo = elegida.plantilla, "Chosen by the user among the designs of the same level."
-        elif len({a.plantilla_id for a in aprobadas}) == 1:
-            res.plantilla = aprobadas[0].plantilla
-        else:
-            predeterminadas = [a for a in aprobadas if a.predeterminada]
-            if len(predeterminadas) == 1:
-                res.plantilla = predeterminadas[0].plantilla
-            else:
-                res.candidatas = list({a.plantilla_id: a.plantilla for a in aprobadas}.values())
-                res.motivo = "Several designs apply with the same priority: choose one."
-                break
-        if not res.motivo:
-            res.motivo = _motivo(db, nivel, articulo, oc, len(aprobadas) > 1)
-        break
-    if res.plantilla and articulo and res.plantilla.familia_id and familia_id and res.plantilla.familia_id != familia_id:
-        res.avisos.append("The design was made for another labeling family.")
-    if articulo is not None and not familia_id:
-        res.avisos.append("The item has no labeling family.")
-    return res
+    exigir_alguno(user, "etiquetas.asignar", "etiquetas.ver")
+    modalidad = (datos.get("modalidad") or "").upper()
+    if modalidad not in campos.POR_MODALIDAD:
+        raise ErrorNegocio("Choose the data mode.", 422, "validacion")
+    posicion = svc_datos.cargar_posicion(db, user, datos["posicion_id"]) if datos.get("posicion_id") else None
+    oc = svc_datos.cargar_oc(db, user, datos.get("oc_id") or posicion.oc_id) if (datos.get("oc_id") or posicion) else None
+    articulo = svc_datos.cargar_articulo(db, user, datos["articulo_id"]) if datos.get("articulo_id") else \
+        (posicion.articulo if posicion else None)
+    bulto = None
+    if datos.get("pl_id"):
+        pl = generacion.cargar_pl(db, user, int(datos["pl_id"]))
+        tipo = datos.get("tipo_empaque_id")
+        unidades = campos.unidades_pl(pl, int(tipo) if tipo else None, superiores=not tipo)
+        n = int(datos.get("bulto") or 1)
+        if not 1 <= n <= len(unidades):
+            raise ErrorNegocio("That package does not exist in the packing list.", 422, "validacion")
+        bulto = unidades[n - 1]
+    contexto = {"modalidad": modalidad, "origen": datos.get("origen") or ("PACKING" if bulto else ("OC" if oc else "ARTICULOS")),
+                "unidad": datos.get("unidad") or ("BULTO" if bulto else "LINEA")}
+    valores, procedencia, problemas = generacion.valores_registro(db, modalidad, articulo, oc, posicion, bulto,
+                                                                  campos.valores_organizacion(db), contexto)
+    valores.update({str(k): v for k, v in (datos.get("valores") or {}).items()})  # valores de muestra escritos a mano
+    hoy = _fecha(datos.get("fecha"), "fecha") or date.today()
+    extra = []
+    if datos.get("regla"):
+        extra.append(_borrador(db, datos["regla"]))
+    motor = reglas.Motor(db, modalidad, hoy, extra)
+    registro = reglas.Registro(modalidad, articulo, oc, valores, contexto["origen"], contexto["unidad"],
+                               bulto.valores.get("bulto.tipo_codigo") if bulto else None)
+    eleccion = motor.resolver(registro, datos.get("elegida_id"))
+    usados = {c["campo"] for e in eleccion.evaluaciones for c in (e.regla.condiciones or [])}
+    return {**eleccion.dict(explicar=True), "fecha": hoy, "contexto": contexto,
+            "valores": {k: (f"[{len(v)}]" if isinstance(v, list) else v) for k, v in sorted(valores.items())
+                        if k in usados or k.startswith("logico.")},
+            "procedencia": {k: v for k, v in procedencia.items() if v}, "problemas": problemas}
 
 
-def _motivo(db: Session, nivel: str, articulo, oc, por_predeterminada: bool) -> str:
-    """Por qué se eligió la plantilla, en frases completas (cada una con su traducción)."""
-    d = por_predeterminada
-    if nivel == "OC":
-        return f"Exception assigned to PO {oc.numero}, default among several." if d else f"Exception assigned to PO {oc.numero}."
-    if nivel == "ARTICULO":
-        return f"Assigned to the item {articulo.sku}, default among several." if d else f"Assigned to the item {articulo.sku}."
-    if nivel == "PRODUCTO":
-        return (f"Assigned to the product {articulo.estilo} (all its variants), default among several." if d
-                else f"Assigned to the product {articulo.estilo} (all its variants).")
-    if nivel == "FAMILIA":
-        f = articulo.familia_efectiva
-        nombre = f.nombre if f else ""
-        return f"Design of the labeling family {nombre}, default among several." if d else f"Design of the labeling family {nombre}."
-    return "General design of the organization, default among several." if d else "General design of the organization."
+def _borrador(db: Session, datos: dict) -> AsignacionEtiqueta:
+    """Una regla sin guardar, validada igual que al crearla, para probarla."""
+    from app.modulos.etiquetado.plantillas import cargar as cargar_plantilla
+
+    p = cargar_plantilla(db, datos.get("plantilla_id") or 0)
+    ambito = (datos.get("ambito") or "REGLA").upper()
+    if ambito not in AMBITOS:
+        raise ErrorNegocio("Choose where the design applies.", 422, "validacion")
+    limpio = _datos_regla(db, datos, None)
+    limpio.setdefault("prioridad", PRIORIDAD[ambito])
+    a = AsignacionEtiqueta(ambito=ambito, plantilla_id=p.id, predeterminada=bool(datos.get("predeterminada")), activa=True,
+                           **{k: datos.get(k) for k in DESTINO.values() if datos.get(k)}, **limpio)
+    a.plantilla = p
+    a.nombre = (a.nombre or "Draft rule")
+    return a

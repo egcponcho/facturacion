@@ -1,4 +1,5 @@
 <script setup>
+import { alCambiar } from '@/nucleo/cambios.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -87,6 +88,8 @@ function buscar() {
   espera = setTimeout(recargar, 300)
 }
 watch(() => sesion.proveedorId, recargar)
+// Datos de otros usuarios: se vuelven a pedir solo cuando cambian (nucleo/cambios.js)
+alCambiar(() => consultar(), ['/facturas'])
 </script>
 
 <template>

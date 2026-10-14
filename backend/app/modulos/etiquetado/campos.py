@@ -39,13 +39,55 @@ GRUPOS = {
     "bulto": "Package",
     "organizacion": "Organization",
     "etiqueta": "Label",
+    "contexto": "Labeling job",
+    "logico": "Logical fields",
 }
 # Grupos de datos de cada modalidad (el bulto, solo si se genera por bulto)
 POR_MODALIDAD = {
-    "ARTICULO": {"articulo", "producto", "organizacion", "etiqueta"},
-    "OC": {"oc", "bulto", "organizacion", "etiqueta"},
-    "OC_ARTICULO": {"oc", "linea", "articulo", "producto", "bulto", "organizacion", "etiqueta"},
+    "ARTICULO": {"articulo", "producto", "organizacion", "etiqueta", "contexto", "logico"},
+    "OC": {"oc", "bulto", "organizacion", "etiqueta", "contexto", "logico"},
+    "OC_ARTICULO": {"oc", "linea", "articulo", "producto", "bulto", "organizacion", "etiqueta", "contexto", "logico"},
 }
+
+
+@dataclass(frozen=True)
+class Coleccion:
+    """Una lista de filas para las tablas de las etiquetas (contenido de un
+    bulto, componentes de un kit…): cada fila tiene las mismas columnas."""
+    clave: str
+    etiqueta: str
+    columnas: tuple  # ((clave, etiqueta, tipo), ...)
+
+    @property
+    def grupo(self) -> str:
+        return self.clave.split(".", 1)[0]
+
+
+_COL_LINEA = (("oc", "PO", "texto"), ("linea", "Line", "texto"), ("sku", "SKU", "texto"), ("upc", "UPC", "texto"),
+              ("descripcion", "Description", "texto"), ("color", "Color", "texto"), ("talla", "Size", "texto"))
+# Misma clave «cantidad» (los diseños guardados la usan), pero no el mismo dato:
+# en la OC es lo pedido (plan); en el bulto, lo empacado en esa unidad (real)
+_COL_LINEA_OC = (*_COL_LINEA, ("cantidad", "Quantity ordered", "numero"), ("unidad", "Unit", "texto"))
+_COL_LINEA_BULTO = (*_COL_LINEA, ("cantidad", "Quantity packed in the package", "numero"), ("unidad", "Unit", "texto"))
+_COL_COMPONENTE = (("sku", "SKU", "texto"), ("upc", "UPC", "texto"), ("descripcion", "Description", "texto"),
+                   ("color", "Color", "texto"), ("talla", "Size", "texto"), ("cantidad", "Quantity", "numero"))
+COLECCIONES = [
+    Coleccion("bulto.lineas", "Package contents (lines)", _COL_LINEA_BULTO),
+    Coleccion("bulto.componentes", "Package contents by component (prepacks and kits exploded)", _COL_COMPONENTE),
+    Coleccion("articulo.componentes", "Components of the prepack or kit (per pack)", _COL_COMPONENTE),
+    Coleccion("oc.lineas", "Purchase order lines (ordered quantities)", _COL_LINEA_OC),
+]
+MAX_FILAS = 500  # filas por colección en una etiqueta (más es un dato equivocado, no una etiqueta)
+
+
+def colecciones(modalidad: str | None = None) -> list[Coleccion]:
+    grupos = POR_MODALIDAD.get(modalidad) if modalidad else None
+    return [c for c in COLECCIONES if grupos is None or c.grupo in grupos]
+
+
+def dict_coleccion(c: Coleccion) -> dict:
+    return {"clave": c.clave, "etiqueta": c.etiqueta, "grupo": c.grupo,
+            "columnas": [{"clave": k, "etiqueta": e, "tipo": t} for k, e, t in c.columnas]}
 
 
 @dataclass(frozen=True)
@@ -117,6 +159,7 @@ _FIJOS = [
     Campo("articulo.prepack", "Prepack"),
     Campo("articulo.familia_codigo", "Labeling family code"),
     Campo("articulo.familia", "Labeling family"),
+    Campo("articulo.familia_ruta", "Labeling family path (codes)"),
     Campo("producto.nombre", "Product name"),
     Campo("producto.descripcion_comercial", "Commercial description"),
     Campo("producto.codigo_generico", "Product generic code"),
@@ -134,6 +177,8 @@ _FIJOS = [
     Campo("bulto.unidades", "Units in the package", "numero"),
     Campo("bulto.contenido", "Package contents"),
     Campo("bulto.tipo", "Package type"),
+    Campo("bulto.tipo_codigo", "Package type code"),
+    Campo("bulto.parcial", "Partial package (yes/no)"),
     Campo("bulto.codigo", "Package code"),
     Campo("bulto.contenedor", "Contained in"),
     Campo("organizacion.nombre", "Organization name"),
@@ -146,6 +191,10 @@ _FIJOS = [
     Campo("etiqueta.numero_lote", "Label number in the batch", "numero"),
     Campo("etiqueta.total_lote", "Labels in the batch", "numero"),
     Campo("etiqueta.fecha", "Generation date", "fecha"),
+    Campo("etiqueta.serie", "Controlled label ID (numbering series)"),
+    Campo("contexto.modalidad", "Job data mode (ARTICULO, OC, OC_ARTICULO)"),
+    Campo("contexto.origen", "Job origin (OC, ARTICULOS, PACKING)"),
+    Campo("contexto.unidad", "What each label represents (LINEA, BULTO…)"),
 ]
 
 
@@ -159,6 +208,11 @@ def _dinamicos(db: Session) -> list[Campo]:
             tipo = {"numero": "numero", "fecha": "fecha"}.get(d.get("tipo"), "texto")
             res.append(Campo(f"{grupo}.extra.{d['clave']}", d.get("etiqueta") or d["clave"], tipo,
                              origen_propio=f"{entidad}.extra[{d['clave']}]"))
+    from app.modulos.etiquetado import campos_logicos
+
+    for c in campos_logicos.activos(db):
+        res.append(Campo(f"logico.{c.clave}", c.etiqueta, c.tipo,
+                         origen_propio=f"campos_etiqueta[{c.clave}]: {' → '.join(c.fuentes or [])}"))
     return res
 
 
@@ -167,8 +221,19 @@ def catalogo(db: Session, modalidad: str | None = None) -> list[Campo]:
     from app.modulos.acceso import visibilidad
 
     grupos = POR_MODALIDAD.get(modalidad) if modalidad else None
+    from app.modulos.etiquetado import campos_logicos
+
+    fuera = campos_logicos.fuera_de(db, modalidad) if modalidad else set()
     return [c for c in _FIJOS + _dinamicos(db)
-            if (grupos is None or c.grupo in grupos) and not (c.dato and visibilidad.oculto(c.dato))]
+            if (grupos is None or c.grupo in grupos) and not (c.dato and visibilidad.oculto(c.dato)) and c.clave not in fuera]
+
+
+def tipos(db: Session, modalidad: str | None = None) -> dict[str, str]:
+    """Tipo de cada campo (y de cada columna de las colecciones, como «bulto.lineas.cantidad») para formatear."""
+    res = {c.clave: c.tipo for c in catalogo(db, modalidad)}
+    for col in colecciones(modalidad):
+        res.update({f"{col.clave}.{k}": t for k, _, t in col.columnas})
+    return res
 
 
 def por_clave(db: Session) -> dict[str, Campo]:
@@ -181,7 +246,9 @@ def dict_campo(c: Campo) -> dict:
 
 def ejemplos(db: Session, modalidad: str | None = None) -> dict:
     """Valores de ejemplo para diseñar sin datos reales."""
-    return {c.clave: c.ejemplo for c in catalogo(db, modalidad) if c.ejemplo is not None}
+    res = {c.clave: c.ejemplo for c in catalogo(db, modalidad) if c.ejemplo is not None}
+    res.update({c.clave: EJEMPLO[c.clave] for c in colecciones(modalidad) if c.clave in EJEMPLO})
+    return res
 
 
 # ---- Valores reales ---------------------------------------------------------------------
@@ -221,6 +288,8 @@ def valores_articulo(a: Articulo) -> dict:
         "articulo.prepack": a.prepack.codigo if a.prepack else None,
         "articulo.familia_codigo": a.familia_efectiva.codigo if a.familia_efectiva else None,
         "articulo.familia": a.familia_efectiva.nombre if a.familia_efectiva else None,
+        "articulo.familia_ruta": " / ".join(f.codigo for f in a.familia_efectiva.ruta()) if a.familia_efectiva else None,
+        "articulo.componentes": componentes_articulo(a),
         "producto.nombre": p.nombre if p else None, "producto.descripcion_comercial": p.descripcion_comercial if p else None,
         "producto.codigo_generico": p.codigo_generico if p else None, "producto.pais_origen": p.pais_origen if p else None,
         "producto.composicion": _composicion(p.ficha) if p else None, "producto.uso": (p.ficha or {}).get("uso") if p else None,
@@ -230,6 +299,17 @@ def valores_articulo(a: Articulo) -> dict:
     for k, val in (a.extra or {}).items():
         v[f"articulo.extra.{k}"] = _txt(val)
     return v
+
+
+def _fila_articulo(a: Articulo, cantidad) -> dict:
+    return {"sku": a.sku, "upc": a.upc, "descripcion": a.descripcion, "color": a.color, "talla": a.talla, "cantidad": cantidad}
+
+
+def componentes_articulo(a: Articulo) -> list[dict]:
+    """Los componentes de un prepack o kit con su cantidad por paquete (vacío en un sólido)."""
+    if not a.prepack:
+        return []
+    return [_fila_articulo(c.articulo, c.cantidad) for c in a.prepack.componentes]
 
 
 def valores_oc(db: Session, oc: OrdenCompra) -> dict:
@@ -246,6 +326,10 @@ def valores_oc(db: Session, oc: OrdenCompra) -> dict:
     }
     for k, val in (oc.extra or {}).items():
         v[f"oc.extra.{k}"] = _txt(val)
+    v["oc.lineas"] = [{"oc": oc.numero, "linea": p.posicion, "sku": p.codigo_articulo,
+                       "upc": p.upc or (p.articulo.upc if p.articulo else None), "descripcion": p.descripcion, "color": p.color,
+                       "talla": p.talla, "cantidad": float(p.cantidad) if p.cantidad is not None else None, "unidad": p.unidad}
+                      for p in posiciones(db, oc.id)][:MAX_FILAS]
     return v
 
 
@@ -278,6 +362,10 @@ class Bulto:
     posiciones: list[int] = field(default_factory=list)
     pl_id: int | None = None
     tipo_empaque_id: int | None = None
+    por_posicion: dict = field(default_factory=dict)  # línea de la OC → unidades en UN bulto (lo declarado en el PL)
+    cuenta_como: str = "BULTO"  # BULTO | INTERIOR | SOPORTE (tipo de empaque)
+    parcial: bool = False
+    avisos: list = field(default_factory=list)  # datos que faltan para describir el contenido (nunca se inventan)
 
 
 def _hijos(pl: PackingList) -> dict:
@@ -297,6 +385,32 @@ def _contenido(g: GrupoCajas, hijos: dict) -> list[tuple]:
         por_unidad = h.num_cajas / g.num_cajas if g.num_cajas else 0
         res += [(fl, q * por_unidad) for fl, q in _contenido(h, hijos)]
     return res
+
+
+def _filas_contenido(items: list[tuple]) -> tuple[list[dict], list[dict], list[str]]:
+    """Las líneas del bulto y su contenido por componente: un prepack o kit se
+    reparte en sus componentes (cantidad del componente × paquetes). Si un
+    prepack no tiene componentes definidos, no se inventa un reparto: se avisa."""
+    lineas, componentes, avisos = [], {}, []
+    for fl, q in items:
+        p = fl.posicion_oc
+        a = p.articulo
+        lineas.append({"oc": p.oc.numero, "linea": p.posicion, "sku": p.codigo_articulo, "upc": p.upc or (a.upc if a else None),
+                       "descripcion": p.descripcion, "color": p.color, "talla": p.talla, "cantidad": q, "unidad": p.unidad})
+        if a is not None and a.prepack is not None:
+            if not a.prepack.componentes:
+                avisos.append(f"The prepack {a.sku} has no components: its content by size cannot be shown.")
+                continue
+            for c in a.prepack.componentes:
+                x = componentes.setdefault(c.articulo_id, _fila_articulo(c.articulo, 0))
+                x["cantidad"] += c.cantidad * q
+        else:
+            clave = a.id if a is not None else f"c{p.codigo_articulo}"
+            x = componentes.setdefault(clave, _fila_articulo(a, 0) if a is not None else
+                                       {"sku": p.codigo_articulo, "upc": p.upc, "descripcion": p.descripcion, "color": p.color,
+                                        "talla": p.talla, "cantidad": 0})
+            x["cantidad"] += q
+    return lineas[:MAX_FILAS], list(componentes.values())[:MAX_FILAS], avisos
 
 
 def _nombre_tipo(g: GrupoCajas) -> str | None:
@@ -323,6 +437,10 @@ def _unidades(pl: PackingList, nodos: list[GrupoCajas], hijos: dict, por_tipo: b
     for g in nodos:
         items = _contenido(g, hijos)
         contenido = "; ".join(f"{fl.posicion_oc.codigo_articulo} × {q:g}" for fl, q in items)
+        lineas, componentes, avisos = _filas_contenido(items)
+        por_posicion: dict = {}
+        for fl, q in items:
+            por_posicion[fl.posicion_oc_id] = por_posicion.get(fl.posicion_oc_id, 0) + q
         medidas = " × ".join(f"{x:g}" for x in (g.largo, g.ancho, g.alto) if x) or None
         pos_ids = sorted({fl.posicion_oc_id for fl, _ in items})
         prefijo = g.tipo_empaque.prefijo if g.tipo_empaque and g.tipo_empaque.prefijo else ""
@@ -340,8 +458,12 @@ def _unidades(pl: PackingList, nodos: list[GrupoCajas], hijos: dict, por_tipo: b
                 "bulto.factura": pl.factura.numero, "bulto.embarque": emb, "bulto.peso_bruto": g.peso_bruto_caja,
                 "bulto.peso_neto": g.peso_neto_caja, "bulto.medidas": medidas, "bulto.unidades": sum(q for _, q in items),
                 "bulto.contenido": contenido, "bulto.tipo": _nombre_tipo(g),
-                "bulto.codigo": f"{prefijo}{inicio[g.id] + k + 1}" if prefijo else None, "bulto.contenedor": contenedor},
-                pos_ids, pl.id, g.tipo_empaque_id))
+                "bulto.tipo_codigo": g.tipo_empaque.codigo if g.tipo_empaque else None,
+                "bulto.parcial": "yes" if g.es_parcial else "no",
+                "bulto.codigo": f"{prefijo}{inicio[g.id] + k + 1}" if prefijo else None, "bulto.contenedor": contenedor,
+                "bulto.lineas": lineas, "bulto.componentes": componentes},
+                pos_ids, pl.id, g.tipo_empaque_id, dict(por_posicion),
+                g.tipo_empaque.cuenta_como if g.tipo_empaque else "BULTO", bool(g.es_parcial), list(avisos)))
     return res
 
 

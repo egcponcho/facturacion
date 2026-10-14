@@ -36,6 +36,8 @@ def familia_sql():
 def _dict(f: FamiliaEtiquetado, conteos: dict | None = None) -> dict:
     c = (conteos or {}).get(f.id, {})
     return {"id": f.id, "codigo": f.codigo, "nombre": f.nombre, "descripcion": f.descripcion, "campos": f.campos or [],
+            "padre_id": f.padre_id, "ruta": " / ".join(x.nombre for x in f.ruta()),
+            "heredados": [c for x in f.ruta()[:-1] for c in (x.campos or [])],
             "orden": f.orden, "activa": f.activa, "articulos": c.get("articulos", 0), "plantillas": c.get("plantillas", 0),
             "grupos": c.get("grupos", 0), "articulos_propios": c.get("propios", 0)}
 
@@ -122,6 +124,15 @@ def _validar(db: Session, datos: dict, actual: FamiliaEtiquetado | None) -> dict
         limpio["activa"] = bool(datos["activa"])
     if "campos" in datos:
         limpio["campos"] = _campos(db, datos["campos"])
+    if "padre_id" in datos:
+        padre_id = datos.get("padre_id") or None
+        if padre_id is not None:
+            padre = db.get(FamiliaEtiquetado, padre_id)
+            if padre is None:
+                errores.append({"campo": "padre_id", "mensaje": "The parent family does not exist."})
+            elif actual is not None and actual in padre.ruta():
+                errores.append({"campo": "padre_id", "mensaje": "A family cannot be inside itself or one of its subfamilies."})
+        limpio["padre_id"] = padre_id
     if errores:
         raise ErrorNegocio("Check the labeling family.", 422, "validacion", errores)
     return limpio
@@ -173,9 +184,10 @@ def eliminar(db: Session, user: Usuario, familia_id: int) -> dict:
     en_uso = (db.scalar(select(func.count()).select_from(Articulo).where(Articulo.familia_etiquetado_id == f.id))
               or db.scalar(select(func.count()).select_from(GrupoArticulo).where(GrupoArticulo.familia_etiquetado_id == f.id))
               or db.scalar(select(func.count()).select_from(PlantillaEtiqueta).where(PlantillaEtiqueta.familia_id == f.id))
-              or db.scalar(select(func.count()).select_from(AsignacionEtiqueta).where(AsignacionEtiqueta.familia_id == f.id)))
+              or db.scalar(select(func.count()).select_from(AsignacionEtiqueta).where(AsignacionEtiqueta.familia_id == f.id))
+              or db.scalar(select(func.count()).select_from(FamiliaEtiquetado).where(FamiliaEtiquetado.padre_id == f.id)))
     if en_uso:
-        raise ErrorNegocio("The family has items, designs or assignments: deactivate it instead.", 409, "en_uso")
+        raise ErrorNegocio("The family has items, designs, rules or subfamilies: deactivate it instead.", 409, "en_uso")
     registrar(db, user, "familia_etiquetado", f.id, "eliminar", {"codigo": f.codigo})
     db.delete(f)
     db.flush()
@@ -260,11 +272,17 @@ def asignar_articulos(db: Session, user: Usuario, familia_id: int | None, ids: l
     return {"cambiados": len(cambiados), "elegidos": len(elegidos)}
 
 
+def obligatorios(familia: FamiliaEtiquetado | None) -> list[str]:
+    """Campos obligatorios de la familia y de las familias que la contienen."""
+    res = []
+    for f in familia.ruta() if familia else []:
+        res += [c["campo"] for c in f.campos or [] if c.get("obligatorio") and c["campo"] not in res]
+    return res
+
+
 def faltantes(db: Session, familia: FamiliaEtiquetado | None, valores: dict) -> list[str]:
-    """Campos obligatorios de la familia que el artículo no tiene."""
-    if not familia:
-        return []
-    return [c["campo"] for c in familia.campos or [] if c.get("obligatorio") and valores.get(c["campo"]) in (None, "")]
+    """Campos obligatorios de la familia (incluidos los heredados) que el artículo no tiene."""
+    return [c for c in obligatorios(familia) if valores.get(c) in (None, "")]
 
 
 

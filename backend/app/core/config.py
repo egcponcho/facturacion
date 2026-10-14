@@ -127,12 +127,28 @@ class Settings:
     # Etiquetado: quien diseña una versión no la aprueba (si se exige) y tope de etiquetas por lote
     ETIQUETAS_CUATRO_OJOS: bool = False
     ETIQUETAS_MAXIMO_LOTE: int = 5000
+    # Trabajos de etiquetado: generar solo los registros listos y dejar los que
+    # tienen errores para después; desde cuántas etiquetas se generan en segundo
+    # plano; tope de etiquetas de un trabajo
+    ETIQUETAS_GENERACION_PARCIAL: bool = False
+    ETIQUETAS_ASINCRONO_DESDE: int = 2000
+    ETIQUETAS_MAXIMO_TRABAJO: int = 50000
+    # Ejecución duradera de los trabajos (trabajos.py): el proceso que genera
+    # renueva su arriendo; si deja de hacerlo (se detuvo) otro lo retoma. Cada
+    # instancia busca trabajos abandonados cada ETIQUETAS_RECUPERAR_SEG (0 = no busca).
+    # Canal de cambios: cada cuántos segundos se revisan las versiones de las tablas
+    CAMBIOS_INTERVALO_SEG: float = float(os.getenv("CAMBIOS_INTERVALO_SEG", "2"))
+    ETIQUETAS_ARRIENDO_SEG: int = int(os.getenv("ETIQUETAS_ARRIENDO_SEG", "120"))
+    ETIQUETAS_RECUPERAR_SEG: int = int(os.getenv("ETIQUETAS_RECUPERAR_SEG", "30"))
+    ETIQUETAS_MAX_INTENTOS: int = int(os.getenv("ETIQUETAS_MAX_INTENTOS", "5"))
     COMPATIBILIDAD_ADVERTENCIA: list[str] = ["incoterm", "centro_destino"]
     # Aprobación de OCs: quien creó o envió una OC no puede aprobarla él mismo
     APROBACION_CUATRO_OJOS: bool = True
     # Las OCs que llegan del ERP ya vienen aprobadas; con esta regla pasan
     # además por las reglas de aprobación de la plataforma
     APROBAR_OC_IMPORTADAS: bool = False
+    # Un contenedor solo se entrega en bodega después de su liberación aduanera
+    EXIGIR_LIBERACION_ANTES_ENTREGA: bool = False
 
 
     def validar(self) -> None:

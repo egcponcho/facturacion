@@ -75,7 +75,10 @@ def fijar(db: Session, organizacion_id: int | None, usuario_id: int | None = Non
         db.info[USUARIO] = int(usuario_id)
     # La transacción ya abierta también la ve (PostgreSQL: RLS)
     if db.in_transaction():
+        from app.core import cambios
+
         _variable_bd(db.connection(), db.info.get(CLAVE), db.info.get(USUARIO))
+        cambios.fijar_organizacion(db.connection(), de_sesion(db))
 
 
 @contextmanager

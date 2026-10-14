@@ -105,9 +105,24 @@ def packing(db: Session, user: Usuario, pl_id: int) -> dict:
 
 
 # ---- Plan -----------------------------------------------------------------------------------------
+class _PorReglas:
+    """Sin diseño elegido: cada registro toma el de sus reglas (la misma resolución que el asistente)."""
+    id = None
+    nombre = None
+    vigente = None
+    versiones: list = []
+
+    def __init__(self, modalidad: str):
+        self.modalidad = modalidad
+
+
 def _plantilla(db: Session, pedido: dict):
     if not pedido.get("plantilla_id"):
-        raise ErrorNegocio("Choose the label design.", 422, "validacion")
+        modalidad = (pedido.get("modalidad") or "").upper()
+        if modalidad not in campos.POR_MODALIDAD:
+            raise ErrorNegocio("Choose the label design or the data mode (then each record takes the design of its rules).",
+                               422, "validacion")
+        return _PorReglas(modalidad)
     p = plantillas.cargar(db, int(pedido["plantilla_id"]))
     if p.estado != "ACTIVA":
         raise ErrorNegocio("The design is archived.", 422, "validacion")
@@ -122,8 +137,10 @@ def _pedidos(db: Session, user: Usuario, pedido: dict) -> tuple:
     if tipo not in TIPOS:
         raise ErrorNegocio("Choose what to label: purchase orders, items or a packing list.", 422, "validacion")
     p = _plantilla(db, pedido)
-    comun = {"modalidad": p.modalidad, "plantilla_id": p.id, "prueba": bool(pedido.get("prueba")),
+    comun = {"modalidad": p.modalidad, "prueba": bool(pedido.get("prueba")), "elegidas": pedido.get("elegidas") or {},
              "manuales": pedido.get("manuales") or {}, "hoja": UNA_POR_PAGINA}
+    if p.id:
+        comun["plantilla_id"] = p.id
     if tipo == "ordenes":
         if p.modalidad == "ARTICULO":
             raise ErrorNegocio("This design only has item data: choose a design for purchase orders.", 422, "modalidad")
@@ -171,7 +188,8 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
                        "advertencias": r["advertencias"], "problemas": problemas[:100],
                        "grupos": [{"referencia": g["referencia"], "cantidad": g["cantidad"], "familia": g["familia"],
                                    "version": g["version"], "articulo_id": g["articulo_id"], "posicion_id": g["posicion_id"],
-                                   "oc_id": g.get("oc_id") or r["oc_id"], "bulto": g["bulto"]} for g in r["grupos"][:500]],
+                                   "oc_id": g.get("oc_id") or r["oc_id"], "bulto": g["bulto"], "plantilla": g["plantilla"],
+                                   "regla": g["regla"]} for g in r["grupos"][:500]],
                        "_pedido": x})
     total = sum(x["total"] for x in partes if not x["errores"])
     errores = sum(x["errores"] for x in partes)
@@ -179,7 +197,7 @@ def plan(db: Session, user: Usuario, pedido: dict) -> dict:
     if total > settings.ETIQUETAS_MAXIMO_LOTE * max(len(partes), 1):
         general.append({"nivel": "error", "mensaje": "Too many labels for one generation: choose fewer orders or items."})
     v = p.vigente if not pedido.get("prueba") else (p.versiones[-1] if p.versiones else None)
-    return {"tipo": tipo, "plantilla": {"id": p.id, "nombre": p.nombre, "modalidad": p.modalidad,
+    return {"tipo": tipo, "por_reglas": p.id is None, "plantilla": {"id": p.id, "nombre": p.nombre, "modalidad": p.modalidad,
                                         "version": v.numero if v else None, "version_id": v.id if v else None,
                                         "ancho_mm": v.ancho_mm if v else None, "alto_mm": v.alto_mm if v else None,
                                         "variables": (v.diseno.get("variables") or []) if v else []},
@@ -224,7 +242,7 @@ def generar(db: Session, user: Usuario, pedido: dict) -> dict:
     hechas = [generacion.generar(db, user, {**x["_pedido"], "formato": formato, "lote": lote, "aceptar_advertencias": True})
               for x in validas]
     registrar(db, user, "generacion_etiquetas", hechas[0]["id"], "generar_masivo",
-              {"lote": lote, "tipo": r["tipo"], "plantilla": r["plantilla"]["nombre"], "lotes": len(hechas),
+              {"lote": lote, "tipo": r["tipo"], "plantilla": r["plantilla"]["nombre"] or "rules", "lotes": len(hechas),
                "total": sum(h["total"] for h in hechas), "omitidas": [x["oc"] for x in con_errores][:50]})
     return {"lote": lote, "tipo": r["tipo"], "formato": formato, "total": sum(h["total"] for h in hechas),
             "generaciones": [{"id": h["id"], "oc": h["oc"], "total": h["total"]} for h in hechas],
@@ -234,8 +252,9 @@ def generar(db: Session, user: Usuario, pedido: dict) -> dict:
 def archivo(db: Session, user: Usuario, lote: str, formato: str | None = None) -> tuple[bytes, str, str]:
     """Los archivos de una generación masiva: con un solo lote, su PDF (o su
     ZIP de imágenes); con varios, un ZIP con un PDF (o una carpeta de imágenes)
-    por OC. Se dibujan de nuevo desde las versiones e instantáneas guardadas."""
-    exigir(user, "etiquetas.ver")
+    por OC. Se dibujan de nuevo desde las versiones e instantáneas guardadas.
+    Descargar es de quien genera (ver solo deja consultar el historial)."""
+    exigir(user, "etiquetas.generar")
     gens = list(db.scalars(select(GeneracionEtiquetas).where(GeneracionEtiquetas.lote == lote, *generacion._alcance(user))
                            .order_by(GeneracionEtiquetas.id)))
     if not gens:
@@ -257,16 +276,17 @@ def archivo(db: Session, user: Usuario, lote: str, formato: str | None = None) -
 
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for g in gens:
+            generacion.marcar_descarga(g)
             base = generacion._seguro(db.get(OrdenCompra, g.oc_id).numero if g.oc_id else f"lote-{g.id}")
             while base in usados:
                 base += f"-{g.id}"
             usados.add(base)
             lienzos = generacion._lienzos(db, g)
             if formato == "PDF":
-                poner(z, f"{base}.pdf", salidas.pdf([lz for lz, _ in lienzos], UNA_POR_PAGINA, base))
+                poner(z, f"{base}.pdf", salidas.pdf([lz for lz, *_ in lienzos], UNA_POR_PAGINA, base))
             else:
                 dpi = (g.parametros or {}).get("dpi")
-                for i, (lz, nombre) in enumerate(lienzos, start=1):
+                for i, (lz, nombre, *_) in enumerate(lienzos, start=1):
                     poner(z, f"{base}/{i:05d}-{generacion._seguro(nombre)}.png", salidas.png(lz, dpi))
     registrar(db, user, "generacion_etiquetas", gens[0].id, "descargar_masivo", {"lote": lote, "formato": formato, "lotes": len(gens)})
     return buf.getvalue(), f"labels-{lote[:8]}.zip", "application/zip"

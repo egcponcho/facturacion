@@ -40,12 +40,16 @@ MODULOS = [
         ("etiquetas.generar", "Generate and download labels (a supplier, of its own POs)", TODOS, True),
         ("etiquetas.disenar", "Create and edit label designs and send them to approval", INTERNOS, False),
         ("etiquetas.aprobar", "Approve, reject and archive label design versions", {"admin"}, False),
-        ("etiquetas.asignar", "Assign label designs to families, products, items and POs", INTERNOS, False),
+        ("etiquetas.asignar", "Create and edit labeling rules: which design applies to which records", INTERNOS, False),
         ("etiquetas.familias", "Manage labeling families and the family of each item", INTERNOS, False),
+        ("etiquetas.campos", "Define logical label fields and the precedence of their sources", INTERNOS, False),
     ]),
     ("Shipments", [
         ("transporte.gestionar", "See and manage shipments and load units", INTERNOS, False),
         ("recepcion.registrar", "Register warehouse receipts", INTERNOS, False),
+        ("inventario.ver", "See stock by warehouse and its receipts", INTERNOS, False),
+        ("costos.ver", "See logistics costs and their allocation", INTERNOS, False),
+        ("costos.editar", "Record logistics costs", INTERNOS, False),
     ]),
     ("Products", [
         ("producto.ver", "See products and technical sheets", TODOS, True),
@@ -81,13 +85,14 @@ PERMISOS = {k: (et, roles, prov) for _, ps in MODULOS for k, et, roles, prov in 
 # Módulos que la empresa puede apagar (Configuración → Empresa → Módulos): sus
 # permisos dejan de darse a todos, así el servidor y las pantallas los ocultan.
 MODULOS_ACTIVABLES = {
-    "transporte": ("Shipments and warehouse receipts", ["transporte.gestionar", "recepcion.registrar"]),
+    "transporte": ("Shipments, warehouse receipts, stock and logistics costs",
+                   ["transporte.gestionar", "recepcion.registrar", "inventario.ver", "costos.ver", "costos.editar"]),
     "clasificacion": ("Tariff classification: tariff schedule and product families",
                       ["aranceles.ver", "aranceles.editar", "clasificacion.ver", "clasificacion.configurar"]),
     "seguimiento": ("Tracking and lead times", ["seguimiento.ver"]),
     "etiquetado": ("Labels: label designs, versions and label generation",
                    ["etiquetas.ver", "etiquetas.generar", "etiquetas.disenar", "etiquetas.aprobar", "etiquetas.asignar",
-                    "etiquetas.familias"]),
+                    "etiquetas.familias", "etiquetas.campos"]),
 }
 
 

@@ -28,11 +28,14 @@ REGLAS = {
     "DIAS_TOLERANCIA_XF": "Days after the original XF that still count as an on-time pickup",
     "META_LIBERACION_A_TIEMPO": "Target (%) of logistics releases on time",
     "ETIQUETAS_CUATRO_OJOS": "A label design version must be approved by someone other than its author",
+    "ETIQUETAS_GENERACION_PARCIAL": "A labeling job can generate its ready records and leave the ones with errors for later",
+    "ETIQUETAS_ASINCRONO_DESDE": "Labels from which a labeling job is generated in the background",
     "PAIS_BASE_CLASIF": "Country whose national code completes the suggested HS code",
     "COMPATIBILIDAD_BLOQUEANTE": "PO data that cannot be mixed in one invoice",
     "COMPATIBILIDAD_ADVERTENCIA": "PO data that only warns when mixed in one invoice",
     "APROBACION_CUATRO_OJOS": "Whoever creates or sends a PO cannot approve it",
     "APROBAR_OC_IMPORTADAS": "POs loaded from the ERP also go through the approval rules",
+    "EXIGIR_LIBERACION_ANTES_ENTREGA": "A load unit is delivered to the warehouse only after its customs release",
 }
 # Datos de la OC que pueden ser parte de las reglas de compatibilidad
 CAMPOS_COMPATIBILIDAD = ("sociedad", "centro", "centro_destino", "moneda", "incoterm", "puerto_despacho", "pais_origen")

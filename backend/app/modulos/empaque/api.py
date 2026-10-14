@@ -18,7 +18,6 @@ from app.esquemas import (
     PLMoverCajas,
     PLNumeroIn,
     PLQuitar,
-    RecepcionIn,
 )
 from app.modulos.documentos import documentos, exportar
 from app.modulos.empaque import packing as svc
@@ -139,12 +138,6 @@ def reabrir(pl_id: int, datos: ConMotivo, db: Db, user: User, clave: Clave = Non
 def cancelar(pl_id: int, datos: ConMotivo, db: Db, user: User, clave: Clave = None):
     """Cancela el PL (con motivo si ya no es borrador); el proveedor solo cancela borradores."""
     return ejecutar(db, user, clave, lambda: svc.cancelar_pl(db, user, pl_id, datos.motivo))
-
-
-@router.post("/{pl_id}/recepcion")
-def recepcion(pl_id: int, datos: RecepcionIn, db: Db, user: User, clave: Clave = None):
-    """Registra lo recibido y lo dañado por fila de un PL cuyo embarque ya llegó; alerta las diferencias."""
-    return ejecutar(db, user, clave, lambda: svc.registrar_recepcion(db, user, pl_id, datos))
 
 
 @router.get("/{pl_id}/exportar")

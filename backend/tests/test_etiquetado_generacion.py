@@ -122,6 +122,19 @@ def test_zip_con_png_y_svg_y_codigo_legible(interno, oc, combinada):
     assert sku in leidos
 
 
+def test_hoja_que_no_cabe_se_rechaza(interno, oc, combinada):
+    """Varias por hoja: si la etiqueta (100×50) no cabe con esas columnas y
+    márgenes, se avisa antes de generar en vez de dibujarla fuera del papel."""
+    linea = oc["lineas"][0]
+    base = {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA", "posiciones": [linea["id"]],
+            "aceptar_advertencias": True, "prueba": True}
+    hoja = {"modo": "hoja", "papel_ancho": 215.9, "papel_alto": 279.4, "columnas": 3, "filas": 2}
+    r = interno.post("/etiquetas/generaciones", {**base, "hoja": hoja})
+    assert r.status_code == 422 and r.json()["detalle"][0]["mensaje"] == "100×50 mm", r.text
+    r = interno.post("/etiquetas/generaciones", {**base, "hoja": {**hoja, "columnas": 2}})
+    assert r.status_code == 200, r.text
+
+
 def test_familia_con_dato_obligatorio_y_plantilla_de_familia(interno, admin, oc, combinada):
     linea = oc["lineas"][0]
     fam = interno.post("/etiquetas/familias", {"codigo": "GENFAM", "nombre": "Generation family",
@@ -161,23 +174,58 @@ def test_advertencias_y_duplicados_piden_confirmar(interno, oc, combinada):
     assert interno.post("/etiquetas/generaciones", pedido).status_code == 200
 
 
-def test_unidad_no_contable(interno, oc, combinada):
-    linea = oc["lineas"][0]
-    with SessionLocal() as db, en_organizacion(1):
-        from app.modelos import PosicionOC
+def _plan_por_unidad(interno, oc, linea, unidad, cantidad=None):
+    """El plan «una etiqueta por unidad» con la línea en otra unidad de medida."""
+    from app.modelos import PosicionOC
 
+    with SessionLocal() as db, en_organizacion(1):
         p = db.get(PosicionOC, linea["id"])
-        antes = p.unidad
-        p.unidad = "KG"
+        antes = p.unidad, p.cantidad
+        p.unidad = unidad
+        if cantidad is not None:
+            p.cantidad = cantidad
         db.commit()
     try:
         plan = interno.post("/etiquetas/plan", {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "UNIDAD",
                                                 "posiciones": [linea["id"]]}).json()
-        assert "unidad_no_contable" in {x["codigo"] for x in plan["grupos"][0]["problemas"]} and not plan["puede_generar"]
+        return plan["grupos"][0], {x["codigo"]: x["mensaje"] for x in plan["grupos"][0]["problemas"]}
     finally:
         with SessionLocal() as db, en_organizacion(1):
-            db.get(PosicionOC, linea["id"]).unidad = antes
+            p = db.get(PosicionOC, linea["id"])
+            p.unidad, p.cantidad = antes
             db.commit()
+
+
+def test_unidad_no_contable(interno, oc, combinada):
+    """Decide el catálogo de unidades de medida, no una lista fija en el código."""
+    linea = oc["lineas"][0]
+    # Medible (KG): no se etiqueta por unidad
+    _, prob = _plan_por_unidad(interno, oc, linea, "KG", 12)
+    assert "unidad_no_contable" in prob and "measured" in prob["unidad_no_contable"]
+    # Contable pero con fracción
+    _, prob = _plan_por_unidad(interno, oc, linea, "PAR", 2.5)
+    assert "unidad_no_contable" in prob and "fractional" in prob["unidad_no_contable"]
+    g, prob = _plan_por_unidad(interno, oc, linea, "PAR", 3)
+    assert "unidad_no_contable" not in prob and g["cantidad"] == 3
+
+
+def test_unidad_nueva_del_catalogo(interno, oc, combinada):
+    """Una unidad que la empresa agrega al catálogo (botella, contable) se
+    etiqueta por unidad sin tocar código; otra medible (galón) no."""
+    nuevas = []
+    for codigo, nombre, contable in (("BTL", "bottle", True), ("GLN", "gallon", False)):
+        r = interno.post("/catalogos/unidades", {"codigo": codigo, "nombre": nombre, "contable": contable})
+        assert r.status_code == 200, r.text
+        nuevas.append(r.json()["id"])
+    try:
+        linea = oc["lineas"][0]
+        g, prob = _plan_por_unidad(interno, oc, linea, "BTL", 4)
+        assert "unidad_no_contable" not in prob and g["cantidad"] == 4
+        _, prob = _plan_por_unidad(interno, oc, linea, "GLN", 4)
+        assert "unidad_no_contable" in prob
+    finally:
+        for i in nuevas:
+            interno.delete_(f"/catalogos/unidades/{i}")
 
 
 def test_reproducir_un_lote_historico_sin_cambiar_version_ni_datos(interno, admin, oc, combinada):

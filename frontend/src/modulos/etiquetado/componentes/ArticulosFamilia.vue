@@ -71,7 +71,7 @@ async function asignar(todos) {
 
 <template>
   <TablaDatos ref="tabla" tabla="etiquetas_articulos" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
-              :seleccionable="editable" v-model:seleccion="seleccion" :etiqueta="t('Items')" :externos="{ q: filtros.q, familia: filtros.familia }"
+              :seleccionable="editable || puede('etiquetas.generar')" v-model:seleccion="seleccion" :etiqueta="t('Items')" :externos="{ q: filtros.q, familia: filtros.familia }"
               @consulta="consultar">
     <template #barra>
       <label class="buscador"><Icono nombre="buscar" :tam="16" />
@@ -93,6 +93,10 @@ async function asignar(todos) {
     <template #vacio>{{ t('No items match these filters.') }}</template>
   </TablaDatos>
 
+  <div v-if="puede('etiquetas.generar') && seleccion.length" class="barra-asignar panel mt">
+    <router-link class="btn btn-primario" :to="{ path: '/etiquetas/trabajos/nuevo', query: { origen: 'ARTICULOS', articulos: seleccion.join(',') } }">
+      <Icono nombre="etiqueta" :tam="16" />{{ t('Generate labels for the {0} selected', [seleccion.length]) }}</router-link>
+  </div>
   <div v-if="editable" class="barra-asignar panel mt">
     <label class="campo"><span>{{ t('Labeling family') }}</span>
       <Seleccion v-model="destino" :aria-label="t('Labeling family')">

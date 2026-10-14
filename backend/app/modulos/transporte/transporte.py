@@ -14,19 +14,19 @@ from app.modelos import (
     Factura,
     PackingList,
     Puerto,
-    Sociedad,
     TipoUnidad,
     Transportista,
     UnidadCarga,
     Usuario,
-    ahora,
 )
-from app.modulos.acceso.permisos import exigir, sociedades_de, transportistas_de
+from app.modulos.acceso.permisos import exigir
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.historial import registrar, requerir_motivo
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.documentos.partes import partes
 from app.modulos.facturacion.cantidades import nombre_factura, totales_pl
+from app.modulos.recepcion import recepcion as rec
+from app.modulos.transporte.alcance import condiciones_alcance, en_alcance  # noqa: F401 (la usan otros módulos)
 from app.modulos.transporte.leadtimes import Estandares, _riesgo, entre, limite_puerto
 
 ESTADO_POR_EVENTO = {
@@ -37,21 +37,10 @@ ESTADO_POR_EVENTO = {
 }
 
 
-def _centros_de(db: Session, user: Usuario) -> set[str] | None:
-    """Centros de las sociedades del usuario (None: sin límite)."""
-    soc = sociedades_de(user)
-    if not soc:
-        return None
-    return {c for (c,) in db.execute(select(Centro.codigo).join(Sociedad, Sociedad.id == Centro.sociedad_id)
-                                     .where(Sociedad.codigo.in_(soc)))}
-
-
 def _embarque(db: Session, user: Usuario, embarque_id: int) -> Embarque:
     exigir(user, "transporte.gestionar")
     e = db.get(Embarque, embarque_id)
-    centros, transportistas = _centros_de(db, user), transportistas_de(user)
-    if not e or (centros is not None and e.centro not in centros) \
-            or (transportistas is not None and e.transportista_id not in transportistas):
+    if not e or not en_alcance(db, user, e):
         raise ErrorNegocio("The shipment does not exist.", 404, "no_encontrado")
     return e
 
@@ -59,23 +48,9 @@ def _embarque(db: Session, user: Usuario, embarque_id: int) -> Embarque:
 def _unidad(db: Session, user: Usuario, unidad_id: int) -> UnidadCarga:
     exigir(user, "transporte.gestionar")
     u = db.get(UnidadCarga, unidad_id)
-    if not u:
+    if not u or not en_alcance(db, user, u.embarque):  # la unidad sigue el alcance de su embarque
         raise ErrorNegocio("The load unit does not exist.", 404, "no_encontrado")
-    if sociedades_de(user) or transportistas_de(user):  # la unidad sigue el alcance de su embarque
-        _embarque(db, user, u.embarque_id)
     return u
-
-
-def condiciones_alcance(db: Session, user: Usuario) -> list:
-    """Condiciones SQL que limitan los embarques al alcance del usuario
-    (centros de sus sociedades y sus transportistas)."""
-    cond = []
-    centros, transportistas = _centros_de(db, user), transportistas_de(user)
-    if centros is not None:
-        cond.append(Embarque.centro.in_(centros))
-    if transportistas is not None:
-        cond.append(Embarque.transportista_id.in_(transportistas))
-    return cond
 
 
 def _salio(e: Embarque) -> bool:
@@ -189,6 +164,7 @@ def resumen_unidad(u: UnidadCarga) -> dict:
         "pct_cbm": pct_cbm,
         "pct_kg": pct_kg,
         "alertas": alertas,
+        **rec.resumen(u),
     }
 
 
@@ -400,15 +376,20 @@ def detalle_embarque(db: Session, user: Usuario, embarque_id: int) -> dict:
         .order_by(Historial.fecha.desc())
     ).all()
     unidades = [resumen_unidad(u) for u in e.unidades]
+    nombres_unidad = {u.id: u.numero or u.etiqueta for u in e.unidades}
     return {
         **_cabecera(e),
         "unidades": unidades,
         **tiempo_embarque(unidades),
         "eventos": [
             {"id": ev.id, "tipo": ev.tipo, "fecha": ev.fecha, "ubicacion": ev.ubicacion,
-             "observacion": ev.observacion}
+             "observacion": ev.observacion, "unidad_carga_id": ev.unidad_carga_id,
+             "unidad": nombres_unidad.get(ev.unidad_carga_id)}
             for ev in e.eventos
         ],
+        "por_unidad": sorted(POR_UNIDAD),
+        "bodegas": [{"codigo": c.codigo, "nombre": c.nombre, "tipo": c.tipo} for c in rec.bodegas(db, e.unidades[0])]
+        if e.unidades else [],
         "historial": [
             {"fecha": h.fecha, "accion": h.accion, "detalle": h.detalle, "motivo": h.motivo,
              "usuario": h.usuario.nombre if h.usuario else None}
@@ -452,6 +433,14 @@ def _documentos_salida(e: Embarque, pls: list[PackingList]) -> list[str]:
     return faltan
 
 
+# Hitos que pueden ser de un solo contenedor (cada uno se libera y entrega por su lado)
+POR_UNIDAD = {"LIBERACION", "ENTREGA", "DOCUMENTOS", "OTRO"}
+
+
+def _con_carga(e: Embarque) -> list[UnidadCarga]:
+    return [u for u in e.unidades if any(pl.estado != "CANCELADO" for pl in u.packing_lists)]
+
+
 def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
     e = _embarque(db, user, embarque_id)
     if datos.tipo not in eventos_permitidos(e.estado):
@@ -460,13 +449,23 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
                            f"{e.estado.replace('_', ' ').lower()}. Follow the order: pickup, departure, arrival, "
                            "delivery and receipt.", 409, "orden_eventos")
     ultimo = max((ev.fecha for ev in e.eventos), default=None)
-    # Otro y la revisión de documentos corren en paralelo al viaje: se pueden registrar después
-    if ultimo and datos.fecha < ultimo and datos.tipo not in ("OTRO", "DOCUMENTOS"):
+    # Otro, la revisión de documentos y los hitos de un contenedor corren en
+    # paralelo: se pueden registrar después
+    if ultimo and datos.fecha < ultimo and datos.tipo not in ("OTRO", "DOCUMENTOS") and not datos.unidad_carga_id:
         raise ErrorNegocio(f"The date cannot be before the last event ({ultimo:%m/%d/%Y %H:%M}).",
                            422, "fecha_evento")
     if datos.fecha.date() > date.today() + timedelta(days=1):
         raise ErrorNegocio("Events with a future date are not recorded; use ETD and ETA for planned dates.",
                            422, "fecha_evento")
+    unidad = None
+    if datos.unidad_carga_id:
+        unidad = next((u for u in e.unidades if u.id == datos.unidad_carga_id), None)
+        if not unidad:
+            raise ErrorNegocio("The load unit is not on this shipment.", 422, "validacion")
+        if datos.tipo not in POR_UNIDAD:
+            nombre = listas.nombre("evento_embarque", datos.tipo) or datos.tipo
+            raise ErrorNegocio(f"{nombre} is recorded for the whole shipment, not for one load unit.", 422, "validacion")
+    unidades = [unidad] if unidad else _con_carga(e)
     if datos.tipo == "SALIDA":
         pls = [pl for u in e.unidades for pl in u.packing_lists if pl.estado != "CANCELADO"]
         if not pls:
@@ -484,20 +483,37 @@ def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dic
                 pl.recolectado_en = datos.fecha.date()
     if datos.tipo == "ARRIBO":
         e.arribo_real = datos.fecha.date()
+    if datos.tipo == "LIBERACION":
+        for u in unidades:
+            u.liberada_en = u.liberada_en or datos.fecha.date()
+    nuevo_estado = ESTADO_POR_EVENTO.get(datos.tipo)
+    if datos.tipo == "ENTREGA":
+        if regla("EXIGIR_LIBERACION_ANTES_ENTREGA"):
+            sin_liberar = [u.numero or u.etiqueta for u in unidades if not u.liberada_en]
+            if sin_liberar:
+                raise ErrorNegocio("Record the customs release first: " + ", ".join(sin_liberar) + ".", 409,
+                                   "sin_liberacion")
+        for u in unidades:
+            u.entregada_en = u.entregada_en or datos.fecha.date()
+        # El embarque queda entregado cuando se entregaron todos sus contenedores
+        if any(not u.entregada_en for u in _con_carga(e)):
+            nuevo_estado = None
     if datos.tipo == "RECEPCION":
-        # La recepción sin detalle registra como recibido sin novedad lo que no
-        # se haya recibido línea por línea
-        from app.modulos.empaque.packing import recibir_sin_novedad
-
-        for pl in [pl for u in e.unidades for pl in u.packing_lists if pl.estado == "FINALIZADO"]:
-            recibir_sin_novedad(db, user, pl)
-    if datos.tipo in ESTADO_POR_EVENTO:
-        e.estado = ESTADO_POR_EVENTO[datos.tipo]
-    ev = EventoEmbarque(embarque_id=e.id, tipo=datos.tipo, fecha=datos.fecha,
-                        ubicacion=datos.ubicacion, observacion=datos.observacion, usuario_id=user.id)
+        # Confirmar la recepción sin conteo: lo pendiente de cada contenedor
+        # queda recibido completo, con quién lo hizo (permiso de recepción)
+        exigir(user, "recepcion.registrar")
+        for u in _con_carga(e):
+            if u.recepcion_estado != "RECIBIDA":
+                rec._sin_conteo(db, user, u, rec._centro(db, u, None), datos.fecha.date(),
+                                (datos.observacion or "").strip() or None, completar=False)
+    if nuevo_estado:
+        e.estado = nuevo_estado
+    ev = EventoEmbarque(embarque_id=e.id, unidad_carga_id=unidad.id if unidad else None, tipo=datos.tipo,
+                        fecha=datos.fecha, ubicacion=datos.ubicacion, observacion=datos.observacion, usuario_id=user.id)
     db.add(ev)
     db.flush()
-    registrar(db, user, "embarque", e.id, "evento", {"tipo": datos.tipo, "fecha": datos.fecha})
+    registrar(db, user, "embarque", e.id, "evento", {"tipo": datos.tipo, "fecha": datos.fecha,
+                                                      **({"unidad": unidad.numero or unidad.etiqueta} if unidad else {})})
     return {"id": ev.id, "estado": e.estado}
 
 
@@ -515,18 +531,6 @@ def cancelar(db: Session, user: Usuario, embarque_id: int, motivo: str | None) -
     e.estado = "CANCELADO"
     registrar(db, user, "embarque", e.id, "cancelado", None, motivo=motivo)
     return {"id": e.id, "estado": e.estado}
-
-
-def completar_recepcion(db: Session, user: Usuario, e: Embarque) -> bool:
-    """Con todas sus listas recibidas, el embarque pasa a recibido (y queda el hito)."""
-    pls = [pl for u in e.unidades for pl in u.packing_lists if pl.estado != "CANCELADO"]
-    if e.estado == "RECIBIDO" or not pls or not all(ln.recepcion for pl in pls for ln in pl.lineas):
-        return False
-    e.estado = "RECIBIDO"
-    db.add(EventoEmbarque(embarque_id=e.id, tipo="RECEPCION", fecha=ahora(), usuario_id=user.id,
-                          observacion="Every packing list was received."))
-    registrar(db, user, "embarque", e.id, "evento", {"tipo": "RECEPCION", "automatico": True})
-    return True
 
 
 # ---- Unidades de carga ------------------------------------------------------
@@ -557,7 +561,10 @@ def agregar_unidad(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
 def actualizar_unidad(db: Session, user: Usuario, unidad_id: int, datos) -> dict:
     u = _unidad(db, user, unidad_id)
     campos = datos.model_dump(exclude_unset=True)
-    if any(campos.get(k) != getattr(u, k) for k in campos):
+    # La bodega o bodega fiscal de llegada se puede decidir al arribo
+    if "centro" in campos:
+        campos["centro"] = rec._centro(db, u, campos["centro"]) if campos["centro"] else None
+    if any(campos.get(k) != getattr(u, k) for k in campos if k != "centro"):
         _exigir_planificado(u.embarque, "change the container, its number or its seal")
     if campos.get("tipo") and campos["tipo"] != u.tipo and any(pl.estado != "CANCELADO" for pl in u.packing_lists):
         raise ErrorNegocio("The type of a loaded container cannot be changed.", 409, "con_carga")

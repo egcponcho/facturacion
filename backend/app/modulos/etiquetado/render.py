@@ -143,20 +143,29 @@ def sustituir(texto: str, valores: dict, tipos: dict) -> tuple[str, list[str]]:
 
 
 def cumple(condicion: dict | None, valores: dict) -> bool:
+    """La condición de visibilidad de un elemento, con los mismos operadores que las reglas."""
+    from app.modulos.etiquetado.reglas import LISTAS, NUMERICOS, cumple_condicion
+
     if not condicion:
         return True
-    v = valores.get(condicion["campo"])
-    op, esperado = condicion.get("op", "existe"), (condicion.get("valor") or "")
-    if op == "existe":
-        return not vacio(v)
-    if op == "vacio":
-        return vacio(v)
-    s = "" if v is None else str(v)
-    if op == "igual":
-        return s.strip().lower() == esperado.strip().lower()
-    if op == "distinto":
-        return s.strip().lower() != esperado.strip().lower()
-    return esperado.strip().lower() in s.lower()
+    c = {"campo": condicion["campo"], "op": condicion.get("op") or "existe", "valor": condicion.get("valor")}
+    if c["op"] in LISTAS and isinstance(c["valor"], str):
+        c["valor"] = [x.strip() for x in c["valor"].split(",") if x.strip()]
+    elif c["op"] == "entre":
+        try:
+            c["valor"] = sorted(float(x) for x in (c["valor"] or []))[:2]
+        except (TypeError, ValueError):
+            return False
+        if len(c["valor"]) != 2:
+            return False
+    elif c["op"] in NUMERICOS:
+        try:
+            c["valor"] = float(c["valor"])
+        except (TypeError, ValueError):
+            return False
+    elif c["valor"] is None:
+        c["valor"] = ""
+    return cumple_condicion(c, valores)
 
 
 # ---- Colores ------------------------------------------------------------------------------
@@ -392,6 +401,8 @@ def componer(diseno: dict, valores: dict, tipos: dict | None = None, imagen_adju
             prims.append(Prim("imagen", x, y, w, h, imagen=img, **_giro(e)))
         elif t == "codigo":
             _codigo(e, valores, tipos, fondo, prims, problemas)
+        elif t == "tabla":
+            _tabla(e, valores, tipos, prims, problemas)
     if diseno.get("borde"):
         b = diseno["borde"]
         prims.append(Prim("rect", b["grosor"] / 2, b["grosor"] / 2, W - b["grosor"], H - b["grosor"], borde=b["color"],
@@ -408,9 +419,46 @@ def componer(diseno: dict, valores: dict, tipos: dict | None = None, imagen_adju
     return Lienzo(W, H, fondo, prims, problemas, diseno.get("dpi", 300))
 
 
+def _transformar(v: str, parte: dict) -> str:
+    for t in parte.get("transformar") or []:
+        if t == "mayus":
+            v = v.upper()
+        elif t == "minus":
+            v = v.lower()
+        elif t == "solo_digitos":
+            v = "".join(ch for ch in v if ch.isdigit())
+        elif t == "sin_espacios":
+            v = "".join(v.split())
+        elif t == "alfanumerico":
+            v = "".join(ch for ch in v if ch.isalnum())
+    if parte.get("recortar"):
+        v = v[: parte["recortar"]]
+    if parte.get("rellenar"):
+        v = v.rjust(parte["rellenar"], parte.get("relleno") or "0")
+    return v
+
+
+def valor_codigo(e: dict, valores: dict, tipos: dict) -> tuple[str, list[str]]:
+    """El texto que se codifica y los campos vacíos: la unión de sus partes con
+    el separador o, sin partes, su texto con {{campos}}."""
+    if not e.get("partes"):
+        return sustituir(e.get("valor") or "", valores, tipos)
+    textos, vacios = [], []
+    for parte in e["partes"]:
+        if parte.get("tipo") == "fijo":
+            textos.append(_transformar(parte.get("texto") or "", parte))
+            continue
+        v = formatear(valores.get(parte["campo"]), None, tipos.get(parte["campo"], "texto"))
+        if v is None:
+            vacios.append(parte["campo"])
+            continue
+        textos.append(_transformar(v, parte))
+    return (e.get("separador") or "").join(textos), vacios
+
+
 def _codigo(e: dict, valores: dict, tipos: dict, fondo: str, prims: list, problemas: list) -> None:
     simb = e["simbologia"]
-    crudo, vacios = sustituir(e["valor"], valores, tipos)
+    crudo, vacios = valor_codigo(e, valores, tipos)
     if vacios:
         _problema(problemas, "error", "codigo_sin_valor", e, f"The code has no value: {', '.join(vacios)} is empty.")
         return
@@ -463,3 +511,130 @@ def _codigo(e: dict, valores: dict, tipos: dict, fondo: str, prims: list, proble
                           fuente=nombre, tam=tam, color=e["color"], **giro))
 
 
+
+
+# ---- Tablas ---------------------------------------------------------------------------------
+def _total(filas: list, campo: str) -> float | None:
+    """Suma de una columna; si alguna fila no tiene número, no hay total (no se inventa)."""
+    total = 0.0
+    for f in filas:
+        v = f.get(campo)
+        if v is None or isinstance(v, bool):
+            return None
+        try:
+            total += float(v)
+        except (TypeError, ValueError):
+            return None
+    return total
+
+
+def _tabla(e: dict, valores: dict, tipos: dict, prims: list, problemas: list) -> None:
+    """Tabla con las filas de una colección. Si no caben: error, letra más chica
+    (y error si aun así no caben) o «… y N más» con una advertencia; nunca se
+    cortan filas sin avisar. Los totales suman todas las filas, se vean o no."""
+    filas = valores.get(e["coleccion"])
+    filas = filas if isinstance(filas, list) else []
+    if not filas:
+        regla = e.get("si_vacio", "advertir")
+        if regla == "ocultar":
+            return
+        if regla == "error":
+            _problema(problemas, "error", "tabla_vacia", e, f"The list {e['coleccion']} is empty.")
+            return
+        _problema(problemas, "advertencia", "tabla_vacia", e, f"The list {e['coleccion']} is empty.")
+    est = e["estilo"]
+    cols = e["columnas"]
+    hay_totales = bool(e.get("totales"))
+    fijas = int(bool(e.get("encabezado"))) + int(hay_totales)
+    alto, tam, alto_fila = e["h"], est["tam"], e["alto_fila"]
+    cabe = max(int((alto + 1e-6) // alto_fila) - fijas, 0)
+    mostradas, resto = filas, 0
+    if len(filas) > cabe:
+        if e["desborde"] == "reducir":
+            necesario = alto / (len(filas) + fijas)
+            escala = necesario / alto_fila
+            if tam * escala < est["tam_min"] - 1e-6:
+                _problema(problemas, "error", "tabla_desborda", e,
+                          f"The table has {len(filas)} rows: even with the smallest text only {cabe} fit.")
+                mostradas = filas[:cabe]
+            else:
+                alto_fila, tam = necesario, tam * escala
+        elif e["desborde"] == "resumir" and cabe >= 2:
+            resto = len(filas) - (cabe - 1)
+            mostradas = filas[: cabe - 1]
+            _problema(problemas, "advertencia", "tabla_resumida", e,
+                      f"The table shows {cabe - 1} of {len(filas)} rows and a line with the rest.")
+        else:
+            _problema(problemas, "error", "tabla_desborda", e, f"The table has {len(filas)} rows and only {cabe} fit.")
+            mostradas = filas[:cabe]
+    giro = _giro(e)
+    pesos = sum(c["ancho"] for c in cols)
+    anchos = [e["w"] * c["ancho"] / pesos for c in cols]
+    xs = [e["x"]]
+    for a in anchos:
+        xs.append(xs[-1] + a)
+    nombre = nombre_fuente(est["fuente"], est["negrita"], est["cursiva"])
+    negrita = nombre_fuente(est["fuente"], True, est["cursiva"])
+    rel = max(est["relleno"], 0.4)
+    cortadas = []
+
+    def celda(texto: str, i: int, y: float, fuente: str, alin: str) -> tuple:
+        ancho = max(anchos[i] - 2 * rel, 0.1)
+        t = tam
+        while ancho_texto(texto, fuente, t, est["espaciado"]) > ancho and t - 0.25 >= est["tam_min"]:
+            t -= 0.25
+        if ancho_texto(texto, fuente, t, est["espaciado"]) > ancho:
+            cortadas.append(texto)
+            texto = _cortar(texto, fuente, t, est["espaciado"], ancho)
+        w = ancho_texto(texto, fuente, t, est["espaciado"])
+        x = xs[i] + rel + {"izq": 0, "centro": (ancho - w) / 2, "der": ancho - w}[alin]
+        base = y + (alto_fila + t * PT_MM * 0.7) / 2
+        return t, (texto, x, base, w)
+
+    def fila(textos: list, y: float, fuente: str, fondo: str | None = None) -> None:
+        if fondo:
+            prims.append(Prim("rect", e["x"], y, e["w"], alto_fila, relleno=fondo, **giro))
+        por_tam: dict = {}
+        for i, (texto, c) in enumerate(zip(textos, cols, strict=True)):
+            if not texto:
+                continue
+            t, linea = celda(texto, i, y, fuente, c["alin"])
+            por_tam.setdefault(t, []).append(linea)
+        for t, lineas in por_tam.items():
+            prims.append(Prim("texto", e["x"], y, e["w"], alto_fila, lineas=lineas, fuente=fuente, tam=t, color=est["color"],
+                              espaciado=est["espaciado"], **giro))
+
+    y = e["y"]
+    if e.get("encabezado"):
+        fila([c.get("titulo") or c["campo"] for c in cols], y, negrita, est.get("fondo"))
+        y += alto_fila
+    for f in mostradas:
+        fila([formatear(f.get(c["campo"]), c.get("formato"), tipos.get(f"{e['coleccion']}.{c['campo']}", "texto")) or ""
+              for c in cols], y, nombre)
+        y += alto_fila
+    if resto:
+        fila([f"… +{resto}"] + [""] * (len(cols) - 1), y, nombre)
+        y += alto_fila
+    if hay_totales:
+        textos = []
+        for c in cols:
+            if c["campo"] in e["totales"]:
+                total = _total(filas, c["campo"])
+                if total is None:
+                    _problema(problemas, "advertencia", "total_incompleto", e,
+                              f"The total of {c.get('titulo') or c['campo']} is not shown: some rows have no number.")
+                textos.append(formatear(total, c.get("formato"), "numero") if total is not None else "")
+            else:
+                textos.append("")
+        fila(textos, y, negrita)
+        y += alto_fila
+    if cortadas:
+        _problema(problemas, "advertencia", "celda_cortada", e,
+                  f"{len(cortadas)} cell(s) do not fit and are shortened with «…»: {cortadas[0]}")
+    if e.get("cuadricula"):
+        alto_dib = y - e["y"]
+        prims.append(Prim("rect", e["x"], e["y"], e["w"], alto_dib, borde=e["color"], grosor=e["grosor"], **giro))
+        for yy in [e["y"] + alto_fila * k for k in range(1, round(alto_dib / alto_fila))]:
+            prims.append(Prim("linea", e["x"], yy, e["w"], 0, borde=e["color"], grosor=e["grosor"], **giro))
+        for xx in xs[1:-1]:
+            prims.append(Prim("linea", xx, e["y"], 0, alto_dib, borde=e["color"], grosor=e["grosor"], **giro))

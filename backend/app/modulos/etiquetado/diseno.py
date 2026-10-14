@@ -59,14 +59,63 @@ class Formato(_Base):
 
 
 class Condicion(_Base):
+    """Se muestra el elemento solo si se cumple (mismos operadores que las reglas: reglas.OPERADORES)."""
     campo: str = Field(max_length=80)
-    op: Literal["existe", "vacio", "igual", "distinto", "contiene"] = "existe"
-    valor: str | None = Field(None, max_length=200)
+    op: Literal["existe", "vacio", "igual", "distinto", "en", "no_en", "contiene", "no_contiene", "empieza", "termina",
+                "mayor", "mayor_igual", "menor", "menor_igual", "entre", "en_familia", "coincide"] = "existe"
+    valor: str | float | list[str | float] | None = None
+
+    @model_validator(mode="after")
+    def _valor(self):
+        if isinstance(self.valor, str) and len(self.valor) > 200:
+            raise ValueError("the value of the condition is too long")
+        if isinstance(self.valor, list) and len(self.valor) > 200:
+            raise ValueError("too many values in the condition")
+        if self.op == "coincide":
+            from app.modulos.etiquetado.reglas import validar_patron
+
+            motivo = validar_patron(self.valor) if isinstance(self.valor, str) else "Write the pattern."
+            if motivo:
+                raise ValueError(motivo)
+        return self
+
+
+class Columna(_Base):
+    """Una columna de una tabla: un dato de cada fila de la colección."""
+    campo: str = Field(pattern=r"^[a-z_]{1,30}$")
+    titulo: str | None = Field(None, max_length=60)
+    ancho: float = Field(1, gt=0, le=100)  # peso relativo del ancho
+    alin: Literal["izq", "centro", "der"] = "izq"
+    formato: Formato | None = None
+
+
+TRANSFORMACIONES = ("mayus", "minus", "solo_digitos", "sin_espacios", "alfanumerico")
+
+
+class ParteCodigo(_Base):
+    """Una parte del valor de un código: un campo o un texto fijo, con
+    transformaciones validadas (nunca una expresión)."""
+    tipo: Literal["campo", "fijo"] = "campo"
+    campo: str | None = Field(None, max_length=80)
+    texto: str | None = Field(None, max_length=80)
+    transformar: list[Literal["mayus", "minus", "solo_digitos", "sin_espacios", "alfanumerico"]] = Field(default_factory=list,
+                                                                                                         max_length=5)
+    rellenar: int | None = Field(None, ge=1, le=40)  # largo mínimo, completando a la izquierda
+    relleno: str = Field("0", min_length=1, max_length=1)
+    recortar: int | None = Field(None, ge=1, le=80)  # largo máximo (los primeros caracteres)
+
+    @model_validator(mode="after")
+    def _segun_tipo(self):
+        if self.tipo == "campo" and not self.campo:
+            raise ValueError("choose the field of each part of the code")
+        if self.tipo == "fijo" and not self.texto:
+            raise ValueError("write the fixed text of each part of the code")
+        return self
 
 
 class Elemento(_Base):
     id: str = Field(pattern=r"^[\w-]{1,40}$")
-    tipo: Literal["texto", "campo", "imagen", "codigo", "rect", "elipse", "linea"]
+    tipo: Literal["texto", "campo", "imagen", "codigo", "rect", "elipse", "linea", "tabla"]
     nombre: str | None = Field(None, max_length=60)
     x: Mm = 0
     y: Mm = 0
@@ -97,6 +146,18 @@ class Elemento(_Base):
     legible: bool = True  # texto bajo las barras
     margen: float = Field(0, ge=0, le=30)  # zona en blanco alrededor (mm)
     correccion: Literal["L", "M", "Q", "H"] = "M"  # QR
+    partes: list[ParteCodigo] = Field(default_factory=list, max_length=10)  # si hay partes, el valor es su unión
+    separador: str = Field("", max_length=5)
+    # tabla: filas de una colección (bulto.lineas, articulo.componentes…)
+    coleccion: str | None = Field(None, max_length=60)
+    columnas: list[Columna] = Field(default_factory=list, max_length=12)
+    encabezado: bool = True
+    totales: list[str] = Field(default_factory=list, max_length=12)  # columnas que suman al pie
+    alto_fila: float = Field(5, ge=2, le=50)  # mm
+    cuadricula: bool = True
+    # Si las filas no caben: error (no se genera), reducir (letra más chica hasta tam_min y, si
+    # aun así no caben, error) o resumir (las que caben y «… y N más», con una advertencia)
+    desborde: Literal["error", "reducir", "resumir"] = "error"
     # formas
     relleno: Color | None = None
     borde: Color | None = None
@@ -112,8 +173,14 @@ class Elemento(_Base):
             raise ValueError("width and height must be greater than zero")
         if t == "campo" and not self.campo:
             raise ValueError("choose the field")
-        if t == "codigo" and (not self.simbologia or not (self.valor or "").strip()):
+        if t == "codigo" and (not self.simbologia or not ((self.valor or "").strip() or self.partes)):
             raise ValueError("choose the symbology and the value to encode")
+        if t == "tabla":
+            if not self.coleccion or not self.columnas:
+                raise ValueError("choose the list and the columns of the table")
+            claves = {c.campo for c in self.columnas}
+            if any(x not in claves for x in self.totales):
+                raise ValueError("the totals must be columns of the table")
         if t == "imagen":
             if self.fuente_imagen == "adjunto" and not self.adjunto_id:
                 raise ValueError("choose the image")
@@ -123,7 +190,7 @@ class Elemento(_Base):
                 raise ValueError("the image must be a PNG, JPEG or WebP")
             if not self.fuente_imagen:
                 raise ValueError("choose the image")
-        if t in ("texto", "campo") and self.estilo is None:
+        if t in ("texto", "campo", "tabla") and self.estilo is None:
             self.estilo = Estilo()
         return self
 
@@ -228,6 +295,11 @@ def campos_usados(diseno: dict) -> set[str]:
             usados |= set(CAMPO.findall(texto or ""))
         if e.get("condicion"):
             usados.add(e["condicion"]["campo"])
+        if e.get("tipo") == "tabla" and e.get("coleccion"):
+            usados.add(e["coleccion"])
+        for parte in e.get("partes") or []:
+            if parte.get("tipo") == "campo" and parte.get("campo"):
+                usados.add(parte["campo"])
     return usados
 
 

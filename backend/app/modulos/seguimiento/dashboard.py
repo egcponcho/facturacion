@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core import dinero
 from app.core.empresa import regla
-from app.modelos import Embarque, Factura, PackingList, Producto, Proveedor, UnidadCarga, Usuario, ahora
+from app.modelos import Alerta, Embarque, Factura, PackingList, Producto, Proveedor, UnidadCarga, Usuario, ahora
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import es_interno, proveedor_filtro, sociedad_filtro, tiene
 from app.modulos.empaque.packing import validar_pl
@@ -307,8 +307,20 @@ def _atencion(db: Session, user: Usuario, prov: frozenset | None, seg: list[dict
          {"vista": "embarques", "estado": "EN_TRANSITO", "eta_desde": hoy.isoformat(), "eta_hasta": semana.isoformat()}, "info")
     item("riesgo", "POs arriving late", len(tarde), "Port arrival after the port deadline.", "/seguimiento",
          {"riesgo": "ATRASO"}, "error")
+    if interno and tiene(user, "recepcion.registrar"):
+        item("por_recibir", "Load units to receive", metricas.unidades_por_recibir(db, user, prov),
+             "Arrived and not yet counted at the warehouse.", "/transporte", {"estado": "ARRIBADO,ENTREGADO"})
+    if interno and tiene(user, "alertas.ver"):
+        diferencias = db.scalar(select(func.count(Alerta.id)).where(
+            Alerta.tipo == "recepcion_diferencia", Alerta.resuelta.is_(False),
+            *([Alerta.proveedor_id.in_(prov)] if prov else []))) or 0
+        item("diferencias", "Receipt differences to claim", diferencias,
+             "Short, over or damaged goods in received load units.", "/", {}, "error")
+        if out and out[-1]["clave"] == "diferencias":
+            out[-1]["hash"] = "#alertas"
     # Solo lo que el rol puede abrir
-    permiso = {"/productos": "producto.ver", "/facturas": "oc.ver", "/seguimiento": "seguimiento.ver", "/transporte": "transporte.gestionar"}
+    permiso = {"/productos": "producto.ver", "/facturas": "oc.ver", "/seguimiento": "seguimiento.ver", "/transporte": "transporte.gestionar",
+               "/": "alertas.ver"}
     out = [x for x in out if tiene(user, permiso[x["ruta"]])]
     orden = {"error": 0, "alerta": 1, "info": 2}
     return sorted(out, key=lambda x: orden[x["tono"]])

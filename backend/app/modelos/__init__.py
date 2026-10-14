@@ -61,16 +61,21 @@ from app.modelos.empaque import (
     PlantillaCaja,
     PLLinea,
     RecepcionLinea,
+    RecepcionMovimiento,
+    RecepcionRegistro,
     TipoEmpaque,
     tipo_empaque_contiene,
 )
 from app.modelos.empresa import Adjunto, DefinicionCampo, EstadoDocumento, Organizacion
 from app.modelos.etiquetado import (
     AsignacionEtiqueta,
+    CampoEtiqueta,
     FamiliaEtiquetado,
     GeneracionEtiquetas,
     GeneracionItem,
     PlantillaEtiqueta,
+    TrabajoEtiquetas,
+    TrabajoRegistro,
     VersionPlantilla,
 )
 from app.modelos.facturacion import Archivo, Factura, FacturaLinea
@@ -113,7 +118,7 @@ from app.modelos.productos import (
 )
 from app.modelos.referencias import aplicar as _aplicar_referencias
 from app.modelos.restricciones import aplicar as _aplicar_restricciones
-from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte
+from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte, VersionDatos
 from app.modelos.transporte import (
     Embarque,
     EventoEmbarque,
@@ -132,10 +137,13 @@ _aplicar_referencias(_Base.metadata)
 
 __all__ = [
     "AsignacionEtiqueta",
+    "CampoEtiqueta",
     "FamiliaEtiquetado",
     "GeneracionEtiquetas",
     "GeneracionItem",
     "PlantillaEtiqueta",
+    "TrabajoEtiquetas",
+    "TrabajoRegistro",
     "VersionPlantilla",
     "ArticuloAtributo",
     "AtributoVariante",
@@ -192,6 +200,7 @@ __all__ = [
     "Marca",
     "Meta",
     "Reporte",
+    "VersionDatos",
     "NodoArancel",
     "NotaSAC",
     "OrdenCompra",
@@ -218,6 +227,8 @@ __all__ = [
     "proveedor_sociedades",
     "Puerto",
     "RecepcionLinea",
+    "RecepcionMovimiento",
+    "RecepcionRegistro",
     "RegionLeadTime",
     "ReglaAprobacionOC",
     "ReglaClasificacion",

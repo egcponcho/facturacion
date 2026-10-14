@@ -33,6 +33,8 @@ from app.modelos import (
     Proveedor,
     Puerto,
     RecepcionLinea,
+    RecepcionMovimiento,
+    RecepcionRegistro,
     RegionLeadTime,
     ReglaLeadTime,
     Rol,
@@ -710,14 +712,26 @@ def seed(db: Session) -> None:
     trans = {t.nombre: t.id for t in db.scalars(select(Transportista))}
     for emb in db.scalars(select(Embarque)):
         emb.transportista_id = trans.get(emb.transportista)
-    # Un embarque recibido tiene la recepción de cada línea (sin novedad)
+    # Un embarque recibido tiene la recepción de cada contenedor: un conteo
+    # completo en la bodega fiscal del embarque, con la fecha del hito
     for emb in db.scalars(select(Embarque).where(Embarque.estado == "RECIBIDO")):
+        hitos = {ev.tipo: ev.fecha.date() for ev in emb.eventos}
+        fecha = hitos.get("RECEPCION") or emb.arribo_real or hoy
         for u in emb.unidades:
-            for pl in u.packing_lists:
-                for ln in pl.lineas:
-                    if not ln.recepcion:
-                        ln.recepcion = RecepcionLinea(cantidad_recibida=ln.cantidad, cantidad_danada=0,
-                                                      observacion="Received without differences")
+            lineas = [ln for pl in u.packing_lists if pl.estado != "CANCELADO" for ln in pl.lineas]
+            if not lineas:
+                continue
+            reg = RecepcionRegistro(unidad_carga_id=u.id, centro=emb.centro, fecha=fecha, tipo="CONTEO",
+                                    observacion="Received without differences")
+            for ln in lineas:
+                reg.movimientos.append(RecepcionMovimiento(pl_linea_id=ln.id, cantidad=ln.cantidad, danada=0))
+                if not ln.recepcion:
+                    ln.recepcion = RecepcionLinea(cantidad_recibida=ln.cantidad, cantidad_danada=0,
+                                                  fecha=datetime.combine(fecha, time()))
+            db.add(reg)
+            u.centro, u.recepcion_estado, u.recibida_en = emb.centro, "RECIBIDA", fecha
+            u.entregada_en = hitos.get("ENTREGA") or fecha
+            u.liberada_en = hitos.get("LIBERACION")
     _terceros_demo(db)
     db.commit()
 

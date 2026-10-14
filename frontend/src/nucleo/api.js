@@ -31,7 +31,113 @@ function qs(params) {
   return s ? `?${s}` : ''
 }
 
+// ---- Datos guardados en la pestaña ----------------------------------------------------------------
+// Cada GET de la API se guarda con su ETag y las tablas que lo produjeron
+// (encabezados del servidor, backend app/core/cambios.py). Mientras el canal de
+// cambios esté abierto y no avise de un cambio en esas tablas, el dato
+// guardado se usa sin pedirlo (cero peticiones). Si no, se pide con
+// If-None-Match: el servidor responde 304 sin consultar cuando nada cambió.
+// Cada lectura entrega una copia nueva: quien la modifique no altera lo guardado.
+const MAX_GUARDADAS = 150
+const guardadas = new Map() // url → { etag, texto, tablas: Set, vigente, dia }
+const enCurso = new Map() // url → promesa: dos pantallas que piden lo mismo a la vez hacen una sola petición
+let canal = false
+let generacion = 0 // sube con cada aviso: una respuesta que salió antes de un aviso no se da por vigente
+const hoy = () => new Date().toDateString()
+
+export function marcarCanal(abierto) {
+  canal = abierto
+}
+export function invalidarTodo() {
+  generacion++
+  for (const g of guardadas.values()) g.vigente = false
+}
+// Deja de dar por vigente lo que leyó estas tablas; devuelve sus URLs
+export function invalidar(tablas) {
+  const t = new Set(tablas)
+  const urls = []
+  generacion++
+  for (const [url, g] of guardadas) {
+    if ([...g.tablas].some((x) => t.has(x))) {
+      g.vigente = false
+      urls.push(url)
+    }
+  }
+  return urls
+}
+// Al salir: lo guardado era de esa sesión
+export function vaciarGuardadas() {
+  generacion++
+  guardadas.clear()
+}
+// URLs guardadas de estas rutas de la API (p. ej. ['/ordenes'])
+export const entradasDe = (rutas) => [...guardadas.keys()].filter((u) => rutas.some((r) => u.startsWith(`${BASE}${r}`)))
+
+function guardar(url, etag, texto, tablas, vigente) {
+  guardadas.delete(url)
+  guardadas.set(url, { etag, texto, tablas: new Set((tablas || '').split(',').filter(Boolean)), vigente: vigente && !!tablas, dia: hoy() })
+  if (guardadas.size > MAX_GUARDADAS) guardadas.delete(guardadas.keys().next().value)
+}
+
+async function leer(url) {
+  const g = guardadas.get(url)
+  if (g && g.vigente && g.dia === hoy()) {
+    guardadas.delete(url) // la más usada queda al final (se descarta la más vieja)
+    guardadas.set(url, g)
+    return g.texto
+  }
+  if (enCurso.has(url)) return enCurso.get(url)
+  const promesa = (async () => {
+    const gen = generacion
+    const headers = { 'X-Requested-With': 'fetch' }
+    if (g?.etag) headers['If-None-Match'] = g.etag
+    let r
+    try {
+      r = await fetch(url, { headers, credentials: 'same-origin', cache: 'no-store' })
+    } catch {
+      throw new ApiError(0, { mensaje: t('No connection to the server. Check your network and try again.') })
+    }
+    const vigente = canal && gen === generacion
+    if (r.status === 304 && g) {
+      g.vigente = vigente && g.tablas.size > 0
+      g.dia = hoy()
+      return g.texto
+    }
+    const texto = await r.text()
+    const datos = (() => {
+      try {
+        return JSON.parse(texto)
+      } catch {
+        return null
+      }
+    })()
+    if (r.status === 401 && !url.startsWith(`${BASE}/auth/`) && alNoAutorizado) alNoAutorizado()
+    if (!r.ok) {
+      guardadas.delete(url)
+      throw new ApiError(r.status, datos)
+    }
+    const etag = r.headers.get('ETag')
+    if (etag) guardar(url, etag, texto, r.headers.get('X-Tablas'), vigente)
+    else guardadas.delete(url)
+    return texto
+  })()
+  enCurso.set(url, promesa)
+  try {
+    return await promesa
+  } finally {
+    enCurso.delete(url)
+  }
+}
+
 async function pedir(metodo, url, cuerpo, { params, clave } = {}) {
+  if (metodo === 'GET') {
+    const texto = await leer(BASE + url + qs(params))
+    try {
+      return JSON.parse(texto)
+    } catch {
+      return null // sin cuerpo o no es JSON (como antes)
+    }
+  }
   // La sesión viaja en una cookie httpOnly (JavaScript no la ve). Este
   // encabezado identifica a la aplicación: el servidor rechaza cambios sin él.
   const headers = { 'X-Requested-With': 'fetch' }
@@ -43,13 +149,15 @@ async function pedir(metodo, url, cuerpo, { params, clave } = {}) {
   }
   // Cada operación que modifica datos lleva su clave: si la red la repite,
   // el servidor devuelve el mismo resultado en vez de duplicarla.
-  if (metodo !== 'GET') headers['Idempotency-Key'] = clave || nuevaClave()
+  headers['Idempotency-Key'] = clave || nuevaClave()
   let r
   try {
     r = await fetch(BASE + url + qs(params), { method: metodo, headers, body, credentials: 'same-origin' })
   } catch {
     throw new ApiError(0, { mensaje: t('No connection to the server. Check your network and try again.') })
   }
+  // Un cambio propio: lo guardado se revalida (el aviso del canal llega después)
+  invalidarTodo()
   const datos = await r.json().catch(() => null)
   if (r.status === 401 && !url.startsWith('/auth/') && alNoAutorizado) alNoAutorizado()
   if (!r.ok) throw new ApiError(r.status, datos)

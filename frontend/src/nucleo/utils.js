@@ -12,6 +12,9 @@ export function fmtNum(n, decimales = 0) {
 }
 
 // Monto con el código de su moneda y sus decimales (lista de monedas de la empresa)
+// Una cantidad: entera sin decimales; si se mide (kg, m, litros), con hasta 3
+export const fmtCant = (n) => fmtNum(n, Number.isInteger(Number(n)) ? 0 : 3)
+
 export function fmtMoneda(n, moneda = '') {
   if (n === null || n === undefined) return '—'
   return `${moneda} ${fmtNum(n, valor('moneda', moneda)?.decimales ?? 2)}`.trim()

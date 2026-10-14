@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.esquemas.comun import Cant, Cantidad, CantidadCero
+from app.esquemas.comun import Cant, Cantidad
 
 
 class LineaFacturaCantidad(BaseModel):
@@ -114,17 +114,6 @@ class EliminarCajas(BaseModel):
 
 class GuardarPlantilla(BaseModel):
     nombre: str = Field(min_length=1, max_length=100)
-
-
-class RecepcionItem(BaseModel):
-    pl_linea_id: int
-    cantidad_recibida: CantidadCero
-    cantidad_danada: CantidadCero = 0
-    observacion: str | None = None
-
-
-class RecepcionIn(BaseModel):
-    lineas: list[RecepcionItem] = Field(min_length=1)
 
 
 class PlantillaIn(BaseModel):

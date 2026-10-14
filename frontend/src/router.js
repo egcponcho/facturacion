@@ -23,13 +23,20 @@ const routes = [
   { path: '/productos/:id', component: () => import('@/modulos/productos/vistas/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
   { path: '/etiquetas', component: () => import('@/modulos/etiquetado/vistas/EtiquetasView.vue'), meta: { permiso: 'etiquetas.ver' } },
   { path: '/etiquetas/plantillas/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/EditorEtiquetaView.vue'), props: true, meta: { permiso: 'etiquetas.ver', vista: 'editor-etiqueta' } },
-  { path: '/etiquetas/masiva', component: () => import('@/modulos/etiquetado/vistas/GeneracionMasivaView.vue'), meta: { permiso: 'etiquetas.generar' } },
-  { path: '/etiquetas/generar', component: () => import('@/modulos/etiquetado/vistas/GenerarEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar' } },
+  // Asistente único de etiquetado (todas las entradas crean un trabajo); las rutas anteriores llevan a él
+  { path: '/etiquetas/trabajos/nuevo', component: () => import('@/modulos/etiquetado/vistas/TrabajoEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar', vista: 'trabajo-etiquetas' } },
+  { path: '/etiquetas/trabajos/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/TrabajoEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar', vista: 'trabajo-etiquetas' } },
+  { path: '/etiquetas/masiva', redirect: (to) => ({ path: '/etiquetas/trabajos/nuevo',
+    query: to.query.pl ? { origen: 'PACKING', pl: to.query.pl } : to.query.familia ? { origen: 'OC', familia: to.query.familia } : {} }) },
+  { path: '/etiquetas/generar', redirect: (to) => ({ path: '/etiquetas/trabajos/nuevo',
+    query: to.query.articulo ? { origen: 'ARTICULOS', articulos: to.query.articulo } : to.query.oc ? { origen: 'OC', oc: to.query.oc } : {} }) },
   { path: '/plantillas', component: () => import('@/modulos/empaque/vistas/PlantillasView.vue'), meta: { permiso: ['plantilla.editar', 'pl.editar'] } },
   // Rutas restringidas: cada una exige el permiso de su rol (el servidor
   // vuelve a comprobarlo en cada petición)
   { path: '/transporte', component: () => import('@/modulos/transporte/vistas/EmbarquesView.vue'), meta: { permiso: 'transporte.gestionar' } },
   { path: '/transporte/embarques/:id', component: () => import('@/modulos/transporte/vistas/EmbarqueView.vue'), props: true, meta: { permiso: 'transporte.gestionar' } },
+  { path: '/transporte/unidades/:id(\\d+)/recepcion', component: () => import('@/modulos/transporte/vistas/RecepcionView.vue'), props: true, meta: { permiso: ['recepcion.registrar', 'transporte.gestionar', 'inventario.ver'] } },
+  { path: '/inventario', component: () => import('@/modulos/transporte/vistas/ExistenciasView.vue'), meta: { permiso: ['inventario.ver', 'recepcion.registrar'] } },
   // La OC una por una se crea en el asistente (antes era un modo de esta pantalla)
   { path: '/importar', component: () => import('@/modulos/compras/vistas/ImportarView.vue'), meta: { permiso: 'oc.importar' },
     beforeEnter: (to) => (to.query.modo === 'formulario' ? '/ordenes/nueva' : true) },
@@ -49,7 +56,8 @@ const routes = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior: () => ({ top: 0 }),
+  // Un enlace con #ancla lleva a esa parte de la página (p. ej. las alertas del inicio)
+  scrollBehavior: (to) => (to.hash ? { el: to.hash, top: 16, behavior: 'smooth' } : { top: 0 }),
 })
 
 // Barra de progreso fina mientras carga la página siguiente

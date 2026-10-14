@@ -421,7 +421,8 @@ CATALOGOS = {
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True, max=120),
-            c("objeto", "Numbers", "opcion", obligatorio=True, filtro=True, opciones=[["embarque", "Shipments"]]),
+            c("objeto", "Numbers", "opcion", obligatorio=True, filtro=True,
+              opciones=[["embarque", "Shipments"], ["etiqueta", "Labels (controlled label ID)"]]),
             c("sociedad_id", "Company", "ref", catalogo="sociedades", filtro=True),
             c("prefijo", "Prefix", max=20),
             c("digitos", "Digits", "entero", obligatorio=True, minimo=1),

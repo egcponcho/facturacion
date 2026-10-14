@@ -210,6 +210,18 @@ def embarques_en_transito(db: Session, user: Usuario, prov) -> dict:
     return {"n": n, "proxima": proxima}
 
 
+def unidades_por_recibir(db: Session, user: Usuario, prov) -> int:
+    """Contenedores con carga de embarques que ya llegaron y que todavía no se
+    recibieron completos en bodega."""
+    from app.modelos import PackingList, UnidadCarga
+
+    con_carga = select(PackingList.id).where(PackingList.unidad_carga_id == UnidadCarga.id,
+                                             PackingList.estado != "CANCELADO").exists()
+    return db.scalar(select(func.count(UnidadCarga.id)).join(Embarque, Embarque.id == UnidadCarga.embarque_id).where(
+        Embarque.estado.in_(("ARRIBADO", "ENTREGADO")), UnidadCarga.recepcion_estado != "RECIBIDA", con_carga,
+        *_alcance_embarques(db, user, prov))) or 0
+
+
 def embarques_que_salen(db: Session, user: Usuario, prov, desde: date, hasta: date) -> int:
     return db.scalar(select(func.count()).select_from(Embarque).where(
         Embarque.estado == "PLANIFICADO", Embarque.etd >= desde, Embarque.etd <= hasta,

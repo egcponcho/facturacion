@@ -94,6 +94,21 @@ EMBARQUE = Maquina(
     },
 )
 
+# Recepción de cada unidad de carga (contenedor, guía, camión) en bodega: se
+# cuenta en una o varias partes; queda recibida al completar lo enviado, al
+# confirmar lo pendiente sin conteo o al cerrarla con faltantes. Después solo
+# se corrige con ajustes (con motivo).
+RECEPCION = Maquina(
+    "the load unit receipt",
+    {"PENDIENTE": "pending", "EN_RECEPCION": "being received", "RECIBIDA": "received"},
+    {
+        "contar": (("PENDIENTE", "EN_RECEPCION"), "EN_RECEPCION"),
+        "ajustar": (("EN_RECEPCION", "RECIBIDA"), None),
+        "sin_conteo": (("PENDIENTE", "EN_RECEPCION"), "RECIBIDA"),
+        "cerrar": (("EN_RECEPCION",), "RECIBIDA"),
+    },
+)
+
 
 # ---- Estados que la empresa puede personalizar --------------------------------------------
 # Los códigos son fijos (el sistema decide con ellos); la empresa elige cómo se
@@ -107,6 +122,7 @@ PERSONALIZABLES: dict[str, tuple[str, tuple[str, ...]]] = {
     "factura": ("Invoices", tuple(FACTURA.estados)),
     "pl": ("Packing lists", tuple(PL.estados)),
     "embarque": ("Shipments", tuple(EMBARQUE.estados)),
+    "recepcion": ("Load unit receipt", tuple(RECEPCION.estados)),
     "producto": ("Products", ("borrador", "sugerida", "revision", "observado", "aprobado", "corregido")),
 }
 
