@@ -1,4 +1,5 @@
 <script setup>
+import { alCambiar } from '@/nucleo/cambios.js'
 import { estadosEmbarque } from '@/nucleo/estados.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
@@ -110,6 +111,8 @@ onMounted(() => {
   cargar()
   if (route.query.nuevo) nuevo() // desde la paleta de comandos: «New shipment»
 })
+// Datos de otros usuarios: se vuelven a pedir solo cuando cambian (nucleo/cambios.js)
+alCambiar(() => cargar(), ['/embarques', '/facturas'])
 </script>
 
 <template>

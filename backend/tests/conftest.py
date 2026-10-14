@@ -12,6 +12,8 @@ os.environ["COOKIE_SEGURA"] = "0"
 os.environ["FRONTEND_DIST"] = f"{_tmp}/no-existe"
 # La recuperación de trabajos de etiquetado se prueba llamándola (test_etiquetado_durable.py)
 os.environ["ETIQUETAS_RECUPERAR_SEG"] = "0"
+# Canal de cambios: revisión rápida para probarlo sin esperas largas
+os.environ["CAMBIOS_INTERVALO_SEG"] = "0.3"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # PostgreSQL de pruebas: siempre desde cero (si no, los datos de la corrida

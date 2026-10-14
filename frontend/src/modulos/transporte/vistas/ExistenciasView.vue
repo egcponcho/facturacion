@@ -1,4 +1,5 @@
 <script setup>
+import { alCambiar } from '@/nucleo/cambios.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
@@ -58,6 +59,8 @@ const columnas = [
   { clave: 'unidad', texto: t('Unit'), prioridad: 2 },
   { clave: 'ultimo_ingreso', texto: t('Last receipt'), prioridad: 3, textoValor: (v) => fmtFecha(v) },
 ]
+// Datos de otros usuarios: se vuelven a pedir solo cuando cambian (nucleo/cambios.js)
+alCambiar(() => cargar(), ['/existencias'])
 </script>
 
 <template>

@@ -1,4 +1,5 @@
 <script setup>
+import { alCambiar } from '@/nucleo/cambios.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
@@ -36,6 +37,8 @@ const columnas = computed(() => [
   { clave: 'creado_por', texto: t('By'), prioridad: 3 },
   { clave: 'actualizado_en', texto: t('Updated'), prioridad: 2, textoValor: (v) => (v ? new Date(v).toLocaleString() : '') },
 ])
+// Datos de otros usuarios: se vuelven a pedir solo cuando cambian (nucleo/cambios.js)
+alCambiar(() => cargar(), ['/etiquetas/trabajos'])
 </script>
 
 <template>

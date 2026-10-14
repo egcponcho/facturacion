@@ -56,6 +56,9 @@ async def lifespan(_: FastAPI):
     from app.instalacion.inicial import preparar_instalacion
 
     migraciones.actualizar()
+    from app.core import cambios
+
+    cambios.activar()  # la tabla de versiones ya existe: desde aquí se cuentan los cambios
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     with SessionLocal() as db:
         if settings.SEED_DEMO:
@@ -63,7 +66,7 @@ async def lifespan(_: FastAPI):
 
             seed(db)
         preparar_instalacion(db)
-    tareas = [asyncio.create_task(_limpieza_periodica())]
+    tareas = [asyncio.create_task(_limpieza_periodica()), asyncio.create_task(cambios.difusor.correr())]
     if settings.ETIQUETAS_RECUPERAR_SEG > 0:
         tareas.append(asyncio.create_task(_recuperar_etiquetas()))
     yield
@@ -145,6 +148,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _respuestas_condicionales(request: Request, call_next):
+    """GET de la API: ETag por tablas leídas y 304 sin consultar si nada cambió (app/core/cambios.py)."""
+    from app.core import cambios
+
+    return await cambios.middleware(request, call_next)
 
 
 @app.middleware("http")

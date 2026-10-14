@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
@@ -64,6 +65,19 @@ class Meta(Base):
     __tablename__ = "meta"
     clave: Mapped[str] = mapped_column(String(40), primary_key=True)
     valor: Mapped[str] = mapped_column(String(200))
+
+
+class VersionDatos(Base):
+    """Cuántas veces cambió cada tabla (altas, cambios y bajas), por
+    organización (0: datos compartidos o sin organización). Sube en la misma
+    transacción que el cambio (app/core/cambios.py): una respuesta guardada
+    por el navegador sigue valiendo mientras no cambie ninguna de las tablas
+    que la produjeron, y el canal de cambios avisa solo de lo que cambió."""
+
+    __tablename__ = "versiones_datos"
+    tabla: Mapped[str] = mapped_column(String(80), primary_key=True)
+    ambito: Mapped[int] = mapped_column(Integer, primary_key=True, default=0)
+    version: Mapped[int] = mapped_column(BigInteger, default=0)
 
 
 class Idempotencia(Base):

@@ -1,4 +1,5 @@
 <script setup>
+import { alCambiar } from '@/nucleo/cambios.js'
 import { t, tx } from '@/i18n/index.js'
 import FechaTienda from '@/componentes/FechaTienda.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -397,6 +398,8 @@ watch(() => sesion.proveedorId, () => {
 })
 watch(() => route.query.seleccion, (v) => v && (panel.value = true))
 watch([panel, () => carrito.proveedorId], ([abierto]) => abierto && cargarBorradores(), { immediate: true })
+// Datos de otros usuarios: se vuelven a pedir solo cuando cambian (nucleo/cambios.js)
+alCambiar(() => consultar(), ['/ordenes'])
 </script>
 
 <template>

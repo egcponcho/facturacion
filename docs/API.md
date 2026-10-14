@@ -51,6 +51,22 @@ Los intentos de ingreso se limitan por red: 20 ingresos o verificaciones y
 | `Idempotency-Key: <texto único>` | Las operaciones que crean o confirman (124 rutas lo aceptan) | Si la misma petición se repite con la misma clave (por un corte de red, un doble clic), se devuelve el resultado guardado sin repetir el efecto. |
 | `Content-Type: application/json` | Cuerpos JSON | Las subidas de archivo van como `multipart/form-data`. |
 
+## Datos que solo se piden cuando cambian
+
+Cada `GET` de la API que devuelve JSON lleva `ETag` y `X-Tablas` (las tablas
+que lo produjeron). Si se vuelve a pedir con `If-None-Match: <ETag>` y no
+cambió nada de eso (ni el usuario, su organización o el día), la respuesta es
+`304` sin cuerpo y **el servidor no ejecuta la consulta**: solo valida la
+sesión (que se renueva igual) y lee las versiones de las tablas
+(`backend/app/core/cambios.py`). Un cambio en cualquiera de esas tablas, otro
+usuario, una sesión cerrada o un permiso quitado nunca reciben 304.
+
+`GET /api/cambios` (Server-Sent Events) avisa, por organización, qué tablas
+cambiaron: `data: {"tablas": ["ordenes_compra", ...]}`. Un comentario cada
+25 s mantiene viva la conexión; se cierra sola a los 55 min y el navegador se
+vuelve a conectar. No tienen respuesta condicional: `/api/auth/*`,
+`/api/edicion/*` (vence con el reloj) y el propio canal.
+
 ## Errores
 
 Toda respuesta de error tiene la misma forma:

@@ -12,6 +12,7 @@
 //   E2E_URL=http://otra:8765 npm run e2e
 //   E2E_CHROMIUM=/ruta/a/chrome npm run e2e   # un Chromium ya instalado
 import { chromium } from 'playwright'
+import { vigilarRed } from './quieto.mjs'
 
 const BASE = process.env.E2E_URL || 'http://localhost:8765'
 const USUARIOS = (process.env.E2E_USUARIOS || 'admin@demo.com,interno@demo.com,tnf@demo.com,vans@demo.com').split(',')
@@ -69,6 +70,7 @@ for (const email of USUARIOS) {
     await entrar(ctx, email)
     const rutas = [...PANTALLAS, ...(await documentos(ctx))]
     const p = await ctx.newPage()
+    const quieto = vigilarRed(p)
     const problemas = []
     const avisos = []
     let ruta = ''
@@ -84,7 +86,7 @@ for (const email of USUARIOS) {
     })
     for (ruta of rutas) {
       await p.goto(BASE + ruta)
-      await p.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+      await quieto({ maximo: 10000 })
       await p.waitForTimeout(300)
       // Una tabla no se encoge dentro de su contenedor (p. ej. un estilo que se filtra a .td-compacta)
       const angostas = await p.evaluate(() => [...document.querySelectorAll('.td')].filter((t) => {

@@ -1,4 +1,5 @@
 <script setup>
+import { alCambiar } from '@/nucleo/cambios.js'
 import { datosModo } from '@/composables/useRutas'
 import { actual, t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -95,6 +96,8 @@ const columnasProveedores = [
 onMounted(cargar)
 watch(() => sesion.proveedorId, cargar)
 watch(periodo, cargar, { deep: true })
+// Datos de otros usuarios: se vuelven a pedir solo cuando cambian (nucleo/cambios.js)
+alCambiar(() => cargar(), ['/dashboard'])
 </script>
 
 <template>

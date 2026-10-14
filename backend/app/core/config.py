@@ -136,6 +136,8 @@ class Settings:
     # Ejecución duradera de los trabajos (trabajos.py): el proceso que genera
     # renueva su arriendo; si deja de hacerlo (se detuvo) otro lo retoma. Cada
     # instancia busca trabajos abandonados cada ETIQUETAS_RECUPERAR_SEG (0 = no busca).
+    # Canal de cambios: cada cuántos segundos se revisan las versiones de las tablas
+    CAMBIOS_INTERVALO_SEG: float = float(os.getenv("CAMBIOS_INTERVALO_SEG", "2"))
     ETIQUETAS_ARRIENDO_SEG: int = int(os.getenv("ETIQUETAS_ARRIENDO_SEG", "120"))
     ETIQUETAS_RECUPERAR_SEG: int = int(os.getenv("ETIQUETAS_RECUPERAR_SEG", "30"))
     ETIQUETAS_MAX_INTENTOS: int = int(os.getenv("ETIQUETAS_MAX_INTENTOS", "5"))

@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
-import { api, manejarNoAutorizado } from '@/nucleo/api'
+import { api, manejarNoAutorizado, vaciarGuardadas } from '@/nucleo/api'
+import { abrirCanal, cerrarCanal } from '@/nucleo/cambios.js'
 import { cargarListas } from '@/nucleo/listas.js'
 import { usarMarca } from '@/nucleo/marca.js'
 import { cambiarIdioma, idioma, sumarCatalogo, t } from '@/i18n/index.js'
@@ -60,8 +61,10 @@ export async function cargarSesion(forzar = false) {
     if (!esInterno() && sesion.proveedores.length <= 1) sesion.proveedorId = sesion.usuario.proveedor_id
     sesion.expirada = false
     usarPreferencias(sesion.usuario.preferencias)
+    abrirCanal() // avisos de cambios: las pantallas se actualizan sin consultar cada tanto
   } catch {
     sesion.usuario = null
+    cerrarCanal()
   }
   sesion.cargada = true
   return !!sesion.usuario
@@ -88,6 +91,8 @@ export async function cerrarSesion() {
   } catch {
     // Aunque falle la red, la sesión local se limpia
   }
+  cerrarCanal()
+  vaciarGuardadas()
   sesion.usuario = null
 }
 

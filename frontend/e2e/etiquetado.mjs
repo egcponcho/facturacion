@@ -10,6 +10,7 @@
 //   npm run build && (cd ../backend && SEED_DEMO=1 COOKIE_SEGURA=0 uvicorn app.main:app --port 8765)
 //   node e2e/etiquetado.mjs
 import { chromium } from 'playwright'
+import { vigilarRed } from './quieto.mjs'
 
 const BASE = process.env.E2E_URL || 'http://localhost:8765'
 const H = { 'X-Requested-With': 'fetch' }
@@ -31,6 +32,7 @@ const ctx = await navegador.newContext({ viewport: { width: 1440, height: 900 } 
 await entrar(ctx, 'interno@demo.com')
 const a = api(ctx)
 const p = await ctx.newPage()
+const quieto = vigilarRed(p)
 const errores = []
 p.on('pageerror', (e) => errores.push(`JavaScript: ${e.message}`))
 p.on('response', (r) => { if (r.url().includes('/api/') && r.status() >= 500) errores.push(`${r.status()} ${r.url().replace(BASE, '')}`) })
@@ -62,7 +64,7 @@ await a.post(`/etiquetas/trabajos/${t.id}/validar`, {})
 const actual = await a.get(`/etiquetas/trabajos/${t.id}`)
 await a.patch(`/etiquetas/trabajos/${t.id}`, { paso: 6, version: actual.version })
 await p.goto(`${BASE}/etiquetas/trabajos/${t.id}`)
-await p.waitForLoadState('networkidle')
+await quieto()
 const campo = (re) => p.locator('label.campo', { hasText: re })
 const elegir = async (re, opcion) => {
   await campo(re).locator('button.sb-boton').click()

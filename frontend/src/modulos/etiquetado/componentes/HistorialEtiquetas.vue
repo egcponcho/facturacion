@@ -1,4 +1,5 @@
 <script setup>
+import { alCambiar } from '@/nucleo/cambios.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -69,6 +70,8 @@ async function descargar(formato) {
     errorApi(e)
   }
 }
+// Datos de otros usuarios: se vuelven a pedir solo cuando cambian (nucleo/cambios.js)
+alCambiar(() => consultar(), ['/etiquetas/generaciones'])
 </script>
 
 <template>

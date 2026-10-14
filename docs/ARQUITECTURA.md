@@ -240,6 +240,27 @@ configuración pública de la empresa) y `/listas`; con eso muestra u oculta
 menús, columnas y campos. Nunca confía en ello para la seguridad: el servidor
 vuelve a revisar cada petición.
 
+### Datos guardados y avisos de cambios
+
+Las pantallas no vuelven a consultar lo que no cambió:
+
+1. **Servidor** (`app/core/cambios.py`):
+   - Cada alta, cambio o baja confirmada sube la versión de su tabla en `versiones_datos`, por organización y en la misma transacción. Se detecta en el SQL que llega al motor, así que cubre el ORM, las actualizaciones masivas y el SQL directo. Si la transacción se revierte, no sube nada.
+   - Cada `GET` anota las tablas que leyó y responde con una ETag. Si se vuelve a pedir lo mismo y nada cambió, responde 304 sin consultar.
+   - Un solo lector por proceso revisa las versiones cada `CAMBIOS_INTERVALO_SEG` (2 s), y solo mientras haya navegadores conectados. Avisa por `/api/cambios` a cada organización solo lo suyo y lo compartido.
+2. **Interfaz** (`nucleo/api.js`, `nucleo/cambios.js`):
+   - Cada respuesta se guarda en la pestaña con sus tablas.
+   - Mientras el canal esté abierto y no avise de un cambio en esas tablas, se usa lo guardado **sin hacer la petición**. Si no, se pide con `If-None-Match` y el servidor responde 304 si nada cambió.
+   - Un cambio propio (POST, PATCH, PUT o DELETE), un corte del canal o el cambio de día hacen revalidar todo. Al cerrar sesión se borra lo guardado.
+   - Dos pedidos iguales al mismo tiempo comparten una sola petición.
+   - Las listas (OC, facturas, embarques, productos, inicio, existencias, trabajos e historial de etiquetas) usan `alCambiar(recargar, rutas)`: se vuelven a pedir solas cuando otro usuario cambia algo suyo, y si la pestaña no está a la vista, al volver.
+
+**Límites:**
+
+- Cambios hechos fuera de la aplicación (SQL directo en la base sin pasar por su motor, otra aplicación) no suben versiones. Después de una carga así, `UPDATE versiones_datos SET version = version + 1;` hace que todos vuelvan a pedir sus datos (reiniciar el servidor no basta).
+- Las tablas técnicas que cambian solas (`sesiones`, `desafios_dos_pasos`, `idempotencia`, `ediciones`) y la columna `usuarios.ultimo_acceso` no cuentan.
+- Una respuesta que dependa del reloj con más detalle que el día debe ir en `SIN_ETAG` de `cambios.py`. Hoy solo la edición exclusiva.
+
 ## Cómo agregar…
 
 **Un módulo de dominio**

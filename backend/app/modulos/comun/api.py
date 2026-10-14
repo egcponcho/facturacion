@@ -1,14 +1,50 @@
 """Rutas comunes: edición exclusiva de documentos y bitácora general.
 """
+import asyncio
+import json
+import time
 from datetime import date
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import StreamingResponse
 
 from app.modulos.comun import auditoria as bitacora
 from app.modulos.comun import edicion, tabla
 from app.web.rutas import Db, User
 
 router = APIRouter()
+
+
+# Canal de cambios (app/core/cambios.py): avisa qué tablas cambiaron en la
+# organización, para que la pantalla abierta vuelva a pedir solo lo suyo
+@router.get("/cambios", response_class=StreamingResponse)
+async def canal_cambios(request: Request, db: Db, user: User, max_seg: int = Query(3300, ge=1, le=3600)):
+    """Server-Sent Events: `data: {"tablas": [...]}` cada vez que cambian datos de la organización del usuario
+    (o compartidos). Un comentario cada 25 s mantiene viva la conexión; tras `max_seg` se cierra y el navegador
+    vuelve a conectarse solo."""
+    from app.core.cambios import difusor
+    from app.core.organizacion import de_sesion
+
+    org = de_sesion(db)
+    db.close()  # la conexión de la base no se queda tomada mientras el canal siga abierto
+    cliente = await difusor.conectar(org)
+
+    async def eventos():
+        fin = time.monotonic() + max_seg
+        try:
+            yield "retry: 5000\n\n"
+            while time.monotonic() < fin and not await request.is_disconnected():
+                try:
+                    tablas = await asyncio.wait_for(cliente.cola.get(), timeout=min(25, max(0.1, fin - time.monotonic())))
+                except TimeoutError:
+                    yield ": sigue\n\n"
+                    continue
+                yield f"data: {json.dumps({'tablas': tablas})}\n\n"
+        finally:
+            difusor.desconectar(cliente)
+
+    return StreamingResponse(eventos(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
 
 # Edición exclusiva: una persona edita el documento y las demás lo leen
