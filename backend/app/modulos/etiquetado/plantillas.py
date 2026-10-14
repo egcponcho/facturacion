@@ -134,6 +134,18 @@ def detalle_version(db: Session, user: Usuario, version_id: int) -> dict:
     return {**dict_version(db, v, con_diseno=True), "plantilla": dict_plantilla(db, v.plantilla)}
 
 
+def bitacora(db: Session, user: Usuario, plantilla_id: int) -> list[dict]:
+    """Quién hizo qué con el diseño y sus versiones (crear, guardar versión, enviar, aprobar, rechazar...)."""
+    from app.modelos import Historial
+
+    exigir(user, "etiquetas.ver")
+    p = cargar(db, plantilla_id)
+    filas = db.scalars(select(Historial).where(Historial.entidad == "plantilla_etiqueta", Historial.entidad_id == p.id)
+                       .order_by(Historial.fecha.desc(), Historial.id.desc()).limit(200)).all()
+    return [{"id": h.id, "fecha": h.fecha, "accion": h.accion, "detalle": h.detalle, "motivo": h.motivo,
+             "usuario": _nombre_usuario(db, h.usuario_id)} for h in filas]
+
+
 # ---- Validación del contenido -------------------------------------------------------------------
 def _validar_meta(db: Session, datos: dict, actual: PlantillaEtiqueta | None) -> dict:
     errores, limpio = [], {}
@@ -315,6 +327,7 @@ def guardar_diseno(db: Session, user: Usuario, version_id: int, diseno: dict, ve
     v.version += 1
     v.plantilla.actualizada_en = ahora()
     db.flush()
+    registrar(db, user, "plantilla_etiqueta", v.plantilla_id, "guardar_diseno", {"version": v.numero, "cambios": v.cambios})
     return dict_version(db, v, con_diseno=True)
 
 

@@ -83,7 +83,13 @@ def test_ciclo_de_versiones(interno, admin, tnf):
     with SessionLocal() as db, en_organizacion(1):
         acciones = [h.accion for h in db.query(Historial).filter(Historial.entidad == "plantilla_etiqueta",
                                                                  Historial.entidad_id == p["id"]).order_by(Historial.id)]
-    assert {"crear", "enviar_aprobacion", "aprobar", "nueva_version", "rechazar", "usar_version", "archivar_version"} <= set(acciones)
+    assert {"crear", "enviar_aprobacion", "aprobar", "nueva_version", "rechazar", "usar_version", "archivar_version",
+            "guardar_diseno"} <= set(acciones)
+    # La misma bitácora por la API (la más reciente primero, con autor y motivo)
+    bit = interno.get(f"/etiquetas/plantillas/{p['id']}/bitacora").json()
+    assert bit[0]["accion"] == "usar_version" and bit[0]["usuario"] and len(bit) == len(acciones)
+    assert next(b for b in bit if b["accion"] == "rechazar")["motivo"] == "Logo missing"
+    assert tnf.get(f"/etiquetas/plantillas/{p['id']}/bitacora").status_code == 200  # el proveedor ve (etiquetas.ver)
 
 
 def test_un_diseno_con_errores_no_se_envia_ni_se_aprueba(interno):

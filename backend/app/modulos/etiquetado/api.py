@@ -89,6 +89,12 @@ def ver_plantilla(plantilla_id: int, db: Db, user: User):
     return plantillas.detalle(db, user, plantilla_id)
 
 
+@router.get("/etiquetas/plantillas/{plantilla_id}/bitacora")
+def bitacora_plantilla(plantilla_id: int, db: Db, user: User):
+    """Bitácora del diseño: cada acción sobre él y sus versiones, con autor, fecha y motivo."""
+    return plantillas.bitacora(db, user, plantilla_id)
+
+
 @router.patch("/etiquetas/plantillas/{plantilla_id}")
 def actualizar_plantilla(plantilla_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
     """Nombre, descripción, unidad, familia (y la modalidad, mientras no tenga una versión aprobada)."""

@@ -1,0 +1,350 @@
+<script setup>
+import { t, tx } from '@/i18n/index.js'
+import { computed, ref } from 'vue'
+import { api } from '@/nucleo/api'
+import Icono from '@/componentes/Icono.vue'
+import Seleccion from '@/componentes/Seleccion.vue'
+import { errorApi } from '@/stores/ui'
+import { SIMBOLOGIAS } from '@/modulos/etiquetado/etiquetas.js'
+import { usarEditor } from './estado.js'
+import CampoColor from './CampoColor.vue'
+import Medida from './Medida.vue'
+
+// Propiedades de lo elegido. Con un elemento: posición y medidas, contenido
+// según el tipo, estilo del texto, formato del valor, qué hacer si el campo
+// está vacío y la condición para mostrarlo. Con varios: alinear, distribuir e
+// igualar medidas.
+const props = defineProps({ grupos: { type: Object, default: () => ({}) } })
+const ed = usarEditor()
+const est = ed.estado
+const e = computed(() => ed.unico.value)
+const u = computed(() => est.diseno?.unidad || 'mm')
+const bloqueado = computed(() => !est.editable || !!e.value?.bloqueado)
+const TIPOS = computed(() => ({ texto: t('Text'), campo: t('Field'), codigo: t('Code'), imagen: t('Image'), rect: t('Rectangle'), elipse: t('Ellipse'), linea: t('Line') }))
+
+const camposTexto = computed(() => est.campos.filter((c) => c.tipo !== 'imagen'))
+const camposImagen = computed(() => est.campos.filter((c) => c.tipo === 'imagen'))
+const textoCampo = (c) => `${tx(props.grupos[c.grupo] || c.grupo)} · ${tx(c.etiqueta)}`
+const campoActual = computed(() => est.campos.find((c) => c.clave === e.value?.campo))
+const insertar = ref('')
+function insertarCampo(prop, clave) {
+  if (!clave || bloqueado.value) return
+  e.value[prop] = `${e.value[prop] || ''}{{${clave}}}`
+  insertar.value = ''
+}
+
+// Estilo y formato: se crean al primer cambio
+const estilo = computed(() => e.value?.estilo || {})
+function poner(obj, prop, v) {
+  if (bloqueado.value) return
+  e.value[obj] = { ...(e.value[obj] || {}), [prop]: v }
+}
+const alternarEstilo = (prop) => poner('estilo', prop, !estilo.value[prop])
+const formato = computed(() => e.value?.formato || { tipo: 'auto', decimales: 0, miles: true, fecha: 'dd/mm/aaaa' })
+function condicion(activa) {
+  if (bloqueado.value) return
+  e.value.condicion = activa ? { campo: e.value.campo || est.campos[0]?.clave || '', op: 'existe', valor: null } : null
+}
+
+// Ejemplo de campo dentro de un texto (en el script: en la plantilla cerraría la interpolación)
+const EJEMPLO = '{{articulo.sku}}'
+const simbologia = computed(() => SIMBOLOGIAS().find((s) => s[0] === e.value?.simbologia))
+
+// Imagen propia: se sube al servidor (PNG, JPEG o WebP) y el diseño guarda su número
+const subiendo = ref(false)
+const archivo = ref(null)
+async function subir(ev) {
+  const f = ev.target.files?.[0]
+  ev.target.value = ''
+  if (!f) return
+  subiendo.value = true
+  try {
+    const fd = new FormData()
+    fd.append('archivo', f)
+    const r = await api.post('/etiquetas/imagenes', fd)
+    e.value.fuente_imagen = 'adjunto'
+    e.value.adjunto_id = r.id
+    e.value.campo = null
+    if (r.ancho_px && r.alto_px) e.value.h = Math.round(((e.value.w * r.alto_px) / r.ancho_px) * 10) / 10
+  } catch (err) {
+    errorApi(err)
+  } finally {
+    subiendo.value = false
+  }
+}
+function fuenteImagen(v) {
+  if (bloqueado.value) return
+  e.value.fuente_imagen = v
+  if (v === 'campo' && !e.value.campo) e.value.campo = camposImagen.value[0]?.clave || null
+}
+</script>
+
+<template>
+  <!-- Varios elementos -->
+  <div v-if="ed.seleccionados.value.length > 1" class="panel-prop">
+    <p class="prop-titulo">{{ t('{0} elements selected', [ed.seleccionados.value.length]) }}</p>
+    <h4>{{ t('Align') }}</h4>
+    <div class="botonera">
+      <button v-for="[m, i, txt] in [['izq', 'alin-izq', t('Left')], ['centro', 'alin-centro', t('Center')], ['der', 'alin-der', t('Right')], ['arriba', 'alin-arriba', t('Top')], ['medio', 'alin-medio', t('Middle')], ['abajo', 'alin-abajo', t('Bottom')]]"
+              :key="m" type="button" class="btn btn-icono" :disabled="!est.editable" :title="txt" :aria-label="txt" @click="ed.alinear(m)"><Icono :nombre="i" :tam="17" /></button>
+    </div>
+    <h4>{{ t('Distribute and match') }}</h4>
+    <div class="botonera">
+      <button type="button" class="btn btn-icono" :disabled="!est.editable || ed.seleccionados.value.length < 3" :title="t('Same horizontal space')" :aria-label="t('Same horizontal space')" @click="ed.distribuir('h')"><Icono nombre="dist-h" :tam="17" /></button>
+      <button type="button" class="btn btn-icono" :disabled="!est.editable || ed.seleccionados.value.length < 3" :title="t('Same vertical space')" :aria-label="t('Same vertical space')" @click="ed.distribuir('v')"><Icono nombre="dist-v" :tam="17" /></button>
+      <button type="button" class="btn btn-chico" :disabled="!est.editable" @click="ed.igualar('w')">{{ t('Same width') }}</button>
+      <button type="button" class="btn btn-chico" :disabled="!est.editable" @click="ed.igualar('h')">{{ t('Same height') }}</button>
+    </div>
+    <p class="ayuda">{{ t('They align with each other; with a single element, it aligns to the label.') }}</p>
+    <div class="botonera mt">
+      <button type="button" class="btn btn-chico" :disabled="!est.editable" @click="ed.agrupar()"><Icono nombre="agrupar" :tam="15" />{{ t('Group') }}</button>
+      <button type="button" class="btn btn-chico" :disabled="!est.editable" @click="ed.duplicar()"><Icono nombre="copiar" :tam="15" />{{ t('Duplicate') }}</button>
+      <button type="button" class="btn btn-chico btn-peligro" :disabled="!est.editable" @click="ed.eliminar()"><Icono nombre="basura" :tam="15" />{{ t('Delete') }}</button>
+    </div>
+  </div>
+
+  <!-- Un elemento -->
+  <div v-else-if="e" class="panel-prop">
+    <div class="prop-cabeza">
+      <span class="etiqueta ms-0">{{ TIPOS[e.tipo] }}</span>
+      <input v-model.trim="e.nombre" class="prop-nombre" :placeholder="t('Name in layers (optional)')" maxlength="60" :disabled="!est.editable" :aria-label="t('Name')" />
+    </div>
+    <div class="botonera">
+      <button type="button" class="btn btn-icono btn-chico" :disabled="!est.editable" :title="t('Duplicate (Ctrl+D)')" :aria-label="t('Duplicate')" @click="ed.duplicar()"><Icono nombre="copiar" :tam="15" /></button>
+      <button type="button" class="btn btn-icono btn-chico" :class="{ activo: e.bloqueado }" :disabled="!est.editable" :title="e.bloqueado ? t('Unlock') : t('Lock')" :aria-label="t('Lock')" @click="e.bloqueado = !e.bloqueado"><Icono nombre="candado" :tam="15" /></button>
+      <button type="button" class="btn btn-icono btn-chico" :class="{ activo: e.visible === false }" :disabled="!est.editable" :title="e.visible === false ? t('Show') : t('Hide')" :aria-label="t('Hide')" @click="e.visible = e.visible === false"><Icono nombre="ojo" :tam="15" /></button>
+      <span class="crece" />
+      <button type="button" class="btn btn-icono btn-chico btn-peligro" :disabled="bloqueado" :title="t('Delete (Del)')" :aria-label="t('Delete')" @click="ed.eliminar()"><Icono nombre="basura" :tam="15" /></button>
+    </div>
+
+    <h4>{{ t('Position and size') }}</h4>
+    <div class="rejilla-2">
+      <Medida v-model="e.x" etiqueta="X" :unidad="u" :disabled="bloqueado" />
+      <Medida v-model="e.y" etiqueta="Y" :unidad="u" :disabled="bloqueado" />
+      <Medida v-model="e.w" :etiqueta="t('Width')" :unidad="u" :min="0" :disabled="bloqueado" />
+      <Medida v-model="e.h" :etiqueta="t('Height')" :unidad="u" :min="0" :disabled="bloqueado" />
+      <Medida v-model="e.rot" :etiqueta="t('Rotation')" unidad="°" :min="-360" :max="360" :disabled="bloqueado" />
+    </div>
+    <div class="botonera mt-chico">
+      <button v-for="[m, i, txt] in [['izq', 'alin-izq', t('Left')], ['centro', 'alin-centro', t('Center')], ['der', 'alin-der', t('Right')], ['arriba', 'alin-arriba', t('Top')], ['medio', 'alin-medio', t('Middle')], ['abajo', 'alin-abajo', t('Bottom')]]"
+              :key="m" type="button" class="btn btn-icono btn-chico" :disabled="bloqueado" :title="t('Align to the label: {0}', [txt])" :aria-label="txt" @click="ed.alinear(m)"><Icono :nombre="i" :tam="15" /></button>
+    </div>
+
+    <!-- Contenido -->
+    <template v-if="e.tipo === 'texto'">
+      <h4>{{ t('Text') }}</h4>
+      <textarea v-model="e.contenido" rows="3" class="prop-area" :disabled="bloqueado" :aria-label="t('Text')" />
+      <Seleccion v-model="insertar" :disabled="bloqueado" :aria-label="t('Insert field')" @change="(v) => insertarCampo('contenido', v)">
+        <option value="">{{ t('Insert field…') }}</option>
+        <option v-for="c in camposTexto" :key="c.clave" :value="c.clave">{{ textoCampo(c) }}</option>
+      </Seleccion>
+      <p class="ayuda">{{ t('Fixed text and fields like {0}. Double click on the label to edit it there.', [EJEMPLO]) }}</p>
+    </template>
+
+    <template v-if="e.tipo === 'campo'">
+      <h4>{{ t('Field') }}</h4>
+      <Seleccion v-model="e.campo" :disabled="bloqueado" :aria-label="t('Field')">
+        <option v-for="c in camposTexto" :key="c.clave" :value="c.clave">{{ textoCampo(c) }}</option>
+      </Seleccion>
+      <p v-if="campoActual" class="ayuda">{{ t('Comes from {0}. Example: {1}', [campoActual.origen, campoActual.ejemplo ?? '—']) }}</p>
+      <div class="rejilla-2">
+        <label class="campo-mini"><span>{{ t('Prefix') }}</span><input v-model="e.prefijo" maxlength="100" :disabled="bloqueado" /></label>
+        <label class="campo-mini"><span>{{ t('Suffix') }}</span><input v-model="e.sufijo" maxlength="100" :disabled="bloqueado" /></label>
+      </div>
+      <h4>{{ t('Format') }}</h4>
+      <div class="rejilla-2">
+        <label class="campo-mini col-2"><span>{{ t('Show as') }}</span>
+          <Seleccion :model-value="formato.tipo" :disabled="bloqueado" :aria-label="t('Show as')" @change="(v) => poner('formato', 'tipo', v)">
+            <option value="auto">{{ t('As it comes') }}</option>
+            <option value="numero">{{ t('Number') }}</option>
+            <option value="fecha">{{ t('Date') }}</option>
+            <option value="mayus">{{ t('UPPERCASE') }}</option>
+            <option value="minus">{{ t('lowercase') }}</option>
+          </Seleccion>
+        </label>
+        <template v-if="formato.tipo === 'numero'">
+          <Medida :model-value="formato.decimales" :etiqueta="t('Decimals')" unidad="" :min="0" :max="6" :disabled="bloqueado" @update:model-value="(v) => poner('formato', 'decimales', Math.round(v))" />
+          <label class="check-linea"><input type="checkbox" :checked="formato.miles !== false" :disabled="bloqueado" @change="poner('formato', 'miles', $event.target.checked)" />{{ t('Thousands separator') }}</label>
+        </template>
+        <label v-if="formato.tipo === 'fecha'" class="campo-mini col-2"><span>{{ t('Date pattern') }}</span>
+          <Seleccion :model-value="formato.fecha" :disabled="bloqueado" :aria-label="t('Date pattern')" @change="(v) => poner('formato', 'fecha', v)">
+            <option value="dd/mm/aaaa">31/12/2026</option>
+            <option value="aaaa-mm-dd">2026-12-31</option>
+            <option value="mm/dd/aaaa">12/31/2026</option>
+            <option value="dd-mmm-aaaa">31-DEC-2026</option>
+          </Seleccion>
+        </label>
+      </div>
+    </template>
+
+    <template v-if="e.tipo === 'campo' || e.tipo === 'imagen'">
+      <h4>{{ t('If the data is empty') }}</h4>
+      <Seleccion v-model="e.si_vacio" :disabled="bloqueado" :aria-label="t('If the data is empty')">
+        <option value="advertir">{{ t('Leave it blank and warn') }}</option>
+        <option value="ocultar">{{ t('Hide the element') }}</option>
+        <option v-if="e.tipo === 'campo'" value="alternativo">{{ t('Use an alternative text') }}</option>
+        <option value="error">{{ t('Do not allow generating (required)') }}</option>
+      </Seleccion>
+      <input v-if="e.si_vacio === 'alternativo'" v-model="e.alternativo" class="mt-chico" maxlength="200" :placeholder="t('Alternative text')" :disabled="bloqueado" :aria-label="t('Alternative text')" />
+    </template>
+
+    <template v-if="e.tipo === 'codigo'">
+      <h4>{{ t('Code') }}</h4>
+      <Seleccion v-model="e.simbologia" :disabled="bloqueado" :aria-label="t('Symbology')">
+        <option v-for="[v, n, d] in SIMBOLOGIAS()" :key="v" :value="v">{{ n }} — {{ d }}</option>
+      </Seleccion>
+      <p v-if="simbologia" class="ayuda">{{ simbologia[2] }}</p>
+      <label class="campo-mini"><span>{{ t('Value to encode') }}</span><input v-model="e.valor" maxlength="1000" :disabled="bloqueado" class="mono" /></label>
+      <Seleccion v-model="insertar" :disabled="bloqueado" :aria-label="t('Insert field')" @change="(v) => insertarCampo('valor', v)">
+        <option value="">{{ t('Insert field…') }}</option>
+        <option v-for="c in camposTexto" :key="c.clave" :value="c.clave">{{ textoCampo(c) }}</option>
+      </Seleccion>
+      <div class="rejilla-2 mt-chico">
+        <Medida v-model="e.margen" :etiqueta="t('Quiet zone')" :unidad="u" :min="0" :max="30" :disabled="bloqueado" />
+        <label v-if="e.simbologia === 'qr'" class="campo-mini"><span>{{ t('Error correction') }}</span>
+          <Seleccion v-model="e.correccion" :disabled="bloqueado" :aria-label="t('Error correction')">
+            <option value="L">L · 7 %</option><option value="M">M · 15 %</option><option value="Q">Q · 25 %</option><option value="H">H · 30 %</option>
+          </Seleccion>
+        </label>
+        <label v-else class="check-linea"><input v-model="e.legible" type="checkbox" :disabled="bloqueado" />{{ t('Human-readable text') }}</label>
+        <CampoColor v-model="e.color" :etiqueta="t('Bars')" :disabled="bloqueado" />
+        <CampoColor v-model="e.relleno" :etiqueta="t('Background')" ninguno :disabled="bloqueado" />
+      </div>
+      <p class="ayuda">{{ t('The server checks the value (length, check digit) and that the bars are wide enough to be read; problems appear in the preview.') }}</p>
+    </template>
+
+    <template v-if="e.tipo === 'imagen'">
+      <h4>{{ t('Image') }}</h4>
+      <div class="segmentos" role="group" :aria-label="t('Image source')">
+        <button type="button" class="segmento" :aria-pressed="e.fuente_imagen === 'adjunto' || e.fuente_imagen === 'datos'" :disabled="bloqueado" @click="archivo.click()">{{ t('Upload image') }}</button>
+        <button type="button" class="segmento" :aria-pressed="e.fuente_imagen === 'campo'" :disabled="bloqueado || !camposImagen.length" @click="fuenteImagen('campo')">{{ t('From a field') }}</button>
+      </div>
+      <input ref="archivo" type="file" accept="image/png,image/jpeg,image/webp" class="oculto-visual" @change="subir" />
+      <p v-if="subiendo" class="ayuda">{{ t('Uploading…') }}</p>
+      <Seleccion v-if="e.fuente_imagen === 'campo'" v-model="e.campo" class="mt-chico" :disabled="bloqueado" :aria-label="t('Field')">
+        <option v-for="c in camposImagen" :key="c.clave" :value="c.clave">{{ textoCampo(c) }}</option>
+      </Seleccion>
+      <p v-else-if="e.adjunto_id" class="ayuda">{{ t('Uploaded image #{0}. PNG, JPEG or WebP up to 2 MB.', [e.adjunto_id]) }}</p>
+      <label class="campo-mini mt-chico"><span>{{ t('Fit') }}</span>
+        <Seleccion v-model="e.encaje" :disabled="bloqueado" :aria-label="t('Fit')">
+          <option value="contener">{{ t('Fit inside (keep proportions)') }}</option>
+          <option value="cubrir">{{ t('Fill (crop the excess)') }}</option>
+          <option value="estirar">{{ t('Stretch') }}</option>
+        </Seleccion>
+      </label>
+    </template>
+
+    <template v-if="e.tipo === 'rect' || e.tipo === 'elipse'">
+      <h4>{{ t('Fill and border') }}</h4>
+      <div class="rejilla-2">
+        <CampoColor v-model="e.relleno" :etiqueta="t('Fill')" ninguno :disabled="bloqueado" />
+        <CampoColor v-model="e.borde" :etiqueta="t('Border')" ninguno :disabled="bloqueado" />
+        <Medida v-model="e.grosor" :etiqueta="t('Thickness')" :unidad="u" :min="0" :max="20" :disabled="bloqueado" />
+        <Medida v-if="e.tipo === 'rect'" v-model="e.radio" :etiqueta="t('Corner radius')" :unidad="u" :min="0" :max="100" :disabled="bloqueado" />
+      </div>
+    </template>
+    <template v-if="e.tipo === 'linea'">
+      <h4>{{ t('Line') }}</h4>
+      <div class="rejilla-2">
+        <CampoColor v-model="e.color" :etiqueta="t('Color')" :disabled="bloqueado" />
+        <Medida v-model="e.grosor" :etiqueta="t('Thickness')" :unidad="u" :min="0" :max="20" :disabled="bloqueado" />
+      </div>
+    </template>
+    <template v-if="['rect', 'elipse', 'linea'].includes(e.tipo)">
+      <div class="segmentos mt-chico" role="group" :aria-label="t('Stroke')">
+        <button v-for="[v, txt] in [['solido', t('Solid')], ['discontinuo', t('Dashed')], ['punteado', t('Dotted')]]" :key="v" type="button" class="segmento"
+                :aria-pressed="(e.trazo || 'solido') === v" :disabled="bloqueado" @click="e.trazo = v">{{ txt }}</button>
+      </div>
+    </template>
+
+    <!-- Estilo del texto -->
+    <template v-if="e.tipo === 'texto' || e.tipo === 'campo'">
+      <h4>{{ t('Text style') }}</h4>
+      <div class="rejilla-2">
+        <label class="campo-mini"><span>{{ t('Font') }}</span>
+          <Seleccion :model-value="estilo.fuente || 'sans'" :disabled="bloqueado" :aria-label="t('Font')" @change="(v) => poner('estilo', 'fuente', v)">
+            <option value="sans">Sans (Liberation Sans)</option>
+            <option value="serif">Serif (Liberation Serif)</option>
+            <option value="mono">Mono (Liberation Mono)</option>
+          </Seleccion>
+        </label>
+        <Medida :model-value="estilo.tam ?? 10" :etiqueta="t('Letter height')" unidad="pt" :min="3" :max="400" :disabled="bloqueado" @update:model-value="(v) => poner('estilo', 'tam', v)" />
+      </div>
+      <div class="botonera mt-chico">
+        <button v-for="[p, txt, cls] in [['negrita', 'B', 'fw'], ['cursiva', 'I', 'it'], ['subrayado', 'U', 'ul'], ['tachado', 'S', 'st'], ['mayusculas', 'AA', '']]" :key="p" type="button"
+                class="btn btn-icono btn-chico btn-estilo" :class="[cls, { activo: estilo[p] }]" :aria-pressed="!!estilo[p]" :disabled="bloqueado"
+                :title="{ negrita: t('Bold'), cursiva: t('Italic'), subrayado: t('Underline'), tachado: t('Strikethrough'), mayusculas: t('Uppercase') }[p]" @click="alternarEstilo(p)">{{ txt }}</button>
+        <span class="separador" />
+        <button v-for="[v, i] in [['izq', 'alin-izq'], ['centro', 'alin-centro'], ['der', 'alin-der']]" :key="v" type="button" class="btn btn-icono btn-chico"
+                :class="{ activo: (estilo.alin || 'izq') === v }" :aria-pressed="(estilo.alin || 'izq') === v" :disabled="bloqueado" :aria-label="v" @click="poner('estilo', 'alin', v)"><Icono :nombre="i" :tam="15" /></button>
+        <button v-for="[v, i] in [['arriba', 'alin-arriba'], ['medio', 'alin-medio'], ['abajo', 'alin-abajo']]" :key="v" type="button" class="btn btn-icono btn-chico"
+                :class="{ activo: (estilo.valign || 'arriba') === v }" :aria-pressed="(estilo.valign || 'arriba') === v" :disabled="bloqueado" :aria-label="v" @click="poner('estilo', 'valign', v)"><Icono :nombre="i" :tam="15" /></button>
+      </div>
+      <div class="rejilla-2 mt-chico">
+        <CampoColor :model-value="estilo.color || '#000000'" :etiqueta="t('Color')" :disabled="bloqueado" @update:model-value="(v) => poner('estilo', 'color', v)" />
+        <CampoColor :model-value="estilo.fondo || null" :etiqueta="t('Background')" ninguno :disabled="bloqueado" @update:model-value="(v) => poner('estilo', 'fondo', v)" />
+        <Medida :model-value="estilo.interlineado ?? 1.15" :etiqueta="t('Line spacing')" unidad="" :min="0.7" :max="4" :disabled="bloqueado" @update:model-value="(v) => poner('estilo', 'interlineado', v)" />
+        <Medida :model-value="estilo.espaciado ?? 0" :etiqueta="t('Letter spacing')" unidad="pt" :min="-2" :max="40" :disabled="bloqueado" @update:model-value="(v) => poner('estilo', 'espaciado', v)" />
+        <Medida :model-value="estilo.relleno ?? 0" :etiqueta="t('Inner margin')" :unidad="u" :min="0" :max="50" :disabled="bloqueado" @update:model-value="(v) => poner('estilo', 'relleno', v)" />
+        <label class="check-linea"><input type="checkbox" :checked="!!estilo.multilinea" :disabled="bloqueado" @change="poner('estilo', 'multilinea', $event.target.checked)" />{{ t('Several lines') }}</label>
+      </div>
+      <label class="campo-mini mt-chico"><span>{{ t('If it does not fit') }}</span>
+        <Seleccion :model-value="estilo.ajuste || 'reducir'" :disabled="bloqueado" :aria-label="t('If it does not fit')" @change="(v) => poner('estilo', 'ajuste', v)">
+          <option value="reducir">{{ t('Reduce the size down to the minimum') }}</option>
+          <option value="cortar">{{ t('Cut it with «…»') }}</option>
+          <option value="ninguno">{{ t('Leave it (warn)') }}</option>
+        </Seleccion>
+      </label>
+      <Medida v-if="(estilo.ajuste || 'reducir') === 'reducir'" class="mt-chico" :model-value="estilo.tam_min ?? 6" :etiqueta="t('Smallest letter')" unidad="pt" :min="3" :max="400" :disabled="bloqueado"
+              @update:model-value="(v) => poner('estilo', 'tam_min', v)" />
+    </template>
+
+    <!-- Condición -->
+    <h4>{{ t('Show only if') }}</h4>
+    <label class="check-linea"><input type="checkbox" :checked="!!e.condicion" :disabled="bloqueado" @change="condicion($event.target.checked)" />{{ t('Depends on a data value') }}</label>
+    <div v-if="e.condicion" class="rejilla-2 mt-chico">
+      <label class="campo-mini col-2"><span>{{ t('Field') }}</span>
+        <Seleccion v-model="e.condicion.campo" :disabled="bloqueado" :aria-label="t('Field')">
+          <option v-for="c in camposTexto" :key="c.clave" :value="c.clave">{{ textoCampo(c) }}</option>
+        </Seleccion>
+      </label>
+      <label class="campo-mini"><span>{{ t('Condition') }}</span>
+        <Seleccion v-model="e.condicion.op" :disabled="bloqueado" :aria-label="t('Condition')">
+          <option value="existe">{{ t('has a value') }}</option>
+          <option value="vacio">{{ t('is empty') }}</option>
+          <option value="igual">{{ t('is equal to') }}</option>
+          <option value="distinto">{{ t('is not') }}</option>
+          <option value="contiene">{{ t('contains') }}</option>
+        </Seleccion>
+      </label>
+      <label v-if="['igual', 'distinto', 'contiene'].includes(e.condicion.op)" class="campo-mini"><span>{{ t('Value') }}</span>
+        <input v-model="e.condicion.valor" maxlength="200" :disabled="bloqueado" /></label>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.panel-prop { display: flex; flex-direction: column; gap: 6px; }
+.panel-prop h4 { margin: 12px 0 2px; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
+.prop-titulo { margin: 0; font-weight: 600; }
+.prop-cabeza { display: flex; gap: 8px; align-items: center; }
+.prop-nombre { flex: 1; min-width: 0; font-size: 0.84rem; }
+.botonera { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.botonera .activo, .btn.activo { background: var(--acento-claro); border-color: var(--acento-medio); color: var(--acento-texto); }
+.separador { width: 1px; height: 20px; background: var(--linea); margin: 0 2px; }
+.rejilla-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
+.col-2 { grid-column: 1 / -1; }
+.campo-mini { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.campo-mini > span { font-size: 0.72rem; color: var(--tinta-3); }
+.campo-mini input { width: 100%; min-width: 0; }
+.check-linea { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--tinta-2); min-height: 32px; }
+.prop-area { width: 100%; resize: vertical; font-size: 0.84rem; box-sizing: border-box; }
+.ayuda { font-size: 0.74rem; margin: 2px 0 0; }
+.btn-estilo { font-family: Georgia, serif; font-size: 0.86rem; width: 30px; }
+.btn-estilo.fw { font-weight: 700; }
+.btn-estilo.it { font-style: italic; }
+.btn-estilo.ul { text-decoration: underline; }
+.btn-estilo.st { text-decoration: line-through; }
+.segmentos { display: flex; }
+.mono { font-family: ui-monospace, monospace; }
+</style>

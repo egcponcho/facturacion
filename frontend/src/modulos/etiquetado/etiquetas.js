@@ -116,10 +116,17 @@ export function maquetar(texto, estilo, ancho, alto) {
     }
   }
   if (desborda && estilo.ajuste === 'cortar') {
+    const alto_linea = tam * (estilo.interlineado || 1.15) * PT_MM
+    const maximo = estilo.multilinea ? Math.max(Math.floor((h - tam * PT_MM) / alto_linea) + 1, 1) : 1
+    if (lineas.length > maximo) {
+      lineas = lineas.slice(0, maximo)
+      lineas[maximo - 1] += '…'
+    }
     lineas = lineas.map((l) => {
-      let x = l
+      if (anchoTexto(l, estilo, tam) <= w) return l
+      let x = l.replace(/…$/, '')
       while (x && anchoTexto(`${x}…`, estilo, tam) > w) x = x.slice(0, -1)
-      return x === l ? l : `${x}…`
+      return `${x}…`
     })
     desborda = false
   }
@@ -139,3 +146,52 @@ export function elementoNuevo(tipo, x = 5, y = 5, extra = {}) {
   if (tipo === 'linea') return { ...base, w: 40, h: 0, color: '#000000', grosor: 0.3, ...extra }
   return { ...base, ...extra }
 }
+
+// El valor como lo imprime el servidor (render.formatear): números con miles
+// y decimales, fechas con su patrón, mayúsculas o minúsculas
+const MESES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+const vacio = (v) => v == null || (typeof v === 'string' && !v.trim())
+export function formatear(v, formato, tipo = 'texto') {
+  if (vacio(v)) return null
+  const f = formato || {}
+  const t = f.tipo || 'auto'
+  if (t === 'numero' || (t === 'auto' && (tipo === 'numero' || typeof v === 'number'))) {
+    const n = Number(v)
+    if (Number.isNaN(n)) return String(v)
+    const dec = t === 'numero' ? f.decimales || 0 : Number.isInteger(n) ? 0 : 2
+    const txt = Math.abs(n).toFixed(dec)
+    const [ent, frac] = txt.split('.')
+    const conMiles = f.miles === false ? ent : ent.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return `${n < 0 ? '-' : ''}${conMiles}${frac ? `.${frac}` : ''}`
+  }
+  if (t === 'fecha' || (t === 'auto' && tipo === 'fecha')) {
+    const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (!m) return String(v)
+    const [, a, mes, d] = m
+    return { 'dd/mm/aaaa': `${d}/${mes}/${a}`, 'aaaa-mm-dd': `${a}-${mes}-${d}`, 'mm/dd/aaaa': `${mes}/${d}/${a}`,
+      'dd-mmm-aaaa': `${d}-${MESES[Number(mes) - 1]}-${a}` }[f.fecha || 'dd/mm/aaaa']
+  }
+  if (t === 'mayus') return String(v).toUpperCase()
+  if (t === 'minus') return String(v).toLowerCase()
+  return String(v)
+}
+// Reemplaza {{campo}} por su valor (vacío si no hay)
+export const CAMPO = /\{\{\s*([\w.]+)\s*\}\}/g
+export const sustituir = (texto, valores, tipos) =>
+  (texto || '').replace(CAMPO, (_, c) => formatear(valores[c], null, tipos[c]) ?? '')
+
+// Si el elemento se dibuja según su condición (render.cumple)
+export function cumple(cond, valores) {
+  if (!cond?.campo) return true
+  const v = valores[cond.campo]
+  const op = cond.op || 'existe'
+  const esperado = (cond.valor || '').trim().toLowerCase()
+  if (op === 'existe') return !vacio(v)
+  if (op === 'vacio') return vacio(v)
+  const s = v == null ? '' : String(v)
+  if (op === 'igual') return s.trim().toLowerCase() === esperado
+  if (op === 'distinto') return s.trim().toLowerCase() !== esperado
+  return s.toLowerCase().includes(esperado)
+}
+
+export const TRAZOS = { discontinuo: (g) => `${3 * g + 0.7} ${2 * g + 0.5}`, punteado: (g) => `${Math.max(g, 0.18)} ${2 * g + 0.35}` }
