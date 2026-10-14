@@ -1453,3 +1453,41 @@ Cada fase en su propia rama/PR, sin fusionar sin aprobación.
    `.previa-etiqueta`.
 5. Reporta cada fase con: archivos cambiados, migraciones, comandos de
    prueba ejecutados y su resultado real.
+
+---
+
+## 17. Entrega de la implementación (rama `claude/bold-lovelace-iwx2wa`)
+
+Se aplicó el rediseño completo con la opción **A** de migración (D1) y las
+recomendaciones de la sección 15. Commits: `b34d41a` (backend: tipos,
+usos, resolución, migración 0076, E1–E12 y reglas de empresa), `7babc31` y
+`0be8f19` (frontend nuevo), y el de pruebas, traducciones, e2e y manual.
+El manual del modelo vigente es `docs/ETIQUETADO.md`.
+
+### 17.1 Qué quedó
+
+| Parte | Estado |
+|---|---|
+| Modelo (7.5) | `tipos_etiqueta`, `usos_diseno` (celda, excepciones por OC, centro, país, sociedad, proveedor y condición, vigencia, baja lógica, historial), familia en el producto, identidad del bulto en `generacion_items`. Migración 0076 reversible con conversión e informe en el historial. |
+| Resolución (7.4, 7.6) | Escalera fija: excepción de OC → talla → producto → familia (subfamilia antes que padre) → tipo de empaque → empresa; excepciones dentro de la celda en orden centro, país, sociedad, proveedor, condición. |
+| Generación (8) | Un solo camino: los trabajos. Se retiraron `/asignaciones`, `/plan`, `/oc/{id}`, `POST /generaciones`, `/masivo*`, `masivo.py` y `asignaciones.py`. |
+| Errores E1–E12 | Corregidos en `b34d41a`. Con prueba explícita: E2 (modo prueba solo con versiones aprobadas para quien no diseña, `test_etiquetado_generacion`) y E12 (baja lógica con historial, `test_etiquetado_reglas`). Los demás quedan cubiertos solo de forma indirecta por las suites del módulo: no todos tienen una prueba dedicada. |
+| Configurables | Hechos: F3, F5, F6, F7 (ITF-14, GS1-128, SSCC, DataMatrix, GS1 DataMatrix, PDF417; catálogo desde el servidor), F9, F10, F11, F12, F13, F14, F15 (marca de prueba por idioma del diseño) y F16. **Pendientes:** F1 (renombrar u ocultar campos fijos por empresa), F2 (columnas de tablas desde los atributos de variante), F4 (ejemplos de la ficha desde datos reales) y F8 (fuentes CJK, devanagari y árabe). |
+| Frontend (7.9) | Imprimir · Diseños · Configuración, matriz, celda con excepciones como frase y efecto antes de guardar, primer uso, familias y artículos, pestaña Etiquetas del producto, resumen en OC y lista de empaque, asistente de 3 pasos. Las pantallas anteriores (reglas, familias, artículos, asignaciones, lista de plantillas, trabajos) se borraron; sus rutas redirigen. |
+| Semilla demo (12) | `app/instalacion/demo_etiquetado.py`. |
+
+**No hecho del 7.9:** «Completar» un dato maestro faltante desde el paso
+Revisar (solo se piden las variables del diseño); la escalera no se
+configura por empresa (D3, a propósito).
+
+### 17.2 Pruebas ejecutadas (resultado real)
+
+| Comando | Resultado |
+|---|---|
+| `ruff check .` (backend) | Sin observaciones. |
+| `pytest` completo en SQLite | **653 pasan, 4 omitidas** (7 min). Del módulo: 68 pruebas en 10 archivos `test_etiquetado_*`. |
+| `pytest tests/test_i18n.py` | 4 pasan (español completo). |
+| `alembic upgrade head` + `alembic check` en SQLite nueva | «No new upgrade operations detected». |
+| Migración 0075 → 0076 → 0075 → 0076 con datos (`test_migracion_convierte_las_reglas_en_tipos_y_usos_de_diseno`) y `test_migraciones_al_dia_con_los_modelos` | Pasan (el segundo falló primero: el downgrade de 0076 no recreaba las restricciones de 0073; corregido). |
+| `npm run lint` · `npm run build` | Sin observaciones · correcto. |
+| `node e2e/etiquetado.mjs` contra la demo | **16 de 16** comprobaciones: rutas anteriores → lugar nuevo, matriz, paso Generar y reparto del ZIP guardado, sin errores de JavaScript ni 5xx. |
