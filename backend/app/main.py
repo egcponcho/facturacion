@@ -63,9 +63,25 @@ async def lifespan(_: FastAPI):
 
             seed(db)
         preparar_instalacion(db)
-    tarea = asyncio.create_task(_limpieza_periodica())
+    tareas = [asyncio.create_task(_limpieza_periodica())]
+    if settings.ETIQUETAS_RECUPERAR_SEG > 0:
+        tareas.append(asyncio.create_task(_recuperar_etiquetas()))
     yield
-    tarea.cancel()
+    for tarea in tareas:
+        tarea.cancel()
+
+
+async def _recuperar_etiquetas():
+    """Cada instancia retoma los trabajos de etiquetado que quedaron a medias
+    (el proceso que los generaba se detuvo): al arrancar y luego periódicamente."""
+    from app.modulos.etiquetado.trabajos import recuperar
+
+    while True:
+        try:
+            await asyncio.to_thread(recuperar)
+        except Exception:  # la recuperación nunca debe tumbar el servidor
+            logging.getLogger("etiquetado").exception("Falló la recuperación de trabajos de etiquetado")
+        await asyncio.sleep(settings.ETIQUETAS_RECUPERAR_SEG)
 
 
 async def _limpieza_periodica():

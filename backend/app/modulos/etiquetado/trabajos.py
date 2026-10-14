@@ -26,17 +26,22 @@ import contextvars
 import csv
 import io
 import json
+import logging
+import os
 import re
+import socket
 import threading
 import uuid
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
+from app.core.organizacion import fijar
 from app.modelos import (
     GeneracionEtiquetas,
     OrdenCompra,
@@ -434,26 +439,114 @@ def _validar(db: Session, user: Usuario, t: TrabajoEtiquetas) -> dict:
 
 
 # ---- Generación -------------------------------------------------------------------------------------
-_EN_CURSO: set[int] = set()
-_CANDADO = threading.Lock()
-INTERRUMPIDO_MINUTOS = 10  # sin avance en este proceso durante este tiempo: la generación se detuvo
+# ---- Ejecución duradera ---------------------------------------------------------------------------
+# Un trabajo que se genera en segundo plano queda EN_PROCESO y arrendado a un
+# ejecutor (proceso + hilo) hasta `arriendo_hasta`. El ejecutor renueva el
+# arriendo (latido) mientras trabaja y lo comprueba en la misma transacción en
+# que confirma cada parte: si lo perdió (otro lo tomó porque venció), deshace
+# esa parte. Cualquier instancia retoma un trabajo cuyo arriendo venció (el que
+# lo tenía se detuvo) o que nunca se tomó (el proceso cayó antes de empezar).
+# La base es la que decide: la toma es un UPDATE condicional y un registro solo
+# puede producir un ítem de generación (restricción única), así una carrera
+# nunca duplica etiquetas.
+INSTANCIA = f"{socket.gethostname()}:{os.getpid()}"
+T = TrabajoEtiquetas.__table__
 
 
-def _interrumpido(t: TrabajoEtiquetas) -> bool:
-    from datetime import timedelta
+class ArriendoPerdido(Exception):
+    """Otro ejecutor tomó el trabajo: este deja de escribir."""
 
-    with _CANDADO:
-        corriendo = t.id in _EN_CURSO
-    return not corriendo and (datetime.now() - (t.actualizado_en or t.creado_en)) > timedelta(minutes=INTERRUMPIDO_MINUTOS)
+
+def _ahora() -> datetime:
+    return datetime.now()
+
+
+def _arriendo() -> timedelta:
+    return timedelta(seconds=max(int(settings.ETIQUETAS_ARRIENDO_SEG), 5))
+
+
+def _abandonado():
+    """Condición SQL de un trabajo EN_PROCESO que nadie está ejecutando."""
+    ahora = _ahora()
+    return (T.c.estado == "EN_PROCESO") & (
+        (T.c.arriendo_hasta < ahora) | (T.c.arriendo_hasta.is_(None) & (T.c.actualizado_en < ahora - _arriendo())))
+
+
+def _tomar(db: Session, trabajo_id: int) -> str | None:
+    """Arrienda el trabajo a este ejecutor si nadie lo tiene (o el arriendo
+    venció). Devuelve la ficha del ejecutor, o None si otro lo tiene."""
+    ficha = f"{INSTANCIA}:{uuid.uuid4().hex[:12]}"
+    ahora = _ahora()
+    libre = (T.c.estado == "EN_PROCESO") & (T.c.ejecutor.is_(None) | (T.c.arriendo_hasta < ahora))
+    r = db.execute(update(T).where(T.c.id == trabajo_id, libre)
+                   .values(ejecutor=ficha, arriendo_hasta=ahora + _arriendo(), latido_en=ahora, intentos=T.c.intentos + 1))
+    db.commit()
+    return ficha if r.rowcount == 1 else None
+
+
+def _renovar(db: Session, trabajo_id: int, ficha: str) -> bool:
+    """Renueva el arriendo; False si este ejecutor ya no lo tiene."""
+    ahora = _ahora()
+    r = db.execute(update(T).where(T.c.id == trabajo_id, T.c.ejecutor == ficha, T.c.estado == "EN_PROCESO")
+                   .values(arriendo_hasta=ahora + _arriendo(), latido_en=ahora))
+    return r.rowcount == 1
+
+
+def _soltar(db: Session, trabajo_id: int, ficha: str) -> None:
+    db.execute(update(T).where(T.c.id == trabajo_id, T.c.ejecutor == ficha).values(ejecutor=None, arriendo_hasta=None))
+    db.commit()
+
+
+class _Latido:
+    """Renueva el arriendo desde otro hilo mientras se dibuja una parte larga."""
+
+    def __init__(self, trabajo_id: int, ficha: str):
+        self.trabajo_id, self.ficha = trabajo_id, ficha
+        self.alto = threading.Event()
+        self.perdido = threading.Event()
+        self.hilo = threading.Thread(target=self._latir, daemon=True, name=f"latido-{trabajo_id}")
+
+    def _latir(self) -> None:
+        from app.core.db import SessionLocal
+
+        cada = max(_arriendo().total_seconds() / 4, 1)
+        while not self.alto.wait(cada):
+            try:
+                with SessionLocal() as db:
+                    if not _renovar(db, self.trabajo_id, self.ficha):
+                        self.perdido.set()
+                        return
+                    db.commit()
+            except Exception:  # noqa: BLE001 - un latido fallido no detiene la generación; el siguiente reintenta
+                logging.getLogger("etiquetado").exception("No se pudo renovar el arriendo del trabajo %s", self.trabajo_id)
+
+    def __enter__(self):
+        self.hilo.start()
+        return self
+
+    def __exit__(self, *_):
+        self.alto.set()
+        self.hilo.join(timeout=5)
+
+
+def _interrumpido(db: Session, t: TrabajoEtiquetas) -> bool:
+    """El trabajo figura EN_PROCESO pero nadie lo ejecuta: lo libera (en una
+    sola sentencia, por si otro proceso lo toma a la vez) para seguir."""
+    hechos = any(r.estado == "GENERADO" for r in t.registros)
+    r = db.execute(update(T).where(T.c.id == t.id, _abandonado()).values(
+        estado="PARCIAL" if hechos else "VALIDADO", ejecutor=None, arriendo_hasta=None,
+        error="The previous generation was interrupted; the pending records can be generated again."))
+    if r.rowcount == 1:
+        db.refresh(t)
+        return True
+    return False
 
 
 def generar(db: Session, user: Usuario, trabajo_id: int, opciones: dict) -> dict:
     t = cargar(db, user, trabajo_id, bloquear=True)
     _version(t, opciones)
-    if t.estado == "EN_PROCESO" and _interrumpido(t):
-        # El proceso que generaba se detuvo (reinicio del servidor): lo generado queda y se sigue con lo pendiente
-        t.estado = "PARCIAL" if any(r.estado == "GENERADO" for r in t.registros) else "VALIDADO"
-        t.error = "The previous generation was interrupted; the pending records can be generated again."
+    if t.estado == "EN_PROCESO":
+        _interrumpido(db, t)
     if t.estado == "EN_PROCESO":
         raise ErrorNegocio("The labels are already being generated.", 409, "estado")
     if t.estado == "CANCELADO":
@@ -490,37 +583,46 @@ def generar(db: Session, user: Usuario, trabajo_id: int, opciones: dict) -> dict
     t.progreso, t.error = 0, None
     t.version += 1
     if total >= int(regla("ETIQUETAS_ASINCRONO_DESDE")):
-        t.estado = "EN_PROCESO"
-        t.actualizado_en = datetime.now()
+        # Queda EN_PROCESO sin ejecutor: lo toma este proceso al confirmar la petición
+        # (lanzar) o, si este cae antes, cualquier instancia al recuperar.
+        t.estado, t.ejecutor, t.arriendo_hasta = "EN_PROCESO", None, None
+        t.actualizado_en = _ahora()
         db.flush()
         registrar(db, user, "trabajo_etiquetas", t.id, "generar", {"total": total, "segundo_plano": True})
         return {**detalle(db, user, t.id), "asincrono": True}
-    _ejecutar(db, user, t, claves, formato, confirmar=False)
+    _ejecutar(db, user, t, claves, formato)
     registrar(db, user, "trabajo_etiquetas", t.id, "generar", {"total": total, "estado": t.estado})
     return {**detalle(db, user, t.id), "asincrono": False}
 
 
-def _ejecutar(db: Session, user: Usuario, t: TrabajoEtiquetas, claves: list[str], formato: str, confirmar: bool) -> None:
-    """Una ejecución por parte con sus registros listos; en segundo plano se
-    confirma cada parte para que el avance se vea."""
+def _ejecutar(db: Session, user: Usuario, t: TrabajoEtiquetas, claves: list[str], formato: str, ficha: str | None = None,
+              latido: _Latido | None = None) -> None:
+    """Una ejecución por parte con sus registros pendientes. Con ficha (segundo
+    plano) cada parte se confirma por separado, después de comprobar en la
+    misma transacción que el arriendo sigue siendo de este ejecutor."""
     por_clave = {r.clave: r for r in t.registros}
     lote = str(uuid.uuid4())
     hechas = []
     for prefijo, pedido in _partes(db, t):
-        mias = [c for c in claves if c.startswith(prefijo + ":")]
+        mias = [c for c in claves if c.startswith(prefijo + ":") and c in por_clave and por_clave[c].estado != "GENERADO"]
         if not mias:
             continue
-        internas = {c.split(":", 1)[1] for c in mias}
+        if latido is not None and latido.perdido.is_set():
+            raise ArriendoPerdido()
+        internas = {c.split(":", 1)[1]: por_clave[c].id for c in mias}
         gen = generacion.generar(db, user, {**pedido, "formato": formato, "aceptar_advertencias": True, "lote": lote,
-                                            "_solo_claves": internas, "_trabajo_id": t.id, "_sin_limite": True})
+                                            "_solo_claves": set(internas), "_registros": internas, "_trabajo_id": t.id,
+                                            "_sin_limite": True})
         for c in mias:
             r = por_clave[c]
             r.estado, r.generacion_id = "GENERADO", gen["id"]
         t.progreso += gen["total"]
-        t.actualizado_en = datetime.now()
+        t.actualizado_en = _ahora()
         hechas.append({"id": gen["id"], "oc": gen["oc"], "total": gen["total"]})
         db.flush()
-        if confirmar:
+        if ficha is not None:
+            if not _renovar(db, t.id, ficha):
+                raise ArriendoPerdido()
             db.commit()
     quedan = [r for r in t.registros if r.estado != "GENERADO"]
     t.estado = "PARCIAL" if quedan else "GENERADO"
@@ -528,51 +630,108 @@ def _ejecutar(db: Session, user: Usuario, t: TrabajoEtiquetas, claves: list[str]
     conteo = {"registros": len(t.registros)}
     for r in t.registros:
         conteo[r.estado] = conteo.get(r.estado, 0) + 1
-    t.generado_en = datetime.now()
+    t.generado_en = _ahora()
     t.resumen = {**(t.resumen or {}), "conteo": conteo, "ejecuciones": (t.resumen or {}).get("ejecuciones", []) + hechas}
     t.version += 1
+    if ficha is not None:
+        # El cierre también se confirma solo si el arriendo sigue siendo de este ejecutor
+        if not _renovar(db, t.id, ficha):
+            raise ArriendoPerdido()
+        t.ejecutor, t.arriendo_hasta = None, None
     db.flush()
 
 
-def lanzar(trabajo_id: int, usuario_id: int, organizacion_id: int) -> bool:
-    """Genera en segundo plano (después de confirmar la petición). Un trabajo
-    no se ejecuta dos veces a la vez aunque se repita la petición."""
-    with _CANDADO:
-        if trabajo_id in _EN_CURSO:
-            return False
-        _EN_CURSO.add(trabajo_id)
-    ctx = contextvars.copy_context()
-    threading.Thread(target=ctx.run, args=(_segundo_plano, trabajo_id, usuario_id, organizacion_id), daemon=True,
-                     name=f"etiquetas-{trabajo_id}").start()
+def lanzar(trabajo_id: int, usuario_id: int | None = None, organizacion_id: int | None = None) -> bool:
+    """Toma el trabajo y lo genera en un hilo de este proceso (después de
+    confirmar la petición). Si otro ejecutor ya lo tiene, no hace nada."""
+    from app.core.db import SessionLocal
+
+    with SessionLocal() as db:
+        ficha = _tomar(db, trabajo_id)
+    if ficha is None:
+        return False
+    threading.Thread(target=ejecutar_tomado, args=(trabajo_id, ficha), daemon=True, name=f"etiquetas-{trabajo_id}").start()
     return True
 
 
-def _segundo_plano(trabajo_id: int, usuario_id: int, organizacion_id: int) -> None:
-    from app.core.db import SessionLocal
-    from app.core.organizacion import fijar
+def _contexto(db: Session, user: Usuario) -> None:
+    """Lo que una petición deja listo y un proceso sin petición tiene que fijar:
+    organización, reglas y listas de la empresa, preferencias y datos ocultos."""
+    from app.core.empresa import usar_configuracion
+    from app.core.listas import usar_listas
+    from app.modulos.acceso import preferencias, visibilidad
+    from app.modulos.empresa.organizacion import configuracion
+    from app.modulos.maestros.listas import cargar as cargar_listas
 
+    fijar(db, user.organizacion_id, user.id)
+    usar_configuracion(configuracion(db))
+    usar_listas(cargar_listas(db))
+    preferencias.usar(user)
+    visibilidad.usar(user)
+
+
+def ejecutar_tomado(trabajo_id: int, ficha: str) -> None:
+    """Genera lo pendiente de un trabajo que este ejecutor tiene arrendado.
+    Cada parte queda confirmada al terminar; un error deja el trabajo PARCIAL
+    (o ERROR si no se generó nada) con el motivo, y se suelta el arriendo."""
+    from app.core.db import SessionLocal
+
+    ctx = contextvars.copy_context()
+    ctx.run(_ejecutar_tomado, trabajo_id, ficha, SessionLocal)
+
+
+def _ejecutar_tomado(trabajo_id: int, ficha: str, SessionLocal) -> None:  # noqa: N803
     db = SessionLocal()
     try:
-        fijar(db, organizacion_id, usuario_id)
-        user = db.get(Usuario, usuario_id)
-        t = db.get(TrabajoEtiquetas, trabajo_id)
-        if t is None or t.estado != "EN_PROCESO":
+        fila = db.execute(select(T.c.organizacion_id, T.c.resumen, T.c.ejecutor).where(T.c.id == trabajo_id)).one_or_none()
+        if fila is None or fila.ejecutor != ficha:
             return
-        pedido = (t.resumen or {}).get("pedido") or {}
-        _ejecutar(db, user, t, pedido.get("claves") or [], pedido.get("formato") or "PDF", confirmar=True)
-        db.commit()
+        pedido = (fila.resumen or {}).get("pedido") or {}
+        user = db.get(Usuario, pedido.get("por")) if pedido.get("por") else None
+        if user is None or not user.activo:
+            raise ErrorNegocio("The user who started the generation no longer exists or is inactive.", 409, "estado")
+        _contexto(db, user)
+        t = db.get(TrabajoEtiquetas, trabajo_id)
+        with _Latido(trabajo_id, ficha) as latido:
+            _ejecutar(db, user, t, pedido.get("claves") or [], pedido.get("formato") or "PDF", ficha, latido)
+            db.commit()
+    except ArriendoPerdido:
+        db.rollback()  # otro ejecutor sigue con el trabajo: no se toca nada más
+        logging.getLogger("etiquetado").warning("El trabajo %s pasó a otro ejecutor", trabajo_id)
     except Exception as e:  # noqa: BLE001 - el error queda en el trabajo para quien lo generó
         db.rollback()
-        t = db.get(TrabajoEtiquetas, trabajo_id)
-        if t is not None:
-            hechos = any(r.estado == "GENERADO" for r in t.registros)
-            t.estado = "PARCIAL" if hechos else "ERROR"
-            t.error = (getattr(e, "mensaje", None) or str(e) or type(e).__name__)[:2000]
-            db.commit()
+        hechos = db.scalar(select(func.count()).select_from(TrabajoRegistro).where(
+            TrabajoRegistro.trabajo_id == trabajo_id, TrabajoRegistro.estado == "GENERADO")) or 0
+        db.execute(update(T).where(T.c.id == trabajo_id, T.c.ejecutor == ficha).values(
+            estado="PARCIAL" if hechos else "ERROR", ejecutor=None, arriendo_hasta=None, actualizado_en=_ahora(),
+            error=(getattr(e, "mensaje", None) or str(e) or type(e).__name__)[:2000]))
+        db.commit()
+        logging.getLogger("etiquetado").exception("Falló la generación del trabajo %s", trabajo_id)
     finally:
         db.close()
-        with _CANDADO:
-            _EN_CURSO.discard(trabajo_id)
+
+
+def recuperar() -> list[int]:
+    """Retoma los trabajos EN_PROCESO que nadie ejecuta (el proceso que los
+    tenía se detuvo o cayó antes de empezar). Un trabajo que agotó sus intentos
+    queda en ERROR para que alguien lo revise. Devuelve los retomados."""
+    from app.core.db import SessionLocal
+
+    retomados = []
+    with SessionLocal() as db:  # sin organización: ve los trabajos de todas (también con RLS)
+        ids = list(db.scalars(select(T.c.id).where(_abandonado()).order_by(T.c.id).limit(50)))
+        for tid in ids:
+            agotado = db.execute(update(T).where(T.c.id == tid, _abandonado(), T.c.intentos >= settings.ETIQUETAS_MAX_INTENTOS)
+                                 .values(estado="ERROR", ejecutor=None, arriendo_hasta=None, actualizado_en=_ahora(),
+                                         error="The generation failed several times in a row; check the job and generate again."))
+            db.commit()
+            if agotado.rowcount:
+                continue
+            ficha = _tomar(db, tid)
+            if ficha:
+                ejecutar_tomado(tid, ficha)
+                retomados.append(tid)
+    return retomados
 
 
 # ---- Archivos ----------------------------------------------------------------------------------------

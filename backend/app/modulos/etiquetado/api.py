@@ -413,9 +413,7 @@ def generar_trabajo(trabajo_id: int, db: Db, user: User, datos: dict[str, Any] =
     """Genera lo pendiente (formato, aceptar_advertencias, parcial). Si es grande, en segundo plano: consultar /estado."""
     r = ejecutar(db, user, clave, lambda: trabajos.generar(db, user, trabajo_id, datos))
     if r.get("asincrono") and r.get("estado") == "EN_PROCESO":
-        from app.core.organizacion import de_sesion
-
-        trabajos.lanzar(trabajo_id, user.id, de_sesion(db) or user.organizacion_id)
+        trabajos.lanzar(trabajo_id)  # si otro ejecutor ya lo tomó (petición repetida, otra instancia), no hace nada
     return r
 
 

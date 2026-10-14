@@ -465,6 +465,7 @@ def generar(db: Session, user: Usuario, pedido: dict) -> dict:
             inicio, prefijo = reservar(db, serie, g.cantidad)
             valores["_serie"] = {"serie": serie.codigo, "prefijo": prefijo, "digitos": serie.digitos, "inicio": inicio}
         it = GeneracionItem(generacion_id=g0.id, plantilla_id=g.version.plantilla_id, version_id=g.version.id,
+                            trabajo_registro_id=(pedido.get("_registros") or {}).get(g.clave),
                             articulo_id=g.articulo.id if g.articulo else None, posicion_id=g.posicion.id if g.posicion else None,
                             familia_id=fam, referencia=g.referencia[:120], cantidad=g.cantidad, valores=valores,
                             motivo=(g.eleccion.motivo or "")[:200] if g.eleccion else None)

@@ -250,6 +250,12 @@ class TrabajoEtiquetas(DeOrganizacion, Base):
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     validado_en: Mapped[datetime | None] = mapped_column(DateTime)
     generado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    # Ejecución en segundo plano (trabajos.py): quién la tiene tomada y hasta cuándo.
+    # Otro proceso solo la toma cuando el arriendo venció (el que la tenía se detuvo)
+    ejecutor: Mapped[str | None] = mapped_column(String(80))
+    arriendo_hasta: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    latido_en: Mapped[datetime | None] = mapped_column(DateTime)
+    intentos: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     registros: Mapped[list["TrabajoRegistro"]] = relationship(
         back_populates="trabajo", cascade="all, delete-orphan", order_by="TrabajoRegistro.orden")
@@ -340,5 +346,8 @@ class GeneracionItem(DeOrganizacion, Base):
     cantidad: Mapped[int] = mapped_column(Integer)
     valores: Mapped[dict] = mapped_column(JSON, default=dict)  # instantánea: campo → valor
     motivo: Mapped[str | None] = mapped_column(String(200))  # por qué se eligió esa plantilla
+    # El registro del trabajo que produjo este grupo: único, así un registro nunca se genera dos veces
+    trabajo_registro_id: Mapped[int | None] = mapped_column(
+        ForeignKey("trabajo_etiqueta_registros.id", ondelete="SET NULL"), unique=True)
 
     generacion: Mapped[GeneracionEtiquetas] = relationship(back_populates="items")

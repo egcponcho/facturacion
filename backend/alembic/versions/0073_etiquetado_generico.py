@@ -210,7 +210,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['regla_id'], ['asignaciones_etiqueta.id'], ondelete='SET NULL',
                             name='fk_trabajo_etiqueta_registros_regla_id_asignaciones_etiqueta'),
     sa.ForeignKeyConstraint(['generacion_id'], ['generaciones_etiqueta.id'], ondelete='SET NULL',
-                            name='fk_trabajo_etiqueta_registros_generacion_id_generaciones_etiqueta'),
+                            name='fk_trabajo_etiqueta_registros_generacion_id_generaciones'),
     sa.ForeignKeyConstraint(['trabajo_id', 'organizacion_id'], ['trabajos_etiqueta.id', 'trabajos_etiqueta.organizacion_id'],
                             name='fk_trabajo_etiqueta_registros_trabajo_id_org'),
     sa.ForeignKeyConstraint(['generacion_id', 'organizacion_id'],
