@@ -62,6 +62,14 @@ TIPOS = {("ARTICULO", "POR_UNIDAD"): ("ART-UNIDAD", "Item label (one per unit)")
          ("BULTO", "POR_BULTO"): ("BULTO", "Package label"),
          ("DOCUMENTO", "POR_DOCUMENTO"): ("DOCUMENTO", "Document label"),
          ("DOCUMENTO", "MANUAL"): ("DOC-MANUAL", "Document label (quantity written by hand)")}
+# Las restricciones de asignaciones_etiqueta en 0075 (las de 0073), para el downgrade
+AMBITOS_0075 = "ambito IN ('GENERAL', 'FAMILIA', 'PRODUCTO', 'ARTICULO', 'OC', 'REGLA')"
+DESTINO_0075 = ("(ambito IN ('GENERAL', 'REGLA') AND familia_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL"
+                " AND oc_id IS NULL)"
+                " OR (ambito = 'FAMILIA' AND familia_id IS NOT NULL AND producto_id IS NULL AND articulo_id IS NULL AND oc_id IS NULL)"
+                " OR (ambito = 'PRODUCTO' AND producto_id IS NOT NULL AND familia_id IS NULL AND articulo_id IS NULL AND oc_id IS NULL)"
+                " OR (ambito = 'ARTICULO' AND articulo_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL AND oc_id IS NULL)"
+                " OR (ambito = 'OC' AND oc_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL)")
 PRIORIDAD_NIVEL = {"OC": 500, "SKU": 400, "PRODUCTO": 300, "TIPO_EMPAQUE": 250, "FAMILIA": 200, "GENERAL": 100}
 
 
@@ -501,9 +509,24 @@ def downgrade() -> None:
     sa.ForeignKeyConstraint(['articulo_id'], ['articulos.id']),
     sa.ForeignKeyConstraint(['oc_id'], ['ordenes_compra.id']),
     sa.ForeignKeyConstraint(['creada_por'], ['usuarios.id']),
+    sa.ForeignKeyConstraint(['actualizada_por'], ['usuarios.id'], name='fk_asignaciones_etiqueta_actualizada_por_usuarios'),
+    *[sa.ForeignKeyConstraint([col, 'organizacion_id'], [f'{padre}.id', f'{padre}.organizacion_id'],
+                              name=f'fk_asignaciones_etiqueta_{col}_org')
+      for col, padre in (('plantilla_id', 'plantillas_etiqueta'), ('familia_id', 'familias_etiquetado'), ('producto_id', 'productos'),
+                         ('articulo_id', 'articulos'), ('oc_id', 'ordenes_compra'))],
+    sa.CheckConstraint(AMBITOS_0075, name='ck_asignaciones_etiqueta_ambito'),
+    sa.CheckConstraint(DESTINO_0075, name='ck_asignaciones_etiqueta_destino'),
+    sa.CheckConstraint('vigente_hasta IS NULL OR vigente_desde IS NULL OR vigente_hasta >= vigente_desde',
+                       name='ck_asignaciones_etiqueta_vigencia'),
+    sa.CheckConstraint('prioridad BETWEEN 0 AND 100000', name='ck_asignaciones_etiqueta_prioridad'),
     sa.PrimaryKeyConstraint('id', name='pk_asignaciones_etiqueta'),
     sa.UniqueConstraint('id', 'organizacion_id', name='uq_asignaciones_etiqueta_id_org'),
     )
+    # Los índices que tenía en 0075 (0070 y 0073)
+    with op.batch_alter_table('asignaciones_etiqueta', schema=None) as b:
+        for col in ('articulo_id', 'familia_id', 'oc_id', 'organizacion_id', 'plantilla_id', 'producto_id', 'prioridad'):
+            b.create_index(f'ix_asignaciones_etiqueta_{col}', [col], unique=False)
+        b.create_index('ix_asignaciones_etiqueta_destino', ['ambito', 'familia_id', 'producto_id', 'articulo_id', 'oc_id'], unique=False)
     a_ambito = {"GENERAL": "GENERAL", "FAMILIA": "FAMILIA", "PRODUCTO": "PRODUCTO", "SKU": "ARTICULO"}
     for u in con.execute(sa.text("SELECT * FROM usos_diseno WHERE eliminado_en IS NULL ORDER BY id")).mappings().all():
         ambito = "OC" if u["contexto_tipo"] == "OC" else a_ambito.get(u["nivel"], "REGLA")

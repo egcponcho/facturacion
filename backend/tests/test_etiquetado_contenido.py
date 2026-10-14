@@ -8,6 +8,7 @@ import io
 import zipfile
 
 import pytest
+from etiquetado_util import aprobada, cambiar, generado, oc_con_articulos, tipo, trabajo, uso
 from PIL import Image
 from sqlalchemy import select
 
@@ -18,41 +19,27 @@ from app.modulos.etiquetado import diseno, render
 zxingcpp = pytest.importorskip("zxingcpp")
 
 
-def _aprobada(interno, admin, nombre, elementos, modalidad="OC_ARTICULO", ancho=100, alto=60):
-    r = interno.post("/etiquetas/plantillas", {"nombre": nombre, "modalidad": modalidad,
-                                               "diseno": {"ancho": ancho, "alto": alto, "elementos": elementos}})
-    assert r.status_code == 200, r.text
-    v = r.json()["versiones"][0]
-    assert interno.post(f"/etiquetas/versiones/{v['id']}/enviar", {}).status_code == 200
-    assert admin.post(f"/etiquetas/versiones/{v['id']}/aprobar", {}).status_code == 200
-    return r.json()
+def _aprobada(interno, admin, nombre, elementos, sujeto="ARTICULO", cantidad="POR_LINEA", ancho=100, alto=60):
+    """Un tipo de etiqueta propio de la prueba con este diseño aprobado como el de toda la empresa."""
+    t = tipo(interno, f"CONT_{nombre.upper().replace(' ', '_')[:20]}", sujeto=sujeto, cantidad=cantidad)
+    p = aprobada(interno, admin, nombre, t["id"], elementos, ancho=ancho, alto=alto)
+    uso(interno, t["id"], p["id"])
+    return t, p
 
 
 @pytest.fixture(scope="module")
 def linea(interno):
-    for o in interno.get("/ordenes", params={"solo_disponible": False, "size": 100}).json()["items"]:
-        r = interno.get(f"/etiquetas/oc/{o['id']}").json()
-        for x in r["lineas"]:
-            if x["articulo_id"] and not x["bloqueada"]:
-                return {**x, "oc_id": r["oc"]["id"], "oc": r["oc"]["numero"]}
-    pytest.skip("no PO line with an item")
+    d = oc_con_articulos(interno, minimo=1)
+    x = d["lineas"][0]
+    return {**x, "oc_id": d["oc"]["id"], "oc": d["oc"]["numero"]}
 
 
 @pytest.fixture
 def limpiar(interno):
-    reglas, campos_ = [], []
-    yield reglas, campos_
-    for i in reglas:
-        interno.c.delete(f"/api/etiquetas/asignaciones/{i}", headers=interno.h)
+    campos_ = []
+    yield campos_
     for i in campos_:
         interno.c.delete(f"/api/etiquetas/campos-logicos/{i}", headers=interno.h)
-
-
-def _solo_esta(interno, limpiar, plantilla_id, condicion, prioridad=5000):
-    r = interno.post("/etiquetas/asignaciones", {"plantilla_id": plantilla_id, "ambito": "REGLA", "prioridad": prioridad,
-                                                 "condiciones": [condicion]})
-    assert r.status_code == 200, r.text
-    limpiar[0].append(r.json()["id"])
 
 
 # ---- Tablas (motor de dibujo) ------------------------------------------------------------------
@@ -146,13 +133,13 @@ def test_campos_logicos_precedencia_politica_y_procedencia(interno, admin, linea
                                                    "fuentes": ["linea.upc", "articulo.upc"], "politica": "ADVERTIR"})
     assert r.status_code == 200, r.text
     campo = r.json()
-    limpiar[1].append(campo["id"])
+    limpiar.append(campo["id"])
     # Validación: fuentes que no existen, clave inválida, repetida
     assert interno.post("/etiquetas/campos-logicos", {"clave": "x", "etiqueta": "X", "fuentes": ["no.existe"]}).status_code == 422
     assert interno.post("/etiquetas/campos-logicos", {"clave": "Mal Clave", "etiqueta": "X", "fuentes": ["articulo.upc"]}).status_code == 422
     assert interno.post("/etiquetas/campos-logicos", {"clave": "upc_etq", "etiqueta": "X", "fuentes": ["articulo.upc"]}).status_code == 422
-    # Está en el catálogo de campos de las etiquetas
-    catalogo = {c["clave"]: c for c in interno.get("/etiquetas/campos", params={"modalidad": "OC_ARTICULO"}).json()["campos"]}
+    # Está en el catálogo de campos de las etiquetas de artículo
+    catalogo = {c["clave"]: c for c in interno.get("/etiquetas/campos", params={"sujeto": "ARTICULO"}).json()["campos"]}
     assert "logico.upc_etq" in catalogo and "linea.upc → articulo.upc" in catalogo["logico.upc_etq"]["origen"]
 
     with SessionLocal() as db, en_organizacion(1):
@@ -165,36 +152,42 @@ def test_campos_logicos_precedencia_politica_y_procedencia(interno, admin, linea
         db.commit()
     try:
         texto = [{"id": "u", "tipo": "texto", "contenido": "UPC {{logico.upc_etq}}", "x": 2, "y": 2, "w": 90, "h": 8}]
-        dis = _aprobada(interno, admin, "Logical field design", texto)
-        _solo_esta(interno, limpiar, dis["id"], {"campo": "linea.posicion", "op": "igual", "valor": linea["posicion"]})
-        base = {"oc_id": linea["oc_id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA", "posiciones": [linea["id"]]}
-        g = interno.post("/etiquetas/plan", base).json()["grupos"][0]
+        t_, dis = _aprobada(interno, admin, "Logical field design", texto)
+        base = {"oc_ids": [linea["oc_id"]], "tipos": [t_["id"]], "posiciones": [linea["id"]]}
+
+        def registro():
+            t = trabajo(interno, "OC", base)
+            r = t["registros"][0]
+            pv = interno.get(f"/etiquetas/trabajos/{t['id']}/registros/{r['id']}/vista-previa").json()
+            return t, r, pv
+
         # Sin UPC en la línea sale del artículo, y se dice de dónde
-        assert g["plantilla"] == "Logical field design" and g["procedencia"]["logico.upc_etq"] == "articulo.upc"
+        _, r, pv = registro()
+        assert r["plantilla"] == "Logical field design" and pv["procedencia"]["logico.upc_etq"] == "articulo.upc"
         # Fuentes con valores distintos: ADVERTIR avisa, BLOQUEAR impide generar
         with SessionLocal() as db, en_organizacion(1):
             db.get(PosicionOC, linea["id"]).upc = "999999999999"
             db.commit()
-        g = interno.post("/etiquetas/plan", base).json()["grupos"][0]
-        assert g["procedencia"]["logico.upc_etq"] == "linea.upc"
-        aviso = [x for x in g["problemas"] if x["codigo"] == "fuentes_distintas"]
+        _, r, pv = registro()
+        assert pv["procedencia"]["logico.upc_etq"] == "linea.upc"
+        aviso = [x for x in r["problemas"] if x["codigo"] == "fuentes_distintas"]
         assert aviso and aviso[0]["nivel"] == "advertencia" and aviso[0]["categoria"] == "conflicto"
         r = interno.patch(f"/etiquetas/campos-logicos/{campo['id']}", {"politica": "BLOQUEAR", "version": campo["version"]})
         assert r.status_code == 200, r.text
         assert interno.patch(f"/etiquetas/campos-logicos/{campo['id']}", {"politica": "PRIMERA", "version": campo["version"]}).status_code == 409
-        g = interno.post("/etiquetas/plan", base).json()["grupos"][0]
-        assert [x["nivel"] for x in g["problemas"] if x["codigo"] == "fuentes_distintas"] == ["error"]
+        _, r, _ = registro()
+        assert [x["nivel"] for x in r["problemas"] if x["codigo"] == "fuentes_distintas"] == ["error"]
         # PRIMERA: usa el primero sin avisar; la instantánea guarda la procedencia
         interno.patch(f"/etiquetas/campos-logicos/{campo['id']}", {"politica": "PRIMERA"})
-        gen = interno.post("/etiquetas/generaciones", {**base, "formato": "PDF", "aceptar_advertencias": True})
-        assert gen.status_code == 200, gen.text
+        t, _, _ = registro()
+        gen = generado(interno, t)["ejecuciones"][0]
         with SessionLocal() as db, en_organizacion(1):
-            it = db.scalars(select(GeneracionItem).where(GeneracionItem.generacion_id == gen.json()["id"])).one()
+            it = db.scalars(select(GeneracionItem).where(GeneracionItem.generacion_id == gen["id"])).one()
             assert it.valores["logico.upc_etq"] == "999999999999" and it.valores["_procedencia"] == {"logico.upc_etq": "linea.upc"}
         # Un campo que usa un diseño no se borra
         assert interno.c.delete(f"/api/etiquetas/campos-logicos/{campo['id']}", headers=interno.h).status_code == 409
         interno.patch(f"/etiquetas/campos-logicos/{campo['id']}", {"activo": False})
-        limpiar[1].remove(campo["id"])
+        limpiar.remove(campo["id"])
     finally:
         with SessionLocal() as db, en_organizacion(1):
             db.get(PosicionOC, linea["id"]).upc = antes
@@ -202,16 +195,18 @@ def test_campos_logicos_precedencia_politica_y_procedencia(interno, admin, linea
 
 
 # ---- Identificador controlado ---------------------------------------------------------------------------
-def test_serie_controlada_sin_repetir_y_reproducible(interno, admin, linea, limpiar):
+def test_serie_controlada_sin_repetir_y_reproducible(interno, admin, linea):
     elementos = [{"id": "c", "tipo": "codigo", "simbologia": "code128", "x": 2, "y": 2, "w": 96, "h": 26, "margen": 2,
                   "partes": [{"tipo": "fijo", "texto": "LBL"}, {"campo": "etiqueta.serie"}], "separador": "-"}]
-    dis = _aprobada(interno, admin, "Controlled ID design", elementos, ancho=100, alto=30)
-    _solo_esta(interno, limpiar, dis["id"], {"campo": "linea.posicion", "op": "igual", "valor": linea["posicion"]}, 5100)
-    base = {"oc_id": linea["oc_id"], "modalidad": "OC_ARTICULO", "unidad": "MANUAL", "posiciones": [linea["id"]],
-            "cantidades": {str(linea["id"]): 3}}
+    t_, _ = _aprobada(interno, admin, "Controlled ID design", elementos, cantidad="MANUAL", ancho=100, alto=30)
+
+    def nuevo():
+        t = trabajo(interno, "OC", {"oc_ids": [linea["oc_id"]], "tipos": [t_["id"]], "posiciones": [linea["id"]]})
+        return cambiar(interno, t, {"cantidades": {t["registros"][0]["clave"]: 3}})
+
     # Sin serie de etiquetas configurada no se genera
-    g = interno.post("/etiquetas/plan", base).json()["grupos"][0]
-    assert any(x["codigo"] == "sin_serie" and x["categoria"] == "configuracion" for x in g["problemas"])
+    r = nuevo()["registros"][0]
+    assert any(x["codigo"] == "sin_serie" and x["categoria"] == "configuracion" for x in r["problemas"])
     r = admin.post("/catalogos/series", {"codigo": "ETQ", "nombre": "Labels", "objeto": "etiqueta", "prefijo": "E{año}-",
                                         "digitos": 6, "reinicio": "NUNCA", "predeterminada": True, "activo": True})
     assert r.status_code == 200, r.text
@@ -224,23 +219,22 @@ def test_serie_controlada_sin_repetir_y_reproducible(interno, admin, linea, limp
                 res += [x.text for x in zxingcpp.read_barcodes(im.convert("L"))]
         return res
 
-    g1 = interno.post("/etiquetas/generaciones", {**base, "formato": "ZIP", "aceptar_advertencias": True})
-    assert g1.status_code == 200, g1.text
-    g2 = interno.post("/etiquetas/generaciones", {**base, "formato": "ZIP", "aceptar_advertencias": True}).json()
-    primeros, segundos = leer(g1.json()["id"]), leer(g2["id"])
+    g1 = generado(interno, nuevo(), formato="ZIP")["ejecuciones"][0]
+    g2 = generado(interno, nuevo(), formato="ZIP")["ejecuciones"][0]
+    primeros, segundos = leer(g1["id"]), leer(g2["id"])
     assert len(primeros) == 3 and len(set(primeros + segundos)) == 6, (primeros, segundos)
     numeros = [int(x.rsplit("-", 1)[1]) for x in primeros + segundos]
     assert numeros == list(range(numeros[0], numeros[0] + 6)) and all(x.startswith("LBL-E") for x in primeros)
     # Descargar de nuevo da los mismos números (no se vuelven a reservar)
-    assert leer(g1.json()["id"]) == primeros
+    assert leer(g1["id"]) == primeros
 
 
 # ---- Bulto: contenido, componentes y planificado vs declarado ---------------------------------------
-def test_bulto_contenido_componentes_y_empaque_planificado(interno, admin, limpiar):
+def test_bulto_contenido_componentes_y_empaque_planificado(interno, admin):
     from app.modelos import Articulo, GrupoCajas, PackingList, PosicionOC, Prepack, PrepackComponente
 
-    pls = interno.get("/etiquetas/masivo/packing").json()
-    con = [x for x in pls if interno.get(f"/etiquetas/masivo/packing/{x['id']}").json()["superiores"]]
+    pls = interno.get("/etiquetas/packing").json()
+    con = [x for x in pls if x["etiquetas_reales"] and interno.get(f"/etiquetas/packing/{x['id']}").json()["superiores"]]
     if not con:
         pytest.skip("no packing lists with packages")
     pl_id = con[0]["id"]
@@ -274,19 +268,19 @@ def test_bulto_contenido_componentes_y_empaque_planificado(interno, admin, limpi
         tabla = {"id": "t", "tipo": "tabla", "coleccion": "bulto.componentes", "x": 2, "y": 2, "w": 96, "h": 50, "alto_fila": 5,
                  "columnas": [{"campo": "sku", "titulo": "SKU", "ancho": 3}, {"campo": "cantidad", "titulo": "Qty"}],
                  "totales": ["cantidad"], "desborde": "resumir"}
-        dis = _aprobada(interno, admin, "Package contents design", [tabla])
-        _solo_esta(interno, limpiar, dis["id"], {"campo": "contexto.origen", "op": "igual", "valor": "PACKING"}, 5200)
-        pedido = {"pl_id": pl_id, "modalidad": "OC_ARTICULO", "unidad": "BULTO", "tipo_empaque_id": tipo}
-        plan = interno.post("/etiquetas/plan", pedido).json()
-        assert all(x["plantilla"] == "Package contents design" for x in plan["grupos"]), plan["grupos"][0]
+        t_, _ = _aprobada(interno, admin, "Package contents design", [tabla], sujeto="BULTO", cantidad="POR_BULTO")
+        pedido = {"pl_id": pl_id, "tipos": [t_["id"]], "tipo_empaque_id": tipo}
+        plan = trabajo(interno, "PACKING", pedido)
+        assert all(x["plantilla"] == "Package contents design" for x in plan["registros"]), plan["registros"][0]
         if es_bulto:
-            g = next(x for x in plan["grupos"] if any(p["codigo"] == "casepack_distinto" for p in x["problemas"]))
+            g = next(x for x in plan["registros"] if any(p["codigo"] == "casepack_distinto" for p in x["problemas"]))
             aviso = next(p for p in g["problemas"] if p["codigo"] == "casepack_distinto")
             assert aviso["categoria"] == "inconsistencia" and f"Line {posicion}" in aviso["mensaje"] and f"{q:g}" in aviso["mensaje"]
-        # La tabla reparte el kit en sus componentes (cantidad del componente × paquetes)
-        r = interno.post("/etiquetas/reglas/probar", {"modalidad": "OC_ARTICULO", "pl_id": pl_id, "bulto": 1, "tipo_empaque_id": tipo})
+        # El diseño de cada caja y por qué (el mismo resolvedor que la generación)
+        r = interno.get("/etiquetas/resolver", params={"sujeto": "BULTO", "tipo_empaque_id": tipo})
         assert r.status_code == 200, r.text
-        assert r.json()["plantilla"] == "Package contents design"
+        assert next(x for x in r.json()["elecciones"] if x["tipo_etiqueta_id"] == t_["id"])["plantilla"] == "Package contents design"
+        # La tabla reparte el kit en sus componentes (cantidad del componente × paquetes)
         with SessionLocal() as db, en_organizacion(1):
             from app.modulos.etiquetado import campos
 
@@ -300,8 +294,8 @@ def test_bulto_contenido_componentes_y_empaque_planificado(interno, admin, limpi
             for c in db.scalars(select(PrepackComponente).where(PrepackComponente.prepack_id == pp_id)):
                 db.delete(c)
             db.commit()
-        plan = interno.post("/etiquetas/plan", pedido).json()
-        assert any(p["codigo"] == "prepack_sin_componentes" for x in plan["grupos"] for p in x["problemas"])
+        plan = trabajo(interno, "PACKING", pedido)
+        assert any(p["codigo"] == "prepack_sin_componentes" for x in plan["registros"] for p in x["problemas"])
     finally:
         with SessionLocal() as db, en_organizacion(1):
             p = db.scalars(select(PosicionOC).where(PosicionOC.posicion == posicion, PosicionOC.id == pos.id)).one()

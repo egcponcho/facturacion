@@ -1,5 +1,10 @@
 # Etiquetado genérico: auditoría, rediseño e implementación
 
+> **Historial.** Este documento describe la etapa anterior (reglas con
+> prioridad numérica, `asignaciones_etiqueta`, asistente de seis pasos). El
+> modelo vigente (tipos de etiqueta, usos de diseño por celda y asistente de
+> tres pasos) está en `docs/ETIQUETADO.md`.
+
 Este documento sigue el orden pedido: **auditar → documentar → diseñar →
 validar el plan → implementar → migrar → probar → documentar**. Las
 secciones 1 a 9 se escribieron antes de modificar el código. La sección 10

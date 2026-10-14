@@ -644,7 +644,9 @@ def generar(db: Session, user: Usuario, trabajo_id: int, opciones: dict) -> dict
     generables = [r for r in pendientes if r.estado in ("LISTO", "ADVERTENCIA") and r.cantidad > 0]
     con_error = [r for r in pendientes if r.estado == "ERROR"]
     if not pendientes:
-        raise ErrorNegocio("Everything in this labeling job was already generated.", 409, "ya_generado")
+        if any(r.estado == "GENERADO" for r in t.registros):
+            raise ErrorNegocio("Everything in this labeling job was already generated.", 409, "ya_generado")
+        raise ErrorNegocio("There is nothing to generate in this labeling job.", 422, "etiquetas_con_errores")
     parcial = bool(opciones.get("parcial"))
     if con_error and not (parcial and regla("ETIQUETAS_GENERACION_PARCIAL")):
         raise ErrorNegocio("Some records have errors: fix them or generate only the ready ones." if regla("ETIQUETAS_GENERACION_PARCIAL")

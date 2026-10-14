@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 
 import pytest
 from conftest import Api
+from etiquetado_util import aprobada, tipo, uso
 from sqlalchemy import func, select, text
 
 from app.core.db import SessionLocal, engine
@@ -29,22 +30,20 @@ DISENO = {"ancho": 50, "alto": 20, "elementos": [{"id": "s", "tipo": "campo", "c
 
 @pytest.fixture(scope="module")
 def regla(interno, admin):
-    p = interno.post("/etiquetas/plantillas", {"nombre": "Durable job design", "modalidad": "OC_ARTICULO", "diseno": DISENO}).json()
-    v = p["versiones"][0]["id"]
-    assert interno.post(f"/etiquetas/versiones/{v}/enviar", {}).status_code == 200
-    assert admin.post(f"/etiquetas/versiones/{v}/aprobar", {}).status_code == 200
-    r = interno.post("/etiquetas/asignaciones", {"plantilla_id": p["id"], "ambito": "REGLA", "prioridad": 9990, "nombre": "Durable",
-                                                 "condiciones": [{"campo": "contexto.origen", "op": "igual", "valor": "OC"}]}).json()
-    yield p
-    interno.c.delete(f"/api/etiquetas/asignaciones/{r['id']}", headers=interno.h)
+    """El tipo de etiqueta de estas pruebas con su diseño aprobado en toda la empresa."""
+    t = tipo(interno, "DUR_LINEA")
+    p = aprobada(interno, admin, "Durable job design", t["id"], DISENO["elementos"], ancho=DISENO["ancho"], alto=DISENO["alto"])
+    uso(interno, t["id"], p["id"])
+    return {"tipo": t, "plantilla": p}
 
 
 @pytest.fixture(scope="module")
 def ordenes(interno):
     res = []
     for o in interno.get("/ordenes", params={"solo_disponible": False, "size": 100}).json()["items"]:
-        lineas = [x for x in interno.get(f"/etiquetas/oc/{o['id']}").json()["lineas"] if x["articulo_id"] and not x["bloqueada"]]
-        if lineas:
+        d = interno.get(f"/ordenes/{o['id']}").json()
+        lineas = [x for x in d["posiciones"] if x.get("codigo_articulo")]
+        if d["oc"]["estado"] != "BORRADOR" and lineas:
             res.append({"id": o["id"], "lineas": lineas})
         if len(res) == 2:
             return res
@@ -54,7 +53,8 @@ def ordenes(interno):
 def _en_proceso(interno, ordenes, monkeypatch, n=2):
     """Un trabajo que generar() deja EN_PROCESO para el segundo plano, sin que este proceso lo tome."""
     t = interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {
-        "oc_ids": [o["id"] for o in ordenes[:n]], "posiciones": [o["lineas"][0]["id"] for o in ordenes[:n]]}}).json()
+        "oc_ids": [o["id"] for o in ordenes[:n]], "posiciones": [o["lineas"][0]["id"] for o in ordenes[:n]],
+        "tipos": [tipo(interno, "DUR_LINEA")["id"]]}}).json()
     from app.core import empresa
 
     real = empresa.regla
@@ -166,9 +166,10 @@ def test_un_registro_no_se_genera_dos_veces(interno, regla, ordenes, monkeypatch
             t = db.get(TrabajoEtiquetas, tid)
             prefijo, pedido = trabajos._partes(db, t)[0]
             interna = regs[0].clave.split(":", 1)[1]
+            grupos = [g for g in generacion.planear(db, user, pedido, solo={interna})["_grupos"] if g.clave == interna]
             with pytest.raises(IntegrityError):
-                generacion.generar(db, user, {**pedido, "formato": "PDF", "aceptar_advertencias": True, "_solo_claves": {interna},
-                                              "_registros": {interna: regs[0].id}, "_trabajo_id": tid, "_sin_limite": True})
+                generacion.producir(db, user, grupos, {**pedido, "formato": "PDF", "_registros": {interna: regs[0].id},
+                                                       "_trabajo_id": tid})
             db.rollback()
         finally:
             db.close()
@@ -208,14 +209,14 @@ def test_reinicio_otra_instancia_retoma_y_no_roba_un_arriendo_vigente(interno, r
 
 def test_error_en_una_parte_deja_parcial_y_el_reintento_completa(interno, regla, ordenes, monkeypatch):
     tid = _en_proceso(interno, ordenes, monkeypatch)
-    original, llamadas = generacion.generar, []
+    original, llamadas = generacion.producir, []
 
-    def falla_la_segunda(db, user, pedido):
+    def falla_la_segunda(db, user, grupos, pedido):
         llamadas.append(pedido.get("oc_id"))
         if len(llamadas) == 2:
             raise RuntimeError("printer driver exploded")
-        return original(db, user, pedido)
-    monkeypatch.setattr(generacion, "generar", falla_la_segunda)
+        return original(db, user, grupos, pedido)
+    monkeypatch.setattr(generacion, "producir", falla_la_segunda)
     with SessionLocal() as db:
         ficha = trabajos._tomar(db, tid)
     trabajos.ejecutar_tomado(tid, ficha)
@@ -244,7 +245,8 @@ def test_intentos_agotados_quedan_en_error(interno, regla, ordenes, monkeypatch)
 
 def test_reintentos_simultaneos_no_duplican(interno, regla, ordenes):
     t = interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {
-        "oc_ids": [o["id"] for o in ordenes], "posiciones": [o["lineas"][0]["id"] for o in ordenes]}}).json()
+        "oc_ids": [o["id"] for o in ordenes], "posiciones": [o["lineas"][0]["id"] for o in ordenes],
+        "tipos": [regla["tipo"]["id"]]}}).json()
     interno.post(f"/etiquetas/trabajos/{t['id']}/validar")
     resultados, barrera = [], threading.Barrier(3)
 
@@ -292,7 +294,8 @@ def otra_org(client, admin):
 def test_otra_organizacion_no_ve_ni_descarga_ni_retoma(interno, regla, ordenes, otra_org):
     org, otra = otra_org
     t = interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {"oc_ids": [ordenes[0]["id"]],
-                                                                            "posiciones": [ordenes[0]["lineas"][0]["id"]]}}).json()
+                                                                            "posiciones": [ordenes[0]["lineas"][0]["id"]],
+                                                                            "tipos": [regla["tipo"]["id"]]}}).json()
     g = interno.post(f"/etiquetas/trabajos/{t['id']}/generar", {"aceptar_advertencias": True}).json()
     assert g["estado"] == "GENERADO"
     reg, ejec = g["registros"][0], g["ejecuciones"][0]
@@ -314,7 +317,7 @@ def test_otra_organizacion_no_ve_ni_descarga_ni_retoma(interno, regla, ordenes, 
 
 def test_seguridad_por_fila_de_los_trabajos_en_postgresql(interno, regla, ordenes, otra_org):
     """Aun con SQL escrito a mano, otra organización no lee ni escribe trabajos,
-    registros, campos lógicos ni reglas ajenos, y las llaves de coherencia
+    registros, campos lógicos, tipos ni usos de diseño ajenos, y las llaves de coherencia
     impiden enlazar un registro con una OC de otra organización."""
     if engine.dialect.name != "postgresql":
         pytest.skip("RLS solo existe en PostgreSQL")
@@ -326,14 +329,14 @@ def test_seguridad_por_fila_de_los_trabajos_en_postgresql(interno, regla, ordene
         una_oc = con.execute(text("SELECT id FROM ordenes_compra WHERE organizacion_id = 1 LIMIT 1")).scalar()
     with engine.begin() as con:
         con.execute(fijar, {"o": str(org["id"])})
-        for tabla in ("trabajos_etiqueta", "trabajo_etiqueta_registros", "asignaciones_etiqueta", "generacion_items",
+        for tabla in ("trabajos_etiqueta", "trabajo_etiqueta_registros", "usos_diseno", "tipos_etiqueta", "generacion_items",
                       "generaciones_etiqueta"):
             assert con.execute(text(f"SELECT count(*) FROM {tabla}")).scalar() == 0, tabla
         assert con.execute(text("UPDATE trabajos_etiqueta SET nombre = 'x' WHERE id = :i"), {"i": un_trabajo}).rowcount == 0
     with pytest.raises(Exception, match="row-level security"):
         with engine.begin() as con:
             con.execute(fijar, {"o": str(org["id"])})
-            con.execute(text("INSERT INTO campos_etiqueta (clave, etiqueta, tipo, fuentes, politica, modalidades, activo, creado_en,"
+            con.execute(text("INSERT INTO campos_etiqueta (clave, etiqueta, tipo, fuentes, politica, sujetos, activo, creado_en,"
                              " version, organizacion_id) VALUES ('x', 'x', 'texto', '[]', 'PRIMERA', '[]', true, now(), 1, 1)"))
     # Sin RLS de por medio (mantenimiento), la llave de coherencia sigue impidiendo mezclar organizaciones
     with pytest.raises(Exception, match="fk_trabajos_etiqueta|fk_trabajo_etiqueta_registros_oc_id_org|foreign key"):

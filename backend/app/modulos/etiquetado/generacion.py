@@ -20,6 +20,7 @@ import math
 import zipfile
 from dataclasses import dataclass, field
 from datetime import date
+from types import SimpleNamespace
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -39,7 +40,7 @@ from app.modelos import (
     Usuario,
     VersionPlantilla,
 )
-from app.modulos.acceso.permisos import exigir, proveedor_filtro
+from app.modulos.acceso.permisos import exigir, proveedor_filtro, tiene
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import campos, datos, familias, plantillas, reglas, render, salidas
 from app.modulos.etiquetado import diseno as svc_diseno
@@ -316,6 +317,8 @@ def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo
 
     exigir(user, "etiquetas.generar")
     prueba = bool(pedido.get("prueba"))
+    # En prueba, las versiones sin aprobar solo las usa quien diseña; los demás prueban con las aprobadas
+    borradores = tiene(user, "etiquetas.disenar")
     oc, pl, grupos, generales = armar(db, user, pedido)
     if solo is not None:
         grupos = [g for g in grupos if g.clave in solo]
@@ -351,7 +354,7 @@ def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo
             if p is None or p.tipo_etiqueta_id != g.tipo.id or p.estado != "ACTIVA":
                 g.problema("error", "sin_plantilla", "The chosen design is not of this label type or is archived.")
                 continue
-            uso = type("UsoElegido", (), {"plantilla": p, "id": None, "motivo": None})()
+            uso = SimpleNamespace(plantilla=p, id=None, motivo=None)
             g.eleccion = reglas.Eleccion(g.tipo, uso, {"clase": "elegida"})
         else:
             s = reglas.Sujeto(sujeto, articulo=g.articulo, oc=g.oc, tipo_empaque_id=g.bulto.tipo_empaque_id if g.bulto else None,
@@ -367,12 +370,12 @@ def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo
             continue
         g.problemas += de_fuentes
         if not dibujar:
-            if e.plantilla.version_vigente_id is None and not prueba:
+            if e.plantilla.version_vigente_id is None and not (prueba and borradores):
                 g.problema("error", "sin_plantilla", "The design has no approved version.")
             continue
-        g.version = _version_de(db, e.plantilla, prueba)
+        g.version = _version_de(db, e.plantilla, prueba and borradores)
         if g.version is None:
-            g.problema("error", "sin_plantilla", "The design has no approved version." if not prueba
+            g.problema("error", "sin_plantilla", "The design has no approved version." if not (prueba and borradores)
                        else "The design has no version that can be tested (they are rejected or archived).")
             continue
         if g.posicion is not None and g.articulo is None:

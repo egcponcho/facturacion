@@ -251,7 +251,8 @@ def _usos_celda(db: Session, celda: str, bloquear: bool = False) -> list[UsoDise
 
 
 def _revisar_cruces(db: Session, u: UsoDiseno) -> None:
-    for otro in _usos_celda(db, u.celda):
+    """Antes de escribir (así el choque se explica, no lo rechaza la base con un error genérico)."""
+    for otro in _usos_celda(db, u.celda, bloquear=True):
         if otro.id != u.id and _se_cruzan(u, otro):
             if u.contexto_tipo == "NINGUNO":
                 raise ErrorNegocio("This place already has a normal design: change it instead of adding another.", 409,
@@ -269,9 +270,9 @@ def _foto(u: UsoDiseno) -> dict:
 # ---- Escritura -------------------------------------------------------------------------------
 def _nuevo(db: Session, user: Usuario, datos: dict) -> UsoDiseno:
     u = UsoDiseno(**_limpiar(db, user, datos), creado_por=user.id, version=1)
+    _revisar_cruces(db, u)
     db.add(u)
     db.flush()
-    _revisar_cruces(db, u)
     registrar(db, user, "uso_diseno", u.id, "crear", _foto(u), u.motivo)
     return u
 
@@ -283,10 +284,11 @@ def _editar(db: Session, user: Usuario, u: UsoDiseno, datos: dict) -> UsoDiseno:
     cambios = {k: [antes[k], v] for k, v in _foto(u).items() if antes[k] != v}
     if not cambios:
         return u
+    with db.no_autoflush:
+        _revisar_cruces(db, u)
     u.version += 1
     u.actualizado_por, u.actualizado_en = user.id, datetime.now()
     db.flush()
-    _revisar_cruces(db, u)
     registrar(db, user, "uso_diseno", u.id, "editar", cambios, datos.get("motivo_cambio"))
     return u
 

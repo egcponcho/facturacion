@@ -1,14 +1,27 @@
-"""Etiquetado: generación desde una OC con datos reales (línea, unidad,
-bulto, cantidad manual), combinación de OC y artículo, plantillas por
-familia, errores y advertencias, duplicados, lotes grandes, alcance del
-proveedor, pruebas con versiones sin aprobar y reproducción exacta de un
-lote histórico."""
+"""Etiquetado: generación desde una OC con datos reales (por línea, por unidad,
+manual), combinación de OC y artículo, diseño por familia con dato obligatorio,
+advertencias y duplicados, unidades no contables, lotes grandes, alcance del
+proveedor, pruebas con versiones sin aprobar y reproducción exacta de un lote
+histórico. Todo pasa por los trabajos de etiquetado (el único camino)."""
 import io
 import time
 import zipfile
 
 import pdfplumber
 import pytest
+from etiquetado_util import (
+    aprobada,
+    articulo_de,
+    cambiar,
+    generado,
+    generar,
+    oc_con_articulos,
+    pdf,
+    problemas,
+    tipo,
+    trabajo,
+    uso,
+)
 from PIL import Image
 
 from app.core.db import SessionLocal
@@ -28,86 +41,80 @@ COMBINADA = [
 ]
 
 
-def _aprobada(interno, admin, nombre, modalidad, elementos, **kw):
-    r = interno.post("/etiquetas/plantillas", {"nombre": nombre, "modalidad": modalidad, **kw,
-                                               "diseno": {"ancho": 100, "alto": 50, "elementos": elementos}})
-    assert r.status_code == 200, r.text
-    p = r.json()
-    v = p["versiones"][0]
-    assert interno.post(f"/etiquetas/versiones/{v['id']}/enviar", {}).status_code == 200
-    assert admin.post(f"/etiquetas/versiones/{v['id']}/aprobar", {}).status_code == 200
-    return interno.get(f"/etiquetas/plantillas/{p['id']}").json()
-
-
 @pytest.fixture(scope="module")
 def oc(interno):
-    """Una OC de TNF con artículos en todas sus líneas."""
-    for o in interno.get("/ordenes", params={"solo_disponible": False, "size": 100}).json()["items"]:
-        r = interno.get(f"/etiquetas/oc/{o['id']}").json()
-        if o.get("proveedor_codigo", o.get("proveedor")) and r["lineas"] and all(x["articulo_id"] for x in r["lineas"]) \
-                and len(r["lineas"]) >= 2:
-            return r
-    pytest.skip("no PO with items")
-
-
-def test_sin_plantilla_aprobada_no_se_genera(interno, oc):
-    p = interno.post("/etiquetas/plan", {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA"}).json()
-    assert not p["puede_generar"] and all(g["problemas"][0]["codigo"] == "sin_plantilla" for g in p["grupos"])
-    r = interno.post("/etiquetas/generaciones", {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA"})
-    assert r.status_code == 422 and r.json()["codigo"] == "etiquetas_con_errores"
+    return oc_con_articulos(interno)
 
 
 @pytest.fixture(scope="module")
-def combinada(interno, admin, oc):
-    p = _aprobada(interno, admin, "Combined PO and item label", "OC_ARTICULO", COMBINADA)
-    assert interno.post("/etiquetas/asignaciones", {"plantilla_id": p["id"], "ambito": "GENERAL"}).status_code == 200
-    return p
+def tipos(interno):
+    """Tipos de la prueba: uno por línea, uno por unidad y uno manual (ninguno obligatorio)."""
+    return {"linea": tipo(interno, "GEN_LINEA", cantidad="POR_LINEA"), "unidad": tipo(interno, "GEN_UNIDAD", cantidad="POR_UNIDAD"),
+            "manual": tipo(interno, "GEN_MANUAL", cantidad="MANUAL")}
 
 
-def _pdf(contenido):
-    with pdfplumber.open(io.BytesIO(contenido)) as doc:
-        return [(pg.width, pg.height, pg.extract_text()) for pg in doc.pages]
+def test_sin_diseno_aprobado_no_se_genera(interno, oc, tipos):
+    """Un tipo opcional sin diseño se omite; uno obligatorio sin diseño es un error que no deja generar."""
+    t = trabajo(interno, "OC", {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["linea"]["id"]]})
+    assert t["registros"] and all(r["estado"] == "OMITIDO" for r in t["registros"])
+    assert generar(interno, t).status_code == 422
+    oblig = tipo(interno, "GEN_OBLIG", obligatoria=True)
+    try:
+        t = trabajo(interno, "OC", {"oc_ids": [oc["oc"]["id"]], "tipos": [oblig["id"]]})
+        assert all(r["estado"] == "ERROR" and "sin_plantilla" in problemas(r) for r in t["registros"])
+        r = generar(interno, t)
+        assert r.status_code == 422 and r.json()["codigo"] == "etiquetas_con_errores"
+    finally:
+        # Desactivado no cuenta para la cobertura ni para lo que se imprime por defecto
+        assert interno.patch(f"/etiquetas/tipos/{oblig['id']}", {"activo": False, "obligatoria": False}).status_code == 200
 
 
-def test_generar_por_linea_unidad_y_manual(interno, oc, combinada):
-    base = {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO"}
-    lineas = [x for x in oc["lineas"] if not x["bloqueada"]]
-    plan = interno.post("/etiquetas/plan", {**base, "unidad": "LINEA"}).json()
-    assert plan["puede_generar"], plan
-    assert plan["total"] == len(lineas) and {g["plantilla"] for g in plan["grupos"]} == {"Combined PO and item label"}
-    assert all(g["version"] == 1 and g["nivel"] == "GENERAL" for g in plan["grupos"])
+@pytest.fixture(scope="module")
+def combinada(interno, admin, oc, tipos):
+    """El mismo diseño (OC + artículo) para los tres tipos de la prueba, en «toda la empresa»."""
+    res = {}
+    for k, tp in tipos.items():
+        p = aprobada(interno, admin, f"Combined PO and item label {k}", tp["id"], COMBINADA)
+        uso(interno, tp["id"], p["id"])
+        res[k] = p
+    return res
+
+
+def test_generar_por_linea_unidad_y_manual(interno, oc, tipos, combinada):
+    base = {"oc_ids": [oc["oc"]["id"]]}
+    lineas = oc["lineas"]
+    t = trabajo(interno, "OC", {**base, "tipos": [tipos["linea"]["id"]]})
+    assert len(t["registros"]) == len(lineas) and {r["plantilla"] for r in t["registros"]} == {"Combined PO and item label linea"}
+    assert all(r["version"] == 1 and r["cantidad"] == 1 for r in t["registros"])
+    assert all(r["motivo"] == "Whole company." for r in t["registros"])
     # Por unidad: una etiqueta por cada unidad pedida de cada línea
-    unidad = interno.post("/etiquetas/plan", {**base, "unidad": "UNIDAD", "posiciones": [lineas[0]["id"], lineas[1]["id"]]}).json()
-    assert [g["cantidad"] for g in unidad["grupos"]] == [int(lineas[0]["cantidad"]), int(lineas[1]["cantidad"])]
-    assert unidad["total"] == int(lineas[0]["cantidad"]) + int(lineas[1]["cantidad"])
-    # Manual: cantidades distintas por línea
-    manual = {"unidad": "MANUAL", "posiciones": [lineas[0]["id"], lineas[1]["id"]],
-              "cantidades": {str(lineas[0]["id"]): 3, str(lineas[1]["id"]): 2}}
-    plan = interno.post("/etiquetas/plan", {**base, **manual}).json()
-    assert plan["total"] == 5
-    # Los artículos sin familia de etiquetado dan una advertencia que hay que aceptar expresamente
-    assert interno.post("/etiquetas/generaciones", {**base, **manual, "formato": "PDF"}).status_code == 409
-    r = interno.post("/etiquetas/generaciones", {**base, **manual, "formato": "PDF", "aceptar_advertencias": True})
-    assert r.status_code == 200, r.text
-    gen = r.json()
-    assert gen["total"] == 5 and gen["versiones"][0]["version"] == 1 and gen["estado"] == "GENERADA"
+    dos = [lineas[0]["id"], lineas[1]["id"]]
+    t = trabajo(interno, "OC", {**base, "tipos": [tipos["unidad"]["id"]], "posiciones": dos})
+    assert [r["cantidad"] for r in t["registros"]] == [int(lineas[0]["cantidad"]), int(lineas[1]["cantidad"])]
+    # Manual: sin cantidad es un error; con cantidades distintas por línea, se generan
+    t = trabajo(interno, "OC", {**base, "tipos": [tipos["manual"]["id"]], "posiciones": dos})
+    assert all("cantidad" in problemas(r) for r in t["registros"])
+    t = cambiar(interno, t, {"cantidades": {t["registros"][0]["clave"]: 3, t["registros"][1]["clave"]: 2}})
+    assert [r["cantidad"] for r in t["registros"]] == [3, 2] and t["total"] == 5
+    t = generado(interno, t)
+    gen = t["ejecuciones"][0]
+    assert gen["total"] == 5 and gen["estado"] == "GENERADA"
     arch = interno.get(f"/etiquetas/generaciones/{gen['id']}/archivo")
     assert arch.status_code == 200 and arch.headers["x-identico"] == "1"
-    paginas = _pdf(arch.content)
+    paginas = pdf(arch.content)
     assert len(paginas) == 5
-    # Datos combinados: la OC y el artículo de cada línea, numeración n/N por grupo
+    # Datos combinados: la OC y el artículo de cada línea, numeración n/N por registro
     assert all(abs(w - 100 * 72 / 25.4) < 0.01 and abs(h - 50 * 72 / 25.4) < 0.01 for w, h, _ in paginas)
-    assert all(f"PO {oc['oc']['numero']}" in t for _, _, t in paginas)
-    assert lineas[0]["codigo"] in paginas[0][2] and "1/3" in paginas[0][2] and "3/3" in paginas[2][2]
-    assert lineas[1]["codigo"] in paginas[3][2] and "2/2" in paginas[4][2]
+    assert all(f"PO {oc['oc']['numero']}" in x for _, _, x in paginas)
+    assert lineas[0]["codigo_articulo"] in paginas[0][2] and "1/3" in paginas[0][2] and "3/3" in paginas[2][2]
+    assert lineas[1]["codigo_articulo"] in paginas[3][2] and "2/2" in paginas[4][2]
 
 
-def test_zip_con_png_y_svg_y_codigo_legible(interno, oc, combinada):
+def test_zip_con_png_y_svg_y_codigo_legible(interno, oc, tipos, combinada):
     linea = oc["lineas"][0]
-    r = interno.post("/etiquetas/generaciones", {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA",
-                                                 "posiciones": [linea["id"]], "formato": "ZIP", "aceptar_advertencias": True})
-    assert r.status_code == 200, r.text
-    z = zipfile.ZipFile(io.BytesIO(interno.get(f"/etiquetas/generaciones/{r.json()['id']}/archivo").content))
+    t = trabajo(interno, "OC", {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["linea"]["id"]], "posiciones": [linea["id"]]})
+    t = generado(interno, t, formato="ZIP")
+    z = zipfile.ZipFile(io.BytesIO(interno.get(f"/etiquetas/generaciones/{t['ejecuciones'][-1]['id']}/archivo").content))
     nombres = z.namelist()
     assert any(n.endswith(".pdf") for n in nombres) and "lote.json" in nombres
     pngs = [n for n in nombres if n.startswith("png/")]
@@ -115,67 +122,62 @@ def test_zip_con_png_y_svg_y_codigo_legible(interno, oc, combinada):
     with Image.open(io.BytesIO(z.read(pngs[0]))) as im:
         assert im.size == (1181, 591)
         leidos = [x.text for x in zxingcpp.read_barcodes(im.convert("L"))]
-    with SessionLocal() as db, en_organizacion(1):
-        from app.modelos import PosicionOC
-
-        sku = db.get(PosicionOC, linea["id"]).articulo.sku
-    assert sku in leidos
+    assert linea["codigo_articulo"] in leidos
 
 
-def test_hoja_que_no_cabe_se_rechaza(interno, oc, combinada):
+def test_hoja_que_no_cabe_se_rechaza(interno, oc, tipos, combinada):
     """Varias por hoja: si la etiqueta (100×50) no cabe con esas columnas y
     márgenes, se avisa antes de generar en vez de dibujarla fuera del papel."""
-    linea = oc["lineas"][0]
-    base = {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA", "posiciones": [linea["id"]],
-            "aceptar_advertencias": True, "prueba": True}
     hoja = {"modo": "hoja", "papel_ancho": 215.9, "papel_alto": 279.4, "columnas": 3, "filas": 2}
-    r = interno.post("/etiquetas/generaciones", {**base, "hoja": hoja})
+    base = {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["linea"]["id"]], "posiciones": [oc["lineas"][0]["id"]], "prueba": True}
+    t = trabajo(interno, "OC", {**base, "hoja": hoja})
+    r = generar(interno, t, aceptar_advertencias=True)
     assert r.status_code == 422 and r.json()["detalle"][0]["mensaje"] == "100×50 mm", r.text
-    r = interno.post("/etiquetas/generaciones", {**base, "hoja": {**hoja, "columnas": 2}})
-    assert r.status_code == 200, r.text
+    t = cambiar(interno, interno.get(f"/etiquetas/trabajos/{t['id']}").json(), {"hoja": {**hoja, "columnas": 2}})
+    assert generar(interno, t, aceptar_advertencias=True).status_code == 200
 
 
-def test_familia_con_dato_obligatorio_y_plantilla_de_familia(interno, admin, oc, combinada):
+def test_familia_con_dato_obligatorio_y_diseno_de_familia(interno, admin, oc, tipos, combinada):
     linea = oc["lineas"][0]
+    articulo_id = articulo_de(linea["id"])
     fam = interno.post("/etiquetas/familias", {"codigo": "GENFAM", "nombre": "Generation family",
                                                "campos": [{"campo": "articulo.extra.no_existe_aun", "obligatorio": True}]})
     assert fam.status_code == 422  # un campo que no existe no se acepta
     fam = interno.post("/etiquetas/familias", {"codigo": "GENFAM", "nombre": "Generation family",
                                                "campos": [{"campo": "producto.uso", "obligatorio": True}]}).json()
-    interno.post("/etiquetas/articulos/familia", {"familia_id": fam["id"], "ids": [linea["articulo_id"]]})
-    de_familia = _aprobada(interno, admin, "Generation family label", "OC_ARTICULO",
-                           [c for c in COMBINADA if c["id"] != "talla"], familia_id=fam["id"])
-    interno.post("/etiquetas/asignaciones", {"plantilla_id": de_familia["id"], "ambito": "FAMILIA", "familia_id": fam["id"]})
-    with SessionLocal() as db, en_organizacion(1):
-        from app.modelos import Articulo
+    assert interno.post("/etiquetas/articulos/familia", {"familia_id": fam["id"], "ids": [articulo_id]}).status_code == 200
+    de_familia = aprobada(interno, admin, "Generation family label", tipos["linea"]["id"], [c for c in COMBINADA if c["id"] != "talla"])
+    uso(interno, tipos["linea"]["id"], de_familia["id"], "FAMILIA", fam["id"])
+    try:
+        with SessionLocal() as db, en_organizacion(1):
+            from app.modelos import Articulo
 
-        a = db.get(Articulo, linea["articulo_id"])
-        uso = (a.producto.ficha or {}).get("uso") if a.producto else None
-    plan = interno.post("/etiquetas/plan", {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA",
-                                            "posiciones": [linea["id"], oc["lineas"][1]["id"]]}).json()
-    g0, g1 = plan["grupos"]
-    assert g0["plantilla"] == "Generation family label" and g0["nivel"] == "FAMILIA" and g0["familia"] == "Generation family"
-    assert g1["plantilla"] == "Combined PO and item label" or oc["lineas"][1]["articulo_id"] == linea["articulo_id"]
-    if not uso:
-        assert {p["codigo"] for p in g0["problemas"] if p["nivel"] == "error"} == {"dato_obligatorio"}
-    # Se deja la familia como estaba para las demás pruebas
-    interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [linea["articulo_id"]]})
+            a = db.get(Articulo, articulo_id)
+            valor = (a.producto.ficha or {}).get("uso") if a.producto else None
+        t = trabajo(interno, "OC", {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["linea"]["id"]],
+                                    "posiciones": [linea["id"], oc["lineas"][1]["id"]]})
+        r0, r1 = t["registros"]
+        assert r0["plantilla"] == "Generation family label" and r0["motivo"] == "Labeling family Generation family."
+        assert r1["plantilla"] == "Combined PO and item label linea" or articulo_de(oc["lineas"][1]["id"]) == articulo_id
+        if not valor:
+            assert "dato_familia" in problemas(r0)
+    finally:
+        # Se deja todo como estaba para las demás pruebas
+        interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [articulo_id]})
 
 
-def test_advertencias_y_duplicados_piden_confirmar(interno, oc, combinada):
-    linea = oc["lineas"][-1]
-    pedido = {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA", "posiciones": [linea["id"]],
-              "formato": "PDF", "aceptar_advertencias": True}
-    assert interno.post("/etiquetas/generaciones", pedido).status_code == 200
-    plan = interno.post("/etiquetas/plan", pedido).json()
-    assert "ya_generada" in {p["codigo"] for p in plan["grupos"][0]["problemas"]} and plan["puede_generar"]
-    sin_aceptar = interno.post("/etiquetas/generaciones", {**pedido, "aceptar_advertencias": False})
+def test_advertencias_y_duplicados_piden_confirmar(interno, oc, tipos, combinada):
+    pedido = {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["linea"]["id"]], "posiciones": [oc["lineas"][-1]["id"]]}
+    generado(interno, trabajo(interno, "OC", pedido))
+    t = trabajo(interno, "OC", pedido)
+    assert "ya_generada" in problemas(t["registros"][0]) and t["registros"][0]["estado"] == "ADVERTENCIA"
+    sin_aceptar = generar(interno, t)
     assert sin_aceptar.status_code == 409 and sin_aceptar.json()["codigo"] == "confirmar_advertencias"
-    assert interno.post("/etiquetas/generaciones", pedido).status_code == 200
+    assert generar(interno, t, aceptar_advertencias=True).status_code == 200
 
 
-def _plan_por_unidad(interno, oc, linea, unidad, cantidad=None):
-    """El plan «una etiqueta por unidad» con la línea en otra unidad de medida."""
+def _por_unidad(interno, oc, tipos, linea, unidad, cantidad=None):
+    """El registro «una por unidad» de la línea en otra unidad de medida."""
     from app.modelos import PosicionOC
 
     with SessionLocal() as db, en_organizacion(1):
@@ -186,9 +188,9 @@ def _plan_por_unidad(interno, oc, linea, unidad, cantidad=None):
             p.cantidad = cantidad
         db.commit()
     try:
-        plan = interno.post("/etiquetas/plan", {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "UNIDAD",
-                                                "posiciones": [linea["id"]]}).json()
-        return plan["grupos"][0], {x["codigo"]: x["mensaje"] for x in plan["grupos"][0]["problemas"]}
+        t = trabajo(interno, "OC", {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["unidad"]["id"]], "posiciones": [linea["id"]]})
+        r = t["registros"][0]
+        return r, {x["codigo"]: x["mensaje"] for x in r["problemas"]}
     finally:
         with SessionLocal() as db, en_organizacion(1):
             p = db.get(PosicionOC, linea["id"])
@@ -196,20 +198,18 @@ def _plan_por_unidad(interno, oc, linea, unidad, cantidad=None):
             db.commit()
 
 
-def test_unidad_no_contable(interno, oc, combinada):
+def test_unidad_no_contable(interno, oc, tipos, combinada):
     """Decide el catálogo de unidades de medida, no una lista fija en el código."""
     linea = oc["lineas"][0]
-    # Medible (KG): no se etiqueta por unidad
-    _, prob = _plan_por_unidad(interno, oc, linea, "KG", 12)
+    _, prob = _por_unidad(interno, oc, tipos, linea, "KG", 12)
     assert "unidad_no_contable" in prob and "measured" in prob["unidad_no_contable"]
-    # Contable pero con fracción
-    _, prob = _plan_por_unidad(interno, oc, linea, "PAR", 2.5)
+    _, prob = _por_unidad(interno, oc, tipos, linea, "PAR", 2.5)
     assert "unidad_no_contable" in prob and "fractional" in prob["unidad_no_contable"]
-    g, prob = _plan_por_unidad(interno, oc, linea, "PAR", 3)
-    assert "unidad_no_contable" not in prob and g["cantidad"] == 3
+    r, prob = _por_unidad(interno, oc, tipos, linea, "PAR", 3)
+    assert "unidad_no_contable" not in prob and r["cantidad"] == 3
 
 
-def test_unidad_nueva_del_catalogo(interno, oc, combinada):
+def test_unidad_nueva_del_catalogo(interno, oc, tipos, combinada):
     """Una unidad que la empresa agrega al catálogo (botella, contable) se
     etiqueta por unidad sin tocar código; otra medible (galón) no."""
     nuevas = []
@@ -219,120 +219,112 @@ def test_unidad_nueva_del_catalogo(interno, oc, combinada):
         nuevas.append(r.json()["id"])
     try:
         linea = oc["lineas"][0]
-        g, prob = _plan_por_unidad(interno, oc, linea, "BTL", 4)
-        assert "unidad_no_contable" not in prob and g["cantidad"] == 4
-        _, prob = _plan_por_unidad(interno, oc, linea, "GLN", 4)
+        r, prob = _por_unidad(interno, oc, tipos, linea, "BTL", 4)
+        assert "unidad_no_contable" not in prob and r["cantidad"] == 4
+        _, prob = _por_unidad(interno, oc, tipos, linea, "GLN", 4)
         assert "unidad_no_contable" in prob
     finally:
         for i in nuevas:
             interno.delete_(f"/catalogos/unidades/{i}")
 
 
-def test_reproducir_un_lote_historico_sin_cambiar_version_ni_datos(interno, admin, oc, combinada):
+def test_reproducir_un_lote_historico_sin_cambiar_version_ni_datos(interno, admin, oc, tipos, combinada):
     linea = oc["lineas"][0]
-    pedido = {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA", "posiciones": [linea["id"]],
-              "formato": "PDF", "aceptar_advertencias": True}
-    gen = interno.post("/etiquetas/generaciones", pedido).json()
+    articulo_id = articulo_de(linea["id"])
+    pedido = {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["linea"]["id"]], "posiciones": [linea["id"]]}
+    gen = generado(interno, trabajo(interno, "OC", pedido))["ejecuciones"][0]
     original = interno.get(f"/etiquetas/generaciones/{gen['id']}/archivo").content
     # Cambia el diseño (versión 2 aprobada) y cambian los datos del artículo
-    v2 = interno.post(f"/etiquetas/plantillas/{combinada['id']}/versiones", {}).json()
+    disenio = combinada["linea"]
+    v2 = interno.post(f"/etiquetas/plantillas/{disenio['id']}/versiones", {}).json()
     v2["diseno"]["fondo"] = "#fff3e0"
     v2["diseno"]["elementos"][0]["prefijo"] = "ORDER "
-    interno.put(f"/etiquetas/versiones/{v2['id']}/diseno", {"diseno": v2["diseno"]})
+    assert interno.put(f"/etiquetas/versiones/{v2['id']}/diseno", {"diseno": v2["diseno"]}).status_code == 200
     interno.post(f"/etiquetas/versiones/{v2['id']}/enviar", {})
     admin.post(f"/etiquetas/versiones/{v2['id']}/aprobar", {})
     with SessionLocal() as db, en_organizacion(1):
         from app.modelos import Articulo
 
-        a = db.get(Articulo, linea["articulo_id"])
+        a = db.get(Articulo, articulo_id)
         talla_antes, a.talla = a.talla, "ZZ"
         db.commit()
     try:
         r = interno.get(f"/etiquetas/generaciones/{gen['id']}/archivo")
         assert r.headers["x-identico"] == "1" and r.content == original
-        texto = _pdf(r.content)[0][2]
+        texto = pdf(r.content)[0][2]
         assert f"PO {oc['oc']['numero']}" in texto and "ORDER" not in texto and "ZZ" not in texto
         detalle = interno.get(f"/etiquetas/generaciones/{gen['id']}").json()
         assert detalle["versiones"][0]["version"] == 1 and detalle["items"][0]["valores"]["articulo.talla"] == talla_antes
-        # Una generación nueva usa la versión 2 y los datos actuales
-        nueva = interno.post("/etiquetas/generaciones", pedido).json()
-        assert nueva["versiones"][0]["version"] == 2
-        texto = _pdf(interno.get(f"/etiquetas/generaciones/{nueva['id']}/archivo").content)[0][2]
+        # Un trabajo nuevo usa la versión 2 y los datos actuales
+        nueva = generado(interno, trabajo(interno, "OC", pedido))["ejecuciones"][0]
+        assert interno.get(f"/etiquetas/generaciones/{nueva['id']}").json()["versiones"][0]["version"] == 2
+        texto = pdf(interno.get(f"/etiquetas/generaciones/{nueva['id']}/archivo").content)[0][2]
         assert "ORDER" in texto and "Size ZZ" in texto
     finally:
         with SessionLocal() as db, en_organizacion(1):
-            db.get(Articulo, linea["articulo_id"]).talla = talla_antes
+            db.get(Articulo, articulo_id).talla = talla_antes
             db.commit()
     # Historial con filtros
-    h = interno.get("/etiquetas/generaciones", params={"oc_id": oc["oc"]["id"], "version_id": combinada["vigente"]["id"]}).json()
+    h = interno.get("/etiquetas/generaciones", params={"oc_id": oc["oc"]["id"], "version_id": disenio["vigente"]["id"]}).json()
     assert gen["id"] in {x["id"] for x in h["items"]}
-    assert interno.get("/etiquetas/generaciones", params={"articulo_id": linea["articulo_id"]}).json()["total"] >= 2
+    assert interno.get("/etiquetas/generaciones", params={"articulo_id": articulo_id}).json()["total"] >= 2
 
 
-def test_prueba_con_version_sin_aprobar(interno, tnf, oc):
-    p = interno.post("/etiquetas/plantillas", {"nombre": "Draft PO label", "modalidad": "OC", "diseno": {
+def test_prueba_con_version_sin_aprobar(interno, tnf, admin, oc):
+    """Un diseño sin aprobar solo imprime en prueba (marca TEST); nunca usa una versión rechazada."""
+    doc = tipo(interno, "GEN_DOC", sujeto="DOCUMENTO", cantidad="POR_DOCUMENTO")
+    p = interno.post("/etiquetas/plantillas", {"nombre": "Draft PO label", "tipo_etiqueta_id": doc["id"], "diseno": {
         "ancho": 60, "alto": 30, "elementos": [{"id": "n", "tipo": "campo", "campo": "oc.numero", "x": 3, "y": 3, "w": 50, "h": 8}]}}).json()
-    pedido = {"oc_id": oc["oc"]["id"], "modalidad": "OC", "unidad": "ORDEN", "plantilla_id": p["id"], "formato": "PDF"}
-    assert interno.post("/etiquetas/plan", pedido).json()["grupos"][0]["problemas"][0]["codigo"] == "sin_plantilla"
-    r = interno.post("/etiquetas/generaciones", {**pedido, "prueba": True, "aceptar_advertencias": True})
-    assert r.status_code == 200, r.text
-    assert r.json()["estado"] == "PRUEBA"
-    with pdfplumber.open(io.BytesIO(interno.get(f"/etiquetas/generaciones/{r.json()['id']}/archivo").content)) as doc:
-        letras = "".join(c["text"] for c in doc.pages[0].chars)
+    uso(interno, doc["id"], p["id"])
+    base = {"oc_ids": [oc["oc"]["id"]], "tipos": [doc["id"]]}
+    t = trabajo(interno, "OC", base)
+    assert "sin_plantilla" in problemas(t["registros"][0])
+    t = trabajo(interno, "OC", {**base, "prueba": True})
+    t = generado(interno, t)
+    gen = t["ejecuciones"][0]
+    assert gen["estado"] == "PRUEBA"
+    with pdfplumber.open(io.BytesIO(interno.get(f"/etiquetas/generaciones/{gen['id']}/archivo").content)) as d:
+        letras = "".join(c["text"] for c in d.pages[0].chars)
     assert "TEST·NOTAPPROVED" in letras.replace(" ", "") and oc["oc"]["numero"] in letras
-    # Un proveedor no prueba versiones sin aprobar
-    assert tnf.post("/etiquetas/plan", {**pedido, "prueba": True}).status_code == 403
+    # Una versión rechazada no se usa ni en prueba (E2)
+    v = p["versiones"][0]
+    interno.post(f"/etiquetas/versiones/{v['id']}/enviar", {})
+    assert admin.post(f"/etiquetas/versiones/{v['id']}/rechazar", {"comentario": "No"}).status_code == 200
+    t = trabajo(interno, "OC", {**base, "prueba": True})
+    assert "sin_plantilla" in problemas(t["registros"][0])
+    # Un proveedor prueba solo con versiones aprobadas (las sin aprobar son de quien diseña)
+    p2 = interno.post("/etiquetas/plantillas", {"nombre": "Draft PO label 2", "tipo_etiqueta_id": doc["id"], "diseno": {
+        "ancho": 60, "alto": 30, "elementos": [{"id": "n", "tipo": "campo", "campo": "oc.numero", "x": 3, "y": 3, "w": 50, "h": 8}]}}).json()
+    uso(interno, doc["id"], p2["id"])
+    if oc["oc"]["proveedor"] == "The North Face":
+        t = trabajo(tnf, "OC", {**base, "prueba": True})
+        assert "sin_plantilla" in problemas(t["registros"][0])
 
 
-def test_por_bulto_desde_las_listas_de_empaque(interno, admin):
-    con_bultos = None
-    for o in interno.get("/ordenes", params={"solo_disponible": False, "size": 100}).json()["items"]:
-        r = interno.get(f"/etiquetas/oc/{o['id']}").json()
-        if r["bultos"]:
-            con_bultos = r
-            break
-    if not con_bultos:
-        pytest.skip("no packing lists with packages")
-    p = _aprobada(interno, admin, "Package label", "OC", [
-        {"id": "oc", "tipo": "campo", "campo": "oc.numero", "x": 3, "y": 3, "w": 60, "h": 8},
-        {"id": "b", "tipo": "texto", "contenido": "Package {{bulto.numero}} of {{bulto.total}} · {{bulto.packing_list}}",
-         "x": 3, "y": 14, "w": 90, "h": 8},
-        {"id": "c", "tipo": "campo", "campo": "bulto.contenido", "x": 3, "y": 24, "w": 90, "h": 20,
-         "estilo": {"tam": 7, "multilinea": True}}])
-    pedido = {"oc_id": con_bultos["oc"]["id"], "modalidad": "OC", "unidad": "BULTO", "plantilla_id": p["id"], "formato": "PDF",
-              "aceptar_advertencias": True}
-    plan = interno.post("/etiquetas/plan", pedido).json()
-    assert plan["total"] == con_bultos["bultos"] and plan["puede_generar"]
-    gen = interno.post("/etiquetas/generaciones", pedido).json()
-    paginas = _pdf(interno.get(f"/etiquetas/generaciones/{gen['id']}/archivo").content)
-    assert len(paginas) == con_bultos["bultos"] and "Package 1 of" in paginas[0][2]
-
-
-def test_lote_grande_y_tope(interno, oc, combinada, monkeypatch):
+def test_lote_grande_y_tope(interno, oc, tipos, combinada, monkeypatch):
     linea = oc["lineas"][0]
-    pedido = {"oc_id": oc["oc"]["id"], "modalidad": "OC_ARTICULO", "unidad": "MANUAL", "posiciones": [linea["id"]],
-              "cantidades": {str(linea["id"]): 2000}, "formato": "PDF", "aceptar_advertencias": True}
+    t = trabajo(interno, "OC", {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["manual"]["id"]], "posiciones": [linea["id"]]})
+    t = cambiar(interno, t, {"cantidades": {t["registros"][0]["clave"]: 2000}})
     inicio = time.monotonic()
-    gen = interno.post("/etiquetas/generaciones", pedido)
-    assert gen.status_code == 200, gen.text
-    assert gen.json()["total"] == 2000 and time.monotonic() - inicio < 120
+    r = generar(interno, t, aceptar_advertencias=True)
+    # Desde cierto tamaño se genera en segundo plano
+    assert r.status_code == 200 and r.json()["estado"] in ("GENERADO", "EN_PROCESO"), r.text
+    assert time.monotonic() - inicio < 120
     from app.core.config import settings
 
-    monkeypatch.setattr(settings, "ETIQUETAS_MAXIMO_LOTE", 100)
-    r = interno.post("/etiquetas/plan", pedido).json()
-    assert not r["puede_generar"] and r["problemas"][0]["codigo"] == "lote_grande"
+    monkeypatch.setattr(settings, "ETIQUETAS_MAXIMO_TRABAJO", 100)
+    t = trabajo(interno, "OC", {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["manual"]["id"]], "posiciones": [linea["id"]]})
+    t = cambiar(interno, t, {"cantidades": {t["registros"][0]["clave"]: 200}})
+    assert "lote_grande" in {p["codigo"] for p in t["resumen"]["problemas"]}
 
 
-def test_alcance_del_proveedor(interno, tnf, vans, oc, combinada):
+def test_alcance_del_proveedor(interno, tnf, vans, oc, tipos, combinada):
     propia = oc["oc"]
-    if propia["proveedor"] != "The North Face":
-        cliente, otro = vans, tnf
-    else:
-        cliente, otro = tnf, vans
-    pedido = {"oc_id": propia["id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA", "formato": "PDF", "aceptar_advertencias": True}
-    r = cliente.post("/etiquetas/generaciones", pedido)
-    assert r.status_code == 200, r.text
-    assert otro.post("/etiquetas/plan", pedido).status_code == 404
-    assert otro.get(f"/etiquetas/generaciones/{r.json()['id']}").status_code == 404
-    assert all(g["oc_id"] == propia["id"] or g["creada_por"] for g in cliente.get("/etiquetas/generaciones").json()["items"])
+    cliente, otro = (vans, tnf) if propia["proveedor"] != "The North Face" else (tnf, vans)
+    pedido = {"oc_ids": [propia["id"]], "tipos": [tipos["linea"]["id"]]}
+    t = generado(cliente, trabajo(cliente, "OC", pedido))
+    gen = t["ejecuciones"][0]
+    assert otro.post("/etiquetas/trabajos", {"origen": "OC", "parametros": pedido}).status_code == 404
+    assert otro.get(f"/etiquetas/generaciones/{gen['id']}").status_code == 404
+    assert otro.get(f"/etiquetas/trabajos/{t['id']}").status_code == 404
     assert otro.get("/etiquetas/generaciones", params={"oc_id": propia["id"]}).json()["total"] == 0

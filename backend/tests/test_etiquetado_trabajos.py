@@ -1,10 +1,11 @@
 """Trabajos de etiquetado: un solo servicio para todas las entradas (varias
 OC, artículos, lista de empaque), borrador que se retoma, concurrencia,
-validación por registro con diseños distintos en el mismo trabajo, errores
-que bloquean salvo generación parcial, reintento de lo que faltó, generación
-en segundo plano con avance, ZIP con carpetas y nombres configurables sin
-colisiones y con resumen, impresión solo con confirmación, alcance del
-proveedor, idempotencia y la migración de las asignaciones a reglas."""
+validación por registro con diseños distintos en el mismo trabajo (diseño
+normal y excepción por condición), errores que bloquean salvo generación
+parcial, reintento de lo que faltó, generación en segundo plano con avance,
+ZIP con carpetas y nombres configurables sin colisiones y con resumen,
+impresión solo con confirmación, alcance del proveedor, idempotencia y la
+migración de las reglas anteriores a usos de diseño."""
 import io
 import json
 import sqlite3
@@ -16,6 +17,7 @@ import zipfile
 
 import pdfplumber
 import pytest
+from etiquetado_util import aprobada, articulo_de, tipo, uso
 
 from app.core.db import SessionLocal
 from app.core.organizacion import en_organizacion
@@ -26,15 +28,8 @@ ELEMENTOS = [{"id": "sku", "tipo": "campo", "campo": "articulo.sku", "x": 3, "y"
               "partes": [{"campo": "articulo.sku"}]}]
 
 
-def _aprobada(interno, admin, nombre, modalidad="OC_ARTICULO", variables=None):
-    r = interno.post("/etiquetas/plantillas", {"nombre": nombre, "modalidad": modalidad,
-                                               "diseno": {"ancho": 80, "alto": 30, "elementos": ELEMENTOS,
-                                                          "variables": variables or []}})
-    assert r.status_code == 200, r.text
-    v = r.json()["versiones"][0]
-    assert interno.post(f"/etiquetas/versiones/{v['id']}/enviar", {}).status_code == 200
-    assert admin.post(f"/etiquetas/versiones/{v['id']}/aprobar", {}).status_code == 200
-    return r.json()
+def _aprobada(interno, admin, nombre, tipo_id, variables=None):
+    return aprobada(interno, admin, nombre, tipo_id, ELEMENTOS, ancho=80, alto=30, variables=variables or [])
 
 
 @pytest.fixture(scope="module")
@@ -42,32 +37,37 @@ def ordenes(interno):
     """Dos OC de TNF con artículos en sus líneas."""
     res = []
     for o in interno.get("/ordenes", params={"solo_disponible": False, "size": 100}).json()["items"]:
-        r = interno.get(f"/etiquetas/oc/{o['id']}").json()
-        lineas = [x for x in r["lineas"] if x["articulo_id"] and not x["bloqueada"]]
-        if r["oc"]["proveedor"] == "The North Face" and len(lineas) >= 2:
-            res.append({**r, "lineas": lineas})
+        d = interno.get(f"/ordenes/{o['id']}").json()
+        lineas = [x for x in d["posiciones"] if x.get("codigo_articulo")]
+        if d["oc"]["proveedor"] == "The North Face" and d["oc"]["estado"] != "BORRADOR" and len(lineas) >= 2:
+            res.append({"oc": d["oc"], "lineas": lineas})
         if len(res) == 2:
             return res
     pytest.skip("two TNF POs with items are needed")
 
 
 @pytest.fixture(scope="module")
-def disenos(interno, admin, ordenes):
-    """Dos diseños por regla: la primera línea de cada OC lleva uno; el resto, el otro (que pide un dato al generar)."""
-    a = _aprobada(interno, admin, "Job design first lines")
-    b = _aprobada(interno, admin, "Job design other lines",
+def job(interno):
+    """El tipo de etiqueta de estas pruebas (una por línea) y el de cantidad manual."""
+    return {"linea": tipo(interno, "JOB_LINEA", cantidad="POR_LINEA"), "manual": tipo(interno, "JOB_MANUAL", cantidad="MANUAL")}
+
+
+@pytest.fixture(scope="module")
+def disenos(interno, admin, ordenes, job):
+    """Diseño normal de toda la empresa (pide un dato al generar) y una excepción
+    por condición: la primera línea de cada OC lleva otro diseño."""
+    a = _aprobada(interno, admin, "Job design first lines", job["linea"]["id"])
+    b = _aprobada(interno, admin, "Job design other lines", job["linea"]["id"],
                   variables=[{"clave": "lote", "etiqueta": "Batch", "obligatorio": True}])
+    normal = uso(interno, job["linea"]["id"], b["id"])
     primeras = [o["lineas"][0]["posicion"] for o in ordenes]
-    ids = []
-    for p, cond, prioridad in ((a, {"campo": "linea.posicion", "op": "en", "valor": primeras}, 7001),
-                               (b, {"campo": "contexto.origen", "op": "en", "valor": ["OC", "PACKING"]}, 7000)):
-        r = interno.post("/etiquetas/asignaciones", {"plantilla_id": p["id"], "ambito": "REGLA", "prioridad": prioridad,
-                                                     "nombre": f"Job rule {p['nombre']}", "condiciones": [cond]})
-        assert r.status_code == 200, r.text
-        ids.append(r.json()["id"])
-    yield a, b
-    for i in ids:
-        interno.c.delete(f"/api/etiquetas/asignaciones/{i}", headers=interno.h)
+    exc = uso(interno, job["linea"]["id"], a["id"], contexto_tipo="CONDICION", reemplazar=False, motivo="First lines",
+              condiciones=[{"campo": "linea.posicion", "op": "en", "valor": primeras}])
+    for t in ("manual",):
+        uso(interno, job[t]["id"], _aprobada(interno, admin, f"Job design {t}", job[t]["id"])["id"])
+    yield a, b, normal, exc
+    for u in (exc, normal):
+        interno.post(f"/etiquetas/usos/{u['id']}/baja", {"motivo": "End of the test"})
 
 
 @pytest.fixture
@@ -87,14 +87,17 @@ def _esperar(interno, tid, segundos=90):
     raise AssertionError("the job did not finish")
 
 
-def test_trabajo_de_varias_oc_borrador_mezcla_parcial_y_reintento(interno, admin, tnf, ordenes, disenos, reglas_empresa):
+def test_trabajo_de_varias_oc_borrador_mezcla_parcial_y_reintento(interno, admin, tnf, ordenes, job, disenos, reglas_empresa):
     oc_ids = [o["oc"]["id"] for o in ordenes]
     lineas = [x["id"] for o in ordenes for x in o["lineas"][:2]]
-    r = interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {"oc_ids": oc_ids, "posiciones": lineas}}, clave="job-1")
+    tipos = [job["linea"]["id"]]
+    r = interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {"oc_ids": oc_ids, "posiciones": lineas, "tipos": tipos}},
+                     clave="job-1")
     assert r.status_code == 200, r.text
     t = r.json()
     # Idempotencia: la misma petición no crea otro trabajo
-    assert interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {"oc_ids": oc_ids}}, clave="job-1").json()["id"] == t["id"]
+    assert interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {"oc_ids": oc_ids, "tipos": tipos}},
+                        clave="job-1").json()["id"] == t["id"]
     assert t["estado"] == "BORRADOR" and t["parametros"]["oc_ids"] == oc_ids
     # Borrador: se guarda el paso y se retoma; con la versión vieja, conflicto
     r = interno.patch(f"/etiquetas/trabajos/{t['id']}", {"paso": 3, "version": t["version"], "parametros": {"formato": "PDF"}})
@@ -110,8 +113,11 @@ def test_trabajo_de_varias_oc_borrador_mezcla_parcial_y_reintento(interno, admin
     por_diseno = {}
     for x in v["registros"]:
         por_diseno.setdefault(x["plantilla"], []).append(x)
-    # Diseños distintos en el mismo trabajo, cada registro con su regla
-    assert set(por_diseno) == {"Job design first lines", "Job design other lines"} and all(x["regla_id"] for x in v["registros"])
+    # Diseños distintos en el mismo trabajo, cada registro con el uso de diseño que lo eligió (normal o excepción)
+    assert set(por_diseno) == {"Job design first lines", "Job design other lines"}
+    assert {x["uso_id"] for x in por_diseno["Job design first lines"]} == {disenos[3]["id"]}
+    assert {x["uso_id"] for x in por_diseno["Job design other lines"]} == {disenos[2]["id"]}
+    assert all(x["motivo"].startswith("Whole company, exception") for x in por_diseno["Job design first lines"])
     assert {d["plantilla"] for d in v["resumen"]["disenos"]} == set(por_diseno)
     # Los de un diseño piden un dato obligatorio: error clasificado
     otros = por_diseno["Job design other lines"]
@@ -203,42 +209,57 @@ def test_trabajo_de_varias_oc_borrador_mezcla_parcial_y_reintento(interno, admin
     assert r.json()["situacion"] == "IMPRESA" and r.json()["impresion"]["impresora"] == "Zebra 1"
 
 
-def test_entradas_articulos_y_lista_de_empaque_usan_el_mismo_servicio(interno, admin, ordenes, disenos):
-    # Artículos: un trabajo con la modalidad de artículo (sin regla para ella, se dice por qué)
-    articulos = [{"articulo_id": x["articulo_id"], "cantidad": 2} for x in ordenes[0]["lineas"][:2]]
-    t = interno.post("/etiquetas/trabajos", {"origen": "ARTICULOS", "parametros": {"articulos": articulos}}).json()
+def test_entradas_articulos_y_lista_de_empaque_usan_el_mismo_servicio(interno, admin, ordenes, job, disenos):
+    # Artículos: el mismo artículo sin OC; su diseño es el normal de toda la empresa (la excepción mira la línea de OC)
+    articulos = [{"articulo_id": articulo_de(x["id"]), "cantidad": 2} for x in ordenes[0]["lineas"][:2]]
+    t = interno.post("/etiquetas/trabajos", {"origen": "ARTICULOS", "parametros": {"articulos": articulos, "tipos": [job["linea"]["id"]]}}).json()
     v = interno.post(f"/etiquetas/trabajos/{t['id']}/validar").json()
-    assert len(v["registros"]) == 2 and all(x["cantidad"] == 2 for x in v["registros"])
-    p = _aprobada(interno, admin, "Job item design", modalidad="ARTICULO")
-    regla = interno.post("/etiquetas/asignaciones", {"plantilla_id": p["id"], "ambito": "REGLA", "prioridad": 7002,
-                                                     "condiciones": [{"campo": "contexto.origen", "op": "igual", "valor": "ARTICULOS"}]}).json()
-    try:
-        v = interno.post(f"/etiquetas/trabajos/{t['id']}/validar").json()
-        assert {x["plantilla"] for x in v["registros"]} == {"Job item design"} and all(x["regla_id"] == regla["id"] for x in v["registros"])
-        g = interno.post(f"/etiquetas/trabajos/{t['id']}/generar", {"aceptar_advertencias": True})
-        assert g.status_code == 200, g.text
-        assert g.json()["estado"] == "GENERADO"
-    finally:
-        interno.c.delete(f"/api/etiquetas/asignaciones/{regla['id']}", headers=interno.h)
-    # Lista de empaque: un registro por bulto, con el diseño de su regla (la del contexto PACKING)
-    pls = interno.get("/etiquetas/masivo/packing").json()
-    con = [x for x in pls if interno.get(f"/etiquetas/masivo/packing/{x['id']}").json()["superiores"]]
+    # Una por artículo (el tipo es «una por línea»); la cantidad escrita vale para los tipos por unidad o manuales
+    assert len(v["registros"]) == 2 and all(x["cantidad"] == 1 for x in v["registros"])
+    assert {x["plantilla"] for x in v["registros"]} == {"Job design other lines"}
+    m = interno.post("/etiquetas/trabajos", {"origen": "ARTICULOS", "parametros": {"articulos": articulos, "tipos": [job["manual"]["id"]]}}).json()
+    m = interno.post(f"/etiquetas/trabajos/{m['id']}/validar").json()
+    assert [x["cantidad"] for x in m["registros"]] == [2, 2]
+    # Elegido por el usuario para este trabajo (sin cambiar los usos)
+    interno.patch(f"/etiquetas/trabajos/{t['id']}", {"parametros": {"elegidas": {x["clave"]: disenos[0]["id"] for x in v["registros"]}},
+                                                    "version": v["version"]})
+    v = interno.post(f"/etiquetas/trabajos/{t['id']}/validar").json()
+    assert {x["plantilla"] for x in v["registros"]} == {"Job design first lines"}
+    assert all(x["motivo"] == "Chosen by the user for this job." for x in v["registros"])
+    g = interno.post(f"/etiquetas/trabajos/{t['id']}/generar", {"aceptar_advertencias": True, "version": v["version"]})
+    assert g.status_code == 200, g.text
+    assert g.json()["estado"] == "GENERADO"
+    # Un tipo de caja no se imprime desde artículos sueltos
+    caja = tipo(interno, "JOB_CAJA", sujeto="BULTO", cantidad="POR_BULTO")
+    r = interno.post("/etiquetas/trabajos", {"origen": "ARTICULOS", "parametros": {"articulos": articulos, "tipos": [caja["id"]]}})
+    assert r.status_code == 422
+    # Lista de empaque: un registro por bulto superior, cada uno con su lista de empaque
+    pls = interno.get("/etiquetas/packing").json()
+    con = [x for x in pls if interno.get(f"/etiquetas/packing/{x['id']}").json()["superiores"] and x["etiquetas_reales"]]
     if not con:
         pytest.skip("no packing lists with packages")
-    t = interno.post("/etiquetas/trabajos", {"origen": "PACKING", "parametros": {"pl_id": con[0]["id"]}}).json()
+    pl = con[0]
+    uso(interno, caja["id"], aprobada(interno, admin, "Job carton", caja["id"], [
+        {"id": "b", "tipo": "texto", "contenido": "{{bulto.numero}}/{{bulto.total}}", "x": 3, "y": 3, "w": 60, "h": 8}])["id"])
+    t = interno.post("/etiquetas/trabajos", {"origen": "PACKING", "parametros": {"pl_id": pl["id"], "tipos": [caja["id"]]}}).json()
     v = interno.post(f"/etiquetas/trabajos/{t['id']}/validar").json()
-    assert v["registros"] and all(x["pl_id"] == con[0]["id"] for x in v["registros"])
-    assert {x["plantilla"] for x in v["registros"] if x["plantilla"]} <= {"Job design first lines", "Job design other lines"}
+    superiores = interno.get(f"/etiquetas/packing/{pl['id']}").json()["superiores"]
+    assert len(v["registros"]) == superiores and all(x["pl_id"] == pl["id"] for x in v["registros"])
+    assert {x["plantilla"] for x in v["registros"]} == {"Job carton"} and all(x["cantidad"] == 1 for x in v["registros"])
+    # La clave de cada bulto lleva su lista de empaque (dos listas de la misma OC no chocan: E1)
+    assert all(f"-pl{pl['id']}-" in x["clave"] for x in v["registros"])
     # Cancelar un borrador
     assert interno.post(f"/etiquetas/trabajos/{t['id']}/cancelar").json()["estado"] == "CANCELADO"
     assert interno.post(f"/etiquetas/trabajos/{t['id']}/validar").status_code == 409
 
 
-def test_generacion_en_segundo_plano_con_avance(interno, ordenes, disenos, reglas_empresa):
+def test_generacion_en_segundo_plano_con_avance(interno, ordenes, job, disenos, reglas_empresa):
     o = ordenes[0]
     t = interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {
-        "oc_ids": [o["oc"]["id"]], "posiciones": [o["lineas"][0]["id"]], "unidad": "MANUAL",
-        "cantidades": {str(o["lineas"][0]["id"]): 6}}}).json()
+        "oc_ids": [o["oc"]["id"]], "posiciones": [o["lineas"][0]["id"]], "tipos": [job["manual"]["id"]]}}).json()
+    v = interno.post(f"/etiquetas/trabajos/{t['id']}/validar").json()
+    v = interno.patch(f"/etiquetas/trabajos/{t['id']}", {"parametros": {"cantidades": {v["registros"][0]["clave"]: 6}},
+                                                        "version": v["version"]}).json()
     reglas_empresa(ETIQUETAS_ASINCRONO_DESDE=5)
     g = interno.post(f"/etiquetas/trabajos/{t['id']}/generar", {"aceptar_advertencias": True})
     assert g.status_code == 200, g.text
@@ -249,62 +270,118 @@ def test_generacion_en_segundo_plano_con_avance(interno, ordenes, disenos, regla
     assert sum(e["total"] for e in d["ejecuciones"]) == 6
 
 
-def test_proveedor_solo_con_sus_ordenes(vans, ordenes):
+def test_proveedor_solo_con_sus_ordenes(vans, ordenes, job):
     # Una OC de otro proveedor no se puede poner en un trabajo
-    r = vans.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {"oc_ids": [ordenes[0]["oc"]["id"]]}})
+    r = vans.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {"oc_ids": [ordenes[0]["oc"]["id"]], "tipos": [job["linea"]["id"]]}})
     assert r.status_code == 404
 
 
-def test_migracion_convierte_asignaciones_en_reglas_equivalentes():
+# Reglas de la versión anterior (0075) de cada ámbito, con lo que cada una debe dar en usos de diseño
+_REGLAS = [  # id, plantilla, ambito, familia, articulo, oc, prioridad, activa, condiciones, contexto, desde, hasta
+    (1, 1, "GENERAL", None, None, None, 100, 1, [], {}, None, None),
+    (2, 2, "GENERAL", None, None, None, 100, 1, [], {}, None, None),  # mismo tipo y lugar que 1: queda de baja
+    (3, 1, "FAMILIA", 1, None, None, 200, 1, [], {}, None, None),
+    (4, 3, "OC", None, None, 7, 500, 1, [], {}, None, None),
+    (5, 1, "REGLA", None, None, None, 250, 1, [{"campo": "articulo.marca_codigo", "op": "igual", "valor": "TNF"}], {}, None, None),
+    (6, 4, "FAMILIA", 1, None, None, 200, 1, [], {}, None, None),  # caja por familia: de baja
+    (7, 5, "GENERAL", None, None, None, 100, 0, [], {}, None, None),  # inactiva: de baja
+    (8, 4, "GENERAL", None, None, None, 100, 1, [], {"tipos_empaque": ["MASTER", "NOEXISTE"]}, None, None),
+    (9, 1, "ARTICULO", None, 33, None, 400, 1, [], {}, "2026-01-01", "2026-12-31"),  # vigencia → excepción por condición
+]
+
+
+def _sembrar_0075(ruta):
+    c = sqlite3.connect(ruta)
+    c.execute("PRAGMA foreign_keys=OFF")
+    q = c.execute
+    q("INSERT OR IGNORE INTO organizaciones (id, codigo, nombre, configuracion, activa, creada_en) VALUES (1, 'O1', 'Org', '{}', 1, '2026-01-01')")
+    q("INSERT INTO familias_etiquetado (id, organizacion_id, codigo, nombre, campos, orden, activa, creada_en)"
+      " VALUES (1, 1, 'CALZ', 'Calzado', '[]', 0, 1, '2026-01-01')")
+    q("INSERT INTO tipos_empaque (id, organizacion_id, codigo, nombre, nivel, cuenta_como, contiene_productos, mezcla_productos,"
+      " mezcla_tallas, mezcla_oc, activo) VALUES (901, 1, 'MASTER', 'Master', 2, 'BULTO', 1, 1, 1, 1, 1)")
+    for i, n, m, u in ((1, "Hang", "ARTICULO", "UNIDAD"), (2, "Hang PO", "OC_ARTICULO", "UNIDAD"), (3, "Line", "OC_ARTICULO", "LINEA"),
+                       (4, "Carton", "OC_ARTICULO", "BULTO"), (5, "Content", "OC", "ORDEN")):
+        q("INSERT INTO plantillas_etiqueta (id, organizacion_id, nombre, modalidad, unidad, estado, creada_en, actualizada_en)"
+          " VALUES (?, 1, ?, ?, ?, 'ACTIVA', '2026-01-01', '2026-01-01')", (i, n, m, u))
+    for r in _REGLAS:
+        q("INSERT INTO asignaciones_etiqueta (id, organizacion_id, plantilla_id, ambito, familia_id, articulo_id, oc_id, prioridad,"
+          " predeterminada, activa, condiciones, contexto, vigente_desde, vigente_hasta, creada_en, nombre, version)"
+          " VALUES (?, 1, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, '2026-01-01', ?, 1)",
+          (*r[:8], json.dumps(r[8]), json.dumps(r[9]), r[10], r[11], f"Rule {r[0]}"))
+    q("INSERT INTO roles (id, organizacion_id, nombre, tipo, permisos, sistema, activo, datos_ocultos, inicio_oculto)"
+      " VALUES (999, 1, 'AdminX', 'admin', ?, 1, 1, '[]', '[]')", (json.dumps(["etiquetas.asignar", "etiquetas.ver"]),))
+    q("INSERT INTO proveedores (id, organizacion_id, codigo, nombre, activo, extra) VALUES (901, 1, 'P1', 'Prov', 1, '{}')")
+    q("INSERT INTO ordenes_compra (id, organizacion_id, proveedor_id, numero, liberacion_comercial, liberacion_logistica, liberada,"
+      " actualizado_en, extra, estado, origen, version) VALUES (7, 1, 901, '4500', 'L', 'L', 1, '2026-01-01', '{}', 'APROBADA', 'ERP', 1)")
+    q("INSERT INTO marcas (id, organizacion_id, codigo, nombre, activa, extra) VALUES (901, 1, 'M1', 'Marca', 1, '{}')")
+    cat = c.execute("SELECT codigo FROM categorias_articulo LIMIT 1").fetchone()
+    if cat is None:
+        q("INSERT INTO categorias_articulo (organizacion_id, codigo, nombre, activo) VALUES (1, 'CAT', 'Cat', 1)")
+        cat = ("CAT",)
+    q("INSERT INTO grupos_articulos (id, organizacion_id, codigo, nombre, categoria, activo) VALUES (901, 1, 'G1', 'Grupo', ?, 1)", cat)
+    q("INSERT INTO articulos (id, organizacion_id, sku, estilo, marca_id, grupo_id, unidad, tipo, activo, extra)"
+      " VALUES (33, 1, 'SKU1', 'E1', 901, 901, 'UN', 'SOLIDO', 1, '{}')")
+    c.commit()
+    c.close()
+
+
+def test_migracion_convierte_las_reglas_en_tipos_y_usos_de_diseno():
+    """0076: un tipo por cada (qué se etiqueta, cuántas) de los diseños; cada regla pasa a su lugar
+    (o a excepción) sin perder nada: lo que ya no tiene lugar queda de baja con el motivo, y
+    cada conversión queda en el historial. Revertir devuelve las reglas."""
     from test_oficial import RAIZ
 
     with tempfile.TemporaryDirectory() as tmp:
         env = {"DATABASE_URL": f"sqlite:///{tmp}/m.db", "PATH": "/usr/bin:/bin"}
         alembic = [sys.executable, "-m", "alembic"]
-        r = subprocess.run(alembic + ["upgrade", "0072"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        r = subprocess.run(alembic + ["upgrade", "0075"], cwd=RAIZ, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
-        con = sqlite3.connect(f"{tmp}/m.db")
-        con.execute("INSERT INTO familias_etiquetado (id, codigo, nombre, campos, orden, activa, creada_en, organizacion_id)"
-                    " VALUES (1, 'F', 'Fam', '[]', 0, 1, CURRENT_TIMESTAMP, 1)")
-        con.execute("INSERT INTO plantillas_etiqueta (id, nombre, modalidad, unidad, estado, creada_en, actualizada_en, organizacion_id)"
-                    " VALUES (1, 'Old design', 'OC_ARTICULO', 'LINEA', 'ACTIVA', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1)")
-        con.execute("INSERT INTO asignaciones_etiqueta (plantilla_id, ambito, predeterminada, activa, creada_en, organizacion_id)"
-                    " VALUES (1, 'GENERAL', 1, 1, CURRENT_TIMESTAMP, 1)")
-        con.execute("INSERT INTO asignaciones_etiqueta (plantilla_id, ambito, familia_id, predeterminada, activa, creada_en, organizacion_id)"
-                    " VALUES (1, 'FAMILIA', 1, 0, 1, CURRENT_TIMESTAMP, 1)")
-        con.commit()
-        con.close()
+        _sembrar_0075(f"{tmp}/m.db")
         r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
         con = sqlite3.connect(f"{tmp}/m.db")
-        filas = con.execute("SELECT ambito, prioridad, nombre, condiciones, contexto, predeterminada, version FROM asignaciones_etiqueta"
-                            " ORDER BY id").fetchall()
-        assert filas == [("GENERAL", 100, "General · Old design", "[]", "{}", 1, 1),
-                         ("FAMILIA", 200, "Familia · Old design", "[]", "{}", 0, 1)]
-        assert con.execute("SELECT padre_id FROM familias_etiquetado").fetchall() == [(None,)]
-        # Una regla sin destino ya se puede guardar; al revertir se quita (antes no existía)
-        con.execute("INSERT INTO asignaciones_etiqueta (plantilla_id, ambito, predeterminada, activa, creada_en, organizacion_id,"
-                    " prioridad, condiciones, contexto, version) VALUES (1, 'REGLA', 0, 1, CURRENT_TIMESTAMP, 1, 250, '[]', '{}', 1)")
-        con.commit()
+        tipos = {t: (s, c) for t, s, c in con.execute("SELECT id, sujeto, cantidad FROM tipos_etiqueta")}
+        assert sorted(tipos.values()) == [("ARTICULO", "POR_LINEA"), ("ARTICULO", "POR_UNIDAD"), ("BULTO", "POR_BULTO"),
+                                          ("DOCUMENTO", "POR_DOCUMENTO")]
+        usos = con.execute("SELECT plantilla_id, nivel, familia_id, articulo_id, tipo_empaque_id, contexto_tipo, oc_id,"
+                           " eliminado_en IS NOT NULL FROM usos_diseno ORDER BY id").fetchall()
+        vivos = {(u[0], u[1], u[5]) for u in usos if not u[7]}
+        de_baja = {(u[0], u[1], u[5]) for u in usos if u[7]}
+        # Los diseños 1 y 2 son del mismo tipo (una por unidad): en el mismo lugar queda el de la regla más antigua
+        assert (1, "GENERAL", "NINGUNO") in vivos and (2, "GENERAL", "NINGUNO") in de_baja
+        assert (1, "FAMILIA", "NINGUNO") in vivos and (3, "GENERAL", "OC") in vivos
+        assert (1, "GENERAL", "CONDICION") in vivos and (1, "SKU", "CONDICION") in vivos
+        assert (4, "TIPO_EMPAQUE", "NINGUNO") in vivos  # la caja MASTER
+        assert (4, "FAMILIA", "NINGUNO") in de_baja and (5, "GENERAL", "NINGUNO") in de_baja
+        assert any(u[0] == 4 and u[1] == "GENERAL" and u[7] for u in usos)  # tipo de empaque que no existe
+        # Una sola fila normal viva por lugar
+        celdas = [c for c, n in con.execute("SELECT celda, COUNT(*) FROM usos_diseno WHERE contexto_tipo = 'NINGUNO'"
+                                            " AND eliminado_en IS NULL GROUP BY celda") if n > 1]
+        assert celdas == []
+        assert con.execute("SELECT COUNT(*) FROM historial WHERE entidad = 'uso_diseno' AND accion = 'migrar'").fetchone()[0] == len(usos)
+        assert con.execute("SELECT permisos FROM roles WHERE id = 999").fetchone()[0].count("etiquetas.configurar") == 1
+        assert not con.execute("SELECT name FROM sqlite_master WHERE name = 'asignaciones_etiqueta'").fetchall()
         con.close()
-        r = subprocess.run(alembic + ["downgrade", "0072"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        r = subprocess.run(alembic + ["downgrade", "0075"], cwd=RAIZ, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
         con = sqlite3.connect(f"{tmp}/m.db")
-        assert [x[0] for x in con.execute("SELECT ambito FROM asignaciones_etiqueta ORDER BY id")] == ["GENERAL", "FAMILIA"]
+        assert con.execute("SELECT COUNT(*) FROM asignaciones_etiqueta WHERE activa = 1").fetchone()[0] >= 6
+        assert con.execute("SELECT permisos FROM roles WHERE id = 999").fetchone()[0].count("etiquetas.asignar") == 1
         con.close()
+        r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
 
 
-def test_generacion_interrumpida_se_puede_retomar(interno, ordenes, disenos):
+def test_generacion_interrumpida_se_puede_retomar(interno, ordenes, job, disenos):
     """Si el proceso que generaba en segundo plano se detuvo (reinicio), el
     trabajo no queda «generando» para siempre: se retoma lo pendiente."""
     from datetime import datetime, timedelta
 
-    from app.core.db import SessionLocal
-    from app.core.organizacion import en_organizacion
     from app.modelos import TrabajoEtiquetas
 
     o = ordenes[1]
-    t = interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {"oc_ids": [o["oc"]["id"]], "posiciones": [o["lineas"][0]["id"]]}}).json()
+    t = interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {"oc_ids": [o["oc"]["id"]], "posiciones": [o["lineas"][0]["id"]],
+                                                                           "tipos": [job["linea"]["id"]]}}).json()
     interno.post(f"/etiquetas/trabajos/{t['id']}/validar")
     with SessionLocal() as db, en_organizacion(1):
         x = db.get(TrabajoEtiquetas, t["id"])

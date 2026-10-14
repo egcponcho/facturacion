@@ -1,7 +1,8 @@
 // Recorrido del asistente de etiquetado en el navegador (complementa recorrido.mjs):
 //
-// - las rutas anteriores (/etiquetas/generar, /etiquetas/masiva) llevan al
-//   asistente con su origen (OC, artículo, lista de empaque o familia);
+// - las rutas anteriores (/etiquetas/generar, /etiquetas/masiva, /etiquetas?vista=…,
+//   /etiquetas/plantillas/:id) llevan a su lugar nuevo (asistente, Configuración, Diseños);
+// - la configuración abre en la matriz «Qué diseño va en qué»;
 // - en «Generar», el usuario elige cómo se reparten las etiquetas en archivos:
 //   las carpetas y el patrón de nombres aparecen solo cuando aplican, PNG y SVG
 //   van siempre una por archivo, y lo elegido se guarda en el trabajo.
@@ -39,13 +40,12 @@ p.on('response', (r) => { if (r.url().includes('/api/') && r.status() >= 500) er
 
 // ---- Rutas anteriores ------------------------------------------------------------------------------
 const oc = (await a.get('/ordenes?solo_disponible=false&size=1')).items[0]
-// Una familia con un artículo de esa OC (la demostración no trae familias de etiquetado)
+const posiciones = (await a.get(`/ordenes/${oc.id}`)).posiciones.filter((x) => x.codigo_articulo)
+// Una familia con un artículo de esa OC
 let familia = (await a.get('/etiquetas/familias'))[0]
-if (!familia) {
-  familia = await (await a.post('/etiquetas/familias', { codigo: 'E2E', nombre: 'E2E family' })).json()
-  const art = (await a.get(`/etiquetas/oc/${oc.id}`)).lineas.find((x) => x.articulo_id)
-  await a.post('/etiquetas/articulos/familia', { familia_id: familia.id, ids: [art.articulo_id] })
-}
+if (!familia) familia = await (await a.post('/etiquetas/familias', { codigo: 'E2E', nombre: 'E2E family' })).json()
+const art = (await a.get(`/etiquetas/articulos?q=${encodeURIComponent(posiciones[0].codigo_articulo)}`)).items?.[0]
+if (art && !art.familia_id) await a.post('/etiquetas/articulos/familia', { familia_id: familia.id, ids: [art.id] })
 for (const [ruta, espera] of [[`/etiquetas/generar?oc=${oc.id}`, /\/etiquetas\/trabajos\/\d+/],
   [`/etiquetas/masiva?familia=${familia.id}`, /\/etiquetas\/trabajos\/\d+/]]) {
   await p.goto(BASE + ruta)
@@ -56,13 +56,32 @@ for (const [ruta, espera] of [[`/etiquetas/generar?oc=${oc.id}`, /\/etiquetas\/t
   const t = await a.get(`/etiquetas/trabajos/${new URL(p.url()).pathname.split('/').pop()}`)
   revisar(Number(t.parametros?.familia_id) === Number(familia.id), 'la familia de /etiquetas/masiva llega al trabajo')
 }
+// Las vistas viejas de /etiquetas?vista= llevan a su lugar nuevo
+for (const [ruta, camino, vista] of [['/etiquetas?vista=familias', '/etiquetas/configuracion', 'familias'],
+  ['/etiquetas?vista=campos', '/etiquetas/configuracion', 'campos'], ['/etiquetas?vista=plantillas', '/etiquetas/disenos', null]]) {
+  await p.goto(BASE + ruta)
+  await quieto()
+  const u = new URL(p.url())
+  revisar(u.pathname === camino && (vista === null || u.searchParams.get('vista') === vista), `${ruta} → ${u.pathname}${u.search}`)
+}
+const diseno = (await a.get('/etiquetas/plantillas?size=1')).items?.[0]
+if (diseno) {
+  await p.goto(`${BASE}/etiquetas/plantillas/${diseno.id}`)
+  await quieto()
+  revisar(new URL(p.url()).pathname === `/etiquetas/disenos/${diseno.id}`, 'el editor de plantillas pasa a /etiquetas/disenos/:id')
+}
+
+// ---- Configuración: la matriz «Qué diseño va en qué» ---------------------------------------------
+await p.goto(`${BASE}/etiquetas/configuracion`)
+await quieto()
+revisar(await p.getByRole('tab', { name: /Which design goes on what|Qué diseño va en qué/ }).isVisible(), 'la configuración abre en la matriz')
 
 // ---- Paso «Generar»: agrupación del ZIP ----------------------------------------------------------
-const lineas = (await a.get(`/etiquetas/oc/${oc.id}`)).lineas.filter((x) => x.articulo_id).slice(0, 2)
+const lineas = posiciones.slice(0, 2)
 const t = await (await a.post('/etiquetas/trabajos', { origen: 'OC', parametros: { oc_ids: [oc.id], posiciones: lineas.map((x) => x.id) } })).json()
 await a.post(`/etiquetas/trabajos/${t.id}/validar`, {})
 const actual = await a.get(`/etiquetas/trabajos/${t.id}`)
-await a.patch(`/etiquetas/trabajos/${t.id}`, { paso: 6, version: actual.version })
+await a.patch(`/etiquetas/trabajos/${t.id}`, { paso: 2, version: actual.version })
 await p.goto(`${BASE}/etiquetas/trabajos/${t.id}`)
 await quieto()
 const campo = (re) => p.locator('label.campo', { hasText: re })

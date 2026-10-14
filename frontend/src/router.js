@@ -26,7 +26,7 @@ const routes = [
   { path: '/etiquetas', component: () => import('@/modulos/etiquetado/vistas/ImprimirView.vue'), meta: { permiso: 'etiquetas.ver' },
     beforeEnter: (to) => {
       const v = to.query.vista
-      if (v === 'disenos') return '/etiquetas/disenos'
+      if (v === 'disenos' || v === 'plantillas') return '/etiquetas/disenos'
       const destino = { asignaciones: 'matriz', familias: 'familias', articulos: 'familias', campos: 'campos', historial: 'historial' }[v]
       if (destino) return { path: '/etiquetas/configuracion', query: { vista: destino, ...(to.query.familia && { familia: to.query.familia }) } }
       if (v) return { path: '/etiquetas', query: {} }
