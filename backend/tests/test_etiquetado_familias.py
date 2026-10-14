@@ -52,6 +52,9 @@ def test_asignar_familia_a_articulos_sin_tocar_la_clasificacion(interno):
     assert r.status_code == 200 and r.json()["cambiados"] == 3
     con = interno.get("/etiquetas/articulos", params={"familia": ropa["id"]}).json()
     assert {a["id"] for a in con["items"]} == set(elegidos) and all(a["familia"] == "Apparel" for a in con["items"])
+    solo = interno.get("/etiquetas/articulos", params={"ids": ",".join(map(str, elegidos[:2]))}).json()
+    assert {a["id"] for a in solo["items"]} == set(elegidos[:2])
+    assert interno.get("/etiquetas/articulos", params={"ids": "1;DROP"}).status_code == 422
     assert next(f for f in interno.get("/etiquetas/familias").json() if f["id"] == ropa["id"])["articulos"] == 3
     # En uso no se borra: se desactiva
     assert interno.delete_(f"/etiquetas/familias/{ropa['id']}").status_code == 409

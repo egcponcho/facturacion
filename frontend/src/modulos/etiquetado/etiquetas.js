@@ -195,3 +195,30 @@ export function cumple(cond, valores) {
 }
 
 export const TRAZOS = { discontinuo: (g) => `${3 * g + 0.7} ${2 * g + 0.5}`, punteado: (g) => `${Math.max(g, 0.18)} ${2 * g + 0.35}` }
+
+// El resumen de cambios que guarda el servidor (diseno.resumen_cambios) en el idioma de la pantalla
+const PROPIEDADES_DISENO = () => ({ margen: t('Safe margin'), fondo: t('Background'), borde: t('Border'), dpi: t('PNG resolution'), hoja: t('How it prints') })
+export function textoCambios(s) {
+  if (!s) return ''
+  return s.split('; ').map((parte) => {
+    let m = parte.match(/^size (.+) mm$/)
+    if (m) return `${t('Dimensions')}: ${m[1]} mm`
+    m = parte.match(/^(\w+) changed$/)
+    if (m) return `${PROPIEDADES_DISENO()[m[1]] || m[1]}: ${t('changed')}`
+    m = parte.match(/^(added|removed|edited): (.*)$/)
+    if (m) return `${{ added: t('Added'), removed: t('Removed'), edited: t('Changed') }[m[1]]}: ${m[2]}`
+    if (parte === 'layer order changed') return `${t('Layers')}: ${t('order changed')}`
+    if (parte === 'no changes') return t('No changes')
+    return parte
+  }).join(' · ')
+}
+
+// Nombre legible de cada propiedad de un elemento (para comparar versiones)
+export const PROPIEDADES = () => ({
+  x: 'X', y: 'Y', w: t('Width'), h: t('Height'), rot: t('Rotation'), nombre: t('Name'), visible: t('Hide'), bloqueado: t('Lock'),
+  grupo: t('Group'), condicion: t('Show only if'), contenido: t('Text'), campo: t('Field'), prefijo: t('Prefix'), sufijo: t('Suffix'),
+  formato: t('Format'), si_vacio: t('If the data is empty'), alternativo: t('Alternative text'), estilo: t('Text style'),
+  fuente_imagen: t('Image source'), adjunto_id: t('Image'), datos: t('Image'), encaje: t('Fit'), simbologia: t('Symbology'),
+  valor: t('Value to encode'), legible: t('Human-readable text'), margen: t('Quiet zone'), correccion: t('Error correction'),
+  relleno: t('Fill'), borde: t('Border'), grosor: t('Thickness'), radio: t('Corner radius'), trazo: t('Stroke'), color: t('Color'),
+})

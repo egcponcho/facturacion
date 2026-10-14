@@ -192,9 +192,11 @@ def _consulta_articulos(user: Usuario, q=None, familia=None, marca_id=None, grup
 
 
 def articulos(db: Session, user: Usuario, q=None, familia=None, marca_id=None, grupo_id=None, producto_id=None,
-              page: int = 1, size: int = 50) -> dict:
+              page: int = 1, size: int = 50, ids: list[int] | None = None) -> dict:
     exigir_alguno(user, "etiquetas.ver", "etiquetas.familias")
     c = _consulta_articulos(user, q, familia, marca_id, grupo_id, producto_id)
+    if ids:
+        c = c.where(Articulo.id.in_(ids))
     total = db.scalar(select(func.count()).select_from(c.subquery())) or 0
     filas = db.scalars(c.order_by(Articulo.estilo, Articulo.color, Articulo.talla, Articulo.id)
                        .offset((page - 1) * size).limit(size)).all()

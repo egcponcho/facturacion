@@ -55,10 +55,11 @@ def eliminar_familia(familia_id: int, db: Db, user: User):
 
 @router.get("/etiquetas/articulos")
 def articulos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None, marca_id: int | None = None,
-                      grupo_id: int | None = None, producto_id: int | None = None, page: int = Query(1, ge=1),
-                      size: int = Query(50, ge=1, le=200)):
-    """Artículos con su familia de etiquetado (familia=sin: los que no tienen)."""
-    return familias.articulos(db, user, q, familia, marca_id, grupo_id, producto_id, page, size)
+                      grupo_id: int | None = None, producto_id: int | None = None, ids: str | None = Query(None, pattern=r"^\d+(,\d+)*$"),
+                      page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200)):
+    """Artículos con su familia de etiquetado (familia=sin: los que no tienen; ids=1,2,3: solo esos)."""
+    return familias.articulos(db, user, q, familia, marca_id, grupo_id, producto_id, page, size,
+                              [int(x) for x in ids.split(",")][:200] if ids else None)
 
 
 @router.post("/etiquetas/articulos/familia")

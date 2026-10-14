@@ -8,6 +8,8 @@ import Modal from '@/componentes/Modal.vue'
 import { fmtFechaHora, fmtNum } from '@/nucleo/utils'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
+import { PROPIEDADES, textoCambios } from '@/modulos/etiquetado/etiquetas.js'
+import { usarEditor } from './estado.js'
 
 // Versiones del diseño: cuál se usa al generar (vigente), cuál está en curso,
 // quién la creó, envió y aprobó, con el comentario del revisor. Cada acción
@@ -89,7 +91,9 @@ async function abrirComparacion() {
     errorApi(e)
   }
 }
-const nombreEl = (e) => e.nombre || e.campo || (e.tipo === 'texto' ? (e.contenido || '').slice(0, 24) : e.simbologia || e.tipo)
+const ed = usarEditor()
+const etiquetaCampo = (c) => tx(ed?.estado.campos.find((x) => x.clave === c)?.etiqueta || c)
+const nombreEl = (e) => e.nombre || (e.campo ? etiquetaCampo(e.campo) : e.tipo === 'texto' ? (e.contenido || '').slice(0, 24) : (e.simbologia || e.tipo).toUpperCase())
 function diferencias(a, b) {
   const r = []
   if (a.ancho !== b.ancho || a.alto !== b.alto) r.push([t('Dimensions'), `${fmtNum(a.ancho, 1)} × ${fmtNum(a.alto, 1)} → ${fmtNum(b.ancho, 1)} × ${fmtNum(b.alto, 1)} mm`])
@@ -104,7 +108,7 @@ function diferencias(a, b) {
     const o = ia[e.id]
     if (!o) continue
     const props_ = [...new Set([...Object.keys(o), ...Object.keys(e)])].filter((k) => JSON.stringify(o[k]) !== JSON.stringify(e[k]))
-    if (props_.length) r.push([t('Changed'), `${nombreEl(e)}: ${props_.join(', ')}`])
+    if (props_.length) r.push([t('Changed'), `${nombreEl(e)}: ${props_.map((k) => PROPIEDADES()[k] || k).join(', ')}`])
   }
   const orden = (x, y) => x.elementos.map((e) => e.id).filter((id) => y.elementos.some((f) => f.id === id)).join()
   if (orden(a, b) !== orden(b, a)) r.push([t('Layers'), t('order changed')])
@@ -153,7 +157,7 @@ const miniatura = (v) => `/api/etiquetas/versiones/${v.id}/miniatura.svg?e=${enc
         <p v-if="v.enviada_en" class="ver-dato">{{ t('Sent by {0} · {1}', [v.enviada_por || '—', fmtFechaHora(v.enviada_en)]) }}</p>
         <p v-if="v.aprobada_en" class="ver-dato">{{ t('Approved by {0} · {1}', [v.aprobada_por || '—', fmtFechaHora(v.aprobada_en)]) }}</p>
         <p v-else-if="v.revisada_en" class="ver-dato">{{ t('Reviewed by {0} · {1}', [v.revisada_por || '—', fmtFechaHora(v.revisada_en)]) }}</p>
-        <p v-if="v.cambios && v.numero > 1" class="ver-cambios">{{ v.cambios }}</p>
+        <p v-if="v.cambios && v.numero > 1" class="ver-cambios">{{ textoCambios(v.cambios) }}</p>
         <p v-if="v.comentario" class="ver-comentario" :class="{ rechazo: v.estado === 'RECHAZADA' }">«{{ v.comentario }}»</p>
         <div v-if="acciones(v).length || v.id !== props.actual" class="ver-acciones">
           <button v-if="v.id !== props.actual" type="button" class="btn btn-chico" @click="emit('abrir', v.id)">{{ t('Open') }}</button>
@@ -166,7 +170,7 @@ const miniatura = (v) => `/api/etiquetas/versiones/${v.id}/miniatura.svg?e=${enc
       <li v-for="b in bitacora || []" :key="b.id">
         <span class="bit-fecha">{{ fmtFechaHora(b.fecha) }}</span>
         <span><strong>{{ b.usuario || t('System') }}</strong> · {{ ACCIONES[b.accion] || b.accion }}<template v-if="b.detalle?.version"> ({{ t('version {0}', [b.detalle.version]) }})</template></span>
-        <span v-if="b.detalle?.cambios" class="bit-detalle">{{ b.detalle.cambios }}</span>
+        <span v-if="b.detalle?.cambios" class="bit-detalle">{{ textoCambios(b.detalle.cambios) }}</span>
         <span v-if="b.motivo" class="bit-detalle">«{{ b.motivo }}»</span>
       </li>
       <li v-if="bitacora && !bitacora.length" class="ayuda">{{ t('No activity yet.') }}</li>

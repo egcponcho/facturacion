@@ -236,14 +236,17 @@ def resolver(db: Session, modalidad: str, articulo: Articulo | None = None, oc: 
 
 
 def _motivo(db: Session, nivel: str, articulo, oc, por_predeterminada: bool) -> str:
-    extra = " (default among several)" if por_predeterminada else ""
+    """Por qué se eligió la plantilla, en frases completas (cada una con su traducción)."""
+    d = por_predeterminada
     if nivel == "OC":
-        return f"Exception assigned to PO {oc.numero}{extra}."
+        return f"Exception assigned to PO {oc.numero}, default among several." if d else f"Exception assigned to PO {oc.numero}."
     if nivel == "ARTICULO":
-        return f"Assigned to the item {articulo.sku}{extra}."
+        return f"Assigned to the item {articulo.sku}, default among several." if d else f"Assigned to the item {articulo.sku}."
     if nivel == "PRODUCTO":
-        return f"Assigned to the product {articulo.estilo} (all its variants){extra}."
+        return (f"Assigned to the product {articulo.estilo} (all its variants), default among several." if d
+                else f"Assigned to the product {articulo.estilo} (all its variants).")
     if nivel == "FAMILIA":
         f = db.get(FamiliaEtiquetado, articulo.familia_etiquetado_id)
-        return f"Design of the labeling family {f.nombre if f else ''}{extra}."
-    return f"General design of the organization{extra}."
+        nombre = f.nombre if f else ""
+        return f"Design of the labeling family {nombre}, default among several." if d else f"Design of the labeling family {nombre}."
+    return "General design of the organization, default among several." if d else "General design of the organization."
