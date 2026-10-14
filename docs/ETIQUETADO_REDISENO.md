@@ -356,13 +356,7 @@ Migración `0073` (revisa `0072`). Se comprobó:
 
 ### 10.5 Limitaciones verificadas y pendientes
 
-- **Base de datos**:
-  - Las pruebas corren en SQLite.
-  - RLS y las llaves de coherencia en PostgreSQL se crean en la migración con el mismo mecanismo que las anteriores, pero aquí no se ejecutó la suite contra PostgreSQL (`TEST_DATABASE_URL`).
-- **Segundo plano**:
-  - Es un hilo del mismo proceso, no una cola durable.
-  - Si el proceso se reinicia, el trabajo se puede retomar después de 10 minutos sin avance; lo ya generado se conserva.
-  - Con varios procesos de servidor, el bloqueo de doble ejecución es por proceso.
+- **Base de datos** y **segundo plano**: superado por la revisión final (§11). La suite completa corre también en PostgreSQL y la ejecución es duradera, con arriendo en la base.
 - **Verificación de lectura**: se hace sobre una muestra (una etiqueta por diseño, hasta 20), no sobre cada etiqueta.
 - **Desborde de tablas**: no existe «continuar en otra etiqueta». Las opciones son error, reducir o resumir.
 - **Idioma**: no hay variantes de idioma por diseño. Se crea un diseño por idioma y se elige con una regla (p. ej., condición sobre `oc.pais_origen` o un campo propio).
@@ -396,3 +390,88 @@ Migración `0073` (revisa `0072`). Se comprobó:
 - `alembic check` sin diferencias.
 - `eslint` y `vite build` sin errores.
 - Recorrido e2e de todas las pantallas con 4 usuarios en escritorio y celular, sin errores de la aplicación.
+
+## 11. Revisión final de la rama (hallazgos, correcciones y pruebas reales)
+
+Se revisó el código de la rama tal como estaba (commit 67a6f22) y se corrigió solo lo demostrado. No se reconstruyó el módulo, no se borraron archivos y no se migraron datos existentes. Commits:
+
+- 0bf08ad: ejecución duradera.
+- c31068f: unidades, ZIP y patrones.
+- 48e4324: permisos, cantidades y rutas.
+- El siguiente: recorrido e2e y este documento.
+
+### 11.1 Hallazgos
+
+| # | Archivo · función | Evidencia | Impacto | Solución |
+|---|---|---|---|---|
+| H1 | `trabajos.py` · `_segundo_plano`, `_EN_CURSO` | El candado era un `set` en memoria del proceso. Con dos procesos (o un reintento mientras el hilo seguía vivo) el mismo trabajo se ejecutó 3 veces para 1 registro. Tras un reinicio, el trabajo quedaba EN_PROCESO hasta que alguien lo reintentara a mano después de 10 min. | Etiquetas duplicadas. Trabajos colgados tras reiniciar o desplegar. | Arriendo en la base: `ejecutor`, `arriendo_hasta`, `latido_en` e `intentos` (migración 0074). Ver §11.2. |
+| H2 | `generacion.py` · `generar` | No había restricción que impidiera que un registro del trabajo produjera dos `generacion_items`. | Duplicados ante reintentos simultáneos o fallos parciales. | `generacion_items.trabajo_registro_id` con UNIQUE y FK (ON DELETE SET NULL). Cada parte se confirma con el arriendo verificado. |
+| H3 | `0073_etiquetado_generico.py` | `fk_trabajo_etiqueta_registros_generacion_id_generaciones_etiqueta` tiene 65 caracteres: `IdentifierError` en PostgreSQL. **La migración no se podía aplicar en PostgreSQL** (34 errores en la suite). | El despliegue en PostgreSQL fallaba al arrancar. | Nombre de 56 caracteres. No hay datos que migrar: en PostgreSQL nunca llegó a aplicarse. Se revisaron todos los identificadores de 0072 a 0074 (≤ 63). |
+| H4 | `referencias.py` · `COHERENCIA` | `trabajo_etiqueta_registros` (oc, posición, artículo, PL, plantilla, versión, regla), `asignaciones_etiqueta` (producto, artículo, OC), `generacion_items` (plantilla, artículo, posición, familia, registro) y `generaciones_etiqueta.oc_id` no tenían FK de coherencia de organización. | Por SQL o por un error de código, un registro podía apuntar a la OC de otra empresa. | FK compuestas `(col, organizacion_id)` en 0074. Si hay filas anteriores que no cumplen, en PostgreSQL se crean `NOT VALID` (bloquean lo nuevo y no detienen el arranque); en SQLite se omiten con aviso. |
+| H5 | `generacion.py` · `UNIDADES_CONTABLES` | Lista fija `{"UN","PAR","PZ",…}`. Una unidad contable que la empresa agrega al catálogo (p. ej., BTL) se rechazaba: «cannot be labeled per unit». | Configuración ignorada; había que tocar código para cada unidad. | `_no_contable` usa el catálogo `unidades_medida` (atributo `contable`). Una unidad medible o una cantidad con decimales da error con el motivo. |
+| H6 | `trabajos.py` · `archivo` | En PDF iba un PDF por carpeta. Sin carpetas, **un solo PDF con todos los diseños mezclados**, y el usuario no podía elegir. | Diseños y medidas distintas mezclados en un archivo de impresora. | `zip.agrupar`: `etiqueta`, `plantilla` (diseño + versión), `carpeta` (uno por diseño si la carpeta tiene varios) o `unico` (422 si las medidas difieren). Las combinaciones sin sentido dan 422. Los trabajos anteriores sin elección pasan a uno por diseño. |
+| H7 | `salidas.py` · `pdf` (modo hoja) | Todas las etiquetas usaban la celda de la primera. Una de 50×20 tras una de 80×30 quedaba en la misma hoja, con la retícula equivocada (prueba: 1 hoja en vez de 2). Una hoja en la que no cabe se dibujaba fuera del papel. | Hojas mal impresas. | Cada medida empieza su hoja. `cabe()` rechaza al generar (422 con la medida) y al dibujar. |
+| H8 | `reglas.py` · `cumple_condicion` («coincide») | `re.fullmatch` sin límites. `(a+)+$` contra `"a"*n+"!"`: 0,07 s (n=20), 0,21 s (n=22), 0,85 s (n=24), creciendo ×4 cada 2 caracteres. Un SKU de 30 caracteres pasaría del minuto. | Una regla o una condición de un diseño podía dejar el servidor calculando (ReDoS). | `validar_patron`: hasta 100 caracteres; sin repeticiones anidadas ni alternativas repetidas, sin referencias atrás ni búsquedas alrededor. Se aplica en reglas y en `diseno.Condicion`. El texto evaluado tiene un tope de 200 caracteres y un patrón inseguro ya guardado no se evalúa. |
+| H9 | `generacion.py` · `archivo`, `masivo.py` · `archivo` | Un rol con solo `etiquetas.ver` descargaba el archivo (200), y la ejecución quedaba marcada como descargada. El permiso dice «Generate **and download** labels» (`etiquetas.generar`). | Fuga por permisos. Estado «descargada» falso. | Exigen `etiquetas.generar`. El historial oculta los botones a quien solo consulta. |
+| H10 | `campos.py` · colecciones | `oc.lineas.cantidad` (pedido, plan) y `bulto.lineas.cantidad` (empacado, real) tenían el mismo título «Quantity». | Un diseñador podía imprimir lo pedido creyendo que era lo empacado. | Misma clave (los diseños guardados siguen funcionando), títulos distintos: «Quantity ordered» y «Quantity packed in the package». |
+| H11 | `router.js` · `/etiquetas/masiva` | La pantalla anterior aceptaba `?familia=`. La redirección al asistente la perdía. | Los enlaces guardados abrían un asistente vacío. | La redirección conserva la familia (comprobado en el recorrido e2e). |
+
+**Revisado sin defecto:**
+
+- Integración con OC, PL, facturas, embarques, unidades de carga y recepción. Generar, descargar y confirmar la impresión **no cambia ninguna fila** de esas tablas: prueba con foto completa antes y después.
+- `UNIDADES_DE` del frontend coincide con `UNIDADES_VALIDAS` del backend.
+- No quedan referencias a las vistas eliminadas fuera de las redirecciones.
+- Cada ruta de trabajos y generaciones pasa por `cargar` / `exigir` con el alcance del proveedor.
+
+### 11.2 Ejecución duradera: alternativas y elección
+
+| Alternativa | Consecuencias |
+|---|---|
+| Hilo del proceso (lo que había) | Sin coordinación entre procesos. Se pierde al reiniciar. |
+| Celery/RQ + Redis | Cola real, pero agrega un servicio y otro despliegue, y la idempotencia sigue dependiendo de la base. |
+| Bloqueos consultivos de PostgreSQL | Atados a la conexión. No existen en SQLite (pruebas, instalaciones pequeñas). |
+| **Arriendo en la tabla (elegida)** | Sin servicios nuevos. Funciona igual en SQLite y PostgreSQL. Se recupera tras reinicios. |
+
+Funcionamiento:
+
+- **Toma.** Un `UPDATE … WHERE estado='EN_PROCESO' AND (ejecutor IS NULL OR arriendo_hasta < ahora)`. Gana quien cambia la fila.
+- **Latido.** Un hilo renueva el arriendo cada ¼ del plazo.
+- **Fencing.** Antes de confirmar cada parte y al cerrar, se verifica en la misma transacción que el arriendo sigue siendo propio; si no, se revierte y no se confirma nada.
+- **Recuperación.** `main.py` revisa cada `ETIQUETAS_RECUPERAR_SEG` (30 s): los trabajos con arriendo vencido o nunca tomados se retoman; tras `ETIQUETAS_MAX_INTENTOS` (5) quedan en ERROR con el motivo.
+
+Configuración nueva: `ETIQUETAS_ARRIENDO_SEG` (120), `ETIQUETAS_RECUPERAR_SEG` (30; 0 lo apaga) y `ETIQUETAS_MAX_INTENTOS` (5).
+
+### 11.3 Migraciones
+
+- 0074 agrega columnas, índices, UNIQUE y FK. No hace *backfill* de `trabajo_registro_id` en los ítems existentes: no hay un mapeo seguro y los nulos no chocan con UNIQUE.
+- **PostgreSQL** (base nueva, rol sin superusuario):
+  - `upgrade head` → `downgrade 0071` → `upgrade head` → `alembic check`: «No new upgrade operations detected».
+  - Con datos incoherentes previos (un registro de la org A apuntando a la OC de la org B), `upgrade 0073→0074` termina y deja `fk_trabajo_etiqueta_registros_oc_id_org` como `NOT VALID`. Un INSERT nuevo incoherente es rechazado por esa FK.
+- **SQLite**: `upgrade head` y `alembic check` sin diferencias.
+
+### 11.4 Pruebas ejecutadas (resultado real, código final)
+
+- **Backend en SQLite**: `646 passed, 4 skipped`. Las 4 omitidas solo existen en PostgreSQL (bloqueo de filas, RLS y contador).
+- **Backend en PostgreSQL** (`TEST_DATABASE_URL`, rol `app` sin superusuario, así que RLS aplica): `650 passed`, sin omitidas.
+- **Pruebas nuevas:**
+  - `test_etiquetado_durable.py` (9): toma atómica entre 6 hilos; ejecutor sin arriendo no confirma; UNIQUE; recuperación tras reinicio (arriendo vencido y trabajo nunca tomado; el vigente no se roba); error en una parte → PARCIAL y reintento sin duplicados; intentos agotados → ERROR; 3 reintentos simultáneos sin duplicados; otra organización recibe 404 en todo; RLS y FK de coherencia en SQL directo (PostgreSQL).
+  - `test_etiquetado_integracion.py` (3): nada operativo cambia; pedido y empacado no se confunden; ver ≠ descargar.
+  - Agregadas a archivos existentes:
+    - unidades del catálogo (contable, medible, decimal, unidad nueva);
+    - ZIP por etiqueta, diseño, carpeta y único, con sus 422;
+    - hoja con medidas distintas y hoja en la que no cabe;
+    - patrones inseguros en reglas y en condiciones del diseño.
+- **Las correcciones se comprobaron contra el código anterior**: las pruebas de unidad nueva (H5), hoja (H7) y permiso (H9) fallan sin la corrección.
+- **Lint y compilación**: `ruff` sin hallazgos; `eslint .` sin hallazgos; `vite build` correcto.
+- **Recorrido e2e**:
+  - `e2e/etiquetado.mjs` (nuevo), sin fallas:
+    - las rutas anteriores llevan al asistente, y la familia llega al trabajo;
+    - en «Generar», la agrupación muestra u oculta carpetas y nombres según corresponde, PNG no ofrece agrupación, y lo elegido se guarda;
+    - sin errores de JavaScript ni respuestas 5xx.
+  - `e2e/recorrido.mjs` (4 usuarios × escritorio y celular): sin errores de la aplicación. En este entorno, la única falla es la carga de Google Fonts a través del proxy (`ERR_CERT_AUTHORITY_INVALID` / `ERR_TOO_MANY_RETRIES`). Con el certificado del proxy aceptado, quedan solo 3 reintentos de esa misma fuente.
+
+### 11.5 Lo que no se cambió
+
+- No se agregó un límite al número de reglas activas. Cada regla tiene hasta 20 condiciones de 200 valores y los patrones están acotados, así que el costo crece de forma lineal con el número de reglas.
+- Los patrones de la ficha de producto (`productos/ficha.py`) están fuera del etiquetado y no se revisaron aquí.
+- La verificación con lector de códigos sigue siendo por muestra (§10.5).
