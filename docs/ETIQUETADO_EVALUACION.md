@@ -1642,4 +1642,5 @@ un dato que cambió), O-2 + P-2 (bulto persistente y SSCC), D-2 (campos calculad
 | `alembic upgrade head` → `alembic check` → `downgrade 0076` → `upgrade head` (SQLite) | Sin diferencias con los modelos; ida y vuelta correcta |
 | `ruff check .` · `npm run lint` · `npm run build` | Sin observaciones · correcto |
 | `node e2e/etiquetado.mjs` (con reimprimir y anular) | Sin fallas (4 corridas seguidas después de la corrección de la caché) |
+| `node e2e/recorrido.mjs` (4 usuarios × escritorio y celular, 51–55 pantallas) | Sale con 1: **todos** los avisos son la fuente de Google Fonts que el navegador de este entorno no carga (`ERR_CERT_AUTHORITY_INVALID`, certificado del proxy); ningún otro problema |
 
