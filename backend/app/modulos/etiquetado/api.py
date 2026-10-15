@@ -525,6 +525,20 @@ def confirmar_impresion(generacion_id: int, db: Db, user: User, datos: dict[str,
     return ejecutar(db, user, None, lambda: trabajos.confirmar_impresion(db, user, generacion_id, datos))
 
 
+@router.post("/etiquetas/generaciones/{generacion_id}/anular")
+def anular_generacion(generacion_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Anula una ejecución con su motivo: sus registros del trabajo vuelven a quedar pendientes."""
+    return ejecutar(db, user, None, lambda: trabajos.anular(db, user, generacion_id, datos))
+
+
+@router.post("/etiquetas/generaciones/{generacion_id}/reimprimir")
+def reimprimir_generacion(generacion_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Copias idénticas (todo el lote o grupos y rangos: seleccion [{item_id, desde, hasta}]) con su motivo."""
+    contenido, nombre, mime = trabajos.reimprimir(db, user, generacion_id, datos)
+    db.commit()
+    return Response(contenido, media_type=mime, headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
 @router.get("/etiquetas/generaciones/{generacion_id}")
 def ver_generacion(generacion_id: int, db: Db, user: User):
     """Un lote con sus grupos, versiones exactas y los valores usados."""

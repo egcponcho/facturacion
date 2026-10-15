@@ -359,6 +359,7 @@ class GeneracionEtiquetas(DeOrganizacion, Base):
         CheckConstraint(_en("formato", FORMATOS), name="ck_generaciones_etiqueta_formato"),
         CheckConstraint("estado IN ('GENERADA', 'PRUEBA')", name="ck_generaciones_etiqueta_estado"),
         CheckConstraint("total >= 0", name="ck_generaciones_etiqueta_total"),
+        CheckConstraint("(anulada_en IS NULL) = (motivo_anulacion IS NULL)", name="ck_generaciones_etiqueta_anulada"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     oc_id: Mapped[int | None] = mapped_column(ForeignKey("ordenes_compra.id"), index=True)
@@ -381,6 +382,12 @@ class GeneracionEtiquetas(DeOrganizacion, Base):
     impresa_en: Mapped[datetime | None] = mapped_column(DateTime)
     impresa_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     impresion: Mapped[dict | None] = mapped_column(JSON)  # {cantidad, impresora, observacion}
+    # Anulada (con motivo): no se descarga ni se imprime; sus registros del trabajo vuelven a quedar pendientes
+    anulada_en: Mapped[datetime | None] = mapped_column(DateTime)
+    anulada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    motivo_anulacion: Mapped[str | None] = mapped_column(String(300))
+    # Copias idénticas pedidas después: [{n, en, por, motivo, formato, total, seleccion}]
+    reimpresiones: Mapped[list | None] = mapped_column(JSON)
 
     items: Mapped[list["GeneracionItem"]] = relationship(
         back_populates="generacion", cascade="all, delete-orphan", order_by="GeneracionItem.id")

@@ -6960,5 +6960,20 @@
 "What will be printed is no longer what you reviewed. Check it again, or generate with the new data.": "Lo que se va a imprimir ya no es lo que revisaste. Revísalo de nuevo o genera con los datos nuevos.",
 "It can go over other elements": "Puede ir encima de otros elementos",
 "It overlaps {0}: one covers the other.": "Se encima con {0}: uno tapa al otro.",
-"Without this, the preview and the job warn when it covers or is covered by another text, code, table or image.": "Si no se marca, la vista previa y el trabajo avisan cuando tapa o lo tapa otro texto, código, tabla o imagen."
+"Without this, the preview and the job warn when it covers or is covered by another text, code, table or image.": "Si no se marca, la vista previa y el trabajo avisan cuando tapa o lo tapa otro texto, código, tabla o imagen.",
+"All the labels of the run": "Todas las etiquetas de la ejecución",
+"Choose groups of this batch.": "Elige grupos de este lote.",
+"Damaged labels, wrong data…": "Etiquetas dañadas, datos equivocados…",
+"Identical copies, with the same numbers and serials. The reprint is recorded with its reason.": "Copias idénticas, con los mismos números y series. La reimpresión queda registrada con su motivo.",
+"Its {0} labels stop being valid: destroy them if they were printed. Its records go back to pending so you can generate them again (their data is checked again). The serial numbers it used are not reused.": "Sus {0} etiquetas dejan de ser válidas: destrúyelas si se imprimieron. Sus registros vuelven a quedar pendientes para generarlos de nuevo (sus datos se revisan otra vez). Los números de serie que usó no se reutilizan.",
+"Printer jam, damaged labels…": "Atasco de la impresora, etiquetas dañadas…",
+"Reprint": "Reimprimir",
+"Reprint run #{0}": "Reimprimir la ejecución #{0}",
+"Reprinted {0} times": "Reimpresa {0} veces",
+"Run voided: its labels are pending again.": "Ejecución anulada: sus etiquetas quedan pendientes de nuevo.",
+"This label batch was already voided.": "Este lote de etiquetas ya estaba anulado.",
+"This label batch was voided: it can no longer be downloaded or printed.": "Este lote de etiquetas se anuló: ya no se puede descargar ni imprimir.",
+"Void run #{0}": "Anular la ejecución #{0}",
+"Write the reason.": "Escribe el motivo.",
+"{0}: choose labels from 1 to {1}.": "{0}: elige etiquetas de la 1 a la {1}."
 }

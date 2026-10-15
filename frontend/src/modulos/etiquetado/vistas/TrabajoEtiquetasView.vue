@@ -491,6 +491,42 @@ async function confirmarImpresion() {
     errorApi(e)
   }
 }
+// Anular una ejecución (sus registros vuelven a quedar pendientes) y reimprimir copias idénticas, siempre con motivo
+const vigentes = computed(() => (trabajo.value?.ejecuciones || []).filter((e) => !e.anulada_en))
+const anulacion = ref(null)
+async function anularEjecucion() {
+  const x = anulacion.value
+  try {
+    await api.post(`/etiquetas/generaciones/${x.id}/anular`, { motivo: x.motivo })
+    anulacion.value = null
+    avisar(t('Run voided: its labels are pending again.'))
+    cargar(trabajo.value.id)
+  } catch (e) {
+    errorApi(e)
+  }
+}
+const reimpresion = ref(null)
+function abrirReimpresion(e) {
+  reimpresion.value = { id: e.id, total: e.total, formato: e.formato, motivo: '', todas: true,
+    grupos: e.grupos.map((g) => ({ ...g, elegido: false, desde: 1, hasta: g.cantidad })) }
+}
+const totalReimpresion = computed(() => {
+  const x = reimpresion.value
+  if (!x) return 0
+  return x.todas ? x.total : x.grupos.filter((g) => g.elegido).reduce((s, g) => s + Math.max(Number(g.hasta) - Number(g.desde) + 1, 0), 0)
+})
+async function reimprimir() {
+  const x = reimpresion.value
+  const seleccion = x.todas ? null : x.grupos.filter((g) => g.elegido).map((g) => ({ item_id: g.id, desde: Number(g.desde), hasta: Number(g.hasta) }))
+  try {
+    await api.descargar(`/etiquetas/generaciones/${x.id}/reimprimir`, `labels-${x.id}-reprint`, null, { motivo: x.motivo, formato: x.formato, seleccion })
+    reimpresion.value = null
+    cargar(trabajo.value.id)
+  } catch (e) {
+    errorApi(e)
+  }
+}
+const textoReimpresiones = (e) => e.reimpresiones.map((r) => `${r.n}. ${new Date(r.en).toLocaleString()} · ${r.por || ''} · ${fmtNum(r.total)} · ${r.motivo}`).join('\n')
 // Otro trabajo con lo mismo (otra tanda de las mismas etiquetas)
 async function otroIgual() {
   try {
@@ -693,10 +729,10 @@ async function otroIgual() {
       </template>
 
       <template v-if="trabajo?.ejecuciones?.length">
-        <p class="ok-txt"><Icono nombre="check" :tam="15" />
-          {{ t('Generated: {0} labels in {1} runs.', [fmtNum(trabajo.ejecuciones.reduce((s, e) => s + e.total, 0)), trabajo.ejecuciones.length]) }}</p>
+        <p v-if="vigentes.length" class="ok-txt"><Icono nombre="check" :tam="15" />
+          {{ t('Generated: {0} labels in {1} runs.', [fmtNum(vigentes.reduce((s, e) => s + e.total, 0)), vigentes.length]) }}</p>
         <div class="tj-fila">
-          <button type="button" class="btn btn-primario" @click="descargarTodo()"><Icono nombre="descargar" :tam="16" />{{ t('Download the job ZIP') }}</button>
+          <button v-if="vigentes.length" type="button" class="btn btn-primario" @click="descargarTodo()"><Icono nombre="descargar" :tam="16" />{{ t('Download the job ZIP') }}</button>
           <button v-if="trabajo.estado === 'PARCIAL'" type="button" class="btn" @click="ir(1)"><Icono nombre="rehacer" :tam="16" />{{ t('Fix and generate the pending ones') }}</button>
           <button type="button" class="btn" @click="otroIgual"><Icono nombre="copiar" :tam="16" />{{ t('New job, the same') }}</button>
         </div>
@@ -707,13 +743,20 @@ async function otroIgual() {
             <tbody><tr v-for="e in trabajo.ejecuciones" :key="e.id">
               <td>{{ e.id }}</td><td>{{ e.oc || '—' }}</td><td class="num">{{ fmtNum(e.total) }}</td>
               <td><EstadoBadge :estado="e.situacion" tipo="ejecucion" />
-                <span v-if="e.impresa_en" class="ayuda"> {{ e.impresa_por }} · {{ e.impresion?.cantidad }}/{{ e.total }}</span></td>
+                <span v-if="e.anulada_en" class="ayuda"> {{ e.anulada_por }} · {{ e.motivo_anulacion }}</span>
+                <span v-else-if="e.impresa_en" class="ayuda"> {{ e.impresa_por }} · {{ e.impresion?.cantidad }}/{{ e.total }}</span>
+                <span v-if="e.reimpresiones?.length" class="ayuda tj-reimpresiones" :title="textoReimpresiones(e)">
+                  · {{ t('Reprinted {0} times', [e.reimpresiones.length]) }}</span></td>
               <td class="ayuda">{{ new Date(e.creada_en).toLocaleString() }} · {{ e.creada_por }}</td>
               <td class="tj-acciones">
-                <button type="button" class="btn btn-chico" @click="descargarEjecucion(e)"><Icono nombre="descargar" :tam="14" />{{ t('Download') }}</button>
-                <button v-if="!e.impresa_en" type="button" class="btn btn-chico" :disabled="!e.descargas"
-                        :title="e.descargas ? '' : t('Download it before confirming the printing')"
-                        @click="impresion = { id: e.id, total: e.total, cantidad: e.total, impresora: '', observacion: '', confirmo: false }">{{ t('Mark as printed') }}</button>
+                <template v-if="!e.anulada_en">
+                  <button type="button" class="btn btn-chico" @click="descargarEjecucion(e)"><Icono nombre="descargar" :tam="14" />{{ t('Download') }}</button>
+                  <button v-if="!e.impresa_en" type="button" class="btn btn-chico" :disabled="!e.descargas"
+                          :title="e.descargas ? '' : t('Download it before confirming the printing')"
+                          @click="impresion = { id: e.id, total: e.total, cantidad: e.total, impresora: '', observacion: '', confirmo: false }">{{ t('Mark as printed') }}</button>
+                  <button type="button" class="btn btn-chico" @click="abrirReimpresion(e)">{{ t('Reprint') }}</button>
+                  <button type="button" class="btn btn-chico btn-peligro" @click="anulacion = { id: e.id, total: e.total, motivo: '' }">{{ t('Void') }}</button>
+                </template>
               </td>
             </tr></tbody>
           </table>
@@ -778,6 +821,45 @@ async function otroIgual() {
     </template>
   </PanelLateral>
 
+  <Modal v-if="anulacion" :titulo="t('Void run #{0}', [anulacion.id])" @cerrar="anulacion = null">
+    <form id="form-anulacion" class="tj-bloque" @submit.prevent="anularEjecucion">
+      <p>{{ t('Its {0} labels stop being valid: destroy them if they were printed. Its records go back to pending so you can generate them again (their data is checked again). The serial numbers it used are not reused.', [fmtNum(anulacion.total)]) }}</p>
+      <label class="campo"><span class="req">{{ t('Reason') }}</span>
+        <input v-model="anulacion.motivo" maxlength="300" minlength="3" required :placeholder="t('Damaged labels, wrong data…')" /></label>
+    </form>
+    <template #pie>
+      <button type="button" class="btn separar" @click="anulacion = null">{{ t('Cancel') }}</button>
+      <button type="submit" class="btn btn-peligro" form="form-anulacion">{{ t('Void') }}</button>
+    </template>
+  </Modal>
+
+  <Modal v-if="reimpresion" :titulo="t('Reprint run #{0}', [reimpresion.id])" @cerrar="reimpresion = null">
+    <form id="form-reimpresion" class="tj-bloque" @submit.prevent="reimprimir">
+      <p class="ayuda">{{ t('Identical copies, with the same numbers and serials. The reprint is recorded with its reason.') }}</p>
+      <label class="campo"><span class="req">{{ t('Reason') }}</span>
+        <input v-model="reimpresion.motivo" maxlength="300" minlength="3" required :placeholder="t('Printer jam, damaged labels…')" /></label>
+      <label class="campo"><span>{{ t('Format') }}</span>
+        <Seleccion v-model="reimpresion.formato" :aria-label="t('Format')">
+          <option v-for="f in ['PDF', 'PNG', 'SVG', 'ZIP']" :key="f" :value="f">{{ f }}</option>
+        </Seleccion></label>
+      <label class="check"><input v-model="reimpresion.todas" type="checkbox" /> {{ t('All the labels of the run') }}</label>
+      <table v-if="!reimpresion.todas" class="tabla tj-tabla">
+        <thead><tr><th></th><th>{{ t('Group') }}</th><th class="num">{{ t('From') }}</th><th class="num">{{ t('To') }}</th></tr></thead>
+        <tbody><tr v-for="g in reimpresion.grupos" :key="g.id">
+          <td><input v-model="g.elegido" type="checkbox" :aria-label="g.referencia" /></td>
+          <td>{{ g.referencia }} <span class="ayuda">({{ fmtNum(g.cantidad) }})</span></td>
+          <td class="num"><input v-model.number="g.desde" class="tj-num" type="number" min="1" :max="g.cantidad" :disabled="!g.elegido" :aria-label="t('From')" /></td>
+          <td class="num"><input v-model.number="g.hasta" class="tj-num" type="number" :min="g.desde" :max="g.cantidad" :disabled="!g.elegido" :aria-label="t('To')" /></td>
+        </tr></tbody>
+      </table>
+      <p class="ayuda">{{ t('{0} labels', [fmtNum(totalReimpresion)]) }}</p>
+    </form>
+    <template #pie>
+      <button type="button" class="btn separar" @click="reimpresion = null">{{ t('Cancel') }}</button>
+      <button type="submit" class="btn btn-primario" form="form-reimpresion" :disabled="!totalReimpresion">{{ t('Reprint') }}</button>
+    </template>
+  </Modal>
+
   <Modal v-if="impresion" :titulo="t('Mark as printed')" @cerrar="impresion = null">
     <form id="form-impresion" class="tj-bloque" @submit.prevent="confirmarImpresion">
       <label class="campo"><span class="req">{{ t('Labels printed') }}</span>
@@ -831,6 +913,8 @@ tr.con-error > td { background: var(--error-fondo, transparent); }
 .tj-avance > span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.8rem; }
 .tj-generar { align-self: flex-start; }
 .tj-acciones { display: flex; gap: 6px; flex-wrap: wrap; }
+.tj-num { width: 5.5em; }
+.tj-reimpresiones { cursor: help; }
 .tj-svg { background: var(--papel); border: 1px dashed var(--linea); padding: 12px; --previa-alto: min(56vh, 520px); }
 .tj-svg :deep(svg) { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15); background: #fff; }
 .tj-valores { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 0.84rem; margin: 0; }

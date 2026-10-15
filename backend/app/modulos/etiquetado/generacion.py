@@ -612,9 +612,31 @@ def _seguro(nombre: str) -> str:
     return "".join(c if c.isalnum() or c in "-_." else "_" for c in nombre)[:80]
 
 
-def _producir(db: Session, gen: GeneracionEtiquetas, formato: str) -> tuple[bytes, str, str]:
+def seleccionar(gen: GeneracionEtiquetas, seleccion: list | None) -> dict[int, tuple[int, int]] | None:
+    """Los grupos y rangos de un lote ({item_id: (desde, hasta)}) a partir de [{item_id, desde, hasta}];
+    None es todo el lote. Un grupo que no es del lote o un rango fuera de sus etiquetas no se acepta."""
+    if not seleccion:
+        return None
+    items = {it.id: it for it in gen.items}
+    res: dict[int, tuple[int, int]] = {}
+    for x in seleccion:
+        try:
+            it = items[int(x.get("item_id"))]
+            desde, hasta = int(x.get("desde") or 1), int(x.get("hasta") or it.cantidad)
+        except (KeyError, TypeError, ValueError, AttributeError):
+            raise ErrorNegocio("Choose groups of this batch.", 422, "validacion") from None
+        if not 1 <= desde <= hasta <= it.cantidad:
+            raise ErrorNegocio(f"{it.referencia or it.id}: choose labels from 1 to {it.cantidad}.", 422, "validacion")
+        res[it.id] = (desde, hasta)
+    return res
+
+
+def _producir(db: Session, gen: GeneracionEtiquetas, formato: str, seleccion: dict | None = None,
+              sufijo: str = "") -> tuple[bytes, str, str]:
     lienzos = _lienzos(db, gen)
-    base = _seguro(f"labels-{gen.id}" + (f"-{db.get(OrdenCompra, gen.oc_id).numero}" if gen.oc_id else ""))
+    if seleccion is not None:  # algunos grupos o rangos (reimpresión): las mismas etiquetas, con sus mismos números
+        lienzos = [x for x in lienzos if x[2].id in seleccion and seleccion[x[2].id][0] <= x[3] <= seleccion[x[2].id][1]]
+    base = _seguro(f"labels-{gen.id}" + (f"-{db.get(OrdenCompra, gen.oc_id).numero}" if gen.oc_id else "") + sufijo)
     hoja = (gen.parametros or {}).get("hoja")
     if hoja is None:
         v = db.get(VersionPlantilla, gen.items[0].version_id) if gen.items else None
@@ -687,7 +709,8 @@ def dict_generacion(db: Session, g: GeneracionEtiquetas, completo: bool = False)
          "lote": g.lote, "tipos": [nombres.get(i) for i in tipos_],
          "formato": g.formato, "estado": g.estado, "total": g.total, "archivo": g.archivo, "sha256": g.sha256,
          "creada_por": (u.nombre or u.email) if u else None, "creada_en": g.creada_en, "versiones": list(versiones.values()),
-         "grupos": len(g.items), "advertencias": g.advertencias or []}
+         "grupos": len(g.items), "advertencias": g.advertencias or [],
+         "anulada_en": g.anulada_en, "motivo_anulacion": g.motivo_anulacion, "reimpresiones": len(g.reimpresiones or [])}
     if completo:
         familias_ = {f.id: f.nombre for f in db.scalars(select(FamiliaEtiquetado))}
         r["items"] = [{"id": it.id, "referencia": it.referencia, "cantidad": it.cantidad, "articulo_id": it.articulo_id,
@@ -725,6 +748,11 @@ def listar(db: Session, user: Usuario, desde: date | None = None, hasta: date | 
     return {"total": total, "items": [dict_generacion(db, g) for g in filas]}
 
 
+def no_anulada(g: GeneracionEtiquetas) -> None:
+    if g.anulada_en:
+        raise ErrorNegocio("This label batch was voided: it can no longer be downloaded or printed.", 409, "anulada")
+
+
 def marcar_descarga(g: GeneracionEtiquetas) -> None:
     """Descargado no es impreso: solo cuenta las descargas."""
     from app.modelos import ahora
@@ -738,6 +766,7 @@ def archivo(db: Session, user: Usuario, generacion_id: int, formato: str | None 
     Descargar es de quien genera (ver solo deja consultar el historial)."""
     exigir(user, "etiquetas.generar")
     g = cargar(db, user, generacion_id)
+    no_anulada(g)
     formato = (formato or g.formato).upper()
     if formato not in FORMATOS:
         raise ErrorNegocio("Choose PDF, PNG, SVG or ZIP.", 422, "validacion")

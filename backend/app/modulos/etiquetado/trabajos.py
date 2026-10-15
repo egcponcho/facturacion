@@ -354,7 +354,10 @@ def dict_ejecucion(db: Session, g: GeneracionEtiquetas) -> dict:
             "sha256": g.sha256, "creada_en": g.creada_en, "creada_por": _usuario(db, g.creada_por),
             "descargas": g.descargas or 0, "descargada_en": g.descargada_en, "impresa_en": g.impresa_en,
             "impresa_por": _usuario(db, g.impresa_por), "impresion": g.impresion,
-            "situacion": "IMPRESA" if g.impresa_en else ("DESCARGADA" if g.descargas else "GENERADA")}
+            "anulada_en": g.anulada_en, "anulada_por": _usuario(db, g.anulada_por), "motivo_anulacion": g.motivo_anulacion,
+            "reimpresiones": [{**x, "por": _usuario(db, x.get("por"))} for x in (g.reimpresiones or [])],
+            "grupos": [{"id": it.id, "referencia": it.referencia, "cantidad": it.cantidad} for it in g.items],
+            "situacion": "ANULADA" if g.anulada_en else "IMPRESA" if g.impresa_en else ("DESCARGADA" if g.descargas else "GENERADA")}
 
 
 def detalle(db: Session, user: Usuario, trabajo_id: int) -> dict:
@@ -945,7 +948,8 @@ def archivo(db: Session, user: Usuario, trabajo_id: int, contenido: str | None =
     nuevo desde sus versiones e instantáneas, en las carpetas y con los nombres
     configurados (sin repetir nombres) y un resumen de la ejecución."""
     t = cargar(db, user, trabajo_id)
-    gens = list(db.scalars(select(GeneracionEtiquetas).where(GeneracionEtiquetas.trabajo_id == t.id).order_by(GeneracionEtiquetas.id)))
+    gens = list(db.scalars(select(GeneracionEtiquetas).where(GeneracionEtiquetas.trabajo_id == t.id,
+                                                             GeneracionEtiquetas.anulada_en.is_(None)).order_by(GeneracionEtiquetas.id)))
     if not gens:
         raise ErrorNegocio("Nothing has been generated in this labeling job yet.", 404, "no_encontrado")
     z_conf = {**{"carpetas": [], "nombre": "", "contenido": "PDF"}, **((t.parametros or {}).get("zip") or {})}
@@ -1103,6 +1107,7 @@ def confirmar_impresion(db: Session, user: Usuario, generacion_id: int, datos_: 
         raise ErrorNegocio("Confirm that the labels were printed.", 422, "validacion", [{"campo": "confirmo", "mensaje": "Required."}])
     if not g.descargas:
         raise ErrorNegocio("Download the labels before confirming they were printed.", 409, "sin_descarga")
+    generacion.no_anulada(g)
     if g.estado == "PRUEBA":
         raise ErrorNegocio("Test labels are not printed for use.", 409, "prueba")
     try:
@@ -1122,6 +1127,68 @@ def confirmar_impresion(db: Session, user: Usuario, generacion_id: int, datos_: 
     db.flush()
     registrar(db, user, "generacion_etiquetas", g.id, "imprimir", g.impresion, observacion)
     return dict_ejecucion(db, g)
+
+
+def _motivo(datos_: dict) -> str:
+    motivo = (datos_.get("motivo") or "").strip()[:300]
+    if len(motivo) < 3:
+        raise ErrorNegocio("Write the reason.", 422, "validacion", [{"campo": "motivo", "mensaje": "Required."}])
+    return motivo
+
+
+def anular(db: Session, user: Usuario, generacion_id: int, datos_: dict) -> dict:
+    """Anula una ejecución con su motivo (etiquetas dañadas, datos equivocados…): ya no se descarga ni se
+    confirma como impresa, sale del ZIP del trabajo y sus registros vuelven a quedar pendientes para
+    generarlos de nuevo (al hacerlo se revisan otra vez sus datos). Sus números de serie quedan usados."""
+    exigir(user, "etiquetas.generar")
+    g = generacion.cargar(db, user, generacion_id)
+    motivo = _motivo(datos_)
+    t = cargar(db, user, g.trabajo_id, bloquear=True) if g.trabajo_id else None
+    db.refresh(g, with_for_update=True)
+    if g.anulada_en:
+        raise ErrorNegocio("This label batch was already voided.", 409, "anulada")
+    if t is not None and t.estado == "EN_PROCESO":
+        raise ErrorNegocio("The labels are being generated: wait until it finishes.", 409, "estado")
+    g.anulada_en, g.anulada_por, g.motivo_anulacion = ahora(), user.id, motivo
+    if t is not None:
+        ids = [it.trabajo_registro_id for it in g.items if it.trabajo_registro_id]
+        for it in g.items:  # el registro puede volver a generarse (la llave única lo impedía)
+            it.trabajo_registro_id = None
+        db.flush()
+        for r in t.registros:
+            if r.id in ids or r.generacion_id == g.id:
+                r.estado, r.generacion_id = "LISTO", None
+        if t.estado in ("GENERADO", "PARCIAL", "ERROR"):
+            t.estado = "PARCIAL" if any(r.estado == "GENERADO" for r in t.registros) else "VALIDADO"
+        t.version += 1
+        t.actualizado_en = ahora()
+    db.flush()
+    registrar(db, user, "generacion_etiquetas", g.id, "anular", {"trabajo_id": g.trabajo_id, "total": g.total}, motivo)
+    return dict_ejecucion(db, g)
+
+
+def reimprimir(db: Session, user: Usuario, generacion_id: int, datos_: dict) -> tuple[bytes, str, str]:
+    """Copias idénticas de las etiquetas de un lote (todas o algunos grupos y rangos), con sus mismos
+    números y series, dibujadas de nuevo desde la versión y los valores guardados; queda en el historial
+    del lote quién, cuándo, cuántas y por qué."""
+    exigir(user, "etiquetas.generar")
+    g = generacion.cargar(db, user, generacion_id)
+    generacion.no_anulada(g)
+    motivo = _motivo(datos_)
+    formato = (datos_.get("formato") or g.formato).upper()
+    if formato not in generacion.FORMATOS:
+        raise ErrorNegocio("Choose PDF, PNG, SVG or ZIP.", 422, "validacion")
+    seleccion = generacion.seleccionar(g, datos_.get("seleccion"))
+    total = g.total if seleccion is None else sum(b - a + 1 for a, b in seleccion.values())
+    db.refresh(g, with_for_update=True)
+    n = len(g.reimpresiones or []) + 1
+    contenido, nombre, mime = generacion._producir(db, g, formato, seleccion, sufijo=f"-reprint{n}")
+    g.reimpresiones = [*(g.reimpresiones or []), {
+        "n": n, "en": ahora().isoformat(timespec="seconds"), "por": user.id, "motivo": motivo, "formato": formato,
+        "total": total, "seleccion": [{"item_id": k, "desde": a, "hasta": b} for k, (a, b) in seleccion.items()] if seleccion else None}]
+    db.flush()
+    registrar(db, user, "generacion_etiquetas", g.id, "reimprimir", {"n": n, "total": total, "formato": formato}, motivo)
+    return contenido, nombre, mime
 
 
 def vista_previa(db: Session, user: Usuario, trabajo_id: int, registro_id: int) -> dict:

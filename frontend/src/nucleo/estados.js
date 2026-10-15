@@ -63,7 +63,7 @@ const POR_TIPO = {
     LISTO: [t('Ready'), 'ok'], ADVERTENCIA: [t('With warnings'), 'aviso'], ERROR: [t('With errors'), 'error'],
     GENERADO: [t('Generated'), 'info'], OMITIDO: [t('Skipped'), 'neutro'],
   },
-  ejecucion: { GENERADA: [t('Generated'), 'info'], DESCARGADA: [t('Downloaded'), 'aviso'], IMPRESA: [t('Printed'), 'ok'] },
+  ejecucion: { GENERADA: [t('Generated'), 'info'], DESCARGADA: [t('Downloaded'), 'aviso'], IMPRESA: [t('Printed'), 'ok'], ANULADA: [t('Voided'), 'error'] },
   avance: {
     SIN_FACTURAR: [t('Not invoiced'), 'neutro'],
     FACTURADA_PARCIAL: [t('Partly invoiced'), 'aviso'],

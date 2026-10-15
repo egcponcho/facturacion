@@ -111,6 +111,47 @@ await p.waitForTimeout(800)
 const guardado = (await a.get(`/etiquetas/trabajos/${t.id}`)).parametros.zip || {}
 revisar(guardado.agrupar === 'unico', `la agrupación se guarda en el trabajo (${JSON.stringify(guardado)})`)
 
+// ---- Reimprimir y anular una ejecución (con motivo) ---------------------------------------------------
+{
+  // Un trabajo sin datos que escribir a mano: el sticker de precio de una línea
+  const precio = (await a.get('/etiquetas/tipos')).find((x) => x.codigo === 'PRECIO')
+  const tg = await (await a.post('/etiquetas/trabajos', { origen: 'OC', parametros: { oc_ids: [oc.id], posiciones: [lineas[0].id],
+    tipos: [precio.id] } })).json()
+  const v = await (await a.post(`/etiquetas/trabajos/${tg.id}/validar`, {})).json()
+  const g = await a.post(`/etiquetas/trabajos/${tg.id}/generar`, { formato: 'PDF', version: v.version, aceptar_advertencias: true })
+  revisar(g.ok(), `el trabajo se genera para reimprimir y anular (${g.status()} ${g.ok() ? '' : await g.text()})`)
+  await p.goto(`${BASE}/etiquetas/trabajos/${tg.id}`)
+  await quieto()
+  const fila = p.locator('.tj-tabla tbody tr').first()
+  const REIMPRIMIR = /^(Reprint|Reimprimir)$/
+  revisar(await fila.getByRole('button', { name: REIMPRIMIR }).isVisible(), 'cada ejecución ofrece «Reimprimir»')
+  await fila.getByRole('button', { name: REIMPRIMIR }).click()
+  const modal = p.locator('.modal')
+  await modal.locator('input[required]').first().fill('E2E printer jam')
+  await modal.getByRole('checkbox', { name: /All the labels|Todas las etiquetas/ }).uncheck()
+  await modal.locator('tbody input[type=checkbox]').first().check()
+  await modal.locator('tbody input[type=number]').nth(1).fill('1')
+  const descarga = p.waitForEvent('download', { timeout: 15000 }).catch(() => null)
+  await modal.getByRole('button', { name: REIMPRIMIR }).click()
+  const archivo = await descarga
+  revisar(!!archivo && /reprint1/.test(archivo.suggestedFilename()), `la reimpresión se descarga (${archivo?.suggestedFilename()})`)
+  await quieto()
+  const e1 = (await a.get(`/etiquetas/trabajos/${tg.id}`)).ejecuciones[0]
+  revisar(e1.reimpresiones?.length === 1 && e1.reimpresiones[0].total === 1 && e1.reimpresiones[0].motivo === 'E2E printer jam',
+    `la reimpresión queda en el historial con su motivo (${JSON.stringify(e1.reimpresiones)})`)
+  revisar(await fila.getByText(/Reprinted 1 times|Reimpresa 1 veces/).isVisible(), 'la fila muestra que se reimprimió')
+  // Anular
+  await fila.getByRole('button', { name: /^(Void|Anular)$/ }).click()
+  await modal.locator('input[required]').first().fill('E2E wrong data')
+  await modal.getByRole('button', { name: /^(Void|Anular)$/ }).click()
+  await quieto()
+  const t2 = await a.get(`/etiquetas/trabajos/${tg.id}`)
+  revisar(t2.ejecuciones[0].situacion === 'ANULADA' && t2.registros.every((r) => r.estado !== 'GENERADO'),
+    `anular deja la ejecución anulada y los registros pendientes (${t2.ejecuciones[0].situacion}, ${t2.estado})`)
+  revisar(await fila.getByText(/E2E wrong data/).isVisible() && !(await fila.getByRole('button', { name: REIMPRIMIR }).isVisible()),
+    'la fila anulada muestra el motivo y ya no ofrece reimprimir')
+}
+
 await ctx.close()
 
 revisar(errores.length === 0, `sin errores de JavaScript ni 5xx${errores.length ? `: ${errores.join(' | ')}` : ''}`)
