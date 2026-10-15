@@ -9,6 +9,7 @@ import Icono from '@/componentes/Icono.vue'
 import { puede } from '@/stores/sesion'
 import CabezaEtiquetado from '@/modulos/etiquetado/componentes/CabezaEtiquetado.vue'
 import CamposEtiqueta from '@/modulos/etiquetado/componentes/CamposEtiqueta.vue'
+import NombresCampos from '@/modulos/etiquetado/componentes/NombresCampos.vue'
 import FamiliasYArticulos from '@/modulos/etiquetado/componentes/FamiliasYArticulos.vue'
 import HistorialEtiquetas from '@/modulos/etiquetado/componentes/HistorialEtiquetas.vue'
 import MatrizEtiquetado from '@/modulos/etiquetado/componentes/MatrizEtiquetado.vue'
@@ -68,7 +69,10 @@ function listo() {
     <TamanosEtiqueta />
   </template>
   <FamiliasYArticulos v-else-if="vista === 'familias'" :key="String(route.query.familia || '')" />
-  <CamposEtiqueta v-else-if="vista === 'campos'" />
+  <template v-else-if="vista === 'campos'">
+    <NombresCampos />
+    <CamposEtiqueta />
+  </template>
   <HistorialEtiquetas v-else />
 
   <PrimerUsoEtiquetado v-if="primerUso" @cerrar="primerUso = false" @listo="listo" />

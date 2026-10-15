@@ -97,10 +97,11 @@ class Lienzo:
         return [p for p in self.problemas if p["nivel"] == "advertencia"]
 
 
-def _problema(lista, nivel, codigo, elemento, mensaje):
+def _problema(lista, nivel, codigo, elemento, mensaje, campo: str | None = None):
+    """Un problema del dibujo; `campo` es el dato que falta (para completarlo desde el trabajo)."""
     lista.append({"nivel": nivel, "codigo": codigo, "elemento": elemento.get("id") if elemento else None,
                   "nombre": (elemento.get("nombre") or elemento.get("campo") or elemento.get("tipo")) if elemento else None,
-                  "mensaje": mensaje})
+                  "mensaje": mensaje, **({"campo": campo} if campo else {})})
 
 
 # ---- Valores -----------------------------------------------------------------------------
@@ -509,7 +510,7 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
             if t == "texto":
                 texto, vacios = sustituir(e.get("contenido") or "", valores, tipos)
                 for c in vacios:
-                    _problema(problemas, "advertencia", "campo_vacio", e, f"The field {c} is empty.")
+                    _problema(problemas, "advertencia", "campo_vacio", e, f"The field {c} is empty.", campo=c)
             else:
                 v = formatear(valores.get(e["campo"]), e.get("formato"), tipos.get(e["campo"], "texto"))
                 if v is None:
@@ -517,12 +518,13 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
                     if regla == "ocultar":
                         continue
                     if regla == "error":
-                        _problema(problemas, "error", "campo_obligatorio", e, f"The field {e['campo']} is required and empty.")
+                        _problema(problemas, "error", "campo_obligatorio", e, f"The field {e['campo']} is required and empty.",
+                                  campo=e["campo"])
                         continue
                     if regla == "alternativo":
                         v = e.get("alternativo") or ""
                     else:
-                        _problema(problemas, "advertencia", "campo_vacio", e, f"The field {e['campo']} is empty.")
+                        _problema(problemas, "advertencia", "campo_vacio", e, f"The field {e['campo']} is empty.", campo=e["campo"])
                         v = ""
                 texto = f"{e.get('prefijo') or ''}{v}{e.get('sufijo') or ''}" if v else v
             if texto and e.get("ajustar", "no") != "no":
@@ -621,7 +623,7 @@ def _codigo(e: dict, valores: dict, tipos: dict, fondo: str, prims: list, proble
     simb = e["simbologia"]
     crudo, vacios = valor_codigo(e, valores, tipos)
     if vacios:
-        _problema(problemas, "error", "codigo_sin_valor", e, f"The code has no value: {', '.join(vacios)} is empty.")
+        _problema(problemas, "error", "codigo_sin_valor", e, f"The code has no value: {', '.join(vacios)} is empty.", campo=vacios[0])
         return
     valor, error = validar_codigo(simb, crudo)
     if error:

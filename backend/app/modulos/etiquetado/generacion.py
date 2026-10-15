@@ -71,8 +71,8 @@ class Grupo:
     omitido: bool = False  # el tipo no es obligatorio y no hay diseño para este registro
     item: GeneracionItem | None = None  # ya generado
 
-    def problema(self, nivel: str, codigo: str, mensaje: str) -> None:
-        self.problemas.append({"nivel": nivel, "codigo": codigo, "mensaje": mensaje, "elemento": None})
+    def problema(self, nivel: str, codigo: str, mensaje: str, campo: str | None = None) -> None:
+        self.problemas.append({"nivel": nivel, "codigo": codigo, "mensaje": mensaje, "elemento": None, **({"campo": campo} if campo else {})})
 
     @property
     def errores(self):
@@ -402,7 +402,7 @@ def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo
                 g.valores["etiqueta.serie"] = proximo(db, serie)
         fam = g.articulo.familia_efectiva if g.articulo else None
         for faltante in familias.faltantes(db, fam, g.valores):
-            g.problema("advertencia", "dato_familia", f"The family {fam.nombre} expects {faltante}, which is empty.")
+            g.problema("advertencia", "dato_familia", f"The family {fam.nombre} expects {faltante}, which is empty.", campo=faltante)
         lz = render.componer(g.version.diseno, {**g.valores, "etiqueta.numero": 1, "etiqueta.total": g.cantidad,
                                                "etiqueta.numero_lote": 1, "etiqueta.total_lote": 1}, campos.tipos(db, sujeto),
                              plantillas.imagen_adjunta(db))

@@ -148,6 +148,10 @@ def test_lista_de_empaque_por_nivel_con_tarimas_y_cajas(interno, admin):
         db.commit()
         ids_cajas, tarima_id, tipo_id = [g.id for g in cajas], tarima.id, tarima_tipo.id
         tipos_cajas = {g.tipo_empaque_id for g in cajas}
+        from app.modulos.etiquetado import campos as svc_campos
+
+        db.refresh(pl)
+        articulos_pl = set().union(*(set(u.articulos) for u in svc_campos.unidades_pl(pl, superiores=True)))
     try:
         info = interno.get(f"/etiquetas/packing/{pl_id}").json()
         niveles = {n["tipo_empaque_id"]: n for n in info["niveles"]}
@@ -155,14 +159,21 @@ def test_lista_de_empaque_por_nivel_con_tarimas_y_cajas(interno, admin):
         t_, _ = _con_diseno(interno, admin, "ORIG_BULTO", "Bulk package label", [
             OC, {"id": "b", "tipo": "texto", "contenido": "{{bulto.tipo}} {{bulto.codigo}} in {{bulto.contenedor}} · {{bulto.numero}}/{{bulto.total}}",
                  "x": 3, "y": 24, "w": 74, "h": 7, "estilo": {"tam": 7}},
-            {"id": "u", "tipo": "texto", "contenido": "Units {{bulto.unidades}}", "x": 3, "y": 32, "w": 74, "h": 6, "estilo": {"tam": 7}}],
+            {"id": "u", "tipo": "texto", "contenido": "Units {{bulto.unidades}}", "x": 3, "y": 32, "w": 74, "h": 6, "estilo": {"tam": 7}},
+            {"id": "s", "tipo": "texto", "contenido": "{{articulo.sku}} mixed {{bulto.mixto}}", "x": 3, "y": 3, "w": 74, "h": 6,
+             "estilo": {"tam": 7}}],
             sujeto="BULTO", cantidad="POR_BULTO")
         # La tarima: una etiqueta con todo su contenido (el de las cajas que lleva)
         t = trabajo(interno, "PACKING", {"pl_id": pl_id, "tipo_empaque_id": tipo_id, "tipos": [t_["id"]]})
         assert len(t["registros"]) == 1, t["registros"]
+        # E5: si lleva varios artículos, los datos del artículo quedan vacíos con un aviso (no se toma el primero)
+        mixto = "contenido_mixto" in {p["codigo"] for p in t["registros"][0]["problemas"]}
+        assert mixto == (len(articulos_pl) > 1), (articulos_pl, t["registros"][0]["problemas"])
         t = generado(interno, t)
         texto = _pdf(interno.get(f"/etiquetas/generaciones/{t['ejecuciones'][0]['id']}/archivo").content)[0][2]
         assert "Pallet P1" in texto and "Units" in texto
+        if len(articulos_pl) > 1:
+            assert "mixed Yes" in texto
         # Las cajas: una por unidad, con la tarima que las contiene
         if len(tipos_cajas) == 1:
             tipo_caja = next(iter(tipos_cajas))
@@ -214,3 +225,45 @@ def test_campos_que_se_escriben_al_generar(interno, admin, familia):
     t = generado(interno, cambiar(interno, t, {"manuales": {"lote": "L-77"}}))
     texto = _pdf(interno.get(f"/etiquetas/generaciones/{t['ejecuciones'][0]['id']}/archivo").content)[0][2]
     assert "Lot L-77 · FW26" in texto
+
+
+def test_bultos_de_listas_distintas_no_se_confunden_y_borrador_solo_prueba(interno, admin):
+    """E1: el «ya impreso» de un bulto va por su identidad (lista, grupo, número), no por
+    su texto: el bulto 1 de otra lista de empaque no sale como ya impreso. E6: una lista
+    en borrador solo da etiquetas de prueba."""
+    pls = interno.get("/etiquetas/packing").json()
+    reales = [x for x in pls if x["etiquetas_reales"] and interno.get(f"/etiquetas/packing/{x['id']}").json()["superiores"]]
+    if len(reales) < 2:
+        pytest.skip("two packing lists with packages are needed")
+    t_, _ = _con_diseno(interno, admin, "ORIG_IDENT", "Package identity", [
+        {"id": "b", "tipo": "texto", "contenido": "{{bulto.numero}}/{{bulto.total}}", "x": 3, "y": 3, "w": 60, "h": 8}],
+        sujeto="BULTO", cantidad="POR_BULTO")
+    a, b = reales[0]["id"], reales[1]["id"]
+    generado(interno, trabajo(interno, "PACKING", {"pl_id": a, "tipos": [t_["id"]]}))
+
+    def ya(pl_id):
+        t = trabajo(interno, "PACKING", {"pl_id": pl_id, "tipos": [t_["id"]]})
+        regs = [r for r in t["registros"] if r["tipo_etiqueta_id"] == t_["id"]]
+        return regs, [r for r in regs if "ya_generada" in {p["codigo"] for p in r["problemas"]}]
+
+    regs_a, ya_a = ya(a)
+    assert regs_a and len(ya_a) == len(regs_a)  # la misma lista: todos ya impresos
+    regs_b, ya_b = ya(b)
+    assert regs_b and not ya_b  # otra lista con bultos 1, 2…: ninguno
+    # Borrador (la lista b vuelve a borrador un momento): en real, error de lista sin finalizar; en prueba, se puede
+    from app.modelos import PackingList
+
+    with SessionLocal() as db, en_organizacion(1):
+        pl = db.get(PackingList, b)
+        estado, pl.estado = pl.estado, "BORRADOR"
+        db.commit()
+    try:
+        r = interno.post("/etiquetas/trabajos", {"origen": "PACKING", "parametros": {"pl_id": b, "tipos": [t_["id"]]}})
+        t = interno.post(f"/etiquetas/trabajos/{r.json()['id']}/validar").json()
+        assert "pl_sin_finalizar" in {p.get("codigo") for p in t["resumen"]["problemas"]}, t["resumen"]
+        t = trabajo(interno, "PACKING", {"pl_id": b, "tipos": [t_["id"]], "prueba": True})
+        assert "pl_sin_finalizar" not in {p.get("codigo") for p in t["resumen"]["problemas"]}
+    finally:
+        with SessionLocal() as db, en_organizacion(1):
+            db.get(PackingList, b).estado = estado
+            db.commit()

@@ -420,6 +420,56 @@ def validar(db: Session, user: Usuario, trabajo_id: int) -> dict:
     return detalle(db, user, t.id)
 
 
+# Datos del artículo que se pueden completar desde el trabajo (columna del maestro de artículos).
+# Los que identifican al artículo (SKU, estilo, color, talla) no: se corrigen en su ficha.
+COMPLETABLES = {"articulo.upc": "upc", "articulo.sku_proveedor": "sku_proveedor", "articulo.peso_unitario": "peso_unitario",
+                "articulo.unidad": "unidad"}
+MAX_COMPLETAR = 200
+
+
+def completar(db: Session, user: Usuario, trabajo_id: int, campo: str, valores: dict) -> dict:
+    """Escribe en el maestro de artículos el dato que falta ({articulo_id: valor}: cada artículo el suyo), con
+    las mismas validaciones, permisos e historial que Datos maestros, y vuelve a revisar el trabajo."""
+    from app.modulos.maestros import catalogos
+
+    t = cargar(db, user, trabajo_id, bloquear=True)
+    if t.estado in ("EN_PROCESO", "CANCELADO", "GENERADO"):
+        raise ErrorNegocio("This labeling job cannot be changed now.", 409, "estado")
+    columna = COMPLETABLES.get(campo)
+    if not columna:
+        raise ErrorNegocio("This datum cannot be completed from here: change it where it comes from.", 422, "validacion",
+                           [{"campo": "campo", "mensaje": str(campo)[:80]}])
+    if not isinstance(valores, dict) or not valores or len(valores) > MAX_COMPLETAR:
+        raise ErrorNegocio(f"Write the value of each item (up to {MAX_COMPLETAR}).", 422, "validacion")
+    # Solo artículos de este trabajo a los que les falta ese dato
+    faltan = {r.articulo_id for r in t.registros
+              if r.articulo_id and r.estado != "GENERADO" and any(p.get("campo") == campo for p in r.problemas or [])}
+    try:
+        pedidos = {int(k): v for k, v in valores.items()}
+    except (TypeError, ValueError):
+        raise ErrorNegocio("Check the items.", 422, "validacion") from None
+    fuera = sorted(set(pedidos) - faltan)
+    if fuera:
+        raise ErrorNegocio("Some items are not in this job or do not lack this datum.", 422, "validacion",
+                           [{"campo": "valores", "mensaje": ", ".join(map(str, fuera[:10]))}])
+    for aid, valor in sorted(pedidos.items()):
+        if valor in (None, ""):
+            continue
+        try:
+            catalogos.actualizar(db, user, "articulos", aid, {columna: valor})
+        except ErrorNegocio as e:  # qué artículo, en el detalle (el mensaje se traduce tal cual)
+            from app.modelos import Articulo
+
+            a = db.get(Articulo, aid)
+            raise ErrorNegocio(e.mensaje, e.status, e.codigo,
+                               [*(e.detalle if isinstance(e.detalle, list) else []), {"campo": "articulo", "mensaje": a.sku if a else str(aid)}]) from None
+    _validar(db, user, t)
+    t.version += 1
+    db.flush()
+    registrar(db, user, "trabajo_etiquetas", t.id, "completar", {"campo": campo, "articulos": len(pedidos)})
+    return detalle(db, user, t.id)
+
+
 def _validar(db: Session, user: Usuario, t: TrabajoEtiquetas) -> dict:
     """Arma los registros del trabajo con su diseño, por qué y problemas. Los ya
     generados se conservan como tales (no se vuelven a generar). Devuelve los

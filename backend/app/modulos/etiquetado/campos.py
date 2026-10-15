@@ -263,8 +263,55 @@ def por_clave(db: Session) -> dict[str, Campo]:
     return {c.clave: c for c in catalogo(db)}
 
 
-def dict_campo(c: Campo) -> dict:
-    return {"clave": c.clave, "etiqueta": c.etiqueta, "grupo": c.grupo, "origen": c.origen, "tipo": c.tipo, "ejemplo": c.ejemplo}
+def personalizados() -> dict[str, dict]:
+    """Nombre propio y si se oculta, por campo, de la empresa (Configuración → Etiquetado → Campos)."""
+    from app.core.empresa import configuracion_actual
+
+    return (configuracion_actual().get("etiquetado") or {}).get("campos") or {}
+
+
+def dict_campo(c: Campo, propios: dict | None = None) -> dict:
+    """El campo con el nombre que le da la empresa (el original queda en etiqueta_original) y si está oculto
+    (no se ofrece al diseñar; los diseños que ya lo usan lo siguen imprimiendo)."""
+    p = (propios or {}).get(c.clave) or {}
+    return {"clave": c.clave, "etiqueta": p.get("nombre") or c.etiqueta, "etiqueta_original": c.etiqueta, "propio": bool(p.get("nombre")),
+            "oculto": bool(p.get("oculto")), "grupo": c.grupo, "origen": c.origen, "tipo": c.tipo, "ejemplo": c.ejemplo}
+
+
+MAX_NOMBRE_CAMPO = 60
+
+
+def guardar_personalizados(db: Session, user, cambios) -> dict[str, dict]:
+    """Reemplaza los nombres propios y los campos ocultos de la empresa ({clave: {nombre, oculto}})."""
+    from app.core.errores import ErrorNegocio
+    from app.modulos.acceso.permisos import exigir
+    from app.modulos.comun.historial import registrar
+    from app.modulos.empresa.organizacion import actual
+
+    exigir(user, "etiquetas.configurar")
+    if not isinstance(cambios, dict) or len(cambios) > 1000:
+        raise ErrorNegocio("Check the field names.", 422, "validacion")
+    claves = {c.clave for c in catalogo(db)}
+    limpio = {}
+    for clave, v in cambios.items():
+        if clave not in claves:
+            raise ErrorNegocio("A field does not exist.", 422, "validacion", [{"campo": "campos", "mensaje": str(clave)[:80]}])
+        if not isinstance(v, dict):
+            raise ErrorNegocio("Check the field names.", 422, "validacion", [{"campo": clave, "mensaje": ""}])
+        nombre = str(v.get("nombre") or "").strip()
+        if len(nombre) > MAX_NOMBRE_CAMPO:
+            raise ErrorNegocio(f"A field name has up to {MAX_NOMBRE_CAMPO} characters.", 422, "validacion",
+                               [{"campo": clave, "mensaje": nombre[:80]}])
+        if nombre or v.get("oculto"):
+            limpio[clave] = {**({"nombre": nombre} if nombre else {}), **({"oculto": True} if v.get("oculto") else {})}
+    o = actual(db)
+    conf = dict(o.configuracion or {})
+    conf["etiquetado"] = {**(conf.get("etiquetado") or {}), "campos": limpio}
+    o.configuracion = conf
+    db.flush()
+    registrar(db, user, "plantilla_etiqueta", 0, "campos", {"propios": sum(1 for x in limpio.values() if x.get("nombre")),
+                                                             "ocultos": sum(1 for x in limpio.values() if x.get("oculto"))})
+    return limpio
 
 
 def ejemplos(db: Session, sujeto: str | None = None) -> dict:

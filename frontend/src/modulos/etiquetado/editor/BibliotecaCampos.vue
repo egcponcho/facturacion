@@ -30,7 +30,7 @@ const ELEMENTOS = computed(() => [
 const normal = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const filtrados = computed(() => {
   const n = normal(q.value)
-  return ed.camposTodos.value.filter((c) => !n || normal(`${tx(c.etiqueta)} ${c.clave} ${c.origen}`).includes(n))
+  return ed.camposTodos.value.filter((c) => !c.oculto && (!n || normal(`${tx(c.etiqueta)} ${c.clave} ${c.origen}`).includes(n)))
 })
 const porGrupo = computed(() => {
   const r = {}

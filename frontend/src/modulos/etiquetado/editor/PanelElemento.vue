@@ -22,8 +22,10 @@ const u = computed(() => est.diseno?.unidad || 'mm')
 const bloqueado = computed(() => !est.editable || !!e.value?.bloqueado)
 const TIPOS = computed(() => ({ texto: t('Text'), campo: t('Field'), codigo: t('Code'), imagen: t('Image'), rect: t('Rectangle'), elipse: t('Ellipse'), linea: t('Line'), tabla: t('Table') }))
 
-const camposTexto = computed(() => ed.camposTodos.value.filter((c) => c.tipo !== 'imagen'))
-const camposImagen = computed(() => ed.camposTodos.value.filter((c) => c.tipo === 'imagen'))
+// Los campos que la empresa oculta no se ofrecen, salvo el que el elemento ya usa
+const ofrecido = (c) => !c.oculto || [e.value?.campo, e.value?.condicion?.campo].includes(c.clave)
+const camposTexto = computed(() => ed.camposTodos.value.filter((c) => c.tipo !== 'imagen' && ofrecido(c)))
+const camposImagen = computed(() => ed.camposTodos.value.filter((c) => c.tipo === 'imagen' && ofrecido(c)))
 const textoCampo = (c) => `${tx(props.grupos[c.grupo] || c.grupo)} · ${tx(c.etiqueta)}`
 const campoActual = computed(() => ed.camposTodos.value.find((c) => c.clave === e.value?.campo))
 const insertar = ref('')

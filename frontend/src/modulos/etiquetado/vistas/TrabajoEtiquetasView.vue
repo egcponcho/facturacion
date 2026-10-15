@@ -303,8 +303,11 @@ const otrosProblemas = computed(() => {
     for (const x of r.problemas || []) {
       if (x.codigo === 'sin_plantilla' || x.nivel === 'info') continue
       // Un renglón por clase de problema (los mensajes de una misma clase solo cambian en cifras)
-      const clave = `${x.categoria || 'diseno'}|${x.nivel}|${x.codigo || x.mensaje}`
-      ;(res[clave] ||= { categoria: x.categoria || 'diseno', nivel: x.nivel, mensaje: x.mensaje, referencias: [] }).referencias.push(r.referencia)
+      // (y por dato que falta: cada uno se completa aparte)
+      const clave = `${x.categoria || 'diseno'}|${x.nivel}|${x.codigo || x.mensaje}|${x.campo || ''}`
+      const g = (res[clave] ||= { categoria: x.categoria || 'diseno', nivel: x.nivel, mensaje: x.mensaje, campo: x.campo, referencias: [], articulos: {} })
+      g.referencias.push(r.referencia)
+      if (r.articulo_id) g.articulos[r.articulo_id] ||= r.referencia
     }
   }
   return Object.values(res).sort((a, b) => (a.nivel === 'error' ? -1 : 0) - (b.nivel === 'error' ? -1 : 0))
@@ -312,6 +315,28 @@ const otrosProblemas = computed(() => {
 function cambiarCantidad(r, v) {
   p.cantidades = { ...p.cantidades, [r.clave]: Math.max(Number(v) || 0, 0) }
   revalidar()
+}
+
+// Completar el dato que falta en el maestro de artículos (UPC, SKU del proveedor, peso…) sin salir del asistente
+const completable = (x) => !!x.campo && (cat.value?.completables || []).includes(x.campo) && puede('catalogos.editar')
+const completando = ref(null)
+function abrirCompletar(x) {
+  const articulos = Object.entries(x.articulos).slice(0, 200).map(([id, referencia]) => ({ id, referencia }))
+  completando.value = { campo: x.campo, nombre: x.mensaje, articulos, valores: Object.fromEntries(articulos.map((a) => [a.id, ''])) }
+}
+async function completar() {
+  const c = completando.value
+  ocupado.value = true
+  try {
+    const valores = Object.fromEntries(Object.entries(c.valores).filter(([, v]) => String(v ?? '').trim() !== ''))
+    aplicar(await api.post(`/etiquetas/trabajos/${trabajo.value.id}/completar`, { campo: c.campo, valores }))
+    avisar(t('Saved in the item master data; the job was checked again.'))
+    completando.value = null
+  } catch (e) {
+    errorApi(e)
+  } finally {
+    ocupado.value = false
+  }
 }
 
 // Elegir diseño: para este trabajo o guardado como regla en su lugar (familia o toda la empresa)
@@ -576,6 +601,8 @@ async function otroIgual() {
           <summary :class="x.nivel === 'error' ? 'error-txt' : 'aviso-txt'"><Icono :nombre="NIVEL_ICONO[x.nivel]" :tam="14" />
             {{ tx(x.mensaje) }} <span class="ayuda">· {{ CATEGORIAS()[x.categoria] || x.categoria }} · {{ t('{0} records', [x.referencias.length]) }}</span></summary>
           <p class="ayuda">{{ x.referencias.slice(0, 30).join(' · ') }}<template v-if="x.referencias.length > 30"> …</template></p>
+          <button v-if="completable(x)" type="button" class="btn btn-chico" :disabled="ocupado"
+                  @click="abrirCompletar(x)">{{ t('Complete the datum') }}</button>
         </details>
         <p v-for="(x, i) in avisos" :key="`a${i}`" class="aviso-txt"><Icono nombre="info" :tam="14" /> {{ tx(x.mensaje || x) }}</p>
       </div>
@@ -683,6 +710,21 @@ async function otroIgual() {
     </section>
   </Asistente>
 
+  <Modal v-if="completando" :titulo="t('Complete the datum')" ancho="480px" @cerrar="completando = null">
+    <form id="form-completar" class="tj-bloque" @submit.prevent="completar">
+      <p class="ayuda">{{ tx(completando.nombre) }}</p>
+      <p class="nota">{{ t('Each item gets its own value; it is saved in its master data (same validations and history as Master data). Leave empty the ones you do not know.') }}</p>
+      <div class="tj-completar">
+        <label v-for="a in completando.articulos" :key="a.id" class="campo"><span>{{ a.referencia }}</span>
+          <input v-model="completando.valores[a.id]" maxlength="120" /></label>
+      </div>
+    </form>
+    <template #pie>
+      <button class="btn separar" type="button" @click="completando = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" type="submit" form="form-completar" :disabled="ocupado || !Object.values(completando.valores).some((v) => String(v).trim())">{{ t('Save and check again') }}</button>
+    </template>
+  </Modal>
+
   <Modal v-if="eleccion" :titulo="t('Design for “{0}”', [tx(eleccion.grupo.tipo.nombre)])" ancho="620px" @cerrar="eleccion = null">
     <div class="tj-bloque">
       <p class="ayuda">{{ t('{0} records have no design of this type.', [eleccion.grupo.registros.length]) }}</p>
@@ -774,4 +816,5 @@ tr.con-error > td { background: var(--error-fondo, transparent); }
 .error-txt { color: var(--error); margin: 0; }
 .aviso-txt { color: var(--aviso); margin: 0; }
 @media (max-width: 640px) { .tj-tipo { grid-template-columns: auto 1fr auto; } .tj-tipo .ayuda { grid-column: 2 / -1; } }
+.tj-completar { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow: auto; }
 </style>

@@ -40,16 +40,24 @@ def catalogos(db: Db, user: User):
     return {"sujetos": list(CANTIDADES_DE), "cantidades": CANTIDADES_DE, "niveles": NIVELES_DE, "contextos": list(CONTEXTOS),
             "orden_contexto": list(reglas.ORDEN_CONTEXTO), "operadores": list(reglas.OPERADORES),
             "operadores_simples": list(reglas.OPERADORES_SIMPLES), "simbologias": codigos.catalogo(),
-            "tamanos": plantillas.tamanos(), "sugeridos": tipos.SUGERIDOS, "origenes": dict(trabajos.SUJETOS_DE)}
+            "tamanos": plantillas.tamanos(), "sugeridos": tipos.SUGERIDOS, "origenes": dict(trabajos.SUJETOS_DE),
+            "completables": list(trabajos.COMPLETABLES)}
 
 
 @router.get("/etiquetas/campos")
 def listar_campos(db: Db, user: User, sujeto: str | None = SUJETO):
     """Campos que se pueden poner en una etiqueta, por grupo, con su origen (tabla.columna) y un ejemplo."""
     exigir_alguno(user, "etiquetas.ver", "etiquetas.disenar")
+    propios = campos.personalizados()
     return {"grupos": campos.GRUPOS, "sujetos": {k: sorted(v) for k, v in campos.POR_SUJETO.items()},
-            "campos": [campos.dict_campo(c) for c in campos.catalogo(db, sujeto)],
+            "campos": [campos.dict_campo(c, propios) for c in campos.catalogo(db, sujeto)],
             "colecciones": [campos.dict_coleccion(c) for c in campos.colecciones(sujeto, db)]}
+
+
+@router.put("/etiquetas/campos/propios")
+def guardar_campos_propios(db: Db, user: User, campos_: dict[str, dict[str, Any]] = Body(..., alias="campos", embed=True)):
+    """Nombres propios de la empresa para los campos y los que se ocultan al diseñar ({clave: {nombre, oculto}})."""
+    return ejecutar(db, user, None, lambda: campos.guardar_personalizados(db, user, campos_))
 
 
 @router.put("/etiquetas/tamanos")
@@ -466,6 +474,14 @@ def guardar_trabajo(trabajo_id: int, db: Db, user: User, datos: dict[str, Any] =
 def validar_trabajo(trabajo_id: int, db: Db, user: User):
     """Arma y revisa cada registro en el servidor: diseño y por qué, datos, empaque, códigos (leídos con el lector)."""
     return ejecutar(db, user, None, lambda: trabajos.validar(db, user, trabajo_id))
+
+
+@router.post("/etiquetas/trabajos/{trabajo_id}/completar")
+def completar_trabajo(trabajo_id: int, db: Db, user: User, campo: str = Body(..., max_length=80),
+                      valores: dict[str, Any] = Body(...)):
+    """Completa en el maestro de artículos el dato que falta ({articulo_id: valor}: UPC, SKU del proveedor, peso,
+    unidad) y vuelve a revisar el trabajo."""
+    return ejecutar(db, user, None, lambda: trabajos.completar(db, user, trabajo_id, campo, valores))
 
 
 @router.get("/etiquetas/trabajos/{trabajo_id}/registros/{registro_id}/vista-previa")
